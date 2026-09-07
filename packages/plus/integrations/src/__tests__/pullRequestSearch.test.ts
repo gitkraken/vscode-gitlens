@@ -121,6 +121,60 @@ suite('IntegrationManager.countPullRequests', () => {
 		}
 	});
 
+	// The count deliberately applies exactly the qualifiers the search would, so an unusable scope name made the
+	// count AGREE with the wrong search rather than disagree with it: a consumer cross-checking "N matched"
+	// against what it received could not detect the substitution by construction. Validated through the same
+	// resolver the read uses, so the two can never drift.
+	test('refuses a count scope whose organization a query cannot carry as given', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			const calls = await stubGitHubCount(manager, scopes => scopes.map(() => 1));
+
+			const result = await manager.countPullRequests({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				scopes: [{ key: 'org', org: 'git"kraken' }],
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.match(result.warnings[0].message, /cannot be used as given/);
+			assert.match(result.warnings[0].message, /'org'/, 'the refusal names the offending count key');
+			assert.equal(calls.length, 0, 'no count of a different scope reaches the provider');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	// Per-scope isolation: one unusable scope must not cost the batch its other counts, which is the rule every
+	// other count refusal follows.
+	test('an unusable count scope drops only itself', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			const calls = await stubGitHubCount(manager, scopes => scopes.map(() => 7));
+
+			const result = await manager.countPullRequests({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				scopes: [
+					{ key: 'bad', org: '"' },
+					{ key: 'good', org: 'gitkraken' },
+				],
+			});
+
+			assert.deepEqual(
+				result.items.map(i => ({ key: i.key, count: i.count })),
+				[{ key: 'good', count: 7 }],
+			);
+			assert.equal(result.fetchFailed, true);
+			assert.equal(calls.length, 1);
+			assert.deepEqual(
+				calls[0].map(s => s.org),
+				['gitkraken'],
+			);
+		} finally {
+			manager.dispose();
+		}
+	});
+
 	// A relationship set is OR-ed across independent searches, which a single count can't express; the caller is
 	// asked to count each relationship as its own keyed scope. (Several STATES are fine — they are disjoint.) The
 	// shared facade mechanics (empty scopes, duplicate keys, per-scope isolation) are covered by the countIssues
@@ -290,6 +344,104 @@ suite('IntegrationManager.searchPullRequestsPage', () => {
 			assert.equal(result.fetchFailed, true);
 			assert.match(result.warnings[0].message, /repository id/);
 			assert.equal(calls.length, 0);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	// The boundary was checked against the value AS SUPPLIED while the query is built from the value AFTER the
+	// provider sanitizes it, so a name that cannot be spelled in a query made the read a DIFFERENT read than the
+	// one that was authorized — and all three outcomes looked like success:
+	// - only quotes/whitespace/control characters emits NO `org:` qualifier at all. A scope is also what makes a
+	//   relationship-less read legal, so the request carried neither, and every open PR on the host matched.
+	// - a quote inside a real name (`git"kraken`) sanitizes to the REAL and DIFFERENT org `gitkraken`, and the
+	//   answer looks entirely normal.
+	// - whitespace splits the value into two tokens (`org:my org`), i.e. a search of `my` filtered by the free
+	//   text `org` — a wrong NARROWING, not a widening: measured live, `org:gitkraken bar` returns 12 where
+	//   `org:gitkraken` returns 379, and an unknown first word returns nothing at all.
+	// Reachable wherever the value is typed or pasted rather than picked from provider-supplied descriptors.
+	for (const org of ['   ', '"', '""', '\t\n', '" "', 'git"kraken', 'my org', 'a\nb']) {
+		test(`refuses an organization named ${JSON.stringify(org)}, which a query cannot carry as given`, async () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				const calls = await stubGitHubSearch(manager, () => emptyPage());
+				const result = await manager.searchPullRequestsPage({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					org: org,
+					criteria: { text: 'crash' },
+				});
+
+				assert.deepEqual(result.items, []);
+				assert.equal(result.fetchFailed, true);
+				assert.match(result.warnings[0].message, /cannot be used as given/);
+				assert.equal(calls.length, 0, 'no wrongly-scoped search reaches the provider');
+			} finally {
+				manager.dispose();
+			}
+		});
+	}
+
+	// A `repo:` qualifier names a repository by its `namespace/name` PATH, so BOTH halves have to survive: an
+	// unusable half either drops the whole qualifier — widening the read to every other repo in scope, which is
+	// what a caller passing two repositories and one unusable value got — or leaves a path pointing at a
+	// different repository.
+	test('refuses a repository whose namespace or name a query cannot carry, rather than dropping it', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			const calls = await stubGitHubSearch(manager, () => emptyPage());
+			const result = await manager.searchPullRequestsPage({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				repos: [
+					{ namespace: 'gitkraken', name: 'vscode-gitlens' },
+					{ namespace: '"', name: 'b' },
+				],
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.match(result.warnings[0].message, /cannot be used as given/);
+			assert.ok(
+				result.warnings[0].message.includes(JSON.stringify('"/b')),
+				'the refusal names the offending repository',
+			);
+			assert.equal(calls.length, 0, 'the usable repository is not searched as if both had been');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	// The refusal is the caller's to resolve, so it has to NAME the value: which of the three failure modes
+	// applied is not deducible from the message alone, and only the caller knows which scope it meant.
+	test('names the unusable scope in the refusal', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			await stubGitHubSearch(manager, () => emptyPage());
+			const result = await manager.searchPullRequestsPage({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				org: 'my org',
+			});
+
+			assert.match(result.warnings[0].message, /"my org"/);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	// A usable name must still scope normally: the refusal has to be about the unusable value, not about the
+	// organization channel itself.
+	test('a normal organization name still scopes the search', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			const calls = await stubGitHubSearch(manager, () => emptyPage());
+			const result = await manager.searchPullRequestsPage({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				org: 'gitkraken',
+			});
+
+			assert.equal(result.fetchFailed, undefined);
+			assert.equal(result.warnings.length, 0);
+			assert.equal(calls.length, 1);
+			assert.equal(calls[0].org, 'gitkraken');
 		} finally {
 			manager.dispose();
 		}

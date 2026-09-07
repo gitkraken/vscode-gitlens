@@ -27,6 +27,7 @@ import {
 	otherWarning,
 	unsupportedIssueSearchCriteriaWarning,
 	unsupportedPullRequestSearchCriteriaWarning,
+	unusableSearchScopeMessage,
 } from './warnings.js';
 
 /**
@@ -199,6 +200,23 @@ export async function countIssues(
 		return refused(issuesUnsupportedWarning(options.providerId, domain, options.connectionId));
 	}
 
+	// A provider with no filtered issue search has no count either: refuse ONCE for the provider rather than
+	// letting every scope repeat the same rejection. `undefined` criteria probes only the search's existence.
+	// Matches `countPullRequests`. Refusing it here rather than per scope also keeps the loop's warnings from
+	// being dominated by N copies of one provider-level fact — see the dedupe below, which handles the
+	// keyless refusals that remain.
+	const searchSupport = resolveIssueSearchCriteria(options.providerId, undefined);
+	if (searchSupport.rejection != null) {
+		return refused(
+			unsupportedIssueSearchCriteriaWarning(
+				options.providerId,
+				domain,
+				options.connectionId,
+				searchSupport.rejection,
+			),
+		);
+	}
+
 	const providerLimit = providersMetadata[options.providerId]?.issueSearchResultLimit;
 	const warnings: ProviderWarning[] = [];
 	let fetchFailed = false;
@@ -209,10 +227,12 @@ export async function countIssues(
 	for (const scope of options.scopes) {
 		const warning = rejectScope(options.providerId, domain, options.connectionId, scope);
 		if (warning != null) {
-			// `push`, not `appendDedupedWarning`: every rejection message embeds the scope's own key, and duplicate
-			// keys were already refused above, so no two of these can ever collapse — deduping them would only pay
-			// the O(n²) key comparison to prove it.
-			warnings.push(warning);
+			// Deduped rather than pushed. The rejections that name the offending SCOPE embed its own key, and
+			// duplicate keys were already refused above, so those can never collapse. But the ones that report a
+			// PROVIDER-level fact — a criterion it cannot express, a contradictory relationship pair — name no
+			// scope, so several scopes failing the same way produce byte-identical warnings, and one refusal
+			// reported N times reads as N different problems.
+			appendDedupedWarning(warnings, warning);
 			fetchFailed = true;
 			continue;
 		}
@@ -304,8 +324,15 @@ function rejectScope(
 	connectionId: string | undefined,
 	scope: IssueCountScope,
 ): ProviderWarning | undefined {
+	const resolved = resolveIssueSearchCriteria(providerId, scope.criteria);
+	if (resolved.rejection != null) {
+		return unsupportedIssueSearchCriteriaWarning(providerId, domain, connectionId, resolved.rejection);
+	}
+
+	// AFTER the criteria check, mirroring `searchIssuesPage`: a provider with no filtered issue search is the more
+	// fundamental refusal, and a count must preview the refusal its read would give.
 	const scoping = resolveIssueSearchScope(scope.repos, scope.org, scope.criteria);
-	switch (scoping.rejection) {
+	switch (scoping.rejection?.reason) {
 		case 'repo-ids':
 			return otherWarning(
 				providerId,
@@ -320,11 +347,15 @@ function rejectScope(
 				connectionId,
 				`Issue count scope '${scope.key}' is unscoped; pass \`repos\`, \`org\`, or a relationship to the current user. \`any-assignee\` and \`unassigned\` are not scopes.`,
 			);
-	}
-
-	const resolved = resolveIssueSearchCriteria(providerId, scope.criteria);
-	if (resolved.rejection != null) {
-		return unsupportedIssueSearchCriteriaWarning(providerId, domain, connectionId, resolved.rejection);
+		// A count applies exactly the qualifiers its search would, so an unusable scope would make it agree with
+		// the wrong search rather than expose it — see `isUsableSearchScopeName`.
+		case 'unusable-scope':
+			return otherWarning(
+				providerId,
+				domain,
+				connectionId,
+				unusableSearchScopeMessage('scopes', scoping.rejection.scopes, `Issue count scope '${scope.key}'`),
+			);
 	}
 
 	// Count-only, with no counterpart in the read: a relationship set is an OR across several searches, which one
@@ -435,9 +466,11 @@ export async function countPullRequests(
 	for (const scope of options.scopes) {
 		const warning = rejectPullRequestScope(options.providerId, domain, options.connectionId, scope);
 		if (warning != null) {
-			// `push`, not `appendDedupedWarning`: every rejection message embeds the scope's own key, and duplicate
-			// keys were already refused above, so no two of these can ever collapse.
-			warnings.push(warning);
+			// Deduped rather than pushed: see the issue twin. Here the keyless set is wider — besides the criteria
+			// rejections, `unsupported-repository-scope` and `unsupported-organization-scope` are scope rejections
+			// that route through the criteria warning and name no key, and both are provider-level facts every
+			// scope would repeat.
+			appendDedupedWarning(warnings, warning);
 			fetchFailed = true;
 			continue;
 		}
@@ -516,7 +549,7 @@ function rejectPullRequestScope(
 	scope: PullRequestCountScope,
 ): ProviderWarning | undefined {
 	const scoping = resolvePullRequestSearchScope(providerId, scope.repos, scope.org, scope.criteria);
-	switch (scoping.rejection) {
+	switch (scoping.rejection?.reason) {
 		case 'repo-ids':
 			return otherWarning(
 				providerId,
@@ -536,9 +569,23 @@ function rejectPullRequestScope(
 			return unsupportedPullRequestSearchCriteriaWarning(providerId, domain, connectionId, {
 				reason: 'unsupported-criteria',
 				criteria: [
-					scoping.rejection === 'unsupported-repository-scope' ? 'repositoryScope' : 'organizationScope',
+					scoping.rejection.reason === 'unsupported-repository-scope'
+						? 'repositoryScope'
+						: 'organizationScope',
 				],
 			});
+		// See the issue twin, and `isUsableSearchScopeName` for the rule.
+		case 'unusable-scope':
+			return otherWarning(
+				providerId,
+				domain,
+				connectionId,
+				unusableSearchScopeMessage(
+					'scopes',
+					scoping.rejection.scopes,
+					`Pull request count scope '${scope.key}'`,
+				),
+			);
 	}
 
 	const resolved = resolvePullRequestSearchCriteria(providerId, scope.criteria);

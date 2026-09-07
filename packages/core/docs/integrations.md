@@ -216,6 +216,12 @@ provider-reported pre-ceiling facet count, matching the per-search ceiling's uni
 still-reachable row count. Free text is sanitized so qualifier-shaped tokens such as `org:other` are removed
 rather than allowed to change the structured scope.
 
+The `repos`/`org` scope is held to a stricter rule than that free text, and the same one §5.1 documents: a
+scope name carrying a quote, an inner space or a control character is **refused** (warning + `fetchFailed`),
+not sanitized, and the refusal names the value; edge whitespace and control characters are stripped and
+accepted. `countPullRequests` validates each scope through the same rule, so a count never previews a query
+the read would refuse.
+
 ### 5.1 The filtered issue search and its count probe
 
 `searchIssuesPage` answers "every issue in this scope matching X", which no other issue read can: the
@@ -237,13 +243,23 @@ const result = await manager.searchIssuesPage({
 });
 ```
 
-Three parts of the contract that are decisions, not incidentals:
+Parts of the contract that are decisions, not incidentals:
 
 - **Scope is mandatory.** Pass `repos`, `org`, or a user relationship (`authored` / `assigned` / `mentioned`).
   `any-assignee` and `unassigned` do **not** scope anything — they describe the issue, not the caller, so
   either one alone matches every such issue on the host. A call carrying only those is refused (warning +
   `fetchFailed`), as is one scoping by repository **id**: a search names repositories by path, so ids would
   silently widen the read to the whole org.
+- **A scope name must name the same scope after sanitizing.** Unlike the free-form values below, a scope
+  carrying a quote, an inner space or a control character is **refused** (warning + `fetchFailed`) rather than
+  sanitized, and the refusal names the offending value. Sanitizing answers "what can I still send?", which for
+  a scope is the wrong question — the sanitized value may name a real but **different** scope. Leading and
+  trailing whitespace and control characters are the exception and are accepted: stripping them does not
+  change which scope the query names, so refusing them would reject a name the provider resolves correctly. A
+  repository descriptor is checked as its JOINED `namespace/name` path, which is what a `repo:` qualifier
+  names — an edge character on a half is an interior character of the path, and both halves must be
+  non-empty. `org: ''` still means "no org supplied" and falls through to the remaining scopes. A provider with no
+  filtered search at all is reported as such first, so an unusable scope never masks it.
 - **Ordering is always most-recently-updated-first.** Not an option: a "show the N most recent" policy at the
   result ceiling is only correct under a guaranteed order.
 - **`itemsPerPage` is per RELATIONSHIP**, since each becomes its own provider query: a page of an

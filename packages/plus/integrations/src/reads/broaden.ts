@@ -25,6 +25,7 @@ import {
 	otherWarning,
 	truncationWarning,
 	unsupportedIssueSearchCriteriaWarning,
+	unusableSearchScopeMessage,
 } from './warnings.js';
 
 /**
@@ -351,21 +352,6 @@ interface OrgIssuesRead {
 }
 
 /**
- * Whether this org can be read through the FILTERED issue search instead of the repository drain.
- *
- * Two conditions, and the second is not a formality: an empty org name is dropped by the provider's scope
- * translation rather than rejected, which would leave a search of the WHOLE HOST — so the scope is validated
- * through {@link resolveIssueSearchScope}, the same rule `searchIssuesPage` refuses on, rather than by an
- * `org.name.length > 0` written here and free to drift from it.
- */
-function canSearchOrgIssues(org: ProviderBroadenOrg): boolean {
-	return (
-		supportsFilteredIssueSearch(org.providerId) &&
-		resolveIssueSearchScope(undefined, org.name, undefined).rejection == null
-	);
-}
-
-/**
  * The org-scoped filtered search: ONE request per page, whatever the org contains.
  *
  * Replaces the drain + SDK read for every provider that declares a filtered issue search — the repository drain
@@ -602,6 +588,34 @@ async function readOrgSlice(
 		);
 	}
 
+	// An org name NEITHER engine can use, refused before either is chosen. Declining the search for it is not
+	// enough, because falling through to the repository drain is not the safe default it looks like: the drain
+	// passes the SAME name to the org repository read, which matches nothing and reports `nothingToRead` — an
+	// org that reads as empty, with no warning and no `fetchFailed`, after up to 100 requests. Indistinguishable
+	// from an org that genuinely has no issues, and strictly worse than saying so.
+	//
+	// EVERY rejection, not just `unusable-scope`: with no repositories and no criteria the only other reachable
+	// one is `unscoped`, which here means exactly `org.name === ''` — the same bad outcome by the same route, so
+	// drawing the line between them would leave the emptiest case on the wrong side of the rule. (`repo-ids`
+	// cannot arise: no repositories are passed.) Refusing them all is also what lets the engine choice below be
+	// a plain capability question again, since no rejection survives this point.
+	const scopeRejection = resolveIssueSearchScope(undefined, org.name, undefined).rejection;
+	if (scopeRejection != null) {
+		return barrenSlice(
+			[
+				otherWarning(
+					org.providerId,
+					ctx.domainForRead(integration, org.providerId, connectionId, requestedDomain),
+					connectionId,
+					scopeRejection.reason === 'unusable-scope'
+						? unusableSearchScopeMessage('issue broadening scopes', scopeRejection.scopes)
+						: 'Issue broadening must name an organization; one was supplied with an empty name.',
+				),
+			],
+			{ fetchFailed: true },
+		);
+	}
+
 	// An org a prior round already drained must not be re-read: cursor-only providers would answer a
 	// fresh page-1 request with their first page again, duplicating issues across rounds. Skip it
 	// before any work (including the repo drain) and keep it marked exhausted so it stays skipped
@@ -614,7 +628,12 @@ async function readOrgSlice(
 
 	const domain = ctx.domainForRead(integration, org.providerId, connectionId, requestedDomain);
 	const cursor = getBroadenIssuesCursor(options.cursor, org, page, options.orgs.length);
-	const read = canSearchOrgIssues(org)
+	// A plain capability question, and only because the refusal above has already turned away every org whose
+	// name the scope rule rejects. That order matters: `readOrgIssuesViaSearch` calls the integration's
+	// `searchIssuesPageResult` directly rather than the `searchIssuesPage` read, and that method documents its
+	// scope as already validated ("the facade rejects it before here") — so an unvalidated name reaching it would
+	// go straight to the provider query that sanitizes it.
+	const read = supportsFilteredIssueSearch(org.providerId)
 		? await readOrgIssuesViaSearch(integration, org, domain, cursor)
 		: await readOrgIssuesViaRepoDrain(integration, org, domain, cursor);
 	if (read.nothingToRead === true) {

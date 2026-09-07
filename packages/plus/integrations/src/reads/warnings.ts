@@ -261,6 +261,25 @@ export function unsupportedFiltersWarning(
 	);
 }
 
+/**
+ * The one sentence every `unusable-scope` refusal uses — the five surfaces that validate a search scope (both
+ * searches, both count probes, and issue broadening) differ only in the noun and in whether they name a count
+ * key, so the reason a scope is unusable is written once. `prefix` is what the count probes put in front of it
+ * to name their key.
+ *
+ * NAMES the offending values, because which failure mode applied is not deducible from the value: a quote makes
+ * `git"kraken` a request for the real and different org `gitkraken`, a space makes `my org` a search of `my`
+ * filtered by the text `org`, and a value of only quotes or whitespace leaves no scope at all. The caller is the
+ * only layer that knows which scope it meant.
+ *
+ * Says how to fix it rather than what was stripped: a consumer cannot mirror this rule (unlike free-text
+ * sanitizing, whose rules are published for exactly that), so "pass the scope as the provider names it" is the
+ * actionable half.
+ */
+export function unusableSearchScopeMessage(noun: string, scopes: readonly string[], prefix?: string): string {
+	return `${prefix != null ? `${prefix}: ` : ''}The requested ${noun} (${scopes.map(s => JSON.stringify(s)).join(', ')}) cannot be used as given: a scope name cannot contain quotes, or an inner space or control character, which a query would drop or read as a second qualifier — searching a different scope, or none. Pass the scope exactly as the provider names it.`;
+}
+
 /** Warning for a filtered pull-request search the provider cannot run as requested. */
 export function unsupportedPullRequestSearchCriteriaWarning(
 	id: IntegrationIds,
