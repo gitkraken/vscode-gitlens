@@ -1333,6 +1333,7 @@ export class SubscriptionService implements Disposable {
 									source: 'subscription',
 									detail: {
 										error: 'validation-failed',
+										// oxlint-disable-next-line @gitlens/no-raw-error-message -- telemetry (source.detail attributes, never shown to the user)
 										'error.message': ex.message,
 									},
 								});
