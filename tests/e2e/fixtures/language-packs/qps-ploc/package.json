@@ -1,0 +1,25 @@
+{
+	"name": "e2e-pseudo-language-pack",
+	"displayName": "E2E Pseudo Language Pack (test fixture)",
+	"description": "Minimal offline stand-in for Microsoft's qps-ploc language pack, used only to make VS Code accept `--locale=qps-ploc` in E2E tests. Its own translations are empty (VS Code's core UI stays English) — this only needs to exist so `vscode.env.language` resolves to `qps-ploc`, which is all GitLens' own l10n catalog selection depends on.",
+	"publisher": "gitlens",
+	"version": "1.0.0",
+	"engines": {
+		"vscode": "*"
+	},
+	"contributes": {
+		"localizations": [
+			{
+				"languageId": "qps-ploc",
+				"languageName": "Pseudo",
+				"localizedLanguageName": "Pseudo",
+				"translations": [
+					{
+						"id": "vscode",
+						"path": "./translations/main.i18n.json"
+					}
+				]
+			}
+		]
+	}
+}
