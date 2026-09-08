@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -37,6 +37,16 @@ if (extract) {
 	generateContributionsIntoPackageJson();
 }
 
+function resolveNlsReference(value: string, nlsEntries: Record<string, string>): string {
+	if (value.startsWith('%') && value.endsWith('%')) {
+		const key = value.slice(1, -1);
+		const resolved = nlsEntries[key];
+		if (resolved != null) return resolved;
+		console.warn(`Warning: NLS key '${key}' not found in package.nls.json`);
+	}
+	return value;
+}
+
 /** Generates the `contributions.json` from the contributes configuration in `package.json` */
 function extractContributionsFromPackageJson(): void {
 	console.log('Extracting contributions from package.json into contributions.json...');
@@ -47,6 +57,10 @@ function extractContributionsFromPackageJson(): void {
 	const views = new Map<string, ViewDefinition>();
 
 	const packageJson: PackageJson = JSON.parse(readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+	const nlsPath = path.join(__dirname, 'package.nls.json');
+	const nlsEntries: Record<string, string> = existsSync(nlsPath)
+		? JSON.parse(readFileSync(nlsPath, 'utf8'))
+		: {};
 
 	// Load commands from package.json
 	for (const cmd of packageJson.contributes.commands.sort((a: Command, b: Command) =>
@@ -54,7 +68,7 @@ function extractContributionsFromPackageJson(): void {
 	)) {
 		commands.set(cmd.command, {
 			id: cmd.command,
-			label: cmd.title,
+			label: resolveNlsReference(cmd.title, nlsEntries),
 			commandPalette: true,
 			enablement: cmd.enablement,
 			icon: cmd.icon,
@@ -65,7 +79,7 @@ function extractContributionsFromPackageJson(): void {
 	for (const submenu of packageJson.contributes.submenus.sort((a: Submenu, b: Submenu) => a.id.localeCompare(b.id))) {
 		submenus.set(submenu.id, {
 			id: submenu.id,
-			label: submenu.label,
+			label: resolveNlsReference(submenu.label, nlsEntries),
 			icon: submenu.icon,
 		});
 	}
@@ -170,9 +184,11 @@ function extractContributionsFromPackageJson(): void {
 			views.set(view.id, {
 				type: view.type,
 				id: view.id,
-				name: view.name,
+				name: resolveNlsReference(view.name, nlsEntries),
 				when: view.when,
-				contextualTitle: view.contextualTitle,
+				contextualTitle: view.contextualTitle
+					? resolveNlsReference(view.contextualTitle, nlsEntries)
+					: view.contextualTitle,
 				icon: view.icon,
 				initialSize: view.initialSize,
 				visibility: view.visibility,
@@ -187,7 +203,10 @@ function extractContributionsFromPackageJson(): void {
 		const view = views.get(viewWelcome.view);
 		if (view) {
 			view.welcomeContent ??= [];
-			view.welcomeContent.push({ contents: viewWelcome.contents, when: viewWelcome.when });
+			view.welcomeContent.push({
+				contents: resolveNlsReference(viewWelcome.contents, nlsEntries),
+				when: viewWelcome.when,
+			});
 		} else {
 			console.error(`Missing '${viewWelcome.view}' view for welcome content`);
 			debugger;
@@ -282,14 +301,26 @@ function generateContributionsIntoPackageJson(): void {
 	const contributions = builder.build();
 
 	const packageJson = JSON.parse(readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+	const nlsPath = path.join(__dirname, 'package.nls.json');
+	const existingNlsEntries: Record<string, string> = existsSync(nlsPath)
+		? JSON.parse(readFileSync(nlsPath, 'utf8'))
+		: {};
+	const nlsEntries: Record<string, string> = {
+		...existingNlsEntries,
+		...Object.fromEntries(builder.getNlsEntries()),
+	};
 
 	// Validate that all existing contributions are preserved
 	if (validate) {
 		console.log('Validating contributions...');
-		validateContributions(packageJson.contributes, contributions);
+		validateContributions(packageJson.contributes, contributions, nlsEntries);
 	}
 
-	// Skip writing if there are no changes
+	// Keep package.nls.json in lockstep with generated contributions. This must run even when
+	// package.json is already up to date because a label change updates the English catalog only.
+	writeNlsFile(builder.getNlsEntries());
+
+	// Skip writing package.json if there are no changes to the generated sections.
 	if (
 		JSON.stringify(packageJson.contributes.commands) === JSON.stringify(contributions.commands) &&
 		JSON.stringify(packageJson.contributes.keybindings) === JSON.stringify(contributions.keybindings) &&
@@ -298,7 +329,7 @@ function generateContributionsIntoPackageJson(): void {
 		JSON.stringify(packageJson.contributes.views) === JSON.stringify(contributions.views) &&
 		JSON.stringify(packageJson.contributes.viewsWelcome) === JSON.stringify(contributions.viewsWelcome)
 	) {
-		console.log("Skipped; No changes detected in 'contributions.json'");
+		console.log("Skipped 'package.json'; No changes detected in 'contributions.json'");
 		return;
 	}
 
@@ -314,16 +345,55 @@ function generateContributionsIntoPackageJson(): void {
 	console.log("Generated 'package.json' contributions");
 }
 
+/** Writes generated entries and retains manually maintained entries in package.nls.json. */
+function writeNlsFile(generatedEntries: ReadonlyMap<string, string>): void {
+	const nlsPath = path.join(__dirname, 'package.nls.json');
+	const generatedPrefixes = ['command.', 'submenu.', 'view.', 'viewsWelcome.'];
+	const existingContent = existsSync(nlsPath) ? readFileSync(nlsPath, 'utf8') : undefined;
+	const existingNls: Record<string, string> = existingContent != null ? JSON.parse(existingContent) : {};
+
+	const merged: Record<string, string> = {};
+	for (const [key, value] of Object.entries(existingNls)) {
+		if (!generatedPrefixes.some(prefix => key.startsWith(prefix))) {
+			merged[key] = value;
+		}
+	}
+
+	for (const [key, value] of generatedEntries) {
+		merged[key] = value;
+	}
+
+	const sorted: Record<string, string> = {};
+	for (const key of Object.keys(merged).sort()) {
+		sorted[key] = merged[key];
+	}
+
+	const newContent = `${JSON.stringify(sorted, undefined, '\t')}\n`;
+	if (existingContent === newContent) {
+		console.log("Skipped 'package.nls.json'; No changes detected");
+		return;
+	}
+
+	writeFileSync(nlsPath, newContent, 'utf8');
+	console.log("Generated 'package.nls.json'");
+}
+
 /** Validates that all existing contributions are preserved in the new contributions */
-function validateContributions(existing: PackageJson['contributes'], updated: PackageJson['contributes']): void {
+function validateContributions(
+	existing: PackageJson['contributes'],
+	updated: PackageJson['contributes'],
+	nlsEntries: Record<string, string>,
+): void {
 	// Validate commands
 	const missingOrDifferentCommands = existing.commands.filter(existingCommand => {
 		const updatedCommand = updated.commands.find(c => c.command === existingCommand.command);
 		return (
 			!updatedCommand ||
-			updatedCommand.title !== existingCommand.title ||
+			resolveNlsReference(updatedCommand.title, nlsEntries) !==
+				resolveNlsReference(existingCommand.title, nlsEntries) ||
 			updatedCommand.enablement !== existingCommand.enablement ||
-			updatedCommand.category !== existingCommand.category ||
+			resolveNlsReference(updatedCommand.category ?? '', nlsEntries) !==
+				resolveNlsReference(existingCommand.category ?? '', nlsEntries) ||
 			JSON.stringify(updatedCommand.icon) !== JSON.stringify(existingCommand.icon)
 		);
 	});
@@ -369,7 +439,8 @@ function validateContributions(existing: PackageJson['contributes'], updated: Pa
 		const updatedSubmenu = updated.submenus.find(s => s.id === existingSubmenu.id);
 		return (
 			!updatedSubmenu ||
-			updatedSubmenu.label !== existingSubmenu.label ||
+			resolveNlsReference(updatedSubmenu.label, nlsEntries) !==
+				resolveNlsReference(existingSubmenu.label, nlsEntries) ||
 			JSON.stringify(updatedSubmenu.icon) !== JSON.stringify(existingSubmenu.icon)
 		);
 	});
@@ -413,9 +484,10 @@ function validateContributions(existing: PackageJson['contributes'], updated: Pa
 			return (
 				!updatedView ||
 				updatedView.type !== existingView.type ||
-				updatedView.name !== existingView.name ||
+				resolveNlsReference(updatedView.name, nlsEntries) !== resolveNlsReference(existingView.name, nlsEntries) ||
 				updatedView.when !== existingView.when ||
-				updatedView.contextualTitle !== existingView.contextualTitle ||
+				resolveNlsReference(updatedView.contextualTitle ?? '', nlsEntries) !==
+					resolveNlsReference(existingView.contextualTitle ?? '', nlsEntries) ||
 				updatedView.icon !== existingView.icon ||
 				updatedView.initialSize !== existingView.initialSize ||
 				updatedView.visibility !== existingView.visibility
@@ -436,7 +508,8 @@ function validateContributions(existing: PackageJson['contributes'], updated: Pa
 		const updatedViewWelcome = updated.viewsWelcome.find(
 			vw =>
 				vw.view === existingViewWelcome.view &&
-				vw.contents === existingViewWelcome.contents &&
+				resolveNlsReference(vw.contents, nlsEntries) ===
+					resolveNlsReference(existingViewWelcome.contents, nlsEntries) &&
 				vw.when === existingViewWelcome.when,
 		);
 		return !updatedViewWelcome;

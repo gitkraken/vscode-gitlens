@@ -20,6 +20,7 @@ allowBuilds:
 blockExoticSubdeps: true
 
 catalog:
+    '@vscode/l10n': 0.0.18
     # Publish gates for the two @gitkraken/* graph packages: attw resolves the packed tarball's types
     # under every module-resolution mode, publint lints the manifest a consumer actually installs.
     '@arethetypeswrong/cli': 0.18.5

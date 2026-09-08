@@ -90,7 +90,8 @@
 		"@gitkraken/commit-graph": "workspace:*",
 		"@lit-labs/virtualizer": "catalog:",
 		"fast-string-truncated-width": "catalog:",
-		"vscode-uri": "catalog:"
+		"vscode-uri": "catalog:",
+		"@vscode/l10n": "catalog:"
 	},
 	"peerDependencies": {
 		"lit": "catalog:"
