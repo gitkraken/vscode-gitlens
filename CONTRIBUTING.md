@@ -237,6 +237,10 @@ The [Publish Pre-release workflow](.github/workflows/cd-pre.yml) is automaticall
 
 The Publish Insiders workflow is no longer available and was replaced with the pre-release edition.
 
+## Localization
+
+GitLens follows VS Code's display language. Wrap user-facing text with `l10n.t()` and run `pnpm run generate:l10n` after changing messages; `pnpm run check:l10n` (part of `pnpm run check`) validates the catalogs. See [docs/localization.md](docs/localization.md) for the authoring rules and [l10n/README.md](l10n/README.md) for translating GitLens into another language.
+
 ## Updating GL Icons
 
 To add new icons to the GL Icons font follow the steps below:
