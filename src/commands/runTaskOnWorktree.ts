@@ -19,7 +19,7 @@ import {
 import { Logger } from '@gitlens/utils/logger.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { Container } from '../container.js';
-import { command } from '../system/-webview/command.js';
+import { command, executeCoreCommand } from '../system/-webview/command.js';
 import { GlCommandBase } from './commandBase.js';
 
 export interface RunTaskOnWorktreeCommandArgs {
@@ -56,10 +56,29 @@ export class RunTaskOnWorktreeCommand extends GlCommandBase {
 
 	async execute(args?: RunTaskOnWorktreeCommandArgs): Promise<void> {
 		const worktreePath = args?.worktreePath;
-		if (worktreePath == null) return;
+		if (args == null || worktreePath == null) return;
 
+		const worktreeTasks = this.container.worktreeTasks;
+		// A plain (default) click while a task is already running reveals it rather than starting another;
+		// the picker (Alt) path stays open so a second task can be run deliberately.
+		if (args.useDefault && worktreeTasks.isRunning(worktreePath)) {
+			void executeCoreCommand('workbench.action.tasks.showTasks');
+			return;
+		}
+
+		// Drops re-clicks that land while the first launch is still resolving tasks or executing
+		if (!worktreeTasks.beginLaunch(worktreePath)) return;
+
+		try {
+			await this.launch(args, worktreePath);
+		} finally {
+			worktreeTasks.endLaunch(worktreePath);
+		}
+	}
+
+	private async launch(args: RunTaskOnWorktreeCommandArgs, worktreePath: string): Promise<void> {
 		let choosingDefault = false;
-		if (args?.useDefault) {
+		if (args.useDefault) {
 			const defaultKey = this.container.storage.getWorkspace('worktrees:runTaskDefault');
 			if (defaultKey != null) {
 				let runnableTasks: Task[];
@@ -252,7 +271,14 @@ export class RunTaskOnWorktreeCommand extends GlCommandBase {
 		const clone = this.cloneTaskForWorktree(task, worktreePath);
 		if (clone == null) return false;
 
-		void tasks.executeTask(clone);
+		try {
+			// The original name, not the clone's worktree-suffixed one, is what the graph's tooltip shows.
+			await this.container.worktreeTasks.run(clone, worktreePath, task.name);
+		} catch (ex) {
+			Logger.error(ex, 'RunTaskOnWorktreeCommand', 'executeTask');
+			return false;
+		}
+
 		await this.addRecentTaskKey(key);
 		return true;
 	}

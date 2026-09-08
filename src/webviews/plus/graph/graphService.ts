@@ -17,6 +17,7 @@ import type { ConsultedTool } from '../../../plus/coretools/conflict/consultatio
 import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { LaunchpadSummaryError, LaunchpadSummaryResult } from '../../../plus/launchpad/launchpadIndicator.js';
 import type { ReferencesQuickPickOptions2 } from '../../../quickpicks/referencePicker.js';
+import type { RunningWorktreeTask } from '../../../worktrees/worktreeTaskService.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import type { SharedWebviewServices } from '../../rpc/services/common.js';
 import type { RpcEventSubscription } from '../../rpc/services/types.js';
@@ -1333,6 +1334,9 @@ export interface GraphRowActionsService {
 	executeRowAction(params: RowActionParams): Promise<void>;
 	handleRefDoubleClick(ref: GraphRef, metadata?: GraphRefMetadataItem): Promise<void>;
 	openTreemapFile(action: 'open' | 'history', repoPath: string, path: string): Promise<void>;
+	/** Tasks started from a worktree's Run Task button that are still running, keyed by worktree path. */
+	getRunningWorktreeTasks(): Promise<Record<string, RunningWorktreeTask>>;
+	onRunningWorktreeTasksChanged: RpcEventSubscription<Record<string, RunningWorktreeTask>>;
 }
 
 /**

@@ -718,6 +718,9 @@ export class GraphStateProvider implements Disposable {
 		return this._agentSessionIndex.get();
 	}
 
+	@signalState<AppState['runningWorktreeTasks']>({})
+	accessor runningWorktreeTasks: AppState['runningWorktreeTasks'] = {};
+
 	@signalState()
 	accessor overviewWip: AppState['overviewWip'];
 
