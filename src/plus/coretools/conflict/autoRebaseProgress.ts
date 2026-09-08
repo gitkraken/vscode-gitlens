@@ -1,7 +1,8 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
+import { getPresentableErrorMessage } from '../../../errors.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
 import { executeCommand } from '../../../system/-webview/command.js';
 import type { AutoRebaseEscalationReason, AutoRebaseSession } from './autoRebase.types.js';
@@ -79,7 +80,7 @@ async function runAndRoute(
 		session = await run();
 	} catch (ex) {
 		// Pre-flight refusal (AI unavailable, an operation already in progress, …)
-		void window.showWarningMessage(ex instanceof Error ? ex.message : String(ex));
+		void window.showWarningMessage(getPresentableErrorMessage(ex));
 		return;
 	} finally {
 		openOnStart.dispose();
@@ -94,13 +95,19 @@ async function runAndRoute(
 			break;
 		case 'aborted':
 			void window.showInformationMessage(
-				`Auto-Rebase cancelled — ${session.preRun.branch ?? 'the branch'} is unchanged.`,
+				session.preRun.branch != null
+					? l10n.t('Auto-Rebase cancelled — {0} is unchanged.', session.preRun.branch)
+					: l10n.t('Auto-Rebase cancelled — the branch is unchanged.'),
 			);
 			break;
 		case 'failed': {
 			const reason = session.failure;
 			void window.showErrorMessage(
-				reason ? `Auto-Rebase failed: ${reason.endsWith('.') ? reason : `${reason}.`}` : 'Auto-Rebase failed.',
+				!reason
+					? l10n.t('Auto-Rebase failed.')
+					: reason.endsWith('.')
+						? l10n.t('Auto-Rebase failed: {0}', reason)
+						: l10n.t('Auto-Rebase failed: {0}.', reason),
 			);
 			break;
 		}
@@ -120,14 +127,36 @@ function onCompleted(container: Container, session: AutoRebaseSession): void {
 	}
 
 	// No conflicts, so there's no meaningful summary to open — a brief toast is enough.
-	let message = isAutoRebaseUnchanged(session)
-		? `Auto-Rebase completed — ${session.preRun.branch ?? 'the branch'} had nothing to rewrite.`
-		: 'Auto-Rebase completed — no conflicts.';
-	if (session.postRun?.autostash === 'left-in-stash') {
-		message += ' Your uncommitted changes conflicted when re-applied — they are safe in the stash.';
+	const branch = session.preRun.branch;
+	const unchanged = isAutoRebaseUnchanged(session);
+	const hasAutostashWarning = session.postRun?.autostash === 'left-in-stash';
+	let message: string;
+	if (unchanged) {
+		if (hasAutostashWarning) {
+			message =
+				branch != null
+					? l10n.t(
+							'Auto-Rebase completed — {0} had nothing to rewrite. Your uncommitted changes conflicted when re-applied — they are safe in the stash.',
+							branch,
+						)
+					: l10n.t(
+							'Auto-Rebase completed — the branch had nothing to rewrite. Your uncommitted changes conflicted when re-applied — they are safe in the stash.',
+						);
+		} else {
+			message =
+				branch != null
+					? l10n.t('Auto-Rebase completed — {0} had nothing to rewrite.', branch)
+					: l10n.t('Auto-Rebase completed — the branch had nothing to rewrite.');
+		}
+	} else if (hasAutostashWarning) {
+		message = l10n.t(
+			'Auto-Rebase completed — no conflicts. Your uncommitted changes conflicted when re-applied — they are safe in the stash.',
+		);
+	} else {
+		message = l10n.t('Auto-Rebase completed — no conflicts.');
 	}
 
-	const undo = { title: 'Undo' };
+	const undo = { title: l10n.t('Undo') };
 	const actions = container.autoRebase.getStoredUndo(repoPath) != null ? [undo] : [];
 	void window.showInformationMessage(message, ...actions).then(result => {
 		if (result === undo) {
@@ -146,12 +175,23 @@ function onEscalated(container: Container, svc: GitRepositoryService, session: A
 
 	const step = session.escalation?.stepNumber;
 	const total = session.escalation?.totalSteps ?? session.steps[0]?.totalSteps;
-	const where = step != null ? ` at step ${step}${total != null ? ` of ${total}` : ''}` : '';
-	const message = `Auto-Rebase paused${where} — ${session.escalation?.message ?? 'the rebase needs your attention.'}`;
+	const escalationMessage = session.escalation?.message;
+	const message =
+		step == null
+			? escalationMessage == null
+				? l10n.t('Auto-Rebase paused — the rebase needs your attention.')
+				: l10n.t('Auto-Rebase paused — {0}', escalationMessage)
+			: total == null
+				? escalationMessage == null
+					? l10n.t('Auto-Rebase paused at step {0} — the rebase needs your attention.', step)
+					: l10n.t('Auto-Rebase paused at step {0} — {1}', step, escalationMessage)
+				: escalationMessage == null
+					? l10n.t('Auto-Rebase paused at step {0} of {1} — the rebase needs your attention.', step, total)
+					: l10n.t('Auto-Rebase paused at step {0} of {1} — {2}', step, total, escalationMessage);
 
-	const review = { title: 'Review & Resolve' };
-	const resume = { title: 'Resume with AI' };
-	const abort = { title: 'Abort Rebase' };
+	const review = { title: l10n.t('Review & Resolve') };
+	const resume = { title: l10n.t('Resume with AI') };
+	const abort = { title: l10n.t('Abort Rebase') };
 	// Resume re-engages automation (takeover) — most useful once the step is resolved; resuming an
 	// unresolved conflict simply re-escalates. Hidden when AI is off (user setting or org policy).
 	const actions = container.ai.allowed ? [review, resume, abort] : [review, abort];
@@ -192,10 +232,16 @@ export async function undoWithConfirmation(
 	repoPath: string,
 	branchName: string | undefined,
 ): Promise<void> {
-	const branch = branchName ?? 'the branch';
-	const confirm = { title: 'Undo Rebase' };
+	const confirm = { title: l10n.t('Undo Rebase') };
 	const result = await window.showWarningMessage(
-		`Undo the Auto-Rebase of ${branch}?\n\nThe branch will be reset to its pre-rebase state and the commits created by the rebase will be discarded.`,
+		branchName != null
+			? l10n.t(
+					'Undo the Auto-Rebase of {0}?\n\nThe branch will be reset to its pre-rebase state and the commits created by the rebase will be discarded.',
+					branchName,
+				)
+			: l10n.t(
+					'Undo the Auto-Rebase of the branch?\n\nThe branch will be reset to its pre-rebase state and the commits created by the rebase will be discarded.',
+				),
 		{ modal: true },
 		confirm,
 	);
@@ -203,13 +249,17 @@ export async function undoWithConfirmation(
 
 	const undone = await container.autoRebase.undo(repoPath);
 	if (!undone.ok) {
-		void window.showWarningMessage(`Can't undo the Auto-Rebase — ${undone.message}`);
+		void window.showWarningMessage(l10n.t("Can't undo the Auto-Rebase — {0}", undone.message));
 		return;
 	}
 
 	void window.showInformationMessage(
-		`Rebase undone — ${branch} was restored.${
-			undone.warning === 'changes-left-in-stash' ? ' Your working changes were left in the stash.' : ''
-		}`,
+		undone.warning === 'changes-left-in-stash'
+			? branchName != null
+				? l10n.t('Rebase undone — {0} was restored. Your working changes were left in the stash.', branchName)
+				: l10n.t('Rebase undone — the branch was restored. Your working changes were left in the stash.')
+			: branchName != null
+				? l10n.t('Rebase undone — {0} was restored.', branchName)
+				: l10n.t('Rebase undone — the branch was restored.'),
 	);
 }

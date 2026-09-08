@@ -1,5 +1,5 @@
 import type { Disposable, Selection } from 'vscode';
-import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { l10n, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { deletedOrMissing } from '@gitlens/git/models/revision.js';
 import { isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { isSha } from '@gitlens/git/utils/revision.utils.js';
@@ -66,12 +66,12 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 		this.view.message = undefined;
 
 		if (this.child == null) {
-			this.view.groupedLabel ??= this.view.name.toLocaleLowerCase();
+			this.view.groupedLabel ??= l10n.t('line history');
 
 			if (!this.hasUri) {
 				this.view.description = this.view.grouped ? this.view.groupedLabel : undefined;
 
-				this.view.message = 'There are no editors open that can provide line history information.';
+				this.view.message = l10n.t('There are no editors open that can provide line history information.');
 				return [];
 			}
 
@@ -79,14 +79,19 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 			const editorContents = this._editorContents;
 
 			if (selection == null) {
-				this.view.message = 'There was no selection provided for line history.';
-				this.view.description = `${this.view.groupedLabel ? `${this.view.groupedLabel} \u2022 ` : ''}${
-					this.uri.fileName
-				}${
+				this.view.message = l10n.t('There was no selection provided for line history.');
+				const file = `${this.uri.fileName}${
 					this.uri.sha
 						? ` ${this.uri.sha === deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 						: ''
-				}${!this.followingEditor ? ' (pinned)' : ''}`;
+				}`;
+				if (this.view.groupedLabel) {
+					this.view.description = !this.followingEditor
+						? l10n.t('{group} • {file} (pinned)', { group: this.view.groupedLabel, file: file })
+						: l10n.t('{group} • {file}', { group: this.view.groupedLabel, file: file });
+				} else {
+					this.view.description = !this.followingEditor ? l10n.t('{0} (pinned)', file) : file;
+				}
 				return [];
 			}
 
@@ -112,7 +117,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Line History', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(l10n.t('Line History'), TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.ActiveLineHistory;
 
 		void this.ensureSubscription();
@@ -177,8 +182,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<
 	async changeBase(): Promise<void> {
 		const pick = await showReferencePicker(
 			this.uri.repoPath!,
-			'Change Line History Base',
-			'Choose a reference to set as the new base',
+			l10n.t('Change Line History Base'),
+			l10n.t('Choose a reference to set as the new base'),
 			{
 				allowedAdditionalInput: { rev: true },
 				picked: this._base,

@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -10,9 +11,11 @@ import {
 	scrollableBase,
 	subPanelEnterStyles,
 } from '@gitlens/components/components/styles/lit/base.css.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext, Preferences, State } from '../../../../plus/graph/detailsProtocol.js';
@@ -263,7 +266,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this.setAttribute('role', 'region');
-		this.setAttribute('aria-label', 'Compare references');
+		this.setAttribute('aria-label', l10n.t('Compare references'));
 	}
 
 	protected override willUpdate(changedProperties: PropertyValues): void {
@@ -336,13 +339,13 @@ export class GlDetailsCompareModePanel extends LitElement {
 		if (!this.stale) return nothing;
 		return html`<div class="compare-stale" role="status">
 			<code-icon icon="warning"></code-icon>
-			<span>Working tree data changed since this comparison was loaded.</span>
+			<span>${l10n.t('Working tree data changed since this comparison was loaded.')}</span>
 			<gl-action-chip
 				icon="sync"
-				label="Refresh Comparison"
+				label=${l10n.t('Refresh Comparison')}
 				overlay="tooltip"
 				@click=${this.dispatchRefreshCompare}
-				><span>Refresh</span></gl-action-chip
+				><span>${l10n.t('Refresh')}</span></gl-action-chip
 			>
 		</div>`;
 	}
@@ -370,7 +373,11 @@ export class GlDetailsCompareModePanel extends LitElement {
 		return html`<div class="compare-all" data-tab="all">
 			<div class="compare-all-notice">
 				<code-icon icon="files"></code-icon>
-				<span><strong>Cumulative Files</strong> — Select Ahead or Behind to browse commits</span>
+				<span
+					>${localizedContent(l10n.t('{heading} — Select Ahead or Behind to browse commits'), {
+						heading: html`<strong>${l10n.t('Cumulative Files')}</strong>`,
+					})}</span
+				>
 			</div>
 			${this.renderEmbeddedAIActions()}${this.renderRightPane(this.allFiles)}
 		</div>`;
@@ -387,7 +394,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 		if (!loaded) {
 			return html`<div class="compare-side-loading" data-tab=${side} aria-busy="true">
 				<code-icon icon="loading" modifier="spin"></code-icon>
-				<span>Loading commits…</span>
+				<span>${l10n.t('Loading commits…')}</span>
 			</div>`;
 		}
 
@@ -443,12 +450,12 @@ export class GlDetailsCompareModePanel extends LitElement {
 	private static readonly _fileActions: TreeItemAction[] = [
 		{
 			icon: 'go-to-file',
-			label: 'Open File',
+			label: l10n.t('Open File'),
 			action: 'file-open',
 		},
 		{
 			icon: 'git-compare',
-			label: 'Open Changes with Working File',
+			label: l10n.t('Open Changes with Working File'),
 			action: 'file-compare-working',
 		},
 	];
@@ -460,21 +467,23 @@ export class GlDetailsCompareModePanel extends LitElement {
 		const leftRef = this.leftRef ?? '';
 		const rightRef = this.rightRef ?? this.branchName ?? '';
 		const showWorkingTreeToggle = this.hasWorktree;
-		const leftTooltip = leftRef || 'Choose a Reference';
-		const rightTooltip = rightRef || 'Choose a Reference';
+		const leftTooltip = leftRef || l10n.t('Choose a Reference');
+		const rightTooltip = rightRef || l10n.t('Choose a Reference');
 
 		return html`<div class="compare-bar">
 			<div class="compare-bar__refs">
 				<gl-tooltip placement="bottom">
 					<code-icon class="compare-role-icon" icon="target"></code-icon>
-					<span slot="content">Base Reference Branch (the target or baseline for the comparison)</span>
+					<span slot="content"
+						>${l10n.t('Base Reference Branch (the target or baseline for the comparison)')}</span
+					>
 				</gl-tooltip>
 				<gl-tooltip placement="bottom">
 					<gl-branch-name
 						class="compare-ref compare-ref--behind"
 						appearance="button"
 						chevron
-						.name=${leftRef || 'Choose…'}
+						.name=${leftRef || l10n.t('Choose…')}
 						.icon=${this.getRefIcon(this.leftRefType)}
 						@click=${() => this.dispatchChangeRef('left')}
 					></gl-branch-name>
@@ -483,20 +492,22 @@ export class GlDetailsCompareModePanel extends LitElement {
 				<gl-action-chip
 					class="compare-swap"
 					icon="arrow-swap"
-					label="Swap Direction"
+					label=${l10n.t('Swap Direction')}
 					overlay="tooltip"
 					@click=${this.dispatchSwapRefs}
 				></gl-action-chip>
 				<gl-tooltip placement="bottom">
 					<code-icon class="compare-role-icon" icon="git-compare"></code-icon>
-					<span slot="content">Compare Branch (the feature or topic branch containing the changes)</span>
+					<span slot="content"
+						>${l10n.t('Compare Branch (the feature or topic branch containing the changes)')}</span
+					>
 				</gl-tooltip>
 				<gl-tooltip placement="bottom">
 					<gl-branch-name
 						class="compare-ref compare-ref--ahead"
 						appearance="button"
 						chevron
-						.name=${rightRef || 'Choose…'}
+						.name=${rightRef || l10n.t('Choose…')}
 						.icon=${this.getRefIcon(this.rightRefType)}
 						@click=${() => this.dispatchChangeRef('right')}
 					></gl-branch-name>
@@ -511,7 +522,11 @@ export class GlDetailsCompareModePanel extends LitElement {
 										: 'compare-wt-toggle'
 								}
 								icon="edit"
-								label="${this.includeWorkingTree ? 'Exclude' : 'Include'} Working Tree Changes"
+								label=${
+									this.includeWorkingTree
+										? l10n.t('Exclude Working Tree Changes')
+										: l10n.t('Include Working Tree Changes')
+								}
 								overlay="tooltip"
 								@click=${this.dispatchToggleWorkingTree}
 							></gl-action-chip>`
@@ -522,7 +537,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 				<gl-action-chip
 					class="compare-open-in-sac"
 					icon="link-external"
-					label="Open in Search &amp; Compare"
+					label=${l10n.t('Open in Search & Compare')}
 					overlay="tooltip"
 					@click=${this.dispatchOpenInSearchAndCompare}
 				></gl-action-chip>
@@ -533,26 +548,32 @@ export class GlDetailsCompareModePanel extends LitElement {
 	private renderTabs() {
 		const leftRef = this.leftRef ?? '';
 		const rightRef = this.rightRef ?? '';
-		const baseLabel = leftRef || 'Base';
-		const compareLabel = rightRef || 'Compare';
+		const baseLabel = leftRef || l10n.t('Base');
+		const compareLabel = rightRef || l10n.t('Compare');
 		return html`<div class="compare-tabs" role="tablist" @keydown=${this.handleTabKeydown}>
 			${this.renderTab(
 				'ahead',
-				'Ahead',
+				l10n.t('Ahead'),
 				this.aheadCount,
-				`Commits in ${compareLabel} that are missing from ${baseLabel}`,
+				l10n.t('Commits in {compare} that are missing from {base}', {
+					compare: compareLabel,
+					base: baseLabel,
+				}),
 			)}
 			${this.renderTab(
 				'behind',
-				'Behind',
+				l10n.t('Behind'),
 				this.behindCount,
-				`Commits in ${baseLabel} that are missing from ${compareLabel}`,
+				l10n.t('Commits in {base} that are missing from {compare}', {
+					base: baseLabel,
+					compare: compareLabel,
+				}),
 			)}
 			${this.renderTab(
 				'all',
-				'All Files',
+				l10n.t('All Files'),
 				this.allFilesCount,
-				'File differences between the latest commits of both branches',
+				l10n.t('File differences between the latest commits of both branches'),
 			)}
 		</div>`;
 	}
@@ -597,7 +618,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 					${
 						this._comparisonChanging
 							? html`<code-icon icon="sync" class="compare-tab__count-spinner"></code-icon>`
-							: count
+							: getNumericFormat()(count)
 					}
 				</span>
 			</button>
@@ -625,7 +646,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 			}
 
 			const isUpToDate = this.aheadCount === 0 && this.behindCount === 0 && !this.aheadHasWip;
-			const baseLabel = this.leftRef ?? 'Base';
+			const baseLabel = this.leftRef ?? l10n.t('Base');
 			if (isUpToDate) {
 				return html`<div
 					id="compare-tabpanel-${this.activeTab}"
@@ -634,7 +655,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 					aria-labelledby="compare-tab-${this.activeTab}"
 				>
 					<code-icon icon="check"></code-icon>
-					<span>Up to date with ${baseLabel}</span>
+					<span>${l10n.t('Up to date with {base}', { base: baseLabel })}</span>
 				</div>`;
 			}
 
@@ -645,10 +666,10 @@ export class GlDetailsCompareModePanel extends LitElement {
 			// directly (see `filesForSelection`/`getActiveTabRefs`), so the message calls that out.
 			const emptyText =
 				this.activeTab === 'behind'
-					? `No commits behind ${baseLabel}`
+					? l10n.t('No commits behind {base}', { base: baseLabel })
 					: this.aheadHasWip
-						? `No commits ahead of ${baseLabel}, showing working tree changes`
-						: `No commits ahead of ${baseLabel}`;
+						? l10n.t('No commits ahead of {base}, showing working tree changes', { base: baseLabel })
+						: l10n.t('No commits ahead of {base}', { base: baseLabel });
 			return html`<div
 				id="compare-tabpanel-${this.activeTab}"
 				class="compare-empty compare-empty--no-commits"
@@ -675,7 +696,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 			<div
 				class="compare-listbox"
 				role="listbox"
-				aria-label="Comparison Commits"
+				aria-label=${l10n.t('Comparison Commits')}
 				@keydown=${this.handleCommitListKeydown}
 				@focusin=${this.handleCommitListFocusIn}
 			>
@@ -747,7 +768,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 	private renderLoadMoreRow(loadingMore: boolean) {
 		return html`<button class="compare-load-more" ?disabled=${loadingMore} @click=${this.dispatchLoadMore}>
 			<code-icon icon=${loadingMore ? 'loading' : 'fold-down'} modifier=${loadingMore ? 'spin' : ''}></code-icon>
-			<span>${loadingMore ? 'Loading…' : 'Load More Commits'}</span>
+			<span>${loadingMore ? l10n.t('Loading…') : l10n.t('Load More Commits')}</span>
 		</button>`;
 	}
 
@@ -884,7 +905,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 					selection-action="file-compare-range"
 					.showSearchBox=${this.showSearchBox}
 					.searchBoxFilter=${this.searchBoxFilter}
-					empty-text=${isLoadingEmpty ? '' : 'No changes'}
+					empty-text=${isLoadingEmpty ? '' : l10n.t('No changes')}
 					@file-compare-range=${this.handleFileCompareRange}
 					@file-compare-previous=${this.redispatch}
 					@file-open=${this.redispatch}
@@ -922,7 +943,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 						isLoadingEmpty
 							? html`<div slot="before-tree" class="compare-files--loading" aria-busy="true">
 									<code-icon icon="loading" modifier="spin"></code-icon>
-									<span>Loading changes…</span>
+									<span>${l10n.t('Loading changes…')}</span>
 								</div>`
 							: nothing
 					}
@@ -930,14 +951,16 @@ export class GlDetailsCompareModePanel extends LitElement {
 						isScoped
 							? (() => {
 									const isWipScope = this.selectedCommitSha === uncommitted;
-									const label = isWipScope ? 'Working' : this.selectedCommitSha!.substring(0, 7);
+									const label = isWipScope
+										? l10n.t('Working')
+										: this.selectedCommitSha!.substring(0, 7);
 									const icon = isWipScope ? 'edit' : 'git-commit';
 									const clearLabel = isWipScope
-										? 'Clear Working Changes Filter'
-										: 'Clear Commit Filter';
+										? l10n.t('Clear Working Changes Filter')
+										: l10n.t('Clear Commit Filter');
 									const headerTooltip = isWipScope
-										? 'Showing Only Working Changes'
-										: 'Showing Only Commit Changes';
+										? l10n.t('Showing Only Working Changes')
+										: l10n.t('Showing Only Commit Changes');
 									return html`<gl-tooltip slot="header-badge" placement="top">
 										<span class="compare-scope-tag">
 											<code-icon icon=${icon}></code-icon>
@@ -964,8 +987,12 @@ export class GlDetailsCompareModePanel extends LitElement {
 					${
 						stats != null && (stats.additions > 0 || stats.deletions > 0)
 							? html`<span slot="header-badge" class="compare-stats">
-									<span class="compare-stats__additions">+${stats.additions.toLocaleString()}</span>
-									<span class="compare-stats__deletions">−${stats.deletions.toLocaleString()}</span>
+									<span class="compare-stats__additions"
+										>+${getNumericFormat()(stats.additions)}</span
+									>
+									<span class="compare-stats__deletions"
+										>−${getNumericFormat()(stats.deletions)}</span
+									>
 								</span>`
 							: nothing
 					}
@@ -1011,11 +1038,11 @@ export class GlDetailsCompareModePanel extends LitElement {
 	}
 
 	private renderViewSelector() {
-		const label = this.activeView === 'files' ? 'Files Changed' : 'Contributors';
+		const label = this.activeView === 'files' ? l10n.t('Files Changed') : l10n.t('Contributors');
 		const items: GlMenuPopoverItem[] = [
-			{ label: 'Files Changed', value: 'files', icon: 'files', selected: this.activeView === 'files' },
+			{ label: l10n.t('Files Changed'), value: 'files', icon: 'files', selected: this.activeView === 'files' },
 			{
-				label: 'Contributors',
+				label: l10n.t('Contributors'),
 				value: 'contributors',
 				icon: 'organization',
 				selected: this.activeView === 'contributors',
@@ -1049,11 +1076,11 @@ export class GlDetailsCompareModePanel extends LitElement {
 			this.contributorsLoading && contributors.length === 0
 				? html`<div class="compare-contributors compare-contributors--loading">
 						<code-icon icon="loading" modifier="spin"></code-icon>
-						<span>Loading contributors…</span>
+						<span>${l10n.t('Loading contributors…')}</span>
 					</div>`
 				: !contributors.length
 					? html`<div class="compare-contributors compare-contributors--empty">
-							<span>No contributors in scope</span>
+							<span>${l10n.t('No contributors in scope')}</span>
 						</div>`
 					: html`<div class="compare-contributors scrollable">
 							${repeat(
@@ -1068,7 +1095,11 @@ export class GlDetailsCompareModePanel extends LitElement {
 				<webview-pane expanded flexible .collapsable=${false}>
 					<span slot="title" class="compare-contributors-title">
 						${this.renderViewSelector()}
-						${showCount !== nothing ? html`<gl-badge appearance="filled">${showCount}</gl-badge>` : nothing}
+						${
+							showCount !== nothing
+								? html`<gl-badge appearance="filled">${getNumericFormat()(showCount)}</gl-badge>`
+								: nothing
+						}
 					</span>
 					${body}
 				</webview-pane>
@@ -1078,24 +1109,33 @@ export class GlDetailsCompareModePanel extends LitElement {
 
 	private renderContributorRow(contributor: BranchComparisonContributor) {
 		const { name, email, avatarUrl, commits, additions, deletions, files } = contributor;
+		const format = getNumericFormat();
+		const commitCount =
+			commits === 1
+				? l10n.t('{count} commit', { count: format(commits) })
+				: l10n.t('{count} commits', { count: format(commits) });
+		const fileCount =
+			files === 1
+				? l10n.t('{count} file', { count: format(files) })
+				: l10n.t('{count} files', { count: format(files) });
 		return html`<div class="compare-contributor">
 			<gl-avatar src=${avatarUrl ?? nothing} name=${email ?? name}></gl-avatar>
 			<div class="compare-contributor__info">
 				<div class="compare-contributor__name">
-					${name}${contributor.current ? html` <span class="compare-contributor__you">you</span>` : nothing}
-				</div>
-				<div class="compare-contributor__stats">
-					<span>${commits.toLocaleString()} ${commits === 1 ? 'commit' : 'commits'}</span>
-					${
-						files > 0
-							? html`<span>${files.toLocaleString()} ${files === 1 ? 'file' : 'files'}</span>`
+					${name}${
+						contributor.current
+							? html` <span class="compare-contributor__you">${l10n.t('you')}</span>`
 							: nothing
 					}
+				</div>
+				<div class="compare-contributor__stats">
+					<span>${commitCount}</span>
+					${files > 0 ? html`<span>${fileCount}</span>` : nothing}
 					${
 						additions > 0 || deletions > 0
 							? html`<span class="compare-contributor__diffstat">
-									<span class="compare-contributor__additions">+${additions.toLocaleString()}</span>
-									<span class="compare-contributor__deletions">−${deletions.toLocaleString()}</span>
+									<span class="compare-contributor__additions">+${format(additions)}</span>
+									<span class="compare-contributor__deletions">−${format(deletions)}</span>
 								</span>`
 							: nothing
 					}
@@ -1156,9 +1196,16 @@ export class GlDetailsCompareModePanel extends LitElement {
 	}
 
 	private getDiffTitle(refs: { lhs: string; rhs: string; wip?: boolean }): string {
-		if (refs.wip) return `Working tree changes from ${shortenRevision(refs.lhs)}`;
-		if (refs.rhs === '') return `Changes from ${shortenRevision(refs.lhs)} to working tree`;
-		return `Changes from ${shortenRevision(refs.lhs)} to ${shortenRevision(refs.rhs)}`;
+		if (refs.wip) {
+			return l10n.t('Working tree changes from {revision}', { revision: shortenRevision(refs.lhs) });
+		}
+		if (refs.rhs === '') {
+			return l10n.t('Changes from {revision} to working tree', { revision: shortenRevision(refs.lhs) });
+		}
+		return l10n.t('Changes from {from} to {to}', {
+			from: shortenRevision(refs.lhs),
+			to: shortenRevision(refs.rhs),
+		});
 	}
 
 	private getMultiDiffRefs(

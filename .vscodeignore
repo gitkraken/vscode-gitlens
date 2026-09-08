@@ -1,5 +1,7 @@
+.agents/**
 .augment/**
 .claude/**
+.codegen-cache/**
 .devcontainer/**
 .github/**
 .husky/**
@@ -7,6 +9,7 @@
 .vscode-clean/**
 .vscode-test/**
 .vscode-test-web/**
+.work/**
 .yarn/**
 docs/**
 emoji/**

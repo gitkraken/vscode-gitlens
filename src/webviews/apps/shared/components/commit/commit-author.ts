@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
@@ -349,7 +350,7 @@ export class GlCommitAuthor extends LitElement {
 								<div class="author-details">
 									<div class="author-name-text">
 										${this.committerName}
-										<span class="committer-label">(committer)</span>
+										<span class="committer-label">${l10n.t('(committer)')}</span>
 									</div>
 									${
 										this.committerEmail
@@ -385,16 +386,14 @@ export class GlCommitAuthor extends LitElement {
 										: html`${
 												this.authorDate
 													? html`<span class="popover-date"
-															>Authored ${fromNow(this.authorDate)}
-															(${this.formatDateFull(this.authorDate)})</span
+															>${l10n.t('Authored {relativeDate} ({date})', { relativeDate: fromNow(this.authorDate), date: this.formatDateFull(this.authorDate) })}</span
 														>`
 													: nothing
 											}
 											${
 												this.committerDate
 													? html`<span class="popover-date"
-															>Committed ${fromNow(this.committerDate)}
-															(${this.formatDateFull(this.committerDate)})</span
+															>${l10n.t('Committed {relativeDate} ({date})', { relativeDate: fromNow(this.committerDate), date: this.formatDateFull(this.committerDate) })}</span
 														>`
 													: nothing
 											}`

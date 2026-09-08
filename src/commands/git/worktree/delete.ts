@@ -1,12 +1,12 @@
 import type { MessageItem, Uri } from 'vscode';
-import { ThemeIcon, window } from 'vscode';
+import { l10n, ThemeIcon, window } from 'vscode';
 import { BranchError, WorktreeDeleteError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getBranchNameAndRemote } from '@gitlens/git/utils/branch.utils.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
@@ -82,8 +82,8 @@ export interface WorktreeDeleteGitCommandArgs {
 
 export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: WorktreeDeleteGitCommandArgs) {
-		super(container, 'worktree-delete', 'delete', 'Delete Worktrees', {
-			description: 'deletes the specified worktrees',
+		super(container, 'worktree-delete', 'delete', l10n.t('Delete Worktrees'), {
+			description: l10n.t('deletes the specified worktrees'),
 		});
 
 		this.initialState = { confirm: args?.confirm, flags: [], ...args?.state };
@@ -156,7 +156,7 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 					filter: wt => !wt.isDefault,
 					includeStatus: true,
 					picked: state.uris?.map(uri => uri.toString()),
-					placeholder: 'Choose worktrees to delete',
+					placeholder: l10n.t('Choose worktrees to delete'),
 				});
 				if (result === StepResultBreak) {
 					state.uris = undefined!;
@@ -213,10 +213,13 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 							} catch {}
 
 							if ((hasChanges ?? false) && !skipHasChangesPrompt) {
-								const confirm: MessageItem = { title: 'Force Delete' };
-								const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+								const confirm: MessageItem = { title: l10n.t('Force Delete') };
+								const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 								const result = await window.showWarningMessage(
-									`The worktree in '${uri.fsPath}' has uncommitted changes.\n\nDeleting it will cause those changes to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nAre you sure you still want to delete it?`,
+									l10n.t(
+										"The worktree in '{0}' has uncommitted changes.\n\nDeleting it will cause those changes to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nAre you sure you still want to delete it?",
+										uri.fsPath,
+									),
 									{ modal: true },
 									confirm,
 									cancel,
@@ -231,7 +234,7 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 					} catch (ex) {
 						if (WorktreeDeleteError.is(ex)) {
 							if (ex.details.reason === 'defaultWorkingTree') {
-								void window.showErrorMessage('Cannot delete the default worktree.');
+								void window.showErrorMessage(l10n.t('Cannot delete the default worktree.'));
 								break;
 							}
 
@@ -242,10 +245,13 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 									break;
 								}
 
-								const openFolder: MessageItem = { title: 'Open Folder' };
-								const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+								const openFolder: MessageItem = { title: l10n.t('Open Folder') };
+								const confirm: MessageItem = { title: l10n.t('OK'), isCloseAffordance: true };
 								const result = await window.showErrorMessage(
-									`Unable to fully clean up the delete worktree in '${uri.fsPath}' because the folder is not empty.`,
+									l10n.t(
+										"Unable to fully clean up the delete worktree in '{0}' because the folder is not empty.",
+										uri.fsPath,
+									),
 									{ modal: true },
 									openFolder,
 									confirm,
@@ -264,12 +270,19 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 							if (ex.details.reason === 'locked') {
 								// Already double-forced and it's still locked, so there's nothing left to escalate to
 								if (force !== 'locked') {
-									const confirm: MessageItem = { title: 'Force Delete' };
-									const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+									const confirm: MessageItem = { title: l10n.t('Force Delete') };
+									const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 									const result = await window.showWarningMessage(
-										`Unable to delete worktree in '${uri.fsPath}' because it is locked.${
-											ex.details.lockReason ? `\n\nLock reason: ${ex.details.lockReason}` : ''
-										}\n\nSomething may still be using this worktree. Forcibly deleting it could disrupt whatever locked it.\n\nWould you like to forcibly delete it?`,
+										ex.details.lockReason
+											? l10n.t(
+													"Unable to delete worktree in '{0}' because it is locked.\n\nLock reason: {1}\n\nSomething may still be using this worktree. Forcibly deleting it could disrupt whatever locked it.\n\nWould you like to forcibly delete it?",
+													uri.fsPath,
+													ex.details.lockReason,
+												)
+											: l10n.t(
+													"Unable to delete worktree in '{0}' because it is locked.\n\nSomething may still be using this worktree. Forcibly deleting it could disrupt whatever locked it.\n\nWould you like to forcibly delete it?",
+													uri.fsPath,
+												),
 										{ modal: true },
 										confirm,
 										cancel,
@@ -285,12 +298,18 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 									break;
 								}
 							} else if (!force) {
-								const confirm: MessageItem = { title: 'Force Delete' };
-								const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+								const confirm: MessageItem = { title: l10n.t('Force Delete') };
+								const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 								const result = await window.showErrorMessage(
 									ex.details.reason === 'uncommittedChanges'
-										? `Unable to delete worktree because there are UNCOMMITTED changes in '${uri.fsPath}'.\n\nForcibly deleting it will cause those changes to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nWould you like to forcibly delete it?`
-										: `Unable to delete worktree in '${uri.fsPath}'.\n\nWould you like to try to forcibly delete it?`,
+										? l10n.t(
+												"Unable to delete worktree because there are UNCOMMITTED changes in '{0}'.\n\nForcibly deleting it will cause those changes to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nWould you like to forcibly delete it?",
+												uri.fsPath,
+											)
+										: l10n.t(
+												"Unable to delete worktree in '{0}'.\n\nWould you like to try to forcibly delete it?",
+												uri.fsPath,
+											),
 									{ modal: true },
 									confirm,
 									cancel,
@@ -306,7 +325,7 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 							}
 						}
 
-						void showGitErrorMessage(ex, `Unable to delete worktree in '${uri.fsPath}'`);
+						void showGitErrorMessage(ex, l10n.t("Unable to delete worktree in '{0}'", uri.fsPath));
 					}
 
 					break;
@@ -352,10 +371,13 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 			}
 		} catch (ex) {
 			if (BranchError.is(ex, 'notFullyMerged')) {
-				const confirm: MessageItem = { title: 'Delete Branch' };
-				const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+				const confirm: MessageItem = { title: l10n.t('Delete Branch') };
+				const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 				const result = await window.showWarningMessage(
-					`Unable to delete branch '${name}' as it is not fully merged. Do you want to delete it anyway?`,
+					l10n.t(
+						"Unable to delete branch '{0}' as it is not fully merged. Do you want to delete it anyway?",
+						name,
+					),
 					{ modal: true },
 					confirm,
 					cancel,
@@ -368,36 +390,33 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 							await repo.git.branches.deleteRemoteBranch?.(name, remote);
 						}
 					} catch (ex) {
-						Logger.error(ex, this.title);
-						void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to force delete branch');
+						Logger.error(ex, 'Delete Worktrees');
+						void showGitErrorMessage(
+							ex,
+							BranchError.is(ex) ? undefined : l10n.t('Unable to force delete branch'),
+						);
 					}
 				}
 
 				return;
 			}
 
-			Logger.error(ex, this.title);
-			void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to delete branch');
+			Logger.error(ex, 'Delete Worktrees');
+			void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : l10n.t('Unable to delete branch'));
 		}
 	}
 
 	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<Flags[]> {
-		context.title = state.uris.length === 1 ? 'Delete Worktree' : 'Delete Worktrees';
-
-		const worktreeWord = state.uris.length === 1 ? 'Worktree' : 'Worktrees';
-		const branchWord = state.uris.length === 1 ? 'branch' : 'branches';
-		const pronoun = state.uris.length === 1 ? 'its' : 'their';
-
-		let selectedBranchesLabelSuffix = '';
+		const isSingleWorktree = state.uris.length === 1;
 		if (state.startingFromBranchDelete) {
-			selectedBranchesLabelSuffix = ` for ${state.uris.length === 1 ? 'Branch' : 'Branches'}`;
-			context.title = `${context.title}${selectedBranchesLabelSuffix}`;
+			context.title = isSingleWorktree
+				? l10n.t('Delete Worktree for Branch')
+				: l10n.t('Delete Worktrees for Branches');
+		} else {
+			context.title = isSingleWorktree ? l10n.t('Delete Worktree') : l10n.t('Delete Worktrees');
 		}
 
-		const worktreesLabel =
-			state.uris.length === 1
-				? `worktree in $(folder) ${getWorkspaceFriendlyPath(state.uris[0])}`
-				: `${state.uris.length} worktrees`;
+		const formattedWorktreeCount = getNumericFormat()(state.uris.length);
 
 		// Hidden when invoked as a sub-step of branch delete -- that flow deletes the branch(es) itself
 		// once this sub-step completes, so offering to do it again here would be redundant
@@ -435,23 +454,77 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 				flags.push('--delete-upstreams');
 			}
 
-			let detail = force ? `Will forcibly delete ${worktreesLabel}` : `Will delete ${worktreesLabel}`;
-			if (deleteBranches) {
-				detail += `, along with ${pronoun} ${branchWord}`;
-				if (deleteUpstreams) {
-					detail += state.uris.length === 1 ? ' and upstream' : ' and upstreams';
+			let label: string;
+			if (state.startingFromBranchDelete) {
+				if (isSingleWorktree) {
+					label = force ? l10n.t('Force Delete Worktree for Branch') : l10n.t('Delete Worktree for Branch');
+				} else {
+					label = force
+						? l10n.t('Force Delete Worktrees for Branches')
+						: l10n.t('Delete Worktrees for Branches');
 				}
+			} else if (isSingleWorktree) {
+				label = force ? l10n.t('Force Delete Worktree') : l10n.t('Delete Worktree');
+			} else {
+				label = force ? l10n.t('Force Delete Worktrees') : l10n.t('Delete Worktrees');
 			}
-			if (force) {
-				detail += deleteBranches
-					? ', discarding uncommitted changes and any unmerged commits'
-					: ', even with uncommitted changes';
+
+			let detail: string;
+			if (isSingleWorktree) {
+				const worktreePath = getWorkspaceFriendlyPath(state.uris[0]);
+				if (deleteUpstreams) {
+					detail = force
+						? l10n.t(
+								'Will forcibly delete worktree in $(folder) {0}, along with its branch and upstream, discarding uncommitted changes and any unmerged commits',
+								worktreePath,
+							)
+						: l10n.t(
+								'Will delete worktree in $(folder) {0}, along with its branch and upstream',
+								worktreePath,
+							);
+				} else if (deleteBranches) {
+					detail = force
+						? l10n.t(
+								'Will forcibly delete worktree in $(folder) {0}, along with its branch, discarding uncommitted changes and any unmerged commits',
+								worktreePath,
+							)
+						: l10n.t('Will delete worktree in $(folder) {0}, along with its branch', worktreePath);
+				} else {
+					detail = force
+						? l10n.t(
+								'Will forcibly delete worktree in $(folder) {0}, even with uncommitted changes',
+								worktreePath,
+							)
+						: l10n.t('Will delete worktree in $(folder) {0}', worktreePath);
+				}
+			} else if (deleteUpstreams) {
+				detail = force
+					? l10n.t(
+							'Will forcibly delete {0} worktrees, along with their branches and upstreams, discarding uncommitted changes and any unmerged commits',
+							formattedWorktreeCount,
+						)
+					: l10n.t(
+							'Will delete {0} worktrees, along with their branches and upstreams',
+							formattedWorktreeCount,
+						);
+			} else if (deleteBranches) {
+				detail = force
+					? l10n.t(
+							'Will forcibly delete {0} worktrees, along with their branches, discarding uncommitted changes and any unmerged commits',
+							formattedWorktreeCount,
+						)
+					: l10n.t('Will delete {0} worktrees, along with their branches', formattedWorktreeCount);
+			} else {
+				detail = force
+					? l10n.t(
+							'Will forcibly delete {0} worktrees, even with uncommitted changes',
+							formattedWorktreeCount,
+						)
+					: l10n.t('Will delete {0} worktrees', formattedWorktreeCount);
 			}
 
 			return createFlagsQuickPickItem<Flags>(state.flags, flags, {
-				label: force
-					? `Force Delete ${worktreeWord}${selectedBranchesLabelSuffix}`
-					: `Delete ${worktreeWord}${selectedBranchesLabelSuffix}`,
+				label: label,
 				description: force ? '--force' : undefined,
 				detail: detail,
 				picked: true,
@@ -484,7 +557,7 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 			...(toggles.deleteBranch != null
 				? [
 						createQuickPickSeparator<FlagsQuickPickItem<Flags> | DirectiveQuickPickItem>(
-							'Additional Actions',
+							l10n.t('Additional Actions'),
 						),
 						toggles.deleteBranch,
 						...(toggles.deleteUpstream != null ? [toggles.deleteUpstream] : []),
@@ -493,17 +566,17 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 		];
 
 		toggles.force = createConfirmToggleQuickPickItem({
-			label: force ? '$(warning) Force' : 'Force',
+			label: force ? l10n.t('$(warning) Force') : l10n.t('Force'),
 			detail: force
-				? 'Delete even with uncommitted changes — the changes will be lost'
-				: 'Delete even with uncommitted changes',
+				? l10n.t('Delete even with uncommitted changes — the changes will be lost')
+				: l10n.t('Delete even with uncommitted changes'),
 			checked: force,
 			onDidChange: item => {
 				force = item.checked;
-				item.label = force ? '$(warning) Force' : 'Force';
+				item.label = force ? l10n.t('$(warning) Force') : l10n.t('Force');
 				item.detail = force
-					? 'Delete even with uncommitted changes — the changes will be lost'
-					: 'Delete even with uncommitted changes';
+					? l10n.t('Delete even with uncommitted changes — the changes will be lost')
+					: l10n.t('Delete even with uncommitted changes');
 				items = [buildItem()];
 				refreshConfirmStepItems(step, buildRows());
 			},
@@ -511,8 +584,10 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 
 		if (showAdditionalActions) {
 			toggles.deleteBranch = createConfirmToggleQuickPickItem({
-				label: state.uris.length === 1 ? 'Delete Branch' : 'Delete Branches',
-				detail: `Also delete the ${branchWord} checked out in the ${state.uris.length === 1 ? 'worktree' : 'worktrees'}`,
+				label: isSingleWorktree ? l10n.t('Delete Branch') : l10n.t('Delete Branches'),
+				detail: isSingleWorktree
+					? l10n.t('Also delete the branch checked out in the worktree')
+					: l10n.t('Also delete the branches checked out in the worktrees'),
 				checked: deleteBranches,
 				onDidChange: item => {
 					deleteBranches = item.checked;
@@ -528,11 +603,10 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 
 			if (canDeleteUpstreams) {
 				toggles.deleteUpstream = createConfirmToggleQuickPickItem({
-					label: state.uris.length === 1 ? 'Delete Upstream' : 'Delete Upstreams',
-					detail:
-						state.uris.length === 1
-							? "Also delete the branch's upstream from the remote"
-							: "Also delete the branches' upstreams from their remotes",
+					label: isSingleWorktree ? l10n.t('Delete Upstream') : l10n.t('Delete Upstreams'),
+					detail: isSingleWorktree
+						? l10n.t("Also delete the branch's upstream from the remote")
+						: l10n.t("Also delete the branches' upstreams from their remotes"),
 					checked: deleteUpstreams,
 					onDidChange: item => {
 						deleteUpstreams = item.checked;
@@ -572,12 +646,18 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 						0,
 						1,
 						createDirectiveQuickPickItem(Directive.Noop, false, {
-							label: 'Contains uncommitted changes',
+							label: l10n.t('Contains uncommitted changes'),
 							iconPath: new ThemeIcon('warning'),
 							detail:
 								dirty.length === 1
-									? `${dirty[0].name} has uncommitted changes — enable Force to delete anyway`
-									: `${pluralize('worktree', dirty.length)} have uncommitted changes — enable Force to delete anyway`,
+									? l10n.t(
+											'{0} has uncommitted changes — enable Force to delete anyway',
+											dirty[0].name,
+										)
+									: l10n.t(
+											'{0} worktrees have uncommitted changes — enable Force to delete anyway',
+											getNumericFormat()(dirty.length),
+										),
 						}),
 					);
 				} else {
@@ -591,13 +671,20 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 
 			notices.push(
 				createDirectiveQuickPickItem(Directive.Noop, false, {
-					label: `$(loading~spin) \u00a0Checking Worktrees...`,
+					label: l10n.t('$(loading~spin)  Checking Worktrees...'),
 				}),
 				createQuickPickSeparator(),
 			);
 		}
 
-		step = createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), buildRows(), context);
+		const confirmTitle = state.startingFromBranchDelete
+			? isSingleWorktree
+				? l10n.t('Confirm Delete Worktree for Branch')
+				: l10n.t('Confirm Delete Worktrees for Branches')
+			: isSingleWorktree
+				? l10n.t('Confirm Delete Worktree')
+				: l10n.t('Confirm Delete Worktrees');
+		step = createConfirmStep(appendReposToTitle(confirmTitle, state, context), buildRows(), confirmTitle);
 
 		const selection: StepSelection<typeof step> = yield step;
 		context.dirtyCheckSettledBeforeConfirm = dirtyCheckSettled;

@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
@@ -5,7 +6,7 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { RunningOperationExecState } from '../../../plus/graph/components/detailsState.js';
-import { chipStateSuffix, statusIconFor } from '../../../plus/graph/components/runningOperationStatus.js';
+import { chipStateLabel, statusIconFor } from '../../../plus/graph/components/runningOperationStatus.js';
 import { modeHeaderStyles, modeToggleStyles } from '../styles/lit/mode.css.js';
 import { renderDetailsMaximizeChip } from './details-maximize-chip.js';
 import { detailsHeaderStyles } from './gl-details-header.css.js';
@@ -33,26 +34,26 @@ const modeConfig: Record<
 > = {
 	compose: {
 		icon: 'wand',
-		label: 'Compose Changes',
-		closeLabel: 'Close',
-		text: 'Compose',
+		label: l10n.t('Compose Changes'),
+		closeLabel: l10n.t('Close'),
+		text: l10n.t('Compose'),
 		collapsible: true,
 		onboardingKey: 'details:compose:buttonCallout',
 	},
 	review: {
 		icon: 'checklist',
-		label: 'Review Changes',
-		closeLabel: 'Close',
-		text: 'Review',
+		label: l10n.t('Review Changes'),
+		closeLabel: l10n.t('Close'),
+		text: l10n.t('Review'),
 		collapsible: true,
 		onboardingKey: 'details:review:buttonCallout',
 	},
 	resolve: {
 		onboardingKey: 'details:resolve:buttonCallout',
 		icon: 'gl-merge',
-		label: 'Resolve Conflicts',
-		closeLabel: 'Close',
-		text: 'Resolve Conflicts',
+		label: l10n.t('Resolve Conflicts'),
+		closeLabel: l10n.t('Close'),
+		text: l10n.t('Resolve Conflicts'),
 		collapsible: true,
 	},
 };
@@ -176,7 +177,7 @@ export class GlDetailsHeader extends LitElement {
 			const overlayIcon = overlayState != null ? statusIconFor(overlayState, overlayHasResult) : null;
 
 			const baseLabel = config.label;
-			const label = `${baseLabel}${chipStateSuffix(overlayState, overlayHasResult)}`;
+			const label = chipStateLabel(baseLabel, overlayState, overlayHasResult);
 
 			// When the chip has text, the mode is already named — collapse the two-icon layout
 			// (mode icon + overlay suffix) into a single icon by letting the state icon replace
@@ -229,12 +230,12 @@ export class GlDetailsHeader extends LitElement {
 		return html`<gl-new-indicator key="details:compare:buttonCallout">
 			<gl-action-chip
 				icon="compare-changes"
-				label="Compare"
+				label=${l10n.t('Compare')}
 				overlay="tooltip"
 				class="mode-toggle mode-toggle--compare"
 				@click=${this.handleCompare}
 			>
-				<span class="mode-toggle__text">Compare</span>
+				<span class="mode-toggle__text">${l10n.t('Compare')}</span>
 			</gl-action-chip>
 		</gl-new-indicator>`;
 	}
@@ -270,7 +271,7 @@ export class GlDetailsHeader extends LitElement {
 		if (this.inResultsView) {
 			return html`${maximizeChip}<gl-action-chip
 					icon="debug-restart"
-					label="Restart"
+					label=${l10n.t('Restart')}
 					overlay="tooltip"
 					class="mode-restart"
 					@click=${this.handleBack}
@@ -289,7 +290,7 @@ export class GlDetailsHeader extends LitElement {
 
 		return html`${maximizeChip}<gl-action-chip
 				icon="refresh"
-				label="Refresh"
+				label=${l10n.t('Refresh')}
 				overlay="tooltip"
 				class="mode-refresh"
 				@click=${this.handleRefresh}

@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, ViewColumn } from 'vscode';
-import { env, Range, Uri, window, workspace } from 'vscode';
+import { env, l10n, Range, Uri, window, workspace } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
@@ -29,6 +29,7 @@ import type { FileAnnotationType } from '../../config.js';
 import { GlyphChars } from '../../constants.js';
 import type { Source } from '../../constants.telemetry.js';
 import { Container } from '../../container.js';
+import { getPresentableErrorMessage } from '../../errors.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker.js';
 import { executeCommand, executeEditorCommand } from '../../system/-webview/command.js';
@@ -138,7 +139,10 @@ export async function openCommitChanges(
 	if (!options?.title) {
 		options = {
 			...options,
-			title: `Changes in ${shortenRevision(commit.sha, { strings: { working: 'Working Tree' } })}`,
+			title: l10n.t(
+				'Changes in {0}',
+				shortenRevision(commit.sha, { strings: { working: l10n.t('Working Tree') } }),
+			),
 		};
 	}
 
@@ -150,8 +154,17 @@ export async function openCommitChangesInDiffTool(commit: GitCommit): Promise<vo
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message: `Are you sure you want to externally open the changes for each of the ${files.length} files?`,
-			confirmButton: 'Open Changes',
+			message:
+				files.length === 1
+					? l10n.t(
+							'Are you sure you want to externally open the changes for each of the {0} file?',
+							files.length,
+						)
+					: l10n.t(
+							'Are you sure you want to externally open the changes for each of the {0} files?',
+							files.length,
+						),
+			confirmButton: l10n.t('Open Changes'),
 			threshold: filesOpenDiffsThreshold,
 		}))
 	) {
@@ -186,8 +199,11 @@ export async function openMultipleChanges(
 	if (openIndividually) {
 		if (
 			!(await confirmOpenIfNeeded(files, {
-				message: `Are you sure you want to open the changes for each of the ${files.length} files?`,
-				confirmButton: 'Open Changes',
+				message:
+					files.length === 1
+						? l10n.t('Are you sure you want to open the changes for each of the {0} file?', files.length)
+						: l10n.t('Are you sure you want to open the changes for each of the {0} files?', files.length),
+				confirmButton: l10n.t('Open Changes'),
 				threshold: filesOpenDiffsThreshold,
 			}))
 		) {
@@ -209,8 +225,11 @@ export async function openMultipleChanges(
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message: `Are you sure you want to view the changes for all ${files.length} files?`,
-			confirmButton: 'View Changes',
+			message:
+				files.length === 1
+					? l10n.t('Are you sure you want to view the changes for all {0} file?', files.length)
+					: l10n.t('Are you sure you want to view the changes for all {0} files?', files.length),
+			confirmButton: l10n.t('View Changes'),
 			threshold: filesOpenMultiDiffThreshold,
 		}))
 	) {
@@ -221,9 +240,12 @@ export async function openMultipleChanges(
 	if (options != null) {
 		({ title, ...options } = options);
 	}
-	title ??= `Changes between ${shortenRevision(refs.lhs, { strings: { working: 'Working Tree' } })} ${
-		GlyphChars.ArrowLeftRightLong
-	} ${shortenRevision(refs.rhs, { strings: { working: 'Working Tree' } })}`;
+	title ??= l10n.t(
+		'Changes between {0} {1} {2}',
+		shortenRevision(refs.lhs, { strings: { working: l10n.t('Working Tree') } }),
+		GlyphChars.ArrowLeftRightLong,
+		shortenRevision(refs.rhs, { strings: { working: l10n.t('Working Tree') } }),
+	);
 
 	const svc = container.git.getRepositoryService(refs.repoPath);
 
@@ -295,8 +317,11 @@ export async function openWipMultipleChanges(
 ): Promise<void> {
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message: `Are you sure you want to view the changes for all ${files.length} files?`,
-			confirmButton: 'View Changes',
+			message:
+				files.length === 1
+					? l10n.t('Are you sure you want to view the changes for all {0} file?', files.length)
+					: l10n.t('Are you sure you want to view the changes for all {0} files?', files.length),
+			confirmButton: l10n.t('View Changes'),
 			threshold: filesOpenMultiDiffThreshold,
 		}))
 	) {
@@ -307,7 +332,7 @@ export async function openWipMultipleChanges(
 	if (options != null) {
 		({ title, ...options } = options);
 	}
-	title ??= 'Working Changes';
+	title ??= l10n.t('Working Changes');
 
 	const svc = container.git.getRepositoryService(repoPath);
 
@@ -425,8 +450,8 @@ export async function openWipChanges(
 		rhs = await revisionUri(file.path, rhsRef, emptyRhsUri);
 	}
 
-	const sideLabel = options?.sideTitle ?? (staged ? 'Index' : 'Working Tree');
-	const title = `${fileName} (${sideLabel})`;
+	const sideLabel = options?.sideTitle ?? (staged ? l10n.t('Index') : l10n.t('Working Tree'));
+	const title = l10n.t('{0} ({1})', fileName, sideLabel);
 
 	await openDiffEditor(lhs, rhs, title, options);
 }
@@ -634,18 +659,24 @@ export async function openFolderCompare(
 	const files = await svc.diff.getDiffStatus(comparison, undefined, { path: relativePath });
 	if (files == null) {
 		void window.showWarningMessage(
-			`No changes in '${relativePath}' between ${shortenRevision(refs.lhs, {
-				strings: { working: 'Working Tree' },
-			})} ${GlyphChars.ArrowLeftRightLong} ${shortenRevision(refs.rhs, {
-				strings: { working: 'Working Tree' },
-			})}`,
+			l10n.t(
+				"No changes in '{0}' between {1} {2} {3}",
+				relativePath,
+				shortenRevision(refs.lhs, { strings: { working: l10n.t('Working Tree') } }),
+				GlyphChars.ArrowLeftRightLong,
+				shortenRevision(refs.rhs, { strings: { working: l10n.t('Working Tree') } }),
+			),
 		);
 		return;
 	}
 
-	const title = `Changes in ${relativePath} between ${shortenRevision(refs.lhs, {
-		strings: { working: 'Working Tree' },
-	})} ${GlyphChars.ArrowLeftRightLong} ${shortenRevision(refs.rhs, { strings: { working: 'Working Tree' } })}`;
+	const title = l10n.t(
+		'Changes in {0} between {1} {2} {3}',
+		relativePath,
+		shortenRevision(refs.lhs, { strings: { working: l10n.t('Working Tree') } }),
+		GlyphChars.ArrowLeftRightLong,
+		shortenRevision(refs.rhs, { strings: { working: l10n.t('Working Tree') } }),
+	);
 
 	return openMultipleChanges(container, files, refs, false, { ...options, title: title });
 }
@@ -674,7 +705,9 @@ export async function openFile(
 		// isn't a silent no-op; users wanting the stashed content can pick "Open File at Revision".
 		// Skip this guard for WIP refs — untracked files in the working tree are real files.
 		if (typeof fileOrUri !== 'string' && fileOrUri.status === '?' && !isUncommitted(ref.ref)) {
-			void window.showWarningMessage('Unable to open working file. File could not be found in the working tree');
+			void window.showWarningMessage(
+				l10n.t('Unable to open working file. File could not be found in the working tree'),
+			);
 			return;
 		}
 	}
@@ -751,7 +784,9 @@ export async function openFileAtRevision(
 		editor = await getOrOpenTextEditor(uri, { throwOnError: true, ...opts });
 	} catch (ex) {
 		if (!ex?.message?.includes('Unable to resolve nonexistent file')) {
-			void window.showErrorMessage(`Unable to open '${gitUri.relativePath}' in revision '${gitUri.sha}'`);
+			void window.showErrorMessage(
+				l10n.t("Unable to open '{0}' in revision '{1}'", gitUri.relativePath, String(gitUri.sha)),
+			);
 			return;
 		}
 
@@ -761,8 +796,8 @@ export async function openFileAtRevision(
 			{
 				ignoreFocusOut: true,
 				initialPath: gitUri.relativePath,
-				title: `Open File at Revision \u2022 Unable to open '${gitUri.relativePath}'`,
-				placeholder: 'Choose a file revision to open',
+				title: l10n.t("Open File at Revision \u2022 Unable to open '{0}'", gitUri.relativePath),
+				placeholder: l10n.t('Choose a file revision to open'),
 				keyboard: {
 					keys: ['right', 'alt+right', 'ctrl+right'],
 					onDidPressKey: async (_key, uri) => {
@@ -813,8 +848,11 @@ export async function openFiles(
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message: `Are you sure you want to open each of the ${files.length} files?`,
-			confirmButton: 'Open Files',
+			message:
+				files.length === 1
+					? l10n.t('Are you sure you want to open each of the {0} file?', files.length)
+					: l10n.t('Are you sure you want to open each of the {0} files?', files.length),
+			confirmButton: l10n.t('Open Files'),
 			threshold: filesOpenThreshold,
 		}))
 	) {
@@ -843,8 +881,11 @@ export async function openFilesAtRevision(
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message: `Are you sure you want to open each of the ${files.length} file revisions?`,
-			confirmButton: 'Open Revisions',
+			message:
+				files.length === 1
+					? l10n.t('Are you sure you want to open each of the {0} file revision?', files.length)
+					: l10n.t('Are you sure you want to open each of the {0} file revisions?', files.length),
+			confirmButton: l10n.t('Open Revisions'),
 			threshold: filesOpenThreshold,
 		}))
 	) {
@@ -891,10 +932,12 @@ export async function restoreFile(
 	} catch (ex) {
 		void showGitErrorMessage(
 			ex,
-			`Unable to restore '${path}' from revision '${getReferenceLabel(revision, {
-				icon: false,
-				capitalize: false,
-			})}': ${ex.message}`,
+			l10n.t(
+				"Unable to restore '{0}' from revision '{1}': {2}",
+				path,
+				getReferenceLabel(revision, { icon: false, capitalize: false }),
+				getPresentableErrorMessage(ex),
+			),
 		);
 	}
 }
@@ -986,8 +1029,11 @@ export async function openOnlyChangedFiles(_container: Container, commitOrFiles:
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message: `Are you sure you want to open each of the ${files.length} files?`,
-			confirmButton: 'Open Files',
+			message:
+				files.length === 1
+					? l10n.t('Are you sure you want to open each of the {0} file?', files.length)
+					: l10n.t('Are you sure you want to open each of the {0} files?', files.length),
+			confirmButton: l10n.t('Open Files'),
 			threshold: 10,
 		}))
 	) {
@@ -1011,10 +1057,10 @@ export async function undoCommit(
 
 	if (headCommit?.sha !== commit.ref) {
 		void window.showWarningMessage(
-			`Commit ${getReferenceLabel(commit, {
-				capitalize: true,
-				icon: false,
-			})} cannot be undone, because it is no longer the most recent commit.`,
+			l10n.t(
+				'Commit {0} cannot be undone, because it is no longer the most recent commit.',
+				getReferenceLabel(commit, { capitalize: true, icon: false }),
+			),
 		);
 
 		return undefined;
@@ -1023,8 +1069,8 @@ export async function undoCommit(
 	// Check for uncommitted changes before prompting
 	const hasChanges = await svc.status.hasWorkingChanges();
 	if (hasChanges) {
-		const confirm = { title: 'Undo Commit' };
-		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const confirm = { title: l10n.t('Undo Commit') };
+		const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		// Label from `headCommit` (just confirmed to be HEAD) rather than the passed `commit` ref —
 		// its summary is the exact, un-emojified subject straight from git, so the dialog matches the
 		// commit regardless of how the caller's ref message was formatted (e.g. graph display emoji).
@@ -1033,13 +1079,10 @@ export async function undoCommit(
 			message: headCommit.message ?? headCommit.summary,
 		});
 		const result = await window.showWarningMessage(
-			`You have uncommitted changes in the working tree.\n\nDo you still want to undo ${getReferenceLabel(
-				exactRef,
-				{
-					capitalize: false,
-					icon: false,
-				},
-			)}?`,
+			l10n.t(
+				'You have uncommitted changes in the working tree.\n\nDo you still want to undo {0}?',
+				getReferenceLabel(exactRef, { capitalize: false, icon: false }),
+			),
 			{ modal: true },
 			confirm,
 			cancel,
@@ -1074,8 +1117,8 @@ async function confirmOpenIfNeeded(
 ): Promise<boolean> {
 	if (items.length <= options.threshold) return true;
 
-	const confirm = { title: options.confirmButton ?? 'Open' };
-	const cancel = { title: options.cancelButton ?? 'Cancel', isCloseAffordance: true };
+	const confirm = { title: options.confirmButton ?? l10n.t('Open') };
+	const cancel = { title: options.cancelButton ?? l10n.t('Cancel'), isCloseAffordance: true };
 	const result = await window.showWarningMessage(options.message, { modal: true }, confirm, cancel);
 	return result === confirm;
 }

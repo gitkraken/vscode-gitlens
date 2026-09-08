@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
+import * as l10n from '@vscode/l10n';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import type { DisposableTemporaryGitIndex, GitStagingSubProvider } from '@gitlens/git/providers/staging.js';
@@ -55,7 +56,7 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 				case 'current': {
 					// Copy the current index to preserve staged state
 					const gitDir = await this.provider.config.getGitDir?.(repoPath);
-					if (gitDir == null) throw new Error(`Unable to determine git directory for ${repoPath}`);
+					if (gitDir == null) throw new Error(l10n.t('Unable to determine git directory for {0}', repoPath));
 
 					const currentIndex = joinPaths(gitDir.uri.fsPath, 'index');
 					try {
@@ -69,7 +70,7 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 					break;
 				}
 				case 'ref': {
-					if (ref == null) throw new Error(`ref is required when from is 'ref'`);
+					if (ref == null) throw new Error(l10n.t("ref is required when from is 'ref'"));
 
 					// Create the temp index file from a base ref/sha
 					const newIndexResult = await this.git.run(

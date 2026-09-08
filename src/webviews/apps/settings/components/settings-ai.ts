@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
@@ -24,9 +25,9 @@ declare global {
  * "Composing Commits" here since only the commit-composing flow (not all WIP
  * composing) has a scoped model. */
 const scopedModelMeta: Record<ScopedAiModelInfo['scope'], { label: string; icon: string }> = {
-	compose: { label: 'Composing Commits', icon: 'wand' },
-	review: { label: 'Reviewing Changes', icon: 'checklist' },
-	resolve: { label: 'Resolving Conflicts', icon: 'gl-merge' },
+	compose: { label: l10n.t('Composing Commits'), icon: 'wand' },
+	review: { label: l10n.t('Reviewing Changes'), icon: 'checklist' },
+	resolve: { label: l10n.t('Resolving Conflicts'), icon: 'gl-merge' },
 };
 
 /**
@@ -177,9 +178,9 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 			if (this._state.serviceErrors.get().ai) {
 				return html`<div class="error" role="alert">
 					<code-icon icon="error" aria-hidden="true"></code-icon>
-					<span>Couldn’t load AI status.</span>
+					<span>${l10n.t('Couldn’t load AI status.')}</span>
 					<gl-button appearance="secondary" @click=${() => void this.actions?.loadSharedServices()}
-						>Retry</gl-button
+						>${l10n.t('Retry')}</gl-button
 					>
 				</div>`;
 			}
@@ -189,14 +190,14 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 		if (!ai.orgEnabled) {
 			return html`<p class="note">
 				<code-icon icon="org" aria-hidden="true"></code-icon>
-				<span>AI features have been disabled by your GitKraken admin.</span>
+				<span>${l10n.t('AI features have been disabled by your GitKraken admin.')}</span>
 			</p>`;
 		}
 
 		if (!ai.enabled) {
 			return html`<p class="note">
 				<code-icon icon="info" aria-hidden="true"></code-icon>
-				<span>AI features are currently disabled — use the switch above to enable them.</span>
+				<span>${l10n.t('AI features are currently disabled — use the switch above to enable them.')}</span>
 			</p>`;
 		}
 
@@ -217,14 +218,17 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 				aria-hidden="true"
 			></code-icon>
 			<span class="row__content">
-				<span class="row__title">Default AI Provider & Model</span>
+				<span class="row__title">${l10n.t('Default AI Provider & Model')}</span>
 				<span class="row__details"
 					>${
 						model?.name != null
-							? `${model?.provider.name} — ${model?.name}`
+							? l10n.t('{provider} — {model}', {
+									provider: model.provider.name,
+									model: model.name,
+								})
 							: failed
-								? "Couldn't load the current model"
-								: 'Select an AI model to enable AI features'
+								? l10n.t("Couldn't load the current model")
+								: l10n.t('Select an AI model to enable AI features')
 					}</span
 				>
 			</span>
@@ -235,8 +239,9 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 						source: 'settings',
 						detail: 'integrations',
 					})}"
-					tooltip="Switch AI Provider/Model"
-					><code-icon icon="arrow-swap" slot="prefix" aria-hidden="true"></code-icon> Switch</gl-button
+					tooltip=${l10n.t('Switch AI Provider/Model')}
+					><code-icon icon="arrow-swap" slot="prefix" aria-hidden="true"></code-icon>
+					${l10n.t('Switch')}</gl-button
 				>
 			</span>
 		</li>`;
@@ -262,7 +267,11 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 		// "select a default above" rather than a bare "unavailable": with no default and no override
 		// there's nothing to inherit, and the default row directly above is the only way out
 		const details =
-			model == null ? 'No model — select a default above' : isOverride ? model.name : `Default — ${model.name}`;
+			model == null
+				? l10n.t('No model — select a default above')
+				: isOverride
+					? model.name
+					: l10n.t('Default — {model}', { model: model.name });
 
 		return html`<li class="row row--${model != null ? 'connected' : 'disconnected'}">
 			<code-icon class="row__icon" icon="${meta.icon}" aria-hidden="true"></code-icon>
@@ -273,20 +282,21 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 			<span class="row__actions">
 				<gl-button
 					appearance="secondary"
-					aria-label="Switch AI Model for ${meta.label}"
-					tooltip="Switch AI Model for ${meta.label}"
+					aria-label=${l10n.t('Switch AI Model for {scope}', { scope: meta.label })}
+					tooltip=${l10n.t('Switch AI Model for {scope}', { scope: meta.label })}
 					@click=${() => void this.actions?.switchAiModel(scope)}
-					><code-icon icon="arrow-swap" slot="prefix" aria-hidden="true"></code-icon> Switch</gl-button
+					><code-icon icon="arrow-swap" slot="prefix" aria-hidden="true"></code-icon>
+					${l10n.t('Switch')}</gl-button
 				>
 				${
 					isOverride
 						? html`<gl-button
 								appearance="secondary"
-								aria-label="Use Default AI Model for ${meta.label}"
-								tooltip="Use Default AI Model for ${meta.label}"
+								aria-label=${l10n.t('Use Default AI Model for {scope}', { scope: meta.label })}
+								tooltip=${l10n.t('Use Default AI Model for {scope}', { scope: meta.label })}
 								@click=${() => void this.actions?.resetAiModel(scope)}
-								><code-icon icon="discard" slot="prefix" aria-hidden="true"></code-icon> Use
-								Default</gl-button
+								><code-icon icon="discard" slot="prefix" aria-hidden="true"></code-icon>
+								${l10n.t('Use Default')}</gl-button
 							>`
 						: nothing
 				}

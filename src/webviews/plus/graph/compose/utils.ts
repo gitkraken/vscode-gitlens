@@ -1,7 +1,8 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../../../container.js';
+import { getPresentableErrorMessage } from '../../../../errors.js';
 import type { ComposeHunk, ComposePlan, UndoForceOptions } from '../../../../plus/coretools/compose/types.js';
 import type { CommitResult, ComposeCommitPlan, ProposedCommit, ProposedCommitFile } from '../graphService.js';
 import type { GraphComposeIntegration } from './integration.js';
@@ -261,7 +262,11 @@ export async function executeComposeCommit(
 			telemetrySource: { source: 'graph' },
 		});
 	} catch (ex) {
-		return { error: { message: `Compose rewrite failed: ${ex instanceof Error ? ex.message : String(ex)}` } };
+		return {
+			error: {
+				message: l10n.t('Compose rewrite failed: {0}', getPresentableErrorMessage(ex)),
+			},
+		};
 	}
 
 	const stashConflict = result.stashConflict;
@@ -269,18 +274,27 @@ export async function executeComposeCommit(
 		return { success: true as const };
 	}
 
+	const keepRewrite = l10n.t('Keep Rewrite');
+	const rollBack = l10n.t('Roll Back');
+	const resolveManually = l10n.t('Resolve Manually');
 	const choice = await window.showWarningMessage(
-		`The compose rewrite succeeded, but re-applying your working changes hit a conflict. Your original state is saved as stash "${stashConflict.stashLabel}".`,
+		l10n.t(
+			'The compose rewrite succeeded, but re-applying your working changes hit a conflict. Your original state is saved as stash "{0}".',
+			stashConflict.stashLabel,
+		),
 		{ modal: true },
-		'Keep Rewrite',
-		'Roll Back',
-		'Resolve Manually',
+		keepRewrite,
+		rollBack,
+		resolveManually,
 	);
-	if (choice === 'Roll Back') {
+	if (choice === rollBack) {
 		if (result.undoId == null) {
 			return {
 				error: {
-					message: `Roll back unavailable: no undo manifest was created. Your original working changes remain in stash "${stashConflict.stashLabel}".`,
+					message: l10n.t(
+						'Roll back unavailable: no undo manifest was created. Your original working changes remain in stash "{0}".',
+						stashConflict.stashLabel,
+					),
 				},
 			};
 		}
@@ -292,21 +306,26 @@ export async function executeComposeCommit(
 				undoId: result.undoId,
 				force: force,
 			});
-			return { error: { message: 'Compose rewrite rolled back by user after stash conflict.' } };
+			return { error: { message: l10n.t('Compose rewrite rolled back by user after stash conflict.') } };
 		} catch (ex) {
 			Logger.error(ex, 'executeComposeCommit.rollback');
 			return {
 				error: {
-					message: `Roll back failed: ${
-						ex instanceof Error ? ex.message : String(ex)
-					}. Your original working changes remain in stash "${stashConflict.stashLabel}".`,
+					message: l10n.t(
+						'Roll back failed: {0}. Your original working changes remain in stash "{1}".',
+						getPresentableErrorMessage(ex),
+						stashConflict.stashLabel,
+					),
 				},
 			};
 		}
 	}
 	return {
 		success: true as const,
-		warning: `Working changes left in a conflicted state — resolve in stash "${stashConflict.stashLabel}".`,
+		warning: l10n.t(
+			'Working changes left in a conflicted state — resolve in stash "{0}".',
+			stashConflict.stashLabel,
+		),
 	};
 }
 
@@ -372,9 +391,13 @@ async function runAbandonedStashScan(container: Container, repoPath: string): Pr
 
 	const plural = abandoned.length > 1;
 	const prompt = plural
-		? `GitLens Compose left ${String(abandoned.length)} working-changes stashes that were not restored.`
-		: `GitLens Compose left a working-changes stash ("${abandoned[0].label}") that was not restored.`;
-	const choices: string[] = plural ? ['View Stashes'] : ['Pop', 'Drop', 'View'];
+		? l10n.t('GitLens Compose left {0} working-changes stashes that were not restored.', abandoned.length)
+		: l10n.t('GitLens Compose left a working-changes stash ("{0}") that was not restored.', abandoned[0].label);
+	const viewStashes = l10n.t('View Stashes');
+	const pop = l10n.t('Pop');
+	const drop = l10n.t('Drop');
+	const view = l10n.t('View');
+	const choices: string[] = plural ? [viewStashes] : [pop, drop, view];
 	const choice = await window.showWarningMessage(prompt, ...choices);
 	if (choice == null) {
 		const slot = dismissed ?? new Set<string>();
@@ -387,25 +410,27 @@ async function runAbandonedStashScan(container: Container, repoPath: string): Pr
 
 	if (!plural) {
 		const entry = abandoned[0];
-		if (choice === 'Pop') {
+		if (choice === pop) {
 			try {
 				const result = await svc.stash.applyStash(entry.name, { deleteAfter: true, index: true });
 				if (result.conflicted) {
-					void window.showWarningMessage(`Stash "${entry.label}" popped with conflicts — resolve manually.`);
+					void window.showWarningMessage(
+						l10n.t('Stash "{0}" popped with conflicts — resolve manually.', entry.label),
+					);
 				}
 			} catch (ex) {
 				void window.showErrorMessage(
-					`Failed to pop stash "${entry.label}": ${ex instanceof Error ? ex.message : String(ex)}`,
+					l10n.t('Failed to pop stash "{0}": {1}', entry.label, getPresentableErrorMessage(ex)),
 				);
 			}
 			return;
 		}
-		if (choice === 'Drop') {
+		if (choice === drop) {
 			try {
 				await svc.stash.deleteStash(entry.name);
 			} catch (ex) {
 				void window.showErrorMessage(
-					`Failed to drop stash "${entry.label}": ${ex instanceof Error ? ex.message : String(ex)}`,
+					l10n.t('Failed to drop stash "{0}": {1}', entry.label, getPresentableErrorMessage(ex)),
 				);
 			}
 			return;

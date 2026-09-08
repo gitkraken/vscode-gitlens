@@ -5,7 +5,7 @@ import type {
 	TextDocument,
 	WebviewPanel,
 } from 'vscode';
-import { Disposable, Uri, ViewColumn, window, workspace } from 'vscode';
+import { Disposable, l10n, Uri, ViewColumn, window, workspace } from 'vscode';
 import { parseRebaseTodo } from '@gitlens/git/parsers/rebaseTodoParser.js';
 import { uuid } from '@gitlens/utils/crypto.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
@@ -35,7 +35,7 @@ const descriptor: CustomEditorDescriptor = {
 	id: 'gitlens.rebase',
 	fileName: 'rebase.html',
 	iconPath: 'images/gitlens-icon.png',
-	title: 'Interactive Rebase',
+	title: l10n.t('Interactive Rebase'),
 	contextKeyPrefix: 'gitlens:webview:rebase',
 	trackingFeature: 'rebaseEditor',
 	type: 'rebase',
@@ -239,14 +239,16 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				// can still edit the todo file manually.
 				Logger.error(ex, 'RebaseEditorProvider', `Failed to resolve repository for ${repoUri.toString()}`);
 				void window.showWarningMessage(
-					"GitLens couldn't access this repository, so the Interactive Rebase Editor isn't available here. Falling back to the text editor.",
+					l10n.t(
+						"GitLens couldn't access this repository, so the Interactive Rebase Editor isn't available here. Falling back to the text editor.",
+					),
 				);
 				void reopenRebaseTodoEditor('default');
 				return;
 			}
 
 			// Set panel title and icon
-			panel.title = `${descriptor.title}${branchName ? ` (${branchName})` : ''}`;
+			panel.title = branchName != null ? l10n.t('{0} ({1})', descriptor.title, branchName) : descriptor.title;
 			panel.iconPath = Uri.file(this.container.context.asAbsolutePath(descriptor.iconPath));
 
 			panel.webview.options = {
@@ -288,7 +290,9 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			// generic message here keeps the user from seeing two competing notifications.
 			if (!isChunkLoadError(ex)) {
 				void window.showErrorMessage(
-					'GitLens was unable to open the Interactive Rebase Editor. Falling back to the text editor.',
+					l10n.t(
+						'GitLens was unable to open the Interactive Rebase Editor. Falling back to the text editor.',
+					),
 				);
 			}
 		}

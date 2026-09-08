@@ -1,5 +1,5 @@
 import type { TabChangeEvent, TabGroupChangeEvent, TextDocumentShowOptions } from 'vscode';
-import { Disposable, EventEmitter, Uri, ViewColumn, window } from 'vscode';
+import { Disposable, EventEmitter, l10n, Uri, ViewColumn, window } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
@@ -442,10 +442,10 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 		const pick = await showReferencePicker2(
 			repo.path,
-			params.type === 'base' ? 'Choose a Base Reference' : 'Choose a Head Reference',
+			params.type === 'base' ? l10n.t('Choose a Base Reference') : l10n.t('Choose a Head Reference'),
 			params.type === 'base'
-				? 'Choose a reference (branch, tag, etc) as the base to view history from'
-				: 'Choose a reference (branch, tag, etc) as the head to view history for',
+				? l10n.t('Choose a reference (branch, tag, etc) as the base to view history from')
+				: l10n.t('Choose a reference (branch, tag, etc) as the head to view history for'),
 			{
 				allowedAdditionalInput: { rev: true /*, range: true */ },
 				picked: ref?.ref,
@@ -655,7 +655,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 		}
 
 		if (this.host.is('editor')) {
-			this.host.title = title || 'Visual History';
+			this.host.title = title || l10n.t('Visual History');
 		} else {
 			this.host.description = title || proBadge;
 		}
@@ -719,9 +719,10 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 						{
 							preserveFocus: true,
 							preview: true,
-							title: `Folder Changes in ${shortenRevision(commit.sha, {
-								strings: { working: 'Working Tree' },
-							})}`,
+							title: l10n.t(
+								'Folder Changes in {0}',
+								shortenRevision(commit.sha, { strings: { working: l10n.t('Working Tree') } }),
+							),
 							...this.getOpenEditorShowOptions(),
 						},
 						type === 'folder' ? getFilesFilter(uri, commit.sha) : undefined,
@@ -734,9 +735,11 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 						{
 							preserveFocus: true,
 							preview: true,
-							title: `Folder Changes between ${shortenRevision(commit.sha, {
-								strings: { working: 'Working Tree' },
-							})} and Working Tree`,
+							title: l10n.t(
+								'Folder Changes between {0} and {1}',
+								shortenRevision(commit.sha, { strings: { working: l10n.t('Working Tree') } }),
+								l10n.t('Working Tree'),
+							),
 							...this.getOpenEditorShowOptions(),
 						},
 						type === 'folder' ? getFilesFilter(uri, commit.sha) : undefined,

@@ -1,4 +1,5 @@
-﻿import type { Uri } from 'vscode';
+﻿import { l10n } from 'vscode';
+import type { Uri } from 'vscode';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { proBadge, proBadgeSuperscript } from '../../constants.js';
 import type { Container } from '../../container.js';
@@ -48,8 +49,8 @@ export interface WorktreeGitCommandArgs {
 
 export class WorktreeGitCommand extends QuickCommandWithSubcommands<Subcommands, State, WorktreeContext> {
 	constructor(container: Container, args?: WorktreeGitCommandArgs) {
-		super(container, 'worktree', 'worktree', `Worktrees ${proBadgeSuperscript}`, {
-			description: `${proBadge}\u00a0\u00a0open, create, or delete worktrees`,
+		super(container, 'worktree', 'worktree', l10n.t('Worktrees {0}', proBadgeSuperscript), {
+			description: l10n.t('{0}  open, create, or delete worktrees', proBadge),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };

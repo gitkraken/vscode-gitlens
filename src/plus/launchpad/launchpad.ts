@@ -1,5 +1,5 @@
 import type { CancellationToken, QuickPick, QuickPickItem } from 'vscode';
-import { commands, QuickInputButtons, ThemeIcon, Uri, window } from 'vscode';
+import { commands, l10n, QuickInputButtons, ThemeIcon, Uri, window } from 'vscode';
 import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
@@ -8,7 +8,6 @@ import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { some } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
-import { interpolate } from '@gitlens/utils/string.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -46,7 +45,7 @@ import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs.js'
 import { proBadge, urls } from '../../constants.js';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import { getPresentableErrorMessage } from '../../errors.js';
+import { AuthenticationError, getPresentableErrorMessage } from '../../errors.js';
 import { formatCurrentUserDisplayName } from '../../git/utils/-webview/commit.utils.js';
 import {
 	createIntegrationErrorQuickPickItem,
@@ -69,7 +68,7 @@ import {
 	groupAndSortLaunchpadItems,
 	supportedLaunchpadIntegrations,
 } from './launchpadProvider.js';
-import type { LaunchpadAction, LaunchpadGroup } from './models/launchpad.js';
+import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup } from './models/launchpad.js';
 import { actionGroupMap, launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models/launchpad.js';
 import { startReviewFromLaunchpadItem } from './utils/-webview/startReview.utils.js';
 
@@ -117,8 +116,8 @@ function isToggleSearchModeItem(item: LaunchpadQuickPickItem): item is ToggleSea
 
 const connectMoreIntegrationsItem: ConnectMoreIntegrationsQuickPickItem = {
 	type: 'integrations',
-	label: 'Connect an Additional Integration...',
-	detail: 'Connect additional integrations to view their pull requests in Launchpad',
+	label: l10n.t('Connect an Additional Integration...'),
+	detail: l10n.t('Connect additional integrations to view their pull requests in Launchpad'),
 };
 
 interface Context extends StepsContext<StepNames> {
@@ -180,8 +179,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 	private savedSearch: string | undefined;
 
 	constructor(container: Container, args?: LaunchpadCommandArgs) {
-		super(container, 'launchpad', 'launchpad', `GitLens Launchpad\u00a0\u00a0${proBadge}`, {
-			description: 'focus on a pull request',
+		super(container, 'launchpad', 'launchpad', l10n.t('GitLens Launchpad\u00a0\u00a0{0}', proBadge), {
+			description: l10n.t('focus on a pull request'),
 		});
 
 		if (
@@ -474,7 +473,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				agent,
 			);
 		} catch (ex) {
-			void window.showErrorMessage(`Failed to start review: ${ex instanceof Error ? ex.message : String(ex)}`);
+			void window.showErrorMessage(
+				l10n.t('Failed to start review: {error}', { error: getPresentableErrorMessage(ex) }),
+			);
 		}
 	}
 
@@ -564,12 +565,15 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				buttons.push(OpenWorktreeInNewWindowQuickInputButton);
 			}
 
+			const author = i.author?.username;
+			const detail = getLaunchpadItemDetail(i.actionableCategory, fromNow(i.updatedDate), author);
+
 			return {
 				type: 'item',
 				label: i.title.length > 60 ? `${i.title.substring(0, 60)}...` : i.title,
 				// description: `${i.repoAndOwner}#${i.id}, by @${i.author}`,
 				description: `\u00a0 ${i.repository.owner.login}/${i.repository.name}#${i.id} \u00a0 ${
-					i.isNew ? '(New since last view)' : ''
+					i.isNew ? l10n.t('(New since last view)') : ''
 				}`,
 				detail: `      ${i.viewer.pinned ? '$(pinned) ' : ''}${
 					i.isDraft && ui !== 'draft' ? '$(git-pull-request-draft) ' : ''
@@ -577,9 +581,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					i.underlyingPullRequest.stack != null
 						? `$(layers) ${i.underlyingPullRequest.stack.position}/${i.underlyingPullRequest.stack.size} \u2022  `
 						: ''
-				}${
-					i.actionableCategory === 'other' ? '' : `${actionGroupMap.get(i.actionableCategory)![0]} \u2022  `
-				}${fromNow(i.updatedDate)} by @${i.author!.username}`,
+				}${detail}`,
 
 				alwaysShow: alwaysShow,
 				buttons: buttons,
@@ -642,14 +644,14 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			if (result?.error == null && !result?.items?.length) {
 				if (context.inSearch === 'mode') {
 					return {
-						title: `Search For Pull Request \u00a0\u2022\u00a0 ${context.title}`,
-						placeholder: 'Enter a term to search for a pull request to act on',
+						title: l10n.t('Search For Pull Request  •  {title}', { title: context.title }),
+						placeholder: l10n.t('Enter a term to search for a pull request to act on'),
 						items: [
 							{
 								type: 'searchMode',
 								searchMode: false,
-								label: 'Cancel Searching',
-								detail: isFiltering ? 'No pull requests found' : 'Go back to Launchpad',
+								label: l10n.t('Cancel Searching'),
+								detail: isFiltering ? l10n.t('No pull requests found') : l10n.t('Go back to Launchpad'),
 								alwaysShow: true,
 								picked: true,
 							} satisfies ToggleSearchModeQuickPickItem,
@@ -659,12 +661,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 				return {
 					title: context.title,
-					placeholder: 'All done! Take a vacation',
+					placeholder: l10n.t('All done! Take a vacation'),
 					items: [
 						{
 							type: 'searchMode',
 							searchMode: true,
-							label: 'Search for Pull Request...',
+							label: l10n.t('Search for Pull Request...'),
 							alwaysShow: true,
 							picked: true,
 						} satisfies ToggleSearchModeQuickPickItem,
@@ -683,15 +685,15 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				const offItem: ToggleSearchModeQuickPickItem = {
 					type: 'searchMode',
 					searchMode: false,
-					label: 'Cancel Searching',
-					detail: 'Go back to Launchpad',
+					label: l10n.t('Cancel Searching'),
+					detail: l10n.t('Go back to Launchpad'),
 					alwaysShow: true,
 					picked: !isFiltering && !hasPicked,
 				};
 
 				return {
-					title: `Search For Pull Request \u00a0\u2022\u00a0 ${context.title}`,
-					placeholder: 'Enter a term to search for a pull request to act on',
+					title: l10n.t('Search For Pull Request  •  {title}', { title: context.title }),
+					placeholder: l10n.t('Enter a term to search for a pull request to act on'),
 					items: isFiltering
 						? [...(errorItem != null ? [errorItem] : []), ...items, offItem]
 						: [offItem, ...(errorItem != null ? [errorItem] : []), ...items],
@@ -701,14 +703,14 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			const onItem: ToggleSearchModeQuickPickItem = {
 				type: 'searchMode',
 				searchMode: true,
-				label: 'Search for Pull Request...',
+				label: l10n.t('Search for Pull Request...'),
 				alwaysShow: true,
 				picked: !isFiltering && !hasPicked,
 			};
 
 			return {
 				title: context.title,
-				placeholder: 'Choose a pull request or paste a pull request URL to act on',
+				placeholder: l10n.t('Choose a pull request or paste a pull request URL to act on'),
 				items: isFiltering
 					? [...(errorItem != null ? [errorItem] : []), ...items, onItem]
 					: [onItem, ...(errorItem != null ? [errorItem] : []), ...items],
@@ -728,8 +730,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							{
 								type: 'searchMode',
 								searchMode: false,
-								label: `Searching for "${quickpick.value}"...`,
-								detail: 'Click to cancel searching',
+								label: l10n.t('Searching for "{query}"...', { query: quickpick.value }),
+								detail: l10n.t('Click to cancel searching'),
 								alwaysShow: true,
 								picked: true,
 							} satisfies ToggleSearchModeQuickPickItem,
@@ -977,10 +979,10 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					{
 						label: state.item.title,
 						description: `${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
-						detail: interpolate(actionGroupMap.get(state.item.actionableCategory)![1], {
-							author: state.item.author!.username,
-							createdDateRelative: fromNow(state.item.createdDate),
-						}),
+						detail: actionGroupMap.get(state.item.actionableCategory)![1](
+							state.item.author?.username ?? null,
+							fromNow(state.item.createdDate),
+						),
 						iconPath:
 							state.item.provider.id === GitSelfManagedHostIntegrationId.AzureDevOpsServer ||
 							state.item.provider.id === GitCloudHostIntegrationId.AzureDevOps
@@ -1002,14 +1004,14 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				),
 				createDirectiveQuickPickItem(Directive.Noop, false, { label: '' }),
 				...getLaunchpadItemInformationRows(state.item),
-				createQuickPickSeparator('Actions'),
+				createQuickPickSeparator(l10n.t('Actions')),
 			];
 
 			for (const action of state.item.suggestedActions) {
 				switch (action) {
 					case 'merge': {
-						let from;
-						let into;
+						let from: string | undefined;
+						let into: string | undefined;
 						if (
 							state.item.headRepository?.owner != null &&
 							state.item.headRepository.owner !== state.item.repository.owner
@@ -1017,28 +1019,61 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							from =
 								state.item.headRef != null
 									? `${state.item.headRepository.owner.login}:${state.item.headRef.name}`
-									: 'these changes';
+									: undefined;
 							into =
 								state.item.baseRef != null
-									? ` into ${state.item.repository.owner.login}:${state.item.baseRef.name}`
-									: '';
+									? `${state.item.repository.owner.login}:${state.item.baseRef.name}`
+									: undefined;
 						} else {
-							from = state.item.headRef?.name ?? 'these changes';
-							into = state.item.baseRef?.name ? ` into ${state.item.baseRef.name}` : '';
+							from = state.item.headRef?.name;
+							into = state.item.baseRef?.name;
 						}
 
 						const stack = state.item.underlyingPullRequest.stack;
 						const count = getStackedMergeCount(stack);
+						let detail: string;
+						if (stack != null && count > 1) {
+							const pullRequestCount = (count - 1).toString();
+							if (from == null) {
+								detail =
+									count - 1 === 1
+										? l10n.t(
+												'Will merge these changes and the {count} pull request below it in the stack, into {target}',
+												{ count: pullRequestCount, target: stack.baseRef },
+											)
+										: l10n.t(
+												'Will merge these changes and the {count} pull requests below it in the stack, into {target}',
+												{ count: pullRequestCount, target: stack.baseRef },
+											);
+							} else {
+								detail =
+									count - 1 === 1
+										? l10n.t(
+												'Will merge {source} and the {count} pull request below it in the stack, into {target}',
+												{ source: from, count: pullRequestCount, target: stack.baseRef },
+											)
+										: l10n.t(
+												'Will merge {source} and the {count} pull requests below it in the stack, into {target}',
+												{ source: from, count: pullRequestCount, target: stack.baseRef },
+											);
+							}
+						} else if (from == null) {
+							detail =
+								into == null
+									? l10n.t('Will merge these changes')
+									: l10n.t('Will merge these changes into {target}', { target: into });
+						} else {
+							detail =
+								into == null
+									? l10n.t('Will merge {source}', { source: from })
+									: l10n.t('Will merge {source} into {target}', { source: from, target: into });
+						}
+
 						confirmations.push(
 							createQuickPickItemOfT(
 								{
-									label: count > 1 ? 'Merge Stack...' : 'Merge...',
-									detail:
-										stack != null && count > 1
-											? `Will merge ${from} and the ${count - 1} pull request${
-													count - 1 === 1 ? '' : 's'
-												} below it in the stack, into ${stack.baseRef}`
-											: `Will merge ${from}${into}`,
+									label: count > 1 ? l10n.t('Merge Stack...') : l10n.t('Merge...'),
+									detail: detail,
 									buttons: [...gitProviderWebButtons],
 								},
 								action,
@@ -1050,9 +1085,10 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						confirmations.push(
 							createQuickPickItemOfT(
 								{
-									label: `${getOpenActionLabel(
+									label: getOpenActionLabel(
 										state.item.actionableCategory,
-									)} on ${getIntegrationTitle(state.item.provider.id)}`,
+										getIntegrationTitle(state.item.provider.id),
+									),
 									buttons: [...gitProviderWebButtons],
 								},
 								action,
@@ -1063,8 +1099,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						confirmations.push(
 							createQuickPickItemOfT(
 								{
-									label: 'Switch to Branch',
-									detail: 'Will checkout the branch, create or open a worktree',
+									label: l10n.t('Switch to Branch'),
+									detail: l10n.t('Will checkout the branch, create or open a worktree'),
 								},
 								action,
 							),
@@ -1074,8 +1110,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						confirmations.push(
 							createQuickPickItemOfT(
 								{
-									label: 'Open in Worktree',
-									detail: 'Will create or open a worktree in a new window',
+									label: l10n.t('Open in Worktree'),
+									detail: l10n.t('Will create or open a worktree in a new window'),
 								},
 								action,
 							),
@@ -1085,8 +1121,10 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						confirmations.push(
 							createQuickPickItemOfT(
 								{
-									label: 'Start Review with an Agent',
-									detail: 'Will open the pull request in a worktree and start a review with an AI agent',
+									label: l10n.t('Start Review with an Agent'),
+									detail: l10n.t(
+										'Will open the pull request in a worktree and start a review with an AI agent',
+									),
 								},
 								action,
 							),
@@ -1096,8 +1134,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						confirmations.push(
 							createQuickPickItemOfT(
 								{
-									label: 'Open Working Changes',
-									detail: 'Will open the working changes in the Commit Graph',
+									label: l10n.t('Open Working Changes'),
+									detail: l10n.t('Will open the working changes in the Commit Graph'),
 								},
 								action,
 							),
@@ -1107,8 +1145,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						confirmations.push(
 							createQuickPickItemOfT(
 								{
-									label: 'Open Changes',
-									detail: 'Will open the pull request changes for review',
+									label: l10n.t('Open Changes'),
+									detail: l10n.t('Will open the pull request changes for review'),
 								},
 								action,
 							),
@@ -1118,7 +1156,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						confirmations.push(
 							createQuickPickItemOfT(
 								{
-									label: 'Open in Commit Graph',
+									label: l10n.t('Open in Commit Graph'),
 								},
 								action,
 							),
@@ -1131,11 +1169,13 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		}
 
 		const step = this.createConfirmStep(
-			`Launchpad \u00a0\u2022\u00a0 Pull Request ${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
+			l10n.t('Launchpad  •  Pull Request {pullRequest}', {
+				pullRequest: `${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
+			}),
 			getConfirmations(),
+			l10n.t('Choose an action to perform'),
 			undefined,
 			{
-				placeholder: 'Choose an action to perform',
 				onDidClickItemButton: async (quickpick, button): Promise<void> => {
 					switch (button) {
 						case OpenOnGitHubQuickInputButton:
@@ -1203,14 +1243,18 @@ export class LaunchpadCommand extends QuickCommand<State> {
 	): AsyncStepResultGenerator<{ connected: boolean | IntegrationIds; resume: () => void | undefined }> {
 		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
 		const step = this.createConfirmStep(
-			`${this.title} \u00a0\u2022\u00a0 Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration`,
+			hasConnectedIntegration
+				? l10n.t('{title}  •  Connect an Additional Integration', { title: this.title })
+				: l10n.t('{title}  •  Connect an Integration', { title: this.title }),
 			[
 				...(hasConnectedIntegration
 					? []
 					: [
 							createDirectiveQuickPickItem(Directive.Cancel, undefined, {
-								label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
-								detail: 'Click to learn more about Launchpad',
+								label: l10n.t(
+									'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
+								),
+								detail: l10n.t('Click to learn more about Launchpad'),
 								iconPath: new ThemeIcon('rocket'),
 								onDidSelect: () =>
 									void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
@@ -1222,20 +1266,22 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						]),
 				createQuickPickItemOfT(
 					{
-						label: `Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration...`,
+						label: hasConnectedIntegration
+							? l10n.t('Connect an Additional Integration...')
+							: l10n.t('Connect an Integration...'),
 						detail: hasConnectedIntegration
-							? 'Connect additional integrations to view their pull requests in Launchpad'
-							: 'Connect an integration to accelerate your PR reviews',
+							? l10n.t('Connect additional integrations to view their pull requests in Launchpad')
+							: l10n.t('Connect an integration to accelerate your PR reviews'),
 						picked: true,
 					},
 					true,
 				),
 			],
-			createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
+			hasConnectedIntegration
+				? l10n.t('Connect additional integrations to Launchpad')
+				: l10n.t('Connect an integration to get started with Launchpad'),
+			createDirectiveQuickPickItem(Directive.Cancel, false, { label: l10n.t('Cancel') }),
 			{
-				placeholder: hasConnectedIntegration
-					? 'Connect additional integrations to Launchpad'
-					: 'Connect an integration to get started with Launchpad',
 				buttons: [],
 				ignoreFocusOut: true,
 			},
@@ -1247,7 +1293,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			let previousPlaceholder: string | undefined;
 			if (step.quickpick) {
 				previousPlaceholder = step.quickpick.placeholder;
-				step.quickpick.placeholder = 'Connecting integrations...';
+				step.quickpick.placeholder = l10n.t('Connecting integrations...');
 			}
 			const resume = step.freeze?.();
 			const connected = await this.container.integrations.connectCloudIntegrations(
@@ -1340,21 +1386,21 @@ function getLaunchpadItemInformationRows(
 	switch (item.actionableCategory) {
 		case 'mergeable':
 			information.push(
-				createQuickPickSeparator('Status'),
+				createQuickPickSeparator(l10n.t('Status')),
 				getLaunchpadItemStatusInformation(item),
 				...getLaunchpadItemReviewInformation(item),
 			);
 			break;
 		case 'failed-checks':
 		case 'conflicts':
-			information.push(createQuickPickSeparator('Status'), getLaunchpadItemStatusInformation(item));
+			information.push(createQuickPickSeparator(l10n.t('Status')), getLaunchpadItemStatusInformation(item));
 			break;
 		case 'unassigned-reviewers':
 		case 'needs-my-review':
 		case 'changes-requested':
 		case 'reviewer-commented':
 		case 'waiting-for-review':
-			information.push(createQuickPickSeparator('Reviewers'), ...getLaunchpadItemReviewInformation(item));
+			information.push(createQuickPickSeparator(l10n.t('Reviewers')), ...getLaunchpadItemReviewInformation(item));
 			break;
 		default:
 			break;
@@ -1369,24 +1415,31 @@ function getLaunchpadItemInformationRows(
 
 function getLaunchpadItemStatusInformation(item: LaunchpadItem): QuickPickItemOfT<LaunchpadAction> {
 	let status: string | undefined;
-	const base = item.baseRef?.name != null ? `$(git-branch) ${item.baseRef.name}` : '';
+	const base = item.baseRef?.name != null ? `$(git-branch) ${item.baseRef.name}` : undefined;
 	const ciStatus = item.headCommit?.buildStatuses?.[0].state;
 	if (ciStatus === ProviderBuildStatusState.Success) {
 		if (item.hasConflicts) {
-			status = `$(error) Conflicts with ${base}, but passed CI checks`;
+			status =
+				base == null
+					? l10n.t('$(error) Conflicts, but passed CI checks')
+					: l10n.t('$(error) Conflicts with {base}, but passed CI checks', { base: base });
 		} else {
-			status = `$(pass) No conflicts, and passed CI checks`;
+			status = l10n.t('$(pass) No conflicts, and passed CI checks');
 		}
 	} else if (ciStatus === ProviderBuildStatusState.Failed) {
 		if (item.hasConflicts) {
-			status = `$(error) Conflicts with ${base}, and failed CI checks`;
+			status =
+				base == null
+					? l10n.t('$(error) Conflicts, and failed CI checks')
+					: l10n.t('$(error) Conflicts with {base}, and failed CI checks', { base: base });
 		} else {
-			status = `$(error) No conflicts, but failed CI checks`;
+			status = l10n.t('$(error) No conflicts, but failed CI checks');
 		}
 	} else if (item.hasConflicts) {
-		status = `$(error) Conflicts with ${base}`;
+		status =
+			base == null ? l10n.t('$(error) Has conflicts') : l10n.t('$(error) Conflicts with {base}', { base: base });
 	} else {
-		status = `$(pass) No conflicts`;
+		status = l10n.t('$(pass) No conflicts');
 	}
 
 	const gitProviderWebButtons = getOpenOnGitProviderQuickInputButtons(item.provider.id);
@@ -1398,7 +1451,7 @@ function getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOf
 	if (item.reviews == null || item.reviews.length === 0) {
 		return [
 			createQuickPickItemOfT(
-				{ label: `$(info) No reviewers have been assigned`, buttons: [...gitProviderWebButtons] },
+				{ label: l10n.t('$(info) No reviewers have been assigned'), buttons: [...gitProviderWebButtons] },
 				'soft-open',
 			),
 		];
@@ -1422,16 +1475,30 @@ function getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOf
 					: new ThemeIcon('account');
 		switch (review.state) {
 			case ProviderPullRequestReviewState.Approved:
-				reviewLabel = `${reviewerName} approved these changes`;
+				reviewLabel =
+					reviewerName == null
+						? l10n.t('An unknown reviewer approved these changes')
+						: l10n.t('{reviewer} approved these changes', { reviewer: reviewerName });
 				break;
 			case ProviderPullRequestReviewState.ChangesRequested:
-				reviewLabel = `${reviewerName} requested changes`;
+				reviewLabel =
+					reviewerName == null
+						? l10n.t('An unknown reviewer requested changes')
+						: l10n.t('{reviewer} requested changes', { reviewer: reviewerName });
 				break;
 			case ProviderPullRequestReviewState.Commented:
-				reviewLabel = `${reviewerName} left a comment review`;
+				reviewLabel =
+					reviewerName == null
+						? l10n.t('An unknown reviewer left a comment review')
+						: l10n.t('{reviewer} left a comment review', { reviewer: reviewerName });
 				break;
 			case ProviderPullRequestReviewState.ReviewRequested:
-				reviewLabel = `${reviewerName} ${style === 'you' ? "haven't" : "hasn't"} reviewed these changes yet`;
+				reviewLabel =
+					reviewerName == null
+						? l10n.t("An unknown reviewer hasn't reviewed these changes yet")
+						: style === 'you'
+							? l10n.t("{reviewer} haven't reviewed these changes yet", { reviewer: reviewerName })
+							: l10n.t("{reviewer} hasn't reviewed these changes yet", { reviewer: reviewerName });
 				break;
 		}
 
@@ -1448,25 +1515,74 @@ function getLaunchpadItemReviewInformation(item: LaunchpadItem): QuickPickItemOf
 	return reviewInfo;
 }
 
-function getOpenActionLabel(actionCategory: string) {
+function getLaunchpadItemDetail(
+	actionCategory: LaunchpadActionCategory,
+	date: string,
+	author: string | null | undefined,
+): string {
+	switch (actionCategory) {
+		case 'mergeable':
+			return author == null
+				? l10n.t('Ready to Merge • {date} by @unknown', { date: date })
+				: l10n.t('Ready to Merge • {date} by @{author}', { date: date, author: author });
+		case 'unassigned-reviewers':
+			return author == null
+				? l10n.t('Unassigned Reviewers • {date} by @unknown', { date: date })
+				: l10n.t('Unassigned Reviewers • {date} by @{author}', { date: date, author: author });
+		case 'failed-checks':
+			return author == null
+				? l10n.t('Failed Checks • {date} by @unknown', { date: date })
+				: l10n.t('Failed Checks • {date} by @{author}', { date: date, author: author });
+		case 'conflicts':
+			return author == null
+				? l10n.t('Resolve Conflicts • {date} by @unknown', { date: date })
+				: l10n.t('Resolve Conflicts • {date} by @{author}', { date: date, author: author });
+		case 'needs-my-review':
+			return author == null
+				? l10n.t('Needs Your Review • {date} by @unknown', { date: date })
+				: l10n.t('Needs Your Review • {date} by @{author}', { date: date, author: author });
+		case 'changes-requested':
+			return author == null
+				? l10n.t('Changes Requested • {date} by @unknown', { date: date })
+				: l10n.t('Changes Requested • {date} by @{author}', { date: date, author: author });
+		case 'reviewer-commented':
+			return author == null
+				? l10n.t('Reviewers Commented • {date} by @unknown', { date: date })
+				: l10n.t('Reviewers Commented • {date} by @{author}', { date: date, author: author });
+		case 'waiting-for-review':
+			return author == null
+				? l10n.t('Waiting for Review • {date} by @unknown', { date: date })
+				: l10n.t('Waiting for Review • {date} by @{author}', { date: date, author: author });
+		case 'draft':
+			return author == null
+				? l10n.t('Draft • {date} by @unknown', { date: date })
+				: l10n.t('Draft • {date} by @{author}', { date: date, author: author });
+		case 'other':
+			return author == null
+				? l10n.t('{date} by @unknown', { date: date })
+				: l10n.t('{date} by @{author}', { date: date, author: author });
+	}
+}
+
+function getOpenActionLabel(actionCategory: string, integration: string): string {
 	switch (actionCategory) {
 		case 'unassigned-reviewers':
-			return 'Assign Reviewers';
+			return l10n.t('Assign Reviewers on {integration}', { integration: integration });
 		case 'failed-checks':
-			return 'Resolve Failing Checks';
+			return l10n.t('Resolve Failing Checks on {integration}', { integration: integration });
 		case 'conflicts':
-			return 'Resolve Conflicts';
+			return l10n.t('Resolve Conflicts on {integration}', { integration: integration });
 		case 'needs-my-review':
-			return 'Start Reviewing';
+			return l10n.t('Start Reviewing on {integration}', { integration: integration });
 		case 'changes-requested':
 		case 'reviewer-commented':
-			return 'Respond to Reviewers';
+			return l10n.t('Respond to Reviewers on {integration}', { integration: integration });
 		case 'waiting-for-review':
-			return 'Check In with Reviewers';
+			return l10n.t('Check In with Reviewers on {integration}', { integration: integration });
 		case 'draft':
-			return 'View draft';
+			return l10n.t('View draft on {integration}', { integration: integration });
 		default:
-			return 'Open';
+			return l10n.t('Open on {integration}', { integration: integration });
 	}
 }
 
@@ -1516,7 +1632,11 @@ function updateTelemetryContext(context: Context) {
 
 	if (!context.result.items) {
 		const errorMessage =
-			context.result.error != null ? getPresentableErrorMessage(context.result.error) : 'items not loaded';
+			context.result.error == null
+				? 'items not loaded'
+				: context.result.error instanceof AuthenticationError
+					? context.result.error.message
+					: String(context.result.error);
 		updatedContext = {
 			...context.telemetryContext,
 			'items.error': errorMessage,
@@ -1538,7 +1658,10 @@ function updateTelemetryContext(context: Context) {
 		}
 
 		if (context.result.error != null) {
-			updatedContext['items.error'] = getPresentableErrorMessage(context.result.error);
+			updatedContext['items.error'] =
+				context.result.error instanceof AuthenticationError
+					? context.result.error.message
+					: String(context.result.error);
 		}
 	}
 

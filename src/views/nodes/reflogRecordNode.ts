@@ -1,4 +1,4 @@
-import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { l10n, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import { GitReflogRecord } from '@gitlens/git/models/reflog.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
@@ -33,7 +33,7 @@ export class ReflogRecordNode extends ViewNode<'reflog-record', ViewsWithCommits
 
 	async getChildren(): Promise<ViewNode[]> {
 		const log = await this.getLog();
-		if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
+		if (log === undefined) return [new MessageNode(this.view, this, l10n.t('No commits could be found.'))];
 
 		const children: (CommitNode | LoadMoreNode)[] = [
 			...map(log.commits.values(), c => new CommitNode(this.view, this, c)),

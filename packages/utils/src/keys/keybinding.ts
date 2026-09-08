@@ -11,6 +11,12 @@ import { matchesChord, parseChord } from './chord.js';
  */
 export type SheetDisplayEntry = string;
 
+/** Whole localized prose with named key-chip groups; never passed to the keybinding parser. */
+export type SheetDisplayText = {
+	message: string;
+	keys: Readonly<Record<string, readonly SheetDisplayEntry[]>>;
+};
+
 /**
  * Another binding this row also presents keys for — typically the `sheet: 'hidden'` partner of a
  * "previous / next" pair, so overriding either half's keys still shows up here.
@@ -27,8 +33,10 @@ export type SheetEntry = {
 	order?: number;
 	/** The visible binding's OWN keys — a partner's keys are never included here, see `with`. */
 	keysOverride?: readonly SheetDisplayEntry[];
-	/** Second line rendered under the label — same display grammar as `keysOverride`. */
+	/** Second line rendered under the label, with optional whole-message localization. */
 	subline?: readonly SheetDisplayEntry[];
+	/** Whole localized subline; takes precedence over legacy display entries. */
+	sublineText?: SheetDisplayText;
 	with?: readonly SheetPartner[];
 };
 

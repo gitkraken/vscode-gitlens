@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { QuickInputButton, ThemeIcon } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
@@ -52,32 +53,32 @@ export async function* inputBranchNameStep<
 ): AsyncStepResultGenerator<string> {
 	const step = createInputStep({
 		title: appendReposToTitle(options?.title ?? context.title, state, context),
-		placeholder: options?.placeholder ?? 'Branch name',
+		placeholder: options?.placeholder ?? l10n.t('Branch name'),
 		value: options?.value,
-		prompt: options?.prompt ?? 'Please provide a branch name',
+		prompt: options?.prompt ?? l10n.t('Please provide a branch name'),
 		canGoBack: context.steps?.canGoBack,
 		validate: async (value: string | undefined): Promise<[boolean, string | undefined]> => {
 			if (!value) return [false, undefined];
 
 			value = value.trim();
-			if (!value.length) return [false, 'Please enter a valid branch name'];
+			if (!value.length) return [false, l10n.t('Please enter a valid branch name')];
 
 			if ('repo' in state) {
 				const valid = await state.repo.git.refs.checkIfCouldBeValidBranchOrTagName(value);
-				if (!valid) return [false, `'${value}' isn't a valid branch name`];
+				if (!valid) return [false, l10n.t("'{0}' isn't a valid branch name", value)];
 
 				const alreadyExists = await state.repo.git.branches.getBranch(value);
-				if (alreadyExists) return [false, `A branch named '${value}' already exists`];
+				if (alreadyExists) return [false, l10n.t("A branch named '{0}' already exists", value)];
 
 				return [true, undefined];
 			}
 
 			for (const repo of state.repos) {
 				const valid = await repo.git.refs.checkIfCouldBeValidBranchOrTagName(value);
-				if (!valid) return [false, `'${value}' isn't a valid branch name`];
+				if (!valid) return [false, l10n.t("'{0}' isn't a valid branch name", value)];
 
 				const alreadyExists = await repo.git.branches.getBranch(value);
-				if (alreadyExists) return [false, `A branch named '${value}' already exists`];
+				if (alreadyExists) return [false, l10n.t("A branch named '{0}' already exists", value)];
 			}
 
 			return [true, undefined];
@@ -112,7 +113,7 @@ export function* pickBranchStep<
 
 	const step = createPickStep<BranchQuickPickItem>({
 		title: appendReposToTitle(options?.title ?? context.title, state, context),
-		placeholder: count => (!count ? `No branches found in ${state.repo.name}` : options?.placeholder),
+		placeholder: count => (!count ? l10n.t('No branches found in {0}', state.repo.name) : options?.placeholder),
 		matchOnDetail: true,
 		items: items,
 		canGoBack: context.steps?.canGoBack,
@@ -161,7 +162,9 @@ export function* pickBranchesStep<
 		multiselect: true,
 		title: appendReposToTitle(options?.title ?? context.title, state, context),
 		placeholder: count =>
-			!count ? (options?.emptyPlaceholder ?? `No branches found in ${state.repo.name}`) : options?.placeholder,
+			!count
+				? (options?.emptyPlaceholder ?? l10n.t('No branches found in {0}', state.repo.name))
+				: options?.placeholder,
 		matchOnDetail: true,
 		items: items,
 		canGoBack: context.steps?.canGoBack,
@@ -222,7 +225,7 @@ export function* pickOrResetBranchStep<
 
 	const step = createPickStep<BranchQuickPickItem>({
 		title: appendReposToTitle(options?.title ?? context.title, state, context),
-		placeholder: count => (!count ? `No branches found in ${state.repo.name}` : options?.placeholder),
+		placeholder: count => (!count ? l10n.t('No branches found in {0}', state.repo.name) : options?.placeholder),
 		matchOnDetail: true,
 		items: items,
 		canGoBack: context.steps?.canGoBack,

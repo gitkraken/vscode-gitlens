@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import { createReference, getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import { pad } from '@gitlens/utils/string.js';
@@ -42,8 +43,8 @@ export interface StatusGitCommandArgs {
 
 export class StatusGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: StatusGitCommandArgs) {
-		super(container, 'status', 'status', 'Status', {
-			description: 'shows status information about a repository',
+		super(container, 'status', 'status', l10n.t('Status'), {
+			description: l10n.t('shows status information about a repository'),
 		});
 
 		this.initialState = { confirm: false, ...args?.state };

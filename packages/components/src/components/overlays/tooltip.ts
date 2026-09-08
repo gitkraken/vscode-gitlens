@@ -3,7 +3,7 @@ import type { CSSResult } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { elevatedSurface } from '../styles/lit/elevation.css.js';
-import { handleUnsafeOverlayContent } from './overlays.utils.js';
+import { renderOverlayContent } from './overlays.utils.js';
 import '@awesome.me/webawesome/dist/components/popup/popup.js';
 
 let _tooltipIdCounter = 0;
@@ -72,7 +72,7 @@ export class GlTooltip extends LitElement {
 		}
 
 		/* Style hr inside the tooltip body. The slot[name=content] selector matches
-   fallback content, which is where handleUnsafeOverlayContent puts the hr it
+   fallback content, which is where renderOverlayContent puts the hr it
    generates from "\\n\\n" in a .content string (e.g. gl-copy-container's tooltip).
    Slotted content from consumers lives in their light DOM and isn't reachable
    from here — those consumers need their own [slot=content] hr rule. */
@@ -320,7 +320,7 @@ export class GlTooltip extends LitElement {
 				role="tooltip"
 				aria-live=${this.open ? 'polite' : 'off'}
 			>
-				<slot name="content">${handleUnsafeOverlayContent(this.content)}</slot>
+				<slot name="content">${renderOverlayContent(this.content)}</slot>
 			</div>
 		</wa-popup>`;
 	}

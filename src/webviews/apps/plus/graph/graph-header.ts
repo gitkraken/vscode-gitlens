@@ -1,6 +1,7 @@
 import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import { computed, SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing, svg } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -12,6 +13,7 @@ import type { GlPopover } from '@gitlens/components/components/overlays/popover.
 import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { inlineCode } from '@gitlens/components/components/styles/lit/base.css.js';
 import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { SearchOperatorsLongForm, SearchQuery } from '@gitlens/git/models/search.js';
 import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { parseSearchQuery } from '@gitlens/git/utils/search.utils.js';
@@ -308,7 +310,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		const scopePath = this.graphState.worktreePerspective?.path ?? null;
 		if (this._lastAnnouncedScopePath !== undefined && this._lastAnnouncedScopePath !== scopePath) {
 			this._scopeAnnouncement =
-				scopePath != null ? `Scoped to worktree ${this.worktreeDisplayName(scopePath)}` : 'Unscoped';
+				scopePath != null
+					? l10n.t('Scoped to worktree {0}', this.worktreeDisplayName(scopePath))
+					: l10n.t('Unscoped');
 		}
 		this._lastAnnouncedScopePath = scopePath;
 
@@ -1194,7 +1198,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 		const { allowed, branch, branchState, config, lastFetched, loading, worktreePerspective } = this.graphState;
 		// Names what a plain jump-to-ref click will do, so the label can't drift from the behavior.
-		const focusLabel = this.isScopedToCurrentBranch ? 'Unfocus Current Branch' : 'Focus on Current Branch';
+		const focusLabel = this.isScopedToCurrentBranch
+			? l10n.t('Unfocus Current Branch')
+			: l10n.t('Focus on Current Branch');
 
 		// Optimistic pill label: while a perspective is set but its rebind push hasn't landed, show the
 		// perspective's OWN branch name — `branch` is still the OLD binding's until the push confirms the
@@ -1216,11 +1222,15 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		// unscoped case — has to be folded in rather than swapped out for the scope state.
 		const pillBranchLabel =
 			pillBranch?.name != null
-				? `Switch Branch${worktreeScopedName != null ? ' in Worktree' : ''} — ${pillBranch.name}`
-				: `Switch Branch${worktreeScopedName != null ? ' in Worktree' : ''}...`;
+				? worktreeScopedName != null
+					? l10n.t('Switch Branch in Worktree — {0}', pillBranch.name)
+					: l10n.t('Switch Branch — {0}', pillBranch.name)
+				: worktreeScopedName != null
+					? l10n.t('Switch Branch in Worktree...')
+					: l10n.t('Switch Branch...');
 		const pillAriaLabel =
 			worktreeScopedName != null
-				? `${pillBranchLabel}, scoped to worktree ${worktreeScopedName}`
+				? l10n.t('{0}, scoped to worktree {1}', pillBranchLabel, worktreeScopedName)
 				: pillBranchLabel;
 
 		// The window's HOME worktree name, for the unscope tooltip's "returns to X" line. Falls back to a
@@ -1246,7 +1256,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 					.source=${{ source: 'graph' } as const}
 					@gl-click=${this.onRepositorySelectorClicked}
 					><span slot="tooltip">
-						Switch to Another Repository...
+						${l10n.t('Switch to Another Repository...')}
 						<hr />
 						${repo?.name}
 					</span></gl-repo-button-group
@@ -1309,13 +1319,15 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 											? html`<div class="scope-banner">
 														<code-icon icon="gl-scope"></code-icon>
 														<span class="scope-banner__text">
-															<span class="scope-banner__label">Scoped to Worktree</span>
+															<span class="scope-banner__label"
+																>${l10n.t('Scoped to Worktree')}</span
+															>
 															<span class="scope-banner__name"
 																>${worktreeScopedName}</span
 															>
 														</span>
 													</div>
-													Switch Branch in Worktree...
+													${l10n.t('Switch Branch in Worktree...')}
 													<hr />
 													<gl-branch-name .name=${pillBranch?.name}></gl-branch-name>${
 														worktreePerspective != null
@@ -1325,10 +1337,10 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 																</div>`
 															: ''
 													}`
-											: html`Switch Branch...
+											: html`${l10n.t('Switch Branch...')}
 													<hr />
 													<gl-branch-name .name=${pillBranch?.name}></gl-branch-name>${
-														pillWorktree ? html`<i> (in a worktree)</i> ` : ''
+														pillWorktree ? html`<i> (${l10n.t('in a worktree')})</i> ` : ''
 													}`
 									}
 								</div>
@@ -1340,19 +1352,21 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 										<button
 											type="button"
 											class="ref-button-group__clear"
-											aria-label="Unscope Worktree"
+											aria-label=${l10n.t('Unscope Worktree')}
 											@click=${this.handleUnscopeWorktree}
 										>
 											<code-icon icon="gl-unscope"></code-icon>
 										</button>
 										<div slot="content">
-											Unscope Worktree
+											${l10n.t('Unscope Worktree')}
 											<hr />
 											${
 												homeName != null
-													? html`Returns to <strong>${homeName}</strong>
-															<i>(active worktree)</i>`
-													: 'Returns to your active worktree'
+													? localizedContent(l10n.t('Returns to {home} {activeWorktree}'), {
+															home: html`<strong>${homeName}</strong>`,
+															activeWorktree: html`<i>${l10n.t('(active worktree)')}</i>`,
+														})
+													: l10n.t('Returns to your active worktree')
 											}
 										</div>
 									</gl-tooltip>
@@ -1376,8 +1390,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							<span slot="tooltip">
 								${
 									this._modifiers.altKey
-										? html`Focus on a Branch...`
-										: html`${focusLabel}<br />[${getAltKeySymbol()}] Focus on a Branch...`
+										? html`${l10n.t('Focus on a Branch...')}`
+										: html`${focusLabel}<br />${l10n.t('[{0}] Focus on a Branch...', getAltKeySymbol())}`
 								}
 							</span>
 						</gl-button>
@@ -1422,19 +1436,21 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			.distance=${0}
 		>
 			<gl-tooltip slot="anchor" placement="bottom">
-				<button type="button" class="action-button" aria-haspopup="true" aria-label="Start New">
+				<button type="button" class="action-button" aria-haspopup="true" aria-label=${l10n.t('Start New')}>
 					<code-icon icon="gl-start-new"></code-icon>
 					<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>
 				</button>
-				<span slot="content">Start New</span>
+				<span slot="content">${l10n.t('Start New')}</span>
 			</gl-tooltip>
 			<div slot="content">
 				<menu-item href=${createCommandLink('gitlens.startWork', { source: 'graph-header' })}>
-					<span class="action-menu__item"><code-icon icon="issues"></code-icon>Start Work on an Issue…</span>
+					<span class="action-menu__item"
+						><code-icon icon="issues"></code-icon>${l10n.t('Start Work on an Issue…')}</span
+					>
 				</menu-item>
 				<menu-item href=${createCommandLink('gitlens.startReview', { source: { source: 'graph-header' } })}>
 					<span class="action-menu__item"
-						><code-icon icon="git-pull-request"></code-icon>Start Review on a PR…</span
+						><code-icon icon="git-pull-request"></code-icon>${l10n.t('Start Review on a PR…')}</span
 					>
 				</menu-item>
 				<menu-divider></menu-divider>
@@ -1445,16 +1461,22 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						state: { subcommand: 'create', reference: branch },
 					})}
 				>
-					<span class="action-menu__item"><code-icon icon="git-branch"></code-icon>Create Branch…</span>
+					<span class="action-menu__item"
+						><code-icon icon="git-branch"></code-icon>${l10n.t('Create Branch…')}</span
+					>
 				</menu-item>
 				<menu-item href=${createCommandLink('gitlens.views.createWorktree')}>
-					<span class="action-menu__item"><code-icon icon="gl-worktree"></code-icon>Create Worktree…</span>
+					<span class="action-menu__item"
+						><code-icon icon="gl-worktree"></code-icon>${l10n.t('Create Worktree…')}</span
+					>
 				</menu-item>
 				<menu-divider></menu-divider>
 				<menu-item
 					href=${createCommandLink('gitlens.stashesApply', { repoPath: this.graphState.selectedRepository })}
 				>
-					<span class="action-menu__item"><code-icon icon="gl-stash-pop"></code-icon>Apply / Pop Stash…</span>
+					<span class="action-menu__item"
+						><code-icon icon="gl-stash-pop"></code-icon>${l10n.t('Apply / Pop Stash…')}</span
+					>
 				</menu-item>
 			</div>
 		</gl-popover>`;
@@ -1464,7 +1486,10 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		if (!hasTruthyKeys(excludeRefs)) return nothing;
 
 		const refs = this.excludeRefs;
-		const countLabel = `${refs.length} hidden ${refs.length === 1 ? 'branch or tag' : 'branches and tags'}`;
+		const countLabel =
+			refs.length === 1
+				? l10n.t('{0} hidden branch or tag', refs.length)
+				: l10n.t('{0} hidden branches and tags', refs.length);
 
 		return html`<gl-popover
 			appearance="menu"
@@ -1482,7 +1507,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				<span slot="content">${countLabel}</span>
 			</gl-tooltip>
 			<div slot="content">
-				<menu-label>Hidden Branches / Tags</menu-label>
+				<menu-label>${l10n.t('Hidden Branches / Tags')}</menu-label>
 				${repeat(
 					refs,
 					ref => ref.id,
@@ -1494,7 +1519,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						this.handleOnToggleRefsVisibilityClick(event, refs, true);
 					}}
 				>
-					Show All
+					${l10n.t('Show All')}
 				</menu-item>
 			</div>
 		</gl-popover>`;
@@ -1600,7 +1625,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							</span>
 						`,
 					)}
-					<action-nav class="button-group" role="toolbar" aria-label="Graph layout">
+					<action-nav class="button-group" role="toolbar" aria-label=${l10n.t('Graph layout')}>
 						${when(
 							config?.sidebar,
 							() => html`
@@ -1609,14 +1634,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 									tooltip=${
 										(this.graphState.sidebar?.visible ?? false) &&
 										this.graphState.sidebar?.activePanel != null
-											? 'Hide Side Bar'
-											: 'Show Side Bar'
+											? l10n.t('Hide Side Bar')
+											: l10n.t('Show Side Bar')
 									}
 									aria-label=${
 										(this.graphState.sidebar?.visible ?? false) &&
 										this.graphState.sidebar?.activePanel != null
-											? 'Hide Side Bar'
-											: 'Show Side Bar'
+											? l10n.t('Hide Side Bar')
+											: l10n.t('Show Side Bar')
 									}
 									@click=${this.handleSidebarToggled}
 								>
@@ -1636,8 +1661,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							() => html`
 								<gl-button
 									appearance="toolbar"
-									tooltip=${this.minimapVisible ? 'Hide Minimap' : 'Show Minimap'}
-									aria-label=${this.minimapVisible ? 'Hide Minimap' : 'Show Minimap'}
+									tooltip=${this.minimapVisible ? l10n.t('Hide Minimap') : l10n.t('Show Minimap')}
+									aria-label=${this.minimapVisible ? l10n.t('Hide Minimap') : l10n.t('Show Minimap')}
 									@click=${() => this.handleMinimapToggled()}
 								>
 									<code-icon
@@ -1664,9 +1689,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		const altLocation = currentLocation === 'bottom' ? 'right' : 'bottom';
 		const previewLocation = this._modifiers.altKey ? altLocation : currentLocation;
 		const isBottom = previewLocation === 'bottom';
-		const baseLabel = this.detailsVisible ? 'Hide Details Panel' : 'Show Details Panel';
-		const altLabel = `Show Details Panel on ${altLocation === 'bottom' ? 'Bottom' : 'Right'}`;
-		const tooltip = this._modifiers.altKey ? altLabel : `${baseLabel}\n[${getAltKeySymbol()}] ${altLabel}`;
+		const baseLabel = this.detailsVisible ? l10n.t('Hide Details Panel') : l10n.t('Show Details Panel');
+		const altLabel =
+			altLocation === 'bottom' ? l10n.t('Show Details Panel on Bottom') : l10n.t('Show Details Panel on Right');
+		const tooltip = this._modifiers.altKey
+			? altLabel
+			: l10n.t('{0}\n[{1}] {2}', baseLabel, getAltKeySymbol(), altLabel);
 
 		return html`<span class="split-toolbar">
 			<gl-button
@@ -1699,12 +1727,17 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 					slot="anchor"
 					class="split-toolbar__chevron"
 					appearance="toolbar"
-					aria-label="Details Panel Placement"
+					aria-label=${l10n.t('Details Panel Placement')}
 					aria-haspopup="menu"
 				>
 					<code-icon icon="chevron-down"></code-icon>
 				</gl-button>
-				<div slot="content" class="details-placement" role="menu" aria-label="Details Panel Placement">
+				<div
+					slot="content"
+					class="details-placement"
+					role="menu"
+					aria-label=${l10n.t('Details Panel Placement')}
+				>
 					${this.renderDetailsPlacementOption('auto')} ${this.renderDetailsPlacementOption('right')}
 					${this.renderDetailsPlacementOption('bottom')}
 				</div>
@@ -1714,13 +1747,15 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	private renderDetailsPlacementOption(location: 'auto' | 'right' | 'bottom') {
 		const checked = this.detailsLocation === location;
-		const label = location === 'auto' ? 'Auto' : location === 'right' ? 'Right' : 'Bottom';
+		const label = location === 'auto' ? l10n.t('Auto') : location === 'right' ? l10n.t('Right') : l10n.t('Bottom');
 		const description =
 			location === 'auto'
-				? `Picks a side to fit the window's shape — currently ${this.detailsAutoLocation}`
+				? this.detailsAutoLocation === 'right'
+					? l10n.t("Picks a side to fit the window's shape — currently right")
+					: l10n.t("Picks a side to fit the window's shape — currently bottom")
 				: location === 'right'
-					? 'Always docked to the right'
-					: 'Always docked at the bottom';
+					? l10n.t('Always docked to the right')
+					: l10n.t('Always docked at the bottom');
 
 		return html`<gl-tooltip placement="bottom">
 			<button

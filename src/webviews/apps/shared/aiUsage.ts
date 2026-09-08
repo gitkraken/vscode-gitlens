@@ -1,12 +1,5 @@
+import * as l10n from '@vscode/l10n';
 import type { AiUsageInfo } from '../../rpc/services/types.js';
-
-/**
- * Unit word for the GitKraken AI allowance — credits, per the GitKraken AI help docs and pricing
- * (allowances are stated per-plan as credits/week; gk.dev's per-action breakdown tracks tokens as a
- * separate figure). Matches the Settings Account panel's plan copy from `getSubscriptionPlanAiCredits`
- * ("N credits/week"). Kept as a single constant so the unit lives in one place.
- */
-export const aiUsageUnit = 'credits';
 
 /**
  * Compact figures for the AI usage meters ("63K", "250K", "1M"). `formatNumeric` in
@@ -18,6 +11,13 @@ const compactNumberFormatter = new Intl.NumberFormat(undefined, { notation: 'com
 /** A credit count, compacted for display. */
 export function formatAiCredits(value: number): string {
 	return compactNumberFormatter.format(value);
+}
+
+function formatAiUsageFigure(used: number, limit: number): string {
+	return l10n.t('{used} of {limit} credits', {
+		used: formatAiCredits(used),
+		limit: formatAiCredits(limit),
+	});
 }
 
 /** What an AI usage meter renders — see `resolveAiUsage` for the sentinel rules behind it. */
@@ -50,11 +50,11 @@ export function resolveAiUsage(usage: AiUsageInfo): ResolvedAiUsage {
 	let figure: string;
 	let percent: number | undefined;
 	if (unlimited) {
-		figure = 'Unlimited';
+		figure = l10n.t('Unlimited');
 	} else if (usage.limit === 0) {
-		figure = 'No weekly allowance';
+		figure = l10n.t('No weekly allowance');
 	} else {
-		figure = `${formatAiCredits(usage.used)} of ${formatAiCredits(usage.limit)} ${aiUsageUnit}`;
+		figure = formatAiUsageFigure(usage.used, usage.limit);
 		percent = Math.min(100, Math.max(0, (usage.used / usage.limit) * 100));
 	}
 
@@ -98,12 +98,16 @@ export function resolveAiOrgPool(
 	organization: NonNullable<AiUsageInfo['organization']>,
 	sharedUsed: number | undefined,
 ): ResolvedAiOrgPool {
-	if (organization.limit === -1) return { figure: 'Unlimited', segments: undefined, summary: undefined };
-	if (organization.limit === 0) return { figure: 'No shared allowance', segments: undefined, summary: undefined };
+	if (organization.limit === -1) {
+		return { figure: l10n.t('Unlimited'), segments: undefined, summary: undefined };
+	}
+	if (organization.limit === 0) {
+		return { figure: l10n.t('No shared allowance'), segments: undefined, summary: undefined };
+	}
 
 	// The figure states what the backend reported; only the geometry below is clamped, so a nonsense
 	// payload stays visible as a number instead of being silently normalized away.
-	const figure = `${formatAiCredits(organization.used)} of ${formatAiCredits(organization.limit)} ${aiUsageUnit}`;
+	const figure = formatAiUsageFigure(organization.used, organization.limit);
 	const usedCredits = Math.max(0, organization.used);
 	// Over-draw pins the bar full rather than overflowing it, exactly as the personal meter does.
 	const usedPercent = Math.min(100, Math.max(0, (usedCredits / organization.limit) * 100));
@@ -121,8 +125,14 @@ export function resolveAiOrgPool(
 	return {
 		figure: figure,
 		segments: { yours: yours, rest: usedPercent - yours },
-		summary: `Your usage ${formatAiCredits(yoursCredits)} ${aiUsageUnit}, rest of organization ${formatAiCredits(
-			restCredits,
-		)} ${aiUsageUnit}, remaining ${formatAiCredits(remainingCredits)} ${aiUsageUnit}`,
+		summary: formatAiOrgPoolSummary(yoursCredits, restCredits, remainingCredits),
 	};
+}
+
+function formatAiOrgPoolSummary(yours: number, rest: number, remaining: number): string {
+	return l10n.t('Your usage {yours} credits, rest of organization {rest} credits, remaining {remaining} credits', {
+		yours: formatAiCredits(yours),
+		rest: formatAiCredits(rest),
+		remaining: formatAiCredits(remaining),
+	});
 }

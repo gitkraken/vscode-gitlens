@@ -1,5 +1,5 @@
 import type { QuickPickItem } from 'vscode';
-import { QuickPickItemKind } from 'vscode';
+import { l10n, QuickPickItemKind } from 'vscode';
 import type { Container } from '../../container.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
@@ -164,12 +164,13 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 	protected createConfirmStep<T extends QuickPickItem>(
 		title: string,
 		confirmations: T[],
+		placeholder: string,
 		cancel?: DirectiveQuickPickItem,
-		options: Partial<QuickPickStep<T>> = {},
+		options: Omit<Partial<QuickPickStep<T>>, 'placeholder'> = {},
 	): QuickPickStep<T> {
 		// A notice-only step (no confirmation rows) has nothing to skip
 		if (!this.canSkipConfirm || !this.supportsSkipConfirmToggle || confirmations.length === 0) {
-			return createConfirmStep(title, confirmations, { title: this.title }, cancel, options);
+			return createConfirmStep(title, confirmations, placeholder, cancel, options);
 		}
 
 		let step: QuickPickStep<T>;
@@ -180,9 +181,9 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 		// recomposing from the captured `confirmations` array here would revert any newer rows a
 		// command toggle's own refresh has since installed (e.g. a mode row with updated flags).
 		const toggle = createConfirmToggleQuickPickItem({
-			label: "Don't Ask Again",
+			label: l10n.t("Don't Ask Again"),
 			// No title interpolation — command titles like "Switch to..." read badly mid-sentence
-			detail: 'Skip this confirmation from now on — change anytime in settings',
+			detail: l10n.t('Skip this confirmation from now on — change anytime in settings'),
 			checked: !this.confirm(),
 			onDidChange: async () => {
 				const skipConfirmations = [...(configuration.get('gitCommands.skipConfirmations') ?? [])];
@@ -210,7 +211,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 			toggle as unknown as T,
 		];
 
-		step = createConfirmStep(title, [...confirmations, ...appended], { title: this.title }, cancel, options);
+		step = createConfirmStep(title, [...confirmations, ...appended], placeholder, cancel, options);
 		// Survive command-driven refreshes — a command rebuilding its rows in place only knows its
 		// own rows, so the refresh helper re-appends these
 		step.appendedItems = appended;

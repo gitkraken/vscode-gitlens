@@ -1,8 +1,9 @@
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../agentUtils.js';
@@ -42,19 +43,19 @@ function formatElapsed(value: number | undefined): string | undefined {
 	if (value == null) return undefined;
 
 	const seconds = Math.floor((Date.now() - value) / 1000);
-	if (seconds < 60) return `${seconds}s`;
+	if (seconds < 60) return l10n.t('{seconds}s', { seconds: seconds });
 
 	const minutes = Math.floor(seconds / 60);
-	if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+	if (minutes < 60) return l10n.t('{minutes}m {seconds}s', { minutes: minutes, seconds: seconds % 60 });
 
 	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h ${minutes % 60}m`;
+	if (hours < 24) return l10n.t('{hours}h {minutes}m', { hours: hours, minutes: minutes % 60 });
 
 	const days = Math.floor(hours / 24);
-	if (days < 7) return `${days}d ${hours % 24}h`;
+	if (days < 7) return l10n.t('{days}d {hours}h', { days: days, hours: hours % 24 });
 
 	const weeks = Math.floor(days / 7);
-	return `${weeks}w ${days % 7}d`;
+	return l10n.t('{weeks}w {days}d', { weeks: weeks, days: days % 7 });
 }
 
 declare global {
@@ -614,7 +615,7 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 		const { category, sessions } = this.summary!;
 		const baseLabel = getAgentCategoryLabel(category);
 		const count = sessions.length;
-		const label = count > 1 ? `${baseLabel} · ${count}` : baseLabel;
+		const label = count > 1 ? l10n.t('{label} · {count}', { label: baseLabel, count: count }) : baseLabel;
 		const shown = sessions.slice(0, maxSummaryRows);
 
 		// `auto-size-vertical` caps the popover to the space the view actually has and scrolls the
@@ -651,10 +652,35 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 	): unknown {
 		if (sessions.length <= shown) return nothing;
 
-		const countText = pluralize(
-			`more ${getAgentCategoryLabel(category).toLowerCase()} session`,
-			sessions.length - shown,
-		);
+		const remaining = sessions.length - shown;
+		const count = getNumericFormat()(remaining);
+		let countText: string;
+		switch (category) {
+			case 'needs-input':
+				countText =
+					remaining === 1
+						? l10n.t('{count} more needs input session', { count: count })
+						: l10n.t('{count} more needs input sessions', { count: count });
+				break;
+			case 'working':
+				countText =
+					remaining === 1
+						? l10n.t('{count} more working session', { count: count })
+						: l10n.t('{count} more working sessions', { count: count });
+				break;
+			case 'idle':
+				countText =
+					remaining === 1
+						? l10n.t('{count} more idle session', { count: count })
+						: l10n.t('{count} more idle sessions', { count: count });
+				break;
+			case 'ended':
+				countText =
+					remaining === 1
+						? l10n.t('{count} more past session', { count: count })
+						: l10n.t('{count} more past sessions', { count: count });
+				break;
+		}
 
 		let sharedWorktreePath: string | undefined;
 		if (category === 'ended') {
@@ -728,7 +754,11 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 			)}
 			${
 				archiveHref != null
-					? html`<action-item label="Archive Session" icon="archive" href=${archiveHref}></action-item>`
+					? html`<action-item
+							label=${l10n.t('Archive Session')}
+							icon="archive"
+							href=${archiveHref}
+						></action-item>`
 					: nothing
 			}
 		</action-nav>`;
@@ -809,8 +839,8 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 							alwaysAllow: true,
 						})
 					: undefined;
-			const allowLabel = permission.kind === 'plan' ? 'Approve Plan' : 'Allow';
-			const denyLabel = permission.kind === 'plan' ? 'Reject Plan' : 'Deny';
+			const allowLabel = permission.kind === 'plan' ? l10n.t('Approve Plan') : l10n.t('Allow');
+			const denyLabel = permission.kind === 'plan' ? l10n.t('Reject Plan') : l10n.t('Deny');
 
 			return html`
 				<action-nav class="pill__actions" @mousedown=${this.onActionMouseDown}>
@@ -832,7 +862,11 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 				)}
 				${
 					archiveHref != null
-						? html`<action-item label="Archive Session" icon="archive" href=${archiveHref}></action-item>`
+						? html`<action-item
+								label=${l10n.t('Archive Session')}
+								icon="archive"
+								href=${archiveHref}
+							></action-item>`
 						: nothing
 				}
 			</action-nav>
@@ -862,7 +896,7 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 				session.lastPrompt
 					? html`
 							<div class="hover-section">
-								<span class="hover-section__label">Last Prompt</span>
+								<span class="hover-section__label">${l10n.t('Last Prompt')}</span>
 								<span class="hover-prompt">${session.lastPrompt}</span>
 							</div>
 						`
@@ -872,7 +906,7 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 				stickyTool != null
 					? html`
 							<div class="hover-section">
-								<span class="hover-section__label">Current Tool</span>
+								<span class="hover-section__label">${l10n.t('Current Tool')}</span>
 								<span class="hover-section__value">${stickyTool}</span>
 							</div>
 						`
@@ -885,7 +919,7 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 							<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
 								<gl-button appearance="secondary" full density="compact" href=${openHref}>
 									<code-icon icon="link-external" slot="prefix"></code-icon>
-									Open Session
+									${l10n.t('Open Session')}
 								</gl-button>
 							</div>
 						`
@@ -930,8 +964,8 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 					decision: 'deny' as const,
 				})
 			: undefined;
-		const allowLabel = canResolve && permission.kind === 'plan' ? 'Approve Plan' : 'Allow';
-		const denyLabel = canResolve && permission.kind === 'plan' ? 'Reject Plan' : 'Deny';
+		const allowLabel = canResolve && permission.kind === 'plan' ? l10n.t('Approve Plan') : l10n.t('Allow');
+		const denyLabel = canResolve && permission.kind === 'plan' ? l10n.t('Reject Plan') : l10n.t('Deny');
 
 		return html`
 			<div class="hover-header">
@@ -943,7 +977,7 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 				permission != null
 					? html`
 							<div class="hover-section">
-								<span class="hover-section__label">Request</span>
+								<span class="hover-section__label">${l10n.t('Request')}</span>
 								<gl-agent-prompt-detail .permission=${permission}></gl-agent-prompt-detail>
 							</div>
 						`
@@ -953,7 +987,7 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 				session.lastPrompt
 					? html`
 							<div class="hover-section">
-								<span class="hover-section__label">Last Prompt</span>
+								<span class="hover-section__label">${l10n.t('Last Prompt')}</span>
 								<span class="hover-prompt">${session.lastPrompt}</span>
 							</div>
 						`
@@ -988,12 +1022,12 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 								<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
 									<gl-button appearance="secondary" full density="compact" href=${openHref}>
 										<code-icon icon="link-external" slot="prefix"></code-icon>
-										Open Session
+										${l10n.t('Open Session')}
 									</gl-button>
 									${
 										permission != null
 											? html`<span class="hover-actions__hint"
-													>Answer in the agent's session</span
+													>${l10n.t("Answer in the agent's session")}</span
 												>`
 											: nothing
 									}
@@ -1009,19 +1043,19 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 	private renderMoreActionsMenu(openHref: string, alwaysAllowHref: string | undefined): unknown {
 		return html`
 			<gl-popover placement="bottom-end" trigger="click">
-				<action-item slot="anchor" label="More actions" icon="ellipsis"></action-item>
+				<action-item slot="anchor" label=${l10n.t('More actions')} icon="ellipsis"></action-item>
 				<div slot="content" class="more-menu" role="menu" @mousedown=${this.onActionMouseDown}>
 					${
 						alwaysAllowHref != null
 							? html`<a class="more-menu__item" role="menuitem" href=${alwaysAllowHref}>
 									<code-icon icon="check-all"></code-icon>
-									<span>Always Allow</span>
+									<span>${l10n.t('Always Allow')}</span>
 								</a>`
 							: nothing
 					}
 					<a class="more-menu__item" role="menuitem" href=${openHref}>
 						<code-icon icon="link-external"></code-icon>
-						<span>Open Session</span>
+						<span>${l10n.t('Open Session')}</span>
 					</a>
 				</div>
 			</gl-popover>
@@ -1045,7 +1079,7 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 				session.lastPrompt
 					? html`
 							<div class="hover-section">
-								<span class="hover-section__label">Last Prompt</span>
+								<span class="hover-section__label">${l10n.t('Last Prompt')}</span>
 								<span class="hover-prompt">${session.lastPrompt}</span>
 							</div>
 						`
@@ -1077,7 +1111,7 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 													href=${archiveHref}
 												>
 													<code-icon icon="archive" slot="prefix"></code-icon>
-													Archive
+													${l10n.t('Archive')}
 												</gl-button>`
 											: nothing
 									}

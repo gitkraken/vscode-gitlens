@@ -1,7 +1,7 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import type { GlTooltip } from '@gitlens/components/components/overlays/tooltip.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
@@ -117,7 +117,7 @@ export class GlPopoverConfirm extends LitElement {
 
 	/** The text for the confirm button */
 	@property()
-	confirm = 'Confirm';
+	confirm = l10n.t('Confirm');
 
 	/** The appearance for the confirm button */
 	@property({ attribute: 'confirm-appearance' })
@@ -129,7 +129,7 @@ export class GlPopoverConfirm extends LitElement {
 
 	/** The text for the cancel button */
 	@property()
-	cancel = 'Cancel';
+	cancel = l10n.t('Cancel');
 
 	/** Which button to focus initially: 'confirm' or 'cancel' */
 	@property({ attribute: 'initial-focus' })
@@ -175,11 +175,7 @@ export class GlPopoverConfirm extends LitElement {
 						}
 						<h4 id="confirm-title" class="confirm-popover__title">${this.heading}</h4>
 					</div>
-					${
-						this.message
-							? html`<p class="confirm-popover__message">${unsafeHTML(this.message)}</p>`
-							: nothing
-					}
+					${this.message ? html`<p class="confirm-popover__message">${this.message.split(/(\n)/g).map(part => (part === '\n' ? html`<br />` : part))}</p>` : nothing}
 					<div class="confirm-popover__actions">
 						<gl-button
 							class="cancel-button"

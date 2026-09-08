@@ -50,6 +50,32 @@ class TestProvider extends OpenAICompatibleProviderBase<'openai'> {
 
 const provider = () => new TestProvider(context);
 
+suite('AIProviderContext URL prompt compatibility', () => {
+	test('accepts callers that predate the optional prompt copy', async () => {
+		let receivedPrompt: string | undefined;
+		const legacyCompatibleContext: AIProviderContext = {
+			...context,
+			getOrPromptUrl: (_providerId, options) => {
+				receivedPrompt = options.prompt;
+				return Promise.resolve(options.currentUrl);
+			},
+		};
+
+		const url = await legacyCompatibleContext.getOrPromptUrl(
+			'custom-provider',
+			{
+				currentUrl: 'https://example.com',
+				title: 'Custom Provider',
+				placeholder: 'https://example.com',
+			},
+			false,
+		);
+
+		assert.strictEqual(url, 'https://example.com');
+		assert.strictEqual(receivedPrompt, undefined);
+	});
+});
+
 suite('OpenAICompatibleProviderBase tool serialization', () => {
 	test('wraps tool definitions in the OpenAI function envelope', () => {
 		const { tools } = provider().tools([

@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { RevertError, SigningError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
@@ -59,8 +59,10 @@ export interface RevertGitCommandArgs {
 
 export class RevertGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: RevertGitCommandArgs) {
-		super(container, 'revert', 'revert', 'Revert', {
-			description: 'undoes the changes of specified commits, by creating new commits with inverted changes',
+		super(container, 'revert', 'revert', l10n.t('Revert'), {
+			description: l10n.t(
+				'undoes the changes of specified commits, by creating new commits with inverted changes',
+			),
 		});
 
 		this.initialState = { confirm: true, ...args?.state };
@@ -86,35 +88,44 @@ export class RevertGitCommand extends QuickCommand<State> {
 			const result = await state.repo.git.ops?.revert(refs, options);
 			if (result?.conflicted) {
 				void window.showWarningMessage(
-					'Unable to revert due to conflicts. Resolve the conflicts before continuing, or abort the revert.',
+					l10n.t(
+						'Unable to revert due to conflicts. Resolve the conflicts before continuing, or abort the revert.',
+					),
 				);
 				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the revert
 			if (RevertError.is(ex, 'aborted')) {
-				Logger.debug(ex.message, this.title);
+				Logger.debug(ex.message, 'Revert');
 				return;
 			}
 
-			Logger.error(ex, this.title);
+			Logger.error(ex, 'Revert');
 
 			if (RevertError.is(ex, 'uncommittedChanges') || RevertError.is(ex, 'wouldOverwriteChanges')) {
 				void window.showWarningMessage(
-					'Unable to revert. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+					l10n.t(
+						'Unable to revert. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+					),
 				);
 				return;
 			}
 
 			if (RevertError.is(ex, 'alreadyInProgress')) {
 				void window.showWarningMessage(
-					'Unable to revert. A revert is already in progress. Continue or abort the current revert first.',
+					l10n.t(
+						'Unable to revert. A revert is already in progress. Continue or abort the current revert first.',
+					),
 				);
 				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 				return;
 			}
 
-			void showGitErrorMessage(ex, RevertError.is(ex) || SigningError.is(ex) ? undefined : 'Unable to revert');
+			void showGitErrorMessage(
+				ex,
+				RevertError.is(ex) || SigningError.is(ex) ? undefined : l10n.t('Unable to revert'),
+			);
 		}
 	}
 
@@ -184,14 +195,16 @@ export class RevertGitCommand extends QuickCommand<State> {
 				const result: StepResult<GitRevisionReference[]> = yield* pickCommitsStep(state, context, {
 					emptyItems: [
 						createDirectiveQuickPickItem(Directive.Cancel, true, {
-							label: 'OK',
-							detail: `${context.destination.name} has no commits`,
+							label: l10n.t('OK'),
+							detail: l10n.t('{0} has no commits', context.destination.name),
 						}),
 					],
 					log: await log,
 					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
-						!log?.commits.size ? `${context.destination.name} has no commits` : 'Choose commits to revert',
+						!log?.commits.size
+							? l10n.t('{0} has no commits', context.destination.name)
+							: l10n.t('Choose commits to revert'),
 					picked: state.references?.map(r => r.ref),
 				});
 				if (result === StepResultBreak) {
@@ -230,19 +243,20 @@ export class RevertGitCommand extends QuickCommand<State> {
 		context: Context,
 	): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(l10n.t('Confirm Revert'), state, context),
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, ['--no-edit'], {
 					label: this.title,
 					description: '--no-edit',
-					detail: `Will revert ${getReferenceLabel(state.references)}`,
+					detail: l10n.t('Will revert {0}', getReferenceLabel(state.references)),
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--edit'], {
-					label: `${this.title} & Edit`,
+					label: l10n.t('Revert & Edit'),
 					description: '--edit',
-					detail: `Will revert and edit ${getReferenceLabel(state.references)}`,
+					detail: l10n.t('Will revert and edit {0}', getReferenceLabel(state.references)),
 				}),
 			],
+			l10n.t('Confirm Revert'),
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;

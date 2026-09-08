@@ -1,5 +1,5 @@
 import type { Uri } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
@@ -72,13 +72,17 @@ export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 
 		let repo = this.container.git.getRepository(localUri);
 		if (repo == null) {
-			void window.showWarningMessage(`Unable to find repository(${localUri.toString()}) for PR #${number}`);
+			void window.showWarningMessage(
+				l10n.t('Unable to find repository({0}) for PR #{1}', localUri.toString(), number),
+			);
 			return;
 		}
 
 		repo = await repo.git.getOrOpenCommonRepository();
 		if (repo == null) {
-			void window.showWarningMessage(`Unable to find main repository(${localUri.toString()}) for PR #${number}`);
+			void window.showWarningMessage(
+				l10n.t('Unable to find main repository({0}) for PR #{1}', localUri.toString(), number),
+			);
 			return;
 		}
 
@@ -142,7 +146,7 @@ export class OpenOrCreateWorktreeCommand extends GlCommandBase {
 			);
 		} catch (ex) {
 			Logger.error(ex, 'CreateWorktreeCommand', 'Unable to create worktree');
-			void window.showErrorMessage(`Unable to create worktree for ${remoteOwner}:${ref}`);
+			void window.showErrorMessage(l10n.t('Unable to create worktree for {0}:{1}', remoteOwner, ref));
 		}
 	}
 }

@@ -1,4 +1,5 @@
 import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
+import * as l10n from '@vscode/l10n';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -757,7 +758,10 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		// so we show the same message to everything.
 		// When we update the library, we can improve the error handling here.
 		const reauthenticate = await this.ctx.hooks?.onReauthenticationRequired?.(
-			`${ex.message}. Would you like to try reauthenticating to provide additional access? Your token needs to have the 'api' scope to perform merge.`,
+			l10n.t(
+				"{0}. Would you like to try reauthenticating to provide additional access? Your token needs to have the 'api' scope to perform merge.",
+				ex.message,
+			),
 		);
 
 		if (reauthenticate) {

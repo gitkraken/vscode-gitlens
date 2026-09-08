@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { BranchError } from '@gitlens/git/errors.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
@@ -80,9 +80,11 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 			container,
 			prune ? 'branch-prune' : 'branch-delete',
 			prune ? 'prune' : 'delete',
-			prune ? 'Prune Branches' : 'Delete Branches',
+			prune ? l10n.t('Prune Branches') : l10n.t('Delete Branches'),
 			{
-				description: prune ? 'deletes local branches with missing upstreams' : 'deletes the specified branches',
+				description: prune
+					? l10n.t('deletes local branches with missing upstreams')
+					: l10n.t('deletes the specified branches'),
 			},
 		);
 
@@ -149,9 +151,11 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 						: b => !b.current && !worktreesByBranch.get(b.id)?.isDefault,
 					picked: state.references?.map(r => r.ref),
 					placeholder: prune
-						? 'Choose branches with missing upstreams to delete'
-						: 'Choose branches to delete',
-					emptyPlaceholder: prune ? `No branches with missing upstreams in ${state.repo.name}` : undefined,
+						? l10n.t('Choose branches with missing upstreams to delete')
+						: l10n.t('Choose branches to delete'),
+					emptyPlaceholder: prune
+						? l10n.t('No branches with missing upstreams in {0}', state.repo.name)
+						: undefined,
 					sort: { current: false, missingUpstream: true },
 				});
 				if (result === StepResultBreak) {
@@ -179,9 +183,10 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 							uris: worktrees.map(wt => wt.uri),
 							startingFromBranchDelete: true,
 							overrides: {
-								title: `Delete ${worktrees.length === 1 ? 'Worktree' : 'Worktrees'} for ${
-									worktrees.length === 1 ? 'Branch' : 'Branches'
-								}`,
+								title:
+									worktrees.length === 1
+										? l10n.t('Delete Worktree for Branch')
+										: l10n.t('Delete Worktrees for Branches'),
 							},
 						},
 					},
@@ -226,10 +231,13 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 					}
 				} catch (ex) {
 					if (BranchError.is(ex, 'notFullyMerged')) {
-						const confirm = { title: 'Delete Branch' };
-						const cancel = { title: 'Cancel', isCloseAffordance: true };
+						const confirm = { title: l10n.t('Delete Branch') };
+						const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 						const result = await window.showWarningMessage(
-							`Unable to delete branch '${name}' as it is not fully merged. Do you want to delete it anyway?`,
+							l10n.t(
+								"Unable to delete branch '{0}' as it is not fully merged. Do you want to delete it anyway?",
+								name,
+							),
 							{ modal: true },
 							confirm,
 							cancel,
@@ -239,10 +247,10 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 							try {
 								await state.repo.git.branches.deleteLocalBranch?.(name, { force: true });
 							} catch (ex) {
-								Logger.error(ex, context.title);
+								Logger.error(ex, this.prune ? 'Prune Branches' : 'Delete Branches');
 								void showGitErrorMessage(
 									ex,
-									BranchError.is(ex) ? undefined : 'Unable to force delete branch',
+									BranchError.is(ex) ? undefined : l10n.t('Unable to force delete branch'),
 								);
 							}
 						}
@@ -250,8 +258,8 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 						continue;
 					}
 
-					Logger.error(ex, context.title);
-					void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to delete branch');
+					Logger.error(ex, this.prune ? 'Prune Branches' : 'Delete Branches');
+					void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : l10n.t('Unable to delete branch'));
 				}
 			}
 		}
@@ -281,10 +289,7 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 	): StepResultGenerator<Flags[]> {
 		const { prune } = this;
 		const refsLabel = getReferenceLabel(state.references);
-		const branchWord = state.references.length === 1 ? 'Branch' : 'Branches';
-		const upstreamWord = state.references.length === 1 ? 'Upstream' : 'Upstreams';
-		const pronoun = state.references.length === 1 ? 'its' : 'their';
-		const verb = prune ? 'Prune' : 'Delete';
+		const singular = state.references.length === 1;
 
 		// Remote-tracking refs (e.g. `origin/foo`) don't take `--force` or have an upstream of their own,
 		// so neither the Force toggle nor the "& Upstream(s)" mode applies when every selected ref is remote.
@@ -296,13 +301,28 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 		// Folds the live Force toggle value into each mode's flags and detail — the accepted item's flags
 		// are the whole contract with `execute()` — so the list says what will actually happen.
 		const buildItems = (): FlagsQuickPickItem<Flags>[] => {
+			const label = prune
+				? singular
+					? force
+						? l10n.t('Force Prune Branch')
+						: l10n.t('Prune Branch')
+					: force
+						? l10n.t('Force Prune Branches')
+						: l10n.t('Prune Branches')
+				: singular
+					? force
+						? l10n.t('Force Delete Branch')
+						: l10n.t('Delete Branch')
+					: force
+						? l10n.t('Force Delete Branches')
+						: l10n.t('Delete Branches');
 			const items: FlagsQuickPickItem<Flags>[] = [
 				createFlagsQuickPickItem<Flags>(state.flags, force ? ['--force'] : [], {
-					label: force ? `Force ${verb} ${branchWord}` : `${verb} ${branchWord}`,
+					label: label,
 					description: force ? '--force' : undefined,
 					detail: force
-						? `Will forcibly delete ${refsLabel}, even if not fully merged`
-						: `Will delete ${refsLabel}`,
+						? l10n.t('Will forcibly delete {0}, even if not fully merged', refsLabel)
+						: l10n.t('Will delete {0}', refsLabel),
 					picked: !state.flags.includes('--remotes'),
 				}),
 			];
@@ -310,13 +330,27 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 			if (canDeleteUpstreams) {
 				items.push(
 					createFlagsQuickPickItem<Flags>(state.flags, force ? ['--force', '--remotes'] : ['--remotes'], {
-						label: force
-							? `Force Delete ${branchWord} & ${upstreamWord}`
-							: `Delete ${branchWord} & ${upstreamWord}`,
+						label: singular
+							? force
+								? l10n.t('Force Delete Branch & Upstream')
+								: l10n.t('Delete Branch & Upstream')
+							: force
+								? l10n.t('Force Delete Branches & Upstreams')
+								: l10n.t('Delete Branches & Upstreams'),
 						description: force ? '--force --remotes' : '--remotes',
 						detail: force
-							? `Will forcibly delete ${refsLabel} and ${pronoun} upstream ${branchWord.toLowerCase()} from the remote, even if not fully merged`
-							: `Will delete ${refsLabel} and ${pronoun} upstream ${branchWord.toLowerCase()} from the remote`,
+							? singular
+								? l10n.t(
+										'Will forcibly delete {0} and its upstream branch from the remote, even if not fully merged',
+										refsLabel,
+									)
+								: l10n.t(
+										'Will forcibly delete {0} and its upstream branches from the remote, even if not fully merged',
+										refsLabel,
+									)
+							: singular
+								? l10n.t('Will delete {0} and its upstream branch from the remote', refsLabel)
+								: l10n.t('Will delete {0} and its upstream branches from the remote', refsLabel),
 						picked: state.flags.includes('--remotes'),
 					}),
 				);
@@ -339,18 +373,18 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 		let rows: (FlagsQuickPickItem<Flags> | DirectiveQuickPickItem)[];
 		if (canForce) {
 			const forceToggle = createConfirmToggleQuickPickItem({
-				label: force ? '$(warning) Force' : 'Force',
+				label: force ? l10n.t('$(warning) Force') : l10n.t('Force'),
 				description: '--force',
 				detail: force
-					? 'Delete even if not fully merged — unmerged commits may be lost'
-					: 'Delete even if not fully merged',
+					? l10n.t('Delete even if not fully merged — unmerged commits may be lost')
+					: l10n.t('Delete even if not fully merged'),
 				checked: force,
 				onDidChange: item => {
 					force = item.checked;
-					item.label = force ? '$(warning) Force' : 'Force';
+					item.label = force ? l10n.t('$(warning) Force') : l10n.t('Force');
 					item.detail = force
-						? 'Delete even if not fully merged — unmerged commits may be lost'
-						: 'Delete even if not fully merged';
+						? l10n.t('Delete even if not fully merged — unmerged commits may be lost')
+						: l10n.t('Delete even if not fully merged');
 					items = buildItems();
 					refreshConfirmStepItems(step, buildRows(item));
 				},
@@ -360,7 +394,8 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 			rows = buildRows();
 		}
 
-		step = createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), rows, context);
+		const confirmTitle = prune ? l10n.t('Confirm Prune Branches') : l10n.t('Confirm Delete Branches');
+		step = createConfirmStep(appendReposToTitle(confirmTitle, state, context), rows, confirmTitle);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}

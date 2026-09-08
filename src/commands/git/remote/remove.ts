@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../../container.js';
@@ -49,8 +50,8 @@ export interface RemoteRemoveGitCommandArgs {
 
 export class RemoteRemoveGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: RemoteRemoveGitCommandArgs) {
-		super(container, 'remote-remove', 'remove', 'Remove Remote', {
-			description: 'removes the specified remote',
+		super(container, 'remote-remove', 'remove', l10n.t('Remove Remote'), {
+			description: l10n.t('removes the specified remote'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -114,7 +115,7 @@ export class RemoteRemoveGitCommand extends QuickCommand<State> {
 				const picked: string | undefined = typeof state.remote === 'string' ? state.remote : state.remote?.name;
 				const result: GitRemote | typeof StepResultBreak = yield* pickRemoteStep(state, context, {
 					picked: picked,
-					placeholder: 'Choose remote to remove',
+					placeholder: l10n.t('Choose remote to remove'),
 				});
 				if (result === StepResultBreak) {
 					state.remote = undefined!;
@@ -144,7 +145,7 @@ export class RemoteRemoveGitCommand extends QuickCommand<State> {
 				await state.repo.git.remotes.removeRemote?.(state.remote.name);
 			} catch (ex) {
 				Logger.error(ex);
-				void showGenericErrorMessage('Unable to remove remote');
+				void showGenericErrorMessage(l10n.t('Unable to remove remote'));
 			}
 		}
 
@@ -155,10 +156,11 @@ export class RemoteRemoveGitCommand extends QuickCommand<State> {
 		state: StepState<State<GlRepository>> & { remote: GitRemote },
 		context: Context,
 	): StepResultGenerator<void> {
+		const confirmTitle = l10n.t('Confirm Remove Remote');
 		const step: QuickPickStep = createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
-			[{ label: context.title, detail: `Will remove remote '${state.remote.name}'` }],
-			context,
+			appendReposToTitle(confirmTitle, state, context),
+			[{ label: context.title, detail: l10n.t("Will remove remote '{0}'", state.remote.name) }],
+			confirmTitle,
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;

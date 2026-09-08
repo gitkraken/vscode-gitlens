@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -727,11 +728,11 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 
 		const lightbulb =
 			content.lightbulb !== false && offered && this.autoShow && !this._open && dismissed === false
-				? html`<gl-tooltip placement="bottom" content="Show Tip: ${content.title}">
+				? html`<gl-tooltip placement="bottom" content=${l10n.t('Show Tip: {title}', { title: content.title })}>
 						<button
 							type="button"
 							class="lightbulb"
-							aria-label="Show Tip: ${content.title}"
+							aria-label=${l10n.t('Show Tip: {title}', { title: content.title })}
 							@click=${this.onLightbulbClick}
 						>
 							<code-icon icon="lightbulb-sparkle"></code-icon>
@@ -765,7 +766,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 								? html`<gl-button
 										appearance="toolbar"
 										density="compact"
-										aria-label="Close"
+										aria-label=${l10n.t('Close')}
 										@click=${this.onCloseClick}
 										><code-icon icon="close"></code-icon
 									></gl-button>`
@@ -789,7 +790,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 									>`
 								: nothing
 						}
-						<gl-button @click=${this.onGotItClick}>Got it</gl-button>
+						<gl-button @click=${this.onGotItClick}>${l10n.t('Got it')}</gl-button>
 					</div>
 				</div>
 			</gl-popover>

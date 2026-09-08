@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { getAltKeySymbol } from '@env/platform.js';
@@ -7,8 +8,8 @@ import type { CurrentUserNameStyle } from '@gitlens/git/utils/commit.utils.js';
 import { formatIdentityDisplayName } from '@gitlens/git/utils/commit.utils.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { getCssVariable } from '@gitlens/utils/color.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { defer } from '@gitlens/utils/promise.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { State, TimelineDatum, TimelineSliceBy } from '../../../../plus/timeline/protocol.js';
 import { formatDate, fromNow } from '../../../shared/date.js';
 import type { Disposable } from '../../../shared/events.js';
@@ -1132,7 +1133,7 @@ export class GlTimelineChart extends GlElement {
 					showLoadMoreIndicator
 						? html`<div
 								class="load-more-edge-line"
-								aria-label="Loading older history"
+								aria-label=${l10n.t('Loading older history')}
 								role="progressbar"
 							></div>`
 						: nothing
@@ -1181,10 +1182,17 @@ export class GlTimelineChart extends GlElement {
 			// "Solo" pinpoints just this slice; "Unsolo" restores the rest. Both alt-click and a
 			// plain click on the soloed slice run the same revert path.
 			const isSoloed = !hidden && vm.slices.length > 1 && this._hiddenSlices.size === vm.slices.length - 1;
-			const clickAction = isSoloed ? 'Unsolo' : hidden ? 'Show' : 'Hide';
-			const altAction = isSoloed ? 'Unsolo' : 'Solo';
-			const hint = `Click to ${clickAction} · [${getAltKeySymbol()}] Click to ${altAction}`;
-			const meta = slice.commitCount != null ? pluralize('commit', slice.commitCount) : '';
+			const hint = isSoloed
+				? l10n.t('Click to Unsolo · [{0}] Click to Unsolo', getAltKeySymbol())
+				: hidden
+					? l10n.t('Click to Show · [{0}] Click to Solo', getAltKeySymbol())
+					: l10n.t('Click to Hide · [{0}] Click to Solo', getAltKeySymbol());
+			const meta =
+				slice.commitCount != null
+					? slice.commitCount === 1
+						? l10n.t('{0} commit', getNumericFormat()(slice.commitCount))
+						: l10n.t('{0} commits', getNumericFormat()(slice.commitCount))
+					: '';
 
 			if (sliceBy === 'branch') {
 				// Tooltip placement is "bottom-start" so it sits below the icon and clears the
@@ -1284,7 +1292,7 @@ export class GlTimelineChart extends GlElement {
 									class="rail__y2-title"
 									style=${cspStyleMap({ top: `${(baselineY + farY) / 2}px` })}
 								>
-									Lines changed
+									${l10n.t('Lines changed')}
 								</div>`
 							: nothing
 					}
@@ -1293,7 +1301,7 @@ export class GlTimelineChart extends GlElement {
 			}
 		}
 
-		return html`<aside class="rail" aria-label="Authors">${items} ${y2Axis}</aside>`;
+		return html`<aside class="rail" aria-label=${l10n.t('Authors')}>${items} ${y2Axis}</aside>`;
 	}
 
 	private _renderAxisOverlay(): unknown {
@@ -1450,18 +1458,20 @@ export class GlTimelineChart extends GlElement {
 						? html`<gl-button
 								appearance="toolbar"
 								@click=${(e: MouseEvent) => (e.shiftKey || e.altKey ? this.resetZoom() : this._zoomBy(-1))}
-								aria-label="Zoom Out"
+								aria-label=${l10n.t('Zoom Out')}
 							>
 								<code-icon icon="zoom-out"></code-icon>
-								<span slot="tooltip">Zoom Out<br />${getAltKeySymbol()} Reset Zoom</span>
+								<span slot="tooltip"
+									>${l10n.t('Zoom Out')}<br />${l10n.t('{0} Reset Zoom', getAltKeySymbol())}</span
+								>
 							</gl-button>`
 						: nothing
 				}
 				<gl-button
 					appearance="toolbar"
 					@click=${() => this._zoomBy(0.5)}
-					tooltip="Zoom In"
-					aria-label="Zoom In"
+					tooltip=${l10n.t('Zoom In')}
+					aria-label=${l10n.t('Zoom In')}
 				>
 					<code-icon icon="zoom-in"></code-icon>
 				</gl-button>
@@ -1679,7 +1689,7 @@ export class GlTimelineChart extends GlElement {
 		const hasData = (this._data?.length ?? 0) > 0;
 		if (!hasData && (this.loading || this._loading?.pending || this._data == null)) {
 			return html`<div class="notice notice--blur">
-				<gl-watermark-loader pulse><p>Loading...</p></gl-watermark-loader>
+				<gl-watermark-loader pulse><p>${l10n.t('Loading...')}</p></gl-watermark-loader>
 			</div>`;
 		}
 		if (this._data != null && !this._data.length) {
@@ -1695,10 +1705,14 @@ export class GlTimelineChart extends GlElement {
 	 *  comes from the `aria-live` region updated as `_selectedSha` changes. */
 	private get _a11yWrapperLabel(): string {
 		const count = this._data?.length ?? 0;
-		if (count === 0) return 'Visual History timeline';
+		if (count === 0) return l10n.t('Visual History timeline');
 
-		const noun = count === 1 ? 'commit' : 'commits';
-		return `Visual History timeline showing ${count.toLocaleString()} ${noun}. Use arrow keys to navigate.`;
+		return count === 1
+			? l10n.t('Visual History timeline showing {0} commit. Use arrow keys to navigate.', count.toLocaleString())
+			: l10n.t(
+					'Visual History timeline showing {0} commits. Use arrow keys to navigate.',
+					count.toLocaleString(),
+				);
 	}
 
 	/** Cached announcement text keyed by `(selectedSha, data)`. Built only when selection moves
@@ -1727,7 +1741,15 @@ export class GlTimelineChart extends GlElement {
 				return html`<div class="a11y-live" role="status" aria-live="polite" aria-atomic="true"></div>`;
 			}
 
-			text = `commit ${shortenRevision(commit.sha)} by ${formatIdentityDisplayName({ name: commit.author, current: commit.current }, this.currentUserNameStyle)} on ${formatDate(new Date(commit.date), this.dateFormat)}, +${commit.additions ?? 0} -${commit.deletions ?? 0} lines: ${commit.message}`;
+			text = l10n.t(
+				'commit {0} by {1} on {2}, +{3} -{4} lines: {5}',
+				shortenRevision(commit.sha),
+				formatIdentityDisplayName({ name: commit.author, current: commit.current }, this.currentUserNameStyle),
+				formatDate(new Date(commit.date), this.dateFormat),
+				commit.additions ?? 0,
+				commit.deletions ?? 0,
+				commit.message,
+			);
 			this._a11yAnnouncementCache = { sha: sha, data: data, text: text };
 		}
 
@@ -2641,13 +2663,19 @@ export class GlTimelineChart extends GlElement {
 			if (commit.additions != null) {
 				const addSpan = document.createElement('span');
 				addSpan.className = 'tooltip__additions';
-				addSpan.textContent = `+${pluralize('line', commit.additions)}`;
+				addSpan.textContent =
+					commit.additions === 1
+						? l10n.t('+{0} line', getNumericFormat()(commit.additions))
+						: l10n.t('+{0} lines', getNumericFormat()(commit.additions));
 				detailsRow.appendChild(addSpan);
 			}
 			if (commit.deletions != null) {
 				const delSpan = document.createElement('span');
 				delSpan.className = 'tooltip__deletions';
-				delSpan.textContent = `-${pluralize('line', commit.deletions)}`;
+				delSpan.textContent =
+					commit.deletions === 1
+						? l10n.t('-{0} line', getNumericFormat()(commit.deletions))
+						: l10n.t('-{0} lines', getNumericFormat()(commit.deletions));
 				detailsRow.appendChild(delSpan);
 			}
 
@@ -2665,7 +2693,20 @@ export class GlTimelineChart extends GlElement {
 			if (binCount != null && binCount > 1) {
 				const binRow = document.createElement('div');
 				binRow.className = 'tooltip__row';
-				binRow.textContent = `+${binCount - 1} more in this ${this._binUnit}`;
+				switch (this._binUnit) {
+					case 'hour':
+						binRow.textContent = l10n.t('+{0} more in this hour', binCount - 1);
+						break;
+					case 'day':
+						binRow.textContent = l10n.t('+{0} more in this day', binCount - 1);
+						break;
+					case 'week':
+						binRow.textContent = l10n.t('+{0} more in this week', binCount - 1);
+						break;
+					case 'month':
+						binRow.textContent = l10n.t('+{0} more in this month', binCount - 1);
+						break;
+				}
 				children.push(binRow);
 			}
 

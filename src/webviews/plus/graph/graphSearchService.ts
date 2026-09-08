@@ -1,5 +1,6 @@
 import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import type { CancellationTokenSource } from 'vscode';
+import { l10n } from 'vscode';
 import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearch, GitGraphSearchProgress, GitGraphSearchResults } from '@gitlens/git/models/graphSearch.js';
@@ -25,6 +26,7 @@ import { basename } from '@gitlens/utils/path.js';
 import { cancellable, getSettledValue, getSettledValues } from '@gitlens/utils/promise.js';
 import { Stopwatch } from '@gitlens/utils/stopwatch.js';
 import type { Container } from '../../../container.js';
+import { getPresentableErrorMessage } from '../../../errors.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { processNaturalLanguageToSearchQuery } from '../../../git/search.naturalLanguage.js';
 import type { NaturalLanguageSearchOptions } from '../../../plus/search/naturalLanguageSearchProcessor.js';
@@ -85,7 +87,10 @@ export function toGraphSearchResultsError(ex: unknown): GraphSearchResultsError 
 		switch (ex.reason) {
 			case 'invalidPattern':
 				return {
-					error: `Invalid regular expression${ex.detail ? `: ${ex.detail}` : ''}`,
+					error:
+						ex.detail != null
+							? l10n.t('Invalid regular expression: {0}', ex.detail)
+							: l10n.t('Invalid regular expression'),
 					reason: ex.reason,
 					detail: ex.detail,
 				};
@@ -93,17 +98,17 @@ export function toGraphSearchResultsError(ex: unknown): GraphSearchResultsError 
 				return {
 					error:
 						ex.detail == null
-							? 'Unknown reference'
+							? l10n.t('Unknown reference')
 							: ex.detail.includes('..')
-								? `Unknown reference '${ex.detail}'`
-								: `No branch or tag named '${ex.detail}'`,
+								? l10n.t("Unknown reference '{0}'", ex.detail)
+								: l10n.t("No branch or tag named '{0}'", ex.detail),
 					reason: ex.reason,
 					detail: ex.detail,
 				};
 		}
 	}
 
-	return { error: 'Something went wrong searching' };
+	return { error: l10n.t('Something went wrong searching') };
 }
 
 /** Narrows a search results union to its error shape. */
@@ -115,25 +120,34 @@ function isSearchResultsError(
 
 /** One drop-one-group or AI-alternate candidate query a zero-result NL search could relax to — not yet
  *  counted. See {@link buildSearchRelaxationCandidates}. */
-export interface SearchRelaxationCandidate {
-	label: string;
+export type SearchRelaxationCandidate = {
 	query: string;
-}
+} & (
+	| {
+			kind: 'drop-filter';
+			filter: Extract<GraphSearchRelaxation, { kind: 'drop-filter' }>['filter'];
+	  }
+	| { kind: 'author'; name: string }
+	| { kind: 'alternate' }
+);
 
 /** The droppable operator groups a relaxation candidate removes, in the order candidates are offered.
  *  `after:`/`before:` are ONE group ("the date filter") — dropping one without the other rarely helps,
  *  since a lone `after:` or `before:` is still a real bound. `type:` and `commit:` are never droppable:
  *  `commit:` is an exact lookup a broader search can't approximate, and `type:` (stash/tip/wip) changes
  *  the KIND of thing searched, not a filter narrowing it. */
-const relaxationGroups: readonly { operators: readonly SearchOperatorsLongForm[]; label: string }[] = [
-	{ operators: ['after:', 'before:'], label: 'without the date filter' },
-	{ operators: ['author:'], label: 'without the author filter' },
-	{ operators: ['committer:'], label: 'without the committer filter' },
-	{ operators: ['file:'], label: 'without the file filter' },
-	{ operators: ['ref:'], label: 'across all branches' },
-	{ operators: ['change:'], label: 'without the change filter' },
-	{ operators: ['message:'], label: 'without the message terms' },
-	{ operators: ['-message:'], label: 'without the message exclusion' },
+const relaxationGroups: readonly {
+	operators: readonly SearchOperatorsLongForm[];
+	filter: Extract<GraphSearchRelaxation, { kind: 'drop-filter' }>['filter'];
+}[] = [
+	{ operators: ['after:', 'before:'], filter: 'date' },
+	{ operators: ['author:'], filter: 'author' },
+	{ operators: ['committer:'], filter: 'committer' },
+	{ operators: ['file:'], filter: 'file' },
+	{ operators: ['ref:'], filter: 'ref' },
+	{ operators: ['change:'], filter: 'change' },
+	{ operators: ['message:'], filter: 'message' },
+	{ operators: ['-message:'], filter: 'message-exclusion' },
 ];
 
 /**
@@ -194,8 +208,8 @@ function damerauLevenshteinDistance(a: string, b: string): number {
  * Builds the CANDIDATE (uncounted) relaxations for a settled zero-result query: up to 2 author/committer
  * RESPELL variants per misspelled value (see below), one "drop this group" variant per droppable operator
  * group present (only when ≥2 distinct groups are present — dropping the only filter just re-runs an
- * unfiltered search, which isn't a relaxation offer), plus up to 2 of the AI's own `alternates` (labeled
- * with their own query text). Respell candidates are listed FIRST — a corrected name is a stronger, more
+ * unfiltered search, which isn't a relaxation offer), plus up to 2 of the AI's own `alternates` (identified
+ * by their own query text). Respell candidates are listed FIRST — a corrected name is a stronger, more
  * specific offer than "drop the filter entirely". Pure and side-effect-free so it's unit testable without
  * the service; the caller is responsible for counting each candidate and keeping only the ones that find
  * something.
@@ -258,7 +272,7 @@ export function buildSearchRelaxationCandidates(
 					if (!query || seen.has(query)) continue;
 
 					seen.add(query);
-					candidates.push({ label: `as '${contributor.name}'`, query: query });
+					candidates.push({ kind: 'author', name: contributor.name, query: query });
 				}
 			}
 		}
@@ -277,7 +291,7 @@ export function buildSearchRelaxationCandidates(
 			if (!query || seen.has(query)) continue;
 
 			seen.add(query);
-			candidates.push({ label: group.label, query: query });
+			candidates.push({ kind: 'drop-filter', filter: group.filter, query: query });
 		}
 	}
 
@@ -286,7 +300,7 @@ export function buildSearchRelaxationCandidates(
 		if (!query || seen.has(query)) continue;
 
 		seen.add(query);
-		candidates.push({ label: query, query: query });
+		candidates.push({ kind: 'alternate', query: query });
 	}
 
 	return candidates;
@@ -464,7 +478,7 @@ export class GraphSearchService {
 	/** Shows a "No repository" failure as the current search state — shared by the sites that hit this
 	 *  precondition; each keeps its own return since what's appropriate to return differs by caller. */
 	private showNoRepositoryError(query: SearchQuery): void {
-		this._current = { query: query, results: { error: 'No repository' } };
+		this._current = { query: query, results: { error: l10n.t('No repository') } };
 		this._searchStateEvent.fire(this.buildSearchState(false));
 	}
 
@@ -502,7 +516,7 @@ export class GraphSearchService {
 			Logger.error(ex, 'GraphSearchService', 'storeHistory');
 			// Surface storage errors to the frontend instead of swallowing and pretending success — the
 			// user thought the entry was saved; on reload it would be missing.
-			return { history: searchHistory.get(), error: ex instanceof Error ? ex.message : String(ex) };
+			return { history: searchHistory.get(), error: getPresentableErrorMessage(ex) };
 		}
 	}
 
@@ -513,7 +527,7 @@ export class GraphSearchService {
 			return { history: searchHistory.get() };
 		} catch (ex) {
 			Logger.error(ex, 'GraphSearchService', 'deleteHistory');
-			return { history: searchHistory.get(), error: ex instanceof Error ? ex.message : String(ex) };
+			return { history: searchHistory.get(), error: getPresentableErrorMessage(ex) };
 		}
 	}
 
@@ -783,7 +797,7 @@ export class GraphSearchService {
 			if (isCancellationError(ex) && signal?.aborted !== true) {
 				return {
 					...search,
-					naturalLanguage: { query: search.query, error: 'The AI took too long to respond' },
+					naturalLanguage: { query: search.query, error: l10n.t('The AI took too long to respond') },
 				};
 			}
 			throw ex;
@@ -1007,7 +1021,7 @@ export class GraphSearchService {
 				this._search = undefined;
 				this._current = {
 					query: e.search,
-					results: { error: "Couldn't complete this search — try rephrasing" },
+					results: { error: l10n.t("Couldn't complete this search — try rephrasing") },
 				};
 				this._searchStateEvent.fire(this.buildSearchState(false));
 				return undefined;
@@ -1037,8 +1051,7 @@ export class GraphSearchService {
 					cancellation,
 				);
 				return {
-					label: candidate.label,
-					query: candidate.query,
+					...candidate,
 					count: count,
 					capped: count >= maxCount || undefined,
 				};
@@ -1573,7 +1586,6 @@ export class GraphSearchService {
 		if (this.repository == null) return;
 
 		void this.container.views.searchAndCompare.search(this.repository.path, search, {
-			label: { label: `for ${search.query}` },
 			reveal: { select: true, focus: false, expand: true },
 		});
 	}
@@ -1599,7 +1611,7 @@ export class GraphSearchService {
 		} catch (ex) {
 			if (isCancellationError(ex)) return { query: undefined };
 
-			return { query: undefined, error: ex instanceof Error ? ex.message : String(ex) };
+			return { query: undefined, error: getPresentableErrorMessage(ex) };
 		} finally {
 			this._operations.delete(operation);
 		}

@@ -1,13 +1,13 @@
-import type { DirectiveResult } from 'lit/directive.js';
-import type { UnsafeHTMLDirective } from 'lit/directives/unsafe-html.js';
-import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { html } from 'lit';
 
-export function handleUnsafeOverlayContent(
-	content?: string,
-): DirectiveResult<typeof UnsafeHTMLDirective> | string | undefined {
-	if (content?.includes('\n')) {
-		return unsafeHTML(content.replace(/\n\n/g, '<hr>').replace(/\n/g, '<br>'));
-	}
+/** Preserve tooltip line breaks while keeping translations and user data as text. */
+export function renderOverlayContent(content?: string): unknown {
+	if (!content?.includes('\n')) return content;
 
-	return content;
+	return content.split(/(\n\n|\n)/g).map(part => {
+		if (part === '\n\n') return html`<hr />`;
+		if (part === '\n') return html`<br />`;
+
+		return part;
+	});
 }

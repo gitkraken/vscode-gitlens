@@ -55,6 +55,13 @@ Review all changes for: correctness, matching user expectations, high performanc
 - [ ] No suppressed/ignored errors
 - [ ] Graceful degradation for network/API failures
 
+### Localization
+
+- [ ] Every new user-facing string is a literal `l10n.t()` message with placeholders for data — no concatenation, computed keys, or English plural suffixes
+- [ ] Error text shown to a user comes from `getPresentableErrorMessage(ex)`, not `ex.message`
+- [ ] Git syntax, refs, paths, command ids and product names are placeholders, not translated text
+- [ ] `l10n/bundle.l10n.json` regenerated when messages changed (`pnpm run generate:l10n`)
+
 ### Performance
 
 - [ ] Appropriate caching (`@memoize()`, GitCache, PromiseCache)

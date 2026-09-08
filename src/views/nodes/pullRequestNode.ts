@@ -1,4 +1,4 @@
-import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { PullRequest } from '@gitlens/git/models/pullRequest.js';
@@ -8,7 +8,7 @@ import {
 	getRepositoryIdentityForPullRequest,
 } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { Colors } from '../../constants.colors.js';
 import { GitUri } from '../../git/gitUri.js';
 import type { GlRepository } from '../../git/models/repository.js';
@@ -160,9 +160,11 @@ export async function getPullRequestChildren(
 			new MessageNode(
 				view,
 				parent,
-				`Unable to locate repository '${pullRequest.refs?.head.owner ?? pullRequest.repository.owner}/${
-					pullRequest.refs?.head.repo ?? pullRequest.repository.repo
-				}'.`,
+				l10n.t(
+					"Unable to locate repository '{0}/{1}'.",
+					pullRequest.refs?.head.owner ?? pullRequest.repository.owner,
+					pullRequest.refs?.head.repo ?? pullRequest.repository.repo,
+				),
 			),
 		];
 	}
@@ -177,14 +179,14 @@ export async function getPullRequestChildren(
 				parent,
 				createCommand<[ViewNode, PullRequest, GlRepository]>(
 					'gitlens.views.addPullRequestRemote',
-					'Add Pull Request Remote...',
+					l10n.t('Add Pull Request Remote...'),
 					parent,
 					pullRequest,
 					repo,
 				),
-				`Unable to find a remote for '${identity.provider.repoDomain}'`,
+				l10n.t("Unable to find a remote for '{0}'", identity.provider.repoDomain),
 				undefined,
-				`Click to add a remote for '${identity.provider.repoDomain}'`,
+				l10n.t("Click to add a remote for '{0}'", identity.provider.repoDomain),
 				new ThemeIcon(
 					'question',
 					new ThemeColor('gitlens.decorations.workspaceRepoMissingForegroundColor' satisfies Colors),
@@ -198,11 +200,11 @@ export async function getPullRequestChildren(
 	const counts = await ensurePullRequestRefs(
 		pullRequest,
 		repo,
-		{ promptMessage: `Unable to open details for PR #${pullRequest.id} because of a missing remote.` },
+		{ promptMessage: l10n.t('Unable to open details for PR #{0} because of a missing remote.', pullRequest.id) },
 		refs,
 	);
 	if (!counts?.right) {
-		return [new MessageNode(view, parent, 'No commits could be found.')];
+		return [new MessageNode(view, parent, l10n.t('No commits could be found.'))];
 	}
 
 	const comparison = {
@@ -216,7 +218,7 @@ export async function getPullRequestChildren(
 			view,
 			parent,
 			repoPath,
-			'Commits',
+			l10n.t('Commits'),
 			{
 				query: getCommitsQuery(view.container, repoPath, comparison.range),
 				comparison: comparison,
@@ -224,7 +226,10 @@ export async function getPullRequestChildren(
 			{
 				autolinks: false,
 				expand: false,
-				description: pluralize('commit', counts?.right ?? 0),
+				description:
+					(counts?.right ?? 0) === 1
+						? l10n.t('{0} commit', getNumericFormat()(counts?.right ?? 0))
+						: l10n.t('{0} commits', getNumericFormat()(counts?.right ?? 0)),
 			},
 		),
 		new CodeSuggestionsNode(view, parent, repoPath, pullRequest),
@@ -258,28 +263,56 @@ export function getPullRequestTooltip(
 
 	if (context?.commit != null) {
 		tooltip.appendMarkdown(
-			`Commit \`$(git-commit) ${context.commit.shortSha}\` was introduced by $(git-pull-request) PR #${pullRequest.id}\n\n`,
+			l10n.t(
+				'Commit `$(git-commit) {0}` was introduced by $(git-pull-request) PR #{1}\n\n',
+				context.commit.shortSha,
+				pullRequest.id,
+			),
 		);
 	}
 
-	const linkTitle = ` "Open Pull Request \\#${pullRequest.id} on ${pullRequest.provider.name}"`;
+	const linkTitle = ` "${l10n.t('Open Pull Request \\#{0} on {1}', pullRequest.id, pullRequest.provider.name)}"`;
 	// A provider can report a pull request with no author (a deleted account, or a host with no per-item
 	// creator), which normalizes to an absent `url` and `name`. Interpolating the url produced a link to nowhere,
 	// so fall back to plain text; with no name there's nothing to attribute, so drop the `by …` clause rather
 	// than render `by @undefined` (the provider layer deliberately doesn't invent a placeholder name).
 	const authorName = pullRequest.author.name;
-	const by =
+	const attribution =
 		authorName == null
-			? ''
+			? undefined
 			: pullRequest.author.url
-				? ` by [@${authorName}](${pullRequest.author.url} "Open @${authorName} on ${pullRequest.provider.name}")`
-				: ` by @${authorName}`;
+				? `[@${authorName}](${pullRequest.author.url} "${l10n.t(
+						'Open @{0} on {1}',
+						authorName,
+						pullRequest.provider.name,
+					)}")`
+				: `@${authorName}`;
+	const status = getPullRequestStatus(pullRequest.state, attribution, PullRequest.formatDateFromNow(pullRequest));
 	tooltip.appendMarkdown(
 		`${getIssueOrPullRequestMarkdownIcon(pullRequest)} [**${pullRequest.title.trim()}**](${
 			pullRequest.url
-		}${linkTitle}) \\\n[${context?.idPrefix ?? ''}#${pullRequest.id}](${
-			pullRequest.url
-		}${linkTitle})${by} was ${pullRequest.state.toLowerCase()} ${PullRequest.formatDateFromNow(pullRequest)}`,
+		}${linkTitle}) \\\n[${context?.idPrefix ?? ''}#${pullRequest.id}](${pullRequest.url}${linkTitle}) ${status}`,
 	);
 	return tooltip;
+}
+
+function getPullRequestStatus(
+	state: PullRequest['state'],
+	attribution: string | undefined,
+	relativeDate: string,
+): string {
+	switch (state) {
+		case 'opened':
+			return attribution == null
+				? l10n.t('was opened {0}', relativeDate)
+				: l10n.t('by {0} was opened {1}', attribution, relativeDate);
+		case 'closed':
+			return attribution == null
+				? l10n.t('was closed {0}', relativeDate)
+				: l10n.t('by {0} was closed {1}', attribution, relativeDate);
+		case 'merged':
+			return attribution == null
+				? l10n.t('was merged {0}', relativeDate)
+				: l10n.t('by {0} was merged {1}', attribution, relativeDate);
+	}
 }

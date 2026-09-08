@@ -1,9 +1,11 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import type { CustomRemoteType, RemotesUrlsConfig } from '../../../../config.js';
 import type { RemoteRuleDraft, SettingsActions } from '../actions.js';
@@ -33,15 +35,15 @@ const typeOptions: { value: CustomRemoteType; label: string }[] = [
 	{ value: 'Gitea', label: 'Gitea' },
 	{ value: 'Gerrit', label: 'Gerrit' },
 	{ value: 'GoogleSource', label: 'Google Source' },
-	{ value: 'Custom', label: 'Custom' },
+	{ value: 'Custom', label: l10n.t('Custom') },
 ];
 
 const typeLabels = new Map(typeOptions.map(o => [o.value, o.label]));
 
 /** Options for the domain/regex matcher-mode segmented control. */
 const matcherModeOptions: { value: MatcherMode; label: string }[] = [
-	{ value: 'domain', label: 'Domain' },
-	{ value: 'regex', label: 'Regex' },
+	{ value: 'domain', label: l10n.t('Domain') },
+	{ value: 'regex', label: l10n.t('Regex') },
 ];
 
 /**
@@ -59,38 +61,43 @@ const serverStyleTypes = new Set<CustomRemoteType>(['BitbucketServer', 'Gerrit',
  */
 /* eslint-disable no-template-curly-in-string -- the token strings are literal `${...}` template syntax shown to the user, not JS interpolation */
 const urlFields: { key: keyof RemotesUrlsConfig; label: string; required: boolean; tokens: string[] }[] = [
-	{ key: 'repository', label: 'Repository', required: true, tokens: ['${repo}'] },
-	{ key: 'branches', label: 'Branches', required: true, tokens: ['${repo}'] },
-	{ key: 'branch', label: 'Branch', required: true, tokens: ['${repo}', '${branch}'] },
-	{ key: 'commit', label: 'Commit', required: true, tokens: ['${repo}', '${id}'] },
-	{ key: 'file', label: 'File', required: true, tokens: ['${repo}', '${file}', '${line}'] },
+	{ key: 'repository', label: l10n.t('Repository'), required: true, tokens: ['${repo}'] },
+	{ key: 'branches', label: l10n.t('Branches'), required: true, tokens: ['${repo}'] },
+	{ key: 'branch', label: l10n.t('Branch'), required: true, tokens: ['${repo}', '${branch}'] },
+	{ key: 'commit', label: l10n.t('Commit'), required: true, tokens: ['${repo}', '${id}'] },
+	{ key: 'file', label: l10n.t('File'), required: true, tokens: ['${repo}', '${file}', '${line}'] },
 	{
 		key: 'fileInBranch',
-		label: 'File (in branch)',
+		label: l10n.t('File (in branch)'),
 		required: true,
 		tokens: ['${repo}', '${branch}', '${file}', '${line}'],
 	},
 	{
 		key: 'fileInCommit',
-		label: 'File (in commit)',
+		label: l10n.t('File (in commit)'),
 		required: true,
 		tokens: ['${repo}', '${id}', '${file}', '${line}'],
 	},
-	{ key: 'fileLine', label: 'File line', required: true, tokens: ['${line}'] },
-	{ key: 'fileRange', label: 'File range', required: true, tokens: ['${start}', '${end}'] },
+	{ key: 'fileLine', label: l10n.t('File line'), required: true, tokens: ['${line}'] },
+	{ key: 'fileRange', label: l10n.t('File range'), required: true, tokens: ['${start}', '${end}'] },
 	{
 		key: 'comparison',
-		label: 'Comparison',
+		label: l10n.t('Comparison (optional)'),
 		required: false,
 		tokens: ['${repo}', '${ref1}', '${ref2}', '${notation}'],
 	},
 	{
 		key: 'createPullRequest',
-		label: 'Create pull request',
+		label: l10n.t('Create pull request (optional)'),
 		required: false,
 		tokens: ['${repo}', '${base}', '${head}'],
 	},
-	{ key: 'avatar', label: 'Avatar', required: false, tokens: ['${email}', '${emailName}', '${domain}', '${size}'] },
+	{
+		key: 'avatar',
+		label: l10n.t('Avatar (optional)'),
+		required: false,
+		tokens: ['${email}', '${emailName}', '${domain}', '${size}'],
+	},
 ];
 /* eslint-enable no-template-curly-in-string */
 
@@ -398,7 +405,9 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 		this._draftIndex = undefined;
 		this._draftIsNew = false;
 		this._draftBaseline = undefined;
-		this._externalNotice = 'This remote was changed outside the editor, so your unsaved edits were discarded.';
+		this._externalNotice = l10n.t(
+			'This remote was changed outside the editor, so your unsaved edits were discarded.',
+		);
 	}
 
 	private addDraftRule = (): void => {
@@ -541,7 +550,11 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 				class="rule__expander"
 				aria-expanded=${expanded ? 'true' : 'false'}
 				aria-controls=${expanded ? `remote-${index}-editor` : nothing}
-				aria-label="${expanded ? 'Collapse' : 'Expand'} ${typeLabel} remote"
+				aria-label=${
+					expanded
+						? l10n.t('Collapse {provider} remote', { provider: typeLabel })
+						: l10n.t('Expand {provider} remote', { provider: typeLabel })
+				}
 				@click=${() => this.toggleExpand(index)}
 			>
 				<code-icon icon=${expanded ? 'chevron-down' : 'chevron-right'} aria-hidden="true"></code-icon>
@@ -551,14 +564,14 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 				${
 					matcher
 						? html`<span class="rule__title-matcher"> — <code>${matcher}</code></span>`
-						: html`<span class="rule__title-unset"> — no matcher yet</span>`
+						: html`<span class="rule__title-unset"> ${l10n.t('— no matcher yet')}</span>`
 				}
 			</span>
 			<button
 				type="button"
 				class="rule__delete"
-				aria-label="Delete ${name || typeLabel} remote"
-				title="Delete remote"
+				aria-label=${l10n.t('Delete {name} remote', { name: name || typeLabel })}
+				title=${l10n.t('Delete remote')}
 				@click=${() => this.removeRule(index)}
 			>
 				<code-icon icon="close" aria-hidden="true"></code-icon>
@@ -586,10 +599,10 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 
 		return html`<div class="rule__editor" id="remote-${index}-editor">
 			<div class="field rule__type">
-				<label class="field__label" for="remote-${index}-type">Provider type</label>
+				<label class="field__label" for="remote-${index}-type">${l10n.t('Provider type')}</label>
 				<gl-select
 					id="remote-${index}-type"
-					label="Provider type"
+					label=${l10n.t('Provider type')}
 					.options=${typeOptions}
 					.value=${draft.type}
 					@gl-change-value=${(e: Event) =>
@@ -598,10 +611,10 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 			</div>
 
 			<div class="field">
-				<span class="field__label">Match remotes by</span>
+				<span class="field__label">${l10n.t('Match remotes by')}</span>
 				<div class="field__row">
 					<gl-segmented-control
-						label="Matcher type"
+						label=${l10n.t('Matcher type')}
 						.options=${matcherModeOptions}
 						.value=${draft.matcherMode}
 						@gl-change-value=${(e: Event) =>
@@ -612,7 +625,7 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 						type="text"
 						spellcheck="false"
 						placeholder=${isRegex ? '\\bgit\\.example\\.com\\b' : 'git.example.com'}
-						aria-label=${isRegex ? 'Match regex' : 'Match domain'}
+						aria-label=${isRegex ? l10n.t('Match regex') : l10n.t('Match domain')}
 						.value=${matcherValue}
 						@blur=${(e: FocusEvent) =>
 							this.commit(
@@ -627,16 +640,27 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 						? html`<p class="notice notice--hint">
 								<code-icon icon="info" aria-hidden="true"></code-icon>
 								<span
-									>Unsaved changes — the saved matcher <code>${savedMatcher}</code> stays in effect
-									until this edit is valid.</span
+									>${localizedContent(
+										l10n.t(
+											'Unsaved changes — the saved matcher {matcher} stays in effect until this edit is valid.',
+										),
+										{ matcher: html`<code>${savedMatcher}</code>` },
+									)}</span
 								>
 							</p>`
 						: matcherMissing
 							? html`<p class="notice notice--hint">
 									<code-icon icon="info" aria-hidden="true"></code-icon>
 									<span
-										>Add a ${isRegex ? 'regex' : 'domain'} to match remotes — until then this entry
-										is ignored.</span
+										>${
+											isRegex
+												? l10n.t(
+														'Add a regex to match remotes — until then this entry is ignored.',
+													)
+												: l10n.t(
+														'Add a domain to match remotes — until then this entry is ignored.',
+													)
+										}</span
 									>
 								</p>`
 							: nothing
@@ -646,8 +670,9 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 						? html`<p class="notice notice--warning">
 								<code-icon icon="warning" aria-hidden="true"></code-icon>
 								<span
-									>This regular expression isn't valid, so this remote is ignored until it's
-									fixed.</span
+									>${l10n.t(
+										"This regular expression isn't valid, so this remote is ignored until it's fixed.",
+									)}</span
 								>
 							</p>`
 						: nothing
@@ -657,8 +682,10 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 						? html`<p class="notice notice--hint">
 								<code-icon icon="info" aria-hidden="true"></code-icon>
 								<span
-									>Self-hosted ${typeLabel} URLs are usually path-based — a plain domain may not
-									match. Consider a regex that captures the domain and path.</span
+									>${l10n.t(
+										'Self-hosted {provider} URLs are usually path-based — a plain domain may not match. Consider a regex that captures the domain and path.',
+										{ provider: typeLabel },
+									)}</span
 								>
 							</p>`
 						: nothing
@@ -667,19 +694,19 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 
 			<div class="subfields">
 				<div class="field">
-					<label class="field__label" for="remote-${index}-name">Name (optional)</label>
+					<label class="field__label" for="remote-${index}-name">${l10n.t('Name (optional)')}</label>
 					<input
 						id="remote-${index}-name"
 						type="text"
 						spellcheck="false"
-						placeholder="My Git host"
+						placeholder=${l10n.t('My Git host')}
 						.value=${draft.name ?? ''}
 						@blur=${(e: FocusEvent) =>
 							this.commit({ name: (e.target as HTMLInputElement).value || undefined })}
 					/>
 				</div>
 				<div class="field">
-					<label class="field__label" for="remote-${index}-protocol">Protocol (optional)</label>
+					<label class="field__label" for="remote-${index}-protocol">${l10n.t('Protocol (optional)')}</label>
 					<input
 						id="remote-${index}-protocol"
 						type="text"
@@ -698,7 +725,7 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 					this.commit({
 						ignoreSSLErrors: (e.target as HTMLElement & { checked: boolean }).checked ? true : undefined,
 					})}
-				>Ignore SSL certificate errors</gl-checkbox
+				>${l10n.t('Ignore SSL certificate errors')}</gl-checkbox
 			>
 
 			${isCustom ? this.renderUrls(draft, index, urlsIncomplete) : nothing}
@@ -707,14 +734,15 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 
 	private renderUrls(draft: RemoteDraft, index: number, incomplete: boolean) {
 		return html`<div class="urls">
-			<span class="urls__heading">URL templates</span>
+			<span class="urls__heading">${l10n.t('URL templates')}</span>
 			${
 				incomplete
 					? html`<p class="notice notice--warning">
 							<code-icon icon="warning" aria-hidden="true"></code-icon>
 							<span
-								>Fill in every required URL template so this custom remote can resolve links — it isn't
-								saved until they're complete.</span
+								>${l10n.t(
+									"Fill in every required URL template so this custom remote can resolve links — it isn't saved until they're complete.",
+								)}</span
 							>
 						</p>`
 					: nothing
@@ -723,9 +751,7 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 				const value = (draft.urls as Record<string, string> | undefined)?.[f.key] ?? '';
 				const invalid = f.required && incomplete && !value.trim();
 				return html`<div class="field">
-					<label class="field__label" for="remote-${index}-url-${f.key}"
-						>${f.label}${f.required ? '' : ' (optional)'}</label
-					>
+					<label class="field__label" for="remote-${index}-url-${f.key}">${f.label}</label>
 					<input
 						id="remote-${index}-url-${f.key}"
 						class="${invalid ? 'invalid' : ''}"
@@ -734,7 +760,11 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 						.value=${value}
 						@blur=${(e: FocusEvent) => this.commitUrl(f.key, (e.target as HTMLInputElement).value)}
 					/>
-					<span class="field__tokens">Tokens: ${f.tokens.map(t => html`<code>${t}</code> `)}</span>
+					<span class="field__tokens"
+						>${localizedContent(l10n.t('Tokens: {tokens}'), {
+							tokens: f.tokens.map(t => html`<code>${t}</code> `),
+						})}</span
+					>
 				</div>`;
 			})}
 		</div>`;
@@ -774,12 +804,13 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 			}
 			<div class="rules">${rows}</div>
 			<p class="hint">
-				Match your Git remotes to a provider so GitLens can open files, commits, branches, and pull requests on
-				the right host — including self-hosted GitHub, GitLab, and Bitbucket Server. Use a domain to match a
-				known provider, or a regex for advanced matching.
+				${l10n.t(
+					'Match your Git remotes to a provider so GitLens can open files, commits, branches, and pull requests on the right host — including self-hosted GitHub, GitLab, and Bitbucket Server. Use a domain to match a known provider, or a regex for advanced matching.',
+				)}
 			</p>
 			<gl-button appearance="secondary" @click=${this.addDraftRule}>
-				<code-icon icon="add" slot="prefix" aria-hidden="true"></code-icon> Add remote
+				<code-icon icon="add" slot="prefix" aria-hidden="true"></code-icon>
+				${l10n.t('Add remote')}
 			</gl-button>`;
 	}
 }

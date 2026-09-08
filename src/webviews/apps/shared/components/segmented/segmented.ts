@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { GlElement } from '@gitlens/components/components/element.js';
@@ -85,7 +86,7 @@ export class GlSegmentedControl extends GlElement {
 		return html`<div
 			class="group"
 			role="radiogroup"
-			aria-label=${this.label ?? 'Options'}
+			aria-label=${this.label ?? l10n.t('Options')}
 			@keydown=${this.handleKeyDown}
 		>
 			${this.options.map(

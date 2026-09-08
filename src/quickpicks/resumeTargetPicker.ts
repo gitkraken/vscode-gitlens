@@ -1,5 +1,5 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
-import { ThemeIcon, window } from 'vscode';
+import { l10n, ThemeIcon, window } from 'vscode';
 import type { AgentSessionResumeTarget } from '../agents/provider.js';
 import { getAgentProviderIcon } from '../agents/utils/agentIcon.js';
 
@@ -16,7 +16,7 @@ interface ResumeTargetQuickPickItem extends QuickPickItem {
 
 const pinButton: QuickInputButton = {
 	iconPath: new ThemeIcon('pin'),
-	tooltip: 'Always resume here (sets gitlens.agents.resumeTarget)',
+	tooltip: l10n.t('Always resume here (sets gitlens.agents.resumeTarget)'),
 };
 
 function itemForTarget(
@@ -27,16 +27,16 @@ function itemForTarget(
 ): ResumeTargetQuickPickItem {
 	if (target === 'extension') {
 		return {
-			label: `$(${getAgentProviderIcon(providerId)}) ${agentLabel} Extension`,
-			description: 'opens in this window',
+			label: `$(${getAgentProviderIcon(providerId)}) ${l10n.t('{0} Extension', agentLabel)}`,
+			description: l10n.t('Opens in this window'),
 			buttons: [pinButton],
 			target: target,
 		};
 	}
 
 	return {
-		label: '$(terminal) Terminal',
-		description: `new terminal at ${cwd}`,
+		label: `$(terminal) ${l10n.t('Terminal')}`,
+		description: l10n.t('New terminal at {0}', cwd),
 		buttons: [pinButton],
 		target: target,
 	};
@@ -60,8 +60,8 @@ export async function showResumeTargetPicker(
 ): Promise<ResumeTargetPick | undefined> {
 	const quickpick = window.createQuickPick<ResumeTargetQuickPickItem>();
 	try {
-		quickpick.title = `Resume "${sessionName}" in…`;
-		quickpick.placeholder = 'Select where to resume this session';
+		quickpick.title = l10n.t('Resume "{0}" in…', sessionName);
+		quickpick.placeholder = l10n.t('Select where to resume this session');
 		quickpick.items = targets.map(target => itemForTarget(providerId, agentLabel, cwd, target));
 
 		return await new Promise<ResumeTargetPick | undefined>(resolve => {

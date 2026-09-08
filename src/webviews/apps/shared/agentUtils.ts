@@ -1,4 +1,6 @@
+import * as l10n from '@vscode/l10n';
 import { getAgentCapabilities, getAgentCapabilitiesByProviderId } from '@gitlens/agents/agentCapabilities.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type {
 	AgentSessionState,
 	PastAgentSessionsResult,
@@ -104,13 +106,13 @@ export function getAgentProviderLabel(providerId: string | undefined): string {
 export function getAgentCategoryLabel(category: AgentSessionCategory): string {
 	switch (category) {
 		case 'needs-input':
-			return 'Needs input';
+			return l10n.t('Needs input');
 		case 'working':
-			return 'Working';
+			return l10n.t('Working');
 		case 'idle':
-			return 'Idle';
+			return l10n.t('Idle');
 		case 'ended':
-			return 'Past';
+			return l10n.t('Past');
 	}
 }
 
@@ -119,7 +121,7 @@ export function getAgentCategoryLabel(category: AgentSessionCategory): string {
  *  resume action. */
 export type AgentSessionOpenAction =
 	| {
-			label: 'Open Session';
+			label: string;
 			icon: 'link-external';
 			command: 'gitlens.agents.openSession';
 			/** Args exactly as the command receives them — the sidebar passes this array straight
@@ -134,7 +136,7 @@ export type AgentSessionOpenAction =
 			args: [{ sessionId: string; providerId: string; cwd: string; target: AgentSessionResumeTarget }];
 	  };
 
-const openSessionActionLabel = 'Open Session';
+const openSessionActionLabel = l10n.t('Open Session');
 const openSessionActionIcon = 'link-external';
 
 function resumeAction(
@@ -144,8 +146,8 @@ function resumeAction(
 ): AgentSessionOpenAction {
 	const label =
 		target === 'extension'
-			? `Resume in ${getAgentProviderLabel(session.providerId)} Extension`
-			: 'Resume in Terminal';
+			? l10n.t('Resume in {provider} Extension', { provider: getAgentProviderLabel(session.providerId) })
+			: l10n.t('Resume in Terminal');
 	const icon = target === 'extension' ? agentProviderIcon(session.providerId) : 'terminal';
 
 	return {
@@ -197,7 +199,7 @@ export function createAgentSessionOpenHrefs(
 }
 
 export interface AgentSessionArchiveAction {
-	label: 'Archive Session';
+	label: string;
 	icon: 'archive';
 	command: 'gitlens.agents.archiveSession';
 	args: [{ sessionId: string; providerId: string }];
@@ -221,7 +223,7 @@ export function getAgentSessionArchiveAction(session: ArchivableAgentSession): A
 	if (session.actions?.archive !== true) return undefined;
 
 	return {
-		label: 'Archive Session',
+		label: l10n.t('Archive Session'),
 		icon: 'archive',
 		command: 'gitlens.agents.archiveSession',
 		args: [{ sessionId: session.id, providerId: session.providerId }],
@@ -372,14 +374,14 @@ export function getAgentPhaseLabel(
 
 	switch (permission.kind) {
 		case 'plan':
-			return 'Plan ready';
+			return l10n.t('Plan ready');
 		case 'question':
-			return 'Question';
+			return l10n.t('Question');
 		case 'elicitation':
-			return 'Input needed';
+			return l10n.t('Input needed');
 		case 'tool':
 		default:
-			return 'Permission';
+			return l10n.t('Permission');
 	}
 }
 
@@ -393,28 +395,35 @@ export function getAgentPhaseLabel(
 export function formatAgentElapsed(value: number | undefined, now: number = Date.now()): string | undefined {
 	if (value == null) return undefined;
 
+	const format = getNumericFormat();
 	const seconds = Math.max(0, Math.floor((now - value) / 1000));
-	if (seconds < 60) return `${seconds}s`;
+	if (seconds < 60) return l10n.t('{seconds}s', { seconds: format(seconds) });
 
 	const minutes = Math.floor(seconds / 60);
-	if (minutes < 60) return `${minutes}m`;
+	if (minutes < 60) return l10n.t('{minutes}m', { minutes: format(minutes) });
 
 	const hours = Math.floor(minutes / 60);
 	if (hours < 24) {
 		const remainingMinutes = minutes % 60;
-		return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+		return remainingMinutes > 0
+			? l10n.t('{hours}h {minutes}m', { hours: format(hours), minutes: format(remainingMinutes) })
+			: l10n.t('{hours}h', { hours: format(hours) });
 	}
 
 	// Past sessions can be days or weeks old; keep rolling so "3d" beats "72h".
 	const days = Math.floor(hours / 24);
 	if (days < 7) {
 		const remainingHours = hours % 24;
-		return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+		return remainingHours > 0
+			? l10n.t('{days}d {hours}h', { days: format(days), hours: format(remainingHours) })
+			: l10n.t('{days}d', { days: format(days) });
 	}
 
 	const weeks = Math.floor(days / 7);
 	const remainingDays = days % 7;
-	return remainingDays > 0 ? `${weeks}w ${remainingDays}d` : `${weeks}w`;
+	return remainingDays > 0
+		? l10n.t('{weeks}w {days}d', { weeks: format(weeks), days: format(remainingDays) })
+		: l10n.t('{weeks}w', { weeks: format(weeks) });
 }
 
 /** Per-session "what is it doing" line. Mirrors the contract used by the graph details panel:
@@ -444,7 +453,7 @@ export function describeAgentSession(
 
 	if (idleFallback === 'lastActive') {
 		const lastActive = formatAgentElapsed(session.lastActivity);
-		if (lastActive != null) return `Last active ${lastActive} ago`;
+		if (lastActive != null) return l10n.t('Last active {duration} ago', { duration: lastActive });
 	}
 
 	return session.lastPrompt || undefined;
@@ -460,23 +469,54 @@ function describePendingPermission(
 ): string {
 	switch (permission.kind) {
 		case 'plan':
-			return permission.planSummary
-				? `${awaitingPrefix === 'long' ? 'Plan ready:' : 'Plan:'} ${permission.planSummary}`
-				: 'Plan ready for review';
+			if (!permission.planSummary) return l10n.t('Plan ready for review');
+
+			return awaitingPrefix === 'long'
+				? l10n.t('Plan ready: {summary}', { summary: permission.planSummary })
+				: l10n.t('Plan: {summary}', { summary: permission.planSummary });
 		case 'question': {
-			const text = permission.questionText ?? 'Awaiting your answer';
+			const text = permission.questionText ?? l10n.t('Awaiting your answer');
 			const count = permission.questionCount ?? 0;
-			if (count > 1) return `${awaitingPrefix === 'long' ? 'Question:' : 'Q:'} ${text} (1 of ${count})`;
-			return `${awaitingPrefix === 'long' ? 'Question:' : 'Q:'} ${text}`;
+			if (count > 1) {
+				return awaitingPrefix === 'long'
+					? l10n.t('Question: {question} ({current} of {count})', {
+							question: text,
+							current: getNumericFormat()(1),
+							count: getNumericFormat()(count),
+						})
+					: l10n.t('Q: {question} ({current} of {count})', {
+							question: text,
+							current: getNumericFormat()(1),
+							count: getNumericFormat()(count),
+						});
+			}
+			return awaitingPrefix === 'long'
+				? l10n.t('Question: {question}', { question: text })
+				: l10n.t('Q: {question}', { question: text });
 		}
 		case 'elicitation':
-			return permission.toolName ? `Awaiting input: ${permission.toolName}` : 'Awaiting input';
+			return permission.toolName
+				? l10n.t('Awaiting input: {tool}', { tool: permission.toolName })
+				: l10n.t('Awaiting input');
 		case 'tool':
 		default: {
-			if (!permission.toolName) return 'Awaiting permission';
+			if (!permission.toolName) return l10n.t('Awaiting permission');
 
-			const prefix = awaitingPrefix === 'long' ? 'Awaiting permission:' : 'Awaiting:';
-			return `${prefix} ${permission.toolName}${permission.toolDescription ? ` — ${permission.toolDescription}` : ''}`;
+			if (awaitingPrefix === 'long') {
+				return permission.toolDescription
+					? l10n.t('Awaiting permission: {tool} — {description}', {
+							tool: permission.toolName,
+							description: permission.toolDescription,
+						})
+					: l10n.t('Awaiting permission: {tool}', { tool: permission.toolName });
+			}
+
+			return permission.toolDescription
+				? l10n.t('Awaiting: {tool} — {description}', {
+						tool: permission.toolName,
+						description: permission.toolDescription,
+					})
+				: l10n.t('Awaiting: {tool}', { tool: permission.toolName });
 		}
 	}
 }

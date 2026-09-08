@@ -1,5 +1,5 @@
 import type { CancellationToken } from 'vscode';
-import { ProgressLocation, window } from 'vscode';
+import { l10n, ProgressLocation, window } from 'vscode';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { getPullRequestNumberFromUrl, getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
@@ -17,20 +17,59 @@ export async function confirmPullRequestMerge(pr: PullRequest): Promise<boolean>
 
 	const stack = pr.stack;
 	const count = getStackedMergeCount(stack);
-	const mergeLabel = count > 1 ? `Merge ${count} Pull Requests` : 'Merge';
+	const merge = { label: count > 1 ? l10n.t('Merge {count} Pull Requests', { count: count }) : l10n.t('Merge') };
+	const cancel = { label: l10n.t('Cancel') };
 	const number = getPullRequestNumberFromUrl(pr.url) ?? pr.id;
-	const confirm = await window.showQuickPick([mergeLabel, 'Cancel'], {
-		title: `${count > 1 ? 'Merge Stack' : 'Merge Pull Request'} • #${number} ${pr.title}`,
-		placeHolder:
-			stack != null && count > 1
-				? `Merging ${headName ?? 'this pull request'} also merges the ${count - 1} pull request${
-						count - 1 === 1 ? '' : 's'
-					} below it in the stack, into ${stack.baseRef}. This cannot be undone.`
-				: `Are you sure you want to merge ${headName ?? 'this pull request'}${
-						baseName ? ` into ${baseName}` : ''
-					}? This cannot be undone.`,
+	const title =
+		count > 1
+			? l10n.t('Merge Stack • #{number} {title}', { number: number, title: pr.title })
+			: l10n.t('Merge Pull Request • #{number} {title}', { number: number, title: pr.title });
+	let placeHolder: string;
+	if (stack != null && count > 1) {
+		const lowerCount = count - 1;
+		if (headName != null) {
+			placeHolder =
+				lowerCount === 1
+					? l10n.t(
+							'Merging {head} also merges the {count} pull request below it in the stack, into {base}. This cannot be undone.',
+							{ head: headName, count: lowerCount, base: stack.baseRef },
+						)
+					: l10n.t(
+							'Merging {head} also merges the {count} pull requests below it in the stack, into {base}. This cannot be undone.',
+							{ head: headName, count: lowerCount, base: stack.baseRef },
+						);
+		} else {
+			placeHolder =
+				lowerCount === 1
+					? l10n.t(
+							'Merging this pull request also merges the {count} pull request below it in the stack, into {base}. This cannot be undone.',
+							{ count: lowerCount, base: stack.baseRef },
+						)
+					: l10n.t(
+							'Merging this pull request also merges the {count} pull requests below it in the stack, into {base}. This cannot be undone.',
+							{ count: lowerCount, base: stack.baseRef },
+						);
+		}
+	} else if (headName != null && baseName) {
+		placeHolder = l10n.t('Are you sure you want to merge {head} into {base}? This cannot be undone.', {
+			head: headName,
+			base: baseName,
+		});
+	} else if (headName != null) {
+		placeHolder = l10n.t('Are you sure you want to merge {head}? This cannot be undone.', { head: headName });
+	} else if (baseName) {
+		placeHolder = l10n.t('Are you sure you want to merge this pull request into {base}? This cannot be undone.', {
+			base: baseName,
+		});
+	} else {
+		placeHolder = l10n.t('Are you sure you want to merge this pull request? This cannot be undone.');
+	}
+
+	const confirm = await window.showQuickPick([merge, cancel], {
+		title: title,
+		placeHolder: placeHolder,
 	});
-	return confirm === mergeLabel;
+	return confirm === merge;
 }
 
 export type PullRequestMergeProgressResult = 'merged' | 'cancelled' | 'failed';
@@ -47,6 +86,7 @@ export async function mergePullRequestWithProgress(
 ): Promise<PullRequestMergeProgressResult> {
 	const count = getStackedMergeCount(pr.stack);
 	const number = getPullRequestNumberFromUrl(pr.url) ?? pr.id;
+	const belowCount = count - 1;
 
 	let cancellationToken: CancellationToken | undefined;
 	const merged = await window.withProgress(
@@ -54,8 +94,11 @@ export async function mergePullRequestWithProgress(
 			location: ProgressLocation.Notification,
 			title:
 				count > 1
-					? `Merging ${count} pull requests (#${number} and the ${count - 1} below it in the stack)...`
-					: `Merging pull request #${number}...`,
+					? l10n.t(
+							'Merging {count} pull requests (#{number} and the {belowCount} below it in the stack)...',
+							{ count: count, number: number, belowCount: belowCount },
+						)
+					: l10n.t('Merging pull request #{number}...', { number: number }),
 			cancellable: true,
 		},
 		(_progress, token) => {
@@ -68,11 +111,14 @@ export async function mergePullRequestWithProgress(
 	if (cancellationToken?.isCancellationRequested) {
 		// The client-side poll stopped, but the server-side merge may still be running — don't claim it didn't happen.
 		void window.showInformationMessage(
-			`Stopped waiting for pull request #${number} to merge — the merge may still complete on ${integration.name}.`,
+			l10n.t(
+				'Stopped waiting for pull request #{number} to merge — the merge may still complete on {provider}.',
+				{ number: number, provider: integration.name },
+			),
 		);
 		return 'cancelled';
 	}
 
-	void window.showErrorMessage(`Unable to merge pull request #${number}`);
+	void window.showErrorMessage(l10n.t('Unable to merge pull request #{number}', { number: number }));
 	return 'failed';
 }

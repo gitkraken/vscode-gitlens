@@ -1,10 +1,12 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing, svg } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
 import { focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { SubscriptionLoginCommandArgs } from '../../../../plus/gk/models/subscription.js';
 import { createCommandLink } from '../../../../system/commands.js';
@@ -29,37 +31,41 @@ type ProStripSlide = { name: string; description: string; vignette: () => unknow
 
 const proStripSlides: ProStripSlide[] = [
 	{
-		name: 'Commit Graph',
-		description:
+		name: l10n.t('Commit Graph'),
+		description: l10n.t(
 			'Where your development and agentic workflows come together — run your entire Git lifecycle from one view.',
+		),
 		vignette: renderGraphVignette,
 	},
 	{
-		name: 'Agents & Worktrees',
-		description:
+		name: l10n.t('Agents & Worktrees'),
+		description: l10n.t(
 			'Launch, monitor, and interact with coding agents — parallelized across worktrees, without the chaos.',
+		),
 		vignette: renderWorktreesVignette,
 	},
 	{
-		name: 'AI Compose & Review',
-		description: 'Bring order from chaos — clean, review-ready commits and severity-tagged reviews.',
+		name: l10n.t('AI Compose & Review'),
+		description: l10n.t('Bring order from chaos — clean, review-ready commits and severity-tagged reviews.'),
 		vignette: renderAiVignette,
 	},
 	{
-		name: 'AI Rebase & Resolve',
-		description:
+		name: l10n.t('AI Rebase & Resolve'),
+		description: l10n.t(
 			'Guided, AI-assisted rebase and conflict resolution — see both sides, take the right changes, and finish the merge faster.',
+		),
 		vignette: renderResolveVignette,
 	},
 	{
-		name: 'Launchpad',
-		description: 'Know what needs your attention — PRs, issues, and blockers, prioritized in one view.',
+		name: l10n.t('Launchpad'),
+		description: l10n.t('Know what needs your attention — PRs, issues, and blockers, prioritized in one view.'),
 		vignette: renderLaunchpadVignette,
 	},
 	{
-		name: 'Visualizations & Health',
-		description:
+		name: l10n.t('Visualizations & Health'),
+		description: l10n.t(
 			'Analyze how your code evolves — Visual History, hotspots, and treemaps — plus Repository Health tune-ups that keep git fast.',
+		),
 		vignette: renderVizVignette,
 	},
 ];
@@ -1225,19 +1231,26 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 					this.upgradedFromPreV19
 						? html`<div class="upgrade-banner" role="note">
 								<code-icon icon="info"></code-icon>
-								<span>The all-new Commit Graph has moved here, replacing the Home view.</span>
+								<span
+									>${l10n.t('The all-new Commit Graph has moved here, replacing the Home view.')}</span
+								>
 							</div>`
 						: nothing
 				}
 				<div class="content">
 					<gitlens-logo-circle class="logo"></gitlens-logo-circle>
-					<h1 class="heading">${copy?.heading ?? 'Sign In to GitLens'}</h1>
+					<h1 class="heading">${copy?.heading ?? l10n.t('Sign In to GitLens')}</h1>
 					<p class="body">
 						${
 							copy?.body ??
-							html`Supercharge Git and stay in control of
-								<span class="nowrap">AI-assisted</span> development by connecting coding agents,
-								worktrees, commits, and reviews directly into the Git workflow.`
+							localizedContent(
+								l10n.t({
+									message:
+										'Supercharge Git and stay in control of {aiAssisted} development by connecting coding agents, worktrees, commits, and reviews directly into the Git workflow.',
+									comment: ['{aiAssisted} is the styled phrase “AI-assisted”, kept on one line.'],
+								}),
+								{ aiAssisted: html`<span class="nowrap">${l10n.t('AI-assisted')}</span>` },
+							)
 						}
 					</p>
 					${this.waiting ? this.renderWaiting() : this.renderSignInActions()}
@@ -1250,7 +1263,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 									href=${createCommandLink('gitlens.showWelcomeView', { mode: 'main' })}
 								>
 									<code-icon slot="prefix" icon="book"></code-icon>
-									Learn More
+									${l10n.t('Learn More')}
 								</gl-button>`
 					}
 				</div>
@@ -1266,7 +1279,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			<div
 				class="pro-strip"
 				role="region"
-				aria-label="GitLens Pro features"
+				aria-label=${l10n.t('GitLens Pro features')}
 				@mouseenter=${this.onStripPauseOn}
 				@mouseleave=${this.onStripPauseOff}
 				@focusin=${this.onStripPauseOn}
@@ -1330,7 +1343,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			<a
 				class="intro-video"
 				href="https://www.youtube.com/watch?v=7cy4_M0lH6k"
-				aria-label="Watch the GitLens Getting Started video"
+				aria-label=${l10n.t('Watch the GitLens Getting Started video')}
 				@click=${this.onIntroVideoClicked}
 			>
 				<img
@@ -1359,7 +1372,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 						openAccountView: false,
 					})}
 					@click=${this.onStart}
-					>Create Free Account</gl-button
+					>${l10n.t('Create Free Account')}</gl-button
 				>
 				<gl-button
 					full
@@ -1369,7 +1382,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 						openAccountView: false,
 					})}
 					@click=${this.onStart}
-					>Sign In</gl-button
+					>${l10n.t('Sign In')}</gl-button
 				>
 			</div>
 		`;
@@ -1380,9 +1393,9 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			<div class="waiting">
 				<code-icon icon="sync" modifier="spin"></code-icon>
 				<div class="waiting__status" role="status" aria-live="polite">
-					Waiting for sign-in to complete in your browser&hellip;
+					${l10n.t('Waiting for sign-in to complete in your browser…')}
 				</div>
-				<button type="button" class="cancel" @click=${this.onCancel}>Cancel</button>
+				<button type="button" class="cancel" @click=${this.onCancel}>${l10n.t('Cancel')}</button>
 			</div>
 		`;
 	}
@@ -1392,10 +1405,9 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			<div class="container scrollable">
 				<div class="content">
 					<code-icon class="icon-accent" icon="mail" .size=${28}></code-icon>
-					<h1 class="heading">Verify your email</h1>
+					<h1 class="heading">${l10n.t('Verify your email')}</h1>
 					<p class="body">
-						We sent a verification link to your email. Click it to activate your account, then synchronize
-						to continue.
+						${l10n.t('We sent a verification link to your email. Click it to activate your account, then synchronize to continue.')}
 					</p>
 					<div class="actions">
 						<gl-button
@@ -1403,7 +1415,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 							href=${createCommandLink<Source>('gitlens.plus.resendVerification', src)}
 							?disabled=${this.cooldown > 0}
 							@click=${this.onResend}
-							>${this.cooldown > 0 ? `Email Sent · ${this.cooldown}s` : 'Resend Email'}</gl-button
+							>${this.cooldown > 0 ? l10n.t('Email Sent · {seconds}s', { seconds: this.cooldown }) : l10n.t('Resend Email')}</gl-button
 						>
 						<gl-button
 							full
@@ -1412,13 +1424,13 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 							@click=${this.onSync}
 						>
 							<code-icon slot="prefix" icon="sync" modifier=${this.syncing ? 'spin' : ''}></code-icon>
-							Synchronize Status
+							${l10n.t('Synchronize Status')}
 						</gl-button>
 					</div>
 					${
 						this.syncChecked && !this.syncing
 							? html`<p class="sync-status" role="status">
-									Not verified yet &mdash; check your inbox for the link.
+									${l10n.t('Not verified yet — check your inbox for the link.')}
 								</p>`
 							: nothing
 					}
@@ -1436,25 +1448,30 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 						this.liveSignIn
 							? html`<p class="success" role="status">
 									<code-icon icon="pass-filled"></code-icon>
-									You're signed in
+									${l10n.t("You're signed in")}
 								</p>`
 							: nothing
 					}
-					<h1 class="heading">Welcome to the Commit Graph</h1>
+					<h1 class="heading">${l10n.t('Welcome to the Commit Graph')}</h1>
 					<p class="body">
-						Where your development and agentic workflows come
-						together${!this.showLayoutOptions && !this.upgradedFromPreV19 ? html` &mdash; visualize branches and commits, manage parallel work and agents, and run your entire Git workflow from one view.` : '.'}
+						${
+							!this.showLayoutOptions && !this.upgradedFromPreV19
+								? l10n.t(
+										'Where your development and agentic workflows come together — visualize branches and commits, manage parallel work and agents, and run your entire Git workflow from one view.',
+									)
+								: l10n.t('Where your development and agentic workflows come together.')
+						}
 					</p>
 					${this.showLayoutOptions ? this.renderLayoutOptions() : nothing}
 					<div class="setup">
-						<h2 class="setup__label">Set up your workflow</h2>
+						<h2 class="setup__label">${l10n.t('Set up your workflow')}</h2>
 						<gl-card class="setup__card" href=${createCommandLink('gitlens.showSettingsPage!ai')}>
 							<div class="setup-card">
 								<code-icon class="setup-card__icon" icon="sparkle"></code-icon>
 								<div class="setup-card__content">
-									<span class="setup-card__title">Set up AI</span>
+									<span class="setup-card__title">${l10n.t('Set up AI')}</span>
 									<span class="setup-card__hint"
-										>Compose commits, review changes, and resolve conflicts with AI</span
+										>${l10n.t('Compose commits, review changes, and resolve conflicts with AI')}</span
 									>
 								</div>
 								<code-icon class="setup-card__chevron" icon="chevron-right"></code-icon>
@@ -1464,9 +1481,9 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 							<div class="setup-card">
 								<code-icon class="setup-card__icon" icon="robot"></code-icon>
 								<div class="setup-card__content">
-									<span class="setup-card__title">Set up Agents</span>
+									<span class="setup-card__title">${l10n.t('Set up Agents')}</span>
 									<span class="setup-card__hint"
-										>Choose your default coding agent and install the GitKraken MCP</span
+										>${l10n.t('Choose your default coding agent and install the GitKraken MCP')}</span
 									>
 								</div>
 								<code-icon class="setup-card__chevron" icon="chevron-right"></code-icon>
@@ -1476,9 +1493,9 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 							<div class="setup-card">
 								<code-icon class="setup-card__icon" icon="plug"></code-icon>
 								<div class="setup-card__content">
-									<span class="setup-card__title">Connect Integrations</span>
+									<span class="setup-card__title">${l10n.t('Connect Integrations')}</span>
 									<span class="setup-card__hint"
-										>See and act on PRs and issues from GitHub, Jira, and more</span
+										>${l10n.t('See and act on PRs and issues from GitHub, Jira, and more')}</span
 									>
 								</div>
 								<code-icon class="setup-card__chevron" icon="chevron-right"></code-icon>
@@ -1486,7 +1503,9 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 						</gl-card>
 					</div>
 					<div class="actions actions--last">
-						<gl-button full class="continue" @click=${this.onContinue}>Continue to Commit Graph</gl-button>
+						<gl-button full class="continue" @click=${this.onContinue}
+							>${l10n.t('Continue to Commit Graph')}</gl-button
+						>
 					</div>
 				</div>
 			</div>
@@ -1496,7 +1515,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 	private renderLayoutOptions(): unknown {
 		return html`
 			<div class="layout">
-				<h2 class="layout__question">Would you like to change the Graph location?</h2>
+				<h2 class="layout__question">${l10n.t('Would you like to change the Graph location?')}</h2>
 				<div class="layout__options">
 					<button
 						type="button"
@@ -1506,7 +1525,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 					>
 						${this.renderSidebarIllustration()}
 						<span class="layout__option-text">
-							<span class="layout__option-label">Side Bar</span>
+							<span class="layout__option-label">${l10n.t('Side Bar')}</span>
 						</span>
 					</button>
 					<button
@@ -1517,7 +1536,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 					>
 						${this.renderPanelIllustration()}
 						<span class="layout__option-text">
-							<span class="layout__option-label">Bottom Panel</span>
+							<span class="layout__option-label">${l10n.t('Bottom Panel')}</span>
 						</span>
 					</button>
 				</div>

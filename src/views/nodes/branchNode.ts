@@ -1,5 +1,14 @@
 import type { Uri } from 'vscode';
-import { Disposable, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import {
+	Disposable,
+	l10n,
+	MarkdownString,
+	ThemeColor,
+	ThemeIcon,
+	TreeItem,
+	TreeItemCollapsibleState,
+	window,
+} from 'vscode';
 import { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
@@ -9,7 +18,7 @@ import type { GitUser } from '@gitlens/git/models/user.js';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
 import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
-import { formatIndicators, formatTrackingTooltip } from '@gitlens/git/utils/tooltip.utils.js';
+import { formatIndicators, formatMarkdownCode, formatTrackingTooltip } from '@gitlens/git/utils/tooltip.utils.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
@@ -262,7 +271,7 @@ export class BranchNode
 						: undefined,
 				]);
 				const log = getSettledValue(logResult);
-				if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+				if (log == null) return [new MessageNode(this.view, this, l10n.t('No commits could be found.'))];
 
 				const children = [];
 
@@ -575,19 +584,21 @@ export async function getBranchNodeParts(
 	const suffixes = [];
 	if (current) {
 		if (branch.rebasing) {
-			suffixes.push('rebasing');
+			suffixes.push(l10n.t('rebasing'));
 		}
-		suffixes.push('current branch');
+		suffixes.push(l10n.t('current branch'));
 	}
 	if (options?.worktree) {
 		if (options.worktree.opened && !current) {
-			suffixes.push('in an opened worktree');
+			suffixes.push(l10n.t('in an opened worktree'));
 		} else {
-			suffixes.push('in a worktree');
+			suffixes.push(l10n.t('in a worktree'));
 		}
 	}
 
-	let tooltip: string | MarkdownString = `$(git-branch) \`${branch.nameWithoutRemote}\`${formatIndicators(suffixes)}`;
+	let tooltip: string | MarkdownString = `$(git-branch) ${formatMarkdownCode(
+		branch.nameWithoutRemote,
+	)}${formatIndicators(suffixes)}`;
 
 	let contextValue: string = ContextValues.Branch;
 	let checkedout = false;
@@ -659,7 +670,7 @@ export async function getBranchNodeParts(
 			description = options?.showAsCommits
 				? `${GitBranch.getTrackingStatus(branch, {
 						suffix: pad(GlyphChars.Dot, 1, 1),
-					})}${branch.nameWithoutRemote}${branch.rebasing ? ' (Rebasing)' : ''}${pad(arrows, 2, 2)}${
+					})}${branch.rebasing ? l10n.t('{0} (Rebasing)', branch.nameWithoutRemote) : branch.nameWithoutRemote}${pad(arrows, 2, 2)}${
 						branch.upstream.name
 					}`
 				: `${GitBranch.getTrackingStatus(branch, { suffix: `${GlyphChars.Space} ` })}${arrows}${GlyphChars.Space} ${
@@ -696,17 +707,21 @@ export async function getBranchNodeParts(
 			);
 			const providerName = providers?.length ? providers[0].name : undefined;
 
-			tooltip += `\n\nLocal branch, hasn't been published to ${providerName ?? 'a remote'}`;
+			tooltip +=
+				providerName == null
+					? `\n\n${l10n.t("Local branch, hasn't been published to a remote")}`
+					: `\n\n${l10n.t("Local branch, hasn't been published to {0}", providerName)}`;
 		}
 	}
 
 	if (branch.date != null) {
 		description = `${description ? `${description}${pad(GlyphChars.Dot, 2, 2)}` : ''}${GitBranch.formatDateWithStyle(branch, container.BranchDateFormatting)}`;
 
-		tooltip += `\n\nLast commit ${GitBranch.formatDateFromNow(branch)} (${GitBranch.formatDate(
-			branch,
-			container.BranchDateFormatting.dateFormat,
-		)})`;
+		tooltip += `\n\n${l10n.t(
+			'Last commit {0} ({1})',
+			GitBranch.formatDateFromNow(branch),
+			GitBranch.formatDate(branch, container.BranchDateFormatting.dateFormat),
+		)}`;
 	}
 
 	tooltip = new MarkdownString(tooltip, true);
@@ -714,19 +729,22 @@ export async function getBranchNodeParts(
 	tooltip.isTrusted = true;
 
 	if (branch.starred) {
-		tooltip.appendMarkdown('\\\n$(star-full) Favorited');
+		tooltip.appendMarkdown(`\\\n$(star-full) ${l10n.t('Favorited')}`);
 	}
 
 	if (options?.pendingPullRequest != null) {
-		tooltip.appendMarkdown(`\n\n$(loading~spin) Loading associated pull request${GlyphChars.Ellipsis}`);
+		tooltip.appendMarkdown(
+			`\n\n$(loading~spin) ${l10n.t('Loading associated pull request{0}', GlyphChars.Ellipsis)}`,
+		);
 	}
 
 	let label;
 	if (options?.showAsCommits) {
-		label = 'Commits';
+		label = l10n.t('Commits');
 	} else {
 		const branchName = branch.nameWithoutRemote;
-		label = `${!options?.useBaseNameOnly ? branchName : branch.basename}${branch.rebasing ? ' (Rebasing)' : ''}`;
+		const displayName = !options?.useBaseNameOnly ? branchName : branch.basename;
+		label = branch.rebasing ? l10n.t('{0} (Rebasing)', displayName) : displayName;
 	}
 
 	let localUnpublished = false;
@@ -789,13 +807,18 @@ export class CommitsCurrentBranchNode extends SubscribeableViewNode<'commits-cur
 
 	async getTreeItem(): Promise<TreeItem> {
 		const lastFetched = (await this.getLastFetched()) ?? 0;
-		const context = `${this.branch.name}${
-			lastFetched ? ` \u00a0\u2022\u00a0 fetched ${fromNow(new Date(lastFetched))}` : ''
-		}`;
+		const fetched = lastFetched ? fromNow(new Date(lastFetched)) : undefined;
+		const context =
+			fetched != null
+				? l10n.t('{0} \u00a0\u2022\u00a0 fetched {1}', this.branch.name, fetched)
+				: this.branch.name;
 
 		const item = new TreeItem('', TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.CommitsCurrentBranch;
-		item.description = `\u2014\u00a0\u00a0 on ${context}`;
+		item.description =
+			fetched != null
+				? l10n.t('\u2014\u00a0\u00a0 on {0} \u00a0\u2022\u00a0 fetched {1}', this.branch.name, fetched)
+				: l10n.t('\u2014\u00a0\u00a0 on {0}', this.branch.name);
 		item.tooltip = context;
 		return item;
 	}

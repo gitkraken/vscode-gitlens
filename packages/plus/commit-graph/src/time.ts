@@ -1,25 +1,26 @@
 /** Relative-time formatting for commit dates, shared by every renderer. */
 
+import * as l10n from '@vscode/l10n';
+
 // Date formatting
 
 /**
  * Lightweight relative-time formatter for commit dates. Consumers can override per-render
- * by passing a `formatDate` prop; otherwise this English-default is used. No i18n
- * dependency in the package — keeping the surface focused on the graph itself.
+ * by passing a `formatDate` prop; otherwise a localized relative format is used.
  */
 export function relativeTime(date: number): string {
 	if (!Number.isFinite(date)) return '';
 
 	const diff = Date.now() - date;
 	const minutes = Math.floor(diff / 60000);
-	if (minutes < 1) return 'just now';
-	if (minutes < 60) return `${minutes}m ago`;
+	if (minutes < 1) return l10n.t('just now');
+	if (minutes < 60) return l10n.t('{0}m ago', minutes);
 
 	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h ago`;
+	if (hours < 24) return l10n.t('{0}h ago', hours);
 
 	const days = Math.floor(hours / 24);
-	return `${days}d ago`;
+	return l10n.t('{0}d ago', days);
 }
 
 /**
@@ -35,15 +36,15 @@ export function relativeTimeShort(date: number, now: number = Date.now()): strin
 
 	const diff = now - date;
 	const minutes = Math.floor(diff / 60000);
-	if (minutes < 1) return 'now';
-	if (minutes < 60) return `${minutes}m`;
+	if (minutes < 1) return l10n.t('now');
+	if (minutes < 60) return l10n.t('{0}m', minutes);
 
 	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h`;
+	if (hours < 24) return l10n.t('{0}h', hours);
 
 	const days = Math.floor(hours / 24);
-	if (days < 7) return `${days}d`;
-	if (days < 30) return `${Math.floor(days / 7)}w`;
-	if (days < 365) return `${Math.floor(days / 30)}mo`;
-	return `${Math.floor(days / 365)}y`;
+	if (days < 7) return l10n.t('{0}d', days);
+	if (days < 30) return l10n.t('{0}w', Math.floor(days / 7));
+	if (days < 365) return l10n.t('{0}mo', Math.floor(days / 30));
+	return l10n.t('{0}y', Math.floor(days / 365));
 }

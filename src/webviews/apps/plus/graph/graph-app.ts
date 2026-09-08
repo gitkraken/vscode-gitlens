@@ -1879,7 +1879,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 										.pushOverlay=${this.pushOverlay}
 										@gl-graph-hoverpeekclosed=${this.handleHoverPeekClosed}
 									></gl-graph-hover>
-									<gl-drag-shift-overlay label="to Resume Dragging"></gl-drag-shift-overlay>
+									<gl-drag-shift-overlay></gl-drag-shift-overlay>
 									<main id="main" class="graph__panes">${this.renderDetailsPanel()}</main>
 								`
 					}

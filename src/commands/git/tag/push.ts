@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import { TagError } from '@gitlens/git/errors.js';
 import type { GitTagReference } from '@gitlens/git/models/reference.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
@@ -65,8 +66,8 @@ export interface TagPushGitCommandArgs {
 
 export class TagPushGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: TagPushGitCommandArgs) {
-		super(container, 'tag-push', 'push', 'Push Tags', {
-			description: 'pushes the specified tags to a remote',
+		super(container, 'tag-push', 'push', l10n.t('Push Tags'), {
+			description: l10n.t('pushes the specified tags to a remote'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -122,7 +123,7 @@ export class TagPushGitCommand extends QuickCommand<State> {
 
 				const result = yield* pickTagsStep(state, context, {
 					picked: state.references?.map(r => r.ref),
-					placeholder: 'Choose tags to push',
+					placeholder: l10n.t('Choose tags to push'),
 				});
 				if (result === StepResultBreak) {
 					state.references = undefined!;
@@ -146,7 +147,7 @@ export class TagPushGitCommand extends QuickCommand<State> {
 
 					const result = yield* pickRemoteStep(state, context, {
 						picked: getDefaultRemoteOrOrigin(remotes)?.name,
-						placeholder: 'Choose a remote to push to',
+						placeholder: l10n.t('Choose a remote to push to'),
 					});
 					if (result === StepResultBreak) {
 						state.remote = undefined!;
@@ -184,8 +185,8 @@ export class TagPushGitCommand extends QuickCommand<State> {
 					{ force: state.flags.includes('--force') },
 				);
 			} catch (ex) {
-				Logger.error(ex, context.title);
-				void showGitErrorMessage(ex, TagError.is(ex) ? undefined : 'Unable to push tag');
+				Logger.error(ex, 'Push Tags');
+				void showGitErrorMessage(ex, TagError.is(ex) ? undefined : l10n.t('Unable to push tag'));
 			}
 		}
 
@@ -198,10 +199,6 @@ export class TagPushGitCommand extends QuickCommand<State> {
 	): StepResultGenerator<Flags[]> {
 		const references = ensureArray(state.references);
 		const refsLabel = getReferenceLabel(references);
-		const existsClause =
-			references.length === 1
-				? 'the tag on the remote if it already exists'
-				: 'the tags on the remote if they already exist';
 
 		let force = state.flags.includes('--force');
 
@@ -209,11 +206,21 @@ export class TagPushGitCommand extends QuickCommand<State> {
 		// are the whole contract with the executor — so the row says what will actually happen.
 		const buildItems = (): FlagsQuickPickItem<Flags>[] => [
 			createFlagsQuickPickItem<Flags>(state.flags, force ? ['--force'] : [], {
-				label: force ? `Force ${context.title}` : context.title,
+				label: force ? l10n.t('Force Push Tags') : context.title,
 				description: force ? '--force' : undefined,
 				detail: force
-					? `Will force push ${refsLabel} to ${state.remote.name}, overwriting ${existsClause}`
-					: `Will push ${refsLabel} to ${state.remote.name}`,
+					? references.length === 1
+						? l10n.t(
+								'Will force push {0} to {1}, overwriting the tag on the remote if it already exists',
+								refsLabel,
+								state.remote.name,
+							)
+						: l10n.t(
+								'Will force push {0} to {1}, overwriting the tags on the remote if they already exist',
+								refsLabel,
+								state.remote.name,
+							)
+					: l10n.t('Will push {0} to {1}', refsLabel, state.remote.name),
 			}),
 		];
 
@@ -232,21 +239,25 @@ export class TagPushGitCommand extends QuickCommand<State> {
 		let step: QuickPickStep<FlagsQuickPickItem<Flags> | DirectiveQuickPickItem>;
 
 		const forceToggle = createConfirmToggleQuickPickItem({
-			label: force ? '$(warning) Force' : 'Force',
+			label: force ? l10n.t('$(warning) Force') : l10n.t('Force'),
 			description: '--force',
-			detail: `Overwrite ${existsClause}`,
+			detail:
+				references.length === 1
+					? l10n.t('Overwrite the tag on the remote if it already exists')
+					: l10n.t('Overwrite the tags on the remote if they already exist'),
 			checked: force,
 			onDidChange: item => {
 				force = item.checked;
-				item.label = force ? '$(warning) Force' : 'Force';
+				item.label = force ? l10n.t('$(warning) Force') : l10n.t('Force');
 				items = buildItems();
 				refreshConfirmStepItems(step, buildRows(item));
 			},
 		});
 
 		step = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(l10n.t('Confirm Push Tags'), state, context),
 			buildRows(forceToggle),
+			l10n.t('Confirm Push Tags'),
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;

@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -53,7 +54,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 				this.container,
 				gitUri,
 				editor,
-				args?.clipboard ? 'Copy Remote Branch URL' : 'Open Branch On Remote',
+				args?.clipboard ? l10n.t('Copy Remote Branch URL') : l10n.t('Open Branch On Remote'),
 			)
 		)?.path;
 		if (!repoPath) return;
@@ -64,8 +65,8 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 			if (args.branch == null) {
 				const result = await showReferencePicker2(
 					repoPath,
-					args.clipboard ? 'Copy Remote Branch URL' : 'Open Branch On Remote',
-					args.clipboard ? 'Choose a branch to copy the URL from' : 'Choose a branch to open',
+					args.clipboard ? l10n.t('Copy Remote Branch URL') : l10n.t('Open Branch On Remote'),
+					args.clipboard ? l10n.t('Choose a branch to copy the URL from') : l10n.t('Choose a branch to open'),
 					{
 						autoPick: true,
 						// checkmarks: false,
@@ -102,7 +103,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenBranchOnRemoteCommand');
-			void showGenericErrorMessage('Unable to open branch on remote provider');
+			void showGenericErrorMessage(l10n.t('Unable to open branch on remote provider'));
 		}
 	}
 }

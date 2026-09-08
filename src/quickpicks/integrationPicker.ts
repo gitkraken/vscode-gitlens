@@ -1,4 +1,5 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
+import { l10n } from 'vscode';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
 import {
 	ConnectIntegrationButton,
@@ -21,8 +22,8 @@ export type ManageIntegrationsItem = QuickPickItem & {
 };
 
 export const manageIntegrationsItem: ManageIntegrationsItem = {
-	label: 'Manage integrations...',
-	detail: 'Manage your connected integrations',
+	label: l10n.t('Manage integrations...'),
+	detail: l10n.t('Manage your connected integrations'),
 	item: undefined,
 };
 
@@ -40,9 +41,11 @@ export function createIntegrationErrorQuickPickItem(error: Error, noun: string):
 	const isAuthError = error instanceof AuthenticationError;
 
 	return createDirectiveQuickPickItem(Directive.Noop, false, {
-		label: isAuthError ? '$(warning) Authentication Required' : `$(warning) Unable to fully load ${noun}`,
+		label: isAuthError
+			? `$(warning) ${l10n.t('Authentication Required')}`
+			: `$(warning) ${l10n.t('Unable to fully load {0}', noun)}`,
 		detail: isAuthError
-			? `${getPresentableErrorMessage(error)} — Reconnect your integration`
+			? l10n.t('{0} — Reconnect your integration', getPresentableErrorMessage(error))
 			: error.name === 'HttpError' && 'status' in error && typeof error.status === 'number'
 				? `${error.status}: ${String(error)}`
 				: String(error),

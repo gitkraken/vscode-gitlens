@@ -1,5 +1,5 @@
 import type { ProgressOptions } from 'vscode';
-import { ProgressLocation, Uri, window } from 'vscode';
+import { l10n, ProgressLocation, Uri, window } from 'vscode';
 import type { PullRequest, PullRequestComparisonRefs } from '@gitlens/git/models/pullRequest.js';
 import type { CreatePullRequestRemoteResource } from '@gitlens/git/models/remoteResource.js';
 import type { LeftRightCommitCountResult } from '@gitlens/git/providers/commits.js';
@@ -12,7 +12,7 @@ import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { Schemes } from '../../../constants.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
-import { AuthenticationRequiredError } from '../../../errors.js';
+import { AuthenticationRequiredError, getPresentableErrorMessage } from '../../../errors.js';
 import type { GlRepository } from '../../models/repository.js';
 
 export async function describePullRequestWithAI(
@@ -50,7 +50,7 @@ export async function describePullRequestWithAI(
 	} catch (ex) {
 		if (ex instanceof AuthenticationRequiredError) return undefined;
 
-		void window.showErrorMessage(ex.message);
+		void window.showErrorMessage(getPresentableErrorMessage(ex));
 		return undefined;
 	}
 }
@@ -96,17 +96,22 @@ export async function ensurePullRequestRemote(
 
 	if (found) return true;
 
-	const confirm = { title: 'Add Remote' };
-	const cancel = { title: 'Cancel', isCloseAffordance: true };
+	const confirm = { title: l10n.t('Add Remote') };
+	const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 	if (!options?.silent) {
-		const result = await window.showInformationMessage(
-			`${
-				options?.promptMessage ?? `Unable to find a remote for PR #${pr.id}.`
-			}\nWould you like to add a remote for '${identity.provider.repoDomain}?`,
-			{ modal: true },
-			confirm,
-			cancel,
-		);
+		const message =
+			options?.promptMessage == null
+				? l10n.t(
+						"Unable to find a remote for PR #{0}.\nWould you like to add a remote for '{1}?",
+						pr.id,
+						identity.provider.repoDomain,
+					)
+				: l10n.t(
+						"{0}\nWould you like to add a remote for '{1}?",
+						options.promptMessage,
+						identity.provider.repoDomain,
+					);
+		const result = await window.showInformationMessage(message, { modal: true }, confirm, cancel);
 
 		if (result === confirm) {
 			await repo.git.remotes.addRemoteWithResult?.(identity.provider.repoDomain, identity.remote.url, {

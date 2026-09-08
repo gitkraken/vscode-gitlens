@@ -1,4 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import { deletedOrMissing } from '@gitlens/git/models/revision.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -59,7 +60,7 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 			});
 		} catch (ex) {
 			Logger.error(ex, 'OpenRevisionFileCommand');
-			void showGenericErrorMessage('Unable to open file revision');
+			void showGenericErrorMessage(l10n.t('Unable to open file revision'));
 		}
 	}
 }

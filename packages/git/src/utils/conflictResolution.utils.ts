@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { GitFileConflictStatus } from '../models/fileStatus.js';
 
 export type ConflictResolutionAction = 'take-ours' | 'take-theirs' | 'delete' | 'unsupported';
@@ -95,63 +96,120 @@ export function canStageIncoming(status: GitFileConflictStatus): boolean {
 	return status !== 'AU' && status !== 'DD';
 }
 
-/** A short label + one-line description for a {@link ConflictKind}, used to explain conflicts the AI
- *  resolver can't auto-merge (and rename conflicts) wherever they're surfaced. */
-export function getConflictKindLabel(kind: ConflictKind, renameOf?: string): { label: string; description: string } {
-	const named = renameOf ? `"${renameOf}"` : 'The file';
+/** A short label, complete description, and standalone reason for a {@link ConflictKind}, used to
+ *  explain conflicts the AI resolver can't auto-merge (and rename conflicts) wherever they're surfaced. */
+export function getConflictKindLabel(
+	kind: ConflictKind,
+	renameOf?: string,
+): { label: string; description: string; reason: string } {
 	switch (kind) {
 		case 'binary':
 			return {
-				label: 'Binary conflict',
-				description: 'Binary file changed on both sides — choose a side to keep',
+				label: l10n.t('Binary conflict'),
+				description: l10n.t('Binary file changed on both sides — choose a side to keep'),
+				reason: l10n.t('Binary file changed on both sides'),
 			};
 		case 'symlink':
 			return {
-				label: 'Symlink conflict',
-				description: 'Symbolic link changed on both sides — choose a side to keep',
+				label: l10n.t('Symlink conflict'),
+				description: l10n.t('Symbolic link changed on both sides — choose a side to keep'),
+				reason: l10n.t('Symbolic link changed on both sides'),
 			};
 		case 'submodule':
 			return {
-				label: 'Submodule conflict',
-				description: 'Submodule reference changed on both sides — choose a side to keep',
+				label: l10n.t('Submodule conflict'),
+				description: l10n.t('Submodule reference changed on both sides — choose a side to keep'),
+				reason: l10n.t('Submodule reference changed on both sides'),
 			};
 		case 'mode-only':
 			return {
-				label: 'File mode conflict',
-				description: 'Only the file mode differs (e.g. the executable bit) — choose a side to keep',
+				label: l10n.t('File mode conflict'),
+				description: l10n.t('Only the file mode differs (e.g. the executable bit) — choose a side to keep'),
+				reason: l10n.t('Only the file mode differs (e.g. the executable bit)'),
 			};
 		case 'add-add':
 			// Covers AA (added on both sides) as well as AU/UA (added on one side) — keep the wording
 			// accurate for all three rather than asserting "both sides".
 			return {
-				label: 'Add conflict',
-				description: 'Conflicting file additions — choose a side to keep',
+				label: l10n.t('Add conflict'),
+				description: l10n.t('Conflicting file additions — choose a side to keep'),
+				reason: l10n.t('Conflicting file additions'),
 			};
 		case 'delete-modify':
 			return {
-				label: 'Modified and deleted',
-				description: 'Deleted on one side and modified on the other — keep the file or delete it',
+				label: l10n.t('Modified and deleted'),
+				description: l10n.t('Deleted on one side and modified on the other — keep the file or delete it'),
+				reason: l10n.t('Deleted on one side and modified on the other'),
 			};
 		case 'both-deleted':
-			return { label: 'Deleted on both sides', description: 'Deleted on both sides — confirm the deletion' };
+			return {
+				label: l10n.t('Deleted on both sides'),
+				description: l10n.t('Deleted on both sides — confirm the deletion'),
+				reason: l10n.t('Deleted on both sides'),
+			};
 		case 'rename-rename':
-			return {
-				label: 'Renamed differently',
-				description: `${named} was renamed differently on each side — choose which name to keep`,
-			};
+			return renameOf
+				? {
+						label: l10n.t('Renamed differently'),
+						description: l10n.t(
+							'"{file}" was renamed differently on each side — choose which name to keep.',
+							{ file: renameOf },
+						),
+						reason: l10n.t('"{file}" was renamed differently on each side', { file: renameOf }),
+					}
+				: {
+						label: l10n.t('Renamed differently'),
+						description: l10n.t(
+							'The file was renamed differently on each side — choose which name to keep.',
+						),
+						reason: l10n.t('The file was renamed differently on each side'),
+					};
 		case 'rename-delete':
-			return {
-				label: 'Renamed and deleted',
-				description: `${named} was renamed on one side and deleted on the other — keep the file or delete it`,
-			};
+			return renameOf
+				? {
+						label: l10n.t('Renamed and deleted'),
+						description: l10n.t(
+							'"{file}" was renamed on one side and deleted on the other — keep the file or delete it.',
+							{ file: renameOf },
+						),
+						reason: l10n.t('"{file}" was renamed on one side and deleted on the other', {
+							file: renameOf,
+						}),
+					}
+				: {
+						label: l10n.t('Renamed and deleted'),
+						description: l10n.t(
+							'The file was renamed on one side and deleted on the other — keep the file or delete it.',
+						),
+						reason: l10n.t('The file was renamed on one side and deleted on the other'),
+					};
 		case 'rename-modify':
-			return {
-				label: 'Renamed and modified',
-				description: `${named} was renamed on one side and modified on the other`,
-			};
+			return renameOf
+				? {
+						label: l10n.t('Renamed and modified'),
+						description: l10n.t('"{file}" was renamed on one side and modified on the other', {
+							file: renameOf,
+						}),
+						reason: l10n.t('"{file}" was renamed on one side and modified on the other', {
+							file: renameOf,
+						}),
+					}
+				: {
+						label: l10n.t('Renamed and modified'),
+						description: l10n.t('The file was renamed on one side and modified on the other'),
+						reason: l10n.t('The file was renamed on one side and modified on the other'),
+					};
 		case 'text':
-			return { label: 'Text conflict', description: 'Conflicting changes on both sides' };
+			return {
+				label: l10n.t('Text conflict'),
+				description: l10n.t('Conflicting changes on both sides'),
+				reason: l10n.t('Conflicting changes on both sides'),
+			};
 		default:
-			return { label: 'Conflict', description: 'Resolve this conflict manually' };
+			return {
+				label: l10n.t('Conflict'),
+				description: l10n.t('Resolve this conflict manually'),
+				reason: l10n.t('Resolve this conflict manually'),
+			};
 	}
 }

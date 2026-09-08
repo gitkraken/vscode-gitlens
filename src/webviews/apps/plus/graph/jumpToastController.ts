@@ -1,8 +1,10 @@
 import type { GraphRowHiddenReason } from '@gitkraken/commit-graph-ui/graph.js';
+import * as l10n from '@vscode/l10n';
 import { html, nothing } from 'lit';
 import type { ReactiveController, ReactiveControllerHost, TemplateResult } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { CustomEventType } from '@gitlens/components/components/element.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { GraphBranchesVisibility } from '../../../../config.js';
 import type { GraphFiltersService } from '../../../plus/graph/graphService.js';
 import type { GraphComponentConfig } from '../../../plus/graph/protocol.js';
@@ -29,28 +31,36 @@ type GraphJumpToastState = {
 	onAction?: () => void;
 };
 
-/** User-facing name for a "branches visibility" mode, for the jump-feedback toast's hidden-by-view
- *  message. Mirrors the labels the scope popover's mode menu renders for the same values. */
-function branchesVisibilityLabel(visibility: GraphBranchesVisibility | undefined): string {
-	switch (visibility) {
-		case 'smart':
-			return 'Smart Branches';
-		case 'current':
-			return 'Current Branch';
-		case 'favorited':
-			return 'Favorited Branches';
-		case 'agents':
-			return 'Agent Branches';
-		case 'all':
-		case undefined:
-			return 'current';
-	}
-}
-
 /** The jump-feedback toast's inline rendering of the jump target: a ref name reads as a name
  *  (`<strong>`), a bare short sha reads as code (`<code>`) — the toast's styles key on the tags. */
 function jumpTargetLabel(ref: string | undefined, label: string): TemplateResult {
 	return ref != null ? html`<strong>${label}</strong>` : html`<code>${label}</code>`;
+}
+
+function jumpTargetMessage(message: string, ref: string | undefined, label: string): TemplateResult {
+	return html`${localizedContent(message, { target: jumpTargetLabel(ref, label) })}`;
+}
+
+/** Complete hidden-by-view messages for each branches-visibility mode. Keeping each mode in the
+ *  sentence avoids interpolating translated labels into English grammar. */
+function hiddenByVisibilityMessage(
+	visibility: GraphBranchesVisibility | undefined,
+	ref: string | undefined,
+	label: string,
+): TemplateResult {
+	switch (visibility) {
+		case 'smart':
+			return jumpTargetMessage(l10n.t("{target} isn't shown in the Smart Branches view"), ref, label);
+		case 'current':
+			return jumpTargetMessage(l10n.t("{target} isn't shown in the Current Branch view"), ref, label);
+		case 'favorited':
+			return jumpTargetMessage(l10n.t("{target} isn't shown in the Favorited Branches view"), ref, label);
+		case 'agents':
+			return jumpTargetMessage(l10n.t("{target} isn't shown in the Agent Branches view"), ref, label);
+		case 'all':
+		case undefined:
+			return jumpTargetMessage(l10n.t("{target} isn't shown in the current view"), ref, label);
+	}
 }
 
 /** One-time-bound view of the host state the jump-feedback toast reads. Built ONCE by
@@ -146,15 +156,18 @@ export class JumpToastController implements ReactiveController {
 
 	onEdgeSearch = (e: CustomEventType<'gl-graph-edge-search'>): void => {
 		const { kind, status } = e.detail;
-		const label = kind === 'forkPoint' ? 'fork point' : 'ref';
 		if (status === 'started') {
 			this.clearToast();
 			this._edgeSearchToastArmTimer = setTimeout(() => {
 				this._edgeSearchToastArmTimer = undefined;
 				this._edgeSearchToast = {
 					kind: 'searching',
-					message: html`Looking for the next ${label} in older history…`,
-					actionLabel: 'Cancel',
+					message: html`${
+						kind === 'forkPoint'
+							? l10n.t('Looking for the next fork point in older history…')
+							: l10n.t('Looking for the next ref in older history…')
+					}`,
+					actionLabel: l10n.t('Cancel'),
 					onAction: () => this.deps.graph()?.cancelEdgeSearch(),
 				};
 				this._host.requestUpdate();
@@ -172,7 +185,14 @@ export class JumpToastController implements ReactiveController {
 		// A dead end deserves its card even when the search settled before the arming delay — that
 		// message is the answer, not interim progress.
 		if (status === 'exhausted') {
-			this._failedJumpToast = { kind: 'terminal', message: html`No further ${label} in this history` };
+			this._failedJumpToast = {
+				kind: 'terminal',
+				message: html`${
+					kind === 'forkPoint'
+						? l10n.t('No further fork point in this history')
+						: l10n.t('No further ref in this history')
+				}`,
+			};
 			this.armJumpToastTimer(6000);
 		}
 		this._host.requestUpdate();
@@ -186,7 +206,9 @@ export class JumpToastController implements ReactiveController {
 
 		this._failedJumpToast = {
 			kind: 'terminal',
-			message: html`'<strong>${id}</strong>' wasn't found in this repository`,
+			message: html`${localizedContent(l10n.t("'{target}' wasn't found in this repository"), {
+				target: html`<strong>${id}</strong>`,
+			})}`,
 		};
 		this.armJumpToastTimer(6000);
 		this._host.requestUpdate();
@@ -205,7 +227,9 @@ export class JumpToastController implements ReactiveController {
 
 		this._failedJumpToast = {
 			kind: 'terminal',
-			message: html`Worktree '<strong>${name}</strong>' wasn't found in this repository`,
+			message: html`${localizedContent(l10n.t("Worktree '{name}' wasn't found in this repository"), {
+				name: html`<strong>${name}</strong>`,
+			})}`,
 		};
 		this.armJumpToastTimer(6000);
 		this._host.requestUpdate();
@@ -285,8 +309,8 @@ export class JumpToastController implements ReactiveController {
 			const label = ref ?? sha.slice(0, 7);
 			toast = {
 				kind: 'searching',
-				message: html`Looking for ${jumpTargetLabel(ref, label)} in older history…`,
-				actionLabel: 'Cancel',
+				message: jumpTargetMessage(l10n.t('Looking for {target} in older history…'), ref, label),
+				actionLabel: l10n.t('Cancel'),
 				sha: sha,
 				onAction: () => this.deps.graph()?.cancelNavigation(sha),
 			};
@@ -344,7 +368,11 @@ export class JumpToastController implements ReactiveController {
 		reason: GraphNavigationFailureReason | undefined,
 	): GraphJumpToastState {
 		if (reason == null) {
-			return { kind: 'terminal', message: html`Couldn't load ${jumpTargetLabel(ref, label)}`, sha: sha };
+			return {
+				kind: 'terminal',
+				message: jumpTargetMessage(l10n.t("Couldn't load {target}"), ref, label),
+				sha: sha,
+			};
 		}
 
 		switch (reason.kind) {
@@ -353,8 +381,12 @@ export class JumpToastController implements ReactiveController {
 			case 'first-parent':
 				return {
 					kind: 'hidden',
-					message: html`${jumpTargetLabel(ref, label)} is hidden while following only first parents`,
-					actionLabel: 'Show All Commits',
+					message: jumpTargetMessage(
+						l10n.t('{target} is hidden while following only first parents'),
+						ref,
+						label,
+					),
+					actionLabel: l10n.t('Show All Commits'),
 					sha: sha,
 					onAction: () =>
 						this.applyJumpRemedy(
@@ -368,18 +400,22 @@ export class JumpToastController implements ReactiveController {
 			case 'not-found':
 				return {
 					kind: 'terminal',
-					message: html`${jumpTargetLabel(ref, label)} wasn't found in this repository`,
+					message: jumpTargetMessage(l10n.t("{target} wasn't found in this repository"), ref, label),
 					sha: sha,
 				};
 			case 'invalid-ref':
 				return {
 					kind: 'terminal',
-					message: html`${jumpTargetLabel(ref, label)} wasn't found in this repository`,
+					message: jumpTargetMessage(l10n.t("{target} wasn't found in this repository"), ref, label),
 					sha: sha,
 				};
 			case 'timeout':
 			case 'error':
-				return { kind: 'terminal', message: html`Couldn't load ${jumpTargetLabel(ref, label)}`, sha: sha };
+				return {
+					kind: 'terminal',
+					message: jumpTargetMessage(l10n.t("Couldn't load {target}"), ref, label),
+					sha: sha,
+				};
 		}
 	}
 
@@ -399,8 +435,8 @@ export class JumpToastController implements ReactiveController {
 				if (entry != null) {
 					return {
 						kind: 'hidden',
-						message: html`<strong>${ref}</strong> is hidden on the graph`,
-						actionLabel: 'Show Branch',
+						message: jumpTargetMessage(l10n.t('{target} is hidden on the graph'), ref, label),
+						actionLabel: l10n.t('Show Branch'),
 						sha: sha,
 						onAction: () =>
 							this.applyJumpRemedy(
@@ -421,8 +457,8 @@ export class JumpToastController implements ReactiveController {
 				if (row?.kind === 'stash') {
 					return {
 						kind: 'hidden',
-						message: html`${jumpTargetLabel(ref, label)} is hidden on the graph`,
-						actionLabel: 'Show Hidden Refs',
+						message: jumpTargetMessage(l10n.t('{target} is hidden on the graph'), ref, label),
+						actionLabel: l10n.t('Show Hidden Refs'),
 						sha: sha,
 						onAction: () =>
 							this.applyJumpRemedy(
@@ -442,11 +478,10 @@ export class JumpToastController implements ReactiveController {
 				return this.buildShowHiddenRefsJumpToast(sha, ref, label, source);
 			}
 			case 'visibility': {
-				const modeLabel = branchesVisibilityLabel(this.deps.graphState().branchesVisibility);
 				return {
 					kind: 'hidden',
-					message: html`${jumpTargetLabel(ref, label)} isn't shown in the ${modeLabel} view`,
-					actionLabel: 'Show All Branches',
+					message: hiddenByVisibilityMessage(this.deps.graphState().branchesVisibility, ref, label),
+					actionLabel: l10n.t('Show All Branches'),
 					sha: sha,
 					onAction: () =>
 						this.applyJumpRemedy(
@@ -463,8 +498,8 @@ export class JumpToastController implements ReactiveController {
 			case 'scope':
 				return {
 					kind: 'hidden',
-					message: html`${jumpTargetLabel(ref, label)} is outside the current focus`,
-					actionLabel: 'Clear Focus',
+					message: jumpTargetMessage(l10n.t('{target} is outside the current focus'), ref, label),
+					actionLabel: l10n.t('Clear Focus'),
 					sha: sha,
 					onAction: () =>
 						this.applyJumpRemedy(
@@ -478,8 +513,8 @@ export class JumpToastController implements ReactiveController {
 			case 'search-filter':
 				return {
 					kind: 'hidden',
-					message: html`${jumpTargetLabel(ref, label)} is hidden by the search filter`,
-					actionLabel: 'Exit Filter View',
+					message: jumpTargetMessage(l10n.t('{target} is hidden by the search filter'), ref, label),
+					actionLabel: l10n.t('Exit Filter View'),
 					sha: sha,
 					onAction: () =>
 						this.applyJumpRemedy(
@@ -504,7 +539,7 @@ export class JumpToastController implements ReactiveController {
 			case 'unknown':
 				return {
 					kind: 'hidden',
-					message: html`${jumpTargetLabel(ref, label)} can't be shown on the graph right now`,
+					message: jumpTargetMessage(l10n.t("{target} can't be shown on the graph right now"), ref, label),
 					sha: sha,
 				};
 		}
@@ -522,13 +557,17 @@ export class JumpToastController implements ReactiveController {
 		const excludeRefs = this.deps.graphState().excludeRefs;
 		const refs = excludeRefs != null ? Object.values(excludeRefs) : [];
 		if (refs.length === 0) {
-			return { kind: 'hidden', message: html`${jumpTargetLabel(ref, label)} is hidden on the graph`, sha: sha };
+			return {
+				kind: 'hidden',
+				message: jumpTargetMessage(l10n.t('{target} is hidden on the graph'), ref, label),
+				sha: sha,
+			};
 		}
 
 		return {
 			kind: 'hidden',
-			message: html`${jumpTargetLabel(ref, label)} is hidden on the graph`,
-			actionLabel: 'Show Hidden Refs',
+			message: jumpTargetMessage(l10n.t('{target} is hidden on the graph'), ref, label),
+			actionLabel: l10n.t('Show Hidden Refs'),
 			sha: sha,
 			onAction: () =>
 				this.applyJumpRemedy(

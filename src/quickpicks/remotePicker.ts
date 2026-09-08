@@ -1,5 +1,5 @@
 import type { Disposable } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { SetRemoteAsDefaultQuickInputButton } from '../commands/quick-wizard/quickButtons.js';
 import { setRemoteAsDefault } from '../git/utils/-webview/remote.utils.js';
@@ -9,7 +9,7 @@ import { createRemoteQuickPickItem } from './items/gitWizard.js';
 
 export async function showRemotePicker(
 	title: string | undefined,
-	placeholder: string = 'Choose a remote',
+	placeholder: string = l10n.t('Choose a remote'),
 	remotes: GitRemote[],
 	options?: {
 		autoPick?: 'default' | boolean;
@@ -21,7 +21,7 @@ export async function showRemotePicker(
 	let picked: RemoteQuickPickItem | undefined;
 
 	if (remotes.length === 0) {
-		placeholder = 'No remotes found';
+		placeholder = l10n.t('No remotes found');
 	} else {
 		if (options?.autoPick === 'default' && remotes.length > 1) {
 			// If there is a default just execute it directly

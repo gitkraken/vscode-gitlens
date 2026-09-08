@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent, StatusBarItem } from 'vscode';
-import { Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
+import { Disposable, l10n, MarkdownString, StatusBarAlignment, window } from 'vscode';
 import { once } from '@gitlens/utils/function.js';
 import type { GlCommands } from '../../constants.commands.js';
 import type { Container } from '../../container.js';
@@ -46,12 +46,12 @@ export class GraphStatusBarController implements Disposable {
 		if (enabled) {
 			if (this._statusBarItem == null) {
 				this._statusBarItem = window.createStatusBarItem('gitlens.graph', StatusBarAlignment.Left, 10000 - 2);
-				this._statusBarItem.name = 'GitLens Commit Graph';
+				this._statusBarItem.name = l10n.t('GitLens Commit Graph');
 				this._statusBarItem.command = 'gitlens.showGraph' satisfies GlCommands;
 				this._statusBarItem.text = '$(gitlens-graph)';
-				this._statusBarItem.tooltip = new MarkdownString('Visualize commits on the Commit Graph');
+				this._statusBarItem.tooltip = new MarkdownString(l10n.t('Visualize commits on the Commit Graph'));
 				this._statusBarItem.accessibilityInformation = {
-					label: `Show the GitLens Commit Graph`,
+					label: l10n.t('Show the GitLens Commit Graph'),
 				};
 			}
 			this._statusBarItem.show();

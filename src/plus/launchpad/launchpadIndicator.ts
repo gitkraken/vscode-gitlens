@@ -1,11 +1,12 @@
 import type { ConfigurationChangeEvent, StatusBarItem } from 'vscode';
-import { Disposable, MarkdownString, StatusBarAlignment, ThemeColor, window } from 'vscode';
+import { Disposable, l10n, MarkdownString, StatusBarAlignment, ThemeColor, window } from 'vscode';
 import type { GitCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
 import type { ConnectionStateChangeEvent } from '@gitlens/integrations/index.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { once } from '@gitlens/utils/event.js';
 import { groupByMap } from '@gitlens/utils/iterable.js';
+import { escapeMarkdown } from '@gitlens/utils/markdown.js';
 import { wait } from '@gitlens/utils/promise.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs.js';
 import type { Colors } from '../../constants.colors.js';
 import { proBadge } from '../../constants.js';
@@ -19,6 +20,192 @@ import type { LaunchpadGroup } from './models/launchpad.js';
 import { launchpadGroupIconMap, launchpadPriorityGroups } from './models/launchpad.js';
 
 type LaunchpadIndicatorState = 'idle' | 'disconnected' | 'loading' | 'load' | 'failed';
+type LaunchpadIndicatorItemState =
+	| 'mergeable'
+	| 'blocked'
+	| 'unassigned-reviewers'
+	| 'failed-checks'
+	| 'conflicts'
+	| 'follow-up'
+	| 'needs-review';
+
+const richTextToken = '\ue000richText\ue001';
+
+function appendLocalizedMarkdown(
+	markdown: MarkdownString,
+	localized: string,
+	richText: ReadonlyMap<string, string>,
+): void {
+	let remaining = localized;
+	while (remaining.length !== 0) {
+		let token: string | undefined;
+		let tokenIndex = -1;
+		for (const candidate of richText.keys()) {
+			const candidateIndex = remaining.indexOf(candidate);
+			if (candidateIndex !== -1 && (tokenIndex === -1 || candidateIndex < tokenIndex)) {
+				token = candidate;
+				tokenIndex = candidateIndex;
+			}
+		}
+
+		if (token == null) {
+			appendPlainText(markdown, remaining);
+			return;
+		}
+
+		appendPlainText(markdown, remaining.slice(0, tokenIndex));
+		markdown.appendMarkdown(richText.get(token)!);
+		remaining = remaining.slice(tokenIndex + token.length);
+	}
+}
+
+/** Appends plain text, escaped — `appendText` would turn space runs into `&nbsp;` */
+function appendPlainText(markdown: MarkdownString, text: string): void {
+	markdown.appendMarkdown(escapeMarkdown(text));
+}
+
+function escapeMarkdownLinkTitle(value: string): string {
+	return value.replace(/[\\"]/g, '\\$&');
+}
+
+function getPullRequestCountStateLabel(count: number, state: LaunchpadIndicatorItemState): string {
+	const formattedCount = getNumericFormat()(count);
+	if (count === 1) {
+		switch (state) {
+			case 'mergeable':
+				return l10n.t('{count} pull request can be merged', { count: formattedCount });
+			case 'blocked':
+				return l10n.t('{count} pull request is blocked', { count: formattedCount });
+			case 'unassigned-reviewers':
+				return l10n.t('{count} pull request needs reviewers', { count: formattedCount });
+			case 'failed-checks':
+				return l10n.t('{count} pull request failed CI checks', { count: formattedCount });
+			case 'conflicts':
+				return l10n.t('{count} pull request has conflicts', { count: formattedCount });
+			case 'follow-up':
+				return l10n.t('{count} pull request requires follow-up', { count: formattedCount });
+			case 'needs-review':
+				return l10n.t('{count} pull request needs your review', { count: formattedCount });
+		}
+	}
+
+	switch (state) {
+		case 'mergeable':
+			return l10n.t('{count} pull requests can be merged', { count: formattedCount });
+		case 'blocked':
+			return l10n.t('{count} pull requests are blocked', { count: formattedCount });
+		case 'unassigned-reviewers':
+			return l10n.t('{count} pull requests need reviewers', { count: formattedCount });
+		case 'failed-checks':
+			return l10n.t('{count} pull requests failed CI checks', { count: formattedCount });
+		case 'conflicts':
+			return l10n.t('{count} pull requests have conflicts', { count: formattedCount });
+		case 'follow-up':
+			return l10n.t('{count} pull requests require follow-up', { count: formattedCount });
+		case 'needs-review':
+			return l10n.t('{count} pull requests need your review', { count: formattedCount });
+	}
+}
+
+function getBlockedSummaryLabel(
+	reviewersCount: number | undefined,
+	failedChecksCount: number | undefined,
+	conflictsCount: number | undefined,
+): string {
+	const reviewers = reviewersCount?.toString();
+	const failedChecks = failedChecksCount?.toString();
+	const conflicts = conflictsCount?.toString();
+
+	if (reviewers != null) {
+		if (failedChecks != null) {
+			if (conflicts != null) {
+				if (reviewersCount === 1) {
+					return conflictsCount === 1
+						? l10n.t(
+								'({reviewers} needs reviewers, {failedChecks} failed CI checks, {conflicts} has conflicts)',
+								{ reviewers: reviewers, failedChecks: failedChecks, conflicts: conflicts },
+							)
+						: l10n.t(
+								'({reviewers} needs reviewers, {failedChecks} failed CI checks, {conflicts} have conflicts)',
+								{ reviewers: reviewers, failedChecks: failedChecks, conflicts: conflicts },
+							);
+				}
+
+				return conflictsCount === 1
+					? l10n.t(
+							'({reviewers} need reviewers, {failedChecks} failed CI checks, {conflicts} has conflicts)',
+							{ reviewers: reviewers, failedChecks: failedChecks, conflicts: conflicts },
+						)
+					: l10n.t(
+							'({reviewers} need reviewers, {failedChecks} failed CI checks, {conflicts} have conflicts)',
+							{ reviewers: reviewers, failedChecks: failedChecks, conflicts: conflicts },
+						);
+			}
+
+			return reviewersCount === 1
+				? l10n.t('({reviewers} needs reviewers, {failedChecks} failed CI checks)', {
+						reviewers: reviewers,
+						failedChecks: failedChecks,
+					})
+				: l10n.t('({reviewers} need reviewers, {failedChecks} failed CI checks)', {
+						reviewers: reviewers,
+						failedChecks: failedChecks,
+					});
+		}
+
+		if (conflicts != null) {
+			if (reviewersCount === 1) {
+				return conflictsCount === 1
+					? l10n.t('({reviewers} needs reviewers, {conflicts} has conflicts)', {
+							reviewers: reviewers,
+							conflicts: conflicts,
+						})
+					: l10n.t('({reviewers} needs reviewers, {conflicts} have conflicts)', {
+							reviewers: reviewers,
+							conflicts: conflicts,
+						});
+			}
+
+			return conflictsCount === 1
+				? l10n.t('({reviewers} need reviewers, {conflicts} has conflicts)', {
+						reviewers: reviewers,
+						conflicts: conflicts,
+					})
+				: l10n.t('({reviewers} need reviewers, {conflicts} have conflicts)', {
+						reviewers: reviewers,
+						conflicts: conflicts,
+					});
+		}
+
+		return reviewersCount === 1
+			? l10n.t('({reviewers} needs reviewers)', { reviewers: reviewers })
+			: l10n.t('({reviewers} need reviewers)', { reviewers: reviewers });
+	}
+
+	if (failedChecks != null) {
+		if (conflicts != null) {
+			return conflictsCount === 1
+				? l10n.t('({failedChecks} failed CI checks, {conflicts} has conflicts)', {
+						failedChecks: failedChecks,
+						conflicts: conflicts,
+					})
+				: l10n.t('({failedChecks} failed CI checks, {conflicts} have conflicts)', {
+						failedChecks: failedChecks,
+						conflicts: conflicts,
+					});
+		}
+
+		return l10n.t('({failedChecks} failed CI checks)', { failedChecks: failedChecks });
+	}
+
+	if (conflicts != null) {
+		return conflictsCount === 1
+			? l10n.t('({conflicts} has conflicts)', { conflicts: conflicts })
+			: l10n.t('({conflicts} have conflicts)', { conflicts: conflicts });
+	}
+
+	return '';
+}
 
 export class LaunchpadIndicator implements Disposable {
 	private readonly _disposable: Disposable;
@@ -151,7 +338,7 @@ export class LaunchpadIndicator implements Disposable {
 
 	private async onReady(): Promise<void> {
 		this._statusBarLaunchpad = window.createStatusBarItem('gitlens.launchpad', StatusBarAlignment.Left, 10000 - 3);
-		this._statusBarLaunchpad.name = 'GitLens Launchpad';
+		this._statusBarLaunchpad.name = l10n.t('GitLens Launchpad');
 
 		await this.maybeLoadData();
 		this.updateStatusBarCommand();
@@ -253,12 +440,19 @@ export class LaunchpadIndicator implements Disposable {
 		tooltip.supportHtml = true;
 		tooltip.isTrusted = true;
 
-		tooltip.appendMarkdown(`GitLens Launchpad ${proBadge}\u00a0\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0\u00a0`);
-		tooltip.appendMarkdown(`[$(question)](command:gitlens.launchpad.indicator.action?%22info%22 "What is this?")`);
+		appendPlainText(tooltip, l10n.t('GitLens Launchpad {0}', proBadge));
+		tooltip.appendMarkdown(`\u00a0\u00a0\u00a0\u00a0&mdash;\u00a0\u00a0\u00a0\u00a0`);
+		tooltip.appendMarkdown(
+			`[$(question)](command:gitlens.launchpad.indicator.action?%22info%22 "${escapeMarkdownLinkTitle(l10n.t('What is this?'))}")`,
+		);
 		tooltip.appendMarkdown('\u00a0');
-		tooltip.appendMarkdown(`[$(gear)](command:workbench.action.openSettings?%22gitlens.launchpad%22 "Settings")`);
+		tooltip.appendMarkdown(
+			`[$(gear)](command:workbench.action.openSettings?%22gitlens.launchpad%22 "${escapeMarkdownLinkTitle(l10n.t('Settings'))}")`,
+		);
 		tooltip.appendMarkdown('\u00a0\u00a0|\u00a0\u00a0');
-		tooltip.appendMarkdown(`[$(circle-slash) Hide](command:gitlens.launchpad.indicator.action?%22hide%22 "Hide")`);
+		tooltip.appendMarkdown(
+			`[$(circle-slash) ${escapeMarkdown(l10n.t('Hide'))}](command:gitlens.launchpad.indicator.action?%22hide%22 "${escapeMarkdownLinkTitle(l10n.t('Hide'))}")`,
+		);
 
 		if (
 			state === 'idle' ||
@@ -267,11 +461,26 @@ export class LaunchpadIndicator implements Disposable {
 			(state === 'load' && !this.hasInteracted())
 		) {
 			tooltip.appendMarkdown('\n\n---\n\n');
-			tooltip.appendMarkdown(
-				`[Launchpad](command:gitlens.launchpad.indicator.action?%22info%22 "Learn about Launchpad") organizes your pull requests into actionable groups to help you focus and keep your team unblocked.`,
+			appendLocalizedMarkdown(
+				tooltip,
+				l10n.t(
+					'{link} organizes your pull requests into actionable groups to help you focus and keep your team unblocked.',
+					{ link: richTextToken },
+				),
+				new Map([
+					[
+						richTextToken,
+						`[Launchpad](command:gitlens.launchpad.indicator.action?%22info%22 "${escapeMarkdownLinkTitle(l10n.t('Learn about Launchpad'))}")`,
+					],
+				]),
 			);
-			tooltip.appendMarkdown(
-				"\n\nIt's always accessible using the `GitLens: Open Launchpad` command from the Command Palette.",
+			tooltip.appendMarkdown('\n\n');
+			appendLocalizedMarkdown(
+				tooltip,
+				l10n.t("It's always accessible using the {command} command from the Command Palette.", {
+					command: richTextToken,
+				}),
+				new Map([[richTextToken, '`GitLens: Open Launchpad`']]),
 			);
 		}
 
@@ -285,8 +494,16 @@ export class LaunchpadIndicator implements Disposable {
 
 			case 'disconnected':
 				this.clearRefreshTimer();
-				tooltip.appendMarkdown(
-					`\n\n---\n\n[Connect an integration](command:gitlens.showLaunchpad?%7B%22source%22%3A%22launchpad-indicator%22%7D "Connect an integration") to get started.`,
+				tooltip.appendMarkdown('\n\n---\n\n');
+				appendLocalizedMarkdown(
+					tooltip,
+					l10n.t('{link} to get started.', { link: richTextToken }),
+					new Map([
+						[
+							richTextToken,
+							`[${escapeMarkdown(l10n.t('Connect an integration'))}](command:gitlens.showLaunchpad?%7B%22source%22%3A%22launchpad-indicator%22%7D "${escapeMarkdownLinkTitle(l10n.t('Connect an integration'))}")`,
+						],
+					]),
 				);
 
 				this._statusBarLaunchpad.text = `$(rocket)$(gitlens-unplug) Launchpad`;
@@ -296,7 +513,8 @@ export class LaunchpadIndicator implements Disposable {
 
 			case 'loading':
 				this.startRefreshTimer(0);
-				tooltip.appendMarkdown('\n\n---\n\n$(loading~spin) Loading...');
+				tooltip.appendMarkdown('\n\n---\n\n$(loading~spin) ');
+				appendPlainText(tooltip, l10n.t('Loading...'));
 
 				this._statusBarLaunchpad.text = '$(rocket)$(loading~spin)';
 				this._statusBarLaunchpad.tooltip = tooltip;
@@ -309,7 +527,8 @@ export class LaunchpadIndicator implements Disposable {
 
 			case 'failed':
 				this.clearRefreshTimer();
-				tooltip.appendMarkdown('\n\n---\n\n$(alert) Unable to load items');
+				tooltip.appendMarkdown('\n\n---\n\n$(alert) ');
+				appendPlainText(tooltip, l10n.t('Unable to load items'));
 
 				this._statusBarLaunchpad.text = '$(rocket)$(alert)';
 				this._statusBarLaunchpad.tooltip = tooltip;
@@ -325,7 +544,7 @@ export class LaunchpadIndicator implements Disposable {
 		const labelType = configuration.get('launchpad.indicator.label') ?? 'item';
 		this._statusBarLaunchpad.command = createCommand<[Omit<LaunchpadCommandArgs, 'command'>]>(
 			'gitlens.showLaunchpad',
-			'Open Launchpad',
+			l10n.t('Open Launchpad'),
 			{
 				source: 'launchpad-indicator',
 				state: { selectTopItem: labelType === 'item' },
@@ -344,7 +563,7 @@ export class LaunchpadIndicator implements Disposable {
 
 		let color: string | ThemeColor | undefined = undefined;
 		let priorityIcon: `$(${string})` | undefined;
-		let priorityItem: { item: LaunchpadItem; groupLabel: string } | undefined;
+		let priorityItem: { item: LaunchpadItem; state: LaunchpadIndicatorItemState } | undefined;
 
 		const groupedItems = groupAndSortLaunchpadItems(categorizedItems);
 		const totalGroupedItems = [...groupedItems.values()].reduce((total, group) => total + group.length, 0);
@@ -352,11 +571,21 @@ export class LaunchpadIndicator implements Disposable {
 		const hasImportantGroupsWithItems = groups.some(group => groupedItems.get(group)?.length);
 		if (totalGroupedItems === 0) {
 			tooltip.appendMarkdown('\n\n---\n\n');
-			tooltip.appendMarkdown('You are all caught up!');
+			appendPlainText(tooltip, l10n.t('You are all caught up!'));
 		} else if (!hasImportantGroupsWithItems) {
 			tooltip.appendMarkdown('\n\n---\n\n');
-			tooltip.appendMarkdown(
-				`No pull requests need your attention\\\n(${totalGroupedItems} other pull requests)`,
+			appendLocalizedMarkdown(
+				tooltip,
+				totalGroupedItems === 1
+					? l10n.t('No pull requests need your attention{lineBreak}({count} other pull request)', {
+							count: totalGroupedItems.toString(),
+							lineBreak: richTextToken,
+						})
+					: l10n.t('No pull requests need your attention{lineBreak}({count} other pull requests)', {
+							count: totalGroupedItems.toString(),
+							lineBreak: richTextToken,
+						}),
+				new Map([[richTextToken, '\\\n']]),
 			);
 		} else {
 			for (const group of groups) {
@@ -372,13 +601,12 @@ export class LaunchpadIndicator implements Disposable {
 					case 'mergeable': {
 						priorityIcon ??= icon;
 						color = new ThemeColor('gitlens.launchpadIndicatorMergeableColor' satisfies Colors);
-						priorityItem ??= { item: items[0], groupLabel: 'can be merged' };
+						const linkText =
+							labelType === 'item' && priorityItem == null
+								? this.getPriorityItemStateLabel(items[0], 'mergeable', items.length)
+								: getPullRequestCountStateLabel(items.length, 'mergeable');
 						tooltip.appendMarkdown(
-							`<span style="color:var(--vscode-gitlens-launchpadIndicatorMergeableHoverColor);">${icon}</span>$(blank) [${
-								labelType === 'item' && priorityItem != null
-									? this.getPriorityItemLabel(priorityItem.item, items.length)
-									: pluralize('pull request', items.length)
-							} can be merged](command:gitlens.showLaunchpad?${encodeURIComponent(
+							`<span style="color:var(--vscode-gitlens-launchpadIndicatorMergeableHoverColor);">${icon}</span>$(blank) [${escapeMarkdown(linkText)}](command:gitlens.showLaunchpad?${encodeURIComponent(
 								JSON.stringify({
 									source: 'launchpad-indicator',
 									state: {
@@ -386,8 +614,9 @@ export class LaunchpadIndicator implements Disposable {
 										selectTopItem: true,
 									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
-							)} "Open Ready to Merge in Launchpad")`,
+							)} "${escapeMarkdownLinkTitle(l10n.t('Open Ready to Merge in Launchpad'))}")`,
 						);
+						priorityItem ??= { item: items[0], state: 'mergeable' };
 						break;
 					}
 					case 'blocked': {
@@ -402,46 +631,47 @@ export class LaunchpadIndicator implements Disposable {
 						const hasMultipleCategories = action.size > 1;
 
 						let item: LaunchpadItem | undefined;
-						let actionMessage = '';
-						let summaryMessage = '(';
+						let itemState: LaunchpadIndicatorItemState = 'blocked';
+						let reviewersCount: number | undefined;
+						let failedChecksCount: number | undefined;
+						let conflictsCount: number | undefined;
 
 						let actionGroupItems = action.get('unassigned-reviewers');
 						if (actionGroupItems?.length) {
-							actionMessage = `${actionGroupItems.length > 1 ? 'need' : 'needs'} reviewers`;
-							summaryMessage += `${actionGroupItems.length} ${actionMessage}`;
+							reviewersCount = actionGroupItems.length;
 							item ??= actionGroupItems[0];
+							itemState = 'unassigned-reviewers';
 						}
 
 						actionGroupItems = action.get('failed-checks');
 						if (actionGroupItems?.length) {
-							actionMessage = `failed CI checks`;
-							summaryMessage += `${hasMultipleCategories ? ', ' : ''}${
-								actionGroupItems.length
-							} ${actionMessage}`;
-							item ??= actionGroupItems[0];
+							failedChecksCount = actionGroupItems.length;
+							if (item == null) {
+								item = actionGroupItems[0];
+								itemState = 'failed-checks';
+							}
 						}
 
 						actionGroupItems = action.get('conflicts');
 						if (actionGroupItems?.length) {
-							actionMessage = `${actionGroupItems.length > 1 ? 'have' : 'has'} conflicts`;
-							summaryMessage += `${hasMultipleCategories ? ', ' : ''}${
-								actionGroupItems.length
-							} ${actionMessage}`;
-							item ??= actionGroupItems[0];
+							conflictsCount = actionGroupItems.length;
+							if (item == null) {
+								item = actionGroupItems[0];
+								itemState = 'conflicts';
+							}
 						}
 
-						summaryMessage += ')';
+						item ??= items[0];
+						const state = hasMultipleCategories ? 'blocked' : itemState;
+						const linkText =
+							labelType === 'item' && priorityItem == null
+								? this.getPriorityItemStateLabel(item, state, items.length)
+								: getPullRequestCountStateLabel(items.length, state);
 
 						priorityIcon ??= icon;
 						color ??= new ThemeColor('gitlens.launchpadIndicatorBlockedColor' satisfies Colors);
 						tooltip.appendMarkdown(
-							`<span style="color:var(--vscode-gitlens-launchpadIndicatorBlockedColor);">${icon}</span>$(blank) [${
-								labelType === 'item' && item != null && priorityItem == null
-									? this.getPriorityItemLabel(item, items.length)
-									: pluralize('pull request', items.length)
-							} ${
-								hasMultipleCategories ? 'are blocked' : actionMessage
-							}](command:gitlens.showLaunchpad?${encodeURIComponent(
+							`<span style="color:var(--vscode-gitlens-launchpadIndicatorBlockedColor);">${icon}</span>$(blank) [${escapeMarkdown(linkText)}](command:gitlens.showLaunchpad?${encodeURIComponent(
 								JSON.stringify({
 									source: 'launchpad-indicator',
 									state: {
@@ -449,36 +679,27 @@ export class LaunchpadIndicator implements Disposable {
 										selectTopItem: true,
 									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
-							)} "Open Blocked in Launchpad")`,
+							)} "${escapeMarkdownLinkTitle(l10n.t('Open Blocked in Launchpad'))}")`,
 						);
 						if (hasMultipleCategories) {
-							tooltip.appendMarkdown(`\\\n$(blank)$(blank) ${summaryMessage}`);
+							const summary = getBlockedSummaryLabel(reviewersCount, failedChecksCount, conflictsCount);
+							if (summary) {
+								tooltip.appendMarkdown(`\\\n$(blank)$(blank) ${escapeMarkdown(summary)}`);
+							}
 						}
 
-						if (item != null) {
-							let label = 'is blocked';
-							if (item.actionableCategory === 'unassigned-reviewers') {
-								label = 'needs reviewers';
-							} else if (item.actionableCategory === 'failed-checks') {
-								label = 'failed CI checks';
-							} else if (item.actionableCategory === 'conflicts') {
-								label = 'has conflicts';
-							}
-							priorityItem ??= { item: item, groupLabel: label };
-						}
+						priorityItem ??= { item: item, state: itemState };
 						break;
 					}
 					case 'follow-up': {
 						priorityIcon ??= icon;
 						color ??= new ThemeColor('gitlens.launchpadIndicatorAttentionColor' satisfies Colors);
+						const linkText =
+							labelType === 'item' && priorityItem == null
+								? this.getPriorityItemStateLabel(items[0], 'follow-up', items.length)
+								: getPullRequestCountStateLabel(items.length, 'follow-up');
 						tooltip.appendMarkdown(
-							`<span style="color:var(--vscode-gitlens-launchpadIndicatorAttentionHoverColor);">${icon}</span>$(blank) [${
-								labelType === 'item' && priorityItem == null && items.length
-									? this.getPriorityItemLabel(items[0], items.length)
-									: pluralize('pull request', items.length)
-							} ${
-								items.length > 1 ? 'require' : 'requires'
-							} follow-up](command:gitlens.showLaunchpad?${encodeURIComponent(
+							`<span style="color:var(--vscode-gitlens-launchpadIndicatorAttentionHoverColor);">${icon}</span>$(blank) [${escapeMarkdown(linkText)}](command:gitlens.showLaunchpad?${encodeURIComponent(
 								JSON.stringify({
 									source: 'launchpad-indicator',
 									state: {
@@ -486,22 +707,20 @@ export class LaunchpadIndicator implements Disposable {
 										selectTopItem: true,
 									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
-							)} "Open Follow-Up in Launchpad")`,
+							)} "${escapeMarkdownLinkTitle(l10n.t('Open Follow-Up in Launchpad'))}")`,
 						);
-						priorityItem ??= { item: items[0], groupLabel: 'requires follow-up' };
+						priorityItem ??= { item: items[0], state: 'follow-up' };
 						break;
 					}
 					case 'needs-review': {
 						priorityIcon ??= icon;
 						color ??= new ThemeColor('gitlens.launchpadIndicatorAttentionColor' satisfies Colors);
+						const linkText =
+							labelType === 'item' && priorityItem == null
+								? this.getPriorityItemStateLabel(items[0], 'needs-review', items.length)
+								: getPullRequestCountStateLabel(items.length, 'needs-review');
 						tooltip.appendMarkdown(
-							`<span style="color:var(--vscode-gitlens-launchpadIndicatorAttentionHoverColor);">${icon}</span>$(blank) [${
-								labelType === 'item' && priorityItem == null && items.length
-									? this.getPriorityItemLabel(items[0], items.length)
-									: pluralize('pull request', items.length)
-							} ${
-								items.length > 1 ? 'need' : 'needs'
-							} your review](command:gitlens.showLaunchpad?${encodeURIComponent(
+							`<span style="color:var(--vscode-gitlens-launchpadIndicatorAttentionHoverColor);">${icon}</span>$(blank) [${escapeMarkdown(linkText)}](command:gitlens.showLaunchpad?${encodeURIComponent(
 								JSON.stringify({
 									source: 'launchpad-indicator',
 									state: {
@@ -509,9 +728,9 @@ export class LaunchpadIndicator implements Disposable {
 										selectTopItem: true,
 									},
 								} satisfies Omit<LaunchpadCommandArgs, 'command'>),
-							)} "Open Needs Your Review in Launchpad")`,
+							)} "${escapeMarkdownLinkTitle(l10n.t('Open Needs Your Review in Launchpad'))}")`,
 						);
-						priorityItem ??= { item: items[0], groupLabel: 'needs your review' };
+						priorityItem ??= { item: items[0], state: 'needs-review' };
 						break;
 					}
 				}
@@ -525,7 +744,7 @@ export class LaunchpadIndicator implements Disposable {
 			case 'item':
 				labelSegment =
 					priorityItem != null
-						? ` ${this.getPriorityItemLabel(priorityItem.item)} ${priorityItem.groupLabel}`
+						? ` ${this.getPriorityItemStateLabel(priorityItem.item, priorityItem.state)}`
 						: '';
 				break;
 
@@ -536,7 +755,6 @@ export class LaunchpadIndicator implements Disposable {
 
 					const count = groupedItems.get(group)?.length ?? 0;
 					const icon = launchpadGroupIconMap.get(group)!;
-
 					labelSegment +=
 						!labelSegment && iconSegment === icon ? `\u00a0${count}` : `\u00a0\u00a0${icon} ${count}`;
 				}
@@ -565,13 +783,17 @@ export class LaunchpadIndicator implements Disposable {
 						break;
 					}
 					case 'hide': {
-						const hide = { title: 'Hide Anyway' };
-						const cancel = { title: 'Cancel', isCloseAffordance: true };
+						const hide = { title: l10n.t('Hide Anyway') };
+						const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 						const action = await window.showInformationMessage(
-							'GitLens Launchpad helps you focus and keep your team unblocked.\n\nAre you sure you want hide the indicator?',
+							l10n.t(
+								'GitLens Launchpad helps you focus and keep your team unblocked.\n\nAre you sure you want hide the indicator?',
+							),
 							{
 								modal: true,
-								detail: '\nYou can always access Launchpad using the "GitLens: Open Launchpad" command, and can re-enable the indicator with the "GitLens: Toggle Launchpad Indicator" command.',
+								detail: l10n.t(
+									'\nYou can always access Launchpad using the "GitLens: Open Launchpad" command, and can re-enable the indicator with the "GitLens: Toggle Launchpad Indicator" command.',
+								),
 							},
 							hide,
 							cancel,
@@ -588,12 +810,110 @@ export class LaunchpadIndicator implements Disposable {
 		];
 	}
 
-	private getPriorityItemLabel(item: LaunchpadItem, groupLength?: number) {
-		return `${item.repository != null ? `${item.repository.owner.login}/${item.repository.name}` : ''}#${item.id}${
-			groupLength != null && groupLength > 1
-				? ` and ${pluralize('pull request', groupLength - 1, { infix: ' other ' })}`
-				: ''
-		}`;
+	private getPriorityItemStateLabel(
+		item: LaunchpadItem,
+		state: LaunchpadIndicatorItemState,
+		groupLength?: number,
+	): string {
+		const itemLabel = `${item.repository != null ? `${item.repository.owner.login}/${item.repository.name}` : ''}#${item.id}`;
+		const otherCount = groupLength != null ? groupLength - 1 : 0;
+		if (otherCount === 0) {
+			switch (state) {
+				case 'mergeable':
+					return l10n.t('{item} can be merged', { item: itemLabel });
+				case 'blocked':
+					return l10n.t('{item} is blocked', { item: itemLabel });
+				case 'unassigned-reviewers':
+					return l10n.t('{item} needs reviewers', { item: itemLabel });
+				case 'failed-checks':
+					return l10n.t('{item} failed CI checks', { item: itemLabel });
+				case 'conflicts':
+					return l10n.t('{item} has conflicts', { item: itemLabel });
+				case 'follow-up':
+					return l10n.t('{item} requires follow-up', { item: itemLabel });
+				case 'needs-review':
+					return l10n.t('{item} needs your review', { item: itemLabel });
+			}
+		}
+
+		const formattedCount = getNumericFormat()(otherCount);
+		if (otherCount === 1) {
+			switch (state) {
+				case 'mergeable':
+					return l10n.t('{item} and {count} other pull request can be merged', {
+						item: itemLabel,
+						count: formattedCount,
+					});
+				case 'blocked':
+					return l10n.t('{item} and {count} other pull request are blocked', {
+						item: itemLabel,
+						count: formattedCount,
+					});
+				case 'unassigned-reviewers':
+					return l10n.t('{item} and {count} other pull request need reviewers', {
+						item: itemLabel,
+						count: formattedCount,
+					});
+				case 'failed-checks':
+					return l10n.t('{item} and {count} other pull request failed CI checks', {
+						item: itemLabel,
+						count: formattedCount,
+					});
+				case 'conflicts':
+					return l10n.t('{item} and {count} other pull request have conflicts', {
+						item: itemLabel,
+						count: formattedCount,
+					});
+				case 'follow-up':
+					return l10n.t('{item} and {count} other pull request require follow-up', {
+						item: itemLabel,
+						count: formattedCount,
+					});
+				case 'needs-review':
+					return l10n.t('{item} and {count} other pull request need your review', {
+						item: itemLabel,
+						count: formattedCount,
+					});
+			}
+		}
+
+		switch (state) {
+			case 'mergeable':
+				return l10n.t('{item} and {count} other pull requests can be merged', {
+					item: itemLabel,
+					count: formattedCount,
+				});
+			case 'blocked':
+				return l10n.t('{item} and {count} other pull requests are blocked', {
+					item: itemLabel,
+					count: formattedCount,
+				});
+			case 'unassigned-reviewers':
+				return l10n.t('{item} and {count} other pull requests need reviewers', {
+					item: itemLabel,
+					count: formattedCount,
+				});
+			case 'failed-checks':
+				return l10n.t('{item} and {count} other pull requests failed CI checks', {
+					item: itemLabel,
+					count: formattedCount,
+				});
+			case 'conflicts':
+				return l10n.t('{item} and {count} other pull requests have conflicts', {
+					item: itemLabel,
+					count: formattedCount,
+				});
+			case 'follow-up':
+				return l10n.t('{item} and {count} other pull requests require follow-up', {
+					item: itemLabel,
+					count: formattedCount,
+				});
+			case 'needs-review':
+				return l10n.t('{item} and {count} other pull requests need your review', {
+					item: itemLabel,
+					count: formattedCount,
+				});
+		}
 	}
 
 	private sendTelemetryFirstLoadEvent() {

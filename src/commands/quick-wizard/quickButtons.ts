@@ -1,5 +1,5 @@
 import type { QuickInput, QuickInputButton } from 'vscode';
-import { QuickInputButtonLocation, ThemeIcon, Uri } from 'vscode';
+import { l10n, QuickInputButtonLocation, ThemeIcon, Uri } from 'vscode';
 import { Container } from '../../container.js';
 import { supportedInVSCodeVersion } from '../../system/-webview/vscode.js';
 
@@ -113,58 +113,62 @@ export class SelectableQuickInputButton extends ToggleQuickInputButton {
 
 export const ClearQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('clear-all'),
-	tooltip: 'Clear',
+	tooltip: l10n.t('Clear'),
 };
 
 export const ConnectIntegrationButton: QuickInputButton = {
 	iconPath: new ThemeIcon('plug'),
-	tooltip: 'Connect Additional Integrations',
+	tooltip: l10n.t('Connect Additional Integrations'),
 };
 
 export const FeedbackQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('feedback'),
-	tooltip: 'Give Us Feedback',
+	tooltip: l10n.t('Give Us Feedback'),
 };
 
 export const FetchQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('repo-fetch'),
-	tooltip: 'Fetch',
+	tooltip: l10n.t('Fetch'),
 	location: getQuickInputButtonLocation(QuickInputButtonLocation.Input),
 };
 
 export const GenerateStashMessageQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('sparkle'),
-	tooltip: 'Generate Stash Message',
+	tooltip: l10n.t('Generate Stash Message'),
 	location: getQuickInputButtonLocation(QuickInputButtonLocation.Input),
 };
 
 export const LoadMoreQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('refresh'),
-	tooltip: 'Load More',
+	tooltip: l10n.t('Load More'),
 	location: getQuickInputButtonLocation(QuickInputButtonLocation.Inline),
 };
 
 export const MatchCaseToggleQuickInputButton = class extends SelectableQuickInputButton {
 	constructor(on = false) {
-		super('Match Case', { off: 'icon-match-case', on: 'icon-match-case-selected' }, on);
+		super(l10n.t('Match Case'), { off: 'icon-match-case', on: 'icon-match-case-selected' }, on);
 	}
 };
 
 export const MatchAllToggleQuickInputButton = class extends SelectableQuickInputButton {
 	constructor(on = false) {
-		super('Match All', { off: 'icon-match-all', on: 'icon-match-all-selected' }, on);
+		super(l10n.t('Match All'), { off: 'icon-match-all', on: 'icon-match-all-selected' }, on);
 	}
 };
 
 export const MatchRegexToggleQuickInputButton = class extends SelectableQuickInputButton {
 	constructor(on = false) {
-		super('Match using Regular Expressions', { off: 'icon-match-regex', on: 'icon-match-regex-selected' }, on);
+		super(
+			l10n.t('Match using Regular Expressions'),
+			{ off: 'icon-match-regex', on: 'icon-match-regex-selected' },
+			on,
+		);
 	}
 };
 
 export const MatchWholeWordToggleQuickInputButton = class extends SelectableQuickInputButton {
 	constructor(on = false) {
-		super('Match Whole Word', { off: 'icon-match-wholeword', on: 'icon-match-wholeword-selected' }, on);
+		super(l10n.t('Match Whole Word'), { off: 'icon-match-wholeword', on: 'icon-match-wholeword-selected' }, on);
 	}
 };
 
@@ -173,7 +177,7 @@ export function createMatchCaseToggle(checked: boolean): QuickInputButton {
 	// it adapts to theme and the toggle's checked decoration. Our custom `icon-match-case*.svg` has
 	// a hardcoded fill color and doesn't adapt, so reserve it for the legacy path.
 	return createToggleButton({
-		tooltip: 'Match Case',
+		tooltip: l10n.t('Match Case'),
 		icon: new ThemeIcon('case-sensitive'),
 		checked: checked,
 		location: QuickInputButtonLocation.Input,
@@ -183,7 +187,7 @@ export function createMatchCaseToggle(checked: boolean): QuickInputButton {
 
 export function createMatchAllToggle(checked: boolean): QuickInputButton {
 	return createToggleButton({
-		tooltip: 'Match All',
+		tooltip: l10n.t('Match All'),
 		icon: new ThemeIcon('check-all'),
 		checked: checked,
 		location: QuickInputButtonLocation.Input,
@@ -193,7 +197,7 @@ export function createMatchAllToggle(checked: boolean): QuickInputButton {
 
 export function createMatchRegexToggle(checked: boolean): QuickInputButton {
 	return createToggleButton({
-		tooltip: 'Match using Regular Expressions',
+		tooltip: l10n.t('Match using Regular Expressions'),
 		icon: new ThemeIcon('regex'),
 		checked: checked,
 		location: QuickInputButtonLocation.Input,
@@ -203,7 +207,7 @@ export function createMatchRegexToggle(checked: boolean): QuickInputButton {
 
 export function createMatchWholeWordToggle(checked: boolean): QuickInputButton {
 	return createToggleButton({
-		tooltip: 'Match Whole Word',
+		tooltip: l10n.t('Match Whole Word'),
 		icon: new ThemeIcon('whole-word'),
 		checked: checked,
 		location: QuickInputButtonLocation.Input,
@@ -213,133 +217,133 @@ export function createMatchWholeWordToggle(checked: boolean): QuickInputButton {
 
 export const PickCommitQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('git-commit'),
-	tooltip: 'Choose a Specific Commit',
+	tooltip: l10n.t('Choose a Specific Commit'),
 };
 
 export const LearnAboutProQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('info'),
-	tooltip: 'Learn about GitLens Pro',
+	tooltip: l10n.t('Learn about GitLens Pro'),
 };
 
 export const MergeQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('merge'),
-	tooltip: 'Merge...',
+	tooltip: l10n.t('Merge...'),
 };
 
 export const OpenLogsQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('output'),
-	tooltip: 'Open Logs',
+	tooltip: l10n.t('Open Logs'),
 };
 
 export const OpenOnJiraQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('globe'),
-	tooltip: 'Open on Jira',
+	tooltip: l10n.t('Open on Jira'),
 };
 
 export const OpenOnGitHubQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('globe'),
-	tooltip: 'Open on GitHub',
+	tooltip: l10n.t('Open on GitHub'),
 };
 
 export const OpenOnGitLabQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('globe'),
-	tooltip: 'Open on GitLab',
+	tooltip: l10n.t('Open on GitLab'),
 };
 
 export const OpenOnAzureDevOpsQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('globe'),
-	tooltip: 'Open on Azure DevOps',
+	tooltip: l10n.t('Open on Azure DevOps'),
 };
 
 export const OpenOnBitbucketQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('globe'),
-	tooltip: 'Open on Bitbucket',
+	tooltip: l10n.t('Open on Bitbucket'),
 };
 
 export const OpenOnWebQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('globe'),
-	tooltip: 'Open on gitkraken.dev',
+	tooltip: l10n.t('Open on gitkraken.dev'),
 };
 
 export const LaunchpadSettingsQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('gear'),
-	tooltip: 'Launchpad Settings',
+	tooltip: l10n.t('Launchpad Settings'),
 };
 
 export const PinQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('pinned'),
-	tooltip: 'Pin',
+	tooltip: l10n.t('Pin'),
 };
 
 export const UnpinQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('pin'),
-	tooltip: 'Unpin',
+	tooltip: l10n.t('Unpin'),
 };
 
 export const SnoozeQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('bell-slash'),
-	tooltip: 'Snooze',
+	tooltip: l10n.t('Snooze'),
 };
 
 export const RefreshQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('refresh'),
-	tooltip: 'Refresh',
+	tooltip: l10n.t('Refresh'),
 	location: getQuickInputButtonLocation(QuickInputButtonLocation.Inline),
 };
 
 export const UnsnoozeQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('bell'),
-	tooltip: 'Unsnooze',
+	tooltip: l10n.t('Unsnooze'),
 };
 export const OpenInNewWindowQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('empty-window'),
-	tooltip: 'Open in New Window',
+	tooltip: l10n.t('Open in New Window'),
 };
 
 export const RevealInSideBarQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('search'),
-	tooltip: 'Reveal in Side Bar',
+	tooltip: l10n.t('Reveal in Side Bar'),
 };
 
 export const SetRemoteAsDefaultQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('settings-gear'),
-	tooltip: 'Set as Default Remote',
+	tooltip: l10n.t('Set as Default Remote'),
 };
 
 export const SkipConfirmationsSettingsQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('gear'),
-	tooltip: 'Open the Skipped Confirmations Setting',
+	tooltip: l10n.t('Open the Skipped Confirmations Setting'),
 };
 
 export const ShowDetailsViewQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('eye'),
-	tooltip: 'Inspect Details',
+	tooltip: l10n.t('Inspect Details'),
 };
 
 export const OpenChangesViewQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('compare-changes'),
-	tooltip: 'Open Changes',
+	tooltip: l10n.t('Open Changes'),
 };
 
 export const ShowResultsInSideBarQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('link-external'),
-	tooltip: 'Show Results in Side Bar',
+	tooltip: l10n.t('Show Results in Side Bar'),
 };
 
 export const OpenWorktreeInNewWindowQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('empty-window'),
-	tooltip: 'Open in Worktree',
+	tooltip: l10n.t('Open in Worktree'),
 };
 
 export const ShowTagsToggleQuickInputButton = class extends SelectableQuickInputButton {
 	constructor(on = false) {
-		super('Show Tags', { off: new ThemeIcon('tag'), on: 'icon-tag-selected' }, on);
+		super(l10n.t('Show Tags'), { off: new ThemeIcon('tag'), on: 'icon-tag-selected' }, on);
 	}
 };
 
 export function createShowTagsToggle(checked: boolean): QuickInputButton {
 	return createToggleButton({
-		tooltip: 'Show Tags',
+		tooltip: l10n.t('Show Tags'),
 		icon: new ThemeIcon('tag'),
 		checked: checked,
 		location: QuickInputButtonLocation.Input,
@@ -349,7 +353,7 @@ export function createShowTagsToggle(checked: boolean): QuickInputButton {
 
 export const WillConfirmForcedQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('gitlens-confirm-checked'),
-	tooltip: 'You will be presented with a required confirmation step before the action is performed',
+	tooltip: l10n.t('You will be presented with a required confirmation step before the action is performed'),
 };
 
 export const WillConfirmToggleQuickInputButton = class extends ToggleQuickInputButton {
@@ -358,14 +362,22 @@ export const WillConfirmToggleQuickInputButton = class extends ToggleQuickInputB
 			() => ({
 				on: {
 					tooltip: isConfirmationStep
-						? 'For future actions, you will be presented with confirmation step before the action is performed\nClick to toggle'
-						: 'You will be presented with confirmation step before the action is performed\nClick to toggle',
+						? l10n.t(
+								'For future actions, you will be presented with confirmation step before the action is performed\nClick to toggle',
+							)
+						: l10n.t(
+								'You will be presented with confirmation step before the action is performed\nClick to toggle',
+							),
 					icon: new ThemeIcon('gitlens-confirm-checked'),
 				},
 				off: {
 					tooltip: isConfirmationStep
-						? "For future actions, you won't be presented with confirmation step before the action is performed\nClick to toggle"
-						: "You won't be presented with confirmation step before the action is performed\nClick to toggle",
+						? l10n.t(
+								"For future actions, you won't be presented with confirmation step before the action is performed\nClick to toggle",
+							)
+						: l10n.t(
+								"You won't be presented with confirmation step before the action is performed\nClick to toggle",
+							),
 					icon: new ThemeIcon('gitlens-confirm-unchecked'),
 				},
 			}),

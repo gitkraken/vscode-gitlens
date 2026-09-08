@@ -1,6 +1,6 @@
 import type { RequestError } from '@octokit/request-error';
 import type { CancellationToken } from 'vscode';
-import { version as codeVersion, env, Uri, window } from 'vscode';
+import { version as codeVersion, env, l10n, Uri, window } from 'vscode';
 import { fetch as _fetch } from '@env/fetch.js';
 import { getPlatform } from '@env/platform.js';
 import type { TokenInfo } from '@gitlens/integrations/authentication/models.js';
@@ -17,6 +17,7 @@ import {
 	AuthenticationError,
 	AuthenticationErrorReason,
 	AuthenticationRequiredError,
+	getPresentableErrorMessage,
 	RequestClientError,
 	RequestGoneError,
 	RequestNotFoundError,
@@ -233,7 +234,9 @@ export class ServerConnection implements Disposable {
 			case 500:
 				this.trackRequestException();
 				void showGkRequestFailed500WarningMessage(
-					'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
+					l10n.t(
+						'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
+					),
 				);
 				return;
 			// Bad Gateway
@@ -256,7 +259,9 @@ export class ServerConnection implements Disposable {
 				scope?.error(undefined, `GitKraken request failed: ${content} (${rsp.statusText})`);
 				this.trackRequestException();
 				void showGkRequestFailed500WarningMessage(
-					'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
+					l10n.t(
+						'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
+					),
 				);
 				return;
 			}
@@ -308,7 +313,9 @@ export class ServerConnection implements Disposable {
 				if (ex.response != null) {
 					this.trackRequestException();
 					void showGkRequestFailed500WarningMessage(
-						'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
+						l10n.t(
+							'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
+						),
 					);
 				}
 				return;
@@ -323,7 +330,9 @@ export class ServerConnection implements Disposable {
 				scope?.error(ex);
 				this.trackRequestException();
 				void showGkRequestFailed500WarningMessage(
-					'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
+					l10n.t(
+						'GitKraken failed to respond and might be experiencing issues. Please visit the [GitKraken status page](https://cloud.gitkrakenstatus.com) for more information.',
+					),
 				);
 				return;
 			default:
@@ -333,7 +342,7 @@ export class ServerConnection implements Disposable {
 
 		if (Logger.isDebugging) {
 			void window.showErrorMessage(
-				`DEBUGGING: GitKraken request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
+				`DEBUGGING: GitKraken request failed: ${(ex.response as any)?.errors?.[0]?.message ?? getPresentableErrorMessage(ex)}`,
 			);
 		}
 	}

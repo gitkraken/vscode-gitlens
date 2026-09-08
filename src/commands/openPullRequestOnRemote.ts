@@ -1,4 +1,4 @@
-import { env, window } from 'vscode';
+import { env, l10n, window } from 'vscode';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import type { Container } from '../container.js';
 import { getBestRemoteWithIntegration, getRemoteIntegration } from '../git/utils/-webview/remote.utils.js';
@@ -44,7 +44,9 @@ export class OpenPullRequestOnRemoteCommand extends GlCommandBase {
 
 			const pr = await integration.getPullRequestForCommit(remote.provider.repoDesc, args.ref);
 			if (pr == null) {
-				void window.showInformationMessage(`No pull request associated with '${shortenRevision(args.ref)}'`);
+				void window.showInformationMessage(
+					l10n.t("No pull request associated with '{0}'", shortenRevision(args.ref)),
+				);
 				return;
 			}
 

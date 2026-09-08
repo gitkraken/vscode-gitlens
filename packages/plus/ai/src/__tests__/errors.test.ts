@@ -1,5 +1,6 @@
 import * as assert from 'assert';
-import { AIErrorReason, classifyNetworkError } from '../errors.js';
+import * as l10n from '@vscode/l10n';
+import { AIError, AIErrorReason, classifyNetworkError } from '../errors.js';
 
 function withCause(message: string, cause: unknown, name = 'Error'): Error {
 	const err = new Error(message, { cause: cause });
@@ -12,6 +13,20 @@ function withCode(code: string): Error & { code: string } {
 	err.code = code;
 	return err;
 }
+
+suite('AIError diagnostics', () => {
+	test('keeps telemetry text canonical when the display message is translated', () => {
+		l10n.config({ contents: { 'Rate limit exceeded': 'Límite de solicitudes excedido' } });
+		try {
+			const error = new AIError(AIErrorReason.RateLimitExceeded);
+
+			assert.strictEqual(error.message, 'Límite de solicitudes excedido');
+			assert.strictEqual(error.diagnosticString, 'Error: Rate limit exceeded');
+		} finally {
+			l10n.config({ contents: {} });
+		}
+	});
+});
 
 suite('classifyNetworkError', () => {
 	test('returns undefined for non-Error inputs', () => {

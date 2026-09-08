@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { CandidateSigner, SignerProvider } from '../../../allowedSigners/protocol.js';
@@ -140,7 +141,9 @@ export class GlSignerRow extends LitElement {
 		const registered = this.signer.provenance === 'provider' || this.signer.provenance === 'both';
 		if (registered) {
 			const name = this.provider?.name;
-			return html`<gl-tooltip .content=${name ? `Registered with ${name}` : 'Registered with a provider'}>
+			return html`<gl-tooltip
+				.content=${name ? l10n.t('Registered with {0}', name) : l10n.t('Registered with a provider')}
+			>
 				<code-icon
 					class="provider-icon"
 					icon=${this.provider != null ? `gl-provider-${this.provider.icon}` : 'verified'}
@@ -149,8 +152,8 @@ export class GlSignerRow extends LitElement {
 		}
 
 		const content = this.integrationConnected
-			? 'Not registered with a provider'
-			: 'Connect an integration to verify registration';
+			? l10n.t('Not registered with a provider')
+			: l10n.t('Connect an integration to verify registration');
 		return html`<gl-tooltip .content=${content}>
 			<code-icon class="provider-icon provider-icon--unverified" icon="unverified"></code-icon>
 		</gl-tooltip>`;
@@ -164,7 +167,7 @@ export class GlSignerRow extends LitElement {
 					? html`<code-icon
 							class="in-file-icon"
 							icon="pass-filled"
-							title="Already in your allowed_signers"
+							title=${l10n.t('Already in your allowed_signers')}
 						></code-icon>`
 					: html`<gl-checkbox
 							.checked=${this.included}
@@ -186,7 +189,7 @@ export class GlSignerRow extends LitElement {
 				${
 					s.commitCount
 						? html`<span class="count"
-								>${s.commitCount} signed commit${s.commitCount === 1 ? '' : 's'}</span
+								>${s.commitCount === 1 ? l10n.t('{0} signed commit', s.commitCount) : l10n.t('{0} signed commits', s.commitCount)}</span
 							>`
 						: nothing
 				}

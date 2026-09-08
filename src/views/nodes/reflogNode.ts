@@ -1,4 +1,4 @@
-import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { l10n, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { GitReflog } from '@gitlens/git/models/reflog.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import type { GitUri } from '../../git/gitUri.js';
@@ -40,7 +40,7 @@ export class ReflogNode
 
 			const reflog = await this.getReflog();
 			if (reflog === undefined || reflog.records.length === 0) {
-				return [new MessageNode(this.view, this, 'No activity could be found.')];
+				return [new MessageNode(this.view, this, l10n.t('No activity could be found.'))];
 			}
 
 			children.push(...reflog.records.map(r => new ReflogRecordNode(this.view, this, r)));
@@ -55,10 +55,10 @@ export class ReflogNode
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Incoming Activity', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(l10n.t('Incoming Activity'), TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Reflog;
-		item.description = 'experimental';
+		item.description = l10n.t('experimental');
 		item.iconPath = {
 			dark: Uri.file(this.view.container.context.asAbsolutePath('images/dark/icon-activity.svg')),
 			light: Uri.file(this.view.container.context.asAbsolutePath('images/light/icon-activity.svg')),

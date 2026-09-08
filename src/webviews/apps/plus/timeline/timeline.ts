@@ -1,5 +1,6 @@
-import './timeline.scss';
 import type { Remote, Subscription } from '@eamodio/supertalk';
+import './timeline.scss';
+import * as l10n from '@vscode/l10n';
 import { html, nothing } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils.js';
@@ -242,8 +243,8 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 									slot="toolbox"
 									appearance="toolbar"
 									href="command:gitlens.views.timeline.openInTab"
-									tooltip="Open in Editor"
-									aria-label="Open in Editor"
+									tooltip=${l10n.t('Open in Editor')}
+									aria-label=${l10n.t('Open in Editor')}
 								>
 									<code-icon icon="link-external"></code-icon>
 								</gl-button>`
@@ -318,18 +319,18 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 						<div class="icon-cube feature__feature-icon"><code-icon icon="gl-gitlens"></code-icon></div>
 						<hgroup>
 							<h2 class="feature__title">
-								<span>Visual History</span>
+								<span>${l10n.t('Visual History')}</span>
 								<gl-feature-badge></gl-feature-badge>
 							</h2>
-							<p class="feature__lede">See how any file, folder, or branch evolved &mdash; at a glance</p>
+							<p class="feature__lede">
+								${l10n.t('See how any file, folder, or branch evolved — at a glance')}
+							</p>
 						</hgroup>
 					</header>
 					<p>
-						Visualize the evolution of a repository, branch, folder, or file and identify when the most
-						impactful changes were made and by whom. Quickly see unmerged changes in files or folders, when
-						slicing by branch.
+						${l10n.t('Visualize the evolution of a repository, branch, folder, or file and identify when the most impactful changes were made and by whom. Quickly see unmerged changes in files or folders, when slicing by branch.')}
 						<a href="https://help.gitkraken.com/gitlens/gitlens-features/#visual-file-history-pro"
-							>Learn More</a
+							>${l10n.t('Learn More')}</a
 						>
 					</p>
 				</section>
@@ -347,18 +348,18 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 					<div class="icon-cube feature__feature-icon"><code-icon icon="gl-gitlens"></code-icon></div>
 					<hgroup>
 						<h2 class="feature__title">
-							<span>Visual History</span>
+							<span>${l10n.t('Visual History')}</span>
 							<gl-feature-badge></gl-feature-badge>
 						</h2>
-						<p class="feature__lede">See how any file, folder, or branch evolved &mdash; at a glance</p>
+						<p class="feature__lede">
+							${l10n.t('See how any file, folder, or branch evolved — at a glance')}
+						</p>
 					</hgroup>
 				</header>
 				<p>
-					Visualize the evolution of a repository, branch, folder, or file and identify when the most
-					impactful changes were made and by whom. Quickly see unmerged changes in files or folders, when
-					slicing by branch.
+					${l10n.t('Visualize the evolution of a repository, branch, folder, or file and identify when the most impactful changes were made and by whom. Quickly see unmerged changes in files or folders, when slicing by branch.')}
 					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#visual-file-history-pro"
-						>Learn More</a
+						>${l10n.t('Learn More')}</a
 					>
 				</p>
 			</section></gl-feature-gate
@@ -369,7 +370,7 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 		const s = this._state;
 		if (!s.scope.get() && this.placement === 'view') {
 			return html`<div class="timeline__empty">
-				<p>There are no editors open that can provide file history information.</p>
+				<p>${l10n.t('There are no editors open that can provide file history information.')}</p>
 			</div>`;
 		}
 
@@ -379,9 +380,9 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 		const emptySlot = html`<div slot="empty">
 			${
 				s.scope.get() == null
-					? html`<p>Something went wrong</p>
-							<p>Please close this tab and try again</p>`
-					: html`<p>No commits found for the specified time period</p>`
+					? html`<p>${l10n.t('Something went wrong')}</p>
+							<p>${l10n.t('Please close this tab and try again')}</p>`
+					: html`<p>${l10n.t('No commits found for the specified time period')}</p>`
 			}
 		</div>`;
 

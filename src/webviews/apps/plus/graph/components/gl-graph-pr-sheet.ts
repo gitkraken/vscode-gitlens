@@ -1,12 +1,14 @@
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { getAutolinkIcon } from '@gitlens/components/components/icons/providerIcons.js';
 import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { PullRequestReviewDecision } from '@gitlens/git/models/pullRequest.js';
 import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { GraphSidebarPullRequest } from '../../../../plus/graph/protocol.js';
 import type { GlPopoverConfirm } from '../../../shared/components/overlays/popover-confirm.js';
@@ -71,26 +73,15 @@ const reviewSeverity: Record<`${PullRequestReviewDecision}`, number> = {
 
 /** {@link joinPrNumbers} with emphasis spans on the numbers, for the blast line. */
 function joinPrNumbersHtml(numbers: string[]) {
-	const parts: unknown[] = [];
-	numbers.forEach((n, i) => {
-		if (i > 0) {
-			parts.push(i === numbers.length - 1 ? (numbers.length === 2 ? ' and ' : ', and ') : ', ');
-		}
-		parts.push(html`<span class="verdict__num">#${n}</span>`);
-	});
-	return html`${parts}`;
+	const values = numbers.map(n => `#${n}`);
+	return html`${new Intl.ListFormat(undefined, { style: 'long', type: 'conjunction' })
+		.formatToParts(values)
+		.map(part => (part.type === 'element' ? html`<span class="verdict__num">${part.value}</span>` : part.value))}`;
 }
 
 /** "#a", "#a and #b", "#a, #b, and #c" — the blast-radius line's pull request list. */
 function joinPrNumbers(numbers: string[]): string {
-	if (numbers.length === 0) return '';
-	if (numbers.length === 1) return `#${numbers[0]}`;
-	if (numbers.length === 2) return `#${numbers[0]} and #${numbers[1]}`;
-
-	return `${numbers
-		.slice(0, -1)
-		.map(n => `#${n}`)
-		.join(', ')}, and #${numbers.at(-1)}`;
+	return new Intl.ListFormat(undefined, { style: 'long', type: 'conjunction' }).format(numbers.map(n => `#${n}`));
 }
 
 const htmlCommentRegex = /<!--[\s\S]*?-->/g;
@@ -887,8 +878,8 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		// replay its slide-up) the moment the pull request resolves. Only the slotted parts vary.
 		return html`<gl-detail-sheet
 			esc-managed
-			aria-label="Pull request details"
-			close-label="Close"
+			aria-label=${l10n.t('Pull request details')}
+			close-label=${l10n.t('Close')}
 			@gl-detail-sheet-close=${this.handleInnerClose}
 		>
 			${pr != null ? this.renderTitleRow(pr) : this.renderLoadingTitleRow(target)}
@@ -898,9 +889,9 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 					? html`<gl-action-chip
 							slot="actions"
 							icon="globe"
-							label="Open Pull Request on Remote"
+							label=${l10n.t('Open Pull Request on Remote')}
 							alt-icon="copy"
-							alt-label="Copy Pull Request URL"
+							alt-label=${l10n.t('Copy Pull Request URL')}
 							overlay="tooltip"
 							@click=${this.onOpenOnRemote}
 						></gl-action-chip>`
@@ -924,15 +915,16 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		if (target == null) return nothing;
 
 		const isStack = 'stackNumber' in target;
+		const title = isStack
+			? l10n.t('Stack #{number}', { number: target.stackNumber })
+			: l10n.t('Pull Request #{number}', { number: target.number });
 		return html`<span slot="title" class="title">
 			${
 				isStack
 					? html`<code-icon class="title__icon--stack" icon="layers"></code-icon>`
 					: html`<code-icon icon=${this.glyph.icon}></code-icon>`
 			}
-			<span class="title__name"
-				>${isStack ? `Stack #${target.stackNumber}` : `Pull Request #${target.number}`}</span
-			>
+			<span class="title__name">${title}</span>
 		</span>`;
 	}
 
@@ -952,7 +944,9 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		if (target == null) return nothing;
 
 		const isStack = 'stackNumber' in target;
-		return html`<span class="sr-only" aria-live="polite">Loading ${isStack ? 'stack' : 'pull request'}…</span>
+		return html`<span class="sr-only" aria-live="polite"
+				>${isStack ? l10n.t('Loading stack…') : l10n.t('Loading pull request…')}</span
+			>
 			<div class="meta-card" aria-hidden="true">
 				<div class="meta-card__row meta-card__row--chain">
 					<div class="meta-card__refs">
@@ -970,7 +964,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			${
 				!isStack
 					? html`<div aria-hidden="true">
-							<span class="section-label">Description</span>
+							<span class="section-label">${l10n.t('Description')}</span>
 							<skeleton-loader class="skeleton skeleton--line"></skeleton-loader>
 							<skeleton-loader class="skeleton skeleton--line"></skeleton-loader>
 							<skeleton-loader class="skeleton skeleton--line skeleton--w-55"></skeleton-loader>
@@ -988,7 +982,8 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			? html`<code-icon class="title__icon--stack" icon="layers"></code-icon>`
 			: html`<code-icon class="state--${state}" icon=${icon}></code-icon>`;
 
-		const titleText = this.stackRoot && stack != null ? `Stack #${stack.number}` : pr.title;
+		const titleText =
+			this.stackRoot && stack != null ? l10n.t('Stack #{number}', { number: stack.number }) : pr.title;
 
 		const chip =
 			stack != null
@@ -996,11 +991,20 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 						class="title__count"
 						title=${
 							this.stackRoot
-								? `${stack.size} layers in stack #${stack.number}`
-								: `Layer ${stack.position} of ${stack.size} in stack #${stack.number}`
+								? l10n.t('{count} layers in stack #{number}', {
+										count: stack.size,
+										number: stack.number,
+									})
+								: l10n.t('Layer {position} of {count} in stack #{number}', {
+										position: stack.position,
+										count: stack.size,
+										number: stack.number,
+									})
 						}
 						><code-icon icon="layers"></code-icon>${
-							this.stackRoot ? html`${stack.size} layers` : html`${stack.position}/${stack.size}`
+							this.stackRoot
+								? html`${l10n.t('{count} layers', { count: stack.size })}`
+								: html`${stack.position}/${stack.size}`
 						}</span
 					>`
 				: nothing;
@@ -1010,7 +1014,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 		const titleLink =
 			!this.stackRoot && pr.url
-				? html`<gl-tooltip content="Open Pull Request on Remote">
+				? html`<gl-tooltip content=${l10n.t('Open Pull Request on Remote')}>
 						<button type="button" class="title__link" @click=${this.onOpenOnRemote}>
 							${titleName}${titleId}
 						</button>
@@ -1023,7 +1027,13 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 	private renderSubtitleRow(pr: GraphSidebarPullRequest) {
 		const state = this.stateModifier;
 		const stateLabel =
-			state === 'opened' ? 'Open' : state === 'draft' ? 'Draft' : state === 'merged' ? 'Merged' : 'Closed';
+			state === 'opened'
+				? l10n.t('Open')
+				: state === 'draft'
+					? l10n.t('Draft')
+					: state === 'merged'
+						? l10n.t('Merged')
+						: l10n.t('Closed');
 
 		return html`<span slot="subtitle" class="subtitle">
 			<span class="subtitle__state state--${state}">${stateLabel}</span>
@@ -1039,9 +1049,13 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			${
 				pr.date != null
 					? html`<span class="subtitle__date muted"
-							>updated
-							<formatted-date .date=${new Date(pr.date)} .format=${this.dateFormat}></formatted-date
-						></span>`
+							>${localizedContent(l10n.t('updated {date}'), {
+								date: html`<formatted-date
+									.date=${new Date(pr.date)}
+									.format=${this.dateFormat}
+								></formatted-date>`,
+							})}</span
+						>`
 					: nothing
 			}
 		</span>`;
@@ -1070,8 +1084,8 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			<gl-button
 				appearance="toolbar"
 				density="compact"
-				tooltip=${pr.worktree ? 'Open Worktree in New Window...' : 'Switch to Branch...'}
-				aria-label=${pr.worktree ? 'Open Worktree in New Window...' : 'Switch to Branch...'}
+				tooltip=${pr.worktree ? l10n.t('Open Worktree in New Window...') : l10n.t('Switch to Branch...')}
+				aria-label=${pr.worktree ? l10n.t('Open Worktree in New Window...') : l10n.t('Switch to Branch...')}
 				@click=${this.switchToBranch}
 			>
 				<code-icon icon=${pr.worktree ? 'empty-window' : 'gl-switch'}></code-icon>
@@ -1081,8 +1095,8 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 					? html`<gl-button
 							appearance="toolbar"
 							density="compact"
-							tooltip="Open in Worktree..."
-							aria-label="Open in Worktree..."
+							tooltip=${l10n.t('Open in Worktree...')}
+							aria-label=${l10n.t('Open in Worktree...')}
 							@click=${this.openInWorktree}
 						>
 							<code-icon icon="empty-window"></code-icon>
@@ -1200,14 +1214,29 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			}
 		}
 
+		const commitCountText = commitCount != null ? getNumericFormat()(commitCount) : undefined;
+		const fileCountText = filesChanged != null ? getNumericFormat()(filesChanged) : undefined;
+
 		return html`${
-			commitCount != null
-				? html`<span><code-icon icon="git-commit"></code-icon>${pluralize('commit', commitCount)}</span>`
+			commitCount != null && commitCountText != null
+				? html`<span
+						><code-icon icon="git-commit"></code-icon>${
+							commitCount === 1
+								? l10n.t('{count} commit', { count: commitCountText })
+								: l10n.t('{count} commits', { count: commitCountText })
+						}</span
+					>`
 				: nothing
 		}
 		${
-			filesChanged
-				? html`<span><code-icon icon="files"></code-icon>${pluralize('file', filesChanged)}</span>`
+			filesChanged && fileCountText != null
+				? html`<span
+						><code-icon icon="files"></code-icon>${
+							filesChanged === 1
+								? l10n.t('{count} file', { count: fileCountText })
+								: l10n.t('{count} files', { count: fileCountText })
+						}</span
+					>`
 				: nothing
 		}
 		${
@@ -1220,16 +1249,18 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 	private renderReviewChip(state: `${PullRequestReviewDecision}` | undefined) {
 		if (state === 'Approved') {
-			return html`<span class="meta-card__review--ok"><code-icon icon="check"></code-icon> Approved</span>`;
+			return html`<span class="meta-card__review--ok"
+				><code-icon icon="check"></code-icon> ${l10n.t('Approved')}</span
+			>`;
 		}
 		if (state === 'ChangesRequested') {
 			return html`<span class="meta-card__review--warn"
-				><code-icon icon="warning"></code-icon> Changes requested</span
+				><code-icon icon="warning"></code-icon> ${l10n.t('Changes requested')}</span
 			>`;
 		}
 		if (state === 'ReviewRequired') {
 			return html`<span class="meta-card__review--warn"
-				><code-icon icon="warning"></code-icon> Review required</span
+				><code-icon icon="warning"></code-icon> ${l10n.t('Review required')}</span
 			>`;
 		}
 		return nothing;
@@ -1241,19 +1272,19 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 	private renderMetaCardActions(pr: GraphSidebarPullRequest) {
 		return html`<div class="meta-card__row meta-card__actions">
 			<gl-button appearance="secondary" density="compact" @click=${this.dispatchCompare}>
-				<code-icon icon="git-compare" slot="prefix"></code-icon>Compare Changes
+				<code-icon icon="git-compare" slot="prefix"></code-icon>${l10n.t('Compare Changes')}
 			</gl-button>
 			${
 				this.aiEnabled && pr.state === 'opened'
 					? html`<gl-button appearance="secondary" density="compact" @click=${this.dispatchReviewChanges}>
-							<code-icon icon="checklist" slot="prefix"></code-icon>Review Changes
+							<code-icon icon="checklist" slot="prefix"></code-icon>${l10n.t('Review Changes')}
 						</gl-button>`
 					: nothing
 			}
 			${
 				this.aiEnabled && pr.state === 'opened' && pr.url
 					? html`<gl-button appearance="secondary" density="compact" @click=${this.startReview}>
-							<code-icon icon="robot" slot="prefix"></code-icon>Review with Agent...
+							<code-icon icon="robot" slot="prefix"></code-icon>${l10n.t('Review with Agent...')}
 						</gl-button>`
 					: nothing
 			}
@@ -1315,38 +1346,106 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		return { landing: landing, retargeting: retargeting };
 	}
 
-	/** The blast-radius clause — "#a and #b on <trunk>", "#a and #b on <trunk> — #c retargets to <trunk>",
-	 *  "on <trunk> — the whole stack" for a stack root, or a bare count when the layers aren't loaded.
-	 *  Numbers and the trunk carry emphasis so the fine print's load-bearing facts read at a glance. */
-	private landsClause(stack: PrStack, impact: { landing: string[]; retargeting?: string } | undefined) {
+	/** The blast-radius sentence. Numbers and the trunk carry emphasis so the fine print's
+	 *  load-bearing facts read at a glance. */
+	private renderLandsSentence(stack: PrStack, impact: { landing: string[]; retargeting?: string } | undefined) {
 		const trunk = html`<span class="verdict__ref">${stack.baseRef}</span>`;
 		if (impact != null) {
 			const landing = joinPrNumbersHtml(impact.landing);
 			if (this.stackRoot) {
-				return html`${landing} on ${trunk} &mdash; the whole stack`;
+				return localizedContent(l10n.t('Lands {pullRequests} on {trunk} — the whole stack'), {
+					pullRequests: landing,
+					trunk: trunk,
+				});
 			}
 			if (impact.retargeting != null) {
-				return html`${landing} on ${trunk} &mdash;
-					<span class="verdict__num">#${impact.retargeting}</span> retargets to ${trunk}`;
+				return localizedContent(
+					l10n.t('Lands {pullRequests} on {trunk} — {retargeting} retargets to {trunk}'),
+					{
+						pullRequests: landing,
+						trunk: trunk,
+						retargeting: html`<span class="verdict__num">#${impact.retargeting}</span>`,
+					},
+				);
 			}
-			return html`${landing} on ${trunk}`;
+			return localizedContent(l10n.t('Lands {pullRequests} on {trunk}'), {
+				pullRequests: landing,
+				trunk: trunk,
+			});
 		}
 
 		const count = this.stackRoot ? stack.size : stack.position;
-		return html`${pluralize('pull request', count)} on ${trunk}`;
+		const formattedCount = getNumericFormat()(count);
+		return localizedContent(
+			count === 1
+				? l10n.t('Lands {count} pull request on {trunk}', { count: formattedCount })
+				: l10n.t('Lands {count} pull requests on {trunk}', { count: formattedCount }),
+			{ trunk: trunk },
+		);
+	}
+
+	private renderResolveLandingSentence(
+		headBranch: string,
+		stack: PrStack,
+		impact: { landing: string[]; retargeting?: string } | undefined,
+	): unknown {
+		const trunk = html`<span class="verdict__ref">${stack.baseRef}</span>`;
+		if (impact != null) {
+			const landing = joinPrNumbersHtml(impact.landing);
+			if (this.stackRoot) {
+				return localizedContent(
+					l10n.t('Resolve on {branch}, then merging lands {pullRequests} on {trunk} — the whole stack', {
+						branch: headBranch,
+					}),
+					{ pullRequests: landing, trunk: trunk },
+				);
+			}
+			if (impact.retargeting != null) {
+				return localizedContent(
+					l10n.t(
+						'Resolve on {branch}, then merging lands {pullRequests} on {trunk} — {retargeting} retargets to {trunk}',
+						{ branch: headBranch },
+					),
+					{
+						pullRequests: landing,
+						trunk: trunk,
+						retargeting: html`<span class="verdict__num">#${impact.retargeting}</span>`,
+					},
+				);
+			}
+			return localizedContent(
+				l10n.t('Resolve on {branch}, then merging lands {pullRequests} on {trunk}', { branch: headBranch }),
+				{ pullRequests: landing, trunk: trunk },
+			);
+		}
+
+		const count = this.stackRoot ? stack.size : stack.position;
+		const formattedCount = getNumericFormat()(count);
+		return localizedContent(
+			count === 1
+				? l10n.t('Resolve on {branch}, then merging lands {count} pull request on {trunk}', {
+						branch: headBranch,
+						count: formattedCount,
+					})
+				: l10n.t('Resolve on {branch}, then merging lands {count} pull requests on {trunk}', {
+						branch: headBranch,
+						count: formattedCount,
+					}),
+			{ trunk: trunk },
+		);
 	}
 
 	private renderChecksReason(pr: GraphSidebarPullRequest) {
 		if (pr.statusCheckRollup === 'success') {
-			return html`<span><code-icon icon="check"></code-icon> Checks passed</span>`;
+			return html`<span><code-icon icon="check"></code-icon> ${l10n.t('Checks passed')}</span>`;
 		}
 
 		if (pr.statusCheckRollup === 'failed' || pr.launchpad?.failingCI) {
-			return html`<span><code-icon icon="close"></code-icon> Checks failing</span>`;
+			return html`<span><code-icon icon="close"></code-icon> ${l10n.t('Checks failing')}</span>`;
 		}
 
 		if (pr.statusCheckRollup === 'pending') {
-			return html`<span><code-icon icon="warning"></code-icon> Checks running</span>`;
+			return html`<span><code-icon icon="warning"></code-icon> ${l10n.t('Checks running')}</span>`;
 		}
 		return nothing;
 	}
@@ -1354,7 +1453,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 	private renderNoConflictsReason(pr: GraphSidebarPullRequest) {
 		const ms = pr.mergeableState;
 		if (ms === 'Mergeable' || ms === 'FailingChecks' || ms === 'BlockedByPolicy') {
-			return html`<span><code-icon icon="check"></code-icon> No conflicts</span>`;
+			return html`<span><code-icon icon="check"></code-icon> ${l10n.t('No conflicts')}</span>`;
 		}
 		return nothing;
 	}
@@ -1367,11 +1466,13 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 		if (pr.isDraft) {
 			return html`<div class="verdict verdict--draft">
-				<div class="verdict__head"><span class="verdict__title">Draft &mdash; not ready to merge</span></div>
+				<div class="verdict__head">
+					<span class="verdict__title">${l10n.t('Draft — not ready to merge')}</span>
+				</div>
 				<div class="verdict__reasons">
 					<span
-						><code-icon icon="warning"></code-icon> Mark ready for review on the remote to enable
-						merging</span
+						><code-icon icon="warning"></code-icon>
+						${l10n.t('Mark ready for review on the remote to enable merging')}</span
 					>
 				</div>
 			</div>`;
@@ -1394,15 +1495,17 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		// GitHub's own stacked button reads "Merge stack" with the count as a badge, not prose.
 		const label =
 			count > 1
-				? html`Merge Stack...<span class="split-btn__count">${count}</span>`
-				: html`Merge Pull Request...`;
+				? localizedContent(l10n.t('Merge Stack...{count}'), {
+						count: html`<span class="split-btn__count">${count}</span>`,
+					})
+				: l10n.t('Merge Pull Request...');
 
 		return html`<div class="verdict verdict--ready">
 			<div class="verdict__head">
-				<span class="verdict__title">Ready to merge</span>
+				<span class="verdict__title">${l10n.t('Ready to merge')}</span>
 				<span class="split-btn">
 					<gl-popover-confirm
-						heading=${count > 1 ? 'Merge Stack' : 'Merge Pull Request'}
+						heading=${count > 1 ? l10n.t('Merge Stack') : l10n.t('Merge Pull Request')}
 						message=${this.mergeConfirmMessage(pr, count)}
 						confirm=${this.mergeConfirmLabel(count)}
 						placement="top-end"
@@ -1413,20 +1516,20 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 					</gl-popover-confirm>
 					<gl-menu-popover
 						.items=${[
-							{ label: 'Squash and Merge...', value: 'squash' },
-							{ label: 'Rebase and Merge...', value: 'rebase' },
-							{ label: 'Create a Merge Commit...', value: 'merge' },
+							{ label: l10n.t('Squash and Merge...'), value: 'squash' },
+							{ label: l10n.t('Rebase and Merge...'), value: 'rebase' },
+							{ label: l10n.t('Create a Merge Commit...'), value: 'merge' },
 						]}
 						@gl-menu-select=${this.onMergeMethodSelect}
 					>
-						<gl-button class="split-btn__menu" slot="anchor" aria-label="Merge Options">
+						<gl-button class="split-btn__menu" slot="anchor" aria-label=${l10n.t('Merge Options')}>
 							<code-icon icon="chevron-down"></code-icon>
 						</gl-button>
 					</gl-menu-popover>
 				</span>
 			</div>
 			<div class="verdict__reasons">${this.renderChecksReason(pr)} ${this.renderNoConflictsReason(pr)}</div>
-			${stack != null ? html`<div class="verdict__blast">Lands ${this.landsClause(stack, impact)}</div>` : nothing}
+			${stack != null ? html`<div class="verdict__blast">${this.renderLandsSentence(stack, impact)}</div>` : nothing}
 		</div>`;
 	}
 
@@ -1435,17 +1538,22 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		stack: PrStack | undefined,
 		impact: ReturnType<GlGraphPrSheet['computeStackImpact']>,
 	) {
+		const title =
+			pr.baseBranch != null
+				? l10n.t('Has conflicts with {base}', { base: pr.baseBranch })
+				: l10n.t('Has conflicts with base');
 		return html`<div class="verdict verdict--conflict">
 			<div class="verdict__head">
-				<span class="verdict__title">Has conflicts with ${pr.baseBranch ?? 'base'}</span>
+				<span class="verdict__title">${title}</span>
 			</div>
 			<div class="verdict__reasons">
-				<span><code-icon icon="close"></code-icon> Conflicting files</span> ${this.renderChecksReason(pr)}
+				<span><code-icon icon="close"></code-icon> ${l10n.t('Conflicting files')}</span>
+				${this.renderChecksReason(pr)}
 			</div>
 			${
 				stack != null && pr.headBranch != null
 					? html`<div class="verdict__blast">
-							Resolve on ${pr.headBranch}, then merging lands ${this.landsClause(stack, impact)}
+							${this.renderResolveLandingSentence(pr.headBranch, stack, impact)}
 						</div>`
 					: nothing
 			}
@@ -1460,30 +1568,45 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		const reasons: unknown[] = [];
 		if (impact != null) {
 			reasons.push(
-				html`<span><code-icon icon="check"></code-icon> Landed ${joinPrNumbers(impact.landing)}</span>`,
+				html`<span
+					><code-icon icon="check"></code-icon>
+					${l10n.t('Landed {pullRequests}', { pullRequests: joinPrNumbers(impact.landing) })}</span
+				>`,
 			);
 			if (impact.retargeting != null) {
-				reasons.push(
-					html`<span
-						><code-icon icon="warning"></code-icon> #${impact.retargeting} retargeted to ${trunk}</span
-					>`,
-				);
+				const retargeted =
+					trunk != null
+						? l10n.t('#{number} retargeted to {target}', {
+								number: impact.retargeting,
+								target: trunk,
+							})
+						: l10n.t('#{number} retargeted to base', { number: impact.retargeting });
+				reasons.push(html`<span><code-icon icon="warning"></code-icon> ${retargeted}</span>`);
 			}
 		}
+		const mergedTitle =
+			pr.date != null
+				? trunk != null
+					? localizedContent(l10n.t('Merged into {target} {date}'), {
+							target: trunk,
+							date: html`<formatted-date
+								.date=${new Date(pr.date)}
+								.format=${this.dateFormat}
+							></formatted-date>`,
+						})
+					: localizedContent(l10n.t('Merged into base {date}'), {
+							date: html`<formatted-date
+								.date=${new Date(pr.date)}
+								.format=${this.dateFormat}
+							></formatted-date>`,
+						})
+				: trunk != null
+					? l10n.t('Merged into {target}', { target: trunk })
+					: l10n.t('Merged into base');
 
 		return html`<div class="verdict verdict--merged">
 			<div class="verdict__head">
-				<span class="verdict__title"
-					>Merged into
-					${trunk ?? 'base'}${
-						pr.date != null
-							? html` <formatted-date
-									.date=${new Date(pr.date)}
-									.format=${this.dateFormat}
-								></formatted-date>`
-							: nothing
-					}</span
-				>
+				<span class="verdict__title">${mergedTitle}</span>
 			</div>
 			${reasons.length > 0 ? html`<div class="verdict__reasons">${reasons}</div>` : nothing}
 		</div>`;
@@ -1505,14 +1628,14 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 		if (isDescriptionBlank(pr.body)) {
 			return html`<div>
-				<span class="section-label">Description</span>
-				<p class="description__empty">No description provided.</p>
+				<span class="section-label">${l10n.t('Description')}</span>
+				<p class="description__empty">${l10n.t('No description provided.')}</p>
 			</div>`;
 		}
 
 		const expanded = this._descriptionExpanded || !this.descriptionIsCapped(pr);
 		return html`<div>
-			<span class="section-label">Description</span>
+			<span class="section-label">${l10n.t('Description')}</span>
 			<div class="description scrollable ${expanded ? 'description--expanded' : ''}">
 				<div class="description__content">
 					<gl-markdown density="compact" image-chips .markdown=${pr.body}></gl-markdown>
@@ -1528,7 +1651,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 									aria-expanded=${this._descriptionExpanded ? 'true' : 'false'}
 									@click=${this.toggleDescription}
 								>
-									${this._descriptionExpanded ? 'Show Less' : 'Show More'}
+									${this._descriptionExpanded ? l10n.t('Show Less') : l10n.t('Show More')}
 								</gl-button>
 							</span>
 						</div>`
@@ -1549,8 +1672,10 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 		return html`<div>
 			<span class="section-label"
-				>Stack #${stack.number}
-				<span class="section-label__aside stack-rail__trunk">lands on ${stack.baseRef}</span></span
+				>${l10n.t('Stack #{number}', { number: stack.number })}
+				<span class="section-label__aside stack-rail__trunk"
+					>${l10n.t('lands on {target}', { target: stack.baseRef })}</span
+				></span
 			>
 			<div class="stack-rail">
 				<div class="stack-rail__rows">
@@ -1612,7 +1737,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			class="stack-rail__row ${isCurrent ? 'stack-rail__row--current' : ''}"
 			role=${interactive ? 'button' : nothing}
 			tabindex=${interactive ? '0' : nothing}
-			aria-label=${interactive ? `Open pull request #${layer.number}` : nothing}
+			aria-label=${interactive ? l10n.t('Open pull request #{number}', { number: layer.number }) : nothing}
 			@click=${interactive ? activate : nothing}
 			@keydown=${interactive ? activate : nothing}
 		>
@@ -1649,25 +1774,91 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 	/** The confirm button carries the chosen strategy (the how); the heading keeps naming what merges. */
 	private mergeConfirmLabel(count: number): string {
-		const verb =
-			this._pendingMergeMethod === 'squash'
-				? 'Squash and Merge'
+		if (count > 1) {
+			return this._pendingMergeMethod === 'squash'
+				? l10n.t('Squash and Merge {count} Pull Requests', { count: count })
 				: this._pendingMergeMethod === 'rebase'
-					? 'Rebase and Merge'
-					: 'Merge';
-		return count > 1 ? `${verb} ${count} Pull Requests` : verb;
+					? l10n.t('Rebase and Merge {count} Pull Requests', { count: count })
+					: l10n.t('Merge {count} Pull Requests', { count: count });
+		}
+
+		return this._pendingMergeMethod === 'squash'
+			? l10n.t('Squash and Merge')
+			: this._pendingMergeMethod === 'rebase'
+				? l10n.t('Rebase and Merge')
+				: l10n.t('Merge');
 	}
 
 	/** Mirrors the Launchpad confirmation's copy — the sheet confirms in place instead of dropping a
 	 *  quick pick over the command palette. */
 	private mergeConfirmMessage(pr: GraphSidebarPullRequest, count: number): string {
-		const head = pr.headBranch ?? 'this pull request';
 		if (count > 1) {
 			const below = count - 1;
-			const trunk = pr.stack?.baseRef ?? pr.baseBranch ?? 'its base';
-			return `Merging ${head} also merges the ${pluralize('pull request', below)} below it in the stack, into ${trunk}. This cannot be undone.`;
+			const formattedCount = getNumericFormat()(below);
+			const trunk = pr.stack?.baseRef ?? pr.baseBranch;
+			if (pr.headBranch != null) {
+				if (trunk != null) {
+					return below === 1
+						? l10n.t(
+								'Merging {head} also merges the {count} pull request below it in the stack, into {target}. This cannot be undone.',
+								{ head: pr.headBranch, count: formattedCount, target: trunk },
+							)
+						: l10n.t(
+								'Merging {head} also merges the {count} pull requests below it in the stack, into {target}. This cannot be undone.',
+								{ head: pr.headBranch, count: formattedCount, target: trunk },
+							);
+				}
+
+				return below === 1
+					? l10n.t(
+							'Merging {head} also merges the {count} pull request below it in the stack, into its base. This cannot be undone.',
+							{ head: pr.headBranch, count: formattedCount },
+						)
+					: l10n.t(
+							'Merging {head} also merges the {count} pull requests below it in the stack, into its base. This cannot be undone.',
+							{ head: pr.headBranch, count: formattedCount },
+						);
+			}
+
+			if (trunk != null) {
+				return below === 1
+					? l10n.t(
+							'Merging this pull request also merges the {count} pull request below it in the stack, into {target}. This cannot be undone.',
+							{ count: formattedCount, target: trunk },
+						)
+					: l10n.t(
+							'Merging this pull request also merges the {count} pull requests below it in the stack, into {target}. This cannot be undone.',
+							{ count: formattedCount, target: trunk },
+						);
+			}
+
+			return below === 1
+				? l10n.t(
+						'Merging this pull request also merges the {count} pull request below it in the stack, into its base. This cannot be undone.',
+						{ count: formattedCount },
+					)
+				: l10n.t(
+						'Merging this pull request also merges the {count} pull requests below it in the stack, into its base. This cannot be undone.',
+						{ count: formattedCount },
+					);
 		}
-		return `Are you sure you want to merge ${head}${pr.baseBranch ? ` into ${pr.baseBranch}` : ''}? This cannot be undone.`;
+
+		if (pr.headBranch != null) {
+			return pr.baseBranch
+				? l10n.t('Are you sure you want to merge {head} into {base}? This cannot be undone.', {
+						head: pr.headBranch,
+						base: pr.baseBranch,
+					})
+				: l10n.t('Are you sure you want to merge {head}? This cannot be undone.', {
+						head: pr.headBranch,
+					});
+		}
+
+		return pr.baseBranch
+			? l10n.t('Are you sure you want to merge this pull request into {base}? This cannot be undone.', {
+					base: pr.baseBranch,
+				})
+			: l10n.t('Are you sure you want to merge this pull request? This cannot be undone.');
 	}
 
 	private onMergeConfirmed = (): void => {

@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import type { VisualizationMode } from '../../../../plus/graph/protocol.js';
@@ -28,11 +29,21 @@ interface VisualizationConfig {
 }
 
 const visualizationConfigs: Record<VisualizationKey, VisualizationConfig> = {
-	timeline: { mode: 'timeline', icon: 'graph-scatter', label: 'Visual History' },
-	'treemap-files': { mode: 'treemap', treemapMode: 'files', icon: 'folder', label: 'Files Treemap' },
-	'treemap-commits': { mode: 'treemap', treemapMode: 'commits', icon: 'git-commit', label: 'Commits Treemap' },
-	'treemap-activity': { mode: 'treemap', treemapMode: 'activity', icon: 'robot', label: 'Agent Activity Treemap' },
-	health: { mode: 'health', icon: 'heart', label: 'Repository Health' },
+	timeline: { mode: 'timeline', icon: 'graph-scatter', label: l10n.t('Visual History') },
+	'treemap-files': { mode: 'treemap', treemapMode: 'files', icon: 'folder', label: l10n.t('Files Treemap') },
+	'treemap-commits': {
+		mode: 'treemap',
+		treemapMode: 'commits',
+		icon: 'git-commit',
+		label: l10n.t('Commits Treemap'),
+	},
+	'treemap-activity': {
+		mode: 'treemap',
+		treemapMode: 'activity',
+		icon: 'robot',
+		label: l10n.t('Agent Activity Treemap'),
+	},
+	health: { mode: 'health', icon: 'heart', label: l10n.t('Repository Health') },
 };
 
 /**
@@ -223,7 +234,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		// Live Share) — the button would render permanently empty with every lever unavailable.
 		const healthAvailable = this.graphState.config?.gitHealthAvailable === true;
 
-		return html`<div role="group" aria-label="Visualization" class="visualization-tablist">
+		return html`<div role="group" aria-label=${l10n.t('Visualization')} class="visualization-tablist">
 			${visualizationOrder.map(key => {
 				if (key === 'health') {
 					if (!healthAvailable) return nothing;

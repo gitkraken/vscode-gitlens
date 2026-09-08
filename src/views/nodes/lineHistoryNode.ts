@@ -1,5 +1,5 @@
 import type { Selection } from 'vscode';
-import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Disposable, l10n, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
@@ -66,9 +66,10 @@ export class LineHistoryNode
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		this.view.description = `${this.label}${
-			this.parent instanceof LineHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
-		}`;
+		this.view.description =
+			this.parent instanceof LineHistoryTrackerNode && !this.parent.followingEditor
+				? l10n.t('{0} (pinned)', this.label)
+				: this.label;
 
 		const children: ViewNode[] = [];
 		if (this.uri.repoPath == null) return children;
@@ -149,7 +150,9 @@ export class LineHistoryNode
 			}
 		}
 
-		if (children.length === 0) return [new MessageNode(this.view, this, 'No line history could be found.')];
+		if (children.length === 0) {
+			return [new MessageNode(this.view, this, l10n.t('No line history could be found.'))];
+		}
 		return children;
 	}
 
@@ -158,13 +161,24 @@ export class LineHistoryNode
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.LineHistory;
 		item.description = this.uri.directory;
-		item.tooltip = `History of ${this.uri.fileName}${this.lines}\n${this.uri.directory}/${
-			this.uri.sha == null ? '' : `\n\n${this.uri.sha}`
-		}`;
+		item.tooltip =
+			this.uri.sha == null
+				? l10n.t('History of {file}{lines}\n{directory}/', {
+						file: this.uri.fileName,
+						lines: this.lines,
+						directory: this.uri.directory,
+					})
+				: l10n.t('History of {file}{lines}\n{directory}/\n\n{sha}', {
+						file: this.uri.fileName,
+						lines: this.lines,
+						directory: this.uri.directory,
+						sha: this.uri.sha,
+					});
 
-		this.view.description = `${label}${
-			this.parent instanceof LineHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
-		}`;
+		this.view.description =
+			this.parent instanceof LineHistoryTrackerNode && !this.parent.followingEditor
+				? l10n.t('{0} (pinned)', label)
+				: label;
 
 		return item;
 	}

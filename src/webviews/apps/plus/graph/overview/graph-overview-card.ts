@@ -1,5 +1,6 @@
 import type { Remote } from '@eamodio/supertalk';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -7,7 +8,6 @@ import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import { srOnlyStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
@@ -668,7 +668,11 @@ export class GlGraphOverviewCard extends LitElement {
 					() => html`<span>${sessions.length}</span>`,
 				)}</span
 			>
-			<span slot="content">${pluralize('agent session', sessions.length)}</span></gl-tooltip
+			<span slot="content"
+				>${
+					sessions.length === 1 ? l10n.t('1 agent session') : l10n.t('{0} agent sessions', sessions.length)
+				}</span
+			></gl-tooltip
 		>`;
 	}
 
@@ -707,7 +711,7 @@ export class GlGraphOverviewCard extends LitElement {
 				if (tracking?.behind) {
 					actions.push(
 						html`<action-item
-							label="Pull"
+							label=${l10n.t('Pull')}
 							icon="repo-pull"
 							href=${this.createCommandLink('gitlens.graph.pull')}
 						></action-item>`,
@@ -715,7 +719,7 @@ export class GlGraphOverviewCard extends LitElement {
 				} else if (tracking?.ahead) {
 					actions.push(
 						html`<action-item
-							label="Push"
+							label=${l10n.t('Push')}
 							icon="repo-push"
 							href=${this.createCommandLink('gitlens.graph.push')}
 						></action-item>`,
@@ -723,7 +727,7 @@ export class GlGraphOverviewCard extends LitElement {
 				} else {
 					actions.push(
 						html`<action-item
-							label="Fetch"
+							label=${l10n.t('Fetch')}
 							icon="repo-fetch"
 							href=${this.createCommandLink('gitlens.fetch:')}
 						></action-item>`,
@@ -732,7 +736,7 @@ export class GlGraphOverviewCard extends LitElement {
 			} else {
 				actions.push(
 					html`<action-item
-						label="Publish Branch"
+						label=${l10n.t('Publish Branch')}
 						icon="cloud-upload"
 						href=${this.createCommandLink('gitlens.publishBranch:')}
 					></action-item>`,
@@ -741,8 +745,8 @@ export class GlGraphOverviewCard extends LitElement {
 		} else if (this.isWorktree) {
 			actions.push(
 				html`<action-item
-					label="Open Worktree in New Window"
-					alt-label="Open Worktree"
+					label=${l10n.t('Open Worktree in New Window')}
+					alt-label=${l10n.t('Open Worktree')}
 					icon="empty-window"
 					alt-icon="browser"
 					href=${this.createCommandLink('gitlens.openWorktreeInNewWindow:')}
@@ -752,7 +756,7 @@ export class GlGraphOverviewCard extends LitElement {
 		} else {
 			actions.push(
 				html`<action-item
-					label="Switch to Branch..."
+					label=${l10n.t('Switch to Branch...')}
 					icon="gl-switch"
 					href=${this.createCommandLink('gitlens.switchToBranch:')}
 				></action-item>`,

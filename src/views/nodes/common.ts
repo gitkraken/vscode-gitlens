@@ -1,8 +1,9 @@
 import type { Command, Disposable, Uri } from 'vscode';
-import { commands, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { commands, l10n, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { isPromise } from '@gitlens/utils/promise.js';
-import { compareSubstringIgnoreCase, equalsIgnoreCase, pluralize } from '@gitlens/utils/string.js';
+import { compareSubstringIgnoreCase, equalsIgnoreCase } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
 import { unknownGitUri } from '../../git/gitUri.js';
 import type { GlRepository } from '../../git/models/repository.js';
@@ -90,7 +91,10 @@ export abstract class ActionMessageNodeBase extends CommandMessageNode {
 		contextValue?: AllowedContextValues,
 		resourceUri?: Uri,
 	) {
-		const command = { command: `gitlens.node.action:${actionCommandCounter.next()}`, title: 'Execute action' };
+		const command = {
+			command: `gitlens.node.action:${actionCommandCounter.next()}`,
+			title: l10n.t('Execute action'),
+		};
 		super(view, parent, command, message, description, tooltip, iconPath, contextValue, resourceUri);
 
 		this._disposable = commands.registerCommand(command.command, this.action.bind(this));
@@ -148,7 +152,7 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 		super(
 			view,
 			parent,
-			view.grouped ? (view.groupedLabel ?? view.name).toLocaleUpperCase() : 'Showing',
+			view.grouped ? (view.groupedLabel ?? view.name).toLocaleUpperCase() : l10n.t('Showing'),
 			view.grouped ? view.description : undefined,
 			undefined,
 			undefined,
@@ -206,18 +210,33 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 		if (!this.view.supportsRepositoryFilter) return tooltip;
 
 		if (this.view.isRepositoryFilterExcludingWorktreesActive()) {
-			tooltip.appendMarkdown('\n\nShowing all repos, excluding worktrees / submodules');
-			tooltip.appendMarkdown('\\\nClick to change filtering');
+			tooltip.appendMarkdown(
+				l10n.t('\n\nShowing all repos, excluding worktrees / submodules\\\nClick to change filtering'),
+			);
 		} else {
 			const { openRepositories } = this.view.container.git;
-			const type = openRepositories.some(r => r.isWorktree) ? 'repos / worktrees' : 'repos';
+			const mixed = openRepositories.some(r => r.isWorktree);
 
 			if (this.view.isRepositoryFilterActive()) {
-				tooltip.appendMarkdown(`\n\nShowing ${repos.length} of ${openRepositories.length} ${type}`);
-				tooltip.appendMarkdown('\\\nClick to change filtering');
+				tooltip.appendMarkdown(
+					mixed
+						? l10n.t(
+								'\n\nShowing {0} of {1} repos / worktrees\\\nClick to change filtering',
+								String(repos.length),
+								String(openRepositories.length),
+							)
+						: l10n.t(
+								'\n\nShowing {0} of {1} repos\\\nClick to change filtering',
+								String(repos.length),
+								String(openRepositories.length),
+							),
+				);
 			} else if (repos.length > 1) {
-				tooltip.appendMarkdown(`\n\nShowing all ${type}`);
-				tooltip.appendMarkdown('\\\nClick to filter by a repo or worktree');
+				tooltip.appendMarkdown(
+					mixed
+						? l10n.t('\n\nShowing all repos / worktrees\\\nClick to filter by a repo or worktree')
+						: l10n.t('\n\nShowing all repos\\\nClick to filter by a repo or worktree'),
+				);
 			}
 		}
 
@@ -228,11 +247,13 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 		if (!this.view.supportsRepositoryFilter) return undefined;
 		if (!repos?.length) return undefined;
 
-		const prefix = this.view.grouped ? 'showing ' : '';
-
 		if (repos.length === 1) {
 			if (this.view.repositoryFilter?.length) {
-				return addSuffix ? `${prefix}${repos[0].name} — click to change` : repos[0].name;
+				if (!addSuffix) return repos[0].name;
+
+				return this.view.grouped
+					? l10n.t('showing {0} — click to change', repos[0].name)
+					: l10n.t('{0} — click to change', repos[0].name);
 			}
 			return undefined;
 		}
@@ -240,10 +261,20 @@ export class GroupedHeaderNode extends ActionMessageNodeBase {
 		// When excluding worktrees/submodules, always show "repos" not "repos / worktrees"
 		const mixed = !this.view.supportsWorktreeCollapsing && !this.view.isRepositoryFilterExcludingWorktreesActive();
 
-		const label = pluralize(mixed ? 'repo / worktree' : 'repo', repos.length, {
-			plural: mixed ? 'repos / worktrees' : 'repos',
-		});
-		return addSuffix ? `${prefix}${label} — click to filter` : label;
+		const count = getNumericFormat()(repos.length);
+		if (!addSuffix) {
+			return mixed ? l10n.t('{0} repos / worktrees', count) : l10n.t('{0} repos', count);
+		}
+
+		if (this.view.grouped) {
+			return mixed
+				? l10n.t('showing {0} repos / worktrees — click to filter', count)
+				: l10n.t('showing {0} repos — click to filter', count);
+		}
+
+		return mixed
+			? l10n.t('{0} repos / worktrees — click to filter', count)
+			: l10n.t('{0} repos — click to filter', count);
 	}
 
 	private getViewDescription(): string | undefined {
@@ -308,7 +339,7 @@ export abstract class PagerNode extends ViewNode<'pager'> {
 
 	override getCommand(): Command | undefined {
 		return {
-			title: 'Load more',
+			title: l10n.t('Load more'),
 			command: 'gitlens.views.loadMoreChildren',
 			arguments: [this],
 		};
@@ -332,8 +363,8 @@ export class LoadMoreNode extends PagerNode {
 			parent,
 			options?.message ??
 				(options?.pageSize === 0
-					? `Load all ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
-					: 'Load more'),
+					? l10n.t('Load all {0}{1}{0} this may take a while', GlyphChars.Space, GlyphChars.Dash)
+					: l10n.t('Load more')),
 			previousNode,
 			options,
 		);

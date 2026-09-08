@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -166,7 +167,7 @@ export class GlDraftDetails extends GlTreeBase {
 		return html`
 			<div class="section section--empty" id="empty">
 				<button-container>
-					<gl-button full href="command:gitlens.openPatch">Open Patch...</gl-button>
+					<gl-button full href="command:gitlens.openPatch">${l10n.t('Open Patch...')}</gl-button>
 				</button-container>
 			</div>
 		`;
@@ -180,6 +181,8 @@ export class GlDraftDetails extends GlTreeBase {
 
 		description = description.trim();
 
+		// The description is user-authored rich content supplied by the Cloud Patch service. Keep it
+		// on its existing rendering path; localized authored UI is always interpolated as inert text.
 		return html`
 			<div class="message-block">
 				<p class="message-block__text scrollable" data-region="message">
@@ -198,17 +201,17 @@ export class GlDraftDetails extends GlTreeBase {
 		// TODO: add loading and response states
 		return html`
 			<webview-pane collapsable data-region="explain-pane">
-				<span slot="title">Explain (AI)</span>
+				<span slot="title">${l10n.t('Explain (AI)')}</span>
 				<action-nav slot="actions">
 					<gl-action-chip
 						data-action="switch-ai"
-						label="Switch AI Provider/Model"
+						label=${l10n.t('Switch AI Provider/Model')}
 						icon="arrow-swap"
 					></gl-action-chip>
 				</action-nav>
 
 				<div class="section">
-					<p>Let AI assist in understanding the changes made with this patch.</p>
+					<p>${l10n.t('Let AI assist in understanding the changes made with this patch.')}</p>
 					<p class="button-container">
 						<span class="button-group button-group--single">
 							<gl-button
@@ -218,8 +221,9 @@ export class GlDraftDetails extends GlTreeBase {
 								aria-busy="${ifDefined(this.explainBusy ? 'true' : undefined)}"
 								@click=${this.onExplainChanges}
 								@keydown=${this.onExplainChanges}
-								><code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>Explain
-								Changes</gl-button
+								><code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>${l10n.t(
+									'Explain Changes',
+								)}</gl-button
 							>
 						</span>
 					</p>
@@ -234,7 +238,7 @@ export class GlDraftDetails extends GlTreeBase {
 							: this.explain?.error
 								? html`<div class="ai-content has-error" data-region="commit-explanation">
 										<p class="ai-content__summary scrollable">
-											${this.explain.error.message ?? 'Error retrieving content'}
+											${this.explain.error.message ?? l10n.t('Error retrieving content')}
 										</p>
 									</div>`
 								: undefined
@@ -266,7 +270,7 @@ export class GlDraftDetails extends GlTreeBase {
 
 		return html`
 			<webview-pane collapsable expanded>
-				<span slot="title">Files changed </span>
+				<span slot="title">${l10n.t('Files changed')} </span>
 				<!-- <span slot="subtitle" data-region="stats">\${this.renderCommitStats()}</span> -->
 				<action-nav slot="actions">${this.renderLayoutAction(layout)}</action-nav>
 
@@ -284,7 +288,12 @@ export class GlDraftDetails extends GlTreeBase {
 					${when(
 						this.state?.draft?.patches == null,
 						() => this.renderLoading(),
-						() => this.renderTreeView(this.treeModel, this.state?.preferences?.indentGuides, 'No files'),
+						() =>
+							this.renderTreeView(
+								this.treeModel,
+								this.state?.preferences?.indentGuides,
+								l10n.t('No files'),
+							),
 					)}
 				</div>
 			</webview-pane>
@@ -323,11 +332,11 @@ export class GlDraftDetails extends GlTreeBase {
 
 		const selectionRole = userSelection.pendingRole ?? userSelection.user!.role;
 		const options = new Map<string, string>([
-			['owner', 'owner'],
-			['admin', 'admin'],
-			['editor', 'can edit'],
-			['viewer', 'can view'],
-			['remove', 'un-invite'],
+			['owner', l10n.t('owner')],
+			['admin', l10n.t('admin')],
+			['editor', l10n.t('can edit')],
+			['viewer', l10n.t('can view')],
+			['remove', l10n.t('un-invite')],
 		]);
 		const roleLabel = options.get(selectionRole);
 		return html`
@@ -337,7 +346,7 @@ export class GlDraftDetails extends GlTreeBase {
 				</div>
 				<div class="user-selection__info">
 					<div class="user-selection__name">
-						${userSelection.member?.name ?? userSelection.member?.username ?? 'Unknown'}
+						${userSelection.member?.name ?? userSelection.member?.username ?? l10n.t('Unknown')}
 					</div>
 				</div>
 				<div class="user-selection__actions">
@@ -433,13 +442,13 @@ export class GlDraftDetails extends GlTreeBase {
 									@change=${this.onVisibilityChange}
 								>
 									<option value="public" ?selected=${draft.visibility === 'public'}>
-										Anyone with the link
+										${l10n.t('Anyone with the link')}
 									</option>
 									<option value="private" ?selected=${draft.visibility === 'private'}>
-										Members of my Org with the link
+										${l10n.t('Members of my Org with the link')}
 									</option>
 									<option value="invite_only" ?selected=${draft.visibility === 'invite_only'}>
-										Collaborators only
+										${l10n.t('Collaborators only')}
 									</option>
 								</select>
 								<span class="message-input__select-caret"
@@ -447,7 +456,7 @@ export class GlDraftDetails extends GlTreeBase {
 								></span>
 							</div>
 							<gl-button appearance="secondary" @click=${this.onInviteUsers}
-								><code-icon icon="person-add" slot="prefix"></code-icon> Invite</gl-button
+								><code-icon icon="person-add" slot="prefix"></code-icon> ${l10n.t('Invite')}</gl-button
 							>
 						</div>`,
 				)}
@@ -458,7 +467,7 @@ export class GlDraftDetails extends GlTreeBase {
 						<p class="button-container">
 							<span class="button-group button-group--single">
 								<gl-button appearance="secondary" full @click=${this.onUpdatePatch}
-									>Update Patch</gl-button
+									>${l10n.t('Update Patch')}</gl-button
 								>
 							</span>
 						</p>
@@ -475,15 +484,18 @@ export class GlDraftDetails extends GlTreeBase {
 						<div class="message-input__control message-input__control--text">
 							${when(
 								draft.visibility === 'public',
-								() => html`<code-icon icon="globe"></code-icon> Anyone with the link`,
+								() => html`<code-icon icon="globe"></code-icon> ${l10n.t('Anyone with the link')}`,
 							)}
 							${when(
 								draft.visibility === 'private',
-								() => html`<code-icon icon="organization"></code-icon> Members of my Org with the link`,
+								() =>
+									html`<code-icon icon="organization"></code-icon> ${l10n.t(
+											'Members of my Org with the link',
+										)}`,
 							)}
 							${when(
 								draft.visibility === 'invite_only',
-								() => html`<code-icon icon="lock"></code-icon> Collaborators only`,
+								() => html`<code-icon icon="lock"></code-icon> ${l10n.t('Collaborators only')}`,
 							)}
 						</div>
 					</div>`,
@@ -506,10 +518,10 @@ export class GlDraftDetails extends GlTreeBase {
 			<p class="button-container">
 				<span class="button-group button-group--single">
 					<gl-button appearance="secondary" full @click=${() => this.onArchiveDraft('accepted')}
-						>Accept</gl-button
+						>${l10n.t('Accept')}</gl-button
 					>
 					<gl-button appearance="secondary" full @click=${() => this.onArchiveDraft('rejected')}
-						>Reject</gl-button
+						>${l10n.t('Reject')}</gl-button
 					>
 				</span>
 			</p>
@@ -570,18 +582,18 @@ export class GlDraftDetails extends GlTreeBase {
 				${this.renderPatchPermissions()}
 				<p class="button-container">
 					<span class="button-group button-group--single">
-						<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
+						<gl-button full @click=${this.onApplyPatch}>${l10n.t('Apply Patch')}</gl-button>
 						<gl-popover placement="top" trigger="click" appearance="menu" ?arrow=${false}>
 							<gl-button
 								slot="anchor"
 								density="compact"
-								aria-label="Apply Patch Options..."
-								title="Apply Patch Options..."
+								aria-label=${l10n.t('Apply Patch Options...')}
+								title=${l10n.t('Apply Patch Options...')}
 								><code-icon icon="chevron-down"></code-icon
 							></gl-button>
 							<menu-list slot="content" class="mine-menu">
 								<menu-item data-value="branch" @click=${this.onSelectApplyOption}
-									>Apply to a Branch</menu-item
+									>${l10n.t('Apply to a Branch')}</menu-item
 								>
 								<!-- <menu-item data-value="worktree">Apply to new worktree</menu-item> -->
 							</menu-list>
@@ -605,10 +617,10 @@ export class GlDraftDetails extends GlTreeBase {
 						<a
 							class="commit-action"
 							href="#"
-							aria-label="Share Patch"
-							title="Share Patch"
+							aria-label=${l10n.t('Share Patch')}
+							title=${l10n.t('Share Patch')}
 							@click=${this.onShareLocalPatch}
-							>Share</a
+							>${l10n.t('Share')}</a
 						>
 					</div>
 				</div>
@@ -621,12 +633,16 @@ export class GlDraftDetails extends GlTreeBase {
 				<div class="top-details__actionbar-group">
 					<a class="commit-action" href="#" @click=${this.onCopyCloudLink}>
 						<code-icon icon="${this._copiedLink ? 'check' : 'link'}"></code-icon>
-						<span class="top-details__sha">Copy Link</span></a
+						<span class="top-details__sha">${l10n.t('Copy Link')}</span></a
 					>
 					${when(
 						this.cloudDraft?.gkDevLink != null,
 						() => html`
-							<a class="commit-action" href=${this.cloudDraft!.gkDevLink} title="Open on gitkraken.dev">
+							<a
+								class="commit-action"
+								href=${this.cloudDraft!.gkDevLink}
+								title=${l10n.t('Open on gitkraken.dev')}
+							>
 								<code-icon icon="globe"></code-icon>
 							</a>
 						`,
@@ -641,7 +657,21 @@ export class GlDraftDetails extends GlTreeBase {
 
 		let badge = undefined;
 		if (this.cloudDraft?.isArchived) {
-			const label = this.cloudDraft.archivedReason ?? 'archived';
+			let label: string;
+			switch (this.cloudDraft.archivedReason) {
+				case 'accepted':
+					label = l10n.t('accepted');
+					break;
+				case 'committed':
+					label = l10n.t('committed');
+					break;
+				case 'rejected':
+					label = l10n.t('rejected');
+					break;
+				default:
+					label = l10n.t('archived');
+					break;
+			}
 			badge = html`<gl-badge class="title__badge">${label}</gl-badge>`;
 		}
 
@@ -802,7 +832,7 @@ export class GlDraftDetails extends GlTreeBase {
 
 	private onApplyPatch(_e?: MouseEvent | KeyboardEvent, target: 'current' | 'branch' | 'worktree' = 'current') {
 		if (this.canSubmit === false) {
-			this.validityMessage = 'Please select changes to apply';
+			this.validityMessage = l10n.t('Please select changes to apply');
 			return;
 		}
 
@@ -821,7 +851,7 @@ export class GlDraftDetails extends GlTreeBase {
 
 	private onSelectApplyOption(e: Event) {
 		if (this.canSubmit === false) {
-			this.validityMessage = 'Please select changes to apply';
+			this.validityMessage = l10n.t('Please select changes to apply');
 			return;
 		}
 
@@ -873,7 +903,7 @@ export class GlDraftDetails extends GlTreeBase {
 			patch.repository.name,
 			patch.gkRepositoryId,
 			options,
-			patch.repository.located ? undefined : 'missing',
+			patch.repository.located ? undefined : l10n.t('missing'),
 		);
 
 		if (!patch.files?.length) return model;
@@ -934,12 +964,12 @@ export class GlDraftDetails extends GlTreeBase {
 		return [
 			{
 				icon: 'go-to-file',
-				label: 'Open file',
+				label: l10n.t('Open file'),
 				action: 'file-open',
 			},
 			{
 				icon: 'git-compare',
-				label: 'Open Changes with Working File',
+				label: l10n.t('Open Changes with Working File'),
 				action: 'file-compare-working',
 			},
 		];

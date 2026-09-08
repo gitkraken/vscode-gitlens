@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
@@ -785,11 +786,12 @@ export class AzureDevOpsApi implements Disposable {
 				if (ex.response != null) {
 					provider?.trackRequestException();
 					this.config.onRequestFailed?.(
-						`${provider?.name ?? 'AzureDevOps'} failed to respond and might be experiencing issues.${
-							provider == null || provider.id === 'azure'
-								? ' Please visit the [AzureDevOps status page](https://status.dev.azure.com) for more information.'
-								: ''
-						}`,
+						provider == null || provider.id === 'azure'
+							? l10n.t(
+									'{0} failed to respond and might be experiencing issues. Please visit the [AzureDevOps status page](https://status.dev.azure.com) for more information.',
+									provider?.name ?? 'AzureDevOps',
+								)
+							: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
 					);
 				}
 				return;

@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
@@ -324,10 +325,10 @@ function getMarkdownRenderer(mode: BlockRenderMode): RendererObject {
  *  the `html` renderer otherwise drops raw `<img>` tags entirely (see `getMarkdownRenderer`'s `html`
  *  case). This renders a clickable chip in their place instead of the image itself. */
 function renderImagePlaceholder(src: string | undefined, alt: string | undefined): string {
-	const label = escape(alt || 'Image');
+	const label = escape(alt || l10n.t('Image'));
 	const icon = renderThemeIcon({ id: 'file-media' });
 	if (src && /^https?:\/\//i.test(src)) {
-		return `<gl-tooltip content="Open image in browser"><a class="image" href="${escapeDoubleQuotes(src)}">${icon}${label}</a></gl-tooltip>`;
+		return `<gl-tooltip content="${escapeDoubleQuotes(l10n.t('Open image in browser'))}"><a class="image" href="${escapeDoubleQuotes(src)}">${icon}${label}</a></gl-tooltip>`;
 	}
 
 	return `<span class="image">${icon}${label}</span>`;

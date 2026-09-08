@@ -1,8 +1,9 @@
 import type { TextEditor, Uri } from 'vscode';
-import { ProgressLocation } from 'vscode';
+import { l10n, ProgressLocation } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
+import { getPresentableErrorMessage } from '../errors.js';
 import { GitUri } from '../git/gitUri.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
@@ -57,7 +58,12 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 
 			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-			repo = await getBestRepositoryOrShowPicker(this.container, gitUri, editor, 'Generate Commit Message');
+			repo = await getBestRepositoryOrShowPicker(
+				this.container,
+				gitUri,
+				editor,
+				l10n.t('Generate Commit Message'),
+			);
 		}
 		if (repo == null) return;
 
@@ -73,7 +79,10 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 				{ source: args?.source ?? 'commandPalette' },
 				{
 					context: currentMessage,
-					progress: { location: ProgressLocation.Notification, title: 'Generating commit message...' },
+					progress: {
+						location: ProgressLocation.Notification,
+						title: l10n.t('Generating commit message...'),
+					},
 				},
 			);
 			if (result == null || result === 'cancelled') return;
@@ -84,7 +93,7 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 			}`;
 		} catch (ex) {
 			Logger.error(ex, 'GenerateCommitMessageCommand');
-			void showGenericErrorMessage(ex.message);
+			void showGenericErrorMessage(getPresentableErrorMessage(ex));
 		}
 	}
 }

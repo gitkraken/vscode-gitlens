@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
@@ -61,7 +62,7 @@ export class ResolveConflictsCommand extends GlCommandBase {
 			// works from the Command Palette where there's no active editor.
 			let repoPath = args?.repoPath;
 			if (repoPath == null) {
-				const repo = await getRepositoryOrShowPicker(this.container, 'Resolve Conflicts');
+				const repo = await getRepositoryOrShowPicker(this.container, l10n.t('Resolve Conflicts'));
 				repoPath = repo?.path;
 			}
 			if (repoPath == null) return;
@@ -79,7 +80,7 @@ export class ResolveConflictsCommand extends GlCommandBase {
 			});
 		} catch (ex) {
 			Logger.error(ex, 'ResolveConflictsCommand', 'execute');
-			void showGenericErrorMessage('Unable to resolve conflicts');
+			void showGenericErrorMessage(l10n.t('Unable to resolve conflicts'));
 		}
 	}
 }

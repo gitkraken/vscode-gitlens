@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { Container } from '../../container.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
@@ -46,8 +47,8 @@ export interface BranchGitCommandArgs {
 
 export class BranchGitCommand extends QuickCommandWithSubcommands<Subcommands, State, BranchContext> {
 	constructor(container: Container, args?: BranchGitCommandArgs) {
-		super(container, 'branch', 'branch', 'Branch', {
-			description: 'create, change merge target, change upstream, prune, rename, or delete branches',
+		super(container, 'branch', 'branch', l10n.t('Branch'), {
+			description: l10n.t('create, change merge target, change upstream, prune, rename, or delete branches'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };

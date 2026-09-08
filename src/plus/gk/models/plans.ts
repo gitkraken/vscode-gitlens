@@ -1,5 +1,6 @@
 /* oxlint-disable no-template-curly-in-string -- marketing copy contains the literal `${aiCredits}` placeholder token */
 
+import * as l10n from '@vscode/l10n';
 import type { PaidSubscriptionPlanIds, SubscriptionPlanIds } from './subscription.js';
 
 /**
@@ -49,40 +50,43 @@ export const defaultPlansContent: PlansContent = {
 	},
 	features: {
 		default: [
-			'Commit Graph & Visual File History on private repos',
-			'Issue tracker integrations — Jira, Linear & more',
-			'Launchpad, Worktrees & Code Suggest on private repos',
-			'AI features — ${aiCredits} credits/week',
+			l10n.t('Commit Graph & Visual File History on private repos'),
+			l10n.t('Issue tracker integrations — Jira, Linear & more'),
+			l10n.t('Launchpad, Worktrees & Code Suggest on private repos'),
+			l10n.t('AI features — {credits} credits/week', { credits: '${aiCredits}' }),
 		],
 		advanced: [
-			'Everything in Pro',
-			'Self-hosted Git integrations',
-			'Pull request automations & Team Launchpad',
-			'Single domain SSO & AI security controls',
-			'AI features — ${aiCredits} credits/week',
+			l10n.t('Everything in Pro'),
+			l10n.t('Self-hosted Git integrations'),
+			l10n.t('Pull request automations & Team Launchpad'),
+			l10n.t('Single domain SSO & AI security controls'),
+			l10n.t('AI features — {credits} credits/week', { credits: '${aiCredits}' }),
 		],
 		teams: [
-			'Everything in Advanced',
-			'Multi-domain SSO',
-			'Org-level AI controls & bring-your-own-key',
-			'GitKraken Insights & Git training',
-			'AI features — ${aiCredits} credits/week',
+			l10n.t('Everything in Advanced'),
+			l10n.t('Multi-domain SSO'),
+			l10n.t('Org-level AI controls & bring-your-own-key'),
+			l10n.t('GitKraken Insights & Git training'),
+			l10n.t('AI features — {credits} credits/week', { credits: '${aiCredits}' }),
 		],
 		enterprise: [
-			'Everything in Business',
-			'Security audit logs',
-			'Custom terms, contracting & security review',
-			'Dedicated CSM & SLA-backed support',
-			'AI features — ${aiCredits} credits/week',
+			l10n.t('Everything in Business'),
+			l10n.t('Security audit logs'),
+			l10n.t('Custom terms, contracting & security review'),
+			l10n.t('Dedicated CSM & SLA-backed support'),
+			l10n.t('AI features — {credits} credits/week', { credits: '${aiCredits}' }),
 		],
 	},
 	upgradeFeatures: {
 		pro: [
-			'Unlimited cloud integrations',
-			'Smart AI features — ${aiCredits} credits/week',
-			'Powerful tools — Commit Graph, Visual History, & Git Worktrees for private repos',
-			'Streamlined workflows — start work from issues, pull request reviews',
+			l10n.t('Unlimited cloud integrations'),
+			l10n.t('Smart AI features — {credits} credits/week', { credits: '${aiCredits}' }),
+			l10n.t('Powerful tools — Commit Graph, Visual History, & Git Worktrees for private repos'),
+			l10n.t('Streamlined workflows — start work from issues, pull request reviews'),
 		],
-		advanced: ['Self-hosted integrations', 'Advanced AI features — ${aiCredits} credits/week'],
+		advanced: [
+			l10n.t('Self-hosted integrations'),
+			l10n.t('Advanced AI features — {credits} credits/week', { credits: '${aiCredits}' }),
+		],
 	},
 } as const;

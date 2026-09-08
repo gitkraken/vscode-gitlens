@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { QuickInputButton } from 'vscode';
 import type { StoredRecentUsage } from '../../constants.storage.js';
 import type { Container } from '../../container.js';
@@ -37,7 +38,7 @@ export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 	ignoreFocusOut = false;
 	readonly items: QuickCommand[];
 	readonly matchOnDescription = true;
-	readonly placeholder: string = 'Choose a command';
+	readonly placeholder: string = l10n.t('Choose a command');
 	readonly title: string = 'GitLens';
 
 	private readonly hiddenItems: QuickCommand[];

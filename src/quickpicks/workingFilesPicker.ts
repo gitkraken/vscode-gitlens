@@ -1,5 +1,5 @@
 import type { Disposable, Uri } from 'vscode';
-import { ThemeIcon, window } from 'vscode';
+import { l10n, ThemeIcon, window } from 'vscode';
 import { dirname } from '@gitlens/utils/path.js';
 import type { Keys } from '../constants.js';
 import type { Container } from '../container.js';
@@ -75,7 +75,7 @@ export async function showWorkingFilesPicker(
 		}
 
 		quickpick.title = options.title;
-		quickpick.placeholder = options?.placeholder ?? 'Search files by name';
+		quickpick.placeholder = options?.placeholder ?? l10n.t('Search files by name');
 		quickpick.matchOnDescription = true;
 
 		quickpick.value = value;

@@ -1,5 +1,5 @@
 import type { QuickPick } from 'vscode';
-import { Uri, window } from 'vscode';
+import { l10n, Uri, window } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
@@ -33,6 +33,7 @@ import { canPickStepContinue, createPickStep } from '../../commands/quick-wizard
 import { proBadge } from '../../constants.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
+import { getPresentableErrorMessage } from '../../errors.js';
 import type { ConnectMoreIntegrationsItem } from '../../quickpicks/integrationPicker.js';
 import {
 	getOpenOnGitProviderQuickInputButtons,
@@ -51,7 +52,11 @@ import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/age
 import { ensureIntegrationConnectAllowed } from '../integrations/utils/-webview/integration.utils.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
 import { getLaunchpadItemIdHash, supportedLaunchpadIntegrations } from './launchpadProvider.js';
-import { startReviewFromLaunchpadItem } from './utils/-webview/startReview.utils.js';
+import {
+	getStartReviewProtocolError,
+	StartReviewError,
+	startReviewFromLaunchpadItem,
+} from './utils/-webview/startReview.utils.js';
 
 export interface StartReviewTelemetryContext {
 	instance: number;
@@ -97,8 +102,8 @@ const Steps = {
 type StepNames = (typeof Steps)[keyof typeof Steps];
 
 const connectMoreIntegrationsItem: ConnectMoreIntegrationsItem = {
-	label: 'Connect an Additional Integration...',
-	detail: 'Connect additional integrations to view their pull requests',
+	label: l10n.t('Connect an Additional Integration...'),
+	detail: l10n.t('Connect additional integrations to view their pull requests'),
 	item: undefined,
 };
 
@@ -156,8 +161,8 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 	private readonly telemetryEventKey = 'startReview';
 
 	constructor(container: Container, args?: StartReviewCommandArgs) {
-		super(container, 'startReview', 'startReview', `Start PR Review\u00a0\u00a0${proBadge}`, {
-			description: 'Start a review for a pull request',
+		super(container, 'startReview', 'startReview', l10n.t('Start PR Review\u00a0\u00a0{0}', proBadge), {
+			description: l10n.t('Start a review for a pull request'),
 		});
 
 		this.source = args?.source ?? { source: 'commandPalette' };
@@ -312,7 +317,10 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 						try {
 							const launchpadItem = await this.lookupLaunchpadItem(state.prUrl);
 							if (launchpadItem == null) {
-								throw new Error(`No PR found matching '${state.prUrl}'`);
+								throw new StartReviewError(
+									`No PR found matching '${state.prUrl}'`,
+									l10n.t("No PR found matching '{url}'", { url: state.prUrl }),
+								);
 							}
 
 							const agentDispatch = yield* this.resolveAgentDispatch(state, context);
@@ -333,9 +341,9 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 							steps.markStepsComplete();
 							return;
 						} catch (ex) {
-							state.result?.cancel(ex instanceof Error ? ex : new Error(String(ex)));
+							state.result?.cancel(getStartReviewProtocolError(ex));
 							void window.showErrorMessage(
-								`Failed to start review: ${ex instanceof Error ? ex.message : String(ex)}`,
+								l10n.t('Failed to start review: {error}', { error: getPresentableErrorMessage(ex) }),
 							);
 							return StepResultBreak;
 						}
@@ -384,9 +392,9 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 					);
 					state.result?.fulfill(reviewResult);
 				} catch (ex) {
-					state.result?.cancel(ex instanceof Error ? ex : new Error(String(ex)));
+					state.result?.cancel(getStartReviewProtocolError(ex));
 					void window.showErrorMessage(
-						`Failed to start review: ${ex instanceof Error ? ex.message : String(ex)}`,
+						l10n.t('Failed to start review: {error}', { error: getPresentableErrorMessage(ex) }),
 					);
 					return StepResultBreak;
 				}
@@ -473,7 +481,10 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		const result = await this.container.launchpad.getCategorizedItems({ search: prUrl });
 		// Only throw on total failure (error with no items); partial success still has usable items
 		if (result.error != null && !result.items?.length) {
-			throw new Error(`Error fetching PR: ${result.error.message}`);
+			throw new StartReviewError(
+				`Error fetching PR: ${result.error.message}`,
+				l10n.t('Error fetching PR: {error}', { error: result.error.message }),
+			);
 		}
 
 		return result.items?.[0];
@@ -490,24 +501,28 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		let selection;
 		if (overrideStep == null) {
 			step = this.createConfirmStep(
-				`${this.title} \u00a0\u2022\u00a0 Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration`,
+				hasConnectedIntegration
+					? l10n.t('{title}  •  Connect an Additional Integration', { title: this.title })
+					: l10n.t('{title}  •  Connect an Integration', { title: this.title }),
 				[
 					createQuickPickItemOfT(
 						{
-							label: `Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration...`,
+							label: hasConnectedIntegration
+								? l10n.t('Connect an Additional Integration...')
+								: l10n.t('Connect an Integration...'),
 							detail: hasConnectedIntegration
-								? 'Connect additional integrations to view their pull requests'
-								: 'Connect an integration to start reviewing pull requests',
+								? l10n.t('Connect additional integrations to view their pull requests')
+								: l10n.t('Connect an integration to start reviewing pull requests'),
 							picked: true,
 						},
 						true,
 					),
 				],
-				createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
+				hasConnectedIntegration
+					? l10n.t('Connect additional integrations to Start PR Review')
+					: l10n.t('Connect an integration to get started with Start PR Review'),
+				createDirectiveQuickPickItem(Directive.Cancel, false, { label: l10n.t('Cancel') }),
 				{
-					placeholder: hasConnectedIntegration
-						? 'Connect additional integrations to Start PR Review'
-						: 'Connect an integration to get started with Start PR Review',
 					buttons: [],
 					ignoreFocusOut: true,
 				},
@@ -523,7 +538,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 			let previousPlaceholder: string | undefined;
 			if (step.quickpick) {
 				previousPlaceholder = step.quickpick.placeholder;
-				step.quickpick.placeholder = 'Connecting integrations...';
+				step.quickpick.placeholder = l10n.t('Connecting integrations...');
 			}
 			const resume = step.freeze?.();
 			const connected = await this.container.integrations.connectCloudIntegrations(
@@ -549,13 +564,20 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 		const buildPullRequestQuickPickItem = (i: StartReviewItem, alwaysShow?: boolean) => {
 			const buttons = getOpenOnGitProviderQuickInputButtons(i.launchpadItem.provider.id);
+			const detail =
+				i.launchpadItem.author?.username != null
+					? l10n.t('{date} by @{author}', {
+							date: fromNow(i.launchpadItem.updatedDate),
+							author: i.launchpadItem.author.username,
+						})
+					: l10n.t('{date} by @unknown', { date: fromNow(i.launchpadItem.updatedDate) });
 			return {
 				label:
 					i.launchpadItem.title.length > 60
 						? `${i.launchpadItem.title.substring(0, 60)}...`
 						: i.launchpadItem.title,
 				description: `\u00a0 ${i.launchpadItem.repository.owner.login}/${i.launchpadItem.repository.name}#${i.launchpadItem.id} \u00a0`,
-				detail: `      ${fromNow(i.launchpadItem.updatedDate)} by @${i.launchpadItem.author?.username ?? 'unknown'}`,
+				detail: `      ${detail}`,
 				iconPath:
 					i.launchpadItem.author?.avatarUrl != null ? Uri.parse(i.launchpadItem.author.avatarUrl) : undefined,
 				alwaysShow: alwaysShow,
@@ -584,8 +606,8 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 			if (!result?.items.length) {
 				return {
 					placeholder: context.inSearch
-						? 'No pull requests found matching your search'
-						: 'No pull requests found. Paste a PR URL or connect more integrations.',
+						? l10n.t('No pull requests found matching your search')
+						: l10n.t('No pull requests found. Paste a PR URL or connect more integrations.'),
 					items: [
 						hasDisconnectedIntegrations ? connectMoreIntegrationsItem : manageIntegrationsItem,
 						createDirectiveQuickPickItem(Directive.Cancel),
@@ -594,7 +616,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 			}
 
 			return {
-				placeholder: 'Choose a pull request to review or paste a PR URL',
+				placeholder: l10n.t('Choose a pull request to review or paste a PR URL'),
 				items: [...getItems(result, isFiltering), createDirectiveQuickPickItem(Directive.Cancel)],
 			};
 		}
@@ -607,7 +629,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 				quickpick.placeholder = placeholder;
 				quickpick.items = items;
 			} catch {
-				quickpick.placeholder = 'Error retrieving pull requests';
+				quickpick.placeholder = l10n.t('Error retrieving pull requests');
 				quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel)];
 			} finally {
 				quickpick.busy = false;
@@ -616,7 +638,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 		const step = createPickStep<QuickPickItemOfT<StartReviewItem>>({
 			title: context.title,
-			placeholder: 'Loading...',
+			placeholder: l10n.t('Loading...'),
 			matchOnDescription: true,
 			matchOnDetail: true,
 			items: [],

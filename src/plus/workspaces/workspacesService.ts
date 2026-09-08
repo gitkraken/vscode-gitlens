@@ -1,11 +1,12 @@
 import type { Event, MessageItem, QuickPickItem } from 'vscode';
-import { Disposable, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
+import { Disposable, EventEmitter, l10n, ProgressLocation, Uri, window, workspace } from 'vscode';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../../container.js';
+import { getPresentableErrorMessage } from '../../errors.js';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
 import { GlRepository } from '../../git/models/repository.js';
 import { getRemoteProviderUrl } from '../../git/utils/-webview/remote.utils.js';
@@ -95,7 +96,7 @@ export class WorkspacesService implements Disposable {
 		if (subscription?.account == null) {
 			return {
 				cloudWorkspaces: undefined,
-				cloudWorkspaceInfo: 'Please sign in to use cloud workspaces.',
+				cloudWorkspaceInfo: l10n.t('Please sign in to use cloud workspaces.'),
 			};
 		}
 
@@ -110,7 +111,7 @@ export class WorkspacesService implements Disposable {
 		} catch {
 			return {
 				cloudWorkspaces: undefined,
-				cloudWorkspaceInfo: 'Failed to load cloud workspaces.',
+				cloudWorkspaceInfo: l10n.t('Failed to load cloud workspaces.'),
 			};
 		}
 
@@ -159,7 +160,15 @@ export class WorkspacesService implements Disposable {
 			cloudWorkspaces: cloudWorkspaces,
 			cloudWorkspaceInfo:
 				filteredSharedWorkspaceCount > 0
-					? `${filteredSharedWorkspaceCount} shared workspaces hidden - upgrade to GitLens Pro to access.`
+					? filteredSharedWorkspaceCount === 1
+						? l10n.t(
+								'{0} shared workspace hidden - upgrade to GitLens Pro to access.',
+								filteredSharedWorkspaceCount,
+							)
+						: l10n.t(
+								'{0} shared workspaces hidden - upgrade to GitLens Pro to access.',
+								filteredSharedWorkspaceCount,
+							)
 					: undefined,
 		};
 	}
@@ -313,18 +322,20 @@ export class WorkspacesService implements Disposable {
 		const repositoriesToAdd = repositories.filter(r => !currentWorkspaceRepositoryIdMap.has(r.id));
 		if (repositoriesToAdd.length === 0) {
 			if (options?.force) {
-				void window.showInformationMessage('No new repositories found to add.', { modal: true });
+				void window.showInformationMessage(l10n.t('No new repositories found to add.'), { modal: true });
 			}
 			return;
 		}
 
 		let chosenRepoPaths: string[] = [];
 		if (!options?.force && this._currentWorkspaceAutoAddSetting === 'prompt') {
-			const add = { title: 'Add...' };
-			const change = { title: 'Change Auto-Add Behavior...' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const add = { title: l10n.t('Add...') };
+			const change = { title: l10n.t('Change Auto-Add Behavior...') };
+			const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 			const addChoice = await window.showInformationMessage(
-				'New repositories found in the linked Cloud workspace. Would you like to add them to the current VS Code workspace?',
+				l10n.t(
+					'New repositories found in the linked Cloud workspace. Would you like to add them to the current VS Code workspace?',
+				),
 				add,
 				change,
 				cancel,
@@ -340,8 +351,8 @@ export class WorkspacesService implements Disposable {
 		if (options?.force || this._currentWorkspaceAutoAddSetting === 'prompt') {
 			const pick = await showRepositoriesPicker(
 				this.container,
-				'Add Repositories to Workspace',
-				'Choose which repositories to add to the current workspace',
+				l10n.t('Add Repositories to Workspace'),
+				l10n.t('Choose which repositories to add to the current workspace'),
 				repositoriesToAdd,
 				{ excludeWorktrees: true },
 			);
@@ -358,7 +369,7 @@ export class WorkspacesService implements Disposable {
 		void window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Adding new repositories from linked cloud workspace...`,
+				title: l10n.t('Adding new repositories from linked cloud workspace...'),
 				cancellable: false,
 			},
 			() => {
@@ -393,7 +404,7 @@ export class WorkspacesService implements Disposable {
 	private async getRepositoriesInParentFolder(cancellation?: AbortSignal): Promise<GlRepository[] | undefined> {
 		const parentUri = (
 			await window.showOpenDialog({
-				title: `Choose a folder containing repositories for this workspace`,
+				title: l10n.t('Choose a folder containing repositories for this workspace'),
 				canSelectFiles: false,
 				canSelectFolders: true,
 				canSelectMany: false,
@@ -462,7 +473,7 @@ export class WorkspacesService implements Disposable {
 			let repoLocatedUri = uriOrRepository;
 			repoLocatedUri ??= (
 				await window.showOpenDialog({
-					title: `Choose a location for ${descriptor.name}`,
+					title: l10n.t('Choose a location for {0}', descriptor.name),
 					canSelectFiles: false,
 					canSelectFolders: true,
 					canSelectMany: false,
@@ -524,9 +535,9 @@ export class WorkspacesService implements Disposable {
 	@debug({ args: false })
 	async createCloudWorkspace(options?: { repos?: GlRepository[] }): Promise<void> {
 		const input = window.createInputBox();
-		input.title = 'Create Cloud Workspace';
+		input.title = l10n.t('Create Cloud Workspace');
 		const quickpick = window.createQuickPick();
-		quickpick.title = 'Create Cloud Workspace';
+		quickpick.title = l10n.t('Create Cloud Workspace');
 		const quickpickLabelToProviderType: Record<string, CloudWorkspaceProviderInputType> = {
 			GitHub: CloudWorkspaceProviderInputType.GitHub,
 			'GitHub Enterprise': CloudWorkspaceProviderInputType.GitHubEnterprise,
@@ -556,7 +567,9 @@ export class WorkspacesService implements Disposable {
 				});
 				if (repoRemotes.length === 0) {
 					await window.showErrorMessage(
-						`Only GitHub is supported for this operation. Please ensure all open repositories are hosted on GitHub.`,
+						l10n.t(
+							'Only GitHub is supported for this operation. Please ensure all open repositories are hosted on GitHub.',
+						),
 						{ modal: true },
 					);
 					return;
@@ -573,7 +586,7 @@ export class WorkspacesService implements Disposable {
 					input.onDidAccept(() => {
 						const value = input.value.trim();
 						if (!value) {
-							input.validationMessage = 'Please enter a non-empty name for the workspace';
+							input.validationMessage = l10n.t('Please enter a non-empty name for the workspace');
 							return;
 						}
 
@@ -581,8 +594,8 @@ export class WorkspacesService implements Disposable {
 					}),
 				);
 
-				input.placeholder = 'Please enter a name for the new workspace';
-				input.prompt = 'Enter your workspace name';
+				input.placeholder = l10n.t('Please enter a name for the new workspace');
+				input.prompt = l10n.t('Enter your workspace name');
 				input.show();
 			});
 
@@ -594,7 +607,7 @@ export class WorkspacesService implements Disposable {
 					input.onDidAccept(() => {
 						const value = input.value.trim();
 						if (!value) {
-							input.validationMessage = 'Please enter a non-empty description for the workspace';
+							input.validationMessage = l10n.t('Please enter a non-empty description for the workspace');
 							return;
 						}
 
@@ -603,9 +616,9 @@ export class WorkspacesService implements Disposable {
 				);
 
 				input.value = '';
-				input.title = 'Create Workspace';
-				input.placeholder = 'Please enter a description for the new workspace';
-				input.prompt = 'Enter your workspace description';
+				input.title = l10n.t('Create Workspace');
+				input.placeholder = l10n.t('Please enter a description for the new workspace');
+				input.prompt = l10n.t('Enter your workspace description');
 				input.show();
 			});
 
@@ -621,7 +634,7 @@ export class WorkspacesService implements Disposable {
 					}),
 				);
 
-				quickpick.placeholder = 'Please select a provider for the new workspace';
+				quickpick.placeholder = l10n.t('Please select a provider for the new workspace');
 				quickpick.items = Object.keys(quickpickLabelToProviderType).map(label => ({ label: label }));
 				quickpick.canSelectMany = false;
 				quickpick.show();
@@ -639,7 +652,7 @@ export class WorkspacesService implements Disposable {
 						input.onDidAccept(() => {
 							const value = input.value.trim();
 							if (!value) {
-								input.validationMessage = 'Please enter a non-empty host URL for the workspace';
+								input.validationMessage = l10n.t('Please enter a non-empty host URL for the workspace');
 								return;
 							}
 
@@ -648,8 +661,8 @@ export class WorkspacesService implements Disposable {
 					);
 
 					input.value = '';
-					input.placeholder = 'Please enter a host URL for the new workspace';
-					input.prompt = 'Enter your workspace host URL';
+					input.placeholder = l10n.t('Please enter a host URL for the new workspace');
+					input.prompt = l10n.t('Enter your workspace host URL');
 					input.show();
 				});
 
@@ -663,8 +676,9 @@ export class WorkspacesService implements Disposable {
 						input.onDidAccept(() => {
 							const value = input.value.trim();
 							if (!value) {
-								input.validationMessage =
-									'Please enter a non-empty organization name for the workspace';
+								input.validationMessage = l10n.t(
+									'Please enter a non-empty organization name for the workspace',
+								);
 								return;
 							}
 
@@ -673,8 +687,8 @@ export class WorkspacesService implements Disposable {
 					);
 
 					input.value = '';
-					input.placeholder = 'Please enter an organization name for the new workspace';
-					input.prompt = 'Enter your workspace organization name';
+					input.placeholder = l10n.t('Please enter an organization name for the new workspace');
+					input.prompt = l10n.t('Enter your workspace organization name');
 					input.show();
 				});
 
@@ -686,7 +700,9 @@ export class WorkspacesService implements Disposable {
 						input.onDidAccept(() => {
 							const value = input.value.trim();
 							if (!value) {
-								input.validationMessage = 'Please enter a non-empty project name for the workspace';
+								input.validationMessage = l10n.t(
+									'Please enter a non-empty project name for the workspace',
+								);
 								return;
 							}
 
@@ -695,8 +711,8 @@ export class WorkspacesService implements Disposable {
 					);
 
 					input.value = '';
-					input.placeholder = 'Please enter a project name for the new workspace';
-					input.prompt = 'Enter your workspace project name';
+					input.placeholder = l10n.t('Please enter a project name for the new workspace');
+					input.prompt = l10n.t('Enter your workspace project name');
 					input.show();
 				});
 
@@ -765,13 +781,15 @@ export class WorkspacesService implements Disposable {
 
 	@debug()
 	async deleteCloudWorkspace(workspaceId: string): Promise<void> {
+		const confirm: MessageItem = { title: l10n.t('Confirm') };
+		const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		const confirmation = await window.showWarningMessage(
-			`Are you sure you want to delete this workspace? This cannot be undone.`,
+			l10n.t('Are you sure you want to delete this workspace? This cannot be undone.'),
 			{ modal: true },
-			{ title: 'Confirm' },
-			{ title: 'Cancel', isCloseAffordance: true },
+			confirm,
+			cancel,
 		);
-		if (confirmation == null || confirmation.title === 'Cancel') return;
+		if (confirmation == null || confirmation === cancel) return;
 
 		try {
 			const response = await this._api.deleteWorkspace(workspaceId);
@@ -780,7 +798,7 @@ export class WorkspacesService implements Disposable {
 				this._cloudWorkspaces = this._cloudWorkspaces?.filter(w => w.id !== workspaceId);
 			}
 		} catch (error) {
-			void window.showErrorMessage(error.message);
+			void window.showErrorMessage(getPresentableErrorMessage(error));
 		}
 	}
 
@@ -832,7 +850,7 @@ export class WorkspacesService implements Disposable {
 				picked?: boolean;
 			}[] = [
 				{
-					label: 'Choose repositories from a folder',
+					label: l10n.t('Choose repositories from a folder'),
 					description: undefined,
 					choice: 'parentFolder',
 				},
@@ -840,7 +858,7 @@ export class WorkspacesService implements Disposable {
 
 			if (validRepos.length > 0) {
 				choices.unshift({
-					label: 'Choose repositories from the current window',
+					label: l10n.t('Choose repositories from the current window'),
 					description: undefined,
 					choice: 'currentWindow',
 				});
@@ -849,7 +867,7 @@ export class WorkspacesService implements Disposable {
 			choices[0].picked = true;
 
 			const repoChoice = await window.showQuickPick(choices, {
-				placeHolder: 'Choose repositories from the current window or a folder',
+				placeHolder: l10n.t('Choose repositories from the current window or a folder'),
 				ignoreFocusOut: true,
 			});
 
@@ -859,7 +877,7 @@ export class WorkspacesService implements Disposable {
 				await window.withProgress(
 					{
 						location: ProgressLocation.Notification,
-						title: `Finding repositories to add to the workspace...`,
+						title: l10n.t('Finding repositories to add to the workspace...'),
 						cancellable: true,
 					},
 					async (_progress, token) => {
@@ -867,9 +885,12 @@ export class WorkspacesService implements Disposable {
 						if (foundRepos == null) return;
 						if (foundRepos.length === 0) {
 							if (!options?.suppressNotifications) {
-								void window.showInformationMessage(`No repositories found in the chosen folder.`, {
-									modal: true,
-								});
+								void window.showInformationMessage(
+									l10n.t('No repositories found in the chosen folder.'),
+									{
+										modal: true,
+									},
+								);
 							}
 							return;
 						}
@@ -880,7 +901,7 @@ export class WorkspacesService implements Disposable {
 						if (validRepos.length === 0) {
 							if (!options?.suppressNotifications) {
 								void window.showInformationMessage(
-									`No matching repositories found for provider ${workspace.provider}.`,
+									l10n.t('No matching repositories found for provider {0}.', workspace.provider),
 									{
 										modal: true,
 									},
@@ -895,7 +916,7 @@ export class WorkspacesService implements Disposable {
 						if (validRepos.length === 0) {
 							if (!options?.suppressNotifications) {
 								void window.showInformationMessage(
-									`All possible repositories are already in this workspace.`,
+									l10n.t('All possible repositories are already in this workspace.'),
 									{
 										modal: true,
 									},
@@ -908,8 +929,8 @@ export class WorkspacesService implements Disposable {
 
 			const pick = await showRepositoriesPicker(
 				this.container,
-				'Add Repositories to Workspace',
-				'Choose which repositories to add to the workspace',
+				l10n.t('Add Repositories to Workspace'),
+				l10n.t('Choose which repositories to add to the workspace'),
 				validRepos,
 				{ excludeWorktrees: true },
 			);
@@ -947,7 +968,7 @@ export class WorkspacesService implements Disposable {
 		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Adding repositories to workspace ${workspace.name}...`,
+				title: l10n.t('Adding repositories to workspace {0}...', workspace.name),
 				cancellable: false,
 			},
 			async () => {
@@ -963,7 +984,7 @@ export class WorkspacesService implements Disposable {
 						.filter(descriptor => descriptor != null)
 						.map(descriptor => ({ ...descriptor, workspaceId: workspaceId }));
 				} catch (error) {
-					void window.showErrorMessage(error.message);
+					void window.showErrorMessage(getPresentableErrorMessage(error));
 					return;
 				}
 
@@ -994,13 +1015,15 @@ export class WorkspacesService implements Disposable {
 		const workspace = this.getCloudWorkspace(workspaceId);
 		if (workspace == null) return;
 
+		const confirm: MessageItem = { title: l10n.t('Confirm') };
+		const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		const confirmation = await window.showWarningMessage(
-			`Are you sure you want to remove ${descriptor.name} from this workspace? This cannot be undone.`,
+			l10n.t('Are you sure you want to remove {0} from this workspace? This cannot be undone.', descriptor.name),
 			{ modal: true },
-			{ title: 'Confirm' },
-			{ title: 'Cancel', isCloseAffordance: true },
+			confirm,
+			cancel,
 		);
-		if (confirmation == null || confirmation.title === 'Cancel') return;
+		if (confirmation == null || confirmation === cancel) return;
 
 		try {
 			const response = await this._api.removeReposFromWorkspace(workspaceId, [
@@ -1011,7 +1034,7 @@ export class WorkspacesService implements Disposable {
 
 			workspace.removeRepositories([descriptor.name]);
 		} catch (error) {
-			void window.showErrorMessage(error.message);
+			void window.showErrorMessage(getPresentableErrorMessage(error));
 		}
 	}
 
@@ -1148,7 +1171,9 @@ export class WorkspacesService implements Disposable {
 
 		if (workspaceRepositoriesByName.size === 0) {
 			void window.showErrorMessage(
-				'No repositories in this workspace could be found locally. Please locate at least one repository.',
+				l10n.t(
+					'No repositories in this workspace could be found locally. Please locate at least one repository.',
+				),
 				{ modal: true },
 			);
 			return;
@@ -1163,22 +1188,24 @@ export class WorkspacesService implements Disposable {
 		}
 
 		if (workspaceFolderPaths.length < repoDescriptors.length) {
+			const continueChoice: MessageItem = { title: l10n.t('Continue') };
+			const cancelChoice: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 			const confirmation = await window.showWarningMessage(
-				`Some repositories in this workspace could not be located locally. Do you want to continue?`,
+				l10n.t('Some repositories in this workspace could not be located locally. Do you want to continue?'),
 				{ modal: true },
-				{ title: 'Continue' },
-				{ title: 'Cancel', isCloseAffordance: true },
+				continueChoice,
+				cancelChoice,
 			);
-			if (confirmation == null || confirmation.title === 'Cancel') return;
+			if (confirmation == null || confirmation === cancelChoice) return;
 		}
 
 		// Have the user choose a name and location for the new workspace file
 		const newWorkspaceUri = await window.showSaveDialog({
 			defaultUri: Uri.file(`${workspace.name}.code-workspace`),
 			filters: {
-				'Code Workspace': ['code-workspace'],
+				[l10n.t('Code Workspace')]: ['code-workspace'],
 			},
-			title: 'Choose a location for the new code workspace file',
+			title: l10n.t('Choose a location for the new code workspace file'),
 		});
 
 		if (newWorkspaceUri == null) return;
@@ -1195,7 +1222,7 @@ export class WorkspacesService implements Disposable {
 		);
 
 		if (!created) {
-			void window.showErrorMessage('Could not create the new workspace file. Check logs for details');
+			void window.showErrorMessage(l10n.t('Could not create the new workspace file. Check logs for details'));
 			return;
 		}
 
@@ -1203,11 +1230,11 @@ export class WorkspacesService implements Disposable {
 
 		type LocationMessageItem = MessageItem & { location?: OpenWorkspaceLocation };
 
-		const openNewWindow: LocationMessageItem = { title: 'Open in New Window', location: 'newWindow' };
-		const openCurrent: LocationMessageItem = { title: 'Open in Current Window', location: 'currentWindow' };
-		const cancel: LocationMessageItem = { title: 'Cancel', isCloseAffordance: true } as const;
+		const openNewWindow: LocationMessageItem = { title: l10n.t('Open in New Window'), location: 'newWindow' };
+		const openCurrent: LocationMessageItem = { title: l10n.t('Open in Current Window'), location: 'currentWindow' };
+		const cancel: LocationMessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true } as const;
 		const result = await window.showInformationMessage(
-			`Workspace file created for ${workspace.name}. Would you like to open it now?`,
+			l10n.t('Workspace file created for {0}. Would you like to open it now?', workspace.name),
 			{ modal: true },
 			openNewWindow,
 			openCurrent,
@@ -1236,26 +1263,27 @@ export class WorkspacesService implements Disposable {
 
 		const autoAddOptions: QuickPickItemWithOption[] = [
 			{
-				label: 'Add on Workspace (Window) Open',
-				description: this._currentWorkspaceAutoAddSetting === 'enabled' ? 'current' : undefined,
+				label: l10n.t('Add on Workspace (Window) Open'),
+				description: this._currentWorkspaceAutoAddSetting === 'enabled' ? l10n.t('current') : undefined,
 				option: 'enabled',
 			},
 			{
-				label: 'Prompt on Workspace (Window) Open',
-				description: this._currentWorkspaceAutoAddSetting === 'prompt' ? 'current' : undefined,
+				label: l10n.t('Prompt on Workspace (Window) Open'),
+				description: this._currentWorkspaceAutoAddSetting === 'prompt' ? l10n.t('current') : undefined,
 				option: 'prompt',
 			},
 			{
-				label: 'Never',
-				description: this._currentWorkspaceAutoAddSetting === 'disabled' ? 'current' : undefined,
+				label: l10n.t('Never'),
+				description: this._currentWorkspaceAutoAddSetting === 'disabled' ? l10n.t('current') : undefined,
 				option: 'disabled',
 			},
 		];
 
 		const newWorkspaceAutoAddOption = await window.showQuickPick<QuickPickItemWithOption>(autoAddOptions, {
-			placeHolder:
+			placeHolder: l10n.t(
 				'Choose the behavior of automatically adding missing repositories to the current VS Code workspace',
-			title: 'Linked Workspace: Automatically Add Repositories',
+			),
+			title: l10n.t('Linked Workspace: Automatically Add Repositories'),
 		});
 		if (newWorkspaceAutoAddOption?.option == null) return defaultOption;
 
@@ -1278,28 +1306,41 @@ export class WorkspacesService implements Disposable {
 		const workspace = this.getCloudWorkspace(workspaceId) ?? this.getLocalWorkspace(workspaceId);
 		if (workspace == null) return;
 		if (workspace.localPath == null) {
+			const createChoice: MessageItem = { title: l10n.t('Create') };
+			const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 			const create = await window.showInformationMessage(
-				`The workspace file for ${workspace.name} has not been created. Would you like to create it now?`,
+				l10n.t(
+					'The workspace file for {0} has not been created. Would you like to create it now?',
+					workspace.name,
+				),
 				{ modal: true },
-				{ title: 'Create' },
-				{ title: 'Cancel', isCloseAffordance: true },
+				createChoice,
+				cancel,
 			);
 
-			if (create == null || create.title === 'Cancel') return;
+			if (create == null || create === cancel) return;
 			return void this.saveAsCodeWorkspaceFile(workspaceId);
 		}
 
 		let openLocation: OpenWorkspaceLocation = options?.location === 'currentWindow' ? 'currentWindow' : 'newWindow';
 		if (!options?.location) {
+			type LocationMessageItem = MessageItem & { location?: OpenWorkspaceLocation };
+
+			const openNewWindow: LocationMessageItem = { title: l10n.t('Open in New Window'), location: 'newWindow' };
+			const openCurrentWindow: LocationMessageItem = {
+				title: l10n.t('Open in Current Window'),
+				location: 'currentWindow',
+			};
+			const cancel: LocationMessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 			const openLocationChoice = await window.showInformationMessage(
-				`How would you like to open the workspace file for ${workspace.name}?`,
+				l10n.t('How would you like to open the workspace file for {0}?', workspace.name),
 				{ modal: true },
-				{ title: 'Open in New Window', location: 'newWindow' as const },
-				{ title: 'Open in Current Window', location: 'currentWindow' as const },
-				{ title: 'Cancel', isCloseAffordance: true },
+				openNewWindow,
+				openCurrentWindow,
+				cancel,
 			);
 
-			if (openLocationChoice == null || openLocationChoice.title === 'Cancel') return;
+			if (openLocationChoice == null || openLocationChoice === cancel) return;
 
 			openLocation = openLocationChoice.location ?? 'newWindow';
 		}
@@ -1307,14 +1348,19 @@ export class WorkspacesService implements Disposable {
 		if (!(await this._sharedStorage?.confirmCloudWorkspaceCodeWorkspaceFilePath(workspace.id))) {
 			await this._sharedStorage?.removeCloudWorkspaceCodeWorkspaceFile(workspace.id);
 			workspace.setLocalPath(undefined);
+			const locate: MessageItem = { title: l10n.t('Locate') };
+			const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 			const locateChoice = await window.showInformationMessage(
-				`The workspace file for ${workspace.name} could not be found. Would you like to locate it now?`,
+				l10n.t(
+					'The workspace file for {0} could not be found. Would you like to locate it now?',
+					workspace.name,
+				),
 				{ modal: true },
-				{ title: 'Locate' },
-				{ title: 'Cancel', isCloseAffordance: true },
+				locate,
+				cancel,
 			);
 
-			if (locateChoice?.title !== 'Locate') return;
+			if (locateChoice !== locate) return;
 
 			const newPath = (
 				await window.showOpenDialog({
@@ -1323,9 +1369,9 @@ export class WorkspacesService implements Disposable {
 					canSelectFolders: false,
 					canSelectMany: false,
 					filters: {
-						'Code Workspace': ['code-workspace'],
+						[l10n.t('Code Workspace')]: ['code-workspace'],
 					},
-					title: 'Locate the workspace file',
+					title: l10n.t('Locate the workspace file'),
 				})
 			)?.[0]?.fsPath;
 

@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { env } from 'vscode';
+import { env, l10n } from 'vscode';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { first } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -88,7 +88,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 						args.sha = blame.commit.sha;
 					} catch (ex) {
 						Logger.error(ex, 'CopyShaToClipboardCommand', `getBlameForLine(${blameline})`);
-						void showGenericErrorMessage('Unable to copy commit SHA');
+						void showGenericErrorMessage(l10n.t('Unable to copy commit SHA'));
 
 						return;
 					}
@@ -100,7 +100,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 			);
 		} catch (ex) {
 			Logger.error(ex, 'CopyShaToClipboardCommand');
-			void showGenericErrorMessage('Unable to copy commit SHA');
+			void showGenericErrorMessage(l10n.t('Unable to copy commit SHA'));
 		}
 	}
 }

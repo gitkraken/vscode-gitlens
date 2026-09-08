@@ -58,9 +58,7 @@ function extractContributionsFromPackageJson(): void {
 
 	const packageJson: PackageJson = JSON.parse(readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
 	const nlsPath = path.join(__dirname, 'package.nls.json');
-	const nlsEntries: Record<string, string> = existsSync(nlsPath)
-		? JSON.parse(readFileSync(nlsPath, 'utf8'))
-		: {};
+	const nlsEntries: Record<string, string> = existsSync(nlsPath) ? JSON.parse(readFileSync(nlsPath, 'utf8')) : {};
 
 	// Load commands from package.json
 	for (const cmd of packageJson.contributes.commands.sort((a: Command, b: Command) =>
@@ -484,7 +482,8 @@ function validateContributions(
 			return (
 				!updatedView ||
 				updatedView.type !== existingView.type ||
-				resolveNlsReference(updatedView.name, nlsEntries) !== resolveNlsReference(existingView.name, nlsEntries) ||
+				resolveNlsReference(updatedView.name, nlsEntries) !==
+					resolveNlsReference(existingView.name, nlsEntries) ||
 				updatedView.when !== existingView.when ||
 				resolveNlsReference(updatedView.contextualTitle ?? '', nlsEntries) !==
 					resolveNlsReference(existingView.contextualTitle ?? '', nlsEntries) ||

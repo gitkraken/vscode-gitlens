@@ -1,4 +1,5 @@
 import type WaSlider from '@awesome.me/webawesome/dist/components/slider/slider.js';
+import * as l10n from '@vscode/l10n';
 import { css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { GlElement } from '@gitlens/components/components/element.js';
@@ -113,7 +114,7 @@ export class GlChartSlider extends GlElement {
 				.indicatorOffset=${this._max}
 				with-tooltip
 				tooltip-placement="top"
-				.valueFormatter=${(_: number) => `Hold Shift to Compare with Working Tree`}
+				.valueFormatter=${(_: number) => l10n.t('Hold Shift to Compare with Working Tree')}
 				@change=${this.handleSliderInput}
 				@input=${this.handleSliderInput}
 				@click=${this.handleSliderInput}

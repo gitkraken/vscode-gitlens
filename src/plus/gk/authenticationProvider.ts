@@ -4,7 +4,7 @@ import type {
 	AuthenticationSession,
 	Event,
 } from 'vscode';
-import { Disposable, EventEmitter, window } from 'vscode';
+import { Disposable, EventEmitter, l10n, window } from 'vscode';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { uuid } from '@gitlens/utils/crypto.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
@@ -120,9 +120,14 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 
 			scope?.error(ex);
 			void window.showErrorMessage(
-				`Unable to sign in to GitKraken: ${
-					isCancellationError(ex) ? 'request timed out' : ex
-				}. Please try again. If this issue persists, please contact support.`,
+				isCancellationError(ex)
+					? l10n.t(
+							'Unable to sign in to GitKraken: request timed out. Please try again. If this issue persists, please contact support.',
+						)
+					: l10n.t(
+							'Unable to sign in to GitKraken: {0}. Please try again. If this issue persists, please contact support.',
+							String(ex),
+						),
 			);
 			throw ex;
 		}
@@ -163,7 +168,7 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 			this._onDidChangeSessions.fire({ added: [], removed: [session], changed: [] });
 		} catch (ex) {
 			scope?.error(ex);
-			void window.showErrorMessage(`Unable to sign out of GitKraken: ${ex}`);
+			void window.showErrorMessage(l10n.t('Unable to sign out of GitKraken: {0}', String(ex)));
 			throw ex;
 		}
 	}
@@ -200,7 +205,9 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 		} catch (ex) {
 			scope?.error(ex);
 			void window.showErrorMessage(
-				`Unable to sign out of GitKraken: ${isCancellationError(ex) ? 'request timed out' : ex}`,
+				isCancellationError(ex)
+					? l10n.t('Unable to sign out of GitKraken: request timed out')
+					: l10n.t('Unable to sign out of GitKraken: {0}', String(ex)),
 			);
 			throw ex;
 		}
@@ -285,7 +292,6 @@ export class AccountAuthenticationProvider implements AuthenticationProvider, Di
 
 		const sessionPromises = storedSessions.map(async (session: StoredSession) => {
 			const scopesKey = getScopesKey(session.scopes);
-
 			scope?.trace(`read session from storage with scopes=${scopesKey}`);
 
 			let userInfo: { id: string; accountName: string } | undefined;

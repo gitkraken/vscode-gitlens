@@ -1,5 +1,5 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
-import { ConfigurationTarget, QuickInputButtons, QuickPickItemKind, ThemeIcon, window } from 'vscode';
+import { ConfigurationTarget, l10n, QuickInputButtons, QuickPickItemKind, ThemeIcon, window } from 'vscode';
 import type {
 	AsyncStepResultGenerator,
 	StepResultGenerator,
@@ -16,16 +16,16 @@ import { getSupportedAgents, resolveDefaultAgent } from './agentRegistry.js';
 const passEmpty = new ThemeIcon('pass');
 const passFilled = new ThemeIcon('pass-filled');
 
-function checkButton(isCurrentDefault: boolean, label: string): QuickInputButton {
+function checkButton(isCurrentDefault: boolean, unsetTooltip: string, setTooltip: string): QuickInputButton {
 	return {
 		iconPath: isCurrentDefault ? passFilled : passEmpty,
-		tooltip: isCurrentDefault ? `Unset as default (${label})` : `Always ${label.toLowerCase()} (set as default)`,
+		tooltip: isCurrentDefault ? unsetTooltip : setTooltip,
 	};
 }
 
 const settingsButton: QuickInputButton = {
 	iconPath: new ThemeIcon('gear'),
-	tooltip: 'Open Default Agent Setting',
+	tooltip: l10n.t('Open Default Agent Setting'),
 };
 
 interface RouteItem extends QuickPickItem {
@@ -55,22 +55,22 @@ function iconFor(kind: AgentDescriptor['kind']): ThemeIcon {
 function descriptionFor(descriptor: AgentDescriptor): string {
 	switch (descriptor.kind) {
 		case 'ide-chat':
-			return "Open in this IDE's chat";
+			return l10n.t("Open in this IDE's chat");
 		case 'claude-extension':
-			return 'VS Code extension';
+			return l10n.t('VS Code extension');
 		case 'cli':
-			return 'CLI';
+			return l10n.t('CLI');
 	}
 }
 
 function sectionLabelFor(kind: AgentDescriptor['kind']): string | undefined {
 	switch (kind) {
 		case 'ide-chat':
-			return 'IDE Chat';
+			return l10n.t('IDE Chat');
 		case 'claude-extension':
-			return 'Extension';
+			return l10n.t('Extension');
 		case 'cli':
-			return 'CLI';
+			return l10n.t('CLI');
 	}
 }
 
@@ -85,23 +85,37 @@ export function* pickRouteStep(options?: { showBackButton?: boolean }): StepResu
 	const buildItems = (currentDefault: AgentRoute): RouteItem[] => [
 		{
 			route: 'agent',
-			label: '$(robot) Open in an agent',
-			description: 'Open a chat or CLI session with the issue context',
+			label: l10n.t('$(robot) Open in an agent'),
+			description: l10n.t('Open a chat or CLI session with the issue context'),
 			picked: currentDefault === 'agent',
-			buttons: [checkButton(currentDefault === 'agent', 'Open in an agent')],
+			buttons: [
+				checkButton(
+					currentDefault === 'agent',
+					l10n.t('Unset as default (Open in an agent)'),
+					l10n.t('Always open in an agent (set as default)'),
+				),
+			],
 		},
 		{
 			route: 'manual',
-			label: '$(arrow-right) Continue manually',
-			description: 'Creates the branch/worktree based on your previous selection',
+			label: l10n.t('$(arrow-right) Continue manually'),
+			description: l10n.t('Creates the branch/worktree based on your previous selection'),
 			picked: currentDefault === 'manual',
-			buttons: [checkButton(currentDefault === 'manual', 'Continue manually')],
+			buttons: [
+				checkButton(
+					currentDefault === 'manual',
+					l10n.t('Unset as default (Continue manually)'),
+					l10n.t('Always continue manually (set as default)'),
+				),
+			],
 		},
 	];
 
 	const step = createPickStep<RouteItem>({
-		title: 'Start with Agent',
-		placeholder: 'Choose to continue with an agent or manually · mark the checkbox of a row to set as default',
+		title: l10n.t('Start with Agent'),
+		placeholder: l10n.t(
+			'Choose to continue with an agent or manually · mark the checkbox of a row to set as default',
+		),
 		items: buildItems(current),
 		buttons: options?.showBackButton ? [QuickInputButtons.Back] : undefined,
 		onDidClickItemButton: async (qp, _button, item) => {
@@ -147,18 +161,18 @@ export async function* pickAgentStep(
 		if (available.length === 0) {
 			return [
 				{
-					label: '$(warning) No agents available',
-					description: 'No supported IDE chat host, no Claude extension, no detected CLIs',
+					label: l10n.t('$(warning) No agents available'),
+					description: l10n.t('No supported IDE chat host, no Claude extension, no detected CLIs'),
 					kind: QuickPickItemKind.Separator,
 				},
 				{
-					label: '$(arrow-right) Continue Manually',
-					description: 'Skip the agent and proceed with manual flow',
+					label: l10n.t('$(arrow-right) Continue Manually'),
+					description: l10n.t('Skip the agent and proceed with manual flow'),
 					action: 'manual',
 				},
 				{
-					label: '$(close) Close',
-					description: 'Cancel the wizard',
+					label: l10n.t('$(close) Close'),
+					description: l10n.t('Cancel the wizard'),
 					action: 'cancel',
 				},
 			];
@@ -179,7 +193,13 @@ export async function* pickAgentStep(
 				label: `$(${(iconFor(d.kind) as { id?: string }).id ?? 'circle-outline'}) ${d.label}`,
 				description: descriptionFor(d),
 				picked: currentDefaultId === d.id,
-				buttons: [checkButton(currentDefaultId === d.id, `Use ${d.label}`)],
+				buttons: [
+					checkButton(
+						currentDefaultId === d.id,
+						l10n.t('Unset as default (Use {0})', d.label),
+						l10n.t('Always use {0} (set as default)', d.label),
+					),
+				],
 			});
 		}
 		return items;
@@ -191,11 +211,13 @@ export async function* pickAgentStep(
 	}
 
 	const step = createPickStep<AgentItem>({
-		title: options?.title ?? 'Choose an Agent',
+		title: options?.title ?? l10n.t('Choose an Agent'),
 		placeholder:
 			available.length === 0
-				? 'No agents available'
-				: `${options?.placeholder ?? 'Select where to proceed'} · mark the checkbox of a row to set as default`,
+				? l10n.t('No agents available')
+				: options?.placeholder == null
+					? l10n.t('Select where to proceed · mark the checkbox of a row to set as default')
+					: l10n.t('{0} · mark the checkbox of a row to set as default', options.placeholder),
 		items: buildItems(currentDefault),
 		buttons: titleButtons,
 		onDidClickButton: (_qp, button) => {
@@ -248,12 +270,12 @@ export async function pickAgentStandalone(
 		if (available.length === 0) {
 			return [
 				{
-					label: '$(warning) No agents available',
-					description: 'No supported IDE chat host, no Claude extension, no detected CLIs',
+					label: l10n.t('$(warning) No agents available'),
+					description: l10n.t('No supported IDE chat host, no Claude extension, no detected CLIs'),
 					kind: QuickPickItemKind.Separator,
 				},
 				{
-					label: '$(close) Close',
+					label: l10n.t('$(close) Close'),
 				},
 			];
 		}
@@ -273,18 +295,26 @@ export async function pickAgentStandalone(
 				label: `$(${(iconFor(d.kind) as { id?: string }).id ?? 'circle-outline'}) ${d.label}`,
 				description: descriptionFor(d),
 				picked: currentDefaultId === d.id,
-				buttons: [checkButton(currentDefaultId === d.id, `Use ${d.label}`)],
+				buttons: [
+					checkButton(
+						currentDefaultId === d.id,
+						l10n.t('Unset as default (Use {0})', d.label),
+						l10n.t('Always use {0} (set as default)', d.label),
+					),
+				],
 			});
 		}
 		return items;
 	};
 
 	try {
-		qp.title = options?.title ?? 'Choose an Agent';
+		qp.title = options?.title ?? l10n.t('Choose an Agent');
 		qp.placeholder =
 			available.length === 0
-				? 'No agents available'
-				: `${options?.placeholder ?? 'Select where to proceed'} · mark the checkbox of a row to set as default`;
+				? l10n.t('No agents available')
+				: options?.placeholder == null
+					? l10n.t('Select where to proceed · mark the checkbox of a row to set as default')
+					: l10n.t('{0} · mark the checkbox of a row to set as default', options.placeholder);
 		qp.buttons = [settingsButton];
 		qp.items = buildItems(currentDefault);
 		qp.activeItems = qp.items.filter(i => i.picked);
@@ -345,12 +375,12 @@ export async function pickAndSetDefaultAgent(
 		if (available.length === 0) {
 			return [
 				{
-					label: '$(warning) No agents available',
-					description: 'No supported IDE chat host, no Claude extension, no detected CLIs',
+					label: l10n.t('$(warning) No agents available'),
+					description: l10n.t('No supported IDE chat host, no Claude extension, no detected CLIs'),
 					kind: QuickPickItemKind.Separator,
 				},
 				{
-					label: '$(close) Close',
+					label: l10n.t('$(close) Close'),
 				},
 			];
 		}
@@ -375,9 +405,11 @@ export async function pickAndSetDefaultAgent(
 	};
 
 	try {
-		qp.title = options?.title ?? 'Switch Default Agent';
+		qp.title = options?.title ?? l10n.t('Switch Default Agent');
 		qp.placeholder =
-			available.length === 0 ? 'No agents available' : (options?.placeholder ?? 'Select the default agent');
+			available.length === 0
+				? l10n.t('No agents available')
+				: (options?.placeholder ?? l10n.t('Select the default agent'));
 		qp.buttons = [settingsButton];
 		qp.items = buildItems();
 		const active = qp.items.find((i): i is AgentItem => 'descriptor' in i && i.descriptor?.id === currentDefault);
@@ -493,7 +525,7 @@ export async function* resolveAgentFlow(
 				return { kind: 'agent', descriptor: descriptor };
 			}
 
-			void window.showInformationMessage(`Default agent is no longer available. Choose another.`);
+			void window.showInformationMessage(l10n.t('Default agent is no longer available. Choose another.'));
 		}
 
 		// Need to pick an agent. Show back button only when we got here via the pre-picker.

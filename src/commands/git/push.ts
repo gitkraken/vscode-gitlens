@@ -1,12 +1,12 @@
-import { ThemeIcon } from 'vscode';
+import { l10n, ThemeIcon } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitBranchReference, GitReference } from '@gitlens/git/models/reference.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { getReferenceLabel, isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { isStringArray } from '@gitlens/utils/array.js';
-import { fromNow } from '@gitlens/utils/date.js';
+import { fromNow, getNumericFormat } from '@gitlens/utils/date.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
-import { pad, pluralize, sortCompare } from '@gitlens/utils/string.js';
+import { pad, sortCompare } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
 import type { Container } from '../../container.js';
 import type { GlRepository } from '../../git/models/repository.js';
@@ -63,6 +63,499 @@ function remotePublishRank(name: string, pushDefault: string | undefined): numbe
 	return 2;
 }
 
+type ForcePushMode = 'force' | 'force-with-lease' | 'force-with-lease-and-includes';
+
+function getForcePushMode(useForceWithLease: boolean, useForceIfIncludes: boolean): ForcePushMode {
+	if (useForceIfIncludes) return 'force-with-lease-and-includes';
+	if (useForceWithLease) return 'force-with-lease';
+	return 'force';
+}
+
+function getForcePushLabel(mode: ForcePushMode): string {
+	switch (mode) {
+		case 'force-with-lease-and-includes':
+			return l10n.t('Force Push (with lease and if includes)');
+		case 'force-with-lease':
+			return l10n.t('Force Push (with lease)');
+		case 'force':
+			return l10n.t('Force Push');
+	}
+}
+
+function getForcePushDescription(mode: ForcePushMode): string {
+	switch (mode) {
+		case 'force-with-lease-and-includes':
+			return '--force-with-lease --force-if-includes';
+		case 'force-with-lease':
+			return '--force-with-lease';
+		case 'force':
+			return '--force';
+	}
+}
+
+function getForcePushReposDetail(mode: ForcePushMode, count: number): string {
+	switch (mode) {
+		case 'force-with-lease-and-includes':
+			return l10n.t('Will force push (with lease and if includes) {0} repos', count);
+		case 'force-with-lease':
+			return l10n.t('Will force push (with lease) {0} repos', count);
+		case 'force':
+			return l10n.t('Will force push {0} repos', count);
+	}
+}
+
+function getForcePushBehindDetail(
+	mode: ForcePushMode,
+	ahead: number | undefined,
+	remote: string,
+	behind: number,
+): string {
+	const aheadCount = ahead == null ? '' : getNumericFormat()(ahead);
+	const behindCount = getNumericFormat()(behind);
+	const hasAhead = ahead != null && ahead > 0;
+	const hasRemote = remote.length > 0;
+
+	switch (mode) {
+		case 'force-with-lease-and-includes':
+			if (hasAhead) {
+				if (hasRemote) {
+					if (ahead === 1) {
+						return behind === 1
+							? l10n.t(
+									'Will force push (with lease and if includes) {0} commit to {1}, overwriting {2} commit on {1}',
+									aheadCount,
+									remote,
+									behindCount,
+								)
+							: l10n.t(
+									'Will force push (with lease and if includes) {0} commit to {1}, overwriting {2} commits on {1}',
+									aheadCount,
+									remote,
+									behindCount,
+								);
+					}
+					return behind === 1
+						? l10n.t(
+								'Will force push (with lease and if includes) {0} commits to {1}, overwriting {2} commit on {1}',
+								aheadCount,
+								remote,
+								behindCount,
+							)
+						: l10n.t(
+								'Will force push (with lease and if includes) {0} commits to {1}, overwriting {2} commits on {1}',
+								aheadCount,
+								remote,
+								behindCount,
+							);
+				}
+				if (ahead === 1) {
+					return behind === 1
+						? l10n.t(
+								'Will force push (with lease and if includes) {0} commit, overwriting {1} commit',
+								aheadCount,
+								behindCount,
+							)
+						: l10n.t(
+								'Will force push (with lease and if includes) {0} commit, overwriting {1} commits',
+								aheadCount,
+								behindCount,
+							);
+				}
+				return behind === 1
+					? l10n.t(
+							'Will force push (with lease and if includes) {0} commits, overwriting {1} commit',
+							aheadCount,
+							behindCount,
+						)
+					: l10n.t(
+							'Will force push (with lease and if includes) {0} commits, overwriting {1} commits',
+							aheadCount,
+							behindCount,
+						);
+			}
+			return hasRemote
+				? behind === 1
+					? l10n.t(
+							'Will force push (with lease and if includes) to {0}, overwriting {1} commit on {0}',
+							remote,
+							behindCount,
+						)
+					: l10n.t(
+							'Will force push (with lease and if includes) to {0}, overwriting {1} commits on {0}',
+							remote,
+							behindCount,
+						)
+				: behind === 1
+					? l10n.t('Will force push (with lease and if includes), overwriting {0} commit', behindCount)
+					: l10n.t('Will force push (with lease and if includes), overwriting {0} commits', behindCount);
+		case 'force-with-lease':
+			if (hasAhead) {
+				if (hasRemote) {
+					if (ahead === 1) {
+						return behind === 1
+							? l10n.t(
+									'Will force push (with lease) {0} commit to {1}, overwriting {2} commit on {1}',
+									aheadCount,
+									remote,
+									behindCount,
+								)
+							: l10n.t(
+									'Will force push (with lease) {0} commit to {1}, overwriting {2} commits on {1}',
+									aheadCount,
+									remote,
+									behindCount,
+								);
+					}
+					return behind === 1
+						? l10n.t(
+								'Will force push (with lease) {0} commits to {1}, overwriting {2} commit on {1}',
+								aheadCount,
+								remote,
+								behindCount,
+							)
+						: l10n.t(
+								'Will force push (with lease) {0} commits to {1}, overwriting {2} commits on {1}',
+								aheadCount,
+								remote,
+								behindCount,
+							);
+				}
+				if (ahead === 1) {
+					return behind === 1
+						? l10n.t(
+								'Will force push (with lease) {0} commit, overwriting {1} commit',
+								aheadCount,
+								behindCount,
+							)
+						: l10n.t(
+								'Will force push (with lease) {0} commit, overwriting {1} commits',
+								aheadCount,
+								behindCount,
+							);
+				}
+				return behind === 1
+					? l10n.t(
+							'Will force push (with lease) {0} commits, overwriting {1} commit',
+							aheadCount,
+							behindCount,
+						)
+					: l10n.t(
+							'Will force push (with lease) {0} commits, overwriting {1} commits',
+							aheadCount,
+							behindCount,
+						);
+			}
+			return hasRemote
+				? behind === 1
+					? l10n.t('Will force push (with lease) to {0}, overwriting {1} commit on {0}', remote, behindCount)
+					: l10n.t('Will force push (with lease) to {0}, overwriting {1} commits on {0}', remote, behindCount)
+				: behind === 1
+					? l10n.t('Will force push (with lease), overwriting {0} commit', behindCount)
+					: l10n.t('Will force push (with lease), overwriting {0} commits', behindCount);
+		case 'force':
+			if (hasAhead) {
+				if (hasRemote) {
+					if (ahead === 1) {
+						return behind === 1
+							? l10n.t(
+									'Will force push {0} commit to {1}, overwriting {2} commit on {1}',
+									aheadCount,
+									remote,
+									behindCount,
+								)
+							: l10n.t(
+									'Will force push {0} commit to {1}, overwriting {2} commits on {1}',
+									aheadCount,
+									remote,
+									behindCount,
+								);
+					}
+					return behind === 1
+						? l10n.t(
+								'Will force push {0} commits to {1}, overwriting {2} commit on {1}',
+								aheadCount,
+								remote,
+								behindCount,
+							)
+						: l10n.t(
+								'Will force push {0} commits to {1}, overwriting {2} commits on {1}',
+								aheadCount,
+								remote,
+								behindCount,
+							);
+				}
+				if (ahead === 1) {
+					return behind === 1
+						? l10n.t('Will force push {0} commit, overwriting {1} commit', aheadCount, behindCount)
+						: l10n.t('Will force push {0} commit, overwriting {1} commits', aheadCount, behindCount);
+				}
+				return behind === 1
+					? l10n.t('Will force push {0} commits, overwriting {1} commit', aheadCount, behindCount)
+					: l10n.t('Will force push {0} commits, overwriting {1} commits', aheadCount, behindCount);
+			}
+			return hasRemote
+				? behind === 1
+					? l10n.t('Will force push to {0}, overwriting {1} commit on {0}', remote, behindCount)
+					: l10n.t('Will force push to {0}, overwriting {1} commits on {0}', remote, behindCount)
+				: behind === 1
+					? l10n.t('Will force push, overwriting {0} commit', behindCount)
+					: l10n.t('Will force push, overwriting {0} commits', behindCount);
+	}
+}
+
+function getPushDetail(referenceName: string | undefined, ahead: number | undefined, remote: string): string {
+	if (referenceName != null) {
+		if (ahead) {
+			return remote.length === 0
+				? l10n.t('Will push commits up to and including {0}', referenceName)
+				: l10n.t('Will push commits up to and including {0} to {1}', referenceName, remote);
+		}
+		return remote.length === 0 ? l10n.t('Will push') : l10n.t('Will push to {0}', remote);
+	}
+
+	if (ahead) {
+		if (remote.length === 0) {
+			return ahead === 1
+				? l10n.t('Will push {0} commit', getNumericFormat()(ahead))
+				: l10n.t('Will push {0} commits', getNumericFormat()(ahead));
+		}
+		return ahead === 1
+			? l10n.t('Will push {0} commit to {1}', getNumericFormat()(ahead), remote)
+			: l10n.t('Will push {0} commits to {1}', getNumericFormat()(ahead), remote);
+	}
+
+	return remote.length === 0 ? l10n.t('Will push') : l10n.t('Will push to {0}', remote);
+}
+
+function getForcePushNoBehindDetail(
+	mode: ForcePushMode,
+	referenceName: string | undefined,
+	ahead: number | undefined,
+	remote: string,
+): string {
+	if (referenceName != null) {
+		if (ahead) {
+			switch (mode) {
+				case 'force-with-lease-and-includes':
+					return remote.length === 0
+						? l10n.t(
+								'Will force push (with lease and if includes) commits up to and including {0}',
+								referenceName,
+							)
+						: l10n.t(
+								'Will force push (with lease and if includes) commits up to and including {0} to {1}',
+								referenceName,
+								remote,
+							);
+				case 'force-with-lease':
+					return remote.length === 0
+						? l10n.t('Will force push (with lease) commits up to and including {0}', referenceName)
+						: l10n.t(
+								'Will force push (with lease) commits up to and including {0} to {1}',
+								referenceName,
+								remote,
+							);
+				case 'force':
+					return remote.length === 0
+						? l10n.t('Will force push commits up to and including {0}', referenceName)
+						: l10n.t('Will force push commits up to and including {0} to {1}', referenceName, remote);
+			}
+		}
+
+		switch (mode) {
+			case 'force-with-lease-and-includes':
+				return remote.length === 0
+					? l10n.t('Will force push (with lease and if includes)')
+					: l10n.t('Will force push (with lease and if includes) to {0}', remote);
+			case 'force-with-lease':
+				return remote.length === 0
+					? l10n.t('Will force push (with lease)')
+					: l10n.t('Will force push (with lease) to {0}', remote);
+			case 'force':
+				return remote.length === 0 ? l10n.t('Will force push') : l10n.t('Will force push to {0}', remote);
+		}
+	}
+
+	if (ahead) {
+		if (remote.length === 0) {
+			if (ahead === 1) {
+				return mode === 'force-with-lease-and-includes'
+					? l10n.t('Will force push (with lease and if includes) {0} commit', getNumericFormat()(ahead))
+					: mode === 'force-with-lease'
+						? l10n.t('Will force push (with lease) {0} commit', getNumericFormat()(ahead))
+						: l10n.t('Will force push {0} commit', getNumericFormat()(ahead));
+			}
+			return mode === 'force-with-lease-and-includes'
+				? l10n.t('Will force push (with lease and if includes) {0} commits', getNumericFormat()(ahead))
+				: mode === 'force-with-lease'
+					? l10n.t('Will force push (with lease) {0} commits', getNumericFormat()(ahead))
+					: l10n.t('Will force push {0} commits', getNumericFormat()(ahead));
+		}
+		if (ahead === 1) {
+			return mode === 'force-with-lease-and-includes'
+				? l10n.t(
+						'Will force push (with lease and if includes) {0} commit to {1}',
+						getNumericFormat()(ahead),
+						remote,
+					)
+				: mode === 'force-with-lease'
+					? l10n.t('Will force push (with lease) {0} commit to {1}', getNumericFormat()(ahead), remote)
+					: l10n.t('Will force push {0} commit to {1}', getNumericFormat()(ahead), remote);
+		}
+		return mode === 'force-with-lease-and-includes'
+			? l10n.t(
+					'Will force push (with lease and if includes) {0} commits to {1}',
+					getNumericFormat()(ahead),
+					remote,
+				)
+			: mode === 'force-with-lease'
+				? l10n.t('Will force push (with lease) {0} commits to {1}', getNumericFormat()(ahead), remote)
+				: l10n.t('Will force push {0} commits to {1}', getNumericFormat()(ahead), remote);
+	}
+
+	switch (mode) {
+		case 'force-with-lease-and-includes':
+			return remote.length === 0
+				? l10n.t('Will force push (with lease and if includes)')
+				: l10n.t('Will force push (with lease and if includes) to {0}', remote);
+		case 'force-with-lease':
+			return remote.length === 0
+				? l10n.t('Will force push (with lease)')
+				: l10n.t('Will force push (with lease) to {0}', remote);
+		case 'force':
+			return remote.length === 0 ? l10n.t('Will force push') : l10n.t('Will force push to {0}', remote);
+	}
+}
+
+function getForcePushReferenceBehindDetail(
+	mode: ForcePushMode,
+	referenceName: string,
+	hasAhead: boolean,
+	remote: string,
+	behind: number,
+): string {
+	const behindCount = getNumericFormat()(behind);
+	switch (mode) {
+		case 'force-with-lease-and-includes':
+			if (hasAhead) {
+				return remote.length === 0
+					? behind === 1
+						? l10n.t(
+								'Will force push (with lease and if includes) commits up to and including {0}, overwriting {1} commit',
+								referenceName,
+								behindCount,
+							)
+						: l10n.t(
+								'Will force push (with lease and if includes) commits up to and including {0}, overwriting {1} commits',
+								referenceName,
+								behindCount,
+							)
+					: behind === 1
+						? l10n.t(
+								'Will force push (with lease and if includes) commits up to and including {0} to {1}, overwriting {2} commit on {1}',
+								referenceName,
+								remote,
+								behindCount,
+							)
+						: l10n.t(
+								'Will force push (with lease and if includes) commits up to and including {0} to {1}, overwriting {2} commits on {1}',
+								referenceName,
+								remote,
+								behindCount,
+							);
+			}
+			return remote.length === 0
+				? behind === 1
+					? l10n.t('Will force push (with lease and if includes), overwriting {0} commit', behindCount)
+					: l10n.t('Will force push (with lease and if includes), overwriting {0} commits', behindCount)
+				: behind === 1
+					? l10n.t(
+							'Will force push (with lease and if includes) to {0}, overwriting {1} commit on {0}',
+							remote,
+							behindCount,
+						)
+					: l10n.t(
+							'Will force push (with lease and if includes) to {0}, overwriting {1} commits on {0}',
+							remote,
+							behindCount,
+						);
+		case 'force-with-lease':
+			if (hasAhead) {
+				return remote.length === 0
+					? behind === 1
+						? l10n.t(
+								'Will force push (with lease) commits up to and including {0}, overwriting {1} commit',
+								referenceName,
+								behindCount,
+							)
+						: l10n.t(
+								'Will force push (with lease) commits up to and including {0}, overwriting {1} commits',
+								referenceName,
+								behindCount,
+							)
+					: behind === 1
+						? l10n.t(
+								'Will force push (with lease) commits up to and including {0} to {1}, overwriting {2} commit on {1}',
+								referenceName,
+								remote,
+								behindCount,
+							)
+						: l10n.t(
+								'Will force push (with lease) commits up to and including {0} to {1}, overwriting {2} commits on {1}',
+								referenceName,
+								remote,
+								behindCount,
+							);
+			}
+			return remote.length === 0
+				? behind === 1
+					? l10n.t('Will force push (with lease), overwriting {0} commit', behindCount)
+					: l10n.t('Will force push (with lease), overwriting {0} commits', behindCount)
+				: behind === 1
+					? l10n.t('Will force push (with lease) to {0}, overwriting {1} commit on {0}', remote, behindCount)
+					: l10n.t(
+							'Will force push (with lease) to {0}, overwriting {1} commits on {0}',
+							remote,
+							behindCount,
+						);
+		case 'force':
+			if (hasAhead) {
+				return remote.length === 0
+					? behind === 1
+						? l10n.t(
+								'Will force push commits up to and including {0}, overwriting {1} commit',
+								referenceName,
+								behindCount,
+							)
+						: l10n.t(
+								'Will force push commits up to and including {0}, overwriting {1} commits',
+								referenceName,
+								behindCount,
+							)
+					: behind === 1
+						? l10n.t(
+								'Will force push commits up to and including {0} to {1}, overwriting {2} commit on {1}',
+								referenceName,
+								remote,
+								behindCount,
+							)
+						: l10n.t(
+								'Will force push commits up to and including {0} to {1}, overwriting {2} commits on {1}',
+								referenceName,
+								remote,
+								behindCount,
+							);
+			}
+			return remote.length === 0
+				? behind === 1
+					? l10n.t('Will force push, overwriting {0} commit', behindCount)
+					: l10n.t('Will force push, overwriting {0} commits', behindCount)
+				: behind === 1
+					? l10n.t('Will force push to {0}, overwriting {1} commit on {0}', remote, behindCount)
+					: l10n.t('Will force push to {0}, overwriting {1} commits on {0}', remote, behindCount);
+	}
+}
+
 /** Builds the labelled `Publish` separator plus one row per remote (pushDefault first, then origin,
  *  then alphabetical; first row picked), or nothing when the repo has no remotes. */
 async function buildPublishItems(
@@ -70,7 +563,7 @@ async function buildPublishItems(
 	flags: Flags[],
 	branch: GitBranch | GitBranchReference,
 	upstreamBranchName: string,
-	extraDetail: string,
+	referenceName: string | undefined,
 ): Promise<FlagsQuickPickItem<Flags>[]> {
 	const [remotesResult, pushDefaultResult] = await Promise.allSettled([
 		repo.git.remotes.getRemotes(),
@@ -80,12 +573,20 @@ async function buildPublishItems(
 	if (!remotes.length) return [];
 
 	const pushDefault = getSettledValue(pushDefaultResult);
-	const items: FlagsQuickPickItem<Flags>[] = [createQuickPickSeparator<FlagsQuickPickItem<Flags>>('Publish')];
+	const items: FlagsQuickPickItem<Flags>[] = [createQuickPickSeparator<FlagsQuickPickItem<Flags>>(l10n.t('Publish'))];
 	for (const [i, remote] of sortRemotesForPublish(remotes, pushDefault).entries()) {
 		items.push(
 			createFlagsQuickPickItem<Flags>(flags, ['--set-upstream', remote.name, upstreamBranchName], {
-				label: `Publish ${branch.name} to ${remote.name}`,
-				detail: `Will publish ${getReferenceLabel(branch)}${extraDetail} to ${remote.name}`,
+				label: l10n.t('Publish {0} to {1}', branch.name, remote.name),
+				detail:
+					referenceName == null
+						? l10n.t('Will publish {0} to {1}', getReferenceLabel(branch), remote.name)
+						: l10n.t(
+								'Will publish {0} up to and including {1} to {2}',
+								getReferenceLabel(branch),
+								referenceName,
+								remote.name,
+							),
 				picked: i === 0,
 			}),
 		);
@@ -115,8 +616,8 @@ export interface PushGitCommandArgs {
 
 export class PushGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: PushGitCommandArgs) {
-		super(container, 'push', 'push', 'Push', {
-			description: 'pushes changes from the current branch to a remote',
+		super(container, 'push', 'push', l10n.t('Push'), {
+			description: l10n.t('pushes changes from the current branch to a remote'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -251,28 +752,27 @@ export class PushGitCommand extends QuickCommand<State> {
 		// publish-remote decision — don't offer/echo the Don't Ask Again toggle on a step the
 		// setting can never skip
 		const confirmForced = !this.confirm(state.confirm);
+		const forcePushMode = getForcePushMode(useForceWithLease, useForceIfIncludes);
 
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 
 		if (state.repos.length > 1) {
-			step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
-				createFlagsQuickPickItem<Flags>(state.flags, [], {
-					label: this.title,
-					detail: `Will push ${state.repos.length} repos`,
-				}),
-				createFlagsQuickPickItem<Flags>(state.flags, ['--force'], {
-					label: `Force ${this.title}${
-						useForceIfIncludes ? ' (with lease and if includes)' : useForceWithLease ? ' (with lease)' : ''
-					}`,
-					description: `--force${
-						useForceWithLease ? `-with-lease${useForceIfIncludes ? ' --force-if-includes' : ''}` : ''
-					}`,
-					detail: `Will force push${
-						useForceIfIncludes ? ' (with lease and if includes)' : useForceWithLease ? ' (with lease)' : ''
-					} ${state.repos.length} repos`,
-					iconPath: new ThemeIcon('warning'),
-				}),
-			]);
+			step = this.createConfirmStep(
+				appendReposToTitle(l10n.t('Confirm Push'), state, context),
+				[
+					createFlagsQuickPickItem<Flags>(state.flags, [], {
+						label: this.title,
+						detail: l10n.t('Will push {0} repos', state.repos.length),
+					}),
+					createFlagsQuickPickItem<Flags>(state.flags, ['--force'], {
+						label: getForcePushLabel(forcePushMode),
+						description: getForcePushDescription(forcePushMode),
+						detail: getForcePushReposDetail(forcePushMode, state.repos.length),
+						iconPath: new ThemeIcon('warning'),
+					}),
+				],
+				l10n.t('Confirm Push'),
+			);
 		} else {
 			const [repo] = state.repos;
 
@@ -283,119 +783,130 @@ export class PushGitCommand extends QuickCommand<State> {
 					step = this.createConfirmStep(
 						appendReposToTitle(context.title, state, context),
 						[],
+						l10n.t('Cannot push a remote branch'),
 						createDirectiveQuickPickItem(Directive.Cancel, true, {
-							label: 'OK',
-							detail: 'Cannot push a remote branch',
+							label: l10n.t('OK'),
+							detail: l10n.t('Cannot push a remote branch'),
 						}),
-						{ placeholder: 'Cannot push a remote branch' },
 					);
 				} else {
 					const branch = await repo.git.branches.getBranch(state.reference.name);
 
 					if (branch != null && (branch.upstream == null || branch.upstream.missing)) {
-						items.push(...(await buildPublishItems(repo, state.flags, branch, branch.name, '')));
+						items.push(...(await buildPublishItems(repo, state.flags, branch, branch.name, undefined)));
 
 						if (items.length) {
 							step = confirmForced
 								? createConfirmStep(
-										appendReposToTitle('Confirm Publish', state, context),
+										appendReposToTitle(l10n.t('Confirm Publish'), state, context),
 										items,
-										context,
-										undefined,
-										{ placeholder: 'Confirm Publish' },
+										l10n.t('Confirm Publish'),
 									)
 								: this.createConfirmStep(
-										appendReposToTitle('Confirm Publish', state, context),
+										appendReposToTitle(l10n.t('Confirm Publish'), state, context),
 										items,
-										undefined,
-										{ placeholder: 'Confirm Publish' },
+										l10n.t('Confirm Publish'),
 									);
 						} else {
 							step = this.createConfirmStep(
-								appendReposToTitle('Publish', state, context),
+								appendReposToTitle(l10n.t('Publish'), state, context),
 								[],
+								l10n.t('Cannot publish; No remotes found'),
 								createDirectiveQuickPickItem(Directive.Cancel, true, {
-									label: 'OK',
-									detail: 'No remotes found',
+									label: l10n.t('OK'),
+									detail: l10n.t('No remotes found'),
 								}),
-								{ placeholder: 'Cannot publish; No remotes found' },
 							);
 						}
 					} else if (branch?.upstream?.state.behind) {
 						// Enter must never force -- the Cancel row is the pre-selected one, overriding
 						// createConfirmStep's default of the first confirmation
 						const cancelItem = createDirectiveQuickPickItem(Directive.Cancel, true, {
-							label: `Cancel ${this.title}`,
-							detail: `Cannot push; ${getReferenceLabel(
-								branch,
-							)} is behind ${branch.remoteName} by ${pluralize('commit', branch.upstream.state.behind)}`,
+							label: l10n.t('Cancel Push'),
+							detail:
+								branch.upstream.state.behind === 1
+									? l10n.t(
+											'Cannot push; {0} is behind {1} by {2} commit',
+											getReferenceLabel(branch),
+											branch.remoteName ?? '',
+											getNumericFormat()(branch.upstream.state.behind),
+										)
+									: l10n.t(
+											'Cannot push; {0} is behind {1} by {2} commits',
+											getReferenceLabel(branch),
+											branch.remoteName ?? '',
+											getNumericFormat()(branch.upstream.state.behind),
+										),
 						});
 						step = this.createConfirmStep(
-							appendReposToTitle(`Confirm ${context.title}`, state, context),
+							appendReposToTitle(l10n.t('Confirm Push'), state, context),
 							[
 								createFlagsQuickPickItem<Flags>(state.flags, ['--force'], {
-									label: `Force ${this.title}${
-										useForceIfIncludes
-											? ' (with lease and if includes)'
-											: useForceWithLease
-												? ' (with lease)'
-												: ''
-									}`,
-									description: `--force${
-										useForceWithLease
-											? `-with-lease${useForceIfIncludes ? ' --force-if-includes' : ''}`
-											: ''
-									}`,
-									detail: `Will force push${
-										useForceIfIncludes
-											? ' (with lease and if includes)'
-											: useForceWithLease
-												? ' (with lease)'
-												: ''
-									} ${
-										branch?.upstream.state.ahead
-											? ` ${pluralize('commit', branch.upstream.state.ahead)}`
-											: ''
-									}${branch.remoteName ? ` to ${branch.remoteName}` : ''}${
-										branch != null && branch.upstream.state.behind > 0
-											? `, overwriting ${pluralize('commit', branch.upstream.state.behind)}${
-													branch?.remoteName ? ` on ${branch.remoteName}` : ''
-												}`
-											: ''
-									}`,
+									label: getForcePushLabel(forcePushMode),
+									description: getForcePushDescription(forcePushMode),
+									detail: getForcePushBehindDetail(
+										forcePushMode,
+										branch.upstream.state.ahead,
+										branch.remoteName ?? '',
+										branch.upstream.state.behind,
+									),
 									iconPath: new ThemeIcon('warning'),
 								}),
 							],
+							l10n.t('Confirm Push'),
 							cancelItem,
 							{
 								selectedItems: [cancelItem],
 								prompt: supportedInVSCodeVersion('quickpick-prompt')
-									? `${getReferenceLabel(branch)} is behind ${branch.remoteName} by ${pluralize(
-											'commit',
-											branch.upstream.state.behind,
-										)} — pull first, or force push to overwrite them`
+									? branch.upstream.state.behind === 1
+										? l10n.t(
+												'{0} is behind {1} by {2} commit — pull first, or force push to overwrite them',
+												getReferenceLabel(branch),
+												branch.remoteName ?? '',
+												getNumericFormat()(branch.upstream.state.behind),
+											)
+										: l10n.t(
+												'{0} is behind {1} by {2} commits — pull first, or force push to overwrite them',
+												getReferenceLabel(branch),
+												branch.remoteName ?? '',
+												getNumericFormat()(branch.upstream.state.behind),
+											)
 									: undefined,
 							},
 						);
 					} else if (branch?.upstream?.state.ahead) {
-						step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
-							createFlagsQuickPickItem<Flags>(state.flags, [branch.remoteName!], {
-								label: this.title,
-								detail: `Will push ${pluralize(
-									'commit',
-									branch.upstream.state.ahead,
-								)} from ${getReferenceLabel(branch)} to ${branch.remoteName}`,
-							}),
-						]);
+						step = this.createConfirmStep(
+							appendReposToTitle(l10n.t('Confirm Push'), state, context),
+							[
+								createFlagsQuickPickItem<Flags>(state.flags, [branch.remoteName!], {
+									label: this.title,
+									detail:
+										branch.upstream.state.ahead === 1
+											? l10n.t(
+													'Will push {0} commit from {1} to {2}',
+													getNumericFormat()(branch.upstream.state.ahead),
+													getReferenceLabel(branch),
+													branch.remoteName ?? '',
+												)
+											: l10n.t(
+													'Will push {0} commits from {1} to {2}',
+													getNumericFormat()(branch.upstream.state.ahead),
+													getReferenceLabel(branch),
+													branch.remoteName ?? '',
+												),
+								}),
+							],
+							l10n.t('Confirm Push'),
+						);
 					} else {
 						step = this.createConfirmStep(
 							appendReposToTitle(context.title, state, context),
 							[],
+							l10n.t('Nothing to push; No commits found to push'),
 							createDirectiveQuickPickItem(Directive.Cancel, true, {
-								label: 'OK',
-								detail: 'No commits found to push',
+								label: l10n.t('OK'),
+								detail: l10n.t('No commits found to push'),
 							}),
-							{ placeholder: 'Nothing to push; No commits found to push' },
 						);
 					}
 				}
@@ -412,56 +923,46 @@ export class PushGitCommand extends QuickCommand<State> {
 
 				if (status?.upstream?.state.ahead === 0) {
 					if (!isBranchReference(state.reference) && (status.upstream == null || status.upstream.missing)) {
-						let pushDetails;
+						const referenceName =
+							state.reference != null ? getReferenceLabel(state.reference, { label: false }) : undefined;
+						state.reference ??= branch;
 
-						if (state.reference != null) {
-							pushDetails = ` up to and including ${getReferenceLabel(state.reference, {
-								label: false,
-							})}`;
-						} else {
-							state.reference = branch;
-							pushDetails = '';
-						}
-
-						items.push(...(await buildPublishItems(repo, state.flags, branch, status.branch, pushDetails)));
+						items.push(
+							...(await buildPublishItems(repo, state.flags, branch, status.branch, referenceName)),
+						);
 					}
 
 					if (items.length) {
 						step = confirmForced
 							? createConfirmStep(
-									appendReposToTitle('Confirm Publish', state, context),
+									appendReposToTitle(l10n.t('Confirm Publish'), state, context),
 									items,
-									context,
-									undefined,
-									{ placeholder: 'Confirm Publish' },
+									l10n.t('Confirm Publish'),
 								)
 							: this.createConfirmStep(
-									appendReposToTitle('Confirm Publish', state, context),
+									appendReposToTitle(l10n.t('Confirm Publish'), state, context),
 									items,
-									undefined,
-									{ placeholder: 'Confirm Publish' },
+									l10n.t('Confirm Publish'),
 								);
 					} else if (status.upstream == null || status.upstream.missing) {
 						step = this.createConfirmStep(
-							appendReposToTitle('Publish', state, context),
+							appendReposToTitle(l10n.t('Publish'), state, context),
 							[],
+							l10n.t('Cannot publish; No remotes found'),
 							createDirectiveQuickPickItem(Directive.Cancel, true, {
-								label: 'OK',
-								detail: 'No remotes found',
+								label: l10n.t('OK'),
+								detail: l10n.t('No remotes found'),
 							}),
-							{ placeholder: 'Cannot publish; No remotes found' },
 						);
 					} else {
 						step = this.createConfirmStep(
 							appendReposToTitle(context.title, state, context),
 							[],
+							l10n.t('Nothing to push; No commits ahead of {0}', status.upstream?.name),
 							createDirectiveQuickPickItem(Directive.Cancel, true, {
-								label: 'OK',
-								detail: `No commits ahead of ${status.upstream?.name}`,
+								label: l10n.t('OK'),
+								detail: l10n.t('No commits ahead of {0}', status.upstream?.name),
 							}),
-							{
-								placeholder: `Nothing to push; No commits ahead of ${status.upstream?.name}`,
-							},
 						);
 					}
 				} else {
@@ -470,35 +971,39 @@ export class PushGitCommand extends QuickCommand<State> {
 					let lastFetchedOn = '';
 					let lastFetchedPrompt: string | undefined;
 					if (lastFetched !== 0) {
-						lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}Last fetched ${fromNow(new Date(lastFetched))}`;
-						lastFetchedPrompt = `Last fetched ${fromNow(new Date(lastFetched))}`;
-					}
-
-					let pushDetails;
-					if (state.reference != null) {
-						pushDetails = `${
-							status?.upstream?.state.ahead
-								? ` commits up to and including ${getReferenceLabel(state.reference, {
-										label: false,
-									})}`
-								: ''
-						}${status?.upstream ? ` to ${status.upstream.name}` : ''}`;
-					} else {
-						pushDetails = `${
-							status?.upstream?.state.ahead ? ` ${pluralize('commit', status.upstream.state.ahead)}` : ''
-						}${status?.upstream ? ` to ${status.upstream.name}` : ''}`;
+						lastFetchedOn = l10n.t(
+							'{0}Last fetched {1}',
+							pad(GlyphChars.Dot, 2, 2),
+							fromNow(new Date(lastFetched)),
+						);
+						lastFetchedPrompt = l10n.t('Last fetched {0}', fromNow(new Date(lastFetched)));
 					}
 
 					const behindCount = status?.upstream?.state.behind;
+					const upstreamName = status?.upstream?.name;
+					const aheadCount = status?.upstream?.state.ahead;
+					const referenceName =
+						state.reference != null ? getReferenceLabel(state.reference, { label: false }) : undefined;
 					const promptSupported = supportedInVSCodeVersion('quickpick-prompt');
 
 					let prompt: string | undefined;
 					let titleSuffix = lastFetchedOn;
 					if (promptSupported) {
 						if (behindCount) {
-							prompt = `${getReferenceLabel(branch)} is behind${
-								status?.upstream ? ` ${status.upstream.name}` : ''
-							} by ${pluralize('commit', behindCount)} — pull first, or force push to overwrite them`;
+							prompt =
+								behindCount === 1
+									? l10n.t(
+											'{0} is behind {1} by {2} commit — pull first, or force push to overwrite them',
+											getReferenceLabel(branch),
+											upstreamName ?? '',
+											getNumericFormat()(behindCount),
+										)
+									: l10n.t(
+											'{0} is behind {1} by {2} commits — pull first, or force push to overwrite them',
+											getReferenceLabel(branch),
+											upstreamName ?? '',
+											getNumericFormat()(behindCount),
+										);
 						} else {
 							prompt = lastFetchedPrompt;
 							titleSuffix = '';
@@ -509,52 +1014,62 @@ export class PushGitCommand extends QuickCommand<State> {
 					// one, overriding createConfirmStep's default of the first confirmation
 					const behindCancelItem = behindCount
 						? createDirectiveQuickPickItem(Directive.Cancel, true, {
-								label: `Cancel ${this.title}`,
-								detail: `Cannot push; ${getReferenceLabel(branch)} is behind${
-									status?.upstream ? ` ${status.upstream.name}` : ''
-								} by ${pluralize('commit', behindCount)}`,
+								label: l10n.t('Cancel Push'),
+								detail:
+									behindCount === 1
+										? l10n.t(
+												'Cannot push; {0} is behind {1} by {2} commit',
+												getReferenceLabel(branch),
+												upstreamName ?? '',
+												getNumericFormat()(behindCount),
+											)
+										: l10n.t(
+												'Cannot push; {0} is behind {1} by {2} commits',
+												getReferenceLabel(branch),
+												upstreamName ?? '',
+												getNumericFormat()(behindCount),
+											),
 							})
 						: undefined;
 					step = this.createConfirmStep(
-						appendReposToTitle(`Confirm ${context.title}`, state, context, titleSuffix),
+						appendReposToTitle(l10n.t('Confirm Push'), state, context, titleSuffix),
 						[
 							...(behindCount
 								? []
 								: [
 										createFlagsQuickPickItem<Flags>(state.flags, [], {
 											label: this.title,
-											detail: `Will push${pushDetails}`,
+											detail: getPushDetail(referenceName, aheadCount, upstreamName ?? ''),
 										}),
 									]),
 							createFlagsQuickPickItem<Flags>(state.flags, ['--force'], {
-								label: `Force ${this.title}${
-									useForceIfIncludes
-										? ' (with lease and if includes)'
-										: useForceWithLease
-											? ' (with lease)'
-											: ''
-								}`,
-								description: `--force${
-									useForceWithLease
-										? `-with-lease${useForceIfIncludes ? ' --force-if-includes' : ''}`
-										: ''
-								}`,
-								detail: `Will force push${
-									useForceIfIncludes
-										? ' (with lease and if includes)'
-										: useForceWithLease
-											? ' (with lease)'
-											: ''
-								} ${pushDetails}${
-									behindCount
-										? `, overwriting ${pluralize('commit', behindCount)}${
-												status?.upstream ? ` on ${status.upstream.name}` : ''
-											}`
-										: ''
-								}`,
+								label: getForcePushLabel(forcePushMode),
+								description: getForcePushDescription(forcePushMode),
+								detail: behindCount
+									? referenceName != null
+										? getForcePushReferenceBehindDetail(
+												forcePushMode,
+												referenceName,
+												Boolean(aheadCount),
+												upstreamName ?? '',
+												behindCount,
+											)
+										: getForcePushBehindDetail(
+												forcePushMode,
+												aheadCount,
+												upstreamName ?? '',
+												behindCount,
+											)
+									: getForcePushNoBehindDetail(
+											forcePushMode,
+											referenceName,
+											aheadCount,
+											upstreamName ?? '',
+										),
 								iconPath: new ThemeIcon('warning'),
 							}),
 						],
+						l10n.t('Confirm Push'),
 						behindCancelItem,
 						{
 							prompt: prompt,
@@ -568,9 +1083,11 @@ export class PushGitCommand extends QuickCommand<State> {
 					step.onDidClickButton = async (quickpick, button) => {
 						if (button !== FetchQuickInputButton || quickpick.busy) return false;
 
-						quickpick.title = `Confirm ${context.title}${pad(GlyphChars.Dot, 2, 2)}Fetching${
-							GlyphChars.Ellipsis
-						}`;
+						quickpick.title = l10n.t(
+							'Confirm Push{0}Fetching{1}',
+							pad(GlyphChars.Dot, 2, 2),
+							GlyphChars.Ellipsis,
+						);
 
 						quickpick.busy = true;
 						try {

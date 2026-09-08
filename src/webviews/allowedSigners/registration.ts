@@ -1,4 +1,4 @@
-import { ViewColumn } from 'vscode';
+import { l10n, ViewColumn } from 'vscode';
 import { loadChunk } from '../../system/-webview/loadChunk.js';
 import type { WebviewPanelsProxy, WebviewsController } from '../webviewsController.js';
 import type { State } from './protocol.js';
@@ -14,7 +14,7 @@ export function registerAllowedSignersWebviewPanel(
 			id: 'gitlens.allowedSigners',
 			fileName: 'allowedSigners.html',
 			iconPath: 'images/gitlens-icon.png',
-			title: 'SSH Allowed Signers',
+			title: l10n.t('SSH Allowed Signers'),
 			contextKeyPrefix: `gitlens:webview:allowedSigners`,
 			trackingFeature: 'allowedSignersWebview',
 			type: 'allowedSigners',

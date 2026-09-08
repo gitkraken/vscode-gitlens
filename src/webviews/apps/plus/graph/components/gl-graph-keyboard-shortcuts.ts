@@ -1,10 +1,13 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { getAltKeySymbol, getCmdKeySymbol, getShiftKeySymbol, isMac } from '@env/platform.js';
 import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import type { ChordSymbols } from '@gitlens/utils/keys/chord.js';
 import { formatChordParts, parseChord } from '@gitlens/utils/keys/chord.js';
+import type { SheetDisplayText } from '@gitlens/utils/keys/keybinding.js';
 import type { KeymapDispatcher, KeymapSheetRow } from '@gitlens/utils/keys/keymapDispatcher.js';
 import '@gitlens/components/components/codeIcon.js';
 import '../../../shared/components/overlays/dialog.js';
@@ -28,12 +31,12 @@ type SheetGroup = 'navigation' | 'selection' | 'folding' | 'goto' | 'panels' | '
 const groupOrder: readonly SheetGroup[] = ['navigation', 'selection', 'folding', 'goto', 'panels', 'search'];
 
 const groupTitles: Record<SheetGroup, string> = {
-	navigation: 'Navigation',
-	selection: 'Selection',
-	folding: 'Folding',
-	goto: 'Go to',
-	panels: 'Panels',
-	search: 'Search',
+	navigation: l10n.t('Navigation'),
+	selection: l10n.t('Selection'),
+	folding: l10n.t('Folding'),
+	goto: l10n.t('Go to'),
+	panels: l10n.t('Panels'),
+	search: l10n.t('Search'),
 };
 
 // Bindings that live outside the keymap registry entirely — owned by chrome elements (the search box,
@@ -42,23 +45,23 @@ const groupTitles: Record<SheetGroup, string> = {
 // binding's `sheet` metadata, NOT here — only add a row here when there's truly no binding to attach
 // it to.
 const residualRows: readonly KeymapSheetRow[] = [
-	{ group: 'navigation', label: "Focus the commit's refs & actions", order: 7, keys: ['Tab'] },
+	{ group: 'navigation', label: l10n.t("Focus the commit's refs & actions"), order: 7, keys: ['Tab'] },
 	{
 		group: 'selection',
-		label: 'Extend the selection',
+		label: l10n.t('Extend the selection'),
 		order: 1,
 		// Not a chord: Shift is declared on each movement binding rather than bound on its own, so
 		// the rail spells "Shift + nav" out of literals.
-		keys: [`mod:${chordSymbols.shift}`, `sep:${chordSeparator}`, 'text:nav'],
+		keys: [`mod:${chordSymbols.shift}`, `sep:${chordSeparator}`, `text:${l10n.t('nav')}`],
 	},
-	{ group: 'search', label: 'Next match', order: 3, keys: isMac ? ['F3', 'mod+KeyG'] : ['F3'] },
-	{ group: 'search', label: 'Previous match', order: 4, keys: ['shift+F3'] },
-	{ group: 'footer', label: 'closes the topmost', order: 1, keys: ['Escape'] },
+	{ group: 'search', label: l10n.t('Next match'), order: 3, keys: isMac ? ['F3', 'mod+KeyG'] : ['F3'] },
+	{ group: 'search', label: l10n.t('Previous match'), order: 4, keys: ['shift+F3'] },
+	{ group: 'footer', label: l10n.t('{keys} closes the topmost'), order: 1, keys: ['Escape'] },
 	{
 		group: 'footer',
-		label: 'to highlight the lane',
+		label: l10n.t('Hold {ctrl} or {alt} to highlight the lane'),
 		order: 3,
-		keys: ['text:Hold ', 'raw:Ctrl', 'text: or ', 'raw:Alt'],
+		keys: ['raw:Ctrl', 'raw:Alt'],
 	},
 ];
 
@@ -356,14 +359,14 @@ qualifiers only. */
 			class="shortcuts-dialog"
 			modal
 			closedby="any"
-			label="Keyboard Shortcuts"
+			label=${l10n.t('Keyboard Shortcuts')}
 			?open=${this.open}
 			@gl-dialog-close=${this.close}
 		>
 			<div class="container">
 				<header class="titlebar">
-					<h2><code-icon icon="keyboard"></code-icon> Keyboard Shortcuts</h2>
-					<button class="close" type="button" aria-label="Close" @click=${this.close}>
+					<h2><code-icon icon="keyboard"></code-icon> ${l10n.t('Keyboard Shortcuts')}</h2>
+					<button class="close" type="button" aria-label=${l10n.t('Close')} @click=${this.close}>
 						<code-icon icon="close"></code-icon>
 					</button>
 				</header>
@@ -375,8 +378,17 @@ qualifiers only. */
 					</div>
 				</div>
 				<div class="footrow">
-					${footerRows.map(row => html`<span>${this.renderEntries(row.keys, false)} ${row.label}</span>`)}
-					<a class="customize" href=${settingsHref('gitlens.graph.shortcuts')}>Customize…</a>
+					${footerRows.map(
+						row =>
+							html`<span
+								>${localizedContent(row.label, {
+									keys: this.renderEntries(row.keys, false),
+									ctrl: this.renderEntry('raw:Ctrl'),
+									alt: this.renderEntry('raw:Alt'),
+								})}</span
+							>`,
+					)}
+					<a class="customize" href=${settingsHref('gitlens.graph.shortcuts')}>${l10n.t('Customize…')}</a>
 				</div>
 			</div>
 		</gl-dialog>`;
@@ -390,8 +402,10 @@ qualifiers only. */
 					<span class="keys">${this.renderEntries(row.keys, true)}</span>
 					<span class="label"
 						>${row.label}${
-							row.subline != null
-								? html`<span class="subline">${this.renderEntries(row.subline, false)}</span>`
+							row.sublineText != null || row.subline != null
+								? html`<span class="subline"
+										>${row.sublineText != null ? this.renderSubline(row.sublineText) : this.renderEntries(row.subline!, false)}</span
+									>`
 								: nothing
 						}</span
 					>
@@ -404,9 +418,18 @@ qualifiers only. */
 	 *  rows and residual rows, which aren't customizable. */
 	private rowTooltip(ids: readonly string[] | undefined): string | typeof nothing {
 		if (ids == null || ids.length === 0) return nothing;
-		if (ids.length === 1) return `Shortcut id: ${ids[0]}`;
+		if (ids.length === 1) return l10n.t('Shortcut id: {id}', { id: ids[0] });
 
-		return `Shortcut ids: ${ids.join(', ')}`;
+		return l10n.t('Shortcut ids: {ids}', { ids: ids.join(', ') });
+	}
+
+	private renderSubline(subline: SheetDisplayText): unknown {
+		const keys = Object.fromEntries(
+			Object.entries(subline.keys).map(([name, entries]) => [name, this.renderEntries(entries, false)]),
+		);
+		return localizedContent(subline.message, keys).map(part =>
+			typeof part === 'string' ? html`<span class="text">${part}</span>` : part,
+		);
 	}
 
 	/** Renders a display-entry list. `spaced` puts a space between adjacent chips — what the keys rail

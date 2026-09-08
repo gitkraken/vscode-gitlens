@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import { BranchError } from '@gitlens/git/errors.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
@@ -57,8 +58,8 @@ export interface BranchRenameGitCommandArgs {
 
 export class BranchRenameGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: BranchRenameGitCommandArgs) {
-		super(container, 'branch-rename', 'rename', 'Rename Branch', {
-			description: 'renames the specified branch',
+		super(container, 'branch-rename', 'rename', l10n.t('Rename Branch'), {
+			description: l10n.t('renames the specified branch'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -114,7 +115,7 @@ export class BranchRenameGitCommand extends QuickCommand<State> {
 				const result = yield* pickBranchStep(state, context, {
 					filter: b => !b.remote,
 					picked: state.reference?.ref,
-					placeholder: 'Choose a branch to rename',
+					placeholder: l10n.t('Choose a branch to rename'),
 				});
 				if (result === StepResultBreak) {
 					state.reference = undefined!;
@@ -129,8 +130,8 @@ export class BranchRenameGitCommand extends QuickCommand<State> {
 				using step = steps.enterStep(Steps.InputName);
 
 				const result = yield* inputBranchNameStep(state, context, {
-					prompt: 'Please provide a new name for the branch',
-					title: `${context.title} ${getReferenceLabel(state.reference, false)}`,
+					prompt: l10n.t('Please provide a new name for the branch'),
+					title: l10n.t('Rename Branch {0}', getReferenceLabel(state.reference, false)),
 					value: state.name ?? state.reference.name,
 				});
 				if (result === StepResultBreak) {
@@ -162,8 +163,8 @@ export class BranchRenameGitCommand extends QuickCommand<State> {
 			try {
 				await state.repo.git.branches.renameBranch?.(state.reference.ref, state.name);
 			} catch (ex) {
-				Logger.error(ex, context.title);
-				void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to rename branch');
+				Logger.error(ex, 'Rename Branch');
+				void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : l10n.t('Unable to rename branch'));
 				return undefined;
 			}
 		}
@@ -173,14 +174,14 @@ export class BranchRenameGitCommand extends QuickCommand<State> {
 
 	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(l10n.t('Confirm Rename Branch'), state, context),
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, ['-m'], {
 					label: context.title,
-					detail: `Will rename ${getReferenceLabel(state.reference)} to ${state.name}`,
+					detail: l10n.t('Will rename {0} to {1}', getReferenceLabel(state.reference), state.name),
 				}),
 			],
-			context,
+			l10n.t('Confirm Rename Branch'),
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;

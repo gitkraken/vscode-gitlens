@@ -1,28 +1,31 @@
 /* oxlint-disable no-template-curly-in-string -- descriptor data contains literal GitLens format tokens */
+import * as l10n from '@vscode/l10n';
 import type { CheckGroupOptionDescriptor, SettingsCategory } from '../model.js';
 
 /** Shared by `graph.scrollMarkers.additionalTypes` and `graph.minimap.additionalTypes` — both mark the
  *  same 5 ref types, differing only in their trailing WIP/worktree-specific option. */
 const sharedMarkerTypeOptions: CheckGroupOptionDescriptor[] = [
-	{ value: 'localBranches', label: 'Local branches', hint: 'Marks the location of local branches' },
+	{ value: 'localBranches', label: l10n.t('Local branches'), hint: l10n.t('Marks the location of local branches') },
 	{
 		value: 'remoteBranches',
-		label: 'Remote branches',
-		hint: 'Marks the location of remote branches',
+		label: l10n.t('Remote branches'),
+		hint: l10n.t('Marks the location of remote branches'),
 	},
-	{ value: 'pullRequests', label: 'Pull requests', hint: 'Marks the location of pull requests' },
-	{ value: 'stashes', label: 'Stashes', hint: 'Marks the location of stashes' },
-	{ value: 'tags', label: 'Tags', hint: 'Marks the location of tags' },
+	{ value: 'pullRequests', label: l10n.t('Pull requests'), hint: l10n.t('Marks the location of pull requests') },
+	{ value: 'stashes', label: l10n.t('Stashes'), hint: l10n.t('Marks the location of stashes') },
+	{ value: 'tags', label: l10n.t('Tags'), hint: l10n.t('Marks the location of tags') },
 ];
 
 export const viewsCategories: SettingsCategory[] = [
 	{
 		id: 'commit-graph',
 		settingsSearch: 'gitlens.graph',
-		name: 'Commit Graph',
+		name: l10n.t('Commit Graph'),
 		group: 'Views',
 		icon: 'gl-graph',
-		hint: 'Adds a [Commit Graph](command:gitlens.showGraph) to visualize, explore, and manage a Git repository',
+		hint: l10n.t('Adds a [Commit Graph]({command}) to visualize, explore, and manage a Git repository', {
+			command: 'command:gitlens.showGraph',
+		}),
 		pro: true,
 		learnMoreUrl: 'https://help.gitkraken.com/gitlens/gitlens-plus/#commit-graph',
 		preview: 'graph',
@@ -30,55 +33,55 @@ export const viewsCategories: SettingsCategory[] = [
 			{
 				kind: 'segmented',
 				key: 'graph.layout',
-				label: 'Prefer showing the Commit Graph',
+				label: l10n.t('Prefer showing the Commit Graph'),
 				options: [
-					{ value: 'editor', label: 'in the editor area' },
-					{ value: 'panel', label: 'as a view' },
+					{ value: 'editor', label: l10n.t('in the editor area') },
+					{ value: 'panel', label: l10n.t('as a view') },
 				],
 			},
 			{
 				kind: 'number',
 				key: 'graph.defaultItemLimit',
-				label: 'Show this many rows at first',
+				label: l10n.t('Show this many rows at first'),
 				placeholder: '500',
 				defaultValue: '500',
 			},
 			{
 				kind: 'number',
 				key: 'graph.pageItemLimit',
-				label: 'Then page in this many more rows when scrolling',
+				label: l10n.t('Then page in this many more rows when scrolling'),
 				placeholder: '200',
 				defaultValue: '200',
 			},
 			{
 				kind: 'number',
 				key: 'graph.searchItemLimit',
-				label: 'Show this many search results at first and when paging',
+				label: l10n.t('Show this many search results at first and when paging'),
 				placeholder: '0',
 				defaultValue: '0',
 			},
 			{
 				kind: 'number',
 				key: 'graph.scrollRowPadding',
-				label: 'Start scrolling at this many rows from the edge',
+				label: l10n.t('Start scrolling at this many rows from the edge'),
 				placeholder: '0',
 				defaultValue: '0',
 			},
 			{
 				kind: 'check',
 				key: 'graph.scrollMarkers.enabled',
-				label: 'Show markers on the Commit Graph scrollbar',
+				label: l10n.t('Show markers on the Commit Graph scrollbar'),
 			},
 			{
 				kind: 'checkgroup',
 				key: 'graph.scrollMarkers.additionalTypes',
-				label: 'Also mark these on the scrollbar',
+				label: l10n.t('Also mark these on the scrollbar'),
 				options: [
 					...sharedMarkerTypeOptions,
 					{
 						value: 'wip',
-						label: 'Working tree (WIP)',
-						hint: 'Marks the location of working tree (WIP) rows',
+						label: l10n.t('Working tree (WIP)'),
+						hint: l10n.t('Marks the location of working tree (WIP) rows'),
 					},
 				],
 				enabledWhen: 'graph.scrollMarkers.enabled',
@@ -87,18 +90,18 @@ export const viewsCategories: SettingsCategory[] = [
 			{
 				kind: 'check',
 				key: 'graph.minimap.enabled',
-				label: 'Show a minimap of commit activity above the Commit Graph',
+				label: l10n.t('Show a minimap of commit activity above the Commit Graph'),
 			},
 			{
 				kind: 'checkgroup',
 				key: 'graph.minimap.additionalTypes',
-				label: 'Also mark these on the minimap',
+				label: l10n.t('Also mark these on the minimap'),
 				options: [
 					...sharedMarkerTypeOptions,
 					{
 						value: 'worktree',
-						label: 'Other worktrees',
-						hint: 'Marks the location of other worktrees (where each is checked out)',
+						label: l10n.t('Other worktrees'),
+						hint: l10n.t('Marks the location of other worktrees (where each is checked out)'),
 					},
 				],
 				enabledWhen: 'graph.minimap.enabled',
@@ -107,24 +110,24 @@ export const viewsCategories: SettingsCategory[] = [
 			{
 				kind: 'check',
 				key: 'graph.showGhostRefsOnRowHover',
-				label: 'Show ghost branch / tag when hovering over or selecting a commit',
+				label: l10n.t('Show ghost branch / tag when hovering over or selecting a commit'),
 			},
 			{
 				kind: 'check',
 				key: 'graph.dimMergeCommits',
-				label: 'Dim merge commit rows',
+				label: l10n.t('Dim merge commit rows'),
 			},
 			{
 				kind: 'check',
 				key: 'graph.showRemoteNames',
-				label: 'Show remote names on remote branches',
+				label: l10n.t('Show remote names on remote branches'),
 			},
 			{
 				kind: 'select',
 				key: 'graph.refs.maxInline',
-				label: 'Show this many branch and tag pills on each row before collapsing the rest',
+				label: l10n.t('Show this many branch and tag pills on each row before collapsing the rest'),
 				options: [
-					{ value: '1', label: '1 (default)' },
+					{ value: '1', label: l10n.t('{value} (default)', { value: '1' }) },
 					{ value: '2', label: '2' },
 					{ value: '3', label: '3' },
 					{ value: '4', label: '4' },
@@ -134,13 +137,15 @@ export const viewsCategories: SettingsCategory[] = [
 					{ value: '8', label: '8' },
 					{ value: '9', label: '9' },
 					{ value: '10', label: '10' },
-					{ value: 'auto', label: 'auto — fit as many pills as the row allows' },
+					{ value: 'auto', label: l10n.t('auto — fit as many pills as the row allows') },
 				],
 			},
 			{
 				kind: 'select',
 				key: 'graph.refs.maxStacked',
-				label: 'Show this many branch and tag pills on the stacked pill line before collapsing the rest',
+				label: l10n.t(
+					'Show this many branch and tag pills on the stacked pill line before collapsing the rest',
+				),
 				options: [
 					{ value: '1', label: '1' },
 					{ value: '2', label: '2' },
@@ -152,77 +157,80 @@ export const viewsCategories: SettingsCategory[] = [
 					{ value: '8', label: '8' },
 					{ value: '9', label: '9' },
 					{ value: '10', label: '10' },
-					{ value: 'auto', label: 'auto — fit as many pills as the line allows (default)' },
+					{ value: 'auto', label: l10n.t('auto — fit as many pills as the line allows (default)') },
 				],
 			},
 			{
 				kind: 'select',
 				key: 'graph.refs.layout',
-				label: 'Branch and tag pill layout',
+				label: l10n.t('Branch and tag pill layout'),
 				options: [
-					{ value: 'inline', label: 'inline with the commit (default)' },
-					{ value: 'stacked', label: 'stacked on their own line above the commit' },
+					{ value: 'inline', label: l10n.t('inline with the commit (default)') },
+					{ value: 'stacked', label: l10n.t('stacked on their own line above the commit') },
 				],
 			},
 			{
 				kind: 'check',
 				key: 'graph.showUpstreamStatus',
-				label: 'Show upstream status on local branches with remotes',
+				label: l10n.t('Show upstream status on local branches with remotes'),
 			},
 			{
 				kind: 'check',
 				key: 'graph.issues.enabled',
-				label: 'Show associated issues on branches',
-				hint: 'Requires a connection to a supported issue service (e.g. GitHub)',
+				label: l10n.t('Show associated issues on branches'),
+				hint: l10n.t('Requires a connection to a supported issue service (e.g. GitHub)'),
 			},
 			{
 				kind: 'check',
 				key: 'graph.pullRequests.enabled',
-				label: 'Show associated pull requests on remote branches',
-				hint: 'Requires a connection to a supported remote service (e.g. GitHub)',
+				label: l10n.t('Show associated pull requests on remote branches'),
+				hint: l10n.t('Requires a connection to a supported remote service (e.g. GitHub)'),
 			},
 			{
 				kind: 'check',
 				key: 'graph.avatars',
-				label: 'Use author and remote avatars',
+				label: l10n.t('Use author and remote avatars'),
 			},
 			{
 				kind: 'select',
 				key: 'graph.branchesVisibility',
-				label: 'Show branches',
+				label: l10n.t('Show branches'),
 				options: [
-					{ value: 'all', label: 'all branches (default)' },
-					{ value: 'smart', label: 'only relevant branches' },
-					{ value: 'current', label: 'only the current branch' },
-					{ value: 'favorited', label: 'only favorited branches' },
-					{ value: 'agents', label: 'only branches associated with active agents' },
+					{ value: 'all', label: l10n.t('all branches (default)') },
+					{ value: 'smart', label: l10n.t('only relevant branches') },
+					{ value: 'current', label: l10n.t('only the current branch') },
+					{ value: 'favorited', label: l10n.t('only favorited branches') },
+					{ value: 'agents', label: l10n.t('only branches associated with active agents') },
 				],
 			},
 			{
 				kind: 'select',
 				key: 'graph.commitOrdering',
-				label: 'Order commits',
+				label: l10n.t('Order commits'),
 				options: [
-					{ value: 'date', label: 'by commit date, descending (default)' },
-					{ value: 'author-date', label: 'by author date, descending' },
-					{ value: 'topo', label: 'by commit date, descending, without intermixing lines of history' },
+					{ value: 'date', label: l10n.t('by commit date, descending (default)') },
+					{ value: 'author-date', label: l10n.t('by author date, descending') },
+					{
+						value: 'topo',
+						label: l10n.t('by commit date, descending, without intermixing lines of history'),
+					},
 				],
 			},
 			{
 				kind: 'select',
 				key: 'graph.multiselect',
-				label: 'Allow selecting multiple commits',
-				hint: 'Topological restriction keeps a multi-selection along a single line of history',
+				label: l10n.t('Allow selecting multiple commits'),
+				hint: l10n.t('Topological restriction keeps a multi-selection along a single line of history'),
 				options: [
-					{ value: 'false', label: 'no' },
-					{ value: 'true', label: 'yes, without restriction' },
-					{ value: 'topological', label: 'yes, restricted topologically (default)' },
+					{ value: 'false', label: l10n.t('no') },
+					{ value: 'true', label: l10n.t('yes, without restriction') },
+					{ value: 'topological', label: l10n.t('yes, restricted topologically (default)') },
 				],
 			},
 			{
 				kind: 'check',
 				key: 'graph.dateStyle',
-				label: 'Allow relative date formatting',
+				label: l10n.t('Allow relative date formatting'),
 				valueOn: 'relative',
 				valueOff: 'absolute',
 			},
@@ -230,29 +238,29 @@ export const viewsCategories: SettingsCategory[] = [
 			// inherited `defaultDateStyle` when it's left unset (null)
 			{
 				kind: 'info',
-				text: 'Shows some dates relatively, e.g. 1 day ago',
+				text: l10n.t('Shows some dates relatively, e.g. 1 day ago'),
 				visibleWhen: 'graph.dateStyle =relative',
 			},
 			{
 				kind: 'info',
-				text: 'Shows some dates relatively, e.g. 1 day ago',
+				text: l10n.t('Shows some dates relatively, e.g. 1 day ago'),
 				visibleWhen: 'graph.dateStyle =null & defaultDateStyle =relative',
 			},
 			{
 				kind: 'info',
-				text: 'Shows dates absolutely, using the date format below',
+				text: l10n.t('Shows dates absolutely, using the date format below'),
 				visibleWhen: 'graph.dateStyle =absolute',
 			},
 			{
 				kind: 'info',
-				text: 'Shows dates absolutely, using the date format below',
+				text: l10n.t('Shows dates absolutely, using the date format below'),
 				visibleWhen: 'graph.dateStyle =null & defaultDateStyle =absolute',
 			},
 			{
 				kind: 'text',
 				key: 'graph.dateFormat',
-				label: 'Date format',
-				placeholder: 'defaults to `defaultDateFormat` value',
+				label: l10n.t('Date format'),
+				placeholder: l10n.t('defaults to `{setting}` value', { setting: 'defaultDateFormat' }),
 				preview: { type: 'date', default: 'MMMM Do, YYYY h:mma', defaultLookup: 'defaultDateFormat' },
 			},
 		],
@@ -260,31 +268,35 @@ export const viewsCategories: SettingsCategory[] = [
 	{
 		id: 'scm-views',
 		settingsSearch: 'gitlens.views.scm.grouped',
-		name: 'GitLens SCM',
+		name: l10n.t('GitLens SCM'),
 		group: 'Views',
 		icon: 'gl-gitlens',
-		hint: 'Folds multiple GitLens views into one unified GitLens SCM panel, alongside the built-in Source Control view',
+		hint: l10n.t(
+			'Folds multiple GitLens views into one unified GitLens SCM panel, alongside the built-in Source Control view',
+		),
 		controls: [
 			{
 				kind: 'scm-views',
-				label: 'GitLens SCM views',
-				hint: 'Group, hide, or set the default view for GitLens SCM',
+				label: l10n.t('GitLens SCM views'),
+				hint: l10n.t('Group, hide, or set the default view for GitLens SCM'),
 			},
 		],
 	},
 	{
 		id: 'commits-view',
 		settingsSearch: 'gitlens.views.commits or gitlens.views',
-		name: 'Commits view',
+		name: l10n.t('Commits view'),
 		group: 'Views',
 		icon: 'gl-commits-view',
-		hint: 'Adds a [Commits view](command:gitlens.showCommitsView) to visualize, explore, and manage Git commits',
+		hint: l10n.t('Adds a [Commits view]({command}) to visualize, explore, and manage Git commits', {
+			command: 'command:gitlens.showCommitsView',
+		}),
 		learnMoreUrl: 'https://help.gitkraken.com/gitlens/side-bar/#commits-view',
 		controls: [
 			{
 				kind: 'text',
 				key: 'views.formats.commits.label',
-				label: 'Commit label format',
+				label: l10n.t('Commit label format'),
 				placeholder: '${❰ tips ❱➤  }${message}',
 				defaultValue: '${❰ tips ❱➤  }${message}',
 				preview: { type: 'commit', default: '${❰ tips ❱➤  }${message}' },
@@ -293,7 +305,7 @@ export const viewsCategories: SettingsCategory[] = [
 			{
 				kind: 'text',
 				key: 'views.formats.commits.description',
-				label: 'Commit description format',
+				label: l10n.t('Commit description format'),
 				placeholder: '${author, }${agoOrDate}',
 				defaultValue: '${author, }${agoOrDate}',
 				preview: { type: 'commit', default: '${author, }${agoOrDate}' },
@@ -302,7 +314,7 @@ export const viewsCategories: SettingsCategory[] = [
 			{
 				kind: 'text',
 				key: 'views.formats.commits.tooltip',
-				label: 'Commit tooltip format',
+				label: l10n.t('Commit tooltip format'),
 				placeholder: '${avatar} &nbsp;__${author}__${signature} &nbsp;$(history) ${agoAndDateBothSources}',
 				defaultValue:
 					"${avatar} &nbsp;__${author}__${signature} &nbsp;$(history) ${agoAndDateBothSources} \\\n${link}${' via  'pullRequest}${'&nbsp;&nbsp;'changesDetail} ${message}${\n\n---\n\nfootnotes}\n\n${tips}",
@@ -312,8 +324,8 @@ export const viewsCategories: SettingsCategory[] = [
 			{
 				kind: 'text',
 				key: 'views.formats.files.label',
-				label: 'File format',
-				hint: 'Formats file rows shown throughout GitLens views, not just the Commits view',
+				label: l10n.t('File format'),
+				hint: l10n.t('Formats file rows shown throughout GitLens views, not just the Commits view'),
 				placeholder: '${working  }${file}',
 				defaultValue: '${working  }${file}',
 				preview: { type: 'file', default: '${working  }${file}' },
@@ -322,8 +334,8 @@ export const viewsCategories: SettingsCategory[] = [
 			{
 				kind: 'text',
 				key: 'views.formats.files.description',
-				label: 'File description format',
-				hint: 'Formats the file description shown throughout GitLens views, not just the Commits view',
+				label: l10n.t('File description format'),
+				hint: l10n.t('Formats the file description shown throughout GitLens views, not just the Commits view'),
 				placeholder: '${directory}${  ←  originalPath}',
 				defaultValue: '${directory}${  ←  originalPath}',
 				preview: { type: 'file' },
@@ -334,16 +346,18 @@ export const viewsCategories: SettingsCategory[] = [
 	{
 		id: 'stashes-view',
 		settingsSearch: 'gitlens.views.stashes or gitlens.views',
-		name: 'Stashes view',
+		name: l10n.t('Stashes view'),
 		group: 'Views',
 		icon: 'gl-stashes-view',
-		hint: 'Adds a [Stashes view](command:gitlens.showStashesView) to visualize, explore, and manage Git stashes',
+		hint: l10n.t('Adds a [Stashes view]({command}) to visualize, explore, and manage Git stashes', {
+			command: 'command:gitlens.showStashesView',
+		}),
 		learnMoreUrl: 'https://help.gitkraken.com/gitlens/side-bar/#stashes-view',
 		controls: [
 			{
 				kind: 'text',
 				key: 'views.formats.stashes.label',
-				label: 'Stash label format',
+				label: l10n.t('Stash label format'),
 				placeholder: '${message}',
 				defaultValue: '${message}',
 				preview: { type: 'commit', default: '${message}' },
@@ -352,7 +366,7 @@ export const viewsCategories: SettingsCategory[] = [
 			{
 				kind: 'text',
 				key: 'views.formats.stashes.description',
-				label: 'Stash description format',
+				label: l10n.t('Stash description format'),
 				placeholder: '${stashOnRef, }${agoOrDate}',
 				defaultValue: '${stashOnRef, }${agoOrDate}',
 				preview: { type: 'commit', default: '${stashOnRef, }${agoOrDate}' },
@@ -361,7 +375,7 @@ export const viewsCategories: SettingsCategory[] = [
 			{
 				kind: 'text',
 				key: 'views.formats.stashes.tooltip',
-				label: 'Stash tooltip format',
+				label: l10n.t('Stash tooltip format'),
 				placeholder: "${link}${' on `'stashOnRef`}",
 				defaultValue:
 					"${link}${' on `'stashOnRef`}${'\\\n&nbsp;&nbsp;'changesDetail} \\\n &nbsp;$(history) ${agoAndDate} ${message}${\n\n---\n\nfootnotes}",

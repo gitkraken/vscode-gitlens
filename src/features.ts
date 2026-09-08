@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { GitFeatures } from '@gitlens/git/features.js';
 import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import { capitalize } from '@gitlens/utils/string.js';
@@ -111,7 +112,7 @@ export interface FeaturePreview {
 export function getFeaturePreviewLabel(feature: FeaturePreviews): string {
 	switch (feature) {
 		case 'graph':
-			return 'Commit Graph';
+			return l10n.t('Commit Graph');
 		default:
 			return capitalize(feature);
 	}

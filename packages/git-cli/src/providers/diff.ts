@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import type {
@@ -1004,9 +1005,11 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
-			if (msg === 'No diff tool found' || /Unknown .+? tool/.test(msg)) {
+			if ((ex instanceof Error && ex.message === 'No diff tool found') || /Unknown .+? tool/.test(msg)) {
 				throw new Error(
-					'Unable to open changes because the specified diff tool cannot be found or no Git diff tool is configured',
+					l10n.t(
+						'Unable to open changes because the specified diff tool cannot be found or no Git diff tool is configured',
+					),
 					{ cause: ex },
 				);
 			}
@@ -1033,9 +1036,11 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			await this.git.run({ cwd: repoPath }, 'difftool', '--dir-diff', `--tool=${tool}`, ref1, ref2);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
-			if (msg === 'No diff tool found' || /Unknown .+? tool/.test(msg)) {
+			if ((ex instanceof Error && ex.message === 'No diff tool found') || /Unknown .+? tool/.test(msg)) {
 				throw new Error(
-					'Unable to open directory compare because the specified diff tool cannot be found or no Git diff tool is configured',
+					l10n.t(
+						'Unable to open directory compare because the specified diff tool cannot be found or no Git diff tool is configured',
+					),
 					{ cause: ex },
 				);
 			}

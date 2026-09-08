@@ -52,6 +52,7 @@ import { getPrimaryGitCommand, GitQueue, inferGitCommandPriority } from './gitQu
 import type { GitLocation } from './locator.js';
 
 export const slowCallWarningThreshold = 2000;
+export type GitFeatureUnsupportedMessage = (requiredVersion: string, installedVersion: string) => string;
 /** Below this, a queue-wait annotation isn't worth adding to the log line. */
 const queueWaitAnnotationThreshold = 100;
 /** Below this, a measured event-loop stall isn't worth annotating — see {@link EventLoopMonitor}. */
@@ -721,16 +722,24 @@ export class Git {
 		return supportedCore(this._gitLocation.version);
 	}
 
-	async ensureSupports(feature: GitFeatures, prefix: string, suffix: string): Promise<void> {
+	async ensureSupports(feature: GitFeatures, prefix: string, suffix: string): Promise<void>;
+	async ensureSupports(feature: GitFeatures, message: GitFeatureUnsupportedMessage): Promise<void>;
+	async ensureSupports(
+		feature: GitFeatures,
+		prefixOrMessage: string | GitFeatureUnsupportedMessage,
+		suffix?: string,
+	): Promise<void> {
 		const version = gitFeaturesByVersion.get(feature);
 		if (version == null) return;
 
 		const gitVersion = await this.version();
 		if (compare(fromString(gitVersion), fromString(version)) !== -1) return;
 
-		throw new Error(
-			`${prefix} requires a newer version of Git (>= ${version}) than is currently installed (${gitVersion}).${suffix}`,
-		);
+		const message =
+			typeof prefixOrMessage === 'function'
+				? prefixOrMessage(version, gitVersion)
+				: `${prefixOrMessage} requires a newer version of Git (>= ${version}) than is currently installed (${gitVersion}).${suffix}`;
+		throw new Error(message);
 	}
 
 	async run(

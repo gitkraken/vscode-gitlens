@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { QuickInputButton } from 'vscode';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { remoteUrlRegex } from '@gitlens/git/utils/remote.utils.js';
@@ -58,21 +59,21 @@ export async function* inputRemoteNameStep<
 ): AsyncStepResultGenerator<string> {
 	const step = createInputStep({
 		title: appendReposToTitle(options?.title ?? context.title, state, context),
-		placeholder: options?.placeholder ?? 'Remote name',
+		placeholder: options?.placeholder ?? l10n.t('Remote name'),
 		value: options?.value ?? state.remote?.name,
-		prompt: options?.prompt ?? 'Please provide a name for the remote',
+		prompt: options?.prompt ?? l10n.t('Please provide a name for the remote'),
 		canGoBack: context.steps?.canGoBack,
 		validate: async (value: string | undefined): Promise<[boolean, string | undefined]> => {
 			if (!value) return [false, undefined];
 
 			value = value.trim();
-			if (!value.length) return [false, 'Please enter a valid remote name'];
+			if (!value.length) return [false, l10n.t('Please enter a valid remote name')];
 
 			const valid = !/[^a-zA-Z0-9-_.]/.test(value);
-			if (!valid) return [false, `'${value}' isn't a valid remote name`];
+			if (!valid) return [false, l10n.t("'{0}' isn't a valid remote name", value)];
 
 			const remotes = await state.repo.git.remotes.getRemotes({ filter: (r: GitRemote) => r.name === value });
-			if (remotes.length) return [false, `A remote named '${value}' already exists`];
+			if (remotes.length) return [false, l10n.t("A remote named '{0}' already exists", value)];
 
 			return [true, undefined];
 		},
@@ -96,18 +97,18 @@ export async function* inputRemoteUrlStep<
 ): AsyncStepResultGenerator<string> {
 	const step = createInputStep({
 		title: appendReposToTitle(options?.title ?? context.title, state, context),
-		placeholder: options?.placeholder ?? 'Remote URL',
+		placeholder: options?.placeholder ?? l10n.t('Remote URL'),
 		value: options?.value ?? state.remote?.url,
-		prompt: options?.prompt ?? 'Please provide a URL for the remote',
+		prompt: options?.prompt ?? l10n.t('Please provide a URL for the remote'),
 		canGoBack: context.steps?.canGoBack,
 		validate: (value: string | undefined): [boolean, string | undefined] => {
 			if (!value) return [false, undefined];
 
 			value = value.trim();
-			if (!value.length) return [false, 'Please enter a valid remote URL'];
+			if (!value.length) return [false, l10n.t('Please enter a valid remote URL')];
 
 			const valid = remoteUrlRegex.test(value);
-			return [valid, valid ? undefined : `'${value}' isn't a valid remote URL`];
+			return [valid, valid ? undefined : l10n.t("'{0}' isn't a valid remote URL", value)];
 		},
 	});
 
@@ -139,7 +140,7 @@ export function* pickRemoteStep<
 
 	const step = createPickStep<RemoteQuickPickItem>({
 		title: appendReposToTitle(options.title ?? context.title, state, context),
-		placeholder: count => (!count ? `No remotes found in ${state.repo.name}` : options.placeholder),
+		placeholder: count => (!count ? l10n.t('No remotes found in {0}', state.repo.name) : options.placeholder),
 		matchOnDetail: true,
 		items: items,
 		canGoBack: context.steps?.canGoBack,
@@ -179,7 +180,7 @@ export function* pickRemotesStep<
 	const step = createPickStep<RemoteQuickPickItem>({
 		multiselect: true,
 		title: appendReposToTitle(options.title ?? context.title, state, context),
-		placeholder: count => (!count ? `No remotes found in ${state.repo.name}` : options.placeholder),
+		placeholder: count => (!count ? l10n.t('No remotes found in {0}', state.repo.name) : options.placeholder),
 		matchOnDetail: true,
 		items: items,
 		canGoBack: context.steps?.canGoBack,

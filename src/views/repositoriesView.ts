@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable, Event } from 'vscode';
-import { EventEmitter, ProgressLocation, window } from 'vscode';
+import { EventEmitter, l10n, ProgressLocation, window } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitContributor } from '@gitlens/git/models/contributor.js';
 import type {
@@ -50,7 +50,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	protected readonly configKey = 'repositories';
 
 	constructor(container: Container, grouped?: GroupedViewContext) {
-		super(container, 'repositories', 'Repositories', 'repositoriesView', grouped);
+		super(container, 'repositories', l10n.t('Repositories'), 'repositoriesView', grouped);
 	}
 
 	override dispose(): void {
@@ -542,10 +542,13 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${getReferenceLabel(branch, {
-					icon: false,
-					quoted: true,
-				})} in the Repositories view...`,
+				title: l10n.t(
+					'Revealing {0} in the Repositories view...',
+					getReferenceLabel(branch, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (_progress, token) => {
@@ -587,10 +590,13 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${getReferenceLabel(commit, {
-					icon: false,
-					quoted: true,
-				})} in the Repositories view...`,
+				title: l10n.t(
+					'Revealing {0} in the Repositories view...',
+					getReferenceLabel(commit, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (_progress, token) => {
@@ -609,7 +615,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing contributor '${contributor.name} in the Repositories view...`,
+				title: l10n.t("Revealing contributor '{0} in the Repositories view...", contributor.name),
 				cancellable: true,
 			},
 			async (_progress, token) => {
@@ -628,7 +634,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing remote '${remote.name}' in the side bar...`,
+				title: l10n.t("Revealing remote '{0}' in the side bar...", remote.name),
 				cancellable: true,
 			},
 			async (_progress, token) => {
@@ -661,10 +667,13 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${getReferenceLabel(stash, {
-					icon: false,
-					quoted: true,
-				})} in the Repositories view...`,
+				title: l10n.t(
+					'Revealing {0} in the Repositories view...',
+					getReferenceLabel(stash, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (_progress, token) => {
@@ -706,10 +715,13 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${getReferenceLabel(tag, {
-					icon: false,
-					quoted: true,
-				})} in the Repositories view...`,
+				title: l10n.t(
+					'Revealing {0} in the Repositories view...',
+					getReferenceLabel(tag, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (_progress, token) => {
@@ -751,7 +763,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing worktree '${worktree.name}' in the side bar...`,
+				title: l10n.t("Revealing worktree '{0}' in the side bar...", worktree.name),
 				cancellable: true,
 			},
 			async (_progress, token) => {

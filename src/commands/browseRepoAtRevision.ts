@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { Container } from '../container.js';
@@ -66,7 +67,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 
 			openWorkspace(uri, {
 				location: args.openInNewWindow ? 'newWindow' : 'addToWorkspace',
-				name: `${basename(gitUri.repoPath!)} @ ${gitUri.shortSha}`,
+				name: l10n.t('{0} @ {1}', basename(gitUri.repoPath!), gitUri.shortSha),
 			});
 
 			if (!args.openInNewWindow) {
@@ -74,7 +75,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'BrowseRepoAtRevisionCommand');
-			void showGenericErrorMessage('Unable to open the repository at the specified revision');
+			void showGenericErrorMessage(l10n.t('Unable to open the repository at the specified revision'));
 		}
 	}
 }

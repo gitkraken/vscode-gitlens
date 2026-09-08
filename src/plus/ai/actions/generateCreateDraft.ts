@@ -1,4 +1,5 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { l10n } from 'vscode';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import type { AIChatMessage } from '@gitlens/ai/models/provider.js';
 import type { AISummarizedResult } from '@gitlens/ai/models/results.js';
@@ -34,7 +35,7 @@ export async function generateCreateDraft(
 			getMessages: async (model, reporting, cancellation, maxInputTokens, retries) => {
 				const changes: string | undefined = await service.getChanges(changesOrRepo);
 				if (changes == null) {
-					throw new AINoRequestDataError('No changes to generate a cloud patch from.');
+					throw new AINoRequestDataError(l10n.t('No changes to generate a cloud patch from.'));
 				}
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
@@ -56,7 +57,7 @@ export async function generateCreateDraft(
 				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
 				return messages;
 			},
-			getProgressTitle: m => `Generating cloud patch description with ${m.name}...`,
+			getProgressTitle: m => l10n.t('Generating cloud patch description with {0}...', m.name),
 			getTelemetryInfo: m => ({
 				key: 'ai/generate',
 				data: {

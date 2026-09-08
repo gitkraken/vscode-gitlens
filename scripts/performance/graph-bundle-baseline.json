@@ -1,20 +1,20 @@
 {
 	"schemaVersion": 2,
 	"producer": "webpack --mode production --config-name webviews:common --config-name webviews --env analyzeBundle --env quick",
-	"sourceCommit": "9203af3aae6bd158be723b62d9dcca50e59dc083",
+	"sourceCommit": "f5dfbe39e94446564b122a18c2ba1c96c4299978",
 	"entrypoint": "graph",
 	"enforcedMetrics": ["entrypoint", "graph.css", "shared.js"],
-	"budgetRationale": "Re-baselined at the worktree-scoping feature (independent Scope and Focus modes): +43 KiB on the entrypoint, of which +35 KiB is graph.js (the scope popover and header pill, the shared worktree gesture machine, the rebind and persisted-perspective state, and superseded-page handling) and +7 KiB is graph.css (the scoped tint bands and pill chrome). Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint for host-neutral extension seams, 4 KiB on shared.js (loaded by every webview) so unrelated shared-code changes don't trip a graph check while real bloat still does, and graph.css's accounted allowance for the gl-commit-graph element rename and the VS Code theme-token table. Dropping the element prefix is queued and will take the css ceiling back toward main.",
+	"budgetRationale": "Re-baselined for localization: +82 KiB on the entrypoint, of which +162 KiB is graph.js and -80 KiB is shared.js. The growth is diffuse across the Graph's own components (largest single module +9 KiB): every user-facing string now goes through l10n.t() with complete messages, verb and count variants are explicit messages instead of interpolated fragments, and rich text renders through localizedContent. No module moved between chunks and nothing new was pulled in. Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint for host-neutral extension seams, 4 KiB on shared.js (loaded by every webview) so unrelated shared-code changes don't trip a graph check while real bloat still does, and graph.css's accounted allowance for the gl-commit-graph element rename and the VS Code theme-token table.",
 	"baselineBytes": {
-		"entrypoint": 3005881,
-		"graph.js": 1791491,
+		"entrypoint": 3087963,
+		"graph.js": 1953330,
 		"graph.css": 160779,
-		"shared.js": 1053611
+		"shared.js": 973854
 	},
 	"maximumBytes": {
-		"entrypoint": 3018169,
-		"graph.js": 1791491,
+		"entrypoint": 3100251,
+		"graph.js": 1953330,
 		"graph.css": 167660,
-		"shared.js": 1057707
+		"shared.js": 977950
 	}
 }

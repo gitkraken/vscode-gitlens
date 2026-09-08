@@ -309,8 +309,11 @@ function getExtensionConfig(target, mode, env) {
 		// `sequence.editor` for the Commit Graph's headless squash/drop/reword (no git in webworker).
 		entry:
 			target === 'webworker'
-				? { extension: './src/extension.ts' }
-				: { extension: './src/extension.ts', rebaseTodoEditor: './src/git/utils/rebaseTodoEditor.ts' },
+				? { extension: ['./src/system/-webview/localization.ts', './src/extension.ts'] }
+				: {
+						extension: ['./src/system/-webview/localization.ts', './src/extension.ts'],
+						rebaseTodoEditor: './src/git/utils/rebaseTodoEditor.ts',
+					},
 		mode: mode,
 		target: target,
 		devtool: mode === 'production' && !env.analyzeBundle ? false : 'cheap-module-source-map',

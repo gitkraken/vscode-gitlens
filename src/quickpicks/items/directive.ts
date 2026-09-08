@@ -1,6 +1,6 @@
 import type { QuickPick, QuickPickItem, Uri } from 'vscode';
-import { ThemeIcon } from 'vscode';
-import { pluralize } from '@gitlens/utils/string.js';
+import { l10n, ThemeIcon } from 'vscode';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { proTrialLengthInDays } from '../../constants.subscription.js';
 
 export enum Directive {
@@ -30,6 +30,13 @@ export interface DirectiveQuickPickItem extends QuickPickItem {
 	onDidSelect?: (quickpick: QuickPick<QuickPickItem>) => void | Promise<void>;
 }
 
+function getProTrialDetail(days: number): string {
+	const formattedDays = getNumericFormat()(days);
+	return days === 1
+		? l10n.t('Get {0} day of GitLens Pro for free — no credit card required.', formattedDays)
+		: l10n.t('Get {0} days of GitLens Pro for free — no credit card required.', formattedDays);
+}
+
 export function createDirectiveQuickPickItem(
 	directive: Directive,
 	picked?: boolean,
@@ -48,56 +55,53 @@ export function createDirectiveQuickPickItem(
 	if (label == null) {
 		switch (directive) {
 			case Directive.Back:
-				label = 'Back';
+				label = l10n.t('Back');
 				break;
 			case Directive.Cancel:
-				label = 'Cancel';
+				label = l10n.t('Cancel');
 				break;
 			case Directive.LoadMore:
-				label = 'Load more';
+				label = l10n.t('Load more');
 				break;
 			case Directive.Noop:
-				label = 'Try again';
+				label = l10n.t('Try again');
 				break;
 			case Directive.Reset:
-				label = 'Reset';
+				label = l10n.t('Reset');
 				break;
 
 			case Directive.SignIn:
-				label = 'Sign In';
+				label = l10n.t('Sign In');
 				break;
 			case Directive.StartProTrial:
-				label = 'Try GitLens Pro';
-				detail = `Get ${pluralize(
-					'day',
-					proTrialLengthInDays,
-				)} of GitLens Pro for free — no credit card required.`;
+				label = l10n.t('Try GitLens Pro');
+				detail = getProTrialDetail(proTrialLengthInDays);
 				break;
 
 			case Directive.RequiresVerification:
-				label = 'Resend Email';
-				detail = 'You must verify your email before you can continue';
+				label = l10n.t('Resend Email');
+				detail = l10n.t('You must verify your email before you can continue');
 				break;
 			case Directive.RequiresPaidSubscription:
-				label = 'Upgrade to Pro';
+				label = l10n.t('Upgrade to Pro');
 				if (detail != null) {
-					description ??= ' \u2014\u00a0\u00a0 GitLens Pro is required to use this feature';
+					description ??= l10n.t(' —\u00a0\u00a0 GitLens Pro is required to use this feature');
 				} else {
-					detail = 'Upgrading to GitLens Pro is required to use this feature';
+					detail = l10n.t('Upgrading to GitLens Pro is required to use this feature');
 				}
 				break;
 
 			case Directive.RefsAllBranches:
-				label = 'All Branches';
+				label = l10n.t('All Branches');
 				break;
 
 			case Directive.ReposAll:
-				label = 'All Repositories';
+				label = l10n.t('All Repositories');
 				break;
 
 			case Directive.ReposAllExceptWorktrees:
-				label = 'All Repositories';
-				description = ' excluding worktrees / submodules';
+				label = l10n.t('All Repositories');
+				description = l10n.t(' excluding worktrees / submodules');
 				break;
 		}
 	}

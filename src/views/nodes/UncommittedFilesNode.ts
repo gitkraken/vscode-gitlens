@@ -1,4 +1,4 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitFileWithCommit } from '@gitlens/git/models/file.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
@@ -85,7 +85,7 @@ export class UncommittedFilesNode extends ViewNode<'uncommitted-files', ViewsWit
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Uncommitted changes', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(l10n.t('Uncommitted changes'), TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.UncommittedFiles;
 		item.iconPath = new ThemeIcon('folder');

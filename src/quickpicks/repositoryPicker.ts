@@ -1,5 +1,5 @@
 import type { Disposable, TextEditor, Uri } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { filterMap } from '@gitlens/utils/array.js';
 import { map } from '@gitlens/utils/iterable.js';
 import { GlyphChars } from '../constants.js';
@@ -300,14 +300,18 @@ export async function showRepositoriesPicker2(
 
 export function getRepositoryPickerTitleAndPlaceholder(
 	repositories: GlRepository[],
-	action: string,
+	_action: 'Switch',
 	context?: string,
 ): { title: string; placeholder: string } {
 	const hasWorktrees = repositories.some(r => r.isWorktree);
-	const title = context
-		? `${action} ${hasWorktrees ? 'Repository or Worktree' : 'Repository'} ${GlyphChars.Dot} ${context}`
-		: action;
-	const placeholder = `Select a ${hasWorktrees ? 'repository or worktree' : 'repository'} to ${action.toLowerCase()} to`;
+	const title = !context
+		? l10n.t('Switch')
+		: hasWorktrees
+			? l10n.t('Switch Repository or Worktree {0} {1}', GlyphChars.Dot, context)
+			: l10n.t('Switch Repository {0} {1}', GlyphChars.Dot, context);
+	const placeholder = hasWorktrees
+		? l10n.t('Select a repository or worktree to switch to')
+		: l10n.t('Select a repository to switch to');
 
 	return { title: title, placeholder: placeholder };
 }

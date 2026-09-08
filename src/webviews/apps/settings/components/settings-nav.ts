@@ -1,9 +1,11 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { focusOutlineButton, srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { AutolinkConfig } from '../../../../config.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
@@ -12,6 +14,21 @@ import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
 import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/feature-badge.js';
+
+function getSettingsGroupLabel(group: SettingsGroup): string {
+	switch (group) {
+		case 'Setup':
+			return l10n.t('Setup');
+		case 'Integrations':
+			return l10n.t('Integrations');
+		case 'Editor':
+			return l10n.t('Editor');
+		case 'Views':
+			return l10n.t('Views');
+		case 'General':
+			return l10n.t('General');
+	}
+}
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -230,8 +247,18 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 			return {
 				on: connected > 0,
 				count: {
-					label: `${connected}/${integrations.length}`,
-					aria: `${connected} of ${integrations.length} connected`,
+					label: l10n.t({
+						message: '{connected}/{total}',
+						args: {
+							connected: connected,
+							total: integrations.length,
+						},
+						comment: ['Compact status showing connected integrations out of all available integrations.'],
+					}),
+					aria: l10n.t('{connected} of {total} connected', {
+						connected: connected,
+						total: integrations.length,
+					}),
 				},
 			};
 		}
@@ -247,7 +274,15 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 			return {
 				on: count > 0,
 				count:
-					count > 0 ? { label: `${count}`, aria: `${count} autolink${count === 1 ? '' : 's'}` } : undefined,
+					count > 0
+						? {
+								label: String(count),
+								aria:
+									count === 1
+										? l10n.t('{count} autolink', { count: count })
+										: l10n.t('{count} autolinks', { count: count }),
+							}
+						: undefined,
 			};
 		}
 
@@ -256,7 +291,20 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 			on: this.isOn(category, counts),
 			count:
 				counts != null
-					? { label: `${counts.on}/${counts.total}`, aria: `${counts.on} of ${counts.total} on` }
+					? {
+							label: l10n.t({
+								message: '{on}/{total}',
+								args: {
+									on: counts.on,
+									total: counts.total,
+								},
+								comment: ['Compact status showing enabled settings out of all settings in a category.'],
+							}),
+							aria: l10n.t('{on} of {total} on', {
+								on: counts.on,
+								total: counts.total,
+							}),
+						}
 					: undefined,
 		};
 	}
@@ -318,8 +366,10 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 		// so identical counts across keystrokes don't re-announce on every letter
 		const status = query
 			? matches.length
-				? `${matches.length} matching ${matches.length === 1 ? 'category' : 'categories'}`
-				: 'No matching settings'
+				? matches.length === 1
+					? l10n.t('{count} matching category', { count: matches.length })
+					: l10n.t('{count} matching categories', { count: matches.length })
+				: l10n.t('No matching settings')
 			: '';
 		const liveRegion = html`<div class="sr-only" role="status" aria-live="polite">${status}</div>`;
 
@@ -331,12 +381,20 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 				query.includes(' ') || query.toLowerCase().startsWith('gitlens.') ? query : `gitlens.${query}`;
 			return html`${liveRegion}
 				<div class="empty">
-					<p>No settings match “${query}”.</p>
+					<p>${l10n.t('No settings match “{query}”.', { query: query })}</p>
 					<p>
-						<a href="command:workbench.action.openSettings?${encodeURIComponent(JSON.stringify(target))}"
-							>Open in Settings UI</a
-						>
-						to search every GitLens setting.
+						${localizedContent(
+							l10n.t({
+								message: '{link} to search every GitLens setting.',
+								comment: ['{link} is the “Open in Settings UI” action.'],
+							}),
+							{
+								link: html`<a
+									href="command:workbench.action.openSettings?${encodeURIComponent(JSON.stringify(target))}"
+									>${l10n.t('Open in Settings UI')}</a
+								>`,
+							},
+						)}
 					</p>
 				</div>`;
 		}
@@ -360,20 +418,26 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 			${
 				query
 					? html`<p class="results-count">
-							${matches.length} ${matches.length === 1 ? 'category' : 'categories'}
+							${
+								matches.length === 1
+									? l10n.t('{count} category', { count: matches.length })
+									: l10n.t('{count} categories', { count: matches.length })
+							}
 						</p>`
 					: nothing
 			}
-			<div role="listbox" aria-label="Settings categories" @keydown=${this.handleKeyDown}>
+			<div role="listbox" aria-label=${l10n.t('Settings categories')} @keydown=${this.handleKeyDown}>
 				${Array.from(
 					groups.entries(),
 					([group, items]) => html`
-						<div class="group" role="group" aria-label=${group}>
+						<div class="group" role="group" aria-label=${getSettingsGroupLabel(group)}>
 							${
 								// Setup leads the rail as the app's home group; its heading would just label the
 								// obvious, so it's suppressed (the group keeps its aria-label for screen readers).
 								group !== 'Setup'
-									? html`<h2 class="group__label" aria-hidden="true">${group}</h2>`
+									? html`<h2 class="group__label" aria-hidden="true">
+											${getSettingsGroupLabel(group)}
+										</h2>`
 									: nothing
 							}
 							${items.map(m => this.renderItem(m.category, selectedId, tabStopId))}
@@ -416,7 +480,7 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 				count
 					? html`<span class="item__count" aria-label=${count.aria}>${count.label}</span>`
 					: on !== undefined
-						? html`<span class="sr-only">${on ? 'On' : 'Off'}</span>`
+						? html`<span class="sr-only">${on ? l10n.t('On') : l10n.t('Off')}</span>`
 						: nothing
 			}
 		</button>`;

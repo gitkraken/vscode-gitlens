@@ -1,4 +1,4 @@
-import { commands } from 'vscode';
+import { commands, l10n } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
 import { showGenericErrorMessage } from '../messages.js';
@@ -19,7 +19,7 @@ export class ShowLastQuickPickCommand extends GlCommandBase {
 			return commands.executeCommand(command.command, ...command.args);
 		} catch (ex) {
 			Logger.error(ex, 'ShowLastQuickPickCommand');
-			return showGenericErrorMessage('Unable to show last quick pick');
+			return showGenericErrorMessage(l10n.t('Unable to show last quick pick'));
 		}
 	}
 }

@@ -1,4 +1,4 @@
-import { Uri } from 'vscode';
+import { l10n, Uri } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { getChangedFilesCount } from '@gitlens/git/utils/commit.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
@@ -262,7 +262,7 @@ export async function computeTimelineDataset(
 			deletions: 0,
 			sha: '', // Special case for working tree when there are no working changes
 			date: new Date().toISOString(),
-			message: 'Working Tree',
+			message: l10n.t('Working Tree'),
 			sort: Date.now(),
 		} satisfies TimelineDatum);
 	}
@@ -320,7 +320,7 @@ export async function buildWipDatums(
 	// in `computeTimelineDataset`. Caller drops this when the dataset has no other rows.
 	return [
 		{
-			author: currentUser?.name ?? 'You',
+			author: currentUser?.name ?? l10n.t('You'),
 			current: currentUser != null || undefined,
 			email: currentUser?.email,
 			files: 0,
@@ -328,7 +328,7 @@ export async function buildWipDatums(
 			deletions: 0,
 			sha: '',
 			date: new Date().toISOString(),
-			message: 'Working Tree',
+			message: l10n.t('Working Tree'),
 			sort: Date.now(),
 		} satisfies TimelineDatum,
 	];
@@ -398,7 +398,7 @@ export function generateRandomTimelineDataset(itemType: TimelineScopeType): Time
 			sha: Math.random().toString(16).substring(2, 10),
 			author: author,
 			date: date.toISOString(),
-			message: `Commit message for changes by ${author}`,
+			message: l10n.t('Commit message for changes by {author}', { author: author }),
 
 			files: itemType === 'file' ? undefined : Math.floor(Math.random() * (additions + deletions)) + 1,
 			additions: additions,

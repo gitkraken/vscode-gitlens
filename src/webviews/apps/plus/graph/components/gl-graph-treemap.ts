@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
@@ -54,9 +55,9 @@ export type { GraphTreemapModeChangeDetail } from './gl-graph-visualizations-swi
  *  Doubles as an anchor for the breadcrumbs / description that follow — "you are in <X> looking
  *  at <scope> · <counts>". */
 const treemapTitles: Record<TreemapMode, string> = {
-	files: 'FILES',
-	commits: 'COMMITS',
-	activity: 'AGENT ACTIVITY',
+	files: l10n.t('FILES'),
+	commits: l10n.t('COMMITS'),
+	activity: l10n.t('AGENT ACTIVITY'),
 };
 
 /** Decay-window picker labels for Activity mode. Parallel to the timeline's `periodLabels` but
@@ -64,12 +65,12 @@ const treemapTitles: Record<TreemapMode, string> = {
  *  heatmap after the agent finishes". Each label matches the contributions.json enum description
  *  so the picker reads consistently with the Settings UI. */
 const decayLabels: Record<GraphActivityDecay, string> = {
-	'30s': '30 seconds',
-	'1m': '1 minute',
-	'2m': '2 minutes',
-	'5m': '5 minutes',
-	'10m': '10 minutes',
-	'30m': '30 minutes',
+	'30s': l10n.t('30 seconds'),
+	'1m': l10n.t('1 minute'),
+	'2m': l10n.t('2 minutes'),
+	'5m': l10n.t('5 minutes'),
+	'10m': l10n.t('10 minutes'),
+	'30m': l10n.t('30 minutes'),
 };
 
 /** Per-file activity entry consumed by the chart renderer. `readAt`/`editedAt` are
@@ -1080,7 +1081,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	override render(): unknown {
 		const repo = this.effectiveRepo;
 		if (repo == null) {
-			return html`<div class="empty"><p>No repository selected</p></div>`;
+			return html`<div class="empty"><p>${l10n.t('No repository selected')}</p></div>`;
 		}
 
 		const mode = this.mode;
@@ -1122,10 +1123,10 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 				<gl-tooltip
 					class="toolbar__experimental"
 					placement="bottom"
-					content="This is an experimental feature"
+					content=${l10n.t('This is an experimental feature')}
 					.distance=${6}
 				>
-					<gl-badge appearance="experimental" aria-label="Experimental feature">EXP</gl-badge>
+					<gl-badge appearance="experimental" aria-label=${l10n.t('Experimental feature')}>EXP</gl-badge>
 				</gl-tooltip>
 				<gl-graph-coachmark
 					mark="visualizations"
@@ -1152,7 +1153,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 										slot="anchor"
 										class="period-button"
 										type="button"
-										aria-label="Change time range"
+										aria-label=${l10n.t('Change time range')}
 									>
 										${periodLabels[period]}<code-icon icon="chevron-down"></code-icon>
 									</button>
@@ -1171,12 +1172,12 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 										slot="anchor"
 										placement="bottom"
 										.distance=${6}
-										content="How long files stay highlighted after the agent reads or edits them"
+										content=${l10n.t('How long files stay highlighted after the agent reads or edits them')}
 									>
 										<button
 											class="period-button"
 											type="button"
-											aria-label="How long files stay highlighted after the agent reads or edits them"
+											aria-label=${l10n.t('How long files stay highlighted after the agent reads or edits them')}
 										>
 											${decayLabels[decay]}<code-icon icon="chevron-down"></code-icon>
 										</button>
@@ -1186,8 +1187,8 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 					}
 					<gl-button
 						appearance="toolbar"
-						tooltip="Close Visualizations"
-						aria-label="Close Visualizations"
+						tooltip=${l10n.t('Close Visualizations')}
+						aria-label=${l10n.t('Close Visualizations')}
 						@click=${this.onCloseClick}
 					>
 						<code-icon icon="close"></code-icon>
@@ -1220,8 +1221,10 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 				${
 					this._error
 						? html`<div class="overlay" role="alert">
-								<p>Failed to load treemap data</p>
-								<gl-button appearance="secondary" @click=${this.handleRetry}>Retry</gl-button>
+								<p>${l10n.t('Failed to load treemap data')}</p>
+								<gl-button appearance="secondary" @click=${this.handleRetry}
+									>${l10n.t('Retry')}</gl-button
+								>
 							</div>`
 						: nothing
 				}
@@ -1386,9 +1389,15 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		const fileCount = countFiles(scope);
 		if (fileCount === 0) return nothing;
 
-		const filesText = `${fileCount.toLocaleString()} file${fileCount === 1 ? '' : 's'}`;
+		const formattedFileCount = fileCount.toLocaleString();
 		if (mode === 'files') {
-			return html`<span class="toolbar__description">${filesText}</span>`;
+			return html`<span class="toolbar__description"
+				>${
+					fileCount === 1
+						? l10n.t('{count} file', { count: formattedFileCount })
+						: l10n.t('{count} files', { count: formattedFileCount })
+				}</span
+			>`;
 		}
 
 		// Commits mode: pull the unique-commit count for the scope from the host's pre-computed
@@ -1396,12 +1405,38 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		// the average files-per-commit factor since each commit touches many leaves in a folder).
 		const freq = data.frequencies;
 		if (freq == null) {
-			return html`<span class="toolbar__description">${filesText}</span>`;
+			return html`<span class="toolbar__description"
+				>${
+					fileCount === 1
+						? l10n.t('{count} file', { count: formattedFileCount })
+						: l10n.t('{count} files', { count: formattedFileCount })
+				}</span
+			>`;
 		}
 
 		const commitCount = lookupCommitCount(scope, freq, root);
-		const commitsText = `${commitCount.toLocaleString()} commit${commitCount === 1 ? '' : 's'}`;
-		return html`<span class="toolbar__description">${commitsText} · ${filesText}</span>`;
+		const formattedCommitCount = commitCount.toLocaleString();
+		const description =
+			commitCount === 1
+				? fileCount === 1
+					? l10n.t('{commits} commit · {files} file', {
+							commits: formattedCommitCount,
+							files: formattedFileCount,
+						})
+					: l10n.t('{commits} commit · {files} files', {
+							commits: formattedCommitCount,
+							files: formattedFileCount,
+						})
+				: fileCount === 1
+					? l10n.t('{commits} commits · {files} file', {
+							commits: formattedCommitCount,
+							files: formattedFileCount,
+						})
+					: l10n.t('{commits} commits · {files} files', {
+							commits: formattedCommitCount,
+							files: formattedFileCount,
+						});
+		return html`<span class="toolbar__description">${description}</span>`;
 	}
 
 	/** Breadcrumb chain shown in the toolbar between the visualization switcher and the
@@ -1418,11 +1453,11 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		if (this._zoomPath.length === 0) return nothing;
 
 		const crumbs = [root, ...this._zoomPath];
-		return html`<gl-breadcrumbs class="toolbar__crumbs" density="compact" label="Treemap zoom path">
+		return html`<gl-breadcrumbs class="toolbar__crumbs" density="compact" label=${l10n.t('Treemap zoom path')}>
 			${crumbs.map((node, i) => {
 				const isRoot = i === 0;
 				const isCurrent = i === crumbs.length - 1;
-				const label = isRoot ? 'Back to Repository' : node.name;
+				const label = isRoot ? l10n.t('Back to Repository') : node.name;
 				const icon = isRoot ? 'gl-repository' : 'folder';
 				return html`<gl-breadcrumb-item
 					interactive

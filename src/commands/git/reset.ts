@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { ResetError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
@@ -58,7 +58,9 @@ export interface ResetGitCommandArgs {
 
 export class ResetGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: ResetGitCommandArgs) {
-		super(container, 'reset', 'reset', 'Reset', { description: 'resets the current branch to a specified commit' });
+		super(container, 'reset', 'reset', l10n.t('Reset'), {
+			description: l10n.t('resets the current branch to a specified commit'),
+		});
 
 		this.initialState = { confirm: args?.confirm ?? true, ...args?.state };
 		this._canSkipConfirm = !this.initialState.confirm;
@@ -81,11 +83,13 @@ export class ResetGitCommand extends QuickCommand<State> {
 		try {
 			await state.repo.git.ops?.reset(state.reference.ref, { mode: mode });
 		} catch (ex) {
-			Logger.error(ex, this.title);
+			Logger.error(ex, 'Reset');
 
 			if (mode === 'keep' && (ResetError.is(ex, 'notUpToDate') || ResetError.is(ex, 'wouldOverwriteChanges'))) {
 				void window.showWarningMessage(
-					'Unable to safely reset. Your local changes would be overwritten by the reset. Please commit or stash your changes before trying again.',
+					l10n.t(
+						'Unable to safely reset. Your local changes would be overwritten by the reset. Please commit or stash your changes before trying again.',
+					),
 				);
 			} else {
 				void showGitErrorMessage(ex);
@@ -141,7 +145,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 				context.destination = branch;
 			}
 
-			context.title = `${this.title} ${getReferenceLabel(context.destination, { icon: false })}`;
+			context.title = l10n.t('Reset {0}', getReferenceLabel(context.destination, { icon: false }));
 
 			if (steps.isAtStep(Steps.PickCommit) || state.reference == null) {
 				using step = steps.enterStep(Steps.PickCommit);
@@ -157,16 +161,16 @@ export class ResetGitCommand extends QuickCommand<State> {
 				const result = yield* pickCommitStep(state, context, {
 					emptyItems: [
 						createDirectiveQuickPickItem(Directive.Cancel, true, {
-							label: 'OK',
-							detail: `${context.destination.name} has no commits`,
+							label: l10n.t('OK'),
+							detail: l10n.t('{0} has no commits', context.destination.name),
 						}),
 					],
 					log: await log,
 					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						!log?.commits.size
-							? `${context.destination.name} has no commits`
-							: `Choose a commit to reset ${context.destination.name} to`,
+							? l10n.t('{0} has no commits', context.destination.name)
+							: l10n.t('Choose a commit to reset {0} to', context.destination.name),
 					picked: state.reference?.ref,
 				});
 				if (result === StepResultBreak) {
@@ -200,38 +204,53 @@ export class ResetGitCommand extends QuickCommand<State> {
 
 	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(
+				l10n.t('Confirm Reset {0}', getReferenceLabel(context.destination, { icon: false })),
+				state,
+				context,
+			),
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
-					description: '--mixed \u2022 unstages your changes and reset changes',
-					detail: `Will unstage your changes and reset ${getReferenceLabel(context.destination)} to ${getReferenceLabel(
-						state.reference,
-					)}`,
+					description: l10n.t('{0} \u2022 unstages your changes and reset changes', '--mixed'),
+					detail: l10n.t(
+						'Will unstage your changes and reset {0} to {1}',
+						getReferenceLabel(context.destination),
+						getReferenceLabel(state.reference),
+					),
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--soft'], {
-					label: `Soft ${this.title}`,
-					description: '--soft \u2022 keeps your changes and stages reset changes',
-					detail: `Will keep your changes and reset ${getReferenceLabel(context.destination)} to ${getReferenceLabel(
-						state.reference,
-					)}`,
+					label: l10n.t('Soft Reset'),
+					description: l10n.t('{0} \u2022 keeps your changes and stages reset changes', '--soft'),
+					detail: l10n.t(
+						'Will keep your changes and reset {0} to {1}',
+						getReferenceLabel(context.destination),
+						getReferenceLabel(state.reference),
+					),
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--keep'], {
-					label: `Safe Hard ${this.title}`,
-					description:
-						'--keep \u2022 keeps your changes and discards reset changes; aborts if reset changes would overwrite them',
-					detail: `Will safely hard reset ${getReferenceLabel(context.destination)} to ${getReferenceLabel(
-						state.reference,
-					)}`,
+					label: l10n.t('Safe Hard Reset'),
+					description: l10n.t(
+						'{0} \u2022 keeps your changes and discards reset changes; aborts if reset changes would overwrite them',
+						'--keep',
+					),
+					detail: l10n.t(
+						'Will safely hard reset {0} to {1}',
+						getReferenceLabel(context.destination),
+						getReferenceLabel(state.reference),
+					),
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--hard'], {
-					label: `Hard ${this.title}`,
-					description: '$(warning) --hard \u2022 discards ALL changes',
-					detail: `Will discard ALL changes and reset ${getReferenceLabel(context.destination)} to ${getReferenceLabel(
-						state.reference,
-					)}`,
+					label: l10n.t('Hard Reset'),
+					description: `$(warning) ${l10n.t('{0} \u2022 discards ALL changes', '--hard')}`,
+					detail: l10n.t(
+						'Will discard ALL changes and reset {0} to {1}',
+						getReferenceLabel(context.destination),
+						getReferenceLabel(state.reference),
+					),
 				}),
 			],
+			l10n.t('Confirm Reset {0}', getReferenceLabel(context.destination, { icon: false })),
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;

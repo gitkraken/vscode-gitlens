@@ -1,11 +1,13 @@
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing, unsafeCSS } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../constants.subscription.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { Subscription, SubscriptionUpgradeCommandArgs } from '../../../../plus/gk/models/subscription.js';
@@ -169,7 +171,7 @@ export class GlFeatureBadge extends LitElement {
 	}
 
 	private renderBadge() {
-		const text = this.preview ? 'Preview' : 'Pro';
+		const text = this.preview ? l10n.t('Preview') : 'Pro';
 
 		if (this.subscription != null) {
 			if (this.state === SubscriptionState.VerificationRequired) {
@@ -185,7 +187,9 @@ export class GlFeatureBadge extends LitElement {
 	}
 
 	private renderPopoverHeader() {
-		const text = html`<span class="popup-title">${this.preview ? 'Preview feature' : 'Pro feature'}</span>`;
+		const text = html`<span class="popup-title"
+			>${this.preview ? l10n.t('Preview feature') : l10n.t('Pro feature')}</span
+		>`;
 
 		if (this.state === SubscriptionState.Paid) {
 			return html`<div class="popup-header">${text}</div>`;
@@ -195,24 +199,26 @@ export class GlFeatureBadge extends LitElement {
 			if (this.preview) {
 				return html`<div class="popup-header">
 					${text}<span class="popup-subtitle"
-						>Unlock this feature with an account and may require GitLens Pro in the future</span
+						>${l10n.t('Unlock this feature with an account and may require GitLens Pro in the future')}</span
 					>
 				</div>`;
 			}
 
 			return html`<div class="popup-header">
-				${text}<span class="popup-subtitle"> Unlock this feature with GitLens Pro</span>
+				${text}<span class="popup-subtitle"> ${l10n.t('Unlock this feature with GitLens Pro')}</span>
 			</div>`;
 		}
 
 		if (this.preview) {
 			return html`<div class="popup-header">
-				${text}<span class="popup-subtitle">May require GitLens Pro in the future</span>
+				${text}<span class="popup-subtitle">${l10n.t('May require GitLens Pro in the future')}</span>
 			</div>`;
 		}
 
 		return html`<div class="popup-header">
-			${text}<span class="popup-subtitle"> Unlock this feature for privately hosted repos with GitLens Pro</span>
+			${text}<span class="popup-subtitle">
+				${l10n.t('Unlock this feature for privately hosted repos with GitLens Pro')}</span
+			>
 		</div>`;
 	}
 
@@ -223,23 +229,17 @@ export class GlFeatureBadge extends LitElement {
 		switch (this.state) {
 			case SubscriptionState.Paid:
 				content = html`<p>
-					Your
-					<gl-tooltip content="Show Account view">
-						<a href="${createCommandLink('gitlens.showAccountView')}"
-							>${getSubscriptionProductPlanName(this.subscription?.plan.actual.id ?? 'pro')}</a
-						>
-					</gl-tooltip>
-					plan provides access to all Pro features.
+					${localizedContent(l10n.t('Your {plan} plan provides access to all Pro features.'), { plan: html`<gl-tooltip content=${l10n.t('Show Account view')}><a href=${createCommandLink('gitlens.showAccountView')}>${getSubscriptionProductPlanName(this.subscription?.plan.actual.id ?? 'pro')}</a></gl-tooltip>` })}
 				</p>`;
 				break;
 
 			case SubscriptionState.VerificationRequired:
-				content = html`<p>You must verify your email before you can access Pro features.</p>
+				content = html`<p>${l10n.t('You must verify your email before you can access Pro features.')}</p>
 					<div class="actions">
 						<gl-button
 							density="tight"
 							href="${createCommandLink<Source>('gitlens.plus.resendVerification', this.source)}"
-							>Resend Email</gl-button
+							>${l10n.t('Resend Email')}</gl-button
 						>
 						<gl-button
 							appearance="secondary"
@@ -254,10 +254,20 @@ export class GlFeatureBadge extends LitElement {
 				const days = this.daysRemaining;
 
 				content = html`<p>
-						You have
-						<strong>${days < 1 ? '<1 day' : pluralize('day', days, { infix: ' more ' })} left</strong>
-						in your Pro trial. Once your trial ends, you will only be able to use Pro features on
-						publicly-hosted repos.
+						${localizedContent(
+							days < 1
+								? l10n.t(
+										'You have {count} day left in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
+									)
+								: days === 1
+									? l10n.t(
+											'You have {count} more day left in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
+										)
+									: l10n.t(
+											'You have {count} more days left in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
+										),
+							{ count: html`<strong>${days < 1 ? '<1' : getNumericFormat()(days)}</strong>` },
+						)}
 					</p>
 					${this.renderUpgradeActions()}`;
 				break;
@@ -265,35 +275,30 @@ export class GlFeatureBadge extends LitElement {
 
 			case SubscriptionState.TrialExpired:
 				content = html`<p>
-						Your Pro trial has ended. You can now only use Pro features on publicly-hosted repos.
+						${l10n.t('Your Pro trial has ended. You can now only use Pro features on publicly-hosted repos.')}
 					</p>
 					${this.renderUpgradeActions(
-						html`<p>Please upgrade for full access to all GitLens Pro features:</p>`,
+						html`<p>${l10n.t('Please upgrade for full access to all GitLens Pro features:')}</p>`,
 					)}`;
 				break;
 
 			case SubscriptionState.TrialReactivationEligible:
 				content = html`<p>
-						Reactivate your Pro trial and experience all the new Pro features — free for another
-						${pluralize('day', proTrialLengthInDays)}!
+						${l10n.t('Reactivate your Pro trial and experience all the new Pro features — free for another {0} days!', getNumericFormat()(proTrialLengthInDays))}
 					</p>
 					<div class="actions center">
 						<gl-button
 							density="tight"
 							href="${createCommandLink<Source>('gitlens.plus.reactivateProTrial', this.source)}"
-							tooltip="Reactivate your Pro trial for another ${pluralize('day', proTrialLengthInDays)}"
-							>Reactivate Pro Trial</gl-button
+							tooltip=${l10n.t('Reactivate your Pro trial for another {0} days', getNumericFormat()(proTrialLengthInDays))}
+							>${l10n.t('Reactivate Pro Trial')}</gl-button
 						>
 					</div>`;
 				break;
 
 			default:
 				content = html`<p>
-						You only have access to
-						<gl-tooltip content="Pro features that do not require an account"
-							><span class="hint">local</span></gl-tooltip
-						>
-						Pro features on publicly-hosted repos.
+						${localizedContent(l10n.t('You only have access to {localFeatures} on publicly-hosted repos.'), { localFeatures: html`<gl-tooltip content=${l10n.t('Pro features that do not require an account')}><span class="hint">${l10n.t('local Pro features')}</span></gl-tooltip>` })}
 					</p>
 					${this.renderStartTrialActions()}`;
 				break;
@@ -304,12 +309,19 @@ export class GlFeatureBadge extends LitElement {
 
 	private renderStartTrialActions() {
 		return html`<div class="actions">
-			<p>For access to all Pro features:</p>
-			<gl-button density="tight" href="${createCommandLink<Source>('gitlens.plus.signUp', this.source)}"
-				>Start ${proTrialLengthInDays}-day Pro Trial</gl-button
-			>
-			&nbsp;or
-			<a href="${createCommandLink<Source>('gitlens.plus.login', this.source)}" title="Sign In">sign in</a>
+			<p>${l10n.t('For access to all Pro features:')}</p>
+			${localizedContent(l10n.t('{startTrial} or {signIn}'), {
+				startTrial: html`<gl-button
+					density="tight"
+					href="${createCommandLink<Source>('gitlens.plus.signUp', this.source)}"
+					>${l10n.t('Start {0}-day Pro Trial', proTrialLengthInDays)}</gl-button
+				>`,
+				signIn: html`<a
+					href="${createCommandLink<Source>('gitlens.plus.login', this.source)}"
+					title=${l10n.t('Sign In')}
+					>${l10n.t('sign in')}</a
+				>`,
+			})}
 		</div>`;
 	}
 
@@ -322,7 +334,7 @@ export class GlFeatureBadge extends LitElement {
 					plan: 'pro',
 					...(this.source ?? { source: 'feature-badge' }),
 				})}"
-				>Upgrade to Pro</gl-button
+				>${l10n.t('Upgrade to Pro')}</gl-button
 			>
 			${this.renderPromo()}
 		</div>`;

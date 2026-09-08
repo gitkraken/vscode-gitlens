@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import { loadChunk } from '../../system/-webview/loadChunk.js';
 import type { WebviewsController, WebviewViewProxy } from '../webviewsController.js';
 import type { State } from './protocol.js';
@@ -11,7 +12,7 @@ export function registerWelcomeWebviewView(
 		{
 			id: 'gitlens.views.welcome',
 			fileName: 'welcome.html',
-			title: 'Welcome',
+			title: l10n.t('Welcome'),
 			contextKeyPrefix: `gitlens:webviewView:welcome`,
 			trackingFeature: 'welcomeView',
 			type: 'welcome',

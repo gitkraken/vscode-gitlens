@@ -1,7 +1,9 @@
+import * as l10n from '@vscode/l10n';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { RebaseTodoCommitAction, UpdateRefInfo } from '@gitlens/git/models/rebase.js';
 import { commitRebaseActions } from '@gitlens/git/utils/rebase.utils.js';
 import { splitMessage } from '@gitlens/utils/string.js';
@@ -27,11 +29,11 @@ const commandIcons: Record<string, string> = {
 	noop: 'circle-slash',
 };
 
-/** Descriptions for non-exec command types */
+/** Descriptions for command types (`exec` falls back to this only when it has no command) */
 const commandDescriptions: Record<string, string> = {
-	break: 'Will pause the rebase here',
-	exec: 'Will run',
-	noop: 'No operation',
+	break: l10n.t('Will pause the rebase here'),
+	exec: l10n.t('Will run'),
+	noop: l10n.t('No operation'),
 };
 
 /**
@@ -194,7 +196,11 @@ export class GlRebaseEntryElement extends LitElement {
 			type = 'done';
 		}
 
-		const ariaLabel = `${action}, ${message}, ${sha.substring(0, 7)}`;
+		const ariaLabel = l10n.t('{action}, {message}, {sha}', {
+			action: action,
+			message: message,
+			sha: sha.substring(0, 7),
+		});
 
 		return html`
 			<div
@@ -239,7 +245,7 @@ export class GlRebaseEntryElement extends LitElement {
 							this.hasConflict
 								? html`<span class="popover-conflict-header">
 										<code-icon icon="warning"></code-icon>
-										This commit will cause conflicts
+										${l10n.t('This commit will cause conflicts')}
 										<hr />
 									</span>`
 								: nothing
@@ -259,7 +265,11 @@ export class GlRebaseEntryElement extends LitElement {
 				<gl-tooltip
 					class="entry-sha"
 					hide-on-click
-					content=${this.revealLocation === 'graph' ? 'Open in Commit Graph' : 'Open in Inspect View'}
+					content=${
+						this.revealLocation === 'graph'
+							? l10n.t('Open in Commit Graph')
+							: l10n.t('Open in Inspect View')
+					}
 				>
 					<a href="#" class="entry-sha-link" @click=${this.onShaClick}>
 						<code-icon icon="git-commit"></code-icon>
@@ -267,7 +277,7 @@ export class GlRebaseEntryElement extends LitElement {
 					</a>
 				</gl-tooltip>
 
-				<gl-tooltip class="entry-conflict-indicator" content="This commit will cause conflicts">
+				<gl-tooltip class="entry-conflict-indicator" content=${l10n.t('This commit will cause conflicts')}>
 					<code-icon icon="warning"></code-icon>
 				</gl-tooltip>
 			</div>
@@ -320,7 +330,9 @@ export class GlRebaseEntryElement extends LitElement {
 								placement="bottom-start"
 								.content=${command}
 								><span class="entry-message-content"
-									>${description} <code>${command}</code></span
+									>${localizedContent(l10n.t('Will run {command}'), {
+										command: html`<code>${command}</code>`,
+									})}</span
 								></gl-tooltip
 							>`
 						: description
@@ -339,7 +351,7 @@ export class GlRebaseEntryElement extends LitElement {
 			class="entry-update-refs"
 			.refs=${refItems}
 			icon="git-branch"
-			label="Branches to update"
+			label=${l10n.t('Branches to update')}
 		></gl-ref-overflow-chip>`;
 	}
 
@@ -371,7 +383,10 @@ export class GlRebaseEntryElement extends LitElement {
 
 		const avatars: AvatarShape[] = [
 			{
-				name: committer?.author !== author.author ? `${author.author} (Author)` : author.author,
+				name:
+					committer?.author !== author.author
+						? l10n.t('{name} (Author)', { name: author.author })
+						: author.author,
 				src: author.avatarUrl ?? author.avatarFallbackUrl,
 			},
 		];
@@ -383,7 +398,7 @@ export class GlRebaseEntryElement extends LitElement {
 			}
 
 			avatars.push({
-				name: `${committer.author} (Committer)`,
+				name: l10n.t('{name} (Committer)', { name: committer.author }),
 				src: committer.avatarUrl ?? committer.avatarFallbackUrl,
 			});
 		}

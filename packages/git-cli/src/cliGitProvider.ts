@@ -13,7 +13,7 @@ import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath, parseUri, toFsPath } from '@gitlens/utils/uri.js';
 import { fsExists } from './exec/exec.js';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './exec/features.js';
-import type { GitOptions } from './exec/git.js';
+import type { GitFeatureUnsupportedMessage, GitOptions } from './exec/git.js';
 import { Git } from './exec/git.js';
 import type { GitLocation } from './exec/locator.js';
 import { BlameGitSubProvider } from './providers/blame.js';
@@ -130,8 +130,16 @@ export class CliGitProvider implements GitProvider {
 	}
 
 	/** Throws if the installed git version does not support the given feature. */
-	async ensureSupports(feature: GitFeatures, prefix: string, suffix: string): Promise<void> {
-		return this._git.ensureSupports(feature, prefix, suffix);
+	async ensureSupports(feature: GitFeatures, prefix: string, suffix: string): Promise<void>;
+	async ensureSupports(feature: GitFeatures, message: GitFeatureUnsupportedMessage): Promise<void>;
+	async ensureSupports(
+		feature: GitFeatures,
+		prefixOrMessage: string | GitFeatureUnsupportedMessage,
+		suffix?: string,
+	): Promise<void> {
+		return typeof prefixOrMessage === 'function'
+			? this._git.ensureSupports(feature, prefixOrMessage)
+			: this._git.ensureSupports(feature, prefixOrMessage, suffix!);
 	}
 
 	/** Returns the installed git version string. */

@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent, ViewColumn } from 'vscode';
-import { ConfigurationTarget, Disposable, EventEmitter, workspace } from 'vscode';
+import { ConfigurationTarget, Disposable, EventEmitter, l10n, workspace } from 'vscode';
 import { GitCommit, GitCommitIdentity } from '@gitlens/git/models/commit.js';
 import { GitFileChange } from '@gitlens/git/models/fileChange.js';
 import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
@@ -9,6 +9,7 @@ import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
 import { extensionPrefix } from '../../constants.js';
 import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
+import { getPresentableErrorMessage } from '../../errors.js';
 import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
 import type { ConfigPath, CoreConfigPath } from '../../system/-webview/configuration.js';
@@ -28,6 +29,7 @@ import type { SettingsWebviewShowingArgs } from './registration.js';
 import type {
 	AnchorRequestedEvent,
 	GenerateFormatPreviewParams,
+	GenerateFormatPreviewResult,
 	SettingsConfigSnapshot,
 	SettingsInitialContext,
 	SettingsScope,
@@ -145,9 +147,9 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 	}
 
 	private getInitialContext(): SettingsInitialContext {
-		const scopes: SettingsScope[] = [['user', 'User']];
+		const scopes: SettingsScope[] = [['user', l10n.t('User')]];
 		if (workspace.workspaceFolders?.length) {
-			scopes.push(['workspace', 'Workspace']);
+			scopes.push(['workspace', l10n.t('Workspace')]);
 		}
 
 		const anchor = this._pendingAnchor;
@@ -208,7 +210,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		}
 	}
 
-	private async generateFormatPreview(params: GenerateFormatPreviewParams): Promise<string> {
+	private async generateFormatPreview(params: GenerateFormatPreviewParams): Promise<GenerateFormatPreviewResult> {
 		if (params.type === 'file') {
 			return this.generateFileFormatPreview(params.format);
 		}
@@ -290,34 +292,40 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		// returns a Promise in markdown mode, and only `fromTemplateAsync` awaits promise-returning tokens.
 		if (params.markdown) {
 			try {
-				return await CommitFormatter.fromTemplateAsync(
-					params.format,
-					commit,
-					{ source: 'settings' },
-					{
-						dateFormat: configuration.get('defaultDateFormat'),
-						pullRequest: pr,
-						messageTruncateAtNewLine: true,
-						outputFormat: 'markdown',
-					},
-				);
+				return {
+					preview: await CommitFormatter.fromTemplateAsync(
+						params.format,
+						commit,
+						{ source: 'settings' },
+						{
+							dateFormat: configuration.get('defaultDateFormat'),
+							pullRequest: pr,
+							messageTruncateAtNewLine: true,
+							outputFormat: 'markdown',
+						},
+					),
+					isError: false,
+				};
 			} catch (ex) {
 				return formatPreviewError(ex);
 			}
 		}
 
 		try {
-			return CommitFormatter.fromTemplate(params.format, commit, {
-				dateFormat: configuration.get('defaultDateFormat'),
-				pullRequest: pr,
-				messageTruncateAtNewLine: true,
-			});
+			return {
+				preview: CommitFormatter.fromTemplate(params.format, commit, {
+					dateFormat: configuration.get('defaultDateFormat'),
+					pullRequest: pr,
+					messageTruncateAtNewLine: true,
+				}),
+				isError: false,
+			};
 		} catch (ex) {
 			return formatPreviewError(ex);
 		}
 	}
 
-	private generateFileFormatPreview(format: string): string {
+	private generateFileFormatPreview(format: string): GenerateFormatPreviewResult {
 		const file = new GitFileChange(
 			'~/code/eamodio/vscode-gitlens-demo',
 			'src/app/code.ts',
@@ -335,7 +343,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 			// file's full relative path rather than collapsing to empty (passing the
 			// file's own path as `relativePath` would do, since it's the base ${directory}
 			// and ${path} are computed against)
-			return StatusFileFormatter.fromTemplate(format, file);
+			return { preview: StatusFileFormatter.fromTemplate(format, file), isError: false };
 		} catch (ex) {
 			return formatPreviewError(ex);
 		}
@@ -395,8 +403,11 @@ interface CustomSetting {
 	update: (enabled: boolean) => Promise<void>;
 }
 
-/** Turns a format-render failure into a message the editor surfaces (instead of a bare 'Invalid format'). */
-function formatPreviewError(ex: unknown): string {
-	const message = ex instanceof Error ? ex.message : String(ex);
-	return message ? `Invalid format: ${message}` : 'Invalid format';
+/** Turns a format-render failure into a message the editor surfaces. */
+function formatPreviewError(ex: unknown): GenerateFormatPreviewResult {
+	const message = getPresentableErrorMessage(ex);
+	return {
+		preview: message ? l10n.t('Invalid format: {message}', { message: message }) : l10n.t('Invalid format'),
+		isError: true,
+	};
 }

@@ -1,5 +1,13 @@
 import type { Uri } from 'vscode';
-import { TabInputCustom, TabInputNotebook, TabInputNotebookDiff, TabInputText, TabInputTextDiff, window } from 'vscode';
+import {
+	l10n,
+	TabInputCustom,
+	TabInputNotebook,
+	TabInputNotebookDiff,
+	TabInputText,
+	TabInputTextDiff,
+	window,
+} from 'vscode';
 import { filterMap } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { areUrisEqual } from '@gitlens/utils/uri.js';
@@ -25,12 +33,15 @@ export class OpenOnlyChangedFilesCommand extends GlCommandBase {
 
 		try {
 			if (args.uris == null) {
-				const repo = await getRepositoryOrShowPicker(this.container, 'Open Changed & Close Unchanged Files');
+				const repo = await getRepositoryOrShowPicker(
+					this.container,
+					l10n.t('Open Changed & Close Unchanged Files'),
+				);
 				if (repo == null) return;
 
 				const status = await repo.git.status.getStatus();
 				if (status == null) {
-					void window.showWarningMessage('Unable to open changed & close unchanged files');
+					void window.showWarningMessage(l10n.t('Unable to open changed & close unchanged files'));
 
 					return;
 				}
@@ -79,7 +90,7 @@ export class OpenOnlyChangedFilesCommand extends GlCommandBase {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'OpenOnlyChangedFilesCommand');
-			void showGenericErrorMessage('Unable to open changed & close unchanged files');
+			void showGenericErrorMessage(l10n.t('Unable to open changed & close unchanged files'));
 		}
 	}
 }

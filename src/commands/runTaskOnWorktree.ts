@@ -7,6 +7,7 @@ import type {
 	Task,
 } from 'vscode';
 import {
+	l10n,
 	ProcessExecution,
 	QuickPickItemKind,
 	ShellExecution,
@@ -42,7 +43,7 @@ const defaultFilled = new ThemeIcon('pass-filled');
 function defaultButton(isDefault: boolean): QuickInputButton {
 	return {
 		iconPath: isDefault ? defaultFilled : defaultEmpty,
-		tooltip: isDefault ? 'Unset as Default Task' : 'Set as Default Task',
+		tooltip: isDefault ? l10n.t('Unset as Default Task') : l10n.t('Set as Default Task'),
 	};
 }
 
@@ -103,15 +104,18 @@ export class RunTaskOnWorktreeCommand extends GlCommandBase {
 		let currentDefault = this.container.storage.getWorkspace('worktrees:runTaskDefault');
 
 		const quickpick = window.createQuickPick<TaskQuickPickItem>();
-		quickpick.title = choosingDefault ? 'Choose Default Task for Worktree' : 'Run Task on Worktree';
+		quickpick.title = choosingDefault ? l10n.t('Choose Default Task for Worktree') : l10n.t('Run Task on Worktree');
 		quickpick.placeholder = choosingDefault
-			? `Choose the default task to run in ${basename(worktreePath)}`
-			: `Choose a task to run in ${basename(worktreePath)} · mark a task's checkmark to set it as the default`;
+			? l10n.t('Choose the default task to run in {0}', basename(worktreePath))
+			: l10n.t(
+					"Choose a task to run in {0} · mark a task's checkmark to set it as the default",
+					basename(worktreePath),
+				);
 		quickpick.busy = true;
 		quickpick.show();
 
 		let allItems: TaskQuickPickItem[] = [];
-		const allTasksItem: TaskQuickPickItem = { label: '$(list-unordered) All Tasks...' };
+		const allTasksItem: TaskQuickPickItem = { label: l10n.t('$(list-unordered) All Tasks...') };
 
 		const disposables: Disposable[] = [];
 
@@ -228,11 +232,14 @@ export class RunTaskOnWorktreeCommand extends GlCommandBase {
 
 						const items: TaskQuickPickItem[] = [];
 						if (recentItems.length) {
-							items.push({ label: 'Recent', kind: QuickPickItemKind.Separator }, ...recentItems);
+							items.push({ label: l10n.t('Recent'), kind: QuickPickItemKind.Separator }, ...recentItems);
 						}
 
 						if (workspaceItems.length) {
-							items.push({ label: 'Workspace', kind: QuickPickItemKind.Separator }, ...workspaceItems);
+							items.push(
+								{ label: l10n.t('Workspace'), kind: QuickPickItemKind.Separator },
+								...workspaceItems,
+							);
 						}
 
 						items.push({ label: '', kind: QuickPickItemKind.Separator }, allTasksItem);
@@ -311,7 +318,7 @@ export class RunTaskOnWorktreeCommand extends GlCommandBase {
 		return new VscodeTask(
 			task.definition,
 			task.scope ?? TaskScope.Workspace,
-			`${task.name} (${basename(worktreePath)})`,
+			l10n.t('{0} ({1})', task.name, basename(worktreePath)),
 			task.source,
 			newExec,
 			task.problemMatchers,

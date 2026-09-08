@@ -1,6 +1,8 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { renderBranchName } from '../branch-name.js';
 import '@gitlens/components/components/overlays/tooltip.js';
 import '@gitlens/components/components/pills/tracking.js';
@@ -62,25 +64,37 @@ export class GlTrackingStatus extends LitElement {
 	}
 
 	private renderDescription() {
+		let message: string;
 		if (this.missingUpstream) {
-			return html`${renderBranchName(this.branchName)} is missing its upstream
-			${renderBranchName(this.upstreamName)}`;
+			message = l10n.t('{branch} is missing its upstream {upstream}');
+		} else if (this.behind && this.ahead) {
+			message =
+				this.behind === 1
+					? this.ahead === 1
+						? l10n.t('{branch} is {behind} commit behind, {ahead} commit ahead of {upstream}')
+						: l10n.t('{branch} is {behind} commit behind, {ahead} commits ahead of {upstream}')
+					: this.ahead === 1
+						? l10n.t('{branch} is {behind} commits behind, {ahead} commit ahead of {upstream}')
+						: l10n.t('{branch} is {behind} commits behind, {ahead} commits ahead of {upstream}');
+		} else if (this.behind) {
+			message =
+				this.behind === 1
+					? l10n.t('{branch} is {behind} commit behind {upstream}')
+					: l10n.t('{branch} is {behind} commits behind {upstream}');
+		} else if (this.ahead) {
+			message =
+				this.ahead === 1
+					? l10n.t('{branch} is {ahead} commit ahead of {upstream}')
+					: l10n.t('{branch} is {ahead} commits ahead of {upstream}');
+		} else {
+			message = l10n.t('{branch} is up to date with {upstream}');
 		}
-
-		const status: string[] = [];
-		if (this.behind) {
-			status.push(`${pluralize('commit', this.behind)} behind`);
-		}
-		if (this.ahead) {
-			status.push(`${pluralize('commit', this.ahead)} ahead of`);
-		}
-
-		if (status.length) {
-			return html`${renderBranchName(this.branchName)} is ${status.join(', ')}
-			${renderBranchName(this.upstreamName)}`;
-		}
-
-		return html`${renderBranchName(this.branchName)} is up to date with ${renderBranchName(this.upstreamName)}`;
+		return localizedContent(message, {
+			branch: renderBranchName(this.branchName),
+			upstream: renderBranchName(this.upstreamName),
+			ahead: getNumericFormat()(this.ahead),
+			behind: getNumericFormat()(this.behind),
+		});
 	}
 }
 

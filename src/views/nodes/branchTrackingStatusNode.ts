@@ -1,4 +1,4 @@
-import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { l10n, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitBranch, GitTrackingUpstream } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
@@ -6,11 +6,10 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { getUpstreamStatus } from '@gitlens/git/utils/status.utils.js';
-import { fromNow } from '@gitlens/utils/date.js';
+import { fromNow, getNumericFormat } from '@gitlens/utils/date.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { first, last, map } from '@gitlens/utils/iterable.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { Colors } from '../../constants.colors.js';
 import type { FilesComparison } from '../../git/actions/commit.js';
 import { GitUri } from '../../git/gitUri.js';
@@ -94,7 +93,7 @@ export class BranchTrackingStatusNode
 				...comparison,
 				ref1: resolved.sha,
 				ref2: comparison.ref1,
-				title: `Changes to push to ${comparison.ref2}`,
+				title: l10n.t('Changes to push to {0}', comparison.ref2),
 			};
 		}
 
@@ -187,19 +186,30 @@ export class BranchTrackingStatusNode
 		}
 
 		function getBranchStatus(this: BranchTrackingStatusNode, remote: GitRemote | undefined) {
-			return `$(git-branch) \`${this.branch.name}\` is ${getUpstreamStatus(this.status.upstream, {
+			const branch = `$(git-branch) \`${this.branch.name}\``;
+			const upstream = `$(git-branch) \`${this.status.upstream!.name}\``;
+			const provider = remote?.provider?.name;
+			const status = getUpstreamStatus(this.status.upstream, {
 				empty: this.status.upstream!.missing
-					? `missing upstream $(git-branch) \`${this.status.upstream!.name}\``
-					: `up to date with $(git-branch) \`${this.status.upstream!.name}\`${
-							remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-						}`,
+					? provider
+						? l10n.t('missing upstream {upstream} on {provider}', {
+								upstream: upstream,
+								provider: provider,
+							})
+						: l10n.t('missing upstream {upstream}', { upstream: upstream })
+					: provider
+						? l10n.t('up to date with {upstream} on {provider}', {
+								upstream: upstream,
+								provider: provider,
+							})
+						: l10n.t('up to date with {upstream}', { upstream: upstream }),
 				expand: true,
 				icons: true,
+				provider: provider,
 				separator: ', ',
-				suffix: ` $(git-branch) \`${this.status.upstream!.name}\`${
-					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-				}`,
-			})}`;
+				upstream: upstream,
+			});
+			return l10n.t('{branch} is {status}', { branch: branch, status: status });
 		}
 
 		let label;
@@ -211,17 +221,48 @@ export class BranchTrackingStatusNode
 		switch (this.upstreamType) {
 			case 'ahead': {
 				const remote = await getBranchRemote(this.view.container, this.branch);
+				const count = this.status.upstream!.state.ahead;
+				const formattedCount = getNumericFormat()(count);
+				const remoteName = remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name);
+				const providerName = remote?.provider?.name;
+				const branchStatus = getBranchStatus.call(this, remote);
 
-				label = 'Outgoing';
-				description = `${pluralize('commit', this.status.upstream!.state.ahead)} to push to ${
-					remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name)
-				}`;
-				tooltip = `${pluralize('commit', this.status.upstream!.state.ahead)} to push to \`${
-					this.status.upstream!.name
-				}\`${remote?.provider?.name ? ` on ${remote?.provider.name}` : ''}\\\n${getBranchStatus.call(
-					this,
-					remote,
-				)}`;
+				label = l10n.t('Outgoing');
+				description =
+					count === 1
+						? l10n.t('{count} commit to push to {remote}', {
+								count: formattedCount,
+								remote: remoteName,
+							})
+						: l10n.t('{count} commits to push to {remote}', {
+								count: formattedCount,
+								remote: remoteName,
+							});
+				tooltip = providerName
+					? count === 1
+						? l10n.t('{count} commit to push to `{upstream}` on {provider}\\\n{status}', {
+								count: formattedCount,
+								upstream: this.status.upstream!.name,
+								provider: providerName,
+								status: branchStatus,
+							})
+						: l10n.t('{count} commits to push to `{upstream}` on {provider}\\\n{status}', {
+								count: formattedCount,
+								upstream: this.status.upstream!.name,
+								provider: providerName,
+								status: branchStatus,
+							})
+					: count === 1
+						? l10n.t('{count} commit to push to `{upstream}`\\\n{status}', {
+								count: formattedCount,
+								upstream: this.status.upstream!.name,
+								status: branchStatus,
+							})
+						: l10n.t('{count} commits to push to `{upstream}`\\\n{status}', {
+								count: formattedCount,
+								upstream: this.status.upstream!.name,
+								status: branchStatus,
+							});
 
 				collapsibleState = TreeItemCollapsibleState.Collapsed;
 				contextValue = this.root
@@ -236,17 +277,48 @@ export class BranchTrackingStatusNode
 			}
 			case 'behind': {
 				const remote = await getBranchRemote(this.view.container, this.branch);
+				const count = this.status.upstream!.state.behind;
+				const formattedCount = getNumericFormat()(count);
+				const remoteName = remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name);
+				const providerName = remote?.provider?.name;
+				const branchStatus = getBranchStatus.call(this, remote);
 
-				label = 'Incoming';
-				description = `${pluralize('commit', this.status.upstream!.state.behind)} to pull from ${
-					remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name)
-				}`;
-				tooltip = `${pluralize('commit', this.status.upstream!.state.behind)} to pull from \`${
-					this.status.upstream!.name
-				}\`${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}\\\n${getBranchStatus.call(
-					this,
-					remote,
-				)}`;
+				label = l10n.t('Incoming');
+				description =
+					count === 1
+						? l10n.t('{count} commit to pull from {remote}', {
+								count: formattedCount,
+								remote: remoteName,
+							})
+						: l10n.t('{count} commits to pull from {remote}', {
+								count: formattedCount,
+								remote: remoteName,
+							});
+				tooltip = providerName
+					? count === 1
+						? l10n.t('{count} commit to pull from `{upstream}` on {provider}\\\n{status}', {
+								count: formattedCount,
+								upstream: this.status.upstream!.name,
+								provider: providerName,
+								status: branchStatus,
+							})
+						: l10n.t('{count} commits to pull from `{upstream}` on {provider}\\\n{status}', {
+								count: formattedCount,
+								upstream: this.status.upstream!.name,
+								provider: providerName,
+								status: branchStatus,
+							})
+					: count === 1
+						? l10n.t('{count} commit to pull from `{upstream}`\\\n{status}', {
+								count: formattedCount,
+								upstream: this.status.upstream!.name,
+								status: branchStatus,
+							})
+						: l10n.t('{count} commits to pull from `{upstream}`\\\n{status}', {
+								count: formattedCount,
+								upstream: this.status.upstream!.name,
+								status: branchStatus,
+							});
 
 				collapsibleState = TreeItemCollapsibleState.Collapsed;
 				contextValue = this.root
@@ -262,9 +334,13 @@ export class BranchTrackingStatusNode
 			case 'same': {
 				const remote = await getBranchRemote(this.view.container, this.branch);
 
-				label = `Up to date with ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name)}${
-					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-				}`;
+				const remoteName = remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name);
+				label = remote?.provider?.name
+					? l10n.t('Up to date with {remote} on {provider}', {
+							remote: remoteName,
+							provider: remote.provider.name,
+						})
+					: l10n.t('Up to date with {remote}', { remote: remoteName });
 				description = lastFetched ? fromNow(lastFetched) : '';
 				tooltip = getBranchStatus.call(this, remote);
 
@@ -279,7 +355,9 @@ export class BranchTrackingStatusNode
 			case 'missing': {
 				const remote = await getBranchRemote(this.view.container, this.branch);
 
-				label = `Missing upstream branch${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`;
+				label = remote?.provider?.name
+					? l10n.t('Missing upstream branch on {provider}', { provider: remote.provider.name })
+					: l10n.t('Missing upstream branch');
 				description = this.status.upstream!.name;
 				tooltip = getBranchStatus.call(this, remote);
 
@@ -301,8 +379,15 @@ export class BranchTrackingStatusNode
 				const providers = getHighlanderProviders(remotes);
 				const providerName = providers?.length ? providers[0].name : undefined;
 
-				label = `Publish ${this.branch.name} to ${providerName ?? 'a remote'}`;
-				tooltip = `\`${this.branch.name}\` hasn't been published to ${providerName ?? 'a remote'}`;
+				label = providerName
+					? l10n.t('Publish {branch} to {provider}', { branch: this.branch.name, provider: providerName })
+					: l10n.t('Publish {branch} to a remote', { branch: this.branch.name });
+				tooltip = providerName
+					? l10n.t("`{branch}` hasn't been published to {provider}", {
+							branch: this.branch.name,
+							provider: providerName,
+						})
+					: l10n.t("`{branch}` hasn't been published to a remote", { branch: this.branch.name });
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root ? ContextValues.StatusNoUpstream : ContextValues.BranchStatusNoUpstream;
@@ -320,7 +405,7 @@ export class BranchTrackingStatusNode
 		item.contextValue = contextValue;
 		item.description = description;
 		if (lastFetched) {
-			tooltip += `\n\nLast fetched ${fromNow(lastFetched)}`;
+			tooltip += `\n\n${l10n.t('Last fetched {0}', fromNow(lastFetched))}`;
 		}
 		item.iconPath = icon;
 

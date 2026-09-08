@@ -1,5 +1,5 @@
 import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
-import { QuickInputButtons, ThemeIcon, window } from 'vscode';
+import { l10n, QuickInputButtons, ThemeIcon, window } from 'vscode';
 import type { AIProviders } from '@gitlens/ai/constants.js';
 import type {
 	AIModel,
@@ -8,7 +8,6 @@ import type {
 	AIProviderDescriptorWithConfiguration,
 } from '@gitlens/ai/models/model.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
-import { capitalize } from '@gitlens/utils/string.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import type { AIModelScope } from '../plus/ai/aiProviderService.js';
@@ -29,12 +28,12 @@ export interface ProviderQuickPickItem extends QuickPickItem {
 
 const ClearAIKeyButton: QuickInputButton = {
 	iconPath: new ThemeIcon('trash'),
-	tooltip: 'Clear AI Key',
+	tooltip: l10n.t('Clear AI Key'),
 };
 
 const ConfigureAIKeyButton: QuickInputButton = {
 	iconPath: new ThemeIcon('key'),
-	tooltip: 'Configure AI Key...',
+	tooltip: l10n.t('Configure AI Key...'),
 };
 
 export async function showAIProviderPicker(
@@ -60,8 +59,8 @@ export async function showAIProviderPicker(
 
 	const quickpick = window.createQuickPick<ProviderQuickPickItem>();
 	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
-	quickpick.title = titles?.title ?? 'Select AI Provider';
-	quickpick.placeholder = titles?.placeholder ?? 'Choose an AI provider to use';
+	quickpick.title = titles?.title ?? l10n.t('Select AI Provider');
+	quickpick.placeholder = titles?.placeholder ?? l10n.t('Choose an AI provider to use');
 
 	const disposables: Disposable[] = [];
 
@@ -80,7 +79,7 @@ export async function showAIProviderPicker(
 			for (const p of providers.values()) {
 				if (!p.primary && !addedRequiredKeySeparator) {
 					addedRequiredKeySeparator = true;
-					items.push(createQuickPickSeparator<ProviderQuickPickItem>('Requires API Key'));
+					items.push(createQuickPickSeparator<ProviderQuickPickItem>(l10n.t('Requires API Key')));
 				}
 
 				items.push({
@@ -92,14 +91,14 @@ export async function showAIProviderPicker(
 						p.id === current?.provider && currentModelName
 							? `      ${currentModelName}`
 							: p.id === 'gitkraken'
-								? '      Models provided by GitKraken'
+								? `      ${l10n.t('Models provided by GitKraken')}`
 								: undefined,
 					buttons: !p.primary ? (p.configured ? [ClearAIKeyButton] : [ConfigureAIKeyButton]) : undefined,
 					description:
 						p.id === 'gitkraken'
 							? hasPaidPlan
-								? '  included in your plan'
-								: '  included in GitLens Pro'
+								? `  ${l10n.t('included in your plan')}`
+								: `  ${l10n.t('included in GitLens Pro')}`
 							: undefined,
 				} satisfies ProviderQuickPickItem);
 			}
@@ -147,25 +146,39 @@ function getSwitchProviderDetail(providers: readonly AIProviderDescriptor[]): st
 	const primaries = providers.filter(p => p.primary).map(p => p.name);
 	const keyProviders = providers.filter(p => !p.primary);
 
-	const choices = [...primaries];
-	if (keyProviders.length) {
-		let named = featuredKeyProviders.map(id => keyProviders.find(p => p.id === id)?.name).filter(n => n != null);
-		if (!named.length) {
-			named = keyProviders.slice(0, featuredKeyProviders.length).map(p => p.name);
-		}
+	if (!keyProviders.length) {
+		if (!primaries.length) return undefined;
+		if (primaries.length === 1) return l10n.t('Choose {0}', primaries[0]);
 
-		choices.push(
-			`bring your own key — ${named.join(', ')}${keyProviders.length > named.length ? ', and more' : ''}`,
-		);
+		const last = primaries.at(-1)!;
+		return primaries.length > 2
+			? l10n.t('Choose {0}, or {1}', primaries.slice(0, -1).join(', '), last)
+			: l10n.t('Choose {0} or {1}', primaries[0], last);
 	}
 
-	if (!choices.length) return undefined;
-	if (choices.length === 1) {
-		return primaries.length ? `Choose ${choices[0]}` : capitalize(choices[0]);
+	let named = featuredKeyProviders.map(id => keyProviders.find(p => p.id === id)?.name).filter(n => n != null);
+	if (!named.length) {
+		named = keyProviders.slice(0, featuredKeyProviders.length).map(p => p.name);
 	}
 
-	const last = choices.pop()!;
-	return `Choose ${choices.join(', ')}${choices.length > 1 ? ',' : ''} or ${last}`;
+	const providerNames = named.join(', ');
+	const hasMore = keyProviders.length > named.length;
+	if (!primaries.length) {
+		return hasMore
+			? l10n.t('Bring your own key — {0}, and more', providerNames)
+			: l10n.t('Bring your own key — {0}', providerNames);
+	}
+
+	const primaryNames = primaries.join(', ');
+	if (primaries.length === 1) {
+		return hasMore
+			? l10n.t('Choose {0} or bring your own key — {1}, and more', primaryNames, providerNames)
+			: l10n.t('Choose {0} or bring your own key — {1}', primaryNames, providerNames);
+	}
+
+	return hasMore
+		? l10n.t('Choose {0}, or bring your own key — {1}, and more', primaryNames, providerNames)
+		: l10n.t('Choose {0}, or bring your own key — {1}', primaryNames, providerNames);
 }
 
 export async function showAIModelPicker(
@@ -193,21 +206,23 @@ export async function showAIModelPicker(
 		if (currentProviderName != null && detail != null) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Back, false, {
-					label: 'Change AI Provider',
+					label: l10n.t('Change AI Provider'),
 					description: `  ${currentProviderName}`,
 					detail: `      ${detail}`,
 					iconPath: new ThemeIcon('arrow-swap'),
 				}),
-				createQuickPickSeparator<DirectiveQuickPickItem>('Models'),
+				createQuickPickSeparator<DirectiveQuickPickItem>(l10n.t('Models')),
 			);
 		}
 	}
 
 	if (!models.length) {
 		items.push({
-			label: 'No models found',
+			label: l10n.t('No models found'),
 			description:
-				provider === 'ollama' ? 'Please install a model or check your Ollama server configuration' : undefined,
+				provider === 'ollama'
+					? l10n.t('Please install a model or check your Ollama server configuration')
+					: undefined,
 			iconPath: new ThemeIcon('error'),
 			directive: Directive.Noop,
 		} satisfies ModelQuickPickItem | DirectiveQuickPickItem);
@@ -227,7 +242,7 @@ export async function showAIModelPicker(
 				badges.push(m.consumptionRateLabel);
 			}
 			if (m.default) {
-				badges.push('recommended');
+				badges.push(l10n.t('recommended'));
 			}
 
 			items.push({
@@ -268,9 +283,9 @@ export async function showAIModelPicker(
 				}),
 			);
 
-			const title = titles?.title ?? 'Select AI Model';
+			const title = titles?.title ?? l10n.t('Select AI Model');
 			quickpick.title = currentProviderName != null ? `${title} • ${currentProviderName}` : title;
-			quickpick.placeholder = titles?.placeholder ?? 'Choose an AI model to use';
+			quickpick.placeholder = titles?.placeholder ?? l10n.t('Choose an AI model to use');
 			quickpick.matchOnDescription = true;
 			quickpick.matchOnDetail = true;
 			quickpick.items = items;

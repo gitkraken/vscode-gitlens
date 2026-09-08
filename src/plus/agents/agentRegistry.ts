@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import { isCliExecutableAvailable } from '@env/gk/agentFetcher.js';
 import {
 	claudeExtensionId,
@@ -42,7 +43,7 @@ export async function getSupportedAgents(container: Container): Promise<AgentDes
 			id: 'ide-chat',
 			kind: 'ide-chat',
 			host: host,
-			label: ideChatLabels[host] ?? `${host} Chat`,
+			label: ideChatLabels[host] ?? l10n.t('{0} Chat', host),
 		});
 	}
 

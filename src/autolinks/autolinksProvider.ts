@@ -1,6 +1,7 @@
 import type { ConfigurationChangeEvent } from 'vscode';
-import { Disposable } from 'vscode';
+import { Disposable, l10n } from 'vscode';
 import type { DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
+import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProvider, RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
 import type { ConfiguredIntegrationsChangeEvent } from '@gitlens/integrations/authentication/configuredIntegrationService.js';
@@ -22,7 +23,7 @@ import { escapeMarkdown, unescapeMarkdown } from '@gitlens/utils/markdown.js';
 import { getSettledValue, isPromise } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
-import { capitalize, encodeHtmlWeak, getSuperscript } from '@gitlens/utils/string.js';
+import { encodeHtmlWeak, getSuperscript } from '@gitlens/utils/string.js';
 import type { OpenIssueActionContext } from '../api/gitlens.d.js';
 import { OpenIssueOnRemoteCommand } from '../commands/openIssueOnRemote.js';
 import { GlyphChars } from '../constants.js';
@@ -50,7 +51,30 @@ import {
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
 const tokenRegex = /(\x00\d+\x00)/g; // oxlint-disable-line no-control-regex
-const quoteRegex = /"/g;
+
+function escapeMarkdownTitle(value: string): string {
+	return value
+		.replace(/&/g, '&amp;')
+		.replace(/\\/g, '\\\\')
+		.replace(/"/g, '\\"')
+		.replace(/\r\n|\r|\n/g, '&#10;');
+}
+
+function getAutolinkName(ref: GlCacheableAutolinkReference | Autolink, num: string): string {
+	return ref.description?.replace(numRegex, num) ?? l10n.t('Custom Autolink {0}', `${ref.prefix}${num}`);
+}
+
+function getIssueStatusDescription(issue: IssueOrPullRequest, link?: string): string {
+	const date = fromNow(issue.closedDate ?? issue.createdDate);
+	switch (issue.state) {
+		case 'opened':
+			return link == null ? l10n.t('Opened, {0}', date) : l10n.t('{0} opened {1}', link, date);
+		case 'closed':
+			return link == null ? l10n.t('Closed, {0}', date) : l10n.t('{0} closed {1}', link, date);
+		case 'merged':
+			return link == null ? l10n.t('Merged, {0}', date) : l10n.t('{0} merged {1}', link, date);
+	}
+}
 
 export class AutolinksProvider implements Disposable {
 	private _disposable: Disposable | undefined;
@@ -484,7 +508,7 @@ function renderCacheableAutolink(
 
 					let title = '';
 					if (ref.title) {
-						title = ` "${ref.title.replace(numRegex, num)}`;
+						title = ` "${escapeMarkdownTitle(ref.title.replace(numRegex, num))}`;
 
 						const issueResult = enrichedAutolinks?.get(num)?.[0];
 						if (issueResult?.value != null) {
@@ -494,9 +518,7 @@ function renderCacheableAutolink(
 										...urlCommandContext,
 										source: footnoteSource,
 									});
-									const name =
-										ref.description?.replace(numRegex, num) ??
-										`Custom Autolink ${ref.prefix}${num}`;
+									const name = escapeMarkdown(getAutolinkName(ref, num));
 									footnoteIndex = footnotes.size + 1;
 									footnotes.set(
 										footnoteIndex,
@@ -504,11 +526,11 @@ function renderCacheableAutolink(
 									);
 								}
 
-								title += `\n${GlyphChars.Dash.repeat(2)}\nLoading...`;
+								title += `\n${GlyphChars.Dash.repeat(2)}\n${escapeMarkdownTitle(l10n.t('Loading...'))}`;
 							} else {
 								const issue = issueResult.value;
 								const issueTitle = escapeMarkdown(issue.title.trim());
-								const issueTitleQuoteEscaped = issueTitle.replace(quoteRegex, '\\"');
+								const issueTitleQuoteEscaped = escapeMarkdownTitle(issue.title.trim());
 
 								urlCommandContext.provider = issue.provider && {
 									id: issue.provider.id,
@@ -528,23 +550,20 @@ function renderCacheableAutolink(
 											issue,
 										)} **${issueTitle}**](${url}${title}")\\\n${GlyphChars.Space.repeat(
 											5,
-										)}${linkText} ${issue.state} ${fromNow(issue.closedDate ?? issue.createdDate)}`,
+										)}${escapeMarkdown(getIssueStatusDescription(issue, unescapeMarkdown(linkText)))}`,
 									);
 								}
 
 								title += `\n${GlyphChars.Dash.repeat(
 									2,
-								)}\n${issueTitleQuoteEscaped}\n${capitalize(issue.state)}, ${fromNow(
-									issue.closedDate ?? issue.createdDate,
-								)}`;
+								)}\n${issueTitleQuoteEscaped}\n${escapeMarkdownTitle(getIssueStatusDescription(issue))}`;
 							}
 						} else if (footnotes != null && !prs?.has(num)) {
 							const url = OpenIssueOnRemoteCommand.createMarkdownCommandLink({
 								...urlCommandContext,
 								source: footnoteSource,
 							});
-							const name =
-								ref.description?.replace(numRegex, num) ?? `Custom Autolink ${ref.prefix}${num}`;
+							const name = escapeMarkdown(getAutolinkName(ref, num));
 							footnoteIndex = footnotes.size + 1;
 							footnotes.set(
 								footnoteIndex,
@@ -577,54 +596,48 @@ function renderCacheableAutolink(
 					if (issueResult?.value != null) {
 						if (issueResult.paused) {
 							if (footnotes != null && !prs?.has(num)) {
-								const name =
-									ref.description?.replace(numRegex, num) ?? `Custom Autolink ${ref.prefix}${num}`;
+								const name = encodeHtmlWeak(getAutolinkName(ref, num));
 								footnoteIndex = footnotes.size + 1;
 								footnotes.set(
 									footnoteIndex,
-									`<a href="${url}" title=${title}>${getIssueOrPullRequestHtmlIcon()} ${name}</a>`,
+									`<a href="${url}" title=${title}">${getIssueOrPullRequestHtmlIcon()} ${name}</a>`,
 								);
 							}
 
-							title += `\n${GlyphChars.Dash.repeat(2)}\nLoading...`;
+							title += `\n${GlyphChars.Dash.repeat(2)}\n${encodeHtmlWeak(l10n.t('Loading...'))}`;
 						} else {
 							const issue = issueResult.value;
 							const issueTitle = encodeHtmlWeak(issue.title.trim());
-							const issueTitleQuoteEscaped = issueTitle.replace(quoteRegex, '&quot;');
 
 							if (footnotes != null && !prs?.has(num)) {
 								footnoteIndex = footnotes.size + 1;
 								footnotes.set(
 									footnoteIndex,
-									`<a href="${url}" title=${title}>${getIssueOrPullRequestHtmlIcon(
+									`<a href="${url}" title=${title}">${getIssueOrPullRequestHtmlIcon(
 										issue,
 									)} <b>${issueTitle}</b></a><br /><span>${GlyphChars.Space.repeat(
 										5,
-									)}${linkText} ${issue.state} ${fromNow(
-										issue.closedDate ?? issue.createdDate,
-									)}</span>`,
+									)}${encodeHtmlWeak(getIssueStatusDescription(issue, '{autolink}')).replaceAll('{autolink}', () => linkText)}</span>`,
 								);
 							}
 
 							title += `\n${GlyphChars.Dash.repeat(
 								2,
-							)}\n${issueTitleQuoteEscaped}\n${capitalize(issue.state)}, ${fromNow(
-								issue.closedDate ?? issue.createdDate,
-							)}`;
+							)}\n${issueTitle}\n${encodeHtmlWeak(getIssueStatusDescription(issue))}`;
 						}
 					} else if (footnotes != null && !prs?.has(num)) {
-						const name = ref.description?.replace(numRegex, num) ?? `Custom Autolink ${ref.prefix}${num}`;
+						const name = encodeHtmlWeak(getAutolinkName(ref, num));
 						footnoteIndex = footnotes.size + 1;
 						footnotes.set(
 							footnoteIndex,
-							`<a href="${url}" title=${title}>${getIssueOrPullRequestHtmlIcon()} ${name}</a>`,
+							`<a href="${url}" title=${title}">${getIssueOrPullRequestHtmlIcon()} ${name}</a>`,
 						);
 					}
 					title += '"';
 				}
 
 				const token = `\x00${tokenMapping.size}\x00`;
-				tokenMapping.set(token, `<a href="${url}" title=${title}>${linkText}</a>`);
+				tokenMapping.set(token, `<a href="${url}"${title ? ` title=${title}` : ''}>${linkText}</a>`);
 				return `${prefix}${token}`;
 			});
 
@@ -640,10 +653,8 @@ function renderCacheableAutolink(
 						footnoteIndex,
 						`${linkText}: ${
 							issueResult.paused
-								? 'Loading...'
-								: `${issueResult.value.title}  ${GlyphChars.Dot}  ${capitalize(
-										issueResult.value.state,
-									)}, ${fromNow(issueResult.value.closedDate ?? issueResult.value.createdDate)}`
+								? l10n.t('Loading...')
+								: `${issueResult.value.title}  ${GlyphChars.Dot}  ${getIssueStatusDescription(issueResult.value)}`
 						}`,
 					);
 				}
@@ -670,16 +681,26 @@ function renderDynamicAutolink(
 		desc.regex.lastIndex = 0;
 		text = text.replace(desc.regex, (linkText: string, repo: string, num: string) => {
 			const url = encodeUrl(desc.url(unescapeMarkdown(repo), num));
-			const title = ` "${desc.title(repo, num)}"`;
+			const rawTitle = desc.title(repo, num);
+			const title = ` "${escapeMarkdownTitle(rawTitle)}"`;
 
 			const token = `\x00${tokenMapping.size}\x00`;
 			if (outputFormat === 'markdown') {
 				tokenMapping.set(token, `[${linkText}](${url}${title})`);
 			} else {
-				tokenMapping.set(token, `<a href="${url}" title=${title}>${linkText}</a>`);
+				tokenMapping.set(token, `<a href="${url}" title="${encodeHtmlWeak(rawTitle)}">${linkText}</a>`);
 			}
 
-			appendFootnote(desc.label(repo, num), num, url, title, linkText, enrichedAutolinks, prs, footnotes);
+			appendFootnote(
+				escapeMarkdown(desc.label(repo, num)),
+				num,
+				url,
+				title,
+				linkText,
+				enrichedAutolinks,
+				prs,
+				footnotes,
+			);
 			return token;
 		});
 	}
@@ -705,7 +726,7 @@ function appendFootnote(
 			const footnoteIndex = footnotes.size + 1;
 			footnotes.set(
 				footnoteIndex,
-				`[${getIssueOrPullRequestMarkdownIcon()} ${label} $(loading~spin)](${url}${title}")`,
+				`[${getIssueOrPullRequestMarkdownIcon()} ${label} $(loading~spin)](${url}${title})`,
 			);
 		} else {
 			const issue = issueResult.value;
@@ -713,7 +734,7 @@ function appendFootnote(
 			const footnoteIndex = footnotes.size + 1;
 			footnotes.set(
 				footnoteIndex,
-				`[${getIssueOrPullRequestMarkdownIcon(issue)} **${issueTitle}**](${url}${title})\\\n${GlyphChars.Space.repeat(5)}${linkText} ${issue.state} ${fromNow(issue.closedDate ?? issue.createdDate)}`,
+				`[${getIssueOrPullRequestMarkdownIcon(issue)} **${issueTitle}**](${url}${title})\\\n${GlyphChars.Space.repeat(5)}${escapeMarkdown(getIssueStatusDescription(issue, unescapeMarkdown(linkText)))}`,
 			);
 		}
 	} else {

@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { ProgressLocation } from 'vscode';
+import { l10n, ProgressLocation } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
 import { getBranchMergeTargetName } from '../git/utils/-webview/branch.utils.js';
@@ -20,8 +20,8 @@ export interface ExplainBranchCommandArgs extends ExplainBaseArgs {
 
 @command()
 export class ExplainBranchCommand extends ExplainCommandBase {
-	pickerTitle = 'Explain Branch Changes';
-	repoPickerPlaceholder = 'Choose which repository to explain a branch from';
+	pickerTitle = l10n.t('Explain Branch Changes');
+	repoPickerPlaceholder = l10n.t('Choose which repository to explain a branch from');
 
 	constructor(container: Container) {
 		super(container, ['gitlens.ai.explainBranch', 'gitlens.ai.explainBranch:views']);
@@ -43,7 +43,7 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 
 		const svc = await this.getRepositoryService(editor, uri, args);
 		if (svc == null) {
-			void showGenericErrorMessage('Unable to find a repository');
+			void showGenericErrorMessage(l10n.t('Unable to find a repository'));
 			return;
 		}
 
@@ -51,10 +51,15 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 			// Clarifying the head branch
 			if (args.ref == null) {
 				// If no ref is provided, show a picker to select a branch
-				const result = await showReferencePicker2(svc.path, this.pickerTitle, 'Choose a branch to explain', {
-					include: ['branches'],
-					sort: { branches: { current: true } },
-				});
+				const result = await showReferencePicker2(
+					svc.path,
+					this.pickerTitle,
+					l10n.t('Choose a branch to explain'),
+					{
+						include: ['branches'],
+						sort: { branches: { current: true } },
+					},
+				);
 				if (result.value?.ref == null) return;
 
 				args.ref = result.value.ref;
@@ -63,7 +68,7 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 			// Get the branch
 			const branch = await svc.branches.getBranch(args.ref);
 			if (branch == null) {
-				void showGenericErrorMessage('Unable to find the specified branch');
+				void showGenericErrorMessage(l10n.t('Unable to find the specified branch'));
 				return;
 			}
 
@@ -73,7 +78,9 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 				// Use the provided base branch
 				baseBranch = await svc.branches.getBranch(args.baseBranch);
 				if (!baseBranch) {
-					void showGenericErrorMessage(`Unable to find the specified base branch: ${args.baseBranch}`);
+					void showGenericErrorMessage(
+						l10n.t('Unable to find the specified base branch: {0}', args.baseBranch),
+					);
 					return;
 				}
 			} else {
@@ -84,16 +91,16 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 				}
 
 				if (!baseBranch) {
-					void showGenericErrorMessage(`Unable to find the base branch for branch ${branch.name}.`);
+					void showGenericErrorMessage(l10n.t('Unable to find the base branch for branch {0}.', branch.name));
 					return;
 				}
 			}
 
 			// Get the diff between the branch and its upstream or base
 			const compareData = await prepareCompareDataForAIRequest(svc, branch.ref, baseBranch.ref, {
-				reportNoDiffService: () => void showGenericErrorMessage('Unable to get diff service'),
-				reportNoCommitsService: () => void showGenericErrorMessage('Unable to get commits service'),
-				reportNoChanges: () => void showGenericErrorMessage('No changes found to explain'),
+				reportNoDiffService: () => void showGenericErrorMessage(l10n.t('Unable to get diff service')),
+				reportNoCommitsService: () => void showGenericErrorMessage(l10n.t('Unable to get commits service')),
+				reportNoChanges: () => void showGenericErrorMessage(l10n.t('No changes found to explain')),
 			});
 
 			if (compareData == null) {
@@ -121,29 +128,32 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 					context: { type: 'branch' },
 				},
 				{
-					progress: { location: ProgressLocation.Notification, title: 'Explaining branch changes...' },
+					progress: {
+						location: ProgressLocation.Notification,
+						title: l10n.t('Explaining branch changes...'),
+					},
 				},
 			);
 
 			if (result === 'cancelled') return;
 
 			if (result == null) {
-				void showGenericErrorMessage(`Unable to explain branch ${branch.name}`);
+				void showGenericErrorMessage(l10n.t('Unable to explain branch {0}', branch.name));
 				return;
 			}
 
 			const { promise, model } = result;
 			this.openDocument(promise, `/explain/branch/${branch.ref}/${model.id}`, model, 'explain-branch', {
-				header: { title: 'Branch Summary', subtitle: branch.name },
+				header: { title: l10n.t('Branch Summary'), subtitle: branch.name },
 				command: {
-					label: 'Explain Branch Changes',
+					label: l10n.t('Explain Branch Changes'),
 					name: 'gitlens.ai.explainBranch',
 					args: { repoPath: svc.path, ref: branch.ref, source: args.source },
 				},
 			});
 		} catch (ex) {
 			Logger.error(ex, 'ExplainBranchCommand', 'execute');
-			void showGenericErrorMessage('Unable to explain branch');
+			void showGenericErrorMessage(l10n.t('Unable to explain branch'));
 		}
 	}
 }

@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
@@ -168,7 +169,9 @@ export class GlSettingsScmViews extends SignalWatcher(LitElement) {
 					${label}
 					${
 						localOnly
-							? html`<span class="row__note">Unavailable for virtual or remote repositories</span>`
+							? html`<span class="row__note"
+									>${l10n.t('Unavailable for virtual or remote repositories')}</span
+								>`
 							: nothing
 					}
 				</span>
@@ -177,28 +180,34 @@ export class GlSettingsScmViews extends SignalWatcher(LitElement) {
 				.checked=${isGrouped}
 				@gl-change-value=${(e: Event) => {
 					void this.actions?.applyCheck(
-						objectCheckDescriptor('views.scm.grouped.views', id, `Group ${label}`),
+						objectCheckDescriptor('views.scm.grouped.views', id, l10n.t('Group {view}', { view: label })),
 						(e.target as HTMLElement & { checked: boolean }).checked,
 					);
 				}}
-				><span class="sr-only">Group ${label} into GitLens SCM</span></gl-checkbox
+				><span class="sr-only">${l10n.t('Group {view} into GitLens SCM', { view: label })}</span></gl-checkbox
 			>
 			<gl-checkbox
 				.checked=${isHidden}
 				?disabled=${!isGrouped}
 				@gl-change-value=${(e: Event) => {
 					void this.actions?.applyCheck(
-						objectCheckDescriptor('views.scm.grouped.hiddenViews', id, `Hide ${label}`),
+						objectCheckDescriptor(
+							'views.scm.grouped.hiddenViews',
+							id,
+							l10n.t('Hide {view}', { view: label }),
+						),
 						(e.target as HTMLElement & { checked: boolean }).checked,
 					);
 				}}
-				><span class="sr-only">Hide ${label} in GitLens SCM</span></gl-checkbox
+				><span class="sr-only">${l10n.t('Hide {view} in GitLens SCM', { view: label })}</span></gl-checkbox
 			>
 			<gl-radio
 				.checked=${isDefault}
 				?disabled=${defaultDisabled}
 				@click=${() => this.setDefault(id, defaultDisabled)}
-				><span class="sr-only">Set ${label} as the default GitLens SCM view</span></gl-radio
+				><span class="sr-only"
+					>${l10n.t('Set {view} as the default GitLens SCM view', { view: label })}</span
+				></gl-radio
 			>
 		</div>`;
 	}
@@ -206,16 +215,17 @@ export class GlSettingsScmViews extends SignalWatcher(LitElement) {
 	override render(): unknown {
 		return html`<div class="rows">
 				<div class="header">
-					<span>View</span>
-					<span>Group</span>
-					<span>Hide</span>
-					<span>Default</span>
+					<span>${l10n.t('View')}</span>
+					<span>${l10n.t('Group')}</span>
+					<span>${l10n.t('Hide')}</span>
+					<span>${l10n.t('Default')}</span>
 				</div>
 				${groupableViewTypes.map(id => this.renderRow(id))}
 			</div>
 			<p class="footnote">
-				Views left out of the group still appear on their own in the side bar. Setting a default here applies
-				the next time GitLens SCM picks a starting view — it doesn't switch the view that's currently open.
+				${l10n.t(
+					"Views left out of the group still appear on their own in the side bar. Setting a default here applies the next time GitLens SCM picks a starting view — it doesn't switch the view that's currently open.",
+				)}
 			</p>`;
 	}
 }

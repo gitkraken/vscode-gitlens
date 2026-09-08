@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { truncateLeft } from '@gitlens/utils/string.js';
 import type { Container } from '../../../container.js';
@@ -72,8 +73,8 @@ export interface WorktreeOpenGitCommandArgs {
 
 export class WorktreeOpenGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: WorktreeOpenGitCommandArgs) {
-		super(container, 'worktree-open', 'open', 'Open Worktree', {
-			description: 'opens an existing worktree',
+		super(container, 'worktree-open', 'open', l10n.t('Open Worktree'), {
+			description: l10n.t('opens an existing worktree'),
 		});
 
 		this.initialState = { confirm: args?.confirm, flags: [], ...args?.state };
@@ -102,7 +103,7 @@ export class WorktreeOpenGitCommand extends QuickCommand<State> {
 		state.flags ??= [];
 
 		while (!steps.isComplete) {
-			context.title = state.worktree?.name ? `${this.title} \u2022 ${state.worktree.name}` : this.title;
+			context.title = state.worktree?.name ? l10n.t('{0} • {1}', this.title, state.worktree.name) : this.title;
 
 			if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
 				// Skip the picker only when the sole available repo is the one requested
@@ -143,7 +144,7 @@ export class WorktreeOpenGitCommand extends QuickCommand<State> {
 					excludeOpened: true,
 					includeStatus: true,
 					picked: state.worktree?.uri?.toString(),
-					placeholder: 'Choose worktree to open',
+					placeholder: l10n.t('Choose worktree to open'),
 				});
 				if (result === StepResultBreak) {
 					state.worktree = undefined!;
@@ -154,7 +155,7 @@ export class WorktreeOpenGitCommand extends QuickCommand<State> {
 				state.worktree = result;
 			}
 
-			context.title = `${this.title} \u2022 ${state.worktree.name}`;
+			context.title = l10n.t('{0} • {1}', this.title, state.worktree.name);
 
 			if (this.confirm(state.confirm)) {
 				using step = steps.enterStep(Steps.Confirm);
@@ -185,7 +186,7 @@ export class WorktreeOpenGitCommand extends QuickCommand<State> {
 
 			const repo = (await state.repo.git.getOrOpenCommonRepository()) ?? state.repo;
 			if (repo.name !== state.worktree.name) {
-				name = `${repo.name}: ${state.worktree.name}`;
+				name = l10n.t('{0}: {1}', repo.name, state.worktree.name);
 			} else {
 				name = state.worktree.name;
 			}
@@ -203,13 +204,13 @@ export class WorktreeOpenGitCommand extends QuickCommand<State> {
 		type StepType = FlagsQuickPickItem<Flags>;
 
 		const newWindowItem = createFlagsQuickPickItem<Flags>(state.flags, ['--new-window'], {
-			label: `Open Worktree in a New Window`,
-			detail: 'Will open the worktree in a new window',
+			label: l10n.t('Open Worktree in a New Window'),
+			detail: l10n.t('Will open the worktree in a new window'),
 		});
 
 		const currentWindowItem = createFlagsQuickPickItem<Flags>(state.flags, [], {
-			label: 'Open Worktree',
-			detail: 'Will open the worktree in the current window',
+			label: l10n.t('Open Worktree'),
+			detail: l10n.t('Will open the worktree in the current window'),
 		});
 
 		if (state.worktreeDefaultOpen === 'new') {
@@ -224,8 +225,8 @@ export class WorktreeOpenGitCommand extends QuickCommand<State> {
 			currentWindowItem,
 			newWindowItem,
 			createFlagsQuickPickItem<Flags>(state.flags, ['--add-to-workspace'], {
-				label: `Add Worktree to Workspace`,
-				detail: 'Will add the worktree into the current workspace',
+				label: l10n.t('Add Worktree to Workspace'),
+				detail: l10n.t('Will add the worktree into the current workspace'),
 			}),
 		];
 
@@ -233,21 +234,23 @@ export class WorktreeOpenGitCommand extends QuickCommand<State> {
 			confirmations.push(
 				createQuickPickSeparator(),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--reveal-explorer'], {
-					label: `Reveal in File Explorer`,
-					description: `$(folder) ${truncateLeft(getWorkspaceFriendlyPath(state.worktree.uri), 40)}`,
-					detail: 'Will open the worktree in the File Explorer',
+					label: l10n.t('Reveal in File Explorer'),
+					description: l10n.t(
+						'$(folder) {0}',
+						truncateLeft(getWorkspaceFriendlyPath(state.worktree.uri), 40),
+					),
+					detail: l10n.t('Will open the worktree in the File Explorer'),
 				}),
 			);
 		}
 
 		const step = createConfirmStep(
-			appendReposToTitle(state.overrides?.confirmation?.title ?? `Confirm ${context.title}`, state, context),
+			appendReposToTitle(state.overrides?.confirmation?.title ?? l10n.t('Confirm Open Worktree'), state, context),
 			confirmations,
-			context,
+			state.overrides?.confirmation?.placeholder ?? l10n.t('Confirm Open Worktree'),
 			undefined,
 			{
 				canGoBack: state.overrides?.canGoBack,
-				placeholder: state.overrides?.confirmation?.placeholder ?? 'Confirm Open Worktree',
 			},
 		);
 

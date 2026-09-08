@@ -1,9 +1,11 @@
 import type { Uri } from 'vscode';
+import { l10n } from 'vscode';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { defer } from '@gitlens/utils/promise.js';
 import type { WorktreeOpenState } from '../../commands/git/worktree/open.js';
 import { Container } from '../../container.js';
+import { getPresentableErrorMessage } from '../../errors.js';
 import { showGitErrorMessage } from '../../messages.js';
 import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces.js';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode.js';
@@ -80,7 +82,10 @@ export async function unlock(worktree: GitWorktree): Promise<void> {
 	try {
 		await Container.instance.git.getRepositoryService(worktree.repoPath).worktrees?.unlockWorktree(worktree.uri);
 	} catch (ex) {
-		void showGitErrorMessage(ex, `Unable to unlock worktree '${worktree.name}': ${ex.message}`);
+		void showGitErrorMessage(
+			ex,
+			l10n.t("Unable to unlock worktree '{0}': {1}", worktree.name, getPresentableErrorMessage(ex)),
+		);
 	}
 }
 

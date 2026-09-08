@@ -1,5 +1,5 @@
 import type { Disposable } from 'vscode';
-import { version as codeVersion, env } from 'vscode';
+import { version as codeVersion, env, l10n } from 'vscode';
 import type { Platform } from '@env/platform.js';
 import { getPlatform, isWeb } from '@env/platform.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
@@ -123,10 +123,20 @@ export function getFeedbackIssueUrl(
 		const params = new URLSearchParams({ description: description });
 		if (type === 'bug_report') {
 			params.set('gitlens', container.version);
-			params.set(
-				'vscode',
-				`Version: ${codeVersion}\n${env.appName} (${env.appHost}${env.remoteName ? `, ${env.remoteName}` : ''})`,
-			);
+			const remoteName = env.remoteName;
+			const vscodeDetails = remoteName
+				? l10n.t('Version: {version}\n{appName} ({appHost}, {remoteName})', {
+						version: codeVersion,
+						appName: env.appName,
+						appHost: env.appHost,
+						remoteName: remoteName,
+					})
+				: l10n.t('Version: {version}\n{appName} ({appHost})', {
+						version: codeVersion,
+						appName: env.appName,
+						appHost: env.appHost,
+					});
+			params.set('vscode', vscodeDetails);
 		}
 
 		const base = type === 'bug_report' ? urls.githubNewBugIssue : urls.githubNewFeatureIssue;
@@ -138,6 +148,8 @@ export function getFeedbackIssueUrl(
 
 	// URL-encoding expands a character to at most three, so this cap always fits under the limit with
 	// room for the other params.
-	const truncationNotice = '\n\n[Message truncated here — the full text was sent to GitKraken with your feedback.]';
+	const truncationNotice = l10n.t(
+		'\n\n[Message truncated here — the full text was sent to GitKraken with your feedback.]',
+	);
 	return build(`${message.slice(0, maxTruncatedDescriptionLength)}${truncationNotice}`);
 }

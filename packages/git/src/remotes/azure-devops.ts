@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { Brand, Unbrand } from '@gitlens/utils/brand.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import type { RemoteProviderContext } from '../context.js';
@@ -121,10 +122,10 @@ export class AzureDevOpsRemoteProvider extends RemoteProvider {
 				url: this.issueLinkPattern,
 				alphanumeric: false,
 				ignoreCase: false,
-				title: `Open Work Item #<num> on ${this.name}`,
+				title: l10n.t('Open Work Item #{number} on {provider}', { number: '<num>', provider: this.name }),
 
 				type: 'issue',
-				description: `${this.name} Work Item #<num>`,
+				description: l10n.t('{provider} Work Item #{number}', { provider: this.name, number: '<num>' }),
 			},
 			{
 				// Default Pull request message when merging a PR in ADO. Will not catch commits & pushes following a different pattern.
@@ -132,10 +133,13 @@ export class AzureDevOpsRemoteProvider extends RemoteProvider {
 				url: `${this.baseUrl}/pullrequest/<num>`,
 				alphanumeric: false,
 				ignoreCase: false,
-				title: `Open Pull Request #<num> on ${this.name}`,
+				title: l10n.t('Open Pull Request #{number} on {provider}', { number: '<num>', provider: this.name }),
 
 				type: 'pullrequest',
-				description: `${this.name} Pull Request #<num>`,
+				description: l10n.t('{provider} Pull Request #{number}', {
+					provider: this.name,
+					number: '<num>',
+				}),
 			},
 		];
 		return this._autolinks;

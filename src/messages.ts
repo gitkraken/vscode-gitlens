@@ -1,5 +1,5 @@
 import type { MessageItem } from 'vscode';
-import { ConfigurationTarget, ThemeIcon, window } from 'vscode';
+import { ConfigurationTarget, l10n, ThemeIcon, window } from 'vscode';
 import type { BlameIgnoreRevsFileError, GitCommandContext } from '@gitlens/git/errors.js';
 import { BlameIgnoreRevsFileBadRevisionError, GitCommandError } from '@gitlens/git/errors.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
@@ -9,6 +9,7 @@ import type { SuppressedMessages } from './config.js';
 import { urls } from './constants.js';
 import type { Source } from './constants.telemetry.js';
 import type { Container } from './container.js';
+import { getPresentableErrorMessage } from './errors.js';
 import { formatIdentityDisplayName, getCommitFormattedDate } from './git/utils/-webview/commit.utils.js';
 import { executeCommand, executeCoreCommand } from './system/-webview/command.js';
 import { configuration } from './system/-webview/configuration.js';
@@ -21,52 +22,65 @@ export function showBlameInvalidIgnoreRevsFileWarningMessage(
 	if (ex instanceof BlameIgnoreRevsFileBadRevisionError) {
 		return showMessage(
 			'error',
-			`Unable to show blame. Invalid revision (${ex.revision}) specified in the blame.ignoreRevsFile in your Git config.`,
+			l10n.t(
+				'Unable to show blame. Invalid revision ({0}) specified in the blame.ignoreRevsFile in your Git config.',
+				ex.revision,
+			),
 			'suppressBlameInvalidIgnoreRevsFileBadRevisionWarning',
 		);
 	}
 
 	return showMessage(
 		'error',
-		`Unable to show blame. Invalid or missing blame.ignoreRevsFile (${ex.fileName}) specified in your Git config.`,
+		l10n.t(
+			'Unable to show blame. Invalid or missing blame.ignoreRevsFile ({0}) specified in your Git config.',
+			ex.fileName,
+		),
 		'suppressBlameInvalidIgnoreRevsFileWarning',
 	);
 }
 
 export function showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<MessageItem | undefined> {
 	if (commit == null) {
-		return showMessage('info', 'There is no previous commit.', 'suppressCommitHasNoPreviousCommitWarning');
+		return showMessage('info', l10n.t('There is no previous commit.'), 'suppressCommitHasNoPreviousCommitWarning');
 	}
 	return showMessage(
 		'info',
-		`Commit ${commit.shortSha} (${formatIdentityDisplayName(commit.author)}, ${getCommitFormattedDate(commit)}) has no previous commit.`,
+		l10n.t(
+			'Commit {0} ({1}, {2}) has no previous commit.',
+			commit.shortSha,
+			formatIdentityDisplayName(commit.author),
+			getCommitFormattedDate(commit),
+		),
 		'suppressCommitHasNoPreviousCommitWarning',
 	);
 }
 
 export function showCommitNotFoundWarningMessage(message: string): Promise<MessageItem | undefined> {
-	return showMessage('warn', `${message}. The commit could not be found.`, 'suppressCommitNotFoundWarning');
+	return showMessage('warn', l10n.t('{0}. The commit could not be found.', message), 'suppressCommitNotFoundWarning');
 }
 
 export async function showCreatePullRequestPrompt(branch: string): Promise<boolean> {
-	const create = { title: 'Create Pull Request...' };
+	const create = { title: l10n.t('Create Pull Request...') };
 	const result = await showMessage(
 		'info',
-		`Would you like to create a Pull Request for branch '${branch}'?`,
+		l10n.t("Would you like to create a Pull Request for branch '{0}'?", branch),
 		'suppressCreatePullRequestPrompt',
-		{ title: "Don't Show Again" },
+		{ title: l10n.t("Don't Show Again") },
 		create,
 	);
 	return result === create;
 }
 
 export async function showDebugLoggingWarningMessage(): Promise<boolean> {
-	const disable = { title: 'Disable Debug Logging' };
+	const disable = { title: l10n.t('Disable Debug Logging') };
 	const result = await showMessage(
 		'warn',
-		'GitLens debug logging is currently enabled. Unless you are reporting an issue, it is recommended to be disabled. Would you like to disable it?',
+		l10n.t(
+			'GitLens debug logging is currently enabled. Unless you are reporting an issue, it is recommended to be disabled. Would you like to disable it?',
+		),
 		'suppressDebugLoggingWarning',
-		{ title: "Don't Show Again" },
+		{ title: l10n.t("Don't Show Again") },
 		disable,
 	);
 
@@ -75,9 +89,15 @@ export async function showDebugLoggingWarningMessage(): Promise<boolean> {
 
 export async function showGenericErrorMessage(message: string): Promise<void> {
 	if (Logger.enabled('error')) {
-		const result = await showMessage('error', `${message}. See output channel for more details.`, undefined, null, {
-			title: 'Open Output Channel',
-		});
+		const result = await showMessage(
+			'error',
+			l10n.t('{0}. See output channel for more details.', message),
+			undefined,
+			null,
+			{
+				title: l10n.t('Open Output Channel'),
+			},
+		);
 
 		if (result != null) {
 			Logger.showOutputChannel();
@@ -85,11 +105,11 @@ export async function showGenericErrorMessage(message: string): Promise<void> {
 	} else {
 		const result = await showMessage(
 			'error',
-			`${message}. If the error persists, please enable debug logging and try again.`,
+			l10n.t('{0}. If the error persists, please enable debug logging and try again.', message),
 			undefined,
 			null,
 			{
-				title: 'Enable Debug Logging',
+				title: l10n.t('Enable Debug Logging'),
 			},
 		);
 
@@ -116,7 +136,10 @@ function showGitCommandInTerminal(gitCommand: GitCommandContext, error: GitComma
 		hideFromUser: false,
 		iconPath: new ThemeIcon('gitlens-gitlens'),
 		isTransient: true,
-		message: `\x1b[1mGitLens attempted to run this Git command and it failed:\x1b[0m\r\n\x1b[31m${error.message}\x1b[0m\r\n\x1b[3mYou can run it again or modify it to diagnose the issue.\x1b[0m\r\n`,
+		message: l10n.t(
+			'\x1b[1mGitLens attempted to run this Git command and it failed:\x1b[0m\r\n\x1b[31m{0}\x1b[0m\r\n\x1b[3mYou can run it again or modify it to diagnose the issue.\x1b[0m\r\n',
+			error.localizedMessage,
+		),
 	});
 	const command = `git ${filterMap(gitCommand.args, a => (a != null ? escapeShellArg(a) : undefined)).join(' ')}`;
 	terminal.sendText(command, false);
@@ -125,21 +148,24 @@ function showGitCommandInTerminal(gitCommand: GitCommandContext, error: GitComma
 
 export async function showGitErrorMessage(error: Error | GitCommandError<any>, message?: string): Promise<void> {
 	if (!GitCommandError.is(error)) {
-		return void showGenericErrorMessage(message ?? error.message);
+		return void showGenericErrorMessage(message ?? getPresentableErrorMessage(error));
 	}
 
 	const { gitCommand } = error.details;
-	message = message ?? error.message;
+	message = message ?? error.localizedMessage;
 	const loggingEnabled = Logger.enabled('error');
 
 	const openOutputChannelOrEnableLogging: MessageItem = {
-		title: loggingEnabled ? 'Open Output Channel' : 'Enable Debug Logging',
+		title: loggingEnabled ? l10n.t('Open Output Channel') : l10n.t('Enable Debug Logging'),
 	};
-	const openInTerminalAction: MessageItem = { title: 'Open in Terminal' };
+	const openInTerminalAction: MessageItem = { title: l10n.t('Open in Terminal') };
+	const baseMessage = message.endsWith('.') ? message : `${message}.`;
 
 	const result = await showMessage(
 		'error',
-		`${message.endsWith('.') ? message : `${message}.`} ${loggingEnabled ? 'See output channel for more details.' : 'If the error persists, please enable debug logging and try again.'}`,
+		loggingEnabled
+			? l10n.t('{0} See output channel for more details.', baseMessage)
+			: l10n.t('{0} If the error persists, please enable debug logging and try again.', baseMessage),
 		undefined,
 		null,
 		...(gitCommand != null
@@ -162,14 +188,15 @@ export async function showGitErrorMessage(error: Error | GitCommandError<any>, m
 }
 
 export async function showBitbucketPRCommitLinksAppNotInstalledWarningMessage(revLink: string): Promise<void> {
-	const allowAccess = { title: 'Allow Access' };
+	const allowAccess = { title: l10n.t('Allow Access') };
 	const result = await showMessage(
 		'warn',
-		`GitLens cannot access Bitbucket PRs for commits.
-		Allow access by visiting [this commit](${revLink}) on Bitbucket and click “Pull requests” under the “Apps” section on the bottom right
-		or [read our docs](https://help.gitkraken.com/gitlens/gitlens-troubleshooting/#enable-showing-bitbucket-pull-request-for-a-commit) for more info.`,
+		l10n.t(
+			'GitLens cannot access Bitbucket PRs for commits.\nAllow access by visiting [this commit]({0}) on Bitbucket and click “Pull requests” under the “Apps” section on the bottom right\nor [read our docs](https://help.gitkraken.com/gitlens/gitlens-troubleshooting/#enable-showing-bitbucket-pull-request-for-a-commit) for more info.',
+			revLink,
+		),
 		'suppressBitbucketPRCommitLinksAppNotInstalledWarning',
-		{ title: "Don't Show Again" },
+		{ title: l10n.t("Don't Show Again") },
 		allowAccess,
 	);
 	if (result === allowAccess) {
@@ -180,7 +207,7 @@ export async function showBitbucketPRCommitLinksAppNotInstalledWarningMessage(re
 export function showFileNotUnderSourceControlWarningMessage(message: string): Promise<MessageItem | undefined> {
 	return showMessage(
 		'warn',
-		`${message}. The file is probably not under source control.`,
+		l10n.t('{0}. The file is probably not under source control.', message),
 		'suppressFileNotUnderSourceControlWarning',
 	);
 }
@@ -188,7 +215,7 @@ export function showFileNotUnderSourceControlWarningMessage(message: string): Pr
 export function showGitDisabledErrorMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
-		'GitLens requires Git to be enabled. Please re-enable Git \u2014 set `git.enabled` to true and reload.',
+		l10n.t('GitLens requires Git to be enabled. Please re-enable Git — set `git.enabled` to true and reload.'),
 		'suppressGitDisabledWarning',
 	);
 }
@@ -196,14 +223,18 @@ export function showGitDisabledErrorMessage(): Promise<MessageItem | undefined> 
 export function showGitInvalidConfigErrorMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
-		'GitLens is unable to use Git. Your Git configuration seems to be invalid. Please resolve any issues with your Git configuration and reload.',
+		l10n.t(
+			'GitLens is unable to use Git. Your Git configuration seems to be invalid. Please resolve any issues with your Git configuration and reload.',
+		),
 	);
 }
 
 export function showGitMissingErrorMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
-		"GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location.",
+		l10n.t(
+			"GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location.",
+		),
 		'suppressGitMissingWarning',
 	);
 }
@@ -214,17 +245,24 @@ export function showGitVersionUnsupportedErrorMessage(
 ): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
-		`GitLens requires a newer version of Git (>= ${required}) than is currently installed (${version}). Please install a more recent version of Git.`,
+		l10n.t(
+			'GitLens requires a newer version of Git (>= {0}) than is currently installed ({1}). Please install a more recent version of Git.',
+			required,
+			version,
+		),
 		'suppressGitVersionWarning',
 	);
 }
 
 export async function showPreReleaseExpiredErrorMessage(version: string): Promise<void> {
-	const upgrade = { title: 'Upgrade' };
-	const switchToRelease = { title: 'Switch to Release Version' };
+	const upgrade = { title: l10n.t('Upgrade') };
+	const switchToRelease = { title: l10n.t('Switch to Release Version') };
 	const result = await showMessage(
 		'error',
-		`This pre-release version (${version}) of GitLens has expired. Please upgrade to a more recent pre-release, or switch to the release version.`,
+		l10n.t(
+			'This pre-release version ({0}) of GitLens has expired. Please upgrade to a more recent pre-release, or switch to the release version.',
+			version,
+		),
 		undefined,
 		null,
 		upgrade,
@@ -243,34 +281,38 @@ export async function showPreReleaseExpiredErrorMessage(version: string): Promis
 }
 
 export function showLineUncommittedWarningMessage(message: string): Promise<MessageItem | undefined> {
-	return showMessage('warn', `${message}. The line has uncommitted changes.`, 'suppressLineUncommittedWarning');
+	return showMessage(
+		'warn',
+		l10n.t('{0}. The line has uncommitted changes.', message),
+		'suppressLineUncommittedWarning',
+	);
 }
 
 export function showNoRepositoryWarningMessage(message: string): Promise<MessageItem | undefined> {
-	return showMessage('warn', `${message}. No repository could be found.`, 'suppressNoRepositoryWarning');
+	return showMessage('warn', l10n.t('{0}. No repository could be found.', message), 'suppressNoRepositoryWarning');
 }
 
 export function showGkDisconnectedTooManyFailedRequestsWarningMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
-		`Requests to GitKraken have stopped being sent for this session, because of too many failed requests.`,
+		l10n.t('Requests to GitKraken have stopped being sent for this session, because of too many failed requests.'),
 		'suppressGkDisconnectedTooManyFailedRequestsWarningMessage',
 		undefined,
 		{
-			title: 'OK',
+			title: l10n.t('OK'),
 		},
 	);
 }
 
 export function showGkRequestFailed500WarningMessage(message: string): Promise<MessageItem | undefined> {
 	return showMessage('error', message, 'suppressGkRequestFailed500Warning', undefined, {
-		title: 'OK',
+		title: l10n.t('OK'),
 	});
 }
 
 export function showGkRequestTimedOutWarningMessage(): Promise<MessageItem | undefined> {
-	return showMessage('error', `GitKraken request timed out.`, 'suppressGkRequestTimedOutWarning', undefined, {
-		title: 'OK',
+	return showMessage('error', l10n.t('GitKraken request timed out.'), 'suppressGkRequestTimedOutWarning', undefined, {
+		title: l10n.t('OK'),
 	});
 }
 
@@ -279,55 +321,61 @@ export function showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(
 ): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
-		`Rich integration with ${providerName} has been disconnected for this session, because of too many failed requests.`,
+		l10n.t(
+			'Rich integration with {0} has been disconnected for this session, because of too many failed requests.',
+			providerName,
+		),
 		'suppressIntegrationDisconnectedTooManyFailedRequestsWarning',
 		undefined,
 		{
-			title: 'OK',
+			title: l10n.t('OK'),
 		},
 	);
 }
 
 export function showIntegrationRequestFailed500WarningMessage(message: string): Promise<MessageItem | undefined> {
 	return showMessage('error', message, 'suppressIntegrationRequestFailed500Warning', undefined, {
-		title: 'OK',
+		title: l10n.t('OK'),
 	});
 }
 
 export function showIntegrationRequestTimedOutWarningMessage(providerName: string): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
-		`${providerName} request timed out.`,
+		l10n.t('{0} request timed out.', providerName),
 		'suppressIntegrationRequestTimedOutWarning',
 		undefined,
 		{
-			title: 'OK',
+			title: l10n.t('OK'),
 		},
 	);
 }
 
 export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
-	const confirm = { title: 'OK', isCloseAffordance: true };
-	const releaseNotes = { title: 'View Release Notes' };
-	const openWalkthrough = { title: 'Open Walkthrough' };
-	const openGraph = { title: 'Show Commit Graph' };
+	const confirm = { title: l10n.t('OK'), isCloseAffordance: true };
+	const releaseNotes = { title: l10n.t('View Release Notes') };
+	const openWalkthrough = { title: l10n.t('Open Walkthrough') };
+	const openGraph = { title: l10n.t('Show Commit Graph') };
 
 	let message: string;
 	switch (majorVersion) {
 		case '19':
-			message =
-				'GitLens 19 is here — the Commit Graph has been rebuilt from the ground up: dramatically faster, lighter, now the heart of GitLens, with new and enhanced workflows from code to merge.';
+			message = l10n.t(
+				'GitLens 19 is here — the Commit Graph has been rebuilt from the ground up: dramatically faster, lighter, now the heart of GitLens, with new and enhanced workflows from code to merge.',
+			);
 			break;
 		case '18':
-			message =
-				'GitLens upgraded to 18 — the Commit Graph is all new with agent integration, multi-worktree WIP rows, AI-powered Review and Compose modes, and more.';
+			message = l10n.t(
+				'GitLens upgraded to 18 — the Commit Graph is all new with agent integration, multi-worktree WIP rows, AI-powered Review and Compose modes, and more.',
+			);
 			break;
 		case '17':
-			message =
-				'GitLens upgraded to 17 with the all new [GitKraken AI](https://gitkraken.com/solutions/gitkraken-ai?source=gitlens&product=gitlens&utm_source=gitlens-extension&utm_medium=in-app-links) access included in GitLens Pro, AI changelog and pull request creation, and Bitbucket integration.';
+			message = l10n.t(
+				'GitLens upgraded to 17 with the all new [GitKraken AI](https://gitkraken.com/solutions/gitkraken-ai?source=gitlens&product=gitlens&utm_source=gitlens-extension&utm_medium=in-app-links) access included in GitLens Pro, AI changelog and pull request creation, and Bitbucket integration.',
+			);
 			break;
 		default:
-			message = `GitLens upgraded to ${majorVersion} — see what's new.`;
+			message = l10n.t("GitLens upgraded to {0} — see what's new.", majorVersion);
 			break;
 	}
 
@@ -350,16 +398,18 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 
 export async function showMcpMessage(container: Container, _current: string): Promise<void> {
 	const isAutoInstallable = container.gkMcp?.isRegistrationAllowed ?? false;
-	const confirm = { title: 'OK', isCloseAffordance: true };
-	const learnMore = { title: 'Learn More' };
-	const connectMore = { title: 'Connect More Agents' };
-	const install = { title: 'Install GitKraken MCP' };
+	const confirm = { title: l10n.t('OK'), isCloseAffordance: true };
+	const learnMore = { title: l10n.t('Learn More') };
+	const connectMore = { title: l10n.t('Connect More Agents') };
+	const install = { title: l10n.t('Install GitKraken MCP') };
 
 	let result: MessageItem | undefined;
 	if (isAutoInstallable) {
 		result = await showMessage(
 			'info',
-			`GitLens adds the GitKraken MCP into your AI chat, leveraging Git and your integrations to provide context and perform actions. You can also connect MCP to other agents on your machine.`,
+			l10n.t(
+				'GitLens adds the GitKraken MCP into your AI chat, leveraging Git and your integrations to provide context and perform actions. You can also connect MCP to other agents on your machine.',
+			),
 			undefined,
 			null,
 			connectMore,
@@ -369,7 +419,9 @@ export async function showMcpMessage(container: Container, _current: string): Pr
 	} else {
 		result = await showMessage(
 			'info',
-			`Allow GitLens to add the GitKraken MCP into your AI chat, leveraging Git and your integrations (issues, PRs, etc) to provide context and perform actions. Saving you time and context switching.`,
+			l10n.t(
+				'Allow GitLens to add the GitKraken MCP into your AI chat, leveraging Git and your integrations (issues, PRs, etc) to provide context and perform actions. Saving you time and context switching.',
+			),
 			undefined,
 			null,
 			install,
@@ -392,12 +444,14 @@ export async function showMcpMessage(container: Container, _current: string): Pr
 }
 
 export async function showCursorMcpCleanupMessage(): Promise<void> {
-	const learnMore = { title: 'Learn More' };
-	const confirm = { title: 'OK', isCloseAffordance: true };
+	const learnMore = { title: l10n.t('Learn More') };
+	const confirm = { title: l10n.t('OK'), isCloseAffordance: true };
 
 	const result = await showMessage(
 		'info',
-		`GitLens now registers the GitKraken MCP automatically in Cursor. You may have a duplicate entry in your Cursor \`mcp.json\` — remove \`mcpServers.GitKraken\` to clean it up.`,
+		l10n.t(
+			'GitLens now registers the GitKraken MCP automatically in Cursor. You may have a duplicate entry in your Cursor `mcp.json` — remove `mcpServers.GitKraken` to clean it up.',
+		),
 		undefined,
 		null,
 		learnMore,
@@ -413,7 +467,7 @@ export async function showMessage(
 	type: 'info' | 'warn' | 'error',
 	message: string,
 	suppressionKey?: SuppressedMessages,
-	dontShowAgain: MessageItem | null = { title: "Don't Show Again" },
+	dontShowAgain: MessageItem | null = { title: l10n.t("Don't Show Again") },
 	...actions: MessageItem[]
 ): Promise<MessageItem | undefined> {
 	Logger.debug(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)})`);

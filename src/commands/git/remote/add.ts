@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { Container } from '../../../container.js';
 import { revealRemote } from '../../../git/actions/remote.js';
 import type { GlRepository } from '../../../git/models/repository.js';
@@ -55,8 +56,8 @@ export interface RemoteAddGitCommandArgs {
 
 export class RemoteAddGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: RemoteAddGitCommandArgs) {
-		super(container, 'remote-add', 'add', 'Add Remote', {
-			description: 'adds a new remote',
+		super(container, 'remote-add', 'add', l10n.t('Add Remote'), {
+			description: l10n.t('adds a new remote'),
 		});
 
 		this.initialState = { confirm: args?.confirm, flags: ['-f'], ...args?.state };
@@ -105,7 +106,7 @@ export class RemoteAddGitCommand extends QuickCommand<State> {
 				using step = steps.enterStep(Steps.InputName);
 
 				const result = yield* inputRemoteNameStep(state, context, {
-					prompt: 'Please provide a name for the remote',
+					prompt: l10n.t('Please provide a name for the remote'),
 					value: state.name,
 				});
 				if (result === StepResultBreak) {
@@ -121,7 +122,7 @@ export class RemoteAddGitCommand extends QuickCommand<State> {
 				using step = steps.enterStep(Steps.InputUrl);
 
 				const result = yield* inputRemoteUrlStep(state, context, {
-					prompt: 'Please provide a URL for the remote',
+					prompt: l10n.t('Please provide a URL for the remote'),
 					value: state.url,
 				});
 				if (result === StepResultBreak) {
@@ -162,20 +163,21 @@ export class RemoteAddGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<Flags[]> {
+		const confirmTitle = l10n.t('Confirm Add Remote');
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(confirmTitle, state, context),
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: context.title,
-					detail: `Will add remote '${state.name}' for ${state.url}`,
+					detail: l10n.t("Will add remote '{0}' for {1}", state.name, state.url),
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['-f'], {
-					label: `${context.title} and Fetch`,
+					label: l10n.t('Add Remote and Fetch'),
 					description: '-f',
-					detail: `Will add and fetch remote '${state.name}' for ${state.url}`,
+					detail: l10n.t("Will add and fetch remote '{0}' for {1}", state.name, state.url),
 				}),
 			],
-			context,
+			confirmTitle,
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;

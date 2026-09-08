@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { AiModelInfo } from '../../../rpc/services/types.js';
@@ -129,17 +130,17 @@ export class GlAiModelChip extends LitElement {
 
 		return html`<gl-tooltip>
 				<button class="chip" type="button" @click=${this.onClick}>
-					<span class="chip__model">${model?.name ?? 'Choose AI Model…'}</span>
+					<span class="chip__model">${model?.name ?? l10n.t('Choose AI Model…')}</span>
 					${model != null ? html`<span class="chip__provider">${model.provider.name}</span>` : nothing}
 					<code-icon icon="chevron-down" class="chip__chevron" aria-hidden="true"></code-icon>
 				</button>
 				<span slot="content"
 					>${
 						canonical != null
-							? html`Switch AI Model
+							? html`${l10n.t('Switch AI Model')}
 									<hr />
 									${canonical}`
-							: 'Choose AI Model'
+							: l10n.t('Choose AI Model')
 					}</span
 				>
 			</gl-tooltip>

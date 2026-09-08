@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { Account, CommitAuthor, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
@@ -862,11 +863,12 @@ export class BitbucketApi implements Disposable {
 				if (ex.response != null) {
 					provider?.trackRequestException();
 					this.config.onRequestFailed?.(
-						`${provider?.name ?? 'Bitbucket'} failed to respond and might be experiencing issues.${
-							provider == null || provider.id === 'bitbucket'
-								? ' Please visit the [Bitbucket status page](https://bitbucket.status.atlassian.com/) for more information.'
-								: ''
-						}`,
+						provider == null || provider.id === 'bitbucket'
+							? l10n.t(
+									'{0} failed to respond and might be experiencing issues. Please visit the [Bitbucket status page](https://bitbucket.status.atlassian.com/) for more information.',
+									provider?.name ?? 'Bitbucket',
+								)
+							: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
 					);
 				}
 				return;

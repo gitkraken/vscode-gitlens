@@ -1,5 +1,5 @@
 import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
-import { InputBoxValidationSeverity, QuickInputButtons, window } from 'vscode';
+import { InputBoxValidationSeverity, l10n, QuickInputButtons, window } from 'vscode';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { isPromise } from '@gitlens/utils/promise.js';
 import type { GlCommands } from '../../constants.commands.js';
@@ -150,7 +150,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 					disposables.push(quickpick.onDidHide(() => resolve(step)));
 
 					quickpick.title = title;
-					quickpick.placeholder = 'Loading...';
+					quickpick.placeholder = l10n.t('Loading...');
 					quickpick.busy = true;
 					quickpick.enabled = false;
 
@@ -812,7 +812,7 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 				let items;
 				let shown = false;
 				if (isPromise(step.items)) {
-					quickpick.placeholder = 'Loading...';
+					quickpick.placeholder = l10n.t('Loading...');
 
 					quickpick.busy = true;
 

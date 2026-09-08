@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { TagError } from '@gitlens/git/errors.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import {
@@ -69,8 +69,8 @@ export interface TagCreateGitCommandArgs {
 
 export class TagCreateGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: TagCreateGitCommandArgs) {
-		super(container, 'tag-create', 'create', 'Create Tag', {
-			description: 'creates a new tag',
+		super(container, 'tag-create', 'create', l10n.t('Create Tag'), {
+			description: l10n.t('creates a new tag'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -124,9 +124,12 @@ export class TagCreateGitCommand extends QuickCommand<State> {
 				using step = steps.enterStep(Steps.PickRef);
 
 				const result = yield* pickBranchOrTagStep(state, context, {
-					placeholder: ctx => `Choose a branch${ctx.showTags ? ' or tag' : ''} to create the new tag from`,
+					placeholder: ctx =>
+						ctx.showTags
+							? l10n.t('Choose a branch or tag to create the new tag from')
+							: l10n.t('Choose a branch to create the new tag from'),
 					picked: state.reference?.ref ?? (await state.repo.git.branches.getBranch())?.ref,
-					title: `${context.title} from`,
+					title: l10n.t('Create Tag from'),
 					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 				});
 				if (result === StepResultBreak) {
@@ -142,11 +145,14 @@ export class TagCreateGitCommand extends QuickCommand<State> {
 				using step = steps.enterStep(Steps.InputName);
 
 				const result = yield* inputTagNameStep(state, context, {
-					prompt: 'Please provide a name for the new tag',
-					title: `${context.title} at ${getReferenceLabel(state.reference, {
-						capitalize: true,
-						icon: false,
-					})}`,
+					prompt: l10n.t('Please provide a name for the new tag'),
+					title: l10n.t(
+						'Create Tag at {0}',
+						getReferenceLabel(state.reference, {
+							capitalize: true,
+							icon: false,
+						}),
+					),
 					value:
 						state.name ?? // if it's not a tag, pre-fill the name
 						(!isTagReference(state.reference) ? getReferenceNameWithoutRemote(state.reference) : undefined),
@@ -197,21 +203,23 @@ export class TagCreateGitCommand extends QuickCommand<State> {
 			try {
 				await state.repo.git.tags.createTag?.(state.name, state.reference.ref, state.message);
 			} catch (ex) {
-				Logger.error(ex, context.title);
+				Logger.error(ex, 'Create Tag');
 
 				if (TagError.is(ex, 'alreadyExists')) {
 					void window.showWarningMessage(
-						`Unable to create tag '${state.name}'. A tag with that name already exists.`,
+						l10n.t("Unable to create tag '{0}'. A tag with that name already exists.", state.name),
 					);
 					return;
 				}
 
 				if (TagError.is(ex, 'invalidName')) {
-					void window.showWarningMessage(`Unable to create tag '${state.name}'. The tag name is invalid.`);
+					void window.showWarningMessage(
+						l10n.t("Unable to create tag '{0}'. The tag name is invalid.", state.name),
+					);
 					return;
 				}
 
-				void showGitErrorMessage(ex, TagError.is(ex) ? undefined : 'Unable to create tag');
+				void showGitErrorMessage(ex, TagError.is(ex) ? undefined : l10n.t('Unable to create tag'));
 			}
 		}
 
@@ -224,13 +232,13 @@ export class TagCreateGitCommand extends QuickCommand<State> {
 	): AsyncStepResultGenerator<string> {
 		const step = createInputStep({
 			title: appendReposToTitle(
-				`${context.title} at ${getReferenceLabel(state.reference, { capitalize: true, icon: false })}`,
+				l10n.t('Create Tag at {0}', getReferenceLabel(state.reference, { capitalize: true, icon: false })),
 				state,
 				context,
 			),
-			placeholder: 'Please provide an optional message to annotate the tag',
+			placeholder: l10n.t('Please provide an optional message to annotate the tag'),
 			value: state.message,
-			prompt: 'Enter optional message',
+			prompt: l10n.t('Enter optional message'),
 		});
 
 		const value: StepSelection<typeof step> = yield step;
@@ -244,27 +252,32 @@ export class TagCreateGitCommand extends QuickCommand<State> {
 
 	private *confirmStep(state: StepState<State<GlRepository>>, context: TagContext): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(l10n.t('Confirm Create Tag'), state, context),
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, state.message.length !== 0 ? ['-m'] : [], {
 					label: context.title,
 					description: state.message.length !== 0 ? '-m' : '',
-					detail: `Will create a new tag named ${state.name} at ${getReferenceLabel(state.reference)}`,
+					detail: l10n.t(
+						'Will create a new tag named {0} at {1}',
+						state.name,
+						getReferenceLabel(state.reference),
+					),
 				}),
 				createFlagsQuickPickItem<Flags>(
 					state.flags,
 					state.message.length !== 0 ? ['--force', '-m'] : ['--force'],
 					{
-						label: `Force ${context.title}`,
+						label: l10n.t('Force Create Tag'),
 						description: `--force${state.message.length !== 0 ? ' -m' : ''}`,
-						detail: `Will forcibly create a new tag named ${state.name} at ${getReferenceLabel(
-							state.reference,
-						)}`,
+						detail: l10n.t(
+							'Will forcibly create a new tag named {0} at {1}',
+							state.name,
+							getReferenceLabel(state.reference),
+						),
 					},
 				),
 			],
-			undefined,
-			{ placeholder: `Confirm ${context.title}` },
+			l10n.t('Confirm Create Tag'),
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;

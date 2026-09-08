@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { Uri } from '@gitlens/utils/uri.js';
 import type { RemoteProviderContext } from '../context.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '../models/autolink.js';
@@ -39,10 +40,10 @@ export class GiteaRemoteProvider extends RemoteProvider {
 				url: this.issueLinkPattern,
 				alphanumeric: false,
 				ignoreCase: false,
-				title: `Open Issue #<num> on ${this.name}`,
+				title: l10n.t('Open Issue #{number} on {provider}', { number: '<num>', provider: this.name }),
 
 				type: 'issue',
-				description: `${this.name} Issue #<num>`,
+				description: l10n.t('{provider} Issue #{number}', { provider: this.name, number: '<num>' }),
 			},
 		];
 		return this._autolinks;

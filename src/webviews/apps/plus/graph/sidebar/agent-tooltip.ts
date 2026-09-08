@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { basename } from '@gitlens/utils/path.js';
@@ -217,7 +218,7 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		if (wt.type === 'bare') {
 			return html`<div class="identity-line">
 				<code-icon icon="circle-slash"></code-icon>
-				<span class="identity-line__value">Bare worktree</span>
+				<span class="identity-line__value">${l10n.t('Bare worktree')}</span>
 			</div>`;
 		}
 

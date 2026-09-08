@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query, queryAssignedElements } from 'lit/decorators.js';
@@ -323,7 +324,7 @@ export class GlWalkthroughProgress extends LitElement {
 				<div class="progress-bar">
 					<div class="progress-bar__fill"></div>
 				</div>
-				<p>${this.doneCount}/${this.allCount} steps complete</p>
+				<p>${l10n.t('{0}/{1} steps complete', this.doneCount, this.allCount)}</p>
 			</div>
 		`;
 	}

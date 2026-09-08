@@ -1,4 +1,4 @@
-import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Disposable, l10n, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import { deletedOrMissing } from '@gitlens/git/models/revision.js';
@@ -59,9 +59,10 @@ export class FileHistoryNode
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		this.view.description = `${this.label}${
-			this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
-		}`;
+		this.view.description =
+			this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor
+				? l10n.t('{0} (pinned)', this.label)
+				: this.label;
 
 		if (this.view.mode === 'contributors') {
 			return this.getContributors();
@@ -74,13 +75,22 @@ export class FileHistoryNode
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.FileHistory;
 		item.description = this.uri.directory;
-		item.tooltip = `History of ${this.uri.fileName}\n${this.uri.directory}/${
-			this.uri.sha == null ? '' : `\n\n${this.uri.sha}`
-		}`;
+		item.tooltip =
+			this.uri.sha == null
+				? l10n.t('History of {file}\n{directory}/', {
+						file: this.uri.fileName,
+						directory: this.uri.directory,
+					})
+				: l10n.t('History of {file}\n{directory}/\n\n{sha}', {
+						file: this.uri.fileName,
+						directory: this.uri.directory,
+						sha: this.uri.sha,
+					});
 
-		this.view.description = `${label}${
-			this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
-		}`;
+		this.view.description =
+			this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor
+				? l10n.t('{0} (pinned)', label)
+				: label;
 
 		return item;
 	}
@@ -208,7 +218,9 @@ export class FileHistoryNode
 				: svc.getRelativePath(this.uri, this.uri.repoPath),
 			stats: true,
 		});
-		if (!result?.contributors.length) return [new MessageNode(this.view, this, 'No contributors could be found.')];
+		if (!result?.contributors.length) {
+			return [new MessageNode(this.view, this, l10n.t('No contributors could be found.'))];
+		}
 
 		const children = result.contributors.map(
 			contributor =>
@@ -314,7 +326,7 @@ export class FileHistoryNode
 			}
 		}
 
-		if (!children.length) return [new MessageNode(this.view, this, 'No file history could be found.')];
+		if (!children.length) return [new MessageNode(this.view, this, l10n.t('No file history could be found.'))];
 
 		return children;
 	}

@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
@@ -166,20 +167,20 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				id="chip"
 				class="chip chip--skeleton"
 				tabindex="-1"
-				aria-label="Loading integrations status"
+				aria-label=${l10n.t('Loading integrations status')}
 				role="status"
 			></span>`;
 		}
 
 		if (this.display === 'ai-icons') {
-			return this.renderIconChip('AI', this.renderAIStatus());
+			return this.renderIconChip(l10n.t('AI'), this.renderAIStatus());
 		}
 
 		if (this.display === 'agent-icons') {
-			return this.renderIconChip('Agents', this.renderAgentIcons());
+			return this.renderIconChip(l10n.t('Agents'), this.renderAgentIcons());
 		}
 
-		return this.renderIconChip('Integrations', this.renderIntegrationIcons());
+		return this.renderIconChip(l10n.t('Integrations'), this.renderIntegrationIcons());
 	}
 
 	/** Icon-only chip: a command link when `href` is set (navigates on click), else a button whose click
@@ -196,7 +197,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		const anyConnected = this.hasConnectedIntegrations;
 		const statusFilter = createStatusIconFilter(this.integrations);
 
-		return html`${!anyConnected ? html`<span class="chip__label">Connect</span>` : ''}${this.integrations
+		return html`${!anyConnected ? html`<span class="chip__label">${l10n.t('Connect')}</span>` : ''}${this.integrations
 			.filter(statusFilter)
 			.map(i => this.renderIntegrationStatus(i))}`;
 	}

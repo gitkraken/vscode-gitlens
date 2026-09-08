@@ -27,6 +27,7 @@ import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import type { GlCommands } from '../../../constants.commands.js';
 import type { StoredGraphExcludedRef } from '../../../constants.storage.js';
 import type { Container } from '../../../container.js';
+import { getPresentableErrorMessage } from '../../../errors.js';
 import * as BranchActions from '../../../git/actions/branch.js';
 import * as RemoteActions from '../../../git/actions/remote.js';
 import * as RepoActions from '../../../git/actions/repository.js';
@@ -279,7 +280,7 @@ export class GraphPanelsService {
 		} catch (ex) {
 			Logger.error(ex, 'GraphWebviewProvider', 'onGetOverview');
 			// Ship a structurally-valid shape so the frontend's `.length`/`.map` reads don't crash.
-			return { active: [], recent: [], error: ex instanceof Error ? ex.message : String(ex) };
+			return { active: [], recent: [], error: getPresentableErrorMessage(ex) };
 		}
 	}
 

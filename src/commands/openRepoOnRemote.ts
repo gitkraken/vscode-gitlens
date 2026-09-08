@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
@@ -57,8 +58,8 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 				gitUri,
 				editor,
 				args?.clipboard
-					? 'Choose which repository to copy the url from'
-					: 'Choose which repository to open on remote',
+					? l10n.t('Choose which repository to copy the url from')
+					: l10n.t('Choose which repository to open on remote'),
 			)
 		)?.path;
 		if (!repoPath) return;
@@ -74,7 +75,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenRepoOnRemoteCommand');
-			void showGenericErrorMessage('Unable to open repository on remote provider');
+			void showGenericErrorMessage(l10n.t('Unable to open repository on remote provider'));
 		}
 	}
 }

@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type {
 	AIReviewDetailResult,
 	AIReviewFinding,
@@ -105,11 +106,13 @@ function parseFindings(content: string, idPrefix: string): AIReviewFinding[] {
 		const attrs = match[1];
 		const inner = match[2];
 		findingIndex++;
+		const title = inner.match(titleTagRegex)?.[1]?.trim();
 
 		findings.push({
 			id: `${idPrefix}-f${findingIndex}`,
 			severity: parseSeverity(parseAttr(attrs, 'severity')),
-			title: inner.match(titleTagRegex)?.[1]?.trim() ?? 'Untitled finding',
+			title: title ?? 'Untitled finding',
+			...(title == null ? { titleIsFallback: true } : {}),
 			description: inner.match(descriptionTagRegex)?.[1]?.trim() ?? '',
 			filePath: parseAttr(attrs, 'file'),
 			lineRange: parseLineRange(parseAttr(attrs, 'lines')),
@@ -134,13 +137,15 @@ export function parseReviewResult(result: string, mode: 'single-pass' | 'two-pas
 
 		const id = `area-${areaIndex}`;
 		const filesAttr = parseAttr(attrs, 'files');
+		const label = inner.match(labelTagRegex)?.[1]?.trim();
 
 		const findingsBlock = inner.match(findingsBlockRegex)?.[1];
 		const findings = findingsBlock ? parseFindings(findingsBlock, id) : undefined;
 
 		focusAreas.push({
 			id: id,
-			label: inner.match(labelTagRegex)?.[1]?.trim() ?? 'Untitled area',
+			label: label ?? 'Untitled area',
+			...(label == null ? { labelIsFallback: true } : {}),
 			rationale: inner.match(rationaleTagRegex)?.[1]?.trim() ?? '',
 			severity: parseSeverity(parseAttr(attrs, 'severity')),
 			files: filesAttr?.split(',').map(f => f.trim()) ?? [],
@@ -317,10 +322,12 @@ function coerceLineNumber(value: unknown): number | undefined {
 // Normalizes schema null-unions (null → undefined) and synthesizes the same 1-based positional ids
 // as the XML parsers, so ids stay stable regardless of which parse route handled the response
 function normalizeFindingJson(finding: ReviewFindingJson, id: string): AIReviewFinding {
+	const title = trimmedString(finding.title);
 	return {
 		id: id,
 		severity: parseSeverity(trimmedString(finding.severity)),
-		title: trimmedString(finding.title) || 'Untitled finding',
+		title: title || 'Untitled finding',
+		...(!title ? { titleIsFallback: true } : {}),
 		description: trimmedString(finding.description) ?? '',
 		filePath: trimmedString(finding.file) || undefined,
 		lineRange: normalizeLineRange(coerceLineNumber(finding.lines?.start), coerceLineNumber(finding.lines?.end)),
@@ -330,7 +337,7 @@ function normalizeFindingJson(finding: ReviewFindingJson, id: string): AIReviewF
 /** Parses a review result, preferring the JSON shape and falling back to the legacy XML format */
 export function parseReviewResultJson(result: string, mode: 'single-pass' | 'two-pass'): AIReviewResult {
 	// An empty response is never a valid review — don't render it as a clean "no issues" result
-	if (!result.trim()) throw new Error('The AI model returned an empty response');
+	if (!result.trim()) throw new Error(l10n.t('The AI model returned an empty response'));
 
 	const parsed = extractJsonObject(result, o => typeof o.overview === 'string' || Array.isArray(o.focusAreas)) as
 		| ReviewResultJson
@@ -343,7 +350,7 @@ export function parseReviewResultJson(result: string, mode: 'single-pass' | 'two
 		// A non-empty response matching neither shape is malformed (e.g. truncated JSON) — surface
 		// that rather than rendering it as a clean "no issues" review
 		if (!fallback.overview && fallback.focusAreas.length === 0 && !result.includes('<overview')) {
-			throw new Error('Unable to parse the review response from the AI model');
+			throw new Error(l10n.t('Unable to parse the review response from the AI model'));
 		}
 		return fallback;
 	}
@@ -355,6 +362,7 @@ export function parseReviewResultJson(result: string, mode: 'single-pass' | 'two
 		if (area == null || typeof area !== 'object') continue;
 
 		areaIndex++;
+		const label = trimmedString(area.label);
 		// Finding ids MUST stay namespaced by area id — dismissed findings are tracked in one flat
 		// set spanning all areas, so bare per-area indices would collide across areas
 		const id = `area-${areaIndex}`;
@@ -365,7 +373,8 @@ export function parseReviewResultJson(result: string, mode: 'single-pass' | 'two
 
 		focusAreas.push({
 			id: id,
-			label: trimmedString(area.label) || 'Untitled area',
+			label: label || 'Untitled area',
+			...(!label ? { labelIsFallback: true } : {}),
 			rationale: trimmedString(area.rationale) ?? '',
 			severity: parseSeverity(trimmedString(area.severity)),
 			files: Array.isArray(area.files)
@@ -381,7 +390,7 @@ export function parseReviewResultJson(result: string, mode: 'single-pass' | 'two
 /** Parses a review detail result, preferring the JSON shape and falling back to the legacy XML format */
 export function parseReviewDetailResultJson(result: string, focusAreaId: string): AIReviewDetailResult {
 	// An empty response is never a valid result — don't render it as "no findings"
-	if (!result.trim()) throw new Error('The AI model returned an empty response');
+	if (!result.trim()) throw new Error(l10n.t('The AI model returned an empty response'));
 
 	const parsed = extractJsonObject(result, o => o.findings === null || Array.isArray(o.findings)) as
 		| { findings?: ReviewFindingJson[] | null }
@@ -394,7 +403,7 @@ export function parseReviewDetailResultJson(result: string, focusAreaId: string)
 		// Same malformed-response guard as parseReviewResultJson above; an empty legacy
 		// `<findings>` block is a legitimate "no findings" response, not a parse failure
 		if (fallback.findings.length === 0 && !result.includes('<findings')) {
-			throw new Error('Unable to parse the review response from the AI model');
+			throw new Error(l10n.t('Unable to parse the review response from the AI model'));
 		}
 		return fallback;
 	}

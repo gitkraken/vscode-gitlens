@@ -1,10 +1,12 @@
 import * as assert from 'node:assert/strict';
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import * as l10n from '@vscode/l10n';
 import { suite, test } from 'mocha';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { assessCollectionMetadata, isIncompleteCollection, mergeAssessmentInto } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
+import { ProviderFetchError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
@@ -446,6 +448,41 @@ suite('assessCollectionMetadata (#5438)', () => {
 			['rate-limit', 'auth', 'not-found', 'not-found'],
 		);
 		assert.equal(result.warnings[1].isAuth, true);
+	});
+
+	test('ProviderFetchError status grammar stays classifiable under translations', () => {
+		l10n.config({
+			contents: {
+				'{provider} request failed: {status}{error}': 'Solicitud fallida sin código',
+				'{0} request failed: {1}{2}': 'Solicitud fallida sin código',
+			},
+		});
+		try {
+			const statuses = [
+				[401, 'Unauthorized'],
+				[403, 'Forbidden'],
+				[404, 'Not Found'],
+				[429, 'Too Many Requests'],
+			] as const;
+			const result = assessCollectionMetadata(providerId, 'github.com', 'c1', {
+				completeness: 'partial',
+				failures: statuses.map(([status, statusText]) => ({
+					kind: 'provider' as const,
+					scope: { repositoryId: String(status) },
+					message: new ProviderFetchError(
+						'GitHub',
+						new Response(undefined, { status: status, statusText: statusText }),
+					).message,
+				})),
+			});
+
+			assert.deepEqual(
+				result.warnings.map(w => w.kind),
+				['auth', 'auth', 'not-found', 'rate-limit'],
+			);
+		} finally {
+			l10n.config({ contents: {} });
+		}
 	});
 
 	test('network/provider/unknown failures map to the generic "other" kind, not a truncation-only read', () => {

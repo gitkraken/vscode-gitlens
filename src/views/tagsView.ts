@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
-import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { l10n, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitTagReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import type { TagsViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config.js';
@@ -44,7 +44,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 
 			const repositories = this.view.getFilteredRepositories();
 			if (!repositories.length) {
-				this.view.message = 'No tags could be found.';
+				this.view.message = l10n.t('No tags could be found.');
 				return [];
 			}
 
@@ -59,7 +59,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 
 			const tags = await child.repo.git.tags.getTags();
 			if (!tags.values.length) {
-				this.view.message = 'No tags could be found.';
+				this.view.message = l10n.t('No tags could be found.');
 				void child.ensureSubscription();
 
 				return [];
@@ -74,7 +74,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Tags', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(l10n.t('Tags'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -83,7 +83,7 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	protected readonly configKey = 'tags';
 
 	constructor(container: Container, grouped?: GroupedViewContext) {
-		super(container, 'tags', 'Tags', 'tagsView', grouped);
+		super(container, 'tags', l10n.t('Tags'), 'tagsView', grouped);
 	}
 
 	override get canReveal(): boolean {
@@ -199,10 +199,13 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${getReferenceLabel(tag, {
-					icon: false,
-					quoted: true,
-				})} in the side bar...`,
+				title: l10n.t(
+					'Revealing {0} in the side bar...',
+					getReferenceLabel(tag, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (_progress, token) => {
