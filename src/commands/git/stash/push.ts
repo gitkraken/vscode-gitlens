@@ -212,6 +212,7 @@ export class StashPushGitCommand extends QuickCommand<State> {
 					return;
 				}
 
+				// oxlint-disable-next-line @gitlens/no-raw-error-message -- classification only; the notification below uses getPresentableErrorMessage
 				const msg: string = ex?.message ?? ex?.toString() ?? '';
 				if (msg.includes('newer version of Git')) {
 					void window.showErrorMessage(

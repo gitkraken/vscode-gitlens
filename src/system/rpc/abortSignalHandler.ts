@@ -44,6 +44,7 @@ function serializeReason(reason: unknown): unknown {
 			typeof (reason as { message?: unknown }).message === 'string')
 	) {
 		const e = reason as { name: string; message: string; stack?: string };
+		// oxlint-disable-next-line @gitlens/no-raw-error-message -- abort reasons cross the wire verbatim; thrown service errors are mapped in proxyServices
 		const wire: WireStError = { __st__: stErrorBrand, name: e.name, message: e.message };
 		if (typeof e.stack === 'string') {
 			wire.stack = e.stack;
