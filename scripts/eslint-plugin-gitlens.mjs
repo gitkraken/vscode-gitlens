@@ -1,6 +1,7 @@
 import { eslintCompatPlugin } from '@oxlint/plugins';
 import newlineAfterControlFlow from './eslint-rules/newline-after-control-flow.mjs';
 import noInstanceofCancellationError from './eslint-rules/no-instanceof-cancellation-error.mjs';
+import noRawErrorMessage from './eslint-rules/no-raw-error-message.mjs';
 import noScssInCssTemplate from './eslint-rules/no-scss-in-css-template.mjs';
 import noSelfPackageImports from './eslint-rules/no-self-package-imports.mjs';
 import noSrcImports from './eslint-rules/no-src-imports.mjs';
@@ -19,6 +20,7 @@ export default eslintCompatPlugin({
 		'no-src-imports': noSrcImports,
 		'no-self-package-imports': noSelfPackageImports,
 		'no-instanceof-cancellation-error': noInstanceofCancellationError,
+		'no-raw-error-message': noRawErrorMessage,
 		'no-scss-in-css-template': noScssInCssTemplate,
 		'one-var': oneVar,
 		'require-js-extension': requireJsExtension,

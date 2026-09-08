@@ -185,6 +185,7 @@ export function getPresentableErrorMessage(error: Error | unknown): string {
 
 	// `String(error)` prefixes the class name, and on AuthenticationError it also spells out the token
 	// details (microHash, scopes, expiresAt) — neither belongs in front of a user.
+	// oxlint-disable-next-line @gitlens/no-raw-error-message -- this IS the picker's fallback
 	if (error instanceof Error) return error.message;
 
 	return String(error);

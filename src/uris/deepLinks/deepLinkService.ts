@@ -1552,6 +1552,7 @@ export class DeepLinkService implements Disposable {
 							break;
 						} catch (ex) {
 							action = DeepLinkServiceAction.DeepLinkErrored;
+							// oxlint-disable-next-line @gitlens/no-raw-error-message -- log only
 							message = `Unable to open file${ex?.message ? `: ${ex.message}` : ''}`;
 							break;
 						}
@@ -1911,6 +1912,7 @@ export class DeepLinkService implements Disposable {
 						action = DeepLinkServiceAction.DeepLinkResolved;
 					} catch (ex) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
+						// oxlint-disable-next-line @gitlens/no-raw-error-message -- log only
 						message = `Failed to start review: ${ex instanceof Error ? ex.message : String(ex)}`;
 					}
 					break;
@@ -1937,6 +1939,7 @@ export class DeepLinkService implements Disposable {
 						action = DeepLinkServiceAction.DeepLinkResolved;
 					} catch (ex) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
+						// oxlint-disable-next-line @gitlens/no-raw-error-message -- log only
 						message = `Failed to start work: ${ex instanceof Error ? ex.message : String(ex)}`;
 					}
 					break;

@@ -3,6 +3,7 @@ import type { Endpoint, Remote } from '@eamodio/supertalk';
 import { Connection, subscribe } from '@eamodio/supertalk';
 import * as sinon from 'sinon';
 import type { Disposable, Event, Webview } from 'vscode';
+import { BranchError } from '@gitlens/git/errors.js';
 import { Emitter } from '../../apps/shared/events.js';
 import { decodeRpcPayload, encodeRpcPayload, isRpcMessage, RPC_NAMESPACE } from '../constants.js';
 import type { EventRegistration } from '../eventVisibilityBuffer.js';
@@ -13,6 +14,7 @@ import {
 	trackRpcRegistration,
 } from '../eventVisibilityBuffer.js';
 import { RpcHost } from '../rpcHost.js';
+import { proxyServices } from '../services/proxy.js';
 import type { Unsubscribe } from '../services/types.js';
 
 // ============================================================
@@ -227,6 +229,40 @@ suite('RpcHost Integration Test Suite', () => {
 					async () => remote.failAsync(),
 					(err: Error) => {
 						assert.ok(err.message.includes('async failure'));
+						return true;
+					},
+				);
+
+				connection.close();
+			} finally {
+				host.dispose();
+			}
+		});
+
+		test('should propagate a GitCommandError with its localized message through a proxied service', async () => {
+			const { mockWebview, clientEndpoint } = createMockBridge();
+			const services = proxyServices({
+				svc: {
+					fail: async (): Promise<never> => {
+						throw new BranchError({ action: 'create', branch: 'main', reason: 'alreadyExists' });
+					},
+				},
+			});
+			const expected = new BranchError({ action: 'create', branch: 'main', reason: 'alreadyExists' });
+
+			const host = new RpcHost(mockWebview, services);
+			try {
+				const { services: remote, connection } = await connectClient<{ svc: { fail(): Promise<never> } }>(
+					clientEndpoint,
+				);
+
+				const svc = await remote.svc;
+				await assert.rejects(
+					// oxlint-disable-next-line typescript/await-thenable -- RPC proxy wraps all calls as promises at runtime despite sync static types
+					async () => svc.fail(),
+					(err: Error) => {
+						assert.strictEqual(err.message, expected.localizedMessage);
+						assert.strictEqual(err.name, expected.name);
 						return true;
 					},
 				);
