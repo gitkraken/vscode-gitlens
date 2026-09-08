@@ -13,6 +13,7 @@ import { renderDetailsMaximizeChip } from '../../../shared/components/details-he
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import type { NavigationState } from '../../../shared/controllers/navigationStack.js';
+import { ruleStyles } from '../../shared/components/vscode.css.js';
 import type { RunningOperationExecState } from './detailsState.js';
 import { detailsWipHeaderStyles } from './gl-details-wip-header.css.js';
 import '../../shared/components/merge-rebase-status.js';
@@ -32,7 +33,7 @@ import './gl-graph-coachmark.js';
 
 @customElement('gl-details-wip-header')
 export class GlDetailsWipHeader extends LitElement {
-	static override styles = [boxSizingBase, metadataBarVarsBase, detailsWipHeaderStyles];
+	static override styles = [boxSizingBase, metadataBarVarsBase, ruleStyles, detailsWipHeaderStyles];
 
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;
