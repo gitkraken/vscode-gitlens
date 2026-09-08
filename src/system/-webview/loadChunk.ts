@@ -78,5 +78,6 @@ function errorCodeOf(ex: unknown): string | undefined {
 }
 
 function errorMessageOf(ex: unknown): string {
+	// oxlint-disable-next-line @gitlens/no-raw-error-message -- telemetry only (extension/chunkLoad/failed 'error.message' attribute)
 	return isErrorLike(ex) ? ex.message : String(ex);
 }

@@ -680,6 +680,7 @@ export class GkMcpService implements GkMcpRegistrar {
 
 			normalized = new McpSetupError(reason, message, telemetryReason, source, cliVersion, telemetryMessage);
 		} else {
+			// oxlint-disable-next-line @gitlens/no-raw-error-message -- kept raw for the telemetryMessage below; the user-facing message uses getPresentableErrorMessage
 			const errorMessage = ex instanceof Error ? ex.message : 'Unknown error';
 			normalized = new McpSetupError(
 				McpSetupErrorReason.CLIUnknownError,

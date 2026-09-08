@@ -227,6 +227,7 @@ export class CliCommandHandlers implements Disposable {
 				}),
 			};
 		} catch (ex) {
+			// oxlint-disable-next-line @gitlens/no-raw-error-message -- stderr returned to the GitKraken CLI; machine output stays English
 			return { stderr: `Error reviewing PR: ${ex instanceof Error ? ex.message : String(ex)}` };
 		}
 	}
@@ -262,6 +263,7 @@ export class CliCommandHandlers implements Disposable {
 				}),
 			};
 		} catch (ex) {
+			// oxlint-disable-next-line @gitlens/no-raw-error-message -- stderr returned to the GitKraken CLI; machine output stays English
 			return { stderr: `Error starting work on issue: ${ex instanceof Error ? ex.message : String(ex)}` };
 		}
 	}

@@ -547,6 +547,7 @@ export class GlCliGitProvider implements GlGitProvider {
 			} else if (ex instanceof UnableToFindGitError) {
 				void showGitMissingErrorMessage();
 			} else {
+				// oxlint-disable-next-line @gitlens/no-raw-error-message -- emptiness check only; the notification below uses getPresentableErrorMessage
 				const msg: string = ex?.message ?? '';
 				if (msg && !options?.silent) {
 					void window.showErrorMessage(
