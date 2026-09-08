@@ -219,8 +219,11 @@ test.describe('Editor — Core', () => {
 			// On Windsurf that is deterministic — an announcement toast with actions (`.announcement-actions`
 			// inside `.notifications-toasts`) sits over the Abort button and Playwright reported it intercepting
 			// pointer events for the full action budget. `notifications.clearAll` dismisses them outright, which
-			// beats the sleep-then-Escape dance the later specs in this file use.
-			await vscode.gitlens.executeCommand('notifications.clearAll');
+			// beats the sleep-then-Escape dance the later specs in this file use. Guarded with the
+			// `IfAvailable` variant, as `secondarySidebar` does for its workbench commands: `notifications.clearAll`
+			// is built in rather than ours, so a fork that renames or omits it would otherwise hard-fail here on a
+			// missing command. Skipping the clear just leaves the original interception, which is a legible failure.
+			await vscode.gitlens.executeCommandIfAvailable('notifications.clearAll');
 			await abortButton.click();
 
 			// Signal the wait editor to exit after the abort button has cleared the todo file
