@@ -22,6 +22,7 @@ import * as process from 'node:process';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
 import {
 	branchPill,
+	clickGraphRowAction,
 	clickSidebarRowAction,
 	doubleClickWipRow,
 	expectScopeTint,
@@ -283,7 +284,10 @@ test.describe('Graph — worktree scope and branch focus', () => {
 		const worktreeShaBefore = await worktree.getSha();
 		const worktreeParent = await worktree.getSha('HEAD~1');
 
-		await undo.click();
+		// Through the helper, not `undo.click()`: the row-action strip is inert unless its row is hovered,
+		// focused or selected, and the helper reveals it by SELECTING the row — sticky state that survives
+		// the graph's own re-renders, which a hover under a stationary cursor does not.
+		await clickGraphRowAction(scopedTip, undo);
 
 		// The proof is on disk, not in the UI: the worktree's branch moved back and its index now holds
 		// the undone commit's file, while the home checkout is untouched in both respects.

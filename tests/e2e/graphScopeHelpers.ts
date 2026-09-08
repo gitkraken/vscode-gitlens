@@ -253,6 +253,38 @@ export async function clickSidebarRowAction(row: Locator, label: string): Promis
 	await action.click();
 }
 
+/**
+ * Click a gated action on a GRAPH row, revealing the action strip through SELECTION.
+ *
+ * The strip is `visibility: hidden; pointer-events: none` until its row is hovered, focused or
+ * selected (`graph.scss`), so while inert it is transparent to hit-testing and a click aimed at it
+ * falls through to whatever is beneath. On a narrow host that is real: measured live on Windsurf at a
+ * 299px side bar, rows render in the two-line LIST layout and `.gl-graph__list-line2` (x 81..282)
+ * underlies the strip (x 225..285) for 57px — which is why Playwright names line2, or the merge-target
+ * ref pill inside it, as the interceptor.
+ *
+ * Hover is the wrong key for it, even applied immediately before the click: the graph re-renders rows
+ * on its own (WIP state, avatars), and Chromium does not re-evaluate `:hover` for a freshly inserted
+ * element under a STATIONARY cursor — so the strip can go inert between Playwright's actionability
+ * check and its hit test. That is exactly the shape of the CI failure: attempts reporting "element is
+ * not visible" interleaved with attempts where the element was "visible, enabled and stable" and the
+ * pill intercepted anyway.
+ *
+ * Selection is pointer-independent and sticky, so it holds across a re-render. Verified live on
+ * Windsurf at that same 299px width: with the row selected the strip reports `pointer-events: auto`
+ * and `document.elementFromPoint` at the button's centre returns the button itself; clicking Undo
+ * Commit moved the branch back one commit and left the undone commit's file staged.
+ *
+ * The row's message span is the click target for selecting, never the row box — the box also carries
+ * the inline ref pills, and a click resolved to a ref routes to the ref action instead.
+ */
+export async function clickGraphRowAction(row: Locator, action: Locator): Promise<void> {
+	await row.locator('.gl-graph__message-subject').first().click();
+	await expect(row).toHaveAttribute('aria-selected', 'true', { timeout: MaxTimeout });
+	await expect(action).toBeVisible({ timeout: MaxTimeout });
+	await action.click();
+}
+
 /** The `gl-scope` decoration marking the side bar row the graph is currently scoped to. */
 export function sidebarRowScopedBadge(row: Locator): Locator {
 	return row.locator('code-icon[aria-label="Scoped"]');

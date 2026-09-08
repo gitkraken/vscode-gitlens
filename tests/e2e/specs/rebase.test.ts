@@ -170,7 +170,12 @@ async function standardTeardown({ vscode }: { vscode: VSCodeInstance }) {
 
 test.describe('Editor — Core', () => {
 	test.describe.configure({ mode: 'serial' });
-	test.setTimeout(30000);
+	// Above the config's `actionTimeout` (30s), deliberately. When the two are equal a stuck action can
+	// never report its own timeout: the test's budget expires at the same moment, so the failure arrives
+	// as a bare "Test timeout" naming nothing and the page is torn down before `error-context.md` can
+	// capture a snapshot — which is exactly how the abort spec failed on Windsurf, undiagnosably. With
+	// room to spare the action's own timeout fires first and names the locator. Matches `Execute rebase`.
+	test.setTimeout(60000);
 
 	test.describe('Start & Abort', () => {
 		test.beforeEach(standardSetup);
@@ -210,6 +215,17 @@ test.describe('Editor — Core', () => {
 			// Click the Abort button first - this clears the todo file and saves it
 			// Use appearance="secondary" to target the main abort button, not the "Abort > Recompose" button
 			const abortButton = webviewFrame.locator('gl-button[appearance="secondary"]').filter({ hasText: 'Abort' });
+			// Clear notifications first: a toast parked bottom-right covers this button and swallows the click.
+			// On Windsurf that is deterministic — an announcement toast with actions (`.announcement-actions`
+			// inside `.notifications-toasts`) sits over the Abort button and Playwright reported it intercepting
+			// pointer events for the full action budget. `notifications.clearAll` dismisses them outright, which
+			// beats the sleep-then-Escape dance the later specs in this file use. Best-effort on purpose:
+			// `notifications.clearAll` is built in rather than ours, so the `IfAvailable` variant covers a fork
+			// that renames or omits it (as `secondarySidebar` does for its workbench commands) and the swallowed
+			// rejection covers one where it exists but throws. Either way the clear is skipped rather than
+			// failing the test here, and what remains is the original interception at the click — a legible
+			// failure that names the toast, instead of one that names a command this spec isn't about.
+			await vscode.gitlens.executeCommandIfAvailable('notifications.clearAll').catch(() => undefined);
 			await abortButton.click();
 
 			// Signal the wait editor to exit after the abort button has cleared the todo file
