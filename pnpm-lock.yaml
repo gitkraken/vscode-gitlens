@@ -33,6 +33,9 @@ catalogs:
     '@types/sinon':
       specifier: 22.0.0
       version: 22.0.0
+    '@vscode/l10n':
+      specifier: 0.0.18
+      version: 0.0.18
     fast-string-truncated-width:
       specifier: 3.0.3
       version: 3.0.3
@@ -188,6 +191,9 @@ importers:
       '@vscode/codicons':
         specifier: 0.0.45
         version: 0.0.45
+      '@vscode/l10n':
+        specifier: 'catalog:'
+        version: 0.0.18
       diff2html:
         specifier: 3.4.56
         version: 3.4.56
@@ -267,12 +273,15 @@ importers:
       '@types/vscode':
         specifier: 1.101.0
         version: 1.101.0
+      '@vscode/l10n-dev':
+        specifier: 0.0.35
+        version: 0.0.35(supports-color@10.2.2)
       '@vscode/test-cli':
         specifier: 0.0.15
         version: 0.0.15
       '@vscode/test-electron':
         specifier: 3.1.0
-        version: 3.1.0(supports-color@8.1.1)
+        version: 3.1.0(supports-color@10.2.2)
       '@vscode/test-web':
         specifier: 0.0.81
         version: 0.0.81(supports-color@8.1.1)
@@ -453,6 +462,9 @@ importers:
       '@gitlens/utils':
         specifier: workspace:*
         version: link:../utils
+      '@vscode/l10n':
+        specifier: 'catalog:'
+        version: 0.0.18
     devDependencies:
       '@types/mocha':
         specifier: 'catalog:'
@@ -627,6 +639,10 @@ importers:
         version: 7.0.2
 
   packages/plus/commit-graph:
+    dependencies:
+      '@vscode/l10n':
+        specifier: 'catalog:'
+        version: 0.0.18
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: 'catalog:'
@@ -664,6 +680,9 @@ importers:
       '@lit-labs/virtualizer':
         specifier: 'catalog:'
         version: 2.1.1
+      '@vscode/l10n':
+        specifier: 'catalog:'
+        version: 0.0.18
       fast-string-truncated-width:
         specifier: 'catalog:'
         version: 3.0.3
@@ -834,6 +853,14 @@ packages:
 
   '@azu/style-format@1.0.1':
     resolution: {integrity: sha512-AHcTojlNBdD/3/KxIKlg8sxIWHfOtQszLvOpagLTO+bjC3u7SAszu1lf//u7JJC50aUSH+BVWDD/KvaA6Gfn5g==}
+
+  '@azure-rest/ai-translation-text@1.0.1':
+    resolution: {integrity: sha512-lUs1FfBXjik6EReUEYP1ogkhaSPHZdUV+EB215y7uejuyHgG1RXD2aLsqXQrluZwXcLMdN+bTzxylKBc5xDhgQ==}
+    engines: {node: '>=18.0.0'}
+
+  '@azure-rest/core-client@2.8.0':
+    resolution: {integrity: sha512-F1ybHeN+++QhyFCF/ehLUEvrOB6fehPdFBFtGdj0C3B2lpQ9zkPiO5JDgsqc6IfjuUe6b3dAbXK0a7+VgSGfhw==}
+    engines: {node: '>=22.0.0'}
 
   '@azure/abort-controller@2.2.0':
     resolution: {integrity: sha512-fNAjWnA/nZ2jz31kxR/AqRaUT8ewHBw/WuBIosK0moMy1C9e5ValbDfFdIxJzVOOYaYkV/b2F1S4H/aHiqfVQg==}
@@ -3122,6 +3149,13 @@ packages:
   '@vscode/codicons@0.0.45':
     resolution: {integrity: sha512-1KAZ7XCMagp5Gdrlr4bbbcAqgcIL623iO1wW6rfcSVGAVUQvR0WP7bQx1SbJ11gmV3fdQTSEFIJQ/5C+HuVasw==}
 
+  '@vscode/l10n-dev@0.0.35':
+    resolution: {integrity: sha512-s6uzBXsVDSL69Z85HSqpc5dfKswQkeucY8L00t1TWzGalw7wkLQUKMRwuzqTq+AMwQKrRd7Po14cMoTcd11iDw==}
+    hasBin: true
+
+  '@vscode/l10n@0.0.18':
+    resolution: {integrity: sha512-KYSIHVmslkaCDyw013pphY+d7x1qV8IZupYfeIfzNA+nsaWHbn5uPuQRvdRFsa9zFzGeudPuoGoZ1Op4jrJXIQ==}
+
   '@vscode/test-cli@0.0.15':
     resolution: {integrity: sha512-nAxk2X79wuXS7aOhyFFhFcCqd7EBUoMesu7ZgsYE/4eFjyBMuyIweVE94BxdKH1RieN8eOz2SIrljrZt6Lk9fQ==}
     engines: {node: '>=22'}
@@ -4246,6 +4280,10 @@ packages:
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
 
+  deepmerge-json@1.5.0:
+    resolution: {integrity: sha512-jZRrDmBKjmGcqMFEUJ14FjMJwm05Qaked+1vxaALRtF0UAl7lPU8OLWXFxvoeg3jbQM249VPFVn8g2znaQkEtA==}
+    engines: {node: '>=4.0.0'}
+
   default-browser-id@5.0.1:
     resolution: {integrity: sha512-x1VCxdX4t+8wVfd1so/9w+vQ4vx7lKd2Qp5tDRutErwmR85OgmfX7RlLRMWafRMY7hbEiXIbudNrjOAPa/hL8Q==}
     engines: {node: '>=18'}
@@ -4795,6 +4833,10 @@ packages:
   get-proto@1.0.1:
     resolution: {integrity: sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g==}
     engines: {node: '>= 0.4'}
+
+  get-stdin@7.0.0:
+    resolution: {integrity: sha512-zRKcywvrXlXsA0v0i9Io4KDRaAw7+a1ZpjRwl9Wox8PFlVCCHra7E9c4kqXCoCM9nR5tBkaTTZRBoCm60bFqTQ==}
+    engines: {node: '>=8'}
 
   get-tsconfig@4.14.3:
     resolution: {integrity: sha512-++QEw4DIY7WGoukz+/+A/8dGYPT9l9yIadnmSgZ8Rjr3YVSVDipQSO9CdnJo9ePqFqUUqh+wk9uIaoiAwsiPkA==}
@@ -5935,6 +5977,13 @@ packages:
     engines: {node: ^20.17.0 || >=22.9.0}
     hasBin: true
 
+  node-html-markdown@1.3.0:
+    resolution: {integrity: sha512-OeFi3QwC/cPjvVKZ114tzzu+YoR+v9UXW5RwSXGUqGb0qCl0DvP406tzdL7SFn8pZrMyzXoisfG2zcuF9+zw4g==}
+    engines: {node: '>=10.0.0'}
+
+  node-html-parser@6.1.13:
+    resolution: {integrity: sha512-qIsTMOY4C/dAa5Q5vsobRpOOvPfC4pB61UVW2uSwZNUp0QU/jCekTal1vMmbO0DgdHeLUJpv/ARmDqErVxA3Sg==}
+
   node-releases@2.0.53:
     resolution: {integrity: sha512-D9UOmYG3UH1V+ENW56t5QXBwJw1YEY18ruVeus89Rw+SyIgjPkCO84bRzO3uNIYosJbNwiabWVn48o3uJLjxFQ==}
     engines: {node: '>=18'}
@@ -6748,6 +6797,10 @@ packages:
     peerDependenciesMeta:
       kerberos:
         optional: true
+
+  pseudo-localization@2.4.0:
+    resolution: {integrity: sha512-ISYMOKY8+f+PmiXMFw2y6KLY74LBrv/8ml/VjjoVEV2k+MS+OJZz7ydciK5ntJwxPrKQPTU1+oXq9Mx2b0zEzg==}
+    hasBin: true
 
   publint@0.3.24:
     resolution: {integrity: sha512-9zS56KrKBoqi5Qt8h92uMP8TTM9AYZSgnmCo4u2priMqkOZvQnTsziZ2p5LJ2ywbYkAjoCDp2jda9u4cgFefIw==}
@@ -7934,6 +7987,9 @@ packages:
     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
     engines: {node: '>= 8'}
 
+  web-tree-sitter@0.20.8:
+    resolution: {integrity: sha512-weOVgZ3aAARgdnb220GqYuh7+rZU0Ka9k9yfKtGAzEYMa6GgiCzW9JjQRJyCJakvibQW+dfjJdihjInKuuCAUQ==}
+
   webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
 
@@ -8212,6 +8268,27 @@ snapshots:
   '@azu/style-format@1.0.1':
     dependencies:
       '@azu/format-text': 1.0.2
+
+  '@azure-rest/ai-translation-text@1.0.1(supports-color@10.2.2)':
+    dependencies:
+      '@azure-rest/core-client': 2.8.0(supports-color@10.2.2)
+      '@azure/core-auth': 1.11.0(supports-color@10.2.2)
+      '@azure/core-rest-pipeline': 1.25.0(supports-color@10.2.2)
+      '@azure/logger': 1.4.0(supports-color@10.2.2)
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@azure-rest/core-client@2.8.0(supports-color@10.2.2)':
+    dependencies:
+      '@azure/abort-controller': 2.2.0
+      '@azure/core-auth': 1.11.0(supports-color@10.2.2)
+      '@azure/core-rest-pipeline': 1.25.0(supports-color@10.2.2)
+      '@azure/core-tracing': 1.4.0
+      '@typespec/ts-http-runtime': 0.3.8(supports-color@10.2.2)
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
 
   '@azure/abort-controller@2.2.0':
     dependencies:
@@ -10122,6 +10199,23 @@ snapshots:
 
   '@vscode/codicons@0.0.45': {}
 
+  '@vscode/l10n-dev@0.0.35(supports-color@10.2.2)':
+    dependencies:
+      '@azure-rest/ai-translation-text': 1.0.1(supports-color@10.2.2)
+      debug: 4.4.3(supports-color@10.2.2)
+      deepmerge-json: 1.5.0
+      glob: 10.5.0
+      markdown-it: 14.3.0
+      node-html-markdown: 1.3.0
+      pseudo-localization: 2.4.0
+      web-tree-sitter: 0.20.8
+      xml2js: 0.5.0
+      yargs: 17.7.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vscode/l10n@0.0.18': {}
+
   '@vscode/test-cli@0.0.15':
     dependencies:
       '@types/mocha': 10.0.10
@@ -10136,10 +10230,10 @@ snapshots:
     transitivePeerDependencies:
       - monocart-coverage-reports
 
-  '@vscode/test-electron@3.1.0(supports-color@8.1.1)':
+  '@vscode/test-electron@3.1.0(supports-color@10.2.2)':
     dependencies:
-      http-proxy-agent: 7.0.2(supports-color@8.1.1)
-      https-proxy-agent: 7.0.6(supports-color@8.1.1)
+      http-proxy-agent: 7.0.2(supports-color@10.2.2)
+      https-proxy-agent: 7.0.6(supports-color@10.2.2)
       jszip: 3.10.1
       ora: 8.2.0
       semver: 7.8.5
@@ -11273,6 +11367,8 @@ snapshots:
 
   deep-is@0.1.4: {}
 
+  deepmerge-json@1.5.0: {}
+
   default-browser-id@5.0.1: {}
 
   default-browser@5.5.1:
@@ -11907,6 +12003,8 @@ snapshots:
       dunder-proto: 1.0.1
       es-object-atoms: 1.1.2
 
+  get-stdin@7.0.0: {}
+
   get-tsconfig@4.14.3:
     dependencies:
       resolve-pkg-maps: 1.0.0
@@ -12182,13 +12280,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  http-proxy-agent@7.0.2(supports-color@8.1.1):
-    dependencies:
-      agent-base: 7.1.4
-      debug: 4.4.3(supports-color@8.1.1)
-    transitivePeerDependencies:
-      - supports-color
-
   http-proxy-agent@9.1.0(supports-color@8.1.1):
     dependencies:
       agent-base: 9.0.0
@@ -12202,13 +12293,6 @@ snapshots:
     dependencies:
       agent-base: 7.1.4
       debug: 4.4.3(supports-color@10.2.2)
-    transitivePeerDependencies:
-      - supports-color
-
-  https-proxy-agent@7.0.6(supports-color@8.1.1):
-    dependencies:
-      agent-base: 7.1.4
-      debug: 4.4.3(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -13127,6 +13211,15 @@ snapshots:
       undici: 6.28.0
       which: 6.0.1
 
+  node-html-markdown@1.3.0:
+    dependencies:
+      node-html-parser: 6.1.13
+
+  node-html-parser@6.1.13:
+    dependencies:
+      css-select: 5.2.2
+      he: 1.2.0
+
   node-releases@2.0.53: {}
 
   node-sarif-builder@3.4.0:
@@ -13982,6 +14075,13 @@ snapshots:
       ipaddr.js: 1.9.1
 
   proxy-agent-negotiate@1.1.0: {}
+
+  pseudo-localization@2.4.0:
+    dependencies:
+      flat: 5.0.2
+      get-stdin: 7.0.0
+      typescript: 4.9.5
+      yargs: 17.7.3
 
   publint@0.3.24:
     dependencies:
@@ -15279,6 +15379,8 @@ snapshots:
       graceful-fs: 4.2.11
 
   web-streams-polyfill@3.3.3: {}
+
+  web-tree-sitter@0.20.8: {}
 
   webidl-conversions@3.0.1: {}
 

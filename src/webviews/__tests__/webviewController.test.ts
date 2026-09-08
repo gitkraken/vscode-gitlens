@@ -17,7 +17,7 @@ import type { EventVisibilityBuffer, SubscriptionTracker } from '../rpc/eventVis
 import { createRpcEventSubscription } from '../rpc/eventVisibilityBuffer.js';
 import type { WebviewClientConnectParams } from '../rpc/webviewViewService.js';
 import type { WebviewCommandRegistrar } from '../webviewCommandRegistrar.js';
-import { WebviewController } from '../webviewController.js';
+import { replaceWebviewHtmlTokens, WebviewController } from '../webviewController.js';
 import type { WebviewViewDescriptor } from '../webviewDescriptors.js';
 import type { WebviewProvider } from '../webviewProvider.js';
 
@@ -503,5 +503,45 @@ suite('WebviewController Validation Test Suite', () => {
 				emitter.dispose();
 			}
 		});
+	});
+});
+
+suite('Webview localization HTML', () => {
+	test('encodes translations as inert metadata and escapes the language attribute', () => {
+		const bundle = { 'Open {0}': '</script><img src=x onerror="alert(1)"> {0} 日本語' };
+		const result = replaceWebviewHtmlTokens(
+			'<html lang="#{language}"><meta name="gitlens-l10n" content="#{l10n}"></html>',
+			'gitlens.graph',
+			undefined,
+			'',
+			'nonce',
+			'',
+			'',
+			'editor',
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			{ language: 'fr" onload="alert(1)', bundle: bundle },
+		);
+		assert.ok(result.includes('lang="fr&quot; onload=&quot;alert(1)"'));
+		assert.ok(!result.includes('<img'));
+		const encoded = /content="([^"]+)"/.exec(result)?.[1];
+		assert.ok(encoded);
+		assert.deepStrictEqual(JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')), bundle);
+	});
+
+	test('uses English and an empty bundle when localization is unavailable', () => {
+		const result = replaceWebviewHtmlTokens(
+			'#{language}:#{l10n}',
+			'gitlens.graph',
+			undefined,
+			'',
+			'',
+			'',
+			'',
+			'editor',
+		);
+		assert.strictEqual(result, 'en:e30=');
 	});
 });
