@@ -1,5 +1,15 @@
 import type { Event, ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
-import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
+import {
+	CancellationTokenSource,
+	Disposable,
+	env,
+	EventEmitter,
+	l10n,
+	Uri,
+	ViewColumn,
+	window,
+	workspace,
+} from 'vscode';
 import { base64 } from '@gitlens/utils/base64.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getNonce } from '@gitlens/utils/crypto.js';
@@ -7,6 +17,7 @@ import { logName, trace } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { maybeStopWatch, Stopwatch } from '@gitlens/utils/stopwatch.js';
+import { encodeHtmlWeak } from '@gitlens/utils/string.js';
 import type { GlWebviewCommands } from '../constants.commands.js';
 import type {
 	Source,
@@ -963,13 +974,14 @@ export class WebviewController<
 			head,
 			body,
 			endOfBody,
+			{ language: env.language, bundle: l10n.bundle },
 		);
 		return html;
 	}
 }
 
 const htmlTokensRegex =
-	/#{(head|body|endOfBody|webviewId|webviewInstanceId|placement|cspSource|cspNonce|root|webroot|state)}/g;
+	/#{(head|body|endOfBody|webviewId|webviewInstanceId|placement|cspSource|cspNonce|root|webroot|state|language|l10n)}/g;
 
 export function replaceWebviewHtmlTokens<SerializedState>(
 	html: string,
@@ -984,9 +996,14 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 	head?: string,
 	body?: string,
 	endOfBody?: string,
+	localization?: { language: string; bundle?: Record<string, string> },
 ): string {
 	return html.replace(htmlTokensRegex, (_substring: string, token: string) => {
 		switch (token) {
+			case 'language':
+				return encodeHtmlWeak(localization?.language ?? 'en');
+			case 'l10n':
+				return base64(JSON.stringify(localization?.bundle ?? {}));
 			case 'head':
 				return head ?? '';
 			case 'body':

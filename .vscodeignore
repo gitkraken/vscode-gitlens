@@ -54,3 +54,6 @@ tsconfig*.tsbuildinfo
 webpack.config*.mjs
 yarn.lock
 .wdio-vscode-service
+
+package.nls.qps-ploc.json
+l10n/bundle.l10n.qps-ploc.json

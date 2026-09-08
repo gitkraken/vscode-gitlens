@@ -44,7 +44,8 @@
 	},
 	"dependencies": {
 		"@awesome.me/webawesome": "catalog:",
-		"@gitlens/utils": "workspace:*"
+		"@gitlens/utils": "workspace:*",
+		"@vscode/l10n": "catalog:"
 	},
 	"peerDependencies": {
 		"lit": "catalog:"
