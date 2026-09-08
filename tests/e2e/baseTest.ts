@@ -2,10 +2,11 @@
 import type { ChildProcess } from 'node:child_process';
 import { execSync, spawn } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { chmod, cp, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import * as process from 'node:process';
+import { pathToFileURL } from 'node:url';
 import type { ElectronApplication, Page } from '@playwright/test';
 import { _electron, test as base } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron/out/download';
@@ -286,6 +287,31 @@ export interface LaunchOptions {
 	 * If not provided, opens the extension folder.
 	 */
 	setup?: () => Promise<string>;
+	/**
+	 * Display locale to launch VS Code in. Only `'qps-ploc'` (Microsoft's pseudo-localization
+	 * locale id) is supported. Requesting it seeds this worker's `--extensions-dir` /
+	 * `--user-data-dir` with the offline fixture language pack at
+	 * {@link pseudoLanguagePackFixtureDir} — no Marketplace install, no extra launch — and passes
+	 * `--locale=qps-ploc` so `vscode.env.language` (and GitLens' own `l10n` bundle selection)
+	 * resolves to it. The fixture's own translations are empty, so VS Code's core UI stays
+	 * English; only GitLens' strings render pseudo-translated.
+	 */
+	locale?: string;
+}
+
+/** The offline fixture language pack backing the `'qps-ploc'` {@link LaunchOptions.locale}. */
+const pseudoLanguagePackFixtureDir = path.join(__dirname, 'fixtures', 'language-packs', 'qps-ploc');
+/** Must match `name`/`publisher`/`version` in {@link pseudoLanguagePackFixtureDir}'s package.json. */
+const pseudoLanguagePackExtensionId = 'gitlens.e2e-pseudo-language-pack';
+const pseudoLanguagePackExtensionVersion = '1.0.0';
+
+/**
+ * Serializes an absolute path as a VS Code `URI` in the JSON shape it round-trips through its own
+ * `extensions.json` (a real `--install-extension`'s `location` field has this exact shape —
+ * `$mid: 1` marks it for VS Code's own URI reviver).
+ */
+function fileUriJson(fsPath: string): { $mid: number; fsPath: string; external: string; path: string; scheme: string } {
+	return { $mid: 1, fsPath: fsPath, external: pathToFileURL(fsPath).toString(), path: fsPath, scheme: 'file' };
 }
 
 export interface VSCodeInstance {
@@ -366,22 +392,7 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 			// Run setup callback if provided, otherwise open extension folder
 			const workspacePath = vscodeOptions.setup ? await vscodeOptions.setup() : extensionPath;
 
-			const options: { executablePath: string; args: string[] } = {
-				executablePath: vscodePath,
-				args: [
-					'--no-sandbox',
-					'--disable-gpu-sandbox',
-					'--disable-updates',
-					'--skip-welcome',
-					'--skip-release-notes',
-					'--disable-workspace-trust',
-					`--extensionDevelopmentPath=${extensionPath}`,
-					`--extensionTestsPath=${runnerPath}`,
-					`--extensions-dir=${path.join(tempDir, 'extensions')}`,
-					`--user-data-dir=${userDataDir}`,
-					workspacePath,
-				],
-			} satisfies Parameters<typeof _electron.launch>[0];
+			const extensionsDir = path.join(tempDir, 'extensions');
 
 			// Ensure Xvfb is running for headless Linux environments
 			const display = ensureXvfb();
@@ -407,6 +418,83 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				// Per-worker writable runtime dir for the editor's IPC socket (see note above)
 				...(runtimeDir ? { XDG_RUNTIME_DIR: runtimeDir } : {}),
 			};
+
+			// A requested non-English `locale` needs two files seeded BEFORE launch — no Marketplace
+			// install, no extra launch, entirely offline:
+			//  1. The fixture extension itself, copied under `--extensions-dir`, and an
+			//     `extensions.json` there naming it — this is the SAME manifest VS Code's own
+			//     `--install-extension` writes, and (confirmed: `--list-extensions` reads it with no
+			//     window at all) the one thing VS Code actually consults for "what's installed", so a
+			//     real install's scan-and-register dance isn't needed.
+			//  2. `languagepacks.json` in `--user-data-dir`, naming the locale and pointing at the
+			//     fixture's (empty) translations file — the CLI's own `--install-extension` never
+			//     writes this either (confirmed by inspection), so `--locale` would silently fall back
+			//     to English without it.
+			if (vscodeOptions.locale != null && vscodeOptions.locale !== 'en') {
+				if (vscodeOptions.locale !== 'qps-ploc') {
+					throw new Error(
+						`E2E locale "${vscodeOptions.locale}" is not supported — only "qps-ploc" has a fixture language pack (tests/e2e/fixtures/language-packs/qps-ploc).`,
+					);
+				}
+
+				const extensionDir = path.join(
+					extensionsDir,
+					`${pseudoLanguagePackExtensionId}-${pseudoLanguagePackExtensionVersion}`,
+				);
+				await cp(pseudoLanguagePackFixtureDir, extensionDir, { recursive: true });
+
+				// The shape VS Code's own `--install-extension` writes into `--extensions-dir`, minus
+				// the marketplace-only `metadata` block (a local extension has no gallery record).
+				await writeFile(
+					path.join(extensionsDir, 'extensions.json'),
+					JSON.stringify([
+						{
+							identifier: { id: pseudoLanguagePackExtensionId },
+							version: pseudoLanguagePackExtensionVersion,
+							location: fileUriJson(extensionDir),
+							relativeLocation: path.basename(extensionDir),
+						},
+					]),
+				);
+
+				// The shape VS Code's own extension scan writes into `--user-data-dir` after a real
+				// language-pack install (confirmed by inspecting one). `hash` is just a cache-directory
+				// key VS Code picks itself normally; any string works.
+				await writeFile(
+					path.join(userDataDir, 'languagepacks.json'),
+					JSON.stringify({
+						'qps-ploc': {
+							hash: 'e2e-fixture',
+							label: 'Pseudo',
+							extensions: [
+								{
+									extensionIdentifier: { id: pseudoLanguagePackExtensionId },
+									version: pseudoLanguagePackExtensionVersion,
+								},
+							],
+							translations: { vscode: path.join(extensionDir, 'translations', 'main.i18n.json') },
+						},
+					}),
+				);
+			}
+
+			const options: { executablePath: string; args: string[] } = {
+				executablePath: vscodePath,
+				args: [
+					'--no-sandbox',
+					'--disable-gpu-sandbox',
+					'--disable-updates',
+					'--skip-welcome',
+					'--skip-release-notes',
+					'--disable-workspace-trust',
+					`--extensionDevelopmentPath=${extensionPath}`,
+					`--extensionTestsPath=${runnerPath}`,
+					`--extensions-dir=${extensionsDir}`,
+					`--user-data-dir=${userDataDir}`,
+					...(vscodeOptions.locale != null ? [`--locale=${vscodeOptions.locale}`] : []),
+					workspacePath,
+				],
+			} satisfies Parameters<typeof _electron.launch>[0];
 
 			// Bringing up the editor + its in-process test server can transiently fail under
 			// parallel-launch contention: Electron aborts with `Process failed to launch`, or the test
@@ -458,8 +546,18 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				await assertWorkbenchReachable(page, editorId);
 
 				// On editors with a standard activity bar, also wait for the GitLens tab to paint so
-				// UI-driven tests have a settled workbench. Skipped on forks without one (e.g. Cursor).
-				if ((await page.locator('[id="workbench.parts.activitybar"]').count()) > 0) {
+				// UI-driven tests have a settled workbench. Skipped on forks without one (e.g. Cursor),
+				// and under a non-English `locale` — that lookup matches the literal English tab name,
+				// but GitLens' OWN activity-bar container title (`%viewsContainer.gitlens.title%`) is
+				// itself a translatable manifest string, so under a pseudo-locale the accessible name
+				// is never "GitLens" (confirmed live: the tab renders, `gitlens.*` commands are fully
+				// registered, only this literal-name match fails). `waitForGitLensActivation` above
+				// already proved the extension is active; this check is a bonus paint signal only.
+				const skipActivityBarSettleCheck = vscodeOptions.locale != null && vscodeOptions.locale !== 'en';
+				if (
+					!skipActivityBarSettleCheck &&
+					(await page.locator('[id="workbench.parts.activitybar"]').count()) > 0
+				) {
 					await gitlens.waitForActivation();
 				}
 
