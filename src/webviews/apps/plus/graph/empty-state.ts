@@ -112,10 +112,6 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 					Open a folder or repository to visualize its history, branches, and commits in the Commit Graph.
 				</p>
 				<div class="actions">
-					<gl-button full href="command:workbench.action.files.openFolder">
-						<code-icon slot="prefix" icon="folder-opened"></code-icon>
-						Open a Folder
-					</gl-button>
 					${when(
 						this.graphState.isWeb,
 						() => html`
@@ -125,6 +121,10 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 							</gl-button>
 						`,
 						() => html`
+							<gl-button full href="command:workbench.action.files.openFolder">
+								<code-icon slot="prefix" icon="folder-opened"></code-icon>
+								Open a Folder
+							</gl-button>
 							<gl-button appearance="secondary" full href="command:git.clone">
 								<code-icon slot="prefix" icon="repo-clone"></code-icon>
 								Clone a Repository
