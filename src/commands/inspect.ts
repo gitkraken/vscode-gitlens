@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -74,14 +75,14 @@ export class InspectCommand extends ActiveEditorCommand {
 			try {
 				const blame = await this.container.git.getBlameForLine(gitUri, blameLine);
 				if (blame == null) {
-					void showFileNotUnderSourceControlWarningMessage('Unable to inspect commit details');
+					void showFileNotUnderSourceControlWarningMessage(l10n.t('Unable to inspect commit details'));
 
 					return;
 				}
 
 				// Because the previous sha of an uncommitted file isn't trust worthy we just have to kick out
 				if (blame.commit.isUncommitted) {
-					void showLineUncommittedWarningMessage('Unable to inspect commit details');
+					void showLineUncommittedWarningMessage(l10n.t('Unable to inspect commit details'));
 
 					return;
 				}
@@ -89,7 +90,7 @@ export class InspectCommand extends ActiveEditorCommand {
 				args.ref = blame.commit;
 			} catch (ex) {
 				Logger.error(ex, 'InspectCommand', `getBlameForLine(${blameLine})`);
-				void showGenericErrorMessage('Unable to inspect commit details');
+				void showGenericErrorMessage(l10n.t('Unable to inspect commit details'));
 
 				return;
 			}

@@ -1,4 +1,5 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { l10n } from 'vscode';
 import { AIConversation } from '@gitlens/ai/models/conversation.js';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import type { AIProviderResponse } from '@gitlens/ai/models/provider.js';
@@ -158,7 +159,7 @@ export async function generateCommits(
 
 			validateResponse: (response, _attempt) => {
 				if (didModelDecline(response.finishReason)) {
-					throw new Error('The AI model declined to generate commits for these changes');
+					throw new Error(l10n.t('The AI model declined to generate commits for these changes'));
 				}
 
 				if (response.finishReason === 'length') {
@@ -176,7 +177,7 @@ export async function generateCommits(
 
 					return {
 						isValid: false,
-						errorMessage: 'Response was truncated (output token limit exceeded)',
+						errorMessage: l10n.t('Response was truncated (output token limit exceeded)'),
 						retryPrompt: retryPrompt,
 					};
 				}
@@ -196,7 +197,12 @@ export async function generateCommits(
 			},
 
 			getProgressTitle: (model, attempt) =>
-				`Generating commits with ${model.name}...${attempt > 0 ? ` (attempt ${attempt + 1})` : ''}`,
+				attempt > 0
+					? l10n.t('Generating commits with {model}... (attempt {attempt})', {
+							model: model.name,
+							attempt: attempt + 1,
+						})
+					: l10n.t('Generating commits with {0}...', model.name),
 
 			getTelemetryInfo: (model, attempt) => ({
 				key: 'ai/generate',
@@ -254,7 +260,7 @@ export function extractCommitsJson(content: string): unknown {
 	const embedded = extractJsonObject(text, o => Array.isArray(o.commits));
 	if (embedded != null) return embedded;
 
-	throw new Error('Response is not valid JSON');
+	throw new Error(l10n.t('Response is not valid JSON'));
 }
 
 function isCommitsShape(value: unknown): boolean {
@@ -293,7 +299,7 @@ export function validateCommitsResponse(
 
 		const commits = parsed?.commits;
 		if (!Array.isArray(commits)) {
-			throw new Error('Commits result is missing the "commits" array');
+			throw new Error(l10n.t('Commits result is missing the "commits" array'));
 		}
 
 		// Collect all hunk indices used in the commits
@@ -302,7 +308,7 @@ export function validateCommitsResponse(
 
 		for (const commit of commits) {
 			if (!commit.hunks || !Array.isArray(commit.hunks)) {
-				throw new Error('Invalid commit structure: missing or invalid hunks array');
+				throw new Error(l10n.t('Invalid commit structure: missing or invalid hunks array'));
 			}
 
 			for (const hunkRef of commit.hunks) {
@@ -316,7 +322,7 @@ export function validateCommitsResponse(
 
 		// Check for duplicate hunks
 		if (duplicateHunks.length > 0) {
-			const errorMessage = `Duplicate hunks found: ${duplicateHunks.join(', ')}`;
+			const errorMessage = l10n.t('Duplicate hunks found: {0}', duplicateHunks.join(', '));
 			const retryPrompt = dedent(`
 				Your previous response uses some hunks multiple times. Each hunk can only be used once across all commits.
 
@@ -337,7 +343,7 @@ export function validateCommitsResponse(
 
 		// Check for missing hunks
 		if (missingHunkIndices.length > 0) {
-			const errorMessage = `Missing hunks: ${missingHunkIndices.join(', ')}`;
+			const errorMessage = l10n.t('Missing hunks: {0}', missingHunkIndices.join(', '));
 			const retryPrompt = dedent(`
 				Your previous response is missing some hunks that were in the original input. All hunks must be included in the commits.
 
@@ -350,7 +356,7 @@ export function validateCommitsResponse(
 
 		// Check for extra hunks
 		if (extraHunkIndices.length > 0) {
-			const errorMessage = `Extra hunks found: ${extraHunkIndices.join(', ')}`;
+			const errorMessage = l10n.t('Extra hunks found: {0}', extraHunkIndices.join(', '));
 			const retryPrompt = dedent(`
 				Your previous response includes hunks that were not in the original input. Only use the hunks that were provided.
 
@@ -363,7 +369,7 @@ export function validateCommitsResponse(
 
 		// Check for illegally assigned hunks
 		if (illegallyAssignedHunkIndices.length > 0) {
-			const errorMessage = `Illegally assigned hunks: ${illegallyAssignedHunkIndices.join(', ')}`;
+			const errorMessage = l10n.t('Illegally assigned hunks: {0}', illegallyAssignedHunkIndices.join(', '));
 			const retryPrompt = dedent(`
 				Your previous response includes hunks that are already assigned to existing commits. Do not reassign hunks that are already assigned.
 
@@ -378,7 +384,7 @@ export function validateCommitsResponse(
 		return { isValid: true, commits: commits };
 	} catch {
 		// Handle any errors during hunk validation (e.g., malformed commit structure)
-		const errorMessage = 'Invalid response from the AI model';
+		const errorMessage = l10n.t('Invalid response from the AI model');
 		const retryPrompt = `${dedent(`
 			Your previous response has an invalid commit structure. Ensure the response is a JSON object with a "commits" array, where each commit has "message", "explanation", and "hunks" properties, and "hunks" is an array of objects with "hunk" numbers.
 

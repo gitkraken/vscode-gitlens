@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import { createSearchQueryForCommits } from '@gitlens/git/utils/search.utils.js';
 import { filterMap } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -51,13 +52,13 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 							)
 						: await this.container.git.getBlameForRange(gitUri, editor.selection);
 					if (blame === undefined) {
-						return void showFileNotUnderSourceControlWarningMessage('Unable to find commits');
+						return void showFileNotUnderSourceControlWarningMessage(l10n.t('Unable to find commits'));
 					}
 
 					args.refs = [...filterMap(blame.commits.values(), c => (c.isUncommitted ? undefined : c.ref))];
 				} catch (ex) {
 					Logger.error(ex, 'ShowCommitsInViewCommand', 'getBlameForRange');
-					return void showGenericErrorMessage('Unable to find commits');
+					return void showGenericErrorMessage(l10n.t('Unable to find commits'));
 				}
 			} else {
 				if (gitUri.sha == null) return undefined;

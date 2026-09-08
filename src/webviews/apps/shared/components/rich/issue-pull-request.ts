@@ -1,8 +1,10 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { GlElement } from '@gitlens/components/components/element.js';
 import { getAutolinkIcon } from '@gitlens/components/components/icons/providerIcons.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { PullRequestStackInfo } from '@gitlens/git/models/pullRequest.js';
 import '../button.js';
 import '@gitlens/components/components/codeIcon.js';
@@ -263,7 +265,7 @@ export class IssuePullRequest extends GlElement {
 	 * that pass a created/closed date matching the state leave this unset and read correctly as before.
 	 */
 	@property({ attribute: 'date-label' })
-	dateLabel?: string;
+	dateLabel?: 'updated' | 'opened' | 'closed' | 'merged';
 
 	/** Stack membership, when this pull request is one layer of a stack. */
 	@property({ attribute: false })
@@ -302,7 +304,9 @@ export class IssuePullRequest extends GlElement {
 				<p class="title">
 					${this.identifier}${
 						this.stack != null
-							? html`<span class="stack" title="Layer ${this.stack.position} of ${this.stack.size}"
+							? html`<span
+									class="stack"
+									title=${l10n.t('Layer {position} of {size}', { position: this.stack.position, size: this.stack.size })}
 									><code-icon icon="layers" aria-hidden="true"></code-icon
 									>${this.stack.position}/${this.stack.size}</span
 								>`
@@ -333,7 +337,7 @@ export class IssuePullRequest extends GlElement {
 								this.details && !this.hideDetailsAction
 									? html`<gl-button
 											appearance="toolbar"
-											tooltip="Open Details"
+											tooltip=${l10n.t('Open Details')}
 											@click=${() => this.onDetailsClicked()}
 											><code-icon icon="eye"></code-icon
 										></gl-button>`
@@ -341,7 +345,10 @@ export class IssuePullRequest extends GlElement {
 							}
 							${
 								this.openOnRemote && this.url
-									? html`<gl-button appearance="toolbar" tooltip="Open on Remote" href=${this.url}
+									? html`<gl-button
+											appearance="toolbar"
+											tooltip=${l10n.t('Open on Remote')}
+											href=${this.url}
 											><code-icon icon="globe"></code-icon
 										></gl-button>`
 									: nothing
@@ -353,20 +360,21 @@ export class IssuePullRequest extends GlElement {
 			<p class="date">
 				${
 					// "Opened by" holds whatever became of it since, and matches the graph's ref-pill card.
-					this.author ? html`Opened by ${this.author}` : nothing
-				}${this.isDraft ? html` <span class="badge">Draft</span>` : nothing}${
+					this.author ? html`${l10n.t('Opened by {author}', { author: this.author })}` : nothing
+				}${this.isDraft ? html` <span class="badge">${l10n.t('Draft')}</span>` : nothing}${
 					// With a `dateLabel` the state word is redundant — the coloured icon already carries state,
 					// and the label names the date. Without one the state IS the date's label ("opened 3 days
 					// ago" over a created date), so it has to stay.
 					this.dateLabel
-						? html`${this.author ? ' · ' : nothing}${this.dateLabel} ${this.renderDate()}`
-						: html`${this.status ? html` ${this.status}` : nothing} ${this.renderDate()}`
+						? html`${this.author ? ' · ' : nothing}${this.renderDateWithLabel(this.dateLabel)}`
+						: html` ${this.renderDateWithLabel(this.status)}`
 				}
 			</p>
 			${
 				this.stack != null
 					? html`<p class="stack-line">
-							<code-icon icon="layers"></code-icon>Stack #${this.stack.number}<span class="stack"
+							<code-icon icon="layers"></code-icon>${l10n.t('Stack #{0}', this.stack.number)}<span
+								class="stack"
 								>${this.stack.position}/${this.stack.size}</span
 							>
 						</p>`
@@ -374,6 +382,22 @@ export class IssuePullRequest extends GlElement {
 			}
 			${this.renderReviewDecision()}
 		`;
+	}
+
+	private renderDateWithLabel(label: string | undefined) {
+		const date = this.renderDate();
+		switch (label) {
+			case 'updated':
+				return localizedContent(l10n.t('updated {date}'), { date: date });
+			case 'opened':
+				return localizedContent(l10n.t('opened {date}'), { date: date });
+			case 'closed':
+				return localizedContent(l10n.t('closed {date}'), { date: date });
+			case 'merged':
+				return localizedContent(l10n.t('merged {date}'), { date: date });
+			default:
+				return date;
+		}
 	}
 
 	private renderReviewDecision() {
@@ -384,17 +408,17 @@ export class IssuePullRequest extends GlElement {
 		let cls: string;
 		switch (this.reviewDecision) {
 			case 'Approved':
-				label = 'Approved';
+				label = l10n.t('Approved');
 				icon = 'pass';
 				cls = 'review--approved';
 				break;
 			case 'ChangesRequested':
-				label = 'Changes Requested';
+				label = l10n.t('Changes Requested');
 				icon = 'request-changes';
 				cls = 'review--changes-requested';
 				break;
 			case 'ReviewRequired':
-				label = 'Review Required';
+				label = l10n.t('Review Required');
 				icon = 'comment-unresolved';
 				cls = 'review--review-required';
 				break;

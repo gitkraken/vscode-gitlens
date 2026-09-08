@@ -35,6 +35,7 @@
 	},
 	"dependencies": {
 		"@gitlens/utils": "workspace:*",
+		"@vscode/l10n": "catalog:",
 		"ignore": "catalog:"
 	},
 	"devDependencies": {

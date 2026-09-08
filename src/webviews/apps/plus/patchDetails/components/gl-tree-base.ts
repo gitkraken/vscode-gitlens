@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import { GlElement } from '@gitlens/components/components/element.js';
@@ -42,22 +43,22 @@ export class GlTreeBase extends GlElement {
 
 		let value = 'tree';
 		let icon = 'list-tree';
-		let label = 'View as Tree';
+		let label = l10n.t('View as Tree');
 		switch (layout) {
 			case 'auto':
 				value = 'list';
 				icon = 'gl-list-auto';
-				label = 'View as List';
+				label = l10n.t('View as List');
 				break;
 			case 'list':
 				value = 'tree';
 				icon = 'list-flat';
-				label = 'View as Tree';
+				label = l10n.t('View as Tree');
 				break;
 			case 'tree':
 				value = 'auto';
 				icon = 'list-tree';
-				label = 'View as Auto';
+				label = l10n.t('View as Auto');
 				break;
 		}
 

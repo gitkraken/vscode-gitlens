@@ -1,5 +1,5 @@
 import type { CancellationToken, TextDocument } from 'vscode';
-import { MarkdownString } from 'vscode';
+import { l10n, MarkdownString } from 'vscode';
 import type { GitCommitLine } from '@gitlens/git/models/commit.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitLineDiff, ParsedGitDiffHunk } from '@gitlens/git/models/diff.js';
@@ -111,53 +111,88 @@ export async function changesMessage(
 	let message;
 	let previous;
 	let current;
+	const showChangesTitle = l10n.t('Open Changes');
+	const showCommitTitle = l10n.t('Show Commit');
 	if (commit.isUncommitted) {
 		const compareUris = await getCommitPreviousComparisonUrisForRange(commit, range, documentRev);
 		if (compareUris?.previous == null) return undefined;
 
-		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
-			lhs: { sha: compareUris.previous.sha ?? '', uri: compareUris.previous.uri },
-			rhs: { sha: compareUris.current.sha ?? '', uri: compareUris.current.uri },
-			repoPath: commit.repoPath,
-			range: compareUris.range,
-			source: telemetrySource,
-		})} "Open Changes")`;
+		message = l10n.t(
+			'[$(compare-changes)]({0} "{1}")',
+			DiffWithCommand.createMarkdownCommandLink({
+				lhs: { sha: compareUris.previous.sha ?? '', uri: compareUris.previous.uri },
+				rhs: { sha: compareUris.current.sha ?? '', uri: compareUris.current.uri },
+				repoPath: commit.repoPath,
+				range: compareUris.range,
+				source: telemetrySource,
+			}),
+			showChangesTitle,
+		);
 
 		previous =
 			compareUris.previous.sha == null || isUncommitted(compareUris.previous.sha)
-				? `  &nbsp;_${shortenRevision(compareUris.previous.sha, {
-						strings: { working: 'Working Tree' },
-					})}_ &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `
-				: `  &nbsp;[$(git-commit) ${shortenRevision(
-						compareUris.previous.sha || '',
-					)}](${ShowQuickCommitCommand.createMarkdownCommandLink(compareUris.previous.sha || '', undefined, telemetrySource)} "Show Commit") &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `;
+				? l10n.t(
+						'  &nbsp;_{0}_ &nbsp;{1}&nbsp; ',
+						shortenRevision(compareUris.previous.sha, { strings: { working: l10n.t('Working Tree') } }),
+						GlyphChars.ArrowLeftRightLong,
+					)
+				: l10n.t(
+						'  &nbsp;[$(git-commit) {0}]({1} "{2}") &nbsp;{3}&nbsp; ',
+						shortenRevision(compareUris.previous.sha || ''),
+						ShowQuickCommitCommand.createMarkdownCommandLink(
+							compareUris.previous.sha || '',
+							undefined,
+							telemetrySource,
+						),
+						showCommitTitle,
+						GlyphChars.ArrowLeftRightLong,
+					);
 
 		current =
 			compareUris.current.sha == null || isUncommitted(compareUris.current.sha)
-				? `_${shortenRevision(compareUris.current.sha, { strings: { working: 'Working Tree' } })}_`
-				: `[$(git-commit) ${shortenRevision(
-						compareUris.current.sha || '',
-					)}](${ShowQuickCommitCommand.createMarkdownCommandLink(compareUris.current.sha || '', undefined, telemetrySource)} "Show Commit")`;
+				? l10n.t(
+						'_{0}_',
+						shortenRevision(compareUris.current.sha, { strings: { working: l10n.t('Working Tree') } }),
+					)
+				: l10n.t(
+						'[$(git-commit) {0}]({1} "{2}")',
+						shortenRevision(compareUris.current.sha || ''),
+						ShowQuickCommitCommand.createMarkdownCommandLink(
+							compareUris.current.sha || '',
+							undefined,
+							telemetrySource,
+						),
+						showCommitTitle,
+					);
 	} else {
-		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink(commit, range, telemetrySource)} "Open Changes")`;
+		message = l10n.t(
+			'[$(compare-changes)]({0} "{1}")',
+			DiffWithCommand.createMarkdownCommandLink(commit, range, telemetrySource),
+			showChangesTitle,
+		);
 
 		previousSha ??= await GitCommit.getPreviousSha(commit);
 		if (previousSha && previousSha !== deletedOrMissing) {
-			previous = `  &nbsp;[$(git-commit) ${shortenRevision(
-				previousSha,
-			)}](${ShowQuickCommitCommand.createMarkdownCommandLink(previousSha, undefined, telemetrySource)} "Show Commit") &nbsp;${
-				GlyphChars.ArrowLeftRightLong
-			}&nbsp;`;
+			previous = l10n.t(
+				'  &nbsp;[$(git-commit) {0}]({1} "{2}") &nbsp;{3}&nbsp;',
+				shortenRevision(previousSha),
+				ShowQuickCommitCommand.createMarkdownCommandLink(previousSha, undefined, telemetrySource),
+				showCommitTitle,
+				GlyphChars.ArrowLeftRightLong,
+			);
 		}
 
-		current = `[$(git-commit) ${commit.shortSha}](${ShowQuickCommitCommand.createMarkdownCommandLink(
-			commit.sha,
-			undefined,
-			telemetrySource,
-		)} "Show Commit")`;
+		current = l10n.t(
+			'[$(git-commit) {0}]({1} "{2}")',
+			commit.shortSha,
+			ShowQuickCommitCommand.createMarkdownCommandLink(commit.sha, undefined, telemetrySource),
+			showCommitTitle,
+		);
 	}
 
-	message = `${diff}\n---\n\nChanges${previous ?? ' added in '}${current} &nbsp;&nbsp;|&nbsp;&nbsp; ${message}`;
+	const summary =
+		previous == null ? l10n.t('Changes added in {0}', current) : l10n.t('Changes{0}{1}', previous, current);
+	message = l10n.t('{0}\n---\n\n{1} &nbsp;&nbsp;|&nbsp;&nbsp; {2}', diff, summary, message);
 
 	const markdown = new MarkdownString(message, true);
 	markdown.supportHtml = true;
@@ -177,36 +212,52 @@ export async function localChangesMessage(
 	let message;
 	let previous;
 	let current;
+	const showChangesTitle = l10n.t('Open Changes');
+	const showCommitTitle = l10n.t('Show Commit');
 	if (fromCommit == null) {
-		previous = '_Working Tree_';
-		current = '_Unsaved_';
+		previous = l10n.t('_Working Tree_');
+		current = l10n.t('_Unsaved_');
 	} else {
 		const file = await findCommitFile(fromCommit, uri);
 		if (file == null) return undefined;
 
 		const telemetrySource = { source: sourceName } as const;
-		message = `[$(compare-changes)](${DiffWithCommand.createMarkdownCommandLink({
-			lhs: {
-				sha: fromCommit.sha,
-				uri: GitUri.fromFile(file, uri.repoPath!, undefined, true).workingFileUri,
-			},
-			rhs: { sha: '', uri: uri.workingFileUri },
-			repoPath: uri.repoPath!,
-			range: editorLineToDiffRange(editorLine),
-			source: telemetrySource,
-		})} "Open Changes")`;
+		message = l10n.t(
+			'[$(compare-changes)]({0} "{1}")',
+			DiffWithCommand.createMarkdownCommandLink({
+				lhs: {
+					sha: fromCommit.sha,
+					uri: GitUri.fromFile(file, uri.repoPath!, undefined, true).workingFileUri,
+				},
+				rhs: { sha: '', uri: uri.workingFileUri },
+				repoPath: uri.repoPath!,
+				range: editorLineToDiffRange(editorLine),
+				source: telemetrySource,
+			}),
+			showChangesTitle,
+		);
 
-		previous = `[$(git-commit) ${fromCommit.shortSha}](${ShowQuickCommitCommand.createMarkdownCommandLink(
-			fromCommit.sha,
-			undefined,
-			telemetrySource,
-		)} "Show Commit")`;
+		previous = l10n.t(
+			'[$(git-commit) {0}]({1} "{2}")',
+			fromCommit.shortSha,
+			ShowQuickCommitCommand.createMarkdownCommandLink(fromCommit.sha, undefined, telemetrySource),
+			showCommitTitle,
+		);
 
-		current = '_Working Tree_';
+		current = l10n.t('_Working Tree_');
 	}
-	message = `${diff}\n---\n\nLocal Changes  &nbsp;${previous} &nbsp;${
-		GlyphChars.ArrowLeftRightLong
-	}&nbsp; ${current}${message == null ? '' : ` &nbsp;&nbsp;|&nbsp;&nbsp; ${message}`}`;
+	const summary = l10n.t(
+		'Local Changes  &nbsp;{0} &nbsp;{1}&nbsp; {2}',
+		previous,
+		GlyphChars.ArrowLeftRightLong,
+		current,
+	);
+	message = l10n.t(
+		'{0}\n---\n\n{1}{2}',
+		diff,
+		summary,
+		message == null ? '' : l10n.t(' &nbsp;&nbsp;|&nbsp;&nbsp; {0}', message),
+	);
 
 	const markdown = new MarkdownString(message, true);
 	markdown.supportHtml = true;

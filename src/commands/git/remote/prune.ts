@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
@@ -47,8 +48,8 @@ export interface RemotePruneGitCommandArgs {
 
 export class RemotePruneGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: RemotePruneGitCommandArgs) {
-		super(container, 'remote-prune', 'prune', 'Prune Remote', {
-			description: 'prunes remote branches on the specified remote',
+		super(container, 'remote-prune', 'prune', l10n.t('Prune Remote'), {
+			description: l10n.t('prunes remote branches on the specified remote'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -111,7 +112,7 @@ export class RemotePruneGitCommand extends QuickCommand<State> {
 				const picked: string | undefined = typeof state.remote === 'string' ? state.remote : state.remote?.name;
 				const result: GitRemote | typeof StepResultBreak = yield* pickRemoteStep(state, context, {
 					picked: picked,
-					placeholder: 'Choose a remote to prune',
+					placeholder: l10n.t('Choose a remote to prune'),
 				});
 				if (result === StepResultBreak) {
 					state.remote = undefined!;
@@ -147,10 +148,11 @@ export class RemotePruneGitCommand extends QuickCommand<State> {
 		state: StepState<State<GlRepository>> & { remote: GitRemote },
 		context: Context,
 	): StepResultGenerator<void> {
+		const confirmTitle = l10n.t('Confirm Prune Remote');
 		const step: QuickPickStep = createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
-			[{ label: context.title, detail: `Will prune remote '${state.remote.name}'` }],
-			context,
+			appendReposToTitle(confirmTitle, state, context),
+			[{ label: context.title, detail: l10n.t("Will prune remote '{0}'", state.remote.name) }],
+			confirmTitle,
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;

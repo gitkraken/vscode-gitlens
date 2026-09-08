@@ -1,5 +1,5 @@
 import type { QuickPickItem } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { map } from '@gitlens/utils/iterable.js';
 import type { AIFeedbackEvent, AIFeedbackUnhelpfulReasons, Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
@@ -15,12 +15,12 @@ interface QuickPickItemOfT<T> extends QuickPickItem {
 }
 
 const negativeReasonsMap = new Map<AIFeedbackUnhelpfulReasons, string>([
-	['suggestionInaccurate', 'Inaccurate or incorrect'],
-	['notRelevant', 'Not relevant'],
-	['missedImportantContext', 'Missed important context'],
-	['unclearOrPoorlyFormatted', 'Unclear or poorly formatted'],
-	['genericOrRepetitive', 'Too generic or not detailed enough'],
-	['other', 'Other'],
+	['suggestionInaccurate', l10n.t('Inaccurate or incorrect')],
+	['notRelevant', l10n.t('Not relevant')],
+	['missedImportantContext', l10n.t('Missed important context')],
+	['unclearOrPoorlyFormatted', l10n.t('Unclear or poorly formatted')],
+	['genericOrRepetitive', l10n.t('Too generic or not detailed enough')],
+	['other', l10n.t('Other')],
 ]);
 
 export async function showUnhelpfulFeedbackPicker(): Promise<UnhelpfulResult | undefined> {
@@ -30,9 +30,9 @@ export async function showUnhelpfulFeedbackPicker(): Promise<UnhelpfulResult | u
 
 	// Show quick pick for preset reasons
 	const selectedReasons = await window.showQuickPick(items, {
-		title: 'What could be improved?',
+		title: l10n.t('What could be improved?'),
 		canPickMany: true,
-		placeHolder: 'Select all that apply (optional)',
+		placeHolder: l10n.t('Select all that apply (optional)'),
 	});
 
 	if (selectedReasons == null) return undefined;
@@ -40,9 +40,9 @@ export async function showUnhelpfulFeedbackPicker(): Promise<UnhelpfulResult | u
 	let otherCustom: string | undefined;
 	if (selectedReasons?.find(r => r.item === 'other')) {
 		otherCustom = await window.showInputBox({
-			title: 'Other feedback',
-			placeHolder: 'Describe your experience...',
-			prompt: 'Enter your feedback to help us improve our AI features (optional).',
+			title: l10n.t('Other feedback'),
+			placeHolder: l10n.t('Describe your experience...'),
+			prompt: l10n.t('Enter your feedback to help us improve our AI features (optional).'),
 		});
 	}
 

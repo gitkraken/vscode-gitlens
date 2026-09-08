@@ -1,5 +1,6 @@
 import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph/engine/adornments.js';
 import type { ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { html } from 'lit';
 import type { StyleInfo } from '@gitlens/components/cspStyleMap.directive.js';
@@ -104,32 +105,54 @@ export function createWipStatsAdornmentProvider(
 				return paused.label;
 			}
 
-			const parts: string[] = [];
-			if ((stats.added ?? 0) > 0) {
-				parts.push(`${stats.added} added`);
-			}
-
-			if ((stats.modified ?? 0) > 0) {
-				parts.push(`${stats.modified} modified`);
-			}
-
-			if ((stats.deleted ?? 0) > 0) {
-				parts.push(`${stats.deleted} deleted`);
-			}
-
-			if ((stats.renamed ?? 0) > 0) {
-				parts.push(`${stats.renamed} renamed`);
-			}
-
-			// Clean is announced, not skipped — it mirrors the visible check, and silence here would read
-			// to a screen reader as "stats not loaded" exactly when they are.
-			if (parts.length === 0) {
-				return 'no working changes';
-			}
-
-			return parts.join(', ');
+			return describeWipStats(stats);
 		},
 	};
+}
+
+function describeWipStats(stats: WipStats): string {
+	const added = stats.added ?? 0;
+	const modified = stats.modified ?? 0;
+	const deleted = stats.deleted ?? 0;
+	const renamed = stats.renamed ?? 0;
+	const fields = (added > 0 ? 1 : 0) | (modified > 0 ? 2 : 0) | (deleted > 0 ? 4 : 0) | (renamed > 0 ? 8 : 0);
+
+	switch (fields) {
+		case 1:
+			return l10n.t('{0} added', added);
+		case 2:
+			return l10n.t('{0} modified', modified);
+		case 3:
+			return l10n.t('{0} added, {1} modified', added, modified);
+		case 4:
+			return l10n.t('{0} deleted', deleted);
+		case 5:
+			return l10n.t('{0} added, {1} deleted', added, deleted);
+		case 6:
+			return l10n.t('{0} modified, {1} deleted', modified, deleted);
+		case 7:
+			return l10n.t('{0} added, {1} modified, {2} deleted', added, modified, deleted);
+		case 8:
+			return l10n.t('{0} renamed', renamed);
+		case 9:
+			return l10n.t('{0} added, {1} renamed', added, renamed);
+		case 10:
+			return l10n.t('{0} modified, {1} renamed', modified, renamed);
+		case 11:
+			return l10n.t('{0} added, {1} modified, {2} renamed', added, modified, renamed);
+		case 12:
+			return l10n.t('{0} deleted, {1} renamed', deleted, renamed);
+		case 13:
+			return l10n.t('{0} added, {1} deleted, {2} renamed', added, deleted, renamed);
+		case 14:
+			return l10n.t('{0} modified, {1} deleted, {2} renamed', modified, deleted, renamed);
+		case 15:
+			return l10n.t('{0} added, {1} modified, {2} deleted, {3} renamed', added, modified, deleted, renamed);
+		default:
+			// Clean is announced, not skipped — it mirrors the visible check, and silence here would read
+			// to a screen reader as "stats not loaded" exactly when they are.
+			return l10n.t('no working changes');
+	}
 }
 
 /** Shared by `resolveAdornment`/`describeForA11y` so the visible pill and its announced text can't

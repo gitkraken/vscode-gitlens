@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { html, nothing } from 'lit';
 import type { TemplateResult } from 'lit';
 import '../chips/action-chip.js';
@@ -13,7 +14,7 @@ export function renderDetailsMaximizeChip(maximized: boolean, slotted = true, sh
 	return html`<gl-action-chip
 		slot=${slotted ? 'actions' : nothing}
 		icon=${maximized ? 'screen-normal' : 'screen-full'}
-		label=${maximized ? 'Restore' : 'Maximize'}
+		label=${maximized ? l10n.t('Restore') : l10n.t('Maximize')}
 		overlay="tooltip"
 		@click=${(e: Event) =>
 			(e.currentTarget as HTMLElement).dispatchEvent(

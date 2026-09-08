@@ -1,4 +1,4 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { GitUri } from '../../git/gitUri.js';
 import type { GlRepository } from '../../git/models/repository.js';
@@ -35,7 +35,7 @@ export class TagsNode extends CacheableChildrenViewNode<'tags', ViewsWithTagsNod
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
 			const tags = await this.repo.git.tags.getTags({ sort: { orderBy: configuration.get('sortTagsBy') } });
-			if (tags.values.length === 0) return [new MessageNode(this.view, this, 'No tags could be found.')];
+			if (tags.values.length === 0) return [new MessageNode(this.view, this, l10n.t('No tags could be found.'))];
 
 			// TODO@eamodio handle paging
 			const tagNodes = tags.values.map(
@@ -58,7 +58,7 @@ export class TagsNode extends CacheableChildrenViewNode<'tags', ViewsWithTagsNod
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Tags', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(l10n.t('Tags'), TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Tags;
 		item.iconPath = new ThemeIcon('tag');

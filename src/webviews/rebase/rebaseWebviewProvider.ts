@@ -1,5 +1,5 @@
 import type { Disposable, TextDocument } from 'vscode';
-import { Uri, ViewColumn, window, workspace } from 'vscode';
+import { l10n, Uri, ViewColumn, window, workspace } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
@@ -8,6 +8,7 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import { classifyConflictAction } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { getConflictIncomingRef, resolveConflictFilePaths } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
@@ -16,7 +17,6 @@ import { Logger } from '@gitlens/utils/logger.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import { extname, normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import { getAvatarUri, getAvatarUriFromGravatarEmail } from '../../avatars.js';
 import type { ContinueRebaseWithAiCommandArgs } from '../../commands/autoRebase.js';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
@@ -45,7 +45,7 @@ import {
 } from '../../git/utils/-webview/rebase.parsing.utils.js';
 import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
-import { resolveRecomposeScope } from '../../plus/coretools/compose/recomposeScope.js';
+import { getRecomposeScopeErrorMessage, resolveRecomposeScope } from '../../plus/coretools/compose/recomposeScope.js';
 import { handoffPendingRebaseRun } from '../../plus/coretools/conflict/autoRebaseProgress.js';
 import { ensurePaidPlan } from '../../plus/gk/utils/-webview/plus.utils.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
@@ -354,7 +354,9 @@ export class RebaseWebviewProvider implements Disposable {
 		const pausedStatus = await svc.pausedOps?.getPausedOperationStatus?.();
 		if (pausedStatus?.type !== 'rebase' || pausedStatus.mergeBase == null) {
 			Logger.warn('onOpenConflictChanges: unable to open conflict changes — missing rebase status or merge base');
-			void window.showWarningMessage('Unable to open conflict changes — rebase status is no longer available');
+			void window.showWarningMessage(
+				l10n.t('Unable to open conflict changes — rebase status is no longer available'),
+			);
 			return;
 		}
 
@@ -384,12 +386,12 @@ export class RebaseWebviewProvider implements Disposable {
 			lhs: {
 				sha: mergeBase,
 				uri: GitUri.fromFile(lhsPath, this.repoPath, mergeBase),
-				title: `${lhsPath} (merge-base)`,
+				title: l10n.t('{0} (merge-base)', lhsPath),
 			},
 			rhs: {
 				sha: ref,
 				uri: GitUri.fromFile(rhsPath, this.repoPath, ref),
-				title: `${rhsPath} (${params.side === 'current' ? 'current' : 'incoming'})`,
+				title: params.side === 'current' ? l10n.t('{0} (current)', rhsPath) : l10n.t('{0} (incoming)', rhsPath),
 			},
 			repoPath: this.repoPath,
 			showOptions: {
@@ -437,7 +439,7 @@ export class RebaseWebviewProvider implements Disposable {
 		const pausedStatus = await svc.pausedOps?.getPausedOperationStatus?.();
 		if (pausedStatus?.type !== 'rebase') {
 			Logger.warn('stageConflictResolution: unable to resolve — missing rebase status');
-			void window.showWarningMessage('Unable to resolve conflict — rebase status is no longer available');
+			void window.showWarningMessage(l10n.t('Unable to resolve conflict — rebase status is no longer available'));
 			return;
 		}
 
@@ -483,9 +485,19 @@ export class RebaseWebviewProvider implements Disposable {
 		const markerCount = await this.countConflictMarkers(uri);
 		if (markerCount > 0) {
 			const proceed = await window.showWarningMessage(
-				`${normalizedPath} still contains ${pluralize('unresolved conflict marker', markerCount)}.\n\nStage anyway?`,
+				markerCount === 1
+					? l10n.t(
+							'{0} still contains {1} unresolved conflict marker.\n\nStage anyway?',
+							normalizedPath,
+							getNumericFormat()(markerCount),
+						)
+					: l10n.t(
+							'{0} still contains {1} unresolved conflict markers.\n\nStage anyway?',
+							normalizedPath,
+							getNumericFormat()(markerCount),
+						),
 				{ modal: true },
-				{ title: 'Stage Anyway' },
+				{ title: l10n.t('Stage Anyway') },
 			);
 			if (proceed == null) return;
 		}
@@ -514,10 +526,18 @@ export class RebaseWebviewProvider implements Disposable {
 		const conflictFiles = await svc.status.getConflictingFiles();
 		if (!conflictFiles.length) return;
 
-		const confirmTitle = params.resolution === 'current' ? 'Stage All Current' : 'Stage All Incoming';
-		const discardedSide = params.resolution === 'current' ? 'incoming' : 'current';
+		const confirmTitle =
+			params.resolution === 'current' ? l10n.t('Stage All Current') : l10n.t('Stage All Incoming');
 		const result = await window.showWarningMessage(
-			`Resolve all ${conflictFiles.length} conflicted files by staging the ${params.resolution} side?\n\nThis will discard the ${discardedSide} changes for every conflicted file.`,
+			params.resolution === 'current'
+				? l10n.t(
+						'Resolve all {0} conflicted files by staging the current side?\n\nThis will discard the incoming changes for every conflicted file.',
+						getNumericFormat()(conflictFiles.length),
+					)
+				: l10n.t(
+						'Resolve all {0} conflicted files by staging the incoming side?\n\nThis will discard the current changes for every conflicted file.',
+						getNumericFormat()(conflictFiles.length),
+					),
 			{ modal: true },
 			{ title: confirmTitle },
 		);
@@ -601,7 +621,17 @@ export class RebaseWebviewProvider implements Disposable {
 
 		if (failedCount) {
 			void window.showErrorMessage(
-				`Failed to resolve ${failedCount} of ${attempted} conflicted ${failedCount === 1 ? 'file' : 'files'}. See logs for details.`,
+				failedCount === 1
+					? l10n.t(
+							'Failed to resolve {0} of {1} conflicted file. See logs for details.',
+							getNumericFormat()(failedCount),
+							getNumericFormat()(attempted),
+						)
+					: l10n.t(
+							'Failed to resolve {0} of {1} conflicted files. See logs for details.',
+							getNumericFormat()(failedCount),
+							getNumericFormat()(attempted),
+						),
 			);
 			for (const f of failures) {
 				const error = f.reason instanceof Error ? f.reason : new Error(String(f.reason));
@@ -748,7 +778,9 @@ export class RebaseWebviewProvider implements Disposable {
 			});
 		} else {
 			void window.showErrorMessage(
-				`Unable to recompose: ${resolved?.message ?? 'Repository not found'}. The rebase was aborted.`,
+				resolved != null
+					? getRecomposeScopeErrorMessage(resolved, { type: 'rebase-aborted' })
+					: l10n.t('Unable to recompose: Repository not found. The rebase was aborted.'),
 			);
 		}
 	}
@@ -804,7 +836,7 @@ export class RebaseWebviewProvider implements Disposable {
 			});
 
 			if (
-				!(await ensurePaidPlan(this.container, 'Auto-Rebase is a Pro feature.', {
+				!(await ensurePaidPlan(this.container, l10n.t('Auto-Rebase is a Pro feature.'), {
 					source: 'rebaseEditor',
 				}))
 			) {

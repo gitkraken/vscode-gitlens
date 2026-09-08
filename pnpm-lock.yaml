@@ -97,6 +97,7 @@ overrides:
   serialize-javascript@<7.0.5: ^7.0.5
 
 patchedDependencies:
+  '@vscode/l10n-dev@0.0.35': f0739fd12aa46b0a14fa7b21706a020cdf3d9e3f8682451be5d3fcca3e9e14e3
   fantasticon@4.1.0: 305553b0f6e028d1e95761a804e3da3f8a572bbe21681ad7b18166ec77c017c7
   lit-html: e5bb07d8a8c00b33913c85e5416801289da83da962b5be5d2f74ce7afe133c7d
 
@@ -275,7 +276,7 @@ importers:
         version: 1.101.0
       '@vscode/l10n-dev':
         specifier: 0.0.35
-        version: 0.0.35(supports-color@10.2.2)
+        version: 0.0.35(patch_hash=f0739fd12aa46b0a14fa7b21706a020cdf3d9e3f8682451be5d3fcca3e9e14e3)(supports-color@10.2.2)
       '@vscode/test-cli':
         specifier: 0.0.15
         version: 0.0.15
@@ -499,6 +500,9 @@ importers:
       '@octokit/types':
         specifier: 'catalog:'
         version: 17.0.0
+      '@vscode/l10n':
+        specifier: 'catalog:'
+        version: 0.0.18
       fast-string-truncated-width:
         specifier: 'catalog:'
         version: 3.0.3
@@ -527,6 +531,9 @@ importers:
       '@gitlens/utils':
         specifier: workspace:*
         version: link:../utils
+      '@vscode/l10n':
+        specifier: 'catalog:'
+        version: 0.0.18
       ignore:
         specifier: 'catalog:'
         version: 7.0.8
@@ -555,6 +562,9 @@ importers:
       '@gitlens/utils':
         specifier: workspace:*
         version: link:../utils
+      '@vscode/l10n':
+        specifier: 'catalog:'
+        version: 0.0.18
     devDependencies:
       '@types/mocha':
         specifier: 'catalog:'
@@ -602,6 +612,9 @@ importers:
       '@gitlens/utils':
         specifier: workspace:*
         version: link:../../utils
+      '@vscode/l10n':
+        specifier: 'catalog:'
+        version: 0.0.18
     devDependencies:
       '@types/mocha':
         specifier: 'catalog:'
@@ -624,6 +637,9 @@ importers:
       '@gitlens/utils':
         specifier: workspace:*
         version: link:../../utils
+      '@vscode/l10n':
+        specifier: 'catalog:'
+        version: 0.0.18
     devDependencies:
       '@types/mocha':
         specifier: 'catalog:'
@@ -744,6 +760,9 @@ importers:
       '@octokit/types':
         specifier: 'catalog:'
         version: 17.0.0
+      '@vscode/l10n':
+        specifier: 'catalog:'
+        version: 0.0.18
     devDependencies:
       '@types/mocha':
         specifier: 'catalog:'
@@ -772,6 +791,9 @@ importers:
       '@gitlens/utils':
         specifier: workspace:*
         version: link:../../utils
+      '@vscode/l10n':
+        specifier: 'catalog:'
+        version: 0.0.18
     devDependencies:
       '@types/mocha':
         specifier: 'catalog:'
@@ -788,6 +810,9 @@ importers:
 
   packages/utils:
     dependencies:
+      '@vscode/l10n':
+        specifier: 'catalog:'
+        version: 0.0.18
       fast-string-truncated-width:
         specifier: 'catalog:'
         version: 3.0.3
@@ -10199,7 +10224,7 @@ snapshots:
 
   '@vscode/codicons@0.0.45': {}
 
-  '@vscode/l10n-dev@0.0.35(supports-color@10.2.2)':
+  '@vscode/l10n-dev@0.0.35(patch_hash=f0739fd12aa46b0a14fa7b21706a020cdf3d9e3f8682451be5d3fcca3e9e14e3)(supports-color@10.2.2)':
     dependencies:
       '@azure-rest/ai-translation-text': 1.0.1(supports-color@10.2.2)
       debug: 4.4.3(supports-color@10.2.2)

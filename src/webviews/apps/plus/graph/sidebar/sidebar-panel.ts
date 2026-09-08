@@ -1,6 +1,7 @@
 import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { URI } from 'vscode-uri';
@@ -136,74 +137,80 @@ interface PanelConfig {
 
 const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 	overview: {
-		title: 'Overview',
+		title: l10n.t('Overview'),
 		actions: [
-			{ icon: 'add', tooltip: 'Create Worktree...', command: 'gitlens.views.title.createWorktree' },
+			{ icon: 'add', tooltip: l10n.t('Create Worktree...'), command: 'gitlens.views.title.createWorktree' },
 			{
 				icon: 'issues',
-				tooltip: 'Start Work',
+				tooltip: l10n.t('Start Work'),
 				command: 'gitlens.startWork',
 				args: [{ source: 'graph-sidebar' }],
 			},
 		],
 	},
 	agents: {
-		title: 'Agents',
+		title: l10n.t('Agents'),
 		actions: [
 			{
 				icon: 'issues',
-				tooltip: 'Start Work with Agent...',
+				tooltip: l10n.t('Start Work with Agent...'),
 				command: 'gitlens.startWork',
 				args: [{ source: 'graph-sidebar', showOpenInAgent: 'agent' }],
 			},
 			{
 				icon: 'git-pull-request',
-				tooltip: 'Start PR Review with Agent...',
+				tooltip: l10n.t('Start PR Review with Agent...'),
 				command: 'gitlens.startReview',
 				args: [{ source: 'graph-sidebar', showOpenInAgent: 'agent' }],
 			},
 			{
 				icon: 'gear',
-				tooltip: 'Manage Agents',
+				tooltip: l10n.t('Manage Agents'),
 				command: 'gitlens.showSettingsPage!agents',
 			},
 		],
 	},
 	worktrees: {
-		title: 'Worktrees',
-		actions: [{ icon: 'add', tooltip: 'Create Worktree...', command: 'gitlens.views.title.createWorktree' }],
+		title: l10n.t('Worktrees'),
+		actions: [
+			{ icon: 'add', tooltip: l10n.t('Create Worktree...'), command: 'gitlens.views.title.createWorktree' },
+		],
 	},
 	branches: {
-		title: 'Branches',
+		title: l10n.t('Branches'),
 		actions: [
-			{ icon: 'gl-switch', tooltip: 'Switch to Branch...', command: 'gitlens.switchToAnotherBranch:views' },
-			{ icon: 'add', tooltip: 'Create Branch...', command: 'gitlens.views.title.createBranch' },
+			{
+				icon: 'gl-switch',
+				tooltip: l10n.t('Switch to Branch...'),
+				command: 'gitlens.switchToAnotherBranch:views',
+			},
+			{ icon: 'add', tooltip: l10n.t('Create Branch...'), command: 'gitlens.views.title.createBranch' },
 		],
 	},
 	pullRequests: {
-		title: 'Pull Requests',
+		title: l10n.t('Pull Requests'),
 		actions: [
 			{
 				icon: 'git-pull-request-create',
-				tooltip: 'Create Pull Request...',
+				tooltip: l10n.t('Create Pull Request...'),
 				command: 'gitlens.createPullRequest:graph',
 			},
 		],
 	},
 	remotes: {
-		title: 'Remotes',
-		actions: [{ icon: 'add', tooltip: 'Add Remote...', command: 'gitlens.views.addRemote' }],
+		title: l10n.t('Remotes'),
+		actions: [{ icon: 'add', tooltip: l10n.t('Add Remote...'), command: 'gitlens.views.addRemote' }],
 	},
 	stashes: {
-		title: 'Stashes',
+		title: l10n.t('Stashes'),
 		actions: [
-			{ icon: 'gl-stash-save', tooltip: 'Stash All Changes...', command: 'gitlens.stashSave:views' },
-			{ icon: 'gl-stash-pop', tooltip: 'Apply / Pop Stash...', command: 'gitlens.stashesApply:views' },
+			{ icon: 'gl-stash-save', tooltip: l10n.t('Stash All Changes...'), command: 'gitlens.stashSave:views' },
+			{ icon: 'gl-stash-pop', tooltip: l10n.t('Apply / Pop Stash...'), command: 'gitlens.stashesApply:views' },
 		],
 	},
 	tags: {
-		title: 'Tags',
-		actions: [{ icon: 'add', tooltip: 'Create Tag...', command: 'gitlens.views.title.createTag' }],
+		title: l10n.t('Tags'),
+		actions: [{ icon: 'add', tooltip: l10n.t('Create Tag...'), command: 'gitlens.views.title.createTag' }],
 	},
 };
 
@@ -387,7 +394,7 @@ function trackingDecorations(
 	return [
 		{
 			type: 'tracking',
-			label: 'tracking',
+			label: l10n.t('Tracking'),
 			ahead: ahead,
 			behind: behind,
 			missingUpstream: missingUpstream,
@@ -403,7 +410,7 @@ function trackingDecorations(
 const pinnedToEdgeDecoration: TreeItemDecoration = {
 	type: 'icon',
 	icon: 'pinned',
-	label: 'Pinned to Edge',
+	label: l10n.t('Pinned to Edge'),
 	position: 'after',
 	muted: true,
 };
@@ -412,7 +419,7 @@ const pinnedToEdgeDecoration: TreeItemDecoration = {
 const currentBranchDecoration: TreeItemDecoration = {
 	type: 'icon',
 	icon: 'check',
-	label: 'Current Branch',
+	label: l10n.t('Current Branch'),
 	position: 'after',
 	muted: true,
 };
@@ -422,7 +429,7 @@ const currentBranchDecoration: TreeItemDecoration = {
 const defaultRemoteDecoration: TreeItemDecoration = {
 	type: 'icon',
 	icon: 'check',
-	label: 'Default Remote',
+	label: l10n.t('Default Remote'),
 	position: 'after',
 	muted: true,
 };
@@ -432,7 +439,7 @@ const defaultRemoteDecoration: TreeItemDecoration = {
 const hiddenDecoration: TreeItemDecoration = {
 	type: 'icon',
 	icon: 'eye-closed',
-	label: 'Hidden',
+	label: l10n.t('Hidden'),
 	position: 'after',
 	muted: true,
 };
@@ -1246,7 +1253,7 @@ would expose the graph through fade or at the gap left by the translate). */
 
 	private renderHeader(config: PanelConfig, isLoading: boolean) {
 		const pinned = this._state.config?.sidebarPinned ?? false;
-		const pinTooltip = pinned ? 'Unpin Side Bar' : 'Pin Side Bar';
+		const pinTooltip = pinned ? l10n.t('Unpin Side Bar') : l10n.t('Pin Side Bar');
 		const pinIcon = pinned ? 'pinned' : 'pin';
 		return html`<div class="header">
 			<span class="header-title"
@@ -1265,7 +1272,7 @@ would expose the graph through fade or at the gap left by the translate). */
 						: nothing
 				}</span
 			>
-			<action-nav class="header-actions" role="toolbar" aria-label="${config.title} actions">
+			<action-nav class="header-actions" role="toolbar" aria-label=${l10n.t('{0} actions', config.title)}>
 				${
 					// One button for the pair — Alt swaps in the picker variant (the graph header's alt idiom).
 					this.activePanel === 'agents'
@@ -1274,10 +1281,13 @@ would expose the graph through fade or at the gap left by the translate). */
 								density="compact"
 								tooltip=${
 									this._modifiers.altKey
-										? 'Start Agent Session With...'
-										: `Start Agent Session...\n[${getAltKeySymbol()}] Start Agent Session With...`
+										? l10n.t('Start Agent Session With...')
+										: l10n.t(
+												'Start Agent Session...\n[{0}] Start Agent Session With...',
+												getAltKeySymbol(),
+											)
 								}
-								aria-label="Start Agent Session"
+								aria-label=${l10n.t('Start Agent Session')}
 								@click=${this.handleStartAgentSession}
 								@keydown=${this.handleStartAgentSessionKeydown}
 								><code-icon icon="robot"></code-icon
@@ -1294,7 +1304,11 @@ would expose the graph through fade or at the gap left by the translate). */
 							><code-icon icon="${a.icon}"></code-icon
 						></gl-button>`,
 				)}
-				<gl-button appearance="toolbar" density="compact" tooltip="Refresh" @click=${this.handleRefresh}
+				<gl-button
+					appearance="toolbar"
+					density="compact"
+					tooltip=${l10n.t('Refresh')}
+					@click=${this.handleRefresh}
 					><code-icon icon="refresh"></code-icon
 				></gl-button>
 				<gl-button
@@ -1358,8 +1372,12 @@ would expose the graph through fade or at the gap left by the translate). */
 	private renderAgentsEmptyState(reason: 'agents-undetected' | 'agents-unconnected'): unknown {
 		const message =
 			reason === 'agents-undetected'
-				? 'GitLens shows sessions from supported agent CLIs. Install one and connect it to see its sessions here.'
-				: 'Connect your AI agents to GitLens to see their sessions here and follow their work in the graph.';
+				? l10n.t(
+						'GitLens shows sessions from supported agent CLIs. Install one and connect it to see its sessions here.',
+					)
+				: l10n.t(
+						'Connect your AI agents to GitLens to see their sessions here and follow their work in the graph.',
+					);
 
 		const connectable = this.connectableDefaultAgent;
 
@@ -1368,14 +1386,14 @@ would expose the graph through fade or at the gap left by the translate). */
 			${
 				connectable != null
 					? html`<gl-button appearance="secondary" density="compact" @click=${this.handleConnectAgents}
-							><code-icon icon="plug" slot="prefix"></code-icon> Connect
-							${connectable.label}...</gl-button
+							><code-icon icon="plug" slot="prefix"></code-icon
+							>${l10n.t('Connect {0}...', connectable.label)}</gl-button
 						>`
 					: html`<gl-button
 							appearance="secondary"
 							density="compact"
 							href=${createCommandLink('gitlens.showSettingsPage!agents')}
-							><code-icon icon="gear" slot="prefix"></code-icon> Manage Agents...</gl-button
+							><code-icon icon="gear" slot="prefix"></code-icon>${l10n.t('Manage Agents...')}</gl-button
 						>`
 			}
 		</div>`;
@@ -1486,8 +1504,8 @@ would expose the graph through fade or at the gap left by the translate). */
 				tooltip-anchor-right
 				filter-text=${this._actions.filterText || nothing}
 				?search-box-filter=${this._state.sidebar?.searchBoxFilter ?? true}
-				filter-placeholder="Filter ${config.title.toLowerCase()}..."
-				aria-label="${config.title}"
+				filter-placeholder=${l10n.t('Filter {0}...', config.title.toLowerCase())}
+				aria-label=${config.title}
 				@gl-tree-filter-changed=${this.handleFilterChanged}
 				@gl-tree-search-box-filter-changed=${this.handleSearchBoxFilterChanged}
 				@gl-tree-generated-item-selected=${this.handleTreeItemSelected}
@@ -1501,8 +1519,8 @@ would expose the graph through fade or at the gap left by the translate). */
 								density="compact"
 								role="checkbox"
 								aria-checked=${showRemoteBranches ? 'true' : 'false'}
-								tooltip="${showRemoteBranches ? 'Hide Remote Branches' : 'Show Remote Branches'}"
-								aria-label="Show Remote Branches"
+								tooltip=${showRemoteBranches ? l10n.t('Hide Remote Branches') : l10n.t('Show Remote Branches')}
+								aria-label=${l10n.t('Show Remote Branches')}
 								@click=${this.handleToggleShowRemoteBranches}
 								><code-icon icon="${showRemoteBranches ? 'gl-remote-filled' : 'gl-remote'}"></code-icon
 							></gl-button>`
@@ -1515,8 +1533,8 @@ would expose the graph through fade or at the gap left by the translate). */
 								density="compact"
 								role="checkbox"
 								aria-checked=${showPastAgentSessions ? 'true' : 'false'}
-								tooltip="${showPastAgentSessions ? 'Hide Past Sessions' : 'Show Past Sessions'}"
-								aria-label="Show Past Sessions"
+								tooltip=${showPastAgentSessions ? l10n.t('Hide Past Sessions') : l10n.t('Show Past Sessions')}
+								aria-label=${l10n.t('Show Past Sessions')}
 								@click=${this.handleToggleShowPastAgentSessions}
 								><code-icon icon="history"></code-icon
 							></gl-button>`
@@ -1527,7 +1545,7 @@ would expose the graph through fade or at the gap left by the translate). */
 								slot="filter-actions"
 								appearance="toolbar"
 								density="compact"
-								tooltip="${currentLayout === 'tree' ? 'View as List' : 'View as Tree'}"
+								tooltip=${currentLayout === 'tree' ? l10n.t('View as List') : l10n.t('View as Tree')}
 								@click=${this.handleToggleLayout}
 								><code-icon icon="${currentLayout === 'tree' ? 'list-flat' : 'list-tree'}"></code-icon
 							></gl-button>`
@@ -1546,11 +1564,11 @@ would expose the graph through fade or at the gap left by the translate). */
 		return html`<div slot="empty" class="panel-error" role="alert">
 			<div class="panel-error__header">
 				<code-icon class="panel-error__icon" icon="error"></code-icon>
-				<span class="panel-error__title">Unable to load ${config.title.toLowerCase()}</span>
+				<span class="panel-error__title">${l10n.t('Unable to load {0}', config.title.toLowerCase())}</span>
 			</div>
 			<div class="panel-error__actions">
 				<gl-button appearance="secondary" density="compact" @click=${this.handleRetry}
-					><code-icon icon="refresh" slot="prefix"></code-icon> Try Again</gl-button
+					><code-icon icon="refresh" slot="prefix"></code-icon>${l10n.t('Try Again')}</gl-button
 				>
 			</div>
 		</div>`;
@@ -1561,8 +1579,10 @@ would expose the graph through fade or at the gap left by the translate). */
 	private renderErrorStrip(config: (typeof panelConfig)[GraphSidebarPanel]): unknown {
 		return html`<div class="error-strip" role="alert">
 			<code-icon class="error-strip__icon" icon="warning"></code-icon>
-			<span class="error-strip__message">Unable to refresh ${config.title.toLowerCase()}</span>
-			<gl-button appearance="secondary" density="compact" @click=${this.handleRetry}>Try Again</gl-button>
+			<span class="error-strip__message">${l10n.t('Unable to refresh {0}', config.title.toLowerCase())}</span>
+			<gl-button appearance="secondary" density="compact" @click=${this.handleRetry}
+				>${l10n.t('Try Again')}</gl-button
+			>
 		</div>`;
 	}
 
@@ -1592,19 +1612,21 @@ would expose the graph through fade or at the gap left by the translate). */
 
 		if (this._prSearchState === 'searching') {
 			return html`<div class="search-fallback">
-				<code-icon icon="loading" modifier="spin"></code-icon> Searching for #${number}…
+				<code-icon icon="loading" modifier="spin"></code-icon>${l10n.t('Searching for #{0}…', number)}
 			</div>`;
 		}
 		if (this._prSearchState === 'notFound') {
-			return html`<div class="search-fallback">No pull request #${number} in this repository</div>`;
+			return html`<div class="search-fallback">
+				${l10n.t('No pull request #{0} in this repository', number)}
+			</div>`;
 		}
 
 		return html`<div class="search-fallback">
-			<span>Not in open pull requests</span>
+			<span>${l10n.t('Not in open pull requests')}</span>
 			<gl-button
 				appearance="toolbar"
 				density="compact"
-				tooltip="Search for #${number}"
+				tooltip=${l10n.t('Search for #{0}', number)}
 				@click=${this.handleSearchPullRequest}
 			>
 				<code-icon icon="search"></code-icon>
@@ -1712,8 +1734,12 @@ would expose the graph through fade or at the gap left by the translate). */
 						checkable: false,
 						context: sidebarItemContext(s.sha, { name: s.name }),
 						actions: [
-							{ icon: 'gl-stash-pop', label: 'Apply / Pop Stash...', action: 'gitlens.stashApply:graph' },
-							{ icon: 'trash', label: 'Delete Stash...', action: 'gitlens.stashDelete:graph' },
+							{
+								icon: 'gl-stash-pop',
+								label: l10n.t('Apply / Pop Stash...'),
+								action: 'gitlens.stashApply:graph',
+							},
+							{ icon: 'trash', label: l10n.t('Delete Stash...'), action: 'gitlens.stashDelete:graph' },
 						],
 						contextData: s.context != null ? serializeWebviewItemContext(s.context) : undefined,
 					};
@@ -1789,7 +1815,8 @@ would expose the graph through fade or at the gap left by the translate). */
 		// The count states what GitHub reports, not how many rows are below — a paged-off layer still
 		// merges when the stack merges, so under-reporting it would understate the blast radius.
 		const loaded = entry.members.length;
-		const count = loaded < entry.size ? `${loaded} of ${entry.size} PRs` : `${entry.size} PRs`;
+		const count =
+			loaded < entry.size ? l10n.t('{0} of {1} PRs', loaded, entry.size) : l10n.t('{0} PRs', entry.size);
 
 		// Focus the whole stack: the BASE layer is focal — it's the one whose merge target really is the
 		// trunk, so its spine runs the full depth of the stack — and the layers above ride along as
@@ -1800,7 +1827,7 @@ would expose the graph through fade or at the gap left by the translate). */
 		const base = entry.members.at(-1);
 		if (loaded === entry.size && entry.members.every(m => m.focus != null) && base?.focus != null) {
 			actions.push(
-				createFocusRefAction('Focus on Stack', {
+				createFocusRefAction(l10n.t('Focus on Stack'), {
 					...base.focus,
 					additional: entry.members
 						.slice(0, -1)
@@ -1815,7 +1842,7 @@ would expose the graph through fade or at the gap left by the translate). */
 			expanded: true,
 			path: `stack:${entry.number}`,
 			level: 1,
-			label: `Stack #${entry.number}`,
+			label: l10n.t('Stack #{0}', entry.number),
 			description: `→ ${entry.baseRef}`,
 			icon: 'layers',
 			checkable: false,
@@ -1837,7 +1864,7 @@ would expose the graph through fade or at the gap left by the translate). */
 		// fetch and then scopes. Same action either way, so the row doesn't explain the difference.
 		if (pr.focus != null) {
 			actions.push(
-				createFocusRefAction('Focus on Pull Request', {
+				createFocusRefAction(l10n.t('Focus on Pull Request'), {
 					...pr.focus,
 					origin: { kind: 'pullRequest', number: pr.number },
 				}),
@@ -1845,7 +1872,7 @@ would expose the graph through fade or at the gap left by the translate). */
 		} else if (pr.state === 'opened' && pr.headBranch && pr.headUrl) {
 			actions.push({
 				icon: 'target',
-				label: 'Focus on Pull Request',
+				label: l10n.t('Focus on Pull Request'),
 				action: 'gitlens.focusPullRequest:graph',
 			});
 		}
@@ -1919,7 +1946,7 @@ would expose the graph through fade or at the gap left by the translate). */
 							{
 								type: 'icon' as const,
 								icon: 'repo-forked',
-								label: `From a fork (${pr.headOwner})`,
+								label: l10n.t('From a fork ({0})', pr.headOwner),
 								position: 'before' as const,
 								muted: true,
 							},
@@ -1932,7 +1959,7 @@ would expose the graph through fade or at the gap left by the translate). */
 					? [
 							{
 								type: 'stack' as const,
-								label: `Layer ${pr.stack.position} of ${pr.stack.size}`,
+								label: l10n.t('Layer {0} of {1}', pr.stack.position, pr.stack.size),
 								position: 'before' as const,
 								layer: pr.stack.position,
 								size: pr.stack.size,
@@ -1964,8 +1991,8 @@ would expose the graph through fade or at the gap left by the translate). */
 			context: sidebarItemContext(t.sha, { name: t.name }),
 			decorations: hidden ? [hiddenDecoration] : undefined,
 			actions: [
-				{ icon: 'gl-switch', label: 'Switch to Tag...', action: 'gitlens.graph.switchToTag' },
-				...(hidden ? [{ icon: 'eye', label: 'Show Tag', action: 'gitlens.graph.showTag' }] : []),
+				{ icon: 'gl-switch', label: l10n.t('Switch to Tag...'), action: 'gitlens.graph.switchToTag' },
+				...(hidden ? [{ icon: 'eye', label: l10n.t('Show Tag'), action: 'gitlens.graph.showTag' }] : []),
 			],
 			contextValue: t.context,
 		};
@@ -1981,21 +2008,21 @@ would expose the graph through fade or at the gap left by the translate). */
 		if (w.tracking?.behind) {
 			actions.push({
 				icon: 'repo-pull',
-				label: 'Pull',
+				label: l10n.t('Pull'),
 				action: 'gitlens.graph.pull',
 				altIcon: 'repo-fetch',
-				altLabel: 'Fetch',
+				altLabel: l10n.t('Fetch'),
 				altAction: 'gitlens.fetch:graph',
 			});
 		} else if (w.tracking?.ahead) {
-			actions.push({ icon: 'repo-push', label: 'Push', action: 'gitlens.graph.push' });
+			actions.push({ icon: 'repo-push', label: l10n.t('Push'), action: 'gitlens.graph.push' });
 		} else if (w.upstream) {
 			actions.push({
 				icon: 'repo-fetch',
-				label: 'Fetch',
+				label: l10n.t('Fetch'),
 				action: 'gitlens.fetch:graph',
 				altIcon: 'repo-pull',
-				altLabel: 'Pull',
+				altLabel: l10n.t('Pull'),
 				altAction: 'gitlens.graph.pull',
 			});
 		}
@@ -2003,10 +2030,10 @@ would expose the graph through fade or at the gap left by the translate). */
 		if (!w.opened) {
 			actions.push({
 				icon: 'empty-window',
-				label: 'Open Worktree in New Window...',
+				label: l10n.t('Open Worktree in New Window...'),
 				action: 'gitlens.openWorktreeInNewWindow:graph',
 				altIcon: 'window',
-				altLabel: 'Open Worktree...',
+				altLabel: l10n.t('Open Worktree...'),
 				altAction: 'gitlens.openWorktree:graph',
 			});
 		}
@@ -2037,7 +2064,7 @@ would expose the graph through fade or at the gap left by the translate). */
 				? [
 						{
 							type: 'wip',
-							label: w.hasChanges ? 'Working tree has changes' : 'No changes',
+							label: w.hasChanges ? l10n.t('Working tree has changes') : l10n.t('No changes'),
 							hasChanges: w.hasChanges,
 						},
 					]
@@ -2083,15 +2110,15 @@ would expose the graph through fade or at the gap left by the translate). */
 								// Same `gl-scope` glyph the Scope ACTION uses (`createWorktreeScopeAction`), so
 								// the state and the verb that produced it read as one thing.
 								icon: 'gl-scope',
-								label: 'Scoped',
+								label: l10n.t('Scoped'),
 								kind: 'scoped' as const,
 								position: 'after' as const,
 							},
 						]
 					: []),
-				...(w.locked ? [{ type: 'icon' as const, icon: 'lock', label: 'Locked', muted: true }] : []),
+				...(w.locked ? [{ type: 'icon' as const, icon: 'lock', label: l10n.t('Locked'), muted: true }] : []),
 				...(w.pinned ? [pinnedToEdgeDecoration] : []),
-				...(w.opened ? [{ type: 'icon' as const, icon: 'check', label: 'Active', muted: true }] : []),
+				...(w.opened ? [{ type: 'icon' as const, icon: 'check', label: l10n.t('Active'), muted: true }] : []),
 				...(trackingDecorations(w.tracking) ?? []),
 				...wipDecoration,
 			],
@@ -2156,7 +2183,7 @@ would expose the graph through fade or at the gap left by the translate). */
 		// already tells the viewer this isn't the session's current location.
 		const description =
 			ghost != null
-				? `now in ${ghost.currentLabel}`
+				? l10n.t('now in {0}', ghost.currentLabel)
 				: describeAgentSession(session, category, {
 						awaitingPrefix: 'short',
 						idleFallback: 'lastPrompt',
@@ -2177,8 +2204,8 @@ would expose the graph through fade or at the gap left by the translate). */
 			permission.kind === 'tool' &&
 			permission.suggestions != null &&
 			permission.suggestions.length > 0;
-		const allowLabel = canResolve && permission.kind === 'plan' ? 'Approve Plan' : 'Allow';
-		const denyLabel = canResolve && permission.kind === 'plan' ? 'Reject Plan' : 'Deny';
+		const allowLabel = canResolve && permission.kind === 'plan' ? l10n.t('Approve Plan') : l10n.t('Allow');
+		const denyLabel = canResolve && permission.kind === 'plan' ? l10n.t('Reject Plan') : l10n.t('Deny');
 
 		const actions: TreeItemAction[] = [];
 		if (canResolve) {
@@ -2190,7 +2217,7 @@ would expose the graph through fade or at the gap left by the translate). */
 				...(showAlwaysAllow
 					? {
 							altIcon: 'check-all',
-							altLabel: 'Always Allow',
+							altLabel: l10n.t('Always Allow'),
 							altAction: 'gitlens.agents.resolvePermission',
 							altArguments: [
 								{
@@ -2216,7 +2243,7 @@ would expose the graph through fade or at the gap left by the translate). */
 		if (category === 'needs-input' && permission?.kind === 'plan' && permission.planFilePath != null) {
 			actions.push({
 				icon: 'tasklist',
-				label: 'View Plan',
+				label: l10n.t('View Plan'),
 				action: 'gitlens.agents.openPlanFile',
 				arguments: [permission.planFilePath],
 			});
@@ -2330,8 +2357,8 @@ would expose the graph through fade or at the gap left by the translate). */
 						(session.worktreePath
 							? basename(session.worktreePath)
 							: session.cwd
-								? `Unattached (${basename(session.cwd)})`
-								: 'Unattached'),
+								? l10n.t('Unattached ({0})', basename(session.cwd))
+								: l10n.t('Unattached')),
 					type: session.worktreePath != null ? 'worktree' : 'folder',
 					// Sessions in a group share the same worktree → share the same anchor.
 					anchor: this.resolveAgentAnchor(session, graphAnchor),
@@ -2408,7 +2435,7 @@ would expose the graph through fade or at the gap left by the translate). */
 						? [
 								{
 									icon: 'terminal',
-									label: 'Open in Integrated Terminal',
+									label: l10n.t('Open in Integrated Terminal'),
 									action: 'gitlens.openInIntegratedTerminal:graph',
 								},
 							]
@@ -2462,7 +2489,7 @@ would expose the graph through fade or at the gap left by the translate). */
 					// The un-hide chip goes last so it takes the row's right edge when present.
 					const actions: TreeItemAction[] = [
 						createFocusRefAction(
-							'Focus on Branch',
+							l10n.t('Focus on Branch'),
 							b.localBranch != null
 								? { branchName: b.localBranch, upstreamName: `${r.name}/${b.name}` }
 								: { branchName: `${r.name}/${b.name}`, remote: true },
@@ -2475,7 +2502,7 @@ would expose the graph through fade or at the gap left by the translate). */
 					if (hidden) {
 						actions.push({
 							icon: 'eye',
-							label: 'Show Remote Branch',
+							label: l10n.t('Show Remote Branch'),
 							action: 'gitlens.graph.showRemoteBranch',
 						});
 					}
@@ -2503,27 +2530,27 @@ would expose the graph through fade or at the gap left by the translate). */
 			const hidden = isHiddenWebviewItem(r.context?.webviewItem);
 
 			const actions: TreeItemAction[] = [
-				{ icon: 'repo-fetch', label: 'Fetch', action: 'gitlens.fetchRemote:graph' },
+				{ icon: 'repo-fetch', label: l10n.t('Fetch'), action: 'gitlens.fetchRemote:graph' },
 			];
 			// Connect is worth surfacing inline — it unlocks enrichment. Disconnect is not: rarely wanted,
 			// destructive-feeling next to Fetch, and still available on the context menu.
 			if (r.connected === false) {
 				actions.push({
 					icon: 'plug',
-					label: 'Connect Remote Integration',
+					label: l10n.t('Connect Remote Integration'),
 					action: 'gitlens.connectRemoteProvider:graph',
 				});
 			}
 			actions.push({
 				icon: 'globe',
-				label: 'Open on Remote',
+				label: l10n.t('Open on Remote'),
 				action: 'gitlens.openRepoOnRemote:graph',
 				altIcon: 'copy',
-				altLabel: 'Copy Remote URL',
+				altLabel: l10n.t('Copy Remote URL'),
 				altAction: 'gitlens.copyRemoteRepositoryUrl:graph',
 			});
 			if (hidden) {
-				actions.push({ icon: 'eye', label: 'Show Remote', action: 'gitlens.graph.showRemote' });
+				actions.push({ icon: 'eye', label: l10n.t('Show Remote'), action: 'gitlens.graph.showRemote' });
 			}
 
 			return {

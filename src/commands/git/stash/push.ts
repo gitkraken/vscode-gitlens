@@ -1,14 +1,16 @@
 import type { Uri } from 'vscode';
-import { InputBoxValidationSeverity, QuickInputButtons, window } from 'vscode';
+import { InputBoxValidationSeverity, l10n, QuickInputButtons, window } from 'vscode';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import { StashPushError } from '@gitlens/git/errors.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { getLoggableName, Logger } from '@gitlens/utils/logger.js';
 import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { defer } from '@gitlens/utils/promise.js';
 import { pad, truncate } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../../constants.js';
 import type { Container } from '../../../container.js';
+import { getPresentableErrorMessage } from '../../../errors.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { showGitErrorMessage } from '../../../messages.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
@@ -73,8 +75,8 @@ export interface StashPushGitCommandArgs {
 
 export class StashPushGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: StashPushGitCommandArgs) {
-		super(container, 'stash-push', 'push', 'Push Stash', {
-			description: 'stashes local changes',
+		super(container, 'stash-push', 'push', l10n.t('Push Stash'), {
+			description: l10n.t('stashes local changes'),
 		});
 
 		this.initialState = { confirm: args?.confirm, flags: [], ...args?.state };
@@ -172,26 +174,30 @@ export class StashPushGitCommand extends QuickCommand<State> {
 
 				steps.markStepsComplete();
 			} catch (ex) {
-				Logger.error(ex, context.title);
+				Logger.error(ex, 'Push Stash');
 
 				if (StashPushError.is(ex, 'nothingToSave')) {
 					if (!state.flags.includes('--include-untracked') && !state.reducedConfirm) {
 						confirmOverride = true;
 						void window.showWarningMessage(
-							'No changes to stash. Choose the "Push & Include Untracked" option, if you have untracked files.',
+							l10n.t(
+								'No changes to stash. Choose the "Push & Include Untracked" option, if you have untracked files.',
+							),
 						);
 						continue;
 					}
 
-					void window.showInformationMessage('No changes to stash.');
+					void window.showInformationMessage(l10n.t('No changes to stash.'));
 					return;
 				}
 
 				if (StashPushError.is(ex, 'conflictingStagedAndUnstagedLines') && state.flags.includes('--staged')) {
-					const confirm = { title: 'Stash Everything' };
-					const cancel = { title: 'Cancel', isCloseAffordance: true };
+					const confirm = { title: l10n.t('Stash Everything') };
+					const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 					const result = await window.showErrorMessage(
-						`Changes were stashed, but the working tree cannot be updated because at least one file has staged and unstaged changes on the same line(s)\n\nDo you want to try again by stashing both your staged and unstaged changes?`,
+						l10n.t(
+							'Changes were stashed, but the working tree cannot be updated because at least one file has staged and unstaged changes on the same line(s)\n\nDo you want to try again by stashing both your staged and unstaged changes?',
+						),
 						{ modal: true },
 						confirm,
 						cancel,
@@ -208,11 +214,13 @@ export class StashPushGitCommand extends QuickCommand<State> {
 
 				const msg: string = ex?.message ?? ex?.toString() ?? '';
 				if (msg.includes('newer version of Git')) {
-					void window.showErrorMessage(`Unable to stash changes. ${msg}`);
+					void window.showErrorMessage(
+						l10n.t('Unable to stash changes. {0}', getPresentableErrorMessage(ex)),
+					);
 					return;
 				}
 
-				void showGitErrorMessage(ex, StashPushError.is(ex) ? undefined : 'Unable to stash changes');
+				void showGitErrorMessage(ex, StashPushError.is(ex) ? undefined : l10n.t('Unable to stash changes'));
 				return;
 			}
 		}
@@ -229,23 +237,25 @@ export class StashPushGitCommand extends QuickCommand<State> {
 		const annotations: string[] = [];
 		if (state.uris != null) {
 			annotations.push(
-				state.uris.length === 1 ? formatPath(state.uris[0], { fileOnly: true }) : `${state.uris.length} files`,
+				state.uris.length === 1
+					? formatPath(state.uris[0], { fileOnly: true })
+					: l10n.t('{0} files', getNumericFormat()(state.uris.length)),
 			);
 		}
 
 		let scopeLabel: string | undefined;
 		if (state.flags.includes('--snapshot')) {
-			scopeLabel = 'Snapshot';
+			scopeLabel = l10n.t('Snapshot');
 		} else if (state.flags.includes('--staged')) {
-			scopeLabel = 'Staged';
+			scopeLabel = l10n.t('Staged');
 		} else if (state.flags.includes('--keep-index')) {
-			scopeLabel = 'Keep Staged';
+			scopeLabel = l10n.t('Keep Staged');
 		}
 		if (scopeLabel != null) {
 			annotations.push(scopeLabel);
 		}
 		if (state.flags.includes('--include-untracked')) {
-			annotations.push('Include Untracked');
+			annotations.push(l10n.t('Include Untracked'));
 		}
 
 		const annotation = annotations.length
@@ -254,9 +264,9 @@ export class StashPushGitCommand extends QuickCommand<State> {
 
 		const step = createInputStep({
 			title: appendReposToTitle(context.title, state, context, annotation),
-			placeholder: 'Stash message',
+			placeholder: l10n.t('Stash message'),
 			value: state.message,
-			prompt: 'Please provide a stash message',
+			prompt: l10n.t('Please provide a stash message'),
 			buttons: this.container.ai.allowed
 				? [QuickInputButtons.Back, GenerateStashMessageQuickInputButton]
 				: [QuickInputButtons.Back],
@@ -289,7 +299,7 @@ export class StashPushGitCommand extends QuickCommand<State> {
 						}
 
 						if (!contents) {
-							void window.showInformationMessage('No changes to generate a stash message from.');
+							void window.showInformationMessage(l10n.t('No changes to generate a stash message from.'));
 							return;
 						}
 
@@ -298,7 +308,7 @@ export class StashPushGitCommand extends QuickCommand<State> {
 							m =>
 								(input.validationMessage = {
 									severity: InputBoxValidationSeverity.Info,
-									message: `$(loading~spin) Generating stash message with ${m.name}...`,
+									message: l10n.t('$(loading~spin) Generating stash message with {0}...', m.name),
 								}),
 							() => (input.validationMessage = undefined),
 						);
@@ -324,7 +334,7 @@ export class StashPushGitCommand extends QuickCommand<State> {
 
 						input.validationMessage = {
 							severity: InputBoxValidationSeverity.Error,
-							message: ex.message,
+							message: getPresentableErrorMessage(ex),
 						};
 					}
 				}
@@ -358,42 +368,37 @@ export class StashPushGitCommand extends QuickCommand<State> {
 				const withoutUntrackedFlags = state.flags.filter(f => f !== '--include-untracked');
 
 				const withUntrackedDescFlags = withUntrackedFlags.filter(f => f !== '--snapshot');
-				const withUntrackedDetails: string[] = [];
-				if (state.flags.includes('--keep-index')) {
-					withUntrackedDetails.push('keeping staged files intact');
-				}
-				withUntrackedDetails.push('including untracked files');
-
 				const withoutUntrackedDescFlags = withoutUntrackedFlags.filter(f => f !== '--snapshot');
-				const withoutUntrackedDetails: string[] = [];
-				if (state.flags.includes('--keep-index')) {
-					withoutUntrackedDetails.push('keeping staged files intact');
-				}
+				const keepStaged = state.flags.includes('--keep-index');
 
 				confirmations.push(
 					createFlagsQuickPickItem<Flags>(state.flags, withUntrackedFlags, {
-						label: `${context.title} & Include Untracked`,
+						label: l10n.t('Push Stash & Include Untracked'),
 						description: withUntrackedDescFlags.length ? withUntrackedDescFlags.join(' ') : undefined,
-						detail: `Will stash unstaged changes${withUntrackedDetails.length ? `, ${withUntrackedDetails.join(' and ')}` : ''}`,
+						detail: keepStaged
+							? l10n.t(
+									'Will stash unstaged changes, keeping staged files intact and including untracked files',
+								)
+							: l10n.t('Will stash unstaged changes, including untracked files'),
 					}),
 					createFlagsQuickPickItem<Flags>(state.flags, withoutUntrackedFlags, {
 						label: context.title,
 						description: withoutUntrackedDescFlags.length ? withoutUntrackedDescFlags.join(' ') : undefined,
-						detail: `Will stash unstaged changes${withoutUntrackedDetails.length ? `, ${withoutUntrackedDetails.join(' and ')}` : ''}`,
+						detail: keepStaged
+							? l10n.t('Will stash unstaged changes, keeping staged files intact')
+							: l10n.t('Will stash unstaged changes'),
 					}),
 				);
 			} else {
 				const descriptionFlags = state.flags.filter(f => f !== '--snapshot');
-				const details: string[] = [];
-				if (state.flags.includes('--keep-index')) {
-					details.push('keeping staged files intact');
-				}
 
 				confirmations.push(
 					createFlagsQuickPickItem<Flags>(state.flags, [...state.flags], {
 						label: context.title,
 						description: descriptionFlags.length ? descriptionFlags.join(' ') : undefined,
-						detail: `Will stash unstaged changes${details.length ? `, ${details.join(' and ')}` : ''}`,
+						detail: state.flags.includes('--keep-index')
+							? l10n.t('Will stash unstaged changes, keeping staged files intact')
+							: l10n.t('Will stash unstaged changes'),
 					}),
 				);
 			}
@@ -407,29 +412,83 @@ export class StashPushGitCommand extends QuickCommand<State> {
 			confirmations.push(
 				createFlagsQuickPickItem<Flags>(state.flags, [...baseFlags], {
 					label: context.title,
-					detail: `Will stash changes from ${
+					detail:
 						state.uris.length === 1
-							? formatPath(state.uris[0], { fileOnly: true })
-							: `${state.uris.length} files`
-					}`,
+							? l10n.t('Will stash changes from {0}', formatPath(state.uris[0], { fileOnly: true }))
+							: l10n.t('Will stash changes from {0} files', getNumericFormat()(state.uris.length)),
 				}),
 			);
 			if (!state.flags.includes('--include-untracked')) {
 				confirmations.push(
 					createFlagsQuickPickItem<Flags>(state.flags, [...baseFlags, '--keep-index'], {
-						label: `${context.title} & Keep Staged`,
-						detail: `Will stash changes from ${
+						label: l10n.t('Push Stash & Keep Staged'),
+						detail:
 							state.uris.length === 1
-								? formatPath(state.uris[0], { fileOnly: true })
-								: `${state.uris.length} files`
-						}, but will keep staged files intact`,
+								? l10n.t(
+										'Will stash changes from {0}, but will keep staged files intact',
+										formatPath(state.uris[0], { fileOnly: true }),
+									)
+								: l10n.t(
+										'Will stash changes from {0} files, but will keep staged files intact',
+										getNumericFormat()(state.uris.length),
+									),
 					}),
 				);
 			}
 			rows = confirmations;
 		} else {
 			let keepStaged = state.flags.includes('--keep-index');
-			const messageSuffix = state.message ? ` with message "${truncate(state.message, 50)}"` : '';
+			const message = state.message ? truncate(state.message, 50) : undefined;
+
+			const getStashChangesDetail = (): string => {
+				if (stagedOnly) {
+					if (message != null) {
+						return keepStaged
+							? l10n.t(
+									'Will stash staged changes with message "{0}", keeping staged changes in the working tree',
+									message,
+								)
+							: l10n.t('Will stash staged changes with message "{0}"', message);
+					}
+
+					return keepStaged
+						? l10n.t('Will stash staged changes, keeping staged changes in the working tree')
+						: l10n.t('Will stash staged changes');
+				}
+
+				if (message != null) {
+					return keepStaged
+						? l10n.t(
+								'Will stash uncommitted changes with message "{0}", keeping staged changes in the working tree',
+								message,
+							)
+						: l10n.t('Will stash uncommitted changes with message "{0}"', message);
+				}
+
+				return keepStaged
+					? l10n.t('Will stash uncommitted changes, keeping staged changes in the working tree')
+					: l10n.t('Will stash uncommitted changes');
+			};
+
+			const getStashUntrackedChangesDetail = (): string => {
+				if (message != null) {
+					return keepStaged
+						? l10n.t(
+								'Will stash uncommitted changes with message "{0}", including untracked files, keeping staged changes in the working tree',
+								message,
+							)
+						: l10n.t(
+								'Will stash uncommitted changes with message "{0}", including untracked files',
+								message,
+							);
+				}
+
+				return keepStaged
+					? l10n.t(
+							'Will stash uncommitted changes, including untracked files, keeping staged changes in the working tree',
+						)
+					: l10n.t('Will stash uncommitted changes, including untracked files');
+			};
 
 			// Folds the live Keep Staged toggle value into each mode's flags and detail — the accepted item's
 			// flags are the whole contract with `execute()` — so the list says what will actually happen.
@@ -439,10 +498,8 @@ export class StashPushGitCommand extends QuickCommand<State> {
 						state.flags,
 						keepStaged ? [...baseFlags, '--keep-index'] : [...baseFlags],
 						{
-							label: 'Stash Changes',
-							detail: `Will stash ${stagedOnly ? 'staged' : 'uncommitted'} changes${messageSuffix}${
-								keepStaged ? ', keeping staged changes in the working tree' : ''
-							}`,
+							label: l10n.t('Stash Changes'),
+							detail: getStashChangesDetail(),
 							picked: !state.flags.includes('--snapshot') && !state.flags.includes('--include-untracked'),
 						},
 					),
@@ -456,11 +513,9 @@ export class StashPushGitCommand extends QuickCommand<State> {
 								? [...baseFlags, '--include-untracked', '--keep-index']
 								: [...baseFlags, '--include-untracked'],
 							{
-								label: 'Stash Changes & Untracked',
+								label: l10n.t('Stash Changes & Untracked'),
 								description: '--include-untracked',
-								detail: `Will stash uncommitted changes${messageSuffix}, including untracked files${
-									keepStaged ? ', keeping staged changes in the working tree' : ''
-								}`,
+								detail: getStashUntrackedChangesDetail(),
 								picked: state.flags.includes('--include-untracked'),
 							},
 						),
@@ -469,9 +524,9 @@ export class StashPushGitCommand extends QuickCommand<State> {
 
 				items.push(
 					createFlagsQuickPickItem<Flags>(state.flags, [...baseFlags, '--snapshot'], {
-						label: 'Stash Snapshot',
-						description: keepStaged ? '· not affected — the working tree is untouched' : undefined,
-						detail: 'Will stash uncommitted changes without changing the working tree',
+						label: l10n.t('Stash Snapshot'),
+						description: keepStaged ? l10n.t('· not affected — the working tree is untouched') : undefined,
+						detail: l10n.t('Will stash uncommitted changes without changing the working tree'),
 					}),
 				);
 
@@ -488,9 +543,9 @@ export class StashPushGitCommand extends QuickCommand<State> {
 				rows = buildRows();
 			} else {
 				const keepStagedToggle = createConfirmToggleQuickPickItem({
-					label: 'Keep Staged',
+					label: l10n.t('Keep Staged'),
 					description: '--keep-index',
-					detail: 'Leave already-staged changes in the working tree',
+					detail: l10n.t('Leave already-staged changes in the working tree'),
 					checked: keepStaged,
 					onDidChange: item => {
 						keepStaged = item.checked;
@@ -502,9 +557,8 @@ export class StashPushGitCommand extends QuickCommand<State> {
 			}
 		}
 
-		step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), rows, undefined, {
-			placeholder: `Confirm ${context.title}`,
-		});
+		const confirmTitle = l10n.t('Confirm Push Stash');
+		step = this.createConfirmStep(appendReposToTitle(confirmTitle, state, context), rows, confirmTitle);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}

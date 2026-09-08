@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
@@ -48,7 +49,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 				this.container,
 				gitUri,
 				editor,
-				args?.clipboard ? 'Copy Remote Branches URL' : 'Open Branches on Remote',
+				args?.clipboard ? l10n.t('Copy Remote Branches URL') : l10n.t('Open Branches on Remote'),
 			)
 		)?.path;
 		if (!repoPath) return;
@@ -64,7 +65,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenBranchesOnRemoteCommand');
-			void showGenericErrorMessage('Unable to open branches on remote provider');
+			void showGenericErrorMessage(l10n.t('Unable to open branches on remote provider'));
 		}
 	}
 }

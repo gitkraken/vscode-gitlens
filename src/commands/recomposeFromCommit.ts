@@ -1,8 +1,8 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
-import { resolveRecomposeScope } from '../plus/coretools/compose/recomposeScope.js';
+import { getRecomposeScopeErrorMessage, resolveRecomposeScope } from '../plus/coretools/compose/recomposeScope.js';
 import { command, executeCommand } from '../system/-webview/command.js';
 import { getNodeRepoPath } from '../views/nodes/abstract/viewNode.js';
 import { GlCommandBase } from './commandBase.js';
@@ -37,54 +37,54 @@ export class RecomposeFromCommitCommand extends GlCommandBase {
 	async execute(args?: RecomposeFromCommitCommandArgs): Promise<void> {
 		try {
 			if (!args?.commitSha) {
-				void window.showErrorMessage('Unable to recompose: missing commit information');
+				void window.showErrorMessage(l10n.t('Unable to recompose: missing commit information'));
 				return;
 			}
 
 			const repoPath = args.repoPath;
 			if (!repoPath) {
-				void window.showErrorMessage('Unable to recompose: missing repository information');
+				void window.showErrorMessage(l10n.t('Unable to recompose: missing repository information'));
 				return;
 			}
 
 			const repo = this.container.git.getRepository(repoPath);
 			if (repo == null) {
-				void window.showErrorMessage('Repository not found');
+				void window.showErrorMessage(l10n.t('Repository not found'));
 				return;
 			}
 
 			const commit = await repo.git.commits.getCommit(args.commitSha);
 			if (!commit) {
-				void window.showErrorMessage(`Commit '${args.commitSha}' not found`);
+				void window.showErrorMessage(l10n.t("Commit '{0}' not found", args.commitSha));
 				return;
 			}
 
 			const branchName = args.branchName;
 			if (!branchName) {
-				void window.showErrorMessage('Unable to determine branch for commit');
+				void window.showErrorMessage(l10n.t('Unable to determine branch for commit'));
 				return;
 			}
 
 			const branch = await repo.git.branches.getBranch(branchName);
 			if (!branch) {
-				void window.showErrorMessage(`Branch '${branchName}' not found`);
+				void window.showErrorMessage(l10n.t("Branch '{0}' not found", branchName));
 				return;
 			}
 
 			if (branch.remote && !branch.upstream) {
-				void window.showErrorMessage(`Cannot recompose remote-only branch '${branchName}'`);
+				void window.showErrorMessage(l10n.t("Cannot recompose remote-only branch '{0}'", branchName));
 				return;
 			}
 
 			const headCommitSha = branch.sha;
 			if (!headCommitSha) {
-				void window.showErrorMessage(`Unable to determine head commit for branch '${branchName}'`);
+				void window.showErrorMessage(l10n.t("Unable to determine head commit for branch '{0}'", branchName));
 				return;
 			}
 
 			const baseCommitSha = commit.parents.length > 0 ? commit.parents[0] : undefined;
 			if (!baseCommitSha) {
-				void window.showErrorMessage('Unable to determine parent commit');
+				void window.showErrorMessage(l10n.t('Unable to determine parent commit'));
 				return;
 			}
 
@@ -99,7 +99,7 @@ export class RecomposeFromCommitCommand extends GlCommandBase {
 				includeWip: false,
 			});
 			if (!resolved.ok) {
-				void window.showErrorMessage(`Unable to recompose from commit: ${resolved.message}`);
+				void window.showErrorMessage(getRecomposeScopeErrorMessage(resolved, { type: 'from-commit' }));
 				return;
 			}
 
@@ -110,7 +110,7 @@ export class RecomposeFromCommitCommand extends GlCommandBase {
 				source: { source: args.source ?? 'commandPalette' },
 			});
 		} catch (ex) {
-			void window.showErrorMessage(`Failed to recompose from commit: ${ex}`);
+			void window.showErrorMessage(l10n.t('Failed to recompose from commit: {0}', String(ex)));
 		}
 	}
 }

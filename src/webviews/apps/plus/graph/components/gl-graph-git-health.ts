@@ -1,16 +1,18 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { GitHealthFinding, GitHealthLever, GitHealthReport } from '@gitlens/git/gitHealth.js';
 // Derives from the live threshold so tuning it can't strand stale numbers in the UI.
 import { trackedFilesThreshold } from '@gitlens/git/gitHealth.js';
 import type { GitHealthDetails, GitOptimizationId } from '@gitlens/git/providers/maintenance.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { Unsubscribe } from '../../../../rpc/services/types.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import '../../../shared/components/button.js';
@@ -27,7 +29,7 @@ type LeverDetails = { mechanics: string; considerations?: string };
  * {@link GlGraphGitHealth.renderKeyedChangesPhrase}), and builds its own wording for every other status from
  * {@link LeverConfigChange} instead.
  */
-type LeverChanges = { before: string; code?: string; after?: string };
+type LeverChanges = { message: string; code?: string };
 
 /** The Git config key/value the ledger's status-aware "Changes"/consequence lines template from for statuses
  *  other than `suggested`/`available`. Omitted for levers with no single key (`backgroundMaintenance`),
@@ -49,86 +51,110 @@ type LeverCopy = {
 /** Display copy per lever — deliberately named for what the person gets, not for the config key. */
 const leverCopy: Record<GitOptimizationId, LeverCopy> = {
 	untrackedCache: {
-		label: 'Untracked cache',
-		blurb: 'Lets Git skip re-scanning untracked files it has already seen.',
-		benefit: 'Speeds up status checks by skipping unchanged directories.',
+		label: l10n.t('Untracked cache'),
+		blurb: l10n.t('Lets Git skip re-scanning untracked files it has already seen.'),
+		benefit: l10n.t('Speeds up status checks by skipping unchanged directories.'),
 		changes: {
-			before: 'Enabling sets ',
+			message: l10n.t('Enabling sets {code} in the Git config for this repository.'),
 			code: 'core.untrackedCache = true',
-			after: ' in the Git config for this repository.',
 		},
 		configChange: { key: 'core.untrackedCache', value: 'true' },
 		details: {
-			mechanics: `Git remembers each directory's modification time and skips re-scanning directories that haven't changed when looking for new files, so status checks stop re-walking the whole tree.`,
-			considerations:
+			mechanics: l10n.t(
+				"Git remembers each directory's modification time and skips re-scanning directories that haven't changed when looking for new files, so status checks stop re-walking the whole tree.",
+			),
+			considerations: l10n.t(
 				'Requires reliable directory timestamps. On some network drives, containers, or repositories shared between Windows and WSL, unreliable timestamps can make Git miss newly created files. GitLens runs Git’s own file-system test before enabling it.',
+			),
 		},
 	},
 	fsmonitor: {
-		label: 'File system monitor',
-		blurb: 'Runs a background daemon so Git stops scanning every file on each status check.',
-		benefit: 'Near-instant status checks via a background file monitor.',
+		label: l10n.t('File system monitor'),
+		blurb: l10n.t('Runs a background daemon so Git stops scanning every file on each status check.'),
+		benefit: l10n.t('Near-instant status checks via a background file monitor.'),
 		changes: {
-			before: 'Enabling sets ',
+			message: l10n.t(
+				'Enabling sets {code} in the Git config for this repository. This also starts Git’s built-in monitor.',
+			),
 			code: 'core.fsmonitor = true',
-			after: ' in the Git config for this repository. This also starts Git’s built-in monitor.',
 		},
 		configChange: { key: 'core.fsmonitor', value: 'true' },
 		details: {
-			mechanics: `Git's built-in daemon watches for file changes as they happen, so a status check reads a small change journal instead of scanning the working tree — near-instant status even on huge repositories.`,
-			considerations:
+			mechanics: l10n.t(
+				"Git's built-in daemon watches for file changes as they happen, so a status check reads a small change journal instead of scanning the working tree — near-instant status even on huge repositories.",
+			),
+			considerations: l10n.t(
 				'Runs one background Git process while this repository is in use. It is unsupported on some network and virtual file systems.',
+			),
 		},
 	},
 	manyFiles: {
-		label: 'Large-repository index',
-		blurb: 'Speeds up index reads and writes for repositories with tens of thousands of files.',
-		benefit: 'Faster index reads and writes in large repositories.',
+		label: l10n.t('Large-repository index'),
+		blurb: l10n.t('Speeds up index reads and writes for repositories with tens of thousands of files.'),
+		benefit: l10n.t('Faster index reads and writes in large repositories.'),
 		changes: {
-			before: 'Enabling sets ',
+			message: l10n.t(
+				'Enabling sets {code} in the Git config for this repository. This defaults the repository to index v4 and the untracked cache.',
+			),
 			code: 'feature.manyFiles = true',
-			after: ' in the Git config for this repository. This defaults the repository to index v4 and the untracked cache.',
 		},
 		configChange: { key: 'feature.manyFiles', value: 'true' },
-		warning: 'Git before 2.13 and older external tools that read the Git index directly cannot read index v4.',
+		warning: l10n.t(
+			'Git before 2.13 and older external tools that read the Git index directly cannot read index v4.',
+		),
 		details: {
-			mechanics: `Switches Git's index to a compressed format and uses Git's large-repository defaults — together making status, add, and checkout faster when the index is large.`,
+			mechanics: l10n.t(
+				"Switches Git's index to a compressed format and uses Git's large-repository defaults — together making status, add, and checkout faster when the index is large.",
+			),
 		},
 	},
 	sparseIndex: {
-		label: 'Sparse index',
-		blurb: 'Keeps paths outside this sparse checkout collapsed into directory entries.',
-		benefit: 'Speeds up status, add, checkout, and other index-heavy commands in sparse worktrees.',
+		label: l10n.t('Sparse index'),
+		blurb: l10n.t('Keeps paths outside this sparse checkout collapsed into directory entries.'),
+		benefit: l10n.t('Speeds up status, add, checkout, and other index-heavy commands in sparse worktrees.'),
 		changes: {
-			before: 'Enabling runs ',
+			message: l10n.t(
+				'Enabling runs {code} for this worktree. It reapplies the existing sparse pattern and can remove clean out-of-cone files that Git had temporarily materialized.',
+			),
 			code: 'git sparse-checkout reapply --sparse-index',
-			after: ' for this worktree. It reapplies the existing sparse pattern and can remove clean out-of-cone files that Git had temporarily materialized.',
 		},
 		details: {
-			mechanics: `Git replaces paths outside the sparse cone with one directory entry each, so commands can operate on the populated working set instead of loading every tracked path into the index.`,
-			considerations:
+			mechanics: l10n.t(
+				'Git replaces paths outside the sparse cone with one directory entry each, so commands can operate on the populated working set instead of loading every tracked path into the index.',
+			),
+			considerations: l10n.t(
 				'Use Git 2.34 or later and compatible external tools with this worktree. Older index readers may not understand sparse-directory entries.',
+			),
 		},
 	},
 	backgroundMaintenance: {
-		label: 'Scheduled maintenance',
-		blurb: 'Lets Git maintain this repository on a schedule, including while VS Code is closed.',
-		benefit:
+		label: l10n.t('Scheduled maintenance'),
+		blurb: l10n.t('Lets Git maintain this repository on a schedule, including while VS Code is closed.'),
+		benefit: l10n.t(
 			'Runs Git’s own object, history, and reference maintenance on a schedule, even while VS Code is closed.',
+		),
 		changes: {
-			before: 'Enabling registers hourly prefetch that runs even when VS Code is closed, writing global Git config and a system scheduler entry (launchd, schtasks, or a systemd timer).',
+			message: l10n.t(
+				'Enabling registers hourly prefetch that runs even when VS Code is closed, writing global Git config and a system scheduler entry (launchd, schtasks, or a systemd timer).',
+			),
 		},
 		details: {
-			mechanics: `Registers this repository with your operating system's scheduler so Git runs its own maintenance — prefetching, commit-graph updates, and packing — hourly and daily.`,
+			mechanics: l10n.t(
+				"Registers this repository with your operating system's scheduler so Git runs its own maintenance — prefetching, commit-graph updates, and packing — hourly and daily.",
+			),
 		},
 	},
 };
 
 /** Details copy for the pinned commit-graph ledger row — not a lever, so kept out of {@link leverCopy}. */
 const commitGraphDetails: LeverDetails = {
-	mechanics: `A standard Git cache of the commit history's shape that can also carry per-commit file-change filters. Git consults it instead of unpacking commits for dramatically faster graph loads and history walks; filters additionally accelerate file history. It is safe to delete at any time because Git can rebuild it.`,
-	considerations:
-		'Uses a small amount of disk inside .git and a little background CPU after history changes. Disable it here for this repository, or everywhere via the gitlens.gitOptimizations.enabled setting, if another tool owns your repository maintenance.',
+	mechanics: l10n.t(
+		"A standard Git cache of the commit history's shape that can also carry per-commit file-change filters. Git consults it instead of unpacking commits for dramatically faster graph loads and history walks; filters additionally accelerate file history. It is safe to delete at any time because Git can rebuild it.",
+	),
+	considerations: l10n.t(
+		'Uses a small amount of disk inside .git and a little background CPU after history changes. Disable it here for this repository, or everywhere via the {setting} setting, if another tool owns your repository maintenance.',
+		{ setting: 'gitlens.gitOptimizations.enabled' },
+	),
 };
 
 /** Matches a GitLens setting id embedded in copy — git config keys like `core.commitGraph` don't start with `gitlens.` and are left as plain text. */
@@ -176,11 +202,11 @@ function linkifySettingIds(text: string): unknown {
 
 /** Formats a byte count as `84 MB` / `1.9 GB` — one decimal for GB, none for MB/KB. */
 function formatBytes(bytes: number): string {
-	if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
-	if (bytes >= 1024 ** 2) return `${Math.round(bytes / 1024 ** 2)} MB`;
-	if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+	if (bytes >= 1024 ** 3) return l10n.t('{0} GB', (bytes / 1024 ** 3).toFixed(1));
+	if (bytes >= 1024 ** 2) return l10n.t('{0} MB', Math.round(bytes / 1024 ** 2));
+	if (bytes >= 1024) return l10n.t('{0} KB', Math.round(bytes / 1024));
 
-	return `${bytes} B`;
+	return l10n.t('{0} B', bytes);
 }
 
 /**
@@ -930,15 +956,27 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private getTrackedFilesCopy(report: GitHealthReport): { value: string; label: string } {
+	private getTrackedFilesCopy(report: GitHealthReport): { value: string; message: string; text: string } {
 		const value = `${report.trackedFilesScope === 'estimate' ? '~' : ''}${report.estimatedTrackedFiles.toLocaleString()}`;
 		switch (report.trackedFilesScope) {
 			case 'repository':
-				return { value: value, label: 'tracked files' };
+				return {
+					value: value,
+					message: l10n.t('{count} tracked files'),
+					text: l10n.t('{count} tracked files', { count: value }),
+				};
 			case 'sparseWorkingTree':
-				return { value: value, label: 'populated index entries in the sparse working set' };
+				return {
+					value: value,
+					message: l10n.t('{count} populated index entries in the sparse working set'),
+					text: l10n.t('{count} populated index entries in the sparse working set', { count: value }),
+				};
 			case 'estimate':
-				return { value: value, label: 'estimated tracked files' };
+				return {
+					value: value,
+					message: l10n.t('{count} estimated tracked files'),
+					text: l10n.t('{count} estimated tracked files', { count: value }),
+				};
 		}
 	}
 
@@ -947,7 +985,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		if (report == null) {
 			if (this._loading) {
 				return html`<div class="verdict-placeholder" role="status" aria-live="polite">
-					Checking repository health…
+					${l10n.t('Checking repository health…')}
 				</div>`;
 			}
 
@@ -958,7 +996,9 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			return html`<div class="verdict" data-tone="attn">
 				<code-icon icon="dashboard"></code-icon>
 				<div class="verdict-text">
-					<span class="verdict-title">${pluralize('optimization', suggestedCount)} suggested</span>
+					<span class="verdict-title"
+						>${suggestedCount === 1 ? l10n.t('{count} optimization suggested', { count: getNumericFormat()(suggestedCount) }) : l10n.t('{count} optimizations suggested', { count: getNumericFormat()(suggestedCount) })}</span
+					>
 					${this.renderFactsStrip(report)}
 				</div>
 			</div>`;
@@ -968,10 +1008,9 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			return html`<div class="verdict" data-tone="incomplete">
 				<code-icon icon="warning"></code-icon>
 				<div class="verdict-text">
-					<span class="verdict-title">This repository looks in good shape</span>
+					<span class="verdict-title">${l10n.t('This repository looks in good shape')}</span>
 					<span class="verdict-sub"
-						>Nothing needs your attention, but some checks couldn't be completed — see the levers below for
-						details.</span
+						>${l10n.t("Nothing needs your attention, but some checks couldn't be completed — see the levers below for details.")}</span
 					>
 					${this.renderFactsStrip(report)}
 				</div>
@@ -981,9 +1020,9 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		return html`<div class="verdict" data-tone="ok">
 			<code-icon icon="check"></code-icon>
 			<div class="verdict-text">
-				<span class="verdict-title">This repository is in good shape</span>
+				<span class="verdict-title">${l10n.t('This repository is in good shape')}</span>
 				<span class="verdict-sub"
-					>Nothing needs your attention. GitLens keeps Git's caches up to date automatically.</span
+					>${l10n.t("Nothing needs your attention. GitLens keeps Git's caches up to date automatically.")}</span
 				>
 				${this.renderFactsStrip(report)}
 			</div>
@@ -1002,24 +1041,29 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		switch (reason) {
 			case 'trackedFiles': {
 				const files = this.getTrackedFilesCopy(report);
-				valueLabel = html`<b>${files.value}</b> ${files.label}`;
-				thresholdLabel = `helps above ${threshold.toLocaleString()}`;
-				ariaValueText = `${files.value} ${files.label}; ${thresholdLabel}`;
+				valueLabel = localizedContent(files.message, { count: html`<b>${files.value}</b>` });
+				thresholdLabel = l10n.t('helps above {threshold}', { threshold: threshold.toLocaleString() });
+				ariaValueText = l10n.t('{files}; {threshold}', { files: files.text, threshold: thresholdLabel });
 				break;
 			}
 			case 'largePacks': {
 				const bytes = formatBytes(value);
-				valueLabel = html`<b>${bytes}</b> of pack data`;
-				thresholdLabel = `suggested above ${formatBytes(threshold)}`;
-				ariaValueText = `${bytes} of pack data; ${thresholdLabel}`;
+				valueLabel = localizedContent(l10n.t('{bytes} of pack data'), { bytes: html`<b>${bytes}</b>` });
+				thresholdLabel = l10n.t('suggested above {threshold}', { threshold: formatBytes(threshold) });
+				ariaValueText = l10n.t('{bytes} of pack data; {threshold}', {
+					bytes: bytes,
+					threshold: thresholdLabel,
+				});
 				break;
 			}
 			case 'worktreeSlowness': {
 				const seconds = (value / 1000).toFixed(1);
 				return html`<div class="meter">
 					<div class="meter-labels">
-						<span>slow working-tree commands observed (up to <b>${seconds}s</b>)</span>
-						<span>threshold ${(threshold / 1000).toLocaleString()}s</span>
+						<span
+							>${localizedContent(l10n.t('slow working-tree commands observed (up to {duration})'), { duration: html`<b>${l10n.t('{seconds}s', { seconds: seconds })}</b>` })}</span
+						>
+						<span>${l10n.t('threshold {seconds}s', { seconds: (threshold / 1000).toLocaleString() })}</span>
 					</div>
 				</div>`;
 			}
@@ -1076,18 +1120,18 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			appearance="toolbar"
 			aria-expanded=${expanded}
 			aria-controls=${detailsId}
-			aria-label=${`${expanded ? 'Hide' : 'Show'} details for ${label}`}
+			aria-label=${expanded ? l10n.t('Hide details for {label}', { label: label }) : l10n.t('Show details for {label}', { label: label })}
 			@click=${() => this.onToggleDetails(key)}
 			><code-icon icon=${expanded ? 'chevron-down' : 'chevron-right'}></code-icon
 		></gl-button>`;
 	}
 
-	/** Renders a {@link LeverChanges} triple as prose — shared by the card's always-visible line and the
+	/** Renders a {@link LeverChanges} message as prose — shared by the card's always-visible line and the
 	 *  ledger's status-aware `suggested`/`available` phrasing, which uses the identical card copy. */
 	private renderKeyedChangesPhrase(changes: LeverChanges) {
-		return html`${changes.before}${changes.code != null ? html`<code>${changes.code}</code>` : nothing}${
-			changes.after ?? nothing
-		}`;
+		return localizedContent(changes.message, {
+			code: changes.code != null ? html`<code>${changes.code}</code>` : nothing,
+		});
 	}
 
 	/** The always-visible "Enabling sets `key = value`…" line — `code` is optional (some levers have no single key). */
@@ -1104,11 +1148,15 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 	 */
 	private renderLeverDetails(key: GitOptimizationId | 'commitGraph', details: LeverDetails, changesPhrase?: unknown) {
 		return html`<div id=${`git-health-details-${key}`} class="lever-details" ?hidden=${!this._expanded.has(key)}>
-			${changesPhrase != null ? html`<span><b>Changes</b> — ${changesPhrase}</span>` : nothing}
-			<span><b>How it works</b> — ${linkifySettingIds(details.mechanics)}</span>
+			${changesPhrase != null ? html`<span>${localizedContent(l10n.t('{heading} — {body}'), { heading: html`<b>${l10n.t('Changes')}</b>`, body: changesPhrase })}</span>` : nothing}
+			<span
+				>${localizedContent(l10n.t('{heading} — {body}'), { heading: html`<b>${l10n.t('How it works')}</b>`, body: linkifySettingIds(details.mechanics) })}</span
+			>
 			${
 				details.considerations != null
-					? html`<span><b>Considerations</b> — ${linkifySettingIds(details.considerations)}</span>`
+					? html`<span
+							>${localizedContent(l10n.t('{heading} — {body}'), { heading: html`<b>${l10n.t('Considerations')}</b>`, body: linkifySettingIds(details.considerations) })}</span
+						>`
 					: nothing
 			}
 		</div>`;
@@ -1128,11 +1176,13 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			switch (lever.status) {
 				case 'suggested':
 				case 'available':
-					return leverCopy.backgroundMaintenance.changes.before;
+					return leverCopy.backgroundMaintenance.changes.message;
 				case 'userEnabled':
-					return 'This repository is already registered for Git’s scheduled maintenance.';
+					return l10n.t('This repository is already registered for Git’s scheduled maintenance.');
 				default:
-					return 'Enabling would register scheduled maintenance with your operating system’s scheduler.';
+					return l10n.t(
+						'Enabling would register scheduled maintenance with your operating system’s scheduler.',
+					);
 			}
 		}
 		if (lever.id === 'sparseIndex') {
@@ -1141,9 +1191,9 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 				case 'available':
 					return this.renderKeyedChangesPhrase(leverCopy.sparseIndex.changes);
 				case 'userEnabled':
-					return 'This worktree already uses sparse-directory index entries.';
+					return l10n.t('This worktree already uses sparse-directory index entries.');
 				default:
-					return 'Enabling would convert this worktree’s index to sparse-directory entries.';
+					return l10n.t('Enabling would convert this worktree’s index to sparse-directory entries.');
 			}
 		}
 
@@ -1160,10 +1210,13 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 				return this.renderKeyedChangesPhrase(copy.changes);
 			case 'userEnabled':
 				// Deliberately unscoped to "this repository" — the value may come from global Git config.
-				return html`Enabled via <code>${configChange.key}</code> in your Git config.`;
+				return localizedContent(l10n.t('Enabled via {key} in your Git config.'), {
+					key: html`<code>${configChange.key}</code>`,
+				});
 			default:
-				return html`Enabling would set <code>${configChange.key} = ${configChange.value}</code> in the Git
-					config for this repository.`;
+				return localizedContent(l10n.t('Enabling would set {config} in the Git config for this repository.'), {
+					config: html`<code>${configChange.key} = ${configChange.value}</code>`,
+				});
 		}
 	}
 
@@ -1176,10 +1229,14 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		if (lever.status !== 'applied') return undefined;
 
 		if (lever.id === 'backgroundMaintenance') {
-			return 'GitLens registered this repository for scheduled maintenance. Undo unregisters it and restores the prior maintenance configuration.';
+			return l10n.t(
+				'GitLens registered this repository for scheduled maintenance. Undo unregisters it and restores the prior maintenance configuration.',
+			);
 		}
 		if (lever.id === 'sparseIndex') {
-			return 'GitLens converted this worktree to a sparse index. Undo expands the index and reapplies the existing sparse pattern, which can remove clean out-of-cone files.';
+			return l10n.t(
+				'GitLens converted this worktree to a sparse index. Undo expands the index and reapplies the existing sparse pattern, which can remove clean out-of-cone files.',
+			);
 		}
 
 		const configChange = leverCopy[lever.id].configChange;
@@ -1187,12 +1244,18 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 
 		const { key, value } = configChange;
 		if (lever.id === 'fsmonitor') {
-			return html`GitLens set <code>${key} = ${value}</code> in the Git config for this repository. Undo restores
-				the previous value and stops the monitor.`;
+			return localizedContent(
+				l10n.t(
+					'GitLens set {config} in the Git config for this repository. Undo restores the previous value and stops the monitor.',
+				),
+				{ config: html`<code>${key} = ${value}</code>` },
+			);
 		}
 
-		return html`GitLens set <code>${key} = ${value}</code> in the Git config for this repository. Undo restores the
-			previous value.`;
+		return localizedContent(
+			l10n.t('GitLens set {config} in the Git config for this repository. Undo restores the previous value.'),
+			{ config: html`<code>${key} = ${value}</code>` },
+		);
 	}
 
 	/**
@@ -1208,10 +1271,13 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		// A separate sentence, not a dash clause — the benefit copy already ends with a period.
 		const evidence =
 			files != null
-				? `Helps above ${trackedFilesThreshold.toLocaleString()} working-tree entries; this repository has ${
-						files.value
-					} ${files.label}.`
-				: `Helps above ${trackedFilesThreshold.toLocaleString()} tracked files; this repository has fewer.`;
+				? l10n.t('Helps above {threshold} working-tree entries; this repository has {files}.', {
+						threshold: trackedFilesThreshold.toLocaleString(),
+						files: files.text,
+					})
+				: l10n.t('Helps above {threshold} tracked files; this repository has fewer.', {
+						threshold: trackedFilesThreshold.toLocaleString(),
+					});
 
 		return `${copy.benefit} ${evidence}`;
 	}
@@ -1219,10 +1285,12 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 	/** The commit-graph row's benefit line — folds in the file-history-filters hint moved off the old status text. */
 	private renderCommitGraphBenefit(cg: GitHealthReport['commitGraph']): unknown {
 		if (cg.present && cg.changedPathsSupported && !cg.changedPaths) {
-			return 'Accelerates history walks and file history. File-history filters are not present; Run Maintenance Now to add them.';
+			return l10n.t(
+				'Accelerates history walks and file history. File-history filters are not present; Run Maintenance Now to add them.',
+			);
 		}
 
-		return 'Accelerates history walks and file history.';
+		return l10n.t('Accelerates history walks and file history.');
 	}
 
 	private renderSuggestionCard(lever: GitHealthLever) {
@@ -1239,19 +1307,22 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 					class="card-action"
 					data-health-action=${lever.id}
 					appearance="primary"
-					aria-label=${`Enable ${copy.label}`}
+					aria-label=${l10n.t('Enable {label}', { label: copy.label })}
 					?disabled=${busy || this.switching}
 					@click=${() =>
 						void this.run(
 							lever.id,
 							async repoPath => (await this.services!.graphHealth).applyFix(repoPath, lever.id),
 							{
-								successMessage: `${copy.label} enabled.`,
-								notAppliedMessage: `${copy.label} could not be enabled. Review its updated status for details.`,
+								successMessage: l10n.t('{label} enabled.', { label: copy.label }),
+								notAppliedMessage: l10n.t(
+									'{label} could not be enabled. Review its updated status for details.',
+									{ label: copy.label },
+								),
 								focusKey: lever.id,
 							},
 						)}
-					>${busy ? 'Enabling…' : 'Enable'}</gl-button
+					>${busy ? l10n.t('Enabling…') : l10n.t('Enable')}</gl-button
 				>
 			</div>
 			<span class="card-blurb">${copy.blurb}</span>
@@ -1296,30 +1367,14 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 
 		return html`<span class="verdict-facts">
 			<span class="fact"
-				><b>${formatBytes(packBytes)}</b> in ${packCount.toLocaleString()}
-				${pluralize('pack', packCount, {
-					only: true,
-				})}</span
+				>${localizedContent(packCount === 1 ? l10n.t('{bytes} in {count} pack', { count: packCount.toLocaleString() }) : l10n.t('{bytes} in {count} packs', { count: packCount.toLocaleString() }), { bytes: html`<b>${formatBytes(packBytes)}</b>` })}</span
 			>
 			<span class="sep">·</span>
-			<span class="fact"><b>${files.value}</b> ${files.label}</span>
-			${
-				details?.commitCount != null
-					? html`<span class="sep">·</span>
-							<span class="fact"
-								><b>${details.commitCount.toLocaleString()}</b> ${pluralize(
-									'commit',
-									details.commitCount,
-									{
-										only: true,
-									},
-								)}</span
-							>`
-					: nothing
-			}
+			<span class="fact">${localizedContent(files.message, { count: html`<b>${files.value}</b>` })}</span>
+			${details?.commitCount != null ? html`<span class="sep">·</span> <span class="fact">${localizedContent(details.commitCount === 1 ? l10n.t('{count} commit') : l10n.t('{count} commits'), { count: html`<b>${details.commitCount.toLocaleString()}</b>` })}</span>` : nothing}
 			<span class="sep">·</span>
 			<span class="fact${looseFinding ? ' warn' : ''}"
-				><b>${looseText}</b> loose ${pluralize('object', looseCount, { only: true })}</span
+				>${localizedContent(looseCount === 1 ? l10n.t('{count} loose object') : l10n.t('{count} loose objects'), { count: html`<b>${looseText}</b>` })}</span
 			>
 		</span>`;
 	}
@@ -1373,7 +1428,9 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 				'commitGraph',
 				async repoPath => (await this.services!.graphHealth).setCommitGraphEnabled(repoPath, enabled),
 				{
-					successMessage: `Commit-graph cache ${enabled ? 'enabled' : 'disabled'}.`,
+					successMessage: enabled
+						? l10n.t('Commit-graph cache enabled.')
+						: l10n.t('Commit-graph cache disabled.'),
 					focusKey: 'commitGraph',
 				},
 			);
@@ -1388,27 +1445,29 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			// here. Like a user-enabled lever, an explicit git-config choice is theirs alone to change.
 			icon = 'circle-slash';
 			tone = 'off';
-			status = 'Off · disabled via Git config (core.commitGraph)';
+			status = l10n.t('Off · disabled via Git config (core.commitGraph)');
 		} else if (cg.disabled === true) {
 			icon = 'circle-slash';
 			tone = 'off';
-			status = 'Off · disabled for this repository';
+			status = l10n.t('Off · disabled for this repository');
 			action = html`<gl-button
 				data-health-action="commitGraph"
 				appearance="toolbar"
 				?disabled=${busy || this.switching}
 				@click=${setEnabled(true)}
-				>${busy ? 'Enabling…' : 'Enable'}</gl-button
+				>${busy ? l10n.t('Enabling…') : l10n.t('Enable')}</gl-button
 			>`;
 		} else {
 			if (cg.present) {
 				icon = 'check';
 				tone = 'on';
-				status = html`On · <span class="owner-gl">maintained by GitLens</span>`;
+				status = localizedContent(l10n.t('On · {owner}'), {
+					owner: html`<span class="owner-gl">${l10n.t('maintained by GitLens')}</span>`,
+				});
 			} else {
 				icon = 'circle-large-outline';
 				tone = 'off';
-				status = 'Will be built automatically after the next Commit Graph load';
+				status = l10n.t('Will be built automatically after the next Commit Graph load');
 			}
 
 			action = html`<gl-button
@@ -1416,7 +1475,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 				appearance="toolbar"
 				?disabled=${busy || this.switching}
 				@click=${setEnabled(false)}
-				>${busy ? 'Disabling…' : 'Disable'}</gl-button
+				>${busy ? l10n.t('Disabling…') : l10n.t('Disable')}</gl-button
 			>`;
 		}
 
@@ -1424,7 +1483,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			'commitGraph',
 			icon,
 			tone,
-			'Commit-graph cache',
+			l10n.t('Commit-graph cache'),
 			status,
 			action,
 			this.renderCommitGraphBenefit(cg),
@@ -1445,22 +1504,26 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			case 'applied':
 				icon = 'check';
 				tone = 'on';
-				status = html`On · <span class="owner-gl">enabled by GitLens</span>`;
+				status = localizedContent(l10n.t('On · {owner}'), {
+					owner: html`<span class="owner-gl">${l10n.t('enabled by GitLens')}</span>`,
+				});
 				action = html`<gl-button
 					data-health-action=${lever.id}
 					appearance="toolbar"
-					aria-label=${`Undo ${copy.label}`}
+					aria-label=${l10n.t('Undo {label}', { label: copy.label })}
 					?disabled=${busy || this.switching}
 					@click=${() =>
 						void this.run(
 							lever.id,
 							async repoPath => (await this.services!.graphHealth).revertFix(repoPath, lever.id),
 							{
-								successMessage: `${copy.label} restored to its previous setting.`,
+								successMessage: l10n.t('{label} restored to its previous setting.', {
+									label: copy.label,
+								}),
 								focusKey: lever.id,
 							},
 						)}
-					>${busy ? 'Undoing…' : 'Undo'}</gl-button
+					>${busy ? l10n.t('Undoing…') : l10n.t('Undo')}</gl-button
 				>`;
 				break;
 			case 'userEnabled':
@@ -1469,17 +1532,19 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 				// `backgroundMaintenance` runs on Git's own scheduler, not the browser's git-config lookup —
 				// worded as ownership, not as GitLens deferring.
 				status =
-					lever.id === 'backgroundMaintenance' ? 'On · maintained by Git' : 'On · enabled via Git config';
+					lever.id === 'backgroundMaintenance'
+						? l10n.t('On · maintained by Git')
+						: l10n.t('On · enabled via Git config');
 				break;
 			case 'available':
 				icon = 'circle-large-outline';
 				tone = 'off';
-				status = 'Off · not needed';
+				status = l10n.t('Off · not needed');
 				break;
 			default:
 				icon = 'circle-slash';
 				tone = 'off';
-				status = `Unavailable — ${lever.reason ?? ''}`;
+				status = l10n.t('Unavailable — {reason}', { reason: lever.reason ?? '' });
 				break;
 		}
 
@@ -1519,7 +1584,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		return html`
 			<div class="header-row">
 				<gl-graph-visualizations-switcher></gl-graph-visualizations-switcher>
-				<span class="header-row__title">Repository Health</span>
+				<span class="header-row__title">${l10n.t('Repository Health')}</span>
 				<gl-graph-coachmark
 					mark="gitHealth"
 					placement="bottom"
@@ -1531,26 +1596,26 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 						data-health-action="maintenance"
 						appearance="secondary"
 						?disabled=${maintenanceBusy || this.switching}
-						tooltip="Run Maintenance Now"
-						aria-label="Run Maintenance Now"
+						tooltip=${l10n.t('Run Maintenance Now')}
+						aria-label=${l10n.t('Run Maintenance Now')}
 						@click=${() =>
 							void this.run(
 								'maintenance',
 								async repoPath => (await this.services!.graphHealth).runMaintenance(repoPath),
 								{
-									successMessage: 'Repository maintenance finished.',
+									successMessage: l10n.t('Repository maintenance finished.'),
 									focusKey: 'maintenance',
 								},
 							)}
 						><code-icon icon="tools" slot="prefix"></code-icon
 						><span class="run-label"
-							>${maintenanceBusy ? 'Running…' : 'Run Maintenance Now'}</span
+							>${maintenanceBusy ? l10n.t('Running…') : l10n.t('Run Maintenance Now')}</span
 						></gl-button
 					>
 					<gl-button
 						appearance="toolbar"
-						tooltip="Close Visualizations"
-						aria-label="Close Visualizations"
+						tooltip=${l10n.t('Close Visualizations')}
+						aria-label=${l10n.t('Close Visualizations')}
 						@click=${this.onCloseClick}
 					>
 						<code-icon icon="close"></code-icon>
@@ -1575,7 +1640,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 				${
 					ledgerLevers.length || this._report != null
 						? html`<div class="section">
-								<span class="section-label">Optimizations</span>
+								<span class="section-label">${l10n.t('Optimizations')}</span>
 								<div class="ledger">
 									${this._report != null ? this.renderCommitGraphRow(this._report) : nothing}
 									${ledgerLevers.map(l => this.renderLedgerRow(l))}

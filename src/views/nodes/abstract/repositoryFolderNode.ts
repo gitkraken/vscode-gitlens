@@ -1,7 +1,8 @@
 import type { CancellationToken, Disposable } from 'vscode';
-import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitBranch } from '@gitlens/git/models/branch.js';
 import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
+import { getUpstreamStatus } from '@gitlens/git/utils/status.utils.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { weakEvent } from '@gitlens/utils/event.js';
 import { basename } from '@gitlens/utils/path.js';
@@ -111,7 +112,10 @@ export abstract class RepositoryFolderNode<
 				}
 			}
 			if (lastFetched) {
-				item.description = `${item.description ?? ''}Last fetched ${formatLastFetched(lastFetched)}`;
+				item.description = `${item.description ?? ''}${l10n.t(
+					'Last fetched {0}',
+					formatLastFetched(lastFetched),
+				)}`;
 			}
 		} else {
 			this._cachedLastFetched = undefined;
@@ -139,28 +143,61 @@ export abstract class RepositoryFolderNode<
 			providerName = remote?.provider?.name;
 		}
 
-		item.tooltip = new MarkdownString(
-			`${this.repo.name ?? this.uri.repoPath ?? ''}${
-				lastFetched ? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${formatLastFetched(lastFetched, false)}` : ''
-			}${this.repo.name ? `\\\n$(folder) ${isSubmodule ? '(submodule) ' : isWorktree ? '(worktree) ' : ''}${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${branch.name}${
-				branch.upstream != null
-					? ` is ${GitBranch.getTrackingStatus(branch, {
-							empty: branch.upstream.missing
-								? `missing upstream $(git-branch) ${branch.upstream.name}`
-								: `up to date with $(git-branch) ${branch.upstream.name}${
-										providerName ? ` on ${providerName}` : ''
-									}`,
-							expand: true,
-							icons: true,
-							separator: ', ',
-							suffix: ` $(git-branch) ${branch.upstream.name}${
-								providerName ? ` on ${providerName}` : ''
-							}`,
-						})}`
-					: ` hasn't been published to ${providerName ?? 'a remote'}`
-			}`,
-			true,
-		);
+		let tooltip = this.repo.name ?? this.uri.repoPath ?? '';
+		if (lastFetched) {
+			tooltip += `${pad(GlyphChars.Dash, 2, 2)}${l10n.t(
+				'Last fetched {0}',
+				formatLastFetched(lastFetched, false),
+			)}`;
+		}
+		if (this.repo.name) {
+			const repoPath = this.uri.repoPath ?? '';
+			const path = isSubmodule
+				? l10n.t('$(folder) (submodule) {0}', repoPath)
+				: isWorktree
+					? l10n.t('$(folder) (worktree) {0}', repoPath)
+					: `$(folder) ${repoPath}`;
+			tooltip += `\\\n${path}`;
+		}
+
+		const branchLabel = `$(git-branch) ${branch.name}`;
+		let branchStatus;
+		if (branch.upstream != null) {
+			const upstreamLabel = `$(git-branch) ${branch.upstream.name}`;
+			const status = getUpstreamStatus(branch.upstream, {
+				empty: branch.upstream.missing
+					? providerName
+						? l10n.t('missing upstream {upstream} on {provider}', {
+								upstream: upstreamLabel,
+								provider: providerName,
+							})
+						: l10n.t('missing upstream {upstream}', { upstream: upstreamLabel })
+					: providerName
+						? l10n.t('up to date with {upstream} on {provider}', {
+								upstream: upstreamLabel,
+								provider: providerName,
+							})
+						: l10n.t('up to date with {upstream}', { upstream: upstreamLabel }),
+				expand: true,
+				icons: true,
+				provider: providerName,
+				separator: ', ',
+				upstream: upstreamLabel,
+			});
+			branchStatus = l10n.t('Current branch {branch} is {status}', {
+				branch: branchLabel,
+				status: status,
+			});
+		} else {
+			branchStatus = providerName
+				? l10n.t("Current branch {branch} hasn't been published to {provider}", {
+						branch: branchLabel,
+						provider: providerName,
+					})
+				: l10n.t("Current branch {branch} hasn't been published to a remote", { branch: branchLabel });
+		}
+		tooltip += `\n\n${branchStatus}`;
+		item.tooltip = new MarkdownString(tooltip, true);
 
 		return item;
 	}

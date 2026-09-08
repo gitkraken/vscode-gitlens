@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -6,9 +7,10 @@ import { when } from 'lit/directives/when.js';
 import type { Disposable } from 'vscode';
 import { isMac } from '@env/platform.js';
 import { GlElement } from '@gitlens/components/components/element.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { DOM } from '@gitlens/utils/dom.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { GraphSearchRelaxation } from '../../../../plus/graph/protocol.js';
 import type { AppState } from '../../../plus/graph/context.js';
 import type { GlSearchInput, SearchModeChangeEventDetail, SearchNavigationEventDetail } from './search-input.js';
@@ -211,7 +213,6 @@ export class GlSearchBox extends GlElement {
 	@property({ type: String }) navigating: AppState['navigating'] = false;
 	@property({ type: Boolean }) resultHidden = false;
 	@property({ type: Boolean }) resultsHasMore = false;
-	@property({ type: String }) resultsLabel = 'result';
 	@property({ type: Boolean }) resultsLoaded = false;
 	@property({ type: Boolean }) searching = false;
 	@property({ type: Boolean }) showAutocompleteOnFocus = true;
@@ -360,7 +361,7 @@ export class GlSearchBox extends GlElement {
 			return html`<gl-button
 				class="search-button"
 				appearance="toolbar"
-				tooltip="Stop Searching"
+				tooltip=${l10n.t('Stop Searching')}
 				@click="${this.handleCancel}"
 			>
 				<code-icon class="search-button__spinner" icon="loading" modifier="spin"></code-icon>
@@ -373,7 +374,7 @@ export class GlSearchBox extends GlElement {
 			return html`<gl-button
 				class="search-button"
 				appearance="toolbar"
-				tooltip="Resume Search"
+				tooltip=${l10n.t('Resume Search')}
 				@click="${() => this.emit('gl-search-resume')}"
 			>
 				<code-icon icon="play-circle"></code-icon>
@@ -397,29 +398,43 @@ export class GlSearchBox extends GlElement {
 
 		if (hasResults) {
 			// We have results - show count (whether searching or complete)
-			const totalFormatted = pluralize(this.resultsLabel, this.total, {
-				infix: this.resultsHasMore ? '+ ' : undefined,
-			});
+			const formattedCount = getNumericFormat()(this.total);
+			const totalFormatted = this.resultsHasMore
+				? this.total === 1
+					? l10n.t('{0}+ result', formattedCount)
+					: l10n.t('{0}+ results', formattedCount)
+				: this.total === 1
+					? l10n.t('{0} result', formattedCount)
+					: l10n.t('{0} results', formattedCount);
 			const total = `${this.total}${this.resultsHasMore ? '+' : ''}`;
 
 			if (this.resultHidden) {
-				tooltip = html`This result is hidden or unable to be shown on the Commit Graph`;
+				tooltip = html`${l10n.t('This result is hidden or unable to be shown on the Commit Graph')}`;
 			} else {
-				tooltip = `${totalFormatted} found`;
+				tooltip = this.resultsHasMore
+					? this.total === 1
+						? l10n.t('{0}+ result found', formattedCount)
+						: l10n.t('{0}+ results found', formattedCount)
+					: this.total === 1
+						? l10n.t('{0} result found', formattedCount)
+						: l10n.t('{0} results found', formattedCount);
 			}
 
 			countText = html`<span class="${ifDefined(this.resultHidden ? 'sr-hidden' : '')}"
-				><span aria-current="step">${this.step}</span> of <span>${total}</span
-				><span class="sr-only"> ${totalFormatted}</span></span
+				>${localizedContent(l10n.t('{current} of {total}'), { current: html`<span aria-current="step">${this.step}</span>`, total: html`<span>${total}</span>` })}<span
+					class="sr-only"
+				>
+					${totalFormatted}</span
+				></span
 			>`;
 		} else if (isComplete) {
 			// Search is complete with 0 results found
-			const totalFormatted = pluralize(this.resultsLabel, 0, { zero: 'No' });
-			tooltip = `${totalFormatted} found`;
+			const totalFormatted = l10n.t('No results');
+			tooltip = l10n.t('No results found');
 			countText = html`<span>${totalFormatted}</span>`;
 		} else if (hasNoSearch) {
 			// No search initiated yet
-			countText = html`<span>${pluralize(this.resultsLabel, 0, { zero: 'No' })}</span>`;
+			countText = html`<span>${l10n.t('No results')}</span>`;
 		} else {
 			// Searching with no results received yet - show blank
 			countText = html`<span></span>`;
@@ -478,7 +493,7 @@ export class GlSearchBox extends GlElement {
 				() =>
 					html`<div class="search-navigation">
 						${this.resultsCount}
-						<action-nav role="toolbar" aria-label="Search navigation">
+						<action-nav role="toolbar" aria-label=${l10n.t('Search navigation')}>
 							${this.progressButton}
 							<gl-tooltip>
 								<button
@@ -489,10 +504,12 @@ export class GlSearchBox extends GlElement {
 								>
 									<code-icon
 										icon="arrow-up"
-										aria-label="Previous Match (Shift+Enter)&#10;First Match (Shift+Click)"
+										aria-label=${l10n.t('Previous Match (Shift+Enter)\nFirst Match (Shift+Click)')}
 									></code-icon>
 								</button>
-								<span slot="content">Previous Match (Shift+Enter)<br />First Match (Shift+Click)</span>
+								<span slot="content"
+									>${l10n.t('Previous Match (Shift+Enter)')}<br />${l10n.t('First Match (Shift+Click)')}</span
+								>
 							</gl-tooltip>
 							<gl-tooltip>
 								<button
@@ -503,19 +520,24 @@ export class GlSearchBox extends GlElement {
 								>
 									<code-icon
 										icon="arrow-down"
-										aria-label="Next Match (Enter)&#10;Last Match (Shift+Click)"
+										aria-label=${l10n.t('Next Match (Enter)\nLast Match (Shift+Click)')}
 									></code-icon>
 								</button>
-								<span slot="content">Next Match (Enter)<br />Last Match (Shift+Click)</span>
+								<span slot="content"
+									>${l10n.t('Next Match (Enter)')}<br />${l10n.t('Last Match (Shift+Click)')}</span
+								>
 							</gl-tooltip>
-							<gl-tooltip content="Show Results in Side Bar">
+							<gl-tooltip content=${l10n.t('Show Results in Side Bar')}>
 								<button
 									type="button"
 									class="button"
 									?disabled="${!this.hasResults}"
 									@click="${this.handleOpenInView}"
 								>
-									<code-icon icon="link-external" aria-label="Show Results in Side Bar"></code-icon>
+									<code-icon
+										icon="link-external"
+										aria-label=${l10n.t('Show Results in Side Bar')}
+									></code-icon>
 								</button>
 							</gl-tooltip>
 						</action-nav>

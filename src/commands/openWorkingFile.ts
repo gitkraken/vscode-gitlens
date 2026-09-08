@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { Range, window } from 'vscode';
+import { l10n, Range, window } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { FileAnnotationType } from '../config.js';
 import type { Container } from '../container.js';
@@ -47,7 +47,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 					.getWorkingUri(args.uri);
 				if (workingUri === undefined) {
 					void window.showWarningMessage(
-						'Unable to open working file. File could not be found in the working tree',
+						l10n.t('Unable to open working file. File could not be found in the working tree'),
 					);
 
 					return;
@@ -69,7 +69,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenWorkingFileCommand');
-			void showGenericErrorMessage('Unable to open working file');
+			void showGenericErrorMessage(l10n.t('Unable to open working file'));
 		}
 	}
 }

@@ -1,3 +1,5 @@
+import * as l10n from '@vscode/l10n';
+
 export const enum AIErrorReason {
 	DeniedByOrganization,
 	DeniedByUser,
@@ -15,67 +17,88 @@ export const enum AIErrorReason {
 }
 
 export class AIError extends Error {
+	readonly diagnosticMessage: string;
 	readonly original?: Error;
 	readonly reason: AIErrorReason | undefined;
 
 	constructor(reason: AIErrorReason, original?: Error) {
-		let message;
+		let message: string;
+		let diagnosticMessage: string;
 		switch (reason) {
 			case AIErrorReason.NoEntitlement:
-				message = 'You do not have the required entitlement to use this feature';
+				diagnosticMessage = 'You do not have the required entitlement to use this feature';
+				message = l10n.t('You do not have the required entitlement to use this feature');
 				break;
 			case AIErrorReason.RequestTooLarge:
-				message = 'The request is too large';
+				diagnosticMessage = 'The request is too large';
+				message = l10n.t('The request is too large');
 				break;
 			case AIErrorReason.UserQuotaExceeded:
-				message = 'You have exceeded your user token limit';
+				diagnosticMessage = 'You have exceeded your user token limit';
+				message = l10n.t('You have exceeded your user token limit');
 				break;
 			case AIErrorReason.RateLimitExceeded:
-				message = 'Rate limit exceeded';
+				diagnosticMessage = 'Rate limit exceeded';
+				message = l10n.t('Rate limit exceeded');
 				break;
 			case AIErrorReason.RateLimitOrFundsExceeded:
-				message = 'Rate limit exceeded or your account is out of funds';
+				diagnosticMessage = 'Rate limit exceeded or your account is out of funds';
+				message = l10n.t('Rate limit exceeded or your account is out of funds');
 				break;
 			case AIErrorReason.ServiceCapacityExceeded:
-				message = 'Service capacity exceeded';
+				diagnosticMessage = 'Service capacity exceeded';
+				message = l10n.t('Service capacity exceeded');
 				break;
 			case AIErrorReason.NoNetwork:
-				message = 'Unable to reach the AI service. Please check your internet connection.';
+				diagnosticMessage = 'Unable to reach the AI service. Please check your internet connection.';
+				message = l10n.t('Unable to reach the AI service. Please check your internet connection.');
 				break;
 			case AIErrorReason.Unreachable:
-				message = 'The AI service is temporarily unreachable.';
+				diagnosticMessage = 'The AI service is temporarily unreachable.';
+				message = l10n.t('The AI service is temporarily unreachable.');
 				break;
 			case AIErrorReason.NoRequestData:
-				message = original?.message ?? 'No data was provided for the request';
+				diagnosticMessage = original?.message ?? 'No data was provided for the request';
+				message = original?.message ?? l10n.t('No data was provided for the request');
 				break;
 			case AIErrorReason.ModelNotSupported:
-				message = 'Model not supported for this request';
+				diagnosticMessage = 'Model not supported for this request';
+				message = l10n.t('Model not supported for this request');
 				break;
 			case AIErrorReason.Unauthorized:
-				message = 'You are not authorized to use the specified provider or model';
+				diagnosticMessage = 'You are not authorized to use the specified provider or model';
+				message = l10n.t('You are not authorized to use the specified provider or model');
 				break;
 			case AIErrorReason.DeniedByOrganization:
-				message = 'Your organization has denied access to the specified provider or model';
+				diagnosticMessage = 'Your organization has denied access to the specified provider or model';
+				message = l10n.t('Your organization has denied access to the specified provider or model');
 				break;
 			case AIErrorReason.DeniedByUser:
-				message = 'You have denied access to the specified provider or model';
+				diagnosticMessage = 'You have denied access to the specified provider or model';
+				message = l10n.t('You have denied access to the specified provider or model');
 				break;
 			default:
-				message = original?.message ?? 'An unknown error occurred';
+				diagnosticMessage = original?.message ?? 'An unknown error occurred';
+				message = original?.message ?? l10n.t('An unknown error occurred');
 				break;
 		}
 
 		super(message);
 
+		this.diagnosticMessage = diagnosticMessage;
 		this.original = original;
 		this.reason = reason;
 		Error.captureStackTrace?.(this, new.target);
+	}
+
+	get diagnosticString(): string {
+		return `${this.name}: ${this.diagnosticMessage}`;
 	}
 }
 
 export class AuthenticationRequiredError extends Error {
 	constructor() {
-		super('Authentication required');
+		super(l10n.t('Authentication required'));
 
 		Error.captureStackTrace?.(this, new.target);
 	}

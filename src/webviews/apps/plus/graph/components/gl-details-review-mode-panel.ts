@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
@@ -17,7 +18,7 @@ import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
@@ -41,7 +42,13 @@ import {
 	resumeBarStyles,
 	reviewModePanelStyles,
 } from './gl-details-review-mode-panel.css.js';
-import { formatFindingAsMarkdown, formatFocusAreaAsMarkdown, formatReviewAsMarkdown } from './reviewFormat.js';
+import {
+	formatFindingAsMarkdown,
+	formatFocusAreaAsMarkdown,
+	formatReviewAsMarkdown,
+	getReviewFindingTitle,
+	getReviewFocusAreaLabel,
+} from './reviewFormat.js';
 import {
 	checkAllExclusion,
 	fileCheckedExclusion,
@@ -306,7 +313,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this.setAttribute('role', 'region');
-		this.setAttribute('aria-label', 'AI Code Review');
+		this.setAttribute('aria-label', l10n.t('AI Code Review'));
 	}
 
 	override render() {
@@ -325,7 +332,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		if (this.status === 'error') {
 			return renderErrorState(
 				this.errorMessage,
-				'An error occurred during review.',
+				l10n.t('An error occurred during review.'),
 				'review-error-retry',
 				'review-error-back',
 			);
@@ -362,10 +369,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 			multiline
 			active
 			rows="2"
-			button-label="Follow Up"
-			busy-label="Updating review…"
+			button-label=${l10n.t('Follow Up')}
+			busy-label=${l10n.t('Updating review…')}
 			event-name="review-refine"
-			placeholder='Follow up — e.g. "Also check for error handling"'
+			placeholder=${l10n.t('Follow up — e.g. "Also check for error handling"')}
 			.recall=${this.lastPrompt}
 			.value=${this.refineDraft}
 		>
@@ -389,18 +396,18 @@ export class GlDetailsReviewModePanel extends LitElement {
 		return html`<div class="review-footer">
 			<gl-button class="review-footer__primary" @click=${() => this.handleSendToChat('review')}>
 				<code-icon icon="comment-discussion-sparkle" slot="prefix"></code-icon>
-				Send Review to Agent
+				${l10n.t('Send Review to Agent')}
 			</gl-button>
 			<gl-copy-container
 				class="review-footer__copy"
 				.content=${reviewMarkdown}
-				copyLabel="Copy Review Findings"
-				copiedLabel="Copied!"
+				copyLabel=${l10n.t('Copy Review Findings')}
+				copiedLabel=${l10n.t('Copied!')}
 				placement="top"
 				timeout=${2500}
 				@click=${() => this.dispatchCopied('review')}
 			>
-				<gl-button appearance="secondary" aria-label="Copy Review Findings">
+				<gl-button appearance="secondary" aria-label=${l10n.t('Copy Review Findings')}>
 					<code-icon icon="copy"></code-icon>
 				</gl-button>
 			</gl-copy-container>
@@ -411,10 +418,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 				@click=${this.handleToggleRefine}
 			>
 				<code-icon icon="sparkle" slot="prefix"></code-icon>
-				Follow-Up
+				${l10n.t('Follow-Up')}
 				<code-icon class="review-footer__followup-chevron" icon="chevron-down" slot="suffix"></code-icon>
 			</gl-button>
-			<gl-button appearance="secondary" @click=${this.handleDiscard}>Discard</gl-button>
+			<gl-button appearance="secondary" @click=${this.handleDiscard}>${l10n.t('Discard')}</gl-button>
 		</div>`;
 	}
 
@@ -427,8 +434,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 				variant="review"
 			></gl-categorizing-loading-animation>
 			<div class="panel-loading-stage__foreground review-loading-wrap">
-				${renderLoadingState('Analyzing changes...')}
-				<gl-button class="review-cancel" appearance="secondary" @click=${this.handleCancel}>Cancel</gl-button>
+				${renderLoadingState(l10n.t('Analyzing changes...'))}
+				<gl-button class="review-cancel" appearance="secondary" @click=${this.handleCancel}
+					>${l10n.t('Cancel')}</gl-button
+				>
 			</div>
 		</div>`;
 	}
@@ -448,7 +457,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 			return formatFocusAreaAsMarkdown(opts.area, this._dismissedFindings);
 		}
 		if (granularity === 'finding' && opts.finding) {
-			const enclosing = opts.area ? { label: opts.area.label, rationale: opts.area.rationale } : undefined;
+			const enclosing = opts.area
+				? {
+						label: opts.area.label,
+						labelIsFallback: opts.area.labelIsFallback,
+						rationale: opts.area.rationale,
+					}
+				: undefined;
 			return formatFindingAsMarkdown(opts.finding, enclosing);
 		}
 		return '';
@@ -504,8 +519,8 @@ export class GlDetailsReviewModePanel extends LitElement {
 					class="review-metadata__sha"
 					appearance="toolbar"
 					tooltip-placement="bottom"
-					copy-label="Copy SHA"
-					copied-label="Copied!"
+					copy-label=${l10n.t('Copy SHA')}
+					copied-label=${l10n.t('Copied!')}
 					.sha=${fromSha}
 					icon="git-commit"
 				></gl-commit-sha-copy>
@@ -514,8 +529,8 @@ export class GlDetailsReviewModePanel extends LitElement {
 					class="review-metadata__sha"
 					appearance="toolbar"
 					tooltip-placement="bottom"
-					copy-label="Copy SHA"
-					copied-label="Copied!"
+					copy-label=${l10n.t('Copy SHA')}
+					copied-label=${l10n.t('Copied!')}
 					.sha=${toSha}
 					icon="git-commit"
 				></gl-commit-sha-copy>
@@ -523,7 +538,17 @@ export class GlDetailsReviewModePanel extends LitElement {
 			${
 				includedCount > 0
 					? html`<div class="review-metadata__right">
-							<span class="review-metadata__count">${pluralize('commit', includedCount)} selected</span>
+							<span class="review-metadata__count"
+								>${
+									includedCount === 1
+										? l10n.t('{count} commit selected', {
+												count: getNumericFormat()(includedCount),
+											})
+										: l10n.t('{count} commits selected', {
+												count: getNumericFormat()(includedCount),
+											})
+								}</span
+							>
 						</div>`
 					: nothing
 			}
@@ -532,23 +557,32 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	private scopeSummary(): string {
 		const scope = this.scope;
-		if (!scope) return 'changes';
-		if (scope.type === 'commit') return 'commit';
+		if (!scope) return l10n.t('changes');
+		if (scope.type === 'commit') return l10n.t('commit');
 		if (scope.type === 'compare') {
 			const count = scope.includeShas?.length;
-			return count ? pluralize('commit', count) : 'comparison';
+			return count
+				? count === 1
+					? l10n.t('{count} commit', { count: getNumericFormat()(count) })
+					: l10n.t('{count} commits', { count: getNumericFormat()(count) })
+				: l10n.t('comparison');
 		}
 
 		// wip
-		const parts: string[] = [];
-		if (scope.includeStaged || scope.includeUnstaged) {
-			parts.push('working changes');
-		}
+		const hasWorkingChanges = scope.includeStaged || scope.includeUnstaged;
 		const shaCount = scope.includeShas?.length ?? 0;
-		if (shaCount > 0) {
-			parts.push(pluralize('commit', shaCount));
+		if (hasWorkingChanges && shaCount > 0) {
+			return shaCount === 1
+				? l10n.t('working changes + {count} commit', { count: getNumericFormat()(shaCount) })
+				: l10n.t('working changes + {count} commits', { count: getNumericFormat()(shaCount) });
 		}
-		return parts.length ? parts.join(' + ') : 'changes';
+		if (hasWorkingChanges) return l10n.t('working changes');
+		if (shaCount > 0) {
+			return shaCount === 1
+				? l10n.t('{count} commit', { count: getNumericFormat()(shaCount) })
+				: l10n.t('{count} commits', { count: getNumericFormat()(shaCount) });
+		}
+		return l10n.t('changes');
 	}
 
 	/**
@@ -558,43 +592,90 @@ export class GlDetailsReviewModePanel extends LitElement {
 	 */
 	private scopeContextLabel(): string {
 		const scope = this.scope;
-		const worktreeSuffix = this.repoName
-			? this.isLinkedWorktree
-				? ` in the \`${this.repoName}\` worktree`
-				: ` in the \`${this.repoName}\` repository (main worktree)`
-			: '';
-
-		if (!scope) return `changes${worktreeSuffix}`;
+		let label: string;
+		if (!scope) {
+			label = l10n.t('changes');
+			return this.withWorktreeContext(label);
+		}
 
 		if (scope.type === 'commit') {
-			return `commit \`${shortenRevision(scope.sha)}\`${worktreeSuffix}`;
+			label = l10n.t('commit `{revision}`', { revision: shortenRevision(scope.sha) });
+			return this.withWorktreeContext(label);
 		}
 
 		if (scope.type === 'compare') {
-			const range = `\`${shortenRevision(scope.fromSha)}\` … \`${shortenRevision(scope.toSha)}\``;
 			const count = scope.includeShas?.length;
-			return count
-				? `${pluralize('commit', count)} in comparison ${range}${worktreeSuffix}`
-				: `comparison between ${range}${worktreeSuffix}`;
+			label = count
+				? count === 1
+					? l10n.t('{count} commit in comparison `{from}` … `{to}`', {
+							count: getNumericFormat()(count),
+							from: shortenRevision(scope.fromSha),
+							to: shortenRevision(scope.toSha),
+						})
+					: l10n.t('{count} commits in comparison `{from}` … `{to}`', {
+							count: getNumericFormat()(count),
+							from: shortenRevision(scope.fromSha),
+							to: shortenRevision(scope.toSha),
+						})
+				: l10n.t('comparison between `{from}` … `{to}`', {
+						from: shortenRevision(scope.fromSha),
+						to: shortenRevision(scope.toSha),
+					});
+			return this.withWorktreeContext(label);
 		}
 
 		// WIP
-		const parts: string[] = [];
-		if (scope.includeStaged || scope.includeUnstaged) {
-			parts.push(this.branchName ? `WIP changes on \`${this.branchName}\`` : 'WIP changes');
-		}
+		const hasWorkingChanges = scope.includeStaged || scope.includeUnstaged;
 		const shaCount = scope.includeShas?.length ?? 0;
-		if (shaCount > 0) {
-			parts.push(pluralize('commit', shaCount));
+		if (hasWorkingChanges && shaCount > 0) {
+			const count = getNumericFormat()(shaCount);
+			if (this.branchName) {
+				label =
+					shaCount === 1
+						? l10n.t('WIP changes on `{branch}` + {count} commit', {
+								branch: this.branchName,
+								count: count,
+							})
+						: l10n.t('WIP changes on `{branch}` + {count} commits', {
+								branch: this.branchName,
+								count: count,
+							});
+			} else {
+				label =
+					shaCount === 1
+						? l10n.t('WIP changes + {count} commit', { count: count })
+						: l10n.t('WIP changes + {count} commits', { count: count });
+			}
+		} else if (hasWorkingChanges) {
+			label = this.branchName
+				? l10n.t('WIP changes on `{branch}`', { branch: this.branchName })
+				: l10n.t('WIP changes');
+		} else if (shaCount > 0) {
+			label =
+				shaCount === 1
+					? l10n.t('{count} commit', { count: getNumericFormat()(shaCount) })
+					: l10n.t('{count} commits', { count: getNumericFormat()(shaCount) });
+		} else {
+			label = l10n.t('changes');
 		}
-		const wipLabel = parts.length ? parts.join(' + ') : 'changes';
-		return `${wipLabel}${worktreeSuffix}`;
+		return this.withWorktreeContext(label);
+	}
+
+	private withWorktreeContext(scopeLabel: string): string {
+		if (!this.repoName) return scopeLabel;
+
+		return this.isLinkedWorktree
+			? l10n.t('{scope} in the `{worktree}` worktree', { scope: scopeLabel, worktree: this.repoName })
+			: l10n.t('{scope} in the `{repository}` repository (main worktree)', {
+					scope: scopeLabel,
+					repository: this.repoName,
+				});
 	}
 
 	private renderStaleBanner() {
 		return html`<div class="stale-banner" role="status">
 			<code-icon icon="warning"></code-icon>
-			<span>Working changes have changed since this review was generated.</span>
+			<span>${l10n.t('Working changes have changed since this review was generated.')}</span>
 		</div>`;
 	}
 
@@ -639,10 +720,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 						multiline
 						active
 						rows="2"
-						button-label="Start Review"
-						busy-label="Reviewing changes…"
+						button-label=${l10n.t('Start Review')}
+						busy-label=${l10n.t('Reviewing changes…')}
 						event-name="review-run"
-						placeholder='Instructions — e.g. "Focus on security and error handling"'
+						placeholder=${l10n.t('Instructions — e.g. "Focus on security and error handling"')}
 						.value=${this.idleDraft ?? this.lastPrompt}
 						?disabled=${!hasSelectedFiles}
 						@input=${this.onAiInputType}
@@ -722,7 +803,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 			if (checked || aiDisabled) {
 				checkableStates.set(file.path, {
 					...(checked ? { state: 'checked' as const } : {}),
-					...(aiDisabled ? { disabled: true, disabledReason: 'Excluded by AI ignore rules' } : {}),
+					...(aiDisabled ? { disabled: true, disabledReason: l10n.t('Excluded by AI ignore rules') } : {}),
 				});
 			}
 		}
@@ -747,9 +828,8 @@ export class GlDetailsReviewModePanel extends LitElement {
 					.searchContext=${this.searchContext}
 					.showSearchBox=${this.showSearchBox}
 					.searchBoxFilter=${this.searchBoxFilter}
-					check-verb="Include"
-					uncheck-verb="Exclude"
-					empty-text="No files changed"
+					check-action="include"
+					empty-text=${l10n.t('No files changed')}
 					@file-checked=${this.onFileChecked}
 					@gl-check-all=${this.onToggleCheckAll}
 					@file-open=${this.redispatch}
@@ -782,7 +862,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 	}
 
 	private fileActionsForFile = (_file: GitFileChangeShape): TreeItemAction[] => {
-		return [{ icon: 'go-to-file', label: 'Open File', action: 'file-open' }];
+		return [{ icon: 'go-to-file', label: l10n.t('Open File'), action: 'file-open' }];
 	};
 
 	private getFileContext = (file: ScopeFile): string | undefined => {
@@ -919,7 +999,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 			${
 				this.result.mode === 'two-pass'
 					? html`<span class="review-overview__hint"
-							>Select a focus area below to get detailed findings.</span
+							>${l10n.t('Select a focus area below to get detailed findings.')}</span
 						>`
 					: nothing
 			}
@@ -930,7 +1010,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		if (!this.result?.focusAreas.length) {
 			return html`<div class="review-clean">
 				<code-icon icon="pass"></code-icon>
-				<span>No issues found. The changes look good!</span>
+				<span>${l10n.t('No issues found. The changes look good!')}</span>
 			</div>`;
 		}
 
@@ -940,12 +1020,12 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 		return html`<div class="review-areas">
 			<div class="review-areas__header-row">
-				<div class="review-areas__header">Focus Areas</div>
+				<div class="review-areas__header">${l10n.t('Focus Areas')}</div>
 				<div class="review-areas__actions">
 					<gl-button
 						appearance="toolbar"
 						density="compact"
-						tooltip="Expand All"
+						tooltip=${l10n.t('Expand All')}
 						?disabled=${allExpanded}
 						@click=${this.handleExpandAllAreas}
 					>
@@ -954,7 +1034,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 					<gl-button
 						appearance="toolbar"
 						density="compact"
-						tooltip="Collapse All"
+						tooltip=${l10n.t('Collapse All')}
 						?disabled=${noneExpanded}
 						@click=${this.handleCollapseAllAreas}
 					>
@@ -1002,10 +1082,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 					<gl-tooltip
 						content=${
 							area.severity === 'critical'
-								? 'Critical Issue'
+								? l10n.t('Critical Issue')
 								: area.severity === 'warning'
-									? 'Warning (Non-Critical)'
-									: 'Suggestion'
+									? l10n.t('Warning (Non-Critical)')
+									: l10n.t('Suggestion')
 						}
 						placement="bottom-start"
 					>
@@ -1021,8 +1101,14 @@ export class GlDetailsReviewModePanel extends LitElement {
 							></code-icon>
 						</span>
 					</gl-tooltip>
-					<span class="review-area__label">${area.label}</span>
-					<span class="review-area__file-count">${pluralize('file', area.files.length)}</span>
+					<span class="review-area__label">${getReviewFocusAreaLabel(area)}</span>
+					<span class="review-area__file-count"
+						>${
+							area.files.length === 1
+								? l10n.t('{count} file', { count: getNumericFormat()(area.files.length) })
+								: l10n.t('{count} files', { count: getNumericFormat()(area.files.length) })
+						}</span
+					>
 				</button>
 				${this.renderFocusAreaActions(area, { isAnalyzed: isAnalyzed })}
 			</div>
@@ -1058,7 +1144,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 											@click=${() => this.handleAnalyzeArea(area)}
 										>
 											<code-icon icon="search"></code-icon>
-											Review Files
+											${l10n.t('Review Files')}
 										</button>`
 									: nothing
 							}
@@ -1066,7 +1152,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 								isLoading
 									? html`<div class="review-area__loading" aria-live="polite">
 											<code-icon icon="loading" modifier="spin"></code-icon>
-											Reviewing files...
+											${l10n.t('Reviewing files...')}
 										</div>`
 									: nothing
 							}
@@ -1074,12 +1160,12 @@ export class GlDetailsReviewModePanel extends LitElement {
 								hasError
 									? html`<div class="review-area__error" role="alert">
 											<code-icon icon="error"></code-icon>
-											Failed to review files.
+											${l10n.t('Failed to review files.')}
 											<button
 												class="review-area__retry-btn"
 												@click=${() => this.handleAnalyzeArea(area)}
 											>
-												Retry
+												${l10n.t('Retry')}
 											</button>
 										</div>`
 									: nothing
@@ -1090,7 +1176,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 									: isAnalyzed && !isLoading && !hasError
 										? html`<div class="review-area__clean" aria-live="polite">
 												<code-icon icon="pass"></code-icon>
-												No issues found in these files.
+												${l10n.t('No issues found in these files.')}
 											</div>`
 										: nothing
 							}
@@ -1108,13 +1194,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 		// their own tooltips on hover — so wrap the group in an outer `gl-tooltip` that explains
 		// what's needed. Outer is gated to disabled-only; inner labels are cleared while disabled
 		// so they don't double-up if the outer doesn't catch focus.
-		return html`<gl-tooltip content="Run 'Review Files' first" ?disabled=${!disabled} placement="bottom">
+		return html`<gl-tooltip content=${l10n.t("Run 'Review Files' first")} ?disabled=${!disabled} placement="bottom">
 			<span class="review-area__actions" @click=${(e: Event) => e.stopPropagation()}>
 				<gl-copy-container
 					appearance="toolbar"
 					.content=${areaMarkdown}
-					copyLabel=${disabled ? '' : 'Copy Focus Area Findings'}
-					copiedLabel="Copied!"
+					copyLabel=${disabled ? '' : l10n.t('Copy Focus Area Findings')}
+					copiedLabel=${l10n.t('Copied!')}
 					placement="bottom"
 					timeout=${2500}
 					?disabled=${disabled}
@@ -1125,7 +1211,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 				<gl-button
 					appearance="toolbar"
 					density="compact"
-					tooltip=${disabled ? '' : 'Send Focus Area to Agent'}
+					tooltip=${disabled ? '' : l10n.t('Send Focus Area to Agent')}
 					?disabled=${disabled}
 					@click=${() => !disabled && this.handleSendToChat('focusArea', { area: area })}
 				>
@@ -1138,13 +1224,17 @@ export class GlDetailsReviewModePanel extends LitElement {
 	private renderFindings(findings: readonly AIReviewFinding[], area?: AIReviewFocusArea) {
 		const visible = findings.filter(f => !this._dismissedFindings.has(f.id));
 		const dismissedCount = findings.length - visible.length;
+		const dismissedLabel =
+			dismissedCount === 1
+				? l10n.t('{count} dismissed finding', { count: getNumericFormat()(dismissedCount) })
+				: l10n.t('{count} dismissed findings', { count: getNumericFormat()(dismissedCount) });
 
 		return html`<div class="review-findings">
 			${visible.map(f => this.renderFinding(f, area))}
 			${
 				dismissedCount > 0
 					? html`<button class="review-findings__dismissed" @click=${this.handleShowDismissed}>
-							${dismissedCount} dismissed finding${dismissedCount > 1 ? 's' : ''}
+							${dismissedLabel}
 						</button>`
 					: nothing
 			}
@@ -1154,21 +1244,27 @@ export class GlDetailsReviewModePanel extends LitElement {
 	private renderFinding(finding: AIReviewFinding, area?: AIReviewFocusArea) {
 		const findingMarkdown = formatFindingAsMarkdown(
 			finding,
-			area ? { label: area.label, rationale: area.rationale } : undefined,
+			area ? { label: area.label, labelIsFallback: area.labelIsFallback, rationale: area.rationale } : undefined,
 		);
+		const severityLabel =
+			finding.severity === 'critical'
+				? l10n.t('CRITICAL')
+				: finding.severity === 'warning'
+					? l10n.t('WARNING')
+					: l10n.t('SUGGESTION');
 
 		return html`<div class="review-finding" data-severity=${finding.severity}>
 			<div class="review-finding__header">
 				<span class="review-finding__severity review-finding__severity--${finding.severity}">
-					${finding.severity.toUpperCase()}
+					${severityLabel}
 				</span>
-				<span class="review-finding__title">${finding.title}</span>
+				<span class="review-finding__title">${getReviewFindingTitle(finding)}</span>
 				<span class="review-finding__actions">
 					<gl-copy-container
 						appearance="toolbar"
 						.content=${findingMarkdown}
-						copyLabel="Copy Finding"
-						copiedLabel="Copied!"
+						copyLabel=${l10n.t('Copy Finding')}
+						copiedLabel=${l10n.t('Copied!')}
 						placement="bottom"
 						timeout=${2500}
 						@click=${() => this.dispatchCopied('finding')}
@@ -1178,7 +1274,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 					<gl-button
 						appearance="toolbar"
 						density="compact"
-						tooltip="Send to Agent"
+						tooltip=${l10n.t('Send to Agent')}
 						@click=${() => this.handleSendToChat('finding', { area: area, finding: finding })}
 					>
 						<code-icon icon="comment-discussion-sparkle"></code-icon>
@@ -1186,7 +1282,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 					<gl-button
 						appearance="toolbar"
 						density="compact"
-						tooltip="Dismiss"
+						tooltip=${l10n.t('Dismiss')}
 						@click=${() => this.handleDismissFinding(finding.id)}
 					>
 						<code-icon icon="close"></code-icon>

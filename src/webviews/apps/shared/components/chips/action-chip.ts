@@ -1,8 +1,9 @@
+import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { getAltKeySymbol } from '@env/platform.js';
-import { handleUnsafeOverlayContent } from '@gitlens/components/components/overlays/overlays.utils.js';
+import { renderOverlayContent } from '@gitlens/components/components/overlays/overlays.utils.js';
 import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
 import { linkStyles, ruleStyles } from '../../../plus/shared/components/vscode.css.js';
@@ -141,6 +142,10 @@ codicon wobbles. Flex gap already spaces this from the preceding label. */
 	@property()
 	label?: string;
 
+	/** Rich content is supplied as a Lit template, never parsed from translated label text. */
+	@property({ attribute: false })
+	popoverContent?: TemplateResult;
+
 	@property({ attribute: 'alt-label' })
 	altLabel?: string;
 
@@ -200,7 +205,7 @@ codicon wobbles. Flex gap already spaces this from the preceding label. */
 		if (this.overlay === 'popover') {
 			return html`<gl-popover
 				>${this.renderContent()}
-				<div slot="content">${handleUnsafeOverlayContent(this.label)}</div></gl-popover
+				<div slot="content">${this.popoverContent ?? renderOverlayContent(this.label)}</div></gl-popover
 			>`;
 		}
 

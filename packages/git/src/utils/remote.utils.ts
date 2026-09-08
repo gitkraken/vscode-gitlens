@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { GitRemote } from '../models/remote.js';
 import type { RemoteProvider } from '../models/remoteProvider.js';
 import type { RemoteResource } from '../models/remoteResource.js';
@@ -125,21 +126,21 @@ export function parseGitRemoteUrl(url: string): [scheme: string, domain: string,
 export function getNameFromRemoteResource(resource: RemoteResource): string {
 	switch (resource.type) {
 		case RemoteResourceType.Branch:
-			return 'Branch';
+			return l10n.t('Branch');
 		case RemoteResourceType.Branches:
-			return 'Branches';
+			return l10n.t('Branches');
 		case RemoteResourceType.Commit:
-			return 'Commit';
+			return l10n.t('Commit');
 		case RemoteResourceType.Comparison:
-			return 'Comparison';
+			return l10n.t('Comparison');
 		case RemoteResourceType.CreatePullRequest:
-			return 'Create Pull Request';
+			return l10n.t('Create Pull Request');
 		case RemoteResourceType.File:
-			return 'File';
+			return l10n.t('File');
 		case RemoteResourceType.Repo:
-			return 'Repository';
+			return l10n.t('Repository');
 		case RemoteResourceType.Revision:
-			return 'File';
+			return l10n.t('File');
 		default:
 			return '';
 	}

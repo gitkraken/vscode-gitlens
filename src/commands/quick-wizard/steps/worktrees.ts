@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { QuickInputButton } from 'vscode';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { filterMap } from '@gitlens/utils/array.js';
@@ -96,7 +97,7 @@ export function* pickWorktreeStep<
 
 	const step = createPickStep<WorktreeQuickPickItem>({
 		title: appendReposToTitle(options.title ?? context.title, state, context),
-		placeholder: count => (!count ? `No worktrees found in ${state.repo.name}` : options.placeholder),
+		placeholder: count => (!count ? l10n.t('No worktrees found in {0}', state.repo.name) : options.placeholder),
 		matchOnDetail: true,
 		items: items,
 		canGoBack: context.steps?.canGoBack,
@@ -150,7 +151,7 @@ export function* pickWorktreesStep<
 	const step = createPickStep<WorktreeQuickPickItem>({
 		multiselect: true,
 		title: appendReposToTitle(options.title ?? context.title, state, context),
-		placeholder: count => (!count ? `No worktrees found in ${state.repo.name}` : options.placeholder),
+		placeholder: count => (!count ? l10n.t('No worktrees found in {0}', state.repo.name) : options.placeholder),
 		matchOnDetail: true,
 		items: items,
 		canGoBack: context.steps?.canGoBack,

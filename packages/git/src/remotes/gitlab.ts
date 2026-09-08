@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { Brand, Unbrand } from '@gitlens/utils/brand.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
@@ -41,28 +42,40 @@ export class GitLabRemoteProvider extends RemoteProvider<GitLabRepositoryDescrip
 				url: this.issueLinkPattern,
 				alphanumeric: false,
 				ignoreCase: false,
-				title: `Open Issue #<num> on ${this.name}`,
+				title: l10n.t('Open Issue #{number} on {provider}', { number: '<num>', provider: this.name }),
 
 				type: 'issue',
-				description: `${this.name} Issue #<num>`,
+				description: l10n.t('{provider} Issue #{number}', { provider: this.name, number: '<num>' }),
 			},
 			{
 				prefix: '!',
 				url: `${this.baseUrl}/-/merge_requests/<num>`,
 				alphanumeric: false,
 				ignoreCase: false,
-				title: `Open Merge Request !<num> on ${this.name}`,
+				title: l10n.t('Open Merge Request !{number} on {provider}', {
+					number: '<num>',
+					provider: this.name,
+				}),
 
 				type: 'pullrequest',
-				description: `${this.name} Merge Request !<num>`,
+				description: l10n.t('{provider} Merge Request !{number}', {
+					provider: this.name,
+					number: '<num>',
+				}),
 			},
 			{
 				descriptors: [
 					{
 						regex: autolinkFullIssuesRegex,
 						url: (repo, num) => `${this.protocol}://${this.domain}/${repo}/-/issues/${num}`,
-						title: (repo, num) => `Open Issue #${num} from ${repo} on ${this.name}`,
-						label: (repo, num) => `GitLab Issue ${repo}#${num}`,
+						title: (repo, num) =>
+							l10n.t('Open Issue #{number} from {repository} on {provider}', {
+								number: num,
+								repository: repo,
+								provider: this.name,
+							}),
+						label: (repo, num) =>
+							l10n.t('GitLab Issue {repository}#{number}', { repository: repo, number: num }),
 					},
 				],
 				parse: (text: string, autolinks: Map<string, Autolink>) => {
@@ -84,10 +97,18 @@ export class GitLabRemoteProvider extends RemoteProvider<GitLabRepositoryDescrip
 							url: `${this.protocol}://${this.domain}/${ownerAndRepo}/-/issues/${num}`,
 							alphanumeric: false,
 							ignoreCase: true,
-							title: `Open Issue #<num> from ${ownerAndRepo} on ${this.name}`,
+							title: l10n.t('Open Issue #{number} from {repository} on {provider}', {
+								number: '<num>',
+								repository: ownerAndRepo,
+								provider: this.name,
+							}),
 
 							type: 'issue',
-							description: `${this.name} Issue ${ownerAndRepo}#${num}`,
+							description: l10n.t('{provider} Issue {repository}#{number}', {
+								provider: this.name,
+								repository: ownerAndRepo,
+								number: num,
+							}),
 							descriptor: {
 								key: this.remoteKey,
 								owner: owner,
@@ -102,8 +123,18 @@ export class GitLabRemoteProvider extends RemoteProvider<GitLabRepositoryDescrip
 					{
 						regex: autolinkFullMergeRequestsRegex,
 						url: (repo, num) => `${this.protocol}://${this.domain}/${repo}/-/merge_requests/${num}`,
-						title: (repo, num) => `Open Merge Request !${num} from ${repo} on ${this.name}`,
-						label: (repo, num) => `${this.name} Merge Request ${repo}!${num}`,
+						title: (repo, num) =>
+							l10n.t('Open Merge Request !{number} from {repository} on {provider}', {
+								number: num,
+								repository: repo,
+								provider: this.name,
+							}),
+						label: (repo, num) =>
+							l10n.t('{provider} Merge Request {repository}!{number}', {
+								provider: this.name,
+								repository: repo,
+								number: num,
+							}),
 					},
 				],
 				parse: (text: string, autolinks: Map<string, Autolink>) => {
@@ -125,10 +156,18 @@ export class GitLabRemoteProvider extends RemoteProvider<GitLabRepositoryDescrip
 							url: `${this.protocol}://${this.domain}/${ownerAndRepo}/-/merge_requests/${num}`,
 							alphanumeric: false,
 							ignoreCase: true,
-							title: `Open Merge Request !<num> from ${ownerAndRepo} on ${this.name}`,
+							title: l10n.t('Open Merge Request !{number} from {repository} on {provider}', {
+								number: '<num>',
+								repository: ownerAndRepo,
+								provider: this.name,
+							}),
 
 							type: 'pullrequest',
-							description: `${this.name} Merge Request !${num} from ${ownerAndRepo}`,
+							description: l10n.t('{provider} Merge Request !{number} from {repository}', {
+								provider: this.name,
+								number: num,
+								repository: ownerAndRepo,
+							}),
 
 							descriptor: {
 								key: this.remoteKey,

@@ -1,5 +1,5 @@
 import type { CancellationToken, TreeViewVisibilityChangeEvent } from 'vscode';
-import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Disposable, l10n, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { groupByFilterMap, map } from '@gitlens/utils/iterable.js';
 import type { DraftsViewConfig } from '../config.js';
 import { previewBadge } from '../constants.js';
@@ -42,14 +42,14 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 				if (!isFlat) {
 					if (mine?.length) {
 						children.push(
-							new GroupingNode(this.view, this, 'Created by Me', p =>
+							new GroupingNode(this.view, this, l10n.t('Created by Me'), p =>
 								mine.map(d => new DraftNode(this.uri, this.view, p, d)),
 							),
 						);
 					}
 					if (shared?.length) {
 						children.push(
-							new GroupingNode(this.view, this, 'Shared with Me', p =>
+							new GroupingNode(this.view, this, l10n.t('Shared with Me'), p =>
 								shared.map(d => new DraftNode(this.uri, this.view, p, d)),
 							),
 						);
@@ -68,7 +68,7 @@ export class DraftsViewNode extends CacheableChildrenViewNode<'drafts', DraftsVi
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Drafts', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(l10n.t('Drafts'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -80,7 +80,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 	private _disposable: Disposable | undefined;
 
 	constructor(container: Container) {
-		super(container, 'drafts', 'Cloud Patches', 'draftsView');
+		super(container, 'drafts', l10n.t('Cloud Patches'), 'draftsView');
 
 		this.description = previewBadge;
 	}
@@ -129,10 +129,10 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, DraftsViewCon
 			registerViewCommand(
 				this.getQualifiedCommand('delete'),
 				async (node: DraftNode) => {
-					const confirm = { title: 'Delete' };
-					const cancel = { title: 'Cancel', isCloseAffordance: true };
+					const confirm = { title: l10n.t('Delete') };
+					const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 					const result = await window.showInformationMessage(
-						`Are you sure you want to delete Cloud Patch '${node.draft.title}'?`,
+						l10n.t("Are you sure you want to delete Cloud Patch '{0}'?", node.draft.title),
 						{ modal: true },
 						confirm,
 						cancel,

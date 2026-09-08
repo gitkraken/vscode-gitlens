@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
@@ -56,7 +57,11 @@ export class GlCommitSha extends LitElement {
 
 	private get label() {
 		return shortenRevision(this.sha, {
-			strings: { uncommitted: 'Working', uncommittedStaged: 'Staged', working: 'Working' },
+			strings: {
+				uncommitted: l10n.t('Working'),
+				uncommittedStaged: l10n.t('Staged'),
+				working: l10n.t('Working'),
+			},
 		});
 	}
 
@@ -104,7 +109,7 @@ export class GlCommitShaCopy extends LitElement {
 	appearance?: 'toolbar';
 
 	@property({ type: String, attribute: 'copy-label' })
-	copyLabel: string = 'Copy';
+	copyLabel: string = l10n.t('Copy');
 
 	@property({ type: String, attribute: 'copied-label' })
 	copiedLabel: string = 'Copied!';

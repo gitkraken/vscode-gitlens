@@ -1354,12 +1354,18 @@ export interface GraphSearchResultsError {
 	reason?: 'invalidPattern' | 'invalidRef' | 'aiUnavailable';
 	detail?: string;
 }
-export interface GraphSearchRelaxation {
-	label: string;
+export type GraphSearchRelaxation = {
 	query: string;
 	count: number;
 	capped?: boolean;
-}
+} & (
+	| {
+			kind: 'drop-filter';
+			filter: 'date' | 'author' | 'committer' | 'file' | 'ref' | 'change' | 'message' | 'message-exclusion';
+	  }
+	| { kind: 'author'; name: string }
+	| { kind: 'alternate' }
+);
 export interface DidSearchRepairParams {
 	/** The corrected query, or `undefined` when no suggestion could be produced */
 	query: string | undefined;

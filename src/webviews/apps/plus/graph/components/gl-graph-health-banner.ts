@@ -1,9 +1,10 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import type { GitHealthBannerState } from '@gitlens/git/gitHealth.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { Unsubscribe } from '../../../../rpc/services/types.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
@@ -291,21 +292,23 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 
 	private claim(state: GitHealthBannerState): string {
 		return state.reason === 'slowness'
-			? 'We’ve noticed Git operations have been slow and can be improved'
-			: 'We’ve noticed this repository is very large and Git can be tuned for it';
+			? l10n.t('We’ve noticed Git operations have been slow and can be improved')
+			: l10n.t('We’ve noticed this repository is very large and Git can be tuned for it');
 	}
 
 	private evidence(state: GitHealthBannerState): string | undefined {
 		if (state.reason === 'slowness') {
 			if (state.maxDurationMs == null) return undefined;
 
-			return `up to ${(state.maxDurationMs / 1000).toFixed(1)}s for a single Git operation`;
+			return l10n.t('up to {seconds}s for a single Git operation', {
+				seconds: (state.maxDurationMs / 1000).toFixed(1),
+			});
 		}
 
 		if (state.trackedFiles == null) return undefined;
 
 		const prefix = state.trackedFilesExact === false ? '~' : '';
-		return `${prefix}${state.trackedFiles.toLocaleString()} tracked files`;
+		return l10n.t('{count} tracked files', { count: `${prefix}${state.trackedFiles.toLocaleString()}` });
 	}
 
 	override render(): unknown {
@@ -324,25 +327,31 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 		return html`<div class="strip" role="status">
 			<code-icon class="strip__heart" icon="heart"></code-icon>
 			<span class="strip__msg">
-				<strong>${this.claim(state)}</strong>
-				${evidence != null ? html`<span class="strip__evidence">— ${evidence}</span>` : nothing}
+				${
+					evidence != null
+						? html`<strong>${this.claim(state)}</strong>
+								<span class="strip__evidence">${l10n.t('— {evidence}', { evidence: evidence })}</span>`
+						: html`<strong>${this.claim(state)}</strong>`
+				}
 			</span>
 			<span class="strip__actions">
 				<span class="strip__chip">
 					<code-icon icon="dashboard"></code-icon>
-					${pluralize('optimization', state.suggestedCount)} suggested
+					${state.suggestedCount === 1 ? l10n.t('{count} optimization suggested', { count: getNumericFormat()(state.suggestedCount) }) : l10n.t('{count} optimizations suggested', { count: getNumericFormat()(state.suggestedCount) })}
 				</span>
 				<gl-tooltip
 					placement="bottom"
-					content="Review and apply them in Repository Health — nothing is changed without you"
+					content=${l10n.t('Review and apply them in Repository Health — nothing is changed without you')}
 				>
-					<button type="button" class="strip__cta" @click=${this.onOpen}>Show Repository Health</button>
+					<button type="button" class="strip__cta" @click=${this.onOpen}>
+						${l10n.t('Show Repository Health')}
+					</button>
 				</gl-tooltip>
 				<gl-button
 					appearance="toolbar"
 					class="strip__dismiss"
-					tooltip="Dismiss — won’t show again for this repository"
-					aria-label="Dismiss"
+					tooltip=${l10n.t('Dismiss — won’t show again for this repository')}
+					aria-label=${l10n.t('Dismiss')}
 					@click=${this.onDismiss}
 					><code-icon icon="close"></code-icon
 				></gl-button>

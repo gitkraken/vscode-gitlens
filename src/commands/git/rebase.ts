@@ -1,16 +1,17 @@
-import { ThemeIcon, window } from 'vscode';
+import { l10n, ThemeIcon, window } from 'vscode';
 import { RebaseError, SigningError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import { parseGitBoolean } from '@gitlens/git/utils/config.utils.js';
+import { getConflictDetectionErrorDisplayMessage } from '@gitlens/git/utils/mergeConflicts.utils.js';
 import { getReferenceLabel, isRevisionReference } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { Container } from '../../container.js';
 import { showPausedOperationStatus } from '../../git/actions/pausedOperation.js';
 import type { GlRepository } from '../../git/models/repository.js';
@@ -88,9 +89,10 @@ export interface RebaseGitCommandArgs {
 
 export class RebaseGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: RebaseGitCommandArgs) {
-		super(container, 'rebase', 'rebase', 'Rebase', {
-			description:
+		super(container, 'rebase', 'rebase', l10n.t('Rebase'), {
+			description: l10n.t(
 				'integrates changes from a specified branch into the current branch, by changing the base of the branch and reapplying the commits on top',
+			),
 		});
 
 		this.initialState = { confirm: true, ...args?.state };
@@ -152,35 +154,44 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			});
 			if (result?.conflicted) {
 				void window.showWarningMessage(
-					'Unable to rebase due to conflicts. Resolve the conflicts before continuing, or abort the rebase.',
+					l10n.t(
+						'Unable to rebase due to conflicts. Resolve the conflicts before continuing, or abort the rebase.',
+					),
 				);
 				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the rebase
 			if (RebaseError.is(ex, 'aborted')) {
-				Logger.debug(ex.message, this.title);
+				Logger.debug(ex.message, 'Rebase');
 				return;
 			}
 
-			Logger.error(ex, this.title);
+			Logger.error(ex, 'Rebase');
 
 			if (RebaseError.is(ex, 'uncommittedChanges') || RebaseError.is(ex, 'wouldOverwriteChanges')) {
 				void window.showWarningMessage(
-					'Unable to rebase. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+					l10n.t(
+						'Unable to rebase. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+					),
 				);
 				return;
 			}
 
 			if (RebaseError.is(ex, 'alreadyInProgress')) {
 				void window.showWarningMessage(
-					'Unable to rebase. A rebase is already in progress. Continue or abort the current rebase first.',
+					l10n.t(
+						'Unable to rebase. A rebase is already in progress. Continue or abort the current rebase first.',
+					),
 				);
 				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 				return;
 			}
 
-			void showGitErrorMessage(ex, RebaseError.is(ex) || SigningError.is(ex) ? undefined : 'Unable to rebase');
+			void showGitErrorMessage(
+				ex,
+				RebaseError.is(ex) || SigningError.is(ex) ? undefined : l10n.t('Unable to rebase'),
+			);
 		}
 	}
 
@@ -236,10 +247,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				context.branch = branch;
 			}
 
-			context.title = `${this.title} ${getReferenceLabel(context.branch, {
-				icon: false,
-				label: false,
-			})} onto`;
+			context.title = l10n.t('Rebase {0} onto', getReferenceLabel(context.branch, { icon: false, label: false }));
 			context.pickCommitForItem = false;
 
 			if (steps.isAtStep(Steps.PickBranchOrTag) || state.destination == null) {
@@ -248,8 +256,8 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				// A worded row at the top of the ref list rather than the old icon-only title-bar toggle —
 				// a modifier that changes what the next step does should say so where it can be read
 				const pickCommitRow = createConfirmToggleQuickPickItem({
-					label: 'Choose a Specific Commit',
-					detail: 'After choosing the branch, pick the exact commit to rebase onto',
+					label: l10n.t('Choose a Specific Commit'),
+					detail: l10n.t('After choosing the branch, pick the exact commit to rebase onto'),
 					checked: context.pickCommit,
 					onDidChange: (item, quickpick) => {
 						context.pickCommit = item.checked;
@@ -258,7 +266,10 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				});
 
 				const result = yield* pickBranchOrTagStep(state, context, {
-					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to rebase onto`,
+					placeholder: context =>
+						context.showTags
+							? l10n.t('Choose a branch or tag to rebase onto')
+							: l10n.t('Choose a branch to rebase onto'),
 					picked: context.selectedBranchOrTag?.ref,
 					value: context.selectedBranchOrTag == null ? state.destination?.ref : undefined,
 					prependItems: [pickCommitRow, createQuickPickSeparator()],
@@ -297,8 +308,11 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				const result = yield* pickCommitStep(state, context, {
 					emptyItems: [
 						createDirectiveQuickPickItem(Directive.Cancel, true, {
-							label: 'OK',
-							detail: `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, { icon: false })}`,
+							label: l10n.t('OK'),
+							detail: l10n.t(
+								'No commits found on {0}',
+								getReferenceLabel(context.selectedBranchOrTag, { icon: false }),
+							),
 						}),
 					],
 					ignoreFocusOut: true,
@@ -306,8 +320,14 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						!log?.commits.size
-							? `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, { icon: false })}`
-							: `Choose a commit to rebase ${getReferenceLabel(context.branch, { icon: false })} onto`,
+							? l10n.t(
+									'No commits found on {0}',
+									getReferenceLabel(context.selectedBranchOrTag, { icon: false }),
+								)
+							: l10n.t(
+									'Choose a commit to rebase {0} onto',
+									getReferenceLabel(context.branch, { icon: false }),
+								),
 					picked: state.destination?.ref,
 				});
 				if (result === StepResultBreak) {
@@ -347,25 +367,30 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			{ excludeMerges: true },
 		);
 
-		const title = `${context.title} ${getReferenceLabel(state.destination, { icon: false, label: false })}`;
+		const branchTitleLabel = getReferenceLabel(context.branch, { icon: false, label: false });
+		const destinationTitleLabel = getReferenceLabel(state.destination, { icon: false, label: false });
 		const ahead = counts?.right ?? 0;
 		const behind = counts?.left ?? 0;
 		if (behind === 0 && ahead === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
-				appendReposToTitle(`Confirm ${title}`, state, context),
+				appendReposToTitle(
+					l10n.t('Confirm Rebase {0} onto {1}', branchTitleLabel, destinationTitleLabel),
+					state,
+					context,
+				),
 				[],
+				l10n.t(
+					'Nothing to rebase; {0} is already up to date',
+					getReferenceLabel(context.branch, { label: false, icon: false }),
+				),
 				createDirectiveQuickPickItem(Directive.Cancel, true, {
-					label: 'OK',
-					detail: `${getReferenceLabel(context.branch, {
-						capitalize: true,
-					})} is already up to date with ${getReferenceLabel(state.destination, { label: false })}`,
+					label: l10n.t('OK'),
+					detail: l10n.t(
+						'{0} is already up to date with {1}',
+						getReferenceLabel(context.branch, { capitalize: true }),
+						getReferenceLabel(state.destination, { label: false }),
+					),
 				}),
-				{
-					placeholder: `Nothing to rebase; ${getReferenceLabel(context.branch, {
-						label: false,
-						icon: false,
-					})} is already up to date`,
-				},
 			);
 			const selection: StepSelection<typeof step> = yield step;
 			canPickStepContinue(step, state, selection);
@@ -394,23 +419,75 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 		const branchLabel = getReferenceLabel(context.branch, { label: false });
 		const destinationLabel = getReferenceLabel(state.destination, { label: false });
-		const applying = `by applying ${pluralize('commit', ahead)} on top of ${destinationLabel}`;
-		// Appended to whichever mode is chosen while the Update Branches toggle is on — `--update-refs`
-		// modifies every mode identically, so it's a toggle rather than a duplicate of each item.
-		const updateRefsClause = ', and update any branches pointing to the rebased commits';
-		// Appended to whichever mode is chosen while the Autosquash toggle is on — `--autosquash` modifies
-		// every mode identically, so it's a toggle rather than a duplicate of each item.
-		const autosquashClause = ', folding fixup commits into their targets';
-		const autosquashDetail = 'Also fold fixup! and squash! commits into the commits they target';
+		const formattedAhead = getNumericFormat()(ahead);
 
-		type Mode = { flags: Flags[]; label: string; description?: string; detail: string; picked: boolean };
+		type Mode = {
+			flags: Flags[];
+			label: string;
+			description?: string;
+			details: readonly [string, string, string, string];
+			picked: boolean;
+		};
 		const modes: Mode[] = [];
 
 		if (behind > 0) {
 			modes.push({
 				flags: [],
 				label: this.title,
-				detail: `Will update ${branchLabel} ${applying}`,
+				details: [
+					ahead === 1
+						? l10n.t(
+								'Will update {0} by applying {1} commit on top of {2}',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							)
+						: l10n.t(
+								'Will update {0} by applying {1} commits on top of {2}',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							),
+					ahead === 1
+						? l10n.t(
+								'Will update {0} by applying {1} commit on top of {2}, and update any branches pointing to the rebased commits',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							)
+						: l10n.t(
+								'Will update {0} by applying {1} commits on top of {2}, and update any branches pointing to the rebased commits',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							),
+					ahead === 1
+						? l10n.t(
+								'Will update {0} by applying {1} commit on top of {2}, folding fixup commits into their targets',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							)
+						: l10n.t(
+								'Will update {0} by applying {1} commits on top of {2}, folding fixup commits into their targets',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							),
+					ahead === 1
+						? l10n.t(
+								'Will update {0} by applying {1} commit on top of {2}, and update any branches pointing to the rebased commits, folding fixup commits into their targets',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							)
+						: l10n.t(
+								'Will update {0} by applying {1} commits on top of {2}, and update any branches pointing to the rebased commits, folding fixup commits into their targets',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							),
+				],
 				picked: !aiSeeded,
 			});
 		}
@@ -421,18 +498,124 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		if (aiOffered) {
 			modes.push({
 				flags: ['ai-resolve'],
-				label: `Auto-${this.title}`,
-				description: 'AI resolves conflicts · Preview',
-				detail: `Will update ${branchLabel} ${applying}, resolving any conflicts with AI and pausing for review only when confidence is low`,
+				label: l10n.t('Auto-Rebase'),
+				description: l10n.t('AI resolves conflicts · Preview'),
+				details: [
+					ahead === 1
+						? l10n.t(
+								'Will update {0} by applying {1} commit on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							)
+						: l10n.t(
+								'Will update {0} by applying {1} commits on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							),
+					ahead === 1
+						? l10n.t(
+								'Will update {0} by applying {1} commit on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low, and update any branches pointing to the rebased commits',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							)
+						: l10n.t(
+								'Will update {0} by applying {1} commits on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low, and update any branches pointing to the rebased commits',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							),
+					ahead === 1
+						? l10n.t(
+								'Will update {0} by applying {1} commit on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low, folding fixup commits into their targets',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							)
+						: l10n.t(
+								'Will update {0} by applying {1} commits on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low, folding fixup commits into their targets',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							),
+					ahead === 1
+						? l10n.t(
+								'Will update {0} by applying {1} commit on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low, and update any branches pointing to the rebased commits, folding fixup commits into their targets',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							)
+						: l10n.t(
+								'Will update {0} by applying {1} commits on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low, and update any branches pointing to the rebased commits, folding fixup commits into their targets',
+								branchLabel,
+								formattedAhead,
+								destinationLabel,
+							),
+				],
 				picked: aiSeeded,
 			});
 		}
 
 		modes.push({
 			flags: ['--interactive'],
-			label: `Interactive ${this.title}`,
+			label: l10n.t('Interactive Rebase'),
 			description: '--interactive',
-			detail: `Will interactively update ${branchLabel} ${applying}`,
+			details: [
+				ahead === 1
+					? l10n.t(
+							'Will interactively update {0} by applying {1} commit on top of {2}',
+							branchLabel,
+							formattedAhead,
+							destinationLabel,
+						)
+					: l10n.t(
+							'Will interactively update {0} by applying {1} commits on top of {2}',
+							branchLabel,
+							formattedAhead,
+							destinationLabel,
+						),
+				ahead === 1
+					? l10n.t(
+							'Will interactively update {0} by applying {1} commit on top of {2}, and update any branches pointing to the rebased commits',
+							branchLabel,
+							formattedAhead,
+							destinationLabel,
+						)
+					: l10n.t(
+							'Will interactively update {0} by applying {1} commits on top of {2}, and update any branches pointing to the rebased commits',
+							branchLabel,
+							formattedAhead,
+							destinationLabel,
+						),
+				ahead === 1
+					? l10n.t(
+							'Will interactively update {0} by applying {1} commit on top of {2}, folding fixup commits into their targets',
+							branchLabel,
+							formattedAhead,
+							destinationLabel,
+						)
+					: l10n.t(
+							'Will interactively update {0} by applying {1} commits on top of {2}, folding fixup commits into their targets',
+							branchLabel,
+							formattedAhead,
+							destinationLabel,
+						),
+				ahead === 1
+					? l10n.t(
+							'Will interactively update {0} by applying {1} commit on top of {2}, and update any branches pointing to the rebased commits, folding fixup commits into their targets',
+							branchLabel,
+							formattedAhead,
+							destinationLabel,
+						)
+					: l10n.t(
+							'Will interactively update {0} by applying {1} commits on top of {2}, and update any branches pointing to the rebased commits, folding fixup commits into their targets',
+							branchLabel,
+							formattedAhead,
+							destinationLabel,
+						),
+			],
 			picked: behind === 0 && !aiSeeded,
 		});
 
@@ -459,15 +642,13 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		const buildItems = (): FlagsQuickPickItem<Flags>[] =>
 			modes.map(m => {
 				const flags: Flags[] = [...m.flags];
-				let detail = m.detail;
 				if (updateRefs) {
 					flags.push('--update-refs');
-					detail += updateRefsClause;
 				}
 				if (autosquash) {
 					flags.push('--autosquash');
-					detail += autosquashClause;
 				}
+				const detail = m.details[updateRefs ? (autosquash ? 3 : 1) : autosquash ? 2 : 0];
 
 				return createFlagsQuickPickItem<Flags>(state.flags, flags, {
 					label: m.label,
@@ -504,8 +685,8 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		];
 
 		toggles.updateRefs = createConfirmToggleQuickPickItem({
-			label: 'Update Branches',
-			detail: 'Also move any branches pointing to the rebased commits',
+			label: l10n.t('Update Branches'),
+			detail: l10n.t('Also move any branches pointing to the rebased commits'),
 			checked: updateRefs,
 			onDidChange: item => {
 				updateRefs = item.checked;
@@ -515,10 +696,15 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		});
 
 		toggles.autosquash = createConfirmToggleQuickPickItem({
-			label: 'Autosquash',
+			label: l10n.t('Autosquash'),
 			detail: autosquashNonInteractiveSupported
-				? autosquashDetail
-				: `${autosquashDetail} · non-interactive rebases require Git 2.44`,
+				? l10n.t('Also fold {0} and {1} commits into the commits they target', 'fixup!', 'squash!')
+				: l10n.t(
+						'Also fold {0} and {1} commits into the commits they target · non-interactive rebases require {2}',
+						'fixup!',
+						'squash!',
+						'Git 2.44',
+					),
 			checked: autosquash,
 			onDidChange: item => {
 				autosquash = item.checked;
@@ -545,7 +731,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 						0,
 						1,
 						createDirectiveQuickPickItem(Directive.Noop, false, {
-							label: 'No Conflicts Detected',
+							label: l10n.t('No Conflicts Detected'),
 							iconPath: new ThemeIcon('check'),
 						}),
 					);
@@ -554,8 +740,8 @@ export class RebaseGitCommand extends QuickCommand<State> {
 						0,
 						1,
 						createDirectiveQuickPickItem(Directive.Noop, false, {
-							label: 'Unable to Detect Conflicts',
-							detail: result.message,
+							label: l10n.t('Unable to Detect Conflicts'),
+							detail: getConflictDetectionErrorDisplayMessage(result.reason, result.message),
 							iconPath: new ThemeIcon('error'),
 						}),
 					);
@@ -564,11 +750,26 @@ export class RebaseGitCommand extends QuickCommand<State> {
 						0,
 						1,
 						createDirectiveQuickPickItem(Directive.Noop, false, {
-							label: 'Conflicts Detected',
-							detail: `Will result in ${result.stoppedOnFirstConflict ? 'at least ' : ''}${pluralize(
-								'conflicting file',
-								result.conflict.files.length,
-							)} that will need to be resolved`,
+							label: l10n.t('Conflicts Detected'),
+							detail: result.stoppedOnFirstConflict
+								? result.conflict.files.length === 1
+									? l10n.t(
+											'Will result in at least {0} conflicting file that will need to be resolved',
+											getNumericFormat()(result.conflict.files.length),
+										)
+									: l10n.t(
+											'Will result in at least {0} conflicting files that will need to be resolved',
+											getNumericFormat()(result.conflict.files.length),
+										)
+								: result.conflict.files.length === 1
+									? l10n.t(
+											'Will result in {0} conflicting file that will need to be resolved',
+											getNumericFormat()(result.conflict.files.length),
+										)
+									: l10n.t(
+											'Will result in {0} conflicting files that will need to be resolved',
+											getNumericFormat()(result.conflict.files.length),
+										),
 							iconPath: new ThemeIcon('warning'),
 						}),
 					);
@@ -579,7 +780,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 			notices.push(
 				createDirectiveQuickPickItem(Directive.Noop, false, {
-					label: `$(loading~spin) \u00a0Detecting Conflicts...`,
+					label: `$(loading~spin) \u00a0${l10n.t('Detecting Conflicts...')}`,
 					// Don't use this, because the spin here causes the icon to spin incorrectly
 					//iconPath: new ThemeIcon('loading~spin'),
 				}),
@@ -587,7 +788,15 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			);
 		}
 
-		step = this.createConfirmStep(appendReposToTitle(`Confirm ${title}`, state, context), buildRows());
+		step = this.createConfirmStep(
+			appendReposToTitle(
+				l10n.t('Confirm Rebase {0} onto {1}', branchTitleLabel, destinationTitleLabel),
+				state,
+				context,
+			),
+			buildRows(),
+			l10n.t('Confirm Rebase {0} onto', branchTitleLabel),
+		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}

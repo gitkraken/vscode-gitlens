@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { exhaustiveArray } from '@gitlens/utils/array.js';
 
 export const launchpadActionCategories = [
@@ -50,16 +51,16 @@ export const launchpadGroupIconMap = new Map<LaunchpadGroup, `$(${string})`>([
 ]);
 
 export const launchpadGroupLabelMap = new Map<LaunchpadGroup, string>([
-	['current-branch', 'Current Branch'],
-	['pinned', 'Pinned'],
-	['mergeable', 'Ready to Merge'],
-	['blocked', 'Blocked'],
-	['follow-up', 'Requires Follow-up'],
-	['needs-review', 'Needs Your Review'],
-	['waiting-for-review', 'Waiting for Review'],
-	['draft', 'Draft'],
-	['other', 'Other'],
-	['snoozed', 'Snoozed'],
+	['current-branch', l10n.t('Current Branch')],
+	['pinned', l10n.t('Pinned')],
+	['mergeable', l10n.t('Ready to Merge')],
+	['blocked', l10n.t('Blocked')],
+	['follow-up', l10n.t('Requires Follow-up')],
+	['needs-review', l10n.t('Needs Your Review')],
+	['waiting-for-review', l10n.t('Waiting for Review')],
+	['draft', l10n.t('Draft')],
+	['other', l10n.t('Other')],
+	['snoozed', l10n.t('Snoozed')],
 ]);
 
 export const launchpadCategoryToGroupMap = new Map<LaunchpadActionCategory, LaunchpadGroup>([
@@ -112,15 +113,55 @@ export const prActionsMap = new Map<LaunchpadActionCategory, LaunchpadAction[]>(
 	['other', []],
 ]);
 
-export const actionGroupMap = new Map<LaunchpadActionCategory, string[]>([
-	['mergeable', ['Ready to Merge', 'Ready to merge']],
-	['unassigned-reviewers', ['Unassigned Reviewers', 'You need to assign reviewers']],
-	['failed-checks', ['Failed Checks', 'You need to resolve the failing checks']],
-	['conflicts', ['Resolve Conflicts', 'You need to resolve merge conflicts']],
-	['needs-my-review', ['Needs Your Review', `\${author} requested your review`]],
-	['changes-requested', ['Changes Requested', 'Reviewers requested changes before this can be merged']],
-	['reviewer-commented', ['Reviewers Commented', 'Reviewers have commented on this pull request']],
-	['waiting-for-review', ['Waiting for Review', 'Waiting for reviewers to approve this pull request']],
-	['draft', ['Draft', 'Continue working on your draft']],
-	['other', ['Other', `Opened by \${author} \${createdDateRelative}`]],
+export const actionGroupMap = new Map<
+	LaunchpadActionCategory,
+	readonly [label: string, detail: (author: string | null, createdDateRelative: string | null) => string]
+>([
+	['mergeable', [l10n.t('Ready to Merge'), () => l10n.t('Ready to merge')]],
+	['unassigned-reviewers', [l10n.t('Unassigned Reviewers'), () => l10n.t('You need to assign reviewers')]],
+	['failed-checks', [l10n.t('Failed Checks'), () => l10n.t('You need to resolve the failing checks')]],
+	['conflicts', [l10n.t('Resolve Conflicts'), () => l10n.t('You need to resolve merge conflicts')]],
+	[
+		'needs-my-review',
+		[
+			l10n.t('Needs Your Review'),
+			author =>
+				author == null
+					? l10n.t('An unknown author requested your review')
+					: l10n.t('{author} requested your review', { author: author }),
+		],
+	],
+	[
+		'changes-requested',
+		[l10n.t('Changes Requested'), () => l10n.t('Reviewers requested changes before this can be merged')],
+	],
+	[
+		'reviewer-commented',
+		[l10n.t('Reviewers Commented'), () => l10n.t('Reviewers have commented on this pull request')],
+	],
+	[
+		'waiting-for-review',
+		[l10n.t('Waiting for Review'), () => l10n.t('Waiting for reviewers to approve this pull request')],
+	],
+	['draft', [l10n.t('Draft'), () => l10n.t('Continue working on your draft')]],
+	[
+		'other',
+		[
+			l10n.t('Other'),
+			(author, createdDateRelative) => {
+				if (author == null) {
+					return createdDateRelative == null
+						? l10n.t('Opened')
+						: l10n.t('Opened {createdDateRelative}', { createdDateRelative: createdDateRelative });
+				}
+
+				return createdDateRelative == null
+					? l10n.t('Opened by {author}', { author: author })
+					: l10n.t('Opened by {author} {createdDateRelative}', {
+							author: author,
+							createdDateRelative: createdDateRelative,
+						});
+			},
+		],
+	],
 ]);

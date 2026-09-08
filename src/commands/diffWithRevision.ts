@@ -1,4 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -52,12 +53,14 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 							: undefined),
 				);
 
-			const title = `Open Changes with Revision${pad(GlyphChars.Dot, 2, 2)}`;
-			const titleWithContext = `${title}${gitUri.getFormattedFileName({
+			const title = l10n.t('Open Changes with Revision');
+			const titleSeparator = pad(GlyphChars.Dot, 2, 2);
+			const titleFileName = gitUri.getFormattedFileName({
 				suffix: gitUri.sha ? `:${shortenRevision(gitUri.sha)}` : undefined,
-				truncateTo: quickPickTitleMaxChars - title.length,
-			})}`;
-			const pick = await showCommitPicker(log, titleWithContext, 'Choose a commit to compare with', {
+				truncateTo: quickPickTitleMaxChars - title.length - titleSeparator.length,
+			});
+			const titleWithContext = l10n.t('Open Changes with Revision{0}{1}', titleSeparator, titleFileName);
+			const pick = await showCommitPicker(log, titleWithContext, l10n.t('Choose a commit to compare with'), {
 				empty: !gitUri.sha
 					? {
 							getState: async () => {
@@ -90,15 +93,22 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 								let newTitle;
 
 								if (items.length) {
-									newPlaceholder = `${gitUri.getFormattedFileName()} is likely untracked, choose a different file?`;
-									newTitle = `${titleWithContext} (Untracked?)`;
+									newPlaceholder = l10n.t(
+										'{0} is likely untracked, choose a different file?',
+										gitUri.getFormattedFileName(),
+									);
+									newTitle = l10n.t(
+										'Open Changes with Revision{0}{1} (Untracked?)',
+										titleSeparator,
+										titleFileName,
+									);
 								} else {
-									newPlaceholder = 'No commits found';
+									newPlaceholder = l10n.t('No commits found');
 								}
 
 								items.push(
 									createDirectiveQuickPickItem(Directive.Cancel, undefined, {
-										label: items.length ? 'Cancel' : 'OK',
+										label: items.length ? l10n.t('Cancel') : l10n.t('OK'),
 									}),
 								);
 
@@ -125,12 +135,12 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 				},
 				showOtherReferences: [
 					CommandQuickPickItem.fromCommand<[Uri]>(
-						'Choose a Branch or Tag...',
+						l10n.t('Choose a Branch or Tag...'),
 						'gitlens.diffWithRevisionFrom',
 						[uri],
 					),
 					CommandQuickPickItem.fromCommand<[Uri, DiffWithRevisionFromCommandArgs]>(
-						'Choose a Stash...',
+						l10n.t('Choose a Stash...'),
 						'gitlens.diffWithRevisionFrom',
 						[uri, { stash: true }],
 					),
@@ -147,7 +157,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'DiffWithRevisionCommand');
-			void showGenericErrorMessage('Unable to open compare');
+			void showGenericErrorMessage(l10n.t('Unable to open compare'));
 		}
 	}
 }

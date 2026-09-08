@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import type { GitCommit, GitStashCommit } from '@gitlens/git/models/commit.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -96,14 +97,14 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			try {
 				const blame = await this.container.git.getBlameForLine(gitUri, blameline);
 				if (blame == null) {
-					void showFileNotUnderSourceControlWarningMessage('Unable to show commit');
+					void showFileNotUnderSourceControlWarningMessage(l10n.t('Unable to show commit'));
 
 					return;
 				}
 
 				// Because the previous sha of an uncommitted file isn't trust worthy we just have to kick out
 				if (blame.commit.isUncommitted) {
-					void showLineUncommittedWarningMessage('Unable to show commit');
+					void showLineUncommittedWarningMessage(l10n.t('Unable to show commit'));
 
 					return;
 				}
@@ -114,7 +115,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				args.commit = blame.commit;
 			} catch (ex) {
 				Logger.error(ex, 'ShowQuickCommitCommand', `getBlameForLine(${blameline})`);
-				void showGenericErrorMessage('Unable to show commit');
+				void showGenericErrorMessage(l10n.t('Unable to show commit'));
 
 				return;
 			}
@@ -136,7 +137,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			}
 
 			if (args.commit == null) {
-				void showCommitNotFoundWarningMessage('Unable to show commit');
+				void showCommitNotFoundWarningMessage(l10n.t('Unable to show commit'));
 
 				return;
 			}
@@ -156,7 +157,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			});
 		} catch (ex) {
 			Logger.error(ex, 'ShowQuickCommitCommand');
-			void showGenericErrorMessage('Unable to show commit');
+			void showGenericErrorMessage(l10n.t('Unable to show commit'));
 		}
 	}
 }

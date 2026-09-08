@@ -1,5 +1,5 @@
 import type { MessageItem } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { resetApprovedAvatarTemplates, resetAvatarCache } from '../avatars.js';
 import type { Container } from '../container.js';
 import { clearTrialResetSessionAttempts } from '../plus/gk/trialAutoReset.js';
@@ -37,80 +37,86 @@ export class ResetCommand extends GlCommandBase {
 
 		const items: ResetQuickPickItem[] = [
 			{
-				label: 'AI Keys...',
-				detail: 'Clears any locally stored AI keys',
+				label: l10n.t('AI Keys...'),
+				detail: l10n.t('Clears any locally stored AI keys'),
 				item: 'ai',
 			},
 			{
-				label: 'AI Models...',
-				detail: 'Resets the AI provider/model to defaults for all AI features',
+				label: l10n.t('AI Models...'),
+				detail: l10n.t('Resets the AI provider/model to defaults for all AI features'),
 				item: 'ai:models',
 			},
 			{
-				label: 'Avatars...',
-				detail: 'Clears the stored avatar cache and any approvals granted to custom remote avatar URL templates',
+				label: l10n.t('Avatars...'),
+				detail: l10n.t(
+					'Clears the stored avatar cache and any approvals granted to custom remote avatar URL templates',
+				),
 				item: 'avatars',
 			},
 			{
-				label: 'GitKraken CLI (Installation)...',
-				detail: "Removes the downloaded CLI and clears its install state, so it's reinstalled when next needed",
+				label: l10n.t('GitKraken CLI (Installation)...'),
+				detail: l10n.t(
+					"Removes the downloaded CLI and clears its install state, so it's reinstalled when next needed",
+				),
 				item: 'cli',
 			},
 			{
-				label: 'Integrations (Authentication)...',
-				detail: 'Clears any locally stored authentication for integrations',
+				label: l10n.t('Integrations (Authentication)...'),
+				detail: l10n.t('Clears any locally stored authentication for integrations'),
 				item: 'integrations',
 			},
 			{
-				label: 'Onboarding...',
-				detail: 'Resets dismissed banners/notices and tracked usage — restores the first-time experience',
+				label: l10n.t('Onboarding...'),
+				detail: l10n.t(
+					'Resets dismissed banners/notices and tracked usage — restores the first-time experience',
+				),
 				item: 'onboarding',
 			},
 			{
-				label: 'Repository Access...',
-				detail: 'Clears the stored repository access cache',
+				label: l10n.t('Repository Access...'),
+				detail: l10n.t('Clears the stored repository access cache'),
 				item: 'repositoryAccess',
 			},
 			{
-				label: 'Suppressed Warnings...',
-				detail: 'Clears any suppressed warnings, e.g. messages with "Don\'t Show Again" options',
+				label: l10n.t('Suppressed Warnings...'),
+				detail: l10n.t('Clears any suppressed warnings, e.g. messages with "Don\'t Show Again" options'),
 				item: 'suppressedWarnings',
 			},
 			{
-				label: 'Workspace Storage...',
-				detail: 'Clears stored data associated with the current workspace',
+				label: l10n.t('Workspace Storage...'),
+				detail: l10n.t('Clears stored data associated with the current workspace'),
 				item: 'workspace',
 			},
 			createQuickPickSeparator(),
 			{
-				label: 'Everything...',
-				description: ' — \u00a0be very careful with this!',
-				detail: 'Clears ALL locally stored data; ALL GitLens state will be LOST',
+				label: l10n.t('Everything...'),
+				description: l10n.t(' — \u00a0be very careful with this!'),
+				detail: l10n.t('Clears ALL locally stored data; ALL GitLens state will be LOST'),
 				item: 'all',
 			},
 		];
 
 		if (DEBUG) {
 			items.push(
-				createQuickPickSeparator('DEBUG'),
+				createQuickPickSeparator(l10n.t('DEBUG')),
 				{
-					label: 'Reset Migrations...',
-					detail: 'Re-arms selected one-time migrations, so they run again on the next reload',
+					label: l10n.t('Reset Migrations...'),
+					detail: l10n.t('Re-arms selected one-time migrations, so they run again on the next reload'),
 					item: 'migrations',
 				},
 				{
-					label: 'Reset Subscription...',
-					detail: 'Resets the stored subscription',
+					label: l10n.t('Reset Subscription...'),
+					detail: l10n.t('Resets the stored subscription'),
 					item: 'subscription',
 				},
 				{
-					label: 'Reset Feature Previews...',
-					detail: 'Resets the stored state for feature previews',
+					label: l10n.t('Reset Feature Previews...'),
+					detail: l10n.t('Resets the stored state for feature previews'),
 					item: 'previews',
 				},
 				{
-					label: 'Promo Opt-Ins...',
-					detail: 'Clears any locally stored promo opt-ins',
+					label: l10n.t('Promo Opt-Ins...'),
+					detail: l10n.t('Clears any locally stored promo opt-ins'),
 					item: 'promoOptIns',
 				},
 			);
@@ -118,75 +124,96 @@ export class ResetCommand extends GlCommandBase {
 
 		// create a quick pick with options to clear all the different resets that GitLens supports
 		const pick = await window.showQuickPick<ResetQuickPickItem>(items, {
-			title: 'Reset Stored Data',
-			placeHolder: 'Choose which data to reset, will be prompted to confirm',
+			title: l10n.t('Reset Stored Data'),
+			placeHolder: l10n.t('Choose which data to reset, will be prompted to confirm'),
 		});
 
 		if (pick?.item == null) return;
 
-		const confirm: MessageItem = { title: 'Reset' };
-		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+		const confirm: MessageItem = { title: l10n.t('Reset') };
+		const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 
 		let confirmationMessage: string | undefined;
 		switch (pick?.item) {
 			case 'all':
-				confirmationMessage = 'Are you sure you want to reset EVERYTHING?';
-				confirm.title = 'Reset Everything';
+				confirmationMessage = l10n.t('This is IRREVERSIBLE!\nAre you sure you want to reset EVERYTHING?');
+				confirm.title = l10n.t('Reset Everything');
 				break;
 			case 'ai':
-				confirmationMessage = 'Are you sure you want to reset all of the stored AI keys?';
-				confirm.title = 'Reset AI Keys';
+				confirmationMessage = l10n.t(
+					'This is IRREVERSIBLE!\nAre you sure you want to reset all of the stored AI keys?',
+				);
+				confirm.title = l10n.t('Reset AI Keys');
 				break;
 			case 'ai:models':
-				confirmationMessage =
-					'Are you sure you want to reset the AI provider/model to defaults for all AI features? This also clears the related settings.';
-				confirm.title = 'Reset AI Models';
+				confirmationMessage = l10n.t(
+					'This is IRREVERSIBLE!\nAre you sure you want to reset the AI provider/model to defaults for all AI features? This also clears the related settings.',
+				);
+				confirm.title = l10n.t('Reset AI Models');
 				break;
 			case 'avatars':
-				confirmationMessage =
-					'Are you sure you want to reset the avatar cache and all approvals for custom remote avatar URL templates? Approvals are synced, so this will affect your other devices.';
-				confirm.title = 'Reset Avatars';
+				confirmationMessage = l10n.t(
+					'This is IRREVERSIBLE!\nAre you sure you want to reset the avatar cache and all approvals for custom remote avatar URL templates? Approvals are synced, so this will affect your other devices.',
+				);
+				confirm.title = l10n.t('Reset Avatars');
 				break;
 			case 'cli':
-				confirmationMessage = 'Are you sure you want to reset the GitKraken CLI installation?';
-				confirm.title = 'Reset GitKraken CLI';
+				confirmationMessage = l10n.t(
+					'This is IRREVERSIBLE!\nAre you sure you want to reset the GitKraken CLI installation?',
+				);
+				confirm.title = l10n.t('Reset GitKraken CLI');
 				break;
 			case 'integrations':
-				confirmationMessage = 'Are you sure you want to reset all of the stored integrations?';
-				confirm.title = 'Reset Integrations';
+				confirmationMessage = l10n.t(
+					'This is IRREVERSIBLE!\nAre you sure you want to reset all of the stored integrations?',
+				);
+				confirm.title = l10n.t('Reset Integrations');
 				break;
 			case 'migrations':
 				// No modal — the multi-select in `reset` is the deliberate step, and re-running
 				// idempotent migrations is recoverable, unlike the data wipes above
 				break;
 			case 'onboarding':
-				confirmationMessage =
-					'Are you sure you want to reset the onboarding/first-time experience? This clears all dismissed banners/notices and tracked usage.';
-				confirm.title = 'Reset Onboarding';
+				confirmationMessage = l10n.t(
+					'This is IRREVERSIBLE!\nAre you sure you want to reset the onboarding/first-time experience? This clears all dismissed banners/notices and tracked usage.',
+				);
+				confirm.title = l10n.t('Reset Onboarding');
 				break;
 			case 'previews':
-				confirmationMessage = 'Are you sure you want to reset the stored state for feature previews?';
-				confirm.title = 'Reset Feature Previews';
+				confirmationMessage = l10n.t(
+					'This is IRREVERSIBLE!\nAre you sure you want to reset the stored state for feature previews?',
+				);
+				confirm.title = l10n.t('Reset Feature Previews');
 				break;
 			case 'promoOptIns':
-				confirmationMessage = 'Are you sure you want to reset all of the locally stored promo opt-ins?';
-				confirm.title = 'Reset Promo Opt-Ins';
+				confirmationMessage = l10n.t(
+					'This is IRREVERSIBLE!\nAre you sure you want to reset all of the locally stored promo opt-ins?',
+				);
+				confirm.title = l10n.t('Reset Promo Opt-Ins');
 				break;
 			case 'repositoryAccess':
-				confirmationMessage = 'Are you sure you want to reset the repository access cache?';
-				confirm.title = 'Reset Repository Access';
+				confirmationMessage = l10n.t(
+					'This is IRREVERSIBLE!\nAre you sure you want to reset the repository access cache?',
+				);
+				confirm.title = l10n.t('Reset Repository Access');
 				break;
 			case 'subscription':
-				confirmationMessage = 'Are you sure you want to reset the stored subscription?';
-				confirm.title = 'Reset Subscription';
+				confirmationMessage = l10n.t(
+					'This is IRREVERSIBLE!\nAre you sure you want to reset the stored subscription?',
+				);
+				confirm.title = l10n.t('Reset Subscription');
 				break;
 			case 'suppressedWarnings':
-				confirmationMessage = 'Are you sure you want to reset all of the suppressed warnings?';
-				confirm.title = 'Reset Suppressed Warnings';
+				confirmationMessage = l10n.t(
+					'This is IRREVERSIBLE!\nAre you sure you want to reset all of the suppressed warnings?',
+				);
+				confirm.title = l10n.t('Reset Suppressed Warnings');
 				break;
 			case 'workspace':
-				confirmationMessage = 'Are you sure you want to reset the stored data for the current workspace?';
-				confirm.title = 'Reset Workspace Storage';
+				confirmationMessage = l10n.t(
+					'This is IRREVERSIBLE!\nAre you sure you want to reset the stored data for the current workspace?',
+				);
+				confirm.title = l10n.t('Reset Workspace Storage');
 				break;
 			default: {
 				const _exhaustiveCheck: never = pick.item;
@@ -195,12 +222,7 @@ export class ResetCommand extends GlCommandBase {
 		}
 
 		if (confirmationMessage != null) {
-			const result = await window.showWarningMessage(
-				`This is IRREVERSIBLE!\n${confirmationMessage}`,
-				{ modal: true },
-				confirm,
-				cancel,
-			);
+			const result = await window.showWarningMessage(confirmationMessage, { modal: true }, confirm, cancel);
 			if (result !== confirm) return;
 		}
 
@@ -225,7 +247,9 @@ export class ResetCommand extends GlCommandBase {
 				// Services cache their state in memory and write it back (feature flags, graph columns, ...),
 				// so without a reload the wipe partially undoes itself
 				void this.promptToReload(
-					'All GitLens data has been reset. Reload the window to finish clearing any state still held in memory.',
+					l10n.t(
+						'All GitLens data has been reset. Reload the window to finish clearing any state still held in memory.',
+					),
 				);
 				break;
 
@@ -255,7 +279,7 @@ export class ResetCommand extends GlCommandBase {
 			case 'migrations': {
 				const applied = this.container.storage.get('settings:migrated');
 				if (!applied?.length) {
-					void window.showInformationMessage('There are no completed migrations to reset.');
+					void window.showInformationMessage(l10n.t('There are no completed migrations to reset.'));
 					break;
 				}
 
@@ -265,12 +289,14 @@ export class ResetCommand extends GlCommandBase {
 						return {
 							label: id,
 							description: migration?.status?.(this.container.storage),
-							detail: migration?.description ?? 'Unknown migration — no longer exists in this version',
+							detail:
+								migration?.description ??
+								l10n.t('Unknown migration — no longer exists in this version'),
 						};
 					}),
 					{
-						title: 'Reset Migrations',
-						placeHolder: 'Choose migrations to re-run on the next reload',
+						title: l10n.t('Reset Migrations'),
+						placeHolder: l10n.t('Choose migrations to re-run on the next reload'),
 						canPickMany: true,
 					},
 				);
@@ -281,7 +307,7 @@ export class ResetCommand extends GlCommandBase {
 					applied.filter(id => !picks.some(p => p.label === id)),
 				);
 
-				void this.promptToReload('The selected migrations will run again once the window is reloaded.');
+				void this.promptToReload(l10n.t('The selected migrations will run again once the window is reloaded.'));
 				break;
 			}
 
@@ -337,9 +363,9 @@ export class ResetCommand extends GlCommandBase {
 	}
 
 	private async promptToReload(message: string): Promise<void> {
-		const reload: MessageItem = { title: 'Reload' };
+		const reload: MessageItem = { title: l10n.t('Reload') };
 		const result = await window.showInformationMessage(message, reload, {
-			title: 'Later',
+			title: l10n.t('Later'),
 			isCloseAffordance: true,
 		});
 		if (result !== reload) return;

@@ -1,5 +1,5 @@
 import type { CancellationToken, Event, MessageItem, ProgressOptions } from 'vscode';
-import { CancellationTokenSource, Disposable, env, EventEmitter, window } from 'vscode';
+import { CancellationTokenSource, Disposable, env, EventEmitter, l10n, window } from 'vscode';
 import { fetch } from '@env/fetch.js';
 import { getIsOffline } from '@env/platform.js';
 import type { AIPrimaryProviders, AIProviderAndModel, AIProviders, SupportedAIModels } from '@gitlens/ai/constants.js';
@@ -67,6 +67,7 @@ import {
 	AINoRequestDataError,
 	AuthenticationRequiredError,
 	classifyNetworkError,
+	getPresentableErrorMessage,
 } from '../../errors.js';
 import type { AIFeatures } from '../../features.js';
 import { isAdvancedFeature } from '../../features.js';
@@ -650,6 +651,7 @@ export class AIProviderService implements AIService, Disposable {
 					currentUrl: string | undefined;
 					title: string;
 					placeholder: string;
+					prompt?: string;
 					validator?: (url: string) => string | undefined | Promise<string | undefined>;
 				},
 				silent: boolean,
@@ -676,7 +678,7 @@ export class AIProviderService implements AIService, Disposable {
 									try {
 										new URL(value);
 									} catch {
-										input.validationMessage = 'Please enter a valid URL';
+										input.validationMessage = l10n.t('Please enter a valid URL');
 										return;
 									}
 								}
@@ -685,14 +687,14 @@ export class AIProviderService implements AIService, Disposable {
 							input.onDidAccept(async () => {
 								const value = input.value.trim();
 								if (!value) {
-									input.validationMessage = 'Please enter a valid URL';
+									input.validationMessage = l10n.t('Please enter a valid URL');
 									return;
 								}
 
 								try {
 									new URL(value);
 								} catch {
-									input.validationMessage = 'Please enter a valid URL';
+									input.validationMessage = l10n.t('Please enter a valid URL');
 									return;
 								}
 								const error = await options.validator?.(value);
@@ -707,7 +709,12 @@ export class AIProviderService implements AIService, Disposable {
 
 						input.title = options.title;
 						input.placeholder = options.placeholder;
-						input.prompt = `Enter your ${options.title} URL`;
+						input.prompt =
+							options.prompt ??
+							l10n.t(
+								'Enter your {0} URL',
+								supportedAIProviders.get(providerId as AIProviders)?.name ?? providerId,
+							);
 						input.show();
 					});
 				} finally {
@@ -1389,17 +1396,18 @@ export class AIProviderService implements AIService, Disposable {
 	private async ensureFeatureAccess(feature: AIFeatures, source: Source): Promise<boolean> {
 		if (!(await ensureAccess(this.container, undefined, source))) return false;
 
-		const suffix = isAdvancedFeature(feature)
-			? 'requires GitLens Advanced or a trial'
-			: 'requires GitLens Pro or a trial';
 		let label;
 		switch (feature) {
 			case 'generate-searchQuery':
-				label = `AI-powered search ${suffix}`;
+				label = isAdvancedFeature(feature)
+					? l10n.t('AI-powered search requires GitLens Advanced or a trial')
+					: l10n.t('AI-powered search requires GitLens Pro or a trial');
 				break;
 
 			default:
-				label = isAdvancedFeature(feature) ? `This AI preview feature ${suffix}` : `This AI feature ${suffix}`;
+				label = isAdvancedFeature(feature)
+					? l10n.t('This AI preview feature requires GitLens Advanced or a trial')
+					: l10n.t('This AI feature requires GitLens Pro or a trial');
 		}
 
 		if (!(await ensureFeatureAccess(this.container, label, feature, source))) {
@@ -1662,7 +1670,7 @@ export class AIProviderService implements AIService, Disposable {
 
 						if (error instanceof AIError) {
 							scope?.setFailed(
-								`failed: ${String(error)}${error.original ? ` (${String(error.original)})` : ''}`,
+								`failed: ${error.diagnosticString}${error.original ? ` (${String(error.original)})` : ''}`,
 							);
 
 							this.container.telemetry.sendEvent(
@@ -1671,7 +1679,7 @@ export class AIProviderService implements AIService, Disposable {
 									...telementry.data,
 									duration: performance.now() - start,
 									failed: true,
-									'failed.error': String(error),
+									'failed.error': error.diagnosticString,
 									'failed.error.detail': error.original ? String(error.original) : undefined,
 								},
 								source,
@@ -1696,11 +1704,13 @@ export class AIProviderService implements AIService, Disposable {
 							switch (error.reason) {
 								case AIErrorReason.NoNetwork:
 								case AIErrorReason.Unreachable: {
-									const retry: MessageItem = { title: 'Retry' };
+									const retry: MessageItem = { title: l10n.t('Retry') };
 									const result = await window.showErrorMessage(
 										error.reason === AIErrorReason.NoNetwork
-											? 'Unable to reach the AI service. Please check your internet connection and try again.'
-											: 'The AI service is temporarily unreachable. Please try again.',
+											? l10n.t(
+													'Unable to reach the AI service. Please check your internet connection and try again.',
+												)
+											: l10n.t('The AI service is temporarily unreachable. Please try again.'),
 										retry,
 									);
 									if (cancellation.isCancellationRequested) {
@@ -1719,7 +1729,7 @@ export class AIProviderService implements AIService, Disposable {
 									return undefined;
 								}
 								case AIErrorReason.NoRequestData:
-									void window.showInformationMessage(error.message);
+									void window.showInformationMessage(getPresentableErrorMessage(error));
 									if (options?.throwAIErrors) throw error;
 
 									return undefined;
@@ -1733,9 +1743,13 @@ export class AIProviderService implements AIService, Disposable {
 												? 'teams'
 												: 'advanced';
 
-										const upgrade = { title: `Upgrade to ${getSubscriptionPlanName(plan)}` };
+										const upgrade = {
+											title: l10n.t('Upgrade to {0}', getSubscriptionPlanName(plan)),
+										};
 										const result = await window.showErrorMessage(
-											"This AI feature isn't included in your current plan. Please upgrade and try again.",
+											l10n.t(
+												"This AI feature isn't included in your current plan. Please upgrade and try again.",
+											),
 											upgrade,
 										);
 
@@ -1744,9 +1758,11 @@ export class AIProviderService implements AIService, Disposable {
 										}
 									} else {
 										// Users without accounts would never get here since they would have been blocked by `ensureFeatureAccess`
-										const upgrade = { title: 'Upgrade to Pro' };
+										const upgrade = { title: l10n.t('Upgrade to Pro') };
 										const result = await window.showErrorMessage(
-											'Please upgrade to GitLens Pro to access this AI feature and try again.',
+											l10n.t(
+												'Please upgrade to GitLens Pro to access this AI feature and try again.',
+											),
 											upgrade,
 										);
 
@@ -1760,9 +1776,11 @@ export class AIProviderService implements AIService, Disposable {
 									return undefined;
 								}
 								case AIErrorReason.RequestTooLarge: {
-									const switchModel: MessageItem = { title: 'Switch Model' };
+									const switchModel: MessageItem = { title: l10n.t('Switch Model') };
 									const result = await window.showErrorMessage(
-										'Your request is too large. Please reduce the size of your request or switch to a different model, and then try again.',
+										l10n.t(
+											'Your request is too large. Please reduce the size of your request or switch to a different model, and then try again.',
+										),
 										switchModel,
 									);
 									if (result === switchModel) {
@@ -1780,14 +1798,16 @@ export class AIProviderService implements AIService, Disposable {
 
 									if (canPurchaseAiCredits(sub)) {
 										const getMoreCredits: MessageItem = {
-											title: 'Get More Credits',
+											title: l10n.t('Get More Credits'),
 										};
 										const dismiss: MessageItem = {
-											title: 'Dismiss',
+											title: l10n.t('Dismiss'),
 											isCloseAffordance: true,
 										};
 										const result = await window.showErrorMessage(
-											"Your request could not be completed because you've reached the weekly usage included in your plan. Purchase additional AI credits to keep using GitKraken AI.",
+											l10n.t(
+												"Your request could not be completed because you've reached the weekly usage included in your plan. Purchase additional AI credits to keep using GitKraken AI.",
+											),
 											getMoreCredits,
 											dismiss,
 										);
@@ -1803,11 +1823,13 @@ export class AIProviderService implements AIService, Disposable {
 										}
 									} else {
 										const ok: MessageItem = {
-											title: 'OK',
+											title: l10n.t('OK'),
 											isCloseAffordance: true,
 										};
 										await window.showErrorMessage(
-											"Your request could not be completed because you've reached the weekly usage included in your plan. Contact your organization admin or owner to request more AI credits.",
+											l10n.t(
+												"Your request could not be completed because you've reached the weekly usage included in your plan. Contact your organization admin or owner to request more AI credits.",
+											),
 											ok,
 										);
 
@@ -1823,9 +1845,11 @@ export class AIProviderService implements AIService, Disposable {
 									return undefined;
 								}
 								case AIErrorReason.RateLimitExceeded: {
-									const switchModel: MessageItem = { title: 'Switch Model' };
+									const switchModel: MessageItem = { title: l10n.t('Switch Model') };
 									const result = await window.showErrorMessage(
-										'Rate limit exceeded. Please wait a few moments or switch to a different model, and then try again.',
+										l10n.t(
+											'Rate limit exceeded. Please wait a few moments or switch to a different model, and then try again.',
+										),
 										switchModel,
 									);
 									if (result === switchModel) {
@@ -1837,9 +1861,11 @@ export class AIProviderService implements AIService, Disposable {
 									return undefined;
 								}
 								case AIErrorReason.RateLimitOrFundsExceeded: {
-									const switchModel: MessageItem = { title: 'Switch Model' };
+									const switchModel: MessageItem = { title: l10n.t('Switch Model') };
 									const result = await window.showErrorMessage(
-										'Rate limit exceeded, or your account is out of funds. Please wait a few moments, check your account balance, or switch to a different model, and then try again.',
+										l10n.t(
+											'Rate limit exceeded, or your account is out of funds. Please wait a few moments, check your account balance, or switch to a different model, and then try again.',
+										),
 										switchModel,
 									);
 									if (result === switchModel) {
@@ -1851,17 +1877,21 @@ export class AIProviderService implements AIService, Disposable {
 								}
 								case AIErrorReason.ServiceCapacityExceeded: {
 									void window.showErrorMessage(
-										'GitKraken AI is temporarily unable to process your request due to high volume. Please wait a few moments and try again. If this issue persists, please contact support.',
-										'OK',
+										l10n.t(
+											'GitKraken AI is temporarily unable to process your request due to high volume. Please wait a few moments and try again. If this issue persists, please contact support.',
+										),
+										l10n.t('OK'),
 									);
 									if (options?.throwAIErrors) throw error;
 
 									return undefined;
 								}
 								case AIErrorReason.ModelNotSupported: {
-									const switchModel: MessageItem = { title: 'Switch Model' };
+									const switchModel: MessageItem = { title: l10n.t('Switch Model') };
 									const result = await window.showErrorMessage(
-										'The selected model is not supported for this request. Please select a different model and try again.',
+										l10n.t(
+											'The selected model is not supported for this request. Please select a different model and try again.',
+										),
 										switchModel,
 									);
 									if (result === switchModel) {
@@ -1872,9 +1902,11 @@ export class AIProviderService implements AIService, Disposable {
 									return undefined;
 								}
 								case AIErrorReason.Unauthorized: {
-									const switchModel: MessageItem = { title: 'Switch Model' };
+									const switchModel: MessageItem = { title: l10n.t('Switch Model') };
 									const result = await window.showErrorMessage(
-										'You do not have access to the selected model. Please select a different model and try again.',
+										l10n.t(
+											'You do not have access to the selected model. Please select a different model and try again.',
+										),
 										switchModel,
 									);
 									if (result === switchModel) {
@@ -1885,9 +1917,11 @@ export class AIProviderService implements AIService, Disposable {
 									return undefined;
 								}
 								case AIErrorReason.DeniedByUser: {
-									const switchModel: MessageItem = { title: 'Switch Model' };
+									const switchModel: MessageItem = { title: l10n.t('Switch Model') };
 									const result = await window.showErrorMessage(
-										'You have denied access to the selected model. Please provide access or select a different model, and then try again.',
+										l10n.t(
+											'You have denied access to the selected model. Please provide access or select a different model, and then try again.',
+										),
 										switchModel,
 									);
 									if (result === switchModel) {
@@ -2135,7 +2169,9 @@ export class AIProviderService implements AIService, Disposable {
 			let diff = await changesOrRepo.git.diff.getDiff?.(uncommittedStaged);
 			if (!diff?.contents) {
 				diff = await changesOrRepo.git.diff.getDiff?.(uncommitted);
-				if (!diff?.contents) throw new AINoRequestDataError('No changes to generate a commit message from.');
+				if (!diff?.contents) {
+					throw new AINoRequestDataError(l10n.t('No changes to generate a commit message from.'));
+				}
 			}
 			if (options?.cancellation?.isCancellationRequested) return undefined;
 
@@ -2289,23 +2325,26 @@ export class AIProviderService implements AIService, Disposable {
 			provider = this._provider;
 		}
 
-		const resetCurrent: MessageItem = { title: `Reset Current` };
-		const resetAll: MessageItem = { title: 'Reset All' };
-		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+		const resetCurrent: MessageItem = { title: l10n.t('Reset Current') };
+		const resetAll: MessageItem = { title: l10n.t('Reset All') };
+		const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 
 		let result;
 		if (options?.all) {
 			result = resetAll;
 		} else if (provider == null) {
 			result = await window.showInformationMessage(
-				`Do you want to reset all of the stored AI keys?`,
+				l10n.t('Do you want to reset all of the stored AI keys?'),
 				{ modal: true },
 				resetAll,
 				cancel,
 			);
 		} else {
 			result = await window.showInformationMessage(
-				`Do you want to reset the stored key for the current provider (${provider.name}) or reset all of the stored AI keys?`,
+				l10n.t(
+					'Do you want to reset the stored key for the current provider ({0}) or reset all of the stored AI keys?',
+					provider.name,
+				),
 				{ modal: true },
 				resetCurrent,
 				resetAll,
@@ -2331,7 +2370,7 @@ export class AIProviderService implements AIService, Disposable {
 			if (!options?.silent && keys.length) {
 				void env.clipboard.writeText(keys.join('\n'));
 				void window.showInformationMessage(
-					`All stored AI keys have been reset. The configured keys were copied to your clipboard.`,
+					l10n.t('All stored AI keys have been reset. The configured keys were copied to your clipboard.'),
 				);
 			}
 		} else {
@@ -2375,7 +2414,7 @@ export class AIProviderService implements AIService, Disposable {
 			if (key) {
 				void env.clipboard.writeText(key);
 				void window.showInformationMessage(
-					`The stored AI key has been reset. The configured key was copied to your clipboard.`,
+					l10n.t('The stored AI key has been reset. The configured key was copied to your clipboard.'),
 				);
 			}
 		}
@@ -2408,19 +2447,25 @@ export class AIProviderService implements AIService, Disposable {
 			(compareSubscriptionPlans(subscription.plan.actual.id, 'advanced') >= 0 ||
 				compareSubscriptionPlans(subscription.plan.effective.id, 'advanced') >= 0);
 
-		let body = 'All Access Week - now until July 11th!';
+		const body = usingGkProvider
+			? l10n.t('All Access Week - now until July 11th!')
+			: hasAdvancedOrHigher
+				? l10n.t(
+						'All Access Week - now until July 11th! Opt in now to get unlimited GitKraken AI until July 11th!',
+					)
+				: l10n.t(
+						'All Access Week - now until July 11th! Opt in now to try all Advanced GitLens features with unlimited GitKraken AI for FREE until July 11th!',
+					);
 		const detail = hasAdvancedOrHigher
-			? 'Opt in now to get unlimited GitKraken AI until July 11th!'
-			: 'Opt in now to try all Advanced GitLens features with unlimited GitKraken AI for FREE until July 11th!';
-
-		if (!usingGkProvider) {
-			body += ` ${detail}`;
-		}
+			? l10n.t('Opt in now to get unlimited GitKraken AI until July 11th!')
+			: l10n.t(
+					'Opt in now to try all Advanced GitLens features with unlimited GitKraken AI for FREE until July 11th!',
+				);
 
 		const optInButton: MessageItem = usingGkProvider
-			? { title: 'Opt in for Unlimited AI' }
-			: { title: 'Opt in and Switch to GitKraken AI' };
-		const dismissButton: MessageItem = { title: 'No, Thanks', isCloseAffordance: true };
+			? { title: l10n.t('Opt in for Unlimited AI') }
+			: { title: l10n.t('Opt in and Switch to GitKraken AI') };
+		const dismissButton: MessageItem = { title: l10n.t('No, Thanks'), isCloseAffordance: true };
 
 		// Show the notification
 		const result = await window.showInformationMessage(
@@ -2480,13 +2525,13 @@ function getPickerTitlesForScope(scope: AIModelScope | undefined): {
 	if (scope === 'compose') {
 		return {
 			provider: {
-				title: 'Select AI Provider for Composing',
-				placeholder: 'Choose an AI provider for composing',
+				title: l10n.t('Select AI Provider for Composing'),
+				placeholder: l10n.t('Choose an AI provider for composing'),
 				scope: scope,
 			},
 			model: {
-				title: 'Select AI Model for Composing',
-				placeholder: 'Choose an AI model for composing',
+				title: l10n.t('Select AI Model for Composing'),
+				placeholder: l10n.t('Choose an AI model for composing'),
 				scope: scope,
 			},
 		};
@@ -2494,13 +2539,13 @@ function getPickerTitlesForScope(scope: AIModelScope | undefined): {
 	if (scope === 'review') {
 		return {
 			provider: {
-				title: 'Select AI Provider for Reviewing',
-				placeholder: 'Choose an AI provider for reviewing',
+				title: l10n.t('Select AI Provider for Reviewing'),
+				placeholder: l10n.t('Choose an AI provider for reviewing'),
 				scope: scope,
 			},
 			model: {
-				title: 'Select AI Model for Reviewing',
-				placeholder: 'Choose an AI model for reviewing',
+				title: l10n.t('Select AI Model for Reviewing'),
+				placeholder: l10n.t('Choose an AI model for reviewing'),
 				scope: scope,
 			},
 		};
@@ -2508,13 +2553,13 @@ function getPickerTitlesForScope(scope: AIModelScope | undefined): {
 	if (scope === 'resolve') {
 		return {
 			provider: {
-				title: 'Select AI Provider for Resolving Conflicts',
-				placeholder: 'Choose an AI provider for resolving conflicts',
+				title: l10n.t('Select AI Provider for Resolving Conflicts'),
+				placeholder: l10n.t('Choose an AI provider for resolving conflicts'),
 				scope: scope,
 			},
 			model: {
-				title: 'Select AI Model for Resolving Conflicts',
-				placeholder: 'Choose an AI model for resolving conflicts',
+				title: l10n.t('Select AI Model for Resolving Conflicts'),
+				placeholder: l10n.t('Choose an AI model for resolving conflicts'),
 				scope: scope,
 			},
 		};

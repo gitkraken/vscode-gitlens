@@ -1,4 +1,4 @@
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import { GitUri } from '../../git/gitUri.js';
 import type { ViewsWithCommits } from '../viewBase.js';
@@ -35,7 +35,7 @@ export class CodeSuggestionsNode extends CacheableChildrenViewNode<'drafts-code-
 			}
 
 			if (!children?.length) {
-				children = [new MessageNode(this.view, this, 'No code suggestions')];
+				children = [new MessageNode(this.view, this, l10n.t('No code suggestions'))];
 			}
 
 			this.children = children;
@@ -45,7 +45,7 @@ export class CodeSuggestionsNode extends CacheableChildrenViewNode<'drafts-code-
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Code Suggestions', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(l10n.t('Code Suggestions'), TreeItemCollapsibleState.Collapsed);
 		item.contextValue = ContextValues.CodeSuggestions;
 		return item;
 	}

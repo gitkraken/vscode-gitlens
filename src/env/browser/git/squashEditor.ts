@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { Container } from '../../../container.js';
 
 /**
@@ -6,9 +7,9 @@ import type { Container } from '../../../container.js';
  * workspaces, so this is never reached — it throws defensively if it ever is.
  */
 export function getSquashSequenceEditor(_container: Container): { editor: string; env: Record<string, string> } {
-	throw new Error('Squashing commits is not supported in this environment');
+	throw new Error(l10n.t('Squashing commits is not supported in this environment'));
 }
 
 export function getAcceptSequenceEditor(_container: Container): { editor: string; env: Record<string, string> } {
-	throw new Error('Squashing commits is not supported in this environment');
+	throw new Error(l10n.t('Squashing commits is not supported in this environment'));
 }

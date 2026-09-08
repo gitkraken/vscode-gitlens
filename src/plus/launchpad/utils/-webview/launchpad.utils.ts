@@ -1,4 +1,5 @@
 import type { Container } from '../../../../container.js';
+import { getPresentableErrorMessage } from '../../../../errors.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import type { LaunchpadSummaryError, LaunchpadSummaryResult } from '../../launchpadIndicator.js';
 import { generateLaunchpadSummary } from '../../launchpadIndicator.js';
@@ -6,7 +7,7 @@ import type { LaunchpadGroup } from '../../models/launchpad.js';
 
 /** `Error` has non-enumerable `message`/`stack`, so it serializes to `{}` over the webview RPC. */
 function toSummaryError(ex: Error): LaunchpadSummaryError {
-	return { name: ex.name, message: ex.message };
+	return { name: ex.name, message: getPresentableErrorMessage(ex) };
 }
 
 export async function getLaunchpadSummary(

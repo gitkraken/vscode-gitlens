@@ -269,7 +269,7 @@ export class GlTreeItem extends GlElement {
 		></span>`;
 		const tooltipContent = this.getEffectiveCheckboxTooltip();
 		// `content` attribute (rather than the `content` slot) so multi-line tooltips with `\n`
-		// get converted to `<br>` by gl-tooltip's `handleUnsafeOverlayContent` — slot content
+		// get converted to `<br>` by gl-tooltip's `renderOverlayContent` — slot content
 		// flows through CSS `white-space: normal` and collapses newlines to spaces.
 		return tooltipContent
 			? html`<gl-tooltip placement="right" content=${tooltipContent}>${checkbox}</gl-tooltip>`

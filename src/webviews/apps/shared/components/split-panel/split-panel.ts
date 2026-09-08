@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { splitPanelStyles } from './split-panel.css.js';
@@ -390,7 +391,7 @@ export class GlSplitPanel extends LitElement {
 				aria-valuenow=${Math.max(0, Math.min(100, Math.round(this._position)))}
 				aria-valuemin="0"
 				aria-valuemax="100"
-				aria-label="Resize"
+				aria-label=${l10n.t('Resize')}
 				@keydown=${this.handleKeyDown}
 				@pointerdown=${this.handlePointerDown}
 			>

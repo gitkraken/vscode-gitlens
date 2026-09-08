@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { env } from 'vscode';
+import { env, l10n } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import { first } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -99,7 +99,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 							return;
 						} catch (ex) {
 							Logger.error(ex, 'CopyMessageToClipboardCommand', `getBlameForLine(${blameline})`);
-							void showGenericErrorMessage('Unable to copy message');
+							void showGenericErrorMessage(l10n.t('Unable to copy message'));
 
 							return;
 						}
@@ -113,7 +113,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 			await env.clipboard.writeText(args.message);
 		} catch (ex) {
 			Logger.error(ex, 'CopyMessageToClipboardCommand');
-			void showGenericErrorMessage('Unable to copy message');
+			void showGenericErrorMessage(l10n.t('Unable to copy message'));
 		}
 	}
 }

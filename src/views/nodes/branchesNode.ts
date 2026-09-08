@@ -1,4 +1,4 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { getLocalBranchUpstreamNames } from '@gitlens/git/utils/branch.utils.js';
 import { getDefaultRemoteOrOrigin } from '@gitlens/git/utils/remote.utils.js';
@@ -96,7 +96,9 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 				);
 			}
 
-			if (branchNodes.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
+			if (branchNodes.length === 0) {
+				return [new MessageNode(this.view, this, l10n.t('No branches could be found.'))];
+			}
 			if (this.view.config.branches.layout === 'list') {
 				this.children = branchNodes;
 				return branchNodes;
@@ -121,7 +123,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const item = new TreeItem('Branches', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(l10n.t('Branches'), TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Branches;
 		if ((await this.repo.git.remotes.getRemotes()).length) {

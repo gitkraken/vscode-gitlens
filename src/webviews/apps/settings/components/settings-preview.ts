@@ -1,9 +1,12 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing, svg } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
+import { formatDate } from '@gitlens/utils/date.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import type { GraphMinimapDefaultVisibility } from '../../../../config.js';
 import type { SettingsActions } from '../actions.js';
@@ -21,11 +24,23 @@ const sampleCode: { n: number; text: string; fn?: boolean; current?: boolean; co
 ];
 
 const sampleBlameRows = [
-	{ who: 'Eric Amodio', ago: '9 years ago', heat: 0.95 },
-	{ who: 'Eric Amodio', ago: '9 years ago', heat: 0.95, same: true },
-	{ who: 'You', ago: '3 weeks ago', heat: 0.05, current: true },
-	{ who: 'Keith Daulton', ago: '2 years ago', heat: 0.55 },
-	{ who: 'You', ago: '3 weeks ago', heat: 0.05, same: true },
+	{ who: 'Eric Amodio', ago: l10n.t('{count} years ago', { count: 9 }), heat: 0.95 },
+	{ who: 'Eric Amodio', ago: l10n.t('{count} years ago', { count: 9 }), heat: 0.95, same: true },
+	{
+		who: l10n.t('You'),
+		ago: l10n.t('{count} weeks ago', { count: 3 }),
+		heat: 0.05,
+		current: true,
+		currentUser: true,
+	},
+	{ who: 'Keith Daulton', ago: l10n.t('{count} years ago', { count: 2 }), heat: 0.55 },
+	{
+		who: l10n.t('You'),
+		ago: l10n.t('{count} weeks ago', { count: 3 }),
+		heat: 0.05,
+		same: true,
+		currentUser: true,
+	},
 ];
 
 const laneColors = [
@@ -590,8 +605,8 @@ transparent background, so the pill's padding box is its visual box. */
 	private readonly fetchBlameAnnotation = debounce((format: string) => {
 		void this.actions
 			?.generateFormatPreview('currentLine.format', 'commit', format)
-			.then(preview => {
-				this._blameAnnotation = preview;
+			.then(result => {
+				this._blameAnnotation = result.preview;
 			})
 			.catch(() => {});
 	}, 200);
@@ -599,8 +614,8 @@ transparent background, so the pill's padding box is its visual box. */
 	private readonly fetchStatusBarText = debounce((format: string) => {
 		void this.actions
 			?.generateFormatPreview('statusBar.format', 'commit', format)
-			.then(preview => {
-				this._statusBarText = preview;
+			.then(result => {
+				this._statusBarText = result.preview;
 			})
 			.catch(() => {});
 	}, 200);
@@ -704,7 +719,7 @@ transparent background, so the pill's padding box is its visual box. */
 					this.renderCodeLine(line, line.current && on ? (this._blameAnnotation ?? '…') : undefined),
 				)}
 			</div>`,
-			on ? undefined : 'Inline Blame is off',
+			on ? undefined : l10n.t('Inline Blame is off'),
 		);
 	}
 
@@ -714,8 +729,16 @@ transparent background, so the pill's padding box is its visual box. */
 		const authors = this.get<boolean>('codeLens.authors.enabled') ?? false;
 		const scopes = this.get<string[]>('codeLens.scopes') ?? [];
 
-		const lens = html`${recent ? html`<span>Eric Amodio, 3 minutes ago</span>` : nothing}
-		${authors ? html`<span>1 author (Eric Amodio)</span>` : nothing}`;
+		const lens = html`${
+			recent
+				? html`<span>${l10n.t('{author}, {count} minutes ago', { author: 'Eric Amodio', count: 3 })}</span>`
+				: nothing
+		}
+		${
+			authors
+				? html`<span>${l10n.t('{count} author ({author})', { count: 1, author: 'Eric Amodio' })}</span>`
+				: nothing
+		}`;
 
 		const fileLens = on && scopes.includes('document');
 
@@ -734,7 +757,7 @@ transparent background, so the pill's padding box is its visual box. */
 					}${this.renderCodeLine(line)}`;
 				})}
 			</div>`,
-			on ? undefined : 'Git CodeLens is off',
+			on ? undefined : l10n.t('Git CodeLens is off'),
 		);
 	}
 
@@ -749,13 +772,13 @@ transparent background, so the pill's padding box is its visual box. */
 			: nothing;
 
 		return html`<div class="frame">
-			<div class="editor-placeholder">editor</div>
+			<div class="editor-placeholder">${l10n.t('editor')}</div>
 			<div class="statusbar">
 				<span class="statusbar__item"><code-icon icon="git-branch" aria-hidden="true"></code-icon> main</span>
 				${right ? nothing : blame}
 				<span class="statusbar__spacer"></span>
 				${right ? blame : nothing}
-				<span class="statusbar__item">Ln 3, Col 12</span>
+				<span class="statusbar__item">${l10n.t('Ln {line}, Col {column}', { line: 3, column: 12 })}</span>
 				<span class="statusbar__item">UTF-8</span>
 			</div>
 		</div>`;
@@ -784,12 +807,17 @@ transparent background, so the pill's padding box is its visual box. */
 							}
 							${
 								avatars && showBlame
-									? html`<span class="avatar ${row.who === 'You' ? '' : 'avatar--other'}"></span>`
+									? html`<span class="avatar ${row.currentUser ? '' : 'avatar--other'}"></span>`
 									: nothing
 							}
 							${
 								showBlame
-									? html`<span class="blame-gutter__text">${row.who}, ${row.ago}</span>`
+									? html`<span class="blame-gutter__text"
+											>${l10n.t('{author}, {relativeDate}', {
+												author: row.who,
+												relativeDate: row.ago,
+											})}</span
+										>`
 									: nothing
 							}
 						</span>
@@ -1057,7 +1085,7 @@ transparent background, so the pill's padding box is its visual box. */
 		if (!on) {
 			return html`<div class="frame frame--placeholder">
 				<div class="off-overlay">
-					<span><code-icon icon="eye-closed" aria-hidden="true"></code-icon>Hovers are off</span>
+					<span><code-icon icon="eye-closed" aria-hidden="true"></code-icon>${l10n.t('Hovers are off')}</span>
 				</div>
 			</div>`;
 		}
@@ -1073,8 +1101,12 @@ transparent background, so the pill's padding box is its visual box. */
 						: nothing
 				}
 				<span>
-					<strong>Eric Amodio</strong>, 9 years ago via <span class="preview-link">PR #1</span>
-					<span class="muted">(May 6, 2016)</span><br />
+					${localizedContent(l10n.t('{author}, {relativeDate} via {pullRequest} {date}'), {
+						author: html`<strong>Eric Amodio</strong>`,
+						relativeDate: l10n.t('{count} years ago', { count: 9 }),
+						pullRequest: html`<span class="preview-link">PR #1</span>`,
+						date: html`<span class="muted">(${formatDate(new Date(2016, 4, 6), 'MMMM D, YYYY')})</span>`,
+					})}<br />
 					<strong>Supercharged ${autolinks ? html`<span class="preview-link">#1138</span>` : nothing}</strong>
 				</span>
 			</div>

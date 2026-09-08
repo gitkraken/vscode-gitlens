@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent, MessageItem } from 'vscode';
-import { Disposable, env, ExtensionMode, window } from 'vscode';
+import { Disposable, env, ExtensionMode, l10n, window } from 'vscode';
 import type { GitContributor } from '@gitlens/git/models/contributor.js';
 import type {
 	GitBranchReference,
@@ -540,13 +540,15 @@ export class Views implements Disposable {
 
 		const newInstall = !configuration.get('advanced.skipOnboarding') && getContext('gitlens:install:new', false);
 
-		const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
-		const Restore: MessageItem = { title: 'Restore Previous Locations' };
+		const confirm: MessageItem = { title: l10n.t('OK'), isCloseAffordance: true };
+		const Restore: MessageItem = { title: l10n.t('Restore Previous Locations') };
 
 		const buttons = newInstall ? [confirm] : [confirm, Restore];
 
 		const result = await window.showInformationMessage(
-			'GitLens groups many related views—Commits, Branches, Stashes, etc—together for easier view management. Use the tabs in the view header to navigate, detach, or regroup views.',
+			l10n.t(
+				'GitLens groups many related views—Commits, Branches, Stashes, etc—together for easier view management. Use the tabs in the view header to navigate, detach, or regroup views.',
+			),
 			...buttons,
 		);
 

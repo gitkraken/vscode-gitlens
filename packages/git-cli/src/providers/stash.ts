@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import { StashApplyError, StashPushError } from '@gitlens/git/errors.js';
@@ -296,7 +297,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 				stashName,
 			);
 			if (result.stdout.trim() !== sha) {
-				throw new Error('Unable to delete stash; mismatch with stash number');
+				throw new Error(l10n.t('Unable to delete stash; mismatch with stash number'));
 			}
 		}
 
@@ -341,10 +342,12 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			return;
 		}
 
-		await this.git.ensureSupports(
-			'git:stash:push:pathspecs',
-			'Stashing individual files',
-			' Please retry by stashing everything or install a more recent version of Git and try again.',
+		await this.git.ensureSupports('git:stash:push:pathspecs', (requiredVersion, installedVersion) =>
+			l10n.t(
+				'Stashing individual files requires a newer version of Git (>= {0}) than is currently installed ({1}). Please retry by stashing everything or install a more recent version of Git and try again.',
+				requiredVersion,
+				installedVersion,
+			),
 		);
 
 		const pathspecs = paths.map(p => `./${splitPath(p, repoPath)[0]}`);
@@ -357,10 +360,13 @@ export class StashGitSubProvider implements GitStashSubProvider {
 
 		// If we don't support stdin, then error out if we are over the maximum allowed git cli length
 		if (!stdin && countStringLength(pathspecs) > maxGitCliLength) {
-			await this.git.ensureSupports(
-				'git:stash:push:stdin',
-				`Stashing so many files (${pathspecs.length}) at once`,
-				' Please retry by stashing fewer files or install a more recent version of Git and try again.',
+			await this.git.ensureSupports('git:stash:push:stdin', (requiredVersion, installedVersion) =>
+				l10n.t(
+					'Stashing so many files ({0}) at once requires a newer version of Git (>= {1}) than is currently installed ({2}). Please retry by stashing fewer files or install a more recent version of Git and try again.',
+					pathspecs.length,
+					requiredVersion,
+					installedVersion,
+				),
 			);
 		}
 
@@ -417,9 +423,10 @@ export class StashGitSubProvider implements GitStashSubProvider {
 				params.push('--staged');
 			} else {
 				throw new Error(
-					`Git version ${gitFeaturesByVersion.get(
-						'git:stash:push:staged',
-					)} or higher is required for --staged`,
+					l10n.t(
+						'Git version {0} or higher is required for --staged',
+						String(gitFeaturesByVersion.get('git:stash:push:staged')),
+					),
 				);
 			}
 		}

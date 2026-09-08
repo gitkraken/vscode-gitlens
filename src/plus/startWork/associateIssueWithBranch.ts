@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import { getIssueOwner } from '@gitlens/integrations/providers/utils.js';
 import type { AsyncStepResultGenerator } from '../../commands/quick-wizard/models/steps.js';
@@ -20,10 +21,13 @@ export class AssociateIssueWithBranchCommand extends StartWorkBaseCommand {
 	protected override overrides: StartWorkOverrides = {
 		ownSource: 'associateIssueWithBranch',
 		placeholders: {
-			cloudIntegrationConnectHasConnected:
+			cloudIntegrationConnectHasConnected: l10n.t(
 				'Connect additional integrations to associate their issues with your branches',
-			cloudIntegrationConnectNoConnected: 'Connect an integration to associate its issues with your branches',
-			issueSelection: 'Choose an issue to associate with your branch',
+			),
+			cloudIntegrationConnectNoConnected: l10n.t(
+				'Connect an integration to associate its issues with your branches',
+			),
+			issueSelection: l10n.t('Choose an issue to associate with your branch'),
 		},
 	};
 
@@ -33,8 +37,8 @@ export class AssociateIssueWithBranchCommand extends StartWorkBaseCommand {
 			{ command: 'associateIssueWithBranch', source: args?.source ?? 'commandPalette' },
 			'associateIssueWithBranch',
 			'associateIssueWithBranch',
-			`Associate Issue with Branch\u00a0\u00a0${proBadge}`,
-			'Associate an issue with your branch',
+			l10n.t('Associate Issue with Branch\u00a0\u00a0{0}', proBadge),
+			l10n.t('Associate an issue with your branch'),
 			'associateIssueWithBranch',
 		);
 		this.branch = args?.branch;
@@ -50,8 +54,8 @@ export class AssociateIssueWithBranchCommand extends StartWorkBaseCommand {
 		const issue = state.item.issue;
 
 		this.branch ??= await showBranchPicker(
-			`Associate Issue with Branch\u00a0\u00a0${proBadge}`,
-			'Choose a branch to associate the issue with',
+			l10n.t('Associate Issue with Branch\u00a0\u00a0{0}', proBadge),
+			l10n.t('Choose a branch to associate the issue with'),
 			this.container.git.openRepositories,
 			{ filter: b => !b.remote },
 		);

@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -360,7 +361,7 @@ than :host-context. */
 	expandable = false;
 
 	private get displayName(): string {
-		return this.repository?.name ?? 'none selected';
+		return this.repository?.name ?? l10n.t('none selected');
 	}
 
 	override render() {
@@ -465,7 +466,7 @@ than :host-context. */
 					part="provider-icon"
 					appearance="toolbar"
 					href=${ifDefined(provider.url)}
-					aria-label=${`Open Repository on ${provider.name}`}
+					aria-label=${l10n.t('Open Repository on {provider}', { provider: provider.name })}
 					@click=${(e: MouseEvent) =>
 						this.emit('gl-click', {
 							event: e,
@@ -480,7 +481,9 @@ than :host-context. */
 					${when(connectedIntegration, () => html`<gl-indicator class="indicator-dot"></gl-indicator>`)}
 				</gl-button>
 				<div slot="content" class="provider-popover">
-					<div class="provider-popover__title">Open Repository on ${provider.name}</div>
+					<div class="provider-popover__title">
+						${l10n.t('Open Repository on {provider}', { provider: provider.name })}
+					</div>
 					<hr />
 					<div class="provider-popover__line">
 						<code-icon class="popover-status-icon" icon="gl-repository" aria-hidden="true"></code-icon>
@@ -491,7 +494,7 @@ than :host-context. */
 						() => html`
 							<div class="provider-popover__line">
 								<code-icon class="popover-status-icon" icon="check" aria-hidden="true"></code-icon>
-								Connected to ${provider.name}
+								${l10n.t('Connected to {provider}', { provider: provider.name })}
 							</div>
 						`,
 						() => {
@@ -506,9 +509,9 @@ than :host-context. */
 											{ repoPath: repo.path, remote: provider.bestRemoteName },
 										)}
 									>
-										Connect to ${repo.provider!.name}
+										${l10n.t('Connect to {provider}', { provider: repo.provider!.name })}
 									</a>
-									<span>&mdash; not connected</span>
+									<span>${l10n.t('— not connected')}</span>
 								</div>
 							`;
 						},
@@ -538,9 +541,9 @@ than :host-context. */
 			>
 				<code-icon class="connect-icon" icon="plug"></code-icon>
 				<span slot="tooltip">
-					Connect to ${provider.name}
+					${l10n.t('Connect to {provider}', { provider: provider.name })}
 					<hr />
-					View pull requests and issues in the Commit Graph, Launchpad, autolinks, and more
+					${l10n.t('View pull requests and issues in the Commit Graph, Launchpad, autolinks, and more')}
 				</span>
 			</gl-button>
 		`;

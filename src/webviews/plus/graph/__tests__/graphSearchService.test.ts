@@ -47,8 +47,8 @@ suite('buildSearchRelaxationCandidates', () => {
 
 		assert.strictEqual(candidates.length, 2);
 		assert.deepStrictEqual(
-			candidates.map(c => c.label),
-			['without the author filter', 'without the message terms'],
+			candidates.map(c => (c.kind === 'drop-filter' ? c.filter : c.kind)),
+			['author', 'message'],
 		);
 		assert.strictEqual(candidates[0].query, 'message:foo');
 		assert.strictEqual(candidates[1].query, 'author:bar');
@@ -59,22 +59,22 @@ suite('buildSearchRelaxationCandidates', () => {
 		const candidates = buildSearchRelaxationCandidates(parsed);
 
 		assert.strictEqual(candidates.length, 2);
-		const datesCandidate = candidates.find(c => c.label === 'without the date filter');
+		const datesCandidate = candidates.find(c => c.kind === 'drop-filter' && c.filter === 'date');
 		assert.ok(datesCandidate);
 		assert.strictEqual(datesCandidate.query, 'message:foo');
 
-		const messageCandidate = candidates.find(c => c.label === 'without the message terms');
+		const messageCandidate = candidates.find(c => c.kind === 'drop-filter' && c.filter === 'message');
 		assert.ok(messageCandidate);
 		assert.ok(!messageCandidate.query.includes('message:'));
 		assert.ok(messageCandidate.query.includes('after:'));
 		assert.ok(messageCandidate.query.includes('before:'));
 	});
 
-	test('ref: alongside another group is labeled "across all branches"', () => {
+	test('ref: alongside another group produces an all-branches relaxation', () => {
 		const parsed = parseSearchQuery({ query: 'ref:main message:foo' });
 		const candidates = buildSearchRelaxationCandidates(parsed);
 
-		const refCandidate = candidates.find(c => c.label === 'across all branches');
+		const refCandidate = candidates.find(c => c.kind === 'drop-filter' && c.filter === 'ref');
 		assert.ok(refCandidate);
 		assert.strictEqual(refCandidate.query, 'message:foo');
 	});
@@ -88,10 +88,7 @@ suite('buildSearchRelaxationCandidates', () => {
 			candidates.map(c => c.query),
 			['alt one', 'alt two'],
 		);
-		assert.deepStrictEqual(
-			candidates.map(c => c.label),
-			['alt one', 'alt two'],
-		);
+		assert.ok(candidates.every(c => c.kind === 'alternate'));
 	});
 
 	test('an alternate duplicating a drop-one-group variant appears only once', () => {
@@ -110,11 +107,14 @@ suite('buildSearchRelaxationCandidates', () => {
 			{ name: 'Keith Daulton', email: 'keith@example.com' },
 		]);
 
-		assert.strictEqual(candidates[0].label, "as 'Keith Daulton'");
-		assert.strictEqual(candidates[0].query, 'author:"Keith Daulton" message:foo');
+		assert.deepStrictEqual(candidates[0], {
+			kind: 'author',
+			name: 'Keith Daulton',
+			query: 'author:"Keith Daulton" message:foo',
+		});
 
-		const dropGroupLabels = candidates.slice(1).map(c => c.label);
-		assert.deepStrictEqual(dropGroupLabels, ['without the author filter', 'without the message terms']);
+		const dropGroupFilters = candidates.slice(1).map(c => (c.kind === 'drop-filter' ? c.filter : c.kind));
+		assert.deepStrictEqual(dropGroupFilters, ['author', 'message']);
 	});
 
 	test('an already correctly-spelled or quoted author yields no respell candidate', () => {
@@ -125,14 +125,14 @@ suite('buildSearchRelaxationCandidates', () => {
 			undefined,
 			contributors,
 		);
-		assert.ok(!exact.some(c => c.label.startsWith("as '")));
+		assert.ok(!exact.some(c => c.kind === 'author'));
 
 		const quoted = buildSearchRelaxationCandidates(
 			parseSearchQuery({ query: 'author:"Keith Daulton"' }),
 			undefined,
 			contributors,
 		);
-		assert.ok(!quoted.some(c => c.label.startsWith("as '")));
+		assert.ok(!quoted.some(c => c.kind === 'author'));
 	});
 
 	test('@me is never treated as a misspelling', () => {
@@ -141,7 +141,7 @@ suite('buildSearchRelaxationCandidates', () => {
 			{ name: 'Keith Daulton', email: 'keith@example.com' },
 		]);
 
-		assert.ok(!candidates.some(c => c.label.startsWith("as '")));
+		assert.ok(!candidates.some(c => c.kind === 'author'));
 	});
 
 	test('committer: values are respelled the same way as author:', () => {
@@ -150,7 +150,8 @@ suite('buildSearchRelaxationCandidates', () => {
 			{ name: 'Keith Daulton', email: 'keith@example.com' },
 		]);
 
-		assert.strictEqual(candidates[0].label, "as 'Keith Daulton'");
+		assert.strictEqual(candidates[0].kind, 'author');
+		assert.strictEqual(candidates[0].kind === 'author' ? candidates[0].name : undefined, 'Keith Daulton');
 		assert.strictEqual(candidates[0].query, 'committer:"Keith Daulton"');
 	});
 });

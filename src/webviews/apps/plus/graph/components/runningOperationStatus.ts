@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { RunningOperationExecState } from './detailsState.js';
 
 /** Codicon name for a status-overlay icon driven by a {@link RunningOperationExecState}.
@@ -41,42 +42,67 @@ export function rowAdornmentTooltipFor(
 	execState: RunningOperationExecState | undefined,
 	hasResult: boolean = true,
 ): string {
-	const verb = kind === 'compose' ? 'Compose' : kind === 'review' ? 'Review' : 'Resolve';
-	const idle = kind === 'compose' ? 'Compose Changes…' : kind === 'review' ? 'Review Changes…' : 'Resolve Conflicts…';
-	const view = kind === 'resolve' ? 'View Resolutions' : `View ${verb}`;
+	const idle =
+		kind === 'compose'
+			? l10n.t('Compose Changes…')
+			: kind === 'review'
+				? l10n.t('Review Changes…')
+				: l10n.t('Resolve Conflicts…');
+	const view =
+		kind === 'compose'
+			? l10n.t('View Compose')
+			: kind === 'review'
+				? l10n.t('View Review')
+				: l10n.t('View Resolutions');
 	switch (execState) {
 		case 'generating':
-			return kind === 'compose' ? 'Composing…' : kind === 'review' ? 'Reviewing…' : 'Resolving…';
+			return kind === 'compose'
+				? l10n.t('Composing…')
+				: kind === 'review'
+					? l10n.t('Reviewing…')
+					: l10n.t('Resolving…');
 		case 'complete':
 			return view;
 		case 'backed':
 			return hasResult ? view : idle;
 		case 'error':
-			return `${verb} Failed — Click to View`;
+			return kind === 'compose'
+				? l10n.t('Compose Failed — Click to View')
+				: kind === 'review'
+					? l10n.t('Review Failed — Click to View')
+					: l10n.t('Resolve Failed — Click to View');
 		case 'orphaned':
-			return `${verb} — Anchor Missing`;
+			return kind === 'compose'
+				? l10n.t('Compose — Anchor Missing')
+				: kind === 'review'
+					? l10n.t('Review — Anchor Missing')
+					: l10n.t('Resolve — Anchor Missing');
 		default:
 			return idle;
 	}
 }
 
-/** Tooltip suffix appended to a details-header chip's label when an operation is engaged at
- *  this anchor. The chip's underlying action is always "show/hide the panel", but a parenthetical
- *  state hint tells the user what's happening underneath (running / completed / etc.). `hasResult`
- *  suppresses the "(Completed)" suffix for a `'backed'`-no-result entry. */
-export function chipStateSuffix(execState: RunningOperationExecState | undefined, hasResult: boolean = true): string {
+/** Complete details-header chip label when an operation is engaged at this anchor. The chip's
+ *  underlying action is always "show/hide the panel", but a parenthetical state hint tells the user
+ *  what's happening underneath (running / completed / etc.). `hasResult` suppresses the
+ *  "(Completed)" suffix for a `'backed'`-no-result entry. */
+export function chipStateLabel(
+	label: string,
+	execState: RunningOperationExecState | undefined,
+	hasResult: boolean = true,
+): string {
 	switch (execState) {
 		case 'generating':
-			return ' (Running)';
+			return l10n.t('{label} (Running)', { label: label });
 		case 'complete':
-			return ' (Completed)';
+			return l10n.t('{label} (Completed)', { label: label });
 		case 'backed':
-			return hasResult ? ' (Completed)' : '';
+			return hasResult ? l10n.t('{label} (Completed)', { label: label }) : label;
 		case 'error':
-			return ' (Failed)';
+			return l10n.t('{label} (Failed)', { label: label });
 		case 'orphaned':
-			return ' (Orphaned)';
+			return l10n.t('{label} (Orphaned)', { label: label });
 		default:
-			return '';
+			return label;
 	}
 }

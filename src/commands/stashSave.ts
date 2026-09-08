@@ -1,5 +1,5 @@
 import type { Uri } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources.d.js';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums.js';
 import type { Container } from '../container.js';
@@ -136,10 +136,10 @@ export async function getStashSaveArgsForScmStates(
 	args.repoPath = repo?.path;
 
 	if (!(await repo?.git?.supports('git:stash:push:pathspecs'))) {
-		const confirm = { title: 'Stash All' };
-		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const confirm = { title: l10n.t('Stash All') };
+		const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		const result = await window.showWarningMessage(
-			"Your Git version doesn't support stashing individual files. Stash all changes instead?",
+			l10n.t("Your Git version doesn't support stashing individual files. Stash all changes instead?"),
 			{ modal: true },
 			confirm,
 			cancel,
@@ -168,10 +168,10 @@ export async function getStashSaveArgsForScmStates(
 
 	if (!selectedWorking && !selectedUntracked && (hasWorking || hasUntracked)) {
 		if (!(await repo?.git?.supports('git:stash:push:staged'))) {
-			const confirm = { title: 'Stash All' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const confirm = { title: l10n.t('Stash All') };
+			const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				"Your Git version doesn't support stashing only staged changes. Stash all changes instead?",
+				l10n.t("Your Git version doesn't support stashing only staged changes. Stash all changes instead?"),
 				{ modal: true },
 				confirm,
 				cancel,
@@ -239,10 +239,10 @@ export async function getStashSaveArgsForStagedScmGroup(
 	}
 
 	if (!hasStaged) {
-		const confirm = { title: 'Stash All' };
-		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const confirm = { title: l10n.t('Stash All') };
+		const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		const result = await window.showWarningMessage(
-			'There are no staged changes to stash. Stash all changes instead?',
+			l10n.t('There are no staged changes to stash. Stash all changes instead?'),
 			{ modal: true },
 			confirm,
 			cancel,
@@ -257,10 +257,10 @@ export async function getStashSaveArgsForStagedScmGroup(
 	} else {
 		args.onlyStaged = false;
 		if (hasWorking || hasUntracked) {
-			const confirm = { title: 'Stash All' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const confirm = { title: l10n.t('Stash All') };
+			const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				"Your Git version doesn't support stashing only staged changes. Stash all changes instead?",
+				l10n.t("Your Git version doesn't support stashing only staged changes. Stash all changes instead?"),
 				{ modal: true },
 				confirm,
 				cancel,
@@ -297,10 +297,10 @@ export async function getStashSaveArgsForUnstagedScmGroup(
 	}
 
 	if (!hasWorking && !hasUntracked) {
-		const confirm = { title: 'Stash All' };
-		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const confirm = { title: l10n.t('Stash All') };
+		const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		const result = await window.showWarningMessage(
-			'There are no unstaged changes to stash. Stash all changes instead?',
+			l10n.t('There are no unstaged changes to stash. Stash all changes instead?'),
 			{ modal: true },
 			confirm,
 			cancel,

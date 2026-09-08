@@ -1,4 +1,4 @@
-import { CancellationTokenSource, window } from 'vscode';
+import { CancellationTokenSource, l10n, window } from 'vscode';
 import type { AIChatMessage, AIProviderResponse, AIResponseFormat } from '@gitlens/ai/models/provider.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
@@ -309,12 +309,13 @@ function buildLargePromptGate(initiallySuppressed: boolean): OnBeforePrompt {
 }
 
 async function showInteriorRefsWarning(violations: InteriorRefViolation[]): Promise<boolean> {
-	const confirm = { title: 'Continue' };
-	const cancel = { title: 'Cancel', isCloseAffordance: true };
+	const confirm = { title: l10n.t('Continue') };
+	const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 	const result = await window.showWarningMessage(
-		`Some commits being recomposed are also pointed to by other branches or tags:\n\n${formatInteriorRefList(
-			violations,
-		)}\n\nThese references won't be updated — they'll keep pointing at their current commits (which remain in the repository), so the recomposed history will diverge from them rather than being followed by them.\n\nDo you want to continue?`,
+		l10n.t(
+			"Some commits being recomposed are also pointed to by other branches or tags:\n\n{0}\n\nThese references won't be updated — they'll keep pointing at their current commits (which remain in the repository), so the recomposed history will diverge from them rather than being followed by them.\n\nDo you want to continue?",
+			formatInteriorRefList(violations),
+		),
 		{ modal: true },
 		confirm,
 		cancel,
@@ -324,14 +325,17 @@ async function showInteriorRefsWarning(violations: InteriorRefViolation[]): Prom
 
 function formatInteriorRefList(violations: InteriorRefViolation[]): string {
 	const max = 10;
-	const labels = violations.map(v => {
-		if (v.refname.startsWith('refs/tags/')) return `tag ${v.refname.slice('refs/tags/'.length)}`;
-		if (v.refname.startsWith('refs/heads/')) return v.refname.slice('refs/heads/'.length);
-		return v.refname;
+	const shown = violations.slice(0, max).map(v => {
+		if (v.refname.startsWith('refs/tags/')) {
+			return l10n.t('  • tag {0}', v.refname.slice('refs/tags/'.length));
+		}
+
+		if (v.refname.startsWith('refs/heads/')) return `  • ${v.refname.slice('refs/heads/'.length)}`;
+		return `  • ${v.refname}`;
 	});
-	const shown = labels.slice(0, max).map(l => `  • ${l}`);
-	if (labels.length > max) {
-		shown.push(`  • …and ${labels.length - max} more`);
+	const remaining = violations.length - max;
+	if (remaining > 0) {
+		shown.push(remaining === 1 ? l10n.t('  • …and 1 more') : l10n.t('  • …and {0} more', remaining));
 	}
 	return shown.join('\n');
 }

@@ -1,5 +1,5 @@
 import type { MessageItem } from 'vscode';
-import { ThemeIcon, Uri, window, workspace } from 'vscode';
+import { l10n, ThemeIcon, Uri, window, workspace } from 'vscode';
 import { WorktreeCreateError } from '@gitlens/git/errors.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
@@ -145,8 +145,8 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 	private _canSkipConfirmOverride: boolean | undefined;
 
 	constructor(container: Container, args?: WorktreeCreateGitCommandArgs) {
-		super(container, 'worktree-create', 'create', 'Create Worktree', {
-			description: 'creates a new worktree',
+		super(container, 'worktree-create', 'create', l10n.t('Create Worktree'), {
+			description: l10n.t('creates a new worktree'),
 		});
 
 		this.initialState = { confirm: args?.confirm, flags: [], ...args?.state };
@@ -221,9 +221,11 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 
 					const result = yield* pickBranchOrTagStep(state, context, {
 						placeholder: ctx =>
-							`Choose a branch${ctx.showTags ? ' or tag' : ''} to create the new worktree from`,
+							ctx.showTags
+								? l10n.t('Choose a branch or tag to create the new worktree from')
+								: l10n.t('Choose a branch to create the new worktree from'),
 						picked: state.reference?.ref ?? (await state.repo.git.branches.getBranch())?.ref,
-						title: `Select Branch to Create Worktree From`,
+						title: l10n.t('Select Branch to Create Worktree From'),
 						value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 					});
 					if (result === StepResultBreak) {
@@ -285,12 +287,16 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 						using step = steps.enterStep(Steps.InputBranchName);
 
 						const result = yield* inputBranchNameStep(state, context, {
-							prompt: 'Please provide a name for the new branch',
-							title: `${context.title} and New Branch from ${getReferenceLabel(state.reference, {
-								capitalize: true,
-								icon: false,
-								label: state.reference.refType !== 'branch',
-							})}`,
+							prompt: l10n.t('Please provide a name for the new branch'),
+							title: l10n.t(
+								'{0} and New Branch from {1}',
+								context.title,
+								getReferenceLabel(state.reference, {
+									capitalize: true,
+									icon: false,
+									label: state.reference.refType !== 'branch',
+								}),
+							),
 							value: createBranchOverride,
 						});
 						if (result === StepResultBreak) {
@@ -365,14 +371,17 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 					}
 				} catch (ex) {
 					if (WorktreeCreateError.is(ex, 'alreadyCheckedOut') && !state.flags.includes('--force')) {
-						const createBranch: MessageItem = { title: 'Create New Branch' };
-						const force: MessageItem = { title: 'Create Anyway' };
-						const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+						const createBranch: MessageItem = { title: l10n.t('Create New Branch') };
+						const force: MessageItem = { title: l10n.t('Create Anyway') };
+						const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 						const result = await window.showWarningMessage(
-							`Unable to create the new worktree because ${getReferenceLabel(state.reference, {
-								icon: false,
-								quoted: true,
-							})} is already checked out.\n\nWould you like to create a new branch for this worktree or forcibly create it anyway?`,
+							l10n.t(
+								'Unable to create the new worktree because {0} is already checked out.\n\nWould you like to create a new branch for this worktree or forcibly create it anyway?',
+								getReferenceLabel(state.reference, {
+									icon: false,
+									quoted: true,
+								}),
+							),
 							{ modal: true },
 							createBranch,
 							force,
@@ -393,13 +402,14 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 							return;
 						}
 					} else if (WorktreeCreateError.is(ex, 'alreadyExists')) {
-						const confirm: MessageItem = { title: 'OK' };
-						const openFolder: MessageItem = { title: 'Open Folder' };
+						const confirm: MessageItem = { title: l10n.t('OK') };
+						const openFolder: MessageItem = { title: l10n.t('Open Folder') };
 						void window
 							.showErrorMessage(
-								`Unable to create a new worktree in '${getWorkspaceFriendlyPath(
-									uri,
-								)}' because the folder already exists and is not empty.`,
+								l10n.t(
+									"Unable to create a new worktree in '{0}' because the folder already exists and is not empty.",
+									getWorkspaceFriendlyPath(uri),
+								),
 								confirm,
 								openFolder,
 							)
@@ -411,7 +421,7 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 					} else {
 						void showGitErrorMessage(
 							ex,
-							`Unable to create a new worktree in '${getWorkspaceFriendlyPath(uri)}.`,
+							l10n.t("Unable to create a new worktree in '{0}.", getWorkspaceFriendlyPath(uri)),
 						);
 					}
 				}
@@ -533,11 +543,11 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 
 		let location = computeLocation();
 
-		const openChoices: { choice: OpenChoice; label: string; clause: string }[] = [
-			{ choice: 'newWindow', label: 'Open in New Window', clause: ', then open it in a new window' },
-			{ choice: 'currentWindow', label: 'Open in Current Window', clause: ', then switch this window to it' },
-			{ choice: 'addToWorkspace', label: 'Add to Workspace', clause: ', then add it to this workspace' },
-			{ choice: 'none', label: "Don't Open", clause: '' },
+		const openChoices: { choice: OpenChoice; label: string }[] = [
+			{ choice: 'newWindow', label: l10n.t('Open in New Window') },
+			{ choice: 'currentWindow', label: l10n.t('Open in Current Window') },
+			{ choice: 'addToWorkspace', label: l10n.t('Add to Workspace') },
+			{ choice: 'none', label: l10n.t("Don't Open") },
 		];
 
 		// After Creating selection; seeded from the worktrees.openAfterCreate setting -- which the
@@ -547,15 +557,53 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 			Boolean(workspace.workspaceFolders?.length),
 		);
 
-		const openClause = (): string => openChoices.find(c => c.choice === openChoice)?.clause ?? '';
+		const getCreationDetail = (friendlyPath: string, directly: boolean): string => {
+			if (directly) {
+				switch (openChoice) {
+					case 'newWindow':
+						return l10n.t(
+							'Will create worktree directly in $(folder) {0}, then open it in a new window',
+							friendlyPath,
+						);
+					case 'currentWindow':
+						return l10n.t(
+							'Will create worktree directly in $(folder) {0}, then switch this window to it',
+							friendlyPath,
+						);
+					case 'addToWorkspace':
+						return l10n.t(
+							'Will create worktree directly in $(folder) {0}, then add it to this workspace',
+							friendlyPath,
+						);
+					case 'none':
+						return l10n.t('Will create worktree directly in $(folder) {0}', friendlyPath);
+				}
+			}
+
+			switch (openChoice) {
+				case 'newWindow':
+					return l10n.t('Will create worktree in $(folder) {0}, then open it in a new window', friendlyPath);
+				case 'currentWindow':
+					return l10n.t('Will create worktree in $(folder) {0}, then switch this window to it', friendlyPath);
+				case 'addToWorkspace':
+					return l10n.t('Will create worktree in $(folder) {0}, then add it to this workspace', friendlyPath);
+				case 'none':
+					return l10n.t('Will create worktree in $(folder) {0}', friendlyPath);
+			}
+		};
 
 		type StepType = FlagsQuickPickItem<Flags, Uri>;
 
 		// Folds the live Location and After Creating values into each mode's payload and detail -- the
 		// accepted item's [uri, flags] pair is the whole contract with the create step above
 		const buildItems = (): StepType[] => {
-			const recommendedFriendlyPath = `<root>/${truncateLeft(branchName?.replace(/\\/g, '/') ?? '', 65)}`;
-			const recommendedNewBranchFriendlyPath = `<root>/${state.createBranch || '<new-branch-name>'}`;
+			const recommendedFriendlyPath = l10n.t(
+				'<root>/{0}',
+				truncateLeft(branchName?.replace(/\\/g, '/') ?? '', 65),
+			);
+			const recommendedNewBranchFriendlyPath = state.createBranch
+				? l10n.t('<root>/{0}', state.createBranch)
+				: l10n.t('<root>/<new-branch-name>');
 
 			const items: StepType[] = [];
 			if (!location.createDirectlyInFolder) {
@@ -565,18 +613,19 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 						state.createBranch ? ['-b'] : [],
 						{
 							label: isRemoteBranch
-								? 'Create Worktree from New Local Branch'
+								? l10n.t('Create Worktree from New Local Branch')
 								: isBranch
 									? state.createBranch
-										? 'Create Worktree from New Branch'
-										: 'Create Worktree from Branch'
+										? l10n.t('Create Worktree from New Branch')
+										: l10n.t('Create Worktree from Branch')
 									: context.title,
 							description: state.createBranch
 								? state.createBranch
 								: getReferenceLabel(state.reference, { icon: false, label: false }),
-							detail: `Will create worktree in $(folder) ${
-								state.createBranch ? recommendedNewBranchFriendlyPath : recommendedFriendlyPath
-							}${openClause()}`,
+							detail: getCreationDetail(
+								state.createBranch ? recommendedNewBranchFriendlyPath : recommendedFriendlyPath,
+								false,
+							),
 							picked: true,
 						},
 						location.recommendedRootUri,
@@ -590,14 +639,14 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 							['--direct'],
 							{
 								label: isRemoteBranch
-									? 'Create Worktree from Local Branch'
+									? l10n.t('Create Worktree from Local Branch')
 									: isBranch
-										? 'Create Worktree from Branch'
+										? l10n.t('Create Worktree from Branch')
 										: context.title,
 								description: isBranch
 									? getReferenceLabel(state.reference, { icon: false, label: false })
 									: '',
-								detail: `Will create worktree directly in $(folder) ${location.pickedFriendlyPath}${openClause()}`,
+								detail: getCreationDetail(location.pickedFriendlyPath, true),
 								picked: true,
 							},
 							location.pickedUri,
@@ -611,10 +660,10 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 						['-b', '--direct'],
 						{
 							label: isRemoteBranch
-								? 'Create Worktree from New Local Branch'
-								: 'Create Worktree from New Branch',
+								? l10n.t('Create Worktree from New Local Branch')
+								: l10n.t('Create Worktree from New Branch'),
 							description: state.createBranch,
-							detail: `Will create worktree directly in $(folder) ${location.pickedFriendlyPath}${openClause()}`,
+							detail: getCreationDetail(location.pickedFriendlyPath, true),
 							picked: Boolean(state.createBranch),
 						},
 						location.pickedUri,
@@ -647,19 +696,21 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 		/** Every row the confirm step shows, minus the separator + Cancel that `createConfirmStep` appends */
 		const buildRows = (): (StepType | DirectiveQuickPickItem)[] => [
 			...items,
-			createQuickPickSeparator<StepType | DirectiveQuickPickItem>('Location'),
+			createQuickPickSeparator<StepType | DirectiveQuickPickItem>(l10n.t('Location')),
 			rows.root!,
 			rows.specific!,
-			createQuickPickSeparator<StepType | DirectiveQuickPickItem>('After Creating'),
+			createQuickPickSeparator<StepType | DirectiveQuickPickItem>(l10n.t('After Creating')),
 			...rows.radios!,
 		];
 
 		const rootDescription = (): string =>
-			`$(folder) ${location.rootFriendlyPath}${
-				location.createDirectlyInFolder ? ' \u00b7 not used \u2014 a specific folder is chosen' : ''
-			}`;
+			location.createDirectlyInFolder
+				? l10n.t('$(folder) {0} · not used — a specific folder is chosen', location.rootFriendlyPath)
+				: l10n.t('$(folder) {0}', location.rootFriendlyPath);
 		const specificDescription = (): string =>
-			context.pickedSpecificFolder != null ? `$(folder) ${location.pickedFriendlyPath}` : '(none)';
+			context.pickedSpecificFolder != null
+				? l10n.t('$(folder) {0}', location.pickedFriendlyPath)
+				: l10n.t('(none)');
 
 		const refresh = (): void => {
 			location = computeLocation();
@@ -696,25 +747,25 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 		};
 
 		rows.root = createDirectiveQuickPickItem(Directive.Noop, false, {
-			label: 'Root Folder\u2026',
+			label: l10n.t('Root Folder…'),
 			description: rootDescription(),
-			detail: 'Choose a different root folder for worktrees',
+			detail: l10n.t('Choose a different root folder for worktrees'),
 			onDidSelect: () =>
 				chooseFolder({
-					title: 'Choose a Different Root Folder for this Worktree',
-					label: 'Choose Root Folder',
+					title: l10n.t('Choose a Different Root Folder for this Worktree'),
+					label: l10n.t('Choose Root Folder'),
 					specific: false,
 				}),
 		});
 
 		rows.specific = createDirectiveQuickPickItem(Directive.Noop, false, {
-			label: 'Specific Folder\u2026',
+			label: l10n.t('Specific Folder…'),
 			description: specificDescription(),
-			detail: 'Create directly in an exact folder instead of under the root',
+			detail: l10n.t('Create directly in an exact folder instead of under the root'),
 			onDidSelect: () =>
 				chooseFolder({
-					title: 'Choose a Specific Folder for this Worktree',
-					label: 'Choose Worktree Folder',
+					title: l10n.t('Choose a Specific Folder for this Worktree'),
+					label: l10n.t('Choose Worktree Folder'),
 					specific: true,
 				}),
 		});
@@ -740,18 +791,19 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 
 		step = createConfirmStep(
 			appendReposToTitle(
-				`Confirm ${context.title} \u2022 ${
+				l10n.t(
+					'Confirm Create Worktree • {0}',
 					state.createBranch ||
-					getReferenceLabel(state.reference, {
-						icon: false,
-						label: false,
-					})
-				}`,
+						getReferenceLabel(state.reference, {
+							icon: false,
+							label: false,
+						}),
+				),
 				state,
 				context,
 			),
 			buildRows(),
-			context,
+			l10n.t('Confirm Create Worktree'),
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		if (!canPickStepContinue(step, state, selection)) return StepResultBreak;

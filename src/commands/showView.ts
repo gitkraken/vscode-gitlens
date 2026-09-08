@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type { Container } from '../container.js';
 import { command, executeCommand, executeCoreCommand } from '../system/-webview/command.js';
 import type { GraphWebviewShowingArgs } from '../webviews/plus/graph/registration.js';
@@ -45,15 +45,20 @@ export class ShowViewCommand extends GlCommandBase {
 		}
 	}
 
-	async waitForRepoOrNotify(featureName?: string): Promise<void> {
+	async waitForRepoOrNotify(feature?: 'inspect'): Promise<void> {
 		await this.waitForRepo();
 		if (this.container.git.openRepositoryCount > 0) return;
 
-		const message = featureName
-			? `No repository detected. To view ${featureName}, open a folder containing a git repository or clone from a URL in Source Control.`
-			: 'No repository detected. To use GitLens, open a folder containing a git repository or clone from a URL in Source Control.';
+		const message =
+			feature === 'inspect'
+				? l10n.t(
+						'No repository detected. To view Inspect, open a folder containing a git repository or clone from a URL in Source Control.',
+					)
+				: l10n.t(
+						'No repository detected. To use GitLens, open a folder containing a git repository or clone from a URL in Source Control.',
+					);
 
-		const openRepo = { title: 'Open a Folder or Repo', isCloseAffordance: true };
+		const openRepo = { title: l10n.t('Open a Folder or Repo'), isCloseAffordance: true };
 		const result = await window.showInformationMessage(message, openRepo);
 		if (result === openRepo) {
 			void executeCoreCommand('workbench.view.scm');
@@ -70,7 +75,7 @@ export class ShowViewCommand extends GlCommandBase {
 				await this.waitForRepo();
 				return this.container.views.showView('branches');
 			case 'gitlens.showCommitDetailsView':
-				await this.waitForRepoOrNotify('Inspect');
+				await this.waitForRepoOrNotify('inspect');
 				return this.container.views.commitDetails.show();
 			case 'gitlens.showCommitsView':
 				await this.waitForRepo();

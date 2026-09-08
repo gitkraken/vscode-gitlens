@@ -2,9 +2,11 @@ import './settings.scss';
 import type { Remote, Subscription } from '@eamodio/supertalk';
 import { subscribe } from '@eamodio/supertalk';
 import { ContextProvider, provide } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { html, nothing } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { isMac } from '@env/platform.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { SettingsServices } from '../../settings/settingsService.js';
 import { SignalWatcherWebviewApp } from '../shared/appBase.js';
 import { createDefaultSubscriptionContextState, subscriptionContext } from '../shared/contexts/subscription.js';
@@ -285,14 +287,16 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 				<header class="header">
 					<div class="header__brand">
 						<gitlens-logo-circle aria-hidden="true"></gitlens-logo-circle>
-						<h1 class="header__title">GitLens Settings</h1>
+						<h1 class="header__title">${l10n.t('GitLens Settings')}</h1>
 						${
 							s.version.get()
 								? html`<a
 										class="header__version"
 										href="https://github.com/gitkraken/vscode-gitlens/blob/main/CHANGELOG.md"
-										aria-label="GitLens ${s.version.get()} — open the CHANGELOG"
-										title="Open the CHANGELOG"
+										aria-label=${l10n.t('GitLens {version} — open the CHANGELOG', {
+											version: s.version.get(),
+										})}
+										title=${l10n.t('Open the CHANGELOG')}
 										>v${s.version.get()}</a
 									>`
 								: nothing
@@ -303,8 +307,10 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 						<input
 							id="search"
 							type="search"
-							placeholder="Search settings (try a name like gitlens.currentLine.format)"
-							aria-label="Search settings"
+							placeholder=${l10n.t('Search settings (try a name like {setting})', {
+								setting: 'gitlens.currentLine.format',
+							})}
+							aria-label=${l10n.t('Search settings')}
 							spellcheck="false"
 							.value=${s.query.get()}
 							?disabled=${s.loading.get()}
@@ -316,8 +322,8 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 								? html`<gl-button
 										class="header__search-clear"
 										appearance="input"
-										tooltip="Clear"
-										aria-label="Clear search"
+										tooltip=${l10n.t('Clear')}
+										aria-label=${l10n.t('Clear search')}
 										@click=${this.handleSearchClear}
 									>
 										<code-icon icon="close"></code-icon>
@@ -328,9 +334,9 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 					${
 						scopes.length > 1
 							? html`<div class="header__scope">
-									<span id="scope-label">Save for</span>
+									<span id="scope-label">${l10n.t('Save for')}</span>
 									<gl-segmented-control
-										label="Save settings for"
+										label=${l10n.t('Save settings for')}
 										.options=${scopes.map(([value, label]) => ({ value: value, label: label }))}
 										.value=${s.scope.get()}
 										@gl-change-value=${(e: Event) =>
@@ -350,9 +356,15 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 							? html`<div class="body body--error" role="alert">
 									<code-icon icon="error" aria-hidden="true"></code-icon>
 									<span>
-										GitLens Settings couldn’t load — ${s.error.get()}.
-										<a href="command:workbench.action.reloadWindow">Reload the window</a> to try
-										again.
+										${localizedContent(
+											l10n.t('GitLens Settings couldn’t load — {error}. {reload} to try again.'),
+											{
+												error: s.error.get()!,
+												reload: html`<a href="command:workbench.action.reloadWindow"
+													>${l10n.t('Reload the window')}</a
+												>`,
+											},
+										)}
 									</span>
 								</div>`
 							: html`<div class="body body--loading">

@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
@@ -75,10 +76,10 @@ interface KanbanColumnDef {
 const inactiveThresholdMs = 60 * 60 * 1000;
 
 const columns: readonly KanbanColumnDef[] = [
-	{ id: 'needs-input', label: 'Needs Input' },
-	{ id: 'working', label: 'Working' },
-	{ id: 'idle', label: 'Idle' },
-	{ id: 'inactive', label: 'Inactive' },
+	{ id: 'needs-input', label: l10n.t('Needs Input') },
+	{ id: 'working', label: l10n.t('Working') },
+	{ id: 'idle', label: l10n.t('Idle') },
+	{ id: 'inactive', label: l10n.t('Inactive') },
 ];
 
 /** The cards' `data-telemetry-action` attributes that report `graph/kanban/sessionAction`, mapped to
@@ -857,7 +858,9 @@ Allow / Deny / View Plan cluster left-aligned. */
 	 *  name when the session has no resolved worktree at all. Copy stays exactly `now in <dir>` so
 	 *  every surface (details panel, branch sheet, kanban) reads the same. */
 	private ghostLocationHint(session: AgentSessionState): string {
-		return `now in ${session.worktreePath ? basename(session.worktreePath) : session.providerName}`;
+		return l10n.t('now in {location}', {
+			location: session.worktreePath ? basename(session.worktreePath) : session.providerName,
+		});
 	}
 
 	private onCardKeydown = (event: KeyboardEvent): void => {
@@ -884,17 +887,19 @@ Allow / Deny / View Plan cluster left-aligned. */
 		const currentCount = sessions.filter(s => !this.isGhost(s)).length;
 
 		return html`
-			<section aria-label="Agent Kanban">
+			<section aria-label=${l10n.t('Agent Kanban')}>
 				<div class="header">
 					<div class="header__title">
-						<h2>Agent Kanban</h2>
+						<h2>${l10n.t('Agent Kanban')}</h2>
 						<gl-tooltip
 							class="header__experimental"
 							placement="bottom"
-							content="This is an experimental feature"
+							content=${l10n.t('This is an experimental feature')}
 							.distance=${6}
 						>
-							<gl-badge appearance="experimental" aria-label="Experimental feature">EXP</gl-badge>
+							<gl-badge appearance="experimental" aria-label=${l10n.t('Experimental feature')}
+								>EXP</gl-badge
+							>
 						</gl-tooltip>
 						<gl-graph-coachmark
 							mark="kanban"
@@ -903,14 +908,18 @@ Allow / Deny / View Plan cluster left-aligned. */
 							?auto-show=${this.graphReady}
 						></gl-graph-coachmark>
 						<span class="header__count" aria-live="polite"
-							>${currentCount} session${currentCount === 1 ? '' : 's'}</span
+							>${
+								currentCount === 1
+									? l10n.t('{count} session', { count: currentCount })
+									: l10n.t('{count} sessions', { count: currentCount })
+							}</span
 						>
 					</div>
 					<gl-button
 						class="header__close"
 						appearance="toolbar"
-						tooltip="Show Commit Graph"
-						aria-label="Show Commit Graph"
+						tooltip=${l10n.t('Show Commit Graph')}
+						aria-label=${l10n.t('Show Commit Graph')}
 						@click=${this.onClose}
 					>
 						<code-icon icon="close"></code-icon>
@@ -935,8 +944,8 @@ Allow / Deny / View Plan cluster left-aligned. */
 	private renderEmpty() {
 		return html`<div class="empty-state">
 			<code-icon icon="robot"></code-icon>
-			<p>No active agent sessions.</p>
-			<p>Start an agent on a worktree to see it appear here.</p>
+			<p>${l10n.t('No active agent sessions.')}</p>
+			<p>${l10n.t('Start an agent on a worktree to see it appear here.')}</p>
 		</div>`;
 	}
 
@@ -968,14 +977,20 @@ Allow / Deny / View Plan cluster left-aligned. */
 		return html`<section class="column" aria-labelledby=${headingId}>
 			<header class="column__heading" data-column=${column.id} id=${headingId}>
 				<h3 class="column__heading-label">${column.label}</h3>
-				<span class="column__count" aria-label=${`${currentCount} session${currentCount === 1 ? '' : 's'}`}
+				<span
+					class="column__count"
+					aria-label=${
+						currentCount === 1
+							? l10n.t('{count} session', { count: currentCount })
+							: l10n.t('{count} sessions', { count: currentCount })
+					}
 					>${currentCount}</span
 				>
 			</header>
 			<div class="column__list scrollable">
 				${
 					sessions.length === 0
-						? html`<p class="column__empty">Nothing here</p>`
+						? html`<p class="column__empty">${l10n.t('Nothing here')}</p>`
 						: revealed
 							? repeat(
 									sessions,
@@ -1020,7 +1035,16 @@ Allow / Deny / View Plan cluster left-aligned. */
 		// activation, focus, and screen-reader behavior across browsers. `aria-label` carries the
 		// accessible name (display name + phase) so AT users get a single coherent announcement
 		// before tabbing into the inner actions.
-		const ariaLabel = `${session.displayName} — ${phaseLabel}${elapsed != null ? ` (${elapsed})` : ''}`;
+		const ariaLabel =
+			elapsed != null
+				? l10n.t('{name} — {phase} ({elapsed})', {
+						name: session.displayName,
+						phase: phaseLabel,
+						elapsed: elapsed,
+					})
+				: l10n.t('{name} — {phase}', { name: session.displayName, phase: phaseLabel });
+		const phaseText =
+			elapsed != null ? l10n.t('{phase} · {elapsed}', { phase: phaseLabel, elapsed: elapsed }) : phaseLabel;
 		return html`<div
 			class="card${ghost ? ' card--ghost' : ''}"
 			role="button"
@@ -1035,7 +1059,7 @@ Allow / Deny / View Plan cluster left-aligned. */
 				<gl-tooltip content=${session.displayName}
 					><span class="card__title">${session.displayName}</span></gl-tooltip
 				>
-				<span class="card__phase">${phaseLabel}${elapsed != null ? ` · ${elapsed}` : ''}</span>
+				<span class="card__phase">${phaseText}</span>
 			</div>
 			<div class="card__sub-row">
 				${
@@ -1048,8 +1072,8 @@ Allow / Deny / View Plan cluster left-aligned. */
 						? html`<gl-button
 								class="card__archive"
 								appearance="toolbar"
-								tooltip="Archive Session"
-								aria-label="Archive Session"
+								tooltip=${l10n.t('Archive Session')}
+								aria-label=${l10n.t('Archive Session')}
 								href=${archiveHref}
 							>
 								<code-icon icon="archive"></code-icon>
@@ -1095,7 +1119,7 @@ Allow / Deny / View Plan cluster left-aligned. */
 					idleFallback: 'lastPrompt',
 				}) ??
 				session.lastPrompt ??
-				'No recent activity'
+				l10n.t('No recent activity')
 			);
 		}
 
@@ -1110,8 +1134,8 @@ Allow / Deny / View Plan cluster left-aligned. */
 		return (
 			live ??
 			session.lastPrompt ??
-			(lastActive != null ? `Last active ${lastActive} ago` : undefined) ??
-			'No recent activity'
+			(lastActive != null ? l10n.t('Last active {duration} ago', { duration: lastActive }) : undefined) ??
+			l10n.t('No recent activity')
 		);
 	}
 
@@ -1137,7 +1161,7 @@ Allow / Deny / View Plan cluster left-aligned. */
 			const openAction = getAgentSessionOpenActions(session)[0];
 			return html`<div class="card__actions">
 				<div class="card__permission-actions">
-					<span class="card__permission-actions-hint">Answer in the agent's session</span>
+					<span class="card__permission-actions-hint">${l10n.t("Answer in the agent's session")}</span>
 					<gl-button
 						appearance="secondary"
 						density="compact"
@@ -1153,12 +1177,12 @@ Allow / Deny / View Plan cluster left-aligned. */
 							? html`<gl-button
 									appearance="secondary"
 									density="compact"
-									tooltip="View Plan"
+									tooltip=${l10n.t('View Plan')}
 									data-telemetry-action="open-plan"
 									href=${planHref}
 								>
 									<code-icon icon="tasklist"></code-icon>
-									View Plan
+									${l10n.t('View Plan')}
 								</gl-button>`
 							: nothing
 					}
@@ -1172,7 +1196,7 @@ Allow / Deny / View Plan cluster left-aligned. */
 				<gl-button
 					appearance="secondary"
 					density="compact"
-					tooltip=${isPlan ? 'Approve Plan' : 'Allow'}
+					tooltip=${isPlan ? l10n.t('Approve Plan') : l10n.t('Allow')}
 					data-telemetry-action="permission-allow"
 					href=${createCommandLink('gitlens.agents.resolvePermission', {
 						sessionId: session.id,
@@ -1181,12 +1205,12 @@ Allow / Deny / View Plan cluster left-aligned. */
 					})}
 				>
 					<code-icon icon="check"></code-icon>
-					${isPlan ? 'Approve' : 'Allow'}
+					${isPlan ? l10n.t('Approve') : l10n.t('Allow')}
 				</gl-button>
 				<gl-button
 					appearance="secondary"
 					density="compact"
-					tooltip=${isPlan ? 'Reject Plan' : 'Deny'}
+					tooltip=${isPlan ? l10n.t('Reject Plan') : l10n.t('Deny')}
 					data-telemetry-action="permission-deny"
 					href=${createCommandLink('gitlens.agents.resolvePermission', {
 						sessionId: session.id,
@@ -1195,13 +1219,13 @@ Allow / Deny / View Plan cluster left-aligned. */
 					})}
 				>
 					<code-icon icon="x"></code-icon>
-					${isPlan ? 'Reject' : 'Deny'}
+					${isPlan ? l10n.t('Reject') : l10n.t('Deny')}
 				</gl-button>
 				${
 					isPlan && permission.planFilePath != null
 						? html`<gl-button
 								appearance="toolbar"
-								tooltip="View Plan"
+								tooltip=${l10n.t('View Plan')}
 								data-telemetry-action="open-plan"
 								href=${createCommandLink(
 									'gitlens.agents.openPlanFile',

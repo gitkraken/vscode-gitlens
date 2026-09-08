@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
@@ -67,7 +67,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('SearchAndCompare', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(l10n.t('Search & Compare'), TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.SearchAndCompare;
 		return item;
 	}
@@ -137,7 +137,7 @@ export class SearchAndCompareView extends ViewBase<
 	protected readonly configKey = 'searchAndCompare';
 
 	constructor(container: Container, grouped?: GroupedViewContext) {
-		super(container, 'searchAndCompare', 'Search & Compare', 'searchAndCompareView', grouped);
+		super(container, 'searchAndCompare', l10n.t('Search & Compare'), 'searchAndCompareView', grouped);
 	}
 
 	override get canSelectMany(): boolean {
@@ -249,13 +249,7 @@ export class SearchAndCompareView extends ViewBase<
 	async search(
 		repoPath: string,
 		search: SearchQuery,
-		{
-			label,
-			reveal,
-		}: {
-			label: string | { label: string; resultsType?: { singular: string; plural: string } };
-			reveal?: RevealOptions;
-		},
+		{ reveal }: { reveal?: RevealOptions },
 		results?: Promise<GitLog | undefined> | GitLog,
 		updateNode?: SearchResultsNode,
 	): Promise<void> {
@@ -263,20 +257,13 @@ export class SearchAndCompareView extends ViewBase<
 			await this.show({ preserveFocus: reveal?.focus !== true });
 		}
 
-		const labels = {
-			label: `Search results ${typeof label === 'string' ? label : label.label}`,
-			queryLabel: label,
-		};
 		if (updateNode != null) {
-			await updateNode.edit({ pattern: search, labels: labels, log: results });
+			await updateNode.edit({ pattern: search, log: results });
 
 			return;
 		}
 
-		await this.addResultsNode(
-			() => new SearchResultsNode(this, this.root!, repoPath, search, labels, results),
-			reveal,
-		);
+		await this.addResultsNode(() => new SearchResultsNode(this, this.root!, repoPath, search, results), reveal);
 	}
 
 	getStoredNodes(): (CompareResultsNode | SearchResultsNode)[] {
@@ -300,15 +287,7 @@ export class SearchAndCompareView extends ViewBase<
 					);
 				}
 
-				return new SearchResultsNode(
-					this,
-					root,
-					p.path,
-					getSearchQuery(p.search),
-					p.labels,
-					undefined,
-					p.timestamp,
-				);
+				return new SearchResultsNode(this, root, p.path, getSearchQuery(p.search), undefined, p.timestamp);
 			});
 
 		return nodes;

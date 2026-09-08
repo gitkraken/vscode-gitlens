@@ -1,6 +1,7 @@
 import type { Remote } from '@eamodio/supertalk';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -184,33 +185,33 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 			case 'all':
 				if (hideFiltered) {
 					icon = 'filter-filled';
-					label = 'Filtered';
-					tooltip = 'Showing All Branches with Filters Applied';
+					label = l10n.t('Filtered');
+					tooltip = l10n.t('Showing All Branches with Filters Applied');
 				} else {
 					icon = 'repo';
-					label = 'All';
-					tooltip = 'Showing All Branches';
+					label = l10n.t('All');
+					tooltip = l10n.t('Showing All Branches');
 				}
 				break;
 			case 'current':
 				icon = 'git-branch';
-				label = headName ?? 'Current Branch';
-				tooltip = 'Showing Current Branch Only';
+				label = headName ?? l10n.t('Current Branch');
+				tooltip = l10n.t('Showing Current Branch Only');
 				break;
 			case 'smart':
 				icon = 'wand';
-				label = headName ?? 'Smart';
-				tooltip = 'Showing Smart Branches Only';
+				label = headName ?? l10n.t('Smart');
+				tooltip = l10n.t('Showing Smart Branches Only');
 				break;
 			case 'favorited':
 				icon = 'star-empty';
-				label = 'Favorites';
-				tooltip = 'Showing Favorited Branches Only';
+				label = l10n.t('Favorites');
+				tooltip = l10n.t('Showing Favorited Branches Only');
 				break;
 			case 'agents':
 				icon = 'robot';
-				label = 'Agents';
-				tooltip = 'Showing Agent Branches Only';
+				label = l10n.t('Agents');
+				tooltip = l10n.t('Showing Agent Branches Only');
 				break;
 			case 'scoped': {
 				// Every scope lands on a branch, but the branch isn't always what was picked — a focused
@@ -219,22 +220,22 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 				if (origin?.kind === 'pullRequest') {
 					icon = 'git-pull-request';
 					label = `#${origin.number}`;
-					tooltip = `Showing Pull Request #${origin.number} Only`;
+					tooltip = l10n.t('Showing Pull Request #{0} Only', origin.number);
 				} else if (origin?.kind === 'stack') {
 					icon = 'layers';
-					label = `Stack #${origin.number}`;
-					tooltip = `Showing Stack #${origin.number} of ${origin.size} Pull Requests Only`;
+					label = l10n.t('Stack #{0}', origin.number);
+					tooltip = l10n.t('Showing Stack #{0} of {1} Pull Requests Only', origin.number, origin.size);
 				} else if (origin?.kind === 'worktree') {
 					// The chip label is always the focused BRANCH — the worktree identity lives on the
 					// header's branch pill. The `gl-worktree` icon is kept anyway as a hint that this focus
 					// was reached via a worktree gesture.
 					icon = 'gl-worktree';
-					label = scopedName ?? 'Focused';
-					tooltip = `Showing ${scopedName ?? 'Focused Branch'} Only`;
+					label = scopedName ?? l10n.t('Focused');
+					tooltip = l10n.t('Showing {0} Only', scopedName ?? l10n.t('Focused Branch'));
 				} else {
 					icon = 'target';
-					label = scopedName ?? 'Focused';
-					tooltip = `Showing ${scopedName ?? 'Focused Branch'} Only`;
+					label = scopedName ?? l10n.t('Focused');
+					tooltip = l10n.t('Showing {0} Only', scopedName ?? l10n.t('Focused Branch'));
 				}
 				break;
 			}
@@ -274,13 +275,13 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 							html`<gl-tooltip
 								class="mode-chip__clear-tooltip"
 								placement="bottom"
-								content="Reset Filters"
+								content=${l10n.t('Reset Filters')}
 							>
 								<span
 									class="mode-chip__clear"
 									role="button"
 									tabindex="0"
-									aria-label="Reset Filters"
+									aria-label=${l10n.t('Reset Filters')}
 									@click=${this.handleModeClear}
 									@keydown=${this.handleModeClearKeydown}
 								>
@@ -291,29 +292,31 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 				</button>
 			</gl-tooltip>
 			<div slot="content" class="mode-popover__content" role="menu" @keydown=${this.handleContentKeydown}>
-				${this.renderModeMenuItem('all', 'repo', 'All Branches', undefined, mode, this.repo?.virtual ?? false)}
-				${this.renderModeMenuItem('current', 'git-branch', 'Current Branch', 'Follows HEAD', mode, false)}
+				${this.renderModeMenuItem('all', 'repo', l10n.t('All Branches'), undefined, mode, this.repo?.virtual ?? false)}
+				${this.renderModeMenuItem('current', 'git-branch', l10n.t('Current Branch'), l10n.t('Follows HEAD'), mode, false)}
 				${this.renderModeMenuItem(
 					'smart',
 					'wand',
-					'Smart Branches',
-					'Shows only relevant branches — includes the current branch, its upstream, and its base or target branch',
+					l10n.t('Smart Branches'),
+					l10n.t(
+						'Shows only relevant branches — includes the current branch, its upstream, and its base or target branch',
+					),
 					mode,
 					this.repo?.virtual ?? false,
 				)}
 				${this.renderModeMenuItem(
 					'agents',
 					'robot',
-					'Agent Branches',
-					'Shows only branches with currently running agents or agents idle for less than 24 hours',
+					l10n.t('Agent Branches'),
+					l10n.t('Shows only branches with currently running agents or agents idle for less than 24 hours'),
 					mode,
 					this.repo?.virtual ?? false,
 				)}
 				${this.renderModeMenuItem(
 					'favorited',
 					'star-empty',
-					'Favorited Branches',
-					'Shows only branches that have been starred as favorites',
+					l10n.t('Favorited Branches'),
+					l10n.t('Shows only branches that have been starred as favorites'),
 					mode,
 					this.repo?.virtual ?? false,
 				)}
@@ -345,13 +348,13 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		)}`;
 
 		return html`<div class="mode-popover__section-header">
-				<span class="mode-popover__section-title">Graph Options</span>
+				<span class="mode-popover__section-title">${l10n.t('Graph Options')}</span>
 				${when(
 					!isVirtual,
 					() => html`
 						<gl-tooltip
 							placement="top"
-							content=${remotesShown ? 'Hide Remote-only Branches' : 'Show Remote-only Branches'}
+							content=${remotesShown ? l10n.t('Hide Remote-only Branches') : l10n.t('Show Remote-only Branches')}
 						>
 							<gl-button
 								appearance="toolbar"
@@ -364,7 +367,10 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 								<code-icon icon="cloud"></code-icon>
 							</gl-button>
 						</gl-tooltip>
-						<gl-tooltip placement="top" content=${stashesShown ? 'Hide Stashes' : 'Show Stashes'}>
+						<gl-tooltip
+							placement="top"
+							content=${stashesShown ? l10n.t('Hide Stashes') : l10n.t('Show Stashes')}
+						>
 							<gl-button
 								appearance="toolbar"
 								density="compact"
@@ -378,7 +384,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 						</gl-tooltip>
 					`,
 				)}
-				<gl-tooltip placement="top" content=${tagsShown ? 'Hide Tags' : 'Show Tags'}>
+				<gl-tooltip placement="top" content=${tagsShown ? l10n.t('Hide Tags') : l10n.t('Show Tags')}>
 					<gl-button
 						appearance="toolbar"
 						density="compact"
@@ -390,12 +396,12 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 						<code-icon icon="tag"></code-icon>
 					</gl-button>
 				</gl-tooltip>
-				<gl-tooltip placement="top" content="Worktree Scope Settings...">
+				<gl-tooltip placement="top" content=${l10n.t('Worktree Scope Settings...')}>
 					<gl-button
 						appearance="toolbar"
 						density="compact"
 						href=${scopeSettingsLink}
-						aria-label="Worktree Scope Settings..."
+						aria-label=${l10n.t('Worktree Scope Settings...')}
 					>
 						<code-icon icon="gear"></code-icon>
 					</gl-button>
@@ -411,7 +417,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 							?checked=${simplifyChecked}
 							?disabled=${inScope}
 						>
-							Simplify Merge History
+							${l10n.t('Simplify Merge History')}
 						</gl-checkbox>
 					</div>`,
 			)}
@@ -421,7 +427,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 					@gl-change-value=${this.handleFilterChange}
 					?checked=${config?.dimMergeCommits ?? false}
 				>
-					Dim Merge Commit Rows
+					${l10n.t('Dim Merge Commit Rows')}
 				</gl-checkbox>
 			</div>`;
 	}
@@ -478,7 +484,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 				<span class="mode-menu-item__icon">
 					<code-icon icon="target"></code-icon>
 				</span>
-				<span class="mode-menu-item__label">Focus Branch</span>
+				<span class="mode-menu-item__label">${l10n.t('Focus Branch')}</span>
 				${
 					scopedName != null
 						? html`<gl-branch-name
@@ -538,11 +544,12 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 				<span class="mode-menu-item__icon">
 					<code-icon icon="git-pull-request"></code-icon>
 				</span>
-				<span class="mode-menu-item__label">Focus Pull Request</span>
+				<span class="mode-menu-item__label">${l10n.t('Focus Pull Request')}</span>
 				${
 					origin?.kind === 'stack'
 						? html`<span class="mode-menu-item__branch"
-								><code-icon icon="layers" size="11"></code-icon> Stack #${origin.number}</span
+								><code-icon icon="layers" size="11"></code-icon>
+								${l10n.t('Stack #{0}', origin.number)}</span
 							>`
 						: origin?.kind === 'pullRequest'
 							? html`<span class="mode-menu-item__branch">#${origin.number}</span>`
@@ -576,11 +583,11 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		if (data?.panel !== 'pullRequests') {
 			if (status === 'error' || this._prFetchExhausted) {
 				return html`<div class="mode-popover__empty mode-popover__empty--retry">
-					<span>Unable to load pull requests</span>
+					<span>${l10n.t('Unable to load pull requests')}</span>
 					<gl-button
 						appearance="toolbar"
 						density="compact"
-						tooltip="Retry"
+						tooltip=${l10n.t('Retry')}
 						@mousedown=${this.preventMouseDefault}
 						@click=${this.handleRetryPullRequests}
 					>
@@ -588,7 +595,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 					</gl-button>
 				</div>`;
 			}
-			return html`<div class="mode-popover__empty">Loading pull requests…</div>`;
+			return html`<div class="mode-popover__empty">${l10n.t('Loading pull requests…')}</div>`;
 		}
 
 		const scopedBranchName = this.graphState.scope?.branchName;
@@ -598,7 +605,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		const items = withSearchedPullRequest(data.items, searched);
 		const model = this.getPullRequestModel(items, scopedBranchName);
 		if (model.length === 0 && this._prFilterQuery === '') {
-			return html`<div class="mode-popover__empty">No pull requests available</div>`;
+			return html`<div class="mode-popover__empty">${l10n.t('No pull requests available')}</div>`;
 		}
 
 		return html`<div class="mode-popover__branches">
@@ -608,8 +615,8 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 				.filterTermsParser=${parsePullRequestFilterTerms}
 				filterable
 				tooltip-anchor-right
-				filter-placeholder="Filter or paste a pull request URL..."
-				aria-label="Pull Requests"
+				filter-placeholder=${l10n.t('Filter or paste a pull request URL...')}
+				aria-label=${l10n.t('Pull Requests')}
 				@gl-tree-filter-changed=${this.handlePrFilterChanged}
 				@gl-tree-generated-item-selected=${this.handleModeTreeItemSelected}
 			></gl-tree-view>
@@ -633,25 +640,27 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 			return found.focus != null
 				? nothing
 				: html`<div class="mode-popover__empty">
-						Pull request #${number} is from a fork — its branch isn't in this repository
+						${l10n.t("Pull request #{0} is from a fork — its branch isn't in this repository", number)}
 					</div>`;
 		}
 
 		if (this._prSearchState === 'searching') {
 			return html`<div class="mode-popover__empty">
-				<code-icon icon="loading" modifier="spin"></code-icon> Searching for #${number}…
+				<code-icon icon="loading" modifier="spin"></code-icon> ${l10n.t('Searching for #{0}…', number)}
 			</div>`;
 		}
 		if (this._prSearchState === 'notFound') {
-			return html`<div class="mode-popover__empty">No pull request #${number} in this repository</div>`;
+			return html`<div class="mode-popover__empty">
+				${l10n.t('No pull request #{0} in this repository', number)}
+			</div>`;
 		}
 
 		return html`<div class="mode-popover__empty mode-popover__empty--retry">
-			<span>Not in open pull requests</span>
+			<span>${l10n.t('Not in open pull requests')}</span>
 			<gl-button
 				appearance="toolbar"
 				density="compact"
-				tooltip="Search for #${number}"
+				tooltip=${l10n.t('Search for #{0}', number)}
 				@mousedown=${this.preventMouseDefault}
 				@click=${this.handleSearchPullRequest}
 			>
@@ -670,11 +679,11 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		if (data == null) {
 			if (status === 'error' || this._branchesFetchExhausted) {
 				return html`<div class="mode-popover__empty mode-popover__empty--retry">
-					<span>Unable to load branches</span>
+					<span>${l10n.t('Unable to load branches')}</span>
 					<gl-button
 						appearance="toolbar"
 						density="compact"
-						tooltip="Retry"
+						tooltip=${l10n.t('Retry')}
 						@mousedown=${this.preventMouseDefault}
 						@click=${this.handleRetryBranches}
 					>
@@ -682,12 +691,12 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 					</gl-button>
 				</div>`;
 			}
-			return html`<div class="mode-popover__empty">Loading branches…</div>`;
+			return html`<div class="mode-popover__empty">${l10n.t('Loading branches…')}</div>`;
 		}
 
 		const branches = data.items as GraphSidebarBranch[];
 		if (branches.length === 0) {
-			return html`<div class="mode-popover__empty">No branches available</div>`;
+			return html`<div class="mode-popover__empty">${l10n.t('No branches available')}</div>`;
 		}
 
 		const scopedBranchName = this.graphState.scope?.branchName;
@@ -701,14 +710,14 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 				.focusedPath=${focusedPath}
 				filterable
 				tooltip-anchor-right
-				filter-placeholder="Filter branches..."
-				aria-label="Branches"
+				filter-placeholder=${l10n.t('Filter branches...')}
+				aria-label=${l10n.t('Branches')}
 				@gl-tree-generated-item-selected=${this.handleModeTreeItemSelected}
 			>
 				<gl-tooltip
 					slot="filter-actions"
 					placement="top"
-					content=${layout === 'tree' ? 'View as List' : 'View as Tree'}
+					content=${layout === 'tree' ? l10n.t('View as List') : l10n.t('View as Tree')}
 				>
 					<gl-button
 						appearance="toolbar"
@@ -1209,7 +1218,10 @@ function pullRequestToLeaf(
 				? [
 						{
 							type: 'stack' as const,
-							label: `Layer ${pr.stack.position} of ${pr.stack.size}`,
+							label: l10n.t('Layer {position} of {size}', {
+								position: pr.stack.position,
+								size: pr.stack.size,
+							}),
 							position: 'before' as const,
 							layer: pr.stack.position,
 							size: pr.stack.size,
@@ -1262,13 +1274,13 @@ function buildPullRequestListModel(
 			expanded: true,
 			path: `stack:${entry.number}`,
 			level: 1,
-			label: `Stack #${entry.number}`,
+			label: l10n.t('Stack #{0}', entry.number),
 			description: `→ ${entry.baseRef}`,
 			icon: 'layers',
 			checkable: false,
 			filterText: `stack #${entry.number} ${entry.baseRef}`,
 			decorations: [
-				{ type: 'text', label: `${entry.size} PRs`, position: 'before', kind: 'muted' },
+				{ type: 'text', label: l10n.t('{0} PRs', entry.size), position: 'before', kind: 'muted' },
 			] satisfies TreeItemDecoration[],
 			context: [
 				base.focus!.branchName,

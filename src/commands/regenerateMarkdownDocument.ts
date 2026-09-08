@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { decodeGitLensRevisionUriAuthority } from '@gitlens/git/utils/uriAuthority.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { Schemes } from '../constants.js';
@@ -20,14 +20,14 @@ export class RegenerateMarkdownDocumentCommand extends ActiveEditorCommand {
 
 		// Only work with gitlens-ai-markdown scheme documents
 		if (uri.scheme !== Schemes.GitLensAIMarkdown) {
-			void window.showErrorMessage('This action can only be used on GitLens AI markdown documents.');
+			void window.showErrorMessage(l10n.t('This action can only be used on GitLens AI markdown documents.'));
 			return;
 		}
 
 		// Extract the command from the authority
 		const authority = uri.authority;
 		if (authority == null || authority.length === 0) {
-			void window.showErrorMessage('No regeneration command found for this document.');
+			void window.showErrorMessage(l10n.t('No regeneration command found for this document.'));
 			return;
 		}
 
@@ -35,7 +35,7 @@ export class RegenerateMarkdownDocumentCommand extends ActiveEditorCommand {
 			const metadata = decodeGitLensRevisionUriAuthority<MarkdownContentMetadata>(authority);
 
 			if (metadata.command == null) {
-				void window.showErrorMessage('No regeneration command found for this document.');
+				void window.showErrorMessage(l10n.t('No regeneration command found for this document.'));
 				return;
 			}
 
@@ -45,7 +45,7 @@ export class RegenerateMarkdownDocumentCommand extends ActiveEditorCommand {
 			await executeCommand(metadata.command.name, metadata.command.args);
 		} catch (ex) {
 			Logger.error(ex, 'RegenerateMarkdownDocumentCommand');
-			void window.showErrorMessage('Failed to regenerate document. See output for more details.');
+			void window.showErrorMessage(l10n.t('Failed to regenerate document. See output for more details.'));
 		}
 	}
 }

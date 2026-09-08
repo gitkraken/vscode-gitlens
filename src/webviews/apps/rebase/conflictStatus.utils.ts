@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import { canStageCurrent, canStageIncoming } from '@gitlens/git/utils/conflictResolution.utils.js';
 import type { ConflictFileWebviewContext } from '../../rebase/protocol.js';
@@ -5,9 +6,9 @@ import type { TreeItemAction } from '../shared/components/tree/base.js';
 
 export function getConflictFileActions(_conflictStatus: GitFileConflictStatus): TreeItemAction[] {
 	return [
-		{ icon: 'gl-diff-left', label: 'Open Current Changes', action: 'current-changes' },
-		{ icon: 'gl-diff-right', label: 'Open Incoming Changes', action: 'incoming-changes' },
-		{ icon: 'add', label: 'Stage', action: 'stage' },
+		{ icon: 'gl-diff-left', label: l10n.t('Open Current Changes'), action: 'current-changes' },
+		{ icon: 'gl-diff-right', label: l10n.t('Open Incoming Changes'), action: 'incoming-changes' },
+		{ icon: 'add', label: l10n.t('Stage'), action: 'stage' },
 	];
 }
 

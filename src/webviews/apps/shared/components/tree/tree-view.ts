@@ -1,4 +1,5 @@
 import { flow } from '@lit-labs/virtualizer/layouts/flow.js';
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -377,7 +378,7 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 	dimUnmatched = false;
 
 	@property({ type: String, attribute: 'empty-text' })
-	emptyText = 'No items';
+	emptyText = l10n.t('No items');
 
 	/**
 	 * Set by consumers that slot their own `empty` content — a loading skeleton, an error with a retry.
@@ -433,7 +434,7 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 	});
 
 	@property({ type: String, attribute: 'aria-label' })
-	override ariaLabel = 'Tree';
+	override ariaLabel = l10n.t('Tree');
 
 	/** External hint for which path should be focused when the model is set. Consumed once on model update. */
 	@property({ type: String, attribute: 'focused-path' })
@@ -1096,8 +1097,8 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 						appearance="input"
 						role="checkbox"
 						aria-checked=${this.searchBoxFilter ? 'true' : 'false'}
-						tooltip="Filter Results"
-						aria-label="Filter Results"
+						tooltip=${l10n.t('Filter Results')}
+						aria-label=${l10n.t('Filter Results')}
 						@click=${this.toggleSearchBoxFilter}
 					>
 						<code-icon icon="list-filter"></code-icon>
@@ -1149,7 +1150,7 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 							></lit-virtualizer>
 						</div>`
 					: showNoResults
-						? html`<div class="no-results">No results found</div>`
+						? html`<div class="no-results">${l10n.t('No results found')}</div>`
 						: // The no-data body only. A filter that matches nothing is the tree's own answer about
 							// the model it holds, so it stays out of the consumer's slot.
 							html`<slot name="empty"><div class="no-results">${this.emptyText}</div></slot>`

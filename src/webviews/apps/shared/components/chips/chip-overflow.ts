@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
@@ -230,7 +231,7 @@ export class GlChipOverflow extends LitElement {
 									slot="anchor"
 									class="overflow-chip"
 									part="overflow-chip"
-									aria-label="${this._overflowCount} more items"
+									aria-label=${l10n.t('{0} more items', this._overflowCount)}
 								>
 									+${this._overflowCount}
 								</button>

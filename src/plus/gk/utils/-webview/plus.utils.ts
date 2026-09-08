@@ -1,5 +1,6 @@
 import type { MessageItem } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { proTrialLengthInDays } from '../../../../constants.subscription.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
@@ -15,10 +16,10 @@ export function arePlusFeaturesEnabled(): boolean {
 export async function ensurePlusFeaturesEnabled(): Promise<boolean> {
 	if (arePlusFeaturesEnabled()) return true;
 
-	const confirm: MessageItem = { title: 'Enable' };
-	const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+	const confirm: MessageItem = { title: l10n.t('Enable') };
+	const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 	const result = await window.showInformationMessage(
-		'Pro features are currently disabled. Would you like to enable them?',
+		l10n.t('Pro features are currently disabled. Would you like to enable them?'),
 		{ modal: true },
 		confirm,
 		cancel,
@@ -34,10 +35,10 @@ export async function ensurePaidPlan(container: Container, title: string, source
 	while (true) {
 		const subscription = await container.subscription.getSubscription();
 		if (subscription.account?.verified === false) {
-			const resend = { title: 'Resend Email' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const resend = { title: l10n.t('Resend Email') };
+			const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nYou must verify your email before you can continue.`,
+				l10n.t('{0}\n\nYou must verify your email before you can continue.', title),
 				{ modal: true },
 				resend,
 				cancel,
@@ -56,11 +57,15 @@ export async function ensurePaidPlan(container: Container, title: string, source
 		if (isSubscriptionPaidPlan(plan)) break;
 
 		if (subscription.account == null) {
-			const signUp = { title: 'Try GitLens Pro' };
-			const signIn = { title: 'Sign In' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const signUp = { title: l10n.t('Try GitLens Pro') };
+			const signIn = { title: l10n.t('Sign In') };
+			const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to start your free ${proTrialLengthInDays}-day Pro trial for full access to all GitLens Pro features?`,
+				l10n.t(
+					'{0}\n\nDo you want to start your free {1}-day Pro trial for full access to all GitLens Pro features?',
+					title,
+					getNumericFormat()(proTrialLengthInDays),
+				),
 				{ modal: true },
 				signUp,
 				signIn,
@@ -73,10 +78,10 @@ export async function ensurePaidPlan(container: Container, title: string, source
 				}
 			}
 		} else {
-			const upgrade = { title: 'Upgrade to Pro' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const upgrade = { title: l10n.t('Upgrade to Pro') };
+			const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to upgrade for full access to all GitLens Pro features?`,
+				l10n.t('{0}\n\nDo you want to upgrade for full access to all GitLens Pro features?', title),
 				{ modal: true },
 				upgrade,
 				cancel,

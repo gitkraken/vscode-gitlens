@@ -1,9 +1,10 @@
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { basename } from '@gitlens/utils/path.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type {
 	AgentSessionState,
 	PastAgentSessionsResult,
@@ -956,7 +957,13 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 		// scrolls it instead of letting it render past the panel edge with no way to reach the bottom.
 		return html`
 			<gl-popover placement="bottom" auto-size-vertical>
-				<span slot="anchor" class="section__cluster" tabindex="0" role="button" aria-label="Agent sessions">
+				<span
+					slot="anchor"
+					class="section__cluster"
+					tabindex="0"
+					role="button"
+					aria-label=${l10n.t('Agent sessions')}
+				>
 					<span class="section__cluster-dots">
 						${visibleDots.map(
 							s =>
@@ -969,7 +976,7 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 								? html`<span
 										class="section__cluster-dot section__cluster-dot--idle section__cluster-dot--overflow"
 									>
-										+${overflow}
+										+${getNumericFormat()(overflow)}
 									</span>`
 								: nothing
 						}
@@ -1025,7 +1032,8 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 	private renderPastRow(session: PastAgentSessionState): unknown {
 		const elapsed = formatAgentElapsed(session.lastActivity);
 		const resumeActions = getPastAgentSessionResumeActions(session);
-		const phaseLabel = session.disposition === 'archived' ? 'Archived' : getAgentPhaseLabel('ended', undefined);
+		const phaseLabel =
+			session.disposition === 'archived' ? l10n.t('Archived') : getAgentPhaseLabel('ended', undefined);
 		const phaseContent = html`${phaseLabel}${
 			elapsed != null ? html` · <span class="agent-phase-elapsed">${elapsed}</span>` : nothing
 		}`;
@@ -1049,7 +1057,10 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 						</gl-tooltip>
 						${
 							elapsed != null
-								? html`<gl-tooltip content=${`Last active ${elapsed} ago`} placement="bottom">
+								? html`<gl-tooltip
+										content=${l10n.t('Last active {elapsed} ago', { elapsed: elapsed })}
+										placement="bottom"
+									>
 										<span class="card__phase">${phaseContent}</span>
 									</gl-tooltip>`
 								: html`<span class="card__phase">${phaseContent}</span>`
@@ -1068,7 +1079,7 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 								? html`<gl-action-chip
 										class="card__archive"
 										icon="archive"
-										label="Archive Session"
+										label=${l10n.t('Archive Session')}
 										overlay="tooltip"
 										@click=${() => this.onPastSessionArchiveClick(session)}
 									></gl-action-chip>`
@@ -1103,7 +1114,11 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 					density="compact"
 					?disabled=${this.pastSessionsLoading}
 					@click=${() => this.onPastSessionsMoreClick(nextLimit)}
-					>${this.pastSessionsLoading ? 'Loading…' : `Show More (${remaining})`}</gl-button
+					>${
+						this.pastSessionsLoading
+							? l10n.t('Loading…')
+							: l10n.t('Show More ({count})', { count: getNumericFormat()(remaining) })
+					}</gl-button
 				>
 			</div>
 		`;
@@ -1139,7 +1154,7 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 						? html`<span
 								class="section__cluster-dot section__cluster-dot--idle section__cluster-dot--overflow"
 							>
-								+${overflow}
+								+${getNumericFormat()(overflow)}
 							</span>`
 						: nothing
 				}
@@ -1147,7 +1162,7 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 			<span class="section__cluster-summary">${this.renderCountsSummary(counts)}</span>
 		`;
 		const headingContent = html`
-			<span class="section__heading-label">Agents</span>
+			<span class="section__heading-label">${l10n.t('Agents')}</span>
 			${
 				sessions.length > 0
 					? html`<gl-popover placement="bottom" auto-size-vertical ?disabled=${state === 'expanded'}>
@@ -1190,8 +1205,8 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 		return html`<gl-action-chip
 			class="section__heading-action"
 			icon="robot"
-			label="Start Agent Session"
-			alt-label="Start Agent Session With…"
+			label=${l10n.t('Start Agent Session')}
+			alt-label=${l10n.t('Start Agent Session With…')}
 			overlay="tooltip"
 			href=${createCommandLink('gitlens.startAgentSession', { cwd: this.worktreePath })}
 			alt-href=${createCommandLink('gitlens.startAgentSession', { cwd: this.worktreePath, pick: true })}
@@ -1206,7 +1221,7 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 		return html`<gl-action-chip
 			class="section__heading-action"
 			icon="history"
-			label=${this.wip ? 'Open or Resume Session…' : 'Resume Session…'}
+			label=${this.wip ? l10n.t('Open or Resume Session…') : l10n.t('Resume Session…')}
 			overlay="tooltip"
 			href=${createCommandLink('gitlens.agents.showResumeSessionPicker', { worktreePath: this.worktreePath })}
 		></gl-action-chip>`;
@@ -1248,28 +1263,34 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 	private expandAriaLabel(state: ExpandState): string {
 		switch (state) {
 			case 'collapsed':
-				return 'Show all sessions';
+				return l10n.t('Show all sessions');
 			case 'partial':
-				return 'Showing sessions needing input — collapse';
+				return l10n.t('Showing sessions needing input — collapse');
 			case 'expanded':
-				return 'Showing all sessions — collapse';
+				return l10n.t('Showing all sessions — collapse');
 		}
 	}
 
 	private renderCountsSummary(counts: Record<AgentSessionCategory, number>): unknown {
 		const parts: unknown[] = [];
 		if (counts['needs-input'] > 0) {
-			parts.push(html`<strong>${counts['needs-input']} need input</strong>`);
+			parts.push(
+				html`<strong
+					>${l10n.t('{count} need input', {
+						count: getNumericFormat()(counts['needs-input']),
+					})}</strong
+				>`,
+			);
 		}
 		if (counts.working > 0) {
-			parts.push(html`<span>${counts.working} working</span>`);
+			parts.push(html`<span>${l10n.t('{count} working', { count: getNumericFormat()(counts.working) })}</span>`);
 		}
 		if (counts.idle > 0) {
-			parts.push(html`<span>${counts.idle} idle</span>`);
+			parts.push(html`<span>${l10n.t('{count} idle', { count: getNumericFormat()(counts.idle) })}</span>`);
 		}
 		const pastCount = this.wip ? this.pastSessions?.total : counts.ended;
 		if (pastCount != null && (this.wip || pastCount > 0)) {
-			parts.push(html`<span>${pastCount} past</span>`);
+			parts.push(html`<span>${l10n.t('{count} past', { count: getNumericFormat()(pastCount) })}</span>`);
 		}
 
 		const out: unknown[] = [];
@@ -1312,7 +1333,11 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 	private renderHoverFooter(hidden: number): unknown {
 		if (hidden <= 0) return nothing;
 
-		const countText = pluralize('more past session', hidden);
+		const count = getNumericFormat()(hidden);
+		const countText =
+			hidden === 1
+				? l10n.t('{count} more past session', { count: count })
+				: l10n.t('{count} more past sessions', { count: count });
 		return html`
 			<div class="section__hover-footer">
 				<span class="section__hover-count">${countText}</span>
@@ -1340,7 +1365,10 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 		// dims and its name tooltip gains a "now in X" hint pointing at where it actually is.
 		const isGhost = !this.isCurrent(session);
 		const nameTooltip = isGhost
-			? `${session.displayName} — now in ${this.ghostLocationLabel(session)}`
+			? l10n.t('{name} — now in {location}', {
+					name: session.displayName,
+					location: this.ghostLocationLabel(session),
+				})
 			: session.displayName;
 
 		return html`
@@ -1384,7 +1412,8 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 		// Phase chip shows how long the session has been in this phase; its tooltip reports the
 		// last time the session actually did something, which is a different clock.
 		const lastActive = formatAgentElapsed(session.lastActivity);
-		const phaseTooltip = lastActive != null ? `Last active ${lastActive} ago` : undefined;
+		const phaseTooltip =
+			lastActive != null ? l10n.t('Last active {elapsed} ago', { elapsed: lastActive }) : undefined;
 		const openActions = createAgentSessionOpenHrefs(session);
 		const archiveHref = category === 'ended' ? createAgentSessionArchiveHref(session) : undefined;
 		// Resolve actions surface only for an ask this window can actually route. An unresolvable
@@ -1399,7 +1428,10 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 		// session wherever it actually is, not this worktree specifically.
 		const isGhost = !this.isCurrent(session);
 		const nameTooltip = isGhost
-			? `${session.displayName} — now in ${this.ghostLocationLabel(session)}`
+			? l10n.t('{name} — now in {location}', {
+					name: session.displayName,
+					location: this.ghostLocationLabel(session),
+				})
 			: session.displayName;
 
 		return html`
@@ -1441,7 +1473,7 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 								? html`<gl-action-chip
 										class="card__archive"
 										icon="archive"
-										label="Archive Session"
+										label=${l10n.t('Archive Session')}
 										overlay="tooltip"
 										href=${archiveHref}
 									></gl-action-chip>`
@@ -1462,7 +1494,7 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 						? html`<div class="card__actions">${this.renderCardActions(session)}</div>`
 						: category === 'needs-input'
 							? html`<div class="card__actions card__actions--unresolvable">
-									<span class="card__actions-hint">Answer in the agent's session</span>
+									<span class="card__actions-hint">${l10n.t("Answer in the agent's session")}</span>
 									<gl-button appearance="secondary" density="compact" href=${openActions[0].href}>
 										<code-icon icon=${openActions[0].icon} slot="prefix"></code-icon>
 										${openActions[0].label}
@@ -1619,8 +1651,8 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 					alwaysAllow: true,
 				})
 			: undefined;
-		const allowLabel = permission.kind === 'plan' ? 'Approve Plan' : 'Allow';
-		const denyLabel = permission.kind === 'plan' ? 'Reject Plan' : 'Deny';
+		const allowLabel = permission.kind === 'plan' ? l10n.t('Approve Plan') : l10n.t('Allow');
+		const denyLabel = permission.kind === 'plan' ? l10n.t('Reject Plan') : l10n.t('Deny');
 
 		// View Plan / Copy Plan affordances live in the prompt-detail composite (as chips in the
 		// caption row), so they don't get duplicated here. This row carries only resolution actions.
@@ -1633,7 +1665,7 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 				showAlwaysAllow && alwaysAllowHref != null
 					? html`<gl-button appearance="secondary" density="compact" href=${alwaysAllowHref}>
 							<code-icon icon="check-all" slot="prefix"></code-icon>
-							Always Allow
+							${l10n.t('Always Allow')}
 						</gl-button>`
 					: nothing
 			}

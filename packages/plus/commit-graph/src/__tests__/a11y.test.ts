@@ -49,6 +49,15 @@ suite('a11y/buildAriaLabel', () => {
 		assert.ok(!parts.some(p => p.includes('1234567')), 'the placeholder sha must not be spoken');
 	});
 
+	test('a workdir label override replaces the canonical model message only at the aria boundary', () => {
+		const workdir = commit({ kind: 'workdir', message: 'Custom canonical workdir message' });
+		assert.strictEqual(buildAriaLabel(workdir, 'workdir', undefined, '2h'), 'Custom canonical workdir message, 2h');
+		assert.strictEqual(
+			buildAriaLabel(workdir, 'workdir', undefined, '2h', undefined, 'Localized Working Changes'),
+			'Localized Working Changes, 2h',
+		);
+	});
+
 	test('a workdir row with no summary falls back to a generic header', () => {
 		assert.strictEqual(label(commit({ kind: 'workdir', message: '   ' }), 'workdir')[0], 'Working directory');
 	});
@@ -61,6 +70,11 @@ suite('a11y/buildAriaLabel', () => {
 
 	test('drops the fragments it has nothing to say for', () => {
 		assert.deepStrictEqual(label(commit({ author: '', message: '', date: 0 }), 'commit'), ['Commit 1234567']);
+		assert.deepStrictEqual(label(commit({ author: '', message: '', date: 0 }), 'commit', ''), ['Commit 1234567']);
+		assert.strictEqual(
+			buildAriaLabel(commit({ message: '', date: 0 }), 'workdir', '', '', ''),
+			'Working directory',
+		);
 	});
 
 	// The spoken date must match the VISIBLE one, so a caller-supplied string always wins over the

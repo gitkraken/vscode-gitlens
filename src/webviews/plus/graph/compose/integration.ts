@@ -1,10 +1,11 @@
 import type { CancellationToken } from 'vscode';
+import { l10n } from 'vscode';
 import { rootSha } from '@gitlens/git/models/revision.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { GitRepositoryService } from '../../../../git/gitRepositoryService.js';
 import { ComposeToolsIntegration } from '../../../../plus/coretools/compose/integration.js';
-import { coverCommitRange } from '../../../../plus/coretools/compose/recomposeScope.js';
+import { coverCommitRange, getInvalidComposeScopeMessage } from '../../../../plus/coretools/compose/recomposeScope.js';
 import type {
 	ComposeApplyPlan,
 	ComposeHunk,
@@ -152,7 +153,9 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			// UI disables exclusion for interior scopes; guard the host path too.
 			if (userExcluded?.size && resolved.tipSha !== resolved.headSha) {
 				throw new ComposeWorkflowInputError(
-					'Compose scope is invalid: files cannot be excluded when the range has commits above it — the newer commits depend on the excluded changes',
+					l10n.t(
+						'Compose scope is invalid: files cannot be excluded when the range has commits above it — the newer commits depend on the excluded changes',
+					),
 				);
 			}
 
@@ -326,7 +329,9 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		const cachedExtras = cached.extras as GraphCacheExtras | undefined;
 		if (input.includedCommitIds != null && cachedExtras != null && cachedExtras.tipSha !== cachedExtras.headSha) {
 			throw new ComposeWorkflowInputError(
-				'Commits cannot be partially applied when the range has commits above it — apply the full plan instead',
+				l10n.t(
+					'Commits cannot be partially applied when the range has commits above it — apply the full plan instead',
+				),
 			);
 		}
 
@@ -590,17 +595,17 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		kind: 'wip-only' | 'wip+commits' | 'commits-only';
 	}> {
 		if (scope.type !== 'wip') {
-			throw new Error(`Compose does not support scope type '${scope.type}' yet`);
+			throw new Error(l10n.t("Compose does not support scope type '{0}' yet", scope.type));
 		}
 
 		const branch = await svc.branches.getBranch();
 		if (branch == null || branch.detached || branch.remote) {
-			throw new Error('Compose requires a local checked-out branch');
+			throw new Error(l10n.t('Compose requires a local checked-out branch'));
 		}
 
 		const headCommit = await svc.commits.getCommit('HEAD');
 		if (headCommit == null) {
-			throw new Error('Unable to resolve HEAD');
+			throw new Error(l10n.t('Unable to resolve HEAD'));
 		}
 
 		const headSha = headCommit.sha;
@@ -620,7 +625,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 
 		const covered = await coverCommitRange(svc, headSha, new Set(scope.includeShas));
 		if (!covered.ok) {
-			throw new ComposeWorkflowInputError(`Compose scope is invalid: ${covered.message}`);
+			throw new ComposeWorkflowInputError(getInvalidComposeScopeMessage(covered));
 		}
 
 		// Working changes have no defined basis mid-range (the library's collect enforces this
@@ -628,7 +633,9 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		// newest commit — but guard the seeded paths.
 		if (hasWip && covered.tipSha !== headSha) {
 			throw new ComposeWorkflowInputError(
-				'Compose scope is invalid: working changes can only be included when the range ends at the branch head',
+				l10n.t(
+					'Compose scope is invalid: working changes can only be included when the range ends at the branch head',
+				),
 			);
 		}
 

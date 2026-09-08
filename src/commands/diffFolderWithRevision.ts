@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor } from 'vscode';
-import { Uri } from 'vscode';
+import { l10n, Uri } from 'vscode';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { pad } from '@gitlens/utils/string.js';
@@ -45,7 +45,7 @@ export class DiffFolderWithRevisionCommand extends ActiveEditorCommand {
 				this.container,
 				uri,
 				editor,
-				`Open Folder Changes with Revision`,
+				l10n.t('Open Folder Changes with Revision'),
 			);
 			if (repo == null) return;
 
@@ -60,14 +60,20 @@ export class DiffFolderWithRevisionCommand extends ActiveEditorCommand {
 				);
 
 			const relativePath = repo.git.getRelativePath(uri, repo.path);
-			const title = `Open Folder Changes with Revision${pad(GlyphChars.Dot, 2, 2)}${relativePath}${
-				gitUri.sha ? ` at ${shortenRevision(gitUri.sha)}` : ''
-			}`;
-			const pick = await showCommitPicker(log, title, 'Choose a commit to compare with', {
+			const titleSeparator = pad(GlyphChars.Dot, 2, 2);
+			const title = gitUri.sha
+				? l10n.t(
+						'Open Folder Changes with Revision{0}{1} at {2}',
+						titleSeparator,
+						relativePath,
+						shortenRevision(gitUri.sha),
+					)
+				: l10n.t('Open Folder Changes with Revision{0}{1}', titleSeparator, relativePath);
+			const pick = await showCommitPicker(log, title, l10n.t('Choose a commit to compare with'), {
 				picked: gitUri.sha,
 				showOtherReferences: [
 					CommandQuickPickItem.fromCommand<DiffFolderWithRevisionFromCommandArgs>(
-						'Choose a Branch or Tag...',
+						l10n.t('Choose a Branch or Tag...'),
 						'gitlens.diffFolderWithRevisionFrom',
 					),
 				],
@@ -77,7 +83,7 @@ export class DiffFolderWithRevisionCommand extends ActiveEditorCommand {
 			void openFolderCompare(this.container, uri, { repoPath: repo.path, lhs: pick.ref, rhs: gitUri.sha ?? '' });
 		} catch (ex) {
 			Logger.error(ex, 'DiffFolderWithRevisionCommand');
-			void showGenericErrorMessage('Unable to open comparison');
+			void showGenericErrorMessage(l10n.t('Unable to open comparison'));
 		}
 	}
 }

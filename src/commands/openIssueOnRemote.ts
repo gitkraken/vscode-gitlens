@@ -1,4 +1,4 @@
-import { env, window } from 'vscode';
+import { env, l10n, window } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { OpenIssueActionContext } from '../api/gitlens.d.js';
@@ -28,7 +28,7 @@ export class OpenIssueOnRemoteCommand extends GlCommandBase {
 
 	async execute(args?: OpenIssueOnRemoteCommandArgs): Promise<void> {
 		if (args?.issue == null) {
-			void window.showInformationMessage('No issue provided');
+			void window.showInformationMessage(l10n.t('No issue provided'));
 			Logger.warn(getScopedLogger(), 'No issue provided in OpenIssueOnRemoteCommand', args);
 			return;
 		}

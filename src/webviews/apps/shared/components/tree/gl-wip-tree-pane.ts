@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -91,7 +92,7 @@ export class GlWipTreePane extends LitElement {
 	contextRevision?: unknown;
 
 	@property({ attribute: 'empty-text' })
-	emptyText = 'No Files';
+	emptyText = l10n.t('No Files');
 
 	@property({ type: Object, attribute: 'search-context' })
 	searchContext?: GitCommitSearchContext;
@@ -227,9 +228,9 @@ export class GlWipTreePane extends LitElement {
 				getGroup: (file: FileItem) =>
 					isConflictStatus(file.status) ? 'conflicts' : file.staged ? 'staged' : 'unstaged',
 				groups: [
-					{ key: 'conflicts', label: 'Conflicts', actions: [] },
-					{ key: 'staged', label: 'Staged Changes', actions: this.getStagedActions() },
-					{ key: 'unstaged', label: 'Unstaged Changes', actions: this.getUnstagedActions() },
+					{ key: 'conflicts', label: l10n.t('Conflicts'), actions: [] },
+					{ key: 'staged', label: l10n.t('Staged Changes'), actions: this.getStagedActions() },
+					{ key: 'unstaged', label: l10n.t('Unstaged Changes'), actions: this.getUnstagedActions() },
 				],
 			};
 		}
@@ -268,15 +269,15 @@ export class GlWipTreePane extends LitElement {
 		// Primary action label always set; alt label only when both staged + unstaged changes exist.
 		// Both flow into gl-action-chip's `label`/`alt-label`, which composes the tooltip, swaps live
 		// when Alt is held, and keeps the aria-label single-action.
-		const multiDiffLabel = hasStagedAndUnstaged ? 'Open Staged Changes' : 'Open All Changes';
-		const multiDiffAltLabel = hasStagedAndUnstaged ? 'Open Unstaged Changes' : undefined;
+		const multiDiffLabel = hasStagedAndUnstaged ? l10n.t('Open Staged Changes') : l10n.t('Open All Changes');
+		const multiDiffAltLabel = hasStagedAndUnstaged ? l10n.t('Open Unstaged Changes') : undefined;
 
 		// With ≥2 rows selected the Discard/Stash/Copy toolbar buttons act on the selection (primary),
 		// demoting the scope action (staged-aware, the no-selection primary) to Alt — mirrors "Open
 		// Selected Changes".
 		const hasSelection = this.hasMultiSelection;
 		// The scope action shown/run on the demoted Alt slot (and as primary when nothing is selected).
-		const stashScopeLabel = hasStagedAndUnstaged ? 'Stash Staged Changes' : 'Stash All Changes';
+		const stashScopeLabel = hasStagedAndUnstaged ? l10n.t('Stash Staged Changes') : l10n.t('Stash All Changes');
 
 		return html`<gl-file-tree-pane
 			.files=${this._effectiveFiles}
@@ -301,10 +302,9 @@ export class GlWipTreePane extends LitElement {
 			.showSearchBox=${this.showSearchBox}
 			.searchBoxFilter=${this.searchBoxFilter}
 			empty-text=${this.emptyText}
-			selection-badge-label="Staged"
+			selection-badge-kind="staged"
 			selection-action="file-compare-wip"
-			check-verb="Stage"
-			uncheck-verb="Unstage"
+			check-action="stage"
 			@gl-check-all=${this.onCheckAll}
 			@file-selection-changed=${this.onFileSelectionChanged}
 			@file-compare-wip=${this.onFileCompareWip}
@@ -321,17 +321,17 @@ export class GlWipTreePane extends LitElement {
 									: html`${this.renderDiscardUnstagedAction(files)}
 											<gl-action-chip
 												icon="gl-stash-save"
-												label=${hasSelection ? 'Stash Selected Changes' : stashScopeLabel}
+												label=${hasSelection ? l10n.t('Stash Selected Changes') : stashScopeLabel}
 												alt-label=${
 													hasSelection
 														? stashScopeLabel
 														: hasStagedAndUnstaged
-															? 'Stash All Changes'
+															? l10n.t('Stash All Changes')
 															: nothing
 												}
 												@click=${this.onStashSave}
 											>
-												<span class="stash-label">Stash</span>
+												<span class="stash-label">${l10n.t('Stash')}</span>
 											</gl-action-chip>`
 							}
 							${
@@ -371,7 +371,7 @@ export class GlWipTreePane extends LitElement {
 		// Unstaged takes precedence; the button only switches to staged-discard when nothing
 		// unstaged remains, so it never destroys staged content while unstaged changes are present.
 		const stagedOnly = !hasUnstaged && hasStaged;
-		const scopeLabel = stagedOnly ? 'Discard Staged Changes' : 'Discard Unstaged Changes';
+		const scopeLabel = stagedOnly ? l10n.t('Discard Staged Changes') : l10n.t('Discard Unstaged Changes');
 		// Same `> 1` selection gate as Stash/Copy. Reads the same gate the handlers do so the
 		// announced label can't drift from what they run.
 		const hasSelection = this.selectionForToolbarAction() != null;
@@ -381,7 +381,7 @@ export class GlWipTreePane extends LitElement {
 		// no "Discard All" scope action to fall back to below the scope action itself.
 		return html`<gl-action-chip
 			icon="discard"
-			label=${hasSelection ? 'Discard Selected Changes' : scopeLabel}
+			label=${hasSelection ? l10n.t('Discard Selected Changes') : scopeLabel}
 			alt-label=${hasSelection ? scopeLabel : nothing}
 			?disabled=${!hasUnstaged && !hasStaged}
 			@click=${stagedOnly ? this.onDiscardStaged : this.onDiscardUnstaged}
@@ -397,7 +397,9 @@ export class GlWipTreePane extends LitElement {
 
 		// The scope action (staged-aware, the no-selection primary) — runs as primary when nothing is
 		// selected, and demotes to the Alt slot when a selection is active.
-		const scopeLabel = hasStagedAndUnstaged ? 'Copy Staged Changes (Patch)' : 'Copy All Changes (Patch)';
+		const scopeLabel = hasStagedAndUnstaged
+			? l10n.t('Copy Staged Changes (Patch)')
+			: l10n.t('Copy All Changes (Patch)');
 
 		// With ≥2 rows selected the primary copies the selection and Alt falls back to the scope action
 		// (mirrors "Open Selected Changes"). Otherwise the chip's alt-label drives the live staged↔
@@ -405,8 +407,8 @@ export class GlWipTreePane extends LitElement {
 		// is a plain "Copy All Changes (Patch)" with no alt action.
 		return html`<gl-action-chip
 			icon="copy"
-			label=${hasSelection ? 'Copy Selected Changes (Patch)' : scopeLabel}
-			alt-label=${hasSelection ? scopeLabel : hasStagedAndUnstaged ? 'Copy Unstaged Changes (Patch)' : nothing}
+			label=${hasSelection ? l10n.t('Copy Selected Changes (Patch)') : scopeLabel}
+			alt-label=${hasSelection ? scopeLabel : hasStagedAndUnstaged ? l10n.t('Copy Unstaged Changes (Patch)') : nothing}
 			@click=${(e: MouseEvent) => this.onCopyPatch(e, repoPath)}
 		></gl-action-chip>`;
 	}
@@ -417,9 +419,9 @@ export class GlWipTreePane extends LitElement {
 		return html`<gl-action-chip
 			slot="leading-actions"
 			icon="gl-merge"
-			label="Resolve Conflicts"
+			label=${l10n.t('Resolve Conflicts')}
 			@click=${this.onResolveConflicts}
-			><span>Resolve Conflicts</span></gl-action-chip
+			><span>${l10n.t('Resolve Conflicts')}</span></gl-action-chip
 		>`;
 	}
 
@@ -433,13 +435,13 @@ export class GlWipTreePane extends LitElement {
 		return html`<gl-action-chip
 				slot="leading-actions"
 				icon="gl-accept-all-left"
-				label="Stage Current for All Conflicts"
+				label=${l10n.t('Stage Current for All Conflicts')}
 				@click=${this.onResolveAllCurrent}
 			></gl-action-chip>
 			<gl-action-chip
 				slot="leading-actions"
 				icon="gl-accept-all-right"
-				label="Stage Incoming for All Conflicts"
+				label=${l10n.t('Stage Incoming for All Conflicts')}
 				@click=${this.onResolveAllIncoming}
 			></gl-action-chip>`;
 	}
@@ -554,7 +556,7 @@ export class GlWipTreePane extends LitElement {
 		const filtered = this.filterFilesByScope(files, scope);
 		if (!filtered.length) return;
 
-		const title = this.buildScopedTitle(refs.title ?? 'Working Changes', scope);
+		const title = this.buildScopedTitle(refs.title ?? l10n.t('Working Changes'), scope);
 
 		this.dispatchEvent(
 			new CustomEvent('open-multiple-changes', {
@@ -740,7 +742,7 @@ export class GlWipTreePane extends LitElement {
 		return [
 			{
 				icon: 'gl-cloud-patch-share',
-				label: 'Share Staged Changes',
+				label: l10n.t('Share Staged Changes'),
 				action: 'staged-create-patch',
 			},
 		];
@@ -750,7 +752,7 @@ export class GlWipTreePane extends LitElement {
 		return [
 			{
 				icon: 'gl-cloud-patch-share',
-				label: 'Share Unstaged Changes',
+				label: l10n.t('Share Unstaged Changes'),
 				action: 'unstaged-create-patch',
 			},
 		];

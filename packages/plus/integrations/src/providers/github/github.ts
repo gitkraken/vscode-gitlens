@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { GitHubApiConfig } from '@gitlens/git-github/api/config.js';
 import { GitHubApi } from '@gitlens/git-github/api/github.js';
 import { AuthenticationErrorReason } from '@gitlens/git/errors.js';
@@ -27,9 +28,12 @@ export function createGitHubApi(ctx: IntegrationServiceContext): GitHubApi {
 				error.reason === AuthenticationErrorReason.Forbidden
 			) {
 				const reauthenticate = await ctx.hooks?.onReauthenticationRequired?.(
-					`${error.message}. Would you like to try reauthenticating${
-						error.reason === AuthenticationErrorReason.Forbidden ? ' to provide additional access' : ''
-					}?`,
+					error.reason === AuthenticationErrorReason.Forbidden
+						? l10n.t(
+								'{0}. Would you like to try reauthenticating to provide additional access?',
+								error.message,
+							)
+						: l10n.t('{0}. Would you like to try reauthenticating?', error.message),
 				);
 
 				if (reauthenticate) {

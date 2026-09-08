@@ -1,11 +1,11 @@
 import type { TreeCheckboxChangeEvent } from 'vscode';
-import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Disposable, l10n, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitUser } from '@gitlens/git/models/user.js';
 import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { weakEvent } from '@gitlens/utils/event.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewShowBranchComparison } from '../../config.js';
 import { GlyphChars } from '../../constants.js';
 import type { StoredBranchComparison, StoredBranchComparisons, StoredNamedRef } from '../../constants.storage.js';
@@ -154,12 +154,14 @@ export class CompareBranchNode extends SubscribeableViewNode<
 					forkPoint: true,
 				})) ?? (await svc.refs.getMergeBase(behind.ref1, behind.ref2));
 
+			const behindCount = counts?.right ?? 0;
+			const aheadCount = counts?.left ?? 0;
 			const children: ViewNode[] = [
 				new ResultsCommitsNode(
 					this.view,
 					this,
 					this.repoPath,
-					'Behind',
+					l10n.t('Behind'),
 					{
 						query: this.getCommitsQuery(behind.range),
 						comparison: behind,
@@ -171,7 +173,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 						},
 					},
 					{
-						description: pluralize('commit', counts?.right ?? 0),
+						description: getCommitCountLabel(behindCount),
 						expand: false,
 					},
 				),
@@ -179,7 +181,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 					this.view,
 					this,
 					this.repoPath,
-					'Ahead',
+					l10n.t('Ahead'),
 					{
 						query: this.getCommitsQuery(ahead.range),
 						comparison: ahead,
@@ -191,7 +193,7 @@ export class CompareBranchNode extends SubscribeableViewNode<
 						},
 					},
 					{
-						description: pluralize('commit', counts?.left ?? 0),
+						description: getCommitCountLabel(aheadCount),
 						expand: false,
 					},
 				),
@@ -223,20 +225,18 @@ export class CompareBranchNode extends SubscribeableViewNode<
 		let label;
 		let tooltip;
 		if (this._compareWith == null) {
-			label = `Compare ${
-				this.compareWithWorkingTree ? 'Working Tree' : this.branch.name
-			} with <branch, tag, or ref>`;
+			const compareRef = this.compareWithWorkingTree ? l10n.t('Working Tree') : this.branch.name;
+			label = l10n.t('Compare {0} with <branch, tag, or ref>', compareRef);
 			state = TreeItemCollapsibleState.None;
-			tooltip = `Click to compare ${
-				this.compareWithWorkingTree ? 'Working Tree' : this.branch.name
-			} with a branch, tag, or ref`;
+			tooltip = l10n.t('Click to compare {0} with a branch, tag, or ref', compareRef);
 		} else {
-			label = `Compare ${this.compareWithWorkingTree ? 'Working Tree' : this.branch.name} with ${
+			const compareRef = this.compareWithWorkingTree ? l10n.t('Working Tree') : this.branch.name;
+			const compareWithRef =
 				this._compareWith.label ??
 				shortenRevision(this._compareWith.ref, {
-					strings: { working: 'Working Tree' },
-				})
-			}`;
+					strings: { working: l10n.t('Working Tree') },
+				});
+			label = l10n.t('Compare {0} with {1}', compareRef, compareWithRef);
 			state = TreeItemCollapsibleState.Collapsed;
 		}
 
@@ -250,9 +250,9 @@ export class CompareBranchNode extends SubscribeableViewNode<
 
 		if (this._compareWith == null) {
 			item.command = {
-				title: `Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with${
-					GlyphChars.Ellipsis
-				}`,
+				title: this.compareWithWorkingTree
+					? l10n.t('Compare {0} (working) with{1}', this.branch.name, GlyphChars.Ellipsis)
+					: l10n.t('Compare {0} with{1}', this.branch.name, GlyphChars.Ellipsis),
 				command: 'gitlens.views.editNode',
 				arguments: [this],
 			};
@@ -281,10 +281,13 @@ export class CompareBranchNode extends SubscribeableViewNode<
 
 	@debug()
 	async edit(): Promise<void> {
+		const title = this.compareWithWorkingTree
+			? l10n.t('Compare {0} (working) with', this.branch.name)
+			: l10n.t('Compare {0} with', this.branch.name);
 		const pick = await showReferencePicker(
 			this.branch.repoPath,
-			`Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with`,
-			'Choose a reference (branch, tag, etc) to compare with',
+			title,
+			l10n.t('Choose a reference (branch, tag, etc) to compare with'),
 			{
 				allowedAdditionalInput: { rev: true },
 				picked: this.branch.ref,
@@ -426,4 +429,9 @@ export class CompareBranchNode extends SubscribeableViewNode<
 		this._compareWith = compareWith;
 		await this.storeCompareWith(true);
 	}
+}
+
+function getCommitCountLabel(count: number): string {
+	const formattedCount = getNumericFormat()(count);
+	return count === 1 ? l10n.t('{0} commit', formattedCount) : l10n.t('{0} commits', formattedCount);
 }

@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -8,7 +9,6 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { RovingTabindexController } from '@gitlens/components/controllers/rovingTabindex.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { GraphDisplayMode, GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
 import { filterAgentSessionsForFamily } from '../../../shared/agentUtils.js';
@@ -34,19 +34,19 @@ interface Icon {
 /** Aliased rather than re-listed, so a new panel can't be added to the union without the rail seeing it. */
 type IconTypes = GraphSidebarPanel;
 const icons: Icon[] = [
-	{ type: 'overview', icon: 'home', tooltip: 'Overview' },
-	{ type: 'agents', icon: 'robot', tooltip: 'Agents', onboardingKey: 'graph:sidebar:agents:callout' },
+	{ type: 'overview', icon: 'home', tooltip: l10n.t('Overview') },
+	{ type: 'agents', icon: 'robot', tooltip: l10n.t('Agents'), onboardingKey: 'graph:sidebar:agents:callout' },
 	{
 		type: 'pullRequests',
 		icon: 'git-pull-request',
-		tooltip: 'Pull Requests',
+		tooltip: l10n.t('Pull Requests'),
 		onboardingKey: 'graph:sidebar:pullRequests:callout',
 	},
-	{ type: 'worktrees', icon: 'gl-worktrees-view', tooltip: 'Worktrees' },
-	{ type: 'branches', icon: 'gl-branches-view', tooltip: 'Branches' },
-	{ type: 'remotes', icon: 'gl-remotes-view', tooltip: 'Remotes' },
-	{ type: 'stashes', icon: 'gl-stashes-view', tooltip: 'Stashes' },
-	{ type: 'tags', icon: 'gl-tags-view', tooltip: 'Tags' },
+	{ type: 'worktrees', icon: 'gl-worktrees-view', tooltip: l10n.t('Worktrees') },
+	{ type: 'branches', icon: 'gl-branches-view', tooltip: l10n.t('Branches') },
+	{ type: 'remotes', icon: 'gl-remotes-view', tooltip: l10n.t('Remotes') },
+	{ type: 'stashes', icon: 'gl-stashes-view', tooltip: l10n.t('Stashes') },
+	{ type: 'tags', icon: 'gl-tags-view', tooltip: l10n.t('Tags') },
 ];
 
 // Bottom-rail display-mode toggles — each button stays on the same icon; the checked state on
@@ -65,15 +65,15 @@ const displayModeToggleByMode: Record<Exclude<GraphDisplayMode, 'graph'>, Displa
 	kanban: {
 		mode: 'kanban',
 		icon: 'gl-kanban-view',
-		activeTooltip: 'Show Commit Graph',
-		inactiveTooltip: 'Show Agent Kanban',
+		activeTooltip: l10n.t('Show Commit Graph'),
+		inactiveTooltip: l10n.t('Show Agent Kanban'),
 		onboardingKey: 'graph:kanban:buttonCallout',
 	},
 	visualizations: {
 		mode: 'visualizations',
 		icon: 'pulse',
-		activeTooltip: 'Show Commit Graph',
-		inactiveTooltip: 'Show Visualizations & Health',
+		activeTooltip: l10n.t('Show Commit Graph'),
+		inactiveTooltip: l10n.t('Show Visualizations & Health'),
 		onboardingKey: 'graph:visualizations:buttonCallout',
 	},
 };
@@ -451,7 +451,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			class="sidebar"
 			role="toolbar"
 			aria-orientation="vertical"
-			aria-label="Graph side bar"
+			aria-label=${l10n.t('Graph side bar')}
 			@keydown=${this.roving.onKeydown}
 			@focusin=${this.roving.onFocusin}
 		>
@@ -503,8 +503,8 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			class="rail-action"
 			appearance="toolbar"
 			data-roving-key="shortcuts"
-			aria-label="Keyboard Shortcuts"
-			tooltip="Keyboard Shortcuts"
+			aria-label=${l10n.t('Keyboard Shortcuts')}
+			tooltip=${l10n.t('Keyboard Shortcuts')}
 			tooltipPlacement="right"
 			@click=${this.handleShowShortcuts}
 		>
@@ -540,7 +540,11 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 								${tooltip}
 								<span class="toggle-tooltip__hint">
 									<code-icon icon="heart"></code-icon>
-									${pluralize('optimization', suggestedCount)} suggested
+									${
+										suggestedCount === 1
+											? l10n.t('1 optimization suggested')
+											: l10n.t('{0} optimizations suggested', suggestedCount)
+									}
 								</span>
 							</div>
 						</gl-tooltip>`
@@ -883,7 +887,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 				slot="anchor"
 				class=${classMap({ item: true, 'overflow-toggle': true, active: containsActive })}
 				data-roving-key="overflow"
-				aria-label="More"
+				aria-label=${l10n.t('More')}
 			>
 				<span class="icon"><code-icon icon="ellipsis"></code-icon></span>
 			</button>

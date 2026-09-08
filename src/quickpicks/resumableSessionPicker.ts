@@ -1,5 +1,5 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
-import { ThemeIcon, window } from 'vscode';
+import { l10n, ThemeIcon, window } from 'vscode';
 import { getAgentCapabilitiesByProviderId } from '@gitlens/agents/agentCapabilities.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import type { PastAgentSessionState } from '../agents/models/agentSessionState.js';
@@ -29,7 +29,7 @@ interface SessionQuickPickItem extends QuickPickItem {
 
 const terminalButton: TargetButton = {
 	iconPath: new ThemeIcon('terminal'),
-	tooltip: 'Resume in Terminal',
+	tooltip: l10n.t('Resume in Terminal'),
 	target: 'terminal',
 };
 
@@ -46,7 +46,7 @@ function extensionButton(providerId: string): TargetButton {
 	const label = getAgentCapabilitiesByProviderId(providerId)?.displayName ?? providerId;
 	return {
 		iconPath: new ThemeIcon(getAgentProviderIcon(providerId)),
-		tooltip: `Resume in ${label} Extension`,
+		tooltip: l10n.t('Resume in {0} Extension', label),
 		target: 'extension',
 	};
 }
@@ -66,7 +66,7 @@ export function buildResumableSessionItems(
 	const items: (SessionQuickPickItem | QuickPickItem)[] = [];
 
 	if (live.length > 0) {
-		items.push(createQuickPickSeparator('Active'));
+		items.push(createQuickPickSeparator(l10n.t('Active')));
 		for (const session of live) {
 			items.push({
 				label: `$(${getAgentProviderIcon(session.providerId)}) ${session.name ?? session.id}`,
@@ -79,7 +79,11 @@ export function buildResumableSessionItems(
 	}
 
 	if (past.length > 0) {
-		items.push(createQuickPickSeparator(total > past.length ? `Past (${past.length} of ${total})` : 'Past'));
+		items.push(
+			createQuickPickSeparator(
+				total > past.length ? l10n.t('Past ({0} of {1})', past.length, total) : l10n.t('Past'),
+			),
+		);
 		for (const session of past) {
 			items.push({
 				// Agent mark, not `$(history)` — the "Past" separator and `fromNow(...)` below already
@@ -118,16 +122,17 @@ export async function showResumableSessionPicker(
 	if (items.length === 0) {
 		void window.showInformationMessage(
 			worktreeName != null
-				? `No agent sessions found for ${worktreeName}.`
-				: 'No agent sessions found for this worktree.',
+				? l10n.t('No agent sessions found for {0}.', worktreeName)
+				: l10n.t('No agent sessions found for this worktree.'),
 		);
 		return undefined;
 	}
 
 	const quickpick = window.createQuickPick<SessionQuickPickItem | QuickPickItem>();
 	try {
-		quickpick.title = worktreeName != null ? `Resume Agent Session in ${worktreeName}` : 'Resume Agent Session';
-		quickpick.placeholder = 'Select a session to resume';
+		quickpick.title =
+			worktreeName != null ? l10n.t('Resume Agent Session in {0}', worktreeName) : l10n.t('Resume Agent Session');
+		quickpick.placeholder = l10n.t('Select a session to resume');
 		// The prompt is the only thing that distinguishes same-titled sessions, so it must be searchable.
 		quickpick.matchOnDetail = true;
 		quickpick.items = items;

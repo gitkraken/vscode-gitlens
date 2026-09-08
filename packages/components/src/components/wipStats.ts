@@ -1,14 +1,14 @@
+import * as l10n from '@vscode/l10n';
 import type { CSSResultGroup } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { PausedOperationStatus } from '@gitlens/utils/pausedOperation.js';
 import {
 	getPausedOperationLabel,
 	getPausedOperationVariant,
-	pausedOperationStatusStringsByType,
 	pausedOperationVariantIcons,
 } from '@gitlens/utils/pausedOperation.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import './codeIcon.js';
 import './commitStats.js';
 import './overlays/tooltip.js';
@@ -24,13 +24,25 @@ export function getWipTooltipParts(workingTreeState: {
 }): string[] {
 	const parts: string[] = [];
 	if (workingTreeState.added) {
-		parts.push(`${pluralize('file', workingTreeState.added)} added`);
+		parts.push(
+			workingTreeState.added === 1
+				? l10n.t('{0} file added', getNumericFormat()(workingTreeState.added))
+				: l10n.t('{0} files added', getNumericFormat()(workingTreeState.added)),
+		);
 	}
 	if (workingTreeState.changed) {
-		parts.push(`${pluralize('file', workingTreeState.changed)} changed`);
+		parts.push(
+			workingTreeState.changed === 1
+				? l10n.t('{0} file changed', getNumericFormat()(workingTreeState.changed))
+				: l10n.t('{0} files changed', getNumericFormat()(workingTreeState.changed)),
+		);
 	}
 	if (workingTreeState.deleted) {
-		parts.push(`${pluralize('file', workingTreeState.deleted)} deleted`);
+		parts.push(
+			workingTreeState.deleted === 1
+				? l10n.t('{0} file deleted', getNumericFormat()(workingTreeState.deleted))
+				: l10n.t('{0} files deleted', getNumericFormat()(workingTreeState.deleted)),
+		);
 	}
 	return parts;
 }
@@ -146,7 +158,10 @@ export class GlWipStats extends LitElement {
 
 		if (isDirty) {
 			const visible = this.badge
-				? html`<span class="indicator-pill pill pill--outlined" aria-label="Working tree has changes">
+				? html`<span
+						class="indicator-pill pill pill--outlined"
+						aria-label=${l10n.t('Working tree has changes')}
+					>
 						<code-icon icon="pencil"></code-icon>
 					</span>`
 				: html`<commit-stats
@@ -167,8 +182,13 @@ export class GlWipStats extends LitElement {
 			// only the dirty bit is known (cheap probes — upgrades on hover).
 			const parts = getWipTooltipParts({ added: added, changed: modified, deleted: removed });
 			const tooltipContent = parts.length
-				? `${parts.join(', ')} in the working tree`
-				: 'Working tree has changes';
+				? l10n.t('{changes} in the working tree', {
+						changes: new Intl.ListFormat(this.lang || document.documentElement.lang || undefined, {
+							style: 'short',
+							type: 'unit',
+						}).format(parts),
+					})
+				: l10n.t('Working tree has changes');
 
 			return html`<gl-tooltip placement="bottom"
 				>${visible}<span slot="content">${tooltipContent}</span></gl-tooltip
@@ -183,14 +203,17 @@ export class GlWipStats extends LitElement {
 		}
 
 		if (this.badge) {
-			const pill = html`<span class="indicator-pill pill pill--outlined" aria-label="No working changes">
+			const pill = html`<span
+				class="indicator-pill pill pill--outlined"
+				aria-label=${l10n.t('No working changes')}
+			>
 				<code-icon class="wip-clean-check" icon="check"></code-icon>
 			</span>`;
 
 			if (this.noTooltip) return pill;
 
 			return html`<gl-tooltip placement="bottom"
-				>${pill}<span slot="content">No working changes</span></gl-tooltip
+				>${pill}<span slot="content">${l10n.t('No working changes')}</span></gl-tooltip
 			>`;
 		}
 
@@ -198,7 +221,7 @@ export class GlWipStats extends LitElement {
 			class="indicator-pill"
 			appearance="pill"
 			no-tooltip
-			aria-label="No working changes"
+			aria-label=${l10n.t('No working changes')}
 		>
 			${this.icon ? html`<code-icon class="wip-leading-icon" icon=${this.icon}></code-icon>` : nothing}
 			<code-icon class="wip-clean-check" icon="check"></code-icon>
@@ -206,7 +229,9 @@ export class GlWipStats extends LitElement {
 
 		if (this.noTooltip) return pill;
 
-		return html`<gl-tooltip placement="bottom">${pill}<span slot="content">No working changes</span></gl-tooltip>`;
+		return html`<gl-tooltip placement="bottom"
+			>${pill}<span slot="content">${l10n.t('No working changes')}</span></gl-tooltip
+		>`;
 	}
 
 	private renderPausedOp(pausedOp: PausedOperationStatus): unknown {
@@ -216,11 +241,12 @@ export class GlWipStats extends LitElement {
 		// that hasn't reached its first step read as "Rebasing" here while every other surface said
 		// "Pending Rebase".
 		const variant = getPausedOperationVariant(pausedOp, this.hasConflicts);
-		const opStrings = pausedOperationStatusStringsByType[pausedOp.type];
 		// The badge is a count-first chip, so conflicts read as the count rather than the shared phrase.
 		const label =
 			variant === 'conflicts'
-				? pluralize('Conflict', this.conflictsCount ?? 1)
+				? (this.conflictsCount ?? 1) === 1
+					? l10n.t('{0} Conflict', getNumericFormat()(this.conflictsCount ?? 1))
+					: l10n.t('{0} Conflicts', getNumericFormat()(this.conflictsCount ?? 1))
 				: getPausedOperationLabel(pausedOp, variant);
 
 		const badge = html`<span
@@ -235,8 +261,15 @@ export class GlWipStats extends LitElement {
 
 		if (this.noTooltip) return badge;
 
-		const tooltip =
-			variant === 'ready' ? `${opStrings.label} — ready to continue` : `${opStrings.label} in progress`;
+		const tooltip = {
+			'cherry-pick':
+				variant === 'ready'
+					? l10n.t('Cherry picking — ready to continue')
+					: l10n.t('Cherry picking in progress'),
+			merge: variant === 'ready' ? l10n.t('Merging — ready to continue') : l10n.t('Merging in progress'),
+			rebase: variant === 'ready' ? l10n.t('Rebasing — ready to continue') : l10n.t('Rebasing in progress'),
+			revert: variant === 'ready' ? l10n.t('Reverting — ready to continue') : l10n.t('Reverting in progress'),
+		}[pausedOp.type];
 		return html`<gl-tooltip placement="bottom">${badge}<span slot="content">${tooltip}</span></gl-tooltip>`;
 	}
 }

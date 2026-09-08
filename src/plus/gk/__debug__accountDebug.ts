@@ -1,5 +1,5 @@
 import type { Disposable, QuickInputButton } from 'vscode';
-import { QuickInputButtonLocation, ThemeIcon, window } from 'vscode';
+import { l10n, QuickInputButtonLocation, ThemeIcon, window } from 'vscode';
 import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import { proFeaturePreviewUsages, proTrialLengthInDays, SubscriptionState } from '../../constants.subscription.js';
 import type { Container } from '../../container.js';
@@ -106,11 +106,11 @@ function getVisibilityButton(visibility: RepositoryVisibility | undefined): Quic
 	const inline = supportedInVSCodeVersion('quickpick-button-location') ? QuickInputButtonLocation.Inline : undefined;
 	switch (visibility) {
 		case 'public':
-			return { iconPath: new ThemeIcon('globe'), tooltip: 'Simulating Public Repos', location: inline };
+			return { iconPath: new ThemeIcon('globe'), tooltip: l10n.t('Simulating Public Repos'), location: inline };
 		case 'private':
-			return { iconPath: new ThemeIcon('lock'), tooltip: 'Simulating Private Repos', location: inline };
+			return { iconPath: new ThemeIcon('lock'), tooltip: l10n.t('Simulating Private Repos'), location: inline };
 		default:
-			return { iconPath: new ThemeIcon('eye'), tooltip: 'Simulate Repo Visibility', location: inline };
+			return { iconPath: new ThemeIcon('eye'), tooltip: l10n.t('Simulate Repo Visibility'), location: inline };
 	}
 }
 
@@ -192,26 +192,26 @@ class AccountDebug {
 		): [SimulateQuickPickItem[], SimulateQuickPickItem | undefined] {
 			const items: SimulateQuickPickItem[] = [
 				{
-					label: 'Community',
-					description: 'Community, no account',
+					label: l10n.t('Community'),
+					description: l10n.t('Community, no account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Community, featurePreviews: { day: 0, durationSeconds: 30 } },
 				},
 				{
-					label: 'Community: Feature Previews (Start Day 2)',
-					description: 'Community, no account',
+					label: l10n.t('Community: Feature Previews (Start Day 2)'),
+					description: l10n.t('Community, no account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Community, featurePreviews: { day: 1, durationSeconds: 30 } },
 				},
 				{
-					label: 'Community: Feature Previews (Start Day 3)',
-					description: 'Community, no account',
+					label: l10n.t('Community: Feature Previews (Start Day 3)'),
+					description: l10n.t('Community, no account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Community, featurePreviews: { day: 2, durationSeconds: 30 } },
 				},
 				{
-					label: 'Community: Feature Previews (Expired)',
-					description: 'Community, no account',
+					label: l10n.t('Community: Feature Previews (Expired)'),
+					description: l10n.t('Community, no account'),
 					iconPath: new ThemeIcon('blank'),
 					item: {
 						state: SubscriptionState.Community,
@@ -231,23 +231,23 @@ class AccountDebug {
 				// 	iconPath: new ThemeIcon('blank'),
 				// 	item: { state: SubscriptionState.ProPreviewExpired },
 				// },
-				createQuickPickSeparator('Account'),
+				createQuickPickSeparator(l10n.t('Account')),
 				{
-					label: 'Verification Required',
-					description: 'Community, account',
+					label: l10n.t('Verification Required'),
+					description: l10n.t('Community, account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.VerificationRequired },
 				},
-				createQuickPickSeparator('Trial'),
+				createQuickPickSeparator(l10n.t('Trial')),
 				{
-					label: 'Pro Trial',
-					description: 'Pro trial (pro plan), account',
+					label: l10n.t('Pro Trial'),
+					description: l10n.t('Pro trial (pro plan), account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Trial },
 				},
 				{
-					label: 'Pro Trial (Reactivated)',
-					description: 'Pro trial (pro plan), account',
+					label: l10n.t('Pro Trial (Reactivated)'),
+					description: l10n.t('Pro trial (pro plan), account'),
 					iconPath: new ThemeIcon('blank'),
 					item: {
 						state: SubscriptionState.Trial,
@@ -255,14 +255,14 @@ class AccountDebug {
 					},
 				},
 				{
-					label: 'Pro Trial (Advanced)',
-					description: 'Pro trial (advanced plan), account',
+					label: l10n.t('Pro Trial (Advanced)'),
+					description: l10n.t('Pro trial (advanced plan), account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Trial, planId: 'advanced' },
 				},
 				{
-					label: 'Pro Trial (Advanced, Reactivated)',
-					description: 'Pro trial (advanced plan), account',
+					label: l10n.t('Pro Trial (Advanced, Reactivated)'),
+					description: l10n.t('Pro trial (advanced plan), account'),
 					iconPath: new ThemeIcon('blank'),
 					item: {
 						state: SubscriptionState.Trial,
@@ -271,58 +271,58 @@ class AccountDebug {
 					},
 				},
 				{
-					label: 'Pro Trial (Student)',
-					description: 'Student trial (student plan), account',
+					label: l10n.t('Pro Trial (Student)'),
+					description: l10n.t('Student trial (student plan), account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Trial, planId: 'student' },
 				},
 				{
-					label: 'Pro Trial (Expired)',
-					description: 'Community, account',
+					label: l10n.t('Pro Trial (Expired)'),
+					description: l10n.t('Community, account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.TrialExpired },
 				},
 				{
-					label: 'Pro Trial (Reactivation Eligible)',
-					description: 'Community, account',
+					label: l10n.t('Pro Trial (Reactivation Eligible)'),
+					description: l10n.t('Community, account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.TrialReactivationEligible },
 				},
-				createQuickPickSeparator('Paid'),
+				createQuickPickSeparator(l10n.t('Paid')),
 				{
-					label: 'Student',
-					description: 'Student plan, account',
+					label: l10n.t('Student'),
+					description: l10n.t('Student plan, account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Paid, planId: 'student' },
 				},
 				{
-					label: 'Pro',
-					description: 'Pro, account',
+					label: l10n.t('Pro'),
+					description: l10n.t('Pro, account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Paid, planId: 'pro' },
 				},
 				{
-					label: 'Advanced',
-					description: 'Advanced plan, account',
+					label: l10n.t('Advanced'),
+					description: l10n.t('Advanced plan, account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Paid, planId: 'advanced' },
 				},
 				{
-					label: 'Business',
-					description: 'Business plan, account',
+					label: l10n.t('Business'),
+					description: l10n.t('Business plan, account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Paid, planId: 'teams' },
 				},
 				{
-					label: 'Enterprise',
-					description: 'Enterprise plan, account',
+					label: l10n.t('Enterprise'),
+					description: l10n.t('Enterprise plan, account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Paid, planId: 'enterprise' },
 				},
 				// TODO: Update this subscription state once we have a "paid expired" state available
 				{
-					label: 'Paid (Expired)',
-					description: 'Community, account',
+					label: l10n.t('Paid (Expired)'),
+					description: l10n.t('Community, account'),
 					iconPath: new ThemeIcon('blank'),
 					item: { state: SubscriptionState.Paid, expiredPaid: true },
 				},
@@ -339,8 +339,8 @@ class AccountDebug {
 					0,
 					0,
 					{
-						label: 'End Simulation',
-						description: 'Restores stored subscription',
+						label: l10n.t('End Simulation'),
+						description: l10n.t('Restores stored subscription'),
 						iconPath: new ThemeIcon('beaker-stop'),
 						item: { state: null },
 					},
@@ -384,8 +384,8 @@ class AccountDebug {
 					}),
 				);
 
-				quickpick.title = 'Subscription Simulator';
-				quickpick.placeholder = 'Choose the subscription state to simulate';
+				quickpick.title = l10n.t('Subscription Simulator');
+				quickpick.placeholder = l10n.t('Choose the subscription state to simulate');
 				quickpick.buttons = [getVisibilityButton(this.simulatedVisibility)];
 
 				const [items, picked] = getItemsAndPicked(this.simulatingPick);

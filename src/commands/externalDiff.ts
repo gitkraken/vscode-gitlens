@@ -1,5 +1,5 @@
 import type { SourceControlResourceState } from 'vscode';
-import { env, Uri, window } from 'vscode';
+import { env, l10n, Uri, window } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import { isUncommitted, isUncommittedStaged } from '@gitlens/git/utils/revision.utils.js';
 import { filterMap } from '@gitlens/utils/array.js';
@@ -104,12 +104,15 @@ export class ExternalDiffCommand extends GlCommandBase {
 
 		if (context.command === 'gitlens.externalDiffAll') {
 			if (args.files == null) {
-				const repository = await getRepositoryOrShowPicker(this.container, 'Open All Changes (difftool)');
+				const repository = await getRepositoryOrShowPicker(
+					this.container,
+					l10n.t('Open All Changes (difftool)'),
+				);
 				if (repository == null) return;
 
 				const status = await this.container.git.getRepositoryService(repository.uri).status.getStatus();
 				if (status == null) {
-					return void window.showInformationMessage("The repository doesn't have any changes");
+					return void window.showInformationMessage(l10n.t("The repository doesn't have any changes"));
 				}
 
 				args.files = [];
@@ -151,7 +154,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 				const uri = editor.document.uri;
 				const status = await repo.git.status.getStatusForFile?.(uri);
 				if (status == null) {
-					void window.showInformationMessage("The current file doesn't have any changes");
+					void window.showInformationMessage(l10n.t("The current file doesn't have any changes"));
 
 					return;
 				}
@@ -171,9 +174,9 @@ export class ExternalDiffCommand extends GlCommandBase {
 
 			const tool = configuration.get('advanced.externalDiffTool') || (await repo.git.diff.getDiffTool?.());
 			if (!tool) {
-				const viewDocs = 'View Git Docs';
+				const viewDocs = l10n.t('View Git Docs');
 				const result = await window.showWarningMessage(
-					'Unable to open changes because no Git diff tool is configured',
+					l10n.t('Unable to open changes because no Git diff tool is configured'),
 					viewDocs,
 				);
 				if (result === viewDocs) {
@@ -195,7 +198,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'ExternalDiffCommand');
-			void showGenericErrorMessage('Unable to open changes in diff tool');
+			void showGenericErrorMessage(l10n.t('Unable to open changes in diff tool'));
 		}
 	}
 }

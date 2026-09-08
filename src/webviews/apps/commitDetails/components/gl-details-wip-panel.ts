@@ -1,9 +1,11 @@
+import * as l10n from '@vscode/l10n';
 import type { PropertyValueMap, TemplateResult } from 'lit';
 import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { AgentSessionPhase } from '@gitlens/agents/types.js';
 import { isActiveAgentPhase } from '@gitlens/agents/types.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { canStageCurrent, canStageIncoming } from '@gitlens/git/utils/conflictResolution.utils.js';
@@ -46,19 +48,19 @@ import '../../shared/components/webview-pane.js';
 // row — fanning them out to non-conflicted selected files would open wrong/empty content.
 const openCurrentChangesAction: TreeItemAction = {
 	icon: 'gl-diff-left',
-	label: 'Open Current Changes',
+	label: l10n.t('Open Current Changes'),
 	action: 'file-open-current',
 	multiBehavior: 'single',
 };
 const openIncomingChangesAction: TreeItemAction = {
 	icon: 'gl-diff-right',
-	label: 'Open Incoming Changes',
+	label: l10n.t('Open Incoming Changes'),
 	action: 'file-open-incoming',
 	multiBehavior: 'single',
 };
 const stageConflictAction: TreeItemAction = {
 	icon: 'add',
-	label: 'Stage',
+	label: l10n.t('Stage'),
 	action: 'file-stage',
 	multiBehavior: 'batch',
 };
@@ -67,13 +69,13 @@ const stageConflictAction: TreeItemAction = {
 // ops would collide on the index lock and leave some files behind.
 const stageAction: TreeItemAction = {
 	icon: 'plus',
-	label: 'Stage Changes',
+	label: l10n.t('Stage Changes'),
 	action: 'file-stage',
 	multiBehavior: 'batch',
 };
 const unstageAction: TreeItemAction = {
 	icon: 'remove',
-	label: 'Unstage Changes',
+	label: l10n.t('Unstage Changes'),
 	action: 'file-unstage',
 	multiBehavior: 'batch',
 };
@@ -87,11 +89,11 @@ const unstageAction: TreeItemAction = {
 // batch that also touches purely-staged rows elsewhere in the selection.
 const discardAction: TreeItemAction = {
 	icon: 'discard',
-	label: 'Discard Changes...',
+	label: l10n.t('Discard Changes...'),
 	action: 'file-discard',
 	multiBehavior: 'batch',
 };
-const openFileAction: TreeItemAction = { icon: 'go-to-file', label: 'Open File', action: 'file-open' };
+const openFileAction: TreeItemAction = { icon: 'go-to-file', label: l10n.t('Open File'), action: 'file-open' };
 // `file-compare-wip-staged` is bridged by gl-wip-tree-pane into `file-compare-wip` with
 // `staged: true` overridden so the diff resolves to staged ↔ HEAD even though the deduped
 // row carries `staged: false` (preferred-unstaged precedence from the tree pane dedup).
@@ -99,13 +101,13 @@ const openFileAction: TreeItemAction = { icon: 'go-to-file', label: 'Open File',
 // without staged changes would open an empty/wrong diff.
 const openStagedChangesAction: TreeItemAction = {
 	icon: 'diff-single',
-	label: 'Open Staged Changes',
+	label: l10n.t('Open Staged Changes'),
 	action: 'file-compare-wip-staged',
 	multiBehavior: 'single',
 };
 const stashAction: TreeItemAction = {
 	icon: 'gl-stash-save',
-	label: 'Stash Changes...',
+	label: l10n.t('Stash Changes...'),
 	action: 'file-stash',
 	multiBehavior: 'batch',
 };
@@ -113,7 +115,7 @@ const stashAction: TreeItemAction = {
 // `single`: opens the conflicted row's two-sided details sheet — meaningless fanned out to other rows.
 const openConflictDetailsAction: TreeItemAction = {
 	icon: 'eye',
-	label: 'Conflict Details',
+	label: l10n.t('Conflict Details'),
 	action: 'file-conflict-details',
 	multiBehavior: 'single',
 };
@@ -121,7 +123,7 @@ const openConflictDetailsAction: TreeItemAction = {
 // `single`: resolve is row-specific; fanning it out would scope the wrong files.
 const resolveFileAction: TreeItemAction = {
 	icon: 'gl-merge',
-	label: 'Resolve Conflicts',
+	label: l10n.t('Resolve Conflicts'),
 	action: 'file-resolve-conflict',
 	multiBehavior: 'single',
 };
@@ -448,7 +450,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	private renderSecondaryAction(hasPrimary = true) {
 		if (!this.draftsEnabled || this.creatingPatch) return undefined;
 
-		const label = 'Share as Cloud Patch';
+		const label = l10n.t('Share as Cloud Patch');
 		const action = 'create-patch';
 		if ((this.wip?.changes?.files.length ?? 0) === 0) return undefined;
 
@@ -468,12 +470,22 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 
 	private renderPrimaryAction() {
 		if (this.isUnpublished) {
+			const branch = html`<strong>${this.wip?.branch?.name}</strong>`;
+			const upstream = this.wip?.branch?.upstream?.name;
+			const tooltip =
+				upstream != null
+					? localizedContent(l10n.t('Publish (push) {branch} to {remote}'), {
+							branch: branch,
+							remote: upstream,
+						})
+					: localizedContent(l10n.t('Publish (push) {branch} to a remote'), { branch: branch });
 			return html`
 				<gl-button full data-action="publish-branch" @click=${() => this.onDataActionClick('publish-branch')}>
-					<code-icon icon="cloud-upload" slot="prefix"></code-icon>Publish Branch<span slot="tooltip"
-						>Publish (push) <strong>${this.wip?.branch?.name}</strong> to
-						${this.wip?.branch?.upstream?.name ?? 'a remote'}</span
+					<code-icon icon="cloud-upload" slot="prefix"></code-icon>${l10n.t('Publish Branch')}<span
+						slot="tooltip"
 					>
+						${tooltip}
+					</span>
 				</gl-button>
 			`;
 		}
@@ -483,19 +495,22 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		const { ahead, behind } = this.branchState;
 		if (ahead === 0 && behind === 0) return undefined;
 
-		const fetchLabel = behind > 0 ? 'Pull' : ahead > 0 ? 'Push' : 'Fetch';
+		const fetchAction = behind > 0 ? 'pull' : ahead > 0 ? 'push' : 'fetch';
+		const fetchLabel = behind > 0 ? l10n.t('Pull') : ahead > 0 ? l10n.t('Push') : l10n.t('Fetch');
 		const fetchIcon = behind > 0 ? 'repo-pull' : ahead > 0 ? 'repo-push' : 'repo-fetch';
-		const fetchTooltip = behind > 0 ? 'Pull from' : ahead > 0 ? 'Push to' : 'Fetch from';
+		const fetchTooltip =
+			behind > 0
+				? l10n.t('Pull from {remote}')
+				: ahead > 0
+					? l10n.t('Push to {remote}')
+					: l10n.t('Fetch from {remote}');
+		const upstream = html`<strong>${this.wip?.branch?.upstream?.name}</strong>`;
 
 		return html`
-			<gl-button
-				full
-				data-action="${fetchLabel.toLowerCase()}"
-				@click=${() => this.onDataActionClick(fetchLabel.toLowerCase())}
-			>
+			<gl-button full data-action="${fetchAction}" @click=${() => this.onDataActionClick(fetchAction)}>
 				<code-icon icon="${fetchIcon}" slot="prefix"></code-icon> ${fetchLabel}
 				<gl-tracking-pill .ahead=${ahead} .behind=${behind} slot="suffix"></gl-tracking-pill>
-				<span slot="tooltip">${fetchTooltip} <strong>${this.wip?.branch?.upstream?.name}</strong></span>
+				<span slot="tooltip">${localizedContent(fetchTooltip, { remote: upstream })}</span>
 			</gl-button>
 		`;
 	}
@@ -520,20 +535,20 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				?expanded=${this.preferences?.pullRequestExpanded ?? true}
 				data-region="pullrequest-pane"
 			>
-				<span slot="title">Pull Request #${this.pullRequest?.id}</span>
+				<span slot="title">${l10n.t('Pull Request #{id}', { id: this.pullRequest?.id })}</span>
 				<action-nav slot="actions">
 					<gl-action-chip
-						label="Open Pull Request Changes"
+						label=${l10n.t('Open Pull Request Changes')}
 						icon="diff-multiple"
 						@click=${() => this.onDataActionClick('open-pr-changes')}
 					></gl-action-chip>
 					<gl-action-chip
-						label="Compare Pull Request"
+						label=${l10n.t('Compare Pull Request')}
 						icon="compare-changes"
 						@click=${() => this.onDataActionClick('open-pr-compare')}
 					></gl-action-chip>
 					<gl-action-chip
-						label="Open Pull Request on Remote"
+						label=${l10n.t('Open Pull Request on Remote')}
 						icon="globe"
 						@click=${() => this.onDataActionClick('open-pr-remote')}
 					></gl-action-chip>
@@ -563,16 +578,16 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 
 		return html`
 			<webview-pane collapsable>
-				<span slot="title">Incoming / Outgoing</span>
+				<span slot="title">${l10n.t('Incoming / Outgoing')}</span>
 				<gl-tree>
 					<gl-tree-item branch .expanded=${false}>
 						<code-icon slot="icon" icon="arrow-circle-down"></code-icon>
-						Incoming Changes
+						${l10n.t('Incoming Changes')}
 						<span slot="decorations">${this.branchState.behind ?? 0}</span>
 					</gl-tree-item>
 					<gl-tree-item branch .expanded=${false}>
 						<code-icon slot="icon" icon="arrow-circle-up"></code-icon>
-						Outgoing Changes
+						${l10n.t('Outgoing Changes')}
 						<span slot="decorations">${this.branchState.ahead ?? 0}</span>
 					</gl-tree-item>
 				</gl-tree>
@@ -701,7 +716,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		// `wip: true` forces the host to per-file HEAD↔index↔working semantics regardless of
 		// `lhs`/`rhs`. The OpenMultipleChangesArgs routing switched from `rhs === ''` to an
 		// explicit `wip` flag, so the WIP details panel must set it here.
-		return { repoPath: repoPath, lhs: 'HEAD', rhs: '', wip: true, title: 'Working Changes' };
+		return { repoPath: repoPath, lhs: 'HEAD', rhs: '', wip: true, title: l10n.t('Working Changes') };
 	}
 
 	// Coalesces the selection-aware checkbox fan-out — gl-file-tree-pane dispatches one synchronous
@@ -762,15 +777,18 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 			<div class="header__identity">
 				<code-icon class="header__wip-icon" icon="diff"></code-icon>
 				<div class="header__identity-left">
-					<span class="header__wip-title">Working Changes</span>
+					<span class="header__wip-title">${l10n.t('Working Changes')}</span>
 					<span class="header__wip-subtitle">
 						${
 							this.worktreePath
 								? html`<code-icon icon="folder"></code-icon> ${this.worktreePath}`
 								: html`${
 										stagedCount > 0 || unstagedCount > 0
-											? `${stagedCount} staged · ${unstagedCount} unstaged`
-											: 'No changes'
+											? l10n.t('{staged} staged · {unstaged} unstaged', {
+													staged: stagedCount,
+													unstaged: unstagedCount,
+												})
+											: l10n.t('No changes')
 									}`
 						}
 					</span>
@@ -779,7 +797,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 					<div class="header__actions">
 						<gl-action-chip
 							icon="close"
-							label="Close"
+							label=${l10n.t('Close')}
 							overlay="tooltip"
 							@click=${() =>
 								this.dispatchEvent(new CustomEvent('close-details', { bubbles: true, composed: true }))}

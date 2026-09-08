@@ -1,11 +1,11 @@
 import type { TreeCheckboxChangeEvent } from 'vscode';
-import { Disposable, ThemeIcon, TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, window } from 'vscode';
+import { Disposable, l10n, ThemeIcon, TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitUser } from '@gitlens/git/models/user.js';
 import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { md5 } from '@gitlens/utils/crypto.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { weakEvent } from '@gitlens/utils/event.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { StoredNamedRef } from '../../constants.storage.js';
 import type { FilesComparison } from '../../git/actions/commit.js';
 import { GitUri } from '../../git/gitUri.js';
@@ -141,12 +141,14 @@ export class CompareResultsNode extends SubscribeableViewNode<
 					forkPoint: true,
 				})) ?? (await svc.refs.getMergeBase(behind.ref1, behind.ref2));
 
+			const behindCount = counts?.right ?? 0;
+			const aheadCount = counts?.left ?? 0;
 			const children: ViewNode[] = [
 				new ResultsCommitsNode(
 					this.view,
 					this,
 					this.repoPath,
-					'Behind',
+					l10n.t('Behind'),
 					{
 						query: this.getCommitsQuery(behind.range),
 						comparison: behind,
@@ -158,7 +160,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 						},
 					},
 					{
-						description: pluralize('commit', counts?.right ?? 0),
+						description: getCommitCountLabel(behindCount),
 						expand: false,
 					},
 				),
@@ -166,7 +168,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 					this.view,
 					this,
 					this.repoPath,
-					'Ahead',
+					l10n.t('Ahead'),
 					{
 						query: this.getCommitsQuery(ahead.range),
 						comparison: ahead,
@@ -178,7 +180,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 						},
 					},
 					{
-						description: pluralize('commit', counts?.left ?? 0),
+						description: getCommitCountLabel(aheadCount),
 						expand: false,
 					},
 				),
@@ -212,13 +214,12 @@ export class CompareResultsNode extends SubscribeableViewNode<
 			description = repo?.name ?? this.repoPath;
 		}
 
+		const ref = this._ref.label ?? shortenRevision(this._ref.ref, { strings: { working: l10n.t('Working Tree') } });
+		const compareWithRef =
+			this._compareWith.label ??
+			shortenRevision(this._compareWith.ref, { strings: { working: l10n.t('Working Tree') } });
 		const item = new TreeItem(
-			`Comparing ${
-				this._ref.label ?? shortenRevision(this._ref.ref, { strings: { working: 'Working Tree' } })
-			} with ${
-				this._compareWith.label ??
-				shortenRevision(this._compareWith.ref, { strings: { working: 'Working Tree' } })
-			}`,
+			l10n.t('Comparing {0} with {1}', ref, compareWithRef),
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
@@ -252,7 +253,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 	@debug()
 	async swap(): Promise<void> {
 		if (this._ref.ref === '') {
-			void window.showErrorMessage('Cannot swap comparisons with the working tree');
+			void window.showErrorMessage(l10n.t('Cannot swap comparisons with the working tree'));
 			return;
 		}
 
@@ -329,6 +330,11 @@ export class CompareResultsNode extends SubscribeableViewNode<
 			silent,
 		);
 	}
+}
+
+function getCommitCountLabel(count: number): string {
+	const formattedCount = getNumericFormat()(count);
+	return count === 1 ? l10n.t('{0} commit', formattedCount) : l10n.t('{0} commits', formattedCount);
 }
 
 export function getComparisonStoragePrefix(storageId: string): string {

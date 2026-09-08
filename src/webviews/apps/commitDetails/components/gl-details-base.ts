@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { CSSResultGroup, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
@@ -68,7 +69,7 @@ export class GlDetailsBase extends LitElement {
 	hasIntegrationsConnected = false;
 
 	@property({ attribute: 'empty-text' })
-	emptyText? = 'No Files';
+	emptyText? = l10n.t('No Files');
 
 	/**
 	 * Controlled-when-bound: parent-supplied visibility of the file-tree search box. Forwarded
@@ -131,7 +132,7 @@ export class GlDetailsBase extends LitElement {
 				?multi-selectable=${this.multiSelectable}
 				.showSearchBox=${this.showSearchBox}
 				.searchBoxFilter=${this.searchBoxFilter}
-				empty-text=${isLoadingEmpty ? '' : (this.emptyText ?? 'No Files')}
+				empty-text=${isLoadingEmpty ? '' : (this.emptyText ?? l10n.t('No Files'))}
 				@file-checked=${this._onFileChecked}
 				@file-selection-changed=${(e: CustomEvent<{ files: readonly GitFileChangeShape[] }>) =>
 					(this._selectedFiles = e.detail?.files ?? [])}
@@ -167,7 +168,7 @@ export class GlDetailsBase extends LitElement {
 					isLoadingEmpty
 						? html`<div slot="before-tree" class="files-loading" aria-busy="true">
 								<code-icon icon="loading" modifier="spin"></code-icon>
-								<span>Loading…</span>
+								<span>${l10n.t('Loading…')}</span>
 							</div>`
 						: nothing
 				}

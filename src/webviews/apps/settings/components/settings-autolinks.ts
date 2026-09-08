@@ -1,9 +1,11 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { IssuesCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations.js';
 import type { AutolinkConfig } from '../../../../config.js';
@@ -321,7 +323,9 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 		if (hasConnectedJira && hasConnectedLinear) {
 			return html`<p class="banner banner--connected">
 				<code-icon icon="check" aria-hidden="true"></code-icon>
-				<span>Jira and Linear are connected — issue keys in commit messages link automatically.</span>
+				<span
+					>${l10n.t('Jira and Linear are connected — issue keys in commit messages link automatically.')}</span
+				>
 			</p>`;
 		}
 
@@ -337,15 +341,44 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 				>${label}</a
 			>`;
 
+		const jira = connectLink(IssuesCloudHostIntegrationId.Jira, 'Jira');
+		const linear = connectLink(IssuesCloudHostIntegrationId.Linear, 'Linear');
+		let message: unknown[];
+		if (!hasConnectedJira && !hasConnectedLinear) {
+			message = hasAccount
+				? localizedContent(
+						l10n.t('Connect {jira} or {linear} to automatically link issues in commit messages.'),
+						{ jira: jira, linear: linear },
+					)
+				: localizedContent(
+						l10n.t(
+							'Sign up and connect {jira} or {linear} to automatically link issues in commit messages.',
+						),
+						{ jira: jira, linear: linear },
+					);
+		} else if (!hasConnectedJira) {
+			message = hasAccount
+				? localizedContent(l10n.t('Connect {jira} to automatically link issues in commit messages.'), {
+						jira: jira,
+					})
+				: localizedContent(
+						l10n.t('Sign up and connect {jira} to automatically link issues in commit messages.'),
+						{ jira: jira },
+					);
+		} else {
+			message = hasAccount
+				? localizedContent(l10n.t('Connect {linear} to automatically link issues in commit messages.'), {
+						linear: linear,
+					})
+				: localizedContent(
+						l10n.t('Sign up and connect {linear} to automatically link issues in commit messages.'),
+						{ linear: linear },
+					);
+		}
+
 		return html`<p class="banner">
 			<code-icon icon="info" aria-hidden="true"></code-icon>
-			<span>
-				${hasAccount ? 'Connect' : 'Sign up and connect'}
-				${hasConnectedJira ? nothing : connectLink(IssuesCloudHostIntegrationId.Jira, 'Jira')}
-				${!hasConnectedJira && !hasConnectedLinear ? ' or ' : nothing}
-				${hasConnectedLinear ? nothing : connectLink(IssuesCloudHostIntegrationId.Linear, 'Linear')} to
-				automatically link issues in commit messages.
-			</span>
+			<span>${message}</span>
 		</p>`;
 	}
 
@@ -357,7 +390,7 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 		const urlErrorId = `autolink-${index}-url-error`;
 		// Name the row by its prefix (falling back to "New") rather than its
 		// position, so deleting an earlier rule doesn't silently rename the rest
-		const name = autolink.prefix?.trim() || 'New';
+		const name = autolink.prefix?.trim() || l10n.t('New');
 
 		// `ignoreCase: false` IS case-sensitive (the config semantics are inverted
 		// from the label), so the Case-sensitive toggle is pressed when ignoreCase
@@ -372,7 +405,7 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 					type="text"
 					placeholder="TICKET-"
 					spellcheck="false"
-					aria-label="${name} autolink prefix"
+					aria-label=${l10n.t('{name} autolink prefix', { name: name })}
 					aria-invalid=${invalid.prefix ? 'true' : 'false'}
 					aria-describedby=${invalid.prefix ? prefixErrorId : nothing}
 					.value=${autolink.prefix ?? ''}
@@ -383,8 +416,8 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 						type="button"
 						class="rule__toggle"
 						aria-pressed=${caseSensitive ? 'true' : 'false'}
-						aria-label="Case-sensitive"
-						title="Case-sensitive matching"
+						aria-label=${l10n.t('Case-sensitive')}
+						title=${l10n.t('Case-sensitive matching')}
 						@click=${() => this.commitRule(index, 'ignoreCase', caseSensitive)}
 					>
 						Aa
@@ -393,8 +426,8 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 						type="button"
 						class="rule__toggle"
 						aria-pressed=${alphanumeric ? 'true' : 'false'}
-						aria-label="Alphanumeric"
-						title="Match alphanumeric references"
+						aria-label=${l10n.t('Alphanumeric')}
+						title=${l10n.t('Match alphanumeric references')}
 						@click=${() => this.commitRule(index, 'alphanumeric', !alphanumeric)}
 					>
 						a1
@@ -406,7 +439,7 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 				type="text"
 				placeholder="https://example.com/TICKET?q=&lt;num&gt;"
 				spellcheck="false"
-				aria-label="${name} autolink URL"
+				aria-label=${l10n.t('{name} autolink URL', { name: name })}
 				aria-invalid=${invalid.url ? 'true' : 'false'}
 				aria-describedby=${invalid.url ? urlErrorId : nothing}
 				.value=${autolink.url ?? ''}
@@ -415,21 +448,25 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 			<button
 				type="button"
 				class="rule__delete"
-				aria-label="Delete ${name} autolink"
-				title="Delete autolink"
+				aria-label=${l10n.t('Delete {name} autolink', { name: name })}
+				title=${l10n.t('Delete autolink')}
 				@click=${() => this.removeRule(index)}
 			>
 				<code-icon icon="close" aria-hidden="true"></code-icon>
 			</button>
 			${
 				invalid.prefix
-					? html`<span id=${prefixErrorId} class="rule__error">Add a prefix to match, e.g. TICKET-</span>`
+					? html`<span id=${prefixErrorId} class="rule__error"
+							>${l10n.t('Add a prefix to match, e.g. TICKET-')}</span
+						>`
 					: nothing
 			}
 			${
 				invalid.url
 					? html`<span id=${urlErrorId} class="rule__error"
-							>Add <code>&lt;num&gt;</code> to the URL so the reference value is linked.</span
+							>${localizedContent(l10n.t('Add {token} to the URL so the reference value is linked.'), {
+								token: html`<code>&lt;num&gt;</code>`,
+							})}</span
 						>`
 					: nothing
 			}
@@ -448,11 +485,16 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 		return html`${this.renderIntegrationsBanner()}
 			<div class="rules">${rows.map((a, i) => this.renderRule(a, i))}</div>
 			<p class="hint">
-				Matches prefixes that are followed by a reference value within commit messages. The URL must contain a
-				<code>&lt;num&gt;</code> for the reference value to be included in the link.
+				${localizedContent(
+					l10n.t(
+						'Matches prefixes that are followed by a reference value within commit messages. The URL must contain a {token} for the reference value to be included in the link.',
+					),
+					{ token: html`<code>&lt;num&gt;</code>` },
+				)}
 			</p>
 			<gl-button appearance="secondary" @click=${this.addDraftRule}>
-				<code-icon icon="add" slot="prefix" aria-hidden="true"></code-icon> Add autolink
+				<code-icon icon="add" slot="prefix" aria-hidden="true"></code-icon>
+				${l10n.t('Add autolink')}
 			</gl-button>`;
 	}
 }

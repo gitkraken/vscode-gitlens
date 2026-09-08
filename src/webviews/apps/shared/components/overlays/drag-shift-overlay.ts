@@ -1,6 +1,8 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import type { PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 
 /** A full-viewport, blurred overlay shown while a native drag has strayed OUTSIDE the webview — VS
  *  Code blocks all webview events until the user holds Shift to bring the drag back in, so this
@@ -74,9 +76,6 @@ export class GlDragShiftOverlay extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	active = false;
 
-	@property()
-	label = 'to Resume Dragging';
-
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		// Manual popover → top layer, no light-dismiss, no focus trap.
@@ -95,7 +94,9 @@ export class GlDragShiftOverlay extends LitElement {
 		if (!this.active) return nothing;
 
 		return html`<div class="backdrop"></div>
-			<div class="hint">Hold <kbd>Shift</kbd> ${this.label}</div>`;
+			<div class="hint">
+				${localizedContent(l10n.t('Hold {shift} to Resume Dragging'), { shift: html`<kbd>Shift</kbd>` })}
+			</div>`;
 	}
 }
 

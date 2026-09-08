@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { PullRequest, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
@@ -27,6 +28,23 @@ export interface StartReviewResult {
 	pr: PullRequest;
 }
 
+export class StartReviewError extends Error {
+	constructor(
+		readonly protocolMessage: string,
+		localizedMessage: string,
+	) {
+		super(localizedMessage);
+	}
+}
+
+export function getStartReviewProtocolError(error: unknown): Error {
+	if (error instanceof StartReviewError) {
+		return new Error(error.protocolMessage);
+	}
+
+	return error instanceof Error ? error : new Error(String(error));
+}
+
 /**
  * Start a review from a LaunchpadItem - uses already-fetched PR and repository data.
  * This is the preferred method when you already have a LaunchpadItem.
@@ -41,7 +59,7 @@ export async function startReviewFromLaunchpadItem(
 ): Promise<StartReviewResult> {
 	const pr = item.underlyingPullRequest;
 	if (!pr) {
-		throw new Error('Unable to retrieve PR details');
+		throw new StartReviewError('Unable to retrieve PR details', l10n.t('Unable to retrieve PR details'));
 	}
 
 	if (item.openRepository?.localBranch?.current) {
@@ -79,7 +97,12 @@ export async function startReviewFromLaunchpadItem(
 
 	if (!repo) {
 		const repoName = `${pr.repository.owner}/${pr.repository.repo}`;
-		throw new Error(`No local repository found for ${repoName}. Please clone the repository first.`);
+		throw new StartReviewError(
+			`No local repository found for ${repoName}. Please clone the repository first.`,
+			l10n.t('No local repository found for {repository}. Please clone the repository first.', {
+				repository: repoName,
+			}),
+		);
 	}
 
 	// Setup remote and branch
@@ -151,7 +174,7 @@ export async function setupPullRequestBranch(
 }> {
 	const headRef = pr.refs?.head;
 	if (!headRef) {
-		throw new Error('PR head reference not found');
+		throw new StartReviewError('PR head reference not found', l10n.t('PR head reference not found'));
 	}
 
 	// Parse remote URL
@@ -259,7 +282,10 @@ async function createPullRequestWorktree(
 
 	const worktree = await worktreeResult.promise;
 	if (!worktree) {
-		throw new Error(`Failed to create worktree for branch: ${localBranchName}`);
+		throw new StartReviewError(
+			`Failed to create worktree for branch: ${localBranchName}`,
+			l10n.t('Failed to create worktree for branch: {branch}', { branch: localBranchName }),
+		);
 	}
 
 	return worktree;
@@ -274,12 +300,15 @@ async function getBranchFromWorktree(
 	// worktree as a visible repo
 	const worktreeRepo = await container.git.getOrAddRepository(worktree.uri, { opened: false });
 	if (!worktreeRepo) {
-		throw new Error('Failed to open worktree repository');
+		throw new StartReviewError('Failed to open worktree repository', l10n.t('Failed to open worktree repository'));
 	}
 
 	const worktreeBranch = await worktreeRepo.git.branches.getBranch(branchName);
 	if (!worktreeBranch) {
-		throw new Error(`Failed to get branch from worktree: ${branchName}`);
+		throw new StartReviewError(
+			`Failed to get branch from worktree: ${branchName}`,
+			l10n.t('Failed to get branch from worktree: {branch}', { branch: branchName }),
+		);
 	}
 
 	return worktreeBranch;

@@ -2,12 +2,15 @@ import type { Remote } from '@eamodio/supertalk';
 import { getWipRowWorktreePath } from '@gitkraken/commit-graph/wip/identity.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume, provide } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import type { OverlayEntry } from '@gitlens/utils/keys/keybinding.js';
@@ -195,9 +198,18 @@ const emptyModeExclusions: ReadonlySet<string> = new Set();
  *  When `onResume` is provided, the whole snippet becomes a clickable "Resume" affordance
  *  prefixed with the verb and trailed with an arrow — replaces the old in-panel resume bar. */
 function formatModeCounts(primary: number, files: number, primaryLabel: 'commits' | 'findings', onResume?: () => void) {
-	const singular = primaryLabel === 'commits' ? 'commit' : 'finding';
-	const primaryText = `${primary} ${primary === 1 ? singular : primaryLabel}`;
-	const fileText = `${files} ${files === 1 ? 'file' : 'files'}`;
+	const primaryText =
+		primaryLabel === 'commits'
+			? primary === 1
+				? l10n.t('{count} commit', { count: getNumericFormat()(primary) })
+				: l10n.t('{count} commits', { count: getNumericFormat()(primary) })
+			: primary === 1
+				? l10n.t('{count} finding', { count: getNumericFormat()(primary) })
+				: l10n.t('{count} findings', { count: getNumericFormat()(primary) });
+	const fileText =
+		files === 1
+			? l10n.t('{count} file', { count: getNumericFormat()(files) })
+			: l10n.t('{count} files', { count: getNumericFormat()(files) });
 	const primaryIcon = primaryLabel === 'commits' ? 'git-commit' : 'search';
 	const counts = html`<span class="mode-status__group"
 			><code-icon icon=${primaryIcon}></code-icon>${primaryText}</span
@@ -206,7 +218,7 @@ function formatModeCounts(primary: number, files: number, primaryLabel: 'commits
 
 	if (onResume == null) return counts;
 
-	const resumeLabel = primaryLabel === 'commits' ? 'Resume Plan' : 'Resume Review';
+	const resumeLabel = primaryLabel === 'commits' ? l10n.t('Resume Plan') : l10n.t('Resume Review');
 	return html`<button class="mode-status__resume" type="button" aria-label=${resumeLabel} @click=${onResume}>
 		<span class="mode-status__resume-verb">${resumeLabel}</span>
 		${counts}
@@ -216,15 +228,28 @@ function formatModeCounts(primary: number, files: number, primaryLabel: 'commits
 
 /** "<verb> with <model>..." generating snippet for the mode-status row. The model name carries the
  *  full "provider · model" in a gl-tooltip; falls back to the bare verb when no model is known. */
-function formatGeneratingStatus(verb: 'Composing' | 'Reviewing' | 'Resolving', model: AiModelInfo | undefined) {
-	if (model == null) return `${verb}...`;
+function formatGeneratingStatus(mode: 'compose' | 'review' | 'resolve', model: AiModelInfo | undefined) {
+	if (model == null) {
+		return mode === 'compose'
+			? l10n.t('Composing...')
+			: mode === 'review'
+				? l10n.t('Reviewing...')
+				: l10n.t('Resolving...');
+	}
 
 	const full = `${model.provider.name} · ${model.name}`;
+	const message =
+		mode === 'compose'
+			? l10n.t('Composing with {model}...')
+			: mode === 'review'
+				? l10n.t('Reviewing with {model}...')
+				: l10n.t('Resolving with {model}...');
 	// Wrap in a single element so the `.mode-status` flex `gap` doesn't insert space around the
 	// model name — inside, the verb/name/ellipsis flow as plain inline text.
 	return html`<span class="mode-status__generating"
-		>${verb} with <gl-tooltip content=${full}><span class="mode-status__model">${model.name}</span></gl-tooltip
-		>...</span
+		>${localizedContent(message, {
+			model: html`<gl-tooltip content=${full}><span class="mode-status__model">${model.name}</span></gl-tooltip>`,
+		})}</span
 	>`;
 }
 
@@ -1455,7 +1480,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					}<gl-action-chip
 						slot="actions"
 						icon="refresh"
-						label="Refresh Comparison"
+						label=${l10n.t('Refresh Comparison')}
 						overlay="tooltip"
 						@click=${() => this._actions.refreshBranchCompare(this.effectiveRepoPath)}
 					></gl-action-chip
@@ -2593,8 +2618,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (mode === 'resolve') {
 			const status =
 				this.engagedRunningOperation?.kind === 'resolve' ? this.engagedRunningOperation.execState : undefined;
-			if (status === 'generating') return formatGeneratingStatus('Resolving', this._state.aiModel.get());
-			if (status === 'error') return 'Error';
+			if (status === 'generating') return formatGeneratingStatus('resolve', this._state.aiModel.get());
+			if (status === 'error') return l10n.t('Error');
 
 			// Complete: show a resolved-files count in the identity row, mirroring compose/review's
 			// snippet (resolve has no Resume, so this is the plain non-clickable count only).
@@ -2602,9 +2627,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			if (value != null && 'result' in value && value.result?.resolutions) {
 				const count = value.result.resolutions.filter(r => r.strategy !== 'skipped').length;
 				if (count > 0) {
+					const resolvedFiles =
+						count === 1
+							? l10n.t('{count} file resolved', { count: getNumericFormat()(count) })
+							: l10n.t('{count} files resolved', { count: getNumericFormat()(count) });
 					return html`<span class="mode-status__group"
-						><code-icon icon="gl-merge"></code-icon>${count} ${count === 1 ? 'file' : 'files'}
-						resolved</span
+						><code-icon icon="gl-merge"></code-icon>${resolvedFiles}</span
 					>`;
 				}
 			}
@@ -2614,9 +2642,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		const status = this.engagedModeStatus?.[mode]?.execState;
 		if (status === 'generating') {
-			return formatGeneratingStatus(mode === 'compose' ? 'Composing' : 'Reviewing', this._state.aiModel.get());
+			return formatGeneratingStatus(mode, this._state.aiModel.get());
 		}
-		if (status === 'error') return 'Error';
+		if (status === 'error') return l10n.t('Error');
 
 		// Complete / backed — pull counts from the back-preview snapshot or the resolved value.
 		// When a back-preview is set (forward-available state), render the snippet as a clickable
@@ -2802,14 +2830,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		switch (ctx) {
 			case 'multicommit':
 				return {
-					ariaLabel: 'Multiple commits selected',
+					ariaLabel: l10n.t('Multiple commits selected'),
 					content: this.renderMultiCommit(),
 					context: 'multicommit',
 				};
 			case 'wip':
-				return { ariaLabel: 'Working changes details', content: this.renderWip(), context: 'wip' };
+				return { ariaLabel: l10n.t('Working changes details'), content: this.renderWip(), context: 'wip' };
 			case 'commit':
-				return { ariaLabel: 'Commit details', content: this.renderCommit(), context: 'commit' };
+				return { ariaLabel: l10n.t('Commit details'), content: this.renderCommit(), context: 'commit' };
 		}
 	}
 
@@ -2865,7 +2893,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// containing block is anchored to the visible viewport regardless of scroll position.
 		const detailsContent = html`<div
 			role="region"
-			aria-label=${resolved?.ariaLabel ?? 'Commit details'}
+			aria-label=${resolved?.ariaLabel ?? l10n.t('Commit details')}
 			aria-busy=${resolved == null || stale}
 			aria-live="polite"
 			class=${`details-content${stale ? ' details-stale' : ''}${blockPointer ? ' details-replacing' : ''}`}
@@ -2919,7 +2947,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					>${this.renderCompareMode()}${this.showMaximize ? renderDetailsMaximizeChip(this.maximized) : nothing}<gl-action-chip
 						slot="actions"
 						icon="refresh"
-						label="Refresh Comparison"
+						label=${l10n.t('Refresh Comparison')}
 						overlay="tooltip"
 						@click=${() => this._actions.refreshBranchCompare(this.effectiveRepoPath)}
 					></gl-action-chip
@@ -3087,7 +3115,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private renderFilesLoading() {
 		return html`<div class="commit-panel__files-loading" aria-busy="true">
 			<code-icon icon="loading" modifier="spin"></code-icon>
-			<span>Loading...</span>
+			<span>${l10n.t('Loading...')}</span>
 		</div>`;
 	}
 
@@ -3095,7 +3123,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const wip = this._state.wip.get();
 		if (!wip) return nothing;
 
-		const branchName = wip.branch?.name ?? 'unknown';
+		const branchName = wip.branch?.name ?? l10n.t('unknown');
 		const activeMode = this._state.activeMode.get();
 		const preferences = this._state.preferences.get();
 		const hasChanges = (wip.changes?.files?.length ?? 0) > 0;
@@ -3177,8 +3205,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 														.filesCollapsable=${false}
 														empty-text=${
 															hasPausedOp && !hasChanges
-																? 'No conflicting or changed files'
-																: 'No working changes'
+																? l10n.t('No conflicting or changed files')
+																: l10n.t('No working changes')
 														}
 														@file-open=${this.handleFileOpen}
 														@file-compare-working=${this.handleFileCompareWorking}

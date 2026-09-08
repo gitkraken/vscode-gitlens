@@ -19,6 +19,7 @@ import { count, find, last } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { Stopwatch } from '@gitlens/utils/stopwatch.js';
 import type { Container } from '../../../container.js';
+import { getPresentableErrorMessage } from '../../../errors.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { configuration } from '../../../system/-webview/configuration.js';
@@ -922,7 +923,7 @@ export class GraphDataController {
 			return { id: undefined, reason: await this.classifyLoadRowFailure(repoPath, id) };
 		} catch (ex) {
 			Logger.error(ex, 'GraphDataController', 'loadRow');
-			return { id: undefined, error: ex instanceof Error ? ex.message : String(ex) };
+			return { id: undefined, error: getPresentableErrorMessage(ex) };
 		} finally {
 			signal?.removeEventListener('abort', onAbort);
 		}

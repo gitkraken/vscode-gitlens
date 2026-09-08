@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
-import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { l10n, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitStashReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import type { StashesViewConfig, ViewFilesLayout } from '../config.js';
@@ -41,7 +41,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 
 			const repositories = this.view.getFilteredRepositories();
 			if (!repositories.length) {
-				this.view.message = 'No stashes could be found.';
+				this.view.message = l10n.t('No stashes could be found.');
 				return [];
 			}
 
@@ -56,7 +56,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 
 			const stash = await child.repo.git.stash?.getStash();
 			if (!stash?.stashes.size) {
-				this.view.message = 'No stashes could be found.';
+				this.view.message = l10n.t('No stashes could be found.');
 				void child.ensureSubscription();
 
 				return [];
@@ -71,7 +71,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Stashes', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(l10n.t('Stashes'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -80,7 +80,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 	protected readonly configKey = 'stashes';
 
 	constructor(container: Container, grouped?: GroupedViewContext) {
-		super(container, 'stashes', 'Stashes', 'stashesView', grouped);
+		super(container, 'stashes', l10n.t('Stashes'), 'stashesView', grouped);
 	}
 
 	override get canReveal(): boolean {
@@ -186,10 +186,13 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${getReferenceLabel(stash, {
-					icon: false,
-					quoted: true,
-				})} in the side bar...`,
+				title: l10n.t(
+					'Revealing {0} in the side bar...',
+					getReferenceLabel(stash, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (_progress, token) => {

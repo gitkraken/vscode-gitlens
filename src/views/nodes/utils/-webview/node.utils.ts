@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { TreeViewNodeTypes } from '../../../../constants.views.js';
 import { treeViewFileNodeTypes, treeViewRefFileNodeTypes, treeViewRefNodeTypes } from '../../../../constants.views.js';
@@ -193,10 +194,10 @@ type FilterNodesByType<T extends keyof TreeViewNodesByType | (keyof TreeViewNode
 			: never;
 
 export const markers: [number, string][] = [
-	[0, 'Less than a week ago'],
-	[7, 'Over a week ago'],
-	[25, 'Over a month ago'],
-	[77, 'Over 3 months ago'],
+	[0, l10n.t('Less than a week ago')],
+	[7, l10n.t('Over a week ago')],
+	[25, l10n.t('Over a month ago')],
+	[77, l10n.t('Over 3 months ago')],
 ];
 
 export function* insertDateMarkers<T extends ViewNode & { commit: GitCommit }>(

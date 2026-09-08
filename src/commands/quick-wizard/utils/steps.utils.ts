@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { getRevisionRangeParts, isRevisionRange, isSha } from '@gitlens/git/utils/revision.utils.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
@@ -41,16 +42,16 @@ export function canStepContinue<T extends QuickInputStep | QuickPickStep | Custo
 	return result != null && !isDirective(result);
 }
 
-export function createConfirmStep<T extends QuickPickItem, Context extends { title: string }>(
+export function createConfirmStep<T extends QuickPickItem>(
 	title: string,
 	confirmations: T[],
-	context: Context,
+	placeholder: string,
 	cancel?: DirectiveQuickPickItem,
-	options?: Partial<QuickPickStep<T>>,
+	options?: Omit<Partial<QuickPickStep<T>>, 'placeholder'>,
 ): QuickPickStep<T> {
 	return createPickStep<T>({
 		isConfirmationStep: true,
-		placeholder: `Confirm ${context.title}`,
+		placeholder: placeholder,
 		title: title,
 		ignoreFocusOut: true,
 		items: [
@@ -65,7 +66,7 @@ export function createConfirmStep<T extends QuickPickItem, Context extends { tit
 
 /** The separator label confirm steps use for their verb-modifier toggle group — shared so
  *  `QuickCommand.createConfirmStep` can reliably join an existing group instead of stacking a second one. */
-export const confirmOptionsSeparatorLabel = 'Options';
+export const confirmOptionsSeparatorLabel = l10n.t('Options');
 
 /**
  * Rewrites a confirm step's rows in place with `rows`, re-appending the same separator + Cancel that
@@ -217,7 +218,7 @@ export function appendReposToTitle<
 	} else if (repos?.length === 1) {
 		repoContext = `${additionalContext ?? ''} · ${repos[0].name}`;
 	} else {
-		repoContext = ` · ${repos?.length ?? 0} repositories`;
+		repoContext = ` · ${l10n.t('{0} repositories', repos?.length ?? 0)}`;
 	}
 
 	return `${title}${repoContext}`;
@@ -258,7 +259,9 @@ export function getValidateGitReferenceFn(
 
 				if (!getSettledValue(leftResult, false) || !getSettledValue(rightResult, false)) {
 					quickpick.items = [
-						createDirectiveQuickPickItem(Directive.Noop, true, { label: `Invalid Range: ${value}` }),
+						createDirectiveQuickPickItem(Directive.Noop, true, {
+							label: l10n.t('Invalid Range: {0}', value),
+						}),
 					];
 					return true;
 				}
@@ -279,7 +282,7 @@ export function getValidateGitReferenceFn(
 			if (allowRevs) {
 				quickpick.items = [
 					createDirectiveQuickPickItem(Directive.Noop, true, {
-						label: 'Enter a reference or commit SHA',
+						label: l10n.t('Enter a reference or commit SHA'),
 					}),
 				];
 				return true;

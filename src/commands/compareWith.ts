@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
@@ -57,16 +58,16 @@ export class CompareWithCommand extends ActiveEditorCommand {
 			let title;
 			switch (args.ref1) {
 				case null:
-					title = 'Compare';
+					title = l10n.t('Compare');
 					break;
 				case '':
-					title = 'Compare Working Tree with';
+					title = l10n.t('Compare Working Tree with');
 					break;
 				case 'HEAD':
-					title = 'Compare HEAD with';
+					title = l10n.t('Compare HEAD with');
 					break;
 				default:
-					title = `Compare ${args.ref1} with`;
+					title = l10n.t('Compare {0} with', String(args.ref1));
 					break;
 			}
 
@@ -91,7 +92,7 @@ export class CompareWithCommand extends ActiveEditorCommand {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CompareWithCommmand');
-			void showGenericErrorMessage('Unable to open comparison');
+			void showGenericErrorMessage(l10n.t('Unable to open comparison'));
 		}
 	}
 }

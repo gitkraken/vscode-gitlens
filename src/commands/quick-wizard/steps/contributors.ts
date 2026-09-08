@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitContributor } from '@gitlens/git/models/contributor.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { revealContributor } from '../../../git/actions/contributor.js';
@@ -49,7 +50,7 @@ export function* pickContributorsStep<
 		title: appendReposToTitle(context.title, state, context),
 		allowEmpty: true,
 		multiselect: true,
-		placeholder: options?.placeholder ?? 'Choose contributors',
+		placeholder: options?.placeholder ?? l10n.t('Choose contributors'),
 		matchOnDescription: true,
 		items: getItems(),
 		canGoBack: context.steps?.canGoBack,

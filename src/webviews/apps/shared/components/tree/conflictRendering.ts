@@ -1,5 +1,7 @@
+import * as l10n from '@vscode/l10n';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
+import { escapeMarkdown } from '@gitlens/utils/markdown.js';
 import type { TreeItemDecoration, TreeItemDecorationKind } from './base.js';
 
 // Decodes Git's two-character unmerged status codes. The `U` placeholder is context-dependent:
@@ -8,54 +10,92 @@ export function getConflictStatusInfo(
 	status: GitFileConflictStatus,
 	branchName?: string,
 ): { label: string; kind: TreeItemDecorationKind; description: string } | undefined {
-	const branch = branchName ? `$(git-branch) ${branchName}` : 'incoming';
-
 	switch (status) {
 		case 'UU':
 			return {
-				label: 'Modified (Both)',
+				label: l10n.t('Modified (Both)'),
 				kind: 'modified',
-				description: `Modified on both ${branch} and the target`,
+				description: branchName
+					? l10n.t('Modified on both {branchIcon} {branch} and the target', {
+							branchIcon: '$(git-branch)',
+							branch: branchName,
+						})
+					: l10n.t('Modified on both incoming and the target'),
 			};
 		case 'AA':
 			return {
-				label: 'Added (Both)',
+				label: l10n.t('Added (Both)'),
 				kind: 'added',
-				description: `Added on both ${branch} and the target`,
+				description: branchName
+					? l10n.t('Added on both {branchIcon} {branch} and the target', {
+							branchIcon: '$(git-branch)',
+							branch: branchName,
+						})
+					: l10n.t('Added on both incoming and the target'),
 			};
 		case 'DD':
 			return {
-				label: 'Deleted (Both)',
+				label: l10n.t('Deleted (Both)'),
 				kind: 'deleted',
-				description: `Deleted on both ${branch} and the target`,
+				description: branchName
+					? l10n.t('Deleted on both {branchIcon} {branch} and the target', {
+							branchIcon: '$(git-branch)',
+							branch: branchName,
+						})
+					: l10n.t('Deleted on both incoming and the target'),
 			};
 		case 'AU':
 			return {
-				label: 'Added by Current',
+				label: l10n.t('Added by Current'),
 				kind: 'added',
-				description: `Added on the target (conflict with ${branch} — possible rename or directory/file clash)`,
+				description: branchName
+					? l10n.t(
+							'Added on the target (conflict with {branchIcon} {branch} — possible rename or directory/file clash)',
+							{ branchIcon: '$(git-branch)', branch: branchName },
+						)
+					: l10n.t('Added on the target (conflict with incoming — possible rename or directory/file clash)'),
 			};
 		case 'UA':
 			return {
-				label: 'Added by Incoming',
+				label: l10n.t('Added by Incoming'),
 				kind: 'added',
-				description: `Added on ${branch} (conflict with the target — possible rename or directory/file clash)`,
+				description: branchName
+					? l10n.t(
+							'Added on {branchIcon} {branch} (conflict with the target — possible rename or directory/file clash)',
+							{ branchIcon: '$(git-branch)', branch: branchName },
+						)
+					: l10n.t('Added on incoming (conflict with the target — possible rename or directory/file clash)'),
 			};
 		case 'UD':
 			return {
-				label: 'Modified (Current), Deleted (Incoming)',
+				label: l10n.t('Modified (Current), Deleted (Incoming)'),
 				kind: 'deleted',
-				description: `Deleted on ${branch}\nModified on the target`,
+				description: branchName
+					? l10n.t('Deleted on {branchIcon} {branch}\nModified on the target', {
+							branchIcon: '$(git-branch)',
+							branch: branchName,
+						})
+					: l10n.t('Deleted on incoming\nModified on the target'),
 			};
 		case 'DU':
 			return {
-				label: 'Deleted (Current), Modified (Incoming)',
+				label: l10n.t('Deleted (Current), Modified (Incoming)'),
 				kind: 'deleted',
-				description: `Modified on ${branch}\nDeleted on the target`,
+				description: branchName
+					? l10n.t('Modified on {branchIcon} {branch}\nDeleted on the target', {
+							branchIcon: '$(git-branch)',
+							branch: branchName,
+						})
+					: l10n.t('Modified on incoming\nDeleted on the target'),
 			};
 		default:
 			return undefined;
 	}
+}
+
+function formatConflictCount(conflictCount: number): string {
+	const count = getNumericFormat()(conflictCount);
+	return conflictCount === 1 ? l10n.t('{0} conflict', count) : l10n.t('{0} conflicts', count);
 }
 
 export function getConflictDecorations(
@@ -84,11 +124,12 @@ export function getConflictDecorations(
 	}
 
 	if (conflictCount != null && conflictCount > 0) {
+		const count = formatConflictCount(conflictCount);
 		decorations.push({
 			type: 'conflict',
-			label: pluralize('conflict', conflictCount),
+			label: count,
 			count: conflictCount,
-			tooltip: pluralize('conflict', conflictCount),
+			tooltip: count,
 			kind: info?.kind ?? 'modified',
 			position: 'before',
 		});
@@ -102,7 +143,7 @@ export function getConflictTooltip(
 	conflictCount: number | undefined,
 	branchName?: string,
 ): string {
-	const info = getConflictStatusInfo(conflictStatus, branchName);
+	const info = getConflictStatusInfo(conflictStatus, branchName ? escapeMarkdown(branchName) : branchName);
 	const parts: string[] = [];
 
 	if (info != null) {
@@ -111,7 +152,7 @@ export function getConflictTooltip(
 	}
 
 	if (conflictCount != null && conflictCount > 0) {
-		parts.push(pluralize('conflict', conflictCount));
+		parts.push(formatConflictCount(conflictCount));
 	}
 
 	return parts.join('\n\n');

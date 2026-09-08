@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { Brand, Unbrand } from '@gitlens/utils/brand.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
@@ -49,24 +50,46 @@ export class GitHubRemoteProvider extends RemoteProvider<GitHubRepositoryDescrip
 				url: this.issueLinkPattern,
 				alphanumeric: false,
 				ignoreCase: false,
-				title: `Open Issue or Pull Request #<num> on ${this.name}`,
-				description: `${this.name} Issue or Pull Request #<num>`,
+				title: l10n.t('Open Issue or Pull Request #{number} on {provider}', {
+					number: '<num>',
+					provider: this.name,
+				}),
+				description: l10n.t('{provider} Issue or Pull Request #{number}', {
+					provider: this.name,
+					number: '<num>',
+				}),
 			},
 			{
 				prefix: 'gh-',
 				url: this.issueLinkPattern,
 				alphanumeric: false,
 				ignoreCase: true,
-				title: `Open Issue or Pull Request #<num> on ${this.name}`,
-				description: `${this.name} Issue or Pull Request #<num>`,
+				title: l10n.t('Open Issue or Pull Request #{number} on {provider}', {
+					number: '<num>',
+					provider: this.name,
+				}),
+				description: l10n.t('{provider} Issue or Pull Request #{number}', {
+					provider: this.name,
+					number: '<num>',
+				}),
 			},
 			{
 				descriptors: [
 					{
 						regex: autolinkFullIssuesRegex,
 						url: (repo, num) => `${this.protocol}://${this.domain}/${repo}/issues/${num}`,
-						title: (repo, num) => `Open Issue or Pull Request #${num} from ${repo} on ${this.name}`,
-						label: (repo, num) => `${this.name} Issue or Pull Request ${repo}#${num}`,
+						title: (repo, num) =>
+							l10n.t('Open Issue or Pull Request #{number} from {repository} on {provider}', {
+								number: num,
+								repository: repo,
+								provider: this.name,
+							}),
+						label: (repo, num) =>
+							l10n.t('{provider} Issue or Pull Request {repository}#{number}', {
+								provider: this.name,
+								repository: repo,
+								number: num,
+							}),
 					},
 				],
 				parse: (text: string, autolinks: Map<string, Autolink>) => {
@@ -88,8 +111,16 @@ export class GitHubRemoteProvider extends RemoteProvider<GitHubRepositoryDescrip
 							url: `${this.protocol}://${this.domain}/${ownerAndRepo}/issues/${num}`,
 							alphanumeric: false,
 							ignoreCase: true,
-							title: `Open Issue or Pull Request #<num> from ${ownerAndRepo} on ${this.name}`,
-							description: `${this.name} Issue or Pull Request ${ownerAndRepo}#${num}`,
+							title: l10n.t('Open Issue or Pull Request #{number} from {repository} on {provider}', {
+								number: '<num>',
+								repository: ownerAndRepo,
+								provider: this.name,
+							}),
+							description: l10n.t('{provider} Issue or Pull Request {repository}#{number}', {
+								provider: this.name,
+								repository: ownerAndRepo,
+								number: num,
+							}),
 							descriptor: {
 								key: this.remoteKey,
 								owner: owner,

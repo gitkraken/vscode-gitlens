@@ -1,5 +1,5 @@
 import type { Disposable } from 'vscode';
-import { Uri, window } from 'vscode';
+import { l10n, Uri, window } from 'vscode';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import type {
 	GkProviderId,
@@ -126,10 +126,10 @@ export class RepositoryIdentityService implements Disposable {
 		}
 
 		if (foundRepo == null && options?.prompt) {
-			const locate = { title: 'Locate Repository' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const locate = { title: l10n.t('Locate Repository') };
+			const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 			const decision = await window.showInformationMessage(
-				`Unable to find a repository for '${identity.name}'.\nWould you like to locate it?`,
+				l10n.t("Unable to find a repository for '{0}'.\nWould you like to locate it?", identity.name),
 				{ modal: true },
 				locate,
 				cancel,
@@ -139,7 +139,7 @@ export class RepositoryIdentityService implements Disposable {
 
 			const repoLocatedUri = (
 				await window.showOpenDialog({
-					title: `Choose a location for ${identity.name}`,
+					title: l10n.t('Choose a location for {0}', identity.name),
 					canSelectFiles: false,
 					canSelectFolders: true,
 					canSelectMany: false,

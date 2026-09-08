@@ -1,4 +1,5 @@
 import type WaPopup from '@awesome.me/webawesome/dist/components/popup/popup.js';
+import * as l10n from '@vscode/l10n';
 import type { CSSResultGroup } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -601,7 +602,7 @@ export class GlPopover extends GlElement {
 							class="popover__resizer popover__resizer--${h}"
 							role="separator"
 							aria-orientation=${h === 'top' || h === 'bottom' ? 'horizontal' : 'vertical'}
-							aria-label="Resize"
+							aria-label=${l10n.t('Resize')}
 							data-handle=${h}
 							@pointerdown=${this.handleResizePointerDown}
 						></div>`,

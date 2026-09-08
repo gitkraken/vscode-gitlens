@@ -1,5 +1,13 @@
 import type { Uri } from 'vscode';
-import { TabInputCustom, TabInputNotebook, TabInputNotebookDiff, TabInputText, TabInputTextDiff, window } from 'vscode';
+import {
+	l10n,
+	TabInputCustom,
+	TabInputNotebook,
+	TabInputNotebookDiff,
+	TabInputText,
+	TabInputTextDiff,
+	window,
+} from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import { areUrisEqual } from '@gitlens/utils/uri.js';
 import type { Container } from '../container.js';
@@ -23,12 +31,12 @@ export class CloseUnchangedFilesCommand extends GlCommandBase {
 
 		try {
 			if (args.uris == null) {
-				const repo = await getRepositoryOrShowPicker(this.container, 'Close All Unchanged Files');
+				const repo = await getRepositoryOrShowPicker(this.container, l10n.t('Close All Unchanged Files'));
 				if (repo == null) return;
 
 				const status = await repo.git.status.getStatus();
 				if (status == null) {
-					void window.showWarningMessage('Unable to close unchanged files');
+					void window.showWarningMessage(l10n.t('Unable to close unchanged files'));
 
 					return;
 				}
@@ -59,7 +67,7 @@ export class CloseUnchangedFilesCommand extends GlCommandBase {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CloseUnchangedFilesCommand');
-			void showGenericErrorMessage('Unable to close all unchanged files');
+			void showGenericErrorMessage(l10n.t('Unable to close all unchanged files'));
 		}
 	}
 }

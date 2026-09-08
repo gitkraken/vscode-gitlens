@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -15,7 +16,7 @@ import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type {
@@ -185,7 +186,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this.setAttribute('role', 'region');
-		this.setAttribute('aria-label', 'Comparing commits');
+		this.setAttribute('aria-label', l10n.t('Comparing commits'));
 	}
 
 	override disconnectedCallback(): void {
@@ -242,7 +243,9 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 		return html`
 			${
 				isInitialLoad
-					? html`<div class="details-loading" aria-busy="true" aria-live="polite">Loading...</div>`
+					? html`<div class="details-loading" aria-busy="true" aria-live="polite">
+							${l10n.t('Loading...')}
+						</div>`
 					: html`
 							${this.renderCompareHeader()} ${showMetadataBar ? this.renderMetadataBar() : nothing}
 							${cache(
@@ -268,7 +271,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 														.searchContext=${this.searchContext}
 														.showSearchBox=${this.showSearchBox}
 														.searchBoxFilter=${this.searchBoxFilter}
-														empty-text=${filesLoadingEmpty ? '' : 'No Files'}
+														empty-text=${filesLoadingEmpty ? '' : l10n.t('No Files')}
 														?multi-selectable=${true}
 														@file-compare-previous=${this.handleFileCompareBetween}
 														@file-open=${this.redispatch}
@@ -310,7 +313,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 																			icon="loading"
 																			modifier="spin"
 																		></code-icon>
-																		<span>Loading changes…</span>
+																		<span>${l10n.t('Loading changes…')}</span>
 																	</div>`
 																: nothing
 														}
@@ -326,12 +329,12 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	private static readonly _fileActions: TreeItemAction[] = [
 		{
 			icon: 'go-to-file',
-			label: 'Open File',
+			label: l10n.t('Open File'),
 			action: 'file-open',
 		},
 		{
 			icon: 'git-compare',
-			label: 'Open Changes with Working File',
+			label: l10n.t('Open Changes with Working File'),
 			action: 'file-compare-working',
 		},
 	];
@@ -376,7 +379,10 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 			repoPath: repoPath,
 			lhs: lhs,
 			rhs: rhs,
-			title: `Changes between ${shortenRevision(lhs)} and ${shortenRevision(rhs)}`,
+			title: l10n.t('Changes between {from} and {to}', {
+				from: shortenRevision(lhs),
+				to: shortenRevision(rhs),
+			}),
 		};
 	}
 
@@ -447,9 +453,9 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 					this.activeMode === 'review'
 						? html`<span>
 								<code-icon class="compare-header__mode-icon" icon="checklist"></code-icon>
-								Reviewing Comparison
+								${l10n.t('Reviewing Comparison')}
 							</span>`
-						: html`Comparing References`
+						: html`${l10n.t('Comparing References')}`
 				}
 				<!-- The Graph slots its details coach mark here so the tip's lightbulb parks inline
 					 with the title text (same pattern as the compare sheet's title-hint slot). -->
@@ -470,8 +476,8 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 					class="compare-metadata__sha"
 					appearance="toolbar"
 					tooltip-placement="bottom"
-					copy-label="Copy SHA"
-					copied-label="Copied!"
+					copy-label=${l10n.t('Copy SHA')}
+					copied-label=${l10n.t('Copied!')}
 					.sha=${fromSha}
 					icon="git-commit"
 				></gl-commit-sha-copy>
@@ -480,8 +486,8 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 					class="compare-metadata__sha"
 					appearance="toolbar"
 					tooltip-placement="bottom"
-					copy-label="Copy SHA"
-					copied-label="Copied!"
+					copy-label=${l10n.t('Copy SHA')}
+					copied-label=${l10n.t('Copied!')}
 					.sha=${toSha}
 					icon="git-commit"
 				></gl-commit-sha-copy>
@@ -502,10 +508,10 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 			<div class="compare-middle">
 				<div class="compare-middle__line">
 					<div class="compare-middle__rule"></div>
-					<gl-tooltip content="Swap Direction" placement="bottom">
+					<gl-tooltip content=${l10n.t('Swap Direction')} placement="bottom">
 						<button
 							class="compare-middle__swap"
-							aria-label="Swap comparison direction"
+							aria-label=${l10n.t('Swap comparison direction')}
 							@click=${this.handleSwap}
 						>
 							<code-icon icon="arrow-swap"></code-icon>
@@ -516,7 +522,15 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 				${
 					this.betweenCount > 0
 						? html`<span class="compare-middle__count"
-								>${pluralize('commit', this.betweenCount)} in between</span
+								>${
+									this.betweenCount === 1
+										? l10n.t('{count} commit in between', {
+												count: getNumericFormat()(this.betweenCount),
+											})
+										: l10n.t('{count} commits in between', {
+												count: getNumericFormat()(this.betweenCount),
+											})
+								}</span
 							>`
 						: nothing
 				}
@@ -526,7 +540,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	}
 
 	private renderPoleCard(commit: CommitDetails | undefined, signature?: CommitSignatureShape) {
-		if (!commit) return html`<div class="pole-card pole-card--loading">Loading...</div>`;
+		if (!commit) return html`<div class="pole-card pole-card--loading">${l10n.t('Loading...')}</div>`;
 
 		const showSignature = this.preferences?.showSignatureBadges && signature != null;
 

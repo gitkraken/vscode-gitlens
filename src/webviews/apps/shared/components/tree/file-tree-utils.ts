@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
@@ -42,11 +43,11 @@ export function nextContextMatchVisibility(current: 'off' | 'mixed' | 'matched')
 export function getLayoutInfo(layout: ViewFilesLayout): { value: string; icon: string; label: string } {
 	switch (layout) {
 		case 'auto':
-			return { value: 'list', icon: 'gl-list-auto', label: 'View as List' };
+			return { value: 'list', icon: 'gl-list-auto', label: l10n.t('View as List') };
 		case 'list':
-			return { value: 'tree', icon: 'list-flat', label: 'View as Tree' };
+			return { value: 'tree', icon: 'list-flat', label: l10n.t('View as Tree') };
 		case 'tree':
-			return { value: 'auto', icon: 'list-tree', label: 'View as Auto' };
+			return { value: 'auto', icon: 'list-tree', label: l10n.t('View as Auto') };
 	}
 }
 
@@ -64,15 +65,24 @@ export function renderContextMatchVisibilityAction(
 	switch (contextMatchVisibility) {
 		case 'off':
 			icon = 'filter';
-			label = `Search matched ${matchCount} of ${totalCount} files\nClick to highlight matching files`;
+			label = l10n.t('Search matched {matched} of {total} files\nClick to highlight matching files', {
+				matched: matchCount,
+				total: totalCount,
+			});
 			break;
 		case 'mixed':
 			icon = 'gl-filter-mixed';
-			label = `Search matched ${matchCount} of ${totalCount} files\nClick to show only matching files`;
+			label = l10n.t('Search matched {matched} of {total} files\nClick to show only matching files', {
+				matched: matchCount,
+				total: totalCount,
+			});
 			break;
 		case 'matched':
 			icon = 'filter-filled';
-			label = `Showing ${matchCount} of ${totalCount} files\nClick to show all files`;
+			label = l10n.t('Showing {matched} of {total} files\nClick to show all files', {
+				matched: matchCount,
+				total: totalCount,
+			});
 			break;
 	}
 
@@ -106,7 +116,7 @@ export function renderCopyChangesAction(options: {
 	return html`<gl-action-chip
 		slot=${options.slot ?? nothing}
 		icon="copy"
-		label="Copy Changes (Patch)"
+		label=${l10n.t('Copy Changes (Patch)')}
 		@click=${(e: MouseEvent) =>
 			(e.currentTarget as HTMLElement).dispatchEvent(
 				new CustomEvent('copy-commit-patch', {
@@ -127,13 +137,13 @@ export function renderOpenChangesAction(options: {
 	onOpenAll: (altKey: boolean) => void;
 	onOpenSelected: () => void;
 }): TemplateResult<1> {
-	const label = options.label ?? 'Open All Changes';
+	const label = options.label ?? l10n.t('Open All Changes');
 	if (options.selectedCount > 1) {
 		return html`<gl-action-chip
 			slot=${options.slot ?? nothing}
 			data-action="open-selected"
 			icon="diff-multiple"
-			label="Open Selected Changes"
+			label=${l10n.t('Open Selected Changes')}
 			alt-label=${label}
 			@click=${(e: MouseEvent) => (e.altKey || e.shiftKey ? options.onOpenAll(false) : options.onOpenSelected())}
 		></gl-action-chip>`;
@@ -296,8 +306,13 @@ export function buildFileTooltip(file: GitFileChangeShape): string {
 	const nested = file.path.endsWith('/');
 	const path = trimTrailingSlash(file.path);
 	const fullPath = file.repoPath ? joinPaths(file.repoPath, path) : path;
-	const kind = file.submodule != null ? ' (submodule)' : nested ? ' (nested repository)' : '';
-	const lines = [`${fullPath}${kind}`];
+	const lines = [
+		file.submodule != null
+			? l10n.t('{path} (submodule)', { path: fullPath })
+			: nested
+				? l10n.t('{path} (nested repository)', { path: fullPath })
+				: fullPath,
+	];
 	if (status) {
 		lines.push(status);
 	}
@@ -587,19 +602,19 @@ export function getStatusDecoration(
 ): { letter: string; tooltip: string; kind: TreeItemDecorationKind } | undefined {
 	switch (status) {
 		case 'A':
-			return { letter: 'A', tooltip: 'Added', kind: 'added' };
+			return { letter: 'A', tooltip: l10n.t('Added'), kind: 'added' };
 		case '?':
-			return { letter: 'U', tooltip: 'Untracked', kind: 'untracked' };
+			return { letter: 'U', tooltip: l10n.t('Untracked'), kind: 'untracked' };
 		case 'M':
-			return { letter: 'M', tooltip: 'Modified', kind: 'modified' };
+			return { letter: 'M', tooltip: l10n.t('Modified'), kind: 'modified' };
 		case 'D':
-			return { letter: 'D', tooltip: 'Deleted', kind: 'deleted' };
+			return { letter: 'D', tooltip: l10n.t('Deleted'), kind: 'deleted' };
 		case 'R':
-			return { letter: 'R', tooltip: 'Renamed', kind: 'renamed' };
+			return { letter: 'R', tooltip: l10n.t('Renamed'), kind: 'renamed' };
 		case 'C':
-			return { letter: 'C', tooltip: 'Copied', kind: 'renamed' };
+			return { letter: 'C', tooltip: l10n.t('Copied'), kind: 'renamed' };
 		case 'T':
-			return { letter: 'T', tooltip: 'Type Changed', kind: 'modified' };
+			return { letter: 'T', tooltip: l10n.t('Type Changed'), kind: 'modified' };
 		case 'U':
 		case 'AA':
 		case 'AU':
@@ -608,7 +623,7 @@ export function getStatusDecoration(
 		case 'DU':
 		case 'UD':
 		case 'UU':
-			return { letter: '!', tooltip: 'Conflict', kind: 'conflict' };
+			return { letter: '!', tooltip: l10n.t('Conflict'), kind: 'conflict' };
 		default:
 			return undefined;
 	}

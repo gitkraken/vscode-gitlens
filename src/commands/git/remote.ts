@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { Container } from '../../container.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
@@ -32,8 +33,8 @@ export interface RemoteGitCommandArgs {
 
 export class RemoteGitCommand extends QuickCommandWithSubcommands<Subcommands, State, RemoteContext> {
 	constructor(container: Container, args?: RemoteGitCommandArgs) {
-		super(container, 'remote', 'remote', 'Remote', {
-			description: 'add, prune, or remove remotes',
+		super(container, 'remote', 'remote', l10n.t('Remote'), {
+			description: l10n.t('add, prune, or remove remotes'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };

@@ -8,7 +8,17 @@ import type {
 	WorkspaceFolder,
 	WorkspaceFoldersChangeEvent,
 } from 'vscode';
-import { Disposable, EventEmitter, FileType, ProgressLocation, RelativePattern, Uri, window, workspace } from 'vscode';
+import {
+	Disposable,
+	EventEmitter,
+	FileType,
+	l10n,
+	ProgressLocation,
+	RelativePattern,
+	Uri,
+	window,
+	workspace,
+} from 'vscode';
 import { isWeb } from '@env/platform.js';
 import { getSupportedGitProviders } from '@env/providers.js';
 import type { CachedGitTypes, UriScopedCachedGitTypes } from '@gitlens/git/cache.js';
@@ -1606,7 +1616,7 @@ export class GitProviderService implements UnifiedDisposable {
 		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Fetching ${repositories.length} repositories`,
+				title: l10n.t('Fetching {0} repositories', repositories.length),
 			},
 			() => Promise.allSettled(repositories.map(r => r.git.fetch({ progress: false, ...options }))),
 		);
@@ -1627,7 +1637,7 @@ export class GitProviderService implements UnifiedDisposable {
 		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Pulling ${repositories.length} repositories`,
+				title: l10n.t('Pulling {0} repositories', repositories.length),
 			},
 			() => Promise.allSettled(repositories.map(r => r.git.pull({ progress: false, ...options }))),
 		);
@@ -1657,7 +1667,7 @@ export class GitProviderService implements UnifiedDisposable {
 		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Pushing ${repositories.length} repositories`,
+				title: l10n.t('Pushing {0} repositories', repositories.length),
 			},
 			() => Promise.allSettled(repositories.map(r => r.git.push({ progress: false, ...options }))),
 		);

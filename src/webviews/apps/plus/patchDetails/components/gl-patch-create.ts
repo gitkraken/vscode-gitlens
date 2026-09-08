@@ -1,9 +1,11 @@
+import * as l10n from '@vscode/l10n';
 import { html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { flatCount } from '@gitlens/utils/iterable.js';
@@ -164,10 +166,10 @@ export class GlPatchCreate extends GlTreeBase {
 	private renderUserSelection(userSelection: DraftUserSelection) {
 		const role = userSelection.pendingRole!;
 		const options = new Map<string, string>([
-			['admin', 'admin'],
-			['editor', 'can edit'],
-			['viewer', 'can view'],
-			['remove', 'un-invite'],
+			['admin', l10n.t('admin')],
+			['editor', l10n.t('can edit')],
+			['viewer', l10n.t('can view')],
+			['remove', l10n.t('un-invite')],
 		]);
 		const roleLabel = options.get(role);
 		return html`
@@ -177,7 +179,7 @@ export class GlPatchCreate extends GlTreeBase {
 				</div>
 				<div class="user-selection__info">
 					<div class="user-selection__name">
-						${userSelection.member.name ?? userSelection.member.username ?? 'Unknown'}
+						${userSelection.member.name ?? userSelection.member.username ?? l10n.t('Unknown')}
 					</div>
 				</div>
 				<div class="user-selection__actions">
@@ -243,6 +245,16 @@ export class GlPatchCreate extends GlTreeBase {
 
 		const draftName = 'Cloud Patch';
 		const draftNamePlural = 'Cloud Patches';
+		const createCloudPatch = l10n.t({
+			message: 'Create {product}',
+			args: { product: draftName },
+			comment: ['Cloud Patch is a product feature name and must not be translated.'],
+		});
+		const learnMoreAboutCloudPatches = l10n.t({
+			message: 'Learn more about {product}',
+			args: { product: draftNamePlural },
+			comment: ['Cloud Patches is a product feature name and must not be translated.'],
+		});
 		return html`
 			<div class="section section--action">
 				${when(
@@ -258,19 +270,19 @@ export class GlPatchCreate extends GlTreeBase {
 						<span class="message-input__select-icon"><code-icon icon=${visibilityIcon}></code-icon></span>
 						<select id="visibility" class="message-input__control" @change=${this.onVisibilityChange}>
 							<option value="public" ?selected=${this.draftVisibility === 'public'}>
-								Anyone with the link
+								${l10n.t('Anyone with the link')}
 							</option>
 							<option value="private" ?selected=${this.draftVisibility === 'private'}>
-								Members of my Org with the link
+								${l10n.t('Members of my Org with the link')}
 							</option>
 							<option value="invite_only" ?selected=${this.draftVisibility === 'invite_only'}>
-								Collaborators only
+								${l10n.t('Collaborators only')}
 							</option>
 						</select>
 						<span class="message-input__select-caret"><code-icon icon="chevron-down"></code-icon></span>
 					</div>
 					<gl-button appearance="secondary" @click=${this.onInviteUsers}
-						><code-icon icon="person-add" slot="prefix"></code-icon> Invite</gl-button
+						><code-icon icon="person-add" slot="prefix"></code-icon> ${l10n.t('Invite')}</gl-button
 					>
 				</div>
 				${this.renderUserSelectionList()}
@@ -279,7 +291,7 @@ export class GlPatchCreate extends GlTreeBase {
 						id="title"
 						type="text"
 						class="message-input__control"
-						placeholder="Title (required)"
+						placeholder=${l10n.t('Title (required)')}
 						maxlength="100"
 						.value=${this.create.title ?? ''}
 						?disabled=${this.generateBusy}
@@ -293,7 +305,7 @@ export class GlPatchCreate extends GlTreeBase {
 									id="generate-ai"
 									appearance="toolbar"
 									density="compact"
-									tooltip="Generate Title and Description..."
+									tooltip=${l10n.t('Generate Title and Description...')}
 									@click=${(e: MouseEvent) => this.onGenerateTitleClick(e)}
 									?disabled=${this.generateBusy}
 									><code-icon
@@ -310,7 +322,9 @@ export class GlPatchCreate extends GlTreeBase {
 					() => html`
 						<div class="alert alert--error">
 							<code-icon icon="error"></code-icon>
-							<p class="alert__content">${this.generate!.error!.message ?? 'Error retrieving content'}</p>
+							<p class="alert__content">
+								${this.generate!.error!.message ?? l10n.t('Error retrieving content')}
+							</p>
 						</div>
 					`,
 				)}
@@ -318,7 +332,7 @@ export class GlPatchCreate extends GlTreeBase {
 					<textarea
 						id="desc"
 						class="message-input__control"
-						placeholder="Description (optional)"
+						placeholder=${l10n.t('Description (optional)')}
 						maxlength="10000"
 						.value=${this.create.description ?? ''}
 						?disabled=${this.generateBusy}
@@ -328,7 +342,7 @@ export class GlPatchCreate extends GlTreeBase {
 				<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button ?disabled=${this.creationBusy} full @click=${(e: Event) => this.onCreateAll(e)}
-							>Create ${draftName}</gl-button
+							>${createCloudPatch}</gl-button
 						>
 					</span>
 				</p>
@@ -338,7 +352,7 @@ export class GlPatchCreate extends GlTreeBase {
 						<p class="button-container">
 							<span class="button-group button-group--single">
 								<gl-button appearance="secondary" full @click=${() => this.onCancel()}
-									>Cancel</gl-button
+									>${l10n.t('Cancel')}</gl-button
 								>
 							</span>
 						</p>
@@ -349,32 +363,50 @@ export class GlPatchCreate extends GlTreeBase {
 					() =>
 						html`<p class="h-deemphasize">
 							<code-icon icon="lock"></code-icon>
-							<a
-								href="${urls.cloudPatches}"
-								title="Learn more about ${draftNamePlural}"
-								aria-label="Learn more about ${draftNamePlural}"
-								>${draftNamePlural}</a
-							>
-							are
-							<a
-								href="https://help.gitkraken.com/gitlens/security"
-								title="Learn more about GitKraken security"
-								aria-label="Learn more about GitKraken security"
-								>securely stored</a
-							>
-							by GitKraken.
+							${localizedContent(
+								l10n.t({
+									message: '{cloudPatches} are {securelyStored} by GitKraken.',
+									comment: [
+										'{cloudPatches} is a link to Cloud Patches. {securelyStored} is a link to GitKraken security.',
+									],
+								}),
+								{
+									cloudPatches: html`<a
+										href=${urls.cloudPatches}
+										title=${learnMoreAboutCloudPatches}
+										aria-label=${learnMoreAboutCloudPatches}
+										>${draftNamePlural}</a
+									>`,
+									securelyStored: html`<a
+										href="https://help.gitkraken.com/gitlens/security"
+										title=${l10n.t('Learn more about GitKraken security')}
+										aria-label=${l10n.t('Learn more about GitKraken security')}
+										>${l10n.t({
+											message: 'securely stored',
+											comment: ['Link text within the Cloud Patch storage sentence.'],
+										})}</a
+									>`,
+								},
+							)}
 						</p>`,
 					() =>
 						html`<p class="h-deemphasize">
 							<code-icon icon="info"></code-icon>
-							Your
-							<a
-								href="${urls.cloudPatches}"
-								title="Learn more about ${draftNamePlural}"
-								aria-label="Learn more about ${draftNamePlural}"
-								>${draftName}</a
-							>
-							will be securely stored in your organization's self-hosted storage
+							${localizedContent(
+								l10n.t({
+									message:
+										"Your {cloudPatch} will be securely stored in your organization's self-hosted storage",
+									comment: ['{cloudPatch} is a link to the Cloud Patch product page.'],
+								}),
+								{
+									cloudPatch: html`<a
+										href=${urls.cloudPatches}
+										title=${learnMoreAboutCloudPatches}
+										aria-label=${learnMoreAboutCloudPatches}
+										>${draftName}</a
+									>`,
+								},
+							)}
 						</p>`,
 				)}
 			</div>
@@ -401,7 +433,7 @@ export class GlPatchCreate extends GlTreeBase {
 	private renderChangedFiles() {
 		return html`
 			<webview-pane class="h-no-border" expanded>
-				<span slot="title">Changes to Include</span>
+				<span slot="title">${l10n.t('Changes to Include')}</span>
 				<action-nav slot="actions">${this.renderLayoutAction(this.fileLayout)}</action-nav>
 
 				${when(
@@ -471,7 +503,7 @@ export class GlPatchCreate extends GlTreeBase {
 
 	private renderTreeViewWithModel() {
 		if (this.createChanges == null || this.createChanges.length === 0) {
-			return this.renderTreeView([], 'none', 'No changes');
+			return this.renderTreeView([], 'none', l10n.t('No changes'));
 		}
 
 		const treeModel: TreeModel[] = [];
@@ -494,7 +526,7 @@ export class GlPatchCreate extends GlTreeBase {
 				treeModel.push(...tree);
 			}
 		}
-		return this.renderTreeView(treeModel, this.state?.preferences?.indentGuides, 'No changes');
+		return this.renderTreeView(treeModel, this.state?.preferences?.indentGuides, l10n.t('No changes'));
 	}
 
 	private getTreeForChange(change: Change, isMulti = false, isTree = false, compact = true): TreeModel[] | undefined {
@@ -518,7 +550,7 @@ export class GlPatchCreate extends GlTreeBase {
 			} else {
 				if (unstaged.length) {
 					children.push({
-						label: 'Unstaged Changes',
+						label: l10n.t('Unstaged Changes'),
 						path: '',
 						level: isMulti ? 2 : 1,
 						branch: true,
@@ -532,7 +564,7 @@ export class GlPatchCreate extends GlTreeBase {
 
 				if (staged.length) {
 					children.push({
-						label: 'Staged Changes',
+						label: l10n.t('Staged Changes'),
 						path: '',
 						level: isMulti ? 2 : 1,
 						branch: true,
@@ -573,7 +605,7 @@ export class GlPatchCreate extends GlTreeBase {
 		if (!this.canSubmit) {
 			// TODO: show error
 			if (this.titleInput.value.length === 0) {
-				this.titleInput.setCustomValidity('Title is required');
+				this.titleInput.setCustomValidity(l10n.t('Title is required'));
 				this.titleInput.reportValidity();
 				this.titleInput.focus();
 			} else {
@@ -581,7 +613,7 @@ export class GlPatchCreate extends GlTreeBase {
 			}
 
 			if (this.selectedChanges == null || this.selectedChanges.length === 0) {
-				this.validityMessage = 'Check at least one change';
+				this.validityMessage = l10n.t('Check at least one change');
 			} else {
 				this.validityMessage = undefined;
 			}
@@ -800,14 +832,14 @@ export class GlPatchCreate extends GlTreeBase {
 	): { icon: string; label: string; action: string }[] {
 		const openFile = {
 			icon: 'go-to-file',
-			label: 'Open File',
+			label: l10n.t('Open File'),
 			action: 'file-open',
 		};
 
 		if (file.staged === true) {
-			return [openFile, { icon: 'remove', label: 'Unstage Changes', action: 'file-unstage' }];
+			return [openFile, { icon: 'remove', label: l10n.t('Unstage Changes'), action: 'file-unstage' }];
 		}
-		return [openFile, { icon: 'plus', label: 'Stage Changes', action: 'file-stage' }];
+		return [openFile, { icon: 'plus', label: l10n.t('Stage Changes'), action: 'file-stage' }];
 	}
 
 	override getRepoActions(
@@ -818,7 +850,7 @@ export class GlPatchCreate extends GlTreeBase {
 		return [
 			{
 				icon: 'gl-graph',
-				label: 'Open in Commit Graph',
+				label: l10n.t('Open in Commit Graph'),
 				action: 'show-patch-in-graph',
 			},
 		];

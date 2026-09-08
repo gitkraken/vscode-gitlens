@@ -1,4 +1,4 @@
-import { MarkdownString } from 'vscode';
+import { l10n, MarkdownString } from 'vscode';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import type { GitStatusFile } from '@gitlens/git/models/statusFile.js';
 import { loggable } from '@gitlens/utils/decorators/log.js';
@@ -34,11 +34,24 @@ export function getFileTooltip(
 	suffix?: string,
 	outputFormat?: 'markdown' | 'plaintext',
 ): string {
-	return StatusFileFormatter.fromTemplate(
-		`\${status${suffix ? `' ${suffix}'` : ''}} $(file) \${filePath}${file.submodule != null ? ' (submodule)' : ''}\${  ←  originalPath}\${'\\\n'changesDetail}`,
-		file,
-		{ outputFormat: outputFormat ?? 'markdown' },
-	);
+	const status = `\${status}`;
+	const statusSuffix = suffix ? ` ${suffix}` : '';
+	const filePath = `\${filePath}`;
+	const originalPath = `\${  ←  originalPath}`;
+	const changesDetail = `\${'\\\n'changesDetail}`;
+	const template =
+		file.submodule != null
+			? l10n.t('{status}{statusSuffix} {fileIcon} {filePath} (submodule){originalPath}{changesDetail}', {
+					status: status,
+					statusSuffix: statusSuffix,
+					fileIcon: '$(file)',
+					filePath: filePath,
+					originalPath: originalPath,
+					changesDetail: changesDetail,
+				})
+			: `${status}${statusSuffix} $(file) ${filePath}${originalPath}${changesDetail}`;
+
+	return StatusFileFormatter.fromTemplate(template, file, { outputFormat: outputFormat ?? 'markdown' });
 }
 
 export function getFileTooltipMarkdown(file: GitFile | GitStatusFile, suffix?: string): MarkdownString {

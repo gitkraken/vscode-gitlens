@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
@@ -182,14 +183,19 @@ otherwise stretches its (single, historically) slotted child to fill the row. */
 
 		const busy = this.generateChangelogBusy;
 		return html`<div class="row">
-			<gl-ai-input multiline floating-footer button-tooltip="Explain Changes" .busy=${this.explainBusy}>
+			<gl-ai-input
+				multiline
+				floating-footer
+				button-tooltip=${l10n.t('Explain Changes')}
+				.busy=${this.explainBusy}
+			>
 				<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
 				${this.renderScopeChip()}
 			</gl-ai-input>
-			<gl-tooltip content="Generate Changelog" placement="bottom"
+			<gl-tooltip content=${l10n.t('Generate Changelog')} placement="bottom"
 				><button
 					class=${busy ? 'changelog-btn is-busy' : 'changelog-btn'}
-					aria-label="Generate Changelog"
+					aria-label=${l10n.t('Generate Changelog')}
 					?disabled=${busy}
 					aria-busy=${busy ? 'true' : nothing}
 					@click=${this.onGenerateChangelog}

@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
@@ -39,7 +40,7 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 			try {
 				const repo = await getRepositoryOrShowPicker(
 					this.container,
-					'Open Associated Pull Request',
+					l10n.t('Open Associated Pull Request'),
 					undefined,
 					undefined,
 					{

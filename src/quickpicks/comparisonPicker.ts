@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import { createReference, getReferenceLabel, isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { getRevisionRangeParts, isRevisionRange } from '@gitlens/git/utils/revision.utils.js';
@@ -41,8 +42,8 @@ export async function showComparisonPicker(
 
 	while (true) {
 		let { title, placeholder } = {
-			title: 'Compare',
-			placeholder: 'Choose a reference (branch, tag, etc) to compare',
+			title: l10n.t('Compare'),
+			placeholder: l10n.t('Choose a reference (branch, tag, etc) to compare'),
 			...options?.getTitleAndPlaceholder?.(1),
 		};
 
@@ -74,8 +75,8 @@ export async function showComparisonPicker(
 
 		if (base == null || force) {
 			({ title, placeholder } = {
-				title: `Compare ${getReferenceLabel(head, { label: false, icon: false })} with`,
-				placeholder: 'Choose a reference (branch, tag, etc) to compare with',
+				title: l10n.t('Compare {0} with', getReferenceLabel(head, { label: false, icon: false })),
+				placeholder: l10n.t('Choose a reference (branch, tag, etc) to compare with'),
 				...options?.getTitleAndPlaceholder?.(2, head),
 			});
 

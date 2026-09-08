@@ -1,5 +1,6 @@
 import { readdir } from 'fs';
 import { readFile, stat } from 'fs/promises';
+import * as l10n from '@vscode/l10n';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import { PausedOperationAbortError, PausedOperationContinueError } from '@gitlens/git/errors.js';
@@ -572,7 +573,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		if (status == null) return;
 
 		if (status.type === 'merge' && options?.skip) {
-			throw new Error('Skipping a merge is not supported');
+			throw new Error(l10n.t('Skipping a merge is not supported'));
 		}
 
 		const args = [status.type, options?.skip ? '--skip' : '--continue'];

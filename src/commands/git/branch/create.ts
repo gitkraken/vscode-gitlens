@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { BranchError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
@@ -85,8 +85,8 @@ export interface BranchCreateGitCommandArgs {
 
 export class BranchCreateGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: BranchCreateGitCommandArgs) {
-		super(container, 'branch-create', 'create', 'Create Branch', {
-			description: 'creates a new branch',
+		super(container, 'branch-create', 'create', l10n.t('Create Branch'), {
+			description: l10n.t('creates a new branch'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -141,9 +141,9 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 					using step = steps.enterStep(Steps.PickRef);
 
 					const result = yield* pickBranchOrTagStep(state, context, {
-						placeholder: `Choose a base to create the new branch from`,
+						placeholder: l10n.t('Choose a base to create the new branch from'),
 						picked: state.reference?.ref ?? (await state.repo.git.branches.getBranch())?.ref,
-						title: 'Select Base to Create Branch From',
+						title: l10n.t('Select Base to Create Branch From'),
 						value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 					});
 					if (result === StepResultBreak) {
@@ -168,12 +168,15 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 					}
 
 					const result = yield* inputBranchNameStep(state, context, {
-						prompt: 'Please provide a name for the new branch',
-						title: `${context.title} from ${getReferenceLabel(state.reference, {
-							capitalize: true,
-							icon: false,
-							label: state.reference.refType !== 'branch',
-						})}`,
+						prompt: l10n.t('Please provide a name for the new branch'),
+						title: l10n.t(
+							'Create Branch from {0}',
+							getReferenceLabel(state.reference, {
+								capitalize: true,
+								icon: false,
+								label: state.reference.refType !== 'branch',
+							}),
+						),
 						value: value,
 					});
 					if (result === StepResultBreak) {
@@ -274,23 +277,29 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 							isRemoteBranch && state.name !== remoteBranchName ? { noTracking: true } : undefined,
 						);
 					} catch (ex) {
-						Logger.error(ex, context.title);
+						Logger.error(ex, 'Create Branch');
 
 						if (BranchError.is(ex, 'alreadyExists')) {
 							void window.showWarningMessage(
-								`Unable to create branch '${state.name}'. A branch with that name already exists.`,
+								l10n.t(
+									"Unable to create branch '{0}'. A branch with that name already exists.",
+									state.name,
+								),
 							);
 							return;
 						}
 
 						if (BranchError.is(ex, 'invalidName')) {
 							void window.showWarningMessage(
-								`Unable to create branch '${state.name}'. The branch name is invalid.`,
+								l10n.t("Unable to create branch '{0}'. The branch name is invalid.", state.name),
 							);
 							return;
 						}
 
-						void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to create branch');
+						void showGitErrorMessage(
+							ex,
+							BranchError.is(ex) ? undefined : l10n.t('Unable to create branch'),
+						);
 						return;
 					}
 				}
@@ -341,7 +350,11 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 			confirmItems.push(
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: context.title,
-					detail: `Will create a new branch named ${state.name} from ${getReferenceLabel(state.reference)}`,
+					detail: l10n.t(
+						'Will create a new branch named {0} from {1}',
+						state.name,
+						getReferenceLabel(state.reference),
+					),
 				}),
 			);
 		}
@@ -349,10 +362,12 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 		if (!state.confirmOptions || state.confirmOptions.includes('--switch')) {
 			confirmItems.push(
 				createFlagsQuickPickItem<Flags>(state.flags, ['--switch'], {
-					label: `Create & Switch to Branch`,
-					detail: `Will create and switch to a new branch named ${state.name} from ${getReferenceLabel(
-						state.reference,
-					)}`,
+					label: l10n.t('Create & Switch to Branch'),
+					detail: l10n.t(
+						'Will create and switch to a new branch named {0} from {1}',
+						state.name,
+						getReferenceLabel(state.reference),
+					),
 				}),
 			);
 		}
@@ -360,20 +375,21 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 		if (!state.confirmOptions || state.confirmOptions.includes('--worktree')) {
 			confirmItems.push(
 				createFlagsQuickPickItem<Flags>(state.flags, ['--worktree'], {
-					label: `${context.title} in New Worktree`,
-					description: 'avoids modifying your working tree',
-					detail: `Will create a new worktree for a new branch named ${state.name} from ${getReferenceLabel(
-						state.reference,
-					)}`,
+					label: l10n.t('Create Branch in New Worktree'),
+					description: l10n.t('avoids modifying your working tree'),
+					detail: l10n.t(
+						'Will create a new worktree for a new branch named {0} from {1}',
+						state.name,
+						getReferenceLabel(state.reference),
+					),
 				}),
 			);
 		}
 
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(l10n.t('Confirm Create Branch'), state, context),
 			confirmItems,
-			undefined,
-			{ placeholder: `Confirm ${context.title}` },
+			l10n.t('Confirm Create Branch'),
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;

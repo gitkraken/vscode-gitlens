@@ -1,5 +1,5 @@
 import type { Uri } from 'vscode';
-import { ProgressLocation, window } from 'vscode';
+import { l10n, ProgressLocation, window } from 'vscode';
 import { CheckoutError, FetchError, PullError, PushError, SigningError } from '@gitlens/git/errors.js';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import type { GitBranchReference, GitReference } from '@gitlens/git/models/reference.js';
@@ -385,8 +385,12 @@ export class GitRepositoryService {
 				location: ProgressLocation.Notification,
 				title:
 					opts.branch != null
-						? `${opts.pull ? 'Pulling' : 'Fetching'} ${opts.branch.name}...`
-						: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${repo?.name ?? ''}...`,
+						? opts.pull
+							? l10n.t('Pulling {0}...', opts.branch.name)
+							: l10n.t('Fetching {0}...', opts.branch.name)
+						: opts.remote != null
+							? l10n.t('Fetching {0} of {1}...', opts.remote, repo?.name ?? '')
+							: l10n.t('Fetching {0}...', repo?.name ?? ''),
 			},
 			() => this.fetchCore(opts),
 		);
@@ -428,7 +432,7 @@ export class GitRepositoryService {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Pulling ${repo?.name ?? ''}...`,
+				title: l10n.t('Pulling {0}...', repo?.name ?? ''),
 			},
 			() => this.pullCore(opts),
 		);
@@ -481,8 +485,10 @@ export class GitRepositoryService {
 			{
 				location: ProgressLocation.Notification,
 				title: isBranchReference(opts.reference)
-					? `${opts.publish != null ? 'Publishing ' : 'Pushing '}${opts.reference.name}...`
-					: `Pushing ${repo?.name ?? ''}...`,
+					? opts.publish != null
+						? l10n.t('Publishing {0}...', opts.reference.name)
+						: l10n.t('Pushing {0}...', opts.reference.name)
+					: l10n.t('Pushing {0}...', repo?.name ?? ''),
 			},
 			() => this.pushCore(opts),
 		);
@@ -527,7 +533,7 @@ export class GitRepositoryService {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Switching ${repo?.name ?? ''} to ${ref}...`,
+				title: l10n.t('Switching {0} to {1}...', repo?.name ?? '', ref),
 				cancellable: false,
 			},
 			() => this.switchCore(ref, opts),

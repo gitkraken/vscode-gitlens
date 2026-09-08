@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { disposableInterval } from '@gitlens/utils/disposable.js';
@@ -178,6 +179,9 @@ const archivedSessionIdsCacheTtlMs = 10 * 1000; // 10 seconds
  *  branch cards, which match strictly by resolved `worktreePath` — so their git info is resolved
  *  eagerly at poll time (a handful), keeping the older tail lazy. Mirrors the 24h WIP-row window. */
 const recentEndedGitResolveThresholdMs = 24 * 60 * 60 * 1000; // 24 hours
+const inputRequiredLabel = l10n.t('Input Required');
+const waitingForInputLabel = l10n.t('Waiting for input');
+const subagentLabel = l10n.t('Subagent');
 /** Default cooldown between PostToolUse and dropping the file from `fileActivity`. Held long
  *  enough that the treemap activity overlay can render a decay tail well past the moment the tool
  *  call completed. The host may override per-call via `AgentProviderCallbacks.getActivityDecayMs`
@@ -375,8 +379,8 @@ function synthesizeUnresolvableAsk(toolName: string | null | undefined, planFile
 
 	return {
 		kind: 'elicitation',
-		toolName: 'Input Required',
-		toolDescription: 'Waiting for input',
+		toolName: inputRequiredLabel,
+		toolDescription: waitingForInputLabel,
 		resolvable: false,
 	};
 }
@@ -1215,8 +1219,8 @@ export class GkAgentProvider implements AgentSessionProvider {
 							statusDetail: toolName,
 							pendingPermission: {
 								kind: 'elicitation',
-								toolName: toolName ?? 'Input Required',
-								toolDescription: toolName ?? 'Waiting for input',
+								toolName: toolName ?? inputRequiredLabel,
+								toolDescription: toolName ?? waitingForInputLabel,
 								resolvable: false,
 							},
 						});
@@ -1376,8 +1380,8 @@ export class GkAgentProvider implements AgentSessionProvider {
 				const bk = this.getBookkeeping(event.sessionId);
 				bk.pendingPermission = {
 					kind: 'elicitation',
-					toolName: toolName ?? 'Input Required',
-					toolDescription: toolName ?? 'Waiting for input',
+					toolName: toolName ?? inputRequiredLabel,
+					toolDescription: toolName ?? waitingForInputLabel,
 					// `Elicitation` arrives on a non-blocking hook, so no entry exists for
 					// `resolvePermission` to answer — the user responds in the agent's own session.
 					resolvable: false,
@@ -1423,7 +1427,7 @@ export class GkAgentProvider implements AgentSessionProvider {
 						id: event.agentId,
 						providerId: capabilities.providerId,
 						providerName: capabilities.displayName,
-						name: event.agentType ?? 'Subagent',
+						name: event.agentType ?? subagentLabel,
 						status: 'thinking',
 						phase: 'working',
 						phaseSince: now,
@@ -3521,7 +3525,7 @@ export class GkAgentProvider implements AgentSessionProvider {
 				id: sub.agentId,
 				providerId: capabilities.providerId,
 				providerName: capabilities.displayName,
-				name: sub.agentType ?? 'Subagent',
+				name: sub.agentType ?? subagentLabel,
 				status: 'thinking',
 				phase: 'working' as const,
 				phaseSince: activityDate,

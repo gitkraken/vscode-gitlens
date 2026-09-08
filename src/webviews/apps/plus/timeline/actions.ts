@@ -1,4 +1,5 @@
 import type { Remote } from '@eamodio/supertalk';
+import * as l10n from '@vscode/l10n';
 import { setAbbreviatedShaLength } from '@gitlens/git/utils/revision.utils.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
@@ -602,7 +603,7 @@ export class TimelineActions {
 		const result = await this._timeline.choosePath({
 			repoUri: repo.uri,
 			ref: s.head.get(),
-			title: 'Select a File or Folder to Visualize',
+			title: l10n.t('Select a File or Folder to Visualize'),
 			initialPath: currentScope.type === 'file' ? dirname(currentScope.relativePath) : currentScope.relativePath,
 		});
 		if (result?.picked == null) return;

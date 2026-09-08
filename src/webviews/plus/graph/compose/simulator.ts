@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import { rootSha } from '@gitlens/git/models/revision.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
@@ -74,7 +75,7 @@ export async function runSimulatedComposeChanges(input: {
 		throw new CancellationError();
 	}
 
-	onProgress({ phase: 'collecting', message: 'Preparing changes…' });
+	onProgress({ phase: 'collecting', message: l10n.t('Preparing changes…') });
 
 	if (mode === 'slow') {
 		await delay(state.slowDelayMs, signal);
@@ -135,10 +136,10 @@ export async function runSimulatedComposeChanges(input: {
 	if (mode === 'error') {
 		// Honour error mode after collection so progress events still fire. Matches what
 		// the simulator AI provider does at the per-call layer.
-		throw new Error('(Simulator) Simulated compose failure for verification');
+		throw new Error(l10n.t('(Simulator) Simulated compose failure for verification'));
 	}
 
-	onProgress({ phase: 'composing', message: 'Generating commit groups…' });
+	onProgress({ phase: 'composing', message: l10n.t('Generating commit groups…') });
 
 	// Build one ComposeHunk per scoped file. Synthetic content — the patch field is
 	// realistic enough to render in the per-commit virtual diff view (one file → one hunk).
@@ -158,7 +159,7 @@ export async function runSimulatedComposeChanges(input: {
 	const groupings = groupHunksToCommits(parsed, hunkIndexByPath, filtered);
 
 	signal?.throwIfAborted();
-	onProgress({ phase: 'verifying', message: 'Finalising plan…' });
+	onProgress({ phase: 'verifying', message: l10n.t('Finalising plan…') });
 
 	const plan: ComposePlan = {
 		grouping: { groups: [] } as unknown as ComposePlan['grouping'],
@@ -167,7 +168,7 @@ export async function runSimulatedComposeChanges(input: {
 		allOrderedCommits: groupings.map(g => ({
 			id: g.id,
 			message: g.message,
-			explanation: '(Simulator) Synthetic commit grouping for verification.',
+			explanation: l10n.t('(Simulator) Synthetic commit grouping for verification.'),
 			hunkIndices: g.hunkIndices,
 		})),
 	};
@@ -290,7 +291,7 @@ function groupHunksToCommits(
 		if (remaining.length > 0) {
 			groups.push({
 				id: `sim-${groups.length + 1}`,
-				message: '(Simulator) Remaining changes',
+				message: l10n.t('(Simulator) Remaining changes'),
 				hunkIndices: remaining,
 			});
 		}
@@ -303,7 +304,7 @@ function groupHunksToCommits(
 		const indices = hunkIndexByPath.get(f.path) ?? [];
 		return {
 			id: `sim-${i + 1}`,
-			message: `(Simulator) Update ${f.path}`,
+			message: l10n.t('(Simulator) Update {0}', f.path),
 			hunkIndices: indices,
 		};
 	});

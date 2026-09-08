@@ -1,5 +1,5 @@
 import type { Terminal, TerminalOptions } from 'vscode';
-import { ConfigurationTarget, TerminalLocation, ViewColumn, window } from 'vscode';
+import { ConfigurationTarget, l10n, TerminalLocation, ViewColumn, window } from 'vscode';
 import { Container } from '../../container.js';
 import { configuration } from './configuration.js';
 
@@ -44,12 +44,13 @@ async function showTerminalLocationPromptCore(container: Container): Promise<voi
 	}
 
 	try {
+		const useEditorTabs = { title: l10n.t('Use Editor Tabs') };
 		const result = await window.showInformationMessage(
-			'Would you like GitLens terminals to open as editor tabs alongside your files?',
-			{ title: 'Use Editor Tabs' },
+			l10n.t('Would you like GitLens terminals to open as editor tabs alongside your files?'),
+			useEditorTabs,
 		);
 
-		if (result?.title === 'Use Editor Tabs') {
+		if (result === useEditorTabs) {
 			await configuration.update('openInTerminalLocation', 'editor', ConfigurationTarget.Global);
 		}
 	} finally {

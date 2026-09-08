@@ -1,6 +1,6 @@
 import type { EnrichedItemsByUniqueId, PullRequestWithUniqueID } from '@gitkraken/provider-apis/providers';
 import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode';
-import { Disposable, env, EventEmitter, Uri } from 'vscode';
+import { Disposable, env, EventEmitter, l10n, Uri } from 'vscode';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { PullRequest, PullRequestMember } from '@gitlens/git/models/pullRequest.js';
@@ -590,7 +590,7 @@ export class LaunchpadProvider implements Disposable {
 					lhs: refs.base.ref,
 					rhs: refs.head.ref,
 				},
-				{ title: `Changes in Pull Request #${item.id}` },
+				{ title: l10n.t('Changes in Pull Request #{id}', { id: item.id }) },
 			);
 		}
 	}

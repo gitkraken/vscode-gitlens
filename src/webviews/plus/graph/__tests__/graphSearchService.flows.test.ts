@@ -168,12 +168,12 @@ suite('GraphSearchService flows', () => {
 		const rsp = await harness.search(nlSearch('sentence'));
 
 		assert.ok(rsp != null);
-		assert.deepStrictEqual(rsp.state.results, { error: 'Error: Rate limited', reason: 'aiUnavailable' });
+		assert.deepStrictEqual(rsp.state.results, { error: 'Rate limited', reason: 'aiUnavailable' });
 		assert.strictEqual(harness.graph.searchGraph.callCount, 0);
 
 		const states = harness.states();
 		assert.strictEqual(states.length, 1);
-		assert.deepStrictEqual(states[0]?.results, { error: 'Error: Rate limited', reason: 'aiUnavailable' });
+		assert.deepStrictEqual(states[0]?.results, { error: 'Rate limited', reason: 'aiUnavailable' });
 	});
 
 	test('an aborted NL conversion produces no search state at all', async () => {
@@ -284,7 +284,7 @@ suite('GraphSearchService flows', () => {
 
 		assert.ok(rsp != null);
 		assert.deepStrictEqual(rsp.state.relaxations, [
-			{ label: 'without the date filter', query: 'message:aaa', count: 42, capped: undefined },
+			{ kind: 'drop-filter', filter: 'date', query: 'message:aaa', count: 42, capped: undefined },
 		]);
 
 		const relaxationStates = harness.states().filter(s => s?.relaxations != null);
@@ -316,7 +316,7 @@ suite('GraphSearchService flows', () => {
 
 		assert.ok(rsp != null);
 		assert.deepStrictEqual(rsp.state.relaxations, [
-			{ label: "as 'Keith Daulton'", query: 'author:"Keith Daulton"', count: 7, capped: undefined },
+			{ kind: 'author', name: 'Keith Daulton', query: 'author:"Keith Daulton"', count: 7, capped: undefined },
 		]);
 
 		const relaxationStates = harness.states().filter(s => s?.relaxations != null);

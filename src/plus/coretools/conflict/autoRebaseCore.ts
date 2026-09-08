@@ -1,6 +1,8 @@
+import * as l10n from '@vscode/l10n';
 import { isAIUnavailableError } from '@gitlens/ai/errors.js';
 import { PausedOperationContinueError } from '@gitlens/git/errors.js';
-import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
+import type { GitPausedOperation, GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
+import { getPresentableErrorMessage } from '../../../errors.js';
 import type {
 	AutoRebaseEscalation,
 	AutoRebaseHandoff,
@@ -29,6 +31,17 @@ function capRecent(resolutions: Resolution[]): void {
 
 /** Extra iterations allowed beyond `steps.total * 2` before the runaway backstop trips. */
 const iterationCapSlack = 10;
+
+function describeOperationInsteadOfRebase(type: Exclude<GitPausedOperation, 'rebase'>): string {
+	switch (type) {
+		case 'cherry-pick':
+			return l10n.t('A cherry-pick is in progress instead of the rebase.');
+		case 'merge':
+			return l10n.t('A merge is in progress instead of the rebase.');
+		case 'revert':
+			return l10n.t('A revert is in progress instead of the rebase.');
+	}
+}
 
 /**
  * The git/AI surface the loop drives — injected so the loop is unit-testable without a repo.
@@ -138,7 +151,7 @@ export async function runAutoRebaseLoop(
 			if (!PausedOperationContinueError.is(ex)) {
 				return escalate({
 					reason: 'continue-error',
-					message: ex instanceof Error ? ex.message : String(ex),
+					message: getPresentableErrorMessage(ex),
 					stepNumber: stepNumber,
 				});
 			}
@@ -152,7 +165,7 @@ export async function runAutoRebaseLoop(
 					} catch (skipEx) {
 						return escalate({
 							reason: 'continue-error',
-							message: skipEx instanceof Error ? skipEx.message : String(skipEx),
+							message: getPresentableErrorMessage(skipEx),
 							stepNumber: stepNumber,
 						});
 					}
@@ -173,14 +186,15 @@ export async function runAutoRebaseLoop(
 					// auto-generated message, so hand the rebase back for the user to amend and resume.
 					return escalate({
 						reason: 'message-edit',
-						message:
+						message: l10n.t(
 							'The rebase stopped at a commit whose message needs to be edited — amend the commit message, then resume.',
+						),
 						stepNumber: stepNumber,
 					});
 				default:
 					return escalate({
 						reason: 'continue-error',
-						message: ex.message,
+						message: ex.localizedMessage,
 						stepNumber: stepNumber,
 					});
 			}
@@ -203,7 +217,7 @@ export async function runAutoRebaseLoop(
 		if (status.type !== 'rebase') {
 			return escalate({
 				reason: 'non-conflict-pause',
-				message: `A ${status.type} is in progress instead of the rebase.`,
+				message: describeOperationInsteadOfRebase(status.type),
 			});
 		}
 
@@ -216,7 +230,7 @@ export async function runAutoRebaseLoop(
 			if (status.type !== 'rebase' || !status.isPaused) {
 				return escalate({
 					reason: 'non-conflict-pause',
-					message: 'The rebase stopped for a reason that can’t be handled automatically.',
+					message: l10n.t('The rebase stopped for a reason that can’t be handled automatically.'),
 				});
 			}
 		}
@@ -231,7 +245,7 @@ export async function runAutoRebaseLoop(
 		if (++iterations > maxIterations) {
 			return escalate({
 				reason: 'step-cap',
-				message: 'The Auto-Rebase exceeded its step limit.',
+				message: l10n.t('The Auto-Rebase exceeded its step limit.'),
 				stepNumber: stepNumber,
 			});
 		}
@@ -249,7 +263,7 @@ export async function runAutoRebaseLoop(
 		if (iterationKey === previousIterationKey) {
 			return escalate({
 				reason: 'step-cap',
-				message: 'The rebase is not advancing.',
+				message: l10n.t('The rebase is not advancing.'),
 				stepNumber: stepNumber,
 			});
 		}
@@ -290,7 +304,8 @@ export async function runAutoRebaseLoop(
 									strategy: attempted?.strategy ?? 'skipped',
 									confidence: 1,
 									description: attempted?.description ?? '',
-									note: 'Resolved manually',
+									descriptionKind: attempted?.descriptionKind,
+									note: l10n.t('Resolved manually'),
 									conflictedContent: snap.conflictedContents.get(p),
 									resolvedContent: after.get(p),
 								};
@@ -305,7 +320,10 @@ export async function runAutoRebaseLoop(
 				}
 
 				session.phase = 'continuing';
-				session.progressMessage = `Step ${stepNumber}/${totalSteps} · Continuing…`;
+				session.progressMessage = l10n.t('Step {current}/{total} · Continuing…', {
+					current: stepNumber,
+					total: totalSteps,
+				});
 				onDidChange();
 
 				const escalated = await continueStep(stepNumber);
@@ -315,16 +333,24 @@ export async function runAutoRebaseLoop(
 
 			return escalate({
 				reason: 'non-conflict-pause',
-				message: 'The rebase paused without conflicts and needs your attention.',
+				message: l10n.t('The rebase paused without conflicts and needs your attention.'),
 				stepNumber: stepNumber,
 			});
 		}
 
-		const stepPrefix = `Step ${stepNumber}/${totalSteps}`;
 		session.phase = 'resolving';
-		session.progressMessage = `${stepPrefix} · Resolving ${
-			entries.length === 1 ? '1 conflict' : `${entries.length} conflicts`
-		} with AI…`;
+		session.progressMessage =
+			entries.length === 1
+				? l10n.t('Step {current}/{total} · Resolving {count} conflict with AI…', {
+						current: stepNumber,
+						total: totalSteps,
+						count: entries.length,
+					})
+				: l10n.t('Step {current}/{total} · Resolving {count} conflicts with AI…', {
+						current: stepNumber,
+						total: totalSteps,
+						count: entries.length,
+					});
 		onDidChange();
 
 		// Snapshot the conflicted (marker) content BEFORE resolving — both for the summary's
@@ -353,20 +379,37 @@ export async function runAutoRebaseLoop(
 			onProgress: event => {
 				switch (event.type) {
 					case 'conflict:found':
-						session.progressMessage = `${stepPrefix} · Analyzing ${event.filePath}…`;
+						session.progressMessage = l10n.t('Step {current}/{total} · Analyzing {file}…', {
+							current: stepNumber,
+							total: totalSteps,
+							file: event.filePath,
+						});
 						break;
 					case 'resolution:applied':
-						session.progressMessage = `${stepPrefix} · Resolved ${event.filePath}`;
+						session.progressMessage = l10n.t('Step {current}/{total} · Resolved {file}', {
+							current: stepNumber,
+							total: totalSteps,
+							file: event.filePath,
+						});
 						break;
 					case 'resolution:failed':
-						session.progressMessage = `${stepPrefix} · Couldn’t resolve ${event.filePath}`;
+						session.progressMessage = l10n.t('Step {current}/{total} · Couldn’t resolve {file}', {
+							current: stepNumber,
+							total: totalSteps,
+							file: event.filePath,
+						});
 						break;
 					case 'resolver:tool-call':
 						// The AI is consulting the repository (reading a file at a ref, blaming, searching)
 						// because the hunk alone was ambiguous — report it so a long step doesn't look stalled,
 						// and keep it so the summary can cite the evidence after this line is overwritten.
 						recordConsultation(consultations, event);
-						session.progressMessage = `${stepPrefix} · Inspecting ${event.tool} for ${event.filePath}…`;
+						session.progressMessage = l10n.t('Step {current}/{total} · Inspecting {tool} for {file}…', {
+							current: stepNumber,
+							total: totalSteps,
+							tool: event.tool,
+							file: event.filePath,
+						});
 						break;
 					default:
 						return;
@@ -397,7 +440,9 @@ export async function runAutoRebaseLoop(
 				return escalate(
 					{
 						reason: 'ai-unavailable',
-						message: `Auto-Rebase stopped — ${unavailable.error.message} This step’s conflicts are still unresolved.`,
+						message: l10n.t('Auto-Rebase stopped — {error} This step’s conflicts are still unresolved.', {
+							error: unavailable.error.message,
+						}),
 						stepNumber: stepNumber,
 						files: result.errors.map(e => ({ path: e.filePath, error: e.error.message })),
 					},
@@ -408,7 +453,10 @@ export async function runAutoRebaseLoop(
 			return escalate(
 				{
 					reason: 'resolve-errors',
-					message: `The AI couldn’t resolve ${result.errors.length === 1 ? result.errors[0].filePath : `${result.errors.length} files`}.`,
+					message:
+						result.errors.length === 1
+							? l10n.t('The AI couldn’t resolve {file}.', { file: result.errors[0].filePath })
+							: l10n.t('The AI couldn’t resolve {count} files.', { count: result.errors.length }),
 					stepNumber: stepNumber,
 					files: result.errors.map(e => ({ path: e.filePath, error: e.error.message })),
 				},
@@ -420,7 +468,14 @@ export async function runAutoRebaseLoop(
 			return escalate(
 				{
 					reason: 'skipped-files',
-					message: `${result.skipped.length === 1 ? result.skipped[0].filePath : `${result.skipped.length} files`} can’t be resolved automatically (no conflict markers).`,
+					message:
+						result.skipped.length === 1
+							? l10n.t('{file} can’t be resolved automatically (no conflict markers).', {
+									file: result.skipped[0].filePath,
+								})
+							: l10n.t('{count} files can’t be resolved automatically (no conflict markers).', {
+									count: result.skipped.length,
+								}),
 					stepNumber: stepNumber,
 					files: result.skipped.map(s => ({ path: s.filePath })),
 				},
@@ -437,7 +492,15 @@ export async function runAutoRebaseLoop(
 			return escalate(
 				{
 					reason: 'skipped-files',
-					message: `${skippedResolutions.length === 1 ? skippedResolutions[0].filePath : `${skippedResolutions.length} files`} can’t be resolved automatically (no conflict markers were resolved).`,
+					message:
+						skippedResolutions.length === 1
+							? l10n.t('{file} can’t be resolved automatically (no conflict markers were resolved).', {
+									file: skippedResolutions[0].filePath,
+								})
+							: l10n.t(
+									'{count} files can’t be resolved automatically (no conflict markers were resolved).',
+									{ count: skippedResolutions.length },
+								),
 					stepNumber: stepNumber,
 					files: skippedResolutions.map(r => ({ path: r.filePath })),
 				},
@@ -452,7 +515,10 @@ export async function runAutoRebaseLoop(
 			return escalate(
 				{
 					reason: 'low-confidence',
-					message: `AI confidence was too low for ${lowConfidence.length === 1 ? lowConfidence[0].filePath : `${lowConfidence.length} files`}.`,
+					message:
+						lowConfidence.length === 1
+							? l10n.t('AI confidence was too low for {file}.', { file: lowConfidence[0].filePath })
+							: l10n.t('AI confidence was too low for {count} files.', { count: lowConfidence.length }),
 					stepNumber: stepNumber,
 					files: lowConfidence.map(r => ({ path: r.filePath, confidence: r.confidence })),
 				},
@@ -479,13 +545,16 @@ export async function runAutoRebaseLoop(
 		) {
 			return escalate({
 				reason: 'external-modification',
-				message: 'The working tree or rebase state changed while resolving — nothing was applied.',
+				message: l10n.t('The working tree or rebase state changed while resolving — nothing was applied.'),
 				stepNumber: stepNumber,
 			});
 		}
 
 		session.phase = 'applying';
-		session.progressMessage = `${stepPrefix} · Applying resolutions…`;
+		session.progressMessage = l10n.t('Step {current}/{total} · Applying resolutions…', {
+			current: stepNumber,
+			total: totalSteps,
+		});
 		onDidChange();
 
 		await ports.applyResolutions(result.resolutions);
@@ -503,6 +572,7 @@ export async function runAutoRebaseLoop(
 				strategy: r.strategy,
 				confidence: r.confidence,
 				description: r.description,
+				descriptionKind: r.descriptionKind,
 				note: r.note,
 				conflictedContent: snapshot.get(r.filePath),
 				resolvedContent: r.strategy !== 'skipped' ? r.content : undefined,
@@ -525,14 +595,18 @@ export async function runAutoRebaseLoop(
 			onDidChange();
 			return escalate({
 				reason: 'edit-step',
-				message:
+				message: l10n.t(
 					'Conflicts at the commit you marked `edit` were resolved and staged — make your changes now, then continue the rebase.',
+				),
 				stepNumber: stepNumber,
 			});
 		}
 
 		session.phase = 'continuing';
-		session.progressMessage = `${stepPrefix} · Continuing…`;
+		session.progressMessage = l10n.t('Step {current}/{total} · Continuing…', {
+			current: stepNumber,
+			total: totalSteps,
+		});
 		onDidChange();
 
 		const escalated = await continueStep(stepNumber, step);

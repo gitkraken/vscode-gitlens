@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { GraphShowAction } from '../../../plus/graph/protocol.js';
 
 /** Task-specific access messaging (#5534): when a specific task brought the user to an access wall,
@@ -6,20 +7,26 @@ import type { GraphShowAction } from '../../../plus/graph/protocol.js';
  *  buttons carry the verb. */
 export const intentCopyByAction: Partial<Record<GraphShowAction, { heading: string; body: string }>> = {
 	'enter-compose': {
-		heading: 'Compose Better Commits with AI',
-		body: 'Let GitLens restructure your changes into clean, well-scoped commits — with clear messages written for you and your team.',
+		heading: l10n.t('Compose Better Commits with AI'),
+		body: l10n.t(
+			'Let GitLens restructure your changes into clean, well-scoped commits — with clear messages written for you and your team.',
+		),
 	},
 	'enter-review': {
-		heading: 'Get an AI Review Before You Push',
-		body: 'Catch issues early with a severity-tagged review of your changes — then delegate fixes straight to an agent.',
+		heading: l10n.t('Get an AI Review Before You Push'),
+		body: l10n.t(
+			'Catch issues early with a severity-tagged review of your changes — then delegate fixes straight to an agent.',
+		),
 	},
 	'open-compare': {
-		heading: 'Compare Branches, Commits, and Worktrees',
-		body: 'Compare side-by-side across branches, tags, and commits — right from the visual Commit Graph.',
+		heading: l10n.t('Compare Branches, Commits, and Worktrees'),
+		body: l10n.t('Compare side-by-side across branches, tags, and commits — right from the visual Commit Graph.'),
 	},
 	'enter-resolve': {
-		heading: 'Resolve Conflicts with Confidence',
-		body: 'Guided, AI-assisted conflict resolution — see both sides, take the right changes, and finish the merge faster so you can get back to building.',
+		heading: l10n.t('Resolve Conflicts with Confidence'),
+		body: l10n.t(
+			'Guided, AI-assisted conflict resolution — see both sides, take the right changes, and finish the merge faster so you can get back to building.',
+		),
 	},
 };
 

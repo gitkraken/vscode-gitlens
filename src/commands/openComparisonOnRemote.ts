@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import type { GitRevisionRangeNotation } from '@gitlens/git/models/revision.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -71,7 +72,7 @@ export class OpenComparisonOnRemoteCommand extends GlCommandBase {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenComparisonOnRemoteCommand');
-			void showGenericErrorMessage('Unable to open comparison on remote provider');
+			void showGenericErrorMessage(l10n.t('Unable to open comparison on remote provider'));
 		}
 	}
 }

@@ -13,6 +13,7 @@
  * moment.js display tokens with no formatter getter behind them, so they can't
  * be drift-guarded and are documented as hand-authored.
  */
+import * as l10n from '@vscode/l10n';
 import type { CommitFormatOptions } from '../../../git/formatters/commitFormatter.js';
 import type { StatusFormatOptions } from '../../../git/formatters/statusFormatter.js';
 
@@ -54,56 +55,58 @@ type FileTokenKey = keyof NonNullable<StatusFormatOptions['tokenOptions']>;
  */
 const commitTokenMeta: Record<CommitTokenKey, CommitTokenMeta> = {
 	// Identity
-	id: { label: 'Commit SHA' },
-	sha: { label: 'Commit SHA' },
+	id: { label: l10n.t('Commit SHA') },
+	sha: { label: l10n.t('Commit SHA') },
 	// Author
-	author: { label: 'Commit Author' },
-	authorFirst: { label: 'Commit Author First Name' },
-	authorLast: { label: 'Commit Author Last Name' },
-	authorNotYou: { label: 'Commit Author (except you)' },
-	email: { label: 'Commit Author E-mail' },
+	author: { label: l10n.t('Commit Author') },
+	authorFirst: { label: l10n.t('Commit Author First Name') },
+	authorLast: { label: l10n.t('Commit Author Last Name') },
+	authorNotYou: { label: l10n.t('Commit Author (except you)') },
+	email: { label: l10n.t('Commit Author E-mail') },
 	// Message
-	message: { label: 'Commit Message' },
+	message: { label: l10n.t('Commit Message') },
 	// Dates — commit or authored
-	ago: { label: 'Commit or Authored Date — relative' },
-	date: { label: 'Commit or Authored Date — absolute' },
-	agoOrDate: { label: 'Commit or Authored Date — based on date setting' },
-	agoOrDateShort: { label: 'Commit or Authored Date (short)' },
-	agoAndDate: { label: 'Commit or Authored Date — relative and absolute' },
-	agoAndDateShort: { label: 'Commit or Authored Date — relative and absolute (short)' },
-	agoAndDateBothSources: { label: 'Commit and Authored Dates — relative and absolute' },
+	ago: { label: l10n.t('Commit or Authored Date — relative') },
+	date: { label: l10n.t('Commit or Authored Date — absolute') },
+	agoOrDate: { label: l10n.t('Commit or Authored Date — based on date setting') },
+	agoOrDateShort: { label: l10n.t('Commit or Authored Date (short)') },
+	agoAndDate: { label: l10n.t('Commit or Authored Date — relative and absolute') },
+	agoAndDateShort: { label: l10n.t('Commit or Authored Date — relative and absolute (short)') },
+	agoAndDateBothSources: { label: l10n.t('Commit and Authored Dates — relative and absolute') },
 	// Dates — authored
-	authorAgo: { label: 'Authored Date — relative' },
-	authorDate: { label: 'Authored Date — absolute' },
-	authorAgoOrDate: { label: 'Authored Date — based on date setting' },
-	authorAgoOrDateShort: { label: 'Authored Date (short)' },
+	authorAgo: { label: l10n.t('Authored Date — relative') },
+	authorDate: { label: l10n.t('Authored Date — absolute') },
+	authorAgoOrDate: { label: l10n.t('Authored Date — based on date setting') },
+	authorAgoOrDateShort: { label: l10n.t('Authored Date (short)') },
 	// Dates — committed
-	committerAgo: { label: 'Commit Date — relative' },
-	committerDate: { label: 'Commit Date — absolute' },
-	committerAgoOrDate: { label: 'Commit Date — based on date setting' },
-	committerAgoOrDateShort: { label: 'Commit Date (short)' },
+	committerAgo: { label: l10n.t('Commit Date — relative') },
+	committerDate: { label: l10n.t('Commit Date — absolute') },
+	committerAgoOrDate: { label: l10n.t('Commit Date — based on date setting') },
+	committerAgoOrDateShort: { label: l10n.t('Commit Date (short)') },
 	// Changes
-	changes: { label: 'Changes Indicator, e.g. +1 ~3 -0' },
-	changesShort: { label: 'Changes Indicator (short), e.g. +1~3' },
-	changesDetail: { label: 'Changes Detail' },
+	changes: { label: l10n.t('Changes Indicator, e.g. {example}', { example: '+1 ~3 -0' }) },
+	changesShort: { label: l10n.t('Changes Indicator (short), e.g. {example}', { example: '+1~3' }) },
+	changesDetail: { label: l10n.t('Changes Detail') },
 	// Branch & tag tips
-	tips: { label: 'Branch & Tag Tips' },
+	tips: { label: l10n.t('Branch & Tag Tips') },
 	// Pull request
-	pullRequest: { label: 'Pull Request that introduced the commit' },
-	pullRequestState: { label: 'Pull Request State (open, merged, closed)' },
-	pullRequestDate: { label: 'Pull Request Date — absolute' },
-	pullRequestAgo: { label: 'Pull Request Date — relative' },
-	pullRequestAgoOrDate: { label: 'Pull Request Date — based on date setting' },
+	pullRequest: { label: l10n.t('Pull Request that introduced the commit') },
+	pullRequestState: {
+		label: l10n.t('Pull Request State ({states})', { states: 'open, merged, closed' }),
+	},
+	pullRequestDate: { label: l10n.t('Pull Request Date — absolute') },
+	pullRequestAgo: { label: l10n.t('Pull Request Date — relative') },
+	pullRequestAgoOrDate: { label: l10n.t('Pull Request Date — based on date setting') },
 	// Stash
-	stashName: { label: 'Stash Name' },
-	stashNumber: { label: 'Stash Number' },
-	stashOnRef: { label: 'Stash Base Ref' },
+	stashName: { label: l10n.t('Stash Name') },
+	stashNumber: { label: l10n.t('Stash Number') },
+	stashOnRef: { label: l10n.t('Stash Base Ref') },
 	// Hover/markdown-only (offered only in hover contexts)
-	avatar: { label: 'Author Avatar', hover: true },
-	link: { label: 'Commit Link', hover: true },
-	commands: { label: 'Action Commands', hover: true },
-	footnotes: { label: 'Footnotes', hover: true },
-	signature: { label: 'Signature Verification', hover: true },
+	avatar: { label: l10n.t('Author Avatar'), hover: true },
+	link: { label: l10n.t('Commit Link'), hover: true },
+	commands: { label: l10n.t('Action Commands'), hover: true },
+	footnotes: { label: l10n.t('Footnotes'), hover: true },
+	signature: { label: l10n.t('Signature Verification'), hover: true },
 };
 
 /**
@@ -113,38 +116,38 @@ const commitTokenMeta: Record<CommitTokenKey, CommitTokenMeta> = {
  * exactly (see the commit map above for the mechanism).
  */
 const fileTokenMeta: Record<FileTokenKey, string> = {
-	file: 'File Name',
-	directory: 'File Directory',
-	path: 'File Path (relative)',
-	filePath: 'File Path (formatted)',
-	originalPath: 'Original File Path (for renames)',
-	status: 'File Status',
-	working: 'Working Tree Status Indicator',
-	changes: 'Changes Indicator, e.g. +1 ~3 -0',
-	changesShort: 'Changes Indicator (short), e.g. +1~3',
-	changesDetail: 'Changes Detail',
+	file: l10n.t('File Name'),
+	directory: l10n.t('File Directory'),
+	path: l10n.t('File Path (relative)'),
+	filePath: l10n.t('File Path (formatted)'),
+	originalPath: l10n.t('Original File Path (for renames)'),
+	status: l10n.t('File Status'),
+	working: l10n.t('Working Tree Status Indicator'),
+	changes: l10n.t('Changes Indicator, e.g. {example}', { example: '+1 ~3 -0' }),
+	changesShort: l10n.t('Changes Indicator (short), e.g. {example}', { example: '+1~3' }),
+	changesDetail: l10n.t('Changes Detail'),
 };
 
 /** Moment.js display tokens for date-format strings (inserted bare, not wrapped in `${}`). */
 export const dateFormatTokens: FormatTokenInfo[] = [
-	{ token: 'YYYY', label: 'Year, 4-digit (2018)' },
-	{ token: 'YY', label: 'Year, 2-digit (18)' },
-	{ token: 'MMMM', label: 'Month, full (July)' },
-	{ token: 'MMM', label: 'Month, short (Jul)' },
-	{ token: 'MM', label: 'Month, 2-digit (07)' },
-	{ token: 'Do', label: 'Day of month, ordinal (25th)' },
-	{ token: 'DD', label: 'Day of month, 2-digit (25)' },
-	{ token: 'D', label: 'Day of month (25)' },
-	{ token: 'dddd', label: 'Day of week, full (Wednesday)' },
-	{ token: 'ddd', label: 'Day of week, short (Wed)' },
-	{ token: 'HH', label: 'Hour, 24-hour 2-digit (19)' },
-	{ token: 'hh', label: 'Hour, 12-hour 2-digit (07)' },
-	{ token: 'h', label: 'Hour, 12-hour (7)' },
-	{ token: 'mm', label: 'Minute, 2-digit (18)' },
-	{ token: 'ss', label: 'Second, 2-digit (00)' },
+	{ token: 'YYYY', label: l10n.t('Year, 4-digit ({example})', { example: '2018' }) },
+	{ token: 'YY', label: l10n.t('Year, 2-digit ({example})', { example: '18' }) },
+	{ token: 'MMMM', label: l10n.t('Month, full ({example})', { example: 'July' }) },
+	{ token: 'MMM', label: l10n.t('Month, short ({example})', { example: 'Jul' }) },
+	{ token: 'MM', label: l10n.t('Month, 2-digit ({example})', { example: '07' }) },
+	{ token: 'Do', label: l10n.t('Day of month, ordinal ({example})', { example: '25th' }) },
+	{ token: 'DD', label: l10n.t('Day of month, 2-digit ({example})', { example: '25' }) },
+	{ token: 'D', label: l10n.t('Day of month ({example})', { example: '25' }) },
+	{ token: 'dddd', label: l10n.t('Day of week, full ({example})', { example: 'Wednesday' }) },
+	{ token: 'ddd', label: l10n.t('Day of week, short ({example})', { example: 'Wed' }) },
+	{ token: 'HH', label: l10n.t('Hour, 24-hour 2-digit ({example})', { example: '19' }) },
+	{ token: 'hh', label: l10n.t('Hour, 12-hour 2-digit ({example})', { example: '07' }) },
+	{ token: 'h', label: l10n.t('Hour, 12-hour ({example})', { example: '7' }) },
+	{ token: 'mm', label: l10n.t('Minute, 2-digit ({example})', { example: '18' }) },
+	{ token: 'ss', label: l10n.t('Second, 2-digit ({example})', { example: '00' }) },
 	{ token: 'a', label: 'am / pm' },
 	{ token: 'A', label: 'AM / PM' },
-	{ token: 'Z', label: 'UTC offset (+01:00)' },
+	{ token: 'Z', label: l10n.t('UTC offset ({example})', { example: '+01:00' }) },
 ];
 
 /**

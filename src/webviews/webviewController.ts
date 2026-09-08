@@ -377,10 +377,10 @@ export class WebviewController<
 		}
 
 		if (includesContextDelimitedString('gitlens:plus:disabled:view:overrides', this.descriptor.id)) {
-			const action = 'Enable Pro Features';
+			const action = { title: l10n.t('Enable Pro Features') };
 			void window
 				.showInformationMessage(
-					`${this.descriptor.title} was closed as Pro features have been disabled.`,
+					l10n.t('{0} was closed as Pro features have been disabled.', this.descriptor.title),
 					action,
 				)
 				.then(selection => {

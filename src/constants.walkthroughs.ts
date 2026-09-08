@@ -1,3 +1,5 @@
+import * as l10n from '@vscode/l10n';
+
 export type WalkthroughContextKeys =
 	| 'gettingStarted'
 	| 'visualizeCodeHistory'
@@ -8,13 +10,13 @@ export type WalkthroughContextKeys =
 	| 'aiFeatures';
 
 export const walkthroughProgressSteps: Record<WalkthroughContextKeys, string> = {
-	gettingStarted: 'Getting Started',
-	visualizeCodeHistory: 'Visualize Code History',
-	aiFeatures: 'AI Features',
-	gitBlame: 'Inline Blame',
-	prReviews: 'Launchpad',
-	kepler: 'Kepler',
-	mcpFeatures: 'MCP Features',
+	gettingStarted: l10n.t('Getting Started'),
+	visualizeCodeHistory: l10n.t('Visualize Code History'),
+	aiFeatures: l10n.t('AI Features'),
+	gitBlame: l10n.t('Inline Blame'),
+	prReviews: l10n.t('Launchpad'),
+	kepler: l10n.t('Kepler'),
+	mcpFeatures: l10n.t('MCP Features'),
 };
 
 export type GraphWalkthroughContextKeys =
@@ -26,12 +28,12 @@ export type GraphWalkthroughContextKeys =
 	| 'graphNextSteps';
 
 export const graphWalkthroughProgressSteps: Record<GraphWalkthroughContextKeys, string> = {
-	graphAgentMonitoring: 'Monitor Your Agents',
-	graphParallelWork: 'Manage Parallel Work',
-	graphAiReview: 'Review Changes with AI',
-	graphCompose: 'Compose Commits',
-	graphCompare: 'Compare Refs',
-	graphNextSteps: 'Know Your Next Steps',
+	graphAgentMonitoring: l10n.t('Monitor Your Agents'),
+	graphParallelWork: l10n.t('Manage Parallel Work'),
+	graphAiReview: l10n.t('Review Changes with AI'),
+	graphCompose: l10n.t('Compose Commits'),
+	graphCompare: l10n.t('Compare Refs'),
+	graphNextSteps: l10n.t('Know Your Next Steps'),
 };
 
 /**

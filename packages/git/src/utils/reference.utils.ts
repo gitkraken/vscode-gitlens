@@ -1,5 +1,5 @@
+import * as l10n from '@vscode/l10n';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
-import { capitalize } from '@gitlens/utils/string.js';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -96,7 +96,15 @@ export function createReference(
 				repoPath: repoPath,
 				ref: ref,
 				sha: ref,
-				name: options.name ?? shortenRevision(ref, { strings: { working: 'Working Tree' } }),
+				name:
+					options.name ??
+					shortenRevision(ref, {
+						strings: {
+							uncommitted: l10n.t('Working Tree'),
+							uncommittedStaged: l10n.t('Index'),
+							working: l10n.t('Working Tree'),
+						},
+					}),
 				message: options.message,
 			};
 	}
@@ -109,16 +117,16 @@ export function getReferenceNameWithoutRemote(ref: GitReference): string {
 	return ref.name;
 }
 
-export function getReferenceTypeLabel(ref: GitReference | undefined): 'Branch' | 'Commit' | 'Stash' | 'Tag' {
+export function getReferenceTypeLabel(ref: GitReference | undefined): string {
 	switch (ref?.refType) {
 		case 'branch':
-			return 'Branch';
+			return l10n.t('Branch');
 		case 'stash':
-			return 'Stash';
+			return l10n.t('Stash');
 		case 'tag':
-			return 'Tag';
+			return l10n.t('Tag');
 		default:
-			return 'Commit';
+			return l10n.t('Commit');
 	}
 }
 
@@ -176,22 +184,43 @@ export function getReferenceLabel(
 					refName = options?.quoted ? `'${refName}'` : refName;
 				}
 
-				let label;
 				if (options.label) {
-					if (options.capitalize && options.expand) {
-						label = `${ref.remote ? 'Remote ' : ''}Branch `;
+					if (options.icon) {
+						if (options.capitalize && options.expand) {
+							result = ref.remote
+								? l10n.t('Remote Branch $(git-branch)\u00a0{0}', refName)
+								: l10n.t('Branch $(git-branch)\u00a0{0}', refName);
+						} else {
+							result = ref.remote
+								? l10n.t('remote branch $(git-branch)\u00a0{0}', refName)
+								: l10n.t('branch $(git-branch)\u00a0{0}', refName);
+						}
+					} else if (options.capitalize && options.expand) {
+						result = ref.remote ? l10n.t('Remote Branch {0}', refName) : l10n.t('Branch {0}', refName);
 					} else {
-						label = `${ref.remote ? 'remote ' : ''}branch `;
+						result = ref.remote ? l10n.t('remote branch {0}', refName) : l10n.t('branch {0}', refName);
 					}
 				} else {
-					label = '';
+					result = options.icon ? `$(git-branch)\u00a0${refName}` : refName;
 				}
-
-				result = `${label}${options.icon ? `$(git-branch)\u00a0${refName}` : refName}`;
 				break;
 			}
 			case 'tag':
-				result = `${options.label ? 'tag ' : ''}${options.icon ? `$(tag)\u00a0${refName}` : refName}`;
+				if (options.label) {
+					if (options.icon) {
+						result =
+							options.capitalize && options.expand
+								? l10n.t('Tag $(tag)\u00a0{0}', refName)
+								: l10n.t('tag $(tag)\u00a0{0}', refName);
+					} else {
+						result =
+							options.capitalize && options.expand
+								? l10n.t('Tag {0}', refName)
+								: l10n.t('tag {0}', refName);
+					}
+				} else {
+					result = options.icon ? `$(tag)\u00a0${refName}` : refName;
+				}
 				break;
 			default: {
 				if (isStashReference(ref)) {
@@ -202,11 +231,22 @@ export function getReferenceLabel(
 						}`;
 					}
 
-					result = `${options.label ? 'stash ' : ''}${
-						options.icon
-							? `$(archive)\u00a0${message ?? ref.name}`
-							: (message ?? (ref.stashNumber ? `#${ref.stashNumber}` : ref.name))
-					}`;
+					const stashName = message ?? (ref.stashNumber ? `#${ref.stashNumber}` : ref.name);
+					if (options.label) {
+						if (options.icon) {
+							result =
+								options.capitalize && options.expand
+									? l10n.t('Stash $(archive)\u00a0{0}', message ?? ref.name)
+									: l10n.t('stash $(archive)\u00a0{0}', message ?? ref.name);
+						} else {
+							result =
+								options.capitalize && options.expand
+									? l10n.t('Stash {0}', stashName)
+									: l10n.t('stash {0}', stashName);
+						}
+					} else {
+						result = options.icon ? `$(archive)\u00a0${message ?? ref.name}` : stashName;
+					}
 				} else if (isRevisionRange(ref.ref)) {
 					result = refName;
 				} else {
@@ -218,36 +258,60 @@ export function getReferenceLabel(
 								: ` (${ref.message})`;
 					}
 
-					let prefix;
+					let before = false;
 					if (options.expand && options.label && isShaWithParentSuffix(ref.ref)) {
 						refName = ref.name.endsWith('^') ? ref.name.substring(0, ref.name.length - 1) : ref.name;
 						if (options?.quoted) {
 							refName = `'${refName}'`;
 						}
-						prefix = 'before ';
-					} else {
-						prefix = '';
+						before = true;
 					}
 
-					result = `${options.label ? `${prefix}commit ` : ''}${
-						options.icon ? `$(git-commit)\u00a0${refName}${message ?? ''}` : `${refName}${message ?? ''}`
-					}`;
+					if (options.label) {
+						if (options.icon) {
+							if (before) {
+								result = options.capitalize
+									? l10n.t('Before commit $(git-commit)\u00a0{0}{1}', refName, message ?? '')
+									: l10n.t('before commit $(git-commit)\u00a0{0}{1}', refName, message ?? '');
+							} else {
+								result =
+									options.capitalize && options.expand
+										? l10n.t('Commit $(git-commit)\u00a0{0}{1}', refName, message ?? '')
+										: l10n.t('commit $(git-commit)\u00a0{0}{1}', refName, message ?? '');
+							}
+						} else if (before) {
+							result = options.capitalize
+								? l10n.t('Before commit {0}{1}', refName, message ?? '')
+								: l10n.t('before commit {0}{1}', refName, message ?? '');
+						} else {
+							result =
+								options.capitalize && options.expand
+									? l10n.t('Commit {0}{1}', refName, message ?? '')
+									: l10n.t('commit {0}{1}', refName, message ?? '');
+						}
+					} else {
+						result = options.icon
+							? `$(git-commit)\u00a0${refName}${message ?? ''}`
+							: `${refName}${message ?? ''}`;
+					}
 				}
 				break;
 			}
 		}
 
-		return options.capitalize && options.expand && options.label !== false ? capitalize(result) : result;
+		return result;
 	}
 
 	const expanded = options.expand ? ` (${refs.map(r => r.name).join(', ')})` : '';
 	switch (refs[0].refType) {
 		case 'branch':
-			return `${refs.length} branches${expanded}`;
+			return l10n.t('{0} branches{1}', refs.length, expanded);
 		case 'tag':
-			return `${refs.length} tags${expanded}`;
+			return l10n.t('{0} tags{1}', refs.length, expanded);
 		default:
-			return `${refs.length} ${isStashReference(refs[0]) ? 'stashes' : 'commits'}${expanded}`;
+			return isStashReference(refs[0])
+				? l10n.t('{0} stashes{1}', refs.length, expanded)
+				: l10n.t('{0} commits{1}', refs.length, expanded);
 	}
 }
 

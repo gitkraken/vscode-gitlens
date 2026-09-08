@@ -4,6 +4,7 @@ import { mkdir, open, readdir, readFile, realpath, rename, rm, stat } from 'node
 import type { FileHandle } from 'node:fs/promises';
 import { hostname } from 'node:os';
 import * as process from 'node:process';
+import * as l10n from '@vscode/l10n';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import type { GitFeatures } from '@gitlens/git/features.js';
@@ -401,7 +402,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		);
 		this.throwIfDidNotComplete(result, cancellation);
 		if (result.exitCode !== 0 && result.exitCode !== gitConfigGetMissingExitCode) {
-			throw new Error(`Unable to detect a partial clone (git exited ${String(result.exitCode)})`);
+			throw new Error(l10n.t('Unable to detect a partial clone (git exited {0})', String(result.exitCode)));
 		}
 		if (result.exitCode !== 0) return false;
 
@@ -427,7 +428,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		this.throwIfDidNotComplete(result, cancellation);
 		if (result.exitCode === gitConfigGetMissingExitCode) return true;
 		if (result.exitCode !== 0) {
-			throw new Error(`Unable to read core.multiPackIndex (git exited ${String(result.exitCode)})`);
+			throw new Error(l10n.t('Unable to read core.multiPackIndex (git exited {0})', String(result.exitCode)));
 		}
 
 		return parseGitBoolean(result.stdout.trim());
@@ -622,8 +623,12 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 	}
 
 	private async getCapabilitiesCore(): Promise<GitOptimizationCapability[]> {
-		const requiresGit = (feature: GitFeatures, suffix?: string): string =>
-			`Requires Git ${gitFeaturesByVersion.get(feature)} or later${suffix ?? ''}`;
+		const requiresGit = (feature: GitFeatures, systemd = false): string =>
+			systemd
+				? l10n.t('Requires Git {version} or later (for systemd timer scheduling)', {
+						version: String(gitFeaturesByVersion.get(feature)),
+					})
+				: l10n.t('Requires Git {version} or later', { version: String(gitFeaturesByVersion.get(feature)) });
 
 		// The scheduler gate differs by platform: launchctl/schtasks (win/mac) vs systemd timer (Linux,
 		// since 2.31–2.33 is cron-only and modern distros often ship without cron).
@@ -666,7 +671,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 				supported: fsmonitor,
 				reason:
 					fsmonitorFeature == null
-						? 'Only available on Windows, macOS, and Linux'
+						? l10n.t('Only available on Windows, macOS, and Linux')
 						: !fsmonitor
 							? requiresGit(fsmonitorFeature)
 							: undefined,
@@ -676,12 +681,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 				supported: backgroundMaintenance,
 				reason: backgroundMaintenance
 					? undefined
-					: requiresGit(
-							maintenanceStartFeature,
-							maintenanceStartFeature === 'git:maintenance:start:systemd'
-								? ' (for systemd timer scheduling)'
-								: undefined,
-						),
+					: requiresGit(maintenanceStartFeature, maintenanceStartFeature === 'git:maintenance:start:systemd'),
 			},
 			{
 				id: 'manyFiles',
@@ -691,7 +691,9 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 				// be understood by older Git versions or common third-party index readers.
 				note:
 					manyFiles && skipHash
-						? 'Also enables index.skipHash — Git before 2.40 reports the zeroed hash as corrupt, and some libgit2- and JGit-based tools may reject or misdiagnose the index'
+						? l10n.t(
+								'Also enables index.skipHash — Git before 2.40 reports the zeroed hash as corrupt, and some libgit2- and JGit-based tools may reject or misdiagnose the index',
+							)
 						: undefined,
 			},
 			{
@@ -699,7 +701,9 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 				supported: sparseIndex,
 				reason: sparseIndex ? undefined : requiresGit('git:sparse-index'),
 				note: sparseIndex
-					? 'Older Git versions and some tools that read the index directly do not understand sparse-directory entries'
+					? l10n.t(
+							'Older Git versions and some tools that read the index directly do not understand sparse-directory entries',
+						)
 					: undefined,
 			},
 		];
@@ -869,7 +873,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		// error — and the caller turns `false` into a PERMANENT not-applicable marker. Throw instead, so a
 		// one-off hiccup during a background pass just retries on the next pass.
 		if (result.exitCode !== 0 && result.exitCode !== untrackedCacheUnsupportedExitCode) {
-			throw new Error(`Untracked-cache probe did not complete (git exited ${String(result.exitCode)})`);
+			throw new Error(l10n.t('Untracked-cache probe did not complete (git exited {0})', String(result.exitCode)));
 		}
 		return result.exitCode === 0;
 	}
@@ -925,7 +929,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		// Neither does a failure to run git at all, which surfaces as a non-numeric error code (→ NaN). Only a
 		// real git exit is evidence about THIS repo, so only that earns the permanent marker.
 		if (!Number.isInteger(result.exitCode)) {
-			throw new Error(`FSMonitor warm-up did not complete (git exited ${String(result.exitCode)})`);
+			throw new Error(l10n.t('FSMonitor warm-up did not complete (git exited {0})', String(result.exitCode)));
 		}
 
 		// Before blaming FSMonitor, re-run the same command now that the rollback has restored the prior
@@ -936,7 +940,10 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		this.throwIfDidNotComplete(baseline, cancellation);
 		if (baseline.exitCode !== 0) {
 			throw new Error(
-				`Repository status fails independently of FSMonitor (git exited ${String(baseline.exitCode)})`,
+				l10n.t(
+					'Repository status fails independently of FSMonitor (git exited {0})',
+					String(baseline.exitCode),
+				),
 			);
 		}
 
@@ -1034,9 +1041,12 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 						);
 						if (repaired.enabled && repaired.applied) return true;
 					} catch (repairEx) {
-						const error = new Error('Unable to enable the sparse index or reconcile its ownership record', {
-							cause: ex,
-						}) as Error & { errors: unknown[] };
+						const error = new Error(
+							l10n.t('Unable to enable the sparse index or reconcile its ownership record'),
+							{
+								cause: ex,
+							},
+						) as Error & { errors: unknown[] };
 						error.errors = [repairEx];
 						throw error;
 					}
@@ -1073,7 +1083,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 						if (!repaired.enabled && !repaired.applied) return;
 					} catch (repairEx) {
 						const error = new Error(
-							'Unable to disable the sparse index or reconcile its ownership record',
+							l10n.t('Unable to disable the sparse index or reconcile its ownership record'),
 							{
 								cause: ex,
 							},
@@ -1232,7 +1242,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			this._registeredMaintenanceRepos = undefined;
 
 			if (await this.isPathRegistered(repoPath, registeredPath, cancellation)) {
-				throw new Error('Unable to unregister background maintenance');
+				throw new Error(l10n.t('Unable to unregister background maintenance'));
 			}
 
 			scope?.warn(`Removed the global maintenance.repo entry for '${registeredPath}' directly`);
@@ -1459,7 +1469,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 
 			if (rollbackErrors.length) {
 				const error = new Error(
-					'Unable to apply Git maintenance settings and completely restore their prior values',
+					l10n.t('Unable to apply Git maintenance settings and completely restore their prior values'),
 					{ cause: ex },
 				) as Error & { errors: unknown[] };
 				error.errors = rollbackErrors;
@@ -1587,7 +1597,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		this.throwIfDidNotComplete(result, cancellation);
 		if (result.exitCode === gitConfigGetMissingExitCode) return false;
 		if (result.exitCode !== 0) {
-			throw new Error(`Unable to read 'index.sparse' (git exited ${String(result.exitCode)})`);
+			throw new Error(l10n.t("Unable to read 'index.sparse' (git exited {0})", String(result.exitCode)));
 		}
 
 		return parseGitBoolean(result.stdout);
@@ -1610,7 +1620,9 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		);
 		this.throwIfDidNotComplete(result, cancellation);
 		if (result.exitCode !== 0 && result.exitCode !== gitConfigGetMissingExitCode) {
-			throw new Error(`Unable to read the '${markerKey}' marker (git exited ${String(result.exitCode)})`);
+			throw new Error(
+				l10n.t("Unable to read the '{0}' marker (git exited {1})", markerKey, String(result.exitCode)),
+			);
 		}
 		return result.stdout.trim() || undefined;
 	}
@@ -1688,8 +1700,10 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			// Never proceed unlocked: a lock that can't even be set up must not let the guarded transaction
 			// run without one. Recoverable by the same manual fix as any other acquisition failure.
 			throw new Error(
-				`Could not acquire the Git maintenance settings lock at '${lockPath}'. If this persists and no ` +
-					`other VS Code window is using this repository, delete that file and try again.`,
+				l10n.t(
+					"Could not acquire the Git maintenance settings lock at '{0}'. If this persists and no other VS Code window is using this repository, delete that file and try again.",
+					lockPath,
+				),
 				{ cause: ex },
 			);
 		}
@@ -1704,8 +1718,10 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 					// stale "marker absent" and record the wrong prior. Failing loudly is recoverable; racing
 					// is not.
 					throw new Error(
-						`Could not acquire the Git maintenance settings lock at '${lockPath}'. If this persists ` +
-							`and no other VS Code window is using this repository, delete that file and try again.`,
+						l10n.t(
+							"Could not acquire the Git maintenance settings lock at '{0}'. If this persists and no other VS Code window is using this repository, delete that file and try again.",
+							lockPath,
+						),
 						{ cause: ex },
 					);
 				}
@@ -1721,26 +1737,34 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 					if (verdict === 'dead') {
 						throw new MarkerLockContentionError(
 							lockLocation?.contention === 'sparseIndex'
-								? `A previous VS Code window appears to have crashed while updating the sparse index. ` +
-										`Delete '${lockPath}' to recover.`
-								: `A previous VS Code window appears to have crashed while updating Git maintenance ` +
-										`settings. Delete '${lockPath}' to recover.`,
+								? l10n.t(
+										"A previous VS Code window appears to have crashed while updating the sparse index. Delete '{0}' to recover.",
+										lockPath,
+									)
+								: l10n.t(
+										"A previous VS Code window appears to have crashed while updating Git maintenance settings. Delete '{0}' to recover.",
+										lockPath,
+									),
 							{ cause: ex },
 						);
 					}
 					if (lockLocation?.contention === 'sparseIndex' && verdict === 'alive') {
 						throw new MarkerLockContentionError(
-							'A sparse-index update is still in progress. Wait for it to finish and try again.',
+							l10n.t('A sparse-index update is still in progress. Wait for it to finish and try again.'),
 							{ cause: ex },
 						);
 					}
 
 					throw new MarkerLockContentionError(
 						lockLocation?.contention === 'sparseIndex'
-							? `Could not verify whether another window is still updating the sparse index. If no ` +
-									`update is in progress, delete '${lockPath}' and try again.`
-							: `Another window is currently updating Git maintenance settings. If no other VS Code ` +
-									`window is using this repository, delete '${lockPath}' and try again.`,
+							? l10n.t(
+									"Could not verify whether another window is still updating the sparse index. If no update is in progress, delete '{0}' and try again.",
+									lockPath,
+								)
+							: l10n.t(
+									"Another window is currently updating Git maintenance settings. If no other VS Code window is using this repository, delete '{0}' and try again.",
+									lockPath,
+								),
 						{ cause: ex },
 					);
 				}
@@ -1779,8 +1803,10 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 				await rm(lockPath, { force: true }).catch(() => {});
 			}
 			throw new Error(
-				`Could not acquire the Git maintenance settings lock at '${lockPath}'. If this persists and no ` +
-					`other VS Code window is using this repository, delete that file and try again.`,
+				l10n.t(
+					"Could not acquire the Git maintenance settings lock at '{0}'. If this persists and no other VS Code window is using this repository, delete that file and try again.",
+					lockPath,
+				),
 				{ cause: ex },
 			);
 		}
@@ -1914,7 +1940,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		}
 		// `failed` covers both a queue rejection/spawn failure (`unstarted`) and a signal kill, neither of
 		// which produced a trustworthy result — for a maintenance probe both must read as "did not run".
-		if (result.completion.status === 'failed') throw new Error('Git command did not run');
+		if (result.completion.status === 'failed') throw new Error(l10n.t('Git command did not run'));
 	}
 
 	/**
@@ -1951,7 +1977,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		// so a later undo would DELETE a setting the user had all along instead of restoring it. Exit 1 is
 		// git's "no match" — genuinely unset, the same discipline as `--get`.
 		if (result.exitCode !== 0 && result.exitCode !== gitConfigGetMissingExitCode) {
-			throw new Error(`Unable to read '${key}' (git exited ${result.exitCode})`);
+			throw new Error(l10n.t("Unable to read '{0}' (git exited {1})", key, String(result.exitCode)));
 		}
 		if (result.exitCode !== 0) return undefined;
 
@@ -2010,7 +2036,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		// Undo ever offered again — while the config is in fact still set.
 		this.throwIfDidNotComplete(result, cancellation);
 		if (result.exitCode !== 0 && result.exitCode !== gitConfigUnsetMissingExitCode) {
-			throw new Error(`Unable to unset '${key}' (git exited ${result.exitCode})`);
+			throw new Error(l10n.t("Unable to unset '{0}' (git exited {1})", key, String(result.exitCode)));
 		}
 
 		this.cache.deleteConfig(repoPath, key);
@@ -2068,7 +2094,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		// Exit 1 is git's "no matches" — genuinely unset. Anything else means we couldn't read the
 		// config; `getHealthSnapshot` turns the throw into a fail-closed snapshot.
 		if (result.exitCode !== 0 && result.exitCode !== gitConfigGetMissingExitCode) {
-			throw new Error(`Unable to read git config (git exited ${String(result.exitCode)})`);
+			throw new Error(l10n.t('Unable to read git config (git exited {0})', String(result.exitCode)));
 		}
 
 		// `includeValueless`: a BAREWORD entry (`core.untrackedCache` with no `=value`) is git's own
@@ -2144,7 +2170,9 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 		// Exit 1 is git's "key not set" — a genuinely empty list.
 		this.throwIfDidNotComplete(result, cancellation);
 		if (result.exitCode !== 0 && result.exitCode !== gitConfigGetMissingExitCode) {
-			throw new Error(`Unable to read registered maintenance repos (git exited ${String(result.exitCode)})`);
+			throw new Error(
+				l10n.t('Unable to read registered maintenance repos (git exited {0})', String(result.exitCode)),
+			);
 		}
 
 		const paths = result.stdout
@@ -2389,7 +2417,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			const header = Buffer.alloc(12);
 			const { bytesRead } = await handle.read(header, 0, header.length, 0);
 			if (bytesRead < header.length || header.toString('ascii', 0, 4) !== 'MIDX') {
-				throw new Error('Invalid multi-pack-index header');
+				throw new Error(l10n.t('Invalid multi-pack-index header'));
 			}
 
 			const chunkCount = header.readUInt8(6);
@@ -2397,31 +2425,33 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 			const tableLength = (chunkCount + 1) * 12;
 			const table = Buffer.alloc(tableLength);
 			const { bytesRead: tableBytesRead } = await handle.read(table, 0, tableLength, header.length);
-			if (tableBytesRead < tableLength) throw new Error('Invalid multi-pack-index chunk table');
+			if (tableBytesRead < tableLength) throw new Error(l10n.t('Invalid multi-pack-index chunk table'));
 
 			let namesStart: number | undefined;
 			const chunkOffsets: number[] = [];
 			for (let i = 0; i <= chunkCount; i++) {
 				const offset = i * 12;
 				const chunkOffset = Number(table.readBigUInt64BE(offset + 4));
-				if (!Number.isSafeInteger(chunkOffset)) throw new Error('Invalid multi-pack-index chunk offset');
+				if (!Number.isSafeInteger(chunkOffset)) {
+					throw new Error(l10n.t('Invalid multi-pack-index chunk offset'));
+				}
 
 				chunkOffsets.push(chunkOffset);
 				if (table.toString('ascii', offset, offset + 4) === 'PNAM') {
 					namesStart = chunkOffset;
 				}
 			}
-			if (namesStart == null) throw new Error('Multi-pack-index is missing its pack-name chunk');
+			if (namesStart == null) throw new Error(l10n.t('Multi-pack-index is missing its pack-name chunk'));
 
 			const namesEnd = Math.min(...chunkOffsets.filter(offset => offset > namesStart));
 			const namesLength = namesEnd - namesStart;
 			if (!Number.isSafeInteger(namesEnd) || namesLength < 0 || namesLength > maxMultiPackIndexChunkBytes) {
-				throw new Error('Invalid multi-pack-index pack-name chunk');
+				throw new Error(l10n.t('Invalid multi-pack-index pack-name chunk'));
 			}
 
 			const namesChunk = Buffer.alloc(namesLength);
 			const { bytesRead: namesBytesRead } = await handle.read(namesChunk, 0, namesLength, namesStart);
-			if (namesBytesRead < namesLength) throw new Error('Short multi-pack-index pack-name chunk');
+			if (namesBytesRead < namesLength) throw new Error(l10n.t('Short multi-pack-index pack-name chunk'));
 
 			const names = namesChunk
 				.toString('utf8')
@@ -2429,7 +2459,7 @@ export class MaintenanceGitSubProvider implements GitMaintenanceSubProvider {
 				.filter(name => /^pack-(?:[0-9a-f]{40}|[0-9a-f]{64})\.idx$/.test(name))
 				.map(name => `${name.slice(0, -4)}.pack`);
 			if (names.length !== expectedPackCount || new Set(names).size !== names.length) {
-				throw new Error('Multi-pack-index pack-name count does not match its header');
+				throw new Error(l10n.t('Multi-pack-index pack-name count does not match its header'));
 			}
 
 			return new Set(names);

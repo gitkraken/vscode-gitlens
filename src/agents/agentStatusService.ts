@@ -1,10 +1,21 @@
 import type { Disposable, QuickPickItem } from 'vscode';
-import { commands, ConfigurationTarget, env, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
+import {
+	commands,
+	ConfigurationTarget,
+	env,
+	EventEmitter,
+	l10n,
+	ProgressLocation,
+	Uri,
+	window,
+	workspace,
+} from 'vscode';
 import { claudeCodeCapabilities, getAgentCapabilitiesByProviderId } from '@gitlens/agents/agentCapabilities.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
 import type { Source, Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
+import { getPresentableErrorMessage } from '../errors.js';
 import { showWorktreeInGraph } from '../plus/graph/worktreeActions.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
 import { executeCommand, registerCommand } from '../system/-webview/command.js';
@@ -350,8 +361,11 @@ export class AgentStatusService implements Disposable {
 			await this.runHooksOperation(agents, op, source ?? 'commandPalette');
 		} catch (ex) {
 			Logger.error(ex, `AgentStatusService.${op}Hooks`);
+			const error = getPresentableErrorMessage(ex);
 			void window.showErrorMessage(
-				`Failed to ${op} GitKraken Hooks: ${ex instanceof Error ? ex.message : String(ex)}`,
+				op === 'install'
+					? l10n.t('Failed to install GitKraken Hooks: {0}', error)
+					: l10n.t('Failed to uninstall GitKraken Hooks: {0}', error),
 			);
 		}
 	}
@@ -370,15 +384,18 @@ export class AgentStatusService implements Disposable {
 		try {
 			const agent = (await this.container.agents.getAll()).find(a => a.name === name);
 			if (agent == null) {
-				void window.showWarningMessage(`Agent '${name}' is no longer available.`);
+				void window.showWarningMessage(l10n.t("Agent '{0}' is no longer available.", name));
 				return;
 			}
 
 			await this.runHooksOperation([agent], op, args?.source ?? 'commandPalette');
 		} catch (ex) {
 			Logger.error(ex, `AgentStatusService.${op}HooksForAgent`);
+			const error = getPresentableErrorMessage(ex);
 			void window.showErrorMessage(
-				`Failed to ${op} GitKraken Hooks for ${name}: ${ex instanceof Error ? ex.message : String(ex)}`,
+				op === 'install'
+					? l10n.t('Failed to install GitKraken Hooks for {0}: {1}', name, error)
+					: l10n.t('Failed to uninstall GitKraken Hooks for {0}: {1}', name, error),
 			);
 		}
 	}
@@ -399,8 +416,8 @@ export class AgentStatusService implements Disposable {
 		if (targets.length === 0) {
 			void window.showInformationMessage(
 				op === 'install'
-					? 'No additional hook-ready agents were detected on your machine.'
-					: 'No agents currently have GitKraken Hooks installed.',
+					? l10n.t('No additional hook-ready agents were detected on your machine.')
+					: l10n.t('No agents currently have GitKraken Hooks installed.'),
 			);
 			return;
 		}
@@ -422,7 +439,14 @@ export class AgentStatusService implements Disposable {
 		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `${op === 'install' ? 'Installing' : 'Uninstalling'} GitKraken Hooks for ${targets.length} agent${targets.length > 1 ? 's' : ''}...`,
+				title:
+					op === 'install'
+						? targets.length === 1
+							? l10n.t('Installing GitKraken Hooks for {0} agent...', String(targets.length))
+							: l10n.t('Installing GitKraken Hooks for {0} agents...', String(targets.length))
+						: targets.length === 1
+							? l10n.t('Uninstalling GitKraken Hooks for {0} agent...', String(targets.length))
+							: l10n.t('Uninstalling GitKraken Hooks for {0} agents...', String(targets.length)),
 				cancellable: false,
 			},
 			async () => {
@@ -450,7 +474,7 @@ export class AgentStatusService implements Disposable {
 						Logger.error(ex, `AgentStatusService.runHooksOperation(${op})`, `agent=${agent.name}`);
 						failed.push({
 							agent: agent.displayName,
-							error: ex instanceof Error ? ex.message : 'Unknown error',
+							error: getPresentableErrorMessage(ex),
 						});
 					}
 				}
@@ -466,18 +490,49 @@ export class AgentStatusService implements Disposable {
 			'agents.failed': failed.map(f => f.agent).join(',') || undefined,
 		});
 
-		const parts: string[] = [];
-		if (succeeded.length > 0) {
-			parts.push(`${op === 'install' ? 'Installed' : 'Uninstalled'} for ${succeeded.join(', ')}`);
-		}
-		if (failed.length > 0) {
-			parts.push(`Failed for ${failed.map(f => f.agent).join(', ')}`);
-		}
-
-		let message = `GitKraken Hooks: ${parts.join('. ')}.`;
+		const succeededAgents = succeeded.join(', ');
+		const failedAgents = failed.map(f => f.agent).join(', ');
 		// A notification renders plain text, so the hint's authored backticks would show literally.
-		for (const hint of manualActivationHints) {
-			message += ` ${stripHintCodeMarkers(hint)}`;
+		const activationHint = Array.from(manualActivationHints, stripHintCodeMarkers).join(' ');
+		let message: string;
+		if (succeeded.length > 0) {
+			if (failed.length > 0) {
+				if (op === 'install') {
+					message = activationHint
+						? l10n.t(
+								'GitKraken Hooks: Installed for {0}. Failed for {1}. {2}',
+								succeededAgents,
+								failedAgents,
+								activationHint,
+							)
+						: l10n.t('GitKraken Hooks: Installed for {0}. Failed for {1}.', succeededAgents, failedAgents);
+				} else {
+					message = activationHint
+						? l10n.t(
+								'GitKraken Hooks: Uninstalled for {0}. Failed for {1}. {2}',
+								succeededAgents,
+								failedAgents,
+								activationHint,
+							)
+						: l10n.t(
+								'GitKraken Hooks: Uninstalled for {0}. Failed for {1}.',
+								succeededAgents,
+								failedAgents,
+							);
+				}
+			} else if (op === 'install') {
+				message = activationHint
+					? l10n.t('GitKraken Hooks: Installed for {0}. {1}', succeededAgents, activationHint)
+					: l10n.t('GitKraken Hooks: Installed for {0}.', succeededAgents);
+			} else {
+				message = activationHint
+					? l10n.t('GitKraken Hooks: Uninstalled for {0}. {1}', succeededAgents, activationHint)
+					: l10n.t('GitKraken Hooks: Uninstalled for {0}.', succeededAgents);
+			}
+		} else {
+			message = activationHint
+				? l10n.t('GitKraken Hooks: Failed for {0}. {1}', failedAgents, activationHint)
+				: l10n.t('GitKraken Hooks: Failed for {0}.', failedAgents);
 		}
 
 		// A button can only ever point at ONE agent — with two hinted agents there's no single
@@ -487,7 +542,9 @@ export class AgentStatusService implements Disposable {
 		// arbitrarily.
 		const singleHintedAgent = hintedAgents.length === 1 ? hintedAgents[0] : undefined;
 		const startSessionAction =
-			singleHintedAgent != null ? { title: `Start ${singleHintedAgent.displayName} Session` } : undefined;
+			singleHintedAgent != null
+				? { title: l10n.t('Start {0} Session', singleHintedAgent.displayName) }
+				: undefined;
 		const actions = startSessionAction != null ? [startSessionAction] : [];
 
 		const selection =
@@ -791,7 +848,7 @@ export class AgentStatusService implements Disposable {
 			/* webpackChunkName: "agents" */ '../quickpicks/resumeTargetPicker.js'
 		);
 		const agentLabel = getAgentCapabilitiesByProviderId(providerId)?.displayName ?? providerId;
-		const pick = await showResumeTargetPicker(providerId, name ?? 'Session', agentLabel, cwd, targets);
+		const pick = await showResumeTargetPicker(providerId, name ?? l10n.t('Session'), agentLabel, cwd, targets);
 		if (pick == null) return undefined;
 
 		if (pick.remember) {
@@ -1174,7 +1231,7 @@ export class AgentStatusService implements Disposable {
 			if (refetched?.pendingPermission == null) return;
 
 			void window.showInformationMessage(
-				`This request can only be answered in the agent's session. Open the session to respond.`,
+				l10n.t("This request can only be answered in the agent's session. Open the session to respond."),
 			);
 		}
 	}
@@ -1275,9 +1332,7 @@ export class AgentStatusService implements Disposable {
 					await commands.executeCommand('vscode.open', Uri.file(planFilePath));
 				} catch (ex) {
 					Logger.error(ex, 'AgentStatusService.openPlanFile');
-					void window.showErrorMessage(
-						`Failed to open plan: ${ex instanceof Error ? ex.message : String(ex)}`,
-					);
+					void window.showErrorMessage(l10n.t('Failed to open plan: {0}', getPresentableErrorMessage(ex)));
 				}
 			}),
 			registerCommand(
@@ -1364,7 +1419,7 @@ export class AgentStatusService implements Disposable {
 			return archived;
 		} catch (ex) {
 			Logger.error(ex, 'AgentStatusService.archiveSession');
-			void window.showErrorMessage(`Failed to archive session: ${ex instanceof Error ? ex.message : String(ex)}`);
+			void window.showErrorMessage(l10n.t('Failed to archive session: {0}', getPresentableErrorMessage(ex)));
 			return false;
 		}
 	}
@@ -1390,20 +1445,20 @@ export class AgentStatusService implements Disposable {
 			const items: (SessionPickItem | QuickPickItem)[] = [];
 
 			if (workspaceSessions.length > 0) {
-				items.push(createQuickPickSeparator('This workspace'));
+				items.push(createQuickPickSeparator(l10n.t('This workspace')));
 				for (const s of workspaceSessions) {
 					const worktreeName = this.getWorktreeMetadataForSession(s)?.name;
 					items.push({
 						label: `$(${getAgentProviderIcon(s.providerId)}) ${getSessionDisplayName(s, worktreeName)}`,
 						description: s.status,
-						detail: worktreeName ? `worktree: ${worktreeName}` : undefined,
+						detail: worktreeName ? l10n.t('worktree: {0}', worktreeName) : undefined,
 						session: s,
 					} satisfies SessionPickItem);
 				}
 			}
 
 			if (externalSessions.length > 0) {
-				items.push(createQuickPickSeparator('Other workspaces'));
+				items.push(createQuickPickSeparator(l10n.t('Other workspaces')));
 				for (const s of externalSessions) {
 					items.push({
 						label: `$(${getAgentProviderIcon(s.providerId)}) ${getSessionDisplayName(s, this.getWorktreeMetadataForSession(s)?.name)}`,
@@ -1415,7 +1470,7 @@ export class AgentStatusService implements Disposable {
 			}
 
 			const pick = await window.showQuickPick<SessionPickItem | QuickPickItem>(items, {
-				placeHolder: 'Select an agent session',
+				placeHolder: l10n.t('Select an agent session'),
 			});
 			if (pick == null || !('session' in pick)) return;
 
@@ -1478,7 +1533,7 @@ export class AgentStatusService implements Disposable {
 		}
 
 		if (session?.worktreePath == null) {
-			void window.showInformationMessage('No agent session with an associated worktree was found.');
+			void window.showInformationMessage(l10n.t('No agent session with an associated worktree was found.'));
 			return undefined;
 		}
 
@@ -1614,7 +1669,11 @@ export class AgentStatusService implements Disposable {
 		// instead of a focus attempt on an unrelated process.
 		if (session.status === 'ended') {
 			provider?.resolveEndedSessionDetails?.(session.id);
-			await this.offerResumeOrWarn(session, 'This agent session has ended.');
+			await this.offerResumeOrWarn(
+				session,
+				l10n.t('This agent session has ended.'),
+				l10n.t('This agent session has ended. Resume it in a terminal?'),
+			);
 			return;
 		}
 
@@ -1677,8 +1736,11 @@ export class AgentStatusService implements Disposable {
 			await this.offerResumeOrWarn(
 				session,
 				host === 'extension' && !extensionAvailable
-					? 'The Claude Code extension is not installed or not available.'
-					: 'Unable to open agent session.',
+					? l10n.t('The Claude Code extension is not installed or not available.')
+					: l10n.t('Unable to open agent session.'),
+				host === 'extension' && !extensionAvailable
+					? l10n.t('The Claude Code extension is not installed or not available. Resume it in a terminal?')
+					: l10n.t('Unable to open agent session. Resume it in a terminal?'),
 			);
 			return;
 		}
@@ -1695,7 +1757,11 @@ export class AgentStatusService implements Disposable {
 		Logger.warn(
 			`AgentStatusService.dispatchSessionAction: no actionable target for session ${session.id} (isInWorkspace=${session.isInWorkspace}, workspacePath=${session.workspacePath ?? 'none'}, pid=${session.pid ?? 'none'})`,
 		);
-		await this.offerResumeOrWarn(session, 'Unable to open agent session.');
+		await this.offerResumeOrWarn(
+			session,
+			l10n.t('Unable to open agent session.'),
+			l10n.t('Unable to open agent session. Resume it in a terminal?'),
+		);
 	}
 
 	/**
@@ -1722,7 +1788,11 @@ export class AgentStatusService implements Disposable {
 		Logger.warn(
 			`AgentStatusService.dispatchOtherAgentSessionAction: no actionable target for ${session.providerId} session ${session.id} (isInWorkspace=${session.isInWorkspace}, workspacePath=${session.workspacePath ?? 'none'}, pid=${session.pid ?? 'none'})`,
 		);
-		await this.offerResumeOrWarn(session, 'Unable to open agent session.');
+		await this.offerResumeOrWarn(
+			session,
+			l10n.t('Unable to open agent session.'),
+			l10n.t('Unable to open agent session. Resume it in a terminal?'),
+		);
 	}
 
 	/** Shared dead-end handler for every open path that can't reach the live session. When the
@@ -1735,15 +1805,15 @@ export class AgentStatusService implements Disposable {
 	 *  The capability check is load-bearing, not defensive: {@link resumeAgentSessionInTerminal}
 	 *  runs the agent's own resume command against `session.id`, so offering it for an agent with no
 	 *  descriptor would spawn nothing (or the wrong thing) against an id it has never seen. */
-	private async offerResumeOrWarn(session: AgentSession, warning: string): Promise<void> {
+	private async offerResumeOrWarn(session: AgentSession, warning: string, resumePrompt: string): Promise<void> {
 		const supportsResume = getAgentCapabilitiesByProviderId(session.providerId)?.supportsResume === true;
 		if (!supportsResume || !canResumeSession(session)) {
 			void window.showWarningMessage(warning);
 			return;
 		}
 
-		const action = 'Resume in Terminal';
-		const choice = await window.showWarningMessage(`${warning} Resume it in a terminal?`, action);
+		const action = l10n.t('Resume in Terminal');
+		const choice = await window.showWarningMessage(resumePrompt, action);
 		if (choice !== action) return;
 
 		// Re-read after the prompt: it can sit unanswered indefinitely, and a resume reuses the SAME
@@ -1758,7 +1828,7 @@ export class AgentStatusService implements Disposable {
 		// means the situation the user agreed to no longer holds.
 		const current = this.sessions.find(s => s.id === session.id);
 		if (current != null && (current.status !== session.status || current.pid !== session.pid)) {
-			void window.showInformationMessage('That agent session changed state, so it was not resumed.');
+			void window.showInformationMessage(l10n.t('That agent session changed state, so it was not resumed.'));
 			return;
 		}
 
@@ -1823,11 +1893,18 @@ export class AgentStatusService implements Disposable {
 
 		// Same workspace (already open here, can't disambiguate which window to focus at the OS
 		// level). Surface a clear hint with the cwd so the user can switch manually.
-		const cwdHint = session.cwd ? ` (${session.cwd})` : '';
-		await this.offerResumeOrWarn(
-			session,
-			`This session is running in another VS Code window${cwdHint}. Switch to it to view.`,
-		);
+		const warning = session.cwd
+			? l10n.t('This session is running in another VS Code window ({0}). Switch to it to view.', session.cwd)
+			: l10n.t('This session is running in another VS Code window. Switch to it to view.');
+		const resumePrompt = session.cwd
+			? l10n.t(
+					'This session is running in another VS Code window ({0}). Switch to it to view. Resume it in a terminal?',
+					session.cwd,
+				)
+			: l10n.t(
+					'This session is running in another VS Code window. Switch to it to view. Resume it in a terminal?',
+				);
+		await this.offerResumeOrWarn(session, warning, resumePrompt);
 		return true;
 	}
 
@@ -1843,11 +1920,18 @@ export class AgentStatusService implements Disposable {
 		Logger.warn(
 			`AgentStatusService.dispatchRemotelyHostedSession: routed via info hint (pid=${session.pid ?? 'none'}, workspacePath=${session.workspacePath ?? 'none'}, cwd=${session.cwd ?? 'none'})`,
 		);
-		const cwdHint = session.cwd ? ` (${session.cwd})` : '';
-		await this.offerResumeOrWarn(
-			session,
-			`This session is running in another VS Code window${cwdHint}. Switch to it to view.`,
-		);
+		const warning = session.cwd
+			? l10n.t('This session is running in another VS Code window ({0}). Switch to it to view.', session.cwd)
+			: l10n.t('This session is running in another VS Code window. Switch to it to view.');
+		const resumePrompt = session.cwd
+			? l10n.t(
+					'This session is running in another VS Code window ({0}). Switch to it to view. Resume it in a terminal?',
+					session.cwd,
+				)
+			: l10n.t(
+					'This session is running in another VS Code window. Switch to it to view. Resume it in a terminal?',
+				);
+		await this.offerResumeOrWarn(session, warning, resumePrompt);
 	}
 
 	/** Returns `true` iff the given `pid` (a Claude binary process for an extension-hosted session)

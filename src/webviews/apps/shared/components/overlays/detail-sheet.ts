@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import '../chips/action-chip.js';
@@ -252,7 +253,7 @@ export class GlDetailSheet extends LitElement {
 	sheetTitle: string | null = null;
 
 	@property({ type: String, attribute: 'close-label' })
-	closeLabel = 'Close';
+	closeLabel = l10n.t('Close');
 
 	@property({ type: String, attribute: 'aria-label' })
 	override ariaLabel: string | null = null;
@@ -364,7 +365,7 @@ export class GlDetailSheet extends LitElement {
 				part="sheet"
 				role="dialog"
 				aria-modal="true"
-				aria-label=${this.ariaLabel ?? this.sheetTitle ?? 'Details'}
+				aria-label=${this.ariaLabel ?? this.sheetTitle ?? l10n.t('Details')}
 				tabindex="-1"
 			>
 				<header class="sheet__header" part="header">

@@ -1,11 +1,12 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { map } from '@gitlens/utils/iterable.js';
 import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
 import { cancellable, PromiseCancelledError } from '@gitlens/utils/promise.js';
-import { pluralize, sortCompare } from '@gitlens/utils/string.js';
+import { sortCompare } from '@gitlens/utils/string.js';
 import type { FilesComparison } from '../../git/actions/commit.js';
 import { GitUri } from '../../git/gitUri.js';
 import type { FilesQueryResults } from '../../git/queryResults.js';
@@ -137,19 +138,20 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 			);
 			label = results.label;
 			if (filter == null && results.stats != null) {
-				description = `${pluralize('addition', results.stats.additions)} (+), ${pluralize(
-					'deletion',
+				description = getChangesDescription(
+					results.stats.additions,
 					results.stats.deletions,
-				)} (-)${results.stats.approximated ? ' *approximated' : ''}`;
-				tooltip = `${label}, ${description}`;
+					results.stats.approximated ?? false,
+				);
+				tooltip = l10n.t('{0}, {1}', label, description);
 			}
 
 			if (filter != null) {
-				description = 'Filtered';
-				tooltip = `${label} &mdash; ${description}`;
+				description = l10n.t('Filtered');
+				tooltip = l10n.t('{0} &mdash; Filtered', label);
 				files = results.filtered?.get(filter);
 				if (files == null) {
-					label = 'files changed';
+					label = l10n.t('files changed');
 					icon = new ThemeIcon('ellipsis');
 					// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
 					// https://github.com/microsoft/vscode/issues/54806 & https://github.com/microsoft/vscode/issues/62214
@@ -174,7 +176,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 				void ex.promise.then(() => queueMicrotask(() => this.triggerChange(false)));
 			}
 
-			label = 'files changed';
+			label = l10n.t('files changed');
 			icon = new ThemeIcon('ellipsis');
 			// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
 			// https://github.com/microsoft/vscode/issues/54806 & https://github.com/microsoft/vscode/issues/62214
@@ -182,7 +184,7 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 		}
 
 		const item = new TreeItem(
-			`${filter != null && files != null ? `Showing ${files.length} of ` : ''}${label}`,
+			filter != null && files != null ? l10n.t('Showing {0} of {1}', String(files.length), label) : label,
 			state,
 		);
 		item.description = description;
@@ -251,4 +253,31 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 		results.filtered ??= new Map();
 		results.filtered.set(filter, filterTo == null ? [] : results.files!.filter(f => filterTo.has(f.path)));
 	}
+}
+
+function getChangesDescription(additions: number, deletions: number, approximated: boolean): string {
+	const format = getNumericFormat();
+	const formattedAdditions = format(additions);
+	const formattedDeletions = format(deletions);
+	if (approximated) {
+		if (additions === 1) {
+			return deletions === 1
+				? l10n.t('{0} addition (+), {1} deletion (-) *approximated', formattedAdditions, formattedDeletions)
+				: l10n.t('{0} addition (+), {1} deletions (-) *approximated', formattedAdditions, formattedDeletions);
+		}
+
+		return deletions === 1
+			? l10n.t('{0} additions (+), {1} deletion (-) *approximated', formattedAdditions, formattedDeletions)
+			: l10n.t('{0} additions (+), {1} deletions (-) *approximated', formattedAdditions, formattedDeletions);
+	}
+
+	if (additions === 1) {
+		return deletions === 1
+			? l10n.t('{0} addition (+), {1} deletion (-)', formattedAdditions, formattedDeletions)
+			: l10n.t('{0} addition (+), {1} deletions (-)', formattedAdditions, formattedDeletions);
+	}
+
+	return deletions === 1
+		? l10n.t('{0} additions (+), {1} deletion (-)', formattedAdditions, formattedDeletions)
+		: l10n.t('{0} additions (+), {1} deletions (-)', formattedAdditions, formattedDeletions);
 }
