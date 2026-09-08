@@ -651,7 +651,9 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 	return {
 		name: name,
 		context: basePath,
-		entry: Object.fromEntries(Object.entries(webviews).map(([n, { entry }]) => [n, entry])),
+		entry: Object.fromEntries(
+			Object.entries(webviews).map(([n, { entry }]) => [n, ['./shared/localization.ts', entry]]),
+		),
 		mode: mode,
 		target: 'web',
 		devtool: mode === 'production' && !env.analyzeBundle ? false : 'cheap-module-source-map',
@@ -1192,7 +1194,7 @@ class GenerateContributionsPlugin extends FileGeneratorPlugin {
 		super({
 			pluginName: 'contributions',
 			pathsToWatch: [path.join(__dirname, 'contributions.json')],
-			outputs: [path.join(__dirname, 'package.json')],
+			outputs: [path.join(__dirname, 'package.json'), path.join(__dirname, 'package.nls.json')],
 			command: {
 				name: "'package.json' contributions",
 				command: pkgMgr,

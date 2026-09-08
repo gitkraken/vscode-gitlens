@@ -152,6 +152,7 @@
 		"@gitlens/one-var": "error",
 		"@gitlens/require-js-extension": "error",
 		"@gitlens/scoped-logger-usage": "error",
+		"@gitlens/require-literal-l10n": "error",
 		"@gitlens/require-block-body": "error",
 		"@gitlens/newline-after-control-flow": "warn",
 		"@gitlens/valid-package-imports": "error",

@@ -68,5 +68,8 @@
 		"tsdown": "catalog:",
 		"tsx": "catalog:",
 		"typescript": "catalog:"
+	},
+	"dependencies": {
+		"@vscode/l10n": "catalog:"
 	}
 }
