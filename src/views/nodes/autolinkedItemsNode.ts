@@ -1,4 +1,4 @@
-import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Disposable, l10n, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import { debounce } from '@gitlens/utils/debounce.js';
@@ -95,14 +95,16 @@ export class AutolinkedItemsNode extends SubscribeableViewNode<'autolinks', View
 			}
 
 			if (!children?.length) {
-				children = [new MessageNode(this.view, this, 'No autolinked issues or pull requests could be found.')];
+				children = [
+					new MessageNode(this.view, this, l10n.t('No autolinked issues or pull requests could be found.')),
+				];
 			}
 
 			if (this.log.hasMore) {
 				children.push(
 					new LoadMoreNode(this.view, this.parent, children.at(-1)!, {
 						context: { expandAutolinks: true },
-						message: 'Load more commits to search for autolinks',
+						message: l10n.t('Load more commits to search for autolinks'),
 					}),
 				);
 			}
@@ -114,7 +116,7 @@ export class AutolinkedItemsNode extends SubscribeableViewNode<'autolinks', View
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(
-			'Autolinked Issues and Pull Requests',
+			l10n.t('Autolinked Issues and Pull Requests'),
 			this.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;

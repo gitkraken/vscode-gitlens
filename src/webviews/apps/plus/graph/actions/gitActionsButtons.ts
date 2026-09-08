@@ -1,16 +1,17 @@
 import type { Remote } from '@eamodio/supertalk';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import { inlineCode } from '@gitlens/components/components/styles/lit/base.css.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
-import { fromNow } from '@gitlens/utils/date.js';
+import { fromNow, getNumericFormat } from '@gitlens/utils/date.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { pausedOperationStatusStringsByType } from '@gitlens/utils/pausedOperation.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { StashSaveCommandArgs } from '../../../../../commands/stashSave.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../../system/commands.js';
@@ -118,8 +119,8 @@ export class GitActionsButtons extends SignalWatcher(LitElement) {
 
 	private get fetchedTextShort(): string | undefined {
 		if (!this.lastFetched) return undefined;
-		if (Date.now() - this.lastFetched < 1000) return 'now';
-		return `${fromNow(this.lastFetched, true)} ago`;
+		if (Date.now() - this.lastFetched < 1000) return l10n.t('now');
+		return l10n.t('{time} ago', { time: fromNow(this.lastFetched, true) });
 	}
 
 	private onJumpToWip() {
@@ -135,26 +136,44 @@ export class GitActionsButtons extends SignalWatcher(LitElement) {
 		const pausedOp = state?.pausedOpStatus;
 		if (pausedOp != null) {
 			const opStrings = pausedOperationStatusStringsByType[pausedOp.type];
-			const headline = state?.hasConflicts === true ? opStrings.conflicts : `${opStrings.label} in progress`;
+			let headline: string;
+			if (state?.hasConflicts === true) {
+				headline = opStrings.conflicts;
+			} else {
+				switch (pausedOp.type) {
+					case 'cherry-pick':
+						headline = l10n.t('Cherry picking in progress');
+						break;
+					case 'merge':
+						headline = l10n.t('Merging in progress');
+						break;
+					case 'rebase':
+						headline = l10n.t('Rebasing in progress');
+						break;
+					case 'revert':
+						headline = l10n.t('Reverting in progress');
+						break;
+				}
+			}
 			return html`${headline}
 				<hr />
-				Jump to Working Changes`;
+				${l10n.t('Jump to Working Changes')}`;
 		}
 
-		return html`Jump to WIP
+		return html`${l10n.t('Jump to WIP')}
 		${
 			this.hasWorkingChanges
 				? html`
 						<hr />
-						Working Changes
+						${l10n.t('Working Changes')}
 						<br />
-						${stats!.added ? html`${pluralize('file', stats!.added)} added<br />` : nothing}
-						${stats!.modified ? html`${pluralize('file', stats!.modified)} modified<br />` : nothing}
-						${stats!.deleted ? html`${pluralize('file', stats!.deleted)} deleted<br />` : nothing}
+						${stats!.added ? html`${stats!.added === 1 ? l10n.t('{count} file added', { count: getNumericFormat()(stats!.added) }) : l10n.t('{count} files added', { count: getNumericFormat()(stats!.added) })}<br />` : nothing}
+						${stats!.modified ? html`${stats!.modified === 1 ? l10n.t('{count} file modified', { count: getNumericFormat()(stats!.modified) }) : l10n.t('{count} files modified', { count: getNumericFormat()(stats!.modified) })}<br />` : nothing}
+						${stats!.deleted ? html`${stats!.deleted === 1 ? l10n.t('{count} file deleted', { count: getNumericFormat()(stats!.deleted) }) : l10n.t('{count} files deleted', { count: getNumericFormat()(stats!.deleted) })}<br />` : nothing}
 					`
 				: html`
 						<hr />
-						No changes
+						${l10n.t('No changes')}
 					`
 		}`;
 	}
@@ -208,8 +227,8 @@ export class GitActionsButtons extends SignalWatcher(LitElement) {
 							href=${createCommandLink<StashSaveCommandArgs>('gitlens.stashSave', {
 								repoPath: this.state.selectedRepository,
 							})}
-							aria-label="Stash Changes..."
-							tooltip="Stash Changes..."
+							aria-label=${l10n.t('Stash Changes...')}
+							tooltip=${l10n.t('Stash Changes...')}
 						>
 							<code-icon icon="gl-stash-save"></code-icon>
 						</gl-button>`
@@ -374,16 +393,44 @@ the parent's intrinsic min-content beyond the icon size. */
 	@property({ type: Number })
 	autoFetchIntervalSeconds = 180;
 
-	private get upstream() {
-		return this.branchState?.upstream
-			? html`<span class="inline-code">${this.branchState.upstream}</span>`
-			: 'remote';
+	private renderFetchDescription() {
+		const upstream = this.branchState?.upstream;
+		const provider = this.branchState?.provider?.name;
+		return localizedContent(
+			upstream
+				? provider
+					? l10n.t('Fetch from {upstream} on {provider}')
+					: l10n.t('Fetch from {upstream}')
+				: provider
+					? l10n.t('Fetch from remote on {provider}')
+					: l10n.t('Fetch from remote'),
+			{ upstream: html`<span class="inline-code">${upstream}</span>`, provider: provider },
+		);
 	}
 
-	private get intervalLabel(): string {
+	private get intervalHint(): string {
 		const seconds = this.autoFetchIntervalSeconds;
-		if (seconds < 60) return pluralize('second', seconds);
-		return pluralize('minute', Math.round(seconds / 60));
+		const inView = this.autoFetchMode !== 'vscode';
+		if (seconds < 60) {
+			const count = getNumericFormat()(seconds);
+			return inView
+				? seconds === 1
+					? l10n.t('Every {count} second while in view', { count: count })
+					: l10n.t('Every {count} seconds while in view', { count: count })
+				: seconds === 1
+					? l10n.t('Every {count} second', { count: count })
+					: l10n.t('Every {count} seconds', { count: count });
+		}
+
+		const minutes = Math.round(seconds / 60);
+		const count = getNumericFormat()(minutes);
+		return inView
+			? minutes === 1
+				? l10n.t('Every {count} minute while in view', { count: count })
+				: l10n.t('Every {count} minutes while in view', { count: count })
+			: minutes === 1
+				? l10n.t('Every {count} minute', { count: count })
+				: l10n.t('Every {count} minutes', { count: count });
 	}
 
 	private get settingsLink(): string {
@@ -402,11 +449,11 @@ the parent's intrinsic min-content beyond the icon size. */
 					slot="anchor"
 					href=${this._webview.createCommandLink('gitlens.fetch:')}
 					class="action-button"
-					aria-label="Fetch"
+					aria-label=${l10n.t('Fetch')}
 				>
 					<code-icon class="action-button__icon" icon="repo-fetch"></code-icon>
 					<span class="action-button__text"
-						><span class="action-button__label">Fetch</span>${
+						><span class="action-button__label">${l10n.t('Fetch')}</span>${
 							this.fetchedTextShort
 								? html` <span class="action-button__small">(${this.fetchedTextShort})</span>`
 								: ''
@@ -415,14 +462,11 @@ the parent's intrinsic min-content beyond the icon size. */
 				</a>
 				<div slot="content" class="fetch-popover__menu" role="menu">
 					<div class="fetch-popover__info">
-						Fetch from
-						${this.upstream}${
-							this.branchState?.provider?.name ? html` on ${this.branchState.provider.name}` : nothing
-						}
+						${this.renderFetchDescription()}
 						${
 							this.fetchedText
 								? html`<div class="fetch-popover__info-secondary">
-										Last fetched ${this.fetchedText}
+										${l10n.t('Last fetched {time}', { time: this.fetchedText })}
 									</div>`
 								: nothing
 						}
@@ -435,17 +479,16 @@ the parent's intrinsic min-content beyond the icon size. */
 	}
 
 	private renderAutoFetchRow() {
-		const intervalLabel = this.intervalLabel;
 		if (this.autoFetchMode === 'vscode') {
 			return html`
 				<div class="fetch-popover__row fetch-popover__row--info">
 					<span class="fetch-popover__label-text">
 						<code-icon icon="check"></code-icon>
-						Auto-fetch handled by VS Code Git
+						${l10n.t('Auto-fetch handled by VS Code Git')}
 					</span>
 					${this.renderSettingsCog()}
 				</div>
-				<div class="fetch-popover__hint">Every ${intervalLabel}</div>
+				<div class="fetch-popover__hint">${this.intervalHint}</div>
 			`;
 		}
 
@@ -457,11 +500,11 @@ the parent's intrinsic min-content beyond the icon size. */
 					?checked=${checked}
 					@gl-change-value=${this.handleAutoFetchToggle}
 				>
-					Auto-fetch
+					${l10n.t('Auto-fetch')}
 				</gl-checkbox>
 				${this.renderSettingsCog()}
 			</div>
-			<div class="fetch-popover__hint">Every ${intervalLabel} while in view</div>
+			<div class="fetch-popover__hint">${this.intervalHint}</div>
 		`;
 	}
 
@@ -473,7 +516,7 @@ the parent's intrinsic min-content beyond the icon size. */
 				appearance="toolbar"
 				density="compact"
 				href=${this.settingsLink}
-				aria-label="Open Git Auto-fetch Settings"
+				aria-label=${l10n.t('Open Git Auto-fetch Settings')}
 			>
 				<code-icon icon="gear"></code-icon>
 			</gl-button>
@@ -784,14 +827,148 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 		return (this.branchState?.ahead ?? 0) > 0;
 	}
 
-	private get upstream() {
-		return this.branchState?.upstream
-			? html`<span class="inline-code">${this.branchState.upstream}</span>`
-			: 'remote';
+	private renderTransferDescription(action: 'pull' | 'push' | 'forcePush', count: number) {
+		const upstream = this.branchState?.upstream;
+		const provider = this.branchState?.provider?.name;
+		let message: string;
+		switch (action) {
+			case 'pull':
+				message = upstream
+					? provider
+						? count === 1
+							? l10n.t('Pull {count} commit from {upstream} on {provider}')
+							: l10n.t('Pull {count} commits from {upstream} on {provider}')
+						: count === 1
+							? l10n.t('Pull {count} commit from {upstream}')
+							: l10n.t('Pull {count} commits from {upstream}')
+					: provider
+						? count === 1
+							? l10n.t('Pull {count} commit from remote on {provider}')
+							: l10n.t('Pull {count} commits from remote on {provider}')
+						: count === 1
+							? l10n.t('Pull {count} commit from remote')
+							: l10n.t('Pull {count} commits from remote');
+				break;
+			case 'push':
+				message = upstream
+					? provider
+						? count === 1
+							? l10n.t('Push {count} commit to {upstream} on {provider}')
+							: l10n.t('Push {count} commits to {upstream} on {provider}')
+						: count === 1
+							? l10n.t('Push {count} commit to {upstream}')
+							: l10n.t('Push {count} commits to {upstream}')
+					: provider
+						? count === 1
+							? l10n.t('Push {count} commit to remote on {provider}')
+							: l10n.t('Push {count} commits to remote on {provider}')
+						: count === 1
+							? l10n.t('Push {count} commit to remote')
+							: l10n.t('Push {count} commits to remote');
+				break;
+			case 'forcePush':
+				message = upstream
+					? provider
+						? count === 1
+							? l10n.t('Force Push {count} commit to {upstream} on {provider}')
+							: l10n.t('Force Push {count} commits to {upstream} on {provider}')
+						: count === 1
+							? l10n.t('Force Push {count} commit to {upstream}')
+							: l10n.t('Force Push {count} commits to {upstream}')
+					: provider
+						? count === 1
+							? l10n.t('Force Push {count} commit to remote on {provider}')
+							: l10n.t('Force Push {count} commits to remote on {provider}')
+						: count === 1
+							? l10n.t('Force Push {count} commit to remote')
+							: l10n.t('Force Push {count} commits to remote');
+				break;
+		}
+		return localizedContent(message, {
+			count: getNumericFormat()(count),
+			upstream: html`<span class="inline-code">${upstream}</span>`,
+			provider: provider,
+		});
 	}
 
-	private renderBranchPrefix() {
-		return html`<span class="inline-code">${this.branchName}</span> is`;
+	private renderTrackingDescription(behind: number, ahead: number) {
+		const upstream = this.branchState?.upstream;
+		const provider = this.branchState?.provider?.name;
+		let message: string;
+		if (behind > 0 && ahead > 0 && behind === 1 && ahead === 1) {
+			message = upstream
+				? provider
+					? l10n.t('{branch} is {behind} commit behind and {ahead} commit ahead of {upstream} on {provider}')
+					: l10n.t('{branch} is {behind} commit behind and {ahead} commit ahead of {upstream}')
+				: provider
+					? l10n.t('{branch} is {behind} commit behind and {ahead} commit ahead of remote on {provider}')
+					: l10n.t('{branch} is {behind} commit behind and {ahead} commit ahead of remote');
+		} else if (behind > 0 && ahead > 0 && behind === 1) {
+			message = upstream
+				? provider
+					? l10n.t('{branch} is {behind} commit behind and {ahead} commits ahead of {upstream} on {provider}')
+					: l10n.t('{branch} is {behind} commit behind and {ahead} commits ahead of {upstream}')
+				: provider
+					? l10n.t('{branch} is {behind} commit behind and {ahead} commits ahead of remote on {provider}')
+					: l10n.t('{branch} is {behind} commit behind and {ahead} commits ahead of remote');
+		} else if (behind > 0 && ahead > 0 && ahead === 1) {
+			message = upstream
+				? provider
+					? l10n.t('{branch} is {behind} commits behind and {ahead} commit ahead of {upstream} on {provider}')
+					: l10n.t('{branch} is {behind} commits behind and {ahead} commit ahead of {upstream}')
+				: provider
+					? l10n.t('{branch} is {behind} commits behind and {ahead} commit ahead of remote on {provider}')
+					: l10n.t('{branch} is {behind} commits behind and {ahead} commit ahead of remote');
+		} else if (behind > 0 && ahead > 0) {
+			message = upstream
+				? provider
+					? l10n.t(
+							'{branch} is {behind} commits behind and {ahead} commits ahead of {upstream} on {provider}',
+						)
+					: l10n.t('{branch} is {behind} commits behind and {ahead} commits ahead of {upstream}')
+				: provider
+					? l10n.t('{branch} is {behind} commits behind and {ahead} commits ahead of remote on {provider}')
+					: l10n.t('{branch} is {behind} commits behind and {ahead} commits ahead of remote');
+		} else if (behind === 1) {
+			message = upstream
+				? provider
+					? l10n.t('{branch} is {behind} commit behind {upstream} on {provider}')
+					: l10n.t('{branch} is {behind} commit behind {upstream}')
+				: provider
+					? l10n.t('{branch} is {behind} commit behind remote on {provider}')
+					: l10n.t('{branch} is {behind} commit behind remote');
+		} else if (behind > 0) {
+			message = upstream
+				? provider
+					? l10n.t('{branch} is {behind} commits behind {upstream} on {provider}')
+					: l10n.t('{branch} is {behind} commits behind {upstream}')
+				: provider
+					? l10n.t('{branch} is {behind} commits behind remote on {provider}')
+					: l10n.t('{branch} is {behind} commits behind remote');
+		} else if (ahead === 1) {
+			message = upstream
+				? provider
+					? l10n.t('{branch} is {ahead} commit ahead of {upstream} on {provider}')
+					: l10n.t('{branch} is {ahead} commit ahead of {upstream}')
+				: provider
+					? l10n.t('{branch} is {ahead} commit ahead of remote on {provider}')
+					: l10n.t('{branch} is {ahead} commit ahead of remote');
+		} else {
+			message = upstream
+				? provider
+					? l10n.t('{branch} is {ahead} commits ahead of {upstream} on {provider}')
+					: l10n.t('{branch} is {ahead} commits ahead of {upstream}')
+				: provider
+					? l10n.t('{branch} is {ahead} commits ahead of remote on {provider}')
+					: l10n.t('{branch} is {ahead} commits ahead of remote');
+		}
+		return localizedContent(message, {
+			branch: html`<span class="inline-code">${this.branchName}</span>`,
+			upstream: html`<span class="inline-code">${upstream}</span>`,
+			provider: provider,
+			behind: getNumericFormat()(behind),
+			ahead: getNumericFormat()(ahead),
+		});
 	}
 
 	/** `selectedRepository` is a repository *id*, not a path — resolve it through `repositories` rather
@@ -1022,7 +1199,7 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 
 		let banner;
 		if (conflicts != null && conflicts.kind !== 'clean' && conflicts.kind !== 'unavailable') {
-			const files = pluralize('file', conflicts.count);
+			const count = getNumericFormat()(conflicts.count);
 			// A blocked pull outranks a predicted one: it's a fact rather than a simulation, and it tells you
 			// the click won't do anything at all. It takes `editorError` rather than the rust conflict color so
 			// that `statusMergingOrRebasingConflict` keeps describing actual conflicts for anyone retheming it.
@@ -1031,8 +1208,12 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 			banner = html`<p class="banner ${blocked ? 'banner--blocked' : 'banner--conflict'}">
 				<code-icon icon=${blocked ? 'error' : 'warning'}></code-icon>${
 					blocked
-						? html`Unable to pull &mdash; uncommitted changes in ${files}`
-						: html`Pulling will cause conflicts in ${files}`
+						? conflicts.count === 1
+							? l10n.t('Unable to pull — uncommitted changes in {count} file', { count: count })
+							: l10n.t('Unable to pull — uncommitted changes in {count} files', { count: count })
+						: conflicts.count === 1
+							? l10n.t('Pulling will cause conflicts in {count} file', { count: count })
+							: l10n.t('Pulling will cause conflicts in {count} files', { count: count })
 				}
 			</p>`;
 		}
@@ -1052,7 +1233,7 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 	 *  lives in a `gl-tooltip` rather than inline, and doubles as its `aria-label`. */
 	private renderFooterBar(legs: readonly FooterJumpLeg[]) {
 		const fetched = this.fetchedTextShort
-			? html`<span class="footerbar__fetched">Fetched ${this.fetchedTextShort}</span>`
+			? html`<span class="footerbar__fetched">${l10n.t('Fetched {time}', { time: this.fetchedTextShort })}</span>`
 			: nothing;
 
 		// Nothing to jump to — keep the bar for the timestamp alone rather than dropping the fact off the card.
@@ -1087,7 +1268,7 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 	 *  as the default slot, so the push path passes nothing. */
 	private renderActionAnchor(action: 'pull' | 'push', slotted: boolean) {
 		const icon = action === 'pull' ? 'repo-pull' : 'repo-push';
-		const label = action === 'pull' ? 'Pull' : 'Push';
+		const label = action === 'pull' ? l10n.t('Pull') : l10n.t('Push');
 
 		return html`<a
 			slot=${slotted ? 'anchor' : nothing}
@@ -1120,7 +1301,6 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 	 *  (the one thing you can't read off the button), prose in the middle, doing in the footer. */
 	private renderPull() {
 		const branchState = this.branchState;
-		const providerSuffix = branchState?.provider?.name ? html` on ${branchState.provider.name}` : '';
 		const behind = branchState?.behind ?? 0;
 		const ahead = branchState?.ahead ?? 0;
 
@@ -1137,7 +1317,7 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 			legs.push({
 				resolve: () => this.incomingSha,
 				label: upstreamLegLabel,
-				tooltip: `Jump to Upstream (${upstreamName})`,
+				tooltip: l10n.t('Jump to Upstream ({upstream})', { upstream: upstreamName }),
 				icon: providerIconName(branchState?.provider?.icon),
 			});
 		}
@@ -1147,8 +1327,8 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 		// `Unpulled` flag bits keep the git layer's naming; this is user-facing copy only.
 		legs.push({
 			resolve: () => this.resolveOldestUnpulledSha(),
-			label: 'Oldest Incoming',
-			tooltip: 'Jump to Oldest Incoming Commit',
+			label: l10n.t('Oldest Incoming'),
+			tooltip: l10n.t('Jump to Oldest Incoming Commit'),
 			icon: 'arrow-down',
 		});
 
@@ -1162,13 +1342,8 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 			<div slot="content" class="action-popover">
 				${this.renderConflictBanner()}
 				<div class="action-popover__body">
-					<span>Pull ${pluralize('commit', behind)} from ${this.upstream}${providerSuffix}</span>
-					<span class="action-popover__status"
-						>${this.renderBranchPrefix()} ${pluralize('commit', behind)} behind
-						${
-							this.isAhead ? html`and ${pluralize('commit', ahead)} ahead of ` : ''
-						}${this.upstream}${providerSuffix}</span
-					>
+					<span>${this.renderTransferDescription('pull', behind)}</span>
+					<span class="action-popover__status">${this.renderTrackingDescription(behind, ahead)}</span>
 				</div>
 				${this.renderFooterBar(legs)}
 			</div>
@@ -1180,7 +1355,6 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 	 *  does; the value is structural parity with Pull plus the two jump legs. */
 	private renderPush() {
 		const branchState = this.branchState;
-		const providerSuffix = branchState?.provider?.name ? html` on ${branchState.provider.name}` : '';
 		const ahead = branchState?.ahead ?? 0;
 
 		const legs: FooterJumpLeg[] = [];
@@ -1192,7 +1366,9 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 			// branch reads "Jump to HEAD (undefined)".
 			legs.push({
 				resolve: () => this.headSha,
-				tooltip: this.branchName ? `Jump to HEAD (${this.branchName})` : 'Jump to HEAD',
+				tooltip: this.branchName
+					? l10n.t('Jump to HEAD ({branch})', { branch: this.branchName })
+					: l10n.t('Jump to HEAD'),
 				icon: 'vm-active',
 			});
 		}
@@ -1202,8 +1378,8 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 		// renders newest-at-top — the opposite end from where this leg lands).
 		legs.push({
 			resolve: () => this.resolveOldestUnpushedSha(),
-			label: 'Oldest Outgoing',
-			tooltip: 'Jump to Oldest Outgoing Commit',
+			label: l10n.t('Oldest Outgoing'),
+			tooltip: l10n.t('Jump to Oldest Outgoing Commit'),
 			icon: 'arrow-down',
 		});
 
@@ -1216,11 +1392,8 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 			${this.renderActionAnchor('push', true)}
 			<div slot="content" class="action-popover">
 				<div class="action-popover__body">
-					<span>Push ${pluralize('commit', ahead)} to ${this.upstream}${providerSuffix}</span>
-					<span class="action-popover__status"
-						>${this.renderBranchPrefix()} ${pluralize('commit', ahead)} ahead of
-						${this.upstream}${providerSuffix}</span
-					>
+					<span>${this.renderTransferDescription('push', ahead)}</span>
+					<span class="action-popover__status">${this.renderTrackingDescription(0, ahead)}</span>
 				</div>
 				${this.renderFooterBar(legs)}
 			</div>
@@ -1242,13 +1415,12 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 							<gl-button
 								appearance="toolbar"
 								href=${this._webview.createCommandLink('gitlens.graph.pushWithForce')}
-								aria-label="Force Push"
+								aria-label=${l10n.t('Force Push')}
 								tooltipPlacement="top"
 							>
 								<code-icon icon="repo-force-push" aria-hidden="true"></code-icon>
 								<span slot="tooltip">
-									Force Push ${pluralize('commit', this.branchState?.ahead)} to ${this.upstream}
-									${this.branchState?.provider?.name ? html` on ${this.branchState.provider.name}` : ''}
+									${this.renderTransferDescription('forcePush', this.branchState.ahead ?? 0)}
 								</span>
 							</gl-button>
 						`
@@ -1318,14 +1490,19 @@ export class GlPublishButton extends LitElement {
 				<a
 					href=${this._webview.createCommandLink('gitlens.publishBranch:')}
 					class="action-button"
-					aria-label="Publish Branch"
+					aria-label=${l10n.t('Publish Branch')}
 				>
 					<code-icon class="action-button__icon" icon="cloud-upload"></code-icon>
-					<span class="publish-button__text">Publish Branch</span>
+					<span class="publish-button__text">${l10n.t('Publish Branch')}</span>
 				</a>
 				<span slot="content">
-					Publish (push) ${this.branchName ? html`<strong>${this.branchName}</strong>` : 'this branch'} to a
-					remote
+					${
+						this.branchName
+							? localizedContent(l10n.t('Publish (push) {branch} to a remote'), {
+									branch: html`<strong>${this.branchName}</strong>`,
+								})
+							: l10n.t('Publish (push) this branch to a remote')
+					}
 				</span>
 			</gl-tooltip>
 		`;

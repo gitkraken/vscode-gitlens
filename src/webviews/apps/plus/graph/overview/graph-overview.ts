@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
@@ -30,9 +31,9 @@ import '../../../shared/components/menu/menu-popover.js';
 
 /** Labels for the Overview "Recent" timeframe filter, in display order. */
 const recentThresholdLabels: Record<OverviewRecentThreshold, string> = {
-	OneDay: '1 day',
-	OneWeek: '1 week',
-	OneMonth: '1 month',
+	OneDay: l10n.t('1 day'),
+	OneWeek: l10n.t('1 week'),
+	OneMonth: l10n.t('1 month'),
 };
 
 /** Page size for the Overview panel's "Load More" older-branches paging — how many additional older
@@ -772,8 +773,8 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				<div class="content scrollable">
 					${this.renderStartActions()}
 					<div class="empty">
-						Unable to load branch data.
-						<a href="#" @click=${this.onRetryClick}>Retry</a>
+						${l10n.t('Unable to load branch data.')}
+						<a href="#" @click=${this.onRetryClick}>${l10n.t('Retry')}</a>
 					</div>
 				</div>
 			`;
@@ -791,7 +792,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 					hasActive,
 					() => html`
 						<div class="group">
-							<div class="group__label">Current work</div>
+							<div class="group__label">${l10n.t('Current work')}</div>
 							${this.renderCards(overview.active, 'active')}
 						</div>
 					`,
@@ -803,7 +804,8 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 						<div class="group">
 							<div class="group__header">
 								<div class="group__label">
-									Recent <span class="group__count">(${overview.recent.length + olderCount})</span>
+									${l10n.t('Recent')}
+									<span class="group__count">(${overview.recent.length + olderCount})</span>
 								</div>
 								${this.renderRecentThresholdFilter()}
 							</div>
@@ -812,7 +814,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 								(overview.olderTotal ?? 0) > olderCount,
 								() => html`
 									<button class="show-more" type="button" @click=${this.onShowMoreOlderClick}>
-										Load More
+										${l10n.t('Load More')}
 									</button>
 								`,
 							)}
@@ -826,12 +828,12 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 	private renderEmptyOverview(overview: GraphOverviewData) {
 		return html`
-			<div class="empty">No recent branch activity</div>
+			<div class="empty">${l10n.t('No recent branch activity')}</div>
 			${when(
 				(overview.olderTotal ?? 0) > 0,
 				() =>
 					html`<div class="empty">
-						<a href="#" @click=${this.onShowMoreOlderClick}>Show older branches</a>
+						<a href="#" @click=${this.onShowMoreOlderClick}>${l10n.t('Show older branches')}</a>
 					</div>`,
 			)}
 		`;
@@ -896,7 +898,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 						showOpenInAgent: 'agent',
 					})}
 				>
-					Start Work...
+					${l10n.t('Start Work...')}
 				</gl-button>
 			</div>
 		`;
@@ -909,7 +911,12 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		);
 		return html`
 			<gl-menu-popover placement="bottom-end" .items=${items} @gl-menu-select=${this.onRecentThresholdSelect}>
-				<button slot="anchor" class="threshold-filter" type="button" aria-label="Change Recent Timeframe">
+				<button
+					slot="anchor"
+					class="threshold-filter"
+					type="button"
+					aria-label=${l10n.t('Change Recent Timeframe')}
+				>
 					${recentThresholdLabels[threshold]}<code-icon icon="chevron-down"></code-icon>
 				</button>
 			</gl-menu-popover>
@@ -964,7 +971,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				data-group=${group}
 				role="toolbar"
 				aria-orientation="vertical"
-				aria-label=${group === 'active' ? 'Current work branches' : 'Recent branches'}
+				aria-label=${group === 'active' ? l10n.t('Current work branches') : l10n.t('Recent branches')}
 				@keydown=${roving.onKeydown}
 				@focusin=${roving.onFocusin}
 			>

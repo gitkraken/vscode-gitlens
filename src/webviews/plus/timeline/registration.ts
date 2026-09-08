@@ -1,4 +1,4 @@
-import { Disposable, ViewColumn } from 'vscode';
+import { Disposable, l10n, ViewColumn } from 'vscode';
 import { isUri } from '@gitlens/utils/uri.js';
 import type { Container } from '../../../container.js';
 import { registerCommand } from '../../../system/-webview/command.js';
@@ -22,7 +22,7 @@ export function registerTimelineWebviewPanel(
 			id: 'gitlens.timeline',
 			fileName: 'timeline.html',
 			iconPath: 'images/gitlens-icon.png',
-			title: 'Visual History',
+			title: l10n.t('Visual History'),
 			contextKeyPrefix: `gitlens:webview:timeline`,
 			trackingFeature: 'timelineWebview',
 			type: 'timeline',
@@ -47,7 +47,7 @@ export function registerTimelineWebviewView(
 		{
 			id: 'gitlens.views.timeline',
 			fileName: 'timeline.html',
-			title: 'Visual File History',
+			title: l10n.t('Visual File History'),
 			contextKeyPrefix: `gitlens:webviewView:timeline`,
 			trackingFeature: 'timelineView',
 			type: 'timeline',

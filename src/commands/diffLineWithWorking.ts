@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
@@ -58,7 +58,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 			try {
 				const blame = await this.container.git.getBlameForLine(gitUri, blameEditorLine, editor?.document);
 				if (blame == null) {
-					void showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+					void showFileNotUnderSourceControlWarningMessage(l10n.t('Unable to open compare'));
 
 					return;
 				}
@@ -89,7 +89,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 				};
 			} catch (ex) {
 				Logger.error(ex, 'DiffLineWithWorkingCommand', `getBlameForLine(${blameEditorLine})`);
-				void showGenericErrorMessage('Unable to open compare');
+				void showGenericErrorMessage(l10n.t('Unable to open compare'));
 
 				return;
 			}
@@ -100,7 +100,9 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 
 		const workingUri = args.commit.file != null ? await getFileChangeWorkingUri(args.commit.file) : undefined;
 		if (workingUri == null) {
-			void window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+			void window.showWarningMessage(
+				l10n.t('Unable to open compare. File has been deleted from the working tree'),
+			);
 
 			return;
 		}

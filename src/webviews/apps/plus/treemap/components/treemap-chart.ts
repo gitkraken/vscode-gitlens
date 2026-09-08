@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -797,30 +798,36 @@ export class GlTreemapChart extends LitElement {
 			for (const _l of leaves(rect)) {
 				leafCount++;
 			}
-			parts.push(`${leafCount} file${leafCount !== 1 ? 's' : ''}`);
+			parts.push(
+				leafCount === 1 ? l10n.t('{0} file', String(leafCount)) : l10n.t('{0} files', String(leafCount)),
+			);
 		}
 
 		if (this.mode === 'commits' && data.type === 'file') {
 			const count = this.getCommitCount(data);
-			parts.push(`${count} commit${count !== 1 ? 's' : ''}`);
+			parts.push(count === 1 ? l10n.t('{0} commit', String(count)) : l10n.t('{0} commits', String(count)));
 		} else if (this.mode === 'commits' && data.type === 'folder') {
 			// Unique-commit count from the host's per-folder aggregation — looking up the folder
 			// path here mirrors `getCommitCount` for files but uses `folderFrequencies`.
 			const folderCount = this.data?.frequencies?.folderFrequencies[this.getRelativePath(data)] ?? 0;
 			if (folderCount > 0) {
-				parts.push(`${folderCount} commit${folderCount !== 1 ? 's' : ''}`);
+				parts.push(
+					folderCount === 1
+						? l10n.t('{0} commit', String(folderCount))
+						: l10n.t('{0} commits', String(folderCount)),
+				);
 			}
 		} else if (this.mode === 'activity' && data.type === 'file') {
 			const entry = this.activity?.entries.get(this.getRelativePath(data));
 			if (entry != null) {
 				if (entry.editing === true) {
-					parts.push('Editing');
+					parts.push(l10n.t('Editing'));
 				} else if (entry.reading === true) {
-					parts.push('Reading');
+					parts.push(l10n.t('Reading'));
 				} else if (entry.editedAt != null && this.editHeat(entry) > 0) {
-					parts.push('Edited');
+					parts.push(l10n.t('Edited'));
 				} else if (entry.readAt != null && this.readHeat(entry) > 0) {
-					parts.push('Read');
+					parts.push(l10n.t('Read'));
 				}
 			}
 		}
@@ -1450,8 +1457,8 @@ export class GlTreemapChart extends LitElement {
 			return html`<div class="empty">
 				${
 					this.loading
-						? html`<gl-watermark-loader pulse><p>Loading…</p></gl-watermark-loader>`
-						: html`<gl-watermark-loader><p>No files to visualize</p></gl-watermark-loader>`
+						? html`<gl-watermark-loader pulse><p>${l10n.t('Loading…')}</p></gl-watermark-loader>`
+						: html`<gl-watermark-loader><p>${l10n.t('No files to visualize')}</p></gl-watermark-loader>`
 				}
 			</div>`;
 		}
@@ -1467,7 +1474,7 @@ export class GlTreemapChart extends LitElement {
 		// `renderBreadcrumbs` in the wrapper. The chart still owns the zoom state and dispatches
 		// `gl-treemap-zoom-change` whenever it shifts, so the wrapper's crumbs follow.
 		return html`
-			<canvas id="treemap-canvas" role="img" aria-label="File tree treemap"></canvas>
+			<canvas id="treemap-canvas" role="img" aria-label=${l10n.t('File tree treemap')}></canvas>
 			${
 				this.mode === 'activity' && this._focusedPulses.length > 0
 					? html`<div class="pulse-layer" aria-hidden="true">
@@ -1498,7 +1505,7 @@ export class GlTreemapChart extends LitElement {
 			${
 				this.loading
 					? html`<div class="notice notice--blur">
-							<gl-watermark-loader pulse><p>Loading…</p></gl-watermark-loader>
+							<gl-watermark-loader pulse><p>${l10n.t('Loading…')}</p></gl-watermark-loader>
 						</div>`
 					: nothing
 			}
@@ -1507,7 +1514,7 @@ export class GlTreemapChart extends LitElement {
 					? html`<div class="activity-hint">
 							<code-icon icon="robot"></code-icon>
 							<span
-								>Waiting for agent activity — files will light up here as agents read or edit them</span
+								>${l10n.t('Waiting for agent activity — files will light up here as agents read or edit them')}</span
 							>
 						</div>`
 					: nothing

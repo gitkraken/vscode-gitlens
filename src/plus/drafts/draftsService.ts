@@ -1,5 +1,6 @@
 import type { EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
+import { l10n } from 'vscode';
 import type { Disposable } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
@@ -72,7 +73,7 @@ export class DraftService implements Disposable {
 
 		try {
 			const results = await Promise.allSettled(changes.map(c => this.getCreateDraftPatchRequestFromChange(c)));
-			if (!results.length) throw new Error('No changes found');
+			if (!results.length) throw new Error(l10n.t('No changes found'));
 
 			const patchRequests: CreateDraftPatchRequestFromChange[] = [];
 			const failed: Error[] = [];
@@ -92,7 +93,7 @@ export class DraftService implements Disposable {
 
 			if (failed.length) {
 				debugger;
-				throw new AggregateError(failed, 'Unable to create draft');
+				throw new AggregateError(failed, l10n.t('Unable to create draft'));
 			}
 
 			type DraftResult = { data: CreateDraftResponse };
@@ -101,7 +102,7 @@ export class DraftService implements Disposable {
 			let prEntityIdBody: { prEntityId: string } | undefined;
 			if (type === 'suggested_pr_change') {
 				if (options?.prEntityId == null) {
-					throw new Error('No pull request info provided');
+					throw new Error(l10n.t('No pull request info provided'));
 				}
 
 				prEntityIdBody = {
@@ -111,7 +112,7 @@ export class DraftService implements Disposable {
 				const repo = patchRequests[0].repository;
 				const providerAuth = await this.getProviderAuthFromRepoOrIntegrationId(repo);
 				if (providerAuth == null) {
-					throw new Error('No provider integration found');
+					throw new Error(l10n.t('No provider integration found'));
 				}
 
 				providerAuthHeader = {
@@ -131,7 +132,12 @@ export class DraftService implements Disposable {
 			});
 
 			if (!createDraftRsp.ok) {
-				await handleBadDraftResponse('Unable to create draft', createDraftRsp, scope);
+				await handleBadDraftResponse(
+					'Unable to create draft',
+					createDraftRsp,
+					scope,
+					l10n.t('Unable to create draft'),
+				);
 			}
 
 			const createDraft = ((await createDraftRsp.json()) as DraftResult).data;
@@ -156,6 +162,7 @@ export class DraftService implements Disposable {
 					`Unable to create changeset for draft '${draftId}'`,
 					createChangesetRsp,
 					scope,
+					l10n.t("Unable to create changeset for draft '{0}'", draftId),
 				);
 			}
 
@@ -170,7 +177,7 @@ export class DraftService implements Disposable {
 				const { contents, repository } = patchRequests[i++];
 				if (contents == null) {
 					debugger;
-					throw new Error(`No contents found for ${patch.baseCommitSha}`);
+					throw new Error(l10n.t('No contents found for {0}', patch.baseCommitSha));
 				}
 
 				const diffFiles = await repository.git.diff.getDiffFiles?.(contents);
@@ -208,7 +215,12 @@ export class DraftService implements Disposable {
 				body: prEntityIdBody != null ? JSON.stringify(prEntityIdBody) : undefined,
 			});
 			if (!publishRsp.ok) {
-				await handleBadDraftResponse(`Failed to publish draft '${draftId}'`, publishRsp, scope);
+				await handleBadDraftResponse(
+					`Failed to publish draft '${draftId}'`,
+					publishRsp,
+					scope,
+					l10n.t("Failed to publish draft '{0}'", draftId),
+				);
 			}
 
 			type Result = { data: DraftResponse };
@@ -219,7 +231,12 @@ export class DraftService implements Disposable {
 			});
 
 			if (!draftRsp.ok) {
-				await handleBadDraftResponse(`Unable to open draft '${draftId}'`, draftRsp, scope);
+				await handleBadDraftResponse(
+					`Unable to open draft '${draftId}'`,
+					draftRsp,
+					scope,
+					l10n.t("Unable to open draft '{0}'", draftId),
+				);
 			}
 
 			const draft = ((await draftRsp.json()) as Result).data;
@@ -266,7 +283,7 @@ export class DraftService implements Disposable {
 
 		let repoData: RepositoryIdentityRequest;
 		if (remote == null) {
-			if (firstSha == null) throw new Error('No remote or initial commit found');
+			if (firstSha == null) throw new Error(l10n.t('No remote or initial commit found'));
 
 			repoData = {
 				initialCommitSha: firstSha,
@@ -285,7 +302,9 @@ export class DraftService implements Disposable {
 
 		const diff = getSettledValue(diffResult);
 		const contents = change.contents ?? diff?.contents;
-		if (contents == null) throw new Error(`Unable to diff ${change.revision.from} and ${change.revision.to}`);
+		if (contents == null) {
+			throw new Error(l10n.t('Unable to diff {0} and {1}', change.revision.from, change.revision.to));
+		}
 
 		const user = getSettledValue(userResult);
 
@@ -337,7 +356,7 @@ export class DraftService implements Disposable {
 			if (draft.visibility === 'provider_access' && providerAuth == null) {
 				providerAuth = await this.getProviderAuthForDraft(draft);
 				if (providerAuth == null) {
-					throw new Error('No provider integration found');
+					throw new Error(l10n.t('No provider integration found'));
 				}
 			}
 
@@ -358,7 +377,12 @@ export class DraftService implements Disposable {
 			});
 
 			if (!rsp.ok) {
-				await handleBadDraftResponse(`Unable to archive draft '${draft.id}'`, rsp, scope);
+				await handleBadDraftResponse(
+					`Unable to archive draft '${draft.id}'`,
+					rsp,
+					scope,
+					l10n.t("Unable to archive draft '{0}'", draft.id),
+				);
 			}
 		} catch (ex) {
 			debugger;
@@ -388,7 +412,7 @@ export class DraftService implements Disposable {
 
 		if (rspResult.status === 'rejected') {
 			scope?.error(rspResult.reason, `Unable to open draft '${id}': ${rspResult.reason}`);
-			throw new Error(`Unable to open draft '${id}': ${rspResult.reason}`);
+			throw new Error(l10n.t("Unable to open draft '{0}': {1}", id, rspResult.reason));
 		}
 
 		if (changesetsResult.status === 'rejected') {
@@ -396,12 +420,17 @@ export class DraftService implements Disposable {
 				changesetsResult.reason,
 				`Unable to open changeset for draft '${id}': ${changesetsResult.reason}`,
 			);
-			throw new Error(`Unable to open changesets for draft '${id}': ${changesetsResult.reason}`);
+			throw new Error(l10n.t("Unable to open changesets for draft '{0}': {1}", id, changesetsResult.reason));
 		}
 
 		const rsp = getSettledValue(rspResult)!;
 		if (!rsp?.ok) {
-			await handleBadDraftResponse(`Unable to open draft '${id}'`, rsp, scope);
+			await handleBadDraftResponse(
+				`Unable to open draft '${id}'`,
+				rsp,
+				scope,
+				l10n.t("Unable to open draft '{0}'", id),
+			);
 		}
 
 		const draft = ((await rsp.json()) as Result).data;
@@ -441,7 +470,7 @@ export class DraftService implements Disposable {
 		let fromPrEntityId = false;
 		if (options?.prEntityId != null) {
 			if (options.providerAuth == null) {
-				throw new Error('No provider integration found');
+				throw new Error(l10n.t('No provider integration found'));
 			}
 
 			fromPrEntityId = true;
@@ -464,7 +493,7 @@ export class DraftService implements Disposable {
 		);
 
 		if (!rsp.ok) {
-			await handleBadDraftResponse('Unable to open drafts', rsp, scope);
+			await handleBadDraftResponse('Unable to open drafts', rsp, scope, l10n.t('Unable to open drafts'));
 		}
 
 		const drafts = ((await rsp.json()) as Result).data;
@@ -497,7 +526,12 @@ export class DraftService implements Disposable {
 		try {
 			const rsp = await this.connection.fetchGkApi(`/v1/drafts/${id}/changesets`, { method: 'GET' });
 			if (!rsp.ok) {
-				await handleBadDraftResponse(`Unable to open changesets for draft '${id}'`, rsp, scope);
+				await handleBadDraftResponse(
+					`Unable to open changesets for draft '${id}'`,
+					rsp,
+					scope,
+					l10n.t("Unable to open changesets for draft '{0}'", id),
+				);
 			}
 
 			const changeset = ((await rsp.json()) as Result).data;
@@ -536,7 +570,12 @@ export class DraftService implements Disposable {
 		const rsp = await this.connection.fetchGkApi(`/v1/patches/${id}`, { method: 'GET' });
 
 		if (!rsp.ok) {
-			await handleBadDraftResponse(`Unable to open patch '${id}'`, rsp, scope);
+			await handleBadDraftResponse(
+				`Unable to open patch '${id}'`,
+				rsp,
+				scope,
+				l10n.t("Unable to open patch '{0}'", id),
+			);
 		}
 
 		const data = ((await rsp.json()) as Result).data;
@@ -611,7 +650,12 @@ export class DraftService implements Disposable {
 			});
 
 			if (rsp?.ok === false) {
-				await handleBadDraftResponse(`Unable to update draft '${id}'`, rsp, scope);
+				await handleBadDraftResponse(
+					`Unable to update draft '${id}'`,
+					rsp,
+					scope,
+					l10n.t("Unable to update draft '{0}'", id),
+				);
 			}
 
 			const draft = ((await rsp.json()) as Result).data;
@@ -634,7 +678,12 @@ export class DraftService implements Disposable {
 			const rsp = await this.connection.fetchGkApi(`/v1/drafts/${id}/users`, { method: 'GET' });
 
 			if (rsp?.ok === false) {
-				await handleBadDraftResponse(`Unable to get users for draft '${id}'`, rsp, scope);
+				await handleBadDraftResponse(
+					`Unable to get users for draft '${id}'`,
+					rsp,
+					scope,
+					l10n.t("Unable to get users for draft '{0}'", id),
+				);
 			}
 
 			const users: DraftUser[] = ((await rsp.json()) as Result).data;
@@ -656,7 +705,7 @@ export class DraftService implements Disposable {
 
 		try {
 			if (pendingUsers.length === 0) {
-				throw new Error('No changes found');
+				throw new Error(l10n.t('No changes found'));
 			}
 
 			const rsp = await this.connection.fetchGkApi(`/v1/drafts/${id}/users`, {
@@ -665,7 +714,12 @@ export class DraftService implements Disposable {
 			});
 
 			if (rsp?.ok === false) {
-				await handleBadDraftResponse(`Unable to add users for draft '${id}'`, rsp, scope);
+				await handleBadDraftResponse(
+					`Unable to add users for draft '${id}'`,
+					rsp,
+					scope,
+					l10n.t("Unable to add users for draft '{0}'", id),
+				);
 			}
 
 			const users: DraftUser[] = ((await rsp.json()) as Result).data;
@@ -685,7 +739,12 @@ export class DraftService implements Disposable {
 			const rsp = await this.connection.fetchGkApi(`/v1/drafts/${id}/users/${userId}`, { method: 'DELETE' });
 
 			if (rsp?.ok === false) {
-				await handleBadDraftResponse(`Unable to update user ${userId} for draft '${id}'`, rsp, scope);
+				await handleBadDraftResponse(
+					`Unable to update user ${userId} for draft '${id}'`,
+					rsp,
+					scope,
+					l10n.t("Unable to update user {0} for draft '{1}'", userId, id),
+				);
 			}
 
 			return true;
@@ -729,7 +788,9 @@ export class DraftService implements Disposable {
 		} else {
 			name =
 				data.remote?.path ??
-				`Unknown ${data.initialCommitSha ? ` (${shortenRevision(data.initialCommitSha)})` : ''}`;
+				(data.initialCommitSha
+					? l10n.t('Unknown ({0})', shortenRevision(data.initialCommitSha))
+					: l10n.t('Unknown'));
 		}
 
 		return {
@@ -841,15 +902,22 @@ export class DraftService implements Disposable {
 	}
 }
 
-async function handleBadDraftResponse(message: string, rsp?: any, scope?: ScopedLogger) {
+async function handleBadDraftResponse(
+	message: string,
+	rsp?: any,
+	scope?: ScopedLogger,
+	localizedMessage: string = message,
+) {
 	let json: { error?: { message?: string } } | { error?: string } | undefined;
 	try {
 		json = (await rsp?.json()) as { error?: { message?: string } } | { error?: string } | undefined;
 	} catch {}
 	const rspErrorMessage = typeof json?.error === 'string' ? json.error : (json?.error?.message ?? rsp?.statusText);
 	const errorMessage = rsp != null ? `${message}: (${rsp?.status}) ${rspErrorMessage}` : message;
+	const localizedErrorMessage =
+		rsp != null ? l10n.t('{0}: ({1}) {2}', localizedMessage, rsp.status, rspErrorMessage) : localizedMessage;
 	scope?.error(undefined, errorMessage);
-	throw new Error(errorMessage);
+	throw new Error(localizedErrorMessage);
 }
 
 function formatDraft(
@@ -879,7 +947,7 @@ function formatDraft(
 
 		author = {
 			id: draftResponse.createdBy,
-			name: member?.name ?? 'Unknown',
+			name: member?.name ?? l10n.t('Unknown'),
 			email: member?.email,
 			avatarUri: getAvatarUri(member?.email),
 		};

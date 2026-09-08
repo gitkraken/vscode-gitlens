@@ -9,6 +9,23 @@
  * worker-bundle code without dragging the library's Node deps into the bundle.
  */
 
+import type {
+	Resolution as ConflictToolsResolution,
+	StepResult as ConflictToolsStepResult,
+} from '@gitkraken/conflict-tools';
+
+/** Identifies canonical GitLens-authored resolution descriptions that may be localized for display.
+ *  `description` itself remains canonical because conflict-tools includes it in later model context. */
+export type ResolutionDescriptionKind = 'automatic-both-deleted';
+
+export type Resolution = ConflictToolsResolution & {
+	descriptionKind?: ResolutionDescriptionKind;
+};
+
+export type StepResult = Omit<ConflictToolsStepResult, 'resolutions'> & {
+	resolutions: Resolution[];
+};
+
 export type {
 	AIErrorCode,
 	BlameOptions,
@@ -28,7 +45,6 @@ export type {
 	GrepOptions,
 	LogOptions,
 	OpOptions,
-	Resolution,
 	ResolutionContext,
 	ResolutionMetrics,
 	ResolutionRefs,
@@ -39,7 +55,6 @@ export type {
 	ShowFileOptions,
 	ShowOptions,
 	StepConfig,
-	StepResult,
 	ThreeWayDiff,
 	ToolCall,
 	ToolDefinition,

@@ -3,6 +3,7 @@
  * zero-scroll zone solver shared by every renderer. No DOM, no rendering framework — keep it that way.
  */
 
+import * as l10n from '@vscode/l10n';
 import type { ChangesColumnMode } from './stats.js';
 
 // Multi-zone column layout
@@ -57,12 +58,12 @@ export interface ZoneSpec {
 // shows the compact glyph until the user widens it;
 // sha (44) keeps ~3 monospace chars + an ellipsis at the floor.
 export const defaultZones: readonly ZoneSpec[] = [
-	{ id: 'ref', label: 'Branches / Tags', width: 180, minWidth: 32 },
-	{ id: 'message', label: 'Message', width: 0, minWidth: 50, flex: true },
-	{ id: 'author', label: 'Author', width: 140, minWidth: 34 },
-	{ id: 'changes', label: 'Changes', width: 36, minWidth: 36, mode: 'bar' },
-	{ id: 'datetime', label: 'Date', width: 80, minWidth: 44 },
-	{ id: 'sha', label: 'SHA', width: 76, minWidth: 44 },
+	{ id: 'ref', label: l10n.t('Branches / Tags'), width: 180, minWidth: 32 },
+	{ id: 'message', label: l10n.t('Message'), width: 0, minWidth: 50, flex: true },
+	{ id: 'author', label: l10n.t('Author'), width: 140, minWidth: 34 },
+	{ id: 'changes', label: l10n.t('Changes'), width: 36, minWidth: 36, mode: 'bar' },
+	{ id: 'datetime', label: l10n.t('Date'), width: 80, minWidth: 44 },
+	{ id: 'sha', label: l10n.t('SHA'), width: 76, minWidth: 44 },
 ];
 
 /**

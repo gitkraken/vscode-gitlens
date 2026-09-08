@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
@@ -513,10 +514,10 @@ export class GlAiInput extends LitElement {
 	value?: string;
 
 	@property()
-	placeholder = 'Optional guidance for the AI explanation...';
+	placeholder = l10n.t('Optional guidance for the AI explanation...');
 
 	@property({ attribute: 'button-label' })
-	buttonLabel = 'Explain';
+	buttonLabel = l10n.t('Explain');
 
 	@property({ attribute: 'button-tooltip' })
 	buttonTooltip?: string;
@@ -526,7 +527,7 @@ export class GlAiInput extends LitElement {
 	disabledReason?: string;
 
 	@property({ attribute: 'busy-label' })
-	busyLabel = 'Explaining changes\u2026';
+	busyLabel = l10n.t('Explaining changes\u2026');
 
 	@property({ attribute: 'event-name' })
 	eventName = 'gl-explain';

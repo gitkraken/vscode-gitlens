@@ -1,5 +1,5 @@
 import type { Command, Uri } from 'vscode';
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import { getConflictIncomingRef, resolveConflictFilePaths } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
@@ -98,7 +98,7 @@ export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWi
 		item.description = this.description;
 		item.contextValue = `${ContextValues.File}+conflicted`;
 
-		item.tooltip = getFileTooltipMarkdown(this.file, 'in ```Index```');
+		item.tooltip = getFileTooltipMarkdown(this.file, l10n.t('in {0}', '```Index```'));
 
 		// Use the file icon and decorations
 		item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath);
@@ -151,7 +151,7 @@ export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWi
 	override getCommand(): Command {
 		return createCoreCommand(
 			'vscode.open',
-			'Open File',
+			l10n.t('Open File'),
 			this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath),
 			{
 				preserveFocus: true,

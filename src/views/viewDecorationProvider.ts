@@ -1,5 +1,5 @@
 import type { CancellationToken, Event, FileDecoration, FileDecorationProvider } from 'vscode';
-import { Disposable, EventEmitter, ThemeColor, Uri, window } from 'vscode';
+import { Disposable, EventEmitter, l10n, ThemeColor, Uri, window } from 'vscode';
 import type { BranchDisposition, GitBranchStatus } from '@gitlens/git/models/branch.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitPausedOperation } from '@gitlens/git/models/pausedOperationStatus.js';
@@ -77,42 +77,42 @@ function getBranchDecoration(uri: Uri, _token: CancellationToken): FileDecoratio
 			decoration = {
 				badge: '\u00a0\u00a0',
 				color: new ThemeColor('gitlens.decorations.branchAheadForegroundColor' satisfies Colors),
-				tooltip: 'Ahead',
+				tooltip: l10n.t('Ahead'),
 			};
 			break;
 		case 'behind':
 			decoration = {
 				badge: '\u00a0\u00a0',
 				color: new ThemeColor('gitlens.decorations.branchBehindForegroundColor' satisfies Colors),
-				tooltip: 'Behind',
+				tooltip: l10n.t('Behind'),
 			};
 			break;
 		case 'diverged':
 			decoration = {
 				badge: '\u00a0\u00a0',
 				color: new ThemeColor('gitlens.decorations.branchDivergedForegroundColor' satisfies Colors),
-				tooltip: 'Diverged',
+				tooltip: l10n.t('Diverged'),
 			};
 			break;
 		case 'missingUpstream':
 			decoration = {
 				badge: GlyphChars.Warning,
 				color: new ThemeColor('gitlens.decorations.branchMissingUpstreamForegroundColor' satisfies Colors),
-				tooltip: 'Missing Upstream',
+				tooltip: l10n.t('Missing Upstream'),
 			};
 			break;
 		case 'upToDate':
 			decoration = {
 				badge: '\u00a0\u00a0',
 				color: new ThemeColor('gitlens.decorations.branchUpToDateForegroundColor' satisfies Colors),
-				tooltip: 'Up to Date',
+				tooltip: l10n.t('Up to Date'),
 			};
 			break;
 		case 'unpublished':
 			decoration = {
 				badge: '\u00a0\u00a0',
 				color: new ThemeColor('gitlens.decorations.branchUnpublishedForegroundColor' satisfies Colors),
-				tooltip: 'Unpublished',
+				tooltip: l10n.t('Unpublished'),
 			};
 			break;
 		default:
@@ -126,7 +126,7 @@ function getBranchDecoration(uri: Uri, _token: CancellationToken): FileDecoratio
 		return {
 			...decoration,
 			badge: GlyphChars.Bullseye,
-			tooltip: 'Current',
+			tooltip: l10n.t('Current'),
 		};
 	}
 
@@ -134,7 +134,7 @@ function getBranchDecoration(uri: Uri, _token: CancellationToken): FileDecoratio
 		return {
 			...decoration,
 			badge: '●',
-			tooltip: 'Opened Worktree',
+			tooltip: l10n.t('Opened Worktree'),
 		};
 	}
 
@@ -142,7 +142,7 @@ function getBranchDecoration(uri: Uri, _token: CancellationToken): FileDecoratio
 		return {
 			...decoration,
 			badge: '★',
-			tooltip: 'Favorited',
+			tooltip: l10n.t('Favorited'),
 		};
 	}
 
@@ -161,31 +161,31 @@ function getCommitFileStatusDecoration(uri: Uri, _token: CancellationToken): Fil
 			return {
 				badge: 'I',
 				color: new ThemeColor('gitlens.decorations.ignoredForegroundColor' satisfies Colors),
-				tooltip: 'Ignored',
+				tooltip: l10n.t('Ignored'),
 			};
 		case '?':
 			return {
 				badge: 'U',
 				color: new ThemeColor('gitlens.decorations.untrackedForegroundColor' satisfies Colors),
-				tooltip: 'Untracked',
+				tooltip: l10n.t('Untracked'),
 			};
 		case 'A':
 			return {
 				badge: 'A',
 				color: new ThemeColor('gitlens.decorations.addedForegroundColor' satisfies Colors),
-				tooltip: 'Added',
+				tooltip: l10n.t('Added'),
 			};
 		case 'C':
 			return {
 				badge: 'C',
 				color: new ThemeColor('gitlens.decorations.copiedForegroundColor' satisfies Colors),
-				tooltip: 'Copied',
+				tooltip: l10n.t('Copied'),
 			};
 		case 'D':
 			return {
 				badge: 'D',
 				color: new ThemeColor('gitlens.decorations.deletedForegroundColor' satisfies Colors),
-				tooltip: 'Deleted',
+				tooltip: l10n.t('Deleted'),
 			};
 		case 'M':
 			return {
@@ -193,13 +193,13 @@ function getCommitFileStatusDecoration(uri: Uri, _token: CancellationToken): Fil
 				// Commented out until we can control the color to only apply to the badge, as the color is applied to the entire decoration and its too much
 				// https://github.com/microsoft/vscode/issues/182098
 				// color: new ThemeColor('gitlens.decorations.modifiedForegroundColor' satisfies Colors),
-				tooltip: 'Modified',
+				tooltip: l10n.t('Modified'),
 			};
 		case 'R':
 			return {
 				badge: 'R',
 				color: new ThemeColor('gitlens.decorations.renamedForegroundColor' satisfies Colors),
-				tooltip: 'Renamed',
+				tooltip: l10n.t('Renamed'),
 			};
 	}
 
@@ -217,7 +217,7 @@ function getRemoteDecoration(uri: Uri, _token: CancellationToken): FileDecoratio
 		case 'default':
 			return {
 				badge: GlyphChars.Check,
-				tooltip: 'Default Remote',
+				tooltip: l10n.t('Default Remote'),
 			};
 
 		case 'missing':
@@ -345,14 +345,14 @@ function getWorktreeDecoration(uri: Uri, _token: CancellationToken): FileDecorat
 		return {
 			badge: '●',
 			color: new ThemeColor('gitlens.decorations.worktreeHasUncommittedChangesForegroundColor' satisfies Colors),
-			tooltip: 'Has Uncommitted Changes',
+			tooltip: l10n.t('Has Uncommitted Changes'),
 		};
 	}
 
 	if (state?.disposition === 'starred') {
 		return {
 			badge: '★',
-			tooltip: 'Favorited',
+			tooltip: l10n.t('Favorited'),
 		};
 	}
 

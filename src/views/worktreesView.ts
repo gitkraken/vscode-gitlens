@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
-import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { l10n, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { ViewBranchesLayout, ViewFilesLayout, WorktreesViewConfig } from '../config.js';
 import { proBadge } from '../constants.js';
@@ -52,7 +52,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 
 			const repositories = this.view.getFilteredRepositories();
 			if (!repositories.length) {
-				this.view.message = 'No worktrees could be found.';
+				this.view.message = l10n.t('No worktrees could be found.');
 				return [];
 			}
 
@@ -86,7 +86,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Worktrees', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(l10n.t('Worktrees'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -95,7 +95,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	protected readonly configKey = 'worktrees';
 
 	constructor(container: Container, grouped?: GroupedViewContext) {
-		super(container, 'worktrees', 'Worktrees', 'worktreesView', grouped);
+		super(container, 'worktrees', l10n.t('Worktrees'), 'worktreesView', grouped);
 	}
 
 	override getViewDescription(count?: number): string {
@@ -244,7 +244,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing worktree '${worktree.name}' in the side bar...`,
+				title: l10n.t("Revealing worktree '{0}' in the side bar...", worktree.name),
 				cancellable: true,
 			},
 			async (_progress, token) => {

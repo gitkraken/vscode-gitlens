@@ -1,4 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import { pad } from '@gitlens/utils/string.js';
 import type { FileAnnotationType } from '../config.js';
@@ -34,7 +35,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 
 		const gitUri = await GitUri.fromUri(uri);
 		if (!gitUri.repoPath) {
-			void showNoRepositoryWarningMessage('Unable to open file revision');
+			void showNoRepositoryWarningMessage(l10n.t('Unable to open file revision'));
 			return;
 		}
 
@@ -47,11 +48,15 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 			if (args?.stash) {
 				const path = svc.getRelativePath(gitUri, gitUri.repoPath);
 
-				const title = `Open Changes with Stash${pad(GlyphChars.Dot, 2, 2)}`;
+				const title = l10n.t('Open Changes with Stash');
+				const titleSeparator = pad(GlyphChars.Dot, 2, 2);
+				const titleFileName = gitUri.getFormattedFileName({
+					truncateTo: quickPickTitleMaxChars - title.length - titleSeparator.length,
+				});
 				const pick = await showStashPicker(
 					svc.stash?.getStash(),
-					`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
-					'Choose a stash to compare with',
+					l10n.t('Open Changes with Stash{0}{1}', titleSeparator, titleFileName),
+					l10n.t('Choose a stash to compare with'),
 					// Stashes should always come with files, so this should be fine (but protect it just in case)
 					{
 						filter: c => c.anyFiles?.some(f => f.path === path || f.originalPath === path) ?? true,
@@ -61,11 +66,15 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 
 				args.reference = pick;
 			} else {
-				const title = `Open File at Branch or Tag${pad(GlyphChars.Dot, 2, 2)}`;
+				const title = l10n.t('Open File at Branch or Tag');
+				const titleSeparator = pad(GlyphChars.Dot, 2, 2);
+				const titleFileName = gitUri.getFormattedFileName({
+					truncateTo: quickPickTitleMaxChars - title.length - titleSeparator.length,
+				});
 				const pick = await showReferencePicker(
 					gitUri.repoPath,
-					`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
-					'Choose a branch or tag to open the file revision from',
+					l10n.t('Open File at Branch or Tag{0}{1}', titleSeparator, titleFileName),
+					l10n.t('Choose a branch or tag to open the file revision from'),
 					{
 						allowedAdditionalInput: { rev: true },
 						keyboard: {

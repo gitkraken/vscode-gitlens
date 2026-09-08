@@ -22,6 +22,7 @@ export interface AIProviderContext {
 			currentUrl: string | undefined;
 			title: string;
 			placeholder: string;
+			prompt?: string;
 			validator?: (url: string) => string | undefined | Promise<string | undefined>;
 		},
 		silent: boolean,

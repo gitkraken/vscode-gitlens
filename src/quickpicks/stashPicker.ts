@@ -1,5 +1,5 @@
 import type { Disposable } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type { GitStashCommit } from '@gitlens/git/models/commit.js';
 import type { GitStash } from '@gitlens/git/models/stash.js';
 import { filter, map } from '@gitlens/utils/iterable.js';
@@ -68,8 +68,8 @@ export async function showStashPicker(
 
 	if (!stash?.stashes.size || quickpick.items.length <= (options?.showOtherReferences?.length ?? 0)) {
 		quickpick.placeholder = !stash?.stashes.size
-			? 'No stashes found'
-			: (options?.empty ?? `No matching stashes found`);
+			? l10n.t('No stashes found')
+			: (options?.empty ?? l10n.t('No matching stashes found'));
 		quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel)];
 	}
 

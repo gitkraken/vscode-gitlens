@@ -1,8 +1,8 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
-import { resolveRecomposeScope } from '../plus/coretools/compose/recomposeScope.js';
+import { getRecomposeScopeErrorMessage, resolveRecomposeScope } from '../plus/coretools/compose/recomposeScope.js';
 import { CommandQuickPickItem } from '../quickpicks/items/common.js';
 import { showReferencePicker2 } from '../quickpicks/referencePicker.js';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
@@ -49,7 +49,8 @@ export class RecomposeBranchCommand extends GlCommandBase {
 			// Get repository path using picker fallback
 			const repoPath =
 				args?.repoPath ??
-				(await getBestRepositoryOrShowPicker(this.container, undefined, undefined, 'Recompose Branch'))?.path;
+				(await getBestRepositoryOrShowPicker(this.container, undefined, undefined, l10n.t('Recompose Branch')))
+					?.path;
 			if (!repoPath) return;
 
 			args = { ...args };
@@ -59,8 +60,8 @@ export class RecomposeBranchCommand extends GlCommandBase {
 			if (!branchName) {
 				const result = await showReferencePicker2(
 					repoPath,
-					'Recompose Branch',
-					'Choose a branch to recompose',
+					l10n.t('Recompose Branch'),
+					l10n.t('Choose a branch to recompose'),
 					{
 						include: ['branches'],
 						sort: { branches: { current: true } },
@@ -79,20 +80,20 @@ export class RecomposeBranchCommand extends GlCommandBase {
 			// Validate that the repository exists
 			const repo = this.container.git.getRepository(repoPath);
 			if (!repo) {
-				void window.showErrorMessage('Repository not found');
+				void window.showErrorMessage(l10n.t('Repository not found'));
 				return;
 			}
 
 			// Validate that the branch exists
 			const branch = await repo.git.branches.getBranch(branchName);
 			if (!branch) {
-				void window.showErrorMessage(`Branch '${branchName}' not found`);
+				void window.showErrorMessage(l10n.t("Branch '{0}' not found", branchName));
 				return;
 			}
 
 			// Check if branch is remote-only
 			if (branch.remote && !branch.upstream) {
-				void window.showErrorMessage(`Cannot recompose remote-only branch '${branchName}'`);
+				void window.showErrorMessage(l10n.t("Cannot recompose remote-only branch '{0}'", branchName));
 				return;
 			}
 
@@ -108,7 +109,9 @@ export class RecomposeBranchCommand extends GlCommandBase {
 				includeWip: false,
 			});
 			if (!resolved.ok) {
-				void window.showErrorMessage(`Unable to recompose branch '${branchName}': ${resolved.message}`);
+				void window.showErrorMessage(
+					getRecomposeScopeErrorMessage(resolved, { type: 'branch', branchName: branchName }),
+				);
 				return;
 			}
 
@@ -119,7 +122,7 @@ export class RecomposeBranchCommand extends GlCommandBase {
 				source: { source: args?.source ?? 'commandPalette' },
 			});
 		} catch (ex) {
-			void window.showErrorMessage(`Failed to recompose branch: ${ex}`);
+			void window.showErrorMessage(l10n.t('Failed to recompose branch: {0}', String(ex)));
 		}
 	}
 }

@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../container.js';
@@ -359,7 +360,9 @@ export class WorkspacesApi {
 			const errorMessage =
 				'Adding repositories to workspace failed: you do not have permission to delete this workspace';
 			Logger.error(undefined, errorMessage);
-			throw new Error(errorMessage);
+			throw new Error(
+				l10n.t('Adding repositories to workspace failed: you do not have permission to delete this workspace'),
+			);
 		}
 
 		return json;
@@ -423,7 +426,11 @@ export class WorkspacesApi {
 			const errorMessage =
 				'Adding repositories to workspace failed: you do not have permission to add repositories to this workspace';
 			Logger.error(undefined, errorMessage);
-			throw new Error(errorMessage);
+			throw new Error(
+				l10n.t(
+					'Adding repositories to workspace failed: you do not have permission to add repositories to this workspace',
+				),
+			);
 		}
 
 		return json;
@@ -468,7 +475,11 @@ export class WorkspacesApi {
 			const errorMessage =
 				'Adding repositories to workspace failed: you do not have permission to remove repositories from this workspace';
 			Logger.error(undefined, errorMessage);
-			throw new Error(errorMessage);
+			throw new Error(
+				l10n.t(
+					'Adding repositories to workspace failed: you do not have permission to remove repositories from this workspace',
+				),
+			);
 		}
 
 		return json;

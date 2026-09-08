@@ -1,5 +1,5 @@
 import type { Uri } from 'vscode';
-import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import { getAvatarUri } from '../../avatars.js';
 import type { GitUri } from '../../git/gitUri.js';
@@ -40,7 +40,7 @@ export class DraftNode extends ViewNode<'draft', ViewsWithCommits | DraftsView> 
 	}
 
 	getTreeItem(): TreeItem {
-		const label = this.draft.title ?? `Draft (${this.draft.id})`;
+		const label = this.draft.title ?? l10n.t('Draft ({0})', this.draft.id);
 		const item = new TreeItem(label, TreeItemCollapsibleState.None);
 
 		const dateFormat = configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma';
@@ -56,7 +56,7 @@ export class DraftNode extends ViewNode<'draft', ViewsWithCommits | DraftsView> 
 		item.contextValue = contextValue;
 		item.description = fromNow(this.draft.updatedAt);
 		item.command = {
-			title: 'Open',
+			title: l10n.t('Open'),
 			command: 'gitlens.views.draft.open',
 			arguments: [this],
 		};
@@ -70,13 +70,18 @@ export class DraftNode extends ViewNode<'draft', ViewsWithCommits | DraftsView> 
 			avatarUri ?? new ThemeIcon(this.draft.type === 'suggested_pr_change' ? 'gitlens-code-suggestion' : 'cloud');
 
 		item.tooltip = new MarkdownString(
-			`${label}${this.draft.description ? `\\\n${this.draft.description}` : ''}\n\nCreated ${
-				this.draft.author?.name
-					? ` by ${this.draft.isMine ? formatCurrentUserDisplayName(this.draft.author.name) : this.draft.author.name}`
-					: ''
+			`${label}${this.draft.description ? `\\\n${this.draft.description}` : ''}\n\n${
+				this.draft.author?.name != null
+					? l10n.t(
+							'Created by {0}',
+							this.draft.isMine
+								? formatCurrentUserDisplayName(this.draft.author.name)
+								: this.draft.author.name,
+						)
+					: l10n.t('Created')
 			} ${fromNow(this.draft.createdAt)} &nbsp; _(${formatDate(this.draft.createdAt, dateFormat)})_${
 				showUpdated
-					? ` \\\nLast updated ${fromNow(this.draft.updatedAt)} &nbsp; _(${formatDate(
+					? ` \\\n${l10n.t('Last updated')} ${fromNow(this.draft.updatedAt)} &nbsp; _(${formatDate(
 							this.draft.updatedAt,
 							dateFormat,
 						)})_`

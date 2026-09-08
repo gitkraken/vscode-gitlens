@@ -1,9 +1,11 @@
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { live } from 'lit/directives/live.js';
 import { GlElement } from '@gitlens/components/components/element.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { SearchOperators, SearchQuery } from '@gitlens/git/models/search.js';
 import { searchOperatorsToLongFormMap } from '@gitlens/git/models/search.js';
 import {
@@ -393,7 +395,7 @@ background-color: var(--vscode-menu-background);
 	}
 
 	private get label() {
-		return this.filter ? 'Filter' : 'Search';
+		return this.filter ? l10n.t('Filter') : l10n.t('Search');
 	}
 
 	get matchCaseOverride(): boolean {
@@ -409,9 +411,13 @@ background-color: var(--vscode-menu-background);
 
 	private get placeholder() {
 		if (this.naturalLanguage) {
-			return `${this.label} commits using natural language (↑↓ for history), e.g. my commits from last week`;
+			return this.filter
+				? l10n.t('Filter commits using natural language (↑↓ for history), e.g. my commits from last week')
+				: l10n.t('Search commits using natural language (↑↓ for history), e.g. my commits from last week');
 		}
-		return `${this.label} commits (press Enter to search, ↑↓ for history), e.g. @me after:1.week.ago file:*.ts`;
+		return this.filter
+			? l10n.t('Filter commits (press Enter to search, ↑↓ for history), e.g. @me after:1.week.ago file:*.ts')
+			: l10n.t('Search commits (press Enter to search, ↑↓ for history), e.g. @me after:1.week.ago file:*.ts');
 	}
 
 	private _searchHistory: SearchQuery[] = [];
@@ -827,8 +833,8 @@ background-color: var(--vscode-menu-background);
 			switch (command.command) {
 				case 'pick-author': {
 					const result = await this._searchActions.chooseAuthor(
-						'Search by Author',
-						'Choose contributors to include commits from',
+						l10n.t('Search by Author'),
+						l10n.t('Choose contributors to include commits from'),
 						currentValue ? [currentValue] : undefined,
 					);
 
@@ -841,8 +847,8 @@ background-color: var(--vscode-menu-background);
 
 				case 'pick-ref': {
 					const result = await this._searchActions.chooseRef(
-						'Search by Branch or Tag',
-						'Choose a branch or tag to filter by',
+						l10n.t('Search by Branch or Tag'),
+						l10n.t('Choose a branch or tag to filter by'),
 						{
 							allowedAdditionalInput: { range: false, rev: false },
 							include: ['branches', 'tags', 'HEAD'],
@@ -858,7 +864,7 @@ background-color: var(--vscode-menu-background);
 				}
 
 				case 'pick-comparison': {
-					const result = await this._searchActions.chooseComparison('Search by Comparison Range');
+					const result = await this._searchActions.chooseComparison(l10n.t('Search by Comparison Range'));
 
 					if (result?.range) {
 						this.insertPickerValues([result.range], operator, false);
@@ -870,10 +876,10 @@ background-color: var(--vscode-menu-background);
 				case 'pick-file':
 				case 'pick-folder': {
 					const result = await this._searchActions.chooseFile(
-						command.command === 'pick-file' ? 'Search by File' : 'Search by Folder',
+						command.command === 'pick-file' ? l10n.t('Search by File') : l10n.t('Search by Folder'),
 						command.command === 'pick-file' ? 'file' : 'folder',
 						{
-							openLabel: 'Add to Search',
+							openLabel: l10n.t('Add to Search'),
 							picked: currentValue ? [currentValue] : undefined,
 						},
 					);
@@ -985,8 +991,8 @@ background-color: var(--vscode-menu-background);
 
 		try {
 			const result = await this._searchActions.chooseAuthor(
-				'Search by Author',
-				'Choose contributors to include commits from',
+				l10n.t('Search by Author'),
+				l10n.t('Choose contributors to include commits from'),
 			);
 			this.appendOperatorValues('author:', result.authors ?? []);
 		} catch {
@@ -1000,8 +1006,8 @@ background-color: var(--vscode-menu-background);
 
 		try {
 			const result = await this._searchActions.chooseRef(
-				'Search by Branch or Tag',
-				'Choose a branch or tag to filter by',
+				l10n.t('Search by Branch or Tag'),
+				l10n.t('Choose a branch or tag to filter by'),
 				{
 					allowedAdditionalInput: { range: false, rev: false },
 					include: ['branches', 'tags', 'HEAD'],
@@ -1018,8 +1024,8 @@ background-color: var(--vscode-menu-background);
 		blurActiveElement();
 
 		try {
-			const result = await this._searchActions.chooseFile('Search by File', 'file', {
-				openLabel: 'Add to Search',
+			const result = await this._searchActions.chooseFile(l10n.t('Search by File'), 'file', {
+				openLabel: l10n.t('Add to Search'),
 			});
 			this.appendOperatorValues('file:', result.files ?? []);
 		} catch {
@@ -1383,7 +1389,7 @@ background-color: var(--vscode-menu-background);
 		if (errors?.length) return errors[0];
 
 		// If no operations were parsed, the query is effectively empty
-		if (!operations.size) return 'Enter a search value';
+		if (!operations.size) return l10n.t('Enter a search value');
 
 		return undefined;
 	}
@@ -1512,13 +1518,13 @@ background-color: var(--vscode-menu-background);
 	override render(): unknown {
 		return html`<div class="field">
 				<div class="controls controls__start">
-					<action-nav role="toolbar" aria-label="Search mode">
+					<action-nav role="toolbar" aria-label=${l10n.t('Search mode')}>
 						<gl-button
 							appearance="input"
 							role="checkbox"
 							aria-checked="${this.filter}"
-							tooltip="Filter Commits"
-							aria-label="Filter Commits"
+							tooltip=${l10n.t('Filter Commits')}
+							aria-label=${l10n.t('Filter Commits')}
 							@click="${this.handleFilterClick}"
 						>
 							<code-icon icon="list-filter"></code-icon>
@@ -1529,8 +1535,8 @@ background-color: var(--vscode-menu-background);
 										appearance="input"
 										role="checkbox"
 										aria-checked="${this.naturalLanguage}"
-										tooltip="Natural Language Search (AI Preview)"
-										aria-label="Natural Language Search (AI Preview)"
+										tooltip=${l10n.t('Natural Language Search (AI Preview)')}
+										aria-label=${l10n.t('Natural Language Search (AI Preview)')}
 										@click="${this.handleNaturalLanguageClick}"
 									>
 										<code-icon icon="sparkle"></code-icon>
@@ -1570,13 +1576,13 @@ background-color: var(--vscode-menu-background);
 				</div>
 			</div>
 			<div class="controls">
-				<action-nav role="toolbar" aria-label="Search options">
+				<action-nav role="toolbar" aria-label=${l10n.t('Search options')}>
 					${
 						this.value
 							? html`<gl-button
 									appearance="input"
-									tooltip="Clear"
-									aria-label="Clear"
+									tooltip=${l10n.t('Clear')}
+									aria-label=${l10n.t('Clear')}
 									@click="${this.handleClear}"
 								>
 									<code-icon icon="close"></code-icon>
@@ -1680,16 +1686,18 @@ background-color: var(--vscode-menu-background);
 	private renderMessage() {
 		if (this.showFallbackHelper) {
 			return html`<div class="message">
-				No results — pattern isn't valid regex
-				<a href="#" class="message-action" @click="${this.handleMatchLiterallyClick}">Match literally</a>
+				${l10n.t("No results — pattern isn't valid regex")}
+				<a href="#" class="message-action" @click="${this.handleMatchLiterallyClick}"
+					>${l10n.t('Match literally')}</a
+				>
 				${
 					this.aiAllowed && !this.naturalLanguage
 						? this.repairing
 							? html`<span class="message-action" aria-disabled="true"
-									><code-icon icon="loading" modifier="spin"></code-icon> Fixing…</span
+									><code-icon icon="loading" modifier="spin"></code-icon> ${l10n.t('Fixing…')}</span
 								>`
 							: html`<a href="#" class="message-action" @click="${this.handleFixWithAiClick}"
-									>Fix with AI</a
+									>${l10n.t('Fix with AI')}</a
 								>`
 						: nothing
 				}
@@ -1698,7 +1706,7 @@ background-color: var(--vscode-menu-background);
 
 		if (this.showRelaxationsHelper && this.relaxations.length) {
 			return html`<div class="message">
-				No matches —
+				${l10n.t('No matches —')}
 				${this.relaxations
 					.slice(0, 3)
 					.map(
@@ -1707,7 +1715,7 @@ background-color: var(--vscode-menu-background);
 								href="#"
 								class="message-action"
 								@click="${(e: Event) => this.handleRelaxationClick(e, relaxation)}"
-								>${relaxation.count}${relaxation.capped ? '+' : ''} ${relaxation.label}</a
+								>${formatRelaxationLabel(relaxation)}</a
 							>`,
 					)}
 			</div>`;
@@ -1720,7 +1728,7 @@ background-color: var(--vscode-menu-background);
 			${
 				this.showSearchAsTextHelper
 					? html`<a href="#" class="message-action" @click="${this.handleSearchAsTextClick}"
-							>Search as text instead</a
+							>${l10n.t('Search as text instead')}</a
 						>`
 					: nothing
 			}
@@ -1804,8 +1812,7 @@ background-color: var(--vscode-menu-background);
 									? html`${this.cursorOperator.description}${this.renderOperatorExample(this.cursorOperator)}`
 									: this.naturalLanguage
 										? this.renderNaturalLanguageDescription()
-										: html`Combine filters to build powerful searches, e.g.
-												<code>@me after:1.week.ago file:*.ts</code>`
+										: html`${localizedContent(l10n.t('Combine filters to build powerful searches, e.g. {example}'), { example: html`<code>@me after:1.week.ago file:*.ts</code>` })}`
 							}
 						</div>`
 					: nothing
@@ -1822,17 +1829,20 @@ background-color: var(--vscode-menu-background);
 
 	private renderNaturalLanguageDescription() {
 		if (this.searching) {
-			return html`<code-icon icon="loading" modifier="spin"></code-icon> Processing your natural language query...`;
+			return html`<code-icon icon="loading" modifier="spin"></code-icon>
+				${l10n.t('Processing your natural language query...')}`;
 		}
 
 		if (this.processedQuery) {
 			return html`<gl-tooltip ?disabled="${!this.explanation}"
-				>Query: <code>${this.processedQuery}</code><span slot="content">${this.explanation}</span></gl-tooltip
+				>${localizedContent(l10n.t('Query: {query}'), { query: html`<code>${this.processedQuery}</code>` })}<span
+					slot="content"
+					>${this.explanation}</span
+				></gl-tooltip
 			>`;
 		}
 
-		return html`Describe what you're looking for and let AI build the query, e.g.
-			<code>my commits from last week</code> or <code>changes to package.json by eamodio last month</code>`;
+		return html`${localizedContent(l10n.t("Describe what you're looking for and let AI build the query, e.g. {example1} or {example2}"), { example1: html`<code>${l10n.t('my commits from last week')}</code>`, example2: html`<code>${l10n.t('changes to package.json by eamodio last month')}</code>` })}`;
 	}
 
 	private renderSearchOptions() {
@@ -1840,7 +1850,7 @@ background-color: var(--vscode-menu-background);
 			return this.value
 				? html`<gl-copy-container
 						appearance="toolbar"
-						copyLabel="Copy Query"
+						copyLabel=${l10n.t('Copy Query')}
 						.content=${this.processedQuery}
 						placement="bottom"
 						?disabled=${!this.processedQuery}
@@ -1849,7 +1859,7 @@ background-color: var(--vscode-menu-background);
 							icon="copy"
 							tabindex="0"
 							role="button"
-							aria-label="Copy Query"
+							aria-label=${l10n.t('Copy Query')}
 							class="copy-icon"
 						></code-icon>
 					</gl-copy-container>`
@@ -1860,12 +1870,8 @@ background-color: var(--vscode-menu-background);
 				appearance="input"
 				role="checkbox"
 				aria-checked="${this.matchCaseOverride}"
-				tooltip="Match Case${
-					this.matchCaseOverride && !this.matchCase ? ' (always on without regular expressions)' : ''
-				}"
-				aria-label="Match Case${
-					this.matchCaseOverride && !this.matchCase ? ' (always on without regular expressions)' : ''
-				}"
+				tooltip=${this.matchCaseOverride && !this.matchCase ? l10n.t('Match Case (always on without regular expressions)') : l10n.t('Match Case')}
+				aria-label=${this.matchCaseOverride && !this.matchCase ? l10n.t('Match Case (always on without regular expressions)') : l10n.t('Match Case')}
 				?disabled="${!this.matchRegex}"
 				@click="${this.handleMatchCase}"
 			>
@@ -1875,12 +1881,8 @@ background-color: var(--vscode-menu-background);
 				appearance="input"
 				role="checkbox"
 				aria-checked="${this.matchWholeWordOverride}"
-				tooltip="Match Whole Word${
-					this.matchWholeWordOverride && !this.matchWholeWord ? ' (requires regular expressions)' : ''
-				}"
-				aria-label="Match Whole Word${
-					this.matchWholeWordOverride && !this.matchWholeWord ? ' (requires regular expressions)' : ''
-				}"
+				tooltip=${this.matchWholeWordOverride && !this.matchWholeWord ? l10n.t('Match Whole Word (requires regular expressions)') : l10n.t('Match Whole Word')}
+				aria-label=${this.matchWholeWordOverride && !this.matchWholeWord ? l10n.t('Match Whole Word (requires regular expressions)') : l10n.t('Match Whole Word')}
 				?disabled="${!this.matchRegex}"
 				@click="${this.handleMatchWholeWord}"
 			>
@@ -1893,10 +1895,14 @@ background-color: var(--vscode-menu-background);
 				variant="${ifDefined(this.fallbackActive ? 'warning' : undefined)}"
 				tooltip="${
 					this.fallbackActive
-						? `Pattern isn't valid regex — matching literally${this.fallbackDetail ? `: ${this.fallbackDetail}` : ''}`
-						: 'Use Regular Expression'
+						? this.fallbackDetail
+							? l10n.t("Pattern isn't valid regex — matching literally: {detail}", {
+									detail: this.fallbackDetail,
+								})
+							: l10n.t("Pattern isn't valid regex — matching literally")
+						: l10n.t('Use Regular Expression')
 				}"
-				aria-label="Use Regular Expression"
+				aria-label=${l10n.t('Use Regular Expression')}
 				@click="${this.handleMatchRegex}"
 			>
 				<code-icon icon="regex"></code-icon>
@@ -1905,8 +1911,8 @@ background-color: var(--vscode-menu-background);
 				appearance="input"
 				role="checkbox"
 				aria-checked="${this.matchAll}"
-				tooltip="Match All"
-				aria-label="Match All"
+				tooltip=${l10n.t('Match All')}
+				aria-label=${l10n.t('Match All')}
 				@click="${this.handleMatchAll}"
 			>
 				<code-icon icon="check-all"></code-icon>
@@ -1916,4 +1922,52 @@ background-color: var(--vscode-menu-background);
 
 function isValueCommand(value: SearchCompletionOperatorValue['value']): value is SearchCompletionCommand {
 	return typeof value !== 'string';
+}
+
+function formatRelaxationLabel(relaxation: GraphSearchRelaxation): string {
+	const count = relaxation.count;
+	if (relaxation.kind === 'author') {
+		return relaxation.capped
+			? l10n.t("{count}+ as '{name}'", { count: count, name: relaxation.name })
+			: l10n.t("{count} as '{name}'", { count: count, name: relaxation.name });
+	}
+
+	if (relaxation.kind === 'alternate') {
+		return relaxation.capped ? `${count}+ ${relaxation.query}` : `${count} ${relaxation.query}`;
+	}
+
+	switch (relaxation.filter) {
+		case 'date':
+			return relaxation.capped
+				? l10n.t('{count}+ without the date filter', { count: count })
+				: l10n.t('{count} without the date filter', { count: count });
+		case 'author':
+			return relaxation.capped
+				? l10n.t('{count}+ without the author filter', { count: count })
+				: l10n.t('{count} without the author filter', { count: count });
+		case 'committer':
+			return relaxation.capped
+				? l10n.t('{count}+ without the committer filter', { count: count })
+				: l10n.t('{count} without the committer filter', { count: count });
+		case 'file':
+			return relaxation.capped
+				? l10n.t('{count}+ without the file filter', { count: count })
+				: l10n.t('{count} without the file filter', { count: count });
+		case 'ref':
+			return relaxation.capped
+				? l10n.t('{count}+ across all branches', { count: count })
+				: l10n.t('{count} across all branches', { count: count });
+		case 'change':
+			return relaxation.capped
+				? l10n.t('{count}+ without the change filter', { count: count })
+				: l10n.t('{count} without the change filter', { count: count });
+		case 'message':
+			return relaxation.capped
+				? l10n.t('{count}+ without the message terms', { count: count })
+				: l10n.t('{count} without the message terms', { count: count });
+		case 'message-exclusion':
+			return relaxation.capped
+				? l10n.t('{count}+ without the message exclusion', { count: count })
+				: l10n.t('{count} without the message exclusion', { count: count });
+	}
 }

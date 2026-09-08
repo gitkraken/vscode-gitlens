@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { ProgressLocation } from 'vscode';
+import { l10n, ProgressLocation } from 'vscode';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { capitalize } from '@gitlens/utils/string.js';
@@ -27,8 +27,8 @@ export class ExplainWipCommand extends ExplainCommandBase {
 		return createMarkdownCommandLink<ExplainWipCommandArgs>('gitlens.ai.explainWip:editor', args);
 	}
 
-	pickerTitle = 'Explain Working Changes';
-	repoPickerPlaceholder = 'Choose which repository to explain working changes from';
+	pickerTitle = l10n.t('Explain Working Changes');
+	repoPickerPlaceholder = l10n.t('Choose which repository to explain working changes from');
 
 	constructor(container: Container) {
 		super(container, ['gitlens.ai.explainWip', 'gitlens.ai.explainWip:editor', 'gitlens.ai.explainWip:views']);
@@ -59,7 +59,7 @@ export class ExplainWipCommand extends ExplainCommandBase {
 		// Get the diff of working changes
 		const svc = await this.getRepositoryService(editor, uri, args);
 		if (svc?.diff?.getDiff == null) {
-			void showGenericErrorMessage('Unable to get diff service');
+			void showGenericErrorMessage(l10n.t('Unable to get diff service'));
 			return;
 		}
 
@@ -82,7 +82,13 @@ export class ExplainWipCommand extends ExplainCommandBase {
 		try {
 			const diff = await svc.diff.getDiff(to, undefined);
 			if (!diff?.contents) {
-				void showGenericErrorMessage(`No ${label} changes found to explain`);
+				const message =
+					args.staged === true
+						? l10n.t('No staged changes found to explain')
+						: args.staged === false
+							? l10n.t('No unstaged changes found to explain')
+							: l10n.t('No working changes found to explain');
+				void showGenericErrorMessage(message);
 				return;
 			}
 
@@ -109,7 +115,12 @@ export class ExplainWipCommand extends ExplainCommandBase {
 				{
 					progress: {
 						location: ProgressLocation.Notification,
-						title: `Explaining ${label} changes in ${repoName}...`,
+						title:
+							args.staged === true
+								? l10n.t('Explaining staged changes in {0}...', repoName)
+								: args.staged === false
+									? l10n.t('Explaining unstaged changes in {0}...', repoName)
+									: l10n.t('Explaining working changes in {0}...', repoName),
 					},
 				},
 			);
@@ -117,25 +128,55 @@ export class ExplainWipCommand extends ExplainCommandBase {
 			if (result === 'cancelled') return;
 
 			if (result == null) {
-				void showGenericErrorMessage(`Unable to explain ${label} changes`);
+				const message =
+					args.staged === true
+						? l10n.t('Unable to explain staged changes')
+						: args.staged === false
+							? l10n.t('Unable to explain unstaged changes')
+							: l10n.t('Unable to explain working changes');
+				void showGenericErrorMessage(message);
 				return;
 			}
 
 			const { promise, model } = result;
+			const header =
+				args.staged === true
+					? {
+							title: l10n.t('Staged Changes Summary'),
+							subtitle: l10n.t('Staged Changes ({0})', repoName),
+							commandLabel: l10n.t('Explain Staged Changes'),
+						}
+					: args.staged === false
+						? {
+								title: l10n.t('Unstaged Changes Summary'),
+								subtitle: l10n.t('Unstaged Changes ({0})', repoName),
+								commandLabel: l10n.t('Explain Unstaged Changes'),
+							}
+						: {
+								title: l10n.t('Working Changes Summary'),
+								subtitle: l10n.t('Working Changes ({0})', repoName),
+								commandLabel: l10n.t('Explain Working Changes'),
+							};
 			this.openDocument(promise, `/explain/wip/${svc.path}/${model.id}`, model, 'explain-wip', {
 				header: {
-					title: `${capitalize(label)} Changes Summary`,
-					subtitle: `${capitalize(label)} Changes (${repoName})`,
+					title: header.title,
+					subtitle: header.subtitle,
 				},
 				command: {
-					label: `Explain ${label} Changes`,
+					label: header.commandLabel,
 					name: 'gitlens.ai.explainWip',
 					args: { ...args },
 				},
 			});
 		} catch (ex) {
 			Logger.error(ex, 'ExplainWipCommand', 'execute');
-			void showGenericErrorMessage(`Unable to explain ${label} changes`);
+			const message =
+				args.staged === true
+					? l10n.t('Unable to explain staged changes')
+					: args.staged === false
+						? l10n.t('Unable to explain unstaged changes')
+						: l10n.t('Unable to explain working changes');
+			void showGenericErrorMessage(message);
 		}
 	}
 }

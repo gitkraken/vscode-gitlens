@@ -1,5 +1,5 @@
 import type { MessageItem } from 'vscode';
-import { EventEmitter, Uri, window, workspace } from 'vscode';
+import { EventEmitter, l10n, Uri, window, workspace } from 'vscode';
 import { fetch } from '@env/fetch.js';
 import type { CommitAuthor } from '@gitlens/git/models/author.js';
 import { CustomRemoteProvider } from '@gitlens/git/remotes/custom.js';
@@ -414,12 +414,15 @@ async function promptForAvatarTemplateApproval(template: string): Promise<void> 
 
 	promptedAvatarTemplates.add(template);
 
-	const allow: MessageItem = { title: 'Allow' };
-	const deny: MessageItem = { title: 'Deny' };
-	const notNow: MessageItem = { title: 'Not Now', isCloseAffordance: true };
+	const allow: MessageItem = { title: l10n.t('Allow') };
+	const deny: MessageItem = { title: l10n.t('Deny') };
+	const notNow: MessageItem = { title: l10n.t('Not Now'), isCloseAffordance: true };
 
 	const result = await window.showInformationMessage(
-		`The \`gitlens.remotes\` setting in this workspace includes an avatar URL template that will be requested for every commit author.\n\nTemplate: ${template}\n\nDo you trust this workspace to make these requests?`,
+		l10n.t(
+			'The `gitlens.remotes` setting in this workspace includes an avatar URL template that will be requested for every commit author.\n\nTemplate: {0}\n\nDo you trust this workspace to make these requests?',
+			template,
+		),
 		allow,
 		deny,
 		notNow,

@@ -1,4 +1,4 @@
-import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { l10n, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { getRemoteUpstreamDescription } from '@gitlens/git/utils/remote.utils.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
@@ -52,7 +52,9 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 			filter: b => b.remote && b.name.startsWith(this.remote.name),
 			sort: { orderBy: configuration.get('sortBranchesBy') },
 		});
-		if (branches.values.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
+		if (branches.values.length === 0) {
+			return [new MessageNode(this.view, this, l10n.t('No branches could be found.'))];
+		}
 
 		// TODO@eamodio handle paging
 		const branchNodes = branches.values.map(
@@ -123,21 +125,56 @@ export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 				const connected = integration?.maybeConnected ?? (await integration?.isConnected());
 
 				item.contextValue = `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;
-				tooltip = `\`${this.remote.name}\` \u00a0(${provider.name} ${GlyphChars.Dash} _${
-					connected ? 'connected' : 'not connected'
-				}${this.remote.default ? ', default' : ''}_) \n\n${provider.displayPath}`;
+				if (connected) {
+					tooltip = this.remote.default
+						? l10n.t(
+								'`{0}` \u00a0({1} {2} _connected, default_) \n\n{3}',
+								this.remote.name,
+								provider.name,
+								GlyphChars.Dash,
+								provider.displayPath,
+							)
+						: l10n.t(
+								'`{0}` \u00a0({1} {2} _connected_) \n\n{3}',
+								this.remote.name,
+								provider.name,
+								GlyphChars.Dash,
+								provider.displayPath,
+							);
+				} else {
+					tooltip = this.remote.default
+						? l10n.t(
+								'`{0}` \u00a0({1} {2} _not connected, default_) \n\n{3}',
+								this.remote.name,
+								provider.name,
+								GlyphChars.Dash,
+								provider.displayPath,
+							)
+						: l10n.t(
+								'`{0}` \u00a0({1} {2} _not connected_) \n\n{3}',
+								this.remote.name,
+								provider.name,
+								GlyphChars.Dash,
+								provider.displayPath,
+							);
+				}
 			} else {
 				item.contextValue = ContextValues.Remote;
-				tooltip = `\`${this.remote.name}\` \u00a0(${provider.name}${
-					this.remote.default ? ', default' : ''
-				}) \n\n${provider.displayPath}`;
+				tooltip = this.remote.default
+					? l10n.t(
+							'`{0}` \u00a0({1}, default) \n\n{2}',
+							this.remote.name,
+							provider.name,
+							provider.displayPath,
+						)
+					: l10n.t('`{0}` \u00a0({1}) \n\n{2}', this.remote.name, provider.name, provider.displayPath);
 			}
 		} else {
 			item.contextValue = ContextValues.Remote;
 			item.iconPath = new ThemeIcon('cloud');
-			tooltip = `\`${this.remote.name}\` \u00a0(${this.remote.domain}${
-				this.remote.default ? ', default' : ''
-			}) \n\n${this.remote.path}`;
+			tooltip = this.remote.default
+				? l10n.t('`{0}` \u00a0({1}, default) \n\n{2}', this.remote.name, this.remote.domain, this.remote.path)
+				: l10n.t('`{0}` \u00a0({1}) \n\n{2}', this.remote.name, this.remote.domain, this.remote.path);
 		}
 
 		if (this.remote.default) {

@@ -1,5 +1,5 @@
 import type { ConsultedTool } from './consultation.js';
-import type { Resolution } from './types.js';
+import type { Resolution, ResolutionDescriptionKind } from './types.js';
 
 /**
  * Lifecycle of an automatic rebase session.
@@ -62,8 +62,10 @@ export interface AutoRebaseFileRecord {
 	path: string;
 	strategy: Resolution['strategy'];
 	confidence: number;
-	/** The AI's rationale for the resolution */
+	/** The canonical rationale for the resolution; also used as model context for later steps. */
 	description: string;
+	/** Identifies a canonical GitLens-authored description that can be localized at presentation. */
+	descriptionKind?: ResolutionDescriptionKind;
 	note?: string;
 	/** Working-tree content (with conflict markers) snapshotted before the resolution was applied */
 	conflictedContent?: string;
@@ -141,7 +143,12 @@ export interface EscalatedStepSnapshot {
 	/** Working-tree (marker) snapshots of the step's files, keyed by path — the "before" side */
 	conflictedContents: Map<string, string>;
 	/** The AI's attempted resolutions for the step (strategy + rationale), informational */
-	resolutions: { filePath: string; strategy: Resolution['strategy']; description: string }[];
+	resolutions: {
+		filePath: string;
+		strategy: Resolution['strategy'];
+		description: string;
+		descriptionKind?: ResolutionDescriptionKind;
+	}[];
 }
 
 /** Context passed to the loop when resuming an escalated run so the human-resolved escalated step

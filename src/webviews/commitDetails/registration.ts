@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { CommitSelectedEvent } from '../../eventBus.js';
 import { loadChunk } from '../../system/-webview/loadChunk.js';
 import type { WebviewsController, WebviewViewProxy } from '../webviewsController.js';
@@ -12,7 +13,7 @@ export function registerCommitDetailsWebviewView(
 		{
 			id: 'gitlens.views.commitDetails',
 			fileName: 'commitDetails.html',
-			title: 'Inspect',
+			title: l10n.t('Inspect'),
 			contextKeyPrefix: `gitlens:webviewView:commitDetails`,
 			trackingFeature: 'commitDetailsView',
 			type: 'commitDetails',

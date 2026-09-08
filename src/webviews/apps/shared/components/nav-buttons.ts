@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { NavigationState } from '../controllers/navigationStack.js';
@@ -27,14 +28,14 @@ export class GlNavButtons extends LitElement {
 
 		return html`<gl-action-chip
 				icon="chevron-left"
-				label="Go Back"
+				label=${l10n.t('Go Back')}
 				overlay="tooltip"
 				?disabled=${!nav.canBack}
 				@click=${this.onBack}
 			></gl-action-chip>
 			<gl-action-chip
 				icon="chevron-right"
-				label="Go Forward"
+				label=${l10n.t('Go Forward')}
 				overlay="tooltip"
 				?disabled=${!nav.canForward}
 				@click=${this.onForward}

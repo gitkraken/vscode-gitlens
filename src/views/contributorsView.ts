@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
-import { Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Disposable, l10n, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitContributor } from '@gitlens/git/models/contributor.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { onDidFetchAvatar } from '../avatars.js';
@@ -55,7 +55,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 
 			const repositories = this.view.getFilteredRepositories();
 			if (!repositories.length) {
-				this.view.message = 'No contributors could be found.';
+				this.view.message = l10n.t('No contributors could be found.');
 				return [];
 			}
 
@@ -88,7 +88,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 
 			// const contributors = await child.repo.getContributors({ all: all, ref: ref });
 			if (!children.length) {
-				this.view.message = 'No contributors could be found.';
+				this.view.message = l10n.t('No contributors could be found.');
 				void child.ensureSubscription();
 
 				return [];
@@ -103,7 +103,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Contributors', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(l10n.t('Contributors'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -116,7 +116,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 	protected readonly configKey = 'contributors';
 
 	constructor(container: Container, grouped?: GroupedViewContext) {
-		super(container, 'contributors', 'Contributors', 'contributorsView', grouped);
+		super(container, 'contributors', l10n.t('Contributors'), 'contributorsView', grouped);
 
 		void setContext('gitlens:views:contributors:hideMergeCommits', true);
 	}
@@ -279,7 +279,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing contributor '${contributor.name}' in the side bar...`,
+				title: l10n.t("Revealing contributor '{0}' in the side bar...", contributor.name),
 				cancellable: true,
 			},
 			async (_progress, token) => {

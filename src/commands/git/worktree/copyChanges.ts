@@ -1,13 +1,14 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { ApplyPatchCommitError } from '@gitlens/git/errors.js';
 import type { GitDiff } from '@gitlens/git/models/diff.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { isSha } from '@gitlens/git/utils/revision.utils.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { Logger } from '@gitlens/utils/logger.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { Container } from '../../../container.js';
+import { getPresentableErrorMessage } from '../../../errors.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import type { DirectiveQuickPickItem } from '../../../quickpicks/items/directive.js';
 import { createDirectiveQuickPickItem, Directive } from '../../../quickpicks/items/directive.js';
@@ -61,10 +62,38 @@ export interface WorktreeCopyChangesGitCommandArgs {
 	state?: Partial<State>;
 }
 
+function getConfirmTitle(changesType: State['changes']['type'], sourceName: string | undefined): string {
+	if (changesType === 'index') {
+		return sourceName
+			? l10n.t('Confirm Copy Staged Worktree Changes to Worktree')
+			: l10n.t('Confirm Copy Staged Changes to Worktree');
+	}
+
+	return sourceName
+		? l10n.t('Confirm Copy Working Worktree Changes to Worktree')
+		: l10n.t('Confirm Copy Working Changes to Worktree');
+}
+
+function getConfirmTitleWithTarget(
+	changesType: State['changes']['type'],
+	sourceName: string | undefined,
+	targetName: string,
+): string {
+	if (changesType === 'index') {
+		return sourceName
+			? l10n.t('Confirm Copy Staged Worktree Changes to Worktree • {0}', targetName)
+			: l10n.t('Confirm Copy Staged Changes to Worktree • {0}', targetName);
+	}
+
+	return sourceName
+		? l10n.t('Confirm Copy Working Worktree Changes to Worktree • {0}', targetName)
+		: l10n.t('Confirm Copy Working Changes to Worktree • {0}', targetName);
+}
+
 export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: WorktreeCopyChangesGitCommandArgs) {
-		super(container, 'worktree-copy-changes', 'copy-changes', 'Copy Changes to Worktree', {
-			description: 'copies changes to another worktree',
+		super(container, 'worktree-copy-changes', 'copy-changes', l10n.t('Copy Changes to Worktree'), {
+			description: l10n.t('copies changes to another worktree'),
 		});
 
 		this.initialState = {
@@ -136,19 +165,23 @@ export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 					case 'index':
 						context.title =
 							state.overrides?.title ??
-							`Copy Staged${state.source?.name ? ' Worktree' : ''} Changes to Worktree`;
-						placeholder = `Choose a worktree to copy your staged${
-							state.source?.name ? ' Worktree' : ''
-						} changes to`;
+							(state.source?.name
+								? l10n.t('Copy Staged Worktree Changes to Worktree')
+								: l10n.t('Copy Staged Changes to Worktree'));
+						placeholder = state.source?.name
+							? l10n.t('Choose a worktree to copy your staged worktree changes to')
+							: l10n.t('Choose a worktree to copy your staged changes to');
 						break;
 					case 'working-tree':
 					default:
 						context.title =
 							state.overrides?.title ??
-							`Copy Working${state.source?.name ? ' Worktree' : ''} Changes to Worktree`;
-						placeholder = `Choose a worktree to copy your working${
-							state.source?.name ? ' worktree' : ''
-						} changes to`;
+							(state.source?.name
+								? l10n.t('Copy Working Worktree Changes to Worktree')
+								: l10n.t('Copy Working Changes to Worktree'));
+						placeholder = state.source?.name
+							? l10n.t('Choose a worktree to copy your working worktree changes to')
+							: l10n.t('Choose a worktree to copy your working changes to');
 						break;
 				}
 
@@ -213,17 +246,19 @@ export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 				if (!diff?.contents) {
 					using step = steps.enterStep(Steps.Confirm);
 
-					const changesType = state.changes.type === 'index' ? 'staged' : 'working';
+					const staged = state.changes.type === 'index';
 					const noChangesStep: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
-						`Confirm ${context.title}`,
+						getConfirmTitle(state.changes.type, state.source?.name),
 						[],
+						staged
+							? l10n.t('Nothing to copy; no staged changes found')
+							: l10n.t('Nothing to copy; no working changes found'),
 						createDirectiveQuickPickItem(Directive.Cancel, true, {
-							label: 'OK',
-							detail: `There are no ${changesType} changes to copy`,
+							label: l10n.t('OK'),
+							detail: staged
+								? l10n.t('There are no staged changes to copy')
+								: l10n.t('There are no working changes to copy'),
 						}),
-						{
-							placeholder: `Nothing to copy; no ${changesType} changes found`,
-						},
 					);
 					const selection: StepSelection<typeof noChangesStep> = yield noChangesStep;
 					canPickStepContinue(noChangesStep, state, selection);
@@ -265,21 +300,21 @@ export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 
 				const targetSvc = this.container.git.getRepositoryService(state.target.uri);
 				await targetSvc.patch?.applyUnreachableCommitForPatch(commit.sha, { stash: false });
-				void window.showInformationMessage(`Changes copied successfully`);
+				void window.showInformationMessage(l10n.t('Changes copied successfully'));
 			} catch (ex) {
 				if (isCancellationError(ex)) return;
 
 				if (ApplyPatchCommitError.is(ex, 'appliedWithConflicts')) {
-					void window.showWarningMessage('Changes copied with conflicts');
+					void window.showWarningMessage(l10n.t('Changes copied with conflicts'));
 				} else {
 					if (ApplyPatchCommitError.is(ex, 'wouldOverwriteChanges')) {
 						void window.showErrorMessage(
-							'Unable to copy changes as some local changes would be overwritten',
+							l10n.t('Unable to copy changes as some local changes would be overwritten'),
 						);
 						return;
 					}
 
-					void window.showErrorMessage(`Unable to copy changes: ${ex.message}`);
+					void window.showErrorMessage(l10n.t('Unable to copy changes: {0}', getPresentableErrorMessage(ex)));
 					return;
 				}
 			}
@@ -292,33 +327,114 @@ export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 
 	private async *confirmStep(
 		state: StepState<State<GlRepository>>,
-		context: Context,
+		_context: Context,
 	): AsyncStepResultGenerator<void> {
 		const files = await state.repo.git.diff.getDiffFiles?.(state.changes.contents!);
 		const count = files?.files.length ?? 0;
+		const formattedCount = getNumericFormat()(count);
 
 		const confirmations = [];
+		const getDetail = () => {
+			const staged = state.changes.type === 'index';
+			if (state.source != null) {
+				if (count === 1) {
+					return staged
+						? l10n.t(
+								"Will copy the staged changes ({0} file) from worktree '{1}' to worktree '{2}'",
+								formattedCount,
+								state.source.name,
+								state.target.name,
+							)
+						: l10n.t(
+								"Will copy the working changes ({0} file) from worktree '{1}' to worktree '{2}'",
+								formattedCount,
+								state.source.name,
+								state.target.name,
+							);
+				}
+
+				if (count > 1) {
+					return staged
+						? l10n.t(
+								"Will copy the staged changes ({0} files) from worktree '{1}' to worktree '{2}'",
+								formattedCount,
+								state.source.name,
+								state.target.name,
+							)
+						: l10n.t(
+								"Will copy the working changes ({0} files) from worktree '{1}' to worktree '{2}'",
+								formattedCount,
+								state.source.name,
+								state.target.name,
+							);
+				}
+
+				return staged
+					? l10n.t(
+							"Will copy the staged changes from worktree '{0}' to worktree '{1}'",
+							state.source.name,
+							state.target.name,
+						)
+					: l10n.t(
+							"Will copy the working changes from worktree '{0}' to worktree '{1}'",
+							state.source.name,
+							state.target.name,
+						);
+			}
+
+			if (count === 1) {
+				return staged
+					? l10n.t(
+							"Will copy the staged changes ({0} file) to worktree '{1}'",
+							formattedCount,
+							state.target.name,
+						)
+					: l10n.t(
+							"Will copy the working changes ({0} file) to worktree '{1}'",
+							formattedCount,
+							state.target.name,
+						);
+			}
+
+			if (count > 1) {
+				return staged
+					? l10n.t(
+							"Will copy the staged changes ({0} files) to worktree '{1}'",
+							formattedCount,
+							state.target.name,
+						)
+					: l10n.t(
+							"Will copy the working changes ({0} files) to worktree '{1}'",
+							formattedCount,
+							state.target.name,
+						);
+			}
+
+			return staged
+				? l10n.t("Will copy the staged changes to worktree '{0}'", state.target.name)
+				: l10n.t("Will copy the working changes to worktree '{0}'", state.target.name);
+		};
 		switch (state.changes.type) {
 			case 'index':
 				confirmations.push({
-					label: 'Copy Staged Changes to Worktree',
-					detail: `Will copy the staged changes${count > 0 ? ` (${pluralize('file', count)})` : ''}${
-						state.source ? ` from worktree '${state.source.name}'` : ''
-					} to worktree '${state.target.name}'`,
+					label: l10n.t('Copy Staged Changes to Worktree'),
+					detail: getDetail(),
 				});
 				break;
 			case 'working-tree':
 			default:
 				confirmations.push({
-					label: 'Copy Working Changes to Worktree',
-					detail: `Will copy the working changes${count > 0 ? ` (${pluralize('file', count)})` : ''}${
-						state.source ? ` from worktree '${state.source.name}'` : ''
-					} to worktree '${state.target.name}'`,
+					label: l10n.t('Copy Working Changes to Worktree'),
+					detail: getDetail(),
 				});
 				break;
 		}
 
-		const step = createConfirmStep(`Confirm ${context.title} \u2022 ${state.target.name}`, confirmations, context);
+		const step = createConfirmStep(
+			getConfirmTitleWithTarget(state.changes.type, state.source?.name, state.target.name),
+			confirmations,
+			getConfirmTitle(state.changes.type, state.source?.name),
+		);
 
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;

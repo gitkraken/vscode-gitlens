@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type {
 	GitHealthSnapshot,
 	GitMaintenanceTask,
@@ -339,8 +340,9 @@ export interface GitHealthLever {
 
 /** Consequences that reach beyond GitLens, surfaced on the apply action itself. */
 const leverNotes: Partial<Record<GitOptimizationId, string>> = {
-	backgroundMaintenance:
+	backgroundMaintenance: l10n.t(
 		'Adds a task to your operating system’s scheduler. Undo unregisters this repository, but leaves the scheduler itself in place.',
+	),
 };
 
 /**
@@ -389,7 +391,7 @@ export function computeLevers(
 				id: id,
 				status: 'unavailable',
 				tier: tier,
-				reason: "Couldn't read Git's maintenance registration — try reopening the repository",
+				reason: l10n.t("Couldn't read Git's maintenance registration — try reopening the repository"),
 				note: note,
 				checkFailed: true,
 			};
@@ -409,7 +411,7 @@ export function computeLevers(
 					id: id,
 					status: 'unavailable',
 					tier: tier,
-					reason: "Couldn't determine this worktree’s sparse-checkout and index configuration",
+					reason: l10n.t("Couldn't determine this worktree’s sparse-checkout and index configuration"),
 					note: note,
 					checkFailed: true,
 				};
@@ -419,7 +421,7 @@ export function computeLevers(
 					id: id,
 					status: 'notApplicable',
 					tier: tier,
-					reason: 'This worktree is not using sparse checkout.',
+					reason: l10n.t('This worktree is not using sparse checkout.'),
 					note: note,
 				};
 			}
@@ -428,7 +430,7 @@ export function computeLevers(
 					id: id,
 					status: 'notApplicable',
 					tier: tier,
-					reason: 'Sparse indexes require cone-mode sparse checkout.',
+					reason: l10n.t('Sparse indexes require cone-mode sparse checkout.'),
 					note: note,
 				};
 			}
@@ -437,7 +439,7 @@ export function computeLevers(
 					id: id,
 					status: 'notApplicable',
 					tier: tier,
-					reason: 'This worktree uses a split index; disable it before enabling a sparse index.',
+					reason: l10n.t('This worktree uses a split index; disable it before enabling a sparse index.'),
 					note: note,
 				};
 			}
@@ -446,7 +448,7 @@ export function computeLevers(
 					id: id,
 					status: 'notApplicable',
 					tier: tier,
-					reason: 'Finish the current merge or rebase before enabling a sparse index.',
+					reason: l10n.t('Finish the current merge or rebase before enabling a sparse index.'),
 					note: note,
 				};
 			}
@@ -461,10 +463,14 @@ export function computeLevers(
 				tier: tier,
 				reason:
 					id === 'fsmonitor'
-						? 'The file system monitor could not start for this repository.'
+						? l10n.t('The file system monitor could not start for this repository.')
 						: id === 'manyFiles'
-							? 'This would enable the untracked cache, but this file system does not report directory changes reliably, so Git would return incorrect status results.'
-							: 'This file system does not report directory changes reliably, so Git would return incorrect status results.',
+							? l10n.t(
+									'This would enable the untracked cache, but this file system does not report directory changes reliably, so Git would return incorrect status results.',
+								)
+							: l10n.t(
+									'This file system does not report directory changes reliably, so Git would return incorrect status results.',
+								),
 				note: note,
 			};
 		}

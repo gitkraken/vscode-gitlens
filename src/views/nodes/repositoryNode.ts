@@ -1,9 +1,10 @@
-import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Disposable, l10n, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitStatus } from '@gitlens/git/models/status.js';
 import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
 import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
 import { findLastIndex } from '@gitlens/utils/array.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { createDisposable, disposableInterval } from '@gitlens/utils/disposable.js';
 import { weakEvent } from '@gitlens/utils/event.js';
@@ -41,6 +42,324 @@ import { StashesNode } from './stashesNode.js';
 import { StatusFilesNode } from './statusFilesNode.js';
 import { TagsNode } from './tagsNode.js';
 import { WorktreesNode } from './worktreesNode.js';
+
+function getCurrentBranchTooltip(status: GitStatus, providerName: string | undefined): string {
+	const upstream = status.upstream;
+	if (upstream == null) {
+		return status.rebasing
+			? l10n.t('Current branch $(git-branch) {branch} (Rebasing)', { branch: status.branch })
+			: l10n.t('Current branch $(git-branch) {branch}', { branch: status.branch });
+	}
+
+	const { ahead, behind } = upstream.state;
+	if (!ahead && !behind) {
+		return getUpToDateCurrentBranchTooltip(status.branch, upstream.name, providerName, status.rebasing);
+	}
+
+	if (upstream.missing) {
+		if (status.rebasing) {
+			return providerName
+				? l10n.t(
+						'Current branch $(git-branch) {branch} (Rebasing) is missing $(git-branch) {upstream} on {provider}',
+						{ branch: status.branch, upstream: upstream.name, provider: providerName },
+					)
+				: l10n.t('Current branch $(git-branch) {branch} (Rebasing) is missing $(git-branch) {upstream}', {
+						branch: status.branch,
+						upstream: upstream.name,
+					});
+		}
+
+		return providerName
+			? l10n.t('Current branch $(git-branch) {branch} is missing $(git-branch) {upstream} on {provider}', {
+					branch: status.branch,
+					upstream: upstream.name,
+					provider: providerName,
+				})
+			: l10n.t('Current branch $(git-branch) {branch} is missing $(git-branch) {upstream}', {
+					branch: status.branch,
+					upstream: upstream.name,
+				});
+	}
+
+	if (ahead && behind) {
+		return getDivergedCurrentBranchTooltip(
+			status.branch,
+			upstream.name,
+			providerName,
+			status.rebasing,
+			ahead,
+			behind,
+		);
+	}
+	if (behind) {
+		return getBehindCurrentBranchTooltip(status.branch, upstream.name, providerName, status.rebasing, behind);
+	}
+	if (ahead) {
+		return getAheadCurrentBranchTooltip(status.branch, upstream.name, providerName, status.rebasing, ahead);
+	}
+
+	return getUpToDateCurrentBranchTooltip(status.branch, upstream.name, providerName, status.rebasing);
+}
+
+function getUpToDateCurrentBranchTooltip(
+	branch: string,
+	upstream: string,
+	providerName: string | undefined,
+	rebasing: boolean,
+): string {
+	if (rebasing) {
+		return providerName
+			? l10n.t(
+					'Current branch $(git-branch) {branch} (Rebasing) is up to date with $(git-branch) {upstream} on {provider}',
+					{ branch: branch, upstream: upstream, provider: providerName },
+				)
+			: l10n.t('Current branch $(git-branch) {branch} (Rebasing) is up to date with $(git-branch) {upstream}', {
+					branch: branch,
+					upstream: upstream,
+				});
+	}
+
+	return providerName
+		? l10n.t('Current branch $(git-branch) {branch} is up to date with $(git-branch) {upstream} on {provider}', {
+				branch: branch,
+				upstream: upstream,
+				provider: providerName,
+			})
+		: l10n.t('Current branch $(git-branch) {branch} is up to date with $(git-branch) {upstream}', {
+				branch: branch,
+				upstream: upstream,
+			});
+}
+
+function getBehindCurrentBranchTooltip(
+	branch: string,
+	upstream: string,
+	providerName: string | undefined,
+	rebasing: boolean,
+	behind: number,
+): string {
+	const args = {
+		branch: branch,
+		behind: getNumericFormat()(behind),
+		upstream: upstream,
+		provider: providerName ?? '',
+	};
+	if (rebasing) {
+		if (providerName) {
+			return behind === 1
+				? l10n.t(
+						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind $(git-branch) {upstream} on {provider}',
+						args,
+					)
+				: l10n.t(
+						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind $(git-branch) {upstream} on {provider}',
+						args,
+					);
+		}
+
+		return behind === 1
+			? l10n.t(
+					'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind $(git-branch) {upstream}',
+					args,
+				)
+			: l10n.t(
+					'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind $(git-branch) {upstream}',
+					args,
+				);
+	}
+
+	if (providerName) {
+		return behind === 1
+			? l10n.t(
+					'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind $(git-branch) {upstream} on {provider}',
+					args,
+				)
+			: l10n.t(
+					'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind $(git-branch) {upstream} on {provider}',
+					args,
+				);
+	}
+
+	return behind === 1
+		? l10n.t(
+				'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind $(git-branch) {upstream}',
+				args,
+			)
+		: l10n.t(
+				'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind $(git-branch) {upstream}',
+				args,
+			);
+}
+
+function getAheadCurrentBranchTooltip(
+	branch: string,
+	upstream: string,
+	providerName: string | undefined,
+	rebasing: boolean,
+	ahead: number,
+): string {
+	const args = {
+		branch: branch,
+		ahead: getNumericFormat()(ahead),
+		upstream: upstream,
+		provider: providerName ?? '',
+	};
+	if (rebasing) {
+		if (providerName) {
+			return ahead === 1
+				? l10n.t(
+						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}',
+						args,
+					)
+				: l10n.t(
+						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}',
+						args,
+					);
+		}
+
+		return ahead === 1
+			? l10n.t(
+					'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}',
+					args,
+				)
+			: l10n.t(
+					'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}',
+					args,
+				);
+	}
+
+	if (providerName) {
+		return ahead === 1
+			? l10n.t(
+					'Current branch $(git-branch) {branch} is $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}',
+					args,
+				)
+			: l10n.t(
+					'Current branch $(git-branch) {branch} is $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}',
+					args,
+				);
+	}
+
+	return ahead === 1
+		? l10n.t(
+				'Current branch $(git-branch) {branch} is $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}',
+				args,
+			)
+		: l10n.t(
+				'Current branch $(git-branch) {branch} is $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}',
+				args,
+			);
+}
+
+function getDivergedCurrentBranchTooltip(
+	branch: string,
+	upstream: string,
+	providerName: string | undefined,
+	rebasing: boolean,
+	ahead: number,
+	behind: number,
+): string {
+	const args = {
+		branch: branch,
+		ahead: getNumericFormat()(ahead),
+		behind: getNumericFormat()(behind),
+		upstream: upstream,
+		provider: providerName ?? '',
+	};
+	if (rebasing) {
+		if (providerName) {
+			if (behind === 1) {
+				return ahead === 1
+					? l10n.t(
+							'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}',
+							args,
+						)
+					: l10n.t(
+							'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}',
+							args,
+						);
+			}
+
+			return ahead === 1
+				? l10n.t(
+						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}',
+						args,
+					)
+				: l10n.t(
+						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}',
+						args,
+					);
+		}
+
+		if (behind === 1) {
+			return ahead === 1
+				? l10n.t(
+						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}',
+						args,
+					)
+				: l10n.t(
+						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}',
+						args,
+					);
+		}
+
+		return ahead === 1
+			? l10n.t(
+					'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}',
+					args,
+				)
+			: l10n.t(
+					'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}',
+					args,
+				);
+	}
+
+	if (providerName) {
+		if (behind === 1) {
+			return ahead === 1
+				? l10n.t(
+						'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}',
+						args,
+					)
+				: l10n.t(
+						'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}',
+						args,
+					);
+		}
+
+		return ahead === 1
+			? l10n.t(
+					'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}',
+					args,
+				)
+			: l10n.t(
+					'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}',
+					args,
+				);
+	}
+
+	if (behind === 1) {
+		return ahead === 1
+			? l10n.t(
+					'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}',
+					args,
+				)
+			: l10n.t(
+					'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}',
+					args,
+				);
+	}
+
+	return ahead === 1
+		? l10n.t(
+				'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}',
+				args,
+			)
+		: l10n.t(
+				'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}',
+				args,
+			);
+}
 
 export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWithRepositories> {
 	private _status: Promise<GitStatus | undefined>;
@@ -227,7 +546,9 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 		let description;
 		let tooltip = `${this.repo.name ?? this.uri.repoPath ?? ''}${
-			lastFetched ? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${formatLastFetched(lastFetched, false)}` : ''
+			lastFetched
+				? `${pad(GlyphChars.Dash, 2, 2)}${l10n.t('Last fetched {0}', formatLastFetched(lastFetched, false))}`
+				: ''
 		}${this.repo.name ? `\\\n${this.uri.repoPath}` : ''}`;
 		let workingStatus = '';
 
@@ -255,7 +576,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 		const status = await this._status;
 		if (status != null) {
-			tooltip += `\n\nCurrent branch $(git-branch) ${status.branch}${status.rebasing ? ' (Rebasing)' : ''}`;
+			const branchLabel = status.rebasing ? l10n.t('{0} (Rebasing)', status.branch) : status.branch;
 
 			if (this.view.config.includeWorkingTree && status.files.length !== 0) {
 				workingStatus = GitStatus.getFormattedDiffStatus(status, {
@@ -268,7 +589,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 				suffix: pad(GlyphChars.Dot, 1, 1),
 			});
 
-			description = `${upstreamStatus}${status.branch}${status.rebasing ? ' (Rebasing)' : ''}${workingStatus}`;
+			description = `${upstreamStatus}${branchLabel}${workingStatus}`;
 
 			let providerName;
 			if (status.upstream != null) {
@@ -276,17 +597,9 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 				providerName = providers?.length ? providers[0].name : undefined;
 			}
 
-			if (status.upstream != null) {
-				tooltip += ` is ${GitStatus.getUpstreamStatus(status, {
-					empty: `up to date with $(git-branch) ${status.upstream.name}${
-						providerName ? ` on ${providerName}` : ''
-					}`,
-					expand: true,
-					icons: true,
-					separator: ', ',
-					suffix: ` $(git-branch) ${status.upstream.name}${providerName ? ` on ${providerName}` : ''}`,
-				})}`;
+			tooltip += `\n\n${getCurrentBranchTooltip(status, providerName)}`;
 
+			if (status.upstream != null) {
 				if (status.upstream.state.behind) {
 					contextValue += '+behind';
 				}
@@ -296,16 +609,23 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 			}
 
 			if (workingStatus) {
-				tooltip += `\n\nWorking tree has uncommitted changes${GitStatus.getFormattedDiffStatus(status, {
-					expand: true,
-					prefix: '\n',
-					separator: '\n',
-				})}`;
+				tooltip += `\n\n${l10n.t('Working tree has uncommitted changes')}${GitStatus.getFormattedDiffStatus(
+					status,
+					{
+						expand: true,
+						prefix: '\n',
+						separator: '\n',
+					},
+				)}`;
 			}
 		}
 
 		if (workspace != null) {
-			tooltip += `\n\nRepository is ${!this.repo.opened ? 'not ' : ''}open in the current window`;
+			tooltip += `\n\n${
+				this.repo.opened
+					? l10n.t('Repository is open in the current window')
+					: l10n.t('Repository is not open in the current window')
+			}`;
 		}
 
 		const item = new TreeItem(
@@ -317,7 +637,9 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		item.id = this.id;
 		item.contextValue = contextValue;
 		item.description = `${description ?? ''}${
-			lastFetched ? `${pad(GlyphChars.Dot, 1, 1)}Last fetched ${formatLastFetched(lastFetched)}` : ''
+			lastFetched
+				? `${pad(GlyphChars.Dot, 1, 1)}${l10n.t('Last fetched {0}', formatLastFetched(lastFetched))}`
+				: ''
 		}`;
 		item.iconPath = getRepositoryStatusIconPath(this.view.container, this.repo, status);
 

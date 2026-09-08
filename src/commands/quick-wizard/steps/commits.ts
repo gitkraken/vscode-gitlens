@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { QuickInputButton } from 'vscode';
 import type { GitStashCommit } from '@gitlens/git/models/commit.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
@@ -396,9 +397,11 @@ export async function* showCommitOrStashFilesStep<
 		items: [
 			new CommitFilesQuickPickItem(state.reference, {
 				picked: state.fileName == null,
-				hint: `Click to see ${GitCommit.isStash(state.reference) ? 'stash' : 'commit'} actions`,
+				hint: GitCommit.isStash(state.reference)
+					? l10n.t('Click to see stash actions')
+					: l10n.t('Click to see commit actions'),
 			}),
-			createQuickPickSeparator('Files'),
+			createQuickPickSeparator(l10n.t('Files')),
 			...(state.reference.anyFiles?.map(
 				fs => new CommitFileQuickPickItem(state.reference, fs, options?.picked === fs.path),
 			) ?? []),
@@ -452,11 +455,11 @@ export function* showCommitOrStashFileStep<
 			context,
 			`${pad(GlyphChars.Dot, 2, 2)}${formatPath(state.fileName, { fileOnly: true })}`,
 		),
-		placeholder: `${formatPath(state.fileName, {
-			relativeTo: state.repo.path,
-		})} in ${getReferenceLabel(state.reference, {
-			icon: false,
-		})}`,
+		placeholder: l10n.t(
+			'{0} in {1}',
+			formatPath(state.fileName, { relativeTo: state.repo.path }),
+			getReferenceLabel(state.reference, { icon: false }),
+		),
 		ignoreFocusOut: true,
 		items: getShowCommitOrStashFileStepItems(state),
 		matchOnDescription: true,
@@ -502,8 +505,8 @@ async function getShowCommitOrStashStepItems<
 
 	if (GitCommit.isStash(state.reference)) {
 		items.push(
-			createQuickPickSeparator('Actions'),
-			new GitWizardQuickPickItem('Apply Stash...', {
+			createQuickPickSeparator(l10n.t('Actions')),
+			new GitWizardQuickPickItem(l10n.t('Apply Stash...'), {
 				command: 'stash',
 				state: {
 					subcommand: 'apply',
@@ -511,7 +514,7 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
-			new GitWizardQuickPickItem('Rename Stash...', {
+			new GitWizardQuickPickItem(l10n.t('Rename Stash...'), {
 				command: 'stash',
 				state: {
 					subcommand: 'rename',
@@ -519,7 +522,7 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
-			new GitWizardQuickPickItem('Drop Stash...', {
+			new GitWizardQuickPickItem(l10n.t('Drop Stash...'), {
 				command: 'stash',
 				state: {
 					subcommand: 'drop',
@@ -537,7 +540,7 @@ async function getShowCommitOrStashStepItems<
 		const remotes = await state.repo.git.remotes.getRemotesWithProviders({ sort: true });
 		if (remotes?.length) {
 			items.push(
-				createQuickPickSeparator(getHighlanderProviderName(remotes) ?? 'Remote'),
+				createQuickPickSeparator(getHighlanderProviderName(remotes) ?? l10n.t('Remote')),
 				new OpenRemoteResourceCommandQuickPickItem(remotes, {
 					type: RemoteResourceType.Commit,
 					sha: state.reference.sha,
@@ -549,7 +552,7 @@ async function getShowCommitOrStashStepItems<
 			);
 		}
 
-		items.push(createQuickPickSeparator('Actions'));
+		items.push(createQuickPickSeparator(l10n.t('Actions')));
 
 		const branch = await state.repo.git.branches.getBranch();
 		const [branches, published] = await Promise.all([
@@ -570,7 +573,7 @@ async function getShowCommitOrStashStepItems<
 				// TODO@eamodio Add Undo commit, if HEAD & unpushed
 
 				items.push(
-					new GitWizardQuickPickItem('Push to Commit...', {
+					new GitWizardQuickPickItem(l10n.t('Push to Commit...'), {
 						command: 'push',
 						state: {
 							repos: state.repo,
@@ -581,35 +584,45 @@ async function getShowCommitOrStashStepItems<
 			}
 
 			items.push(
-				new GitWizardQuickPickItem('Revert Commit...', {
+				new GitWizardQuickPickItem(l10n.t('Revert Commit...'), {
 					command: 'revert',
 					state: {
 						repo: state.repo,
 						references: [state.reference],
 					},
 				}),
-				new GitWizardQuickPickItem(`Reset ${branch?.name ?? 'Current Branch'} to Commit...`, {
-					command: 'reset',
-					state: {
-						repo: state.repo,
-						reference: state.reference,
+				new GitWizardQuickPickItem(
+					branch?.name != null
+						? l10n.t('Reset {0} to Commit...', branch.name)
+						: l10n.t('Reset Current Branch to Commit...'),
+					{
+						command: 'reset',
+						state: {
+							repo: state.repo,
+							reference: state.reference,
+						},
 					},
-				}),
-				new GitWizardQuickPickItem(`Reset ${branch?.name ?? 'Current Branch'} to Previous Commit...`, {
-					command: 'reset',
-					state: {
-						repo: state.repo,
-						reference: createReference(`${state.reference.ref}^`, state.reference.repoPath, {
-							refType: 'revision',
-							name: `${state.reference.name}^`,
-							message: state.reference.message,
-						}),
+				),
+				new GitWizardQuickPickItem(
+					branch?.name != null
+						? l10n.t('Reset {0} to Previous Commit...', branch.name)
+						: l10n.t('Reset Current Branch to Previous Commit...'),
+					{
+						command: 'reset',
+						state: {
+							repo: state.repo,
+							reference: createReference(`${state.reference.ref}^`, state.reference.repoPath, {
+								refType: 'revision',
+								name: `${state.reference.name}^`,
+								message: state.reference.message,
+							}),
+						},
 					},
-				}),
+				),
 			);
 		} else {
 			items.push(
-				new GitWizardQuickPickItem('Cherry Pick Commit...', {
+				new GitWizardQuickPickItem(l10n.t('Cherry Pick Commit...'), {
 					command: 'cherry-pick',
 					state: {
 						repo: state.repo,
@@ -620,14 +633,19 @@ async function getShowCommitOrStashStepItems<
 		}
 
 		items.push(
-			new GitWizardQuickPickItem(`Rebase ${branch?.name ?? 'Current Branch'} onto Commit...`, {
-				command: 'rebase',
-				state: {
-					repo: state.repo,
-					destination: state.reference,
+			new GitWizardQuickPickItem(
+				branch?.name != null
+					? l10n.t('Rebase {0} onto Commit...', branch.name)
+					: l10n.t('Rebase Current Branch onto Commit...'),
+				{
+					command: 'rebase',
+					state: {
+						repo: state.repo,
+						destination: state.reference,
+					},
 				},
-			}),
-			new GitWizardQuickPickItem('Switch to Commit...', {
+			),
+			new GitWizardQuickPickItem(l10n.t('Switch to Commit...'), {
 				command: 'switch',
 				state: {
 					repos: [state.repo],
@@ -636,7 +654,7 @@ async function getShowCommitOrStashStepItems<
 			}),
 
 			createQuickPickSeparator(),
-			new GitWizardQuickPickItem('Create Branch at Commit...', {
+			new GitWizardQuickPickItem(l10n.t('Create Branch at Commit...'), {
 				command: 'branch',
 				state: {
 					subcommand: 'create',
@@ -644,7 +662,7 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
-			new GitWizardQuickPickItem('Create Tag at Commit...', {
+			new GitWizardQuickPickItem(l10n.t('Create Tag at Commit...'), {
 				command: 'tag',
 				state: {
 					subcommand: 'create',
@@ -653,14 +671,14 @@ async function getShowCommitOrStashStepItems<
 				},
 			}),
 
-			createQuickPickSeparator('Copy'),
+			createQuickPickSeparator(l10n.t('Copy')),
 			new CommitCopyIdQuickPickItem(state.reference),
 			new CommitCopyMessageQuickPickItem(state.reference),
 		);
 	}
 
 	items.push(
-		createQuickPickSeparator('Open'),
+		createQuickPickSeparator(l10n.t('Open')),
 		new CommitOpenAllChangesCommandQuickPickItem(state.reference),
 		new CommitOpenAllChangesWithWorkingCommandQuickPickItem(state.reference),
 		new CommitOpenAllChangesWithDiffToolCommandQuickPickItem(state.reference),
@@ -670,7 +688,7 @@ async function getShowCommitOrStashStepItems<
 	);
 
 	items.push(
-		createQuickPickSeparator('Compare'),
+		createQuickPickSeparator(l10n.t('Compare')),
 		new CommitCompareWithHEADCommandQuickPickItem(state.reference),
 		new CommitCompareWithWorkingCommandQuickPickItem(state.reference),
 	);
@@ -682,7 +700,7 @@ async function getShowCommitOrStashStepItems<
 	);
 
 	items.push(
-		createQuickPickSeparator('Browse'),
+		createQuickPickSeparator(l10n.t('Browse')),
 		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, { openInNewWindow: false }),
 		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, {
 			before: true,
@@ -698,7 +716,7 @@ async function getShowCommitOrStashStepItems<
 	items.unshift(
 		new CommitFilesQuickPickItem(state.reference, {
 			unpublished: unpublished,
-			hint: 'Click to see all changed files',
+			hint: l10n.t('Click to see all changed files'),
 		}),
 	);
 	return items as CommandQuickPickItem[];
@@ -723,7 +741,7 @@ async function getShowCommitOrStashFileStepItems<
 		items.push(
 			createQuickPickSeparator(),
 			new CommitCopyMessageQuickPickItem(state.reference),
-			createQuickPickSeparator('Actions'),
+			createQuickPickSeparator(l10n.t('Actions')),
 			new CommitApplyFileChangesCommandQuickPickItem(state.reference, file),
 			new CommitRestoreFileChangesCommandQuickPickItem(state.reference, file),
 			createQuickPickSeparator(),
@@ -735,7 +753,7 @@ async function getShowCommitOrStashFileStepItems<
 		const remotes = await state.repo.git.remotes.getRemotesWithProviders({ sort: true });
 		if (remotes?.length) {
 			items.push(
-				createQuickPickSeparator(getHighlanderProviderName(remotes) ?? 'Remote'),
+				createQuickPickSeparator(getHighlanderProviderName(remotes) ?? l10n.t('Remote')),
 				new OpenRemoteResourceCommandQuickPickItem(remotes, {
 					type: RemoteResourceType.Revision,
 					fileName: state.fileName,
@@ -759,17 +777,17 @@ async function getShowCommitOrStashFileStepItems<
 		}
 
 		items.push(
-			createQuickPickSeparator('Actions'),
+			createQuickPickSeparator(l10n.t('Actions')),
 			new CommitApplyFileChangesCommandQuickPickItem(state.reference, file),
 			new CommitRestoreFileChangesCommandQuickPickItem(state.reference, file),
-			createQuickPickSeparator('Copy'),
+			createQuickPickSeparator(l10n.t('Copy')),
 			new CommitCopyIdQuickPickItem(state.reference),
 			new CommitCopyMessageQuickPickItem(state.reference),
 		);
 	}
 
 	items.push(
-		createQuickPickSeparator('Open'),
+		createQuickPickSeparator(l10n.t('Open')),
 		new CommitOpenChangesCommandQuickPickItem(state.reference, state.fileName),
 		new CommitOpenChangesWithWorkingCommandQuickPickItem(state.reference, state.fileName),
 		new CommitOpenChangesWithDiffToolCommandQuickPickItem(state.reference, state.fileName),
@@ -782,13 +800,13 @@ async function getShowCommitOrStashFileStepItems<
 	items.push(new CommitOpenRevisionCommandQuickPickItem(state.reference, file));
 
 	items.push(
-		createQuickPickSeparator('Compare'),
+		createQuickPickSeparator(l10n.t('Compare')),
 		new CommitCompareWithHEADCommandQuickPickItem(state.reference),
 		new CommitCompareWithWorkingCommandQuickPickItem(state.reference),
 	);
 
 	items.push(
-		createQuickPickSeparator('Browse'),
+		createQuickPickSeparator(l10n.t('Browse')),
 		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, { openInNewWindow: false }),
 		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, {
 			before: true,
@@ -802,7 +820,7 @@ async function getShowCommitOrStashFileStepItems<
 	);
 
 	items.unshift(
-		new CommitFilesQuickPickItem(state.reference, { file: file, hint: 'Click to see all changed files' }),
+		new CommitFilesQuickPickItem(state.reference, { file: file, hint: l10n.t('Click to see all changed files') }),
 	);
 	return items as CommandQuickPickItem[];
 }

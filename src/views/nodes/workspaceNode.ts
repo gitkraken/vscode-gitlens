@@ -1,4 +1,4 @@
-import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Disposable, l10n, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { weakEvent } from '@gitlens/utils/event.js';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService.js';
@@ -54,10 +54,10 @@ export class WorkspaceNode extends SubscribeableViewNode<
 							this,
 							createCommand<[WorkspaceNode]>(
 								'gitlens.views.workspaces.addRepos',
-								'Add Repositories...',
+								l10n.t('Add Repositories...'),
 								this,
 							),
-							'No repositories',
+							l10n.t('No repositories'),
 						),
 					);
 
@@ -86,7 +86,7 @@ export class WorkspaceNode extends SubscribeableViewNode<
 				}
 			} catch (_ex) {
 				this.children = undefined;
-				return [new MessageNode(this.view, this, 'Failed to load repositories')];
+				return [new MessageNode(this.view, this, l10n.t('Failed to load repositories'))];
 			}
 
 			this.children = children;
@@ -107,10 +107,10 @@ export class WorkspaceNode extends SubscribeableViewNode<
 			contextValue += '+local';
 		}
 
-		const descriptionItems = [];
+		let description = '';
 		if (this.workspace.current) {
 			contextValue += '+current';
-			descriptionItems.push('current');
+			description = l10n.t('current');
 			item.resourceUri = createViewDecorationUri('workspace', { current: true });
 		}
 		if (this.workspace.localPath != null) {
@@ -124,15 +124,25 @@ export class WorkspaceNode extends SubscribeableViewNode<
 		item.id = this.id;
 		item.contextValue = contextValue;
 		item.iconPath = new ThemeIcon(this.workspace.type === 'cloud' ? 'cloud' : 'folder');
-		item.tooltip = `${this.workspace.name}\n${
-			cloud ? `Cloud Workspace ${this.workspace.shared ? '(Shared)' : ''}` : 'Local Workspace'
-		}${cloud && this.workspace.provider != null ? `\nProvider: ${this.workspace.provider}` : ''}`;
+		item.tooltip = cloud
+			? this.workspace.provider != null
+				? this.workspace.shared
+					? l10n.t(
+							'{0}\nCloud Workspace (Shared)\nProvider: {1}',
+							this.workspace.name,
+							this.workspace.provider,
+						)
+					: l10n.t('{0}\nCloud Workspace\nProvider: {1}', this.workspace.name, this.workspace.provider)
+				: this.workspace.shared
+					? l10n.t('{0}\nCloud Workspace (Shared)', this.workspace.name)
+					: l10n.t('{0}\nCloud Workspace', this.workspace.name)
+			: l10n.t('{0}\nLocal Workspace', this.workspace.name);
 
 		if (cloud && this.workspace.organizationId != null) {
-			descriptionItems.push('shared');
+			description = this.workspace.current ? l10n.t('current, shared') : l10n.t('shared');
 		}
 
-		item.description = descriptionItems.join(', ');
+		item.description = description;
 		return item;
 	}
 

@@ -1,4 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
 import { isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
@@ -36,7 +37,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 
 		const gitUri = await GitUri.fromUri(uri);
 		if (!gitUri.repoPath) {
-			void showNoRepositoryWarningMessage('Unable to open file comparison');
+			void showNoRepositoryWarningMessage(l10n.t('Unable to open file comparison'));
 
 			return;
 		}
@@ -50,13 +51,17 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		let ref;
 		let sha;
 		if (args?.stash) {
-			const title = `Open Changes with Stash${pad(GlyphChars.Dot, 2, 2)}`;
+			const title = l10n.t('Open Changes with Stash');
+			const titleSeparator = pad(GlyphChars.Dot, 2, 2);
+			const titleFileName = gitUri.getFormattedFileName({
+				truncateTo: quickPickTitleMaxChars - title.length - titleSeparator.length,
+			});
 			const pick = await showStashPicker(
 				svc.stash?.getStash(),
-				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
-				'Choose a stash to compare with',
+				l10n.t('Open Changes with Stash{0}{1}', titleSeparator, titleFileName),
+				l10n.t('Choose a stash to compare with'),
 				{
-					empty: `No stashes with '${gitUri.getFormattedFileName()}' found`,
+					empty: l10n.t("No stashes with '{0}' found", gitUri.getFormattedFileName()),
 					// Stashes should always come with files, so this should be fine (but protect it just in case)
 					filter: c => c.anyFiles?.some(f => f.path === path || f.originalPath === path) ?? true,
 				},
@@ -66,11 +71,15 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			ref = pick.ref;
 			sha = ref;
 		} else {
-			const title = `Open Changes with Branch or Tag${pad(GlyphChars.Dot, 2, 2)}`;
+			const title = l10n.t('Open Changes with Branch or Tag');
+			const titleSeparator = pad(GlyphChars.Dot, 2, 2);
+			const titleFileName = gitUri.getFormattedFileName({
+				truncateTo: quickPickTitleMaxChars - title.length - titleSeparator.length,
+			});
 			const pick = await showReferencePicker(
 				gitUri.repoPath,
-				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
-				'Choose a reference (branch, tag, etc) to compare with',
+				l10n.t('Open Changes with Branch or Tag{0}{1}', titleSeparator, titleFileName),
+				l10n.t('Choose a reference (branch, tag, etc) to compare with'),
 				{
 					allowedAdditionalInput: { rev: true },
 				},
@@ -92,16 +101,17 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			const rename = files.find(s => s.path === path);
 			if (rename?.originalPath != null) {
 				renamedUri = svc.getAbsoluteUri(rename.originalPath, gitUri.repoPath);
-				renamedTitle = `${basename(rename.originalPath)} (${shortenRevision(ref)})`;
+				renamedTitle = l10n.t('{0} ({1})', basename(rename.originalPath), shortenRevision(ref));
 			}
 		}
+		const title = renamedTitle ?? l10n.t('{0} ({1})', basename(gitUri.fsPath), shortenRevision(ref));
 
 		void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 			repoPath: gitUri.repoPath,
 			lhs: {
 				sha: sha,
 				uri: renamedUri ?? gitUri,
-				title: renamedTitle ?? `${basename(gitUri.fsPath)} (${shortenRevision(ref)})`,
+				title: title,
 			},
 			rhs: { sha: '', uri: gitUri },
 			range: args.range,

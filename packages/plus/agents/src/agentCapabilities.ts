@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { AgentHookEvent } from './types.js';
 import { canonicalBlockingHookEvents, canonicalNonBlockingHookEvents } from './types.js';
 
@@ -140,8 +141,9 @@ const codexCapabilities: AgentCapabilities = {
 	// hasn't trusted yet, with no log line or warning of any kind. Trust is granted via `/hooks`
 	// inside interactive Codex and is bound to the hook's hash, so a reinstall invalidates it. There
 	// is no known way to detect trust state from outside Codex, so this hint is unconditional.
-	manualActivation:
+	manualActivation: l10n.t(
 		"Codex won't run these hooks until you trust them — run `/hooks` in Codex. You'll need to trust them again if the hooks are reinstalled.",
+	),
 };
 
 const copilotCapabilities: AgentCapabilities = {

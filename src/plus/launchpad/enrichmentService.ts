@@ -1,4 +1,5 @@
 import type { CancellationToken, Disposable } from 'vscode';
+import { l10n } from 'vscode';
 import type { RemoteProvider, RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import {
@@ -86,7 +87,7 @@ export class EnrichmentService implements Disposable {
 
 		try {
 			if (
-				!(await ensureAccount(this.container, 'Pinning is a Preview feature and requires an account.', {
+				!(await ensureAccount(this.container, l10n.t('Pinning is a Preview feature and requires an account.'), {
 					source: 'launchpad',
 					detail: 'pin',
 				}))
@@ -136,10 +137,14 @@ export class EnrichmentService implements Disposable {
 
 		try {
 			if (
-				!(await ensureAccount(this.container, 'Snoozing is a Preview feature and requires an acccount.', {
-					source: 'launchpad',
-					detail: 'snooze',
-				}))
+				!(await ensureAccount(
+					this.container,
+					l10n.t('Snoozing is a Preview feature and requires an acccount.'),
+					{
+						source: 'launchpad',
+						detail: 'snooze',
+					},
+				))
 			) {
 				throw new Error('Unable to snooze item: subscription required');
 			}

@@ -1,5 +1,5 @@
 import type { CancellationToken, Disposable, Uri } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
@@ -50,7 +50,9 @@ export class VslsGuestService implements Disposable {
 
 		void this.container.git.setEnabledContext(false);
 		void window.showWarningMessage(
-			'GitLens features will be unavailable. Unable to connect to the host GitLens service. The host may have disabled GitLens guest access or may not have GitLens installed.',
+			l10n.t(
+				'GitLens features will be unavailable. Unable to connect to the host GitLens service. The host may have disabled GitLens guest access or may not have GitLens installed.',
+			),
 		);
 	}
 

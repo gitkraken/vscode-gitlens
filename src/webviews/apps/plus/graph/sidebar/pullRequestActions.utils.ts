@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { GraphSidebarPullRequest } from '../../../../plus/graph/protocol.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
 
@@ -34,16 +35,16 @@ export function getPullRequestLeafActions(pr: GraphSidebarPullRequest): TreeItem
 			// switch that would checkout the branch a second time.
 			actions.push({
 				icon: 'empty-window',
-				label: 'Open Worktree in New Window...',
+				label: l10n.t('Open Worktree in New Window...'),
 				action: 'gitlens.graph.openInWorktree',
 			});
 		} else {
 			actions.push({
 				icon: 'gl-switch',
-				label: 'Switch to Branch...',
+				label: l10n.t('Switch to Branch...'),
 				action: 'gitlens.switchToPullRequest:graph',
 				altIcon: 'empty-window',
-				altLabel: 'Open in Worktree...',
+				altLabel: l10n.t('Open in Worktree...'),
 				altAction: 'gitlens.graph.openInWorktree',
 			});
 		}
@@ -51,10 +52,10 @@ export function getPullRequestLeafActions(pr: GraphSidebarPullRequest): TreeItem
 
 	actions.push({
 		icon: 'globe',
-		label: 'Open Pull Request on Remote',
+		label: l10n.t('Open Pull Request on Remote'),
 		action: 'gitlens.openPullRequestOnRemote:graph',
 		altIcon: 'copy',
-		altLabel: 'Copy Pull Request URL',
+		altLabel: l10n.t('Copy Pull Request URL'),
 		altAction: 'gitlens.copyRemotePullRequestUrl:graph',
 	});
 

@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { uuid } from '@gitlens/utils/crypto.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { ollamaProviderDescriptor as provider } from '../constants.js';
@@ -92,13 +93,16 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 			this.id,
 			{
 				currentUrl: defaultBaseUrl,
-				title: 'Connect to Ollama',
-				placeholder: 'Please enter your Ollama server URL to use this feature',
+				title: l10n.t('Connect to Ollama'),
+				placeholder: l10n.t('Please enter your Ollama server URL to use this feature'),
+				prompt: l10n.t('Enter your Ollama server URL'),
 				validator: async (u: string) => {
 					const valid = await this.validateUrl(u);
 					return valid
 						? undefined
-						: 'Could not connect to Ollama server. Make sure Ollama is installed and running locally.';
+						: l10n.t(
+								'Could not connect to Ollama server. Make sure Ollama is installed and running locally.',
+							);
 				},
 			},
 			silent,

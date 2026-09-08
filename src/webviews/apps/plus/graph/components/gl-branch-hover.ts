@@ -1,6 +1,7 @@
 import type { Remote } from '@eamodio/supertalk';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -539,8 +540,8 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 			// no count to show; the probe is a presence bit).
 			if (this.wip?.hasUnpublishedCommits !== true) return nothing;
 
-			return html`<gl-tooltip content="Unpublished commits" placement="bottom">
-				<span class="unpublished" aria-label="Unpublished commits" tabindex="0">
+			return html`<gl-tooltip content=${l10n.t('Unpublished commits')} placement="bottom">
+				<span class="unpublished" aria-label=${l10n.t('Unpublished commits')} tabindex="0">
 					<code-icon icon="arrow-up"></code-icon>
 				</span>
 			</gl-tooltip>`;
@@ -571,10 +572,10 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 			return html`<span class="wip-status"
 				>${
 					!this.wipDetails
-						? 'Has working changes'
+						? l10n.t('Has working changes')
 						: this.wip.statsUnavailable === true
-							? "Couldn't load changes"
-							: 'Loading changes…'
+							? l10n.t("Couldn't load changes")
+							: l10n.t('Loading changes…')
 				}</span
 			>`;
 		}
@@ -621,7 +622,7 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 		if (hasPr) {
 			actions.push(
 				html`<action-item
-					label="Open All Changes"
+					label=${l10n.t('Open All Changes')}
 					icon="diff-multiple"
 					href=${link('gitlens.openPullRequestChanges:')}
 				></action-item>`,
@@ -629,13 +630,17 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 			// The title link now opens the graph's PR sheet instead of the remote — this is the only
 			// remaining way to leave the hover for the pull request itself.
 			actions.push(
-				html`<action-item label="Open Pull Request on Remote" icon="globe" href=${pr.url}></action-item>`,
+				html`<action-item
+					label=${l10n.t('Open Pull Request on Remote')}
+					icon="globe"
+					href=${pr.url}
+				></action-item>`,
 			);
 		} else if (!opened) {
 			// Skipped for the opened branch without a PR — lhs == rhs, so the multi-diff would be empty.
 			actions.push(
 				html`<action-item
-					label="Open All Changes"
+					label=${l10n.t('Open All Changes')}
 					icon="diff-multiple"
 					href=${link('gitlens.graph.openChangedFileDiffsWithMergeBase')}
 				></action-item>`,
@@ -646,7 +651,7 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 			// The branch IS HEAD, so the compares collapse to just the working tree.
 			actions.push(
 				html`<action-item
-					label="Compare with Working Tree"
+					label=${l10n.t('Compare with Working Tree')}
 					icon="gl-compare-ref-working"
 					href=${link('gitlens.graph.compareWithWorking')}
 				></action-item>`,
@@ -654,10 +659,10 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 		} else if (hasPr) {
 			actions.push(
 				html`<action-item
-					label="Compare Pull Request"
+					label=${l10n.t('Compare Pull Request')}
 					icon="git-compare"
 					href=${link('gitlens.openPullRequestComparison:')}
-					alt-label="Compare with Working Tree"
+					alt-label=${l10n.t('Compare with Working Tree')}
 					alt-icon="gl-compare-ref-working"
 					alt-href=${link('gitlens.graph.compareWithWorking')}
 				></action-item>`,
@@ -665,10 +670,10 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 		} else {
 			actions.push(
 				html`<action-item
-					label="Compare with HEAD"
+					label=${l10n.t('Compare with HEAD')}
 					icon="compare-changes"
 					href=${link('gitlens.graph.compareBranchWithHead')}
-					alt-label="Compare with Working Tree"
+					alt-label=${l10n.t('Compare with Working Tree')}
 					alt-icon="gl-compare-ref-working"
 					alt-href=${link('gitlens.graph.compareWithWorking')}
 				></action-item>`,
@@ -679,8 +684,8 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 			if (isWorktree) {
 				actions.push(
 					html`<action-item
-						label="Open Worktree in New Window"
-						alt-label="Open Worktree"
+						label=${l10n.t('Open Worktree in New Window')}
+						alt-label=${l10n.t('Open Worktree')}
 						icon="empty-window"
 						alt-icon="browser"
 						href=${link('gitlens.openWorktreeInNewWindow:')}
@@ -690,7 +695,7 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 			} else {
 				actions.push(
 					html`<action-item
-						label="Switch to Branch..."
+						label=${l10n.t('Switch to Branch...')}
 						icon="gl-switch"
 						href=${link('gitlens.switchToBranch:')}
 					></action-item>`,

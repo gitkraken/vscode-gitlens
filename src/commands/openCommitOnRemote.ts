@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { deletedOrMissing } from '@gitlens/git/models/revision.js';
@@ -78,7 +79,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 				this.container,
 				gitUri,
 				editor,
-				args?.clipboard ? 'Copy Remote Commit URL' : 'Open Commit On Remote',
+				args?.clipboard ? l10n.t('Copy Remote Commit URL') : l10n.t('Open Commit On Remote'),
 			)
 		)?.path;
 		if (!repoPath) return;
@@ -96,8 +97,8 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 				if (blame == null) {
 					void showFileNotUnderSourceControlWarningMessage(
 						args?.clipboard
-							? 'Unable to copy the commit SHA'
-							: 'Unable to open the commit on the remote provider',
+							? l10n.t('Unable to copy the commit SHA')
+							: l10n.t('Unable to open the commit on the remote provider'),
 					);
 
 					return;
@@ -112,8 +113,8 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 			if (args.sha == null || args.sha === deletedOrMissing || isUncommitted(args.sha)) {
 				void showCommitNotFoundWarningMessage(
 					args?.clipboard
-						? 'Unable to copy the commit SHA'
-						: 'Unable to open the commit on the remote provider',
+						? l10n.t('Unable to copy the commit SHA')
+						: l10n.t('Unable to open the commit on the remote provider'),
 				);
 
 				return;
@@ -129,7 +130,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenCommitOnRemoteCommand');
-			void showGenericErrorMessage('Unable to open commit on remote provider');
+			void showGenericErrorMessage(l10n.t('Unable to open commit on remote provider'));
 		}
 	}
 }

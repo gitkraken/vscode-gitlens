@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions, Uri } from 'vscode';
-import { ViewColumn } from 'vscode';
+import { l10n, ViewColumn } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import { deletedOrMissing } from '@gitlens/git/models/revision.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
@@ -137,37 +137,59 @@ export class DiffWithCommand extends GlCommandBase {
 			const lhs = getSettledValue(lhsResult);
 			const rhs = getSettledValue(rhsResult);
 
-			let rhsSuffix = shortenRevision(rhsResolved.revision);
+			const rhsFileName = basename(args.rhs.uri.fsPath);
+			const rhsRevision = shortenRevision(rhsResolved.revision);
+			let generatedRhsTitle = rhsRevision ? l10n.t('{0} ({1})', rhsFileName, rhsRevision) : rhsFileName;
 			if (rhs == null) {
 				if (isUncommitted(rhsResolved.sha)) {
-					rhsSuffix = 'Deleted';
-				} else if (!rhsSuffix && rhsResolved.sha === deletedOrMissing) {
-					rhsSuffix = 'Not in Working Tree';
+					generatedRhsTitle = l10n.t('{0} (Deleted)', rhsFileName);
+				} else if (!rhsRevision && rhsResolved.sha === deletedOrMissing) {
+					generatedRhsTitle = l10n.t('{0} (Not in Working Tree)', rhsFileName);
+				} else if (args.fromComparison) {
+					generatedRhsTitle = rhsRevision
+						? l10n.t('{0} (Missing in {1})', rhsFileName, rhsRevision)
+						: l10n.t('{0} (Missing)', rhsFileName);
 				} else {
-					rhsSuffix = `${args.fromComparison ? 'Missing' : 'Deleted'}${!rhsSuffix ? '' : ` in ${rhsSuffix}`}`;
+					generatedRhsTitle = rhsRevision
+						? l10n.t('{0} (Deleted in {1})', rhsFileName, rhsRevision)
+						: l10n.t('{0} (Deleted)', rhsFileName);
 				}
 			} else if (lhs == null) {
 				if (!args.fromComparison) {
-					rhsSuffix = `Added${!rhsSuffix ? '' : ` in ${rhsSuffix}`}`;
+					generatedRhsTitle = rhsRevision
+						? l10n.t('{0} (Added in {1})', rhsFileName, rhsRevision)
+						: l10n.t('{0} (Added)', rhsFileName);
 				}
 			}
 
-			let lhsSuffix = shortenRevision(lhsResolved.revision);
+			const lhsFileName = basename(args.lhs.uri.fsPath);
+			const lhsRevision = shortenRevision(lhsResolved.revision);
+			let generatedLhsTitle: string | undefined;
 			if (lhsResolved.sha === deletedOrMissing) {
-				lhsSuffix = args.fromComparison ? `Missing${!lhsSuffix ? '' : ` in ${lhsSuffix}`}` : '';
+				if (args.fromComparison) {
+					generatedLhsTitle = lhsRevision
+						? l10n.t('{0} (Missing in {1})', lhsFileName, lhsRevision)
+						: l10n.t('{0} (Missing)', lhsFileName);
+				}
 			} else if (lhs == null && !rhsResolved.sha) {
 				if (rhs != null) {
-					lhsSuffix = !lhsSuffix ? '' : `Not in ${lhsSuffix}`;
-					rhsSuffix = '';
+					generatedLhsTitle = lhsRevision ? l10n.t('{0} (Not in {1})', lhsFileName, lhsRevision) : undefined;
+					generatedRhsTitle = rhsFileName;
+				} else if (args.fromComparison) {
+					generatedLhsTitle = lhsRevision
+						? l10n.t('{0} (Missing in {1})', lhsFileName, lhsRevision)
+						: l10n.t('{0} (Missing)', lhsFileName);
 				} else {
-					lhsSuffix = `${args.fromComparison ? 'Missing' : 'Deleted'}${!lhsSuffix ? '' : ` in ${lhsSuffix}`}`;
+					generatedLhsTitle = lhsRevision
+						? l10n.t('{0} (Deleted in {1})', lhsFileName, lhsRevision)
+						: l10n.t('{0} (Deleted)', lhsFileName);
 				}
+			} else if (lhs != null || lhsRevision) {
+				generatedLhsTitle = lhsRevision ? l10n.t('{0} ({1})', lhsFileName, lhsRevision) : lhsFileName;
 			}
 
-			if (lhsTitle == null && (lhs != null || lhsSuffix)) {
-				lhsTitle = `${basename(args.lhs.uri.fsPath)}${lhsSuffix ? ` (${lhsSuffix})` : ''}`;
-			}
-			rhsTitle ??= `${basename(args.rhs.uri.fsPath)}${rhsSuffix ? ` (${rhsSuffix})` : ''}`;
+			lhsTitle ??= generatedLhsTitle;
+			rhsTitle ??= generatedRhsTitle;
 
 			const title =
 				lhsTitle != null && rhsTitle != null
@@ -186,7 +208,7 @@ export class DiffWithCommand extends GlCommandBase {
 			);
 		} catch (ex) {
 			Logger.error(ex, 'DiffWithCommand');
-			void showGenericErrorMessage('Unable to open comparison');
+			void showGenericErrorMessage(l10n.t('Unable to open comparison'));
 		}
 	}
 }

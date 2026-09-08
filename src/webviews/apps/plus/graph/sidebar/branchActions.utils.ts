@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { GraphScopeOrigin, GraphSidebarBranch } from '../../../../plus/graph/protocol.js';
 import type { TreeItemAction, TreeModel } from '../../../shared/components/tree/base.js';
 import { providerIconName } from '../../../shared/git-utils.js';
@@ -81,7 +82,7 @@ export function createWorktreeScopeAction(args: {
 		// worktree" and its inverse. Deliberately not `gl-worktree`, which is worktree IDENTITY and never
 		// scope, nor `target`, which is the focus vocabulary the alt verb below keeps.
 		icon: args.isScoped ? 'gl-unscope' : 'gl-scope',
-		label: args.isScoped ? 'Unscope Worktree' : 'Scope to Worktree',
+		label: args.isScoped ? l10n.t('Unscope Worktree') : l10n.t('Scope to Worktree'),
 		action: focusRefActionId,
 		arguments: [
 			{
@@ -94,7 +95,7 @@ export function createWorktreeScopeAction(args: {
 			} satisfies FocusRefActionArgs,
 		],
 		altIcon: 'target',
-		altLabel: 'Focus on Branch',
+		altLabel: l10n.t('Focus on Branch'),
 		altAction: focusRefActionId,
 		// `worktreePath` on the ALT (plain Focus) payload too, but no `origin`: this verb never
 		// perspectives or UNperspectives, which is what "Focus on Branch" promises. The path is still
@@ -201,21 +202,21 @@ export function getBranchLeafActions(b: GraphSidebarBranch): TreeItemAction[] {
 	if (b.tracking?.behind) {
 		actions.push({
 			icon: 'repo-pull',
-			label: 'Pull',
+			label: l10n.t('Pull'),
 			action: 'gitlens.graph.pull',
 			altIcon: 'repo-fetch',
-			altLabel: 'Fetch',
+			altLabel: l10n.t('Fetch'),
 			altAction: 'gitlens.fetch:graph',
 		});
 	} else if (b.tracking?.ahead) {
-		actions.push({ icon: 'repo-push', label: 'Push', action: 'gitlens.graph.push' });
+		actions.push({ icon: 'repo-push', label: l10n.t('Push'), action: 'gitlens.graph.push' });
 	} else if (b.upstream && !b.upstream.missing) {
 		actions.push({
 			icon: 'repo-fetch',
-			label: 'Fetch',
+			label: l10n.t('Fetch'),
 			action: 'gitlens.fetch:graph',
 			altIcon: 'repo-pull',
-			altLabel: 'Pull',
+			altLabel: l10n.t('Pull'),
 			altAction: 'gitlens.graph.pull',
 		});
 	}
@@ -223,35 +224,35 @@ export function getBranchLeafActions(b: GraphSidebarBranch): TreeItemAction[] {
 	if (b.current) {
 		actions.unshift({
 			icon: 'gl-switch',
-			label: 'Switch to Another Branch...',
+			label: l10n.t('Switch to Another Branch...'),
 			action: 'gitlens.switchToAnotherBranch:graph',
 		});
 		actions.push({
 			icon: 'gl-compare-ref-working',
-			label: 'Compare with Working Tree',
+			label: l10n.t('Compare with Working Tree'),
 			action: 'gitlens.graph.compareWithWorking',
 		});
 	} else if (b.checkedOut) {
 		actions.push({
 			icon: 'empty-window',
-			label: 'Open Worktree in New Window...',
+			label: l10n.t('Open Worktree in New Window...'),
 			action: 'gitlens.openWorktreeInNewWindow:graph',
 			altIcon: 'window',
-			altLabel: 'Open Worktree...',
+			altLabel: l10n.t('Open Worktree...'),
 			altAction: 'gitlens.openWorktree:graph',
 		});
 	} else {
 		actions.unshift({
 			icon: 'gl-switch',
-			label: 'Switch to Branch...',
+			label: l10n.t('Switch to Branch...'),
 			action: 'gitlens.switchToBranch:graph',
 		});
 		actions.push({
 			icon: 'compare-changes',
-			label: 'Compare with HEAD',
+			label: l10n.t('Compare with HEAD'),
 			action: 'gitlens.graph.compareBranchWithHead',
 			altIcon: 'gl-compare-ref-working',
-			altLabel: 'Compare with Working Tree',
+			altLabel: l10n.t('Compare with Working Tree'),
 			altAction: 'gitlens.graph.compareWithWorking',
 		});
 	}
@@ -260,7 +261,7 @@ export function getBranchLeafActions(b: GraphSidebarBranch): TreeItemAction[] {
 	// flexing label) and stays put no matter which state-dependent actions precede it — except on a
 	// hidden row, where the un-hide chip below takes the edge as the row's primary recovery action.
 	actions.push(
-		createFocusRefAction('Focus on Branch', {
+		createFocusRefAction(l10n.t('Focus on Branch'), {
 			branchName: b.name,
 			upstreamName: b.upstream?.missing ? undefined : b.upstream?.name,
 		}),
@@ -273,10 +274,14 @@ export function getBranchLeafActions(b: GraphSidebarBranch): TreeItemAction[] {
 		// un-hiding the whole remote. Whole-remote recovery stays on the remote header row's chip and
 		// the context menus.
 		if (isHiddenByRemoteWebviewItem(webviewItem) || isHiddenWebviewItem(webviewItem)) {
-			actions.push({ icon: 'eye', label: 'Show Remote Branch', action: 'gitlens.graph.showRemoteBranch' });
+			actions.push({
+				icon: 'eye',
+				label: l10n.t('Show Remote Branch'),
+				action: 'gitlens.graph.showRemoteBranch',
+			});
 		}
 	} else if (isHiddenWebviewItem(webviewItem)) {
-		actions.push({ icon: 'eye', label: 'Show Branch', action: 'gitlens.graph.showLocalBranch' });
+		actions.push({ icon: 'eye', label: l10n.t('Show Branch'), action: 'gitlens.graph.showLocalBranch' });
 	}
 
 	return actions;

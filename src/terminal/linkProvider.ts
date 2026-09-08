@@ -1,5 +1,5 @@
 import type { CancellationToken, Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
-import { commands, window } from 'vscode';
+import { commands, l10n, window } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitTag } from '@gitlens/git/models/tag.js';
@@ -219,7 +219,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 			links.push({
 				startIndex: rangeMatch.index,
 				length: range.length,
-				tooltip: showIn === 'quickpick' ? 'Show Commits' : 'Show Comparison',
+				tooltip: showIn === 'quickpick' ? l10n.t('Show Commits') : l10n.t('Show Comparison'),
 				command: createRangeLinkCommand(
 					showIn,
 					repoPath,
@@ -245,7 +245,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				const link: GitTerminalLink<GitWizardCommandArgs> = {
 					startIndex: match.index + git.length,
 					length: command.length,
-					tooltip: 'Open in Git Command Palette',
+					tooltip: l10n.t('Open in Git Command Palette'),
 					command: createTerminalLinkCommand<GitWizardCommandArgs>('gitlens.gitCommands', {
 						command: command as GitWizardCommandArgs['command'],
 					}),
@@ -266,7 +266,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				links.push({
 					startIndex: index,
 					length: ref.length,
-					tooltip: 'Show HEAD',
+					tooltip: l10n.t('Show HEAD'),
 					command: createRefLinkCommand(
 						showIn,
 						repoPath,
@@ -289,7 +289,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				links.push({
 					startIndex: index,
 					length: ref.length,
-					tooltip: 'Show Branch',
+					tooltip: l10n.t('Show Branch'),
 					command: createRefLinkCommand(showIn, repoPath, getReferenceFromBranch(branch), branch.sha, {
 						repoPath: repoPath,
 						branch: branch.name,
@@ -308,7 +308,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				links.push({
 					startIndex: index,
 					length: ref.length,
-					tooltip: 'Show Tag',
+					tooltip: l10n.t('Show Tag'),
 					command: createRefLinkCommand(showIn, repoPath, getReferenceFromTag(tag), tag.sha, {
 						repoPath: repoPath,
 						tag: tag.name,
@@ -324,7 +324,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				links.push({
 					startIndex: index,
 					length: ref.length,
-					tooltip: 'Show Commit',
+					tooltip: l10n.t('Show Commit'),
 					command: createCommitLinkCommand(showIn, repoPath, ref),
 				});
 			}

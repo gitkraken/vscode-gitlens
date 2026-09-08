@@ -30829,7 +30829,7 @@
 		"bundle:stats": "node ./scripts/build.mjs --mode production --stats",
 		"check": "pnpm run check:deps && oxlint --type-aware --type-check && pnpm run check:l10n",
 		"check:deps": "node ./scripts/check-deps.mjs",
-		"check:fix": "oxlint --type-aware --type-check --fix && pnpm run check:deps",
+		"check:fix": "oxlint --type-aware --type-check --fix && pnpm run check:deps && pnpm run check:l10n",
 		"clean": "pnpm -r run clean && pnpx rimraf --glob dist out .vscode-test .vscode-test-web **/tsconfig*.tsbuildinfo",
 		"clean:all": "pnpm run clean && pnpm run clean:deps",
 		"clean:deps": "pnpm -r run clean:deps && pnpx rimraf --glob **/node_modules",
@@ -30890,7 +30890,8 @@
 		"generate:l10n": "node ./scripts/localization.mjs export",
 		"check:l10n": "node ./scripts/localization.mjs check",
 		"generate:l10n:pseudo": "node ./scripts/localization.mjs pseudo",
-		"test:localization": "node --test scripts/__tests__/localization.test.mjs"
+		"test:localization": "node --test scripts/__tests__/localization.test.mjs",
+		"test:localization:browser": "node --test scripts/__tests__/localization.browser.test.mjs"
 	},
 	"dependencies": {
 		"@awesome.me/webawesome": "catalog:",

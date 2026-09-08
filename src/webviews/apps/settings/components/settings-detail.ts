@@ -1,9 +1,11 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { boxSizingBase, linkBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import { linkify } from '../../shared/components/linkify.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
@@ -280,15 +282,20 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 			return html`<section class="no-results" aria-labelledby="no-results-title">
 				<h2 class="no-results__title" id="no-results-title">
 					<code-icon icon="search" aria-hidden="true"></code-icon>
-					No settings match “${query}”
+					${l10n.t('No settings match “{query}”', { query: query })}
 				</h2>
-				<p>Check your spelling, or try a setting name like <code>gitlens.currentLine.format</code>.</p>
 				<p>
-					You can also
-					<a href="command:workbench.action.openSettings?${encodeURIComponent(JSON.stringify(target))}"
-						>open the Settings UI</a
-					>
-					to search every GitLens setting.
+					${localizedContent(l10n.t('Check your spelling, or try a setting name like {setting}.'), {
+						setting: html`<code>gitlens.currentLine.format</code>`,
+					})}
+				</p>
+				<p>
+					${localizedContent(l10n.t('You can also {link} to search every GitLens setting.'), {
+						link: html`<a
+							href="command:workbench.action.openSettings?${encodeURIComponent(JSON.stringify(target))}"
+							>${l10n.t('open the Settings UI')}</a
+						>`,
+					})}
 				</p>
 			</section>`;
 		}
@@ -335,10 +342,10 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 										size="large"
 										.checked=${masterOn && !masterDisabledByOrg}
 										?disabled=${masterDisabledByOrg}
-										label="Enable ${category.name}"
+										label=${l10n.t('Enable {category}', { category: category.name })}
 										hint=${ifDefined(
 											masterDisabledByOrg
-												? 'AI features have been disabled by your GitKraken admin.'
+												? l10n.t('AI features have been disabled by your GitKraken admin.')
 												: undefined,
 										)}
 										@gl-change-value=${(e: Event) => {
@@ -355,13 +362,16 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 						category.command != null
 							? html`<p class="header__tip">
 									<code-icon icon="bell" aria-hidden="true"></code-icon>
-									<span
-										>Tip — run
-										<a href=${createCommandLink(category.command.command)}
-											>${category.command.label}</a
-										>
-										to override this for the current window.</span
-									>
+									<span>
+										${localizedContent(
+											l10n.t('Tip — run {command} to override this for the current window.'),
+											{
+												command: html`<a href=${createCommandLink(category.command.command)}
+													>${category.command.label}</a
+												>`,
+											},
+										)}
+									</span>
 								</p>`
 							: nothing
 					}
@@ -369,8 +379,8 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 
 				${
 					category.preview != null
-						? html`<div class="preview" role="region" aria-label="Live preview">
-								<h3 class="preview__label">Live preview</h3>
+						? html`<div class="preview" role="region" aria-label=${l10n.t('Live preview')}>
+								<h3 class="preview__label">${l10n.t('Live preview')}</h3>
 								<gl-settings-preview
 									kind=${category.preview}
 									.actions=${this.actions}
@@ -394,16 +404,20 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 					this.hasSettingsSearch
 						? html`<p class="footer">
 								<code-icon icon="gear" aria-hidden="true"></code-icon>
-								<span
-									>For more options, open the
-									<a
-										href="command:workbench.action.openSettings?${encodeURIComponent(
-											JSON.stringify(this.settingsSearch.split(' or ')[0]),
-										)}"
-										>Settings UI</a
-									>
-									and search for <code>${this.settingsSearch}</code></span
-								>
+								<span>
+									${localizedContent(
+										l10n.t('For more options, open the {settings} and search for {query}'),
+										{
+											settings: html`<a
+												href="command:workbench.action.openSettings?${encodeURIComponent(
+													JSON.stringify(this.settingsSearch.split(' or ')[0]),
+												)}"
+												>${l10n.t('Settings UI')}</a
+											>`,
+											query: html`<code>${this.settingsSearch}</code>`,
+										},
+									)}
+								</span>
 								${this.renderLearnMore(category)}
 							</p>`
 						: category.learnMoreUrl != null
@@ -416,7 +430,11 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 
 	private renderLearnMore(category: SettingsCategory) {
 		if (category.learnMoreUrl == null) return nothing;
-		return html`<a href=${category.learnMoreUrl} aria-label="Learn more about ${category.name}">Learn more</a>`;
+		return html`<a
+			href=${category.learnMoreUrl}
+			aria-label=${l10n.t('Learn more about {category}', { category: category.name })}
+			>${l10n.t('Learn more')}</a
+		>`;
 	}
 
 	/**

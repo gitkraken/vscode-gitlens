@@ -44,6 +44,7 @@ import {
 	reorderZones,
 	solveZoneLayout,
 } from '@gitkraken/commit-graph/zones.js';
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues, TemplateResult } from 'lit';
 import { html, LitElement, nothing, render } from 'lit';
 import { property, state } from 'lit/decorators.js';
@@ -53,7 +54,7 @@ import type { GlPopover } from '@gitlens/components/components/overlays/popover.
 import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
 import { RovingTabindexController } from '@gitlens/components/controllers/rovingTabindex.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
-import { formatDate as formatGitLensDate, fromNow as gitlensFromNow } from '@gitlens/utils/date.js';
+import { formatDate as formatGitLensDate, getNumericFormat, fromNow as gitlensFromNow } from '@gitlens/utils/date.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import { dispatchContextMenuAt } from '@gitlens/utils/dom.js';
@@ -61,7 +62,6 @@ import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import type { KeyBindingDescriptor } from '@gitlens/utils/keys/keybinding.js';
 import type { KeymapDispatcher } from '@gitlens/utils/keys/keymapDispatcher.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { GraphRowAction, GraphWipRowBranchResolver } from './contracts/contributions.js';
 import type { GraphKeymapScope } from './contracts/keyboard.js';
 import type { GraphRefFinderElement } from './contracts/refFinder.js';
@@ -497,10 +497,10 @@ interface RenderCtx {
 // Changes-column mode picker: the four visualizations as an ordered glyph strip. Labels drive the
 // delegated tooltip + the accessible name; order matches the native menu.
 const changesModeOptions: readonly { mode: ChangesColumnMode; label: string }[] = [
-	{ mode: 'numbers', label: 'Numbers' },
-	{ mode: 'squares', label: 'Squares' },
-	{ mode: 'bar', label: 'Bar' },
-	{ mode: 'bipolar', label: 'Bipolar' },
+	{ mode: 'numbers', label: l10n.t('Numbers') },
+	{ mode: 'squares', label: l10n.t('Squares') },
+	{ mode: 'bar', label: l10n.t('Bar') },
+	{ mode: 'bipolar', label: l10n.t('Bipolar') },
 ];
 
 // Static glyph templates for the mode picker — tiny iconographic shapes at glyph scale (fixed, no
@@ -536,7 +536,7 @@ const rowControlSelector = '.gl-graph__row-action, [data-ref-metadata-type], .gl
 
 // Screen-reader announcement while more commits page in — one constant so the wording can't fork
 // between the prefetch, edge-nav, and debounce paths that trigger it.
-const loadingMoreAnnouncement = 'Loading more commits…';
+const loadingMoreAnnouncement = l10n.t('Loading more commits…');
 
 // First HTMLElement on the event's composed path (crossing any shadow roots) matching `match`, else
 // undefined. One walk for every dataset-based resolution; the predicates are hoisted module constants,
@@ -2437,7 +2437,7 @@ export class GlCommitGraph extends LitElement {
 
 	// Zone id → header display name (Title Case), the same text the header cell renders as its label.
 	private zoneDisplayName(id: string): string {
-		if (id === 'graph') return 'Graph';
+		if (id === 'graph') return l10n.t('Graph');
 		return this.zones.find(z => z.id === id)?.label ?? id;
 	}
 
@@ -3583,10 +3583,14 @@ export class GlCommitGraph extends LitElement {
 
 		// Announce the change for screen readers (the row count change is otherwise silent).
 		if (toggle.wasCollapsed) {
-			this.announce('Lane expanded.');
+			this.announce(l10n.t('Lane expanded.'));
 		} else {
 			const hidden = this.hiddenCountByTipSha.get(tipSha) ?? 0;
-			this.announce(`Lane collapsed. ${hidden} ${hidden === 1 ? 'commit' : 'commits'} hidden.`);
+			this.announce(
+				hidden === 1
+					? l10n.t('Lane collapsed. {0} commit hidden.', hidden)
+					: l10n.t('Lane collapsed. {0} commits hidden.', hidden),
+			);
 		}
 	}
 
@@ -3801,7 +3805,7 @@ export class GlCommitGraph extends LitElement {
 		if (sha == null || anchor == null) return false;
 
 		this._peekOpen = this.requestPeek({ action: 'toggle', sha: sha, anchor: anchor, open: false });
-		this.announce(this._peekOpen ? 'Commit info shown.' : 'Commit info hidden.');
+		this.announce(this._peekOpen ? l10n.t('Commit info shown.') : l10n.t('Commit info hidden.'));
 		return true;
 	}
 
@@ -3815,7 +3819,7 @@ export class GlCommitGraph extends LitElement {
 
 		this._peekOpen = false;
 		this.requestPeek({ action: 'close' });
-		this.announce('Commit info hidden.');
+		this.announce(l10n.t('Commit info hidden.'));
 	}
 
 	/** The card closed by a path this element can't see (Esc pops the hover's overlay-stack entry directly)
@@ -3825,7 +3829,7 @@ export class GlCommitGraph extends LitElement {
 		if (!this._peekOpen) return;
 
 		this._peekOpen = false;
-		this.announce('Commit info hidden.');
+		this.announce(l10n.t('Commit info hidden.'));
 	}
 
 	/** Follows the row cursor while peeked. Deferred a frame so the move's scroll + virtualizer render have
@@ -5112,18 +5116,20 @@ export class GlCommitGraph extends LitElement {
 		// below would spin with no recovery — offer the failure and a way out instead.
 		if (this.rowsError && this.rows == null) {
 			return html`<div class="gl-graph__status gl-graph__status--error" role="status">
-				<span>Unable to load commits</span>
-				<button type="button" class="gl-graph__status-action" @click=${this.onRetryLoadClick}>Retry</button>
+				<span>${l10n.t('Unable to load commits')}</span>
+				<button type="button" class="gl-graph__status-action" @click=${this.onRetryLoadClick}>
+					${l10n.t('Retry')}
+				</button>
 			</div>`;
 		}
 
 		if (this.loading || this.rows == null) {
 			return html`<div class="gl-graph__status" role="status">
-				<code-icon icon="loading" modifier="spin"></code-icon><span>Loading commits…</span>
+				<code-icon icon="loading" modifier="spin"></code-icon><span>${l10n.t('Loading commits…')}</span>
 			</div>`;
 		}
 
-		const message = this.rows.length === 0 ? 'No commits' : 'No matching commits';
+		const message = this.rows.length === 0 ? l10n.t('No commits') : l10n.t('No matching commits');
 		return html`<div class="gl-graph__status" role="status"><span>${message}</span></div>`;
 	}
 
@@ -5165,34 +5171,34 @@ export class GlCommitGraph extends LitElement {
 				<button
 					type="button"
 					class="gl-graph__changes-optin-button${collapsed ? ' gl-graph__changes-optin-button--icon' : ''}"
-					aria-label="Show Changes Column"
+					aria-label=${l10n.t('Show Changes Column')}
 				>
-					${collapsed ? html`<code-icon icon="eye"></code-icon>` : 'Show'}
+					${collapsed ? html`<code-icon icon="eye"></code-icon>` : l10n.t('Show')}
 				</button>
 				<button
 					type="button"
 					class="gl-graph__changes-optin-hide"
-					aria-label="Hide Column"
+					aria-label=${l10n.t('Hide Column')}
 					@click=${this.onChangesOptInHideClick}
 				>
-					Hide
+					${l10n.t('Hide')}
 				</button>
 				<span slot="content" class="gl-graph__changes-optin-tooltip"
-					><span class="gl-graph__changes-optin-tooltip-title">Show Changes Column</span
+					><span class="gl-graph__changes-optin-tooltip-title">${l10n.t('Show Changes Column')}</span
 					><span
-						>Computes diff stats for loaded commits in the background — can be intensive in very large
-						repos.</span
-					><span class="gl-graph__changes-optin-tooltip-sub">Enable once for all repos.</span></span
+						>${l10n.t('Computes diff stats for loaded commits in the background — can be intensive in very large repos.')}</span
+					><span class="gl-graph__changes-optin-tooltip-sub"
+						>${l10n.t('Enable once for all repos.')}</span
+					></span
 				>
 			</gl-tooltip>
 			${
 				narrow
 					? nothing
 					: html`<span class="gl-graph__changes-optin-help"
-								>Computes diff stats for loaded commits in the background — can be intensive in very
-								large repos.</span
+								>${l10n.t('Computes diff stats for loaded commits in the background — can be intensive in very large repos.')}</span
 							>
-							<span class="gl-graph__changes-optin-sub">Enable once for all repos.</span>`
+							<span class="gl-graph__changes-optin-sub">${l10n.t('Enable once for all repos.')}</span>`
 			}
 		</div>`;
 	}
@@ -5242,31 +5248,49 @@ export class GlCommitGraph extends LitElement {
 		// "No results" reads even while a background page load is in flight — every other state needs the
 		// load settled first so the counts it reports are stable.
 		if (sr.count === 0) {
-			return html`<span class="gl-graph__results-bar-message">No results found</span>`;
+			return html`<span class="gl-graph__results-bar-message">${l10n.t('No results found')}</span>`;
 		}
 		if (this.loading) return undefined;
 
 		const allLoaded = !sr.hasMore && this.searchResultsRenderedCount === sr.count;
 		if (allLoaded) {
+			const count = getNumericFormat()(sr.count);
 			return html`<span class="gl-graph__results-bar-message"
-				>Showing all ${pluralize('result', sr.count)}</span
+				>${sr.count === 1 ? l10n.t('Showing all {0} result', count) : l10n.t('Showing all {0} results', count)}</span
 			>`;
 		}
 
 		// Disclose the shortfall either way, but only offer the action when a page could still arrive — a
 		// drained walk means the unrendered results are unreachable from it (a peer worktree whose HEAD is
 		// not in `--all`, say), and a button that provably fetches nothing is worse than no button.
-		return html`<span class="gl-graph__results-bar-message"
-				>Showing ${this.searchResultsRenderedCount} of
-				${pluralize('result', sr.count, { infix: sr.hasMore ? '+ ' : undefined })}</span
-			>${
+		const count = getNumericFormat()(sr.count);
+		const message = sr.hasMore
+			? sr.count === 1
+				? l10n.t('Showing {rendered} of {total}+ result', {
+						rendered: this.searchResultsRenderedCount,
+						total: count,
+					})
+				: l10n.t('Showing {rendered} of {total}+ results', {
+						rendered: this.searchResultsRenderedCount,
+						total: count,
+					})
+			: sr.count === 1
+				? l10n.t('Showing {rendered} of {total} result', {
+						rendered: this.searchResultsRenderedCount,
+						total: count,
+					})
+				: l10n.t('Showing {rendered} of {total} results', {
+						rendered: this.searchResultsRenderedCount,
+						total: count,
+					});
+		return html`<span class="gl-graph__results-bar-message">${message}</span>${
 				this.pagingHasMore !== false
 					? html`<button
 							type="button"
 							class="gl-graph__results-bar-action"
 							@click=${this.onLoadMoreResultsClick}
 						>
-							Load More Results…
+							${l10n.t('Load More Results…')}
 						</button>`
 					: nothing
 			}`;
@@ -5315,16 +5339,19 @@ export class GlCommitGraph extends LitElement {
 		// correct if that ever stops being true.)
 		const canLoadMore = this.pagingHasMore !== false && !searchPending;
 
-		return html`<span class="gl-graph__results-bar-message"
-				>Showing ${loaded} of ${pluralize('branch', total, { plural: 'branches' })}</span
-			>${
+		const count = getNumericFormat()(total);
+		const message =
+			total === 1
+				? l10n.t('Showing {loaded} of {total} branch', { loaded: loaded, total: count })
+				: l10n.t('Showing {loaded} of {total} branches', { loaded: loaded, total: count });
+		return html`<span class="gl-graph__results-bar-message">${message}</span>${
 				canLoadMore
 					? html`<button
 							type="button"
 							class="gl-graph__results-bar-action"
 							@click=${this.onLoadMoreIncludedRefsClick}
 						>
-							Load More…
+							${l10n.t('Load More…')}
 						</button>`
 					: nothing
 			}`;
@@ -5425,7 +5452,7 @@ export class GlCommitGraph extends LitElement {
 						maxHeight: resultsBar === nothing ? 'none' : `${this.rowsContentHeight}px`,
 					})}
 					role="tree"
-					aria-label="Commit graph"
+					aria-label=${l10n.t('Commit graph')}
 					aria-multiselectable="true"
 					aria-activedescendant=${this._activeRowId ?? nothing}
 					tabindex="0"
@@ -5489,7 +5516,7 @@ export class GlCommitGraph extends LitElement {
 		const head = this.renderHeadPill();
 		if (pinned === nothing && head === nothing) return nothing;
 
-		return html`<div class="gl-graph__waypoints" role="group" aria-label="Off-screen branches">
+		return html`<div class="gl-graph__waypoints" role="group" aria-label=${l10n.t('Off-screen branches')}>
 			${pinned}${head}
 		</div>`;
 	}
@@ -5508,15 +5535,15 @@ export class GlCommitGraph extends LitElement {
 		const pinnedHere = this.pinnedIsHead;
 		const pinnedName = pinnedHere ? this.pinnedRef?.name : undefined;
 		const tooltip = !pinnedHere
-			? 'Jump to HEAD'
+			? l10n.t('Jump to HEAD')
 			: pinnedName != null
-				? `Jump to HEAD (Pinned Branch ${pinnedName})`
-				: 'Jump to HEAD (Pinned Branch)';
+				? l10n.t('Jump to HEAD (Pinned Branch {0})', pinnedName)
+				: l10n.t('Jump to HEAD (Pinned Branch)');
 		const label = !pinnedHere
-			? 'Jump to HEAD'
+			? l10n.t('Jump to HEAD')
 			: pinnedName != null
-				? `Jump to HEAD, pinned branch ${pinnedName}`
-				: 'Jump to HEAD, pinned branch';
+				? l10n.t('Jump to HEAD, pinned branch {0}', pinnedName)
+				: l10n.t('Jump to HEAD, pinned branch');
 
 		return html`<button
 			class="gl-graph__waypoint gl-graph__waypoint--head"
@@ -5526,7 +5553,7 @@ export class GlCommitGraph extends LitElement {
 			@click=${this.onHeadPillClick}
 		>
 			<code-icon icon=${dir === 'up' ? 'arrow-up' : 'arrow-down'}></code-icon
-			>${pinnedHere ? html`<code-icon icon="gl-pinned-filled"></code-icon>` : nothing}HEAD
+			>${pinnedHere ? html`<code-icon icon="gl-pinned-filled"></code-icon>` : nothing}${'HEAD'}
 		</button>`;
 	}
 
@@ -5557,15 +5584,15 @@ export class GlCommitGraph extends LitElement {
 		return html`<button
 			class="gl-graph__waypoint gl-graph__waypoint--pinned gl-graph__pinned-pill"
 			type="button"
-			data-tooltip=${name != null ? `Jump to Pinned Branch (${name})` : 'Jump to Pinned Branch'}
-			aria-label=${name != null ? `Jump to pinned branch ${name}` : 'Jump to Pinned Branch'}
+			data-tooltip=${name != null ? l10n.t('Jump to Pinned Branch ({0})', name) : l10n.t('Jump to Pinned Branch')}
+			aria-label=${name != null ? l10n.t('Jump to pinned branch {0}', name) : l10n.t('Jump to Pinned Branch')}
 			@click=${this.onPinnedPillClick}
 		>
 			<code-icon icon=${dir === 'up' ? 'arrow-up' : 'arrow-down'}></code-icon
 			><code-icon icon="gl-pinned-filled"></code-icon>
 			<span class="gl-graph__pinned-pill-swap"
-				><span class="gl-graph__pinned-pill-rest">Pinned</span
-				><span class="gl-graph__pinned-pill-name">${name ?? 'Pinned'}</span></span
+				><span class="gl-graph__pinned-pill-rest">${l10n.t('Pinned')}</span
+				><span class="gl-graph__pinned-pill-name">${name ?? l10n.t('Pinned')}</span></span
 			>
 		</button>`;
 	}
@@ -6713,9 +6740,14 @@ export class GlCommitGraph extends LitElement {
 		);
 
 		if (selectionContexts != null && selectionContexts.length > 1) {
-			this.announce(`Copied ${pluralize('commit', selectionContexts.length)}.`);
+			const count = getNumericFormat()(selectionContexts.length);
+			this.announce(
+				selectionContexts.length === 1
+					? l10n.t('Copied {0} commit.', count)
+					: l10n.t('Copied {0} commits.', count),
+			);
 		} else {
-			this.announce('Copied.');
+			this.announce(l10n.t('Copied.'));
 		}
 		return true;
 	}
@@ -6878,7 +6910,7 @@ export class GlCommitGraph extends LitElement {
 				scope: 'rows',
 				sheet: {
 					group: 'navigation',
-					label: 'Previous / next commit',
+					label: l10n.t('Previous / next commit'),
 					order: 1,
 					// A spaced `text:` divider, not a tight `sep:` — the slash here separates the arrows from
 					// their vim aliases, rather than the two halves of one chord.
@@ -6912,7 +6944,7 @@ export class GlCommitGraph extends LitElement {
 				when: [e => this.isTreeTarget(e)],
 				sheet: {
 					group: 'folding',
-					label: 'Fold / unfold the lane',
+					label: l10n.t('Fold / unfold the lane'),
 					order: 1,
 					keysOverride: ['ArrowLeft', 'ArrowRight'],
 				},
@@ -6930,7 +6962,7 @@ export class GlCommitGraph extends LitElement {
 				scope: 'rows',
 				sheet: {
 					group: 'navigation',
-					label: 'Page up / down',
+					label: l10n.t('Page up / down'),
 					order: 2,
 					keysOverride: ['PageUp', 'PageDown'],
 				},
@@ -6950,7 +6982,7 @@ export class GlCommitGraph extends LitElement {
 				when: [e => this.isTreeTarget(e)],
 				sheet: {
 					group: 'navigation',
-					label: 'First / last commit',
+					label: l10n.t('First / last commit'),
 					order: 3,
 					keysOverride: ['Home', 'End'],
 				},
@@ -6971,7 +7003,7 @@ export class GlCommitGraph extends LitElement {
 				scope: 'rows',
 				sheet: {
 					group: 'navigation',
-					label: 'Follow the branch',
+					label: l10n.t('Follow the branch'),
 					order: 4,
 					keysOverride: ['mod+ArrowUp'],
 					with: [{ id: 'graph.lineageNext', keys: ['ArrowDown'] }],
@@ -7003,7 +7035,7 @@ export class GlCommitGraph extends LitElement {
 				scope: 'rows',
 				sheet: {
 					group: 'navigation',
-					label: 'Previous / next fork',
+					label: l10n.t('Previous / next fork'),
 					order: 6,
 					keysOverride: ['alt+ArrowUp'],
 					with: [{ id: 'graph.forkNext', keys: ['ArrowDown'] }],
@@ -7036,7 +7068,7 @@ export class GlCommitGraph extends LitElement {
 				scope: 'rows',
 				sheet: {
 					group: 'navigation',
-					label: 'Switch branch at a fork',
+					label: l10n.t('Switch branch at a fork'),
 					order: 5,
 					keysOverride: ['mod+ArrowLeft'],
 					with: [{ id: 'graph.switchBranchRight', keys: ['ArrowRight'] }],
@@ -7055,10 +7087,13 @@ export class GlCommitGraph extends LitElement {
 				scope: 'rows',
 				sheet: {
 					group: 'folding',
-					label: 'Fold / unfold every lane',
+					label: l10n.t('Fold / unfold every lane'),
 					order: 2,
 					keysOverride: ['shift+ArrowLeft', 'sep:/', 'ArrowRight'],
-					subline: ['text:also ', 'raw:Shift', 'text:+click a fold chevron'],
+					sublineText: {
+						message: l10n.t('also {shift}+click a fold chevron'),
+						keys: { shift: ['raw:Shift'] },
+					},
 				},
 				run: this.repinned(() => {
 					this.setAllLanesCollapsed(true);
@@ -7083,7 +7118,7 @@ export class GlCommitGraph extends LitElement {
 				sheet: { group: 'goto', label: 'HEAD', order: 2 },
 				run: this.repinned(() => {
 					if (!this.jumpToRow(this._rowMarkerTips?.headSha)) {
-						this.announce('No HEAD commit resolved.');
+						this.announce(l10n.t('No HEAD commit resolved.'));
 					}
 
 					return true;
@@ -7092,10 +7127,15 @@ export class GlCommitGraph extends LitElement {
 			{
 				keys: ['H'],
 				scope: 'rows',
-				sheet: { group: 'goto', label: 'Nearest worktree branch', order: 5, keysOverride: ['shift+KeyH'] },
+				sheet: {
+					group: 'goto',
+					label: l10n.t('Nearest worktree branch'),
+					order: 5,
+					keysOverride: ['shift+KeyH'],
+				},
 				run: this.repinned(() => {
 					if (!this.jumpToRow(this.nearestCheckedOutHeadSha())) {
-						this.announce('No checked-out worktree branch found.');
+						this.announce(l10n.t('No checked-out worktree branch found.'));
 					}
 
 					return true;
@@ -7104,10 +7144,10 @@ export class GlCommitGraph extends LitElement {
 			{
 				keys: ['u'],
 				scope: 'rows',
-				sheet: { group: 'goto', label: 'Upstream', order: 3 },
+				sheet: { group: 'goto', label: l10n.t('Upstream'), order: 3 },
 				run: this.repinned(() => {
 					if (!this.jumpToRow(this._rowMarkerTips?.upstreamSha)) {
-						this.announce('No upstream for this branch.');
+						this.announce(l10n.t('No upstream for this branch.'));
 					}
 
 					return true;
@@ -7116,12 +7156,12 @@ export class GlCommitGraph extends LitElement {
 			{
 				keys: ['t'],
 				scope: 'rows',
-				sheet: { group: 'goto', label: 'Merge target', order: 4 },
+				sheet: { group: 'goto', label: l10n.t('Merge target'), order: 4 },
 				run: this.repinned(() => {
 					// The merge target resolves asynchronously (scope-anchor pull), so a silent no-op here
 					// would read as broken while it's still in flight — say why instead.
 					if (!this.jumpToRow(this._rowMarkerTips?.targetSha)) {
-						this.announce('No merge target resolved.');
+						this.announce(l10n.t('No merge target resolved.'));
 					}
 
 					return true;
@@ -7130,7 +7170,7 @@ export class GlCommitGraph extends LitElement {
 			{
 				keys: ['w'],
 				scope: 'rows',
-				sheet: { group: 'goto', label: 'Your working changes', order: 1 },
+				sheet: { group: 'goto', label: l10n.t('Your working changes'), order: 1 },
 				run: this.repinned(() => {
 					// Resolved by the host handler (graph-wrapper's onJumpToNearestWip): `target: 'primary'`
 					// routes straight to this graph's own WIP row, deferring the navigation when it isn't
@@ -7152,7 +7192,7 @@ export class GlCommitGraph extends LitElement {
 				scope: 'rows',
 				sheet: {
 					group: 'goto',
-					label: 'Working changes on this lane',
+					label: l10n.t('Working changes on this lane'),
 					order: 6,
 					keysOverride: ['shift+KeyW'],
 				},
@@ -7173,7 +7213,12 @@ export class GlCommitGraph extends LitElement {
 			{
 				keys: ['['],
 				scope: 'rows',
-				sheet: { group: 'goto', label: 'Previous / next branch or tag', order: 7, keysOverride: ['[', ']'] },
+				sheet: {
+					group: 'goto',
+					label: l10n.t('Previous / next branch or tag'),
+					order: 7,
+					keysOverride: ['[', ']'],
+				},
 				run: this.repinned(e => this.stepRefRow(e, -1)),
 			},
 			{
@@ -7193,14 +7238,14 @@ export class GlCommitGraph extends LitElement {
 				keys: ['Enter'],
 				scope: 'rows',
 				when: [e => this.isTreeTarget(e)],
-				sheet: { group: 'selection', label: 'Open details', order: 3 },
+				sheet: { group: 'selection', label: l10n.t('Open details'), order: 3 },
 				run: () => this.selectFocusedRow(true),
 			},
 			{
 				keys: [' '],
 				scope: 'rows',
 				when: [e => this.isTreeTarget(e)],
-				sheet: { group: 'selection', label: 'Select only', order: 2 },
+				sheet: { group: 'selection', label: l10n.t('Select only'), order: 2 },
 				run: () => this.selectFocusedRow(false),
 			},
 			// Plain `i` — the primary chord, and a fixed (no `id`) widget key: never customizable, so it
@@ -7211,9 +7256,9 @@ export class GlCommitGraph extends LitElement {
 				scope: 'rows',
 				sheet: {
 					group: 'selection',
-					label: 'Peek commit info',
+					label: l10n.t('Peek commit info'),
 					order: 4,
-					subline: ['Escape', 'text: closes'],
+					sublineText: { message: l10n.t('{escape} closes'), keys: { escape: ['Escape'] } },
 					with: [{ id: 'graph.peek', keys: ['mod+KeyI'] }],
 				},
 				run: this.repinned(() => this.togglePeek()),
@@ -7237,7 +7282,7 @@ export class GlCommitGraph extends LitElement {
 				scope: 'rows',
 				sheet: {
 					group: 'selection',
-					label: 'Copy SHA / worktree path',
+					label: l10n.t('Copy SHA / worktree path'),
 					order: 5,
 					keysOverride: ['mod+KeyC'],
 				},
@@ -7410,7 +7455,7 @@ export class GlCommitGraph extends LitElement {
 			// Only a genuine clamp gets an announcement — `cursor === -1` means focus isn't on any of the
 			// resolved lanes, so there's no end to be at.
 			if (cursor !== -1) {
-				this.announce(dir === 1 ? 'Last lane at fork point.' : 'First lane at fork point.');
+				this.announce(dir === 1 ? l10n.t('Last lane at fork point.') : l10n.t('First lane at fork point.'));
 			}
 
 			return true;
@@ -7430,7 +7475,7 @@ export class GlCommitGraph extends LitElement {
 
 		// Keep the anchor so the next Ctrl/Cmd+Arrow continues the same fork once this lane lands.
 		this._forkNavOrigin = origin;
-		this.announce(`Lane ${cursor + dir + 1} of ${lanes.length} at fork point.`);
+		this.announce(l10n.t('Lane {0} of {1} at fork point.', cursor + dir + 1, lanes.length));
 		return moved;
 	}
 
@@ -7470,11 +7515,16 @@ export class GlCommitGraph extends LitElement {
 		this.requestUpdate();
 		this.dispatchEvent(new CustomEvent('gl-graph-lanetoggleall', { detail: { collapsed: collapsed } }));
 
-		this.announce(
-			collapsed
-				? `All lanes collapsed. ${pluralize('lane', this.segmentsByTipSha.size)} folded.`
-				: 'All lanes expanded.',
-		);
+		if (collapsed) {
+			const count = getNumericFormat()(this.segmentsByTipSha.size);
+			this.announce(
+				this.segmentsByTipSha.size === 1
+					? l10n.t('All lanes collapsed. {0} lane folded.', count)
+					: l10n.t('All lanes collapsed. {0} lanes folded.', count),
+			);
+		} else {
+			this.announce(l10n.t('All lanes expanded.'));
+		}
 	}
 
 	/** Step one row (`↑`/`↓`, and their `k`/`j` aliases). Extending a TOPOLOGICAL selection steps the
@@ -7495,7 +7545,7 @@ export class GlCommitGraph extends LitElement {
 				event,
 				dir,
 				last,
-				dir === 1 ? 'No older commit in this lineage.' : 'No newer commit in this lineage.',
+				dir === 1 ? l10n.t('No older commit in this lineage.') : l10n.t('No newer commit in this lineage.'),
 			);
 		}
 
@@ -7531,7 +7581,7 @@ export class GlCommitGraph extends LitElement {
 	private armEdgeNavBackstop(): ReturnType<typeof setTimeout> {
 		return setTimeout(() => {
 			this.settleEdgeNavigation('cancelled');
-			this.announce('Stopped waiting for more commits.');
+			this.announce(l10n.t('Stopped waiting for more commits.'));
 		}, 30000);
 	}
 
@@ -7589,7 +7639,7 @@ export class GlCommitGraph extends LitElement {
 		}
 
 		this.settleEdgeNavigation('exhausted');
-		this.announce(pending.kind === 'forkPoint' ? 'No further fork.' : 'No further ref.');
+		this.announce(pending.kind === 'forkPoint' ? l10n.t('No further fork.') : l10n.t('No further ref.'));
 	}
 
 	/** Cancel the in-flight edge-nav search, if any — the jump toast's Cancel action calls through here. */
@@ -7619,13 +7669,13 @@ export class GlCommitGraph extends LitElement {
 				if (parentSha != null) {
 					this.jumpToRefRow(parentSha, { focus: true, flash: true });
 				} else {
-					this.announce('No older commit in this lineage.');
+					this.announce(l10n.t('No older commit in this lineage.'));
 				}
 
 				return true;
 			}
 
-			return this.navigationDeadEnd(event, dir, last, 'No newer commit in this lineage.');
+			return this.navigationDeadEnd(event, dir, last, l10n.t('No newer commit in this lineage.'));
 		}
 
 		return this.applyRowNavigation(event, next);
@@ -7649,7 +7699,12 @@ export class GlCommitGraph extends LitElement {
 				return true;
 			}
 
-			return this.navigationDeadEnd(event, dir, last, dir === 1 ? 'No further fork.' : 'No previous fork.');
+			return this.navigationDeadEnd(
+				event,
+				dir,
+				last,
+				dir === 1 ? l10n.t('No further fork.') : l10n.t('No previous fork.'),
+			);
 		}
 
 		return this.applyRowNavigation(event, next);
@@ -7672,7 +7727,12 @@ export class GlCommitGraph extends LitElement {
 				return true;
 			}
 
-			return this.navigationDeadEnd(event, dir, last, dir === 1 ? 'No further ref.' : 'No previous ref.');
+			return this.navigationDeadEnd(
+				event,
+				dir,
+				last,
+				dir === 1 ? l10n.t('No further ref.') : l10n.t('No previous ref.'),
+			);
 		}
 
 		return this.applyRowNavigation(event, next);
@@ -7692,7 +7752,7 @@ export class GlCommitGraph extends LitElement {
 				event,
 				dir,
 				last,
-				dir === 1 ? 'No older commit in this lineage.' : 'No newer commit in this lineage.',
+				dir === 1 ? l10n.t('No older commit in this lineage.') : l10n.t('No newer commit in this lineage.'),
 			);
 		}
 
@@ -7715,7 +7775,7 @@ export class GlCommitGraph extends LitElement {
 				event,
 				dir,
 				last,
-				dir === 1 ? 'No older commit in this lineage.' : 'No newer commit in this lineage.',
+				dir === 1 ? l10n.t('No older commit in this lineage.') : l10n.t('No newer commit in this lineage.'),
 			);
 		}
 
@@ -9423,10 +9483,10 @@ export class GlCommitGraph extends LitElement {
 		// same identity either way; detached overrides it since there's no real branch to name.
 		const ariaLabel =
 			info.detached === true
-				? `Detached HEAD at ${branchName}`
+				? l10n.t('Detached HEAD at {0}', branchName)
 				: info.isPrimary
-					? `HEAD on ${branchName}`
-					: `branch ${branchName}`;
+					? l10n.t('HEAD on {0}', branchName)
+					: l10n.t('branch {0}', branchName);
 		// Only the detached case gets a tooltip — the paused-op case has no click/jump left to explain.
 		const tooltip = info.detached === true ? ariaLabel : undefined;
 
@@ -9651,7 +9711,7 @@ export class GlCommitGraph extends LitElement {
 		return html`<div
 			class="gl-graph__header"
 			role="toolbar"
-			aria-label="Graph columns"
+			aria-label=${l10n.t('Graph columns')}
 			@keydown=${this.headerRoving.onKeydown}
 			@focusin=${this.headerRoving.onFocusin}
 		>
@@ -9844,13 +9904,23 @@ export class GlCommitGraph extends LitElement {
 													}
 													aria-label=${
 														zone.id === 'changes'
-															? 'Changes column. Press Enter to change the visualization; Shift+Arrow Left/Right to reorder, or drag.'
-															: `${zone.label} column. Shift+Arrow Left/Right to reorder, or drag.`
+															? l10n.t(
+																	'Changes column. Press Enter to change the visualization; Shift+Arrow Left/Right to reorder, or drag.',
+																)
+															: l10n.t(
+																	'{0} column. Shift+Arrow Left/Right to reorder, or drag.',
+																	zone.label,
+																)
 													}
 													data-tooltip=${
 														zone.id === 'changes'
-															? 'Change Visualization — or drag / Shift+Arrow to reorder'
-															: `Drag or press Shift+Arrow to reorder ${zone.label.toLowerCase()} column`
+															? l10n.t(
+																	'Change Visualization — or drag / Shift+Arrow to reorder',
+																)
+															: l10n.t(
+																	'Drag or press Shift+Arrow to reorder {0} column',
+																	zone.label.toLowerCase(),
+																)
 													}
 													data-roving-key="label:${zone.id}"
 													@keydown=${(e: KeyboardEvent) =>
@@ -9906,11 +9976,14 @@ export class GlCommitGraph extends LitElement {
 										role="separator"
 										aria-orientation="vertical"
 										tabindex="0"
-										aria-label=${`Resize ${zone.label} column`}
+										aria-label=${l10n.t('Resize {0} column', zone.label)}
 										aria-valuenow=${zone.width}
 										aria-valuemin=${zone.minWidth}
 										aria-valuemax="800"
-										data-tooltip=${`Drag or Shift+Arrow to resize, or double-click to fit the ${fitTargetLabel.toLowerCase()} column to its contents`}
+										data-tooltip=${l10n.t(
+											'Drag or Shift+Arrow to resize, or double-click to fit the {0} column to its contents',
+											fitTargetLabel.toLowerCase(),
+										)}
 										@pointerdown=${(e: PointerEvent) => this.onResizeStart(e, visibleZones, i)}
 										data-roving-key="resize:${zone.id}"
 										@keydown=${(e: KeyboardEvent) => this.onResizeKeydown(e, visibleZones, i)}
@@ -9940,7 +10013,7 @@ export class GlCommitGraph extends LitElement {
 	// under the cell's pointer capture a mouse click is ambiguous, so keyboard is handled via `@keydown`.
 	private renderFilterButton(zone: ZoneSpec, active: boolean, floor: boolean, member = false): TemplateResult {
 		// Same action-first language as the placement toggles (Group/Ungroup X with/from Y).
-		const tooltip = active ? `Edit ${zone.label} Filter` : `Filter by ${zone.label}`;
+		const tooltip = active ? l10n.t('Edit {0} Filter', zone.label) : l10n.t('Filter by {0}', zone.label);
 		const ariaLabel = tooltip;
 		return html`<button
 			class="gl-graph__filter-toggle${active ? ' is-active' : ''}${
@@ -9990,7 +10063,7 @@ export class GlCommitGraph extends LitElement {
 	// than the filter button's drag-through one: it sits beside the placement toggle and has to click
 	// the same way its neighbor does. The trade-off is that a press here can't start a column reorder.
 	private renderRefFindButton(): TemplateResult {
-		const title = 'Find a Branch, Tag, or Worktree...';
+		const title = l10n.t('Find a Branch, Tag, or Worktree...');
 		return html`<button
 			class="gl-graph__ref-find-toggle${this.refFindOpen ? ' is-active' : ''}"
 			type="button"
@@ -10257,7 +10330,7 @@ export class GlCommitGraph extends LitElement {
 		return html`<div
 			class="gl-graph__header gl-graph__header--list"
 			role="toolbar"
-			aria-label="Graph columns"
+			aria-label=${l10n.t('Graph columns')}
 			@keydown=${this.headerRoving.onKeydown}
 			@focusin=${this.headerRoving.onFocusin}
 		>
@@ -10284,7 +10357,8 @@ export class GlCommitGraph extends LitElement {
 		const cellWidth = isLast ? Math.max(0, totalWidth - this.headerActionsPx) : totalWidth;
 		// Swap the "Graph" text for the graph icon once the cell can't fit it (placement control + label
 		// + handle) — same narrow-column behavior as the zone headers.
-		const labelAsIcon = !headerLabelFits('Graph', cellWidth - 22);
+		const graphLabel = l10n.t('Graph');
+		const labelAsIcon = !headerLabelFits(graphLabel, cellWidth - 22);
 		return html`<div
 			class="gl-graph__header-cell gl-graph__header-cell--graph${
 				this.dragColId === 'graph' ? ' is-dragging' : ''
@@ -10297,14 +10371,14 @@ export class GlCommitGraph extends LitElement {
 				class="gl-graph__header-label"
 				role="button"
 				tabindex="0"
-				aria-label="Graph column. Shift+Arrow Left/Right to reorder, or drag."
-				data-tooltip="Drag or press Shift+Arrow to reorder the graph column"
+				aria-label=${l10n.t('Graph column. Shift+Arrow Left/Right to reorder, or drag.')}
+				data-tooltip=${l10n.t('Drag or press Shift+Arrow to reorder the graph column')}
 				data-roving-key="label:graph"
 				@keydown=${this.onGraphLabelKeydown}
 				>${
 					labelAsIcon
 						? html`<code-icon class="gl-graph__header-label-icon" icon="gl-graph"></code-icon>`
-						: 'Graph'
+						: graphLabel
 				}</span
 			>${isLast ? nothing : this.renderPlacementControl()}
 			<div
@@ -10312,11 +10386,11 @@ export class GlCommitGraph extends LitElement {
 				role="separator"
 				aria-orientation="vertical"
 				tabindex="0"
-				aria-label="Resize graph column"
+				aria-label=${l10n.t('Resize graph column')}
 				aria-valuenow=${Math.round(totalWidth)}
 				aria-valuemin=${Math.round(foldLaneWidth + gutterPadding * 1.5 + this.columnWidth)}
 				aria-valuemax=${Math.round(foldLaneWidth + gutterWidth)}
-				data-tooltip="Drag or press Shift+Arrow to resize the graph column (scrolls when narrower than the lanes)"
+				data-tooltip=${l10n.t('Drag or press Shift+Arrow to resize the graph column (scrolls when narrower than the lanes)')}
 				@pointerdown=${this.onGraphResizeStart}
 				data-roving-key="resize:graph"
 				@keydown=${this.onGraphResizeKeydown}
@@ -10347,12 +10421,16 @@ export class GlCommitGraph extends LitElement {
 		const targetId = grouped
 			? this.graphHostIdFor(visibleZones)
 			: visibleZones[Math.min(this.graphVisibleSlot, Math.max(0, visibleZones.length - 1))]?.id;
-		const targetName = targetId != null ? this.zoneDisplayName(targetId) : 'the next column';
+		const targetName = targetId != null ? this.zoneDisplayName(targetId) : undefined;
 		const title = hidden
-			? 'Show Graph Column'
+			? l10n.t('Show Graph Column')
 			: grouped
-				? `Ungroup Graph from ${targetName}`
-				: `Group Graph with ${targetName}`;
+				? targetName != null
+					? l10n.t('Ungroup Graph from {0}', targetName)
+					: l10n.t('Ungroup Graph from the next column')
+				: targetName != null
+					? l10n.t('Group Graph with {0}', targetName)
+					: l10n.t('Group Graph with the next column');
 		return html`<button
 			class="gl-graph__placement-toggle${labeled ? ' gl-graph__placement-toggle--labeled' : ''}${
 				identityIcon ? ' gl-graph__placement-toggle--crumb' : ''
@@ -10367,7 +10445,7 @@ export class GlCommitGraph extends LitElement {
 			@click=${this.togglePlacement}
 		>
 			${identityIcon ? html`<code-icon icon=${identityIcon}></code-icon>` : nothing}${
-				labeled ? html`<span class="gl-graph__placement-toggle-label">Graph</span>` : nothing
+				labeled ? html`<span class="gl-graph__placement-toggle-label">${l10n.t('Graph')}</span>` : nothing
 			}<code-icon icon=${icon}></code-icon>
 		</button>`;
 	}
@@ -10440,12 +10518,16 @@ export class GlCommitGraph extends LitElement {
 		// to ungroup) — since HEAD grouping can land Refs on any adjacent column, not always Message.
 		const targetId =
 			isColumn && !mergesGraph ? this.refsGroupTargetId(visibleZones) : this.refsHostIdFor(visibleZones);
-		const targetName = targetId != null ? this.zoneDisplayName(targetId) : 'the next column';
+		const targetName = targetId != null ? this.zoneDisplayName(targetId) : undefined;
 		const title = mergesGraph
-			? 'Group Graph with Branches / Tags'
+			? l10n.t('Group Graph with Branches / Tags')
 			: isColumn
-				? `Group Branches / Tags with ${targetName}`
-				: `Ungroup Branches / Tags from ${targetName}`;
+				? targetName != null
+					? l10n.t('Group Branches / Tags with {0}', targetName)
+					: l10n.t('Group Branches / Tags with the next column')
+				: targetName != null
+					? l10n.t('Ungroup Branches / Tags from {0}', targetName)
+					: l10n.t('Ungroup Branches / Tags from the next column');
 		return html`<button
 			class="gl-graph__placement-toggle${atEnd ? ' gl-graph__placement-toggle--end' : ''}${
 				identityIcon ? ' gl-graph__placement-toggle--crumb' : ''
@@ -10512,8 +10594,8 @@ export class GlCommitGraph extends LitElement {
 		return html`<button
 			class="gl-graph__placement-toggle gl-graph__header-settings"
 			type="button"
-			aria-label="Graph and scroll-marker settings. Click to open the menu."
-			data-tooltip="Settings — columns and scroll markers"
+			aria-label=${l10n.t('Graph and scroll-marker settings. Click to open the menu.')}
+			data-tooltip=${l10n.t('Settings — columns and scroll markers')}
 			draggable="false"
 			data-vscode-context=${this.settingsContext}
 			@pointerdown=${(e: Event) => e.stopPropagation()}
@@ -10577,8 +10659,8 @@ export class GlCommitGraph extends LitElement {
 			type="button"
 			aria-haspopup="menu"
 			aria-expanded=${this.changesModeAnchor != null ? 'true' : 'false'}
-			aria-label="Change Changes column visualization"
-			data-tooltip="Change Visualization"
+			aria-label=${l10n.t('Change Changes column visualization')}
+			data-tooltip=${l10n.t('Change Visualization')}
 			draggable="false"
 			data-roving-key="label:changes"
 			@keydown=${(e: KeyboardEvent) => this.onLabelKeydown(e, visibleZones, i)}
@@ -10644,7 +10726,7 @@ export class GlCommitGraph extends LitElement {
 				class="gl-graph__changes-mode-strip"
 				role="menu"
 				aria-orientation="horizontal"
-				aria-label="Changes column visualization"
+				aria-label=${l10n.t('Changes column visualization')}
 				@keydown=${this.onChangesModeMenuKeydown}
 			>
 				${changesModeOptions.map((opt, i) => {
@@ -11372,7 +11454,7 @@ export class GlCommitGraph extends LitElement {
 			class="gl-graph__hscroll"
 			role="scrollbar"
 			aria-orientation="horizontal"
-			aria-label="Scroll the graph lanes horizontally"
+			aria-label=${l10n.t('Scroll the graph lanes horizontally')}
 			aria-controls="gl-graph-lanes"
 			aria-valuemin="0"
 			aria-valuemax=${max}

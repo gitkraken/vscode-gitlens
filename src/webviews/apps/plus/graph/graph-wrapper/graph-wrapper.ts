@@ -13,6 +13,7 @@ import { findNearestWipByAncestry, findWipInColumn } from '@gitkraken/commit-gra
 import type { ColumnMode } from '@gitkraken/commit-graph/zones.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import '@gitlens/components/components/agentMark.js';
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
@@ -443,8 +444,8 @@ const idleReviewAction: GraphRowAction = {
 const runTaskAction: GraphRowAction = {
 	action: 'run-task',
 	icon: 'play',
-	label: `Run Default Task\n[${getAltKeySymbol()}] Choose Task to Run...`,
-	ariaLabel: 'Run Default Task',
+	label: l10n.t('Run Default Task\n[{0}] Choose Task to Run...', getAltKeySymbol()),
+	ariaLabel: l10n.t('Run Default Task'),
 	persistent: false,
 };
 // Engaged state while a Run Task launch is still executing; click shows the running task's terminal
@@ -453,8 +454,8 @@ function runningTaskAction(name: string): GraphRowAction {
 	return {
 		action: 'run-task',
 		icon: 'play',
-		label: `Running: ${name}\n[${getAltKeySymbol()}] Choose Task to Run...`,
-		ariaLabel: `Running: ${name}`,
+		label: l10n.t('Running: {0}\n[{1}] Choose Task to Run...', name, getAltKeySymbol()),
+		ariaLabel: l10n.t('Running: {0}', name),
 		persistent: true,
 		status: 'loading',
 	};
@@ -736,7 +737,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			feedback: false,
 		});
 		if (result.status === 'not-found') {
-			this.graph?.announce('No working changes row to jump to.');
+			this.graph?.announce(l10n.t('No working changes row to jump to.'));
 		}
 	}
 

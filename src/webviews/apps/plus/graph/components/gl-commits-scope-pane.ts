@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { boxSizingBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
@@ -24,6 +25,7 @@ export interface ScopeItem {
 	additions?: number;
 	deletions?: number;
 	modified?: number;
+	loading?: boolean;
 	state: ScopeItemState;
 	author?: string;
 	avatarUrl?: string;
@@ -84,7 +86,7 @@ export class GlCommitsScopePane extends LitElement {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this.setAttribute('role', 'list');
-		this.setAttribute('aria-label', 'Scope');
+		this.setAttribute('aria-label', l10n.t('Scope'));
 	}
 
 	override disconnectedCallback(): void {
@@ -463,7 +465,7 @@ export class GlCommitsScopePane extends LitElement {
 						></gl-avatar>`
 					: nothing
 			}
-			${isMergeBase ? html`<span class="scope-row__base-tag">Base</span>` : nothing}
+			${isMergeBase ? html`<span class="scope-row__base-tag">${l10n.t('Base')}</span>` : nothing}
 		</div>`;
 	}
 
@@ -478,7 +480,7 @@ export class GlCommitsScopePane extends LitElement {
 			class="scope-handle ${isActive ? 'scope-handle--active' : ''}"
 			role="slider"
 			tabindex=${tabindex}
-			aria-label=${type === 'start' ? 'Start of selected scope' : 'End of selected scope'}
+			aria-label=${type === 'start' ? l10n.t('Start of selected scope') : l10n.t('End of selected scope')}
 			aria-orientation="vertical"
 			aria-valuemin=${type === 'start' ? 1 : Math.max(1, this.minEndIndex + 1)}
 			aria-valuemax=${Math.max(1, (type === 'start' ? this.effectiveMaxStart : this.maxDraggableIndex) + 1)}
@@ -490,7 +492,7 @@ export class GlCommitsScopePane extends LitElement {
 			@keydown=${(e: KeyboardEvent) => this.handleHandleKeydown(e, type)}
 			@focus=${() => this.scrollActiveHandleIntoView(type)}
 		>
-			<gl-tooltip content="Drag to include/exclude changes" placement="top">
+			<gl-tooltip content=${l10n.t('Drag to include or exclude changes')} placement="top">
 				<div class="scope-handle__bar"></div>
 			</gl-tooltip>
 		</div>`;
@@ -503,7 +505,10 @@ export class GlCommitsScopePane extends LitElement {
 			tabindex="-1"
 			@pointerdown=${(e: PointerEvent) => this.handleProxyPointerDown(e, type)}
 		>
-			<gl-tooltip content="Drag to include/exclude changes" placement=${type === 'start' ? 'bottom' : 'top'}>
+			<gl-tooltip
+				content=${l10n.t('Drag to include or exclude changes')}
+				placement=${type === 'start' ? 'bottom' : 'top'}
+			>
 				<div class="scope-handle__bar"></div>
 			</gl-tooltip>
 			<code-icon icon=${type === 'start' ? 'chevron-up' : 'chevron-down'}></code-icon>
@@ -512,7 +517,7 @@ export class GlCommitsScopePane extends LitElement {
 
 	private renderLoadMore(item: ScopeItem, index: number) {
 		const prevState = index > 0 ? this.items[index - 1].state : nothing;
-		const isLoading = item.label === 'Loading…';
+		const isLoading = item.loading === true;
 		return html`<button
 			class="scope-row scope-row--load-more"
 			role="listitem"
@@ -701,12 +706,12 @@ export class GlCommitsScopePane extends LitElement {
 				<span class="scope-row__connector scope-row__connector--above"></span>
 				<code-icon icon="loading" modifier="spin"></code-icon>
 			</span>
-			<span class="scope-row__label--dimmed">Loading commits…</span>
+			<span class="scope-row__label--dimmed">${l10n.t('Loading commits…')}</span>
 		</div>`;
 	}
 
 	private renderEmpty() {
-		const label = this.mode === 'review' ? 'No commits to review' : 'No commits to compose';
+		const label = this.mode === 'review' ? l10n.t('No commits to review') : l10n.t('No commits to compose');
 		return html`<div class="details-scope-pane scrollable">
 			<div class="scope-row scope-row--empty" role="listitem">
 				<span class="scope-row__dot-col">

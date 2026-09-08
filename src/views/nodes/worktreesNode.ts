@@ -1,4 +1,4 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { GlyphChars } from '../../constants.js';
 import type { GitUri } from '../../git/gitUri.js';
@@ -39,7 +39,9 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 			if (!access.allowed) return [];
 
 			const worktrees = await this.repo.git.worktrees?.getWorktrees();
-			if (!worktrees?.length) return [new MessageNode(this.view, this, 'No worktrees could be found.')];
+			if (!worktrees?.length) {
+				return [new MessageNode(this.view, this, l10n.t('No worktrees could be found.'))];
+			}
 
 			const children = sortWorktrees(worktrees).map(w => new WorktreeNode(this.uri, this.view, this, w));
 
@@ -78,14 +80,14 @@ export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsW
 		const access = await this.repo.git.access('worktrees');
 
 		const item = new TreeItem(
-			'Worktrees',
+			l10n.t('Worktrees'),
 			access.allowed ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.None,
 		);
 		item.id = this.id;
 		item.contextValue = ContextValues.Worktrees;
 		item.description = access.allowed
 			? undefined
-			: ` ${GlyphChars.Warning}  Unlock this feature for privately hosted repos with GitLens Pro`;
+			: l10n.t(' {0}  Unlock this feature for privately hosted repos with GitLens Pro', GlyphChars.Warning);
 		// TODO@eamodio `folder` icon won't work here for some reason
 		item.iconPath = new ThemeIcon('folder-opened');
 		return item;

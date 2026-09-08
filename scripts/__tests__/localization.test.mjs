@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { getL10nJson } from '@vscode/l10n-dev';
 import { formatCatalog, validateTranslations } from '../localization.mjs';
@@ -117,6 +118,81 @@ test('lint rejects computed messages while accepting whole literal templates and
 		const diagnostics = JSON.parse(result.stdout).diagnostics;
 		assert.equal(diagnostics.length, 2, result.stdout);
 		assert.ok(diagnostics.every(diagnostic => diagnostic.code.includes('require-literal-l10n')));
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
+});
+
+test('host initialization translates shared package constants before extension modules load', async () => {
+	const { build } = await import('esbuild');
+	const { runInNewContext } = await import('node:vm');
+	const result = await build({
+		stdin: {
+			contents:
+				"import './src/system/-webview/localization.ts'; import { pausedOperationStatusStringsByType } from '@gitlens/utils/pausedOperation.js'; globalThis.label = pausedOperationStatusStringsByType.rebase.label;",
+			resolveDir: process.cwd(),
+		},
+		bundle: true,
+		write: false,
+		platform: 'node',
+		format: 'cjs',
+		external: ['vscode'],
+	});
+	for (const bundle of [undefined, { Rebasing: 'リベース中' }]) {
+		const context = {
+			require: id => {
+				if (id === 'vscode') return { l10n: { bundle } };
+				return createRequire(import.meta.url)(id);
+			},
+		};
+		runInNewContext(result.outputFiles[0].text, context);
+		assert.equal(context.label, bundle ? 'リベース中' : 'Rebasing');
+	}
+});
+
+test('Unicode escapes produce the same catalog keys as JavaScript runtime strings', async () => {
+	const { mkdtemp, readFile, rm, writeFile } = await import('node:fs/promises');
+	const { tmpdir } = await import('node:os');
+	const { join } = await import('node:path');
+	const { execFileSync } = await import('node:child_process');
+	const source = String.raw`
+import { l10n } from 'vscode';
+l10n.t('Bullet \u2022 {0}', value);
+l10n.t('Nonbreaking \u00a0 {0}', value);
+l10n.t('Astral \uD83D\uDE80 {0}', value);
+l10n.t('Placeholder {0} before \u{1F680}', value);
+l10n.t('Hex \xA0 {0}', value);
+l10n.t('Line\nTab\tBackslash\\ {0}', value);
+`;
+	const expected = Object.fromEntries(
+		[
+			'Bullet • {0}',
+			'Nonbreaking \u00a0 {0}',
+			'Astral 🚀 {0}',
+			'Placeholder {0} before 🚀',
+			'Hex \u00a0 {0}',
+			'Line\nTab\tBackslash\\ {0}',
+		].map(message => [message, message]),
+	);
+	assert.deepEqual(await getL10nJson([{ extension: '.ts', contents: source }]), expected);
+
+	const directory = await mkdtemp(join(tmpdir(), 'gitlens-l10n-escapes-'));
+	try {
+		await writeFile(join(directory, 'sample.ts'), source);
+		await writeFile(join(directory, 'package.json'), JSON.stringify({ l10n: './catalog' }));
+		const require = createRequire(import.meta.url);
+		execFileSync(
+			process.execPath,
+			[
+				require.resolve('@vscode/l10n-dev').replace(/main\.js$/, 'cli.js'),
+				'export',
+				'--outDir',
+				join(directory, 'catalog'),
+				directory,
+			],
+			{ encoding: 'utf8', cwd: directory },
+		);
+		assert.deepEqual(JSON.parse(await readFile(join(directory, 'catalog/bundle.l10n.json'), 'utf8')), expected);
 	} finally {
 		await rm(directory, { recursive: true, force: true });
 	}

@@ -1,9 +1,9 @@
-import { ThemeIcon } from 'vscode';
+import { l10n, ThemeIcon } from 'vscode';
 import { GitStatus } from '@gitlens/git/models/status.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { isStringArray } from '@gitlens/utils/array.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { revealRepository } from '../../../git/actions/repository.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { groupRepositories } from '../../../git/utils/-webview/repository.utils.js';
@@ -99,17 +99,17 @@ export async function* pickRepositoryStep<
 		return repos[0];
 	}
 
-	const placeholder = options?.placeholder ?? 'Choose a repository';
+	const placeholder = options?.placeholder ?? l10n.t('Choose a repository');
 
 	const step = createPickStep<RepositoryQuickPickItem>({
 		title: context.title,
-		placeholder: !repos.length ? `${placeholder} — no opened repositories found` : placeholder,
+		placeholder: !repos.length ? l10n.t('{0} — no opened repositories found', placeholder) : placeholder,
 		canGoBack: context.steps?.canGoBack,
 		items: !repos.length
 			? [
 					createDirectiveQuickPickItem(Directive.Cancel, true, {
-						label: 'Cancel',
-						detail: 'No opened repositories found',
+						label: l10n.t('Cancel'),
+						detail: l10n.t('No opened repositories found'),
 					}),
 				]
 			: Promise.all(
@@ -181,18 +181,18 @@ export async function* pickRepositoriesStep<
 		repos = sortRepositoriesGrouped(grouped);
 	}
 
-	const placeholder = options?.placeholder ?? 'Choose a repository';
+	const placeholder = options?.placeholder ?? l10n.t('Choose a repository');
 
 	const step = createPickStep<RepositoryQuickPickItem>({
 		multiselect: true,
 		title: context.title,
-		placeholder: !repos.length ? `${placeholder} — no opened repositories found` : placeholder,
+		placeholder: !repos.length ? l10n.t('{0} — no opened repositories found', placeholder) : placeholder,
 		canGoBack: context.steps?.canGoBack,
 		items: !repos.length
 			? [
 					createDirectiveQuickPickItem(Directive.Cancel, true, {
-						label: 'Cancel',
-						detail: 'No opened repositories found',
+						label: l10n.t('Cancel'),
+						detail: l10n.t('No opened repositories found'),
 					}),
 				]
 			: Promise.all(
@@ -233,7 +233,7 @@ export function* showRepositoryStatusStep<
 	const working = GitStatus.getFormattedDiffStatus(context.status, { expand: true, separator: ', ' });
 	const step: QuickPickStep<CommandQuickPickItem> = createPickStep<CommandQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),
-		placeholder: upstream ? `${upstream}, ${working}` : working, //'Changes to be committed',
+		placeholder: upstream ? l10n.t('{0}, {1}', upstream, working) : working, //'Changes to be committed',
 		ignoreFocusOut: true,
 		items: getShowRepositoryStatusStepItems(state, context),
 		canGoBack: context.steps?.canGoBack,
@@ -255,56 +255,116 @@ function getShowRepositoryStatusStepItems<
 
 	const computed = GitStatus.computeWorkingTreeStatus(context.status);
 
-	let workingTreeStatus;
+	let workingTreeStatus: string;
 	if (computed.staged === 0 && computed.unstaged === 0) {
-		workingTreeStatus = 'No working tree changes';
+		workingTreeStatus = l10n.t('No working tree changes');
+	} else if (computed.staged === 0) {
+		workingTreeStatus =
+			computed.unstaged === 1
+				? l10n.t(
+						'$(files) {0} unstaged file ({1})',
+						getNumericFormat()(computed.unstaged),
+						computed.unstagedStatus,
+					)
+				: l10n.t(
+						'$(files) {0} unstaged files ({1})',
+						getNumericFormat()(computed.unstaged),
+						computed.unstagedStatus,
+					);
+	} else if (computed.unstaged === 0) {
+		workingTreeStatus =
+			computed.staged === 1
+				? l10n.t('$(files) {0} staged file ({1})', getNumericFormat()(computed.staged), computed.stagedStatus)
+				: l10n.t('$(files) {0} staged files ({1})', getNumericFormat()(computed.staged), computed.stagedStatus);
+	} else if (computed.staged === 1) {
+		workingTreeStatus =
+			computed.unstaged === 1
+				? l10n.t(
+						'$(files) {0} staged file ({1}), {2} unstaged file ({3})',
+						getNumericFormat()(computed.staged),
+						computed.stagedStatus,
+						getNumericFormat()(computed.unstaged),
+						computed.unstagedStatus,
+					)
+				: l10n.t(
+						'$(files) {0} staged file ({1}), {2} unstaged files ({3})',
+						getNumericFormat()(computed.staged),
+						computed.stagedStatus,
+						getNumericFormat()(computed.unstaged),
+						computed.unstagedStatus,
+					);
+	} else if (computed.unstaged === 1) {
+		workingTreeStatus = l10n.t(
+			'$(files) {0} staged files ({1}), {2} unstaged file ({3})',
+			getNumericFormat()(computed.staged),
+			computed.stagedStatus,
+			getNumericFormat()(computed.unstaged),
+			computed.unstagedStatus,
+		);
 	} else {
-		workingTreeStatus = `$(files) ${
-			computed.staged ? `${pluralize('staged file', computed.staged)} (${computed.stagedStatus})` : ''
-		}${
-			computed.unstaged
-				? `${computed.staged ? ', ' : ''}${pluralize('unstaged file', computed.unstaged)} (${
-						computed.unstagedStatus
-					})`
-				: ''
-		}`;
+		workingTreeStatus = l10n.t(
+			'$(files) {0} staged files ({1}), {2} unstaged files ({3})',
+			getNumericFormat()(computed.staged),
+			computed.stagedStatus,
+			getNumericFormat()(computed.unstaged),
+			computed.unstagedStatus,
+		);
 	}
 
 	if (context.status.upstream) {
 		if (context.status.upstream.state.ahead === 0 && context.status.upstream.state.behind === 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
-					label: `$(git-branch) ${context.status.branch} is up to date with $(git-branch) ${context.status.upstream?.name}`,
+					label: l10n.t(
+						'$(git-branch) {0} is up to date with $(git-branch) {1}',
+						context.status.branch,
+						context.status.upstream?.name,
+					),
 					detail: workingTreeStatus,
 				}),
 			);
 		} else if (context.status.upstream.state.ahead !== 0 && context.status.upstream.state.behind !== 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
-					label: `$(git-branch) ${context.status.branch} has diverged from $(git-branch) ${context.status.upstream?.name}`,
+					label: l10n.t(
+						'$(git-branch) {0} has diverged from $(git-branch) {1}',
+						context.status.branch,
+						context.status.upstream?.name,
+					),
 					detail: workingTreeStatus,
 				}),
 			);
 		} else if (context.status.upstream.state.ahead !== 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
-					label: `$(git-branch) ${context.status.branch} is ahead of $(git-branch) ${context.status.upstream?.name}`,
+					label: l10n.t(
+						'$(git-branch) {0} is ahead of $(git-branch) {1}',
+						context.status.branch,
+						context.status.upstream?.name,
+					),
 					detail: workingTreeStatus,
 				}),
 			);
 		} else if (context.status.upstream.state.behind !== 0) {
 			items.push(
 				createDirectiveQuickPickItem(Directive.Noop, true, {
-					label: `$(git-branch) ${context.status.branch} is behind $(git-branch) ${context.status.upstream?.name}`,
+					label: l10n.t(
+						'$(git-branch) {0} is behind $(git-branch) {1}',
+						context.status.branch,
+						context.status.upstream?.name,
+					),
 					detail: workingTreeStatus,
 				}),
 			);
 		}
 
 		if (context.status.upstream.state.behind !== 0) {
+			const behind = context.status.upstream.state.behind;
 			items.push(
 				new GitWizardQuickPickItem(
-					`$(cloud-download) ${pluralize('commit', context.status.upstream.state.behind)} behind`,
+					behind === 1
+						? l10n.t('$(cloud-download) {0} commit behind', getNumericFormat()(behind))
+						: l10n.t('$(cloud-download) {0} commits behind', getNumericFormat()(behind)),
 					{
 						command: 'log',
 						state: {
@@ -320,9 +380,12 @@ function getShowRepositoryStatusStepItems<
 		}
 
 		if (context.status.upstream.state.ahead !== 0) {
+			const ahead = context.status.upstream.state.ahead;
 			items.push(
 				new GitWizardQuickPickItem(
-					`$(cloud-upload) ${pluralize('commit', context.status.upstream.state.ahead)} ahead`,
+					ahead === 1
+						? l10n.t('$(cloud-upload) {0} commit ahead', getNumericFormat()(ahead))
+						: l10n.t('$(cloud-upload) {0} commits ahead', getNumericFormat()(ahead)),
 					{
 						command: 'log',
 						state: {
@@ -339,7 +402,7 @@ function getShowRepositoryStatusStepItems<
 	} else {
 		items.push(
 			createDirectiveQuickPickItem(Directive.Noop, true, {
-				label: `$(git-branch) ${context.status.branch} has no upstream`,
+				label: l10n.t('$(git-branch) {0} has no upstream', context.status.branch),
 				detail: workingTreeStatus,
 			}),
 		);
@@ -362,24 +425,38 @@ function getShowRepositoryStatusStepItems<
 	}
 
 	if (computed.staged > 0) {
-		items.push(new OpenChangedFilesCommandQuickPickItem(computed.stagedAddsAndChanges, 'Open Staged Files'));
+		items.push(
+			new OpenChangedFilesCommandQuickPickItem(computed.stagedAddsAndChanges, l10n.t('Open Staged Files')),
+		);
 
 		items.push(
-			new OpenOnlyChangedFilesCommandQuickPickItem(computed.stagedAddsAndChanges, 'Open Only Staged Files'),
+			new OpenOnlyChangedFilesCommandQuickPickItem(
+				computed.stagedAddsAndChanges,
+				l10n.t('Open Only Staged Files'),
+			),
 		);
 	}
 
 	if (computed.unstaged > 0) {
-		items.push(new OpenChangedFilesCommandQuickPickItem(computed.unstagedAddsAndChanges, 'Open Unstaged Files'));
+		items.push(
+			new OpenChangedFilesCommandQuickPickItem(computed.unstagedAddsAndChanges, l10n.t('Open Unstaged Files')),
+		);
 
 		items.push(
-			new OpenOnlyChangedFilesCommandQuickPickItem(computed.unstagedAddsAndChanges, 'Open Only Unstaged Files'),
+			new OpenOnlyChangedFilesCommandQuickPickItem(
+				computed.unstagedAddsAndChanges,
+				l10n.t('Open Only Unstaged Files'),
+			),
 		);
 	}
 
 	if (context.status.files.length) {
 		items.push(
-			new CommandQuickPickItem('Close Unchanged Files', new ThemeIcon('x'), 'gitlens.closeUnchangedFiles'),
+			new CommandQuickPickItem(
+				l10n.t('Close Unchanged Files'),
+				new ThemeIcon('x'),
+				'gitlens.closeUnchangedFiles',
+			),
 		);
 	}
 

@@ -200,6 +200,7 @@ const tasks = bundleCmds.map(c => run(c));
 if (!quick && !watch) {
 	tasks.push(run('oxlint --type-aware --type-check --deny-warnings'));
 	tasks.push(run(`node ./scripts/check-deps.mjs`));
+	tasks.push(run(`node ./scripts/localization.mjs check`));
 }
 
 // allSettled (not all) so a failure in one process never abandons the others mid-flight — every

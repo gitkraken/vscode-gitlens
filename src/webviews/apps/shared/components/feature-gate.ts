@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
@@ -130,9 +131,10 @@ export class GlFeatureGate extends LitElement {
 					this.allowRepoSwitch
 						? html`<gl-button
 								appearance="toolbar"
-								tooltip="Switch to a different repository"
+								tooltip=${l10n.t('Switch to a different repository')}
 								@click=${this.onSwitchRepos}
-								><code-icon icon="gl-switch" slot="prefix"></code-icon> Switch Repos</gl-button
+								><code-icon icon="gl-switch" slot="prefix"></code-icon>
+								${l10n.t('Switch Repos')}</gl-button
 							>`
 						: nothing
 				}
@@ -140,9 +142,10 @@ export class GlFeatureGate extends LitElement {
 					this.allowOrgSwitch
 						? html`<gl-button
 								appearance="toolbar"
-								tooltip="Switch to a different organization"
+								tooltip=${l10n.t('Switch to a different organization')}
 								@click=${this.onSwitchOrgs}
-								><code-icon icon="organization" slot="prefix"></code-icon> Switch Orgs</gl-button
+								><code-icon icon="organization" slot="prefix"></code-icon>
+								${l10n.t('Switch Orgs')}</gl-button
 							>`
 						: nothing
 				}

@@ -2,6 +2,7 @@
  * Shared a11y helpers for the commit graph surface — screen-reader-facing strings, testable without a DOM.
  */
 
+import * as l10n from '@vscode/l10n';
 import type { CommitKind, GraphCommit } from './engine/types.js';
 import { relativeTimeShort } from './time.js';
 
@@ -14,7 +15,8 @@ import { relativeTimeShort } from './time.js';
  *   - commit message summary (first line, if present)
  *   - optional adornment fragment (from the adornment registry's describeForA11y)
  *
- * Fragments are joined with `, ` so screen readers pause naturally between them.
+ * Every optional-field combination has an extractable full-utterance template. This is deliberately
+ * more verbose than joining English fragments: word order and connective words differ by locale.
  */
 export function buildAriaLabel(
 	commit: GraphCommit,
@@ -26,8 +28,10 @@ export function buildAriaLabel(
 	 *  workdir row's message is now the same bare "Working Changes" (see `wipRowMessage`), so this is
 	 *  what actually distinguishes the row from every other workdir row. */
 	identity?: string,
+	/** Workdir-only rendered label. The canonical commit message remains the fallback for callers that
+	 *  don't supply a localized display boundary. */
+	workdirLabel?: string,
 ): string {
-	const parts: string[] = [];
 	const isMerge = kind === 'merge' || commit.parents.length > 1;
 	// Prefer the renderer's already-formatted relative date so the spoken label matches the VISIBLE
 	// date exactly; fall back to the package's own short formatter when the caller supplies none.
@@ -37,43 +41,97 @@ export function buildAriaLabel(
 	// disambiguating branch/worktree name, spoken right after it. Fall back to the generic "Working
 	// directory" header only when the summary is empty.
 	if (kind === 'workdir') {
-		parts.push(firstLine(commit.message) || 'Working directory');
-		if (identity) {
-			parts.push(identity);
-		}
-		if (rel) {
-			parts.push(rel);
-		}
-		if (adornmentLabel) {
-			parts.push(adornmentLabel);
-		}
-		return parts.join(', ');
+		return formatWorkdirAriaLabel(
+			firstLine(workdirLabel ?? commit.message) || l10n.t('Working directory'),
+			identity,
+			rel,
+			adornmentLabel,
+		);
 	}
 
 	let header: string;
 	if (kind === 'stash') {
-		header = `Stash ${commit.shortSha}`;
+		header = l10n.t('Stash {0}', commit.shortSha);
 	} else if (isMerge) {
-		header = `Merge commit ${commit.shortSha}`;
+		header = l10n.t('Merge commit {0}', commit.shortSha);
 	} else {
-		header = `Commit ${commit.shortSha}`;
-	}
-	parts.push(header);
-
-	if (commit.author) {
-		parts.push(`by ${commit.author}`);
-	}
-	if (rel) {
-		parts.push(rel);
+		header = l10n.t('Commit {0}', commit.shortSha);
 	}
 	const summary = firstLine(commit.message);
-	if (summary) {
-		parts.push(summary);
+	return formatCommitAriaLabel(header, commit.author, rel, summary, adornmentLabel);
+}
+
+function formatWorkdirAriaLabel(
+	label: string,
+	identity: string | undefined,
+	relative: string,
+	adornment: string | undefined,
+): string {
+	const fields = (identity ? 1 : 0) | (relative.length === 0 ? 0 : 2) | (adornment ? 4 : 0);
+	switch (fields) {
+		case 0:
+			return label;
+		case 1:
+			return l10n.t('{0}, {1}', label, identity!);
+		case 2:
+			return l10n.t('{0}, {1}', label, relative);
+		case 3:
+			return l10n.t('{0}, {1}, {2}', label, identity!, relative);
+		case 4:
+			return l10n.t('{0}, {1}', label, adornment!);
+		case 5:
+			return l10n.t('{0}, {1}, {2}', label, identity!, adornment!);
+		case 6:
+			return l10n.t('{0}, {1}, {2}', label, relative, adornment!);
+		default:
+			return l10n.t('{0}, {1}, {2}, {3}', label, identity!, relative, adornment!);
 	}
-	if (adornmentLabel) {
-		parts.push(adornmentLabel);
+}
+
+function formatCommitAriaLabel(
+	header: string,
+	author: string | undefined,
+	relative: string,
+	summary: string,
+	adornment: string | undefined,
+): string {
+	const fields =
+		(author ? 1 : 0) | (relative.length === 0 ? 0 : 2) | (summary.length === 0 ? 0 : 4) | (adornment ? 8 : 0);
+
+	switch (fields) {
+		case 0:
+			return header;
+		case 1:
+			return l10n.t('{0}, by {1}', header, author!);
+		case 2:
+			return l10n.t('{0}, {1}', header, relative);
+		case 3:
+			return l10n.t('{0}, by {1}, {2}', header, author!, relative);
+		case 4:
+			return l10n.t('{0}, {1}', header, summary);
+		case 5:
+			return l10n.t('{0}, by {1}, {2}', header, author!, summary);
+		case 6:
+			return l10n.t('{0}, {1}, {2}', header, relative, summary);
+		case 7:
+			return l10n.t('{0}, by {1}, {2}, {3}', header, author!, relative, summary);
+		case 8:
+			return l10n.t('{0}, {1}', header, adornment!);
+		case 9:
+			return l10n.t('{0}, by {1}, {2}', header, author!, adornment!);
+		case 10:
+			return l10n.t('{0}, {1}, {2}', header, relative, adornment!);
+		case 11:
+			return l10n.t('{0}, by {1}, {2}, {3}', header, author!, relative, adornment!);
+		case 12:
+			return l10n.t('{0}, {1}, {2}', header, summary, adornment!);
+		case 13:
+			return l10n.t('{0}, by {1}, {2}, {3}', header, author!, summary, adornment!);
+		case 14:
+			return l10n.t('{0}, {1}, {2}, {3}', header, relative, summary, adornment!);
+		default:
+			return l10n.t('{0}, by {1}, {2}, {3}, {4}', header, author!, relative, summary, adornment!);
 	}
-	return parts.join(', ');
 }
 
 // A commit's accessible name uses only the SUMMARY (first line): it matches the row's visible

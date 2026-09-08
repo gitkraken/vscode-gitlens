@@ -1,5 +1,5 @@
 import type { Command } from 'vscode';
-import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { l10n, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
@@ -106,7 +106,7 @@ export class UncommittedFileNode extends ViewRefFileNode<'uncommitted-file', Vie
 	override getCommand(): Command | undefined {
 		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
 			'gitlens.diffWithPrevious:views',
-			'Open Changes with Previous Revision',
+			l10n.t('Open Changes with Previous Revision'),
 			undefined,
 			{
 				uri: GitUri.fromFile(this.file, this.repoPath),

@@ -1,4 +1,4 @@
-import { ThemeIcon } from 'vscode';
+import { l10n, ThemeIcon } from 'vscode';
 import { Container } from '../../../container.js';
 import type { FeatureAccess, PlusFeatures, RepoFeatureAccess } from '../../../features.js';
 import type { GlRepository } from '../../../git/models/repository.js';
@@ -18,11 +18,13 @@ export async function getAccessGateErrorMessage(
 	container: Container,
 	feature: PlusFeatures,
 	repoPath: string | undefined,
-	action: string,
+	action: 'start a review' | 'start work',
 ): Promise<string> {
 	const access = await container.git.access(feature, repoPath);
 	if (access.subscription.current.account?.verified === false) {
-		return `Verify your email address to ${action}.`;
+		return action === 'start work'
+			? l10n.t('Verify your email address to start work.')
+			: l10n.t('Verify your email address to start a review.');
 	}
 
 	if (
@@ -30,10 +32,14 @@ export async function getAccessGateErrorMessage(
 		isSubscriptionPaidPlan(access.subscription.required) &&
 		access.subscription.current.account != null
 	) {
-		return `GitLens Pro is required to ${action}.`;
+		return action === 'start work'
+			? l10n.t('GitLens Pro is required to start work.')
+			: l10n.t('GitLens Pro is required to start a review.');
 	}
 
-	return `Sign in to GitLens or start a Pro trial to ${action}.`;
+	return action === 'start work'
+		? l10n.t('Sign in to GitLens or start a Pro trial to start work.')
+		: l10n.t('Sign in to GitLens or start a Pro trial to start a review.');
 }
 
 export async function* ensureAccessStep<
@@ -61,7 +67,7 @@ export async function* ensureAccessStep<
 			createQuickPickSeparator(),
 			createDirectiveQuickPickItem(Directive.Cancel),
 		);
-		placeholder = 'You must verify your email before you can continue';
+		placeholder = l10n.t('You must verify your email before you can continue');
 	} else {
 		if (access.subscription.required == null) {
 			parentStep.skip();
@@ -81,14 +87,14 @@ export async function* ensureAccessStep<
 			case 'worktrees':
 				placeholder =
 					isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null
-						? 'Unlock this feature for privately hosted repos with GitLens Pro'
-						: 'Try GitLens Pro to unlock this feature for privately hosted repos';
+						? l10n.t('Unlock this feature for privately hosted repos with GitLens Pro')
+						: l10n.t('Try GitLens Pro to unlock this feature for privately hosted repos');
 				break;
 			default:
 				placeholder =
 					isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null
-						? 'Unlock this feature with GitLens Pro'
-						: 'Try GitLens Pro to unlock this feature';
+						? l10n.t('Unlock this feature with GitLens Pro')
+						: l10n.t('Try GitLens Pro to unlock this feature');
 				break;
 		}
 
@@ -114,8 +120,10 @@ export async function* ensureAccessStep<
 				0,
 				0,
 				createDirectiveQuickPickItem(Directive.Cancel, undefined, {
-					label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
-					detail: 'Click to learn more about Launchpad',
+					label: l10n.t(
+						'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
+					),
+					detail: l10n.t('Click to learn more about Launchpad'),
 					iconPath: new ThemeIcon('rocket'),
 					onDidSelect: () =>
 						void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
@@ -131,7 +139,7 @@ export async function* ensureAccessStep<
 				0,
 				0,
 				createDirectiveQuickPickItem(Directive.Noop, undefined, {
-					label: 'Start reviewing a pull request from your connected integrations',
+					label: l10n.t('Start reviewing a pull request from your connected integrations'),
 					iconPath: new ThemeIcon('git-pull-request'),
 				}),
 				createQuickPickSeparator(),
@@ -142,7 +150,7 @@ export async function* ensureAccessStep<
 				0,
 				0,
 				createDirectiveQuickPickItem(Directive.Noop, undefined, {
-					label: 'Start work on an issue from your connected integrations',
+					label: l10n.t('Start work on an issue from your connected integrations'),
 					iconPath: new ThemeIcon('issues'),
 				}),
 				createQuickPickSeparator(),
@@ -153,7 +161,7 @@ export async function* ensureAccessStep<
 				0,
 				0,
 				createDirectiveQuickPickItem(Directive.Noop, undefined, {
-					label: 'Connect your branches to their associated issues',
+					label: l10n.t('Connect your branches to their associated issues'),
 					iconPath: new ThemeIcon('issues'),
 				}),
 				createQuickPickSeparator(),
@@ -164,7 +172,9 @@ export async function* ensureAccessStep<
 				0,
 				0,
 				createDirectiveQuickPickItem(Directive.Noop, undefined, {
-					label: 'Worktrees minimize context switching by allowing simultaneous work on multiple branches',
+					label: l10n.t(
+						'Worktrees minimize context switching by allowing simultaneous work on multiple branches',
+					),
 					iconPath: getIconPathUris(Container.instance, 'icon-repo.svg'),
 				}),
 			);

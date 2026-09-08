@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import '../../../shared/components/chips/action-chip.js';
@@ -84,18 +85,18 @@ export class GlGraphComparePinned extends LitElement {
 
 	override render(): unknown {
 		return html`<header class="compare-pinned-host__header">
-				<span class="compare-pinned-host__title">Comparing References</span>
+				<span class="compare-pinned-host__title">${l10n.t('Comparing References')}</span>
 				<div class="compare-pinned-host__actions">
 					<gl-action-chip
 						icon=${this.orientation === 'horizontal' ? 'layout-panel' : 'layout-sidebar-right'}
-						label=${this.orientation === 'horizontal' ? 'Move Below' : 'Move Beside'}
+						label=${this.orientation === 'horizontal' ? l10n.t('Move Below') : l10n.t('Move Beside')}
 						overlay="tooltip"
 						@click=${this.handleFlipClick}
 					></gl-action-chip>
 					<slot name="actions"></slot>
 					<gl-action-chip
 						icon="close"
-						label="Close"
+						label=${l10n.t('Close')}
 						overlay="tooltip"
 						@click=${this.handleCloseClick}
 					></gl-action-chip>

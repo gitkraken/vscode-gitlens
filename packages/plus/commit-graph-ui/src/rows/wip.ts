@@ -1,5 +1,6 @@
 import type { GraphPlacement } from '@gitkraken/commit-graph/geometry.js';
 import type { ZoneSpec } from '@gitkraken/commit-graph/zones.js';
+import * as l10n from '@vscode/l10n';
 import type { WorkDirStats } from '../contracts/state.js';
 
 export function hasDirtyCounts(stats: Partial<WorkDirStats> | undefined): boolean {
@@ -61,8 +62,8 @@ export function wipZoneSuppressFromIndex(
 
 /** The full and short forms of a WIP row's visible label — the degradation ladder's first rung
  *  (`computeWipRowFit`) swaps between them; never an ellipsis on the label itself. */
-export const wipRowFullLabel = 'Working Changes';
-export const wipRowShortLabel = 'WIP';
+export const wipRowFullLabel: string = l10n.t('Working Changes');
+export const wipRowShortLabel: string = l10n.t('WIP');
 
 /**
  * Measured inputs `computeWipRowFit` needs to decide a WIP row's label + pill-name cap. All widths are

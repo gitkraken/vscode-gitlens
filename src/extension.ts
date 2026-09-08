@@ -1,5 +1,5 @@
 import type { ExtensionContext } from 'vscode';
-import { version as codeVersion, commands, env, ExtensionMode, LogLevel, Uri, window, workspace } from 'vscode';
+import { version as codeVersion, commands, env, ExtensionMode, l10n, LogLevel, Uri, window, workspace } from 'vscode';
 import { isWeb } from '@env/platform.js';
 import { defaultResolver as envDefaultResolver } from '@env/resolver.js';
 import { setAbbreviatedShaLength } from '@gitlens/git/utils/revision.utils.js';
@@ -451,7 +451,12 @@ function setKeysForSync(context: ExtensionContext, ...keys: (SyncedStorageKeys |
 function registerBuiltInActionRunners(container: Container): void {
 	container.context.subscriptions.push(
 		container.actionRunners.registerBuiltIn<CreatePullRequestActionContext>('createPullRequest', {
-			label: ctx => `Create Pull Request on ${ctx.remote?.provider?.name ?? 'Remote'}`,
+			label: ctx => {
+				const provider = ctx.remote?.provider?.name;
+				return provider == null
+					? l10n.t('Create Pull Request on Remote')
+					: l10n.t('Create Pull Request on {provider}', { provider: provider });
+			},
 			run: async ctx => {
 				if (ctx.type !== 'createPullRequest') return;
 
@@ -470,7 +475,12 @@ function registerBuiltInActionRunners(container: Container): void {
 			},
 		}),
 		container.actionRunners.registerBuiltIn<OpenPullRequestActionContext>('openPullRequest', {
-			label: ctx => `Open Pull Request on ${ctx.provider?.name ?? 'Remote'}`,
+			label: ctx => {
+				const provider = ctx.provider?.name;
+				return provider == null
+					? l10n.t('Open Pull Request on Remote')
+					: l10n.t('Open Pull Request on {provider}', { provider: provider });
+			},
 			run: async ctx => {
 				if (ctx.type !== 'openPullRequest') return;
 
@@ -480,7 +490,12 @@ function registerBuiltInActionRunners(container: Container): void {
 			},
 		}),
 		container.actionRunners.registerBuiltIn<OpenIssueActionContext>('openIssue', {
-			label: ctx => `Open Issue on ${ctx.provider?.name ?? 'Remote'}`,
+			label: ctx => {
+				const provider = ctx.provider?.name;
+				return provider == null
+					? l10n.t('Open Issue on Remote')
+					: l10n.t('Open Issue on {provider}', { provider: provider });
+			},
 			run: async ctx => {
 				if (ctx.type !== 'openIssue') return;
 

@@ -1,5 +1,6 @@
 import type { MessageItem, Uri } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { proTrialLengthInDays } from '../../../../constants.subscription.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
@@ -13,11 +14,11 @@ export async function ensureAccount(container: Container, title: string, source:
 	while (true) {
 		const subscription = await container.subscription.getSubscription();
 		if (subscription.account?.verified === false) {
-			const resend = { title: 'Resend Email' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const resend = { title: l10n.t('Resend Email') };
+			const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 			const result = await window.showWarningMessage(
 				title,
-				{ modal: true, detail: 'You must verify your email before you can continue.' },
+				{ modal: true, detail: l10n.t('You must verify your email before you can continue.') },
 				resend,
 				cancel,
 			);
@@ -33,14 +34,17 @@ export async function ensureAccount(container: Container, title: string, source:
 
 		if (subscription.account != null) break;
 
-		const signUp = { title: 'Try GitLens Pro' };
-		const signIn = { title: 'Sign In' };
-		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const signUp = { title: l10n.t('Try GitLens Pro') };
+		const signIn = { title: l10n.t('Sign In') };
+		const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		const result = await window.showWarningMessage(
 			title,
 			{
 				modal: true,
-				detail: `Start your free ${proTrialLengthInDays}-day Pro trial for full access to all GitLens Pro features, or sign in.`,
+				detail: l10n.t(
+					'Start your free {0}-day Pro trial for full access to all GitLens Pro features, or sign in.',
+					getNumericFormat()(proTrialLengthInDays),
+				),
 			},
 			signUp,
 			signIn,
@@ -77,14 +81,14 @@ export async function ensureAccountQuickPick(
 
 		const directives: DirectiveQuickPickItem[] = [descriptionItem];
 
-		let placeholder = 'Requires an account to continue';
+		let placeholder = l10n.t('Requires an account to continue');
 		if (account?.verified === false) {
 			directives.push(
 				createDirectiveQuickPickItem(Directive.RequiresVerification, true),
 				createQuickPickSeparator(),
 				createDirectiveQuickPickItem(Directive.Cancel),
 			);
-			placeholder = 'You must verify your email before you can continue';
+			placeholder = l10n.t('You must verify your email before you can continue');
 		} else {
 			directives.push(
 				createDirectiveQuickPickItem(Directive.StartProTrial, true),
@@ -143,28 +147,32 @@ export async function ensureFeatureAccess(
 		const promo = await container.productConfig.getApplicablePromo(access.subscription.current.state, plan, 'gate');
 		const promoDetail = promo?.content?.modal?.detail;
 
-		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		let upgrade: MessageItem;
 		let result: MessageItem | undefined;
 
 		if (isAdvanced) {
-			upgrade = { title: 'Upgrade to Advanced' };
+			upgrade = { title: l10n.t('Upgrade to Advanced') };
 			result = await window.showWarningMessage(
 				title,
 				{
 					modal: true,
-					detail: `Please upgrade to GitLens Advanced to continue.${promoDetail ? `\n${promoDetail}` : ''}`,
+					detail: promoDetail
+						? l10n.t('Please upgrade to GitLens Advanced to continue.\n{0}', promoDetail)
+						: l10n.t('Please upgrade to GitLens Advanced to continue.'),
 				},
 				upgrade,
 				cancel,
 			);
 		} else {
-			upgrade = { title: 'Upgrade to Pro' };
+			upgrade = { title: l10n.t('Upgrade to Pro') };
 			result = await window.showWarningMessage(
 				title,
 				{
 					modal: true,
-					detail: `Please upgrade to GitLens Pro to continue.${promoDetail ? `\n${promoDetail}` : ''}`,
+					detail: promoDetail
+						? l10n.t('Please upgrade to GitLens Pro to continue.\n{0}', promoDetail)
+						: l10n.t('Please upgrade to GitLens Pro to continue.'),
 				},
 				upgrade,
 				cancel,

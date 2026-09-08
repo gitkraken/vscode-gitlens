@@ -1,5 +1,5 @@
 import type { CancellationTokenSource, Disposable } from 'vscode';
-import { env, ProgressLocation, Uri, window } from 'vscode';
+import { env, l10n, ProgressLocation, Uri, window } from 'vscode';
 import type { AIReviewResult } from '@gitlens/ai/models/results.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import { rootSha, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
@@ -10,13 +10,13 @@ import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { uuid } from '@gitlens/utils/crypto.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { annotateDiffWithNewLineNumbers } from '@gitlens/utils/diff.js';
 import { lazy } from '@gitlens/utils/lazy.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import { getAvatarUri } from '../../../avatars.js';
 import type { ContinueRebaseWithAiCommandArgs } from '../../../commands/autoRebase.js';
 import { openExplainDocument } from '../../../commands/explainBase.js';
@@ -24,6 +24,7 @@ import type { ExplainCommitCommandArgs } from '../../../commands/explainCommit.j
 import { generateChangelogAndOpenMarkdownDocument } from '../../../commands/generateChangelog.js';
 import type { RunPromptInAgentCommandArgs } from '../../../commands/runPromptInAgent.js';
 import type { Container } from '../../../container.js';
+import { getPresentableErrorMessage } from '../../../errors.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.utils.js';
 import { getConflictFileInfos } from '../../../git/utils/-webview/conflictKind.utils.js';
@@ -48,6 +49,7 @@ import type {
 	ConflictProgressEvent,
 	Resolution as ConflictToolsResolution,
 	ResolutionContext,
+	ResolutionDescriptionKind,
 } from '../../../plus/coretools/conflict/types.js';
 import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.js';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
@@ -158,6 +160,15 @@ function toAutoRebaseRunStep(session: AutoRebaseSession): { current: number; tot
 	return undefined;
 }
 
+function getResolutionReasoning(description: string, kind: ResolutionDescriptionKind | undefined): string {
+	switch (kind) {
+		case 'automatic-both-deleted':
+			return l10n.t('Deleted on both sides — removed automatically.');
+		case undefined:
+			return description;
+	}
+}
+
 /** Flattens an auto-rebase session into the serializable shape the Resolve panel renders. Deliberately
  *  omits the per-file `virtualRef`s the summary sheet carries: registering a virtual diff session per
  *  progress tick would churn providers for diffs nothing is showing yet. */
@@ -190,7 +201,7 @@ function toAutoRebaseRunUpdate(
 			files: step.files.map(f => ({
 				filePath: f.path,
 				strategy: f.strategy,
-				reasoning: f.description,
+				reasoning: getResolutionReasoning(f.description, f.descriptionKind),
 				confidence: f.confidence,
 				note: f.note,
 				consulted: f.consulted,
@@ -430,7 +441,7 @@ export class GraphInspectServices {
 						});
 						return { result: { summary: '', body: '' } };
 					} catch (ex) {
-						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+						return { error: { message: getPresentableErrorMessage(ex) } };
 					}
 				},
 				generateChangelogCompare: (repoPath, fromRef, toRef, signal) =>
@@ -497,11 +508,11 @@ export class GraphInspectServices {
 						void this.container.usage.track('action:gitlens.ai.review.copied:happened');
 						const label =
 							args.granularity === 'review'
-								? 'Review findings copied to clipboard'
+								? l10n.t('Review findings copied to clipboard')
 								: args.granularity === 'focusArea'
-									? 'Focus area findings copied to clipboard'
-									: 'Finding copied to clipboard';
-						window.setStatusBarMessage(`$(check) ${label}`, 3000);
+									? l10n.t('Focus area findings copied to clipboard')
+									: l10n.t('Finding copied to clipboard');
+						window.setStatusBarMessage(l10n.t('$(check) {0}', label), 3000);
 					}
 					return Promise.resolve();
 				},
@@ -519,8 +530,8 @@ export class GraphInspectServices {
 						const contributors = await showContributorsPicker(
 							this.container,
 							repo,
-							'Add Co-authors',
-							'Choose contributors to add as co-authors',
+							l10n.t('Add Co-authors'),
+							l10n.t('Choose contributors to add as co-authors'),
 							{
 								appendReposToTitle: true,
 								clearButton: true,
@@ -578,12 +589,12 @@ export class GraphInspectServices {
 				commitCompose: async (repoPath, sessionKey, plan) => {
 					const composeTools = await this.getOrCreateComposeToolsForGraph();
 					if (composeTools == null) {
-						return { error: { message: 'Compose is not available in this environment.' } };
+						return { error: { message: l10n.t('Compose is not available in this environment.') } };
 					}
 
 					const cacheKey = this._activeComposeCacheKeys.get(sessionKey);
 					if (cacheKey == null) {
-						return { error: { message: 'No active compose plan; please regenerate.' } };
+						return { error: { message: l10n.t('No active compose plan; please regenerate.') } };
 					}
 
 					try {
@@ -605,7 +616,7 @@ export class GraphInspectServices {
 				reorderProposedCommits: async (sessionKey, cacheKey, orderedCommitIds) => {
 					const composeTools = await this.getOrCreateComposeToolsForGraph();
 					if (composeTools == null) {
-						return { error: { message: 'Compose is not available in this environment.' } };
+						return { error: { message: l10n.t('Compose is not available in this environment.') } };
 					}
 
 					// Defend against a stale cacheKey (refine swaps keys, panel close discards): the
@@ -613,11 +624,15 @@ export class GraphInspectServices {
 					// a recoverable error so the user can simply re-run compose.
 					const activeKey = this._activeComposeCacheKeys.get(sessionKey);
 					if (activeKey !== cacheKey) {
-						return { error: { message: 'This compose plan is no longer active; please regenerate.' } };
+						return {
+							error: { message: l10n.t('This compose plan is no longer active; please regenerate.') },
+						};
 					}
 
 					if (!composeTools.reorderCachedPlan(cacheKey, orderedCommitIds)) {
-						return { error: { message: 'This compose plan is no longer active; please regenerate.' } };
+						return {
+							error: { message: l10n.t('This compose plan is no longer active; please regenerate.') },
+						};
 					}
 
 					return { result: true };
@@ -625,18 +640,23 @@ export class GraphInspectServices {
 				moveComposeFile: async (repoPath, sessionKey, cacheKey, fromCommitId, toCommitId, paths) => {
 					const composeTools = await this.getOrCreateComposeToolsForGraph();
 					if (composeTools == null) {
-						return { error: { message: 'Compose is not available in this environment.' } };
+						return { error: { message: l10n.t('Compose is not available in this environment.') } };
 					}
 
 					const activeKey = this._activeComposeCacheKeys.get(sessionKey);
 					if (activeKey !== cacheKey) {
-						return { error: { message: 'This compose plan is no longer active; please regenerate.' } };
+						return {
+							error: { message: l10n.t('This compose plan is no longer active; please regenerate.') },
+						};
 					}
 
 					if (!composeTools.moveFilesBetweenCommits(cacheKey, fromCommitId, toCommitId, paths)) {
 						return {
 							error: {
-								message: `Unable to move ${paths.length === 1 ? 'that file' : 'those files'}; please regenerate the plan.`,
+								message:
+									paths.length === 1
+										? l10n.t('Unable to move that file; please regenerate the plan.')
+										: l10n.t('Unable to move those files; please regenerate the plan.'),
 							},
 						};
 					}
@@ -645,7 +665,9 @@ export class GraphInspectServices {
 					// emptied commit), so re-derive the plan's display commits from the mutated cache.
 					const planResult = composeTools.getCachedPlanResult(cacheKey);
 					if (planResult == null) {
-						return { error: { message: 'This compose plan is no longer active; please regenerate.' } };
+						return {
+							error: { message: l10n.t('This compose plan is no longer active; please regenerate.') },
+						};
 					}
 
 					const commits = this.deriveComposeCommits(repoPath, planResult);
@@ -668,28 +690,29 @@ export class GraphInspectServices {
 					// A refused undo also has to speak outside the sheet: its inline banner can sit below
 					// the fold of a short details pane, leaving a confirmed destructive action looking like
 					// it did nothing. Same toast `undoWithConfirmation` gives from the completion notice.
-					const refuse = (message: string): UndoAutoRebaseResult => {
+					const refuse = (message: string, completeMessage = false): UndoAutoRebaseResult => {
 						void window.showWarningMessage(
-							// Validation refusals already lead with "Can't undo" — don't stutter.
-							message.startsWith("Can't undo") ? message : `Can't undo the Auto-Rebase — ${message}`,
+							completeMessage
+								? message
+								: l10n.t("Can't undo the Auto-Rebase — {reason}", { reason: message }),
 						);
 						return { error: { message: message } };
 					};
 
 					const session = this.container.autoRebase.getSession(repoPath);
 					if (session == null || session.id !== sessionId) {
-						return refuse('The Auto-Rebase session is no longer available.');
+						return refuse(l10n.t('The Auto-Rebase session is no longer available.'));
 					}
 
 					const result = await this.container.autoRebase.undo(repoPath);
-					if (!result.ok) return refuse(result.message);
+					if (!result.ok) return refuse(result.message, true);
 
 					return {
 						result: {
 							restoredTo: result.restoredTo,
 							warning:
 								result.warning === 'changes-left-in-stash'
-									? 'Your working changes were left in the stash.'
+									? l10n.t('Your working changes were left in the stash.')
 									: undefined,
 						},
 					};
@@ -721,7 +744,7 @@ export class GraphInspectServices {
 				getContributorsForBranchComparison: (repoPath, leftRef, rightRef, scope, signal) =>
 					this.getContributorsForBranchComparison(repoPath, leftRef, rightRef, scope, signal),
 				chooseRef: async (repoPath, title, picked) => {
-					const result = await showReferencePicker2(repoPath, title, 'Choose a branch or tag', {
+					const result = await showReferencePicker2(repoPath, title, l10n.t('Choose a branch or tag'), {
 						include: ['branches', 'tags'],
 						picked: picked,
 					});
@@ -1055,14 +1078,14 @@ export class GraphInspectServices {
 			const svc = this.container.git.getRepositoryService(repoPath);
 			const data = await prepareCompareDataForAIRequest(svc, toSha, fromSha);
 			if (data == null) {
-				return { error: { message: 'No changes found between the selected commits' } };
+				return { error: { message: l10n.t('No changes found between the selected commits') } };
 			}
 
 			const fromShort = shortenRevision(fromSha);
 			const toShort = shortenRevision(toSha);
 			const changes = {
 				diff: data.diff,
-				message: `Changes between ${fromShort} and ${toShort}:\n\n${data.logMessages}`,
+				message: l10n.t('Changes between {0} and {1}:\n\n{2}', fromShort, toShort, data.logMessages),
 				instructions: prompt || undefined,
 			};
 
@@ -1072,7 +1095,7 @@ export class GraphInspectServices {
 				{
 					progress: {
 						location: ProgressLocation.Notification,
-						title: `Explaining changes between ${fromShort}..${toShort}...`,
+						title: l10n.t('Explaining changes between {0}..{1}...', fromShort, toShort),
 					},
 				},
 			);
@@ -1091,11 +1114,11 @@ export class GraphInspectServices {
 				'explain-compare',
 				{
 					header: {
-						title: 'Comparison Summary',
-						subtitle: `${fromShort}..${toShort}`,
+						title: l10n.t('Comparison Summary'),
+						subtitle: l10n.t('{0}..{1}', fromShort, toShort),
 					},
 					command: {
-						label: 'Explain Comparison',
+						label: l10n.t('Explain Comparison'),
 						name: 'gitlens.ai.explainCommit' as const,
 						args: { repoPath: repoPath, rev: toSha, source: { source: 'graph' } },
 					},
@@ -1112,7 +1135,7 @@ export class GraphInspectServices {
 
 			return { result: { summary: '', body: '' } };
 		} catch (ex) {
-			return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+			return { error: { message: getPresentableErrorMessage(ex) } };
 		}
 	}
 
@@ -1145,7 +1168,7 @@ export class GraphInspectServices {
 
 			const cachedData = followUp != null ? this._graphDetailsDiffCache.get(diffCacheKey) : undefined;
 			const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, excluded, signal));
-			if (!data) return { error: { message: 'No changes found.' } };
+			if (!data) return { error: { message: l10n.t('No changes found.') } };
 
 			if (cachedData == null) {
 				// Drop anything excluded that still made it into the diff (cached entries are already
@@ -1154,7 +1177,7 @@ export class GraphInspectServices {
 				// commit/compare diffs.
 				if (excluded != null) {
 					data.diff = await this.filterExcludedFromDiff(data.diff, excluded, signal);
-					if (!data.diff?.trim()) return { error: { message: 'No changes found.' } };
+					if (!data.diff?.trim()) return { error: { message: l10n.t('No changes found.') } };
 				}
 
 				this._graphDetailsDiffCache.set(diffCacheKey, {
@@ -1195,12 +1218,12 @@ export class GraphInspectServices {
 				);
 
 				if (result === 'cancelled' || result == null) {
-					return { error: { message: 'Review was cancelled.' } };
+					return { error: { message: l10n.t('Review was cancelled.') } };
 				}
 
 				const response = await result.promise;
 				if (response === 'cancelled' || response == null) {
-					return { error: { message: 'Review was cancelled.' } };
+					return { error: { message: l10n.t('Review was cancelled.') } };
 				}
 
 				this.recordReviewExchange(diffCacheKey, prompt, response.result, followUp != null);
@@ -1241,18 +1264,18 @@ export class GraphInspectServices {
 			);
 
 			if (overviewResult === 'cancelled' || overviewResult == null) {
-				return { error: { message: 'Review was cancelled.' } };
+				return { error: { message: l10n.t('Review was cancelled.') } };
 			}
 
 			const overviewResponse = await overviewResult.promise;
 			if (overviewResponse === 'cancelled' || overviewResponse == null) {
-				return { error: { message: 'Review was cancelled.' } };
+				return { error: { message: l10n.t('Review was cancelled.') } };
 			}
 
 			this.recordReviewExchange(diffCacheKey, prompt, overviewResponse.result, followUp != null);
 			return { result: overviewResponse.result };
 		} catch (ex) {
-			return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+			return { error: { message: getPresentableErrorMessage(ex) } };
 		} finally {
 			disposeCancellation();
 		}
@@ -1281,7 +1304,7 @@ export class GraphInspectServices {
 
 			const cachedData = this._graphDetailsDiffCache.get(diffCacheKey);
 			const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, excluded, signal));
-			if (!data) return { error: { message: 'No changes found for this focus area.' } };
+			if (!data) return { error: { message: l10n.t('No changes found for this focus area.') } };
 
 			if (cachedData == null) {
 				// Exclusion-filter before caching, matching what `reviewChanges` stores under this
@@ -1306,7 +1329,7 @@ export class GraphInspectServices {
 			signal?.throwIfAborted();
 
 			if (!filteredDiff?.trim()) {
-				return { error: { message: 'No diff content found for the specified files.' } };
+				return { error: { message: l10n.t('No diff content found for the specified files.') } };
 			}
 
 			const result = await this.container.ai.actions.reviewFocusArea(
@@ -1324,17 +1347,17 @@ export class GraphInspectServices {
 			);
 
 			if (result === 'cancelled' || result == null) {
-				return { error: { message: 'Review was cancelled.' } };
+				return { error: { message: l10n.t('Review was cancelled.') } };
 			}
 
 			const response = await result.promise;
 			if (response === 'cancelled' || response == null) {
-				return { error: { message: 'Review was cancelled.' } };
+				return { error: { message: l10n.t('Review was cancelled.') } };
 			}
 
 			return { result: response.result };
 		} catch (ex) {
-			return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+			return { error: { message: getPresentableErrorMessage(ex) } };
 		} finally {
 			disposeCancellation();
 		}
@@ -1344,7 +1367,9 @@ export class GraphInspectServices {
 		try {
 			if ((await getSupportedAgents(this.container)).length === 0) {
 				void window.showWarningMessage(
-					'No supported AI agent is available in this editor. The review has been copied to your clipboard so you can paste it elsewhere.',
+					l10n.t(
+						'No supported AI agent is available in this editor. The review has been copied to your clipboard so you can paste it elsewhere.',
+					),
 				);
 				await env.clipboard.writeText(args.reviewMarkdown);
 				return { ok: false, reason: 'no-agents' };
@@ -1357,7 +1382,9 @@ export class GraphInspectServices {
 			// findings being forwarded to chat.
 			const aiModel = await this.container.ai.getModel({ silent: true, scope: 'review' });
 			if (aiModel == null) {
-				void window.showWarningMessage('An AI model must be selected before sending review findings to chat.');
+				void window.showWarningMessage(
+					l10n.t('An AI model must be selected before sending review findings to chat.'),
+				);
 				return { ok: false, reason: 'no-ai-model' };
 			}
 
@@ -1381,8 +1408,8 @@ export class GraphInspectServices {
 			} as RunPromptInAgentCommandArgs);
 			return { ok: true };
 		} catch (ex) {
-			const message = ex instanceof Error ? ex.message : String(ex);
-			void window.showWarningMessage(`Unable to send review findings to chat: ${message}`);
+			const message = getPresentableErrorMessage(ex);
+			void window.showWarningMessage(l10n.t('Unable to send review findings to chat: {0}', message));
 			return { ok: false, reason: 'error', message: message };
 		}
 	}
@@ -1442,7 +1469,7 @@ export class GraphInspectServices {
 			// Untyped provider errors (e.g. Copilot credit limit) arrive unnotified — surface
 			// them like the SCM command does
 			Logger.error(ex, 'graph.generateCommitMessage');
-			void showGenericErrorMessage(ex instanceof Error ? ex.message : String(ex));
+			void showGenericErrorMessage(getPresentableErrorMessage(ex));
 			return undefined;
 		} finally {
 			disposeCancellation();
@@ -1474,7 +1501,7 @@ export class GraphInspectServices {
 			if (scope.type !== 'wip') {
 				return {
 					error: {
-						message: 'Compose supports working changes and commit ranges on the current branch.',
+						message: l10n.t('Compose supports working changes and commit ranges on the current branch.'),
 					},
 				};
 			}
@@ -1494,7 +1521,7 @@ export class GraphInspectServices {
 
 			const composeTools = simulated ? undefined : await this.getOrCreateComposeToolsForGraph();
 			if (!simulated && composeTools == null) {
-				return { error: { message: 'Compose is not available in this environment.' } };
+				return { error: { message: l10n.t('Compose is not available in this environment.') } };
 			}
 
 			// Refine path: chat-style continuation against the cached plan. NO git operations, NO
@@ -1529,7 +1556,7 @@ export class GraphInspectServices {
 
 			this._composeProgressEvent.fire({
 				phase: useRefinePath ? 'refining' : 'collecting',
-				message: useRefinePath ? 'Refining commits…' : 'Preparing changes…',
+				message: useRefinePath ? l10n.t('Refining commits…') : l10n.t('Preparing changes…'),
 			});
 
 			const planResult = simulated
@@ -1648,7 +1675,7 @@ export class GraphInspectServices {
 			}
 			return {
 				error: {
-					message: ex instanceof Error ? ex.message : String(ex),
+					message: getPresentableErrorMessage(ex),
 					kind: isComposeInputError(ex) ? 'invalid-scope' : undefined,
 				},
 			};
@@ -1666,7 +1693,7 @@ export class GraphInspectServices {
 	): Promise<RegenerateProposedCommitMessageResult> {
 		const composeTools = await this.getOrCreateComposeToolsForGraph();
 		if (composeTools == null) {
-			return { error: { message: 'Compose is not available in this environment.' } };
+			return { error: { message: l10n.t('Compose is not available in this environment.') } };
 		}
 
 		// Defend against a stale cacheKey (refine swaps keys, panel close discards):
@@ -1675,14 +1702,14 @@ export class GraphInspectServices {
 		const activeKey = this._activeComposeCacheKeys.get(sessionKey);
 		if (activeKey !== cacheKey) {
 			return {
-				error: { message: 'This compose plan is no longer active; please regenerate.' },
+				error: { message: l10n.t('This compose plan is no longer active; please regenerate.') },
 			};
 		}
 
 		const cached = composeTools.getMaskedHunksForCachedCommit(cacheKey, commitId);
 		if (cached == null) {
 			return {
-				error: { message: 'Unable to find the selected commit in the current plan.' },
+				error: { message: l10n.t('Unable to find the selected commit in the current plan.') },
 			};
 		}
 
@@ -1690,7 +1717,7 @@ export class GraphInspectServices {
 		try {
 			const { patch } = createCombinedDiffForCommit(cached.hunks);
 			if (!patch) {
-				return { error: { message: 'Unable to build a diff for the selected commit.' } };
+				return { error: { message: l10n.t('Unable to build a diff for the selected commit.') } };
 			}
 
 			// Regenerating one commit's message is part of the compose the user is in, not a task of
@@ -1706,7 +1733,7 @@ export class GraphInspectServices {
 
 			if (result === 'cancelled') return { cancelled: true };
 			if (result == null) {
-				return { error: { message: 'AI did not return a message. Please try again.' } };
+				return { error: { message: l10n.t('AI did not return a message. Please try again.') } };
 			}
 
 			const message = result.result.body
@@ -1726,7 +1753,7 @@ export class GraphInspectServices {
 
 			Logger.error(ex, 'graph.regenerateProposedCommitMessage');
 			return {
-				error: { message: ex instanceof Error ? ex.message : String(ex) },
+				error: { message: getPresentableErrorMessage(ex) },
 			};
 		} finally {
 			disposeCancellation();
@@ -1741,7 +1768,7 @@ export class GraphInspectServices {
 	): Promise<ResolveResult> {
 		const integration = await this.getOrCreateConflictToolsForGraph();
 		if (integration == null) {
-			return { error: { message: 'AI conflict resolution is not available in this environment.' } };
+			return { error: { message: l10n.t('AI conflict resolution is not available in this environment.') } };
 		}
 
 		const svc = this.container.git.getRepositoryService(repoPath);
@@ -1772,39 +1799,42 @@ export class GraphInspectServices {
 				case 'conflict:found':
 					this._resolveProgressEvent.fire({
 						phase: event.type,
-						message: `Analyzing ${event.filePath}…`,
+						message: l10n.t('Analyzing {file}…', { file: event.filePath }),
 					});
 					break;
 				case 'resolution:applied':
 					this._resolveProgressEvent.fire({
 						phase: event.type,
-						message: `Resolved ${event.filePath}.`,
+						message: l10n.t('Resolved {file}.', { file: event.filePath }),
 					});
 					break;
 				case 'resolution:failed':
 					this._resolveProgressEvent.fire({
 						phase: event.type,
-						message: `Couldn't resolve ${event.filePath} — skipping.`,
+						message: l10n.t("Couldn't resolve {file} — skipping.", { file: event.filePath }),
 					});
 					break;
 				case 'conflict:skipped':
 					this._resolveProgressEvent.fire({
 						phase: event.type,
-						message: `Skipping ${event.filePath} — no conflict markers.`,
+						message: l10n.t('Skipping {file} — no conflict markers.', { file: event.filePath }),
 					});
 					break;
 				case 'resolver:tool-call':
 					recordConsultation(consultations, event);
 					this._resolveProgressEvent.fire({
 						phase: event.type,
-						message: `${event.filePath}: inspecting ${event.tool}…`,
+						message: l10n.t('{file}: inspecting {tool}…', {
+							file: event.filePath,
+							tool: event.tool,
+						}),
 					});
 					break;
 			}
 		};
 
 		try {
-			this._resolveProgressEvent.fire({ phase: 'collecting', message: 'Reading conflicts…' });
+			this._resolveProgressEvent.fire({ phase: 'collecting', message: l10n.t('Reading conflicts…') });
 
 			// Entries carry each file's conflict reason (porcelain v2), which makes
 			// delete/modify conflicts extractable instead of appearing marker-less.
@@ -1819,9 +1849,9 @@ export class GraphInspectServices {
 					error: {
 						message: focused
 							? focusedFilePaths.length === 1
-								? `${focusedFilePaths[0]} is no longer conflicted.`
-								: 'The selected files are no longer conflicted.'
-							: 'No conflicted files to resolve.',
+								? l10n.t('{file} is no longer conflicted.', { file: focusedFilePaths[0] })
+								: l10n.t('The selected files are no longer conflicted.')
+							: l10n.t('No conflicted files to resolve.'),
 					},
 				};
 			}
@@ -1852,7 +1882,7 @@ export class GraphInspectServices {
 
 			const { errors, skipped } = await this.enrichUnresolvedFiles(
 				repoPath,
-				result.errors.map(e => ({ filePath: e.filePath, message: e.error.message })),
+				result.errors.map(e => ({ filePath: e.filePath, message: getPresentableErrorMessage(e.error) })),
 				result.skipped ?? [],
 			);
 
@@ -1881,7 +1911,7 @@ export class GraphInspectServices {
 			};
 		} catch (ex) {
 			if (resolveSignal?.aborted || isCancellationError(ex)) return { cancelled: true };
-			return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+			return { error: { message: getPresentableErrorMessage(ex) } };
 		} finally {
 			disposeCancellation();
 			this._resolveProgressEvent.fire(undefined);
@@ -1896,12 +1926,12 @@ export class GraphInspectServices {
 	): Promise<ReresolveFileResult> {
 		const integration = await this.getOrCreateConflictToolsForGraph();
 		if (integration == null) {
-			return { error: { message: 'AI conflict resolution is not available in this environment.' } };
+			return { error: { message: l10n.t('AI conflict resolution is not available in this environment.') } };
 		}
 
 		const session = this._activeResolveSessions.get(repoPath);
 		if (session == null) {
-			return { error: { message: 'No active resolutions to retry; please re-run.' } };
+			return { error: { message: l10n.t('No active resolutions to retry; please re-run.') } };
 		}
 
 		const svc = this.container.git.getRepositoryService(repoPath);
@@ -1915,7 +1945,7 @@ export class GraphInspectServices {
 			const entries = await integration.listUnmergedEntries(svc);
 			const entry = entries.find(e => e.path === filePath);
 			if (entry == null) {
-				return { error: { message: `${filePath} is no longer conflicted.` } };
+				return { error: { message: l10n.t('{file} is no longer conflicted.', { file: filePath }) } };
 			}
 
 			const conflict = await integration.extract({
@@ -1927,7 +1957,9 @@ export class GraphInspectServices {
 			if (conflict == null) {
 				return {
 					error: {
-						message: `No conflict markers were found in ${filePath} — it needs manual resolution.`,
+						message: l10n.t('No conflict markers were found in {file} — it needs manual resolution.', {
+							file: filePath,
+						}),
 					},
 				};
 			}
@@ -1957,7 +1989,10 @@ export class GraphInspectServices {
 						recordConsultation(consultations, event);
 						this._resolveProgressEvent.fire({
 							phase: event.type,
-							message: `${event.filePath}: inspecting ${event.tool}…`,
+							message: l10n.t('{file}: inspecting {tool}…', {
+								file: event.filePath,
+								tool: event.tool,
+							}),
 						});
 					},
 				},
@@ -2004,7 +2039,7 @@ export class GraphInspectServices {
 				result: {
 					filePath: resolution.filePath,
 					strategy: resolution.strategy,
-					reasoning: resolution.description,
+					reasoning: getResolutionReasoning(resolution.description, resolution.descriptionKind),
 					confidence: resolution.confidence,
 					note: resolution.note,
 					consulted: getConsultations(consultations, resolution.filePath),
@@ -2013,7 +2048,7 @@ export class GraphInspectServices {
 			};
 		} catch (ex) {
 			if (resolveSignal?.aborted || isCancellationError(ex)) return { cancelled: true };
-			return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+			return { error: { message: getPresentableErrorMessage(ex) } };
 		} finally {
 			disposeCancellation();
 			// Clears the inspecting line this path now fires — without it a retry that consulted
@@ -2025,12 +2060,12 @@ export class GraphInspectServices {
 	private async applyResolutions(repoPath: string, includedFilePaths?: readonly string[]): Promise<CommitResult> {
 		const integration = await this.getOrCreateConflictToolsForGraph();
 		if (integration == null) {
-			return { error: { message: 'AI conflict resolution is not available in this environment.' } };
+			return { error: { message: l10n.t('AI conflict resolution is not available in this environment.') } };
 		}
 
 		const session = this._activeResolveSessions.get(repoPath);
 		if (session == null) {
-			return { error: { message: 'No resolutions to apply; please re-run.' } };
+			return { error: { message: l10n.t('No resolutions to apply; please re-run.') } };
 		}
 
 		const svc = this.container.git.getRepositoryService(repoPath);
@@ -2041,7 +2076,7 @@ export class GraphInspectServices {
 				r => r.strategy !== 'skipped' && (included == null || included.has(r.filePath)),
 			);
 			if (selected.length === 0) {
-				return { error: { message: 'No applicable resolutions were selected.' } };
+				return { error: { message: l10n.t('No applicable resolutions were selected.') } };
 			}
 
 			// Per-file stale guard — the sole staleness defense: only apply files still unmerged.
@@ -2057,7 +2092,7 @@ export class GraphInspectServices {
 			if (toApply.length === 0) {
 				this.discardResolveSession(repoPath);
 				return {
-					error: { message: 'These files are no longer conflicted — nothing was applied.' },
+					error: { message: l10n.t('These files are no longer conflicted — nothing was applied.') },
 				};
 			}
 
@@ -2073,14 +2108,38 @@ export class GraphInspectServices {
 			this.discardResolveSession(repoPath);
 			void window.showInformationMessage(
 				skipped > 0
-					? `Resolved ${pluralize('file', toApply.length)} — ${skipped} skipped (no longer conflicted).`
-					: `Resolved ${pluralize('file', toApply.length)}.`,
+					? toApply.length === 1
+						? l10n.t('Resolved {resolved} file — {skipped} skipped (no longer conflicted).', {
+								resolved: getNumericFormat()(toApply.length),
+								skipped: getNumericFormat()(skipped),
+							})
+						: l10n.t('Resolved {resolved} files — {skipped} skipped (no longer conflicted).', {
+								resolved: getNumericFormat()(toApply.length),
+								skipped: getNumericFormat()(skipped),
+							})
+					: toApply.length === 1
+						? l10n.t('Resolved {count} file.', { count: getNumericFormat()(toApply.length) })
+						: l10n.t('Resolved {count} files.', { count: getNumericFormat()(toApply.length) }),
 			);
-			return skipped > 0
-				? { success: true, warning: `${skipped} file(s) were skipped (no longer conflicted).` }
-				: { success: true };
+			if (skipped === 0) return { success: true };
+
+			return {
+				success: true,
+				warning:
+					skipped === 1
+						? l10n.t('{count} file was skipped because it is no longer conflicted.', {
+								count: getNumericFormat()(skipped),
+							})
+						: l10n.t('{count} files were skipped because they are no longer conflicted.', {
+								count: getNumericFormat()(skipped),
+							}),
+			};
 		} catch (ex) {
-			return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+			return {
+				error: {
+					message: getPresentableErrorMessage(ex),
+				},
+			};
 		}
 	}
 
@@ -2100,14 +2159,23 @@ export class GraphInspectServices {
 			const infos = await getConflictFileInfos(svc);
 			const info = infos.get(filePath);
 			if (info == null) {
-				return { error: { message: `${filePath} is no longer conflicted.` } };
+				return { error: { message: l10n.t('{file} is no longer conflicted.', { file: filePath }) } };
 			}
 
 			// 'delete' is only offered for both-deleted (DD), where either side maps to a delete.
 			const resolution: 'current' | 'incoming' = side === 'delete' ? 'current' : side;
 			const action = classifyConflictAction(info.conflictStatus, resolution);
 			if (action === 'unsupported') {
-				return { error: { message: `Can't take the ${side} side for this conflict.` } };
+				return {
+					error: {
+						message:
+							side === 'current'
+								? l10n.t("Can't take the current side for this conflict.")
+								: side === 'incoming'
+									? l10n.t("Can't take the incoming side for this conflict.")
+									: l10n.t("Can't take the delete side for this conflict."),
+					},
+				};
 			}
 
 			const strategy = action === 'delete' ? 'deleted' : action === 'take-ours' ? 'take-ours' : 'take-theirs';
@@ -2127,7 +2195,7 @@ export class GraphInspectServices {
 			// the panel is in its ready state (resolveConflicts caches one even when empty).
 			const session = this._activeResolveSessions.get(repoPath);
 			if (session == null) {
-				return { error: { message: 'No active resolve session; please re-run.' } };
+				return { error: { message: l10n.t('No active resolve session; please re-run.') } };
 			}
 
 			const queuedPaths = new Set(queued.map(q => q.filePath));
@@ -2145,7 +2213,7 @@ export class GraphInspectServices {
 
 			return { result: { resolved: queued } };
 		} catch (ex) {
-			return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+			return { error: { message: getPresentableErrorMessage(ex) } };
 		}
 	}
 
@@ -2221,7 +2289,7 @@ export class GraphInspectServices {
 		} as const;
 		const outcome = terminalOutcomes[session.phase as keyof typeof terminalOutcomes];
 		if (outcome == null) {
-			return { error: { message: 'The Auto-Rebase is still running.' } };
+			return { error: { message: l10n.t('The Auto-Rebase is still running.') } };
 		}
 
 		const validation = await this.container.autoRebase.canUndo(repoPath);
@@ -2261,7 +2329,7 @@ export class GraphInspectServices {
 				files: step.files.map(f => ({
 					filePath: f.path,
 					strategy: f.strategy,
-					reasoning: f.description,
+					reasoning: getResolutionReasoning(f.description, f.descriptionKind),
 					confidence: f.confidence,
 					note: f.note,
 					consulted: f.consulted,
@@ -2299,9 +2367,9 @@ export class GraphInspectServices {
 				undoRefusal: undoable
 					? undefined
 					: outcome === 'undone'
-						? 'This rebase was already undone.'
+						? l10n.t('This rebase was already undone.')
 						: outcome !== 'completed'
-							? 'The rebase did not complete.'
+							? l10n.t('The rebase did not complete.')
 							: !validation.ok
 								? validation.message
 								: undefined,
@@ -2467,7 +2535,7 @@ export class GraphInspectServices {
 			commits.push({
 				sha: uncommitted,
 				shortSha: 'Working',
-				message: 'Working Changes',
+				message: l10n.t('Working Changes'),
 				author: '',
 				date: '',
 				files: workingTreeFiles,
@@ -2802,7 +2870,7 @@ export class GraphInspectServices {
 		return resolutions.map(r => ({
 			filePath: r.filePath,
 			strategy: r.strategy,
-			reasoning: r.description,
+			reasoning: getResolutionReasoning(r.description, r.descriptionKind),
 			confidence: r.confidence,
 			note: r.note,
 			consulted: consultations != null ? getConsultations(consultations, r.filePath) : undefined,
@@ -2845,7 +2913,11 @@ export class GraphInspectServices {
 		};
 
 		return {
-			errors: errors.map(e => ({ filePath: e.filePath, message: e.message, ...fallbackInfo(e.filePath) })),
+			errors: errors.map(entry => ({
+				filePath: entry.filePath,
+				message: entry.message,
+				...fallbackInfo(entry.filePath),
+			})),
 			skipped: skipped.map(s => {
 				const info = fallbackInfo(s.filePath);
 				// A skipped file that would otherwise classify as plain text is binary/unsupported by
@@ -2853,7 +2925,7 @@ export class GraphInspectServices {
 				const kind = info.kind == null || info.kind === 'text' ? 'binary' : info.kind;
 				return {
 					filePath: s.filePath,
-					message: getConflictKindLabel(kind, info.renameOf).description,
+					message: getConflictKindLabel(kind, info.renameOf).reason,
 					...info,
 					kind: kind,
 				};
@@ -3102,7 +3174,9 @@ export class GraphInspectServices {
 						parts.push(value.diff.contents);
 					}
 					if (value.commit) {
-						messages.push(`${shortenRevision(value.commit.sha)}: ${value.commit.message ?? ''}`);
+						messages.push(
+							l10n.t('{0}: {1}', shortenRevision(value.commit.sha), value.commit.message ?? ''),
+						);
 						commits.push({ sha: value.sha, message: value.commit.message ?? '' });
 					}
 				}
@@ -3116,7 +3190,12 @@ export class GraphInspectServices {
 
 				return {
 					diff: annotateDiffWithNewLineNumbers(parts.join('\n')),
-					message: `Selected commits between ${shortenRevision(scope.fromSha)} and ${shortenRevision(scope.toSha)}:\n\n${messages.join('\n')}`,
+					message: l10n.t(
+						'Selected commits between {0} and {1}:\n\n{2}',
+						shortenRevision(scope.fromSha),
+						shortenRevision(scope.toSha),
+						messages.join('\n'),
+					),
 					context: context,
 				};
 			}
@@ -3142,7 +3221,12 @@ export class GraphInspectServices {
 
 			return {
 				diff: annotateDiffWithNewLineNumbers(data.diff),
-				message: `Changes between ${shortenRevision(scope.fromSha)} and ${shortenRevision(scope.toSha)}:\n\n${data.logMessages}`,
+				message: l10n.t(
+					'Changes between {0} and {1}:\n\n{2}',
+					shortenRevision(scope.fromSha),
+					shortenRevision(scope.toSha),
+					data.logMessages,
+				),
 				context: context,
 			};
 		}
@@ -3217,7 +3301,7 @@ export class GraphInspectServices {
 				if (d?.contents) {
 					parts.push(d.contents);
 				}
-				labels.push('unstaged');
+				labels.push(l10n.t('unstaged'));
 			} finally {
 				await disposeScratchIndex(index);
 			}
@@ -3228,7 +3312,7 @@ export class GraphInspectServices {
 			if (d?.contents) {
 				parts.push(d.contents);
 			}
-			labels.push('staged');
+			labels.push(l10n.t('staged'));
 		}
 		const commitMessages: string[] = [];
 		// Per-sha getDiff+getCommit are independent; parallelize the pair and across shas. allSettled
@@ -3252,19 +3336,35 @@ export class GraphInspectServices {
 				parts.push(value.diff.contents);
 			}
 			if (value.commit) {
-				commitMessages.push(`${shortenRevision(value.commit.sha)}: ${value.commit.message ?? ''}`);
+				commitMessages.push(l10n.t('{0}: {1}', shortenRevision(value.commit.sha), value.commit.message ?? ''));
 			}
 		}
 
 		if (!parts.length) return undefined;
 
-		let message = labels.length ? `Working changes (${labels.join(' + ')})` : 'Working changes';
-		if (scope.includeShas.length) {
-			message += ` + ${scope.includeShas.length} commit(s)`;
-			if (commitMessages.length) {
-				message += `:\n\n${commitMessages.join('\n')}`;
-			}
-		}
+		const workingChanges = labels.length
+			? l10n.t('Working changes ({0})', labels.join(' + '))
+			: l10n.t('Working changes');
+		const message =
+			scope.includeShas.length === 0
+				? workingChanges
+				: commitMessages.length === 0
+					? scope.includeShas.length === 1
+						? l10n.t('{0} + {1} commit', workingChanges, scope.includeShas.length)
+						: l10n.t('{0} + {1} commits', workingChanges, scope.includeShas.length)
+					: scope.includeShas.length === 1
+						? l10n.t(
+								'{0} + {1} commit:\n\n{2}',
+								workingChanges,
+								scope.includeShas.length,
+								commitMessages.join('\n'),
+							)
+						: l10n.t(
+								'{0} + {1} commits:\n\n{2}',
+								workingChanges,
+								scope.includeShas.length,
+								commitMessages.join('\n'),
+							);
 
 		const wipBranch = await svc.branches.getBranch();
 		signal?.throwIfAborted();

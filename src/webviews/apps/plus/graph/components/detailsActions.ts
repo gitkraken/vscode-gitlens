@@ -15,6 +15,7 @@
  *   for a commit/WIP that has since been replaced by a newer fetch
  */
 import type { Remote } from '@eamodio/supertalk';
+import * as l10n from '@vscode/l10n';
 import type { AIReviewFinding } from '@gitlens/ai/models/results.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
@@ -857,7 +858,7 @@ export class DetailsActions {
 				void this.fetchDetails(sha, repoPath);
 			}
 		} catch {
-			this.resources.resolve.mutate({ error: { message: 'Failed to apply conflict resolutions.' } });
+			this.resources.resolve.mutate({ error: { message: l10n.t('Failed to apply conflict resolutions.') } });
 		} finally {
 			this.state.resolveApplying.set(false);
 		}
@@ -1577,7 +1578,7 @@ export class DetailsActions {
 				return;
 			}
 
-			this.state.explain.set({ error: { message: 'Failed to explain commit' } });
+			this.state.explain.set({ error: { message: l10n.t('Failed to explain commit') } });
 			this.sendTelemetryEvent('graphDetails/commit/explain/failed', telemetryData);
 		}
 	}
@@ -2135,7 +2136,7 @@ export class DetailsActions {
 			side === 'left' ? this.state.branchCompareLeftRef.get() : this.state.branchCompareRightRef.get();
 		const result = await this.services.graphInspect.chooseRef(
 			repoPath,
-			'Choose a Reference to Compare',
+			l10n.t('Choose a Reference to Compare'),
 			currentRef,
 		);
 		if (!result) {
@@ -2758,7 +2759,7 @@ export class DetailsActions {
 			const modified = unstaged.length - added - deleted;
 			items.push({
 				id: 'unstaged',
-				label: 'Unstaged changes',
+				label: l10n.t('Unstaged changes'),
 				additions: added || undefined,
 				deletions: deleted || undefined,
 				modified: modified || undefined,
@@ -2772,7 +2773,7 @@ export class DetailsActions {
 			const modified = staged.length - added - deleted;
 			items.push({
 				id: 'staged',
-				label: 'Staged changes',
+				label: l10n.t('Staged changes'),
 				additions: added || undefined,
 				deletions: deleted || undefined,
 				modified: modified || undefined,
@@ -2807,7 +2808,8 @@ export class DetailsActions {
 		if (this.state.branchCommitsHasMore.get()) {
 			items.push({
 				id: 'load-more',
-				label: this.state.branchCommitsLoadingMore.get() ? 'Loading…' : 'Load more commits',
+				label: this.state.branchCommitsLoadingMore.get() ? l10n.t('Loading…') : l10n.t('Load more commits'),
+				loading: this.state.branchCommitsLoadingMore.get(),
 				state: 'load-more',
 			});
 		}
@@ -2981,7 +2983,7 @@ export class DetailsActions {
 			this.refreshWip();
 			void this.fetchDetails(sha, repoPath, graphReachability);
 		} catch {
-			this.resources.compose.mutate({ error: { message: 'Failed to commit plan.' } });
+			this.resources.compose.mutate({ error: { message: l10n.t('Failed to commit plan.') } });
 		} finally {
 			this.state.composeApplying.set(false);
 		}

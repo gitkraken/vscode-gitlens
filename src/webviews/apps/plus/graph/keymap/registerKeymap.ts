@@ -1,4 +1,5 @@
 import type { GraphKeymapScope } from '@gitkraken/commit-graph-ui/contracts/keyboard.js';
+import * as l10n from '@vscode/l10n';
 import { isTextEntryTarget } from '@gitlens/utils/dom.js';
 import type { KeymapDispatcher } from '@gitlens/utils/keys/keymapDispatcher.js';
 import type { GraphDisplayMode, GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
@@ -131,9 +132,12 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			when: [actions.isGraphModeShortcut],
 			sheet: {
 				group: 'search',
-				label: 'Find a branch, tag, or worktree',
+				label: l10n.t('Find a branch, tag, or worktree'),
 				order: 1,
-				subline: ['ArrowUp', 'ArrowDown', 'text: matches · ', 'Enter', 'text: selects'],
+				sublineText: {
+					message: l10n.t('{arrows} matches · {enter} selects'),
+					keys: { arrows: ['ArrowUp', 'ArrowDown'], enter: ['Enter'] },
+				},
 			},
 			run: e => {
 				const graph = actions.graph();
@@ -151,9 +155,12 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			when: [actions.isGraphModeShortcut],
 			sheet: {
 				group: 'search',
-				label: 'Search commits',
+				label: l10n.t('Search commits'),
 				order: 2,
-				subline: ['Enter', 'text: steps · ', 'Escape', 'text: leaves'],
+				sublineText: {
+					message: l10n.t('{enter} steps · {escape} leaves'),
+					keys: { enter: ['Enter'], escape: ['Escape'] },
+				},
 			},
 			run: () => {
 				actions.graph()?.suppressModifierChainUntilRelease?.();
@@ -164,7 +171,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			keys: ['?'],
 			scope: 'webview',
 			// Footer copy reads as a sentence after the chip ("? shows this reference").
-			sheet: { group: 'footer', label: 'shows this reference', order: 2 },
+			sheet: { group: 'footer', label: l10n.t('{keys} shows this reference'), order: 2 },
 			run: () => {
 				actions.showShortcuts();
 				return true;
@@ -176,7 +183,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			when: [actions.isGraphModeShortcut],
 			sheet: {
 				group: 'goto',
-				label: 'Recent worktrees',
+				label: l10n.t('Recent worktrees'),
 				order: 8,
 				keysOverride: ['Digit1', 'sep:…', 'Digit0'],
 			},
@@ -199,7 +206,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			when: [actions.sidebarEnabled],
 			sheet: {
 				group: 'panels',
-				label: 'Toggle a side bar panel',
+				label: l10n.t('Toggle a side bar panel'),
 				order: 1,
 				keysOverride: ['alt+Digit1', 'sep:…', 'Digit8'],
 			},
@@ -227,7 +234,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			id: 'modes.toggleKanban',
 			keys: ['alt+KeyK'],
 			scope: 'webviewGlobal',
-			sheet: { group: 'panels', label: 'Toggle Agent Kanban', order: 2, keysOverride: ['alt+KeyK'] },
+			sheet: { group: 'panels', label: l10n.t('Toggle Agent Kanban'), order: 2, keysOverride: ['alt+KeyK'] },
 			run: () => {
 				actions.graph()?.suppressModifierChainUntilRelease?.();
 				actions.toggleDisplayMode('kanban');
@@ -238,7 +245,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			id: 'modes.toggleVisualizations',
 			keys: ['alt+KeyV'],
 			scope: 'webviewGlobal',
-			sheet: { group: 'panels', label: 'Toggle visualizations', order: 3, keysOverride: ['alt+KeyV'] },
+			sheet: { group: 'panels', label: l10n.t('Toggle visualizations'), order: 3, keysOverride: ['alt+KeyV'] },
 			run: () => {
 				actions.graph()?.suppressModifierChainUntilRelease?.();
 				actions.toggleDisplayMode('visualizations');
@@ -250,7 +257,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			keys: ['alt+KeyM'],
 			scope: 'webviewGlobal',
 			when: [actions.isGraphModeShortcut],
-			sheet: { group: 'panels', label: 'Toggle minimap', order: 4, keysOverride: ['alt+KeyM'] },
+			sheet: { group: 'panels', label: l10n.t('Toggle minimap'), order: 4, keysOverride: ['alt+KeyM'] },
 			run: () => {
 				actions.graph()?.suppressModifierChainUntilRelease?.();
 				actions.toggleMinimap();
@@ -262,7 +269,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			keys: ['alt+KeyS'],
 			scope: 'webviewGlobal',
 			when: [actions.isGraphModeShortcut, actions.sidebarEnabled],
-			sheet: { group: 'panels', label: 'Toggle side bar', order: 5, keysOverride: ['alt+KeyS'] },
+			sheet: { group: 'panels', label: l10n.t('Toggle side bar'), order: 5, keysOverride: ['alt+KeyS'] },
 			run: () => {
 				actions.graph()?.suppressModifierChainUntilRelease?.();
 				actions.toggleSidebar();
@@ -274,7 +281,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			keys: ['alt+KeyD'],
 			scope: 'webviewGlobal',
 			when: [actions.isGraphModeShortcut],
-			sheet: { group: 'panels', label: 'Toggle details panel', order: 6, keysOverride: ['alt+KeyD'] },
+			sheet: { group: 'panels', label: l10n.t('Toggle details panel'), order: 6, keysOverride: ['alt+KeyD'] },
 			run: () => {
 				actions.graph()?.suppressModifierChainUntilRelease?.();
 				actions.toggleDetails(new CustomEvent('toggle-details'));
@@ -289,7 +296,7 @@ export function registerGraphKeymap(keymap: KeymapDispatcher<GraphKeymapScope>, 
 			keys: ['shift+alt+KeyD'],
 			scope: 'webviewGlobal',
 			when: [actions.isGraphModeShortcut],
-			sheet: { group: 'panels', label: 'Dock details elsewhere', order: 7 },
+			sheet: { group: 'panels', label: l10n.t('Dock details elsewhere'), order: 7 },
 			run: () => {
 				actions.graph()?.suppressModifierChainUntilRelease?.();
 				actions.toggleDetails(new CustomEvent('toggle-details', { detail: { altKey: true } }));

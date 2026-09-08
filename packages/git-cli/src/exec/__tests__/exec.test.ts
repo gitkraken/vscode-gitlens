@@ -384,3 +384,38 @@ suite('Shell Test Suite', () => {
 		});
 	});
 });
+
+suite('Git.ensureSupports', () => {
+	test('preserves the public prefix and suffix message contract', async () => {
+		const git = new Git(async () => ({ path: 'git', version: '2.7.2' }));
+
+		await assert.rejects(
+			git.ensureSupports('git:stash:push:staged', 'Staging files', ' Please upgrade Git.'),
+			(error: unknown) => {
+				assert.ok(error instanceof Error);
+				assert.strictEqual(
+					error.message,
+					'Staging files requires a newer version of Git (>= 2.35.0) than is currently installed (2.7.2). Please upgrade Git.',
+				);
+				return true;
+			},
+		);
+	});
+
+	test('supports a complete message formatter with both versions', async () => {
+		const git = new Git(async () => ({ path: 'git', version: '2.7.2' }));
+
+		await assert.rejects(
+			git.ensureSupports(
+				'git:stash:push:staged',
+				(requiredVersion, installedVersion) =>
+					`Need Git ${requiredVersion}; installed Git is ${installedVersion}`,
+			),
+			(error: unknown) => {
+				assert.ok(error instanceof Error);
+				assert.strictEqual(error.message, 'Need Git 2.35.0; installed Git is 2.7.2');
+				return true;
+			},
+		);
+	});
+});

@@ -1,9 +1,8 @@
-import { EventEmitter, Uri, window } from 'vscode';
+import { EventEmitter, l10n, Uri, window } from 'vscode';
 import { PausedOperationAbortError, PausedOperationContinueError } from '@gitlens/git/errors.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
-import { pausedOperationStatusStringsByType } from '@gitlens/utils/pausedOperation.js';
 import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
@@ -110,18 +109,58 @@ function findCommitMessageUri(repoPath: string): Uri | undefined {
 
 async function showAlreadyContinuing(svc: GitRepositoryService): Promise<void> {
 	const status = await svc.pausedOps?.getPausedOperationStatus?.();
-	const name = (status != null ? pausedOperationStatusStringsByType[status.type].prose : 'operation').toLowerCase();
 
 	if (findCommitMessageUri(svc.path) == null) {
-		void window.showInformationMessage(`The ${name} is already continuing — waiting for it to finish.`);
+		let message: string;
+		switch (status?.type) {
+			case 'cherry-pick':
+				message = l10n.t('The cherry-pick is already continuing — waiting for it to finish.');
+				break;
+			case 'merge':
+				message = l10n.t('The merge is already continuing — waiting for it to finish.');
+				break;
+			case 'rebase':
+				message = l10n.t('The rebase is already continuing — waiting for it to finish.');
+				break;
+			case 'revert':
+				message = l10n.t('The revert is already continuing — waiting for it to finish.');
+				break;
+			default:
+				message = l10n.t('The operation is already continuing — waiting for it to finish.');
+				break;
+		}
+		void window.showInformationMessage(message);
 		return;
 	}
 
-	const showItem = { title: 'Show Commit Message' };
-	const result = await window.showInformationMessage(
-		`The ${name} is waiting for you to save and close the commit message before it can finish.`,
-		showItem,
-	);
+	const showItem = { title: l10n.t('Show Commit Message') };
+	let message: string;
+	switch (status?.type) {
+		case 'cherry-pick':
+			message = l10n.t(
+				'The cherry-pick is waiting for you to save and close the commit message before it can finish.',
+			);
+			break;
+		case 'merge':
+			message = l10n.t('The merge is waiting for you to save and close the commit message before it can finish.');
+			break;
+		case 'rebase':
+			message = l10n.t(
+				'The rebase is waiting for you to save and close the commit message before it can finish.',
+			);
+			break;
+		case 'revert':
+			message = l10n.t(
+				'The revert is waiting for you to save and close the commit message before it can finish.',
+			);
+			break;
+		default:
+			message = l10n.t(
+				'The operation is waiting for you to save and close the commit message before it can finish.',
+			);
+			break;
+	}
+	const result = await window.showInformationMessage(message, showItem);
 	if (result !== showItem) return;
 
 	// Re-find it: the user may have closed it while the notification was up, which unblocks git anyway.
@@ -148,12 +187,40 @@ async function continuePausedOperationCore(
 
 			const pausedAt = getReferenceLabel(operation.incoming, { icon: false, label: true, quoted: true });
 
-			const emptyCommitItem = { title: 'Continue with Empty Commit' };
-			const skipItem = { title: 'Skip' };
-			const cancelItem = { title: 'Cancel', isCloseAffordance: true };
+			const emptyCommitItem = { title: l10n.t('Continue with Empty Commit') };
+			const skipItem = { title: l10n.t('Skip') };
+			const cancelItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
+
+			let message: string;
+			switch (operation.type) {
+				case 'cherry-pick':
+					message = l10n.t(
+						'The cherry-pick operation cannot be continued because {pausedAt} resulted in an empty commit.\n\nDo you want to record {pausedAt} as an empty commit, or skip it?',
+						{ pausedAt: pausedAt },
+					);
+					break;
+				case 'merge':
+					message = l10n.t(
+						'The merge operation cannot be continued because {pausedAt} resulted in an empty commit.\n\nDo you want to record {pausedAt} as an empty commit, or skip it?',
+						{ pausedAt: pausedAt },
+					);
+					break;
+				case 'rebase':
+					message = l10n.t(
+						'The rebase operation cannot be continued because {pausedAt} resulted in an empty commit.\n\nDo you want to record {pausedAt} as an empty commit, or skip it?',
+						{ pausedAt: pausedAt },
+					);
+					break;
+				case 'revert':
+					message = l10n.t(
+						'The revert operation cannot be continued because {pausedAt} resulted in an empty commit.\n\nDo you want to record {pausedAt} as an empty commit, or skip it?',
+						{ pausedAt: pausedAt },
+					);
+					break;
+			}
 
 			const result = await window.showInformationMessage(
-				`The ${operation.type} operation cannot be continued because ${pausedAt} resulted in an empty commit.\n\nDo you want to record ${pausedAt} as an empty commit, or skip it?`,
+				message,
 				{ modal: true },
 				emptyCommitItem,
 				skipItem,
@@ -176,7 +243,7 @@ async function continuePausedOperationCore(
 			PausedOperationContinueError.is(ex, 'unstagedChanges') ||
 			PausedOperationContinueError.is(ex, 'wouldOverwriteChanges')
 		) {
-			void window.showWarningMessage(ex.message);
+			void window.showWarningMessage(ex.localizedMessage);
 			return;
 		}
 
@@ -187,7 +254,7 @@ async function continuePausedOperationCore(
 			// the repo instead: warn only when nothing actually moved, otherwise the operation advanced and
 			// simply stopped again further along, which the paused-op surface already shows.
 			if (!(await hasPausedOperationProgressed(svc, ex.details.operation))) {
-				void window.showWarningMessage(ex.message);
+				void window.showWarningMessage(ex.localizedMessage);
 			}
 			void showPausedOperationStatus(container, svc.path, { source: source });
 			return;

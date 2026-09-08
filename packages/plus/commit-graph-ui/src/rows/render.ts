@@ -29,12 +29,14 @@ import {
 } from '@gitkraken/commit-graph/stats.js';
 import { relativeTime } from '@gitkraken/commit-graph/time.js';
 import type { ZoneSpec } from '@gitkraken/commit-graph/zones.js';
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { html, nothing, svg } from 'lit';
 import type { StyleInfo } from '@gitlens/components/cspStyleMap.directive.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
-import { pluralize, splitMessage } from '@gitlens/utils/string.js';
+import { splitMessage } from '@gitlens/utils/string.js';
 import type { GraphRowAction } from '../contracts/contributions.js';
 import type { CommitGraphPausedOperationStatus } from '../contracts/state.js';
 import type { GutterCache } from '../gutter/cache.js';
@@ -53,7 +55,7 @@ import {
 	secondaryWipRoles,
 } from './markers.js';
 import type { WipRowInfo } from './wip.js';
-import { wipZoneSuppressFromIndex } from './wip.js';
+import { wipRowFullLabel, wipZoneSuppressFromIndex } from './wip.js';
 import '@gitlens/components/components/codeIcon.js';
 
 /**
@@ -165,9 +167,9 @@ export interface RowRenderContext {
 	 *  `gl-commit-graph.ts`'s `buildWipRowBranchPill`). Undefined for a detached worktree (no branch to name). */
 	wipBranchPill?: TemplateResult;
 	/** Workdir-only: the row's visible message swapped to the short form under width pressure (the first
-	 *  rung of the degradation ladder, `gl-commit-graph.ts`'s `computeWipRowFit`) — undefined renders
-	 *  `commit.message` (`'Working Changes'`) unchanged. Visual only: `commit.message` and the aria-label
-	 *  (`wipIdentityAriaFragment` below) never see this. */
+	 *  rung of the degradation ladder, `gl-commit-graph.ts`'s `computeWipRowFit`) — undefined renders the
+	 *  localized {@link wipRowFullLabel}. Visual only: the canonical `commit.message` and the aria-label's
+	 *  explicit workdir-label override stay independent from this responsive choice. */
 	wipDisplayLabel?: string;
 	/** Workdir-only: caps the inline branch pill's NAME span once the label swap alone doesn't free enough
 	 *  width (the ladder's second rung) — undefined leaves the name unclamped. Applied as the
@@ -570,7 +572,7 @@ function renderWipBranchPill(ctx: RowRenderContext): TemplateResult {
 }
 
 // The Changes cell's tooltip + aria text: "N files changed, N lines added, N lines deleted", each part
-// omitted when zero. `pluralize` thousands-separates ≥4-digit counts. Cached by the stable stats object
+// omitted when zero. `getNumericFormat` thousands-separates ≥4-digit counts. Cached by the stable stats object
 // (both the memoized cell and the per-row aria path read it, the latter every render for every row).
 const changesAriaTextCache = new WeakMap<RowStats, string>();
 function changesAriaText(stats: RowStats): string {
@@ -579,13 +581,25 @@ function changesAriaText(stats: RowStats): string {
 
 	const parts: string[] = [];
 	if (stats.files) {
-		parts.push(`${pluralize('file', stats.files)} changed`);
+		parts.push(
+			stats.files === 1
+				? l10n.t('{0} file changed', getNumericFormat()(stats.files))
+				: l10n.t('{0} files changed', getNumericFormat()(stats.files)),
+		);
 	}
 	if (stats.additions) {
-		parts.push(`${pluralize('line', stats.additions)} added`);
+		parts.push(
+			stats.additions === 1
+				? l10n.t('{0} line added', getNumericFormat()(stats.additions))
+				: l10n.t('{0} lines added', getNumericFormat()(stats.additions)),
+		);
 	}
 	if (stats.deletions) {
-		parts.push(`${pluralize('line', stats.deletions)} deleted`);
+		parts.push(
+			stats.deletions === 1
+				? l10n.t('{0} line deleted', getNumericFormat()(stats.deletions))
+				: l10n.t('{0} lines deleted', getNumericFormat()(stats.deletions)),
+		);
 	}
 	text = parts.join(', ');
 	changesAriaTextCache.set(stats, text);
@@ -838,7 +852,7 @@ function renderZoneContent(
 				}<span class="gl-graph__message"
 					>${
 						row.kind === 'workdir'
-							? renderWipMessageContent(ctx.wipDisplayLabel ?? ctx.commit.message)
+							? renderWipMessageContent(ctx.wipDisplayLabel ?? wipRowFullLabel)
 							: renderMessageContent(ctx.commit.message)
 					}</span
 				>${ctx.wipBranchPill != null ? renderWipBranchPill(ctx) : nothing}`;
@@ -889,7 +903,7 @@ function renderListBody(
 				<span class="gl-graph__message"
 					>${
 						isWorkdir
-							? renderWipMessageContent(ctx.wipDisplayLabel ?? ctx.commit.message)
+							? renderWipMessageContent(ctx.wipDisplayLabel ?? wipRowFullLabel)
 							: renderMessageContent(ctx.commit.message)
 					}</span
 				>${ctx.wipBranchPill != null ? renderWipBranchPill(ctx) : nothing}
@@ -909,8 +923,8 @@ function renderActionStatus(icon: string | null | undefined, spin: boolean): Tem
 // Copy for the read-only unpulled indicator, shared by its pointer tooltip and the row `aria-label` suffix
 // so the two surfaces can't drift. The indicator itself is `aria-hidden`, so the suffix IS its only
 // screen-reader presence.
-const unpulledTooltip = 'Not yet pulled from the upstream';
-const unpulledAriaText = 'not yet pulled';
+const unpulledTooltip = l10n.t('Not yet pulled from the upstream');
+const unpulledAriaText = l10n.t('not yet pulled');
 
 /** Whether a row's action strip has a PERSISTENT member (a host-supplied workdir action that says so, or
  *  an unpushed/unpulled commit) — i.e. it switches to per-button `--has-persistent` mode instead of the
@@ -1004,8 +1018,8 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					type="button"
 					tabindex="-1"
 					data-row-action="stash-apply"
-					data-tooltip="Apply / Pop Stash..."
-					aria-label="Apply / Pop Stash..."
+					data-tooltip=${l10n.t('Apply / Pop Stash...')}
+					aria-label=${l10n.t('Apply / Pop Stash...')}
 				>
 					<code-icon icon="git-stash-apply"></code-icon></button
 				><button
@@ -1013,8 +1027,8 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					type="button"
 					tabindex="-1"
 					data-row-action="stash-drop"
-					data-tooltip="Drop Stash..."
-					aria-label="Drop Stash..."
+					data-tooltip=${l10n.t('Drop Stash...')}
+					aria-label=${l10n.t('Drop Stash...')}
 				>
 					<code-icon icon="trash"></code-icon>
 				</button>`;
@@ -1034,7 +1048,8 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 				isUnpushed: isUnpushed,
 				isUnpulled: isUnpulled,
 			});
-			const undoLabel = undo?.branchName != null ? `Undo Commit on ${undo.branchName}` : 'Undo Commit';
+			const undoLabel =
+				undo?.branchName != null ? l10n.t('Undo Commit on {0}', undo.branchName) : l10n.t('Undo Commit');
 
 			actions = html`${
 					undo != null
@@ -1055,8 +1070,8 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					type="button"
 					tabindex="-1"
 					data-row-action="open-changes"
-					data-tooltip="Open All Changes (Alt: with Working Tree)"
-					aria-label="Open All Changes"
+					data-tooltip=${l10n.t('Open All Changes (Alt: with Working Tree)')}
+					aria-label=${l10n.t('Open All Changes')}
 				>
 					<code-icon icon="diff-multiple"></code-icon></button
 				>${
@@ -1066,8 +1081,8 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 								type="button"
 								tabindex="-1"
 								data-jump-nearest-wip="true"
-								data-tooltip="Jump to Working Changes"
-								aria-label="Jump to Working Changes"
+								data-tooltip=${l10n.t('Jump to Working Changes')}
+								aria-label=${l10n.t('Jump to Working Changes')}
 							>
 								<code-icon icon="download" flip="block"></code-icon>
 							</button>`
@@ -1079,8 +1094,8 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 								type="button"
 								tabindex="-1"
 								data-row-action="push-to-commit"
-								data-tooltip="Push to Commit..."
-								aria-label="Push to Commit..."
+								data-tooltip=${l10n.t('Push to Commit...')}
+								aria-label=${l10n.t('Push to Commit...')}
 							>
 								<code-icon icon="cloud-upload"></code-icon>
 							</button>`
@@ -1120,15 +1135,27 @@ function wipIdentityAriaFragment(
 	if (kind !== 'workdir' || identity == null) return undefined;
 
 	// A detached HEAD has no branch to be "on" — `branchName` is the synthesized `(abc1234…)` label.
-	const relation = identity.detached === true ? 'detached at' : 'on';
+	if (identity.isPrimary) {
+		if (identity.branchName == null) return undefined;
 
-	if (identity.isPrimary) return identity.branchName != null ? `${relation} ${identity.branchName}` : undefined;
+		return identity.detached === true
+			? l10n.t('detached at {0}', identity.branchName)
+			: l10n.t('on {0}', identity.branchName);
+	}
 
 	if (identity.worktreeName == null) return undefined;
 
 	return identity.branchName != null
-		? `worktree ${identity.worktreeName}, ${relation} ${identity.branchName}`
-		: `worktree ${identity.worktreeName}`;
+		? identity.detached === true
+			? l10n.t('worktree {name}, detached at {branch}', {
+					name: identity.worktreeName,
+					branch: identity.branchName,
+				})
+			: l10n.t('worktree {name}, on {branch}', {
+					name: identity.worktreeName,
+					branch: identity.branchName,
+				})
+		: l10n.t('worktree {0}', identity.worktreeName);
 }
 
 // Total RENDERED width of the `count` zones preceding the lanes — the lead offset that must pin BOTH
@@ -1156,7 +1183,11 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	const promoted = units > 1;
 	// Format the relative date ONCE per row, then reuse for the date cell + both aria-label builds (one
 	// `new Date()` + Intl format per visible row instead of two producing the same string).
-	const relativeDate = ctx.commit.date ? (ctx.formatDate ?? relativeTime)(ctx.commit.date) : undefined;
+	const relativeDate = ctx.commit.date
+		? ctx.formatDate != null
+			? ctx.formatDate(ctx.commit.date)
+			: relativeTime(ctx.commit.date)
+		: undefined;
 	// A11y: append the changes summary to the row label, but only when the Changes column is actually
 	// shown — announce only what's displayed. Skeleton rows keep the bare message label.
 	const changesStats = ctx.skeleton ? undefined : ctx.rowsStats?.[row.sha];
@@ -1536,8 +1567,10 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 		aria-expanded=${ctx.laneTipSha === row.sha ? (ctx.laneCollapsed ? 'false' : 'true') : nothing}
 		aria-label=${
 			ctx.skeleton
-				? ctx.commit.message
-				: `${rowMarkerAriaPrefix}${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate, wipIdentityAria)}${changesAriaSuffix}${unpulledAriaSuffix}`
+				? isWorkdir
+					? wipRowFullLabel
+					: ctx.commit.message
+				: `${rowMarkerAriaPrefix}${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate, wipIdentityAria, isWorkdir ? wipRowFullLabel : undefined)}${changesAriaSuffix}${unpulledAriaSuffix}`
 		}
 		data-sha=${row.sha}
 		data-index=${ctx.index}

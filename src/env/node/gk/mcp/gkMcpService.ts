@@ -1,5 +1,13 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
-import { version as codeVersion, commands, env, ProgressLocation, Disposable as VsDisposable, window } from 'vscode';
+import {
+	version as codeVersion,
+	commands,
+	env,
+	l10n,
+	ProgressLocation,
+	Disposable as VsDisposable,
+	window,
+} from 'vscode';
 import { getIsOffline, isWeb } from '@env/platform.js';
 import { RunError } from '@gitlens/git-cli/exec/exec.errors.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
@@ -13,6 +21,7 @@ import type { GkAgent } from '../../../../agents/agentService.js';
 import { urls } from '../../../../constants.js';
 import type { Source, Sources } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
+import { getPresentableErrorMessage } from '../../../../errors.js';
 import type { GkMcpRegistrar } from '../../../../plus/gk/utils/-webview/mcp.utils.js';
 import {
 	supportsCursorMcpRegistration,
@@ -447,9 +456,11 @@ export class GkMcpService implements GkMcpRegistrar {
 				scope?.addExitInfo('GitKraken MCP setup is not supported on the web');
 				throw new McpSetupError(
 					McpSetupErrorReason.WebUnsupported,
-					'GitKraken MCP setup is not supported on the web.',
+					l10n.t('GitKraken MCP setup is not supported on the web.'),
 					'web environment unsupported',
 					commandSource,
+					undefined,
+					'GitKraken MCP setup is not supported on the web.',
 				);
 			}
 
@@ -457,9 +468,11 @@ export class GkMcpService implements GkMcpRegistrar {
 				scope?.addExitInfo('AI is disabled for this user or organization');
 				throw new McpSetupError(
 					McpSetupErrorReason.AiDisabled,
-					'GitKraken MCP setup requires AI features to be enabled.',
+					l10n.t('GitKraken MCP setup requires AI features to be enabled.'),
 					'ai disabled',
 					commandSource,
+					undefined,
+					'GitKraken MCP setup requires AI features to be enabled.',
 				);
 			}
 
@@ -469,9 +482,11 @@ export class GkMcpService implements GkMcpRegistrar {
 			if (!usingExtensionRegistration && isHostVSCode(hostAppName) && compare(codeVersion, '1.102') < 0) {
 				throw new McpSetupError(
 					McpSetupErrorReason.VSCodeVersionUnsupported,
-					'GitKraken MCP setup requires VS Code 1.102 or later.',
+					l10n.t('GitKraken MCP setup requires VS Code 1.102 or later.'),
 					'unsupported vscode version',
 					commandSource,
+					undefined,
+					'GitKraken MCP setup requires VS Code 1.102 or later.',
 				);
 			}
 
@@ -494,7 +509,7 @@ export class GkMcpService implements GkMcpRegistrar {
 				scope?.setFailed('GitKraken MCP setup failed; installation failed');
 				throw new McpSetupError(
 					McpSetupErrorReason.InstallationFailed,
-					'Unable to setup the GitKraken MCP: installation failed. Please try again.',
+					l10n.t('Unable to setup the GitKraken MCP: installation failed. Please try again.'),
 					'unknown error',
 					commandSource,
 					cliVersion,
@@ -532,10 +547,13 @@ export class GkMcpService implements GkMcpRegistrar {
 				scope?.setFailed(`GitKraken MCP setup failed; unsupported host: ${hostAppName}`);
 				throw new McpSetupError(
 					McpSetupErrorReason.UnsupportedHost,
-					'Automatic setup of the GitKraken MCP is not currently supported in this IDE. You may be able to configure it by adding the GitKraken MCP to your configuration manually.',
+					l10n.t(
+						'Automatic setup of the GitKraken MCP is not currently supported in this IDE. You may be able to configure it by adding the GitKraken MCP to your configuration manually.',
+					),
 					'no app name',
 					commandSource,
 					cliVersion,
+					'Automatic setup of the GitKraken MCP is not currently supported in this IDE. You may be able to configure it by adding the GitKraken MCP to your configuration manually.',
 				);
 			}
 
@@ -562,7 +580,9 @@ export class GkMcpService implements GkMcpRegistrar {
 					scope?.setFailed(`GitKraken MCP setup failed; unsupported host: ${hostAppName}`);
 					throw new McpSetupError(
 						McpSetupErrorReason.UnsupportedClient,
-						'Automatic setup of the GitKraken MCP is not currently supported in this IDE. You should be able to configure it by adding the GitKraken MCP to your configuration manually.',
+						l10n.t(
+							'Automatic setup of the GitKraken MCP is not currently supported in this IDE. You should be able to configure it by adding the GitKraken MCP to your configuration manually.',
+						),
 						'unsupported app',
 						commandSource,
 						cliVersion,
@@ -587,7 +607,9 @@ export class GkMcpService implements GkMcpRegistrar {
 					scope?.error(undefined, `Unexpected output from mcp install command: ${classification.output}`);
 					throw new McpSetupError(
 						McpSetupErrorReason.UnexpectedOutput,
-						'Unable to setup the GitKraken MCP. If this issue persists, please try adding the GitKraken MCP to your configuration manually.',
+						l10n.t(
+							'Unable to setup the GitKraken MCP. If this issue persists, please try adding the GitKraken MCP to your configuration manually.',
+						),
 						'unexpected output from mcp install command',
 						commandSource,
 						cliVersion,
@@ -609,16 +631,21 @@ export class GkMcpService implements GkMcpRegistrar {
 			let reason: McpSetupErrorReason;
 			let message: string;
 			let telemetryReason: string;
+			let telemetryMessage: string;
 
 			switch (ex.reason) {
 				case CLIInstallErrorReason.UnsupportedPlatform:
 					reason = McpSetupErrorReason.CLIUnsupportedPlatform;
-					message = 'GitKraken MCP setup is not supported on this platform.';
+					message = l10n.t('GitKraken MCP setup is not supported on this platform.');
+					telemetryMessage = 'GitKraken MCP setup is not supported on this platform.';
 					telemetryReason = 'unsupported platform';
 					break;
 				case CLIInstallErrorReason.ProxyExtractLocked:
 					reason = McpSetupErrorReason.CLIBinaryLocked;
-					message =
+					message = l10n.t(
+						"The GitKraken MCP server is currently running and can't be replaced while in use. Reload the VS Code window to stop it, then try Reinstall again. Reloading will close any unsaved editors.",
+					);
+					telemetryMessage =
 						"The GitKraken MCP server is currently running and can't be replaced while in use. Reload the VS Code window to stop it, then try Reinstall again. Reloading will close any unsaved editors.";
 					telemetryReason = 'cli binary locked';
 					break;
@@ -630,30 +657,37 @@ export class GkMcpService implements GkMcpRegistrar {
 				case CLIInstallErrorReason.CoreInstall:
 				case CLIInstallErrorReason.GlobalStorageDirectory:
 					reason = McpSetupErrorReason.CLILocalInstallFailed;
-					message = 'Unable to locally install the GitKraken MCP server. Please try again.';
+					message = l10n.t('Unable to locally install the GitKraken MCP server. Please try again.');
+					telemetryMessage = 'Unable to locally install the GitKraken MCP server. Please try again.';
 					telemetryReason = 'local installation failed';
 					break;
 				case CLIInstallErrorReason.Offline:
 					reason = McpSetupErrorReason.Offline;
-					message =
+					message = l10n.t(
+						'Unable to setup the GitKraken MCP server when offline. Please try again when you are online.',
+					);
+					telemetryMessage =
 						'Unable to setup the GitKraken MCP server when offline. Please try again when you are online.';
 					telemetryReason = 'offline';
 					break;
 				default:
 					reason = McpSetupErrorReason.CLIUnknownError;
-					message = 'Unable to setup the GitKraken MCP: Unknown error.';
+					message = l10n.t('Unable to setup the GitKraken MCP: Unknown error.');
+					telemetryMessage = 'Unable to setup the GitKraken MCP: Unknown error.';
 					telemetryReason = 'unknown error';
 					break;
 			}
 
-			normalized = new McpSetupError(reason, message, telemetryReason, source, cliVersion);
+			normalized = new McpSetupError(reason, message, telemetryReason, source, cliVersion, telemetryMessage);
 		} else {
+			const errorMessage = ex instanceof Error ? ex.message : 'Unknown error';
 			normalized = new McpSetupError(
 				McpSetupErrorReason.CLIUnknownError,
-				`Unable to setup the GitKraken MCP: ${ex instanceof Error ? ex.message : 'Unknown error'}`,
+				l10n.t('Unable to setup the GitKraken MCP: {0}', getPresentableErrorMessage(ex)),
 				'unknown error',
 				source,
 				cliVersion,
+				errorMessage,
 			);
 		}
 
@@ -675,12 +709,12 @@ export class GkMcpService implements GkMcpRegistrar {
 			case McpSetupErrorReason.VSCodeVersionUnsupported:
 			case McpSetupErrorReason.AiDisabled:
 			case McpSetupErrorReason.Offline:
-				void window.showWarningMessage(ex.message);
+				void window.showWarningMessage(getPresentableErrorMessage(ex));
 				break;
 			case McpSetupErrorReason.CLIBinaryLocked: {
-				const reload = { title: 'Reload Window' };
-				const cancel = { title: 'Cancel', isCloseAffordance: true };
-				void window.showErrorMessage(ex.message, reload, cancel).then(r => {
+				const reload = { title: l10n.t('Reload Window') };
+				const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
+				void window.showErrorMessage(getPresentableErrorMessage(ex), reload, cancel).then(r => {
 					if (r === reload) {
 						void executeCoreCommand('workbench.action.reloadWindow');
 					}
@@ -691,15 +725,15 @@ export class GkMcpService implements GkMcpRegistrar {
 			case McpSetupErrorReason.CLIUnsupportedPlatform:
 			case McpSetupErrorReason.CLILocalInstallFailed:
 			case McpSetupErrorReason.CLIUnknownError:
-				void window.showErrorMessage(ex.message);
+				void window.showErrorMessage(getPresentableErrorMessage(ex));
 				break;
 			case McpSetupErrorReason.UnsupportedHost:
 			case McpSetupErrorReason.UnsupportedClient:
 			case McpSetupErrorReason.UnexpectedOutput:
-				void showManualMcpSetupPrompt(ex.message);
+				void showManualMcpSetupPrompt(getPresentableErrorMessage(ex));
 				break;
 			default:
-				void window.showErrorMessage(ex.message);
+				void window.showErrorMessage(getPresentableErrorMessage(ex));
 				break;
 		}
 	}
@@ -740,7 +774,7 @@ export class GkMcpService implements GkMcpRegistrar {
 			const result = await window.withProgress(
 				{
 					location: ProgressLocation.Notification,
-					title: 'Setting up the GitKraken MCP...',
+					title: l10n.t('Setting up the GitKraken MCP...'),
 					cancellable: false,
 				},
 				async () => this.setupCore(source, force),
@@ -751,12 +785,14 @@ export class GkMcpService implements GkMcpRegistrar {
 				return;
 			}
 
-			const connectMore = { title: 'Connect More Agents' };
-			const learnMore = { title: 'Learn More' };
-			const confirm = { title: 'OK', isCloseAffordance: true };
+			const connectMore = { title: l10n.t('Connect More Agents') };
+			const learnMore = { title: l10n.t('Learn More') };
+			const confirm = { title: l10n.t('OK'), isCloseAffordance: true };
 			void window
 				.showInformationMessage(
-					'GitKraken MCP is active in your AI chat, leveraging Git and your integrations to provide context and perform actions. You can also connect MCP to other agents on your machine.',
+					l10n.t(
+						'GitKraken MCP is active in your AI chat, leveraging Git and your integrations to provide context and perform actions. You can also connect MCP to other agents on your machine.',
+					),
 					connectMore,
 					learnMore,
 					confirm,
@@ -799,7 +835,7 @@ export class GkMcpService implements GkMcpRegistrar {
 			const result = await window.withProgress(
 				{
 					location: ProgressLocation.Notification,
-					title: 'Setting up the GitKraken MCP...',
+					title: l10n.t('Setting up the GitKraken MCP...'),
 					cancellable: false,
 				},
 				async () => this.setupCore(source),
@@ -838,7 +874,7 @@ export class GkMcpService implements GkMcpRegistrar {
 		const commandSource = source ?? 'commandPalette';
 
 		if (!this.container.ai.allowed) {
-			void window.showWarningMessage('GitKraken MCP setup requires AI features to be enabled.');
+			void window.showWarningMessage(l10n.t('GitKraken MCP setup requires AI features to be enabled.'));
 			return;
 		}
 
@@ -847,7 +883,9 @@ export class GkMcpService implements GkMcpRegistrar {
 			const { cliPath, status } = await this.gkCli.install(false, source);
 			if (status !== 'completed' || cliPath == null) {
 				void window.showWarningMessage(
-					'GitKraken MCP requires the CLI to be installed first. Please run "Install GitKraken MCP Server" first.',
+					l10n.t(
+						'GitKraken MCP requires the CLI to be installed first. Please run "Install GitKraken MCP Server" first.',
+					),
 				);
 				return;
 			}
@@ -871,7 +909,7 @@ export class GkMcpService implements GkMcpRegistrar {
 		const name = agentId.startsWith('cli:') ? agentId.slice(4) : agentId;
 
 		if (!this.container.ai.allowed) {
-			void window.showWarningMessage('GitKraken MCP setup requires AI features to be enabled.');
+			void window.showWarningMessage(l10n.t('GitKraken MCP setup requires AI features to be enabled.'));
 			return;
 		}
 
@@ -879,21 +917,23 @@ export class GkMcpService implements GkMcpRegistrar {
 			const { cliPath, status } = await this.gkCli.install(false, args?.source);
 			if (status !== 'completed' || cliPath == null) {
 				void window.showWarningMessage(
-					'GitKraken MCP requires the CLI to be installed first. Please run "Install GitKraken MCP Server" first.',
+					l10n.t(
+						'GitKraken MCP requires the CLI to be installed first. Please run "Install GitKraken MCP Server" first.',
+					),
 				);
 				return;
 			}
 
 			const agent = (await this.container.agents.getAll()).find(a => a.name === name);
 			if (agent == null) {
-				void window.showWarningMessage(`Agent '${name}' is no longer available.`);
+				void window.showWarningMessage(l10n.t("Agent '{0}' is no longer available.", name));
 				return;
 			}
 
 			const result = await window.withProgress(
 				{
 					location: ProgressLocation.Notification,
-					title: `Installing GitKraken MCP for ${agent.displayName}...`,
+					title: l10n.t('Installing GitKraken MCP for {0}...', agent.displayName),
 					cancellable: false,
 				},
 				() => this.installMcpForAgent(agent, cliPath),
@@ -906,10 +946,10 @@ export class GkMcpService implements GkMcpRegistrar {
 				void openUrl(result.url);
 			} else if (result.status === 'failed') {
 				void window.showErrorMessage(
-					`Failed to install GitKraken MCP for ${agent.displayName}: ${result.error}`,
+					l10n.t('Failed to install GitKraken MCP for {0}: {1}', agent.displayName, result.error),
 				);
 			} else {
-				void window.showInformationMessage(`GitKraken MCP installed for ${agent.displayName}.`);
+				void window.showInformationMessage(l10n.t('GitKraken MCP installed for {0}.', agent.displayName));
 			}
 		} catch (ex) {
 			scope?.error(ex, 'Error installing MCP for agent');
@@ -935,21 +975,23 @@ export class GkMcpService implements GkMcpRegistrar {
 			const { cliPath, status } = await this.gkCli.install(false, args?.source);
 			if (status !== 'completed' || cliPath == null) {
 				void window.showWarningMessage(
-					'GitKraken MCP requires the CLI to be installed first. Please run "Install GitKraken MCP Server" first.',
+					l10n.t(
+						'GitKraken MCP requires the CLI to be installed first. Please run "Install GitKraken MCP Server" first.',
+					),
 				);
 				return;
 			}
 
 			const agent = (await this.container.agents.getAll()).find(a => a.name === name);
 			if (agent == null) {
-				void window.showWarningMessage(`Agent '${name}' is no longer available.`);
+				void window.showWarningMessage(l10n.t("Agent '{0}' is no longer available.", name));
 				return;
 			}
 
 			const output = await window.withProgress(
 				{
 					location: ProgressLocation.Notification,
-					title: `Uninstalling GitKraken MCP for ${agent.displayName}...`,
+					title: l10n.t('Uninstalling GitKraken MCP for {0}...', agent.displayName),
 					cancellable: false,
 				},
 				// NOTE: `mcp uninstall` takes no `--source` flag (unlike `mcp install`)
@@ -959,7 +1001,7 @@ export class GkMcpService implements GkMcpRegistrar {
 			const cleaned = output.replace(CLIProxyMCPInstallOutputs.checkingForUpdates, '').trim();
 			if (cleaned && !/success/i.test(cleaned)) {
 				void window.showWarningMessage(
-					`Failed to uninstall GitKraken MCP for ${agent.displayName}: ${cleaned}`,
+					l10n.t('Failed to uninstall GitKraken MCP for {0}: {1}', agent.displayName, cleaned),
 				);
 				return;
 			}
@@ -969,11 +1011,11 @@ export class GkMcpService implements GkMcpRegistrar {
 				source: commandSource,
 				'agent.id': agent.name,
 			});
-			void window.showInformationMessage(`GitKraken MCP uninstalled for ${agent.displayName}.`);
+			void window.showInformationMessage(l10n.t('GitKraken MCP uninstalled for {0}.', agent.displayName));
 		} catch (ex) {
 			scope?.error(ex, `Error uninstalling MCP for agent: ${ex instanceof Error ? ex.message : 'Unknown error'}`);
 			void window.showErrorMessage(
-				`Failed to uninstall GitKraken MCP for '${name}': ${ex instanceof Error ? ex.message : 'Unknown error'}`,
+				l10n.t("Failed to uninstall GitKraken MCP for '{0}': {1}", name, getPresentableErrorMessage(ex)),
 			);
 		}
 	}
@@ -985,14 +1027,17 @@ export class GkMcpService implements GkMcpRegistrar {
 		const agents = all.filter(a => a.detected && a.mcpSupported && !a.mcpInstalled && !ideAgentIds.has(a.name));
 
 		if (agents.length === 0) {
-			void window.showInformationMessage('All detected agents already have the GitKraken MCP installed.');
+			void window.showInformationMessage(l10n.t('All detected agents already have the GitKraken MCP installed.'));
 			return;
 		}
 
 		const results = await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Installing GitKraken MCP for ${agents.length} agent${agents.length > 1 ? 's' : ''}...`,
+				title:
+					agents.length === 1
+						? l10n.t('Installing GitKraken MCP for {0} agent...', agents.length)
+						: l10n.t('Installing GitKraken MCP for {0} agents...', agents.length),
 				cancellable: false,
 			},
 			() => this.installMCPForAgents(agents, cliPath),
@@ -1049,15 +1094,23 @@ export class GkMcpService implements GkMcpRegistrar {
 				case 'succeeded':
 					return { agent: agent, status: 'succeeded' };
 				case 'unsupported':
-					return { agent: agent, status: 'failed', error: 'Not a supported MCP client' };
+					return { agent: agent, status: 'failed', error: l10n.t('Not a supported MCP client') };
 				case 'userAction':
 					return { agent: agent, status: 'userAction', url: classification.url };
 				case 'unexpected':
-					return { agent: agent, status: 'failed', error: `Unexpected output: ${classification.output}` };
+					return {
+						agent: agent,
+						status: 'failed',
+						error: l10n.t('Unexpected output: {0}', classification.output),
+					};
 			}
 		} catch (ex) {
 			Logger.error(ex, scope, `MCP install failed for agent '${agent.name}'`);
-			return { agent: agent, status: 'failed', error: ex instanceof Error ? ex.message : 'Unknown error' };
+			return {
+				agent: agent,
+				status: 'failed',
+				error: getPresentableErrorMessage(ex),
+			};
 		}
 	}
 
@@ -1082,7 +1135,7 @@ export class GkMcpService implements GkMcpRegistrar {
 			// unexpected, but stay defensive rather than let one agent's failure abort the whole batch.
 			const result = getSettledValue(settled[i]);
 			if (result == null) {
-				failed.push({ agent: agents[i].displayName, error: 'Unknown error' });
+				failed.push({ agent: agents[i].displayName, error: l10n.t('Unknown error') });
 				continue;
 			}
 
@@ -1114,18 +1167,28 @@ export class GkMcpService implements GkMcpRegistrar {
 		const parts: string[] = [];
 
 		if (results.succeeded.length > 0) {
-			parts.push(`Installed for ${results.succeeded.join(', ')}`);
+			parts.push(
+				results.succeeded.length === 1
+					? l10n.t('Installed for {0}', results.succeeded[0])
+					: l10n.t('Installed for {0}', results.succeeded.join(', ')),
+			);
 		}
 		if (results.failed.length > 0) {
-			parts.push(`Failed for ${results.failed.map(f => f.agent).join(', ')}`);
+			const agents = results.failed.map(f => f.agent);
+			parts.push(
+				agents.length === 1 ? l10n.t('Failed for {0}', agents[0]) : l10n.t('Failed for {0}', agents.join(', ')),
+			);
 		}
 		if (results.requiresUserAction.length > 0) {
+			const agents = results.requiresUserAction.map(r => r.agent);
 			parts.push(
-				`${results.requiresUserAction.map(r => r.agent).join(', ')} require${results.requiresUserAction.length === 1 ? 's' : ''} manual setup`,
+				agents.length === 1
+					? l10n.t('{0} requires manual setup', agents[0])
+					: l10n.t('{0} require manual setup', agents.join(', ')),
 			);
 		}
 
-		const message = `GitKraken MCP: ${parts.join('. ')}.`;
+		const message = l10n.t('GitKraken MCP: {0}.', parts.join('. '));
 
 		if (results.failed.length > 0) {
 			void window.showWarningMessage(message);

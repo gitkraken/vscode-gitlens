@@ -1,5 +1,5 @@
 import type { Disposable, TextEditor } from 'vscode';
-import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { l10n, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { isSha } from '@gitlens/git/utils/revision.utils.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
@@ -61,12 +61,12 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 		this.view.message = undefined;
 
 		if (this.child == null) {
-			this.view.groupedLabel ??= this.view.name.toLocaleLowerCase();
+			this.view.groupedLabel ??= l10n.t('file history');
 
 			if (!this.hasUri) {
 				this.view.description = this.view.grouped ? this.view.groupedLabel : undefined;
 
-				this.view.message = 'There are no editors open that can provide file history information.';
+				this.view.message = l10n.t('There are no editors open that can provide file history information.');
 				this.children = undefined;
 				return [];
 			}
@@ -81,10 +81,10 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 			const folder = await svc.isFolderUri(this.uri);
 
 			if (this.view.grouped) {
-				this.view.groupedLabel = (folder ? 'Folder History' : 'File History').toLocaleLowerCase();
+				this.view.groupedLabel = folder ? l10n.t('folder history') : l10n.t('file history');
 				this.view.description = this.view.groupedLabel;
 			} else {
-				this.view.title = folder ? 'Folder History' : 'File History';
+				this.view.title = folder ? l10n.t('Folder History') : l10n.t('File History');
 			}
 
 			let branch;
@@ -107,7 +107,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('File History', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(l10n.t('File History'), TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.ActiveFileHistory;
 
 		return item;
@@ -165,8 +165,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	async changeBase(): Promise<void> {
 		const pick = await showReferencePicker(
 			this.uri.repoPath!,
-			'Change File History Base',
-			'Choose a reference to set as the new base',
+			l10n.t('Change File History Base'),
+			l10n.t('Choose a reference to set as the new base'),
 			{
 				allowedAdditionalInput: { rev: true },
 				picked: this._base,

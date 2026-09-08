@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -37,9 +38,28 @@ export class IssueIcon extends LitElement {
 	}
 
 	get label(): string {
-		if (!this.state) return 'Issue';
+		const state = this.state;
+		if (!state) return l10n.t('Issue');
 
-		return `Issue ${this.issueId ? `#${this.issueId}` : ''} is ${this.state}`;
+		if (this.issueId) {
+			switch (state) {
+				case 'opened':
+					return l10n.t('Issue #{0} is opened', this.issueId);
+				case 'closed':
+					return l10n.t('Issue #{0} is closed', this.issueId);
+				default:
+					return l10n.t('Issue #{0}', this.issueId);
+			}
+		}
+
+		switch (state) {
+			case 'opened':
+				return l10n.t('Issue is opened');
+			case 'closed':
+				return l10n.t('Issue is closed');
+			default:
+				return l10n.t('Issue');
+		}
 	}
 
 	override render(): unknown {

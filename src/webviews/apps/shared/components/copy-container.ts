@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -81,10 +82,10 @@ export class GlCopyContainer extends LitElement {
 	content?: string;
 
 	@property()
-	copyLabel: string = 'Copy';
+	copyLabel: string = l10n.t('Copy');
 
 	@property()
-	copiedLabel: string = 'Copied';
+	copiedLabel: string = l10n.t('Copied');
 
 	@property({ type: Boolean, reflect: true })
 	disabled = false;
@@ -165,10 +166,10 @@ export class GlCopyContainer extends LitElement {
 				await navigator.clipboard.writeText(this.content);
 				this.label = this.copiedLabel;
 			} catch {
-				this.label = 'Unable to Copy';
+				this.label = l10n.t('Unable to Copy');
 			}
 		} else {
-			this.label = 'Nothing to Copy';
+			this.label = l10n.t('Nothing to Copy');
 		}
 		this.createResetTimer();
 		await this.updateComplete;

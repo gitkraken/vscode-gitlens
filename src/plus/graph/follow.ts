@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent, Terminal } from 'vscode';
-import { Disposable, Uri, window, workspace } from 'vscode';
+import { Disposable, l10n, Uri, window, workspace } from 'vscode';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
@@ -315,7 +315,7 @@ export class GraphFollowController implements Disposable {
 				? await this.container.git.getOrAddRepository(cwd, { opened: false, detectNested: true })
 				: undefined;
 		if (repo == null || !(await worktreeExists(repo.path))) {
-			void window.showInformationMessage('No repository was found for this terminal.');
+			void window.showInformationMessage(l10n.t('No repository was found for this terminal.'));
 			return undefined;
 		}
 

@@ -1,11 +1,13 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import { focusableBaseStyles, focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { GlExtensionCommands } from '../../../../../constants.commands.js';
+import type { SubscriptionPlanIds } from '../../../../../plus/gk/models/subscription.js';
 import {
 	getSubscriptionEntitlement,
 	getSubscriptionPlanName,
@@ -45,8 +47,8 @@ declare global {
 }
 
 type AccountRingState = 'loading' | 'unpaid' | 'trial' | 'paid';
-/** Tier names the account panel uses, plus the trial variant it substitutes for an in-trial plan. */
-type PlanLabel = ReturnType<typeof getSubscriptionPlanName> | 'Pro Trial';
+/** Stable plan identity, including the badge's trial variant. */
+type BadgePlanId = SubscriptionPlanIds | 'trial';
 
 /**
  * Accessible names for the pill. The avatar's ring is a color-only signal, so the bucket it encodes has to
@@ -60,23 +62,27 @@ type PlanLabel = ReturnType<typeof getSubscriptionPlanName> | 'Pro Trial';
  * still reaches the accessible name (see `render`), and the badge itself is `aria-hidden`, so these are a
  * visual shorthand rather than a label and nothing depends on a screen reader deciphering them.
  */
-const planAbbreviations: Record<PlanLabel, string> = {
+const planAbbreviations: Record<BadgePlanId, string> = {
 	// Spelled out where the others are clipped — a countdown state is worth the extra characters.
-	'Pro Trial': 'TRIAL',
-	Pro: 'PRO',
-	Advanced: 'ADV',
-	Business: 'BIZ',
-	Enterprise: 'ENT',
-	Student: 'STU',
+	trial: l10n.t({ message: 'TRIAL', comment: ['Short account badge abbreviation for GitLens Pro Trial.'] }),
+	pro: l10n.t({ message: 'PRO', comment: ['Short account badge abbreviation for GitLens Pro.'] }),
+	advanced: l10n.t({ message: 'ADV', comment: ['Short account badge abbreviation for GitLens Advanced.'] }),
+	teams: l10n.t({ message: 'BIZ', comment: ['Short account badge abbreviation for GitLens Business.'] }),
+	enterprise: l10n.t({ message: 'ENT', comment: ['Short account badge abbreviation for GitLens Enterprise.'] }),
+	student: l10n.t({ message: 'STU', comment: ['Short account badge abbreviation for GitLens Student.'] }),
 	// Unreachable — the badge only renders for the entitled buckets — but keeps the map exhaustive.
-	Community: 'COM',
+	'community-with-account': l10n.t({
+		message: 'COM',
+		comment: ['Short account badge abbreviation for GitLens Community.'],
+	}),
+	community: l10n.t({ message: 'COM', comment: ['Short account badge abbreviation for GitLens Community.'] }),
 };
 
 const accountButtonLabels: Record<AccountRingState, string> = {
-	loading: 'Account',
-	unpaid: 'Account — no active GitLens Pro plan',
-	trial: 'Account — GitLens Pro Trial',
-	paid: 'Account — GitLens Pro',
+	loading: l10n.t('Account'),
+	unpaid: l10n.t('Account — no active GitLens Pro plan'),
+	trial: l10n.t('Account — GitLens Pro Trial'),
+	paid: l10n.t('Account — GitLens Pro'),
 };
 
 /**
@@ -335,15 +341,15 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 	}
 
 	/** Tier label for the badge, in the same vocabulary the account panel uses so the two can't disagree. */
-	private get planLabel(): PlanLabel | undefined {
+	private get badgePlanId(): BadgePlanId | undefined {
 		const subscription = this._subscription?.subscription.get();
 		if (subscription == null) return undefined;
 
 		if (isSubscriptionTrial(subscription)) {
-			return subscription.plan.effective.id === 'student' ? 'Student' : 'Pro Trial';
+			return subscription.plan.effective.id === 'student' ? 'student' : 'trial';
 		}
 
-		return getSubscriptionPlanName(subscription.plan.actual.id);
+		return subscription.plan.actual.id;
 	}
 
 	/** Mirrors the chip's own skeleton guard: until the subscription resolves, every section renders its
@@ -391,7 +397,7 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 	override render(): unknown {
 		const avatar = this._subscription?.avatar.get();
 		const state = this.ringState;
-		const plan = state === 'trial' || state === 'paid' ? this.planLabel : undefined;
+		const plan = state === 'trial' || state === 'paid' ? this.badgePlanId : undefined;
 
 		return html`<gl-popover placement="bottom-end" trigger="focus click" ?arrow=${false} .distance=${0}>
 			<button
@@ -400,7 +406,7 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				slot="anchor"
 				aria-haspopup="true"
 				data-entitlement=${state}
-				aria-label=${plan != null ? `Account — GitLens ${plan}` : accountButtonLabels[state]}
+				aria-label=${plan != null ? l10n.t('Account — GitLens {plan}', { plan: plan === 'trial' ? l10n.t('Pro Trial') : getSubscriptionPlanName(plan) }) : accountButtonLabels[state]}
 			>
 				<gl-avatar .src=${avatar ?? undefined}><code-icon icon="gl-gitlens" size="14"></code-icon></gl-avatar>
 				${
@@ -420,10 +426,10 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				${this.renderWalkthrough()}
 				<hr />
 				<div class="rollup__section">
-					<p class="rollup__heading">AI</p>
+					<p class="rollup__heading">${l10n.t('AI')}</p>
 					${
 						this.aiEmpty
-							? this.renderSetupCta('gitlens.showSettingsPage!ai', 'Set up AI')
+							? this.renderSetupCta('gitlens.showSettingsPage!ai', l10n.t('Set up AI'))
 							: html`<gl-integrations-chip
 									display="ai-icons"
 									href=${createCommandLink('gitlens.showSettingsPage!ai')}
@@ -431,10 +437,10 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 					}
 				</div>
 				<div class="rollup__section">
-					<p class="rollup__heading">Agents</p>
+					<p class="rollup__heading">${l10n.t('Agents')}</p>
 					${
 						this.agentsEmpty
-							? this.renderSetupCta('gitlens.showSettingsPage!agents', 'Set up agents')
+							? this.renderSetupCta('gitlens.showSettingsPage!agents', l10n.t('Set up agents'))
 							: html`<gl-integrations-chip
 									display="agent-icons"
 									href=${createCommandLink('gitlens.showSettingsPage!agents')}
@@ -442,10 +448,13 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 					}
 				</div>
 				<div class="rollup__section">
-					<p class="rollup__heading">Integrations</p>
+					<p class="rollup__heading">${l10n.t('Integrations')}</p>
 					${
 						this.integrationsEmpty
-							? this.renderSetupCta('gitlens.showSettingsPage!integrations', 'Set up integrations')
+							? this.renderSetupCta(
+									'gitlens.showSettingsPage!integrations',
+									l10n.t('Set up integrations'),
+								)
 							: html`<gl-integrations-chip
 									display="icons"
 									href=${createCommandLink('gitlens.showSettingsPage!integrations')}
@@ -495,7 +504,9 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 					.value=${progress.doneCount}
 					.max=${progress.allCount}
 				></gl-progress-ring>
-				<span>${graph ? 'Graph' : 'GitLens'} Walkthrough ${progress.doneCount}/${progress.allCount}</span>
+				<span
+					>${graph ? l10n.t('Graph Walkthrough {done}/{total}', { done: progress.doneCount, total: progress.allCount }) : l10n.t('GitLens Walkthrough {done}/{total}', { done: progress.doneCount, total: progress.allCount })}</span
+				>
 			</a>`;
 	}
 }

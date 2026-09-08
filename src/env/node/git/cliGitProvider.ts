@@ -2,7 +2,7 @@ import { readdir, realpath } from 'fs';
 import { homedir } from 'os';
 import { resolve as resolvePath } from 'path';
 import type { Disposable, WorkspaceFolder } from 'vscode';
-import { extensions, FileType, Uri, window, workspace } from 'vscode';
+import { extensions, FileType, l10n, Uri, window, workspace } from 'vscode';
 import { fetch } from '@env/fetch.js';
 import { isLinux, isWindows } from '@env/platform.js';
 import type { CliGitProviderOptions } from '@gitlens/git-cli/cliGitProvider.js';
@@ -55,6 +55,7 @@ import type { APIState, GitExtension, API as ScmGitApi } from '../../../@types/v
 import { Schemes } from '../../../constants.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
+import { getPresentableErrorMessage } from '../../../errors.js';
 import type { Features } from '../../../features.js';
 import { gitMinimumVersion } from '../../../features.js';
 import type {
@@ -548,7 +549,9 @@ export class GlCliGitProvider implements GlGitProvider {
 			} else {
 				const msg: string = ex?.message ?? '';
 				if (msg && !options?.silent) {
-					void window.showErrorMessage(`Unable to initialize Git; ${msg}`);
+					void window.showErrorMessage(
+						l10n.t('Unable to initialize Git; {0}', getPresentableErrorMessage(ex)),
+					);
 				}
 			}
 
@@ -995,9 +998,11 @@ export class GlCliGitProvider implements GlGitProvider {
 				if (!isAbsolute(base)) {
 					debugger;
 					void window.showErrorMessage(
-						`Unable to get absolute uri between ${
-							typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true)
-						} and ${base}; Base path '${base}' must be an absolute path`,
+						l10n.t(
+							"Unable to get absolute uri between {0} and {1}; Base path '{1}' must be an absolute path",
+							typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true),
+							base,
+						),
 					);
 					throw new Error(`Base path '${base}' must be an absolute path`);
 				}
@@ -1083,9 +1088,11 @@ export class GlCliGitProvider implements GlGitProvider {
 				if (!isAbsolute(base)) {
 					debugger;
 					void window.showErrorMessage(
-						`Unable to get relative path between ${
-							typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true)
-						} and ${base}; Base path '${base}' must be an absolute path`,
+						l10n.t(
+							"Unable to get relative path between {0} and {1}; Base path '{1}' must be an absolute path",
+							typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true),
+							base,
+						),
 					);
 					throw new Error(`Base path '${base}' must be an absolute path`);
 				}
@@ -1224,12 +1231,14 @@ export class GlCliGitProvider implements GlGitProvider {
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (patch && /patch does not apply/i.test(msg)) {
+				const retry = { title: l10n.t('Yes') };
+				const cancel = { title: l10n.t('No'), isCloseAffordance: true };
 				const result = await window.showWarningMessage(
-					'Unable to apply changes cleanly. Retry and allow conflicts?',
-					{ title: 'Yes' },
-					{ title: 'No', isCloseAffordance: true },
+					l10n.t('Unable to apply changes cleanly. Retry and allow conflicts?'),
+					retry,
+					cancel,
 				);
-				if (result?.title !== 'Yes') return;
+				if (result !== retry) return;
 
 				try {
 					await this.provider.patch.apply(root, patch, { threeWay: true });
@@ -1242,7 +1251,7 @@ export class GlCliGitProvider implements GlGitProvider {
 			}
 
 			scope?.error(ex);
-			void showGenericErrorMessage('Unable to apply changes');
+			void showGenericErrorMessage(l10n.t('Unable to apply changes'));
 		}
 	}
 
@@ -1254,7 +1263,7 @@ export class GlCliGitProvider implements GlGitProvider {
 			return await this.provider.clone?.(url, parentPath);
 		} catch (ex) {
 			scope?.error(ex);
-			void showGenericErrorMessage(`Unable to clone '${url}'`);
+			void showGenericErrorMessage(l10n.t("Unable to clone '{0}'", url));
 		}
 
 		return undefined;

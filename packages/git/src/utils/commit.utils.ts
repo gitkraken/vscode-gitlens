@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { GitCommitFileset, GitCommitStats, GitCommitWithFullDetails } from '../models/commit.js';
 import { GitCommit, GitCommitIdentity } from '../models/commit.js';
 import type { GitReference } from '../models/reference.js';
@@ -7,18 +8,24 @@ import type { GitUser } from '../models/user.js';
 export type CurrentUserNameStyle = 'you' | 'name' | 'nameAndYou';
 
 export function formatCurrentUserDisplayName(name: string, style: CurrentUserNameStyle): string {
+	const you = l10n.t('You');
+
 	switch (style) {
 		case 'name':
 			return name;
 		case 'nameAndYou':
-			if (name === 'You' || name.endsWith(' (you)')) {
-				debugger;
-				return name;
+			if (name === 'You' || name === you) {
+				return you;
 			}
-			return name ? `${name} (you)` : 'You';
+
+			if (name.endsWith(' (you)')) {
+				name = name.slice(0, -' (you)'.length);
+			}
+
+			return name ? l10n.t('{0} (you)', name) : you;
 		case 'you':
 		default:
-			return 'You';
+			return you;
 	}
 }
 

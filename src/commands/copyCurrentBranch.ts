@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { env } from 'vscode';
+import { env, l10n } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
@@ -24,7 +24,7 @@ export class CopyCurrentBranchCommand extends ActiveEditorCommand {
 			this.container,
 			gitUri,
 			editor,
-			'Copy Current Branch Name',
+			l10n.t('Copy Current Branch Name'),
 		);
 		if (repository == null) return;
 
@@ -35,7 +35,7 @@ export class CopyCurrentBranchCommand extends ActiveEditorCommand {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CopyCurrentBranchCommand');
-			void showGenericErrorMessage('Unable to copy current branch name');
+			void showGenericErrorMessage(l10n.t('Unable to copy current branch name'));
 		}
 	}
 }

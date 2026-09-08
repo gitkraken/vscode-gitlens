@@ -1,5 +1,6 @@
 import { exec } from 'child_process';
 import { promises as fs } from 'fs';
+import * as l10n from '@vscode/l10n';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import { WorktreeCreateError, WorktreeDeleteError } from '@gitlens/git/errors.js';
@@ -119,10 +120,12 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 
 	@debug()
 	async getWorktrees(repoPath: string, cancellation?: AbortSignal): Promise<GitWorktree[]> {
-		await this.git.ensureSupports(
-			'git:worktrees',
-			'Displaying worktrees',
-			' Please install a more recent version of Git and try again.',
+		await this.git.ensureSupports('git:worktrees', (requiredVersion, installedVersion) =>
+			l10n.t(
+				'Displaying worktrees requires a newer version of Git (>= {0}) than is currently installed ({1}). Please install a more recent version of Git and try again.',
+				requiredVersion,
+				installedVersion,
+			),
 		);
 
 		return this.cache.getWorktrees(
@@ -172,10 +175,12 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	): Promise<void> {
 		const scope = getScopedLogger();
 
-		await this.git.ensureSupports(
-			'git:worktrees',
-			'Deleting worktrees',
-			' Please install a more recent version of Git and try again.',
+		await this.git.ensureSupports('git:worktrees', (requiredVersion, installedVersion) =>
+			l10n.t(
+				'Deleting worktrees requires a newer version of Git (>= {0}) than is currently installed ({1}). Please install a more recent version of Git and try again.',
+				requiredVersion,
+				installedVersion,
+			),
 		);
 
 		const args = ['worktree', 'remove'];
@@ -271,10 +276,12 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 
 	@debug()
 	async unlockWorktree(repoPath: string, path: string | Uri): Promise<void> {
-		await this.git.ensureSupports(
-			'git:worktrees',
-			'Unlocking worktrees',
-			' Please install a more recent version of Git and try again.',
+		await this.git.ensureSupports('git:worktrees', (requiredVersion, installedVersion) =>
+			l10n.t(
+				'Unlocking worktrees requires a newer version of Git (>= {0}) than is currently installed ({1}). Please install a more recent version of Git and try again.',
+				requiredVersion,
+				installedVersion,
+			),
 		);
 
 		await this.git.run({ cwd: repoPath, errors: 'throw' }, 'worktree', 'unlock', normalizePath(toFsPath(path)));

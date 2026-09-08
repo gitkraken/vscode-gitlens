@@ -13,7 +13,7 @@ import type {
 	TreeViewVisibilityChangeEvent,
 	ViewBadge,
 } from 'vscode';
-import { EventEmitter, MarkdownString, TreeItemCollapsibleState, window } from 'vscode';
+import { EventEmitter, l10n, MarkdownString, TreeItemCollapsibleState, window } from 'vscode';
 import { areEqual } from '@gitlens/utils/array.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
@@ -574,8 +574,8 @@ export abstract class ViewBase<
 
 		const result = await showRepositoriesPicker2(
 			this.container,
-			`Select Repositories or Worktrees to Show`,
-			`Choose which repositories or worktrees to show`,
+			l10n.t('Select Repositories or Worktrees to Show'),
+			l10n.t('Choose which repositories or worktrees to show'),
 			repos,
 			{
 				additionalItems: [
@@ -797,13 +797,9 @@ export abstract class ViewBase<
 	}
 
 	getViewDescription(count?: number): string | undefined {
-		return (
-			(this.grouped
-				? `${this.name.toLocaleLowerCase()}${count != null ? ` (${count})` : ''}`
-				: count != null
-					? `(${count})`
-					: '') || undefined
-		);
+		if (!this.grouped) return count != null ? l10n.t('({0})', String(count)) : undefined;
+
+		return getGroupedViewDescription(this.type, count);
 	}
 
 	resolveTreeItem(item: TreeItem, node: ViewNode, token: CancellationToken): TreeItem | Promise<TreeItem> {
@@ -1294,6 +1290,43 @@ export abstract class ViewBase<
 
 	// 	Logger.log(`@@@ ${this.type} total=${total}`);
 	// }, 10000);
+}
+
+function getGroupedViewDescription(type: TreeViewTypes, count: number | undefined): string | undefined {
+	switch (type) {
+		case 'branches':
+			return count != null ? l10n.t('branches ({0})', String(count)) : l10n.t('branches');
+		case 'commits':
+			return count != null ? l10n.t('commits ({0})', String(count)) : l10n.t('commits');
+		case 'contributors':
+			return count != null ? l10n.t('contributors ({0})', String(count)) : l10n.t('contributors');
+		case 'drafts':
+			return count != null ? l10n.t('cloud patches ({0})', String(count)) : l10n.t('cloud patches');
+		case 'fileHistory':
+			return count != null ? l10n.t('file history ({0})', String(count)) : l10n.t('file history');
+		case 'launchpad':
+			return count != null ? l10n.t('launchpad ({0})', String(count)) : l10n.t('launchpad');
+		case 'lineHistory':
+			return count != null ? l10n.t('line history ({0})', String(count)) : l10n.t('line history');
+		case 'pullRequest':
+			return count != null ? l10n.t('pull request ({0})', String(count)) : l10n.t('pull request');
+		case 'remotes':
+			return count != null ? l10n.t('remotes ({0})', String(count)) : l10n.t('remotes');
+		case 'repositories':
+			return count != null ? l10n.t('repositories ({0})', String(count)) : l10n.t('repositories');
+		case 'searchAndCompare':
+			return count != null ? l10n.t('search & compare ({0})', String(count)) : l10n.t('search & compare');
+		case 'stashes':
+			return count != null ? l10n.t('stashes ({0})', String(count)) : l10n.t('stashes');
+		case 'tags':
+			return count != null ? l10n.t('tags ({0})', String(count)) : l10n.t('tags');
+		case 'workspaces':
+			return count != null ? l10n.t('workspaces ({0})', String(count)) : l10n.t('workspaces');
+		case 'worktrees':
+			return count != null ? l10n.t('worktrees ({0})', String(count)) : l10n.t('worktrees');
+		case 'scm.grouped':
+			return undefined;
+	}
 }
 
 export class ViewNodeState implements Disposable {

@@ -2,7 +2,11 @@ import type { Remote } from '@eamodio/supertalk';
 import type { AutolinkConfig, Config, CustomRemoteType, RemotesUrlsConfig } from '../../../config.js';
 import { isCustomConfigKey } from '../../protocol.js';
 import type { ScopedAiModelInfo } from '../../rpc/services/types.js';
-import type { SettingsServices, SettingsUpdateParams } from '../../settings/settingsService.js';
+import type {
+	GenerateFormatPreviewResult,
+	SettingsServices,
+	SettingsUpdateParams,
+} from '../../settings/settingsService.js';
 import { anchorToCategory } from './categories/index.js';
 import type { CheckDescriptor, SettingsKey } from './model.js';
 import { setPath } from './model.js';
@@ -531,7 +535,7 @@ export class SettingsActions {
 		type: 'commit' | 'commit-uncommitted' | 'file',
 		format: string,
 		markdown?: boolean,
-	): Promise<string> {
+	): Promise<GenerateFormatPreviewResult> {
 		return this.settings.generateFormatPreview({ key: key, type: type, format: format, markdown: markdown });
 	}
 }

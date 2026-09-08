@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { ReactiveController, ReactiveControllerHost, TemplateResult } from 'lit';
 import { html } from 'lit';
 import type { Ref } from 'lit/directives/ref.js';
@@ -37,10 +38,10 @@ type StickyTimelineGroup = {
 // would undershoot into where it's still 'month' (year requires ~729d elapsed before it triggers at all).
 function stickyTimelineGroupFor(dateMs: number, nowMs: number): StickyTimelineGroup {
 	const day = unitDivisorMs('day');
-	if (dateMs > nowMs) return { key: 'today', label: 'Today', lo: 0, hi: day };
+	if (dateMs > nowMs) return { key: 'today', label: l10n.t('Today'), lo: 0, hi: day };
 
 	const result = fromNowUnit(dateMs, nowMs);
-	if (result == null) return { key: 'today', label: 'Today', lo: 0, hi: day };
+	if (result == null) return { key: 'today', label: l10n.t('Today'), lo: 0, hi: day };
 
 	const { unit, value } = result;
 	const count = Math.abs(value);
@@ -48,18 +49,18 @@ function stickyTimelineGroupFor(dateMs: number, nowMs: number): StickyTimelineGr
 		case 'second':
 		case 'minute':
 		case 'hour':
-			return { key: 'today', label: 'Today', lo: 0, hi: day };
+			return { key: 'today', label: l10n.t('Today'), lo: 0, hi: day };
 		case 'day':
-			if (count <= 1) return { key: 'yesterday', label: 'Yesterday', lo: day, hi: 2 * day };
-			return { key: 'week', label: 'This week', lo: 2 * day, hi: unitDivisorMs('week') };
+			if (count <= 1) return { key: 'yesterday', label: l10n.t('Yesterday'), lo: day, hi: 2 * day };
+			return { key: 'week', label: l10n.t('This week'), lo: 2 * day, hi: unitDivisorMs('week') };
 		case 'week': {
 			const week = unitDivisorMs('week');
 			const upperBound = unitThresholdMs('month');
 			return count <= 1
-				? { key: 'week:1', label: 'Last week', lo: week, hi: Math.min(2 * week, upperBound) }
+				? { key: 'week:1', label: l10n.t('Last week'), lo: week, hi: Math.min(2 * week, upperBound) }
 				: {
 						key: `week:${count}`,
-						label: `${count} weeks ago`,
+						label: l10n.t('{0} weeks ago', count),
 						lo: count * week,
 						hi: Math.min((count + 1) * week, upperBound),
 					};
@@ -68,10 +69,10 @@ function stickyTimelineGroupFor(dateMs: number, nowMs: number): StickyTimelineGr
 			const month = unitDivisorMs('month');
 			const upperBound = unitThresholdMs('year');
 			return count <= 1
-				? { key: 'month:1', label: 'Last month', lo: month, hi: Math.min(2 * month, upperBound) }
+				? { key: 'month:1', label: l10n.t('Last month'), lo: month, hi: Math.min(2 * month, upperBound) }
 				: {
 						key: `month:${count}`,
-						label: `${count} months ago`,
+						label: l10n.t('{0} months ago', count),
 						lo: count * month,
 						hi: Math.min((count + 1) * month, upperBound),
 					};
@@ -86,7 +87,7 @@ function stickyTimelineGroupFor(dateMs: number, nowMs: number): StickyTimelineGr
 			// the sticky-timeline controller's `update`, which can't reuse group.hi here without losing
 			// that formatting).
 			const lo = count <= 1 ? unitThresholdMs('year') : count * unitDivisorMs('year');
-			return { key: `year:${count}`, label: `${count} years ago`, lo: lo };
+			return { key: `year:${count}`, label: l10n.t('{0} years ago', count), lo: lo };
 		}
 	}
 }
@@ -123,7 +124,7 @@ export function stickyTimelineGroupKeyFor(dateMs: number, nowMs: number): number
 // isn't double-counted; a exactly-1-day-wide window (today/yesterday) collapses to a single date.
 function stickyTimelineSpanFor(group: StickyTimelineGroup, nowMs: number): string {
 	if (group.hi == null) {
-		return `before ${formatGitLensDate(nowMs - group.lo, 'MMM D')}`;
+		return l10n.t('before {0}', formatGitLensDate(nowMs - group.lo, 'MMM D'));
 	}
 
 	const endMs = nowMs - group.lo;

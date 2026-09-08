@@ -1,6 +1,6 @@
 import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import type { MessageItem, TextDocumentShowOptions, ViewColumn } from 'vscode';
-import { env, ProgressLocation, Uri, window } from 'vscode';
+import { env, l10n, ProgressLocation, Uri, window } from 'vscode';
 import { getAcceptSequenceEditor, getSquashSequenceEditor } from '@env/git/squashEditor.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
@@ -28,6 +28,7 @@ import {
 import { decodeReachabilitySet } from '@gitlens/git/utils/reachability.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isSha, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -53,6 +54,7 @@ import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../constants.c
 import { GlyphChars } from '../../../constants.js';
 import type { StoredGraphWipDraft } from '../../../constants.storage.js';
 import type { Container } from '../../../container.js';
+import { getPresentableErrorMessage } from '../../../errors.js';
 import { executeGitCommand } from '../../../git/actions.js';
 import * as BranchActions from '../../../git/actions/branch.js';
 import {
@@ -121,6 +123,9 @@ import type {
 	GraphSelection,
 } from './protocol.js';
 import type { ShowInCommitGraphCommandArgs } from './registration.js';
+
+/** Rewrite verbs shown in "you can only rewrite…" warnings — `modify` has no `RebaseTodoAction` of its own. */
+type RewriteAction = 'drop' | 'squash' | 'reword' | 'fixup' | 'modify';
 
 type GraphItemRefs<T> = {
 	active: T | undefined;
@@ -705,16 +710,20 @@ export class GraphCommands {
 
 		const { repoPath, ordered, published } = prepared;
 
-		const squash: MessageItem = { title: 'Squash' };
-		const fixup: MessageItem = { title: 'Keep First Message' };
-		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+		const squash: MessageItem = { title: l10n.t('Squash') };
+		const fixup: MessageItem = { title: l10n.t('Keep First Message') };
+		const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		const choice = await window.showWarningMessage(
-			`Squash ${ordered.length} commits into one?`,
+			l10n.t('Squash {0} commits into one?', getNumericFormat()(ordered.length)),
 			{
 				modal: true,
 				detail: published
-					? 'One or more of these commits have already been pushed. Squashing rewrites history and will require a force push.'
-					: 'Choose Squash to review and edit the combined message, or Keep First Message to keep only the oldest commit message.',
+					? l10n.t(
+							'One or more of these commits have already been pushed. Squashing rewrites history and will require a force push.',
+						)
+					: l10n.t(
+							'Choose Squash to review and edit the combined message, or Keep First Message to keep only the oldest commit message.',
+						),
 			},
 			squash,
 			fixup,
@@ -733,15 +742,17 @@ export class GraphCommands {
 
 		const { repoPath, ordered, published } = prepared;
 
-		const drop: MessageItem = { title: 'Drop' };
-		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+		const drop: MessageItem = { title: l10n.t('Drop') };
+		const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		const choice = await window.showWarningMessage(
-			`Drop ${ordered.length} commits?`,
+			l10n.t('Drop {0} commits?', getNumericFormat()(ordered.length)),
 			{
 				modal: true,
 				detail: published
-					? 'One or more of these commits have already been pushed. Dropping rewrites history and will require a force push.'
-					: 'This removes the selected commits from the current branch.',
+					? l10n.t(
+							'One or more of these commits have already been pushed. Dropping rewrites history and will require a force push.',
+						)
+					: l10n.t('This removes the selected commits from the current branch.'),
 			},
 			drop,
 			cancel,
@@ -754,23 +765,48 @@ export class GraphCommands {
 	private validateRewriteableSelection(
 		graph: GitGraph,
 		refs: readonly GitRevisionReference[],
-		verb: string,
+		action: RewriteAction,
 	): boolean {
 		const rewriteable = graph.rewriteableFromHEAD;
 		if (rewriteable == null || refs.every(ref => rewriteable.has(ref.ref))) return true;
 
-		void window.showWarningMessage(
-			`Unable to ${verb}: you can only rewrite commits on the current branch up to the first merge.`,
-		);
+		let message: string;
+		switch (action) {
+			case 'drop':
+				message = l10n.t(
+					'Unable to drop: you can only rewrite commits on the current branch up to the first merge.',
+				);
+				break;
+			case 'squash':
+				message = l10n.t(
+					'Unable to squash: you can only rewrite commits on the current branch up to the first merge.',
+				);
+				break;
+			case 'reword':
+				message = l10n.t(
+					'Unable to reword: you can only rewrite commits on the current branch up to the first merge.',
+				);
+				break;
+			case 'fixup':
+				message = l10n.t(
+					'Unable to fixup: you can only rewrite commits on the current branch up to the first merge.',
+				);
+				break;
+			case 'modify':
+				message = l10n.t(
+					'Unable to modify: you can only rewrite commits on the current branch up to the first merge.',
+				);
+				break;
+		}
+
+		void window.showWarningMessage(message);
 		return false;
 	}
 
 	private async prepareCommitsForRewrite(
 		item: GraphItemContext | undefined,
-		action: RebaseTodoAction,
+		action: 'drop' | 'squash',
 	): Promise<{ repoPath: string; ordered: GitRevisionReference[]; published: boolean } | undefined> {
-		const verb = action === 'drop' ? 'drop' : 'squash';
-
 		const { selection } = this.getGraphItemRefs(item, 'revision');
 		if (selection == null || selection.length < 2) return undefined;
 
@@ -781,7 +817,7 @@ export class GraphCommands {
 
 		const repoPath = selection[0].repoPath;
 		if (this.container.git.getRepositoryService(repoPath).ops?.rebase == null) {
-			void window.showWarningMessage(`Rewriting commits is not supported in this repository.`);
+			void window.showWarningMessage(l10n.t('Rewriting commits is not supported in this repository.'));
 			return undefined;
 		}
 
@@ -792,7 +828,11 @@ export class GraphCommands {
 			.filter(ref => rowIndexBySha.has(ref.ref))
 			.sort((a, b) => rowIndexBySha.get(a.ref)! - rowIndexBySha.get(b.ref)!);
 		if (ordered.length !== selection.length) {
-			void window.showWarningMessage(`Unable to ${verb}: some selected commits are not loaded in the graph.`);
+			void window.showWarningMessage(
+				action === 'drop'
+					? l10n.t('Unable to drop: some selected commits are not loaded in the graph.')
+					: l10n.t('Unable to squash: some selected commits are not loaded in the graph.'),
+			);
 			return undefined;
 		}
 
@@ -804,22 +844,30 @@ export class GraphCommands {
 				(ref, i) => i > 0 && graph.rows[rowIndexBySha.get(ordered[i - 1].ref)!]?.parents[0] !== ref.ref,
 			)
 		) {
-			void window.showWarningMessage(`Unable to ${verb}: select a contiguous range of commits.`);
+			void window.showWarningMessage(l10n.t('Unable to squash: select a contiguous range of commits.'));
 			return undefined;
 		}
 
 		if (ordered.some(ref => (graph.rows[rowIndexBySha.get(ref.ref)!]?.parents.length ?? 0) > 1)) {
-			void window.showWarningMessage(`Unable to ${verb}: the selection includes a merge commit.`);
+			void window.showWarningMessage(
+				action === 'drop'
+					? l10n.t('Unable to drop: the selection includes a merge commit.')
+					: l10n.t('Unable to squash: the selection includes a merge commit.'),
+			);
 			return undefined;
 		}
 
 		// Reject selections that leave the first-parent chain from HEAD before the first merge (e.g. HEAD
 		// is a merge, or the commits are an ancestor of one) — a plain interactive rebase would flatten it.
-		if (!this.validateRewriteableSelection(graph, ordered, verb)) return undefined;
+		if (!this.validateRewriteableSelection(graph, ordered, action)) return undefined;
 
 		const oldest = ordered.at(-1)!;
 		if ((graph.rows[rowIndexBySha.get(oldest.ref)!]?.parents.length ?? 0) === 0) {
-			void window.showWarningMessage(`Unable to ${verb}: the oldest selected commit has no parent.`);
+			void window.showWarningMessage(
+				action === 'drop'
+					? l10n.t('Unable to drop: the oldest selected commit has no parent.')
+					: l10n.t('Unable to squash: the oldest selected commit has no parent.'),
+			);
 			return undefined;
 		}
 
@@ -844,8 +892,6 @@ export class GraphCommands {
 
 		const svc = this.container.git.getRepositoryService(repoPath);
 		const oldest = ordered.at(-1)!;
-		const verb =
-			action === 'drop' ? 'Drop' : action === 'reword' ? 'Reword' : action === 'fixup' ? 'Fixup' : 'Squash';
 
 		try {
 			// Resolve inside the try so the browser/web stub's throw surfaces as a friendly message.
@@ -873,14 +919,52 @@ export class GraphCommands {
 				},
 			);
 			if (result?.conflicted) {
-				void window.showWarningMessage(
-					`${verb} stopped because of conflicts. Resolve them to continue, or abort the rebase to cancel.`,
-				);
+				let message: string;
+				switch (action) {
+					case 'drop':
+						message = l10n.t(
+							'Drop stopped because of conflicts. Resolve them to continue, or abort the rebase to cancel.',
+						);
+						break;
+					case 'reword':
+						message = l10n.t(
+							'Reword stopped because of conflicts. Resolve them to continue, or abort the rebase to cancel.',
+						);
+						break;
+					case 'fixup':
+						message = l10n.t(
+							'Fixup stopped because of conflicts. Resolve them to continue, or abort the rebase to cancel.',
+						);
+						break;
+					case 'squash':
+						message = l10n.t(
+							'Squash stopped because of conflicts. Resolve them to continue, or abort the rebase to cancel.',
+						);
+						break;
+				}
+
+				void window.showWarningMessage(message);
 			}
 		} catch (ex) {
-			void window.showErrorMessage(
-				`Unable to ${verb.toLowerCase()} commits: ${ex instanceof Error ? ex.message : String(ex)}`,
-			);
+			const error = getPresentableErrorMessage(ex);
+
+			let message: string;
+			switch (action) {
+				case 'drop':
+					message = l10n.t('Unable to drop commits: {0}', error);
+					break;
+				case 'reword':
+					message = l10n.t('Unable to reword commits: {0}', error);
+					break;
+				case 'fixup':
+					message = l10n.t('Unable to fixup commits: {0}', error);
+					break;
+				case 'squash':
+					message = l10n.t('Unable to squash commits: {0}', error);
+					break;
+			}
+
+			void window.showErrorMessage(message);
 		}
 	}
 
@@ -896,17 +980,17 @@ export class GraphCommands {
 
 		const repoPath = ref.repoPath;
 		if (this.container.git.getRepositoryService(repoPath).ops?.rebase == null) {
-			void window.showWarningMessage('Rewording commits is not supported in this repository.');
+			void window.showWarningMessage(l10n.t('Rewording commits is not supported in this repository.'));
 			return;
 		}
 
 		const row = graph.rows.find(r => r.sha === ref.ref);
 		if ((row?.parents.length ?? 0) === 0) {
-			void window.showWarningMessage('Unable to reword: the root commit has no parent to rebase onto.');
+			void window.showWarningMessage(l10n.t('Unable to reword: the root commit has no parent to rebase onto.'));
 			return;
 		}
 		if ((row?.parents.length ?? 0) > 1) {
-			void window.showWarningMessage('Unable to reword: cannot reword a merge commit.');
+			void window.showWarningMessage(l10n.t('Unable to reword: cannot reword a merge commit.'));
 			return;
 		}
 		// Also reject commits off the first-parent chain from HEAD before the first merge (e.g. HEAD is a
@@ -921,13 +1005,15 @@ export class GraphCommands {
 			// Ignore — fall back to opening the message editor without the published warning.
 		}
 		if (published) {
-			const confirm: MessageItem = { title: 'Reword' };
-			const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+			const confirm: MessageItem = { title: l10n.t('Reword') };
+			const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 			const choice = await window.showWarningMessage(
-				'Reword this commit?',
+				l10n.t('Reword this commit?'),
 				{
 					modal: true,
-					detail: 'This commit has already been pushed. Rewording rewrites history and will require a force push.',
+					detail: l10n.t(
+						'This commit has already been pushed. Rewording rewrites history and will require a force push.',
+					),
 				},
 				confirm,
 				cancel,
@@ -951,11 +1037,13 @@ export class GraphCommands {
 		const row = graph.rows.find(r => r.sha === ref.ref);
 		if (row != null) {
 			if (row.parents.length === 0) {
-				void window.showWarningMessage('Unable to fixup: the root commit has no parent to rebase onto.');
+				void window.showWarningMessage(
+					l10n.t('Unable to fixup: the root commit has no parent to rebase onto.'),
+				);
 				return;
 			}
 			if (row.parents.length > 1) {
-				void window.showWarningMessage('Unable to fixup: cannot fixup a merge commit.');
+				void window.showWarningMessage(l10n.t('Unable to fixup: cannot fixup a merge commit.'));
 				return;
 			}
 		}
@@ -967,7 +1055,7 @@ export class GraphCommands {
 		} else {
 			const commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit(ref.ref);
 			if (commit == null) {
-				void window.showWarningMessage('Unable to fixup: the commit could not be found.');
+				void window.showWarningMessage(l10n.t('Unable to fixup: the commit could not be found.'));
 				return;
 			}
 
@@ -996,7 +1084,7 @@ export class GraphCommands {
 
 		const svc = this.container.git.getRepositoryService(repoPath);
 		if (svc.ops?.rebase == null) {
-			void window.showWarningMessage('Squashing fixups is not supported in this repository.');
+			void window.showWarningMessage(l10n.t('Squashing fixups is not supported in this repository.'));
 			return;
 		}
 
@@ -1007,7 +1095,7 @@ export class GraphCommands {
 		const rewriteableRows = graph.rows.filter(r => rewriteable?.has(r.sha));
 		const fixupRows = rewriteableRows.filter(r => splitMessage(r.message).summary.startsWith('fixup! '));
 		if (fixupRows.length === 0) {
-			void window.showInformationMessage('No fixup commits found on the current branch.');
+			void window.showInformationMessage(l10n.t('No fixup commits found on the current branch.'));
 			return;
 		}
 
@@ -1029,7 +1117,7 @@ export class GraphCommands {
 			}
 		}
 		if (oldestTargetIndex == null) {
-			void window.showWarningMessage("Couldn't locate the fixup targets on the current branch.");
+			void window.showWarningMessage(l10n.t("Couldn't locate the fixup targets on the current branch."));
 			return;
 		}
 
@@ -1042,15 +1130,21 @@ export class GraphCommands {
 			// Ignore — fall back to confirming without the published warning.
 		}
 		// Always confirm — this rewrites history from the oldest target up, like Squash/Drop do.
-		const confirm: MessageItem = { title: 'Squash' };
-		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+		const confirm: MessageItem = { title: l10n.t('Squash') };
+		const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		const choice = await window.showWarningMessage(
-			`Squash ${fixupRows.length === 1 ? 'fixup commit' : `${fixupRows.length} fixup commits`}?`,
+			fixupRows.length === 1
+				? l10n.t('Squash fixup commit?')
+				: l10n.t('Squash {0} fixup commits?', getNumericFormat()(fixupRows.length)),
 			{
 				modal: true,
 				detail: published
-					? 'One or more of the commits being rewritten have already been pushed. Squashing rewrites history and will require a force push.'
-					: `This squashes ${fixupRows.length === 1 ? 'the fixup commit' : 'each fixup commit'} on the current branch into its target commit.`,
+					? l10n.t(
+							'One or more of the commits being rewritten have already been pushed. Squashing rewrites history and will require a force push.',
+						)
+					: fixupRows.length === 1
+						? l10n.t('This squashes the fixup commit on the current branch into its target commit.')
+						: l10n.t('This squashes each fixup commit on the current branch into its target commit.'),
 			},
 			confirm,
 			cancel,
@@ -1075,11 +1169,13 @@ export class GraphCommands {
 			);
 			if (result?.conflicted) {
 				void window.showWarningMessage(
-					'Squash Fixups stopped because of conflicts. Resolve them to continue, or abort the rebase to cancel.',
+					l10n.t(
+						'Squash Fixups stopped because of conflicts. Resolve them to continue, or abort the rebase to cancel.',
+					),
 				);
 			}
 		} catch (ex) {
-			void window.showErrorMessage(`Unable to squash fixups: ${ex instanceof Error ? ex.message : String(ex)}`);
+			void window.showErrorMessage(l10n.t('Unable to squash fixups: {0}', getPresentableErrorMessage(ex)));
 		}
 	}
 
@@ -1101,14 +1197,16 @@ export class GraphCommands {
 			.filter(ref => rowIndexBySha.has(ref.ref))
 			.sort((a, b) => rowIndexBySha.get(a.ref)! - rowIndexBySha.get(b.ref)!);
 		if (ordered.length !== selection.length) {
-			void window.showWarningMessage('Unable to modify: some selected commits are not loaded in the graph.');
+			void window.showWarningMessage(
+				l10n.t('Unable to modify: some selected commits are not loaded in the graph.'),
+			);
 			return Promise.resolve();
 		}
 
 		// A standard interactive rebase flattens merges (no `--rebase-merges`), so a merge anywhere in the
 		// selection won't appear in the todo as the user expects — reject it (as squash/drop/reword do).
 		if (ordered.some(ref => (graph.rows[rowIndexBySha.get(ref.ref)!]?.parents.length ?? 0) > 1)) {
-			void window.showWarningMessage('Unable to modify: the selection includes a merge commit.');
+			void window.showWarningMessage(l10n.t('Unable to modify: the selection includes a merge commit.'));
 			return Promise.resolve();
 		}
 
@@ -1120,7 +1218,7 @@ export class GraphCommands {
 		const parentSha = oldest != null ? graph.rows[rowIndexBySha.get(oldest.ref)!]?.parents[0] : undefined;
 		if (oldest == null || parentSha == null) {
 			void window.showWarningMessage(
-				'Unable to modify: the oldest selected commit has no parent to rebase onto.',
+				l10n.t('Unable to modify: the oldest selected commit has no parent to rebase onto.'),
 			);
 			return Promise.resolve();
 		}
@@ -1502,7 +1600,7 @@ export class GraphCommands {
 
 		const status = await repo.git.status.getStatus();
 		if (status == null) {
-			void window.showErrorMessage('Unable to create cloud patch');
+			void window.showErrorMessage(l10n.t('Unable to create cloud patch'));
 			return;
 		}
 
@@ -1809,7 +1907,7 @@ export class GraphCommands {
 
 			target = await this.resolvePullRequestHeadTarget(value);
 			if (target == null) {
-				void window.showErrorMessage(`Unable to find this pull request's branch after fetching.`);
+				void window.showErrorMessage(l10n.t("Unable to find this pull request's branch after fetching."));
 				return;
 			}
 		}
@@ -1885,7 +1983,9 @@ export class GraphCommands {
 			getContext('gitlens:hasVirtualFolders', false)
 		) {
 			void window.showWarningMessage(
-				`This pull request's branch isn't in your repository, and it can't be fetched in this workspace.`,
+				l10n.t(
+					"This pull request's branch isn't in your repository, and it can't be fetched in this workspace.",
+				),
 			);
 			return false;
 		}
@@ -1894,12 +1994,14 @@ export class GraphCommands {
 		const headUrl = refs.head.url;
 		const addsRemote = !(await svc.remotes.getRemotes({ filter: r => r.matches(headUrl) })).length;
 
-		const confirm = { title: 'Fetch' };
-		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const confirm = { title: l10n.t('Fetch') };
+		const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		const result = await window.showWarningMessage(
-			`Unable to find this pull request's branch in your repository.\nWould you like to fetch it?${
-				addsRemote ? `\n\nThis will add a remote for the pull request's repository.` : ''
-			}`,
+			addsRemote
+				? l10n.t(
+						"Unable to find this pull request's branch in your repository.\nWould you like to fetch it?\n\nThis will add a remote for the pull request's repository.",
+					)
+				: l10n.t("Unable to find this pull request's branch in your repository.\nWould you like to fetch it?"),
 			{ modal: true },
 			confirm,
 			cancel,
@@ -1908,7 +2010,7 @@ export class GraphCommands {
 
 		try {
 			await window.withProgress(
-				{ location: ProgressLocation.Notification, title: `Fetching the pull request's branch...` },
+				{ location: ProgressLocation.Notification, title: l10n.t("Fetching the pull request's branch...") },
 				async () => {
 					const setup = await setupPullRequestBranch(repo, value);
 					if (setup.addRemote != null) {
@@ -1922,7 +2024,7 @@ export class GraphCommands {
 			);
 		} catch (ex) {
 			void window.showErrorMessage(
-				`Unable to fetch the pull request's branch: ${ex instanceof Error ? ex.message : String(ex)}`,
+				l10n.t("Unable to fetch the pull request's branch: {0}", getPresentableErrorMessage(ex)),
 			);
 			return false;
 		}
@@ -2324,7 +2426,9 @@ export class GraphCommands {
 		// the merge commits aren't available. There's nothing to diff, and saying so beats both the silent
 		// return this used to do and the `HEAD`...`HEAD` comparison the shas would coerce to.
 		if (!refs?.base?.sha || !refs.head?.sha) {
-			void window.showWarningMessage(`This pull request doesn't report the commits needed to compare it.`);
+			void window.showWarningMessage(
+				l10n.t("This pull request doesn't report the commits needed to compare it."),
+			);
 			return false;
 		}
 
@@ -2350,7 +2454,7 @@ export class GraphCommands {
 		// Without a head remote to fetch from there's nothing to try — but only when the head is the side
 		// that's missing; a missing base is fetched from the remote hosting the base's own repository.
 		if (repo == null || (missing.head && (!refs.head.url || !refs.head.branch))) {
-			void window.showErrorMessage(`Unable to find this pull request's commits in your repository.`);
+			void window.showErrorMessage(l10n.t("Unable to find this pull request's commits in your repository."));
 			return false;
 		}
 
@@ -2365,7 +2469,9 @@ export class GraphCommands {
 			getContext('gitlens:hasVirtualFolders', false)
 		) {
 			void window.showWarningMessage(
-				`Unable to find this pull request's commits in your repository, and they can't be fetched in this workspace.`,
+				l10n.t(
+					"Unable to find this pull request's commits in your repository, and they can't be fetched in this workspace.",
+				),
 			);
 			return false;
 		}
@@ -2380,12 +2486,16 @@ export class GraphCommands {
 				? !(await svc.remotes.getRemotes({ filter: r => r.matches(headUrl) })).length
 				: false;
 
-		const confirm = { title: 'Fetch' };
-		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const confirm = { title: l10n.t('Fetch') };
+		const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		const result = await window.showWarningMessage(
-			`Unable to find this pull request's commits in your repository.\nWould you like to fetch them?${
-				addsRemote ? `\n\nThis will add a remote for the pull request's repository.` : ''
-			}`,
+			addsRemote
+				? l10n.t(
+						"Unable to find this pull request's commits in your repository.\nWould you like to fetch them?\n\nThis will add a remote for the pull request's repository.",
+					)
+				: l10n.t(
+						"Unable to find this pull request's commits in your repository.\nWould you like to fetch them?",
+					),
 			{ modal: true },
 			confirm,
 			cancel,
@@ -2395,7 +2505,7 @@ export class GraphCommands {
 
 		try {
 			await window.withProgress(
-				{ location: ProgressLocation.Notification, title: `Fetching the pull request's commits...` },
+				{ location: ProgressLocation.Notification, title: l10n.t("Fetching the pull request's commits...") },
 				async () => {
 					if (missing.head) {
 						const setup = await setupPullRequestBranch(repo, value);
@@ -2432,7 +2542,7 @@ export class GraphCommands {
 			);
 		} catch (ex) {
 			void window.showErrorMessage(
-				`Unable to fetch the pull request's commits: ${ex instanceof Error ? ex.message : String(ex)}`,
+				l10n.t("Unable to fetch the pull request's commits: {0}", getPresentableErrorMessage(ex)),
 			);
 			return false;
 		}
@@ -2440,7 +2550,7 @@ export class GraphCommands {
 		missing = await findMissing();
 		if (!missing.base && !missing.head) return true;
 
-		void window.showErrorMessage(`Unable to find this pull request's commits after fetching.`);
+		void window.showErrorMessage(l10n.t("Unable to find this pull request's commits after fetching."));
 		return false;
 	}
 
@@ -2499,7 +2609,7 @@ export class GraphCommands {
 		await openComparisonChanges(
 			this.container,
 			{ repoPath: refs.repoPath, lhs: refs.base.ref, rhs: refs.head.ref },
-			{ title: `Changes in Pull Request #${getPullRequestNumber(pr)}` },
+			{ title: l10n.t('Changes in Pull Request #{0}', getPullRequestNumber(pr)) },
 		);
 	}
 
@@ -2614,9 +2724,13 @@ export class GraphCommands {
 			this.container,
 			{ repoPath: repoPath, lhs: commonAncestor, rhs: targetRef },
 			{
-				title: `Changes between ${targetName} (${shortenRevision(commonAncestor)}) ${
-					GlyphChars.ArrowLeftRightLong
-				} ${shortenRevision(targetRef, { strings: { working: 'Working Tree' } })}`,
+				title: l10n.t(
+					'Changes between {0} ({1}) {2} {3}',
+					targetName,
+					shortenRevision(commonAncestor),
+					GlyphChars.ArrowLeftRightLong,
+					shortenRevision(targetRef, { strings: { working: l10n.t('Working Tree') } }),
+				),
 			},
 		);
 	}
@@ -2802,8 +2916,10 @@ export class GraphCommands {
 		if (branchesReachingAll.length !== 1) {
 			void window.showErrorMessage(
 				branchesReachingAll.length === 0
-					? 'The selected commits are not reachable from any single branch.'
-					: 'The selected commits are reachable from multiple branches. Please select commits unique to a single branch.',
+					? l10n.t('The selected commits are not reachable from any single branch.')
+					: l10n.t(
+							'The selected commits are reachable from multiple branches. Please select commits unique to a single branch.',
+						),
 			);
 			return;
 		}
@@ -2840,32 +2956,32 @@ export class GraphCommands {
 			r => r.refType === 'branch' && !r.remote,
 		);
 		if (localBranches?.length !== 1) {
-			void window.showErrorMessage('Unable to recompose: commit must belong to exactly one local branch');
+			void window.showErrorMessage(l10n.t('Unable to recompose: commit must belong to exactly one local branch'));
 			return;
 		}
 
 		const branchName = localBranches[0].name;
 		const branch = graph.branches.get(branchName);
 		if (branch == null) {
-			void window.showErrorMessage(`Branch '${branchName}' not found`);
+			void window.showErrorMessage(l10n.t("Branch '{0}' not found", branchName));
 			return;
 		}
 
 		const headCommitSha = branch.sha;
 		if (headCommitSha == null) {
-			void window.showErrorMessage(`Unable to determine head commit for branch '${branchName}'`);
+			void window.showErrorMessage(l10n.t("Unable to determine head commit for branch '{0}'", branchName));
 			return;
 		}
 
 		const commit = await this.container.git.getRepositoryService(ref.repoPath).commits.getCommit(ref.ref);
 		if (commit == null) {
-			void window.showErrorMessage(`Commit '${ref.ref}' not found`);
+			void window.showErrorMessage(l10n.t("Commit '{0}' not found", ref.ref));
 			return;
 		}
 
 		const baseCommitSha = commit.parents.length > 0 ? commit.parents[0] : undefined;
 		if (baseCommitSha == null) {
-			void window.showErrorMessage('Unable to determine parent commit');
+			void window.showErrorMessage(l10n.t('Unable to determine parent commit'));
 			return;
 		}
 

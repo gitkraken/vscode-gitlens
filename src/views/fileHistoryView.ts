@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import type { FileHistoryViewConfig } from '../config.js';
 import type { Container } from '../container.js';
@@ -12,8 +13,6 @@ import { ViewBase } from './viewBase.js';
 import type { CopyNodeCommandArgs } from './viewCommands.js';
 import { registerViewCommand } from './viewCommands.js';
 
-const pinnedSuffix = ' (pinned)';
-
 export type FileHistoryMode = 'commits' | 'contributors';
 
 export class FileHistoryView extends ViewBase<
@@ -25,9 +24,10 @@ export class FileHistoryView extends ViewBase<
 
 	private _followCursor: boolean = false;
 	private _followEditor: boolean = true;
+	private _unpinnedDescription: string | undefined;
 
 	constructor(container: Container, grouped?: GroupedViewContext) {
-		super(container, 'fileHistory', 'File History', 'fileHistoryView', grouped);
+		super(container, 'fileHistory', l10n.t('File History'), 'fileHistoryView', grouped);
 
 		void setContext('gitlens:views:fileHistory:cursorFollowing', this._followCursor);
 		void setContext('gitlens:views:fileHistory:editorFollowing', this._followEditor);
@@ -180,10 +180,10 @@ export class FileHistoryView extends ViewBase<
 		void setContext('gitlens:views:fileHistory:cursorFollowing', enabled);
 
 		if (this.grouped) {
-			this.groupedLabel = (this._followCursor ? 'Line History' : 'File History').toLocaleLowerCase();
+			this.groupedLabel = this._followCursor ? l10n.t('line history') : l10n.t('file history');
 			this.description = this.groupedLabel;
 		} else {
-			this.title = this._followCursor ? 'Line History' : 'File History';
+			this.title = this._followCursor ? l10n.t('Line History') : l10n.t('File History');
 		}
 
 		const root = this.ensureRoot(true);
@@ -204,12 +204,17 @@ export class FileHistoryView extends ViewBase<
 
 		root.setEditorFollowing(enabled);
 
-		if (this.description?.endsWith(pinnedSuffix)) {
-			if (enabled) {
-				this.description = this.description.substring(0, this.description.length - pinnedSuffix.length);
+		if (enabled) {
+			if (this._unpinnedDescription != null) {
+				if (this.description === l10n.t('{0} (pinned)', this._unpinnedDescription)) {
+					this.description = this._unpinnedDescription;
+				}
+
+				this._unpinnedDescription = undefined;
 			}
-		} else if (!enabled && this.description != null) {
-			this.description += pinnedSuffix;
+		} else if (this.description != null && this._unpinnedDescription == null) {
+			this._unpinnedDescription = this.description;
+			this.description = l10n.t('{0} (pinned)', this.description);
 		}
 
 		if (enabled) {

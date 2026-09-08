@@ -1,4 +1,5 @@
-import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { escapeMarkdown } from '@gitlens/utils/markdown.js';
 import type { Colors } from '../../constants.colors.js';
 import { unknownGitUri } from '../../git/gitUri.js';
 import type {
@@ -49,8 +50,12 @@ export class WorkspaceMissingRepositoryNode extends ViewNode<'workspace-missing-
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(this.name, TreeItemCollapsibleState.None);
 		item.id = this.id;
-		item.description = 'missing';
-		item.tooltip = new MarkdownString(`${this.name}\n\nRepository could not be found`);
+		item.description = l10n.t('missing');
+		const tooltip = new MarkdownString();
+		tooltip.appendMarkdown(escapeMarkdown(this.name));
+		tooltip.appendMarkdown('\n\n');
+		tooltip.appendMarkdown(escapeMarkdown(l10n.t('Repository could not be found')));
+		item.tooltip = tooltip;
 		item.contextValue = ContextValues.WorkspaceMissingRepository;
 		item.iconPath = new ThemeIcon(
 			'question',

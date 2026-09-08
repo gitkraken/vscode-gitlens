@@ -1,4 +1,5 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { l10n } from 'vscode';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import type { AIChatMessage } from '@gitlens/ai/models/provider.js';
 import type { AISummarizedResult } from '@gitlens/ai/models/results.js';
@@ -38,7 +39,9 @@ export async function generateCommitMessage(
 		{
 			getMessages: async (model, reporting, cancellation, maxInputTokens, retries) => {
 				const changes: string | undefined = await service.getChanges(changesOrRepo);
-				if (changes == null) throw new AINoRequestDataError('No changes to generate a commit message from.');
+				if (changes == null) {
+					throw new AINoRequestDataError(l10n.t('No changes to generate a commit message from.'));
+				}
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
 				const customInstructions = configuration.get('ai.generateCommitMessage.customInstructions');
@@ -71,7 +74,7 @@ export async function generateCommitMessage(
 				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
 				return messages;
 			},
-			getProgressTitle: m => `Generating commit message with ${m.name}...`,
+			getProgressTitle: m => l10n.t('Generating commit message with {0}...', m.name),
 			getTelemetryInfo: m => ({
 				key: 'ai/generate',
 				data: {
@@ -121,7 +124,9 @@ export async function generateStashMessage(
 		{
 			getMessages: async (model, reporting, cancellation, maxInputTokens, retries) => {
 				const changes: string | undefined = await service.getChanges(changesOrRepo);
-				if (changes == null) throw new AINoRequestDataError('No changes to generate a stash message from.');
+				if (changes == null) {
+					throw new AINoRequestDataError(l10n.t('No changes to generate a stash message from.'));
+				}
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
 				const { prompt } = await service.getPrompt(
@@ -142,7 +147,7 @@ export async function generateStashMessage(
 				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
 				return messages;
 			},
-			getProgressTitle: m => `Generating stash message with ${m.name}...`,
+			getProgressTitle: m => l10n.t('Generating stash message with {0}...', m.name),
 			getTelemetryInfo: m => ({
 				key: 'ai/generate',
 				data: {

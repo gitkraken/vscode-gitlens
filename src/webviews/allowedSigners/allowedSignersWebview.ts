@@ -1,9 +1,10 @@
-import { Uri, workspace } from 'vscode';
+import { l10n, Uri, workspace } from 'vscode';
 import { isWeb } from '@env/platform.js';
 import { base64, fromBase64 } from '@gitlens/utils/base64.js';
 import { getAvatarUri } from '../../avatars.js';
 import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
+import { getPresentableErrorMessage } from '../../errors.js';
 import { getBestRemoteWithIntegration, getRemoteIntegration } from '../../git/utils/-webview/remote.utils.js';
 import { getExistingEntryKeys, parsePublicKey } from '../../git/utils/allowedSignersFile.js';
 import type { AllowedSignersResultsChangedEvent, AllowedSignersServices } from '../rpc/allowedSignersService.js';
@@ -179,7 +180,7 @@ export class AllowedSignersWebviewProvider implements WebviewProvider<State, Sta
 			// With a repo and no results yet, paint the loading page immediately; discovery happens in onReady.
 			loading: loading,
 			verifying: results?.verifying ?? false,
-			progress: loading ? { message: 'Analyzing commit signatures…' } : undefined,
+			progress: loading ? { message: l10n.t('Analyzing commit signatures…') } : undefined,
 			signers: results?.signers ?? [],
 			error: results?.error,
 			targetPath: targetPath,
@@ -240,7 +241,7 @@ export class AllowedSignersWebviewProvider implements WebviewProvider<State, Sta
 
 			const getSshSigners = svc.commits.getCommitsSshSigners;
 			if (getSshSigners != null) {
-				this.notifyProgress({ message: 'Analyzing commit signatures…' });
+				this.notifyProgress({ message: l10n.t('Analyzing commit signatures…') });
 
 				// Enumerate commit SHAs with a cheap `git log --format=%H` (no file stats), then read those objects in a
 				// single `cat-file --batch` — both committer identity and the SSH key come from the batched objects, so
@@ -331,7 +332,7 @@ export class AllowedSignersWebviewProvider implements WebviewProvider<State, Sta
 
 			// Surface a terminal error so the panel leaves the loading/verifying state instead of spinning forever,
 			// keeping any signers already discovered.
-			this.notifyResults(byId, integrationConnected, false, ex instanceof Error ? ex.message : String(ex));
+			this.notifyResults(byId, integrationConnected, false, getPresentableErrorMessage(ex));
 		}
 	}
 

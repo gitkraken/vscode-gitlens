@@ -1,4 +1,5 @@
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import * as l10n from '@vscode/l10n';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -69,10 +70,10 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 							url: `${organization.url}/browse/${dashedPrefix}<num>`,
 							alphanumeric: false,
 							ignoreCase: false,
-							title: `Open Issue ${dashedPrefix}<num> on ${organization.name}`,
+							title: l10n.t('Open Issue {0} on {1}', `${dashedPrefix}<num>`, organization.name),
 
 							type: 'issue',
-							description: `${organization.name} Issue ${dashedPrefix}<num>`,
+							description: l10n.t('{0} Issue {1}', organization.name, `${dashedPrefix}<num>`),
 							descriptor: { ...organization },
 						});
 						autolinks.push({
@@ -81,10 +82,10 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 							alphanumeric: false,
 							ignoreCase: false,
 							referenceType: 'branch',
-							title: `Open Issue ${dashedPrefix}<num> on ${organization.name}`,
+							title: l10n.t('Open Issue {0} on {1}', `${dashedPrefix}<num>`, organization.name),
 
 							type: 'issue',
-							description: `${organization.name} Issue ${dashedPrefix}<num>`,
+							description: l10n.t('{0} Issue {1}', organization.name, `${dashedPrefix}<num>`),
 							descriptor: { ...organization },
 						});
 					}

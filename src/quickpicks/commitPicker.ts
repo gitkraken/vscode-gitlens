@@ -1,5 +1,5 @@
 import type { Disposable } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import { filterMap } from '@gitlens/utils/array.js';
@@ -57,7 +57,7 @@ export async function showCommitPicker(
 	}
 
 	if (!log?.commits.size) {
-		quickpick.placeholder = 'No commits found';
+		quickpick.placeholder = l10n.t('No commits found');
 
 		if (options?.empty?.getState != null) {
 			const empty = await options.empty.getState();
@@ -69,7 +69,7 @@ export async function showCommitPicker(
 				quickpick.title = empty.title;
 			}
 		} else {
-			quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })];
+			quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: l10n.t('OK') })];
 		}
 	} else {
 		quickpick.items = await getItems(log);
@@ -126,7 +126,7 @@ export async function showCommitPicker(
 						quickpick.title = empty.title;
 					}
 				} else {
-					items = [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: 'OK' })];
+					items = [createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: l10n.t('OK') })];
 				}
 			} else {
 				items = await getItems(log);

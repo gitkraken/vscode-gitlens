@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
@@ -67,17 +68,18 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 	override render(): unknown {
 		if (this.graphState.trusted === false) {
 			return html`
-				<div class="container" role="group" aria-label="Untrusted workspace">
+				<div class="container" role="group" aria-label=${l10n.t('Untrusted workspace')}>
 					<div class="icon"><code-icon icon="workspace-untrusted"></code-icon></div>
-					<h2 class="title">Untrusted workspace</h2>
+					<h2 class="title">${l10n.t('Untrusted workspace')}</h2>
 					<p class="description">
-						GitLens can't open repositories while this workspace is in Restricted Mode. Trust this workspace
-						to visualize its history, branches, and commits in the Commit Graph.
+						${l10n.t(
+							"GitLens can't open repositories while this workspace is in Restricted Mode. Trust this workspace to visualize its history, branches, and commits in the Commit Graph.",
+						)}
 					</p>
 					<div class="actions">
 						<gl-button full href="command:workbench.trust.manage">
 							<code-icon slot="prefix" icon="shield"></code-icon>
-							Manage Workspace Trust
+							${l10n.t('Manage Workspace Trust')}
 						</gl-button>
 					</div>
 				</div>
@@ -86,18 +88,18 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 
 		if (this.graphState.hasUnsafeRepositories) {
 			return html`
-				<div class="container" role="group" aria-label="Unsafe repository">
+				<div class="container" role="group" aria-label=${l10n.t('Unsafe repository')}>
 					<div class="icon"><code-icon icon="warning"></code-icon></div>
-					<h2 class="title">Unsafe repository</h2>
+					<h2 class="title">${l10n.t('Unsafe repository')}</h2>
 					<p class="description">
-						Unable to open any repositories — Git blocked them as potentially unsafe, because their folders
-						are not owned by the current user. Mark them as safe in Source Control to visualize their
-						history, branches, and commits in the Commit Graph.
+						${l10n.t(
+							'Unable to open any repositories — Git blocked them as potentially unsafe, because their folders are not owned by the current user. Mark them as safe in Source Control to visualize their history, branches, and commits in the Commit Graph.',
+						)}
 					</p>
 					<div class="actions">
 						<gl-button full href="command:workbench.view.scm">
 							<code-icon slot="prefix" icon="source-control"></code-icon>
-							Manage in Source Control
+							${l10n.t('Manage in Source Control')}
 						</gl-button>
 					</div>
 				</div>
@@ -105,33 +107,33 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 		}
 
 		return html`
-			<div class="container" role="group" aria-label="No repository open">
+			<div class="container" role="group" aria-label=${l10n.t('No repository open')}>
 				<div class="icon"><code-icon icon="source-control"></code-icon></div>
-				<h2 class="title">No repository open</h2>
+				<h2 class="title">${l10n.t('No repository open')}</h2>
 				<p class="description">
-					Open a folder or repository to visualize its history, branches, and commits in the Commit Graph.
+					${l10n.t('Open a folder or repository to visualize its history, branches, and commits in the Commit Graph.')}
 				</p>
 				<div class="actions">
 					<gl-button full href="command:workbench.action.files.openFolder">
 						<code-icon slot="prefix" icon="folder-opened"></code-icon>
-						Open a Folder
+						${l10n.t('Open a Folder')}
 					</gl-button>
 					${when(
 						this.graphState.isWeb,
 						() => html`
 							<gl-button appearance="secondary" full href="command:remoteHub.openRepository">
 								<code-icon slot="prefix" icon="globe"></code-icon>
-								Open Remote Repository
+								${l10n.t('Open Remote Repository')}
 							</gl-button>
 						`,
 						() => html`
 							<gl-button appearance="secondary" full href="command:git.clone">
 								<code-icon slot="prefix" icon="repo-clone"></code-icon>
-								Clone a Repository
+								${l10n.t('Clone a Repository')}
 							</gl-button>
 							<gl-button appearance="secondary" full href="command:git.init">
 								<code-icon slot="prefix" icon="new-folder"></code-icon>
-								Start a New Project
+								${l10n.t('Start a New Project')}
 							</gl-button>
 						`,
 					)}

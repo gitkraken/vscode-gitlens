@@ -1,5 +1,5 @@
 import type { Disposable } from 'vscode';
-import { ThemeIcon, window } from 'vscode';
+import { l10n, ThemeIcon, window } from 'vscode';
 import type { SupportedAIModels } from '@gitlens/ai/constants.js';
 import type { AIActionType } from '@gitlens/ai/models/model.js';
 import type { AIChatMessage, AIChatMessageRole } from '@gitlens/ai/models/provider.js';
@@ -168,50 +168,50 @@ class AISimulatorDebug {
 	private async showPicker(): Promise<void> {
 		const items: SimulateModeQuickPickItem[] = [
 			{
-				label: 'Default',
-				description: 'Canned content per action',
+				label: l10n.t('Default'),
+				description: l10n.t('Canned content per action'),
 				iconPath: new ThemeIcon('blank'),
 				item: 'default',
 			},
 			{
-				label: 'Slow',
-				description: 'Adds a delay to exercise progress UX',
+				label: l10n.t('Slow'),
+				description: l10n.t('Adds a delay to exercise progress UX'),
 				iconPath: new ThemeIcon('blank'),
 				item: 'slow',
 			},
 			{
-				label: 'Invalid',
-				description: 'Returns malformed content (Composer triggers retry)',
+				label: l10n.t('Invalid'),
+				description: l10n.t('Returns malformed content (Composer triggers retry)'),
 				iconPath: new ThemeIcon('blank'),
 				item: 'invalid',
 			},
 			{
-				label: 'Error',
-				description: 'Throws a provider error',
+				label: l10n.t('Error'),
+				description: l10n.t('Throws a provider error'),
 				iconPath: new ThemeIcon('blank'),
 				item: 'error',
 			},
 			{
-				label: 'Cancel',
-				description: 'Aborts the request immediately',
+				label: l10n.t('Cancel'),
+				description: l10n.t('Aborts the request immediately'),
 				iconPath: new ThemeIcon('blank'),
 				item: 'cancel',
 			},
 			{
-				label: 'Quota',
-				description: 'Throws a weekly AI credit-limit error (UserQuotaExceeded)',
+				label: l10n.t('Quota'),
+				description: l10n.t('Throws a weekly AI credit-limit error (UserQuotaExceeded)'),
 				iconPath: new ThemeIcon('blank'),
 				item: 'quota',
 			},
 			{
 				label: 'Provider Error',
-				description: 'Throws a generic Error (mimics Copilot credit-limit / VSCode provider failure)',
+				description: l10n.t('Throws a generic Error (mimics Copilot credit-limit / VSCode provider failure)'),
 				iconPath: new ThemeIcon('blank'),
 				item: 'provider-error',
 			},
 			{
 				label: 'Provider Unavailable',
-				description: 'Returns undefined (mimics unavailable Copilot model after credit exhaustion)',
+				description: l10n.t('Returns undefined (mimics unavailable Copilot model after credit exhaustion)'),
 				iconPath: new ThemeIcon('blank'),
 				item: 'provider-unavailable',
 			},
@@ -220,8 +220,8 @@ class AISimulatorDebug {
 		if (this.active != null) {
 			items.unshift(
 				{
-					label: 'End Simulation',
-					description: 'Restores prior model and flags',
+					label: l10n.t('End Simulation'),
+					description: l10n.t('Restores prior model and flags'),
 					iconPath: new ThemeIcon('beaker-stop'),
 					item: null,
 				},
@@ -230,8 +230,9 @@ class AISimulatorDebug {
 		}
 
 		const quickpick = window.createQuickPick<SimulateModeQuickPickItem>();
-		quickpick.title = 'AI Simulator';
-		quickpick.placeholder = this.active != null ? `Active: ${getSimulatorState().mode}` : 'Choose a simulator mode';
+		quickpick.title = l10n.t('AI Simulator');
+		quickpick.placeholder =
+			this.active != null ? l10n.t('Active: {0}', getSimulatorState().mode) : l10n.t('Choose a simulator mode');
 		quickpick.items = items;
 		quickpick.ignoreFocusOut = true;
 

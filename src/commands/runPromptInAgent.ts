@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
@@ -80,15 +80,15 @@ export class RunPromptInAgentCommand extends GlCommandBase {
 		// Cap Retry after `maxRetries` attempts so a misconfigured agent can't trap the user
 		// in a retry loop (every CLI retry spawns a fresh terminal). "Pick another agent"
 		// and dismissing the toast both remain as escapes.
-		const retryAction = 'Retry';
-		const pickAnotherAction = 'Pick another agent';
+		const retryAction = l10n.t('Retry');
+		const pickAnotherAction = l10n.t('Pick another agent');
 		const canRetry = retries < RunPromptInAgentCommand.maxRetries;
 		const actions = canRetry ? [retryAction, pickAnotherAction] : [pickAnotherAction];
 
-		const choice = await window.showWarningMessage(
-			`Couldn't reach ${descriptor.label}${result.clipboardCopiedAsFallback ? '. Prompt copied to clipboard.' : '.'}`,
-			...actions,
-		);
+		const message = result.clipboardCopiedAsFallback
+			? l10n.t("Couldn't reach {0}. Prompt copied to clipboard.", descriptor.label)
+			: l10n.t("Couldn't reach {0}.", descriptor.label);
+		const choice = await window.showWarningMessage(message, ...actions);
 
 		if (choice === retryAction) {
 			await this.dispatch(descriptor, args, retries + 1);

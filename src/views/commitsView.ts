@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
-import { Disposable, ProgressLocation, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Disposable, l10n, ProgressLocation, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
@@ -39,7 +39,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 		if (this.child == null) {
 			const branch = await this.repo.git.branches.getBranch();
 			if (branch == null) {
-				this.view.message = 'No commits could be found.';
+				this.view.message = l10n.t('No commits could be found.');
 
 				return [];
 			}
@@ -141,7 +141,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 
 			const repositories = this.view.getFilteredRepositories();
 			if (!repositories.length) {
-				this.view.message = 'No commits could be found.';
+				this.view.message = l10n.t('No commits could be found.');
 
 				return [];
 			}
@@ -168,10 +168,10 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 				new CommandMessageNode(
 					this.view,
 					this,
-					createCommand('gitlens.showGraph', 'Show Commit Graph'),
-					'Visualize commits on the Commit Graph',
+					createCommand('gitlens.showGraph', l10n.t('Show Commit Graph')),
+					l10n.t('Visualize commits on the Commit Graph'),
 					undefined,
-					'Visualize commits on the Commit Graph',
+					l10n.t('Visualize commits on the Commit Graph'),
 					new ThemeIcon('gitlens-graph'),
 				),
 			);
@@ -185,7 +185,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 				const descParts = [];
 
 				if (branch.rebasing) {
-					descParts.push(`${branch.name} (Rebasing)`);
+					descParts.push(l10n.t('{0} (Rebasing)', branch.name));
 				} else {
 					descParts.push(branch.name);
 				}
@@ -195,9 +195,8 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 					descParts.push(status);
 				}
 
-				this.view.description = `${
-					this.view.grouped ? `${this.view.name.toLocaleLowerCase()}: ` : ''
-				}${descParts.join(` ${GlyphChars.Dot} `)}`;
+				const description = descParts.join(` ${GlyphChars.Dot} `);
+				this.view.description = this.view.grouped ? l10n.t('commits: {0}', description) : description;
 			}
 
 			children.push(...(await child.getChildren()));
@@ -209,7 +208,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Commits', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(l10n.t('Commits'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -223,7 +222,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 	protected readonly configKey = 'commits';
 
 	constructor(container: Container, grouped?: GroupedViewContext) {
-		super(container, 'commits', 'Commits', 'commitsView', grouped);
+		super(container, 'commits', l10n.t('Commits'), 'commitsView', grouped);
 		this.disposables.push(container.usage.onDidChange(this.onUsageChanged, this));
 	}
 
@@ -408,10 +407,13 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${getReferenceLabel(commit, {
-					icon: false,
-					quoted: true,
-				})} in the side bar...`,
+				title: l10n.t(
+					'Revealing {0} in the side bar...',
+					getReferenceLabel(commit, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (_progress, token) => {
@@ -463,8 +465,8 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		if (filter) {
 			repo ??= await getRepositoryOrShowPicker(
 				this.container,
-				'Filter Commits',
-				'Choose a repository',
+				l10n.t('Filter Commits'),
+				l10n.t('Choose a repository'),
 				undefined,
 				{
 					excludeWorktrees: true,
@@ -481,8 +483,10 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 			const result = await showContributorsPicker(
 				this.container,
 				repo,
-				'Filter Commits',
-				repo.virtual ? 'Choose a contributor to show commits from' : 'Choose contributors to show commits from',
+				l10n.t('Filter Commits'),
+				repo.virtual
+					? l10n.t('Choose a contributor to show commits from')
+					: l10n.t('Choose contributors to show commits from'),
 				{
 					appendReposToTitle: true,
 					clearButton: true,

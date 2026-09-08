@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
@@ -27,7 +27,7 @@ export class PullRequestViewNode extends ViewNode<'pullrequest', PullRequestView
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Pull Request', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(l10n.t('Pull Request'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 
@@ -52,7 +52,7 @@ export class PullRequestView extends ViewBase<'pullRequest', PullRequestViewNode
 	protected readonly configKey = 'pullRequest';
 
 	constructor(container: Container) {
-		super(container, 'pullRequest', 'Pull Request', 'commitsView');
+		super(container, 'pullRequest', l10n.t('Pull Request'), 'commitsView');
 	}
 
 	override get canReveal(): boolean {

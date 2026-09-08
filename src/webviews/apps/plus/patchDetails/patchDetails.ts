@@ -1,6 +1,7 @@
 /*global*/
 import './patchDetails.scss';
 import type { Remote } from '@eamodio/supertalk';
+import * as l10n from '@vscode/l10n';
 import { html } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { fromBase64ToString } from '@gitlens/utils/base64.js';
@@ -345,7 +346,9 @@ export class PatchDetailsApp extends SignalWatcherWebviewApp {
 			if (controller.signal.aborted) return;
 
 			if (result.error) {
-				this.component.generate = { error: { message: result.error.message ?? 'Error retrieving content' } };
+				this.component.generate = {
+					error: { message: result.error.message ?? l10n.t('Error retrieving content') },
+				};
 			} else if (result.title || result.description) {
 				this.component.generate = {
 					title: result.title,
@@ -367,7 +370,7 @@ export class PatchDetailsApp extends SignalWatcherWebviewApp {
 		} catch (_ex) {
 			if (controller.signal.aborted) return;
 
-			this.component.generate = { error: { message: 'Error retrieving content' } };
+			this.component.generate = { error: { message: l10n.t('Error retrieving content') } };
 		}
 	}
 
@@ -435,14 +438,16 @@ export class PatchDetailsApp extends SignalWatcherWebviewApp {
 			if (controller.signal.aborted) return;
 
 			if (result.error) {
-				this.component.explain = { error: { message: result.error.message ?? 'Error retrieving content' } };
+				this.component.explain = {
+					error: { message: result.error.message ?? l10n.t('Error retrieving content') },
+				};
 			} else {
 				this.component.explain = result;
 			}
 		} catch (_ex) {
 			if (controller.signal.aborted) return;
 
-			this.component.explain = { error: { message: 'Error retrieving content' } };
+			this.component.explain = { error: { message: l10n.t('Error retrieving content') } };
 		}
 	}
 

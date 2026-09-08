@@ -1,4 +1,4 @@
-import { commands, env, workspace } from 'vscode';
+import { commands, env, l10n, workspace } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getAgentTerminalIcon } from '../../agents/utils/-webview/agentIcon.js';
 import { executeCoreCommand } from '../../system/-webview/command.js';
@@ -52,14 +52,17 @@ export async function runAgent(
 	// Re-validate before dispatch.
 	if (!(await isAgentAvailable(descriptor))) {
 		if (!prompt) {
-			return { success: false, error: new Error(`Agent '${descriptor.label}' is no longer available`) };
+			return {
+				success: false,
+				error: new Error(l10n.t("Agent '{0}' is no longer available", descriptor.label)),
+			};
 		}
 
 		await copyPromptAsFallback(prompt);
 		return {
 			success: false,
 			clipboardCopiedAsFallback: true,
-			error: new Error(`Agent '${descriptor.label}' is no longer available`),
+			error: new Error(l10n.t("Agent '{0}' is no longer available", descriptor.label)),
 		};
 	}
 
@@ -97,7 +100,9 @@ async function dispatchCli(
 ): Promise<void> {
 	const cwd = options?.cwd ?? workspace.workspaceFolders?.[0]?.uri.fsPath;
 	const executable = descriptor.agent.executable;
-	if (executable == null) throw new Error(`CLI agent '${descriptor.label}' has no executable path`);
+	if (executable == null) {
+		throw new Error(l10n.t("CLI agent '{0}' has no executable path", descriptor.label));
+	}
 
 	const terminal = openTerminal({
 		name: descriptor.label,

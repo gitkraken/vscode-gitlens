@@ -1,4 +1,4 @@
-import { ViewColumn } from 'vscode';
+import { l10n, ViewColumn } from 'vscode';
 import type { Sources } from '../../../constants.telemetry.js';
 import { executeCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
@@ -39,7 +39,7 @@ export function registerPatchDetailsWebviewView(
 		{
 			id: 'gitlens.views.patchDetails',
 			fileName: 'patchDetails.html',
-			title: 'Patch',
+			title: l10n.t('Patch'),
 			contextKeyPrefix: `gitlens:webviewView:patchDetails`,
 			trackingFeature: 'patchDetailsView',
 			type: 'patchDetails',
@@ -83,7 +83,7 @@ export function registerPatchDetailsWebviewPanel(
 			id: 'gitlens.patchDetails',
 			fileName: 'patchDetails.html',
 			iconPath: 'images/gitlens-icon.png',
-			title: 'Patch',
+			title: l10n.t('Patch'),
 			contextKeyPrefix: `gitlens:webview:patchDetails`,
 			trackingFeature: 'patchDetailsWebview',
 			type: 'patchDetails',

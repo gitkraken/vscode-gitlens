@@ -1,4 +1,5 @@
 import * as assert from 'node:assert';
+import * as l10n from '@vscode/l10n';
 import type { AIReviewResult } from '../../models/results.js';
 import {
 	parseReviewDetailResult,
@@ -73,6 +74,92 @@ suite('splitMessageIntoSummaryAndBody', () => {
 });
 
 suite('serializeReviewResult', () => {
+	test('keeps synthetic fallback values canonical under translations', () => {
+		l10n.config({
+			contents: {
+				'Untitled area': 'Área sin título',
+				'Untitled finding': 'Hallazgo sin título',
+			},
+		});
+		try {
+			const result = parseReviewResultJson(
+				JSON.stringify({
+					overview: 'Review',
+					focusAreas: [
+						{
+							rationale: 'Missing model labels',
+							severity: 'warning',
+							files: [],
+							findings: [{ severity: 'warning', description: 'Missing model title' }],
+						},
+					],
+				}),
+				'single-pass',
+			);
+
+			assert.strictEqual(result.focusAreas[0].label, 'Untitled area');
+			assert.strictEqual(result.focusAreas[0].labelIsFallback, true);
+			assert.strictEqual(result.focusAreas[0].findings?.[0].title, 'Untitled finding');
+			assert.strictEqual(result.focusAreas[0].findings?.[0].titleIsFallback, true);
+			assert.strictEqual(
+				serializeReviewResult(result),
+				JSON.stringify(
+					{
+						overview: 'Review',
+						focusAreas: [
+							{
+								label: 'Untitled area',
+								rationale: 'Missing model labels',
+								severity: 'warning',
+								files: [],
+								findings: [
+									{
+										severity: 'warning',
+										title: 'Untitled finding',
+										description: 'Missing model title',
+										file: null,
+										lines: null,
+									},
+								],
+							},
+						],
+					},
+					undefined,
+					2,
+				),
+			);
+		} finally {
+			l10n.config({ contents: {} });
+		}
+	});
+
+	test('does not mark authored fallback-like text as synthetic', () => {
+		const result = parseReviewResultJson(
+			JSON.stringify({
+				overview: 'Review',
+				focusAreas: [
+					{
+						label: 'Untitled area',
+						rationale: 'Authored label',
+						severity: 'suggestion',
+						files: [],
+						findings: [
+							{
+								severity: 'suggestion',
+								title: 'Untitled finding',
+								description: 'Authored title',
+							},
+						],
+					},
+				],
+			}),
+			'single-pass',
+		);
+
+		assert.strictEqual(result.focusAreas[0].labelIsFallback, undefined);
+		assert.strictEqual(result.focusAreas[0].findings?.[0].titleIsFallback, undefined);
+	});
+
 	test('round-trips through parseReviewResultJson', () => {
 		// Explicit `undefined`s (and parser-scheme ids) so deepStrictEqual matches the parse output shape
 		const original: AIReviewResult = {

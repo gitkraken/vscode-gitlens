@@ -1,6 +1,6 @@
 import { createWipRowId, getWipRowWorktreePath } from '@gitkraken/commit-graph/wip/identity.js';
 import type { CancellationToken } from 'vscode';
-import { CancellationTokenSource, Disposable, Uri } from 'vscode';
+import { CancellationTokenSource, Disposable, l10n, Uri } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
@@ -838,7 +838,7 @@ export class GraphWipService {
 			? statsExpanded
 				? `${statsShort} ${statsExpanded}`
 				: statsShort
-			: 'No working changes';
+			: l10n.t('No working changes');
 
 		return `${statsLine}\n\n${branchLine ? `${branchLine}\\\n` : ''}${workingTreeLine}`;
 	}

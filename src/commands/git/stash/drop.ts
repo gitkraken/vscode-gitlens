@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitStashReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -45,8 +46,8 @@ export interface StashDropGitCommandArgs {
 
 export class StashDropGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: StashDropGitCommandArgs) {
-		super(container, 'stash-drop', 'drop', 'Drop Stashes', {
-			description: 'deletes stash entries',
+		super(container, 'stash-drop', 'drop', l10n.t('Drop Stashes'), {
+			description: l10n.t('deletes stash entries'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -100,7 +101,9 @@ export class StashDropGitCommand extends QuickCommand<State> {
 				const result: StepResult<GitStashReference[]> = yield* pickStashesStep(state, context, {
 					stash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
-						stash == null ? `No stashes found in ${state.repo.name}` : 'Choose stashes to delete',
+						stash == null
+							? l10n.t('No stashes found in {0}', state.repo.name)
+							: l10n.t('Choose stashes to delete'),
 					picked: state.references?.map(r => r.ref),
 				});
 				if (result === StepResultBreak) {
@@ -129,10 +132,13 @@ export class StashDropGitCommand extends QuickCommand<State> {
 				try {
 					await state.repo.git.stash?.deleteStash(`stash@{${ref.stashNumber}}`, ref.ref);
 				} catch (ex) {
-					Logger.error(ex, context.title);
+					Logger.error(ex, 'Drop Stashes');
+					const stashRef = `stash@{${ref.stashNumber}}`;
 					void showGitErrorMessage(
 						ex,
-						`Unable to delete stash@{${ref.stashNumber}}${ref.message ? `: ${ref.message}` : ''}`,
+						ref.message
+							? l10n.t('Unable to delete {0}: {1}', stashRef, ref.message)
+							: l10n.t('Unable to delete {0}', stashRef),
 					);
 				}
 			}
@@ -142,16 +148,16 @@ export class StashDropGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<void> {
+		const confirmTitle = l10n.t('Confirm Drop Stashes');
 		const step = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(confirmTitle, state, context),
 			[
 				{
 					label: context.title,
-					detail: `Will delete ${getReferenceLabel(state.references)}`,
+					detail: l10n.t('Will delete {0}', getReferenceLabel(state.references)),
 				},
 			],
-			undefined,
-			{ placeholder: `Confirm ${context.title}` },
+			confirmTitle,
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;

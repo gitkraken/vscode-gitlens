@@ -24,6 +24,9 @@ await esbuild.build({
 	platform: 'node',
 	format: 'esm',
 	target: 'node22',
+	// Bundled CommonJS dependencies (including @vscode/l10n) load Node built-ins with require.
+	// ESM has no ambient require; supply the normal Node bridge without externalizing dependencies.
+	banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
 	logLevel: 'warning',
 });
 

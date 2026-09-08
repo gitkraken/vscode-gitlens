@@ -1,15 +1,16 @@
-import { ThemeIcon, window } from 'vscode';
+import { l10n, ThemeIcon, window } from 'vscode';
 import { CherryPickError, SigningError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
+import { getConflictDetectionErrorDisplayMessage } from '@gitlens/git/utils/mergeConflicts.utils.js';
 import { getReferenceLabel, isRevisionReference } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { ensureArray } from '@gitlens/utils/array.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { Logger } from '@gitlens/utils/logger.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { Container } from '../../container.js';
 import { showPausedOperationStatus, skipPausedOperation } from '../../git/actions/pausedOperation.js';
 import type { GlRepository } from '../../git/models/repository.js';
@@ -71,8 +72,8 @@ export interface CherryPickGitCommandArgs {
 
 export class CherryPickGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: CherryPickGitCommandArgs) {
-		super(container, 'cherry-pick', 'cherry-pick', 'Cherry Pick', {
-			description: 'integrates changes from specified commits into the current branch',
+		super(container, 'cherry-pick', 'cherry-pick', l10n.t('Cherry Pick'), {
+			description: l10n.t('integrates changes from specified commits into the current branch'),
 		});
 
 		this.initialState = { confirm: true, ...args?.state };
@@ -95,29 +96,35 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			);
 			if (result?.conflicted) {
 				void window.showWarningMessage(
-					'Unable to cherry-pick due to conflicts. Resolve the conflicts before continuing, or abort the cherry-pick.',
+					l10n.t(
+						'Unable to cherry-pick due to conflicts. Resolve the conflicts before continuing, or abort the cherry-pick.',
+					),
 				);
 				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the cherry-pick
 			if (CherryPickError.is(ex, 'aborted')) {
-				Logger.debug(ex.message, this.title);
+				Logger.debug(ex.message, 'Cherry Pick');
 				return;
 			}
 
-			Logger.error(ex, this.title);
+			Logger.error(ex, 'Cherry Pick');
 
 			if (CherryPickError.is(ex, 'wouldOverwriteChanges')) {
 				void window.showWarningMessage(
-					'Unable to cherry-pick. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+					l10n.t(
+						'Unable to cherry-pick. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+					),
 				);
 				return;
 			}
 
 			if (CherryPickError.is(ex, 'alreadyInProgress')) {
 				void window.showWarningMessage(
-					'Unable to cherry-pick. A cherry-pick is already in progress. Continue or abort the current cherry-pick first.',
+					l10n.t(
+						'Unable to cherry-pick. A cherry-pick is already in progress. Continue or abort the current cherry-pick first.',
+					),
 				);
 				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 				return;
@@ -136,10 +143,17 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 					? getReferenceLabel(pausedOperation?.incoming, { icon: false, label: true, quoted: true })
 					: undefined;
 
-				const skip = { title: 'Skip' };
-				const cancel = { title: 'Cancel', isCloseAffordance: true };
+				const skip = { title: l10n.t('Skip') };
+				const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 				const result = await window.showInformationMessage(
-					`Unable to complete the cherry-pick operation because ${pausedAt ?? 'it'} resulted in an empty commit.\n\nDo you want to skip ${pausedAt ?? 'this commit'}?`,
+					pausedAt == null
+						? l10n.t(
+								'Unable to complete the cherry-pick operation because it resulted in an empty commit.\n\nDo you want to skip this commit?',
+							)
+						: l10n.t(
+								'Unable to complete the cherry-pick operation because {0} resulted in an empty commit.\n\nDo you want to skip {0}?',
+								pausedAt,
+							),
 					{ modal: true },
 					skip,
 					cancel,
@@ -154,7 +168,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 
 			void showGitErrorMessage(
 				ex,
-				CherryPickError.is(ex) || SigningError.is(ex) ? undefined : 'Unable to cherry-pick',
+				CherryPickError.is(ex) || SigningError.is(ex) ? undefined : l10n.t('Unable to cherry-pick'),
 			);
 		}
 	}
@@ -217,17 +231,20 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				context.destination = branch;
 			}
 
-			context.title = `${this.title} into ${getReferenceLabel(context.destination, {
-				icon: false,
-				label: false,
-			})}`;
+			context.title = l10n.t(
+				'Cherry Pick into {0}',
+				getReferenceLabel(context.destination, { icon: false, label: false }),
+			);
 
 			if (steps.isAtStep(Steps.PickBranchOrTag) || !state.references?.length) {
 				using step = steps.enterStep(Steps.PickBranchOrTag);
 
 				const result: StepResult<GitReference> = yield* pickBranchOrTagStep(state, context, {
 					filter: { branches: b => b.id !== context.destination.id },
-					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to cherry-pick from`,
+					placeholder: context =>
+						context.showTags
+							? l10n.t('Choose a branch or tag to cherry-pick from')
+							: l10n.t('Choose a branch to cherry-pick from'),
 					picked: context.selectedBranchOrTag?.ref,
 					value: context.selectedBranchOrTag == null ? state.references?.[0]?.ref : undefined,
 				});
@@ -276,8 +293,11 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				const result: StepResult<GitReference[]> = yield* pickCommitsStep(state, context, {
 					emptyItems: [
 						createDirectiveQuickPickItem(Directive.Cancel, true, {
-							label: 'OK',
-							detail: `No pickable commits found on ${getReferenceLabel(context.selectedBranchOrTag, { icon: false })}`,
+							label: l10n.t('OK'),
+							detail: l10n.t(
+								'No pickable commits found on {0}',
+								getReferenceLabel(context.selectedBranchOrTag, { icon: false }),
+							),
 						}),
 					],
 					log: await log,
@@ -285,8 +305,14 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 					picked: state.references?.map(r => r.ref),
 					placeholder: (context, log) =>
 						!log?.commits.size
-							? `No pickable commits found on ${getReferenceLabel(context.selectedBranchOrTag, { icon: false })}`
-							: `Choose commits to cherry-pick into ${getReferenceLabel(context.destination, { icon: false })}`,
+							? l10n.t(
+									'No pickable commits found on {0}',
+									getReferenceLabel(context.selectedBranchOrTag, { icon: false }),
+								)
+							: l10n.t(
+									'Choose commits to cherry-pick into {0}',
+									getReferenceLabel(context.destination, { icon: false }),
+								),
 				});
 				if (result === StepResultBreak) {
 					state.references = undefined!;
@@ -326,27 +352,29 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		const items: FlagsQuickPickItem<Flags>[] = [
 			createFlagsQuickPickItem<Flags>(state.flags, [], {
 				label: this.title,
-				detail: `Will apply ${getReferenceLabel(state.references, { label: false })} to ${getReferenceLabel(
-					context.destination,
-					{ label: false },
-				)}`,
+				detail: l10n.t(
+					'Will apply {0} to {1}',
+					getReferenceLabel(state.references, { label: false }),
+					getReferenceLabel(context.destination, { label: false }),
+				),
 			}),
 			createFlagsQuickPickItem<Flags>(state.flags, ['--edit'], {
-				label: `${this.title} & Edit`,
+				label: l10n.t('Cherry Pick & Edit'),
 				description: '--edit',
-				detail: `Will edit and apply ${getReferenceLabel(state.references, {
-					label: false,
-				})} to ${getReferenceLabel(context.destination, {
-					label: false,
-				})}`,
+				detail: l10n.t(
+					'Will edit and apply {0} to {1}',
+					getReferenceLabel(state.references, { label: false }),
+					getReferenceLabel(context.destination, { label: false }),
+				),
 			}),
 			createFlagsQuickPickItem<Flags>(state.flags, ['--no-commit'], {
-				label: `${this.title} without Committing`,
+				label: l10n.t('Cherry Pick without Committing'),
 				description: '--no-commit',
-				detail: `Will apply ${getReferenceLabel(state.references, { label: false })} to ${getReferenceLabel(
-					context.destination,
-					{ label: false },
-				)} without Committing`,
+				detail: l10n.t(
+					'Will apply {0} to {1} without Committing',
+					getReferenceLabel(state.references, { label: false }),
+					getReferenceLabel(context.destination, { label: false }),
+				),
 			}),
 		];
 
@@ -374,7 +402,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 						0,
 						1,
 						createDirectiveQuickPickItem(Directive.Noop, false, {
-							label: 'No Conflicts Detected',
+							label: l10n.t('No Conflicts Detected'),
 							iconPath: new ThemeIcon('check'),
 						}),
 					);
@@ -383,8 +411,8 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 						0,
 						1,
 						createDirectiveQuickPickItem(Directive.Noop, false, {
-							label: 'Unable to Detect Conflicts',
-							detail: result.message,
+							label: l10n.t('Unable to Detect Conflicts'),
+							detail: getConflictDetectionErrorDisplayMessage(result.reason, result.message),
 							iconPath: new ThemeIcon('error'),
 						}),
 					);
@@ -393,11 +421,26 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 						0,
 						1,
 						createDirectiveQuickPickItem(Directive.Noop, false, {
-							label: 'Conflicts Detected',
-							detail: `Will result in ${result.stoppedOnFirstConflict ? 'at least ' : ''}${pluralize(
-								'conflicting file',
-								result.conflict.files.length,
-							)} that will need to be resolved`,
+							label: l10n.t('Conflicts Detected'),
+							detail: result.stoppedOnFirstConflict
+								? result.conflict.files.length === 1
+									? l10n.t(
+											'Will result in at least {0} conflicting file that will need to be resolved',
+											getNumericFormat()(result.conflict.files.length),
+										)
+									: l10n.t(
+											'Will result in at least {0} conflicting files that will need to be resolved',
+											getNumericFormat()(result.conflict.files.length),
+										)
+								: result.conflict.files.length === 1
+									? l10n.t(
+											'Will result in {0} conflicting file that will need to be resolved',
+											getNumericFormat()(result.conflict.files.length),
+										)
+									: l10n.t(
+											'Will result in {0} conflicting files that will need to be resolved',
+											getNumericFormat()(result.conflict.files.length),
+										),
 							iconPath: new ThemeIcon('warning'),
 						}),
 					);
@@ -417,7 +460,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 
 			notices.push(
 				createDirectiveQuickPickItem(Directive.Noop, false, {
-					label: `$(loading~spin) \u00a0Detecting Conflicts...`,
+					label: `$(loading~spin) \u00a0${l10n.t('Detecting Conflicts...')}`,
 					// Don't use this, because the spin here causes the icon to spin incorrectly
 					//iconPath: new ThemeIcon('loading~spin'),
 				}),
@@ -425,10 +468,21 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			);
 		}
 
-		step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
-			...notices,
-			...items,
-		]);
+		step = this.createConfirmStep(
+			appendReposToTitle(
+				l10n.t(
+					'Confirm Cherry Pick into {0}',
+					getReferenceLabel(context.destination, { icon: false, label: false }),
+				),
+				state,
+				context,
+			),
+			[...notices, ...items],
+			l10n.t(
+				'Confirm Cherry Pick into {0}',
+				getReferenceLabel(context.destination, { icon: false, label: false }),
+			),
+		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}

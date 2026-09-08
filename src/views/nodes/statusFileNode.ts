@@ -1,5 +1,5 @@
 import type { Command } from 'vscode';
-import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { l10n, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileWithCommit } from '@gitlens/git/models/file.js';
 import { GitFileChange } from '@gitlens/git/models/fileChange.js';
@@ -151,7 +151,10 @@ export class StatusFileNode extends ViewRefFileNode<'status-file', ViewsWithComm
 		function getStatusSuffix(f: GitFileWithCommit) {
 			return isSingleChange
 				? ''
-				: `in \`\`\`${f.commit.isUncommitted ? '' : '$(git-commit) '}${shortenRevision(f.commit.sha)}\`\`\``;
+				: l10n.t(
+						'in {0}',
+						`\`\`\`${f.commit.isUncommitted ? '' : '$(git-commit) '}${shortenRevision(f.commit.sha)}\`\`\``,
+					);
 		}
 
 		let tooltip = this._files
@@ -195,7 +198,7 @@ export class StatusFileNode extends ViewRefFileNode<'status-file', ViewsWithComm
 		if ((this._hasStagedChanges || this._hasUnstagedChanges) && this._files.length === 1) {
 			return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
 				'gitlens.diffWithPrevious:views',
-				'Open Changes with Previous Revision',
+				l10n.t('Open Changes with Previous Revision'),
 				undefined,
 				{
 					commit: this.commit,
@@ -260,6 +263,6 @@ export class StatusFileNode extends ViewRefFileNode<'status-file', ViewsWithComm
 			}
 		}
 
-		return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', 'Open Changes', commandArgs);
+		return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', l10n.t('Open Changes'), commandArgs);
 	}
 }

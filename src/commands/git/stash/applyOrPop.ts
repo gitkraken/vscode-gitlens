@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { StashApplyError } from '@gitlens/git/errors.js';
 import type { GitStashReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
@@ -54,8 +54,9 @@ export class StashApplyOrPopGitCommand extends QuickCommand<State> {
 
 	constructor(container: Container, args?: StashApplyOrPopGitCommandArgs) {
 		const mode = args?.command === 'stash-pop' ? 'pop' : 'apply';
-		super(container, `stash.${mode}`, mode, mode === 'pop' ? 'Pop Stash' : 'Apply Stash', {
-			description: mode === 'pop' ? 'applies and deletes a stash' : 'applies a stash to the working tree',
+		super(container, `stash.${mode}`, mode, mode === 'pop' ? l10n.t('Pop Stash') : l10n.t('Apply Stash'), {
+			description:
+				mode === 'pop' ? l10n.t('applies and deletes a stash') : l10n.t('applies a stash to the working tree'),
 		});
 
 		this.mode = mode;
@@ -111,10 +112,10 @@ export class StashApplyOrPopGitCommand extends QuickCommand<State> {
 					stash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
 						stash == null
-							? `No stashes found in ${state.repo.name}`
+							? l10n.t('No stashes found in {0}', state.repo.name)
 							: state.mode === 'pop'
-								? 'Choose a stash to pop'
-								: 'Choose a stash to apply to your working tree',
+								? l10n.t('Choose a stash to pop')
+								: l10n.t('Choose a stash to apply to your working tree'),
 					picked: state.reference?.ref,
 				});
 				if (result === StepResultBreak) {
@@ -151,7 +152,7 @@ export class StashApplyOrPopGitCommand extends QuickCommand<State> {
 					{ deleteAfter: state.mode === 'pop' },
 				);
 				if (result?.conflicted) {
-					void window.showInformationMessage('Stash applied with conflicts');
+					void window.showInformationMessage(l10n.t('Stash applied with conflicts'));
 				}
 
 				if (state.reference.message) {
@@ -161,14 +162,16 @@ export class StashApplyOrPopGitCommand extends QuickCommand<State> {
 					}
 				}
 			} catch (ex) {
-				Logger.error(ex, context.title);
+				Logger.error(ex, this.mode === 'pop' ? 'Pop Stash' : 'Apply Stash');
 
 				if (StashApplyError.is(ex, 'uncommittedChanges')) {
 					void window.showWarningMessage(
-						'Unable to apply stash. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+						l10n.t(
+							'Unable to apply stash. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+						),
 					);
 				} else {
-					void showGitErrorMessage(ex, StashApplyError.is(ex) ? undefined : 'Unable to apply stash');
+					void showGitErrorMessage(ex, StashApplyError.is(ex) ? undefined : l10n.t('Unable to apply stash'));
 				}
 			}
 		}
@@ -177,27 +180,32 @@ export class StashApplyOrPopGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<Mode> {
+		const confirmTitle = this.mode === 'pop' ? l10n.t('Confirm Pop Stash') : l10n.t('Confirm Apply Stash');
 		const step = this.createConfirmStep<{ label: string; detail: string; item: Mode; picked?: boolean }>(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(confirmTitle, state, context),
 			[
 				{
-					label: 'Apply Stash',
-					detail: `Will apply the changes from ${getReferenceLabel(state.reference)} to the working tree`,
+					label: l10n.t('Apply Stash'),
+					detail: l10n.t(
+						'Will apply the changes from {0} to the working tree',
+						getReferenceLabel(state.reference),
+					),
 					item: 'apply',
 					picked: this.mode === 'apply',
 				},
 				{
-					label: 'Pop Stash',
-					detail: `Will delete ${getReferenceLabel(
-						state.reference,
-					)} and apply the changes to the working tree`,
+					label: l10n.t('Pop Stash'),
+					detail: l10n.t(
+						'Will delete {0} and apply the changes to the working tree',
+						getReferenceLabel(state.reference),
+					),
 					item: 'pop',
 					picked: this.mode === 'pop',
 				},
 			],
+			confirmTitle,
 			undefined,
 			{
-				placeholder: `Confirm ${context.title}`,
 				additionalButtons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
 				onDidClickButton: (_quickpick, button) => {
 					if (button === ShowDetailsViewQuickInputButton) {

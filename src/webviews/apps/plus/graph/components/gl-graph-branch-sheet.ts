@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { remoteRefIcon } from '@gitlens/components/components/icons/providerIcons.js';
@@ -185,7 +186,12 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 		// Remote-qualify the title the same way the pane does ("origin/main", not "main") — `ref.name`
 		// alone is the bare branch name shared with its local tracking counterpart.
 		const title = ref.refType === 'remote' && ref.remote != null ? `${ref.remote}/${ref.name}` : ref.name;
-		const kind = ref.refType === 'tag' ? 'Tag' : ref.refType === 'remote' ? 'Remote Branch' : 'Branch';
+		const kind =
+			ref.refType === 'tag'
+				? l10n.t('Tag')
+				: ref.refType === 'remote'
+					? l10n.t('Remote Branch')
+					: l10n.t('Branch');
 		// Remote refs lead with their hosting-provider glicon (`cloud` when unknown or the ref's row
 		// hasn't paged in), matching the graph pill's own leading glyph vocabulary.
 		const icon =
@@ -227,7 +233,7 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 			esc-managed
 			aria-label=${kind}
 			sheet-title=${title}
-			close-label="Close"
+			close-label=${l10n.t('Close')}
 			@gl-detail-sheet-close=${this.handleInnerClose}
 		>
 			<span slot="title" class="branch-sheet-title branch-sheet-title--${titleModifier}">
@@ -240,7 +246,7 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 						? html`<gl-action-chip
 								class="branch-sheet-title__kebab"
 								icon="kebab-vertical"
-								label=${ref.refType === 'tag' ? 'Show Tag Actions' : 'Show Branch Actions'}
+								label=${ref.refType === 'tag' ? l10n.t('Show Tag Actions') : l10n.t('Show Branch Actions')}
 								overlay="tooltip"
 								data-vscode-context=${kebabContext}
 								@click=${this.handleKebabClick}
@@ -255,7 +261,7 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 					? html`<gl-action-chip
 							slot="actions"
 							icon=${isPinned ? 'pinned' : 'pin'}
-							label=${isPinned ? 'Unpin Branch from Edge' : 'Pin Branch to Edge'}
+							label=${isPinned ? l10n.t('Unpin Branch from Edge') : l10n.t('Pin Branch to Edge')}
 							overlay="tooltip"
 							href=${this._webview.createCommandLink<GraphItemContext>(
 								isPinned ? 'gitlens.graph.unpinBranchFromEdge' : 'gitlens.graph.pinBranchToEdge',
@@ -332,7 +338,7 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 		return html`<gl-action-chip
 			slot="actions"
 			icon="target"
-			label="Focus on Branch"
+			label=${l10n.t('Focus on Branch')}
 			overlay="tooltip"
 			@click=${() => this.handleFocus(ref)}
 		></gl-action-chip>`;
@@ -358,7 +364,13 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 		const directHidden = this._graphState?.excludeRefs?.[excluded.id] != null;
 		const wildcardHidden = wildcard != null && !wildcard.except?.includes(excluded.id);
 		const hidden = directHidden || wildcardHidden;
-		const label = `${hidden ? 'Show' : 'Hide'} ${ref.refType === 'tag' ? 'Tag' : 'Branch'}`;
+		const label = hidden
+			? ref.refType === 'tag'
+				? l10n.t('Show Tag')
+				: l10n.t('Show Branch')
+			: ref.refType === 'tag'
+				? l10n.t('Hide Tag')
+				: l10n.t('Hide Branch');
 
 		return html`<gl-action-chip
 			slot="actions"
@@ -397,9 +409,9 @@ export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) 
 		return html`<gl-action-chip
 			class="branch-sheet-title__action"
 			icon="globe"
-			label="Open Branch on Remote"
+			label=${l10n.t('Open Branch on Remote')}
 			alt-icon="copy"
-			alt-label="Copy Remote Branch URL"
+			alt-label=${l10n.t('Copy Remote Branch URL')}
 			overlay="tooltip"
 			href=${this._webview.createCommandLink<GraphItemContext>('gitlens.graph.openBranchOnRemote', context)}
 			alt-href=${this._webview.createCommandLink<GraphItemContext>('gitlens.graph.copyRemoteBranchUrl', context)}

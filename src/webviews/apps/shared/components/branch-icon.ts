@@ -1,5 +1,7 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, svg } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { GitBranchStatus } from '@gitlens/git/models/branch.js';
 import { renderBranchName } from './branch-name.js';
 import '@gitlens/components/components/overlays/tooltip.js';
@@ -144,37 +146,98 @@ export class GlBranchIcon extends LitElement {
 	}
 
 	private renderTooltipContent() {
-		const branchName = this.branch ? renderBranchName(this.branch) : 'Branch';
+		const branchName = this.branch ? renderBranchName(this.branch) : undefined;
 
 		let tooltip;
-		const upstream = this.upstream ? renderBranchName(this.upstream) : 'its upstream';
+		const upstream = this.upstream ? renderBranchName(this.upstream) : undefined;
 		switch (this.status) {
 			case 'diverged':
-				tooltip = html`${branchName} has diverged from ${upstream}`;
+				tooltip = localizedContent(
+					this.branch
+						? this.upstream
+							? l10n.t('{branch} has diverged from {upstream}')
+							: l10n.t('{branch} has diverged from its upstream')
+						: this.upstream
+							? l10n.t('Branch has diverged from {upstream}')
+							: l10n.t('Branch has diverged from its upstream'),
+					{ branch: branchName, upstream: upstream },
+				);
 				break;
 			case 'behind':
-				tooltip = html`${branchName} is behind ${upstream}`;
+				tooltip = localizedContent(
+					this.branch
+						? this.upstream
+							? l10n.t('{branch} is behind {upstream}')
+							: l10n.t('{branch} is behind its upstream')
+						: this.upstream
+							? l10n.t('Branch is behind {upstream}')
+							: l10n.t('Branch is behind its upstream'),
+					{ branch: branchName, upstream: upstream },
+				);
 				break;
 			case 'ahead':
-				tooltip = html`${branchName} is ahead of ${upstream}`;
+				tooltip = localizedContent(
+					this.branch
+						? this.upstream
+							? l10n.t('{branch} is ahead of {upstream}')
+							: l10n.t('{branch} is ahead of its upstream')
+						: this.upstream
+							? l10n.t('Branch is ahead of {upstream}')
+							: l10n.t('Branch is ahead of its upstream'),
+					{ branch: branchName, upstream: upstream },
+				);
 				break;
 			case 'missingUpstream':
-				tooltip = html`${branchName} is missing its upstream ${upstream}`;
+				tooltip = localizedContent(
+					this.branch
+						? this.upstream
+							? l10n.t('{branch} is missing its upstream {upstream}')
+							: l10n.t('{branch} is missing its upstream')
+						: this.upstream
+							? l10n.t('Branch is missing its upstream {upstream}')
+							: l10n.t('Branch is missing its upstream'),
+					{ branch: branchName, upstream: upstream },
+				);
 				break;
 			case 'upToDate':
-				tooltip = html`${branchName} is up to date with ${upstream}`;
+				tooltip = localizedContent(
+					this.branch
+						? this.upstream
+							? l10n.t('{branch} is up to date with {upstream}')
+							: l10n.t('{branch} is up to date with its upstream')
+						: this.upstream
+							? l10n.t('Branch is up to date with {upstream}')
+							: l10n.t('Branch is up to date with its upstream'),
+					{ branch: branchName, upstream: upstream },
+				);
 				break;
 			case 'local':
-				tooltip = html`${branchName} is a local branch which hasn't been published`;
+				tooltip = localizedContent(
+					this.branch
+						? l10n.t("{branch} is a local branch which hasn't been published")
+						: l10n.t("Branch is a local branch which hasn't been published"),
+					{ branch: branchName, upstream: upstream },
+				);
 				break;
 			case 'remote':
-				tooltip = html`${branchName} is a remote branch`;
+				tooltip = localizedContent(
+					this.branch ? l10n.t('{branch} is a remote branch') : l10n.t('Branch is a remote branch'),
+					{ branch: branchName, upstream: upstream },
+				);
 				break;
 			case 'detached':
-				tooltip = html`${branchName} is in a detached state, i.e. checked out to a commit or tag`;
+				tooltip = localizedContent(
+					this.branch
+						? l10n.t('{branch} is in a detached state, i.e. checked out to a commit or tag')
+						: l10n.t('Branch is in a detached state, i.e. checked out to a commit or tag'),
+					{ branch: branchName, upstream: upstream },
+				);
 				break;
 			default:
-				tooltip = html`${branchName} is in an unknown state`;
+				tooltip = localizedContent(
+					this.branch ? l10n.t('{branch} is in an unknown state') : l10n.t('Branch is in an unknown state'),
+					{ branch: branchName, upstream: upstream },
+				);
 				break;
 		}
 
@@ -182,14 +245,14 @@ export class GlBranchIcon extends LitElement {
 		if (this.worktree) {
 			if (this.hasChanges) {
 				tooltip = html`${tooltip}
-					<p>Checked out in a worktree and has working (uncommitted) changes</p>`;
+					<p>${l10n.t('Checked out in a worktree and has working (uncommitted) changes')}</p>`;
 			} else {
 				tooltip = html`${tooltip}
-					<p>Checked out in a worktree</p>`;
+					<p>${l10n.t('Checked out in a worktree')}</p>`;
 			}
 		} else if (this.hasChanges) {
 			tooltip = html`${tooltip}
-				<p>Has working (uncommitted) changes</p>`;
+				<p>${l10n.t('Has working (uncommitted) changes')}</p>`;
 		}
 		return tooltip;
 	}

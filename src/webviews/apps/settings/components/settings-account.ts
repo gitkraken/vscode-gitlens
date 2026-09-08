@@ -1,13 +1,14 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
-import { getDateDifference } from '@gitlens/utils/date.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
+import { getDateDifference, getNumericFormat } from '@gitlens/utils/date.js';
 import { urls } from '../../../../constants.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../constants.subscription.js';
 import type { Source } from '../../../../constants.telemetry.js';
@@ -782,7 +783,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			return html`<skeleton-loader
 				lines="10"
 				role="status"
-				aria-label="Loading account status"
+				aria-label=${l10n.t('Loading account status')}
 			></skeleton-loader>`;
 		}
 
@@ -799,14 +800,14 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		return html`<div class="alert" role="alert">
 			<code-icon class="alert__icon" icon="warning" aria-hidden="true"></code-icon>
 			<div class="alert__body">
-				<p class="alert__text">Verify your email before you can access Pro features.</p>
+				<p class="alert__text">${l10n.t('Verify your email before you can access Pro features.')}</p>
 				<div class="alert__actions">
 					<gl-button
 						href=${createCommandLink<Source>('gitlens.plus.resendVerification', {
 							source: 'account',
 							detail: { location: 'settings-account:verification' },
 						})}
-						>Resend Email</gl-button
+						>${l10n.t('Resend Email')}</gl-button
 					>
 					<gl-button
 						appearance="secondary"
@@ -814,7 +815,8 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 							source: 'account',
 							detail: { location: 'settings-account:verification' },
 						})}
-						><code-icon icon="refresh" slot="prefix" aria-hidden="true"></code-icon> Check again</gl-button
+						><code-icon icon="refresh" slot="prefix" aria-hidden="true"></code-icon>
+						${l10n.t('Check again')}</gl-button
 					>
 				</div>
 			</div>
@@ -855,7 +857,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 							source: 'account',
 							detail: { location: 'settings-account:identity' },
 						})}
-						>Manage Account
+						>${l10n.t('Manage Account')}
 						<code-icon icon="link-external" slot="suffix" aria-hidden="true"></code-icon>
 					</gl-button>
 					<gl-button
@@ -865,13 +867,14 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 							source: 'account',
 							detail: { location: 'settings-account:identity' },
 						})}
-						><code-icon icon="sign-out" slot="prefix" aria-hidden="true"></code-icon> Sign Out</gl-button
+						><code-icon icon="sign-out" slot="prefix" aria-hidden="true"></code-icon>
+						${l10n.t('Sign Out')}</gl-button
 					>
 				</div>
 			</div>
 			<div class="identity__footer">
 				<code-icon icon="device-desktop" aria-hidden="true"></code-icon>
-				<span class="identity__device">Signed in on this device</span>
+				<span class="identity__device">${l10n.t('Signed in on this device')}</span>
 				<a
 					class="identity__sync"
 					href=${createCommandLink<Source>('gitlens.plus.validate', {
@@ -879,7 +882,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 						detail: { location: 'settings-account:identity' },
 					})}
 					><code-icon icon="sync" aria-hidden="true"></code-icon
-					><span class="identity__sync-label">Sync Status</span></a
+					><span class="identity__sync-label">${l10n.t('Sync Status')}</span></a
 				>
 			</div>
 		</div>`;
@@ -930,14 +933,15 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			${
 				content.showSignInLine
 					? html`<p class="plan__secondary">
-							Already have a GitKraken account?
-							<a
-								href=${createCommandLink<Source>('gitlens.plus.login', {
-									source: 'account',
-									detail: { location: 'settings-account:plan-card' },
-								})}
-								>sign in</a
-							>
+							${localizedContent(l10n.t('Already have a GitKraken account? {signIn}'), {
+								signIn: html`<a
+									href=${createCommandLink<Source>('gitlens.plus.login', {
+										source: 'account',
+										detail: { location: 'settings-account:plan-card' },
+									})}
+									>${l10n.t('sign in')}</a
+								>`,
+							})}
 						</p>`
 					: nothing
 			}
@@ -971,10 +975,13 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		// Pro's 1M. Those figures are now authored remotely in `product.json`, so unlike the interpolated
 		// number this claim does NOT follow them — re-pricing either tier without keeping the 2x ratio makes
 		// this sentence quietly wrong (called out in the product.json repo's README).
+		const credits = getSubscriptionPlanAiCredits(this.plans, plan, false);
 		const pitch =
 			plan === 'advanced'
-				? `Advanced adds self-hosted integrations and ${getSubscriptionPlanAiCredits(this.plans, 'advanced', false)} AI credits/week.`
-				: `Pro doubles your AI credits to ${getSubscriptionPlanAiCredits(this.plans, 'pro', false)}/week.`;
+				? l10n.t('Advanced adds self-hosted integrations and {credits} AI credits/week.', {
+						credits: credits,
+					})
+				: l10n.t('Pro doubles your AI credits to {credits}/week.', { credits: credits });
 
 		return html`<div class="plan__upsell">
 			<span class="plan__upsell-text">${pitch}</span>
@@ -989,7 +996,11 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 						plan: plan,
 					},
 				})}
-				>Upgrade to ${getSubscriptionPlanName(plan)}${this.renderPromo(plan, 'icon', 'suffix')}</gl-button
+				>${l10n.t('Upgrade to {plan}', { plan: getSubscriptionPlanName(plan) })}${this.renderPromo(
+					plan,
+					'icon',
+					'suffix',
+				)}</gl-button
 			>
 		</div>`;
 	}
@@ -1014,7 +1025,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 					class="ai__skeleton"
 					lines="2"
 					role="status"
-					aria-label="Loading GitKraken AI usage"
+					aria-label=${l10n.t('Loading GitKraken AI usage')}
 				></skeleton-loader>
 			</div>`;
 		}
@@ -1028,9 +1039,9 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				${this.renderAiUsageHead()}
 				<div class="ai__error" role="alert">
 					<code-icon icon="error" aria-hidden="true"></code-icon>
-					<span class="ai__error-text">Couldn’t load AI usage.</span>
+					<span class="ai__error-text">${l10n.t('Couldn’t load AI usage.')}</span>
 					<gl-button appearance="secondary" @click=${() => void this.actions?.retryAiUsage()}
-						>Retry</gl-button
+						>${l10n.t('Retry')}</gl-button
 					>
 				</div>
 			</div>`;
@@ -1087,7 +1098,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 
 		if (!canPurchaseAiCredits(sub)) {
 			return html`<p class="ai__credits-note">
-				Contact your organization admin or owner to request more AI credits.
+				${l10n.t('Contact your organization admin or owner to request more AI credits.')}
 			</p>`;
 		}
 
@@ -1099,7 +1110,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 					source: 'account',
 					detail: { location: 'settings-account:ai-usage' },
 				})}
-				>Get more AI credits
+				>${l10n.t('Get more AI credits')}
 				<code-icon icon="link-external" slot="suffix" aria-hidden="true"></code-icon>
 			</gl-button>
 		</div>`;
@@ -1112,8 +1123,8 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 	private renderAiUsageHead(figure?: string, nearlyOut?: boolean) {
 		return html`<div class="ai__head">
 			<code-icon class="ai__icon" icon="sparkle" aria-hidden="true"></code-icon>
-			<h3 class="ai__title">GitKraken AI Usage</h3>
-			${nearlyOut ? html`<span class="ai__warning">Nearly out</span>` : nothing}
+			<h3 class="ai__title">${l10n.t('GitKraken AI Usage')}</h3>
+			${nearlyOut ? html`<span class="ai__warning">${l10n.t('Nearly out')}</span>` : nothing}
 			${figure != null ? html`<span class="ai__figure">${figure}</span>` : nothing}
 		</div>`;
 	}
@@ -1136,7 +1147,8 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		const { figure, segments, summary } = resolveAiOrgPool(organization, sharedUsed);
 
 		return html`<p class="ai__org">
-				<span>Weekly Shared Organization Pool</span> <span class="ai__org-figure">${figure}</span>
+				<span>${l10n.t('Weekly Shared Organization Pool')}</span>
+				<span class="ai__org-figure">${figure}</span>
 			</p>
 			${
 				segments != null
@@ -1152,12 +1164,14 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 							</div>
 							<p class="ai__legend">
 								<span class="ai__legend-item" aria-hidden="true"
-									><span class="ai__legend-swatch ai__legend-swatch--yours"></span>Your usage</span
+									><span class="ai__legend-swatch ai__legend-swatch--yours"></span
+									>${l10n.t('Your usage')}</span
 								><span class="ai__legend-item" aria-hidden="true"
-									><span class="ai__legend-swatch ai__legend-swatch--rest"></span>Rest of
-									organization</span
+									><span class="ai__legend-swatch ai__legend-swatch--rest"></span
+									>${l10n.t('Rest of organization')}</span
 								><span class="ai__legend-item" aria-hidden="true"
-									><span class="ai__legend-swatch ai__legend-swatch--remaining"></span>Remaining</span
+									><span class="ai__legend-swatch ai__legend-swatch--remaining"></span
+									>${l10n.t('Remaining')}</span
 								><span class="sr-only">${summary}</span>
 							</p>`
 					: nothing
@@ -1169,7 +1183,11 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		// An absent or unparseable date must not reach the screen as "Invalid Date" — drop the line instead
 		if (Number.isNaN(date.getTime())) return nothing;
 
-		return html`<p class="ai__reset">Weekly allowance resets ${formatDate(date, 'dddd, MMMM Do')}</p>`;
+		return html`<p class="ai__reset">
+			${l10n.t('Weekly allowance resets {date}', {
+				date: formatDate(date, 'dddd, MMMM Do'),
+			})}
+		</p>`;
 	}
 
 	private renderOrganizationCard(sub: Subscription) {
@@ -1178,9 +1196,16 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 
 		const orgCount = this._subscription.organizationsCount.get();
 		const canSwitch = orgCount > 1;
+		const otherCount = orgCount - 1;
 		const meta = canSwitch
-			? `Active organization · you are in ${pluralize('organization', orgCount - 1, { infix: ' other ' })}`
-			: 'Active organization';
+			? otherCount === 1
+				? l10n.t('Active organization · you are in {count} other organization', {
+						count: getNumericFormat()(otherCount),
+					})
+				: l10n.t('Active organization · you are in {count} other organizations', {
+						count: getNumericFormat()(otherCount),
+					})
+			: l10n.t('Active organization');
 
 		return html`<div class="card org">
 			<code-icon class="org__icon" icon="organization" aria-hidden="true"></code-icon>
@@ -1197,9 +1222,9 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 								source: 'account',
 								detail: { organization: organization.id },
 							})}
-							aria-label="Switch Active Organization"
+							aria-label=${l10n.t('Switch Active Organization')}
 							><code-icon icon="arrow-swap" slot="prefix" aria-hidden="true"></code-icon>
-							Switch</gl-button
+							${l10n.t('Switch')}</gl-button
 						>`
 					: nothing
 			}
@@ -1212,13 +1237,13 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 
 		return html`<div class="refer">
 			<code-icon class="refer__icon" icon="gift" aria-hidden="true"></code-icon>
-			<span class="refer__text">Give a friend 50% off and get up to $20 in credit.</span>
+			<span class="refer__text">${l10n.t('Give a friend 50% off and get up to $20 in credit.')}</span>
 			<a
 				href=${createCommandLink<Source>('gitlens.plus.referFriend', {
 					source: 'account',
 					detail: { location: 'settings-account:refer' },
 				})}
-				>Refer a friend</a
+				>${l10n.t('Refer a friend')}</a
 			>
 		</div>`;
 	}
@@ -1230,16 +1255,16 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 					source: 'account',
 					detail: { location: 'settings-account:footer' },
 				})}
-				>Manage subscription</a
+				>${l10n.t('Manage subscription')}</a
 			>
 			<a
 				href=${createCommandLink<Source>('gitlens.plus.showPlans', {
 					source: 'account',
 					detail: { location: 'settings-account:footer' },
 				})}
-				>Compare plans</a
+				>${l10n.t('Compare plans')}</a
 			>
-			<a href=${urls.communityVsPro}>Community vs Pro</a>
+			<a href=${urls.communityVsPro}>${l10n.t('Community vs Pro')}</a>
 			<span class="footer__note">${this.getPlanFootnote(sub)}</span>
 		</div>`;
 	}
@@ -1273,7 +1298,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 					// The headline already names Pro, so a PRO badge beside it would only restate it
 					tier: tier === 'Pro' || tier === 'Community' ? undefined : tier,
 					meta: this.getPaidMeta(sub),
-					featuresHeading: 'Included in your plan',
+					featuresHeading: l10n.t('Included in your plan'),
 					locked: false,
 				};
 			}
@@ -1284,20 +1309,36 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				const named = tier !== 'Pro' && tier !== 'Community';
 				const days = this.getTrialDaysRemaining(sub);
 				const totalDays = this.getTrialTotalDays(sub);
+				const plan = tier === 'Student' ? 'Student' : 'Pro';
+				let meta: string;
+				if (days < 1) {
+					meta = l10n.t(
+						'Less than a day left in your {plan} trial. When it ends, Pro features keep working on publicly-hosted repos only.',
+						{ plan: plan },
+					);
+				} else if (totalDays === 1) {
+					meta = l10n.t(
+						'{days} of {totalDays} day left in your {plan} trial. When it ends, Pro features keep working on publicly-hosted repos only.',
+						{ days: days, totalDays: totalDays, plan: plan },
+					);
+				} else {
+					meta = l10n.t(
+						'{days} of {totalDays} days left in your {plan} trial. When it ends, Pro features keep working on publicly-hosted repos only.',
+						{ days: days, totalDays: totalDays, plan: plan },
+					);
+				}
 
 				return {
 					title: 'GitLens Pro',
 					tier: named ? tier : undefined,
-					status: 'Trial',
-					meta: `${
-						days < 1 ? 'Less than a day' : `${days} of ${totalDays} days`
-					} left in your ${tier === 'Student' ? 'Student' : 'Pro'} trial. When it ends, Pro features keep working on publicly-hosted repos only.`,
+					status: l10n.t('Trial'),
+					meta: meta,
 					cta: {
-						label: 'Upgrade to Pro',
+						label: l10n.t('Upgrade to Pro'),
 						href: this.createUpgradeLink('pro', organizationId),
 						promo: 'pro',
 					},
-					featuresHeading: 'Included during your trial',
+					featuresHeading: l10n.t('Included during your trial'),
 					locked: false,
 					trialRemaining: this.getTrialRemaining(sub),
 				};
@@ -1306,50 +1347,62 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			case SubscriptionState.TrialExpired:
 				return {
 					title: 'GitLens Community',
-					meta: `${this.getTrialEndedSentence(sub)} Pro features now work on publicly-hosted repos only.`,
+					meta: this.getTrialExpiredMeta(sub),
 					cta: {
-						label: 'Upgrade to Pro',
+						label: l10n.t('Upgrade to Pro'),
 						href: this.createUpgradeLink('pro', organizationId),
 						promo: 'pro',
 					},
-					featuresHeading: 'What GitLens Pro unlocks',
+					featuresHeading: l10n.t('What GitLens Pro unlocks'),
 					locked: true,
 				};
 
-			case SubscriptionState.TrialReactivationEligible:
+			case SubscriptionState.TrialReactivationEligible: {
+				const count = getNumericFormat()(proTrialLengthInDays);
 				return {
 					title: 'GitLens Community',
-					meta: `Reactivate your GitLens Pro trial and experience all the new Pro features — free for another ${pluralize('day', proTrialLengthInDays)}.`,
+					meta: l10n.t(
+						'Reactivate your GitLens Pro trial and experience all the new Pro features — free for another {count} days.',
+						{ count: count },
+					),
 					cta: {
-						label: 'Reactivate GitLens Pro Trial',
+						label: l10n.t('Reactivate GitLens Pro Trial'),
 						href: createCommandLink<Source>('gitlens.plus.reactivateProTrial', {
 							source: 'account',
 							detail: { location: 'settings-account:plan-card' },
 						}),
 					},
-					featuresHeading: 'What GitLens Pro unlocks',
+					featuresHeading: l10n.t('What GitLens Pro unlocks'),
 					locked: true,
 				};
+			}
 
 			case SubscriptionState.VerificationRequired:
 				return {
 					title: 'GitLens Pro',
-					status: 'Unverified',
-					meta: 'Your Pro trial starts as soon as your email is verified.',
-					featuresHeading: 'What GitLens Pro unlocks',
+					status: l10n.t('Unverified'),
+					meta: l10n.t('Your Pro trial starts as soon as your email is verified.'),
+					featuresHeading: l10n.t('What GitLens Pro unlocks'),
 					locked: true,
 				};
 
 			default: {
 				// Community — and anything unrecognized, which is the safest fallback to land on
 				const hasAccount = sub.account != null;
+				const count = getNumericFormat()(proTrialLengthInDays);
 				return {
 					title: 'GitLens Community',
-					meta: `You are using GitLens Community. ${
-						hasAccount ? 'Start' : 'Sign in to start'
-					} a ${proTrialLengthInDays}-day Pro trial — no credit card required.`,
+					meta: hasAccount
+						? l10n.t(
+								'You are using GitLens Community. Start a {count}-day Pro trial — no credit card required.',
+								{ count: count },
+							)
+						: l10n.t(
+								'You are using GitLens Community. Sign in to start a {count}-day Pro trial — no credit card required.',
+								{ count: count },
+							),
 					cta: {
-						label: 'Try GitLens Pro',
+						label: l10n.t('Try GitLens Pro'),
 						href: createCommandLink<Source>('gitlens.plus.signUp', {
 							source: 'account',
 							detail: { location: 'settings-account:plan-card' },
@@ -1357,7 +1410,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 						promo: 'pro',
 					},
 					showSignInLine: !hasAccount,
-					featuresHeading: 'What GitLens Pro unlocks',
+					featuresHeading: l10n.t('What GitLens Pro unlocks'),
 					locked: true,
 				};
 			}
@@ -1377,22 +1430,27 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		const { actual } = sub.plan;
 		const expires = actual.expiresOn != null ? new Date(actual.expiresOn) : undefined;
 		if (expires == null || Number.isNaN(expires.getTime())) {
-			return `Your ${getSubscriptionPlanName(actual.id)} plan is active.`;
+			return l10n.t('Your {plan} plan is active.', { plan: getSubscriptionPlanName(actual.id) });
 		}
 
-		return `${actual.cancelled ? 'Ends' : 'Renews'} ${formatDate(expires, planDateFormat)}`;
+		const date = formatDate(expires, planDateFormat);
+		return actual.cancelled ? l10n.t('Ends {date}', { date: date }) : l10n.t('Renews {date}', { date: date });
 	}
 
 	/**
 	 * Once a trial expires the effective plan falls back to `community-with-account`, which carries no
 	 * expiry — so the end date often isn't recoverable. Say so without a date rather than invent one.
 	 */
-	private getTrialEndedSentence(sub: Subscription): string {
+	private getTrialExpiredMeta(sub: Subscription): string {
 		const raw = sub.plan.effective.expiresOn ?? sub.plan.actual.expiresOn;
 		const ended = raw != null ? new Date(raw) : undefined;
-		if (ended == null || Number.isNaN(ended.getTime())) return 'Your Pro trial has ended.';
+		if (ended == null || Number.isNaN(ended.getTime())) {
+			return l10n.t('Your Pro trial has ended. Pro features now work on publicly-hosted repos only.');
+		}
 
-		return `Your Pro trial ended ${formatDate(ended, planDateFormat)}.`;
+		return l10n.t('Your Pro trial ended {date}. Pro features now work on publicly-hosted repos only.', {
+			date: formatDate(ended, planDateFormat),
+		});
 	}
 
 	/**
@@ -1448,25 +1506,31 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		switch (sub.state) {
 			case SubscriptionState.Paid:
 				// Not `plan.actual.organizationId` — personal plans carry a placeholder id.
-				return sub.activeOrganization?.name ? 'Managed by your organization' : 'Plan managed on gitkraken.dev';
+				return sub.activeOrganization?.name
+					? l10n.t('Managed by your organization')
+					: l10n.t('Plan managed on gitkraken.dev');
 
 			case SubscriptionState.Trial: {
 				const expires =
 					sub.plan.effective.expiresOn != null ? new Date(sub.plan.effective.expiresOn) : undefined;
-				if (expires == null || Number.isNaN(expires.getTime())) return 'No credit card required to upgrade';
+				if (expires == null || Number.isNaN(expires.getTime())) {
+					return l10n.t('No credit card required to upgrade');
+				}
 
-				return `Trial ends ${formatDate(expires, planDateFormat)}`;
+				return l10n.t('Trial ends {date}', { date: formatDate(expires, planDateFormat) });
 			}
 
 			case SubscriptionState.TrialExpired:
 			case SubscriptionState.TrialReactivationEligible:
-				return 'No credit card required to upgrade';
+				return l10n.t('No credit card required to upgrade');
 
 			case SubscriptionState.VerificationRequired:
-				return sub.account?.email ? `Sent to ${sub.account.email}` : 'Check your inbox to verify your email';
+				return sub.account?.email
+					? l10n.t('Sent to {email}', { email: sub.account.email })
+					: l10n.t('Check your inbox to verify your email');
 
 			default:
-				return 'Community is free, forever';
+				return l10n.t('Community is free, forever');
 		}
 	}
 }

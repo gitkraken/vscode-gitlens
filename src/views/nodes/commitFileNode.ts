@@ -1,5 +1,5 @@
 import type { Command, Selection } from 'vscode';
-import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { l10n, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFile } from '@gitlens/git/models/file.js';
@@ -174,7 +174,7 @@ export abstract class CommitFileNodeBase<
 
 		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
 			'gitlens.diffWithPrevious:views',
-			'Open Changes with Previous Revision',
+			l10n.t('Open Changes with Previous Revision'),
 			undefined,
 			{
 				commit: this.commit,

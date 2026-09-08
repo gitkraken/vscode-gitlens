@@ -1,14 +1,17 @@
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { formatIdentityDisplayName } from '@gitlens/git/utils/commit.utils.js';
 import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { dispatchContextMenuAt } from '@gitlens/utils/dom.js';
 import type { Autolink } from '../../../../autolinks/models/autolinks.js';
 import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../system/webview.js';
@@ -363,14 +366,14 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		// The uncommitted pseudo-commit isn't a real revision — open the working changes with per-file
 		// HEAD↔index↔working semantics (the `wip` flag overrides lhs/rhs host-side). Mirrors the WIP panel.
 		if (this.isUncommitted) {
-			return { repoPath: commit.repoPath, lhs: 'HEAD', rhs: '', wip: true, title: 'Working Changes' };
+			return { repoPath: commit.repoPath, lhs: 'HEAD', rhs: '', wip: true, title: l10n.t('Working Changes') };
 		}
 
 		return {
 			repoPath: commit.repoPath,
 			lhs: commit.parents[0] ?? '',
 			rhs: commit.sha,
-			title: `Changes in ${commit.shortSha}`,
+			title: l10n.t('Changes in {revision}', { revision: commit.shortSha }),
 		};
 	}
 
@@ -410,7 +413,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 				? html`<div class="mode-title">
 						<span class="mode-title__verb">
 							<code-icon class="mode-title__icon" icon="checklist"></code-icon>
-							Reviewing Commit
+							${l10n.t('Reviewing Commit')}
 						</span>
 					</div>`
 				: authorTemplate;
@@ -439,7 +442,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 									? html`<gl-action-chip
 											icon="download"
 											iconFlip="block"
-											label="Jump to Working Changes"
+											label=${l10n.t('Jump to Working Changes')}
 											overlay="tooltip"
 											@click=${this.onJumpToNearestWipClick}
 										></gl-action-chip>`
@@ -456,8 +459,8 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 							icon=${this.pinned ? 'gl-pinned-filled' : 'pin'}
 							label=${
 								this.pinned
-									? 'Unpin this Commit\nRestores Automatic Following'
-									: 'Pin this Commit\nSuspends Automatic Following'
+									? l10n.t('Unpin this Commit\nRestores Automatic Following')
+									: l10n.t('Pin this Commit\nSuspends Automatic Following')
 							}
 							overlay="tooltip"
 							@click=${this.onTogglePin}
@@ -469,7 +472,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 					? html`<gl-action-chip
 							slot="actions"
 							icon="gl-graph"
-							label="Open in Commit Graph"
+							label=${l10n.t('Open in Commit Graph')}
 							overlay="tooltip"
 							@click=${this.onOpenInGraph}
 						></gl-action-chip>`
@@ -482,7 +485,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 					html`<gl-action-chip
 						slot="actions"
 						icon="refresh"
-						label="Refresh"
+						label=${l10n.t('Refresh')}
 						overlay="tooltip"
 						@click=${() =>
 							this.dispatchEvent(new CustomEvent('refresh-commit', { bubbles: true, composed: true }))}
@@ -509,8 +512,8 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 						class="metadata-bar__sha"
 						appearance="toolbar"
 						tooltip-placement="bottom"
-						copy-label="${isStash ? 'Copy Stash Number' : 'Copy SHA'}"
-						copied-label="Copied!"
+						copy-label=${isStash ? l10n.t('Copy Stash Number') : l10n.t('Copy SHA')}
+						copied-label=${l10n.t('Copied!')}
 						.sha=${isStash ? `#${commit.stashNumber}` : commit.sha}
 						.icon=${isStash ? 'gl-stashes-view' : 'git-commit'}
 					></gl-commit-sha-copy>
@@ -521,7 +524,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 							html`<gl-action-chip
 								class="metadata-bar__action metadata-bar__action--remote"
 								icon="globe"
-								label="Open Commit on Remote"
+								label=${l10n.t('Open Commit on Remote')}
 								overlay="tooltip"
 								@click=${() =>
 									this.dispatchEvent(
@@ -537,7 +540,9 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 					${
 						isStash
 							? this.branchName
-								? html`<gl-tooltip content="Stashed on ${this.branchName}">
+								? html`<gl-tooltip
+										content=${l10n.t('Stashed on {branch}', { branch: this.branchName })}
+									>
 										<span class="metadata-bar__branch-indicator">
 											<gl-branch-name
 												class="metadata-bar__branch"
@@ -570,7 +575,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		return html`<gl-action-chip
 			class="metadata-bar__action metadata-bar__action--more"
 			icon="kebab-vertical"
-			label="Show ${isStash ? 'Stash' : 'Commit'} Actions"
+			label=${isStash ? l10n.t('Show Stash Actions') : l10n.t('Show Commit Actions')}
 			data-vscode-context=${context}
 			@click=${this.onMoreActionsClick}
 		></gl-action-chip>`;
@@ -583,9 +588,9 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		return html`<gl-action-chip
 			class="metadata-bar__action metadata-bar__action--apply"
 			icon=${isPop ? 'git-stash-pop' : 'git-stash-apply'}
-			label=${isPop ? 'Pop Stash' : 'Apply Stash'}
+			label=${isPop ? l10n.t('Pop Stash') : l10n.t('Apply Stash')}
 			alt-icon=${isPop ? nothing : 'git-stash-pop'}
-			alt-label=${isPop ? nothing : 'Pop Stash'}
+			alt-label=${isPop ? nothing : l10n.t('Pop Stash')}
 			@click=${this.onStashApplyClick}
 		></gl-action-chip>`;
 	}
@@ -705,7 +710,11 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 
 		// Loading
 		if (state === 'loading') {
-			return html`<button class="metadata-bar__branch-indicator" disabled aria-label="Loading branches and tags">
+			return html`<button
+				class="metadata-bar__branch-indicator"
+				disabled
+				aria-label=${l10n.t('Loading branches and tags')}
+			>
 				<code-icon icon="git-branch"></code-icon>
 				<code-icon icon="loading" modifier="spin" class="metadata-bar__branch-status"></code-icon>
 			</button>`;
@@ -713,7 +722,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 
 		// Error
 		if (state === 'error') {
-			return html`<gl-tooltip content="Unable to load branch reachability. Click to Retry">
+			return html`<gl-tooltip content=${l10n.t('Unable to load branch reachability. Click to Retry')}>
 				<button
 					class="metadata-bar__branch-indicator metadata-bar__branch-indicator--error"
 					@click=${() => this.dispatchEvent(new CustomEvent('refresh-reachability'))}
@@ -726,9 +735,9 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 
 		// Loaded, no refs — unreachable commit
 		if (state === 'loaded' && refs?.length === 0) {
-			return html`<gl-tooltip content="This commit is not reachable from any branch or tag">
+			return html`<gl-tooltip content=${l10n.t('This commit is not reachable from any branch or tag')}>
 				<span class="metadata-bar__branch-unreachable">
-					<code-icon icon="git-branch"></code-icon> Unreachable
+					<code-icon icon="git-branch"></code-icon> ${l10n.t('Unreachable')}
 				</span>
 			</gl-tooltip>`;
 		}
@@ -738,8 +747,8 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			return html`<gl-tooltip
 				content="${
 					this._reachabilityExpanded
-						? 'Hide All Branches & Tags Containing this Commit'
-						: 'Show All Branches & Tags Containing this Commit'
+						? l10n.t('Hide All Branches & Tags Containing this Commit')
+						: l10n.t('Show All Branches & Tags Containing this Commit')
 				}"
 			>
 				<button
@@ -752,16 +761,20 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 						.name=${primaryRef.name}
 						.icon=${primaryRef.refType === 'tag' ? 'tag' : undefined}
 					></gl-branch-name>
-					${extraCount > 0 ? html`<span class="metadata-bar__ref-count">+${extraCount}</span>` : nothing}
+					${
+						extraCount > 0
+							? html`<span class="metadata-bar__ref-count">+${getNumericFormat()(extraCount)}</span>`
+							: nothing
+					}
 				</button>
 			</gl-tooltip>`;
 		}
 
 		// Idle / no data — click to load
-		return html`<gl-tooltip content="Show All Branches &amp; Tags Containing this Commit">
+		return html`<gl-tooltip content=${l10n.t('Show All Branches & Tags Containing this Commit')}>
 			<button
 				class="metadata-bar__branch-indicator metadata-bar__branch-indicator--idle"
-				aria-label="Show all branches and tags"
+				aria-label=${l10n.t('Show all branches and tags')}
 				@click=${this.onBranchIndicatorClick}
 			>
 				<code-icon icon="git-branch"></code-icon>
@@ -802,8 +815,8 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 							<gl-copy-container
 								class="message-block__copy"
 								.content=${commit.message.replaceAll(messageHeadlineSplitterToken, '\n')}
-								copyLabel="Copy Message"
-								copiedLabel="Copied!"
+								copyLabel=${l10n.t('Copy Message')}
+								copiedLabel=${l10n.t('Copied!')}
 								placement="bottom"
 							>
 								<code-icon icon="copy"></code-icon>
@@ -815,8 +828,8 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 							<gl-copy-container
 								class="message-block__copy"
 								.content=${commit.message.replaceAll(messageHeadlineSplitterToken, '\n')}
-								copyLabel="Copy Message"
-								copiedLabel="Copied!"
+								copyLabel=${l10n.t('Copy Message')}
+								copiedLabel=${l10n.t('Copied!')}
 								placement="bottom"
 							>
 								<code-icon icon="copy"></code-icon>
@@ -871,7 +884,11 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 				<div class="alert alert--warning">
 					<code-icon icon="warning"></code-icon>
 					<p class="alert__content">
-						This ${this.isStash ? 'stash' : 'commit'} is not currently visible in the Commit Graph.
+						${
+							this.isStash
+								? l10n.t('This stash is not currently visible in the Commit Graph.')
+								: l10n.t('This commit is not currently visible in the Commit Graph.')
+						}
 					</p>
 				</div>
 			</div>
@@ -881,28 +898,36 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	private renderEmptyContent() {
 		return html`
 			<div class="section section--empty" id="empty">
-				<p>Rich details for commits and stashes are shown as you navigate:</p>
+				<p>${l10n.t('Rich details for commits and stashes are shown as you navigate:')}</p>
 
 				<ul class="bulleted">
-					<li>lines in the text editor</li>
+					<li>${l10n.t('lines in the text editor')}</li>
 					<li>
-						commits in the <a href="command:gitlens.showGraph">Commit Graph</a>,
-						<a href="command:gitlens.showTimelineView">Visual File History</a>, or
-						<a href="command:gitlens.showCommitsView">Commits view</a>
+						${localizedContent(l10n.t('commits in the {graph}, {timeline}, or {commitsView}'), {
+							graph: html`<a href="command:gitlens.showGraph">${l10n.t('Commit Graph')}</a>`,
+							timeline: html`<a href="command:gitlens.showTimelineView"
+								>${l10n.t('Visual File History')}</a
+							>`,
+							commitsView: html`<a href="command:gitlens.showCommitsView">${l10n.t('Commits view')}</a>`,
+						})}
 					</li>
-					<li>stashes in the <a href="command:gitlens.showStashesView">Stashes view</a></li>
+					<li>
+						${localizedContent(l10n.t('stashes in the {stashesView}'), {
+							stashesView: html`<a href="command:gitlens.showStashesView">${l10n.t('Stashes view')}</a>`,
+						})}
+					</li>
 				</ul>
 
-				<p>Alternatively, search for or choose a commit</p>
+				<p>${l10n.t('Alternatively, search for or choose a commit')}</p>
 
 				<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button full @click=${() => this.dispatchEvent(new CustomEvent('gl-pick-commit'))}
-							>Choose Commit...</gl-button
+							>${l10n.t('Choose Commit...')}</gl-button
 						>
 						<gl-button
 							density="compact"
-							tooltip="Search for Commit"
+							tooltip=${l10n.t('Search for Commit')}
 							@click=${() => this.dispatchEvent(new CustomEvent('gl-search-commit'))}
 							><code-icon icon="search"></code-icon
 						></gl-button>
@@ -1048,7 +1073,9 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			${when(autolinks.length, () =>
 				autolinks.map(autolink => {
 					let name = autolink.description ?? autolink.title;
-					name ??= `Custom Autolink ${autolink.prefix}${autolink.id}`;
+					name ??= l10n.t('Custom Autolink {identifier}', {
+						identifier: `${autolink.prefix}${autolink.id}`,
+					});
 					return html`<gl-autolink-chip
 						type="autolink"
 						name="${name}"
@@ -1109,7 +1136,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	private renderAutolinksLoading() {
 		return html`<span class="autolinks-loading" aria-busy="true">
 			<code-icon icon="loading" modifier="spin"></code-icon>
-			<span>Loading autolinks…</span>
+			<span>${l10n.t('Loading autolinks…')}</span>
 		</span>`;
 	}
 
@@ -1119,7 +1146,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		return html`<div slot="popover">
 			${
 				prs.length > 0
-					? html`<menu-label>Pull Requests</menu-label> ${prs.map(
+					? html`<menu-label>${l10n.t('Pull Requests')}</menu-label> ${prs.map(
 								pr =>
 									html`<menu-item href=${pr.url}>
 										<code-icon icon="git-pull-request"></code-icon> #${pr.id}${
@@ -1132,7 +1159,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			${
 				issues.length > 0
 					? html`${prs.length > 0 ? html`<menu-divider></menu-divider>` : nothing}
-							<menu-label>Issues</menu-label>
+							<menu-label>${l10n.t('Issues')}</menu-label>
 							${issues.map(
 								issue =>
 									html`<menu-item href=${issue.url}>
@@ -1146,7 +1173,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			${
 				autolinks.length > 0
 					? html`${prs.length > 0 || issues.length > 0 ? html`<menu-divider></menu-divider>` : nothing}
-							<menu-label>Autolinks</menu-label>
+							<menu-label>${l10n.t('Autolinks')}</menu-label>
 							${autolinks.map(
 								a =>
 									html`<menu-item href=${a.url}>
@@ -1172,10 +1199,10 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			</div>
 			${
 				this.reachability.partial
-					? html`<gl-tooltip content="Load All Branches &amp; Tags">
+					? html`<gl-tooltip content=${l10n.t('Load All Branches & Tags')}>
 							<button
 								class="reachability__load-all"
-								aria-label="Load all branches and tags"
+								aria-label=${l10n.t('Load all branches and tags')}
 								@click=${() => this.dispatchEvent(new CustomEvent('load-reachability'))}
 							>
 								<code-icon icon="sync"></code-icon></button
@@ -1193,10 +1220,15 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 
 		// Single ref - just show it
 		if (count === 1) {
-			const refTypeLabel = first.refType === 'branch' ? (first.remote ? 'remote branch' : 'branch') : 'tag';
+			const label =
+				first.refType === 'branch'
+					? first.remote
+						? l10n.t('Commit on 1 remote branch: {name}', { name: first.name })
+						: l10n.t('Commit on 1 branch: {name}', { name: first.name })
+					: l10n.t('Commit on 1 tag: {name}', { name: first.name });
 			return html`<gl-action-chip
 				icon="${icon}"
-				label="Commit on 1 ${refTypeLabel}: ${first.name}"
+				label=${label}
 				overlay="tooltip"
 				class="reachability-range-chip reachability-range-chip--${
 					first.refType === 'branch' ? (first.remote ? 'remote-branch' : 'local-branch') : 'tag'
@@ -1219,11 +1251,15 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 					<span class="reachability-range-chip__ellipsis">...</span>
 					<code-icon icon="${icon}"></code-icon>${last.name}
 				</span>
-				<span class="reachability-range-chip__count">+${count}</span></gl-action-chip
+				<span class="reachability-range-chip__count">+${getNumericFormat()(count)}</span></gl-action-chip
 			>
 			<div slot="content" class="reachability-popover">
 				<div class="reachability-popover__header">
-					Commit is on ${count} ${type === 'branch' ? 'branches' : 'tags'}
+					${
+						type === 'branch'
+							? l10n.t('Commit is on {count} branches', { count: getNumericFormat()(count) })
+							: l10n.t('Commit is on {count} tags', { count: getNumericFormat()(count) })
+					}
 				</div>
 				<div class="reachability-popover__list scrollable">
 					${refs.map(
@@ -1264,7 +1300,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		const actions = [
 			{
 				icon: 'go-to-file',
-				label: 'Open File',
+				label: l10n.t('Open File'),
 				action: 'file-open',
 			},
 		];
@@ -1275,14 +1311,14 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 
 		actions.push({
 			icon: 'git-compare',
-			label: 'Open Changes with Working File',
+			label: l10n.t('Open Changes with Working File'),
 			action: 'file-compare-working',
 		});
 
 		if (!this.isStash && file.submodule == null) {
 			actions.push({
 				icon: 'globe',
-				label: 'Open on Remote',
+				label: l10n.t('Open on Remote'),
 				action: 'file-open-on-remote',
 			});
 		}

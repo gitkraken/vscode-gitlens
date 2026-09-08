@@ -88,6 +88,11 @@ export interface GenerateFormatPreviewParams {
 	markdown?: boolean;
 }
 
+export interface GenerateFormatPreviewResult {
+	preview: string;
+	isError: boolean;
+}
+
 // ============================================================
 // View-Specific Sub-Service: Settings
 // ============================================================
@@ -118,11 +123,11 @@ export interface SettingsViewService {
 	/**
 	 * Render a format template against the canned sample commit/file using the real
 	 * `CommitFormatter`/`StatusFileFormatter`, so the preview matches what GitLens
-	 * will actually display. Returns an `Invalid format: …` message (with the parse
-	 * error) when the template fails to render. `params.markdown` renders hover/tooltip
+	 * will actually display. Returns the rendered preview and whether formatting failed.
+	 * `params.markdown` renders hover/tooltip
 	 * formats as markdown (via `CommitFormatter.fromTemplateAsync`) rather than plaintext.
 	 */
-	generateFormatPreview(params: GenerateFormatPreviewParams): Promise<string>;
+	generateFormatPreview(params: GenerateFormatPreviewParams): Promise<GenerateFormatPreviewResult>;
 }
 
 // ============================================================

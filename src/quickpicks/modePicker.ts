@@ -1,5 +1,5 @@
 import type { QuickPickItem } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { GlyphChars } from '../constants.js';
 import { configuration } from '../system/-webview/configuration.js';
 
@@ -19,7 +19,7 @@ export async function showModePicker(): Promise<ModesQuickPickItem | undefined> 
 	const items = modeKeys.map(key => {
 		const modeCfg = modes[key];
 		const item: ModesQuickPickItem = {
-			label: `${mode === key ? '$(check)\u00a0\u00a0' : '\u00a0\u00a0\u00a0\u00a0\u00a0'}${modeCfg.name} mode`,
+			label: `${mode === key ? '$(check)\u00a0\u00a0' : '\u00a0\u00a0\u00a0\u00a0\u00a0'}${l10n.t('{0} mode', modeCfg.name)}`,
 			description: modeCfg.description ? `\u00a0${GlyphChars.Dash}\u00a0 ${modeCfg.description}` : '',
 			key: key,
 		};
@@ -28,13 +28,13 @@ export async function showModePicker(): Promise<ModesQuickPickItem | undefined> 
 
 	if (mode && modes[mode] != null) {
 		items.unshift({
-			label: `Exit ${modes[mode].name} mode`,
+			label: l10n.t('Exit {0} mode', modes[mode].name),
 			key: undefined,
 		});
 	}
 
 	const pick = await window.showQuickPick(items, {
-		placeHolder: 'select a GitLens mode to enter',
+		placeHolder: l10n.t('Select a GitLens mode to enter'),
 	});
 
 	return pick;

@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { ProgressLocation } from 'vscode';
+import { l10n, ProgressLocation } from 'vscode';
 import type { GitCommit, GitStashCommit } from '@gitlens/git/models/commit.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
@@ -18,8 +18,8 @@ export interface ExplainStashCommandArgs extends ExplainBaseArgs {
 
 @command()
 export class ExplainStashCommand extends ExplainCommandBase {
-	pickerTitle = 'Explain Stash Changes';
-	repoPickerPlaceholder = 'Choose which repository to explain a stash from';
+	pickerTitle = l10n.t('Explain Stash Changes');
+	repoPickerPlaceholder = l10n.t('Choose which repository to explain a stash from');
 
 	constructor(container: Container) {
 		super(container, ['gitlens.ai.explainStash', 'gitlens.ai.explainStash:views']);
@@ -42,7 +42,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 
 		const svc = await this.getRepositoryService(editor, uri, args);
 		if (svc == null) {
-			void showGenericErrorMessage('Unable to find a repository');
+			void showGenericErrorMessage(l10n.t('Unable to find a repository'));
 			return;
 		}
 
@@ -52,7 +52,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 				const pick = await showStashPicker(
 					svc.stash?.getStash(),
 					this.pickerTitle,
-					'Choose a stash to explain',
+					l10n.t('Choose a stash to explain'),
 				);
 				if (pick?.ref == null) return;
 
@@ -61,7 +61,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 			} else {
 				commit = await svc.commits.getCommit(args.rev);
 				if (commit == null) {
-					void showGenericErrorMessage('Unable to find the specified stash commit');
+					void showGenericErrorMessage(l10n.t('Unable to find the specified stash commit'));
 					return;
 				}
 			}
@@ -74,7 +74,7 @@ export class ExplainStashCommand extends ExplainCommandBase {
 					context: { type: 'stash' },
 				},
 				{
-					progress: { location: ProgressLocation.Notification, title: 'Explaining stash...' },
+					progress: { location: ProgressLocation.Notification, title: l10n.t('Explaining stash...') },
 					prompt: args.prompt,
 				},
 			);
@@ -82,22 +82,22 @@ export class ExplainStashCommand extends ExplainCommandBase {
 			if (result === 'cancelled') return;
 
 			if (result == null) {
-				void showGenericErrorMessage('Unable to explain stash');
+				void showGenericErrorMessage(l10n.t('Unable to explain stash'));
 				return;
 			}
 
 			const { promise, model } = result;
 			this.openDocument(promise, `/explain/stash/${commit.ref}/${model.id}`, model, 'explain-stash', {
-				header: { title: 'Stash Summary', subtitle: commit.message || commit.ref },
+				header: { title: l10n.t('Stash Summary'), subtitle: commit.message || commit.ref },
 				command: {
-					label: 'Explain Stash Changes',
+					label: l10n.t('Explain Stash Changes'),
 					name: 'gitlens.ai.explainStash',
 					args: { repoPath: svc.path, rev: commit.ref, prompt: args.prompt, source: args.source },
 				},
 			});
 		} catch (ex) {
 			Logger.error(ex, 'ExplainStashCommand', 'execute');
-			void showGenericErrorMessage('Unable to explain stash');
+			void showGenericErrorMessage(l10n.t('Unable to explain stash'));
 		}
 	}
 }

@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import type { LineHistoryViewConfig } from '../config.js';
 import type { Container } from '../container.js';
@@ -9,13 +10,12 @@ import { ViewBase } from './viewBase.js';
 import type { CopyNodeCommandArgs } from './viewCommands.js';
 import { registerViewCommand } from './viewCommands.js';
 
-const pinnedSuffix = ' (pinned)';
-
 export class LineHistoryView extends ViewBase<'lineHistory', LineHistoryTrackerNode, LineHistoryViewConfig> {
 	protected readonly configKey = 'lineHistory';
+	private _unpinnedDescription: string | undefined;
 
 	constructor(container: Container) {
-		super(container, 'lineHistory', 'Line History', 'lineHistoryView');
+		super(container, 'lineHistory', l10n.t('Line History'), 'lineHistoryView');
 
 		void setContext('gitlens:views:lineHistory:editorFollowing', true);
 	}
@@ -87,12 +87,17 @@ export class LineHistoryView extends ViewBase<'lineHistory', LineHistoryTrackerN
 
 		this.root?.setEditorFollowing(enabled);
 
-		if (this.description?.endsWith(pinnedSuffix)) {
-			if (enabled) {
-				this.description = this.description.substring(0, this.description.length - pinnedSuffix.length);
+		if (enabled) {
+			if (this._unpinnedDescription != null) {
+				if (this.description === l10n.t('{0} (pinned)', this._unpinnedDescription)) {
+					this.description = this._unpinnedDescription;
+				}
+
+				this._unpinnedDescription = undefined;
 			}
-		} else if (!enabled && this.description != null) {
-			this.description += pinnedSuffix;
+		} else if (this.description != null && this._unpinnedDescription == null) {
+			this._unpinnedDescription = this.description;
+			this.description = l10n.t('{0} (pinned)', this.description);
 		}
 
 		if (enabled) {

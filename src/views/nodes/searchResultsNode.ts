@@ -1,9 +1,8 @@
 import type { TreeItem } from 'vscode';
-import { ThemeIcon } from 'vscode';
+import { l10n, ThemeIcon } from 'vscode';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { md5 } from '@gitlens/utils/crypto.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import { executeGitCommand } from '../../git/actions.js';
 import type { CommitsQueryResults } from '../../git/queryResults.js';
 import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/utils/-webview/search.utils.js';
@@ -21,11 +20,6 @@ interface SearchQueryResults {
 
 export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', SearchAndCompareView> {
 	private _search: SearchQuery;
-	private _labels: {
-		label: string;
-		queryLabel: string | { label: string; resultsType?: { singular: string; plural: string } };
-		resultsType?: { singular: string; plural: string };
-	};
 	private _storedAt: number;
 
 	constructor(
@@ -33,11 +27,6 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 		parent: ViewNode,
 		repoPath: string,
 		search: SearchQuery,
-		labels: {
-			label: string;
-			queryLabel: string | { label: string; resultsType?: { singular: string; plural: string } };
-			resultsType?: { singular: string; plural: string };
-		},
 		searchQueryOrLog?:
 			| ((limit: number | undefined) => Promise<CommitsQueryResults>)
 			| Promise<GitLog | undefined>
@@ -45,7 +34,7 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 			| undefined,
 		storedAt: number = 0,
 	) {
-		const query = createSearchQuery(view, repoPath, search, labels, searchQueryOrLog);
+		const query = createSearchQuery(view, repoPath, search, searchQueryOrLog);
 		const deferred = searchQueryOrLog == null;
 
 		super(
@@ -53,13 +42,12 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 			view,
 			parent,
 			repoPath,
-			labels.label,
+			l10n.t('Search results for {0}', search.query),
 			{ query: query, deferred: deferred },
 			{ expand: false },
 		);
 
 		this._search = search;
-		this._labels = labels;
 		this._storedAt = storedAt;
 
 		this.updateContext({ searchId: getSearchQueryComparisonKey(this._search) });
@@ -94,6 +82,9 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 
 	override async getTreeItem(): Promise<TreeItem> {
 		const item = await super.getTreeItem();
+		if (this._results.deferred) {
+			item.label = l10n.t('Search results for {0}', this.search.query);
+		}
 		item.id = this.id;
 		item.contextValue = ContextValues.SearchResults;
 		if (this.view.container.git.repositoryCount > 1) {
@@ -107,16 +98,6 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 
 	async edit(search?: {
 		pattern: SearchQuery;
-		labels: {
-			label: string;
-			queryLabel:
-				| string
-				| {
-						label: string;
-						resultsType?: { singular: string; plural: string };
-				  };
-			resultsType?: { singular: string; plural: string };
-		};
 		log: Promise<GitLog | undefined> | GitLog | undefined;
 	}): Promise<void> {
 		if (search == null) {
@@ -133,8 +114,7 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 		const currentId = this.getStorageId();
 
 		this._search = search.pattern;
-		this._labels = search.labels;
-		this._results.query = createSearchQuery(this.view, this.repoPath, this._search, this._labels);
+		this._results.query = createSearchQuery(this.view, this.repoPath, this._search);
 		this._results.deferred = true;
 
 		// Remove the existing stored item and save a new one
@@ -164,7 +144,6 @@ export class SearchResultsNode extends ResultsCommitsNodeBase<'search-results', 
 				type: 'search',
 				timestamp: this._storedAt,
 				path: this.repoPath,
-				labels: this._labels,
 				search: getStoredSearchQuery(this.search),
 			},
 			silent,
@@ -176,11 +155,6 @@ function createSearchQuery(
 	view: SearchAndCompareView,
 	repoPath: string,
 	search: SearchQuery,
-	labels: {
-		label: string;
-		queryLabel: string | { label: string; resultsType?: { singular: string; plural: string } };
-		resultsType?: { singular: string; plural: string };
-	},
 	searchQueryOrLog?:
 		| ((limit: number | undefined) => Promise<CommitsQueryResults>)
 		| Promise<GitLog | undefined>
@@ -206,17 +180,7 @@ function createSearchQuery(
 		}
 
 		const count = log?.count ?? 0;
-		const queryLabel = labels.queryLabel;
-		const resultsType =
-			typeof queryLabel === 'string'
-				? { singular: 'search result', plural: 'search results' }
-				: (queryLabel.resultsType ?? { singular: 'search result', plural: 'search results' });
-
-		const label = `${pluralize(resultsType.singular, count, {
-			format: c => (log?.hasMore ? `${c}+` : String(c)),
-			plural: resultsType.plural,
-			zero: 'No',
-		})} ${typeof queryLabel === 'string' ? queryLabel : queryLabel.label}`;
+		const label = getSearchResultsLabel(count, log?.hasMore ?? false, search.query);
 
 		const results: Mutable<SearchQueryResults> = {
 			label: label,
@@ -228,15 +192,20 @@ function createSearchQuery(
 			results.more = async (limit: number | undefined) => {
 				results.log = (await results.log?.more?.(limit)) ?? results.log;
 				const newCount = results.log?.count ?? 0;
-				results.label = `${pluralize(resultsType.singular, newCount, {
-					format: c => (results.log?.hasMore ? `${c}+` : String(c)),
-					plural: resultsType.plural,
-					zero: 'No',
-				})} ${typeof queryLabel === 'string' ? queryLabel : queryLabel.label}`;
+				results.label = getSearchResultsLabel(newCount, results.log?.hasMore ?? false, search.query);
 				results.hasMore = results.log?.hasMore ?? true;
 			};
 		}
 
 		return results;
 	};
+}
+
+function getSearchResultsLabel(count: number, hasMore: boolean, query: string): string {
+	if (count === 0) return l10n.t('No search results for {0}', query);
+
+	const formattedCount = hasMore ? `${count}+` : String(count);
+	return count === 1
+		? l10n.t('{0} search result for {1}', formattedCount, query)
+		: l10n.t('{0} search results for {1}', formattedCount, query);
 }

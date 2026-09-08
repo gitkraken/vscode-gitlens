@@ -1,4 +1,5 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { l10n } from 'vscode';
 import type { AIChatMessage } from '@gitlens/ai/models/provider.js';
 import { truncatePromptWithChangelog } from '@gitlens/ai/utils/truncation.utils.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
@@ -37,7 +38,9 @@ export async function generateChangelog(
 		{
 			getMessages: async (model, reporting, cancellation, maxInputTokens, retries) => {
 				const { changes: data } = await changes.value;
-				if (!data.length) throw new AINoRequestDataError('No changes to generate a changelog from.');
+				if (!data.length) {
+					throw new AINoRequestDataError(l10n.t('No changes to generate a changelog from.'));
+				}
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
 				const { prompt } = await service.getPrompt(
@@ -57,7 +60,7 @@ export async function generateChangelog(
 				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
 				return messages;
 			},
-			getProgressTitle: m => `Generating changelog with ${m.name}...`,
+			getProgressTitle: m => l10n.t('Generating changelog with {0}...', m.name),
 			getTelemetryInfo: m => ({
 				key: 'ai/generate',
 				data: {

@@ -36,7 +36,8 @@
 		"@gitkraken/provider-apis": "catalog:",
 		"@gitlens/git": "workspace:*",
 		"@gitlens/git-github": "workspace:*",
-		"@gitlens/utils": "workspace:*"
+		"@gitlens/utils": "workspace:*",
+		"@vscode/l10n": "catalog:"
 	},
 	"devDependencies": {
 		"@types/mocha": "catalog:",

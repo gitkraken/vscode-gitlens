@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -5,6 +6,7 @@ import { keyed } from 'lit/directives/keyed.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { scrollableBase, subPanelEnterStyles } from '@gitlens/components/components/styles/lit/base.css.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
@@ -15,7 +17,7 @@ import {
 } from '@gitlens/git/utils/conflictResolution.utils.js';
 import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
@@ -65,21 +67,21 @@ const autoRebaseRunningPhases = new Set<AutoRebaseRunPhase>(['starting', 'resolv
 
 /** Short badge label + a distinct icon per conflict kind for the "needs your input" rows. The badge
  *  stays terse — the one-line explanation is carried by the row's message
- *  (`getConflictKindLabel(...).description`, computed host-side). A per-kind icon replaces a uniform
+ *  (`getConflictKindLabel(...).reason`, computed host-side). A per-kind icon replaces a uniform
  *  warning glyph so the list is scannable; the amber tone + section already signal "needs you". */
 const conflictKindDisplay: Record<ConflictKind, { label: string; icon: string }> = {
-	text: { label: 'Text', icon: 'diff' },
-	binary: { label: 'Binary', icon: 'file-binary' },
-	symlink: { label: 'Symlink', icon: 'file-symlink-file' },
-	submodule: { label: 'Submodule', icon: 'repo' },
-	'mode-only': { label: 'File mode', icon: 'settings-gear' },
-	'add-add': { label: 'Both added', icon: 'diff-added' },
-	'delete-modify': { label: 'Modified & deleted', icon: 'diff-modified' },
-	'both-deleted': { label: 'Both deleted', icon: 'trash' },
-	'rename-rename': { label: 'Both renamed', icon: 'arrow-swap' },
-	'rename-delete': { label: 'Renamed & deleted', icon: 'diff-renamed' },
-	'rename-modify': { label: 'Renamed & modified', icon: 'diff-renamed' },
-	unknown: { label: 'Conflict', icon: 'warning' },
+	text: { label: l10n.t('Text'), icon: 'diff' },
+	binary: { label: l10n.t('Binary'), icon: 'file-binary' },
+	symlink: { label: l10n.t('Symlink'), icon: 'file-symlink-file' },
+	submodule: { label: l10n.t('Submodule'), icon: 'repo' },
+	'mode-only': { label: l10n.t('File mode'), icon: 'settings-gear' },
+	'add-add': { label: l10n.t('Both added'), icon: 'diff-added' },
+	'delete-modify': { label: l10n.t('Modified & deleted'), icon: 'diff-modified' },
+	'both-deleted': { label: l10n.t('Both deleted'), icon: 'trash' },
+	'rename-rename': { label: l10n.t('Both renamed'), icon: 'arrow-swap' },
+	'rename-delete': { label: l10n.t('Renamed & deleted'), icon: 'diff-renamed' },
+	'rename-modify': { label: l10n.t('Renamed & modified'), icon: 'diff-renamed' },
+	unknown: { label: l10n.t('Conflict'), icon: 'warning' },
 };
 
 /** Badge display for a still-conflicted (skipped/errored) row; falls back to a generic warning when
@@ -87,11 +89,11 @@ const conflictKindDisplay: Record<ConflictKind, { label: string; icon: string }>
  *  one-sided paths (AU/UA), so only a true AA is "Both added" — AU/UA are labelled by their side. */
 function kindDisplay(kind: ConflictKind | undefined, status?: GitFileConflictStatus): { label: string; icon: string } {
 	if (kind === 'add-add') {
-		if (status === 'AU') return { label: 'Added (current)', icon: 'diff-added' };
-		if (status === 'UA') return { label: 'Added (incoming)', icon: 'diff-added' };
-		return { label: 'Both added', icon: 'diff-added' };
+		if (status === 'AU') return { label: l10n.t('Added (current)'), icon: 'diff-added' };
+		if (status === 'UA') return { label: l10n.t('Added (incoming)'), icon: 'diff-added' };
+		return { label: l10n.t('Both added'), icon: 'diff-added' };
 	}
-	return kind != null ? conflictKindDisplay[kind] : { label: 'Needs review', icon: 'warning' };
+	return kind != null ? conflictKindDisplay[kind] : { label: l10n.t('Needs review'), icon: 'warning' };
 }
 
 /** Conflicted files across a run's recorded steps — the unit users count, where a step is one rebase
@@ -110,14 +112,9 @@ function describeEmptySkipped(steps: readonly AutoRebaseSummaryStep[]): string |
 	const count = steps.reduce((n, s) => (s.kind === 'empty-skipped' ? n + 1 : n), 0);
 	if (count === 0) return undefined;
 
-	return `${pluralize('commit', count)} became empty and ${count === 1 ? 'was' : 'were'} skipped.`;
-}
-
-/** Drop the trailing action hint ("… — choose a side to keep") from a conflict description — the row's
- *  buttons already say what to do. */
-function conflictWhat(message: string): string {
-	const i = message.indexOf(' — ');
-	return i === -1 ? message : message.slice(0, i);
+	return count === 1
+		? l10n.t('{count} commit became empty and was skipped.', { count: getNumericFormat()(count) })
+		: l10n.t('{count} commits became empty and were skipped.', { count: getNumericFormat()(count) });
 }
 
 /**
@@ -777,7 +774,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 	}
 
 	override render(): unknown {
-		return html`<div class="resolve-panel" role="region" aria-label="Resolve conflicts">
+		return html`<div class="resolve-panel" role="region" aria-label=${l10n.t('Resolve conflicts')}>
 			${this.renderContent()}
 		</div>`;
 	}
@@ -804,11 +801,11 @@ export class GlDetailsResolveModePanel extends LitElement {
 			case 'loading':
 				return this.renderLoading();
 			case 'applying':
-				return renderLoadingState('Applying resolutions…');
+				return renderLoadingState(l10n.t('Applying resolutions…'));
 			case 'error':
 				return renderErrorState(
 					this.errorMessage,
-					'An error occurred while resolving conflicts.',
+					l10n.t('An error occurred while resolving conflicts.'),
 					'resolve-error-retry',
 					'resolve-error-back',
 				);
@@ -826,13 +823,13 @@ export class GlDetailsResolveModePanel extends LitElement {
 			<div class="panel-loading-stage">
 				<gl-converging-loading-animation class="panel-loading-stage__anim"></gl-converging-loading-animation>
 				<div class="panel-loading-stage__foreground">
-					${renderLoadingState(this.progressMessage ?? 'Resolving conflicts…')}
+					${renderLoadingState(this.progressMessage ?? l10n.t('Resolving conflicts…'))}
 					<gl-button
 						class="resolve-cancel"
 						appearance="secondary"
 						@click=${() => this.emit('resolve-cancel')}
 					>
-						Cancel
+						${l10n.t('Cancel')}
 					</gl-button>
 				</div>
 			</div>
@@ -862,14 +859,24 @@ export class GlDetailsResolveModePanel extends LitElement {
 							? html`<div class="resolve-progress">
 									<span class="resolve-progress__text">
 										<span class="resolve-progress__done"
-											>Step ${run.step.current} of ${run.step.total}</span
+											>${l10n.t('Step {current} of {total}', {
+												current: getNumericFormat()(run.step.current),
+												total: getNumericFormat()(run.step.total),
+											})}</span
 										>
 										${
 											resolvedFiles > 0
 												? html`<span class="resolve-progress__sep">·</span
 														><span
-															>${pluralize('conflicted file', resolvedFiles)}
-															resolved</span
+															>${
+																resolvedFiles === 1
+																	? l10n.t('{count} conflicted file resolved', {
+																			count: getNumericFormat()(resolvedFiles),
+																		})
+																	: l10n.t('{count} conflicted files resolved', {
+																			count: getNumericFormat()(resolvedFiles),
+																		})
+															}</span
 														>`
 												: nothing
 										}
@@ -891,14 +898,14 @@ export class GlDetailsResolveModePanel extends LitElement {
 						${this.renderAutoRebaseSteps(run)}
 						<div class="auto-rebase__activity">
 							<code-icon icon="loading" modifier="spin"></code-icon>
-							<span>${run.message ?? 'Rebasing…'}</span>
+							<span>${run.message ?? l10n.t('Rebasing…')}</span>
 						</div>
 					</div>
 				</div>
 				<div class="auto-rebase__actions">
-					<gl-tooltip content="Abort the rebase and restore the branch to its pre-rebase state">
+					<gl-tooltip content=${l10n.t('Abort the rebase and restore the branch to its pre-rebase state')}>
 						<gl-button appearance="secondary" @click=${() => this.emit('auto-rebase-cancel')}
-							>Cancel Rebase</gl-button
+							>${l10n.t('Cancel Rebase')}</gl-button
 						>
 					</gl-tooltip>
 				</div>
@@ -918,15 +925,23 @@ export class GlDetailsResolveModePanel extends LitElement {
 		// Like the cancelled message below, only reachable for a render or two before the mode exit
 		// lands (see `auto-rebase-exit`).
 		const noStepsMessage = run.unchanged
-			? `Rebase completed — ${run.branch ?? 'the branch'} had nothing to rewrite.`
-			: 'Rebase completed — no conflicts.';
+			? run.branch
+				? l10n.t('Rebase completed — {branch} had nothing to rewrite.', { branch: run.branch })
+				: l10n.t('Rebase completed — the branch had nothing to rewrite.')
+			: l10n.t('Rebase completed — no conflicts.');
 		const outcome =
 			run.phase === 'completed'
 				? [
 						resolvedByAi > 0
-							? `Rebase completed — ${pluralize('conflicted file', resolvedByAi)} resolved with AI.`
+							? resolvedByAi === 1
+								? l10n.t('Rebase completed — {count} conflicted file resolved with AI.', {
+										count: getNumericFormat()(resolvedByAi),
+									})
+								: l10n.t('Rebase completed — {count} conflicted files resolved with AI.', {
+										count: getNumericFormat()(resolvedByAi),
+									})
 							: run.steps.length > 0
-								? 'Rebase completed — you resolved every conflict.'
+								? l10n.t('Rebase completed — you resolved every conflict.')
 								: noStepsMessage,
 						emptied,
 					]
@@ -936,14 +951,18 @@ export class GlDetailsResolveModePanel extends LitElement {
 					? // A cancelled run leaves the mode (see `auto-rebase-exit`), so this is only reachable for
 						// the render or two before that lands — kept accurate rather than removed so a missed
 						// exit degrades to a correct message instead of an empty panel.
-						`Rebase cancelled — ${run.branch ?? 'the branch'} is unchanged.`
+						run.branch
+						? l10n.t('Rebase cancelled — {branch} is unchanged.', { branch: run.branch })
+						: l10n.t('Rebase cancelled — the branch is unchanged.')
 					: run.phase === 'undone'
-						? `Rebase undone — ${run.branch ?? 'the branch'} was restored.`
+						? run.branch
+							? l10n.t('Rebase undone — {branch} was restored.', { branch: run.branch })
+							: l10n.t('Rebase undone — the branch was restored.')
 						: run.phase === 'failed'
-							? 'Rebase failed.'
+							? l10n.t('Rebase failed.')
 							: // An escalation's own message says why it stopped — notably that a `stopped` reason was
 								// the user's own doing, not a problem the rebase ran into.
-								(run.escalation?.message ?? 'Rebase paused — it needs your attention.');
+								(run.escalation?.message ?? l10n.t('Rebase paused — it needs your attention.'));
 
 		return html`
 			<div class="auto-rebase">
@@ -961,15 +980,19 @@ export class GlDetailsResolveModePanel extends LitElement {
 					run.phase === 'escalated'
 						? html`<div class="auto-rebase__actions">
 								<gl-tooltip
-									content="Let AI continue the rebase from here — resolving any remaining conflicts and finishing the remaining steps"
+									content=${l10n.t(
+										'Let AI continue the rebase from here — resolving any remaining conflicts and finishing the remaining steps',
+									)}
 								>
 									<gl-button @click=${() => this.emit('auto-rebase-resume')}
-										>Resume with AI</gl-button
+										>${l10n.t('Resume with AI')}</gl-button
 									>
 								</gl-tooltip>
-								<gl-tooltip content="Abort the rebase and restore the branch to its pre-rebase state">
+								<gl-tooltip
+									content=${l10n.t('Abort the rebase and restore the branch to its pre-rebase state')}
+								>
 									<gl-button appearance="secondary" @click=${() => this.emit('auto-rebase-cancel')}
-										>Abort Rebase</gl-button
+										>${l10n.t('Abort Rebase')}</gl-button
 									>
 								</gl-tooltip>
 							</div>`
@@ -990,11 +1013,14 @@ export class GlDetailsResolveModePanel extends LitElement {
 		return html`<div class="auto-rebase__context">
 			<div class="auto-rebase__header">
 				<code-icon icon="gl-merge"></code-icon>
-				<span class="auto-rebase__title">Auto-Rebase</span>
+				<span class="auto-rebase__title">${l10n.t('Auto-Rebase')}</span>
 				${
 					run.step != null
 						? html`<span class="auto-rebase__onto"
-								>paused at step ${run.step.current} of ${run.step.total}</span
+								>${l10n.t('paused at step {current} of {total}', {
+									current: getNumericFormat()(run.step.current),
+									total: getNumericFormat()(run.step.total),
+								})}</span
 							>`
 						: nothing
 				}
@@ -1010,13 +1036,20 @@ export class GlDetailsResolveModePanel extends LitElement {
 	private renderAutoRebaseHeader(run: AutoRebaseRunUpdate): unknown {
 		return html`<div class="auto-rebase__header">
 			<code-icon icon="gl-merge"></code-icon>
-			<span class="auto-rebase__title">Auto-Rebase</span>
-			${run.branch ? html`<gl-branch-name .name=${run.branch}></gl-branch-name>` : nothing}
+			<span class="auto-rebase__title">${l10n.t('Auto-Rebase')}</span>
 			${
-				run.upstream
-					? html`<span class="auto-rebase__onto">onto</span
-							><gl-branch-name .name=${run.upstream}></gl-branch-name>`
-					: nothing
+				run.branch && run.upstream
+					? localizedContent(l10n.t('{branch} onto {upstream}'), {
+							branch: html`<gl-branch-name .name=${run.branch}></gl-branch-name>`,
+							upstream: html`<gl-branch-name .name=${run.upstream}></gl-branch-name>`,
+						})
+					: run.branch
+						? html`<gl-branch-name .name=${run.branch}></gl-branch-name>`
+						: run.upstream
+							? localizedContent(l10n.t('onto {upstream}'), {
+									upstream: html`<gl-branch-name .name=${run.upstream}></gl-branch-name>`,
+								})
+							: nothing
 			}
 		</div>`;
 	}
@@ -1035,10 +1068,19 @@ export class GlDetailsResolveModePanel extends LitElement {
 		const key = `auto-rebase-step-${step.step}`;
 		const label =
 			step.kind === 'empty-skipped'
-				? `Step ${step.step} of ${step.totalSteps} — became empty, skipped`
+				? l10n.t('Step {current} of {total} — became empty, skipped', {
+						current: getNumericFormat()(step.step),
+						total: getNumericFormat()(step.totalSteps),
+					})
 				: step.kind === 'manual'
-					? `Step ${step.step} of ${step.totalSteps} — resolved by you`
-					: `Step ${step.step} of ${step.totalSteps}`;
+					? l10n.t('Step {current} of {total} — resolved by you', {
+							current: getNumericFormat()(step.step),
+							total: getNumericFormat()(step.totalSteps),
+						})
+					: l10n.t('Step {current} of {total}', {
+							current: getNumericFormat()(step.step),
+							total: getNumericFormat()(step.totalSteps),
+						});
 
 		return this.renderSection(
 			key,
@@ -1082,7 +1124,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 		return html`
 			${this.renderAutoRebaseContext()}
 			<p class="resolve-intro">
-				Choose the conflicts to resolve with AI, then review each resolution before applying.
+				${l10n.t('Choose the conflicts to resolve with AI, then review each resolution before applying.')}
 			</p>
 			<div class="resolve-tree">
 				<webview-pane-group flexible>
@@ -1098,9 +1140,8 @@ export class GlDetailsResolveModePanel extends LitElement {
 						.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
 						.contextRevision=${this.repoPath}
 						selection-action="file-open"
-						check-verb="Resolve"
-						uncheck-verb="Skip"
-						empty-text="No conflicted files"
+						check-action="resolve"
+						empty-text=${l10n.t('No conflicted files')}
 						@file-checked=${this.onFileChecked}
 						@gl-check-all=${this.onToggleCheckAll}
 						@file-open=${(e: CustomEvent<FileChangeListItemDetail>) =>
@@ -1113,12 +1154,12 @@ export class GlDetailsResolveModePanel extends LitElement {
 					multiline
 					active
 					rows="2"
-					button-label="Resolve"
-					busy-label="Resolving conflicts…"
+					button-label=${l10n.t('Resolve')}
+					busy-label=${l10n.t('Resolving conflicts…')}
 					event-name="resolve-run"
-					placeholder='Optional guidance — e.g. "prefer incoming for generated files"'
+					placeholder=${l10n.t('Optional guidance — e.g. "prefer incoming for generated files"')}
 					?disabled=${checkedCount === 0}
-					disabled-reason="Select Conflicts to Resolve"
+					disabled-reason=${l10n.t('Select Conflicts to Resolve')}
 					.value=${this.lastPrompt}
 				>
 					<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
@@ -1212,7 +1253,12 @@ export class GlDetailsResolveModePanel extends LitElement {
 		const applicable = resolutions.filter(r => r.strategy !== 'skipped').length;
 		// Always show the count when there's something to apply ("Apply 1 Resolution" / "Apply 3
 		// Resolutions"); the disabled/none case reads the plain noun so it never says "0" or "all".
-		const applyLabel = applicable > 0 ? `Apply ${pluralize('Resolution', applicable)}` : 'Apply Resolutions';
+		const applyLabel =
+			applicable === 0
+				? l10n.t('Apply Resolutions')
+				: applicable === 1
+					? l10n.t('Apply {count} Resolution', { count: getNumericFormat()(applicable) })
+					: l10n.t('Apply {count} Resolutions', { count: getNumericFormat()(applicable) });
 
 		const resolvedCount = resolutions.length;
 		const needCount = skipped.length + errors.length;
@@ -1231,12 +1277,19 @@ export class GlDetailsResolveModePanel extends LitElement {
 				total > 0
 					? html`<div class="resolve-progress">
 							<span class="resolve-progress__text">
-								<span class="resolve-progress__done">${resolvedCount} of ${total} resolved</span>
+								<span class="resolve-progress__done"
+									>${l10n.t('{resolved} of {total} resolved', {
+										resolved: getNumericFormat()(resolvedCount),
+										total: getNumericFormat()(total),
+									})}</span
+								>
 								${
 									needCount > 0
 										? html`<span class="resolve-progress__sep">·</span
 												><span class="resolve-progress__need"
-													>${needCount} need your input</span
+													>${l10n.t('{count} need your input', {
+														count: getNumericFormat()(needCount),
+													})}</span
 												>`
 										: nothing
 								}
@@ -1259,7 +1312,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 					resolvedCount > 0
 						? this.renderSection(
 								'resolved',
-								'Resolved',
+								l10n.t('Resolved'),
 								resolvedCount,
 								'pass',
 								repeat(
@@ -1275,7 +1328,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 					needCount > 0
 						? this.renderSection(
 								'needs',
-								'Needs your input',
+								l10n.t('Needs your input'),
 								needCount,
 								'warning',
 								this.renderNeedsBody(skipped, errors),
@@ -1290,7 +1343,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 					?checked=${this._refineMode}
 					@gl-change-value=${this.handleToggleRefineMode}
 				>
-					<code-icon icon="wand"></code-icon> Refine Resolutions
+					<code-icon icon="wand"></code-icon> ${l10n.t('Refine Resolutions')}
 				</gl-checkbox>
 				${
 					this._refineMode
@@ -1301,10 +1354,10 @@ export class GlDetailsResolveModePanel extends LitElement {
 									class="resolve-refine-input"
 									multiline
 									rows="2"
-									button-label="Refine Resolutions"
-									busy-label="Re-resolving…"
+									button-label=${l10n.t('Refine Resolutions')}
+									busy-label=${l10n.t('Re-resolving…')}
 									event-name="resolve-refine"
-									placeholder='Refine all — e.g. "prefer incoming for generated files"'
+									placeholder=${l10n.t('Refine all — e.g. "prefer incoming for generated files"')}
 									.recall=${this.lastPrompt}
 									.value=${this.refineDraft}
 								>
@@ -1313,7 +1366,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 										slot="actions"
 										appearance="secondary"
 										@click=${() => this.emit('resolve-discard')}
-										>Discard</gl-button
+										>${l10n.t('Discard')}</gl-button
 									>
 								</gl-ai-input>`,
 							)
@@ -1323,8 +1376,8 @@ export class GlDetailsResolveModePanel extends LitElement {
 										? html`<gl-tooltip
 												content=${
 													canResume
-														? 'Apply these resolutions and let AI finish the rebase'
-														: 'Resolve the remaining conflicts before resuming'
+														? l10n.t('Apply these resolutions and let AI finish the rebase')
+														: l10n.t('Resolve the remaining conflicts before resuming')
 												}
 											>
 												<gl-button
@@ -1332,7 +1385,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 													full
 													?disabled=${!canResume}
 													@click=${() => this.emit('resolve-apply-and-resume')}
-													>Apply &amp; Resume with AI</gl-button
+													>${l10n.t('Apply & Resume with AI')}</gl-button
 												>
 											</gl-tooltip>`
 										: nothing
@@ -1349,13 +1402,13 @@ export class GlDetailsResolveModePanel extends LitElement {
 									// Explain the disabled state via an external tooltip (real `?disabled` blocks the
 									// button's own hover), mirroring the summary sheet's Undo button pattern.
 									return applicable === 0
-										? html`<gl-tooltip content="No resolutions ready to apply"
+										? html`<gl-tooltip content=${l10n.t('No resolutions ready to apply')}
 												>${applyButton}</gl-tooltip
 											>`
 										: applyButton;
 								})()}
 								<gl-button appearance="secondary" @click=${() => this.emit('resolve-discard')}
-									>Discard</gl-button
+									>${l10n.t('Discard')}</gl-button
 								>
 							</div>`
 				}
@@ -1387,7 +1440,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				<code-icon class="resolve-section__chevron" icon="chevron-down"></code-icon>
 				<code-icon class="resolve-section__status" icon=${icon}></code-icon>
 				<span class="resolve-section__label">${label}</span>
-				<span class="resolve-section__count">${count}</span>
+				<span class="resolve-section__count">${getNumericFormat()(count)}</span>
 			</button>
 			${
 				expanded
@@ -1435,7 +1488,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 			<div class="resolve-file__head">
 				<span
 					class="resolve-file__badge ${display.warn ? 'resolve-file__badge--warn' : ''}"
-					title="Resolution strategy"
+					title=${l10n.t('Resolution strategy')}
 				>
 					<code-icon icon=${display.icon} size="11"></code-icon
 					><span class="resolve-file__badge-text">${display.label}</span>
@@ -1447,22 +1500,26 @@ export class GlDetailsResolveModePanel extends LitElement {
 						? html`<gl-button
 								appearance="toolbar"
 								class="resolve-file__view"
-								aria-label="View resolved changes for ${r.filePath}"
+								aria-label=${l10n.t('View resolved changes for {file}', { file: r.filePath })}
 								@click=${() => this.emit('resolve-view-diff', { filePath: r.filePath })}
 							>
 								<code-icon icon="diff"></code-icon
-								><span class="resolve-file__view-label">View Changes</span>
+								><span class="resolve-file__view-label">${l10n.t('View Changes')}</span>
 							</gl-button>`
 						: nothing
 				}
 				${
 					readonly
 						? nothing
-						: html`<gl-tooltip content=${retrying ? 'Re-resolving…' : 'Retry with feedback'}>
+						: html`<gl-tooltip
+								content=${retrying ? l10n.t('Re-resolving…') : l10n.t('Retry with feedback')}
+							>
 								<gl-button
 									appearance="toolbar"
 									aria-label=${
-										retrying ? `Re-resolving ${r.filePath}…` : `Retry ${r.filePath} with feedback`
+										retrying
+											? l10n.t('Re-resolving {file}…', { file: r.filePath })
+											: l10n.t('Retry {file} with feedback', { file: r.filePath })
 									}
 									aria-expanded=${expanded}
 									?disabled=${retrying}
@@ -1491,10 +1548,10 @@ export class GlDetailsResolveModePanel extends LitElement {
 							active
 							floating-footer
 							rows="1"
-							button-label="Retry"
-							busy-label="Re-resolving…"
+							button-label=${l10n.t('Retry')}
+							busy-label=${l10n.t('Re-resolving…')}
 							event-name="resolve-row-retry"
-							placeholder='What was wrong? e.g. "keep the new import, drop the old one"'
+							placeholder=${l10n.t('What was wrong? e.g. "keep the new import, drop the old one"')}
 							.busy=${retrying}
 							@resolve-row-retry=${(e: CustomEvent<{ prompt?: string }>) => this.onRowRetry(r.filePath, e)}
 						>
@@ -1573,13 +1630,15 @@ export class GlDetailsResolveModePanel extends LitElement {
 		const ordered = group.toSorted((a, b) => (a.canStageCurrent ? 0 : 1) - (b.canStageCurrent ? 0 : 1));
 		return html`<li class="resolve-file">
 			<div class="resolve-file__head">
-				<span class="resolve-file__badge resolve-file__badge--warn" title="Needs manual resolution">
+				<span class="resolve-file__badge resolve-file__badge--warn" title=${l10n.t('Needs manual resolution')}>
 					<code-icon icon="arrow-swap" size="11"></code-icon
-					><span class="resolve-file__badge-text">Both renamed</span>
+					><span class="resolve-file__badge-text">${l10n.t('Both renamed')}</span>
 				</span>
 				<span class="resolve-file__path">${renameOf}</span>
 			</div>
-			<p class="resolve-file__reasoning">“${renameOf}” was renamed differently on each side</p>
+			<p class="resolve-file__reasoning">
+				${l10n.t('“{file}” was renamed differently on each side', { file: renameOf })}
+			</p>
 			<div class="resolve-file__sides">${ordered.map(entry => this.renderRenameSide(entry))}</div>
 		</li>`;
 	}
@@ -1591,13 +1650,13 @@ export class GlDetailsResolveModePanel extends LitElement {
 		const staging = this.stagingFiles?.has(entry.filePath) ?? false;
 		const side: ConflictSide = entry.canStageCurrent ? 'current' : 'incoming';
 		return html`<div class="resolve-file__side">
-			<span class="resolve-file__side-tag">${side === 'current' ? 'Current' : 'Incoming'}</span>
+			<span class="resolve-file__side-tag">${side === 'current' ? l10n.t('Current') : l10n.t('Incoming')}</span>
 			<span class="resolve-file__side-path">${entry.filePath}</span>
 			${status != null ? this.renderTakeSideButton(entry.filePath, side, status, staging) : nothing}
-			<gl-tooltip content="Open in the merge editor">
+			<gl-tooltip content=${l10n.t('Open in the merge editor')}>
 				<gl-button
 					appearance="toolbar"
-					aria-label="Open ${entry.filePath} in the merge editor"
+					aria-label=${l10n.t('Open {file} in the merge editor', { file: entry.filePath })}
 					@click=${() => this.emit('resolve-open-file', { filePath: entry.filePath })}
 				>
 					<code-icon icon="go-to-file"></code-icon>
@@ -1612,10 +1671,10 @@ export class GlDetailsResolveModePanel extends LitElement {
 		const badge = kindDisplay(s.kind, s.conflictStatus);
 		// Keep the message interpolation flush inside the <p> — `.resolve-file__reasoning` is `pre-wrap`,
 		// so any newline/indent around it would render as literal blank space before the text.
-		const message = s.conflictStatus == null ? 'This file is no longer conflicted.' : conflictWhat(s.message);
+		const message = s.conflictStatus == null ? l10n.t('This file is no longer conflicted.') : s.message;
 		return html`<li class="resolve-file">
 			<div class="resolve-file__head">
-				<span class="resolve-file__badge resolve-file__badge--warn" title="Needs manual resolution">
+				<span class="resolve-file__badge resolve-file__badge--warn" title=${l10n.t('Needs manual resolution')}>
 					<code-icon icon=${badge.icon} size="11"></code-icon
 					><span class="resolve-file__badge-text">${badge.label}</span>
 				</span>
@@ -1636,7 +1695,9 @@ export class GlDetailsResolveModePanel extends LitElement {
 				<code-icon class="resolve-file__error" icon="error"></code-icon>
 				${
 					badge != null
-						? html`<span class="resolve-file__badge resolve-file__badge--warn" title="Conflict type"
+						? html`<span
+								class="resolve-file__badge resolve-file__badge--warn"
+								title=${l10n.t('Conflict type')}
 								><code-icon icon=${badge.icon} size="11"></code-icon
 								><span class="resolve-file__badge-text">${badge.label}</span></span
 							>`
@@ -1673,10 +1734,10 @@ export class GlDetailsResolveModePanel extends LitElement {
 		// Open the conflicted file in the 3-way merge editor to inspect both sides before choosing. A
 		// both-deleted file has no working-tree content to open, so skip it there.
 		if (file.kind !== 'both-deleted') {
-			buttons.push(html`<gl-tooltip content="Open in the merge editor">
+			buttons.push(html`<gl-tooltip content=${l10n.t('Open in the merge editor')}>
 				<gl-button
 					appearance="toolbar"
-					aria-label="Open ${file.filePath} in the merge editor"
+					aria-label=${l10n.t('Open {file} in the merge editor', { file: file.filePath })}
 					@click=${() => this.emit('resolve-open-file', { filePath: file.filePath })}
 				>
 					<code-icon icon="go-to-file"></code-icon>
@@ -1698,10 +1759,20 @@ export class GlDetailsResolveModePanel extends LitElement {
 	): unknown {
 		const isDelete = side === 'delete' ? true : classifyConflictAction(status, side) === 'delete';
 		const icon = isDelete ? 'trash' : side === 'current' ? 'gl-accept-left' : 'gl-accept-right';
-		const label = isDelete ? 'Delete File' : side === 'current' ? 'Take Current' : 'Take Incoming';
+		const label = isDelete
+			? l10n.t('Delete File')
+			: side === 'current'
+				? l10n.t('Take Current')
+				: l10n.t('Take Incoming');
 		return html`<gl-button
 			appearance="toolbar"
-			aria-label="${label} for ${filePath}"
+			aria-label=${
+				isDelete
+					? l10n.t('Delete File for {file}', { file: filePath })
+					: side === 'current'
+						? l10n.t('Take Current for {file}', { file: filePath })
+						: l10n.t('Take Incoming for {file}', { file: filePath })
+			}
 			?disabled=${staging}
 			@click=${() => this.emit('resolve-take-side', { filePath: filePath, side: side })}
 		>

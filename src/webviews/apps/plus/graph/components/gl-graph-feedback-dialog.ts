@@ -1,4 +1,5 @@
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
@@ -25,20 +26,27 @@ interface FeedbackTypeEntry {
 }
 
 const feedbackTypes: readonly FeedbackTypeEntry[] = [
-	{ type: 'general', icon: 'comment', label: 'General', placeholder: "Tell us what's on your mind…" },
+	{
+		type: 'general',
+		icon: 'comment',
+		label: l10n.t('General'),
+		placeholder: l10n.t("Tell us what's on your mind…"),
+	},
 	{
 		type: 'bug_report',
 		icon: 'bug',
-		label: 'Bug',
-		placeholder: 'What happened, and what did you expect instead?',
-		hint: 'Sending will also open a GitHub issue prefilled with your message, so you can add logs and details.',
+		label: l10n.t('Bug'),
+		placeholder: l10n.t('What happened, and what did you expect instead?'),
+		hint: l10n.t(
+			'Sending will also open a GitHub issue prefilled with your message, so you can add logs and details.',
+		),
 	},
 	{
 		type: 'feature_request',
 		icon: 'lightbulb',
-		label: 'Feature',
-		placeholder: 'What would you like GitLens to do?',
-		hint: 'After sending, you can also file it as a GitHub issue, prefilled with your message.',
+		label: l10n.t('Feature'),
+		placeholder: l10n.t('What would you like GitLens to do?'),
+		hint: l10n.t('After sending, you can also file it as a GitHub issue, prefilled with your message.'),
 	},
 ];
 
@@ -502,21 +510,23 @@ export class GlGraphFeedbackDialog extends LitElement {
 			class="feedback-dialog"
 			modal
 			closedby="closerequest"
-			label="Send Feedback"
+			label=${l10n.t('Send Feedback')}
 			?open=${this.open}
 			@gl-dialog-close=${this.close}
 		>
 			<header class="titlebar">
-				<h2><code-icon icon="feedback"></code-icon> Send Feedback</h2>
-				<button class="close" type="button" aria-label="Close" @click=${this.close}>
+				<h2><code-icon icon="feedback"></code-icon> ${l10n.t('Send Feedback')}</h2>
+				<button class="close" type="button" aria-label=${l10n.t('Close')} @click=${this.close}>
 					<code-icon icon="close"></code-icon>
 				</button>
 			</header>
 			<div class="body scrollable">
 				<p class="subtitle">
-					Help us improve GitLens. Share what's working, what isn't, or what you'd like to see next.
+					${l10n.t(
+						"Help us improve GitLens. Share what's working, what isn't, or what you'd like to see next.",
+					)}
 				</p>
-				<div class="segmented" role="radiogroup" aria-label="Feedback type">
+				<div class="segmented" role="radiogroup" aria-label=${l10n.t('Feedback type')}>
 					${feedbackTypes.map(
 						t => html`<button
 							type="button"
@@ -534,7 +544,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 					)}
 				</div>
 				<div class="field">
-					<label for="gl-feedback-message">Message</label>
+					<label for="gl-feedback-message">${l10n.t('Message')}</label>
 					<textarea
 						id="gl-feedback-message"
 						class="textarea"
@@ -546,19 +556,29 @@ export class GlGraphFeedbackDialog extends LitElement {
 					></textarea>
 				</div>
 				${when(current.hint != null, () => html`<p class="hint">${current.hint}</p>`)}
-				<nav class="links" aria-label="More ways to get help">
-					<a class="link" href=${urls.helpCenter}>Help Center<code-icon icon="link-external"></code-icon></a>
-					<a class="link" href=${urls.githubDiscussions}
-						>Discussions<code-icon icon="link-external"></code-icon
+				<nav class="links" aria-label=${l10n.t('More ways to get help')}>
+					<a class="link" href=${urls.helpCenter}
+						>${l10n.t('Help Center')}<code-icon icon="link-external"></code-icon
 					></a>
-					<a class="link" href=${urls.githubIssues}>Issues<code-icon icon="link-external"></code-icon></a>
+					<a class="link" href=${urls.githubDiscussions}
+						>${l10n.t('Discussions')}<code-icon icon="link-external"></code-icon
+					></a>
+					<a class="link" href=${urls.githubIssues}
+						>${l10n.t('Issues')}<code-icon icon="link-external"></code-icon
+					></a>
 				</nav>
-				${when(this.error, () => html`<p class="error" role="alert">Couldn't send feedback. Please try again.</p>`)}
+				${when(
+					this.error,
+					() =>
+						html`<p class="error" role="alert">${l10n.t("Couldn't send feedback. Please try again.")}</p>`,
+				)}
 			</div>
 			<footer class="footer">
-				<gl-button appearance="secondary" ?disabled=${this.pending} @click=${this.close}>Cancel</gl-button>
+				<gl-button appearance="secondary" ?disabled=${this.pending} @click=${this.close}
+					>${l10n.t('Cancel')}</gl-button
+				>
 				<gl-button ?disabled=${!this.canSend} @click=${this.send}
-					>${this.pending ? 'Sending…' : 'Send Feedback'}</gl-button
+					>${this.pending ? l10n.t('Sending…') : l10n.t('Send Feedback')}</gl-button
 				>
 			</footer>
 		</gl-dialog>`;

@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -10,9 +11,9 @@ import type { GitFileChangeShape, GitFileChangeStats } from '@gitlens/git/models
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import { trimTrailingSlash } from '@gitlens/utils/path.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout, ViewsFilesConfig } from '../../../../../config.js';
 import type { WebviewItemContext } from '../../../../../system/webview.js';
 import {
@@ -90,10 +91,10 @@ export class GlFileTreePane extends LitElement {
 	searchContext?: GitCommitSearchContext;
 
 	@property()
-	header = 'Files changed';
+	header = l10n.t('Files changed');
 
 	@property({ attribute: 'empty-text' })
-	emptyText = 'No Files';
+	emptyText = l10n.t('No Files');
 
 	/**
 	 * Actions to display on individual file tree items.
@@ -229,20 +230,9 @@ export class GlFileTreePane extends LitElement {
 	@property({ attribute: false })
 	checkableStateDefault?: { state?: 'checked' | 'mixed'; disabled?: boolean; disabledReason?: string };
 
-	/**
-	 * Verb for the "check" action (e.g. "Stage" for WIP, "Include" for Review).
-	 * Used in tooltips on unchecked items ("Stage file.ts", "Include All").
-	 * Pair with `uncheckVerb` to provide state-reflecting tooltips on the checkboxes.
-	 */
-	@property({ attribute: 'check-verb' })
-	checkVerb?: string;
-
-	/**
-	 * Verb for the "uncheck" action (e.g. "Unstage" for WIP, "Exclude" for Review).
-	 * Used in tooltips on checked items ("Unstage file.ts", "Exclude All").
-	 */
-	@property({ attribute: 'uncheck-verb' })
-	uncheckVerb?: string;
+	/** Semantic checkbox action; labels are whole localized messages, not concatenated verbs. */
+	@property({ attribute: 'check-action' })
+	checkAction?: 'stage' | 'include' | 'resolve';
 
 	/**
 	 * When `true` (default) and `checkable` is on, the count badge shows "x of y" while only a
@@ -259,8 +249,8 @@ export class GlFileTreePane extends LitElement {
 	 * "x of y <label>" while partial and "y <label>" when fully checked. Ignored when
 	 * `selectionBadge` is false.
 	 */
-	@property({ attribute: 'selection-badge-label' })
-	selectionBadgeLabel?: string;
+	@property({ attribute: 'selection-badge-kind' })
+	selectionBadgeKind?: 'staged';
 
 	/**
 	 * Event name dispatched when a file row is selected (default click).
@@ -579,7 +569,7 @@ export class GlFileTreePane extends LitElement {
 							showSearch
 								? html`<gl-action-chip
 										data-action="search"
-										label="${showSearchBox ? 'Hide Search' : 'Show Search'}"
+										label="${showSearchBox ? l10n.t('Hide Search') : l10n.t('Show Search')}"
 										icon="search"
 										class="${showSearchBox ? 'active-toggle' : ''}"
 										@click=${this.onToggleSearch}
@@ -664,15 +654,20 @@ export class GlFileTreePane extends LitElement {
 		let badgeAppearance: 'filled' | 'warning' = 'filled';
 		let showMixedBadge = false;
 		if (conflictCount > 0) {
-			effectiveBadge = pluralize('conflict', conflictCount);
+			effectiveBadge =
+				conflictCount === 1
+					? l10n.t('{0} conflict', getNumericFormat()(conflictCount))
+					: l10n.t('{0} conflicts', getNumericFormat()(conflictCount));
 			badgeAppearance = 'warning';
 		} else if (this.selectionBadge && this.checkable && totalFiles > 0) {
 			const selected = checkedCount;
-			const label = this.selectionBadgeLabel;
+			const staged = this.selectionBadgeKind === 'staged';
 			if (selected < totalFiles) {
-				effectiveBadge = label ? `${selected} of ${totalFiles} ${label}` : `${selected} of ${totalFiles}`;
-			} else if (label) {
-				effectiveBadge = `${totalFiles} ${label}`;
+				effectiveBadge = staged
+					? l10n.t('{selected} of {total} Staged', { selected: selected, total: totalFiles })
+					: l10n.t('{selected} of {total}', { selected: selected, total: totalFiles });
+			} else if (staged) {
+				effectiveBadge = l10n.t('{total} Staged', { total: totalFiles });
 			}
 			showMixedBadge = mixedCount > 0;
 		}
@@ -694,26 +689,26 @@ export class GlFileTreePane extends LitElement {
 			}}
 		></gl-checkbox>`;
 
-		const checkVerb = this.checkVerb;
-		const uncheckVerb = this.uncheckVerb;
 		let tooltipText: string | undefined;
-		if (checkVerb && uncheckVerb) {
+		if (this.checkAction) {
 			if (allChecked) {
-				tooltipText = `${uncheckVerb} All`;
+				tooltipText = this.getCheckboxLabel('uncheck');
 			} else if (indeterminate) {
 				// Alt+click on the indeterminate header flips from "stage remaining" to
 				// "unstage all currently staged" — surface that as a discoverable hint.
-				const baseLabel = `${checkVerb} Remaining`;
-				const altLabel = `${uncheckVerb} All`;
+				const baseLabel = this.getCheckboxLabel('remaining');
+				const altLabel = this.getCheckboxLabel('uncheck');
 				tooltipText = this._modifiers.altKey ? altLabel : `${baseLabel}\n[${getAltKeySymbol()}] ${altLabel}`;
 			} else {
-				tooltipText = `${checkVerb} All`;
+				tooltipText = this.getCheckboxLabel('check');
 			}
 		}
 
 		// Mixed chip nests INSIDE the primary badge as a recessed sub-segment.
 		const mixedBadge = showMixedBadge
-			? html`<gl-badge appearance="muted" class="checkbox-header__badge-mixed">+${mixedCount} Mixed</gl-badge>`
+			? html`<gl-badge appearance="muted" class="checkbox-header__badge-mixed"
+					>${l10n.t('+{0} Mixed', mixedCount)}</gl-badge
+				>`
 			: nothing;
 
 		const label =
@@ -732,6 +727,48 @@ export class GlFileTreePane extends LitElement {
 			}
 			<span class="checkbox-header__label">${label}<slot name="header-badge"></slot></span>
 		</span>`;
+	}
+
+	private getCheckboxLabel(action: 'check' | 'uncheck' | 'remaining', fileName?: string): string | undefined {
+		switch (this.checkAction) {
+			case 'stage':
+				if (fileName != null) {
+					return action === 'uncheck'
+						? l10n.t('Unstage {file}', { file: fileName })
+						: l10n.t('Stage {file}', { file: fileName });
+				}
+
+				return action === 'uncheck'
+					? l10n.t('Unstage All')
+					: action === 'remaining'
+						? l10n.t('Stage Remaining')
+						: l10n.t('Stage All');
+			case 'include':
+				if (fileName != null) {
+					return action === 'uncheck'
+						? l10n.t('Exclude {file}', { file: fileName })
+						: l10n.t('Include {file}', { file: fileName });
+				}
+
+				return action === 'uncheck'
+					? l10n.t('Exclude All')
+					: action === 'remaining'
+						? l10n.t('Include Remaining')
+						: l10n.t('Include All');
+			case 'resolve':
+				if (fileName != null) {
+					return action === 'uncheck'
+						? l10n.t('Skip {file}', { file: fileName })
+						: l10n.t('Resolve {file}', { file: fileName });
+				}
+
+				return action === 'uncheck'
+					? l10n.t('Skip All')
+					: action === 'remaining'
+						? l10n.t('Resolve Remaining')
+						: l10n.t('Resolve All');
+		}
+		return undefined;
 	}
 
 	private onToggleSearch(e: Event) {
@@ -873,11 +910,11 @@ export class GlFileTreePane extends LitElement {
 		if (agentPhase != null) {
 			decorations.push({
 				type: 'agent' as const,
-				label: 'Editing',
+				label: l10n.t('Editing'),
 				// Agent-agnostic on purpose: `agentTouchedFiles` carries the phase only, no provider
 				// identity, and a file can be touched by more than one agent at once — so there is no
 				// single agent to name here.
-				tooltip: 'An agent is editing this file',
+				tooltip: l10n.t('An agent is editing this file'),
 				phase: agentPhase,
 				position: 'before' as const,
 			});
@@ -909,22 +946,20 @@ export class GlFileTreePane extends LitElement {
 			const disabled = entry?.disabled ?? this.checkableStateDefault?.disabled ?? false;
 			const disabledReason = entry?.disabledReason ?? this.checkableStateDefault?.disabledReason;
 
-			const checkVerb = this.checkVerb;
-			const uncheckVerb = this.uncheckVerb;
 			let tooltip: string | undefined;
 			let altTooltip: string | undefined;
 			if (disabled) {
 				tooltip = disabledReason;
-			} else if (checkVerb && uncheckVerb) {
+			} else if (this.checkAction) {
 				if (s === 'checked') {
-					tooltip = `${uncheckVerb} ${fileName}`;
+					tooltip = this.getCheckboxLabel('uncheck', fileName);
 				} else if (s === 'mixed') {
 					// Plain click stages remaining hunks; alt+click flips to unstage everything —
 					// surface alt as a discoverable option (tree-item composes the alt-key hint line).
-					tooltip = `${checkVerb} ${fileName}`;
-					altTooltip = `${uncheckVerb} ${fileName}`;
+					tooltip = this.getCheckboxLabel('check', fileName);
+					altTooltip = this.getCheckboxLabel('uncheck', fileName);
 				} else {
-					tooltip = `${checkVerb} ${fileName}`;
+					tooltip = this.getCheckboxLabel('check', fileName);
 				}
 			}
 
@@ -980,7 +1015,7 @@ export class GlFileTreePane extends LitElement {
 		// when nothing passes through, "No matching files" reads more accurately than the generic
 		// empty-text.
 		const matchedEmpty = this._contextMatchVisibility === 'matched' && this.searchContext != null;
-		const emptyText = matchedEmpty ? 'No matching files' : this.emptyText;
+		const emptyText = matchedEmpty ? l10n.t('No matching files') : this.emptyText;
 		// `mixed` context-match visibility shows all files with matches highlighted (dim non-matches).
 		// Route that through `dimUnmatched` rather than forcing `searchBoxFilter` off — otherwise the
 		// funnel would hijack the user's search-box filter mode and flip its placeholder.
@@ -994,8 +1029,8 @@ export class GlFileTreePane extends LitElement {
 			?filterable=${this.effectiveShowSearchBox}
 			?multi-selectable=${this.multiSelectable}
 			?draggable-files=${this.draggableFiles}
-			filter-placeholder="Filter files..."
-			search-placeholder="Search files..."
+			filter-placeholder=${l10n.t('Filter files...')}
+			search-placeholder=${l10n.t('Search files...')}
 			empty-text=${emptyText}
 			@gl-tree-search-box-filter-changed=${this.onTreeSearchBoxFilterChanged}
 			@gl-tree-generated-item-action-clicked=${this.onTreeItemActionClicked}

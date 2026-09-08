@@ -6,8 +6,10 @@
  * other dialog code.
  */
 
+import * as l10n from '@vscode/l10n';
 import { CommitError, SigningError } from '@gitlens/git/errors.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
+import { getPresentableErrorMessage } from '../../../errors.js';
 
 /**
  * Classified outcome of a commit failure, used to drive the WIP panel's error UX.
@@ -58,29 +60,30 @@ export function classifyCommitFailure(ex: unknown): ClassifiedCommitFailure {
 	const output = getCommitFailureOutput(ex);
 
 	if (SigningError.is(ex)) {
-		return { reason: 'signingFailed', summary: 'Unable to commit: signing failed', output: output };
+		return { reason: 'signingFailed', summary: l10n.t('Unable to commit: signing failed'), output: output };
 	}
 	if (CommitError.is(ex, 'nothingToCommit')) {
-		return { reason: 'nothingToCommit', summary: 'Unable to commit: no staged changes', output: output };
+		return { reason: 'nothingToCommit', summary: l10n.t('Unable to commit: no staged changes'), output: output };
 	}
 	if (CommitError.is(ex, 'conflicts')) {
-		return { reason: 'conflicts', summary: 'Unable to commit: unresolved merge conflicts', output: output };
+		return { reason: 'conflicts', summary: l10n.t('Unable to commit: unresolved merge conflicts'), output: output };
 	}
 	if (CommitError.is(ex, 'noUserNameConfigured')) {
 		return {
 			reason: 'identityMissing',
-			summary: 'Unable to commit: Git user name and email are not configured',
+			summary: l10n.t('Unable to commit: Git user name and email are not configured'),
 			output: output,
 		};
 	}
 
 	if (output != null) {
-		return { reason: 'hookRejected', summary: 'Unable to commit: blocked by a Git hook', output: output };
+		return { reason: 'hookRejected', summary: l10n.t('Unable to commit: blocked by a Git hook'), output: output };
 	}
 
+	const message = getPresentableErrorMessage(ex);
 	return {
 		reason: 'unknown',
-		summary: ex instanceof Error && ex.message ? `Unable to commit: ${ex.message}` : 'Unable to commit',
+		summary: message ? l10n.t('Unable to commit: {0}', message) : l10n.t('Unable to commit'),
 		output: output,
 	};
 }
@@ -99,5 +102,11 @@ export function buildCommitOutputPreview(output: string): string {
 		truncatedLines = Math.max(truncatedLines, 1);
 	}
 
-	return truncatedLines > 0 ? `${preview}\n… (${pluralize('more line', truncatedLines)})` : preview;
+	return truncatedLines > 0
+		? `${preview}\n… ${
+				truncatedLines === 1
+					? l10n.t('({0} more line)', getNumericFormat()(truncatedLines))
+					: l10n.t('({0} more lines)', getNumericFormat()(truncatedLines))
+			}`
+		: preview;
 }

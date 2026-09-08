@@ -1,8 +1,10 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getConflictDetectionErrorDisplayMessage } from '@gitlens/git/utils/mergeConflicts.utils.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { SubscriptionState } from '../../../../constants.subscription.js';
 import '@gitlens/components/components/codeIcon.js';
 import '@gitlens/components/components/overlays/popover.js';
@@ -201,7 +203,11 @@ export class GlRebaseConflictIndicator extends LitElement {
 		return html`
 			<div class="indicator indicator--loading">
 				<code-icon class="indicator__icon" icon="loading" modifier="spin" size="16"></code-icon>
-				${this.compact ? nothing : html`<span class="indicator__content">Detecting Conflicts</span>`}
+				${
+					this.compact
+						? nothing
+						: html`<span class="indicator__content">${l10n.t('Detecting Conflicts')}</span>`
+				}
 			</div>
 		`;
 	}
@@ -213,7 +219,10 @@ export class GlRebaseConflictIndicator extends LitElement {
 	}
 
 	private renderError() {
-		const errorMessage = this.result?.status === 'error' ? this.result.message : 'Unable to detect conflicts';
+		const errorMessage =
+			this.result?.status === 'error'
+				? getConflictDetectionErrorDisplayMessage(this.result.reason, this.result.message)
+				: l10n.t('Unable to detect conflicts');
 
 		if (this.compact) {
 			return html`
@@ -223,7 +232,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 					</div>
 					<div slot="content">
 						<div class="popover">
-							<p class="popover__title">Conflict Detection Unavailable</p>
+							<p class="popover__title">${l10n.t('Conflict Detection Unavailable')}</p>
 							<p class="popover__message">${errorMessage}</p>
 						</div>
 					</div>
@@ -235,11 +244,11 @@ export class GlRebaseConflictIndicator extends LitElement {
 			<gl-popover placement="bottom" trigger="hover click focus">
 				<div slot="anchor" class="indicator indicator--error" tabindex="0">
 					${this.renderStateIcon('error')}
-					<span class="indicator__content">Conflict Detection Unavailable</span>
+					<span class="indicator__content">${l10n.t('Conflict Detection Unavailable')}</span>
 				</div>
 				<div slot="content">
 					<div class="popover">
-						<p class="popover__title">Conflict Detection Unavailable</p>
+						<p class="popover__title">${l10n.t('Conflict Detection Unavailable')}</p>
 						<p class="popover__message">${errorMessage}</p>
 					</div>
 				</div>
@@ -258,12 +267,12 @@ export class GlRebaseConflictIndicator extends LitElement {
 					</div>
 					<div slot="content">
 						<div class="popover">
-							<p class="popover__title">No Conflicts Detected</p>
-							<p class="popover__message">This rebase should complete without conflicts.</p>
+							<p class="popover__title">${l10n.t('No Conflicts Detected')}</p>
+							<p class="popover__message">${l10n.t('This rebase should complete without conflicts.')}</p>
 							${
 								this.stale
 									? html`<p class="popover__message popover__message--warning">
-											Detection may be stale. Rebase plan was modified after conflict check.
+											${l10n.t('Detection may be stale. Rebase plan was modified after conflict check.')}
 										</p>`
 									: nothing
 							}
@@ -278,17 +287,17 @@ export class GlRebaseConflictIndicator extends LitElement {
 				<div slot="anchor" class="indicator indicator--clean ${staleClass}" tabindex="0">
 					${this.renderStateIcon('pass')}
 					<span class="indicator__content"
-						>${this.checking ? 'Detecting Conflicts' : 'No Conflicts Detected'}</span
+						>${this.checking ? l10n.t('Detecting Conflicts') : l10n.t('No Conflicts Detected')}</span
 					>
 				</div>
 				<div slot="content">
 					<div class="popover">
-						<p class="popover__title">No Conflicts Detected</p>
-						<p class="popover__message">This rebase should complete without conflicts.</p>
+						<p class="popover__title">${l10n.t('No Conflicts Detected')}</p>
+						<p class="popover__message">${l10n.t('This rebase should complete without conflicts.')}</p>
 						${
 							this.stale
 								? html`<p class="popover__message popover__message--warning">
-										Detection may be stale. Rebase plan was modified after conflict check.
+										${l10n.t('Detection may be stale. Rebase plan was modified after conflict check.')}
 									</p>`
 								: nothing
 						}
@@ -304,6 +313,14 @@ export class GlRebaseConflictIndicator extends LitElement {
 		const staleClass = this.stale ? 'indicator--stale' : '';
 		const files = this.result.conflict.files;
 		const conflictCount = files.length;
+		const conflictFilesMessage =
+			conflictCount === 1
+				? l10n.t('This rebase will cause conflicts in {count} file:', {
+						count: getNumericFormat()(conflictCount),
+					})
+				: l10n.t('This rebase will cause conflicts in {count} files:', {
+						count: getNumericFormat()(conflictCount),
+					});
 
 		if (this.compact) {
 			return html`
@@ -313,17 +330,15 @@ export class GlRebaseConflictIndicator extends LitElement {
 					</div>
 					<div slot="content">
 						<div class="popover">
-							<p class="popover__title">Potential Conflicts Detected</p>
-							<p class="popover__message">
-								This rebase will cause conflicts in ${pluralize('file', conflictCount)}:
-							</p>
+							<p class="popover__title">${l10n.t('Potential Conflicts Detected')}</p>
+							<p class="popover__message">${conflictFilesMessage}</p>
 							<ul class="popover__files scrollable">
 								${files.map(file => html`<li class="popover__file">${file.path}</li>`)}
 							</ul>
 							${
 								this.stale
 									? html`<p class="popover__message popover__message--warning">
-											Detection may be stale. Rebase plan was modified after conflict check.
+											${l10n.t('Detection may be stale. Rebase plan was modified after conflict check.')}
 										</p>`
 									: nothing
 							}
@@ -340,24 +355,28 @@ export class GlRebaseConflictIndicator extends LitElement {
 					<span class="indicator__content"
 						>${
 							this.checking
-								? 'Detecting Conflicts'
-								: html`${conflictCount} Conflict${conflictCount === 1 ? '' : 's'} Detected`
+								? l10n.t('Detecting Conflicts')
+								: conflictCount === 1
+									? l10n.t('{count} Conflict Detected', {
+											count: getNumericFormat()(conflictCount),
+										})
+									: l10n.t('{count} Conflicts Detected', {
+											count: getNumericFormat()(conflictCount),
+										})
 						}</span
 					>
 				</div>
 				<div slot="content">
 					<div class="popover">
-						<p class="popover__title">Potential Conflicts Detected</p>
-						<p class="popover__message">
-							This rebase will cause conflicts in ${pluralize('file', conflictCount)}:
-						</p>
+						<p class="popover__title">${l10n.t('Potential Conflicts Detected')}</p>
+						<p class="popover__message">${conflictFilesMessage}</p>
 						<ul class="popover__files scrollable">
 							${files.map(file => html`<li class="popover__file">${file.path}</li>`)}
 						</ul>
 						${
 							this.stale
 								? html`<p class="popover__message popover__message--warning">
-										Detection may be stale. Rebase plan was modified after conflict check.
+										${l10n.t('Detection may be stale. Rebase plan was modified after conflict check.')}
 									</p>`
 								: nothing
 						}
@@ -374,7 +393,11 @@ export class GlRebaseConflictIndicator extends LitElement {
 			<gl-popover placement="${placement}" trigger="hover click focus">
 				<div slot="anchor" class="indicator indicator--upgrade" tabindex="0">
 					<code-icon class="indicator__icon" icon="lock" size="16"></code-icon>
-					${this.compact ? nothing : html`<span class="indicator__content">Conflict Detection (Pro)</span>`}
+					${
+						this.compact
+							? nothing
+							: html`<span class="indicator__content">${l10n.t('Conflict Detection (Pro)')}</span>`
+					}
 				</div>
 				<gl-feature-gate-plus-state
 					slot="content"
@@ -384,7 +407,9 @@ export class GlRebaseConflictIndicator extends LitElement {
 					.state=${this.subscriptionState}
 				>
 					<p slot="feature">
-						Detect potential conflicts before starting your rebase and take action to resolve them.
+						${l10n.t(
+							'Detect potential conflicts before starting your rebase and take action to resolve them.',
+						)}
 					</p>
 				</gl-feature-gate-plus-state>
 			</gl-popover>

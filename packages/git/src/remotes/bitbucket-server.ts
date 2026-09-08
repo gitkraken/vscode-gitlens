@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { Brand, Unbrand } from '@gitlens/utils/brand.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import type { RemoteProviderContext } from '../context.js';
@@ -38,20 +39,23 @@ export class BitbucketServerRemoteProvider extends RemoteProvider {
 				url: this.issueLinkPattern,
 				alphanumeric: false,
 				ignoreCase: true,
-				title: `Open Issue #<num> on ${this.name}`,
+				title: l10n.t('Open Issue #{number} on {provider}', { number: '<num>', provider: this.name }),
 
 				type: 'issue',
-				description: `${this.name} Issue #<num>`,
+				description: l10n.t('{provider} Issue #{number}', { provider: this.name, number: '<num>' }),
 			},
 			{
 				prefix: 'pull request #',
 				url: `${this.baseUrl}/pull-requests/<num>`,
 				alphanumeric: false,
 				ignoreCase: true,
-				title: `Open Pull Request #<num> on ${this.name}`,
+				title: l10n.t('Open Pull Request #{number} on {provider}', { number: '<num>', provider: this.name }),
 
 				type: 'pullrequest',
-				description: `${this.name} Pull Request #<num>`,
+				description: l10n.t('{provider} Pull Request #{number}', {
+					provider: this.name,
+					number: '<num>',
+				}),
 			},
 		];
 		return this._autolinks;
