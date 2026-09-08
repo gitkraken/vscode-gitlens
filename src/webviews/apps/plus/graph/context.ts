@@ -4,6 +4,7 @@ import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
 import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
+import type { RunningWorktreeTask } from '../../../../worktrees/worktreeTaskService.js';
 import type { GraphSearchState } from '../../../plus/graph/graphService.js';
 import type {
 	GetOverviewWipResponse,
@@ -33,6 +34,8 @@ export interface AppState extends State {
 	/** Worktree-keyed index over `agentSessions` (see `indexAgentSessionsByRepoAndWorktree`),
 	 *  memoized on the session list so per-render consumers don't rebuild it. */
 	agentSessionIndex: AgentSessionWorktreeIndex | undefined;
+	/** Running worktree tasks keyed by worktree path — drives the WIP row's Run Task button state. */
+	runningWorktreeTasks: Record<string, RunningWorktreeTask>;
 	isBusy: boolean;
 	loading: boolean;
 	/** The rows walk failed before shipping anything — the status overlay offers Retry. */

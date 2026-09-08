@@ -143,6 +143,7 @@ import { getWebviewCommand } from '../../../system/decorators/command.js';
 import { gate } from '../../../system/decorators/gate.js';
 import { serializeWebviewItemContext } from '../../../system/webview.js';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode.js';
+import type { RunningWorktreeTask } from '../../../worktrees/worktreeTaskService.js';
 import {
 	getFileCommitFromContext,
 	isDetailsFileContext,
@@ -736,6 +737,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				},
 			},
 			this.container.onDidChangeAgentStatus(() => this.subscribeToAgentStatus(), this),
+			this.container.worktreeTasks.onDidChange(
+				() => this._runningWorktreeTasksEvent.fire(this.container.worktreeTasks.getRunning()),
+				this,
+			),
 		);
 
 		this.subscribeToAgentStatus();
@@ -1102,6 +1107,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// `save-last`: the payload is a complete gating snapshot, so a hidden webview only ever needs the
 	// newest one — and replaying it on show is exactly right.
 	private readonly _accessChangedEvent = createRpcEvent<GraphAccessState>('accessChanged', 'save-last');
+	// `save-last` because the payload is a complete snapshot.
+	private readonly _runningWorktreeTasksEvent = createRpcEvent<Record<string, RunningWorktreeTask>>(
+		'runningWorktreeTasks',
+		'save-last',
+	);
 	// `save-last`: only the current repo's fetch matters to the app, so latest-wins is correct —
 	// see `GraphRepoStatusService.onDidFetch`.
 	private readonly _repoStatusEvent = createRpcEvent<GraphRepoStatus>('repoStatus', 'save-last');
@@ -1380,6 +1390,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				executeRowAction: params => this.executeRowAction(params),
 				handleRefDoubleClick: (ref, metadata) => this.handleRefDoubleClick(ref, metadata),
 				openTreemapFile: (action, repoPath, path) => this.openTreemapFile(action, repoPath, path),
+				getRunningWorktreeTasks: () => Promise.resolve(this.container.worktreeTasks.getRunning()),
+				onRunningWorktreeTasksChanged: this._runningWorktreeTasksEvent.subscribe(buffer, tracker),
 			},
 		} satisfies GraphServices);
 	}
@@ -3568,6 +3580,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					worktreePath: rowRepoPath,
 					useDefault: params.action === 'run-task',
 				});
+				break;
+			case 'run-task-show':
+				void executeCoreCommand('workbench.action.tasks.showTasks');
 				break;
 		}
 	}

@@ -93,6 +93,7 @@ import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor.js';
 import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration.js';
 import { WebviewCommandRegistrar } from './webviews/webviewCommandRegistrar.js';
 import { WebviewsController } from './webviews/webviewsController.js';
+import { WorktreeTaskService } from './worktrees/worktreeTaskService.js';
 
 export type Environment = 'dev' | 'staging' | 'production';
 
@@ -198,6 +199,12 @@ export class Container {
 
 	get agents(): AgentService {
 		return (this._agentService ??= new AgentService());
+	}
+
+	private _worktreeTaskService: WorktreeTaskService | undefined;
+
+	get worktreeTasks(): WorktreeTaskService {
+		return (this._worktreeTaskService ??= new WorktreeTaskService());
 	}
 
 	private readonly _gkCliService: GkCliService | undefined;

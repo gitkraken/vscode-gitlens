@@ -229,6 +229,25 @@ export class GraphAppHost extends SignalWatcherWebviewApp {
 				return unsub;
 			}),
 
+			// Bridges worktree Run Task launches into the state provider, driving the WIP row's
+			// button (spinning "loading" status, persistent, "Running: <task>" tooltip) while a task runs.
+			subscribe<GraphServices>(connection, async services => {
+				const rowActions = await services.rowActions;
+
+				// Subscribe before fetching so no snapshot fired between subscribe and fetch is ever lost.
+				const unsub = await subscribeAll([
+					() =>
+						rowActions.onRunningWorktreeTasksChanged(tasks => {
+							this._stateProvider.runningWorktreeTasks = tasks;
+						}),
+				]);
+
+				const tasks = await rowActions.getRunningWorktreeTasks();
+				this._stateProvider.runningWorktreeTasks = tasks;
+
+				return unsub;
+			}),
+
 			// Bridges the active repo's last-fetched time into the state provider. Same "own track"
 			// reasoning as the access plane above — the header's "Last fetched" label shouldn't wait on
 			// the long await chain in `_onRpcReady`.

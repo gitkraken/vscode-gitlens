@@ -974,7 +974,7 @@ interface RowActionRowRef {
 export type RowActionParams =
 	| { action: 'open-changes' | 'open-changes-with-working'; row: RowActionRowRef }
 	| { action: 'push-to-commit'; row: RowActionRowRef }
-	| { action: 'run-task' | 'run-task-pick'; row: RowActionRowRef }
+	| { action: 'run-task' | 'run-task-pick' | 'run-task-show'; row: RowActionRowRef }
 	| { action: 'stash-apply' | 'stash-drop' | 'stash-pop' | 'stash-save'; row: RowActionRowRef }
 	| {
 			action: 'undo-commit';

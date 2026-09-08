@@ -447,6 +447,18 @@ const runTaskAction: GraphRowAction = {
 	ariaLabel: 'Run Default Task',
 	persistent: false,
 };
+// Engaged state while a Run Task launch is still executing; click shows the running task's terminal
+// instead of launching another.
+function runningTaskAction(name: string): GraphRowAction {
+	return {
+		action: 'run-task',
+		icon: 'play',
+		label: `Running: ${name}\n[${getAltKeySymbol()}] Choose Task to Run...`,
+		ariaLabel: `Running: ${name}`,
+		persistent: true,
+		status: 'loading',
+	};
+}
 // The overwhelmingly common workdir row: no running operation, no agent, no conflicts. Every such row
 // shares this one frozen array, so the steady state costs zero allocations.
 const idleWorkdirActions: readonly GraphRowAction[] = Object.freeze([
@@ -1114,6 +1126,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		wipRowsById: GraphWipRowsById | undefined;
 		primaryRepoPath: string | undefined;
 		primaryHasConflicts: boolean;
+		runningWorktreeTasks: typeof graphStateContext.__context__.runningWorktreeTasks;
 		byRowSha: ReadonlyMap<string, readonly GraphRowAction[]> | undefined;
 	};
 
@@ -1127,6 +1140,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const runningOperations = this._crossPaneState?.runningOperations.get();
 		const agentSessions = this.graphState.agentSessions;
 		const wipRowsById = this.graphState.wipRowsById;
+		const runningWorktreeTasks = this.graphState.runningWorktreeTasks;
 		const primaryRepoPath = this.getRepoPath();
 		const primaryWipRowId = primaryRepoPath != null ? createWipRowId(primaryRepoPath) : undefined;
 		// Conflicts gate the inline Resolve entry point on the graph's OWN worktree only — a peer's
@@ -1143,7 +1157,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			cached.runningOperations === runningOperations &&
 			cached.agentSessions === agentSessions &&
 			cached.wipRowsById === wipRowsById &&
-			cached.primaryRepoPath === primaryRepoPath
+			cached.primaryRepoPath === primaryRepoPath &&
+			cached.runningWorktreeTasks === runningWorktreeTasks
 		) {
 			return cached.byRowSha;
 		}
@@ -1192,7 +1207,14 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				// Resolve is offered only when there's something to resolve (or a run is already engaged) —
 				// unlike Compose/Review, which every workdir row always offers.
 				const showResolve = op?.resolve != null || (sha === primaryWipRowId && primaryHasConflicts);
-				if (agentStatus == null && !showResolve && op?.compose == null && op?.review == null) {
+				const runningTask = worktreePath != null ? runningWorktreeTasks[worktreePath] : undefined;
+				if (
+					agentStatus == null &&
+					!showResolve &&
+					op?.compose == null &&
+					op?.review == null &&
+					runningTask == null
+				) {
 					next.set(sha, idleWorkdirActions);
 					continue;
 				}
@@ -1218,7 +1240,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 					actions.push(wipOperationAction('resolve', 'gl-merge', op?.resolve));
 				}
 
-				actions.push(runTaskAction);
+				actions.push(runningTask != null ? runningTaskAction(runningTask.name) : runTaskAction);
 				actions.push(
 					op?.compose != null ? wipOperationAction('compose', 'wand', op.compose) : idleComposeAction,
 				);
@@ -1237,6 +1259,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			wipRowsById: wipRowsById,
 			primaryRepoPath: primaryRepoPath,
 			primaryHasConflicts: primaryHasConflicts,
+			runningWorktreeTasks: runningWorktreeTasks,
 			byRowSha: byRowSha,
 		};
 		return byRowSha;
@@ -2218,12 +2241,16 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		if (row == null) return;
 
 		// Run Task is a host row action, not a workflow: Alt opens the task picker instead of running the
-		// stored default (the same Alt convention open-changes uses).
+		// stored default (the same Alt convention open-changes uses). A plain click while a task is
+		// already running reveals its terminal instead of starting another run.
 		if (target === 'run-task') {
-			void this.executeRowAction({
-				action: altKey ? 'run-task-pick' : 'run-task',
-				row: { id: sha, type: 'workdir' },
-			});
+			const worktreePath = getWipRowWorktreePath(sha);
+			const action = altKey
+				? 'run-task-pick'
+				: worktreePath != null && this.graphState.runningWorktreeTasks[worktreePath] != null
+					? 'run-task-show'
+					: 'run-task';
+			void this.executeRowAction({ action: action, row: { id: sha, type: 'workdir' } });
 			return;
 		}
 

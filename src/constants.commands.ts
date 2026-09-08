@@ -218,6 +218,7 @@ export type CoreCommands =
 	| 'workbench.action.reopenTextEditor'
 	| 'workbench.action.reopenWithEditor'
 	| 'workbench.action.reloadWindow'
+	| 'workbench.action.tasks.showTasks'
 	| 'workbench.action.terminal.paste'
 	| 'workbench.action.terminal.sendSequence'
 	| 'workbench.action.focusPanel'
