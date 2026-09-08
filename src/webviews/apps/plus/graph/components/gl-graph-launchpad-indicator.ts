@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
@@ -174,11 +175,11 @@ the rocket's own em box (1em = 1.6rem): the 1.2rem badge centers 0.69em in from 
 			</a>
 			<div slot="content">
 				<div class="popover__header">
-					<h3 class="popover__heading">Launchpad</h3>
+					<h3 class="popover__heading">${l10n.t('Launchpad')}</h3>
 					<gl-button
 						appearance="toolbar"
 						density="compact"
-						tooltip="Refresh Launchpad"
+						tooltip=${l10n.t('Refresh Launchpad')}
 						?disabled=${this._state?.loading.get() ?? false}
 						aria-busy=${this._state?.loading.get() ?? false}
 						@click=${() => this._state?.refresh()}
@@ -190,8 +191,9 @@ the rocket's own em box (1em = 1.6rem): the 1.2rem badge centers 0.69em in from 
 					${
 						connected !== true
 							? html`<p class="welcome">
-									Launchpad organizes your pull requests into actionable groups to help you focus and
-									keep your team unblocked.
+									${l10n.t(
+										'Launchpad organizes your pull requests into actionable groups to help you focus and keep your team unblocked.',
+									)}
 								</p>`
 							: nothing
 					}
@@ -202,7 +204,9 @@ the rocket's own em box (1em = 1.6rem): the 1.2rem badge centers 0.69em in from 
 					></gl-launchpad-summary>
 				</div>
 				<div class="popover__footer">
-					<gl-button full appearance="secondary" href=${this.openLaunchpadLink}>Open Launchpad</gl-button>
+					<gl-button full appearance="secondary" href=${this.openLaunchpadLink}
+						>${l10n.t('Open Launchpad')}</gl-button
+					>
 				</div>
 			</div>
 		</gl-popover>`;
@@ -267,11 +271,39 @@ the rocket's own em box (1em = 1.6rem): the 1.2rem badge centers 0.69em in from 
 	}
 
 	private getCountGroups(summary: LaunchpadSummaryResult): CountGroup[] {
+		const mergeable = summary.mergeable?.total ?? 0;
+		const blocked = summary.blocked?.total ?? 0;
+		const followUp = summary.followUp?.total ?? 0;
+		const needsReview = summary.needsReview?.total ?? 0;
 		const groups: CountGroup[] = [
-			{ total: summary.mergeable?.total ?? 0, label: 'can be merged' },
-			{ total: summary.blocked?.total ?? 0, label: 'blocked' },
-			{ total: summary.followUp?.total ?? 0, label: 'need follow-up' },
-			{ total: summary.needsReview?.total ?? 0, label: 'need your review' },
+			{
+				total: mergeable,
+				label:
+					mergeable === 1
+						? l10n.t('{count} pull request can be merged', { count: mergeable })
+						: l10n.t('{count} pull requests can be merged', { count: mergeable }),
+			},
+			{
+				total: blocked,
+				label:
+					blocked === 1
+						? l10n.t('{count} pull request is blocked', { count: blocked })
+						: l10n.t('{count} pull requests are blocked', { count: blocked }),
+			},
+			{
+				total: followUp,
+				label:
+					followUp === 1
+						? l10n.t('{count} pull request requires follow-up', { count: followUp })
+						: l10n.t('{count} pull requests require follow-up', { count: followUp }),
+			},
+			{
+				total: needsReview,
+				label:
+					needsReview === 1
+						? l10n.t('{count} pull request needs your review', { count: needsReview })
+						: l10n.t('{count} pull requests need your review', { count: needsReview }),
+			},
 		];
 		return groups.filter(g => g.total > 0);
 	}
@@ -281,20 +313,24 @@ the rocket's own em box (1em = 1.6rem): the 1.2rem badge centers 0.69em in from 
 		// reader hears the same bare "Launchpad" for loading, not-connected, and failure alike.
 		switch (this.overlay) {
 			case 'plug':
-				return 'Launchpad — connect an integration to see pull requests';
+				return l10n.t('Launchpad — connect an integration to see pull requests');
 			case 'spinner':
-				return 'Launchpad — loading';
+				return l10n.t('Launchpad — loading');
 			case 'circle-slash':
-				return 'Launchpad — unable to load pull requests';
+				return l10n.t('Launchpad — unable to load pull requests');
 		}
 
 		const summary = this.summary;
-		if (summary == null || !('total' in summary)) return 'Launchpad';
+		if (summary == null || !('total' in summary)) return l10n.t('Launchpad');
 
 		const groups = this.getCountGroups(summary);
-		if (groups.length === 0) return 'Launchpad — all caught up';
+		if (groups.length === 0) return l10n.t('Launchpad — all caught up');
 
-		return `Launchpad — ${groups.map(g => `${g.total} ${g.label}`).join(', ')}`;
+		const groupList = new Intl.ListFormat(document.documentElement.lang || undefined, {
+			style: 'long',
+			type: 'conjunction',
+		}).format(groups.map(group => group.label));
+		return l10n.t('Launchpad — {groups}', { groups: groupList });
 	}
 
 	private get openLaunchpadLink(): string {

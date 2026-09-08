@@ -1,4 +1,5 @@
 import { shortRefName } from '@gitkraken/commit-graph-ui/rows/markers.js';
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -527,7 +528,7 @@ export class GlGraphOverviewBar extends LitElement {
 					class="pills"
 					role="toolbar"
 					aria-orientation="horizontal"
-					aria-label="Overview"
+					aria-label=${l10n.t('Overview')}
 					@keydown=${this.onPillsKeyDown}
 				>
 					${repeat(

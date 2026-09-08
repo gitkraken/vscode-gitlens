@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent, StatusBarItem, TextEditor, Uri } from 'vscode';
-import { CancellationTokenSource, Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
+import { CancellationTokenSource, Disposable, l10n, MarkdownString, StatusBarAlignment, window } from 'vscode';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { once } from '@gitlens/utils/event.js';
@@ -72,15 +72,20 @@ export class StatusBarController implements Disposable {
 						alignment,
 						alignment === StatusBarAlignment.Right ? 999 : 1,
 					);
-				this._statusBarMode.name = 'GitLens Modes';
+				this._statusBarMode.name = l10n.t('GitLens Modes');
 				this._statusBarMode.command = 'gitlens.switchMode' satisfies GlCommands;
 				this._statusBarMode.text = mode.statusBarItemName;
 				this._statusBarMode.tooltip = new MarkdownString(
-					`**${mode.statusBarItemName}** ${GlyphChars.Dash} ${mode.description}\n\n---\n\nClick to Switch GitLens Modes`,
+					l10n.t(
+						'**{0}** {1} {2}\n\n---\n\nClick to Switch GitLens Modes',
+						mode.statusBarItemName,
+						GlyphChars.Dash,
+						mode.description ?? '',
+					),
 					true,
 				);
 				this._statusBarMode.accessibilityInformation = {
-					label: `GitLens Mode: ${mode.statusBarItemName}\nClick to Switch GitLens Modes`,
+					label: l10n.t('GitLens Mode: {0}\nClick to Switch GitLens Modes', mode.statusBarItemName),
 				};
 				this._statusBarMode.show();
 			} else {
@@ -116,7 +121,7 @@ export class StatusBarController implements Disposable {
 					alignment,
 					alignment === StatusBarAlignment.Right ? 1000 : 0,
 				);
-			this._statusBarBlame.name = 'GitLens Current Line Blame';
+			this._statusBarBlame.name = l10n.t('GitLens Current Line Blame');
 			this._statusBarBlame.command = configuration.get('statusBar.command');
 
 			if (configuration.changed(e, 'statusBar.enabled')) {
@@ -177,24 +182,28 @@ export class StatusBarController implements Disposable {
 					};
 
 					if (doc.canDirtyIdle) {
-						statusBarItem.text = '$(watch) Blame Paused';
+						statusBarItem.text = `$(watch) ${l10n.t('Blame Paused')}`;
 						statusBarItem.tooltip.appendMarkdown(
-							`Blame will resume after a [${configuration.get(
-								'advanced.blame.delayAfterEdit',
-							)} ms delay](${createMarkdownCommandLink<[undefined, string]>('gitlens.showSettingsPage', [
-								undefined,
-								'advanced.blame.delayAfterEdit',
-							])} 'Change the after edit delay') to limit the performance impact because there are unsaved changes`,
+							l10n.t(
+								'Blame will resume after a [{0} ms delay]({1} "Change the after edit delay") to limit the performance impact because there are unsaved changes',
+								configuration.get('advanced.blame.delayAfterEdit'),
+								createMarkdownCommandLink<[undefined, string]>('gitlens.showSettingsPage', [
+									undefined,
+									'advanced.blame.delayAfterEdit',
+								]),
+							),
 						);
 					} else {
-						statusBarItem.text = '$(debug-pause) Blame Paused';
+						statusBarItem.text = `$(debug-pause) ${l10n.t('Blame Paused')}`;
 						statusBarItem.tooltip.appendMarkdown(
-							`Blame will resume after saving because there are unsaved changes and the file is over the [${configuration.get(
-								'advanced.blame.sizeThresholdAfterEdit',
-							)} line threshold](${createMarkdownCommandLink<[undefined, string]>(
-								'gitlens.showSettingsPage',
-								[undefined, 'advanced.blame.sizeThresholdAfterEdit'],
-							)} 'Change the after edit line threshold') to limit the performance impact`,
+							l10n.t(
+								'Blame will resume after saving because there are unsaved changes and the file is over the [{0} line threshold]({1} "Change the after edit line threshold") to limit the performance impact',
+								configuration.get('advanced.blame.sizeThresholdAfterEdit'),
+								createMarkdownCommandLink<[undefined, string]>('gitlens.showSettingsPage', [
+									undefined,
+									'advanced.blame.sizeThresholdAfterEdit',
+								]),
+							),
 						);
 					}
 
@@ -257,56 +266,56 @@ export class StatusBarController implements Disposable {
 		let actionTooltip: string;
 		switch (cfg.command) {
 			case 'gitlens.copyRemoteCommitUrl':
-				actionTooltip = 'Click to Copy Remote Commit URL';
+				actionTooltip = l10n.t('Click to Copy Remote Commit URL');
 				break;
 			case 'gitlens.copyRemoteFileUrl':
 				this._statusBarBlame.command = 'gitlens.copyRemoteFileUrlToClipboard' satisfies GlCommands;
-				actionTooltip = 'Click to Copy Remote File Revision URL';
+				actionTooltip = l10n.t('Click to Copy Remote File Revision URL');
 				break;
 			case 'gitlens.diffWithPrevious':
 				this._statusBarBlame.command = 'gitlens.diffLineWithPrevious' satisfies GlCommands;
-				actionTooltip = 'Click to Open Line Changes with Previous Revision';
+				actionTooltip = l10n.t('Click to Open Line Changes with Previous Revision');
 				break;
 			case 'gitlens.diffWithWorking':
 				this._statusBarBlame.command = 'gitlens.diffLineWithWorking' satisfies GlCommands;
-				actionTooltip = 'Click to Open Line Changes with Working File';
+				actionTooltip = l10n.t('Click to Open Line Changes with Working File');
 				break;
 			case 'gitlens.openCommitOnRemote':
-				actionTooltip = 'Click to Open Commit on Remote';
+				actionTooltip = l10n.t('Click to Open Commit on Remote');
 				break;
 			case 'gitlens.openFileOnRemote':
-				actionTooltip = 'Click to Open Revision on Remote';
+				actionTooltip = l10n.t('Click to Open Revision on Remote');
 				break;
 			case 'gitlens.revealCommitInView':
-				actionTooltip = 'Click to Reveal Commit in the Side Bar';
+				actionTooltip = l10n.t('Click to Reveal Commit in the Side Bar');
 				break;
 			case 'gitlens.showCommitsInView':
-				actionTooltip = 'Click to Search for Commit';
+				actionTooltip = l10n.t('Click to Search for Commit');
 				break;
 			case 'gitlens.showQuickCommitDetails':
-				actionTooltip = 'Click to Show Commit';
+				actionTooltip = l10n.t('Click to Show Commit');
 				break;
 			case 'gitlens.showQuickCommitFileDetails':
-				actionTooltip = 'Click to Show Commit (file)';
+				actionTooltip = l10n.t('Click to Show Commit (file)');
 				break;
 			case 'gitlens.showQuickRepoHistory':
-				actionTooltip = 'Click to Show Branch History';
+				actionTooltip = l10n.t('Click to Show Branch History');
 				break;
 			case 'gitlens.showQuickFileHistory':
-				actionTooltip = 'Click to Show File History';
+				actionTooltip = l10n.t('Click to Show File History');
 				break;
 			case 'gitlens.toggleCodeLens':
-				actionTooltip = 'Click to Toggle Git CodeLens';
+				actionTooltip = l10n.t('Click to Toggle Git CodeLens');
 				break;
 			case 'gitlens.toggleFileBlame':
 				this._statusBarBlame.command = 'gitlens.toggleFileBlame:statusbar' satisfies GlCommands;
-				actionTooltip = 'Click to Toggle File Blame';
+				actionTooltip = l10n.t('Click to Toggle File Blame');
 				break;
 			case 'gitlens.toggleFileChanges': {
 				if (commit.file != null) {
 					this._statusBarBlame.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
 						'gitlens.toggleFileChanges:statusbar',
-						'Toggle File Changes',
+						l10n.t('Toggle File Changes'),
 						commit.file.uri,
 						{
 							type: 'changes',
@@ -316,14 +325,14 @@ export class StatusBarController implements Disposable {
 				} else {
 					this._statusBarBlame.command = 'gitlens.toggleFileChanges:statusbar' satisfies GlCommands;
 				}
-				actionTooltip = 'Click to Toggle File Changes';
+				actionTooltip = l10n.t('Click to Toggle File Changes');
 				break;
 			}
 			case 'gitlens.toggleFileChangesOnly': {
 				if (commit.file != null) {
 					this._statusBarBlame.command = createCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>(
 						'gitlens.toggleFileChanges:statusbar',
-						'Toggle File Changes',
+						l10n.t('Toggle File Changes'),
 						commit.file.uri,
 						{
 							type: 'changes',
@@ -333,16 +342,16 @@ export class StatusBarController implements Disposable {
 				} else {
 					this._statusBarBlame.command = 'gitlens.toggleFileChanges:statusbar' satisfies GlCommands;
 				}
-				actionTooltip = 'Click to Toggle File Changes';
+				actionTooltip = l10n.t('Click to Toggle File Changes');
 				break;
 			}
 			case 'gitlens.toggleFileHeatmap':
 				this._statusBarBlame.command = 'gitlens.toggleFileHeatmap:statusbar' satisfies GlCommands;
-				actionTooltip = 'Click to Toggle File Heatmap';
+				actionTooltip = l10n.t('Click to Toggle File Heatmap');
 				break;
 		}
 
-		this._statusBarBlame.tooltip = new MarkdownString(`Loading... \n\n---\n\n${actionTooltip}`);
+		this._statusBarBlame.tooltip = new MarkdownString(`${l10n.t('Loading...')} \n\n---\n\n${actionTooltip}`);
 		this._statusBarBlame.accessibilityInformation = {
 			label: `${this._statusBarBlame.text}\n${actionTooltip}`,
 		};
@@ -389,7 +398,7 @@ export class StatusBarController implements Disposable {
 				getBranchAndTagTips: getBranchAndTagTips,
 				messageTruncateAtNewLine: true,
 				pullRequest: pr,
-				pullRequestPendingMessage: 'PR $(watch)',
+				pullRequestPendingMessage: l10n.t('PR $(watch)'),
 				remotes: remotes,
 			})}`;
 			statusBarItem.accessibilityInformation = {

@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
@@ -198,11 +199,11 @@ export class GlWorktreeTooltip extends SignalWatcher(LitElement) {
 					no-tooltip
 				></commit-stats>`;
 			case 'loading':
-				return html`<span class="muted">Loading changes…</span>`;
+				return html`<span class="muted">${l10n.t('Loading changes…')}</span>`;
 			case 'dirty':
-				return html`<span class="muted">Has Uncommitted Changes</span>`;
+				return html`<span class="muted">${l10n.t('Has Uncommitted Changes')}</span>`;
 			case 'clean':
-				return html`<span class="muted">No Uncommitted Changes</span>`;
+				return html`<span class="muted">${l10n.t('No Uncommitted Changes')}</span>`;
 			// Unknown clean/dirty (bare worktree, or the probe failed) — say nothing rather than assert a state.
 			case 'unknown':
 				return nothing;

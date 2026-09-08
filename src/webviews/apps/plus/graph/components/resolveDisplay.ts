@@ -1,4 +1,7 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, nothing } from 'lit';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { fnv1aHash } from '@gitlens/utils/hash.js';
 import type { ConflictResolutionStrategy } from '../../../../plus/graph/graphService.js';
 
@@ -15,18 +18,18 @@ export type ResolutionDisplay = { label: string; icon: string; warn?: boolean };
  *  the file was intentionally left conflicted and still needs manual attention. Labels are sentence
  *  case to match the conflict-kind badges — one badge vocabulary. */
 export const strategyDisplay: Record<ConflictResolutionStrategy, ResolutionDisplay> = {
-	ai: { label: 'Merged', icon: 'gl-merge' },
-	'take-ours': { label: 'Kept current', icon: 'gl-accept-left' },
-	'take-theirs': { label: 'Took incoming', icon: 'gl-accept-right' },
-	deleted: { label: 'Deleted', icon: 'trash' },
-	skipped: { label: 'Needs review', icon: 'warning', warn: true },
+	ai: { label: l10n.t('Merged'), icon: 'gl-merge' },
+	'take-ours': { label: l10n.t('Kept current'), icon: 'gl-accept-left' },
+	'take-theirs': { label: l10n.t('Took incoming'), icon: 'gl-accept-right' },
+	deleted: { label: l10n.t('Deleted'), icon: 'trash' },
+	skipped: { label: l10n.t('Needs review'), icon: 'warning', warn: true },
 };
 
 /** Presentation for a file the user resolved by hand after automation escalated. The record keeps
  *  the AI's last attempted strategy (`skipped` when it never got one), so {@link strategyDisplay}
  *  would badge a finished file "Needs review" — the opposite of what happened. Not a warning:
  *  nothing is outstanding. */
-export const manualResolutionDisplay: ResolutionDisplay = { label: 'Resolved manually', icon: 'person' };
+export const manualResolutionDisplay: ResolutionDisplay = { label: l10n.t('Resolved manually'), icon: 'person' };
 
 /** AI confidence bucket for a resolution (`confidence` is 0–1). Drives the confidence pips and the
  *  low-confidence emphasis (reasoning auto-expands, badge tints to warning). */
@@ -40,10 +43,17 @@ export function confidenceLevel(confidence: number): 'high' | 'medium' | 'low' {
  *  actionable level — which tints to warning. */
 export function renderConfidence(level: 'high' | 'medium' | 'low'): unknown {
 	const filled = level === 'high' ? 3 : level === 'medium' ? 2 : 1;
-	return html`<span class="resolve-file__conf resolve-file__conf--${level}" title="AI confidence: ${level}">
+	const label = level === 'high' ? l10n.t('high') : level === 'medium' ? l10n.t('medium') : l10n.t('low');
+	const tooltip =
+		level === 'high'
+			? l10n.t('AI confidence: high')
+			: level === 'medium'
+				? l10n.t('AI confidence: medium')
+				: l10n.t('AI confidence: low');
+	return html`<span class="resolve-file__conf resolve-file__conf--${level}" title=${tooltip}>
 		<span class="resolve-file__pips" aria-hidden="true"
 			>${[0, 1, 2].map(i => html`<i class="resolve-file__pip ${i < filled ? 'on' : ''}"></i>`)}</span
-		><span class="resolve-file__conf-label">${level}</span>
+		><span class="resolve-file__conf-label">${label}</span>
 	</span>`;
 }
 
@@ -82,10 +92,14 @@ export function renderReasoning(
 						class="resolve-file__more"
 						aria-controls=${id}
 						aria-expanded=${expanded}
-						aria-label="${expanded ? 'Hide' : 'Show'} the full reasoning for ${filePath}"
+						aria-label=${
+							expanded
+								? l10n.t('Hide the full reasoning for {file}', { file: filePath })
+								: l10n.t('Show the full reasoning for {file}', { file: filePath })
+						}
 						@click=${onToggle}
 					>
-						${expanded ? 'see less' : 'see more'}
+						${expanded ? l10n.t('see less') : l10n.t('see more')}
 					</button>`
 				: nothing
 		}
@@ -95,12 +109,12 @@ export function renderReasoning(
 /** Friendlier names for the resolver's six read-only tools — the wire names are the model's API, not
  *  something to show a user reading why their conflict resolved the way it did. */
 const consultedToolLabels: Record<string, string> = {
-	show_file_at_ref: 'read the file',
-	grep: 'searched the repository',
-	blame: 'checked authorship',
-	diff: 'compared the two sides',
-	log: 'reviewed history',
-	show: 'inspected a commit',
+	show_file_at_ref: l10n.t('read the file'),
+	grep: l10n.t('searched the repository'),
+	blame: l10n.t('checked authorship'),
+	diff: l10n.t('compared the two sides'),
+	log: l10n.t('reviewed history'),
+	show: l10n.t('inspected a commit'),
 };
 
 /**
@@ -127,12 +141,20 @@ export function renderConsulted(
 ): unknown {
 	if (!consulted?.length) return nothing;
 
-	const label = `Consulted ${consulted.length} source${consulted.length === 1 ? '' : 's'}`;
+	const count = getNumericFormat()(consulted.length);
+	const label =
+		consulted.length === 1
+			? l10n.t('Consulted {count} source', { count: count })
+			: l10n.t('Consulted {count} sources', { count: count });
+	const ariaLabel =
+		consulted.length === 1
+			? l10n.t('Consulted {count} source for {file}', { count: count, file: filePath })
+			: l10n.t('Consulted {count} sources for {file}', { count: count, file: filePath });
 
 	return html`<details class="resolve-file__consulted">
 		<!-- The accessible name has to START with the visible text (WCAG 2.5.3) — the file only
 		     disambiguates the rows, so it's a suffix, not a replacement. -->
-		<summary class="resolve-file__consulted-summary" aria-label="${label} for ${filePath}">
+		<summary class="resolve-file__consulted-summary" aria-label=${ariaLabel}>
 			<code-icon icon="chevron-right" size="12"></code-icon>
 			<span class="resolve-file__consulted-text">${label}</span>
 		</summary>
@@ -142,7 +164,10 @@ export function renderConsulted(
 				return html`<li>
 					${
 						c.reason
-							? html`${c.reason} <span class="resolve-file__consulted-tool">(${toolLabel})</span>`
+							? localizedContent(l10n.t('{reason} ({tool})'), {
+									reason: c.reason,
+									tool: html`<span class="resolve-file__consulted-tool">${toolLabel}</span>`,
+								})
 							: toolLabel
 					}
 				</li>`;

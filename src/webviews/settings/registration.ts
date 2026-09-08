@@ -1,4 +1,4 @@
-import { Disposable, ViewColumn } from 'vscode';
+import { Disposable, l10n, ViewColumn } from 'vscode';
 import { registerCommand } from '../../system/-webview/command.js';
 import { loadChunk } from '../../system/-webview/loadChunk.js';
 import type { WebviewPanelsProxy, WebviewsController } from '../webviewsController.js';
@@ -16,7 +16,7 @@ export function registerSettingsWebviewPanel(
 			id: 'gitlens.settings',
 			fileName: 'settings.html',
 			iconPath: 'images/gitlens-icon.png',
-			title: 'GitLens Settings',
+			title: l10n.t('GitLens Settings'),
 			contextKeyPrefix: `gitlens:webview:settings`,
 			trackingFeature: 'settingsWebview',
 			type: 'settings',

@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -26,7 +27,7 @@ export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 			this.container,
 			gitUri,
 			editor,
-			'Open Current Branch Name',
+			l10n.t('Open Current Branch Name'),
 		);
 		if (repository == null) return;
 
@@ -63,7 +64,7 @@ export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenCurrentBranchOnRemoteCommand');
-			void showGenericErrorMessage('Unable to open branch on remote provider');
+			void showGenericErrorMessage(l10n.t('Unable to open branch on remote provider'));
 		}
 	}
 }

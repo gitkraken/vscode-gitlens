@@ -1,4 +1,4 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { map } from '@gitlens/utils/iterable.js';
 import type { GitUri } from '../../git/gitUri.js';
 import type { GlRepository } from '../../git/models/repository.js';
@@ -33,7 +33,7 @@ export class StashesNode extends CacheableChildrenViewNode<'stashes', ViewsWithS
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
 			const stash = await this.repo.git.stash?.getStash();
-			if (!stash?.stashes.size) return [new MessageNode(this.view, this, 'No stashes could be found.')];
+			if (!stash?.stashes.size) return [new MessageNode(this.view, this, l10n.t('No stashes could be found.'))];
 
 			this.children = [...map(stash.stashes.values(), c => new StashNode(this.view, this, c))];
 		}
@@ -42,7 +42,7 @@ export class StashesNode extends CacheableChildrenViewNode<'stashes', ViewsWithS
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Stashes', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(l10n.t('Stashes'), TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Stashes;
 		item.iconPath = new ThemeIcon('gitlens-stashes');

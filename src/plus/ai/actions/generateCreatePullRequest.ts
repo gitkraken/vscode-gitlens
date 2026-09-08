@@ -1,4 +1,5 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { l10n } from 'vscode';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import type { AIChatMessage } from '@gitlens/ai/models/provider.js';
 import type { AISummarizedResult } from '@gitlens/ai/models/results.js';
@@ -38,7 +39,7 @@ export async function generateCreatePullRequest(
 				});
 
 				if (!compareData?.diff || !compareData?.logMessages) {
-					throw new AINoRequestDataError('No changes to generate a pull request from.');
+					throw new AINoRequestDataError(l10n.t('No changes to generate a pull request from.'));
 				}
 
 				const { diff, logMessages } = compareData;
@@ -61,7 +62,7 @@ export async function generateCreatePullRequest(
 				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
 				return messages;
 			},
-			getProgressTitle: m => `Generating pull request details with ${m.name}...`,
+			getProgressTitle: m => l10n.t('Generating pull request details with {0}...', m.name),
 			getTelemetryInfo: m => ({
 				key: 'ai/generate',
 				data: {

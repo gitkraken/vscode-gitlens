@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -8,7 +9,8 @@ import type { GlPopover } from '@gitlens/components/components/overlays/popover.
 import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { urls } from '../../../../../../constants.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../../../constants.subscription.js';
 import type { Source } from '../../../../../../constants.telemetry.js';
@@ -620,7 +622,7 @@ background-color: var(--gl-account-chip-color); */
 				id="chip"
 				class="chip chip--skeleton"
 				tabindex="-1"
-				aria-label="Loading account status"
+				aria-label=${l10n.t('Loading account status')}
 				role="status"
 			></span>`;
 		}
@@ -662,8 +664,8 @@ background-color: var(--gl-account-chip-color); */
 						this.feedback,
 						() => html`<gl-button
 							appearance="toolbar"
-							tooltip="Send Feedback"
-							aria-label="Send Feedback"
+							tooltip=${l10n.t('Send Feedback')}
+							aria-label=${l10n.t('Send Feedback')}
 							@click=${this.onFeedbackClick}
 							><code-icon icon="feedback"></code-icon
 						></gl-button>`,
@@ -675,8 +677,8 @@ background-color: var(--gl-account-chip-color); */
 										href="${createCommandLink<Source>('gitlens.plus.validate', {
 											source: 'account',
 										})}"
-										tooltip="Synchronize Status"
-										aria-label="Synchronize Status"
+										tooltip=${l10n.t('Synchronize Status')}
+										aria-label=${l10n.t('Synchronize Status')}
 										><code-icon icon="sync"></code-icon
 									></gl-button>
 									${
@@ -684,8 +686,8 @@ background-color: var(--gl-account-chip-color); */
 											? html`<gl-button
 													appearance="toolbar"
 													href="${createCommandLink('gitlens.showSettingsPage!account')}"
-													tooltip="Account Settings"
-													aria-label="Account Settings"
+													tooltip=${l10n.t('Account Settings')}
+													aria-label=${l10n.t('Account Settings')}
 													><code-icon icon="gear"></code-icon
 												></gl-button>`
 											: html`<gl-button
@@ -693,8 +695,8 @@ background-color: var(--gl-account-chip-color); */
 													href="${createCommandLink<Source>('gitlens.plus.manage', {
 														source: 'account',
 													})}"
-													tooltip="Manage Account"
-													aria-label="Manage Account"
+													tooltip=${l10n.t('Manage Account')}
+													aria-label=${l10n.t('Manage Account')}
 													><code-icon icon="gear"></code-icon
 												></gl-button>`
 									}
@@ -703,8 +705,8 @@ background-color: var(--gl-account-chip-color); */
 										href="${createCommandLink<Source>('gitlens.plus.logout', {
 											source: 'account',
 										})}"
-										tooltip="Sign Out"
-										aria-label="Sign Out"
+										tooltip=${l10n.t('Sign Out')}
+										aria-label=${l10n.t('Sign Out')}
 										><code-icon icon="sign-out"></code-icon
 									></gl-button>`
 							: nothing
@@ -738,6 +740,12 @@ background-color: var(--gl-account-chip-color); */
 		const tier = getSubscriptionPlanName(trial ? this.effectivePlanId : this.planId);
 		const days = trial ? this.trialDaysRemaining : 0;
 		const hasTier = tier !== 'Pro' && tier !== 'Community';
+		const daysRemaining =
+			days < 1
+				? l10n.t('<1d left')
+				: days === 1
+					? l10n.t('1d left')
+					: l10n.t('{0}d left', getNumericFormat()(days));
 
 		return html`<span class="header__title"
 			>${getSubscriptionProductPlanName('pro')}${when(
@@ -746,21 +754,21 @@ background-color: var(--gl-account-chip-color); */
 				// the tier pill as a recessed grey sub-chip.
 				() =>
 					html`<gl-badge class="plan-tier"
-						>${tier}${when(trial, () => html`<span class="plan-trial">Trial</span>`)}</gl-badge
+						>${tier}${when(trial, () => html`<span class="plan-trial">${l10n.t('Trial')}</span>`)}</gl-badge
 					>`,
 			)}${when(
 				trial && !hasTier,
 				// A Pro trial has no tier pill to nest into — the headline already names Pro, so a PRO badge
 				// beside it would only restate it — so the status stands as its own neutral badge.
-				() => html`<gl-badge>Trial</gl-badge>`,
+				() => html`<gl-badge>${l10n.t('Trial')}</gl-badge>`,
 			)}${when(
 				state === SubscriptionState.VerificationRequired,
-				() => html`<gl-badge>Unverified</gl-badge>`,
+				() => html`<gl-badge>${l10n.t('Unverified')}</gl-badge>`,
 			)}${when(
 				trial && days !== 0,
 				// The countdown is a measurement, not a label — it changes daily and would resize a badge as it
 				// counts down, so it rides alongside as text. The panel body states it in full below.
-				() => html`<span class="plan-remaining">${days < 1 ? '<1d' : `${days}d`} left</span>`,
+				() => html`<span class="plan-remaining">${daysRemaining}</span>`,
 			)}</span
 		>`;
 	}
@@ -803,16 +811,17 @@ background-color: var(--gl-account-chip-color); */
 										organization: sub?.activeOrganization?.id,
 									},
 								})}"
-								aria-label="Switch Active Organization"
+								aria-label=${l10n.t('Switch Active Organization')}
 								><span class="org__badge">+${orgCount - 1}</span
 								><code-icon icon="arrow-swap"></code-icon
 								><span slot="tooltip"
-									>Switch Active Organization
+									>${l10n.t('Switch Active Organization')}
 									<hr />
-									You are in
-									${pluralize('organization', orgCount - 1, {
-										infix: ' other ',
-									})}</span
+									${
+										orgCount - 1 === 1
+											? l10n.t('You are in 1 other organization')
+											: l10n.t('You are in {0} other organizations', orgCount - 1)
+									}</span
 								></gl-button
 							>
 						</div>
@@ -834,8 +843,14 @@ background-color: var(--gl-account-chip-color); */
 		const plan = getSubscriptionNextPaidPlanId(sub);
 		const pitch =
 			plan === 'advanced'
-				? `Upgrade to the Advanced plan for access to self-hosted integrations, advanced AI features @ ${getSubscriptionPlanAiCredits(this.plans, 'advanced', false)} credits/week, and more`
-				: `Upgrade to the Pro plan for AI features @ ${getSubscriptionPlanAiCredits(this.plans, 'pro', false)} credits/week, and more`;
+				? l10n.t(
+						'Upgrade to the Advanced plan for access to self-hosted integrations, advanced AI features @ {0} credits/week, and more',
+						getSubscriptionPlanAiCredits(this.plans, 'advanced', false),
+					)
+				: l10n.t(
+						'Upgrade to the Pro plan for AI features @ {0} credits/week, and more',
+						getSubscriptionPlanAiCredits(this.plans, 'pro', false),
+					);
 
 		return html`<div class="details__button">
 			<gl-button
@@ -849,8 +864,8 @@ background-color: var(--gl-account-chip-color); */
 						plan: plan,
 					},
 				})}"
-				aria-label="Upgrade to ${getSubscriptionPlanName(plan)}"
-				><span class="upgrade-button">Upgrade</span>${this.renderPromo(plan, 'icon', 'suffix')}
+				aria-label=${l10n.t('Upgrade to {0}', getSubscriptionPlanName(plan))}
+				><span class="upgrade-button">${l10n.t('Upgrade')}</span>${this.renderPromo(plan, 'icon', 'suffix')}
 				<span slot="tooltip">${pitch} ${this.renderPromo(plan, 'info')}</span>
 			</gl-button>
 		</div>`;
@@ -888,12 +903,16 @@ background-color: var(--gl-account-chip-color); */
 		return html`<a
 			class="ai"
 			href="${createCommandLink('gitlens.showSettingsPage!account')}"
-			aria-label="GitKraken AI usage: ${figure}${nearlyOut ? ', nearly out' : ''} — open in GitLens Settings"
+			aria-label=${
+				nearlyOut
+					? l10n.t('GitKraken AI usage: {0}, nearly out — open in GitLens Settings', figure)
+					: l10n.t('GitKraken AI usage: {0} — open in GitLens Settings', figure)
+			}
 		>
 			<span class="ai__head">
 				<code-icon class="ai__icon" icon="sparkle" aria-hidden="true"></code-icon>
 				<span class="ai__title"><span>GitKraken AI</span></span>
-				${when(nearlyOut, () => html`<span class="ai__warning">Nearly out</span>`)}
+				${when(nearlyOut, () => html`<span class="ai__warning">${l10n.t('Nearly out')}</span>`)}
 				<span class="ai__figure">${compact}</span>
 			</span>
 			${
@@ -918,14 +937,14 @@ background-color: var(--gl-account-chip-color); */
 
 			case SubscriptionState.VerificationRequired:
 				return html`<div class="account-status">
-					<p>You must verify your email before you can access Pro features.</p>
+					<p>${l10n.t('You must verify your email before you can access Pro features.')}</p>
 					<button-container layout="editor">
 						<gl-button
 							full
 							href="${createCommandLink<Source>('gitlens.plus.resendVerification', {
 								source: 'account',
 							})}"
-							>Resend Email</gl-button
+							>${l10n.t('Resend Email')}</gl-button
 						>
 						<gl-button
 							appearance="secondary"
@@ -939,14 +958,58 @@ background-color: var(--gl-account-chip-color); */
 
 			case SubscriptionState.Trial: {
 				const days = this.trialDaysRemaining;
+				const formattedDays = getNumericFormat()(days);
+				const studentTrial = this.effectivePlanId === 'student';
+				let message: unknown[];
+				if (days < 1) {
+					const lessThanOneDayRemaining = html`<strong>${l10n.t('<1 day left')}</strong>`;
+					message = studentTrial
+						? localizedContent(
+								l10n.t(
+									'You have {lessThanOneDayRemaining} in your Student trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
+								),
+								{ lessThanOneDayRemaining: lessThanOneDayRemaining },
+							)
+						: localizedContent(
+								l10n.t(
+									'You have {lessThanOneDayRemaining} in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
+								),
+								{ lessThanOneDayRemaining: lessThanOneDayRemaining },
+							);
+				} else if (days === 1) {
+					const oneDayRemaining = html`<strong>${l10n.t('1 more day left')}</strong>`;
+					message = studentTrial
+						? localizedContent(
+								l10n.t(
+									'You have {oneDayRemaining} in your Student trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
+								),
+								{ oneDayRemaining: oneDayRemaining },
+							)
+						: localizedContent(
+								l10n.t(
+									'You have {oneDayRemaining} in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
+								),
+								{ oneDayRemaining: oneDayRemaining },
+							);
+				} else {
+					const daysRemaining = html`<strong>${l10n.t('{0} more days left', formattedDays)}</strong>`;
+					message = studentTrial
+						? localizedContent(
+								l10n.t(
+									'You have {daysRemaining} in your Student trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
+								),
+								{ daysRemaining: daysRemaining },
+							)
+						: localizedContent(
+								l10n.t(
+									'You have {daysRemaining} in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
+								),
+								{ daysRemaining: daysRemaining },
+							);
+				}
 
 				return html`<div class="account-status">
-					<p>
-						You have
-						<strong>${days < 1 ? '<1 day' : pluralize('day', days, { infix: ' more ' })} left</strong>
-						in your ${this.planTier === 'Student' ? 'Student' : 'Pro'} trial. Once your trial ends, you will
-						only be able to use Pro features on publicly-hosted repos.
-					</p>
+					<p>${message}</p>
 					<button-container layout="editor">
 						<gl-button
 							full
@@ -959,7 +1022,7 @@ background-color: var(--gl-account-chip-color); */
 									plan: 'pro',
 								},
 							})}"
-							>Upgrade to Pro</gl-button
+							>${l10n.t('Upgrade to Pro')}</gl-button
 						>
 					</button-container>
 					${this.renderPromo('pro')} ${this.renderReferFriend()}
@@ -968,8 +1031,12 @@ background-color: var(--gl-account-chip-color); */
 
 			case SubscriptionState.TrialExpired:
 				return html`<div class="account-status">
-					<p>Thank you for trying <a href="${urls.communityVsPro}">GitLens Pro</a>.</p>
-					<p>Continue leveraging Pro features and workflows for privately hosted repos by upgrading today.</p>
+					<p>
+						${localizedContent(l10n.t('Thank you for trying {product}.'), { product: html`<a href="${urls.communityVsPro}">GitLens Pro</a>` })}
+					</p>
+					<p>
+						${l10n.t('Continue leveraging Pro features and workflows for privately hosted repos by upgrading today.')}
+					</p>
 					<button-container layout="editor">
 						<gl-button
 							full
@@ -982,17 +1049,20 @@ background-color: var(--gl-account-chip-color); */
 									plan: 'pro',
 								},
 							})}"
-							>Upgrade to Pro</gl-button
+							>${l10n.t('Upgrade to Pro')}</gl-button
 						>
 					</button-container>
 					${this.renderPromo('pro')} ${this.renderReferFriend()}
 				</div>`;
 
-			case SubscriptionState.TrialReactivationEligible:
+			case SubscriptionState.TrialReactivationEligible: {
+				const trialLength = getNumericFormat()(proTrialLengthInDays);
 				return html`<div class="account-status">
 					<p>
-						Reactivate your GitLens Pro trial and experience all the new Pro features — free for another
-						${pluralize('day', proTrialLengthInDays)}.
+						${l10n.t(
+							'Reactivate your GitLens Pro trial and experience all the new Pro features — free for another {0} days.',
+							trialLength,
+						)}
 					</p>
 					<button-container layout="editor">
 						<gl-button
@@ -1000,19 +1070,18 @@ background-color: var(--gl-account-chip-color); */
 							href="${createCommandLink<Source>('gitlens.plus.reactivateProTrial', {
 								source: 'account',
 							})}"
-							tooltip="Reactivate your Pro trial for another ${pluralize('day', proTrialLengthInDays)}"
-							>Reactivate GitLens Pro Trial</gl-button
+							tooltip=${l10n.t('Reactivate your Pro trial for another {0} days', trialLength)}
+							>${l10n.t('Reactivate GitLens Pro Trial')}</gl-button
 						>
 					</button-container>
 					${this.renderReferFriend()}
 				</div>`;
+			}
 
 			default:
 				return html`<div class="account-status">
 					<p>
-						Unlock advanced features and workflows for private repos, accelerate reviews, and streamline
-						collaboration with
-						<a href="${urls.communityVsPro}">GitLens Pro</a>.
+						${localizedContent(l10n.t('Unlock advanced features and workflows for private repos, accelerate reviews, and streamline collaboration with {product}.'), { product: html`<a href="${urls.communityVsPro}">GitLens Pro</a>` })}
 					</p>
 					<button-container layout="editor">
 						<gl-button
@@ -1020,19 +1089,21 @@ background-color: var(--gl-account-chip-color); */
 							href="${createCommandLink<Source>('gitlens.plus.signUp', {
 								source: 'account',
 							})}"
-							>Try GitLens Pro</gl-button
+							>${l10n.t('Try GitLens Pro')}</gl-button
 						>
 						<span class="button-suffix"
-							>or
+							>${l10n.t('or')}
 							<a
 								href="${createCommandLink<Source>('gitlens.plus.login', {
 									source: 'account',
 								})}"
-								>sign in</a
+								>${l10n.t('sign in')}</a
 							></span
 						>
 					</button-container>
-					<p>Get ${proTrialLengthInDays} days of GitLens Pro for free — no credit card required.</p>
+					<p>
+						${l10n.t('Get {0} days of GitLens Pro for free — no credit card required.', proTrialLengthInDays)}
+					</p>
 				</div>`;
 		}
 	}
@@ -1041,13 +1112,14 @@ background-color: var(--gl-account-chip-color); */
 		if (this.subscription == null || !isSubscriptionPaid(this.subscription)) return nothing;
 
 		return html`<p>
-			<a
-				href="${createCommandLink<Source>('gitlens.plus.referFriend', {
-					source: 'account',
-				})}"
-				>Refer a friend</a
-			>
-			&mdash; give 50% off and get up to $20
+			${localizedContent(l10n.t('{link} — give 50% off and get up to $20'), {
+				link: html`<a
+					href="${createCommandLink<Source>('gitlens.plus.referFriend', {
+						source: 'account',
+					})}"
+					>${l10n.t('Refer a friend')}</a
+				>`,
+			})}
 		</p>`;
 	}
 
@@ -1063,11 +1135,11 @@ background-color: var(--gl-account-chip-color); */
 
 		return html`<gl-popover placement="bottom" trigger="hover focus click">
 			<span slot="anchor" class="chip chip--outlined" tabindex="0">
-				<span>Upgrade</span>
+				<span>${l10n.t('Upgrade')}</span>
 			</span>
 			<div slot="content" class="content" tabindex="-1">
 				<div class="header">
-					<span class="header__title">Advantages of GitLens Pro</span>
+					<span class="header__title">${l10n.t('Advantages of GitLens Pro')}</span>
 				</div>
 				<div class="upgrade">
 					<button-container layout="editor">
@@ -1082,7 +1154,7 @@ background-color: var(--gl-account-chip-color); */
 									plan: 'pro',
 								},
 							})}"
-							>Upgrade to Pro</gl-button
+							>${l10n.t('Upgrade to Pro')}</gl-button
 						>
 					</button-container>
 					${this.renderPromo('pro')}
@@ -1104,7 +1176,7 @@ background-color: var(--gl-account-chip-color); */
 									plan: 'advanced',
 								},
 							})}"
-							>Upgrade to Advanced</gl-button
+							>${l10n.t('Upgrade to Advanced')}</gl-button
 						>
 					</button-container>
 					${this.renderPromo('advanced')}

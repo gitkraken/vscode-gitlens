@@ -1,9 +1,10 @@
+import { l10n } from 'vscode';
 import { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel, isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { isStringArray } from '@gitlens/utils/array.js';
-import { fromNow } from '@gitlens/utils/date.js';
-import { pad, pluralize } from '@gitlens/utils/string.js';
+import { fromNow, getNumericFormat } from '@gitlens/utils/date.js';
+import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
 import type { Container } from '../../container.js';
 import type { GlRepository } from '../../git/models/repository.js';
@@ -55,8 +56,8 @@ export interface PullGitCommandArgs {
 
 export class PullGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: PullGitCommandArgs) {
-		super(container, 'pull', 'pull', 'Pull', {
-			description: 'fetches and integrates changes from a remote into the current branch',
+		super(container, 'pull', 'pull', l10n.t('Pull'), {
+			description: l10n.t('fetches and integrates changes from a remote into the current branch'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -154,25 +155,30 @@ export class PullGitCommand extends QuickCommand<State> {
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 
 		if (state.repos.length > 1) {
-			step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
-				createFlagsQuickPickItem<Flags>(state.flags, [], {
-					label: this.title,
-					detail: `Will pull ${state.repos.length} repos`,
-				}),
-				createFlagsQuickPickItem<Flags>(state.flags, ['--rebase'], {
-					label: `${this.title} with Rebase`,
-					description: '--rebase',
-					detail: `Will pull ${state.repos.length} repos by rebasing`,
-				}),
-			]);
+			step = this.createConfirmStep(
+				appendReposToTitle(l10n.t('Confirm Pull'), state, context),
+				[
+					createFlagsQuickPickItem<Flags>(state.flags, [], {
+						label: this.title,
+						detail: l10n.t('Will pull {0} repos', state.repos.length),
+					}),
+					createFlagsQuickPickItem<Flags>(state.flags, ['--rebase'], {
+						label: l10n.t('Pull with Rebase'),
+						description: '--rebase',
+						detail: l10n.t('Will pull {0} repos by rebasing', state.repos.length),
+					}),
+				],
+				l10n.t('Confirm Pull'),
+			);
 		} else if (isBranchReference(state.reference)) {
 			if (state.reference.remote) {
 				step = this.createConfirmStep(
-					appendReposToTitle(`Confirm ${context.title}`, state, context),
+					appendReposToTitle(l10n.t('Confirm Pull'), state, context),
 					[],
+					l10n.t('Confirm Pull'),
 					createDirectiveQuickPickItem(Directive.Cancel, true, {
-						label: `Cancel ${this.title}`,
-						detail: 'Cannot pull a remote branch',
+						label: l10n.t('Cancel Pull'),
+						detail: l10n.t('Cannot pull a remote branch'),
 					}),
 				);
 			} else {
@@ -181,26 +187,38 @@ export class PullGitCommand extends QuickCommand<State> {
 
 				if (branch?.upstream == null) {
 					step = this.createConfirmStep(
-						appendReposToTitle(`Confirm ${context.title}`, state, context),
+						appendReposToTitle(l10n.t('Confirm Pull'), state, context),
 						[],
+						l10n.t('Confirm Pull'),
 						createDirectiveQuickPickItem(Directive.Cancel, true, {
-							label: `Cancel ${this.title}`,
-							detail: 'Cannot pull a branch until it has been published',
+							label: l10n.t('Cancel Pull'),
+							detail: l10n.t('Cannot pull a branch until it has been published'),
 						}),
 					);
 				} else {
-					step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
-						createFlagsQuickPickItem<Flags>(state.flags, [], {
-							label: this.title,
-							detail: `Will pull${
-								branch.upstream.state.behind
-									? ` ${pluralize('commit', branch.upstream.state.behind)} into ${getReferenceLabel(
-											branch,
-										)}`
-									: ` into ${getReferenceLabel(branch)}`
-							}`,
-						}),
-					]);
+					step = this.createConfirmStep(
+						appendReposToTitle(l10n.t('Confirm Pull'), state, context),
+						[
+							createFlagsQuickPickItem<Flags>(state.flags, [], {
+								label: this.title,
+								detail:
+									branch.upstream.state.behind === 0
+										? l10n.t('Will pull into {0}', getReferenceLabel(branch))
+										: branch.upstream.state.behind === 1
+											? l10n.t(
+													'Will pull {0} commit into {1}',
+													getNumericFormat()(branch.upstream.state.behind),
+													getReferenceLabel(branch),
+												)
+											: l10n.t(
+													'Will pull {0} commits into {1}',
+													getNumericFormat()(branch.upstream.state.behind),
+													getReferenceLabel(branch),
+												),
+							}),
+						],
+						l10n.t('Confirm Pull'),
+					);
 				}
 			}
 		} else {
@@ -214,29 +232,62 @@ export class PullGitCommand extends QuickCommand<State> {
 			let lastFetchedPrompt: string | undefined;
 			if (lastFetched !== 0) {
 				if (supportsPrompt) {
-					lastFetchedPrompt = `Last fetched ${fromNow(new Date(lastFetched))}`;
+					lastFetchedPrompt = l10n.t('Last fetched {0}', fromNow(new Date(lastFetched)));
 				} else {
-					lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}Last fetched ${fromNow(new Date(lastFetched))}`;
+					lastFetchedOn = l10n.t(
+						'{0}Last fetched {1}',
+						pad(GlyphChars.Dot, 2, 2),
+						fromNow(new Date(lastFetched)),
+					);
 				}
 			}
 
-			const pullDetails = status?.upstream?.state.behind
-				? ` ${pluralize('commit', status.upstream.state.behind)} into $(repo) ${repo.name}`
-				: ` into $(repo) ${repo.name}`;
+			const pullDetails =
+				status?.upstream?.state.behind == null || status.upstream.state.behind === 0
+					? {
+							pull: l10n.t('Will pull into $(repo) {0}', repo.name),
+							pullRebase: l10n.t('Will pull and rebase into $(repo) {0}', repo.name),
+						}
+					: status.upstream.state.behind === 1
+						? {
+								pull: l10n.t(
+									'Will pull {0} commit into $(repo) {1}',
+									getNumericFormat()(status.upstream.state.behind),
+									repo.name,
+								),
+								pullRebase: l10n.t(
+									'Will pull and rebase {0} commit into $(repo) {1}',
+									getNumericFormat()(status.upstream.state.behind),
+									repo.name,
+								),
+							}
+						: {
+								pull: l10n.t(
+									'Will pull {0} commits into $(repo) {1}',
+									getNumericFormat()(status.upstream.state.behind),
+									repo.name,
+								),
+								pullRebase: l10n.t(
+									'Will pull and rebase {0} commits into $(repo) {1}',
+									getNumericFormat()(status.upstream.state.behind),
+									repo.name,
+								),
+							};
 
 			step = this.createConfirmStep(
-				appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),
+				appendReposToTitle(l10n.t('Confirm Pull'), state, context, lastFetchedOn),
 				[
 					createFlagsQuickPickItem<Flags>(state.flags, [], {
 						label: this.title,
-						detail: `Will pull${pullDetails}`,
+						detail: pullDetails.pull,
 					}),
 					createFlagsQuickPickItem<Flags>(state.flags, ['--rebase'], {
-						label: `${this.title} with Rebase`,
+						label: l10n.t('Pull with Rebase'),
 						description: '--rebase',
-						detail: `Will pull and rebase${pullDetails}`,
+						detail: pullDetails.pullRebase,
 					}),
 				],
+				l10n.t('Confirm Pull'),
 				undefined,
 				{
 					prompt: lastFetchedPrompt,
@@ -244,9 +295,11 @@ export class PullGitCommand extends QuickCommand<State> {
 					onDidClickButton: async (quickpick, button) => {
 						if (button !== FetchQuickInputButton || quickpick.busy) return false;
 
-						quickpick.title = `Confirm ${context.title}${pad(GlyphChars.Dot, 2, 2)}Fetching${
-							GlyphChars.Ellipsis
-						}`;
+						quickpick.title = l10n.t(
+							'Confirm Pull{0}Fetching{1}',
+							pad(GlyphChars.Dot, 2, 2),
+							GlyphChars.Ellipsis,
+						);
 
 						quickpick.busy = true;
 						try {

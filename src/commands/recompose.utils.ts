@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { Container } from '../container.js';
 import { create as createWorktree } from '../git/actions/worktree.js';
@@ -17,10 +17,10 @@ export async function resolveRecomposeAnchor(
 ): Promise<{ svc: GitRepositoryService; worktreePath: string } | undefined> {
 	let worktree = await getBranchWorktree(container, branch);
 	if (worktree == null) {
-		const create = { title: 'Create Worktree' };
-		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const create = { title: l10n.t('Create Worktree') };
+		const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		const result = await window.showWarningMessage(
-			`Branch '${branch.name}' isn't checked out. Create a worktree to recompose it?`,
+			l10n.t("Branch '{0}' isn't checked out. Create a worktree to recompose it?", branch.name),
 			{ modal: true },
 			create,
 			cancel,

@@ -1,8 +1,9 @@
+import * as l10n from '@vscode/l10n';
+import type { TemplateResult } from 'lit';
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import '@gitlens/components/components/codeIcon.js';
 import { bannerStyles } from './banner.css.js';
 import '../button.js';
@@ -34,7 +35,7 @@ export class GlBanner extends LitElement {
 	titleIcon?: string;
 
 	@property()
-	body?: string;
+	body?: string | TemplateResult;
 
 	@property({ attribute: 'primary-button' })
 	primaryButton?: string;
@@ -106,7 +107,7 @@ export class GlBanner extends LitElement {
 	private renderBody() {
 		if (!this.body) return undefined;
 
-		return html`<div class="banner__body">${unsafeHTML(this.body)}</div>`;
+		return html`<div class="banner__body">${this.body}</div>`;
 	}
 
 	private renderButtons() {
@@ -158,8 +159,8 @@ export class GlBanner extends LitElement {
 				class="banner__dismiss"
 				appearance="toolbar"
 				href=${ifDefined(this.dismissHref)}
-				aria-label="Dismiss"
-				tooltip="Dismiss"
+				aria-label=${l10n.t('Dismiss')}
+				tooltip=${l10n.t('Dismiss')}
 				@click=${this.onDismissClick}
 			>
 				<code-icon icon="close"></code-icon>

@@ -6,6 +6,7 @@
  * typing expected by `src/webviews/apps/shared/actions/pr.ts`.
  */
 
+import { l10n } from 'vscode';
 import type { PullRequestRefs, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { getComparisonRefsForPullRequest, serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote.js';
@@ -66,7 +67,7 @@ export class PullRequestsService {
 		await openComparisonChanges(
 			this.container,
 			{ repoPath: refs.repoPath, lhs: refs.base.ref, rhs: refs.head.ref },
-			{ title: 'Changes in Pull Request' },
+			{ title: l10n.t('Changes in Pull Request') },
 		);
 	}
 

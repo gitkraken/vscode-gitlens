@@ -1,6 +1,7 @@
 import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph/engine/adornments.js';
 import type { LaneSegment, ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
 import { colorForColumn } from '@gitkraken/commit-graph/lanes/colors.js';
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { html } from 'lit';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
@@ -129,23 +130,21 @@ export function createLaneCollapseAdornmentProvider(
 			}
 
 			const hidden = ctx.hiddenCount;
-			const noun = hidden === 1 ? 'commit' : 'commits';
 			if (ctx.isCollapsed) {
 				return ctx.branchHint != null
-					? `lane collapsed: ${hidden} ${noun} hidden in ${ctx.branchHint}`
-					: `lane collapsed: ${hidden} ${noun} hidden`;
+					? l10n.t('lane collapsed: {0} commits hidden in {1}', hidden, ctx.branchHint)
+					: l10n.t('lane collapsed: {0} commits hidden', hidden);
 			}
 
 			return ctx.branchHint != null
-				? `lane expanded: ${hidden} ${noun} from ${ctx.branchHint} can be folded`
-				: `lane expanded: ${hidden} ${noun} can be folded`;
+				? l10n.t('lane expanded: {0} commits from {1} can be folded', hidden, ctx.branchHint)
+				: l10n.t('lane expanded: {0} commits can be folded', hidden);
 		},
 	};
 }
 
 function renderLaneFoldChevron(ctx: LaneCollapseChipContext): TemplateResult {
 	const hidden = ctx.hiddenCount;
-	const noun = hidden === 1 ? 'commit' : 'commits';
 	const color = colorForColumn(ctx.column);
 	const tipSha = ctx.segment.tipSha;
 
@@ -154,21 +153,26 @@ function renderLaneFoldChevron(ctx: LaneCollapseChipContext): TemplateResult {
 	// fold strip is only wide enough for the chevron.
 	const base = ctx.isCollapsed
 		? ctx.branchHint != null
-			? `Click to expand ${hidden} hidden ${noun} from ${ctx.branchHint}`
-			: `Click to expand ${hidden} hidden ${noun}`
+			? l10n.t('Click to expand {0} hidden commits from {1}', hidden, ctx.branchHint)
+			: l10n.t('Click to expand {0} hidden commits', hidden)
 		: ctx.branchHint != null
-			? `Click to fold ${hidden} ${noun} in ${ctx.branchHint}`
-			: `Click to fold ${hidden} ${noun} in this lane`;
+			? l10n.t('Click to fold {0} commits in {1}', hidden, ctx.branchHint)
+			: l10n.t('Click to fold {0} commits in this lane', hidden);
 	// Shift-click applies this lane's pending direction to EVERY lane. Surfaced in the tooltip because the
 	// fold strip has no room for a second control, so the modifier is otherwise undiscoverable.
-	const label = `${base}\n[${getShiftKeySymbol()}] ${ctx.isCollapsed ? 'Expand all lanes' : 'Fold all lanes'}`;
+	const label = l10n.t(
+		'{0}\n[{1}] {2}',
+		base,
+		getShiftKeySymbol(),
+		ctx.isCollapsed ? l10n.t('Expand all lanes') : l10n.t('Fold all lanes'),
+	);
 	const ariaLabel = ctx.isCollapsed
 		? ctx.branchHint != null
-			? `Expand collapsed lane ${ctx.branchHint} (${hidden} ${noun} hidden)`
-			: `Expand collapsed lane (${hidden} ${noun} hidden)`
+			? l10n.t('Expand collapsed lane {0} ({1} commits hidden)', ctx.branchHint, hidden)
+			: l10n.t('Expand collapsed lane ({0} commits hidden)', hidden)
 		: ctx.branchHint != null
-			? `Fold lane ${ctx.branchHint} (${hidden} ${noun})`
-			: `Fold lane (${hidden} ${noun})`;
+			? l10n.t('Fold lane {0} ({1} commits)', ctx.branchHint, hidden)
+			: l10n.t('Fold lane ({0} commits)', hidden);
 
 	return html`<button
 		type="button"

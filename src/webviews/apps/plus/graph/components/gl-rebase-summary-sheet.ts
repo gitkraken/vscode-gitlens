@@ -1,8 +1,10 @@
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type {
 	AutoRebaseSummary,
 	AutoRebaseSummaryStep,
@@ -27,6 +29,67 @@ import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/overlays/detail-sheet.js';
 import '../../../shared/components/overlays/popover-confirm.js';
 import '@gitlens/components/components/overlays/tooltip.js';
+
+function getRebaseOutcomeLabel(outcome: AutoRebaseSummary['outcome']): string {
+	switch (outcome) {
+		case 'completed':
+			return l10n.t('Rebase completed');
+		case 'escalated':
+			return l10n.t('Rebase stopped for review');
+		case 'aborted':
+			return l10n.t('Rebase aborted');
+		case 'failed':
+			return l10n.t('Rebase failed');
+		case 'undone':
+			return l10n.t('Rebase undone');
+	}
+}
+
+function getResolvedAcrossLabel(fileCount: number, stepCount: number): string {
+	const format = getNumericFormat();
+	const files = format(fileCount);
+	const steps = format(stepCount);
+	if (fileCount === 1) {
+		return stepCount === 1
+			? l10n.t('{files} conflicted file resolved across {steps} step', { files: files, steps: steps })
+			: l10n.t('{files} conflicted file resolved across {steps} steps', { files: files, steps: steps });
+	}
+
+	return stepCount === 1
+		? l10n.t('{files} conflicted files resolved across {steps} step', { files: files, steps: steps })
+		: l10n.t('{files} conflicted files resolved across {steps} steps', { files: files, steps: steps });
+}
+
+function getSkippedAsEmptyLabel(count: number): string {
+	const formatted = getNumericFormat()(count);
+	return count === 1
+		? l10n.t('{count} commit skipped as empty', { count: formatted })
+		: l10n.t('{count} commits skipped as empty', { count: formatted });
+}
+
+function getConflictedFilesLabel(count: number): string {
+	const formatted = getNumericFormat()(count);
+	return count === 1
+		? l10n.t('{count} conflicted file', { count: formatted })
+		: l10n.t('{count} conflicted files', { count: formatted });
+}
+
+/** Wraps translated prose segments so a localized relation retains the flex-item structure of the
+ *  branch-name elements it joins. */
+function localizedFlexContent(message: string, values: Readonly<Record<string, unknown>>): unknown[] {
+	const result: unknown[] = [];
+	for (const content of localizedContent(message, values)) {
+		if (typeof content === 'string') {
+			const text = content.trim();
+			if (text.length !== 0) {
+				result.push(html`<span>${text}</span>`);
+			}
+		} else {
+			result.push(content);
+		}
+	}
+	return result;
+}
 
 export interface RebaseSummaryViewDiffDetail {
 	step: number;
@@ -326,10 +389,14 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 	private _overflowingReasons = new Set<string>();
 
 	override render(): unknown {
-		return html`<gl-detail-sheet esc-managed aria-label="Auto-Rebase summary" close-label="Close">
+		return html`<gl-detail-sheet
+			esc-managed
+			aria-label=${l10n.t('Auto-Rebase summary')}
+			close-label=${l10n.t('Close')}
+		>
 			<span slot="title" class="title">
 				<code-icon icon="gl-merge"></code-icon>
-				<span class="title__name">Auto-Rebase Summary</span>
+				<span class="title__name">${l10n.t('Auto-Rebase Summary')}</span>
 			</span>
 			<div class="body scrollable">${this.renderContent()}</div>
 			${this.renderFooter()}
@@ -373,10 +440,10 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 		try {
 			summary = await this.getSummary?.(repoPath);
 			if (summary == null) {
-				error = 'No Auto-Rebase summary is available.';
+				error = l10n.t('No Auto-Rebase summary is available.');
 			}
 		} catch (ex) {
-			error = ex instanceof Error ? ex.message : 'Unable to load the rebase summary.';
+			error = ex instanceof Error ? ex.message : l10n.t('Unable to load the rebase summary.');
 		}
 
 		if (this.repoPath !== repoPath) return; // superseded by a newer open mid-flight
@@ -387,7 +454,7 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 	}
 
 	private renderContent(): unknown {
-		if (this._loading) return html`<div class="state">Loading rebase summary…</div>`;
+		if (this._loading) return html`<div class="state">${l10n.t('Loading rebase summary…')}</div>`;
 		if (this._error) return html`<div class="state">${this._error}</div>`;
 
 		const summary = this.summary;
@@ -397,41 +464,40 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 		return html`${this.renderOverview(summary, fileCount)}
 		${
 			summary.steps.length === 0
-				? html`<div class="state">No conflicts were encountered — every commit applied cleanly.</div>`
+				? html`<div class="state">
+						${l10n.t('No conflicts were encountered — every commit applied cleanly.')}
+					</div>`
 				: html`<div class="steps">${summary.steps.map(step => this.renderStep(step))}</div>`
 		}`;
 	}
 
 	private renderOverview(summary: AutoRebaseSummary, fileCount: number): unknown {
 		const emptiedCount = summary.steps.reduce((n, s) => (s.kind === 'empty-skipped' ? n + 1 : n), 0);
-		const outcomeLabel =
-			summary.outcome === 'completed'
-				? 'completed'
-				: summary.outcome === 'undone'
-					? 'undone'
-					: summary.outcome === 'escalated'
-						? 'stopped for review'
-						: summary.outcome;
+		const branchName = summary.branch ? html`<gl-branch-name .name=${summary.branch}></gl-branch-name>` : undefined;
+		const upstreamName = summary.upstream
+			? html`<gl-branch-name .name=${summary.upstream}></gl-branch-name>`
+			: undefined;
+		const branchLine =
+			branchName != null && upstreamName != null
+				? localizedFlexContent(l10n.t('{branch} onto {upstream}'), {
+						branch: branchName,
+						upstream: upstreamName,
+					})
+				: (branchName ??
+					(upstreamName != null
+						? localizedFlexContent(l10n.t('onto {upstream}'), { upstream: upstreamName })
+						: nothing));
 		return html`<div class="overview">
-			<div class="overview__line">
-				${summary.branch ? html`<gl-branch-name .name=${summary.branch}></gl-branch-name>` : nothing}
-				${
-					summary.upstream
-						? html`<span>onto</span><gl-branch-name .name=${summary.upstream}></gl-branch-name>`
-						: nothing
-				}
-			</div>
+			<div class="overview__line">${branchLine}</div>
 			<div class="overview__counts">
-				Rebase
-				${outcomeLabel}${
+				${getRebaseOutcomeLabel(summary.outcome)}${
 					summary.steps.length > 0
-						? html` · ${pluralize('conflicted file', fileCount)} resolved across
-							${pluralize('step', summary.steps.length)}`
+						? html` · ${getResolvedAcrossLabel(fileCount, summary.steps.length)}`
 						: nothing
 				}${
 					// Steps git dropped for being empty aren't commits on the branch — the counts above would
 					// otherwise read as "every step landed".
-					emptiedCount > 0 ? html` · ${pluralize('commit', emptiedCount)} skipped as empty` : nothing
+					emptiedCount > 0 ? html` · ${getSkippedAsEmptyLabel(emptiedCount)}` : nothing
 				}
 			</div>
 			${
@@ -439,8 +505,9 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 					? html`<div class="banner">
 							<code-icon icon="warning" size="12"></code-icon>
 							<span
-								>Your uncommitted changes conflicted when re-applied after the rebase — they are safe in
-								the stash, and the working tree still shows the conflicted application.</span
+								>${l10n.t(
+									'Your uncommitted changes conflicted when re-applied after the rebase — they are safe in the stash, and the working tree still shows the conflicted application.',
+								)}</span
 							>
 						</div>`
 					: nothing
@@ -470,17 +537,26 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 				<code-icon icon=${collapsed ? 'chevron-right' : 'chevron-down'} size="12"></code-icon>
 				<span class="step__body">
 					<span class="step__primary">
-						<span class="step__label">Conflict in Step ${step.step} of ${step.totalSteps}</span>
+						<span class="step__label"
+							>${l10n.t('Conflict in Step {step} of {total}', {
+								step: step.step,
+								total: step.totalSteps,
+							})}</span
+						>
 						${
 							step.kind === 'empty-skipped'
-								? html`<gl-tooltip content="The resolution made this commit empty, so it was skipped">
-										<span class="step__skipped">commit skipped</span>
+								? html`<gl-tooltip
+										content=${l10n.t('The resolution made this commit empty, so it was skipped')}
+									>
+										<span class="step__skipped">${l10n.t('commit skipped')}</span>
 									</gl-tooltip>`
 								: step.kind === 'manual'
 									? html`<gl-tooltip
-											content="Automation couldn't resolve this step — you resolved it manually"
+											content=${l10n.t(
+												"Automation couldn't resolve this step — you resolved it manually",
+											)}
 										>
-											<span class="step__manual">resolved manually</span>
+											<span class="step__manual">${l10n.t('resolved manually')}</span>
 										</gl-tooltip>`
 									: nothing
 						}
@@ -490,7 +566,7 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 						<span class="step__message" title=${step.commit.message ?? ''}>${messageLine}</span>
 					</span>
 				</span>
-				<span class="step__count">${pluralize('conflicted file', step.files.length)}</span>
+				<span class="step__count">${getConflictedFilesLabel(step.files.length)}</span>
 			</button>
 			${
 				collapsed
@@ -513,7 +589,7 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 			<div class="resolve-file__head">
 				<span
 					class="resolve-file__badge ${display.warn ? 'resolve-file__badge--warn' : ''}"
-					title="Resolution strategy"
+					title=${l10n.t('Resolution strategy')}
 				>
 					<code-icon icon=${display.icon} size="11"></code-icon
 					><span class="resolve-file__badge-text">${display.label}</span>
@@ -524,7 +600,7 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 					file.virtualRef != null
 						? html`<gl-button
 								appearance="toolbar"
-								aria-label="View resolved changes for ${file.filePath}"
+								aria-label=${l10n.t('View resolved changes for {file}', { file: file.filePath })}
 								@click=${() => this.emitViewDiff(step.step, file.filePath)}
 							>
 								<code-icon icon="diff"></code-icon>
@@ -549,20 +625,33 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 		// `undoError` intentionally doesn't disable the button — a refusal surfaces in the overview
 		// banner and can be retried by reopening the popover. `undoing` disables it during the RPC.
 		const undoDisabled = !summary.undoable || this._undoing;
-		const label = this._undoing ? 'Undoing…' : 'Undo Rebase';
+		const label = this._undoing ? l10n.t('Undoing…') : l10n.t('Undo Rebase');
 
 		let undo;
 		if (summary.undoable) {
-			const message = `Reset ${summary.branch ?? 'the branch'} to ${summary.preRebaseSha.slice(
-				0,
-				7,
-			)}? Commits created by the rebase will be discarded.${
-				summary.undoWillStash ? ' Your working changes will be stashed first.' : ''
-			}`;
+			const sha = summary.preRebaseSha.slice(0, 7);
+			const message = summary.branch
+				? summary.undoWillStash
+					? l10n.t(
+							'Reset {branch} to {sha}? Commits created by the rebase will be discarded. Your working changes will be stashed first.',
+							{ branch: summary.branch, sha: sha },
+						)
+					: l10n.t('Reset {branch} to {sha}? Commits created by the rebase will be discarded.', {
+							branch: summary.branch,
+							sha: sha,
+						})
+				: summary.undoWillStash
+					? l10n.t(
+							'Reset the branch to {sha}? Commits created by the rebase will be discarded. Your working changes will be stashed first.',
+							{ sha: sha },
+						)
+					: l10n.t('Reset the branch to {sha}? Commits created by the rebase will be discarded.', {
+							sha: sha,
+						});
 			undo = html`<gl-popover-confirm
-				heading="Undo Rebase"
+				heading=${l10n.t('Undo Rebase')}
 				message=${message}
-				confirm="Undo"
+				confirm=${l10n.t('Undo')}
 				@gl-confirm=${this.onConfirmUndo}
 			>
 				<gl-button slot="anchor" appearance="secondary" ?disabled=${undoDisabled}>${label}</gl-button>
@@ -577,7 +666,7 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 
 		return html`<div slot="footer" class="footer">
 			${undo}
-			<gl-button @click=${this.onKeep}>OK</gl-button>
+			<gl-button @click=${this.onKeep}>${l10n.t('OK')}</gl-button>
 		</div>`;
 	}
 
@@ -629,7 +718,7 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 				error = result.error.message;
 			}
 		} catch {
-			error = 'Unable to undo the rebase.';
+			error = l10n.t('Unable to undo the rebase.');
 		}
 
 		if (this._summary !== summary) return; // superseded by a newer open mid-flight

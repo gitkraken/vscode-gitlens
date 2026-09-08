@@ -6,6 +6,8 @@ export interface AIReviewFinding {
 	readonly id: string;
 	readonly severity: AIReviewSeverity;
 	readonly title: string;
+	/** Whether `title` is a synthetic protocol fallback and should be localized at presentation boundaries. */
+	readonly titleIsFallback?: boolean;
 	readonly description: string;
 	readonly filePath?: string;
 	readonly lineRange?: { readonly start: number; readonly end: number };
@@ -14,6 +16,8 @@ export interface AIReviewFinding {
 export interface AIReviewFocusArea {
 	readonly id: string;
 	readonly label: string;
+	/** Whether `label` is a synthetic protocol fallback and should be localized at presentation boundaries. */
+	readonly labelIsFallback?: boolean;
 	readonly rationale: string;
 	readonly severity: AIReviewSeverity;
 	readonly files: readonly string[];

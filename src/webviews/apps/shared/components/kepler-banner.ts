@@ -1,5 +1,7 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import './banner/banner.js';
 
@@ -47,17 +49,17 @@ export class GlKeplerBanner extends LitElement {
 		// satisfies the walkthrough's `kepler` step — the banner is non-dismissible, so a link that
 		// bypassed the command would leave it stuck forever for anyone who only ever clicks the link.
 		const keplerCommandLink = createCommandLink('gitlens.getKepler', { source: this.source });
-		const bodyHtml = `Kepler is the agent-agnostic development environment for running AI agents across the entire development workflow, from idea or issue to merged PR. <a href="${keplerCommandLink}">Learn more</a>`;
+		const bodyHtml = html`${localizedContent(l10n.t('Kepler is the agent-agnostic development environment for running AI agents across the entire development workflow, from idea or issue to merged PR. {learnMore}'), { learnMore: html`<a href=${keplerCommandLink}>${l10n.t('Learn more')}</a>` })}`;
 
 		return html`
 			<gl-banner
 				exportparts="base"
 				display="gradient-purple"
 				layout="${this.layout}"
-				banner-title="Try Kepler"
+				banner-title=${l10n.t('Try Kepler')}
 				title-icon="gl-kepler"
-				body="${bodyHtml}"
-				primary-button="Get Kepler"
+				.body=${bodyHtml}
+				primary-button=${l10n.t('Get Kepler')}
 				primary-button-href="${keplerCommandLink}"
 			></gl-banner>
 		`;

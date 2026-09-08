@@ -1,4 +1,4 @@
-import { QuickInputButtons } from 'vscode';
+import { l10n, QuickInputButtons } from 'vscode';
 import type { Container } from '../../container.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import type {
@@ -141,17 +141,10 @@ export abstract class QuickCommandWithSubcommands<
 	}
 
 	protected *pickSubcommandStep(state: PartialStepState<TState>): StepResultGenerator<TSubcommand> {
-		// Title Case for reading, with the raw subcommand key kept in the description so typed muscle
-		// memory ("mergetarget") still filters to the row
-		const formatSubcommandLabel = (name: string): string =>
-			name
-				.replace(/([a-z])([A-Z])/g, '$1 $2')
-				.split('-')
-				.map(word => word.charAt(0).toUpperCase() + word.slice(1))
-				.join(' ');
-
 		const items: QuickPickItemOfT<TSubcommand>[] = Array.from(this.subcommands, ([name, command]) => ({
-			label: formatSubcommandLabel(name),
+			// The internal subcommand key remains in the description for typed muscle memory while the
+			// visible command title follows the VS Code display language.
+			label: command.title,
 			description: name,
 			detail: command.description,
 			picked: state.subcommand === name,
@@ -160,7 +153,7 @@ export abstract class QuickCommandWithSubcommands<
 
 		const step = createPickStep<QuickPickItemOfT<TSubcommand>>({
 			title: this.title,
-			placeholder: `Choose a ${this.label} command`,
+			placeholder: l10n.t('Choose a {0} command', this.label),
 			// The raw key lives in the description — without this, typing it wouldn't filter
 			matchOnDescription: true,
 			items: items,

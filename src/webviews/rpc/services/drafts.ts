@@ -4,17 +4,18 @@
  * Provides shared patch operations that any webview can reuse.
  */
 
-import { env, window } from 'vscode';
+import { env, l10n, window } from 'vscode';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Sources } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
+import { getPresentableErrorMessage } from '../../../errors.js';
 import { showPatchesView } from '../../../plus/drafts/actions.js';
 import type { Draft } from '../../../plus/drafts/models/drafts.js';
 import type { Change } from '../../plus/patchDetails/protocol.js';
 import type { RpcServiceHost, WipChange } from './types.js';
 
-const copiedPatchMessage = "Copied patch — use 'Apply Copied Patch' in another window to apply it";
+const copiedPatchMessage = l10n.t("Copied patch — use 'Apply Copied Patch' in another window to apply it");
 
 export class DraftsService {
 	constructor(
@@ -75,7 +76,7 @@ export class DraftsService {
 		// copy the ENTIRE scope (all staged / all unstaged), contradicting the user's intent. Warn
 		// and bail instead. (`all` intentionally passes no `uris` and must not be gated here.)
 		if (scope !== 'all' && !uris?.length) {
-			void window.showWarningMessage('No changes found to copy');
+			void window.showWarningMessage(l10n.t('No changes found to copy'));
 			return;
 		}
 
@@ -100,7 +101,7 @@ export class DraftsService {
 
 			const diff = await git.diff.getDiff?.(to, from, uris?.length ? { uris: [...uris] } : undefined);
 			if (!diff?.contents) {
-				void window.showWarningMessage('No changes found to copy');
+				void window.showWarningMessage(l10n.t('No changes found to copy'));
 				return;
 			}
 
@@ -111,7 +112,7 @@ export class DraftsService {
 			// so users see *something* when the copy fails (clipboard denied, git error, etc.)
 			// rather than the button appearing to no-op.
 			Logger.error(ex, `Failed to copy ${scope} WIP patch to clipboard`);
-			void window.showErrorMessage(`Unable to copy patch: ${ex instanceof Error ? ex.message : String(ex)}`);
+			void window.showErrorMessage(l10n.t('Unable to copy patch: {0}', getPresentableErrorMessage(ex)));
 		} finally {
 			if (untrackedPaths?.length) {
 				try {
@@ -131,7 +132,7 @@ export class DraftsService {
 		try {
 			const diff = await git.diff.getDiff?.(to, from ?? `${to}^`);
 			if (!diff?.contents) {
-				void window.showWarningMessage('No changes found to copy');
+				void window.showWarningMessage(l10n.t('No changes found to copy'));
 				return;
 			}
 
@@ -139,7 +140,7 @@ export class DraftsService {
 			void window.showInformationMessage(copiedPatchMessage);
 		} catch (ex) {
 			Logger.error(ex, 'Failed to copy commit patch to clipboard');
-			void window.showErrorMessage(`Unable to copy patch: ${ex instanceof Error ? ex.message : String(ex)}`);
+			void window.showErrorMessage(l10n.t('Unable to copy patch: {0}', getPresentableErrorMessage(ex)));
 		}
 	}
 	/**

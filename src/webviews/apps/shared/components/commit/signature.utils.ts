@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { CommitSignatureShape } from '../../../../commitDetails/protocol.js';
 
 const x509EmailRegex = /\/EMail=([^/]+)/i;
@@ -100,16 +101,18 @@ export function getSignatureStatusInfo(
 		case 'trusted':
 			return {
 				icon: icon,
-				text: 'Signed & Verified',
-				description: 'Trusted',
-				detail: 'Signature is valid and the signer is trusted',
+				text: l10n.t('Signed & Verified'),
+				description: l10n.t('Trusted'),
+				detail: l10n.t('Signature is valid and the signer is trusted'),
 			};
 		case 'untrusted': {
 			return {
 				icon: icon,
-				text: 'Invalid Signature',
-				description: 'Untrusted',
-				detail: 'Signature does not match the commit contents — this commit may have been tampered with',
+				text: l10n.t('Invalid Signature'),
+				description: l10n.t('Untrusted'),
+				detail: l10n.t(
+					'Signature does not match the commit contents — this commit may have been tampered with',
+				),
 			};
 		}
 		case 'unknown': {
@@ -117,51 +120,51 @@ export function getSignatureStatusInfo(
 				case 'good':
 					return {
 						icon: icon,
-						text: 'Signed',
-						description: 'Unverified Signer',
-						detail: 'Signature is valid, but the signer is not in your trusted keys',
+						text: l10n.t('Signed'),
+						description: l10n.t('Unverified Signer'),
+						detail: l10n.t('Signature is valid, but the signer is not in your trusted keys'),
 					};
 				case 'expired':
 					return {
 						icon: icon,
-						text: 'Signed',
-						description: 'Expired',
-						detail: 'Signature was made with an expired key and cannot be verified',
+						text: l10n.t('Signed'),
+						description: l10n.t('Expired'),
+						detail: l10n.t('Signature was made with an expired key and cannot be verified'),
 					};
 				case 'revoked':
 					return {
 						icon: icon,
-						text: 'Signed',
-						description: 'Revoked',
-						detail: 'Signature was made with a revoked key and should not be trusted',
+						text: l10n.t('Signed'),
+						description: l10n.t('Revoked'),
+						detail: l10n.t('Signature was made with a revoked key and should not be trusted'),
 					};
 				case 'error': {
 					const isMissingKey = signature.errorMessage ? noPublicKeyRegex.test(signature.errorMessage) : false;
 					if (isMissingKey) {
 						return {
 							icon: icon,
-							text: 'Signed',
-							description: 'Missing Key',
-							detail: 'Signature cannot be verified because the public key is not available',
+							text: l10n.t('Signed'),
+							description: l10n.t('Missing Key'),
+							detail: l10n.t('Signature cannot be verified because the public key is not available'),
 						};
 					}
 
 					return {
 						icon: icon,
-						text: 'Signed',
-						description: 'Failed',
+						text: l10n.t('Signed'),
+						description: l10n.t('Failed'),
 						detail: signature.errorMessage
-							? `Signature verification failed: ${signature.errorMessage}`
-							: 'Signature verification failed',
+							? l10n.t('Signature verification failed: {error}', { error: signature.errorMessage })
+							: l10n.t('Signature verification failed'),
 					};
 				}
 				case 'unknown':
 				default:
 					return {
 						icon: icon,
-						text: 'Signed',
-						description: 'Unverified',
-						detail: signature.errorMessage ?? 'Signature could not be verified',
+						text: l10n.t('Signed'),
+						description: l10n.t('Unverified'),
+						detail: signature.errorMessage ?? l10n.t('Signature could not be verified'),
 					};
 			}
 		}

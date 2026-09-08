@@ -40,6 +40,7 @@
 		"test:node": "node --import ../../scripts/tsxTsconfig.cjs --import tsx --test 'src/**/__tests__/**/*.node.test.ts'"
 	},
 	"dependencies": {
+		"@vscode/l10n": "catalog:",
 		"fast-string-truncated-width": "catalog:",
 		"vscode-uri": "catalog:"
 	},

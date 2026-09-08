@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type { CreatePullRequestRemoteResource } from '@gitlens/git/models/remoteResource.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { take } from '@gitlens/utils/event.js';
@@ -34,14 +34,17 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 		if (args?.repoPath != null) {
 			repo = this.container.git.getRepository(args.repoPath);
 		}
-		repo ??= await getRepositoryOrShowPicker(this.container, 'Create Pull Request', undefined, undefined);
+		repo ??= await getRepositoryOrShowPicker(this.container, l10n.t('Create Pull Request'), undefined, undefined);
 		if (repo == null) return;
 
 		if (args == null) {
 			const branch = await repo.git.branches.getBranch();
 			if (branch?.upstream == null) {
 				void window.showErrorMessage(
-					`Unable to create a pull request for branch \`${branch?.name}\` as it hasn't been published to a remote.`,
+					l10n.t(
+						"Unable to create a pull request for branch `{0}` as it hasn't been published to a remote.",
+						String(branch?.name),
+					),
 				);
 				return;
 			}
@@ -57,7 +60,10 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 		const compareRemote = await repo.git.remotes.getRemote(args.remote);
 		if (compareRemote?.provider == null) {
 			void window.showErrorMessage(
-				`Unable to create a pull request for branch \`${args.compare}\` because it is not associated with a supported remote provider.`,
+				l10n.t(
+					'Unable to create a pull request for branch `{0}` because it is not associated with a supported remote provider.',
+					args.compare,
+				),
 			);
 			return;
 		}

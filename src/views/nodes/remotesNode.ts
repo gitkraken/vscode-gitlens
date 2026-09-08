@@ -1,4 +1,4 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import type { ViewsWithRemotesNode } from '../viewBase.js';
@@ -33,7 +33,7 @@ export class RemotesNode extends CacheableChildrenViewNode<'remotes', ViewsWithR
 		if (this.children == null) {
 			const remotes = await this.repo.git.remotes.getRemotes({ sort: true });
 			if (!remotes.length) {
-				return [new MessageNode(this.view, this, 'No remotes could be found')];
+				return [new MessageNode(this.view, this, l10n.t('No remotes could be found'))];
 			}
 
 			const expand = remotes.length === 1;
@@ -46,7 +46,7 @@ export class RemotesNode extends CacheableChildrenViewNode<'remotes', ViewsWithR
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Remotes', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(l10n.t('Remotes'), TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Remotes;
 		item.iconPath = new ThemeIcon('cloud');

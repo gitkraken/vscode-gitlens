@@ -1,4 +1,5 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { l10n } from 'vscode';
 import type { PromptTemplateContext } from '@gitlens/ai/models/promptTemplates.js';
 import type { AIChatMessage } from '@gitlens/ai/models/provider.js';
 import type { AISummarizedResult } from '@gitlens/ai/models/results.js';
@@ -67,7 +68,7 @@ export async function explainChanges(
 				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
 				return messages;
 			},
-			getProgressTitle: m => `Explaining changes with ${m.name}...`,
+			getProgressTitle: m => l10n.t('Explaining changes with {0}...', m.name),
 			getTelemetryInfo: m => ({
 				key: 'ai/explain',
 				data: {
@@ -119,13 +120,13 @@ export async function explainCommit(
 		service,
 		async cancellation => {
 			const diff = await svc.diff.getDiff?.(commitOrRevision.ref);
-			if (!diff?.contents) throw new AINoRequestDataError('No changes found to explain.');
+			if (!diff?.contents) throw new AINoRequestDataError(l10n.t('No changes found to explain.'));
 			if (cancellation.isCancellationRequested) throw new CancellationError();
 
 			const commit = GitCommit.is(commitOrRevision)
 				? commitOrRevision
 				: await svc.commits.getCommit(commitOrRevision.ref);
-			if (commit == null) throw new AINoRequestDataError('No commit found to explain.');
+			if (commit == null) throw new AINoRequestDataError(l10n.t('No commit found to explain.'));
 			if (cancellation.isCancellationRequested) throw new CancellationError();
 
 			if (!commit.hasFullDetails()) {

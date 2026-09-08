@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { GlElement, observe } from '@gitlens/components/components/element.js';
@@ -356,23 +357,28 @@ export class GlGraphMinimapContainer extends GlElement {
 			></gl-graph-minimap>
 			<div class="minimap-settings-wrapper">
 				<gl-popover placement="bottom-end" trigger="hover focus click" ?arrow=${false} .distance=${0}>
-					<button type="button" class="minimap-settings__trigger" aria-label="Minimap Options" slot="anchor">
+					<button
+						type="button"
+						class="minimap-settings__trigger"
+						aria-label=${l10n.t('Minimap Options')}
+						slot="anchor"
+					>
 						<code-icon
 							icon=${this.dataType === 'lines' ? 'request-changes' : 'git-commit'}
 							size="16"
 						></code-icon>
 					</button>
 					<div slot="content">
-						<menu-label>Minimap</menu-label>
+						<menu-label>${l10n.t('Minimap')}</menu-label>
 						<menu-item role="none">
 							<gl-radio-group value=${this.dataType} @gl-change-value=${this.handleDataTypeChanged}>
-								<gl-radio name="minimap-datatype" value="commits">Commits</gl-radio>
+								<gl-radio name="minimap-datatype" value="commits">${l10n.t('Commits')}</gl-radio>
 								<gl-radio name="minimap-datatype" value="lines">
 									<span class="minimap-datatype__label">
-										Lines Changed
+										${l10n.t('Lines Changed')}
 										<gl-tooltip
 											placement="right"
-											content="Visualizes the volume of additions and deletions per day. Computing this requires reading each commit's diff stats and can take a while on large repos."
+											content=${l10n.t("Visualizes the volume of additions and deletions per day. Computing this requires reading each commit's diff stats and can take a while on large repos.")}
 										>
 											<code-icon class="minimap-datatype__info" icon="info"></code-icon>
 										</gl-tooltip>
@@ -386,11 +392,11 @@ export class GlGraphMinimapContainer extends GlElement {
 								@gl-change-value=${this.handleReversedChanged}
 								?checked=${this.reversed}
 							>
-								Reverse Direction
+								${l10n.t('Reverse Direction')}
 							</gl-checkbox>
 						</menu-item>
 						<menu-divider></menu-divider>
-						<menu-label>Markers</menu-label>
+						<menu-label>${l10n.t('Markers')}</menu-label>
 						<menu-item role="none">
 							<gl-checkbox
 								value="localBranches"
@@ -398,7 +404,7 @@ export class GlGraphMinimapContainer extends GlElement {
 								?checked=${this.markerTypes.includes('localBranches')}
 							>
 								<span class="minimap-marker-swatch" data-marker="localBranches"></span>
-								Local Branches
+								${l10n.t('Local Branches')}
 							</gl-checkbox>
 						</menu-item>
 						<menu-item role="none">
@@ -408,7 +414,7 @@ export class GlGraphMinimapContainer extends GlElement {
 								?checked=${this.markerTypes.includes('remoteBranches')}
 							>
 								<span class="minimap-marker-swatch" data-marker="remoteBranches"></span>
-								Remote Branches
+								${l10n.t('Remote Branches')}
 							</gl-checkbox>
 						</menu-item>
 						<menu-item role="none">
@@ -418,7 +424,7 @@ export class GlGraphMinimapContainer extends GlElement {
 								?checked=${this.markerTypes.includes('pullRequests')}
 							>
 								<span class="minimap-marker-swatch" data-marker="pullRequests"></span>
-								Pull Requests
+								${l10n.t('Pull Requests')}
 							</gl-checkbox>
 						</menu-item>
 						<menu-item role="none">
@@ -428,7 +434,7 @@ export class GlGraphMinimapContainer extends GlElement {
 								?checked=${this.markerTypes.includes('stashes')}
 							>
 								<span class="minimap-marker-swatch" data-marker="stashes"></span>
-								Stashes
+								${l10n.t('Stashes')}
 							</gl-checkbox>
 						</menu-item>
 						<menu-item role="none">
@@ -438,7 +444,7 @@ export class GlGraphMinimapContainer extends GlElement {
 								?checked=${this.markerTypes.includes('tags')}
 							>
 								<span class="minimap-marker-swatch" data-marker="tags"></span>
-								Tags
+								${l10n.t('Tags')}
 							</gl-checkbox>
 						</menu-item>
 						<menu-item role="none">
@@ -448,29 +454,29 @@ export class GlGraphMinimapContainer extends GlElement {
 								?checked=${this.markerTypes.includes('worktree')}
 							>
 								<span class="minimap-marker-swatch" data-marker="worktree"></span>
-								Worktrees
+								${l10n.t('Worktrees')}
 							</gl-checkbox>
 						</menu-item>
 					</div>
 				</gl-popover>
 				${
 					this.zoomed
-						? html`<gl-tooltip placement="left" content="Exit Zoom">
+						? html`<gl-tooltip placement="left" content=${l10n.t('Exit Zoom')}>
 								<button
 									type="button"
 									class="minimap-settings__trigger"
-									aria-label="Exit Zoom"
+									aria-label=${l10n.t('Exit Zoom')}
 									@click=${this.handleExitZoom}
 								>
 									<code-icon icon="zoom-out" size="16"></code-icon>
 								</button>
 							</gl-tooltip>`
 						: this.scopeWindow != null
-							? html`<gl-tooltip placement="left" content="Zoom to Focus">
+							? html`<gl-tooltip placement="left" content=${l10n.t('Zoom to Focus')}>
 									<button
 										type="button"
 										class="minimap-settings__trigger"
-										aria-label="Zoom to Focus"
+										aria-label=${l10n.t('Zoom to Focus')}
 										@click=${this.handleEnterZoom}
 									>
 										<code-icon icon="zoom-in" size="16"></code-icon>

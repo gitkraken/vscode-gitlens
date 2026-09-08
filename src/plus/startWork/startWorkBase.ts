@@ -1,5 +1,5 @@
 import type { QuickInputButton, QuickPick } from 'vscode';
-import { Uri, window } from 'vscode';
+import { l10n, Uri, window } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
@@ -83,8 +83,8 @@ const supportedStartWorkIntegrations = [
 type SupportedStartWorkIntegrationIds = (typeof supportedStartWorkIntegrations)[number];
 
 const connectMoreIntegrationsItem: ConnectMoreIntegrationsItem = {
-	label: 'Connect an Additional Integration...',
-	detail: 'Connect additional integrations to view and start work on their issues',
+	label: l10n.t('Connect an Additional Integration...'),
+	detail: l10n.t('Connect additional integrations to view and start work on their issues'),
 	item: undefined,
 };
 
@@ -147,8 +147,8 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 		args?: StartWorkBaseCommandArgs,
 		key: string = 'startWork',
 		label: string = 'startWork',
-		title: string = `Start Work\u00a0\u00a0${proBadge}`,
-		description: string = 'Start work on an issue',
+		title: string = l10n.t('Start Work\u00a0\u00a0{0}', proBadge),
+		description: string = l10n.t('Start work on an issue'),
 		telemetryEventKey: 'startWork' | 'associateIssueWithBranch' = 'startWork',
 	) {
 		super(container, key, label, title, {
@@ -318,7 +318,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 							}
 
 							void window.showErrorMessage(
-								`Issue not found: ${state.issueUrl}. Please select an issue manually.`,
+								l10n.t('Issue not found: {0}. Please select an issue manually.', state.issueUrl),
 							);
 						}
 					}
@@ -384,26 +384,30 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 		let selection;
 		if (overrideStep == null) {
 			step = this.createConfirmStep(
-				`${this.title} \u00a0\u2022\u00a0 Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration`,
+				hasConnectedIntegration
+					? l10n.t('{0} \u00a0\u2022\u00a0 Connect an Additional Integration', this.title)
+					: l10n.t('{0} \u00a0\u2022\u00a0 Connect an Integration', this.title),
 				[
 					createQuickPickItemOfT(
 						{
-							label: `Connect an ${hasConnectedIntegration ? 'Additional ' : ''}Integration...`,
+							label: hasConnectedIntegration
+								? l10n.t('Connect an Additional Integration...')
+								: l10n.t('Connect an Integration...'),
 							detail: hasConnectedIntegration
-								? 'Connect additional integrations to view their issues'
-								: 'Connect an integration to accelerate your work',
+								? l10n.t('Connect additional integrations to view their issues')
+								: l10n.t('Connect an integration to accelerate your work'),
 							picked: true,
 						},
 						true,
 					),
 				],
-				createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
+				hasConnectedIntegration
+					? (this.overrides?.placeholders?.cloudIntegrationConnectHasConnected ??
+							l10n.t('Connect additional integrations to Start Work'))
+					: (this.overrides?.placeholders?.cloudIntegrationConnectNoConnected ??
+							l10n.t('Connect an integration to get started with Start Work')),
+				createDirectiveQuickPickItem(Directive.Cancel, false, { label: l10n.t('Cancel') }),
 				{
-					placeholder: hasConnectedIntegration
-						? (this.overrides?.placeholders?.cloudIntegrationConnectHasConnected ??
-							'Connect additional integrations to Start Work')
-						: (this.overrides?.placeholders?.cloudIntegrationConnectNoConnected ??
-							'Connect an integration to get started with Start Work'),
 					buttons: [],
 					ignoreFocusOut: true,
 				},
@@ -419,7 +423,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 			let previousPlaceholder: string | undefined;
 			if (step.quickpick) {
 				previousPlaceholder = step.quickpick.placeholder;
-				step.quickpick.placeholder = 'Connecting integrations...';
+				step.quickpick.placeholder = l10n.t('Connecting integrations...');
 			}
 			const resume = step.freeze?.();
 			const connected = await this.container.integrations.connectCloudIntegrations(
@@ -453,7 +457,15 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 				// The spacing here at the beginning is used to align the description with the title. Otherwise it starts under the avatar icon:
 				// An issue whose author the provider exposes no name for drops the `by @…` attribution rather than
 				// rendering `by @undefined` — the provider layer deliberately doesn't invent a placeholder name.
-				detail: `      ${fromNow(i.issue.updatedDate)}${i.issue.author?.name != null ? ` by @${i.issue.author.name}` : ''}${hoverContent}`,
+				detail:
+					i.issue.author?.name != null
+						? l10n.t(
+								'      {0} by @{1}{2}',
+								fromNow(i.issue.updatedDate),
+								i.issue.author.name,
+								hoverContent,
+							)
+						: l10n.t('      {0}{1}', fromNow(i.issue.updatedDate), hoverContent),
 				iconPath: i.issue.author?.avatarUrl != null ? Uri.parse(i.issue.author.avatarUrl) : undefined,
 				item: i,
 				picked: i.issue.id === state.item?.issue.id,
@@ -484,26 +496,29 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 				// A failed fetch isn't the same as having no issues — don't blame the integration for it
 				if (errorItem != null) {
 					return {
-						placeholder: 'Unable to load issues',
-						items: [errorItem, createDirectiveQuickPickItem(Directive.Cancel)],
+						placeholder: l10n.t('Unable to load issues'),
+						items: [
+							errorItem,
+							createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: l10n.t('Cancel') }),
+						],
 					};
 				}
 
 				return {
-					placeholder: 'No issues found for your open repositories.',
+					placeholder: l10n.t('No issues found for your open repositories.'),
 					items: [
 						hasDisconnectedIntegrations ? connectMoreIntegrationsItem : manageIntegrationsItem,
-						createDirectiveQuickPickItem(Directive.Cancel),
+						createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: l10n.t('Cancel') }),
 					],
 				};
 			}
 
 			return {
-				placeholder: placeholderOverride ?? 'Choose an issue to start working on',
+				placeholder: placeholderOverride ?? l10n.t('Choose an issue to start working on'),
 				items: [
 					...(errorItem != null ? [errorItem] : []),
 					...getItems(context.result),
-					createDirectiveQuickPickItem(Directive.Cancel),
+					createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: l10n.t('Cancel') }),
 				],
 			};
 		}
@@ -516,8 +531,10 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 				quickpick.placeholder = placeholder;
 				quickpick.items = items;
 			} catch {
-				quickpick.placeholder = 'Error retrieving issues';
-				quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel)];
+				quickpick.placeholder = l10n.t('Error retrieving issues');
+				quickpick.items = [
+					createDirectiveQuickPickItem(Directive.Cancel, undefined, { label: l10n.t('Cancel') }),
+				];
 			} finally {
 				quickpick.busy = false;
 			}
@@ -525,7 +542,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 
 		const step = createPickStep<QuickPickItemOfT<StartWorkItem>>({
 			title: context.title,
-			placeholder: 'Loading...',
+			placeholder: l10n.t('Loading...'),
 			matchOnDescription: true,
 			matchOnDetail: true,
 			items: [],

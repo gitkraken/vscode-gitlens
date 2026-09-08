@@ -1,9 +1,10 @@
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { GitStatusFile } from '@gitlens/git/models/statusFile.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
-import { pluralize, sortCompare } from '@gitlens/utils/string.js';
+import { sortCompare } from '@gitlens/utils/string.js';
 import { GitUri } from '../../git/gitUri.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { ViewNode } from './abstract/viewNode.js';
@@ -48,7 +49,12 @@ export class MergeConflictFilesNode extends ViewNode<'conflict-files', ViewsWith
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem(pluralize('conflict', this.conflicts.length), TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(
+			this.conflicts.length === 1
+				? l10n.t('{0} conflict', getNumericFormat()(this.conflicts.length))
+				: l10n.t('{0} conflicts', getNumericFormat()(this.conflicts.length)),
+			TreeItemCollapsibleState.Expanded,
+		);
 		return item;
 	}
 }

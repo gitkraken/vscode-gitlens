@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { QuickInputButton } from 'vscode';
 import type { GitTagReference } from '@gitlens/git/models/reference.js';
 import type { GitTag } from '@gitlens/git/models/tag.js';
@@ -52,32 +53,32 @@ export async function* inputTagNameStep<
 ): AsyncStepResultGenerator<string> {
 	const step = createInputStep({
 		title: appendReposToTitle(options.title ?? context.title, state, context),
-		placeholder: options.placeholder ?? 'Tag name',
+		placeholder: options.placeholder ?? l10n.t('Tag name'),
 		value: options.value,
-		prompt: options.prompt ?? 'Please provide a tag name',
+		prompt: options.prompt ?? l10n.t('Please provide a tag name'),
 		canGoBack: context.steps?.canGoBack,
 		validate: async (value: string | undefined): Promise<[boolean, string | undefined]> => {
 			if (!value) return [false, undefined];
 
 			value = value.trim();
-			if (!value.length) return [false, 'Please enter a valid tag name'];
+			if (!value.length) return [false, l10n.t('Please enter a valid tag name')];
 
 			if ('repo' in state) {
 				const valid = await state.repo.git.refs.checkIfCouldBeValidBranchOrTagName(value);
-				if (!valid) return [false, `'${value}' isn't a valid tag name`];
+				if (!valid) return [false, l10n.t("'{0}' isn't a valid tag name", value)];
 
 				const alreadyExists = await state.repo.git.tags.getTag(value);
-				if (alreadyExists) return [false, `A tag named '${value}' already exists`];
+				if (alreadyExists) return [false, l10n.t("A tag named '{0}' already exists", value)];
 
 				return [true, undefined];
 			}
 
 			for (const repo of state.repos) {
 				const valid = await repo.git.refs.checkIfCouldBeValidBranchOrTagName(value);
-				if (!valid) return [false, `'${value}' isn't a valid tag name`];
+				if (!valid) return [false, l10n.t("'{0}' isn't a valid tag name", value)];
 
 				const alreadyExists = await repo.git.tags.getTag(value);
-				if (alreadyExists) return [false, `A tag named '${value}' already exists`];
+				if (alreadyExists) return [false, l10n.t("A tag named '{0}' already exists", value)];
 			}
 
 			return [true, undefined];
@@ -122,7 +123,9 @@ export function* pickTagsStep<
 		multiselect: true,
 		title: appendReposToTitle(options.title ?? context.title, state, context),
 		placeholder: count =>
-			!count ? (options.emptyPlaceholder ?? `No tags found in ${state.repo.name}`) : options.placeholder,
+			!count
+				? (options.emptyPlaceholder ?? l10n.t('No tags found in {0}', state.repo.name))
+				: options.placeholder,
 		matchOnDetail: true,
 		items: items,
 		canGoBack: context.steps?.canGoBack,

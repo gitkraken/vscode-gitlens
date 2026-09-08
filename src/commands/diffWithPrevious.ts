@@ -1,4 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { deletedOrMissing } from '@gitlens/git/models/revision.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
@@ -160,7 +161,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				'DiffWithPreviousCommand',
 				`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 			);
-			void showGenericErrorMessage('Unable to open compare');
+			void showGenericErrorMessage(l10n.t('Unable to open compare'));
 		}
 	}
 }

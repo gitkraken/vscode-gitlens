@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitStashReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -57,8 +58,8 @@ export interface StashRenameGitCommandArgs {
 
 export class StashRenameGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: StashRenameGitCommandArgs) {
-		super(container, 'stash-rename', 'rename', 'Rename Stash', {
-			description: 'renames a stash',
+		super(container, 'stash-rename', 'rename', l10n.t('Rename Stash'), {
+			description: l10n.t('renames a stash'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -108,7 +109,9 @@ export class StashRenameGitCommand extends QuickCommand<State> {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
 					stash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
-						stash == null ? `No stashes found in ${state.repo.name}` : 'Choose a stash to rename',
+						stash == null
+							? l10n.t('No stashes found in {0}', state.repo.name)
+							: l10n.t('Choose a stash to rename'),
 					picked: state.reference?.ref,
 				});
 				if (result === StepResultBreak) {
@@ -153,8 +156,8 @@ export class StashRenameGitCommand extends QuickCommand<State> {
 					state.reference.stashOnRef,
 				);
 			} catch (ex) {
-				Logger.error(ex, context.title);
-				void showGitErrorMessage(ex, 'Unable to rename stash');
+				Logger.error(ex, 'Rename Stash');
+				void showGitErrorMessage(ex, l10n.t('Unable to rename stash'));
 			}
 		}
 
@@ -167,9 +170,9 @@ export class StashRenameGitCommand extends QuickCommand<State> {
 	): AsyncStepResultGenerator<string> {
 		const step = createInputStep({
 			title: appendReposToTitle(context.title, state, context),
-			placeholder: 'Stash message',
+			placeholder: l10n.t('Stash message'),
 			value: state.message ?? state.reference?.message,
-			prompt: `Please provide a new message for ${getReferenceLabel(state.reference, { icon: false })}`,
+			prompt: l10n.t('Please provide a new message for {0}', getReferenceLabel(state.reference, { icon: false })),
 		});
 
 		const value: StepSelection<typeof step> = yield step;
@@ -181,17 +184,18 @@ export class StashRenameGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<void> {
+		const confirmTitle = l10n.t('Confirm Rename Stash');
 		const step = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(confirmTitle, state, context),
 			[
 				{
 					label: context.title,
-					detail: `Will rename ${getReferenceLabel(state.reference)}`,
+					detail: l10n.t('Will rename {0}', getReferenceLabel(state.reference)),
 				},
 			],
+			confirmTitle,
 			undefined,
 			{
-				placeholder: `Confirm ${context.title}`,
 				additionalButtons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
 				onDidClickButton: (_quickpick, button) => {
 					if (button === ShowDetailsViewQuickInputButton) {

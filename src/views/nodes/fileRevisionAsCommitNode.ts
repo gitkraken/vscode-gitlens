@@ -1,5 +1,5 @@
 import type { CancellationToken, Command, Selection } from 'vscode';
-import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { l10n, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFile } from '@gitlens/git/models/file.js';
@@ -242,7 +242,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 			const incomingPath = this._conflictPaths?.incomingPath ?? this.file.path;
 			const headPath = this._conflictPaths?.headPath ?? this.file.path;
 
-			return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', 'Open Changes', {
+			return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', l10n.t('Open Changes'), {
 				lhs: {
 					sha: incomingRef,
 					uri: GitUri.fromFile(incomingPath, this.repoPath, undefined, true),
@@ -259,7 +259,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 
 		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
 			'gitlens.diffWithPrevious:views',
-			'Open Changes with Previous Revision',
+			l10n.t('Open Changes with Previous Revision'),
 			undefined,
 			{
 				commit: this.commit,

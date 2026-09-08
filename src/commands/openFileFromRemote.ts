@@ -1,4 +1,4 @@
-import { env, Range, Uri, window } from 'vscode';
+import { env, l10n, Range, Uri, window } from 'vscode';
 import { Schemes } from '../constants.js';
 import type { Container } from '../container.js';
 import { command } from '../system/-webview/command.js';
@@ -36,8 +36,8 @@ async function openFileOreRevisionFromRemote(container: Container, type: 'file' 
 	}
 
 	const url = await window.showInputBox({
-		prompt: 'Enter a remote file url to open',
-		placeHolder: 'Remote file url',
+		prompt: l10n.t('Enter a remote file url to open'),
+		placeHolder: l10n.t('Remote file url'),
 		value: clipboard,
 		ignoreFocusOut: true,
 	});
@@ -45,7 +45,7 @@ async function openFileOreRevisionFromRemote(container: Container, type: 'file' 
 
 	const local = await container.git.getLocalInfoFromRemoteUri(Uri.parse(url));
 	if (local == null) {
-		void window.showWarningMessage('Unable to parse the provided remote url.');
+		void window.showWarningMessage(l10n.t('Unable to parse the provided remote url.'));
 		return;
 	}
 
@@ -70,7 +70,7 @@ async function openFileOreRevisionFromRemote(container: Container, type: 'file' 
 		await openTextEditor(uri, { selection: selection, throwOnError: true });
 	} catch {
 		const uris = await window.showOpenDialog({
-			title: 'Open local file',
+			title: l10n.t('Open local file'),
 			defaultUri: uri,
 			canSelectMany: false,
 			canSelectFolders: false,

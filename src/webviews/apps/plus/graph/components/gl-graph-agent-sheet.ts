@@ -1,12 +1,13 @@
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { basename } from '@gitlens/utils/path.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type {
 	AgentSessionState,
 	AgentSessionWorktreeState,
@@ -631,8 +632,8 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 		return html`<gl-detail-sheet
 			esc-managed
-			aria-label="Agent session details"
-			close-label="Close"
+			aria-label=${l10n.t('Agent session details')}
+			close-label=${l10n.t('Close')}
 			@gl-detail-sheet-close=${this.handleInnerClose}
 		>
 			${
@@ -656,7 +657,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 						? this.renderContent(session)
 						: pastSession != null
 							? this.renderPastContent(pastSession)
-							: html`<p class="empty">This session is no longer available.</p>`
+							: html`<p class="empty">${l10n.t('This session is no longer available.')}</p>`
 				}
 			</div>
 		</gl-detail-sheet>`;
@@ -673,19 +674,24 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 	private renderCycleActions() {
 		if (this.cycleCount < 2 || this.cycleIndex < 0) return nothing;
 
-		const position = `${this.cycleIndex + 1} of ${this.cycleCount}`;
 		return html`
 			<gl-action-chip
 				slot="actions"
 				icon="chevron-up"
-				label="Previous Agent Session (${position})"
+				label=${l10n.t('Previous Agent Session ({current} of {total})', {
+					current: getNumericFormat()(this.cycleIndex + 1),
+					total: getNumericFormat()(this.cycleCount),
+				})}
 				overlay="tooltip"
 				@click=${() => this.cycleSession(-1)}
 			></gl-action-chip>
 			<gl-action-chip
 				slot="actions"
 				icon="chevron-down"
-				label="Next Agent Session (${position})"
+				label=${l10n.t('Next Agent Session ({current} of {total})', {
+					current: getNumericFormat()(this.cycleIndex + 1),
+					total: getNumericFormat()(this.cycleCount),
+				})}
 				overlay="tooltip"
 				@click=${() => this.cycleSession(1)}
 			></gl-action-chip>
@@ -761,9 +767,9 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 	private describeEndReason(reason: string | undefined): string | undefined {
 		switch (reason) {
 			case 'session-end':
-				return 'Ended normally';
+				return l10n.t('Ended normally');
 			case 'archived':
-				return 'Archived';
+				return l10n.t('Archived');
 			default:
 				return undefined;
 		}
@@ -797,7 +803,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 					${this.renderPastLocationChips(pastSession)}
 					${
 						pastSession.disposition === 'archived'
-							? html`<span class="subtitle__reason">Archived</span>`
+							? html`<span class="subtitle__reason">${l10n.t('Archived')}</span>`
 							: nothing
 					}
 					${this.renderPastToolbarActions(pastSession)}
@@ -845,15 +851,17 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			${
 				primary != null
 					? html`<gl-button density="compact" tooltip=${primary.label} href=${primary.href}>
-							<code-icon icon="debug-continue" slot="prefix"></code-icon>Resume
+							<code-icon icon="debug-continue" slot="prefix"></code-icon>${l10n.t('Resume')}
 						</gl-button>`
 					: disabledResume
 						? html`<gl-button
 								density="compact"
 								disabled
-								tooltip="Can't resume — Claude Code's transcript for this session is no longer on disk"
+								tooltip=${l10n.t(
+									"Can't resume — Claude Code's transcript for this session is no longer on disk",
+								)}
 							>
-								<code-icon icon="debug-continue" slot="prefix"></code-icon>Resume
+								<code-icon icon="debug-continue" slot="prefix"></code-icon>${l10n.t('Resume')}
 							</gl-button>`
 						: nothing
 			}
@@ -873,8 +881,8 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 					? html`<gl-button
 							density="compact"
 							appearance="toolbar"
-							tooltip="Archive"
-							aria-label="Archive"
+							tooltip=${l10n.t('Archive')}
+							aria-label=${l10n.t('Archive')}
 							href=${archiveHref}
 						>
 							<code-icon icon="archive"></code-icon>
@@ -888,6 +896,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 	 *  providers fall through to the generic robot glyph — then the model, then a subagent
 	 *  glyph+count (the word lives in the count's title tooltip). */
 	private renderMetaLine(session: AgentSessionState) {
+		const subagentCount = getNumericFormat()(session.subagentCount);
 		return html`
 			<p class="meta">
 				<span>${session.providerName}</span>
@@ -895,8 +904,15 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				${
 					session.subagentCount > 0
 						? html`<span class="meta__dot">·</span
-								><span class="subs" title=${pluralize('subagent', session.subagentCount)}>
-									<code-icon icon="type-hierarchy-sub"></code-icon>${session.subagentCount}
+								><span
+									class="subs"
+									title=${
+										session.subagentCount === 1
+											? l10n.t('{count} subagent', { count: subagentCount })
+											: l10n.t('{count} subagents', { count: subagentCount })
+									}
+								>
+									<code-icon icon="type-hierarchy-sub"></code-icon>${subagentCount}
 								</span>`
 						: nothing
 				}
@@ -944,8 +960,14 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 	private renderPastStatusZone(pastSession: PastAgentSessionState) {
 		const elapsed = formatAgentElapsed(pastSession.lastActivity);
-		const verb = pastSession.disposition === 'archived' ? 'Archived' : 'Ended';
-		const longTitle = elapsed != null ? `${verb} ${elapsed} ago` : verb;
+		const longTitle =
+			pastSession.disposition === 'archived'
+				? elapsed != null
+					? l10n.t('Archived {elapsed} ago', { elapsed: elapsed })
+					: l10n.t('Archived')
+				: elapsed != null
+					? l10n.t('Ended {elapsed} ago', { elapsed: elapsed })
+					: l10n.t('Ended');
 
 		return html`
 			<span class="status-zone">
@@ -968,13 +990,15 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 	private describeStatusLongForm(category: AgentSessionCategory, elapsed: string | undefined): string {
 		switch (category) {
 			case 'needs-input':
-				return elapsed != null ? `Waiting for your input for ${elapsed}` : 'Waiting for your input';
+				return elapsed != null
+					? l10n.t('Waiting for your input for {elapsed}', { elapsed: elapsed })
+					: l10n.t('Waiting for your input');
 			case 'working':
-				return elapsed != null ? `Working for ${elapsed}` : 'Working';
+				return elapsed != null ? l10n.t('Working for {elapsed}', { elapsed: elapsed }) : l10n.t('Working');
 			case 'idle':
-				return elapsed != null ? `Last active ${elapsed} ago` : 'Idle';
+				return elapsed != null ? l10n.t('Last active {elapsed} ago', { elapsed: elapsed }) : l10n.t('Idle');
 			case 'ended':
-				return elapsed != null ? `Ended ${elapsed} ago` : 'Ended';
+				return elapsed != null ? l10n.t('Ended {elapsed} ago', { elapsed: elapsed }) : l10n.t('Ended');
 		}
 	}
 
@@ -1125,7 +1149,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 		if (!canResolvePermission('needs-input', permission)) {
 			return html`
 				<div class="hero__unresolvable">
-					<p class="hero__hint">This request must be answered in the agent's session</p>
+					<p class="hero__hint">${l10n.t("This request must be answered in the agent's session")}</p>
 					<gl-button href=${openAction.href}>
 						<code-icon icon=${openAction.icon} slot="prefix"></code-icon>
 						${openAction.label}
@@ -1135,7 +1159,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 		}
 
 		if (permission.kind === 'question') {
-			return html`<gl-button href=${openAction.href}>Answer in Session</gl-button>`;
+			return html`<gl-button href=${openAction.href}>${l10n.t('Answer in Session')}</gl-button>`;
 		}
 
 		const allowHref = createCommandLink('gitlens.agents.resolvePermission', {
@@ -1158,8 +1182,8 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 					alwaysAllow: true,
 				})
 			: undefined;
-		const allowLabel = permission.kind === 'plan' ? 'Approve Plan' : 'Allow';
-		const denyLabel = permission.kind === 'plan' ? 'Reject Plan' : 'Deny';
+		const allowLabel = permission.kind === 'plan' ? l10n.t('Approve Plan') : l10n.t('Allow');
+		const denyLabel = permission.kind === 'plan' ? l10n.t('Reject Plan') : l10n.t('Deny');
 
 		return html`
 			<gl-button href=${allowHref}>
@@ -1170,7 +1194,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				showAlwaysAllow && alwaysAllowHref != null
 					? html`<gl-button appearance="secondary" href=${alwaysAllowHref}>
 							<code-icon icon="check-all" slot="prefix"></code-icon>
-							Always Allow
+							${l10n.t('Always Allow')}
 						</gl-button>`
 					: nothing
 			}
@@ -1186,11 +1210,14 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 	private renderHeroWorking(session: AgentSessionState) {
 		const stickyTool = this._stickyResolver.resolveLiveTool(session);
 		if (stickyTool != null) {
+			const elapsed = formatAgentElapsed(session.lastActivity);
 			return html`
 				<div class="hero">
 					<div class="tool-block">
 						<div class="tool-block__code">${stickyTool}</div>
-						<div class="tool-block__caption">Running · ${formatAgentElapsed(session.lastActivity)}</div>
+						<div class="tool-block__caption">
+							${l10n.t('Running · {elapsed}', { elapsed: elapsed ?? '' })}
+						</div>
 					</div>
 				</div>
 			`;
@@ -1219,8 +1246,14 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 		return html`
 			<div class="sec">
 				<div class="sec__head">
-					<h4 class="sec__title">File Activity</h4>
-					<span class="sec__count">${pluralize('file', entries.length)}</span>
+					<h4 class="sec__title">${l10n.t('File Activity')}</h4>
+					<span class="sec__count"
+						>${
+							entries.length === 1
+								? l10n.t('{count} file', { count: getNumericFormat()(entries.length) })
+								: l10n.t('{count} files', { count: getNumericFormat()(entries.length) })
+						}</span
+					>
 				</div>
 				<gl-tree-view
 					.model=${model}
@@ -1276,8 +1309,8 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				kind: 'edit',
 				live: editing,
 				ageMs: editing ? 0 : ms,
-				verb: editing ? 'editing' : 'edited',
-				ageLabel: editing ? 'now' : (formatAgentElapsed(Date.now() - ms) ?? 'now'),
+				verb: editing ? l10n.t('editing') : l10n.t('edited'),
+				ageLabel: editing ? l10n.t('now') : (formatAgentElapsed(Date.now() - ms) ?? l10n.t('now')),
 			};
 		}
 
@@ -1287,8 +1320,8 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			kind: 'read',
 			live: reading,
 			ageMs: reading ? 0 : ms,
-			verb: reading ? 'reading' : 'read',
-			ageLabel: reading ? 'now' : (formatAgentElapsed(Date.now() - ms) ?? 'now'),
+			verb: reading ? l10n.t('reading') : l10n.t('read'),
+			ageLabel: reading ? l10n.t('now') : (formatAgentElapsed(Date.now() - ms) ?? l10n.t('now')),
 		};
 	}
 
@@ -1429,7 +1462,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 		return html`
 			<div class="sec">
-				<div class="sec__head"><h4 class="sec__title">Last prompt</h4></div>
+				<div class="sec__head"><h4 class="sec__title">${l10n.t('Last prompt')}</h4></div>
 				<p class="prompt prompt--clamped" title=${session.lastPrompt}>${session.lastPrompt}</p>
 			</div>
 		`;
@@ -1441,7 +1474,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 		return html`
 			<div class="sec">
-				<div class="sec__head"><h4 class="sec__title">First prompt</h4></div>
+				<div class="sec__head"><h4 class="sec__title">${l10n.t('First prompt')}</h4></div>
 				<p class="prompt prompt--clamped" title=${firstPrompt}>${firstPrompt}</p>
 			</div>
 		`;
@@ -1459,8 +1492,8 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 		return html`
 			<div class="sec">
 				<div class="sec__head">
-					<h4 class="sec__title">Also worked in</h4>
-					<span class="sec__count">${rows.length}</span>
+					<h4 class="sec__title">${l10n.t('Also worked in')}</h4>
+					<span class="sec__count">${getNumericFormat()(rows.length)}</span>
 				</div>
 				<div class="loc">
 					${rows.map(
@@ -1472,7 +1505,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 							>
 								<code-icon icon="gl-worktree"></code-icon>
 								<span class="loc__val">${basename(path)}</span>
-								<span class="loc__meta">worktree</span>
+								<span class="loc__meta">${l10n.t('worktree')}</span>
 							</button>
 						`,
 					)}
@@ -1497,7 +1530,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 		return html`
 			<div class="sec">
-				<div class="sec__head"><h4 class="sec__title">Last prompt</h4></div>
+				<div class="sec__head"><h4 class="sec__title">${l10n.t('Last prompt')}</h4></div>
 				<p class="prompt prompt--clamped" title=${lastPrompt}>${lastPrompt}</p>
 			</div>
 		`;
@@ -1510,7 +1543,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 
 		return html`
 			<div class="sec">
-				<div class="sec__head"><h4 class="sec__title">First prompt</h4></div>
+				<div class="sec__head"><h4 class="sec__title">${l10n.t('First prompt')}</h4></div>
 				<p class="prompt prompt--clamped" title=${firstPrompt}>${firstPrompt}</p>
 			</div>
 		`;

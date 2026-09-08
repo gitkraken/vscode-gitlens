@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -68,7 +69,7 @@ export class GlRefButton extends LitElement {
 			truncate
 			>${
 				this.ref == null
-					? html`<slot name="empty">&lt;missing&gt;</slot>`
+					? html`<slot name="empty">${l10n.t('<missing>')}</slot>`
 					: html`<gl-ref-name
 							part="label"
 							?icon=${this.icon}

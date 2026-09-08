@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, svg } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
@@ -85,7 +86,7 @@ export class GlSnow extends LitElement {
 			<canvas class="snow"></canvas>
 			<span
 				class="snow__toggle"
-				title="Let it snow — Happy Holidays!"
+				title=${l10n.t('Let it snow — Happy Holidays!')}
 				@click=${() => this.onToggle(!this.snowing)}
 			>
 				${this.renderToggle()}

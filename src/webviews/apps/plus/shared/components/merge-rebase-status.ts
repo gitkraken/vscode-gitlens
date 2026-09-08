@@ -1,8 +1,10 @@
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { GitPausedOperationStatus, GitRebaseStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import { getConflictCurrentRef } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
@@ -10,7 +12,6 @@ import type { PausedOperationVariant } from '@gitlens/utils/pausedOperation.js';
 import {
 	getPausedOperationLabel,
 	getPausedOperationVariant,
-	pausedOperationStatusStringsByType,
 	pausedOperationVariantIcons,
 } from '@gitlens/utils/pausedOperation.js';
 import type { ContinueRebaseWithAiCommandArgs } from '../../../../../commands/autoRebase.js';
@@ -361,15 +362,29 @@ export class GlMergeConflictWarning extends LitElement {
 		stepped: GitRebaseStatus | undefined,
 	) {
 		const label = getPausedOperationLabel(status, variant);
+		const labelNode = html`<span
+			class="label__text label__phrase ${variant === 'conflicts' ? 'label__text--emphasized' : ''}"
+			>${label}</span
+		>`;
+		const stepNode = stepped != null ? this.renderStep(stepped) : nothing;
+		const refsNode = this.renderRefs(status, variant === 'pending');
 
+		// Each placeholder retains its responsive wrapper while translations can reorder the operation,
+		// step, and refs as complete units. In particular, the refs placeholder still disappears as one
+		// unit at narrow widths without taking the operation phrase or step with it.
 		return html`<span class="label"
-			><span class="label__text label__phrase ${variant === 'conflicts' ? 'label__text--emphasized' : ''}"
-				>${label}</span
-			>${stepped != null ? this.renderStep(stepped) : nothing}${this.renderRefs(
-				status,
-				// Pending's phrase reads straight into its refs ("Pending rebase" + "of <feature> onto <main>"),
-				// so it leads with that "of" where every other variant leads with a separator.
-				variant === 'pending' ? 'of' : '·',
+			>${localizedContent(
+				l10n.t({
+					message: '{operation}{step}{references}',
+					comment: [
+						'Paused Git operation status bar. Each placeholder is an independently displayed group; references can be hidden at narrow widths.',
+					],
+				}),
+				{
+					operation: labelNode,
+					step: stepNode,
+					references: refsNode,
+				},
 			)}</span
 		>`;
 	}
@@ -377,15 +392,13 @@ export class GlMergeConflictWarning extends LitElement {
 	/** The step counter IS the paused-on commit — clicking it jumps to that commit, hovering it names it. */
 	private renderStep(status: GitRebaseStatus) {
 		const steps = `${status.steps.current.number}/${status.steps.total}`;
-		const at = html`<span class="label__text">at</span>`;
-
 		const commit = status.steps.current.commit;
+		let step: unknown;
 		if (this.readOnly || commit == null) {
-			return html`${at}<span class="steps">${steps}</span>`;
-		}
-
-		const parts = getPausedOperationStepTooltipParts(status);
-		return html`${at}<gl-tooltip
+			step = html`<span class="steps">${steps}</span>`;
+		} else {
+			const parts = getPausedOperationStepTooltipParts(status);
+			step = html`<gl-tooltip
 				><a href=${this.createJumpUrl(commit)} class="steps chip">${steps}</a
 				><span slot="content"
 					>${this.getJumpLabel('paused-commit')}
@@ -393,19 +406,81 @@ export class GlMergeConflictWarning extends LitElement {
 					${parts.detail}${parts.subject ? html`<br />${parts.subject}` : nothing}</span
 				></gl-tooltip
 			>`;
+		}
+
+		return localizedContent(
+			l10n.t({
+				message: 'at {step}',
+				comment: [
+					'Rebase status position, shown as “at 3/7”. The step placeholder is an independently displayed group.',
+				],
+			}),
+			{ step: step },
+		).map(content => {
+			if (typeof content !== 'string') return content;
+
+			const text = content.trim();
+			return text.length === 0 ? nothing : html`<span class="label__text">${text}</span>`;
+		});
 	}
 
-	private renderRefs(status: GitPausedOperationStatus, lead: '·' | 'of') {
-		const strings = pausedOperationStatusStringsByType[status.type];
+	private renderRefs(status: GitPausedOperationStatus, pending: boolean) {
 		// Never null in practice: `current` is required on non-rebase models, `onto` on rebase.
 		const current = getConflictCurrentRef(status)!;
+		const separator = pending ? nothing : html`<span class="separator">·</span>`;
+		const incoming = this.renderReference(status.incoming);
+		const currentReference = this.renderReference(current);
+		let message: string;
+		switch (status.type) {
+			case 'cherry-pick':
+				message = l10n.t({
+					message: '{separator}{incoming} into {current}',
+					comment: [
+						'Cherry-pick reference relation in a status bar. The separator, incoming revision, and current branch are independently rendered elements.',
+					],
+				});
+				break;
+			case 'merge':
+				message = l10n.t({
+					message: '{separator}{incoming} into {current}',
+					comment: [
+						'Merge reference relation in a status bar. The separator, incoming branch, and current branch are independently rendered elements.',
+					],
+				});
+				break;
+			case 'rebase':
+				message = pending
+					? l10n.t({
+							message: 'of {incoming} onto {current}',
+							comment: [
+								'Rebase reference relation that directly follows the separate “Pending Rebase” label. The incoming and current references are independently rendered elements.',
+							],
+						})
+					: l10n.t({
+							message: '{separator}{incoming} onto {current}',
+							comment: [
+								'Rebase reference relation in a status bar. The separator, incoming branch, and current branch are independently rendered elements.',
+							],
+						});
+				break;
+			case 'revert':
+				message = l10n.t({
+					message: '{separator}{incoming} in {current}',
+					comment: [
+						'Revert reference relation in a status bar. The separator, incoming revision, and current branch are independently rendered elements.',
+					],
+				});
+				break;
+		}
 
 		// The leading token lives inside the group so nothing dangles when it drops at narrow widths —
 		// neither a separator nor the preposition the pending phrase would otherwise trail off with.
 		return html`<span class="refs"
-			>${
-				lead === '·' ? html`<span class="separator">·</span>` : html`<span class="label__text">of</span>`
-			}${this.renderReference(status.incoming)}<span>${strings.directionality}</span>${this.renderReference(current)}</span
+			>${localizedContent(message, {
+				separator: separator,
+				incoming: incoming,
+				current: currentReference,
+			})}</span
 		>`;
 	}
 
@@ -435,8 +510,25 @@ export class GlMergeConflictWarning extends LitElement {
 		const webviewId = this._webview.webviewId;
 		const isInGraph = webviewId === 'gitlens.graph' || webviewId === 'gitlens.views.graph';
 
-		const noun = kind === 'branch' ? 'Branch' : kind === 'commit' ? 'Commit' : 'Paused Commit';
-		return isInGraph ? `Jump to ${noun}` : `Open ${noun} in Commit Graph`;
+		if (isInGraph) {
+			switch (kind) {
+				case 'branch':
+					return l10n.t('Jump to Branch');
+				case 'commit':
+					return l10n.t('Jump to Commit');
+				case 'paused-commit':
+					return l10n.t('Jump to Paused Commit');
+			}
+		}
+
+		switch (kind) {
+			case 'branch':
+				return l10n.t('Open Branch in Commit Graph');
+			case 'commit':
+				return l10n.t('Open Commit in Commit Graph');
+			case 'paused-commit':
+				return l10n.t('Open Paused Commit in Commit Graph');
+		}
 	}
 
 	private createJumpUrl(ref: GitReference): string {
@@ -489,7 +581,7 @@ export class GlMergeConflictWarning extends LitElement {
 				aiPrimary,
 				() =>
 					html`<action-item
-						label="Continue Rebase Manually"
+						label=${l10n.t('Continue Rebase Manually')}
 						href=${this.onContinueUrl}
 						icon="gl-continue"
 					></action-item>`,
@@ -498,7 +590,7 @@ export class GlMergeConflictWarning extends LitElement {
 				aiRebase && !aiPrimary,
 				() =>
 					html`<action-item
-						label=${this.aiActive ? 'Continue Auto-Rebase' : 'Continue with Auto-Rebase'}
+						label=${this.aiActive ? l10n.t('Continue Auto-Rebase') : l10n.t('Continue with Auto-Rebase')}
 						href=${this.onContinueWithAiUrl}
 						icon="gl-continue-sparkle"
 					></action-item>`,
@@ -507,7 +599,7 @@ export class GlMergeConflictWarning extends LitElement {
 				type === 'rebase',
 				() =>
 					html`<action-item
-						label="Open in Rebase Editor"
+						label=${l10n.t('Open in Rebase Editor')}
 						href=${this.onOpenEditorUrl}
 						icon="edit"
 					></action-item>`,
@@ -546,10 +638,10 @@ export class GlMergeConflictWarning extends LitElement {
 			const continuing = this.isContinuing;
 			const label = continuing
 				? aiPrimary
-					? 'Continuing Auto-Rebase…'
-					: `Continuing ${pausedOperationStatusStringsByType[status.type].name}…`
+					? l10n.t('Continuing Auto-Rebase…')
+					: this.getContinuingLabel(status)
 				: aiPrimary
-					? 'Continue Auto-Rebase'
+					? l10n.t('Continue Auto-Rebase')
 					: getPausedOperationBarActionLabel(status, variant, this.conflictsCount);
 
 			// One template across both states, and the href kept even while busy, so Lit reuses the button
@@ -572,7 +664,9 @@ export class GlMergeConflictWarning extends LitElement {
 			if (!continuing) return button;
 
 			return html`<gl-tooltip
-				content="Waiting for Git to finish. If a commit message tab is open, save and close it to continue."
+				content=${l10n.t(
+					'Waiting for Git to finish. If a commit message tab is open, save and close it to continue.',
+				)}
 				>${button}</gl-tooltip
 			>`;
 		}
@@ -586,5 +680,18 @@ export class GlMergeConflictWarning extends LitElement {
 		}
 
 		return html`<gl-button density="compact" href=${this.onShowConflictsUrl}>${label}</gl-button>`;
+	}
+
+	private getContinuingLabel(status: GitPausedOperationStatus): string {
+		switch (status.type) {
+			case 'cherry-pick':
+				return l10n.t('Continuing Cherry Pick…');
+			case 'merge':
+				return l10n.t('Continuing Merge…');
+			case 'rebase':
+				return l10n.t('Continuing Rebase…');
+			case 'revert':
+				return l10n.t('Continuing Revert…');
+		}
 	}
 }

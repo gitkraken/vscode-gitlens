@@ -1,4 +1,5 @@
 import type { TextEditor, TextEditorEdit, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { AnnotationContext } from '../annotations/annotationProvider.js';
 import type { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider.js';
@@ -34,7 +35,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
 			);
 		} catch (ex) {
 			Logger.error(ex, 'ClearFileAnnotationsCommand');
-			void showGenericErrorMessage('Unable to clear file annotations');
+			void showGenericErrorMessage(l10n.t('Unable to clear file annotations'));
 		}
 	}
 }
@@ -179,7 +180,13 @@ async function toggleFileAnnotations<TArgs extends ToggleFileAnnotationCommandAr
 		// );
 	} catch (ex) {
 		Logger.error(ex, 'ToggleFileAnnotationsCommand');
-		void showGenericErrorMessage(`Unable to toggle file ${args.type} annotations`);
+		const message =
+			args.type === 'blame'
+				? l10n.t('Unable to toggle file blame annotations')
+				: args.type === 'changes'
+					? l10n.t('Unable to toggle file changes annotations')
+					: l10n.t('Unable to toggle file heatmap annotations');
+		void showGenericErrorMessage(message);
 	}
 }
 

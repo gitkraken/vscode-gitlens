@@ -1,4 +1,5 @@
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
@@ -135,19 +136,25 @@ export class GlDetailsWipHeader extends LitElement {
 					${
 						this.activeMode === 'compose'
 							? html`<code-icon class="graph-details-header__mode-icon" icon="wand"></code-icon
-									><span class="graph-details-header__wip-title-text">Composing Changes</span>`
+									><span class="graph-details-header__wip-title-text"
+										>${l10n.t('Composing Changes')}</span
+									>`
 							: this.activeMode === 'review'
 								? html`<code-icon class="graph-details-header__mode-icon" icon="checklist"></code-icon
-										><span class="graph-details-header__wip-title-text">Reviewing Changes</span>`
+										><span class="graph-details-header__wip-title-text"
+											>${l10n.t('Reviewing Changes')}</span
+										>`
 								: this.activeMode === 'resolve'
 									? html`<code-icon
 												class="graph-details-header__mode-icon"
 												icon="gl-merge"
 											></code-icon
 											><span class="graph-details-header__wip-title-text"
-												>Resolving Conflicts</span
+												>${l10n.t('Resolving Conflicts')}</span
 											>`
-									: html`<span class="graph-details-header__wip-title-text">Working Changes</span>`
+									: html`<span class="graph-details-header__wip-title-text"
+											>${l10n.t('Working Changes')}</span
+										>`
 					}
 				</span>
 				${
@@ -172,7 +179,7 @@ export class GlDetailsWipHeader extends LitElement {
 												wip.branch?.reference?.sha != null
 													? html`<gl-action-chip
 															icon="download"
-															label="Jump to Branch Tip"
+															label=${l10n.t('Jump to Branch Tip')}
 															overlay="tooltip"
 															@click=${this.onJumpToTipClick}
 														></gl-action-chip>`
@@ -185,7 +192,7 @@ export class GlDetailsWipHeader extends LitElement {
 							<gl-action-chip
 								slot="actions"
 								icon="refresh"
-								label="Refresh"
+								label=${l10n.t('Refresh')}
 								overlay="tooltip"
 								@click=${() => this.emit('refresh-wip')}
 							></gl-action-chip>`
@@ -214,7 +221,7 @@ export class GlDetailsWipHeader extends LitElement {
 											@click=${() => this.emit('switch-branch')}
 										></gl-branch-name>
 										<span slot="content"
-											>Switch Branch...
+											>${l10n.t('Switch Branch...')}
 											<hr />
 											<gl-branch-name .name=${branchName}></gl-branch-name
 										></span>
@@ -257,7 +264,7 @@ export class GlDetailsWipHeader extends LitElement {
 									files.length > 0
 										? html`<gl-action-chip
 												icon="gl-cloud-patch-share"
-												label="Share as Cloud Patch"
+												label=${l10n.t('Share as Cloud Patch')}
 												overlay="tooltip"
 												@click=${() => this.emit('share-as-cloud-patch')}
 											></gl-action-chip>`
@@ -265,7 +272,7 @@ export class GlDetailsWipHeader extends LitElement {
 								}
 								<gl-action-chip
 									icon="terminal"
-									label="Open in Integrated Terminal"
+									label=${l10n.t('Open in Integrated Terminal')}
 									overlay="tooltip"
 									href=${this._webview.createCommandLink('gitlens.openInIntegratedTerminal:', {
 										worktreeUri: wip.repo.uri,
@@ -275,9 +282,9 @@ export class GlDetailsWipHeader extends LitElement {
 									isSecondaryWorktree
 										? html`<gl-action-chip
 												icon="empty-window"
-												label="Open Worktree in New Window"
+												label=${l10n.t('Open Worktree in New Window')}
 												alt-icon="window"
-												alt-label="Open Worktree"
+												alt-label=${l10n.t('Open Worktree')}
 												overlay="tooltip"
 												href=${this._webview.createCommandLink(
 													'gitlens.openWorktreeInNewWindow:',
@@ -386,7 +393,7 @@ export class GlDetailsWipHeader extends LitElement {
 
 		return html`<gl-action-chip
 			icon="kebab-vertical"
-			label="Show Branch Actions"
+			label=${l10n.t('Show Branch Actions')}
 			overlay="tooltip"
 			data-vscode-context=${context}
 			@click=${this.onMoreActionsClick}
@@ -402,7 +409,7 @@ export class GlDetailsWipHeader extends LitElement {
 
 		return html`<gl-action-chip
 			icon="kebab-vertical"
-			label="Show More Actions"
+			label=${l10n.t('Show More Actions')}
 			overlay="tooltip"
 			data-vscode-context=${context}
 			@click=${this.onMoreActionsClick}
@@ -434,7 +441,7 @@ export class GlDetailsWipHeader extends LitElement {
 		if (branch.upstream == null || branch.upstream.missing === true) {
 			return html`<gl-action-chip
 				icon="cloud-upload"
-				label="Publish Branch"
+				label=${l10n.t('Publish Branch')}
 				overlay="tooltip"
 				@click=${() => this.emit('publish-branch')}
 			></gl-action-chip>`;
@@ -446,13 +453,13 @@ export class GlDetailsWipHeader extends LitElement {
 		if (ahead > 0 && behind > 0) {
 			return html`<gl-action-chip
 					icon="repo-pull"
-					label="Pull"
+					label=${l10n.t('Pull')}
 					overlay="tooltip"
 					@click=${() => this.emit('pull')}
 				></gl-action-chip>
 				<gl-action-chip
 					icon="repo-force-push"
-					label="Force Push"
+					label=${l10n.t('Force Push')}
 					overlay="tooltip"
 					@click=${() => this.emit('force-push')}
 				></gl-action-chip>`;
@@ -461,7 +468,7 @@ export class GlDetailsWipHeader extends LitElement {
 		if (behind > 0) {
 			return html`<gl-action-chip
 				icon="repo-pull"
-				label="Pull"
+				label=${l10n.t('Pull')}
 				overlay="tooltip"
 				@click=${() => this.emit('pull')}
 			></gl-action-chip>`;
@@ -470,7 +477,7 @@ export class GlDetailsWipHeader extends LitElement {
 		if (ahead > 0) {
 			return html`<gl-action-chip
 				icon="repo-push"
-				label="Push"
+				label=${l10n.t('Push')}
 				overlay="tooltip"
 				@click=${() => this.emit('push')}
 			></gl-action-chip>`;
@@ -484,7 +491,7 @@ export class GlDetailsWipHeader extends LitElement {
 
 		return html`<gl-action-chip
 			icon="repo-fetch"
-			label="Fetch"
+			label=${l10n.t('Fetch')}
 			overlay="tooltip"
 			@click=${() => this.emit('fetch')}
 		></gl-action-chip>`;
@@ -611,11 +618,11 @@ export class GlDetailsWipHeader extends LitElement {
 
 		return html`<span class="issue-chip-group" data-associated="true">
 			${chip}
-			<gl-tooltip placement="bottom" content="Remove Branch Association">
+			<gl-tooltip placement="bottom" content=${l10n.t('Remove Branch Association')}>
 				<button
 					class="issue-chip-group__remove"
 					type="button"
-					aria-label="Remove Branch Association"
+					aria-label=${l10n.t('Remove Branch Association')}
 					@click=${(e: MouseEvent) => this.handleRemoveAssociatedIssue(e, i.entityId!)}
 				>
 					<code-icon icon="close" size="12"></code-icon>
@@ -638,7 +645,7 @@ export class GlDetailsWipHeader extends LitElement {
 			return html`<gl-action-chip
 				class="associate-issue-action associate-issue-action--trailing"
 				icon="link"
-				label="Associate Issue with Branch"
+				label=${l10n.t('Associate Issue with Branch')}
 				overlay="tooltip"
 				href=${href}
 			></gl-action-chip>`;
@@ -647,10 +654,10 @@ export class GlDetailsWipHeader extends LitElement {
 		return html`<gl-action-chip
 			class="associate-issue-action"
 			icon="link"
-			label="Associate Issue with Branch"
+			label=${l10n.t('Associate Issue with Branch')}
 			overlay="tooltip"
 			href=${href}
-			>&nbsp;Associate Issue…</gl-action-chip
+			>&nbsp;${l10n.t('Associate Issue…')}</gl-action-chip
 		>`;
 	}
 

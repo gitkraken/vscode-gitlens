@@ -1,14 +1,15 @@
-import { ThemeIcon, window } from 'vscode';
+import { l10n, ThemeIcon, window } from 'vscode';
 import { MergeError, SigningError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import { parseGitBoolean } from '@gitlens/git/utils/config.utils.js';
+import { getConflictDetectionErrorDisplayMessage } from '@gitlens/git/utils/mergeConflicts.utils.js';
 import { getReferenceLabel, isRevisionReference } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { Logger } from '@gitlens/utils/logger.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { Container } from '../../container.js';
 import { showPausedOperationStatus } from '../../git/actions/pausedOperation.js';
 import type { GlRepository } from '../../git/models/repository.js';
@@ -82,8 +83,8 @@ export interface MergeGitCommandArgs {
 
 export class MergeGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: MergeGitCommandArgs) {
-		super(container, 'merge', 'merge', 'Merge', {
-			description: 'integrates changes from a specified branch into the current branch',
+		super(container, 'merge', 'merge', l10n.t('Merge'), {
+			description: l10n.t('integrates changes from a specified branch into the current branch'),
 		});
 
 		this.initialState = { confirm: true, ...args?.state };
@@ -114,35 +115,44 @@ export class MergeGitCommand extends QuickCommand<State> {
 			const result = await state.repo.git.ops?.merge(state.reference.ref, options);
 			if (result?.conflicted) {
 				void window.showWarningMessage(
-					'Unable to merge due to conflicts. Resolve the conflicts before continuing, or abort the merge.',
+					l10n.t(
+						'Unable to merge due to conflicts. Resolve the conflicts before continuing, or abort the merge.',
+					),
 				);
 				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the merge
 			if (MergeError.is(ex, 'aborted')) {
-				Logger.debug(ex.message, this.title);
+				Logger.debug(ex.message, 'Merge');
 				return;
 			}
 
-			Logger.error(ex, this.title);
+			Logger.error(ex, 'Merge');
 
 			if (MergeError.is(ex, 'uncommittedChanges') || MergeError.is(ex, 'wouldOverwriteChanges')) {
 				void window.showWarningMessage(
-					'Unable to merge. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+					l10n.t(
+						'Unable to merge. Your local changes would be overwritten. Please commit or stash your changes before trying again.',
+					),
 				);
 				return;
 			}
 
 			if (MergeError.is(ex, 'alreadyInProgress')) {
 				void window.showWarningMessage(
-					'Unable to merge. A merge is already in progress. Continue or abort the current merge first.',
+					l10n.t(
+						'Unable to merge. A merge is already in progress. Continue or abort the current merge first.',
+					),
 				);
 				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 				return;
 			}
 
-			void showGitErrorMessage(ex, MergeError.is(ex) || SigningError.is(ex) ? undefined : 'Unable to merge');
+			void showGitErrorMessage(
+				ex,
+				MergeError.is(ex) || SigningError.is(ex) ? undefined : l10n.t('Unable to merge'),
+			);
 		}
 	}
 
@@ -198,10 +208,10 @@ export class MergeGitCommand extends QuickCommand<State> {
 				context.destination = branch;
 			}
 
-			context.title = `${this.title} into ${getReferenceLabel(context.destination, {
-				icon: false,
-				label: false,
-			})}`;
+			context.title = l10n.t(
+				'Merge into {0}',
+				getReferenceLabel(context.destination, { icon: false, label: false }),
+			);
 			context.pickCommitForItem = false;
 
 			if (steps.isAtStep(Steps.PickBranchOrTag) || state.reference == null) {
@@ -210,8 +220,8 @@ export class MergeGitCommand extends QuickCommand<State> {
 				// A worded row at the top of the ref list rather than the old icon-only title-bar toggle —
 				// a modifier that changes what the next step does should say so where it can be read
 				const pickCommitRow = createConfirmToggleQuickPickItem({
-					label: 'Choose a Specific Commit',
-					detail: 'After choosing the branch, pick the exact commit to merge',
+					label: l10n.t('Choose a Specific Commit'),
+					detail: l10n.t('After choosing the branch, pick the exact commit to merge'),
 					checked: context.pickCommit,
 					onDidChange: (item, quickpick) => {
 						context.pickCommit = item.checked;
@@ -220,7 +230,10 @@ export class MergeGitCommand extends QuickCommand<State> {
 				});
 
 				const result: StepResult<GitReference> = yield* pickBranchOrTagStep(state, context, {
-					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to merge`,
+					placeholder: context =>
+						context.showTags
+							? l10n.t('Choose a branch or tag to merge')
+							: l10n.t('Choose a branch to merge'),
 					picked: context.selectedBranchOrTag?.ref,
 					value: context.selectedBranchOrTag == null ? state.reference?.ref : undefined,
 					prependItems: [pickCommitRow, createQuickPickSeparator()],
@@ -259,8 +272,11 @@ export class MergeGitCommand extends QuickCommand<State> {
 				const result: StepResult<GitReference> = yield* pickCommitStep(state, context, {
 					emptyItems: [
 						createDirectiveQuickPickItem(Directive.Cancel, true, {
-							label: 'OK',
-							detail: `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, { icon: false })}`,
+							label: l10n.t('OK'),
+							detail: l10n.t(
+								'No commits found on {0}',
+								getReferenceLabel(context.selectedBranchOrTag, { icon: false }),
+							),
 						}),
 					],
 					ignoreFocusOut: true,
@@ -268,8 +284,14 @@ export class MergeGitCommand extends QuickCommand<State> {
 					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						!log?.commits.size
-							? `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, { icon: false })}`
-							: `Choose a commit to merge into ${getReferenceLabel(context.destination, { icon: false })}`,
+							? l10n.t(
+									'No commits found on {0}',
+									getReferenceLabel(context.selectedBranchOrTag, { icon: false }),
+								)
+							: l10n.t(
+									'Choose a commit to merge into {0}',
+									getReferenceLabel(context.destination, { icon: false }),
+								),
 					picked: state.reference?.ref,
 				});
 				if (result === StepResultBreak) {
@@ -309,25 +331,29 @@ export class MergeGitCommand extends QuickCommand<State> {
 			createRevisionRange(context.destination.ref, state.reference.ref, '...'),
 		);
 
-		const title = `Merge ${getReferenceLabel(state.reference, { icon: false, label: false })} into ${getReferenceLabel(context.destination, { icon: false, label: false })} `;
+		const sourceTitleLabel = getReferenceLabel(state.reference, { icon: false, label: false });
+		const destinationTitleLabel = getReferenceLabel(context.destination, { icon: false, label: false });
 		const count = counts != null ? counts.right : 0;
 		if (count === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
-				appendReposToTitle(`Confirm ${title}`, state, context),
+				appendReposToTitle(
+					l10n.t('Confirm Merge {0} into {1}', sourceTitleLabel, destinationTitleLabel),
+					state,
+					context,
+				),
 				[],
+				l10n.t(
+					'Nothing to merge; {0} is already up to date',
+					getReferenceLabel(context.destination, { label: false, icon: false }),
+				),
 				createDirectiveQuickPickItem(Directive.Cancel, true, {
-					label: 'OK',
-					detail: `${getReferenceLabel(context.destination, {
-						capitalize: true,
-						label: false,
-					})} is already up to date with ${getReferenceLabel(state.reference, { label: false })}`,
+					label: l10n.t('OK'),
+					detail: l10n.t(
+						'{0} is already up to date with {1}',
+						getReferenceLabel(context.destination, { capitalize: true, label: false }),
+						getReferenceLabel(state.reference, { label: false }),
+					),
 				}),
-				{
-					placeholder: `Nothing to merge; ${getReferenceLabel(context.destination, {
-						label: false,
-						icon: false,
-					})} is already up to date`,
-				},
 			);
 			const selection: StepSelection<typeof step> = yield step;
 			canPickStepContinue(step, state, selection);
@@ -359,20 +385,15 @@ export class MergeGitCommand extends QuickCommand<State> {
 
 		const sourceLabel = getReferenceLabel(state.reference, { label: false });
 		const destinationLabel = getReferenceLabel(context.destination, { label: false });
-		const commitsLabel = pluralize('commit', count);
+		const formattedCount = getNumericFormat()(count);
 
-		const ffLabels = ['If Possible', 'Required', 'Never'] as const;
+		const ffLabels = [l10n.t('If Possible'), l10n.t('Required'), l10n.t('Never')] as const;
 		const ffDetails = [
-			'Fast-forward when possible, otherwise create a merge commit',
-			'Only fast-forward — fail rather than create a merge commit',
-			'Always create a merge commit',
+			l10n.t('Fast-forward when possible, otherwise create a merge commit'),
+			l10n.t('Only fast-forward — fail rather than create a merge commit'),
+			l10n.t('Always create a merge commit'),
 		] as const;
 		const ffIcons = ['gitlens-checkbox-mixed', 'gitlens-checkbox-checked', 'gitlens-checkbox-unchecked'] as const;
-		const ffClauses = [
-			', fast-forwarding if possible',
-			', only if it can fast-forward',
-			', always creating a merge commit',
-		] as const;
 
 		// Folds the live Fast-forward/Don't Commit control values into each mode's flags and detail — the
 		// accepted item's flags are the whole contract with `execute()` — so the list says what will
@@ -385,26 +406,89 @@ export class MergeGitCommand extends QuickCommand<State> {
 					: ff === 2
 						? ['--no-ff']
 						: [];
+			const detail =
+				count === 1
+					? noCommit
+						? l10n.t(
+								'Will merge {0} commit from {1} into {2}, always creating a merge commit, stopping before committing',
+								formattedCount,
+								sourceLabel,
+								destinationLabel,
+							)
+						: ff === 0
+							? l10n.t(
+									'Will merge {0} commit from {1} into {2}, fast-forwarding if possible',
+									formattedCount,
+									sourceLabel,
+									destinationLabel,
+								)
+							: ff === 1
+								? l10n.t(
+										'Will merge {0} commit from {1} into {2}, only if it can fast-forward',
+										formattedCount,
+										sourceLabel,
+										destinationLabel,
+									)
+								: l10n.t(
+										'Will merge {0} commit from {1} into {2}, always creating a merge commit',
+										formattedCount,
+										sourceLabel,
+										destinationLabel,
+									)
+					: noCommit
+						? l10n.t(
+								'Will merge {0} commits from {1} into {2}, always creating a merge commit, stopping before committing',
+								formattedCount,
+								sourceLabel,
+								destinationLabel,
+							)
+						: ff === 0
+							? l10n.t(
+									'Will merge {0} commits from {1} into {2}, fast-forwarding if possible',
+									formattedCount,
+									sourceLabel,
+									destinationLabel,
+								)
+							: ff === 1
+								? l10n.t(
+										'Will merge {0} commits from {1} into {2}, only if it can fast-forward',
+										formattedCount,
+										sourceLabel,
+										destinationLabel,
+									)
+								: l10n.t(
+										'Will merge {0} commits from {1} into {2}, always creating a merge commit',
+										formattedCount,
+										sourceLabel,
+										destinationLabel,
+									);
 
 			return [
 				createFlagsQuickPickItem<Flags>(state.flags, mergeFlags, {
 					label: this.title,
 					description: mergeFlags.length ? mergeFlags.join(' ') : undefined,
-					detail: `Will merge ${commitsLabel} from ${sourceLabel} into ${destinationLabel}${ffClauses[ff]}${
-						noCommit ? ', stopping before committing' : ''
-					}`,
+					detail: detail,
 					picked: !state.flags.includes('--squash'),
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--squash'], {
-					label: `Squash ${this.title}`,
-					description: `--squash${
-						noCommit
-							? ' · already stops before committing'
-							: ff !== 0
-								? ' · not affected — no merge commit involved'
-								: ''
-					}`,
-					detail: `Will combine ${commitsLabel} from ${sourceLabel} into one set of staged changes, stopping before committing`,
+					label: l10n.t('Squash Merge'),
+					description: noCommit
+						? l10n.t('{0} · already stops before committing', '--squash')
+						: ff !== 0
+							? l10n.t('{0} · not affected — no merge commit involved', '--squash')
+							: '--squash',
+					detail:
+						count === 1
+							? l10n.t(
+									'Will combine {0} commit from {1} into one set of staged changes, stopping before committing',
+									formattedCount,
+									sourceLabel,
+								)
+							: l10n.t(
+									'Will combine {0} commits from {1} into one set of staged changes, stopping before committing',
+									formattedCount,
+									sourceLabel,
+								),
 					picked: state.flags.includes('--squash'),
 				}),
 			];
@@ -442,7 +526,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 		};
 
 		toggles.ff = createDirectiveQuickPickItem(Directive.Noop, false, {
-			label: 'Fast-forward',
+			label: l10n.t('Fast-forward'),
 			description: ffLabels[ff],
 			detail: ffDetails[ff],
 			iconPath: new ThemeIcon(ffIcons[ff]),
@@ -461,9 +545,9 @@ export class MergeGitCommand extends QuickCommand<State> {
 		});
 
 		toggles.noCommit = createConfirmToggleQuickPickItem({
-			label: "Don't Commit",
+			label: l10n.t("Don't Commit"),
 			description: '--no-commit',
-			detail: 'Stop before committing so the result can be reviewed or edited',
+			detail: l10n.t('Stop before committing so the result can be reviewed or edited'),
 			checked: noCommit,
 			onDidChange: item => {
 				noCommit = item.checked;
@@ -493,7 +577,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 						0,
 						1,
 						createDirectiveQuickPickItem(Directive.Noop, false, {
-							label: 'No Conflicts Detected',
+							label: l10n.t('No Conflicts Detected'),
 							iconPath: new ThemeIcon('check'),
 						}),
 					);
@@ -502,8 +586,8 @@ export class MergeGitCommand extends QuickCommand<State> {
 						0,
 						1,
 						createDirectiveQuickPickItem(Directive.Noop, false, {
-							label: 'Unable to Detect Conflicts',
-							detail: result.message,
+							label: l10n.t('Unable to Detect Conflicts'),
+							detail: getConflictDetectionErrorDisplayMessage(result.reason, result.message),
 							iconPath: new ThemeIcon('error'),
 						}),
 					);
@@ -512,11 +596,17 @@ export class MergeGitCommand extends QuickCommand<State> {
 						0,
 						1,
 						createDirectiveQuickPickItem(Directive.Noop, false, {
-							label: 'Conflicts Detected',
-							detail: `Will result in ${pluralize(
-								'conflicting file',
-								result.conflict.files.length,
-							)} that will need to be resolved`,
+							label: l10n.t('Conflicts Detected'),
+							detail:
+								result.conflict.files.length === 1
+									? l10n.t(
+											'Will result in {0} conflicting file that will need to be resolved',
+											getNumericFormat()(result.conflict.files.length),
+										)
+									: l10n.t(
+											'Will result in {0} conflicting files that will need to be resolved',
+											getNumericFormat()(result.conflict.files.length),
+										),
 							iconPath: new ThemeIcon('warning'),
 						}),
 					);
@@ -527,7 +617,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 
 			notices.push(
 				createDirectiveQuickPickItem(Directive.Noop, false, {
-					label: `$(loading~spin) \u00a0Detecting Conflicts...`,
+					label: `$(loading~spin) \u00a0${l10n.t('Detecting Conflicts...')}`,
 					// Don't use this, because the spin here causes the icon to spin incorrectly
 					//iconPath: new ThemeIcon('loading~spin'),
 				}),
@@ -535,7 +625,15 @@ export class MergeGitCommand extends QuickCommand<State> {
 			);
 		}
 
-		step = this.createConfirmStep(appendReposToTitle(`Confirm ${title}`, state, context), buildRows());
+		step = this.createConfirmStep(
+			appendReposToTitle(
+				l10n.t('Confirm Merge {0} into {1}', sourceTitleLabel, destinationTitleLabel),
+				state,
+				context,
+			),
+			buildRows(),
+			l10n.t('Confirm Merge into {0}', destinationTitleLabel),
+		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}

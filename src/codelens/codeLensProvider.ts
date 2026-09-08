@@ -9,7 +9,7 @@ import type {
 	TextDocument,
 	Uri,
 } from 'vscode';
-import { CodeLens, EventEmitter, Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode';
+import { CodeLens, EventEmitter, l10n, Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode';
 import type { GitBlame } from '@gitlens/git/models/blame.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
@@ -17,7 +17,6 @@ import { is, once } from '@gitlens/utils/function.js';
 import { filterMap, find, first, join, map } from '@gitlens/utils/iterable.js';
 import { getLoggableName, Logger } from '@gitlens/utils/logger.js';
 import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious.js';
 import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote.js';
 import type { ShowCommitsInViewCommandArgs } from '../commands/showCommitsInView.js';
@@ -454,10 +453,10 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 
 	private resolveGitRecentChangeCodeLens(lens: GitRecentChangeCodeLens, _token: CancellationToken): CodeLens {
 		const blame = lens.getBlame();
-		if (blame == null) return applyCommandWithNoClickAction('Unknown, (Blame failed)', lens);
+		if (blame == null) return applyCommandWithNoClickAction(l10n.t('Unknown, (Blame failed)'), lens);
 
 		const recentCommit = first(blame.commits.values());
-		if (recentCommit == null) return applyCommandWithNoClickAction('Unknown, (Blame failed)', lens);
+		if (recentCommit == null) return applyCommandWithNoClickAction(l10n.t('Unknown, (Blame failed)'), lens);
 
 		// TODO@eamodio This is FAR too expensive, but this accounts for commits that delete lines -- is there another way?
 		// if (lens.uri != null) {
@@ -473,21 +472,25 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 		// 	}
 		// }
 
-		let title = `${formatIdentityDisplayName(recentCommit.author)}, ${
+		const formattedDate =
 			lens.dateFormat == null
 				? getCommitFormattedDate(recentCommit)
-				: formatCommitDate(recentCommit, lens.dateFormat)
-		}`;
+				: formatCommitDate(recentCommit, lens.dateFormat);
+		let title = l10n.t('{0}, {1}', formatIdentityDisplayName(recentCommit.author), formattedDate);
 		if (configuration.get('debug')) {
-			title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${
-				lens.range.end.character
-			}${
+			const symbol = `${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${lens.range.end.character}${
 				(lens.symbol as SymbolInformation).containerName
 					? `|${(lens.symbol as SymbolInformation).containerName}`
 					: ''
-			}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Commit (${
-				recentCommit.shortSha
-			})]`;
+			})`;
+			title += l10n.t(
+				' [{0}: {1}, Lines ({2}-{3}), Commit ({4})]',
+				lens.languageId,
+				symbol,
+				lens.blameRange.start.line + 1,
+				lens.blameRange.end.line + 1,
+				recentCommit.shortSha,
+			);
 		}
 
 		if (lens.desiredCommand === false) {
@@ -532,26 +535,35 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 
 	private resolveGitAuthorsCodeLens(lens: GitAuthorsCodeLens, _token: CancellationToken): CodeLens {
 		const blame = lens.getBlame();
-		if (blame == null) return applyCommandWithNoClickAction('? authors (Blame failed)', lens);
+		if (blame == null) return applyCommandWithNoClickAction(l10n.t('? authors (Blame failed)'), lens);
 
 		const count = blame.authors.size;
 		const firstAuthor = first(blame.authors.values());
-		const author = firstAuthor != null ? formatIdentityDisplayName(firstAuthor) : 'Unknown';
-		const andOthers =
-			count > 1 ? ` and ${pluralize('one other', count - 1, { only: true, plural: 'others' })}` : '';
-
-		let title = `${pluralize('author', count, { zero: '?' })} (${author}${andOthers})`;
+		const author = firstAuthor != null ? formatIdentityDisplayName(firstAuthor) : l10n.t('Unknown');
+		let title: string;
+		if (count === 0) {
+			title = l10n.t('? ({0})', author);
+		} else if (count === 1) {
+			title = l10n.t('author ({0})', author);
+		} else if (count === 2) {
+			title = l10n.t('authors ({0} and one other)', author);
+		} else {
+			title = l10n.t('authors ({0} and others)', author);
+		}
 		if (configuration.get('debug')) {
-			title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${
-				lens.range.end.character
-			}${
+			const symbol = `${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${lens.range.end.character}${
 				(lens.symbol as SymbolInformation).containerName
 					? `|${(lens.symbol as SymbolInformation).containerName}`
 					: ''
-			}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Authors (${join(
-				map(blame.authors.values(), formatIdentityDisplayName),
-				', ',
-			)})]`;
+			})`;
+			title += l10n.t(
+				' [{0}: {1}, Lines ({2}-{3}), Authors ({4})]',
+				lens.languageId,
+				symbol,
+				lens.blameRange.start.line + 1,
+				lens.blameRange.end.line + 1,
+				join(map(blame.authors.values(), formatIdentityDisplayName), ', '),
+			);
 		}
 
 		if (lens.desiredCommand === false) {

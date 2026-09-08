@@ -1,5 +1,5 @@
 import type { Disposable, QuickPickItem } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { getBranches } from '../commands/quick-wizard/steps/branches.js';
 import type { GlRepository } from '../git/models/repository.js';
@@ -71,7 +71,7 @@ export async function showNewBranchPicker(
 				input.onDidAccept(() => {
 					const value = input.value.trim();
 					if (value == null) {
-						input.validationMessage = 'Please enter a valid branch name';
+						input.validationMessage = l10n.t('Please enter a valid branch name');
 						return;
 					}
 
@@ -81,7 +81,7 @@ export async function showNewBranchPicker(
 
 			input.title = title;
 			input.placeholder = placeholder;
-			input.prompt = 'Enter a name for the new branch';
+			input.prompt = l10n.t('Enter a name for the new branch');
 
 			input.show();
 		});
@@ -103,13 +103,14 @@ export async function showNewOrSelectBranchPicker(
 
 	// TODO: needs updating
 	const createNewBranch = {
-		label: 'Create New Branch',
-		description:
+		label: l10n.t('Create New Branch'),
+		description: l10n.t(
 			'Creates a branch to apply the Cloud Patch to. (Typing an existing branch name will use that branch.)',
+		),
 	};
 	const selectExistingBranch = {
-		label: 'Select Existing Branch',
-		description: 'Selects an existing branch to apply the Cloud Patch to.',
+		label: l10n.t('Select Existing Branch'),
+		description: l10n.t('Selects an existing branch to apply the Cloud Patch to.'),
 	};
 
 	const items: QuickPickItem[] = [createNewBranch, selectExistingBranch];
@@ -131,7 +132,7 @@ export async function showNewOrSelectBranchPicker(
 			);
 
 			quickpick.title = title;
-			quickpick.placeholder = 'Choose a branch option';
+			quickpick.placeholder = l10n.t('Choose a branch option');
 			quickpick.matchOnDescription = true;
 			quickpick.matchOnDetail = true;
 			quickpick.items = items;
@@ -140,9 +141,9 @@ export async function showNewOrSelectBranchPicker(
 		});
 
 		if (pick === createNewBranch) {
-			return await showNewBranchPicker(title, 'Enter a name for the new branch', repository);
+			return await showNewBranchPicker(title, l10n.t('Enter a name for the new branch'), repository);
 		} else if (pick === selectExistingBranch) {
-			return await showBranchPicker(title, 'Choose an existing branch', repository);
+			return await showBranchPicker(title, l10n.t('Choose an existing branch'), repository);
 		}
 
 		return undefined;

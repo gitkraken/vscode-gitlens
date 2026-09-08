@@ -1,11 +1,12 @@
 import type { Uri } from 'vscode';
-import { MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { l10n, MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { GitContributor } from '@gitlens/git/models/contributor.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
-import { formatNumeric } from '@gitlens/utils/date.js';
+import { formatMarkdownCode } from '@gitlens/git/utils/tooltip.utils.js';
+import { formatNumeric, getNumericFormat } from '@gitlens/utils/date.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { map } from '@gitlens/utils/iterable.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { escapeMarkdown } from '@gitlens/utils/markdown.js';
 import { getPresenceDataUri } from '../../avatars.js';
 import { GlyphChars } from '../../constants.js';
 import type { GitUri } from '../../git/gitUri.js';
@@ -21,6 +22,24 @@ import { CommitNode } from './commitNode.js';
 import { LoadMoreNode, MessageNode } from './common.js';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode.js';
 import { insertDateMarkers } from './utils/-webview/node.utils.js';
+
+const markdownCodeToken = '\ue000code\ue001';
+
+function escapeMarkdownLinkTitle(value: string): string {
+	return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+}
+
+function getMarkdownMailto(email: string): string {
+	const encodedEmail = encodeURIComponent(email).replace(
+		/[!'()*]/g,
+		character => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+	);
+	return `mailto:${encodedEmail.replaceAll('%40', '@')}`;
+}
+
+function formatLocalizedMarkdownWithCode(localized: string, code: string): string {
+	return escapeMarkdown(localized).replaceAll(markdownCodeToken, formatMarkdownCode(code));
+}
 
 export class ContributorNode extends ViewNode<'contributor', ViewsWithContributors> implements PageableViewNode {
 	limit: number | undefined;
@@ -53,7 +72,9 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		const text = `${this.contributor.name}${this.contributor.email ? ` <${this.contributor.email}>` : ''}`;
 		switch (type) {
 			case 'markdown':
-				return this.contributor.email ? `[${text}](mailto:${this.contributor.email})` : text;
+				return this.contributor.email
+					? `[${escapeMarkdown(text)}](${getMarkdownMailto(this.contributor.email)})`
+					: escapeMarkdown(text);
 			default:
 				return text;
 		}
@@ -69,7 +90,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 
 	async getChildren(): Promise<ViewNode[]> {
 		const log = await this.getLog();
-		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+		if (log == null) return [new MessageNode(this.view, this, l10n.t('No commits could be found.'))];
 
 		const hasPathspec = this.options?.pathspec != null;
 		const useFileRevisionAsCommit = this.options?.pathspec != null && !this.options.pathspec.isFolder;
@@ -101,16 +122,25 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 	async getTreeItem(): Promise<TreeItem> {
 		const presence = this.options?.presence?.get(this.contributor.email!);
 
-		const shortStats =
-			this.contributor.stats != null
-				? ` (${pluralize('file', this.contributor.stats.files)}, +${formatNumeric(
-						this.contributor.stats.additions,
-					)} -${formatNumeric(this.contributor.stats.deletions)} ${pluralize(
-						'line',
-						this.contributor.stats.additions + this.contributor.stats.deletions,
-						{ only: true },
-					)})`
-				: '';
+		const numericFormat = getNumericFormat();
+		let shortStats = '';
+		if (this.contributor.stats != null) {
+			const files = numericFormat(this.contributor.stats.files);
+			const additions = formatNumeric(this.contributor.stats.additions);
+			const deletions = formatNumeric(this.contributor.stats.deletions);
+			const lines = this.contributor.stats.additions + this.contributor.stats.deletions;
+			if (this.contributor.stats.files === 1) {
+				shortStats =
+					lines === 1
+						? l10n.t(' ({0} file, +{1} -{2} line)', files, additions, deletions)
+						: l10n.t(' ({0} file, +{1} -{2} lines)', files, additions, deletions);
+			} else {
+				shortStats =
+					lines === 1
+						? l10n.t(' ({0} files, +{1} -{2} line)', files, additions, deletions)
+						: l10n.t(' ({0} files, +{1} -{2} lines)', files, additions, deletions);
+			}
+		}
 
 		const displayName = this.contributor.current
 			? formatCurrentUserDisplayName(this.contributor.label)
@@ -121,14 +151,31 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		item.contextValue = this.contributor.current
 			? `${ContextValues.Contributor}+current`
 			: ContextValues.Contributor;
-		item.description = `${
-			presence != null && presence.status !== 'offline'
-				? `${presence.statusText} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
-				: ''
-		}${this.contributor.latestCommitDate != null ? `${GitContributor.formatDateFromNow(this.contributor)}, ` : ''}${pluralize(
-			'commit',
-			this.contributor.contributionCount,
-		)}${shortStats}`;
+		const commitCount =
+			this.contributor.contributionCount === 1
+				? l10n.t('{0} commit', numericFormat(this.contributor.contributionCount))
+				: l10n.t('{0} commits', numericFormat(this.contributor.contributionCount));
+		let presenceLabel = '';
+		if (presence != null && presence.status !== 'offline') {
+			switch (presence.status) {
+				case 'online':
+					presenceLabel = l10n.t('Available');
+					break;
+				case 'away':
+					presenceLabel = l10n.t('Away');
+					break;
+				case 'busy':
+					presenceLabel = l10n.t('Busy');
+					break;
+				case 'dnd':
+					presenceLabel = l10n.t('DND');
+					break;
+			}
+			presenceLabel += ` ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `;
+		}
+		item.description = `${presenceLabel}${
+			this.contributor.latestCommitDate != null ? `${GitContributor.formatDateFromNow(this.contributor)}, ` : ''
+		}${commitCount}${shortStats}`;
 
 		let avatarUri;
 		let avatarMarkdown;
@@ -140,54 +187,129 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			});
 
 			if (presence != null) {
-				let subjectAndVerb: string;
+				let displayName = this.contributor.label;
+				let currentUserStyle = false;
 				if (this.contributor.current) {
 					const style = configuration.get('defaultCurrentUserNameStyle');
-					subjectAndVerb = `${formatCurrentUserDisplayName(this.contributor.label, style)} ${style === 'you' ? 'are' : 'is'}`;
-				} else {
-					subjectAndVerb = `${this.contributor.label} is`;
+					displayName = formatCurrentUserDisplayName(this.contributor.label, style);
+					currentUserStyle = style === 'you';
 				}
-				const title = `${subjectAndVerb} ${
-					presence.status === 'dnd' ? 'in ' : ''
-				}${presence.statusText.toLocaleLowerCase()}`;
 
-				avatarMarkdown = `![${title}](${avatarUri.toString(
+				let title: string;
+				if (currentUserStyle) {
+					switch (presence.status) {
+						case 'online':
+							title = l10n.t('{0} are available', displayName);
+							break;
+						case 'away':
+							title = l10n.t('{0} are away', displayName);
+							break;
+						case 'busy':
+							title = l10n.t('{0} are busy', displayName);
+							break;
+						case 'dnd':
+							title = l10n.t('{0} are in dnd', displayName);
+							break;
+						case 'offline':
+							title = l10n.t('{0} are offline', displayName);
+							break;
+					}
+				} else {
+					switch (presence.status) {
+						case 'online':
+							title = l10n.t('{0} is available', displayName);
+							break;
+						case 'away':
+							title = l10n.t('{0} is away', displayName);
+							break;
+						case 'busy':
+							title = l10n.t('{0} is busy', displayName);
+							break;
+						case 'dnd':
+							title = l10n.t('{0} is in dnd', displayName);
+							break;
+						case 'offline':
+							title = l10n.t('{0} is offline', displayName);
+							break;
+					}
+				}
+
+				const escapedTitle = escapeMarkdown(title);
+				const escapedLinkTitle = escapeMarkdownLinkTitle(title);
+				avatarMarkdown = `![${escapedTitle}](${avatarUri.toString(
 					true,
-				)}|width=${size},height=${size} "${title}")![${title}](${getPresenceDataUri(
+				)}|width=${size},height=${size} "${escapedLinkTitle}")![${escapedTitle}](${getPresenceDataUri(
 					presence.status,
-				)} "${title}")`;
+				)} "${escapedLinkTitle}")`;
 			} else {
-				avatarMarkdown = `![${this.contributor.label}](${avatarUri.toString(
+				const escapedLabel = escapeMarkdown(this.contributor.label);
+				avatarMarkdown = `![${escapedLabel}](${avatarUri.toString(
 					true,
-				)}|width=${size},height=${size} "${this.contributor.label}")`;
+				)}|width=${size},height=${size} "${escapeMarkdownLinkTitle(this.contributor.label)}")`;
 			}
 		}
 
 		const stats =
 			this.contributor.stats != null
-				? `\\\n${pluralize('file', this.contributor.stats.files)} changed, ${pluralize(
-						'addition',
-						this.contributor.stats.additions,
-					)}, ${pluralize('deletion', this.contributor.stats.deletions)}`
+				? `\\\n${
+						this.contributor.stats.files === 1
+							? escapeMarkdown(l10n.t('{0} file changed', numericFormat(this.contributor.stats.files)))
+							: escapeMarkdown(l10n.t('{0} files changed', numericFormat(this.contributor.stats.files)))
+					}, ${
+						this.contributor.stats.additions === 1
+							? escapeMarkdown(l10n.t('{0} addition', numericFormat(this.contributor.stats.additions)))
+							: escapeMarkdown(l10n.t('{0} additions', numericFormat(this.contributor.stats.additions)))
+					}, ${
+						this.contributor.stats.deletions === 1
+							? escapeMarkdown(l10n.t('{0} deletion', numericFormat(this.contributor.stats.deletions)))
+							: escapeMarkdown(l10n.t('{0} deletions', numericFormat(this.contributor.stats.deletions)))
+					}`
 				: '';
 
 		const link = this.contributor.email
-			? `__[${this.contributor.name}](mailto:${this.contributor.email} "Email ${this.contributor.label} (${this.contributor.email})")__`
-			: `__${this.contributor.label}__`;
+			? `__[${escapeMarkdown(this.contributor.name)}](${getMarkdownMailto(
+					this.contributor.email,
+				)} "${escapeMarkdownLinkTitle(
+					l10n.t('Email {0} ({1})', this.contributor.label, this.contributor.email),
+				)}")__`
+			: `__${escapeMarkdown(this.contributor.label)}__`;
 
 		const lastCommitted =
 			this.contributor.latestCommitDate != null
-				? `Last commit ${GitContributor.formatDateFromNow(this.contributor)} (${GitContributor.formatDate(this.contributor)})\\\n`
+				? `${escapeMarkdown(
+						l10n.t(
+							'Last commit {0} ({1})',
+							GitContributor.formatDateFromNow(this.contributor),
+							GitContributor.formatDate(this.contributor),
+						),
+					)}\\\n`
 				: '';
 
-		const pathContext = this.options?.pathspec?.uri
-			? ` to \`${this.view.container.git.getRelativePath(this.options?.pathspec?.uri, this.uri.repoPath!)}\``
-			: '';
+		const path = this.options?.pathspec?.uri
+			? this.view.container.git.getRelativePath(this.options.pathspec.uri, this.uri.repoPath!)
+			: undefined;
+		const contributions =
+			path == null
+				? escapeMarkdown(commitCount)
+				: this.contributor.contributionCount === 1
+					? formatLocalizedMarkdownWithCode(
+							l10n.t(
+								'{0} commit to {1}',
+								numericFormat(this.contributor.contributionCount),
+								markdownCodeToken,
+							),
+							path,
+						)
+					: formatLocalizedMarkdownWithCode(
+							l10n.t(
+								'{0} commits to {1}',
+								numericFormat(this.contributor.contributionCount),
+								markdownCodeToken,
+							),
+							path,
+						);
 		const markdown = new MarkdownString(
-			`${avatarMarkdown ?? ''} &nbsp;${link} \n\n${lastCommitted}${pluralize(
-				'commit',
-				this.contributor.contributionCount,
-			)}${pathContext}${stats}`,
+			`${avatarMarkdown ?? ''} &nbsp;${link} \n\n${lastCommitted}${contributions}${stats}`,
 		);
 		markdown.supportHtml = true;
 		markdown.isTrusted = true;

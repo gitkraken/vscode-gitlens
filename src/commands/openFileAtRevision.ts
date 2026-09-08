@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor } from 'vscode';
-import { Uri } from 'vscode';
+import { l10n, Uri } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
@@ -108,7 +108,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 			}
 
 			if (args.revisionUri == null) {
-				void showGenericErrorMessage('Unable to open blame');
+				void showGenericErrorMessage(l10n.t('Unable to open blame'));
 				return undefined;
 			}
 		}
@@ -138,19 +138,22 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 								: undefined),
 					);
 
-				const title = `Open ${args.annotationType === 'blame' ? 'Blame' : 'File'} at Revision${pad(
-					GlyphChars.Dot,
-					2,
-					2,
-				)}`;
-				const titleWithContext = `${title}${gitUri.getFormattedFileName({
+				const isBlame = args.annotationType === 'blame';
+				const title = isBlame ? l10n.t('Open Blame at Revision') : l10n.t('Open File at Revision');
+				const titleSeparator = pad(GlyphChars.Dot, 2, 2);
+				const titleFileName = gitUri.getFormattedFileName({
 					suffix: gitUri.sha ? `:${shortenRevision(gitUri.sha)}` : undefined,
-					truncateTo: quickPickTitleMaxChars - title.length,
-				})}`;
+					truncateTo: quickPickTitleMaxChars - title.length - titleSeparator.length,
+				});
+				const titleWithContext = isBlame
+					? l10n.t('Open Blame at Revision{0}{1}', titleSeparator, titleFileName)
+					: l10n.t('Open File at Revision{0}{1}', titleSeparator, titleFileName);
 				const pick = await showCommitPicker(
 					log,
 					titleWithContext,
-					`Choose a commit to ${args.annotationType === 'blame' ? 'blame' : 'open'} the file revision from`,
+					isBlame
+						? l10n.t('Choose a commit to blame the file revision from')
+						: l10n.t('Choose a commit to open the file revision from'),
 					{
 						empty: !gitUri.sha
 							? {
@@ -184,15 +187,28 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 										let newTitle;
 
 										if (items.length) {
-											newPlaceholder = `${gitUri.getFormattedFileName()} is likely untracked, choose a different file?`;
-											newTitle = `${titleWithContext} (Untracked?)`;
+											newPlaceholder = l10n.t(
+												'{0} is likely untracked, choose a different file?',
+												gitUri.getFormattedFileName(),
+											);
+											newTitle = isBlame
+												? l10n.t(
+														'Open Blame at Revision{0}{1} (Untracked?)',
+														titleSeparator,
+														titleFileName,
+													)
+												: l10n.t(
+														'Open File at Revision{0}{1} (Untracked?)',
+														titleSeparator,
+														titleFileName,
+													);
 										} else {
-											newPlaceholder = 'No commits found';
+											newPlaceholder = l10n.t('No commits found');
 										}
 
 										items.push(
 											createDirectiveQuickPickItem(Directive.Cancel, undefined, {
-												label: items.length ? 'Cancel' : 'OK',
+												label: items.length ? l10n.t('Cancel') : l10n.t('OK'),
 											}),
 										);
 
@@ -218,12 +234,12 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						},
 						showOtherReferences: [
 							CommandQuickPickItem.fromCommand<[Uri]>(
-								'Choose a Branch or Tag...',
+								l10n.t('Choose a Branch or Tag...'),
 								'gitlens.openFileRevisionFrom',
 								[uri],
 							),
 							CommandQuickPickItem.fromCommand<[Uri, OpenFileAtRevisionFromCommandArgs]>(
-								'Choose a Stash...',
+								l10n.t('Choose a Stash...'),
 								'gitlens.openFileRevisionFrom',
 								[uri, { stash: true }],
 							),
@@ -248,7 +264,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 			});
 		} catch (ex) {
 			Logger.error(ex, 'OpenFileAtRevisionCommand');
-			void showGenericErrorMessage('Unable to open file at revision');
+			void showGenericErrorMessage(l10n.t('Unable to open file at revision'));
 		}
 	}
 }

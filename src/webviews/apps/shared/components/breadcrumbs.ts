@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -108,7 +109,7 @@ export class GlBreadcrumbs extends LitElement {
 		}
 	`;
 
-	@property() label: string = 'Breadcrumb';
+	@property() label: string = l10n.t('Breadcrumb');
 
 	@property({ reflect: true })
 	collapse: BreadcrumbCollapse = 'outer-in';
@@ -728,9 +729,9 @@ by the breadcrumbs host on overflow. */
 			const ellipsisInner = this.icon
 				? html`<code-icon class="icon" icon=${this.icon}></code-icon>
 						<span class="breadcrumb-label" aria-hidden="true">…</span>
-						<span class="sr-only">Show hidden breadcrumbs</span>`
+						<span class="sr-only">${l10n.t('Show hidden breadcrumbs')}</span>`
 				: html`<span class="breadcrumb-label" aria-hidden="true">…</span>
-						<span class="sr-only">Show hidden breadcrumbs</span>`;
+						<span class="sr-only">${l10n.t('Show hidden breadcrumbs')}</span>`;
 			const trailingSeparator = html`<span class="separator" aria-hidden="true"></span>`;
 			if (interactive) {
 				return html`<button class="breadcrumb-item" type="button">

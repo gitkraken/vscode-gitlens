@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type { Container } from '../container.js';
 import type { AgentDescriptor } from '../plus/agents/agentDescriptor.js';
 import { runAgent } from '../plus/agents/agentDispatch.js';
@@ -42,7 +42,7 @@ export class StartAgentSessionCommand extends GlCommandBase {
 
 		const result = await runAgent(descriptor, prompt, { cwd: cwd, autoExecute: true });
 		if (!result.success) {
-			void window.showWarningMessage(`Couldn't start ${descriptor.label}.`);
+			void window.showWarningMessage(l10n.t("Couldn't start {0}.", descriptor.label));
 		}
 	}
 
@@ -57,7 +57,7 @@ export class StartAgentSessionCommand extends GlCommandBase {
 		if (agentId != null) {
 			const descriptor = await resolveDefaultAgent(this.container, agentId);
 			if (descriptor == null) {
-				void window.showWarningMessage(`Couldn't start ${describeAgentId(agentId)}.`);
+				void window.showWarningMessage(l10n.t("Couldn't start {0}.", describeAgentId(agentId)));
 			}
 
 			return descriptor;

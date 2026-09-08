@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -56,7 +56,7 @@ export function push(
 export async function pushToCommit(repoPath: string, sha: string): Promise<void> {
 	const commit = await Container.instance.git.getRepositoryService(repoPath).commits.getCommit(sha);
 	if (commit == null) {
-		void window.showWarningMessage(`Unable to push to commit — ${sha.slice(0, 7)} could not be found.`);
+		void window.showWarningMessage(l10n.t('Unable to push to commit — {0} could not be found.', sha.slice(0, 7)));
 		return;
 	}
 

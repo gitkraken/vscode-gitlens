@@ -1,4 +1,4 @@
-import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { isPromise } from '@gitlens/utils/promise.js';
@@ -62,10 +62,10 @@ export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 			const { provider } = autolink;
 
 			const item = new TreeItem(
-				autolink.description ?? `Autolink ${autolink.prefix}${autolink.id}`,
+				autolink.description ?? l10n.t('Autolink {0}', `${autolink.prefix}${autolink.id}`),
 				TreeItemCollapsibleState.None,
 			);
-			item.description = provider?.name ?? 'Custom';
+			item.description = provider?.name ?? l10n.t('Custom');
 			item.iconPath = new ThemeIcon(
 				pending
 					? 'loading~spin'
@@ -79,13 +79,13 @@ export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 			item.tooltip = new MarkdownString(
 				`${
 					autolink.description
-						? `Autolinked ${autolink.description}`
+						? l10n.t('Autolinked {0}', autolink.description)
 						: `${
 								autolink.type == null
-									? 'Autolinked'
+									? l10n.t('Autolinked')
 									: autolink.type === 'pullrequest'
-										? 'Autolinked Pull Request'
-										: 'Autolinked Issue'
+										? l10n.t('Autolinked Pull Request')
+										: l10n.t('Autolinked Issue')
 							} ${autolink.prefix}${autolink.id}`
 				} \\\n[${autolink.url}](${autolink.url}${autolink.title != null ? ` "${autolink.title}"` : ''})`,
 			);
@@ -99,15 +99,20 @@ export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 		item.iconPath = getIssueOrPullRequestThemeIcon(enriched);
 		item.contextValue = `${ContextValues.AutolinkedItem}+${enriched.type === 'pullrequest' ? 'pr' : 'issue'}`;
 
-		const linkTitle = ` "Open ${enriched.type === 'pullrequest' ? 'Pull Request' : 'Issue'} \\#${enriched.id} on ${
-			enriched.provider.name
+		const linkTitle = ` "${
+			enriched.type === 'pullrequest'
+				? l10n.t('Open Pull Request \\#{0} on {1}', enriched.id, enriched.provider.name)
+				: l10n.t('Open Issue \\#{0} on {1}', enriched.id, enriched.provider.name)
 		}"`;
+		const status = enriched.closed
+			? enriched.state === 'merged'
+				? l10n.t('was merged {0}', relativeTime)
+				: l10n.t('was closed {0}', relativeTime)
+			: l10n.t('was opened {0}', relativeTime);
 		const tooltip = new MarkdownString(
 			`${getIssueOrPullRequestMarkdownIcon(enriched)} [**${enriched.title.trim()}**](${
 				enriched.url
-			}${linkTitle}) \\\n[#${enriched.id}](${enriched.url}${linkTitle}) was ${
-				enriched.closed ? (enriched.state === 'merged' ? 'merged' : 'closed') : 'opened'
-			} ${relativeTime}`,
+			}${linkTitle}) \\\n[#${enriched.id}](${enriched.url}${linkTitle}) ${status}`,
 			true,
 		);
 		tooltip.supportHtml = true;

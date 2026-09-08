@@ -1,12 +1,13 @@
 import { join as joinPaths } from 'path';
 import * as process from 'process';
+import * as l10n from '@vscode/l10n';
 import { any } from '@gitlens/utils/promise.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import { findExecutable, run } from './exec.js';
 
 export class UnableToFindGitError extends Error {
 	constructor(public readonly original?: Error) {
-		super('Unable to find git');
+		super(l10n.t('Unable to find git'));
 
 		Error.captureStackTrace?.(this, new.target);
 	}
@@ -14,7 +15,7 @@ export class UnableToFindGitError extends Error {
 
 export class InvalidGitConfigError extends Error {
 	constructor(public readonly original: Error) {
-		super('Invalid Git configuration');
+		super(l10n.t('Invalid Git configuration'));
 
 		Error.captureStackTrace?.(this, new.target);
 	}

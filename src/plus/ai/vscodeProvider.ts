@@ -3,6 +3,7 @@ import {
 	CancellationTokenSource,
 	Disposable,
 	EventEmitter,
+	l10n,
 	LanguageModelChatMessage,
 	LanguageModelChatToolMode,
 	LanguageModelTextPart,
@@ -28,7 +29,7 @@ import type { Event } from '@gitlens/utils/event.js';
 import { getLoggableName } from '@gitlens/utils/logger.js';
 import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { capitalize } from '@gitlens/utils/string.js';
-import { AIError, AIErrorReason } from '../../errors.js';
+import { AIError, AIErrorReason, getPresentableErrorMessage } from '../../errors.js';
 
 const provider = vscodeProviderDescriptor;
 
@@ -212,7 +213,7 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 
 					debugger;
 
-					let message = ex instanceof Error ? ex.message : String(ex);
+					let message = getPresentableErrorMessage(ex);
 
 					if (ex instanceof Error && 'code' in ex && ex.code === 'NoPermissions') {
 						scope?.error(ex, `User denied access to ${model.provider.name}`);
@@ -240,9 +241,12 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					}
 
 					throw new Error(
-						`Unable to ${getActionName(action)}: (${model.provider.name}${
-							ex.code ? `:${ex.code}` : ''
-						}) ${message}`,
+						getRequestErrorMessage(
+							action,
+							model.provider.name,
+							ex.code ? String(ex.code) : undefined,
+							message,
+						),
 						{ cause: ex },
 					);
 				}
@@ -250,6 +254,63 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		} finally {
 			cancellationSource.dispose();
 		}
+	}
+}
+
+function getRequestErrorMessage(
+	action: AIActionType,
+	providerName: string,
+	code: string | undefined,
+	message: string,
+): string {
+	if (code != null) {
+		const args = { provider: providerName, code: code, message: message };
+		switch (action) {
+			case 'explain-changes':
+				return l10n.t('Unable to Explain Changes: ({provider}:{code}) {message}', args);
+			case 'review-changes':
+				return l10n.t('Unable to Review Changes: ({provider}:{code}) {message}', args);
+			case 'generate-commitMessage':
+				return l10n.t('Unable to Generate Commit Message: ({provider}:{code}) {message}', args);
+			case 'generate-stashMessage':
+				return l10n.t('Unable to Generate Stash Message: ({provider}:{code}) {message}', args);
+			case 'generate-changelog':
+				return l10n.t('Unable to Generate Changelog: ({provider}:{code}) {message}', args);
+			case 'generate-create-cloudPatch':
+				return l10n.t('Unable to Create Cloud Patch Details: ({provider}:{code}) {message}', args);
+			case 'generate-create-pullRequest':
+				return l10n.t('Unable to Create Pull Request Details: ({provider}:{code}) {message}', args);
+			case 'generate-commits':
+				return l10n.t('Unable to Generate Commits: ({provider}:{code}) {message}', args);
+			case 'conflict-resolution':
+				return l10n.t('Unable to Resolve Conflicts (Preview): ({provider}:{code}) {message}', args);
+			case 'generate-searchQuery':
+				return l10n.t('Unable to Generate Search Query: ({provider}:{code}) {message}', args);
+		}
+	}
+
+	const args = { provider: providerName, message: message };
+	switch (action) {
+		case 'explain-changes':
+			return l10n.t('Unable to Explain Changes: ({provider}) {message}', args);
+		case 'review-changes':
+			return l10n.t('Unable to Review Changes: ({provider}) {message}', args);
+		case 'generate-commitMessage':
+			return l10n.t('Unable to Generate Commit Message: ({provider}) {message}', args);
+		case 'generate-stashMessage':
+			return l10n.t('Unable to Generate Stash Message: ({provider}) {message}', args);
+		case 'generate-changelog':
+			return l10n.t('Unable to Generate Changelog: ({provider}) {message}', args);
+		case 'generate-create-cloudPatch':
+			return l10n.t('Unable to Create Cloud Patch Details: ({provider}) {message}', args);
+		case 'generate-create-pullRequest':
+			return l10n.t('Unable to Create Pull Request Details: ({provider}) {message}', args);
+		case 'generate-commits':
+			return l10n.t('Unable to Generate Commits: ({provider}) {message}', args);
+		case 'conflict-resolution':
+			return l10n.t('Unable to Resolve Conflicts (Preview): ({provider}) {message}', args);
+		case 'generate-searchQuery':
+			return l10n.t('Unable to Generate Search Query: ({provider}) {message}', args);
 	}
 }
 

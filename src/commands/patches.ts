@@ -1,6 +1,6 @@
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import type { TextEditor } from 'vscode';
-import { env, Uri, window, workspace } from 'vscode';
+import { env, l10n, Uri, window, workspace } from 'vscode';
 import { ApplyPatchCommitError } from '@gitlens/git/errors.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitDiff } from '@gitlens/git/models/diff.js';
@@ -17,6 +17,7 @@ import type { ScmResource } from '../@types/vscode.git.resources.d.js';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums.js';
 import type { GlCommands } from '../constants.commands.js';
 import type { Container } from '../container.js';
+import { getPresentableErrorMessage } from '../errors.js';
 import type { GlRepository } from '../git/models/repository.js';
 import { showGitErrorMessage } from '../messages.js';
 import { showPatchesView } from '../plus/drafts/actions.js';
@@ -94,7 +95,7 @@ export async function getCreatePatchArgsForScmStates(
 		// stays index↔working, which is exactly what those rows represent.
 		from: groupTypes.size > 1 ? 'HEAD' : undefined,
 		uris: [...map(uris, u => Uri.parse(u))],
-		title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
+		title: to === uncommittedStaged ? l10n.t('Staged Changes') : l10n.t('Uncommitted Changes'),
 		includeUntracked: includeUntracked ? true : undefined,
 	};
 }
@@ -123,7 +124,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 				args = {
 					repoPath: repo?.path,
 					to: to,
-					title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
+					title: to === uncommittedStaged ? l10n.t('Staged Changes') : l10n.t('Uncommitted Changes'),
 				};
 			} else if (context.type === 'viewItem') {
 				if (isCommandContextViewNodeHasCommit(context)) {
@@ -133,7 +134,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 						args = {
 							repoPath: context.node.commit.repoPath,
 							to: to,
-							title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
+							title: to === uncommittedStaged ? l10n.t('Staged Changes') : l10n.t('Uncommitted Changes'),
 						};
 					} else {
 						if (commit.message == null) {
@@ -158,9 +159,10 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 						repoPath: context.node.uri.fsPath,
 						to: context.node.compareRef.ref,
 						from: context.node.compareWithRef.ref,
-						title: `Changes between ${shortenRevision(context.node.compareRef.ref)} and ${shortenRevision(
-							context.node.compareWithRef.ref,
-						)}`,
+						title: l10n.t('Changes between {ref1} and {ref2}', {
+							ref1: shortenRevision(context.node.compareRef.ref),
+							ref2: shortenRevision(context.node.compareWithRef.ref),
+						}),
 					};
 				} else if (isCommandContextViewNodeHasFileRefs(context)) {
 					args = {
@@ -174,7 +176,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 						repoPath: context.node.repoPath,
 						to: uncommitted,
 						from: 'HEAD',
-						title: 'Uncommitted Changes',
+						title: l10n.t('Uncommitted Changes'),
 					};
 				} else if (isCommandContextViewNodeHasRefFile(context)) {
 					if (isUncommitted(context.node.ref.ref)) {
@@ -184,7 +186,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 							to: to,
 							from: context.node.is('uncommitted-file') ? 'HEAD' : undefined,
 							uris: getFileDiffPathspecs(context.node.file),
-							title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
+							title: to === uncommittedStaged ? l10n.t('Staged Changes') : l10n.t('Uncommitted Changes'),
 						};
 					} else {
 						args = {
@@ -192,7 +194,9 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 							to: context.node.ref.sha,
 							from: `${context.node.ref.sha}^`,
 							uris: getFileDiffPathspecs(context.node.file),
-							title: `Changes (partial) in ${shortenRevision(context.node.ref.sha)}`,
+							title: l10n.t('Changes (partial) in {revision}', {
+								revision: shortenRevision(context.node.ref.sha),
+							}),
 						};
 					}
 				}
@@ -205,7 +209,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 							to: to,
 							from: context.node.is('uncommitted-file') ? 'HEAD' : undefined,
 							uris: getFileDiffPathspecs(context.node.file),
-							title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
+							title: to === uncommittedStaged ? l10n.t('Staged Changes') : l10n.t('Uncommitted Changes'),
 						};
 					} else {
 						args = {
@@ -213,7 +217,9 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 							to: context.node.ref.sha,
 							from: `${context.node.ref.sha}^`,
 							uris: getFileDiffPathspecs(context.node.file),
-							title: `Changes (partial) in ${shortenRevision(context.node.ref.sha)}`,
+							title: l10n.t('Changes (partial) in {revision}', {
+								revision: shortenRevision(context.node.ref.sha),
+							}),
 						};
 					}
 
@@ -275,7 +281,7 @@ export class CreatePatchCommand extends CreatePatchCommandBase {
 	}
 
 	async execute(args?: CreatePatchCommandArgs): Promise<void> {
-		const diff = await this.getDiff('Create Patch', args);
+		const diff = await this.getDiff(l10n.t('Create Patch'), args);
 		if (diff == null) return;
 
 		debugger;
@@ -303,15 +309,15 @@ export class CopyPatchToClipboardCommand extends CreatePatchCommandBase {
 	}
 
 	async execute(args?: CreatePatchCommandArgs): Promise<void> {
-		const diff = await this.getDiff('Copy as Patch', args);
+		const diff = await this.getDiff(l10n.t('Copy as Patch'), args);
 		if (!diff?.contents) {
-			void window.showWarningMessage('No changes found to copy');
+			void window.showWarningMessage(l10n.t('No changes found to copy'));
 			return;
 		}
 
 		await env.clipboard.writeText(diff.contents);
 		void window.showInformationMessage(
-			"Copied patch \u2014 use 'Apply Copied Patch' in another window to apply it",
+			l10n.t("Copied patch \u2014 use 'Apply Copied Patch' in another window to apply it"),
 		);
 	}
 }
@@ -333,28 +339,31 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 		// Make sure it looks like a valid patch
 		const valid = patch.length ? await svc?.patch?.validatePatch(patch) : false;
 		if (!valid) {
-			void window.showWarningMessage('No valid patch found in the clipboard');
+			void window.showWarningMessage(l10n.t('No valid patch found in the clipboard'));
 			return;
 		}
 
-		svc ??= (await getRepositoryOrShowPicker(this.container, 'Apply Copied Patch'))?.git;
+		svc ??= (await getRepositoryOrShowPicker(this.container, l10n.t('Apply Copied Patch')))?.git;
 		if (svc == null) return;
 
 		try {
-			const commit = await svc.patch?.createUnreachableCommitForPatch('HEAD', 'Pasted Patch', patch);
+			const commit = await svc.patch?.createUnreachableCommitForPatch('HEAD', l10n.t('Pasted Patch'), patch);
 			if (commit == null) return;
 
 			await svc.patch?.applyUnreachableCommitForPatch(commit.sha, { stash: false });
-			void window.showInformationMessage(`Patch applied successfully`);
+			void window.showInformationMessage(l10n.t('Patch applied successfully'));
 		} catch (ex) {
 			if (isCancellationError(ex)) return;
 
 			if (ApplyPatchCommitError.is(ex, 'appliedWithConflicts')) {
-				void window.showWarningMessage('Patch applied with conflicts');
+				void window.showWarningMessage(l10n.t('Patch applied with conflicts'));
 			} else if (ApplyPatchCommitError.is(ex)) {
 				void showGitErrorMessage(ex);
 			} else {
-				void showGitErrorMessage(ex, `Unable to apply patch: ${ex.message}`);
+				void showGitErrorMessage(
+					ex,
+					l10n.t('Unable to apply patch: {error}', { error: getPresentableErrorMessage(ex) }),
+				);
 			}
 		}
 	}
@@ -399,9 +408,9 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 				canSelectFiles: true,
 				canSelectFolders: false,
 				canSelectMany: false,
-				filters: { Patches: ['diff', 'patch'] },
-				openLabel: 'Open Patch',
-				title: 'Open Patch File',
+				filters: { [l10n.t('Patches')]: ['diff', 'patch'] },
+				openLabel: l10n.t('Open Patch'),
+				title: l10n.t('Open Patch File'),
 			});
 			const uri = uris?.[0];
 			if (uri == null) return;
@@ -446,9 +455,13 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 	}
 
 	async execute(args?: OpenCloudPatchCommandArgs): Promise<void> {
-		const type = args?.type === 'code_suggestion' ? 'Code Suggestion' : 'Cloud Patch';
+		const isCodeSuggestion = args?.type === 'code_suggestion';
 		if (args?.id == null && args?.draft == null) {
-			void window.showErrorMessage(`Cannot open ${type}; no patch or patch id provided`);
+			void window.showErrorMessage(
+				isCodeSuggestion
+					? l10n.t('Cannot open Code Suggestion; no patch or patch id provided')
+					: l10n.t('Cannot open Cloud Patch; no patch or patch id provided'),
+			);
 			return;
 		}
 
@@ -461,24 +474,40 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 				providerId = getProviderIdFromEntityIdentifier(identifier);
 				providerDomain = identifier.domain ?? undefined;
 			} catch {
-				void window.showErrorMessage(`Cannot open ${type}; invalid provider details.`);
+				void window.showErrorMessage(
+					isCodeSuggestion
+						? l10n.t('Cannot open Code Suggestion; invalid provider details.')
+						: l10n.t('Cannot open Cloud Patch; invalid provider details.'),
+				);
 				return;
 			}
 
 			if (providerId == null) {
-				void window.showErrorMessage(`Cannot open ${type}; unsupported provider.`);
+				void window.showErrorMessage(
+					isCodeSuggestion
+						? l10n.t('Cannot open Code Suggestion; unsupported provider.')
+						: l10n.t('Cannot open Cloud Patch; unsupported provider.'),
+				);
 				return;
 			}
 
 			const integration = await this.container.integrations.get(providerId, providerDomain);
 			if (integration == null) {
-				void window.showErrorMessage(`Cannot open ${type}; provider not found.`);
+				void window.showErrorMessage(
+					isCodeSuggestion
+						? l10n.t('Cannot open Code Suggestion; provider not found.')
+						: l10n.t('Cannot open Cloud Patch; provider not found.'),
+				);
 				return;
 			}
 
 			const session = await integration.getSession('cloud-patches');
 			if (session == null) {
-				void window.showErrorMessage(`Cannot open ${type}; provider not connected.`);
+				void window.showErrorMessage(
+					isCodeSuggestion
+						? l10n.t('Cannot open Code Suggestion; provider not connected.')
+						: l10n.t('Cannot open Cloud Patch; provider not connected.'),
+				);
 				return;
 			}
 
@@ -491,7 +520,11 @@ export class OpenCloudPatchCommand extends GlCommandBase {
 			void showPatchesView({ mode: 'view', draft: draft });
 		} catch (ex) {
 			Logger.error(ex, 'OpenCloudPatchCommand');
-			void window.showErrorMessage(`Unable to open ${type} '${args.id}'`);
+			void window.showErrorMessage(
+				isCodeSuggestion
+					? l10n.t("Unable to open Code Suggestion '{id}'", { id: args.id })
+					: l10n.t("Unable to open Cloud Patch '{id}'", { id: args.id }),
+			);
 		}
 	}
 }

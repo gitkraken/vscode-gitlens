@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { GitFileConflictStatus, GitFileStatus } from '../models/fileStatus.js';
 
 const statusIconsMap = {
@@ -25,27 +26,27 @@ export function getGitFileStatusIcon(status: GitFileStatus): string {
 }
 
 const statusTextMap = {
-	'.': 'Unchanged',
-	'!': 'Ignored',
-	'?': 'Untracked',
-	A: 'Added',
-	D: 'Deleted',
-	M: 'Modified',
-	R: 'Renamed',
-	C: 'Copied',
-	AA: 'Added (Both)',
-	AU: 'Added (Current)',
-	UA: 'Added (Incoming)',
-	DD: 'Deleted (Both)',
-	DU: 'Deleted (Current)',
-	UD: 'Deleted (Incoming)',
-	UU: 'Modified (Both)',
-	T: 'Modified',
-	U: 'Updated but Unmerged',
+	'.': l10n.t('Unchanged'),
+	'!': l10n.t('Ignored'),
+	'?': l10n.t('Untracked'),
+	A: l10n.t('Added'),
+	D: l10n.t('Deleted'),
+	M: l10n.t('Modified'),
+	R: l10n.t('Renamed'),
+	C: l10n.t('Copied'),
+	AA: l10n.t('Added (Both)'),
+	AU: l10n.t('Added (Current)'),
+	UA: l10n.t('Added (Incoming)'),
+	DD: l10n.t('Deleted (Both)'),
+	DU: l10n.t('Deleted (Current)'),
+	UD: l10n.t('Deleted (Incoming)'),
+	UU: l10n.t('Modified (Both)'),
+	T: l10n.t('Modified'),
+	U: l10n.t('Updated but Unmerged'),
 };
 
 export function getGitFileStatusText(status: GitFileStatus | keyof typeof statusTextMap): string {
-	return statusTextMap[status] ?? 'Unknown';
+	return statusTextMap[status] ?? l10n.t('Unknown');
 }
 
 const conflictStatuses = new Set<string>(['U', 'AA', 'AU', 'UA', 'DD', 'DU', 'UD', 'UU']);

@@ -1,5 +1,6 @@
 import type { Signal } from '@lit-labs/signals';
 import { SignalWatcher } from '@lit-labs/signals';
+import * as l10n from '@vscode/l10n';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './banner/banner.js';
@@ -15,7 +16,7 @@ export class GlErrorBanner extends SignalWatcher(LitElement) {
 
 		return html`<gl-banner
 			display="solid"
-			banner-title="Something went wrong"
+			banner-title=${l10n.t('Something went wrong')}
 			.body=${msg}
 			dismissible
 			@gl-banner-dismiss=${() => this.error.set(undefined)}

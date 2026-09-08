@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitStashCommit } from '@gitlens/git/models/commit.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
@@ -48,8 +49,8 @@ export interface ShowGitCommandArgs {
 
 export class ShowGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: ShowGitCommandArgs) {
-		super(container, 'show', 'show', 'Show', {
-			description: 'shows information about a git reference',
+		super(container, 'show', 'show', l10n.t('Show'), {
+			description: l10n.t('shows information about a git reference'),
 		});
 
 		this.initialState = { confirm: false, ...args?.state };
@@ -120,7 +121,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 							limit: undefined,
 							hasMore: false,
 						},
-						placeholder: 'Enter a reference or commit SHA',
+						placeholder: l10n.t('Enter a reference or commit SHA'),
 						picked: state.reference?.ref,
 					});
 					if (result === StepResultBreak) {

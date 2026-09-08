@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { getBranchNameAndRemote } from '@gitlens/git/utils/branch.utils.js';
@@ -13,7 +14,7 @@ import { showReferencePicker2 } from '../quickpicks/referencePicker.js';
 import { showRemotePicker } from '../quickpicks/remotePicker.js';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { command } from '../system/-webview/command.js';
-import { DeepLinkType, deepLinkTypeToString, refTypeToDeepLinkType } from '../uris/deepLinks/deepLink.js';
+import { DeepLinkType, refTypeToDeepLinkType } from '../uris/deepLinks/deepLink.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 import type { CommandContext } from './commandContext.js';
@@ -88,7 +89,7 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 				await this.container.deepLinks.copyDeepLinkUrl(args.workspaceId);
 			} catch (ex) {
 				Logger.error(ex, 'CopyDeepLinkCommand');
-				void showGenericErrorMessage('Unable to copy link');
+				void showGenericErrorMessage(l10n.t('Unable to copy link'));
 			}
 			return;
 		}
@@ -100,14 +101,8 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
 			type = DeepLinkType.Repository;
-			repoPath = (
-				await getBestRepositoryOrShowPicker(
-					this.container,
-					gitUri,
-					editor,
-					`Copy Link to ${deepLinkTypeToString(type)}`,
-				)
-			)?.path;
+			repoPath = (await getBestRepositoryOrShowPicker(this.container, gitUri, editor, getCopyLinkTitle(type)))
+				?.path;
 		} else if (typeof args.refOrRepoPath === 'string') {
 			type = args.compareRef == null ? DeepLinkType.Repository : DeepLinkType.Comparison;
 			repoPath = args.refOrRepoPath;
@@ -141,8 +136,8 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 				chosenRemote = defaultRemote;
 			} else {
 				const pick = await showRemotePicker(
-					`Copy Link to ${deepLinkTypeToString(type)}`,
-					`Choose which remote to copy the link for`,
+					getCopyLinkTitle(type),
+					l10n.t('Choose which remote to copy the link for'),
 					remotes,
 					{
 						autoPick: true,
@@ -169,7 +164,7 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CopyDeepLinkCommand');
-			void showGenericErrorMessage('Unable to copy link');
+			void showGenericErrorMessage(l10n.t('Unable to copy link'));
 		}
 	}
 }
@@ -245,7 +240,7 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 					`CopyFileDeepLinkCommand: File path ${filePath} is not contained in repo path ${repoPath}`,
 				);
 
-				void showGenericErrorMessage('Unable to copy file link');
+				void showGenericErrorMessage(l10n.t('Unable to copy file link'));
 			}
 
 			filePath = filePath.substring(repoPath.length + 1);
@@ -259,8 +254,8 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 		if (args?.chooseRef) {
 			const result = await showReferencePicker2(
 				repoPath,
-				`Copy Link to ${filePath} at Reference`,
-				'Choose a reference (branch, tag, etc) to copy the file link for',
+				l10n.t('Copy Link to {0} at Reference', filePath),
+				l10n.t('Choose a reference (branch, tag, etc) to copy the file link for'),
 				{
 					allowedAdditionalInput: { rev: true },
 					include: ['branches', 'tags', 'workingTree', 'HEAD'],
@@ -299,8 +294,8 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 				chosenRemote = defaultRemote;
 			} else {
 				const pick = await showRemotePicker(
-					`Copy Link to ${deepLinkTypeToString(type)}`,
-					`Choose which remote to copy the link for`,
+					getCopyLinkTitle(type),
+					l10n.t('Choose which remote to copy the link for'),
 					remotes,
 					{
 						autoPick: true,
@@ -318,7 +313,34 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 			await this.container.deepLinks.copyFileDeepLinkUrl(repoPath, filePath, chosenRemote.url, args.lines, ref);
 		} catch (ex) {
 			Logger.error(ex, 'CopyFileDeepLinkCommand');
-			void showGenericErrorMessage('Unable to copy file link');
+			void showGenericErrorMessage(l10n.t('Unable to copy file link'));
 		}
+	}
+}
+
+function getCopyLinkTitle(type: DeepLinkType): string {
+	switch (type) {
+		case DeepLinkType.Branch:
+			return l10n.t('Copy Link to Branch');
+		case DeepLinkType.Command:
+			return l10n.t('Copy Link to Command');
+		case DeepLinkType.Commit:
+			return l10n.t('Copy Link to Commit');
+		case DeepLinkType.Comparison:
+			return l10n.t('Copy Link to Comparison');
+		case DeepLinkType.Draft:
+			return l10n.t('Copy Link to Cloud Patch');
+		case DeepLinkType.File:
+			return l10n.t('Copy Link to File');
+		case DeepLinkType.Integrations:
+			return l10n.t('Copy Link to Integrations');
+		case DeepLinkType.Repository:
+			return l10n.t('Copy Link to Repository');
+		case DeepLinkType.Tag:
+			return l10n.t('Copy Link to Tag');
+		case DeepLinkType.Workspace:
+			return l10n.t('Copy Link to Workspace');
+		default:
+			return l10n.t('Copy Link');
 	}
 }

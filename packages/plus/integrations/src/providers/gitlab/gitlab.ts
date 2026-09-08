@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -1244,11 +1245,12 @@ $search: String!
 				if (ex.response != null) {
 					provider?.trackRequestException();
 					this.config.onRequestFailed?.(
-						`${provider?.name ?? 'GitLab'} failed to respond and might be experiencing issues.${
-							provider == null || provider.id === 'gitlab'
-								? ' Please visit the [GitLab status page](https://status.gitlab.com) for more information.'
-								: ''
-						}`,
+						provider == null || provider.id === 'gitlab'
+							? l10n.t(
+									'{0} failed to respond and might be experiencing issues. Please visit the [GitLab status page](https://status.gitlab.com) for more information.',
+									provider?.name ?? 'GitLab',
+								)
+							: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
 					);
 				}
 				return;
@@ -1285,9 +1287,9 @@ $search: String!
 	private async showAuthenticationErrorMessage(ex: AuthenticationError, provider: Provider) {
 		if (ex.reason === AuthenticationErrorReason.Unauthorized || ex.reason === AuthenticationErrorReason.Forbidden) {
 			const reauthenticate = await this.config.onReauthenticationRequired?.(
-				`${ex.message}. Would you like to try reauthenticating${
-					ex.reason === AuthenticationErrorReason.Forbidden ? ' to provide additional access' : ''
-				}?`,
+				ex.reason === AuthenticationErrorReason.Forbidden
+					? l10n.t('{0}. Would you like to try reauthenticating to provide additional access?', ex.message)
+					: l10n.t('{0}. Would you like to try reauthenticating?', ex.message),
 			);
 
 			if (reauthenticate) {

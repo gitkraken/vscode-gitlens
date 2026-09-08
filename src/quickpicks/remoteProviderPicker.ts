@@ -1,5 +1,5 @@
 import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
-import { env, ThemeIcon, Uri, window } from 'vscode';
+import { env, l10n, ThemeIcon, Uri, window } from 'vscode';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProvider } from '@gitlens/git/models/remoteProvider.js';
 import type { RemoteResource } from '@gitlens/git/models/remoteResource.js';
@@ -30,7 +30,7 @@ import { createDirectiveQuickPickItem, Directive } from './items/directive.js';
 
 export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQuickPickItem {
 	constructor() {
-		super({ label: 'See how to configure a custom remote provider...' });
+		super({ label: l10n.t('See how to configure a custom remote provider...') });
 	}
 
 	override async execute(): Promise<void> {
@@ -146,13 +146,16 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 			const integrationName = providersMetadata[integrationId].name;
 			const connectItem = createQuickPickItemOfT(
 				{
-					label: `Connect to ${integrationName}...`,
-					detail: `Connect an integration with ${integrationName} to create cross-repository pull requests`,
+					label: l10n.t('Connect to {0}...', integrationName),
+					detail: l10n.t(
+						'Connect an integration with {0} to create cross-repository pull requests',
+						integrationName,
+					),
 					picked: true,
 				},
 				true,
 			);
-			const cancelItem = createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' });
+			const cancelItem = createDirectiveQuickPickItem(Directive.Cancel, false, { label: l10n.t('Cancel') });
 			const quickpickPromise = new Promise<undefined | QuickPickItem>(resolve => {
 				disposables.push(
 					quickpick.onDidHide(() => resolve(undefined)),
@@ -164,8 +167,11 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 				);
 			});
 			quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
-			quickpick.title = `Connect ${integrationName} Integration`;
-			quickpick.placeholder = `Requires an integration with ${integrationName} to create cross-repository pull requests`;
+			quickpick.title = l10n.t('Connect {0} Integration', integrationName);
+			quickpick.placeholder = l10n.t(
+				'Requires an integration with {0} to create cross-repository pull requests',
+				integrationName,
+			);
 			quickpick.matchOnDetail = true;
 			quickpick.items = [connectItem, cancelItem];
 			quickpick.show();
@@ -199,15 +205,19 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 			remotes: remotes,
 			clipboard: true,
 		};
-		const label = `Copy Link to ${getNameFromRemoteResource(resource)} for ${
-			providers?.length ? providers[0].name : 'Remote'
-		}${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`;
+		const provider = providers?.length ? providers[0].name : l10n.t('Remote');
+		const label = l10n.t(
+			'Copy Link to {0} for {1}{2}',
+			getNameFromRemoteResource(resource),
+			provider,
+			providers?.length === 1 ? '' : GlyphChars.Ellipsis,
+		);
 		super(label, new ThemeIcon('copy'), 'gitlens.openOnRemote', [commandArgs]);
 	}
 
 	override async onDidPressKey(key: Keys): Promise<void> {
 		await super.onDidPressKey(key);
-		void window.showInformationMessage('URL copied to the clipboard');
+		void window.showInformationMessage(l10n.t('URL copied to the clipboard'));
 	}
 }
 
@@ -219,12 +229,14 @@ export class OpenRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 			remotes: remotes,
 			clipboard: false,
 		};
+		const provider = providers?.length ? providers[0].name : l10n.t('Remote');
 		super(
-			`Open ${getNameFromRemoteResource(resource)} on ${
-				providers?.length === 1
-					? providers[0].name
-					: `${providers?.length ? providers[0].name : 'Remote'}${GlyphChars.Ellipsis}`
-			}`,
+			l10n.t(
+				'Open {0} on {1}{2}',
+				getNameFromRemoteResource(resource),
+				provider,
+				providers?.length === 1 ? '' : GlyphChars.Ellipsis,
+			),
 			new ThemeIcon('link-external'),
 			'gitlens.openOnRemote',
 			[commandArgs],
@@ -253,7 +265,7 @@ export async function showRemoteProviderPicker(
 	let items: (ConfigureCustomRemoteProviderCommandQuickPickItem | CopyOrOpenRemoteCommandQuickPickItem)[];
 	if (remotes.length === 0) {
 		items = [new ConfigureCustomRemoteProviderCommandQuickPickItem()];
-		placeholder = 'No auto-detected or configured remote providers found';
+		placeholder = l10n.t('No auto-detected or configured remote providers found');
 	} else {
 		if (autoPick === 'default' && remotes.length > 1) {
 			// If there is a default just execute it directly

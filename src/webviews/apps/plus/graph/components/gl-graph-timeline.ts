@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -803,7 +804,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		const result = await graphTimeline.choosePath({
 			repoUri: repo.path,
 			ref: this.graphState.branch,
-			title: 'Choose File or Folder to Visualize',
+			title: l10n.t('Choose File or Folder to Visualize'),
 			initialPath: this._localScope?.relativePath,
 		});
 		if (result?.picked == null) return;
@@ -872,7 +873,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	override render(): unknown {
 		const repo = this.effectiveRepo;
 		if (repo == null) {
-			return html`<div class="empty"><p>No repository selected</p></div>`;
+			return html`<div class="empty"><p>${l10n.t('No repository selected')}</p></div>`;
 		}
 
 		const dateFormat = this.graphState.config?.dateFormat ?? 'MMMM Do, YYYY h:mma';
@@ -883,13 +884,13 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		const localRelativePath = this._localScope?.relativePath ?? '';
 
 		const emptySlot = html`<div slot="empty">
-			<p>No commits found for the specified time period</p>
+			<p>${l10n.t('No commits found for the specified time period')}</p>
 		</div>`;
 
 		return html`
 			<div class="header-row">
 				<gl-graph-visualizations-switcher></gl-graph-visualizations-switcher>
-				${this._localScope == null ? html`<span class="header-row__title">Visual History</span>` : nothing}
+				${this._localScope == null ? html`<span class="header-row__title">${l10n.t('Visual History')}</span>` : nothing}
 				<gl-graph-coachmark
 					mark="visualizations"
 					placement="bottom"
@@ -922,8 +923,8 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 									slot="toolbox"
 									appearance="toolbar"
 									href="command:gitlens.views.graph.openTimelineInTab"
-									tooltip="Open in Editor"
-									aria-label="Open in Editor"
+									tooltip=${l10n.t('Open in Editor')}
+									aria-label=${l10n.t('Open in Editor')}
 								>
 									<code-icon icon="link-external"></code-icon>
 								</gl-button>`
@@ -932,8 +933,8 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 					<gl-button
 						slot="toolbox"
 						appearance="toolbar"
-						tooltip="Close Visualizations"
-						aria-label="Close Visualizations"
+						tooltip=${l10n.t('Close Visualizations')}
+						aria-label=${l10n.t('Close Visualizations')}
 						@click=${this.onCloseClick}
 					>
 						<code-icon icon="close"></code-icon>

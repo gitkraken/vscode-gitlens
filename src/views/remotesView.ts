@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
-import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { l10n, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitBranchReference, GitRevisionReference } from '@gitlens/git/models/reference.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
@@ -50,7 +50,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 
 			const repositories = this.view.getFilteredRepositories();
 			if (!repositories.length) {
-				this.view.message = 'No remotes could be found.';
+				this.view.message = l10n.t('No remotes could be found.');
 				return [];
 			}
 
@@ -68,7 +68,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 
 			const remotes = await child.repo.git.remotes.getRemotes();
 			if (!remotes.length) {
-				this.view.message = 'No remotes could be found.';
+				this.view.message = l10n.t('No remotes could be found.');
 				void child.ensureSubscription();
 
 				return [];
@@ -83,7 +83,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Remotes', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(l10n.t('Remotes'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -92,7 +92,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 	protected readonly configKey = 'remotes';
 
 	constructor(container: Container, grouped?: GroupedViewContext) {
-		super(container, 'remotes', 'Remotes', 'remotesView', grouped);
+		super(container, 'remotes', l10n.t('Remotes'), 'remotesView', grouped);
 	}
 
 	override get canReveal(): boolean {
@@ -276,10 +276,13 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${getReferenceLabel(branch, {
-					icon: false,
-					quoted: true,
-				})} in the side bar...`,
+				title: l10n.t(
+					'Revealing {0} in the side bar...',
+					getReferenceLabel(branch, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (_progress, token) => {
@@ -298,10 +301,13 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${getReferenceLabel(commit, {
-					icon: false,
-					quoted: true,
-				})} in the side bar...`,
+				title: l10n.t(
+					'Revealing {0} in the side bar...',
+					getReferenceLabel(commit, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (_progress, token) => {
@@ -320,7 +326,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing remote '${remote.name}' in the side bar...`,
+				title: l10n.t("Revealing remote '{0}' in the side bar...", remote.name),
 				cancellable: true,
 			},
 			async (_progress, token) => {

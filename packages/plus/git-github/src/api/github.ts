@@ -2,6 +2,7 @@ import { graphql, GraphqlResponseError } from '@octokit/graphql';
 import { request } from '@octokit/request';
 import { RequestError } from '@octokit/request-error';
 import type { Endpoints, RequestParameters } from '@octokit/types';
+import * as l10n from '@vscode/l10n';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -3563,11 +3564,12 @@ export class GitHubApi {
 					provider?.trackRequestException();
 					this.config.onRequestError?.(
 						provider,
-						`${provider?.name ?? 'GitHub'} failed to respond and might be experiencing issues.${
-							provider == null || provider.id === 'github'
-								? ' Please visit the [GitHub status page](https://githubstatus.com) for more information.'
-								: ''
-						}`,
+						provider == null || provider.id === 'github'
+							? l10n.t(
+									'{0} failed to respond and might be experiencing issues. Please visit the [GitHub status page](https://githubstatus.com) for more information.',
+									provider?.name ?? 'GitHub',
+								)
+							: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
 					);
 				}
 				return;
@@ -3585,11 +3587,12 @@ export class GitHubApi {
 				provider?.trackRequestException();
 				this.config.onRequestError?.(
 					provider,
-					`${provider?.name ?? 'GitHub'} failed to respond and might be experiencing issues.${
-						provider == null || provider.id === 'github'
-							? ' Please visit the [GitHub status page](https://githubstatus.com) for more information.'
-							: ''
-					}`,
+					provider == null || provider.id === 'github'
+						? l10n.t(
+								'{0} failed to respond and might be experiencing issues. Please visit the [GitHub status page](https://githubstatus.com) for more information.',
+								provider?.name ?? 'GitHub',
+							)
+						: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
 				);
 				return;
 			default:

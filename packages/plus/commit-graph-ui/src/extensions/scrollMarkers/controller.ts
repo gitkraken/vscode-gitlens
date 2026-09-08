@@ -1,5 +1,6 @@
 import type { ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
 import { isPrimaryWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
+import * as l10n from '@vscode/l10n';
 import type { ReactiveController, ReactiveControllerHost, TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
@@ -306,7 +307,7 @@ function computeScrollMarkers(inputs: ScrollMarkerInputs): ScrollMarker[] {
 
 		if (wantsStashes && row.kind === 'stash') {
 			// The stash message itself (deviates from the legacy "Stash: …" — no prefix).
-			push(i, 'stashes', commit.message.length > 0 ? commit.message : 'Stash');
+			push(i, 'stashes', commit.message.length > 0 ? commit.message : l10n.t('Stash'));
 		}
 		if (wantsWip && row.kind === 'workdir') {
 			// The row message is the same bare "Working Changes" for every worktree now (see
@@ -320,7 +321,7 @@ function computeScrollMarkers(inputs: ScrollMarkerInputs): ScrollMarker[] {
 			push(i, 'wip', label);
 		}
 		if (wantsHighlights && searchShas.has(row.sha)) {
-			push(i, 'highlights', 'Search match');
+			push(i, 'highlights', l10n.t('Search match'));
 		}
 	}
 
@@ -350,7 +351,7 @@ function buildSelectionScrollMarkers(
 			widthPct: box.widthPct,
 			color: box.color,
 			index: index,
-			label: 'Selected',
+			label: l10n.t('Selected'),
 			icon: box.icon,
 			shape: box.shape,
 			priority: box.priority,
@@ -380,7 +381,9 @@ export function buildMergeTargetScrollMarkers(
 	// Only the CURRENT branch's target carries a name (the scope protocol ships the tip sha alone), so a
 	// scope-only target reads as the bare role — the same information the row's rail has.
 	const label =
-		targetName != null && targetName.length > 0 ? `Merge Target (${shortRefName(targetName)})` : 'Merge Target';
+		targetName != null && targetName.length > 0
+			? l10n.t('Merge Target ({0})', shortRefName(targetName))
+			: l10n.t('Merge Target');
 
 	const markers: ScrollMarker[] = [];
 	const seen = new Set<number>();
@@ -432,7 +435,9 @@ function buildPinnedScrollMarkers(
 			color: box.color,
 			index: index,
 			label:
-				pinnedName != null && pinnedName.length > 0 ? `Pinned (${shortRefName(pinnedName)})` : 'Pinned Branch',
+				pinnedName != null && pinnedName.length > 0
+					? l10n.t('Pinned ({0})', shortRefName(pinnedName))
+					: l10n.t('Pinned Branch'),
 			icon: box.icon,
 			shape: box.shape,
 			priority: box.priority,

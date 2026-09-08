@@ -1,4 +1,4 @@
-import { ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitContributor } from '@gitlens/git/models/contributor.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import type { CoreColors } from '../../constants.colors.js';
@@ -65,7 +65,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Contributors', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(l10n.t('Contributors'), TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Contributors;
 		if (this.options?.icon !== false) {
@@ -130,7 +130,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 			timeout || undefined,
 		);
 		if (!result.contributors.length) {
-			return [new MessageNode(this.view, this, 'No contributors could be found.')];
+			return [new MessageNode(this.view, this, l10n.t('No contributors could be found.'))];
 		}
 
 		const children: (ContributorNode | MessageNode | ActionMessageNode)[] = [];
@@ -142,16 +142,20 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 					n => {
 						n.update({
 							iconPath: new ThemeIcon('loading~spin'),
-							message: 'Loading contributors...',
-							description: `waiting for ${(timeout * 2) / 1000}s`,
+							message: l10n.t('Loading contributors...'),
+							description: l10n.t('waiting for {0}s', (timeout * 2) / 1000),
 							tooltip: null,
 						});
 						this.storeState('overrideMaxWait', timeout * 2);
 						void this.triggerChange(true);
 					},
-					stats ? 'Showing incomplete contributors and statistics' : 'Showing incomplete contributors',
-					result.cancelled.reason === 'timedout' ? `timed out after ${timeout / 1000}s` : 'cancelled',
-					'Click to retry and wait longer for contributors',
+					stats
+						? l10n.t('Showing incomplete contributors and statistics')
+						: l10n.t('Showing incomplete contributors'),
+					result.cancelled.reason === 'timedout'
+						? l10n.t('timed out after {0}s', timeout / 1000)
+						: l10n.t('cancelled'),
+					l10n.t('Click to retry and wait longer for contributors'),
 					new ThemeIcon('warning', new ThemeColor('list.warningForeground' satisfies CoreColors)),
 				),
 			);
@@ -162,7 +166,7 @@ export class ContributorsNode extends CacheableChildrenViewNode<
 				new MessageNode(
 					this.view,
 					this,
-					'Loading statistics...',
+					l10n.t('Loading statistics...'),
 					undefined,
 					undefined,
 					new ThemeIcon('loading~spin'),

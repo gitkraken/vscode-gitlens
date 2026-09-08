@@ -1,6 +1,7 @@
 import { getExcludedRemotes, refPillKey } from '@gitkraken/commit-graph-ui/extensions/refs/pills.js';
 import { emptySetMarker } from '@gitkraken/commit-graph-ui/scope/filtering.js';
 import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
+import * as l10n from '@vscode/l10n';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type {
 	GraphExcludeRefs,
@@ -129,6 +130,9 @@ function wipAliases(names: readonly (string | undefined)[], label: string): stri
 	}
 	return aliases.size > 0 ? [...aliases] : undefined;
 }
+
+/** Stable English alias retained so localizing the visible WIP label doesn't remove existing searches. */
+const workingChangesSearchAlias = 'Working Changes';
 
 /**
  * Assembles the jump candidates from the branches/remotes/tags sidebar payloads, dropping anything
@@ -283,7 +287,7 @@ export function buildRefFindCandidates(sources: RefFindSources, filters?: RefFin
 				const key = refPillKey({ kind: 'wip', name: primaryMeta.repoPath });
 				if (!seen.has(key)) {
 					seen.add(key);
-					const label = 'Working Changes';
+					const label = l10n.t('Working Changes');
 					candidates.push({
 						kind: 'wip',
 						name: primaryMeta.repoPath,
@@ -291,7 +295,7 @@ export function buildRefFindCandidates(sources: RefFindSources, filters?: RefFin
 						sha: primaryWipRowId,
 						date: primaryMeta.parentDate,
 						current: true,
-						aliases: wipAliases([wipBranchName(primaryMeta), 'wip'], label),
+						aliases: wipAliases([wipBranchName(primaryMeta), 'wip', workingChangesSearchAlias], label),
 					});
 				}
 			}
@@ -317,14 +321,15 @@ export function buildRefFindCandidates(sources: RefFindSources, filters?: RefFin
 			if (seen.has(key)) continue;
 
 			seen.add(key);
-			const label = `Working Changes (${meta.label})`;
+			const searchAlias = `Working Changes (${meta.label})`;
+			const label = l10n.t('Working Changes ({worktree})', { worktree: meta.label });
 			candidates.push({
 				kind: 'wip',
 				name: meta.repoPath,
 				label: label,
 				sha: id,
 				date: meta.parentDate,
-				aliases: wipAliases([wipBranchName(meta), meta.label, 'wip'], label),
+				aliases: wipAliases([wipBranchName(meta), meta.label, 'wip', searchAlias], label),
 			});
 		}
 	}

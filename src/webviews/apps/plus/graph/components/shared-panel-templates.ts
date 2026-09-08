@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import { ref } from 'lit/directives/ref.js';
@@ -61,19 +62,19 @@ export function renderErrorState(
 	return html`<div class="panel-error" role="alert" tabindex="-1" @keydown=${handleKeyDown} ${ref(focusOnConnect)}>
 		<div class="panel-error__header">
 			<code-icon class="panel-error__icon" icon="error"></code-icon>
-			<span class="panel-error__title">Something went wrong</span>
+			<span class="panel-error__title">${l10n.t('Something went wrong')}</span>
 		</div>
 		<div class="panel-error__message">${errorMessage ?? defaultMessage}</div>
 		<div class="panel-error__actions">
 			<gl-button
 				appearance="secondary"
 				@click=${(e: Event) => dispatch(e.currentTarget as HTMLElement, backEventName)}
-				>Go Back</gl-button
+				>${l10n.t('Go Back')}</gl-button
 			>
 			${
 				retryEventName != null
 					? html`<gl-button @click=${(e: Event) => dispatch(e.currentTarget as HTMLElement, retryEventName)}
-							>Retry</gl-button
+							>${l10n.t('Retry')}</gl-button
 						>`
 					: nothing
 			}
@@ -136,7 +137,7 @@ function renderEnrichChip(state: AutolinksStripState): TemplateResult | typeof n
 		return html`<gl-action-chip
 			slot="suffix"
 			icon="info"
-			label="No Additional Issues or Pull Requests Found"
+			label=${l10n.t('No Additional Issues or Pull Requests Found')}
 			overlay="tooltip"
 		></gl-action-chip>`;
 	}
@@ -147,7 +148,7 @@ function renderEnrichChip(state: AutolinksStripState): TemplateResult | typeof n
 		return html`<gl-action-chip
 			slot="suffix"
 			icon="loading"
-			label="Loading Issues and Pull Requests..."
+			label=${l10n.t('Loading Issues and Pull Requests...')}
 			overlay="tooltip"
 			disabled
 		></gl-action-chip>`;
@@ -156,7 +157,7 @@ function renderEnrichChip(state: AutolinksStripState): TemplateResult | typeof n
 	return html`<gl-action-chip
 		slot="suffix"
 		icon="sync"
-		label="Load Associated Issues and Pull Requests"
+		label=${l10n.t('Load Associated Issues and Pull Requests')}
 		overlay="tooltip"
 		@click=${state.onRequestEnrichment}
 	></gl-action-chip>`;
@@ -178,7 +179,7 @@ export function renderAutolinksStrip(state: AutolinksStripState): TemplateResult
 					: state.isLoadingEmpty
 						? html`<span slot="prefix" class="compare-enrichment__loading" aria-busy="true">
 								<code-icon icon="loading" modifier="spin"></code-icon>
-								<span>Loading autolinks…</span>
+								<span>${l10n.t('Loading autolinks…')}</span>
 							</span>`
 						: renderLearnAboutAutolinks({
 								hasIntegrationsConnected: state.hasIntegrationsConnected,

@@ -1,5 +1,5 @@
 import type { TextEditor } from 'vscode';
-import { Uri } from 'vscode';
+import { l10n, Uri } from 'vscode';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { pad } from '@gitlens/utils/string.js';
@@ -43,7 +43,7 @@ export class DiffFolderWithRevisionFromCommand extends ActiveEditorCommand {
 					this.container,
 					uri,
 					editor,
-					'Open Folder Changes with Branch or Tag',
+					l10n.t('Open Folder Changes with Branch or Tag'),
 				)
 			)?.path;
 			if (!repoPath) return;
@@ -55,10 +55,11 @@ export class DiffFolderWithRevisionFromCommand extends ActiveEditorCommand {
 					const gitUri = await GitUri.fromUri(uri);
 					args.rhs = gitUri.sha ?? '';
 				} else {
+					const titleSeparator = pad(GlyphChars.Dot, 2, 2);
 					const result = await showReferencePicker2(
 						repoPath,
-						`Open Folder Changes with Branch or Tag${pad(GlyphChars.Dot, 2, 2)}${relativePath}`,
-						'Choose a reference (branch, tag, etc) to compare',
+						l10n.t('Open Folder Changes with Branch or Tag{0}{1}', titleSeparator, relativePath),
+						l10n.t('Choose a reference (branch, tag, etc) to compare'),
 						{
 							allowedAdditionalInput: { rev: true },
 							include: ['branches', 'tags', 'workingTree', 'HEAD'],
@@ -72,12 +73,19 @@ export class DiffFolderWithRevisionFromCommand extends ActiveEditorCommand {
 			}
 
 			if (!args.lhs) {
+				const titleSeparator = pad(GlyphChars.Dot, 2, 2);
+				const title = args.rhs
+					? l10n.t(
+							'Open Folder Changes with Branch or Tag{0}{1} at {2}',
+							titleSeparator,
+							relativePath,
+							shortenRevision(args.rhs),
+						)
+					: l10n.t('Open Folder Changes with Branch or Tag{0}{1}', titleSeparator, relativePath);
 				const result = await showReferencePicker2(
 					repoPath,
-					`Open Folder Changes with Branch or Tag${pad(GlyphChars.Dot, 2, 2)}${relativePath}${
-						args.rhs ? ` at ${shortenRevision(args.rhs)}` : ''
-					}`,
-					'Choose a reference (branch, tag, etc) to compare with',
+					title,
+					l10n.t('Choose a reference (branch, tag, etc) to compare with'),
 					{
 						allowedAdditionalInput: { rev: true },
 						include:
@@ -100,7 +108,7 @@ export class DiffFolderWithRevisionFromCommand extends ActiveEditorCommand {
 			void openFolderCompare(this.container, uri, { repoPath: repoPath, lhs: args.lhs, rhs: args.rhs });
 		} catch (ex) {
 			Logger.error(ex, 'DiffFolderWithRevisionFromCommand');
-			void showGenericErrorMessage('Unable to open comparison');
+			void showGenericErrorMessage(l10n.t('Unable to open comparison'));
 		}
 	}
 }

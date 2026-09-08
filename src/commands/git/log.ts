@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
@@ -54,8 +55,8 @@ export interface LogGitCommandArgs {
 
 export class LogGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: LogGitCommandArgs) {
-		super(container, 'log', 'history', 'Commits', {
-			description: 'aka log, shows commit history',
+		super(container, 'log', 'history', l10n.t('Commits'), {
+			description: l10n.t('aka log, shows commit history'),
 		});
 
 		this.initialState = { confirm: false, ...args?.state };
@@ -117,7 +118,7 @@ export class LogGitCommand extends QuickCommand<State> {
 				using step = steps.enterStep(Steps.PickRef);
 
 				const result = yield* pickBranchOrTagStep(state, context, {
-					placeholder: 'Choose a branch or tag to show its commit history',
+					placeholder: l10n.t('Choose a branch or tag to show its commit history'),
 					picked: context.selectedBranchOrTag?.ref,
 					value: context.selectedBranchOrTag == null ? state.reference?.ref : undefined,
 					ranges: true,
@@ -167,10 +168,11 @@ export class LogGitCommand extends QuickCommand<State> {
 					onDidLoadMore: log => context.cache.set(rev, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
-							? `No commits found in ${getReferenceLabel(context.selectedBranchOrTag, {
-									icon: false,
-								})}`
-							: 'Choose a commit',
+							? l10n.t(
+									'No commits found in {0}',
+									getReferenceLabel(context.selectedBranchOrTag, { icon: false }),
+								)
+							: l10n.t('Choose a commit'),
 					picked: state.reference?.ref,
 				});
 				if (result === StepResultBreak) {

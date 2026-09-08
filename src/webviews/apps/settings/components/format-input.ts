@@ -1,10 +1,12 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import type {
 	CompletionItem,
@@ -423,20 +425,18 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 		const markdown = this.tokenMode === 'hover';
 		void this.actions
 			?.generateFormatPreview(key, type, format, markdown)
-			.then(preview => {
+			.then(result => {
 				// The instance is reused across descriptors; ignore a late preview for a previous one
 				if (this.descriptor.key !== key) return;
 
-				this._example = preview;
-				// The host returns an `Invalid format: …` message as a resolved value (it never rejects
-				// on a bad template), so detect the error case to style the example line accordingly
-				this._exampleError = preview.startsWith('Invalid format');
+				this._example = result.preview;
+				this._exampleError = result.isError;
 			})
 			.catch(() => {
 				// Transport-level failure (IPC) — surface it instead of swallowing (concern 2)
 				if (this.descriptor.key !== key) return;
 
-				this._example = 'Preview unavailable';
+				this._example = l10n.t('Preview unavailable');
 				this._exampleError = true;
 			});
 	}, 200);
@@ -811,7 +811,9 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 		return html`<label class="label" for="input">
 				${d.label}${
 					dirty
-						? html`<span class="label__dirty" aria-live="polite">Unsaved — press Enter to apply</span>`
+						? html`<span class="label__dirty" aria-live="polite"
+								>${l10n.t('Unsaved — press Enter to apply')}</span
+							>`
 						: nothing
 				}
 			</label>
@@ -855,7 +857,7 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 							aria-live="polite"
 							aria-atomic="true"
 						>
-							<span>Example:</span>
+							<span>${l10n.t('Example:')}</span>
 							${
 								mode === 'hover' && !this._exampleError && this._example
 									? html`<gl-markdown inline .markdown=${this._example}></gl-markdown>`
@@ -876,17 +878,22 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 			@gl-popover-after-show=${this.handleMenuShown}
 			@gl-popover-after-hide=${this.handleMenuHidden}
 		>
-			<gl-button slot="anchor" appearance="input" aria-label="Insert a token" ?disabled=${this.disabled}>
+			<gl-button
+				slot="anchor"
+				appearance="input"
+				aria-label=${l10n.t('Insert a token')}
+				?disabled=${this.disabled}
+			>
 				<code-icon icon="chevron-down" aria-hidden="true"></code-icon>
 			</gl-button>
 			<div slot="content" class="tokens">
-				<h3 class="tokens__title">Insert token</h3>
+				<h3 class="tokens__title">${l10n.t('Insert token')}</h3>
 				<input
 					class="tokens__search"
 					type="text"
 					spellcheck="false"
-					placeholder="Search tokens…"
-					aria-label="Search tokens"
+					placeholder=${l10n.t('Search tokens…')}
+					aria-label=${l10n.t('Search tokens')}
 					.value=${this._menuFilter}
 					@input=${(e: Event) => {
 						this._menuFilter = (e.target as HTMLInputElement).value;
@@ -894,7 +901,12 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 					}}
 					@keydown=${this.handleSearchKeyDown}
 				/>
-				<div class="token-list" role="listbox" aria-label="Available tokens" @keydown=${this.handleListKeyDown}>
+				<div
+					class="token-list"
+					role="listbox"
+					aria-label=${l10n.t('Available tokens')}
+					@keydown=${this.handleListKeyDown}
+				>
 					${
 						tokens.length
 							? tokens.map((t, i) => {
@@ -915,13 +927,22 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 										<code>${display}</code><span>${t.label}</span>
 									</button>`;
 								})
-							: html`<p class="tokens__hint">No matching tokens</p>`
+							: html`<p class="tokens__hint">${l10n.t('No matching tokens')}</p>`
 					}
 				</div>
 				${mode !== 'date' ? this.renderModifiers() : nothing}
 				<span class="tokens__hint">
-					<a href=${docsUrl} title="Open formatting docs">Learn more</a>
-					about formatting options
+					${localizedContent(
+						l10n.t({
+							message: '{link} about formatting options',
+							comment: ['{link} is the “Learn more” action.'],
+						}),
+						{
+							link: html`<a href=${docsUrl} title=${l10n.t('Open formatting docs')}
+								>${l10n.t('Learn more')}</a
+							>`,
+						},
+					)}
 				</span>
 			</div>
 		</gl-popover>`;
@@ -941,13 +962,13 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 					icon=${this._showModifiers ? 'chevron-down' : 'chevron-right'}
 					aria-hidden="true"
 				></code-icon>
-				Width, alignment &amp; surrounding text
+				${l10n.t('Width, alignment & surrounding text')}
 			</button>
 			${
 				this._showModifiers
 					? html`<div class="mods__body">
 							<label class="mods__field">
-								Prefix text
+								${l10n.t('Prefix text')}
 								<input
 									type="text"
 									spellcheck="false"
@@ -958,7 +979,7 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 								/>
 							</label>
 							<label class="mods__field">
-								Suffix text
+								${l10n.t('Suffix text')}
 								<input
 									type="text"
 									spellcheck="false"
@@ -969,7 +990,7 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 								/>
 							</label>
 							<label class="mods__field">
-								Width (truncate / pad)
+								${l10n.t('Width (truncate / pad)')}
 								<input
 									type="number"
 									min="0"
@@ -980,11 +1001,16 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 								/>
 							</label>
 							<fieldset class="mods__align">
-								<legend>Width option</legend>
-								${this.renderFlagRadio('', 'None')} ${this.renderFlagRadio('?', 'Collapse whitespace')}
-								${this.renderFlagRadio('-', 'Right-align')}
+								<legend>${l10n.t('Width option')}</legend>
+								${this.renderFlagRadio('', l10n.t('None'))}
+								${this.renderFlagRadio('?', l10n.t('Collapse whitespace'))}
+								${this.renderFlagRadio('-', l10n.t('Right-align'))}
 							</fieldset>
-							<p class="mods__preview">Inserts <code>${this.composeToken('token')}</code></p>
+							<p class="mods__preview">
+								${localizedContent(l10n.t('Inserts {token}'), {
+									token: html`<code>${this.composeToken('token')}</code>`,
+								})}
+							</p>
 						</div>`
 					: nothing
 			}

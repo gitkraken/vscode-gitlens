@@ -1,4 +1,5 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { l10n } from 'vscode';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import type {
 	PromptTemplateContext,
@@ -75,7 +76,7 @@ export interface AIReviewFollowUp {
 
 interface RunReviewSpec<TTemplate extends PromptTemplateType, TResult> {
 	promptTemplate: TTemplate;
-	progressTitleVerb: string;
+	getProgressTitle: (model: AIModel) => string;
 	reviewMode: 'single-pass' | 'two-pass';
 	truncation: TruncationHandler<TTemplate> | undefined;
 	responseFormat: AIResponseFormat;
@@ -163,7 +164,7 @@ async function runReview<TTemplate extends PromptTemplateType, TResult>(
 				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }, ...(history ?? [])];
 				return messages;
 			},
-			getProgressTitle: m => `${spec.progressTitleVerb} with ${m.name}...`,
+			getProgressTitle: spec.getProgressTitle,
 			getTelemetryInfo: m => ({
 				key: 'ai/review',
 				data: {
@@ -187,10 +188,10 @@ async function runReview<TTemplate extends PromptTemplateType, TResult>(
 		if (result === 'cancelled' || result == null) return result ?? undefined;
 
 		if (result.finishReason === 'length') {
-			throw new Error('The review response was truncated — try reviewing a smaller set of changes');
+			throw new Error(l10n.t('The review response was truncated — try reviewing a smaller set of changes'));
 		}
 		if (didModelDecline(result.finishReason)) {
-			throw new Error('The AI model declined to review these changes');
+			throw new Error(l10n.t('The AI model declined to review these changes'));
 		}
 
 		return {
@@ -225,7 +226,7 @@ export function reviewChanges(
 		sourceContext,
 		{
 			promptTemplate: 'review-changes',
-			progressTitleVerb: 'Reviewing changes',
+			getProgressTitle: model => l10n.t('Reviewing changes with {0}...', model.name),
 			reviewMode: 'single-pass',
 			truncation: truncatePromptWithDiff,
 			responseFormat: reviewResultSchema,
@@ -252,7 +253,7 @@ export function reviewOverview(
 		sourceContext,
 		{
 			promptTemplate: 'review-overview',
-			progressTitleVerb: 'Analyzing changes',
+			getProgressTitle: model => l10n.t('Analyzing changes with {0}...', model.name),
 			reviewMode: 'two-pass',
 			truncation: undefined,
 			responseFormat: reviewOverviewSchema,
@@ -279,7 +280,7 @@ export function reviewFocusArea(
 		sourceContext,
 		{
 			promptTemplate: 'review-detail',
-			progressTitleVerb: 'Reviewing focus area',
+			getProgressTitle: model => l10n.t('Reviewing focus area with {0}...', model.name),
 			reviewMode: 'two-pass',
 			truncation: truncatePromptWithDiff,
 			responseFormat: reviewDetailSchema,

@@ -27,7 +27,8 @@
 		"@octokit/graphql": "catalog:",
 		"@octokit/request": "catalog:",
 		"@octokit/request-error": "catalog:",
-		"@octokit/types": "catalog:"
+		"@octokit/types": "catalog:",
+		"@vscode/l10n": "catalog:"
 	},
 	"devDependencies": {
 		"@types/mocha": "catalog:",

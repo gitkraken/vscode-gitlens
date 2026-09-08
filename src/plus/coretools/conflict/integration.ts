@@ -191,6 +191,7 @@ export class ConflictToolsIntegration {
 						strategy: 'deleted',
 						confidence: 1,
 						description: description,
+						descriptionKind: 'automatic-both-deleted',
 					});
 					args.onProgress?.({
 						type: 'resolution:applied',

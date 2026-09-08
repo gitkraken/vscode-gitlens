@@ -1,5 +1,5 @@
 import type { CancellationToken } from 'vscode';
-import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { l10n, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
@@ -8,12 +8,13 @@ import { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getHighlanderProviderName } from '@gitlens/git/utils/remote.utils.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
-import { formatTrackingTooltip } from '@gitlens/git/utils/tooltip.utils.js';
+import { formatIndicators, formatMarkdownCode, formatTrackingTooltip } from '@gitlens/git/utils/tooltip.utils.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { map } from '@gitlens/utils/iterable.js';
 import type { Lazy } from '@gitlens/utils/lazy.js';
 import { lazy } from '@gitlens/utils/lazy.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { escapeMarkdown } from '@gitlens/utils/markdown.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
 import { defer, getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import { pad } from '@gitlens/utils/string.js';
@@ -164,7 +165,9 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 						: undefined,
 				]);
 				const log = getSettledValue(logResult);
-				if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+				if (log == null) {
+					return [new MessageNode(this.view, this, l10n.t('No commits could be found.'))];
+				}
 
 				const children = [];
 
@@ -405,34 +408,37 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		const tooltip = new MarkdownString('', true);
 		tooltip.isTrusted = true;
 
-		const indicators =
-			this.worktree.isDefault || this.worktree.opened
-				? ` \u00a0(${
-						this.worktree.isDefault
-							? `_default${this.worktree.opened ? ', active_' : '_'}`
-							: this.worktree.opened
-								? '_active_'
-								: ''
-					})`
-				: '';
+		const indicators = formatIndicators(
+			this.worktree.isDefault
+				? [this.worktree.opened ? l10n.t('default, active') : l10n.t('default')]
+				: this.worktree.opened
+					? [l10n.t('active')]
+					: [],
+		);
 
-		const folder = `\\\n$(folder) [\`${
-			this.worktree.friendlyPath
-		}\`](command:gitlens.views.revealWorktreeInExplorer?%22${this.worktree.uri.toString()}%22 "Reveal in Explorer")`;
+		const revealTitle = l10n.t('Reveal in Explorer').replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+		const folder = `\\\n$(folder) [${formatMarkdownCode(
+			this.worktree.friendlyPath,
+		)}](command:gitlens.views.revealWorktreeInExplorer?%22${this.worktree.uri.toString()}%22 "${revealTitle}")`;
 
 		switch (this.worktree.type) {
 			case 'bare':
 				tooltip.appendMarkdown(
-					`${this.worktree.isDefault ? '$(pass) ' : ''}Bare Worktree${indicators}${folder}`,
+					l10n.t('{0}Bare Worktree{1}{2}', this.worktree.isDefault ? '$(pass) ' : '', indicators, folder),
 				);
 				break;
 
 			case 'branch': {
 				const { branch } = this.worktree;
 				tooltip.appendMarkdown(
-					`${this.worktree.isDefault ? '$(pass) ' : ''}Worktree for $(git-branch) \`${
-						branch?.nameWithoutRemote ?? branch?.name
-					}\`${indicators}${folder}`,
+					l10n.t(
+						'{0}Worktree for {1} {2}{3}{4}',
+						this.worktree.isDefault ? '$(pass) ' : '',
+						'$(git-branch)',
+						formatMarkdownCode(branch?.nameWithoutRemote ?? branch?.name ?? ''),
+						indicators,
+						folder,
+					),
 				);
 
 				if (branch != null && !branch.remote) {
@@ -453,7 +459,12 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 								.remotes.getRemotesWithProviders(),
 						);
 						tooltip.appendMarkdown(
-							`\n\nLocal branch, hasn't been published to ${providerName ?? 'a remote'}`,
+							providerName == null
+								? `\n\n${l10n.t("Local branch, hasn't been published to a remote")}`
+								: `\n\n${l10n.t(
+										"Local branch, hasn't been published to {0}",
+										escapeMarkdown(providerName),
+									)}`,
 						);
 					}
 				}
@@ -463,9 +474,14 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 
 			case 'detached':
 				tooltip.appendMarkdown(
-					`${this.worktree.isDefault ? '$(pass) ' : ''}Detached Worktree at $(git-commit) ${shortenRevision(
-						this.worktree.sha,
-					)}${indicators}${folder}`,
+					l10n.t(
+						'{0}Detached Worktree at {1} {2}{3}{4}',
+						this.worktree.isDefault ? '$(pass) ' : '',
+						'$(git-commit)',
+						escapeMarkdown(shortenRevision(this.worktree.sha)),
+						indicators,
+						folder,
+					),
 				);
 
 				break;
@@ -479,8 +495,8 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 				const stats =
 					status != null
 						? GitStatus.getFormattedDiffStatus(status, {
-								prefix: 'Has Uncommitted Changes\\\n',
-								empty: 'No Uncommitted Changes',
+								prefix: `${l10n.t('Has Uncommitted Changes')}\\\n`,
+								empty: l10n.t('No Uncommitted Changes'),
 								expand: true,
 							})
 						: undefined;
@@ -495,18 +511,20 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		// Add pending pull request indicator
 		const pendingPullRequest = this.getState('pendingPullRequest');
 		if (pendingPullRequest != null) {
-			tooltip.appendMarkdown(`\n\n$(loading~spin) Loading associated pull request${GlyphChars.Ellipsis}`);
+			tooltip.appendMarkdown(
+				`\n\n${l10n.t('{0} Loading associated pull request{1}', '$(loading~spin)', GlyphChars.Ellipsis)}`,
+			);
 		}
 
 		// Add missing worktree warning
 		const { missing } = await this.hasWorkingChanges();
 		if (missing) {
-			tooltip.appendMarkdown(`\n\n${GlyphChars.Warning} Unable to locate worktree path`);
+			tooltip.appendMarkdown(`\n\n${l10n.t('{0} Unable to locate worktree path', GlyphChars.Warning)}`);
 		}
 
 		// Add favorited indicator
 		if (this.worktree.branch?.starred) {
-			tooltip.appendMarkdown('\n\n$(star-full) Favorited');
+			tooltip.appendMarkdown(`\n\n${l10n.t('{0} Favorited', '$(star-full)')}`);
 		}
 
 		item.tooltip = tooltip;

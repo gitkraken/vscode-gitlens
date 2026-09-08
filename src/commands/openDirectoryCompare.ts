@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
 import { openDirectoryCompare } from '../git/actions/commit.js';
@@ -64,15 +65,20 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 
 		try {
 			const repoPath = (
-				await getBestRepositoryOrShowPicker(this.container, uri, editor, 'Directory Compare Working Tree With')
+				await getBestRepositoryOrShowPicker(
+					this.container,
+					uri,
+					editor,
+					l10n.t('Directory Compare Working Tree With'),
+				)
 			)?.path;
 			if (!repoPath) return;
 
 			if (!args.ref1) {
 				const pick = await showReferencePicker(
 					repoPath,
-					'Directory Compare Working Tree with',
-					'Choose a branch or tag to compare with',
+					l10n.t('Directory Compare Working Tree with'),
+					l10n.t('Choose a branch or tag to compare with'),
 					{
 						allowedAdditionalInput: { rev: true },
 					},
@@ -86,7 +92,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 			void openDirectoryCompare(repoPath, args.ref1, args.ref2);
 		} catch (ex) {
 			Logger.error(ex, 'OpenDirectoryCompareCommand');
-			void showGenericErrorMessage('Unable to open directory compare');
+			void showGenericErrorMessage(l10n.t('Unable to open directory compare'));
 		}
 	}
 }

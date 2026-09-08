@@ -72,7 +72,8 @@ async function main(command) {
 	if (command !== 'check' && command !== 'pseudo') {
 		throw new Error('Usage: node scripts/localization.mjs <export|check|pseudo>');
 	}
-	if (!existsSync(bundlePath) || (await readFile(bundlePath, 'utf8')) !== serialized) {
+	// The repository formatter may compact translator-comment arrays without changing the catalog.
+	if (!existsSync(bundlePath) || formatCatalog(JSON.parse(await readFile(bundlePath, 'utf8'))) !== serialized) {
 		throw new Error('Runtime catalog is stale. Run pnpm run generate:l10n.');
 	}
 	const manifestSource = JSON.parse(await readFile(join(root, 'package.nls.json'), 'utf8'));

@@ -2,6 +2,7 @@ import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph
 import type { ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
 import { colorForColumn, contrastColor, withAlpha } from '@gitkraken/commit-graph/lanes/colors.js';
 import { relativeTime } from '@gitkraken/commit-graph/time.js';
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -243,11 +244,10 @@ export function createRefAdornmentProvider(
 			const pinnedRefKey = hooks?.getPinnedRefKey?.();
 			const { visible, rest, upstreamFor } = partitionRowRefs(parsed, cap, findHitRefKey, pinnedRefKey);
 
-			// The pinned ref's own description takes a "focused " prefix — prominence by wording, never by
-			// reordering (the pin doesn't move pills either; see `partitionRowRefs`).
+			// The pinned ref's own description uses the focused variant for its ref kind — prominence by wording,
+			// never by reordering (the pin doesn't move pills either; see `partitionRowRefs`).
 			const describe = (r: ParsedRef): string => {
-				const text = describeRef(r, hooks);
-				return pinnedRefKey != null && refPillKey(r) === pinnedRefKey ? `focused ${text}` : text;
+				return describeRef(r, hooks, pinnedRefKey != null && refPillKey(r) === pinnedRefKey);
 			};
 
 			const parts: string[] = [];
@@ -344,14 +344,22 @@ export function renderPullRequestTooltipCard(pr: PullRequestMetadata): TemplateR
 	// The date is whichever of merged/closed/updated applies (see the producer), so it MUST be labelled by
 	// state — unlabelled, the same "2 hours ago" silently means three different things. Likewise the name
 	// is the pull request's author, never an assignee, and "Opened by" holds for every state.
-	const verb = modifier === 'pr-merged' ? 'merged' : modifier === 'pr-closed' ? 'closed' : 'updated';
-	const author = pr.author ? `Opened by ${pr.author}` : undefined;
-	const when =
-		pr.date != null
-			? // Reads as one sentence after the author; capitalized only when it has to lead the line.
-				`${author == null ? `${verb[0].toUpperCase()}${verb.slice(1)}` : verb} ${relativeTime(pr.date)}`
+	const relativeDate = pr.date != null ? relativeTime(pr.date) : undefined;
+	const meta = pr.author
+		? relativeDate != null
+			? modifier === 'pr-merged'
+				? l10n.t('Opened by {0} · merged {1}', pr.author, relativeDate)
+				: modifier === 'pr-closed'
+					? l10n.t('Opened by {0} · closed {1}', pr.author, relativeDate)
+					: l10n.t('Opened by {0} · updated {1}', pr.author, relativeDate)
+			: l10n.t('Opened by {0}', pr.author)
+		: relativeDate != null
+			? modifier === 'pr-merged'
+				? l10n.t('Merged {0}', relativeDate)
+				: modifier === 'pr-closed'
+					? l10n.t('Closed {0}', relativeDate)
+					: l10n.t('Updated {0}', relativeDate)
 			: undefined;
-	const meta = [author, when].filter((v): v is string => v != null && v.length > 0);
 
 	return html`<div class="gl-graph__ref-metadata-card">
 		<div class="gl-graph__ref-metadata-card-head">
@@ -362,11 +370,11 @@ export function renderPullRequestTooltipCard(pr: PullRequestMetadata): TemplateR
 			<span class="gl-graph__ref-metadata-card-title">${pr.title}</span>
 			<span class="gl-graph__ref-metadata-card-id">${label}</span>
 		</div>
-		${meta.length > 0 ? html`<div class="gl-graph__ref-metadata-card-meta">${meta.join(' · ')}</div>` : nothing}
+		${meta != null ? html`<div class="gl-graph__ref-metadata-card-meta">${meta}</div>` : nothing}
 		${
 			pr.stack != null
 				? html`<div class="gl-graph__ref-metadata-card-stack">
-						<code-icon icon="layers"></code-icon>Stack #${pr.stack.number}<span
+						<code-icon icon="layers"></code-icon>${l10n.t('Stack #{0}', pr.stack.number)}<span
 							class="gl-graph__ref-metadata-card-stack-box"
 							>${pr.stack.position}/${pr.stack.size}</span
 						>
@@ -400,8 +408,8 @@ function renderPrChip(pr: PullRequestMetadata, ref: ParsedRef, expanded: boolean
 		}
 		aria-label=${
 			pr.stack != null
-				? `Pull request ${label}, layer ${pr.stack.position} of ${pr.stack.size}`
-				: `Pull request ${label}`
+				? l10n.t('Pull request {0}, layer {1} of {2}', label, pr.stack.position, pr.stack.size)
+				: l10n.t('Pull request {0}', label)
 		}
 		data-ref-metadata-type="pullRequest"
 		data-ref-id=${ref.id ?? nothing}
@@ -433,7 +441,7 @@ function renderIssueChip(issue: IssueMetadata, ref: ParsedRef, expanded: boolean
 			// Same as the PR chip: rove only the in-flow copy, never the aria-hidden expanded twin.
 			expanded ? nothing : '-1'
 		}
-		aria-label="Issue ${label}"
+		aria-label=${l10n.t('Issue {0}', label)}
 		data-ref-metadata-type="issue"
 		data-ref-id=${ref.id ?? nothing}
 		data-ref-name=${ref.name}
@@ -836,7 +844,7 @@ function renderOnePill(
 	// band + "Jump to …" tooltip the upstream/merge-target segments carry — otherwise the pill's largest zone
 	// was the only one that never signalled where it goes. Tooltip wording mirrors the overview bar's legs.
 	const nameJump = rowMarker?.jumpSha != null;
-	const nameTip = nameJump ? `Jump to HEAD (${ref.name})` : undefined;
+	const nameTip = nameJump ? l10n.t('Jump to HEAD ({0})', ref.name) : undefined;
 	// The overlay copy's name zone needs the same wrapper to hang that band on (the resting pill has `-main`);
 	// only built for the jump case so every other pill's overlay markup is untouched.
 	// Rendered into BOTH the in-flow pill and the hover-expand overlay — the overlay is `pointer-events:
@@ -897,23 +905,38 @@ function renderOnePill(
 //    ahead/behind summary (behind first, matching the stats pill), e.g. "origin/main · 18 behind, 1 ahead".
 //  - `aria`: the accessible name (the icon isn't readable), spelling the side out — e.g. "Jump to Upstream
 //    origin/main · 18 behind, 1 ahead". Diverged branches list both counts; clean ones just one.
+function trackingLabel(
+	targetType: 'Upstream' | 'Local',
+	name: string | undefined,
+	stats: { ahead: number; behind: number } | undefined,
+): string {
+	const branch =
+		name != null && name.length > 0
+			? name
+			: targetType === 'Upstream'
+				? l10n.t('upstream branch')
+				: l10n.t('local branch');
+	if (stats == null || (stats.behind <= 0 && stats.ahead <= 0)) return branch;
+
+	if (stats.behind > 0 && stats.ahead > 0) {
+		return l10n.t('{0} · {1} behind, {2} ahead', branch, stats.behind, stats.ahead);
+	}
+
+	return stats.behind > 0
+		? l10n.t('{0} · {1} behind', branch, stats.behind)
+		: l10n.t('{0} · {1} ahead', branch, stats.ahead);
+}
+
 function jumpTooltip(
 	targetType: 'Upstream' | 'Local',
 	name: string | undefined,
 	stats: { ahead: number; behind: number } | undefined,
 ): { label: string; aria: string } {
-	const branch = name != null && name.length > 0 ? name : `${targetType.toLowerCase()} branch`;
-	const parts: string[] = [];
-	if (stats != null) {
-		if (stats.behind > 0) {
-			parts.push(`${stats.behind} behind`);
-		}
-		if (stats.ahead > 0) {
-			parts.push(`${stats.ahead} ahead`);
-		}
-	}
-	const label = parts.length > 0 ? `${branch} · ${parts.join(', ')}` : branch;
-	return { label: label, aria: `Jump to ${targetType} ${label}` };
+	const label = trackingLabel(targetType, name, stats);
+	return {
+		label: label,
+		aria: targetType === 'Upstream' ? l10n.t('Jump to Upstream {0}', label) : l10n.t('Jump to Local {0}', label),
+	};
 }
 
 // Tooltip for the non-interactive ahead/behind status (counterpart not reachable for a jump) — same
@@ -923,18 +946,11 @@ function upstreamStatusTooltip(
 	name: string | undefined,
 	stats: { ahead: number; behind: number } | undefined,
 ): { label: string; aria: string } {
-	const branch = name != null && name.length > 0 ? name : `${targetType.toLowerCase()} branch`;
-	const parts: string[] = [];
-	if (stats != null) {
-		if (stats.behind > 0) {
-			parts.push(`${stats.behind} behind`);
-		}
-		if (stats.ahead > 0) {
-			parts.push(`${stats.ahead} ahead`);
-		}
-	}
-	const label = parts.length > 0 ? `${branch} · ${parts.join(', ')}` : branch;
-	return { label: label, aria: `${targetType} ${label}` };
+	const label = trackingLabel(targetType, name, stats);
+	return {
+		label: label,
+		aria: targetType === 'Upstream' ? l10n.t('Upstream {0}', label) : l10n.t('Local {0}', label),
+	};
 }
 
 // Tooltip for a GONE upstream — it existed and was deleted on the remote, so there's no ahead/behind to
@@ -943,9 +959,9 @@ function upstreamStatusTooltip(
 // `targetType` parameter. Same branch-name fallback as `upstreamStatusTooltip`/`jumpTooltip`; the aria
 // form names the side since the glyph isn't readable.
 function missingUpstreamTooltip(name: string | undefined): { label: string; aria: string } {
-	const branch = name != null && name.length > 0 ? name : 'upstream branch';
-	const label = `${branch} is gone`;
-	return { label: label, aria: `Upstream ${label}` };
+	return name != null && name.length > 0
+		? { label: l10n.t('{0} is gone', name), aria: l10n.t('Upstream {0} is gone', name) }
+		: { label: l10n.t('upstream branch is gone'), aria: l10n.t('Upstream upstream branch is gone') };
 }
 
 /**
@@ -990,7 +1006,7 @@ function renderUpstreamSegment(
 		return renderNamedSegment(
 			remoteRefIcon(upstreamOnRow.hostingServiceType),
 			label,
-			edgePinned ? `Up to date with ${full} · Pinned to Edge` : `Up to date with ${full}`,
+			edgePinned ? l10n.t('Up to date with {0} · Pinned to Edge', full) : l10n.t('Up to date with {0}', full),
 			undefined,
 			edgePinned
 				? pinControl === true
@@ -1084,7 +1100,7 @@ function renderUpstreamSegment(
 		type="button"
 		tabindex="-1"
 		aria-label=${tip.aria}
-		data-tooltip-action="Jump to"
+		data-tooltip-action=${l10n.t('Jump to')}
 		data-tooltip-icon=${linkIcon}
 		data-tooltip=${tip.label}
 		data-ref-metadata-type="upstream"
@@ -1163,9 +1179,11 @@ function renderNamedUpstreamSegment(
 	const label = remote.length > 0 && getBranchNameWithoutRemote(full) === ref.name ? remote : full;
 	const icon = remoteRefIcon(upstream.hostingServiceType);
 	const sha = upstream.jumpSha;
-	if (sha == null) return renderNamedSegment(icon, iconOnly ? '' : label, `Upstream (${full})`);
+	if (sha == null) return renderNamedSegment(icon, iconOnly ? '' : label, l10n.t('Upstream ({0})', full));
 
-	return renderNamedSegment(icon, iconOnly ? '' : label, `Jump to Upstream (${full})`, () => hooks?.onJumpToRef(sha));
+	return renderNamedSegment(icon, iconOnly ? '' : label, l10n.t('Jump to Upstream ({0})', full), () =>
+		hooks?.onJumpToRef(sha),
+	);
 }
 
 /**
@@ -1182,11 +1200,11 @@ function renderTargetSegment(
 	expanded: boolean,
 ): TemplateResult {
 	const short = name != null && name.length > 0 ? shortRefName(name) : undefined;
-	const label = short ?? 'Merge Target';
+	const label = short ?? l10n.t('Merge Target');
 	// Named in the same "Jump to <role> (<ref>)" shape as the overview bar's legs — and NOT via
 	// `data-tooltip-action`, which the tooltip resolver only honours alongside a `data-tooltip-icon` (without
 	// one it fell through and the tooltip read as the bare ref name).
-	const tip = short != null ? `Jump to Merge Target (${short})` : 'Jump to Merge Target';
+	const tip = short != null ? l10n.t('Jump to Merge Target ({0})', short) : l10n.t('Jump to Merge Target');
 	return html`<button
 		class="gl-graph__ref-pill-upstream gl-graph__ref-pill-upstream--jump gl-graph__ref-pill-target"
 		type="button"
@@ -1233,7 +1251,7 @@ function renderPopoverRefRow(
 		style=${cspStyleMap(refStyle(color, isHead, 'row'))}
 		role="menuitem"
 		id=${`ref-menuitem-${refPillKey(parsed)}`}
-		aria-label=${edgePinned === true ? `${describe} · Pinned to Edge` : describe}
+		aria-label=${edgePinned === true ? l10n.t('{0} · Pinned to Edge', describe) : describe}
 		data-ref-name=${parsed.name}
 		data-ref-key=${refPillKey(parsed)}
 		data-ref-kind=${parsed.kind}
@@ -1302,8 +1320,8 @@ function renderPinControl(onUnpin: (() => void) | undefined, extraClass?: string
 		class="gl-graph__ref-pill-icon gl-graph__ref-pill-icon--pin${extraClass != null ? ` ${extraClass}` : ''}"
 		type="button"
 		tabindex="-1"
-		aria-label="Unpin Branch from Edge"
-		data-tooltip="Unpin Branch from Edge"
+		aria-label=${l10n.t('Unpin Branch from Edge')}
+		data-tooltip=${l10n.t('Unpin Branch from Edge')}
 		@click=${(e: Event) => {
 			// Must not bubble to the pill (which selects the row / opens the branch sheet).
 			e.stopPropagation();
@@ -1345,23 +1363,51 @@ function chipLabel(ref: ParsedRef, showRemoteNames: boolean): string | TemplateR
 	return html`${ref.name}<span class="gl-graph__ref-pill-label-remote">${ref.owner}</span>`;
 }
 
-function describeRef(ref: ParsedRef, hooks?: RefPillHooks): string {
+function describeRef(ref: ParsedRef, hooks?: RefPillHooks, focused = false): string {
 	let description: string;
 	if (ref.kind === 'tag') {
-		description = `tag ${ref.name}`;
+		description = focused ? l10n.t('focused tag {0}', ref.name) : l10n.t('tag {0}', ref.name);
 	} else if (ref.kind === 'remote') {
-		description = `remote ${ref.owner}/${ref.name}`;
+		description = focused
+			? l10n.t('focused remote {0}/{1}', String(ref.owner), ref.name)
+			: l10n.t('remote {0}/{1}', String(ref.owner), ref.name);
 	} else {
-		description = ref.current ? `HEAD on ${ref.name}` : `branch ${ref.name}`;
+		description = ref.current
+			? focused
+				? l10n.t('focused HEAD on {0}', ref.name)
+				: l10n.t('HEAD on {0}', ref.name)
+			: focused
+				? l10n.t('focused branch {0}', ref.name)
+				: l10n.t('branch {0}', ref.name);
 	}
 
 	const pr = hooks?.getPullRequests(ref)?.[0];
 	if (pr != null) {
-		description += `, pull request #${pr.id}${pr.state ? ` ${pr.state}` : ''}`;
+		let pullRequest: string;
+		switch (pr.state) {
+			case 'closed':
+				pullRequest = l10n.t('pull request #{0} closed', pr.id);
+				break;
+			case 'merged':
+				pullRequest = l10n.t('pull request #{0} merged', pr.id);
+				break;
+			case 'opened':
+				pullRequest = l10n.t('pull request #{0} opened', pr.id);
+				break;
+			case 'open':
+				pullRequest = l10n.t('pull request #{0} open', pr.id);
+				break;
+			default:
+				pullRequest = pr.state
+					? l10n.t('pull request #{0} {1}', pr.id, pr.state)
+					: l10n.t('pull request #{0}', pr.id);
+				break;
+		}
+		description = l10n.t('{0}, {1}', description, pullRequest);
 	}
 	const issue = hooks?.getIssues(ref)?.[0];
 	if (issue != null) {
-		description += `, issue ${issue.displayId}`;
+		description = l10n.t('{0}, issue {1}', description, issue.displayId);
 	}
 	return description;
 }

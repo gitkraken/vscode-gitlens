@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProvider } from '@gitlens/git/models/remoteProvider.js';
 import type { RemoteResource } from '@gitlens/git/models/remoteResource.js';
@@ -96,7 +97,7 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 			}
 
 			const providers = getHighlanderProviders(remotes);
-			const provider = providers?.length ? providers[0].name : 'Remote';
+			const provider = providers?.length ? providers[0].name : l10n.t('Remote');
 
 			const options: Parameters<typeof showRemoteProviderPicker>[4] = {
 				autoPick: 'default',
@@ -105,44 +106,63 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 			};
 
 			let title;
-			let placeholder = `Choose which remote to ${
-				args.clipboard ? `copy the link${resources.length > 1 ? 's' : ''} for` : 'open on'
-			} (or use the gear to set it as default)`;
-
-			function getTitlePrefix(type: string): string {
-				return args?.clipboard
-					? `Copy ${provider} ${type} Link${resources.length > 1 ? 's' : ''}`
-					: `Open ${type} on ${provider}`;
-			}
+			let placeholder = args.clipboard
+				? resources.length > 1
+					? l10n.t('Choose which remote to copy the links for (or use the gear to set it as default)')
+					: l10n.t('Choose which remote to copy the link for (or use the gear to set it as default)')
+				: l10n.t('Choose which remote to open on (or use the gear to set it as default)');
+			const titleSeparator = pad(GlyphChars.Dot, 2, 2);
 
 			const [resource] = resources;
 			switch (resource.type) {
 				case RemoteResourceType.Branch:
-					title = getTitlePrefix('Branch');
-					if (resources.length === 1) {
-						title += `${pad(GlyphChars.Dot, 2, 2)}${resource.branch}`;
-					}
+					title = args.clipboard
+						? resources.length > 1
+							? l10n.t('Copy {0} Branch Links', provider)
+							: l10n.t('Copy {0} Branch Link{1}{2}', provider, titleSeparator, resource.branch)
+						: resources.length === 1
+							? l10n.t('Open Branch on {0}{1}{2}', provider, titleSeparator, resource.branch)
+							: l10n.t('Open Branch on {0}', provider);
 					break;
 
 				case RemoteResourceType.Branches:
-					title = getTitlePrefix('Branches');
+					title = args.clipboard
+						? resources.length > 1
+							? l10n.t('Copy {0} Branches Links', provider)
+							: l10n.t('Copy {0} Branches Link', provider)
+						: l10n.t('Open Branches on {0}', provider);
 					break;
 
 				case RemoteResourceType.Commit:
-					title = getTitlePrefix('Commit');
-					if (resources.length === 1) {
-						title += `${pad(GlyphChars.Dot, 2, 2)}${shortenRevision(resource.sha)}`;
-					}
+					title = args.clipboard
+						? resources.length > 1
+							? l10n.t('Copy {0} Commit Links', provider)
+							: l10n.t(
+									'Copy {0} Commit Link{1}{2}',
+									provider,
+									titleSeparator,
+									shortenRevision(resource.sha),
+								)
+						: resources.length === 1
+							? l10n.t(
+									'Open Commit on {0}{1}{2}',
+									provider,
+									titleSeparator,
+									shortenRevision(resource.sha),
+								)
+							: l10n.t('Open Commit on {0}', provider);
 					break;
 
 				case RemoteResourceType.Comparison:
-					title = getTitlePrefix('Comparisons');
 					if (resources.length === 1) {
-						title += `${pad(GlyphChars.Dot, 2, 2)}${createRevisionRange(
-							resource.base,
-							resource.head,
-							resource.notation ?? '...',
-						)}`;
+						const range = createRevisionRange(resource.base, resource.head, resource.notation ?? '...');
+						title = args.clipboard
+							? l10n.t('Copy {0} Comparisons Link{1}{2}', provider, titleSeparator, range)
+							: l10n.t('Open Comparisons on {0}{1}{2}', provider, titleSeparator, range);
+					} else {
+						title = args.clipboard
+							? l10n.t('Copy {0} Comparisons Links', provider)
+							: l10n.t('Open Comparisons on {0}', provider);
 					}
 					break;
 
@@ -152,48 +172,68 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 
 					if (resources.length > 1) {
 						title = args.clipboard
-							? `Copy ${provider} Create Pull Request Links`
-							: `Create Pull Requests on ${provider}`;
+							? l10n.t('Copy {0} Create Pull Request Links', provider)
+							: l10n.t('Create Pull Requests on {0}', provider);
 
-						placeholder = `Choose which remote to ${
-							args.clipboard ? 'copy the create pull request links for' : 'create the pull requests on'
-						}`;
+						placeholder = args.clipboard
+							? l10n.t('Choose which remote to copy the create pull request links for')
+							: l10n.t('Choose which remote to create the pull requests on');
 					} else {
-						title = `${
-							args.clipboard
-								? `Copy ${provider} Create Pull Request Link`
-								: `Create Pull Request on ${provider}`
-						}${pad(GlyphChars.Dot, 2, 2)}${
-							resource.base?.branch
-								? createRevisionRange(resource.base.branch, resource.head.branch, '...')
-								: resource.head.branch
-						}`;
+						const range = resource.base?.branch
+							? createRevisionRange(resource.base.branch, resource.head.branch, '...')
+							: resource.head.branch;
+						title = args.clipboard
+							? l10n.t('Copy {0} Create Pull Request Link{1}{2}', provider, titleSeparator, range)
+							: l10n.t('Create Pull Request on {0}{1}{2}', provider, titleSeparator, range);
 
-						placeholder = `Choose which remote to ${
-							args.clipboard ? 'copy the create pull request link for' : 'create the pull request on'
-						}`;
+						placeholder = args.clipboard
+							? l10n.t('Choose which remote to copy the create pull request link for')
+							: l10n.t('Choose which remote to create the pull request on');
 					}
 					break;
 
 				case RemoteResourceType.File:
-					title = getTitlePrefix('File');
-					if (resources.length === 1) {
-						title += `${pad(GlyphChars.Dot, 2, 2)}${resource.fileName}`;
-					}
+					title = args.clipboard
+						? resources.length > 1
+							? l10n.t('Copy {0} File Links', provider)
+							: l10n.t('Copy {0} File Link{1}{2}', provider, titleSeparator, resource.fileName)
+						: resources.length === 1
+							? l10n.t('Open File on {0}{1}{2}', provider, titleSeparator, resource.fileName)
+							: l10n.t('Open File on {0}', provider);
 					break;
 
 				case RemoteResourceType.Repo:
-					title = getTitlePrefix('Repository');
+					title = args.clipboard
+						? resources.length > 1
+							? l10n.t('Copy {0} Repository Links', provider)
+							: l10n.t('Copy {0} Repository Link', provider)
+						: l10n.t('Open Repository on {0}', provider);
 					break;
 
 				case RemoteResourceType.Revision: {
-					title = getTitlePrefix('File');
 					if (resources.length === 1) {
-						title += `${pad(GlyphChars.Dot, 2, 2)}${shortenRevision(resource.sha)}${pad(
-							GlyphChars.Dot,
-							1,
-							1,
-						)}${resource.fileName}`;
+						const fileSeparator = pad(GlyphChars.Dot, 1, 1);
+						title = args.clipboard
+							? l10n.t(
+									'Copy {0} File Link{1}{2}{3}{4}',
+									provider,
+									titleSeparator,
+									shortenRevision(resource.sha),
+									fileSeparator,
+									resource.fileName,
+								)
+							: l10n.t(
+									'Open File on {0}{1}{2}{3}{4}',
+									provider,
+									titleSeparator,
+									shortenRevision(resource.sha),
+									fileSeparator,
+									resource.fileName,
+								);
+					} else {
+						title = args.clipboard
+							? l10n.t('Copy {0} File Links', provider)
+							: l10n.t('Open File on {0}', provider);
 					}
 					break;
 				}
@@ -211,7 +251,7 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 			await pick?.execute();
 		} catch (ex) {
 			Logger.error(ex, 'OpenOnRemoteCommand');
-			void showGenericErrorMessage('Unable to open in remote provider');
+			void showGenericErrorMessage(l10n.t('Unable to open in remote provider'));
 		}
 	}
 }

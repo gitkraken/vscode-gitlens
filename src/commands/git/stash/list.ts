@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitStashCommit } from '@gitlens/git/models/commit.js';
 import type { GitStashReference } from '@gitlens/git/models/reference.js';
 import type { Container } from '../../../container.js';
@@ -36,8 +37,8 @@ export interface StashListGitCommandArgs {
 
 export class StashListGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: StashListGitCommandArgs) {
-		super(container, 'stash-list', 'list', 'Stashes', {
-			description: 'lists stashes',
+		super(container, 'stash-list', 'list', l10n.t('Stashes'), {
+			description: l10n.t('lists stashes'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -90,7 +91,7 @@ export class StashListGitCommand extends QuickCommand<State> {
 				const result: StepResult<GitStashCommit> = yield* pickStashStep(state, context, {
 					stash: await state.repo.git.stash?.getStash(),
 					placeholder: (_context, stash) =>
-						stash == null ? `No stashes found in ${state.repo.name}` : 'Choose a stash',
+						stash == null ? l10n.t('No stashes found in {0}', state.repo.name) : l10n.t('Choose a stash'),
 					picked: state.reference?.ref,
 				});
 				if (result === StepResultBreak) {

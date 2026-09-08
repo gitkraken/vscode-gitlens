@@ -2,6 +2,7 @@ import type { GraphRefFinderRenderContext } from '@gitkraken/commit-graph-ui/con
 import { refPillKey } from '@gitkraken/commit-graph-ui/extensions/refs/pills.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -517,7 +518,7 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 		// when elision ate part of it, or what Enter will do for a ref that isn't paged in. A tooltip
 		// echoing a name that's fully visible is noise.
 		const tooltip = unloaded
-			? `${match.label} — not loaded, press Enter to fetch it`
+			? l10n.t('{ref} — not loaded, press Enter to fetch it', { ref: match.label })
 			: label !== match.label
 				? match.label
 				: undefined;
@@ -530,7 +531,9 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 		// fact, and announcing a changing count on every keystroke would be noise.
 		const nav =
 			total > 1
-				? html`<span class="find__nav" aria-hidden="true">↑↓ ${this._index + 1} of ${total}</span>`
+				? html`<span class="find__nav" aria-hidden="true"
+						>${l10n.t('↑↓ {current} of {total}', { current: this._index + 1, total: total })}</span
+					>`
 				: nothing;
 
 		return html`<div class="find__result">${hitEl}${nav}</div>`;
@@ -542,7 +545,7 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 		return html`<div
 			class="find"
 			role="search"
-			aria-label="Find a branch, tag, or worktree"
+			aria-label=${l10n.t('Find a branch, tag, or worktree')}
 			@focusout=${this.onFocusOut}
 		>
 			<div class="find__row">
@@ -553,8 +556,8 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 						type="text"
 						spellcheck="false"
 						autocomplete="off"
-						placeholder="Find a branch, tag, or worktree..."
-						aria-label="Find a branch, tag, or worktree"
+						placeholder=${l10n.t('Find a branch, tag, or worktree...')}
+						aria-label=${l10n.t('Find a branch, tag, or worktree')}
 						aria-keyshortcuts="ArrowDown ArrowUp"
 						.value=${this._query}
 						@input=${this.onInput}
@@ -565,11 +568,11 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 					class="find__close"
 					appearance="toolbar"
 					density="compact"
-					aria-label="Close"
+					aria-label=${l10n.t('Close')}
 					@click=${this.close}
 				>
 					<code-icon icon="close"></code-icon>
-					<span slot="tooltip">Close</span>
+					<span slot="tooltip">${l10n.t('Close')}</span>
 				</gl-button>
 			</div>
 			${this.renderHit()}

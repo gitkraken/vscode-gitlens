@@ -1,5 +1,5 @@
 import type { Event, QuickPickItem } from 'vscode';
-import { Disposable, EventEmitter, window } from 'vscode';
+import { Disposable, EventEmitter, l10n, window } from 'vscode';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { sortCompare } from '@gitlens/utils/string.js';
 import type { Config } from '../config.js';
@@ -39,7 +39,7 @@ class ActionRunnerQuickPickItem implements QuickPickItem {
 	}
 
 	get detail(): string | undefined {
-		return this.runner.name;
+		return this.runner.displayName;
 	}
 }
 
@@ -47,7 +47,7 @@ class NoActionRunnersQuickPickItem implements QuickPickItem {
 	public readonly runner: RegisteredActionRunner | undefined;
 
 	get label(): string {
-		return 'No actions were found';
+		return l10n.t('No actions were found');
 	}
 
 	get detail(): string | undefined {
@@ -64,6 +64,7 @@ class RegisteredActionRunner<T extends ActionContext = ActionContext> implements
 		public readonly type: ActionRunnerType,
 		private readonly runner: ActionRunner<T>,
 		private readonly unregister: () => void,
+		private readonly installerName?: string,
 	) {
 		this.id = runnerIdGenerator.next();
 	}
@@ -74,6 +75,19 @@ class RegisteredActionRunner<T extends ActionContext = ActionContext> implements
 
 	get name(): string {
 		return this.runner.name;
+	}
+
+	get displayName(): string {
+		switch (this.type) {
+			case ActionRunnerType.BuiltIn:
+				return l10n.t('Built In');
+			case ActionRunnerType.BuiltInPartnerInstaller:
+				return this.installerName == null
+					? this.runner.name
+					: l10n.t('{name} (Not Installed)', { name: this.installerName });
+			default:
+				return this.runner.name;
+		}
 	}
 
 	get label(): string | ((context: T) => string) {
@@ -174,6 +188,7 @@ export class ActionRunners implements Disposable {
 		action: Action<T>,
 		runner: ActionRunner<T>,
 		type: ActionRunnerType = ActionRunnerType.Partner,
+		installerName?: string,
 	): Disposable {
 		let runners = this._actionRunners.get(action);
 		if (runners == null) {
@@ -188,17 +203,22 @@ export class ActionRunners implements Disposable {
 
 		const runnersMap = this._actionRunners;
 
-		const registeredRunner = new RegisteredActionRunner(type, runner, function (this: RegisteredActionRunner) {
-			if (runners.length === 1) {
-				runnersMap.delete(action);
-				onChanged(action);
-			} else {
-				const index = runners.indexOf(this);
-				if (index !== -1) {
-					runners.splice(index, 1);
+		const registeredRunner = new RegisteredActionRunner(
+			type,
+			runner,
+			function (this: RegisteredActionRunner) {
+				if (runners.length === 1) {
+					runnersMap.delete(action);
+					onChanged(action);
+				} else {
+					const index = runners.indexOf(this);
+					if (index !== -1) {
+						runners.splice(index, 1);
+					}
 				}
-			}
-		});
+			},
+			installerName,
+		);
 
 		runners.push(registeredRunner);
 		onChanged(action);
@@ -236,6 +256,7 @@ export class ActionRunners implements Disposable {
 			action,
 			{ ...runner, partnerId: partnerId, name: `${runner.name} (Not Installed)` },
 			ActionRunnerType.BuiltInPartnerInstaller,
+			runner.name,
 		);
 	}
 
@@ -281,20 +302,20 @@ export class ActionRunners implements Disposable {
 						let placeholder;
 						switch (context.type) {
 							case 'createPullRequest':
-								title = 'Create Pull Request';
-								placeholder = 'Choose how to create a pull request';
+								title = l10n.t('Create Pull Request');
+								placeholder = l10n.t('Choose how to create a pull request');
 								break;
 							case 'openPullRequest':
-								title = 'Open Pull Request';
-								placeholder = 'Choose how to open the pull request';
+								title = l10n.t('Open Pull Request');
+								placeholder = l10n.t('Choose how to open the pull request');
 								break;
 							case 'openIssue':
-								title = 'Open Issue';
-								placeholder = 'Choose how to open the issue';
+								title = l10n.t('Open Issue');
+								placeholder = l10n.t('Choose how to open the issue');
 								break;
 							case 'hover.commands':
-								title = 'Need Help or Want to Collaborate?';
-								placeholder = 'Choose what you would like to do';
+								title = l10n.t('Need Help or Want to Collaborate?');
+								placeholder = l10n.t('Choose what you would like to do');
 								break;
 							default:
 								debugger;

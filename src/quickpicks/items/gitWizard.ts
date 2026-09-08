@@ -1,5 +1,5 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
-import { ThemeIcon } from 'vscode';
+import { l10n, ThemeIcon } from 'vscode';
 import { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitStashCommit } from '@gitlens/git/models/commit.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
@@ -68,16 +68,16 @@ export async function createBranchQuickPickItem<T = GitBranch>(
 
 	if (options?.type === true) {
 		if (options.current === true && branch.current) {
-			description = 'current branch';
+			description = l10n.t('current branch');
 		} else {
-			description = 'branch';
+			description = l10n.t('branch');
 		}
 	} else if (options?.type === 'remote') {
 		if (branch.remote) {
-			description = 'remote branch';
+			description = l10n.t('remote branch');
 		}
 	} else if (options?.current === true && branch.current) {
-		description = 'current branch';
+		description = l10n.t('current branch');
 	}
 
 	if (options?.status && !branch.remote && branch.upstream != null) {
@@ -154,7 +154,7 @@ export async function createBranchQuickPickItem<T = GitBranch>(
 }
 
 export class CommitLoadMoreQuickPickItem implements QuickPickItem {
-	readonly label = 'Load more';
+	readonly label = l10n.t('Load more');
 	readonly alwaysShow = true;
 }
 
@@ -269,7 +269,7 @@ export function createRefQuickPickItem(
 ): RefQuickPickItem {
 	if (ref === '') {
 		return {
-			label: 'Working Tree',
+			label: l10n.t('Working Tree'),
 			description: '',
 			alwaysShow: options?.alwaysShow,
 			buttons: options?.buttons,
@@ -307,7 +307,7 @@ export function createRefQuickPickItem(
 
 	if (isRevisionRange(ref)) {
 		return {
-			label: `Range ${gitRef.name}`,
+			label: l10n.t('Range {0}', gitRef.name),
 			description: '',
 			alwaysShow: options?.alwaysShow,
 			buttons: options?.buttons,
@@ -320,7 +320,7 @@ export function createRefQuickPickItem(
 	}
 
 	const item: RefQuickPickItem = {
-		label: `Commit ${gitRef.name}`,
+		label: l10n.t('Commit {0}', gitRef.name),
 		description: options?.ref ? `$(git-commit)${GlyphChars.Space}${ref}` : '',
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
@@ -347,14 +347,17 @@ export function createRemoteQuickPickItem(
 		upstream?: boolean;
 	},
 ): RemoteQuickPickItem {
-	let description = '';
-	if (options?.type) {
-		description = 'remote';
-	}
-
+	let description: string;
 	if (options?.upstream) {
 		const upstream = getRemoteUpstreamDescription(remote);
-		description = description ? `${description}${pad(GlyphChars.Dot, 2, 2)}${upstream}` : upstream;
+		description = options.type
+			? l10n.t('remote{separator}{upstream}', {
+					separator: pad(GlyphChars.Dot, 2, 2),
+					upstream: upstream,
+				})
+			: upstream;
+	} else {
+		description = options?.type ? l10n.t('remote') : '';
 	}
 
 	const item: RemoteQuickPickItem = {
@@ -418,7 +421,7 @@ export async function createRepositoryQuickPickItem(
 	if (options?.fetched) {
 		const lastFetched = await repository.getLastFetched();
 		if (lastFetched !== 0) {
-			const fetched = `Last fetched ${fromNow(new Date(lastFetched))}`;
+			const fetched = l10n.t('Last fetched {0}', fromNow(new Date(lastFetched)));
 			description = description ? `${description}${pad(GlyphChars.Dot, 2, 2)}${fetched}` : fetched;
 		}
 	}
@@ -460,7 +463,7 @@ export function createTagQuickPickItem<T = GitTag>(
 ): TagQuickPickItem<T> {
 	let description = '';
 	if (options?.type) {
-		description = 'tag';
+		description = l10n.t('tag');
 	}
 
 	if (options?.ref) {

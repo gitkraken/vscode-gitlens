@@ -1,5 +1,5 @@
 import type { Disposable } from 'vscode';
-import { CancellationTokenSource, QuickInputButtons, window } from 'vscode';
+import { CancellationTokenSource, l10n, QuickInputButtons, window } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitTag } from '@gitlens/git/models/tag.js';
@@ -69,11 +69,11 @@ export async function showReferencePicker2(
 	quickpick.title = title;
 	quickpick.placeholder =
 		allowRanges && allowRevs
-			? `${placeholder} (or enter a range, or a revision prefixed with #)`
+			? l10n.t('{0} (or enter a range, or a revision prefixed with #)', placeholder)
 			: allowRanges
-				? `${placeholder} (or enter a range)`
+				? l10n.t('{0} (or enter a range)', placeholder)
 				: allowRevs
-					? `${placeholder} (or enter a revision prefixed with #)`
+					? l10n.t('{0} (or enter a revision prefixed with #)', placeholder)
 					: placeholder;
 	quickpick.matchOnDescription = true;
 	if (options?.allowBack) {

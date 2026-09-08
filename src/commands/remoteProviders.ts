@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { GitRemote } from '@gitlens/git/models/remote.js';
 import { first } from '@gitlens/utils/iterable.js';
@@ -82,7 +83,7 @@ export class ConnectRemoteProviderCommand extends GlCommandBase {
 				const pick = await showRepositoryPicker(
 					this.container,
 					undefined,
-					'Choose which repository to connect to the remote provider',
+					l10n.t('Choose which repository to connect to the remote provider'),
 					[...repos.keys()],
 				);
 				if (pick == null) return undefined;
@@ -176,7 +177,7 @@ export class DisconnectRemoteProviderCommand extends GlCommandBase {
 				const pick = await showRepositoryPicker(
 					this.container,
 					undefined,
-					'Choose which repository to disconnect from the remote provider',
+					l10n.t('Choose which repository to disconnect from the remote provider'),
 					[...repos.keys()],
 				);
 				if (pick == null) return;

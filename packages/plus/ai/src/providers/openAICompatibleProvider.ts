@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { openAICompatibleProviderDescriptor as provider } from '../constants.js';
 import type { AIModel } from '../models/model.js';
 import { openAIModels } from '../models/model.js';
@@ -45,9 +46,10 @@ export class OpenAICompatibleProvider extends OpenAICompatibleProviderBase<typeo
 			this.id,
 			{
 				currentUrl: url,
-				title: 'Connect to OpenAI-Compatible Provider',
-				placeholder: `Please enter your provider's URL to use this feature`,
-				validator: u => (isAzureUrl(u) ? 'Use the Azure OpenAI provider instead' : undefined),
+				title: l10n.t('Connect to OpenAI-Compatible Provider'),
+				placeholder: l10n.t("Please enter your provider's URL to use this feature"),
+				prompt: l10n.t('Enter your OpenAI-Compatible Provider URL'),
+				validator: u => (isAzureUrl(u) ? l10n.t('Use the Azure OpenAI provider instead') : undefined),
 			},
 			silent,
 		);

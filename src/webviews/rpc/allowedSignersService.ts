@@ -6,11 +6,11 @@
  * browsing for a target path, and checking which signers are already present in a
  * target file — plus the two save-last events streamed while signers are discovered.
  */
-
-import { Uri, window, workspace } from 'vscode';
+import { l10n, Uri, window, workspace } from 'vscode';
 import { getHomeDir, isWeb } from '@env/platform.js';
 import { isAbsolute } from '@gitlens/utils/path.js';
 import type { Container } from '../../container.js';
+import { getPresentableErrorMessage } from '../../errors.js';
 import type { AllowedSignerEntry } from '../../git/utils/allowedSignersFile.js';
 import { getExistingEntryKeys, mergeAllowedSigners } from '../../git/utils/allowedSignersFile.js';
 import type { CandidateSigner, LoadingProgress, SaveEntry, SignerProvider } from '../allowedSigners/protocol.js';
@@ -122,7 +122,12 @@ export class AllowedSignersService implements AllowedSignersViewService {
 	}
 	async save(params: SaveParams): Promise<SaveResult> {
 		if (isWeb) {
-			return { written: false, configSet: false, added: 0, error: 'Writing files is not supported on the web.' };
+			return {
+				written: false,
+				configSet: false,
+				added: 0,
+				error: l10n.t('Writing files is not supported on the web.'),
+			};
 		}
 
 		try {
@@ -132,7 +137,9 @@ export class AllowedSignersService implements AllowedSignersViewService {
 					written: false,
 					configSet: false,
 					added: 0,
-					error: 'Choose an absolute file path (no repository is available to resolve a relative path).',
+					error: l10n.t(
+						'Choose an absolute file path (no repository is available to resolve a relative path).',
+					),
 				};
 			}
 
@@ -171,14 +178,14 @@ export class AllowedSignersService implements AllowedSignersViewService {
 
 			return { written: true, configSet: configSet, added: added };
 		} catch (ex) {
-			return { written: false, configSet: false, added: 0, error: ex instanceof Error ? ex.message : String(ex) };
+			return { written: false, configSet: false, added: 0, error: getPresentableErrorMessage(ex) };
 		}
 	}
 
 	async browseTargetPath(): Promise<string | undefined> {
 		const uri = await window.showSaveDialog({
-			title: 'Choose allowed_signers file location',
-			saveLabel: 'Select',
+			title: l10n.t('Choose allowed_signers file location'),
+			saveLabel: l10n.t('Select'),
 		});
 		return uri?.fsPath;
 	}

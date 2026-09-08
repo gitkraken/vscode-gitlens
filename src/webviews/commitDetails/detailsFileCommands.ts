@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions } from 'vscode';
-import { EndOfLine, env, window, workspace, WorkspaceEdit } from 'vscode';
+import { EndOfLine, env, l10n, window, workspace, WorkspaceEdit } from 'vscode';
 import { CheckoutError } from '@gitlens/git/errors.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange } from '@gitlens/git/models/fileChange.js';
@@ -21,6 +21,7 @@ import type { OpenOnRemoteCommandArgs } from '../../commands/openOnRemote.js';
 import type { CreatePatchCommandArgs } from '../../commands/patches.js';
 import type { ShowQuickFileHistoryCommandArgs } from '../../commands/showQuickFileHistory.js';
 import type { Container } from '../../container.js';
+import { getPresentableErrorMessage } from '../../errors.js';
 import type { EventBusSource } from '../../eventBus.js';
 import {
 	applyChanges,
@@ -243,8 +244,8 @@ export class DetailsFileCommands {
 	): Promise<void> {
 		const worktree = await this.pickReachableWorktree(
 			commit,
-			'Open File (Worktree)',
-			`Choose which worktree to open ${basename(file.path)} from`,
+			l10n.t('Open File (Worktree)'),
+			l10n.t('Choose which worktree to open {0} from', basename(file.path)),
 		);
 		if (worktree == null) return;
 
@@ -270,8 +271,8 @@ export class DetailsFileCommands {
 	): Promise<void> {
 		const worktree = await this.pickReachableWorktree(
 			commit,
-			'Open Changes with Working File (Worktree)',
-			`Choose which worktree to compare ${basename(file.path)} against`,
+			l10n.t('Open Changes with Working File (Worktree)'),
+			l10n.t('Choose which worktree to compare {0} against', basename(file.path)),
 		);
 		if (worktree == null) return;
 
@@ -406,7 +407,9 @@ export class DetailsFileCommands {
 			}
 		} catch (ex) {
 			Logger.error(ex, `Unable to add ${subject} to .gitignore`);
-			void window.showErrorMessage(`Unable to add ${subject} to .gitignore\n${String(ex)}`);
+			void window.showErrorMessage(
+				l10n.t('Unable to add {0} to .gitignore\n{1}', subject, getPresentableErrorMessage(ex)),
+			);
 		}
 	}
 
@@ -440,7 +443,7 @@ export class DetailsFileCommands {
 			if (CheckoutError.is(ex)) {
 				void showGitErrorMessage(ex);
 			} else {
-				void showGitErrorMessage(ex, 'Unable to restore file');
+				void showGitErrorMessage(ex, l10n.t('Unable to restore file'));
 			}
 		}
 	}
@@ -470,7 +473,7 @@ export class DetailsFileCommands {
 
 		const input1: MergeEditorInputs['input1'] = {
 			uri: nodeUri,
-			title: `Incoming`,
+			title: l10n.t('Incoming'),
 			detail: ` ${commit.shortSha}`,
 		};
 
@@ -481,14 +484,14 @@ export class DetailsFileCommands {
 
 		const workingUri = getSettledValue(workingUriResult);
 		if (workingUri == null) {
-			void window.showWarningMessage('Unable to open the merge editor, no working file found');
+			void window.showWarningMessage(l10n.t('Unable to open the merge editor, no working file found'));
 			return;
 		}
 
 		const input2: MergeEditorInputs['input2'] = {
 			uri: workingUri,
-			title: 'Current',
-			detail: ' Working Tree',
+			title: l10n.t('Current'),
+			detail: l10n.t(' Working Tree'),
 		};
 
 		const headUri = await svc.getBestRevisionUri(file.path, 'HEAD');
@@ -615,7 +618,7 @@ export class DetailsFileCommands {
 			args = {
 				repoPath: commit.repoPath,
 				to: to,
-				title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
+				title: to === uncommittedStaged ? l10n.t('Staged Changes') : l10n.t('Uncommitted Changes'),
 				uris: getFileDiffPathspecs(file),
 			};
 		} else {
@@ -929,7 +932,7 @@ export class DetailsFileCommands {
 			repoPath: files[0].file.repoPath,
 			to: to,
 			from: from,
-			title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
+			title: to === uncommittedStaged ? l10n.t('Staged Changes') : l10n.t('Uncommitted Changes'),
 			uris: files.flatMap(i => getFileDiffPathspecs(i.file)),
 		};
 		void executeCommand<CreatePatchCommandArgs>('gitlens.copyPatchToClipboard', args);
@@ -955,7 +958,7 @@ export class DetailsFileCommands {
 				lhs: 'HEAD',
 				rhs: '',
 				wip: true,
-				title: 'Working Changes',
+				title: l10n.t('Working Changes'),
 			};
 		} else if (comparison != null) {
 			args = { files: files, repoPath: commit.repoPath, lhs: comparison.sha, rhs: commit.sha };
@@ -965,7 +968,7 @@ export class DetailsFileCommands {
 				repoPath: commit.repoPath,
 				lhs: commit.parents[0] ?? '',
 				rhs: commit.sha,
-				title: `Changes in ${commit.shortSha}`,
+				title: l10n.t('Changes in {0}', commit.shortSha),
 			};
 		}
 		await this._files.openMultipleChanges(args);

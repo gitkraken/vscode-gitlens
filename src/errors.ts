@@ -1,5 +1,5 @@
 import type { Uri } from 'vscode';
-import { AuthenticationError } from '@gitlens/git/errors.js';
+import { GitCommandError } from '@gitlens/git/errors.js';
 import type { RequiredSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
 import { isSubscriptionPaidPlan } from './plus/gk/utils/subscription.utils.js';
 
@@ -175,15 +175,17 @@ export class RequiresIntegrationError extends Error {
 }
 
 /**
- * Gets a error message string suitable for user-facing UI and telemetry.
- * For AuthenticationError instances, returns just the message property to avoid
- * exposing technical token details (microHash, scopes, expiresAt).
- * For all other errors, returns the string representation.
+ * Gets an error message string suitable for user-facing UI — use it wherever an error's text reaches a user.
+ * Git command errors return their translated `localizedMessage`; their `message` is always English so logs,
+ * stack traces and telemetry stay searchable, so it is the wrong one to show. Other errors present their
+ * `message`; anything else is stringified.
  */
 export function getPresentableErrorMessage(error: Error | unknown): string {
-	if (error instanceof AuthenticationError) {
-		// avoid exposing sensitive token details: microHash, scopes, expiresAt.
-		return error.message;
-	}
+	if (GitCommandError.is(error)) return error.localizedMessage;
+
+	// `String(error)` prefixes the class name, and on AuthenticationError it also spells out the token
+	// details (microHash, scopes, expiresAt) — neither belongs in front of a user.
+	if (error instanceof Error) return error.message;
+
 	return String(error);
 }

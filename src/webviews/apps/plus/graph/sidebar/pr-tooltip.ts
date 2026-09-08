@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { PullRequestReviewDecision } from '@gitlens/git/models/pullRequest.js';
@@ -137,8 +138,35 @@ export class GlPrTooltip extends LitElement {
 		// isn't offering. A quiet group gets no modifier, so it inherits the tooltip's own color.
 		const grouping = getLaunchpadItemGrouping(group);
 		return html`<p class="launchpad${grouping != null ? ` launchpad--${grouping}` : ''}">
-			<code-icon icon=${icon}></code-icon><span>${label.toUpperCase()}</span>
+			<code-icon icon=${icon}></code-icon><span>${this.localizeGroupLabel(group, label).toUpperCase()}</span>
 		</p>`;
+	}
+
+	private localizeGroupLabel(group: LaunchpadGroup, fallback: string): string {
+		switch (group) {
+			case 'current-branch':
+				return l10n.t('Current Branch');
+			case 'pinned':
+				return l10n.t('Pinned');
+			case 'mergeable':
+				return l10n.t('Ready to Merge');
+			case 'blocked':
+				return l10n.t('Blocked');
+			case 'follow-up':
+				return l10n.t('Requires Follow-up');
+			case 'needs-review':
+				return l10n.t('Needs Your Review');
+			case 'waiting-for-review':
+				return l10n.t('Waiting for Review');
+			case 'draft':
+				return l10n.t('Draft');
+			case 'other':
+				return l10n.t('Other');
+			case 'snoozed':
+				return l10n.t('Snoozed');
+			default:
+				return fallback;
+		}
 	}
 
 	/** Why the pull request is in the state the grouping line names — checks, conflicts, and where review
@@ -211,14 +239,16 @@ export class GlPrTooltip extends LitElement {
 	private renderChecks() {
 		switch (this.statusCheckRollup) {
 			case 'success':
-				return this.renderSignal('pass', 'Checks passed', 'mergeable');
+				return this.renderSignal('pass', l10n.t('Checks passed'), 'mergeable');
 			case 'failed':
-				return this.renderSignal('error', 'Checks failing', 'blocked');
+				return this.renderSignal('error', l10n.t('Checks failing'), 'blocked');
 			case 'pending':
-				return this.renderSignal('clock', 'Checks pending');
+				return this.renderSignal('clock', l10n.t('Checks pending'));
 			default:
 				// No rollup on the wire: the categorizer's flag can only claim the failing side.
-				return this.launchpad?.failingCI ? this.renderSignal('error', 'Checks failing', 'blocked') : nothing;
+				return this.launchpad?.failingCI
+					? this.renderSignal('error', l10n.t('Checks failing'), 'blocked')
+					: nothing;
 		}
 	}
 
@@ -231,13 +261,26 @@ export class GlPrTooltip extends LitElement {
 	/** Icon + number, with the noun carried by `aria-label` — spelling each one out would push the line
 	 *  past the compact single row this hover is meant to be. */
 	private renderCount(icon: string, count: number, noun: string, tone?: 'blocked' | 'attention' | 'mergeable') {
-		return html`<span
-			class="signal${tone != null ? ` signal--${tone}` : ''}"
-			role="img"
-			aria-label="${count} ${noun}"
-		>
+		const ariaLabel = this.localizeCount(count, noun);
+		return html`<span class="signal${tone != null ? ` signal--${tone}` : ''}" role="img" aria-label="${ariaLabel}">
 			<code-icon icon=${icon}></code-icon><span>${count}</span>
 		</span>`;
+	}
+
+	private localizeCount(count: number, noun: string): string {
+		const singular = count === 1;
+		switch (noun) {
+			case 'approval':
+				return singular ? l10n.t('{0} approval', count) : l10n.t('{0} approvals', count);
+			case 'change request':
+				return singular ? l10n.t('{0} change request', count) : l10n.t('{0} change requests', count);
+			case 'review comment':
+				return singular ? l10n.t('{0} review comment', count) : l10n.t('{0} review comments', count);
+			case 'comments':
+				return singular ? l10n.t('{0} comment', count) : l10n.t('{0} comments', count);
+			default:
+				return `${count} ${noun}`;
+		}
 	}
 
 	/** Same glyph/label vocabulary as `<issue-pull-request>`, so a PR's review state reads identically
@@ -245,11 +288,11 @@ export class GlPrTooltip extends LitElement {
 	private renderReviewDecision(decision: `${PullRequestReviewDecision}` | undefined) {
 		switch (decision) {
 			case 'Approved':
-				return this.renderSignal('pass', 'Approved', 'mergeable');
+				return this.renderSignal('pass', l10n.t('Approved'), 'mergeable');
 			case 'ChangesRequested':
-				return this.renderSignal('request-changes', 'Changes Requested', 'attention');
+				return this.renderSignal('request-changes', l10n.t('Changes Requested'), 'attention');
 			case 'ReviewRequired':
-				return this.renderSignal('comment-unresolved', 'Review Required');
+				return this.renderSignal('comment-unresolved', l10n.t('Review Required'));
 			default:
 				return nothing;
 		}

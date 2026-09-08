@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
@@ -77,7 +77,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 					'DiffWithWorkingCommand',
 					`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 				);
-				void showGenericErrorMessage('Unable to open compare');
+				void showGenericErrorMessage(l10n.t('Unable to open compare'));
 
 				return;
 			}
@@ -85,12 +85,14 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		// If the sha is missing, just let the user know the file matches
 		if (gitUri.sha == null) {
-			void window.showInformationMessage('File matches the working tree');
+			void window.showInformationMessage(l10n.t('File matches the working tree'));
 
 			return;
 		}
 		if (gitUri.sha === deletedOrMissing) {
-			void window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+			void window.showWarningMessage(
+				l10n.t('Unable to open compare. File has been deleted from the working tree'),
+			);
 
 			return;
 		}
@@ -118,8 +120,8 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			const picked = await showWorkingFilesPicker(this.container, gitUri.repoPath!, {
 				ignoreFocusOut: true,
 				initialPath: gitUri.relativePath,
-				title: `Open File \u2022 Unable to open '${gitUri.relativePath}'`,
-				placeholder: 'Choose another working file to open',
+				title: l10n.t("Open File \u2022 Unable to open '{0}'", gitUri.relativePath),
+				placeholder: l10n.t('Choose another working file to open'),
 				keyboard: {
 					keys: ['right', 'alt+right', 'ctrl+right'],
 					onDidPressKey: async (_key, uri) => {
@@ -137,17 +139,20 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			? await svc.getSubmoduleDiffUris(workingUri, gitUri.relativePath, gitUri.sha)
 			: undefined;
 		if (submoduleDiff) {
+			const lhsTitle =
+				args?.lhsTitle ?? l10n.t('{0} ({1})', gitUri.relativePath, shortenRevision(submoduleDiff.lhsSha));
+			const rhsTitle = l10n.t('{0} ({1})', gitUri.relativePath, shortenRevision(uncommitted));
 			void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 				repoPath: gitUri.repoPath,
 				lhs: {
 					sha: submoduleDiff.lhsSha,
 					uri: submoduleDiff.lhsUri,
-					title: args?.lhsTitle ?? `${gitUri.relativePath} (${shortenRevision(submoduleDiff.lhsSha)})`,
+					title: lhsTitle,
 				},
 				rhs: {
 					sha: uncommitted,
 					uri: submoduleDiff.rhsUri,
-					title: `${gitUri.relativePath} (${shortenRevision(uncommitted)})`,
+					title: rhsTitle,
 				},
 				showOptions: args.showOptions,
 			}));

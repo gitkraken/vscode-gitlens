@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitConflictCommand, GitServiceContext } from '@gitlens/git/context.js';
 import {
@@ -732,7 +733,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		if (options?.autosquash != null) {
 			if (options.autosquash && options.programmaticEditor) {
-				throw new Error('rebase: autosquash cannot be combined with programmaticEditor');
+				throw new Error(l10n.t('rebase: autosquash cannot be combined with programmaticEditor'));
 			}
 
 			// `--no-autosquash` is passed explicitly when `false` — omitting the flag would let a

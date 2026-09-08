@@ -1,5 +1,5 @@
 import type { CancellationToken, Disposable, StatusBarItem } from 'vscode';
-import { CancellationTokenSource, env, StatusBarAlignment, Uri, window } from 'vscode';
+import { CancellationTokenSource, env, l10n, StatusBarAlignment, Uri, window } from 'vscode';
 import { uuid } from '@gitlens/utils/crypto.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import type { DeferredEvent, DeferredEventExecutor } from '@gitlens/utils/event.js';
@@ -158,7 +158,7 @@ export class AuthenticationConnection implements Disposable {
 					input.onDidHide(() => resolve(undefined)),
 					input.onDidChangeValue(e => {
 						if (!e) {
-							input.validationMessage = 'Please enter a valid code';
+							input.validationMessage = l10n.t('Please enter a valid code');
 							return;
 						}
 
@@ -167,9 +167,9 @@ export class AuthenticationConnection implements Disposable {
 					input.onDidAccept(() => resolve(input.value)),
 				);
 
-				input.title = 'GitLens Sign In';
-				input.placeholder = 'Please enter the provided authorization code';
-				input.prompt = 'If the auto-redirect fails, paste the authorization code';
+				input.title = l10n.t('GitLens Sign In');
+				input.placeholder = l10n.t('Please enter the provided authorization code');
+				input.prompt = l10n.t('If the auto-redirect fails, paste the authorization code');
 
 				input.show();
 			});
@@ -189,7 +189,7 @@ export class AuthenticationConnection implements Disposable {
 		if (state != null && scopeKey != null) {
 			const existingStates = this._pendingStates.get(scopeKey);
 			if (!existingStates?.includes(state)) {
-				throw new Error('Getting token failed: Invalid state');
+				throw new Error(l10n.t('Getting token failed: Invalid state'));
 			}
 		}
 
@@ -208,12 +208,12 @@ export class AuthenticationConnection implements Disposable {
 		);
 
 		if (!rsp.ok) {
-			throw new Error(`Getting token failed: (${rsp.status}) ${rsp.statusText}`);
+			throw new Error(l10n.t('Getting token failed: ({0}) {1}', rsp.status, rsp.statusText));
 		}
 
 		const json: { access_token: string } = (await rsp.json()) as { access_token: string };
 		if (json.access_token == null) {
-			throw new Error('Getting token failed: No access token returned');
+			throw new Error(l10n.t('Getting token failed: No access token returned'));
 		}
 
 		return json.access_token;
@@ -224,7 +224,7 @@ export class AuthenticationConnection implements Disposable {
 			const queryParams: URLSearchParams = new URLSearchParams(uri.query);
 			const code = queryParams.get('code');
 			if (code == null) {
-				reject('Code not returned');
+				reject(l10n.t('Code not returned'));
 				return;
 			}
 
@@ -235,8 +235,8 @@ export class AuthenticationConnection implements Disposable {
 	private updateStatusBarItem(signingIn?: boolean) {
 		if (signingIn && this._statusBarItem == null) {
 			this._statusBarItem = window.createStatusBarItem('gitlens.plus.signIn', StatusBarAlignment.Left);
-			this._statusBarItem.name = 'GitLens Sign in';
-			this._statusBarItem.text = 'Signing in to GitKraken...';
+			this._statusBarItem.name = l10n.t('GitLens Sign in');
+			this._statusBarItem.text = l10n.t('Signing in to GitKraken...');
 			this._statusBarItem.show();
 		}
 
@@ -263,7 +263,7 @@ export class AuthenticationConnection implements Disposable {
 		});
 
 		if (!rsp.ok) {
-			throw new Error(`Failed to get exchange token: (${rsp.status}) ${rsp.statusText}`);
+			throw new Error(l10n.t('Failed to get exchange token: ({0}) {1}', rsp.status, rsp.statusText));
 		}
 
 		const json: { data: { exchangeToken: string } } = (await rsp.json()) as { data: { exchangeToken: string } };

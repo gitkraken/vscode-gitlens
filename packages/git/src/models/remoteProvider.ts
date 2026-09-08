@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { encodeUrl } from '@gitlens/utils/encoding.js';
 import type { Uri } from '@gitlens/utils/uri.js';
@@ -101,7 +102,7 @@ export abstract class RemoteProvider<T extends ResourceDescriptor = ResourceDesc
 			{
 				url: this.issueLinkPattern,
 				prefix: '',
-				title: `Open Issue #<num> on ${this.name}`,
+				title: l10n.t('Open Issue #{number} on {provider}', { number: '<num>', provider: this.name }),
 				referenceType: 'branch',
 				alphanumeric: false,
 				ignoreCase: true,

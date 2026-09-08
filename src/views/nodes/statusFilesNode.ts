@@ -1,13 +1,14 @@
-import { TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { l10n, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileWithCommit } from '@gitlens/git/models/file.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitStatusFile } from '@gitlens/git/models/statusFile.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { filter, flatMap, groupBy, map } from '@gitlens/utils/iterable.js';
 import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
-import { pluralize, sortCompare } from '@gitlens/utils/string.js';
+import { sortCompare } from '@gitlens/utils/string.js';
 import { GitUri } from '../../git/gitUri.js';
 import { getCommitDate } from '../../git/utils/-webview/commit.utils.js';
 import { getStatusFilePseudoCommits } from '../../git/utils/-webview/statusFile.utils.js';
@@ -130,7 +131,12 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 			}
 		}
 
-		const label = files === -1 ? '?? files changed' : `${pluralize('file', files)} changed`;
+		const label =
+			files === -1
+				? l10n.t('?? files changed')
+				: files === 1
+					? l10n.t('{0} file changed', getNumericFormat()(files))
+					: l10n.t('{0} files changed', getNumericFormat()(files));
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.description = 'working tree';
 		item.id = this.id;

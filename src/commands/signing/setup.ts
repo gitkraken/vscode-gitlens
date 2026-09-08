@@ -1,6 +1,7 @@
 import type { TextEditor, Uri } from 'vscode';
-import { window, workspace } from 'vscode';
+import { l10n, window, workspace } from 'vscode';
 import type { Container } from '../../container.js';
+import { getPresentableErrorMessage } from '../../errors.js';
 import { command } from '../../system/-webview/command.js';
 import { GlCommandBase } from '../commandBase.js';
 import { getCommandUri } from '../commandBase.utils.js';
@@ -34,13 +35,13 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 		}
 
 		if (repository == null) {
-			void window.showErrorMessage('Unable to find a repository to configure signing for');
+			void window.showErrorMessage(l10n.t('Unable to find a repository to configure signing for'));
 			return;
 		}
 
 		// Check if the git provider supports getSigningConfig
 		if (repository.git.config.getSigningConfig == null) {
-			void window.showErrorMessage('Commit signing is not supported by the current git provider.');
+			void window.showErrorMessage(l10n.t('Commit signing is not supported by the current git provider.'));
 			return;
 		}
 
@@ -54,17 +55,22 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 		});
 
 		if (alreadyConfigured) {
+			const reconfigure = { title: l10n.t('Reconfigure') };
+			const testSigning = { title: l10n.t('Test Signing') };
 			const result = await window.showInformationMessage(
-				`Commit signing is already configured using ${signingConfig?.format?.toUpperCase() ?? 'GPG'}.`,
+				l10n.t(
+					'Commit signing is already configured using {0}.',
+					signingConfig?.format?.toUpperCase() ?? 'GPG',
+				),
 				{ modal: false },
-				'Reconfigure',
-				'Test Signing',
+				reconfigure,
+				testSigning,
 			);
 
-			if (result === 'Test Signing') {
+			if (result === testSigning) {
 				await this.testSigning(repository);
 				return;
-			} else if (result !== 'Reconfigure') {
+			} else if (result !== reconfigure) {
 				return;
 			}
 		}
@@ -78,7 +84,7 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 
 		// Check if the git provider supports setSigningConfig
 		if (repository.git.config.setSigningConfig == null) {
-			void window.showErrorMessage('Commit signing is not supported by the current git provider.');
+			void window.showErrorMessage(l10n.t('Commit signing is not supported by the current git provider.'));
 			return;
 		}
 
@@ -97,8 +103,8 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 		}> = [
 			{
 				label: '$(key) GPG',
-				description: 'Sign commits with GPG',
-				detail: 'Uses GPG (GNU Privacy Guard) for signing commits',
+				description: l10n.t('Sign commits with GPG'),
+				detail: l10n.t('Uses GPG (GNU Privacy Guard) for signing commits'),
 				value: 'gpg',
 			},
 		];
@@ -106,8 +112,8 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 		if (supportsSSH) {
 			options.push({
 				label: '$(key) SSH',
-				description: 'Sign commits with SSH',
-				detail: 'Uses SSH keys for signing commits (requires Git 2.34+)',
+				description: l10n.t('Sign commits with SSH'),
+				detail: l10n.t('Uses SSH keys for signing commits (requires Git 2.34+)'),
 				value: 'ssh',
 			});
 		}
@@ -115,25 +121,28 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 		if (supportsX509) {
 			options.push({
 				label: '$(key) X.509',
-				description: 'Sign commits with X.509',
-				detail: 'Uses X.509 certificates for signing commits (requires Git 2.19+)',
+				description: l10n.t('Sign commits with X.509'),
+				detail: l10n.t('Uses X.509 certificates for signing commits (requires Git 2.19+)'),
 				value: 'x509',
 			});
 		}
 
 		const format = await window.showQuickPick(options, {
-			title: 'Commit Signing Setup',
-			placeHolder: 'Choose a signing format',
+			title: l10n.t('Commit Signing Setup'),
+			placeHolder: l10n.t('Choose a signing format'),
 			ignoreFocusOut: true,
 		});
 
 		if (format == null) return;
 
 		// Get signing key
-		const placeholder = format.value === 'ssh' ? '~/.ssh/id_ed25519.pub' : 'Your key ID';
+		const placeholder = format.value === 'ssh' ? '~/.ssh/id_ed25519.pub' : l10n.t('Your key ID');
 		let signingKey = await window.showInputBox({
-			title: 'Commit Signing Setup',
-			prompt: `Enter your ${format.value.toUpperCase()} signing key ${format.value === 'ssh' ? '(file path)' : '(key ID)'}`,
+			title: l10n.t('Commit Signing Setup'),
+			prompt:
+				format.value === 'ssh'
+					? l10n.t('Enter your SSH signing key (file path)')
+					: l10n.t('Enter your {0} signing key (key ID)', format.value.toUpperCase()),
 			placeHolder: placeholder,
 			ignoreFocusOut: true,
 		});
@@ -154,13 +163,14 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 				{ global: true },
 			);
 
+			const testSigning = { title: l10n.t('Test Signing') };
 			const result = await window.showInformationMessage(
-				`Commit signing has been configured globally using ${format.value.toUpperCase()}.`,
+				l10n.t('Commit signing has been configured globally using {0}.', format.value.toUpperCase()),
 				{ modal: false },
-				'Test Signing',
+				testSigning,
 			);
 
-			if (result === 'Test Signing') {
+			if (result === testSigning) {
 				await this.testSigning(repository);
 			}
 
@@ -171,7 +181,7 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 			});
 		} catch (ex) {
 			void window.showErrorMessage(
-				`Failed to configure commit signing: ${ex instanceof Error ? ex.message : String(ex)}`,
+				l10n.t('Failed to configure commit signing: {0}', getPresentableErrorMessage(ex)),
 			);
 		}
 	}
@@ -181,7 +191,7 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 
 		// Check if the git provider supports validateSigningSetup
 		if (repository.git.config.validateSigningSetup == null) {
-			void window.showErrorMessage('Commit signing is not supported by the current git provider.');
+			void window.showErrorMessage(l10n.t('Commit signing is not supported by the current git provider.'));
 			return;
 		}
 
@@ -189,9 +199,13 @@ export class SetupSigningWizardCommand extends GlCommandBase {
 		const validation = await repository.git.config.validateSigningSetup();
 
 		if (validation?.valid) {
-			void window.showInformationMessage('✓ Commit signing is configured correctly and ready to use.');
+			void window.showInformationMessage(l10n.t('✓ Commit signing is configured correctly and ready to use.'));
 		} else {
-			void window.showWarningMessage(`Commit signing validation failed: ${validation?.error ?? 'Unknown error'}`);
+			void window.showWarningMessage(
+				validation?.error == null
+					? l10n.t('Commit signing validation failed: Unknown error')
+					: l10n.t('Commit signing validation failed: {0}', validation.error),
+			);
 		}
 	}
 }

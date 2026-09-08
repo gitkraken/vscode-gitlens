@@ -9,6 +9,7 @@ import type {
 	KeyBindingOverrides,
 	OverlayEntry,
 	SheetDisplayEntry,
+	SheetDisplayText,
 } from './keybinding.js';
 import { registerBinding, resolveKeydown, resolveOverlayClose } from './keybinding.js';
 
@@ -23,6 +24,8 @@ export type KeymapSheetRow = {
 	order?: number;
 	keys: readonly SheetDisplayEntry[];
 	subline?: readonly SheetDisplayEntry[];
+	/** Whole localized subline; takes precedence over legacy display entries. */
+	sublineText?: SheetDisplayText;
 	/** The row's own id (if any) followed by each contributing partner's id — for the row tooltip.
 	 *  Absent (rather than empty) when the row has no ids at all — a fixed/residual row. */
 	ids?: readonly string[];
@@ -246,6 +249,7 @@ export class KeymapDispatcher<TScope extends string> {
 					order: sheet.order,
 					keys: keys,
 					subline: sheet.subline,
+					sublineText: sheet.sublineText,
 					ids: ids.length > 0 ? ids : undefined,
 				});
 			}

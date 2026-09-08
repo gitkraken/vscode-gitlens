@@ -1,5 +1,5 @@
 import type { QuickPickItem, SecretStorageChangeEvent } from 'vscode';
-import { Disposable, env, EventEmitter, ProgressLocation, Range, Uri, window, workspace } from 'vscode';
+import { Disposable, env, EventEmitter, l10n, ProgressLocation, Range, Uri, window, workspace } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
@@ -66,6 +66,90 @@ type OpenLocationQuickPickItem = {
 	label: string;
 	action?: OpenWorkspaceLocation;
 };
+
+function getOpeningLinkProgressTitle(type: DeepLinkType): string {
+	switch (type) {
+		case DeepLinkType.Branch:
+			return l10n.t('Opening Branch link...');
+		case DeepLinkType.Command:
+			return l10n.t('Opening Command link...');
+		case DeepLinkType.Commit:
+			return l10n.t('Opening Commit link...');
+		case DeepLinkType.Comparison:
+			return l10n.t('Opening Comparison link...');
+		case DeepLinkType.Draft:
+			return l10n.t('Opening Cloud Patch link...');
+		case DeepLinkType.File:
+			return l10n.t('Opening File link...');
+		case DeepLinkType.Integrations:
+			return l10n.t('Opening Integrations link...');
+		case DeepLinkType.Repository:
+			return l10n.t('Opening Repository link...');
+		case DeepLinkType.Tag:
+			return l10n.t('Opening Tag link...');
+		case DeepLinkType.Workspace:
+			return l10n.t('Opening Workspace link...');
+		default:
+			debugger;
+			return l10n.t('Opening Unknown link...');
+	}
+}
+
+function getOpeningLinkAccountMessage(type: DeepLinkType): string {
+	switch (type) {
+		case DeepLinkType.Branch:
+			return l10n.t('Opening Branch links is a Preview feature and requires an account.');
+		case DeepLinkType.Command:
+			return l10n.t('Opening Command links is a Preview feature and requires an account.');
+		case DeepLinkType.Commit:
+			return l10n.t('Opening Commit links is a Preview feature and requires an account.');
+		case DeepLinkType.Comparison:
+			return l10n.t('Opening Comparison links is a Preview feature and requires an account.');
+		case DeepLinkType.Draft:
+			return l10n.t('Opening Cloud Patch links is a Preview feature and requires an account.');
+		case DeepLinkType.File:
+			return l10n.t('Opening File links is a Preview feature and requires an account.');
+		case DeepLinkType.Integrations:
+			return l10n.t('Opening Integrations links is a Preview feature and requires an account.');
+		case DeepLinkType.Repository:
+			return l10n.t('Opening Repository links is a Preview feature and requires an account.');
+		case DeepLinkType.Tag:
+			return l10n.t('Opening Tag links is a Preview feature and requires an account.');
+		case DeepLinkType.Workspace:
+			return l10n.t('Opening Workspace links is a Preview feature and requires an account.');
+		default:
+			debugger;
+			return l10n.t('Opening Unknown links is a Preview feature and requires an account.');
+	}
+}
+
+function getOpeningLinkPaidMessage(type: DeepLinkType): string {
+	switch (type) {
+		case DeepLinkType.Branch:
+			return l10n.t('Opening Branch links is a Pro feature.');
+		case DeepLinkType.Command:
+			return l10n.t('Opening Command links is a Pro feature.');
+		case DeepLinkType.Commit:
+			return l10n.t('Opening Commit links is a Pro feature.');
+		case DeepLinkType.Comparison:
+			return l10n.t('Opening Comparison links is a Pro feature.');
+		case DeepLinkType.Draft:
+			return l10n.t('Opening Cloud Patch links is a Pro feature.');
+		case DeepLinkType.File:
+			return l10n.t('Opening File links is a Pro feature.');
+		case DeepLinkType.Integrations:
+			return l10n.t('Opening Integrations links is a Pro feature.');
+		case DeepLinkType.Repository:
+			return l10n.t('Opening Repository links is a Pro feature.');
+		case DeepLinkType.Tag:
+			return l10n.t('Opening Tag links is a Pro feature.');
+		case DeepLinkType.Workspace:
+			return l10n.t('Opening Workspace links is a Pro feature.');
+		default:
+			debugger;
+			return l10n.t('Opening Unknown links is a Pro feature.');
+	}
+}
 
 export class DeepLinkService implements Disposable {
 	private _context: DeepLinkServiceContext;
@@ -188,13 +272,13 @@ export class DeepLinkService implements Disposable {
 					!link.repoPath &&
 					!link.targetId)
 			) {
-				void window.showErrorMessage('Unable to resolve link');
+				void window.showErrorMessage(l10n.t('Unable to resolve link'));
 				Logger.warn(`Unable to resolve link - missing basic properties: ${uri.toString()}`);
 				return;
 			}
 
 			if (!Object.values(DeepLinkType).includes(link.type)) {
-				void window.showErrorMessage('Unable to resolve link');
+				void window.showErrorMessage(l10n.t('Unable to resolve link'));
 				Logger.warn(`Unable to resolve link - unknown link type: ${uri.toString()}`);
 				return;
 			}
@@ -205,13 +289,13 @@ export class DeepLinkService implements Disposable {
 				link.targetId == null &&
 				link.mainId == null
 			) {
-				void window.showErrorMessage('Unable to resolve link');
+				void window.showErrorMessage(l10n.t('Unable to resolve link'));
 				Logger.warn(`Unable to resolve link - no main/target id provided: ${uri.toString()}`);
 				return;
 			}
 
 			if (link.type === DeepLinkType.Comparison && link.secondaryTargetId == null) {
-				void window.showErrorMessage('Unable to resolve link');
+				void window.showErrorMessage(l10n.t('Unable to resolve link'));
 				Logger.warn(`Unable to resolve link - no secondary target id provided: ${uri.toString()}`);
 				return;
 			}
@@ -534,23 +618,24 @@ export class DeepLinkService implements Disposable {
 		customMessage?: string;
 	}): Promise<DeepLinkRepoOpenType | undefined> {
 		const openOptions: OpenQuickPickItem[] = [
-			{ label: 'Choose a Local Folder...', action: 'folder' },
-			{ label: 'Choose a Workspace File...', action: 'workspace' },
+			{ label: l10n.t('Choose a Local Folder...'), action: 'folder' },
+			{ label: l10n.t('Choose a Workspace File...'), action: 'workspace' },
 		];
 
 		if (this._context.remoteUrl != null) {
-			openOptions.push({ label: 'Clone Repository...', action: 'clone' });
+			openOptions.push({ label: l10n.t('Clone Repository...'), action: 'clone' });
 		}
 
 		if (options?.includeCurrent) {
-			openOptions.push(createQuickPickSeparator(), { label: 'Use Current Window', action: 'current' });
+			openOptions.push(createQuickPickSeparator(), { label: l10n.t('Use Current Window'), action: 'current' });
 		}
 
-		openOptions.push(createQuickPickSeparator(), { label: 'Cancel' });
+		openOptions.push(createQuickPickSeparator(), { label: l10n.t('Cancel') });
 		const openTypeResult = await window.showQuickPick(openOptions, {
-			title: 'Locating Repository',
+			title: l10n.t('Locating Repository'),
 			placeHolder:
-				options?.customMessage ?? 'Unable to locate a matching repository, please choose how to locate it',
+				options?.customMessage ??
+				l10n.t('Unable to locate a matching repository, please choose how to locate it'),
 		});
 
 		return openTypeResult?.action;
@@ -559,56 +644,59 @@ export class DeepLinkService implements Disposable {
 	private async showOpenLocationPrompt(openType: DeepLinkRepoOpenType): Promise<OpenWorkspaceLocation | undefined> {
 		// Only add the "add to workspace" option if openType is 'folder'
 		const openOptions: OpenLocationQuickPickItem[] = [
-			{ label: 'Open in Current Window', action: 'currentWindow' },
-			{ label: 'Open in New Window', action: 'newWindow' },
+			{ label: l10n.t('Open in Current Window'), action: 'currentWindow' },
+			{ label: l10n.t('Open in New Window'), action: 'newWindow' },
 		];
 
 		if (openType !== 'workspace') {
-			openOptions.push({ label: 'Add Folder to Workspace', action: 'addToWorkspace' });
+			openOptions.push({ label: l10n.t('Add Folder to Workspace'), action: 'addToWorkspace' });
 		}
 
-		let suffix;
+		let title: string;
+		let placeHolder: string;
 		switch (openType) {
 			case 'clone':
-				suffix = ' \u00a0\u2022\u00a0 Clone';
+				title = l10n.t('Locating Repository \u00a0\u2022\u00a0 Clone');
+				placeHolder = l10n.t('Please choose where to open the repository after cloning');
 				break;
 			case 'folder':
-				suffix = ' \u00a0\u2022\u00a0 Folder';
+				title = l10n.t('Locating Repository \u00a0\u2022\u00a0 Folder');
+				placeHolder = l10n.t('Please choose where to open the repository folder');
 				break;
 			case 'workspace':
-				suffix = ' \u00a0\u2022\u00a0 Workspace from File';
+				title = l10n.t('Locating Repository \u00a0\u2022\u00a0 Workspace from File');
+				placeHolder = l10n.t('Please choose where to open the repository workspace');
 				break;
 			case 'current':
-				suffix = '';
+				title = l10n.t('Locating Repository');
+				placeHolder = l10n.t('Please choose where to open the repository current');
 				break;
 		}
 
-		openOptions.push(createQuickPickSeparator(), { label: 'Cancel' });
+		openOptions.push(createQuickPickSeparator(), { label: l10n.t('Cancel') });
 		const openLocationResult = await window.showQuickPick(openOptions, {
-			title: `Locating Repository${suffix}`,
-			placeHolder: `Please choose where to open the repository ${
-				openType === 'clone' ? 'after cloning' : openType
-			}`,
+			title: title,
+			placeHolder: placeHolder,
 		});
 
 		return openLocationResult?.action;
 	}
 
 	private async showAddRemotePrompt(remoteUrl: string, existingRemoteNames: string[]): Promise<string | undefined> {
-		const add: QuickPickItem = { label: 'Add Remote' };
-		const cancel: QuickPickItem = { label: 'Cancel' };
+		const add: QuickPickItem = { label: l10n.t('Add Remote') };
+		const cancel: QuickPickItem = { label: l10n.t('Cancel') };
 		const result = await window.showQuickPick([add, cancel], {
-			title: `Locating Remote`,
-			placeHolder: `Unable to find remote for '${remoteUrl}', would you like to add a new remote?`,
+			title: l10n.t('Locating Remote'),
+			placeHolder: l10n.t("Unable to find remote for '{0}', would you like to add a new remote?", remoteUrl),
 		});
 		if (result !== add) return undefined;
 
 		const remoteName = await window.showInputBox({
-			prompt: 'Enter a name for the remote',
+			prompt: l10n.t('Enter a name for the remote'),
 			value: getMaybeRemoteNameFromRemoteUrl(remoteUrl),
 			validateInput: value => {
-				if (!value) return 'A name is required';
-				if (existingRemoteNames.includes(value)) return 'A remote with that name already exists';
+				if (!value) return l10n.t('A name is required');
+				if (existingRemoteNames.includes(value)) return l10n.t('A remote with that name already exists');
 				return undefined;
 			},
 		});
@@ -657,7 +745,7 @@ export class DeepLinkService implements Disposable {
 				// Nothing opted out of progress comes from a link the user followed, so a message about an
 				// unresolvable link would be reported against an action they never took
 				if (useProgress) {
-					void window.showErrorMessage('Unable to resolve link');
+					void window.showErrorMessage(l10n.t('Unable to resolve link'));
 				}
 			}
 
@@ -683,7 +771,7 @@ export class DeepLinkService implements Disposable {
 				{
 					cancellable: true,
 					location: ProgressLocation.Notification,
-					title: `Opening ${deepLinkTypeToString(targetType ?? DeepLinkType.Repository)} link...`,
+					title: getOpeningLinkProgressTitle(targetType ?? DeepLinkType.Repository),
 				},
 				(progress, token) => {
 					progress.report({ increment: 0 });
@@ -767,7 +855,7 @@ export class DeepLinkService implements Disposable {
 			switch (state) {
 				case DeepLinkServiceState.Idle: {
 					if (action === DeepLinkServiceAction.DeepLinkErrored) {
-						void window.showErrorMessage('Unable to resolve link');
+						void window.showErrorMessage(l10n.t('Unable to resolve link'));
 						Logger.warn(`Unable to resolve link - ${message}: ${url}`);
 					}
 
@@ -790,20 +878,14 @@ export class DeepLinkService implements Disposable {
 					}
 
 					if (
-						!(await ensureAccount(
-							this.container,
-							`Opening ${deepLinkTypeToString(
-								targetType,
-							)} links is a Preview feature and requires an account.`,
-							{
-								source: 'deeplink',
-								detail: {
-									action: 'open',
-									type: targetType,
-									friendlyType: deepLinkTypeToString(targetType),
-								},
+						!(await ensureAccount(this.container, getOpeningLinkAccountMessage(targetType), {
+							source: 'deeplink',
+							detail: {
+								action: 'open',
+								type: targetType,
+								friendlyType: deepLinkTypeToString(targetType),
 							},
-						))
+						}))
 					) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'Account required to open link';
@@ -825,18 +907,14 @@ export class DeepLinkService implements Disposable {
 					}
 
 					if (
-						!(await ensurePaidPlan(
-							this.container,
-							`Opening ${deepLinkTypeToString(targetType)} links is a Pro feature.`,
-							{
-								source: 'deeplink',
-								detail: {
-									action: 'open',
-									type: targetType,
-									friendlyType: deepLinkTypeToString(targetType),
-								},
+						!(await ensurePaidPlan(this.container, getOpeningLinkPaidMessage(targetType), {
+							source: 'deeplink',
+							detail: {
+								action: 'open',
+								type: targetType,
+								friendlyType: deepLinkTypeToString(targetType),
 							},
-						))
+						}))
 					) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'GitLens Pro is required to open link';
@@ -933,28 +1011,42 @@ export class DeepLinkService implements Disposable {
 					}
 
 					let chosenRepoPath: string | undefined;
+					let chooseDifferentLocation = false;
 					let repoOpenType: DeepLinkRepoOpenType | undefined;
 
 					if (matchingLocalRepoPaths.length > 0) {
-						chosenRepoPath = await window.showQuickPick(
-							[...matchingLocalRepoPaths, 'Choose a different location'],
-							{ placeHolder: 'Matching repository found. Choose a location to open it.' },
+						const chooseDifferentLocationItem = {
+							label: l10n.t('Choose a different location'),
+							action: 'choose' as const,
+						};
+						const chosenRepo = await window.showQuickPick(
+							[
+								...matchingLocalRepoPaths.map(repoPath => ({
+									label: repoPath,
+									action: 'open' as const,
+									repoPath: repoPath,
+								})),
+								chooseDifferentLocationItem,
+							],
+							{ placeHolder: l10n.t('Matching repository found. Choose a location to open it.') },
 						);
 
-						if (chosenRepoPath == null) {
+						if (chosenRepo == null) {
 							action = DeepLinkServiceAction.DeepLinkCancelled;
 							break;
-						} else if (chosenRepoPath !== 'Choose a different location') {
+						} else if (chosenRepo.action === 'open') {
+							chosenRepoPath = chosenRepo.repoPath;
 							this._context.repoOpenUri = Uri.file(chosenRepoPath);
 							repoOpenType = 'folder';
+						} else {
+							chooseDifferentLocation = true;
 						}
 					}
 
 					repoOpenType ??= await this.showOpenTypePrompt({
-						customMessage:
-							chosenRepoPath === 'Choose a different location'
-								? 'Please choose an option to open the repository'
-								: undefined,
+						customMessage: chooseDifferentLocation
+							? l10n.t('Please choose an option to open the repository')
+							: undefined,
 					});
 
 					if (!repoOpenType) {
@@ -970,16 +1062,27 @@ export class DeepLinkService implements Disposable {
 
 					this._context.repoOpenLocation = repoOpenLocation;
 
+					let openDialogTitle: string;
+					switch (repoOpenType) {
+						case 'clone':
+							openDialogTitle = l10n.t('Choose a folder to clone the repository to');
+							break;
+						case 'workspace':
+							openDialogTitle = l10n.t('Choose a workspace to open the repository');
+							break;
+						case 'folder':
+						case 'current':
+							openDialogTitle = l10n.t('Choose a folder to open the repository');
+							break;
+					}
 					this._context.repoOpenUri ??= (
 						await window.showOpenDialog({
-							title: `Choose a ${repoOpenType === 'workspace' ? 'workspace' : 'folder'} to ${
-								repoOpenType === 'clone' ? 'clone the repository to' : 'open the repository'
-							}`,
+							title: openDialogTitle,
 							canSelectFiles: repoOpenType === 'workspace',
 							canSelectFolders: repoOpenType !== 'workspace',
 							canSelectMany: false,
 							...(repoOpenType === 'workspace' && {
-								filters: { Workspaces: ['code-workspace'] },
+								filters: { [l10n.t('Workspaces')]: ['code-workspace'] },
 							}),
 						})
 					)?.[0];
@@ -996,7 +1099,7 @@ export class DeepLinkService implements Disposable {
 							repoClonePath = await window.withProgress(
 								{
 									location: ProgressLocation.Notification,
-									title: `Cloning repository for link: ${this._context.url}}`,
+									title: l10n.t('Cloning repository for link: {0}}', String(this._context.url)),
 								},
 
 								async () =>
@@ -1640,7 +1743,11 @@ export class DeepLinkService implements Disposable {
 							lhs: prBaseRef,
 							rhs: prHeadRef,
 						},
-						{ title: `Changes in Pull Request ${prTitle ? `"${prTitle}"` : `#${prId}`}` },
+						{
+							title: prTitle
+								? l10n.t('Changes in Pull Request "{0}"', prTitle)
+								: l10n.t('Changes in Pull Request #{0}', prId!),
+						},
 					);
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
@@ -1783,7 +1890,11 @@ export class DeepLinkService implements Disposable {
 								lhs: prBaseRef.sha,
 								rhs: prHeadRef.sha,
 							},
-							{ title: `Changes in Pull Request ${pr.title ? `"${pr.title}"` : `#${pr.id}`}` },
+							{
+								title: pr.title
+									? l10n.t('Changes in Pull Request "{0}"', pr.title)
+									: l10n.t('Changes in Pull Request #{0}', pr.id),
+							},
 						);
 					}
 

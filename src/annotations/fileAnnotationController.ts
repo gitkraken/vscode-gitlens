@@ -14,6 +14,7 @@ import {
 	DecorationRangeBehavior,
 	Disposable,
 	EventEmitter,
+	l10n,
 	OverviewRulerLane,
 	ProgressLocation,
 	ThemeColor,
@@ -628,24 +629,26 @@ export class FileAnnotationController implements Disposable {
 		progress?: Progress<{ message: string }>,
 	): Promise<AnnotationProviderBase | undefined> {
 		if (progress != null) {
-			let annotationsLabel = 'annotations';
+			let message: string;
 			switch (type) {
 				case 'blame':
-					annotationsLabel = 'blame annotations';
+					message = l10n.t('Computing blame annotations for {0}', basename(editor.document.fileName));
 					break;
 
 				case 'changes':
-					annotationsLabel = 'changes annotations';
+					message = l10n.t('Computing changes annotations for {0}', basename(editor.document.fileName));
 					break;
 
 				case 'heatmap':
-					annotationsLabel = 'heatmap annotations';
+					message = l10n.t('Computing heatmap annotations for {0}', basename(editor.document.fileName));
+					break;
+
+				default:
+					message = l10n.t('Computing annotations for {0}', basename(editor.document.fileName));
 					break;
 			}
 
-			progress.report({
-				message: `Computing ${annotationsLabel} for ${basename(editor.document.fileName)}`,
-			});
+			progress.report({ message: message });
 		}
 
 		// Allows pressing escape to exit the annotations

@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { Container } from '../../container.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
@@ -33,7 +34,7 @@ export interface TagGitCommandArgs {
 
 export class TagGitCommand extends QuickCommandWithSubcommands<Subcommands, State, TagContext> {
 	constructor(container: Container, args?: TagGitCommandArgs) {
-		super(container, 'tag', 'tag', 'Tag', { description: 'create, delete, or push tags' });
+		super(container, 'tag', 'tag', l10n.t('Tag'), { description: l10n.t('create, delete, or push tags') });
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
 	}

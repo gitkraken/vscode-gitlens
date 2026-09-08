@@ -1,4 +1,4 @@
-import { ProgressLocation, window } from 'vscode';
+import { l10n, ProgressLocation, window } from 'vscode';
 import { MergeError } from '@gitlens/git/errors.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
@@ -92,8 +92,8 @@ export interface SwitchGitCommandArgs {
 
 export class SwitchGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: SwitchGitCommandArgs) {
-		super(container, 'switch', 'switch', 'Switch to...', {
-			description: 'aka checkout, switches to a specified branch',
+		super(container, 'switch', 'switch', l10n.t('Switch to...'), {
+			description: l10n.t('aka checkout, switches to a specified branch'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -107,15 +107,20 @@ export class SwitchGitCommand extends QuickCommand<State> {
 	private async execute(state: StepState<State<GlRepository[]>>) {
 		const isRemoteBranch = isBranchReference(state.reference) && state.reference.remote;
 		const remoteBranchName = isRemoteBranch ? getReferenceNameWithoutRemote(state.reference) : undefined;
+		const referenceLabel = getReferenceLabel(state.reference, { icon: false, label: false });
+		const progressTitle =
+			isBranchReference(state.reference) || state.createBranch
+				? state.repos.length === 1
+					? l10n.t('Switching to {0} in {1}', referenceLabel, state.repos[0].name)
+					: l10n.t('Switching to {0} in {1} repos', referenceLabel, state.repos.length)
+				: state.repos.length === 1
+					? l10n.t('Checking out {0} in {1}', referenceLabel, state.repos[0].name)
+					: l10n.t('Checking out {0} in {1} repos', referenceLabel, state.repos.length);
 
 		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `${
-					isBranchReference(state.reference) || state.createBranch ? 'Switching to' : 'Checking out'
-				} ${getReferenceLabel(state.reference, { icon: false, label: false })} in ${
-					state.repos.length === 1 ? state.repos[0].name : `${state.repos.length} repos`
-				}`,
+				title: progressTitle,
 			},
 			() =>
 				Promise.all(
@@ -137,17 +142,17 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			} catch (ex) {
 				// Don't show an error message if the user intentionally aborted the merge
 				if (MergeError.is(ex, 'aborted')) {
-					Logger.debug(ex.message, this.title);
+					Logger.debug(ex.message, 'Switch to...');
 					return;
 				}
 
-				Logger.error(ex, this.title);
+				Logger.error(ex, 'Switch to...');
 				void showGitErrorMessage(
 					ex,
-					`Unable to fast-forward ${getReferenceLabel(state.reference, {
-						icon: false,
-						label: true,
-					})}`,
+					l10n.t(
+						'Unable to fast-forward {0}',
+						getReferenceLabel(state.reference, { icon: false, label: true }),
+					),
 				);
 			}
 		}
@@ -217,7 +222,10 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				using step = steps.enterStep(Steps.PickBranchOrTag);
 
 				const result = yield* pickBranchOrTagStepMultiRepo(state, context, {
-					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to switch to`,
+					placeholder: context =>
+						context.showTags
+							? l10n.t('Choose a branch or tag to switch to')
+							: l10n.t('Choose a branch to switch to'),
 					allowCreate: state.repos.length === 1,
 				});
 				if (result === StepResultBreak) {
@@ -279,15 +287,15 @@ export class SwitchGitCommand extends QuickCommand<State> {
 						} catch (ex) {
 							// Don't show an error message if the user intentionally aborted the merge
 							if (MergeError.is(ex, 'aborted')) {
-								Logger.debug(ex.message, this.title);
+								Logger.debug(ex.message, 'Switch to...');
 							} else {
-								Logger.error(ex, this.title);
+								Logger.error(ex, 'Switch to...');
 								void showGitErrorMessage(
 									ex,
-									`Unable to fast-forward ${getReferenceLabel(state.reference, {
-										icon: false,
-										label: true,
-									})}`,
+									l10n.t(
+										'Unable to fast-forward {0}',
+										getReferenceLabel(state.reference, { icon: false, label: true }),
+									),
 								);
 							}
 						}
@@ -308,17 +316,17 @@ export class SwitchGitCommand extends QuickCommand<State> {
 									confirmation: state.worktreeDefaultOpen
 										? undefined
 										: {
-												title: `Confirm Switch to Worktree \u2022 ${getReferenceLabel(
-													state.reference,
-													{
+												title: l10n.t(
+													'Confirm Switch to Worktree \u2022 {0}',
+													getReferenceLabel(state.reference, { icon: false, label: false }),
+												),
+												placeholder: l10n.t(
+													'{0} is linked to a worktree',
+													getReferenceLabel(state.reference, {
+														capitalize: true,
 														icon: false,
-														label: false,
-													},
-												)}`,
-												placeholder: `${getReferenceLabel(state.reference, {
-													capitalize: true,
-													icon: false,
-												})} is linked to a worktree`,
+													}),
+												),
 											},
 								},
 								onWorkspaceChanging: state.onWorkspaceChanging,
@@ -385,16 +393,19 @@ export class SwitchGitCommand extends QuickCommand<State> {
 					case 'switchToNewBranch': {
 						using step = steps.enterStep(Steps.InputBranchName);
 
-						context.title = `Switch to New Branch`;
+						context.title = l10n.t('Switch to New Branch');
 						this._canConfirmOverride = false;
 
 						const result = yield* inputBranchNameStep(state, context, {
-							prompt: 'Please provide a name for the new branch',
-							title: `${context.title} from ${getReferenceLabel(state.reference, {
-								capitalize: true,
-								icon: false,
-								label: state.reference.refType !== 'branch',
-							})}`,
+							prompt: l10n.t('Please provide a name for the new branch'),
+							title: l10n.t(
+								'Switch to New Branch from {0}',
+								getReferenceLabel(state.reference, {
+									capitalize: true,
+									icon: false,
+									label: state.reference.refType !== 'branch',
+								}),
+							),
 							value:
 								state.createBranch ?? // if it's a remote branch, pre-fill the name
 								(isBranchReference(state.reference) && state.reference.remote
@@ -439,17 +450,17 @@ export class SwitchGitCommand extends QuickCommand<State> {
 											.ops?.merge(fastForwardTo.ref, { fastForward: 'only' });
 									} catch (ex) {
 										if (MergeError.is(ex, 'aborted')) {
-											Logger.debug(ex.message, this.title);
+											Logger.debug(ex.message, 'Switch to...');
 											return;
 										}
 
-										Logger.error(ex, this.title);
+										Logger.error(ex, 'Switch to...');
 										void showGitErrorMessage(
 											ex,
-											`Unable to fast-forward ${getReferenceLabel(fastForwardTo, {
-												icon: false,
-												label: true,
-											})}`,
+											l10n.t(
+												'Unable to fast-forward {0}',
+												getReferenceLabel(fastForwardTo, { icon: false, label: true }),
+											),
 										);
 									}
 								},
@@ -522,7 +533,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		}
 
 		const singleRepo = state.repos.length === 1;
-		const multiRepoSuffix = state.repos.length > 1 ? ` in ${state.repos.length} repos` : '';
+		const repoCount = state.repos.length;
 
 		// One entry per target mode — the worktree toggle rewrites label/detail/choice in place rather
 		// than the old dedicated "Create Worktree for..." rows, so each mode carries its own via-worktree
@@ -540,9 +551,11 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 		if (!isBranchReference(state.reference)) {
 			modes.push({
-				label: `Checkout to ${getReferenceTypeLabel(state.reference)}`,
-				description: '(detached)',
-				detail: `Will checkout to ${getReferenceLabel(state.reference)}${multiRepoSuffix}`,
+				label: l10n.t('Checkout to {0}', getReferenceTypeLabel(state.reference)),
+				description: l10n.t('(detached)'),
+				detail: singleRepo
+					? l10n.t('Will checkout to {0}', getReferenceLabel(state.reference))
+					: l10n.t('Will checkout to {0} in {1} repos', getReferenceLabel(state.reference), repoCount),
 				choice: 'switch',
 			});
 		}
@@ -550,37 +563,44 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		if (!state.createBranch) {
 			if (context.canSwitchToLocalBranch != null) {
 				modes.push({
-					label: `Switch to Local Branch`,
-					detail: `Will switch to local ${getReferenceLabel(
-						context.canSwitchToLocalBranch,
-					)} for ${getReferenceLabel(state.reference)}`,
+					label: l10n.t('Switch to Local Branch'),
+					detail: l10n.t(
+						'Will switch to local {0} for {1}',
+						getReferenceLabel(context.canSwitchToLocalBranch),
+						getReferenceLabel(state.reference),
+					),
 					choice: 'switchToLocalBranch',
 					worktreeChoice: 'switchToLocalBranchViaWorktree',
-					worktreeDetail: `Will create a worktree for local ${getReferenceLabel(
-						context.canSwitchToLocalBranch,
-					)}`,
+					worktreeDetail: l10n.t(
+						'Will create a worktree for local {0}',
+						getReferenceLabel(context.canSwitchToLocalBranch),
+					),
 				});
 
 				if (singleRepo) {
 					modes.push({
-						label: `Switch to Local Branch & Fast-Forward`,
-						detail: `Will switch to and fast-forward local ${getReferenceLabel(
-							context.canSwitchToLocalBranch,
-						)}`,
+						label: l10n.t('Switch to Local Branch & Fast-Forward'),
+						detail: l10n.t(
+							'Will switch to and fast-forward local {0}',
+							getReferenceLabel(context.canSwitchToLocalBranch),
+						),
 						choice: 'switchToLocalBranchAndFastForward',
 						worktreeChoice: 'switchToLocalBranchAndFastForwardViaWorktree',
-						worktreeDetail: `Will create a worktree for local ${getReferenceLabel(
-							context.canSwitchToLocalBranch,
-						)} and fast-forward it`,
+						worktreeDetail: l10n.t(
+							'Will create a worktree for local {0} and fast-forward it',
+							getReferenceLabel(context.canSwitchToLocalBranch),
+						),
 					});
 				}
 			} else if (isLocalBranch) {
 				modes.push({
-					label: 'Switch to Branch',
-					detail: `Will switch to ${getReferenceLabel(state.reference)}${multiRepoSuffix}`,
+					label: l10n.t('Switch to Branch'),
+					detail: singleRepo
+						? l10n.t('Will switch to {0}', getReferenceLabel(state.reference))
+						: l10n.t('Will switch to {0} in {1} repos', getReferenceLabel(state.reference), repoCount),
 					choice: 'switch',
 					worktreeChoice: 'switchViaWorktree',
-					worktreeDetail: `Will create a worktree for ${getReferenceLabel(state.reference)}`,
+					worktreeDetail: l10n.t('Will create a worktree for {0}', getReferenceLabel(state.reference)),
 				});
 			}
 		}
@@ -588,36 +608,90 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		if (!isLocalBranch || state.createBranch || context.promptToCreateBranch) {
 			if (isRemoteBranch) {
 				modes.push({
-					label: 'Create & Switch to New Local Branch',
-					detail: `Will create and switch to a new local branch${
-						state.createBranch ? ` named ${state.createBranch}` : ''
-					} from ${getReferenceLabel(state.reference)}${multiRepoSuffix}`,
+					label: l10n.t('Create & Switch to New Local Branch'),
+					detail: state.createBranch
+						? singleRepo
+							? l10n.t(
+									'Will create and switch to a new local branch named {0} from {1}',
+									state.createBranch,
+									getReferenceLabel(state.reference),
+								)
+							: l10n.t(
+									'Will create and switch to a new local branch named {0} from {1} in {2} repos',
+									state.createBranch,
+									getReferenceLabel(state.reference),
+									repoCount,
+								)
+						: singleRepo
+							? l10n.t(
+									'Will create and switch to a new local branch from {0}',
+									getReferenceLabel(state.reference),
+								)
+							: l10n.t(
+									'Will create and switch to a new local branch from {0} in {1} repos',
+									getReferenceLabel(state.reference),
+									repoCount,
+								),
 					choice: 'switchToNewBranch',
 					worktreeChoice: 'switchToNewBranchViaWorktree',
-					worktreeDetail: `Will create a worktree for a new local branch${
-						state.createBranch ? ` named ${state.createBranch}` : ''
-					} from ${getReferenceLabel(state.reference)}`,
+					worktreeDetail: state.createBranch
+						? l10n.t(
+								'Will create a worktree for a new local branch named {0} from {1}',
+								state.createBranch,
+								getReferenceLabel(state.reference),
+							)
+						: l10n.t(
+								'Will create a worktree for a new local branch from {0}',
+								getReferenceLabel(state.reference),
+							),
 				});
 			} else {
 				modes.push({
-					label: `Create & Switch to New Branch from ${getReferenceTypeLabel(state.reference)}`,
-					detail: `Will create and switch to a new branch${
-						state.createBranch ? ` named ${state.createBranch}` : ''
-					} from ${getReferenceLabel(state.reference)}${multiRepoSuffix}`,
+					label: l10n.t('Create & Switch to New Branch from {0}', getReferenceTypeLabel(state.reference)),
+					detail: state.createBranch
+						? singleRepo
+							? l10n.t(
+									'Will create and switch to a new branch named {0} from {1}',
+									state.createBranch,
+									getReferenceLabel(state.reference),
+								)
+							: l10n.t(
+									'Will create and switch to a new branch named {0} from {1} in {2} repos',
+									state.createBranch,
+									getReferenceLabel(state.reference),
+									repoCount,
+								)
+						: singleRepo
+							? l10n.t(
+									'Will create and switch to a new branch from {0}',
+									getReferenceLabel(state.reference),
+								)
+							: l10n.t(
+									'Will create and switch to a new branch from {0} in {1} repos',
+									getReferenceLabel(state.reference),
+									repoCount,
+								),
 					choice: 'switchToNewBranch',
 					worktreeChoice: 'switchToNewBranchViaWorktree',
-					worktreeDetail: `Will create a worktree for a new branch${
-						state.createBranch ? ` named ${state.createBranch}` : ''
-					} from ${getReferenceLabel(state.reference)}`,
+					worktreeDetail: state.createBranch
+						? l10n.t(
+								'Will create a worktree for a new branch named {0} from {1}',
+								state.createBranch,
+								getReferenceLabel(state.reference),
+							)
+						: l10n.t(
+								'Will create a worktree for a new branch from {0}',
+								getReferenceLabel(state.reference),
+							),
 				});
 			}
 		}
 
 		if (isRemoteBranch && !state.createBranch) {
 			modes.push({
-				label: `Checkout to Remote Branch`,
-				description: '(detached)',
-				detail: `Will checkout to ${getReferenceLabel(state.reference)}`,
+				label: l10n.t('Checkout to Remote Branch'),
+				description: l10n.t('(detached)'),
+				detail: l10n.t('Will checkout to {0}', getReferenceLabel(state.reference)),
 				choice: 'switch',
 			});
 		}
@@ -654,8 +728,8 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		let rows: (StepType | DirectiveQuickPickItem)[];
 		if (singleRepo) {
 			const worktreeToggle = createConfirmToggleQuickPickItem({
-				label: 'In a New Worktree',
-				detail: 'Switch in a separate worktree instead, leaving this working tree untouched',
+				label: l10n.t('In a New Worktree'),
+				detail: l10n.t('Switch in a separate worktree instead, leaving this working tree untouched'),
 				checked: viaWorktree,
 				onDidChange: item => {
 					viaWorktree = item.checked;
@@ -669,15 +743,12 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 		step = this.createConfirmStep(
 			appendReposToTitle(
-				`Confirm Switch to ${getReferenceLabel(state.reference, { icon: false, capitalize: true })}`,
+				l10n.t('Confirm Switch to {0}', getReferenceLabel(state.reference, { icon: false, capitalize: true })),
 				state,
 				context,
 			),
 			rows,
-			undefined,
-			{
-				placeholder: `Confirm ${context.title}`,
-			},
+			l10n.t('Confirm Switch to...'),
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		if (!canPickStepContinue(step, state, selection)) return StepResultBreak;

@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { uuid } from '@gitlens/utils/crypto.js';
 import { getLoggableName, Logger } from '@gitlens/utils/logger.js';
@@ -25,6 +26,32 @@ import { isResponseFormatRejected, rememberResponseFormatRejection } from './res
 // path in INVALID_ARGUMENT bodies, ...)
 const formatRejectionRegex =
 	/response[_ ]?(?:format|schema)|structured[_ ]?output|output_config|json_schema|json[_ ]?mode/i;
+
+function getRequestErrorMessage(action: AIActionType, providerName: string, message: string): string {
+	const args = { provider: providerName, message: message };
+	switch (action) {
+		case 'explain-changes':
+			return l10n.t('Unable to Explain Changes: ({provider}) {message}', args);
+		case 'review-changes':
+			return l10n.t('Unable to Review Changes: ({provider}) {message}', args);
+		case 'generate-commitMessage':
+			return l10n.t('Unable to Generate Commit Message: ({provider}) {message}', args);
+		case 'generate-stashMessage':
+			return l10n.t('Unable to Generate Stash Message: ({provider}) {message}', args);
+		case 'generate-changelog':
+			return l10n.t('Unable to Generate Changelog: ({provider}) {message}', args);
+		case 'generate-create-cloudPatch':
+			return l10n.t('Unable to Create Cloud Patch Details: ({provider}) {message}', args);
+		case 'generate-create-pullRequest':
+			return l10n.t('Unable to Create Pull Request Details: ({provider}) {message}', args);
+		case 'generate-commits':
+			return l10n.t('Unable to Generate Commits: ({provider}) {message}', args);
+		case 'conflict-resolution':
+			return l10n.t('Unable to Resolve Conflicts (Preview): ({provider}) {message}', args);
+		case 'generate-searchQuery':
+			return l10n.t('Unable to Generate Search Query: ({provider}) {message}', args);
+	}
+}
 
 export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implements AIProvider<T> {
 	constructor(protected readonly context: AIProviderContext) {}
@@ -135,9 +162,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 			if (ex instanceof AIError) throw ex;
 
 			debugger;
-			throw new Error(`Unable to ${getActionName(action)}: (${model.provider.name}) ${ex.message}`, {
-				cause: ex,
-			});
+			throw new Error(getRequestErrorMessage(action, model.provider.name, ex.message), { cause: ex });
 		}
 	}
 

@@ -1,8 +1,10 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { GraphShowAction } from '../../../plus/graph/protocol.js';
@@ -54,7 +56,7 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 			)}
 			appearance="alert"
 			featureRestriction="private-repos"
-			featureWithArticleIfNeeded="the Commit Graph"
+			featureWithArticleIfNeeded=${l10n.t('the Commit Graph')}
 			?allowRepoSwitch=${this.graphState.allowRepoSwitch}
 			?allowOrgSwitch=${orgCount > 1}
 			.source=${source}
@@ -68,100 +70,91 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 					<gitlens-logo-circle class="feature__feature-icon"></gitlens-logo-circle>
 					<hgroup>
 						<h2 class="feature__title">
-							<span>${copy?.heading ?? 'All-New Commit Graph'}</span>
+							<span>${copy?.heading ?? l10n.t('All-New Commit Graph')}</span>
 							<gl-feature-badge
 								.source=${{ source: 'graph', detail: 'badge' } as const}
 								.subscription=${this.graphState.subscription}
 							></gl-feature-badge>
 						</h2>
 						<p class="feature__lede">
-							${copy?.body ?? 'Where your development and agentic workflows come together'}
+							${copy?.body ?? l10n.t('Where your development and agentic workflows come together')}
 						</p>
 					</hgroup>
 				</header>
 
 				<p class="feature__sub">
-					<strong
-						>${
-							copy != null
-								? 'Try the All-New Commit Graph to parallelize your workflow'
-								: 'Parallelize your workflow'
-						}</strong
-					>
-					&mdash; manage multiple active worktrees, orchestrate concurrent agents, and execute your entire Git
-					lifecycle without context-switching
+					${localizedContent(
+						l10n.t(
+							'{lead} — manage multiple active worktrees, orchestrate concurrent agents, and execute your entire Git lifecycle without context-switching',
+						),
+						{
+							lead: html`<strong
+								>${copy != null ? l10n.t('Try the All-New Commit Graph to parallelize your workflow') : l10n.t('Parallelize your workflow')}</strong
+							>`,
+						},
+					)}
 				</p>
 
 				<div class="list">
 					<details class="list__item">
 						<summary class="list__summary">
 							<span class="icon-cube"><code-icon icon="layout"></code-icon></span>
-							<strong>Unified Workspace</strong>
+							<strong>${l10n.t('Unified Workspace')}</strong>
 							<code-icon class="list__chevron" icon="chevron-right"></code-icon>
 						</summary>
 						<span class="list__copy"
-							>Centralize your workflow with the Side Bar and dockable Details Panel. Detach the graph
-							into a separate window to maximize your editor space</span
+							>${l10n.t('Centralize your workflow with the Side Bar and dockable Details Panel. Detach the graph into a separate window to maximize your editor space')}</span
 						>
 					</details>
 
 					<details class="list__item">
 						<summary class="list__summary">
 							<span class="icon-cube"><code-icon icon="robot"></code-icon></span>
-							<strong>Orchestrate Agents</strong>
+							<strong>${l10n.t('Orchestrate Agents')}</strong>
 							<code-icon class="list__chevron" icon="chevron-right"></code-icon>
 						</summary>
 						<span class="list__copy"
-							>Launch, monitor, and interact with agents from the graph, Agents Side Bar, or Kanban board
-							to approve permissions and view execution plans inline</span
+							>${l10n.t('Launch, monitor, and interact with agents from the graph, Agents Side Bar, or Kanban board to approve permissions and view execution plans inline')}</span
 						>
 					</details>
 					<details class="list__item">
 						<summary class="list__summary">
 							<span class="icon-cube"><code-icon icon="shield"></code-icon></span>
-							<strong>Command Center</strong>
+							<strong>${l10n.t('Command Center')}</strong>
 							<code-icon class="list__chevron" icon="chevron-right"></code-icon>
 						</summary>
 						<span class="list__copy"
-							>Review changes, stage files, create or compose commits, and resolve conflicts. On a clean
-							worktree the Details Panel guides your next steps—like pulling, pushing, or drafting a
-							PR</span
+							>${l10n.t('Review changes, stage files, create or compose commits, and resolve conflicts. On a clean worktree the Details Panel guides your next steps—like pulling, pushing, or drafting a PR')}</span
 						>
 					</details>
 					<details class="list__item">
 						<summary class="list__summary">
 							<span class="icon-cube"><code-icon icon="arrow-swap"></code-icon></span>
-							<strong>Parallelize Work</strong>
+							<strong>${l10n.t('Parallelize Work')}</strong>
 							<code-icon class="list__chevron" icon="chevron-right"></code-icon>
 						</summary>
 						<span class="list__copy"
-							>Juggle multiple active worktrees and agent sessions within a single view. Focus the graph
-							on specific changes instantly to review and track where agents are working in
-							real-time</span
+							>${l10n.t('Juggle multiple active worktrees and agent sessions within a single view. Focus the graph on specific changes instantly to review and track where agents are working in real-time')}</span
 						>
 					</details>
 					<details class="list__item">
 						<summary class="list__summary">
 							<span class="icon-cube"><code-icon icon="wand"></code-icon></span>
-							<strong>AI Compose & Review</strong>
+							<strong>${l10n.t('AI Compose & Review')}</strong>
 							<code-icon class="list__chevron" icon="chevron-right"></code-icon>
 						</summary>
 						<span class="list__copy"
-							>Bring order from chaos. Restructure changes into clean, review-ready commits automatically.
-							Catch issues early with severity-tagged reviews that you can delegate directly to an
-							agent</span
+							>${l10n.t('Bring order from chaos. Restructure changes into clean, review-ready commits automatically. Catch issues early with severity-tagged reviews that you can delegate directly to an agent')}</span
 						>
 					</details>
 					<details class="list__item">
 						<summary class="list__summary">
 							<span class="icon-cube"><code-icon icon="pulse"></code-icon></span>
-							<strong>Deep Visualizations & Health</strong>
+							<strong>${l10n.t('Deep Visualizations & Health')}</strong>
 							<code-icon class="list__chevron" icon="chevron-right"></code-icon>
 						</summary>
 						<span class="list__copy"
-							>Analyze repo evolution with the Visual History. Pinpoint hotspots and trends or watch agent
-							activity in real-time using the Files, Commits, and Agent Activity treemaps. Keep git fast
-							with Repository Health tune-ups</span
+							>${l10n.t('Analyze repo evolution with the Visual History. Pinpoint hotspots and trends or watch agent activity in real-time using the Files, Commits, and Agent Activity treemaps. Keep git fast with Repository Health tune-ups')}</span
 						>
 					</details>
 				</div>

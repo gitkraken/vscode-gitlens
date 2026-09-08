@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import { TagError } from '@gitlens/git/errors.js';
 import type { GitTagReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
@@ -52,8 +53,8 @@ export interface TagDeleteGitCommandArgs {
 
 export class TagDeleteGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: TagDeleteGitCommandArgs) {
-		super(container, 'tag-delete', 'delete', 'Delete Tags', {
-			description: 'deletes the specified tags',
+		super(container, 'tag-delete', 'delete', l10n.t('Delete Tags'), {
+			description: l10n.t('deletes the specified tags'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -107,7 +108,7 @@ export class TagDeleteGitCommand extends QuickCommand<State> {
 
 				const result = yield* pickTagsStep(state, context, {
 					picked: state.references?.map(r => r.ref),
-					placeholder: 'Choose tags to delete',
+					placeholder: l10n.t('Choose tags to delete'),
 				});
 				if (result === StepResultBreak) {
 					state.references = undefined!;
@@ -136,8 +137,8 @@ export class TagDeleteGitCommand extends QuickCommand<State> {
 				try {
 					await state.repo.git.tags.deleteTag?.(ref);
 				} catch (ex) {
-					Logger.error(ex, context.title);
-					void showGitErrorMessage(ex, TagError.is(ex) ? undefined : 'Unable to delete tag');
+					Logger.error(ex, 'Delete Tags');
+					void showGitErrorMessage(ex, TagError.is(ex) ? undefined : l10n.t('Unable to delete tag'));
 				}
 			}
 		}
@@ -146,10 +147,11 @@ export class TagDeleteGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(state: StepState<State<GlRepository>>, context: TagContext): StepResultGenerator<void> {
+		const confirmTitle = l10n.t('Confirm Delete Tags');
 		const step: QuickPickStep = createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
-			[{ label: context.title, detail: `Will delete ${getReferenceLabel(state.references)}` }],
-			context,
+			appendReposToTitle(confirmTitle, state, context),
+			[{ label: context.title, detail: l10n.t('Will delete {0}', getReferenceLabel(state.references)) }],
+			confirmTitle,
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;

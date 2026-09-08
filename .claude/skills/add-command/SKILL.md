@@ -99,3 +99,7 @@ pnpm run generate:contributions && pnpm run generate:commandTypes
 - `gitlens:plus` — Pro features available
 - `viewItem =~ /gitlens:commit/` — On a commit node
 - `viewItem =~ /gitlens:branch/` — On a branch node
+
+## Localization
+
+Every user-facing string in the new code (titles, notifications, quick pick items, placeholders, webview text, ARIA labels) must be a literal `l10n.t()` message — `{ l10n }` from `vscode` in host code, `* as l10n` from `@vscode/l10n` in webviews and packages. Run `pnpm run generate:l10n` afterward so the catalog check passes. Manifest text (command titles, view names) goes through `contributions.json` → `package.nls.json` as before. See `docs/localization.md`.

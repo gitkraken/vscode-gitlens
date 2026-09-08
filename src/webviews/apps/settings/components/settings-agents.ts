@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
@@ -26,10 +27,10 @@ declare global {
 
 const kindOrder: AgentInfo['kind'][] = ['ide-chat', 'claude-extension', 'cli', 'editor'];
 const kindLabels: Record<AgentInfo['kind'], string> = {
-	'ide-chat': 'Chat',
-	'claude-extension': 'Extension',
+	'ide-chat': l10n.t('Chat'),
+	'claude-extension': l10n.t('Extension'),
 	cli: 'CLI',
-	editor: 'Editors',
+	editor: l10n.t('Editors'),
 };
 const kindIcons: Record<AgentInfo['kind'], string> = {
 	'ide-chat': 'comment-discussion',
@@ -250,49 +251,60 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 	private renderAgents(): unknown {
 		const ai = this.ai;
 		if (ai == null) {
-			if (this._state.serviceErrors.get().ai) return this.renderError('Couldn’t load AI status.');
+			if (this._state.serviceErrors.get().ai) return this.renderError(l10n.t('Couldn’t load AI status.'));
 			return html`<skeleton-loader lines="4"></skeleton-loader>`;
 		}
 
 		if (!ai.orgEnabled) {
 			return html`<p class="note">
 				<code-icon icon="org" aria-hidden="true"></code-icon>
-				<span>AI features have been disabled by your GitKraken admin.</span>
+				<span>${l10n.t('AI features have been disabled by your GitKraken admin.')}</span>
 			</p>`;
 		}
 
 		if (!ai.enabled) {
 			return html`<p class="note">
 				<code-icon icon="info" aria-hidden="true"></code-icon>
-				<span>AI features are currently disabled — enable them in the AI settings to configure agents.</span>
+				<span
+					>${l10n.t(
+						'AI features are currently disabled — enable them in the AI settings to configure agents.',
+					)}</span
+				>
 			</p>`;
 		}
 
 		const agents = this.agents;
 		if (agents == null) {
-			if (this._state.serviceErrors.get().agents) return this.renderError('Couldn’t load agents.');
+			if (this._state.serviceErrors.get().agents) return this.renderError(l10n.t('Couldn’t load agents.'));
 			return html`<skeleton-loader lines="4"></skeleton-loader>`;
 		}
 
 		if (agents.length === 0) {
 			return html`<p class="note">
 				<code-icon icon="info" aria-hidden="true"></code-icon>
-				<span>No agents detected. Install a supported chat, extension, or CLI agent to configure it here.</span>
+				<span
+					>${l10n.t(
+						'No agents detected. Install a supported chat, extension, or CLI agent to configure it here.',
+					)}</span
+				>
 			</p>`;
 		}
 
 		return html`<div class="rows">
 			<div class="header">
-				<span>Agent</span>
-				<gl-tooltip content="The agent GitLens uses by default for AI features"
-					><span class="header__col">Default</span></gl-tooltip
+				<span>${l10n.t('Agent')}</span>
+				<gl-tooltip content=${l10n.t('The agent GitLens uses by default for AI features')}
+					><span class="header__col">${l10n.t('Default')}</span></gl-tooltip
 				>
 				<gl-tooltip
-					content="GitKraken's MCP server gives this agent access to GitLens tools and repository context"
+					content=${l10n.t(
+						"GitKraken's MCP server gives this agent access to GitLens tools and repository context",
+					)}
 					><span class="header__col">MCP</span></gl-tooltip
 				>
-				<gl-tooltip content="GitKraken hooks let GitLens track this agent's sessions and coordinate permissions"
-					><span class="header__col">Hooks</span></gl-tooltip
+				<gl-tooltip
+					content=${l10n.t("GitKraken hooks let GitLens track this agent's sessions and coordinate permissions")}
+					><span class="header__col">${l10n.t('Hooks')}</span></gl-tooltip
 				>
 			</div>
 			${kindOrder.map(kind =>
@@ -318,19 +330,29 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 			<span class="row__agent">
 				<code-icon icon=${kindIcons[agent.kind]} aria-hidden="true"></code-icon>
 				<span>${agent.label}</span>
-				${notDetected ? html`<span class="cell__dash row__not-detected">Not detected</span>` : nothing}
+				${
+					notDetected
+						? html`<span class="cell__dash row__not-detected">${l10n.t('Not detected')}</span>`
+						: nothing
+				}
 			</span>
 			${
 				notDetected
-					? html`<span class="cell">${this.renderDash('Not detected')}</span>`
+					? html`<span class="cell">${this.renderDash(l10n.t('Not detected'))}</span>`
 					: isEditor
 						? html`<span class="cell"></span>`
 						: html`<gl-radio .checked=${isDefault} @click=${() => this.setDefault(agent.id)}>
-								<span class="sr-only">Set ${agent.label} as the default agent</span>
+								<span class="sr-only"
+									>${l10n.t('Set {agent} as the default agent', { agent: agent.label })}</span
+								>
 							</gl-radio>`
 			}
-			<span class="cell">${notDetected ? this.renderDash('Not detected') : this.renderMcpCell(agent)}</span>
-			<span class="cell">${notDetected ? this.renderDash('Not detected') : this.renderHooksCell(agent)}</span>
+			<span class="cell"
+				>${notDetected ? this.renderDash(l10n.t('Not detected')) : this.renderMcpCell(agent)}</span
+			>
+			<span class="cell"
+				>${notDetected ? this.renderDash(l10n.t('Not detected')) : this.renderHooksCell(agent)}</span
+			>
 		</div>`;
 	}
 
@@ -346,12 +368,12 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 		if (agent.kind === 'claude-extension') {
 			return agent.mcp?.installed
 				? this.renderInstalledViaCli()
-				: this.renderDash('GitKraken MCP not installed via the Claude Code CLI');
+				: this.renderDash(l10n.t('GitKraken MCP not installed via the Claude Code CLI'));
 		}
 
 		const mcp = agent.mcp;
 		if (agent.kind !== 'cli' || mcp == null || !mcp.supported) {
-			return this.renderDash('MCP not available');
+			return this.renderDash(l10n.t('MCP not available'));
 		}
 		if (mcp.installed) {
 			return this.renderInstalled(
@@ -359,7 +381,7 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 					agentId: agent.id,
 					source: 'settings',
 				}),
-				`Uninstall GitKraken MCP for ${agent.label}`,
+				l10n.t('Uninstall GitKraken MCP for {agent}', { agent: agent.label }),
 			);
 		}
 		return html`<gl-button
@@ -369,25 +391,31 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 				agentId: agent.id,
 				source: 'settings',
 			})}"
-			aria-label="Install GitKraken MCP for ${agent.label}"
-			tooltip="Install GitKraken MCP for ${agent.label}"
+			aria-label=${l10n.t('Install GitKraken MCP for {agent}', { agent: agent.label })}
+			tooltip=${l10n.t('Install GitKraken MCP for {agent}', { agent: agent.label })}
 			><code-icon icon="plug" aria-hidden="true"></code-icon
 		></gl-button>`;
 	}
 
 	private renderEditorMcpCell() {
 		const mcp = this.ai?.mcp;
-		if (mcp == null || !mcp.capable) return this.renderDash('GitKraken MCP is not available in this editor');
+		if (mcp == null || !mcp.capable) {
+			return this.renderDash(l10n.t('GitKraken MCP is not available in this editor'));
+		}
+
 		if (mcp.bundled) {
 			return html`<span class="cell__status">
-				<gl-tooltip content="GitKraken MCP is available in this editor"
-					><code-icon icon="check" aria-label="GitKraken MCP is available in this editor"></code-icon
+				<gl-tooltip content=${l10n.t('GitKraken MCP is available in this editor')}
+					><code-icon
+						icon="check"
+						aria-label=${l10n.t('GitKraken MCP is available in this editor')}
+					></code-icon
 				></gl-tooltip>
 				<gl-button
 					class="cell__button"
 					appearance="secondary"
-					aria-label="Disable the bundled GitKraken MCP server for this editor"
-					tooltip="Disable the bundled GitKraken MCP server for this editor"
+					aria-label=${l10n.t('Disable the bundled GitKraken MCP server for this editor')}
+					tooltip=${l10n.t('Disable the bundled GitKraken MCP server for this editor')}
 					@click=${() => this.actions?.applyValue('gitkraken.mcp.autoEnabled', false)}
 					><code-icon icon="gl-unplug" aria-hidden="true"></code-icon
 				></gl-button>
@@ -396,8 +424,8 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 		return html`<gl-button
 			class="cell__button"
 			appearance="secondary"
-			aria-label="Enable the bundled GitKraken MCP server for this editor"
-			tooltip="Enable the bundled GitKraken MCP server for this editor"
+			aria-label=${l10n.t('Enable the bundled GitKraken MCP server for this editor')}
+			tooltip=${l10n.t('Enable the bundled GitKraken MCP server for this editor')}
 			@click=${() => this.actions?.applyValue('gitkraken.mcp.autoEnabled', true)}
 			><code-icon icon="plug" aria-hidden="true"></code-icon
 		></gl-button>`;
@@ -423,8 +451,8 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 						? html`<gl-button
 								appearance="secondary"
 								href="${startSession.href}"
-								aria-label="Start ${startSession.agentLabel} Session"
-								>Start ${startSession.agentLabel} Session</gl-button
+								aria-label=${l10n.t('Start {agent} Session', { agent: startSession.agentLabel })}
+								>${l10n.t('Start {agent} Session', { agent: startSession.agentLabel })}</gl-button
 							>`
 						: nothing
 				}
@@ -439,7 +467,9 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 		startSession?: { href: string; agentLabel: string },
 	) {
 		return html`<span class="cell__status">
-			<gl-tooltip content="Installed"><code-icon icon="check" aria-label="Installed"></code-icon></gl-tooltip>
+			<gl-tooltip content=${l10n.t('Installed')}
+				><code-icon icon="check" aria-label=${l10n.t('Installed')}></code-icon
+			></gl-tooltip>
 			${manualActivationHint != null ? this.renderManualActivation(manualActivationHint, startSession) : nothing}
 			<gl-button
 				class="cell__button"
@@ -456,8 +486,8 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 	 *  the Claude Code CLI) — no uninstall control, since it isn't managed from this row. */
 	private renderInstalledViaCli() {
 		return html`<span class="cell__status">
-			<gl-tooltip content="Installed via Claude Code CLI"
-				><code-icon icon="check" aria-label="Installed via Claude Code CLI"></code-icon
+			<gl-tooltip content=${l10n.t('Installed via Claude Code CLI')}
+				><code-icon icon="check" aria-label=${l10n.t('Installed via Claude Code CLI')}></code-icon
 			></gl-tooltip>
 		</span>`;
 	}
@@ -468,7 +498,7 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 		if (agent.kind === 'claude-extension') {
 			return hooks?.installed
 				? this.renderInstalledViaCli()
-				: this.renderDash('GitKraken hooks not installed via the Claude Code CLI');
+				: this.renderDash(l10n.t('GitKraken hooks not installed via the Claude Code CLI'));
 		}
 
 		if (
@@ -476,7 +506,7 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 			hooks == null ||
 			!hooks.supported
 		) {
-			return this.renderDash('Hooks not available');
+			return this.renderDash(l10n.t('Hooks not available'));
 		}
 
 		const agentId = agent.hooksAgentId ?? agent.id;
@@ -499,7 +529,7 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 					agentId: agentId,
 					source: 'settings',
 				}),
-				`Uninstall GitKraken Hooks for ${agent.label}`,
+				l10n.t('Uninstall GitKraken Hooks for {agent}', { agent: agent.label }),
 				hooks.manualActivation,
 				startSession,
 			);
@@ -511,8 +541,8 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 				agentId: agentId,
 				source: 'settings',
 			})}"
-			aria-label="Install GitKraken Hooks for ${agent.label}"
-			tooltip="Install GitKraken Hooks for ${agent.label}"
+			aria-label=${l10n.t('Install GitKraken Hooks for {agent}', { agent: agent.label })}
+			tooltip=${l10n.t('Install GitKraken Hooks for {agent}', { agent: agent.label })}
 			><code-icon icon="plug" aria-hidden="true"></code-icon
 		></gl-button>`;
 	}
@@ -525,7 +555,9 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 		return html`<div class="error" role="alert">
 			<code-icon icon="error" aria-hidden="true"></code-icon>
 			<span>${message}</span>
-			<gl-button appearance="secondary" @click=${() => void this.actions?.loadSharedServices()}>Retry</gl-button>
+			<gl-button appearance="secondary" @click=${() => void this.actions?.loadSharedServices()}
+				>${l10n.t('Retry')}</gl-button
+			>
 		</div>`;
 	}
 }

@@ -1,6 +1,6 @@
 /* oxlint-disable typescript/require-await */
 import type { WorkspaceFolder } from 'vscode';
-import { authentication, Uri, window, workspace } from 'vscode';
+import { authentication, l10n, Uri, window, workspace } from 'vscode';
 import type { GitHubSession } from '@gitlens/git-github/context.js';
 import type { GitHubGitProviderOptions } from '@gitlens/git-github/providers/githubGitProvider.js';
 import { GitHubGitProvider } from '@gitlens/git-github/providers/githubGitProvider.js';
@@ -393,9 +393,12 @@ export class GlGitHubGitProvider implements GlGitProvider {
 			} else {
 				debugger;
 				void window.showErrorMessage(
-					`Unable to get absolute uri between ${
-						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true)
-					} and ${base}; Base path '${base}' must be a uri`,
+					l10n.t(
+						"Unable to get absolute uri between {0} and {1}; Base path '{2}' must be a uri",
+						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true),
+						base,
+						base,
+					),
 				);
 				throw new Error(`Base path '${base}' must be a uri`);
 			}
@@ -429,9 +432,12 @@ export class GlGitHubGitProvider implements GlGitProvider {
 			} else {
 				debugger;
 				void window.showErrorMessage(
-					`Unable to get relative path between ${
-						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true)
-					} and ${base}; Base path '${base}' must be a uri`,
+					l10n.t(
+						"Unable to get relative path between {0} and {1}; Base path '{2}' must be a uri",
+						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true),
+						base,
+						base,
+					),
 				);
 				throw new Error(`Base path '${base}' must be a uri`);
 			}
@@ -702,9 +708,11 @@ export class GlGitHubGitProvider implements GlGitProvider {
 							if (!skip) {
 								if (!force) {
 									queueMicrotask(async () => {
-										const enable = 'Re-enable';
+										const enable = l10n.t('Re-enable');
 										const result = await window.showInformationMessage(
-											'GitLens has been disabled. Authentication is required for GitLens to work with remote GitHub repositories.',
+											l10n.t(
+												'GitLens has been disabled. Authentication is required for GitLens to work with remote GitHub repositories.',
+											),
 											enable,
 										);
 

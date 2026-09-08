@@ -1,0 +1,36 @@
+diff --git a/dist/cli.js b/dist/cli.js
+index 8c8eee5eb3bd1d3cf55a2a9938fbe057c36a53f6..fd4714be46dde47cde620364a26dbad5bbba614b 100755
+--- a/dist/cli.js
++++ b/dist/cli.js
+@@ -161,11 +161,11 @@ var unescapeString = (text) => {
+       case "u": {
+         let int;
+         if (text[i + 2] === "{") {
+-          end = text.indexOf("}") + 1;
++          end = text.indexOf("}", i + 3) + 1;
+           int = text.slice(i + 3, end - 1);
+         } else {
+           end = i + 6;
+-          int = text.slice(i + 2, end - 1);
++          int = text.slice(i + 2, end);
+         }
+         replace = String.fromCodePoint(parseInt(int, 16));
+         break;
+diff --git a/dist/main.js b/dist/main.js
+index ce99a69a7c7231769642c4c96434d5b6550c006a..36db9b7d1df107de473412de6c687bff4349b9bc 100644
+--- a/dist/main.js
++++ b/dist/main.js
+@@ -155,11 +155,11 @@ var unescapeString = (text) => {
+       case "u": {
+         let int;
+         if (text[i + 2] === "{") {
+-          end = text.indexOf("}") + 1;
++          end = text.indexOf("}", i + 3) + 1;
+           int = text.slice(i + 3, end - 1);
+         } else {
+           end = i + 6;
+-          int = text.slice(i + 2, end - 1);
++          int = text.slice(i + 2, end);
+         }
+         replace = String.fromCodePoint(parseInt(int, 16));
+         break;

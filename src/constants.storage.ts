@@ -545,15 +545,6 @@ export interface StoredSearch {
 	type: 'search';
 	timestamp: number;
 	path: string;
-	labels: {
-		label: string;
-		queryLabel:
-			| string
-			| {
-					label: string;
-					resultsType?: { singular: string; plural: string };
-			  };
-	};
 	search: StoredSearchQuery;
 }
 

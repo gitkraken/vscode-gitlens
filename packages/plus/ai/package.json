@@ -24,7 +24,8 @@
 	},
 	"dependencies": {
 		"@gitlens/utils": "workspace:*",
-		"@gitlens/git": "workspace:*"
+		"@gitlens/git": "workspace:*",
+		"@vscode/l10n": "catalog:"
 	},
 	"devDependencies": {
 		"@types/mocha": "catalog:",

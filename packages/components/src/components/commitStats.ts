@@ -1,7 +1,9 @@
+import * as l10n from '@vscode/l10n';
 import type { CSSResult, TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
+import { localizedContent } from '../localizedContent.js';
 import './codeIcon.js';
 import './overlays/tooltip.js';
 
@@ -193,7 +195,9 @@ export class CommitStats extends LitElement {
 				? html`<code-icon class="icon" icon=${icon}></code-icon>`
 				: html`<span class="symbol">${symbol}</span>`;
 
-		return html`<span class="stat ${key}" aria-label="${count} ${key}"
+		return html`<span
+			class="stat ${key}"
+			aria-label=${key === 'added' ? l10n.t('{0} added', count) : key === 'modified' ? l10n.t('{0} modified', count) : l10n.t('{0} removed', count)}
 			><span class="label">${glyph}${count}</span></span
 		>`;
 	}
@@ -207,34 +211,51 @@ export class CommitStats extends LitElement {
 
 		const parts: unknown[] = [];
 		if (added > 0) {
-			parts.push(html`<span class="added">${added} added</span>`);
+			parts.push(html`<span class="added">${l10n.t('{0} added', added)}</span>`);
 		}
 		if (modified > 0) {
 			if (parts.length) {
 				parts.push(', ');
 			}
-			parts.push(html`<span class="modified">${modified} modified</span>`);
+			parts.push(html`<span class="modified">${l10n.t('{0} modified', modified)}</span>`);
 		}
 		if (removed > 0) {
 			if (parts.length) {
 				parts.push(', ');
 			}
-			parts.push(html`<span class="removed">${removed} removed</span>`);
+			parts.push(html`<span class="removed">${l10n.t('{0} removed', removed)}</span>`);
 		}
 
 		const filesLine = hasBreakdown
-			? html`${pluralize('file', totalFiles)} changed (${parts})`
-			: pluralize('file changed', totalFiles, { plural: 'files changed', zero: 'No files changed' });
+			? localizedContent(
+					totalFiles === 1
+						? l10n.t('{count} file changed ({changes})')
+						: l10n.t('{count} files changed ({changes})'),
+					{ count: getNumericFormat()(totalFiles), changes: parts },
+				)
+			: totalFiles === 0
+				? l10n.t('No files changed')
+				: totalFiles === 1
+					? l10n.t('{0} file changed', getNumericFormat()(totalFiles))
+					: l10n.t('{0} files changed', getNumericFormat()(totalFiles));
 
 		const lineParts: unknown[] = [];
 		if (this.additions != null) {
-			lineParts.push(html`<span class="added">${pluralize('addition', this.additions)}</span>`);
+			lineParts.push(
+				html`<span class="added"
+					>${this.additions === 1 ? l10n.t('{0} addition', getNumericFormat()(this.additions)) : l10n.t('{0} additions', getNumericFormat()(this.additions))}</span
+				>`,
+			);
 		}
 		if (this.deletions != null) {
 			if (lineParts.length) {
 				lineParts.push(', ');
 			}
-			lineParts.push(html`<span class="removed">${pluralize('deletion', this.deletions)}</span>`);
+			lineParts.push(
+				html`<span class="removed"
+					>${this.deletions === 1 ? l10n.t('{0} deletion', getNumericFormat()(this.deletions)) : l10n.t('{0} deletions', getNumericFormat()(this.deletions))}</span
+				>`,
+			);
 		}
 
 		const rows = [html`<div>${filesLine}</div>`];

@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { getAutolinkIcon } from '@gitlens/components/components/icons/providerIcons.js';
@@ -186,7 +187,8 @@ export class GlAutolinkChip extends LitElement {
 	};
 
 	private getAccessibleLabel(): string {
-		const typeLabel = this.type === 'pr' ? 'Pull request' : this.type === 'issue' ? 'Issue' : 'Autolink';
+		const typeLabel =
+			this.type === 'pr' ? l10n.t('Pull request') : this.type === 'issue' ? l10n.t('Issue') : l10n.t('Autolink');
 		const layer = this.stack != null ? `, layer ${this.stack.position} of ${this.stack.size}` : '';
 
 		return this.name

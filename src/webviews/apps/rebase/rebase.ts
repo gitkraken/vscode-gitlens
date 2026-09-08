@@ -1,20 +1,22 @@
-import './rebase.scss';
 import type { Remote } from '@eamodio/supertalk';
+import './rebase.scss';
 import type { LitVirtualizer } from '@lit-labs/virtualizer';
 import { flow } from '@lit-labs/virtualizer/layouts/flow.js';
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { guard } from 'lit/directives/guard.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { RebaseTodoCommitAction } from '@gitlens/git/models/rebase.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import { filterMap, some } from '@gitlens/utils/iterable.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../plus/gk/utils/subscription.utils.js';
 import type { ConflictFileInfo, RebaseActiveStatus, RebaseCommitEntry, RebaseEntry } from '../../rebase/protocol.js';
 import { isCommandEntry, isCommitEntry } from '../../rebase/protocol.js';
@@ -1257,7 +1259,7 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 				id: onto.sha,
 				action: 'pick',
 				sha: onto.sha,
-				message: onto.commit?.message ?? 'Base commit',
+				message: onto.commit?.message ?? l10n.t('Base commit'),
 				line: 0,
 				commit: onto.commit,
 			};
@@ -1454,13 +1456,15 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 											? html`<div slot="start" class="entries-panel">
 													${this.renderEntries()}
 												</div>`
-											: html`<div slot="start" class="entries-empty">No commits to rebase</div>`
+											: html`<div slot="start" class="entries-empty">
+													${l10n.t('No commits to rebase')}
+												</div>`
 									}
 									${this.renderConflictPanel()}
 								</gl-split-panel>`
 							: !isEmptyOrNoop
 								? this.renderEntries()
-								: html`<div class="entries-empty">No commits to rebase</div>`
+								: html`<div class="entries-empty">${l10n.t('No commits to rebase')}</div>`
 					}
 				</div>
 				${this.renderFooter()}
@@ -1495,7 +1499,9 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 			class="preserves-merges-banner"
 			display="outline"
 			layout="responsive"
-			body="This rebase contains merge commits. Reordering is disabled to preserve the merge structure, but you can still change actions (drop, reword, etc.)."
+			body=${l10n.t(
+				'This rebase contains merge commits. Reordering is disabled to preserve the merge structure, but you can still change actions (drop, reword, etc.).',
+			)}
 		></gl-banner>`;
 	}
 
@@ -1509,7 +1515,7 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 			class="close-warning-banner"
 			display="outline"
 			layout="responsive"
-			body="The rebase will start automatically when you close this tab."
+			body=${l10n.t('The rebase will start automatically when you close this tab.')}
 			dismissible
 			@gl-banner-dismiss=${this.onDismissCloseWarning}
 		></gl-banner>`;
@@ -1527,21 +1533,28 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 		// For active/paused rebases, show a compact inline status
 		if (this.isRebasing) {
 			if (loading) {
-				return html`<span class="conflict-loading" title="Checking remaining commits for conflicts...">
+				return html`<span
+					class="conflict-loading"
+					title=${l10n.t('Checking remaining commits for conflicts...')}
+				>
 					<code-icon icon="loading" modifier="spin"></code-icon>
 				</span>`;
 			}
 
 			const conflictCount = result?.status === 'conflicts' ? (result.conflict?.shas?.length ?? 0) : 0;
 			if (conflictCount) {
-				return html`<gl-tooltip
-					content="Potential conflicts detected in ${conflictCount} remaining commit${
-						conflictCount > 1 ? 's' : ''
-					}"
-				>
+				const conflictsTooltip =
+					conflictCount === 1
+						? l10n.t('Potential conflicts detected in {count} remaining commit', {
+								count: getNumericFormat()(conflictCount),
+							})
+						: l10n.t('Potential conflicts detected in {count} remaining commits', {
+								count: getNumericFormat()(conflictCount),
+							});
+				return html`<gl-tooltip content=${conflictsTooltip}>
 					<span class="conflict-summary warning">
 						<code-icon icon="warning"></code-icon>
-						<span>${conflictCount}</span>
+						<span>${getNumericFormat()(conflictCount)}</span>
 					</span>
 				</gl-tooltip>`;
 			}
@@ -1583,7 +1596,8 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 
 		const currentCommitSha = status.currentCommit;
 		const pauseReason = status.pauseReason;
-		const revealTooltip = this.state?.revealLocation === 'graph' ? 'Open in Commit Graph' : 'Open in Inspect View';
+		const revealTooltip =
+			this.state?.revealLocation === 'graph' ? l10n.t('Open in Commit Graph') : l10n.t('Open in Inspect View');
 
 		// Determine icon based on pause reason
 		let icon: string;
@@ -1611,47 +1625,58 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 		let statusContent;
 		switch (pauseReason) {
 			case 'break':
-				statusContent = html`Rebase paused at breakpoint`;
+				statusContent = l10n.t('Rebase paused at breakpoint');
 				break;
 
 			case 'conflict':
 				statusContent = currentCommitSha
-					? html`Rebase paused due to conflicts at ${sha}`
-					: html`Rebase paused due to conflicts`;
+					? localizedContent(l10n.t('Rebase paused due to conflicts at {commit}'), { commit: sha })
+					: l10n.t('Rebase paused due to conflicts');
 				break;
 
 			case 'exec':
-				statusContent = html`Rebase paused due to exec failure`;
+				statusContent = l10n.t('Rebase paused due to exec failure');
 				break;
 
 			case 'edit':
 				statusContent = currentCommitSha
-					? html`Rebase paused for editing at ${sha}`
-					: html`Rebase paused for editing`;
+					? localizedContent(l10n.t('Rebase paused for editing at {commit}'), { commit: sha })
+					: l10n.t('Rebase paused for editing');
 				break;
 
 			case 'reword':
 				statusContent = currentCommitSha
-					? html`Rebase paused for rewording at ${sha}`
-					: html`Rebase paused for rewording`;
+					? localizedContent(l10n.t('Rebase paused for rewording at {commit}'), { commit: sha })
+					: l10n.t('Rebase paused for rewording');
 				break;
 
 			default:
-				statusContent = currentCommitSha ? html`Rebase paused at ${sha}` : html`Rebase paused`;
+				statusContent = currentCommitSha
+					? localizedContent(l10n.t('Rebase paused at {commit}'), { commit: sha })
+					: l10n.t('Rebase paused');
 		}
+
+		const remaining = status.totalSteps - status.currentStep;
+		const remainingLabel = l10n.t('{count} remaining', { count: getNumericFormat()(remaining) });
+		const progress = l10n.t('({current}/{total})', {
+			current: getNumericFormat()(status.currentStep),
+			total: getNumericFormat()(status.totalSteps),
+		});
 
 		return html`<div class="rebase-banner ${pauseReason === 'conflict' ? 'has-conflicts' : ''}">
 			<code-icon icon="${icon}"></code-icon>
 			<span class="rebase-status">${statusContent}</span>
 			${
 				pauseReason === 'conflict'
-					? html`<gl-tooltip content="Show Conflicts">
-							<a class="rebase-action-link" href="${this.showConflictsCommandUrl}">Show conflicts</a>
+					? html`<gl-tooltip content=${l10n.t('Show Conflicts')}>
+							<a class="rebase-action-link" href="${this.showConflictsCommandUrl}"
+								>${l10n.t('Show conflicts')}</a
+							>
 						</gl-tooltip>`
 					: nothing
 			}
-			<span class="rebase-progress">(${status.currentStep}/${status.totalSteps})</span>
-			<span class="rebase-remaining">${status.totalSteps - status.currentStep} remaining</span>
+			<span class="rebase-progress">${progress}</span>
+			<span class="rebase-remaining">${remainingLabel}</span>
 		</div>`;
 	}
 
@@ -1659,48 +1684,51 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 		const conflictFiles = this.state?.conflictFiles;
 		if (!conflictFiles?.length || !this.rebaseStatus?.hasConflicts) return nothing;
 
+		const conflictFilesLabel =
+			conflictFiles.length === 1
+				? l10n.t('{count} conflicted file', { count: getNumericFormat()(conflictFiles.length) })
+				: l10n.t('{count} conflicted files', { count: getNumericFormat()(conflictFiles.length) });
+		const layoutLabel =
+			this._conflictFilesLayout === 'tree' ? l10n.t('Switch to List Layout') : l10n.t('Switch to Tree Layout');
+
 		return html`<div slot="end" class="conflict-panel">
 			<div class="conflict-panel__header">
 				<code-icon icon="warning" aria-hidden="true"></code-icon>
-				<span>${pluralize('conflicted file', conflictFiles.length)}</span>
+				<span>${conflictFilesLabel}</span>
 				${
 					this.state?.aiAllowed
 						? html`<gl-button
 								appearance="toolbar"
 								density="compact"
-								tooltip="Resolve Conflicts in Commit Graph"
-								aria-label="Resolve Conflicts in Commit Graph"
+								tooltip=${l10n.t('Resolve Conflicts in Commit Graph')}
+								aria-label=${l10n.t('Resolve Conflicts in Commit Graph')}
 								@click=${this.onResolveConflictsInGraph}
-								><code-icon icon="gl-merge" slot="prefix" aria-hidden="true"></code-icon>Resolve
-								Conflicts</gl-button
+								><code-icon icon="gl-merge" slot="prefix" aria-hidden="true"></code-icon
+								>${l10n.t('Resolve Conflicts')}</gl-button
 							>`
 						: nothing
 				}
 				<gl-button
 					appearance="toolbar"
 					density="compact"
-					tooltip="Stage Current for All Conflicts"
-					aria-label="Stage Current for All Conflicts"
+					tooltip=${l10n.t('Stage Current for All Conflicts')}
+					aria-label=${l10n.t('Stage Current for All Conflicts')}
 					@click=${this.onStageAllCurrent}
 					><code-icon icon="gl-accept-all-left"></code-icon
 				></gl-button>
 				<gl-button
 					appearance="toolbar"
 					density="compact"
-					tooltip="Stage Incoming for All Conflicts"
-					aria-label="Stage Incoming for All Conflicts"
+					tooltip=${l10n.t('Stage Incoming for All Conflicts')}
+					aria-label=${l10n.t('Stage Incoming for All Conflicts')}
 					@click=${this.onStageAllIncoming}
 					><code-icon icon="gl-accept-all-right"></code-icon
 				></gl-button>
 				<gl-button
 					appearance="toolbar"
 					density="compact"
-					tooltip="${
-						this._conflictFilesLayout === 'tree' ? 'Switch to List Layout' : 'Switch to Tree Layout'
-					}"
-					aria-label="${
-						this._conflictFilesLayout === 'tree' ? 'Switch to List Layout' : 'Switch to Tree Layout'
-					}"
+					tooltip=${layoutLabel}
+					aria-label=${layoutLabel}
 					@click=${this.onToggleConflictFilesLayout}
 					><code-icon icon="${this._conflictFilesLayout === 'tree' ? 'list-flat' : 'list-tree'}"></code-icon
 				></gl-button>
@@ -1708,8 +1736,8 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 			<gl-tree-view
 				class="conflict-panel__list"
 				filterable
-				filter-placeholder="Filter conflicted files..."
-				aria-label="${pluralize('conflicted file', conflictFiles.length)}"
+				filter-placeholder=${l10n.t('Filter conflicted files...')}
+				aria-label=${conflictFilesLabel}
 				.model=${this._conflictTreeModel}
 				@gl-tree-generated-item-selected=${this.onConflictTreeItemSelected}
 				@gl-tree-generated-item-action-clicked=${this.onConflictTreeActionClicked}
@@ -1917,9 +1945,13 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 	}
 
 	private renderHeader() {
+		const orderTooltip = this.ascending
+			? l10n.t('Showing Oldest Commits First')
+			: l10n.t('Showing Newest Commits First');
+
 		return html`<header tabindex="-1">
 			<div class="header__row">
-				<h1 class="header-title">GitLens Interactive Rebase</h1>
+				<h1 class="header-title">${l10n.t('GitLens Interactive Rebase')}</h1>
 				<div class="header-info">${this.renderSubhead()}</div>
 				<div class="header-actions">
 					${this.renderConflictIndicator()}
@@ -1927,7 +1959,7 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 						class="header-toggle"
 						appearance="toolbar"
 						density="compact"
-						tooltip="${this.ascending ? 'Showing Oldest Commits First' : 'Showing Newest Commits First'}"
+						tooltip=${orderTooltip}
 						@click=${this.onOrderToggle}
 					>
 						<code-icon slot="prefix" icon="sort-precedence"></code-icon>
@@ -1946,42 +1978,71 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 		const doneCommitCount = this.doneEntries.filter(e => e.type === 'commit').length;
 		const pendingCommitCount = this.state.entries.filter(e => e.type === 'commit').length;
 		const totalCommitCount = doneCommitCount + pendingCommitCount;
-		const revealTooltip = this.state.revealLocation === 'graph' ? 'Open in Commit Graph' : 'Open in Inspect View';
+		const revealTooltip =
+			this.state.revealLocation === 'graph' ? l10n.t('Open in Commit Graph') : l10n.t('Open in Inspect View');
+		const branch = html`<gl-tooltip content=${revealTooltip}>
+			<gl-branch-name
+				.name=${this.state.branch}
+				tabindex="0"
+				@click=${this.onBranchClick}
+				@keydown=${this.onBranchKeydown}
+				class="clickable"
+			></gl-branch-name>
+		</gl-tooltip>`;
+		const relation = this.state.onto
+			? html`<span class="header-onto"
+					>${localizedContent(l10n.t('onto {reference}'), {
+						reference: html`<gl-tooltip content=${revealTooltip}>
+							<gl-commit-sha
+								.sha=${this.state.onto.sha}
+								tabindex="0"
+								@click=${this.onOntoClick}
+								@keydown=${this.onOntoKeydown}
+								class="clickable"
+							></gl-commit-sha>
+						</gl-tooltip>`,
+					})}</span
+				>`
+			: nothing;
+		const count = html`<span class="header-count"
+			>${
+				this.isRebasing
+					? totalCommitCount === 1
+						? l10n.t('{done}/{total} commit', {
+								done: getNumericFormat()(doneCommitCount),
+								total: getNumericFormat()(totalCommitCount),
+							})
+						: l10n.t('{done}/{total} commits', {
+								done: getNumericFormat()(doneCommitCount),
+								total: getNumericFormat()(totalCommitCount),
+							})
+					: pendingCommitCount === 1
+						? l10n.t('{count} commit', { count: getNumericFormat()(pendingCommitCount) })
+						: l10n.t('{count} commits', { count: getNumericFormat()(pendingCommitCount) })
+			}</span
+		>`;
 
-		return html`
-			<gl-tooltip content=${revealTooltip}>
-				<gl-branch-name
-					.name=${this.state.branch}
-					tabindex="0"
-					@click=${this.onBranchClick}
-					@keydown=${this.onBranchKeydown}
-					class="clickable"
-				></gl-branch-name>
-			</gl-tooltip>
-			${
-				this.state.onto
-					? html`<span class="header-onto"
-							>onto
-							<gl-tooltip content=${revealTooltip}>
-								<gl-commit-sha
-									.sha=${this.state.onto.sha}
-									tabindex="0"
-									@click=${this.onOntoClick}
-									@keydown=${this.onOntoKeydown}
-									class="clickable"
-								></gl-commit-sha>
-							</gl-tooltip>
-						</span>`
-					: nothing
-			}
-			<span class="header-count"
-				>${
-					this.isRebasing
-						? `${doneCommitCount}/${totalCommitCount} commits`
-						: pluralize('commit', pendingCommitCount)
-				}</span
-			>
-		`;
+		return this.state.onto
+			? localizedContent(
+					l10n.t({
+						message: '{branch} {relation} {count}',
+						comment: [
+							'{branch}, {relation}, and {count} are independently styled UI groups. {relation} identifies the target commit and includes the word “onto”.',
+						],
+					}),
+					{
+						branch: branch,
+						relation: relation,
+						count: count,
+					},
+				)
+			: localizedContent(
+					l10n.t({
+						message: '{branch} {count}',
+						comment: ['{branch} and {count} are independently styled UI groups.'],
+					}),
+					{ branch: branch, count: count },
+				);
 	}
 
 	private onBranchClick = () => {
@@ -2130,8 +2191,8 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 				<span class="shortcut"><kbd class="word">s</kbd><span>quash</span></span>
 				<span class="shortcut"><kbd class="word">f</kbd><span>ixup</span></span>
 				<span class="shortcut"><kbd class="word">d</kbd><span>rop</span></span>
-				<span class="shortcut"><kbd>alt</kbd> <kbd>↑↓</kbd><span class="label">move</span></span>
-				<span class="shortcut"><kbd>/</kbd><span class="label">search</span></span>
+				<span class="shortcut"><kbd>alt</kbd> <kbd>↑↓</kbd><span class="label">${l10n.t('move')}</span></span>
+				<span class="shortcut"><kbd>/</kbd><span class="label">${l10n.t('search')}</span></span>
 			</div>
 			<div class="actions">
 				${
@@ -2161,15 +2222,15 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 				if (hasConflicts) {
 					variant = 'warning';
 					icon = 'warning';
-					tooltip = 'Start Rebase (Conflicts Detected)';
+					tooltip = l10n.t('Start Rebase (Conflicts Detected)');
 				} else if (!isStale) {
 					variant = 'success';
 					icon = 'check';
-					tooltip = 'Start Rebase (No Conflicts Detected)';
+					tooltip = l10n.t('Start Rebase (No Conflicts Detected)');
 				}
 			} else {
 				icon = 'loading';
-				tooltip = 'Checking for conflicts...';
+				tooltip = l10n.t('Checking for conflicts...');
 			}
 		}
 
@@ -2180,7 +2241,7 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 				@click=${this.onStartClicked}
 			>
 				<span
-					>Start Rebase
+					>${l10n.t('Start Rebase')}
 					${
 						icon
 							? html`<code-icon
@@ -2200,7 +2261,9 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 								class="split-btn__main"
 								appearance="secondary"
 								?disabled=${!this.state?.entries?.length || this._startingWithAi}
-								tooltip="Starts the rebase and automatically resolves any conflicts — pausing for input where you've marked edits, or when confidence is low, and completes with a reviewable summary you can undo"
+								tooltip=${l10n.t(
+									"Starts the rebase and automatically resolves any conflicts — pausing for input where you've marked edits, or when confidence is low, and completes with a reviewable summary you can undo",
+								)}
 								@click=${this.onStartWithAiClicked}
 							>
 								<code-icon
@@ -2208,14 +2271,14 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 									icon=${this._startingWithAi ? 'loading' : 'sparkle'}
 									modifier=${ifDefined(this._startingWithAi ? 'spin' : undefined)}
 								></code-icon>
-								Start Auto-Rebase
+								${l10n.t('Start Auto-Rebase')}
 							</gl-button>
 							<gl-popover-confirm
 								class="split-btn__confirm"
 								trigger="manual"
-								heading="Abort Rebase &amp; Recompose"
+								heading=${l10n.t('Abort Rebase & Recompose')}
 								message=${this.recomposeConfirmMessage}
-								confirm="Abort &gt; Recompose"
+								confirm=${l10n.t('Abort > Recompose')}
 								initial-focus="confirm"
 								icon="warning"
 								@gl-confirm=${this.onRecomposeCommitsClicked}
@@ -2224,7 +2287,7 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 									slot="anchor"
 									.items=${[
 										{
-											label: 'Recompose Commits...',
+											label: l10n.t('Recompose Commits...'),
 											value: 'recompose',
 										},
 									]}
@@ -2234,7 +2297,7 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 										class="split-btn__menu"
 										slot="anchor"
 										appearance="secondary"
-										aria-label="More Actions"
+										aria-label=${l10n.t('More Actions')}
 									>
 										<code-icon icon="chevron-down"></code-icon>
 									</gl-button>
@@ -2244,7 +2307,7 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 					: // Without AI the split button is gone, so Recompose keeps its standalone (confirmed) form
 						this.renderRecomposeAction(false)
 			}
-			<gl-button appearance="secondary" @click=${this.onAbortClicked}>Abort</gl-button>`;
+			<gl-button appearance="secondary" @click=${this.onAbortClicked}>${l10n.t('Abort')}</gl-button>`;
 	}
 
 	/** Handles the Recompose menu entry shared by both split buttons — the pre-start Start
@@ -2262,23 +2325,29 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 	/** The standalone Recompose button's confirm copy, shared by the split menu's confirmation. */
 	private get recomposeConfirmMessage(): string {
 		return (this.state?.isInPlace ?? false)
-			? 'Let AI intelligently reorganize these commits with clearer messages and better logical grouping.'
-			: 'Let AI intelligently reorganize these commits with clearer messages and better logical grouping. <br><br> After recomposition, simply rebase again to apply these commits onto the target branch.';
+			? l10n.t('Let AI intelligently reorganize these commits with clearer messages and better logical grouping.')
+			: l10n.t(
+					'Let AI intelligently reorganize these commits with clearer messages and better logical grouping. \n\n After recomposition, simply rebase again to apply these commits onto the target branch.',
+				);
 	}
 
 	private renderRecomposeAction(isActive: boolean) {
 		return html`<gl-popover-confirm
-			heading="Abort Rebase &amp; Recompose"
+			heading=${l10n.t('Abort Rebase & Recompose')}
 			message=${this.recomposeConfirmMessage}
-			confirm="Abort &gt; Recompose"
+			confirm=${l10n.t('Abort > Recompose')}
 			confirm-variant=${ifDefined(isActive ? 'danger' : undefined)}
 			initial-focus=${isActive ? 'cancel' : 'confirm'}
 			icon=${isActive ? 'error' : 'warning'}
 			@gl-confirm=${this.onRecomposeCommitsClicked}
 		>
-			<gl-button slot="anchor" appearance="secondary" tooltip="Open Commit Composer &amp; Recompose using AI">
+			<gl-button
+				slot="anchor"
+				appearance="secondary"
+				tooltip=${l10n.t('Open Commit Composer & Recompose using AI')}
+			>
 				<code-icon slot=${ifDefined(isActive ? undefined : 'prefix')} icon="sparkle"></code-icon>
-				${isActive ? nothing : 'Recompose...'}
+				${isActive ? nothing : l10n.t('Recompose...')}
 			</gl-button>
 		</gl-popover-confirm>`;
 	}
@@ -2286,7 +2355,7 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 	private renderActiveRebaseActions(hasConflicts: boolean) {
 		return html`
 			<gl-button @click=${this.onContinueClicked} ?disabled=${hasConflicts}>
-				<span>Continue</span>
+				<span>${l10n.t('Continue')}</span>
 				<span slot="suffix" class="button-shortcut">Ctrl+Enter</span>
 			</gl-button>
 			${
@@ -2295,18 +2364,20 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 							<gl-button
 								class="split-btn__main"
 								appearance="secondary"
-								tooltip="Resolves any conflicts automatically and continues the rest of the rebase — pausing for your input when confidence is low, with a reviewable, undoable summary at the end"
+								tooltip=${l10n.t(
+									'Resolves any conflicts automatically and continues the rest of the rebase — pausing for your input when confidence is low, with a reviewable, undoable summary at the end',
+								)}
 								@click=${this.onContinueWithAiClicked}
 							>
 								<code-icon slot="prefix" icon="sparkle"></code-icon>
-								Continue with Auto-Rebase
+								${l10n.t('Continue with Auto-Rebase')}
 							</gl-button>
 							<gl-popover-confirm
 								class="split-btn__confirm"
 								trigger="manual"
-								heading="Abort Rebase &amp; Recompose"
+								heading=${l10n.t('Abort Rebase & Recompose')}
 								message=${this.recomposeConfirmMessage}
-								confirm="Abort &gt; Recompose"
+								confirm=${l10n.t('Abort > Recompose')}
 								confirm-variant="danger"
 								initial-focus="cancel"
 								icon="error"
@@ -2314,14 +2385,14 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 							>
 								<gl-menu-popover
 									slot="anchor"
-									.items=${[{ label: 'Recompose Commits...', value: 'recompose' }]}
+									.items=${[{ label: l10n.t('Recompose Commits...'), value: 'recompose' }]}
 									@gl-menu-select=${this.onRecomposeMenuSelect}
 								>
 									<gl-button
 										class="split-btn__menu"
 										slot="anchor"
 										appearance="secondary"
-										aria-label="More Actions"
+										aria-label=${l10n.t('More Actions')}
 									>
 										<code-icon icon="chevron-down"></code-icon>
 									</gl-button>
@@ -2330,8 +2401,8 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 						</span>`
 					: nothing
 			}
-			<gl-button appearance="secondary" @click=${this.onSkipClicked}>Skip</gl-button>
-			<gl-button variant="danger" @click=${this.onAbortClicked}>Abort</gl-button>
+			<gl-button appearance="secondary" @click=${this.onSkipClicked}>${l10n.t('Skip')}</gl-button>
+			<gl-button variant="danger" @click=${this.onAbortClicked}>${l10n.t('Abort')}</gl-button>
 		`;
 	}
 }

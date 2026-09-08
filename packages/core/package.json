@@ -244,6 +244,7 @@
 		"@octokit/request": "catalog:",
 		"@octokit/request-error": "catalog:",
 		"@octokit/types": "catalog:",
+		"@vscode/l10n": "catalog:",
 		"fast-string-truncated-width": "catalog:",
 		"ignore": "catalog:",
 		"vscode-uri": "catalog:"

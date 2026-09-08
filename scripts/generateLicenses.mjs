@@ -43,9 +43,15 @@ function generateThirdpartyNotices(packages) {
 		}
 
 		if (name === 'gitlens' || name.startsWith('@gitkraken') || name.startsWith('@gitlens/')) continue;
-		if (data.licenseFile == null) continue;
+		// @vscode/l10n's published tarball omits LICENSE; the checker otherwise selects its README.
+		// Source: https://github.com/microsoft/vscode-l10n/blob/main/LICENSE
+		const licenseFile =
+			name === '@vscode/l10n'
+				? path.join(process.cwd(), 'scripts', 'licenses', 'vscode-l10n.txt')
+				: data.licenseFile;
+		if (licenseFile == null) continue;
 
-		const license = fs.readFileSync(data.licenseFile, 'utf8').replace(/\r\n/g, '\n');
+		const license = fs.readFileSync(licenseFile, 'utf8').replace(/\r\n/g, '\n');
 
 		packageOutputs.push(`${++count}. ${name}${version ? ` version ${version}` : ''} (${data.repository})`);
 		licenseOutputs.push(

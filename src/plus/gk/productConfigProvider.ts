@@ -1,7 +1,9 @@
+import { l10n } from 'vscode';
 import type { Lazy } from '@gitlens/utils/lazy.js';
 import { lazy } from '@gitlens/utils/lazy.js';
 import { getLoggableName } from '@gitlens/utils/logger.js';
 import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { encodeHtmlWeak } from '@gitlens/utils/string.js';
 import type { Validator } from '@gitlens/utils/validation.js';
 import { createValidator, Is } from '@gitlens/utils/validation.js';
 import type { GlExtensionCommands } from '../../constants.commands.js';
@@ -51,6 +53,21 @@ type PromoV2PlusJson = PromoV2Json | PromoV3Json | PromoFutureJson;
 
 const maxKnownPromoVersion = 3;
 
+// Promo content crosses the existing server-authored HTML boundary. Escape every translated
+// character before inserting only these fixed formatting tags; catalog text never supplies markup.
+function getFallbackPromoHtml(): string {
+	return encodeHtmlWeak(
+		l10n.t({
+			message: '{boldStart}Save up to 50%{boldEnd} on GitLens Pro',
+			args: { boldStart: '{boldStart}', boldEnd: '{boldEnd}' },
+			comment:
+				'The placeholders mark the beginning and end of bold emphasis. Keep them balanced around the discount phrase.',
+		}),
+	)
+		.replaceAll('{boldStart}', '<b>')
+		.replaceAll('{boldEnd}', '</b>');
+}
+
 const fallbackConfig: Config = {
 	promos: [
 		{
@@ -64,13 +81,13 @@ const fallbackConfig: Config = {
 			],
 			locations: ['home', 'account', 'badge', 'gate'],
 			content: {
-				modal: { detail: 'Save up to 50% on GitLens Pro' },
-				quickpick: { detail: '$(star-full) Save up to 50% on GitLens Pro' },
+				modal: { detail: l10n.t('Save up to 50% on GitLens Pro') },
+				quickpick: { detail: l10n.t('$(star-full) Save up to 50% on GitLens Pro') },
 				webview: {
-					info: { html: '<b>Save up to 50%</b> on GitLens Pro' },
+					info: { html: getFallbackPromoHtml() },
 					link: {
-						html: '<b>Save up to 50%</b> on GitLens Pro',
-						title: 'Upgrade now and Save up to 50% on GitLens Pro',
+						html: getFallbackPromoHtml(),
+						title: l10n.t('Upgrade now and Save up to 50% on GitLens Pro'),
 					},
 				},
 			},

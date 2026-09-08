@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import { html, nothing } from 'lit';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -109,7 +110,7 @@ export function renderAutolinksPopover(merged: MergedAutolinks): unknown {
 	return html`<div slot="popover">
 		${
 			enrichedPrs.length > 0
-				? html`<menu-label>Pull Requests</menu-label> ${enrichedPrs.map(
+				? html`<menu-label>${l10n.t('Pull Requests')}</menu-label> ${enrichedPrs.map(
 							pr =>
 								html`<menu-item href=${pr.url}>
 									<code-icon icon="git-pull-request"></code-icon> #${pr.id}
@@ -121,7 +122,7 @@ export function renderAutolinksPopover(merged: MergedAutolinks): unknown {
 		${
 			enrichedIssues.length > 0
 				? html`${needsDivider ? html`<menu-divider></menu-divider>` : nothing}
-						<menu-label>Issues</menu-label>
+						<menu-label>${l10n.t('Issues')}</menu-label>
 						${enrichedIssues.map(
 							issue =>
 								html`<menu-item href=${issue.url}>
@@ -134,7 +135,7 @@ export function renderAutolinksPopover(merged: MergedAutolinks): unknown {
 		${
 			autolinks.length > 0
 				? html`${needsDivider ? html`<menu-divider></menu-divider>` : nothing}
-						<menu-label>Autolinks</menu-label>
+						<menu-label>${l10n.t('Autolinks')}</menu-label>
 						${autolinks.map(
 							a =>
 								html`<menu-item href=${a.url}>

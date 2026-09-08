@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
@@ -98,7 +99,7 @@ export class GlGraphJumpToast extends LitElement {
 				class="toast__dismiss"
 				appearance="toolbar"
 				density="compact"
-				aria-label="Dismiss"
+				aria-label=${l10n.t('Dismiss')}
 				@click=${this.onDismissClick}
 			>
 				<code-icon icon="close"></code-icon>

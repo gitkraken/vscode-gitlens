@@ -10,6 +10,7 @@ import {
 	commands,
 	ConfigurationTarget,
 	Disposable,
+	l10n,
 	Uri,
 	ViewColumn,
 	window,
@@ -90,6 +91,7 @@ import type {
 	WebviewTelemetryEvents,
 } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
+import { getPresentableErrorMessage } from '../../../errors.js';
 import { FeatureFlagKey, setFeatureFlagTelemetryGlobalAttributes } from '../../../featureFlags/featureFlagService.js';
 import type { FeaturePreview } from '../../../features.js';
 import { getFeaturePreviewStatus } from '../../../features.js';
@@ -1835,9 +1837,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				return;
 			}
 
-			const switchToBranch = 'Switch to Branch...';
+			const switchToBranch = l10n.t('Switch to Branch...');
 			const pick = await window.showWarningMessage(
-				'Unable to focus the Commit Graph on the current branch because HEAD is detached. Switch to a branch and the graph will focus on it.',
+				l10n.t(
+					'Unable to focus the Commit Graph on the current branch because HEAD is detached. Switch to a branch and the graph will focus on it.',
+				),
 				switchToBranch,
 			);
 			if (pick === switchToBranch) {
@@ -2979,22 +2983,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 
 		if (isBug) {
-			void window.showInformationMessage("Thanks. We've opened a GitHub issue so you can add more details.");
+			void window.showInformationMessage(
+				l10n.t("Thanks. We've opened a GitHub issue so you can add more details."),
+			);
 		} else if (sent && input.type === 'feature_request') {
 			// Opt-in, unlike bugs: a one-line "would be nice" shouldn't force a public issue, but a real
 			// ask belongs where enhancements are actually tracked and discussed.
 			void this.offerFeatureRequestIssue(input.message);
 		} else if (sent) {
-			void window.showInformationMessage('Thanks for the feedback. The team will use it to improve GitLens.');
+			void window.showInformationMessage(
+				l10n.t('Thanks for the feedback. The team will use it to improve GitLens.'),
+			);
 		}
 
 		return { sent: sent, issueOpened: issueOpened };
 	}
 
 	private async offerFeatureRequestIssue(message: string): Promise<void> {
-		const file = { title: 'File on GitHub' };
+		const file = { title: l10n.t('File on GitHub') };
 		const result = await window.showInformationMessage(
-			'Thanks for the feedback. The team will use it to improve GitLens.',
+			l10n.t('Thanks for the feedback. The team will use it to improve GitLens.'),
 			file,
 		);
 		if (result !== file) return;
@@ -3176,7 +3184,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	): Promise<MergePullRequestResult> {
 		const resolved = await this._panels.resolvePullRequestForMerge(number);
 		if (resolved == null) {
-			void window.showErrorMessage(`Unable to resolve pull request #${number}`);
+			void window.showErrorMessage(l10n.t('Unable to resolve pull request #{0}', number));
 			return { merged: false };
 		}
 
@@ -3344,7 +3352,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return {
 				id: id,
 				markdown: { status: 'rejected' as const, reason: ex },
-				error: ex instanceof Error ? ex.message : String(ex),
+				error: getPresentableErrorMessage(ex),
 			};
 		} finally {
 			if (onAbort != null) {
@@ -3688,12 +3696,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					case 1:
 						return {
 							title: title,
-							placeholder: 'Choose a branch or tag to show commits from',
+							placeholder: l10n.t('Choose a branch or tag to show commits from'),
 						};
 					case 2:
 						return {
 							title: title,
-							placeholder: 'Choose a base to compare against (e.g., main)',
+							placeholder: l10n.t('Choose a base to compare against (e.g., main)'),
 						};
 				}
 			},
@@ -3765,7 +3773,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 			// Return the caller-supplied scope as a fallback so consumers reading `scope.mergeBase`,
 			// `scope.resolvedMergeTargetTipSha`, etc. don't crash on undefined property access.
-			return { scope: scope, error: ex instanceof Error ? ex.message : String(ex) };
+			return { scope: scope, error: getPresentableErrorMessage(ex) };
 		}
 	}
 
@@ -6094,7 +6102,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		void setContext('gitlens:graph:hasSavedDefaultLayout', true);
 		void window.showInformationMessage(
-			'Saved the current Commit Graph layout as your default. New workspaces will open with it.',
+			l10n.t('Saved the current Commit Graph layout as your default. New workspaces will open with it.'),
 		);
 	}
 

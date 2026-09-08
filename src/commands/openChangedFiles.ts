@@ -1,5 +1,5 @@
 import type { Uri } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { filterMap } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
@@ -24,12 +24,12 @@ export class OpenChangedFilesCommand extends GlCommandBase {
 
 		try {
 			if (args.uris == null) {
-				const repo = await getRepositoryOrShowPicker(this.container, 'Open All Changed Files');
+				const repo = await getRepositoryOrShowPicker(this.container, l10n.t('Open All Changed Files'));
 				if (repo == null) return;
 
 				const status = await repo.git.status.getStatus();
 				if (status == null) {
-					void window.showWarningMessage('Unable to open changed files');
+					void window.showWarningMessage(l10n.t('Unable to open changed files'));
 
 					return;
 				}
@@ -40,7 +40,7 @@ export class OpenChangedFilesCommand extends GlCommandBase {
 			openTextEditors(args.uris);
 		} catch (ex) {
 			Logger.error(ex, 'OpenChangedFilesCommand');
-			void showGenericErrorMessage('Unable to open all changed files');
+			void showGenericErrorMessage(l10n.t('Unable to open all changed files'));
 		}
 	}
 }

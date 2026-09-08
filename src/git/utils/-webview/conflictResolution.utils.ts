@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import { classifyConflictAction } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -101,34 +101,112 @@ export async function resolveAllConflicts(
 
 	const resolvableCount = conflictFiles.length - skippedCount;
 	if (resolvableCount === 0) {
-		void window.showWarningMessage(
-			`None of the ${conflictFiles.length} conflicted ${
-				conflictFiles.length === 1 ? 'file' : 'files'
-			} can be resolved by staging the ${resolution} side.`,
-			{ modal: true },
-		);
+		let message: string;
+		if (resolution === 'current') {
+			message =
+				conflictFiles.length === 1
+					? l10n.t(
+							'None of the {0} conflicted file can be resolved by staging the current side.',
+							conflictFiles.length,
+						)
+					: l10n.t(
+							'None of the {0} conflicted files can be resolved by staging the current side.',
+							conflictFiles.length,
+						);
+		} else {
+			message =
+				conflictFiles.length === 1
+					? l10n.t(
+							'None of the {0} conflicted file can be resolved by staging the incoming side.',
+							conflictFiles.length,
+						)
+					: l10n.t(
+							'None of the {0} conflicted files can be resolved by staging the incoming side.',
+							conflictFiles.length,
+						);
+		}
+
+		void window.showWarningMessage(message, { modal: true });
 		return;
 	}
 
-	const confirmTitle = resolution === 'current' ? 'Stage All Current' : 'Stage All Incoming';
-	const discardedSide = resolution === 'current' ? 'incoming' : 'current';
-	const skipNote = skippedCount
-		? `\n\n${skippedCount} ${
-				skippedCount === 1 ? 'file has' : 'files have'
-			} no ${resolution} side to take and will be skipped — resolve ${
-				skippedCount === 1 ? 'it' : 'them'
-			} manually.`
-		: '';
+	const confirm = {
+		title: resolution === 'current' ? l10n.t('Stage All Current') : l10n.t('Stage All Incoming'),
+	};
+	let message: string;
+	if (resolution === 'current') {
+		if (conflictFiles.length === 1) {
+			message = l10n.t(
+				'Resolve {0} of {1} conflicted file by staging the current side?\n\nThis will discard the incoming changes for that file.',
+				resolvableCount,
+				conflictFiles.length,
+			);
+		} else if (resolvableCount === 1) {
+			message = l10n.t(
+				'Resolve {0} of {1} conflicted files by staging the current side?\n\nThis will discard the incoming changes for that file.',
+				resolvableCount,
+				conflictFiles.length,
+			);
+		} else {
+			message = l10n.t(
+				'Resolve {0} of {1} conflicted files by staging the current side?\n\nThis will discard the incoming changes for those files.',
+				resolvableCount,
+				conflictFiles.length,
+			);
+		}
+	} else if (conflictFiles.length === 1) {
+		message = l10n.t(
+			'Resolve {0} of {1} conflicted file by staging the incoming side?\n\nThis will discard the current changes for that file.',
+			resolvableCount,
+			conflictFiles.length,
+		);
+	} else if (resolvableCount === 1) {
+		message = l10n.t(
+			'Resolve {0} of {1} conflicted files by staging the incoming side?\n\nThis will discard the current changes for that file.',
+			resolvableCount,
+			conflictFiles.length,
+		);
+	} else {
+		message = l10n.t(
+			'Resolve {0} of {1} conflicted files by staging the incoming side?\n\nThis will discard the current changes for those files.',
+			resolvableCount,
+			conflictFiles.length,
+		);
+	}
+
+	let skipNote: string | undefined;
+	if (skippedCount) {
+		if (resolution === 'current') {
+			skipNote =
+				skippedCount === 1
+					? l10n.t(
+							'{0} file has no current side to take and will be skipped — resolve it manually.',
+							skippedCount,
+						)
+					: l10n.t(
+							'{0} files have no current side to take and will be skipped — resolve them manually.',
+							skippedCount,
+						);
+		} else {
+			skipNote =
+				skippedCount === 1
+					? l10n.t(
+							'{0} file has no incoming side to take and will be skipped — resolve it manually.',
+							skippedCount,
+						)
+					: l10n.t(
+							'{0} files have no incoming side to take and will be skipped — resolve them manually.',
+							skippedCount,
+						);
+		}
+	}
+
 	const result = await window.showWarningMessage(
-		`Resolve ${resolvableCount} of ${conflictFiles.length} conflicted ${
-			conflictFiles.length === 1 ? 'file' : 'files'
-		} by staging the ${resolution} side?\n\nThis will discard the ${discardedSide} changes for ${
-			resolvableCount === 1 ? 'that file' : 'those files'
-		}.${skipNote}`,
+		skipNote == null ? message : `${message}\n\n${skipNote}`,
 		{ modal: true },
-		{ title: confirmTitle },
+		confirm,
 	);
-	if (result == null) return;
+	if (result !== confirm) return;
 
 	const failures: { paths: string[]; reason: unknown }[] = [];
 
@@ -174,7 +252,17 @@ export async function resolveAllConflicts(
 
 	if (failedCount) {
 		void window.showErrorMessage(
-			`Failed to resolve ${failedCount} of ${resolvableCount} conflicted ${failedCount === 1 ? 'file' : 'files'}. See logs for details.`,
+			failedCount === 1
+				? l10n.t(
+						'Failed to resolve {0} of {1} conflicted file. See logs for details.',
+						failedCount,
+						resolvableCount,
+					)
+				: l10n.t(
+						'Failed to resolve {0} of {1} conflicted files. See logs for details.',
+						failedCount,
+						resolvableCount,
+					),
 		);
 		for (const f of failures) {
 			const error = f.reason instanceof Error ? f.reason : new Error(String(f.reason));

@@ -1,5 +1,5 @@
 import type { CancellationToken, Command } from 'vscode';
-import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
@@ -222,7 +222,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 	override getCommand(): Command | undefined {
 		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
 			'gitlens.diffWithPrevious:views',
-			'Open Changes with Previous Revision',
+			l10n.t('Open Changes with Previous Revision'),
 			undefined,
 			{
 				commit: this.commit,

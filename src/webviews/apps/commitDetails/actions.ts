@@ -20,6 +20,7 @@
  * - Single await per sub-service at startup, then direct calls
  */
 import type { Remote } from '@eamodio/supertalk';
+import * as l10n from '@vscode/l10n';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestRefs, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
@@ -558,7 +559,7 @@ export class CommitDetailsActions {
 			} else {
 				Logger.error(ex, 'Failed to fetch initial state');
 			}
-			this.state.error.set(ex instanceof Error ? ex.message : 'Failed to initialize');
+			this.state.error.set(ex instanceof Error ? ex.message : l10n.t('Failed to initialize'));
 		} finally {
 			this.state.loading.set(false);
 		}

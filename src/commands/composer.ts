@@ -1,4 +1,5 @@
 import type { Uri } from 'vscode';
+import { l10n } from 'vscode';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { normalizePath } from '@gitlens/utils/path.js';
@@ -81,7 +82,7 @@ export class ComposeCommand extends GlCommandBase {
 				}
 			}
 			if (repoPath == null) {
-				const repo = await getRepositoryOrShowPicker(this.container, 'Compose Commits');
+				const repo = await getRepositoryOrShowPicker(this.container, l10n.t('Compose Commits'));
 				repoPath = repo?.path;
 			}
 			if (repoPath == null) return;
@@ -101,7 +102,7 @@ export class ComposeCommand extends GlCommandBase {
 			});
 		} catch (ex) {
 			Logger.error(ex, 'ComposeCommand', 'execute');
-			void showGenericErrorMessage('Unable to compose commits');
+			void showGenericErrorMessage(l10n.t('Unable to compose commits'));
 		}
 	}
 }

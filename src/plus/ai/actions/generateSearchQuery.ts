@@ -1,4 +1,5 @@
 import type { CancellationToken, ProgressOptions } from 'vscode';
+import { l10n } from 'vscode';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import type { AIChatMessage, AIProviderResponse } from '@gitlens/ai/models/provider.js';
 import { generateSearchQuerySchema } from '@gitlens/ai/prompts.js';
@@ -61,7 +62,7 @@ export async function generateSearchQuery(
 					const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
 					return messages;
 				},
-				getProgressTitle: model => `Generating search query with ${model.name}...`,
+				getProgressTitle: model => l10n.t('Generating search query with {0}...', model.name),
 				getTelemetryInfo: model => ({
 					key: 'ai/generate',
 					data: {

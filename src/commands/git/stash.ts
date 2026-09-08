@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { Container } from '../../container.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
@@ -45,8 +46,8 @@ export interface StashGitCommandArgs {
 
 export class StashGitCommand extends QuickCommandWithSubcommands<Subcommands, State, StashContext> {
 	constructor(container: Container, args?: StashGitCommandArgs) {
-		super(container, 'stash', 'stash', 'Stash', {
-			description: 'shelves (stashes) local changes to be reapplied later',
+		super(container, 'stash', 'stash', l10n.t('Stash'), {
+			description: l10n.t('shelves (stashes) local changes to be reapplied later'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };

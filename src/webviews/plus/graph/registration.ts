@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Disposable, ViewColumn, window, workspace } from 'vscode';
+import { Disposable, l10n, ViewColumn, window, workspace } from 'vscode';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { isUri } from '@gitlens/utils/uri.js';
@@ -94,7 +94,7 @@ export function registerGraphWebviewPanel(
 			id: 'gitlens.graph',
 			fileName: 'graph.html',
 			iconPath: 'images/gitlens-icon.png',
-			title: 'Commit Graph',
+			title: l10n.t('Commit Graph'),
 			contextKeyPrefix: `gitlens:webview:graph`,
 			trackingFeature: 'graphWebview',
 			type: 'graph',
@@ -122,7 +122,7 @@ export function registerGraphWebviewView(
 		{
 			id: 'gitlens.views.graph',
 			fileName: 'graph.html',
-			title: 'Commit Graph',
+			title: l10n.t('Commit Graph'),
 			contextKeyPrefix: `gitlens:webviewView:graph`,
 			trackingFeature: 'graphView',
 			type: 'graph',
@@ -258,18 +258,18 @@ export function registerGraphWebviewCommands<T>(
 			// Untrusted workspaces block git execution outright, so the maintenance sub-provider would
 			// never populate — check this before the other gates so the message is unambiguous.
 			if (!workspace.isTrusted) {
-				void window.showInformationMessage('Repository Health requires a trusted workspace.');
+				void window.showInformationMessage(l10n.t('Repository Health requires a trusted workspace.'));
 				return;
 			}
 
 			// With optimizations off, every probe in gitHealthService short-circuits, so the view would
 			// render an all-clear for a repo it never examined instead of the real report.
 			if (configuration.get('gitOptimizations.enabled') !== true) {
-				const enable = 'Enable Git Optimizations';
+				const enable = l10n.t('Enable Git Optimizations');
 				const picked = await window.showInformationMessage(
-					'Repository Health requires Git optimizations, which are currently turned off.',
+					l10n.t('Repository Health requires Git optimizations, which are currently turned off.'),
 					enable,
-					'Cancel',
+					l10n.t('Cancel'),
 				);
 				if (picked !== enable) return;
 
@@ -287,7 +287,9 @@ export function registerGraphWebviewCommands<T>(
 				best?.git.maintenance != null ? best : openRepositories.find(r => r.git.maintenance != null);
 			if (openRepositories.length > 0 && repository == null) {
 				void window.showInformationMessage(
-					"Repository Health isn't available here — it requires a local repository with Git installed.",
+					l10n.t(
+						"Repository Health isn't available here — it requires a local repository with Git installed.",
+					),
 				);
 				return;
 			}

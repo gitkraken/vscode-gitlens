@@ -1,5 +1,5 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
-import { ThemeIcon } from 'vscode';
+import { l10n, ThemeIcon } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitTag } from '@gitlens/git/models/tag.js';
@@ -180,7 +180,7 @@ export async function getBranchesAndOrTags<TBranch = GitBranch, TTag = GitTag>(
 
 		if (localBranches.length) {
 			items.push(
-				createQuickPickSeparator<BranchQuickPickItem<TBranch>>('Branches'),
+				createQuickPickSeparator<BranchQuickPickItem<TBranch>>(l10n.t('Branches')),
 				...(await createBranchQuickPickItems(localBranches, {
 					buttons: options?.buttons,
 					mapItem: options?.mapItem?.branches,
@@ -193,7 +193,7 @@ export async function getBranchesAndOrTags<TBranch = GitBranch, TTag = GitTag>(
 
 		if (remoteBranches.length) {
 			items.push(
-				createQuickPickSeparator<BranchQuickPickItem<TBranch>>('Remote Branches'),
+				createQuickPickSeparator<BranchQuickPickItem<TBranch>>(l10n.t('Remote Branches')),
 				...(await createBranchQuickPickItems(remoteBranches, {
 					buttons: options?.buttons,
 					mapItem: options?.mapItem?.branches,
@@ -230,7 +230,7 @@ export async function getBranchesAndOrTags<TBranch = GitBranch, TTag = GitTag>(
 
 	if (localBranches.length) {
 		items.push(
-			createQuickPickSeparator('Branches'),
+			createQuickPickSeparator(l10n.t('Branches')),
 			...(await createBranchQuickPickItems(localBranches, {
 				buttons: options?.buttons,
 				mapItem: options?.mapItem?.branches,
@@ -243,7 +243,7 @@ export async function getBranchesAndOrTags<TBranch = GitBranch, TTag = GitTag>(
 	}
 
 	items.push(
-		createQuickPickSeparator('Tags'),
+		createQuickPickSeparator(l10n.t('Tags')),
 		...tags!.map(t =>
 			createTagQuickPickItem(
 				t,
@@ -262,7 +262,7 @@ export async function getBranchesAndOrTags<TBranch = GitBranch, TTag = GitTag>(
 
 	if (remoteBranches.length) {
 		items.push(
-			createQuickPickSeparator('Remote Branches'),
+			createQuickPickSeparator(l10n.t('Remote Branches')),
 			...(await createBranchQuickPickItems(remoteBranches, {
 				buttons: options?.buttons,
 				mapItem: options?.mapItem?.branches,
@@ -296,6 +296,19 @@ export function* pickBranchOrTagStep<
 	context.showTags = true;
 
 	const showTagsButton = createShowTagsToggle(context.showTags);
+	const getPlaceholder = () =>
+		l10n.t(
+			'{0} (or enter a revision using #)',
+			typeof options.placeholder === 'string' ? options.placeholder : options.placeholder(context),
+		);
+	const getEmptyPlaceholder = () =>
+		context.showTags
+			? l10n.t('No branches or tags found in {0}', state.repo.name)
+			: l10n.t('No branches found in {0}', state.repo.name);
+	const getNoReferencesPlaceholder = () =>
+		context.showTags
+			? l10n.t('{0} has no branches or tags', state.repo.name)
+			: l10n.t('{0} has no branches', state.repo.name);
 
 	const getBranchesAndOrTagsFn = async () => {
 		return getBranchesAndOrTags(state.repo, context.showTags ? ['branches', 'tags'] : ['branches'], {
@@ -322,12 +335,7 @@ export function* pickBranchOrTagStep<
 
 	const step = createPickStep<ReferencesQuickPickItem>({
 		title: appendReposToTitle(options.title ?? context.title, state, context),
-		placeholder: count =>
-			!count
-				? `No branches${context.showTags ? ' or tags' : ''} found in ${state.repo.name}`
-				: `${
-						typeof options.placeholder === 'string' ? options.placeholder : options.placeholder(context)
-					} (or enter a revision using #)`,
+		placeholder: count => (!count ? getEmptyPlaceholder() : getPlaceholder()),
 		matchOnDescription: true,
 		matchOnDetail: true,
 		value: options.value,
@@ -361,13 +369,7 @@ export function* pickBranchOrTagStep<
 
 					const branchesAndOrTags = await getBranchesAndOrTagsFn();
 					quickpick.placeholder =
-						branchesAndOrTags.length === 0
-							? `${state.repo.name} has no branches${context.showTags ? ' or tags' : ''}`
-							: `${
-									typeof options.placeholder === 'string'
-										? options.placeholder
-										: options.placeholder(context)
-								} (or enter a revision using #)`;
+						branchesAndOrTags.length === 0 ? getNoReferencesPlaceholder() : getPlaceholder();
 					// Re-include the prepended rows — replacing items wholesale would silently drop them
 					quickpick.items = withPrependedItems(branchesAndOrTags);
 				} finally {
@@ -417,13 +419,29 @@ export function* pickBranchOrTagStepMultiRepo<
 	context.showTags = state.repos.length === 1;
 
 	const showTagsButton = createShowTagsToggle(context.showTags);
+	const getEmptyPlaceholder = () => {
+		if (state.repos.length === 1) {
+			return context.showTags
+				? l10n.t('No branches or tags found in {0}', state.repos[0].name)
+				: l10n.t('No branches found in {0}', state.repos[0].name);
+		}
+
+		return context.showTags
+			? l10n.t('No common branches or tags found in {0} repos', state.repos.length)
+			: l10n.t('No common branches found in {0} repos', state.repos.length);
+	};
+	const getPlaceholder = () =>
+		l10n.t(
+			'{0} (or enter a revision using #)',
+			typeof options.placeholder === 'string' ? options.placeholder : options.placeholder(context),
+		);
 
 	type ResultItem = StepPickResult<GitReference, PickBranchOrTagStepActionResult>;
 	const mapBranchOrTag = (ref: GitReference): ResultItem => ({ type: 'result', value: ref });
 
 	type CreateBranchItem = QuickPickItem & { item: ResultItem };
 	const createNewBranchItem: CreateBranchItem = {
-		label: 'Create New Branch...',
+		label: l10n.t('Create New Branch...'),
 		iconPath: new ThemeIcon('plus'),
 		alwaysShow: true,
 		item: { type: 'action', action: 'create-branch', name: '' },
@@ -431,7 +449,7 @@ export function* pickBranchOrTagStepMultiRepo<
 
 	type CrossCommandItem = QuickPickItem & { item: ResultItem };
 	const choosePullRequestItem: CrossCommandItem = {
-		label: 'Choose a Pull Request...',
+		label: l10n.t('Choose a Pull Request...'),
 		iconPath: new ThemeIcon('git-pull-request'),
 		alwaysShow: true,
 		item: {
@@ -470,14 +488,7 @@ export function* pickBranchOrTagStepMultiRepo<
 	const step = createPickStep<PickItem>({
 		title: appendReposToTitle(options.title ?? context.title, state, context),
 		canGoBack: context.steps?.canGoBack,
-		placeholder: count =>
-			!count
-				? `No ${state.repos.length === 1 ? '' : 'common '}branches${
-						context.showTags ? ' or tags' : ''
-					} found in ${state.repos.length === 1 ? state.repos[0].name : `${state.repos.length} repos`}`
-				: `${
-						typeof options.placeholder === 'string' ? options.placeholder : options.placeholder(context)
-					} (or enter a revision using #)`,
+		placeholder: count => (!count ? getEmptyPlaceholder() : getPlaceholder()),
 		matchOnDescription: true,
 		matchOnDetail: true,
 		value: options.value ?? (isRevisionReference(state.reference) ? state.reference.ref : undefined),
@@ -510,18 +521,7 @@ export function* pickBranchOrTagStepMultiRepo<
 					context.showTags = flipToggle(button);
 
 					const branchesAndOrTags = await getBranchesAndOrTagsFn();
-					quickpick.placeholder =
-						branchesAndOrTags.length === 0
-							? `No ${state.repos.length === 1 ? '' : 'common '}branches${
-									context.showTags ? ' or tags' : ''
-								} found in ${
-									state.repos.length === 1 ? state.repos[0].name : `${state.repos.length} repos`
-								}`
-							: `${
-									typeof options.placeholder === 'string'
-										? options.placeholder
-										: options.placeholder(context)
-								} (or enter a revision using #)`;
+					quickpick.placeholder = branchesAndOrTags.length === 0 ? getEmptyPlaceholder() : getPlaceholder();
 					quickpick.items = branchesAndOrTags;
 				} finally {
 					quickpick.busy = false;

@@ -12,6 +12,7 @@ import type { ExplainCommitCommandArgs } from '../../commands/explainCommit.js';
 import type { ExplainStashCommandArgs } from '../../commands/explainStash.js';
 import type { InspectTelemetryContext, InspectWebviewTelemetryContext, Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
+import { getPresentableErrorMessage } from '../../errors.js';
 import type { CommitSelectedEvent } from '../../eventBus.js';
 import { executeGitCommand } from '../../git/actions.js';
 import { showDetailsQuickPick } from '../../git/actions/commit.js';
@@ -482,7 +483,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			return { result: { summary: '', body: '' } };
 		} catch (ex) {
 			debugger;
-			return { error: { message: ex.message } };
+			return { error: { message: getPresentableErrorMessage(ex) } };
 		}
 	}
 

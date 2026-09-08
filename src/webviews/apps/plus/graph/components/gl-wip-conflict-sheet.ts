@@ -1,3 +1,4 @@
+import * as l10n from '@vscode/l10n';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -262,27 +263,31 @@ otherwise the pane is taller than its grid cell and bleeds past the divider. */
 	}
 
 	override render(): unknown {
-		return html`<gl-detail-sheet esc-managed aria-label="Conflict details" close-label="Close">
+		return html`<gl-detail-sheet
+			esc-managed
+			aria-label=${l10n.t('Conflict details')}
+			close-label=${l10n.t('Close')}
+		>
 			<span slot="title" class="title">
 				<code-icon icon="warning"></code-icon>
-				<span class="title__name">Conflict · ${this.fileName}</span>
+				<span class="title__name">${l10n.t('Conflict · {file}', { file: this.fileName })}</span>
 			</span>
 			${
 				this.aiEnabled
 					? html`<gl-action-chip
 							slot="actions"
 							icon="gl-merge"
-							label="Resolve Conflicts (Preview)"
+							label=${l10n.t('Resolve Conflicts (Preview)')}
 							overlay="tooltip"
 							@click=${this.onResolveAi}
-							><span>Resolve Conflicts</span></gl-action-chip
+							><span>${l10n.t('Resolve Conflicts')}</span></gl-action-chip
 						>`
 					: nothing
 			}
 			<gl-action-chip
 				slot="actions"
 				icon="go-to-file"
-				label="Open File"
+				label=${l10n.t('Open File')}
 				overlay="tooltip"
 				@click=${this.onOpenFile}
 			></gl-action-chip>
@@ -291,8 +296,8 @@ otherwise the pane is taller than its grid cell and bleeds past the divider. */
 	}
 
 	private renderContent(): unknown {
-		if (this._loading) return html`<div class="state">Loading conflict details…</div>`;
-		if (this._error) return html`<div class="state">Unable to load conflict details.</div>`;
+		if (this._loading) return html`<div class="state">${l10n.t('Loading conflict details…')}</div>`;
+		if (this._error) return html`<div class="state">${l10n.t('Unable to load conflict details.')}</div>`;
 
 		const details = this._details;
 		if (details == null) return nothing;
@@ -303,26 +308,21 @@ otherwise the pane is taller than its grid cell and bleeds past the divider. */
 			.position=${this._position}
 			@gl-split-panel-change=${this.onSplitChange}
 		>
-			${this.renderSide('current', 'gl-diff-left', 'Current', details.current, details.canStageCurrent, details)}
-			${this.renderSide(
-				'incoming',
-				'gl-diff-right',
-				'Incoming',
-				details.incoming,
-				details.canStageIncoming,
-				details,
-			)}
+			${this.renderSide('current', 'gl-diff-left', details.current, details.canStageCurrent, details)}
+			${this.renderSide('incoming', 'gl-diff-right', details.incoming, details.canStageIncoming, details)}
 		</gl-split-panel>`;
 	}
 
 	private renderSide(
 		side: ConflictSheetSide,
 		icon: string,
-		label: string,
 		data: ConflictDetailsSide,
 		canStage: boolean,
 		details: ConflictDetails,
 	): unknown {
+		const label = side === 'current' ? l10n.t('Current') : l10n.t('Incoming');
+		const openLabel = side === 'current' ? l10n.t('Open Current Changes') : l10n.t('Open Incoming Changes');
+		const stageLabel = side === 'current' ? l10n.t('Stage Current Changes') : l10n.t('Stage Incoming Changes');
 		return html`<div slot=${side === 'current' ? 'start' : 'end'} class="side-pane">
 			<header class="side__head">
 				<code-icon class="side__icon" icon=${icon}></code-icon>
@@ -331,7 +331,7 @@ otherwise the pane is taller than its grid cell and bleeds past the divider. */
 				<div class="side__actions">
 					<gl-action-chip
 						icon="diff-multiple"
-						label="Open ${label} Changes"
+						label=${openLabel}
 						overlay="tooltip"
 						@click=${() => this.emitSide('conflict-open-changes', side)}
 					></gl-action-chip>
@@ -339,7 +339,7 @@ otherwise the pane is taller than its grid cell and bleeds past the divider. */
 						canStage
 							? html`<gl-action-chip
 									icon="check"
-									label="Stage ${label} Changes"
+									label=${stageLabel}
 									overlay="tooltip"
 									@click=${() => this.emitSide('conflict-stage', side)}
 								></gl-action-chip>`
@@ -359,10 +359,10 @@ otherwise the pane is taller than its grid cell and bleeds past the divider. */
 
 	private renderCommits(data: ConflictDetailsSide, hasMergeBase: boolean): unknown {
 		if (!hasMergeBase) {
-			return html`<div class="state">No merge base — commit history unavailable.</div>`;
+			return html`<div class="state">${l10n.t('No merge base — commit history unavailable.')}</div>`;
 		}
 		if (data.commits.length === 0) {
-			return html`<div class="state">No commits changed this file on this side.</div>`;
+			return html`<div class="state">${l10n.t('No commits changed this file on this side.')}</div>`;
 		}
 
 		return html`<ul class="commits">
@@ -373,7 +373,7 @@ otherwise the pane is taller than its grid cell and bleeds past the divider. */
 							placement="top"
 							.commit=${this.toRow(c)}
 							.preferences=${this.preferences}
-							label="Open Changes for Commit ${c.shortSha}"
+							label=${l10n.t('Open Changes for Commit {revision}', { revision: c.shortSha })}
 							@gl-commit-row-item-select=${() => this.emitCommit(c.sha)}
 						></gl-commit-row-item>
 					</li>`,

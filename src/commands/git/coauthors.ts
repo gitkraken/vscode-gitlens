@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitContributor } from '@gitlens/git/models/contributor.js';
 import { appendCoauthorsToMessage } from '@gitlens/git/utils/contributor.utils.js';
 import { ensureArray } from '@gitlens/utils/array.js';
@@ -39,8 +40,8 @@ export interface CoAuthorsGitCommandArgs {
 
 export class CoAuthorsGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: CoAuthorsGitCommandArgs) {
-		super(container, 'co-authors', 'co-authors', 'Add Co-Authors', {
-			description: 'adds co-authors to a commit message',
+		super(container, 'co-authors', 'co-authors', l10n.t('Add Co-Authors'), {
+			description: l10n.t('adds co-authors to a commit message'),
 		});
 
 		this.initialState = { confirm: false, ...args?.state };
@@ -125,7 +126,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 
 				const result = yield* pickContributorsStep(state, context, {
 					picked: state.contributors?.map(c => c.email)?.filter(<T>(email?: T): email is T => email != null),
-					placeholder: 'Choose contributors to add as co-authors',
+					placeholder: l10n.t('Choose contributors to add as co-authors'),
 				});
 				if (result === StepResultBreak) {
 					state.contributors = undefined!;

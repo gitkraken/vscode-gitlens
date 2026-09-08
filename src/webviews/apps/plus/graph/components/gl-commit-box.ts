@@ -1,7 +1,9 @@
+import * as l10n from '@vscode/l10n';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { isMac } from '@env/platform.js';
 import { boxSizingBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { WipSigning } from '../../../../plus/graph/detailsProtocol.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { GlMenuPopoverItem } from '../../../shared/components/menu/menu-popover.js';
@@ -92,7 +94,7 @@ export class GlCommitBox extends LitElement {
 						this.aiEnabled
 							? html`<gl-button appearance="secondary" @click=${this.onCompose}>
 									<code-icon class="compose-icon" icon="wand" slot="prefix"></code-icon>
-									Compose
+									${l10n.t('Compose')}
 								</gl-button>`
 							: nothing
 					}
@@ -105,7 +107,9 @@ export class GlCommitBox extends LitElement {
 	private renderSigningIndicator() {
 		if (!this.signing?.enabled) return nothing;
 
-		const label = `Commits will be signed using ${getSigningFormatLabel(this.signing.format)}`;
+		const label = l10n.t('Commits will be signed using {format}', {
+			format: getSigningFormatLabel(this.signing.format),
+		});
 		return html`
 			<gl-tooltip content=${label} placement="bottom">
 				<span class="signing-indicator" tabindex="0" role="img" aria-label=${label}>
@@ -123,7 +127,7 @@ export class GlCommitBox extends LitElement {
 				?disabled=${this.committing}
 				@gl-change-value=${this.onAmendChange}
 			>
-				Amend Previous Commit
+				${l10n.t('Amend Previous Commit')}
 			</gl-checkbox>
 		`;
 	}
@@ -131,7 +135,9 @@ export class GlCommitBox extends LitElement {
 	private renderTextarea() {
 		const firstLine = this.message.split('\n')[0] ?? '';
 		const len = firstLine.length;
-		const modifier = isMac ? '\u2318' : 'Ctrl+';
+		const placeholder = isMac
+			? l10n.t('Commit message (⌘Enter to commit)')
+			: l10n.t('Commit message (Ctrl+Enter to commit)');
 
 		return html`
 			<div class="message">
@@ -148,7 +154,7 @@ export class GlCommitBox extends LitElement {
 					.value=${this.message}
 					?disabled=${this.committing}
 					aria-invalid=${this.commitError ? 'true' : 'false'}
-					placeholder=${`Commit message (${modifier}Enter to commit)`}
+					placeholder=${placeholder}
 					@input=${this.onMessageInput}
 					@keydown=${this.onMessageKeydown}
 				></textarea>
@@ -159,8 +165,8 @@ export class GlCommitBox extends LitElement {
 						class="add-coauthors"
 						appearance="toolbar"
 						density="compact"
-						tooltip="Add Co-authors..."
-						aria-label="Add Co-authors..."
+						tooltip=${l10n.t('Add Co-authors...')}
+						aria-label=${l10n.t('Add Co-authors...')}
 						?disabled=${this.committing}
 						@click=${this.onAddCoauthors}
 					>
@@ -172,7 +178,7 @@ export class GlCommitBox extends LitElement {
 	}
 
 	private renderGenerateButton() {
-		const label = this.generating ? 'Cancel' : 'Generate Commit Message';
+		const label = this.generating ? l10n.t('Cancel') : l10n.t('Generate Commit Message');
 		// `gl-tooltip` is non-interactive (pointer-events: none), so use `gl-popover` to show
 		// the current model as a clickable chip. `trigger="hover focus-visible"` (no `click`, and
 		// `focus-visible` rather than `focus`) keeps the sparkle's own click firing generate without
@@ -207,15 +213,19 @@ export class GlCommitBox extends LitElement {
 	}
 
 	private renderActionBar() {
-		const label = this.amend ? 'Amend Commit on' : 'Commit to';
-		const action = this.amend ? 'amend commit on' : 'commit to';
 		const branch = this.branchName;
-		const enabledTooltip = `${label} ${branch}`;
+		const enabledTooltip = this.amend
+			? l10n.t('Amend Commit on {branch}', { branch: branch })
+			: l10n.t('Commit to {branch}', { branch: branch });
 		const disabledTooltip =
 			this.disabledReason === 'no-message'
-				? `Enter a commit message to ${action} ${branch}`
+				? this.amend
+					? l10n.t('Enter a commit message to amend commit on {branch}', { branch: branch })
+					: l10n.t('Enter a commit message to commit to {branch}', { branch: branch })
 				: this.disabledReason === 'no-staged'
-					? `Stage changes above to ${action} ${branch}`
+					? this.amend
+						? l10n.t('Stage changes above to amend commit on {branch}', { branch: branch })
+						: l10n.t('Stage changes above to commit to {branch}', { branch: branch })
 					: '';
 
 		if (this.fixupTarget != null && !this.amend) {
@@ -240,8 +250,14 @@ export class GlCommitBox extends LitElement {
 					>
 						${
 							this.committing
-								? html`<code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>Committing…`
-								: html`${label}&nbsp;<gl-branch-name .name=${branch}></gl-branch-name>`
+								? html`<code-icon icon="loading" modifier="spin" slot="prefix"></code-icon
+										>${l10n.t('Committing…')}`
+								: html`${localizedContent(
+										this.amend
+											? l10n.t('Amend Commit on\u00a0{branch}')
+											: l10n.t('Commit to\u00a0{branch}'),
+										{ branch: html`<gl-branch-name .name=${branch}></gl-branch-name>` },
+									)}`
 						}
 					</gl-button>
 				</span>
@@ -252,9 +268,9 @@ export class GlCommitBox extends LitElement {
 	private renderFixupActionBar(disabledTooltip: string) {
 		const target = this.fixupTarget!;
 		const disabled = !this.canCommit || this.committing;
-		const enabledTooltip = `Commits a fixup of '${target.subject}'`;
+		const enabledTooltip = l10n.t("Commits a fixup of '{subject}'", { subject: target.subject });
 		const menuItems: GlMenuPopoverItem[] = [
-			{ label: 'Commit Fixup & Squash', value: 'squash', disabled: disabled },
+			{ label: l10n.t('Commit Fixup & Squash'), value: 'squash', disabled: disabled },
 		];
 
 		return html`
@@ -274,8 +290,9 @@ export class GlCommitBox extends LitElement {
 					>
 						${
 							this.committing
-								? html`<code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>Committing…`
-								: html`Commit Fixup`
+								? html`<code-icon icon="loading" modifier="spin" slot="prefix"></code-icon
+										>${l10n.t('Committing…')}`
+								: html`${l10n.t('Commit Fixup')}`
 						}
 					</gl-button>
 					<gl-menu-popover
@@ -286,7 +303,7 @@ export class GlCommitBox extends LitElement {
 						<gl-button
 							class="split-btn__menu"
 							slot="anchor"
-							aria-label="Fixup Options"
+							aria-label=${l10n.t('Fixup Options')}
 							?disabled=${disabled}
 						>
 							<code-icon icon="chevron-down"></code-icon>

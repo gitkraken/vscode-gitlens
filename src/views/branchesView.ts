@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
-import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { l10n, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitBranchReference, GitRevisionReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
@@ -61,7 +61,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 
 			const repositories = this.view.getFilteredRepositories();
 			if (!repositories.length) {
-				this.view.message = 'No branches could be found.';
+				this.view.message = l10n.t('No branches could be found.');
 				return [];
 			}
 
@@ -91,7 +91,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 					!b.remote || (showRemoteBranches && defaultRemote != null && b.remoteName === defaultRemote),
 			});
 			if (!branches.values.length) {
-				this.view.message = 'No branches could be found.';
+				this.view.message = l10n.t('No branches could be found.');
 				void child.ensureSubscription();
 
 				return [];
@@ -106,7 +106,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Branches', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(l10n.t('Branches'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -115,7 +115,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	protected readonly configKey = 'branches';
 
 	constructor(container: Container, grouped?: GroupedViewContext) {
-		super(container, 'branches', 'Branches', 'branchesView', grouped);
+		super(container, 'branches', l10n.t('Branches'), 'branchesView', grouped);
 	}
 
 	override get canReveal(): boolean {
@@ -288,10 +288,13 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${getReferenceLabel(branch, {
-					icon: false,
-					quoted: true,
-				})} in the side bar...`,
+				title: l10n.t(
+					'Revealing {0} in the side bar...',
+					getReferenceLabel(branch, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (_progress, token) => {
@@ -310,10 +313,13 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${getReferenceLabel(commit, {
-					icon: false,
-					quoted: true,
-				})} in the side bar...`,
+				title: l10n.t(
+					'Revealing {0} in the side bar...',
+					getReferenceLabel(commit, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (_progress, token) => {

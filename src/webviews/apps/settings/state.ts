@@ -1,5 +1,6 @@
 import { computed } from '@lit-labs/signals';
 import { createContext } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { IssuesCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
 import type { Config } from '../../../config.js';
 import type {
@@ -45,7 +46,7 @@ export function createSettingsState(storage?: HostStorage) {
 	const config = signal<Config | undefined>(undefined);
 	const customSettings = signal<Record<string, boolean>>({});
 	const version = signal<string>('');
-	const scopes = signal<SettingsScope[]>([['user', 'User']]);
+	const scopes = signal<SettingsScope[]>([['user', l10n.t('User')]]);
 
 	// Shared-service domain data (integrations/ai) — `undefined`
 	// means not yet loaded, so panels can show skeletons instead of empty states

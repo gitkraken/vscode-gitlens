@@ -1,9 +1,11 @@
 /*global*/
 import './allowedSigners.scss';
 import type { Remote } from '@eamodio/supertalk';
+import * as l10n from '@vscode/l10n';
 import { html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { fromBase64ToString } from '@gitlens/utils/base64.js';
 import type { CandidateSigner, State } from '../../allowedSigners/protocol.js';
 import type { AllowedSignersResultsChangedEvent, AllowedSignersServices } from '../../rpc/allowedSignersService.js';
@@ -239,13 +241,21 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 			if (result.written) {
 				// Re-read the file we just wrote so the saved signers move into the "already in file" group.
 				await this.checkPresence();
-				const config = result.configSet ? ' and updated git config' : '';
 				s.status.set({
 					type: 'success',
-					message: `Added ${result.added} ${result.added === 1 ? 'signer' : 'signers'}${config}.`,
+					message: result.configSet
+						? result.added === 1
+							? l10n.t('Added {0} signer and updated git config.', result.added)
+							: l10n.t('Added {0} signers and updated git config.', result.added)
+						: result.added === 1
+							? l10n.t('Added {0} signer.', result.added)
+							: l10n.t('Added {0} signers.', result.added),
 				});
 			} else {
-				s.status.set({ type: 'error', message: result.error ?? 'Failed to write the allowed_signers file.' });
+				s.status.set({
+					type: 'error',
+					message: result.error ?? l10n.t('Failed to write the allowed_signers file.'),
+				});
 			}
 		} catch (ex) {
 			s.status.set({ type: 'error', message: ex instanceof Error ? ex.message : String(ex) });
@@ -260,11 +270,21 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 		return html`
 			<div class="container scrollable">
 				<header>
-					<h1>SSH Allowed Signers</h1>
+					<h1>${l10n.t('SSH Allowed Signers')}</h1>
 					<p>
-						Build an <code>allowed_signers</code> file so Git can verify SSH-signed
-						commits${s.repoName.get() ? html` in <strong>${s.repoName.get()}</strong>` : nothing}. Verified
-						signers appear as “Signed &amp; Verified” in GitLens.
+						${localizedContent(
+							s.repoName.get()
+								? l10n.t(
+										'Build an {file} file so Git can verify SSH-signed commits in {repository}. Verified signers appear as “Signed & Verified” in GitLens.',
+									)
+								: l10n.t(
+										'Build an {file} file so Git can verify SSH-signed commits. Verified signers appear as “Signed & Verified” in GitLens.',
+									),
+							{
+								file: html`<code>allowed_signers</code>`,
+								repository: html`<strong>${s.repoName.get()}</strong>`,
+							},
+						)}
 					</p>
 				</header>
 
@@ -277,15 +297,17 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 		const p = this._state.progress.get();
 		const detail =
 			p?.total != null
-				? `${p.current ?? 0} / ${p.total} commits scanned${
-						p.found != null ? ` · ${p.found} signer${p.found === 1 ? '' : 's'} found` : ''
-					}`
+				? p.found != null
+					? p.found === 1
+						? l10n.t('{0} / {1} commits scanned · {2} signer found', p.current ?? 0, p.total, p.found)
+						: l10n.t('{0} / {1} commits scanned · {2} signers found', p.current ?? 0, p.total, p.found)
+					: l10n.t('{0} / {1} commits scanned', p.current ?? 0, p.total)
 				: undefined;
 
 		return html`
 			<div class="loading" aria-busy="true">
 				<code-icon class="loading__spinner" icon="loading" modifier="spin"></code-icon>
-				<p class="loading__message">${p?.message ?? 'Loading…'}</p>
+				<p class="loading__message">${p?.message ?? l10n.t('Loading…')}</p>
 				${detail ? html`<p class="loading__detail">${detail}</p>` : nothing}
 			</div>
 		`;
@@ -308,7 +330,7 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 				error
 					? html`<div class="notice notice--error" role="alert">
 							<code-icon icon="error"></code-icon>
-							<span>Couldn't finish discovering signers: ${error}</span>
+							<span>${l10n.t("Couldn't finish discovering signers: {0}", error)}</span>
 						</div>`
 					: nothing
 			}
@@ -316,7 +338,7 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 				verifying
 					? html`<div class="verifying" aria-busy="true">
 							<code-icon icon="loading" modifier="spin"></code-icon>
-							<span>Checking your connected integration for verified keys…</span>
+							<span>${l10n.t('Checking your connected integration for verified keys…')}</span>
 						</div>`
 					: nothing
 			}
@@ -324,24 +346,26 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 				!hasNodeHost
 					? html`<div class="notice">
 							<code-icon icon="warning"></code-icon>
-							<span>Writing an allowed_signers file isn't supported in this environment.</span>
+							<span
+								>${l10n.t("Writing an allowed_signers file isn't supported in this environment.")}</span
+							>
 						</div>`
 					: nothing
 			}
 
 			<div class="toolbar">
 				<div class="field">
-					<label for="path">File location</label>
+					<label for="path">${l10n.t('File location')}</label>
 					<div class="path-row">
 						<input id="path" type="text" .value=${s.targetPath.get()} @change=${this.onPathChange} />
 						<gl-button appearance="secondary" ?disabled=${!hasNodeHost} @click=${this.onBrowse}>
-							Browse…
+							${l10n.t('Browse…')}
 						</gl-button>
 					</div>
 				</div>
 
 				<gl-checkbox .checked=${s.setConfig.get()} @gl-change-value=${this.onSetConfigChange}>
-					Point <code>gpg.ssh.allowedSignersFile</code> at this file
+					${localizedContent(l10n.t('Point {setting} at this file'), { setting: html`<code>gpg.ssh.allowedSignersFile</code>` })}
 				</gl-checkbox>
 
 				${
@@ -351,8 +375,8 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 								.value=${s.configScope.get()}
 								@gl-change-value=${this.onScopeChange}
 							>
-								<gl-radio value="global">Global (all repositories)</gl-radio>
-								<gl-radio value="local">This repository only</gl-radio>
+								<gl-radio value="global">${l10n.t('Global (all repositories)')}</gl-radio>
+								<gl-radio value="local">${l10n.t('This repository only')}</gl-radio>
 							</gl-radio-group>`
 						: nothing
 				}
@@ -361,12 +385,13 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 			${
 				signers.length === 0
 					? html`<div class="empty">
-							No SSH signers were found.
+							${l10n.t('No SSH signers were found.')}
 							${
 								integrationConnected
-									? html`No SSH-signed commits were found in this repository.`
-									: html`Connect a GitHub or GitLab integration, or sign commits with SSH, to discover
-										signers.`
+									? l10n.t('No SSH-signed commits were found in this repository.')
+									: l10n.t(
+											'Connect a GitHub or GitLab integration, or sign commits with SSH, to discover signers.',
+										)
 							}
 						</div>`
 					: html`<div class="list" @gl-toggle-signer=${this.onToggleSigner}>
@@ -380,7 +405,7 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 							)}
 							${
 								inFileSigners.length
-									? html`<div class="list__group">Already in your allowed_signers</div>
+									? html`<div class="list__group">${l10n.t('Already in your allowed_signers')}</div>
 											${inFileSigners.map(
 												signer => html`<gl-signer-row
 													.signer=${signer}
@@ -399,7 +424,7 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 					?disabled=${s.saving.get() || !hasNodeHost || !s.targetPath.get() || addCount === 0}
 					@click=${this.onSave}
 				>
-					${s.saving.get() ? 'Saving…' : `Add ${addCount} Signer${addCount === 1 ? '' : 's'}`}
+					${s.saving.get() ? l10n.t('Saving…') : addCount === 1 ? l10n.t('Add {0} Signer', addCount) : l10n.t('Add {0} Signers', addCount)}
 				</gl-button>
 				${this.renderActionHint(newSigners.length, addCount, hasNodeHost)}
 			</div>
@@ -420,8 +445,8 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 		return html`<span class="status"
 			>${
 				newCount === 0
-					? 'All discovered signers are already in your allowed_signers.'
-					: 'Select signers to add.'
+					? l10n.t('All discovered signers are already in your allowed_signers.')
+					: l10n.t('Select signers to add.')
 			}</span
 		>`;
 	}

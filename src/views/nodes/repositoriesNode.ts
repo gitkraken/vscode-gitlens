@@ -1,5 +1,5 @@
 import type { TextEditor } from 'vscode';
-import { Disposable, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
+import { Disposable, l10n, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { weakEvent } from '@gitlens/utils/event.js';
@@ -28,7 +28,9 @@ export class RepositoriesNode extends SubscribeableViewNode<
 	getChildren(): ViewNode[] {
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
-			if (repositories.length === 0) return [new MessageNode(this.view, this, 'No repositories could be found.')];
+			if (repositories.length === 0) {
+				return [new MessageNode(this.view, this, l10n.t('No repositories could be found.'))];
+			}
 
 			this.children = repositories.map(r => new RepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r));
 		}
@@ -41,7 +43,7 @@ export class RepositoriesNode extends SubscribeableViewNode<
 		const isLinkedWorkspace = isInWorkspacesView && this.view.container.workspaces.currentWorkspaceId != null;
 		const isCurrentLinkedWorkspace = isLinkedWorkspace && this.view.container.workspaces.currentWorkspace != null;
 		const item = new TreeItem(
-			isInWorkspacesView ? 'Current Window' : 'Repositories',
+			isInWorkspacesView ? l10n.t('Current Window') : l10n.t('Repositories'),
 			isInWorkspacesView ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.Expanded,
 		);
 
@@ -85,7 +87,7 @@ export class RepositoriesNode extends SubscribeableViewNode<
 		if (repositories.length === 0 && (this.children == null || this.children.length === 0)) return;
 
 		if (repositories.length === 0) {
-			this.children = [new MessageNode(this.view, this, 'No repositories could be found.')];
+			this.children = [new MessageNode(this.view, this, l10n.t('No repositories could be found.'))];
 			return;
 		}
 

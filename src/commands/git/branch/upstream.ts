@@ -1,4 +1,4 @@
-import { ThemeIcon } from 'vscode';
+import { l10n, ThemeIcon } from 'vscode';
 import { BranchError } from '@gitlens/git/errors.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
@@ -55,8 +55,8 @@ export interface BranchUpstreamGitCommandArgs {
 
 export class BranchUpstreamGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: BranchUpstreamGitCommandArgs) {
-		super(container, 'branch-upstream', 'upstream', 'Change Upstream', {
-			description: 'manages upstream tracking for a branch',
+		super(container, 'branch-upstream', 'upstream', l10n.t('Change Upstream'), {
+			description: l10n.t('manages upstream tracking for a branch'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -106,7 +106,7 @@ export class BranchUpstreamGitCommand extends QuickCommand<State> {
 				const result = yield* pickBranchStep(state, context, {
 					filter: b => !b.remote,
 					picked: state.reference?.ref,
-					placeholder: 'Choose a branch to change its upstream tracking',
+					placeholder: l10n.t('Choose a branch to change its upstream tracking'),
 				});
 				if (result === StepResultBreak) {
 					state.reference = undefined!;
@@ -122,14 +122,14 @@ export class BranchUpstreamGitCommand extends QuickCommand<State> {
 
 				const result = yield* pickOrResetBranchStep(state, context, {
 					filter: b => b.remote,
-					placeholder: 'Choose an upstream branch to track',
+					placeholder: l10n.t('Choose an upstream branch to track'),
 					picked: state.upstream?.ref,
 					reset:
 						state.reference.upstream != null
 							? {
-									label: 'Unset Upstream',
-									description: 'Removes any upstream tracking',
-									button: { icon: new ThemeIcon('discard'), tooltip: 'Unset Upstream' },
+									label: l10n.t('Unset Upstream'),
+									description: l10n.t('Removes any upstream tracking'),
+									button: { icon: new ThemeIcon('discard'), tooltip: l10n.t('Unset Upstream') },
 								}
 							: undefined,
 				});
@@ -162,8 +162,11 @@ export class BranchUpstreamGitCommand extends QuickCommand<State> {
 					state.upstream?.name ?? undefined,
 				);
 			} catch (ex) {
-				Logger.error(ex, context.title);
-				void showGitErrorMessage(ex, BranchError.is(ex) ? undefined : 'Unable to manage upstream tracking');
+				Logger.error(ex, 'Change Upstream');
+				void showGitErrorMessage(
+					ex,
+					BranchError.is(ex) ? undefined : l10n.t('Unable to manage upstream tracking'),
+				);
 			}
 		}
 
@@ -171,29 +174,35 @@ export class BranchUpstreamGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<void> {
-		let title;
-		let detail;
+		let confirmTitle: string;
+		let title: string;
+		let detail: string;
 		if (state.upstream == null) {
-			title = 'Unset Upstream';
-			detail = `Will remove the upstream tracking from ${getReferenceLabel(state.reference)}`;
+			confirmTitle = l10n.t('Confirm Unset Upstream');
+			title = l10n.t('Unset Upstream');
+			detail = l10n.t('Will remove the upstream tracking from {0}', getReferenceLabel(state.reference));
 		} else if (state.reference.upstream == null) {
-			title = 'Set Upstream';
-			detail = `Will set the upstream tracking for ${getReferenceLabel(state.reference)} to ${getReferenceLabel(
-				state.upstream,
-				{ label: false },
-			)}`;
+			confirmTitle = l10n.t('Confirm Set Upstream');
+			title = l10n.t('Set Upstream');
+			detail = l10n.t(
+				'Will set the upstream tracking for {0} to {1}',
+				getReferenceLabel(state.reference),
+				getReferenceLabel(state.upstream, { label: false }),
+			);
 		} else {
-			title = `Change Upstream`;
-			detail = `Will change the upstream tracking for ${getReferenceLabel(state.reference)} to ${getReferenceLabel(
-				state.upstream,
-				{ label: false },
-			)}`;
+			confirmTitle = l10n.t('Confirm Change Upstream');
+			title = l10n.t('Change Upstream');
+			detail = l10n.t(
+				'Will change the upstream tracking for {0} to {1}',
+				getReferenceLabel(state.reference),
+				getReferenceLabel(state.upstream, { label: false }),
+			);
 		}
 
 		const step: QuickPickStep = createConfirmStep(
-			appendReposToTitle(`Confirm ${title}`, state, context),
+			appendReposToTitle(confirmTitle, state, context),
 			[{ label: title, detail: detail }],
-			context,
+			l10n.t('Confirm Change Upstream'),
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;

@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
-import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { l10n, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import type { WorkspacesViewConfig } from '../config.js';
 import { previewBadge, urls } from '../constants.js';
@@ -55,7 +55,7 @@ export class WorkspacesViewNode extends ViewNode<'workspaces', WorkspacesView> {
 				}
 
 				if (cloudWorkspaces.length === 0 && cloudWorkspaceInfo == null) {
-					children.push(new MessageNode(this.view, this, 'No cloud workspaces found.'));
+					children.push(new MessageNode(this.view, this, l10n.t('No cloud workspaces found.')));
 				}
 
 				if (localWorkspaceInfo != null) {
@@ -70,7 +70,7 @@ export class WorkspacesViewNode extends ViewNode<'workspaces', WorkspacesView> {
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Workspaces', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(l10n.t('Workspaces'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 
@@ -88,7 +88,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 	private _disposable: Disposable | undefined;
 
 	constructor(container: Container) {
-		super(container, 'workspaces', 'Workspaces', 'workspacesView');
+		super(container, 'workspaces', l10n.t('Workspaces'), 'workspacesView');
 
 		this.description = previewBadge;
 		this.disposables.push(container.workspaces.onDidResetWorkspaces(() => void this.refresh(true)));
@@ -125,7 +125,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing workspace ${workspaceId} in the side bar...`,
+				title: l10n.t('Revealing workspace {0} in the side bar...', workspaceId),
 				cancellable: true,
 			},
 			async (_progress, token) => {
@@ -237,7 +237,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 					await window.withProgress(
 						{
 							location: ProgressLocation.Notification,
-							title: `Locating Repositories for '${node.workspace.name}'...`,
+							title: l10n.t("Locating Repositories for '{0}'...", node.workspace.name),
 							cancellable: true,
 						},
 						(_progress, token) =>

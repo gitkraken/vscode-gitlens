@@ -1,4 +1,4 @@
-import { ThemeIcon } from 'vscode';
+import { l10n, ThemeIcon } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
@@ -54,8 +54,8 @@ export interface BranchMergeTargetGitCommandArgs {
 
 export class BranchMergeTargetGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: BranchMergeTargetGitCommandArgs) {
-		super(container, 'branch-mergeTarget', 'mergeTarget', 'Change Merge Target', {
-			description: 'changes the merge target for a branch',
+		super(container, 'branch-mergeTarget', 'mergeTarget', l10n.t('Change Merge Target'), {
+			description: l10n.t('changes the merge target for a branch'),
 		});
 
 		this.initialState = { confirm: args?.confirm, ...args?.state };
@@ -105,7 +105,7 @@ export class BranchMergeTargetGitCommand extends QuickCommand<State> {
 				const result = yield* pickBranchStep(state, context, {
 					filter: (b: GitBranch) => !b.remote,
 					picked: typeof state.reference === 'string' ? state.reference : state.reference?.ref,
-					placeholder: 'Choose a branch to change its merge target',
+					placeholder: l10n.t('Choose a branch to change its merge target'),
 				});
 				if (result === StepResultBreak) {
 					state.reference = undefined!;
@@ -137,14 +137,14 @@ export class BranchMergeTargetGitCommand extends QuickCommand<State> {
 
 				const result = yield* pickOrResetBranchStep(state, context, {
 					filter: (b: GitBranch) => b.remote && b.name !== refName,
-					placeholder: 'Choose a merge target branch',
+					placeholder: l10n.t('Choose a merge target branch'),
 					picked: suggestedMergeTarget,
 					reset:
 						userMergeTarget != null /* && detectedMergeTarget !== userMergeTarget*/
 							? {
-									label: 'Reset Merge Target',
-									detail: 'Reset the merge target branch to be automatically detected',
-									button: { icon: new ThemeIcon('discard'), tooltip: 'Reset Merge Target' },
+									label: l10n.t('Reset Merge Target'),
+									detail: l10n.t('Reset the merge target branch to be automatically detected'),
+									button: { icon: new ThemeIcon('discard'), tooltip: l10n.t('Reset Merge Target') },
 								}
 							: undefined,
 				});
@@ -181,27 +181,28 @@ export class BranchMergeTargetGitCommand extends QuickCommand<State> {
 	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<void> {
 		const referenceLabel =
 			typeof state.reference === 'string' ? state.reference : getReferenceLabel(state.reference);
-		const mergeTargetLabel =
-			typeof state.mergeTarget === 'string'
-				? state.mergeTarget
-				: state.mergeTarget
-					? getReferenceLabel(state.mergeTarget, { label: false })
-					: undefined;
 
-		let title;
-		let detail;
+		let confirmTitle: string;
+		let title: string;
+		let detail: string;
 		if (state.mergeTarget == null) {
-			title = 'Reset Merge Target';
-			detail = `Will reset the merge target for ${referenceLabel} to be automatically detected`;
+			confirmTitle = l10n.t('Confirm Reset Merge Target');
+			title = l10n.t('Reset Merge Target');
+			detail = l10n.t('Will reset the merge target for {0} to be automatically detected', referenceLabel);
 		} else {
-			title = 'Change Merge Target';
-			detail = `Will set the merge target for ${referenceLabel} to ${mergeTargetLabel}`;
+			const mergeTargetLabel =
+				typeof state.mergeTarget === 'string'
+					? state.mergeTarget
+					: getReferenceLabel(state.mergeTarget, { label: false });
+			confirmTitle = l10n.t('Confirm Change Merge Target');
+			title = l10n.t('Change Merge Target');
+			detail = l10n.t('Will set the merge target for {0} to {1}', referenceLabel, mergeTargetLabel);
 		}
 
 		const step: QuickPickStep = createConfirmStep(
-			appendReposToTitle(`Confirm ${title}`, state, context),
+			appendReposToTitle(confirmTitle, state, context),
 			[{ label: title, detail: detail }],
-			context,
+			confirmTitle,
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;

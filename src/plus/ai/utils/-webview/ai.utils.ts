@@ -1,5 +1,5 @@
 import type { CancellationToken, Disposable, QuickInputButton } from 'vscode';
-import { env, ThemeIcon, Uri, window } from 'vscode';
+import { env, l10n, ThemeIcon, Uri, window } from 'vscode';
 import type { AIProviders } from '@gitlens/ai/constants.js';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import { getValidatedTemperature as _getValidatedTemperature } from '@gitlens/ai/utils/ai.utils.js';
@@ -8,7 +8,6 @@ import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { formatNumeric } from '@gitlens/utils/date.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
-import { getPossessiveForm, pluralize } from '@gitlens/utils/string.js';
 import { Schemes } from '../../../../constants.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
@@ -28,7 +27,7 @@ import type { AIResponse, AIResultContext } from '../../aiProviderService.js';
 /** Built fresh per prompt so a quick pick never shares an item instance with another. */
 function createAIAccountDescriptionItem(): DirectiveQuickPickItem {
 	return createDirectiveQuickPickItem(Directive.Noop, undefined, {
-		label: 'Use AI-powered GitLens features like Generate Commit Message, Explain Commit, and more',
+		label: l10n.t('Use AI-powered GitLens features like Generate Commit Message, Explain Commit, and more'),
 		iconPath: new ThemeIcon('sparkle'),
 	});
 }
@@ -69,7 +68,7 @@ export async function getOrPromptApiKey(
 	try {
 		const infoButton: QuickInputButton = {
 			iconPath: new ThemeIcon(`link-external`),
-			tooltip: `Open the ${provider.name} API Key Page`,
+			tooltip: l10n.t('Open the {provider} API Key Page', { provider: provider.name }),
 		};
 
 		apiKey = await new Promise<string | undefined>(resolve => {
@@ -77,7 +76,9 @@ export async function getOrPromptApiKey(
 				input.onDidHide(() => resolve(undefined)),
 				input.onDidChangeValue(value => {
 					if (value && !provider.validator(value)) {
-						input.validationMessage = `Please enter a valid ${provider.name} API key`;
+						input.validationMessage = l10n.t('Please enter a valid {provider} API key', {
+							provider: provider.name,
+						});
 						return;
 					}
 
@@ -86,7 +87,9 @@ export async function getOrPromptApiKey(
 				input.onDidAccept(() => {
 					const value = input.value.trim();
 					if (!value || !provider.validator(value)) {
-						input.validationMessage = `Please enter a valid ${provider.name} API key`;
+						input.validationMessage = l10n.t('Please enter a valid {provider} API key', {
+							provider: provider.name,
+						});
 						return;
 					}
 
@@ -100,13 +103,16 @@ export async function getOrPromptApiKey(
 			);
 
 			input.password = true;
-			input.title = `Connect to ${provider.name}`;
-			input.placeholder = `Please enter your ${provider.name} API key to use this feature`;
-			input.prompt = `Enter your ${
-				provider.url
-					? `[${provider.name} API Key](${provider.url} "Get your ${provider.name} API key")`
-					: `${provider.name} API Key`
-			}`;
+			input.title = l10n.t('Connect to {provider}', { provider: provider.name });
+			input.placeholder = l10n.t('Please enter your {provider} API key to use this feature', {
+				provider: provider.name,
+			});
+			input.prompt = provider.url
+				? l10n.t('Enter your [{provider} API Key]({url} "Get your {provider} API key")', {
+						provider: provider.name,
+						url: provider.url,
+					})
+				: l10n.t('Enter your {provider} API Key', { provider: provider.name });
 			if (provider.url) {
 				input.buttons = [infoButton];
 			}
@@ -130,16 +136,21 @@ export function getValidatedTemperature(model: AIModel, modelTemperature?: numbe
 }
 
 export async function showLargePromptWarning(estimatedTokens: number, threshold: number): Promise<boolean> {
-	const confirm = { title: 'Continue' };
-	const changeThreshold = { title: `Change Threshold` };
-	const cancel = { title: 'Cancel', isCloseAffordance: true };
+	const confirm = { title: l10n.t('Continue') };
+	const changeThreshold = { title: l10n.t('Change Threshold') };
+	const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
+	const estimatedTokensFormatted = formatNumeric(estimatedTokens);
+	const thresholdFormatted = formatNumeric(threshold);
 	const result = await window.showWarningMessage(
-		`This request will use approximately ${pluralize(
-			'token',
-			estimatedTokens,
-		)}, which exceeds the configured ${formatNumeric(
-			threshold,
-		)} token threshold for large prompts.\n\nDo you want to continue?`,
+		estimatedTokens === 1
+			? l10n.t(
+					'This request will use approximately {estimatedTokens} token, which exceeds the configured {threshold} token threshold for large prompts.\n\nDo you want to continue?',
+					{ estimatedTokens: estimatedTokensFormatted, threshold: thresholdFormatted },
+				)
+			: l10n.t(
+					'This request will use approximately {estimatedTokens} tokens, which exceeds the configured {threshold} token threshold for large prompts.\n\nDo you want to continue?',
+					{ estimatedTokens: estimatedTokensFormatted, threshold: thresholdFormatted },
+				),
 		{ modal: true },
 		confirm,
 		changeThreshold,
@@ -154,7 +165,9 @@ export async function showLargePromptWarning(estimatedTokens: number, threshold:
 
 export function showPromptTruncationWarning(model: AIModel): void {
 	void window.showWarningMessage(
-		`The prompt was truncated to fit within the ${getPossessiveForm(model.provider.name)} limits.`,
+		model.provider.name.endsWith('s')
+			? l10n.t("The prompt was truncated to fit within {provider}' limits.", { provider: model.provider.name })
+			: l10n.t("The prompt was truncated to fit within {provider}'s limits.", { provider: model.provider.name }),
 	);
 }
 
@@ -186,13 +199,13 @@ export async function ensureAccess(
 
 	if (!container.ai.orgEnabled) {
 		if (showPicker) {
-			await window.showQuickPick([{ label: 'OK' }], {
-				title: 'AI is Disabled',
-				placeHolder: 'GitLens AI features have been disabled by your GitKraken admin',
+			await window.showQuickPick([{ label: l10n.t('OK') }], {
+				title: l10n.t('AI is Disabled'),
+				placeHolder: l10n.t('GitLens AI features have been disabled by your GitKraken admin'),
 				canPickMany: false,
 			});
 		} else {
-			await window.showErrorMessage(`AI features have been disabled by your GitKraken admin.`);
+			await window.showErrorMessage(l10n.t('AI features have been disabled by your GitKraken admin.'));
 		}
 
 		return false;
@@ -201,19 +214,19 @@ export async function ensureAccess(
 	if (!container.ai.enabled) {
 		let reenable = false;
 		if (showPicker) {
-			const enable = { label: 'Re-enable AI Features' };
-			const pick = await window.showQuickPick([{ label: 'OK' }, enable], {
-				title: 'AI is Disabled',
-				placeHolder: 'GitLens AI features have been disabled via settings',
+			const enable = { label: l10n.t('Re-enable AI Features') };
+			const pick = await window.showQuickPick([{ label: l10n.t('OK') }, enable], {
+				title: l10n.t('AI is Disabled'),
+				placeHolder: l10n.t('GitLens AI features have been disabled via settings'),
 				canPickMany: false,
 			});
 			if (pick === enable) {
 				reenable = true;
 			}
 		} else {
-			const enable = { title: 'Re-enable AI Features' };
+			const enable = { title: l10n.t('Re-enable AI Features') };
 			const result = await window.showErrorMessage(
-				`AI features have been disabled via GitLens settings.`,
+				l10n.t('AI features have been disabled via GitLens settings.'),
 				{ modal: true },
 				enable,
 			);

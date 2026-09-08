@@ -75,8 +75,21 @@ Before considering a multi-file change complete:
 - [ ] All subclass overrides of modified methods updated
 - [ ] Both Node.js (`src/env/node/`) and browser (`src/env/browser/`) code paths work
 - [ ] Error handling covers the new code path
+- [ ] New user-facing strings go through `l10n.t()` and the catalog is regenerated
 - [ ] No existing behavior broken (especially adjacent features)
 - [ ] Edge cases considered: empty/null/undefined inputs, concurrent calls, error states
+
+### Localization
+
+GitLens follows VS Code's display language. Every string a user can read is a translatable message, so:
+
+- Wrap it in `l10n.t()` at the point where it is defined, as one complete sentence with `{0}`/`{name}` placeholders for data. Do not assemble text from fragments, pluralize with an English suffix, or translate a computed label at the consumer.
+- Keep Git syntax, refs, paths, SHAs, command ids, settings keys and product names as placeholders or outside the message.
+- Show errors through `getPresentableErrorMessage(ex)`; `GitCommandError.message` is deliberately English for logs and telemetry.
+- In Lit, interpolate translated text as a value; for rich content use `localizedContent` with placeholders holding the templates. Never render a translation through `unsafeHTML`.
+- Regenerate the catalog (`pnpm run generate:l10n`) after any message change; `pnpm run check:l10n` guards it in CI.
+
+See `docs/localization.md` for the authoring rules and `l10n/README.md` for translating.
 
 ### Fix vs. Disable
 

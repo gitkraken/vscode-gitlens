@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import { l10n } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
 import { showGenericErrorMessage } from '../messages.js';
@@ -16,7 +17,7 @@ export class ToggleLineBlameCommand extends ActiveEditorCommand {
 			await this.container.lineAnnotations.toggle(editor);
 		} catch (ex) {
 			Logger.error(ex, 'ToggleLineBlameCommand');
-			void showGenericErrorMessage('Unable to toggle line blame annotations');
+			void showGenericErrorMessage(l10n.t('Unable to toggle line blame annotations'));
 		}
 	}
 }

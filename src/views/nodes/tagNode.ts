@@ -1,4 +1,4 @@
-import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { l10n, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { GitTagReference } from '@gitlens/git/models/reference.js';
 import { GitTag } from '@gitlens/git/models/tag.js';
@@ -52,7 +52,7 @@ export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> 
 
 	async getChildren(): Promise<ViewNode[]> {
 		const log = await this.getLog();
-		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+		if (log == null) return [new MessageNode(this.view, this, l10n.t('No commits could be found.'))];
 
 		const getBranchAndTagTips = await this.view.container.git
 			.getRepositoryService(this.uri.repoPath!)

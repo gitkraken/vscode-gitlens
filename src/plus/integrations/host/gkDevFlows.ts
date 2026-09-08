@@ -1,5 +1,5 @@
 import type { Disposable } from 'vscode';
-import { authentication, commands, env, ProgressLocation, Uri, window } from 'vscode';
+import { authentication, commands, env, l10n, ProgressLocation, Uri, window } from 'vscode';
 import {
 	CloudIntegrationAuthenticationUriPathPrefix,
 	toCloudIntegrationType,
@@ -130,7 +130,7 @@ async function connectViaGkDev(
 	let code: string | undefined;
 	try {
 		code = await window.withProgress(
-			{ location: ProgressLocation.Notification, title: 'Connecting integrations...', cancellable: true },
+			{ location: ProgressLocation.Notification, title: l10n.t('Connecting integrations...'), cancellable: true },
 			(_progress, token) => {
 				const controller = new AbortController();
 				token.onCancellationRequested(() => controller.abort());

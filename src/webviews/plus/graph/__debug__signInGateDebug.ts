@@ -1,5 +1,5 @@
 import type { QuickPickItem } from 'vscode';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { wait } from '@gitlens/utils/promise.js';
 import type { Container } from '../../../container.js';
 import { registerCommand } from '../../../system/-webview/command.js';
@@ -38,21 +38,32 @@ export function registerSignInGateDebug<T>(
 					if (value === 'default' || value === 'intro-video') {
 						variant = value;
 					} else if (value != null) {
-						void window.showErrorMessage(`Unknown sign-in gate variant "${value}"`);
+						void window.showErrorMessage(l10n.t('Unknown sign-in gate variant "{0}"', value));
 						return false;
 					}
 				} else {
 					const pick = await window.showQuickPick<VariantPickItem>(
 						[
-							{ label: 'Default Gate', description: 'Pro strip + Learn More', variant: 'default' },
-							{ label: 'Intro Video Gate', description: 'Video thumbnail', variant: 'intro-video' },
 							{
-								label: 'End Simulation',
-								description: 'Re-resolves the real flag on the next gate render',
+								label: l10n.t('Default Gate'),
+								description: l10n.t('Pro strip + Learn More'),
+								variant: 'default',
+							},
+							{
+								label: l10n.t('Intro Video Gate'),
+								description: l10n.t('Video thumbnail'),
+								variant: 'intro-video',
+							},
+							{
+								label: l10n.t('End Simulation'),
+								description: l10n.t('Re-resolves the real flag on the next gate render'),
 								variant: undefined,
 							},
 						],
-						{ title: 'Simulate Sign-in Gate Variant', placeHolder: 'Choose the gate variant to render' },
+						{
+							title: l10n.t('Simulate Sign-in Gate Variant'),
+							placeHolder: l10n.t('Choose the gate variant to render'),
+						},
 					);
 					if (pick == null) return;
 
@@ -90,8 +101,8 @@ export function registerSignInGateDebug<T>(
 
 				void window.showInformationMessage(
 					variant == null
-						? 'Sign-in gate simulation ended — the next gate render resolves the real flag'
-						: `Sign-in gate simulating "${variant}" — the gate renders only while signed out`,
+						? l10n.t('Sign-in gate simulation ended — the next gate render resolves the real flag')
+						: l10n.t('Sign-in gate simulating "{0}" — the gate renders only while signed out', variant),
 				);
 
 				return true;

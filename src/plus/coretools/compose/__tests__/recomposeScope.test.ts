@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import type { Container } from '../../../../container.js';
 import type { GitRepositoryService } from '../../../../git/gitRepositoryService.js';
-import { resolveRecomposeScope } from '../recomposeScope.js';
+import { getRecomposeScopeErrorMessage, resolveRecomposeScope } from '../recomposeScope.js';
 
 // A fake GitRepositoryService for the wrapper's svc-only paths (range / commitShas / rejections).
 // The branch-only merge-target path calls module-imported helpers and is left to live coverage.
@@ -98,7 +98,19 @@ suite('compose/recomposeScope resolveRecomposeScope', () => {
 			branchName: 'feature',
 			range: { base: 'c', head: 'h' },
 		});
-		assert.strictEqual((result as { reason: string }).reason, 'not-checked-out');
+		assert.strictEqual(result.ok, false);
+		if (result.ok) return;
+
+		assert.strictEqual(result.reason, 'not-checked-out');
+		assert.deepStrictEqual(result.error, {
+			kind: 'branch-not-checked-out',
+			checkedOutBranch: 'main',
+			requestedBranch: 'feature',
+		});
+		assert.strictEqual(
+			getRecomposeScopeErrorMessage(result, { type: 'branch', branchName: 'feature' }),
+			"Unable to recompose branch 'feature': Recompose ranges must end at the checked-out branch 'main', not 'feature'",
+		);
 	});
 
 	test('range not ending at HEAD → not-checked-out', async () => {
@@ -144,7 +156,20 @@ suite('compose/recomposeScope resolveRecomposeScope', () => {
 	test('commitShas with an unknown sha → not-found', async () => {
 		const svc = makeSvc({ branch: { name: 'main' }, head: 'h', commits: linear });
 		const result = await resolveRecomposeScope(container, svc, { commitShas: ['a', 'zzz'] });
-		assert.strictEqual((result as { reason: string }).reason, 'not-found');
+		assert.strictEqual(result.ok, false);
+		if (result.ok) return;
+
+		assert.strictEqual(result.reason, 'not-found');
+		assert.strictEqual(result.message, "Commit 'zzz' was not found");
+		assert.deepStrictEqual(result.error, { kind: 'commit-not-found', sha: 'zzz' });
+		assert.strictEqual(
+			getRecomposeScopeErrorMessage(result, { type: 'from-commit' }),
+			"Unable to recompose from commit: Commit 'zzz' was not found",
+		);
+		assert.strictEqual(
+			getRecomposeScopeErrorMessage(result, { type: 'rebase-aborted' }),
+			"Unable to recompose: Commit 'zzz' was not found. The rebase was aborted.",
+		);
 	});
 
 	test('commitShas off the first-parent line (merge side-branch) → not-contiguous', async () => {

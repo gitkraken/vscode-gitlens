@@ -1,5 +1,6 @@
 import './commitDetails.scss';
 import type { Remote, Subscription } from '@eamodio/supertalk';
+import * as l10n from '@vscode/l10n';
 import { html } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
@@ -192,11 +193,11 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 				try {
 					const result = await inspect.explainCommit(commit.repoPath, commit.sha, prompt, signal);
 					if (result.error) {
-						return { error: { message: result.error.message ?? 'Error retrieving content' } };
+						return { error: { message: result.error.message ?? l10n.t('Error retrieving content') } };
 					}
 					return { result: result.result };
 				} catch (_ex) {
-					return { error: { message: 'Error retrieving content' } };
+					return { error: { message: l10n.t('Error retrieving content') } };
 				}
 			}),
 		};

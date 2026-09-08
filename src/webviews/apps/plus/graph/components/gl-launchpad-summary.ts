@@ -1,8 +1,9 @@
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../../commands/cloudIntegrations.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
 import type {
@@ -126,7 +127,7 @@ export class GlLaunchpadSummary extends LitElement {
 						)}
 					>
 						<code-icon class="launchpad-item__icon" icon="plug"></code-icon>
-						<span>Connect to see PRs here</span>
+						<span>${l10n.t('Connect to see PRs here')}</span>
 					</a>
 				</li>
 			</ul>`;
@@ -145,7 +146,7 @@ export class GlLaunchpadSummary extends LitElement {
 		if (!('total' in summary)) {
 			return html`<ul class="launchpad-items">
 				<li class="launchpad-item launchpad-item--muted" title=${summary.error.message || nothing}>
-					Unable to load items
+					${l10n.t('Unable to load items')}
 				</li>
 			</ul>`;
 		}
@@ -157,14 +158,14 @@ export class GlLaunchpadSummary extends LitElement {
 				html`<li>
 					<span class="launchpad-item launchpad-item--muted" title=${summary.error.message || nothing}>
 						<code-icon class="launchpad-item__icon" icon="warning"></code-icon>
-						<span>Some integrations failed to load</span>
+						<span>${l10n.t('Some integrations failed to load')}</span>
 					</span>
 				</li>`,
 			);
 		}
 
 		if (summary.total === 0) {
-			items.push(html`<li class="launchpad-item launchpad-item--muted">You are all caught up!</li>`);
+			items.push(html`<li class="launchpad-item launchpad-item--muted">${l10n.t('You are all caught up!')}</li>`);
 			return html`<ul class="launchpad-items">
 				${items}
 			</ul>`;
@@ -172,8 +173,16 @@ export class GlLaunchpadSummary extends LitElement {
 
 		if (!summary.hasGroupedItems) {
 			items.push(
-				html`<li class="launchpad-item launchpad-item--muted">No pull requests need your attention</li>
-					<li class="launchpad-item launchpad-item--muted">(${summary.total} other pull requests)</li>`,
+				html`<li class="launchpad-item launchpad-item--muted">
+						${l10n.t('No pull requests need your attention')}
+					</li>
+					<li class="launchpad-item launchpad-item--muted">
+						${
+							summary.total === 1
+								? l10n.t('({count} other pull request)', { count: summary.total })
+								: l10n.t('({count} other pull requests)', { count: summary.total })
+						}
+					</li>`,
 			);
 			return html`<ul class="launchpad-items">
 				${items}
@@ -186,6 +195,8 @@ export class GlLaunchpadSummary extends LitElement {
 					const total = summary.mergeable?.total ?? 0;
 					if (total === 0) continue;
 
+					const count = getNumericFormat()(total);
+
 					items.push(
 						html`<li>
 							<a
@@ -193,7 +204,13 @@ export class GlLaunchpadSummary extends LitElement {
 								href=${this.createShowLaunchpadLink('mergeable')}
 							>
 								<code-icon class="launchpad-item__icon" icon="rocket"></code-icon>
-								<span>${pluralize('pull request', total)} can be merged</span>
+								<span
+									>${
+										total === 1
+											? l10n.t('{count} pull request can be merged', { count: count })
+											: l10n.t('{count} pull requests can be merged', { count: count })
+									}</span
+								>
 							</a>
 						</li>`,
 					);
@@ -203,33 +220,33 @@ export class GlLaunchpadSummary extends LitElement {
 					const total = summary.blocked?.total ?? 0;
 					if (total === 0) continue;
 
-					const messages: { count: number; message: string }[] = [];
+					const reasons: { count: number; type: 'reviewers' | 'checks' | 'conflicts' }[] = [];
 					if (summary.blocked!.unassignedReviewers) {
-						messages.push({
+						reasons.push({
 							count: summary.blocked!.unassignedReviewers,
-							message: `${summary.blocked!.unassignedReviewers > 1 ? 'need' : 'needs'} reviewers`,
+							type: 'reviewers',
 						});
 					}
 					if (summary.blocked!.failedChecks) {
-						messages.push({
+						reasons.push({
 							count: summary.blocked!.failedChecks,
-							message: `${summary.blocked!.failedChecks > 1 ? 'have' : 'has'} failed CI checks`,
+							type: 'checks',
 						});
 					}
 					if (summary.blocked!.conflicts) {
-						messages.push({
+						reasons.push({
 							count: summary.blocked!.conflicts,
-							message: `${summary.blocked!.conflicts > 1 ? 'have' : 'has'} conflicts`,
+							type: 'conflicts',
 						});
 					}
 
 					const href = this.createShowLaunchpadLink('blocked');
-					if (messages.length === 1) {
+					if (reasons.length === 1) {
 						items.push(
 							html`<li>
 								<a class="launchpad-item launchpad-item--link launchpad-item--blocked" href=${href}>
 									<code-icon class="launchpad-item__icon" icon="error"></code-icon>
-									<span>${pluralize('pull request', total)} ${messages[0].message}</span>
+									<span>${formatSingleBlockedReason(total, reasons[0].type)}</span>
 								</a>
 							</li>`,
 						);
@@ -238,10 +255,7 @@ export class GlLaunchpadSummary extends LitElement {
 							html`<li>
 								<a class="launchpad-item launchpad-item--link launchpad-item--blocked" href=${href}>
 									<code-icon class="launchpad-item__icon" icon="error"></code-icon>
-									<span
-										>${pluralize('pull request', total)} ${total > 1 ? 'are' : 'is'} blocked
-										(${messages.map(m => `${m.count} ${m.message}`).join(', ')})</span
-									>
+									<span>${formatMultipleBlockedReasons(total, reasons)}</span>
 								</a>
 							</li>`,
 						);
@@ -252,6 +266,8 @@ export class GlLaunchpadSummary extends LitElement {
 					const total = summary.followUp?.total ?? 0;
 					if (total === 0) continue;
 
+					const count = getNumericFormat()(total);
+
 					items.push(
 						html`<li>
 							<a
@@ -260,8 +276,11 @@ export class GlLaunchpadSummary extends LitElement {
 							>
 								<code-icon class="launchpad-item__icon" icon="report"></code-icon>
 								<span
-									>${pluralize('pull request', total)} ${total > 1 ? 'require' : 'requires'}
-									follow-up</span
+									>${
+										total === 1
+											? l10n.t('{count} pull request requires follow-up', { count: count })
+											: l10n.t('{count} pull requests require follow-up', { count: count })
+									}</span
 								>
 							</a>
 						</li>`,
@@ -272,6 +291,8 @@ export class GlLaunchpadSummary extends LitElement {
 					const total = summary.needsReview?.total ?? 0;
 					if (total === 0) continue;
 
+					const count = getNumericFormat()(total);
+
 					items.push(
 						html`<li>
 							<a
@@ -280,8 +301,11 @@ export class GlLaunchpadSummary extends LitElement {
 							>
 								<code-icon class="launchpad-item__icon" icon="comment-unresolved"></code-icon>
 								<span
-									>${pluralize('pull request', total)} ${total > 1 ? 'need' : 'needs'} your
-									review</span
+									>${
+										total === 1
+											? l10n.t('{count} pull request needs your review', { count: count })
+											: l10n.t('{count} pull requests need your review', { count: count })
+									}</span
 								>
 							</a>
 						</li>`,
@@ -304,6 +328,51 @@ export class GlLaunchpadSummary extends LitElement {
 			} satisfies Omit<LaunchpadCommandArgs, 'command'>),
 		)}`;
 	}
+}
+
+function formatSingleBlockedReason(total: number, reason: 'reviewers' | 'checks' | 'conflicts'): string {
+	const count = getNumericFormat()(total);
+	switch (reason) {
+		case 'reviewers':
+			return total === 1
+				? l10n.t('{count} pull request needs reviewers', { count: count })
+				: l10n.t('{count} pull requests need reviewers', { count: count });
+		case 'checks':
+			return total === 1
+				? l10n.t('{count} pull request has failed CI checks', { count: count })
+				: l10n.t('{count} pull requests have failed CI checks', { count: count });
+		case 'conflicts':
+			return total === 1
+				? l10n.t('{count} pull request has conflicts', { count: count })
+				: l10n.t('{count} pull requests have conflicts', { count: count });
+	}
+}
+
+function formatMultipleBlockedReasons(
+	total: number,
+	reasons: { count: number; type: 'reviewers' | 'checks' | 'conflicts' }[],
+): string {
+	const reasonMessages = reasons.map(reason => {
+		switch (reason.type) {
+			case 'reviewers':
+				return reason.count === 1
+					? l10n.t('{count} needs reviewers', { count: reason.count })
+					: l10n.t('{count} need reviewers', { count: reason.count });
+			case 'checks':
+				return reason.count === 1
+					? l10n.t('{count} has failed CI checks', { count: reason.count })
+					: l10n.t('{count} have failed CI checks', { count: reason.count });
+			case 'conflicts':
+				return reason.count === 1
+					? l10n.t('{count} has conflicts', { count: reason.count })
+					: l10n.t('{count} have conflicts', { count: reason.count });
+		}
+	});
+	const count = getNumericFormat()(total);
+	const reasonList = reasonMessages.join(', ');
+	return total === 1
+		? l10n.t('{count} pull request is blocked ({reasons})', { count: count, reasons: reasonList })
+		: l10n.t('{count} pull requests are blocked ({reasons})', { count: count, reasons: reasonList });
 }
 
 declare global {

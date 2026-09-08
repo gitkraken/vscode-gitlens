@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
-import { Disposable, env, Uri, window } from 'vscode';
+import { Disposable, env, l10n, Uri, window } from 'vscode';
 import { ApplyPatchCommitError } from '@gitlens/git/errors.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { GitFileChange } from '@gitlens/git/models/fileChange.js';
@@ -17,9 +17,10 @@ import { basename } from '@gitlens/utils/path.js';
 import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
 import { getAvatarUri } from '../../../avatars.js';
 import type { ContextKeys } from '../../../constants.context.js';
-import { GlyphChars, previewBadge } from '../../../constants.js';
+import { GlyphChars } from '../../../constants.js';
 import type { Sources, WebviewTelemetryContext } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
+import { getPresentableErrorMessage } from '../../../errors.js';
 import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit.js';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService.js';
 import { GlRepository } from '../../../git/models/repository.js';
@@ -141,7 +142,10 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		};
 
 		this.setHostTitle();
-		this.host.description = previewBadge;
+		this.host.description = l10n.t({
+			message: 'ᴘʀᴇᴠɪᴇᴡ',
+			comment: ['Short preview-status badge shown beside the Patch Details view title.'],
+		});
 
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
@@ -379,11 +383,11 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 
 	private setHostTitle(mode: Mode = this._context.mode) {
 		if (mode === 'create') {
-			this.host.title = 'Create Cloud Patch';
+			this.host.title = l10n.t('Create Cloud Patch');
 		} else if (this._context.draft?.draftType === 'cloud' && this._context.draft.type === 'suggested_pr_change') {
-			this.host.title = 'Cloud Suggestion';
+			this.host.title = l10n.t('Cloud Suggestion');
 		} else {
-			this.host.title = 'Cloud Patch Details';
+			this.host.title = l10n.t('Cloud Patch Details');
 		}
 	}
 
@@ -422,14 +426,14 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 				if (shouldPickBranch) {
 					const repo = getCommitRepository(commit.repoPath);
 					const branch = await showNewOrSelectBranchPicker(
-						`Select a Branch ${GlyphChars.Dot} ${repo?.name}`,
+						l10n.t('Select a Branch {0} {1}', GlyphChars.Dot, String(repo?.name)),
 						// 'Choose a branch to apply the Cloud Patch to',
 						repo,
 					);
 
 					if (branch == null) {
 						void window.showErrorMessage(
-							`Unable to apply patch to '${patch.repository!.name}': No branch selected`,
+							l10n.t("Unable to apply patch to '{0}': No branch selected", patch.repository!.name),
 						);
 						continue;
 					}
@@ -446,10 +450,12 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 				// Check for working changes and prompt before applying
 				let shouldStash = false;
 				if (await svc.status?.hasWorkingChanges()) {
-					const confirm = { title: 'Stash Changes' };
-					const cancel = { title: 'Cancel', isCloseAffordance: true };
+					const confirm = { title: l10n.t('Stash Changes') };
+					const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 					const result = await window.showWarningMessage(
-						'You have changes in your working tree.\nDo you want to stash them before applying the patch?',
+						l10n.t(
+							'You have changes in your working tree.\nDo you want to stash them before applying the patch?',
+						),
 						{ modal: true },
 						confirm,
 						cancel,
@@ -463,16 +469,19 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 					stash: shouldStash,
 					...options,
 				});
-				void window.showInformationMessage(`Patch applied successfully`);
+				void window.showInformationMessage(l10n.t('Patch applied successfully'));
 			} catch (ex) {
 				if (isCancellationError(ex)) return;
 
 				if (ApplyPatchCommitError.is(ex, 'appliedWithConflicts')) {
-					void window.showWarningMessage('Patch applied with conflicts');
+					void window.showWarningMessage(l10n.t('Patch applied with conflicts'));
 				} else if (ApplyPatchCommitError.is(ex)) {
 					void showGitErrorMessage(ex);
 				} else {
-					void showGitErrorMessage(ex, `Unable to apply patch onto '${patch.baseRef}': ${ex.message}`);
+					void showGitErrorMessage(
+						ex,
+						l10n.t("Unable to apply patch onto '{0}': {1}", patch.baseRef, getPresentableErrorMessage(ex)),
+					);
 				}
 			}
 		}
@@ -514,8 +523,8 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		}
 
 		const members = await showOrganizationMembersPicker(
-			'Select Collaborators',
-			'Choose collaborators to share this patch with',
+			l10n.t('Select Collaborators'),
+			l10n.t('Choose collaborators to share this patch with'),
 			this.getOrganizationMembers(),
 			{
 				multiselect: true,
@@ -610,10 +619,14 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		userSelections,
 	}: CreatePatchParams): Promise<void> {
 		if (
-			!(await ensureAccount(this.container, 'Cloud Patches are a Preview feature and require an account.', {
-				source: 'cloud-patches',
-				detail: 'create',
-			})) ||
+			!(await ensureAccount(
+				this.container,
+				l10n.t('Cloud Patches are a Preview feature and require an account.'),
+				{
+					source: 'cloud-patches',
+					detail: 'create',
+				},
+			)) ||
 			!(await confirmDraftStorage(this.container))
 		) {
 			return;
@@ -660,12 +673,14 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 			}
 
 			async function showNotification() {
-				const view = { title: 'View Patch' };
-				const copy = { title: 'Copy Link' };
+				const view = { title: l10n.t('View Patch') };
+				const copy = { title: l10n.t('Copy Link') };
 				let copied = false;
 				while (true) {
 					const result = await window.showInformationMessage(
-						`Cloud Patch successfully created${copied ? '\u2014 link copied to the clipboard' : ''}`,
+						copied
+							? l10n.t('Cloud Patch successfully created— link copied to the clipboard')
+							: l10n.t('Cloud Patch successfully created'),
 						view,
 						copy,
 					);
@@ -693,7 +708,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		} catch (ex) {
 			debugger;
 			void this.notifyDidChangeCreateDraftState();
-			void window.showErrorMessage(`Unable to create draft: ${ex.message}`);
+			void window.showErrorMessage(l10n.t('Unable to create draft: {0}', getPresentableErrorMessage(ex)));
 		}
 	}
 
@@ -701,10 +716,6 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		if (this._context.draft?.draftType !== 'cloud') return;
 
 		const isCodeSuggestion = this._context.draft.type === 'suggested_pr_change';
-		let label = 'Cloud Patch';
-		if (isCodeSuggestion) {
-			label = 'Code Suggestion';
-		}
 
 		try {
 			await this.container.drafts.archiveDraft(this._context.draft, { archiveReason: reason });
@@ -714,37 +725,44 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 				archivedReason: reason,
 			};
 
-			let action = 'archived';
+			let message = l10n.t('Cloud Patch successfully archived');
 			if (isCodeSuggestion) {
 				switch (reason) {
 					case 'accepted':
-						action = 'accepted';
+						message = l10n.t('Code Suggestion successfully accepted');
 						break;
 					case 'rejected':
-						action = 'declined';
+						message = l10n.t('Code Suggestion successfully declined');
+						break;
+					default:
+						message = l10n.t('Code Suggestion successfully archived');
 						break;
 				}
 			}
 
-			void window.showInformationMessage(`${label} successfully ${action}`);
+			void window.showInformationMessage(message);
 			void this.notifyDidChangeViewDraftState();
 			if (isCodeSuggestion) {
 				void this.trackArchiveDraft(this._context.draft);
 			}
 		} catch (ex) {
-			let action = 'archive';
+			const errorMessage = getPresentableErrorMessage(ex);
+			let message = l10n.t('Unable to archive Cloud Patch: {0}', errorMessage);
 			if (isCodeSuggestion) {
 				switch (reason) {
 					case 'accepted':
-						action = 'accept';
+						message = l10n.t('Unable to accept Code Suggestion: {0}', errorMessage);
 						break;
 					case 'rejected':
-						action = 'decline';
+						message = l10n.t('Unable to decline Code Suggestion: {0}', errorMessage);
+						break;
+					default:
+						message = l10n.t('Unable to archive Code Suggestion: {0}', errorMessage);
 						break;
 				}
 			}
 
-			void window.showErrorMessage(`Unable to ${action} ${label}: ${ex.message}`);
+			void window.showErrorMessage(message);
 		}
 	}
 
@@ -774,7 +792,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 
 	private async onExplain(signal?: AbortSignal): Promise<DidExplainParams> {
 		if (this._context.draft?.draftType !== 'cloud') {
-			return { error: { message: 'Unable to find patch' } };
+			return { error: { message: l10n.t('Unable to find patch') } };
 		}
 
 		// Bridge the webview's marshaled abort signal onto the AI action's cancellation token, and poll it at await
@@ -784,11 +802,11 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 			// TODO@eamodio HACK -- only works for the first patch
 			const patch = await this.getDraftPatch(this._context.draft);
 			if (signal?.aborted) throw new CancellationError();
-			if (patch == null) throw new Error('Unable to find patch');
+			if (patch == null) throw new Error(l10n.t('Unable to find patch'));
 
 			const commit = await this.getOrCreateCommitForPatch(patch.gkRepositoryId);
 			if (signal?.aborted) throw new CancellationError();
-			if (commit == null) throw new Error('Unable to find commit');
+			if (commit == null) throw new Error(l10n.t('Unable to find commit'));
 
 			const deferredResult = await this.container.ai.actions.explainCommit(
 				commit,
@@ -797,23 +815,23 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 			);
 			if (deferredResult === 'cancelled' || signal?.aborted) throw new CancellationError();
 
-			if (deferredResult == null) throw new Error('Error retrieving content');
+			if (deferredResult == null) throw new Error(l10n.t('Error retrieving content'));
 
 			const { promise } = deferredResult;
 
 			const result = await promise;
 			if (result === 'cancelled' || signal?.aborted) throw new CancellationError();
 
-			if (result == null) throw new Error('Error retrieving content');
+			if (result == null) throw new Error(l10n.t('Error retrieving content'));
 
 			return { result: result.result };
 		} catch (ex) {
 			debugger;
 			if (isCancellationError(ex)) {
-				return { error: { message: 'Operation was canceled' } };
+				return { error: { message: l10n.t('Operation was canceled') } };
 			}
 
-			return { error: { message: ex.message } };
+			return { error: { message: getPresentableErrorMessage(ex) } };
 		} finally {
 			dispose();
 		}
@@ -831,7 +849,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		}
 
 		if (!repo) {
-			return { error: { message: 'Unable to find changes' } };
+			return { error: { message: l10n.t('Unable to find changes') } };
 		}
 
 		const { token: cancellation, dispose } = fromAbortSignal(signal);
@@ -850,7 +868,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 			);
 			if (result === 'cancelled' || signal?.aborted) throw new CancellationError();
 
-			if (result == null) throw new Error('Error retrieving content');
+			if (result == null) throw new Error(l10n.t('Error retrieving content'));
 
 			return {
 				title: result.result.summary,
@@ -859,10 +877,10 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		} catch (ex) {
 			debugger;
 			if (isCancellationError(ex)) {
-				return { error: { message: 'Operation was canceled' } };
+				return { error: { message: l10n.t('Operation was canceled') } };
 			}
 
-			return { error: { message: ex.message } };
+			return { error: { message: getPresentableErrorMessage(ex) } };
 		} finally {
 			dispose();
 		}
@@ -950,7 +968,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		}
 		await this.createDraftUserState(draft, { force: true });
 
-		void window.showInformationMessage('Cloud Patch successfully updated');
+		void window.showInformationMessage(l10n.t('Cloud Patch successfully updated'));
 		void this.notifyDidChangeViewDraftState();
 	}
 
@@ -1408,13 +1426,18 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 				} catch (ex) {
 					if (baseRef != null) {
 						// const head = { title: 'HEAD' };
-						const chooseBase = { title: 'Choose Base...' };
-						const cancel = { title: 'Cancel', isCloseAffordance: true };
+						const chooseBase = { title: l10n.t('Choose Base...') };
+						const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
 
 						const result = await window.showErrorMessage(
-							`Unable to apply the patch onto ${
-								baseRef === 'HEAD' ? 'HEAD' : `'${shortenRevision(baseRef)}'`
-							}.\nDo you want to try again on a different base?`,
+							baseRef === 'HEAD'
+								? l10n.t(
+										'Unable to apply the patch onto HEAD.\nDo you want to try again on a different base?',
+									)
+								: l10n.t(
+										"Unable to apply the patch onto '{0}'.\nDo you want to try again on a different base?",
+										shortenRevision(baseRef),
+									),
 							{ modal: true },
 							chooseBase,
 							cancel,
@@ -1430,8 +1453,8 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 						if (result === chooseBase) {
 							const pick = await showReferencePicker2(
 								repo.path,
-								`Choose New Base for Patch`,
-								`Choose a new base to apply the patch onto`,
+								l10n.t('Choose New Base for Patch'),
+								l10n.t('Choose a new base to apply the patch onto'),
 								{
 									allowedAdditionalInput: { rev: true },
 									include: ['branches', 'tags', 'HEAD'],
@@ -1444,7 +1467,11 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 						}
 					} else {
 						void window.showErrorMessage(
-							`Unable to apply the patch on base '${shortenRevision(baseRef)}': ${ex.message}`,
+							l10n.t(
+								"Unable to apply the patch on base '{0}': {1}",
+								shortenRevision(baseRef),
+								getPresentableErrorMessage(ex),
+							),
 						);
 					}
 				}
@@ -1469,16 +1496,16 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		});
 	}
 
-	private getChangesTitleNote() {
+	private getChangesTitle(fileName: string): string {
 		if (
 			this._context.mode === 'view' &&
 			this._context.draft?.draftType === 'cloud' &&
 			this._context.draft.type === 'suggested_pr_change'
 		) {
-			return 'Code Suggestion';
+			return l10n.t('{0} (Code Suggestion)', fileName);
 		}
 
-		return 'Patch';
+		return l10n.t('{0} (Patch)', fileName);
 	}
 
 	private async onOpenFileComparisonWithPrevious(params: ExecuteFileActionParams): Promise<void> {
@@ -1486,8 +1513,6 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		if (result == null) return;
 
 		const [commit, file, revision] = result;
-
-		const titleNote = this.getChangesTitleNote();
 
 		void openChanges(
 			file,
@@ -1498,7 +1523,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 				preserveFocus: true,
 				preview: true,
 				...params.showOptions,
-				rhsTitle: this.mode === 'view' ? `${basename(file.path)} (${titleNote})` : undefined,
+				rhsTitle: this.mode === 'view' ? this.getChangesTitle(basename(file.path)) : undefined,
 			},
 		);
 		this.container.events.fire('file:selected', { uri: file.uri }, { source: this.host.id });
@@ -1510,13 +1535,11 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 
 		const [commit, file, revision] = result;
 
-		const titleNote = this.getChangesTitleNote();
-
 		void openChangesWithWorking(file, revision != null ? { repoPath: commit.repoPath, ref: revision.to } : commit, {
 			preserveFocus: true,
 			preview: true,
 			...params.showOptions,
-			lhsTitle: this.mode === 'view' ? `${basename(file.path)} (${titleNote})` : undefined,
+			lhsTitle: this.mode === 'view' ? this.getChangesTitle(basename(file.path)) : undefined,
 		});
 	}
 
@@ -1533,7 +1556,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 			prompt: options?.prompt ?? false,
 		});
 		if (repo == null) {
-			void window.showErrorMessage(`Unable to locate repository '${patch.repository.name}'`);
+			void window.showErrorMessage(l10n.t("Unable to locate repository '{0}'", patch.repository.name));
 		} else {
 			patch.repository = repo;
 

@@ -1,5 +1,5 @@
 import type { CancellationToken, Command } from 'vscode';
-import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
@@ -7,7 +7,7 @@ import type { GitReference } from '@gitlens/git/models/reference.js';
 import { getConflictCurrentRef, getConflictIncomingRef } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import { GlyphChars } from '../../constants.js';
 import { GitUri } from '../../git/gitUri.js';
@@ -68,7 +68,7 @@ export class MergeConflictChangesNode extends ViewNode<
 	}
 
 	getTreeItem(): TreeItem {
-		const label = this.side === 'current' ? 'Current changes' : 'Incoming changes';
+		const label = this.side === 'current' ? l10n.t('Current changes') : l10n.t('Incoming changes');
 		const contextValue =
 			this.side === 'current'
 				? ContextValues.MergeConflictCurrentChanges
@@ -91,14 +91,14 @@ export class MergeConflictChangesNode extends ViewNode<
 		if (this.status.mergeBase == null) {
 			return createCoreCommand(
 				'vscode.open',
-				'Open Revision',
+				l10n.t('Open Revision'),
 				this.view.container.git
 					.getRepositoryService(this.status.repoPath)
 					.getRevisionUri(this._ref, this.file.path),
 			);
 		}
 
-		return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', 'Open Changes', {
+		return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', l10n.t('Open Changes'), {
 			lhs: {
 				sha: this.status.mergeBase,
 				uri: GitUri.fromFile(lhsPath, this.status.repoPath, this.status.mergeBase),
@@ -135,15 +135,24 @@ export class MergeConflictChangesNode extends ViewNode<
 		const count = log?.count ?? 0;
 		const mergeBaseSha = this.status.mergeBase;
 
-		const prefix = this.side === 'current' ? 'Current changes on' : 'Incoming changes from';
-		const markdown = new MarkdownString(
-			`${prefix} ${getReferenceLabel(this._displayRef, { label: false })}\\\n$(file)${GlyphChars.Space}${filePath}`,
-			true,
-		);
+		const prefix =
+			this.side === 'current'
+				? l10n.t('Current changes on {0}', getReferenceLabel(this._displayRef, { label: false }))
+				: l10n.t('Incoming changes from {0}', getReferenceLabel(this._displayRef, { label: false }));
+		const markdown = new MarkdownString(`${prefix}\\\n$(file)${GlyphChars.Space}${filePath}`, true);
 
 		if (mergeBaseSha != null && this._ref != null) {
+			const commits =
+				count === 1
+					? l10n.t('{0} commit', getNumericFormat()(count))
+					: l10n.t('{0} commits', getNumericFormat()(count));
 			markdown.appendMarkdown(
-				`\n\n$(git-commit) ${shortenRevision(mergeBaseSha)} (merge-base)  ..  ${getReferenceLabel(this._displayRef, { label: false })}  \u2022  ${pluralize('commit', count)}`,
+				l10n.t(
+					'\n\n$(git-commit) {0} (merge-base)  ..  {1}  •  {2}',
+					shortenRevision(mergeBaseSha),
+					getReferenceLabel(this._displayRef, { label: false }),
+					commits,
+				),
 			);
 		}
 

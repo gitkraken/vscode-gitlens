@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
@@ -15,6 +16,19 @@ export interface RecomposeScopeRequest {
 	includeWip?: boolean;
 }
 
+export type RecomposeScopeError =
+	| { kind: 'no-commits' }
+	| { kind: 'commit-not-found'; sha: string }
+	| { kind: 'non-rewritable-range' }
+	| { kind: 'local-branch-required' }
+	| { kind: 'head-not-found' }
+	| { kind: 'branch-not-checked-out'; checkedOutBranch: string; requestedBranch: string }
+	| { kind: 'range-not-at-head' }
+	| { kind: 'repository-not-found' }
+	| { kind: 'branch-commits-not-found'; branchName: string };
+
+type RecomposeScopeFailure = { message: string; error?: RecomposeScopeError };
+
 export type ResolvedRecomposeScope =
 	| {
 			ok: true;
@@ -30,7 +44,180 @@ export type ResolvedRecomposeScope =
 			/** true when a commitShas sub-selection was widened to its covering range. */
 			expandedFromSelection: boolean;
 	  }
-	| { ok: false; reason: 'detached' | 'not-checked-out' | 'not-contiguous' | 'empty' | 'not-found'; message: string };
+	| {
+			ok: false;
+			reason: 'detached' | 'not-checked-out' | 'not-contiguous' | 'empty' | 'not-found';
+			message: string;
+			error?: RecomposeScopeError;
+	  };
+
+export type RecomposeScopeErrorContext =
+	| { type: 'from-commit' }
+	| { type: 'branch'; branchName: string }
+	| { type: 'rebase-aborted' };
+
+/** Formats a complete user-facing failure while the canonical `message` remains available for diagnostics. */
+export function getRecomposeScopeErrorMessage(
+	failure: RecomposeScopeFailure,
+	context: RecomposeScopeErrorContext,
+): string {
+	const error = failure.error;
+	if (error == null) {
+		switch (context.type) {
+			case 'from-commit':
+				return l10n.t('Unable to recompose from commit: {0}', failure.message);
+			case 'branch':
+				return l10n.t("Unable to recompose branch '{0}': {1}", context.branchName, failure.message);
+			case 'rebase-aborted':
+				return l10n.t('Unable to recompose: {0}. The rebase was aborted.', failure.message);
+		}
+	}
+
+	switch (context.type) {
+		case 'from-commit':
+			switch (error.kind) {
+				case 'no-commits':
+					return l10n.t('Unable to recompose from commit: No commits to recompose');
+				case 'commit-not-found':
+					return l10n.t("Unable to recompose from commit: Commit '{0}' was not found", error.sha);
+				case 'non-rewritable-range':
+					return l10n.t(
+						'Unable to recompose from commit: Selected commits do not form a rewritable commit range',
+					);
+				case 'local-branch-required':
+					return l10n.t('Unable to recompose from commit: Recompose requires a local checked-out branch');
+				case 'head-not-found':
+					return l10n.t('Unable to recompose from commit: Unable to resolve HEAD');
+				case 'branch-not-checked-out':
+					return l10n.t(
+						"Unable to recompose from commit: Recompose ranges must end at the checked-out branch '{checkedOutBranch}', not '{requestedBranch}'",
+						{
+							checkedOutBranch: error.checkedOutBranch,
+							requestedBranch: error.requestedBranch,
+						},
+					);
+				case 'range-not-at-head':
+					return l10n.t(
+						'Unable to recompose from commit: Recompose range must end at HEAD of the checked-out branch',
+					);
+				case 'repository-not-found':
+					return l10n.t('Unable to recompose from commit: Unable to resolve repository for recompose');
+				case 'branch-commits-not-found':
+					return l10n.t(
+						"Unable to recompose from commit: Could not identify unique commits for branch '{0}'",
+						error.branchName,
+					);
+				default:
+					return l10n.t('Unable to recompose from commit: {0}', failure.message);
+			}
+		case 'branch':
+			switch (error.kind) {
+				case 'no-commits':
+					return l10n.t("Unable to recompose branch '{0}': No commits to recompose", context.branchName);
+				case 'commit-not-found':
+					return l10n.t(
+						"Unable to recompose branch '{0}': Commit '{1}' was not found",
+						context.branchName,
+						error.sha,
+					);
+				case 'non-rewritable-range':
+					return l10n.t(
+						"Unable to recompose branch '{0}': Selected commits do not form a rewritable commit range",
+						context.branchName,
+					);
+				case 'local-branch-required':
+					return l10n.t(
+						"Unable to recompose branch '{0}': Recompose requires a local checked-out branch",
+						context.branchName,
+					);
+				case 'head-not-found':
+					return l10n.t("Unable to recompose branch '{0}': Unable to resolve HEAD", context.branchName);
+				case 'branch-not-checked-out':
+					return l10n.t(
+						"Unable to recompose branch '{branchName}': Recompose ranges must end at the checked-out branch '{checkedOutBranch}', not '{requestedBranch}'",
+						{
+							branchName: context.branchName,
+							checkedOutBranch: error.checkedOutBranch,
+							requestedBranch: error.requestedBranch,
+						},
+					);
+				case 'range-not-at-head':
+					return l10n.t(
+						"Unable to recompose branch '{0}': Recompose range must end at HEAD of the checked-out branch",
+						context.branchName,
+					);
+				case 'repository-not-found':
+					return l10n.t(
+						"Unable to recompose branch '{0}': Unable to resolve repository for recompose",
+						context.branchName,
+					);
+				case 'branch-commits-not-found':
+					return l10n.t(
+						"Unable to recompose branch '{branchName}': Could not identify unique commits for branch '{failedBranch}'",
+						{ branchName: context.branchName, failedBranch: error.branchName },
+					);
+				default:
+					return l10n.t("Unable to recompose branch '{0}': {1}", context.branchName, failure.message);
+			}
+		case 'rebase-aborted':
+			switch (error.kind) {
+				case 'no-commits':
+					return l10n.t('Unable to recompose: No commits to recompose. The rebase was aborted.');
+				case 'commit-not-found':
+					return l10n.t(
+						"Unable to recompose: Commit '{0}' was not found. The rebase was aborted.",
+						error.sha,
+					);
+				case 'non-rewritable-range':
+					return l10n.t(
+						'Unable to recompose: Selected commits do not form a rewritable commit range. The rebase was aborted.',
+					);
+				case 'local-branch-required':
+					return l10n.t(
+						'Unable to recompose: Recompose requires a local checked-out branch. The rebase was aborted.',
+					);
+				case 'head-not-found':
+					return l10n.t('Unable to recompose: Unable to resolve HEAD. The rebase was aborted.');
+				case 'branch-not-checked-out':
+					return l10n.t(
+						"Unable to recompose: Recompose ranges must end at the checked-out branch '{checkedOutBranch}', not '{requestedBranch}'. The rebase was aborted.",
+						{
+							checkedOutBranch: error.checkedOutBranch,
+							requestedBranch: error.requestedBranch,
+						},
+					);
+				case 'range-not-at-head':
+					return l10n.t(
+						'Unable to recompose: Recompose range must end at HEAD of the checked-out branch. The rebase was aborted.',
+					);
+				case 'repository-not-found':
+					return l10n.t(
+						'Unable to recompose: Unable to resolve repository for recompose. The rebase was aborted.',
+					);
+				case 'branch-commits-not-found':
+					return l10n.t(
+						"Unable to recompose: Could not identify unique commits for branch '{0}'. The rebase was aborted.",
+						error.branchName,
+					);
+				default:
+					return l10n.t('Unable to recompose: {0}. The rebase was aborted.', failure.message);
+			}
+	}
+}
+
+export function getInvalidComposeScopeMessage(failure: RecomposeScopeFailure): string {
+	const error = failure.error;
+	switch (error?.kind) {
+		case 'no-commits':
+			return l10n.t('Compose scope is invalid: No commits to recompose');
+		case 'commit-not-found':
+			return l10n.t("Compose scope is invalid: Commit '{0}' was not found", error.sha);
+		case 'non-rewritable-range':
+			return l10n.t('Compose scope is invalid: Selected commits do not form a rewritable commit range');
+		default:
+			return l10n.t('Compose scope is invalid: {0}', failure.message);
+	}
+}
 
 /** Validate that every candidate lies within `rangeShas` (a child-first log of `base..HEAD`), and
  *  return the whole log as the covering range — commits between and above candidates are folded in. */
@@ -64,7 +251,12 @@ export type CoveredCommitRange =
 			 *  (an interior range); the engine reparents the descendants onto the rewritten chain. */
 			tipSha: string;
 	  }
-	| { ok: false; reason: 'empty' | 'not-contiguous' | 'not-found'; message: string };
+	| {
+			ok: false;
+			reason: 'empty' | 'not-contiguous' | 'not-found';
+			message: string;
+			error?: Extract<RecomposeScopeError, { kind: 'no-commits' | 'commit-not-found' | 'non-rewritable-range' }>;
+	  };
 
 /** Expand `candidates` to their covering commit range. The range ends at the selection's own tip
  *  when the selection has a single newest commit (an interior range when that tip sits below
@@ -80,13 +272,22 @@ export async function coverCommitRange(
 	headSha: string,
 	candidates: ReadonlySet<string>,
 ): Promise<CoveredCommitRange> {
-	if (candidates.size === 0) return { ok: false, reason: 'empty', message: 'No commits to recompose' };
+	if (candidates.size === 0) {
+		return { ok: false, reason: 'empty', message: 'No commits to recompose', error: { kind: 'no-commits' } };
+	}
 
 	// Normalize to canonical shas and capture parents to identify base and tip candidates.
 	const parentsBySha = new Map<string, readonly string[]>();
 	for (const sha of candidates) {
 		const commit = await svc.commits.getCommit(sha);
-		if (commit == null) return { ok: false, reason: 'not-found', message: `Commit '${sha}' was not found` };
+		if (commit == null) {
+			return {
+				ok: false,
+				reason: 'not-found',
+				message: `Commit '${sha}' was not found`,
+				error: { kind: 'commit-not-found', sha: sha },
+			};
+		}
 
 		parentsBySha.set(commit.sha, commit.parents);
 	}
@@ -148,6 +349,7 @@ export async function coverCommitRange(
 			ok: false,
 			reason: 'not-contiguous',
 			message: 'Selected commits do not form a rewritable commit range',
+			error: { kind: 'non-rewritable-range' },
 		};
 	}
 
@@ -210,12 +412,22 @@ export async function resolveRecomposeScope(
 ): Promise<ResolvedRecomposeScope> {
 	const branch = await svc.branches.getBranch();
 	if (branch == null || branch.detached || branch.remote) {
-		return { ok: false, reason: 'detached', message: 'Recompose requires a local checked-out branch' };
+		return {
+			ok: false,
+			reason: 'detached',
+			message: 'Recompose requires a local checked-out branch',
+			error: { kind: 'local-branch-required' },
+		};
 	}
 
 	const headCommit = await svc.commits.getCommit('HEAD');
 	if (headCommit == null) {
-		return { ok: false, reason: 'not-found', message: 'Unable to resolve HEAD' };
+		return {
+			ok: false,
+			reason: 'not-found',
+			message: 'Unable to resolve HEAD',
+			error: { kind: 'head-not-found' },
+		};
 	}
 
 	const headSha = headCommit.sha;
@@ -225,6 +437,11 @@ export async function resolveRecomposeScope(
 			ok: false,
 			reason: 'not-checked-out',
 			message: `Recompose ranges must end at the checked-out branch '${branch.name}', not '${request.branchName}'`,
+			error: {
+				kind: 'branch-not-checked-out',
+				checkedOutBranch: branch.name,
+				requestedBranch: request.branchName,
+			},
 		};
 	}
 
@@ -234,6 +451,7 @@ export async function resolveRecomposeScope(
 				ok: false,
 				reason: 'not-checked-out',
 				message: 'Recompose range must end at HEAD of the checked-out branch',
+				error: { kind: 'range-not-at-head' },
 			};
 		}
 
@@ -244,7 +462,12 @@ export async function resolveRecomposeScope(
 		});
 		const commits = [...(log?.commits.values() ?? [])];
 		if (commits.length === 0) {
-			return { ok: false, reason: 'empty', message: 'No commits to recompose' };
+			return {
+				ok: false,
+				reason: 'empty',
+				message: 'No commits to recompose',
+				error: { kind: 'no-commits' },
+			};
 		}
 
 		// Keep the boundary commit anchored on the requested base last, matching
@@ -277,7 +500,12 @@ export async function resolveRecomposeScope(
 	} else {
 		const repo = svc.getRepository();
 		if (repo == null) {
-			return { ok: false, reason: 'not-found', message: 'Unable to resolve repository for recompose' };
+			return {
+				ok: false,
+				reason: 'not-found',
+				message: 'Unable to resolve repository for recompose',
+				error: { kind: 'repository-not-found' },
+			};
 		}
 
 		// Single-level merge-target resolution (v1); composerWebview's recursive walk is a later enhancement.
@@ -289,6 +517,7 @@ export async function resolveRecomposeScope(
 				ok: false,
 				reason: 'empty',
 				message: `Could not identify unique commits for branch '${branch.name}'`,
+				error: { kind: 'branch-commits-not-found', branchName: branch.name },
 			};
 		}
 
@@ -297,7 +526,7 @@ export async function resolveRecomposeScope(
 
 	const covered = await coverCommitRange(svc, headSha, candidates);
 	if (!covered.ok) {
-		return { ok: false, reason: covered.reason, message: covered.message };
+		return { ok: false, reason: covered.reason, message: covered.message, error: covered.error };
 	}
 
 	return {

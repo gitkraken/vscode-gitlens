@@ -1,5 +1,5 @@
 import type { Command } from 'vscode';
-import { TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, Uri } from 'vscode';
+import { l10n, TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
 import { getGitFileStatusIcon } from '@gitlens/git/utils/fileStatus.utils.js';
@@ -72,7 +72,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 
 		item.checkboxState = {
 			state: this.getState('checked') ?? TreeItemCheckboxState.Unchecked,
-			tooltip: 'Mark as Reviewed',
+			tooltip: l10n.t('Mark as Reviewed'),
 		};
 
 		return item;
@@ -133,7 +133,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 			rhsUri = this.uri;
 		}
 
-		return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', 'Open Changes', {
+		return createCommand<[DiffWithCommandArgs]>('gitlens.diffWith', l10n.t('Open Changes'), {
 			lhs: { sha: this.ref1, uri: lhsUri },
 			rhs: { sha: this.ref2, uri: rhsUri },
 			repoPath: this.uri.repoPath!,

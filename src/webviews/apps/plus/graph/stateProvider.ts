@@ -6,6 +6,7 @@ import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/rows/wip.js';
 import { createWipRowId, isWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import { Signal } from '@lit-labs/signals';
 import { ContextProvider } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { ReactiveControllerHost } from 'lit';
 import type { GitGraphRow, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
@@ -3038,17 +3039,25 @@ function getRebindFailureMessage(
 	if (worktreeName == null) {
 		switch (reason) {
 			case 'unavailable':
-				return "Couldn't unscope the graph — its main worktree isn't open. Switch to it from the repository picker.";
+				return l10n.t(
+					"Couldn't unscope the graph — its main worktree isn't open. Switch to it from the repository picker.",
+				);
 			case 'failed':
-				return "Couldn't unscope the graph. Try again, or switch back from the repository picker.";
+				return l10n.t("Couldn't unscope the graph. Try again, or switch back from the repository picker.");
 		}
 	}
 
 	switch (reason) {
 		case 'unavailable':
-			return `Couldn't scope the graph to "${worktreeName}" — it isn't a worktree of this repository, or it's no longer available.`;
+			return l10n.t(
+				`Couldn't scope the graph to "{worktreeName}" — it isn't a worktree of this repository, or it's no longer available.`,
+				{ worktreeName: worktreeName },
+			);
 		case 'failed':
-			return `Couldn't scope the graph to "${worktreeName}". Try again, or open it from the repository picker.`;
+			return l10n.t(
+				`Couldn't scope the graph to "{worktreeName}". Try again, or open it from the repository picker.`,
+				{ worktreeName: worktreeName },
+			);
 	}
 }
 
