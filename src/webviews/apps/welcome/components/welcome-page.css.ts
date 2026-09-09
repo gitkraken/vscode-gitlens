@@ -79,6 +79,16 @@ const main = css`
 		max-height: 100%;
 		overflow: auto;
 	}
+
+	:host-context([data-placement='editor']) .welcome {
+		--welcome-editor-top-padding: 3rem;
+
+		padding-top: var(--welcome-editor-top-padding);
+	}
+
+	:host-context([data-placement='editor']) .welcome::before {
+		top: var(--welcome-editor-top-padding);
+	}
 `;
 
 const heroGradient = css`

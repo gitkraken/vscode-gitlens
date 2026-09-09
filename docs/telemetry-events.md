@@ -32,7 +32,7 @@
   // Cohort number between 1 and 100 to use for percentage-based rollouts
   'global.device.cohort': number,
   'global.enabled': boolean,
-  // JSON map of feature flags as fetched — except `glensGraphGateIntroVideo`, which reports the variant the last RENDERED sign-in gate showed
+  // JSON map of feature flags as fetched — except the A/B keys (`glensGraphGateIntroVideo`, `glensWelcomeInEditor`), which report the arm the user was actually EXPOSED to
   'global.featureFlags': string,
   'global.folders.count': number,
   'global.folders.schemes': string,

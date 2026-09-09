@@ -9935,9 +9935,13 @@
 				"category": "%command.category%"
 			},
 			{
-				"command": "gitlens.showWelcomeView",
-				"title": "%command.gitlens.showWelcomeView.title%",
+				"command": "gitlens.showWelcomePage",
+				"title": "%command.gitlens.showWelcomePage.title%",
 				"category": "%command.category%"
+			},
+			{
+				"command": "gitlens.showWelcomeView",
+				"title": "%command.gitlens.showWelcomeView.title%"
 			},
 			{
 				"command": "gitlens.showWorkspacesView",
@@ -12697,6 +12701,11 @@
 				"command": "gitlens.visualizeHistory.repo:views",
 				"title": "%command.gitlens.visualizeHistory.repo:views.title%",
 				"icon": "$(graph-scatter)"
+			},
+			{
+				"command": "gitlens.welcome.simulate.inEditor",
+				"title": "%command.gitlens.welcome.simulate.inEditor.title%",
+				"category": "%command.category%"
 			},
 			{
 				"command": "gitlens.whatsNew",
@@ -15703,6 +15712,14 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.showWelcomePage",
+					"when": "gitlens:welcome:inEditor"
+				},
+				{
+					"command": "gitlens.showWelcomeView",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.showWorkspacesView",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
 				},
@@ -17953,6 +17970,10 @@
 				{
 					"command": "gitlens.visualizeHistory.repo:views",
 					"when": "false"
+				},
+				{
+					"command": "gitlens.welcome.simulate.inEditor",
+					"when": "gitlens:enabled && gitlens:debugging"
 				},
 				{
 					"command": "gitlens.whatsNew",
@@ -30650,6 +30671,7 @@
 					"type": "webview",
 					"id": "gitlens.views.welcome",
 					"name": "%view.gitlens.views.welcome.name%",
+					"when": "!gitlens:welcome:inEditor",
 					"contextualTitle": "%view.gitlens.views.welcome.contextualTitle%",
 					"icon": "$(gitlens-gitlens)",
 					"initialSize": 3,

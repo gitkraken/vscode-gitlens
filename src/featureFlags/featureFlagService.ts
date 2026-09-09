@@ -12,6 +12,7 @@ type DeserializeFeatureFlagConfig = typeof deserializeConfig;
 export type FeatureFlagValue = boolean | string | number;
 export enum FeatureFlagKey {
 	GraphGateIntroVideo = 'glensGraphGateIntroVideo',
+	WelcomeInEditor = 'glensWelcomeInEditor',
 }
 export type FeatureFlagMap = Readonly<Partial<Record<FeatureFlagKey, FeatureFlagValue>>>;
 export interface FeatureFlagService {
@@ -25,7 +26,7 @@ export interface FeatureFlagService {
 }
 
 /** (Re-)stamps the `featureFlags` telemetry global attribute — at activation, when a fetch lands
- *  (`extension.ts`), and when the sign-in gate latches its variant (`graphWebview.ts`) */
+ *  (`extension.ts`), and when an experiment latches its variant (`graphWebview.ts`, `views.ts`) */
 export function setFeatureFlagTelemetryGlobalAttributes(container: Container): void {
 	const flags = new Map<string, FeatureFlagValue>(Object.entries(container.featureFlags.getAllFlags()));
 
@@ -36,6 +37,14 @@ export function setFeatureFlagTelemetryGlobalAttributes(container: Container): v
 		flags.set(FeatureFlagKey.GraphGateIntroVideo, shownIntroVideo);
 	} else {
 		flags.delete(FeatureFlagKey.GraphGateIntroVideo);
+	}
+
+	// Same shown-not-fetched rule for the welcome-in-editor experiment (latched on first run in `views.ts`)
+	const shownWelcomeInEditor = container.storage.get('welcome:inEditorShown');
+	if (shownWelcomeInEditor != null) {
+		flags.set(FeatureFlagKey.WelcomeInEditor, shownWelcomeInEditor);
+	} else {
+		flags.delete(FeatureFlagKey.WelcomeInEditor);
 	}
 
 	// An empty map CLEARS the attribute — a fetch can retire every flag mid-session

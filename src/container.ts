@@ -93,6 +93,7 @@ import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor.js';
 import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration.js';
 import { WebviewCommandRegistrar } from './webviews/webviewCommandRegistrar.js';
 import { WebviewsController } from './webviews/webviewsController.js';
+import { registerWelcomeWebviewPanel } from './webviews/welcome/registration.js';
 import { WorktreeTaskService } from './worktrees/worktreeTaskService.js';
 
 export type Environment = 'dev' | 'staging' | 'production';
@@ -327,6 +328,8 @@ export class Container {
 		const settingsPanels = registerSettingsWebviewPanel(webviews);
 		this._disposables.push(settingsPanels);
 		this._disposables.push(registerSettingsWebviewCommands(settingsPanels));
+
+		this._disposables.push(registerWelcomeWebviewPanel(webviews));
 
 		this._disposables.push(registerAllowedSignersWebviewPanel(webviews));
 

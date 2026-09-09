@@ -1177,7 +1177,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.showTagsView'
 	| 'gitlens.showTimelinePage'
 	| 'gitlens.showTimelineView'
-	| 'gitlens.showWelcomeView'
+	| 'gitlens.showWelcomePage'
 	| 'gitlens.showWorkspacesView'
 	| 'gitlens.showWorktreesView'
 	| 'gitlens.startReview'
@@ -1199,7 +1199,8 @@ export type ContributedPaletteCommands =
 	| 'gitlens.toggleReviewMode'
 	| 'gitlens.toggleZenMode'
 	| 'gitlens.views.workspaces.create'
-	| 'gitlens.visualizeHistory.file';
+	| 'gitlens.visualizeHistory.file'
+	| 'gitlens.welcome.simulate.inEditor';
 
 export type ContributedKeybindingCommands =
 	| 'gitlens.diffLineWithPrevious'
@@ -1270,4 +1271,5 @@ export type ContributedOrphansOrInternalCommands =
 	| 'gitlens.showSettingsPage!account'
 	| 'gitlens.showSettingsPage!agents'
 	| 'gitlens.showSettingsPage!ai'
-	| 'gitlens.showSettingsPage!integrations';
+	| 'gitlens.showSettingsPage!integrations'
+	| 'gitlens.showWelcomeView';
