@@ -5,6 +5,7 @@ import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import type { GraphServices } from '../../../plus/graph/graphService.js';
 import { noop } from '../../shared/actions/rpc.js';
+import type { createAgentsState } from '../../shared/contexts/agents.js';
 import type { createAIState } from '../../shared/contexts/ai.js';
 import type { createIntegrationsState } from '../../shared/contexts/integrations.js';
 import type { createOnboardingState } from '../../shared/contexts/onboarding.js';
@@ -19,6 +20,7 @@ export type AccountLaunchpadHostDeps = {
 	subscriptionCtx(): ContextProvider<typeof subscriptionContext>;
 	integrationsState(): ReturnType<typeof createIntegrationsState>;
 	aiState(): ReturnType<typeof createAIState>;
+	agentsState(): ReturnType<typeof createAgentsState>;
 	onboardingState(): ReturnType<typeof createOnboardingState>;
 	isConnected(): boolean;
 	services(): Remote<GraphServices> | undefined;
@@ -78,21 +80,23 @@ export class AccountLaunchpadController implements ReactiveController {
 	}
 
 	/** Populates the account rollup contexts once `services` resolves (issue #5411). Swaps the
-	 *  subscription context to the host-side RemoteSignals, seeds the initial integrations/AI
+	 *  subscription context to the host-side RemoteSignals, seeds the initial integrations/AI/agents
 	 *  state, and subscribes to change events. A failed subscription must not break the graph. */
 	async initAccountContexts(services: Remote<GraphServices>): Promise<void> {
 		const integrationsState = this.deps.integrationsState();
 		const aiState = this.deps.aiState();
+		const agentsState = this.deps.agentsState();
 		const onboardingState = this.deps.onboardingState();
 		const subscriptionCtx = this.deps.subscriptionCtx();
 
 		// Wiring the account bar must never break the graph, so guard the whole pipeline: a rejected
 		// service promise or a failed subscription just leaves the bar without live state.
 		try {
-			const [subscription, integrations, ai, walkthrough] = await Promise.all([
+			const [subscription, integrations, ai, agents, walkthrough] = await Promise.all([
 				services.subscription,
 				services.integrations,
 				services.ai,
+				services.agents,
 				services.walkthrough,
 			]);
 
@@ -127,7 +131,7 @@ export class AccountLaunchpadController implements ReactiveController {
 				true,
 			);
 
-			// Seed initial integrations + AI state (the change subscriptions below only fire on change).
+			// Seed initial integrations + AI + agents state (the change subscriptions below only fire on change).
 			// `.catch(noop)` also swallows any error thrown inside the success callback (not just a
 			// rejected promise), which the 2nd-arg handler wouldn't.
 			void integrations
@@ -144,6 +148,10 @@ export class AccountLaunchpadController implements ReactiveController {
 			void ai
 				.getState()
 				.then(s => aiState.state.set(s))
+				.catch(noop);
+			void agents
+				.getAgents()
+				.then(list => agentsState.agents.set(list))
 				.catch(noop);
 
 			// Seed the walkthrough progress signals (main 7-step + graph 6-step) so the header pills and
@@ -170,6 +178,7 @@ export class AccountLaunchpadController implements ReactiveController {
 					}),
 				async () => ai.onModelChanged(model => aiState.model.set(model)),
 				async () => ai.onStateChanged(state => aiState.state.set(state)),
+				async () => agents.onAgentsChanged(list => agentsState.agents.set(list)),
 				async () =>
 					walkthrough.onProgressChanged(p => {
 						onboardingState.walkthroughProgress.set(p.main);

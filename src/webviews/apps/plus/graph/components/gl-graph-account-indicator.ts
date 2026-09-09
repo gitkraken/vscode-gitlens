@@ -4,7 +4,11 @@ import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
-import { focusableBaseStyles, focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import {
+	focusableBaseStyles,
+	focusOutline,
+	focusOutlineButton,
+} from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { GlExtensionCommands } from '../../../../../constants.commands.js';
 import type { SubscriptionPlanIds } from '../../../../../plus/gk/models/subscription.js';
@@ -14,6 +18,8 @@ import {
 	isSubscriptionTrial,
 } from '../../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../../system/commands.js';
+import type { AgentsState } from '../../../shared/contexts/agents.js';
+import { agentsContext } from '../../../shared/contexts/agents.js';
 import type { AIContextState } from '../../../shared/contexts/ai.js';
 import { aiContext } from '../../../shared/contexts/ai.js';
 import type { IntegrationsState } from '../../../shared/contexts/integrations.js';
@@ -32,6 +38,7 @@ import '@gitlens/components/components/codeIcon.js';
 import '@gitlens/components/components/overlays/popover.js';
 import '../../../shared/components/progress-ring.js';
 import './account/account-chip.js';
+import './account/agents-chip.js';
 import './account/integrations-chip.js';
 
 declare global {
@@ -285,18 +292,37 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				letter-spacing: 0.05em;
 			}
 
-			.rollup__walkthrough {
-				display: flex;
-				gap: var(--gl-space-8);
-				align-items: center;
+			/* Every rollup region is one target: a full-width band, not a shrink-wrapped chip. The four
+  regions (walkthrough + the three sections) share this so the popover has one hover model. */
+			.rollup__item {
+				display: block;
 				padding: var(--gl-space-4);
 				color: inherit;
 				text-decoration: none;
 				border-radius: var(--gl-radius-sm);
 			}
 
-			.rollup__walkthrough:hover {
+			.rollup__item:hover {
 				background: var(--vscode-toolbar-hoverBackground);
+			}
+
+			.rollup__item:focus-visible {
+				${focusOutline}
+			}
+
+			/* Forced-colors strips backgrounds, so the hover has no channel at all — repaint it as an
+  outline. Highlight is the system color for active/selected UI. */
+			@media (forced-colors: active) {
+				.rollup__item:hover,
+				.rollup__item:focus-visible {
+					outline: var(--gl-border-width) solid Highlight;
+				}
+			}
+
+			.rollup__walkthrough {
+				display: flex;
+				gap: var(--gl-space-8);
+				align-items: center;
 			}
 
 			hr {
@@ -316,6 +342,9 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 
 	@consume({ context: aiContext })
 	private _ai?: AIContextState;
+
+	@consume({ context: agentsContext })
+	private _agents?: AgentsState;
 
 	@consume({ context: integrationsContext })
 	private _integrations?: IntegrationsState;
@@ -374,16 +403,19 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 		return !(this.aiEnabled && this._ai?.model.get() != null);
 	}
 
-	/** Empty ⇒ render the "Set up agents" CTA instead of the Agents chip. `ai.enabled` gates every signal
-	 *  here, per the decision that the Agents section rides on the AI toggle. */
-	private get agentsEmpty(): boolean {
-		if (!this.loaded) return false;
+	/** The roster hasn't arrived yet — distinct from an empty one. It's seeded at `gl-graph-app` init, so this
+	 *  window is brief, but a heading over nothing looks broken where a delay looks like nothing at all. */
+	private get agentsUnloaded(): boolean {
+		return this._agents?.agents.get() === undefined;
+	}
 
-		const state = this._ai?.state.get();
-		const mcpConnected = this.aiEnabled && Boolean(state?.mcp.settingEnabled) && Boolean(state?.mcp.installed);
-		const hooksConnected = this.aiEnabled && Boolean(state?.hooks.anyInstalled);
-		const agentConnected = this.aiEnabled && state?.defaultAgent != null;
-		return !(mcpConnected || hooksConnected || agentConnected);
+	/** Empty ⇒ render the "Set up agents" CTA instead of the roster: the roster has loaded and holds no
+	 *  detected agent. Undetected rows are excluded here for the same reason the chip drops them — a roster of
+	 *  agents the user doesn't have installed is a catalogue, not a status. */
+	private get agentsEmpty(): boolean {
+		if (!this.loaded || this.agentsUnloaded) return false;
+
+		return !(this._agents?.agents.get() ?? []).some(a => a.detected !== false);
 	}
 
 	/** Empty ⇒ render the "Set up integrations" CTA instead of the Integrations chip. */
@@ -430,23 +462,15 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 					${
 						this.aiEmpty
 							? this.renderSetupCta('gitlens.showSettingsPage!ai', l10n.t('Set up AI'))
-							: html`<gl-integrations-chip
-									display="ai-icons"
+							: html`<a
+									class="rollup__item"
 									href=${createCommandLink('gitlens.showSettingsPage!ai')}
-								></gl-integrations-chip>`
+									aria-label=${l10n.t('AI — manage in GitLens Settings')}
+									><gl-integrations-chip display="ai-icons"></gl-integrations-chip
+								></a>`
 					}
 				</div>
-				<div class="rollup__section">
-					<p class="rollup__heading">${l10n.t('Agents')}</p>
-					${
-						this.agentsEmpty
-							? this.renderSetupCta('gitlens.showSettingsPage!agents', l10n.t('Set up agents'))
-							: html`<gl-integrations-chip
-									display="agent-icons"
-									href=${createCommandLink('gitlens.showSettingsPage!agents')}
-								></gl-integrations-chip>`
-					}
-				</div>
+				${this.renderAgents()}
 				<div class="rollup__section">
 					<p class="rollup__heading">${l10n.t('Integrations')}</p>
 					${
@@ -455,10 +479,12 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 									'gitlens.showSettingsPage!integrations',
 									l10n.t('Set up integrations'),
 								)
-							: html`<gl-integrations-chip
-									display="icons"
+							: html`<a
+									class="rollup__item"
 									href=${createCommandLink('gitlens.showSettingsPage!integrations')}
-								></gl-integrations-chip>`
+									aria-label="Integrations — manage in GitLens Settings"
+									><gl-integrations-chip display="icons"></gl-integrations-chip
+								></a>`
 					}
 				</div>
 			</div>
@@ -485,6 +511,33 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 		>`;
 	}
 
+	/**
+	 * Agents section — the roster matrix, or one CTA, or nothing at all.
+	 *
+	 * Suppressed entirely (heading included) when AI is off, rather than showing its own CTA:
+	 * `gitlens:agents:enabled` is `ai.enabled && org-enabled && providers.length > 0` (see
+	 * `Container.updateAiStatus`), so with AI off the roster is always empty and the section would stack a
+	 * second "Set up agents" button under "Set up AI" for a single underlying cause. Agents ride on the AI
+	 * toggle, so the AI CTA is the one that fixes both.
+	 */
+	private renderAgents(): unknown {
+		if (this.aiEmpty || this.agentsUnloaded) return nothing;
+
+		return html`<div class="rollup__section">
+			<p class="rollup__heading">${l10n.t('Agents')}</p>
+			${
+				this.agentsEmpty
+					? this.renderSetupCta('gitlens.showSettingsPage!agents', l10n.t('Set up agents'))
+					: html`<a
+							class="rollup__item"
+							href=${createCommandLink('gitlens.showSettingsPage!agents')}
+							aria-label=${l10n.t('Agents — manage in GitLens Settings')}
+							><gl-agents-chip></gl-agents-chip
+						></a>`
+			}
+		</div>`;
+	}
+
 	private renderWalkthrough(): unknown {
 		if (this._onboarding == null) return nothing;
 
@@ -496,7 +549,7 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 		const { progress } = active;
 		return html`<hr />
 			<a
-				class="rollup__walkthrough"
+				class="rollup__item rollup__walkthrough"
 				href=${createCommandLink('gitlens.showWelcomeView', graph ? { mode: 'graph' } : undefined)}
 			>
 				<gl-progress-ring

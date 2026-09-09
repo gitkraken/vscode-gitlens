@@ -2,10 +2,8 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
-import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
-import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
-import { isSubscriptionTrialOrPaidFromState } from '../../../../../../plus/gk/utils/subscription.utils.js';
+import { customElement, property } from 'lit/decorators.js';
+import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { AIState, IntegrationStateInfo } from '../../../../../rpc/services/types.js';
 import type { AIContextState } from '../../../../shared/contexts/ai.js';
 import { aiContext } from '../../../../shared/contexts/ai.js';
@@ -13,7 +11,6 @@ import type { IntegrationsState } from '../../../../shared/contexts/integrations
 import { integrationsContext } from '../../../../shared/contexts/integrations.js';
 import type { SubscriptionContextState } from '../../../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../../../shared/contexts/subscription.js';
-import { chipStyles } from '../../../shared/components/chipStyles.js';
 import '@gitlens/components/components/codeIcon.js';
 
 @customElement('gl-integrations-chip')
@@ -27,25 +24,25 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 	@consume({ context: aiContext })
 	private _ai!: AIContextState;
 
-	/** `icons` renders the integration providers alone; `ai-icons` the AI model status alone; `agent-icons`
-	 *  the MCP / Hooks / Default Agent statuses alone — so a consumer can head them as separate sections. */
-	@property({ reflect: true }) display: 'icons' | 'ai-icons' | 'agent-icons' = 'icons';
-
-	/** When set, the `icons`/`ai-icons`/`agent-icons` chip renders as a command link (`<a>`) instead of a
-	 *  `<button>`, so clicking it navigates rather than emitting a click for the host to handle. */
-	@property() href?: string;
-
-	static override shadowRootOptions: ShadowRootInit = {
-		...LitElement.shadowRootOptions,
-		delegatesFocus: true,
-	};
+	/** `icons` renders the integration providers alone; `ai-icons` the active AI model named in words — so a
+	 *  consumer can head them as separate sections. */
+	@property({ reflect: true }) display: 'icons' | 'ai-icons' = 'icons';
 
 	static override styles = [
 		boxSizingBase,
-		focusableBaseStyles,
-		linkBase,
-		chipStyles,
 		css`
+			:host {
+				display: block;
+			}
+
+			/* Baseline, not center: the icons display mixes the uppercase "Connect" label with the
+  provider glyphs, and centering the two makes the text ride high against them. */
+			.icons {
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: baseline;
+			}
+
 			:host-context(.vscode-dark),
 			:host-context(.vscode-high-contrast) {
 				--gl-chip-skeleton-bg: color-mix(in lab, var(--vscode-sideBar-background), #fff 10%);
@@ -54,30 +51,6 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			:host-context(.vscode-light),
 			:host-context(.vscode-high-contrast-light) {
 				--gl-chip-skeleton-bg: color-mix(in lab, var(--vscode-sideBar-background), #000 7%);
-			}
-
-			.chip {
-				gap: var(--gl-space-6);
-				align-items: baseline;
-				padding: var(--gl-space-2) var(--gl-space-4) var(--gl-space-4);
-			}
-
-			button.chip {
-				margin: 0;
-				font: inherit;
-				color: inherit;
-				text-align: start;
-				appearance: none;
-				background: none;
-				border: none;
-			}
-
-			/* The command-link variant (href) must read like the button chip, not a text link — override
-  linkBase's textLink color and hover underline. */
-			a.chip,
-			a.chip:hover {
-				color: inherit;
-				text-decoration: none;
 			}
 
 			.chip__label {
@@ -92,6 +65,38 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				white-space: nowrap;
 			}
 
+			/* Center, not the .icons baseline: this row is one continuous phrase (glyph → model → provider)
+	  rather than a label set beside a run of glyphs, and the smaller provider text sitting on a
+	  shared baseline would read as a footnote dropped below the model name. */
+			.ai {
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+			}
+
+			.ai__icon {
+				flex: none;
+			}
+
+			/* Clips rather than wrapping: model ids run long ("claude-sonnet-4-5-20250929") and the popover
+	  is width-capped, so a wrap would push the provider name onto its own line. */
+			.ai__model {
+				overflow: hidden;
+				text-overflow: ellipsis;
+				color: var(--color-foreground);
+				white-space: nowrap;
+			}
+
+			/* Pushed to the far end and muted — the provider answers "where does this run", which is
+	  secondary to which model is active. */
+			.ai__provider {
+				flex: none;
+				margin-left: auto;
+				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--50);
+				white-space: nowrap;
+			}
+
 			.status--disconnected.integration {
 				color: var(--color-foreground--25);
 			}
@@ -102,13 +107,17 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				}
 			}
 
+			/* display and border-radius are set here rather than inherited: the skeleton used to ride on
+  the shared .chip class for both, and a bare inline span would drop the width/height entirely. */
 			.chip--skeleton {
 				position: relative;
+				display: block;
 				width: 9rem;
 				height: 2.2rem;
 				overflow: hidden;
 				cursor: default;
 				background-color: var(--gl-chip-skeleton-bg);
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.chip--skeleton::before {
@@ -128,15 +137,8 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		`,
 	];
 
-	@query('#chip')
-	private _chip!: HTMLElement;
-
 	private get hasAccount() {
 		return this._subscription.subscription.get()?.account != null;
-	}
-
-	private get isProAccount() {
-		return isSubscriptionTrialOrPaidFromState(this._subscription.subscription.get()?.state);
 	}
 
 	private get hasConnectedIntegrations() {
@@ -155,42 +157,26 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		return this._integrations.integrations.get();
 	}
 
-	override focus(): void {
-		this._chip.focus();
-	}
-
 	override render(): unknown {
 		// Don't show integration state until subscription data has loaded —
 		// otherwise we'd flash "Connect" with an empty list.
 		if (this._subscription.subscription.get() === undefined) {
-			return html`<span
-				id="chip"
-				class="chip chip--skeleton"
-				tabindex="-1"
-				aria-label=${l10n.t('Loading integrations status')}
-				role="status"
-			></span>`;
+			return html`<span class="chip--skeleton" aria-label="${l10n.t('Loading integrations status')}" role="status"></span>`;
 		}
 
+		// Returned unwrapped: the AI row is its own flex container (the provider name is pushed to the far
+		// end), which a `.icons` wrapper would reduce to a single shrink-wrapped item.
 		if (this.display === 'ai-icons') {
-			return this.renderIconChip(l10n.t('AI'), this.renderAIStatus());
+			return this.renderAIStatus();
 		}
 
-		if (this.display === 'agent-icons') {
-			return this.renderIconChip(l10n.t('Agents'), this.renderAgentIcons());
-		}
-
-		return this.renderIconChip(l10n.t('Integrations'), this.renderIntegrationIcons());
+		return this.renderIconChip(this.renderIntegrationIcons());
 	}
 
-	/** Icon-only chip: a command link when `href` is set (navigates on click), else a button whose click
-	 *  the host handles. Both keep `id="chip"` so `focus()`/delegatesFocus behave identically. */
-	private renderIconChip(ariaLabel: string, content: unknown): unknown {
-		if (this.href != null) {
-			return html`<a id="chip" class="chip" href=${this.href} aria-label=${ariaLabel}>${content}</a>`;
-		}
-
-		return html`<button id="chip" class="chip" type="button" aria-label=${ariaLabel}>${content}</button>`;
+	/** Plain content container — the host anchor (owned by `gl-graph-account-indicator`) is the
+	 *  interactive/labeled element; this just lays out the icons. */
+	private renderIconChip(content: unknown): unknown {
+		return html`<span class="icons">${content}</span>`;
 	}
 
 	private renderIntegrationIcons(): unknown {
@@ -202,58 +188,38 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			.map(i => this.renderIntegrationStatus(i))}`;
 	}
 
-	private renderAgentIcons(): unknown {
-		return html`${this.renderMcpStatus()}${this.renderAgentHooksStatus()}${this.renderDefaultAgentStatus()}`;
-	}
-
+	/** Pro-gating is NOT reflected here, unlike the Settings integration rows, which force a
+	 *  `requiresPro` integration the account can't use to read as disconnected and add a lock action.
+	 *  This strip lost its own lock glyph when the chip's popover content was extracted into a panel
+	 *  component, and the styles for it went away with the Home view. A `requiresPro` branch outlived
+	 *  both, but rendered markup identical to this — so the two surfaces disagree about a lapsed
+	 *  account's Pro integrations, and this one shows them as plain connected. */
 	private renderIntegrationStatus(integration: IntegrationStateInfo) {
-		if (integration.requiresPro && !this.isProAccount) {
-			return html`<span
-				class="integration status--${integration.connected ? 'connected' : 'disconnected'} is-locked"
-				slot="anchor"
-				><code-icon icon="${integration.icon}"></code-icon
-			></span>`;
-		}
-
-		return html`<span
-			class="integration status--${integration.connected ? 'connected' : 'disconnected'}"
-			slot="anchor"
+		return html`<span class="integration status--${integration.connected ? 'connected' : 'disconnected'}"
 			><code-icon icon="${integration.icon}"></code-icon
 		></span>`;
 	}
 
+	/**
+	 * The active model named in words. `role="img"` + `aria-label` rather than an `sr-only` summary: the row's
+	 * three visible pieces only mean something read together, and as separate text nodes they'd be announced
+	 * as two unrelated labels sharing no relationship. `role="img"` makes the row a leaf, so the one label is
+	 * all that's announced — an `sr-only` span would need every visible piece individually `aria-hidden` to
+	 * avoid announcing the same thing twice, which is more machinery for the same result.
+	 */
 	private renderAIStatus() {
 		const model = this._ai.model.get();
-		return html`<span
-			class="integration status--${this.aiEnabled && model != null ? 'connected' : 'disconnected'}"
-			slot="anchor"
-		>
-			<code-icon icon="${this.aiEnabled && model != null ? 'sparkle-filled' : 'sparkle'}"></code-icon>
-		</span>`;
-	}
+		// Unreachable — the indicator's `aiEmpty` gate swaps in a "Set up AI" CTA — but a half-populated row
+		// with no model to name is worse than no row.
+		if (!this.aiEnabled || model == null) return nothing;
 
-	private renderMcpStatus() {
-		const { mcp } = this.ai;
-		const active = this.aiEnabled && mcp.settingEnabled && mcp.installed;
-		return html`<span class="integration status--${active ? 'connected' : 'disconnected'}" slot="anchor">
-			<code-icon icon="mcp"></code-icon>
-		</span>`;
-	}
-
-	private renderDefaultAgentStatus() {
-		if (!this.aiEnabled) return nothing;
-
-		const agent = this.ai.defaultAgent;
-		return html`<span class="integration status--${agent != null ? 'connected' : 'disconnected'}" slot="anchor">
-			<code-icon icon="robot"></code-icon>
-		</span>`;
-	}
-
-	/** Persistent (always-rendered) hooks status for `agent-icons` — greyed when not installed. */
-	private renderAgentHooksStatus() {
-		const installed = this.aiEnabled && this.ai.hooks.anyInstalled;
-		return html`<span class="integration status--${installed ? 'connected' : 'disconnected'}" slot="anchor">
-			<code-icon icon="search-sparkle"></code-icon>
+		return html`<span class="ai" role="img" aria-label="${l10n.t('AI model: {0} via {1}', [
+			model.name,
+			model.provider.name,
+		])}">
+			<code-icon class="ai__icon" icon="sparkle-filled" aria-hidden="true"></code-icon>
+			<span class="ai__model">${model.name}</span>
+			<span class="ai__provider">${model.provider.name}</span>
 		</span>`;
 	}
 }

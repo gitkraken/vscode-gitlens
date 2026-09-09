@@ -54,6 +54,7 @@ import type {
 import { isWipSelectionSha } from '../../../plus/graph/protocol.js';
 import { fireAndForget, notifyService } from '../../shared/actions/rpc.js';
 import type { GlSplitPanel, GlSplitPanelSnapSource } from '../../shared/components/split-panel/split-panel.js';
+import { agentsContext, createAgentsState } from '../../shared/contexts/agents.js';
 import { aiContext, createAIState } from '../../shared/contexts/ai.js';
 import { createIntegrationsState, integrationsContext } from '../../shared/contexts/integrations.js';
 import { createOnboardingState, onboardingContext } from '../../shared/contexts/onboarding.js';
@@ -649,13 +650,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	// `services` resolves. `promosContext` is provided globally by the app host.
 	private readonly _integrationsState = createIntegrationsState();
 	private readonly _aiState = createAIState();
+	private readonly _agentsState = createAgentsState();
 	private readonly _subscriptionCtx = new ContextProvider(this, {
 		context: subscriptionContext,
 		initialValue: createDefaultSubscriptionContextState(),
 	});
-	// `_integrationsCtx`/`_aiCtx` are intentionally kept as fields: `ContextProvider` self-registers
-	// on construction, so they're never read again. `_subscriptionCtx` above is a field because it's
-	// read later.
+	// `_integrationsCtx`/`_aiCtx`/`_agentsCtx` are intentionally kept as fields: `ContextProvider`
+	// self-registers on construction, so they're never read again. `_subscriptionCtx` above is a field
+	// because it's read later.
 	private readonly _integrationsCtx = new ContextProvider(this, {
 		context: integrationsContext,
 		initialValue: this._integrationsState,
@@ -663,6 +665,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private readonly _aiCtx = new ContextProvider(this, {
 		context: aiContext,
 		initialValue: this._aiState,
+	});
+	private readonly _agentsCtx = new ContextProvider(this, {
+		context: agentsContext,
+		initialValue: this._agentsState,
 	});
 	// Walkthrough progress (issue #5522). Provided here so the header account/walkthrough pills and the
 	// account modal can consume it; populated from the walkthrough RPC service in `initAccountContexts`.
@@ -681,6 +687,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		subscriptionCtx: () => this._subscriptionCtx,
 		integrationsState: () => this._integrationsState,
 		aiState: () => this._aiState,
+		agentsState: () => this._agentsState,
 		onboardingState: () => this._onboardingState,
 		isConnected: () => this.isConnected,
 		services: () => this.services,
