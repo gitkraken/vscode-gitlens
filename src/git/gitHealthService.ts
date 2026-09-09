@@ -354,6 +354,36 @@ export class GitHealthService implements Disposable {
 		this._onDidChange.fire(repo.path);
 	}
 
+	/**
+	 * Quiets the banner strip once the user acts on one of the suggestions it advertised — applying a
+	 * suggested lever IS the decision the strip was asking for, and leaving it up to nag with whatever
+	 * they deliberately left alone reads as the banner ignoring them. The still-suggested levers remain
+	 * visible where they belong: the Repository Health view and the toggle's tooltip.
+	 *
+	 * Deliberately narrow. `suggested` is read from the CACHED levers (the same rows the view rendered,
+	 * so this matches the status the person actually clicked) and only that status counts: Undo, the
+	 * commit-graph toggle, maintenance runs, and re-applying an already-applied lever are not the
+	 * banner's ask, so they leave it to the explicit ✕. Undo in particular RE-suggests its lever — an
+	 * implicit dismiss there would quiet a strip that just regained something to say.
+	 *
+	 * Written BEFORE the apply's own work so the strip clears immediately rather than after a re-probe
+	 * that can spend seconds on a large repository, and unconditional on the apply's outcome: the click
+	 * is the engagement, and a genuine git failure is surfaced by the view the person is already looking
+	 * at, not by a banner still telling them to go there.
+	 */
+	private async quietBannerForAppliedSuggestion(repoPath: string, id: GitOptimizationId): Promise<void> {
+		const suggested = this._levers.get(repoPath)?.some(l => l.id === id && l.status === 'suggested');
+		if (suggested !== true) return;
+
+		try {
+			await this.dismissBanner(repoPath);
+		} catch (ex) {
+			// Best-effort — a failed suppression write must never block the apply the user actually asked
+			// for. The strip just stands until the next fetch, same as a failed explicit dismiss.
+			Logger.error(ex, 'GitHealthService.quietBannerForAppliedSuggestion');
+		}
+	}
+
 	/** Records a Repository Health view visit for a repo; quiets the indicator (not the strip) for 30 days. */
 	async markHealthViewVisited(repoPath: string): Promise<void> {
 		const repo = this.container.git.getRepository(repoPath);
@@ -400,10 +430,14 @@ export class GitHealthService implements Disposable {
 	 * Applies an optimization lever, then re-probes. Returns whether it took effect. This is the ask-tier
 	 * (user-clicked) path, so a genuine failure PROPAGATES to the caller (the view surfaces it); the re-probe
 	 * runs in a `finally` so the view's state stays fresh even when the apply threw.
+	 *
+	 * Acting on a suggestion also quiets the banner strip — see {@link quietBannerForAppliedSuggestion}.
 	 */
 	async applyFix(repoPath: string, id: GitOptimizationId, cancellation?: AbortSignal): Promise<boolean> {
 		const resolved = this.resolveMaintenance(repoPath);
 		if (resolved == null) return false;
+
+		await this.quietBannerForAppliedSuggestion(resolved.repo.path, id);
 
 		try {
 			return await this.applyOptimizationWithTelemetry(repoPath, id, 'ask', cancellation);
