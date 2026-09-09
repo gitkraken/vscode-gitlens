@@ -133,6 +133,8 @@ interface GlobalStorageCore {
 	'featureFlags:flags': FeatureFlagMap;
 	/** Whether a feature-flag fetch has ever completed (even unsuccessfully) — see `hasEverFetched` */
 	'featureFlags:fetched': boolean;
+	/** A/B (welcome-in-editor): the arm latched on first run — true = Welcome opened as an editor tab */
+	'welcome:inEditorShown': boolean;
 }
 
 type GlobalStorageDynamic = Record<`plus:preview:${FeaturePreviews}:usages`, StoredFeaturePreviewUsagePeriod[]> &

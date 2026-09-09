@@ -15,6 +15,7 @@ import { compare } from '@gitlens/utils/version.js';
 import type { GroupableTreeViewTypes, TreeViewTypes } from '../constants.views.js';
 import { localOnlyGroupedViews } from '../constants.views.js';
 import type { Container } from '../container.js';
+import { FeatureFlagKey, setFeatureFlagTelemetryGlobalAttributes } from '../featureFlags/featureFlagService.js';
 import { executeCommand, executeCoreCommand, registerCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { getContext, setContext } from '../system/-webview/context.js';
@@ -116,6 +117,18 @@ export class Views implements Disposable {
 
 		this._welcomeDismissed = container.onboarding.isDismissed('views:scmGrouped:welcome');
 
+		if (container.storage.get('welcome:inEditorShown') === true) {
+			void setContext('gitlens:welcome:inEditor', true);
+		}
+
+		if (DEBUG) {
+			void import(
+				/* webpackChunkName: "__debug__" */ '../webviews/welcome/__debug__welcomeInEditorDebug.js'
+			).then(m => {
+				m.registerWelcomeInEditorDebug(container);
+			});
+		}
+
 		let newInstall = false;
 		let showGitLensView = false;
 		if (!configuration.get('advanced.skipOnboarding')) {
@@ -155,6 +168,18 @@ export class Views implements Disposable {
 				}, 0);
 			});
 		}
+
+		if (newInstall && !env.remoteName && env.appHost === 'desktop') {
+			const disposable = once(container.onReady)(() => {
+				disposable?.dispose();
+				setTimeout(async () => {
+					const welcomeInEditor = await this.resolveWelcomeInEditorCohort();
+					if (welcomeInEditor && container.extensionMode === ExtensionMode.Production) {
+						void executeCommand('gitlens.showWelcomePage');
+					}
+				}, 0);
+			});
+		}
 	}
 
 	dispose(): void {
@@ -190,6 +215,32 @@ export class Views implements Disposable {
 			this._hasVirtualFolders = hasVirtualFolders;
 			this.updateScmGroupedViewsRegistration();
 		}
+	}
+
+	/** Resolves and latches the welcome-in-editor cohort on a new install; `true` = editor arm.
+	 *  Cohort-less users aren't persisted, so they stay out of both funnel arms. */
+	private async resolveWelcomeInEditorCohort(): Promise<boolean> {
+		let inEditor = this.container.storage.get('welcome:inEditorShown');
+		if (inEditor == null) {
+			if (!this.container.featureFlags.hasEverFetched) {
+				await this.container.featureFlags.whenReady;
+			}
+
+			// Key PRESENCE separates an assigned cohort from cohort-less — a default would fold the
+			// cohort-less into the control arm and bias the experiment
+			const value = this.container.featureFlags.getAllFlags()[FeatureFlagKey.WelcomeInEditor];
+			if (value == null) return false;
+
+			inEditor = value === true;
+			await this.container.storage.store('welcome:inEditorShown', inEditor);
+			setFeatureFlagTelemetryGlobalAttributes(this.container);
+		}
+
+		if (inEditor) {
+			await setContext('gitlens:welcome:inEditor', true);
+		}
+
+		return inEditor;
 	}
 
 	private registerCommands(): Disposable[] {
