@@ -426,7 +426,14 @@ export interface IntegrationManager {
 		/** Cursor-only: without a cursor, reaching page N costs O(N) upstream requests. */
 		page?: number;
 		cursor?: string;
-		/** Page size per relationship × state facet; the deduped union can contain more rows. */
+		/**
+		 * Page size PER RELATIONSHIP × STATE facet, not per page. Each facet is its own aliased provider query —
+		 * one axis more than {@link searchIssuesPage}'s per-relationship fan-out — so a page of a 3-relationship,
+		 * 2-state search returns up to `6 × itemsPerPage` items before deduplication, and fewer than that where
+		 * the facets overlap. Deduplication does NOT bring the page back to this size: it removes only the rows the
+		 * facets share. `page.itemsPerPage` reports what actually came back, so size the UI off that rather than
+		 * off this. A provider may also cap it below what is asked for.
+		 */
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
@@ -434,7 +441,9 @@ export interface IntegrationManager {
 		domain?: string;
 		/**
 		 * Requests the lightweight row shape: identity, body, author, repository, branch refs and stack info,
-		 * without review, check or diff statistics. It also raises the default page size.
+		 * without review, check or diff statistics. It also replaces the flat per-facet default page size with a
+		 * fixed budget shared across the search's ACTIVE facets, so with up to three of them it raises the page
+		 * and from four on it LOWERS it — measured against GitHub, a 100-row budget versus a flat 30 each.
 		 *
 		 * A provider without a lightweight projection ignores it and returns its usual shape, so this is a hint
 		 * rather than a contract about which fields are present.

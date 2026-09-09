@@ -222,6 +222,13 @@ not sanitized, and the refusal names the value; edge whitespace and control char
 accepted. `countPullRequests` validates each scope through the same rule, so a count never previews a query
 the read would refuse.
 
+`itemsPerPage` is **per relationship × state facet**, not per page — one axis more than §5.1's
+per-relationship fan-out, since each facet is its own aliased provider query. A page of a 3-relationship,
+2-state search returns up to `6 × itemsPerPage` items before deduplication, and fewer where the facets
+overlap; deduplication does **not** bring the page back to the requested size, since it removes only the rows
+the facets share. As in §5.1: size the list off `page.itemsPerPage`, not off the value you sent; a provider
+may cap the `itemsPerPage` it honors below what you asked for.
+
 ### 5.1 The filtered issue search and its count probe
 
 `searchIssuesPage` answers "every issue in this scope matching X", which no other issue read can: the
@@ -264,7 +271,8 @@ Parts of the contract that are decisions, not incidentals:
   result ceiling is only correct under a guaranteed order.
 - **`itemsPerPage` is per RELATIONSHIP**, since each becomes its own provider query: a page of an
   N-relationship search returns up to `N × itemsPerPage` items before deduplication, and fewer where they
-  overlap. Read `page.itemsPerPage` for what actually came back.
+  overlap. Read `page.itemsPerPage` for what actually came back and size the list off that, not off the value
+  you sent; a provider may also cap the `itemsPerPage` it honors below what you asked for.
 - **At the result ceiling the read SUCCEEDS.** More matches than the provider will serve is an _omission_, not
   a failure: `fetchFailed` stays absent, and the warning carries `omission.totalCount` (how many matched),
   `omission.limit` (how many are reachable) and `recovery: 'none'` — the rest is unreachable however you page,
