@@ -1685,13 +1685,13 @@ export class AIProviderService implements AIService, Disposable {
 								source,
 							);
 
-							// Every arm below `await`s a notification, and a VS Code notification carrying
-							// buttons doesn't auto-dismiss — so an un-actioned one parks this request, and with
-							// it anything driving it. A multi-step run (automatic rebase) would sit mid-step
-							// behind a toast, reporting the last thing it did, with even its own Cancel inert
-							// until someone clicks. Driven callers therefore opt out of the whole interactive
-							// tier and surface the failure in their own UI; they pass `throwAIErrors` so the
-							// reason survives for them to classify.
+							// A VS Code notification carrying buttons doesn't auto-dismiss, so anything this
+							// request `await`s below parks it — and with it anything driving it. The terminal
+							// arms therefore detach their notification (`void (async () => …)()`) and end the
+							// request immediately, keeping their offer live for whenever it's clicked; only the
+							// retry arms still await, because the answer drives `continue`. Driven callers opt
+							// out of the whole interactive tier regardless and surface the failure in their own
+							// UI; they pass `throwAIErrors` so the reason survives for them to classify.
 							if (options?.silent) {
 								if (!fulfilled) {
 									options?.generating?.cancel();
@@ -1735,142 +1735,164 @@ export class AIProviderService implements AIService, Disposable {
 									return undefined;
 
 								case AIErrorReason.NoEntitlement: {
-									const sub = await this.container.subscription.getSubscription();
+									void (async () => {
+										const sub = await this.container.subscription.getSubscription();
 
-									if (isSubscriptionPaid(sub)) {
-										const plan =
-											compareSubscriptionPlans(sub.plan.actual.id, 'advanced') <= 0
-												? 'teams'
-												: 'advanced';
+										if (isSubscriptionPaid(sub)) {
+											const plan =
+												compareSubscriptionPlans(sub.plan.actual.id, 'advanced') <= 0
+													? 'teams'
+													: 'advanced';
 
-										const upgrade = {
-											title: l10n.t('Upgrade to {0}', getSubscriptionPlanName(plan)),
-										};
-										const result = await window.showErrorMessage(
-											l10n.t(
-												"This AI feature isn't included in your current plan. Please upgrade and try again.",
-											),
-											upgrade,
-										);
+											const upgrade = {
+												title: l10n.t('Upgrade to {0}', getSubscriptionPlanName(plan)),
+											};
+											const result = await window.showErrorMessage(
+												l10n.t(
+													"This AI feature isn't included in your current plan. Please upgrade and try again.",
+												),
+												upgrade,
+											);
 
-										if (result === upgrade) {
-											void this.container.subscription.manageSubscription(source);
+											if (result === upgrade) {
+												void this.container.subscription.manageSubscription(source);
+											}
+										} else {
+											// Users without accounts would never get here since they would have been blocked by `ensureFeatureAccess`
+											const upgrade = { title: l10n.t('Upgrade to Pro') };
+											const result = await window.showErrorMessage(
+												l10n.t(
+													'Please upgrade to GitLens Pro to access this AI feature and try again.',
+												),
+												upgrade,
+											);
+
+											if (result === upgrade) {
+												void this.container.subscription.upgrade('pro', source);
+											}
 										}
-									} else {
-										// Users without accounts would never get here since they would have been blocked by `ensureFeatureAccess`
-										const upgrade = { title: l10n.t('Upgrade to Pro') };
-										const result = await window.showErrorMessage(
-											l10n.t(
-												'Please upgrade to GitLens Pro to access this AI feature and try again.',
-											),
-											upgrade,
-										);
-
-										if (result === upgrade) {
-											void this.container.subscription.upgrade('pro', source);
-										}
-									}
+									})().catch((ex: unknown) =>
+										scope?.error(ex, 'Failed to show AI error notification'),
+									);
 
 									if (options?.throwAIErrors) throw error;
 
 									return undefined;
 								}
 								case AIErrorReason.RequestTooLarge: {
-									const switchModel: MessageItem = { title: l10n.t('Switch Model') };
-									const result = await window.showErrorMessage(
-										l10n.t(
-											'Your request is too large. Please reduce the size of your request or switch to a different model, and then try again.',
-										),
-										switchModel,
+									void (async () => {
+										const switchModel: MessageItem = { title: l10n.t('Switch Model') };
+										const result = await window.showErrorMessage(
+											l10n.t(
+												'Your request is too large. Please reduce the size of your request or switch to a different model, and then try again.',
+											),
+											switchModel,
+										);
+										if (result === switchModel) {
+											void this.switchModel(source);
+										}
+									})().catch((ex: unknown) =>
+										scope?.error(ex, 'Failed to show AI error notification'),
 									);
-									if (result === switchModel) {
-										void this.switchModel(source);
-									}
+
 									if (options?.throwAIErrors) throw error;
 
 									return undefined;
 								}
 								case AIErrorReason.UserQuotaExceeded: {
-									const sub = await this.container.subscription.getSubscription();
-									// Kept for telemetry — the purchase gate itself is the shared predicate the
-									// Settings AI usage card also renders from, so the two can't disagree.
-									const role = sub.activeOrganization?.role;
+									void (async () => {
+										const sub = await this.container.subscription.getSubscription();
+										// Kept for telemetry — the purchase gate itself is the shared predicate the
+										// Settings AI usage card also renders from, so the two can't disagree.
+										const role = sub.activeOrganization?.role;
 
-									if (canPurchaseAiCredits(sub)) {
-										const getMoreCredits: MessageItem = {
-											title: l10n.t('Get More Credits'),
-										};
-										const dismiss: MessageItem = {
-											title: l10n.t('Dismiss'),
-											isCloseAffordance: true,
-										};
-										const result = await window.showErrorMessage(
-											l10n.t(
-												"Your request could not be completed because you've reached the weekly usage included in your plan. Purchase additional AI credits to keep using GitKraken AI.",
-											),
-											getMoreCredits,
-											dismiss,
-										);
+										if (canPurchaseAiCredits(sub)) {
+											const getMoreCredits: MessageItem = {
+												title: l10n.t('Get More Credits'),
+											};
+											const dismiss: MessageItem = {
+												title: l10n.t('Dismiss'),
+												isCloseAffordance: true,
+											};
+											const result = await window.showErrorMessage(
+												l10n.t(
+													"Your request could not be completed because you've reached the weekly usage included in your plan. Purchase additional AI credits to keep using GitKraken AI.",
+												),
+												getMoreCredits,
+												dismiss,
+											);
 
-										if (result === getMoreCredits) {
-											void this.openAiCreditAddOn(source);
+											if (result === getMoreCredits) {
+												void this.openAiCreditAddOn(source);
+											} else {
+												this.container.telemetry.sendEvent(
+													'ai/credits/addOnDismissed',
+													{ 'organization.role': role },
+													source,
+												);
+											}
 										} else {
+											const ok: MessageItem = {
+												title: l10n.t('OK'),
+												isCloseAffordance: true,
+											};
+											await window.showErrorMessage(
+												l10n.t(
+													"Your request could not be completed because you've reached the weekly usage included in your plan. Contact your organization admin or owner to request more AI credits.",
+												),
+												ok,
+											);
+
 											this.container.telemetry.sendEvent(
 												'ai/credits/addOnDismissed',
 												{ 'organization.role': role },
 												source,
 											);
 										}
-									} else {
-										const ok: MessageItem = {
-											title: l10n.t('OK'),
-											isCloseAffordance: true,
-										};
-										await window.showErrorMessage(
-											l10n.t(
-												"Your request could not be completed because you've reached the weekly usage included in your plan. Contact your organization admin or owner to request more AI credits.",
-											),
-											ok,
-										);
-
-										this.container.telemetry.sendEvent(
-											'ai/credits/addOnDismissed',
-											{ 'organization.role': role },
-											source,
-										);
-									}
+									})().catch((ex: unknown) =>
+										scope?.error(ex, 'Failed to show AI error notification'),
+									);
 
 									if (options?.throwAIErrors) throw error;
 
 									return undefined;
 								}
 								case AIErrorReason.RateLimitExceeded: {
-									const switchModel: MessageItem = { title: l10n.t('Switch Model') };
-									const result = await window.showErrorMessage(
-										l10n.t(
-											'Rate limit exceeded. Please wait a few moments or switch to a different model, and then try again.',
-										),
-										switchModel,
+									void (async () => {
+										const switchModel: MessageItem = { title: l10n.t('Switch Model') };
+										const result = await window.showErrorMessage(
+											l10n.t(
+												'Rate limit exceeded. Please wait a few moments or switch to a different model, and then try again.',
+											),
+											switchModel,
+										);
+										if (result === switchModel) {
+											void this.switchModel(source);
+										}
+									})().catch((ex: unknown) =>
+										scope?.error(ex, 'Failed to show AI error notification'),
 									);
-									if (result === switchModel) {
-										void this.switchModel(source);
-									}
 
 									if (options?.throwAIErrors) throw error;
 
 									return undefined;
 								}
 								case AIErrorReason.RateLimitOrFundsExceeded: {
-									const switchModel: MessageItem = { title: l10n.t('Switch Model') };
-									const result = await window.showErrorMessage(
-										l10n.t(
-											'Rate limit exceeded, or your account is out of funds. Please wait a few moments, check your account balance, or switch to a different model, and then try again.',
-										),
-										switchModel,
+									void (async () => {
+										const switchModel: MessageItem = { title: l10n.t('Switch Model') };
+										const result = await window.showErrorMessage(
+											l10n.t(
+												'Rate limit exceeded, or your account is out of funds. Please wait a few moments, check your account balance, or switch to a different model, and then try again.',
+											),
+											switchModel,
+										);
+										if (result === switchModel) {
+											void this.switchModel(source);
+										}
+									})().catch((ex: unknown) =>
+										scope?.error(ex, 'Failed to show AI error notification'),
 									);
-									if (result === switchModel) {
-										void this.switchModel(source);
-									}
+
 									if (options?.throwAIErrors) throw error;
 
 									return undefined;
@@ -1887,46 +1909,61 @@ export class AIProviderService implements AIService, Disposable {
 									return undefined;
 								}
 								case AIErrorReason.ModelNotSupported: {
-									const switchModel: MessageItem = { title: l10n.t('Switch Model') };
-									const result = await window.showErrorMessage(
-										l10n.t(
-											'The selected model is not supported for this request. Please select a different model and try again.',
-										),
-										switchModel,
+									void (async () => {
+										const switchModel: MessageItem = { title: l10n.t('Switch Model') };
+										const result = await window.showErrorMessage(
+											l10n.t(
+												'The selected model is not supported for this request. Please select a different model and try again.',
+											),
+											switchModel,
+										);
+										if (result === switchModel) {
+											void this.switchModel(source);
+										}
+									})().catch((ex: unknown) =>
+										scope?.error(ex, 'Failed to show AI error notification'),
 									);
-									if (result === switchModel) {
-										void this.switchModel(source);
-									}
+
 									if (options?.throwAIErrors) throw error;
 
 									return undefined;
 								}
 								case AIErrorReason.Unauthorized: {
-									const switchModel: MessageItem = { title: l10n.t('Switch Model') };
-									const result = await window.showErrorMessage(
-										l10n.t(
-											'You do not have access to the selected model. Please select a different model and try again.',
-										),
-										switchModel,
+									void (async () => {
+										const switchModel: MessageItem = { title: l10n.t('Switch Model') };
+										const result = await window.showErrorMessage(
+											l10n.t(
+												'You do not have access to the selected model. Please select a different model and try again.',
+											),
+											switchModel,
+										);
+										if (result === switchModel) {
+											void this.switchModel(source);
+										}
+									})().catch((ex: unknown) =>
+										scope?.error(ex, 'Failed to show AI error notification'),
 									);
-									if (result === switchModel) {
-										void this.switchModel(source);
-									}
+
 									if (options?.throwAIErrors) throw error;
 
 									return undefined;
 								}
 								case AIErrorReason.DeniedByUser: {
-									const switchModel: MessageItem = { title: l10n.t('Switch Model') };
-									const result = await window.showErrorMessage(
-										l10n.t(
-											'You have denied access to the selected model. Please provide access or select a different model, and then try again.',
-										),
-										switchModel,
+									void (async () => {
+										const switchModel: MessageItem = { title: l10n.t('Switch Model') };
+										const result = await window.showErrorMessage(
+											l10n.t(
+												'You have denied access to the selected model. Please provide access or select a different model, and then try again.',
+											),
+											switchModel,
+										);
+										if (result === switchModel) {
+											void this.switchModel(source);
+										}
+									})().catch((ex: unknown) =>
+										scope?.error(ex, 'Failed to show AI error notification'),
 									);
-									if (result === switchModel) {
-										void this.switchModel(source);
-									}
+
 									if (options?.throwAIErrors) throw error;
 
 									return undefined;

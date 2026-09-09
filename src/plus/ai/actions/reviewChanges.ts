@@ -180,7 +180,7 @@ async function runReview<TTemplate extends PromptTemplateType, TResult>(
 			}),
 		},
 		source,
-		{ ...options, responseFormat: spec.responseFormat },
+		{ ...options, responseFormat: spec.responseFormat, throwAIErrors: true },
 	);
 	if (result == null || result === 'cancelled') return result;
 

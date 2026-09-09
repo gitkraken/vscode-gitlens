@@ -1534,8 +1534,11 @@ interface GraphDetailsReviewGenerateReviewCompletedEvent extends GraphDetailsRev
 interface GraphDetailsReviewGenerateReviewFailedEvent extends GraphDetailsReviewGenerateReviewLifecycleEvent {
 	/** Error message text describing why the generation failed. Unlike compose/resolve, `ReviewResult`
 	 *  has no `cancelled` sentinel, so only a user-clicked Cancel (aborted signal) reaches
-	 *  `/cancelled` — a host-side cancellation such as an escaped model picker arrives as an error and
-	 *  lands here reading `Review was cancelled.`, so treat that text as a cancel, not a failure. */
+	 *  `/cancelled` — everything else, including host-side cancellation-like outcomes (no model
+	 *  selected, an escaped model picker, no feature access), lands here instead. Those residual cases
+	 *  still read `Review was cancelled.`, so treat that exact text as a cancel, not a failure. Any
+	 *  other text is a genuine AI failure (e.g. `Rate limit exceeded or your account is out of funds`)
+	 *  with its real cause — analyze it as such. */
 	'failure.error.message'?: string;
 }
 
