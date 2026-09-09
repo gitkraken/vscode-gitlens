@@ -420,7 +420,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				margin-block: 0;
 				font-size: var(--gl-font-lg);
 				font-weight: var(--gl-font-weight-semibold);
-				color: var(--vscode-foreground);
+				color: var(--color-ui-foreground);
 				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 60ms both;
 			}
 
