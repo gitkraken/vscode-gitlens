@@ -15,7 +15,7 @@ Both English files are generated from source — never edit them by hand. Locale
 
 1. Copy the English file to the locale file name above and translate the **values** only. Keys must stay byte-identical, including punctuation and trailing spaces.
 2. Keep every `{0}` / `{name}` placeholder. You may reorder or repeat placeholders to suit the language, but not drop or rename them.
-3. A runtime entry whose value is an object (`{ "message": …, "comment": […] }`) carries a translator note in `comment`; translate `message` and leave the shape as is.
+3. A runtime entry whose value is an object (`{ "message": …, "comment": […] }`) carries a translator note in `comment`. Translate `message`, and store the translation as a **plain string** under the same key — VS Code's extension host reads the locale bundle as-is and does not unwrap objects (only the English source keeps them). `merge` flattens this for you.
 4. Partial files are fine. VS Code falls back to English per message, so a new language can land incrementally.
 5. Run `pnpm run check:l10n`. It fails on unknown keys, missing or renamed placeholders, and obsolete entries.
 6. A count message's key is itself a plural block, written by the engineer who added the message — for example:
@@ -41,3 +41,17 @@ Install Microsoft's language pack for the locale, set **Configure Display Langua
 ## Review
 
 New languages get a human review before they are advertised as supported. Open a pull request with the two locale files; the catalog check runs in CI.
+
+## Chunked translation workflow
+
+For a language with no existing translation (or a large backlog of new messages), `scripts/localization-chunks.mjs` breaks the work into small, independently translatable files:
+
+```bash
+node scripts/localization-chunks.mjs split zh-cn        # writes untranslated entries as .work/l10n-chunks/zh-cn/chunk files
+node scripts/localization-chunks.mjs merge zh-cn        # merges translated chunks into the two locale files
+node scripts/localization-chunks.mjs prune zh-cn        # drops entries whose English message no longer exists
+```
+
+`split` writes `<catalog>-NN.json` chunk files (manifest catalog as `manifest-NN.json`, runtime catalog as `bundle-NN.json`), each holding ~600 English entries. Translate the **values** in each chunk — the same rules as above: keys stay byte-identical, placeholders (`{0}`, `{name}`, codicons, brace-wrapped fragments) are preserved, whitespace and Markdown survive, product names stay untranslated. Write the translated chunk to the same file name, then `merge` validates every chunk (reusing the same rules as `pnpm run check:l10n`) and folds the entries into the locale files, preserving any existing translations. `prune` removes entries orphaned when an English message is edited (the old text becomes an unknown key and fails the catalog check).
+
+When the English source changes, rerun `split`: it diffs the fresh catalogs against the locale files and emits chunks containing only the untranslated entries.
