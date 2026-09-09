@@ -4,11 +4,7 @@ import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
-import {
-	focusableBaseStyles,
-	focusOutline,
-	focusOutlineButton,
-} from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { focusableBaseStyles, focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { GlExtensionCommands } from '../../../../../constants.commands.js';
 import type { SubscriptionPlanIds } from '../../../../../plus/gk/models/subscription.js';
@@ -29,6 +25,7 @@ import { getActiveWalkthrough, onboardingContext } from '../../../shared/context
 import type { SubscriptionContextState } from '../../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../../shared/contexts/subscription.js';
 import { accountRingStyles } from '../../shared/components/accountRing.css.js';
+import { rollupItemStyles } from '../../shared/components/rollupItem.css.js';
 import { ruleStyles } from '../../shared/components/vscode.css.js';
 import { actionButton } from '../styles/graph.css.js';
 import '../../../shared/components/avatar/avatar.js';
@@ -39,6 +36,7 @@ import '@gitlens/components/components/overlays/popover.js';
 import '../../../shared/components/progress-ring.js';
 import './account/account-chip.js';
 import './account/agents-chip.js';
+import './account/ai-chip.js';
 import './account/integrations-chip.js';
 
 declare global {
@@ -106,6 +104,7 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 		focusableBaseStyles,
 		actionButton,
 		accountRingStyles,
+		rollupItemStyles,
 		ruleStyles,
 		css`
 			:host {
@@ -264,6 +263,11 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				}
 			}
 
+			/* font-size anchors the whole panel's type scale. The popover has no base size of its own, so
+  without this every --gl-font-* here would be measured against the 13px --gl-font-base while
+  the panel actually renders at the 12px gl-popover inherits from --wa-tooltip-font-size. Setting
+  --gl-font-md states that 12px explicitly, so the scale's steps now sit around what the panel
+  really is instead of around a size borrowed from a tooltip. */
 			.rollup {
 				display: flex;
 				flex-direction: column;
@@ -275,6 +279,7 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				min-width: 0;
 				max-width: min(34rem, 100%);
 				padding: var(--gl-space-4);
+				font-size: var(--gl-font-md);
 			}
 
 			.rollup__section {
@@ -290,33 +295,6 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				color: var(--color-foreground--65);
 				text-transform: uppercase;
 				letter-spacing: 0.05em;
-			}
-
-			/* Every rollup region is one target: a full-width band, not a shrink-wrapped chip. The four
-  regions (walkthrough + the three sections) share this so the popover has one hover model. */
-			.rollup__item {
-				display: block;
-				padding: var(--gl-space-4);
-				color: inherit;
-				text-decoration: none;
-				border-radius: var(--gl-radius-sm);
-			}
-
-			.rollup__item:hover {
-				background: var(--vscode-toolbar-hoverBackground);
-			}
-
-			.rollup__item:focus-visible {
-				${focusOutline}
-			}
-
-			/* Forced-colors strips backgrounds, so the hover has no channel at all — repaint it as an
-  outline. Highlight is the system color for active/selected UI. */
-			@media (forced-colors: active) {
-				.rollup__item:hover,
-				.rollup__item:focus-visible {
-					outline: var(--gl-border-width) solid Highlight;
-				}
 			}
 
 			.rollup__walkthrough {
@@ -396,7 +374,8 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 		return (state?.enabled ?? false) && (state?.orgEnabled ?? false);
 	}
 
-	/** Empty ⇒ render the "Set up AI" CTA instead of the AI chip. */
+	/** Empty ⇒ offer the "Set up AI" CTA alongside the AI chip (see `renderAI`), and suppress the Agents
+	 *  section entirely (see `renderAgents`). */
 	private get aiEmpty(): boolean {
 		if (!this.loaded) return false;
 
@@ -457,20 +436,7 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				></gl-account-chip>
 				${this.renderWalkthrough()}
 				<hr />
-				<div class="rollup__section">
-					<p class="rollup__heading">${l10n.t('AI')}</p>
-					${
-						this.aiEmpty
-							? this.renderSetupCta('gitlens.showSettingsPage!ai', l10n.t('Set up AI'))
-							: html`<a
-									class="rollup__item"
-									href=${createCommandLink('gitlens.showSettingsPage!ai')}
-									aria-label=${l10n.t('AI — manage in GitLens Settings')}
-									><gl-integrations-chip display="ai-icons"></gl-integrations-chip
-								></a>`
-					}
-				</div>
-				${this.renderAgents()}
+				${this.renderAI()} ${this.renderAgents()}
 				<div class="rollup__section">
 					<p class="rollup__heading">${l10n.t('Integrations')}</p>
 					${
@@ -483,7 +449,7 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 									class="rollup__item"
 									href=${createCommandLink('gitlens.showSettingsPage!integrations')}
 									aria-label="Integrations — manage in GitLens Settings"
-									><gl-integrations-chip display="icons"></gl-integrations-chip
+									><gl-integrations-chip></gl-integrations-chip
 								></a>`
 					}
 				</div>
@@ -509,6 +475,29 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 			aria-label=${label}
 			>${label}</gl-button
 		>`;
+	}
+
+	/**
+	 * AI section — the chip (model row, credits row) and, when AI is off, a CTA alongside it.
+	 *
+	 * The CTA is ADDITIVE rather than a replacement, which is why this section doesn't gate on `aiEmpty`
+	 * the way Agents does: the credits row is subscription entitlement and has nothing to do with the
+	 * `gitlens.ai.enabled` setting, so gating the section would hide a user's remaining GitKraken AI
+	 * credits the moment they turned AI off — which is exactly when they might go looking for them. The
+	 * chip decides internally which of its two rows apply, so `aiEmpty` here only decides whether the
+	 * user is also offered a way to turn AI on.
+	 *
+	 * The CTA renders BEFORE the chip so it occupies the slot the model row would have taken, leaving the
+	 * credits row last either way — a CTA sitting under a populated row reads as applying to it.
+	 */
+	private renderAI(): unknown {
+		if (!this.loaded) return nothing;
+
+		return html`<div class="rollup__section">
+			<p class="rollup__heading">${l10n.t('AI')}</p>
+			${this.aiEmpty ? this.renderSetupCta('gitlens.showSettingsPage!ai', l10n.t('Set up AI')) : nothing}
+			<gl-ai-chip></gl-ai-chip>
+		</div>`;
 	}
 
 	/**

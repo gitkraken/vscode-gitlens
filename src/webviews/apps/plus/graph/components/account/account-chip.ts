@@ -8,7 +8,6 @@ import { when } from 'lit/directives/when.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
-import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { getNumericFormat } from '@gitlens/utils/date.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
@@ -33,7 +32,6 @@ import {
 	isSubscriptionTrial,
 } from '../../../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../../../system/commands.js';
-import { resolveAiUsage } from '../../../../shared/aiUsage.js';
 import type { GlPromo } from '../../../../shared/components/promo.js';
 import type { PromosContext } from '../../../../shared/contexts/promos.js';
 import { promosContext } from '../../../../shared/contexts/promos.js';
@@ -320,102 +318,6 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				border-radius: 50%;
 			}
 
-			/* ── GitKraken AI usage ── */
-
-			/* The compact counterpart to the Settings Account card's full meter — and the way through to it.
-  Interactive states match gl-graph-account-indicator's .rollup__walkthrough, the other
-  navigational row in the same rollup: padded, radiused, toolbar-hover wash, no underline.
-
-  Padding only, deliberately NO negative inline margin. The wash has to stop at .content's
-  edge, which is where the header's toolbar actions (sign out, sync, cog) end — pulling it
-  wider makes the wash, rather than the header, define the panel's visual right edge and
-  leaves those buttons looking inset from it. That also matches the reference row exactly:
-  .rollup__walkthrough's wash spans .rollup's INNER width, flush with those same buttons,
-  with its own text inset by its own padding. This row's text is inset the same way. */
-			.ai {
-				display: flex;
-				flex-direction: column;
-				gap: var(--gl-space-4);
-				padding: var(--gl-space-4);
-				margin-bottom: var(--gl-space-6);
-				color: inherit;
-				text-decoration: none;
-				border-radius: var(--gl-radius-sm);
-			}
-
-			/* Focus takes the same wash as hover, not just the outline focusableBaseStyles already gives
-  every :focus-visible in this root — a keyboard user should get the same affordance a pointer
-  does, and the outline alone reads as weaker than the row next to it.
-
-  The underline reset has to be repeated HERE, not just on .ai: this component includes
-  linkBase, whose a:hover rule out-specifies a bare class (0,1,1 vs 0,1,0) and would underline
-  the whole row on hover. .rollup__walkthrough gets away with declaring it once because
-  gl-graph-account-indicator doesn't pull linkBase in at all. */
-			.ai:hover,
-			.ai:focus-visible {
-				text-decoration: none;
-				background: var(--vscode-toolbar-hoverBackground);
-			}
-
-			.ai__head {
-				display: flex;
-				flex-wrap: wrap;
-				gap: 1ch var(--gl-space-6);
-				align-items: center;
-			}
-
-			.ai__icon {
-				flex: none;
-				color: var(--color-foreground--65);
-			}
-
-			.ai__title {
-				flex: 1;
-				font-size: var(--gl-font-base);
-
-				span {
-					white-space: nowrap;
-				}
-			}
-
-			/* Text carrier for the state the bar's color also shows, so "nearly out" never lives in color alone
-  (docs/accessibility.md). The row's accessible name repeats it, because that name replaces this
-  text for assistive tech. Foreground-register warning token so a hairline of text still
-  out-contrasts the panel behind it. */
-			.ai__warning {
-				flex: none;
-				font-size: var(--gl-font-sm);
-				color: var(--vscode-editorWarning-foreground, var(--vscode-charts-yellow));
-			}
-
-			/* Monospaced like the full card's figure, so the same number reads the same in both places. */
-			.ai__figure {
-				flex: none;
-				font-family: var(--vscode-editor-font-family);
-				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--75);
-			}
-
-			/* The card's track recipe, one step slimmer — this panel is a denser surface. */
-			.ai__track {
-				display: block;
-				height: 0.4rem;
-				overflow: hidden;
-				background: color-mix(in srgb, var(--color-foreground) 12%, transparent);
-				border-radius: var(--gl-radius-circle);
-			}
-
-			.ai__fill {
-				display: block;
-				height: 100%;
-				background: var(--vscode-progressBar-background);
-				border-radius: var(--gl-radius-circle);
-			}
-
-			.ai__fill--warning {
-				background: var(--vscode-charts-yellow);
-			}
-
 			.account-status > p {
 				margin-block: var(--gl-space-6);
 			}
@@ -509,7 +411,7 @@ background-color: var(--gl-account-chip-color); */
 	 *  inward (e.g. the Graph header account rollup) rather than out to gk.dev.
 	 *
 	 *  It says nothing about whether Settings is *reachable* — every surface can open it — so it must
-	 *  not be used to gate other links into Settings, such as the AI usage row below. */
+	 *  not be used to gate other links into Settings. */
 	@property({ type: Boolean, reflect: true, attribute: 'settings-nav' })
 	settingsNav = false;
 
@@ -714,7 +616,7 @@ background-color: var(--gl-account-chip-color); */
 					}
 				</span>
 			</div>
-			${this.renderAccountInfo()} ${this.renderAiUsage()} ${this.renderAccountState()}`;
+			${this.renderAccountInfo()} ${this.renderAccountState()}`;
 	}
 
 	/**
@@ -871,63 +773,6 @@ background-color: var(--gl-account-chip-color); */
 		</div>`;
 	}
 
-	/**
-	 * The compact GitKraken AI meter — a summary plus a way through to the full one on the Settings Account
-	 * screen (issue #5743). Deliberately narrower than that card: no reset date and no organization pool,
-	 * which stay exclusive to it, and a bare percentage where the card spells out the credits. Both read the
-	 * same shared resolver, so the compaction can't drift into disagreeing with the card.
-	 *
-	 * The sentinels keep their words rather than compacting: there is no percentage of an unlimited or
-	 * absent allowance, and "0%" for a plan with no allowance would read as "none of it spent yet" — the
-	 * exact collapse the two sentinels exist to prevent. The accessible name keeps the full figure either
-	 * way; the percentage is a space saving on a dense panel, not a decision to tell anyone less.
-	 *
-	 * The whole row is the link, and it links regardless of `settingsNav` — that property only decides
-	 * whether the cog goes to Settings or to gk.dev, not whether Settings is reachable, and every surface
-	 * hosting this panel can open it. The command resolves to a CATEGORY anchor, so this lands on the
-	 * Account panel that contains the full meter.
-	 */
-	private renderAiUsage() {
-		// The signal outlives the account it describes — a sign-out's refresh has to round-trip before it
-		// clears, so without this gate the previous account's usage renders on a signed-out panel.
-		if (!this.hasAccount) return nothing;
-
-		const usage = this._subscription.aiUsage.get();
-		// `undefined` = not loaded yet, `null` = unavailable (on-premise orgs, or the fetch failed). This row
-		// is supplementary to everything else in the panel, so neither warrants a skeleton or an error row.
-		if (usage == null) return nothing;
-
-		const { figure, percent, nearlyOut } = resolveAiUsage(usage);
-		const compact = percent != null ? `${Math.round(percent)}%` : figure;
-
-		return html`<a
-			class="ai"
-			href="${createCommandLink('gitlens.showSettingsPage!account')}"
-			aria-label=${
-				nearlyOut
-					? l10n.t('GitKraken AI usage: {0}, nearly out — open in GitLens Settings', figure)
-					: l10n.t('GitKraken AI usage: {0} — open in GitLens Settings', figure)
-			}
-		>
-			<span class="ai__head">
-				<code-icon class="ai__icon" icon="sparkle" aria-hidden="true"></code-icon>
-				<span class="ai__title"><span>GitKraken AI</span></span>
-				${when(nearlyOut, () => html`<span class="ai__warning">${l10n.t('Nearly out')}</span>`)}
-				<span class="ai__figure">${compact}</span>
-			</span>
-			${
-				percent != null
-					? html`<span class="ai__track" aria-hidden="true"
-							><span
-								class="ai__fill ${nearlyOut ? 'ai__fill--warning' : ''}"
-								style=${cspStyleMap({ inlineSize: `${percent}%` })}
-							></span
-						></span>`
-					: nothing
-			}
-		</a>`;
-	}
-
 	private renderAccountState() {
 		const sub = this._subscription.subscription.get();
 
@@ -951,6 +796,8 @@ background-color: var(--gl-account-chip-color); */
 							href="${createCommandLink<Source>('gitlens.plus.validate', {
 								source: 'account',
 							})}"
+							tooltip=${l10n.t('Refresh Account Status')}
+							aria-label=${l10n.t('Refresh Account Status')}
 							><code-icon size="20" icon="refresh"></code-icon>
 						</gl-button>
 					</button-container>

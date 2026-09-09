@@ -4,9 +4,7 @@ import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
-import type { AIState, IntegrationStateInfo } from '../../../../../rpc/services/types.js';
-import type { AIContextState } from '../../../../shared/contexts/ai.js';
-import { aiContext } from '../../../../shared/contexts/ai.js';
+import type { IntegrationStateInfo } from '../../../../../rpc/services/types.js';
 import type { IntegrationsState } from '../../../../shared/contexts/integrations.js';
 import { integrationsContext } from '../../../../shared/contexts/integrations.js';
 import type { SubscriptionContextState } from '../../../../shared/contexts/subscription.js';
@@ -21,13 +19,6 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 	@consume({ context: integrationsContext })
 	private _integrations!: IntegrationsState;
 
-	@consume({ context: aiContext })
-	private _ai!: AIContextState;
-
-	/** `icons` renders the integration providers alone; `ai-icons` the active AI model named in words — so a
-	 *  consumer can head them as separate sections. */
-	@property({ reflect: true }) display: 'icons' | 'ai-icons' = 'icons';
-
 	static override styles = [
 		boxSizingBase,
 		css`
@@ -35,8 +26,8 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				display: block;
 			}
 
-			/* Baseline, not center: the icons display mixes the uppercase "Connect" label with the
-  provider glyphs, and centering the two makes the text ride high against them. */
+			/* Baseline, not center: the row mixes the uppercase "Connect" label with the provider
+  glyphs, and centering the two makes the text ride high against them. */
 			.icons {
 				display: flex;
 				gap: var(--gl-space-6);
@@ -62,38 +53,6 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			}
 
 			.integration {
-				white-space: nowrap;
-			}
-
-			/* Center, not the .icons baseline: this row is one continuous phrase (glyph → model → provider)
-	  rather than a label set beside a run of glyphs, and the smaller provider text sitting on a
-	  shared baseline would read as a footnote dropped below the model name. */
-			.ai {
-				display: flex;
-				gap: var(--gl-space-6);
-				align-items: center;
-			}
-
-			.ai__icon {
-				flex: none;
-			}
-
-			/* Clips rather than wrapping: model ids run long ("claude-sonnet-4-5-20250929") and the popover
-	  is width-capped, so a wrap would push the provider name onto its own line. */
-			.ai__model {
-				overflow: hidden;
-				text-overflow: ellipsis;
-				color: var(--color-foreground);
-				white-space: nowrap;
-			}
-
-			/* Pushed to the far end and muted — the provider answers "where does this run", which is
-	  secondary to which model is active. */
-			.ai__provider {
-				flex: none;
-				margin-left: auto;
-				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--50);
 				white-space: nowrap;
 			}
 
@@ -145,14 +104,6 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		return this.hasAccount && this.integrations.some(i => i.connected);
 	}
 
-	private get ai(): AIState {
-		return this._ai.state.get();
-	}
-
-	private get aiEnabled(): boolean {
-		return this.ai.enabled && this.ai.orgEnabled;
-	}
-
 	private get integrations() {
 		return this._integrations.integrations.get();
 	}
@@ -164,19 +115,9 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			return html`<span class="chip--skeleton" aria-label="${l10n.t('Loading integrations status')}" role="status"></span>`;
 		}
 
-		// Returned unwrapped: the AI row is its own flex container (the provider name is pushed to the far
-		// end), which a `.icons` wrapper would reduce to a single shrink-wrapped item.
-		if (this.display === 'ai-icons') {
-			return this.renderAIStatus();
-		}
-
-		return this.renderIconChip(this.renderIntegrationIcons());
-	}
-
-	/** Plain content container — the host anchor (owned by `gl-graph-account-indicator`) is the
-	 *  interactive/labeled element; this just lays out the icons. */
-	private renderIconChip(content: unknown): unknown {
-		return html`<span class="icons">${content}</span>`;
+		// Plain content container — the host anchor (owned by `gl-graph-account-indicator`) is the
+		// interactive/labeled element; this just lays out the icons.
+		return html`<span class="icons">${this.renderIntegrationIcons()}</span>`;
 	}
 
 	private renderIntegrationIcons(): unknown {

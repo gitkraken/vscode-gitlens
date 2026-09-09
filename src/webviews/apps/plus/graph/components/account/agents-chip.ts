@@ -99,8 +99,8 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 
 			.agent__label {
 				overflow: hidden;
-				color: var(--color-foreground);
 				text-overflow: ellipsis;
+				color: var(--color-foreground);
 				white-space: nowrap;
 			}
 
@@ -109,20 +109,21 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 	  a new shared appearance is a wider change than one pill in one popover warrants.
 
 	  flex: 0 0 auto so the label, not the pill, absorbs the squeeze: an elided "Defa…" would be a
-	  worse loss than an elided agent name, which at least still ranks in the roster. */
-			/* Asymmetric padding, same reason the account chip's tier badge carries it: the text is small
-	  caps with no descenders, so it sits on the box's floor and reads low against the agent name
-	  beside it. The bottom padding buys back the room those missing descenders would have taken. */
+	  worse loss than an elided agent name, which at least still ranks in the roster.
+
+	  Asymmetric padding for the same reason the account chip's tier badge carries it: the text is
+	  small caps with no descenders, so it sits on the box's floor and reads low against the agent
+	  name beside it. The bottom padding buys back the room those descenders would have taken. */
 			.agent__default {
 				flex: 0 0 auto;
 				padding: 0 var(--gl-space-6) var(--gl-space-2);
-				font-size: x-small;
+				font-size: var(--gl-font-micro);
 				font-weight: 600;
 				font-variant: all-small-caps;
+				line-height: 1;
 				/* Mixing toward the surface foreground rather than pinning a colour: one declaration then
 	   stays legible against both a light and a dark editor background. */
 				color: color-mix(in srgb, var(--gl-ai-accent-1) 58%, var(--color-foreground));
-				line-height: 1;
 				letter-spacing: 0.06em;
 				background-color: color-mix(in srgb, var(--gl-ai-accent-1) 16%, transparent);
 				border: var(--gl-border-width) solid color-mix(in srgb, var(--gl-ai-accent-1) 45%, transparent);
