@@ -101,6 +101,31 @@ Also hold these invariants across a language's catalogs:
 - Untranslated-but-pervasive source words still need consistent treatment: when the English says "Message" but means the commit message, translate it the same way as "Commit Message".
 - Punctuation follows the locale, not the source: a colon after Chinese text is full-width （`无法推送：{0}`）, parentheses around Chinese text are full-width, and quotes around names or placeholders are “…” in zh-cn and 「…」 in zh-tw. Keep ASCII punctuation inside code spans, URLs, Markdown link titles and `command:` URIs.
 
+### Spanish (es)
+
+Grounded against the VS Code Spanish language pack (`microsoft/vscode-loc`), which settles the defining difference from Chinese: **git verbs and operations stay in English** — commit, stash, pull, push, fetch, rebase, cherry-pick, checkout, squash (VS Code es: Hacer "commit", aplicar "stash"). They are masculine invariable nouns ("el commit", "el stash") used with _hacer_ ("hacer checkout de la rama", "hará force push"). Everything derived from them translates: uncommitted → _sin commit_, staged/unstaged → _preparado_ / _sin preparar_ (never "staged" or "staging"), detached → _desasociado_, checked out → _con checkout activo_, force push → _forzar push_ / _un force push_. The nouns around them translate:
+
+| English        | es                                                                      | gender |
+| -------------- | ----------------------------------------------------------------------- | ------ |
+| branch         | rama                                                                    | f      |
+| tag            | etiqueta                                                                | f      |
+| remote         | remoto                                                                  | m      |
+| repository     | repositorio                                                             | m      |
+| worktree       | árbol de trabajo (also in "Launchpad & Worktrees")                      | m      |
+| merge (n.)     | fusión                                                                  | f      |
+| merge target   | destino de fusión                                                       | m      |
+| checkout (n.)  | checkout (overriding VS Code's desproteger, which reads as "unprotect") | m      |
+| discard        | descartar (also for _drop stash_)                                       | —      |
+| revert (v./n.) | revertir / reversión                                                    | f      |
+| prune          | podar / poda (not _depurar_, which this catalog uses for _debug_)       | f      |
+| fold           | plegar                                                                  | —      |
+| fork point     | punto de bifurcación                                                    | m      |
+| locate         | ubicar (not _buscar_, which is search)                                  | —      |
+| pull request   | solicitud de incorporación de cambios                                   | f      |
+| blame          | blame                                                                   | —      |
+
+Register: **usted** (¿Desea…?, "deles", never "dáles"); paired ¿…?/¡…!; infinitive button and menu labels ("Hacer cherry-pick…"); setting descriptions in the third person ("Especifica…", "Muestra…"). Feature names translate per the policy above: Grafo de commits, Historial visual, Historial visual de archivos, parche en la nube, Inspector, Redactar/Redactor, Enfoque, Salud del repositorio. Gender agreement with unknown placeholder content is the es-specific risk: prefer constructions that don't inflect ("Se eliminó: {0}").
+
 ## Deriving zh-tw from zh-cn
 
 For CJK locales that share a character set, a new variant can be derived mechanically instead of retranslated: run the existing catalogs through OpenCC (`s2twp` profile; ASCII, keys, and placeholders are untouched), then apply the target locale's terminology table above. OpenCC is not a repo dependency — install it locally for the one-off run. Two ordering constraints from the zh-tw derivation: convert fetch (提取→擷取) **before** pull (拉取→提取) so mixed sentences like "Confirm Pull{0}Fetching{1}" map correctly, and leave genuinely ambiguous words gated on the English source (zh-cn 提交 means both _commit_ and _submit_; zh-cn 放弃 means both _discard_ and _give up_).
