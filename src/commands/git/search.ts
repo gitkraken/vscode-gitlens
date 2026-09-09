@@ -124,11 +124,14 @@ const searchOperatorToTitleMap = new Map<SearchOperators, string>([
 ]);
 
 export class SearchGitCommand extends QuickCommand<State> {
+	private readonly prefillOnly: boolean;
+
 	constructor(container: Container, args?: SearchGitCommandArgs) {
 		super(container, 'search', 'search', l10n.t('Commit Search'), {
 			description: l10n.t('aka grep, searches for commits'),
 		});
 
+		this.prefillOnly = args?.prefillOnly ?? false;
 		this.initialState = { confirm: false, ...args?.state };
 	}
 
@@ -169,6 +172,9 @@ export class SearchGitCommand extends QuickCommand<State> {
 		state.matchWholeWord ??= cfg.matchWholeWord;
 		state.showResultsInSideBar ??= cfg.showResultsInSideBar ?? undefined;
 
+		// A prefilled query still needs one trip through the picker before it runs
+		let prefillOnly = this.prefillOnly;
+
 		while (!steps.isComplete) {
 			context.title = this.title;
 
@@ -192,7 +198,9 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 			assertStepState<State<GlRepository>>(state);
 
-			if (steps.isAtStep(Steps.PickSearchOperator) || state.query == null) {
+			if (steps.isAtStep(Steps.PickSearchOperator) || state.query == null || prefillOnly) {
+				prefillOnly = false;
+
 				using step = steps.enterStep(Steps.PickSearchOperator);
 
 				const result = yield* this.pickSearchOperatorStep(state, context);
