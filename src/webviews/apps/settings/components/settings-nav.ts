@@ -6,6 +6,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { focusOutlineButton, srOnly } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { AutolinkConfig } from '../../../../config.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
@@ -277,10 +278,12 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 					count > 0
 						? {
 								label: String(count),
-								aria:
-									count === 1
-										? l10n.t('{count} autolink', { count: count })
-										: l10n.t('{count} autolinks', { count: count }),
+								aria: formatPlural(
+									l10n.t('{count, plural, one{{count} autolink} other{{count} autolinks}}'),
+									{
+										count: count,
+									},
+								),
 							}
 						: undefined,
 			};
@@ -366,9 +369,10 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 		// so identical counts across keystrokes don't re-announce on every letter
 		const status = query
 			? matches.length
-				? matches.length === 1
-					? l10n.t('{count} matching category', { count: matches.length })
-					: l10n.t('{count} matching categories', { count: matches.length })
+				? formatPlural(
+						l10n.t('{count, plural, one{{count} matching category} other{{count} matching categories}}'),
+						{ count: matches.length },
+					)
 				: l10n.t('No matching settings')
 			: '';
 		const liveRegion = html`<div class="sr-only" role="status" aria-live="polite">${status}</div>`;
@@ -418,11 +422,9 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 			${
 				query
 					? html`<p class="results-count">
-							${
-								matches.length === 1
-									? l10n.t('{count} category', { count: matches.length })
-									: l10n.t('{count} categories', { count: matches.length })
-							}
+							${formatPlural(l10n.t('{count, plural, one{{count} category} other{{count} categories}}'), {
+								count: matches.length,
+							})}
 						</p>`
 					: nothing
 			}

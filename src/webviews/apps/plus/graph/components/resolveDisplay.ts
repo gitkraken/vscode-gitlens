@@ -1,8 +1,8 @@
 import * as l10n from '@vscode/l10n';
 import { css, html, nothing } from 'lit';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { fnv1aHash } from '@gitlens/utils/hash.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { ConflictResolutionStrategy } from '../../../../plus/graph/graphService.js';
 
 /**
@@ -141,15 +141,16 @@ export function renderConsulted(
 ): unknown {
 	if (!consulted?.length) return nothing;
 
-	const count = getNumericFormat()(consulted.length);
-	const label =
-		consulted.length === 1
-			? l10n.t('Consulted {count} source', { count: count })
-			: l10n.t('Consulted {count} sources', { count: count });
-	const ariaLabel =
-		consulted.length === 1
-			? l10n.t('Consulted {count} source for {file}', { count: count, file: filePath })
-			: l10n.t('Consulted {count} sources for {file}', { count: count, file: filePath });
+	const label = formatPlural(
+		l10n.t('{count, plural, one{Consulted {count} source} other{Consulted {count} sources}}'),
+		{
+			count: consulted.length,
+		},
+	);
+	const ariaLabel = formatPlural(
+		l10n.t('{count, plural, one{Consulted {count} source for {file}} other{Consulted {count} sources for {file}}}'),
+		{ count: consulted.length, file: filePath },
+	);
 
 	return html`<details class="resolve-file__consulted">
 		<!-- The accessible name has to START with the visible text (WCAG 2.5.3) — the file only

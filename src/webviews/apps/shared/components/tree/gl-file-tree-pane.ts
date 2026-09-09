@@ -11,9 +11,9 @@ import type { GitFileChangeShape, GitFileChangeStats } from '@gitlens/git/models
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import { trimTrailingSlash } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { ViewFilesLayout, ViewsFilesConfig } from '../../../../../config.js';
 import type { WebviewItemContext } from '../../../../../system/webview.js';
 import {
@@ -654,10 +654,9 @@ export class GlFileTreePane extends LitElement {
 		let badgeAppearance: 'filled' | 'warning' = 'filled';
 		let showMixedBadge = false;
 		if (conflictCount > 0) {
-			effectiveBadge =
-				conflictCount === 1
-					? l10n.t('{0} conflict', getNumericFormat()(conflictCount))
-					: l10n.t('{0} conflicts', getNumericFormat()(conflictCount));
+			effectiveBadge = formatPlural(l10n.t('{0, plural, one{{0} conflict} other{{0} conflicts}}'), [
+				conflictCount,
+			]);
 			badgeAppearance = 'warning';
 		} else if (this.selectionBadge && this.checkable && totalFiles > 0) {
 			const selected = checkedCount;

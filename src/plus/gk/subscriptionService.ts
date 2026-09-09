@@ -32,6 +32,7 @@ import { microhash } from '@gitlens/utils/hash.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { flatten } from '@gitlens/utils/object.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import { satisfies } from '@gitlens/utils/version.js';
 import type { CoreColors } from '../../constants.colors.js';
@@ -494,24 +495,18 @@ export class SubscriptionService implements Disposable {
 			}
 		} else if (isSubscriptionTrial(this._subscription)) {
 			const days = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
-			const formattedDays = getNumericFormat()(days);
 			const message =
 				days < 1
 					? l10n.t(
 							'Welcome to your {0} Trial.\n\nYou now have full access to all GitLens Pro features for <1 more day.',
 							effective.name,
 						)
-					: days === 1
-						? l10n.t(
-								'Welcome to your {0} Trial.\n\nYou now have full access to all GitLens Pro features for {1} more day.',
-								effective.name,
-								formattedDays,
-							)
-						: l10n.t(
-								'Welcome to your {0} Trial.\n\nYou now have full access to all GitLens Pro features for {1} more days.',
-								effective.name,
-								formattedDays,
-							);
+					: formatPlural(
+							l10n.t(
+								'{1, plural, one{Welcome to your {0} Trial.\n\nYou now have full access to all GitLens Pro features for {1} more day.} other{Welcome to your {0} Trial.\n\nYou now have full access to all GitLens Pro features for {1} more days.}}',
+							),
+							[effective.name, days],
+						);
 
 			const learn: MessageItem = { title: l10n.t('Learn More') };
 			const confirm: MessageItem = { title: l10n.t('Continue'), isCloseAffordance: true };
@@ -746,20 +741,16 @@ export class SubscriptionService implements Disposable {
 			await this.checkInAndValidate(session, source, { force: true });
 			if (isSubscriptionTrial(this._subscription)) {
 				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
-				const formattedRemaining = getNumericFormat()(remaining);
 
 				const confirm: MessageItem = { title: l10n.t('OK'), isCloseAffordance: true };
 				const learn: MessageItem = { title: l10n.t("See What's New") };
 				const result = await window.showInformationMessage(
-					remaining === 1
-						? l10n.t(
-								'Your GitLens Pro trial has been reactivated! Experience all the new Pro features for another {0} day.',
-								formattedRemaining,
-							)
-						: l10n.t(
-								'Your GitLens Pro trial has been reactivated! Experience all the new Pro features for another {0} days.',
-								formattedRemaining,
-							),
+					formatPlural(
+						l10n.t(
+							'{0, plural, one{Your GitLens Pro trial has been reactivated! Experience all the new Pro features for another {0} day.} other{Your GitLens Pro trial has been reactivated! Experience all the new Pro features for another {0} days.}}',
+						),
+						[remaining],
+					),
 					{ modal: true },
 					confirm,
 					learn,
@@ -1602,17 +1593,12 @@ export class SubscriptionService implements Disposable {
 				);
 			} else if (trial) {
 				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
-				const formattedRemaining = getNumericFormat()(remaining);
-				tooltip =
-					remaining === 1
-						? l10n.t(
-								'**GitLens Pro — trial**\n\nYou now have full access to all GitLens Pro features for {0} more day.',
-								formattedRemaining,
-							)
-						: l10n.t(
-								'**GitLens Pro — trial**\n\nYou now have full access to all GitLens Pro features for {0} more days.',
-								formattedRemaining,
-							);
+				tooltip = formatPlural(
+					l10n.t(
+						'{0, plural, one{**GitLens Pro — trial**\n\nYou now have full access to all GitLens Pro features for {0} more day.} other{**GitLens Pro — trial**\n\nYou now have full access to all GitLens Pro features for {0} more days.}}',
+					),
+					[remaining],
+				);
 			}
 
 			this._statusBarSubscription.tooltip = new MarkdownString(tooltip, true);

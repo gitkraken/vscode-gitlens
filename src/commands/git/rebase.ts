@@ -8,9 +8,9 @@ import { parseGitBoolean } from '@gitlens/git/utils/config.utils.js';
 import { getConflictDetectionErrorDisplayMessage } from '@gitlens/git/utils/mergeConflicts.utils.js';
 import { getReferenceLabel, isRevisionReference } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../../container.js';
 import { showPausedOperationStatus } from '../../git/actions/pausedOperation.js';
@@ -419,7 +419,6 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 		const branchLabel = getReferenceLabel(context.branch, { label: false });
 		const destinationLabel = getReferenceLabel(state.destination, { label: false });
-		const formattedAhead = getNumericFormat()(ahead);
 
 		type Mode = {
 			flags: Flags[];
@@ -435,58 +434,30 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				flags: [],
 				label: this.title,
 				details: [
-					ahead === 1
-						? l10n.t(
-								'Will update {0} by applying {1} commit on top of {2}',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							)
-						: l10n.t(
-								'Will update {0} by applying {1} commits on top of {2}',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							),
-					ahead === 1
-						? l10n.t(
-								'Will update {0} by applying {1} commit on top of {2}, and update any branches pointing to the rebased commits',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							)
-						: l10n.t(
-								'Will update {0} by applying {1} commits on top of {2}, and update any branches pointing to the rebased commits',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							),
-					ahead === 1
-						? l10n.t(
-								'Will update {0} by applying {1} commit on top of {2}, folding fixup commits into their targets',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							)
-						: l10n.t(
-								'Will update {0} by applying {1} commits on top of {2}, folding fixup commits into their targets',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							),
-					ahead === 1
-						? l10n.t(
-								'Will update {0} by applying {1} commit on top of {2}, and update any branches pointing to the rebased commits, folding fixup commits into their targets',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							)
-						: l10n.t(
-								'Will update {0} by applying {1} commits on top of {2}, and update any branches pointing to the rebased commits, folding fixup commits into their targets',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							),
+					formatPlural(
+						l10n.t(
+							'{ahead, plural, one{Will update {branch} by applying {ahead} commit on top of {destination}} other{Will update {branch} by applying {ahead} commits on top of {destination}}}',
+						),
+						{ ahead: ahead, branch: branchLabel, destination: destinationLabel },
+					),
+					formatPlural(
+						l10n.t(
+							'{ahead, plural, one{Will update {branch} by applying {ahead} commit on top of {destination}, and update any branches pointing to the rebased commits} other{Will update {branch} by applying {ahead} commits on top of {destination}, and update any branches pointing to the rebased commits}}',
+						),
+						{ ahead: ahead, branch: branchLabel, destination: destinationLabel },
+					),
+					formatPlural(
+						l10n.t(
+							'{ahead, plural, one{Will update {branch} by applying {ahead} commit on top of {destination}, folding fixup commits into their targets} other{Will update {branch} by applying {ahead} commits on top of {destination}, folding fixup commits into their targets}}',
+						),
+						{ ahead: ahead, branch: branchLabel, destination: destinationLabel },
+					),
+					formatPlural(
+						l10n.t(
+							'{ahead, plural, one{Will update {branch} by applying {ahead} commit on top of {destination}, and update any branches pointing to the rebased commits, folding fixup commits into their targets} other{Will update {branch} by applying {ahead} commits on top of {destination}, and update any branches pointing to the rebased commits, folding fixup commits into their targets}}',
+						),
+						{ ahead: ahead, branch: branchLabel, destination: destinationLabel },
+					),
 				],
 				picked: !aiSeeded,
 			});
@@ -501,58 +472,30 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				label: l10n.t('Auto-Rebase'),
 				description: l10n.t('AI resolves conflicts · Preview'),
 				details: [
-					ahead === 1
-						? l10n.t(
-								'Will update {0} by applying {1} commit on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							)
-						: l10n.t(
-								'Will update {0} by applying {1} commits on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							),
-					ahead === 1
-						? l10n.t(
-								'Will update {0} by applying {1} commit on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low, and update any branches pointing to the rebased commits',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							)
-						: l10n.t(
-								'Will update {0} by applying {1} commits on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low, and update any branches pointing to the rebased commits',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							),
-					ahead === 1
-						? l10n.t(
-								'Will update {0} by applying {1} commit on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low, folding fixup commits into their targets',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							)
-						: l10n.t(
-								'Will update {0} by applying {1} commits on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low, folding fixup commits into their targets',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							),
-					ahead === 1
-						? l10n.t(
-								'Will update {0} by applying {1} commit on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low, and update any branches pointing to the rebased commits, folding fixup commits into their targets',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							)
-						: l10n.t(
-								'Will update {0} by applying {1} commits on top of {2}, resolving any conflicts with AI and pausing for review only when confidence is low, and update any branches pointing to the rebased commits, folding fixup commits into their targets',
-								branchLabel,
-								formattedAhead,
-								destinationLabel,
-							),
+					formatPlural(
+						l10n.t(
+							'{ahead, plural, one{Will update {branch} by applying {ahead} commit on top of {destination}, resolving any conflicts with AI and pausing for review only when confidence is low} other{Will update {branch} by applying {ahead} commits on top of {destination}, resolving any conflicts with AI and pausing for review only when confidence is low}}',
+						),
+						{ ahead: ahead, branch: branchLabel, destination: destinationLabel },
+					),
+					formatPlural(
+						l10n.t(
+							'{ahead, plural, one{Will update {branch} by applying {ahead} commit on top of {destination}, resolving any conflicts with AI and pausing for review only when confidence is low, and update any branches pointing to the rebased commits} other{Will update {branch} by applying {ahead} commits on top of {destination}, resolving any conflicts with AI and pausing for review only when confidence is low, and update any branches pointing to the rebased commits}}',
+						),
+						{ ahead: ahead, branch: branchLabel, destination: destinationLabel },
+					),
+					formatPlural(
+						l10n.t(
+							'{ahead, plural, one{Will update {branch} by applying {ahead} commit on top of {destination}, resolving any conflicts with AI and pausing for review only when confidence is low, folding fixup commits into their targets} other{Will update {branch} by applying {ahead} commits on top of {destination}, resolving any conflicts with AI and pausing for review only when confidence is low, folding fixup commits into their targets}}',
+						),
+						{ ahead: ahead, branch: branchLabel, destination: destinationLabel },
+					),
+					formatPlural(
+						l10n.t(
+							'{ahead, plural, one{Will update {branch} by applying {ahead} commit on top of {destination}, resolving any conflicts with AI and pausing for review only when confidence is low, and update any branches pointing to the rebased commits, folding fixup commits into their targets} other{Will update {branch} by applying {ahead} commits on top of {destination}, resolving any conflicts with AI and pausing for review only when confidence is low, and update any branches pointing to the rebased commits, folding fixup commits into their targets}}',
+						),
+						{ ahead: ahead, branch: branchLabel, destination: destinationLabel },
+					),
 				],
 				picked: aiSeeded,
 			});
@@ -563,58 +506,30 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			label: l10n.t('Interactive Rebase'),
 			description: '--interactive',
 			details: [
-				ahead === 1
-					? l10n.t(
-							'Will interactively update {0} by applying {1} commit on top of {2}',
-							branchLabel,
-							formattedAhead,
-							destinationLabel,
-						)
-					: l10n.t(
-							'Will interactively update {0} by applying {1} commits on top of {2}',
-							branchLabel,
-							formattedAhead,
-							destinationLabel,
-						),
-				ahead === 1
-					? l10n.t(
-							'Will interactively update {0} by applying {1} commit on top of {2}, and update any branches pointing to the rebased commits',
-							branchLabel,
-							formattedAhead,
-							destinationLabel,
-						)
-					: l10n.t(
-							'Will interactively update {0} by applying {1} commits on top of {2}, and update any branches pointing to the rebased commits',
-							branchLabel,
-							formattedAhead,
-							destinationLabel,
-						),
-				ahead === 1
-					? l10n.t(
-							'Will interactively update {0} by applying {1} commit on top of {2}, folding fixup commits into their targets',
-							branchLabel,
-							formattedAhead,
-							destinationLabel,
-						)
-					: l10n.t(
-							'Will interactively update {0} by applying {1} commits on top of {2}, folding fixup commits into their targets',
-							branchLabel,
-							formattedAhead,
-							destinationLabel,
-						),
-				ahead === 1
-					? l10n.t(
-							'Will interactively update {0} by applying {1} commit on top of {2}, and update any branches pointing to the rebased commits, folding fixup commits into their targets',
-							branchLabel,
-							formattedAhead,
-							destinationLabel,
-						)
-					: l10n.t(
-							'Will interactively update {0} by applying {1} commits on top of {2}, and update any branches pointing to the rebased commits, folding fixup commits into their targets',
-							branchLabel,
-							formattedAhead,
-							destinationLabel,
-						),
+				formatPlural(
+					l10n.t(
+						'{ahead, plural, one{Will interactively update {branch} by applying {ahead} commit on top of {destination}} other{Will interactively update {branch} by applying {ahead} commits on top of {destination}}}',
+					),
+					{ ahead: ahead, branch: branchLabel, destination: destinationLabel },
+				),
+				formatPlural(
+					l10n.t(
+						'{ahead, plural, one{Will interactively update {branch} by applying {ahead} commit on top of {destination}, and update any branches pointing to the rebased commits} other{Will interactively update {branch} by applying {ahead} commits on top of {destination}, and update any branches pointing to the rebased commits}}',
+					),
+					{ ahead: ahead, branch: branchLabel, destination: destinationLabel },
+				),
+				formatPlural(
+					l10n.t(
+						'{ahead, plural, one{Will interactively update {branch} by applying {ahead} commit on top of {destination}, folding fixup commits into their targets} other{Will interactively update {branch} by applying {ahead} commits on top of {destination}, folding fixup commits into their targets}}',
+					),
+					{ ahead: ahead, branch: branchLabel, destination: destinationLabel },
+				),
+				formatPlural(
+					l10n.t(
+						'{ahead, plural, one{Will interactively update {branch} by applying {ahead} commit on top of {destination}, and update any branches pointing to the rebased commits, folding fixup commits into their targets} other{Will interactively update {branch} by applying {ahead} commits on top of {destination}, and update any branches pointing to the rebased commits, folding fixup commits into their targets}}',
+					),
+					{ ahead: ahead, branch: branchLabel, destination: destinationLabel },
+				),
 			],
 			picked: behind === 0 && !aiSeeded,
 		});
@@ -752,24 +667,18 @@ export class RebaseGitCommand extends QuickCommand<State> {
 						createDirectiveQuickPickItem(Directive.Noop, false, {
 							label: l10n.t('Conflicts Detected'),
 							detail: result.stoppedOnFirstConflict
-								? result.conflict.files.length === 1
-									? l10n.t(
-											'Will result in at least {0} conflicting file that will need to be resolved',
-											getNumericFormat()(result.conflict.files.length),
-										)
-									: l10n.t(
-											'Will result in at least {0} conflicting files that will need to be resolved',
-											getNumericFormat()(result.conflict.files.length),
-										)
-								: result.conflict.files.length === 1
-									? l10n.t(
-											'Will result in {0} conflicting file that will need to be resolved',
-											getNumericFormat()(result.conflict.files.length),
-										)
-									: l10n.t(
-											'Will result in {0} conflicting files that will need to be resolved',
-											getNumericFormat()(result.conflict.files.length),
+								? formatPlural(
+										l10n.t(
+											'{0, plural, one{Will result in at least {0} conflicting file that will need to be resolved} other{Will result in at least {0} conflicting files that will need to be resolved}}',
 										),
+										[result.conflict.files.length],
+									)
+								: formatPlural(
+										l10n.t(
+											'{0, plural, one{Will result in {0} conflicting file that will need to be resolved} other{Will result in {0} conflicting files that will need to be resolved}}',
+										),
+										[result.conflict.files.length],
+									),
 							iconPath: new ThemeIcon('warning'),
 						}),
 					);

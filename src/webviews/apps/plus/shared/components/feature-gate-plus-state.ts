@@ -5,6 +5,7 @@ import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { urls } from '../../../../../constants.js';
 import {
 	proFeaturePreviewUsages,
@@ -326,7 +327,21 @@ export class GlFeatureGatePlusState extends LitElement {
 			</p>
 			<hr />
 			<p class="centered">
-				${this.featureWithArticleIfNeeded ? (left === 1 ? l10n.t('{days} more day to preview {feature} on privately hosted repos.', { days: getNumericFormat()(left), feature: this.featureWithArticleIfNeeded }) : l10n.t('{days} more days to preview {feature} on privately hosted repos.', { days: getNumericFormat()(left), feature: this.featureWithArticleIfNeeded })) : left === 1 ? l10n.t('{0} more day to preview privately hosted repos.', getNumericFormat()(left)) : l10n.t('{0} more days to preview privately hosted repos.', getNumericFormat()(left))}<br />
+				${
+					this.featureWithArticleIfNeeded
+						? formatPlural(
+								l10n.t(
+									'{days, plural, one{{days} more day to preview {feature} on privately hosted repos.} other{{days} more days to preview {feature} on privately hosted repos.}}',
+								),
+								{ days: left, feature: this.featureWithArticleIfNeeded },
+							)
+						: formatPlural(
+								l10n.t(
+									'{0, plural, one{{0} more day to preview privately hosted repos.} other{{0} more days to preview privately hosted repos.}}',
+								),
+								[left],
+							)
+				}<br />
 				${appearance !== 'alert' ? html`<br />` : ''}
 				<a href="${createCommandLink<Source>('gitlens.plus.signUp', this.source)}"
 					>${l10n.t('Want full access to all Pro features? Start your free {0}-day Pro trial', proTrialLengthInDays)}</a

@@ -5,7 +5,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { boxSizingBase, linkBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { BranchAndTargetRefs, BranchRef } from '../../../../shared/branchRefs.js';
 import type { OverviewBranch, OverviewBranchMergeTarget } from '../../../../shared/overviewBranches.js';
 import { renderBranchName } from '../../../shared/components/branch-name.js';
@@ -336,10 +336,13 @@ export class GlMergeTargetStatus extends LitElement {
 
 		const behind = this.status?.behind ?? 0;
 		if (behind > 0) {
-			const count = getNumericFormat()(behind);
-			return behind === 1
-				? l10n.t('{count} commit behind {target}', { count: count, target: target })
-				: l10n.t('{count} commits behind {target}', { count: count, target: target });
+			return formatPlural(
+				l10n.t('{count, plural, one{{count} commit behind {target}} other{{count} commits behind {target}}}'),
+				{
+					count: behind,
+					target: target,
+				},
+			);
 		}
 		return l10n.t('Merges cleanly into {target}', { target: target });
 	}
@@ -547,21 +550,12 @@ export class GlMergeTargetStatus extends LitElement {
 					</div>
 					<p class="status--merge-conflict">
 						<code-icon icon="warning"></code-icon>
-						${
-							this.conflicts.files.length === 1
-								? l10n.t(
-										'Merging will cause conflicts in {count} file that will need to be resolved.',
-										{
-											count: getNumericFormat()(this.conflicts.files.length),
-										},
-									)
-								: l10n.t(
-										'Merging will cause conflicts in {count} files that will need to be resolved.',
-										{
-											count: getNumericFormat()(this.conflicts.files.length),
-										},
-									)
-						}
+						${formatPlural(
+							l10n.t(
+								'{count, plural, one{Merging will cause conflicts in {count} file that will need to be resolved.} other{Merging will cause conflicts in {count} files that will need to be resolved.}}',
+							),
+							{ count: this.conflicts.files.length },
+						)}
 					</p>
 					${this.renderFiles(this.conflicts.files)}
 				</div>`;
@@ -569,11 +563,15 @@ export class GlMergeTargetStatus extends LitElement {
 
 		if (this.status != null) {
 			if (this.status.behind > 0) {
-				const count = getNumericFormat()(this.status.behind);
 				return html`${this.renderHeader(
-						this.status.behind === 1
-							? l10n.t('{count} Commit Behind Merge Target', { count: count })
-							: l10n.t('{count} Commits Behind Merge Target', { count: count }),
+						formatPlural(
+							l10n.t(
+								'{count, plural, one{{count} Commit Behind Merge Target} other{{count} Commits Behind Merge Target}}',
+							),
+							{
+								count: this.status.behind,
+							},
+						),
 						'arrow-down',
 						'warning',
 					)}
@@ -639,14 +637,15 @@ export class GlMergeTargetStatus extends LitElement {
 	}
 
 	private renderBehindDescription(behind: number) {
-		const count = getNumericFormat()(behind);
 		return localizedContent(
-			behind === 1
-				? l10n.t('Your current branch {branch} is {count} commit behind its merge target {target}.')
-				: l10n.t('Your current branch {branch} is {count} commits behind its merge target {target}.'),
+			formatPlural(
+				l10n.t(
+					'{count, plural, one{Your current branch {branch} is {count} commit behind its merge target {target}.} other{Your current branch {branch} is {count} commits behind its merge target {target}.}}',
+				),
+				{ count: behind },
+			),
 			{
 				branch: renderBranchName(this.branch.name),
-				count: count,
 				target: this.renderInlineTargetEdit(this.target),
 			},
 		);
@@ -774,16 +773,18 @@ export class GlMergeTargetStatus extends LitElement {
 	}
 
 	private renderFiles(files: { path: string }[]) {
-		const count = getNumericFormat()(files.length);
 		return html`
 			<details>
 				<summary>
 					<code-icon icon="chevron-right"></code-icon>
-					${
-						files.length === 1
-							? l10n.t('Show {count} conflicting file', { count: count })
-							: l10n.t('Show {count} conflicting files', { count: count })
-					}
+					${formatPlural(
+						l10n.t(
+							'{count, plural, one{Show {count} conflicting file} other{Show {count} conflicting files}}',
+						),
+						{
+							count: files.length,
+						},
+					)}
 				</summary>
 				<div class="files scrollable">${files.map(file => this.renderFile(file.path))}</div>
 			</details>

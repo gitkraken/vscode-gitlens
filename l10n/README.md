@@ -18,6 +18,17 @@ Both English files are generated from source — never edit them by hand. Locale
 3. A runtime entry whose value is an object (`{ "message": …, "comment": […] }`) carries a translator note in `comment`; translate `message` and leave the shape as is.
 4. Partial files are fine. VS Code falls back to English per message, so a new language can land incrementally.
 5. Run `pnpm run check:l10n`. It fails on unknown keys, missing or renamed placeholders, and obsolete entries.
+6. A count message's key is itself a plural block, written by the engineer who added the message — for example:
+
+   ```
+   {count, plural, one{{count} file changed} other{{count} files changed}}
+   ```
+
+   Translate it by keeping the part before the first comma (`count` here) exactly as it is — it names the message's own placeholder, not text to translate — and translating each `category{...}` branch already there, the same way you would a plain message, repeating that placeholder (`{count}`) inside it. English only ever writes `one` and `other`, so that is all you will find to translate for most messages. If your language distinguishes more CLDR plural categories than English does — Russian's "few"/"many", Arabic's "zero"/"two", and so on — add the branches your language needs: `zero`, `one`, `two`, `few`, `many`, `other`. An `other` branch is required and must stay; a two-form language (French, German, Chinese, …) needs nothing beyond translating the branches already there. An exact count can also be targeted with `=N` (`=0{no files changed}`) — it wins over whichever CLDR category that count would otherwise fall into. `pnpm run check:l10n` validates every block (an `other` branch, valid branch names, matching placeholders) the same way it validates a plain translation.
+
+   A message can have more than one count in one sentence ("`{0} commit behind, {1} commits ahead`") — you will find two blocks, either side by side or one nested inside a branch of the other. Translate each independently, by the rule above; a block only ever needs the categories for its own count.
+
+   A message that already has a plural block **must** keep one — do not flatten it to plain text, even for a two-form language where every branch would end up saying the same thing for "one" and "other" values you don't have a `zero`/`two`/`few`/`many` category for.
 
 Do not translate: Git syntax and flags (`--force`, `author:`, `HEAD~1`), command and setting ids, `$(icon)` codicon tokens, product names (GitLens, GitKraken, Launchpad, Commit Graph), and anything inside a placeholder. Keep `\n` line breaks and Markdown link syntax intact.
 

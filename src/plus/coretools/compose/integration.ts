@@ -1,5 +1,6 @@
 import { CancellationTokenSource, l10n, window } from 'vscode';
 import type { AIChatMessage, AIProviderResponse, AIResponseFormat } from '@gitlens/ai/models/provider.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
@@ -335,7 +336,7 @@ function formatInteriorRefList(violations: InteriorRefViolation[]): string {
 	});
 	const remaining = violations.length - max;
 	if (remaining > 0) {
-		shown.push(remaining === 1 ? l10n.t('  • …and 1 more') : l10n.t('  • …and {0} more', remaining));
+		shown.push(formatPlural(l10n.t('{0, plural, one{  • …and {0} more} other{  • …and {0} more}}'), [remaining]));
 	}
 	return shown.join('\n');
 }

@@ -12,8 +12,8 @@
 import type { AuthenticationSession, MessageItem } from 'vscode';
 import { l10n, window } from 'vscode';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { urls } from '../../constants.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
@@ -205,17 +205,12 @@ export async function autoResetTrialIfEligible(
 
 function showTrialResetMessage(subscription: Subscription): void {
 	const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
-	const formattedRemaining = getNumericFormat()(remaining);
-	const message =
-		remaining === 1
-			? l10n.t(
-					'Your GitLens Pro trial has been reactivated! Experience all the new Pro features for another {0} day.',
-					formattedRemaining,
-				)
-			: l10n.t(
-					'Your GitLens Pro trial has been reactivated! Experience all the new Pro features for another {0} days.',
-					formattedRemaining,
-				);
+	const message = formatPlural(
+		l10n.t(
+			'{0, plural, one{Your GitLens Pro trial has been reactivated! Experience all the new Pro features for another {0} day.} other{Your GitLens Pro trial has been reactivated! Experience all the new Pro features for another {0} days.}}',
+		),
+		[remaining],
+	);
 
 	const learn: MessageItem = { title: l10n.t("See What's New") };
 	void window.showInformationMessage(message, learn).then(result => {

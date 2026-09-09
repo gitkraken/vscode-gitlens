@@ -3,9 +3,9 @@ import { Disposable, l10n, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitUser } from '@gitlens/git/models/user.js';
 import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { weakEvent } from '@gitlens/utils/event.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { ViewShowBranchComparison } from '../../config.js';
 import { GlyphChars } from '../../constants.js';
 import type { StoredBranchComparison, StoredBranchComparisons, StoredNamedRef } from '../../constants.storage.js';
@@ -432,6 +432,5 @@ export class CompareBranchNode extends SubscribeableViewNode<
 }
 
 function getCommitCountLabel(count: number): string {
-	const formattedCount = getNumericFormat()(count);
-	return count === 1 ? l10n.t('{0} commit', formattedCount) : l10n.t('{0} commits', formattedCount);
+	return formatPlural(l10n.t('{0, plural, one{{0} commit} other{{0} commits}}'), [count]);
 }

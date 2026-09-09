@@ -4,7 +4,7 @@ import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import type { GitHealthBannerState } from '@gitlens/git/gitHealth.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Unsubscribe } from '../../../../rpc/services/types.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
@@ -337,7 +337,14 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 			<span class="strip__actions">
 				<span class="strip__chip">
 					<code-icon icon="dashboard"></code-icon>
-					${state.suggestedCount === 1 ? l10n.t('{count} optimization suggested', { count: getNumericFormat()(state.suggestedCount) }) : l10n.t('{count} optimizations suggested', { count: getNumericFormat()(state.suggestedCount) })}
+					${formatPlural(
+						l10n.t(
+							'{count, plural, one{{count} optimization suggested} other{{count} optimizations suggested}}',
+						),
+						{
+							count: state.suggestedCount,
+						},
+					)}
 				</span>
 				<gl-tooltip
 					placement="bottom"

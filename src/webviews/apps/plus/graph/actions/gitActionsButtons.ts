@@ -9,9 +9,10 @@ import type { GlPopover } from '@gitlens/components/components/overlays/popover.
 import { inlineCode } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
-import { fromNow, getNumericFormat } from '@gitlens/utils/date.js';
+import { fromNow } from '@gitlens/utils/date.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { pausedOperationStatusStringsByType } from '@gitlens/utils/pausedOperation.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { StashSaveCommandArgs } from '../../../../../commands/stashSave.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../../system/commands.js';
@@ -167,9 +168,9 @@ export class GitActionsButtons extends SignalWatcher(LitElement) {
 						<hr />
 						${l10n.t('Working Changes')}
 						<br />
-						${stats!.added ? html`${stats!.added === 1 ? l10n.t('{count} file added', { count: getNumericFormat()(stats!.added) }) : l10n.t('{count} files added', { count: getNumericFormat()(stats!.added) })}<br />` : nothing}
-						${stats!.modified ? html`${stats!.modified === 1 ? l10n.t('{count} file modified', { count: getNumericFormat()(stats!.modified) }) : l10n.t('{count} files modified', { count: getNumericFormat()(stats!.modified) })}<br />` : nothing}
-						${stats!.deleted ? html`${stats!.deleted === 1 ? l10n.t('{count} file deleted', { count: getNumericFormat()(stats!.deleted) }) : l10n.t('{count} files deleted', { count: getNumericFormat()(stats!.deleted) })}<br />` : nothing}
+						${stats!.added ? html`${formatPlural(l10n.t('{count, plural, one{{count} file added} other{{count} files added}}'), { count: stats!.added })}<br />` : nothing}
+						${stats!.modified ? html`${formatPlural(l10n.t('{count, plural, one{{count} file modified} other{{count} files modified}}'), { count: stats!.modified })}<br />` : nothing}
+						${stats!.deleted ? html`${formatPlural(l10n.t('{count, plural, one{{count} file deleted} other{{count} files deleted}}'), { count: stats!.deleted })}<br />` : nothing}
 					`
 				: html`
 						<hr />
@@ -412,25 +413,29 @@ the parent's intrinsic min-content beyond the icon size. */
 		const seconds = this.autoFetchIntervalSeconds;
 		const inView = this.autoFetchMode !== 'vscode';
 		if (seconds < 60) {
-			const count = getNumericFormat()(seconds);
 			return inView
-				? seconds === 1
-					? l10n.t('Every {count} second while in view', { count: count })
-					: l10n.t('Every {count} seconds while in view', { count: count })
-				: seconds === 1
-					? l10n.t('Every {count} second', { count: count })
-					: l10n.t('Every {count} seconds', { count: count });
+				? formatPlural(
+						l10n.t(
+							'{count, plural, one{Every {count} second while in view} other{Every {count} seconds while in view}}',
+						),
+						{ count: seconds },
+					)
+				: formatPlural(l10n.t('{count, plural, one{Every {count} second} other{Every {count} seconds}}'), {
+						count: seconds,
+					});
 		}
 
 		const minutes = Math.round(seconds / 60);
-		const count = getNumericFormat()(minutes);
 		return inView
-			? minutes === 1
-				? l10n.t('Every {count} minute while in view', { count: count })
-				: l10n.t('Every {count} minutes while in view', { count: count })
-			: minutes === 1
-				? l10n.t('Every {count} minute', { count: count })
-				: l10n.t('Every {count} minutes', { count: count });
+			? formatPlural(
+					l10n.t(
+						'{count, plural, one{Every {count} minute while in view} other{Every {count} minutes while in view}}',
+					),
+					{ count: minutes },
+				)
+			: formatPlural(l10n.t('{count, plural, one{Every {count} minute} other{Every {count} minutes}}'), {
+					count: minutes,
+				});
 	}
 
 	private get settingsLink(): string {
@@ -835,57 +840,92 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 			case 'pull':
 				message = upstream
 					? provider
-						? count === 1
-							? l10n.t('Pull {count} commit from {upstream} on {provider}')
-							: l10n.t('Pull {count} commits from {upstream} on {provider}')
-						: count === 1
-							? l10n.t('Pull {count} commit from {upstream}')
-							: l10n.t('Pull {count} commits from {upstream}')
+						? formatPlural(
+								l10n.t(
+									'{count, plural, one{Pull {count} commit from {upstream} on {provider}} other{Pull {count} commits from {upstream} on {provider}}}',
+								),
+								{ count: count },
+							)
+						: formatPlural(
+								l10n.t(
+									'{count, plural, one{Pull {count} commit from {upstream}} other{Pull {count} commits from {upstream}}}',
+								),
+								{ count: count },
+							)
 					: provider
-						? count === 1
-							? l10n.t('Pull {count} commit from remote on {provider}')
-							: l10n.t('Pull {count} commits from remote on {provider}')
-						: count === 1
-							? l10n.t('Pull {count} commit from remote')
-							: l10n.t('Pull {count} commits from remote');
+						? formatPlural(
+								l10n.t(
+									'{count, plural, one{Pull {count} commit from remote on {provider}} other{Pull {count} commits from remote on {provider}}}',
+								),
+								{ count: count },
+							)
+						: formatPlural(
+								l10n.t(
+									'{count, plural, one{Pull {count} commit from remote} other{Pull {count} commits from remote}}',
+								),
+								{ count: count },
+							);
 				break;
 			case 'push':
 				message = upstream
 					? provider
-						? count === 1
-							? l10n.t('Push {count} commit to {upstream} on {provider}')
-							: l10n.t('Push {count} commits to {upstream} on {provider}')
-						: count === 1
-							? l10n.t('Push {count} commit to {upstream}')
-							: l10n.t('Push {count} commits to {upstream}')
+						? formatPlural(
+								l10n.t(
+									'{count, plural, one{Push {count} commit to {upstream} on {provider}} other{Push {count} commits to {upstream} on {provider}}}',
+								),
+								{ count: count },
+							)
+						: formatPlural(
+								l10n.t(
+									'{count, plural, one{Push {count} commit to {upstream}} other{Push {count} commits to {upstream}}}',
+								),
+								{ count: count },
+							)
 					: provider
-						? count === 1
-							? l10n.t('Push {count} commit to remote on {provider}')
-							: l10n.t('Push {count} commits to remote on {provider}')
-						: count === 1
-							? l10n.t('Push {count} commit to remote')
-							: l10n.t('Push {count} commits to remote');
+						? formatPlural(
+								l10n.t(
+									'{count, plural, one{Push {count} commit to remote on {provider}} other{Push {count} commits to remote on {provider}}}',
+								),
+								{ count: count },
+							)
+						: formatPlural(
+								l10n.t(
+									'{count, plural, one{Push {count} commit to remote} other{Push {count} commits to remote}}',
+								),
+								{ count: count },
+							);
 				break;
 			case 'forcePush':
 				message = upstream
 					? provider
-						? count === 1
-							? l10n.t('Force Push {count} commit to {upstream} on {provider}')
-							: l10n.t('Force Push {count} commits to {upstream} on {provider}')
-						: count === 1
-							? l10n.t('Force Push {count} commit to {upstream}')
-							: l10n.t('Force Push {count} commits to {upstream}')
+						? formatPlural(
+								l10n.t(
+									'{count, plural, one{Force Push {count} commit to {upstream} on {provider}} other{Force Push {count} commits to {upstream} on {provider}}}',
+								),
+								{ count: count },
+							)
+						: formatPlural(
+								l10n.t(
+									'{count, plural, one{Force Push {count} commit to {upstream}} other{Force Push {count} commits to {upstream}}}',
+								),
+								{ count: count },
+							)
 					: provider
-						? count === 1
-							? l10n.t('Force Push {count} commit to remote on {provider}')
-							: l10n.t('Force Push {count} commits to remote on {provider}')
-						: count === 1
-							? l10n.t('Force Push {count} commit to remote')
-							: l10n.t('Force Push {count} commits to remote');
+						? formatPlural(
+								l10n.t(
+									'{count, plural, one{Force Push {count} commit to remote on {provider}} other{Force Push {count} commits to remote on {provider}}}',
+								),
+								{ count: count },
+							)
+						: formatPlural(
+								l10n.t(
+									'{count, plural, one{Force Push {count} commit to remote} other{Force Push {count} commits to remote}}',
+								),
+								{ count: count },
+							);
 				break;
 		}
 		return localizedContent(message, {
-			count: getNumericFormat()(count),
 			upstream: html`<span class="inline-code">${upstream}</span>`,
 			provider: provider,
 		});
@@ -895,79 +935,95 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 		const upstream = this.branchState?.upstream;
 		const provider = this.branchState?.provider?.name;
 		let message: string;
-		if (behind > 0 && ahead > 0 && behind === 1 && ahead === 1) {
+		if (behind > 0 && ahead > 0) {
 			message = upstream
 				? provider
-					? l10n.t('{branch} is {behind} commit behind and {ahead} commit ahead of {upstream} on {provider}')
-					: l10n.t('{branch} is {behind} commit behind and {ahead} commit ahead of {upstream}')
-				: provider
-					? l10n.t('{branch} is {behind} commit behind and {ahead} commit ahead of remote on {provider}')
-					: l10n.t('{branch} is {behind} commit behind and {ahead} commit ahead of remote');
-		} else if (behind > 0 && ahead > 0 && behind === 1) {
-			message = upstream
-				? provider
-					? l10n.t('{branch} is {behind} commit behind and {ahead} commits ahead of {upstream} on {provider}')
-					: l10n.t('{branch} is {behind} commit behind and {ahead} commits ahead of {upstream}')
-				: provider
-					? l10n.t('{branch} is {behind} commit behind and {ahead} commits ahead of remote on {provider}')
-					: l10n.t('{branch} is {behind} commit behind and {ahead} commits ahead of remote');
-		} else if (behind > 0 && ahead > 0 && ahead === 1) {
-			message = upstream
-				? provider
-					? l10n.t('{branch} is {behind} commits behind and {ahead} commit ahead of {upstream} on {provider}')
-					: l10n.t('{branch} is {behind} commits behind and {ahead} commit ahead of {upstream}')
-				: provider
-					? l10n.t('{branch} is {behind} commits behind and {ahead} commit ahead of remote on {provider}')
-					: l10n.t('{branch} is {behind} commits behind and {ahead} commit ahead of remote');
-		} else if (behind > 0 && ahead > 0) {
-			message = upstream
-				? provider
-					? l10n.t(
-							'{branch} is {behind} commits behind and {ahead} commits ahead of {upstream} on {provider}',
+					? formatPlural(
+							l10n.t(
+								'{behind, plural, one{{ahead, plural, one{{branch} is {behind} commit behind and {ahead} commit ahead of {upstream} on {provider}} other{{branch} is {behind} commit behind and {ahead} commits ahead of {upstream} on {provider}}}} other{{ahead, plural, one{{branch} is {behind} commits behind and {ahead} commit ahead of {upstream} on {provider}} other{{branch} is {behind} commits behind and {ahead} commits ahead of {upstream} on {provider}}}}}',
+							),
+							{ behind: behind, ahead: ahead },
 						)
-					: l10n.t('{branch} is {behind} commits behind and {ahead} commits ahead of {upstream}')
+					: formatPlural(
+							l10n.t(
+								'{behind, plural, one{{ahead, plural, one{{branch} is {behind} commit behind and {ahead} commit ahead of {upstream}} other{{branch} is {behind} commit behind and {ahead} commits ahead of {upstream}}}} other{{ahead, plural, one{{branch} is {behind} commits behind and {ahead} commit ahead of {upstream}} other{{branch} is {behind} commits behind and {ahead} commits ahead of {upstream}}}}}',
+							),
+							{ behind: behind, ahead: ahead },
+						)
 				: provider
-					? l10n.t('{branch} is {behind} commits behind and {ahead} commits ahead of remote on {provider}')
-					: l10n.t('{branch} is {behind} commits behind and {ahead} commits ahead of remote');
-		} else if (behind === 1) {
-			message = upstream
-				? provider
-					? l10n.t('{branch} is {behind} commit behind {upstream} on {provider}')
-					: l10n.t('{branch} is {behind} commit behind {upstream}')
-				: provider
-					? l10n.t('{branch} is {behind} commit behind remote on {provider}')
-					: l10n.t('{branch} is {behind} commit behind remote');
+					? formatPlural(
+							l10n.t(
+								'{behind, plural, one{{ahead, plural, one{{branch} is {behind} commit behind and {ahead} commit ahead of remote on {provider}} other{{branch} is {behind} commit behind and {ahead} commits ahead of remote on {provider}}}} other{{ahead, plural, one{{branch} is {behind} commits behind and {ahead} commit ahead of remote on {provider}} other{{branch} is {behind} commits behind and {ahead} commits ahead of remote on {provider}}}}}',
+							),
+							{ behind: behind, ahead: ahead },
+						)
+					: formatPlural(
+							l10n.t(
+								'{behind, plural, one{{ahead, plural, one{{branch} is {behind} commit behind and {ahead} commit ahead of remote} other{{branch} is {behind} commit behind and {ahead} commits ahead of remote}}} other{{ahead, plural, one{{branch} is {behind} commits behind and {ahead} commit ahead of remote} other{{branch} is {behind} commits behind and {ahead} commits ahead of remote}}}}',
+							),
+							{ behind: behind, ahead: ahead },
+						);
 		} else if (behind > 0) {
 			message = upstream
 				? provider
-					? l10n.t('{branch} is {behind} commits behind {upstream} on {provider}')
-					: l10n.t('{branch} is {behind} commits behind {upstream}')
+					? formatPlural(
+							l10n.t(
+								'{behind, plural, one{{branch} is {behind} commit behind {upstream} on {provider}} other{{branch} is {behind} commits behind {upstream} on {provider}}}',
+							),
+							{ behind: behind },
+						)
+					: formatPlural(
+							l10n.t(
+								'{behind, plural, one{{branch} is {behind} commit behind {upstream}} other{{branch} is {behind} commits behind {upstream}}}',
+							),
+							{ behind: behind },
+						)
 				: provider
-					? l10n.t('{branch} is {behind} commits behind remote on {provider}')
-					: l10n.t('{branch} is {behind} commits behind remote');
-		} else if (ahead === 1) {
-			message = upstream
-				? provider
-					? l10n.t('{branch} is {ahead} commit ahead of {upstream} on {provider}')
-					: l10n.t('{branch} is {ahead} commit ahead of {upstream}')
-				: provider
-					? l10n.t('{branch} is {ahead} commit ahead of remote on {provider}')
-					: l10n.t('{branch} is {ahead} commit ahead of remote');
+					? formatPlural(
+							l10n.t(
+								'{behind, plural, one{{branch} is {behind} commit behind remote on {provider}} other{{branch} is {behind} commits behind remote on {provider}}}',
+							),
+							{ behind: behind },
+						)
+					: formatPlural(
+							l10n.t(
+								'{behind, plural, one{{branch} is {behind} commit behind remote} other{{branch} is {behind} commits behind remote}}',
+							),
+							{ behind: behind },
+						);
 		} else {
 			message = upstream
 				? provider
-					? l10n.t('{branch} is {ahead} commits ahead of {upstream} on {provider}')
-					: l10n.t('{branch} is {ahead} commits ahead of {upstream}')
+					? formatPlural(
+							l10n.t(
+								'{ahead, plural, one{{branch} is {ahead} commit ahead of {upstream} on {provider}} other{{branch} is {ahead} commits ahead of {upstream} on {provider}}}',
+							),
+							{ ahead: ahead },
+						)
+					: formatPlural(
+							l10n.t(
+								'{ahead, plural, one{{branch} is {ahead} commit ahead of {upstream}} other{{branch} is {ahead} commits ahead of {upstream}}}',
+							),
+							{ ahead: ahead },
+						)
 				: provider
-					? l10n.t('{branch} is {ahead} commits ahead of remote on {provider}')
-					: l10n.t('{branch} is {ahead} commits ahead of remote');
+					? formatPlural(
+							l10n.t(
+								'{ahead, plural, one{{branch} is {ahead} commit ahead of remote on {provider}} other{{branch} is {ahead} commits ahead of remote on {provider}}}',
+							),
+							{ ahead: ahead },
+						)
+					: formatPlural(
+							l10n.t(
+								'{ahead, plural, one{{branch} is {ahead} commit ahead of remote} other{{branch} is {ahead} commits ahead of remote}}',
+							),
+							{ ahead: ahead },
+						);
 		}
 		return localizedContent(message, {
 			branch: html`<span class="inline-code">${this.branchName}</span>`,
 			upstream: html`<span class="inline-code">${upstream}</span>`,
 			provider: provider,
-			behind: getNumericFormat()(behind),
-			ahead: getNumericFormat()(ahead),
 		});
 	}
 
@@ -1199,7 +1255,6 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 
 		let banner;
 		if (conflicts != null && conflicts.kind !== 'clean' && conflicts.kind !== 'unavailable') {
-			const count = getNumericFormat()(conflicts.count);
 			// A blocked pull outranks a predicted one: it's a fact rather than a simulation, and it tells you
 			// the click won't do anything at all. It takes `editorError` rather than the rust conflict color so
 			// that `statusMergingOrRebasingConflict` keeps describing actual conflicts for anyone retheming it.
@@ -1208,12 +1263,18 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 			banner = html`<p class="banner ${blocked ? 'banner--blocked' : 'banner--conflict'}">
 				<code-icon icon=${blocked ? 'error' : 'warning'}></code-icon>${
 					blocked
-						? conflicts.count === 1
-							? l10n.t('Unable to pull — uncommitted changes in {count} file', { count: count })
-							: l10n.t('Unable to pull — uncommitted changes in {count} files', { count: count })
-						: conflicts.count === 1
-							? l10n.t('Pulling will cause conflicts in {count} file', { count: count })
-							: l10n.t('Pulling will cause conflicts in {count} files', { count: count })
+						? formatPlural(
+								l10n.t(
+									'{count, plural, one{Unable to pull — uncommitted changes in {count} file} other{Unable to pull — uncommitted changes in {count} files}}',
+								),
+								{ count: conflicts.count },
+							)
+						: formatPlural(
+								l10n.t(
+									'{count, plural, one{Pulling will cause conflicts in {count} file} other{Pulling will cause conflicts in {count} files}}',
+								),
+								{ count: conflicts.count },
+							)
 				}
 			</p>`;
 		}

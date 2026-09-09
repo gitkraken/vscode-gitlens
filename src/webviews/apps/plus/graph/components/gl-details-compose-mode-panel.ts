@@ -9,6 +9,7 @@ import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { fromNow, getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { splitMessage } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
@@ -812,9 +813,12 @@ export class GlDetailsComposeModePanel extends LitElement {
 		const commitButtonLabel =
 			allIncluded || includedCount === 0
 				? l10n.t('Commit Changes')
-				: includedCount === 1
-					? l10n.t('Commit {count} Change Set', { count: getNumericFormat()(includedCount) })
-					: l10n.t('Commit {count} Change Sets', { count: getNumericFormat()(includedCount) });
+				: formatPlural(
+						l10n.t('{count, plural, one{Commit {count} Change Set} other{Commit {count} Change Sets}}'),
+						{
+							count: includedCount,
+						},
+					);
 
 		// Refine posture mirrors the commit label: it counts the commits the AI is free to touch
 		// (checked = editable), i.e. everything minus the refine-excluded ones in the current plan.
@@ -823,9 +827,14 @@ export class GlDetailsComposeModePanel extends LitElement {
 		const refineButtonLabel =
 			refineExcludedCount === 0 || refineCount === 0
 				? l10n.t('Recompose Changes')
-				: refineCount === 1
-					? l10n.t('Recompose {count} Change Set', { count: getNumericFormat()(refineCount) })
-					: l10n.t('Recompose {count} Change Sets', { count: getNumericFormat()(refineCount) });
+				: formatPlural(
+						l10n.t(
+							'{count, plural, one{Recompose {count} Change Set} other{Recompose {count} Change Sets}}',
+						),
+						{
+							count: refineCount,
+						},
+					);
 
 		const actions = html`<div class="compose-plan__actions">
 			<gl-checkbox
@@ -1026,11 +1035,9 @@ export class GlDetailsComposeModePanel extends LitElement {
 					</gl-tooltip>
 				</div>
 				<span class="compose-commit__stats">
-					${
-						commit.files.length === 1
-							? l10n.t('{count} file', { count: getNumericFormat()(commit.files.length) })
-							: l10n.t('{count} files', { count: getNumericFormat()(commit.files.length) })
-					}
+					${formatPlural(l10n.t('{count, plural, one{{count} file} other{{count} files}}'), {
+						count: commit.files.length,
+					})}
 					<span class="compose-commit__additions">+${getNumericFormat()(commit.additions)}</span>
 					<span class="compose-commit__deletions">&minus;${getNumericFormat()(commit.deletions)}</span>
 				</span>
@@ -1062,25 +1069,35 @@ export class GlDetailsComposeModePanel extends LitElement {
 	}
 
 	private getCommitAriaLabel(num: number, fileCount: number, isRefineExcluded: boolean, isExcluded: boolean): string {
-		const args = { number: getNumericFormat()(num), count: getNumericFormat()(fileCount) };
+		const args = { number: getNumericFormat()(num), count: fileCount };
 		if (isRefineExcluded && isExcluded) {
-			return fileCount === 1
-				? l10n.t('Commit {number}, {count} file, excluded from recompose, excluded from commit', args)
-				: l10n.t('Commit {number}, {count} files, excluded from recompose, excluded from commit', args);
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{Commit {number}, {count} file, excluded from recompose, excluded from commit} other{Commit {number}, {count} files, excluded from recompose, excluded from commit}}',
+				),
+				args,
+			);
 		}
 		if (isRefineExcluded) {
-			return fileCount === 1
-				? l10n.t('Commit {number}, {count} file, excluded from recompose', args)
-				: l10n.t('Commit {number}, {count} files, excluded from recompose', args);
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{Commit {number}, {count} file, excluded from recompose} other{Commit {number}, {count} files, excluded from recompose}}',
+				),
+				args,
+			);
 		}
 		if (isExcluded) {
-			return fileCount === 1
-				? l10n.t('Commit {number}, {count} file, excluded from commit', args)
-				: l10n.t('Commit {number}, {count} files, excluded from commit', args);
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{Commit {number}, {count} file, excluded from commit} other{Commit {number}, {count} files, excluded from commit}}',
+				),
+				args,
+			);
 		}
-		return fileCount === 1
-			? l10n.t('Commit {number}, {count} file', args)
-			: l10n.t('Commit {number}, {count} files', args);
+		return formatPlural(
+			l10n.t('{count, plural, one{Commit {number}, {count} file} other{Commit {number}, {count} files}}'),
+			args,
+		);
 	}
 
 	private renderBaseCommit() {

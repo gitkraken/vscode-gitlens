@@ -3,6 +3,7 @@ import { consume } from '@lit/context';
 import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GraphActivityDecay } from '../../../../../config.js';
 import type { TimelinePeriod } from '../../../../plus/timeline/protocol.js';
@@ -1389,14 +1390,9 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		const fileCount = countFiles(scope);
 		if (fileCount === 0) return nothing;
 
-		const formattedFileCount = fileCount.toLocaleString();
 		if (mode === 'files') {
 			return html`<span class="toolbar__description"
-				>${
-					fileCount === 1
-						? l10n.t('{count} file', { count: formattedFileCount })
-						: l10n.t('{count} files', { count: formattedFileCount })
-				}</span
+				>${formatPlural(l10n.t('{count, plural, one{{count} file} other{{count} files}}'), { count: fileCount })}</span
 			>`;
 		}
 
@@ -1406,36 +1402,17 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		const freq = data.frequencies;
 		if (freq == null) {
 			return html`<span class="toolbar__description"
-				>${
-					fileCount === 1
-						? l10n.t('{count} file', { count: formattedFileCount })
-						: l10n.t('{count} files', { count: formattedFileCount })
-				}</span
+				>${formatPlural(l10n.t('{count, plural, one{{count} file} other{{count} files}}'), { count: fileCount })}</span
 			>`;
 		}
 
 		const commitCount = lookupCommitCount(scope, freq, root);
-		const formattedCommitCount = commitCount.toLocaleString();
-		const description =
-			commitCount === 1
-				? fileCount === 1
-					? l10n.t('{commits} commit · {files} file', {
-							commits: formattedCommitCount,
-							files: formattedFileCount,
-						})
-					: l10n.t('{commits} commit · {files} files', {
-							commits: formattedCommitCount,
-							files: formattedFileCount,
-						})
-				: fileCount === 1
-					? l10n.t('{commits} commits · {files} file', {
-							commits: formattedCommitCount,
-							files: formattedFileCount,
-						})
-					: l10n.t('{commits} commits · {files} files', {
-							commits: formattedCommitCount,
-							files: formattedFileCount,
-						});
+		const description = formatPlural(
+			l10n.t(
+				'{commits, plural, one{{files, plural, one{{commits} commit · {files} file} other{{commits} commit · {files} files}}} other{{files, plural, one{{commits} commits · {files} file} other{{commits} commits · {files} files}}}}',
+			),
+			{ commits: commitCount, files: fileCount },
+		);
 		return html`<span class="toolbar__description">${description}</span>`;
 	}
 

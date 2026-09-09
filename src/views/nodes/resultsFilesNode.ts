@@ -1,10 +1,10 @@
 import { l10n, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { map } from '@gitlens/utils/iterable.js';
 import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { cancellable, PromiseCancelledError } from '@gitlens/utils/promise.js';
 import { sortCompare } from '@gitlens/utils/string.js';
 import type { FilesComparison } from '../../git/actions/commit.js';
@@ -256,28 +256,19 @@ export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits
 }
 
 function getChangesDescription(additions: number, deletions: number, approximated: boolean): string {
-	const format = getNumericFormat();
-	const formattedAdditions = format(additions);
-	const formattedDeletions = format(deletions);
 	if (approximated) {
-		if (additions === 1) {
-			return deletions === 1
-				? l10n.t('{0} addition (+), {1} deletion (-) *approximated', formattedAdditions, formattedDeletions)
-				: l10n.t('{0} addition (+), {1} deletions (-) *approximated', formattedAdditions, formattedDeletions);
-		}
-
-		return deletions === 1
-			? l10n.t('{0} additions (+), {1} deletion (-) *approximated', formattedAdditions, formattedDeletions)
-			: l10n.t('{0} additions (+), {1} deletions (-) *approximated', formattedAdditions, formattedDeletions);
+		return formatPlural(
+			l10n.t(
+				'{0, plural, one{{1, plural, one{{0} addition (+), {1} deletion (-) *approximated} other{{0} addition (+), {1} deletions (-) *approximated}}} other{{1, plural, one{{0} additions (+), {1} deletion (-) *approximated} other{{0} additions (+), {1} deletions (-) *approximated}}}}',
+			),
+			[additions, deletions],
+		);
 	}
 
-	if (additions === 1) {
-		return deletions === 1
-			? l10n.t('{0} addition (+), {1} deletion (-)', formattedAdditions, formattedDeletions)
-			: l10n.t('{0} addition (+), {1} deletions (-)', formattedAdditions, formattedDeletions);
-	}
-
-	return deletions === 1
-		? l10n.t('{0} additions (+), {1} deletion (-)', formattedAdditions, formattedDeletions)
-		: l10n.t('{0} additions (+), {1} deletions (-)', formattedAdditions, formattedDeletions);
+	return formatPlural(
+		l10n.t(
+			'{0, plural, one{{1, plural, one{{0} addition (+), {1} deletion (-)} other{{0} addition (+), {1} deletions (-)}}} other{{1, plural, one{{0} additions (+), {1} deletion (-)} other{{0} additions (+), {1} deletions (-)}}}}',
+		),
+		[additions, deletions],
+	);
 }

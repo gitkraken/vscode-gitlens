@@ -33,6 +33,7 @@ import { getNumericFormat } from '@gitlens/utils/date.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { normalizePath } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { getAvatarUri } from '../../../avatars.js';
 import type { DiffWithCommandArgs } from '../../../commands/diffWith.js';
@@ -576,17 +577,12 @@ export class RepositoryService {
 		const stage = l10n.t('Stage Anyway');
 		const open = l10n.t('Open File');
 		const choice = await window.showWarningMessage(
-			markers === 1
-				? l10n.t(
-						'"{0}" still contains {1} unresolved conflict marker. Staging will commit them as-is.',
-						path,
-						getNumericFormat()(markers),
-					)
-				: l10n.t(
-						'"{0}" still contains {1} unresolved conflict markers. Staging will commit them as-is.',
-						path,
-						getNumericFormat()(markers),
-					),
+			formatPlural(
+				l10n.t(
+					'{1, plural, one{"{0}" still contains {1} unresolved conflict marker. Staging will commit them as-is.} other{"{0}" still contains {1} unresolved conflict markers. Staging will commit them as-is.}}',
+				),
+				[path, markers],
+			),
 			{ modal: true },
 			stage,
 			open,
@@ -601,15 +597,12 @@ export class RepositoryService {
 	private async confirmStageAllWithConflictMarkers(fileCount: number): Promise<boolean> {
 		const stage = l10n.t('Stage All Anyway');
 		const choice = await window.showWarningMessage(
-			fileCount === 1
-				? l10n.t(
-						'{0} file still contains unresolved conflict markers. Staging will commit them as-is.',
-						getNumericFormat()(fileCount),
-					)
-				: l10n.t(
-						'{0} files still contain unresolved conflict markers. Staging will commit them as-is.',
-						getNumericFormat()(fileCount),
-					),
+			formatPlural(
+				l10n.t(
+					'{0, plural, one{{0} file still contains unresolved conflict markers. Staging will commit them as-is.} other{{0} files still contain unresolved conflict markers. Staging will commit them as-is.}}',
+				),
+				[fileCount],
+			),
 			{ modal: true },
 			stage,
 		);
@@ -854,15 +847,12 @@ export class RepositoryService {
 						`discardFiles: nothing to discard — ${skippedMissingCount} of ${requested.size} selected file(s) no longer have changes`,
 					);
 					void window.showWarningMessage(
-						skippedMissingCount === 1
-							? l10n.t(
-									'{0} file selected no longer has changes — nothing to discard.',
-									getNumericFormat()(skippedMissingCount),
-								)
-							: l10n.t(
-									'{0} files selected no longer have changes — nothing to discard.',
-									getNumericFormat()(skippedMissingCount),
-								),
+						formatPlural(
+							l10n.t(
+								'{0, plural, one{{0} file selected no longer has changes — nothing to discard.} other{{0} files selected no longer have changes — nothing to discard.}}',
+							),
+							[skippedMissingCount],
+						),
 					);
 				} else {
 					Logger.warn('discardFiles: none of the selected files have changes to discard');
@@ -997,24 +987,19 @@ export class RepositoryService {
 
 		const preview = this.getFailedFilesPreview(failed);
 		void window.showWarningMessage(
-			failed.length === 1
-				? l10n.t(
-						"Couldn't restore {0} file after discard: {1} — it's missing from the working tree, but its content is recoverable from Git.",
+			preview.additionalCount === 0
+				? formatPlural(
+						l10n.t(
+							"{0, plural, one{Couldn't restore {0} file after discard: {1} — it's missing from the working tree, but its content is recoverable from Git.} other{Couldn't restore {0} files after discard: {1} — they're missing from the working tree, but their content is recoverable from Git.}}",
+						),
+						[failed.length, preview.paths],
+					)
+				: l10n.t(
+						"Couldn't restore {0} files after discard: {1}, and {2} more — they're missing from the working tree, but their content is recoverable from Git.",
 						getNumericFormat()(failed.length),
 						preview.paths,
-					)
-				: preview.additionalCount === 0
-					? l10n.t(
-							"Couldn't restore {0} files after discard: {1} — they're missing from the working tree, but their content is recoverable from Git.",
-							getNumericFormat()(failed.length),
-							preview.paths,
-						)
-					: l10n.t(
-							"Couldn't restore {0} files after discard: {1}, and {2} more — they're missing from the working tree, but their content is recoverable from Git.",
-							getNumericFormat()(failed.length),
-							preview.paths,
-							getNumericFormat()(preview.additionalCount),
-						),
+						getNumericFormat()(preview.additionalCount),
+					),
 		);
 	}
 
@@ -1030,24 +1015,19 @@ export class RepositoryService {
 
 		const preview = this.getFailedFilesPreview(failed);
 		void window.showWarningMessage(
-			failed.length === 1
-				? l10n.t(
-						'Failed to discard changes in {0} file: {1} — check its state before continuing.',
+			preview.additionalCount === 0
+				? formatPlural(
+						l10n.t(
+							'{0, plural, one{Failed to discard changes in {0} file: {1} — check its state before continuing.} other{Failed to discard changes in {0} files: {1} — check their state before continuing.}}',
+						),
+						[failed.length, preview.paths],
+					)
+				: l10n.t(
+						'Failed to discard changes in {0} files: {1}, and {2} more — check their state before continuing.',
 						getNumericFormat()(failed.length),
 						preview.paths,
-					)
-				: preview.additionalCount === 0
-					? l10n.t(
-							'Failed to discard changes in {0} files: {1} — check their state before continuing.',
-							getNumericFormat()(failed.length),
-							preview.paths,
-						)
-					: l10n.t(
-							'Failed to discard changes in {0} files: {1}, and {2} more — check their state before continuing.',
-							getNumericFormat()(failed.length),
-							preview.paths,
-							getNumericFormat()(preview.additionalCount),
-						),
+						getNumericFormat()(preview.additionalCount),
+					),
 		);
 	}
 
@@ -1117,15 +1097,12 @@ export class RepositoryService {
 	private async confirmDiscardStaged(fileCount: number): Promise<boolean> {
 		const discard = l10n.t('Discard Staged Changes');
 		const choice = await window.showWarningMessage(
-			fileCount === 1
-				? l10n.t(
-						'Are you sure you want to discard staged changes in {0} file?\n\nThis is IRREVERSIBLE!\nYour staged changes will be FOREVER LOST if you proceed.',
-						getNumericFormat()(fileCount),
-					)
-				: l10n.t(
-						'Are you sure you want to discard staged changes in {0} files?\n\nThis is IRREVERSIBLE!\nYour staged changes will be FOREVER LOST if you proceed.',
-						getNumericFormat()(fileCount),
-					),
+			formatPlural(
+				l10n.t(
+					'{0, plural, one{Are you sure you want to discard staged changes in {0} file?\n\nThis is IRREVERSIBLE!\nYour staged changes will be FOREVER LOST if you proceed.} other{Are you sure you want to discard staged changes in {0} files?\n\nThis is IRREVERSIBLE!\nYour staged changes will be FOREVER LOST if you proceed.}}',
+				),
+				[fileCount],
+			),
 			{ modal: true },
 			discard,
 		);
@@ -1166,27 +1143,30 @@ export class RepositoryService {
 		const beyondUnstaged = staged > 0 || conflicted > 0;
 		const sections: string[] = [
 			beyondUnstaged
-				? total === 1
-					? l10n.t('Are you sure you want to discard changes in {0} file?', getNumericFormat()(total))
-					: l10n.t('Are you sure you want to discard changes in {0} files?', getNumericFormat()(total))
-				: total === 1
-					? l10n.t(
-							'Are you sure you want to discard unstaged changes in {0} file?',
-							getNumericFormat()(total),
-						)
-					: l10n.t(
-							'Are you sure you want to discard unstaged changes in {0} files?',
-							getNumericFormat()(total),
+				? formatPlural(
+						l10n.t(
+							'{0, plural, one{Are you sure you want to discard changes in {0} file?} other{Are you sure you want to discard changes in {0} files?}}',
 						),
+						[total],
+					)
+				: formatPlural(
+						l10n.t(
+							'{0, plural, one{Are you sure you want to discard unstaged changes in {0} file?} other{Are you sure you want to discard unstaged changes in {0} files?}}',
+						),
+						[total],
+					),
 		];
 		if (untracked > 0) {
 			// Don't promise the Trash — `moveToTrash` hard-deletes on trash-unavailable providers,
 			// and untracked files aren't in Git, so there's no other recovery path. The IRREVERSIBLE
 			// line below is the honest worst case.
 			sections.push(
-				untracked === 1
-					? l10n.t('This will DELETE {0} untracked file.', getNumericFormat()(untracked))
-					: l10n.t('This will DELETE {0} untracked files.', getNumericFormat()(untracked)),
+				formatPlural(
+					l10n.t(
+						'{0, plural, one{This will DELETE {0} untracked file.} other{This will DELETE {0} untracked files.}}',
+					),
+					[untracked],
+				),
 			);
 		}
 		if (stagedAdded > 0) {
@@ -1195,15 +1175,12 @@ export class RepositoryService {
 			// so this is the one genuinely unrecoverable case in the feature. Don't promise the Trash
 			// here either, matching the untracked section above.
 			sections.push(
-				stagedAdded === 1
-					? l10n.t(
-							"This will DELETE {0} staged file added to the index — Git cannot restore it because it isn't in HEAD.",
-							getNumericFormat()(stagedAdded),
-						)
-					: l10n.t(
-							"This will DELETE {0} staged files added to the index — Git cannot restore them because they aren't in HEAD.",
-							getNumericFormat()(stagedAdded),
-						),
+				formatPlural(
+					l10n.t(
+						"{0, plural, one{This will DELETE {0} staged file added to the index — Git cannot restore it because it isn't in HEAD.} other{This will DELETE {0} staged files added to the index — Git cannot restore them because they aren't in HEAD.}}",
+					),
+					[stagedAdded],
+				),
 			);
 		}
 		if (mixed > 0) {
@@ -1212,15 +1189,12 @@ export class RepositoryService {
 			// once it's purely staged, the repo-wide path skips it — so any "do X next" is wrong for one
 			// of them. `confirmDiscardChanges` can still say "discard again" because it has one caller.
 			sections.push(
-				mixed === 1
-					? l10n.t(
-							'{0} file also has staged changes — only its unstaged portion will be discarded; the staged changes remain.',
-							getNumericFormat()(mixed),
-						)
-					: l10n.t(
-							'{0} files also have staged changes — only their unstaged portions will be discarded; the staged changes remain.',
-							getNumericFormat()(mixed),
-						),
+				formatPlural(
+					l10n.t(
+						'{0, plural, one{{0} file also has staged changes — only its unstaged portion will be discarded; the staged changes remain.} other{{0} files also have staged changes — only their unstaged portions will be discarded; the staged changes remain.}}',
+					),
+					[mixed],
+				),
 			);
 		}
 		if (staged > 0) {
@@ -1230,15 +1204,12 @@ export class RepositoryService {
 			// the two describe disjoint file sets, and a destructive confirm can't leave the reader
 			// guessing which one a sentence is about.
 			sections.push(
-				staged === 1
-					? l10n.t(
-							'{0} file has ONLY staged changes — it will be discarded in full, not preserved.',
-							getNumericFormat()(staged),
-						)
-					: l10n.t(
-							'{0} files have ONLY staged changes — they will be discarded in full, not preserved.',
-							getNumericFormat()(staged),
-						),
+				formatPlural(
+					l10n.t(
+						'{0, plural, one{{0} file has ONLY staged changes — it will be discarded in full, not preserved.} other{{0} files have ONLY staged changes — they will be discarded in full, not preserved.}}',
+					),
+					[staged],
+				),
 			);
 		}
 		if (conflicted > 0) {
@@ -1248,28 +1219,22 @@ export class RepositoryService {
 			// matches the conflict vocabulary used by "Open Current/Incoming Changes" and
 			// `canStageCurrent`; "paused operation" covers rebase, merge, cherry-pick and revert.
 			sections.push(
-				conflicted === 1
-					? l10n.t(
-							'{0} conflicted file will be reset to Current and marked resolved — any conflict resolution will be lost, and the paused operation will continue as if it was resolved.',
-							getNumericFormat()(conflicted),
-						)
-					: l10n.t(
-							'{0} conflicted files will be reset to Current and marked resolved — any conflict resolution will be lost, and the paused operation will continue as if they were resolved.',
-							getNumericFormat()(conflicted),
-						),
+				formatPlural(
+					l10n.t(
+						'{0, plural, one{{0} conflicted file will be reset to Current and marked resolved — any conflict resolution will be lost, and the paused operation will continue as if it was resolved.} other{{0} conflicted files will be reset to Current and marked resolved — any conflict resolution will be lost, and the paused operation will continue as if they were resolved.}}',
+					),
+					[conflicted],
+				),
 			);
 		}
 		if (skippedMissing > 0) {
 			sections.push(
-				skippedMissing === 1
-					? l10n.t(
-							'{0} file selected no longer has changes and will be skipped.',
-							getNumericFormat()(skippedMissing),
-						)
-					: l10n.t(
-							'{0} files selected no longer have changes and will be skipped.',
-							getNumericFormat()(skippedMissing),
-						),
+				formatPlural(
+					l10n.t(
+						'{0, plural, one{{0} file selected no longer has changes and will be skipped.} other{{0} files selected no longer have changes and will be skipped.}}',
+					),
+					[skippedMissing],
+				),
 			);
 		}
 		sections.push(l10n.t('This is IRREVERSIBLE!\nYour current working set will be FOREVER LOST if you proceed.'));
@@ -1283,9 +1248,10 @@ export class RepositoryService {
 			? l10n.t('Discard Changes')
 			: mixed > 0
 				? l10n.t('Discard Unstaged Changes')
-				: total === 1
-					? l10n.t('Discard {0} Unstaged File', getNumericFormat()(total))
-					: l10n.t('Discard {0} Unstaged Files', getNumericFormat()(total));
+				: formatPlural(
+						l10n.t('{0, plural, one{Discard {0} Unstaged File} other{Discard {0} Unstaged Files}}'),
+						[total],
+					);
 		const choice = await window.showWarningMessage(sections.join('\n\n'), { modal: true }, discard);
 		return choice === discard;
 	}

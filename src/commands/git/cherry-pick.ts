@@ -9,8 +9,8 @@ import { getConflictDetectionErrorDisplayMessage } from '@gitlens/git/utils/merg
 import { getReferenceLabel, isRevisionReference } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { ensureArray } from '@gitlens/utils/array.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Container } from '../../container.js';
 import { showPausedOperationStatus, skipPausedOperation } from '../../git/actions/pausedOperation.js';
 import type { GlRepository } from '../../git/models/repository.js';
@@ -423,24 +423,18 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 						createDirectiveQuickPickItem(Directive.Noop, false, {
 							label: l10n.t('Conflicts Detected'),
 							detail: result.stoppedOnFirstConflict
-								? result.conflict.files.length === 1
-									? l10n.t(
-											'Will result in at least {0} conflicting file that will need to be resolved',
-											getNumericFormat()(result.conflict.files.length),
-										)
-									: l10n.t(
-											'Will result in at least {0} conflicting files that will need to be resolved',
-											getNumericFormat()(result.conflict.files.length),
-										)
-								: result.conflict.files.length === 1
-									? l10n.t(
-											'Will result in {0} conflicting file that will need to be resolved',
-											getNumericFormat()(result.conflict.files.length),
-										)
-									: l10n.t(
-											'Will result in {0} conflicting files that will need to be resolved',
-											getNumericFormat()(result.conflict.files.length),
+								? formatPlural(
+										l10n.t(
+											'{0, plural, one{Will result in at least {0} conflicting file that will need to be resolved} other{Will result in at least {0} conflicting files that will need to be resolved}}',
 										),
+										[result.conflict.files.length],
+									)
+								: formatPlural(
+										l10n.t(
+											'{0, plural, one{Will result in {0} conflicting file that will need to be resolved} other{Will result in {0} conflicting files that will need to be resolved}}',
+										),
+										[result.conflict.files.length],
+									),
 							iconPath: new ThemeIcon('warning'),
 						}),
 					);

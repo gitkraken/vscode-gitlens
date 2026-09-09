@@ -7,6 +7,7 @@ import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
 import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { ensureArray } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { pad, splitSingle } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../constants.js';
 import type { Container } from '../container.js';
@@ -107,9 +108,12 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 
 			let title;
 			let placeholder = args.clipboard
-				? resources.length > 1
-					? l10n.t('Choose which remote to copy the links for (or use the gear to set it as default)')
-					: l10n.t('Choose which remote to copy the link for (or use the gear to set it as default)')
+				? formatPlural(
+						l10n.t(
+							'{0, plural, one{Choose which remote to copy the link for (or use the gear to set it as default)} other{Choose which remote to copy the links for (or use the gear to set it as default)}}',
+						),
+						[resources.length],
+					)
 				: l10n.t('Choose which remote to open on (or use the gear to set it as default)');
 			const titleSeparator = pad(GlyphChars.Dot, 2, 2);
 
@@ -117,124 +121,144 @@ export class OpenOnRemoteCommand extends GlCommandBase {
 			switch (resource.type) {
 				case RemoteResourceType.Branch:
 					title = args.clipboard
-						? resources.length > 1
-							? l10n.t('Copy {0} Branch Links', provider)
-							: l10n.t('Copy {0} Branch Link{1}{2}', provider, titleSeparator, resource.branch)
-						: resources.length === 1
-							? l10n.t('Open Branch on {0}{1}{2}', provider, titleSeparator, resource.branch)
-							: l10n.t('Open Branch on {0}', provider);
+						? formatPlural(
+								l10n.t('{3, plural, one{Copy {0} Branch Link{1}{2}} other{Copy {0} Branch Links}}'),
+								[provider, titleSeparator, resource.branch, resources.length],
+							)
+						: formatPlural(l10n.t('{3, plural, one{Open Branch on {0}{1}{2}} other{Open Branch on {0}}}'), [
+								provider,
+								titleSeparator,
+								resource.branch,
+								resources.length,
+							]);
 					break;
 
 				case RemoteResourceType.Branches:
 					title = args.clipboard
-						? resources.length > 1
-							? l10n.t('Copy {0} Branches Links', provider)
-							: l10n.t('Copy {0} Branches Link', provider)
+						? formatPlural(
+								l10n.t('{1, plural, one{Copy {0} Branches Link} other{Copy {0} Branches Links}}'),
+								[provider, resources.length],
+							)
 						: l10n.t('Open Branches on {0}', provider);
 					break;
 
 				case RemoteResourceType.Commit:
 					title = args.clipboard
-						? resources.length > 1
-							? l10n.t('Copy {0} Commit Links', provider)
-							: l10n.t(
-									'Copy {0} Commit Link{1}{2}',
-									provider,
-									titleSeparator,
-									shortenRevision(resource.sha),
-								)
-						: resources.length === 1
-							? l10n.t(
-									'Open Commit on {0}{1}{2}',
-									provider,
-									titleSeparator,
-									shortenRevision(resource.sha),
-								)
-							: l10n.t('Open Commit on {0}', provider);
+						? formatPlural(
+								l10n.t('{3, plural, one{Copy {0} Commit Link{1}{2}} other{Copy {0} Commit Links}}'),
+								[provider, titleSeparator, shortenRevision(resource.sha), resources.length],
+							)
+						: formatPlural(l10n.t('{3, plural, one{Open Commit on {0}{1}{2}} other{Open Commit on {0}}}'), [
+								provider,
+								titleSeparator,
+								shortenRevision(resource.sha),
+								resources.length,
+							]);
 					break;
 
-				case RemoteResourceType.Comparison:
-					if (resources.length === 1) {
-						const range = createRevisionRange(resource.base, resource.head, resource.notation ?? '...');
-						title = args.clipboard
-							? l10n.t('Copy {0} Comparisons Link{1}{2}', provider, titleSeparator, range)
-							: l10n.t('Open Comparisons on {0}{1}{2}', provider, titleSeparator, range);
-					} else {
-						title = args.clipboard
-							? l10n.t('Copy {0} Comparisons Links', provider)
-							: l10n.t('Open Comparisons on {0}', provider);
-					}
+				case RemoteResourceType.Comparison: {
+					const range = createRevisionRange(resource.base, resource.head, resource.notation ?? '...');
+					title = args.clipboard
+						? formatPlural(
+								l10n.t(
+									'{3, plural, one{Copy {0} Comparisons Link{1}{2}} other{Copy {0} Comparisons Links}}',
+								),
+								[provider, titleSeparator, range, resources.length],
+							)
+						: formatPlural(
+								l10n.t(
+									'{3, plural, one{Open Comparisons on {0}{1}{2}} other{Open Comparisons on {0}}}',
+								),
+								[provider, titleSeparator, range, resources.length],
+							);
 					break;
+				}
 
-				case RemoteResourceType.CreatePullRequest:
+				case RemoteResourceType.CreatePullRequest: {
 					options.autoPick = true;
 					options.setDefault = false;
 
-					if (resources.length > 1) {
-						title = args.clipboard
-							? l10n.t('Copy {0} Create Pull Request Links', provider)
-							: l10n.t('Create Pull Requests on {0}', provider);
+					const range = resource.base?.branch
+						? createRevisionRange(resource.base.branch, resource.head.branch, '...')
+						: resource.head.branch;
+					title = args.clipboard
+						? formatPlural(
+								l10n.t(
+									'{3, plural, one{Copy {0} Create Pull Request Link{1}{2}} other{Copy {0} Create Pull Request Links}}',
+								),
+								[provider, titleSeparator, range, resources.length],
+							)
+						: formatPlural(
+								l10n.t(
+									'{3, plural, one{Create Pull Request on {0}{1}{2}} other{Create Pull Requests on {0}}}',
+								),
+								[provider, titleSeparator, range, resources.length],
+							);
 
-						placeholder = args.clipboard
-							? l10n.t('Choose which remote to copy the create pull request links for')
-							: l10n.t('Choose which remote to create the pull requests on');
-					} else {
-						const range = resource.base?.branch
-							? createRevisionRange(resource.base.branch, resource.head.branch, '...')
-							: resource.head.branch;
-						title = args.clipboard
-							? l10n.t('Copy {0} Create Pull Request Link{1}{2}', provider, titleSeparator, range)
-							: l10n.t('Create Pull Request on {0}{1}{2}', provider, titleSeparator, range);
-
-						placeholder = args.clipboard
-							? l10n.t('Choose which remote to copy the create pull request link for')
-							: l10n.t('Choose which remote to create the pull request on');
-					}
+					placeholder = args.clipboard
+						? formatPlural(
+								l10n.t(
+									'{0, plural, one{Choose which remote to copy the create pull request link for} other{Choose which remote to copy the create pull request links for}}',
+								),
+								[resources.length],
+							)
+						: formatPlural(
+								l10n.t(
+									'{0, plural, one{Choose which remote to create the pull request on} other{Choose which remote to create the pull requests on}}',
+								),
+								[resources.length],
+							);
 					break;
+				}
 
 				case RemoteResourceType.File:
 					title = args.clipboard
-						? resources.length > 1
-							? l10n.t('Copy {0} File Links', provider)
-							: l10n.t('Copy {0} File Link{1}{2}', provider, titleSeparator, resource.fileName)
-						: resources.length === 1
-							? l10n.t('Open File on {0}{1}{2}', provider, titleSeparator, resource.fileName)
-							: l10n.t('Open File on {0}', provider);
+						? formatPlural(
+								l10n.t('{3, plural, one{Copy {0} File Link{1}{2}} other{Copy {0} File Links}}'),
+								[provider, titleSeparator, resource.fileName, resources.length],
+							)
+						: formatPlural(l10n.t('{3, plural, one{Open File on {0}{1}{2}} other{Open File on {0}}}'), [
+								provider,
+								titleSeparator,
+								resource.fileName,
+								resources.length,
+							]);
 					break;
 
 				case RemoteResourceType.Repo:
 					title = args.clipboard
-						? resources.length > 1
-							? l10n.t('Copy {0} Repository Links', provider)
-							: l10n.t('Copy {0} Repository Link', provider)
+						? formatPlural(
+								l10n.t('{1, plural, one{Copy {0} Repository Link} other{Copy {0} Repository Links}}'),
+								[provider, resources.length],
+							)
 						: l10n.t('Open Repository on {0}', provider);
 					break;
 
 				case RemoteResourceType.Revision: {
-					if (resources.length === 1) {
-						const fileSeparator = pad(GlyphChars.Dot, 1, 1);
-						title = args.clipboard
-							? l10n.t(
-									'Copy {0} File Link{1}{2}{3}{4}',
+					const fileSeparator = pad(GlyphChars.Dot, 1, 1);
+					title = args.clipboard
+						? formatPlural(
+								l10n.t('{5, plural, one{Copy {0} File Link{1}{2}{3}{4}} other{Copy {0} File Links}}'),
+								[
 									provider,
 									titleSeparator,
 									shortenRevision(resource.sha),
 									fileSeparator,
 									resource.fileName,
-								)
-							: l10n.t(
-									'Open File on {0}{1}{2}{3}{4}',
+									resources.length,
+								],
+							)
+						: formatPlural(
+								l10n.t('{5, plural, one{Open File on {0}{1}{2}{3}{4}} other{Open File on {0}}}'),
+								[
 									provider,
 									titleSeparator,
 									shortenRevision(resource.sha),
 									fileSeparator,
 									resource.fileName,
-								);
-					} else {
-						title = args.clipboard
-							? l10n.t('Copy {0} File Links', provider)
-							: l10n.t('Open File on {0}', provider);
-					}
+									resources.length,
+								],
+							);
 					break;
 				}
 

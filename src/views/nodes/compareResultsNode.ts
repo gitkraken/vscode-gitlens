@@ -3,9 +3,9 @@ import { Disposable, l10n, ThemeIcon, TreeItem, TreeItemCheckboxState, TreeItemC
 import type { GitUser } from '@gitlens/git/models/user.js';
 import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { md5 } from '@gitlens/utils/crypto.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { weakEvent } from '@gitlens/utils/event.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { StoredNamedRef } from '../../constants.storage.js';
 import type { FilesComparison } from '../../git/actions/commit.js';
 import { GitUri } from '../../git/gitUri.js';
@@ -333,8 +333,7 @@ export class CompareResultsNode extends SubscribeableViewNode<
 }
 
 function getCommitCountLabel(count: number): string {
-	const formattedCount = getNumericFormat()(count);
-	return count === 1 ? l10n.t('{0} commit', formattedCount) : l10n.t('{0} commits', formattedCount);
+	return formatPlural(l10n.t('{0, plural, one{{0} commit} other{{0} commits}}'), [count]);
 }
 
 export function getComparisonStoragePrefix(storageId: string): string {

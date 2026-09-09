@@ -54,7 +54,7 @@ import type { GlPopover } from '@gitlens/components/components/overlays/popover.
 import { ModifierKeysController } from '@gitlens/components/controllers/modifierKeys.js';
 import { RovingTabindexController } from '@gitlens/components/controllers/rovingTabindex.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
-import { formatDate as formatGitLensDate, getNumericFormat, fromNow as gitlensFromNow } from '@gitlens/utils/date.js';
+import { formatDate as formatGitLensDate, fromNow as gitlensFromNow } from '@gitlens/utils/date.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import { dispatchContextMenuAt } from '@gitlens/utils/dom.js';
@@ -62,6 +62,7 @@ import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import type { KeyBindingDescriptor } from '@gitlens/utils/keys/keybinding.js';
 import type { KeymapDispatcher } from '@gitlens/utils/keys/keymapDispatcher.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { GraphRowAction, GraphWipRowBranchResolver } from './contracts/contributions.js';
 import type { GraphKeymapScope } from './contracts/keyboard.js';
 import type { GraphRefFinderElement } from './contracts/refFinder.js';
@@ -3587,9 +3588,12 @@ export class GlCommitGraph extends LitElement {
 		} else {
 			const hidden = this.hiddenCountByTipSha.get(tipSha) ?? 0;
 			this.announce(
-				hidden === 1
-					? l10n.t('Lane collapsed. {0} commit hidden.', hidden)
-					: l10n.t('Lane collapsed. {0} commits hidden.', hidden),
+				formatPlural(
+					l10n.t(
+						'{0, plural, one{Lane collapsed. {0} commit hidden.} other{Lane collapsed. {0} commits hidden.}}',
+					),
+					[hidden],
+				),
 			);
 		}
 	}
@@ -5254,35 +5258,29 @@ export class GlCommitGraph extends LitElement {
 
 		const allLoaded = !sr.hasMore && this.searchResultsRenderedCount === sr.count;
 		if (allLoaded) {
-			const count = getNumericFormat()(sr.count);
 			return html`<span class="gl-graph__results-bar-message"
-				>${sr.count === 1 ? l10n.t('Showing all {0} result', count) : l10n.t('Showing all {0} results', count)}</span
+				>${formatPlural(l10n.t('{0, plural, one{Showing all {0} result} other{Showing all {0} results}}'), [
+					sr.count,
+				])}</span
 			>`;
 		}
 
 		// Disclose the shortfall either way, but only offer the action when a page could still arrive — a
 		// drained walk means the unrendered results are unreachable from it (a peer worktree whose HEAD is
 		// not in `--all`, say), and a button that provably fetches nothing is worse than no button.
-		const count = getNumericFormat()(sr.count);
 		const message = sr.hasMore
-			? sr.count === 1
-				? l10n.t('Showing {rendered} of {total}+ result', {
-						rendered: this.searchResultsRenderedCount,
-						total: count,
-					})
-				: l10n.t('Showing {rendered} of {total}+ results', {
-						rendered: this.searchResultsRenderedCount,
-						total: count,
-					})
-			: sr.count === 1
-				? l10n.t('Showing {rendered} of {total} result', {
-						rendered: this.searchResultsRenderedCount,
-						total: count,
-					})
-				: l10n.t('Showing {rendered} of {total} results', {
-						rendered: this.searchResultsRenderedCount,
-						total: count,
-					});
+			? formatPlural(
+					l10n.t(
+						'{total, plural, one{Showing {rendered} of {total}+ result} other{Showing {rendered} of {total}+ results}}',
+					),
+					{ rendered: String(this.searchResultsRenderedCount), total: sr.count },
+				)
+			: formatPlural(
+					l10n.t(
+						'{total, plural, one{Showing {rendered} of {total} result} other{Showing {rendered} of {total} results}}',
+					),
+					{ rendered: String(this.searchResultsRenderedCount), total: sr.count },
+				);
 		return html`<span class="gl-graph__results-bar-message">${message}</span>${
 				this.pagingHasMore !== false
 					? html`<button
@@ -5339,11 +5337,12 @@ export class GlCommitGraph extends LitElement {
 		// correct if that ever stops being true.)
 		const canLoadMore = this.pagingHasMore !== false && !searchPending;
 
-		const count = getNumericFormat()(total);
-		const message =
-			total === 1
-				? l10n.t('Showing {loaded} of {total} branch', { loaded: loaded, total: count })
-				: l10n.t('Showing {loaded} of {total} branches', { loaded: loaded, total: count });
+		const message = formatPlural(
+			l10n.t(
+				'{total, plural, one{Showing {loaded} of {total} branch} other{Showing {loaded} of {total} branches}}',
+			),
+			{ loaded: String(loaded), total: total },
+		);
 		return html`<span class="gl-graph__results-bar-message">${message}</span>${
 				canLoadMore
 					? html`<button
@@ -6740,11 +6739,10 @@ export class GlCommitGraph extends LitElement {
 		);
 
 		if (selectionContexts != null && selectionContexts.length > 1) {
-			const count = getNumericFormat()(selectionContexts.length);
 			this.announce(
-				selectionContexts.length === 1
-					? l10n.t('Copied {0} commit.', count)
-					: l10n.t('Copied {0} commits.', count),
+				formatPlural(l10n.t('{0, plural, one{Copied {0} commit.} other{Copied {0} commits.}}'), [
+					selectionContexts.length,
+				]),
 			);
 		} else {
 			this.announce(l10n.t('Copied.'));
@@ -7516,11 +7514,13 @@ export class GlCommitGraph extends LitElement {
 		this.dispatchEvent(new CustomEvent('gl-graph-lanetoggleall', { detail: { collapsed: collapsed } }));
 
 		if (collapsed) {
-			const count = getNumericFormat()(this.segmentsByTipSha.size);
 			this.announce(
-				this.segmentsByTipSha.size === 1
-					? l10n.t('All lanes collapsed. {0} lane folded.', count)
-					: l10n.t('All lanes collapsed. {0} lanes folded.', count),
+				formatPlural(
+					l10n.t(
+						'{0, plural, one{All lanes collapsed. {0} lane folded.} other{All lanes collapsed. {0} lanes folded.}}',
+					),
+					[this.segmentsByTipSha.size],
+				),
 			);
 		} else {
 			this.announce(l10n.t('All lanes expanded.'));

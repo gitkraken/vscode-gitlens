@@ -5,6 +5,7 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { elevatedSurface } from '@gitlens/components/components/styles/lit/elevation.css.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { CommitFrequencyData, TreemapData, TreemapMode, TreemapNode } from '../../../../plus/treemap/protocol.js';
 import type { TreemapRect } from '../utils/squarify.js';
 import { descendants, leaves, squarify } from '../utils/squarify.js';
@@ -798,24 +799,18 @@ export class GlTreemapChart extends LitElement {
 			for (const _l of leaves(rect)) {
 				leafCount++;
 			}
-			parts.push(
-				leafCount === 1 ? l10n.t('{0} file', String(leafCount)) : l10n.t('{0} files', String(leafCount)),
-			);
+			parts.push(formatPlural(l10n.t('{0, plural, one{{0} file} other{{0} files}}'), [leafCount]));
 		}
 
 		if (this.mode === 'commits' && data.type === 'file') {
 			const count = this.getCommitCount(data);
-			parts.push(count === 1 ? l10n.t('{0} commit', String(count)) : l10n.t('{0} commits', String(count)));
+			parts.push(formatPlural(l10n.t('{0, plural, one{{0} commit} other{{0} commits}}'), [count]));
 		} else if (this.mode === 'commits' && data.type === 'folder') {
 			// Unique-commit count from the host's per-folder aggregation — looking up the folder
 			// path here mirrors `getCommitCount` for files but uses `folderFrequencies`.
 			const folderCount = this.data?.frequencies?.folderFrequencies[this.getRelativePath(data)] ?? 0;
 			if (folderCount > 0) {
-				parts.push(
-					folderCount === 1
-						? l10n.t('{0} commit', String(folderCount))
-						: l10n.t('{0} commits', String(folderCount)),
-				);
+				parts.push(formatPlural(l10n.t('{0, plural, one{{0} commit} other{{0} commits}}'), [folderCount]));
 			}
 		} else if (this.mode === 'activity' && data.type === 'file') {
 			const entry = this.activity?.entries.get(this.getRelativePath(data));

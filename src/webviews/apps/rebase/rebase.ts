@@ -17,6 +17,7 @@ import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { getNumericFormat } from '@gitlens/utils/date.js';
 import { filterMap, some } from '@gitlens/utils/iterable.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../plus/gk/utils/subscription.utils.js';
 import type { ConflictFileInfo, RebaseActiveStatus, RebaseCommitEntry, RebaseEntry } from '../../rebase/protocol.js';
 import { isCommandEntry, isCommitEntry } from '../../rebase/protocol.js';
@@ -1543,14 +1544,12 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 
 			const conflictCount = result?.status === 'conflicts' ? (result.conflict?.shas?.length ?? 0) : 0;
 			if (conflictCount) {
-				const conflictsTooltip =
-					conflictCount === 1
-						? l10n.t('Potential conflicts detected in {count} remaining commit', {
-								count: getNumericFormat()(conflictCount),
-							})
-						: l10n.t('Potential conflicts detected in {count} remaining commits', {
-								count: getNumericFormat()(conflictCount),
-							});
+				const conflictsTooltip = formatPlural(
+					l10n.t(
+						'{count, plural, one{Potential conflicts detected in {count} remaining commit} other{Potential conflicts detected in {count} remaining commits}}',
+					),
+					{ count: conflictCount },
+				);
 				return html`<gl-tooltip content=${conflictsTooltip}>
 					<span class="conflict-summary warning">
 						<code-icon icon="warning"></code-icon>
@@ -1684,10 +1683,12 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 		const conflictFiles = this.state?.conflictFiles;
 		if (!conflictFiles?.length || !this.rebaseStatus?.hasConflicts) return nothing;
 
-		const conflictFilesLabel =
-			conflictFiles.length === 1
-				? l10n.t('{count} conflicted file', { count: getNumericFormat()(conflictFiles.length) })
-				: l10n.t('{count} conflicted files', { count: getNumericFormat()(conflictFiles.length) });
+		const conflictFilesLabel = formatPlural(
+			l10n.t('{count, plural, one{{count} conflicted file} other{{count} conflicted files}}'),
+			{
+				count: conflictFiles.length,
+			},
+		);
 		const layoutLabel =
 			this._conflictFilesLayout === 'tree' ? l10n.t('Switch to List Layout') : l10n.t('Switch to Tree Layout');
 
@@ -2007,18 +2008,16 @@ export class GlRebaseEditor extends SignalWatcherWebviewApp {
 		const count = html`<span class="header-count"
 			>${
 				this.isRebasing
-					? totalCommitCount === 1
-						? l10n.t('{done}/{total} commit', {
-								done: getNumericFormat()(doneCommitCount),
-								total: getNumericFormat()(totalCommitCount),
-							})
-						: l10n.t('{done}/{total} commits', {
-								done: getNumericFormat()(doneCommitCount),
-								total: getNumericFormat()(totalCommitCount),
-							})
-					: pendingCommitCount === 1
-						? l10n.t('{count} commit', { count: getNumericFormat()(pendingCommitCount) })
-						: l10n.t('{count} commits', { count: getNumericFormat()(pendingCommitCount) })
+					? formatPlural(
+							l10n.t('{total, plural, one{{done}/{total} commit} other{{done}/{total} commits}}'),
+							{
+								done: doneCommitCount,
+								total: totalCommitCount,
+							},
+						)
+					: formatPlural(l10n.t('{count, plural, one{{count} commit} other{{count} commits}}'), {
+							count: pendingCommitCount,
+						})
 			}</span
 		>`;
 

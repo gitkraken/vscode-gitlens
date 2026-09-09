@@ -8,6 +8,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import { srOnlyStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
@@ -669,9 +670,9 @@ export class GlGraphOverviewCard extends LitElement {
 				)}</span
 			>
 			<span slot="content"
-				>${
-					sessions.length === 1 ? l10n.t('1 agent session') : l10n.t('{0} agent sessions', sessions.length)
-				}</span
+				>${formatPlural(l10n.t('{0, plural, one{{0} agent session} other{{0} agent sessions}}'), [
+					sessions.length,
+				])}</span
 			></gl-tooltip
 		>`;
 	}

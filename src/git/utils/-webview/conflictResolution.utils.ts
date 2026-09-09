@@ -3,6 +3,7 @@ import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import { classifyConflictAction } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { normalizePath } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Container } from '../../../container.js';
 import { showGitErrorMessage } from '../../../messages.js';
 
@@ -103,27 +104,19 @@ export async function resolveAllConflicts(
 	if (resolvableCount === 0) {
 		let message: string;
 		if (resolution === 'current') {
-			message =
-				conflictFiles.length === 1
-					? l10n.t(
-							'None of the {0} conflicted file can be resolved by staging the current side.',
-							conflictFiles.length,
-						)
-					: l10n.t(
-							'None of the {0} conflicted files can be resolved by staging the current side.',
-							conflictFiles.length,
-						);
+			message = formatPlural(
+				l10n.t(
+					'{0, plural, one{None of the {0} conflicted file can be resolved by staging the current side.} other{None of the {0} conflicted files can be resolved by staging the current side.}}',
+				),
+				[conflictFiles.length],
+			);
 		} else {
-			message =
-				conflictFiles.length === 1
-					? l10n.t(
-							'None of the {0} conflicted file can be resolved by staging the incoming side.',
-							conflictFiles.length,
-						)
-					: l10n.t(
-							'None of the {0} conflicted files can be resolved by staging the incoming side.',
-							conflictFiles.length,
-						);
+			message = formatPlural(
+				l10n.t(
+					'{0, plural, one{None of the {0} conflicted file can be resolved by staging the incoming side.} other{None of the {0} conflicted files can be resolved by staging the incoming side.}}',
+				),
+				[conflictFiles.length],
+			);
 		}
 
 		void window.showWarningMessage(message, { modal: true });
@@ -135,69 +128,37 @@ export async function resolveAllConflicts(
 	};
 	let message: string;
 	if (resolution === 'current') {
-		if (conflictFiles.length === 1) {
-			message = l10n.t(
-				'Resolve {0} of {1} conflicted file by staging the current side?\n\nThis will discard the incoming changes for that file.',
-				resolvableCount,
-				conflictFiles.length,
-			);
-		} else if (resolvableCount === 1) {
-			message = l10n.t(
-				'Resolve {0} of {1} conflicted files by staging the current side?\n\nThis will discard the incoming changes for that file.',
-				resolvableCount,
-				conflictFiles.length,
-			);
-		} else {
-			message = l10n.t(
-				'Resolve {0} of {1} conflicted files by staging the current side?\n\nThis will discard the incoming changes for those files.',
-				resolvableCount,
-				conflictFiles.length,
-			);
-		}
-	} else if (conflictFiles.length === 1) {
-		message = l10n.t(
-			'Resolve {0} of {1} conflicted file by staging the incoming side?\n\nThis will discard the current changes for that file.',
-			resolvableCount,
-			conflictFiles.length,
-		);
-	} else if (resolvableCount === 1) {
-		message = l10n.t(
-			'Resolve {0} of {1} conflicted files by staging the incoming side?\n\nThis will discard the current changes for that file.',
-			resolvableCount,
-			conflictFiles.length,
+		message = formatPlural(
+			l10n.t(
+				'{total, plural, one{Resolve {resolved} of {total} conflicted file by staging the current side?\n\nThis will discard the incoming changes for that file.} other{{resolved, plural, one{Resolve {resolved} of {total} conflicted files by staging the current side?\n\nThis will discard the incoming changes for that file.} other{Resolve {resolved} of {total} conflicted files by staging the current side?\n\nThis will discard the incoming changes for those files.}}}}',
+			),
+			{ resolved: resolvableCount, total: conflictFiles.length },
 		);
 	} else {
-		message = l10n.t(
-			'Resolve {0} of {1} conflicted files by staging the incoming side?\n\nThis will discard the current changes for those files.',
-			resolvableCount,
-			conflictFiles.length,
+		message = formatPlural(
+			l10n.t(
+				'{total, plural, one{Resolve {resolved} of {total} conflicted file by staging the incoming side?\n\nThis will discard the current changes for that file.} other{{resolved, plural, one{Resolve {resolved} of {total} conflicted files by staging the incoming side?\n\nThis will discard the current changes for that file.} other{Resolve {resolved} of {total} conflicted files by staging the incoming side?\n\nThis will discard the current changes for those files.}}}}',
+			),
+			{ resolved: resolvableCount, total: conflictFiles.length },
 		);
 	}
 
 	let skipNote: string | undefined;
 	if (skippedCount) {
 		if (resolution === 'current') {
-			skipNote =
-				skippedCount === 1
-					? l10n.t(
-							'{0} file has no current side to take and will be skipped — resolve it manually.',
-							skippedCount,
-						)
-					: l10n.t(
-							'{0} files have no current side to take and will be skipped — resolve them manually.',
-							skippedCount,
-						);
+			skipNote = formatPlural(
+				l10n.t(
+					'{0, plural, one{{0} file has no current side to take and will be skipped — resolve it manually.} other{{0} files have no current side to take and will be skipped — resolve them manually.}}',
+				),
+				[skippedCount],
+			);
 		} else {
-			skipNote =
-				skippedCount === 1
-					? l10n.t(
-							'{0} file has no incoming side to take and will be skipped — resolve it manually.',
-							skippedCount,
-						)
-					: l10n.t(
-							'{0} files have no incoming side to take and will be skipped — resolve them manually.',
-							skippedCount,
-						);
+			skipNote = formatPlural(
+				l10n.t(
+					'{0, plural, one{{0} file has no incoming side to take and will be skipped — resolve it manually.} other{{0} files have no incoming side to take and will be skipped — resolve them manually.}}',
+				),
+				[skippedCount],
+			);
 		}
 	}
 
@@ -252,17 +213,12 @@ export async function resolveAllConflicts(
 
 	if (failedCount) {
 		void window.showErrorMessage(
-			failedCount === 1
-				? l10n.t(
-						'Failed to resolve {0} of {1} conflicted file. See logs for details.',
-						failedCount,
-						resolvableCount,
-					)
-				: l10n.t(
-						'Failed to resolve {0} of {1} conflicted files. See logs for details.',
-						failedCount,
-						resolvableCount,
-					),
+			formatPlural(
+				l10n.t(
+					'{0, plural, one{Failed to resolve {0} of {1} conflicted file. See logs for details.} other{Failed to resolve {0} of {1} conflicted files. See logs for details.}}',
+				),
+				[failedCount, resolvableCount],
+			),
 		);
 		for (const f of failures) {
 			const error = f.reason instanceof Error ? f.reason : new Error(String(f.reason));

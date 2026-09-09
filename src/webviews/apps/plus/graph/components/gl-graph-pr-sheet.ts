@@ -8,7 +8,7 @@ import { scrollableBase } from '@gitlens/components/components/styles/lit/base.c
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { PullRequestReviewDecision } from '@gitlens/git/models/pullRequest.js';
 import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { GraphSidebarPullRequest } from '../../../../plus/graph/protocol.js';
 import type { GlPopoverConfirm } from '../../../shared/components/overlays/popover-confirm.js';
@@ -1214,28 +1214,23 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			}
 		}
 
-		const commitCountText = commitCount != null ? getNumericFormat()(commitCount) : undefined;
-		const fileCountText = filesChanged != null ? getNumericFormat()(filesChanged) : undefined;
-
 		return html`${
-			commitCount != null && commitCountText != null
+			commitCount != null
 				? html`<span
-						><code-icon icon="git-commit"></code-icon>${
-							commitCount === 1
-								? l10n.t('{count} commit', { count: commitCountText })
-								: l10n.t('{count} commits', { count: commitCountText })
-						}</span
+						><code-icon icon="git-commit"></code-icon>${formatPlural(
+							l10n.t('{count, plural, one{{count} commit} other{{count} commits}}'),
+							{ count: commitCount },
+						)}</span
 					>`
 				: nothing
 		}
 		${
-			filesChanged && fileCountText != null
+			filesChanged
 				? html`<span
-						><code-icon icon="files"></code-icon>${
-							filesChanged === 1
-								? l10n.t('{count} file', { count: fileCountText })
-								: l10n.t('{count} files', { count: fileCountText })
-						}</span
+						><code-icon icon="files"></code-icon>${formatPlural(
+							l10n.t('{count, plural, one{{count} file} other{{count} files}}'),
+							{ count: filesChanged },
+						)}</span
 					>`
 				: nothing
 		}
@@ -1375,11 +1370,13 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		}
 
 		const count = this.stackRoot ? stack.size : stack.position;
-		const formattedCount = getNumericFormat()(count);
 		return localizedContent(
-			count === 1
-				? l10n.t('Lands {count} pull request on {trunk}', { count: formattedCount })
-				: l10n.t('Lands {count} pull requests on {trunk}', { count: formattedCount }),
+			formatPlural(
+				l10n.t(
+					'{count, plural, one{Lands {count} pull request on {trunk}} other{Lands {count} pull requests on {trunk}}}',
+				),
+				{ count: count },
+			),
 			{ trunk: trunk },
 		);
 	}
@@ -1420,17 +1417,13 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 		}
 
 		const count = this.stackRoot ? stack.size : stack.position;
-		const formattedCount = getNumericFormat()(count);
 		return localizedContent(
-			count === 1
-				? l10n.t('Resolve on {branch}, then merging lands {count} pull request on {trunk}', {
-						branch: headBranch,
-						count: formattedCount,
-					})
-				: l10n.t('Resolve on {branch}, then merging lands {count} pull requests on {trunk}', {
-						branch: headBranch,
-						count: formattedCount,
-					}),
+			formatPlural(
+				l10n.t(
+					'{count, plural, one{Resolve on {branch}, then merging lands {count} pull request on {trunk}} other{Resolve on {branch}, then merging lands {count} pull requests on {trunk}}}',
+				),
+				{ branch: headBranch, count: count },
+			),
 			{ trunk: trunk },
 		);
 	}
@@ -1794,53 +1787,40 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 	private mergeConfirmMessage(pr: GraphSidebarPullRequest, count: number): string {
 		if (count > 1) {
 			const below = count - 1;
-			const formattedCount = getNumericFormat()(below);
 			const trunk = pr.stack?.baseRef ?? pr.baseBranch;
 			if (pr.headBranch != null) {
 				if (trunk != null) {
-					return below === 1
-						? l10n.t(
-								'Merging {head} also merges the {count} pull request below it in the stack, into {target}. This cannot be undone.',
-								{ head: pr.headBranch, count: formattedCount, target: trunk },
-							)
-						: l10n.t(
-								'Merging {head} also merges the {count} pull requests below it in the stack, into {target}. This cannot be undone.',
-								{ head: pr.headBranch, count: formattedCount, target: trunk },
-							);
+					return formatPlural(
+						l10n.t(
+							'{count, plural, one{Merging {head} also merges the {count} pull request below it in the stack, into {target}. This cannot be undone.} other{Merging {head} also merges the {count} pull requests below it in the stack, into {target}. This cannot be undone.}}',
+						),
+						{ head: pr.headBranch, count: below, target: trunk },
+					);
 				}
 
-				return below === 1
-					? l10n.t(
-							'Merging {head} also merges the {count} pull request below it in the stack, into its base. This cannot be undone.',
-							{ head: pr.headBranch, count: formattedCount },
-						)
-					: l10n.t(
-							'Merging {head} also merges the {count} pull requests below it in the stack, into its base. This cannot be undone.',
-							{ head: pr.headBranch, count: formattedCount },
-						);
+				return formatPlural(
+					l10n.t(
+						'{count, plural, one{Merging {head} also merges the {count} pull request below it in the stack, into its base. This cannot be undone.} other{Merging {head} also merges the {count} pull requests below it in the stack, into its base. This cannot be undone.}}',
+					),
+					{ head: pr.headBranch, count: below },
+				);
 			}
 
 			if (trunk != null) {
-				return below === 1
-					? l10n.t(
-							'Merging this pull request also merges the {count} pull request below it in the stack, into {target}. This cannot be undone.',
-							{ count: formattedCount, target: trunk },
-						)
-					: l10n.t(
-							'Merging this pull request also merges the {count} pull requests below it in the stack, into {target}. This cannot be undone.',
-							{ count: formattedCount, target: trunk },
-						);
+				return formatPlural(
+					l10n.t(
+						'{count, plural, one{Merging this pull request also merges the {count} pull request below it in the stack, into {target}. This cannot be undone.} other{Merging this pull request also merges the {count} pull requests below it in the stack, into {target}. This cannot be undone.}}',
+					),
+					{ count: below, target: trunk },
+				);
 			}
 
-			return below === 1
-				? l10n.t(
-						'Merging this pull request also merges the {count} pull request below it in the stack, into its base. This cannot be undone.',
-						{ count: formattedCount },
-					)
-				: l10n.t(
-						'Merging this pull request also merges the {count} pull requests below it in the stack, into its base. This cannot be undone.',
-						{ count: formattedCount },
-					);
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{Merging this pull request also merges the {count} pull request below it in the stack, into its base. This cannot be undone.} other{Merging this pull request also merges the {count} pull requests below it in the stack, into its base. This cannot be undone.}}',
+				),
+				{ count: below },
+			);
 		}
 
 		if (pr.headBranch != null) {

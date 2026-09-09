@@ -2,6 +2,7 @@ import * as l10n from '@vscode/l10n';
 import { isAIUnavailableError } from '@gitlens/ai/errors.js';
 import { PausedOperationContinueError } from '@gitlens/git/errors.js';
 import type { GitPausedOperation, GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getPresentableErrorMessage } from '../../../errors.js';
 import type {
 	AutoRebaseEscalation,
@@ -339,18 +340,12 @@ export async function runAutoRebaseLoop(
 		}
 
 		session.phase = 'resolving';
-		session.progressMessage =
-			entries.length === 1
-				? l10n.t('Step {current}/{total} · Resolving {count} conflict with AI…', {
-						current: stepNumber,
-						total: totalSteps,
-						count: entries.length,
-					})
-				: l10n.t('Step {current}/{total} · Resolving {count} conflicts with AI…', {
-						current: stepNumber,
-						total: totalSteps,
-						count: entries.length,
-					});
+		session.progressMessage = formatPlural(
+			l10n.t(
+				'{count, plural, one{Step {current}/{total} · Resolving {count} conflict with AI…} other{Step {current}/{total} · Resolving {count} conflicts with AI…}}',
+			),
+			{ current: String(stepNumber), total: String(totalSteps), count: entries.length },
+		);
 		onDidChange();
 
 		// Snapshot the conflicted (marker) content BEFORE resolving — both for the summary's
@@ -453,10 +448,12 @@ export async function runAutoRebaseLoop(
 			return escalate(
 				{
 					reason: 'resolve-errors',
-					message:
-						result.errors.length === 1
-							? l10n.t('The AI couldn’t resolve {file}.', { file: result.errors[0].filePath })
-							: l10n.t('The AI couldn’t resolve {count} files.', { count: result.errors.length }),
+					message: formatPlural(
+						l10n.t(
+							'{count, plural, one{The AI couldn’t resolve {file}.} other{The AI couldn’t resolve {count} files.}}',
+						),
+						{ file: result.errors[0].filePath, count: result.errors.length },
+					),
 					stepNumber: stepNumber,
 					files: result.errors.map(e => ({ path: e.filePath, error: e.error.message })),
 				},
@@ -468,14 +465,12 @@ export async function runAutoRebaseLoop(
 			return escalate(
 				{
 					reason: 'skipped-files',
-					message:
-						result.skipped.length === 1
-							? l10n.t('{file} can’t be resolved automatically (no conflict markers).', {
-									file: result.skipped[0].filePath,
-								})
-							: l10n.t('{count} files can’t be resolved automatically (no conflict markers).', {
-									count: result.skipped.length,
-								}),
+					message: formatPlural(
+						l10n.t(
+							'{count, plural, one{{file} can’t be resolved automatically (no conflict markers).} other{{count} files can’t be resolved automatically (no conflict markers).}}',
+						),
+						{ file: result.skipped[0].filePath, count: result.skipped.length },
+					),
 					stepNumber: stepNumber,
 					files: result.skipped.map(s => ({ path: s.filePath })),
 				},
@@ -492,15 +487,12 @@ export async function runAutoRebaseLoop(
 			return escalate(
 				{
 					reason: 'skipped-files',
-					message:
-						skippedResolutions.length === 1
-							? l10n.t('{file} can’t be resolved automatically (no conflict markers were resolved).', {
-									file: skippedResolutions[0].filePath,
-								})
-							: l10n.t(
-									'{count} files can’t be resolved automatically (no conflict markers were resolved).',
-									{ count: skippedResolutions.length },
-								),
+					message: formatPlural(
+						l10n.t(
+							'{count, plural, one{{file} can’t be resolved automatically (no conflict markers were resolved).} other{{count} files can’t be resolved automatically (no conflict markers were resolved).}}',
+						),
+						{ file: skippedResolutions[0].filePath, count: skippedResolutions.length },
+					),
 					stepNumber: stepNumber,
 					files: skippedResolutions.map(r => ({ path: r.filePath })),
 				},
@@ -515,10 +507,12 @@ export async function runAutoRebaseLoop(
 			return escalate(
 				{
 					reason: 'low-confidence',
-					message:
-						lowConfidence.length === 1
-							? l10n.t('AI confidence was too low for {file}.', { file: lowConfidence[0].filePath })
-							: l10n.t('AI confidence was too low for {count} files.', { count: lowConfidence.length }),
+					message: formatPlural(
+						l10n.t(
+							'{count, plural, one{AI confidence was too low for {file}.} other{AI confidence was too low for {count} files.}}',
+						),
+						{ file: lowConfidence[0].filePath, count: lowConfidence.length },
+					),
 					stepNumber: stepNumber,
 					files: lowConfidence.map(r => ({ path: r.filePath, confidence: r.confidence })),
 				},

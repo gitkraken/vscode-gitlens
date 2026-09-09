@@ -3,7 +3,7 @@ import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../../commands/cloudIntegrations.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
 import type {
@@ -177,11 +177,12 @@ export class GlLaunchpadSummary extends LitElement {
 						${l10n.t('No pull requests need your attention')}
 					</li>
 					<li class="launchpad-item launchpad-item--muted">
-						${
-							summary.total === 1
-								? l10n.t('({count} other pull request)', { count: summary.total })
-								: l10n.t('({count} other pull requests)', { count: summary.total })
-						}
+						${formatPlural(
+							l10n.t(
+								'{count, plural, one{({count} other pull request)} other{({count} other pull requests)}}',
+							),
+							{ count: summary.total },
+						)}
 					</li>`,
 			);
 			return html`<ul class="launchpad-items">
@@ -195,8 +196,6 @@ export class GlLaunchpadSummary extends LitElement {
 					const total = summary.mergeable?.total ?? 0;
 					if (total === 0) continue;
 
-					const count = getNumericFormat()(total);
-
 					items.push(
 						html`<li>
 							<a
@@ -205,11 +204,12 @@ export class GlLaunchpadSummary extends LitElement {
 							>
 								<code-icon class="launchpad-item__icon" icon="rocket"></code-icon>
 								<span
-									>${
-										total === 1
-											? l10n.t('{count} pull request can be merged', { count: count })
-											: l10n.t('{count} pull requests can be merged', { count: count })
-									}</span
+									>${formatPlural(
+										l10n.t(
+											'{count, plural, one{{count} pull request can be merged} other{{count} pull requests can be merged}}',
+										),
+										{ count: total },
+									)}</span
 								>
 							</a>
 						</li>`,
@@ -266,8 +266,6 @@ export class GlLaunchpadSummary extends LitElement {
 					const total = summary.followUp?.total ?? 0;
 					if (total === 0) continue;
 
-					const count = getNumericFormat()(total);
-
 					items.push(
 						html`<li>
 							<a
@@ -276,11 +274,12 @@ export class GlLaunchpadSummary extends LitElement {
 							>
 								<code-icon class="launchpad-item__icon" icon="report"></code-icon>
 								<span
-									>${
-										total === 1
-											? l10n.t('{count} pull request requires follow-up', { count: count })
-											: l10n.t('{count} pull requests require follow-up', { count: count })
-									}</span
+									>${formatPlural(
+										l10n.t(
+											'{count, plural, one{{count} pull request requires follow-up} other{{count} pull requests require follow-up}}',
+										),
+										{ count: total },
+									)}</span
 								>
 							</a>
 						</li>`,
@@ -291,8 +290,6 @@ export class GlLaunchpadSummary extends LitElement {
 					const total = summary.needsReview?.total ?? 0;
 					if (total === 0) continue;
 
-					const count = getNumericFormat()(total);
-
 					items.push(
 						html`<li>
 							<a
@@ -301,11 +298,12 @@ export class GlLaunchpadSummary extends LitElement {
 							>
 								<code-icon class="launchpad-item__icon" icon="comment-unresolved"></code-icon>
 								<span
-									>${
-										total === 1
-											? l10n.t('{count} pull request needs your review', { count: count })
-											: l10n.t('{count} pull requests need your review', { count: count })
-									}</span
+									>${formatPlural(
+										l10n.t(
+											'{count, plural, one{{count} pull request needs your review} other{{count} pull requests need your review}}',
+										),
+										{ count: total },
+									)}</span
 								>
 							</a>
 						</li>`,
@@ -331,20 +329,28 @@ export class GlLaunchpadSummary extends LitElement {
 }
 
 function formatSingleBlockedReason(total: number, reason: 'reviewers' | 'checks' | 'conflicts'): string {
-	const count = getNumericFormat()(total);
 	switch (reason) {
 		case 'reviewers':
-			return total === 1
-				? l10n.t('{count} pull request needs reviewers', { count: count })
-				: l10n.t('{count} pull requests need reviewers', { count: count });
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} pull request needs reviewers} other{{count} pull requests need reviewers}}',
+				),
+				{ count: total },
+			);
 		case 'checks':
-			return total === 1
-				? l10n.t('{count} pull request has failed CI checks', { count: count })
-				: l10n.t('{count} pull requests have failed CI checks', { count: count });
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} pull request has failed CI checks} other{{count} pull requests have failed CI checks}}',
+				),
+				{ count: total },
+			);
 		case 'conflicts':
-			return total === 1
-				? l10n.t('{count} pull request has conflicts', { count: count })
-				: l10n.t('{count} pull requests have conflicts', { count: count });
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} pull request has conflicts} other{{count} pull requests have conflicts}}',
+				),
+				{ count: total },
+			);
 	}
 }
 
@@ -355,24 +361,33 @@ function formatMultipleBlockedReasons(
 	const reasonMessages = reasons.map(reason => {
 		switch (reason.type) {
 			case 'reviewers':
-				return reason.count === 1
-					? l10n.t('{count} needs reviewers', { count: reason.count })
-					: l10n.t('{count} need reviewers', { count: reason.count });
+				return formatPlural(
+					l10n.t('{count, plural, one{{count} needs reviewers} other{{count} need reviewers}}'),
+					{
+						count: reason.count,
+					},
+				);
 			case 'checks':
-				return reason.count === 1
-					? l10n.t('{count} has failed CI checks', { count: reason.count })
-					: l10n.t('{count} have failed CI checks', { count: reason.count });
+				return formatPlural(
+					l10n.t('{count, plural, one{{count} has failed CI checks} other{{count} have failed CI checks}}'),
+					{ count: reason.count },
+				);
 			case 'conflicts':
-				return reason.count === 1
-					? l10n.t('{count} has conflicts', { count: reason.count })
-					: l10n.t('{count} have conflicts', { count: reason.count });
+				return formatPlural(
+					l10n.t('{count, plural, one{{count} has conflicts} other{{count} have conflicts}}'),
+					{
+						count: reason.count,
+					},
+				);
 		}
 	});
-	const count = getNumericFormat()(total);
 	const reasonList = reasonMessages.join(', ');
-	return total === 1
-		? l10n.t('{count} pull request is blocked ({reasons})', { count: count, reasons: reasonList })
-		: l10n.t('{count} pull requests are blocked ({reasons})', { count: count, reasons: reasonList });
+	return formatPlural(
+		l10n.t(
+			'{count, plural, one{{count} pull request is blocked ({reasons})} other{{count} pull requests are blocked ({reasons})}}',
+		),
+		{ count: total, reasons: reasonList },
+	);
 }
 
 declare global {

@@ -8,6 +8,7 @@ import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { getNumericFormat } from '@gitlens/utils/date.js';
 import { basename } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type {
 	AgentSessionState,
 	AgentSessionWorktreeState,
@@ -896,7 +897,6 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 	 *  providers fall through to the generic robot glyph — then the model, then a subagent
 	 *  glyph+count (the word lives in the count's title tooltip). */
 	private renderMetaLine(session: AgentSessionState) {
-		const subagentCount = getNumericFormat()(session.subagentCount);
 		return html`
 			<p class="meta">
 				<span>${session.providerName}</span>
@@ -906,13 +906,15 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 						? html`<span class="meta__dot">·</span
 								><span
 									class="subs"
-									title=${
-										session.subagentCount === 1
-											? l10n.t('{count} subagent', { count: subagentCount })
-											: l10n.t('{count} subagents', { count: subagentCount })
-									}
+									title=${formatPlural(
+										l10n.t('{count, plural, one{{count} subagent} other{{count} subagents}}'),
+										{
+											count: session.subagentCount,
+										},
+									)}
 								>
-									<code-icon icon="type-hierarchy-sub"></code-icon>${subagentCount}
+									<code-icon icon="type-hierarchy-sub"></code-icon
+									>${getNumericFormat()(session.subagentCount)}
 								</span>`
 						: nothing
 				}
@@ -1248,11 +1250,9 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				<div class="sec__head">
 					<h4 class="sec__title">${l10n.t('File Activity')}</h4>
 					<span class="sec__count"
-						>${
-							entries.length === 1
-								? l10n.t('{count} file', { count: getNumericFormat()(entries.length) })
-								: l10n.t('{count} files', { count: getNumericFormat()(entries.length) })
-						}</span
+						>${formatPlural(l10n.t('{count, plural, one{{count} file} other{{count} files}}'), {
+							count: entries.length,
+						})}</span
 					>
 				</div>
 				<gl-tree-view

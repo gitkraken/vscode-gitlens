@@ -9,6 +9,7 @@ import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/l
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { getDateDifference, getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { urls } from '../../../../constants.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../constants.subscription.js';
 import type { Source } from '../../../../constants.telemetry.js';
@@ -1198,13 +1199,12 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 		const canSwitch = orgCount > 1;
 		const otherCount = orgCount - 1;
 		const meta = canSwitch
-			? otherCount === 1
-				? l10n.t('Active organization · you are in {count} other organization', {
-						count: getNumericFormat()(otherCount),
-					})
-				: l10n.t('Active organization · you are in {count} other organizations', {
-						count: getNumericFormat()(otherCount),
-					})
+			? formatPlural(
+					l10n.t(
+						'{count, plural, one{Active organization · you are in {count} other organization} other{Active organization · you are in {count} other organizations}}',
+					),
+					{ count: otherCount },
+				)
 			: l10n.t('Active organization');
 
 		return html`<div class="card org">
@@ -1316,14 +1316,11 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 						'Less than a day left in your {plan} trial. When it ends, Pro features keep working on publicly-hosted repos only.',
 						{ plan: plan },
 					);
-				} else if (totalDays === 1) {
-					meta = l10n.t(
-						'{days} of {totalDays} day left in your {plan} trial. When it ends, Pro features keep working on publicly-hosted repos only.',
-						{ days: days, totalDays: totalDays, plan: plan },
-					);
 				} else {
-					meta = l10n.t(
-						'{days} of {totalDays} days left in your {plan} trial. When it ends, Pro features keep working on publicly-hosted repos only.',
+					meta = formatPlural(
+						l10n.t(
+							'{totalDays, plural, one{{days} of {totalDays} day left in your {plan} trial. When it ends, Pro features keep working on publicly-hosted repos only.} other{{days} of {totalDays} days left in your {plan} trial. When it ends, Pro features keep working on publicly-hosted repos only.}}',
+						),
 						{ days: days, totalDays: totalDays, plan: plan },
 					);
 				}

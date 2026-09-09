@@ -30890,7 +30890,7 @@
 		"generate:l10n": "node ./scripts/localization.mjs export",
 		"check:l10n": "node ./scripts/localization.mjs check",
 		"generate:l10n:pseudo": "node ./scripts/localization.mjs pseudo",
-		"test:localization": "node --test scripts/__tests__/localization.test.mjs",
+		"test:localization": "node --test scripts/__tests__/localization.test.mjs scripts/__tests__/require-format-plural.test.mjs",
 		"test:localization:browser": "node --test scripts/__tests__/localization.browser.test.mjs"
 	},
 	"dependencies": {

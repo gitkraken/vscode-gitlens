@@ -10,6 +10,7 @@ import {
 } from '@gitlens/git/utils/reference.utils.js';
 import { isStringArray } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
 import { defer } from '@gitlens/utils/promise.js';
 import type { Container } from '../../container.js';
@@ -110,12 +111,18 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		const referenceLabel = getReferenceLabel(state.reference, { icon: false, label: false });
 		const progressTitle =
 			isBranchReference(state.reference) || state.createBranch
-				? state.repos.length === 1
-					? l10n.t('Switching to {0} in {1}', referenceLabel, state.repos[0].name)
-					: l10n.t('Switching to {0} in {1} repos', referenceLabel, state.repos.length)
-				: state.repos.length === 1
-					? l10n.t('Checking out {0} in {1}', referenceLabel, state.repos[0].name)
-					: l10n.t('Checking out {0} in {1} repos', referenceLabel, state.repos.length);
+				? formatPlural(
+						l10n.t(
+							'{count, plural, one{Switching to {label} in {name}} other{Switching to {label} in {count} repos}}',
+						),
+						{ label: referenceLabel, name: state.repos[0].name, count: state.repos.length },
+					)
+				: formatPlural(
+						l10n.t(
+							'{count, plural, one{Checking out {label} in {name}} other{Checking out {label} in {count} repos}}',
+						),
+						{ label: referenceLabel, name: state.repos[0].name, count: state.repos.length },
+					);
 
 		await window.withProgress(
 			{
@@ -553,9 +560,10 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			modes.push({
 				label: l10n.t('Checkout to {0}', getReferenceTypeLabel(state.reference)),
 				description: l10n.t('(detached)'),
-				detail: singleRepo
-					? l10n.t('Will checkout to {0}', getReferenceLabel(state.reference))
-					: l10n.t('Will checkout to {0} in {1} repos', getReferenceLabel(state.reference), repoCount),
+				detail: formatPlural(
+					l10n.t('{count, plural, one{Will checkout to {0}} other{Will checkout to {0} in {count} repos}}'),
+					{ 0: getReferenceLabel(state.reference), count: repoCount },
+				),
 				choice: 'switch',
 			});
 		}
@@ -595,9 +603,10 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			} else if (isLocalBranch) {
 				modes.push({
 					label: l10n.t('Switch to Branch'),
-					detail: singleRepo
-						? l10n.t('Will switch to {0}', getReferenceLabel(state.reference))
-						: l10n.t('Will switch to {0} in {1} repos', getReferenceLabel(state.reference), repoCount),
+					detail: formatPlural(
+						l10n.t('{count, plural, one{Will switch to {0}} other{Will switch to {0} in {count} repos}}'),
+						{ 0: getReferenceLabel(state.reference), count: repoCount },
+					),
 					choice: 'switch',
 					worktreeChoice: 'switchViaWorktree',
 					worktreeDetail: l10n.t('Will create a worktree for {0}', getReferenceLabel(state.reference)),
@@ -610,28 +619,18 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				modes.push({
 					label: l10n.t('Create & Switch to New Local Branch'),
 					detail: state.createBranch
-						? singleRepo
-							? l10n.t(
-									'Will create and switch to a new local branch named {0} from {1}',
-									state.createBranch,
-									getReferenceLabel(state.reference),
-								)
-							: l10n.t(
-									'Will create and switch to a new local branch named {0} from {1} in {2} repos',
-									state.createBranch,
-									getReferenceLabel(state.reference),
-									repoCount,
-								)
-						: singleRepo
-							? l10n.t(
-									'Will create and switch to a new local branch from {0}',
-									getReferenceLabel(state.reference),
-								)
-							: l10n.t(
-									'Will create and switch to a new local branch from {0} in {1} repos',
-									getReferenceLabel(state.reference),
-									repoCount,
+						? formatPlural(
+								l10n.t(
+									'{count, plural, one{Will create and switch to a new local branch named {0} from {1}} other{Will create and switch to a new local branch named {0} from {1} in {count} repos}}',
 								),
+								{ 0: state.createBranch, 1: getReferenceLabel(state.reference), count: repoCount },
+							)
+						: formatPlural(
+								l10n.t(
+									'{count, plural, one{Will create and switch to a new local branch from {0}} other{Will create and switch to a new local branch from {0} in {count} repos}}',
+								),
+								{ 0: getReferenceLabel(state.reference), count: repoCount },
+							),
 					choice: 'switchToNewBranch',
 					worktreeChoice: 'switchToNewBranchViaWorktree',
 					worktreeDetail: state.createBranch
@@ -649,28 +648,18 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				modes.push({
 					label: l10n.t('Create & Switch to New Branch from {0}', getReferenceTypeLabel(state.reference)),
 					detail: state.createBranch
-						? singleRepo
-							? l10n.t(
-									'Will create and switch to a new branch named {0} from {1}',
-									state.createBranch,
-									getReferenceLabel(state.reference),
-								)
-							: l10n.t(
-									'Will create and switch to a new branch named {0} from {1} in {2} repos',
-									state.createBranch,
-									getReferenceLabel(state.reference),
-									repoCount,
-								)
-						: singleRepo
-							? l10n.t(
-									'Will create and switch to a new branch from {0}',
-									getReferenceLabel(state.reference),
-								)
-							: l10n.t(
-									'Will create and switch to a new branch from {0} in {1} repos',
-									getReferenceLabel(state.reference),
-									repoCount,
+						? formatPlural(
+								l10n.t(
+									'{count, plural, one{Will create and switch to a new branch named {0} from {1}} other{Will create and switch to a new branch named {0} from {1} in {count} repos}}',
 								),
+								{ 0: state.createBranch, 1: getReferenceLabel(state.reference), count: repoCount },
+							)
+						: formatPlural(
+								l10n.t(
+									'{count, plural, one{Will create and switch to a new branch from {0}} other{Will create and switch to a new branch from {0} in {count} repos}}',
+								),
+								{ 0: getReferenceLabel(state.reference), count: repoCount },
+							),
 					choice: 'switchToNewBranch',
 					worktreeChoice: 'switchToNewBranchViaWorktree',
 					worktreeDetail: state.createBranch

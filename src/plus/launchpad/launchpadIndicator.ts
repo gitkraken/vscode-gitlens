@@ -2,10 +2,10 @@ import type { ConfigurationChangeEvent, StatusBarItem } from 'vscode';
 import { Disposable, l10n, MarkdownString, StatusBarAlignment, ThemeColor, window } from 'vscode';
 import type { GitCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
 import type { ConnectionStateChangeEvent } from '@gitlens/integrations/index.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { once } from '@gitlens/utils/event.js';
 import { groupByMap } from '@gitlens/utils/iterable.js';
 import { escapeMarkdown } from '@gitlens/utils/markdown.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { wait } from '@gitlens/utils/promise.js';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs.js';
 import type { Colors } from '../../constants.colors.js';
@@ -69,41 +69,56 @@ function escapeMarkdownLinkTitle(value: string): string {
 }
 
 function getPullRequestCountStateLabel(count: number, state: LaunchpadIndicatorItemState): string {
-	const formattedCount = getNumericFormat()(count);
-	if (count === 1) {
-		switch (state) {
-			case 'mergeable':
-				return l10n.t('{count} pull request can be merged', { count: formattedCount });
-			case 'blocked':
-				return l10n.t('{count} pull request is blocked', { count: formattedCount });
-			case 'unassigned-reviewers':
-				return l10n.t('{count} pull request needs reviewers', { count: formattedCount });
-			case 'failed-checks':
-				return l10n.t('{count} pull request failed CI checks', { count: formattedCount });
-			case 'conflicts':
-				return l10n.t('{count} pull request has conflicts', { count: formattedCount });
-			case 'follow-up':
-				return l10n.t('{count} pull request requires follow-up', { count: formattedCount });
-			case 'needs-review':
-				return l10n.t('{count} pull request needs your review', { count: formattedCount });
-		}
-	}
-
 	switch (state) {
 		case 'mergeable':
-			return l10n.t('{count} pull requests can be merged', { count: formattedCount });
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} pull request can be merged} other{{count} pull requests can be merged}}',
+				),
+				{ count: count },
+			);
 		case 'blocked':
-			return l10n.t('{count} pull requests are blocked', { count: formattedCount });
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} pull request is blocked} other{{count} pull requests are blocked}}',
+				),
+				{ count: count },
+			);
 		case 'unassigned-reviewers':
-			return l10n.t('{count} pull requests need reviewers', { count: formattedCount });
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} pull request needs reviewers} other{{count} pull requests need reviewers}}',
+				),
+				{ count: count },
+			);
 		case 'failed-checks':
-			return l10n.t('{count} pull requests failed CI checks', { count: formattedCount });
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} pull request failed CI checks} other{{count} pull requests failed CI checks}}',
+				),
+				{ count: count },
+			);
 		case 'conflicts':
-			return l10n.t('{count} pull requests have conflicts', { count: formattedCount });
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} pull request has conflicts} other{{count} pull requests have conflicts}}',
+				),
+				{ count: count },
+			);
 		case 'follow-up':
-			return l10n.t('{count} pull requests require follow-up', { count: formattedCount });
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} pull request requires follow-up} other{{count} pull requests require follow-up}}',
+				),
+				{ count: count },
+			);
 		case 'needs-review':
-			return l10n.t('{count} pull requests need your review', { count: formattedCount });
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} pull request needs your review} other{{count} pull requests need your review}}',
+				),
+				{ count: count },
+			);
 	}
 }
 
@@ -112,96 +127,58 @@ function getBlockedSummaryLabel(
 	failedChecksCount: number | undefined,
 	conflictsCount: number | undefined,
 ): string {
-	const reviewers = reviewersCount?.toString();
-	const failedChecks = failedChecksCount?.toString();
-	const conflicts = conflictsCount?.toString();
-
-	if (reviewers != null) {
-		if (failedChecks != null) {
-			if (conflicts != null) {
-				if (reviewersCount === 1) {
-					return conflictsCount === 1
-						? l10n.t(
-								'({reviewers} needs reviewers, {failedChecks} failed CI checks, {conflicts} has conflicts)',
-								{ reviewers: reviewers, failedChecks: failedChecks, conflicts: conflicts },
-							)
-						: l10n.t(
-								'({reviewers} needs reviewers, {failedChecks} failed CI checks, {conflicts} have conflicts)',
-								{ reviewers: reviewers, failedChecks: failedChecks, conflicts: conflicts },
-							);
-				}
-
-				return conflictsCount === 1
-					? l10n.t(
-							'({reviewers} need reviewers, {failedChecks} failed CI checks, {conflicts} has conflicts)',
-							{ reviewers: reviewers, failedChecks: failedChecks, conflicts: conflicts },
-						)
-					: l10n.t(
-							'({reviewers} need reviewers, {failedChecks} failed CI checks, {conflicts} have conflicts)',
-							{ reviewers: reviewers, failedChecks: failedChecks, conflicts: conflicts },
-						);
+	if (reviewersCount != null) {
+		if (failedChecksCount != null) {
+			if (conflictsCount != null) {
+				return formatPlural(
+					l10n.t(
+						'{reviewers, plural, one{{conflicts, plural, one{({reviewers} needs reviewers, {failedChecks} failed CI checks, {conflicts} has conflicts)} other{({reviewers} needs reviewers, {failedChecks} failed CI checks, {conflicts} have conflicts)}}} other{{conflicts, plural, one{({reviewers} need reviewers, {failedChecks} failed CI checks, {conflicts} has conflicts)} other{({reviewers} need reviewers, {failedChecks} failed CI checks, {conflicts} have conflicts)}}}}',
+					),
+					{ reviewers: reviewersCount, failedChecks: failedChecksCount, conflicts: conflictsCount },
+				);
 			}
 
-			return reviewersCount === 1
-				? l10n.t('({reviewers} needs reviewers, {failedChecks} failed CI checks)', {
-						reviewers: reviewers,
-						failedChecks: failedChecks,
-					})
-				: l10n.t('({reviewers} need reviewers, {failedChecks} failed CI checks)', {
-						reviewers: reviewers,
-						failedChecks: failedChecks,
-					});
+			return formatPlural(
+				l10n.t(
+					'{reviewers, plural, one{({reviewers} needs reviewers, {failedChecks} failed CI checks)} other{({reviewers} need reviewers, {failedChecks} failed CI checks)}}',
+				),
+				{ reviewers: reviewersCount, failedChecks: failedChecksCount },
+			);
 		}
 
-		if (conflicts != null) {
-			if (reviewersCount === 1) {
-				return conflictsCount === 1
-					? l10n.t('({reviewers} needs reviewers, {conflicts} has conflicts)', {
-							reviewers: reviewers,
-							conflicts: conflicts,
-						})
-					: l10n.t('({reviewers} needs reviewers, {conflicts} have conflicts)', {
-							reviewers: reviewers,
-							conflicts: conflicts,
-						});
-			}
-
-			return conflictsCount === 1
-				? l10n.t('({reviewers} need reviewers, {conflicts} has conflicts)', {
-						reviewers: reviewers,
-						conflicts: conflicts,
-					})
-				: l10n.t('({reviewers} need reviewers, {conflicts} have conflicts)', {
-						reviewers: reviewers,
-						conflicts: conflicts,
-					});
+		if (conflictsCount != null) {
+			return formatPlural(
+				l10n.t(
+					'{reviewers, plural, one{{conflicts, plural, one{({reviewers} needs reviewers, {conflicts} has conflicts)} other{({reviewers} needs reviewers, {conflicts} have conflicts)}}} other{{conflicts, plural, one{({reviewers} need reviewers, {conflicts} has conflicts)} other{({reviewers} need reviewers, {conflicts} have conflicts)}}}}',
+				),
+				{ reviewers: reviewersCount, conflicts: conflictsCount },
+			);
 		}
 
-		return reviewersCount === 1
-			? l10n.t('({reviewers} needs reviewers)', { reviewers: reviewers })
-			: l10n.t('({reviewers} need reviewers)', { reviewers: reviewers });
+		return formatPlural(
+			l10n.t('{reviewers, plural, one{({reviewers} needs reviewers)} other{({reviewers} need reviewers)}}'),
+			{ reviewers: reviewersCount },
+		);
 	}
 
-	if (failedChecks != null) {
-		if (conflicts != null) {
-			return conflictsCount === 1
-				? l10n.t('({failedChecks} failed CI checks, {conflicts} has conflicts)', {
-						failedChecks: failedChecks,
-						conflicts: conflicts,
-					})
-				: l10n.t('({failedChecks} failed CI checks, {conflicts} have conflicts)', {
-						failedChecks: failedChecks,
-						conflicts: conflicts,
-					});
+	if (failedChecksCount != null) {
+		if (conflictsCount != null) {
+			return formatPlural(
+				l10n.t(
+					'{conflicts, plural, one{({failedChecks} failed CI checks, {conflicts} has conflicts)} other{({failedChecks} failed CI checks, {conflicts} have conflicts)}}',
+				),
+				{ failedChecks: failedChecksCount, conflicts: conflictsCount },
+			);
 		}
 
-		return l10n.t('({failedChecks} failed CI checks)', { failedChecks: failedChecks });
+		return l10n.t('({failedChecks} failed CI checks)', { failedChecks: failedChecksCount });
 	}
 
-	if (conflicts != null) {
-		return conflictsCount === 1
-			? l10n.t('({conflicts} has conflicts)', { conflicts: conflicts })
-			: l10n.t('({conflicts} have conflicts)', { conflicts: conflicts });
+	if (conflictsCount != null) {
+		return formatPlural(
+			l10n.t('{conflicts, plural, one{({conflicts} has conflicts)} other{({conflicts} have conflicts)}}'),
+			{ conflicts: conflictsCount },
+		);
 	}
 
 	return '';
@@ -576,15 +553,12 @@ export class LaunchpadIndicator implements Disposable {
 			tooltip.appendMarkdown('\n\n---\n\n');
 			appendLocalizedMarkdown(
 				tooltip,
-				totalGroupedItems === 1
-					? l10n.t('No pull requests need your attention{lineBreak}({count} other pull request)', {
-							count: totalGroupedItems.toString(),
-							lineBreak: richTextToken,
-						})
-					: l10n.t('No pull requests need your attention{lineBreak}({count} other pull requests)', {
-							count: totalGroupedItems.toString(),
-							lineBreak: richTextToken,
-						}),
+				formatPlural(
+					l10n.t(
+						'{count, plural, one{No pull requests need your attention{lineBreak}({count} other pull request)} other{No pull requests need your attention{lineBreak}({count} other pull requests)}}',
+					),
+					{ count: totalGroupedItems, lineBreak: richTextToken },
+				),
 				new Map([[richTextToken, '\\\n']]),
 			);
 		} else {
@@ -836,83 +810,56 @@ export class LaunchpadIndicator implements Disposable {
 			}
 		}
 
-		const formattedCount = getNumericFormat()(otherCount);
-		if (otherCount === 1) {
-			switch (state) {
-				case 'mergeable':
-					return l10n.t('{item} and {count} other pull request can be merged', {
-						item: itemLabel,
-						count: formattedCount,
-					});
-				case 'blocked':
-					return l10n.t('{item} and {count} other pull request are blocked', {
-						item: itemLabel,
-						count: formattedCount,
-					});
-				case 'unassigned-reviewers':
-					return l10n.t('{item} and {count} other pull request need reviewers', {
-						item: itemLabel,
-						count: formattedCount,
-					});
-				case 'failed-checks':
-					return l10n.t('{item} and {count} other pull request failed CI checks', {
-						item: itemLabel,
-						count: formattedCount,
-					});
-				case 'conflicts':
-					return l10n.t('{item} and {count} other pull request have conflicts', {
-						item: itemLabel,
-						count: formattedCount,
-					});
-				case 'follow-up':
-					return l10n.t('{item} and {count} other pull request require follow-up', {
-						item: itemLabel,
-						count: formattedCount,
-					});
-				case 'needs-review':
-					return l10n.t('{item} and {count} other pull request need your review', {
-						item: itemLabel,
-						count: formattedCount,
-					});
-			}
-		}
-
 		switch (state) {
 			case 'mergeable':
-				return l10n.t('{item} and {count} other pull requests can be merged', {
-					item: itemLabel,
-					count: formattedCount,
-				});
+				return formatPlural(
+					l10n.t(
+						'{count, plural, one{{item} and {count} other pull request can be merged} other{{item} and {count} other pull requests can be merged}}',
+					),
+					{ item: itemLabel, count: otherCount },
+				);
 			case 'blocked':
-				return l10n.t('{item} and {count} other pull requests are blocked', {
-					item: itemLabel,
-					count: formattedCount,
-				});
+				return formatPlural(
+					l10n.t(
+						'{count, plural, one{{item} and {count} other pull request are blocked} other{{item} and {count} other pull requests are blocked}}',
+					),
+					{ item: itemLabel, count: otherCount },
+				);
 			case 'unassigned-reviewers':
-				return l10n.t('{item} and {count} other pull requests need reviewers', {
-					item: itemLabel,
-					count: formattedCount,
-				});
+				return formatPlural(
+					l10n.t(
+						'{count, plural, one{{item} and {count} other pull request need reviewers} other{{item} and {count} other pull requests need reviewers}}',
+					),
+					{ item: itemLabel, count: otherCount },
+				);
 			case 'failed-checks':
-				return l10n.t('{item} and {count} other pull requests failed CI checks', {
-					item: itemLabel,
-					count: formattedCount,
-				});
+				return formatPlural(
+					l10n.t(
+						'{count, plural, one{{item} and {count} other pull request failed CI checks} other{{item} and {count} other pull requests failed CI checks}}',
+					),
+					{ item: itemLabel, count: otherCount },
+				);
 			case 'conflicts':
-				return l10n.t('{item} and {count} other pull requests have conflicts', {
-					item: itemLabel,
-					count: formattedCount,
-				});
+				return formatPlural(
+					l10n.t(
+						'{count, plural, one{{item} and {count} other pull request have conflicts} other{{item} and {count} other pull requests have conflicts}}',
+					),
+					{ item: itemLabel, count: otherCount },
+				);
 			case 'follow-up':
-				return l10n.t('{item} and {count} other pull requests require follow-up', {
-					item: itemLabel,
-					count: formattedCount,
-				});
+				return formatPlural(
+					l10n.t(
+						'{count, plural, one{{item} and {count} other pull request require follow-up} other{{item} and {count} other pull requests require follow-up}}',
+					),
+					{ item: itemLabel, count: otherCount },
+				);
 			case 'needs-review':
-				return l10n.t('{item} and {count} other pull requests need your review', {
-					item: itemLabel,
-					count: formattedCount,
-				});
+				return formatPlural(
+					l10n.t(
+						'{count, plural, one{{item} and {count} other pull request need your review} other{{item} and {count} other pull requests need your review}}',
+					),
+					{ item: itemLabel, count: otherCount },
+				);
 		}
 	}
 

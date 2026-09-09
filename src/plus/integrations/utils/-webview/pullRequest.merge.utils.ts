@@ -3,6 +3,7 @@ import { l10n, ProgressLocation, window } from 'vscode';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { getPullRequestNumberFromUrl, getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { toAbortSignal } from '../../../../system/-webview/cancellation.js';
 
 /**
@@ -28,27 +29,19 @@ export async function confirmPullRequestMerge(pr: PullRequest): Promise<boolean>
 	if (stack != null && count > 1) {
 		const lowerCount = count - 1;
 		if (headName != null) {
-			placeHolder =
-				lowerCount === 1
-					? l10n.t(
-							'Merging {head} also merges the {count} pull request below it in the stack, into {base}. This cannot be undone.',
-							{ head: headName, count: lowerCount, base: stack.baseRef },
-						)
-					: l10n.t(
-							'Merging {head} also merges the {count} pull requests below it in the stack, into {base}. This cannot be undone.',
-							{ head: headName, count: lowerCount, base: stack.baseRef },
-						);
+			placeHolder = formatPlural(
+				l10n.t(
+					'{count, plural, one{Merging {head} also merges the {count} pull request below it in the stack, into {base}. This cannot be undone.} other{Merging {head} also merges the {count} pull requests below it in the stack, into {base}. This cannot be undone.}}',
+				),
+				{ head: headName, count: lowerCount, base: stack.baseRef },
+			);
 		} else {
-			placeHolder =
-				lowerCount === 1
-					? l10n.t(
-							'Merging this pull request also merges the {count} pull request below it in the stack, into {base}. This cannot be undone.',
-							{ count: lowerCount, base: stack.baseRef },
-						)
-					: l10n.t(
-							'Merging this pull request also merges the {count} pull requests below it in the stack, into {base}. This cannot be undone.',
-							{ count: lowerCount, base: stack.baseRef },
-						);
+			placeHolder = formatPlural(
+				l10n.t(
+					'{count, plural, one{Merging this pull request also merges the {count} pull request below it in the stack, into {base}. This cannot be undone.} other{Merging this pull request also merges the {count} pull requests below it in the stack, into {base}. This cannot be undone.}}',
+				),
+				{ count: lowerCount, base: stack.baseRef },
+			);
 		}
 	} else if (headName != null && baseName) {
 		placeHolder = l10n.t('Are you sure you want to merge {head} into {base}? This cannot be undone.', {

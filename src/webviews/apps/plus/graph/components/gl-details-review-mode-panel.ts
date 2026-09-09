@@ -18,7 +18,7 @@ import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
@@ -539,15 +539,12 @@ export class GlDetailsReviewModePanel extends LitElement {
 				includedCount > 0
 					? html`<div class="review-metadata__right">
 							<span class="review-metadata__count"
-								>${
-									includedCount === 1
-										? l10n.t('{count} commit selected', {
-												count: getNumericFormat()(includedCount),
-											})
-										: l10n.t('{count} commits selected', {
-												count: getNumericFormat()(includedCount),
-											})
-								}</span
+								>${formatPlural(
+									l10n.t(
+										'{count, plural, one{{count} commit selected} other{{count} commits selected}}',
+									),
+									{ count: includedCount },
+								)}</span
 							>
 						</div>`
 					: nothing
@@ -562,9 +559,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		if (scope.type === 'compare') {
 			const count = scope.includeShas?.length;
 			return count
-				? count === 1
-					? l10n.t('{count} commit', { count: getNumericFormat()(count) })
-					: l10n.t('{count} commits', { count: getNumericFormat()(count) })
+				? formatPlural(l10n.t('{count, plural, one{{count} commit} other{{count} commits}}'), { count: count })
 				: l10n.t('comparison');
 		}
 
@@ -572,15 +567,18 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const hasWorkingChanges = scope.includeStaged || scope.includeUnstaged;
 		const shaCount = scope.includeShas?.length ?? 0;
 		if (hasWorkingChanges && shaCount > 0) {
-			return shaCount === 1
-				? l10n.t('working changes + {count} commit', { count: getNumericFormat()(shaCount) })
-				: l10n.t('working changes + {count} commits', { count: getNumericFormat()(shaCount) });
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{working changes + {count} commit} other{working changes + {count} commits}}',
+				),
+				{ count: shaCount },
+			);
 		}
 		if (hasWorkingChanges) return l10n.t('working changes');
 		if (shaCount > 0) {
-			return shaCount === 1
-				? l10n.t('{count} commit', { count: getNumericFormat()(shaCount) })
-				: l10n.t('{count} commits', { count: getNumericFormat()(shaCount) });
+			return formatPlural(l10n.t('{count, plural, one{{count} commit} other{{count} commits}}'), {
+				count: shaCount,
+			});
 		}
 		return l10n.t('changes');
 	}
@@ -606,17 +604,16 @@ export class GlDetailsReviewModePanel extends LitElement {
 		if (scope.type === 'compare') {
 			const count = scope.includeShas?.length;
 			label = count
-				? count === 1
-					? l10n.t('{count} commit in comparison `{from}` … `{to}`', {
-							count: getNumericFormat()(count),
+				? formatPlural(
+						l10n.t(
+							'{count, plural, one{{count} commit in comparison `{from}` … `{to}`} other{{count} commits in comparison `{from}` … `{to}`}}',
+						),
+						{
+							count: count,
 							from: shortenRevision(scope.fromSha),
 							to: shortenRevision(scope.toSha),
-						})
-					: l10n.t('{count} commits in comparison `{from}` … `{to}`', {
-							count: getNumericFormat()(count),
-							from: shortenRevision(scope.fromSha),
-							to: shortenRevision(scope.toSha),
-						})
+						},
+					)
 				: l10n.t('comparison between `{from}` … `{to}`', {
 						from: shortenRevision(scope.fromSha),
 						to: shortenRevision(scope.toSha),
@@ -628,33 +625,27 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const hasWorkingChanges = scope.includeStaged || scope.includeUnstaged;
 		const shaCount = scope.includeShas?.length ?? 0;
 		if (hasWorkingChanges && shaCount > 0) {
-			const count = getNumericFormat()(shaCount);
 			if (this.branchName) {
-				label =
-					shaCount === 1
-						? l10n.t('WIP changes on `{branch}` + {count} commit', {
-								branch: this.branchName,
-								count: count,
-							})
-						: l10n.t('WIP changes on `{branch}` + {count} commits', {
-								branch: this.branchName,
-								count: count,
-							});
+				label = formatPlural(
+					l10n.t(
+						'{count, plural, one{WIP changes on `{branch}` + {count} commit} other{WIP changes on `{branch}` + {count} commits}}',
+					),
+					{ branch: this.branchName, count: shaCount },
+				);
 			} else {
-				label =
-					shaCount === 1
-						? l10n.t('WIP changes + {count} commit', { count: count })
-						: l10n.t('WIP changes + {count} commits', { count: count });
+				label = formatPlural(
+					l10n.t('{count, plural, one{WIP changes + {count} commit} other{WIP changes + {count} commits}}'),
+					{ count: shaCount },
+				);
 			}
 		} else if (hasWorkingChanges) {
 			label = this.branchName
 				? l10n.t('WIP changes on `{branch}`', { branch: this.branchName })
 				: l10n.t('WIP changes');
 		} else if (shaCount > 0) {
-			label =
-				shaCount === 1
-					? l10n.t('{count} commit', { count: getNumericFormat()(shaCount) })
-					: l10n.t('{count} commits', { count: getNumericFormat()(shaCount) });
+			label = formatPlural(l10n.t('{count, plural, one{{count} commit} other{{count} commits}}'), {
+				count: shaCount,
+			});
 		} else {
 			label = l10n.t('changes');
 		}
@@ -1103,11 +1094,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 					</gl-tooltip>
 					<span class="review-area__label">${getReviewFocusAreaLabel(area)}</span>
 					<span class="review-area__file-count"
-						>${
-							area.files.length === 1
-								? l10n.t('{count} file', { count: getNumericFormat()(area.files.length) })
-								: l10n.t('{count} files', { count: getNumericFormat()(area.files.length) })
-						}</span
+						>${formatPlural(l10n.t('{count, plural, one{{count} file} other{{count} files}}'), {
+							count: area.files.length,
+						})}</span
 					>
 				</button>
 				${this.renderFocusAreaActions(area, { isAnalyzed: isAnalyzed })}
@@ -1224,10 +1213,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 	private renderFindings(findings: readonly AIReviewFinding[], area?: AIReviewFocusArea) {
 		const visible = findings.filter(f => !this._dismissedFindings.has(f.id));
 		const dismissedCount = findings.length - visible.length;
-		const dismissedLabel =
-			dismissedCount === 1
-				? l10n.t('{count} dismissed finding', { count: getNumericFormat()(dismissedCount) })
-				: l10n.t('{count} dismissed findings', { count: getNumericFormat()(dismissedCount) });
+		const dismissedLabel = formatPlural(
+			l10n.t('{count, plural, one{{count} dismissed finding} other{{count} dismissed findings}}'),
+			{ count: dismissedCount },
+		);
 
 		return html`<div class="review-findings">
 			${visible.map(f => this.renderFinding(f, area))}

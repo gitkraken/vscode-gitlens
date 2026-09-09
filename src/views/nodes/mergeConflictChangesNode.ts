@@ -7,7 +7,7 @@ import type { GitReference } from '@gitlens/git/models/reference.js';
 import { getConflictCurrentRef, getConflictIncomingRef } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import { GlyphChars } from '../../constants.js';
 import { GitUri } from '../../git/gitUri.js';
@@ -142,10 +142,7 @@ export class MergeConflictChangesNode extends ViewNode<
 		const markdown = new MarkdownString(`${prefix}\\\n$(file)${GlyphChars.Space}${filePath}`, true);
 
 		if (mergeBaseSha != null && this._ref != null) {
-			const commits =
-				count === 1
-					? l10n.t('{0} commit', getNumericFormat()(count))
-					: l10n.t('{0} commits', getNumericFormat()(count));
+			const commits = formatPlural(l10n.t('{0, plural, one{{0} commit} other{{0} commits}}'), [count]);
 			markdown.appendMarkdown(
 				l10n.t(
 					'\n\n$(git-commit) {0} (merge-base)  ..  {1}  •  {2}',

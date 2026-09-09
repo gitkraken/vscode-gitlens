@@ -11,7 +11,7 @@ import type { GitHealthFinding, GitHealthLever, GitHealthReport } from '@gitlens
 // Derives from the live threshold so tuning it can't strand stale numbers in the UI.
 import { trackedFilesThreshold } from '@gitlens/git/gitHealth.js';
 import type { GitHealthDetails, GitOptimizationId } from '@gitlens/git/providers/maintenance.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Unsubscribe } from '../../../../rpc/services/types.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
@@ -997,7 +997,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 				<code-icon icon="dashboard"></code-icon>
 				<div class="verdict-text">
 					<span class="verdict-title"
-						>${suggestedCount === 1 ? l10n.t('{count} optimization suggested', { count: getNumericFormat()(suggestedCount) }) : l10n.t('{count} optimizations suggested', { count: getNumericFormat()(suggestedCount) })}</span
+						>${formatPlural(l10n.t('{count, plural, one{{count} optimization suggested} other{{count} optimizations suggested}}'), { count: suggestedCount })}</span
 					>
 					${this.renderFactsStrip(report)}
 				</div>
@@ -1367,14 +1367,22 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 
 		return html`<span class="verdict-facts">
 			<span class="fact"
-				>${localizedContent(packCount === 1 ? l10n.t('{bytes} in {count} pack', { count: packCount.toLocaleString() }) : l10n.t('{bytes} in {count} packs', { count: packCount.toLocaleString() }), { bytes: html`<b>${formatBytes(packBytes)}</b>` })}</span
+				>${localizedContent(
+					formatPlural(
+						l10n.t('{count, plural, one{{bytes} in {count} pack} other{{bytes} in {count} packs}}'),
+						{
+							count: packCount,
+						},
+					),
+					{ bytes: html`<b>${formatBytes(packBytes)}</b>` },
+				)}</span
 			>
 			<span class="sep">·</span>
 			<span class="fact">${localizedContent(files.message, { count: html`<b>${files.value}</b>` })}</span>
-			${details?.commitCount != null ? html`<span class="sep">·</span> <span class="fact">${localizedContent(details.commitCount === 1 ? l10n.t('{count} commit') : l10n.t('{count} commits'), { count: html`<b>${details.commitCount.toLocaleString()}</b>` })}</span>` : nothing}
+			${details?.commitCount != null ? html`<span class="sep">·</span> <span class="fact">${localizedContent(formatPlural(l10n.t('{n, plural, one{{count} commit} other{{count} commits}}'), { n: details.commitCount }), { count: html`<b>${details.commitCount.toLocaleString()}</b>` })}</span>` : nothing}
 			<span class="sep">·</span>
 			<span class="fact${looseFinding ? ' warn' : ''}"
-				>${localizedContent(looseCount === 1 ? l10n.t('{count} loose object') : l10n.t('{count} loose objects'), { count: html`<b>${looseText}</b>` })}</span
+				>${localizedContent(formatPlural(l10n.t('{n, plural, one{{count} loose object} other{{count} loose objects}}'), { n: looseCount }), { count: html`<b>${looseText}</b>` })}</span
 			>
 		</span>`;
 	}

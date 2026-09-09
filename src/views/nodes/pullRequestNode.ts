@@ -8,7 +8,7 @@ import {
 	getRepositoryIdentityForPullRequest,
 } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Colors } from '../../constants.colors.js';
 import { GitUri } from '../../git/gitUri.js';
 import type { GlRepository } from '../../git/models/repository.js';
@@ -226,10 +226,9 @@ export async function getPullRequestChildren(
 			{
 				autolinks: false,
 				expand: false,
-				description:
-					(counts?.right ?? 0) === 1
-						? l10n.t('{0} commit', getNumericFormat()(counts?.right ?? 0))
-						: l10n.t('{0} commits', getNumericFormat()(counts?.right ?? 0)),
+				description: formatPlural(l10n.t('{0, plural, one{{0} commit} other{{0} commits}}'), [
+					counts?.right ?? 0,
+				]),
 			},
 		),
 		new CodeSuggestionsNode(view, parent, repoPath, pullRequest),

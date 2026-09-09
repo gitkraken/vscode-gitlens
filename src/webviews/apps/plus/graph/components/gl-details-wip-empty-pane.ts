@@ -3,7 +3,7 @@ import * as l10n from '@vscode/l10n';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type {
 	LaunchpadSummaryError,
 	LaunchpadSummaryResult,
@@ -190,24 +190,26 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			});
 		} else {
 			if (behind > 0) {
-				const count = getNumericFormat()(behind);
 				steps.push({
 					icon: 'repo-pull',
-					label:
-						behind === 1
-							? l10n.t('Pull {count} commit from {remote}', { count: count, remote: remoteName })
-							: l10n.t('Pull {count} commits from {remote}', { count: count, remote: remoteName }),
+					label: formatPlural(
+						l10n.t(
+							'{count, plural, one{Pull {count} commit from {remote}} other{Pull {count} commits from {remote}}}',
+						),
+						{ count: behind, remote: remoteName },
+					),
 					actionLabel: l10n.t('Pull'),
 					onClick: () => this.emit('pull'),
 				});
 			} else if (ahead > 0) {
-				const count = getNumericFormat()(ahead);
 				steps.push({
 					icon: 'repo-push',
-					label:
-						ahead === 1
-							? l10n.t('Push {count} commit to {remote}', { count: count, remote: remoteName })
-							: l10n.t('Push {count} commits to {remote}', { count: count, remote: remoteName }),
+					label: formatPlural(
+						l10n.t(
+							'{count, plural, one{Push {count} commit to {remote}} other{Push {count} commits to {remote}}}',
+						),
+						{ count: ahead, remote: remoteName },
+					),
 					actionLabel: l10n.t('Push'),
 					onClick: () => this.emit('push'),
 				});
@@ -387,15 +389,13 @@ export class GlDetailsWipEmptyPane extends LitElement {
 		const behind = mergeTarget.status?.behind ?? 0;
 		if (behind === 0) return undefined;
 
-		const count = getNumericFormat()(behind);
-
 		return {
 			icon: 'git-merge',
 			iconFlip: 'block',
-			label:
-				behind === 1
-					? l10n.t('{count} Commit Behind {target}', { count: count, target: mergeTarget.name })
-					: l10n.t('{count} Commits Behind {target}', { count: count, target: mergeTarget.name }),
+			label: formatPlural(
+				l10n.t('{count, plural, one{{count} Commit Behind {target}} other{{count} Commits Behind {target}}}'),
+				{ count: behind, target: mergeTarget.name },
+			),
 			actionLabel: l10n.t('Rebase'),
 			onClick: () => this.emit('rebase-onto-merge-target'),
 			alt: {

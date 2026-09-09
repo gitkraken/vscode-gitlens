@@ -8,8 +8,8 @@ import { parseGitBoolean } from '@gitlens/git/utils/config.utils.js';
 import { getConflictDetectionErrorDisplayMessage } from '@gitlens/git/utils/mergeConflicts.utils.js';
 import { getReferenceLabel, isRevisionReference } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Container } from '../../container.js';
 import { showPausedOperationStatus } from '../../git/actions/pausedOperation.js';
 import type { GlRepository } from '../../git/models/repository.js';
@@ -385,7 +385,6 @@ export class MergeGitCommand extends QuickCommand<State> {
 
 		const sourceLabel = getReferenceLabel(state.reference, { label: false });
 		const destinationLabel = getReferenceLabel(context.destination, { label: false });
-		const formattedCount = getNumericFormat()(count);
 
 		const ffLabels = [l10n.t('If Possible'), l10n.t('Required'), l10n.t('Never')] as const;
 		const ffDetails = [
@@ -406,62 +405,33 @@ export class MergeGitCommand extends QuickCommand<State> {
 					: ff === 2
 						? ['--no-ff']
 						: [];
-			const detail =
-				count === 1
-					? noCommit
-						? l10n.t(
-								'Will merge {0} commit from {1} into {2}, always creating a merge commit, stopping before committing',
-								formattedCount,
-								sourceLabel,
-								destinationLabel,
+			const detail = noCommit
+				? formatPlural(
+						l10n.t(
+							'{0, plural, one{Will merge {0} commit from {1} into {2}, always creating a merge commit, stopping before committing} other{Will merge {0} commits from {1} into {2}, always creating a merge commit, stopping before committing}}',
+						),
+						[count, sourceLabel, destinationLabel],
+					)
+				: ff === 0
+					? formatPlural(
+							l10n.t(
+								'{0, plural, one{Will merge {0} commit from {1} into {2}, fast-forwarding if possible} other{Will merge {0} commits from {1} into {2}, fast-forwarding if possible}}',
+							),
+							[count, sourceLabel, destinationLabel],
+						)
+					: ff === 1
+						? formatPlural(
+								l10n.t(
+									'{0, plural, one{Will merge {0} commit from {1} into {2}, only if it can fast-forward} other{Will merge {0} commits from {1} into {2}, only if it can fast-forward}}',
+								),
+								[count, sourceLabel, destinationLabel],
 							)
-						: ff === 0
-							? l10n.t(
-									'Will merge {0} commit from {1} into {2}, fast-forwarding if possible',
-									formattedCount,
-									sourceLabel,
-									destinationLabel,
-								)
-							: ff === 1
-								? l10n.t(
-										'Will merge {0} commit from {1} into {2}, only if it can fast-forward',
-										formattedCount,
-										sourceLabel,
-										destinationLabel,
-									)
-								: l10n.t(
-										'Will merge {0} commit from {1} into {2}, always creating a merge commit',
-										formattedCount,
-										sourceLabel,
-										destinationLabel,
-									)
-					: noCommit
-						? l10n.t(
-								'Will merge {0} commits from {1} into {2}, always creating a merge commit, stopping before committing',
-								formattedCount,
-								sourceLabel,
-								destinationLabel,
-							)
-						: ff === 0
-							? l10n.t(
-									'Will merge {0} commits from {1} into {2}, fast-forwarding if possible',
-									formattedCount,
-									sourceLabel,
-									destinationLabel,
-								)
-							: ff === 1
-								? l10n.t(
-										'Will merge {0} commits from {1} into {2}, only if it can fast-forward',
-										formattedCount,
-										sourceLabel,
-										destinationLabel,
-									)
-								: l10n.t(
-										'Will merge {0} commits from {1} into {2}, always creating a merge commit',
-										formattedCount,
-										sourceLabel,
-										destinationLabel,
-									);
+						: formatPlural(
+								l10n.t(
+									'{0, plural, one{Will merge {0} commit from {1} into {2}, always creating a merge commit} other{Will merge {0} commits from {1} into {2}, always creating a merge commit}}',
+								),
+								[count, sourceLabel, destinationLabel],
+							);
 
 			return [
 				createFlagsQuickPickItem<Flags>(state.flags, mergeFlags, {
@@ -477,18 +447,12 @@ export class MergeGitCommand extends QuickCommand<State> {
 						: ff !== 0
 							? l10n.t('{0} · not affected — no merge commit involved', '--squash')
 							: '--squash',
-					detail:
-						count === 1
-							? l10n.t(
-									'Will combine {0} commit from {1} into one set of staged changes, stopping before committing',
-									formattedCount,
-									sourceLabel,
-								)
-							: l10n.t(
-									'Will combine {0} commits from {1} into one set of staged changes, stopping before committing',
-									formattedCount,
-									sourceLabel,
-								),
+					detail: formatPlural(
+						l10n.t(
+							'{0, plural, one{Will combine {0} commit from {1} into one set of staged changes, stopping before committing} other{Will combine {0} commits from {1} into one set of staged changes, stopping before committing}}',
+						),
+						[count, sourceLabel],
+					),
 					picked: state.flags.includes('--squash'),
 				}),
 			];
@@ -597,16 +561,12 @@ export class MergeGitCommand extends QuickCommand<State> {
 						1,
 						createDirectiveQuickPickItem(Directive.Noop, false, {
 							label: l10n.t('Conflicts Detected'),
-							detail:
-								result.conflict.files.length === 1
-									? l10n.t(
-											'Will result in {0} conflicting file that will need to be resolved',
-											getNumericFormat()(result.conflict.files.length),
-										)
-									: l10n.t(
-											'Will result in {0} conflicting files that will need to be resolved',
-											getNumericFormat()(result.conflict.files.length),
-										),
+							detail: formatPlural(
+								l10n.t(
+									'{0, plural, one{Will result in {0} conflicting file that will need to be resolved} other{Will result in {0} conflicting files that will need to be resolved}}',
+								),
+								[result.conflict.files.length],
+							),
 							iconPath: new ThemeIcon('warning'),
 						}),
 					);

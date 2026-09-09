@@ -19,6 +19,7 @@ import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.util
 import { parseSearchQuery } from '@gitlens/git/utils/search.utils.js';
 import { debounce } from '@gitlens/utils/decorators/debounce.js';
 import { hasTruthyKeys } from '@gitlens/utils/object.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { wait } from '@gitlens/utils/promise.js';
 import type { BranchGitCommandArgs } from '../../../../commands/git/branch.js';
 import type { RepositoryShape } from '../../../../git/models/repositoryShape.js';
@@ -1486,10 +1487,10 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		if (!hasTruthyKeys(excludeRefs)) return nothing;
 
 		const refs = this.excludeRefs;
-		const countLabel =
-			refs.length === 1
-				? l10n.t('{0} hidden branch or tag', refs.length)
-				: l10n.t('{0} hidden branches and tags', refs.length);
+		const countLabel = formatPlural(
+			l10n.t('{0, plural, one{{0} hidden branch or tag} other{{0} hidden branches and tags}}'),
+			[refs.length],
+		);
 
 		return html`<gl-popover
 			appearance="menu"

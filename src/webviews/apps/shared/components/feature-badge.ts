@@ -8,6 +8,7 @@ import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../constants.subscription.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { Subscription, SubscriptionUpgradeCommandArgs } from '../../../../plus/gk/models/subscription.js';
@@ -254,20 +255,24 @@ export class GlFeatureBadge extends LitElement {
 				const days = this.daysRemaining;
 
 				content = html`<p>
-						${localizedContent(
+						${
 							days < 1
-								? l10n.t(
-										'You have {count} day left in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
-									)
-								: days === 1
-									? l10n.t(
-											'You have {count} more day left in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
-										)
-									: l10n.t(
-											'You have {count} more days left in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
+								? localizedContent(
+										l10n.t(
+											'You have {count} day left in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
 										),
-							{ count: html`<strong>${days < 1 ? '<1' : getNumericFormat()(days)}</strong>` },
-						)}
+										{ count: html`<strong>${'<1'}</strong>` },
+									)
+								: localizedContent(
+										formatPlural(
+											l10n.t(
+												'{days, plural, one{You have {count} more day left in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.} other{You have {count} more days left in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.}}',
+											),
+											{ days: days },
+										),
+										{ count: html`<strong>${getNumericFormat()(days)}</strong>` },
+									)
+						}
 					</p>
 					${this.renderUpgradeActions()}`;
 				break;

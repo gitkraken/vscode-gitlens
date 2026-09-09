@@ -11,6 +11,7 @@ import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/l
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { urls } from '../../../../../../constants.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../../../../../constants.subscription.js';
 import type { Source } from '../../../../../../constants.telemetry.js';
@@ -743,9 +744,7 @@ background-color: var(--gl-account-chip-color); */
 		const daysRemaining =
 			days < 1
 				? l10n.t('<1d left')
-				: days === 1
-					? l10n.t('1d left')
-					: l10n.t('{0}d left', getNumericFormat()(days));
+				: formatPlural(l10n.t('{0, plural, one{{0}d left} other{{0}d left}}'), [days]);
 
 		return html`<span class="header__title"
 			>${getSubscriptionProductPlanName('pro')}${when(
@@ -817,11 +816,12 @@ background-color: var(--gl-account-chip-color); */
 								><span slot="tooltip"
 									>${l10n.t('Switch Active Organization')}
 									<hr />
-									${
-										orgCount - 1 === 1
-											? l10n.t('You are in 1 other organization')
-											: l10n.t('You are in {0} other organizations', orgCount - 1)
-									}</span
+									${formatPlural(
+										l10n.t(
+											'{0, plural, one{You are in {0} other organization} other{You are in {0} other organizations}}',
+										),
+										[orgCount - 1],
+									)}</span
 								></gl-button
 							>
 						</div>
@@ -958,7 +958,6 @@ background-color: var(--gl-account-chip-color); */
 
 			case SubscriptionState.Trial: {
 				const days = this.trialDaysRemaining;
-				const formattedDays = getNumericFormat()(days);
 				const studentTrial = this.effectivePlanId === 'student';
 				let message: unknown[];
 				if (days < 1) {
@@ -976,23 +975,12 @@ background-color: var(--gl-account-chip-color); */
 								),
 								{ lessThanOneDayRemaining: lessThanOneDayRemaining },
 							);
-				} else if (days === 1) {
-					const oneDayRemaining = html`<strong>${l10n.t('1 more day left')}</strong>`;
-					message = studentTrial
-						? localizedContent(
-								l10n.t(
-									'You have {oneDayRemaining} in your Student trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
-								),
-								{ oneDayRemaining: oneDayRemaining },
-							)
-						: localizedContent(
-								l10n.t(
-									'You have {oneDayRemaining} in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.',
-								),
-								{ oneDayRemaining: oneDayRemaining },
-							);
 				} else {
-					const daysRemaining = html`<strong>${l10n.t('{0} more days left', formattedDays)}</strong>`;
+					const daysRemainingText = formatPlural(
+						l10n.t('{0, plural, one{{0} more day left} other{{0} more days left}}'),
+						[days],
+					);
+					const daysRemaining = html`<strong>${daysRemainingText}</strong>`;
 					message = studentTrial
 						? localizedContent(
 								l10n.t(

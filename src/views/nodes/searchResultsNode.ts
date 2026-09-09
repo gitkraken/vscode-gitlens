@@ -3,6 +3,7 @@ import { l10n, ThemeIcon } from 'vscode';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { md5 } from '@gitlens/utils/crypto.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { executeGitCommand } from '../../git/actions.js';
 import type { CommitsQueryResults } from '../../git/queryResults.js';
 import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/utils/-webview/search.utils.js';
@@ -205,7 +206,9 @@ function getSearchResultsLabel(count: number, hasMore: boolean, query: string): 
 	if (count === 0) return l10n.t('No search results for {0}', query);
 
 	const formattedCount = hasMore ? `${count}+` : String(count);
-	return count === 1
-		? l10n.t('{0} search result for {1}', formattedCount, query)
-		: l10n.t('{0} search results for {1}', formattedCount, query);
+	return formatPlural(l10n.t('{1, plural, one{{0} search result for {2}} other{{0} search results for {2}}}'), [
+		formattedCount,
+		count,
+		query,
+	]);
 }

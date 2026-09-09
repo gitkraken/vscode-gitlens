@@ -7,6 +7,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { fromBase64ToString } from '@gitlens/utils/base64.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { CandidateSigner, State } from '../../allowedSigners/protocol.js';
 import type { AllowedSignersResultsChangedEvent, AllowedSignersServices } from '../../rpc/allowedSignersService.js';
 import { SignalWatcherWebviewApp } from '../shared/appBase.js';
@@ -244,12 +245,15 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 				s.status.set({
 					type: 'success',
 					message: result.configSet
-						? result.added === 1
-							? l10n.t('Added {0} signer and updated git config.', result.added)
-							: l10n.t('Added {0} signers and updated git config.', result.added)
-						: result.added === 1
-							? l10n.t('Added {0} signer.', result.added)
-							: l10n.t('Added {0} signers.', result.added),
+						? formatPlural(
+								l10n.t(
+									'{0, plural, one{Added {0} signer and updated git config.} other{Added {0} signers and updated git config.}}',
+								),
+								[result.added],
+							)
+						: formatPlural(l10n.t('{0, plural, one{Added {0} signer.} other{Added {0} signers.}}'), [
+								result.added,
+							]),
 				});
 			} else {
 				s.status.set({
@@ -298,9 +302,12 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 		const detail =
 			p?.total != null
 				? p.found != null
-					? p.found === 1
-						? l10n.t('{0} / {1} commits scanned · {2} signer found', p.current ?? 0, p.total, p.found)
-						: l10n.t('{0} / {1} commits scanned · {2} signers found', p.current ?? 0, p.total, p.found)
+					? formatPlural(
+							l10n.t(
+								'{2, plural, one{{0} / {1} commits scanned · {2} signer found} other{{0} / {1} commits scanned · {2} signers found}}',
+							),
+							[p.current ?? 0, p.total, p.found],
+						)
 					: l10n.t('{0} / {1} commits scanned', p.current ?? 0, p.total)
 				: undefined;
 
@@ -424,7 +431,13 @@ export class GlAllowedSignersApp extends SignalWatcherWebviewApp {
 					?disabled=${s.saving.get() || !hasNodeHost || !s.targetPath.get() || addCount === 0}
 					@click=${this.onSave}
 				>
-					${s.saving.get() ? l10n.t('Saving…') : addCount === 1 ? l10n.t('Add {0} Signer', addCount) : l10n.t('Add {0} Signers', addCount)}
+					${
+						s.saving.get()
+							? l10n.t('Saving…')
+							: formatPlural(l10n.t('{0, plural, one{Add {0} Signer} other{Add {0} Signers}}'), [
+									addCount,
+								])
+					}
 				</gl-button>
 				${this.renderActionHint(newSigners.length, addCount, hasNodeHost)}
 			</div>

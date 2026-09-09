@@ -4,9 +4,9 @@ import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileWithCommit } from '@gitlens/git/models/file.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { filter, flatMap, groupByMap, map } from '@gitlens/utils/iterable.js';
 import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { sortCompare } from '@gitlens/utils/string.js';
 import type { FilesComparison } from '../../git/actions/commit.js';
 import { GitUri } from '../../git/gitUri.js';
@@ -117,10 +117,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-fil
 			.diff.getChangedFilesCount(this.direction === 'behind' ? `${this.ref1}...${this.ref2}` : `${this.ref2}...`);
 		const files = stats?.files ?? 0;
 
-		const label =
-			files === 1
-				? l10n.t('{0} file changed', getNumericFormat()(files))
-				: l10n.t('{0} files changed', getNumericFormat()(files));
+		const label = formatPlural(l10n.t('{0, plural, one{{0} file changed} other{{0} files changed}}'), [files]);
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.BranchStatusFiles;

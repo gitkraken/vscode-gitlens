@@ -3,7 +3,8 @@ import { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel, isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { isStringArray } from '@gitlens/utils/array.js';
-import { fromNow, getNumericFormat } from '@gitlens/utils/date.js';
+import { fromNow } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
 import type { Container } from '../../container.js';
@@ -204,17 +205,12 @@ export class PullGitCommand extends QuickCommand<State> {
 								detail:
 									branch.upstream.state.behind === 0
 										? l10n.t('Will pull into {0}', getReferenceLabel(branch))
-										: branch.upstream.state.behind === 1
-											? l10n.t(
-													'Will pull {0} commit into {1}',
-													getNumericFormat()(branch.upstream.state.behind),
-													getReferenceLabel(branch),
-												)
-											: l10n.t(
-													'Will pull {0} commits into {1}',
-													getNumericFormat()(branch.upstream.state.behind),
-													getReferenceLabel(branch),
+										: formatPlural(
+												l10n.t(
+													'{0, plural, one{Will pull {0} commit into {1}} other{Will pull {0} commits into {1}}}',
 												),
+												[branch.upstream.state.behind, getReferenceLabel(branch)],
+											),
 							}),
 						],
 						l10n.t('Confirm Pull'),
@@ -248,31 +244,20 @@ export class PullGitCommand extends QuickCommand<State> {
 							pull: l10n.t('Will pull into $(repo) {0}', repo.name),
 							pullRebase: l10n.t('Will pull and rebase into $(repo) {0}', repo.name),
 						}
-					: status.upstream.state.behind === 1
-						? {
-								pull: l10n.t(
-									'Will pull {0} commit into $(repo) {1}',
-									getNumericFormat()(status.upstream.state.behind),
-									repo.name,
+					: {
+							pull: formatPlural(
+								l10n.t(
+									'{0, plural, one{Will pull {0} commit into $(repo) {1}} other{Will pull {0} commits into $(repo) {1}}}',
 								),
-								pullRebase: l10n.t(
-									'Will pull and rebase {0} commit into $(repo) {1}',
-									getNumericFormat()(status.upstream.state.behind),
-									repo.name,
+								[status.upstream.state.behind, repo.name],
+							),
+							pullRebase: formatPlural(
+								l10n.t(
+									'{0, plural, one{Will pull and rebase {0} commit into $(repo) {1}} other{Will pull and rebase {0} commits into $(repo) {1}}}',
 								),
-							}
-						: {
-								pull: l10n.t(
-									'Will pull {0} commits into $(repo) {1}',
-									getNumericFormat()(status.upstream.state.behind),
-									repo.name,
-								),
-								pullRebase: l10n.t(
-									'Will pull and rebase {0} commits into $(repo) {1}',
-									getNumericFormat()(status.upstream.state.behind),
-									repo.name,
-								),
-							};
+								[status.upstream.state.behind, repo.name],
+							),
+						};
 
 			step = this.createConfirmStep(
 				appendReposToTitle(l10n.t('Confirm Pull'), state, context, lastFetchedOn),

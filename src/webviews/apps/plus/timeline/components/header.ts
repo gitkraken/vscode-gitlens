@@ -3,6 +3,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { RepositoryShape } from '../../../../../git/models/repositoryShape.js';
 import type { TimelinePeriod, TimelineScopeType, TimelineSliceBy } from '../../../../plus/timeline/protocol.js';
 import { compactBreadcrumbsConsumerStyles } from '../../../shared/components/breadcrumbs.js';
@@ -47,26 +48,26 @@ function formatVisibleSpan(ms: number): string {
 	const days = ms / dayMs;
 	if (days < 1) {
 		const hours = Math.max(1, Math.round(ms / (60 * 60 * 1000)));
-		return hours === 1 ? l10n.t('1 hour') : l10n.t('{0} hours', hours);
+		return formatPlural(l10n.t('{0, plural, one{{0} hour} other{{0} hours}}'), [hours]);
 	}
 	if (days < 2 * weekDays) {
 		const d = Math.max(1, Math.round(days));
-		return d === 1 ? l10n.t('1 day') : l10n.t('{0} days', d);
+		return formatPlural(l10n.t('{0, plural, one{{0} day} other{{0} days}}'), [d]);
 	}
 	if (days < 2 * monthDays) {
 		const w = Math.round(days / weekDays);
-		return w === 1 ? l10n.t('1 week') : l10n.t('{0} weeks', w);
+		return formatPlural(l10n.t('{0, plural, one{{0} week} other{{0} weeks}}'), [w]);
 	}
 
 	const months = days / monthDays;
 	if (months < 24) {
 		const m = Math.max(1, Math.round(months));
-		return m === 1 ? l10n.t('1 month') : l10n.t('{0} months', m);
+		return formatPlural(l10n.t('{0, plural, one{{0} month} other{{0} months}}'), [m]);
 	}
 
 	const years = months / 12;
 	const rounded = years >= 10 ? Math.round(years) : Number(years.toFixed(1));
-	return rounded === 1 ? l10n.t('1 year') : l10n.t('{0} years', rounded);
+	return formatPlural(l10n.t('{0, plural, one{{0} year} other{{0} years}}'), [rounded]);
 }
 
 /** Props that fully describe the timeline header's render state. Both the standalone Visual

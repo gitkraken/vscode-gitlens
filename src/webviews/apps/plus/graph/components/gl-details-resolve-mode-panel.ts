@@ -18,6 +18,7 @@ import {
 import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
@@ -112,9 +113,12 @@ function describeEmptySkipped(steps: readonly AutoRebaseSummaryStep[]): string |
 	const count = steps.reduce((n, s) => (s.kind === 'empty-skipped' ? n + 1 : n), 0);
 	if (count === 0) return undefined;
 
-	return count === 1
-		? l10n.t('{count} commit became empty and was skipped.', { count: getNumericFormat()(count) })
-		: l10n.t('{count} commits became empty and were skipped.', { count: getNumericFormat()(count) });
+	return formatPlural(
+		l10n.t(
+			'{count, plural, one{{count} commit became empty and was skipped.} other{{count} commits became empty and were skipped.}}',
+		),
+		{ count: count },
+	);
 }
 
 /**
@@ -868,15 +872,12 @@ export class GlDetailsResolveModePanel extends LitElement {
 											resolvedFiles > 0
 												? html`<span class="resolve-progress__sep">·</span
 														><span
-															>${
-																resolvedFiles === 1
-																	? l10n.t('{count} conflicted file resolved', {
-																			count: getNumericFormat()(resolvedFiles),
-																		})
-																	: l10n.t('{count} conflicted files resolved', {
-																			count: getNumericFormat()(resolvedFiles),
-																		})
-															}</span
+															>${formatPlural(
+																l10n.t(
+																	'{count, plural, one{{count} conflicted file resolved} other{{count} conflicted files resolved}}',
+																),
+																{ count: resolvedFiles },
+															)}</span
 														>`
 												: nothing
 										}
@@ -933,13 +934,12 @@ export class GlDetailsResolveModePanel extends LitElement {
 			run.phase === 'completed'
 				? [
 						resolvedByAi > 0
-							? resolvedByAi === 1
-								? l10n.t('Rebase completed — {count} conflicted file resolved with AI.', {
-										count: getNumericFormat()(resolvedByAi),
-									})
-								: l10n.t('Rebase completed — {count} conflicted files resolved with AI.', {
-										count: getNumericFormat()(resolvedByAi),
-									})
+							? formatPlural(
+									l10n.t(
+										'{count, plural, one{Rebase completed — {count} conflicted file resolved with AI.} other{Rebase completed — {count} conflicted files resolved with AI.}}',
+									),
+									{ count: resolvedByAi },
+								)
 							: run.steps.length > 0
 								? l10n.t('Rebase completed — you resolved every conflict.')
 								: noStepsMessage,
@@ -1256,9 +1256,12 @@ export class GlDetailsResolveModePanel extends LitElement {
 		const applyLabel =
 			applicable === 0
 				? l10n.t('Apply Resolutions')
-				: applicable === 1
-					? l10n.t('Apply {count} Resolution', { count: getNumericFormat()(applicable) })
-					: l10n.t('Apply {count} Resolutions', { count: getNumericFormat()(applicable) });
+				: formatPlural(
+						l10n.t('{count, plural, one{Apply {count} Resolution} other{Apply {count} Resolutions}}'),
+						{
+							count: applicable,
+						},
+					);
 
 		const resolvedCount = resolutions.length;
 		const needCount = skipped.length + errors.length;

@@ -8,7 +8,7 @@ import type { CurrentUserNameStyle } from '@gitlens/git/utils/commit.utils.js';
 import { formatIdentityDisplayName } from '@gitlens/git/utils/commit.utils.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { getCssVariable } from '@gitlens/utils/color.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { defer } from '@gitlens/utils/promise.js';
 import type { State, TimelineDatum, TimelineSliceBy } from '../../../../plus/timeline/protocol.js';
 import { formatDate, fromNow } from '../../../shared/date.js';
@@ -1189,9 +1189,7 @@ export class GlTimelineChart extends GlElement {
 					: l10n.t('Click to Hide · [{0}] Click to Solo', getAltKeySymbol());
 			const meta =
 				slice.commitCount != null
-					? slice.commitCount === 1
-						? l10n.t('{0} commit', getNumericFormat()(slice.commitCount))
-						: l10n.t('{0} commits', getNumericFormat()(slice.commitCount))
+					? formatPlural(l10n.t('{0, plural, one{{0} commit} other{{0} commits}}'), [slice.commitCount])
 					: '';
 
 			if (sliceBy === 'branch') {
@@ -1707,12 +1705,12 @@ export class GlTimelineChart extends GlElement {
 		const count = this._data?.length ?? 0;
 		if (count === 0) return l10n.t('Visual History timeline');
 
-		return count === 1
-			? l10n.t('Visual History timeline showing {0} commit. Use arrow keys to navigate.', count.toLocaleString())
-			: l10n.t(
-					'Visual History timeline showing {0} commits. Use arrow keys to navigate.',
-					count.toLocaleString(),
-				);
+		return formatPlural(
+			l10n.t(
+				'{0, plural, one{Visual History timeline showing {0} commit. Use arrow keys to navigate.} other{Visual History timeline showing {0} commits. Use arrow keys to navigate.}}',
+			),
+			[count],
+		);
 	}
 
 	/** Cached announcement text keyed by `(selectedSha, data)`. Built only when selection moves
@@ -2663,19 +2661,17 @@ export class GlTimelineChart extends GlElement {
 			if (commit.additions != null) {
 				const addSpan = document.createElement('span');
 				addSpan.className = 'tooltip__additions';
-				addSpan.textContent =
-					commit.additions === 1
-						? l10n.t('+{0} line', getNumericFormat()(commit.additions))
-						: l10n.t('+{0} lines', getNumericFormat()(commit.additions));
+				addSpan.textContent = formatPlural(l10n.t('{0, plural, one{+{0} line} other{+{0} lines}}'), [
+					commit.additions,
+				]);
 				detailsRow.appendChild(addSpan);
 			}
 			if (commit.deletions != null) {
 				const delSpan = document.createElement('span');
 				delSpan.className = 'tooltip__deletions';
-				delSpan.textContent =
-					commit.deletions === 1
-						? l10n.t('-{0} line', getNumericFormat()(commit.deletions))
-						: l10n.t('-{0} lines', getNumericFormat()(commit.deletions));
+				delSpan.textContent = formatPlural(l10n.t('{0, plural, one{-{0} line} other{-{0} lines}}'), [
+					commit.deletions,
+				]);
 				detailsRow.appendChild(delSpan);
 			}
 

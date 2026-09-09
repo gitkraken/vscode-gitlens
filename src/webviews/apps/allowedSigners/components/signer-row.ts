@@ -1,6 +1,7 @@
 import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { CandidateSigner, SignerProvider } from '../../../allowedSigners/protocol.js';
 import type { Checkbox } from '../../shared/components/checkbox/checkbox.js';
 import '../../shared/components/checkbox/checkbox.js';
@@ -189,7 +190,10 @@ export class GlSignerRow extends LitElement {
 				${
 					s.commitCount
 						? html`<span class="count"
-								>${s.commitCount === 1 ? l10n.t('{0} signed commit', s.commitCount) : l10n.t('{0} signed commits', s.commitCount)}</span
+								>${formatPlural(
+									l10n.t('{0, plural, one{{0} signed commit} other{{0} signed commits}}'),
+									[s.commitCount],
+								)}</span
 							>`
 						: nothing
 				}

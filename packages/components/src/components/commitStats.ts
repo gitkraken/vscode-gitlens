@@ -2,7 +2,7 @@ import * as l10n from '@vscode/l10n';
 import type { CSSResult, TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { localizedContent } from '../localizedContent.js';
 import './codeIcon.js';
 import './overlays/tooltip.js';
@@ -228,22 +228,25 @@ export class CommitStats extends LitElement {
 
 		const filesLine = hasBreakdown
 			? localizedContent(
-					totalFiles === 1
-						? l10n.t('{count} file changed ({changes})')
-						: l10n.t('{count} files changed ({changes})'),
-					{ count: getNumericFormat()(totalFiles), changes: parts },
+					formatPlural(
+						l10n.t(
+							'{count, plural, one{{count} file changed ({changes})} other{{count} files changed ({changes})}}',
+						),
+						{
+							count: totalFiles,
+						},
+					),
+					{ changes: parts },
 				)
 			: totalFiles === 0
 				? l10n.t('No files changed')
-				: totalFiles === 1
-					? l10n.t('{0} file changed', getNumericFormat()(totalFiles))
-					: l10n.t('{0} files changed', getNumericFormat()(totalFiles));
+				: formatPlural(l10n.t('{0, plural, one{{0} file changed} other{{0} files changed}}'), [totalFiles]);
 
 		const lineParts: unknown[] = [];
 		if (this.additions != null) {
 			lineParts.push(
 				html`<span class="added"
-					>${this.additions === 1 ? l10n.t('{0} addition', getNumericFormat()(this.additions)) : l10n.t('{0} additions', getNumericFormat()(this.additions))}</span
+					>${formatPlural(l10n.t('{0, plural, one{{0} addition} other{{0} additions}}'), [this.additions])}</span
 				>`,
 			);
 		}
@@ -253,7 +256,7 @@ export class CommitStats extends LitElement {
 			}
 			lineParts.push(
 				html`<span class="removed"
-					>${this.deletions === 1 ? l10n.t('{0} deletion', getNumericFormat()(this.deletions)) : l10n.t('{0} deletions', getNumericFormat()(this.deletions))}</span
+					>${formatPlural(l10n.t('{0, plural, one{{0} deletion} other{{0} deletions}}'), [this.deletions])}</span
 				>`,
 			);
 		}

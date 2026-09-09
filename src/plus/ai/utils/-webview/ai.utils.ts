@@ -5,8 +5,8 @@ import type { AIModel } from '@gitlens/ai/models/model.js';
 import { getValidatedTemperature as _getValidatedTemperature } from '@gitlens/ai/utils/ai.utils.js';
 import { decodeGitLensRevisionUriAuthority } from '@gitlens/git/utils/uriAuthority.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
-import { formatNumeric } from '@gitlens/utils/date.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { Schemes } from '../../../../constants.js';
 import type { Source } from '../../../../constants.telemetry.js';
@@ -139,18 +139,13 @@ export async function showLargePromptWarning(estimatedTokens: number, threshold:
 	const confirm = { title: l10n.t('Continue') };
 	const changeThreshold = { title: l10n.t('Change Threshold') };
 	const cancel = { title: l10n.t('Cancel'), isCloseAffordance: true };
-	const estimatedTokensFormatted = formatNumeric(estimatedTokens);
-	const thresholdFormatted = formatNumeric(threshold);
 	const result = await window.showWarningMessage(
-		estimatedTokens === 1
-			? l10n.t(
-					'This request will use approximately {estimatedTokens} token, which exceeds the configured {threshold} token threshold for large prompts.\n\nDo you want to continue?',
-					{ estimatedTokens: estimatedTokensFormatted, threshold: thresholdFormatted },
-				)
-			: l10n.t(
-					'This request will use approximately {estimatedTokens} tokens, which exceeds the configured {threshold} token threshold for large prompts.\n\nDo you want to continue?',
-					{ estimatedTokens: estimatedTokensFormatted, threshold: thresholdFormatted },
-				),
+		formatPlural(
+			l10n.t(
+				'{estimatedTokens, plural, one{This request will use approximately {estimatedTokens} token, which exceeds the configured {threshold} token threshold for large prompts.\n\nDo you want to continue?} other{This request will use approximately {estimatedTokens} tokens, which exceeds the configured {threshold} token threshold for large prompts.\n\nDo you want to continue?}}',
+			),
+			{ estimatedTokens: estimatedTokens, threshold: threshold },
+		),
 		{ modal: true },
 		confirm,
 		changeThreshold,

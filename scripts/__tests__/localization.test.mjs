@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
+import { config, t } from '@vscode/l10n';
 import { getL10nJson } from '@vscode/l10n-dev';
-import { formatCatalog, validateTranslations } from '../localization.mjs';
+import { formatCatalog, parsePluralBlocks, validateTranslations } from '../localization.mjs';
 
 test('extracts native and browser messages with translator context', async () => {
 	const catalog = await getL10nJson([
@@ -40,6 +41,140 @@ test('rejects missing, added, empty and obsolete translations', () => {
 	assert.equal(validateTranslations({ Open: 'Open' }, { Open: '' }, 'fr').length, 1);
 });
 
+test('parsePluralBlocks finds top-level blocks without descending into a nested one, and throws on malformed input', () => {
+	const blocks = parsePluralBlocks('{0, plural, one{a} other{b}} and {1, plural, one{c} other{d}}');
+	assert.equal(blocks.length, 2);
+	assert.equal(blocks[0].selector, '0');
+	assert.deepEqual(blocks[0].branches, { one: 'a', other: 'b' });
+	assert.equal(blocks[1].selector, '1');
+	assert.deepEqual(blocks[1].branches, { one: 'c', other: 'd' });
+
+	const nested = parsePluralBlocks('{0, plural, one{{1, plural, one{x} other{y}}} other{z}}');
+	assert.equal(nested.length, 1);
+	assert.equal(nested[0].branches.one, '{1, plural, one{x} other{y}}');
+
+	assert.deepEqual(parsePluralBlocks('plain string, no block'), []);
+	assert.throws(() => parsePluralBlocks('{0, plural, one{a}'), /unterminated plural block/);
+	assert.throws(() => parsePluralBlocks('{0, plural, one{a}}'), /without an "other" branch/);
+});
+
+test('validateTranslations accepts a correct plural block in a translation', () => {
+	assert.deepEqual(
+		validateTranslations(
+			{ '{0} files changed': '{0} files changed' },
+			{
+				'{0} files changed':
+					'{0, plural, one{{0} файл изменён} few{{0} файла изменено} many{{0} файлов изменено} other{{0} файлов изменено}}',
+			},
+			'ru',
+		),
+		[],
+	);
+});
+
+test('validateTranslations also accepts and validates a plural block in the English source', () => {
+	const key = '{count, plural, one{{count} file changed} other{{count} files changed}}';
+	assert.deepEqual(validateTranslations({ [key]: key }, { [key]: key }, 'en-gb'), []);
+});
+
+test('validateTranslations accepts a source block translated with more CLDR categories than English uses', () => {
+	// English (the source) only ever writes "one" and "other"; a translator may add whichever further
+	// categories their language distinguishes.
+	const key = '{count, plural, one{{count} file changed} other{{count} files changed}}';
+	const translated =
+		'{count, plural, one{{count} файл изменён} few{{count} файла изменено} many{{count} файлов изменено} other{{count} файлов изменено}}';
+	assert.deepEqual(validateTranslations({ [key]: key }, { [key]: translated }, 'ru'), []);
+});
+
+test('validateTranslations rejects a plural block with no "other" branch', () => {
+	const errors = validateTranslations(
+		{ '{0} files changed': '{0} files changed' },
+		{ '{0} files changed': '{0, plural, one{{0} файл изменён}}' },
+		'ru',
+	);
+	assert.equal(errors.length, 1);
+	assert.match(errors[0], /plural block without an "other" branch/);
+});
+
+test('validateTranslations rejects a plural block with no "other" branch in the English source', () => {
+	const key = '{count, plural, one{{count} file changed}}';
+	const errors = validateTranslations({ [key]: key }, { [key]: 'plain translation' }, 'fr');
+	assert.equal(errors.length, 1);
+	assert.match(errors[0], /plural block without an "other" branch for .*\(source\)/);
+});
+
+test('validateTranslations rejects an unknown plural branch name', () => {
+	const key = '{count, plural, foo{{count} thing} other{{count} things}}';
+	const errors = validateTranslations({ [key]: key }, { [key]: '{count} things' }, 'fr');
+	assert.equal(errors.length, 1);
+	assert.match(errors[0], /unknown plural branch "foo" for .*\(source\)/);
+});
+
+test('validateTranslations rejects a plural branch that references a placeholder the source does not have', () => {
+	// "{1}" inside the branch is a placeholder nothing in the source (just "{0}") provides — this shows up
+	// as an overall placeholder-set mismatch, the same as a plain translation inventing an extra `{1}`.
+	const errors = validateTranslations(
+		{ '{0} files changed': '{0} files changed' },
+		{ '{0} files changed': '{0, plural, one{{1} file changed} other{{0} files changed}}' },
+		'ru',
+	);
+	assert.equal(errors.length, 1);
+	assert.match(errors[0], /mismatched placeholders for/);
+});
+
+test('validateTranslations rejects a plural selector that is not a source placeholder', () => {
+	// The block's selector "count" is not among the source's placeholders ("0") — a block's selector
+	// counts toward its message's placeholder set, so this is also an overall placeholder-set mismatch.
+	const errors = validateTranslations(
+		{ '{0} files changed': '{0} files changed' },
+		{ '{0} files changed': '{count, plural, one{{0} file} other{{0} files}}' },
+		'ru',
+	);
+	assert.equal(errors.length, 1);
+	assert.match(errors[0], /mismatched placeholders for/);
+});
+
+test('a branch may omit the selector placeholder — subset, not an exact match', () => {
+	assert.deepEqual(
+		validateTranslations(
+			{ '{0} files changed': '{0} files changed' },
+			{ '{0} files changed': '{0, plural, =0{no files changed} one{one file changed} other{{0} files changed}}' },
+			'zh-cn',
+		),
+		[],
+	);
+});
+
+test('validateTranslations accepts a message with two sibling plural blocks', () => {
+	const key =
+		'{0, plural, one{{0} commit} other{{0} commits}} behind, {1, plural, one{{1} commit} other{{1} commits}} ahead';
+	assert.deepEqual(validateTranslations({ [key]: key }, { [key]: key }, 'en-gb'), []);
+});
+
+test('validateTranslations accepts a message with a plural block nested inside another', () => {
+	const key =
+		'{0, plural, one{{0} commit behind, {1, plural, one{{1} commit ahead} other{{1} commits ahead}}} other{{0} commits behind, {1, plural, one{{1} commit ahead} other{{1} commits ahead}}}}';
+	assert.deepEqual(validateTranslations({ [key]: key }, { [key]: key }, 'en-gb'), []);
+});
+
+test('validateTranslations rejects a nested block whose selector the source does not have', () => {
+	// The source uses selectors "0" and "1" (the inner block is nested inside the outer one's "one"
+	// branch). The translation's outer selector is "0" too, but its nested block references "2" — a
+	// selector nothing in the source provides, at any nesting depth — so the effective placeholder sets
+	// ({0, 1} vs {0, 2}) disagree.
+	const key =
+		'{0, plural, one{{0} commit behind, {1, plural, one{{1} commit ahead} other{{1} commits ahead}}} other{x}}';
+	const translated = '{0, plural, one{{2, plural, one{x} other{y}}} other{z}}';
+	const errors = validateTranslations({ [key]: key }, { [key]: translated }, 'de');
+	assert.equal(errors.length, 1);
+	assert.match(errors[0], /mismatched placeholders for/);
+});
+
+test('@vscode/l10n returns an untranslated template verbatim when called with no arguments', () => {
+	config({ contents: {} });
+	assert.equal(t('{0} files changed'), '{0} files changed');
+});
+
 test('catalog output is stable across insertion orders', () => {
 	assert.equal(formatCatalog({ z: 'last', a: 'first' }), formatCatalog({ a: 'first', z: 'last' }));
 });
@@ -75,7 +210,10 @@ test('webview initialization translates module-level labels without a fetch', as
 	const encoded = Buffer.from(JSON.stringify(bundle), 'utf8').toString('base64');
 	function run(contents) {
 		const context = {
-			document: { querySelector: () => (contents ? { content: contents } : null) },
+			document: {
+				querySelector: () => (contents ? { content: contents } : null),
+				documentElement: { lang: '' },
+			},
 			TextEncoder,
 			TextDecoder,
 			Uint8Array,
@@ -141,7 +279,7 @@ test('host initialization translates shared package constants before extension m
 	for (const bundle of [undefined, { Rebasing: 'リベース中' }]) {
 		const context = {
 			require: id => {
-				if (id === 'vscode') return { l10n: { bundle } };
+				if (id === 'vscode') return { l10n: { bundle }, env: { language: 'en' } };
 				return createRequire(import.meta.url)(id);
 			},
 		};

@@ -8,7 +8,7 @@
 
 import * as l10n from '@vscode/l10n';
 import { CommitError, SigningError } from '@gitlens/git/errors.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getPresentableErrorMessage } from '../../../errors.js';
 
 /**
@@ -103,10 +103,6 @@ export function buildCommitOutputPreview(output: string): string {
 	}
 
 	return truncatedLines > 0
-		? `${preview}\n… ${
-				truncatedLines === 1
-					? l10n.t('({0} more line)', getNumericFormat()(truncatedLines))
-					: l10n.t('({0} more lines)', getNumericFormat()(truncatedLines))
-			}`
+		? `${preview}\n… ${formatPlural(l10n.t('{0, plural, one{({0} more line)} other{({0} more lines)}}'), [truncatedLines])}`
 		: preview;
 }

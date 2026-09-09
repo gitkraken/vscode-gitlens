@@ -4,6 +4,7 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { normalizePath } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../../container.js';
 import { getPresentableErrorMessage } from '../../errors.js';
@@ -160,15 +161,12 @@ export class WorkspacesService implements Disposable {
 			cloudWorkspaces: cloudWorkspaces,
 			cloudWorkspaceInfo:
 				filteredSharedWorkspaceCount > 0
-					? filteredSharedWorkspaceCount === 1
-						? l10n.t(
-								'{0} shared workspace hidden - upgrade to GitLens Pro to access.',
-								filteredSharedWorkspaceCount,
-							)
-						: l10n.t(
-								'{0} shared workspaces hidden - upgrade to GitLens Pro to access.',
-								filteredSharedWorkspaceCount,
-							)
+					? formatPlural(
+							l10n.t(
+								'{0, plural, one{{0} shared workspace hidden - upgrade to GitLens Pro to access.} other{{0} shared workspaces hidden - upgrade to GitLens Pro to access.}}',
+							),
+							[filteredSharedWorkspaceCount],
+						)
 					: undefined,
 		};
 	}

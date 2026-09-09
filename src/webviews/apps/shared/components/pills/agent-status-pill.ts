@@ -3,7 +3,7 @@ import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../agentUtils.js';
@@ -653,32 +653,33 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 		if (sessions.length <= shown) return nothing;
 
 		const remaining = sessions.length - shown;
-		const count = getNumericFormat()(remaining);
 		let countText: string;
 		switch (category) {
 			case 'needs-input':
-				countText =
-					remaining === 1
-						? l10n.t('{count} more needs input session', { count: count })
-						: l10n.t('{count} more needs input sessions', { count: count });
+				countText = formatPlural(
+					l10n.t(
+						'{count, plural, one{{count} more needs input session} other{{count} more needs input sessions}}',
+					),
+					{ count: remaining },
+				);
 				break;
 			case 'working':
-				countText =
-					remaining === 1
-						? l10n.t('{count} more working session', { count: count })
-						: l10n.t('{count} more working sessions', { count: count });
+				countText = formatPlural(
+					l10n.t('{count, plural, one{{count} more working session} other{{count} more working sessions}}'),
+					{ count: remaining },
+				);
 				break;
 			case 'idle':
-				countText =
-					remaining === 1
-						? l10n.t('{count} more idle session', { count: count })
-						: l10n.t('{count} more idle sessions', { count: count });
+				countText = formatPlural(
+					l10n.t('{count, plural, one{{count} more idle session} other{{count} more idle sessions}}'),
+					{ count: remaining },
+				);
 				break;
 			case 'ended':
-				countText =
-					remaining === 1
-						? l10n.t('{count} more past session', { count: count })
-						: l10n.t('{count} more past sessions', { count: count });
+				countText = formatPlural(
+					l10n.t('{count, plural, one{{count} more past session} other{{count} more past sessions}}'),
+					{ count: remaining },
+				);
 				break;
 		}
 

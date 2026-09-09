@@ -6,6 +6,7 @@ import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import { getDefaultRemoteOrOrigin } from '@gitlens/git/utils/remote.utils.js';
 import { ensureArray } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { showGitErrorMessage } from '../../../messages.js';
@@ -209,17 +210,12 @@ export class TagPushGitCommand extends QuickCommand<State> {
 				label: force ? l10n.t('Force Push Tags') : context.title,
 				description: force ? '--force' : undefined,
 				detail: force
-					? references.length === 1
-						? l10n.t(
-								'Will force push {0} to {1}, overwriting the tag on the remote if it already exists',
-								refsLabel,
-								state.remote.name,
-							)
-						: l10n.t(
-								'Will force push {0} to {1}, overwriting the tags on the remote if they already exist',
-								refsLabel,
-								state.remote.name,
-							)
+					? formatPlural(
+							l10n.t(
+								'{count, plural, one{Will force push {refs} to {remote}, overwriting the tag on the remote if it already exists} other{Will force push {refs} to {remote}, overwriting the tags on the remote if they already exist}}',
+							),
+							{ count: references.length, refs: refsLabel, remote: state.remote.name },
+						)
 					: l10n.t('Will push {0} to {1}', refsLabel, state.remote.name),
 			}),
 		];
@@ -241,10 +237,12 @@ export class TagPushGitCommand extends QuickCommand<State> {
 		const forceToggle = createConfirmToggleQuickPickItem({
 			label: force ? l10n.t('$(warning) Force') : l10n.t('Force'),
 			description: '--force',
-			detail:
-				references.length === 1
-					? l10n.t('Overwrite the tag on the remote if it already exists')
-					: l10n.t('Overwrite the tags on the remote if they already exist'),
+			detail: formatPlural(
+				l10n.t(
+					'{0, plural, one{Overwrite the tag on the remote if it already exists} other{Overwrite the tags on the remote if they already exist}}',
+				),
+				[references.length],
+			),
 			checked: force,
 			onDidChange: item => {
 				force = item.checked;

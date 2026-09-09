@@ -1,7 +1,7 @@
 import * as l10n from '@vscode/l10n';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { escapeMarkdown } from '@gitlens/utils/markdown.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { TreeItemDecoration, TreeItemDecorationKind } from './base.js';
 
 // Decodes Git's two-character unmerged status codes. The `U` placeholder is context-dependent:
@@ -94,8 +94,7 @@ export function getConflictStatusInfo(
 }
 
 function formatConflictCount(conflictCount: number): string {
-	const count = getNumericFormat()(conflictCount);
-	return conflictCount === 1 ? l10n.t('{0} conflict', count) : l10n.t('{0} conflicts', count);
+	return formatPlural(l10n.t('{0, plural, one{{0} conflict} other{{0} conflicts}}'), [conflictCount]);
 }
 
 export function getConflictDecorations(

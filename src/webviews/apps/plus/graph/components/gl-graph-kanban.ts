@@ -7,6 +7,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { basename } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { WebviewTelemetryEvents } from '../../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../../system/commands.js';
@@ -908,11 +909,9 @@ Allow / Deny / View Plan cluster left-aligned. */
 							?auto-show=${this.graphReady}
 						></gl-graph-coachmark>
 						<span class="header__count" aria-live="polite"
-							>${
-								currentCount === 1
-									? l10n.t('{count} session', { count: currentCount })
-									: l10n.t('{count} sessions', { count: currentCount })
-							}</span
+							>${formatPlural(l10n.t('{count, plural, one{{count} session} other{{count} sessions}}'), {
+								count: currentCount,
+							})}</span
 						>
 					</div>
 					<gl-button
@@ -979,11 +978,9 @@ Allow / Deny / View Plan cluster left-aligned. */
 				<h3 class="column__heading-label">${column.label}</h3>
 				<span
 					class="column__count"
-					aria-label=${
-						currentCount === 1
-							? l10n.t('{count} session', { count: currentCount })
-							: l10n.t('{count} sessions', { count: currentCount })
-					}
+					aria-label=${formatPlural(l10n.t('{count, plural, one{{count} session} other{{count} sessions}}'), {
+						count: currentCount,
+					})}
 					>${currentCount}</span
 				>
 			</header>

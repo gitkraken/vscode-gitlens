@@ -5,9 +5,9 @@ import type { GitLog } from '@gitlens/git/models/log.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitStatusFile } from '@gitlens/git/models/statusFile.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { filter, flatMap, groupBy, map } from '@gitlens/utils/iterable.js';
 import { joinPaths, normalizePath } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { sortCompare } from '@gitlens/utils/string.js';
 import { GitUri } from '../../git/gitUri.js';
 import { getCommitDate } from '../../git/utils/-webview/commit.utils.js';
@@ -134,9 +134,7 @@ export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTr
 		const label =
 			files === -1
 				? l10n.t('?? files changed')
-				: files === 1
-					? l10n.t('{0} file changed', getNumericFormat()(files))
-					: l10n.t('{0} files changed', getNumericFormat()(files));
+				: formatPlural(l10n.t('{0, plural, one{{0} file changed} other{{0} files changed}}'), [files]);
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.description = 'working tree';
 		item.id = this.id;

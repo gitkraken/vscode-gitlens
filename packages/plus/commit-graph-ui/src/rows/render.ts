@@ -34,8 +34,8 @@ import type { TemplateResult } from 'lit';
 import { html, nothing, svg } from 'lit';
 import type { StyleInfo } from '@gitlens/components/cspStyleMap.directive.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { splitMessage } from '@gitlens/utils/string.js';
 import type { GraphRowAction } from '../contracts/contributions.js';
 import type { CommitGraphPausedOperationStatus } from '../contracts/state.js';
@@ -572,7 +572,7 @@ function renderWipBranchPill(ctx: RowRenderContext): TemplateResult {
 }
 
 // The Changes cell's tooltip + aria text: "N files changed, N lines added, N lines deleted", each part
-// omitted when zero. `getNumericFormat` thousands-separates ≥4-digit counts. Cached by the stable stats object
+// omitted when zero. `formatPlural` thousands-separates ≥4-digit counts. Cached by the stable stats object
 // (both the memoized cell and the per-row aria path read it, the latter every render for every row).
 const changesAriaTextCache = new WeakMap<RowStats, string>();
 function changesAriaText(stats: RowStats): string {
@@ -581,24 +581,14 @@ function changesAriaText(stats: RowStats): string {
 
 	const parts: string[] = [];
 	if (stats.files) {
-		parts.push(
-			stats.files === 1
-				? l10n.t('{0} file changed', getNumericFormat()(stats.files))
-				: l10n.t('{0} files changed', getNumericFormat()(stats.files)),
-		);
+		parts.push(formatPlural(l10n.t('{0, plural, one{{0} file changed} other{{0} files changed}}'), [stats.files]));
 	}
 	if (stats.additions) {
-		parts.push(
-			stats.additions === 1
-				? l10n.t('{0} line added', getNumericFormat()(stats.additions))
-				: l10n.t('{0} lines added', getNumericFormat()(stats.additions)),
-		);
+		parts.push(formatPlural(l10n.t('{0, plural, one{{0} line added} other{{0} lines added}}'), [stats.additions]));
 	}
 	if (stats.deletions) {
 		parts.push(
-			stats.deletions === 1
-				? l10n.t('{0} line deleted', getNumericFormat()(stats.deletions))
-				: l10n.t('{0} lines deleted', getNumericFormat()(stats.deletions)),
+			formatPlural(l10n.t('{0, plural, one{{0} line deleted} other{{0} lines deleted}}'), [stats.deletions]),
 		);
 	}
 	text = parts.join(', ');

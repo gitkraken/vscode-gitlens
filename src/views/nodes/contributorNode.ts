@@ -3,10 +3,10 @@ import { l10n, MarkdownString, TreeItem, TreeItemCollapsibleState, window } from
 import { GitContributor } from '@gitlens/git/models/contributor.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import { formatMarkdownCode } from '@gitlens/git/utils/tooltip.utils.js';
-import { formatNumeric, getNumericFormat } from '@gitlens/utils/date.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { map } from '@gitlens/utils/iterable.js';
 import { escapeMarkdown } from '@gitlens/utils/markdown.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getPresenceDataUri } from '../../avatars.js';
 import { GlyphChars } from '../../constants.js';
 import type { GitUri } from '../../git/gitUri.js';
@@ -122,24 +122,20 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 	async getTreeItem(): Promise<TreeItem> {
 		const presence = this.options?.presence?.get(this.contributor.email!);
 
-		const numericFormat = getNumericFormat();
 		let shortStats = '';
 		if (this.contributor.stats != null) {
-			const files = numericFormat(this.contributor.stats.files);
-			const additions = formatNumeric(this.contributor.stats.additions);
-			const deletions = formatNumeric(this.contributor.stats.deletions);
 			const lines = this.contributor.stats.additions + this.contributor.stats.deletions;
-			if (this.contributor.stats.files === 1) {
-				shortStats =
-					lines === 1
-						? l10n.t(' ({0} file, +{1} -{2} line)', files, additions, deletions)
-						: l10n.t(' ({0} file, +{1} -{2} lines)', files, additions, deletions);
-			} else {
-				shortStats =
-					lines === 1
-						? l10n.t(' ({0} files, +{1} -{2} line)', files, additions, deletions)
-						: l10n.t(' ({0} files, +{1} -{2} lines)', files, additions, deletions);
-			}
+			shortStats = formatPlural(
+				l10n.t(
+					'{files, plural, one{{lines, plural, one{ ({files} file, +{additions} -{deletions} line)} other{ ({files} file, +{additions} -{deletions} lines)}}} other{{lines, plural, one{ ({files} files, +{additions} -{deletions} line)} other{ ({files} files, +{additions} -{deletions} lines)}}}}',
+				),
+				{
+					files: this.contributor.stats.files,
+					additions: this.contributor.stats.additions,
+					deletions: this.contributor.stats.deletions,
+					lines: lines,
+				},
+			);
 		}
 
 		const displayName = this.contributor.current
@@ -151,10 +147,9 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		item.contextValue = this.contributor.current
 			? `${ContextValues.Contributor}+current`
 			: ContextValues.Contributor;
-		const commitCount =
-			this.contributor.contributionCount === 1
-				? l10n.t('{0} commit', numericFormat(this.contributor.contributionCount))
-				: l10n.t('{0} commits', numericFormat(this.contributor.contributionCount));
+		const commitCount = formatPlural(l10n.t('{0, plural, one{{0} commit} other{{0} commits}}'), [
+			this.contributor.contributionCount,
+		]);
 		let presenceLabel = '';
 		if (presence != null && presence.status !== 'offline') {
 			switch (presence.status) {
@@ -251,19 +246,19 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 
 		const stats =
 			this.contributor.stats != null
-				? `\\\n${
-						this.contributor.stats.files === 1
-							? escapeMarkdown(l10n.t('{0} file changed', numericFormat(this.contributor.stats.files)))
-							: escapeMarkdown(l10n.t('{0} files changed', numericFormat(this.contributor.stats.files)))
-					}, ${
-						this.contributor.stats.additions === 1
-							? escapeMarkdown(l10n.t('{0} addition', numericFormat(this.contributor.stats.additions)))
-							: escapeMarkdown(l10n.t('{0} additions', numericFormat(this.contributor.stats.additions)))
-					}, ${
-						this.contributor.stats.deletions === 1
-							? escapeMarkdown(l10n.t('{0} deletion', numericFormat(this.contributor.stats.deletions)))
-							: escapeMarkdown(l10n.t('{0} deletions', numericFormat(this.contributor.stats.deletions)))
-					}`
+				? `\\\n${escapeMarkdown(
+						formatPlural(l10n.t('{0, plural, one{{0} file changed} other{{0} files changed}}'), [
+							this.contributor.stats.files,
+						]),
+					)}, ${escapeMarkdown(
+						formatPlural(l10n.t('{0, plural, one{{0} addition} other{{0} additions}}'), [
+							this.contributor.stats.additions,
+						]),
+					)}, ${escapeMarkdown(
+						formatPlural(l10n.t('{0, plural, one{{0} deletion} other{{0} deletions}}'), [
+							this.contributor.stats.deletions,
+						]),
+					)}`
 				: '';
 
 		const link = this.contributor.email
@@ -291,23 +286,13 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		const contributions =
 			path == null
 				? escapeMarkdown(commitCount)
-				: this.contributor.contributionCount === 1
-					? formatLocalizedMarkdownWithCode(
-							l10n.t(
-								'{0} commit to {1}',
-								numericFormat(this.contributor.contributionCount),
-								markdownCodeToken,
-							),
-							path,
-						)
-					: formatLocalizedMarkdownWithCode(
-							l10n.t(
-								'{0} commits to {1}',
-								numericFormat(this.contributor.contributionCount),
-								markdownCodeToken,
-							),
-							path,
-						);
+				: formatLocalizedMarkdownWithCode(
+						formatPlural(l10n.t('{0, plural, one{{0} commit to {1}} other{{0} commits to {1}}}'), [
+							this.contributor.contributionCount,
+							markdownCodeToken,
+						]),
+						path,
+					);
 		const markdown = new MarkdownString(
 			`${avatarMarkdown ?? ''} &nbsp;${link} \n\n${lastCommitted}${contributions}${stats}`,
 		);

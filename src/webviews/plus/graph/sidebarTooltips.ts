@@ -2,6 +2,7 @@ import * as l10n from '@vscode/l10n';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { formatIndicators, formatTrackingTooltip } from '@gitlens/git/utils/tooltip.utils.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type {
 	GraphSidebarBranch,
 	GraphSidebarPullRequest,
@@ -116,17 +117,12 @@ export function pullRequestMergesTooltip(pr: GraphSidebarPullRequest): string | 
 		});
 	}
 
-	return pr.commitCount === 1
-		? l10n.t('Merges {count} commit into $(git-branch) `{base}` from {head}', {
-				count: pr.commitCount,
-				base: pr.baseBranch,
-				head: head,
-			})
-		: l10n.t('Merges {count} commits into $(git-branch) `{base}` from {head}', {
-				count: pr.commitCount,
-				base: pr.baseBranch,
-				head: head,
-			});
+	return formatPlural(
+		l10n.t(
+			'{count, plural, one{Merges {count} commit into $(git-branch) `{base}` from {head}} other{Merges {count} commits into $(git-branch) `{base}` from {head}}}',
+		),
+		{ count: pr.commitCount, base: pr.baseBranch, head: head },
+	);
 }
 
 export function tagTooltip(t: GraphSidebarTag, dateFormat?: string | null): string {

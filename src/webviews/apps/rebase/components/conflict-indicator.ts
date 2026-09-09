@@ -4,7 +4,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import { getConflictDetectionErrorDisplayMessage } from '@gitlens/git/utils/mergeConflicts.utils.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { SubscriptionState } from '../../../../constants.subscription.js';
 import '@gitlens/components/components/codeIcon.js';
 import '@gitlens/components/components/overlays/popover.js';
@@ -313,14 +313,12 @@ export class GlRebaseConflictIndicator extends LitElement {
 		const staleClass = this.stale ? 'indicator--stale' : '';
 		const files = this.result.conflict.files;
 		const conflictCount = files.length;
-		const conflictFilesMessage =
-			conflictCount === 1
-				? l10n.t('This rebase will cause conflicts in {count} file:', {
-						count: getNumericFormat()(conflictCount),
-					})
-				: l10n.t('This rebase will cause conflicts in {count} files:', {
-						count: getNumericFormat()(conflictCount),
-					});
+		const conflictFilesMessage = formatPlural(
+			l10n.t(
+				'{count, plural, one{This rebase will cause conflicts in {count} file:} other{This rebase will cause conflicts in {count} files:}}',
+			),
+			{ count: conflictCount },
+		);
 
 		if (this.compact) {
 			return html`
@@ -356,13 +354,12 @@ export class GlRebaseConflictIndicator extends LitElement {
 						>${
 							this.checking
 								? l10n.t('Detecting Conflicts')
-								: conflictCount === 1
-									? l10n.t('{count} Conflict Detected', {
-											count: getNumericFormat()(conflictCount),
-										})
-									: l10n.t('{count} Conflicts Detected', {
-											count: getNumericFormat()(conflictCount),
-										})
+								: formatPlural(
+										l10n.t(
+											'{count, plural, one{{count} Conflict Detected} other{{count} Conflicts Detected}}',
+										),
+										{ count: conflictCount },
+									)
 						}</span
 					>
 				</div>

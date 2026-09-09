@@ -10,12 +10,12 @@ import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { uuid } from '@gitlens/utils/crypto.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { annotateDiffWithNewLineNumbers } from '@gitlens/utils/diff.js';
 import { lazy } from '@gitlens/utils/lazy.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { normalizePath } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { getAvatarUri } from '../../../avatars.js';
 import type { ContinueRebaseWithAiCommandArgs } from '../../../commands/autoRebase.js';
@@ -653,10 +653,12 @@ export class GraphInspectServices {
 					if (!composeTools.moveFilesBetweenCommits(cacheKey, fromCommitId, toCommitId, paths)) {
 						return {
 							error: {
-								message:
-									paths.length === 1
-										? l10n.t('Unable to move that file; please regenerate the plan.')
-										: l10n.t('Unable to move those files; please regenerate the plan.'),
+								message: formatPlural(
+									l10n.t(
+										'{0, plural, one{Unable to move that file; please regenerate the plan.} other{Unable to move those files; please regenerate the plan.}}',
+									),
+									[paths.length],
+								),
 							},
 						};
 					}
@@ -2108,31 +2110,29 @@ export class GraphInspectServices {
 			this.discardResolveSession(repoPath);
 			void window.showInformationMessage(
 				skipped > 0
-					? toApply.length === 1
-						? l10n.t('Resolved {resolved} file — {skipped} skipped (no longer conflicted).', {
-								resolved: getNumericFormat()(toApply.length),
-								skipped: getNumericFormat()(skipped),
-							})
-						: l10n.t('Resolved {resolved} files — {skipped} skipped (no longer conflicted).', {
-								resolved: getNumericFormat()(toApply.length),
-								skipped: getNumericFormat()(skipped),
-							})
-					: toApply.length === 1
-						? l10n.t('Resolved {count} file.', { count: getNumericFormat()(toApply.length) })
-						: l10n.t('Resolved {count} files.', { count: getNumericFormat()(toApply.length) }),
+					? formatPlural(
+							l10n.t(
+								'{resolved, plural, one{Resolved {resolved} file — {skipped} skipped (no longer conflicted).} other{Resolved {resolved} files — {skipped} skipped (no longer conflicted).}}',
+							),
+							{ resolved: toApply.length, skipped: skipped },
+						)
+					: formatPlural(
+							l10n.t('{count, plural, one{Resolved {count} file.} other{Resolved {count} files.}}'),
+							{
+								count: toApply.length,
+							},
+						),
 			);
 			if (skipped === 0) return { success: true };
 
 			return {
 				success: true,
-				warning:
-					skipped === 1
-						? l10n.t('{count} file was skipped because it is no longer conflicted.', {
-								count: getNumericFormat()(skipped),
-							})
-						: l10n.t('{count} files were skipped because they are no longer conflicted.', {
-								count: getNumericFormat()(skipped),
-							}),
+				warning: formatPlural(
+					l10n.t(
+						'{count, plural, one{{count} file was skipped because it is no longer conflicted.} other{{count} files were skipped because they are no longer conflicted.}}',
+					),
+					{ count: skipped },
+				),
 			};
 		} catch (ex) {
 			return {
@@ -3349,22 +3349,14 @@ export class GraphInspectServices {
 			scope.includeShas.length === 0
 				? workingChanges
 				: commitMessages.length === 0
-					? scope.includeShas.length === 1
-						? l10n.t('{0} + {1} commit', workingChanges, scope.includeShas.length)
-						: l10n.t('{0} + {1} commits', workingChanges, scope.includeShas.length)
-					: scope.includeShas.length === 1
-						? l10n.t(
-								'{0} + {1} commit:\n\n{2}',
-								workingChanges,
-								scope.includeShas.length,
-								commitMessages.join('\n'),
-							)
-						: l10n.t(
-								'{0} + {1} commits:\n\n{2}',
-								workingChanges,
-								scope.includeShas.length,
-								commitMessages.join('\n'),
-							);
+					? formatPlural(l10n.t('{1, plural, one{{0} + {1} commit} other{{0} + {1} commits}}'), [
+							workingChanges,
+							scope.includeShas.length,
+						])
+					: formatPlural(
+							l10n.t('{1, plural, one{{0} + {1} commit:\n\n{2}} other{{0} + {1} commits:\n\n{2}}}'),
+							[workingChanges, scope.includeShas.length, commitMessages.join('\n')],
+						);
 
 		const wipBranch = await svc.branches.getBranch();
 		signal?.throwIfAborted();

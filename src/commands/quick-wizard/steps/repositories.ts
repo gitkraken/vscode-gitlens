@@ -3,7 +3,7 @@ import { GitStatus } from '@gitlens/git/models/status.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { isStringArray } from '@gitlens/utils/array.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { revealRepository } from '../../../git/actions/repository.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { groupRepositories } from '../../../git/utils/-webview/repository.utils.js';
@@ -259,55 +259,21 @@ function getShowRepositoryStatusStepItems<
 	if (computed.staged === 0 && computed.unstaged === 0) {
 		workingTreeStatus = l10n.t('No working tree changes');
 	} else if (computed.staged === 0) {
-		workingTreeStatus =
-			computed.unstaged === 1
-				? l10n.t(
-						'$(files) {0} unstaged file ({1})',
-						getNumericFormat()(computed.unstaged),
-						computed.unstagedStatus,
-					)
-				: l10n.t(
-						'$(files) {0} unstaged files ({1})',
-						getNumericFormat()(computed.unstaged),
-						computed.unstagedStatus,
-					);
+		workingTreeStatus = formatPlural(
+			l10n.t('{0, plural, one{$(files) {0} unstaged file ({1})} other{$(files) {0} unstaged files ({1})}}'),
+			[computed.unstaged, computed.unstagedStatus],
+		);
 	} else if (computed.unstaged === 0) {
-		workingTreeStatus =
-			computed.staged === 1
-				? l10n.t('$(files) {0} staged file ({1})', getNumericFormat()(computed.staged), computed.stagedStatus)
-				: l10n.t('$(files) {0} staged files ({1})', getNumericFormat()(computed.staged), computed.stagedStatus);
-	} else if (computed.staged === 1) {
-		workingTreeStatus =
-			computed.unstaged === 1
-				? l10n.t(
-						'$(files) {0} staged file ({1}), {2} unstaged file ({3})',
-						getNumericFormat()(computed.staged),
-						computed.stagedStatus,
-						getNumericFormat()(computed.unstaged),
-						computed.unstagedStatus,
-					)
-				: l10n.t(
-						'$(files) {0} staged file ({1}), {2} unstaged files ({3})',
-						getNumericFormat()(computed.staged),
-						computed.stagedStatus,
-						getNumericFormat()(computed.unstaged),
-						computed.unstagedStatus,
-					);
-	} else if (computed.unstaged === 1) {
-		workingTreeStatus = l10n.t(
-			'$(files) {0} staged files ({1}), {2} unstaged file ({3})',
-			getNumericFormat()(computed.staged),
-			computed.stagedStatus,
-			getNumericFormat()(computed.unstaged),
-			computed.unstagedStatus,
+		workingTreeStatus = formatPlural(
+			l10n.t('{0, plural, one{$(files) {0} staged file ({1})} other{$(files) {0} staged files ({1})}}'),
+			[computed.staged, computed.stagedStatus],
 		);
 	} else {
-		workingTreeStatus = l10n.t(
-			'$(files) {0} staged files ({1}), {2} unstaged files ({3})',
-			getNumericFormat()(computed.staged),
-			computed.stagedStatus,
-			getNumericFormat()(computed.unstaged),
-			computed.unstagedStatus,
+		workingTreeStatus = formatPlural(
+			l10n.t(
+				'{0, plural, one{{2, plural, one{$(files) {0} staged file ({1}), {2} unstaged file ({3})} other{$(files) {0} staged file ({1}), {2} unstaged files ({3})}}} other{{2, plural, one{$(files) {0} staged files ({1}), {2} unstaged file ({3})} other{$(files) {0} staged files ({1}), {2} unstaged files ({3})}}}}',
+			),
+			[computed.staged, computed.stagedStatus, computed.unstaged, computed.unstagedStatus],
 		);
 	}
 
@@ -362,9 +328,12 @@ function getShowRepositoryStatusStepItems<
 			const behind = context.status.upstream.state.behind;
 			items.push(
 				new GitWizardQuickPickItem(
-					behind === 1
-						? l10n.t('$(cloud-download) {0} commit behind', getNumericFormat()(behind))
-						: l10n.t('$(cloud-download) {0} commits behind', getNumericFormat()(behind)),
+					formatPlural(
+						l10n.t(
+							'{0, plural, one{$(cloud-download) {0} commit behind} other{$(cloud-download) {0} commits behind}}',
+						),
+						[behind],
+					),
 					{
 						command: 'log',
 						state: {
@@ -383,9 +352,12 @@ function getShowRepositoryStatusStepItems<
 			const ahead = context.status.upstream.state.ahead;
 			items.push(
 				new GitWizardQuickPickItem(
-					ahead === 1
-						? l10n.t('$(cloud-upload) {0} commit ahead', getNumericFormat()(ahead))
-						: l10n.t('$(cloud-upload) {0} commits ahead', getNumericFormat()(ahead)),
+					formatPlural(
+						l10n.t(
+							'{0, plural, one{$(cloud-upload) {0} commit ahead} other{$(cloud-upload) {0} commits ahead}}',
+						),
+						[ahead],
+					),
 					{
 						command: 'log',
 						state: {

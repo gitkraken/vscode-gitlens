@@ -16,7 +16,7 @@ import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type {
@@ -522,15 +522,12 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 				${
 					this.betweenCount > 0
 						? html`<span class="compare-middle__count"
-								>${
-									this.betweenCount === 1
-										? l10n.t('{count} commit in between', {
-												count: getNumericFormat()(this.betweenCount),
-											})
-										: l10n.t('{count} commits in between', {
-												count: getNumericFormat()(this.betweenCount),
-											})
-								}</span
+								>${formatPlural(
+									l10n.t(
+										'{count, plural, one{{count} commit in between} other{{count} commits in between}}',
+									),
+									{ count: this.betweenCount },
+								)}</span
 							>`
 						: nothing
 				}

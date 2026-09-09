@@ -6,6 +6,7 @@ import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getBranchNameAndRemote } from '@gitlens/git/utils/branch.utils.js';
 import { getNumericFormat } from '@gitlens/utils/date.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
@@ -648,16 +649,12 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 						createDirectiveQuickPickItem(Directive.Noop, false, {
 							label: l10n.t('Contains uncommitted changes'),
 							iconPath: new ThemeIcon('warning'),
-							detail:
-								dirty.length === 1
-									? l10n.t(
-											'{0} has uncommitted changes — enable Force to delete anyway',
-											dirty[0].name,
-										)
-									: l10n.t(
-											'{0} worktrees have uncommitted changes — enable Force to delete anyway',
-											getNumericFormat()(dirty.length),
-										),
+							detail: formatPlural(
+								l10n.t(
+									'{count, plural, one{{name} has uncommitted changes — enable Force to delete anyway} other{{count} worktrees have uncommitted changes — enable Force to delete anyway}}',
+								),
+								{ count: dirty.length, name: dirty[0].name },
+							),
 						}),
 					);
 				} else {

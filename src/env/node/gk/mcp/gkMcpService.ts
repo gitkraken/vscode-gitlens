@@ -15,6 +15,7 @@ import { debounce } from '@gitlens/utils/debounce.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { compare } from '@gitlens/utils/version.js';
 import type { GkAgent } from '../../../../agents/agentService.js';
@@ -1035,10 +1036,12 @@ export class GkMcpService implements GkMcpRegistrar {
 		const results = await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title:
-					agents.length === 1
-						? l10n.t('Installing GitKraken MCP for {0} agent...', agents.length)
-						: l10n.t('Installing GitKraken MCP for {0} agents...', agents.length),
+				title: formatPlural(
+					l10n.t(
+						'{0, plural, one{Installing GitKraken MCP for {0} agent...} other{Installing GitKraken MCP for {0} agents...}}',
+					),
+					[agents.length],
+				),
 				cancellable: false,
 			},
 			() => this.installMCPForAgents(agents, cliPath),
@@ -1183,9 +1186,10 @@ export class GkMcpService implements GkMcpRegistrar {
 		if (results.requiresUserAction.length > 0) {
 			const agents = results.requiresUserAction.map(r => r.agent);
 			parts.push(
-				agents.length === 1
-					? l10n.t('{0} requires manual setup', agents[0])
-					: l10n.t('{0} require manual setup', agents.join(', ')),
+				formatPlural(l10n.t('{1, plural, one{{0} requires manual setup} other{{0} require manual setup}}'), [
+					agents.join(', '),
+					agents.length,
+				]),
 			);
 		}
 

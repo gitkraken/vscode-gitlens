@@ -16,6 +16,7 @@ import { concat, filterMap, find, first, join, last, map } from '@gitlens/utils/
 import { Logger } from '@gitlens/utils/logger.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import { extname, normalizePath } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { getAvatarUri, getAvatarUriFromGravatarEmail } from '../../avatars.js';
 import type { ContinueRebaseWithAiCommandArgs } from '../../commands/autoRebase.js';
@@ -485,17 +486,12 @@ export class RebaseWebviewProvider implements Disposable {
 		const markerCount = await this.countConflictMarkers(uri);
 		if (markerCount > 0) {
 			const proceed = await window.showWarningMessage(
-				markerCount === 1
-					? l10n.t(
-							'{0} still contains {1} unresolved conflict marker.\n\nStage anyway?',
-							normalizedPath,
-							getNumericFormat()(markerCount),
-						)
-					: l10n.t(
-							'{0} still contains {1} unresolved conflict markers.\n\nStage anyway?',
-							normalizedPath,
-							getNumericFormat()(markerCount),
-						),
+				formatPlural(
+					l10n.t(
+						'{1, plural, one{{0} still contains {1} unresolved conflict marker.\n\nStage anyway?} other{{0} still contains {1} unresolved conflict markers.\n\nStage anyway?}}',
+					),
+					[normalizedPath, markerCount],
+				),
 				{ modal: true },
 				{ title: l10n.t('Stage Anyway') },
 			);
@@ -621,17 +617,12 @@ export class RebaseWebviewProvider implements Disposable {
 
 		if (failedCount) {
 			void window.showErrorMessage(
-				failedCount === 1
-					? l10n.t(
-							'Failed to resolve {0} of {1} conflicted file. See logs for details.',
-							getNumericFormat()(failedCount),
-							getNumericFormat()(attempted),
-						)
-					: l10n.t(
-							'Failed to resolve {0} of {1} conflicted files. See logs for details.',
-							getNumericFormat()(failedCount),
-							getNumericFormat()(attempted),
-						),
+				formatPlural(
+					l10n.t(
+						'{0, plural, one{Failed to resolve {0} of {1} conflicted file. See logs for details.} other{Failed to resolve {0} of {1} conflicted files. See logs for details.}}',
+					),
+					[failedCount, attempted],
+				),
 			);
 			for (const f of failures) {
 				const error = f.reason instanceof Error ? f.reason : new Error(String(f.reason));

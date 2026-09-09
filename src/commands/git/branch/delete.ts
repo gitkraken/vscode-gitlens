@@ -6,6 +6,7 @@ import { getBranchNameAndRemote } from '@gitlens/git/utils/branch.utils.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import { ensureArray } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
@@ -183,10 +184,12 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 							uris: worktrees.map(wt => wt.uri),
 							startingFromBranchDelete: true,
 							overrides: {
-								title:
-									worktrees.length === 1
-										? l10n.t('Delete Worktree for Branch')
-										: l10n.t('Delete Worktrees for Branches'),
+								title: formatPlural(
+									l10n.t(
+										'{0, plural, one{Delete Worktree for Branch} other{Delete Worktrees for Branches}}',
+									),
+									[worktrees.length],
+								),
 							},
 						},
 					},
@@ -289,7 +292,6 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 	): StepResultGenerator<Flags[]> {
 		const { prune } = this;
 		const refsLabel = getReferenceLabel(state.references);
-		const singular = state.references.length === 1;
 
 		// Remote-tracking refs (e.g. `origin/foo`) don't take `--force` or have an upstream of their own,
 		// so neither the Force toggle nor the "& Upstream(s)" mode applies when every selected ref is remote.
@@ -302,20 +304,20 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 		// are the whole contract with `execute()` — so the list says what will actually happen.
 		const buildItems = (): FlagsQuickPickItem<Flags>[] => {
 			const label = prune
-				? singular
-					? force
-						? l10n.t('Force Prune Branch')
-						: l10n.t('Prune Branch')
-					: force
-						? l10n.t('Force Prune Branches')
-						: l10n.t('Prune Branches')
-				: singular
-					? force
-						? l10n.t('Force Delete Branch')
-						: l10n.t('Delete Branch')
-					: force
-						? l10n.t('Force Delete Branches')
-						: l10n.t('Delete Branches');
+				? force
+					? formatPlural(l10n.t('{0, plural, one{Force Prune Branch} other{Force Prune Branches}}'), [
+							state.references.length,
+						])
+					: formatPlural(l10n.t('{0, plural, one{Prune Branch} other{Prune Branches}}'), [
+							state.references.length,
+						])
+				: force
+					? formatPlural(l10n.t('{0, plural, one{Force Delete Branch} other{Force Delete Branches}}'), [
+							state.references.length,
+						])
+					: formatPlural(l10n.t('{0, plural, one{Delete Branch} other{Delete Branches}}'), [
+							state.references.length,
+						]);
 			const items: FlagsQuickPickItem<Flags>[] = [
 				createFlagsQuickPickItem<Flags>(state.flags, force ? ['--force'] : [], {
 					label: label,
@@ -330,27 +332,33 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 			if (canDeleteUpstreams) {
 				items.push(
 					createFlagsQuickPickItem<Flags>(state.flags, force ? ['--force', '--remotes'] : ['--remotes'], {
-						label: singular
-							? force
-								? l10n.t('Force Delete Branch & Upstream')
-								: l10n.t('Delete Branch & Upstream')
-							: force
-								? l10n.t('Force Delete Branches & Upstreams')
-								: l10n.t('Delete Branches & Upstreams'),
+						label: force
+							? formatPlural(
+									l10n.t(
+										'{0, plural, one{Force Delete Branch & Upstream} other{Force Delete Branches & Upstreams}}',
+									),
+									[state.references.length],
+								)
+							: formatPlural(
+									l10n.t(
+										'{0, plural, one{Delete Branch & Upstream} other{Delete Branches & Upstreams}}',
+									),
+									[state.references.length],
+								),
 						description: force ? '--force --remotes' : '--remotes',
 						detail: force
-							? singular
-								? l10n.t(
-										'Will forcibly delete {0} and its upstream branch from the remote, even if not fully merged',
-										refsLabel,
-									)
-								: l10n.t(
-										'Will forcibly delete {0} and its upstream branches from the remote, even if not fully merged',
-										refsLabel,
-									)
-							: singular
-								? l10n.t('Will delete {0} and its upstream branch from the remote', refsLabel)
-								: l10n.t('Will delete {0} and its upstream branches from the remote', refsLabel),
+							? formatPlural(
+									l10n.t(
+										'{0, plural, one{Will forcibly delete {1} and its upstream branch from the remote, even if not fully merged} other{Will forcibly delete {1} and its upstream branches from the remote, even if not fully merged}}',
+									),
+									[state.references.length, refsLabel],
+								)
+							: formatPlural(
+									l10n.t(
+										'{0, plural, one{Will delete {1} and its upstream branch from the remote} other{Will delete {1} and its upstream branches from the remote}}',
+									),
+									[state.references.length, refsLabel],
+								),
 						picked: state.flags.includes('--remotes'),
 					}),
 				);

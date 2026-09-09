@@ -6,6 +6,7 @@ import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js'
 import { getNumericFormat } from '@gitlens/utils/date.js';
 import { getLoggableName, Logger } from '@gitlens/utils/logger.js';
 import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { defer } from '@gitlens/utils/promise.js';
 import { pad, truncate } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../../constants.js';
@@ -413,26 +414,24 @@ export class StashPushGitCommand extends QuickCommand<State> {
 			confirmations.push(
 				createFlagsQuickPickItem<Flags>(state.flags, [...baseFlags], {
 					label: context.title,
-					detail:
-						state.uris.length === 1
-							? l10n.t('Will stash changes from {0}', formatPath(state.uris[0], { fileOnly: true }))
-							: l10n.t('Will stash changes from {0} files', getNumericFormat()(state.uris.length)),
+					detail: formatPlural(
+						l10n.t(
+							'{count, plural, one{Will stash changes from {path}} other{Will stash changes from {count} files}}',
+						),
+						{ count: state.uris.length, path: formatPath(state.uris[0], { fileOnly: true }) },
+					),
 				}),
 			);
 			if (!state.flags.includes('--include-untracked')) {
 				confirmations.push(
 					createFlagsQuickPickItem<Flags>(state.flags, [...baseFlags, '--keep-index'], {
 						label: l10n.t('Push Stash & Keep Staged'),
-						detail:
-							state.uris.length === 1
-								? l10n.t(
-										'Will stash changes from {0}, but will keep staged files intact',
-										formatPath(state.uris[0], { fileOnly: true }),
-									)
-								: l10n.t(
-										'Will stash changes from {0} files, but will keep staged files intact',
-										getNumericFormat()(state.uris.length),
-									),
+						detail: formatPlural(
+							l10n.t(
+								'{count, plural, one{Will stash changes from {path}, but will keep staged files intact} other{Will stash changes from {count} files, but will keep staged files intact}}',
+							),
+							{ count: state.uris.length, path: formatPath(state.uris[0], { fileOnly: true }) },
+						),
 					}),
 				);
 			}

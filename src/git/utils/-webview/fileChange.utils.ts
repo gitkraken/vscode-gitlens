@@ -1,7 +1,7 @@
 import type { Uri } from 'vscode';
 import { l10n } from 'vscode';
 import type { GitFileChange, GitFileChangeStats } from '@gitlens/git/models/fileChange.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { Container } from '../../../container.js';
 
 export function getFileChangeWorkingUri(file: GitFileChange): Promise<Uri | undefined> {
@@ -24,16 +24,13 @@ export function formatFileChangeStats(
 	if (/*changes < 0 && */ additions < 0 && deletions < 0) return options?.empty ?? '';
 
 	const separator = options?.separator ?? ' ';
-	const numericFormat = getNumericFormat();
 
 	const lineStats = [];
 
 	if (additions) {
 		const additionsText =
 			style === 'expanded'
-				? additions === 1
-					? l10n.t('{0} line added', numericFormat(additions))
-					: l10n.t('{0} lines added', numericFormat(additions))
+				? formatPlural(l10n.t('{0, plural, one{{0} line added} other{{0} lines added}}'), [additions])
 				: `+${additions}`;
 		if (options?.color && style !== 'short') {
 			lineStats.push(
@@ -55,9 +52,7 @@ export function formatFileChangeStats(
 	if (deletions) {
 		const deletionsText =
 			style === 'expanded'
-				? deletions === 1
-					? l10n.t('{0} line deleted', numericFormat(deletions))
-					: l10n.t('{0} lines deleted', numericFormat(deletions))
+				? formatPlural(l10n.t('{0, plural, one{{0} line deleted} other{{0} lines deleted}}'), [deletions])
 				: `-${deletions}`;
 		if (options?.color && style !== 'short') {
 			lineStats.push(

@@ -1,5 +1,5 @@
 import * as l10n from '@vscode/l10n';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { GitTrackingUpstream } from '../models/branch.js';
 import type { GitDiffFileStats } from '../models/diff.js';
 
@@ -8,14 +8,13 @@ const arrowDown = '\u2193';
 const arrowUp = '\u2191';
 
 function formatFileChange(count: number, kind: 'added' | 'changed' | 'deleted'): string {
-	const formattedCount = getNumericFormat()(count);
 	if (kind === 'added') {
-		return count === 1 ? l10n.t('{0} file added', formattedCount) : l10n.t('{0} files added', formattedCount);
+		return formatPlural(l10n.t('{0, plural, one{{0} file added} other{{0} files added}}'), [count]);
 	}
 	if (kind === 'changed') {
-		return count === 1 ? l10n.t('{0} file changed', formattedCount) : l10n.t('{0} files changed', formattedCount);
+		return formatPlural(l10n.t('{0, plural, one{{0} file changed} other{{0} files changed}}'), [count]);
 	}
-	return count === 1 ? l10n.t('{0} file deleted', formattedCount) : l10n.t('{0} files deleted', formattedCount);
+	return formatPlural(l10n.t('{0, plural, one{{0} file deleted} other{{0} files deleted}}'), [count]);
 }
 
 function formatExpandedUpstreamStatus(
@@ -29,13 +28,11 @@ function formatExpandedUpstreamStatus(
 		provider?: string;
 	},
 ): string {
-	const behindCount = getNumericFormat()(behind);
-	const aheadCount = getNumericFormat()(ahead);
 	const behindIcon = options.icons ? '$(arrow-down) ' : '';
 	const aheadIcon = options.icons ? '$(arrow-up) ' : '';
 	const args = {
-		behindCount: behindCount,
-		aheadCount: aheadCount,
+		behindCount: behind,
+		aheadCount: ahead,
 		behindIcon: behindIcon,
 		aheadIcon: aheadIcon,
 		separator: options.separator,
@@ -47,95 +44,77 @@ function formatExpandedUpstreamStatus(
 	if (behind && ahead) {
 		if (options.upstream != null) {
 			if (options.provider != null) {
-				if (behind === 1) {
-					return ahead === 1
-						? l10n.t(
-								'{behindIcon}{behindCount} commit behind{separator}{aheadIcon}{aheadCount} commit ahead of{upstreamSeparator}{upstream} on {provider}',
-								args,
-							)
-						: l10n.t(
-								'{behindIcon}{behindCount} commit behind{separator}{aheadIcon}{aheadCount} commits ahead of{upstreamSeparator}{upstream} on {provider}',
-								args,
-							);
-				}
-				return ahead === 1
-					? l10n.t(
-							'{behindIcon}{behindCount} commits behind{separator}{aheadIcon}{aheadCount} commit ahead of{upstreamSeparator}{upstream} on {provider}',
-							args,
-						)
-					: l10n.t(
-							'{behindIcon}{behindCount} commits behind{separator}{aheadIcon}{aheadCount} commits ahead of{upstreamSeparator}{upstream} on {provider}',
-							args,
-						);
+				return formatPlural(
+					l10n.t(
+						'{behindCount, plural, one{{behindIcon}{behindCount} commit behind{separator}{aheadCount, plural, one{{aheadIcon}{aheadCount} commit ahead of{upstreamSeparator}{upstream} on {provider}} other{{aheadIcon}{aheadCount} commits ahead of{upstreamSeparator}{upstream} on {provider}}}} other{{behindIcon}{behindCount} commits behind{separator}{aheadCount, plural, one{{aheadIcon}{aheadCount} commit ahead of{upstreamSeparator}{upstream} on {provider}} other{{aheadIcon}{aheadCount} commits ahead of{upstreamSeparator}{upstream} on {provider}}}}}',
+					),
+					args,
+				);
 			}
 
-			if (behind === 1) {
-				return ahead === 1
-					? l10n.t(
-							'{behindIcon}{behindCount} commit behind{separator}{aheadIcon}{aheadCount} commit ahead of{upstreamSeparator}{upstream}',
-							args,
-						)
-					: l10n.t(
-							'{behindIcon}{behindCount} commit behind{separator}{aheadIcon}{aheadCount} commits ahead of{upstreamSeparator}{upstream}',
-							args,
-						);
-			}
-			return ahead === 1
-				? l10n.t(
-						'{behindIcon}{behindCount} commits behind{separator}{aheadIcon}{aheadCount} commit ahead of{upstreamSeparator}{upstream}',
-						args,
-					)
-				: l10n.t(
-						'{behindIcon}{behindCount} commits behind{separator}{aheadIcon}{aheadCount} commits ahead of{upstreamSeparator}{upstream}',
-						args,
-					);
+			return formatPlural(
+				l10n.t(
+					'{behindCount, plural, one{{behindIcon}{behindCount} commit behind{separator}{aheadCount, plural, one{{aheadIcon}{aheadCount} commit ahead of{upstreamSeparator}{upstream}} other{{aheadIcon}{aheadCount} commits ahead of{upstreamSeparator}{upstream}}}} other{{behindIcon}{behindCount} commits behind{separator}{aheadCount, plural, one{{aheadIcon}{aheadCount} commit ahead of{upstreamSeparator}{upstream}} other{{aheadIcon}{aheadCount} commits ahead of{upstreamSeparator}{upstream}}}}}',
+				),
+				args,
+			);
 		}
 
-		if (behind === 1) {
-			return ahead === 1
-				? l10n.t('{behindIcon}{behindCount} commit behind{separator}{aheadIcon}{aheadCount} commit ahead', args)
-				: l10n.t(
-						'{behindIcon}{behindCount} commit behind{separator}{aheadIcon}{aheadCount} commits ahead',
-						args,
-					);
-		}
-		return ahead === 1
-			? l10n.t('{behindIcon}{behindCount} commits behind{separator}{aheadIcon}{aheadCount} commit ahead', args)
-			: l10n.t('{behindIcon}{behindCount} commits behind{separator}{aheadIcon}{aheadCount} commits ahead', args);
+		return formatPlural(
+			l10n.t(
+				'{behindCount, plural, one{{behindIcon}{behindCount} commit behind{separator}{aheadCount, plural, one{{aheadIcon}{aheadCount} commit ahead} other{{aheadIcon}{aheadCount} commits ahead}}} other{{behindIcon}{behindCount} commits behind{separator}{aheadCount, plural, one{{aheadIcon}{aheadCount} commit ahead} other{{aheadIcon}{aheadCount} commits ahead}}}}',
+			),
+			args,
+		);
 	}
 
 	if (behind) {
 		if (options.upstream != null) {
 			if (options.provider != null) {
-				return behind === 1
-					? l10n.t('{behindIcon}{behindCount} commit behind{upstreamSeparator}{upstream} on {provider}', args)
-					: l10n.t(
-							'{behindIcon}{behindCount} commits behind{upstreamSeparator}{upstream} on {provider}',
-							args,
-						);
+				return formatPlural(
+					l10n.t(
+						'{behindCount, plural, one{{behindIcon}{behindCount} commit behind{upstreamSeparator}{upstream} on {provider}} other{{behindIcon}{behindCount} commits behind{upstreamSeparator}{upstream} on {provider}}}',
+					),
+					args,
+				);
 			}
-			return behind === 1
-				? l10n.t('{behindIcon}{behindCount} commit behind{upstreamSeparator}{upstream}', args)
-				: l10n.t('{behindIcon}{behindCount} commits behind{upstreamSeparator}{upstream}', args);
+			return formatPlural(
+				l10n.t(
+					'{behindCount, plural, one{{behindIcon}{behindCount} commit behind{upstreamSeparator}{upstream}} other{{behindIcon}{behindCount} commits behind{upstreamSeparator}{upstream}}}',
+				),
+				args,
+			);
 		}
-		return behind === 1
-			? l10n.t('{behindIcon}{behindCount} commit behind', args)
-			: l10n.t('{behindIcon}{behindCount} commits behind', args);
+		return formatPlural(
+			l10n.t(
+				'{behindCount, plural, one{{behindIcon}{behindCount} commit behind} other{{behindIcon}{behindCount} commits behind}}',
+			),
+			args,
+		);
 	}
 
 	if (options.upstream != null) {
 		if (options.provider != null) {
-			return ahead === 1
-				? l10n.t('{aheadIcon}{aheadCount} commit ahead of{upstreamSeparator}{upstream} on {provider}', args)
-				: l10n.t('{aheadIcon}{aheadCount} commits ahead of{upstreamSeparator}{upstream} on {provider}', args);
+			return formatPlural(
+				l10n.t(
+					'{aheadCount, plural, one{{aheadIcon}{aheadCount} commit ahead of{upstreamSeparator}{upstream} on {provider}} other{{aheadIcon}{aheadCount} commits ahead of{upstreamSeparator}{upstream} on {provider}}}',
+				),
+				args,
+			);
 		}
-		return ahead === 1
-			? l10n.t('{aheadIcon}{aheadCount} commit ahead of{upstreamSeparator}{upstream}', args)
-			: l10n.t('{aheadIcon}{aheadCount} commits ahead of{upstreamSeparator}{upstream}', args);
+		return formatPlural(
+			l10n.t(
+				'{aheadCount, plural, one{{aheadIcon}{aheadCount} commit ahead of{upstreamSeparator}{upstream}} other{{aheadIcon}{aheadCount} commits ahead of{upstreamSeparator}{upstream}}}',
+			),
+			args,
+		);
 	}
-	return ahead === 1
-		? l10n.t('{aheadIcon}{aheadCount} commit ahead', args)
-		: l10n.t('{aheadIcon}{aheadCount} commits ahead', args);
+	return formatPlural(
+		l10n.t(
+			'{aheadCount, plural, one{{aheadIcon}{aheadCount} commit ahead} other{{aheadIcon}{aheadCount} commits ahead}}',
+		),
+		args,
+	);
 }
 
 export function getFormattedDiffStatus(

@@ -7,8 +7,8 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { boxSizingBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { PastAgentSessionsResult } from '../../../../../agents/models/agentSessionState.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/associateIssueWithBranch.js';
 import { createCommandLink } from '../../../../../system/commands.js';
@@ -765,8 +765,10 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 
 	private renderMergePullRequest(pr: OverviewBranchPullRequest): TemplateResult {
 		const count = getStackedMergeCount(pr.stack);
-		const label =
-			count > 1 ? l10n.t('Merge {count} Pull Requests...', { count: count }) : l10n.t('Merge Pull Request...');
+		const label = formatPlural(
+			l10n.t('{count, plural, one{Merge Pull Request...} other{Merge {count} Pull Requests...}}'),
+			{ count: count },
+		);
 
 		return html`<gl-action-chip
 			icon="git-merge"
@@ -1107,14 +1109,15 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		const upstream = branch.upstream;
 		const ahead = upstream?.state.ahead ?? 0;
 		if (upstream != null && !upstream.missing && ahead > 0) {
-			const count = getNumericFormat()(ahead);
 			scopes.unpushed = {
 				from: upstream.name,
 				to: branch.name,
-				label:
-					ahead === 1
-						? l10n.t('{count} unpushed commit', { count: count })
-						: l10n.t('{count} unpushed commits', { count: count }),
+				label: formatPlural(
+					l10n.t('{count, plural, one{{count} unpushed commit} other{{count} unpushed commits}}'),
+					{
+						count: ahead,
+					},
+				),
 			};
 		}
 
@@ -1399,21 +1402,15 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 						? mergeTarget.potentialConflicts.conflict.files.length
 						: 0;
 				icon = 'warning';
-				const count = getNumericFormat()(files);
-				label =
-					files === 1
-						? l10n.t('{count} Conflict', { count: count })
-						: l10n.t('{count} Conflicts', { count: count });
-				tooltip =
-					files === 1
-						? l10n.t('Merging into {target} will conflict in {count} file', {
-								target: mergeTarget.name,
-								count: count,
-							})
-						: l10n.t('Merging into {target} will conflict in {count} files', {
-								target: mergeTarget.name,
-								count: count,
-							});
+				label = formatPlural(l10n.t('{count, plural, one{{count} Conflict} other{{count} Conflicts}}'), {
+					count: files,
+				});
+				tooltip = formatPlural(
+					l10n.t(
+						'{count, plural, one{Merging into {target} will conflict in {count} file} other{Merging into {target} will conflict in {count} files}}',
+					),
+					{ count: files, target: mergeTarget.name },
+				);
 				break;
 			}
 			case 'merged':
@@ -1492,23 +1489,21 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				const ahead = mergeTarget.status?.ahead ?? 0;
 				if (ahead === 0) return l10n.t('Based on {target}', { target: mergeTarget.name });
 
-				const count = getNumericFormat()(ahead);
-				return ahead === 1
-					? l10n.t('Based on {target} with {count} new commit', {
-							target: mergeTarget.name,
-							count: count,
-						})
-					: l10n.t('Based on {target} with {count} new commits', {
-							target: mergeTarget.name,
-							count: count,
-						});
+				return formatPlural(
+					l10n.t(
+						'{count, plural, one{Based on {target} with {count} new commit} other{Based on {target} with {count} new commits}}',
+					),
+					{ count: ahead, target: mergeTarget.name },
+				);
 			}
 			default: {
 				const behind = mergeTarget.status?.behind ?? 0;
-				const count = getNumericFormat()(behind);
-				return behind === 1
-					? l10n.t('Behind {target} by {count} commit', { target: mergeTarget.name, count: count })
-					: l10n.t('Behind {target} by {count} commits', { target: mergeTarget.name, count: count });
+				return formatPlural(
+					l10n.t(
+						'{count, plural, one{Behind {target} by {count} commit} other{Behind {target} by {count} commits}}',
+					),
+					{ count: behind, target: mergeTarget.name },
+				);
 			}
 		}
 	}

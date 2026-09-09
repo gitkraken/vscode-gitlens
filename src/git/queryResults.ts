@@ -3,7 +3,7 @@ import type { GitDiffShortStat } from '@gitlens/git/models/diff.js';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { GitUser } from '@gitlens/git/models/user.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../container.js';
 import type { FilesQueryFilter } from '../views/nodes/resultsFilesNode.js';
@@ -26,8 +26,7 @@ export interface FilesQueryResults {
 function getChangedFilesLabel(count: number): string {
 	if (count === 0) return l10n.t('No files changed');
 
-	const formattedCount = getNumericFormat()(count);
-	return count === 1 ? l10n.t('{0} file changed', formattedCount) : l10n.t('{0} files changed', formattedCount);
+	return formatPlural(l10n.t('{0, plural, one{{0} file changed} other{{0} files changed}}'), [count]);
 }
 
 export async function getAheadBehindFilesQuery(

@@ -1,6 +1,6 @@
 import type { QuickPick, QuickPickItem, Uri } from 'vscode';
 import { l10n, ThemeIcon } from 'vscode';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { proTrialLengthInDays } from '../../constants.subscription.js';
 
 export enum Directive {
@@ -31,10 +31,12 @@ export interface DirectiveQuickPickItem extends QuickPickItem {
 }
 
 function getProTrialDetail(days: number): string {
-	const formattedDays = getNumericFormat()(days);
-	return days === 1
-		? l10n.t('Get {0} day of GitLens Pro for free — no credit card required.', formattedDays)
-		: l10n.t('Get {0} days of GitLens Pro for free — no credit card required.', formattedDays);
+	return formatPlural(
+		l10n.t(
+			'{0, plural, one{Get {0} day of GitLens Pro for free — no credit card required.} other{Get {0} days of GitLens Pro for free — no credit card required.}}',
+		),
+		[days],
+	);
 }
 
 export function createDirectiveQuickPickItem(

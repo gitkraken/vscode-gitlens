@@ -3,8 +3,8 @@ import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { Lazy } from '@gitlens/utils/lazy.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Colors } from '../../constants.colors.js';
 import { GitUri } from '../../git/gitUri.js';
 import type { ViewsWithCommits } from '../viewBase.js';
@@ -103,9 +103,9 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 		}
 
 		if (hasConflicts) {
-			const count = getNumericFormat()(status.conflicts.length);
-			item.description =
-				status.conflicts.length === 1 ? l10n.t('{0} conflict', count) : l10n.t('{0} conflicts', count);
+			item.description = formatPlural(l10n.t('{0, plural, one{{0} conflict} other{{0} conflicts}}'), [
+				status.conflicts.length,
+			]);
 		}
 
 		const iconColor: Colors = hasConflicts
@@ -238,9 +238,11 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 	}
 
 	private getResolveConflictsTooltip(count: number): string {
-		const formattedCount = getNumericFormat()(count);
-		return count === 1
-			? l10n.t('Resolve {0} conflict before continuing', formattedCount)
-			: l10n.t('Resolve {0} conflicts before continuing', formattedCount);
+		return formatPlural(
+			l10n.t(
+				'{0, plural, one{Resolve {0} conflict before continuing} other{Resolve {0} conflicts before continuing}}',
+			),
+			[count],
+		);
 	}
 }

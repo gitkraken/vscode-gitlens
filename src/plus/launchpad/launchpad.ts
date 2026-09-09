@@ -8,6 +8,7 @@ import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { some } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -1033,29 +1034,20 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						const count = getStackedMergeCount(stack);
 						let detail: string;
 						if (stack != null && count > 1) {
-							const pullRequestCount = (count - 1).toString();
 							if (from == null) {
-								detail =
-									count - 1 === 1
-										? l10n.t(
-												'Will merge these changes and the {count} pull request below it in the stack, into {target}',
-												{ count: pullRequestCount, target: stack.baseRef },
-											)
-										: l10n.t(
-												'Will merge these changes and the {count} pull requests below it in the stack, into {target}',
-												{ count: pullRequestCount, target: stack.baseRef },
-											);
+								detail = formatPlural(
+									l10n.t(
+										'{count, plural, one{Will merge these changes and the {count} pull request below it in the stack, into {target}} other{Will merge these changes and the {count} pull requests below it in the stack, into {target}}}',
+									),
+									{ count: count - 1, target: stack.baseRef },
+								);
 							} else {
-								detail =
-									count - 1 === 1
-										? l10n.t(
-												'Will merge {source} and the {count} pull request below it in the stack, into {target}',
-												{ source: from, count: pullRequestCount, target: stack.baseRef },
-											)
-										: l10n.t(
-												'Will merge {source} and the {count} pull requests below it in the stack, into {target}',
-												{ source: from, count: pullRequestCount, target: stack.baseRef },
-											);
+								detail = formatPlural(
+									l10n.t(
+										'{count, plural, one{Will merge {source} and the {count} pull request below it in the stack, into {target}} other{Will merge {source} and the {count} pull requests below it in the stack, into {target}}}',
+									),
+									{ count: count - 1, source: from, target: stack.baseRef },
+								);
 							}
 						} else if (from == null) {
 							detail =
@@ -1072,7 +1064,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						confirmations.push(
 							createQuickPickItemOfT(
 								{
-									label: count > 1 ? l10n.t('Merge Stack...') : l10n.t('Merge...'),
+									label: formatPlural(
+										l10n.t('{count, plural, one{Merge...} other{Merge Stack...}}'),
+										{
+											count: count,
+										},
+									),
 									detail: detail,
 									buttons: [...gitProviderWebButtons],
 								},

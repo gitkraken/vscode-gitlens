@@ -4,10 +4,10 @@ import { GitStatus } from '@gitlens/git/models/status.js';
 import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
 import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
 import { findLastIndex } from '@gitlens/utils/array.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { createDisposable, disposableInterval } from '@gitlens/utils/disposable.js';
 import { weakEvent } from '@gitlens/utils/event.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
 import type { GitUri } from '../../git/gitUri.js';
@@ -140,55 +140,43 @@ function getBehindCurrentBranchTooltip(
 ): string {
 	const args = {
 		branch: branch,
-		behind: getNumericFormat()(behind),
+		behind: behind,
 		upstream: upstream,
 		provider: providerName ?? '',
 	};
 	if (rebasing) {
 		if (providerName) {
-			return behind === 1
-				? l10n.t(
-						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind $(git-branch) {upstream} on {provider}',
-						args,
-					)
-				: l10n.t(
-						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind $(git-branch) {upstream} on {provider}',
-						args,
-					);
+			return formatPlural(
+				l10n.t(
+					'{behind, plural, one{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind $(git-branch) {upstream} on {provider}} other{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind $(git-branch) {upstream} on {provider}}}',
+				),
+				args,
+			);
 		}
 
-		return behind === 1
-			? l10n.t(
-					'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind $(git-branch) {upstream}',
-					args,
-				)
-			: l10n.t(
-					'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind $(git-branch) {upstream}',
-					args,
-				);
+		return formatPlural(
+			l10n.t(
+				'{behind, plural, one{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind $(git-branch) {upstream}} other{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind $(git-branch) {upstream}}}',
+			),
+			args,
+		);
 	}
 
 	if (providerName) {
-		return behind === 1
-			? l10n.t(
-					'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind $(git-branch) {upstream} on {provider}',
-					args,
-				)
-			: l10n.t(
-					'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind $(git-branch) {upstream} on {provider}',
-					args,
-				);
+		return formatPlural(
+			l10n.t(
+				'{behind, plural, one{Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind $(git-branch) {upstream} on {provider}} other{Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind $(git-branch) {upstream} on {provider}}}',
+			),
+			args,
+		);
 	}
 
-	return behind === 1
-		? l10n.t(
-				'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind $(git-branch) {upstream}',
-				args,
-			)
-		: l10n.t(
-				'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind $(git-branch) {upstream}',
-				args,
-			);
+	return formatPlural(
+		l10n.t(
+			'{behind, plural, one{Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind $(git-branch) {upstream}} other{Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind $(git-branch) {upstream}}}',
+		),
+		args,
+	);
 }
 
 function getAheadCurrentBranchTooltip(
@@ -200,55 +188,43 @@ function getAheadCurrentBranchTooltip(
 ): string {
 	const args = {
 		branch: branch,
-		ahead: getNumericFormat()(ahead),
+		ahead: ahead,
 		upstream: upstream,
 		provider: providerName ?? '',
 	};
 	if (rebasing) {
 		if (providerName) {
-			return ahead === 1
-				? l10n.t(
-						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}',
-						args,
-					)
-				: l10n.t(
-						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}',
-						args,
-					);
+			return formatPlural(
+				l10n.t(
+					'{ahead, plural, one{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}} other{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}}}',
+				),
+				args,
+			);
 		}
 
-		return ahead === 1
-			? l10n.t(
-					'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}',
-					args,
-				)
-			: l10n.t(
-					'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}',
-					args,
-				);
+		return formatPlural(
+			l10n.t(
+				'{ahead, plural, one{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}} other{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}}}',
+			),
+			args,
+		);
 	}
 
 	if (providerName) {
-		return ahead === 1
-			? l10n.t(
-					'Current branch $(git-branch) {branch} is $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}',
-					args,
-				)
-			: l10n.t(
-					'Current branch $(git-branch) {branch} is $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}',
-					args,
-				);
+		return formatPlural(
+			l10n.t(
+				'{ahead, plural, one{Current branch $(git-branch) {branch} is $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}} other{Current branch $(git-branch) {branch} is $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}}}',
+			),
+			args,
+		);
 	}
 
-	return ahead === 1
-		? l10n.t(
-				'Current branch $(git-branch) {branch} is $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}',
-				args,
-			)
-		: l10n.t(
-				'Current branch $(git-branch) {branch} is $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}',
-				args,
-			);
+	return formatPlural(
+		l10n.t(
+			'{ahead, plural, one{Current branch $(git-branch) {branch} is $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}} other{Current branch $(git-branch) {branch} is $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}}}',
+		),
+		args,
+	);
 }
 
 function getDivergedCurrentBranchTooltip(
@@ -261,104 +237,44 @@ function getDivergedCurrentBranchTooltip(
 ): string {
 	const args = {
 		branch: branch,
-		ahead: getNumericFormat()(ahead),
-		behind: getNumericFormat()(behind),
+		ahead: ahead,
+		behind: behind,
 		upstream: upstream,
 		provider: providerName ?? '',
 	};
 	if (rebasing) {
 		if (providerName) {
-			if (behind === 1) {
-				return ahead === 1
-					? l10n.t(
-							'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}',
-							args,
-						)
-					: l10n.t(
-							'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}',
-							args,
-						);
-			}
-
-			return ahead === 1
-				? l10n.t(
-						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}',
-						args,
-					)
-				: l10n.t(
-						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}',
-						args,
-					);
+			return formatPlural(
+				l10n.t(
+					'{behind, plural, one{{ahead, plural, one{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}} other{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}}}} other{{ahead, plural, one{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}} other{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}}}}}',
+				),
+				args,
+			);
 		}
 
-		if (behind === 1) {
-			return ahead === 1
-				? l10n.t(
-						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}',
-						args,
-					)
-				: l10n.t(
-						'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}',
-						args,
-					);
-		}
-
-		return ahead === 1
-			? l10n.t(
-					'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}',
-					args,
-				)
-			: l10n.t(
-					'Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}',
-					args,
-				);
+		return formatPlural(
+			l10n.t(
+				'{behind, plural, one{{ahead, plural, one{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}} other{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}}}} other{{ahead, plural, one{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}} other{Current branch $(git-branch) {branch} (Rebasing) is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}}}}}',
+			),
+			args,
+		);
 	}
 
 	if (providerName) {
-		if (behind === 1) {
-			return ahead === 1
-				? l10n.t(
-						'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}',
-						args,
-					)
-				: l10n.t(
-						'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}',
-						args,
-					);
-		}
-
-		return ahead === 1
-			? l10n.t(
-					'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}',
-					args,
-				)
-			: l10n.t(
-					'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}',
-					args,
-				);
+		return formatPlural(
+			l10n.t(
+				'{behind, plural, one{{ahead, plural, one{Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}} other{Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}}}} other{{ahead, plural, one{Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream} on {provider}} other{Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream} on {provider}}}}}',
+			),
+			args,
+		);
 	}
 
-	if (behind === 1) {
-		return ahead === 1
-			? l10n.t(
-					'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}',
-					args,
-				)
-			: l10n.t(
-					'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}',
-					args,
-				);
-	}
-
-	return ahead === 1
-		? l10n.t(
-				'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}',
-				args,
-			)
-		: l10n.t(
-				'Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}',
-				args,
-			);
+	return formatPlural(
+		l10n.t(
+			'{behind, plural, one{{ahead, plural, one{Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}} other{Current branch $(git-branch) {branch} is $(arrow-down) {behind} commit behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}}}} other{{ahead, plural, one{Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commit ahead of $(git-branch) {upstream}} other{Current branch $(git-branch) {branch} is $(arrow-down) {behind} commits behind, $(arrow-up) {ahead} commits ahead of $(git-branch) {upstream}}}}}',
+		),
+		args,
+	);
 }
 
 export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWithRepositories> {

@@ -5,6 +5,7 @@ import type { SearchOperators, SearchOperatorsLongForm, SearchQuery } from '@git
 import type { SearchCommitsResult } from '@gitlens/git/providers/commits.js';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '@gitlens/git/utils/search.utils.js';
 import { first, join, map } from '@gitlens/utils/iterable.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { GlyphChars } from '../../constants.js';
 import type { Container } from '../../container.js';
 import { showCommitInDetailsView } from '../../git/actions/commit.js';
@@ -275,15 +276,15 @@ export class SearchGitCommand extends QuickCommand<State> {
 						}
 
 						const count = log.count;
-						if (log.count === 1) {
-							return log.hasMore
-								? l10n.t('{0}+ result for {1}', count, state.query)
-								: l10n.t('{0} result for {1}', count, state.query);
-						}
-
 						return log.hasMore
-							? l10n.t('{0}+ results for {1}', count, state.query)
-							: l10n.t('{0} results for {1}', count, state.query);
+							? formatPlural(
+									l10n.t('{0, plural, one{{0}+ result for {1}} other{{0}+ results for {1}}}'),
+									[count, state.query],
+								)
+							: formatPlural(l10n.t('{0, plural, one{{0} result for {1}} other{{0} results for {1}}}'), [
+									count,
+									state.query,
+								]);
 					},
 					picked: context.commit?.ref,
 					showInSideBarCommand: new ActionQuickPickItem(

@@ -4,7 +4,8 @@ import type { GitBranchReference, GitReference } from '@gitlens/git/models/refer
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { getReferenceLabel, isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { isStringArray } from '@gitlens/utils/array.js';
-import { fromNow, getNumericFormat } from '@gitlens/utils/date.js';
+import { fromNow } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pad, sortCompare } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
@@ -110,8 +111,6 @@ function getForcePushBehindDetail(
 	remote: string,
 	behind: number,
 ): string {
-	const aheadCount = ahead == null ? '' : getNumericFormat()(ahead);
-	const behindCount = getNumericFormat()(behind);
 	const hasAhead = ahead != null && ahead > 0;
 	const hasRemote = remote.length > 0;
 
@@ -119,187 +118,93 @@ function getForcePushBehindDetail(
 		case 'force-with-lease-and-includes':
 			if (hasAhead) {
 				if (hasRemote) {
-					if (ahead === 1) {
-						return behind === 1
-							? l10n.t(
-									'Will force push (with lease and if includes) {0} commit to {1}, overwriting {2} commit on {1}',
-									aheadCount,
-									remote,
-									behindCount,
-								)
-							: l10n.t(
-									'Will force push (with lease and if includes) {0} commit to {1}, overwriting {2} commits on {1}',
-									aheadCount,
-									remote,
-									behindCount,
-								);
-					}
-					return behind === 1
-						? l10n.t(
-								'Will force push (with lease and if includes) {0} commits to {1}, overwriting {2} commit on {1}',
-								aheadCount,
-								remote,
-								behindCount,
-							)
-						: l10n.t(
-								'Will force push (with lease and if includes) {0} commits to {1}, overwriting {2} commits on {1}',
-								aheadCount,
-								remote,
-								behindCount,
-							);
+					return formatPlural(
+						l10n.t(
+							'{0, plural, one{Will force push (with lease and if includes) {0} commit to {1}, overwriting {2, plural, one{{2} commit} other{{2} commits}} on {1}} other{Will force push (with lease and if includes) {0} commits to {1}, overwriting {2, plural, one{{2} commit} other{{2} commits}} on {1}}}',
+						),
+						[ahead, remote, behind],
+					);
 				}
-				if (ahead === 1) {
-					return behind === 1
-						? l10n.t(
-								'Will force push (with lease and if includes) {0} commit, overwriting {1} commit',
-								aheadCount,
-								behindCount,
-							)
-						: l10n.t(
-								'Will force push (with lease and if includes) {0} commit, overwriting {1} commits',
-								aheadCount,
-								behindCount,
-							);
-				}
-				return behind === 1
-					? l10n.t(
-							'Will force push (with lease and if includes) {0} commits, overwriting {1} commit',
-							aheadCount,
-							behindCount,
-						)
-					: l10n.t(
-							'Will force push (with lease and if includes) {0} commits, overwriting {1} commits',
-							aheadCount,
-							behindCount,
-						);
+				return formatPlural(
+					l10n.t(
+						'{0, plural, one{Will force push (with lease and if includes) {0} commit, overwriting {1, plural, one{{1} commit} other{{1} commits}}} other{Will force push (with lease and if includes) {0} commits, overwriting {1, plural, one{{1} commit} other{{1} commits}}}}',
+					),
+					[ahead, behind],
+				);
 			}
 			return hasRemote
-				? behind === 1
-					? l10n.t(
-							'Will force push (with lease and if includes) to {0}, overwriting {1} commit on {0}',
-							remote,
-							behindCount,
-						)
-					: l10n.t(
-							'Will force push (with lease and if includes) to {0}, overwriting {1} commits on {0}',
-							remote,
-							behindCount,
-						)
-				: behind === 1
-					? l10n.t('Will force push (with lease and if includes), overwriting {0} commit', behindCount)
-					: l10n.t('Will force push (with lease and if includes), overwriting {0} commits', behindCount);
+				? formatPlural(
+						l10n.t(
+							'{1, plural, one{Will force push (with lease and if includes) to {0}, overwriting {1} commit on {0}} other{Will force push (with lease and if includes) to {0}, overwriting {1} commits on {0}}}',
+						),
+						[remote, behind],
+					)
+				: formatPlural(
+						l10n.t(
+							'{0, plural, one{Will force push (with lease and if includes), overwriting {0} commit} other{Will force push (with lease and if includes), overwriting {0} commits}}',
+						),
+						[behind],
+					);
 		case 'force-with-lease':
 			if (hasAhead) {
 				if (hasRemote) {
-					if (ahead === 1) {
-						return behind === 1
-							? l10n.t(
-									'Will force push (with lease) {0} commit to {1}, overwriting {2} commit on {1}',
-									aheadCount,
-									remote,
-									behindCount,
-								)
-							: l10n.t(
-									'Will force push (with lease) {0} commit to {1}, overwriting {2} commits on {1}',
-									aheadCount,
-									remote,
-									behindCount,
-								);
-					}
-					return behind === 1
-						? l10n.t(
-								'Will force push (with lease) {0} commits to {1}, overwriting {2} commit on {1}',
-								aheadCount,
-								remote,
-								behindCount,
-							)
-						: l10n.t(
-								'Will force push (with lease) {0} commits to {1}, overwriting {2} commits on {1}',
-								aheadCount,
-								remote,
-								behindCount,
-							);
+					return formatPlural(
+						l10n.t(
+							'{0, plural, one{Will force push (with lease) {0} commit to {1}, overwriting {2, plural, one{{2} commit} other{{2} commits}} on {1}} other{Will force push (with lease) {0} commits to {1}, overwriting {2, plural, one{{2} commit} other{{2} commits}} on {1}}}',
+						),
+						[ahead, remote, behind],
+					);
 				}
-				if (ahead === 1) {
-					return behind === 1
-						? l10n.t(
-								'Will force push (with lease) {0} commit, overwriting {1} commit',
-								aheadCount,
-								behindCount,
-							)
-						: l10n.t(
-								'Will force push (with lease) {0} commit, overwriting {1} commits',
-								aheadCount,
-								behindCount,
-							);
-				}
-				return behind === 1
-					? l10n.t(
-							'Will force push (with lease) {0} commits, overwriting {1} commit',
-							aheadCount,
-							behindCount,
-						)
-					: l10n.t(
-							'Will force push (with lease) {0} commits, overwriting {1} commits',
-							aheadCount,
-							behindCount,
-						);
+				return formatPlural(
+					l10n.t(
+						'{0, plural, one{Will force push (with lease) {0} commit, overwriting {1, plural, one{{1} commit} other{{1} commits}}} other{Will force push (with lease) {0} commits, overwriting {1, plural, one{{1} commit} other{{1} commits}}}}',
+					),
+					[ahead, behind],
+				);
 			}
 			return hasRemote
-				? behind === 1
-					? l10n.t('Will force push (with lease) to {0}, overwriting {1} commit on {0}', remote, behindCount)
-					: l10n.t('Will force push (with lease) to {0}, overwriting {1} commits on {0}', remote, behindCount)
-				: behind === 1
-					? l10n.t('Will force push (with lease), overwriting {0} commit', behindCount)
-					: l10n.t('Will force push (with lease), overwriting {0} commits', behindCount);
+				? formatPlural(
+						l10n.t(
+							'{1, plural, one{Will force push (with lease) to {0}, overwriting {1} commit on {0}} other{Will force push (with lease) to {0}, overwriting {1} commits on {0}}}',
+						),
+						[remote, behind],
+					)
+				: formatPlural(
+						l10n.t(
+							'{0, plural, one{Will force push (with lease), overwriting {0} commit} other{Will force push (with lease), overwriting {0} commits}}',
+						),
+						[behind],
+					);
 		case 'force':
 			if (hasAhead) {
 				if (hasRemote) {
-					if (ahead === 1) {
-						return behind === 1
-							? l10n.t(
-									'Will force push {0} commit to {1}, overwriting {2} commit on {1}',
-									aheadCount,
-									remote,
-									behindCount,
-								)
-							: l10n.t(
-									'Will force push {0} commit to {1}, overwriting {2} commits on {1}',
-									aheadCount,
-									remote,
-									behindCount,
-								);
-					}
-					return behind === 1
-						? l10n.t(
-								'Will force push {0} commits to {1}, overwriting {2} commit on {1}',
-								aheadCount,
-								remote,
-								behindCount,
-							)
-						: l10n.t(
-								'Will force push {0} commits to {1}, overwriting {2} commits on {1}',
-								aheadCount,
-								remote,
-								behindCount,
-							);
+					return formatPlural(
+						l10n.t(
+							'{0, plural, one{Will force push {0} commit to {1}, overwriting {2, plural, one{{2} commit} other{{2} commits}} on {1}} other{Will force push {0} commits to {1}, overwriting {2, plural, one{{2} commit} other{{2} commits}} on {1}}}',
+						),
+						[ahead, remote, behind],
+					);
 				}
-				if (ahead === 1) {
-					return behind === 1
-						? l10n.t('Will force push {0} commit, overwriting {1} commit', aheadCount, behindCount)
-						: l10n.t('Will force push {0} commit, overwriting {1} commits', aheadCount, behindCount);
-				}
-				return behind === 1
-					? l10n.t('Will force push {0} commits, overwriting {1} commit', aheadCount, behindCount)
-					: l10n.t('Will force push {0} commits, overwriting {1} commits', aheadCount, behindCount);
+				return formatPlural(
+					l10n.t(
+						'{0, plural, one{Will force push {0} commit, overwriting {1, plural, one{{1} commit} other{{1} commits}}} other{Will force push {0} commits, overwriting {1, plural, one{{1} commit} other{{1} commits}}}}',
+					),
+					[ahead, behind],
+				);
 			}
 			return hasRemote
-				? behind === 1
-					? l10n.t('Will force push to {0}, overwriting {1} commit on {0}', remote, behindCount)
-					: l10n.t('Will force push to {0}, overwriting {1} commits on {0}', remote, behindCount)
-				: behind === 1
-					? l10n.t('Will force push, overwriting {0} commit', behindCount)
-					: l10n.t('Will force push, overwriting {0} commits', behindCount);
+				? formatPlural(
+						l10n.t(
+							'{1, plural, one{Will force push to {0}, overwriting {1} commit on {0}} other{Will force push to {0}, overwriting {1} commits on {0}}}',
+						),
+						[remote, behind],
+					)
+				: formatPlural(
+						l10n.t(
+							'{0, plural, one{Will force push, overwriting {0} commit} other{Will force push, overwriting {0} commits}}',
+						),
+						[behind],
+					);
 	}
 }
 
@@ -315,13 +220,12 @@ function getPushDetail(referenceName: string | undefined, ahead: number | undefi
 
 	if (ahead) {
 		if (remote.length === 0) {
-			return ahead === 1
-				? l10n.t('Will push {0} commit', getNumericFormat()(ahead))
-				: l10n.t('Will push {0} commits', getNumericFormat()(ahead));
+			return formatPlural(l10n.t('{0, plural, one{Will push {0} commit} other{Will push {0} commits}}'), [ahead]);
 		}
-		return ahead === 1
-			? l10n.t('Will push {0} commit to {1}', getNumericFormat()(ahead), remote)
-			: l10n.t('Will push {0} commits to {1}', getNumericFormat()(ahead), remote);
+		return formatPlural(
+			l10n.t('{0, plural, one{Will push {0} commit to {1}} other{Will push {0} commits to {1}}}'),
+			[ahead, remote],
+		);
 	}
 
 	return remote.length === 0 ? l10n.t('Will push') : l10n.t('Will push to {0}', remote);
@@ -378,39 +282,45 @@ function getForcePushNoBehindDetail(
 
 	if (ahead) {
 		if (remote.length === 0) {
-			if (ahead === 1) {
-				return mode === 'force-with-lease-and-includes'
-					? l10n.t('Will force push (with lease and if includes) {0} commit', getNumericFormat()(ahead))
-					: mode === 'force-with-lease'
-						? l10n.t('Will force push (with lease) {0} commit', getNumericFormat()(ahead))
-						: l10n.t('Will force push {0} commit', getNumericFormat()(ahead));
-			}
 			return mode === 'force-with-lease-and-includes'
-				? l10n.t('Will force push (with lease and if includes) {0} commits', getNumericFormat()(ahead))
-				: mode === 'force-with-lease'
-					? l10n.t('Will force push (with lease) {0} commits', getNumericFormat()(ahead))
-					: l10n.t('Will force push {0} commits', getNumericFormat()(ahead));
-		}
-		if (ahead === 1) {
-			return mode === 'force-with-lease-and-includes'
-				? l10n.t(
-						'Will force push (with lease and if includes) {0} commit to {1}',
-						getNumericFormat()(ahead),
-						remote,
+				? formatPlural(
+						l10n.t(
+							'{0, plural, one{Will force push (with lease and if includes) {0} commit} other{Will force push (with lease and if includes) {0} commits}}',
+						),
+						[ahead],
 					)
 				: mode === 'force-with-lease'
-					? l10n.t('Will force push (with lease) {0} commit to {1}', getNumericFormat()(ahead), remote)
-					: l10n.t('Will force push {0} commit to {1}', getNumericFormat()(ahead), remote);
+					? formatPlural(
+							l10n.t(
+								'{0, plural, one{Will force push (with lease) {0} commit} other{Will force push (with lease) {0} commits}}',
+							),
+							[ahead],
+						)
+					: formatPlural(
+							l10n.t('{0, plural, one{Will force push {0} commit} other{Will force push {0} commits}}'),
+							[ahead],
+						);
 		}
 		return mode === 'force-with-lease-and-includes'
-			? l10n.t(
-					'Will force push (with lease and if includes) {0} commits to {1}',
-					getNumericFormat()(ahead),
-					remote,
+			? formatPlural(
+					l10n.t(
+						'{0, plural, one{Will force push (with lease and if includes) {0} commit to {1}} other{Will force push (with lease and if includes) {0} commits to {1}}}',
+					),
+					[ahead, remote],
 				)
 			: mode === 'force-with-lease'
-				? l10n.t('Will force push (with lease) {0} commits to {1}', getNumericFormat()(ahead), remote)
-				: l10n.t('Will force push {0} commits to {1}', getNumericFormat()(ahead), remote);
+				? formatPlural(
+						l10n.t(
+							'{0, plural, one{Will force push (with lease) {0} commit to {1}} other{Will force push (with lease) {0} commits to {1}}}',
+						),
+						[ahead, remote],
+					)
+				: formatPlural(
+						l10n.t(
+							'{0, plural, one{Will force push {0} commit to {1}} other{Will force push {0} commits to {1}}}',
+						),
+						[ahead, remote],
+					);
 	}
 
 	switch (mode) {
@@ -434,125 +344,94 @@ function getForcePushReferenceBehindDetail(
 	remote: string,
 	behind: number,
 ): string {
-	const behindCount = getNumericFormat()(behind);
 	switch (mode) {
 		case 'force-with-lease-and-includes':
 			if (hasAhead) {
 				return remote.length === 0
-					? behind === 1
-						? l10n.t(
-								'Will force push (with lease and if includes) commits up to and including {0}, overwriting {1} commit',
-								referenceName,
-								behindCount,
-							)
-						: l10n.t(
-								'Will force push (with lease and if includes) commits up to and including {0}, overwriting {1} commits',
-								referenceName,
-								behindCount,
-							)
-					: behind === 1
-						? l10n.t(
-								'Will force push (with lease and if includes) commits up to and including {0} to {1}, overwriting {2} commit on {1}',
-								referenceName,
-								remote,
-								behindCount,
-							)
-						: l10n.t(
-								'Will force push (with lease and if includes) commits up to and including {0} to {1}, overwriting {2} commits on {1}',
-								referenceName,
-								remote,
-								behindCount,
-							);
+					? formatPlural(
+							l10n.t(
+								'{1, plural, one{Will force push (with lease and if includes) commits up to and including {0}, overwriting {1} commit} other{Will force push (with lease and if includes) commits up to and including {0}, overwriting {1} commits}}',
+							),
+							[referenceName, behind],
+						)
+					: formatPlural(
+							l10n.t(
+								'{2, plural, one{Will force push (with lease and if includes) commits up to and including {0} to {1}, overwriting {2} commit on {1}} other{Will force push (with lease and if includes) commits up to and including {0} to {1}, overwriting {2} commits on {1}}}',
+							),
+							[referenceName, remote, behind],
+						);
 			}
 			return remote.length === 0
-				? behind === 1
-					? l10n.t('Will force push (with lease and if includes), overwriting {0} commit', behindCount)
-					: l10n.t('Will force push (with lease and if includes), overwriting {0} commits', behindCount)
-				: behind === 1
-					? l10n.t(
-							'Will force push (with lease and if includes) to {0}, overwriting {1} commit on {0}',
-							remote,
-							behindCount,
-						)
-					: l10n.t(
-							'Will force push (with lease and if includes) to {0}, overwriting {1} commits on {0}',
-							remote,
-							behindCount,
-						);
+				? formatPlural(
+						l10n.t(
+							'{0, plural, one{Will force push (with lease and if includes), overwriting {0} commit} other{Will force push (with lease and if includes), overwriting {0} commits}}',
+						),
+						[behind],
+					)
+				: formatPlural(
+						l10n.t(
+							'{1, plural, one{Will force push (with lease and if includes) to {0}, overwriting {1} commit on {0}} other{Will force push (with lease and if includes) to {0}, overwriting {1} commits on {0}}}',
+						),
+						[remote, behind],
+					);
 		case 'force-with-lease':
 			if (hasAhead) {
 				return remote.length === 0
-					? behind === 1
-						? l10n.t(
-								'Will force push (with lease) commits up to and including {0}, overwriting {1} commit',
-								referenceName,
-								behindCount,
-							)
-						: l10n.t(
-								'Will force push (with lease) commits up to and including {0}, overwriting {1} commits',
-								referenceName,
-								behindCount,
-							)
-					: behind === 1
-						? l10n.t(
-								'Will force push (with lease) commits up to and including {0} to {1}, overwriting {2} commit on {1}',
-								referenceName,
-								remote,
-								behindCount,
-							)
-						: l10n.t(
-								'Will force push (with lease) commits up to and including {0} to {1}, overwriting {2} commits on {1}',
-								referenceName,
-								remote,
-								behindCount,
-							);
+					? formatPlural(
+							l10n.t(
+								'{1, plural, one{Will force push (with lease) commits up to and including {0}, overwriting {1} commit} other{Will force push (with lease) commits up to and including {0}, overwriting {1} commits}}',
+							),
+							[referenceName, behind],
+						)
+					: formatPlural(
+							l10n.t(
+								'{2, plural, one{Will force push (with lease) commits up to and including {0} to {1}, overwriting {2} commit on {1}} other{Will force push (with lease) commits up to and including {0} to {1}, overwriting {2} commits on {1}}}',
+							),
+							[referenceName, remote, behind],
+						);
 			}
 			return remote.length === 0
-				? behind === 1
-					? l10n.t('Will force push (with lease), overwriting {0} commit', behindCount)
-					: l10n.t('Will force push (with lease), overwriting {0} commits', behindCount)
-				: behind === 1
-					? l10n.t('Will force push (with lease) to {0}, overwriting {1} commit on {0}', remote, behindCount)
-					: l10n.t(
-							'Will force push (with lease) to {0}, overwriting {1} commits on {0}',
-							remote,
-							behindCount,
-						);
+				? formatPlural(
+						l10n.t(
+							'{0, plural, one{Will force push (with lease), overwriting {0} commit} other{Will force push (with lease), overwriting {0} commits}}',
+						),
+						[behind],
+					)
+				: formatPlural(
+						l10n.t(
+							'{1, plural, one{Will force push (with lease) to {0}, overwriting {1} commit on {0}} other{Will force push (with lease) to {0}, overwriting {1} commits on {0}}}',
+						),
+						[remote, behind],
+					);
 		case 'force':
 			if (hasAhead) {
 				return remote.length === 0
-					? behind === 1
-						? l10n.t(
-								'Will force push commits up to and including {0}, overwriting {1} commit',
-								referenceName,
-								behindCount,
-							)
-						: l10n.t(
-								'Will force push commits up to and including {0}, overwriting {1} commits',
-								referenceName,
-								behindCount,
-							)
-					: behind === 1
-						? l10n.t(
-								'Will force push commits up to and including {0} to {1}, overwriting {2} commit on {1}',
-								referenceName,
-								remote,
-								behindCount,
-							)
-						: l10n.t(
-								'Will force push commits up to and including {0} to {1}, overwriting {2} commits on {1}',
-								referenceName,
-								remote,
-								behindCount,
-							);
+					? formatPlural(
+							l10n.t(
+								'{1, plural, one{Will force push commits up to and including {0}, overwriting {1} commit} other{Will force push commits up to and including {0}, overwriting {1} commits}}',
+							),
+							[referenceName, behind],
+						)
+					: formatPlural(
+							l10n.t(
+								'{2, plural, one{Will force push commits up to and including {0} to {1}, overwriting {2} commit on {1}} other{Will force push commits up to and including {0} to {1}, overwriting {2} commits on {1}}}',
+							),
+							[referenceName, remote, behind],
+						);
 			}
 			return remote.length === 0
-				? behind === 1
-					? l10n.t('Will force push, overwriting {0} commit', behindCount)
-					: l10n.t('Will force push, overwriting {0} commits', behindCount)
-				: behind === 1
-					? l10n.t('Will force push to {0}, overwriting {1} commit on {0}', remote, behindCount)
-					: l10n.t('Will force push to {0}, overwriting {1} commits on {0}', remote, behindCount);
+				? formatPlural(
+						l10n.t(
+							'{0, plural, one{Will force push, overwriting {0} commit} other{Will force push, overwriting {0} commits}}',
+						),
+						[behind],
+					)
+				: formatPlural(
+						l10n.t(
+							'{1, plural, one{Will force push to {0}, overwriting {1} commit on {0}} other{Will force push to {0}, overwriting {1} commits on {0}}}',
+						),
+						[remote, behind],
+					);
 	}
 }
 
@@ -823,20 +702,12 @@ export class PushGitCommand extends QuickCommand<State> {
 						// createConfirmStep's default of the first confirmation
 						const cancelItem = createDirectiveQuickPickItem(Directive.Cancel, true, {
 							label: l10n.t('Cancel Push'),
-							detail:
-								branch.upstream.state.behind === 1
-									? l10n.t(
-											'Cannot push; {0} is behind {1} by {2} commit',
-											getReferenceLabel(branch),
-											branch.remoteName ?? '',
-											getNumericFormat()(branch.upstream.state.behind),
-										)
-									: l10n.t(
-											'Cannot push; {0} is behind {1} by {2} commits',
-											getReferenceLabel(branch),
-											branch.remoteName ?? '',
-											getNumericFormat()(branch.upstream.state.behind),
-										),
+							detail: formatPlural(
+								l10n.t(
+									'{2, plural, one{Cannot push; {0} is behind {1} by {2} commit} other{Cannot push; {0} is behind {1} by {2} commits}}',
+								),
+								[getReferenceLabel(branch), branch.remoteName ?? '', branch.upstream.state.behind],
+							),
 						});
 						step = this.createConfirmStep(
 							appendReposToTitle(l10n.t('Confirm Push'), state, context),
@@ -858,19 +729,16 @@ export class PushGitCommand extends QuickCommand<State> {
 							{
 								selectedItems: [cancelItem],
 								prompt: supportedInVSCodeVersion('quickpick-prompt')
-									? branch.upstream.state.behind === 1
-										? l10n.t(
-												'{0} is behind {1} by {2} commit — pull first, or force push to overwrite them',
+									? formatPlural(
+											l10n.t(
+												'{2, plural, one{{0} is behind {1} by {2} commit — pull first, or force push to overwrite them} other{{0} is behind {1} by {2} commits — pull first, or force push to overwrite them}}',
+											),
+											[
 												getReferenceLabel(branch),
 												branch.remoteName ?? '',
-												getNumericFormat()(branch.upstream.state.behind),
-											)
-										: l10n.t(
-												'{0} is behind {1} by {2} commits — pull first, or force push to overwrite them',
-												getReferenceLabel(branch),
-												branch.remoteName ?? '',
-												getNumericFormat()(branch.upstream.state.behind),
-											)
+												branch.upstream.state.behind,
+											],
+										)
 									: undefined,
 							},
 						);
@@ -880,20 +748,16 @@ export class PushGitCommand extends QuickCommand<State> {
 							[
 								createFlagsQuickPickItem<Flags>(state.flags, [branch.remoteName!], {
 									label: this.title,
-									detail:
-										branch.upstream.state.ahead === 1
-											? l10n.t(
-													'Will push {0} commit from {1} to {2}',
-													getNumericFormat()(branch.upstream.state.ahead),
-													getReferenceLabel(branch),
-													branch.remoteName ?? '',
-												)
-											: l10n.t(
-													'Will push {0} commits from {1} to {2}',
-													getNumericFormat()(branch.upstream.state.ahead),
-													getReferenceLabel(branch),
-													branch.remoteName ?? '',
-												),
+									detail: formatPlural(
+										l10n.t(
+											'{0, plural, one{Will push {0} commit from {1} to {2}} other{Will push {0} commits from {1} to {2}}}',
+										),
+										[
+											branch.upstream.state.ahead,
+											getReferenceLabel(branch),
+											branch.remoteName ?? '',
+										],
+									),
 								}),
 							],
 							l10n.t('Confirm Push'),
@@ -990,20 +854,12 @@ export class PushGitCommand extends QuickCommand<State> {
 					let titleSuffix = lastFetchedOn;
 					if (promptSupported) {
 						if (behindCount) {
-							prompt =
-								behindCount === 1
-									? l10n.t(
-											'{0} is behind {1} by {2} commit — pull first, or force push to overwrite them',
-											getReferenceLabel(branch),
-											upstreamName ?? '',
-											getNumericFormat()(behindCount),
-										)
-									: l10n.t(
-											'{0} is behind {1} by {2} commits — pull first, or force push to overwrite them',
-											getReferenceLabel(branch),
-											upstreamName ?? '',
-											getNumericFormat()(behindCount),
-										);
+							prompt = formatPlural(
+								l10n.t(
+									'{2, plural, one{{0} is behind {1} by {2} commit — pull first, or force push to overwrite them} other{{0} is behind {1} by {2} commits — pull first, or force push to overwrite them}}',
+								),
+								[getReferenceLabel(branch), upstreamName ?? '', behindCount],
+							);
 						} else {
 							prompt = lastFetchedPrompt;
 							titleSuffix = '';
@@ -1015,20 +871,12 @@ export class PushGitCommand extends QuickCommand<State> {
 					const behindCancelItem = behindCount
 						? createDirectiveQuickPickItem(Directive.Cancel, true, {
 								label: l10n.t('Cancel Push'),
-								detail:
-									behindCount === 1
-										? l10n.t(
-												'Cannot push; {0} is behind {1} by {2} commit',
-												getReferenceLabel(branch),
-												upstreamName ?? '',
-												getNumericFormat()(behindCount),
-											)
-										: l10n.t(
-												'Cannot push; {0} is behind {1} by {2} commits',
-												getReferenceLabel(branch),
-												upstreamName ?? '',
-												getNumericFormat()(behindCount),
-											),
+								detail: formatPlural(
+									l10n.t(
+										'{2, plural, one{Cannot push; {0} is behind {1} by {2} commit} other{Cannot push; {0} is behind {1} by {2} commits}}',
+									),
+									[getReferenceLabel(branch), upstreamName ?? '', behindCount],
+								),
 							})
 						: undefined;
 					step = this.createConfirmStep(

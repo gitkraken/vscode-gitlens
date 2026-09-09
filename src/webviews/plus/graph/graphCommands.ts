@@ -31,6 +31,7 @@ import { isSha, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { getNumericFormat } from '@gitlens/utils/date.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { splitMessage } from '@gitlens/utils/string.js';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens.d.js';
@@ -1133,18 +1134,21 @@ export class GraphCommands {
 		const confirm: MessageItem = { title: l10n.t('Squash') };
 		const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 		const choice = await window.showWarningMessage(
-			fixupRows.length === 1
-				? l10n.t('Squash fixup commit?')
-				: l10n.t('Squash {0} fixup commits?', getNumericFormat()(fixupRows.length)),
+			formatPlural(l10n.t('{0, plural, one{Squash fixup commit?} other{Squash {0} fixup commits?}}'), [
+				fixupRows.length,
+			]),
 			{
 				modal: true,
 				detail: published
 					? l10n.t(
 							'One or more of the commits being rewritten have already been pushed. Squashing rewrites history and will require a force push.',
 						)
-					: fixupRows.length === 1
-						? l10n.t('This squashes the fixup commit on the current branch into its target commit.')
-						: l10n.t('This squashes each fixup commit on the current branch into its target commit.'),
+					: formatPlural(
+							l10n.t(
+								'{0, plural, one{This squashes the fixup commit on the current branch into its target commit.} other{This squashes each fixup commit on the current branch into its target commit.}}',
+							),
+							[fixupRows.length],
+						),
 			},
 			confirm,
 			cancel,

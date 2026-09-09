@@ -5,8 +5,9 @@ import { GlElement, observe } from '@gitlens/components/components/element.js';
 import { elevatedSurface } from '@gitlens/components/components/styles/lit/elevation.css.js';
 import { getCssVariable } from '@gitlens/utils/color.js';
 import { groupByMap } from '@gitlens/utils/iterable.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { capitalize } from '@gitlens/utils/string.js';
-import { formatDate, formatNumeric, fromNow } from '../../../shared/date.js';
+import { formatDate, fromNow } from '../../../shared/date.js';
 import type { Disposable } from '../../../shared/events.js';
 import { onDidChangeTheme } from '../../../shared/theme.js';
 import { normalizeWheelDelta } from '../utils/wheel.utils.js';
@@ -1212,25 +1213,16 @@ export class GlGraphMinimap extends GlElement {
 		changes.className = 'changes';
 		const changesSpan = doc.createElement('span');
 		if (stat?.commits) {
-			let text =
-				stat.commits === 1
-					? l10n.t('{0} commit', formatNumeric(stat.commits))
-					: l10n.t('{0} commits', formatNumeric(stat.commits));
+			let text = formatPlural(l10n.t('{0, plural, one{{0} commit} other{{0} commits}}'), [stat.commits]);
 			if (this.dataType === 'lines') {
 				const files = stat.files ?? 0;
 				const lines = (stat.activity?.additions ?? 0) + (stat.activity?.deletions ?? 0);
-				const fileText =
-					files === 0
-						? l10n.t('No files')
-						: files === 1
-							? l10n.t('{0} file', formatNumeric(files))
-							: l10n.t('{0} files', formatNumeric(files));
-				const lineText =
-					lines === 0
-						? l10n.t('No lines')
-						: lines === 1
-							? l10n.t('{0} line', formatNumeric(lines))
-							: l10n.t('{0} lines', formatNumeric(lines));
+				const fileText = formatPlural(l10n.t('{0, plural, =0{No files} one{{0} file} other{{0} files}}'), [
+					files,
+				]);
+				const lineText = formatPlural(l10n.t('{0, plural, =0{No lines} one{{0} line} other{{0} lines}}'), [
+					lines,
+				]);
 				text += l10n.t(', {0}, {1} changed', fileText, lineText);
 			}
 			changesSpan.textContent = text;
@@ -1246,8 +1238,10 @@ export class GlGraphMinimap extends GlElement {
 			resultsDiv.className = 'results';
 			const resultSpan = doc.createElement('span');
 			resultSpan.className = 'result';
-			resultSpan.textContent =
-				results.count === 1 ? l10n.t('1 matching commit') : l10n.t('{0} matching commits', results.count);
+			resultSpan.textContent = formatPlural(
+				l10n.t('{0, plural, one{{0} matching commit} other{{0} matching commits}}'),
+				[results.count],
+			);
 			resultsDiv.append(resultSpan);
 			el.append(resultsDiv);
 		}
@@ -1259,7 +1253,7 @@ export class GlGraphMinimap extends GlElement {
 			if (stashesCount > 0) {
 				const s = doc.createElement('span');
 				s.className = 'stash';
-				s.textContent = stashesCount === 1 ? l10n.t('1 stash') : l10n.t('{0} stashes', stashesCount);
+				s.textContent = formatPlural(l10n.t('{0, plural, one{{0} stash} other{{0} stashes}}'), [stashesCount]);
 				refs1.append(s);
 			}
 			const branches = groups.get('branch');
@@ -1289,8 +1283,9 @@ export class GlGraphMinimap extends GlElement {
 			if (pullRequestsCount > 0) {
 				const s = doc.createElement('span');
 				s.className = 'pull-request';
-				s.textContent =
-					pullRequestsCount === 1 ? l10n.t('1 pull request') : l10n.t('{0} pull requests', pullRequestsCount);
+				s.textContent = formatPlural(l10n.t('{0, plural, one{{0} pull request} other{{0} pull requests}}'), [
+					pullRequestsCount,
+				]);
 				refs2.append(s);
 			}
 			const remotes = groups.get('remote');

@@ -3,8 +3,8 @@ import type { GitPausedOperationStatus, GitRebaseStatus } from '@gitlens/git/mod
 import type { GitReference, GitRevisionReference } from '@gitlens/git/models/reference.js';
 import { getConflictCurrentRef } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { PausedOperationVariant } from '@gitlens/utils/pausedOperation.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { splitMessage, truncate } from '@gitlens/utils/string.js';
 
 /** Longest commit subject a tooltip carries before it's elided. */
@@ -28,9 +28,9 @@ export function getPausedOperationBarActionLabel(
 		// Hosts that don't carry a count still get an actionable label.
 		if (conflictsCount == null) return l10n.t('Resolve Conflicts');
 
-		return conflictsCount === 1
-			? l10n.t('Resolve {count} Conflict', { count: getNumericFormat()(conflictsCount) })
-			: l10n.t('Resolve {count} Conflicts', { count: getNumericFormat()(conflictsCount) });
+		return formatPlural(l10n.t('{count, plural, one{Resolve {count} Conflict} other{Resolve {count} Conflicts}}'), {
+			count: conflictsCount,
+		});
 	}
 
 	switch (status.type) {
@@ -107,49 +107,45 @@ function getPausedOperationBarStateTooltip(
 				return l10n.t('Conflicting files must be resolved before the cherry-pick can continue');
 			}
 
-			return conflictsCount === 1
-				? l10n.t('{count} conflicting file must be resolved before the cherry-pick can continue', {
-						count: getNumericFormat()(conflictsCount),
-					})
-				: l10n.t('{count} conflicting files must be resolved before the cherry-pick can continue', {
-						count: getNumericFormat()(conflictsCount),
-					});
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} conflicting file must be resolved before the cherry-pick can continue} other{{count} conflicting files must be resolved before the cherry-pick can continue}}',
+				),
+				{ count: conflictsCount },
+			);
 		case 'merge':
 			if (conflictsCount == null) {
 				return l10n.t('Conflicting files must be resolved before the merge can continue');
 			}
 
-			return conflictsCount === 1
-				? l10n.t('{count} conflicting file must be resolved before the merge can continue', {
-						count: getNumericFormat()(conflictsCount),
-					})
-				: l10n.t('{count} conflicting files must be resolved before the merge can continue', {
-						count: getNumericFormat()(conflictsCount),
-					});
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} conflicting file must be resolved before the merge can continue} other{{count} conflicting files must be resolved before the merge can continue}}',
+				),
+				{ count: conflictsCount },
+			);
 		case 'rebase':
 			if (conflictsCount == null) {
 				return l10n.t('Conflicting files must be resolved before the rebase can continue');
 			}
 
-			return conflictsCount === 1
-				? l10n.t('{count} conflicting file must be resolved before the rebase can continue', {
-						count: getNumericFormat()(conflictsCount),
-					})
-				: l10n.t('{count} conflicting files must be resolved before the rebase can continue', {
-						count: getNumericFormat()(conflictsCount),
-					});
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} conflicting file must be resolved before the rebase can continue} other{{count} conflicting files must be resolved before the rebase can continue}}',
+				),
+				{ count: conflictsCount },
+			);
 		case 'revert':
 			if (conflictsCount == null) {
 				return l10n.t('Conflicting files must be resolved before the revert can continue');
 			}
 
-			return conflictsCount === 1
-				? l10n.t('{count} conflicting file must be resolved before the revert can continue', {
-						count: getNumericFormat()(conflictsCount),
-					})
-				: l10n.t('{count} conflicting files must be resolved before the revert can continue', {
-						count: getNumericFormat()(conflictsCount),
-					});
+			return formatPlural(
+				l10n.t(
+					'{count, plural, one{{count} conflicting file must be resolved before the revert can continue} other{{count} conflicting files must be resolved before the revert can continue}}',
+				),
+				{ count: conflictsCount },
+			);
 	}
 }
 

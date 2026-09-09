@@ -1,11 +1,11 @@
 import * as l10n from '@vscode/l10n';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { PausedOperationVariant } from '@gitlens/utils/pausedOperation.js';
 import {
 	getPausedOperationLabel,
 	getPausedOperationVariant,
 	pausedOperationStatusStringsByType,
 } from '@gitlens/utils/pausedOperation.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { CommitGraphPausedOperationStatus } from '../contracts/state.js';
 
 export interface PausedOperationIndicatorInfo {
@@ -29,10 +29,9 @@ export function getPausedOperationIndicator(
 		const count = conflictsCount ?? 1;
 		return {
 			variant: 'conflicts',
-			label:
-				count === 1
-					? l10n.t('{0} conflict to resolve', getNumericFormat()(count))
-					: l10n.t('{0} conflicts to resolve', getNumericFormat()(count)),
+			label: formatPlural(l10n.t('{0, plural, one{{0} conflict to resolve} other{{0} conflicts to resolve}}'), [
+				count,
+			]),
 		};
 	}
 

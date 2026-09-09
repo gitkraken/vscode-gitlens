@@ -10,11 +10,11 @@ import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import type { OverlayEntry } from '@gitlens/utils/keys/keybinding.js';
 import { normalizePath } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type {
 	AgentSessionState,
 	PastAgentSessionDetail,
@@ -200,16 +200,9 @@ const emptyModeExclusions: ReadonlySet<string> = new Set();
 function formatModeCounts(primary: number, files: number, primaryLabel: 'commits' | 'findings', onResume?: () => void) {
 	const primaryText =
 		primaryLabel === 'commits'
-			? primary === 1
-				? l10n.t('{count} commit', { count: getNumericFormat()(primary) })
-				: l10n.t('{count} commits', { count: getNumericFormat()(primary) })
-			: primary === 1
-				? l10n.t('{count} finding', { count: getNumericFormat()(primary) })
-				: l10n.t('{count} findings', { count: getNumericFormat()(primary) });
-	const fileText =
-		files === 1
-			? l10n.t('{count} file', { count: getNumericFormat()(files) })
-			: l10n.t('{count} files', { count: getNumericFormat()(files) });
+			? formatPlural(l10n.t('{count, plural, one{{count} commit} other{{count} commits}}'), { count: primary })
+			: formatPlural(l10n.t('{count, plural, one{{count} finding} other{{count} findings}}'), { count: primary });
+	const fileText = formatPlural(l10n.t('{count, plural, one{{count} file} other{{count} files}}'), { count: files });
 	const primaryIcon = primaryLabel === 'commits' ? 'git-commit' : 'search';
 	const counts = html`<span class="mode-status__group"
 			><code-icon icon=${primaryIcon}></code-icon>${primaryText}</span
@@ -2627,10 +2620,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			if (value != null && 'result' in value && value.result?.resolutions) {
 				const count = value.result.resolutions.filter(r => r.strategy !== 'skipped').length;
 				if (count > 0) {
-					const resolvedFiles =
-						count === 1
-							? l10n.t('{count} file resolved', { count: getNumericFormat()(count) })
-							: l10n.t('{count} files resolved', { count: getNumericFormat()(count) });
+					const resolvedFiles = formatPlural(
+						l10n.t('{count, plural, one{{count} file resolved} other{{count} files resolved}}'),
+						{ count: count },
+					);
 					return html`<span class="mode-status__group"
 						><code-icon icon="gl-merge"></code-icon>${resolvedFiles}</span
 					>`;

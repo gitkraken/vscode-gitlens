@@ -5,6 +5,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { boxSizingBase, metadataBarVarsBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { getNumericFormat } from '@gitlens/utils/date.js';
 import { basename } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type {
 	AgentSessionState,
 	PastAgentSessionsResult,
@@ -1333,11 +1334,10 @@ pressure so narrowing the panel squeezes the caption, never the button. */
 	private renderHoverFooter(hidden: number): unknown {
 		if (hidden <= 0) return nothing;
 
-		const count = getNumericFormat()(hidden);
-		const countText =
-			hidden === 1
-				? l10n.t('{count} more past session', { count: count })
-				: l10n.t('{count} more past sessions', { count: count });
+		const countText = formatPlural(
+			l10n.t('{count, plural, one{{count} more past session} other{{count} more past sessions}}'),
+			{ count: hidden },
+		);
 		return html`
 			<div class="section__hover-footer">
 				<span class="section__hover-count">${countText}</span>

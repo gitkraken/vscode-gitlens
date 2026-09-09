@@ -4,7 +4,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type {
 	AutoRebaseSummary,
 	AutoRebaseSummaryStep,
@@ -46,32 +46,27 @@ function getRebaseOutcomeLabel(outcome: AutoRebaseSummary['outcome']): string {
 }
 
 function getResolvedAcrossLabel(fileCount: number, stepCount: number): string {
-	const format = getNumericFormat();
-	const files = format(fileCount);
-	const steps = format(stepCount);
-	if (fileCount === 1) {
-		return stepCount === 1
-			? l10n.t('{files} conflicted file resolved across {steps} step', { files: files, steps: steps })
-			: l10n.t('{files} conflicted file resolved across {steps} steps', { files: files, steps: steps });
-	}
-
-	return stepCount === 1
-		? l10n.t('{files} conflicted files resolved across {steps} step', { files: files, steps: steps })
-		: l10n.t('{files} conflicted files resolved across {steps} steps', { files: files, steps: steps });
+	return formatPlural(
+		l10n.t(
+			'{files, plural, one{{steps, plural, one{{files} conflicted file resolved across {steps} step} other{{files} conflicted file resolved across {steps} steps}}} other{{steps, plural, one{{files} conflicted files resolved across {steps} step} other{{files} conflicted files resolved across {steps} steps}}}}',
+		),
+		{ files: fileCount, steps: stepCount },
+	);
 }
 
 function getSkippedAsEmptyLabel(count: number): string {
-	const formatted = getNumericFormat()(count);
-	return count === 1
-		? l10n.t('{count} commit skipped as empty', { count: formatted })
-		: l10n.t('{count} commits skipped as empty', { count: formatted });
+	return formatPlural(
+		l10n.t('{count, plural, one{{count} commit skipped as empty} other{{count} commits skipped as empty}}'),
+		{
+			count: count,
+		},
+	);
 }
 
 function getConflictedFilesLabel(count: number): string {
-	const formatted = getNumericFormat()(count);
-	return count === 1
-		? l10n.t('{count} conflicted file', { count: formatted })
-		: l10n.t('{count} conflicted files', { count: formatted });
+	return formatPlural(l10n.t('{count, plural, one{{count} conflicted file} other{{count} conflicted files}}'), {
+		count: count,
+	});
 }
 
 /** Wraps translated prose segments so a localized relation retains the flex-item structure of the

@@ -14,6 +14,7 @@ import {
 	shortenRevision,
 } from '@gitlens/git/utils/revision.utils.js';
 import { basename } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
@@ -154,16 +155,12 @@ export async function openCommitChangesInDiffTool(commit: GitCommit): Promise<vo
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message:
-				files.length === 1
-					? l10n.t(
-							'Are you sure you want to externally open the changes for each of the {0} file?',
-							files.length,
-						)
-					: l10n.t(
-							'Are you sure you want to externally open the changes for each of the {0} files?',
-							files.length,
-						),
+			message: formatPlural(
+				l10n.t(
+					'{0, plural, one{Are you sure you want to externally open the changes for each of the {0} file?} other{Are you sure you want to externally open the changes for each of the {0} files?}}',
+				),
+				[files.length],
+			),
 			confirmButton: l10n.t('Open Changes'),
 			threshold: filesOpenDiffsThreshold,
 		}))
@@ -199,10 +196,12 @@ export async function openMultipleChanges(
 	if (openIndividually) {
 		if (
 			!(await confirmOpenIfNeeded(files, {
-				message:
-					files.length === 1
-						? l10n.t('Are you sure you want to open the changes for each of the {0} file?', files.length)
-						: l10n.t('Are you sure you want to open the changes for each of the {0} files?', files.length),
+				message: formatPlural(
+					l10n.t(
+						'{0, plural, one{Are you sure you want to open the changes for each of the {0} file?} other{Are you sure you want to open the changes for each of the {0} files?}}',
+					),
+					[files.length],
+				),
 				confirmButton: l10n.t('Open Changes'),
 				threshold: filesOpenDiffsThreshold,
 			}))
@@ -225,10 +224,12 @@ export async function openMultipleChanges(
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message:
-				files.length === 1
-					? l10n.t('Are you sure you want to view the changes for all {0} file?', files.length)
-					: l10n.t('Are you sure you want to view the changes for all {0} files?', files.length),
+			message: formatPlural(
+				l10n.t(
+					'{0, plural, one{Are you sure you want to view the changes for all {0} file?} other{Are you sure you want to view the changes for all {0} files?}}',
+				),
+				[files.length],
+			),
 			confirmButton: l10n.t('View Changes'),
 			threshold: filesOpenMultiDiffThreshold,
 		}))
@@ -317,10 +318,12 @@ export async function openWipMultipleChanges(
 ): Promise<void> {
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message:
-				files.length === 1
-					? l10n.t('Are you sure you want to view the changes for all {0} file?', files.length)
-					: l10n.t('Are you sure you want to view the changes for all {0} files?', files.length),
+			message: formatPlural(
+				l10n.t(
+					'{0, plural, one{Are you sure you want to view the changes for all {0} file?} other{Are you sure you want to view the changes for all {0} files?}}',
+				),
+				[files.length],
+			),
 			confirmButton: l10n.t('View Changes'),
 			threshold: filesOpenMultiDiffThreshold,
 		}))
@@ -848,10 +851,12 @@ export async function openFiles(
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message:
-				files.length === 1
-					? l10n.t('Are you sure you want to open each of the {0} file?', files.length)
-					: l10n.t('Are you sure you want to open each of the {0} files?', files.length),
+			message: formatPlural(
+				l10n.t(
+					'{0, plural, one{Are you sure you want to open each of the {0} file?} other{Are you sure you want to open each of the {0} files?}}',
+				),
+				[files.length],
+			),
 			confirmButton: l10n.t('Open Files'),
 			threshold: filesOpenThreshold,
 		}))
@@ -881,10 +886,12 @@ export async function openFilesAtRevision(
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message:
-				files.length === 1
-					? l10n.t('Are you sure you want to open each of the {0} file revision?', files.length)
-					: l10n.t('Are you sure you want to open each of the {0} file revisions?', files.length),
+			message: formatPlural(
+				l10n.t(
+					'{0, plural, one{Are you sure you want to open each of the {0} file revision?} other{Are you sure you want to open each of the {0} file revisions?}}',
+				),
+				[files.length],
+			),
 			confirmButton: l10n.t('Open Revisions'),
 			threshold: filesOpenThreshold,
 		}))
@@ -1029,10 +1036,12 @@ export async function openOnlyChangedFiles(_container: Container, commitOrFiles:
 
 	if (
 		!(await confirmOpenIfNeeded(files, {
-			message:
-				files.length === 1
-					? l10n.t('Are you sure you want to open each of the {0} file?', files.length)
-					: l10n.t('Are you sure you want to open each of the {0} files?', files.length),
+			message: formatPlural(
+				l10n.t(
+					'{0, plural, one{Are you sure you want to open each of the {0} file?} other{Are you sure you want to open each of the {0} files?}}',
+				),
+				[files.length],
+			),
 			confirmButton: l10n.t('Open Files'),
 			threshold: 10,
 		}))

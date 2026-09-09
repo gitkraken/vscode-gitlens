@@ -7,6 +7,7 @@ import noSelfPackageImports from './eslint-rules/no-self-package-imports.mjs';
 import noSrcImports from './eslint-rules/no-src-imports.mjs';
 import oneVar from './eslint-rules/one-var.mjs';
 import requireBlockBody from './eslint-rules/require-block-body.mjs';
+import requireFormatPlural from './eslint-rules/require-format-plural.mjs';
 import requireJsExtension from './eslint-rules/require-js-extension.mjs';
 import requireLiteralL10n from './eslint-rules/require-literal-l10n.mjs';
 import logScopeUsage from './eslint-rules/scoped-logger-usage.mjs';
@@ -25,6 +26,7 @@ export default eslintCompatPlugin({
 		'one-var': oneVar,
 		'require-js-extension': requireJsExtension,
 		'require-literal-l10n': requireLiteralL10n,
+		'require-format-plural': requireFormatPlural,
 		'scoped-logger-usage': logScopeUsage,
 		'require-block-body': requireBlockBody,
 		'newline-after-control-flow': newlineAfterControlFlow,

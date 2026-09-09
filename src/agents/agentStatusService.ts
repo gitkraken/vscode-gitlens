@@ -13,6 +13,7 @@ import {
 import { claudeCodeCapabilities, getAgentCapabilitiesByProviderId } from '@gitlens/agents/agentCapabilities.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Source, Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { getPresentableErrorMessage } from '../errors.js';
@@ -441,12 +442,18 @@ export class AgentStatusService implements Disposable {
 				location: ProgressLocation.Notification,
 				title:
 					op === 'install'
-						? targets.length === 1
-							? l10n.t('Installing GitKraken Hooks for {0} agent...', String(targets.length))
-							: l10n.t('Installing GitKraken Hooks for {0} agents...', String(targets.length))
-						: targets.length === 1
-							? l10n.t('Uninstalling GitKraken Hooks for {0} agent...', String(targets.length))
-							: l10n.t('Uninstalling GitKraken Hooks for {0} agents...', String(targets.length)),
+						? formatPlural(
+								l10n.t(
+									'{0, plural, one{Installing GitKraken Hooks for {0} agent...} other{Installing GitKraken Hooks for {0} agents...}}',
+								),
+								[targets.length],
+							)
+						: formatPlural(
+								l10n.t(
+									'{0, plural, one{Uninstalling GitKraken Hooks for {0} agent...} other{Uninstalling GitKraken Hooks for {0} agents...}}',
+								),
+								[targets.length],
+							),
 				cancellable: false,
 			},
 			async () => {

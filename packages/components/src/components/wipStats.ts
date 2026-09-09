@@ -2,13 +2,13 @@ import * as l10n from '@vscode/l10n';
 import type { CSSResultGroup } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { PausedOperationStatus } from '@gitlens/utils/pausedOperation.js';
 import {
 	getPausedOperationLabel,
 	getPausedOperationVariant,
 	pausedOperationVariantIcons,
 } from '@gitlens/utils/pausedOperation.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import './codeIcon.js';
 import './commitStats.js';
 import './overlays/tooltip.js';
@@ -25,23 +25,21 @@ export function getWipTooltipParts(workingTreeState: {
 	const parts: string[] = [];
 	if (workingTreeState.added) {
 		parts.push(
-			workingTreeState.added === 1
-				? l10n.t('{0} file added', getNumericFormat()(workingTreeState.added))
-				: l10n.t('{0} files added', getNumericFormat()(workingTreeState.added)),
+			formatPlural(l10n.t('{0, plural, one{{0} file added} other{{0} files added}}'), [workingTreeState.added]),
 		);
 	}
 	if (workingTreeState.changed) {
 		parts.push(
-			workingTreeState.changed === 1
-				? l10n.t('{0} file changed', getNumericFormat()(workingTreeState.changed))
-				: l10n.t('{0} files changed', getNumericFormat()(workingTreeState.changed)),
+			formatPlural(l10n.t('{0, plural, one{{0} file changed} other{{0} files changed}}'), [
+				workingTreeState.changed,
+			]),
 		);
 	}
 	if (workingTreeState.deleted) {
 		parts.push(
-			workingTreeState.deleted === 1
-				? l10n.t('{0} file deleted', getNumericFormat()(workingTreeState.deleted))
-				: l10n.t('{0} files deleted', getNumericFormat()(workingTreeState.deleted)),
+			formatPlural(l10n.t('{0, plural, one{{0} file deleted} other{{0} files deleted}}'), [
+				workingTreeState.deleted,
+			]),
 		);
 	}
 	return parts;
@@ -244,9 +242,9 @@ export class GlWipStats extends LitElement {
 		// The badge is a count-first chip, so conflicts read as the count rather than the shared phrase.
 		const label =
 			variant === 'conflicts'
-				? (this.conflictsCount ?? 1) === 1
-					? l10n.t('{0} Conflict', getNumericFormat()(this.conflictsCount ?? 1))
-					: l10n.t('{0} Conflicts', getNumericFormat()(this.conflictsCount ?? 1))
+				? formatPlural(l10n.t('{0, plural, one{{0} Conflict} other{{0} Conflicts}}'), [
+						this.conflictsCount ?? 1,
+					])
 				: getPausedOperationLabel(pausedOp, variant);
 
 		const badge = html`<span

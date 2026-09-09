@@ -9,6 +9,7 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { RovingTabindexController } from '@gitlens/components/controllers/rovingTabindex.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { GraphDisplayMode, GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
 import { filterAgentSessionsForFamily } from '../../../shared/agentUtils.js';
@@ -540,11 +541,12 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 								${tooltip}
 								<span class="toggle-tooltip__hint">
 									<code-icon icon="heart"></code-icon>
-									${
-										suggestedCount === 1
-											? l10n.t('1 optimization suggested')
-											: l10n.t('{0} optimizations suggested', suggestedCount)
-									}
+									${formatPlural(
+										l10n.t(
+											'{0, plural, one{{0} optimization suggested} other{{0} optimizations suggested}}',
+										),
+										[suggestedCount],
+									)}
 								</span>
 							</div>
 						</gl-tooltip>`

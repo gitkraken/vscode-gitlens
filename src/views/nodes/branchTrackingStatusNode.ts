@@ -6,10 +6,11 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { getUpstreamStatus } from '@gitlens/git/utils/status.utils.js';
-import { fromNow, getNumericFormat } from '@gitlens/utils/date.js';
+import { fromNow } from '@gitlens/utils/date.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { first, last, map } from '@gitlens/utils/iterable.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Colors } from '../../constants.colors.js';
 import type { FilesComparison } from '../../git/actions/commit.js';
 import { GitUri } from '../../git/gitUri.js';
@@ -222,47 +223,35 @@ export class BranchTrackingStatusNode
 			case 'ahead': {
 				const remote = await getBranchRemote(this.view.container, this.branch);
 				const count = this.status.upstream!.state.ahead;
-				const formattedCount = getNumericFormat()(count);
 				const remoteName = remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name);
 				const providerName = remote?.provider?.name;
 				const branchStatus = getBranchStatus.call(this, remote);
 
 				label = l10n.t('Outgoing');
-				description =
-					count === 1
-						? l10n.t('{count} commit to push to {remote}', {
-								count: formattedCount,
-								remote: remoteName,
-							})
-						: l10n.t('{count} commits to push to {remote}', {
-								count: formattedCount,
-								remote: remoteName,
-							});
+				description = formatPlural(
+					l10n.t(
+						'{count, plural, one{{count} commit to push to {remote}} other{{count} commits to push to {remote}}}',
+					),
+					{ count: count, remote: remoteName },
+				);
 				tooltip = providerName
-					? count === 1
-						? l10n.t('{count} commit to push to `{upstream}` on {provider}\\\n{status}', {
-								count: formattedCount,
+					? formatPlural(
+							l10n.t(
+								'{count, plural, one{{count} commit to push to `{upstream}` on {provider}\\\n{status}} other{{count} commits to push to `{upstream}` on {provider}\\\n{status}}}',
+							),
+							{
+								count: count,
 								upstream: this.status.upstream!.name,
 								provider: providerName,
 								status: branchStatus,
-							})
-						: l10n.t('{count} commits to push to `{upstream}` on {provider}\\\n{status}', {
-								count: formattedCount,
-								upstream: this.status.upstream!.name,
-								provider: providerName,
-								status: branchStatus,
-							})
-					: count === 1
-						? l10n.t('{count} commit to push to `{upstream}`\\\n{status}', {
-								count: formattedCount,
-								upstream: this.status.upstream!.name,
-								status: branchStatus,
-							})
-						: l10n.t('{count} commits to push to `{upstream}`\\\n{status}', {
-								count: formattedCount,
-								upstream: this.status.upstream!.name,
-								status: branchStatus,
-							});
+							},
+						)
+					: formatPlural(
+							l10n.t(
+								'{count, plural, one{{count} commit to push to `{upstream}`\\\n{status}} other{{count} commits to push to `{upstream}`\\\n{status}}}',
+							),
+							{ count: count, upstream: this.status.upstream!.name, status: branchStatus },
+						);
 
 				collapsibleState = TreeItemCollapsibleState.Collapsed;
 				contextValue = this.root
@@ -278,47 +267,35 @@ export class BranchTrackingStatusNode
 			case 'behind': {
 				const remote = await getBranchRemote(this.view.container, this.branch);
 				const count = this.status.upstream!.state.behind;
-				const formattedCount = getNumericFormat()(count);
 				const remoteName = remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!.name);
 				const providerName = remote?.provider?.name;
 				const branchStatus = getBranchStatus.call(this, remote);
 
 				label = l10n.t('Incoming');
-				description =
-					count === 1
-						? l10n.t('{count} commit to pull from {remote}', {
-								count: formattedCount,
-								remote: remoteName,
-							})
-						: l10n.t('{count} commits to pull from {remote}', {
-								count: formattedCount,
-								remote: remoteName,
-							});
+				description = formatPlural(
+					l10n.t(
+						'{count, plural, one{{count} commit to pull from {remote}} other{{count} commits to pull from {remote}}}',
+					),
+					{ count: count, remote: remoteName },
+				);
 				tooltip = providerName
-					? count === 1
-						? l10n.t('{count} commit to pull from `{upstream}` on {provider}\\\n{status}', {
-								count: formattedCount,
+					? formatPlural(
+							l10n.t(
+								'{count, plural, one{{count} commit to pull from `{upstream}` on {provider}\\\n{status}} other{{count} commits to pull from `{upstream}` on {provider}\\\n{status}}}',
+							),
+							{
+								count: count,
 								upstream: this.status.upstream!.name,
 								provider: providerName,
 								status: branchStatus,
-							})
-						: l10n.t('{count} commits to pull from `{upstream}` on {provider}\\\n{status}', {
-								count: formattedCount,
-								upstream: this.status.upstream!.name,
-								provider: providerName,
-								status: branchStatus,
-							})
-					: count === 1
-						? l10n.t('{count} commit to pull from `{upstream}`\\\n{status}', {
-								count: formattedCount,
-								upstream: this.status.upstream!.name,
-								status: branchStatus,
-							})
-						: l10n.t('{count} commits to pull from `{upstream}`\\\n{status}', {
-								count: formattedCount,
-								upstream: this.status.upstream!.name,
-								status: branchStatus,
-							});
+							},
+						)
+					: formatPlural(
+							l10n.t(
+								'{count, plural, one{{count} commit to pull from `{upstream}`\\\n{status}} other{{count} commits to pull from `{upstream}`\\\n{status}}}',
+							),
+							{ count: count, upstream: this.status.upstream!.name, status: branchStatus },
+						);
 
 				collapsibleState = TreeItemCollapsibleState.Collapsed;
 				contextValue = this.root

@@ -9,8 +9,8 @@ import { isMac } from '@env/platform.js';
 import { GlElement } from '@gitlens/components/components/element.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
-import { getNumericFormat } from '@gitlens/utils/date.js';
 import { DOM } from '@gitlens/utils/dom.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { GraphSearchRelaxation } from '../../../../plus/graph/protocol.js';
 import type { AppState } from '../../../plus/graph/context.js';
 import type { GlSearchInput, SearchModeChangeEventDetail, SearchNavigationEventDetail } from './search-input.js';
@@ -398,26 +398,19 @@ export class GlSearchBox extends GlElement {
 
 		if (hasResults) {
 			// We have results - show count (whether searching or complete)
-			const formattedCount = getNumericFormat()(this.total);
 			const totalFormatted = this.resultsHasMore
-				? this.total === 1
-					? l10n.t('{0}+ result', formattedCount)
-					: l10n.t('{0}+ results', formattedCount)
-				: this.total === 1
-					? l10n.t('{0} result', formattedCount)
-					: l10n.t('{0} results', formattedCount);
+				? formatPlural(l10n.t('{0, plural, one{{0}+ result} other{{0}+ results}}'), [this.total])
+				: formatPlural(l10n.t('{0, plural, one{{0} result} other{{0} results}}'), [this.total]);
 			const total = `${this.total}${this.resultsHasMore ? '+' : ''}`;
 
 			if (this.resultHidden) {
 				tooltip = html`${l10n.t('This result is hidden or unable to be shown on the Commit Graph')}`;
 			} else {
 				tooltip = this.resultsHasMore
-					? this.total === 1
-						? l10n.t('{0}+ result found', formattedCount)
-						: l10n.t('{0}+ results found', formattedCount)
-					: this.total === 1
-						? l10n.t('{0} result found', formattedCount)
-						: l10n.t('{0} results found', formattedCount);
+					? formatPlural(l10n.t('{0, plural, one{{0}+ result found} other{{0}+ results found}}'), [
+							this.total,
+						])
+					: formatPlural(l10n.t('{0, plural, one{{0} result found} other{{0} results found}}'), [this.total]);
 			}
 
 			countText = html`<span class="${ifDefined(this.resultHidden ? 'sr-hidden' : '')}"

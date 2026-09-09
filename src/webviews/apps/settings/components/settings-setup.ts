@@ -6,6 +6,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { cspStyleMap } from '@gitlens/components/cspStyleMap.directive.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { GraphWalkthroughProgress, WalkthroughProgress } from '../../../../constants.walkthroughs.js';
 import { graphWalkthroughProgressSteps, walkthroughProgressSteps } from '../../../../constants.walkthroughs.js';
 import { createCommandLink } from '../../../../system/commands.js';
@@ -755,10 +756,12 @@ export class GlSettingsSetup extends SignalWatcher(LitElement) {
 		const remaining = total - done;
 		return {
 			title: l10n.t('Almost there'),
-			subtitle:
-				remaining === 1
-					? l10n.t('{0} of {1} done — {2} step left to finish setting up GitLens.', done, total, remaining)
-					: l10n.t('{0} of {1} done — {2} steps left to finish setting up GitLens.', done, total, remaining),
+			subtitle: formatPlural(
+				l10n.t(
+					'{2, plural, one{{0} of {1} done — {2} step left to finish setting up GitLens.} other{{0} of {1} done — {2} steps left to finish setting up GitLens.}}',
+				),
+				[done, total, remaining],
+			),
 		};
 	}
 }

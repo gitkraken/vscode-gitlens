@@ -16,6 +16,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { getNumericFormat } from '@gitlens/utils/date.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext, Preferences, State } from '../../../../plus/graph/detailsProtocol.js';
@@ -1110,14 +1111,12 @@ export class GlDetailsCompareModePanel extends LitElement {
 	private renderContributorRow(contributor: BranchComparisonContributor) {
 		const { name, email, avatarUrl, commits, additions, deletions, files } = contributor;
 		const format = getNumericFormat();
-		const commitCount =
-			commits === 1
-				? l10n.t('{count} commit', { count: format(commits) })
-				: l10n.t('{count} commits', { count: format(commits) });
-		const fileCount =
-			files === 1
-				? l10n.t('{count} file', { count: format(files) })
-				: l10n.t('{count} files', { count: format(files) });
+		const commitCount = formatPlural(l10n.t('{count, plural, one{{count} commit} other{{count} commits}}'), {
+			count: commits,
+		});
+		const fileCount = formatPlural(l10n.t('{count, plural, one{{count} file} other{{count} files}}'), {
+			count: files,
+		});
 		return html`<div class="compare-contributor">
 			<gl-avatar src=${avatarUrl ?? nothing} name=${email ?? name}></gl-avatar>
 			<div class="compare-contributor__info">

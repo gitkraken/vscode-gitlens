@@ -3,6 +3,7 @@ import { consume } from '@lit/context';
 import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
 import type { LaunchpadSummaryResult } from '../../../../../plus/launchpad/launchpadIndicator.js';
 import { ruleStyles } from '../../shared/components/vscode.css.js';
@@ -278,31 +279,39 @@ the rocket's own em box (1em = 1.6rem): the 1.2rem badge centers 0.69em in from 
 		const groups: CountGroup[] = [
 			{
 				total: mergeable,
-				label:
-					mergeable === 1
-						? l10n.t('{count} pull request can be merged', { count: mergeable })
-						: l10n.t('{count} pull requests can be merged', { count: mergeable }),
+				label: formatPlural(
+					l10n.t(
+						'{count, plural, one{{count} pull request can be merged} other{{count} pull requests can be merged}}',
+					),
+					{ count: mergeable },
+				),
 			},
 			{
 				total: blocked,
-				label:
-					blocked === 1
-						? l10n.t('{count} pull request is blocked', { count: blocked })
-						: l10n.t('{count} pull requests are blocked', { count: blocked }),
+				label: formatPlural(
+					l10n.t(
+						'{count, plural, one{{count} pull request is blocked} other{{count} pull requests are blocked}}',
+					),
+					{ count: blocked },
+				),
 			},
 			{
 				total: followUp,
-				label:
-					followUp === 1
-						? l10n.t('{count} pull request requires follow-up', { count: followUp })
-						: l10n.t('{count} pull requests require follow-up', { count: followUp }),
+				label: formatPlural(
+					l10n.t(
+						'{count, plural, one{{count} pull request requires follow-up} other{{count} pull requests require follow-up}}',
+					),
+					{ count: followUp },
+				),
 			},
 			{
 				total: needsReview,
-				label:
-					needsReview === 1
-						? l10n.t('{count} pull request needs your review', { count: needsReview })
-						: l10n.t('{count} pull requests need your review', { count: needsReview }),
+				label: formatPlural(
+					l10n.t(
+						'{count, plural, one{{count} pull request needs your review} other{{count} pull requests need your review}}',
+					),
+					{ count: needsReview },
+				),
 			},
 		];
 		return groups.filter(g => g.total > 0);
