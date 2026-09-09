@@ -62,31 +62,15 @@ export interface WorktreeCopyChangesGitCommandArgs {
 	state?: Partial<State>;
 }
 
-function getConfirmTitle(changesType: State['changes']['type'], sourceName: string | undefined): string {
-	if (changesType === 'index') {
-		return sourceName
-			? l10n.t('Confirm Copy Staged Worktree Changes to Worktree')
-			: l10n.t('Confirm Copy Staged Changes to Worktree');
-	}
-
-	return sourceName
-		? l10n.t('Confirm Copy Working Worktree Changes to Worktree')
+function getConfirmTitle(changesType: State['changes']['type']): string {
+	return changesType === 'index'
+		? l10n.t('Confirm Copy Staged Changes to Worktree')
 		: l10n.t('Confirm Copy Working Changes to Worktree');
 }
 
-function getConfirmTitleWithTarget(
-	changesType: State['changes']['type'],
-	sourceName: string | undefined,
-	targetName: string,
-): string {
-	if (changesType === 'index') {
-		return sourceName
-			? l10n.t('Confirm Copy Staged Worktree Changes to Worktree • {0}', targetName)
-			: l10n.t('Confirm Copy Staged Changes to Worktree • {0}', targetName);
-	}
-
-	return sourceName
-		? l10n.t('Confirm Copy Working Worktree Changes to Worktree • {0}', targetName)
+function getConfirmTitleWithTarget(changesType: State['changes']['type'], targetName: string): string {
+	return changesType === 'index'
+		? l10n.t('Confirm Copy Staged Changes to Worktree • {0}', targetName)
 		: l10n.t('Confirm Copy Working Changes to Worktree • {0}', targetName);
 }
 
@@ -163,25 +147,13 @@ export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 				let placeholder;
 				switch (state.changes.type) {
 					case 'index':
-						context.title =
-							state.overrides?.title ??
-							(state.source?.name
-								? l10n.t('Copy Staged Worktree Changes to Worktree')
-								: l10n.t('Copy Staged Changes to Worktree'));
-						placeholder = state.source?.name
-							? l10n.t('Choose a worktree to copy your staged worktree changes to')
-							: l10n.t('Choose a worktree to copy your staged changes to');
+						context.title = state.overrides?.title ?? l10n.t('Copy Staged Changes to Worktree');
+						placeholder = l10n.t('Choose a worktree to copy your staged changes to');
 						break;
 					case 'working-tree':
 					default:
-						context.title =
-							state.overrides?.title ??
-							(state.source?.name
-								? l10n.t('Copy Working Worktree Changes to Worktree')
-								: l10n.t('Copy Working Changes to Worktree'));
-						placeholder = state.source?.name
-							? l10n.t('Choose a worktree to copy your working worktree changes to')
-							: l10n.t('Choose a worktree to copy your working changes to');
+						context.title = state.overrides?.title ?? l10n.t('Copy Working Changes to Worktree');
+						placeholder = l10n.t('Choose a worktree to copy your working changes to');
 						break;
 				}
 
@@ -248,7 +220,7 @@ export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 
 					const staged = state.changes.type === 'index';
 					const noChangesStep: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
-						getConfirmTitle(state.changes.type, state.source?.name),
+						getConfirmTitle(state.changes.type),
 						[],
 						staged
 							? l10n.t('Nothing to copy; no staged changes found')
@@ -431,9 +403,9 @@ export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 		}
 
 		const step = createConfirmStep(
-			getConfirmTitleWithTarget(state.changes.type, state.source?.name, state.target.name),
+			getConfirmTitleWithTarget(state.changes.type, state.target.name),
 			confirmations,
-			getConfirmTitle(state.changes.type, state.source?.name),
+			getConfirmTitle(state.changes.type),
 		);
 
 		const selection: StepSelection<typeof step> = yield step;
