@@ -4857,8 +4857,9 @@ export class GitHubApi {
 			pageSize?: number;
 			/**
 			 * Uses the lightweight PR fragment, retaining identity, body, author, repository, branch refs, and stack
-			 * info while omitting review, check, and diff statistics. It also raises the default page budget, which
-			 * multi-facet searches share across their active facets.
+			 * info while omitting review, check, and diff statistics. It also replaces the flat per-facet default with
+			 * a budget multi-facet searches share across their active facets, so it raises the page with up to three of
+			 * them and LOWERS it from four on.
 			 */
 			summary?: boolean;
 		},

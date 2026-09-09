@@ -70,11 +70,7 @@ export async function searchIssuesPage(
 		criteria?: IssueSearchCriteria;
 		page?: number;
 		cursor?: string;
-		/**
-		 * Page size PER RELATIONSHIP: each one is its own provider query, so a page of an N-relationship search
-		 * returns up to `N × itemsPerPage` items before the url dedupe, and fewer where they overlap.
-		 * `page.itemsPerPage` reports what actually came back.
-		 */
+		/** Per relationship, not per page; see {@link IntegrationManager.searchIssuesPage}. */
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;

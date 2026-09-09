@@ -45,6 +45,7 @@ export async function searchPullRequestsPage(
 		criteria?: PullRequestSearchCriteria;
 		page?: number;
 		cursor?: string;
+		/** Per relationship × state facet, not per page; see {@link IntegrationManager.searchPullRequestsPage}. */
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
