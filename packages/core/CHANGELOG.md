@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.5.116] - 2026-09-09
+
 ### Changed
 
 - Documents which page-size number a consumer of the filtered pull-request search should size its list from ([#5822](https://github.com/gitkraken/vscode-gitlens/issues/5822)). `searchPullRequestsPage`'s `itemsPerPage` documented that it applies per relationship × state facet and that the deduplicated union can therefore contain more rows than were asked for, but not the half that tells a caller what to do with that: the returned `page.itemsPerPage` reports how many rows actually came back and is the number to size a list from, and a provider may cap it below what was asked for (GitHub clamps each facet's page to 100). Sizing off the value that was sent over-fills whenever several facets each return a full page — deduplication removes only the rows the facets share, so a non-overlapping union stays several times larger than the request — and under-fills near the end of a result set, where a facet has fewer matches left than the requested size. The filtered issue search already carried most of this guidance, and the same filter surface renders over both, so the two contracts now state the shared half identically — a hover cannot follow a cross-reference — while the internal reads defer to the contract and the consumer guide restates it in the pull-request section, crediting the issue search's (plus/integrations)
@@ -323,7 +325,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.115...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.116...HEAD
+[0.5.116]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.115...gitkraken:releases/core/v0.5.116
 [0.5.115]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.114...gitkraken:releases/core/v0.5.115
 [0.5.114]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.113...gitkraken:releases/core/v0.5.114
 [0.5.113]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.111...gitkraken:releases/core/v0.5.113
