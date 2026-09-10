@@ -39,6 +39,7 @@ import type { SubscriptionContextState } from '../../../../shared/contexts/subsc
 import { subscriptionContext } from '../../../../shared/contexts/subscription.js';
 import { accountRingStyles } from '../../../shared/components/accountRing.css.js';
 import { chipStyles } from '../../../shared/components/chipStyles.js';
+import { rollupSurfaceStyles, skeletonStyles } from '../../../shared/components/rollupSurface.css.js';
 import { ruleStyles } from '../../../shared/components/vscode.css.js';
 import '../../../../shared/components/badges/badge.js';
 import '../../../../shared/components/button.js';
@@ -70,6 +71,8 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		focusableBaseStyles,
 		accountRingStyles,
 		chipStyles,
+		rollupSurfaceStyles,
+		skeletonStyles,
 		ruleStyles,
 		css`
 			:host {
@@ -84,16 +87,29 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 			:host-context(.vscode-dark),
 			:host-context(.vscode-high-contrast) {
-				--gl-account-chip-color: color-mix(in lab, var(--vscode-sideBar-background), #fff 10%);
 				--gl-account-chip-media-color: color-mix(in lab, var(--vscode-sideBar-background), #fff 25%);
 				--gl-account-account-media-color: color-mix(in lab, var(--vscode-sideBar-background), #fff 20%);
 			}
 
 			:host-context(.vscode-light),
 			:host-context(.vscode-high-contrast-light) {
-				--gl-account-chip-color: color-mix(in lab, var(--vscode-sideBar-background), #000 7%);
 				--gl-account-chip-media-color: color-mix(in lab, var(--vscode-sideBar-background), #000 18%);
 				--gl-account-account-media-color: color-mix(in lab, var(--vscode-sideBar-background), #000 15%);
+			}
+
+			/* Element selector, not button.chip: the class rules below (and .chip--outlined) intentionally
+  set a background, a border and a type scale, and a button.chip reset would out-specify all
+  three. At (0,0,1) this still beats the UA's buttonface/buttontext/13px-Arial defaults — same
+  origin, and author wins — while losing to every class rule, so the reset can stay complete
+  without fighting the chip's own paint. */
+			button {
+				margin: 0;
+				font: inherit;
+				color: inherit;
+				text-align: start;
+				appearance: none;
+				background: none;
+				border: none;
 			}
 
 			.chip {
@@ -102,12 +118,12 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				font-weight: 400;
 				line-height: 2rem;
 				text-transform: uppercase;
-				background-color: var(--gl-account-chip-color);
+				background-color: var(--gl-rollup-raised);
 			}
 
 			.chip--outlined {
 				background-color: transparent;
-				border: var(--gl-border-width) solid var(--gl-account-chip-color);
+				border: var(--gl-border-width) solid var(--gl-rollup-raised);
 			}
 
 			.chip__media {
@@ -152,27 +168,14 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				margin-bottom: var(--gl-space-6);
 			}
 
-			/* The headline is a name plus badges now, so it lays out as a row instead of one ellipsising
-  string — "GitLens Pro" is short enough that it no longer needs to truncate. */
+			/* The headline is a name plus badges, so it lays out as a wrapping row rather than one line of
+  text. flex-wrap is all this needs now — the shared .header__title no longer imposes the
+  single-line truncation this used to have to undo. */
 			.header__title {
 				display: flex;
 				flex-wrap: wrap;
 				gap: var(--gl-space-6);
 				align-items: center;
-				overflow: visible;
-			}
-
-			/* Squared off from gl-badge's pill default and tightened — at title size the elliptical shape read as
-  a control sitting next to the name rather than a label on it. Overridden here rather than on the
-  shared default, which other surfaces still want as a pill.
-
-  The badge text is all-caps with no descenders, so it sits on the box's floor and reads low. The
-  bottom padding buys back the room those missing descenders would have occupied, and align-items
-  centers the anonymous text item that gl-badge's inline-flex would otherwise stretch. */
-			.header__title gl-badge::part(base) {
-				align-items: center;
-				padding: 0 var(--gl-space-4) var(--gl-space-2);
-				border-radius: var(--gl-radius-sm);
 			}
 
 			/* gl-badge's host sets no display of its own, so as a flex item it blockifies to a box whose height
@@ -359,7 +362,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 				/* border-radius: 0.3rem;
 padding: var(--gl-space-2) var(--gl-space-4);
-background-color: var(--gl-account-chip-color); */
+background-color: var(--gl-rollup-raised); */
 			}
 
 			.upgrade gl-promo:not([has-promo]) {
@@ -371,34 +374,16 @@ background-color: var(--gl-account-chip-color); */
 				text-transform: uppercase;
 			}
 
-			@keyframes shimmer {
-				100% {
-					transform: translateX(100%);
-				}
-			}
-
-			.chip--skeleton {
+			/* Rides .chip for its padding/radius; only the fixed pill box is local. The shimmer that sweeps
+  it is shared (skeletonStyles), which is why position/overflow stay here — they are what the
+  shared ::before positions against. */
+			.skeleton {
 				position: relative;
 				width: 8rem;
 				height: 2.4rem;
 				overflow: hidden;
 				cursor: default;
-				background-color: var(--gl-account-chip-color);
-			}
-
-			.chip--skeleton::before {
-				position: absolute;
-				inset: 0;
-				content: '';
-				background-image: linear-gradient(
-					to right,
-					transparent 0%,
-					var(--color-background--lighten-15) 20%,
-					var(--color-background--lighten-30) 60%,
-					transparent 100%
-				);
-				transform: translateX(-100%);
-				animation: shimmer 2s var(--gl-ease-in-out) infinite;
+				background-color: var(--gl-rollup-raised);
 			}
 		`,
 	];
@@ -523,7 +508,7 @@ background-color: var(--gl-account-chip-color); */
 		if (this.subscription === undefined) {
 			return html`<span
 				id="chip"
-				class="chip chip--skeleton"
+				class="chip skeleton"
 				tabindex="-1"
 				aria-label=${l10n.t('Loading account status')}
 				role="status"
@@ -535,14 +520,14 @@ background-color: var(--gl-account-chip-color); */
 		}
 
 		return html`<gl-popover placement="bottom" trigger="hover focus click">
-				<span id="chip" slot="anchor" class="chip" tabindex="0">
+				<button id="chip" type="button" slot="anchor" class="chip" aria-label="Account — ${this.planTier}">
 					${
 						this.accountAvatar
 							? html`<img class="chip__media" src=${this.accountAvatar} />`
 							: html`<code-icon class="chip__media" icon="gl-gitlens" size="16"></code-icon>`
 					}
 					<span>${this.planTier}</span>
-				</span>
+				</button>
 				<div slot="content" class="content" tabindex="-1">${this.renderPanelContent()}</div>
 			</gl-popover>
 			${this.renderUpgradeContent()}`;
@@ -654,17 +639,17 @@ background-color: var(--gl-account-chip-color); */
 				// Trialling a named tier reads as one claim, not two competing pills: the status rides inside
 				// the tier pill as a recessed grey sub-chip.
 				() =>
-					html`<gl-badge class="plan-tier"
+					html`<gl-badge appearance="squared" class="plan-tier"
 						>${tier}${when(trial, () => html`<span class="plan-trial">${l10n.t('Trial')}</span>`)}</gl-badge
 					>`,
 			)}${when(
 				trial && !hasTier,
 				// A Pro trial has no tier pill to nest into — the headline already names Pro, so a PRO badge
 				// beside it would only restate it — so the status stands as its own neutral badge.
-				() => html`<gl-badge>${l10n.t('Trial')}</gl-badge>`,
+				() => html`<gl-badge appearance="squared">${l10n.t('Trial')}</gl-badge>`,
 			)}${when(
 				state === SubscriptionState.VerificationRequired,
-				() => html`<gl-badge>${l10n.t('Unverified')}</gl-badge>`,
+				() => html`<gl-badge appearance="squared">${l10n.t('Unverified')}</gl-badge>`,
 			)}${when(
 				trial && days !== 0,
 				// The countdown is a measurement, not a label — it changes daily and would resize a badge as it
@@ -969,9 +954,9 @@ background-color: var(--gl-account-chip-color); */
 		this.showUpgrade = true;
 
 		return html`<gl-popover placement="bottom" trigger="hover focus click">
-			<span slot="anchor" class="chip chip--outlined" tabindex="0">
+			<button type="button" slot="anchor" class="chip chip--outlined">
 				<span>${l10n.t('Upgrade')}</span>
-			</span>
+			</button>
 			<div slot="content" class="content" tabindex="-1">
 				<div class="header">
 					<span class="header__title">${l10n.t('Advantages of GitLens Pro')}</span>

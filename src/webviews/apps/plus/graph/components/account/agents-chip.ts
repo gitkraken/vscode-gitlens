@@ -8,6 +8,7 @@ import type { AgentsState } from '../../../../shared/contexts/agents.js';
 import { agentsContext } from '../../../../shared/contexts/agents.js';
 import type { AIContextState } from '../../../../shared/contexts/ai.js';
 import { aiContext } from '../../../../shared/contexts/ai.js';
+import { truncateStyles } from '../../../shared/components/chipStyles.js';
 import '@gitlens/components/components/codeIcon.js';
 
 /** The two state columns. Named rather than positional so the shared cell renderer can be read at its call site. */
@@ -66,6 +67,7 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 
 	static override styles = [
 		boxSizingBase,
+		truncateStyles,
 		css`
 			:host {
 				display: block;
@@ -98,15 +100,18 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 			}
 
 			.agent__label {
-				overflow: hidden;
-				text-overflow: ellipsis;
 				color: var(--color-foreground);
-				white-space: nowrap;
 			}
 
 			/* Built on gl-badge's experimental recipe (tinted fill, hairline border at a higher alpha,
 	  small caps) with the AI hue substituted. Kept local rather than added as a gl-badge appearance —
 	  a new shared appearance is a wider change than one pill in one popover warrants.
+
+	  FOLLOW-UP: this is now within reach of appearance="squared", which took over the rollup's other
+	  two squared badges. It differs by the tinted fill, the hairline border and the hue, and also by a
+	  wider horizontal pad (6 vs 4) and by carrying its own type (micro, 600, all-small-caps) because it
+	  is a bare span rather than a gl-badge. Folding it in needs a second appearance, and the padding
+	  change would move pixels — hence separate.
 
 	  flex: 0 0 auto so the label, not the pill, absorbs the squeeze: an elided "Defa…" would be a
 	  worse loss than an elided agent name, which at least still ranks in the roster.
@@ -253,7 +258,7 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 	private renderAgentRow(agent: AgentInfo, defaultAgentId: string | undefined): unknown {
 		return html`<span class="agent"
 				><code-icon class="agent__kind" icon=${kindIcons[agent.kind]} aria-hidden="true"></code-icon
-				><span class="agent__label">${agent.label}</span
+				><span class="agent__label truncate">${agent.label}</span
 				>${agent.id === defaultAgentId ? html`<span class="agent__default">Default</span>` : nothing}</span
 			>${this.renderStateCell(agent, 'mcp')}${this.renderStateCell(agent, 'hooks')}`;
 	}

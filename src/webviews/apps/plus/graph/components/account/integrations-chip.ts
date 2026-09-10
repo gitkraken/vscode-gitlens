@@ -9,6 +9,7 @@ import type { IntegrationsState } from '../../../../shared/contexts/integrations
 import { integrationsContext } from '../../../../shared/contexts/integrations.js';
 import type { SubscriptionContextState } from '../../../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../../../shared/contexts/subscription.js';
+import { rollupSurfaceStyles, skeletonStyles } from '../../../shared/components/rollupSurface.css.js';
 import '@gitlens/components/components/codeIcon.js';
 
 @customElement('gl-integrations-chip')
@@ -21,6 +22,8 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 	static override styles = [
 		boxSizingBase,
+		rollupSurfaceStyles,
+		skeletonStyles,
 		css`
 			:host {
 				display: block;
@@ -32,16 +35,6 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				display: flex;
 				gap: var(--gl-space-6);
 				align-items: baseline;
-			}
-
-			:host-context(.vscode-dark),
-			:host-context(.vscode-high-contrast) {
-				--gl-chip-skeleton-bg: color-mix(in lab, var(--vscode-sideBar-background), #fff 10%);
-			}
-
-			:host-context(.vscode-light),
-			:host-context(.vscode-high-contrast-light) {
-				--gl-chip-skeleton-bg: color-mix(in lab, var(--vscode-sideBar-background), #000 7%);
 			}
 
 			.chip__label {
@@ -60,38 +53,20 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				color: var(--color-foreground--25);
 			}
 
-			@keyframes shimmer {
-				100% {
-					transform: translateX(100%);
-				}
-			}
+			/* The pill; the shimmer that sweeps it is shared (skeletonStyles), which is also why
+  position/overflow stay here — they are what the shared ::before positions against.
 
-			/* display and border-radius are set here rather than inherited: the skeleton used to ride on
+  display and border-radius are set here rather than inherited: the skeleton used to ride on
   the shared .chip class for both, and a bare inline span would drop the width/height entirely. */
-			.chip--skeleton {
+			.skeleton {
 				position: relative;
 				display: block;
 				width: 9rem;
 				height: 2.2rem;
 				overflow: hidden;
 				cursor: default;
-				background-color: var(--gl-chip-skeleton-bg);
+				background-color: var(--gl-rollup-raised);
 				border-radius: var(--gl-radius-sm);
-			}
-
-			.chip--skeleton::before {
-				position: absolute;
-				inset: 0;
-				content: '';
-				background-image: linear-gradient(
-					to right,
-					transparent 0%,
-					var(--color-background--lighten-15) 20%,
-					var(--color-background--lighten-30) 60%,
-					transparent 100%
-				);
-				transform: translateX(-100%);
-				animation: shimmer 2s var(--gl-ease-in-out) infinite;
 			}
 		`,
 	];
@@ -112,7 +87,11 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		// Don't show integration state until subscription data has loaded —
 		// otherwise we'd flash "Connect" with an empty list.
 		if (this._subscription.subscription.get() === undefined) {
-			return html`<span class="chip--skeleton" aria-label="${l10n.t('Loading integrations status')}" role="status"></span>`;
+			return html`<span
+				class="skeleton"
+				aria-label="${l10n.t('Loading integrations status')}"
+				role="status"
+			></span>`;
 		}
 
 		// Plain content container — the host anchor (owned by `gl-graph-account-indicator`) is the
@@ -154,10 +133,11 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		// with no model to name is worse than no row.
 		if (!this.aiEnabled || model == null) return nothing;
 
-		return html`<span class="ai" role="img" aria-label="${l10n.t('AI model: {0} via {1}', [
-			model.name,
-			model.provider.name,
-		])}">
+		return html`<span
+			class="ai"
+			role="img"
+			aria-label="${l10n.t('AI model: {0} via {1}', [model.name, model.provider.name])}"
+		>
 			<code-icon class="ai__icon" icon="sparkle-filled" aria-hidden="true"></code-icon>
 			<span class="ai__model">${model.name}</span>
 			<span class="ai__provider">${model.provider.name}</span>

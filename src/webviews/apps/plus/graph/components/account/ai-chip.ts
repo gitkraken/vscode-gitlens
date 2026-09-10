@@ -11,6 +11,7 @@ import type { AIContextState } from '../../../../shared/contexts/ai.js';
 import { aiContext } from '../../../../shared/contexts/ai.js';
 import type { SubscriptionContextState } from '../../../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../../../shared/contexts/subscription.js';
+import { truncateStyles } from '../../../shared/components/chipStyles.js';
 import { rollupItemStyles } from '../../../shared/components/rollupItem.css.js';
 import '@gitlens/components/components/codeIcon.js';
 
@@ -47,6 +48,7 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 	static override styles = [
 		boxSizingBase,
 		rollupItemStyles,
+		truncateStyles,
 		css`
 			/* Column, with the section's own row gap repeated: the two rows are siblings of the rollup's
 			   other bands, so they have to be spaced like them rather than butt together. */
@@ -72,13 +74,11 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 				color: var(--color-foreground--65);
 			}
 
-			/* Clips rather than wrapping: model ids run long ("claude-sonnet-4-5-20250929") and the popover
-			   is width-capped, so a wrap would push the provider name onto its own line. */
+			/* Clips rather than wrapping (via .truncate on the element): model ids run long
+			   ("claude-sonnet-4-5-20250929") and the popover is width-capped, so a wrap would push the
+			   provider name onto its own line. */
 			.model__name {
-				overflow: hidden;
-				text-overflow: ellipsis;
 				color: var(--color-foreground);
-				white-space: nowrap;
 			}
 
 			/* Pushed to the far end and muted — where the model runs (and, for GitKraken AI, what it costs)
@@ -111,17 +111,14 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 				color: var(--color-foreground--65);
 			}
 
-			/* min-width: 0 is what makes the ellipsis possible — a flex item's automatic minimum is
+			/* min-width: 0 is what makes .truncate's ellipsis possible — a flex item's automatic minimum is
 			   min-content, which would push the row wider than the popover rather than clipping.
 			   --gl-font-md, not --gl-font-base: it sits level with the model row above it, which renders at
 			   the panel's own inherited size. */
 			.ai__title {
 				flex: 1;
 				min-width: 0;
-				overflow: hidden;
-				text-overflow: ellipsis;
 				font-size: var(--gl-font-md);
-				white-space: nowrap;
 			}
 
 			/* Text carrier for the state the bar's color also shows, so "nearly out" never lives in color
@@ -204,7 +201,7 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 				aria-label="AI model: ${model.name} via ${provider}${rate ? `, ${rate}` : ''} — open in GitLens Settings"
 			>
 				<code-icon class="model__icon" icon="sparkle-filled" aria-hidden="true"></code-icon>
-				<span class="model__name">${model.name}</span>
+				<span class="model__name truncate">${model.name}</span>
 				<span class="model__meta">${rate ? `${provider} · ${rate}` : provider}</span>
 			</span>
 		</a>`;
@@ -245,7 +242,7 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 		>
 			<span class="ai__head">
 				<code-icon class="ai__icon" icon="sparkle" aria-hidden="true"></code-icon>
-				<span class="ai__title">GitKraken AI</span>
+				<span class="ai__title truncate">GitKraken AI</span>
 				${nearlyOut ? html`<span class="ai__warning">Nearly out</span>` : nothing}
 				<span class="ai__figure">${compact}</span>
 			</span>

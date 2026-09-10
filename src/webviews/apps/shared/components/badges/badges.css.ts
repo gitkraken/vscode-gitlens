@@ -51,6 +51,20 @@ export const badgeBase = css`
 		border-radius: var(--gl-radius-sm);
 	}
 
+	/* Squared, tightened re-shaping of the default pill — same palette, same type, only the box changes.
+	 * Exists because two surfaces in the Graph account rollup (the header pill's tier badge and the account
+	 * panel's title badges) had each hand-rolled this identical ::part(base) override.
+	 *
+	 * At title and toolbar size the elliptical default read as a control sitting next to the text rather than
+	 * a label on it. The badge text is all-caps/small-caps with no descenders, so it sits on the box's floor
+	 * and reads low; the bottom padding buys back the room those missing descenders would have occupied, and
+	 * align-items centers the anonymous text item that .badge's inline-flex would otherwise stretch. */
+	:host([appearance='squared']) .badge {
+		align-items: center;
+		padding: 0 var(--gl-space-4) var(--gl-space-2);
+		border-radius: var(--gl-radius-sm);
+	}
+
 	/* "Experimental" stamp used by features still gated behind a config flag (e.g. Agent Kanban,
 	 * Visualizations treemap). Uses the editor-warning tone with color-mix so the badge reads as
 	 * a heads-up without overwhelming the surrounding chrome. */

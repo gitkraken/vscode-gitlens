@@ -183,21 +183,14 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				--gl-badge-color: var(--vscode-textLink-foreground);
 			}
 
-			/* Squared off and tightened from gl-badge's pill default, mirroring how the account panel re-shapes
-  its title badge: at toolbar size the ellipse reads as a control beside the avatar rather than a
-  label on it.
-
-  line-height sets the badge's height here — the badge would otherwise inherit the pill's 2.2rem
-  strut and pad out to the full pill height. Collapsing to 1 is safe because every tier code is
-  all-caps with no descenders, but it also leaves the caps sitting on the box's floor, so the
-  bottom padding buys back the room the missing descenders would have occupied and optically
-  centers the text. align-items centers the anonymous text item, which gl-badge's inline-flex
-  would otherwise stretch. */
+			/* The squaring-off and the bottom padding now come from gl-badge's appearance="squared" (see
+  badges.css.ts) — this badge and the account panel's title badges had each hand-rolled the same
+  override. Only the line-height stays local: it sets the badge's height, which would otherwise
+  inherit the pill's 2.2rem strut and pad out to the full pill height. That trap is specific to
+  sitting inside the toolbar pill, so it does not belong in the shared appearance — the account
+  panel's title badges want their own line-height. */
 			.plan-badge::part(base) {
-				align-items: center;
-				padding: 0 var(--gl-space-4) var(--gl-space-2);
 				line-height: 1;
-				border-radius: var(--gl-radius-sm);
 			}
 
 			/* Container queries resolve through shadow boundaries by flat-tree ancestry, so this reaches the
@@ -263,7 +256,13 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				}
 			}
 
-			/* font-size anchors the whole panel's type scale. The popover has no base size of its own, so
+			/* VERTICAL RHYTHM for the whole rollup, this component and the chips inside it:
+  section 8 · block 6 · label→content 4 · repeated rows 2
+  Four levels, each a --gl-space-* step, chosen by what the gap SEPARATES rather than by how much
+  room a given pair looked like it wanted. Horizontal gaps are a separate axis and are not bound by
+  this — they answer to the run of glyphs or controls they sit between.
+
+  font-size anchors the whole panel's type scale. The popover has no base size of its own, so
   without this every --gl-font-* here would be measured against the 13px --gl-font-base while
   the panel actually renders at the 12px gl-popover inherits from --wa-tooltip-font-size. Setting
   --gl-font-md states that 12px explicitly, so the scale's steps now sit around what the panel
@@ -422,7 +421,9 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				<gl-avatar .src=${avatar ?? undefined}><code-icon icon="gl-gitlens" size="14"></code-icon></gl-avatar>
 				${
 					plan != null
-						? html`<gl-badge class="plan-badge" aria-hidden="true">${planAbbreviations[plan]}</gl-badge>`
+						? html`<gl-badge appearance="squared" class="plan-badge" aria-hidden="true"
+								>${planAbbreviations[plan]}</gl-badge
+							>`
 						: nothing
 				}
 				<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>
