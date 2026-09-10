@@ -23,6 +23,7 @@ import type {
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
+import { IntegrationReadUnavailableError } from '../errors.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
@@ -683,7 +684,15 @@ export class BitbucketIntegration extends GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		repos?: BitbucketRepositoryDescriptor[],
 	): Promise<IssueShape[] | undefined> {
-		if (repos == null || repos.length === 0) return undefined;
+		// Bitbucket Cloud's legacy issues API is per-repo only — there is no account-wide search endpoint to
+		// call, so an unscoped read can't be served. Returning undefined here would be indistinguishable from a
+		// genuinely empty account; throw so the caller can surface this as a warning instead.
+		if (repos == null || repos.length === 0) {
+			throw new IntegrationReadUnavailableError(
+				this.name,
+				'there is no account-wide issue search — open a repository to list its issues.',
+			);
+		}
 
 		const user = await this.getProviderCurrentAccount(session);
 		if (user?.username == null) return undefined;

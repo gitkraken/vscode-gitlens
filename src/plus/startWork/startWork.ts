@@ -1,12 +1,25 @@
+import { l10n, window } from 'vscode';
+import { isWeb } from '@env/platform.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getBranchNameWithoutRemote } from '@gitlens/utils/gitRefs.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
-import type { AsyncStepResultGenerator } from '../../commands/quick-wizard/models/steps.js';
+import type { AsyncStepResultGenerator, StepSelection } from '../../commands/quick-wizard/models/steps.js';
 import { StepResultBreak } from '../../commands/quick-wizard/models/steps.js';
 import { getSteps } from '../../commands/quick-wizard/utils/quickWizard.utils.js';
+import { canPickStepContinue, createPickStep } from '../../commands/quick-wizard/utils/steps.utils.js';
 import type { Source, Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
+import { getPresentableErrorMessage } from '../../errors.js';
+import type { GlRepository } from '../../git/models/repository.js';
+import { locateOrCloneRepository } from '../../git/utils/-webview/repository.utils.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import { createQuickPickItemOfT } from '../../quickpicks/items/common.js';
+import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
+import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
+import { executeCoreCommand } from '../../system/-webview/command.js';
 import type { AgentRoute } from '../agents/agentDescriptor.js';
 import type { ResolveAgentFlowResult } from '../agents/agentPicker.js';
 import { buildAgentResolvedTelemetryData, getRequestedAgentRoute, resolveAgentFlow } from '../agents/agentPicker.js';
@@ -46,6 +59,10 @@ export interface StartWorkCommandArgs {
 export class StartWorkCommand extends StartWorkBaseCommand {
 	overrides?: undefined;
 
+	protected override get openRepositoriesOnly(): boolean {
+		return this.hasOpenRepositories;
+	}
+
 	constructor(container: Container, args?: StartWorkCommandArgs) {
 		super(container, { ...args, command: 'startWork' });
 
@@ -66,7 +83,48 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 		context: StartWorkContext,
 	): AsyncStepResultGenerator<void> {
 		const issue = state.item.issue;
-		const repo = issue && (await this.getIssueRepositoryIfExists(issue));
+		const hasOpenRepos = this.hasOpenRepositories;
+		let repo = issue && (await this.getIssueRepositoryIfExists(issue));
+
+		// No open repositories and none could be located/opened for this issue — the branch wizard's
+		// repo picker only lists `openRepositories` (empty here) and would dead-end on a Cancel-only
+		// picker. Offer a way to get a repository open instead of proceeding to the wizard.
+		if (repo == null && !hasOpenRepos) {
+			// Hard contract (mirrors startReview): never pop an interactive prompt when running
+			// unattended (MCP/CLI pass useDefaults) — fail deterministically instead.
+			if (state.useDefaults) {
+				const repository =
+					issue.repository != null ? `${issue.repository.owner}/${issue.repository.repo}` : undefined;
+				// Kept in English: this reaches a programmatic (MCP/agent) caller via `state.result`, which
+				// mirrors the English-only protocol-message half of the `StartReviewError` dual pattern.
+				const message = `No local repository found${
+					repository != null ? ` for ${repository}` : ''
+				}. Please clone the repository first.`;
+				state.result?.cancel(new Error(message));
+				// A programmatic (MCP/agent) caller surfaces the settled error itself — don't also pop a
+				// notification in the user's editor for a command they never typed (mirrors the sibling
+				// MCP guards in `StartWorkBaseCommand.steps`)
+				if (this.source.source !== 'mcp') {
+					void window.showErrorMessage(
+						repository != null
+							? l10n.t(
+									'Failed to start work: No local repository found for {repository}. Please clone the repository first.',
+									{ repository: repository },
+								)
+							: l10n.t(
+									'Failed to start work: No local repository found. Please clone the repository first.',
+								),
+					);
+				}
+
+				return;
+			}
+
+			const located = yield* this.pickNoRepositoryFoundStep(state, context, issue);
+			if (located === StepResultBreak || located == null) return;
+
+			repo = located;
+		}
 
 		// Determine defaults when useDefaults is enabled
 		let defaultReference = undefined;
@@ -121,6 +179,12 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 			chatAction = { type: 'startWork', issue: issue, instructions: state.instructions };
 		}
 
+		// When useDefaults is true, set repo directly to skip picker.
+		// Otherwise, use suggestedRepo to hint at the picker. Also set repo directly when
+		// there are no open repositories — a located-but-closed repo is added closed and
+		// never appears in the picker's openRepositories list, so a suggestion would dead-end.
+		const skipRepoPicker = state.useDefaults || !hasOpenRepos;
+
 		yield* getSteps(
 			this.container,
 			{
@@ -128,10 +192,8 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 				confirm: state.useDefaults ? false : undefined,
 				state: {
 					subcommand: 'create',
-					// When useDefaults is true, set repo directly to skip picker
-					// Otherwise, use suggestedRepo to hint at the picker
-					repo: state.useDefaults ? repo : undefined,
-					suggestedRepo: state.useDefaults ? undefined : repo,
+					repo: skipRepoPicker ? repo : undefined,
+					suggestedRepo: skipRepoPicker ? undefined : repo,
 					reference: defaultReference,
 					name: state.useDefaults ? branchName : undefined,
 					suggestedName: branchName,
@@ -160,6 +222,122 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 			context,
 			this.startedFrom,
 		);
+	}
+
+	/**
+	 * Offers a way forward when no repository is open and none could be located/opened for the
+	 * selected issue — cloning, choosing a local folder, or (on the web) opening a remote
+	 * repository. Cloning/choosing a folder locates-or-adds the repository and returns it so the
+	 * wizard can continue into branch creation; `undefined` ends the wizard.
+	 */
+	private async *pickNoRepositoryFoundStep(
+		state: StartWorkStepState,
+		context: StartWorkContext,
+		issue: IssueShape,
+	): AsyncStepResultGenerator<GlRepository | undefined> {
+		type NoRepositoryAction = 'clone' | 'folder' | 'open-remote';
+
+		const name = issue.repository != null ? `${issue.repository.owner}/${issue.repository.repo}` : undefined;
+		const remoteUrl = issue.repository?.url;
+
+		const items: (DirectiveQuickPickItem | QuickPickItemOfT<NoRepositoryAction>)[] = [];
+
+		// `name != null` is implied by `remoteUrl != null` (both derive from `issue.repository`), but
+		// testing it narrows `name` for the detail below instead of needing a non-null assertion
+		if (!isWeb && remoteUrl != null && name != null) {
+			items.push(
+				createQuickPickItemOfT<NoRepositoryAction>(
+					{
+						label: l10n.t('Clone Repository...'),
+						detail: l10n.t('Clone {name} to start work on this issue', { name: name }),
+					},
+					'clone',
+				),
+			);
+		}
+
+		if (!isWeb) {
+			items.push(
+				createQuickPickItemOfT<NoRepositoryAction>(
+					{
+						label: l10n.t('Choose a Local Folder...'),
+						detail: l10n.t('Choose a folder containing the repository for this issue'),
+					},
+					'folder',
+				),
+			);
+		} else {
+			items.push(
+				createQuickPickItemOfT<NoRepositoryAction>(
+					{
+						label: l10n.t('Open a Remote Repository...'),
+						detail: l10n.t('Work with a repository without cloning it locally'),
+					},
+					'open-remote',
+				),
+			);
+		}
+
+		items.push(createDirectiveQuickPickItem(Directive.Cancel));
+
+		const step = createPickStep<QuickPickItemOfT<NoRepositoryAction>>({
+			title: context.title,
+			placeholder:
+				name != null
+					? l10n.t('Unable to locate a local repository for {name}, choose how to find it', { name: name })
+					: l10n.t('Unable to locate a local repository for this issue, choose how to find it'),
+			items: items,
+			// This step runs inside `continuation`, past the wizard's step loop — there's nothing to go
+			// back to, and a Back press here would read as a silent wizard exit. Don't offer the button.
+			canGoBack: false,
+		});
+
+		const selection: StepSelection<typeof step> = yield step;
+		if (!canPickStepContinue(step, state, selection)) return undefined;
+
+		const action = selection[0].item;
+		switch (action) {
+			case 'clone':
+			case 'folder': {
+				// Freeze the step while the native dialog/clone runs — otherwise losing focus hides
+				// the quickpick and the wizard machinery resolves the step as cancelled, tearing the
+				// wizard down before branch creation can continue.
+				const resume = step.freeze?.();
+				try {
+					return await locateOrCloneRepository(this.container, action, {
+						name: name ?? 'this issue',
+						remoteUrl: remoteUrl,
+					});
+				} catch (ex) {
+					// Only resume when we're not continuing. On success the flow advances into branch
+					// creation and never returns to this picker, so unfreezing there would re-`show()` an
+					// already-answered quickpick and re-arm close-on-focus-out over the next step — the
+					// same reason `confirmIntegrationConnectStep` hands its disposable back to the caller
+					// instead of using `using`.
+					resume?.dispose();
+
+					if (!isCancellationError(ex)) {
+						void window.showErrorMessage(
+							l10n.t('Failed to start work: {error}', { error: getPresentableErrorMessage(ex) }),
+						);
+					}
+					return undefined;
+				}
+			}
+			case 'open-remote':
+				// Await so a missing RemoteHub (the command is contributed by the Remote Repositories
+				// extension, not GitLens) surfaces instead of vanishing with the wizard, mirroring the
+				// clone/folder branch above
+				try {
+					await executeCoreCommand('remoteHub.openRepository');
+				} catch (ex) {
+					void window.showErrorMessage(
+						l10n.t('Failed to start work: {error}', { error: getPresentableErrorMessage(ex) }),
+					);
+				}
+
+				return undefined;
+		}
 	}
 
 	private sendAgentResolvedTelemetry(result: ResolveAgentFlowResult, context: StartWorkContext) {

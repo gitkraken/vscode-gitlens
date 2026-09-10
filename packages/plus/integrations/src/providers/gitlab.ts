@@ -576,10 +576,17 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 	protected override async searchProviderMyIssues(
 		session: ProviderAuthenticationSession,
 		repos?: GitLabRepositoryDescriptor[],
+		cancellation?: AbortSignal,
 	): Promise<IssueShape[] | undefined> {
+		// Without repos to scope to, this is an account-wide read (e.g. Start Work with no repository open), which
+		// the repo-scoped read below can't serve. Hand off to the account-wide override, matching GitHub/Azure/Linear.
+		if (repos == null || repos.length === 0) {
+			return (await this.searchProviderMyIssuesWithTruncation(session, repos, cancellation))?.values;
+		}
+
 		const api = await this.authenticationService.apis.gitlab;
 		const providerApi = await this.getProvidersApi();
-		if (!api || !repos) {
+		if (!api) {
 			return undefined;
 		}
 
