@@ -6,11 +6,14 @@ import { customElement, query } from 'lit/decorators.js';
 import type { GlPopover } from '@gitlens/components/components/overlays/popover.js';
 import { focusableBaseStyles, focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { GlExtensionCommands } from '../../../../../constants.commands.js';
+import type { Source } from '../../../../../constants.telemetry.js';
 import type { SubscriptionPlanIds } from '../../../../../plus/gk/models/subscription.js';
 import {
 	getSubscriptionEntitlement,
 	getSubscriptionPlanName,
+	isSubscriptionPaid,
 	isSubscriptionTrial,
 } from '../../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../../system/commands.js';
@@ -256,11 +259,20 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				}
 			}
 
-			/* VERTICAL RHYTHM for the whole rollup, this component and the chips inside it:
-  section 8 · block 6 · label→content 4 · repeated rows 2
-  Four levels, each a --gl-space-* step, chosen by what the gap SEPARATES rather than by how much
-  room a given pair looked like it wanted. Horizontal gaps are a separate axis and are not bound by
-  this — they answer to the run of glyphs or controls they sit between.
+			/* VERTICAL RHYTHM for the whole rollup, this component and the chips inside it. Stated as the
+  gap a READER SEES between two runs of ink, not as the gap declared on a container:
+  section → section 16 · anything inside a section 8 · repeated rows in one target 2
+  A doubling scale, chosen by what the gap SEPARATES rather than by how much room a given pair
+  looked like it wanted. Horizontal gaps are a separate axis and are not bound by this — they
+  answer to the run of glyphs or controls they sit between.
+
+  Declared gaps here are the target MINUS what .rollup__item's padding already contributes, which
+  is why they do not match the numbers above: that padding is part of the hover target, but it is
+  also 4px of spacing at every edge it touches, and a boundary between two rows gets it twice
+  while a boundary between two sections gets it once. Specifying the container gaps directly is
+  how an earlier version of this ended up with two rows of one subject sitting 12px apart and two
+  different sections also sitting 12px apart. Re-measure the ink, not the declaration, when
+  changing any of these.
 
   font-size anchors the whole panel's type scale. The popover has no base size of its own, so
   without this every --gl-font-* here would be measured against the 13px --gl-font-base while
@@ -271,24 +283,41 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				display: flex;
 				flex-direction: column;
 				gap: var(--gl-space-8);
-				/* Comfortable 30rem target, but yield on narrow viewports: the popover body is capped to the
+				/* Comfortable 34rem target, but yield on narrow viewports: the popover body is capped to the
    available viewport width and clips overflow, so a hard min-width would get cut off (≤~650px).
-   min-width:0 + max-width:100% lets the rollup shrink to the body instead of overflowing it. */
-				width: 30rem;
+   Dropping the automatic minimum and capping against the body lets the rollup shrink to fit
+   instead of overflowing it. */
+				width: 34rem;
 				min-width: 0;
-				max-width: min(34rem, 100%);
+				max-width: min(36rem, 100%);
 				padding: var(--gl-space-4);
 				font-size: var(--gl-font-md);
 			}
 
+			/* No gap: every child carries its own 4px inset instead — a row through .rollup__item's
+  padding, the heading through its bottom margin, a CTA through its block margin. Uniform insets
+  are what make each within-section boundary the same 8px whichever pair of child types it falls
+  between; a gap on the container instead lands on 8 between a heading and a row, 4 between a
+  heading and a CTA, and 12 between a CTA and a row, because the three child types contribute
+  differently. */
 			.rollup__section {
 				display: flex;
 				flex-direction: column;
-				gap: var(--gl-space-4);
 			}
 
+			/* The setup CTA is section content like any row, so it takes the same inset. gl-button's host
+  would pass a padding straight through to the button's own box and shrink the control, so this
+  has to be margin. */
+			.rollup__section > gl-button {
+				margin-block: var(--gl-space-4);
+			}
+
+			/* Symmetric inset, not just the bottom one: the top half is what centers a rule between the
+  two zones it divides. Without it a heading contributed nothing above itself, so the rule over
+  the AI section sat 12px from the heading below and 22px from the account block above — reading
+  as the AI section's own top border rather than a divider between two zones. */
 			.rollup__heading {
-				margin: 0;
+				margin: var(--gl-space-4) 0;
 				font-size: var(--gl-font-sm);
 				font-weight: 500;
 				color: var(--color-foreground--65);
@@ -296,10 +325,44 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				letter-spacing: 0.05em;
 			}
 
-			.rollup__walkthrough {
+			/* Footer: the two rows that are neither account nor configuration — walkthrough progress and
+  refer-a-friend. Both optional, neither is status, so they sit at an edge instead of in the run
+  from "who am I" to "what is set up". Its own container because these are REPEATED ROWS (gap 2)
+  and .rollup is the SECTION level (gap 8) — inheriting the section gap would space two rows of
+  the same kind like two different subjects. */
+			.rollup__footer {
+				display: flex;
+				flex-direction: column;
+				gap: 0;
+			}
+
+			/* Out-specifies .rollup__item's display: block at (0,2,0), so it does not depend on rule order. */
+			.rollup__footer .rollup__item {
 				display: flex;
 				gap: var(--gl-space-8);
 				align-items: center;
+			}
+
+			/* The two rows have to share a left edge, and their leading glyphs are NOT the same width:
+  gl-progress-ring renders a 2.2rem box (its .ring width) while a code-icon is only as wide as its
+  own 16px font size. Pinning the icon to the ring's own custom property — same value, one source —
+  gives it the ring's column, and code-icon's host is text-align: center, so the glyph centers
+  inside the wider box rather than hugging its start edge. */
+			.rollup__footer .rollup__item > code-icon {
+				flex: none;
+				width: var(--gl-progress-ring-size, 2.2rem);
+			}
+
+			/* The value proposition is muted and the action is not, so the row still reads as "Refer a friend"
+  first — but the two are ONE translated sentence, with the em-dash between them inside the message
+  where a translator can move it. So the muted tone goes on the whole sentence and the action half is
+  lifted back out of it, rather than the halves being separate keys glued together by markup. */
+			.rollup__footer-note {
+				color: var(--color-foreground--65);
+			}
+
+			.rollup__footer-lead {
+				color: var(--color-foreground);
 			}
 
 			hr {
@@ -435,7 +498,6 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 					feedback
 					@gl-account-chip-feedback=${this.handleFeedbackClick}
 				></gl-account-chip>
-				${this.renderWalkthrough()}
 				<hr />
 				${this.renderAI()} ${this.renderAgents()}
 				<div class="rollup__section">
@@ -454,6 +516,7 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 								></a>`
 					}
 				</div>
+				${this.renderFooter()}
 			</div>
 		</gl-popover>`;
 	}
@@ -528,6 +591,27 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 		</div>`;
 	}
 
+	/**
+	 * The rollup's footer — walkthrough progress and refer-a-friend, in that order.
+	 *
+	 * Both rows are optional and neither is status, which is why they are down here rather than in the run
+	 * the reader actually has to walk. The walkthrough used to sit between the account block and the
+	 * configuration sections, splitting "who am I" from "what is set up" with a third unrelated subject;
+	 * refer-a-friend used to sit inside the account panel's status block, the position a reader can least
+	 * skip, as the only marketing element in the panel. At an edge, both cost nothing.
+	 *
+	 * The `<hr />` belongs to the footer as a whole rather than to either row — with both rows absent the
+	 * separator would be a rule under nothing, which reads worse than no rule at all.
+	 */
+	private renderFooter(): unknown {
+		const walkthrough = this.renderWalkthrough();
+		const referFriend = this.renderReferFriend();
+		if (walkthrough === nothing && referFriend === nothing) return nothing;
+
+		return html`<hr />
+			<div class="rollup__footer">${walkthrough}${referFriend}</div>`;
+	}
+
 	private renderWalkthrough(): unknown {
 		if (this._onboarding == null) return nothing;
 
@@ -537,19 +621,44 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 
 		const graph = active.mode === 'graph';
 		const { progress } = active;
-		return html`<hr />
-			<a
-				class="rollup__item rollup__walkthrough"
-				href=${createCommandLink('gitlens.showWelcomeView', graph ? { mode: 'graph' } : undefined)}
+		return html`<a
+			class="rollup__item"
+			href=${createCommandLink('gitlens.showWelcomeView', graph ? { mode: 'graph' } : undefined)}
+		>
+			<gl-progress-ring
+				count-placement="sr-only"
+				.value=${progress.doneCount}
+				.max=${progress.allCount}
+			></gl-progress-ring>
+			<span
+				>${graph ? l10n.t('Graph Walkthrough {done}/{total}', { done: progress.doneCount, total: progress.allCount }) : l10n.t('GitLens Walkthrough {done}/{total}', { done: progress.doneCount, total: progress.allCount })}</span
 			>
-				<gl-progress-ring
-					count-placement="sr-only"
-					.value=${progress.doneCount}
-					.max=${progress.allCount}
-				></gl-progress-ring>
-				<span
-					>${graph ? l10n.t('Graph Walkthrough {done}/{total}', { done: progress.doneCount, total: progress.allCount }) : l10n.t('GitLens Walkthrough {done}/{total}', { done: progress.doneCount, total: progress.allCount })}</span
-				>
-			</a>`;
+		</a>`;
+	}
+
+	/**
+	 * Refer-a-friend, paid plans only — the referral pays out against a subscription, so there is nothing to
+	 * offer someone who isn't on one. Same guard the account panel used before this moved out of it.
+	 *
+	 * The whole row is the link, not just the "Refer a friend" half, so it matches the hover model every
+	 * other region of this popover uses. There's no `aria-label` on the anchor: its accessible name comes
+	 * from its own content, which already carries the offer terms alongside the verb — "Refer a friend —
+	 * give 50% off and get up to $20" — so a separate label would only duplicate what's already there.
+	 */
+	private renderReferFriend(): unknown {
+		const subscription = this._subscription?.subscription.get();
+		if (subscription == null || !isSubscriptionPaid(subscription)) return nothing;
+
+		return html`<a
+			class="rollup__item"
+			href=${createCommandLink<Source>('gitlens.plus.referFriend', { source: 'account' })}
+		>
+			<code-icon icon="gift" aria-hidden="true"></code-icon>
+			<span class="rollup__footer-note"
+				>${localizedContent(l10n.t('{link} — give 50% off and get up to $20'), {
+					link: html`<span class="rollup__footer-lead">${l10n.t('Refer a friend')}</span>`,
+				})}</span
+			>
+		</a>`;
 	}
 }

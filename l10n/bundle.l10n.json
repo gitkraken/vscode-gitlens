@@ -184,6 +184,8 @@
 	"AI integrations": "AI integrations",
 	"AI is Disabled": "AI is Disabled",
 	"AI model required to regenerate commit messages": "AI model required to regenerate commit messages",
+	"AI model: {name} via {provider} — open in GitLens Settings": "AI model: {name} via {provider} — open in GitLens Settings",
+	"AI model: {name} via {provider}, {rate} — open in GitLens Settings": "AI model: {name} via {provider}, {rate} — open in GitLens Settings",
 	"AI proposes a resolution for every conflicted file — instead of you untangling each hunk by hand.": "AI proposes a resolution for every conflicted file — instead of you untangling each hunk by hand.",
 	"AI provider, model, compose model, review model, conflict resolution model": "AI provider, model, compose model, review model, conflict resolution model",
 	"AI resolves conflicts · Preview": "AI resolves conflicts · Preview",
@@ -341,6 +343,7 @@
 	"Agent sessions": "Agent sessions",
 	"Agents": "Agents",
 	"Agents & Worktrees": "Agents & Worktrees",
+	"Agents — manage in GitLens Settings": "Agents — manage in GitLens Settings",
 	"Ahead": "Ahead",
 	"All": "All",
 	"All Access Week - now until July 11th!": "All Access Week - now until July 11th!",
@@ -1584,6 +1587,10 @@
 	"Default agent is no longer available. Choose another.": "Default agent is no longer available. Choose another.",
 	"Default time range": "Default time range",
 	"Default — {model}": "Default — {model}",
+	"Default/Pill label on the row of the agent currently set as the default.": {
+		"message": "Default",
+		"comment": ["Pill label on the row of the agent currently set as the default."]
+	},
 	"Delete": "Delete",
 	"Delete Branch": "Delete Branch",
 	"Delete Branch {branch}": "Delete Branch {branch}",
@@ -2642,6 +2649,10 @@
 	"Near-instant status checks via a background file monitor.": "Near-instant status checks via a background file monitor.",
 	"Nearest worktree branch": "Nearest worktree branch",
 	"Nearly out": "Nearly out",
+	"Nearly out/Warns that GitKraken AI credits are nearly exhausted.": {
+		"message": "Nearly out",
+		"comment": ["Warns that GitKraken AI credits are nearly exhausted."]
+	},
 	"Need Help or Want to Collaborate?": "Need Help or Want to Collaborate?",
 	"Needs Input": "Needs Input",
 	"Needs Your Review": "Needs Your Review",
@@ -2742,6 +2753,7 @@
 	"No contributors in scope": "No contributors in scope",
 	"No credit card required to upgrade": "No credit card required to upgrade",
 	"No data was provided for the request": "No data was provided for the request",
+	"No default agent chosen": "No default agent chosen",
 	"No description provided.": "No description provided.",
 	"No diff content found for the specified files.": "No diff content found for the specified files.",
 	"No file history could be found.": "No file history could be found.",
@@ -3445,6 +3457,7 @@
 	},
 	"Refining commits…": "Refining commits…",
 	"Refresh": "Refresh",
+	"Refresh Account Status": "Refresh Account Status",
 	"Refresh Comparison": "Refresh Comparison",
 	"Refresh Launchpad": "Refresh Launchpad",
 	"Regenerate Commit Message": "Regenerate Commit Message",
@@ -6497,6 +6510,10 @@
 		"message": "{cloudPatches} are {securelyStored} by GitKraken.",
 		"comment": ["{cloudPatches} is a link to Cloud Patches. {securelyStored} is a link to GitKraken security."]
 	},
+	"{column} installed for {agent}": "{column} installed for {agent}",
+	"{column} installed for {agent} — activation required": "{column} installed for {agent} — activation required",
+	"{column} not available for {agent}": "{column} not available for {agent}",
+	"{column} not installed for {agent}": "{column} not installed for {agent}",
 	"{commitChanges} when it reads right/{commitChanges} is the styled label “Commit Changes”.": {
 		"message": "{commitChanges} when it reads right",
 		"comment": ["{commitChanges} is the styled label “Commit Changes”."]
@@ -6601,6 +6618,7 @@
 	"{count, plural, one{Will switch to {0}} other{Will switch to {0} in {count} repos}}": "{count, plural, one{Will switch to {0}} other{Will switch to {0} in {count} repos}}",
 	"{count, plural, one{Your current branch {branch} is {count} commit behind its merge target {target}.} other{Your current branch {branch} is {count} commits behind its merge target {target}.}}": "{count, plural, one{Your current branch {branch} is {count} commit behind its merge target {target}.} other{Your current branch {branch} is {count} commits behind its merge target {target}.}}",
 	"{count, plural, one{working changes + {count} commit} other{working changes + {count} commits}}": "{count, plural, one{working changes + {count} commit} other{working changes + {count} commits}}",
+	"{count, plural, one{{agent} needs one more step to activate hooks} other{{count} agents need one more step to activate hooks}}": "{count, plural, one{{agent} needs one more step to activate hooks} other{{count} agents need one more step to activate hooks}}",
 	"{count, plural, one{{bytes} in {count} pack} other{{bytes} in {count} packs}}": "{count, plural, one{{bytes} in {count} pack} other{{bytes} in {count} packs}}",
 	"{count, plural, one{{count} Commit Behind Merge Target} other{{count} Commits Behind Merge Target}}": "{count, plural, one{{count} Commit Behind Merge Target} other{{count} Commits Behind Merge Target}}",
 	"{count, plural, one{{count} Commit Behind {target}} other{{count} Commits Behind {target}}}": "{count, plural, one{{count} Commit Behind {target}} other{{count} Commits Behind {target}}}",
@@ -6864,6 +6882,7 @@
 	"{provider} Merge Request {repository}!{number}": "{provider} Merge Request {repository}!{number}",
 	"{provider} Pull Request #{number}": "{provider} Pull Request #{number}",
 	"{provider} Work Item #{number}": "{provider} Work Item #{number}",
+	"{provider} · {rate}": "{provider} · {rate}",
 	"{provider} — {model}": "{provider} — {model}",
 	"{reason} ({tool})": "{reason} ({tool})",
 	"{references}. {state}/Paused Git operation tooltip. “references” names both refs and “state” is a complete status sentence.": {

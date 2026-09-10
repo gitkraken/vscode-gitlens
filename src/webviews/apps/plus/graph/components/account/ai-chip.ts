@@ -1,5 +1,6 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
@@ -50,12 +51,14 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 		rollupItemStyles,
 		truncateStyles,
 		css`
-			/* Column, with the section's own row gap repeated: the two rows are siblings of the rollup's
-			   other bands, so they have to be spaced like them rather than butt together. */
+			/* No gap of its own, which is not the same as no spacing: both rows are .rollup__item, so
+			   their own 4px padding already puts 8px of air between the two runs of text — the level
+			   the rhythm assigns to rows inside a section. Adding a gap on top measured 12px between
+			   them, exactly what the rollup put between two different SECTIONS, so one subject read as
+			   two. See the VERTICAL RHYTHM note in gl-graph-account-indicator. */
 			:host {
 				display: flex;
 				flex-direction: column;
-				gap: var(--gl-space-4);
 			}
 
 			/* Center, not baseline: this row is one continuous phrase (glyph → model → provider) rather
@@ -194,15 +197,24 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 		const rate = model.consumptionRateLabel;
 		const provider = model.provider.name;
 
+		const modelLabel = rate
+			? l10n.t('AI model: {name} via {provider}, {rate} — open in GitLens Settings', {
+					name: model.name,
+					provider: provider,
+					rate: rate,
+				})
+			: l10n.t('AI model: {name} via {provider} — open in GitLens Settings', {
+					name: model.name,
+					provider: provider,
+				});
+
 		return html`<a class="rollup__item" href=${createCommandLink('gitlens.showSettingsPage!ai')}>
-			<span
-				class="model"
-				role="img"
-				aria-label="AI model: ${model.name} via ${provider}${rate ? `, ${rate}` : ''} — open in GitLens Settings"
-			>
+			<span class="model" role="img" aria-label=${modelLabel}>
 				<code-icon class="model__icon" icon="sparkle-filled" aria-hidden="true"></code-icon>
 				<span class="model__name truncate">${model.name}</span>
-				<span class="model__meta">${rate ? `${provider} · ${rate}` : provider}</span>
+				<span class="model__meta"
+					>${rate ? l10n.t('{provider} · {rate}', { provider: provider, rate: rate }) : provider}</span
+				>
 			</span>
 		</a>`;
 	}
@@ -235,15 +247,33 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 		const { figure, percent, nearlyOut } = resolveAiUsage(usage);
 		const compact = percent != null ? `${Math.round(percent)}%` : figure;
 
+		// Positional {0}, not a named placeholder: both messages moved here verbatim from the account chip,
+		// and matching their keys byte-for-byte keeps the Spanish and Chinese translations that already
+		// exist for them attached. A name would read better but would orphan three locales to gain it.
+		const creditsLabel = nearlyOut
+			? l10n.t('GitKraken AI usage: {0}, nearly out — open in GitLens Settings', figure)
+			: l10n.t('GitKraken AI usage: {0} — open in GitLens Settings', figure);
+
+		// 'GitKraken AI' below is deliberately NOT wrapped in l10n.t() — it's a product name
+		// (docs/localization.md), and marking it for translation risks a translator altering it.
 		return html`<a
 			class="rollup__item ai"
 			href=${createCommandLink('gitlens.showSettingsPage!account')}
-			aria-label="GitKraken AI usage: ${figure}${nearlyOut ? ', nearly out' : ''} — open in GitLens Settings"
+			aria-label=${creditsLabel}
 		>
 			<span class="ai__head">
 				<code-icon class="ai__icon" icon="sparkle" aria-hidden="true"></code-icon>
 				<span class="ai__title truncate">GitKraken AI</span>
-				${nearlyOut ? html`<span class="ai__warning">Nearly out</span>` : nothing}
+				${
+					nearlyOut
+						? html`<span class="ai__warning"
+								>${l10n.t({
+									message: 'Nearly out',
+									comment: ['Warns that GitKraken AI credits are nearly exhausted.'],
+								})}</span
+							>`
+						: nothing
+				}
 				<span class="ai__figure">${compact}</span>
 			</span>
 			${

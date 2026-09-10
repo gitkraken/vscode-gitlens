@@ -1,8 +1,10 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
+import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { formatPlural } from '@gitlens/utils/plural.js';
 import type { AgentInfo } from '../../../../../rpc/services/types.js';
 import type { AgentsState } from '../../../../shared/contexts/agents.js';
 import { agentsContext } from '../../../../shared/contexts/agents.js';
@@ -26,10 +28,12 @@ const columnIcons: Record<StateColumn, string> = {
 };
 
 /** Column names for the per-cell accessible names — the visual columns are unheaded, so each cell has to
- *  say which column it belongs to on its own. */
+ *  say which column it belongs to on its own. 'GitKraken MCP' is deliberately NOT wrapped in `l10n.t()` —
+ *  it's a product name (docs/localization.md), and marking it for translation risks a translator altering
+ *  it. 'Hooks' is a generic noun describing the feature, not a product name, so it is wrapped. */
 const columnLabels: Record<StateColumn, string> = {
 	mcp: 'GitKraken MCP',
-	hooks: 'Hooks',
+	hooks: l10n.t('Hooks'),
 };
 
 /** Mirrors the Agents settings table's `kindIcons`. Typed against `AgentInfo['kind']` so a new kind can't be
@@ -258,8 +262,16 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 	private renderAgentRow(agent: AgentInfo, defaultAgentId: string | undefined): unknown {
 		return html`<span class="agent"
 				><code-icon class="agent__kind" icon=${kindIcons[agent.kind]} aria-hidden="true"></code-icon
-				><span class="agent__label truncate">${agent.label}</span
-				>${agent.id === defaultAgentId ? html`<span class="agent__default">Default</span>` : nothing}</span
+				><span class="agent__label truncate">${agent.label}</span>${
+					agent.id === defaultAgentId
+						? html`<span class="agent__default"
+								>${l10n.t({
+									message: 'Default',
+									comment: ['Pill label on the row of the agent currently set as the default.'],
+								})}</span
+							>`
+						: nothing
+				}</span
 			>${this.renderStateCell(agent, 'mcp')}${this.renderStateCell(agent, 'hooks')}`;
 	}
 
@@ -271,7 +283,11 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 		const manualActivation = column === 'hooks' ? agent.hooks?.manualActivation : undefined;
 
 		if (state == null || !state.supported) {
-			return this.renderCell('absent', 'dash', `${label} not available for ${agent.label}`);
+			return this.renderCell(
+				'absent',
+				'dash',
+				l10n.t('{column} not available for {agent}', { column: label, agent: agent.label }),
+			);
 		}
 
 		if (state.installed) {
@@ -279,12 +295,23 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 				? this.renderCell(
 						'warning',
 						columnIcons[column],
-						`${label} installed for ${agent.label} — activation required`,
+						l10n.t('{column} installed for {agent} — activation required', {
+							column: label,
+							agent: agent.label,
+						}),
 					)
-				: this.renderCell('installed', columnIcons[column], `${label} installed for ${agent.label}`);
+				: this.renderCell(
+						'installed',
+						columnIcons[column],
+						l10n.t('{column} installed for {agent}', { column: label, agent: agent.label }),
+					);
 		}
 
-		return this.renderCell('uninstalled', columnIcons[column], `${label} not installed for ${agent.label}`);
+		return this.renderCell(
+			'uninstalled',
+			columnIcons[column],
+			l10n.t('{column} not installed for {agent}', { column: label, agent: agent.label }),
+		);
 	}
 
 	/** `role="img"` is load-bearing: `aria-label` only names elements whose role supports naming, so a bare
@@ -298,18 +325,19 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 	/** Plain text, never links — the whole region is one target, so a nested anchor would fragment it. */
 	private renderNotes(detected: AgentInfo[], defaultAgentId: string | undefined): unknown {
 		const pending = detected.filter(a => a.hooks?.installed && a.hooks.manualActivation != null);
-		if (defaultAgentId == null && !pending.length) return nothing;
+		if (defaultAgentId != null && !pending.length) return nothing;
 
 		return html`<div class="notes">
-			${defaultAgentId == null ? html`<span>No default agent chosen</span>` : nothing}
+			${defaultAgentId == null ? html`<span>${l10n.t('No default agent chosen')}</span>` : nothing}
 			${
 				pending.length
 					? html`<span
-							>${
-								pending.length === 1
-									? `${pending[0].label} needs one more step to activate hooks`
-									: `${pending.length} agents need one more step to activate hooks`
-							}</span
+							>${formatPlural(
+								l10n.t(
+									'{count, plural, one{{agent} needs one more step to activate hooks} other{{count} agents need one more step to activate hooks}}',
+								),
+								{ count: pending.length, agent: pending[0].label },
+							)}</span
 						>`
 					: nothing
 			}

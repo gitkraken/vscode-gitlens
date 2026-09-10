@@ -81,8 +81,13 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				align-items: center;
 			}
 
+			/* No trailing padding in the panel: the rollup owns the space below this chip, and the shared
+  .content padding stacked on top of it made the identity-to-setup boundary the largest gap in
+  the popover by a wide margin. The collapsed chip still wants it, and so does the merge-target
+  popover, so this is scoped rather than removed from chipStyles. */
 			:host([display='panel']) .content {
 				width: 100%;
+				padding-bottom: 0;
 			}
 
 			:host-context(.vscode-dark),
@@ -168,13 +173,18 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				margin-bottom: var(--gl-space-6);
 			}
 
+			/* Top alignment works better with a wrapping title */
+			.header {
+				align-items: flex-start;
+			}
+
 			/* The headline is a name plus badges, so it lays out as a wrapping row rather than one line of
   text. flex-wrap is all this needs now — the shared .header__title no longer imposes the
   single-line truncation this used to have to undo. */
 			.header__title {
 				display: flex;
 				flex-wrap: wrap;
-				gap: var(--gl-space-6);
+				gap: var(--gl-space-2) var(--gl-space-6);
 				align-items: center;
 			}
 
@@ -758,12 +768,23 @@ background-color: var(--gl-rollup-raised); */
 		</div>`;
 	}
 
+	/**
+	 * The panel's attention zone — whatever the account needs from the user right now, and nothing else. Zero
+	 * or one occupant: a verification prompt, a trial countdown, an expiry, a reactivation offer, or the
+	 * Community pitch, each with its own CTA cluster.
+	 *
+	 * A healthy paid account needs nothing, so this renders NOTHING rather than an empty `.account-status` —
+	 * the wrapper is a flex item of `.content`, so an empty one would still spend a gap and leave a phantom
+	 * band between the account row and the rule below it. The blank zone is the intended outcome, not a hole
+	 * waiting to be filled: refer-a-friend used to live here and now sits in the rollup's footer, out of the
+	 * path a reader has to walk from "who am I" to "what is set up".
+	 */
 	private renderAccountState() {
 		const sub = this._subscription.subscription.get();
 
 		switch (this.subscriptionState) {
 			case SubscriptionState.Paid:
-				return html`<div class="account-status">${this.renderReferFriend()}</div> `;
+				return nothing;
 
 			case SubscriptionState.VerificationRequired:
 				return html`<div class="account-status">
@@ -845,7 +866,7 @@ background-color: var(--gl-rollup-raised); */
 							>${l10n.t('Upgrade to Pro')}</gl-button
 						>
 					</button-container>
-					${this.renderPromo('pro')} ${this.renderReferFriend()}
+					${this.renderPromo('pro')}
 				</div>`;
 			}
 
@@ -872,7 +893,7 @@ background-color: var(--gl-rollup-raised); */
 							>${l10n.t('Upgrade to Pro')}</gl-button
 						>
 					</button-container>
-					${this.renderPromo('pro')} ${this.renderReferFriend()}
+					${this.renderPromo('pro')}
 				</div>`;
 
 			case SubscriptionState.TrialReactivationEligible: {
@@ -894,7 +915,6 @@ background-color: var(--gl-rollup-raised); */
 							>${l10n.t('Reactivate GitLens Pro Trial')}</gl-button
 						>
 					</button-container>
-					${this.renderReferFriend()}
 				</div>`;
 			}
 
@@ -926,21 +946,6 @@ background-color: var(--gl-rollup-raised); */
 					</p>
 				</div>`;
 		}
-	}
-
-	private renderReferFriend() {
-		if (this.subscription == null || !isSubscriptionPaid(this.subscription)) return nothing;
-
-		return html`<p>
-			${localizedContent(l10n.t('{link} — give 50% off and get up to $20'), {
-				link: html`<a
-					href="${createCommandLink<Source>('gitlens.plus.referFriend', {
-						source: 'account',
-					})}"
-					>${l10n.t('Refer a friend')}</a
-				>`,
-			})}
-		</p>`;
 	}
 
 	private renderUpgradeContent() {

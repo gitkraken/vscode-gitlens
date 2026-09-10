@@ -1,8 +1,8 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import * as l10n from '@vscode/l10n';
-import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { css, html, LitElement } from 'lit';
+import { customElement } from 'lit/decorators.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { IntegrationStateInfo } from '../../../../../rpc/services/types.js';
 import type { IntegrationsState } from '../../../../shared/contexts/integrations.js';
@@ -118,30 +118,6 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		return html`<span class="integration status--${integration.connected ? 'connected' : 'disconnected'}"
 			><code-icon icon="${integration.icon}"></code-icon
 		></span>`;
-	}
-
-	/**
-	 * The active model named in words. `role="img"` + `aria-label` rather than an `sr-only` summary: the row's
-	 * three visible pieces only mean something read together, and as separate text nodes they'd be announced
-	 * as two unrelated labels sharing no relationship. `role="img"` makes the row a leaf, so the one label is
-	 * all that's announced — an `sr-only` span would need every visible piece individually `aria-hidden` to
-	 * avoid announcing the same thing twice, which is more machinery for the same result.
-	 */
-	private renderAIStatus() {
-		const model = this._ai.model.get();
-		// Unreachable — the indicator's `aiEmpty` gate swaps in a "Set up AI" CTA — but a half-populated row
-		// with no model to name is worse than no row.
-		if (!this.aiEnabled || model == null) return nothing;
-
-		return html`<span
-			class="ai"
-			role="img"
-			aria-label="${l10n.t('AI model: {0} via {1}', [model.name, model.provider.name])}"
-		>
-			<code-icon class="ai__icon" icon="sparkle-filled" aria-hidden="true"></code-icon>
-			<span class="ai__model">${model.name}</span>
-			<span class="ai__provider">${model.provider.name}</span>
-		</span>`;
 	}
 }
 
