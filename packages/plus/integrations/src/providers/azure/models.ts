@@ -375,15 +375,10 @@ export function getAzureDevOpsOwner(url: URL): string {
 	return url.pathname.split('/')[1];
 }
 export function getAzureOwner(url: URL): string {
-	const isVSTS = url.hostname.endsWith(vstsHostnameSuffix);
-	return isVSTS ? getVSTSOwner(url) : getAzureDevOpsOwner(url);
+	return isVsts(url.hostname) ? getVSTSOwner(url) : getAzureDevOpsOwner(url);
 }
 export function isVsts(domain: string): boolean {
 	return domain.endsWith(vstsHostnameSuffix);
-}
-
-export function getAzureRepo(pr: AzurePullRequest): string {
-	return `${pr.repository.project.name}/_git/${pr.repository.name}`;
 }
 
 // Example: https://bbbchiv.visualstudio.com/MyFirstProject/_git/test
@@ -415,7 +410,7 @@ export function parseAzureHttpsUrl(url: string): [owner: string, project: string
 export function parseAzureHttpsUrl(urlObj: URL): [owner: string, project: string, repo: string];
 export function parseAzureHttpsUrl(arg: URL | string): [owner: string, project: string, repo: string] {
 	const url = typeof arg === 'string' ? new URL(arg) : arg;
-	if (url.hostname.endsWith(vstsHostnameSuffix)) {
+	if (isVsts(url.hostname)) {
 		return parseVstsHttpsUrl(url);
 	}
 	return parseAzureNewStyleUrl(url);
@@ -423,15 +418,19 @@ export function parseAzureHttpsUrl(arg: URL | string): [owner: string, project: 
 
 export function getAzurePullRequestWebUrl(pr: AzurePullRequest): string {
 	const url = new URL(pr.url);
-	const baseUrl = new URL(url.origin).toString();
-	const repoPath = getAzureRepo(pr);
-	const isVSTS = url.hostname.endsWith(vstsHostnameSuffix);
-	if (isVSTS) {
-		return `${baseUrl}/${repoPath}/pullrequest/${pr.pullRequestId}`;
+	// Azure allows spaces (and other reserved characters) in project and repository names, so each name is encoded
+	// as its own segment; `_git` is a literal. The names come off the model because `pr.url` cannot be relied on to
+	// spell them — it addresses the repository by id.
+	const repoPath = `${encodeURIComponent(pr.repository.project.name)}/_git/${encodeURIComponent(pr.repository.name)}`;
+	// `url.origin` carries no trailing slash — don't route it through `new URL(...).toString()`, which adds one
+	if (isVsts(url.hostname)) {
+		return `${url.origin}/${repoPath}/pullrequest/${pr.pullRequestId}`;
 	}
 
-	const owner = getAzureDevOpsOwner(url);
-	return `${baseUrl}/${owner}/${repoPath}/pullrequest/${pr.pullRequestId}`;
+	// The owner comes off an already-parsed pathname, so it is already percent-encoded — don't encode it again.
+	// Note `getAzureDevOpsOwner` reads the org as the FIRST path segment, which holds for the cloud host but not
+	// for a self-hosted path carrying a virtual directory ahead of it; pre-existing, tracked by #5840.
+	return `${url.origin}/${getAzureDevOpsOwner(url)}/${repoPath}/pullrequest/${pr.pullRequestId}`;
 }
 
 export function fromAzurePullRequestMergeStatusToMergeableState(

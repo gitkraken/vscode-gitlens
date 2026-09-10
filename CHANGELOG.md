@@ -80,6 +80,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes malformed Azure DevOps pull request web URLs &mdash; the URL had a double slash after the host (both `dev.azure.com` and `*.visualstudio.com`) and left project and repository names unencoded, so a project or repository named with a space put a literal space in the link ([#5836](https://github.com/gitkraken/vscode-gitlens/issues/5836))
 - Fixes the _Commit Graph_ wedging on "Loading commits…" when its initial load fails &mdash; it now shows what went wrong with a _Retry_ action
 - Fixes the _Commit Graph_ getting stuck on "No repository open" when its webview reconnects before repository discovery finishes
 - Fixes a blank _Commit Graph_ after a GitLens update &mdash; VS Code could restore the panel pointing at the old version's resources, requiring the tab to be closed and reopened ([#2990](https://github.com/gitkraken/vscode-gitlens/issues/2990))
