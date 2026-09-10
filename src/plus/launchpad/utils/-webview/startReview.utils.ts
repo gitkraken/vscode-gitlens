@@ -1,4 +1,5 @@
-import { l10n } from 'vscode';
+import { l10n, window } from 'vscode';
+import { isWeb } from '@env/platform.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { PullRequest, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
@@ -6,14 +7,18 @@ import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getPullRequestNumberFromUrl, serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import type { Deferred } from '@gitlens/utils/promise.js';
 import { defer } from '@gitlens/utils/promise.js';
 import type { WorktreeGitCommandArgs } from '../../../../commands/git/worktree.js';
 import type { OpenChatActionCommandArgs } from '../../../../commands/openChatAction.js';
 import type { SendToChatCommandArgs } from '../../../../commands/sendToChat.js';
 import type { Container } from '../../../../container.js';
+import { getPresentableErrorMessage } from '../../../../errors.js';
 import type { GlRepository } from '../../../../git/models/repository.js';
 import { getOrOpenPullRequestRepository } from '../../../../git/utils/-webview/pullRequest.utils.js';
 import { getReferenceFromBranch } from '../../../../git/utils/-webview/reference.utils.js';
+import { promptToLocateOrCloneRepository } from '../../../../git/utils/-webview/repository.utils.js';
 import { getWorktreeForBranch } from '../../../../git/utils/-webview/worktree.utils.js';
 import { executeCommand } from '../../../../system/-webview/command.js';
 import { openWorkspace } from '../../../../system/-webview/vscode/workspaces.js';
@@ -89,20 +94,24 @@ export async function startReviewFromLaunchpadItem(
 
 	// Use the already-resolved repository from LaunchpadItem if available,
 	// otherwise use getOpenedPullRequestRepo which handles finding/opening the repo
-	const repo =
-		item.openRepository?.repo ??
-		(await getOrOpenPullRequestRepository(container, pr, {
-			skipVirtual: true,
-		}));
+	let repo =
+		item.openRepository?.repo ?? (await getOrOpenPullRequestRepository(container, pr, { skipVirtual: true }));
 
-	if (!repo) {
-		const repoName = `${pr.repository.owner}/${pr.repository.repo}`;
-		throw new StartReviewError(
-			`No local repository found for ${repoName}. Please clone the repository first.`,
-			l10n.t('No local repository found for {repository}. Please clone the repository first.', {
-				repository: repoName,
-			}),
-		);
+	if (repo == null) {
+		// Hard contract (mirrors agentPicker): never pop an interactive prompt when running unattended
+		// (MCP/CLI pass useDefaults) — and cloning/locating a local repo isn't possible on web — fail
+		// deterministically instead.
+		if (useDefaults || isWeb) {
+			const repoName = `${pr.repository.owner}/${pr.repository.repo}`;
+			throw new StartReviewError(
+				`No local repository found for ${repoName}. Please clone the repository first.`,
+				l10n.t('No local repository found for {repository}. Please clone the repository first.', {
+					repository: repoName,
+				}),
+			);
+		}
+
+		repo = await locateOrClonePullRequestRepository(container, pr);
 	}
 
 	// Setup remote and branch
@@ -157,6 +166,63 @@ export async function startReviewFromLaunchpadItem(
 	const worktreeBranch = await getBranchFromWorktree(container, worktree, localBranchName);
 
 	return { worktree: worktree, branch: worktreeBranch, pr: pr };
+}
+
+/**
+ * Fire-and-forget wrapper for {@link startReviewFromLaunchpadItem} that runs the review detached
+ * from any wizard lifetime, settling the optional `result` deferred and surfacing failures via an
+ * error message (silently ignoring user cancellations, e.g. dismissing the locate/clone prompt).
+ */
+export function startReviewFromLaunchpadItemDetached(
+	container: Container,
+	item: LaunchpadItem,
+	instructions: string | undefined,
+	openChatOnComplete: boolean | undefined,
+	useDefaults: boolean | undefined,
+	agent: AgentDescriptor | undefined,
+	result?: Deferred<StartReviewResult>,
+): void {
+	void startReviewFromLaunchpadItem(container, item, instructions, openChatOnComplete, useDefaults, agent).then(
+		r => result?.fulfill(r),
+		(ex: unknown) => failStartReview(result, ex),
+	);
+}
+
+/**
+ * Settles `result` with the failure and surfaces it, staying silent on user cancellation. The deferred
+ * is cancelled with the English protocol message — it is awaited by programmatic MCP/CLI callers, and a
+ * {@link StartReviewError}'s `message` carries the localized text meant for display instead.
+ */
+export function failStartReview(result: Deferred<StartReviewResult> | undefined, ex: unknown): void {
+	result?.cancel(getStartReviewProtocolError(ex));
+	// Silently ignore user cancellation (e.g. dismissing the locate/clone prompt)
+	if (isCancellationError(ex)) return;
+
+	void window.showErrorMessage(l10n.t('Failed to start review: {error}', { error: getPresentableErrorMessage(ex) }));
+}
+
+/**
+ * Prompts the user to locate or clone the repository when no local copy could be resolved, then
+ * returns the added repo. Mirrors the deep-link service's open-type prompt (clone vs. local folder).
+ * Throws {@link CancellationError} on any user cancellation so callers can distinguish it from a
+ * genuine failure and stay silent.
+ */
+function locateOrClonePullRequestRepository(container: Container, pr: PullRequest): Promise<GlRepository> {
+	const repoName = `${pr.repository.owner}/${pr.repository.repo}`;
+
+	// Clone from the PR's BASE repository, not the head: the head may be a fork, and
+	// setupPullRequestBranch already adds the fork remote afterwards. Deliberately no fallback to
+	// `pr.url` (the PR web permalink) — it isn't clonable and must not be stored as a remote mapping.
+	const remoteUrl = pr.refs?.base?.url;
+
+	return promptToLocateOrCloneRepository(container, {
+		title: l10n.t('Start PR Review'),
+		placeholder: l10n.t('Unable to locate a local repository for {repository}, choose how to find it', {
+			repository: repoName,
+		}),
+		name: repoName,
+		remoteUrl: remoteUrl,
+	});
 }
 
 /** Resolves (and, for a fork, adds) the remote and local branch a PR's head should be checked out as.
