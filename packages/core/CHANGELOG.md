@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking (plus/integrations)** — Fixes `getAzurePullRequestWebUrl` emitting a malformed Azure DevOps pull request web URL ([#5836](https://github.com/gitkraken/vscode-gitlens/issues/5836)). It built the URL by concatenation, so `new URL(origin).toString()` — which already ends in a slash — produced a double slash after the host on BOTH host styles (`dev.azure.com` and `*.visualstudio.com`), and the project and repository names were interpolated verbatim, so a name containing a space (which Azure permits) put a literal space in the path. Neither spelling is one any two consumers normalize the same way, which is the point: the URL is the identity. It is now built from `origin` directly with each name percent-encoded as its own segment. How the org is resolved is unchanged, so a self-hosted URL carrying a virtual directory ahead of it still loses the segments between the host and the org. This CHANGES the `url` of every Azure pull request the package returns — `PullRequest.url` via `fromAzurePullRequest`, and the point read behind `getProviderLinkedIssueOrPullRequest`. A consumer that persisted the old spelling and resolves by literal URL equality will stop matching its stored values at the upgrade and must migrate them; identity keyed on the repository and pull request ids is unaffected (plus/integrations)
+
 ## [0.5.116] - 2026-09-09
 
 ### Changed
