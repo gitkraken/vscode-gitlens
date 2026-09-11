@@ -296,7 +296,11 @@ export interface PullRequestRef {
 	branch: string;
 	sha: string;
 	exists: boolean;
-	url: string;
+	/**
+	 * Web URL of the ref's repository. `undefined` when the provider cannot resolve it — Azure DevOps embeds an
+	 * abbreviated repository reference in a pull request, so a fork's URL may need a lookup that can fail.
+	 */
+	url: string | undefined;
 	/** HTTPS clone URL of the ref's repository, when the provider exposes it. */
 	cloneHttps?: string;
 	/** SSH clone URL of the ref's repository, when the provider exposes it. */
@@ -306,7 +310,7 @@ export interface PullRequestRef {
 }
 
 export interface PullRequestRefs {
-	base: PullRequestRef;
+	base: PullRequestRef & { url: string };
 	head: PullRequestRef;
 	isCrossRepository: boolean;
 }

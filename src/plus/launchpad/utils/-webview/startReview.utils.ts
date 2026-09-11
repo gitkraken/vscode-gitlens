@@ -177,8 +177,12 @@ export async function setupPullRequestBranch(
 		throw new StartReviewError('PR head reference not found', l10n.t('PR head reference not found'));
 	}
 
-	// Parse remote URL
 	const remoteUrl = headRef.url;
+	if (!remoteUrl) {
+		throw new Error('PR head repository URL not found');
+	}
+
+	// Parse remote URL
 	const [, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
 
 	// Check if remote exists
