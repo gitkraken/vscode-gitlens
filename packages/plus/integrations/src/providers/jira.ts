@@ -199,6 +199,23 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		return toAccount(user, this);
 	}
 
+	private _currentAccounts: Map<string, Account | undefined> | undefined;
+	protected override async getProviderCurrentAccount(
+		session: ProviderAuthenticationSession,
+	): Promise<Account | undefined> {
+		const { accessToken } = session;
+		this._currentAccounts ??= new Map<string, Account | undefined>();
+
+		if (!this._currentAccounts.has(accessToken)) {
+			const resources = await this.getProviderResourcesForUser(session);
+			const resource = resources?.[0];
+			const account = resource != null ? await this.getProviderAccountForResource(session, resource) : undefined;
+			this._currentAccounts.set(accessToken, account);
+		}
+
+		return this._currentAccounts.get(accessToken);
+	}
+
 	/** The site-list request the resource cache would otherwise answer; see `IntegrationBase.validateCredential`. */
 	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
 		const api = await this.getProvidersApi();
