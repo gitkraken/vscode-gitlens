@@ -188,10 +188,21 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	}
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
 
+	protected override async getProviderCurrentAccount(
+		session: ProviderAuthenticationSession,
+	): Promise<Account | undefined> {
+		return this.fetchCurrentAccount(session);
+	}
+
 	protected override async getProviderAccountForResource(
 		session: ProviderAuthenticationSession,
 		_resource: ResourceDescriptor,
 	): Promise<Account | undefined> {
+		return this.fetchCurrentAccount(session);
+	}
+
+	/** Linear's viewer query is account-wide, not resource-scoped — every caller resolves the same account. */
+	private async fetchCurrentAccount(session: ProviderAuthenticationSession): Promise<Account | undefined> {
 		const api = await this.getProvidersApi();
 		// Linear's viewer isn't a ProviderAccount (no username/avatar), so build the Account manually
 		// (Trello-style) from the fields the viewer query returns.
