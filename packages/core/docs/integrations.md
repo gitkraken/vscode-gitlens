@@ -603,6 +603,29 @@ free text have no equivalent on either.
 
 ## 9. Per-provider behavior worth designing around
 
+### Tracker issue state
+
+`IssueShape.state` remains the normalized `'opened' | 'closed'` value used by existing consumers. Tracker issues also
+carry the provider's own workflow state in the optional `providerState` field; it is display data and is not added to
+`IssueOrPullRequest`, because pull requests' normalized `'opened' | 'closed' | 'merged'` state is complete.
+
+The field mirrors what `provider-apis` provides. `name` is the provider's untranslated display name, `color` is
+omitted when the provider returns `null`, and `category` is only present where the provider supplies it:
+
+| Provider     | `name`              | `color` | `category`                               |
+| ------------ | ------------------- | ------- | ---------------------------------------- |
+| Jira         | Status name         | Yes     | Yes, from the stable status-category key |
+| Linear       | Workflow state name | Yes     | Yes, mapped from the Linear state type   |
+| Trello       | Card list name      | No      | No                                       |
+| Azure DevOps | Work-item state     | No      | No                                       |
+| GitHub       | `open` / `closed`   | No      | No                                       |
+| GitLab       | `opened` / `closed` | No      | No                                       |
+
+For Jira, legacy reads may omit `category` when `provider-apis` only has a localized status name to classify; the
+direct issue-by-key read supplies the stable category. `name` and `color` are preserved in both cases.
+
+The normalized `state` and `closed` fields keep their existing derivation; `providerState` is additive.
+
 - **GitHub / GHE** — cursor-only everywhere. The filtered PR search aliases each requested relationship × state
   facet into one GraphQL request per page, dedupes facet overlap, and sorts the page most-recently-updated-first.
   With no relationships it searches every PR in the required repo/org scope. The

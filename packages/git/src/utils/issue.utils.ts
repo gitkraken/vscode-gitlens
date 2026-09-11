@@ -128,6 +128,15 @@ export function serializeIssue(value: IssueShape): IssueShape {
 		closedDate: value.closedDate,
 		closed: value.closed,
 		state: value.state,
+		providerState:
+			value.providerState == null
+				? undefined
+				: {
+						id: value.providerState.id,
+						name: value.providerState.name,
+						color: value.providerState.color,
+						category: value.providerState.category,
+					},
 		author:
 			value.author == null
 				? undefined

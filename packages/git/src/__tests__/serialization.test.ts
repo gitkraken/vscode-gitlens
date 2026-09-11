@@ -60,6 +60,7 @@ suite('provider model serialization', () => {
 			issueType: 'Bug',
 			title: 'Issue',
 			body: 'Body',
+			providerState: { id: 'state-1', name: 'In Review', color: '#ff0000', category: 'IN_PROGRESS' },
 			url: 'https://github.com/gitkraken/vscode-gitlens/issues/1',
 			state: 'opened',
 			createdDate: now,
@@ -70,5 +71,6 @@ suite('provider model serialization', () => {
 		const serialized = serializeIssue(issue);
 
 		assert.equal(serialized.issueType, 'Bug');
+		assert.deepEqual(serialized.providerState, issue.providerState);
 	});
 });

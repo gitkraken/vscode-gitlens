@@ -47,7 +47,7 @@ import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifie
 import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
 import { githubSearchResultLimit } from '@gitlens/git-github/api/config.js';
 import type { Account as UserAccount } from '@gitlens/git/models/author.js';
-import type { IssueProject, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
+import type { IssueProject, IssueProviderState, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type {
 	PullRequestRef,
@@ -1229,6 +1229,20 @@ function toIssueIdentifier(value: string | number): string {
 	return String(value);
 }
 
+function toIssueProviderState(
+	state: ProviderIssue['state'],
+	reliableStateCategory = true,
+): IssueProviderState | undefined {
+	return state == null
+		? undefined
+		: {
+				id: state.id,
+				name: state.name,
+				color: state.color ?? undefined,
+				category: reliableStateCategory ? state.category : undefined,
+			};
+}
+
 export function toIssueShape(
 	issue: ProviderIssue,
 	provider: ProviderReference,
@@ -1242,10 +1256,9 @@ export function toIssueShape(
 
 	// Jira SDK results derive this category from a localized display name and default unknown names to DONE.
 	// Only the direct point read opts in because it maps Jira's stable status-category key itself.
-	const closed =
-		issue.closedDate != null ||
-		(issue.state?.category === 'DONE' &&
-			(provider.id !== IssuesCloudHostIntegrationId.Jira || options?.reliableStateCategory === true));
+	const reliableStateCategory =
+		provider.id !== IssuesCloudHostIntegrationId.Jira || options?.reliableStateCategory === true;
+	const closed = issue.closedDate != null || (issue.state?.category === 'DONE' && reliableStateCategory);
 
 	return {
 		type: 'issue',
@@ -1267,6 +1280,7 @@ export function toIssueShape(
 		closedDate: issue.closedDate ?? undefined,
 		closed: closed,
 		state: closed ? 'closed' : 'opened',
+		providerState: toIssueProviderState(issue.state, reliableStateCategory),
 		author: {
 			id: issue.author?.id ?? '',
 			// An absent name stays absent, matching {@link fromProviderAccount}; see `IssueMember.name`.
@@ -1741,6 +1755,7 @@ export function fromProviderIssue(
 				: undefined,
 		identifier,
 		issue.type ?? undefined,
+		toIssueProviderState(issue.state, integration.id !== IssuesCloudHostIntegrationId.Jira),
 	);
 }
 
