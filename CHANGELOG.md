@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Changes the _Commits_ view and other history views to load commit file details on demand in repositories where loading them has been slow ([#5498](https://github.com/gitkraken/vscode-gitlens/issues/5498)) &mdash; the `gitlens.advanced.commits.delayLoadingFileDetails` setting now defaults to `null` (automatic); set it to `true` or `false` to force either behavior
+- Consolidates the _Get Started_ walkthrough into a single step that opens the _Welcome_ view ([#5809](https://github.com/gitkraken/vscode-gitlens/issues/5809)) &mdash; the _Welcome_ view is now the unified onboarding experience; the extension's _Get Started_ action, Launchpad's learn-more links, and walkthrough deep links all open it directly
 
 ### Removed
 

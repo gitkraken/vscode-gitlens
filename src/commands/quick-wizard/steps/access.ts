@@ -8,7 +8,6 @@ import type { DirectiveQuickPickItem } from '../../../quickpicks/items/directive
 import { createDirectiveQuickPickItem, Directive } from '../../../quickpicks/items/directive.js';
 import { executeCommand } from '../../../system/-webview/command.js';
 import { getIconPathUris } from '../../../system/-webview/vscode.js';
-import type { OpenWalkthroughCommandArgs } from '../../walkthroughs.js';
 import type { AsyncStepResultGenerator, PartialStepState, StepSelection } from '../models/steps.js';
 import { StepResultBreak } from '../models/steps.js';
 import type { StepController } from '../stepsController.js';
@@ -125,11 +124,7 @@ export async function* ensureAccessStep<
 					),
 					detail: l10n.t('Click to learn more about Launchpad'),
 					iconPath: new ThemeIcon('rocket'),
-					onDidSelect: () =>
-						void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
-							step: 'accelerate-pr-reviews',
-							source: { source: 'launchpad', detail: 'info' },
-						}),
+					onDidSelect: () => void executeCommand('gitlens.showWelcomeView'),
 				}),
 				createQuickPickSeparator(),
 			);

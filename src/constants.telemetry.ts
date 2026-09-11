@@ -3292,6 +3292,7 @@ type WalkthroughActionNames =
 	| 'plus/upgrade'
 	| 'plus/reactivate'
 	| 'open/walkthrough'
+	| 'open/welcome'
 	| 'open/inspect'
 	| 'switch/ai-model';
 

@@ -30724,108 +30724,14 @@
 				"description": "%walkthrough.welcome.description%",
 				"steps": [
 					{
-						"id": "get-started-community",
-						"title": "%walkthrough.welcome.step.get-started-community.title%",
-						"description": "%walkthrough.welcome.step.get-started-community.description%",
+						"id": "get-started",
+						"title": "%walkthrough.welcome.step.get-started.title%",
+						"description": "%walkthrough.welcome.step.get-started.description%",
 						"media": {
-							"markdown": "walkthroughs/welcome/get-started-community.md"
+							"markdown": "walkthroughs/welcome/get-started.md"
 						},
 						"completionEvents": [
-							"onContext:gitlens:walkthroughState:gettingStarted == true"
-						],
-						"when": "!gitlens:plus:state || gitlens:plus:state <= 2"
-					},
-					{
-						"id": "welcome-in-trial",
-						"title": "%walkthrough.welcome.step.welcome-in-trial.title%",
-						"description": "%walkthrough.welcome.step.welcome-in-trial.description%",
-						"media": {
-							"markdown": "walkthroughs/welcome/welcome-in-trial.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:gettingStarted == true"
-						],
-						"when": "gitlens:plus:state == 3"
-					},
-					{
-						"id": "welcome-in-trial-expired",
-						"title": "%walkthrough.welcome.step.welcome-in-trial-expired.title%",
-						"description": "%walkthrough.welcome.step.welcome-in-trial-expired.description%",
-						"media": {
-							"markdown": "walkthroughs/welcome/welcome-in-trial-expired.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:gettingStarted == true"
-						],
-						"when": "gitlens:plus:state == 4"
-					},
-					{
-						"id": "welcome-in-trial-expired-eligible",
-						"title": "%walkthrough.welcome.step.welcome-in-trial-expired-eligible.title%",
-						"description": "%walkthrough.welcome.step.welcome-in-trial-expired-eligible.description%",
-						"media": {
-							"markdown": "walkthroughs/welcome/welcome-in-trial-expired-eligible.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:gettingStarted == true"
-						],
-						"when": "gitlens:plus:state == 5"
-					},
-					{
-						"id": "welcome-paid",
-						"title": "%walkthrough.welcome.step.welcome-paid.title%",
-						"description": "%walkthrough.welcome.step.welcome-paid.description%",
-						"media": {
-							"markdown": "walkthroughs/welcome/welcome-paid.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:gettingStarted == true"
-						],
-						"when": "gitlens:plus:state == 6"
-					},
-					{
-						"id": "visualize-code-history",
-						"title": "%walkthrough.welcome.step.visualize-code-history.title%",
-						"description": "%walkthrough.welcome.step.visualize-code-history.description%",
-						"media": {
-							"markdown": "walkthroughs/welcome/visualize-code-history.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:visualizeCodeHistory == true"
-						]
-					},
-					{
-						"id": "ai-features",
-						"title": "%walkthrough.welcome.step.ai-features.title%",
-						"description": "%walkthrough.welcome.step.ai-features.description%",
-						"media": {
-							"markdown": "walkthroughs/welcome/ai-features.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:aiFeatures == true"
-						]
-					},
-					{
-						"id": "git-blame",
-						"title": "%walkthrough.welcome.step.git-blame.title%",
-						"description": "%walkthrough.welcome.step.git-blame.description%",
-						"media": {
-							"markdown": "walkthroughs/welcome/git-blame.md"
-						},
-						"completionEvents": [
-							"onStepSelected",
-							"onContext:gitlens:walkthroughState:gitBlame == true"
-						]
-					},
-					{
-						"id": "accelerate-pr-reviews",
-						"title": "%walkthrough.welcome.step.accelerate-pr-reviews.title%",
-						"description": "%walkthrough.welcome.step.accelerate-pr-reviews.description%",
-						"media": {
-							"markdown": "walkthroughs/welcome/accelerate-pr-reviews.md"
-						},
-						"completionEvents": [
-							"onContext:gitlens:walkthroughState:prReviews == true"
+							"onCommand:gitlens.walkthrough.openWelcome"
 						]
 					}
 				]
