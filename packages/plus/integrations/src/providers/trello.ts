@@ -52,10 +52,21 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return appKey;
 	}
 
+	protected override async getProviderCurrentAccount(
+		session: ProviderAuthenticationSession,
+	): Promise<Account | undefined> {
+		return this.fetchCurrentAccount(session);
+	}
+
 	protected override async getProviderAccountForResource(
 		session: ProviderAuthenticationSession,
 		_resource: ResourceDescriptor,
 	): Promise<Account | undefined> {
+		return this.fetchCurrentAccount(session);
+	}
+
+	/** Trello's viewer lookup is account-wide, not board-scoped — every caller resolves the same account. */
+	private async fetchCurrentAccount(session: ProviderAuthenticationSession): Promise<Account | undefined> {
 		const appKey = this.requireAppKey(session);
 
 		const api = await this.getProvidersApi();
