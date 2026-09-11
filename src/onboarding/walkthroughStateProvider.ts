@@ -75,7 +75,6 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		'aiFeatures',
 		{
 			usage: [
-				'command:gitlens.walkthrough.openAiSettings:executed',
 				'command:gitlens.ai.explainBranch:executed',
 				'command:gitlens.ai.explainCommit:executed',
 				'command:gitlens.ai.explainStash:executed',

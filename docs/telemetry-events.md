@@ -7588,7 +7588,7 @@ or
 
 ```typescript
 {
-  'step': 'accelerate-pr-reviews' | 'get-started-community' | 'improve-workflows-with-integrations' | 'visualize-code-history' | 'welcome-in-trial' | 'welcome-in-trial-expired' | 'welcome-in-trial-expired-eligible' | 'welcome-paid',
+  'step': 'get-started',
   'usingFallbackUrl': boolean
 }
 ```
@@ -7601,7 +7601,7 @@ or
 {
   'command': string,
   'detail': string,
-  'name': 'connect/integrations' | 'create/worktree' | 'open/ai-custom-instructions-settings' | 'open/ai-enable-setting' | 'open/ai-settings' | 'open/composer' | 'open/devex-platform' | 'open/drafts' | 'open/graph' | 'open/help-center' | 'open/help-center/accelerate-pr-reviews' | 'open/help-center/ai-features' | 'open/help-center/community-vs-pro' | 'open/help-center/interactive-code-history' | 'open/inspect' | 'open/launchpad' | 'open/walkthrough' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'switch/ai-model',
+  'name': 'connect/integrations' | 'create/worktree' | 'open/ai-custom-instructions-settings' | 'open/ai-enable-setting' | 'open/ai-settings' | 'open/composer' | 'open/devex-platform' | 'open/drafts' | 'open/graph' | 'open/help-center' | 'open/help-center/accelerate-pr-reviews' | 'open/help-center/ai-features' | 'open/help-center/community-vs-pro' | 'open/help-center/interactive-code-history' | 'open/inspect' | 'open/launchpad' | 'open/walkthrough' | 'open/welcome' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'switch/ai-model',
   'type': 'command'
 }
 ```
@@ -7611,7 +7611,7 @@ or
 ```typescript
 {
   'detail': string,
-  'name': 'connect/integrations' | 'create/worktree' | 'open/ai-custom-instructions-settings' | 'open/ai-enable-setting' | 'open/ai-settings' | 'open/composer' | 'open/devex-platform' | 'open/drafts' | 'open/graph' | 'open/help-center' | 'open/help-center/accelerate-pr-reviews' | 'open/help-center/ai-features' | 'open/help-center/community-vs-pro' | 'open/help-center/interactive-code-history' | 'open/inspect' | 'open/launchpad' | 'open/walkthrough' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'switch/ai-model',
+  'name': 'connect/integrations' | 'create/worktree' | 'open/ai-custom-instructions-settings' | 'open/ai-enable-setting' | 'open/ai-settings' | 'open/composer' | 'open/devex-platform' | 'open/drafts' | 'open/graph' | 'open/help-center' | 'open/help-center/accelerate-pr-reviews' | 'open/help-center/ai-features' | 'open/help-center/community-vs-pro' | 'open/help-center/interactive-code-history' | 'open/inspect' | 'open/launchpad' | 'open/walkthrough' | 'open/welcome' | 'plus/login' | 'plus/reactivate' | 'plus/sign-up' | 'plus/upgrade' | 'switch/ai-model',
   'type': 'url',
   'url': string
 }
