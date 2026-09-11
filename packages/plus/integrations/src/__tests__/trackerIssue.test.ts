@@ -151,6 +151,12 @@ suite('IntegrationManager.getTrackerIssue', () => {
 
 		assert.equal(result.items[0]?.issue?.closed, false);
 		assert.equal(result.items[0]?.issue?.state, 'opened');
+		assert.deepEqual(result.items[0]?.issue?.providerState, {
+			id: 'todo',
+			name: 'En curso',
+			color: 'blue-gray',
+			category: 'IN_PROGRESS',
+		});
 
 		manager.dispose();
 	});
@@ -199,6 +205,12 @@ suite('IntegrationManager.getTrackerIssue', () => {
 
 		assert.equal(issue?.closed, false);
 		assert.equal(issue?.state, 'opened');
+		assert.deepEqual(issue?.providerState, {
+			id: 'todo',
+			name: 'Por hacer',
+			color: 'blue-gray',
+			category: undefined,
+		});
 
 		manager.dispose();
 	});
@@ -288,6 +300,12 @@ suite('IntegrationManager.getTrackerIssue', () => {
 		assert.equal(result.items[0]?.issue?.id, 'ENG-123');
 		assert.equal(result.items[0]?.issue?.closed, true);
 		assert.equal(result.items[0]?.issue?.state, 'closed');
+		assert.deepEqual(result.items[0]?.issue?.providerState, {
+			id: 'done',
+			name: 'Done',
+			color: undefined,
+			category: 'DONE',
+		});
 		assert.equal(result.fetchFailed, undefined);
 
 		manager.dispose();

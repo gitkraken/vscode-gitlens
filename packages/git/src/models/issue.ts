@@ -165,6 +165,8 @@ export interface IssueShape extends IssueOrPullRequest {
 	/** `undefined` when the provider can't resolve the author, e.g. a deleted GitHub account */
 	author: IssueMember | undefined;
 	assignees: IssueMember[];
+	/** The provider's own workflow state, when it exposes one beyond the normalized open/closed state. */
+	providerState?: IssueProviderState;
 	repository?: IssueRepository;
 	labels?: IssueLabel[];
 	body?: string;
@@ -197,6 +199,7 @@ export class Issue implements IssueShape {
 		public readonly project?: IssueProject,
 		public readonly number?: string,
 		public readonly issueType?: string,
+		public readonly providerState?: IssueProviderState,
 	) {}
 
 	static is(issue: unknown): issue is Issue {
@@ -234,6 +237,13 @@ export interface IssueMember {
 	avatarUrl?: string;
 	url?: string;
 }
+
+export type IssueProviderState = {
+	id?: string;
+	name: string;
+	color?: string;
+	category?: 'TO_DO' | 'IN_PROGRESS' | 'DONE';
+};
 
 export interface IssueProject {
 	id: string;
