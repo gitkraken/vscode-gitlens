@@ -1,60 +1,48 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
-import type { AzurePullRequest } from '../models.js';
-import { getAzurePullRequestWebUrl } from '../models.js';
-
-function pr(apiUrl: string, projectName: string, repoName: string): AzurePullRequest {
-	return {
-		url: apiUrl,
-		pullRequestId: 5,
-		repository: { name: repoName, project: { name: projectName } },
-	} as unknown as AzurePullRequest;
-}
+import { fromAzurePullRequest, getAzurePullRequestWebUrl, sanitizeAzureRepositoryUrl } from '../models.js';
+import { azureProvider, createAzureForkSource, createAzurePullRequest as pr } from './fixtures.js';
 
 suite('getAzurePullRequestWebUrl', () => {
-	test('builds a dev.azure.com url without a double slash after the host', () => {
+	// The fixture's own `url` deliberately names a host and path nothing may be resolved against, so a reader that
+	// went back to the payload for the prefix is caught by every case below.
+	test('builds a url from the configured base and organization, without a double slash after the host', () => {
 		assert.equal(
 			getAzurePullRequestWebUrl(
 				pr('https://dev.azure.com/myorg/Proj/_apis/git/repositories/abc/pullRequests/5', 'Proj', 'repo'),
+				'https://dev.azure.com',
+				'myorg',
 			),
 			'https://dev.azure.com/myorg/Proj/_git/repo/pullrequest/5',
 		);
 	});
 
-	test('builds a visualstudio.com url without a double slash after the host', () => {
+	test('tolerates a base url spelled with a trailing slash', () => {
 		assert.equal(
 			getAzurePullRequestWebUrl(
-				pr('https://myorg.visualstudio.com/Proj/_apis/git/repositories/abc/pullRequests/5', 'Proj', 'repo'),
+				pr('https://dev.azure.com/myorg/Proj/_apis/git/repositories/abc/pullRequests/5', 'Proj', 'repo'),
+				'https://dev.azure.com/',
+				'myorg',
 			),
-			'https://myorg.visualstudio.com/Proj/_git/repo/pullrequest/5',
+			'https://dev.azure.com/myorg/Proj/_git/repo/pullrequest/5',
 		);
 	});
 
-	// The url cannot be relied on to spell the names, so they have to come off the model. The fixture addresses
-	// both by id for that reason: one whose url already spelled them would pass even if the function scraped it.
-	test('encodes project and repository names on dev.azure.com', () => {
+	// The names come off the model, and the organization off the caller; the fixture addresses project and repository
+	// by id so a function that scraped the payload's url instead would not survive this.
+	test('encodes organization, project and repository names', () => {
 		assert.equal(
 			getAzurePullRequestWebUrl(
 				pr(
 					'https://dev.azure.com/my%20org/11111111-1111-1111-1111-111111111111/_apis/git/repositories/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/pullRequests/5',
 					'My Project',
 					'my repo',
+					'11111111-1111-1111-1111-111111111111',
 				),
+				'https://dev.azure.com',
+				'my org',
 			),
 			'https://dev.azure.com/my%20org/My%20Project/_git/my%20repo/pullrequest/5',
-		);
-	});
-
-	test('encodes project and repository names on visualstudio.com', () => {
-		assert.equal(
-			getAzurePullRequestWebUrl(
-				pr(
-					'https://myorg.visualstudio.com/11111111-1111-1111-1111-111111111111/_apis/git/repositories/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/pullRequests/5',
-					'My Project',
-					'my repo',
-				),
-			),
-			'https://myorg.visualstudio.com/My%20Project/_git/my%20repo/pullrequest/5',
 		);
 	});
 
@@ -67,9 +55,246 @@ suite('getAzurePullRequestWebUrl', () => {
 					'https://dev.azure.com/myorg/11111111-1111-1111-1111-111111111111/_apis/git/repositories/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/pullRequests/5',
 					'R&D',
 					'c++ lib',
+					'11111111-1111-1111-1111-111111111111',
 				),
+				'https://dev.azure.com',
+				'myorg',
 			),
 			'https://dev.azure.com/myorg/R%26D/_git/c%2B%2B%20lib/pullrequest/5',
+		);
+	});
+
+	test('keeps the virtual directory a self-hosted base url carries', () => {
+		assert.equal(
+			getAzurePullRequestWebUrl(
+				pr(
+					'https://server.example/tfs/DefaultCollection/project-id/_apis/git/repositories/repo-id/pullRequests/5',
+					'Proj',
+					'repo',
+				),
+				'https://server.example/tfs',
+				'DefaultCollection',
+			),
+			'https://server.example/tfs/DefaultCollection/Proj/_git/repo/pullrequest/5',
+		);
+	});
+
+	test('ignores the host and path the payload url names', () => {
+		assert.equal(
+			getAzurePullRequestWebUrl(
+				pr('https://attacker.example/evil/_apis/git/repositories/repo-id/pullRequests/5', 'Contoso', 'repo'),
+				'https://dev.azure.com',
+				'contoso',
+			),
+			'https://dev.azure.com/contoso/Contoso/_git/repo/pullrequest/5',
+		);
+	});
+});
+
+suite('fromAzurePullRequest', () => {
+	test('builds the base repository url for both refs', () => {
+		const pullRequest = fromAzurePullRequest(
+			pr(
+				'https://dev.azure.com/myorg/project-id/_apis/git/repositories/repository-id/pullRequests/5',
+				'My Project',
+				'my repo',
+			),
+			azureProvider,
+			'myorg',
+			'https://dev.azure.com',
+			undefined,
+		);
+
+		assert.equal(pullRequest.refs?.base.url, 'https://dev.azure.com/myorg/My%20Project/_git/my%20repo');
+		assert.equal(pullRequest.refs?.head.url, 'https://dev.azure.com/myorg/My%20Project/_git/my%20repo');
+		assert.equal(pullRequest.url, 'https://dev.azure.com/myorg/My%20Project/_git/my%20repo/pullrequest/5');
+		assert.equal(pullRequest.refs?.base.owner, 'myorg');
+		assert.equal(pullRequest.repository?.owner, 'myorg');
+	});
+
+	test('names the configured collection as the owner on an Azure DevOps Server', () => {
+		const pullRequest = fromAzurePullRequest(
+			pr(
+				'https://server.example/tfs/DefaultCollection/project-id/_apis/git/repositories/repository-id/pullRequests/5',
+				'Proj',
+				'repo',
+			),
+			azureProvider,
+			'DefaultCollection',
+			'https://server.example/tfs',
+			undefined,
+		);
+
+		assert.equal(pullRequest.refs?.base.url, 'https://server.example/tfs/DefaultCollection/Proj/_git/repo');
+		assert.equal(pullRequest.refs?.base.owner, 'DefaultCollection');
+		assert.equal(pullRequest.repository?.owner, 'DefaultCollection');
+	});
+
+	test('uses the resolved fork url for the head ref', () => {
+		const azurePullRequest = pr(
+			'https://dev.azure.com/myorg/project-id/_apis/git/repositories/repository-id/pullRequests/5',
+			'My Project',
+			'my repo',
+		);
+		azurePullRequest.forkSource = createAzureForkSource(azurePullRequest);
+
+		const pullRequest = fromAzurePullRequest(
+			azurePullRequest,
+			azureProvider,
+			'myorg',
+			'https://dev.azure.com',
+			'https://dev.azure.com/myorg/Fork%20Project/_git/fork%20repo',
+		);
+
+		assert.equal(pullRequest.refs?.base.url, 'https://dev.azure.com/myorg/My%20Project/_git/my%20repo');
+		assert.equal(pullRequest.refs?.head.url, 'https://dev.azure.com/myorg/Fork%20Project/_git/fork%20repo');
+		assert.equal(pullRequest.refs?.head.repo, 'fork repo');
+		assert.equal(pullRequest.refs?.head.owner, 'myorg');
+	});
+
+	test('returns the pull request with no head url when the fork url was not resolved', () => {
+		const azurePullRequest = pr(
+			'https://dev.azure.com/myorg/project-id/_apis/git/repositories/repository-id/pullRequests/5',
+			'My Project',
+			'my repo',
+		);
+		azurePullRequest.forkSource = createAzureForkSource(
+			azurePullRequest,
+			'https://dev.azure.com/myorg/Fork%20Project/_git/fork%20repo',
+		);
+
+		const pullRequest = fromAzurePullRequest(
+			azurePullRequest,
+			azureProvider,
+			'myorg',
+			'https://dev.azure.com',
+			undefined,
+		);
+
+		assert.equal(pullRequest.refs?.base.url, 'https://dev.azure.com/myorg/My%20Project/_git/my%20repo');
+		assert.equal(pullRequest.refs?.head.url, undefined);
+		assert.equal(pullRequest.refs?.head.branch, 'feature');
+	});
+});
+
+suite('sanitizeAzureRepositoryUrl', () => {
+	test('returns undefined for a value that is not a url', () => {
+		assert.equal(sanitizeAzureRepositoryUrl('not-a-valid-url', 'https://dev.azure.com', 'myorg'), undefined);
+	});
+
+	test('strips credentials, query and fragment from an accepted url', () => {
+		const url = new URL('https://dev.azure.com/myorg/Project/_git/Repo?token=secret#fragment');
+		url.username = 'bot';
+		url.password = 'pat';
+
+		assert.equal(
+			sanitizeAzureRepositoryUrl(url.toString(), 'https://dev.azure.com', 'myorg'),
+			'https://dev.azure.com/myorg/Project/_git/Repo',
+		);
+	});
+
+	test('accepts the legacy visualstudio.com alias only within the same organization', () => {
+		assert.equal(
+			sanitizeAzureRepositoryUrl(
+				'https://myorg.visualstudio.com/Project/_git/Repo',
+				'https://dev.azure.com',
+				'myorg',
+			),
+			'https://myorg.visualstudio.com/Project/_git/Repo',
+		);
+		assert.equal(
+			sanitizeAzureRepositoryUrl(
+				'https://attacker.visualstudio.com/Project/_git/Repo',
+				'https://dev.azure.com',
+				'myorg',
+			),
+			undefined,
+		);
+		assert.equal(
+			sanitizeAzureRepositoryUrl(
+				'https://myorg.attacker.visualstudio.com/Project/_git/Repo',
+				'https://dev.azure.com',
+				'myorg',
+			),
+			undefined,
+		);
+	});
+
+	test('rejects another organization sharing the expected origin', () => {
+		assert.equal(
+			sanitizeAzureRepositoryUrl(
+				'https://dev.azure.com/attacker/Project/_git/Repo',
+				'https://dev.azure.com',
+				'myorg',
+			),
+			undefined,
+		);
+		// A prefix of the organization's name is a different organization, not a sub-path of it.
+		assert.equal(
+			sanitizeAzureRepositoryUrl(
+				'https://dev.azure.com/myorgtoo/Project/_git/Repo',
+				'https://dev.azure.com',
+				'myorg',
+			),
+			undefined,
+		);
+		assert.equal(
+			sanitizeAzureRepositoryUrl('https://dev.azure.com/myorg/Other/_git/Repo', 'https://dev.azure.com', 'myorg'),
+			'https://dev.azure.com/myorg/Other/_git/Repo',
+		);
+	});
+
+	test('compares the organization case-insensitively and percent-encoded', () => {
+		assert.equal(
+			sanitizeAzureRepositoryUrl(
+				'https://dev.azure.com/MyOrg/Project/_git/Repo',
+				'https://dev.azure.com',
+				'myorg',
+			),
+			'https://dev.azure.com/MyOrg/Project/_git/Repo',
+		);
+		assert.equal(
+			sanitizeAzureRepositoryUrl('https://dev.azure.com/my%20org/P/_git/R', 'https://dev.azure.com', 'my org'),
+			'https://dev.azure.com/my%20org/P/_git/R',
+		);
+	});
+
+	test('keeps a self-hosted url under its own collection and rejects anywhere else', () => {
+		assert.equal(
+			sanitizeAzureRepositoryUrl(
+				'https://azure.example.com:8080/tfs/DefaultCollection/Project/_git/Repo',
+				'https://azure.example.com:8080/tfs',
+				'DefaultCollection',
+			),
+			'https://azure.example.com:8080/tfs/DefaultCollection/Project/_git/Repo',
+		);
+		// Another collection on the same server is somewhere we didn't ask.
+		assert.equal(
+			sanitizeAzureRepositoryUrl(
+				'https://azure.example.com:8080/tfs/OtherCollection/Project/_git/Repo',
+				'https://azure.example.com:8080/tfs',
+				'DefaultCollection',
+			),
+			undefined,
+		);
+		assert.equal(
+			sanitizeAzureRepositoryUrl(
+				'https://azure.example.com/tfs/DefaultCollection/Project/_git/Repo',
+				'https://azure.example.com:8080/tfs',
+				'DefaultCollection',
+			),
+			undefined,
+		);
+	});
+
+	test('is not fooled by userinfo naming the expected host', () => {
+		assert.equal(
+			sanitizeAzureRepositoryUrl(
+				'https://dev.azure.com@attacker.example/Project/_git/Repo',
+				'https://dev.azure.com',
+				'myorg',
+			),
+			undefined,
 		);
 	});
 });

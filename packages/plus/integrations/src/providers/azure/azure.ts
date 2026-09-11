@@ -7,11 +7,14 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
+import { sha256 } from '@gitlens/utils/crypto.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import type { CacheController } from '@gitlens/utils/promiseCache.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import type { TokenWithInfo } from '../../authentication/models.js';
 import type { IntegrationServiceContext } from '../../context.js';
@@ -31,6 +34,8 @@ import type {
 	AzureProjectDescriptor,
 	AzurePullRequest,
 	AzurePullRequestWithLinks,
+	AzureRepositoryReference,
+	AzureRepositoryUrls,
 	AzureRepositoryWithMetadata,
 	AzureWorkItemState,
 	AzureWorkItemStateCategory,
@@ -45,7 +50,10 @@ import {
 	isClosedAzurePullRequestStatus,
 	isClosedAzureWorkItemStateCategory,
 	normalizeAzureBranchName,
+	sanitizeAzureRepositoryUrl,
 } from './models.js';
+
+const forkRepositoryUrlCacheTtl = 5 * 60 * 1000;
 
 class WorkItemStates {
 	private readonly _categories = new Map<string, AzureWorkItemStateCategory>();
@@ -99,6 +107,10 @@ class WorkItemStates {
 export class AzureDevOpsApi implements Disposable {
 	private readonly _disposable: Disposable | undefined;
 	private _workItemStates: WorkItemStates = new WorkItemStates();
+	private readonly _forkRepositoryUrls = new PromiseCache<string, string | undefined>({
+		capacity: 100,
+		createTTL: forkRepositoryUrlCacheTtl,
+	});
 
 	constructor(private readonly config: ProviderApiConfig) {
 		this._disposable = config.onConfigChanged?.(() => this.resetCaches());
@@ -110,6 +122,7 @@ export class AzureDevOpsApi implements Disposable {
 
 	private resetCaches(): void {
 		this._workItemStates.clear();
+		this._forkRepositoryUrls.clear();
 	}
 
 	@trace({
@@ -167,7 +180,7 @@ export class AzureDevOpsApi implements Disposable {
 			const pr = sortedPRs?.[0];
 			if (pr == null) return undefined;
 
-			return fromAzurePullRequest(pr, provider, owner);
+			return await this.toPullRequest(pr, provider, token, owner, options.baseUrl, scope);
 		} catch (ex) {
 			scope?.error(ex);
 			return undefined;
@@ -225,15 +238,15 @@ export class AzureDevOpsApi implements Disposable {
 			const pullRequest = await this.request<AzurePullRequestWithLinks>(
 				provider,
 				token,
-				undefined,
-				pr.url,
+				baseUrl,
+				`${owner}/${encodeURIComponent(pr.repository.project.id)}/_apis/git/repositories/${encodeURIComponent(pr.repository.id)}/pullRequests/${encodeURIComponent(pr.pullRequestId.toString())}`,
 				{ method: 'GET' },
 				scope,
 				cancellation,
 			);
 			if (pullRequest == null) return undefined;
 
-			return fromAzurePullRequest(pullRequest, provider, owner);
+			return await this.toPullRequest(pullRequest, provider, token, owner, baseUrl, scope, cancellation);
 		} catch (ex) {
 			scope?.error(ex);
 			return undefined;
@@ -335,7 +348,7 @@ export class AzureDevOpsApi implements Disposable {
 						state: azurePullRequestStatusToState(prResult.status),
 						closed: isClosedAzurePullRequestStatus(prResult.status),
 						title: prResult.title,
-						url: getAzurePullRequestWebUrl(prResult),
+						url: getAzurePullRequestWebUrl(prResult, options.baseUrl, owner),
 					};
 				}
 
@@ -704,6 +717,118 @@ export class AzureDevOpsApi implements Disposable {
 		);
 	}
 
+	private async toPullRequest(
+		pr: AzurePullRequest,
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		baseUrl: string,
+		scope: ScopedLogger | undefined,
+		cancellation?: AbortSignal,
+	): Promise<PullRequest> {
+		const forkRepositoryUrl = await this.getForkRepositoryUrl(
+			provider,
+			token,
+			owner,
+			baseUrl,
+			pr.forkSource?.repository,
+			scope,
+			cancellation,
+		);
+		return fromAzurePullRequest(pr, provider, owner, baseUrl, forkRepositoryUrl);
+	}
+
+	/**
+	 * Resolves the web URL of the fork a cross-repository pull request comes from. Every other repository URL is
+	 * rebuilt from the pull request payload; only a fork reference lacks the project to do that, so only a fork
+	 * costs a request.
+	 *
+	 * Best-effort by contract: a fork in a project the token cannot read, a deleted fork, or a throttled request
+	 * leaves the head ref without a URL. It must never cost the pull request itself, which is what makes swallowing
+	 * the failure here the right call rather than a shortcut.
+	 */
+	private async getForkRepositoryUrl(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		baseUrl: string,
+		repository: AzureRepositoryReference | undefined,
+		scope: ScopedLogger | undefined,
+		cancellation?: AbortSignal,
+	): Promise<string | undefined> {
+		if (repository == null) return undefined;
+
+		let tokenHash: string;
+		try {
+			tokenHash = await sha256(token.accessToken);
+		} catch {
+			return undefined;
+		}
+
+		const cacheKey = JSON.stringify([tokenHash, baseUrl, owner, repository.id]);
+		// The request is shared, so the factory is handed the cache's aggregate signal rather than this caller's: it
+		// aborts only once every caller waiting on the entry has cancelled.
+		return this._forkRepositoryUrls.getOrCreate(
+			cacheKey,
+			(cacheable, aggregate) =>
+				this.fetchForkRepositoryUrl(
+					provider,
+					token,
+					owner,
+					baseUrl,
+					repository.id,
+					cacheable,
+					scope,
+					aggregate,
+				),
+			{ cancellation: cancellation },
+		);
+	}
+
+	private async fetchForkRepositoryUrl(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		baseUrl: string,
+		repositoryId: string,
+		cacheable: CacheController,
+		scope: ScopedLogger | undefined,
+		cancellation?: AbortSignal,
+	): Promise<string | undefined> {
+		try {
+			const response = await this.request<AzureRepositoryUrls>(
+				provider,
+				token,
+				baseUrl,
+				`${owner}/_apis/git/repositories/${encodeURIComponent(repositoryId)}?api-version=4.1`,
+				{ method: 'GET' },
+				scope,
+				cancellation,
+			);
+			const webUrl =
+				response?.webUrl != null ? sanitizeAzureRepositoryUrl(response.webUrl, baseUrl, owner) : undefined;
+			if (webUrl != null) return webUrl;
+
+			const remoteUrl =
+				response?.remoteUrl != null
+					? sanitizeAzureRepositoryUrl(response.remoteUrl, baseUrl, owner)
+					: undefined;
+			if (remoteUrl != null) return remoteUrl;
+
+			cacheable.invalidate();
+			return undefined;
+		} catch (ex) {
+			// Missing or inaccessible forks are cached briefly; transient failures retry on the next read.
+			if (!(ex instanceof RequestNotFoundError) && !(ex instanceof AuthenticationError)) {
+				cacheable.invalidate();
+			}
+
+			const status = ex instanceof ProviderFetchError ? ` (${ex.status})` : '';
+			scope?.warn(`Unable to resolve the fork repository URL${status}`);
+			return undefined;
+		}
+	}
+
 	private async request<T>(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -718,7 +843,7 @@ export class AzureDevOpsApi implements Disposable {
 
 		let rsp: Response;
 		try {
-			const sw = maybeStopWatch(`[AZURE] ${options?.method ?? 'GET'} ${url}`, { log: { onlyExit: true } });
+			const sw = maybeStopWatch(`[AZURE] ${options?.method ?? 'GET'} request`, { log: { onlyExit: true } });
 
 			try {
 				if (cancellation?.aborted) throw new CancellationError();

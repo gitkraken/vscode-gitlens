@@ -190,10 +190,14 @@ export interface AzureProject {
 	lastUpdateTime: string;
 }
 
-export interface AzureRepository {
+export interface AzureRepositoryReference {
 	id: string;
 	name: string;
 	url: string;
+	remoteUrl?: string;
+}
+
+export interface AzureRepository extends AzureRepositoryReference {
 	project: AzureProject;
 	size: number;
 	remoteUrl: string;
@@ -202,6 +206,13 @@ export interface AzureRepository {
 	isDisabled: boolean;
 	isInMaintenance: boolean;
 }
+
+export interface AzurePullRequestRepository extends AzureRepositoryReference {
+	project: Pick<AzureProject, 'id' | 'name'>;
+}
+
+/** The URL fields of a repository response — all the fork lookup reads, and all an older `api-version` promises. */
+export type AzureRepositoryUrls = Partial<Pick<AzureRepository, 'webUrl' | 'remoteUrl'>>;
 
 /** The `GET .../_apis/git/repositories/{repositoryId or name}` response, adding fork/default-branch fields to {@link AzureRepository}. */
 export interface AzureRepositoryWithMetadata extends AzureRepository {
@@ -290,7 +301,7 @@ export interface AzureGitForkRef {
 	name: string;
 	objectId: string;
 	peeledObjectId: string;
-	repository: AzureRepository;
+	repository: AzureRepositoryReference;
 	statuses: AzureGitStatus[];
 	url: string;
 }
@@ -317,7 +328,7 @@ export type AzurePullRequestAsyncStatus =
 	| 'succeeded';
 
 export interface AzurePullRequest {
-	repository: AzureRepository;
+	repository: AzurePullRequestRepository;
 	pullRequestId: number;
 	codeReviewId: number;
 	status: AzurePullRequestStatus;
@@ -368,69 +379,85 @@ export interface AzurePullRequestWithLinks extends AzurePullRequest {
 	workItemRefs?: AzureResourceRef[];
 }
 
-export function getVSTSOwner(url: URL): string {
-	return url.hostname.split('.')[0];
-}
 export function getAzureDevOpsOwner(url: URL): string {
 	return url.pathname.split('/')[1];
-}
-export function getAzureOwner(url: URL): string {
-	return isVsts(url.hostname) ? getVSTSOwner(url) : getAzureDevOpsOwner(url);
 }
 export function isVsts(domain: string): boolean {
 	return domain.endsWith(vstsHostnameSuffix);
 }
 
-// Example: https://bbbchiv.visualstudio.com/MyFirstProject/_git/test
-const azureProjectRepoRegex = /([^/]+)\/_git\/([^/]+)/;
-function parseVstsHttpsUrl(url: URL): [owner: string, project: string, repo: string] {
-	const owner = getVSTSOwner(url);
-	const match = azureProjectRepoRegex.exec(url.pathname);
-	if (match == null) {
-		throw new Error(`Invalid VSTS URL: ${url.toString()}`);
-	}
-
-	const [, project, repo] = match;
-	return [owner, project, repo];
+/**
+ * `baseUrl` and `owner` are the authoritative prefix used for the API request. The payload URL cannot supply that
+ * prefix safely because it may address the repository by id or name an untrusted host.
+ */
+function getAzureRepositoryWebUrl(baseUrl: string, owner: string, projectName: string, repoName: string): string {
+	const repoPath = `${encodeURIComponent(owner)}/${encodeURIComponent(projectName)}/_git/${encodeURIComponent(repoName)}`;
+	return `${baseUrl.replace(/\/+$/, '')}/${repoPath}`;
 }
 
-// Example https://bbbchiv2@dev.azure.com/bbbchiv2/MyFirstProject/_git/test
-const azureHttpsUrlRegex = /([^/]+)\/([^/]+)\/_git\/([^/]+)/;
-function parseAzureNewStyleUrl(url: URL): [owner: string, project: string, repo: string] {
-	const match = azureHttpsUrlRegex.exec(url.pathname);
-	if (match == null) {
-		throw new Error(`Invalid Azure URL: ${url.toString()}`);
-	}
-
-	const [, owner, project, repo] = match;
-	return [owner, project, repo];
+export function getAzurePullRequestWebUrl(pr: AzurePullRequest, baseUrl: string, owner: string): string {
+	const repoUrl = getAzureRepositoryWebUrl(baseUrl, owner, pr.repository.project.name, pr.repository.name);
+	return `${repoUrl}/pullrequest/${pr.pullRequestId}`;
 }
 
-export function parseAzureHttpsUrl(url: string): [owner: string, project: string, repo: string];
-export function parseAzureHttpsUrl(urlObj: URL): [owner: string, project: string, repo: string];
-export function parseAzureHttpsUrl(arg: URL | string): [owner: string, project: string, repo: string] {
-	const url = typeof arg === 'string' ? new URL(arg) : arg;
-	if (isVsts(url.hostname)) {
-		return parseVstsHttpsUrl(url);
-	}
-	return parseAzureNewStyleUrl(url);
+/**
+ * Whether `url` and `expected` are the two cloud spellings of one organization: a cloud organization answers on both
+ * `dev.azure.com/{owner}` and the legacy `{owner}.visualstudio.com`, so those name the same host. Anything else is
+ * somewhere we didn't ask.
+ */
+function isSameAzureCloudOrganization(url: URL, expected: URL, expectedOwner: string): boolean {
+	if (url.protocol !== expected.protocol) return false;
+
+	const owner = expectedOwner.toLowerCase();
+	if (expected.hostname !== 'dev.azure.com' && !isVsts(expected.hostname)) return false;
+
+	if (url.hostname === 'dev.azure.com') return getAzureDevOpsOwner(url).toLowerCase() === owner;
+
+	return url.hostname === `${owner}${vstsHostnameSuffix}`;
 }
 
-export function getAzurePullRequestWebUrl(pr: AzurePullRequest): string {
-	const url = new URL(pr.url);
-	// Azure allows spaces (and other reserved characters) in project and repository names, so each name is encoded
-	// as its own segment; `_git` is a literal. The names come off the model because `pr.url` cannot be relied on to
-	// spell them — it addresses the repository by id.
-	const repoPath = `${encodeURIComponent(pr.repository.project.name)}/_git/${encodeURIComponent(pr.repository.name)}`;
-	// `url.origin` carries no trailing slash — don't route it through `new URL(...).toString()`, which adds one
-	if (isVsts(url.hostname)) {
-		return `${url.origin}/${repoPath}/pullrequest/${pr.pullRequestId}`;
+/**
+ * Whether `url` sits under the collection the integration is configured to talk to — `{expectedUrl}/{expectedOwner}`.
+ * A matching origin says nothing on its own: Azure organizations and self-hosted collections are path segments.
+ */
+function isUnderAzureCollection(url: URL, expected: URL, expectedOwner: string): boolean {
+	const base = expected.pathname.replace(/\/+$/, '');
+	const prefix = `${base}/${encodeURIComponent(expectedOwner)}/`.toLowerCase();
+	return `${url.pathname}/`.toLowerCase().startsWith(prefix);
+}
+
+/**
+ * Restricts a provider-supplied repository URL to the integration's collection and removes credentials, query, and
+ * fragment before a consumer can use it as a git remote.
+ */
+export function sanitizeAzureRepositoryUrl(
+	value: string,
+	expectedUrl: string,
+	expectedOwner: string,
+): string | undefined {
+	let expected: URL;
+	let url: URL;
+	try {
+		expected = new URL(expectedUrl);
+		url = new URL(value);
+	} catch {
+		return undefined;
 	}
 
-	// The owner comes off an already-parsed pathname, so it is already percent-encoded — don't encode it again.
-	// Note `getAzureDevOpsOwner` reads the org as the FIRST path segment, which holds for the cloud host but not
-	// for a self-hosted path carrying a virtual directory ahead of it; pre-existing, tracked by #5840.
-	return `${url.origin}/${getAzureDevOpsOwner(url)}/${repoPath}/pullrequest/${pr.pullRequestId}`;
+	if (expected.protocol !== 'https:' && expected.protocol !== 'http:') return undefined;
+	if (!expectedOwner) return undefined;
+
+	if (url.origin === expected.origin) {
+		if (!isUnderAzureCollection(url, expected, expectedOwner)) return undefined;
+	} else if (!isSameAzureCloudOrganization(url, expected, expectedOwner)) {
+		return undefined;
+	}
+
+	url.username = '';
+	url.password = '';
+	url.search = '';
+	url.hash = '';
+	return url.toString();
 }
 
 export function fromAzurePullRequestMergeStatusToMergeableState(
@@ -526,17 +553,31 @@ function fromAzureUserToMember(user: AzureUser, _type: 'issue' | 'pullRequest'):
 	};
 }
 
-export function fromAzurePullRequest(pr: AzurePullRequest, provider: Provider, orgName: string): PullRequest {
-	const url = new URL(pr.url);
+/**
+ * `baseUrl` and `owner` are the prefix the pull request was read through; every URL the model reports is built from
+ * them. The required `forkRepositoryUrl` argument makes each call site resolve the best-effort fork URL explicitly.
+ */
+export function fromAzurePullRequest(
+	pr: AzurePullRequest,
+	provider: Provider,
+	owner: string,
+	baseUrl: string,
+	forkRepositoryUrl: string | undefined,
+): PullRequest {
+	const baseRepositoryUrl = getAzureRepositoryWebUrl(baseUrl, owner, pr.repository.project.name, pr.repository.name);
+
+	const forkRepository = pr.forkSource?.repository;
+	const headRepositoryUrl = forkRepository == null ? baseRepositoryUrl : forkRepositoryUrl;
+
 	return new PullRequest(
 		provider,
 		fromAzureUserToMember(pr.createdBy, 'pullRequest'),
 		pr.pullRequestId.toString(),
 		pr.pullRequestId.toString(),
 		pr.title,
-		getAzurePullRequestWebUrl(pr),
+		getAzurePullRequestWebUrl(pr, baseUrl, owner),
 		{
-			owner: getAzureOwner(url),
+			owner: owner,
 			repo: pr.repository.name,
 			id: pr.repository.id,
 			// TODO: Remove this assumption once actual access level is available
@@ -554,17 +595,17 @@ export function fromAzurePullRequest(pr: AzurePullRequest, provider: Provider, o
 				branch: pr.targetRefName ? normalizeAzureBranchName(pr.targetRefName) : '',
 				sha: pr.lastMergeTargetCommit?.commitId ?? '',
 				repo: pr.repository.name,
-				owner: getAzureOwner(url),
+				owner: owner,
 				exists: pr.targetRefName != null,
-				url: pr.repository.webUrl,
+				url: baseRepositoryUrl,
 			},
 			head: {
 				branch: pr.sourceRefName ? normalizeAzureBranchName(pr.sourceRefName) : '',
 				sha: pr.lastMergeSourceCommit?.commitId ?? '',
-				repo: pr.forkSource?.repository != null ? pr.forkSource.repository.name : pr.repository.name,
-				owner: getAzureOwner(url),
+				repo: forkRepository?.name ?? pr.repository.name,
+				owner: owner,
 				exists: pr.sourceRefName != null,
-				url: pr.forkSource?.repository != null ? pr.forkSource.repository.webUrl : pr.repository.webUrl,
+				url: headRepositoryUrl,
 			},
 			isCrossRepository: pr.forkSource != null,
 		},
@@ -582,7 +623,7 @@ export function fromAzurePullRequest(pr: AzurePullRequest, provider: Provider, o
 			id: pr.repository?.project?.id,
 			name: pr.repository.project.name,
 			resourceId: '', // TODO: This is a workaround until we can get the org id here.
-			resourceName: orgName,
+			resourceName: owner,
 		},
 	);
 }
