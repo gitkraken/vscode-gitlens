@@ -152,9 +152,6 @@ export async function listIssueTrackerIssuesPage(
 
 	const domain = ctx.domainForRead(integration, options.providerId, options.connectionId);
 
-	// Fire-and-forget: feeds getCurrentAccount's own cache for viewer-relative flags; must not affect this read.
-	void integration.getCurrentAccount({ connectionId: options.connectionId }).catch(() => undefined);
-
 	// Before any upstream request: the discovery fan-outs below (resources, projects, per-resource accounts) are
 	// three round trips, and an order this tracker can't express refuses the read whatever they return. Placed after
 	// `domain` only because every warning carries it.
@@ -169,6 +166,9 @@ export async function listIssueTrackerIssuesPage(
 	const sort = resolvedSort.sort;
 
 	await ctx.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
+
+	// Fire-and-forget, after the refresh: a forced sync must not warm the cache off the pre-refresh session.
+	void integration.getCurrentAccount({ connectionId: options.connectionId }).catch(() => undefined);
 
 	const { value: resources, warning: resourcesWarning } = await runCaptured(
 		options.providerId,
