@@ -189,7 +189,28 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				onClick: () => this.emit('publish-branch'),
 			});
 		} else {
-			if (behind > 0) {
+			if (ahead > 0 && behind > 0) {
+				steps.push({
+					icon: 'repo-force-push',
+					label: l10n.t('Diverged from {remote} — {behind} behind, {ahead} ahead', {
+						remote: remoteName,
+						behind: behind,
+						ahead: ahead,
+					}),
+					actionLabel: l10n.t('Pull'),
+					onClick: () => this.emit('pull'),
+					alt: {
+						actionLabel: l10n.t('Force Push'),
+						tooltip: formatPlural(
+							l10n.t(
+								'{count, plural, one{Force push {count} commit to {remote}} other{Force push {count} commits to {remote}}}',
+							),
+							{ count: ahead, remote: remoteName },
+						),
+						onClick: () => this.emit('force-push'),
+					},
+				});
+			} else if (behind > 0) {
 				steps.push({
 					icon: 'repo-pull',
 					label: formatPlural(

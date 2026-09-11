@@ -3273,6 +3273,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										@publish-branch=${this.handlePublishBranch}
 										@pull=${this.handlePull}
 										@push=${this.handlePush}
+										@force-push=${this.handleForcePush}
 										@rebase-onto-merge-target=${this.handleRebaseOntoMergeTarget}
 										@merge-merge-target-into-current=${this.handleMergeMergeTargetIntoCurrent}
 										@review-branch-changes=${this.handleReviewBranchChanges}

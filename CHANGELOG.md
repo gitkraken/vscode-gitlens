@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds customizing the _Commit Graph_ keyboard shortcuts ([#5813](https://github.com/gitkraken/vscode-gitlens/issues/5813)) &mdash; use the new `gitlens.graph.shortcuts.overrides` setting to rebind or disable its modifier-key shortcuts (`Alt+M`, `Ctrl+↑`, …) by id (hover a shortcut in the `?` reference to see its id), or `gitlens.graph.shortcuts.enabled` to turn them all off
 - Adds a _Try Kepler_ banner to the _Agents_ section in _GitLens Settings_ and the _Commit Graph_'s _Agents_ side bar panel &mdash; introduces Kepler, GitKraken's delivery engine for agent-driven development, shown until you open Kepler from it
 - Adds resuming past Codex, OpenCode, and GitHub Copilot CLI agent sessions &mdash; every _Resume_ action now names where it goes, _Resume in Terminal_ or _Resume in <Agent> Extension_, and shows both when a session can open either way; the new `gitlens.agents.resumeTarget` setting picks which one Enter uses in the _Resume Agent Session_ picker, or asks the first time with an option to remember
+- Adds a _Force Push_ action to the _Commit Graph_'s working-changes _Next steps_ when a branch has diverged from its upstream ([#5832](https://github.com/gitkraken/vscode-gitlens/issues/5832)) &mdash; after a rebase or recompose the branch is both ahead and behind, and the diverged step now offers _Pull_ and _Force Push_ side by side, instead of only pointing at _Pull_
 
 ### Changed
 
