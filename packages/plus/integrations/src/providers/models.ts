@@ -1316,6 +1316,7 @@ export function toIssueShape(
 		commentsCount: issue.commentCount ?? undefined,
 		thumbsUpCount: issue.upvoteCount ?? undefined,
 		body: issue.description ?? undefined,
+		bodyFormat: provider.id === IssuesCloudHostIntegrationId.Jira ? 'jira-wiki' : undefined,
 		issueType: issue.type ?? undefined,
 	};
 }
@@ -1756,6 +1757,7 @@ export function fromProviderIssue(
 		identifier,
 		issue.type ?? undefined,
 		toIssueProviderState(issue.state, integration.id !== IssuesCloudHostIntegrationId.Jira),
+		integration.id === IssuesCloudHostIntegrationId.Jira ? 'jira-wiki' : undefined,
 	);
 }
 

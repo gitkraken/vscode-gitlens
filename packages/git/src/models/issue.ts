@@ -170,6 +170,8 @@ export interface IssueShape extends IssueOrPullRequest {
 	repository?: IssueRepository;
 	labels?: IssueLabel[];
 	body?: string;
+	/** The syntax used by `body`. When omitted, consumers should treat `body` as Markdown. */
+	bodyFormat?: IssueBodyFormat;
 	project?: IssueProject;
 	issueType?: string;
 }
@@ -200,12 +202,15 @@ export class Issue implements IssueShape {
 		public readonly number?: string,
 		public readonly issueType?: string,
 		public readonly providerState?: IssueProviderState,
+		public readonly bodyFormat?: IssueBodyFormat,
 	) {}
 
 	static is(issue: unknown): issue is Issue {
 		return issue instanceof Issue;
 	}
 }
+
+export type IssueBodyFormat = 'markdown' | 'jira-wiki';
 
 export const enum RepositoryAccessLevel {
 	Admin = 100,
