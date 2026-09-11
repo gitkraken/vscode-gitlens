@@ -626,6 +626,16 @@ direct issue-by-key read supplies the stable category. `name` and `color` are pr
 
 The normalized `state` and `closed` fields keep their existing derivation; `providerState` is additive.
 
+### Issue body format
+
+`IssueShape.body` is not normalized to one markup language. Jira descriptions come from REST v2 as wiki markup,
+while GitHub, GitLab, and Linear descriptions are Markdown. Jira issues therefore set
+`bodyFormat: 'jira-wiki'`; an omitted `bodyFormat` means consumers should preserve the existing behavior and treat
+`body` as Markdown. The `'markdown'` value is reserved for providers that need to make that format explicit.
+
+Rendering and conversion remain consumer concerns. In particular, the Jira body is neither ADF nor converted to
+Markdown by this package.
+
 - **GitHub / GHE** — cursor-only everywhere. The filtered PR search aliases each requested relationship × state
   facet into one GraphQL request per page, dedupes facet overlap, and sorts the page most-recently-updated-first.
   With no relationships it searches every PR in the required repo/org scope. The

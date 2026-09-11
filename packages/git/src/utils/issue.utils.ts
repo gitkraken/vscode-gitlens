@@ -181,6 +181,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 		commentsCount: value.commentsCount,
 		thumbsUpCount: value.thumbsUpCount,
 		body: value.body,
+		bodyFormat: value.bodyFormat,
 	};
 	return serialized;
 }

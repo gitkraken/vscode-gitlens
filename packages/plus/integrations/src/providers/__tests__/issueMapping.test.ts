@@ -69,6 +69,42 @@ suite('issue mapping', () => {
 		assert.equal(shape.issueType, 'Bug');
 		assert.equal(issue.providerState, undefined);
 		assert.equal(shape.providerState, undefined);
+		assert.equal(issue.bodyFormat, undefined);
+		assert.equal(shape.bodyFormat, undefined);
+	});
+
+	test('identifies Jira descriptions as wiki markup in both issue mappers', () => {
+		const providerIssue: ProviderIssue = {
+			author: null,
+			assignees: [],
+			commentCount: 0,
+			closedDate: null,
+			createdDate: new Date(0),
+			description: 'h2. Details',
+			id: 'global-id',
+			labels: [],
+			number: 'ABC-42',
+			repository: null,
+			state: null,
+			title: 'Issue ABC-42',
+			type: null,
+			updatedDate: new Date(1),
+			upvoteCount: 0,
+			url: 'https://example.atlassian.net/browse/ABC-42',
+		};
+		const jiraIntegration = {
+			...fakeIntegration,
+			id: IssuesCloudHostIntegrationId.Jira,
+		} as unknown as Integration;
+
+		const issue = fromProviderIssue(providerIssue, jiraIntegration);
+		const shape = toIssueShape(providerIssue, jiraIntegration);
+		assert.ok(shape != null);
+
+		assert.equal(issue.body, 'h2. Details');
+		assert.equal(shape.body, issue.body);
+		assert.equal(issue.bodyFormat, 'jira-wiki');
+		assert.equal(shape.bodyFormat, issue.bodyFormat);
 	});
 
 	test('preserves the provider workflow state in both issue mappers', () => {

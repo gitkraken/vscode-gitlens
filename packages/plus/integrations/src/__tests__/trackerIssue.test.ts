@@ -52,7 +52,7 @@ function jiraIssueResponse(
 			comment: { total: 0, comments: [] },
 			created: '2026-01-01T00:00:00Z',
 			creator: null,
-			description: null,
+			description: 'h2. Details\n\n{code}example{code}',
 			issuetype: { name: 'Task' },
 			labels: [],
 			project: { id: 'project-1', key: 'ABC', name: 'ABC' },
@@ -123,6 +123,8 @@ suite('IntegrationManager.getTrackerIssue', () => {
 		assert.equal(result.items[0]?.key, 'ABC-123');
 		assert.equal(result.items[0]?.issue?.id, 'ABC-123');
 		assert.equal(result.items[0]?.issue?.url, `${jiraResourceUrl}/browse/ABC-123`);
+		assert.equal(result.items[0]?.issue?.body, 'h2. Details\n\n{code}example{code}');
+		assert.equal(result.items[0]?.issue?.bodyFormat, 'jira-wiki');
 		assert.equal(result.items[0]?.issue?.state, 'opened');
 		assert.equal(result.fetchFailed, undefined);
 
