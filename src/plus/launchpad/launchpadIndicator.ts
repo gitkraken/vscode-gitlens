@@ -7,7 +7,6 @@ import { groupByMap } from '@gitlens/utils/iterable.js';
 import { escapeMarkdown } from '@gitlens/utils/markdown.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { wait } from '@gitlens/utils/promise.js';
-import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs.js';
 import type { Colors } from '../../constants.colors.js';
 import { proBadge } from '../../constants.js';
 import type { Container } from '../../container.js';
@@ -750,10 +749,7 @@ export class LaunchpadIndicator implements Disposable {
 				this.storeFirstInteractionIfNeeded();
 				switch (action) {
 					case 'info': {
-						void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
-							step: 'accelerate-pr-reviews',
-							source: { source: 'launchpad-indicator', detail: 'info' },
-						});
+						void executeCommand('gitlens.showWelcomeView');
 						break;
 					}
 					case 'hide': {

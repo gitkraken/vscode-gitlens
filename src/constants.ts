@@ -163,12 +163,4 @@ export const urls = Object.freeze({
 	welcomeTrialReactivationEligible: `https://help.gitkraken.com/gitlens/gitlens-community-vs-gitlens-pro/?${utm}`,
 });
 
-export type WalkthroughSteps =
-	| 'welcome-in-trial'
-	| 'welcome-paid'
-	| 'welcome-in-trial-expired-eligible'
-	| 'welcome-in-trial-expired'
-	| 'get-started-community'
-	| 'visualize-code-history'
-	| 'accelerate-pr-reviews'
-	| 'improve-workflows-with-integrations';
+export type WalkthroughSteps = 'get-started';

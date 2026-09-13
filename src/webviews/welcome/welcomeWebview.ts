@@ -25,7 +25,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewHost<'gitlens.views.welcome'>,
+		private readonly host: WebviewHost<'gitlens.views.welcome' | 'gitlens.welcome'>,
 	) {}
 
 	dispose(): void {}

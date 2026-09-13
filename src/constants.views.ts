@@ -84,7 +84,7 @@ export const groupableViewTypeLabels: Readonly<Record<GroupableTreeViewTypes, st
 	fileHistory: l10n.t('File History'),
 };
 
-export type WebviewPanelTypes = 'allowedSigners' | 'graph' | 'patchDetails' | 'settings' | 'timeline';
+export type WebviewPanelTypes = 'allowedSigners' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'welcome';
 export type WebviewPanelIds = `gitlens.${WebviewPanelTypes}`;
 
 export type WebviewViewTypes = 'commitDetails' | 'graph' | 'patchDetails' | 'timeline' | 'welcome';

@@ -88,6 +88,7 @@ export type ContextKeys = {
 	'gitlens:views:scm:grouped:view': GroupableTreeViewTypes;
 	'gitlens:views:scm:grouped:welcome': boolean;
 	'gitlens:vsls': boolean | 'host' | 'guest';
+	'gitlens:welcome:inEditor': boolean;
 	'gitlens:window:annotated': AnnotationStatus | `${AnnotationStatus}:${FileAnnotationType}`;
 	'gitlens:walkthroughSupported': boolean;
 } & Record<`gitlens:action:${string}`, number> &

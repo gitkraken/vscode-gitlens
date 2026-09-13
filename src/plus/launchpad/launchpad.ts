@@ -42,7 +42,6 @@ import { QuickCommand } from '../../commands/quick-wizard/quickCommand.js';
 import { ensureAccessStep } from '../../commands/quick-wizard/steps/access.js';
 import { StepsController } from '../../commands/quick-wizard/stepsController.js';
 import { canPickStepContinue, createPickStep } from '../../commands/quick-wizard/utils/steps.utils.js';
-import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs.js';
 import { proBadge, urls } from '../../constants.js';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
@@ -1253,11 +1252,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 								),
 								detail: l10n.t('Click to learn more about Launchpad'),
 								iconPath: new ThemeIcon('rocket'),
-								onDidSelect: () =>
-									void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
-										step: 'accelerate-pr-reviews',
-										source: { source: 'launchpad', detail: 'info' },
-									}),
+								onDidSelect: () => void executeCommand('gitlens.showWelcomeView'),
 							}),
 							createQuickPickSeparator(),
 						]),

@@ -668,6 +668,19 @@
 				]
 			}
 		},
+		"gitlens.ai.generateChangelogFromCommits:graph": {
+			"label": "Generate Changelog",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:commit\\b/ && listMultiSelection && !gitlens:untrusted && gitlens:ai:allowed",
+						"group": "1_gitlens_ai",
+						"order": 10
+					}
+				]
+			}
+		},
 		"gitlens.ai.generateCommitMessage": {
 			"label": "Generate Commit Message",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed"
@@ -8406,9 +8419,12 @@
 			"label": "Show Visual File History View",
 			"commandPalette": "gitlens:enabled"
 		},
+		"gitlens.showWelcomePage": {
+			"label": "Show Welcome",
+			"commandPalette": "gitlens:welcome:inEditor"
+		},
 		"gitlens.showWelcomeView": {
-			"label": "Show Welcome View",
-			"commandPalette": true
+			"label": "Show Welcome View"
 		},
 		"gitlens.showWorkspacesView": {
 			"label": "Show Cloud Workspaces View",
@@ -20766,6 +20782,10 @@
 				]
 			}
 		},
+		"gitlens.welcome.simulate.inEditor": {
+			"label": "Simulate Welcome in Editor (Debugging)",
+			"commandPalette": "gitlens:enabled && gitlens:debugging"
+		},
 		"gitlens.whatsNew": {
 			"label": "What's New (Release Notes)",
 			"icon": "$(megaphone)",
@@ -22158,6 +22178,7 @@
 		"gitlens.views.welcome": {
 			"type": "webview",
 			"name": "Welcome",
+			"when": "!gitlens:welcome:inEditor",
 			"contextualTitle": "GitLens",
 			"icon": "$(gitlens-gitlens)",
 			"initialSize": 3,

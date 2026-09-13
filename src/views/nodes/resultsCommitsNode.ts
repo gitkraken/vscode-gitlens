@@ -274,7 +274,7 @@ export class ResultsCommitsNodeBase<Type extends TreeViewNodeTypes, View extends
 		const { log } = await this.getCommitsQueryResults();
 		if (log == null) return { changes: [], range: range };
 
-		return getChangesForChangelog(this.view.container, range, log);
+		return getChangesForChangelog(this.view.container, range, [...log.commits.values()]);
 	}
 }
 

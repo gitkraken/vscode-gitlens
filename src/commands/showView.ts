@@ -1,6 +1,7 @@
 import { l10n, window } from 'vscode';
 import type { Container } from '../container.js';
 import { command, executeCommand, executeCoreCommand } from '../system/-webview/command.js';
+import { getContext } from '../system/-webview/context.js';
 import type { GraphWebviewShowingArgs } from '../webviews/plus/graph/registration.js';
 import type { WelcomeWebviewShowingArgs } from '../webviews/welcome/registration.js';
 import { GlCommandBase } from './commandBase.js';
@@ -117,6 +118,9 @@ export class ShowViewCommand extends GlCommandBase {
 				await this.waitForRepo();
 				return this.container.views.timeline.show();
 			case 'gitlens.showWelcomeView':
+				if (getContext('gitlens:welcome:inEditor', false)) {
+					return executeCommand('gitlens.showWelcomePage', undefined, ...args);
+				}
 				return this.container.views.welcome.show(undefined, ...(args as WelcomeWebviewShowingArgs));
 			case 'gitlens.showWorktreesView':
 				await this.waitForRepo();

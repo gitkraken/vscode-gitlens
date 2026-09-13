@@ -2,7 +2,6 @@ import type { ConfigurationChangeEvent, TreeViewVisibilityChangeEvent } from 'vs
 import { Disposable, l10n, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import { Logger } from '@gitlens/utils/logger.js';
-import type { OpenWalkthroughCommandArgs } from '../commands/walkthroughs.js';
 import type { LaunchpadViewConfig, ViewFilesLayout } from '../config.js';
 import { proBadge } from '../constants.js';
 import type { Container } from '../container.js';
@@ -298,11 +297,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
-				() =>
-					executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
-						step: 'accelerate-pr-reviews',
-						source: { source: 'launchpad-view', detail: 'info' },
-					}),
+				() => executeCommand('gitlens.showWelcomeView'),
 				this,
 			),
 			registerViewCommand(
