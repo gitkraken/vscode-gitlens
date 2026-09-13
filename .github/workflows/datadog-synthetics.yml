@@ -24,15 +24,23 @@ jobs:
         runs-on: ubuntu-latest
         permissions:
             contents: read
+        env:
+            DD_API_KEY: ${{ secrets.DD_API_KEY }}
+            DD_APP_KEY: ${{ secrets.DD_APP_KEY }}
 
         steps:
             - uses: actions/checkout@v4
 
+            - name: Skip when Datadog secrets are unavailable
+              if: ${{ env.DD_API_KEY == '' || env.DD_APP_KEY == '' }}
+              run: echo 'Skipping Datadog Synthetic tests because repository secrets are unavailable for this run.'
+
             # Run Synthetic tests within your GitHub workflow.
             # For additional configuration options visit the action within the marketplace: https://github.com/marketplace/actions/datadog-synthetics-ci
             - name: Run Datadog Synthetic tests
+              if: ${{ env.DD_API_KEY != '' && env.DD_APP_KEY != '' }}
               uses: DataDog/synthetics-ci-github-action@87b505388a22005bb8013481e3f73a367b9a53eb # v1.4.0
               with:
-                  api_key: ${{secrets.DD_API_KEY}}
-                  app_key: ${{secrets.DD_APP_KEY}}
+                  api_key: ${{ env.DD_API_KEY }}
+                  app_key: ${{ env.DD_APP_KEY }}
                   test_search_query: 'tag:e2e-tests' #Modify this tag to suit your tagging strategy
