@@ -56,6 +56,16 @@ import {
 
 const forkRepositoryUrlCacheTtl = 5 * 60 * 1000;
 
+function parseAzureRepositoryDescriptor(repo: string): { projectName: string; repoName: string } {
+	const parts = repo.split('/');
+	const [projectName, segment, repoName] = parts;
+	if (parts.length !== 3 || segment !== '_git' || !projectName || !repoName) {
+		throw new Error(`Invalid Azure repository descriptor '${repo}'; expected '{project}/_git/{repoName}'.`);
+	}
+
+	return { projectName: projectName, repoName: repoName };
+}
+
 class WorkItemStates {
 	private readonly _categories = new Map<string, AzureWorkItemStateCategory>();
 	private readonly _types = new Map<string, AzureWorkItemState[]>();
@@ -146,7 +156,7 @@ export class AzureDevOpsApi implements Disposable {
 		},
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
-		const [projectName, _, repoName] = repo.split('/');
+		const { projectName, repoName } = parseAzureRepositoryDescriptor(repo);
 
 		try {
 			const prResult = await this.request<{ value: AzurePullRequest[] }>(
@@ -211,7 +221,7 @@ export class AzureDevOpsApi implements Disposable {
 		cancellation?: AbortSignal,
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
-		const [projectName, _, repoName] = repo.split('/');
+		const { projectName, repoName } = parseAzureRepositoryDescriptor(repo);
 		try {
 			const prResult = await this.request<{ results: Record<string, AzurePullRequest[]>[] }>(
 				provider,
@@ -275,7 +285,7 @@ export class AzureDevOpsApi implements Disposable {
 		},
 	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getScopedLogger();
-		const [projectName, _, repoName] = repo.split('/');
+		const { projectName, repoName } = parseAzureRepositoryDescriptor(repo);
 
 		if (options?.type === undefined || options?.type === 'issue') {
 			try {
@@ -442,7 +452,7 @@ export class AzureDevOpsApi implements Disposable {
 		},
 	): Promise<UnidentifiedAuthor | undefined> {
 		const scope = getScopedLogger();
-		const [projectName, _, repoName] = repo.split('/');
+		const { projectName, repoName } = parseAzureRepositoryDescriptor(repo);
 
 		try {
 			// Try to get the Work item (wit) first with specific fields
@@ -701,12 +711,7 @@ export class AzureDevOpsApi implements Disposable {
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal,
 	): Promise<AzureRepositoryWithMetadata | undefined> {
-		const parts = repo.split('/');
-		const [projectName, segment, repoName] = parts;
-		// The descriptor must be exactly `"{project}/_git/{repoName}"`; bail before issuing a bogus request.
-		if (parts.length !== 3 || segment !== '_git' || !projectName || !repoName) {
-			throw new Error(`Invalid Azure repository descriptor '${repo}'; expected '{project}/_git/{repoName}'.`);
-		}
+		const { projectName, repoName } = parseAzureRepositoryDescriptor(repo);
 		return this.request<AzureRepositoryWithMetadata>(
 			provider,
 			token,

@@ -471,6 +471,33 @@ suite('resolveRepository (#5438)', () => {
 
 		manager.dispose();
 	});
+
+	test('resolves Azure DevOps Server behind nested virtual directories', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		await connectSelfManaged(manager, GitSelfManagedHostIntegrationId.AzureDevOpsServer, 'ado-server.example.com');
+		let capturedInput: { namespace: string; name: string; project: string } | undefined;
+		let capturedOptions: { token?: string; isPAT?: boolean; baseUrl?: string } | undefined;
+		await stubRealGetRepoOfProjectFn(
+			manager,
+			GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+			(input, options) => {
+				capturedInput = input;
+				capturedOptions = options;
+				return Promise.resolve({ data: repoResult });
+			},
+		);
+
+		const result = await manager.resolveRepository({
+			providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+			domain: 'ado-server.example.com',
+			remoteUrl: 'https://ado-server.example.com/tfs/team/DefaultCollection/myproject/_git/myrepo',
+		});
+		assert.equal(result.resolution.status, 'resolved');
+		assert.deepEqual(capturedInput, { namespace: 'DefaultCollection', name: 'myrepo', project: 'myproject' });
+		assert.equal(capturedOptions?.baseUrl, 'https://ado-server.example.com/tfs/team');
+
+		manager.dispose();
+	});
 });
 
 // #5559: GitHub/GitLab `getRepo` are GraphQL and never throw `RequestNotFoundError` for a missing repo —
