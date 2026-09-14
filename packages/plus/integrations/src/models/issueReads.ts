@@ -144,6 +144,13 @@ export type SearchMyIssuesOptions = {
 	filters?: IssueFilter[];
 	cursor?: string;
 	/**
+	 * Page size PER CATEGORY, not per page: GitHub runs one search per category (authored/assigned/mentioned), so
+	 * a page can hold up to `3 × pageSize` items before deduplication. Only honored by GitHub/GHE — GitLab, Azure
+	 * and Linear drain their account-wide reads with their own bounds and ignore it. Omitted keeps the provider's
+	 * default.
+	 */
+	pageSize?: number;
+	/**
 	 * Narrows the account-wide read to one org/account (Azure: the organization) and/or one project within it.
 	 * Only honored by a host with a project layer (Azure), whose account-wide read otherwise fans out over every
 	 * project of every org; the caller checks `supportsProjectDiscovery` before asking, so a host without a
