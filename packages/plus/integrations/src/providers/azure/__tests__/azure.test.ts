@@ -290,6 +290,71 @@ suite('AzureDevOpsApi pull requests', () => {
 		const pr = await getPullRequestForBranch(api, 'https://dev.azure.com');
 
 		assert.equal(pr?.refs?.head.url, 'https://dev.azure.com/myorg/ForkProject/_git/ForkRepo');
+		assert.equal(pr?.refs?.head.cloneHttps, 'https://dev.azure.com/myorg/ForkProject/_git/ForkRepo');
+	});
+
+	test('carries the clone url of each ref, the head one off the fork lookup', async () => {
+		const azurePullRequest = pullRequest();
+		azurePullRequest.repository.remoteUrl = 'https://myorg@dev.azure.com/myorg/Project/_git/Repo';
+		azurePullRequest.forkSource = createAzureForkSource(azurePullRequest);
+		const { config } = configForPullRequest(azurePullRequest, {
+			[forkRepositoryRoute]: {
+				webUrl: 'https://dev.azure.com/myorg/ForkProject/_git/ForkRepo',
+				remoteUrl: 'https://myorg@dev.azure.com/myorg/ForkProject/_git/ForkRepo',
+			},
+		});
+		const api = new AzureDevOpsApi(config);
+
+		const pr = await getPullRequestForBranch(api, 'https://dev.azure.com');
+
+		assert.equal(pr?.refs?.base.cloneHttps, 'https://dev.azure.com/myorg/Project/_git/Repo');
+		assert.equal(pr?.refs?.head.cloneHttps, 'https://dev.azure.com/myorg/ForkProject/_git/ForkRepo');
+	});
+
+	// An older `api-version` promises neither URL field, so the clone URL has to be able to name the fork on its own.
+	test('names the fork by its clone url when the lookup reports no web url', async () => {
+		const azurePullRequest = pullRequest();
+		azurePullRequest.forkSource = createAzureForkSource(azurePullRequest);
+		const { config } = configForPullRequest(azurePullRequest, {
+			[forkRepositoryRoute]: { remoteUrl: 'https://dev.azure.com/myorg/ForkProject/_git/ForkRepo' },
+		});
+		const api = new AzureDevOpsApi(config);
+
+		const pr = await getPullRequestForBranch(api, 'https://dev.azure.com');
+
+		assert.equal(pr?.refs?.head.url, 'https://dev.azure.com/myorg/ForkProject/_git/ForkRepo');
+		assert.equal(pr?.refs?.head.cloneHttps, 'https://dev.azure.com/myorg/ForkProject/_git/ForkRepo');
+	});
+
+	test('leaves the fork clone url unset when the lookup reports only a web url', async () => {
+		const azurePullRequest = pullRequest();
+		azurePullRequest.forkSource = createAzureForkSource(azurePullRequest);
+		const { config } = configForPullRequest(azurePullRequest, {
+			[forkRepositoryRoute]: 'https://dev.azure.com/myorg/ForkProject/_git/ForkRepo',
+		});
+		const api = new AzureDevOpsApi(config);
+
+		const pr = await getPullRequestForBranch(api, 'https://dev.azure.com');
+
+		assert.equal(pr?.refs?.head.url, 'https://dev.azure.com/myorg/ForkProject/_git/ForkRepo');
+		assert.equal(pr?.refs?.head.cloneHttps, undefined);
+	});
+
+	test('drops a fork clone url that sits outside the collection, keeping the web url', async () => {
+		const azurePullRequest = pullRequest();
+		azurePullRequest.forkSource = createAzureForkSource(azurePullRequest);
+		const { config } = configForPullRequest(azurePullRequest, {
+			[forkRepositoryRoute]: {
+				webUrl: 'https://dev.azure.com/myorg/ForkProject/_git/ForkRepo',
+				remoteUrl: 'https://dev.azure.com/attacker/ForkProject/_git/ForkRepo',
+			},
+		});
+		const api = new AzureDevOpsApi(config);
+
+		const pr = await getPullRequestForBranch(api, 'https://dev.azure.com');
+
+		assert.equal(pr?.refs?.head.url, 'https://dev.azure.com/myorg/ForkProject/_git/ForkRepo');
+		assert.equal(pr?.refs?.head.cloneHttps, undefined);
 	});
 
 	test('does not follow the pull request query payload url', async () => {

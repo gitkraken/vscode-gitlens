@@ -429,13 +429,16 @@ function isUnderAzureCollection(url: URL, expected: URL, expectedOwner: string):
 
 /**
  * Restricts a provider-supplied repository URL to the integration's collection and removes credentials, query, and
- * fragment before a consumer can use it as a git remote.
+ * fragment before a consumer can use it as a git remote. Takes the value as the payloads carry it — every one of
+ * these URLs is optional — so a caller never has to spell the absent case itself.
  */
 export function sanitizeAzureRepositoryUrl(
-	value: string,
+	value: string | undefined,
 	expectedUrl: string,
 	expectedOwner: string,
 ): string | undefined {
+	if (value == null) return undefined;
+
 	let expected: URL;
 	let url: URL;
 	try {
@@ -459,6 +462,46 @@ export function sanitizeAzureRepositoryUrl(
 	url.search = '';
 	url.hash = '';
 	return url.toString();
+}
+
+/**
+ * The clone URL the payload carries for a repository, restricted to the integration's collection and then
+ * cross-checked against the repository that payload names.
+ *
+ * The collection check alone is not enough for a URL that is READ rather than built. Every other repository URL the
+ * model reports is built from the authoritative prefix, so the payload cannot move it; this one cannot be built,
+ * because Azure spells a repository for git the same way it spells it for the web only by convention. A URL under
+ * the right collection may still name a DIFFERENT repository in it, which would leave `cloneHttps` describing one
+ * repository while `url` describes another.
+ *
+ * Azure ends a clone URL with `_git/{repo}` on every host style — including the short `{owner}/_git/{repo}` form it
+ * uses when a repository carries its project's name, and the legacy `{owner}.visualstudio.com` spelling that has no
+ * organization segment at all — so the repository name is the one part comparable across all of them. A same-named
+ * repository in another project of the same organization is the single substitution this cannot catch.
+ */
+function getAzureRepositoryCloneUrl(
+	repository: AzureRepositoryReference,
+	baseUrl: string,
+	owner: string,
+): string | undefined {
+	const sanitized = sanitizeAzureRepositoryUrl(repository.remoteUrl, baseUrl, owner);
+	if (sanitized == null) return undefined;
+
+	// Safe to parse: `sanitizeAzureRepositoryUrl` returns what it already parsed.
+	const segments = new URL(sanitized).pathname.split('/').filter(s => s.length > 0);
+	const name = segments.pop();
+	if (name == null || segments.pop() !== '_git') return undefined;
+
+	let decoded: string;
+	try {
+		decoded = decodeURIComponent(name);
+	} catch {
+		return undefined;
+	}
+
+	// Azure resolves project and repository names case-insensitively, so comparing them any other way would refuse a
+	// URL the provider considers the same one.
+	return decoded.toLowerCase() === repository.name.toLowerCase() ? sanitized : undefined;
 }
 
 export function fromAzurePullRequestMergeStatusToMergeableState(
@@ -555,20 +598,36 @@ function fromAzureUserToMember(user: AzureUser, _type: 'issue' | 'pullRequest'):
 }
 
 /**
+ * The URLs of a cross-repository pull request's fork, resolved by a lookup because the pull request payload embeds
+ * only an abbreviated reference to it: `url` is the URL the head ref reports — the fork's web URL, or its clone URL
+ * when the response carries no web URL — and `cloneHttps` its HTTPS clone URL.
+ *
+ * A fork that resolves neither is reported as no fork at all rather than as an object with nothing in it, so `url`
+ * is always present here; `cloneHttps` alone is best-effort, and is absent when the response omits it or its URL
+ * sits outside the integration's collection.
+ */
+export interface AzureForkRepositoryUrls {
+	url: string;
+	cloneHttps: string | undefined;
+}
+
+/**
  * `baseUrl` and `owner` are the prefix the pull request was read through; every URL the model reports is built from
- * them. The required `forkRepositoryUrl` argument makes each call site resolve the best-effort fork URL explicitly.
+ * them. The required `forkRepositoryUrls` argument makes each call site resolve the best-effort fork URLs explicitly.
  */
 export function fromAzurePullRequest(
 	pr: AzurePullRequest,
 	provider: Provider,
 	owner: string,
 	baseUrl: string,
-	forkRepositoryUrl: string | undefined,
+	forkRepositoryUrls: AzureForkRepositoryUrls | undefined,
 ): PullRequest {
 	const baseRepositoryUrl = getAzureRepositoryWebUrl(baseUrl, owner, pr.repository.project.name, pr.repository.name);
+	const baseCloneHttps = getAzureRepositoryCloneUrl(pr.repository, baseUrl, owner);
 
 	const forkRepository = pr.forkSource?.repository;
-	const headRepositoryUrl = forkRepository == null ? baseRepositoryUrl : forkRepositoryUrl;
+	const headRepositoryUrl = forkRepository == null ? baseRepositoryUrl : forkRepositoryUrls?.url;
+	const headCloneHttps = forkRepository == null ? baseCloneHttps : forkRepositoryUrls?.cloneHttps;
 
 	return new PullRequest(
 		provider,
@@ -599,6 +658,7 @@ export function fromAzurePullRequest(
 				owner: owner,
 				exists: pr.targetRefName != null,
 				url: baseRepositoryUrl,
+				cloneHttps: baseCloneHttps,
 			},
 			head: {
 				branch: pr.sourceRefName ? normalizeAzureBranchName(pr.sourceRefName) : '',
@@ -607,6 +667,7 @@ export function fromAzurePullRequest(
 				owner: owner,
 				exists: pr.sourceRefName != null,
 				url: headRepositoryUrl,
+				cloneHttps: headCloneHttps,
 			},
 			isCrossRepository: pr.forkSource != null,
 		},
