@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-14
+
 ### Added
 
 - **Breaking (plus/integrations)** — Adds `PullRequestRef.cloneHttps` to an Azure DevOps pull request, on both refs ([#5851](https://github.com/gitkraken/vscode-gitlens/issues/5851)). Azure filled neither clone field on the direct read, so a consumer that turns a ref into a git remote — or matches one against a configured remote — silently fell back for every Azure pull request: a cross-repository pull request never got its fork remote, and a fork head could not be correlated to a local repository. The URL was in hand all along: the pull request payload carries the base repository's `remoteUrl`, and the fork lookup the head ref already pays for returns one too, which was read but discarded whenever `webUrl` was present. Both are now reported, restricted to the integration's collection through the same trust boundary as every other Azure repository URL ([#5842](https://github.com/gitkraken/vscode-gitlens/issues/5842)) and stripped of the credentials Azure spells into a remote URL, so nothing new reaches a `git fetch`. The base ref's is additionally cross-checked against the repository the payload itself names — it is the one repository URL that is READ rather than built, and a URL under the right collection may still name a different repository in it, which would leave `cloneHttps` describing one repository while `url` describes another. Azure ends a clone URL with `_git/{repo}` on every host style, including the short form it uses when a repository carries its project's name and the legacy `{owner}.visualstudio.com` spelling, so the repository name is compared (decoded, case-insensitively, as Azure resolves it) and anything else is refused. No extra request is made on either path. Best-effort by contract, like `refs.*.url`: a payload that reports no `remoteUrl`, or one that names a host or organization the integration never asked for, leaves the field `undefined` rather than having a URL synthesized for it. `cloneSsh` stays unset on this path — Azure's SSH URL answers on a different host than the API base and is not an `http(s)` URL, so the collection check cannot vouch for it — which means `toProviderRemoteInfo`, which requires both fields, still reports no remote info for a pull request read this way; the SDK-backed reads, which carry both fields behind `includeRemoteInfo`, are unchanged. `fromAzurePullRequest`'s fifth parameter is now the resolved fork's `{ url, cloneHttps }` rather than its URL alone, and `sanitizeAzureRepositoryUrl` takes the value as these payloads carry it (`string | undefined`), so no call site spells the absent case itself (plus/integrations)
@@ -339,7 +341,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.116...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.6.0...HEAD
+[0.6.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.116...gitkraken:releases/core/v0.6.0
 [0.5.116]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.115...gitkraken:releases/core/v0.5.116
 [0.5.115]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.114...gitkraken:releases/core/v0.5.115
 [0.5.114]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.113...gitkraken:releases/core/v0.5.114
