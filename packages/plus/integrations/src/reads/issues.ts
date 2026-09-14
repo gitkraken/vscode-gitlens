@@ -310,6 +310,7 @@ async function readAccountWideIssuesPage({
 					includeAllAssignees: options.includeAllAssignees,
 					filters: resolvedIssueFilters.filters,
 					cursor: cursor,
+					pageSize: options.itemsPerPage,
 					org: options.org,
 					project: options.project,
 					sort: accountWideOrdering.sort,

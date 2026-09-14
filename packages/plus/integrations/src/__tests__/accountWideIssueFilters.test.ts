@@ -150,6 +150,37 @@ suite('account-wide issue filters', () => {
 				manager.dispose();
 			}
 		});
+
+		test('forwards the requested page size to the account-wide GitHub search', async () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+				assert.ok(gh != null);
+				(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+				const githubApi = await (
+					gh as unknown as {
+						authenticationService: { apis: { github: Promise<Record<string, unknown> | undefined> } };
+					}
+				).authenticationService.apis.github;
+				assert.ok(githubApi);
+
+				let seenPageSize: number | undefined;
+				githubApi.searchMyIssues = (_provider: unknown, _token: unknown, options?: { pageSize?: number }) => {
+					seenPageSize = options?.pageSize;
+					return Promise.resolve({ values: [], hasMore: false, page: 1, truncated: false });
+				};
+
+				await manager.listIssuesPage({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					itemsPerPage: 37,
+				});
+
+				assert.equal(seenPageSize, 37);
+			} finally {
+				manager.dispose();
+			}
+		});
 	});
 
 	suite('Azure DevOps', () => {
