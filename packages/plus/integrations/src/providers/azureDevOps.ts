@@ -76,6 +76,17 @@ function getAzureRepositoryIdentity(repo: Pick<AzureRepositoryDescriptor, 'owner
 	};
 }
 
+function getAzureRepositoryApiBaseUrl(baseUrl: string, repo: Pick<AzureRepositoryDescriptor, 'virtualDirectory'>) {
+	if (repo.virtualDirectory == null) return baseUrl;
+
+	const segments = repo.virtualDirectory.split('/');
+	if (segments.some(segment => !segment || segment === '.' || segment === '..')) {
+		throw new Error(`Invalid Azure virtual directory '${repo.virtualDirectory}'.`);
+	}
+
+	return `${baseUrl.replace(/\/+$/, '')}/${segments.map(encodeURIComponent).join('/')}`;
+}
+
 /**
  * Matches an org/project descriptor against a caller-supplied name, mirroring the facade's own
  * key/id/name comparison so `listIssuesPage({ org, project })` narrows on the same identifiers a consumer
@@ -502,7 +513,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			repo.owner,
 			repo.name,
 			rev,
-			this.apiBaseUrl,
+			getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo),
 			options,
 		);
 	}
@@ -528,7 +539,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			toTokenWithInfo(this.id, session),
 			repo.owner,
 			repo.name,
-			{ baseUrl: this.apiBaseUrl },
+			{ baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo) },
 			cancellation,
 		);
 	}
@@ -546,7 +557,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			repo.name,
 			id,
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo),
 				type: type,
 			},
 		);
@@ -596,7 +607,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			repo.name,
 			branch,
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo),
 			},
 		);
 	}
@@ -612,7 +623,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			repo.owner,
 			repo.name,
 			rev,
-			this.apiBaseUrl,
+			getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo),
 		);
 	}
 
@@ -620,6 +631,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		owner: string;
 		name: string;
 		project?: string;
+		virtualDirectory?: string;
 		connectionId?: string;
 	}): Promise<ProviderRepository | undefined> {
 		const identity = getAzureRepositoryIdentity(repo);
@@ -631,13 +643,10 @@ export abstract class AzureDevOpsIntegrationBase<
 		if (session == null) return undefined;
 
 		const { tokenWithInfo, options } = this.getApiOptions(session);
-		return api.getRepo(
-			tokenWithInfo,
-			identity.resourceName,
-			identity.repositoryName,
-			identity.projectName,
-			options,
-		);
+		return api.getRepo(tokenWithInfo, identity.resourceName, identity.repositoryName, identity.projectName, {
+			...options,
+			baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo),
+		});
 	}
 
 	protected override async getProviderRepositoryMetadata(
@@ -650,7 +659,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			toTokenWithInfo(this.id, session),
 			repo.owner,
 			repo.name,
-			{ baseUrl: this.apiBaseUrl },
+			{ baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo) },
 			cancellation,
 		);
 	}

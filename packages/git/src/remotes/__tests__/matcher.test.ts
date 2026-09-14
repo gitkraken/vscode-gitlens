@@ -40,6 +40,8 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 			);
 			assert.ok(provider);
 			assert.strictEqual(provider.id, 'azure-devops');
+			assert.strictEqual(provider.owner, 'org');
+			assert.strictEqual(provider.repoName, 'project/_git/repo');
 		});
 
 		test('matches GitHub via SSH domain', () => {
@@ -141,6 +143,30 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 			);
 			assert.ok(provider);
 			assert.strictEqual(provider.id, 'gitlab');
+		});
+
+		test('splits an Azure DevOps Server repository behind nested virtual directories', () => {
+			const configs: RemoteProviderConfig[] = [{ domain: 'azure.example.com', type: 'azure-devops' }];
+			const matcher = createRemoteProviderMatcher(configs);
+			const provider = matcher(
+				'https://azure.example.com/tfs/team/DefaultCollection/Project/_git/Repo',
+				'azure.example.com',
+				'tfs/team/DefaultCollection/Project/_git/Repo',
+				'https',
+			);
+			assert.ok(provider);
+			assert.strictEqual(provider.id, 'azure-devops');
+			assert.deepEqual(provider.repoDesc, {
+				owner: 'DefaultCollection',
+				name: 'Project/_git/Repo',
+				virtualDirectory: 'tfs/team',
+			});
+			assert.deepEqual(provider.providerDesc, {
+				id: 'azureDevops',
+				repoDomain: 'Project',
+				repoName: 'Project/_git/Repo',
+				repoOwnerDomain: 'DefaultCollection',
+			});
 		});
 
 		test("a config's protocol override wins over the URL scheme", () => {

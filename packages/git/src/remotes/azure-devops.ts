@@ -7,6 +7,7 @@ import type { ParsedRemoteFileUri, RemoteProviderId } from '../models/remoteProv
 import { RemoteProvider } from '../models/remoteProvider.js';
 import type { CreatePullRequestRemoteResource } from '../models/remoteResource.js';
 import type { GkProviderId } from '../models/repositoryIdentities.js';
+import type { ResourceDescriptor } from '../models/resourceDescriptor.js';
 import type { GitRevisionRangeNotation } from '../models/revision.js';
 
 const gitRegex = /\/_git\/?/i;
@@ -41,6 +42,57 @@ function parseVstsHttpsUrl(url: URL): [string, string, string] {
 
 const azureHttpsUrlRegex2 = /([^/]+)\/([^/]+)\/_git\/([^/]+)/;
 
+type AzureRepositoryPath = {
+	collection: string | undefined;
+	project: string;
+	repositoryPath: string;
+	virtualDirectory: string | undefined;
+};
+
+export type AzureDevOpsRepositoryDescriptor = ResourceDescriptor & {
+	owner: string | undefined;
+	name: string | undefined;
+	virtualDirectory?: string;
+};
+
+function parseAzureRepositoryPath(path: string, legacyVsts: boolean, cloud: boolean): AzureRepositoryPath | undefined {
+	const segments = path.split('/');
+	const gitIndex = segments.length - 2;
+	const projectIndex = gitIndex - 1;
+	if (
+		gitIndex < 1 ||
+		segments[gitIndex]?.toLowerCase() !== '_git' ||
+		segments.some(segment => !segment || segment === '.' || segment === '..')
+	) {
+		return undefined;
+	}
+
+	const project = segments[projectIndex];
+	const repository = segments[gitIndex + 1];
+	if (!project || !repository) return undefined;
+
+	const collectionPath = segments.slice(0, projectIndex);
+	if (legacyVsts) {
+		if (collectionPath.length !== 0) return undefined;
+
+		return {
+			collection: undefined,
+			project: project,
+			repositoryPath: `${project}/_git/${repository}`,
+			virtualDirectory: undefined,
+		};
+	}
+
+	if (collectionPath.length === 0 || (cloud && collectionPath.length !== 1)) return undefined;
+
+	return {
+		collection: collectionPath.at(-1),
+		project: project,
+		repositoryPath: `${project}/_git/${repository}`,
+		virtualDirectory: collectionPath.length > 1 ? collectionPath.slice(0, -1).join('/') : undefined,
+	};
+}
+
 function parseAzureNewStyleUrl(url: URL): [string, string, string] {
 	const match = azureHttpsUrlRegex2.exec(url.pathname);
 	if (match == null) throw new Error(`Invalid Azure URL: ${url.toString()}`);
@@ -57,8 +109,11 @@ export function parseAzureHttpsUrl(arg: URL | string): [owner: string, project: 
 	return parseAzureNewStyleUrl(url);
 }
 
-export class AzureDevOpsRemoteProvider extends RemoteProvider {
+export class AzureDevOpsRemoteProvider extends RemoteProvider<AzureDevOpsRepositoryDescriptor> {
+	private readonly collection: string | undefined;
 	private readonly project: string | undefined;
+	private readonly repositoryPath: string | undefined;
+	private readonly virtualDirectory: string | undefined;
 
 	constructor(
 		domain: string,
@@ -68,7 +123,6 @@ export class AzureDevOpsRemoteProvider extends RemoteProvider {
 		isVsts: boolean = false,
 		context?: RemoteProviderContext,
 	) {
-		let repoProject;
 		if (sshDomainRegex.test(domain)) {
 			path = path.replace(sshPathRegex, '');
 			domain = domain.replace(sshDomainRegex, '');
@@ -78,8 +132,6 @@ export class AzureDevOpsRemoteProvider extends RemoteProvider {
 			if (match != null) {
 				const [, org, project, rest] = match;
 
-				repoProject = project;
-
 				// VSTS puts the org in the subdomain; modern Azure DevOps puts it in the path
 				if (isVsts) {
 					domain = `${org}.${domain}`;
@@ -88,21 +140,18 @@ export class AzureDevOpsRemoteProvider extends RemoteProvider {
 					path = `${org}/${project}/_git/${rest}`;
 				}
 			}
-		} else {
-			const match = orgAndProjectRegex.exec(path);
-			if (match != null) {
-				const [, , project] = match;
-
-				repoProject = project;
-			}
 		}
 
 		// Azure DevOps allows projects and repository names with spaces. In that situation,
 		// the `path` will be previously encoded during git clone
 		// revert that encoding to avoid double-encoding by gitlens during copy remote and open remote
 		path = decodeURIComponent(path);
+		const repositoryPath = parseAzureRepositoryPath(path, isVsts, domain.toLowerCase() === 'dev.azure.com');
 		super(domain, path, protocol, name, undefined, context);
-		this.project = repoProject;
+		this.collection = repositoryPath?.collection;
+		this.project = repositoryPath?.project;
+		this.repositoryPath = repositoryPath?.repositoryPath;
+		this.virtualDirectory = repositoryPath?.virtualDirectory;
 	}
 
 	protected override get issueLinkPattern(): string {
@@ -161,14 +210,19 @@ export class AzureDevOpsRemoteProvider extends RemoteProvider {
 		if (isVsts(this.domain)) {
 			return this.domain.split('.')[0];
 		}
-		return super.owner;
+		return this.collection ?? super.owner;
 	}
 
 	override get repoName(): string | undefined {
 		if (isVsts(this.domain)) {
 			return this.path;
 		}
-		return super.repoName;
+		return this.repositoryPath ?? super.repoName;
+	}
+
+	override get repoDesc(): AzureDevOpsRepositoryDescriptor {
+		const descriptor = super.repoDesc;
+		return this.virtualDirectory == null ? descriptor : { ...descriptor, virtualDirectory: this.virtualDirectory };
 	}
 
 	override get providerDesc():

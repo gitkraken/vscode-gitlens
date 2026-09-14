@@ -96,6 +96,8 @@ export async function resolveRepository(
 	const name = provider.repoName;
 	if (owner == null || name == null) return result('invalid-remote-url');
 
+	const providerRepo = provider.repoDesc;
+
 	// On a self-managed host, resolve only against a TRUSTED host: the pinned connection's configured
 	// domain, the explicit `domain`, or — when neither was supplied — a configured host matching the
 	// remote's. That last case keeps `remoteUrl` (repository-supplied) out of the trusted path: it selects
@@ -164,6 +166,7 @@ export async function resolveRepository(
 
 	try {
 		const repo = await integration.getRepoInfo({
+			...providerRepo,
 			owner: owner,
 			name: name,
 			project: project,

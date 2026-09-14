@@ -17,6 +17,7 @@ export interface AzureRepositoryDescriptor extends ResourceDescriptor {
 	owner: string;
 	name: string;
 	project?: string;
+	virtualDirectory?: string;
 }
 
 export interface AzureOrganizationDescriptor extends ResourceDescriptor {

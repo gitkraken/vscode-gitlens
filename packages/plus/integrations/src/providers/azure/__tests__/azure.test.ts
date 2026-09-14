@@ -65,17 +65,50 @@ suite('AzureDevOpsApi pull requests', () => {
 		assert.equal(pr?.refs?.head.url, 'https://dev.azure.com/myorg/Project/_git/Repo');
 	});
 
-	test('builds the repository urls on Azure DevOps Server without any extra request', async () => {
+	test('builds the repository urls on Azure DevOps Server behind a virtual directory', async () => {
 		const azurePullRequest = pullRequest();
 		azurePullRequest.url =
-			'https://azure.example.com/collection/project-id/_apis/git/repositories/repository-id/pullRequests/5';
+			'https://azure.example.com/tfs/collection/project-id/_apis/git/repositories/repository-id/pullRequests/5';
 		const { config, requests } = configForPullRequest(azurePullRequest);
 		const api = new AzureDevOpsApi(config);
 
-		const pr = await getPullRequestForBranch(api, 'https://azure.example.com', 'collection');
+		const pr = await getPullRequestForBranch(api, 'https://azure.example.com/tfs', 'collection');
 
-		assert.equal(requests.length, 1);
-		assert.equal(pr?.refs?.base.url, 'https://azure.example.com/collection/Project/_git/Repo');
+		assert.deepEqual(requests, [
+			'https://azure.example.com/tfs/collection/Project/_apis/git/repositories/Repo/pullRequests?searchCriteria.status=all&searchCriteria.sourceRefName=refs/heads/feature',
+		]);
+		assert.equal(pr?.refs?.base.url, 'https://azure.example.com/tfs/collection/Project/_git/Repo');
+	});
+
+	test('rejects malformed repository descriptors before issuing a request', async () => {
+		const requests: string[] = [];
+		const api = new AzureDevOpsApi({
+			fetch: input => {
+				requests.push(input.toString());
+				return Promise.resolve(Response.json({}));
+			},
+			wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()),
+		});
+		const repo = 'Project/not-git/Repo';
+		const baseUrl = 'https://dev.azure.com';
+
+		await assert.rejects(
+			api.getPullRequestForBranch(azureProvider, azureToken, 'myorg', repo, 'feature', { baseUrl: baseUrl }),
+			/Invalid Azure repository descriptor/,
+		);
+		await assert.rejects(
+			api.getPullRequestForCommit(azureProvider, azureToken, 'myorg', repo, 'commit', baseUrl),
+			/Invalid Azure repository descriptor/,
+		);
+		await assert.rejects(
+			api.getIssueOrPullRequest(azureProvider, azureToken, 'myorg', repo, '5', { baseUrl: baseUrl }),
+			/Invalid Azure repository descriptor/,
+		);
+		await assert.rejects(
+			api.getAccountForCommit(azureProvider, azureToken, 'myorg', repo, 'commit', baseUrl),
+			/Invalid Azure repository descriptor/,
+		);
+		assert.deepEqual(requests, []);
 	});
 
 	test('resolves a fork repository once and reuses it', async () => {
