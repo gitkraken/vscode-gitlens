@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes account-wide GitHub issue reads ignoring `itemsPerPage`. The facade dropped the requested size before `searchMyIssues`, so its three aliased searches defaulted to 100 full issue nodes and could exceed GitHub's GraphQL complexity limit. The page size now reaches every alias; omitted values keep the existing 100-item default. (plus/integrations, plus/git-github)
+
 ## [0.5.113] - 2026-08-18
 
 ## [0.5.111] - 2026-08-16

@@ -741,6 +741,22 @@ suite('GitHubApi.searchMyIssues', () => {
 		assert.match(String(vars.mentioned), /sort:comments-desc/);
 	});
 
+	test('uses the requested page size for every issue category', async () => {
+		const { config, getQuery } = captureQuery({
+			assigned: emptySearchPage.search,
+			mentioned: emptySearchPage.search,
+			authored: emptySearchPage.search,
+		});
+		const api = new GitHubApi(config);
+
+		await api.searchMyIssues(provider, token, { pageSize: 37 });
+
+		const query = getQuery();
+		assert.match(query, /assigned: search\(first: 37,/);
+		assert.match(query, /mentioned: search\(first: 37,/);
+		assert.match(query, /authored: search\(first: 37,/);
+	});
+
 	test('binds the assigned category to the current user by default', async () => {
 		const { config, getVariables } = captureVariables();
 		const api = new GitHubApi(config);
