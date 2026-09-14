@@ -88,18 +88,21 @@ per provider from the resolved current user, so callers don't special-case it.
 `PullRequestRef` carries optional `cloneHttps` / `cloneSsh` / `isFork`; `PullRequest.refs.isCrossRepository`
 is always present.
 
-| Provider         | Clone URLs                               | `isCrossRepository` | `isFork`                   |
-| ---------------- | ---------------------------------------- | ------------------- | -------------------------- |
-| GitHub           | first-class                              | first-class         | best-effort                |
-| GitLab           | first-class                              | first-class         | `undefined`                |
-| Bitbucket        | first-class                              | first-class         | `undefined`                |
-| Bitbucket Server | first-class                              | first-class         | `undefined`                |
-| Azure DevOps     | first-class **with `includeRemoteInfo`** | first-class         | best-effort (`forkSource`) |
+| Provider         | Clone URLs                  | `isCrossRepository` | `isFork`                   |
+| ---------------- | --------------------------- | ------------------- | -------------------------- |
+| GitHub           | first-class                 | first-class         | best-effort                |
+| GitLab           | first-class                 | first-class         | `undefined`                |
+| Bitbucket        | first-class                 | first-class         | `undefined`                |
+| Bitbucket Server | first-class                 | first-class         | `undefined`                |
+| Azure DevOps     | per read path (see caveats) | first-class         | best-effort (`forkSource`) |
 
-**Caveats:** Azure clone URLs require an opt-in extra lookup; `getMyPullRequestsForRepos` requests
-`includeRemoteInfo` for Azure automatically. Where clone URLs are unavailable the fields are `undefined`;
-reconstruct from the repository `webUrl`. Prefer `isCrossRepository` (always present) over `isFork`
-(best-effort, provider-dependent).
+**Caveats:** Azure reports clone URLs differently per read path. The SDK-backed reads carry both fields, but
+only with an opt-in extra lookup; `getMyPullRequestsForRepos` requests `includeRemoteInfo` for Azure
+automatically. The direct reads (`getPullRequest*`, linked issue/PR) carry `cloneHttps` on both refs with no
+extra request, taken from the provider's own `remoteUrl`, and never carry `cloneSsh` — Azure's SSH URL
+answers on a different host than the API base, so the URL trust boundary cannot vouch for it. Where clone
+URLs are unavailable the fields are `undefined`; reconstruct from the repository `webUrl`. Prefer
+`isCrossRepository` (always present) over `isFork` (best-effort, provider-dependent).
 
 ## 6. Org / project scoping
 

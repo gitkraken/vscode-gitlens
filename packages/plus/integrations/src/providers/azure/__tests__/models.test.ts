@@ -138,18 +138,218 @@ suite('fromAzurePullRequest', () => {
 		);
 		azurePullRequest.forkSource = createAzureForkSource(azurePullRequest);
 
-		const pullRequest = fromAzurePullRequest(
-			azurePullRequest,
-			azureProvider,
-			'myorg',
-			'https://dev.azure.com',
-			'https://dev.azure.com/myorg/Fork%20Project/_git/fork%20repo',
-		);
+		const pullRequest = fromAzurePullRequest(azurePullRequest, azureProvider, 'myorg', 'https://dev.azure.com', {
+			url: 'https://dev.azure.com/myorg/Fork%20Project/_git/fork%20repo',
+			cloneHttps: undefined,
+		});
 
 		assert.equal(pullRequest.refs?.base.url, 'https://dev.azure.com/myorg/My%20Project/_git/my%20repo');
 		assert.equal(pullRequest.refs?.head.url, 'https://dev.azure.com/myorg/Fork%20Project/_git/fork%20repo');
 		assert.equal(pullRequest.refs?.head.repo, 'fork repo');
 		assert.equal(pullRequest.refs?.head.owner, 'myorg');
+	});
+
+	test('carries the clone url of each ref, taken from the resolved fork for the head', () => {
+		const azurePullRequest = pr(
+			'https://dev.azure.com/myorg/project-id/_apis/git/repositories/repository-id/pullRequests/5',
+			'My Project',
+			'my repo',
+		);
+		azurePullRequest.repository.remoteUrl = 'https://dev.azure.com/myorg/My%20Project/_git/my%20repo';
+		azurePullRequest.forkSource = createAzureForkSource(azurePullRequest);
+
+		const pullRequest = fromAzurePullRequest(azurePullRequest, azureProvider, 'myorg', 'https://dev.azure.com', {
+			url: 'https://dev.azure.com/myorg/Fork%20Project/_git/fork%20repo',
+			cloneHttps: 'https://dev.azure.com/myorg/Fork%20Project/_git/fork%20repo',
+		});
+
+		assert.equal(pullRequest.refs?.base.cloneHttps, 'https://dev.azure.com/myorg/My%20Project/_git/my%20repo');
+		assert.equal(pullRequest.refs?.head.cloneHttps, 'https://dev.azure.com/myorg/Fork%20Project/_git/fork%20repo');
+	});
+
+	test('reports the same clone url on both refs of a same-repository pull request', () => {
+		const azurePullRequest = pr(
+			'https://dev.azure.com/myorg/project-id/_apis/git/repositories/repository-id/pullRequests/5',
+			'Proj',
+			'repo',
+		);
+		azurePullRequest.repository.remoteUrl = 'https://dev.azure.com/myorg/Proj/_git/repo';
+
+		const pullRequest = fromAzurePullRequest(
+			azurePullRequest,
+			azureProvider,
+			'myorg',
+			'https://dev.azure.com',
+			undefined,
+		);
+
+		assert.equal(pullRequest.refs?.base.cloneHttps, 'https://dev.azure.com/myorg/Proj/_git/repo');
+		assert.equal(pullRequest.refs?.head.cloneHttps, 'https://dev.azure.com/myorg/Proj/_git/repo');
+	});
+
+	// Under the right collection but naming a different repository: the collection check passes, so only the
+	// cross-check against the repository the payload itself names stops `cloneHttps` and `url` disagreeing.
+	test('drops a clone url that names another repository in the same organization', () => {
+		const azurePullRequest = pr(
+			'https://dev.azure.com/myorg/project-id/_apis/git/repositories/repository-id/pullRequests/5',
+			'My Project',
+			'my repo',
+		);
+		azurePullRequest.repository.remoteUrl = 'https://dev.azure.com/myorg/OtherProject/_git/OtherRepo';
+
+		const pullRequest = fromAzurePullRequest(
+			azurePullRequest,
+			azureProvider,
+			'myorg',
+			'https://dev.azure.com',
+			undefined,
+		);
+
+		assert.equal(pullRequest.refs?.base.url, 'https://dev.azure.com/myorg/My%20Project/_git/my%20repo');
+		assert.equal(pullRequest.refs?.base.cloneHttps, undefined);
+	});
+
+	// Azure shortens a clone url to `{owner}/_git/{repo}` when a repository carries its project's name, and the
+	// legacy host spells no organization at all — both are the repository the payload names, so both stand.
+	test('keeps a clone url spelled in a form that names no project', () => {
+		for (const [remoteUrl, expected] of [
+			['https://dev.azure.com/myorg/_git/repo', 'https://dev.azure.com/myorg/_git/repo'],
+			['https://myorg.visualstudio.com/_git/repo', 'https://myorg.visualstudio.com/_git/repo'],
+		]) {
+			const azurePullRequest = pr(
+				'https://dev.azure.com/myorg/project-id/_apis/git/repositories/repository-id/pullRequests/5',
+				'repo',
+				'repo',
+			);
+			azurePullRequest.repository.remoteUrl = remoteUrl;
+
+			const pullRequest = fromAzurePullRequest(
+				azurePullRequest,
+				azureProvider,
+				'myorg',
+				'https://dev.azure.com',
+				undefined,
+			);
+
+			assert.equal(pullRequest.refs?.base.cloneHttps, expected, remoteUrl);
+		}
+	});
+
+	// Azure permits a space and a reserved character in a repository name, so the comparison has to decode the
+	// segment; it also resolves names case-insensitively, so it must not be stricter than the provider.
+	test('matches an encoded or differently-cased repository name in a clone url', () => {
+		for (const remoteUrl of [
+			'https://dev.azure.com/myorg/My%20Project/_git/my%20repo',
+			'https://dev.azure.com/myorg/My%20Project/_git/MY%20REPO',
+		]) {
+			const azurePullRequest = pr(
+				'https://dev.azure.com/myorg/project-id/_apis/git/repositories/repository-id/pullRequests/5',
+				'My Project',
+				'my repo',
+			);
+			azurePullRequest.repository.remoteUrl = remoteUrl;
+
+			const pullRequest = fromAzurePullRequest(
+				azurePullRequest,
+				azureProvider,
+				'myorg',
+				'https://dev.azure.com',
+				undefined,
+			);
+
+			assert.equal(pullRequest.refs?.base.cloneHttps, remoteUrl, remoteUrl);
+		}
+	});
+
+	// A url that is not a repository url at all — no `_git` boundary, or a stray percent escape that cannot be
+	// decoded — names nothing that can be compared, so it is refused rather than passed through.
+	test('drops a clone url that carries no _git boundary or cannot be decoded', () => {
+		for (const remoteUrl of [
+			'https://dev.azure.com/myorg/My%20Project/my%20repo',
+			'https://dev.azure.com/myorg/My%20Project/_git/',
+			'https://dev.azure.com/myorg/My%20Project/_git/my%ZZrepo',
+		]) {
+			const azurePullRequest = pr(
+				'https://dev.azure.com/myorg/project-id/_apis/git/repositories/repository-id/pullRequests/5',
+				'My Project',
+				'my repo',
+			);
+			azurePullRequest.repository.remoteUrl = remoteUrl;
+
+			const pullRequest = fromAzurePullRequest(
+				azurePullRequest,
+				azureProvider,
+				'myorg',
+				'https://dev.azure.com',
+				undefined,
+			);
+
+			assert.equal(pullRequest.refs?.base.cloneHttps, undefined, remoteUrl);
+		}
+	});
+
+	// The clone url is the one repository url still taken from the payload, so it carries the same trust boundary as
+	// the fork url the lookup resolves — a consumer fetches from it.
+	test('drops a clone url that names a host or organization the integration never asked for', () => {
+		for (const remoteUrl of [
+			'https://attacker.invalid/myorg/Proj/_git/repo',
+			'https://dev.azure.com/attacker/Proj/_git/repo',
+			'not-a-url',
+		]) {
+			const azurePullRequest = pr(
+				'https://dev.azure.com/myorg/project-id/_apis/git/repositories/repository-id/pullRequests/5',
+				'Proj',
+				'repo',
+			);
+			azurePullRequest.repository.remoteUrl = remoteUrl;
+
+			const pullRequest = fromAzurePullRequest(
+				azurePullRequest,
+				azureProvider,
+				'myorg',
+				'https://dev.azure.com',
+				undefined,
+			);
+
+			assert.equal(pullRequest.refs?.base.url, 'https://dev.azure.com/myorg/Proj/_git/repo');
+			assert.equal(pullRequest.refs?.base.cloneHttps, undefined, remoteUrl);
+		}
+	});
+
+	test('strips the credentials Azure spells into a clone url', () => {
+		const azurePullRequest = pr(
+			'https://dev.azure.com/myorg/project-id/_apis/git/repositories/repository-id/pullRequests/5',
+			'Proj',
+			'repo',
+		);
+		azurePullRequest.repository.remoteUrl = 'https://myorg@dev.azure.com/myorg/Proj/_git/repo';
+
+		const pullRequest = fromAzurePullRequest(
+			azurePullRequest,
+			azureProvider,
+			'myorg',
+			'https://dev.azure.com',
+			undefined,
+		);
+
+		assert.equal(pullRequest.refs?.base.cloneHttps, 'https://dev.azure.com/myorg/Proj/_git/repo');
+	});
+
+	test('leaves the clone urls unset when the payload reports no remote url', () => {
+		const pullRequest = fromAzurePullRequest(
+			pr(
+				'https://dev.azure.com/myorg/project-id/_apis/git/repositories/repository-id/pullRequests/5',
+				'Proj',
+				'repo',
+			),
+			azureProvider,
+			'myorg',
+			'https://dev.azure.com',
+			undefined,
+		);
+
+		assert.equal(pullRequest.refs?.base.cloneHttps, undefined);
+		assert.equal(pullRequest.refs?.head.cloneHttps, undefined);
 	});
 
 	test('returns the pull request with no head url when the fork url was not resolved', () => {

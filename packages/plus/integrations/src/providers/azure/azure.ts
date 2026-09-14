@@ -31,6 +31,7 @@ import {
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
 import type {
+	AzureForkRepositoryUrls,
 	AzureGitCommit,
 	AzureProjectDescriptor,
 	AzurePullRequest,
@@ -118,7 +119,7 @@ class WorkItemStates {
 export class AzureDevOpsApi implements Disposable {
 	private readonly _disposable: Disposable | undefined;
 	private _workItemStates: WorkItemStates = new WorkItemStates();
-	private readonly _forkRepositoryUrls = new PromiseCache<string, string | undefined>({
+	private readonly _forkRepositoryUrls = new PromiseCache<string, AzureForkRepositoryUrls | undefined>({
 		capacity: 100,
 		createTTL: forkRepositoryUrlCacheTtl,
 	});
@@ -732,7 +733,7 @@ export class AzureDevOpsApi implements Disposable {
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal,
 	): Promise<PullRequest> {
-		const forkRepositoryUrl = await this.getForkRepositoryUrl(
+		const forkRepositoryUrls = await this.getForkRepositoryUrls(
 			provider,
 			token,
 			owner,
@@ -741,19 +742,19 @@ export class AzureDevOpsApi implements Disposable {
 			scope,
 			cancellation,
 		);
-		return fromAzurePullRequest(pr, provider, owner, baseUrl, forkRepositoryUrl);
+		return fromAzurePullRequest(pr, provider, owner, baseUrl, forkRepositoryUrls);
 	}
 
 	/**
-	 * Resolves the web URL of the fork a cross-repository pull request comes from. Every other repository URL is
-	 * rebuilt from the pull request payload; only a fork reference lacks the project to do that, so only a fork
-	 * costs a request.
+	 * Resolves the web and HTTPS clone URLs of the fork a cross-repository pull request comes from. Every other
+	 * repository URL the model reports is rebuilt from the pull request payload; only a fork reference lacks the
+	 * project to do that, so only a fork costs a request.
 	 *
 	 * Best-effort by contract: a fork in a project the token cannot read, a deleted fork, or a throttled request
 	 * leaves the head ref without a URL. It must never cost the pull request itself, which is what makes swallowing
 	 * the failure here the right call rather than a shortcut.
 	 */
-	private async getForkRepositoryUrl(
+	private async getForkRepositoryUrls(
 		provider: Provider,
 		token: TokenWithInfo,
 		owner: string,
@@ -761,7 +762,7 @@ export class AzureDevOpsApi implements Disposable {
 		repository: AzureRepositoryReference | undefined,
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal,
-	): Promise<string | undefined> {
+	): Promise<AzureForkRepositoryUrls | undefined> {
 		if (repository == null) return undefined;
 
 		let tokenHash: string;
@@ -777,7 +778,7 @@ export class AzureDevOpsApi implements Disposable {
 		return this._forkRepositoryUrls.getOrCreate(
 			cacheKey,
 			(cacheable, aggregate) =>
-				this.fetchForkRepositoryUrl(
+				this.fetchForkRepositoryUrls(
 					provider,
 					token,
 					owner,
@@ -791,7 +792,7 @@ export class AzureDevOpsApi implements Disposable {
 		);
 	}
 
-	private async fetchForkRepositoryUrl(
+	private async fetchForkRepositoryUrls(
 		provider: Provider,
 		token: TokenWithInfo,
 		owner: string,
@@ -800,7 +801,7 @@ export class AzureDevOpsApi implements Disposable {
 		cacheable: CacheController,
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal,
-	): Promise<string | undefined> {
+	): Promise<AzureForkRepositoryUrls | undefined> {
 		try {
 			const response = await this.request<AzureRepositoryUrls>(
 				provider,
@@ -811,18 +812,18 @@ export class AzureDevOpsApi implements Disposable {
 				scope,
 				cancellation,
 			);
-			const webUrl =
-				response?.webUrl != null ? sanitizeAzureRepositoryUrl(response.webUrl, baseUrl, owner) : undefined;
-			if (webUrl != null) return webUrl;
+			const webUrl = sanitizeAzureRepositoryUrl(response?.webUrl, baseUrl, owner);
+			const cloneHttps = sanitizeAzureRepositoryUrl(response?.remoteUrl, baseUrl, owner);
 
-			const remoteUrl =
-				response?.remoteUrl != null
-					? sanitizeAzureRepositoryUrl(response.remoteUrl, baseUrl, owner)
-					: undefined;
-			if (remoteUrl != null) return remoteUrl;
+			// The clone URL stands in for the web URL when the response omits it — an older `api-version` promises
+			// neither field, and naming the fork by the URL git would use beats naming it not at all.
+			const url = webUrl ?? cloneHttps;
+			if (url == null) {
+				cacheable.invalidate();
+				return undefined;
+			}
 
-			cacheable.invalidate();
-			return undefined;
+			return { url: url, cloneHttps: cloneHttps };
 		} catch (ex) {
 			// Missing or inaccessible forks are cached briefly; transient failures retry on the next read.
 			if (!(ex instanceof RequestNotFoundError) && !(ex instanceof AuthenticationError)) {
@@ -830,7 +831,7 @@ export class AzureDevOpsApi implements Disposable {
 			}
 
 			const status = ex instanceof ProviderFetchError ? ` (${ex.status})` : '';
-			scope?.warn(`Unable to resolve the fork repository URL${status}`);
+			scope?.warn(`Unable to resolve the fork repository URLs${status}`);
 			return undefined;
 		}
 	}
