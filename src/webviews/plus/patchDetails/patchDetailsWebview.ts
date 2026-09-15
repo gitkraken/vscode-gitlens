@@ -679,7 +679,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 				while (true) {
 					const result = await window.showInformationMessage(
 						copied
-							? l10n.t('Cloud Patch successfully created— link copied to the clipboard')
+							? l10n.t('Cloud Patch successfully created — link copied to the clipboard')
 							: l10n.t('Cloud Patch successfully created'),
 						view,
 						copy,

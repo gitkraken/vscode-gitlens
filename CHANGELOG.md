@@ -61,6 +61,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes opening an agent session hosted in a terminal only raising the VS Code window &mdash; it now shows the terminal or tab actually running the session, including when that session is in another window
 - Fixes the _Repository Health_ banner continuing to show after applying one of its suggested optimizations &mdash; acting on a suggestion now quiets it for 30 days, the same as dismissing it
 - Fixes the merge conflict check failing on Git 2.33&ndash;2.37, and the cherry-pick and rebase conflict checks failing before Git 2.40 &mdash; each was gated on an older Git version than the flags it uses
+- Fixes typos and inconsistencies in user-facing text ([#5849](https://github.com/gitkraken/vscode-gitlens/issues/5849)) &mdash; corrects misspellings, broken grammar, and stray punctuation across notifications, quick picks, and settings descriptions, including a misspelled "acccount" in the _Launchpad_ snooze prompt, a stray brace in the deep-link clone progress title, a missing space before the em dash in the Cloud Patch created notification, the _Open Current Branch on Remote_ picker titling itself "Open Current Branch Name", and seven _Reveal_ settings reading "otherwise they revealed"
+  - Fixes four settings descriptions rendering a dead `#…#` link because they named a setting that does not exist &mdash; `gitlens.advanced.blame.delayAfterEdit`, the deprecated `gitlens.views.commitFormat` and `gitlens.views.stashFormat`, and `gitlens.ai.openInAgent`
+  - Fixes the _Git CodeLens_ and status bar click-command settings describing _Search for Commits within Selection_ as "Shows the Inspect", and the deprecated `gitlens.outputLevel` naming the debug logging commands without their "(Trace)" part
+  - Fixes stale `eamodio/vscode-gitlens` wiki links in three view format settings
 
 ## [19.1.0] - 2026-09-01
 

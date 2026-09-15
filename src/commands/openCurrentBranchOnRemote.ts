@@ -27,7 +27,7 @@ export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 			this.container,
 			gitUri,
 			editor,
-			l10n.t('Open Current Branch Name'),
+			l10n.t('Open Current Branch on Remote'),
 		);
 		if (repository == null) return;
 
