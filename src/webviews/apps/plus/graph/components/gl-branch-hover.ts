@@ -493,7 +493,7 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 		const linkType: 'pullrequest' | 'issue' | 'autolink' =
 			item.type === 'pullrequest' ? 'pullrequest' : item.type === 'issue' ? 'issue' : 'autolink';
 		const link = html`<span class="name">
-			<a href=${item.url} @click=${(e: Event) => this.onLinkClick(e, linkType)}>${item.title}</a>
+			<a href=${item.url} @click=${() => this.onLinkClick(linkType)}>${item.title}</a>
 		</span>`;
 
 		switch (item.type) {
@@ -711,9 +711,13 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 		</div>`;
 	}
 
-	private onLinkClick(e: Event, type: 'pullrequest' | 'issue' | 'autolink') {
-		e.stopPropagation();
-
+	/** Telemetry only — deliberately neither stopPropagation nor preventDefault. These are plain
+	 *  `https:` anchors that should open in a browser, and it's VS Code's window-level interceptor
+	 *  that does that (and calls `preventDefault` itself). Swallowing the click leaves the default
+	 *  in-frame navigation to run, which navigates the webview to the URL and blanks the graph.
+	 *  Callers that want to handle the click themselves guard at their own site — see
+	 *  `onPrTitleClick`. */
+	private onLinkClick(type: 'pullrequest' | 'issue' | 'autolink') {
 		emitTelemetrySentEvent(this, {
 			name: 'graph/overview/linkClicked',
 			data: { surface: this.surface, type: type },
@@ -721,10 +725,16 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 	}
 
 	/** Opens the graph's own pull request sheet instead of leaving the graph to read it on the
-	 *  remote — closes the enclosing popover so the sheet isn't left sitting underneath it. */
+	 *  remote — closes the enclosing popover so the sheet isn't left sitting underneath it.
+	 *
+	 *  Unlike the item rows below, this one owns the click outright, so it needs BOTH guards:
+	 *  `preventDefault` suppresses the browser's own navigation, and `stopPropagation` keeps the
+	 *  click from reaching VS Code's window-level interceptor — which does not consult
+	 *  `defaultPrevented`, so without it the PR also opens in a browser tab. */
 	private onPrTitleClick(e: MouseEvent, pr: NonNullable<OverviewBranchEnrichment['pr']>) {
 		e.preventDefault();
-		this.onLinkClick(e, 'pullrequest');
+		e.stopPropagation();
+		this.onLinkClick('pullrequest');
 
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-show-pr-sheet', {
