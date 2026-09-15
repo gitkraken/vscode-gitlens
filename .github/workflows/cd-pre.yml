@@ -13,6 +13,7 @@ jobs:
             contents: write
         outputs:
             status: ${{ steps.earlyexit.outputs.status }}
+            previous_pre_ref: ${{ steps.earlyexit.outputs.previous_pre_ref }}
         steps:
             - name: Checkout code
               uses: actions/checkout@v7
@@ -35,6 +36,7 @@ jobs:
                       exit 0
                     else
                       echo "Updating pre"
+                      echo "previous_pre_ref=$preRef" >> $GITHUB_OUTPUT
                       git push origin --delete pre
                       git checkout -b pre
                       git push origin pre
@@ -75,7 +77,37 @@ jobs:
             - name: Package extension for forks
               run: pnpm run package-forks --pre-release
             - name: Publish extension to VS Code Marketplace
-              run: pnpm vsce publish --no-dependencies --pre-release --packagePath ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.GITLENS_VSCODE_MARKETPLACE_PAT }}
+              id: publish-marketplace
+              run: |
+                  for attempt in $(seq 1 5); do
+                    if pnpm vsce publish --no-dependencies --pre-release --packagePath "./${PACKAGE_NAME}.vsix" -p "${{ secrets.GITLENS_VSCODE_MARKETPLACE_PAT }}"; then
+                      exit 0
+                    fi
+
+                    if [ "$attempt" -lt 5 ]; then
+                      delay=$((30 * 2 ** (attempt - 1)))
+                      echo "::warning::Marketplace publish attempt ${attempt} of 5 failed; retrying in ${delay}s."
+                      sleep "$delay"
+                    fi
+                  done
+
+                  echo "::error::Marketplace publish failed after 5 attempts."
+                  exit 1
+            - name: Roll back pre-release tagging
+              # The `check` job moved `origin/pre` to HEAD before anything published. Left in place, the next
+              # scheduled run sees no changes and never retries this commit, so undo it when publishing fails.
+              if: failure() && steps.publish-marketplace.outcome == 'failure'
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  PREVIOUS_PRE_REF: ${{ needs.check.outputs.previous_pre_ref }}
+              run: |
+                  if [ -n "$PREVIOUS_PRE_REF" ]; then
+                    echo "Restoring origin/pre to $PREVIOUS_PRE_REF"
+                    gh api -X PATCH "repos/${GITHUB_REPOSITORY}/git/refs/heads/pre" -f sha="$PREVIOUS_PRE_REF" -F force=true
+                  else
+                    echo "Deleting origin/pre; it did not exist before this run"
+                    gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/pre"
+                  fi
             - name: Publish extension to OpenVSIX
               run: pnpm ovsx publish ./${{ env.PACKAGE_NAME }}-forks.vsix -p ${{ secrets.GITLENS_OPENVSIX_PAT }}
             - name: Tag pre-release commit

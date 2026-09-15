@@ -34,7 +34,21 @@ jobs:
             - name: Package extension for forks
               run: pnpm run package-forks
             - name: Publish Extension to VS Code Marketplace
-              run: pnpm vsce publish --no-dependencies --packagePath ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.GITLENS_VSCODE_MARKETPLACE_PAT }}
+              run: |
+                  for attempt in $(seq 1 5); do
+                    if pnpm vsce publish --no-dependencies --packagePath "./${PACKAGE_NAME}.vsix" -p "${{ secrets.GITLENS_VSCODE_MARKETPLACE_PAT }}"; then
+                      exit 0
+                    fi
+
+                    if [ "$attempt" -lt 5 ]; then
+                      delay=$((30 * 2 ** (attempt - 1)))
+                      echo "::warning::Marketplace publish attempt ${attempt} of 5 failed; retrying in ${delay}s."
+                      sleep "$delay"
+                    fi
+                  done
+
+                  echo "::error::Marketplace publish failed after 5 attempts."
+                  exit 1
             - name: Publish extension to OpenVSIX
               run: pnpm ovsx publish ./${{ env.PACKAGE_NAME }}-forks.vsix -p ${{ secrets.GITLENS_OPENVSIX_PAT }}
             - name: Generate Changelog
