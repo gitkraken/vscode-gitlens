@@ -694,14 +694,20 @@ suite('GitHubApi.searchMyIssues', () => {
 		type: undefined,
 	};
 
-	// Captures the GraphQL variables of the single searchMyIssues request and returns empty result sets so the
-	// method resolves; each category exposes `issueCount: 0` so the read is never reported truncated.
-	function captureVariables(): { config: GitHubApiConfig; getVariables: () => Record<string, unknown> } {
+	// Captures the GraphQL query and variables of the single searchMyIssues request and returns empty result sets so
+	// the method resolves; each category exposes `issueCount: 0` so the read is never reported truncated.
+	function captureRequest(): {
+		config: GitHubApiConfig;
+		getQuery: () => string;
+		getVariables: () => Record<string, unknown>;
+	} {
+		let query = '';
 		let variables: Record<string, unknown> = {};
 		const config: GitHubApiConfig = {
 			isWeb: false,
 			fetch: async (_url: unknown, init?: { body?: string }) => {
-				const body = JSON.parse(init?.body ?? '{}') as { variables?: Record<string, unknown> };
+				const body = JSON.parse(init?.body ?? '{}') as { query?: string; variables?: Record<string, unknown> };
+				query = body.query ?? '';
 				variables = body.variables ?? {};
 				const empty = {
 					issueCount: 0,
@@ -715,13 +721,13 @@ suite('GitHubApi.searchMyIssues', () => {
 			},
 			wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
 		} as unknown as GitHubApiConfig;
-		return { config: config, getVariables: () => variables };
+		return { config: config, getQuery: () => query, getVariables: () => variables };
 	}
 
 	// This read has never requested an order, so GitHub has always answered it by relevance. Emitting a default
 	// would change which issues its shipped consumers see, so an omitted sort must still emit no qualifier.
 	test('requests no ordering when none was asked for, keeping the query it has always emitted', async () => {
-		const { config, getVariables } = captureVariables();
+		const { config, getVariables } = captureRequest();
 		const api = new GitHubApi(config);
 
 		await api.searchMyIssues(provider, token, {});
@@ -730,7 +736,7 @@ suite('GitHubApi.searchMyIssues', () => {
 	});
 
 	test('emits the requested ordering through the same table the filtered search uses', async () => {
-		const { config, getVariables } = captureVariables();
+		const { config, getVariables } = captureRequest();
 		const api = new GitHubApi(config);
 
 		await api.searchMyIssues(provider, token, { sort: 'comments:desc' });
@@ -741,8 +747,20 @@ suite('GitHubApi.searchMyIssues', () => {
 		assert.match(String(vars.mentioned), /sort:comments-desc/);
 	});
 
+	test('uses the requested page size for every issue category', async () => {
+		const { config, getQuery } = captureRequest();
+		const api = new GitHubApi(config);
+
+		await api.searchMyIssues(provider, token, { pageSize: 37 });
+
+		const query = getQuery();
+		assert.match(query, /assigned: search\(first: 37,/);
+		assert.match(query, /mentioned: search\(first: 37,/);
+		assert.match(query, /authored: search\(first: 37,/);
+	});
+
 	test('binds the assigned category to the current user by default', async () => {
-		const { config, getVariables } = captureVariables();
+		const { config, getVariables } = captureRequest();
 		const api = new GitHubApi(config);
 
 		await api.searchMyIssues(provider, token, {});
@@ -754,7 +772,7 @@ suite('GitHubApi.searchMyIssues', () => {
 	});
 
 	test('broadens the assigned category to any assignee when includeAllAssignees is set, keeping authored/mentioned user-relative', async () => {
-		const { config, getVariables } = captureVariables();
+		const { config, getVariables } = captureRequest();
 		const api = new GitHubApi(config);
 
 		await api.searchMyIssues(provider, token, { includeAllAssignees: true });
@@ -775,7 +793,7 @@ suite('GitHubApi.searchMyIssues', () => {
 	// "assigned to anyone" read. Measured against the live API, a two-repo `assignee:*` returns exactly the sum of
 	// the two per-repo counts, so what the request must carry is every `repo:` qualifier alongside the qualifier.
 	test('keeps every repo qualifier alongside assignee:* for a multi-repo scope', async () => {
-		const { config, getVariables } = captureVariables();
+		const { config, getVariables } = captureRequest();
 		const api = new GitHubApi(config);
 
 		await api.searchMyIssues(provider, token, {

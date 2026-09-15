@@ -114,6 +114,7 @@ export type SearchMyIssuesOptions = {
 	 */
 	filters?: IssueFilter[];
 	cursor?: string;
+	pageSize?: number;
 	/**
 	 * Narrows the account-wide read to one org/account (Azure: the organization) and/or one project within it.
 	 * Only honored by a host with a project layer (Azure), whose account-wide read otherwise fans out over every

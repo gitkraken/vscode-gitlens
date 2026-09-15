@@ -3908,6 +3908,7 @@ export class GitHubApi {
 			includeBody?: boolean;
 			includeAllAssignees?: boolean;
 			cursor?: string;
+			pageSize?: number;
 			/** Requested order. Omitted leaves GitHub's relevance order, which is what this read has always served. */
 			sort?: IssueSorting;
 			/**
@@ -3987,6 +3988,7 @@ export class GitHubApi {
 				avatarSize: options?.avatarSize,
 				includeBody: options?.includeBody,
 				cursor: options?.cursor,
+				pageSize: options?.pageSize,
 				sort: options?.sort,
 				// This read emitted no `sort:` qualifier at all before ordering existed, so a cursor with no
 				// recorded key came out of a relevance-ordered walk.
