@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds compare-and-swap reference updates and a reference delete, so a consumer can move a ref only if it still points where it last saw it. `refs.updateReference(repoPath, ref, sha, { expected })` passes git's own old-value check (`update-ref <ref> <new> <old>`) when `expected` is a sha, and the empty old value — git's spelling of "must not exist yet" — when it is `'absent'`; `refs.deleteReference(repoPath, ref, { expected })` is the `update-ref -d --no-deref` form — it deletes a symbolic ref itself, never the ref it points to, and refuses `HEAD` — and deletes a local branch the way `git branch -d` leaves things apart from its merged check: refused while checked out in any worktree, with its `branch.<name>` config section and GitLens's per-branch metadata removed alongside. Both throw a typed `ReferenceUpdateError` (`conflict`, `invalidRef`, `invalidObject`, `notFound`, `checkedOut`) and fire the cache and repository hooks a branch, remote-tracking, tag or `HEAD` move fires; a ref in another namespace announces nothing, since nothing core caches can observe it. A cancelled call rejects as `CancellationError`, never `ReferenceUpdateError`, so a host serving `@gitkraken/sync-tools`' compare-and-swap `updateRef` op can tell a refusal from a cancellation (git, git-cli)
+
+### Changed
+
+- **Breaking (git, git-cli)** — `refs.updateReference` now THROWS on failure instead of logging and resolving. A ref writer whose failures are invisible by default is the bug, not a mode to opt out of; no caller in this repository relied on the old behavior. Its signature is now `(repoPath, ref, sha, options?, cancellation?)`
+
 ### Fixed
 
 - Fixes a git command that never started because its cancellation had already fired — the signal was aborted when the call was made, or while the command waited in the queue — rejecting as a `GitError` instead of a `CancellationError`. A typed mutator took that as git refusing the operation and reported a failure of its own, such as a `ReferenceUpdateError` with no reason, where its caller expected a cancellation. An `errors: 'ignore'` run still reports it as `failed`/`unstarted` (git-cli)

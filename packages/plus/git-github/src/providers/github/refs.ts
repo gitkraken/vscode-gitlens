@@ -166,7 +166,13 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	}
 
 	@debug()
-	updateReference(_repoPath: string, _ref: string, _newRef: string, _cancellation?: AbortSignal): Promise<void> {
+	updateReference(
+		_repoPath: string,
+		_ref: string,
+		_sha: string,
+		_options?: { expected?: string | 'absent' },
+		_cancellation?: AbortSignal,
+	): Promise<void> {
 		return Promise.resolve();
 	}
 }
