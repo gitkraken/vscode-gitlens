@@ -16,6 +16,7 @@ import type {
 	PullErrorReason,
 	PushErrorReason,
 	RebaseErrorReason,
+	ReferenceUpdateErrorReason,
 	ResetErrorReason,
 	RevertErrorReason,
 	ShowErrorReason,
@@ -121,7 +122,13 @@ export const GitErrors = {
 	rebaseMultipleBranches: /cannot rebase onto multiple branches/i,
 	revertAborted: /revert.*aborted/i,
 	revertInProgress: /^(error: )?(revert|cherry-pick) is already in progress/i,
+	refAlreadyExists: /cannot lock ref '.*?': reference already exists/i,
+	refBadName: /refusing to update ref with bad name/i,
 	refLocked: /fatal:\s*cannot lock ref ['"].+['"]: unable to create file/i,
+	refNonexistentObject: /trying to write ref '.*?' with nonexistent object/i,
+	refNotAValidSha: /not a valid (?:old )?SHA1/i,
+	refUnableToResolve: /cannot lock ref '.*?': unable to resolve reference/i,
+	refValueMismatch: /cannot lock ref '.*?': is at [0-9a-f]+ but expected/i,
 	remoteAhead: /rejected because the remote contains work/i,
 	remoteConnectionFailed: /Could not read from remote repository/i,
 	remoteRejected: /rejected because the remote contains work/i,
@@ -206,6 +213,8 @@ type GitCommand =
 	| 'stash-apply'
 	| 'stash-push'
 	| 'tag'
+	| 'update-ref'
+	| 'update-ref-delete'
 	| 'worktree-create'
 	| 'worktree-delete';
 
@@ -227,6 +236,8 @@ type GitCommandToReasonMap = {
 	'stash-apply': StashApplyErrorReason;
 	'stash-push': StashPushErrorReason;
 	tag: TagErrorReason;
+	'update-ref': ReferenceUpdateErrorReason;
+	'update-ref-delete': ReferenceUpdateErrorReason;
 	'worktree-create': WorktreeCreateErrorReason;
 	'worktree-delete': WorktreeDeleteErrorReason;
 };
@@ -403,6 +414,37 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 			[GitErrors.permissionDenied, 'permissionDenied'],
 			[GitErrors.remoteRejected, 'remoteRejected'],
 			[GitErrors.tagConflict, 'tagConflict'],
+		],
+	],
+	[
+		'update-ref',
+		[
+			// Every entry below also matches the broad `cantLockRef` catch-all that closes the list, so
+			// order is load-bearing — the specific shapes must be claimed first.
+			[GitErrors.refBadName, 'invalidRef'],
+			[GitErrors.refNonexistentObject, 'invalidObject'],
+			[GitErrors.refNotAValidSha, 'invalidObject'],
+			[GitErrors.refValueMismatch, 'conflict'],
+			[GitErrors.refAlreadyExists, 'conflict'],
+			// A ref that vanished under a compare-and-swap lost the same race as one that moved, so an
+			// update reports both as a conflict — the caller's response (re-read, retry) is identical.
+			[GitErrors.refUnableToResolve, 'conflict'],
+			// Directory/file collisions and any other lock refusal
+			[GitErrors.cantLockRef, 'conflict'],
+		],
+	],
+	[
+		'update-ref-delete',
+		[
+			[GitErrors.refBadName, 'invalidRef'],
+			[GitErrors.refNotAValidSha, 'invalidObject'],
+			// Kept BEFORE the generic lock failures, and split from the update table above: a deleter
+			// that finds its target already gone has reached the state it wanted, while one that finds
+			// the target moved has not. Collapsing both into `conflict` would force every caller to
+			// re-read just to tell an idempotent no-op from a real race.
+			[GitErrors.refUnableToResolve, 'notFound'],
+			[GitErrors.refValueMismatch, 'conflict'],
+			[GitErrors.cantLockRef, 'conflict'],
 		],
 	],
 	[

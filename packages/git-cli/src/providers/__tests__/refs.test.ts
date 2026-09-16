@@ -2,9 +2,12 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
+import type { ReferenceUpdateErrorReason } from '@gitlens/git/errors.js';
+import { ReferenceUpdateError } from '@gitlens/git/errors.js';
 import type { GitResult } from '@gitlens/git/run.types.js';
 import type { CliGitProviderInternal } from '../../cliGitProvider.js';
 import type { Git } from '../../exec/git.js';
+import { GitError } from '../../exec/git.js';
 import { RefsGitSubProvider } from '../refs.js';
 
 const recordSep = '\x1E';
@@ -37,6 +40,9 @@ suite('RefsGitSubProvider Test Suite', () => {
 	let sandbox: sinon.SinonSandbox;
 	let refsProvider: RefsGitSubProvider;
 	let gitStub: sinon.SinonStubbedInstance<Git>;
+	let onReset: sinon.SinonSpy;
+	let onChanged: sinon.SinonSpy;
+	let cachedRefTips: sinon.SinonSpy;
 
 	function createGitResult(stdout: string): GitResult {
 		return {
@@ -68,7 +74,24 @@ suite('RefsGitSubProvider Test Suite', () => {
 		gitStub = sandbox.createStubInstance(MockGit) as unknown as sinon.SinonStubbedInstance<Git>;
 		(gitStub.supported as sinon.SinonStub).resolves([]);
 
-		const context = {} as unknown as GitServiceContext;
+		onReset = sinon.spy();
+		onChanged = sinon.spy();
+		const context = {
+			hooks: { cache: { onReset: onReset }, repository: { onChanged: onChanged } },
+		} as unknown as GitServiceContext;
+
+		cachedRefTips = sinon.spy(
+			(
+				repoPath: string,
+				factory: (
+					commonPath: string,
+					cacheable: { invalidate: () => void },
+					cancellation?: AbortSignal,
+				) => Promise<unknown>,
+				cancellation?: AbortSignal,
+			) => factory(repoPath, { invalidate: () => {} }, cancellation),
+		);
+
 		// Pass-through cache: invoke the factory directly with no caching.
 		const cache = {
 			getRefs: (
@@ -80,17 +103,13 @@ suite('RefsGitSubProvider Test Suite', () => {
 				) => Promise<unknown>,
 				cancellation?: AbortSignal,
 			) => factory(repoPath, { invalidate: () => {} }, cancellation),
-			getRefTips: (
-				repoPath: string,
-				factory: (
-					commonPath: string,
-					cacheable: { invalidate: () => void },
-					cancellation?: AbortSignal,
-				) => Promise<unknown>,
-				cancellation?: AbortSignal,
-			) => factory(repoPath, { invalidate: () => {} }, cancellation),
+			getRefTips: cachedRefTips,
+			getCommonPath: (repoPath: string) => repoPath,
 		} as unknown as Cache;
-		const provider = {} as unknown as CliGitProviderInternal;
+		// A local-branch delete drops GitLens's per-branch state
+		const provider = {
+			branches: { forgetDeletedBranch: () => Promise.resolve() },
+		} as unknown as CliGitProviderInternal;
 
 		refsProvider = new RefsGitSubProvider(context, gitStub, cache, provider);
 	});
@@ -328,6 +347,201 @@ suite('RefsGitSubProvider Test Suite', () => {
 			assert.ok(refs);
 			assert.strictEqual(refs.length, 2);
 			assert.deepStrictEqual(refs.map(r => r.fullName).sort(), ['refs/heads/main', 'refs/remotes/origin/main']);
+		});
+	});
+
+	suite('ref mutations', () => {
+		const repoPath = '/repo';
+		const sha = 'aaa1111111111111111111111111111111111111';
+		const other = 'bbb2222222222222222222222222222222222222';
+
+		setup(() => {
+			// A local-branch delete first asks git which branches its worktrees have checked out — none, here
+			gitStub.run.withArgs(sinon.match.any, 'worktree', 'list', '--porcelain').resolves(createGitResult(''));
+		});
+
+		/** The argv of the single `git` invocation a mutation makes, minus the run options. */
+		function argv(): unknown[] {
+			return gitStub.run.getCall(0).args.slice(1);
+		}
+
+		/** A rejection shaped like a real failed run, carrying `text` as the error git reported. */
+		function failWith(text: string): void {
+			gitStub.run.rejects(new GitError(new Error(text)));
+		}
+
+		suite('argv', () => {
+			test('a plain update passes no old value', async () => {
+				await refsProvider.updateReference(repoPath, 'refs/kepler/mark', sha);
+
+				assert.deepStrictEqual(argv(), ['update-ref', 'refs/kepler/mark', sha]);
+			});
+
+			test('an expected sha becomes git own compare-and-swap old value', async () => {
+				await refsProvider.updateReference(repoPath, 'refs/kepler/mark', sha, { expected: other });
+
+				assert.deepStrictEqual(argv(), ['update-ref', 'refs/kepler/mark', sha, other]);
+			});
+
+			test("'absent' becomes a literal empty old value", async () => {
+				await refsProvider.updateReference(repoPath, 'refs/kepler/mark', sha, { expected: 'absent' });
+
+				// The empty string IS the create-only contract — git reads it as "the ref must not exist".
+				// Were it dropped on its way to argv the call would silently become an unconditional
+				// overwrite, which no assertion on the resulting ref value could distinguish.
+				assert.deepStrictEqual(argv(), ['update-ref', 'refs/kepler/mark', sha, '']);
+			});
+
+			test('a plain delete passes no old value', async () => {
+				await refsProvider.deleteReference(repoPath, 'refs/kepler/mark');
+
+				assert.deepStrictEqual(argv(), ['update-ref', '-d', '--no-deref', 'refs/kepler/mark']);
+			});
+
+			test('an expected sha is appended to a delete', async () => {
+				await refsProvider.deleteReference(repoPath, 'refs/kepler/mark', { expected: other });
+
+				assert.deepStrictEqual(argv(), ['update-ref', '-d', '--no-deref', 'refs/kepler/mark', other]);
+			});
+		});
+
+		suite('delete guards', () => {
+			test('HEAD is refused without running git', async () => {
+				// Dereferenced, it is the checked-out branch; not dereferenced, it is the repository's HEAD file
+				await assert.rejects(refsProvider.deleteReference(repoPath, 'HEAD'), (ex: unknown) =>
+					ReferenceUpdateError.is(ex, 'checkedOut'),
+				);
+				sinon.assert.notCalled(gitStub.run);
+			});
+
+			test('a branch git lists as checked out in a worktree is refused', async () => {
+				gitStub.run
+					.withArgs(sinon.match.any, 'worktree', 'list', '--porcelain')
+					.resolves(
+						createGitResult(
+							`worktree /repo\nHEAD ${sha}\nbranch refs/heads/main\n\nworktree /wt\nHEAD ${sha}\nbranch refs/heads/in-use\n`,
+						),
+					);
+
+				await assert.rejects(refsProvider.deleteReference(repoPath, 'refs/heads/in-use'), (ex: unknown) =>
+					ReferenceUpdateError.is(ex, 'checkedOut'),
+				);
+				sinon.assert.neverCalledWith(gitStub.run, sinon.match.any, 'update-ref');
+			});
+		});
+
+		suite('failure reasons', () => {
+			const updateCases: [reason: ReferenceUpdateErrorReason, stderr: string][] = [
+				['conflict', `cannot lock ref 'refs/kepler/mark': is at ${sha} but expected ${other}`],
+				['conflict', `cannot lock ref 'refs/kepler/mark': reference already exists`],
+				['conflict', `cannot lock ref 'refs/heads/df/sub': 'refs/heads/df' exists; cannot create it`],
+				['invalidRef', `refusing to update ref with bad name 'refs/heads/bad..name'`],
+				['invalidObject', `trying to write ref 'refs/kepler/mark' with nonexistent object ${sha}`],
+				['invalidObject', `fatal: nosuchthing: not a valid SHA1`],
+			];
+
+			function testUpdateReason(reason: ReferenceUpdateErrorReason, stderr: string): void {
+				test(`update maps "${stderr.slice(0, 48)}…" to ${reason}`, async () => {
+					failWith(stderr);
+
+					await assert.rejects(
+						refsProvider.updateReference(repoPath, 'refs/kepler/mark', sha),
+						(ex: unknown) => ReferenceUpdateError.is(ex, reason),
+					);
+				});
+			}
+
+			for (const [reason, stderr] of updateCases) {
+				testUpdateReason(reason, stderr);
+			}
+
+			test('an unresolvable ref is a lost race on update but an already-done delete', async () => {
+				// The one stderr shape the two operations read differently, which is why they map through
+				// separate tables — collapsing them would cost a deleter the ability to tell an idempotent
+				// no-op from a real conflict without re-reading.
+				const stderr = `cannot lock ref 'refs/kepler/mark': unable to resolve reference 'refs/kepler/mark'`;
+				failWith(stderr);
+
+				await assert.rejects(
+					refsProvider.updateReference(repoPath, 'refs/kepler/mark', sha, { expected: other }),
+					(ex: unknown) => ReferenceUpdateError.is(ex, 'conflict'),
+				);
+				await assert.rejects(
+					refsProvider.deleteReference(repoPath, 'refs/kepler/mark', { expected: other }),
+					(ex: unknown) => ReferenceUpdateError.is(ex, 'notFound'),
+				);
+			});
+
+			test('the failure carries the action and the ref it targeted', async () => {
+				failWith(`cannot lock ref 'refs/kepler/mark': reference already exists`);
+
+				await assert.rejects(
+					refsProvider.updateReference(repoPath, 'refs/kepler/mark', sha, { expected: 'absent' }),
+					(ex: unknown) =>
+						ReferenceUpdateError.is(ex) &&
+						ex.details.action === 'update' &&
+						ex.details.ref === 'refs/kepler/mark',
+				);
+			});
+		});
+
+		suite('change hooks', () => {
+			test('a branch update resets the branches cache and announces heads', async () => {
+				await refsProvider.updateReference(repoPath, 'refs/heads/main', sha);
+
+				sinon.assert.calledWith(onReset, repoPath, 'branches');
+				sinon.assert.calledWith(onChanged, repoPath, ['heads']);
+			});
+
+			test('a tag update resets the tags cache and announces tags', async () => {
+				await refsProvider.updateReference(repoPath, 'refs/tags/v1.0.0', sha);
+
+				sinon.assert.calledWith(onReset, repoPath, 'tags');
+				sinon.assert.calledWith(onChanged, repoPath, ['tags']);
+			});
+
+			test('a remote-tracking update resets the branches cache and announces remotes', async () => {
+				await refsProvider.updateReference(repoPath, 'refs/remotes/origin/main', sha);
+
+				// Remote-tracking branches are read through the branch and ref-tip caches — resetting only
+				// `'remotes'` (the configured remotes) would leave both serving the old tip.
+				sinon.assert.calledWith(onReset, repoPath, 'branches');
+				sinon.assert.neverCalledWith(onReset, repoPath, 'remotes');
+				sinon.assert.calledWith(onChanged, repoPath, ['remotes']);
+			});
+
+			test('a HEAD update resets branches and status and announces head and heads', async () => {
+				await refsProvider.updateReference(repoPath, 'HEAD', sha);
+
+				sinon.assert.calledWith(onReset, repoPath, 'branches', 'status');
+				sinon.assert.calledWith(onChanged, repoPath, ['head', 'heads']);
+			});
+
+			test('an unmodelled namespace announces nothing', async () => {
+				await refsProvider.updateReference(repoPath, 'refs/kepler/mark', sha);
+
+				sinon.assert.notCalled(onChanged);
+				sinon.assert.notCalled(onReset);
+			});
+
+			test('a delete announces the same change as an update to the ref', async () => {
+				await refsProvider.deleteReference(repoPath, 'refs/heads/main', { expected: sha });
+
+				sinon.assert.calledWith(onReset, repoPath, 'branches', 'config');
+				sinon.assert.calledOnce(onReset);
+				sinon.assert.calledWith(onChanged, repoPath, ['heads']);
+			});
+
+			test('a refused mutation announces nothing', async () => {
+				failWith(`cannot lock ref 'refs/heads/main': is at ${sha} but expected ${other}`);
+
+				await assert.rejects(
+					refsProvider.updateReference(repoPath, 'refs/heads/main', sha, { expected: other }),
+				);
+
+				sinon.assert.notCalled(onReset);
+				sinon.assert.notCalled(onChanged);
+			});
 		});
 	});
 });

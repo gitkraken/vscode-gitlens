@@ -704,6 +704,8 @@ export class Cache implements Disposable {
 				// `branch`/`branches` cascade above clears for.
 				keysToClear.add('commit');
 				keysToClear.add('commitCount');
+				// Keyed by the revision as given, so a tag name resolves to wherever the tag pointed when first read
+				keysToClear.add('resolvedRevisions');
 			}
 
 			if (types.includes('tracking')) {

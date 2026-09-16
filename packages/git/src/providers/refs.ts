@@ -64,5 +64,39 @@ export interface GitRefsSubProvider {
 		relativePath?: string,
 		cancellation?: AbortSignal,
 	): Promise<string | undefined>;
-	updateReference(repoPath: string, ref: string, newRef: string, cancellation?: AbortSignal): Promise<void>;
+	/**
+	 * Deletes `ref` — a symbolic ref itself, never the ref it points to; `HEAD` is refused. `expected` makes
+	 * it a compare-and-swap: the delete is refused unless the ref is at that sha. Without `expected`,
+	 * deleting a ref that doesn't exist succeeds — git treats it as already-done rather than an error.
+	 *
+	 * A local branch (`refs/heads/<name>`) is deleted the way `git branch -d` would leave things, minus its
+	 * merged check: refused while checked out in any worktree, and its `branch.<name>` config section and
+	 * GitLens's per-branch metadata go with it. Prefer `branches.deleteLocalBranch` unless you need the
+	 * compare-and-swap.
+	 *
+	 * Optional because only a real git host can offer it.
+	 *
+	 * @throws {ReferenceUpdateError} `'conflict'` when the ref is elsewhere, `'notFound'` when
+	 * `expected` was given and the ref doesn't exist, `'checkedOut'` for a branch checked out in a worktree.
+	 */
+	deleteReference?(
+		repoPath: string,
+		ref: string,
+		options?: { expected?: string },
+		cancellation?: AbortSignal,
+	): Promise<void>;
+	/**
+	 * Points `ref` at `sha`. `expected` makes it a compare-and-swap: a sha requires the ref to be there
+	 * already, `'absent'` requires it not to exist at all (create-only).
+	 *
+	 * @throws {ReferenceUpdateError} `'conflict'` when the compare-and-swap lost, `'invalidRef'` for a
+	 * malformed name, `'invalidObject'` when `sha` is unknown.
+	 */
+	updateReference(
+		repoPath: string,
+		ref: string,
+		sha: string,
+		options?: { expected?: string | 'absent' },
+		cancellation?: AbortSignal,
+	): Promise<void>;
 }
