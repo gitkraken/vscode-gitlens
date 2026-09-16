@@ -203,7 +203,13 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		value: string | undefined,
 		options?: { file?: string; global?: boolean },
 	): Promise<void> {
-		return this.setConfigCore(repoPath, key, value, options);
+		await this.setConfigCore(repoPath, key, value, options);
+
+		// A branch's upstream (`remote`/`merge`) is read back through the cached branch list, which a
+		// `'config'` reset alone leaves serving the old tracking info.
+		if (repoPath != null && !options?.file && /^branch\..+\.(?:remote|merge)$/i.test(key)) {
+			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
+		}
 	}
 
 	private async setConfigCore(

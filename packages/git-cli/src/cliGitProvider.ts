@@ -1,7 +1,10 @@
+import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import type { CachedGitTypes } from '@gitlens/git/cache.js';
 import { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
+import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import { deletedOrMissing } from '@gitlens/git/models/revision.js';
 import type { GitProvider, GitProviderDescriptor } from '@gitlens/git/providers/provider.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
@@ -185,6 +188,46 @@ export class CliGitProvider implements GitProvider {
 		await this._git.run({ cwd: parentPath }, 'clone', url, folderPath);
 
 		return folderPath;
+	}
+
+	/** Creates a new repository at `targetPath` (`git init`), creating it first if it doesn't yet exist. */
+	async init(targetPath: string, options?: { defaultBranch?: string; bare?: boolean }): Promise<void> {
+		await fs.mkdir(targetPath, { recursive: true });
+
+		const args = ['init'];
+		if (options?.defaultBranch) {
+			args.push('-b', options.defaultBranch);
+		}
+		if (options?.bare) {
+			args.push('--bare');
+		}
+
+		// Run inside the target rather than naming it from its parent: a relative `targetPath` would otherwise
+		// be resolved against the parent a second time
+		await this._git.run({ cwd: targetPath }, ...args);
+	}
+
+	/**
+	 * Notifies the provider that `repoPath` was mutated outside of a typed sub-provider method — e.g. a
+	 * consumer that ran a command through the raw `git.run`/`provider.git.run` escape hatch. Fires the same
+	 * `cache.onReset`/`repository.onChanged` hooks a typed mutator would, so, exactly as after a typed write,
+	 * the provider clears its own caches for `repoPath` (every type, or just `options.cache` when given) and
+	 * its pending commands before the host's handlers run.
+	 */
+	notifyChanged(
+		repoPath: string,
+		changes: readonly RepositoryChange[],
+		options?: { cache?: readonly CachedGitTypes[] | 'all' },
+	): void {
+		const types = options?.cache;
+		if (types == null || types === 'all') {
+			// No types = everything, for the provider's own clear and the host's handler alike.
+			this.context.hooks?.cache?.onReset?.(repoPath);
+		} else if (types.length) {
+			this.context.hooks?.cache?.onReset?.(repoPath, ...types);
+		}
+
+		this.context.hooks?.repository?.onChanged?.(repoPath, [...changes]);
 	}
 
 	private _blame: BlameGitSubProvider | undefined;

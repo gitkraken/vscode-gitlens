@@ -6,6 +6,8 @@ import type { GitUser } from '../models/user.js';
 export type GitCoreConfigKeys =
 	| 'commit.gpgsign'
 	| 'core.excludesFile'
+	/** `core.hooksPath` — the directory git runs hooks from instead of `$GIT_DIR/hooks` */
+	| 'core.hooksPath'
 	| 'diff.guitool'
 	| 'diff.tool'
 	/** `fetch.prune` — whether `git fetch` removes remote-tracking branches that no longer exist on the remote */
@@ -37,6 +39,10 @@ export type GitCoreConfigKeys =
 
 export type GitConfigKeys =
 	| GitCoreConfigKeys
+	/** `remote` — the branch's upstream remote */
+	| `branch.${string}.remote`
+	/** `merge` — the upstream ref on that remote, e.g. `refs/heads/main`; together with `remote`, this is what `--set-upstream-to` writes, and writing them directly sets an upstream whose remote ref does not exist yet */
+	| `branch.${string}.merge`
 	/** `vscode-merge-base` — value determined by VS Code that is used to determine the merge base for the current branch. Once `gk-merge-base` is determined, we stop using `vscode-merge-base` */
 	| `branch.${string}.vscode-merge-base`
 	/** `github-pr-owner-number` — value determined by VS Code/GitHub PR extension that is used to determine the PR number for the current branch */

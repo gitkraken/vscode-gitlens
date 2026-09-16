@@ -1,5 +1,6 @@
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
+import { SigningError } from '@gitlens/git/errors.js';
 import type { GitBlame } from '@gitlens/git/models/blame.js';
 import type { GitStashCommit } from '@gitlens/git/models/commit.js';
 import { GitCommit, GitCommitIdentity } from '@gitlens/git/models/commit.js';
@@ -10,7 +11,7 @@ import type { GitLog } from '@gitlens/git/models/log.js';
 import type { GitReflog } from '@gitlens/git/models/reflog.js';
 import type { GitRevisionRange } from '@gitlens/git/models/revision.js';
 import type { SearchQuery, SearchQueryFilters } from '@gitlens/git/models/search.js';
-import type { CommitSignature, SshSignedCommit } from '@gitlens/git/models/signature.js';
+import type { CommitSignature, SigningFormat, SshSignedCommit } from '@gitlens/git/models/signature.js';
 import type { GitUser } from '@gitlens/git/models/user.js';
 import type {
 	GitCommitReachability,
@@ -44,8 +45,8 @@ import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { GitResult, GitRunOptions } from '../exec/exec.types.js';
-import type { Git } from '../exec/git.js';
-import { gitConfigsLog, gitConfigsLogWithFiles, GitErrors } from '../exec/git.js';
+import type { Git, GitError } from '../exec/git.js';
+import { classifySigningError, gitConfigsLog, gitConfigsLogWithFiles, GitErrors } from '../exec/git.js';
 import type {
 	CommitsInFileRangeLogParser,
 	CommitsLogParser,
@@ -80,24 +81,96 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		private readonly provider: CliGitProviderInternal,
 	) {}
 
+	/**
+	 * Creates a commit object from a tree via `commit-tree`, with explicit (zero or more) parents and an
+	 * optional explicit author/committer — e.g. for merge commits assembled from multiple parents, or a
+	 * commit authored on behalf of someone else. Writes the commit object only; it updates no ref, so the
+	 * result is unreachable until a caller points a branch/ref at it. Fires no ref-change hooks — an
+	 * unreachable object changes no ref, so there's nothing for a cache or watcher to invalidate yet.
+	 */
 	@debug()
-	async createUnreachableCommitFromTree(
+	async createCommitFromTree(
 		repoPath: string,
 		tree: string,
-		parent: string,
-		message: string,
+		options: {
+			parents: string[];
+			message: string;
+			author?: { name: string; email: string; date?: Date | string };
+			committer?: { name: string; email: string; date?: Date | string };
+			sign?: boolean;
+			source?: unknown;
+		},
 		cancellation?: AbortSignal,
 	): Promise<string> {
-		const result = await this.git.run(
-			{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
-			'commit-tree',
-			tree,
-			'-p',
-			parent,
-			'-m',
-			message,
-		);
-		return result.stdout.trim();
+		const args = ['commit-tree', tree];
+		for (const parent of options.parents) {
+			args.push('-p', parent);
+		}
+
+		let format: SigningFormat = 'gpg';
+		if (options.sign) {
+			const signingConfig = await this.provider.config.getSigningConfig?.(repoPath);
+			format = signingConfig?.format ?? 'gpg';
+			args.push('-S');
+		}
+		args.push('-F', '-');
+
+		const env: Record<string, string> = {};
+		if (options.author) {
+			env.GIT_AUTHOR_NAME = options.author.name;
+			env.GIT_AUTHOR_EMAIL = options.author.email;
+			if (options.author.date != null) {
+				env.GIT_AUTHOR_DATE =
+					typeof options.author.date === 'string' ? options.author.date : options.author.date.toISOString();
+			}
+		}
+		if (options.committer) {
+			env.GIT_COMMITTER_NAME = options.committer.name;
+			env.GIT_COMMITTER_EMAIL = options.committer.email;
+			if (options.committer.date != null) {
+				env.GIT_COMMITTER_DATE =
+					typeof options.committer.date === 'string'
+						? options.committer.date
+						: options.committer.date.toISOString();
+			}
+		}
+
+		try {
+			const result = await this.git.run(
+				{
+					cwd: repoPath,
+					cancellation: cancellation,
+					errors: 'throw',
+					env: env,
+					// `-F -` stores the message byte-for-byte, where `-m` terminates it with a newline —
+					// keep that, or the same inputs write a different commit object.
+					stdin:
+						!options.message || options.message.endsWith('\n') ? options.message : `${options.message}\n`,
+					stdinEncoding: 'utf8',
+				},
+				...args,
+			);
+			const sha = result.stdout.trim();
+
+			if (options.sign) {
+				this.context.hooks?.commits?.onSigned?.(format, options.source);
+			}
+
+			return sha;
+		} catch (ex) {
+			if (options.sign) {
+				const reason = classifySigningError(ex);
+				if (reason != null) {
+					this.context.hooks?.commits?.onSigningFailed?.(reason, format, options.source);
+					throw new SigningError(
+						{ reason: reason, gitCommand: { repoPath: repoPath, args: ['commit-tree'] } },
+						ex as GitError,
+					);
+				}
+			}
+
+			throw ex;
+		}
 	}
 
 	@debug()

@@ -4949,6 +4949,8 @@
 	"Unable to pull because a local ref could not be updated.": "Unable to pull because a local ref could not be updated.",
 	"Unable to pull because a local tag would be overwritten.": "Unable to pull because a local tag would be overwritten.",
 	"Unable to pull because local changes to some files would be overwritten.": "Unable to pull because local changes to some files would be overwritten.",
+	"Unable to pull because the branch cannot be fast-forwarded.": "Unable to pull because the branch cannot be fast-forwarded.",
+	"Unable to pull because the branch has no upstream.": "Unable to pull because the branch has no upstream.",
 	"Unable to pull because the remote repository could not be reached.": "Unable to pull because the remote repository could not be reached.",
 	"Unable to pull because you are trying to rebase onto multiple branches.": "Unable to pull because you are trying to rebase onto multiple branches.",
 	"Unable to pull because you have not yet set up your Git identity.": "Unable to pull because you have not yet set up your Git identity.",
