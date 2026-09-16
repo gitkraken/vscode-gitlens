@@ -262,9 +262,15 @@ export async function listIssueTrackerIssuesPage(
 	// handle from each resource's own account (multi-account safe), capturing any error so its kind
 	// (e.g. auth) is preserved rather than collapsed to a generic warning.
 	let usersByResourceId: Map<string, string> | undefined;
+	// The same accounts keyed by the same resource, holding the provider's stable id rather than the handle. A
+	// separate map rather than a widened value because the two are resolved and consumed independently: a
+	// provider may carry an account with no id, and `scopedProjectsWithUsers` gates on the HANDLE alone, so
+	// folding them together would drop a resource whose id happened to be missing.
+	let userIdsByResourceId: Map<string, string> | undefined;
 	let accountLookupFailed = false;
 	if (options.includeAllAssignees !== true) {
 		usersByResourceId = new Map<string, string>();
+		userIdsByResourceId = new Map<string, string>();
 		const accounts = await mapBounded(scopedResources, providerFanOutConcurrency, async resource => ({
 			resource: resource,
 			...(await runCaptured(options.providerId, domain, options.connectionId, () =>
@@ -275,7 +281,14 @@ export async function listIssueTrackerIssuesPage(
 		for (const { resource, value: account, warning: accountWarning } of accounts) {
 			const user = account?.username ?? account?.name ?? undefined;
 			if (user != null) {
-				usersByResourceId.set(resourceIdForProject(resource) ?? resource.key, user);
+				const resourceKey = resourceIdForProject(resource) ?? resource.key;
+				usersByResourceId.set(resourceKey, user);
+				// Empty-checked, not just null-checked: an account shape declares `id` as a plain string, and a
+				// provider with nothing to put there sets `''` rather than omitting it — which would otherwise
+				// reach a user-field query as an empty identity and match nothing.
+				if (account?.id != null && account.id !== '') {
+					userIdsByResourceId.set(resourceKey, account.id);
+				}
 				continue;
 			}
 
@@ -312,6 +325,13 @@ export async function listIssueTrackerIssuesPage(
 		// Some providers/tests return project descriptors without their parent resource id. When we have only
 		// one scoped resource, re-use that sole resolved user rather than silently dropping every project.
 		return fallbackUserForUnscopedProject;
+	};
+	// Deliberately NOT falling back the way `userForProject` does. That fallback exists so a project with no
+	// parent resource id still gets scoped rather than dropped, and the handle is what the drop is judged on;
+	// the id is optional everywhere it is read, so a miss degrades to the handle instead of widening the read.
+	const userIdForProject = (project: ResourceDescriptor): string | undefined => {
+		const resourceId = resourceIdForProject(project);
+		return resourceId != null ? userIdsByResourceId?.get(resourceId) : undefined;
 	};
 
 	const retryProjectKeys = new Set<string>();
@@ -441,6 +461,7 @@ export async function listIssueTrackerIssuesPage(
 				project,
 				{
 					user: userForProject(project),
+					userId: userIdForProject(project),
 					filters: options.filters,
 					sort: sort,
 				},
