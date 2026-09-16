@@ -5,6 +5,9 @@ import type { VSCodePage } from '../vscodePage.js';
 
 const QuickPickItemSelector = '.quick-input-list-entry';
 
+/** Labels of the directive items a step falls back to while it has nothing real to offer. */
+const DirectiveItemPattern = /^(?:Back|Cancel)$/;
+
 /** Represents a wizard step identified by title and/or placeholder */
 export type Step = { title?: RegExp; placeholder?: RegExp };
 
@@ -421,5 +424,33 @@ export class QuickPick {
 			console.error(`[QWTEST] waitForItems failed. Title: ${title}, Placeholder: ${placeholder}`);
 			throw ex;
 		}
+	}
+
+	/**
+	 * Wait until the list offers something other than the `Back`/`Cancel` directives.
+	 *
+	 * A step that takes a typed value (a reference or SHA) shows those two directives until it has
+	 * validated the value against git, and only then replaces them with the resolved item. `Back`
+	 * is the pre-selected one, so an Enter sent while the directives are still up walks the wizard
+	 * back to its previous step instead of accepting the value — the step being waited for then
+	 * never arrives at all. Call this between typing and submitting on such a step.
+	 *
+	 * `waitForItems` is not a substitute: the directives are themselves items, so it returns
+	 * immediately while the value is still unresolved.
+	 */
+	async waitForResolvedItems(timeout = MaxTimeout): Promise<string[]> {
+		const deadline = Date.now() + timeout;
+
+		let items: string[] = [];
+		while (Date.now() < deadline) {
+			items = await this.getVisibleItems();
+			if (items.some(i => !DirectiveItemPattern.test(i.trim()))) return items;
+
+			await this.page.waitForTimeout(ShortTimeout / 5);
+		}
+
+		throw new Error(
+			`The typed value was never resolved within ${timeout}ms — the list still offers only [${items.join(', ')}]`,
+		);
 	}
 }
