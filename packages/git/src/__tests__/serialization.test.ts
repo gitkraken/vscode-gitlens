@@ -62,6 +62,7 @@ suite('provider model serialization', () => {
 			body: 'Body',
 			bodyFormat: 'jira-wiki',
 			providerState: { id: 'state-1', name: 'In Review', color: '#ff0000', category: 'IN_PROGRESS' },
+			iterations: [{ id: 'sprint-1', name: 'Sprint 1', isActive: true, startDate: now, endDate: now }],
 			url: 'https://github.com/gitkraken/vscode-gitlens/issues/1',
 			state: 'opened',
 			createdDate: now,
@@ -74,5 +75,6 @@ suite('provider model serialization', () => {
 		assert.equal(serialized.issueType, 'Bug');
 		assert.equal(serialized.bodyFormat, 'jira-wiki');
 		assert.deepEqual(serialized.providerState, issue.providerState);
+		assert.deepEqual(serialized.iterations, issue.iterations);
 	});
 });

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `IssueShape.iterations` and `Issue.iterations` so consumers can access Jira sprints and Azure work-item iterations, preserving provider-reported activity and dates without inventing metadata for Azure. Coverage varies per read, and an absent value means the read couldn't report one rather than that the issue has no sprint — see "Sprints and iterations" in `docs/integrations.md` ([#5856](https://github.com/gitkraken/vscode-gitlens/issues/5856)).
+
 ## [0.6.0] - 2026-09-14
 
 ### Added

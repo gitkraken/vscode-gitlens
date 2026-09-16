@@ -182,6 +182,16 @@ export function serializeIssue(value: IssueShape): IssueShape {
 		thumbsUpCount: value.thumbsUpCount,
 		body: value.body,
 		bodyFormat: value.bodyFormat,
+		iterations:
+			value.iterations == null
+				? undefined
+				: value.iterations.map(iteration => ({
+						id: iteration.id,
+						name: iteration.name,
+						isActive: iteration.isActive,
+						startDate: iteration.startDate,
+						endDate: iteration.endDate,
+					})),
 	};
 	return serialized;
 }

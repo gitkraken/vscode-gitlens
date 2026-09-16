@@ -1,4 +1,4 @@
-import type { IssueMember } from '@gitlens/git/models/issue.js';
+import type { IssueIteration, IssueMember } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestMember, PullRequestReviewer } from '@gitlens/git/models/pullRequest.js';
@@ -130,7 +130,7 @@ export interface WorkItem {
 	fields: {
 		//'System.AreaPath': string;
 		'System.TeamProject': string;
-		// 'System.IterationPath': string;
+		'System.IterationPath'?: string;
 		'System.WorkItemType': string;
 		'System.State': string;
 		// 'System.Reason': string;
@@ -719,5 +719,23 @@ export function fromAzureWorkItem(
 		undefined,
 		workItem.fields['System.Description'],
 		project,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		toWorkItemIterations(workItem.fields['System.IterationPath']),
 	);
+}
+
+/**
+ * Azure reports the iteration as a backslash-delimited path rooted at the project. The project root is its default
+ * for a work item with no sprint, so only a nested path names one; the full path is the identity because Azure
+ * supplies no iteration id here.
+ */
+function toWorkItemIterations(rawPath: string | undefined): IssueIteration[] | undefined {
+	const path = rawPath?.trim();
+	if (!path?.includes('\\')) return undefined;
+
+	const name = path.slice(path.lastIndexOf('\\') + 1).trim();
+	return name ? [{ id: path, name: name }] : undefined;
 }
