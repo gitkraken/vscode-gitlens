@@ -5,7 +5,9 @@ import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import { WorktreeCreateError, WorktreeDeleteError } from '@gitlens/git/errors.js';
 import type { GitWorktree, WorkspaceFolderResolver } from '@gitlens/git/models/worktree.js';
+import type { GitOperationRunOptions } from '@gitlens/git/providers/operations.js';
 import type { GitWorktreesSubProvider } from '@gitlens/git/providers/worktrees.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { isWindows } from '@gitlens/utils/env/node/platform.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
@@ -31,6 +33,10 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		private readonly provider: CliGitProviderInternal,
 	) {}
 
+	/**
+	 * Creates a worktree (`git worktree add`). `runOptions` are spread into the underlying `git.run` call, so a
+	 * large checkout can run without the default command timeout (`{ timeout: 0 }`) and still be cancelled.
+	 */
 	@debug()
 	async createWorktree(
 		repoPath: string,
@@ -42,6 +48,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			force?: boolean;
 			noTracking?: boolean;
 		},
+		runOptions?: GitOperationRunOptions,
 	): Promise<void> {
 		const scope = getScopedLogger();
 
@@ -64,7 +71,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		}
 
 		try {
-			await this.git.run({ cwd: repoPath }, ...args);
+			await this.git.run({ cwd: repoPath, ...runOptions }, ...args);
 
 			if (options?.createBranch) {
 				// Evict the cached base only — see `checkout -b` for why the persisted keys are left alone.
@@ -81,6 +88,9 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			);
 		} catch (ex) {
 			scope?.error(ex);
+			// A cancelled or timed-out checkout is not git refusing the worktree
+			if (isCancellationError(ex)) throw ex;
+
 			throw getGitCommandError(
 				'worktree-create',
 				ex as GitError,
@@ -103,10 +113,11 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			force?: boolean;
 			noTracking?: boolean;
 		},
+		runOptions?: GitOperationRunOptions,
 	): Promise<GitWorktree | undefined> {
-		await this.createWorktree(repoPath, path, options);
+		await this.createWorktree(repoPath, path, options, runOptions);
 		const normalized = normalizePath(path);
-		return this.getWorktree(repoPath, w => normalizePath(w.path) === normalized);
+		return this.getWorktree(repoPath, w => normalizePath(w.path) === normalized, runOptions?.cancellation);
 	}
 
 	@debug()
@@ -167,11 +178,23 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		return this.context.workspace?.getWorktreeDefaultUri?.(repoPath);
 	}
 
+	/**
+	 * Deletes a worktree (`git worktree remove`). Pass `force: 'locked'` to also override a locked worktree.
+	 *
+	 * `runOptions` are spread into the underlying `git.run` call (e.g. `{ timeout: 0 }` for a large worktree
+	 * whose removal may exceed the default command timeout).
+	 *
+	 * On failure, the thrown {@link WorktreeDeleteError}'s `original` property carries the raw
+	 * {@link GitError} (stderr/stdout/exit code) untouched — a caller that needs to classify a
+	 * platform-specific failure (e.g. a Windows file-lock retry) can read it directly rather than parsing
+	 * the typed error's message.
+	 */
 	@debug()
 	async deleteWorktree(
 		repoPath: string,
 		path: string | Uri,
 		options?: { force?: boolean | 'locked' },
+		runOptions?: GitOperationRunOptions,
 	): Promise<void> {
 		const scope = getScopedLogger();
 
@@ -197,10 +220,14 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 
 		let deleted = false;
 		try {
-			await this.git.run({ cwd: repoPath, errors: 'throw' }, ...args);
+			await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...args);
 			deleted = true;
 		} catch (ex) {
 			scope?.error(ex);
+			// A cancelled or timed-out removal (`runOptions.cancellation`/`timeout`) is not git refusing it, and
+			// wrapping it would hand the caller a `WorktreeDeleteError` whose `original` is no `GitError` at all
+			if (isCancellationError(ex)) throw ex;
+
 			const gitError = getGitCommandError(
 				'worktree-delete',
 				ex as GitError,
@@ -272,6 +299,83 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 				this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
 			}
 		}
+	}
+
+	@debug()
+	async pruneWorktrees(repoPath: string, options?: { expire?: string }): Promise<void> {
+		await this.git.ensureSupports('git:worktrees', (requiredVersion, installedVersion) =>
+			l10n.t(
+				'Pruning worktrees requires a newer version of Git (>= {0}) than is currently installed ({1}). Please install a more recent version of Git and try again.',
+				requiredVersion,
+				installedVersion,
+			),
+		);
+
+		const before = await this.listWorktreePaths(repoPath);
+
+		const args = ['worktree', 'prune'];
+		if (options?.expire) {
+			args.push('--expire', options.expire);
+		}
+
+		await this.git.run({ cwd: repoPath, errors: 'throw' }, ...args);
+
+		const after = await this.listWorktreePaths(repoPath);
+
+		// Order matters (see `deleteWorktree`): unregister before emitting the repo-level change so any
+		// listener that re-queries worktree-aware state sees the registry already updated.
+		if (before != null && after != null) {
+			for (const path of before) {
+				if (!after.has(path)) {
+					this.cache.unregisterRepoPath(path);
+				}
+			}
+		}
+
+		this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
+		this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
+	}
+
+	/**
+	 * Raw worktree paths currently known to git (`worktree <path>` lines from `--porcelain`), normalized the
+	 * same way {@link deleteWorktree} does. A failed listing (`errors: 'ignore'`) yields an empty set rather
+	 * than throwing — used by `pruneWorktrees` to diff before/after, where a transient read failure must not
+	 * be mistaken for every worktree having vanished.
+	 */
+	private async listWorktreePaths(repoPath: string): Promise<Set<string> | undefined> {
+		const result = await this.git.run({ cwd: repoPath, errors: 'ignore' }, 'worktree', 'list', '--porcelain');
+		// A failed listing is not an empty one: read as empty, the after-prune one would unregister everything
+		if (result.completion.status !== 'exited' || result.exitCode !== 0) return undefined;
+
+		const paths = new Set<string>();
+		for (const line of result.stdout.split('\n')) {
+			if (line.startsWith('worktree ')) {
+				paths.add(normalizePath(toFsPath(line.slice('worktree '.length).trim())));
+			}
+		}
+		return paths;
+	}
+
+	@debug()
+	async lockWorktree(repoPath: string, path: string | Uri, options?: { reason?: string }): Promise<void> {
+		await this.git.ensureSupports('git:worktrees', (requiredVersion, installedVersion) =>
+			l10n.t(
+				'Locking worktrees requires a newer version of Git (>= {0}) than is currently installed ({1}). Please install a more recent version of Git and try again.',
+				requiredVersion,
+				installedVersion,
+			),
+		);
+
+		const args = ['worktree', 'lock'];
+		if (options?.reason) {
+			args.push('--reason', options.reason);
+		}
+		args.push(normalizePath(toFsPath(path)));
+
+		await this.git.run({ cwd: repoPath, errors: 'throw' }, ...args);
+
+		this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
+		this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
 	}
 
 	@debug()
