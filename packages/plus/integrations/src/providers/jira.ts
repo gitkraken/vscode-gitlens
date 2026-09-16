@@ -343,9 +343,19 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			user: string,
 			filter: IssueFilter,
 		): Promise<JiraProjectIssuesDrain<IssueShape>> => {
+			// `assignee` and `creator` are user FIELDS: Jira resolves an accountId against the directory, which is
+			// the identity that keeps matching once a display name cannot be looked up — a deactivated account, or
+			// a profile whose visibility hides the name. Measured against a live site: a deactivated assignee
+			// returns its issues by accountId and an empty page by display name, and Jira reports that miss as a
+			// successful empty search rather than an error, so the list simply appears empty.
+			//
+			// `mention` is NOT a user field. It is `comment ~ "..."`, a free-text search over comment bodies, so an
+			// accountId matches nothing there and the display name is the only value that can. Hence the id is
+			// applied to the first two and the handle is kept for the third, rather than swapping `user` wholesale.
+			const userField = options?.userId ?? user;
 			const result = await drainIssues({
-				authorLogin: filter === IssueFilter.Author ? user : undefined,
-				assigneeLogins: filter === IssueFilter.Assignee ? [user] : undefined,
+				authorLogin: filter === IssueFilter.Author ? userField : undefined,
+				assigneeLogins: filter === IssueFilter.Assignee ? [userField] : undefined,
 				mentionLogin: filter === IssueFilter.Mention ? user : undefined,
 			});
 
