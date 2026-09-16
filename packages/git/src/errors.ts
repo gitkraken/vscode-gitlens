@@ -1983,6 +1983,59 @@ function getGenericTagErrorMessage(tag: string, reason: TagErrorReason | undefin
 	}
 }
 
+export type ReferenceUpdateErrorReason = 'checkedOut' | 'conflict' | 'invalidObject' | 'invalidRef' | 'notFound';
+interface ReferenceUpdateErrorDetails {
+	reason?: ReferenceUpdateErrorReason;
+	action: 'update' | 'delete';
+	/** The full ref name the operation targeted */
+	ref: string;
+	gitCommand?: GitCommandContext;
+}
+
+export class ReferenceUpdateError extends GitCommandError<ReferenceUpdateErrorDetails> {
+	static override is(ex: unknown): ex is ReferenceUpdateError;
+	static override is<R extends ReferenceUpdateErrorReason>(
+		ex: unknown,
+		reason: R,
+	): ex is ReferenceUpdateError & { details: { reason: R } };
+	static override is(ex: unknown, reason?: ReferenceUpdateErrorReason): boolean {
+		return ex instanceof ReferenceUpdateError && (reason == null || ex.details.reason === reason);
+	}
+
+	protected override buildErrorMessage(details: ReferenceUpdateErrorDetails, l10n: Translator): string {
+		const ref = details.ref;
+		if (details.action === 'delete') {
+			switch (details.reason) {
+				case 'checkedOut':
+					return l10n.t("Unable to delete reference '{0}' because it is checked out in a worktree", ref);
+				case 'conflict':
+					return l10n.t("Unable to delete reference '{0}' because it changed unexpectedly", ref);
+				case 'invalidObject':
+					return l10n.t("Unable to delete reference '{0}' because the target object does not exist", ref);
+				case 'invalidRef':
+					return l10n.t("Unable to delete reference '{0}' because the name is not a valid reference", ref);
+				case 'notFound':
+					return l10n.t("Unable to delete reference '{0}' because it does not exist", ref);
+				default:
+					return l10n.t("Unable to delete reference '{0}'", ref);
+			}
+		}
+
+		switch (details.reason) {
+			case 'conflict':
+				return l10n.t("Unable to update reference '{0}' because it changed unexpectedly", ref);
+			case 'invalidObject':
+				return l10n.t("Unable to update reference '{0}' because the target object does not exist", ref);
+			case 'invalidRef':
+				return l10n.t("Unable to update reference '{0}' because the name is not a valid reference", ref);
+			case 'notFound':
+				return l10n.t("Unable to update reference '{0}' because it does not exist", ref);
+			default:
+				return l10n.t("Unable to update reference '{0}'", ref);
+		}
+	}
+}
+
 export class WorkspaceUntrustedError extends Error {
 	static is(ex: unknown): ex is WorkspaceUntrustedError {
 		return ex instanceof WorkspaceUntrustedError;

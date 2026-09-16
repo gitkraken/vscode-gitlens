@@ -906,12 +906,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		try {
 			await this.git.run({ cwd: repoPath }, ...args);
 			for (const branch of branches) {
-				this.cache.deleteBaseBranchName(repoPath, branch);
-				// Drop the persisted gk metadata too, not just the cached resolution. `getBaseBranchName`
-				// reads `branch.<ref>.gk-merge-base` before falling back to the reflog, so leaving it behind
-				// would hand a later branch reusing this name its predecessor's base — evicting the cache
-				// alone just forces a re-derivation that reads the same stale value back.
-				await this.provider.config.removeGkConfigBranchSection(repoPath, branch);
+				await this.forgetDeletedBranch(repoPath, branch);
 			}
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['heads']);
@@ -955,6 +950,17 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					),
 			);
 		}
+	}
+
+	/**
+	 * Drops what GitLens keeps for a local branch beyond its ref, for both ways one is deleted
+	 * (`deleteLocalBranch` and `refs.deleteReference`). The persisted gk metadata goes too, not just the
+	 * cached resolution: `getBaseBranchName` reads `branch.<ref>.gk-merge-base` before falling back to the
+	 * reflog, so leaving it behind would hand a later branch reusing this name its predecessor's base.
+	 */
+	async forgetDeletedBranch(repoPath: string, name: string): Promise<void> {
+		this.cache.deleteBaseBranchName(repoPath, name);
+		await this.provider.config.removeGkConfigBranchSection(repoPath, name);
 	}
 
 	/**
@@ -1002,8 +1008,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				if (surviving.has(name)) continue;
 
 				anyDeleted = true;
-				this.cache.deleteBaseBranchName(repoPath, name);
-				await this.provider.config.removeGkConfigBranchSection(repoPath, name);
+				await this.forgetDeletedBranch(repoPath, name);
 			}
 
 			return anyDeleted;
