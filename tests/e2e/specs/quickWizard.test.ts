@@ -1488,7 +1488,14 @@ test.describe('Quick Wizard — Log/Show/Search Commands', () => {
 			});
 
 			// Enter a reference (HEAD or main) and submit
-			await quickPick.enterTextAndSubmit('HEAD');
+			await quickPick.enterText('HEAD');
+			// The step validates the reference against git before it swaps its `Back`/`Cancel`
+			// directives for the resolved commit. Submitting before that lands Enter on the
+			// pre-selected `Back` and walks the wizard back to its root menu, so the commit-details
+			// step never arrives. Under concurrency that resolve takes ~0.8s, well past the fixed
+			// pause inside `enterText`, which is what made this spec flaky (#5775).
+			await quickPick.waitForResolvedItems();
+			await quickPick.submit();
 
 			// Should show commit details - title is "Commit <sha> (<message>)"
 			await quickPick.waitForStep({ title: /Commit [a-f0-9]+/i });
