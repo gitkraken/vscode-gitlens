@@ -5,44 +5,35 @@ on:
         - cron: '0 9 * * *' # every day at 4am EST
     workflow_dispatch:
 
+# `pre` is only advanced once a run has fully published, so two overlapping runs would both read the
+# stale ref and publish the same commit twice. Queue them instead of cancelling — the second run's
+# check then sees the first run's `pre` and exits as unchanged.
+concurrency:
+    group: ${{ github.workflow }}
+    cancel-in-progress: false
+
 jobs:
     check:
         name: Check for updates
         runs-on: ubuntu-latest
         permissions:
-            contents: write
+            contents: read
         outputs:
             status: ${{ steps.earlyexit.outputs.status }}
         steps:
-            - name: Checkout code
-              uses: actions/checkout@v7
-              with:
-                  fetch-depth: 0
             - id: earlyexit
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  git config user.name github-actions
-                  git config user.email github-actions@github.com
-                  if git rev-parse origin/pre >/dev/null 2>&1; then
-                    preRef=$(git show-ref -s origin/pre)
-                    headRef=$(git show-ref --head -s head)
-                    echo "origin/pre"
-                    echo $preRef
-                    echo "HEAD"
-                    echo $headRef
-                    if [ "$preRef" = "$headRef" ]; then
-                      echo "No changes since last pre-release build. Exiting."
-                      echo "status=unchanged" >> $GITHUB_OUTPUT
-                      exit 0
-                    else
-                      echo "Updating pre"
-                      git push origin --delete pre
-                      git checkout -b pre
-                      git push origin pre
-                    fi
-                  else
-                    echo "No pre branch. Creating."
-                    git checkout -b pre
-                    git push origin pre
+                  # `gh api` prints its error body to stdout on a 404, so clear it on a nonzero exit
+                  # rather than letting that JSON land in preRef and masquerade as a sha.
+                  preRef=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/pre" --jq .object.sha 2>/dev/null) || preRef=''
+                  echo "pre:  ${preRef:-<none>}"
+                  echo "HEAD: ${GITHUB_SHA}"
+                  if [ "$preRef" = "$GITHUB_SHA" ]; then
+                    echo "No changes since last pre-release build. Exiting."
+                    echo "status=unchanged" >> $GITHUB_OUTPUT
+                    exit 0
                   fi
                   echo "status=changed" >> $GITHUB_OUTPUT
 
@@ -75,7 +66,21 @@ jobs:
             - name: Package extension for forks
               run: pnpm run package-forks --pre-release
             - name: Publish extension to VS Code Marketplace
-              run: pnpm vsce publish --no-dependencies --pre-release --packagePath ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.GITLENS_VSCODE_MARKETPLACE_PAT }}
+              run: |
+                  for attempt in $(seq 1 5); do
+                    if pnpm vsce publish --no-dependencies --pre-release --packagePath "./${PACKAGE_NAME}.vsix" -p "${{ secrets.GITLENS_VSCODE_MARKETPLACE_PAT }}"; then
+                      exit 0
+                    fi
+
+                    if [ "$attempt" -lt 5 ]; then
+                      delay=$((30 * 2 ** (attempt - 1)))
+                      echo "::warning::Marketplace publish attempt ${attempt} of 5 failed; retrying in ${delay}s."
+                      sleep "$delay"
+                    fi
+                  done
+
+                  echo "::error::Marketplace publish failed after 5 attempts."
+                  exit 1
             - name: Publish extension to OpenVSIX
               run: pnpm ovsx publish ./${{ env.PACKAGE_NAME }}-forks.vsix -p ${{ secrets.GITLENS_OPENVSIX_PAT }}
             - name: Tag pre-release commit
@@ -90,6 +95,20 @@ jobs:
                   fi
                   git tag -a "$TAG" -m "Pre-release v${{ env.PACKAGE_VERSION }}"
                   git push origin "$TAG"
+            - name: Advance pre to the published commit
+              # `pre` marks the commit currently on the pre-release channel, and moves only here — after a
+              # full successful publish. Any earlier failure or a cancellation leaves it untouched, so the
+              # next run (or a re-run of this job) retries that commit instead of skipping it as unchanged.
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  if gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/pre" >/dev/null 2>&1; then
+                    echo "Advancing pre to ${GITHUB_SHA}"
+                    gh api -X PATCH "repos/${GITHUB_REPOSITORY}/git/refs/heads/pre" -f sha="${GITHUB_SHA}" -F force=true
+                  else
+                    echo "Creating pre at ${GITHUB_SHA}"
+                    gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" -f ref="refs/heads/pre" -f sha="${GITHUB_SHA}"
+                  fi
             - name: Publish artifact
               uses: actions/upload-artifact@v7
               with:
