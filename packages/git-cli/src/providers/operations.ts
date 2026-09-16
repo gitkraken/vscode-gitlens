@@ -263,7 +263,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			}
 
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'tags');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['remotes']);
+			// A `pull` fetch writes `<upstream>:<branch>`, moving the local branch too
+			this.context.hooks?.repository?.onChanged?.(
+				repoPath,
+				isBranchReference(branch) && options?.pull ? ['heads', 'remotes'] : ['remotes'],
+			);
 		} catch (ex) {
 			scope?.error(ex);
 			throw ex;
@@ -281,6 +285,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					pull?: boolean;
 					remote: string;
 					upstream: string;
+					/**
+					 * `-u` (`--update-head-ok`, the default) lets a `pull` fetch move a branch even where it is
+					 * checked out; `false` keeps git's own refusal as a guard against a stale worktree lookup.
+					 */
+					updateHeadOk?: boolean;
 			  },
 		runOptions?: GitOperationRunOptions,
 	): Promise<void> {
@@ -292,7 +301,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		if (options.branch && options.remote) {
 			if (options.upstream && options.pull) {
-				params.push('-u', options.remote, `${options.upstream}:${options.branch}`);
+				if (options.updateHeadOk !== false) {
+					params.push('-u');
+				}
+				params.push(options.remote, `${options.upstream}:${options.branch}`);
 			} else {
 				params.push(options.remote, options.upstream || options.branch);
 			}
@@ -383,7 +395,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	@debug()
 	async pull(
 		repoPath: string,
-		options?: { branch?: GitBranchReference; rebase?: boolean; tags?: boolean; source?: unknown },
+		options?: {
+			branch?: GitBranchReference;
+			fastForward?: 'only';
+			rebase?: boolean;
+			tags?: boolean;
+			source?: unknown;
+		},
 		runOptions?: GitOperationRunOptions,
 	): Promise<void> {
 		const scope = getScopedLogger();
@@ -405,6 +423,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 						await this.pullCore(
 							worktreePath,
 							{
+								fastForward: options?.fastForward,
 								rebase: options?.rebase,
 								tags: options?.tags,
 								source: options?.source,
@@ -417,6 +436,48 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 					this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status', 'tags');
 					this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'remotes', 'index']);
+				} else if (options?.fastForward === 'only') {
+					// Not checked out anywhere, so there is no working tree to merge into — but a fast-forward
+					// needs none: fetching `<upstream>:<branch>` advances the local branch, and git refuses that
+					// non-forced refspec unless it fast-forwards. A plain fetch would leave the branch unmoved
+					// and report success.
+					// Fetched without `-u`: the worktree lookup above is cached and can miss a worktree added
+					// outside core, and then git's own refusal is what keeps a checked-out branch from moving.
+					const [branchName, remoteName] = getBranchNameAndRemote(branch);
+					const upstream = getBranchTrackingWithoutRemote(branch);
+					if (remoteName == null || upstream == null) {
+						throw new PullError({
+							reason: 'noUpstream',
+							gitCommand: { repoPath: repoPath, args: ['pull', '--ff-only', branch.name] },
+						});
+					}
+
+					try {
+						await this.fetchCore(
+							repoPath,
+							{
+								branch: branchName,
+								remote: remoteName,
+								upstream: upstream,
+								pull: true,
+								updateHeadOk: false,
+							},
+							runOptions,
+						);
+					} catch (ex) {
+						if (FetchError.is(ex, 'noFastForward')) {
+							throw new PullError(
+								{ reason: 'noFastForward', gitCommand: ex.details.gitCommand },
+								ex.original,
+							);
+						}
+						throw ex;
+					}
+
+					this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'tags');
+					// A `pull` fetch writes `<upstream>:<branch>`, moving the local branch too — same
+					// hooks `fetch()` fires for a pull fetch with a branch reference.
+					this.context.hooks?.repository?.onChanged?.(repoPath, ['heads', 'remotes']);
 				} else {
 					// Branch is not checked out anywhere — can only fetch (no working tree to merge into)
 					await this.fetch(repoPath, { branch: branch }, runOptions);
@@ -429,6 +490,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				await this.pullCore(
 					repoPath,
 					{
+						fastForward: options?.fastForward,
 						rebase: options?.rebase,
 						tags: options?.tags,
 						source: options?.source,
@@ -449,7 +511,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 	private async pullCore(
 		repoPath: string,
-		options: { rebase?: boolean; tags?: boolean; source?: unknown },
+		options: { fastForward?: 'only'; rebase?: boolean; tags?: boolean; source?: unknown },
 		runOptions?: GitOperationRunOptions,
 	): Promise<void> {
 		const params = ['pull'];
@@ -460,6 +522,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		if (options.rebase) {
 			params.push('-r');
+		}
+
+		if (options.fastForward === 'only') {
+			params.push('--ff-only');
 		}
 
 		try {

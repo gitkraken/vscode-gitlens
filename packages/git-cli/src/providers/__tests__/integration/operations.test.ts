@@ -4,9 +4,21 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { SigningErrorReason } from '@gitlens/git/errors.js';
-import { CommitError, MergeError, SigningError } from '@gitlens/git/errors.js';
+import { CommitError, MergeError, PullError, SigningError } from '@gitlens/git/errors.js';
+import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { SigningFormat } from '@gitlens/git/models/signature.js';
-import { addCommit, createBranch, createTestRepo, getHeadSha } from './helpers.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import {
+	addCommit,
+	checkout,
+	cloneTestRepo,
+	createBranch,
+	createTestRepo,
+	createTrackingBranch,
+	createWorktree,
+	getHeadSha,
+	revParse,
+} from './helpers.js';
 
 suite('OperationsGitSubProvider.merge', () => {
 	test('returns { conflicted: false } on clean fast-forward merge', async () => {
@@ -415,5 +427,172 @@ suite('OperationsSubProvider — branch-creating checkout', () => {
 		} finally {
 			repo.cleanup();
 		}
+	});
+});
+
+suite('OperationsGitSubProvider.pull — fastForward', () => {
+	test('fast-forwards a clone that is a strict ancestor of its origin', async () => {
+		const origin = createTestRepo();
+		const clone = cloneTestRepo(origin.path);
+		try {
+			addCommit(origin.path, 'advance.txt', 'x', 'origin advances');
+
+			await clone.provider.ops.pull(clone.path, { fastForward: 'only' });
+
+			assert.strictEqual(getHeadSha(clone.path), getHeadSha(origin.path), 'the clone must fast-forward to match');
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('refuses (throws PullError) a pull that cannot fast-forward', async () => {
+		const origin = createTestRepo();
+		const clone = cloneTestRepo(origin.path);
+		try {
+			// Diverge both sides from the shared base so neither is an ancestor of the other.
+			addCommit(origin.path, 'origin-only.txt', 'x', 'origin advances');
+			addCommit(clone.path, 'clone-only.txt', 'y', 'clone advances locally');
+
+			const beforeSha = getHeadSha(clone.path);
+
+			// `GitErrors.noFastForward` matches a PUSH rejection's `(non-fast-forward)`, not `pull --ff-only`'s
+			// "Not possible to fast-forward, aborting." message — this maps via the dedicated
+			// `notPossibleToFastForward` pattern to the `noFastForward` reason instead.
+			await assert.rejects(
+				() => clone.provider.ops.pull(clone.path, { fastForward: 'only' }),
+				ex => PullError.is(ex, 'noFastForward'),
+				'Expected a PullError with the noFastForward reason when the pull cannot fast-forward',
+			);
+
+			assert.strictEqual(getHeadSha(clone.path), beforeSha, 'a refused pull must not move the local branch');
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('rejects with PullError "noUpstream" pulling the checked-out branch when it has no upstream', async () => {
+		const repo = createTestRepo();
+		try {
+			createBranch(repo.path, 'no-upstream', { checkout: true });
+
+			await assert.rejects(
+				() => repo.provider.ops.pull(repo.path),
+				ex => PullError.is(ex, 'noUpstream'),
+				'Expected a PullError with the noUpstream reason when the checked-out branch has no upstream',
+			);
+		} finally {
+			repo.cleanup();
+		}
+	});
+
+	suite('a branch not checked out anywhere', () => {
+		function sideRef(repoPath: string): GitBranchReference {
+			return createReference('side', repoPath, {
+				refType: 'branch',
+				name: 'side',
+				remote: false,
+				upstream: { name: 'origin/side', missing: false },
+			});
+		}
+
+		test('fast-forwards the local branch without a working tree', async () => {
+			const origin = createTestRepo();
+			createBranch(origin.path, 'side');
+			const clone = cloneTestRepo(origin.path);
+			try {
+				createTrackingBranch(clone.path, 'side', 'origin/side');
+				checkout(origin.path, 'side');
+				addCommit(origin.path, 'side-advance.txt', 'x', 'origin side advances');
+				const originSide = getHeadSha(origin.path);
+
+				await clone.provider.ops.pull(clone.path, { branch: sideRef(clone.path), fastForward: 'only' });
+
+				assert.strictEqual(revParse(clone.path, 'refs/heads/side'), originSide, 'side must fast-forward');
+			} finally {
+				clone.cleanup();
+				origin.cleanup();
+			}
+		});
+
+		test('refuses (throws PullError) when the local branch has diverged', async () => {
+			const origin = createTestRepo();
+			createBranch(origin.path, 'side');
+			const clone = cloneTestRepo(origin.path);
+			try {
+				createTrackingBranch(clone.path, 'side', 'origin/side');
+				checkout(clone.path, 'side');
+				addCommit(clone.path, 'clone-side.txt', 'y', 'clone side advances locally');
+				const beforeSha = getHeadSha(clone.path);
+				checkout(clone.path, 'main');
+				checkout(origin.path, 'side');
+				addCommit(origin.path, 'origin-side.txt', 'x', 'origin side advances');
+
+				await assert.rejects(
+					() => clone.provider.ops.pull(clone.path, { branch: sideRef(clone.path), fastForward: 'only' }),
+					ex => PullError.is(ex, 'noFastForward'),
+				);
+
+				assert.strictEqual(revParse(clone.path, 'refs/heads/side'), beforeSha, 'side must not move');
+			} finally {
+				clone.cleanup();
+				origin.cleanup();
+			}
+		});
+
+		test('refuses (throws PullError "noUpstream") when the branch has no upstream', async () => {
+			const repo = createTestRepo();
+			try {
+				createBranch(repo.path, 'no-upstream');
+				const branch = createReference('no-upstream', repo.path, {
+					refType: 'branch',
+					name: 'no-upstream',
+					remote: false,
+				});
+
+				await assert.rejects(
+					() => repo.provider.ops.pull(repo.path, { branch: branch, fastForward: 'only' }),
+					ex => PullError.is(ex, 'noUpstream'),
+					'Expected a PullError with the noUpstream reason when the branch has no upstream',
+				);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('refuses (throws PullError) a fast-forward when a stale worktree cache misses a branch checked out outside core', async () => {
+			const origin = createTestRepo();
+			createBranch(origin.path, 'side');
+			const clone = cloneTestRepo(origin.path);
+			let worktree: { path: string; cleanup: () => void } | undefined;
+			try {
+				createTrackingBranch(clone.path, 'side', 'origin/side');
+				// Prime the worktree cache BEFORE a worktree checks the branch out — so the provider's
+				// cached worktree list is stale by the time `pull` consults it below.
+				await clone.provider.worktrees?.getWorktrees(clone.path);
+
+				// Check the branch out in a worktree added OUTSIDE core (bypasses the provider's cache).
+				worktree = createWorktree(clone.path, 'side');
+
+				checkout(origin.path, 'side');
+				addCommit(origin.path, 'origin-side.txt', 'x', 'origin side advances');
+				const beforeSha = revParse(clone.path, 'refs/heads/side');
+
+				await assert.rejects(() =>
+					clone.provider.ops.pull(clone.path, { branch: sideRef(clone.path), fastForward: 'only' }),
+				);
+
+				assert.strictEqual(
+					revParse(clone.path, 'refs/heads/side'),
+					beforeSha,
+					'a stale worktree cache must not let a checked-out branch move',
+				);
+			} finally {
+				worktree?.cleanup();
+				clone.cleanup();
+				origin.cleanup();
+			}
+		});
 	});
 });

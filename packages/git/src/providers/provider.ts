@@ -1,4 +1,6 @@
 import type { Uri } from '@gitlens/utils/uri.js';
+import type { CachedGitTypes } from '../cache.js';
+import type { RepositoryChange } from '../models/repository.js';
 import type { GitIgnoreFilter } from '../watching/gitIgnoreFilter.js';
 import type { GitBlameSubProvider } from './blame.js';
 import type { GitBranchesSubProvider } from './branches.js';
@@ -40,6 +42,20 @@ export interface GitProvider {
 	getIgnoreFilter?(repoPath: string, gitDirPath: string): GitIgnoreFilter;
 	getIgnoredUrisFilter?(repoPath: string): Promise<(uri: Uri) => boolean>;
 	getLastFetchedTimestamp?(repoPath: string): Promise<number | undefined>;
+	/** Creates a new repository at `path` (`git init`), creating `path` itself if it doesn't yet exist. */
+	init?(path: string, options?: { defaultBranch?: string; bare?: boolean }): Promise<void>;
+	/**
+	 * Notifies the provider that `repoPath` was mutated outside of a typed sub-provider method — e.g. a
+	 * consumer that ran a command through the raw `git.run`/`provider.git.run` escape hatch. Fires the same
+	 * `cache.onReset`/`repository.onChanged` hooks a typed mutator would, so, exactly as after a typed write,
+	 * the provider clears its own caches for `repoPath` (every type, or just `options.cache` when given) and
+	 * its pending commands before the host's handlers run.
+	 */
+	notifyChanged?(
+		repoPath: string,
+		changes: readonly RepositoryChange[],
+		options?: { cache?: readonly CachedGitTypes[] | 'all' },
+	): void;
 
 	readonly branches: GitBranchesSubProvider;
 	readonly commits: GitCommitsSubProvider;

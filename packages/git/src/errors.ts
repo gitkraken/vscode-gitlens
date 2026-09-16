@@ -1160,6 +1160,8 @@ function getRevertContinueErrorMessage(
 export type PullErrorReason =
 	| 'conflict'
 	| 'gitIdentity'
+	| 'noFastForward'
+	| 'noUpstream'
 	| 'rebaseMultipleBranches'
 	| 'refLocked'
 	| 'remoteConnectionFailed'
@@ -1187,6 +1189,10 @@ export class PullError extends GitCommandError<PullErrorDetails> {
 				return l10n.t('Unable to complete pull due to conflicts which must be resolved.');
 			case 'gitIdentity':
 				return l10n.t('Unable to pull because you have not yet set up your Git identity.');
+			case 'noFastForward':
+				return l10n.t('Unable to pull because the branch cannot be fast-forwarded.');
+			case 'noUpstream':
+				return l10n.t('Unable to pull because the branch has no upstream.');
 			case 'rebaseMultipleBranches':
 				return l10n.t('Unable to pull because you are trying to rebase onto multiple branches.');
 			case 'refLocked':

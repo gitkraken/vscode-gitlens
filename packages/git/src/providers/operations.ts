@@ -72,6 +72,12 @@ export interface GitOperationsSubProvider {
 		repoPath: string,
 		options?: {
 			branch?: GitBranchReference | undefined;
+			/**
+			 * `'only'` requires a fast-forward (`--ff-only`) and refuses rather than merging or rebasing — a
+			 * `branch` checked out nowhere is then fast-forwarded by fetching `<upstream>:<branch>`. Spelled as
+			 * `merge`'s option; `--ff`/`--no-ff` are left out because a pull configured to rebase ignores them.
+			 */
+			fastForward?: 'only' | undefined;
 			rebase?: boolean | undefined;
 			tags?: boolean | undefined;
 			source?: unknown;
