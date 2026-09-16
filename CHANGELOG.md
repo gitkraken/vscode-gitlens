@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [19.2.0] - 2026-09-16
+
 ### Added
 
 - Adds localization infrastructure for GitLens using VS Code’s display language, with English fallback when a translation is unavailable
@@ -7402,7 +7404,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.1.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.2.0...HEAD
+[19.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.1.0...gitkraken:v19.2.0
 [19.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.0.1...gitkraken:v19.1.0
 [19.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v19.0.0...gitkraken:v19.0.1
 [19.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.3.0...gitkraken:v19.0.0

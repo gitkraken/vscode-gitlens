@@ -2,7 +2,7 @@
 	"name": "gitlens",
 	"displayName": "%gitlens.displayName%",
 	"description": "%gitlens.description%",
-	"version": "19.1.0",
+	"version": "19.2.0",
 	"engines": {
 		"node": ">= 24",
 		"pnpm": ">= 11.0.0",
