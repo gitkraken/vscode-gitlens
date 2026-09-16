@@ -174,6 +174,8 @@ export interface IssueShape extends IssueOrPullRequest {
 	bodyFormat?: IssueBodyFormat;
 	project?: IssueProject;
 	issueType?: string;
+	/** An issue can belong to several Jira sprints; Azure reports one iteration. */
+	iterations?: IssueIteration[];
 }
 
 @loggable(i => i.id)
@@ -203,6 +205,7 @@ export class Issue implements IssueShape {
 		public readonly issueType?: string,
 		public readonly providerState?: IssueProviderState,
 		public readonly bodyFormat?: IssueBodyFormat,
+		public readonly iterations?: IssueIteration[],
 	) {}
 
 	static is(issue: unknown): issue is Issue {
@@ -224,6 +227,19 @@ export const enum RepositoryAccessLevel {
 export interface IssueLabel {
 	color?: string;
 	name: string;
+}
+
+/**
+ * Sprint metadata is optional because some providers only report an iteration path. An absent `isActive`
+ * means unknown, not inactive, so consumers must not use it to exclude those iterations by default.
+ */
+export interface IssueIteration {
+	/** Stable within the provider's project: a sprint id or an iteration path. */
+	id: string;
+	name: string;
+	isActive?: boolean;
+	startDate?: Date;
+	endDate?: Date;
 }
 
 export interface IssueMember {

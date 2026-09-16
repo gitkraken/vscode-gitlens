@@ -47,7 +47,13 @@ import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifie
 import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
 import { githubSearchResultLimit } from '@gitlens/git-github/api/config.js';
 import type { Account as UserAccount } from '@gitlens/git/models/author.js';
-import type { IssueProject, IssueProviderState, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
+import type {
+	IssueIteration,
+	IssueProject,
+	IssueProviderState,
+	IssueShape,
+	IssueStateFilter,
+} from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type {
 	PullRequestRef,
@@ -205,7 +211,10 @@ export function isRepoIdsInput(input: unknown): input is (string | number)[] {
 
 export type ProviderPullRequest = Omit<GitPullRequest, 'reviews'> & { reviews: ProviderPullRequestReviews };
 export type ProviderRepository = GitRepository;
-export type ProviderIssue = ProviderApiIssue;
+export type ProviderIssue = ProviderApiIssue & {
+	// TODO(GKDEV-3614): Remove this extension when provider-apis exports the iteration field.
+	iteration?: { path: string; name: string };
+};
 export type ProviderEnterpriseOptions = EnterpriseOptions;
 export type ProviderJiraProject = JiraProject;
 export type ProviderJiraResource = JiraResource;
@@ -1318,7 +1327,21 @@ export function toIssueShape(
 		body: issue.description ?? undefined,
 		bodyFormat: provider.id === IssuesCloudHostIntegrationId.Jira ? 'jira-wiki' : undefined,
 		issueType: issue.type ?? undefined,
+		iterations: toIssueIterations(issue),
 	};
+}
+
+function toIssueIterations(issue: ProviderIssue): IssueIteration[] | undefined {
+	if (issue.iteration != null) return [{ id: issue.iteration.path, name: issue.iteration.name }];
+	if (!issue.sprints?.length) return undefined;
+
+	return issue.sprints.map(sprint => ({
+		id: sprint.id,
+		name: sprint.name,
+		isActive: sprint.isActive,
+		startDate: sprint.startDate ?? undefined,
+		endDate: sprint.endDate ?? undefined,
+	}));
 }
 
 /**
@@ -1758,6 +1781,7 @@ export function fromProviderIssue(
 		issue.type ?? undefined,
 		toIssueProviderState(issue.state, integration.id !== IssuesCloudHostIntegrationId.Jira),
 		integration.id === IssuesCloudHostIntegrationId.Jira ? 'jira-wiki' : undefined,
+		toIssueIterations(issue),
 	);
 }
 

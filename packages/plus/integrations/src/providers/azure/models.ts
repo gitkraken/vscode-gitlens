@@ -130,7 +130,7 @@ export interface WorkItem {
 	fields: {
 		//'System.AreaPath': string;
 		'System.TeamProject': string;
-		// 'System.IterationPath': string;
+		'System.IterationPath'?: string;
 		'System.WorkItemType': string;
 		'System.State': string;
 		// 'System.Reason': string;
@@ -696,6 +696,12 @@ export function fromAzureWorkItem(
 	project: AzureProjectDescriptor,
 	stateCategory?: AzureWorkItemStateCategory,
 ): Issue {
+	const iterationPath = workItem.fields['System.IterationPath']?.trim();
+	// The project root is Azure's default for work items that have no sprint.
+	const iterationName = iterationPath?.includes('\\')
+		? iterationPath.slice(iterationPath.lastIndexOf('\\') + 1).trim()
+		: undefined;
+
 	return new Issue(
 		provider,
 		workItem.id.toString(),
@@ -719,5 +725,10 @@ export function fromAzureWorkItem(
 		undefined,
 		workItem.fields['System.Description'],
 		project,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		iterationPath && iterationName ? [{ id: iterationPath, name: iterationName }] : undefined,
 	);
 }
