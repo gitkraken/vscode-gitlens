@@ -81,9 +81,9 @@ export class QuickPick {
 	}
 
 	/** Get all visible item labels for debugging */
-	async getVisibleItems(): Promise<string[]> {
+	async getVisibleItems(timeout = MaxTimeout): Promise<string[]> {
 		const locator = this.container.locator(QuickPickItemSelector).filter({ visible: true });
-		await locator.first().waitFor({ state: 'visible', timeout: MaxTimeout });
+		await locator.first().waitFor({ state: 'visible', timeout: timeout });
 
 		const items = locator.allTextContents();
 		return items;
@@ -427,24 +427,41 @@ export class QuickPick {
 	}
 
 	/**
-	 * Wait until the list offers something other than the `Back`/`Cancel` directives.
+	 * Wait until the list offers a selectable result for the value typed into the step.
 	 *
-	 * A step that takes a typed value (a reference or SHA) shows those two directives until it has
-	 * validated the value against git, and only then replaces them with the resolved item. `Back`
-	 * is the pre-selected one, so an Enter sent while the directives are still up walks the wizard
-	 * back to its previous step instead of accepting the value — the step being waited for then
-	 * never arrives at all. Call this between typing and submitting on such a step.
+	 * A step that takes a typed value (a reference or SHA) shows the `Back`/`Cancel` directives
+	 * until it has validated that value against git, and only then replaces them with the resolved
+	 * item. `Back` is the pre-selected one, so an Enter sent while the directives are still up walks
+	 * the wizard back to its previous step instead of accepting the value — the step being waited
+	 * for then never arrives at all. Call this between typing and submitting on such a step.
+	 *
+	 * A value the step rejects is not a result either: it then offers a single no-op item echoing
+	 * its own placeholder, where Enter does nothing. That case throws instead of returning, so it
+	 * cannot be mistaken for a resolved value.
 	 *
 	 * `waitForItems` is not a substitute: the directives are themselves items, so it returns
 	 * immediately while the value is still unresolved.
 	 */
 	async waitForResolvedItems(timeout = MaxTimeout): Promise<string[]> {
 		const deadline = Date.now() + timeout;
+		const placeholder = (await this.getPlaceholder())?.trim();
 
 		let items: string[] = [];
 		while (Date.now() < deadline) {
-			items = await this.getVisibleItems();
-			if (items.some(i => !DirectiveItemPattern.test(i.trim()))) return items;
+			// A zero timeout disables Playwright's, so never let the remaining budget reach it.
+			items = await this.getVisibleItems(Math.max(deadline - Date.now(), 1));
+
+			const resolved = items.filter(i => {
+				const text = i.trim();
+				return !DirectiveItemPattern.test(text) && text !== placeholder;
+			});
+			if (resolved.length) return resolved;
+
+			if (placeholder != null && items.some(i => i.trim() === placeholder)) {
+				throw new Error(
+					`The step rejected the typed value — it offers only its placeholder back ("${placeholder}")`,
+				);
+			}
 
 			await this.page.waitForTimeout(ShortTimeout / 5);
 		}
