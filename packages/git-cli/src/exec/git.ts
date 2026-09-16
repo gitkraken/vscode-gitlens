@@ -105,7 +105,10 @@ export const GitErrors = {
 	noRemoteReference: /unable to delete '.+?': remote ref does not exist/i,
 	noRemoteRepositorySpecified: /No remote repository specified\./i,
 	noUpstream: /^fatal:\s*The current branch .* has no upstream branch/i,
+	// `git pull` (not `push`) on a branch with no upstream — distinct wording from `noUpstream` above
+	noTrackingInformation: /There is no tracking information for the current branch/i,
 	notAValidObjectName: /Not a valid object name/i,
+	notPossibleToFastForward: /Not possible to fast-forward/i,
 	notAWorkingTree: /'(.*?)' is not a working tree/i,
 	noUserNameConfigured: /Please tell me who you are\./i,
 	nothingToCommit: /nothing(?: added)? to commit|no changes added to commit/i,
@@ -336,6 +339,8 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 			[GitErrors.cantLockRef, 'refLocked'],
 			[GitErrors.rebaseMultipleBranches, 'rebaseMultipleBranches'],
 			[GitErrors.tagConflict, 'tagConflict'],
+			[GitErrors.notPossibleToFastForward, 'noFastForward'],
+			[GitErrors.noTrackingInformation, 'noUpstream'],
 		],
 	],
 	[

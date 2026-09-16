@@ -1,9 +1,7 @@
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
-import type { GitCommandContext } from '@gitlens/git/errors.js';
-import { ApplyPatchCommitError, CherryPickError, SigningError } from '@gitlens/git/errors.js';
+import { ApplyPatchCommitError, CherryPickError } from '@gitlens/git/errors.js';
 import type { GitCommit, GitCommitIdentityShape } from '@gitlens/git/models/commit.js';
-import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import type { GitPatchSubProvider } from '@gitlens/git/providers/patch.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
@@ -11,7 +9,7 @@ import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { RunError } from '../exec/exec.errors.js';
 import type { Git } from '../exec/git.js';
-import { classifySigningError, gitConfigsLog, GitError } from '../exec/git.js';
+import { gitConfigsLog, GitError } from '../exec/git.js';
 
 export class PatchGitSubProvider implements GitPatchSubProvider {
 	constructor(
@@ -204,7 +202,6 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		}
 
 		let shouldSign = options?.sign;
-		let _signingFormat: SigningFormat = 'gpg';
 
 		try {
 			const [signingConfigResult, applyResult] = await Promise.allSettled([
@@ -222,66 +219,35 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			// Check if we should sign
 			const signingConfig = getSettledValue(signingConfigResult);
 			shouldSign ??= signingConfig?.enabled ?? false;
-			_signingFormat = signingConfig?.format ?? 'gpg';
 
 			// Create a new tree from our patched index
-			let result = await this.git.run({ cwd: repoPath, env: env }, 'write-tree');
+			const result = await this.git.run({ cwd: repoPath, env: env }, 'write-tree');
 			const tree = result.stdout.trim();
 
-			// Set the author if provided
-			let finalEnv = env;
-			if (author) {
-				finalEnv = { ...env, GIT_AUTHOR_NAME: author.name, GIT_AUTHOR_EMAIL: author.email || '' };
-			}
-
-			// Create new commit from the tree
-			const args = ['commit-tree', tree];
-			if (base) {
-				args.push('-p', base);
-			}
-
-			// Add signing flag if enabled
-			if (shouldSign) {
-				args.push('-S');
-			}
-
-			args.push('-m', message);
-
-			// Create new commit from the tree
-			result = await this.git.run({ cwd: repoPath, env: finalEnv }, ...args);
-			const sha = result.stdout.trim();
-
-			if (shouldSign) {
-				this.context.hooks?.commits?.onSigned?.(_signingFormat, options?.source);
-			}
-
-			return sha;
+			return await this.provider.commits.createCommitFromTree(repoPath, tree, {
+				parents: base ? [base] : [],
+				message: message,
+				author: author ? { name: author.name, email: author.email || '' } : undefined,
+				sign: shouldSign,
+				source: options?.source,
+			});
 		} catch (ex) {
 			scope?.error(ex);
-
-			// Handle signing-specific errors
-			if (shouldSign && ex instanceof Error) {
-				const reason = classifySigningError(ex);
-				if (reason != null) {
-					const gitCommand: GitCommandContext = { repoPath: repoPath, args: ['commit-tree'] };
-					const signingError = new SigningError({ reason: reason, gitCommand: gitCommand }, ex);
-					this.context.hooks?.commits?.onSigningFailed?.(reason, _signingFormat, options?.source);
-					throw signingError;
-				}
-			}
-
 			throw ex;
 		}
 	}
 
 	async createEmptyInitialCommit(repoPath: string): Promise<string> {
 		const emptyTree = await this.git.run({ cwd: repoPath, stdin: '' }, 'hash-object', '-t', 'tree', '--stdin');
-		const result = await this.git.run({ cwd: repoPath }, 'commit-tree', emptyTree.stdout.trim(), '-m', 'temp');
-		// create refs/heads/main and point to it
-		await this.git.run({ cwd: repoPath }, 'update-ref', 'refs/heads/main', result.stdout.trim());
-		// point HEAD to the branch
+		const sha = await this.provider.commits.createCommitFromTree(repoPath, emptyTree.stdout.trim(), {
+			parents: [],
+			message: 'temp',
+		});
+		// Point HEAD at the still-unborn `main` first, then create the branch through HEAD, so the one write
+		// that announces anything does so after both changes, announcing the head and the branch together
 		await this.git.run({ cwd: repoPath }, 'symbolic-ref', 'HEAD', 'refs/heads/main');
-		return result.stdout.trim();
+		await this.provider.refs.updateReference(repoPath, 'HEAD', sha);
+		return sha;
 	}
 
 	@debug({ args: repoPath => ({ repoPath: repoPath }) })

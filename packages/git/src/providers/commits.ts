@@ -152,11 +152,25 @@ export interface GitCommitsSubProvider {
 		cancellation?: AbortSignal,
 	): Promise<SearchCommitsResult>;
 
-	createUnreachableCommitFromTree?(
+	/**
+	 * Creates a commit object from a tree via `commit-tree`, with explicit (zero or more) parents and an
+	 * optional explicit author/committer — e.g. for merge commits assembled from multiple parents, or a
+	 * commit authored on behalf of someone else. Writes the commit object only; it updates no ref, so the
+	 * result is unreachable until a caller points a branch/ref at it.
+	 *
+	 * Signs the commit when `sign` is true, reporting a signing failure as a `SigningError`.
+	 */
+	createCommitFromTree?(
 		repoPath: string,
 		tree: string,
-		parent: string,
-		message: string,
+		options: {
+			parents: string[];
+			message: string;
+			author?: { name: string; email: string; date?: Date | string };
+			committer?: { name: string; email: string; date?: Date | string };
+			sign?: boolean;
+			source?: unknown;
+		},
 		cancellation?: AbortSignal,
 	): Promise<string>;
 	getCommitReachability?(
