@@ -1,6 +1,6 @@
 import type { FrameLocator, Locator } from '@playwright/test';
 import type { VSCodeInstance } from './baseTest.js';
-import { expect, ShortTimeout } from './baseTest.js';
+import { expect, MaxTimeout, ShortTimeout } from './baseTest.js';
 
 /**
  * Wait until the graph has painted commit rows. The tree container (role="tree", aria-label
@@ -232,4 +232,40 @@ export async function ensureGraphDetailsPanelOpen(graphWebview: FrameLocator, ti
 		}
 		await expect(detailsRegion).toBeVisible({ timeout: 2000 });
 	}).toPass({ timeout: timeout });
+}
+
+/**
+ * Move the pointer off the commit rows and wait for the commit hover card to close.
+ *
+ * Clicking a row leaves the pointer resting on it, and the card then opens on its own delay anchored
+ * there, painting over the rows below. Its own box is no help in spotting that — the `gl-graph-hover`
+ * host and the `gl-popover` inside it both measure 0x0, while the surface that actually paints sits
+ * deeper in the shadow tree (measured on Windsurf: a 410x95 box starting exactly at the anchor row's
+ * bottom edge). What it does show up in is `elementFromPoint`, which returns `gl-graph-hover` at the
+ * centre of the next row down — and that is what Playwright hit-tests, so the following click on that
+ * row is refused until its budget runs out.
+ *
+ * A person never meets this: `graphHover.ts` closes an open card while Ctrl or Alt is held, so a real
+ * ctrl-click dismisses it on the way in. Playwright's actionability check runs before any modifier is
+ * pressed, so it just retries against the card instead.
+ *
+ * Hovering the graph header runs the card's own unhover path — it is inside the same webview and never
+ * overlaps the rows. Forced, because the card is allowed to flip above its anchor when the pane is short
+ * (`gl-popover` renders with `flip`), and a dismissal that the very overlay it dismisses can block would
+ * fail exactly when it is needed. Gate on the card being gone rather than on a pause, so this says what
+ * it waits for. Forcing also means the pointer leaves the rows whatever sits at that point, which is the
+ * part that matters, and it is aimed at the header's top-left corner rather than its centre: the header
+ * wraps, so its centre lands on whichever control ends up there, and those carry tooltips of their own —
+ * the same class of overlay this exists to remove.
+ *
+ * Note for keyboard-driven specs: a PINNED peek (`i` / `mod+I`) ignores the pointer close path entirely
+ * (`graphHover.ts` `hide()` returns early when `_peeked`), so this would wait out its budget against one.
+ * Nothing presses `i` today; `close()` / `closePeek()` are what end a peek.
+ */
+export async function dismissCommitHover(graphWebview: FrameLocator): Promise<void> {
+	await graphWebview
+		.locator('gl-graph-header')
+		.first()
+		.hover({ force: true, position: { x: 4, y: 4 } });
+	await expect(graphWebview.locator('gl-graph-hover[open]')).toHaveCount(0, { timeout: MaxTimeout });
 }
