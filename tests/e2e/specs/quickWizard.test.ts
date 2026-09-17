@@ -33,7 +33,7 @@ import * as path from 'node:path';
 import * as process from 'node:process';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, ShortTimeout } from '../baseTest.js';
-import type { Step } from '../pageObjects/components/quickPick.js';
+import type { QuickPick, Step } from '../pageObjects/components/quickPick.js';
 import type { GitLensPage } from '../pageObjects/gitLensPage.js';
 
 /** Git fixture for test repository */
@@ -119,6 +119,11 @@ const test = base.extend({
 				// This simulates a branch that was tracking a remote branch that has been deleted
 				await git.branch('stale-feature');
 				await git.setUpstream('stale-feature', 'origin/stale-feature');
+
+				// Give the worktree's branch a missing upstream too, so branch prune has a branch that
+				// both qualifies for pruning and is checked out in a worktree (config-only, so this is
+				// safe on a branch checked out elsewhere)
+				await git.setUpstream('feature-with-worktree', 'origin/feature-with-worktree');
 
 				return repoDir;
 			},
@@ -232,6 +237,15 @@ async function reverseCommandSubcommandAndRepo(
 }
 
 /**
+ * Reads a confirm toggle row's checked state. `getVisibleItems()` returns text only, and a toggle's
+ * state lives in its checkbox icon (`gitlens-checkbox-checked` / `-unchecked`), so read the row's markup.
+ */
+async function isToggleChecked(quickPick: QuickPick, label: string | RegExp): Promise<boolean> {
+	const row = await quickPick.getVisibleItem(label);
+	return (await row.innerHTML()).includes('gitlens-checkbox-checked');
+}
+
+/**
  * Helper to test direct commands that open at a specific step.
  * Executes the command, waits for the quick pick, verifies the expected step title, then cancels.
  */
@@ -341,15 +355,18 @@ test.describe('Quick Wizard — Branch Commands', () => {
 			await quickPick.enterTextAndWaitForItems('feature-with-worktree');
 			await quickPick.selectItemMulti(/feature-with-worktree/i);
 
-			// Confirm worktree deletion
-			await quickPick.waitForStep({ title: /Delete Worktree for Branch/i });
-
-			// Note: The full flow would continue to delete the worktree then delete the branch,
-			// but we stop here to test navigation without actually performing destructive operations
+			// Git refuses to delete a branch that's checked out in a worktree, so branch delete hands off
+			// entirely to the worktree wizard -- one wizard, one confirm, both deletions. For a Community
+			// user that hand-off lands on the worktrees access gate, which never reaches the confirm, so
+			// only the title (the hand-off's, not "Delete Worktrees") is observable here.
+			await quickPick.waitForStep({
+				title: /Delete Branch & Worktree/i,
+				placeholder: /GitLens Pro/i,
+			});
 
 			// === REVERSE NAVIGATION ===
 
-			// Back from worktree confirm → branch
+			// Back from the access gate → branch
 			await quickPick.goBackAndWaitForStep({ title: /Delete Branch/, placeholder: /Choose branch/i });
 
 			await reverseCommandSubcommandAndRepo(vscode, 'branch');
@@ -373,10 +390,19 @@ test.describe('Quick Wizard — Branch Commands', () => {
 			await quickPick.enterTextAndWaitForItems('feature-with-worktree');
 			await quickPick.selectItemMulti(/feature-with-worktree/i);
 
-			// Confirm worktree deletion
-			await quickPick.waitForStep({ title: /Delete Worktree for Branch/i });
+			// Git refuses to delete a branch that's checked out in a worktree, so branch delete hands off
+			// entirely to the worktree wizard -- one wizard, one confirm, both deletions
+			await quickPick.waitForStep({ title: /Confirm Delete Branch & Worktree/i });
 
-			// Note: The full flow would continue to delete the worktree then delete the branch,
+			// Delete Branch is seeded on for that hand-off -- it's what actually deletes the branch.
+			// Match it on its detail, which is unique and state-independent (see the standalone worktree
+			// delete toggles spec for why labels are a trap here).
+			const deleteBranchToggle = 'Also delete the branch checked out in the worktree';
+			const items = await quickPick.getVisibleItems();
+			expect(items.some(item => item.includes(deleteBranchToggle))).toBeTruthy();
+			expect(await isToggleChecked(quickPick, deleteBranchToggle)).toBeTruthy();
+
+			// Note: The full flow would continue to delete the worktree and the branch together,
 			// but we stop here to test navigation without actually performing destructive operations
 
 			// === REVERSE NAVIGATION ===
@@ -489,6 +515,44 @@ test.describe('Quick Wizard — Branch Commands', () => {
 			// === REVERSE NAVIGATION ===
 
 			// Back from confirm → branch
+			await quickPick.goBackAndWaitForStep({ title: /Prune Branch/, placeholder: /Choose branches/i });
+
+			await reverseCommandSubcommandAndRepo(vscode, 'branch');
+
+			await quickPick.cancel();
+			expect(await quickPick.isVisible()).toBeFalsy();
+		});
+
+		test('Worktree prune flow: command → subcommand → branches → worktree confirm & reverse', async ({
+			vscode,
+			vscode: {
+				gitlens: { quickPick },
+			},
+		}) => {
+			await selectCommandSubcommandAndWaitForStepWithOptionalRepo(vscode, 'branch', 'prune', {
+				title: /Prune Branch/,
+				placeholder: /Choose branches/i,
+			});
+
+			// Select the branch with a missing upstream that also has a worktree
+			await quickPick.enterTextAndWaitForItems('feature-with-worktree');
+			await quickPick.selectItemMulti(/feature-with-worktree/i);
+
+			// Hands off to the worktree wizard, which keeps each verb on its own noun -- `git worktree
+			// prune` means something else entirely, so the worktree is deleted, not pruned
+			await quickPick.waitForStep({ title: /Confirm Prune Branch & Delete Worktree/i });
+
+			const deleteBranchToggle = 'Also delete the branch checked out in the worktree';
+			const items = await quickPick.getVisibleItems();
+			expect(items.some(item => item.includes(deleteBranchToggle))).toBeTruthy();
+			expect(await isToggleChecked(quickPick, deleteBranchToggle)).toBeTruthy();
+
+			// A pruned branch's upstream is gone by definition, so there's nothing to offer deleting
+			expect(items.some(item => item.includes("Also delete the branch's upstream"))).toBeFalsy();
+
+			// === REVERSE NAVIGATION ===
+
+			// Back from worktree confirm → branch
 			await quickPick.goBackAndWaitForStep({ title: /Prune Branch/, placeholder: /Choose branches/i });
 
 			await reverseCommandSubcommandAndRepo(vscode, 'branch');

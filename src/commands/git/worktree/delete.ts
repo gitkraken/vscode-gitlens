@@ -68,7 +68,8 @@ interface State<Repo = string | GlRepository> {
 	uris: Uri[];
 	flags: Flags[];
 
-	startingFromBranchDelete?: boolean;
+	/** Entered from branch delete/prune -- pre-checks Delete Branch(es) and uses branch-first copy */
+	fromBranchDelete?: 'delete' | 'prune';
 	overrides?: {
 		title?: string;
 	};
@@ -112,7 +113,13 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 		state.flags ??= [];
 
 		while (!steps.isComplete) {
-			context.title = state.overrides?.title ?? this.title;
+			// The pre-confirm steps need the entry title too -- a Community user deleting a branch with a
+			// worktree sees the access gate before ever reaching the confirm
+			context.title =
+				state.overrides?.title ??
+				(state.fromBranchDelete != null
+					? this.getEntryTitle(state.fromBranchDelete, state.uris?.length === 1)
+					: this.title);
 
 			if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
 				// Skip the picker only when the sole available repo is the one requested
@@ -344,8 +351,8 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 			}
 
 			// Force is never sticky -- only the Additional Actions choices are remembered, and only when this
-			// wasn't a sub-step of branch delete (where the toggles are hidden and never chosen by the user)
-			if (!state.startingFromBranchDelete) {
+			// wasn't entered from branch delete (where Delete Branch is seeded on, not chosen by the user)
+			if (state.fromBranchDelete == null) {
 				await this.container.storage.storeWorkspace('gitComandPalette:worktreeDelete:actions', {
 					branch: deleteBranches,
 					upstream: deleteUpstreams,
@@ -407,39 +414,48 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 		}
 	}
 
+	/** The wizard's title for how it was entered -- branch delete/prune hands both deletions here, so the
+	 *  title names both. Prune keeps each verb on its own noun: `git worktree prune` means something else
+	 *  entirely (cleaning stale worktree records), so "Prune Worktree" would actively mislead. */
+	private getEntryTitle(mode: 'delete' | 'prune' | undefined, isSingleWorktree: boolean): string {
+		if (mode === 'delete') {
+			return isSingleWorktree ? l10n.t('Delete Branch & Worktree') : l10n.t('Delete Branches & Worktrees');
+		}
+
+		if (mode === 'prune') {
+			return isSingleWorktree
+				? l10n.t('Prune Branch & Delete Worktree')
+				: l10n.t('Prune Branches & Delete Worktrees');
+		}
+
+		return isSingleWorktree ? l10n.t('Delete Worktree') : l10n.t('Delete Worktrees');
+	}
+
 	private *confirmStep(state: StepState<State<GlRepository>>, context: Context): StepResultGenerator<Flags[]> {
 		const isSingleWorktree = state.uris.length === 1;
-		if (state.startingFromBranchDelete) {
-			context.title = isSingleWorktree
-				? l10n.t('Delete Worktree for Branch')
-				: l10n.t('Delete Worktrees for Branches');
-		} else {
-			context.title = isSingleWorktree ? l10n.t('Delete Worktree') : l10n.t('Delete Worktrees');
-		}
+		context.title = this.getEntryTitle(state.fromBranchDelete, isSingleWorktree);
 
 		const formattedWorktreeCount = getNumericFormat()(state.uris.length);
 
-		// Hidden when invoked as a sub-step of branch delete -- that flow deletes the branch(es) itself
-		// once this sub-step completes, so offering to do it again here would be redundant
-		const showAdditionalActions = !state.startingFromBranchDelete;
-
-		const selectedWorktrees = showAdditionalActions
-			? state.uris
-					.map(uri => context.worktrees?.find(wt => wt.uri.toString() === uri.toString()))
-					.filter((wt): wt is GitWorktree => wt != null)
-			: [];
-		const canDeleteUpstreams = selectedWorktrees.some(wt => wt.branch?.upstream != null);
+		const selectedWorktrees = state.uris
+			.map(uri => context.worktrees?.find(wt => wt.uri.toString() === uri.toString()))
+			.filter((wt): wt is GitWorktree => wt != null);
+		// A missing upstream is still a non-null upstream (`missing: true`) -- offering to delete a remote
+		// branch already known not to exist would just fail
+		const canDeleteUpstreams = selectedWorktrees.some(
+			wt => wt.branch?.upstream != null && !wt.branch.upstream.missing,
+		);
 
 		const stored = this.container.storage.getWorkspace('gitComandPalette:worktreeDelete:actions');
 
-		// Force is never sticky and never seeded from storage -- only the Additional Actions choices are remembered
+		// Force is never sticky and never seeded from storage -- only the Additional Actions choices are
+		// remembered. Entering from branch delete pre-checks Delete Branch regardless of what's remembered,
+		// since deleting the branch is the whole point of that entry -- the user can still uncheck it.
 		let force = state.flags.includes('--force');
 		let deleteBranches =
-			showAdditionalActions && (state.flags.includes('--delete-branches') || (stored?.branch ?? false));
+			state.fromBranchDelete != null || state.flags.includes('--delete-branches') || (stored?.branch ?? false);
 		let deleteUpstreams =
-			showAdditionalActions &&
-			canDeleteUpstreams &&
-			(state.flags.includes('--delete-upstreams') || (stored?.upstream ?? false));
+			canDeleteUpstreams && (state.flags.includes('--delete-upstreams') || (stored?.upstream ?? false));
 
 		// Folds the live toggle values into the mode row's flags and detail -- the accepted item's flags
 		// are the whole contract with the delete loop above, so the list says what will actually happen.
@@ -455,14 +471,27 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 				flags.push('--delete-upstreams');
 			}
 
+			// Branch-first copy only while the branch is actually going to be deleted -- if the user unchecks
+			// Delete Branch this falls back to the worktree-only wording, since the row has to say what will
+			// actually happen
+			const branchFirst = state.fromBranchDelete != null && deleteBranches;
+
 			let label: string;
-			if (state.startingFromBranchDelete) {
+			if (branchFirst && state.fromBranchDelete === 'prune') {
 				if (isSingleWorktree) {
-					label = force ? l10n.t('Force Delete Worktree for Branch') : l10n.t('Delete Worktree for Branch');
+					label = force
+						? l10n.t('Force Prune Branch & Delete Worktree')
+						: l10n.t('Prune Branch & Delete Worktree');
 				} else {
 					label = force
-						? l10n.t('Force Delete Worktrees for Branches')
-						: l10n.t('Delete Worktrees for Branches');
+						? l10n.t('Force Prune Branches & Delete Worktrees')
+						: l10n.t('Prune Branches & Delete Worktrees');
+				}
+			} else if (branchFirst) {
+				if (isSingleWorktree) {
+					label = force ? l10n.t('Force Delete Branch & Worktree') : l10n.t('Delete Branch & Worktree');
+				} else {
+					label = force ? l10n.t('Force Delete Branches & Worktrees') : l10n.t('Delete Branches & Worktrees');
 				}
 			} else if (isSingleWorktree) {
 				label = force ? l10n.t('Force Delete Worktree') : l10n.t('Delete Worktree');
@@ -470,8 +499,53 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 				label = force ? l10n.t('Force Delete Worktrees') : l10n.t('Delete Worktrees');
 			}
 
+			// `GitWorktree.branch` is optional, so fall back to the worktree-first wording when there's no name
+			const branchName = branchFirst && isSingleWorktree ? selectedWorktrees[0]?.branch?.name : undefined;
+
 			let detail: string;
-			if (isSingleWorktree) {
+			if (branchName != null) {
+				const worktreePath = getWorkspaceFriendlyPath(state.uris[0]);
+				if (deleteUpstreams) {
+					detail = force
+						? l10n.t(
+								'Will forcibly delete branch {0}, its upstream, and its worktree in $(folder) {1}, discarding uncommitted changes and any unmerged commits',
+								branchName,
+								worktreePath,
+							)
+						: l10n.t(
+								'Will delete branch {0}, its upstream, and its worktree in $(folder) {1}',
+								branchName,
+								worktreePath,
+							);
+				} else {
+					detail = force
+						? l10n.t(
+								'Will forcibly delete branch {0} and its worktree in $(folder) {1}, discarding uncommitted changes and any unmerged commits',
+								branchName,
+								worktreePath,
+							)
+						: l10n.t('Will delete branch {0} and its worktree in $(folder) {1}', branchName, worktreePath);
+				}
+			} else if (branchFirst && !isSingleWorktree) {
+				if (deleteUpstreams) {
+					detail = force
+						? l10n.t(
+								'Will forcibly delete {0} branches, their upstreams, and their worktrees, discarding uncommitted changes and any unmerged commits',
+								formattedWorktreeCount,
+							)
+						: l10n.t(
+								'Will delete {0} branches, their upstreams, and their worktrees',
+								formattedWorktreeCount,
+							);
+				} else {
+					detail = force
+						? l10n.t(
+								'Will forcibly delete {0} branches and their worktrees, discarding uncommitted changes and any unmerged commits',
+								formattedWorktreeCount,
+							)
+						: l10n.t('Will delete {0} branches and their worktrees', formattedWorktreeCount);
+				}
+			} else if (isSingleWorktree) {
 				const worktreePath = getWorkspaceFriendlyPath(state.uris[0]);
 				if (deleteUpstreams) {
 					detail = force
@@ -583,44 +657,42 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 			},
 		});
 
-		if (showAdditionalActions) {
-			toggles.deleteBranch = createConfirmToggleQuickPickItem({
-				label: isSingleWorktree ? l10n.t('Delete Branch') : l10n.t('Delete Branches'),
+		toggles.deleteBranch = createConfirmToggleQuickPickItem({
+			label: isSingleWorktree ? l10n.t('Delete Branch') : l10n.t('Delete Branches'),
+			detail: isSingleWorktree
+				? l10n.t('Also delete the branch checked out in the worktree')
+				: l10n.t('Also delete the branches checked out in the worktrees'),
+			checked: deleteBranches,
+			onDidChange: item => {
+				deleteBranches = item.checked;
+				if (!deleteBranches && toggles.deleteUpstream != null) {
+					deleteUpstreams = false;
+					toggles.deleteUpstream.checked = false;
+					toggles.deleteUpstream.iconPath = new ThemeIcon('gitlens-checkbox-unchecked');
+				}
+				items = [buildItem()];
+				refreshConfirmStepItems(step, buildRows());
+			},
+		});
+
+		if (canDeleteUpstreams) {
+			toggles.deleteUpstream = createConfirmToggleQuickPickItem({
+				label: isSingleWorktree ? l10n.t('Delete Upstream') : l10n.t('Delete Upstreams'),
 				detail: isSingleWorktree
-					? l10n.t('Also delete the branch checked out in the worktree')
-					: l10n.t('Also delete the branches checked out in the worktrees'),
-				checked: deleteBranches,
+					? l10n.t("Also delete the branch's upstream from the remote")
+					: l10n.t("Also delete the branches' upstreams from their remotes"),
+				checked: deleteUpstreams,
 				onDidChange: item => {
-					deleteBranches = item.checked;
-					if (!deleteBranches && toggles.deleteUpstream != null) {
-						deleteUpstreams = false;
-						toggles.deleteUpstream.checked = false;
-						toggles.deleteUpstream.iconPath = new ThemeIcon('gitlens-checkbox-unchecked');
+					deleteUpstreams = item.checked;
+					if (deleteUpstreams && toggles.deleteBranch != null) {
+						deleteBranches = true;
+						toggles.deleteBranch.checked = true;
+						toggles.deleteBranch.iconPath = new ThemeIcon('gitlens-checkbox-checked');
 					}
 					items = [buildItem()];
 					refreshConfirmStepItems(step, buildRows());
 				},
 			});
-
-			if (canDeleteUpstreams) {
-				toggles.deleteUpstream = createConfirmToggleQuickPickItem({
-					label: isSingleWorktree ? l10n.t('Delete Upstream') : l10n.t('Delete Upstreams'),
-					detail: isSingleWorktree
-						? l10n.t("Also delete the branch's upstream from the remote")
-						: l10n.t("Also delete the branches' upstreams from their remotes"),
-					checked: deleteUpstreams,
-					onDidChange: item => {
-						deleteUpstreams = item.checked;
-						if (deleteUpstreams && toggles.deleteBranch != null) {
-							deleteBranches = true;
-							toggles.deleteBranch.checked = true;
-							toggles.deleteBranch.iconPath = new ThemeIcon('gitlens-checkbox-checked');
-						}
-						items = [buildItem()];
-						refreshConfirmStepItems(step, buildRows());
-					},
-				});
-			}
 		}
 
 		// Async pre-flight: check each selected worktree for uncommitted changes so Force's stakes are
@@ -674,13 +746,19 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 			);
 		}
 
-		const confirmTitle = state.startingFromBranchDelete
-			? isSingleWorktree
-				? l10n.t('Confirm Delete Worktree for Branch')
-				: l10n.t('Confirm Delete Worktrees for Branches')
-			: isSingleWorktree
-				? l10n.t('Confirm Delete Worktree')
-				: l10n.t('Confirm Delete Worktrees');
+		let confirmTitle: string;
+		if (state.fromBranchDelete === 'delete') {
+			confirmTitle = isSingleWorktree
+				? l10n.t('Confirm Delete Branch & Worktree')
+				: l10n.t('Confirm Delete Branches & Worktrees');
+		} else if (state.fromBranchDelete === 'prune') {
+			confirmTitle = isSingleWorktree
+				? l10n.t('Confirm Prune Branch & Delete Worktree')
+				: l10n.t('Confirm Prune Branches & Delete Worktrees');
+		} else {
+			confirmTitle = isSingleWorktree ? l10n.t('Confirm Delete Worktree') : l10n.t('Confirm Delete Worktrees');
+		}
+
 		step = createConfirmStep(appendReposToTitle(confirmTitle, state, context), buildRows(), confirmTitle);
 
 		const selection: StepSelection<typeof step> = yield step;

@@ -207,6 +207,18 @@ export class StepsController<StepNames extends string> implements UnifiedDisposa
 	}
 
 	/**
+	 * Clears a completion marked by a nested sub-command so this generator can continue.
+	 * A nested command's `markStepsComplete()` sets the shared navigation state and `dispose()`
+	 * deliberately preserves it so it propagates to the caller -- correct when the sub-command is
+	 * terminal, wrong when the caller still has steps of its own to run.
+	 */
+	clearStepsComplete(): void {
+		if (this._navContext.currentStep === StepsComplete) {
+			this._navContext.currentStep = undefined;
+		}
+	}
+
+	/**
 	 * Goes back to a specific step in the history, or adds it if not present
 	 * This is useful for "toggle" buttons that need to go back to a specific step
 	 * @param step The step to go back to

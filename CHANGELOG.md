@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes _Delete Branch..._ on a branch that has a worktree deleting the worktree but leaving the branch behind &mdash; Git refuses to delete a branch that's checked out in a worktree, so both now happen together in a single confirm with _Delete Branch_ pre-checked; uncheck it to keep the branch. _Prune Branches..._ works the same way
+- Fixes the _Delete Worktree_ confirm offering to delete a branch's upstream when that upstream is already missing from the remote
+
 ## [19.2.0] - 2026-09-16
 
 ### Added
