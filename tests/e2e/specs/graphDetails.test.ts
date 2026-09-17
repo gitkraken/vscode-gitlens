@@ -118,13 +118,45 @@ function commitRow(graphWebview: FrameLocator, messageText: string): Locator {
 }
 
 /**
+ * Move the pointer off the commit rows and wait for the commit hover card to close.
+ *
+ * Clicking a row leaves the pointer resting on it, and the card then opens on its own delay anchored
+ * there, painting over the rows below. Its own box is no help in spotting that — the `gl-graph-hover`
+ * host and the `gl-popover` inside it both measure 0x0, while the surface that actually paints sits
+ * deeper in the shadow tree (measured on Windsurf: a 410x95 box starting exactly at the anchor row's
+ * bottom edge). What it does show up in is `elementFromPoint`, which returns `gl-graph-hover` at the
+ * centre of the next row down — and that is what Playwright hit-tests, so the following click on that
+ * row is refused until its budget runs out.
+ *
+ * A person never meets this: `graphHover.ts` closes an open card while Ctrl or Alt is held, so a real
+ * ctrl-click dismisses it on the way in. Playwright's actionability check runs before any modifier is
+ * pressed, so it just retries against the card instead.
+ *
+ * Hovering the graph header runs the card's own unhover path — it is inside the same webview and never
+ * overlaps the rows. Forced, because the card is allowed to flip above its anchor when the pane is short
+ * (`gl-popover` renders with `flip`), and a dismissal that the very overlay it dismisses can block would
+ * fail exactly when it is needed. Gate on the card being gone rather than on a pause, so this says what
+ * it waits for.
+ */
+async function dismissCommitHover(graphWebview: FrameLocator): Promise<void> {
+	await graphWebview.locator('gl-graph-header').first().hover({ force: true });
+	await expect(graphWebview.locator('gl-graph-hover[open]')).toHaveCount(0, { timeout: MaxTimeout });
+}
+
+/**
  * Select a commit row in the graph by clicking it, located by its message via its accessible name
  * (see {@link commitRow} for how rows are matched under the new Lit engine).
+ *
+ * The hover card is cleared on both sides of the click. After, so whatever runs next does not inherit
+ * this one's; before, because the specs also ctrl-click rows through a bare `click()` that gets no
+ * dismissal of its own, and this is what clears the card such a click left behind.
  */
 async function selectCommitByMessage(graphWebview: FrameLocator, messageText: string): Promise<void> {
 	const row = commitRow(graphWebview, messageText);
 	await expect(row).toBeVisible({ timeout: MaxTimeout });
+	await dismissCommitHover(graphWebview);
 	await row.click();
+	await dismissCommitHover(graphWebview);
 }
 
 async function ensureDetailsPanelOpen(graphWebview: FrameLocator): Promise<void> {

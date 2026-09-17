@@ -24,7 +24,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import * as process from 'node:process';
-import type { FrameLocator } from '@playwright/test';
+import type { FrameLocator, Locator } from '@playwright/test';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
 import { widenSideBarForGraph } from '../graphHelpers.js';
 
@@ -111,6 +111,34 @@ function patternFromTemplate(template: string): RegExp {
 	return new RegExp(`^${escapeForRegExp(prefix)}.+${escapeForRegExp(suffix)}$`);
 }
 
+/**
+ * Asserts the Graph sidebar panel header settles on the pseudo form of `key`.
+ *
+ * Gating on the text rather than on `toBeVisible()` is deliberate. The header title is a flex item with
+ * `min-width: 0` and an ellipsis, sharing its row with an actions toolbar that does not shrink, so a
+ * narrow side bar legitimately squeezes it to zero width — mounted, `checkVisibility()`-true, and
+ * reported `hidden` by Playwright only because its box is empty. That says nothing about whether the
+ * string was localized, which is all this test is about.
+ *
+ * `toHaveText` rather than a poll over `textContent()`, because the header is not merely narrow when
+ * something goes wrong — it is gone: the panel renders `nothing` while no panel is active, so the node
+ * is detached. `textContent()` on a detached locator waits out `actionTimeout` (30s, three times this
+ * assertion's own budget) and then throws, and `expect.poll` evaluates its callback outside the try it
+ * retries on, so that throw ends the assertion with a bare action timeout and never reaches the message
+ * below. A locator assertion retries against its own deadline instead, detached node and all.
+ */
+async function expectPanelHeaderPseudoLocalized(header: Locator, key: string, label: string): Promise<void> {
+	// The rendered text is compared against the pseudo catalog, so a catalog that came out identical to
+	// English would let this pass while proving nothing — the check the plain-English assertion used to
+	// carry, kept here at its source.
+	expect(pseudo[key], `The qps-ploc catalog entry for ${label} is identical to its English source`).not.toBe(
+		english[key],
+	);
+	await expect(header, `${label} never rendered the qps-ploc catalog entry`).toHaveText(pseudo[key], {
+		timeout: MaxTimeout,
+	});
+}
+
 /** Asserts `actual` is exactly the pseudo form of `key` and not its English form. */
 function expectPseudoLocalized(actual: string | null, key: string, label: string): void {
 	expect(actual, `${label} was empty`).not.toBeNull();
@@ -172,17 +200,15 @@ test.describe('Localization — qps-ploc smoke', () => {
 		const panelHeader = graphContent!.locator('.header-title__text').first();
 
 		await graphContent!.locator('button[data-roving-key="icon:branches"]').click();
-		await expect(panelHeader).toBeVisible({ timeout: MaxTimeout });
-		expectPseudoLocalized(
-			(await panelHeader.textContent())?.trim() ?? null,
+		await expectPanelHeaderPseudoLocalized(
+			panelHeader,
 			branchesSidebarPanelKey,
 			'Graph Branches sidebar panel header',
 		);
 
 		await graphContent!.locator('button[data-roving-key="icon:worktrees"]').click();
-		await expect(panelHeader).toBeVisible({ timeout: MaxTimeout });
-		expectPseudoLocalized(
-			(await panelHeader.textContent())?.trim() ?? null,
+		await expectPanelHeaderPseudoLocalized(
+			panelHeader,
 			worktreesSidebarPanelKey,
 			'Graph Worktrees sidebar panel header',
 		);
