@@ -473,6 +473,13 @@ export interface IntegrationManager {
 		page?: number;
 		/** Continuation from a prior page's `cursor`; supplying it costs exactly one upstream request per scope. */
 		cursor?: string;
+		/**
+		 * Page size PER QUERY, not per page. A page is a merge of one query per scope (repo-scoped) or per
+		 * relationship category (account-wide GitHub: authored/assigned/mentioned), so it can return up to
+		 * `N × itemsPerPage` items before deduplication. `page.itemsPerPage` reports what actually came back, so
+		 * size the UI off that rather than off this. Account-wide GitLab, Azure and Linear reads ignore it and
+		 * drain with their own bounds.
+		 */
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
