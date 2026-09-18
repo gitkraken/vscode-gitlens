@@ -68,6 +68,7 @@ import { isActiveAgentPhase } from '../../../agents/provider.js';
 import { fetchAvatarImageAsDataUri, getAvatarUri } from '../../../avatars.js';
 import { parseCommandContext } from '../../../commands/commandContext.utils.js';
 import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote.js';
+import type { RebaseStackCommandArgs } from '../../../commands/rebaseStack.js';
 import type { RunTaskOnWorktreeCommandArgs } from '../../../commands/runTaskOnWorktree.js';
 import type {
 	GraphBranchesVisibility,
@@ -1409,6 +1410,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			},
 			pullRequest: {
 				merge: (number, options) => this.mergePullRequest(number, options),
+				rebaseStack: (number, options) => this.rebaseStack(number, options),
 			},
 			rowActions: {
 				executeRowAction: params => this.executeRowAction(params),
@@ -3300,6 +3302,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.refreshAfterPullRequestMerge();
 
 		return { merged: true };
+	}
+
+	/** Rebases every branch of the pull request's stack, bottom to top — delegates entirely to the
+	 *  host command (`gitlens.git.rebaseStack`, or `gitlens.ai.autoRebaseStack` for the AI-assisted
+	 *  variant), which owns the Pro-plan gate, the stack-layer resolution, and its own confirmation
+	 *  quick pick. Fire-and-forget: progress and outcome surface through that command's own
+	 *  notifications, not this RPC call. */
+	private rebaseStack(number: string, options?: { ai?: boolean }): Promise<void> {
+		void executeCommand<RebaseStackCommandArgs>(
+			options?.ai ? 'gitlens.ai.autoRebaseStack' : 'gitlens.git.rebaseStack',
+			{ pullRequestNumber: Number(number), source: 'graph' },
+		);
+		return Promise.resolve();
 	}
 
 	/** Re-pulls PR-affected state after a merge (attempted or confirmed) without tearing down the

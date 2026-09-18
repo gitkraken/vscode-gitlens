@@ -3,7 +3,7 @@ import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode'
 import { Disposable, env, EventEmitter, l10n, Uri } from 'vscode';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
-import type { PullRequest, PullRequestMember } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestMember, PullRequestStackInfo } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
@@ -71,12 +71,21 @@ import {
 	sharedCategoryToLaunchpadActionCategoryMap,
 } from './models/launchpad.js';
 
-export function getSuggestedActions(category: LaunchpadActionCategory, isCurrentBranch: boolean): LaunchpadAction[] {
+export function getSuggestedActions(
+	category: LaunchpadActionCategory,
+	isCurrentBranch: boolean,
+	stack: PullRequestStackInfo | undefined,
+): LaunchpadAction[] {
 	const actions = [...prActionsMap.get(category)!];
 
 	// Offer an agent-driven PR review on every item, gated on AI being enabled (org + user setting).
 	if (getContext('gitlens:ai:allowed', true)) {
 		actions.push('start-review');
+	}
+
+	// Stacks are GitHub-only; `stack` is only ever populated for a stacked pull request there.
+	if (stack != null && stack.size > 1) {
+		actions.push('rebase-stack');
 	}
 
 	if (isCurrentBranch) {
@@ -544,6 +553,22 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@debug({ args: item => ({ item: `${item.id} (${item.provider.name} ${item.type})` }) })
+	rebaseStack(item: LaunchpadItem): void {
+		const integrationId = item.provider.id;
+		if (!isSupportedLaunchpadIntegrationId(integrationId)) return;
+
+		const pullRequestNumber = item.underlyingPullRequest.number;
+		if (pullRequestNumber == null) return;
+
+		// The command's own confirmation offers both "Rebase Stack" and "Auto-Rebase Stack", so there is
+		// no need to branch on AI availability here.
+		void executeCommand('gitlens.git.rebaseStack', {
+			pullRequestNumber: pullRequestNumber,
+			source: 'launchpad',
+		});
+	}
+
+	@debug({ args: item => ({ item: `${item.id} (${item.provider.name} ${item.type})` }) })
 	open(item: LaunchpadItem): void {
 		if (item.url == null) return;
 
@@ -893,6 +918,7 @@ export class LaunchpadProvider implements Disposable {
 					const suggestedActions = getSuggestedActions(
 						actionableCategory,
 						openRepository?.localBranch?.current ?? false,
+						item.underlyingPullRequest.stack,
 					);
 
 					return {

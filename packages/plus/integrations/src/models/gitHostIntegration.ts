@@ -8,6 +8,7 @@ import type {
 	PullRequestMergeMethod,
 	PullRequestSearchCriteria,
 	PullRequestStackInfo,
+	PullRequestStackLayers,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
@@ -316,6 +317,16 @@ export abstract class GitHostIntegration<
 		repo: string,
 		cancellation?: AbortSignal,
 	): Promise<Map<number, PullRequestStackInfo> | undefined>;
+
+	/** The ordered layers of the stack the given pull request belongs to, bottom to top. `undefined`
+	 *  when the host has no stacks concept, the repository isn't enrolled, or the pull request isn't
+	 *  stacked. */
+	getStackLayersForPullRequest?(
+		owner: string,
+		repo: string,
+		pullRequestNumber: number,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestStackLayers | undefined>;
 
 	protected abstract getProviderDefaultBranch(
 		{ accessToken }: ProviderAuthenticationSession,

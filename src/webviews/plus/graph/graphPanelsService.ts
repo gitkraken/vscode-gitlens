@@ -12,6 +12,7 @@ import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { getDefaultRemoteOrOrigin } from '@gitlens/git/utils/remote.utils.js';
+import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { sortBranches, sortRemotes, sortTags, sortWorktrees } from '@gitlens/git/utils/sorting.js';
 import type { IntegrationIds, SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
@@ -790,6 +791,13 @@ export class GraphPanelsService {
 		const stacksByNumber = await stacks;
 		signal?.throwIfAborted();
 
+		const behindByStack = await this.getStacksBehind(
+			graph,
+			remote.name,
+			result.prs.map(pr => ({ stack: pr.stack ?? stacksByNumber?.get(this.getPullRequestNumber(pr)), pr: pr })),
+		);
+		signal?.throwIfAborted();
+
 		const items = result.prs.map(pr =>
 			this.toSidebarPullRequest(
 				pr,
@@ -800,6 +808,7 @@ export class GraphPanelsService {
 				result.launchpadByPr?.get(pr),
 				currentBranchName,
 				stacksByNumber,
+				behindByStack,
 			),
 		);
 
@@ -1065,7 +1074,7 @@ export class GraphPanelsService {
 
 		const { localByUpstream, remoteNames } = buildLocalBranchesByUpstream(graph);
 		const currentBranchName = getCurrentBranchName(graph);
-		const toSidebar = (pr: PullRequest) =>
+		const toSidebar = (pr: PullRequest, behindByStack?: Map<number, number | undefined>) =>
 			this.toSidebarPullRequest(
 				pr,
 				graph.repoPath,
@@ -1075,10 +1084,12 @@ export class GraphPanelsService {
 				undefined,
 				currentBranchName,
 				stacks,
+				behindByStack,
 			);
 
 		// Set only on the by-number path — it's the pull request the sheet was opened for, and it's
 		// already in hand, so it's never re-fetched below.
+		let requestedPr: PullRequest | undefined;
 		let requested: GraphSidebarPullRequest | undefined;
 		let stackNumber: number;
 
@@ -1089,6 +1100,8 @@ export class GraphPanelsService {
 			const pr = await integration.getPullRequest(remote.provider.repoDesc, params.number);
 			if (pr == null) return undefined;
 
+			requestedPr = pr;
+			// Built without `behind` — only to learn whether it's stacked; rebuilt with it below.
 			requested = toSidebar(pr);
 			// Not stacked (or membership unavailable) — the sheet renders the one pull request.
 			if (requested.stack == null) return { pr: requested };
@@ -1111,11 +1124,23 @@ export class GraphPanelsService {
 			numbers.map(n => integration.getPullRequest(remote.provider.repoDesc, String(n))),
 		);
 
-		const members: GraphSidebarPullRequest[] = requested != null ? [requested] : [];
+		const memberPrs: PullRequest[] = requestedPr != null ? [requestedPr] : [];
 		for (const result of results) {
 			if (result.status !== 'fulfilled' || result.value == null) continue;
 
-			members.push(toSidebar(result.value));
+			memberPrs.push(result.value);
+		}
+
+		// Only now is the roster known, so the bottom layer's head can be read. The rows are built after
+		// this, not before, so `behind` rides on each layer's `stack` the same way the panel path carries it.
+		const behindByStack = await this.getStacksBehind(
+			graph,
+			remote.name,
+			memberPrs.map(pr => ({ stack: pr.stack ?? stacks?.get(this.getPullRequestNumber(pr)), pr: pr })),
+		);
+		const members = memberPrs.map(pr => toSidebar(pr, behindByStack));
+		if (requested != null) {
+			requested = members[0];
 		}
 
 		// Top layer first, matching how the panel's own stack rows are ordered — `position` is 1-based
@@ -1133,6 +1158,76 @@ export class GraphPanelsService {
 
 		// One member is just the requested pull request itself, which is a single-layer sheet.
 		return { pr: requested, layers: members.length >= 2 ? members : undefined };
+	}
+
+	/**
+	 * For each distinct stack, how many commits its trunk has that its bottom layer doesn't — computed
+	 * once per stack rather than per pull request, since every layer shares the value. Measured against
+	 * the remote-tracking refs: the panel describes the stack as it exists on the host, and a layer may
+	 * not be checked out locally. A stack maps to `undefined` (never `0`, which means "up to date") when
+	 * it can't be determined — bottom layer not loaded, no same-repo head, or the read failed — so the UI
+	 * keeps offering the rebase.
+	 */
+	/**
+	 * How far each stack is behind its trunk, keyed by stack number — one read per stack, not per pull
+	 * request, so it rides alongside the two network round trips this panel already makes.
+	 *
+	 * Measured as the stack's **local** bottom branch against the remote trunk, deliberately: that is the
+	 * pair the cascade itself rebases, so the count answers "would rebasing do anything" rather than
+	 * "is the host's copy stale". Measuring the remote head instead would keep reading behind through the
+	 * whole rebase-then-push window, and re-offer a cascade that has already run.
+	 *
+	 * A layer with no local branch yields `undefined`, not 0 — the cascade would create it from its
+	 * remote-tracking ref and so genuinely has work to do, and callers treat `undefined` as "offer it".
+	 */
+	private async getStacksBehind(
+		graph: GitGraph,
+		remoteName: string,
+		layers: Iterable<{ stack: PullRequestStackInfo | undefined; pr: PullRequest }>,
+	): Promise<Map<number, number | undefined>> {
+		const bottoms = new Map<number, { baseRef: string; headBranch: string | undefined }>();
+		for (const { stack, pr } of layers) {
+			if (stack?.position !== 1) continue;
+
+			// Same-repo heads only: a fork's head resolves no local branch under `remoteName`.
+			bottoms.set(stack.number, {
+				baseRef: stack.baseRef,
+				headBranch: pr.refs?.isCrossRepository === true ? undefined : pr.refs?.head?.branch || undefined,
+			});
+		}
+
+		const behindByStack = new Map<number, number | undefined>();
+		if (!bottoms.size) return behindByStack;
+
+		const { localByUpstream } = buildLocalBranchesByUpstream(graph);
+		const commits = this.container.git.getRepositoryService(graph.repoPath).commits;
+
+		await Promise.all(
+			Array.from(bottoms, async ([number, { baseRef, headBranch }]) => {
+				const local = headBranch != null ? localByUpstream.get(`${remoteName}/${headBranch}`) : undefined;
+				if (!baseRef || local == null) {
+					behindByStack.set(number, undefined);
+					return;
+				}
+
+				try {
+					const counts = await commits.getLeftRightCommitCount(
+						createRevisionRange(`${remoteName}/${baseRef}`, local.name, '...'),
+						{ excludeMerges: true },
+					);
+					behindByStack.set(number, counts?.left);
+				} catch {
+					behindByStack.set(number, undefined);
+				}
+			}),
+		);
+
+		return behindByStack;
+	}
+
+	/** `PullRequest.id` is the number only on the provider-native path; the URL carries it on both. */
+	private getPullRequestNumber(pr: PullRequest): number {
+		return Number(getPullRequestNumberFromUrl(pr.url) ?? pr.id);
 	}
 
 	/**
@@ -1220,6 +1315,7 @@ export class GraphPanelsService {
 		launchpad?: GraphSidebarPullRequest['launchpad'],
 		currentBranchName?: string,
 		stacksByNumber?: Map<number, PullRequestStackInfo>,
+		behindByStack?: Map<number, number | undefined>,
 	): GraphSidebarPullRequest {
 		// Truthiness, not a null check: `fromProviderPullRequest` always builds `refs` and fills a gone head
 		// repo (merged-and-deleted, deleted fork) with `''` — the same test the command handlers make before
@@ -1301,6 +1397,7 @@ export class GraphPanelsService {
 							position: stack.position,
 							size: stack.size,
 							baseRef: stack.baseRef,
+							behind: behindByStack?.get(stack.number),
 						}
 					: undefined,
 			context: {

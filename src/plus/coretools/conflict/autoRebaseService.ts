@@ -35,6 +35,9 @@ export interface AutoRebaseStartOptions {
 	onto?: string;
 	updateRefs?: boolean;
 	autosquash?: boolean;
+	/** See {@link AutoRebaseSession.progressPrefix} — an outer-scope label (e.g. a stack rebase's
+	 *  `Branch 2 of 4`) a progress surface composes in front of this run's per-step messages. */
+	progressPrefix?: string;
 	source: Source;
 }
 
@@ -175,11 +178,16 @@ export class AutoRebaseService implements Disposable {
 			id: uuid(),
 			repoPath: svc.path,
 			mode: 'started',
+			progressPrefix: options.progressPrefix,
 			phase: 'starting',
 			preRun: {
 				branch: branch,
 				headSha: headSha,
-				upstream: options.upstream,
+				// The summary renders this as "onto <upstream>", so it wants the ref the branch LANDS on.
+				// With `--onto`, that's `onto` — `upstream` is then the old base the replay starts from
+				// (a stack cascade passes the layer below's pre-rebase SHA), which would read as a bare
+				// SHA the branch isn't actually on. Matches what the takeover path reads out of git.
+				upstream: options.onto ?? options.upstream,
 				hadWorkingChanges: status?.hasChanges ?? false,
 				// We start from no in-progress operation and autostash (if any) is created by our own
 				// rebase after this point, so there's no pre-existing autostash to account for.

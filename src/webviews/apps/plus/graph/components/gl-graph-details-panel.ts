@@ -31,6 +31,7 @@ import type {
 	AutoRebaseSummary,
 	ConflictSide,
 	GraphServices,
+	StackRebasePushableBranch,
 	UndoAutoRebaseResult,
 	VirtualRefShape,
 } from '../../../../plus/graph/graphService.js';
@@ -1423,6 +1424,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					.repoPath=${d.repoPath}
 					.getSummary=${this.getRebaseSummary}
 					.undoRebase=${this.undoRebaseSummary}
+					.getPushableBranches=${this.getStackRebasePushable}
+					.forcePushStack=${this.forcePushStackAction}
 					@gl-detail-sheet-close=${this.handleCloseRebaseSummary}
 					@rebase-summary-view-diff=${this.handleRebaseSummaryViewDiff}
 				></gl-rebase-summary-sheet>`;
@@ -1874,6 +1877,21 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private readonly undoRebaseSummary = async (repoPath: string, sessionId: string): Promise<UndoAutoRebaseResult> => {
 		await this._actionsReady;
 		return this._actions.undoAutoRebase(repoPath, sessionId);
+	};
+
+	/** Injected lookup for the summary sheet's Force Push Stack offer — the branches the repository's
+	 *  last completed stack rebase rewrote and hasn't published. Empty for an ordinary single-branch
+	 *  rebase, which is what keeps the offer off that sheet. */
+	private readonly getStackRebasePushable = async (repoPath: string): Promise<StackRebasePushableBranch[]> => {
+		await this._actionsReady;
+		return this._actions.fetchStackRebasePushable(repoPath);
+	};
+
+	/** Injected force push — resolves only once the picker and every push have finished, so the sheet's
+	 *  follow-up re-read sees the published state rather than racing it. */
+	private readonly forcePushStackAction = async (repoPath: string): Promise<void> => {
+		await this._actionsReady;
+		return this._actions.forcePushStack(repoPath);
 	};
 
 	private get isLoading(): boolean {

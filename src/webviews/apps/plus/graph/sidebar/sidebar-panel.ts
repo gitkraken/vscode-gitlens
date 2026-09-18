@@ -135,6 +135,13 @@ interface PanelConfig {
 	actions?: PanelAction[];
 }
 
+/** Sentinel `TreeItemAction.action` handled inside `handleTreeItemAction` instead of dispatched as a
+ *  host command through `_actions.executeAction` — mirrors {@link focusRefActionId}'s mechanism.
+ *  The stack row's Rebase Stack action re-fires the same bubbling `gl-graph-rebase-stack` event the
+ *  pull request sheet's Rebase Stack button dispatches, so both entry points land on the RPC-backed
+ *  `handleRebaseStack` in `graph-app.ts` rather than bypassing it through a direct command execution. */
+const rebaseStackActionId = 'gl-graph-sidebar-rebase-stack';
+
 const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 	overview: {
 		title: l10n.t('Overview'),
@@ -1825,6 +1832,20 @@ would expose the graph through fade or at the gap left by the translate). */
 		// fetched has no ref to scope to, and a stack shown minus a layer is worse than no action at all.
 		const actions: TreeItemAction[] = [];
 		const base = entry.members.at(-1);
+		// Rebases the whole stack bottom to top — pushed before Focus on Stack so Focus keeps the
+		// row's right edge, the same "last action lands rightmost" rule `toPullRequestLeaf` documents
+		// for its own Focus action.
+		// Same fail-open rule as the sheet: `behind` describes the whole stack (identical on every member),
+		// and unknown is not zero — only a stack known to be up to date hides the action.
+		const behind = entry.members.find(m => m.stack != null)?.stack?.behind;
+		if (base != null && (behind == null || behind > 0)) {
+			actions.push({
+				icon: 'arrow-swap',
+				label: l10n.t('Rebase Stack...'),
+				action: rebaseStackActionId,
+				arguments: [{ number: base.number }],
+			});
+		}
 		if (loaded === entry.size && entry.members.every(m => m.focus != null) && base?.focus != null) {
 			actions.push(
 				createFocusRefAction(l10n.t('Focus on Stack'), {
@@ -2852,6 +2873,22 @@ would expose the graph through fade or at the gap left by the translate). */
 		const isFocusRefGesture = useAlt ? action.altAction === focusRefActionId : action.action === focusRefActionId;
 		if (isFocusRefGesture) {
 			this.focusRef(args?.[0] as FocusRefActionArgs | undefined, 'inline');
+			return;
+		}
+
+		// Rebase Stack is view-routing, not a host command — re-fire it as the same bubbling event
+		// the pull request sheet's own Rebase Stack button dispatches (see `rebaseStackActionId`).
+		if (action.action === rebaseStackActionId) {
+			const rebaseArgs = args?.[0] as { number: string } | undefined;
+			if (rebaseArgs?.number != null) {
+				this.dispatchEvent(
+					new CustomEvent('gl-graph-rebase-stack', {
+						detail: { number: rebaseArgs.number },
+						bubbles: true,
+						composed: true,
+					}),
+				);
+			}
 			return;
 		}
 

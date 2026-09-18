@@ -8,6 +8,8 @@ import type {
 	PullRequestMergeMethod,
 	PullRequestSearchCriteria,
 	PullRequestStackInfo,
+	PullRequestStackLayer,
+	PullRequestStackLayers,
 	PullRequestState,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
@@ -794,7 +796,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			// `pull_requests` is ordered bottom to top, and `position` is 1-based from the bottom.
 			members.forEach((pr, i) => {
 				byNumber.set(pr.number, {
-					id: stack.id,
+					id: String(stack.id),
 					number: stack.number,
 					size: members.length,
 					position: i + 1,
@@ -804,6 +806,76 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		}
 
 		return byNumber;
+	}
+
+	/**
+	 * The ordered layers of the stack the given pull request belongs to, bottom to top.
+	 *
+	 * There is no per-pull-request stacks endpoint, so this reuses the same repository-wide stacks read
+	 * as {@link getStacksByPullRequestNumber} and picks out the one stack containing the given pull
+	 * request.
+	 *
+	 * `undefined` when the host has no stacks concept, the repository isn't enrolled in the preview, or
+	 * the pull request isn't stacked.
+	 */
+	override async getStackLayersForPullRequest(
+		owner: string,
+		repo: string,
+		pullRequestNumber: number,
+		cancellation?: AbortSignal,
+	): Promise<PullRequestStackLayers | undefined> {
+		// The shared read path — it refreshes an expired session before use, which a bare `getSession()`
+		// does not (it returns the cached session verbatim once one exists, expired or not).
+		const session = await this.resolveReadSession(undefined, undefined);
+		if (session == null) return undefined;
+
+		const stacks = await (
+			await this.authenticationService.apis.github
+		)?.getRepositoryStacks(
+			this,
+			toTokenWithInfo(this.id, session),
+			owner,
+			repo,
+			{
+				baseUrl: this.apiBaseUrl,
+			},
+			cancellation,
+		);
+		if (stacks == null) return undefined;
+
+		for (const stack of stacks) {
+			// Defensive: this is a public-preview payload reaching us through an unvalidated cast, and a
+			// malformed stack must be skipped, not thrown on.
+			const members = stack?.pull_requests;
+			const baseRef = stack?.base?.ref;
+			if (members == null || baseRef == null) continue;
+
+			if (!members.some(pr => pr.number === pullRequestNumber)) continue;
+
+			// `pull_requests` is already ordered bottom to top.
+			const layers: PullRequestStackLayer[] = [];
+			for (const layer of members) {
+				const headRef = layer.head?.ref;
+				if (headRef == null) continue;
+
+				layers.push({
+					number: layer.number,
+					headRef: headRef,
+					headSha: layer.head.sha,
+					merged: layer.merged_at != null,
+					draft: layer.draft === true,
+				});
+			}
+
+			return {
+				id: String(stack.id),
+				number: stack.number,
+				baseRef: baseRef,
+				layers: layers,
+			};
+		}
+
+		return undefined;
 	}
 
 	protected override async mergeProviderPullRequest(

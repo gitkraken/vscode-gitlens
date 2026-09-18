@@ -45,6 +45,7 @@ import type { ConsultedTool } from '../../../plus/coretools/conflict/consultatio
 import { getConsultations, recordConsultation } from '../../../plus/coretools/conflict/consultation.js';
 import type { ConflictToolsIntegration } from '../../../plus/coretools/conflict/integration.js';
 import { getResolutionRefs } from '../../../plus/coretools/conflict/resolutionRefs.js';
+import { forcePushStackForRepo } from '../../../plus/coretools/conflict/stackRebaseProgress.js';
 import type {
 	ConflictProgressEvent,
 	Resolution as ConflictToolsResolution,
@@ -126,6 +127,7 @@ import type {
 	ReviewDetailResult,
 	ReviewResult,
 	ScopeSelection,
+	StackRebasePushableBranch,
 	TakeConflictSideResult,
 	UndoAutoRebaseResult,
 	VirtualRefShape,
@@ -160,6 +162,18 @@ function toAutoRebaseRunStep(session: AutoRebaseSession): { current: number; tot
 	return undefined;
 }
 
+/** The run's live progress message, prefixed with its outer-scope label when it has one — a stack
+ *  rebase sets `Branch 2 of 4`, so the panel reads `Branch 2 of 4 · Step 3/7 · Resolving 2 conflicts
+ *  with AI…` and the user never has to work out which branch of the stack they're looking at. The
+ *  loop's own messages stay per-rebase-step; the join lives here. */
+function toAutoRebaseRunMessage(session: AutoRebaseSession): string | undefined {
+	const { progressPrefix: prefix, progressMessage: message } = session;
+	if (prefix == null) return message;
+	if (message == null) return prefix;
+
+	return l10n.t('{0} · {1}', prefix, message);
+}
+
 function getResolutionReasoning(description: string, kind: ResolutionDescriptionKind | undefined): string {
 	switch (kind) {
 		case 'automatic-both-deleted':
@@ -187,7 +201,7 @@ function toAutoRebaseRunUpdate(
 		// While running this is the live step; on an escalation `current` is cleared, so fall back to the
 		// step it stopped on — the review state still wants to say where in the rebase the user is.
 		step: toAutoRebaseRunStep(session),
-		message: session.progressMessage,
+		message: toAutoRebaseRunMessage(session),
 		escalation:
 			session.escalation != null
 				? { reason: session.escalation.reason, message: session.escalation.message }
@@ -727,6 +741,21 @@ export class GraphInspectServices {
 						source: 'graph',
 					});
 					return Promise.resolve();
+				},
+				getStackRebasePushable: async (repoPath: string): Promise<StackRebasePushableBranch[]> => {
+					const steps = await this.container.stackRebase.getPushableBranches(repoPath);
+					return steps.map(s => ({ branchName: s.branchName, prNumber: s.prNumber }));
+				},
+				forcePushStack: async (repoPath: string): Promise<void> => {
+					// Calls the implementation directly rather than dispatching `gitlens.git.forcePushStack`,
+					// unlike its `resumeAutoRebase` neighbour. The caller re-reads the pushable list when this
+					// resolves, to retire its own offer — and `registerCommand` only returns a handler's promise
+					// when registered with `returnResult`, so routing through the command would resolve before
+					// the picker even opened and leave a stale button. There's no gate on the command worth
+					// reusing here; it exists for the palette.
+					await forcePushStackForRepo(this.container, this.container.git.getRepositoryService(repoPath), {
+						source: 'graph',
+					});
 				},
 				onAutoRebaseProgress: this.subscribeToAutoRebaseProgress(buffer, tracker),
 				cancelAutoRebase: (repoPath: string): Promise<void> => {

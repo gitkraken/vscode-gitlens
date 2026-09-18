@@ -66,6 +66,7 @@ import type {
 	ReviewResult,
 	ScopeFile,
 	ScopeSelection,
+	StackRebasePushableBranch,
 	TakeConflictSideResult,
 	UndoAutoRebaseResult,
 } from '../../../../plus/graph/graphService.js';
@@ -793,6 +794,17 @@ export class DetailsActions {
 	 *  resolved manually. Fire-and-forget — resolves once triggered, not when the rebase finishes. */
 	resumeAutoRebase(repoPath: string): Promise<void> {
 		return this.services.graphInspect.resumeAutoRebase(repoPath);
+	}
+
+	/** Branches a completed stack rebase rewrote but hasn't pushed yet — empty when the run wasn't
+	 *  part of a stack cascade, or everything is already published. */
+	fetchStackRebasePushable(repoPath: string): Promise<StackRebasePushableBranch[]> {
+		return this.services.graphInspect.getStackRebasePushable(repoPath);
+	}
+
+	/** Runs the stack's force-push picker. Fire-and-forget — the picker and its result surface host-side. */
+	forcePushStack(repoPath: string): Promise<void> {
+		return this.services.graphInspect.forcePushStack(repoPath);
 	}
 
 	/** Aborts a running automatic rebase, restoring the branch to its pre-rebase state. */

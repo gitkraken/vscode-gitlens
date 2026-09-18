@@ -15,6 +15,7 @@ import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../../container.js';
 import { showPausedOperationStatus } from '../../git/actions/pausedOperation.js';
 import type { GlRepository } from '../../git/models/repository.js';
+import { getBranchAssociatedPullRequest } from '../../git/utils/-webview/branch.utils.js';
 import { isRebaseTodoEditorEnabled, reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { startAutoRebaseRun } from '../../plus/coretools/conflict/autoRebaseProgress.js';
@@ -52,6 +53,7 @@ import {
 	confirmOptionsSeparatorLabel,
 	refreshConfirmStepItems,
 } from '../quick-wizard/utils/steps.utils.js';
+import { rebaseStack } from '../rebaseStack.js';
 
 const Steps = {
 	PickRepo: 'rebase-pick-repo',
@@ -74,8 +76,12 @@ interface Context extends StepsContext<StepNames> {
 }
 
 /** `ai-resolve` is an internal pseudo-flag (never passed to git) — it routes execution through the
- *  automatic rebase service, which resolves any conflicts with AI end-to-end. */
-type Flags = '--autosquash' | '--interactive' | '--update-refs' | 'ai-resolve';
+ *  automatic rebase service, which resolves any conflicts with AI end-to-end.
+ *  `rebase-stack` is likewise an internal pseudo-flag — it routes execution through the stack
+ *  cascade (rebasing every branch of the current branch's pull-request stack, bottom to top)
+ *  instead of a single-branch rebase. Combined with `ai-resolve`, the cascade resolves conflicts
+ *  with AI at every step. */
+type Flags = '--autosquash' | '--interactive' | '--update-refs' | 'ai-resolve' | 'rebase-stack';
 interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	destination: GitReference;
@@ -113,6 +119,14 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		let autosquash: boolean | undefined;
 		if (interactive || (await state.repo.git.supports('git:rebase:autosquash'))) {
 			autosquash = state.flags.includes('--autosquash');
+		}
+
+		if (state.flags.includes('rebase-stack')) {
+			this.container.telemetry.sendEvent('gitCommand/run', { command: 'rebase' });
+			return rebaseStack(this.container, state.flags.includes('ai-resolve') ? 'ai' : 'manual', {
+				repoPath: state.repo.path,
+				source: 'quick-wizard',
+			});
 		}
 
 		if (state.flags.includes('ai-resolve')) {
@@ -371,7 +385,18 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		const destinationTitleLabel = getReferenceLabel(state.destination, { icon: false, label: false });
 		const ahead = counts?.right ?? 0;
 		const behind = counts?.left ?? 0;
-		if (behind === 0 && ahead === 0) {
+		// Stack membership, detected cheaply: `cached: true` only ever reads the local pull request
+		// cache, never the network, so this can't block the picker — a cache miss (no pull request
+		// fetched for this branch yet) just means the stack modes below don't show. It can under-detect,
+		// never falsely detect: `stack` is only ever set when a previously-fetched pull request carried it.
+		const stackPullRequest = await getBranchAssociatedPullRequest(this.container, context.branch, {
+			cached: true,
+		});
+		const stack = stackPullRequest?.stack;
+
+		// A stack cascade rebases each layer onto the one below it, so it has work to do even when the
+		// branch is already up to date with the destination picked above — only bail when there's neither.
+		if (behind === 0 && ahead === 0 && stack == null) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
 				appendReposToTitle(
 					l10n.t('Confirm Rebase {0} onto {1}', branchTitleLabel, destinationTitleLabel),
@@ -402,7 +427,8 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		// Automatic rebase is offered only to trial/paid users with AI enabled (settings + org policy),
 		// and only when there's something to rebase onto — the same `behind > 0` gate the plain rebase
 		// uses, since an ahead-only rebase replays commits with nothing to conflict against.
-		const aiOffered = isTrialOrPaid && this.container.ai.enabled && this.container.ai.orgEnabled && behind > 0;
+		const aiEligible = isTrialOrPaid && this.container.ai.enabled && this.container.ai.orgEnabled;
+		const aiOffered = aiEligible && behind > 0;
 
 		// If the wizard was seeded with the AI pseudo-flag (`gitlens.ai.autoRebase`) but automatic rebase
 		// isn't offered here, strip it — otherwise `aiSeeded` below would suppress the normal
@@ -499,6 +525,49 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				],
 				picked: aiSeeded,
 			});
+		}
+
+		// Rebase Stack — cascades the rebase across every branch of the current branch's pull-request
+		// stack, bottom to top. Offered only when the branch is a stack member; the destination picked
+		// above is irrelevant to this mode, since the cascade rebases each layer onto the layer below it
+		// (and the bottom layer onto the stack's own trunk).
+		if (stack != null) {
+			// The cascade passes neither `--update-refs` nor `--autosquash`, so neither toggle changes what
+			// these modes do — the same detail stands for all four combinations.
+			const stackDetail = formatPlural(
+				l10n.t(
+					'{size, plural, one{Will rebase the {size} branch in the stack, bottom to top, stopping at each conflict} other{Will rebase all {size} branches in the stack, bottom to top, stopping at each conflict}}',
+				),
+				{ size: stack.size },
+			);
+
+			modes.push({
+				flags: ['rebase-stack'],
+				label: l10n.t('Rebase Stack'),
+				description: l10n.t('Stops at each conflict'),
+				details: [stackDetail, stackDetail, stackDetail, stackDetail],
+				picked: false,
+			});
+
+			// Auto-Rebase Stack — the AI counterpart. Gated on plain AI eligibility rather than `aiOffered`,
+			// whose `behind > 0` half is measured against the destination picked above — irrelevant here,
+			// since each layer rebases onto the layer below it.
+			if (aiEligible) {
+				const autoStackDetail = formatPlural(
+					l10n.t(
+						'{size, plural, one{Will rebase the {size} branch in the stack, bottom to top, resolving conflicts with AI and pausing only when it needs help} other{Will rebase all {size} branches in the stack, bottom to top, resolving conflicts with AI and pausing only when it needs help}}',
+					),
+					{ size: stack.size },
+				);
+
+				modes.push({
+					flags: ['rebase-stack', 'ai-resolve'],
+					label: l10n.t('Auto-Rebase Stack'),
+					description: l10n.t('AI resolves conflicts · Preview'),
+					details: [autoStackDetail, autoStackDetail, autoStackDetail, autoStackDetail],
+					picked: false,
+				});
+			}
 		}
 
 		modes.push({

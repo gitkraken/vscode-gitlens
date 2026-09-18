@@ -9,6 +9,7 @@ import type {
 	AutoRebaseSummary,
 	AutoRebaseSummaryStep,
 	ResolvedFileSummary,
+	StackRebasePushableBranch,
 	UndoAutoRebaseResult,
 } from '../../../../plus/graph/graphService.js';
 import {
@@ -358,6 +359,17 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 	@property({ attribute: false })
 	undoRebase?: (repoPath: string, sessionId: string) => Promise<UndoAutoRebaseResult>;
 
+	/** Injected fetcher for the stack's not-yet-pushed rewritten branches — the parent binds this to
+	 *  wrap its own service call. Empty (or throwing) means no Force Push Stack affordance. */
+	@property({ attribute: false })
+	getPushableBranches?: (repoPath: string) => Promise<StackRebasePushableBranch[]>;
+
+	/** Injected force-push — the parent binds this to wrap its own service call, which runs the host's
+	 *  stack push picker. Resolves only once the picker and every push have finished, so the re-fetch of
+	 *  {@link getPushableBranches} that follows sees the published state instead of racing it. */
+	@property({ attribute: false })
+	forcePushStack?: (repoPath: string) => Promise<void>;
+
 	@state() private _summary?: AutoRebaseSummary;
 	@state() private _loading = false;
 	@state() private _error?: string;
@@ -365,6 +377,10 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 	@state() private _undoing = false;
 	/** Error from a failed/refused undo — shown as a banner; the Undo button disables. */
 	@state() private _undoError?: string;
+	/** Branches the stack rebase rewrote but hasn't pushed yet — drives the Force Push Stack button. */
+	@state() private _pushable: StackRebasePushableBranch[] = [];
+	/** A force-push RPC is in flight — disables the button. */
+	@state() private _pushing = false;
 
 	/** Read-only — lets the panel resolve a step/file to its `virtualRef` for View Changes without
 	 *  duplicating the fetched summary in its own state. */
@@ -401,6 +417,7 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 	override willUpdate(changed: PropertyValues<this>): void {
 		if (changed.has('repoPath') && this.repoPath) {
 			void this.fetchSummary(this.repoPath);
+			void this.fetchPushableBranches(this.repoPath);
 		}
 	}
 
@@ -446,6 +463,21 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 		this._loading = false;
 		this._error = error;
 		this._summary = summary;
+	}
+
+	/** Fetches the stack's not-yet-pushed rewritten branches. Silently empties the Force Push Stack
+	 *  affordance on failure — this is a secondary affordance, not worth its own error banner. */
+	private async fetchPushableBranches(repoPath: string): Promise<void> {
+		let pushable: StackRebasePushableBranch[] = [];
+		try {
+			pushable = (await this.getPushableBranches?.(repoPath)) ?? [];
+		} catch {
+			pushable = [];
+		}
+
+		if (this.repoPath !== repoPath) return; // superseded by a newer open mid-flight
+
+		this._pushable = pushable;
 	}
 
 	private renderContent(): unknown {
@@ -660,9 +692,21 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 		}
 
 		return html`<div slot="footer" class="footer">
-			${undo}
+			${undo} ${this.renderForcePushStack()}
 			<gl-button @click=${this.onKeep}>${l10n.t('OK')}</gl-button>
 		</div>`;
+	}
+
+	/** Renders only once a completed run has left branches unpushed — a manual-mode run, an aborted or
+	 *  failed cascade, or a stack fully published all resolve to an empty list, so this stays absent
+	 *  for anything but a completed stack cascade with something left to push. */
+	private renderForcePushStack(): unknown {
+		if (this._pushable.length === 0) return nothing;
+
+		const label = this._pushing ? l10n.t('Pushing…') : l10n.t('Force Push Stack');
+		return html`<gl-button appearance="secondary" ?disabled=${this._pushing} @click=${this.onForcePushStack}
+			>${label}</gl-button
+		>`;
 	}
 
 	private toggleStep(step: number): void {
@@ -726,6 +770,31 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 
 		this._undoing = false;
 		this._undoError = error;
+	}
+
+	private onForcePushStack = (): void => {
+		void this.pushStack();
+	};
+
+	private async pushStack(): Promise<void> {
+		if (this._pushing || this.forcePushStack == null) return;
+
+		this._pushing = true;
+		try {
+			// The picker and the pushes run host-side and this resolves once they finish, so the
+			// re-fetch below reads settled state. Per-branch failures surface through the host's own
+			// messaging, not this sheet — an unpushed branch simply stays on offer.
+			await this.forcePushStack(this.repoPath);
+		} catch {
+			// Swallow — nothing meaningful to show here; see comment above.
+		}
+
+		this._pushing = false;
+
+		// Re-fetch so the button retires once every rewritten branch is published. Note this races the
+		// host-side push (which the RPC above didn't wait on): a re-fetch that lands before the push
+		// finishes leaves the button showing until the user reopens the sheet.
+		void this.fetchPushableBranches(this.repoPath);
 	}
 
 	private onKeep = (): void => {

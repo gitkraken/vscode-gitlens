@@ -96,6 +96,11 @@ export interface AutoRebaseSession {
 	readonly id: string;
 	readonly repoPath: string;
 	readonly mode: 'started' | 'takeover' | 'handoff';
+	/** An outer-scope label a caller composes in FRONT of this run's per-step progress message, when
+	 *  this rebase is one unit of something larger (e.g. `Branch 2 of 4` while a stack rebase cascades).
+	 *  Purely presentational — the loop's own messages stay per-rebase-step, and a progress surface
+	 *  joins the two rather than either side knowing about the other. */
+	readonly progressPrefix?: string;
 	phase: AutoRebasePhase;
 	readonly preRun: {
 		/** The branch being rebased */

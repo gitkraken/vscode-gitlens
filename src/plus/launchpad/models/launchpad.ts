@@ -91,6 +91,7 @@ export const sharedCategoryToLaunchpadActionCategoryMap = new Map<string, Launch
 
 export type LaunchpadAction =
 	| 'merge'
+	| 'rebase-stack'
 	| 'open'
 	| 'soft-open'
 	| 'switch'

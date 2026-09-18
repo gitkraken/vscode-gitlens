@@ -7076,6 +7076,11 @@
 				"title": "%command.gitlens.ai.autoRebase.undo.title%"
 			},
 			{
+				"command": "gitlens.ai.autoRebaseStack",
+				"title": "%command.gitlens.ai.autoRebaseStack.title%",
+				"category": "%command.category%"
+			},
+			{
 				"command": "gitlens.ai.connectAgents",
 				"title": "%command.gitlens.ai.connectAgents.title%",
 				"category": "%command.category%"
@@ -8067,6 +8072,11 @@
 				"icon": "$(key)"
 			},
 			{
+				"command": "gitlens.git.forcePushStack",
+				"title": "%command.gitlens.git.forcePushStack.title%",
+				"category": "%command.category%"
+			},
+			{
 				"command": "gitlens.git.history",
 				"title": "%command.gitlens.git.history.title%",
 				"category": "%command.category%"
@@ -8079,6 +8089,11 @@
 			{
 				"command": "gitlens.git.rebase",
 				"title": "%command.gitlens.git.rebase.title%",
+				"category": "%command.category%"
+			},
+			{
+				"command": "gitlens.git.rebaseStack",
+				"title": "%command.gitlens.git.rebaseStack.title%",
 				"category": "%command.category%"
 			},
 			{
@@ -13496,6 +13511,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.ai.autoRebaseStack",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed"
+				},
+				{
 					"command": "gitlens.ai.connectAgents",
 					"when": "!gitlens:untrusted && gitlens:gk:cli:installed"
 				},
@@ -14264,6 +14283,10 @@
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
+					"command": "gitlens.git.forcePushStack",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
 					"command": "gitlens.git.history",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
@@ -14273,6 +14296,10 @@
 				},
 				{
 					"command": "gitlens.git.rebase",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.git.rebaseStack",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{

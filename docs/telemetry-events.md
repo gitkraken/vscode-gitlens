@@ -5675,7 +5675,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'action': 'merge' | 'open' | 'open-changes' | 'open-in-graph' | 'open-worktree' | 'pin' | 'show-overview' | 'snooze' | 'soft-open' | 'start-review' | 'switch' | 'unpin' | 'unsnooze',
+  'action': 'merge' | 'open' | 'open-changes' | 'open-in-graph' | 'open-worktree' | 'pin' | 'rebase-stack' | 'show-overview' | 'snooze' | 'soft-open' | 'start-review' | 'switch' | 'unpin' | 'unsnooze',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,
@@ -6978,6 +6978,130 @@ void
   'context.webview.type': string,
   'duration': number,
   'loading': boolean
+}
+```
+
+### stackRebase/branch/completed
+
+> Sent each time the cascade finishes rebasing one branch in the stack and advances to the next
+
+```typescript
+{
+  'branches.count': number,
+  // 1-based position of this branch in the cascade
+  'index': number,
+  'mode': 'ai' | 'manual'
+}
+```
+
+### stackRebase/completed
+
+> Sent when every branch in the stack has been rebased and the cascade runs to completion
+
+```typescript
+{
+  // Branches successfully rebased so far
+  'branches.completed.count': number,
+  // Branches in the stack the cascade is rebasing
+  'branches.count': number,
+  // Time from run start in milliseconds
+  'duration': number,
+  'mode': 'ai' | 'manual'
+}
+```
+
+### stackRebase/failed
+
+> Sent when the cascade fails unexpectedly partway up the stack
+
+```typescript
+{
+  // Branches successfully rebased so far
+  'branches.completed.count': number,
+  // Branches in the stack the cascade is rebasing
+  'branches.count': number,
+  // Time from run start in milliseconds
+  'duration': number,
+  'mode': 'ai' | 'manual',
+  // Why the cascade failed
+  'reason': 'missing-branch' | 'rebase-error' | 'unexpected-error'
+}
+```
+
+### stackRebase/paused
+
+> Sent when the cascade pauses partway up the stack — a conflict needs manual resolution, or
+> automation escalates the current branch
+
+```typescript
+{
+  // Branches successfully rebased so far
+  'branches.completed.count': number,
+  // Branches in the stack the cascade is rebasing
+  'branches.count': number,
+  // Time from run start in milliseconds
+  'duration': number,
+  'mode': 'ai' | 'manual',
+  // Why the cascade paused
+  'reason': 'conflicts' | 'escalated'
+}
+```
+
+### stackRebase/push/completed
+
+> Sent when the rewritten branches from a completed stack rebase are force-pushed
+
+```typescript
+{
+  // Branches the push was attempted for — those the user left checked in the picker
+  'branches.count': number,
+  // Branches whose push attempt failed — a subset of `branches.count`
+  'branches.failed.count': number,
+  // Branches the user unchecked in the push picker, leaving them un-pushed
+  'branches.held.count': number
+}
+```
+
+### stackRebase/resumed
+
+> Sent when the user resumes a paused stack rebase, continuing the cascade from the branch it stopped at
+
+```typescript
+{
+  'branches.count': number,
+  // 1-based position of this branch in the cascade
+  'index': number,
+  'mode': 'ai' | 'manual'
+}
+```
+
+### stackRebase/started
+
+> Sent when a stack rebase run starts — rebasing every branch of a stacked pull request chain,
+> bottom to top, optionally with AI conflict resolution at each step
+
+```typescript
+{
+  'branches.count': number,
+  // Layers that had no local branch yet, so the cascade created one from its remote-tracking ref
+  'branches.missing.count': number,
+  'mode': 'ai' | 'manual'
+}
+```
+
+### stackRebase/stopped
+
+> Sent when the user aborts the cascade, abandoning the remaining branches in the stack
+
+```typescript
+{
+  // Branches successfully rebased so far
+  'branches.completed.count': number,
+  // Branches in the stack the cascade is rebasing
+  'branches.count': number,
+  // Time from run start in milliseconds
+  'duration': number,
+  'mode': 'ai' | 'manual'
 }
 ```
 

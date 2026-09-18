@@ -45,6 +45,7 @@ import { UsageTracker } from './onboarding/usageTracker.js';
 import { WalkthroughStateProvider } from './onboarding/walkthroughStateProvider.js';
 import { AIProviderService } from './plus/ai/aiProviderService.js';
 import { AutoRebaseService } from './plus/coretools/conflict/autoRebaseService.js';
+import { StackRebaseService } from './plus/coretools/conflict/stackRebaseService.js';
 import { DraftService } from './plus/drafts/draftsService.js';
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider.js';
 import { FeedbackService } from './plus/gk/feedbackService.js';
@@ -546,6 +547,14 @@ export class Container {
 			this._disposables.push((this._autoRebase = new AutoRebaseService(this)));
 		}
 		return this._autoRebase;
+	}
+
+	private _stackRebase: StackRebaseService | undefined;
+	get stackRebase(): StackRebaseService {
+		if (this._stackRebase == null) {
+			this._disposables.push((this._stackRebase = new StackRebaseService(this)));
+		}
+		return this._stackRebase;
 	}
 
 	private _operationOrigins: GitOperationOriginTracker | undefined;

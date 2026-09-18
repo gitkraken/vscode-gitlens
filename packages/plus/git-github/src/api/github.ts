@@ -313,7 +313,9 @@ export interface GitHubStackLayer {
 }
 
 export interface GitHubStackResource {
-	id: string;
+	/** Numeric on the wire — verified against a live stack, where it came back as `1347135`, unquoted.
+	 *  The models carry stack ids as strings, so callers stringify at the boundary. */
+	id: number;
 	number: number;
 	/** The stack's trunk — what the bottom member targets. */
 	base: { ref: string; sha?: string };

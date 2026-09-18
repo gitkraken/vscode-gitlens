@@ -250,6 +250,10 @@ export type UndoAutoRebaseResult =
 	| { result: { restoredTo: string; warning?: string } }
 	| { error: { message: string } };
 
+/** One branch a completed stack rebase rewrote but hasn't force-pushed yet — offered by the summary
+ *  sheet's Force Push Stack action. Mirrors `StackRebaseStep`'s `branchName`/`prNumber`. */
+export type StackRebasePushableBranch = { branchName: string; prNumber: number };
+
 export type ScopeSelection =
 	| { type: 'commit'; sha: string }
 	| {
@@ -725,6 +729,11 @@ export interface GraphInspectService {
 	 *  resolved manually — resumes the same session in place. Fire-and-forget: returns once triggered,
 	 *  not when the resumed rebase finishes. */
 	resumeAutoRebase(repoPath: string): Promise<void>;
+	/** Branches a completed stack rebase rewrote but hasn't pushed — empty when the run wasn't part of
+	 *  a stack cascade, or everything is already published. */
+	getStackRebasePushable(repoPath: string): Promise<StackRebasePushableBranch[]>;
+	/** Runs the stack's force-push picker. Fire-and-forget: the picker and its result surface host-side. */
+	forcePushStack(repoPath: string): Promise<void>;
 	/** Streams the live state of an automatic rebase run so the Resolve panel can show its steps and
 	 *  progress. `undefined` fires when the repo has no session left (dismissed). */
 	readonly onAutoRebaseProgress: RpcEventSubscription<AutoRebaseRunUpdate | undefined>;
@@ -1326,6 +1335,8 @@ export interface GraphPullRequestService {
 		number: string,
 		options?: { confirmed?: boolean; mergeMethod?: 'merge' | 'squash' | 'rebase' },
 	): Promise<MergePullRequestResult>;
+	/** Rebases every branch of the pull request's stack, bottom to top. `ai` opts into AI conflict resolution. */
+	rebaseStack(number: string, options?: { ai?: boolean }): Promise<void>;
 }
 
 /** Row-level graph actions: the row-button menu (open changes, push-to-commit, stash, undo-commit),

@@ -1240,7 +1240,16 @@ export interface GraphSidebarPullRequest {
 	 * Joined host-side from a per-repository stacks lookup: these rows come from the shared providers API,
 	 * whose type carries no stack membership.
 	 */
-	stack?: { number: number; position: number; size: number; baseRef: string };
+	stack?: {
+		number: number;
+		position: number;
+		size: number;
+		baseRef: string;
+		/** Commits the stack's trunk has that its bottom layer doesn't — how far the whole stack is behind
+		 *  what it targets. Same value on every layer, since it describes the stack. `undefined` means it
+		 *  couldn't be determined; treat that as unknown and KEEP offering a rebase rather than hiding it. */
+		behind?: number;
+	};
 	/**
 	 * Launchpad categorization for the row's grouping indicator and hover signals. Resolved host-side
 	 * (it needs each integration's current user) and best-effort — absent when categorization is

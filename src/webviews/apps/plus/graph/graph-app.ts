@@ -2054,6 +2054,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-reveal-location=${this.handleGraphRevealLocation}
 					@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
 					@gl-graph-merge-pull-request=${this.handleMergePullRequest}
+					@gl-graph-rebase-stack=${this.handleRebaseStack}
 					@gl-graph-pr-compare=${this.handlePrCompare}
 					@gl-graph-pr-review=${this.handlePrReview}
 					@gl-graph-pr-review-changes=${this.handlePrReviewChanges}
@@ -2503,6 +2504,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 	};
 
+	/** Rebase Stack — from the pull request sheet's split button or the sidebar stack row's action.
+	 *  Fire-and-forget on this side too: the host command owns confirmation and progress reporting. */
+	private handleRebaseStack = async (e: CustomEvent<{ number: string; ai?: boolean }>): Promise<void> => {
+		const pullRequest = await this.services?.pullRequest;
+		if (pullRequest == null) return;
+
+		await pullRequest.rebaseStack(e.detail.number, { ai: e.detail.ai });
+	};
+
 	private handleAlternateModeClose = (): void => {
 		const gs = this.graphState;
 		if (gs.displayMode == null || gs.displayMode === 'graph') return;
@@ -2672,6 +2682,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				?graph-ready=${this.coachMarksEligible}
 				@gl-graph-sidebar-panel-select=${this.handleSidebarPanelSelect}
 				@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
+				@gl-graph-rebase-stack=${this.handleRebaseStack}
 				@gl-graph-sidebar-toggle-pinned=${this.handleSidebarTogglePinned}
 				@gl-graph-sidebar-search-box-filter-change=${this.handleSidebarSearchBoxFilterChange}
 				@gl-graph-sidebar-show-past-agents-change=${this.handleSidebarShowPastAgentsChange}
@@ -2791,6 +2802,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-row-unhover=${this.handleGraphRowUnhover}
 					@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
 					@gl-graph-merge-pull-request=${this.handleMergePullRequest}
+					@gl-graph-rebase-stack=${this.handleRebaseStack}
 					@gl-graph-pr-compare=${this.handlePrCompare}
 					@gl-graph-pr-review=${this.handlePrReview}
 					@gl-graph-pr-review-changes=${this.handlePrReviewChanges}

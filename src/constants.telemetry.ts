@@ -136,6 +136,25 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when an undo is refused (branch moved, dirty working tree, etc.) */
 	'autoRebase/undo/refused': AutoRebaseUndoRefusedEvent;
 
+	/** Sent when a stack rebase run starts — rebasing every branch of a stacked pull request chain,
+	 *  bottom to top, optionally with AI conflict resolution at each step */
+	'stackRebase/started': StackRebaseStartedEvent;
+	/** Sent each time the cascade finishes rebasing one branch in the stack and advances to the next */
+	'stackRebase/branch/completed': StackRebaseBranchEvent;
+	/** Sent when the cascade pauses partway up the stack — a conflict needs manual resolution, or
+	 *  automation escalates the current branch */
+	'stackRebase/paused': StackRebasePausedEvent;
+	/** Sent when the user resumes a paused stack rebase, continuing the cascade from the branch it stopped at */
+	'stackRebase/resumed': StackRebaseBranchEvent;
+	/** Sent when every branch in the stack has been rebased and the cascade runs to completion */
+	'stackRebase/completed': StackRebaseLifecycleEvent;
+	/** Sent when the user aborts the cascade, abandoning the remaining branches in the stack */
+	'stackRebase/stopped': StackRebaseLifecycleEvent;
+	/** Sent when the cascade fails unexpectedly partway up the stack */
+	'stackRebase/failed': StackRebaseFailedEvent;
+	/** Sent when the rewritten branches from a completed stack rebase are force-pushed */
+	'stackRebase/push/completed': StackRebasePushEvent;
+
 	/** Sent when an agent hook is installed */
 	'agents/hookInstalled': AgentProviderEvent;
 	/** Sent when an agent hook is uninstalled */
@@ -1151,6 +1170,49 @@ interface AutoRebaseResumedEvent {
 interface AutoRebaseUndoRefusedEvent {
 	/** Why the undo was refused */
 	reason: AutoRebaseUndoRefusalReason;
+}
+
+interface StackRebaseLifecycleEvent {
+	mode: 'manual' | 'ai';
+	/** Branches in the stack the cascade is rebasing */
+	'branches.count': number;
+	/** Branches successfully rebased so far */
+	'branches.completed.count': number;
+	/** Time from run start in milliseconds */
+	duration: number;
+}
+
+interface StackRebaseStartedEvent {
+	mode: 'manual' | 'ai';
+	'branches.count': number;
+	/** Layers that had no local branch yet, so the cascade created one from its remote-tracking ref */
+	'branches.missing.count': number;
+}
+
+interface StackRebaseBranchEvent {
+	mode: 'manual' | 'ai';
+	/** 1-based position of this branch in the cascade */
+	index: number;
+	'branches.count': number;
+}
+
+interface StackRebasePausedEvent extends StackRebaseLifecycleEvent {
+	/** Why the cascade paused */
+	reason: 'conflicts' | 'escalated';
+}
+
+interface StackRebaseFailedEvent extends StackRebaseLifecycleEvent {
+	/** Why the cascade failed */
+	reason: 'rebase-error' | 'missing-branch' | 'unexpected-error';
+}
+
+interface StackRebasePushEvent {
+	/** Branches the push was attempted for — those the user left checked in the picker */
+	'branches.count': number;
+	/** Branches the user unchecked in the push picker, leaving them un-pushed */
+	'branches.held.count': number;
+	/** Branches whose push attempt failed — a subset of `branches.count` */
+	'branches.failed.count': number;
 }
 
 export interface CLIInstallStartedEvent {
@@ -2726,7 +2788,8 @@ type LaunchpadActionEvent = LaunchpadEventData & {
 		| 'pin'
 		| 'unpin'
 		| 'snooze'
-		| 'unsnooze';
+		| 'unsnooze'
+		| 'rebase-stack';
 } & Partial<Record<`item.${string}`, string | number | boolean>>;
 
 type LaunchpadAgentResolvedEvent = LaunchpadEventData & AgentResolvedEventData;

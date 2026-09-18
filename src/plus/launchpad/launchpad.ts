@@ -404,6 +404,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					case 'merge':
 						void this.container.launchpad.merge(state.item);
 						break;
+					case 'rebase-stack':
+						this.container.launchpad.rebaseStack(state.item);
+						break;
 					case 'open':
 						this.container.launchpad.open(state.item);
 						break;
@@ -1066,6 +1069,31 @@ export class LaunchpadCommand extends QuickCommand<State> {
 											count: count,
 										},
 									),
+									detail: detail,
+									buttons: [...gitProviderWebButtons],
+								},
+								action,
+							),
+						);
+						break;
+					}
+					case 'rebase-stack': {
+						const stack = state.item.underlyingPullRequest.stack;
+						const count = getStackedMergeCount(stack, { wholeStack: true });
+						const detail =
+							stack != null
+								? formatPlural(
+										l10n.t(
+											'{count, plural, one{Will rebase {count} branch onto {target}} other{Will rebase {count} branches onto {target}}}',
+										),
+										{ count: count, target: stack.baseRef },
+									)
+								: l10n.t('Will rebase this stack');
+
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: l10n.t('Rebase Stack...'),
 									detail: detail,
 									buttons: [...gitProviderWebButtons],
 								},

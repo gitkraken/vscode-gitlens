@@ -58,6 +58,7 @@ import './commands/openWorkingFile.js';
 import './commands/patches.js';
 import './commands/quickWizard.js';
 import './commands/rebaseEditor.js';
+import './commands/rebaseStack.js';
 import './commands/recomposeBranch.js';
 import './commands/recomposeFromCommit.js';
 import './commands/refreshHover.js';

@@ -324,6 +324,12 @@ export interface PullRequestRefs {
  * `baseRef` to answer where the work ultimately lands.
  */
 export interface PullRequestStackInfo {
+	/**
+	 * Opaque, and NOT comparable across read paths: GitHub's GraphQL selection returns a node id
+	 * (`PRS_kwDO…`) while its REST stacks endpoint returns a numeric id (`1347135`) that we stringify —
+	 * both verified against the same live stack. Use {@link number} to identify a stack; two views of one
+	 * stack agree there and will not agree here.
+	 */
 	id: string;
 	/** Identifies the stack within its repository. */
 	number: number;
@@ -333,6 +339,39 @@ export interface PullRequestStackInfo {
 	position: number;
 	/** The branch the bottom of the stack targets. */
 	baseRef: string;
+}
+
+/**
+ * One layer of a stack — the pull request occupying it, and the head ref a rebase or push needs to act
+ * on. Unlike {@link PullRequestStackInfo}, which locates a single pull request within a stack, this is
+ * the per-layer detail a caller walking the whole stack needs, e.g. to cascade a rebase bottom to top.
+ */
+export interface PullRequestStackLayer {
+	/** The pull request's number. */
+	number: number;
+	/** The pull request's head branch name, without a remote prefix. */
+	headRef: string;
+	/** The head branch's tip when the stack was read. */
+	headSha: string;
+	/** `true` once this layer has landed. */
+	merged: boolean;
+	/** `true` while this layer is still a draft. */
+	draft: boolean;
+}
+
+/**
+ * A stack's layers, ordered bottom to top. `baseRef` is the stack's ultimate target (its trunk), the
+ * same distinction drawn on {@link PullRequestStackInfo} — it is NOT the base of any individual layer
+ * above the bottom, which targets the layer below it instead.
+ */
+export interface PullRequestStackLayers {
+	/** Opaque and not comparable across read paths — see {@link PullRequestStackInfo.id}. */
+	id: string;
+	number: number;
+	/** The branch the bottom of the stack targets. */
+	baseRef: string;
+	/** The stack's layers, ordered bottom (closest to {@link baseRef}) to top. */
+	layers: PullRequestStackLayer[];
 }
 
 export interface PullRequestReviewer {
