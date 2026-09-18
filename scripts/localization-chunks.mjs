@@ -33,7 +33,9 @@ Commands:
 
 Chunk files are JSON objects of { "<english message>": <translated value> }; the same file
 name is used for the translated output. Partial locales are valid: VS Code falls back to
-English per message. Always run "pnpm run check:l10n" after a merge or prune.`);
+English per message. Always run "pnpm run check:l10n" after a merge or prune. It ratchets each locale as a whole, so a
+merge that brought English strings back, or a prune that dropped many entries, fails it on purpose;
+re-pin with "pnpm run check:l10n:update" once you have decided the new numbers are correct.`);
 	process.exit(1);
 }
 

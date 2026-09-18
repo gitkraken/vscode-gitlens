@@ -1,10 +1,15 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, extname, join, resolve } from 'node:path';
+import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getL10nJson, getL10nPseudoLocalized } from '@vscode/l10n-dev';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
+
+/** Microsoft's pseudo-localization locale id — generated on demand, never shipped. */
+const pseudoLocale = 'qps-ploc';
+/** Pinned coverage numbers the `check` command ratchets against; refresh with `check --update`. */
+const baselinePath = join(root, 'scripts', 'l10n-coverage-baseline.json');
 
 export function formatCatalog(catalog) {
 	return `${JSON.stringify(Object.fromEntries(Object.entries(catalog).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))), null, '\t')}\n`;
@@ -251,7 +256,232 @@ export async function extractCatalog() {
 	return getL10nJson(sources);
 }
 
-async function main(command) {
+/** A catalog entry's text — the English sources store some entries as `{ message, comment }`. */
+function entryMessage(value) {
+	return typeof value === 'string' ? value : value?.message;
+}
+
+/**
+ * How much of `source` a translation carries: the messages it defines at all, and how many of those
+ * are byte-identical to the English original. A missing message is not an error — English is the
+ * documented fallback — but a catalog that has drifted far behind, or one whose entries came back
+ * as the source text, is what these two numbers are here to surface.
+ */
+export function measureCoverage(source, translated) {
+	const keys = Object.keys(source);
+	let present = 0;
+	let untranslated = 0;
+	for (const key of keys) {
+		const value = entryMessage(translated[key]);
+		if (value == null) continue;
+
+		present++;
+		if (value === entryMessage(source[key])) {
+			untranslated++;
+		}
+	}
+
+	return { total: keys.length, present: present, untranslated: untranslated };
+}
+
+/**
+ * Counts plural branches a locale can never select — a `one` branch in Chinese, say, where CLDR has
+ * only `other`. Such a branch is harmless at runtime (the fallback fires) but it is the fingerprint
+ * of a catalog imported without adapting to the target's grammar, which is worth noticing before the
+ * next import brings the same mechanical treatment to a locale where it does change the text.
+ *
+ * The opposite direction — a category the locale HAS but the translation omits — is deliberately not
+ * counted: Spanish gained a `many` category for millions, and none of GitLens' 373 file/line counts
+ * needs it, so requiring it would flag every single block and say nothing.
+ */
+export function countDeadPluralBranches(catalog, locale) {
+	let categories;
+	try {
+		categories = new Set(new Intl.PluralRules(locale).resolvedOptions().pluralCategories);
+	} catch (ex) {
+		// A catalog named with an id `Intl` cannot parse (`pt_BR` instead of `pt-BR`, say) would
+		// otherwise surface as a bare RangeError naming neither the locale nor its file.
+		throw new Error(`${locale} is not a locale identifier Intl.PluralRules accepts: ${ex.message}`);
+	}
+
+	let dead = 0;
+	let example;
+
+	// `parsePluralBlocks` returns TOP-LEVEL blocks only, so walk each branch body too — the shipped
+	// Chinese catalogs carry nested force-push messages whose inner blocks hold dead branches of
+	// their own, and counting only the outer ones would let a future import add more unnoticed.
+	function walk(text, key) {
+		let blocks;
+		try {
+			blocks = parsePluralBlocks(text);
+		} catch {
+			// Malformed blocks are already reported, with their own message, by `validateTranslations`.
+			return;
+		}
+
+		for (const block of blocks) {
+			for (const [name, body] of Object.entries(block.branches)) {
+				// `=N` branches select an exact count, so they are outside the category system.
+				if (!/^=\d+$/.test(name) && !categories.has(name)) {
+					dead++;
+					example ??= { key: key, branch: name };
+				}
+
+				walk(body, key);
+			}
+		}
+	}
+
+	for (const [key, value] of Object.entries(catalog)) {
+		const text = entryMessage(value);
+		if (typeof text !== 'string' || !text.includes('plural')) continue;
+
+		walk(text, key);
+	}
+
+	return { dead: dead, example: example };
+}
+
+/**
+ * How far a locale's coverage may slip below its pinned value before the check fails. Adding an
+ * English message lowers every locale's coverage until the next import lands, so a ratchet with no
+ * give here would redden a PR that did nothing wrong; a drop past this is the catalogs falling
+ * behind, which is worth saying out loud.
+ */
+const defaultCoverageSlack = 0.02;
+
+async function readBaseline() {
+	const baseline = JSON.parse(await readFile(baselinePath, 'utf8'));
+	if (baseline.schemaVersion !== 1) {
+		throw new Error(`Unsupported l10n coverage baseline schema ${String(baseline.schemaVersion)}`);
+	}
+
+	return baseline;
+}
+
+async function writeBaseline(source, manifestSource, translations, slack) {
+	const locales = {};
+	for (const locale of [...translations.keys()].sort()) {
+		const { runtime, manifest } = translations.get(locale);
+		locales[locale] = {
+			runtime: {
+				...measureCoverage(source, runtime.catalog),
+				deadPluralBranches: countDeadPluralBranches(runtime.catalog, locale).dead,
+			},
+			// The manifest catalogs carry no plural blocks (`contributes` titles are not counted text),
+			// so they get no plural measurement.
+			manifest: measureCoverage(manifestSource, manifest.catalog),
+		};
+	}
+
+	await writeFile(
+		baselinePath,
+		`${JSON.stringify(
+			{
+				schemaVersion: 1,
+				producer: 'node ./scripts/localization.mjs check --update',
+				rationale:
+					'Ratchets the shipped locales against silent catalog damage that the per-message validation cannot see: a translation that came back as its English source (a mis-keyed or partially imported catalog), and a catalog that has fallen far behind the source. Untranslated counts may not grow at all — a translator keeping a term as-is is a deliberate decision, so it is recorded here rather than tolerated silently. Coverage is allowed to slip by `coverageSlack` because adding an English message legitimately lowers every locale until the next import; a larger drop means the catalogs need re-importing, not that the PR is wrong.',
+				coverageSlack: slack,
+				locales: locales,
+			},
+			null,
+			'\t',
+		)}\n`,
+	);
+}
+
+/**
+ * A locale users see half of is worse than one they cannot see at all: the runtime catalog and the
+ * manifest one are separate files, and shipping only one renders part of the UI translated and the
+ * rest English. Unlike the ratchet below this is absolute, so it also runs while re-baselining.
+ */
+export function checkLocaleSymmetry(translations) {
+	const errors = [];
+	for (const [locale, catalogs] of [...translations].sort(([a], [b]) => (a < b ? -1 : 1))) {
+		if (catalogs.runtime == null) {
+			errors.push(`${locale}: ships package.nls.${locale}.json but no l10n/bundle.l10n.${locale}.json.`);
+		}
+		if (catalogs.manifest == null) {
+			errors.push(`${locale}: ships l10n/bundle.l10n.${locale}.json but no package.nls.${locale}.json.`);
+		}
+	}
+
+	return errors;
+}
+
+/**
+ * Ratchets each shipped locale against {@link baselinePath} — the damage the per-message validation
+ * cannot see, because every individual entry is well-formed. Returns the errors rather than throwing
+ * so they join the per-message ones.
+ */
+export function checkCoverageRatchet(source, manifestSource, translations, baseline) {
+	const errors = [];
+	const slack = baseline.coverageSlack ?? defaultCoverageSlack;
+
+	for (const locale of [...new Set([...translations.keys(), ...Object.keys(baseline.locales)])].sort()) {
+		const catalogs = translations.get(locale);
+		if (catalogs == null) {
+			errors.push(
+				`${locale}: the coverage baseline has it, but no catalog ships for it — if the locale was dropped ` +
+					`on purpose, run pnpm run check:l10n:update.`,
+			);
+			continue;
+		}
+		if (catalogs.runtime == null || catalogs.manifest == null) continue;
+
+		const pinned = baseline.locales[locale];
+		if (pinned == null) {
+			errors.push(`${locale}: new locale with no pinned coverage. Run pnpm run check:l10n:update.`);
+			continue;
+		}
+
+		for (const [kind, sourceCatalog] of [
+			['runtime', source],
+			['manifest', manifestSource],
+		]) {
+			const measured = measureCoverage(sourceCatalog, catalogs[kind].catalog);
+			const previous = pinned[kind];
+			if (measured.untranslated > previous.untranslated) {
+				errors.push(
+					`${catalogs[kind].file}: ${measured.untranslated} messages are identical to their English ` +
+						`source, up from ${previous.untranslated}. That is what a mis-keyed or partially imported ` +
+						`catalog looks like; if the new ones are deliberate, run pnpm run check:l10n:update.`,
+				);
+			}
+
+			if (kind === 'runtime' && previous.deadPluralBranches != null) {
+				const plural = countDeadPluralBranches(catalogs[kind].catalog, locale);
+				if (plural.dead > previous.deadPluralBranches) {
+					errors.push(
+						`${catalogs[kind].file}: ${plural.dead} plural branches cannot be selected in this locale, ` +
+							`up from ${previous.deadPluralBranches} (e.g. the ${JSON.stringify(plural.example.branch)} ` +
+							`branch of ${JSON.stringify(plural.example.key)}). A catalog imported without adapting ` +
+							`to the target's plural grammar looks exactly like this.`,
+					);
+				}
+			}
+
+			// Guarded: a hand-trimmed baseline with a zero total would make both ratios NaN, and every
+			// comparison against NaN is false — the gate would switch itself off without saying so.
+			if (measured.total > 0 && previous.total > 0) {
+				const coverage = measured.present / measured.total;
+				const pinnedCoverage = previous.present / previous.total;
+				if (coverage < pinnedCoverage - slack) {
+					errors.push(
+						`${catalogs[kind].file}: covers ${(coverage * 100).toFixed(1)}% of the source messages, more ` +
+							`than ${(slack * 100).toFixed(0)} points below the pinned ` +
+							`${(pinnedCoverage * 100).toFixed(1)}%. The catalogs need re-importing.`,
+					);
+				}
+			}
+		}
+	}
+
+	return errors;
+}
+
+async function main(command, update) {
 	const bundlePath = join(root, 'l10n', 'bundle.l10n.json');
 	const source = await extractCatalog();
 	const serialized = formatCatalog(source);
@@ -262,7 +492,7 @@ async function main(command) {
 		return;
 	}
 	if (command !== 'check' && command !== 'pseudo') {
-		throw new Error('Usage: node scripts/localization.mjs <export|check|pseudo>');
+		throw new Error('Usage: node scripts/localization.mjs <export|check|pseudo> [--update]');
 	}
 	// The repository formatter may compact translator-comment arrays without changing the catalog.
 	if (!existsSync(bundlePath) || formatCatalog(JSON.parse(await readFile(bundlePath, 'utf8'))) !== serialized) {
@@ -289,23 +519,50 @@ async function main(command) {
 		}
 	}
 	checkReferences(manifest);
-	for (const [directory, pattern, catalog] of [
-		[root, /^package\.nls\.(.+)\.json$/, manifestSource],
-		[join(root, 'l10n'), /^bundle\.l10n\.(.+)\.json$/, source],
+	/** Per locale: `{ runtime: <catalog>, manifest: <catalog> }`, for the coverage checks below. */
+	const translations = new Map();
+	for (const [directory, pattern, catalog, kind] of [
+		[root, /^package\.nls\.(.+)\.json$/, manifestSource, 'manifest'],
+		[join(root, 'l10n'), /^bundle\.l10n\.(.+)\.json$/, source, 'runtime'],
 	]) {
 		for (const file of await readdir(directory)) {
-			if (!pattern.test(file)) continue;
-			errors.push(
-				...validateTranslations(catalog, JSON.parse(await readFile(join(directory, file), 'utf8')), file),
-			);
+			const match = pattern.exec(file);
+			if (match == null) continue;
+
+			const translated = JSON.parse(await readFile(join(directory, file), 'utf8'));
+			errors.push(...validateTranslations(catalog, translated, file));
+
+			// The pseudo catalogs are generated from the source on demand, so measuring their coverage
+			// would only ever restate that the generator ran.
+			if (match[1] === pseudoLocale) continue;
+
+			const locale = translations.get(match[1]) ?? {};
+			locale[kind] = { catalog: translated, file: file };
+			translations.set(match[1], locale);
 		}
 	}
+	errors.push(...checkLocaleSymmetry(translations));
+
+	const baseline = existsSync(baselinePath) ? await readBaseline() : undefined;
+	if (update) {
+		if (errors.length) throw new Error(errors.join('\n'));
+
+		await writeBaseline(source, manifestSource, translations, baseline?.coverageSlack ?? defaultCoverageSlack);
+		console.log(`Pinned the coverage of ${translations.size} locale(s) in ${relative(root, baselinePath)}`);
+		return;
+	}
+	if (baseline == null) {
+		throw new Error(`Missing ${relative(root, baselinePath)}. Run pnpm run check:l10n:update to create it.`);
+	}
+
+	errors.push(...checkCoverageRatchet(source, manifestSource, translations, baseline));
 	if (errors.length) throw new Error(errors.join('\n'));
 	console.log(
-		`Validated ${Object.keys(source).length} runtime and ${Object.keys(manifestSource).length} manifest messages`,
+		`Validated ${Object.keys(source).length} runtime and ${Object.keys(manifestSource).length} manifest messages` +
+			`, and the coverage of ${translations.size} shipped locale(s)`,
 	);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-	await main(process.argv[2]);
+	await main(process.argv[2], process.argv.includes('--update'));
 }

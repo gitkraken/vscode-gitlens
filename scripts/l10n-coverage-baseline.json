@@ -1,0 +1,47 @@
+{
+	"schemaVersion": 1,
+	"producer": "node ./scripts/localization.mjs check --update",
+	"rationale": "Ratchets the shipped locales against silent catalog damage that the per-message validation cannot see: a translation that came back as its English source (a mis-keyed or partially imported catalog), and a catalog that has fallen far behind the source. Untranslated counts may not grow at all — a translator keeping a term as-is is a deliberate decision, so it is recorded here rather than tolerated silently. Coverage is allowed to slip by `coverageSlack` because adding an English message legitimately lowers every locale until the next import; a larger drop means the catalogs need re-importing, not that the PR is wrong.",
+	"coverageSlack": 0.02,
+	"locales": {
+		"es": {
+			"runtime": {
+				"total": 6808,
+				"present": 6785,
+				"untranslated": 177,
+				"deadPluralBranches": 0
+			},
+			"manifest": {
+				"total": 2298,
+				"present": 2293,
+				"untranslated": 55
+			}
+		},
+		"zh-cn": {
+			"runtime": {
+				"total": 6808,
+				"present": 6785,
+				"untranslated": 97,
+				"deadPluralBranches": 61
+			},
+			"manifest": {
+				"total": 2298,
+				"present": 2293,
+				"untranslated": 34
+			}
+		},
+		"zh-tw": {
+			"runtime": {
+				"total": 6808,
+				"present": 6785,
+				"untranslated": 97,
+				"deadPluralBranches": 61
+			},
+			"manifest": {
+				"total": 2298,
+				"present": 2293,
+				"untranslated": 34
+			}
+		}
+	}
+}

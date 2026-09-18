@@ -3,7 +3,15 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { config, t } from '@vscode/l10n';
 import { getL10nJson } from '@vscode/l10n-dev';
-import { formatCatalog, parsePluralBlocks, validateTranslations } from '../localization.mjs';
+import {
+	checkCoverageRatchet,
+	checkLocaleSymmetry,
+	countDeadPluralBranches,
+	formatCatalog,
+	measureCoverage,
+	parsePluralBlocks,
+	validateTranslations,
+} from '../localization.mjs';
 
 test('extracts native and browser messages with translator context', async () => {
 	const catalog = await getL10nJson([
@@ -337,4 +345,131 @@ l10n.t('Line\nTab\tBackslash\\ {0}', value);
 	} finally {
 		await rm(directory, { recursive: true, force: true });
 	}
+});
+
+test('measureCoverage counts what a translation carries and what it left in English', () => {
+	const source = { a: 'Alpha', b: 'Beta', c: { message: 'Gamma', comment: ['ctx'] } };
+
+	assert.deepEqual(measureCoverage(source, { a: 'Alfa', b: 'Beta' }), {
+		total: 3,
+		present: 2,
+		untranslated: 1,
+	});
+	// An entry stored as `{ message }` on either side compares by its message, not by object identity.
+	assert.deepEqual(measureCoverage(source, { c: { message: 'Gamma' } }), {
+		total: 3,
+		present: 1,
+		untranslated: 1,
+	});
+});
+
+test('countDeadPluralBranches flags only branches the locale can never select', () => {
+	const block = category => ({ k: `{0, plural, =0{none} ${category}{one} other{many}}` });
+
+	// Chinese has a single `other` category, so a `one` branch is dead weight.
+	assert.equal(countDeadPluralBranches(block('one'), 'zh-cn').dead, 1);
+	assert.equal(countDeadPluralBranches(block('one'), 'es').dead, 0);
+	// `=N` selects an exact count and is outside the category system, so it is never dead.
+	assert.equal(countDeadPluralBranches({ k: '{0, plural, =0{none} other{many}}' }, 'zh-cn').dead, 0);
+	// A message without a block, and a malformed one (already reported by validateTranslations), are skipped.
+	assert.equal(countDeadPluralBranches({ k: 'plain text' }, 'zh-cn').dead, 0);
+	assert.equal(countDeadPluralBranches({ k: '{0, plural, one{unterminated' }, 'zh-cn').dead, 0);
+
+	const flagged = countDeadPluralBranches(block('few'), 'es');
+	assert.equal(flagged.dead, 1);
+	assert.deepEqual(flagged.example, { key: 'k', branch: 'few' });
+});
+
+test('checkLocaleSymmetry reports a locale that ships only one of its two catalogs', () => {
+	const runtime = { catalog: {}, file: 'bundle.l10n.es.json' };
+	const manifest = { catalog: {}, file: 'package.nls.es.json' };
+
+	assert.deepEqual(checkLocaleSymmetry(new Map([['es', { runtime, manifest }]])), []);
+	assert.match(checkLocaleSymmetry(new Map([['es', { runtime }]]))[0], /no package\.nls\.es\.json/);
+	assert.match(checkLocaleSymmetry(new Map([['es', { manifest }]]))[0], /no l10n\/bundle\.l10n\.es\.json/);
+});
+
+test('checkCoverageRatchet fails on new untranslated entries, a coverage drop, and a dropped locale', () => {
+	const source = Object.fromEntries(Array.from({ length: 100 }, (_, i) => [`k${i}`, `Message ${i}`]));
+	const manifestSource = { m: 'Manifest' };
+	const translate = count =>
+		Object.fromEntries(
+			Object.keys(source)
+				.slice(0, count)
+				.map(key => [key, `Traducción ${key}`]),
+		);
+	const baseline = {
+		coverageSlack: 0.02,
+		locales: {
+			es: {
+				runtime: { total: 100, present: 100, untranslated: 0, deadPluralBranches: 0 },
+				manifest: { total: 1, present: 1, untranslated: 0 },
+			},
+		},
+	};
+	const translations = (runtimeCatalog, manifestCatalog = { m: 'Manifiesto' }) =>
+		new Map([
+			[
+				'es',
+				{
+					runtime: { catalog: runtimeCatalog, file: 'bundle.l10n.es.json' },
+					manifest: { catalog: manifestCatalog, file: 'package.nls.es.json' },
+				},
+			],
+		]);
+
+	assert.deepEqual(checkCoverageRatchet(source, manifestSource, translations(translate(100)), baseline), []);
+
+	// One message came back as its English source — the shape of a mis-keyed or partial import.
+	const degraded = { ...translate(100), k0: 'Message 0' };
+	assert.match(
+		checkCoverageRatchet(source, manifestSource, translations(degraded), baseline)[0],
+		/1 messages are identical to their English source, up from 0/,
+	);
+
+	// Within the slack, falling behind the source is normal: English is the documented fallback.
+	assert.deepEqual(checkCoverageRatchet(source, manifestSource, translations(translate(99)), baseline), []);
+	assert.match(
+		checkCoverageRatchet(source, manifestSource, translations(translate(90)), baseline)[0],
+		/covers 90\.0% of the source messages/,
+	);
+
+	assert.match(
+		checkCoverageRatchet(source, manifestSource, new Map(), baseline)[0],
+		/the coverage baseline has it, but no catalog ships for it/,
+	);
+	assert.match(
+		checkCoverageRatchet(source, manifestSource, translations(translate(100)), { ...baseline, locales: {} })[0],
+		/new locale with no pinned coverage/,
+	);
+});
+
+test('checkCoverageRatchet fails when a locale grows plural branches it cannot select', () => {
+	const source = { k: '{0, plural, one{{0} file} other{{0} files}}' };
+	const baseline = {
+		coverageSlack: 0.02,
+		locales: {
+			'zh-cn': {
+				runtime: { total: 1, present: 1, untranslated: 0, deadPluralBranches: 0 },
+				manifest: { total: 0, present: 0, untranslated: 0 },
+			},
+		},
+	};
+	const translations = new Map([
+		[
+			'zh-cn',
+			{
+				runtime: {
+					catalog: { k: '{0, plural, one{{0} 个文件} other{{0} 个文件}}' },
+					file: 'bundle.l10n.zh-cn.json',
+				},
+				manifest: { catalog: {}, file: 'package.nls.zh-cn.json' },
+			},
+		],
+	]);
+
+	assert.match(
+		checkCoverageRatchet(source, {}, translations, baseline)[0],
+		/1 plural branches cannot be selected in this locale, up from 0/,
+	);
 });
