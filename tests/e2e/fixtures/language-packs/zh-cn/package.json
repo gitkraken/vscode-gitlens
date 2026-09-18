@@ -1,0 +1,25 @@
+{
+	"name": "e2e-zh-cn-language-pack",
+	"displayName": "E2E Simplified Chinese Language Pack (test fixture)",
+	"description": "Minimal offline stand-in for Microsoft's Simplified Chinese language pack, used only to make VS Code accept `--locale=zh-cn` in E2E tests. Its own translations are empty (VS Code's core UI stays English) — this only needs to exist so `vscode.env.language` resolves to `zh-cn`, which is all GitLens' own l10n catalog selection depends on.",
+	"publisher": "gitlens",
+	"version": "1.0.0",
+	"engines": {
+		"vscode": "*"
+	},
+	"contributes": {
+		"localizations": [
+			{
+				"languageId": "zh-cn",
+				"languageName": "Chinese (Simplified)",
+				"localizedLanguageName": "中文(简体)",
+				"translations": [
+					{
+						"id": "vscode",
+						"path": "./translations/main.i18n.json"
+					}
+				]
+			}
+		]
+	}
+}

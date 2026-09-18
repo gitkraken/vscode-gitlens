@@ -288,22 +288,35 @@ export interface LaunchOptions {
 	 */
 	setup?: () => Promise<string>;
 	/**
-	 * Display locale to launch VS Code in. Only `'qps-ploc'` (Microsoft's pseudo-localization
-	 * locale id) is supported. Requesting it seeds this worker's `--extensions-dir` /
-	 * `--user-data-dir` with the offline fixture language pack at
-	 * {@link pseudoLanguagePackFixtureDir} — no Marketplace install, no extra launch — and passes
-	 * `--locale=qps-ploc` so `vscode.env.language` (and GitLens' own `l10n` bundle selection)
-	 * resolves to it. The fixture's own translations are empty, so VS Code's core UI stays
-	 * English; only GitLens' strings render pseudo-translated.
+	 * Display locale to launch VS Code in — one of the ids in {@link languagePackFixtures}: the
+	 * `'qps-ploc'` pseudo-locale, or a locale GitLens actually ships a catalog for. Requesting one
+	 * seeds this worker's `--extensions-dir` / `--user-data-dir` with that locale's offline fixture
+	 * language pack from {@link languagePackFixturesDir} — no Marketplace install, no extra launch —
+	 * and passes `--locale=<id>` so `vscode.env.language` (and GitLens' own `l10n` bundle selection)
+	 * resolves to it. Every fixture's own translations are empty, so VS Code's core UI stays English;
+	 * only GitLens' strings render translated. Measured: an empty pack is enough for a real locale
+	 * too — VS Code accepts it and builds its NLS cache (`<user-data-dir>/clp/<hash>`), and both the
+	 * runtime (`l10n.t`) and manifest (`package.nls.<id>.json`) catalogs resolve.
 	 */
 	locale?: string;
 }
 
-/** The offline fixture language pack backing the `'qps-ploc'` {@link LaunchOptions.locale}. */
-const pseudoLanguagePackFixtureDir = path.join(__dirname, 'fixtures', 'language-packs', 'qps-ploc');
-/** Must match `name`/`publisher`/`version` in {@link pseudoLanguagePackFixtureDir}'s package.json. */
-const pseudoLanguagePackExtensionId = 'gitlens.e2e-pseudo-language-pack';
-const pseudoLanguagePackExtensionVersion = '1.0.0';
+/** Where the offline fixture language packs backing {@link LaunchOptions.locale} live, one dir per locale. */
+const languagePackFixturesDir = path.join(__dirname, 'fixtures', 'language-packs');
+/**
+ * Each entry's `extensionId` must match `publisher`.`name` in its fixture's package.json. `label` is
+ * cosmetic — measured: VS Code rewrites the whole `languagepacks.json` entry on first launch, taking the
+ * label from the pack's own `localizedLanguageName` — but it is written anyway to keep the seeded file
+ * the same shape a real language-pack install leaves behind.
+ */
+const languagePackFixtures: Record<string, { extensionId: string; label: string }> = {
+	'qps-ploc': { extensionId: 'gitlens.e2e-pseudo-language-pack', label: 'Pseudo' },
+	es: { extensionId: 'gitlens.e2e-es-language-pack', label: 'Spanish' },
+	'zh-cn': { extensionId: 'gitlens.e2e-zh-cn-language-pack', label: 'Chinese (Simplified)' },
+	'zh-tw': { extensionId: 'gitlens.e2e-zh-tw-language-pack', label: 'Chinese (Traditional)' },
+};
+/** Must match `version` in every fixture's package.json. */
+const languagePackFixtureVersion = '1.0.0';
 
 /**
  * Serializes an absolute path as a VS Code `URI` in the JSON shape it round-trips through its own
@@ -433,17 +446,15 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 			//     writes this either (confirmed by inspection), so `--locale` would silently fall back
 			//     to English without it.
 			if (vscodeOptions.locale != null && vscodeOptions.locale !== 'en') {
-				if (vscodeOptions.locale !== 'qps-ploc') {
+				const fixture = languagePackFixtures[vscodeOptions.locale];
+				if (fixture == null) {
 					throw new Error(
-						`E2E locale "${vscodeOptions.locale}" is not supported — only "qps-ploc" has a fixture language pack (tests/e2e/fixtures/language-packs/qps-ploc).`,
+						`E2E locale "${vscodeOptions.locale}" is not supported — supported locales are ${Object.keys(languagePackFixtures).join(', ')} (tests/e2e/fixtures/language-packs).`,
 					);
 				}
 
-				const extensionDir = path.join(
-					extensionsDir,
-					`${pseudoLanguagePackExtensionId}-${pseudoLanguagePackExtensionVersion}`,
-				);
-				await cp(pseudoLanguagePackFixtureDir, extensionDir, { recursive: true });
+				const extensionDir = path.join(extensionsDir, `${fixture.extensionId}-${languagePackFixtureVersion}`);
+				await cp(path.join(languagePackFixturesDir, vscodeOptions.locale), extensionDir, { recursive: true });
 
 				// The shape VS Code's own `--install-extension` writes into `--extensions-dir`, minus
 				// the marketplace-only `metadata` block (a local extension has no gallery record).
@@ -451,8 +462,8 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 					path.join(extensionsDir, 'extensions.json'),
 					JSON.stringify([
 						{
-							identifier: { id: pseudoLanguagePackExtensionId },
-							version: pseudoLanguagePackExtensionVersion,
+							identifier: { id: fixture.extensionId },
+							version: languagePackFixtureVersion,
 							location: fileUriJson(extensionDir),
 							relativeLocation: path.basename(extensionDir),
 						},
@@ -465,13 +476,13 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				await writeFile(
 					path.join(userDataDir, 'languagepacks.json'),
 					JSON.stringify({
-						'qps-ploc': {
+						[vscodeOptions.locale]: {
 							hash: 'e2e-fixture',
-							label: 'Pseudo',
+							label: fixture.label,
 							extensions: [
 								{
-									extensionIdentifier: { id: pseudoLanguagePackExtensionId },
-									version: pseudoLanguagePackExtensionVersion,
+									extensionIdentifier: { id: fixture.extensionId },
+									version: languagePackFixtureVersion,
 								},
 							],
 							translations: { vscode: path.join(extensionDir, 'translations', 'main.i18n.json') },

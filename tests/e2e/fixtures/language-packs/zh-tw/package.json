@@ -1,0 +1,25 @@
+{
+	"name": "e2e-zh-tw-language-pack",
+	"displayName": "E2E Traditional Chinese Language Pack (test fixture)",
+	"description": "Minimal offline stand-in for Microsoft's Traditional Chinese language pack, used only to make VS Code accept `--locale=zh-tw` in E2E tests. Its own translations are empty (VS Code's core UI stays English) — this only needs to exist so `vscode.env.language` resolves to `zh-tw`, which is all GitLens' own l10n catalog selection depends on.",
+	"publisher": "gitlens",
+	"version": "1.0.0",
+	"engines": {
+		"vscode": "*"
+	},
+	"contributes": {
+		"localizations": [
+			{
+				"languageId": "zh-tw",
+				"languageName": "Chinese (Traditional)",
+				"localizedLanguageName": "中文(繁體)",
+				"translations": [
+					{
+						"id": "vscode",
+						"path": "./translations/main.i18n.json"
+					}
+				]
+			}
+		]
+	}
+}
