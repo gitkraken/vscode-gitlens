@@ -313,6 +313,7 @@ const languagePackFixtures: Record<string, { extensionId: string; label: string 
 	'qps-ploc': { extensionId: 'gitlens.e2e-pseudo-language-pack', label: 'Pseudo' },
 	es: { extensionId: 'gitlens.e2e-es-language-pack', label: 'Spanish' },
 	'zh-cn': { extensionId: 'gitlens.e2e-zh-cn-language-pack', label: 'Chinese (Simplified)' },
+	'zh-tw': { extensionId: 'gitlens.e2e-zh-tw-language-pack', label: 'Chinese (Traditional)' },
 };
 /** Must match `version` in every fixture's package.json. */
 const languagePackFixtureVersion = '1.0.0';
