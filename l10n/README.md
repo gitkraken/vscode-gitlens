@@ -126,6 +126,65 @@ Grounded against the VS Code Spanish language pack (`microsoft/vscode-loc`), whi
 
 Register: **usted** (¿Desea…?, "deles", never "dáles"); paired ¿…?/¡…!; infinitive button and menu labels ("Hacer cherry-pick…"); setting descriptions in the third person ("Especifica…", "Muestra…"). Feature names translate per the policy above: Grafo de commits, Historial visual, Historial visual de archivos, parche en la nube, Inspector, Redactar/Redactor, Enfoque, Salud del repositorio. Gender agreement with unknown placeholder content is the es-specific risk: prefer constructions that don't inflect ("Se eliminó: {0}").
 
+### Hebrew (he)
+
+Hebrew is right-to-left, and there is no Microsoft language pack for VS Code to ground against, so
+this catalog sets its own conventions. The governing decision is a **hybrid register**: git
+_operations_ keep their recognizable name transliterated into Hebrew letters, while git _object
+nouns_ and ordinary UI words are real Hebrew. Latin-letter words are never mixed into Hebrew prose —
+that is what breaks bidirectional rendering — except for literal git syntax, refs, ids and paths,
+which always stay verbatim.
+
+| English        | he                |     | English                   | he                   |
+| -------------- | ----------------- | --- | ------------------------- | -------------------- |
+| commit (n./v.) | קומיט / בצע קומיט |     | remote                    | מאגר מרוחק           |
+| branch         | ענף               |     | repository                | מאגר                 |
+| tag            | תג                |     | worktree / working tree   | עץ עבודה             |
+| merge          | מיזוג             |     | workspace                 | סביבת עבודה          |
+| merge base     | בסיס המיזוג       |     | stash (n./v.)             | סטאש / שמור בסטאש    |
+| rebase         | ריבייס            |     | stage / staged / unstaged | הכן / מוכן / לא מוכן |
+| cherry-pick    | צ'רי-פיק          |     | push / force push         | דחיפה / דחיפה כפויה  |
+| squash         | סקווש             |     | pull                      | משיכה                |
+| checkout       | צ'ק-אאוט          |     | fetch                     | אחזור                |
+| revert         | שחזור             |     | prune                     | גזום                 |
+| discard        | השלכה             |     | conflict                  | התנגשות              |
+| undo           | ביטול             |     | detached                  | מנותק                |
+| abort          | הפסק              |     | diverged                  | התפצל                |
+| blame          | ייחוס             |     | upstream                  | ענף המקור            |
+| diff (n.)      | השוואה            |     | ahead / behind            | לפני / אחרי          |
+| hunk           | מקטע              |     | pull request              | בקשת משיכה           |
+| patch          | טלאי              |     | issue                     | סוגיה                |
+| lane           | נתיב              |     | merged (participle)       | ממוזג                |
+
+UI chrome: view → תצוגה, panel → חלונית, sidebar → סרגל צד, editor → עורך, status bar → שורת המצב,
+gutter → שוליים, annotation → סימון, hover → חלונית ריחוף, tooltip → תיאור, pill → תווית,
+minimap → מיני-מפה, quick pick → בורר מהיר, provider → ספק, session → הפעלה, prompt (AI) → פרומפט.
+
+Descriptive feature names translate: Commit Graph → גרף הקומיטים, Visual History → היסטוריה חזותית,
+Cloud Patch → טלאי ענן, Inspect → מפקח, Compose → הרכבה, Focus → מוקד,
+Repository Health → בריאות המאגר. **GitLens**, **GitKraken**, **Launchpad** and **Copilot** stay
+untranslated, as do `fast-forward`, `fixup`, `ref`, `exec`, `cone`, `sparse-checkout`, `AI`, `CLI`,
+`MCP`, `WIP`, and the subscription tier names and their badge abbreviations. A view container whose
+title is a compound product name (`GitLens Inspect`, `GitLens Patch`, `GitLens SCM`) stays whole.
+
+Also hold these invariants:
+
+- **Command, menu and button titles are imperative, masculine singular** (`פתח`, `הצג`, `מחק`), the
+  long-standing Hebrew UI convention. Setting descriptions are third person present
+  (`מציין…`, `קובע…`, `מציג…`). `Confirm <action>` wizard step titles are dialog headings, so they
+  take a verbal noun (`אישור <שם פעולה>`) instead. Never write split-gender forms like "לחץ/י".
+- **A Latin brand may not lead a Hebrew title or label** — Hebrew puts the qualifier last
+  (`מצב Git`, not `Git מצב`). A full sentence whose grammatical subject is the product
+  (`GitLens מוסיף…`) is correct and stays as it is.
+- **Never insert bidi control characters** (U+200E/U+200F/U+202A–U+202E). Catalog values are plain
+  text, and the layout is the renderer's job.
+- Watch for Hebrew words that already mean something else: `מוזג` (bartender) for _merged_ —
+  use `ממוזג`; bare `מפורק` (dismantled) for _from a fork_ — use `מהפורק של`; `גלולה` (a pill you
+  swallow) for a UI _pill_ — use `תווית`.
+- Keep distinctions the English makes: fetch (אחזור) vs pull (משיכה); discard (השלכה) vs
+  undo (ביטול) vs abort (הפסק); stage (הכנה) vs commit (קומיט);
+  Git config (תצורת Git) vs settings (הגדרות).
+
 ## Deriving zh-tw from zh-cn
 
 For CJK locales that share a character set, a new variant can be derived mechanically instead of retranslated: run the existing catalogs through OpenCC (`s2twp` profile; ASCII, keys, and placeholders are untouched), then apply the target locale's terminology table above. OpenCC is not a repo dependency — install it locally for the one-off run. Two ordering constraints from the zh-tw derivation: convert fetch (提取→擷取) **before** pull (拉取→提取) so mixed sentences like "Confirm Pull{0}Fetching{1}" map correctly, and leave genuinely ambiguous words gated on the English source (zh-cn 提交 means both _commit_ and _submit_; zh-cn 放弃 means both _discard_ and _give up_).
