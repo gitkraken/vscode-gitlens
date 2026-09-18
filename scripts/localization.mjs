@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, relative, resolve } from 'node:path';
@@ -256,6 +257,64 @@ export async function extractCatalog() {
 	return getL10nJson(sources);
 }
 
+/**
+ * Asserts the VSIX would actually carry every catalog, and none of the generated pseudo ones.
+ *
+ * Nothing else checks this. The E2E suite runs the extension from a directory
+ * (`--extensionDevelopmentPath`), where `.vscodeignore` has no effect at all, so a catalog dropped
+ * from the package would keep every test green and reach users as an untranslated UI.
+ */
+async function checkPackagedCatalogs(locales) {
+	// Spawn vsce's own Node entry, not the `.bin` shim: that shim is a POSIX shell script, and its
+	// Windows `.CMD` sibling cannot be spawned without a shell (Node refuses with EINVAL).
+	const result = spawnSync(
+		process.execPath,
+		[join(root, 'node_modules', '@vscode', 'vsce', 'vsce'), 'ls', '--no-dependencies'],
+		{
+			cwd: root,
+			encoding: 'utf8',
+			maxBuffer: 32 * 1024 * 1024,
+		},
+	);
+	if (result.status !== 0) {
+		throw new Error(`vsce ls failed (${result.status ?? result.error?.code}):\n${result.stderr || result.stdout}`);
+	}
+
+	// vsce prints POSIX-style paths on every platform.
+	const packaged = new Set(result.stdout.split('\n').map(line => line.trim()));
+	const catalogsOf = locale => [
+		locale ? `package.nls.${locale}.json` : 'package.nls.json',
+		locale ? `l10n/bundle.l10n.${locale}.json` : 'l10n/bundle.l10n.json',
+	];
+
+	const errors = [];
+	const shipped = ['', ...locales].flatMap(catalogsOf);
+	for (const file of shipped) {
+		if (packaged.has(file)) continue;
+
+		errors.push(`${file} is not in the VSIX — check .vscodeignore; that locale would ship untranslated.`);
+	}
+
+	// The pseudo catalogs are generated and git-ignored, so on a fresh checkout they do not exist and
+	// `vsce ls` cannot list them. Asserting only their absence from the listing would therefore pass
+	// while proving nothing — and would keep passing if their `.vscodeignore` entries were deleted.
+	// Assert the ignore rules themselves, and check the listing too whenever the files do exist.
+	const ignored = new Set((await readFile(join(root, '.vscodeignore'), 'utf8')).split('\n').map(l => l.trim()));
+	for (const file of catalogsOf(pseudoLocale)) {
+		if (!ignored.has(file)) {
+			errors.push(`${file} is not excluded by .vscodeignore — a generated pseudo catalog would ship.`);
+		}
+		if (existsSync(join(root, file)) && packaged.has(file)) {
+			errors.push(`${file} is in the VSIX — the generated pseudo catalogs must stay out of the package.`);
+		}
+	}
+	if (errors.length) throw new Error(errors.join('\n'));
+
+	console.log(
+		`Verified ${shipped.length} catalogs are packaged, and that .vscodeignore keeps the ${pseudoLocale} pair out`,
+	);
+}
+
 /** A catalog entry's text — the English sources store some entries as `{ message, comment }`. */
 function entryMessage(value) {
 	return typeof value === 'string' ? value : value?.message;
@@ -482,6 +541,14 @@ export function checkCoverageRatchet(source, manifestSource, translations, basel
 }
 
 async function main(command, update) {
+	// Ahead of the catalog extraction below: this command needs only the baseline's locale list, and
+	// extracting the runtime catalog costs ~45s that every CI build would otherwise pay for a value
+	// it never reads.
+	if (command === 'packaged') {
+		await checkPackagedCatalogs(Object.keys((await readBaseline()).locales));
+		return;
+	}
+
 	const bundlePath = join(root, 'l10n', 'bundle.l10n.json');
 	const source = await extractCatalog();
 	const serialized = formatCatalog(source);
@@ -492,7 +559,7 @@ async function main(command, update) {
 		return;
 	}
 	if (command !== 'check' && command !== 'pseudo') {
-		throw new Error('Usage: node scripts/localization.mjs <export|check|pseudo> [--update]');
+		throw new Error('Usage: node scripts/localization.mjs <export|check|pseudo|packaged> [--update]');
 	}
 	// The repository formatter may compact translator-comment arrays without changing the catalog.
 	if (!existsSync(bundlePath) || formatCatalog(JSON.parse(await readFile(bundlePath, 'utf8'))) !== serialized) {

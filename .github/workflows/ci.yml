@@ -62,6 +62,13 @@ jobs:
             - name: Check graph production bundle size
               run: pnpm run benchmark:graph:bundle:check
 
+            # Asserts the VSIX would carry every shipped locale's catalogs, and none of the generated
+            # pseudo ones. Nothing else covers this: the E2E suite runs the extension from a directory,
+            # where `.vscodeignore` has no effect at all, so a catalog dropped from the package stays
+            # invisible until it reaches users as an untranslated UI.
+            - name: Check packaged localization catalogs
+              run: pnpm run check:l10n:packaged
+
             # Upload on both pass and fail (skip only on cancel) so the measurement is available to inspect
             # even when the budget check fails on an over-budget bundle. `ignore` (not `error`) on a missing
             # file so a check that fails before writing the file surfaces its own error, not an unrelated
