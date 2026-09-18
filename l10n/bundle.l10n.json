@@ -369,6 +369,11 @@
 	"Allow GitLens to add the GitKraken MCP into your AI chat, leveraging Git and your integrations (issues, PRs, etc) to provide context and perform actions. Saving you time and context switching.": "Allow GitLens to add the GitKraken MCP into your AI chat, leveraging Git and your integrations (issues, PRs, etc) to provide context and perform actions. Saving you time and context switching.",
 	"Allow relative date formatting": "Allow relative date formatting",
 	"Allow selecting multiple commits": "Allow selecting multiple commits",
+	"Allowance used": "Allowance used",
+	"Allowance used/Warns that the GitKraken AI allowance is fully spent.": {
+		"message": "Allowance used",
+		"comment": ["Warns that the GitKraken AI allowance is fully spent."]
+	},
 	"Almost there": "Almost there",
 	"Alphanumeric": "Alphanumeric",
 	"Already have a GitKraken account? {signIn}": "Already have a GitKraken account? {signIn}",
@@ -2071,6 +2076,7 @@
 	"GitKraken AI Usage": "GitKraken AI Usage",
 	"GitKraken AI is temporarily unable to process your request due to high volume. Please wait a few moments and try again. If this issue persists, please contact support.": "GitKraken AI is temporarily unable to process your request due to high volume. Please wait a few moments and try again. If this issue persists, please contact support.",
 	"GitKraken AI usage: {0} — open in GitLens Settings": "GitKraken AI usage: {0} — open in GitLens Settings",
+	"GitKraken AI usage: {0}, allowance used — open in GitLens Settings": "GitKraken AI usage: {0}, allowance used — open in GitLens Settings",
 	"GitKraken AI usage: {0}, nearly out — open in GitLens Settings": "GitKraken AI usage: {0}, nearly out — open in GitLens Settings",
 	"GitKraken AI:": "GitKraken AI:",
 	"GitKraken CLI (Installation)...": "GitKraken CLI (Installation)...",
