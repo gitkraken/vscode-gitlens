@@ -248,8 +248,11 @@ test('lint rejects computed messages while accepting whole literal templates and
 			"import { l10n as loc } from 'vscode'; import { t as translate } from '@vscode/l10n'; loc.t('Open {0}', name); translate({ message: 'Compare {1} with {0}', args: [a, b], comment: 'Comparison action' }); loc.t('Open ' + name); translate(message);",
 		);
 		const result = spawnSync(
-			resolve('node_modules/.bin/oxlint'),
-			['--config', config, '--format', 'json', fixture],
+			// Run oxlint's own Node entry point rather than `.bin/oxlint`: that shim is an extensionless
+			// shell script POSIX-only, and its Windows `.CMD` sibling cannot be spawned without a shell
+			// (Node refuses with EINVAL). Either way `stdout` comes back undefined and the parse below throws.
+			process.execPath,
+			[resolve('node_modules/oxlint/bin/oxlint'), '--config', config, '--format', 'json', fixture],
 			{ encoding: 'utf8' },
 		);
 		assert.equal(result.status, 1, result.stderr || result.stdout);

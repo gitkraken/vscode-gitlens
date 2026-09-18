@@ -20,8 +20,11 @@ async function lint(contents) {
 		const fixture = join(directory, 'fixture.ts');
 		await writeFile(fixture, contents);
 		const result = spawnSync(
-			resolve('node_modules/.bin/oxlint'),
-			['--config', config, '--format', 'json', fixture],
+			// Run oxlint's own Node entry point rather than `.bin/oxlint`: that shim is an extensionless
+			// shell script POSIX-only, and its Windows `.CMD` sibling cannot be spawned without a shell
+			// (Node refuses with EINVAL). Either way `stdout` comes back undefined and the parse below throws.
+			process.execPath,
+			[resolve('node_modules/oxlint/bin/oxlint'), '--config', config, '--format', 'json', fixture],
 			{
 				encoding: 'utf8',
 			},
