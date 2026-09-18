@@ -84,6 +84,11 @@ export class VSCodePage {
 		return this.evaluate(vscode => vscode.env.uriScheme);
 	}
 
+	/** The editor's resolved display language — what GitLens' own l10n catalog selection keys off. */
+	async getLanguage(): Promise<string> {
+		return this.evaluate(vscode => vscode.env.language);
+	}
+
 	/**
 	 * Whether the editor renders a standard VS Code activity bar. Some forks replace it with a
 	 * bespoke UI (e.g. Cursor's unified sidebar), which activity-bar-driven tests can't target.
