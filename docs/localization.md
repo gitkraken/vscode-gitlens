@@ -36,7 +36,7 @@ formatPlural(l10n.t('{count, plural, one{{count} file changed} other{{count} fil
 - `package.nls.json` contains English manifest text. Continue writing generated contribution labels in English in `contributions.json`; run `pnpm run generate:contributions` to update the manifest and catalog together. Other manifest references and their English catalog entries are maintained together.
 - `l10n/bundle.l10n.json` is generated from runtime source, including workspace packages, excluding tests and fixtures. Run `pnpm run generate:l10n` after changing messages. Do not hand-edit this catalog.
 - `pnpm run check:l10n` detects stale runtime catalogs, unresolved manifest references, obsolete translations and placeholder mismatches. Partial translations are allowed because VS Code falls back per message. `pnpm run check` includes it.
-- `pnpm run test:localization` exercises extraction, validation, host/browser initialization and the literal-message lint rule.
+- `pnpm run test:localization` exercises extraction, validation, host/browser initialization and the literal-message lint rule. CI runs it in the `unit-tests` job.
 - `pnpm run test:localization:browser` uses Playwright Chromium to verify translated markup remains text, multiline tooltips/confirmations retain line breaks, and rich links still work. Install its browser with `pnpm exec playwright install chromium` if needed.
 - `pnpm run generate:l10n:pseudo` creates ignored `qps-ploc` catalogs at the manifest root and in `l10n`. Use Microsoft's Pseudo Language Pack and reload with the pseudo display language to exercise expanded text. These generated files are excluded from VSIX packages.
 

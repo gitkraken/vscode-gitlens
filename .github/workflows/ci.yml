@@ -116,6 +116,12 @@ jobs:
             - name: Run package unit tests
               run: pnpm run test:packages
 
+            # `pnpm run test` does not reach these: they are plain `node --test` files under `scripts/`,
+            # outside both the workspace packages and the VS Code test runner, so until now the suite
+            # documented in docs/localization.md ran only when someone invoked it by hand.
+            - name: Run localization tests
+              run: pnpm run test:localization
+
             - name: Build test files
               run: pnpm run build:tests
 
