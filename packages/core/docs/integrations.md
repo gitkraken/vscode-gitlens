@@ -632,22 +632,24 @@ The normalized `state` and `closed` fields keep their existing derivation; `prov
 absent value means **this read could not report one**, not that the issue has no sprint — coverage varies per read,
 not just per provider:
 
-| Provider     | Read                              | `iterations`                                       |
-| ------------ | --------------------------------- | -------------------------------------------------- |
-| Jira         | Project-scoped issue reads        | Yes, every sprint the issue belongs to             |
-| Jira         | Point, account-wide, issue-by-key | No — none of those field lists requests sprints    |
-| Azure DevOps | Direct work-item reads            | Yes, one iteration                                 |
-| Azure DevOps | SDK-backed reads                  | Only once `provider-apis` supplies its `iteration` |
-| Others       | —                                 | No                                                 |
+| Provider     | Read                              | `iterations`                                    |
+| ------------ | --------------------------------- | ----------------------------------------------- |
+| Jira         | Project-scoped issue reads        | Yes, every sprint the issue belongs to          |
+| Jira         | Point, account-wide, issue-by-key | No — none of those field lists requests sprints |
+| Azure DevOps | Direct and SDK-backed reads       | Yes, one iteration                              |
+| Others       | —                                 | No                                              |
 
 Jira's sprint field is a per-instance custom field that `provider-apis` resolves by its display name, so a site that
 renames or localizes it reports no sprints even on the reads that ask for it.
 
 The metadata each provider supplies differs, and nothing is invented to even it out. Jira reports `isActive` and the
 sprint dates; Azure reports only a path, so its iterations carry `id` and `name` alone. An absent `isActive`
-therefore means **unknown**, not inactive — don't filter iterations out with it. `id` is stable within the
-provider's project but is a sprint id on Jira and the full iteration path on Azure, so don't correlate on it across
-providers.
+therefore means **unknown**, not inactive — don't filter iterations out with it.
+
+`id` is a sprint id on Jira and the verbatim iteration path on Azure, so it is only meaningful within one provider's
+project — don't correlate on it across providers, and don't persist it: Azure rewrites the path when an iteration
+node is renamed or re-parented. Both Azure routes produce the identical `id` for the same work item, because the
+direct read mirrors `provider-apis`' own normalization.
 
 ### Issue body format
 

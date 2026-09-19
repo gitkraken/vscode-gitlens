@@ -211,10 +211,7 @@ export function isRepoIdsInput(input: unknown): input is (string | number)[] {
 
 export type ProviderPullRequest = Omit<GitPullRequest, 'reviews'> & { reviews: ProviderPullRequestReviews };
 export type ProviderRepository = GitRepository;
-export type ProviderIssue = ProviderApiIssue & {
-	// TODO(GKDEV-3614): Remove this extension when provider-apis exports the iteration field.
-	iteration?: { path: string; name: string };
-};
+export type ProviderIssue = ProviderApiIssue;
 export type ProviderEnterpriseOptions = EnterpriseOptions;
 export type ProviderJiraProject = JiraProject;
 export type ProviderJiraResource = JiraResource;

@@ -12,10 +12,12 @@ suite('Azure work item iterations', () => {
 		assert.deepEqual(issue.iterations, [{ id: path, name: 'Sprint 3' }]);
 	});
 
-	test('normalizes whitespace in the path and leaf name', () => {
+	test('keeps the path verbatim as identity and trims only the leaf name', () => {
+		// provider-apis keeps `path` unnormalized because it is what the iteration is matched back by, so trimming
+		// it here would give the same work item two identities depending on which read surfaced it.
 		const issue = fromAzureWorkItem(createWorkItem(' Payments\\ Sprint 3 '), azureProvider, azureProject);
 
-		assert.deepEqual(issue.iterations, [{ id: 'Payments\\ Sprint 3', name: 'Sprint 3' }]);
+		assert.deepEqual(issue.iterations, [{ id: ' Payments\\ Sprint 3 ', name: 'Sprint 3' }]);
 	});
 
 	for (const path of [undefined, '', ' ', 'Payments', ' Payments ', 'Payments\\', 'Payments\\ ']) {

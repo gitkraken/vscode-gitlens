@@ -729,13 +729,19 @@ export function fromAzureWorkItem(
 
 /**
  * Azure reports the iteration as a backslash-delimited path rooted at the project. The project root is its default
- * for a work item with no sprint, so only a nested path names one; the full path is the identity because Azure
- * supplies no iteration id here.
+ * for a work item with no sprint, so only a nested path names one; the path is the identity because Azure supplies
+ * no iteration id here.
+ *
+ * Mirrors `normalizeIteration` in provider-apis so the same work item yields the same identity whether it is read
+ * here or through the SDK. That contract keeps the path **verbatim** — it is what the iteration is matched back by,
+ * so it is deliberately not trimmed — and trims only the display name.
  */
-function toWorkItemIterations(rawPath: string | undefined): IssueIteration[] | undefined {
-	const path = rawPath?.trim();
-	if (!path?.includes('\\')) return undefined;
+function toWorkItemIterations(path: string | undefined): IssueIteration[] | undefined {
+	if (!path) return undefined;
 
-	const name = path.slice(path.lastIndexOf('\\') + 1).trim();
+	const segments = path.split('\\');
+	if (segments.length < 2) return undefined;
+
+	const name = segments.at(-1)?.trim();
 	return name ? [{ id: path, name: name }] : undefined;
 }

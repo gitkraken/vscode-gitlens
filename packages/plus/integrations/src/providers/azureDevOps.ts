@@ -11,7 +11,6 @@ import type {
 } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
-import { base64 } from '@gitlens/utils/base64.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
@@ -108,9 +107,12 @@ export abstract class AzureDevOpsIntegrationBase<
 		tokenWithInfo: TokenWithInfo<TIntegrationId>;
 		options: { isPAT: boolean; baseUrl?: string };
 	} {
+		// The secret is handed over raw: `isPAT` tells provider-apis to send it as an HTTP Basic credential, which
+		// it encodes itself as `base64(':' + token)`. Pre-encoding here would be encoded a second time and refused
+		// by Azure DevOps. `getCurrentUser` is the one read that needs a bearer token, and passes
+		// `doNotConvertToPat` to get one.
 		const usePat = !doNotConvertToPat;
-		const accessToken = usePat ? convertTokentoPAT(session.accessToken) : session.accessToken;
-		const tokenWithInfo = toTokenWithInfo<TIntegrationId>(this.id, session, accessToken);
+		const tokenWithInfo = toTokenWithInfo<TIntegrationId>(this.id, session);
 		return {
 			tokenWithInfo: tokenWithInfo,
 			options: { isPAT: usePat },
@@ -1348,8 +1350,4 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 				}
 			: undefined;
 	}
-}
-
-export function convertTokentoPAT(accessToken: string): string {
-	return base64(`PAT:${accessToken}`);
 }

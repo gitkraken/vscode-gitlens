@@ -8,7 +8,6 @@ import type {
 	TrelloList,
 } from '@gitkraken/provider-apis';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
-import { base64 } from '@gitlens/utils/base64.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
@@ -508,10 +507,6 @@ export class ProvidersApi {
 		} catch {
 			return undefined;
 		}
-	}
-
-	private getAzurePATForOAuthToken(oauthToken: string) {
-		return base64(`PAT:${oauthToken}`);
 	}
 
 	private async ensureProviderToken<T extends IntegrationIds>(
@@ -1042,16 +1037,11 @@ export class ProvidersApi {
 			tokenOptInfo,
 			'getAzureProjectsForResourceFn',
 		);
-		const token = tokenWithInfo.accessToken;
-
-		// Azure only supports PAT for this call
-		const azureToken = options?.isPAT ? token : this.getAzurePATForOAuthToken(token);
-
 		try {
 			return await this.getPagedResult<ProviderAzureProject>(
 				{ namespace: namespace, ...options },
 				provider.getAzureProjectsForResourceFn,
-				{ ...tokenWithInfo, accessToken: azureToken },
+				tokenWithInfo,
 				options?.cursor,
 				options?.isPAT,
 				options?.baseUrl,
@@ -1355,9 +1345,6 @@ export class ProvidersApi {
 		);
 		const token = tokenWithInfo.accessToken;
 
-		// Azure only supports PAT for this call
-		const azureToken = options?.isPAT ? token : this.getAzurePATForOAuthToken(token);
-
 		try {
 			const result = await provider.getPullRequestsForAzureProjectsFn?.(
 				{
@@ -1368,9 +1355,9 @@ export class ProvidersApi {
 					states: options?.states,
 					repo: options?.repo,
 				},
-				// `azureToken` is always a PAT here (the raw token when `isPAT`, otherwise a PAT derived from
-				// the OAuth token), so it must be sent as a PAT regardless of the incoming `options?.isPAT`.
-				{ token: azureToken, isPAT: true, baseUrl: options?.baseUrl },
+				// Azure only supports a Basic credential for this call, so it is sent as one regardless of the
+				// incoming `options?.isPAT`. The secret goes over raw — provider-apis encodes it itself.
+				{ token: token, isPAT: true, baseUrl: options?.baseUrl },
 			);
 			// The SDK's multi-project aggregate preserves successful projects and reports failed/incomplete ones
 			// through `metadata` (it has no `pageInfo`); keep it so the account-wide drain can warn on the failed
@@ -1407,8 +1394,6 @@ export class ProvidersApi {
 			'getPullRequestsForAzureProjectFn',
 		);
 		const token = tokenWithInfo.accessToken;
-		// Azure only supports PAT for this call
-		const azureToken = options?.isPAT ? token : this.getAzurePATForOAuthToken(token);
 
 		try {
 			const result = await provider.getPullRequestsForAzureProjectFn?.(
@@ -1422,9 +1407,9 @@ export class ProvidersApi {
 					repo: options?.repo,
 					page: options?.page,
 				},
-				// `azureToken` is always a PAT here (already PAT-formatted when `isPAT`, otherwise derived from
-				// the OAuth token), so it must be sent as a PAT regardless of the incoming `options?.isPAT`.
-				{ token: azureToken, isPAT: true, baseUrl: options?.baseUrl },
+				// Azure only supports a Basic credential for this call, so it is sent as one regardless of the
+				// incoming `options?.isPAT`. The secret goes over raw — provider-apis encodes it itself.
+				{ token: token, isPAT: true, baseUrl: options?.baseUrl },
 			);
 			if (result == null) return undefined;
 			return { data: result.data, hasMore: result.pageInfo.hasNextPage, nextPage: result.pageInfo.nextPage };

@@ -234,7 +234,11 @@ export interface IssueLabel {
  * means unknown, not inactive, so consumers must not use it to exclude those iterations by default.
  */
 export interface IssueIteration {
-	/** Stable within the provider's project: a sprint id or an iteration path. */
+	/**
+	 * A sprint id on Jira, the verbatim iteration path on Azure — so it is only meaningful within the provider's
+	 * project, never across providers. Unique at read time but NOT durable: Azure rewrites the path when an
+	 * iteration node is renamed or re-parented, so don't persist it as a long-lived id.
+	 */
 	id: string;
 	name: string;
 	isActive?: boolean;

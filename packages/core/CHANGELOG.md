@@ -6,9 +6,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Stops pre-encoding the Azure DevOps credential now that `@gitkraken/provider-apis` 0.59.0 encodes it. That release made `isPAT` produce a real HTTP Basic header, `base64(':' + token)`, where it previously emitted the token verbatim after `Basic ` — so every caller had to encode the pair itself, as this package did via `convertTokentoPAT`. Left alone, the secret would have been encoded twice and refused by Azure DevOps on every SDK-backed read; the raw secret is now handed over and provider-apis encodes it. The one observable change is the Basic username, which goes from `PAT` to empty — the form Azure DevOps documents and the SDK verified live. Azure DevOps' own REST paths in this package build their header directly and are unaffected, as is `getCurrentUser`, which asks for a bearer token
+
 ### Added
 
-- Adds `IssueShape.iterations` and `Issue.iterations` so consumers can access Jira sprints and Azure work-item iterations, preserving provider-reported activity and dates without inventing metadata for Azure. Coverage varies per read, and an absent value means the read couldn't report one rather than that the issue has no sprint — see "Sprints and iterations" in `docs/integrations.md` ([#5856](https://github.com/gitkraken/vscode-gitlens/issues/5856)).
+- Adds `IssueShape.iterations` and `Issue.iterations` so consumers can access Jira sprints and Azure work-item iterations, preserving provider-reported activity and dates without inventing metadata for Azure. Coverage varies per read, and an absent value means the read couldn't report one rather than that the issue has no sprint — see "Sprints and iterations" in `docs/integrations.md`. Azure's iteration reaches both the direct work-item read, parsed here from `System.IterationPath`, and the SDK-backed reads, which requires `@gitkraken/provider-apis` 0.59.0 for the `iteration` field it normalizes; the direct read mirrors that normalization exactly — the path is the identity and is kept verbatim, so one work item cannot end up with two identities depending on which read surfaced it ([#5856](https://github.com/gitkraken/vscode-gitlens/issues/5856)).
 
 ## [0.6.0] - 2026-09-14
 
