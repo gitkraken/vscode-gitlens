@@ -467,13 +467,19 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				color: var(--color-foreground);
 			}
 
-			/* Text carrier for the state the bar's color also shows, so "nearly out" never lives in color
-  alone (docs/accessibility.md). Foreground-register warning token so a hairline of text still
-  out-contrasts the card behind it. */
+			/* Text carrier for the state the bar's color also shows, so neither "nearly out" nor a spent
+  allowance ever lives in color alone (docs/accessibility.md). Foreground-register warning token so a
+  hairline of text still out-contrasts the card behind it. */
 			.ai__warning {
 				flex: none;
 				font-size: var(--gl-font-sm);
 				color: var(--vscode-editorWarning-foreground, var(--vscode-charts-yellow));
+			}
+
+			/* The end of the same escalation, in the error register: amber warns because there's still
+  something left, and this is that warning's arrival. */
+			.ai__warning--exhausted {
+				color: var(--vscode-editorError-foreground, var(--vscode-charts-red));
 			}
 
 			.ai__figure {
@@ -499,6 +505,10 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 
 			.ai__fill--warning {
 				background: var(--vscode-charts-yellow);
+			}
+
+			.ai__fill--exhausted {
+				background: var(--vscode-charts-red);
 			}
 
 			/* Supplementary to the personal figure, so it stays in the subdued register of the reset line
@@ -1050,15 +1060,15 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 
 		// Resolved by the shared helper the account chip's compact meter also calls, so the two can't
 		// disagree — sentinel handling and the "nearly out" threshold both live there.
-		const { figure, percent, nearlyOut, unlimited } = resolveAiUsage(usage);
+		const { figure, percent, nearlyOut, exhausted, unlimited } = resolveAiUsage(usage);
 
 		return html`<div class="card ai">
-			${this.renderAiUsageHead(figure, nearlyOut)}
+			${this.renderAiUsageHead(figure, nearlyOut, exhausted)}
 			${
 				percent != null
 					? html`<div class="ai__track" aria-hidden="true">
 							<div
-								class="ai__fill ${nearlyOut ? 'ai__fill--warning' : ''}"
+								class="ai__fill ${exhausted ? 'ai__fill--exhausted' : nearlyOut ? 'ai__fill--warning' : ''}"
 								style=${cspStyleMap({ inlineSize: `${percent}%` })}
 							></div>
 						</div>`
@@ -1119,13 +1129,20 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 
 	/**
 	 * The card's head, shared by all three states — the loading and failure states pass no figure, so the
-	 * icon and title alone identify what the skeleton or the error row below is about.
+	 * icon and title alone identify what the skeleton or the error row below is about. The spent state
+	 * outranks the warning, which by then is describing a state the user has already left.
 	 */
-	private renderAiUsageHead(figure?: string, nearlyOut?: boolean) {
+	private renderAiUsageHead(figure?: string, nearlyOut?: boolean, exhausted?: boolean) {
 		return html`<div class="ai__head">
 			<code-icon class="ai__icon" icon="sparkle" aria-hidden="true"></code-icon>
 			<h3 class="ai__title">${l10n.t('GitKraken AI Usage')}</h3>
-			${nearlyOut ? html`<span class="ai__warning">${l10n.t('Nearly out')}</span>` : nothing}
+			${
+				exhausted
+					? html`<span class="ai__warning ai__warning--exhausted">${l10n.t('Allowance used')}</span>`
+					: nearlyOut
+						? html`<span class="ai__warning">${l10n.t('Nearly out')}</span>`
+						: nothing
+			}
 			${figure != null ? html`<span class="ai__figure">${figure}</span>` : nothing}
 		</div>`;
 	}

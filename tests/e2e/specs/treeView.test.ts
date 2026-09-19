@@ -11,6 +11,7 @@ import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, DefaultTimeout, expect, GitFixture, MaxTimeout } from '../baseTest.js';
 import {
+	dismissCommitHover,
 	ensureGraphDetailsPanelOpen,
 	graphDetailsRegion,
 	scrollDetailsToFileTree,
@@ -118,12 +119,20 @@ async function selectCommitByMessage(graphWebview: FrameLocator, messageText: st
 	// CI runner (the virtualizer fills rows progressively; the oldest commit sits at the bottom), so
 	// give the row-paint the same 30s budget as waitForGraphRowsRendered rather than racing it.
 	await expect(row).toBeVisible({ timeout: 30000 });
+	// Before the forced click: `force` skips the hit-target check, so a commit hover card left open over
+	// this row swallows the click silently — no interception error, no selection change, and the panel then
+	// reads as stale when it is simply still showing the commit that is actually selected.
+	await dismissCommitHover(graphWebview);
 	// On slower fork webviews (Positron) the virtualized row can stay perpetually "not stable" within
 	// the actionability window, so a plain click times out. Force the click at the confirmed-visible
 	// row's coordinates (the engine handles selection exactly as a real click would); if the row
 	// genuinely moved, the wrong commit is selected and the downstream assertion fails — so this can't
 	// turn into a false pass.
 	await row.click({ force: true });
+	// And again afterwards, as the graph-details specs do. Dismissing arms the card's 750ms quick-show
+	// window, so the click's own pointer move re-opens it with no dwell at all — leaving it up for whatever
+	// runs next, which is the state this call exists to avoid.
+	await dismissCommitHover(graphWebview);
 }
 
 async function waitForDetailsLoaded(graphWebview: FrameLocator): Promise<void> {

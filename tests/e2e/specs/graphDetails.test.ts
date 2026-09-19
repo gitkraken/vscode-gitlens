@@ -12,7 +12,12 @@ import * as process from 'node:process';
 import type { FrameLocator, Locator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
-import { graphDetailsRegion, waitForGraphRowsRendered, widenSideBarForGraph } from '../graphHelpers.js';
+import {
+	dismissCommitHover,
+	graphDetailsRegion,
+	waitForGraphRowsRendered,
+	widenSideBarForGraph,
+} from '../graphHelpers.js';
 
 // Configure with a purpose-built test repository
 const test = base.extend({
@@ -120,11 +125,17 @@ function commitRow(graphWebview: FrameLocator, messageText: string): Locator {
 /**
  * Select a commit row in the graph by clicking it, located by its message via its accessible name
  * (see {@link commitRow} for how rows are matched under the new Lit engine).
+ *
+ * The hover card is cleared on both sides of the click. After, so whatever runs next does not inherit
+ * this one's; before, because the specs also ctrl-click rows through a bare `click()` that gets no
+ * dismissal of its own, and this is what clears the card such a click left behind.
  */
 async function selectCommitByMessage(graphWebview: FrameLocator, messageText: string): Promise<void> {
 	const row = commitRow(graphWebview, messageText);
 	await expect(row).toBeVisible({ timeout: MaxTimeout });
+	await dismissCommitHover(graphWebview);
 	await row.click();
+	await dismissCommitHover(graphWebview);
 }
 
 async function ensureDetailsPanelOpen(graphWebview: FrameLocator): Promise<void> {

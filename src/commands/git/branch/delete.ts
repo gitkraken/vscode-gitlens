@@ -174,6 +174,9 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 			if (worktrees.length) {
 				using step = steps.enterStep(Steps.DeleteWorktrees);
 
+				// Git refuses to delete a branch that's checked out in a worktree, so a branch with a
+				// worktree can only be deleted by the worktree wizard -- hand off to it entirely, with
+				// Delete Branch pre-checked, rather than deleting the worktree here and the branch after
 				const result = yield* getSteps(
 					this.container,
 					{
@@ -182,15 +185,7 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 							subcommand: 'delete',
 							repo: state.repo,
 							uris: worktrees.map(wt => wt.uri),
-							startingFromBranchDelete: true,
-							overrides: {
-								title: formatPlural(
-									l10n.t(
-										'{0, plural, one{Delete Worktree for Branch} other{Delete Worktrees for Branches}}',
-									),
-									[worktrees.length],
-								),
-							},
+							fromBranchDelete: prune ? 'prune' : 'delete',
 						},
 					},
 					context,
@@ -200,6 +195,24 @@ export class BranchDeleteGitCommand extends QuickCommand<State> {
 					if (step.goBack() == null) break;
 					continue;
 				}
+
+				// The worktree wizard owns every ref it just handled, so narrow to the rest -- same
+				// predicate as `getSelectedWorktrees`
+				state.references = state.references.filter(r => {
+					const wt = worktreesByBranch.get(r.id!);
+					return wt == null || wt.isDefault;
+				});
+
+				// Nothing left (the common case) -- the worktree wizard owns the outcome and the completion
+				// it propagated through the shared navigation state is correct
+				if (!state.references.length) return;
+
+				// A mixed multi-select still has refs to delete here, so clear the sub-command's completion...
+				steps.clearStepsComplete();
+				// ...and drop this step from history. Without it, Back from the confirm below would pop to
+				// this step, the worktrees would already be gone so this block would be skipped, and the
+				// `isAtStepOrUnset(Confirm)` check below would `continue` with identical state -- a UI hang.
+				step.skip();
 			}
 
 			if (!steps.isAtStepOrUnset(Steps.Confirm)) continue;

@@ -669,7 +669,7 @@ export class DeepLinkService implements Disposable {
 				break;
 			case 'current':
 				title = l10n.t('Locating Repository');
-				placeHolder = l10n.t('Please choose where to open the repository current');
+				placeHolder = l10n.t('Please choose where to open the current repository');
 				break;
 		}
 
@@ -1099,7 +1099,7 @@ export class DeepLinkService implements Disposable {
 							repoClonePath = await window.withProgress(
 								{
 									location: ProgressLocation.Notification,
-									title: l10n.t('Cloning repository for link: {0}}', String(this._context.url)),
+									title: l10n.t('Cloning repository for link: {0}', String(this._context.url)),
 								},
 
 								async () =>

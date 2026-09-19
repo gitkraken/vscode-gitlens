@@ -124,15 +124,21 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 				font-size: var(--gl-font-md);
 			}
 
-			/* Text carrier for the state the bar's color also shows, so "nearly out" never lives in color
-			   alone (docs/accessibility.md). The row's accessible name repeats it, because that name
-			   replaces this text for assistive tech. Foreground-register warning token so a hairline of
-			   text still out-contrasts the panel behind it. */
+			/* Text carrier for the state the bar's color also shows, so neither "nearly out" nor a spent
+			   allowance ever lives in color alone (docs/accessibility.md). The row's accessible name
+			   repeats it, because that name replaces this text for assistive tech. Foreground-register
+			   warning token so a hairline of text still out-contrasts the panel behind it. */
 			.ai__warning {
 				flex: none;
 				font-size: var(--gl-font-sm);
 				color: var(--vscode-editorWarning-foreground, var(--vscode-charts-yellow));
 				white-space: nowrap;
+			}
+
+			/* The end of the same escalation, in the error register: amber warns because there's still
+			   something left, and this is that warning's arrival. */
+			.ai__warning--exhausted {
+				color: var(--vscode-editorError-foreground, var(--vscode-charts-red));
 			}
 
 			/* Monospaced like the full Settings card's figure, so the same number reads the same in both
@@ -163,6 +169,10 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 
 			.ai__fill--warning {
 				background: var(--vscode-charts-yellow);
+			}
+
+			.ai__fill--exhausted {
+				background: var(--vscode-charts-red);
 			}
 		`,
 	];
@@ -244,15 +254,21 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 		// error row.
 		if (usage == null) return undefined;
 
-		const { figure, percent, nearlyOut } = resolveAiUsage(usage);
-		const compact = percent != null ? `${Math.round(percent)}%` : figure;
+		const { figure, percent, nearlyOut, exhausted } = resolveAiUsage(usage);
+		// Rounding must not be able to reach 100% while something is still left — "100%" reads as spent,
+		// which is what `exhausted` is for. Only the ceiling is capped, so every other value rounds as it
+		// did before.
+		const compact = percent != null ? `${Math.min(exhausted ? 100 : 99, Math.round(percent))}%` : figure;
 
-		// Positional {0}, not a named placeholder: both messages moved here verbatim from the account chip,
-		// and matching their keys byte-for-byte keeps the Spanish and Chinese translations that already
-		// exist for them attached. A name would read better but would orphan three locales to gain it.
-		const creditsLabel = nearlyOut
-			? l10n.t('GitKraken AI usage: {0}, nearly out — open in GitLens Settings', figure)
-			: l10n.t('GitKraken AI usage: {0} — open in GitLens Settings', figure);
+		// Positional {0}, not a named placeholder: these messages moved here verbatim from the account
+		// chip, and matching their keys byte-for-byte keeps the Spanish and Chinese translations that
+		// already exist for them attached. A name would read better but would orphan three locales to gain
+		// it.
+		const creditsLabel = exhausted
+			? l10n.t('GitKraken AI usage: {0}, allowance used — open in GitLens Settings', figure)
+			: nearlyOut
+				? l10n.t('GitKraken AI usage: {0}, nearly out — open in GitLens Settings', figure)
+				: l10n.t('GitKraken AI usage: {0} — open in GitLens Settings', figure);
 
 		// 'GitKraken AI' below is deliberately NOT wrapped in l10n.t() — it's a product name
 		// (docs/localization.md), and marking it for translation risks a translator altering it.
@@ -265,14 +281,21 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 				<code-icon class="ai__icon" icon="sparkle" aria-hidden="true"></code-icon>
 				<span class="ai__title truncate">GitKraken AI</span>
 				${
-					nearlyOut
-						? html`<span class="ai__warning"
+					exhausted
+						? html`<span class="ai__warning ai__warning--exhausted"
 								>${l10n.t({
-									message: 'Nearly out',
-									comment: ['Warns that GitKraken AI credits are nearly exhausted.'],
+									message: 'Allowance used',
+									comment: ['Warns that the GitKraken AI allowance is fully spent.'],
 								})}</span
 							>`
-						: nothing
+						: nearlyOut
+							? html`<span class="ai__warning"
+									>${l10n.t({
+										message: 'Nearly out',
+										comment: ['Warns that GitKraken AI credits are nearly exhausted.'],
+									})}</span
+								>`
+							: nothing
 				}
 				<span class="ai__figure">${compact}</span>
 			</span>
@@ -280,7 +303,7 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 				percent != null
 					? html`<span class="ai__track" aria-hidden="true"
 							><span
-								class="ai__fill ${nearlyOut ? 'ai__fill--warning' : ''}"
+								class="ai__fill ${exhausted ? 'ai__fill--exhausted' : nearlyOut ? 'ai__fill--warning' : ''}"
 								style=${cspStyleMap({ inlineSize: `${percent}%` })}
 							></span
 						></span>`

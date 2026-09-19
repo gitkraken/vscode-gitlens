@@ -139,7 +139,7 @@ export class EnrichmentService implements Disposable {
 			if (
 				!(await ensureAccount(
 					this.container,
-					l10n.t('Snoozing is a Preview feature and requires an acccount.'),
+					l10n.t('Snoozing is a Preview feature and requires an account.'),
 					{
 						source: 'launchpad',
 						detail: 'snooze',

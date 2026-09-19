@@ -1,6 +1,6 @@
 import type { FrameLocator, Locator } from '@playwright/test';
 import type { VSCodeInstance } from './baseTest.js';
-import { expect } from './baseTest.js';
+import { expect, MaxTimeout, ShortTimeout } from './baseTest.js';
 
 /**
  * Wait until the graph has painted commit rows. The tree container (role="tree", aria-label
@@ -24,22 +24,121 @@ export async function waitForGraphRowsRendered(graphWebview: FrameLocator, timeo
 	).toBeVisible({ timeout: timeout });
 }
 
+/** Width the primary side bar needs before the Graph's details panel lays out beside the graph (#5545). */
+const graphSideBarTargetWidth = 820;
+
+/** Width left to the editor part when asking for the side bar's target, so the drag stays possible. */
+const editorPartKeepWidth = 200;
+
+/**
+ * Find a page point that actually grabs the primary side bar's trailing sash, or `null` if none does.
+ *
+ * Several sashes stack on that edge — measured on Windsurf: one live `vertical` sash spanning the full
+ * window height and two `disabled` ones over the side bar's own height, all at the same x. A drag is
+ * delivered to whatever sits topmost at the point, so aiming at the edge grabs the live sash or a dead
+ * one depending on paint order, which is what made a coordinate drag widen the side bar only sometimes.
+ * Hovering the live sash by locator does not help either: the dead ones cover it, so it never takes the
+ * pointer. Hence `elementFromPoint` — walk down the live sash and return the first point that resolves
+ * to it, which on the stacked edge is the strip above where the dead ones start.
+ */
+async function findSideBarSashPoint(vscode: VSCodeInstance): Promise<{ x: number; y: number } | null> {
+	return vscode.page.evaluate(() => {
+		const sideBar = document.querySelector('.part.sidebar');
+		if (sideBar == null) return null;
+
+		const edge = sideBar.getBoundingClientRect().right;
+
+		let candidate: Element | null = null;
+		let best = Infinity;
+		for (const sash of document.querySelectorAll('.monaco-sash.vertical')) {
+			if (sash.classList.contains('disabled')) continue;
+
+			const rect = sash.getBoundingClientRect();
+			if (rect.width === 0 || rect.height === 0) continue;
+
+			const distance = Math.abs(rect.left + rect.width / 2 - edge);
+			if (distance < best) {
+				best = distance;
+				candidate = sash;
+			}
+		}
+		if (candidate == null || best > 8) return null;
+
+		const rect = candidate.getBoundingClientRect();
+		const x = rect.left + rect.width / 2;
+		for (let fraction = 0.02; fraction < 1; fraction += 0.02) {
+			const y = rect.top + rect.height * fraction;
+			if (document.elementFromPoint(x, y) === candidate) return { x: x, y: y };
+		}
+
+		return null;
+	});
+}
+
 /**
  * Widen the primary side bar so the Graph gets a panel-like width: at its default ~300px (#5545)
  * the details panel's file tree paints no `gl-tree-item`s. `decreaseViewWidth` always shrinks the
- * EDITOR part (~60px per call, clamping at its minimum, so over-calling is harmless); the freed
- * width goes to its grid neighbours — the primary side bar here, since `resetUI` keeps the
+ * EDITOR part (~60px per call, clamping at its minimum, so over-calling is harmless); on VS Code the
+ * freed width goes to its grid neighbours — the primary side bar here, since `resetUI` keeps the
  * secondary one closed. The focus call just makes sure the view is open first.
+ *
+ * That command path is VS Code-specific, so it is followed by a drag of the side bar's own sash.
+ * Measured on Windsurf: the command runs without error but leaves the side bar at 300px and hands
+ * every freed pixel to the secondary side bar (300 → 878); closing that bar first only makes the
+ * command stop moving anything at all, while dragging the sash widens the side bar on both editors.
+ * The short nudge after `mouse.down` is what starts the drag — a single long move can be consumed as
+ * a click. Best-effort by design: an editor that refuses both mechanisms still gets the side bar it
+ * had, because several specs here read fine at its default width and only the width-sensitive ones
+ * (details panel, file tree) care. Those gate on their own state — see {@link ensureGraphRowsRendered}
+ * and {@link scrollDetailsToFileTree}.
  *
  * Width is all this buys, and it is not enough for the details panel's file tree on its own: the panel
  * only moves beside the graph past ~820px, so below that it keeps splitting the side bar's HEIGHT with
- * the graph — which the Welcome pane also takes ~220px of by default. See
- * {@link scrollDetailsToFileTree} for what a spec gating on that tree needs.
+ * the graph — which the Welcome pane also takes ~220px of by default.
  */
 export async function widenSideBarForGraph(vscode: VSCodeInstance, steps = 12): Promise<void> {
 	await vscode.gitlens.executeCommand<void>('gitlens.views.graph.focus');
 	for (let i = 0; i < steps; i++) {
 		await vscode.gitlens.executeCommand<void>('workbench.action.decreaseViewWidth');
+	}
+
+	const sideBar = vscode.page.locator('.part.sidebar');
+	let box = await sideBar.boundingBox();
+	if (box == null || box.width >= graphSideBarTargetWidth) return;
+
+	// Ask for the target, but never for more than the window can spare once the editor part keeps a
+	// usable width. On a small window that clamp can land left of where the side bar already ends, and
+	// dragging there would NARROW it while still satisfying a naive "reached the target" check.
+	const windowWidth = await vscode.page.evaluate(() => window.innerWidth);
+	const target = box.x + Math.min(graphSideBarTargetWidth, windowWidth - box.x - editorPartKeepWidth);
+	if (target <= box.x + box.width) return;
+
+	for (let attempt = 0; attempt < 3; attempt++) {
+		const point = await findSideBarSashPoint(vscode);
+		if (point == null) return;
+
+		const before = box.width;
+		await vscode.page.mouse.move(point.x, point.y);
+		try {
+			await vscode.page.mouse.down();
+			// The short nudge is what starts the drag — a single long move can be taken for a click.
+			await vscode.page.mouse.move(point.x + 40, point.y, { steps: 5 });
+			await vscode.page.mouse.move(target, point.y, { steps: 20 });
+		} finally {
+			// Releasing matters more than the drag landing: the editor is a worker fixture, and a button
+			// left down turns every later click in the file into a drag.
+			await vscode.page.mouse.up().catch(() => {});
+		}
+
+		// Park the pointer off the widened side bar: releasing it there leaves it over the graph rows,
+		// and the commit hover that opens under it then intercepts the clicks of whatever runs next.
+		await vscode.page.mouse.move(0, 0);
+		await vscode.page.waitForTimeout(ShortTimeout);
+
+		box = await sideBar.boundingBox();
+		if (box == null) return;
+		// Reached it, or the layout will give no more — retrying past that only spends the budget.
+		if (box.x + box.width >= target || box.width <= before) return;
 	}
 }
 
@@ -133,4 +232,40 @@ export async function ensureGraphDetailsPanelOpen(graphWebview: FrameLocator, ti
 		}
 		await expect(detailsRegion).toBeVisible({ timeout: 2000 });
 	}).toPass({ timeout: timeout });
+}
+
+/**
+ * Move the pointer off the commit rows and wait for the commit hover card to close.
+ *
+ * Clicking a row leaves the pointer resting on it, and the card then opens on its own delay anchored
+ * there, painting over the rows below. Its own box is no help in spotting that — the `gl-graph-hover`
+ * host and the `gl-popover` inside it both measure 0x0, while the surface that actually paints sits
+ * deeper in the shadow tree (measured on Windsurf: a 410x95 box starting exactly at the anchor row's
+ * bottom edge). What it does show up in is `elementFromPoint`, which returns `gl-graph-hover` at the
+ * centre of the next row down — and that is what Playwright hit-tests, so the following click on that
+ * row is refused until its budget runs out.
+ *
+ * A person never meets this: `graphHover.ts` closes an open card while Ctrl or Alt is held, so a real
+ * ctrl-click dismisses it on the way in. Playwright's actionability check runs before any modifier is
+ * pressed, so it just retries against the card instead.
+ *
+ * Hovering the graph header runs the card's own unhover path — it is inside the same webview and never
+ * overlaps the rows. Forced, because the card is allowed to flip above its anchor when the pane is short
+ * (`gl-popover` renders with `flip`), and a dismissal that the very overlay it dismisses can block would
+ * fail exactly when it is needed. Gate on the card being gone rather than on a pause, so this says what
+ * it waits for. Forcing also means the pointer leaves the rows whatever sits at that point, which is the
+ * part that matters, and it is aimed at the header's top-left corner rather than its centre: the header
+ * wraps, so its centre lands on whichever control ends up there, and those carry tooltips of their own —
+ * the same class of overlay this exists to remove.
+ *
+ * Note for keyboard-driven specs: a PINNED peek (`i` / `mod+I`) ignores the pointer close path entirely
+ * (`graphHover.ts` `hide()` returns early when `_peeked`), so this would wait out its budget against one.
+ * Nothing presses `i` today; `close()` / `closePeek()` are what end a peek.
+ */
+export async function dismissCommitHover(graphWebview: FrameLocator): Promise<void> {
+	await graphWebview
+		.locator('gl-graph-header')
+		.first()
+		.hover({ force: true, position: { x: 4, y: 4 } });
+	await expect(graphWebview.locator('gl-graph-hover[open]')).toHaveCount(0, { timeout: MaxTimeout });
 }

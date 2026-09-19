@@ -8,16 +8,44 @@ import type { AiUsageInfo } from '../../rpc/services/types.js';
  */
 const compactNumberFormatter = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
 
+/** Escalation formatters for `formatAiUsageFigure`'s collision case only — see the comment there. */
+const preciseCompactNumberFormatter = new Intl.NumberFormat(undefined, {
+	notation: 'compact',
+	maximumFractionDigits: 3,
+});
+const fullNumberFormatter = new Intl.NumberFormat(undefined);
+
 /** A credit count, compacted for display. */
 export function formatAiCredits(value: number): string {
 	return compactNumberFormatter.format(value);
 }
 
+/**
+ * The "{used} of {limit} credits" line, at the coarsest precision that still shows the two counts as
+ * different numbers.
+ *
+ * Compaction rounds, so counts that are merely CLOSE compact to the same string: "3.2M of 3.2M credits"
+ * is what a 98.4%-spent 3,200,000 allowance renders as, and it reads as spent in full. Saying that when
+ * it isn't true is the one thing this line must not do — `exhausted` is what legitimately says it.
+ */
 function formatAiUsageFigure(used: number, limit: number): string {
-	return l10n.t('{used} of {limit} credits', {
-		used: formatAiCredits(used),
-		limit: formatAiCredits(limit),
-	});
+	let usedText = formatAiCredits(used);
+	let limitText = formatAiCredits(limit);
+
+	if (used !== limit && usedText === limitText) {
+		usedText = preciseCompactNumberFormatter.format(used);
+		limitText = preciseCompactNumberFormatter.format(limit);
+
+		// Within a rounding step of the allowance no compact form separates them at all ("3.199999M" is
+		// not a figure anyone reads), so BOTH sides fall back to full counts — a mixed
+		// "3,199,999 of 3.2M" would ask the reader to compare two different units.
+		if (usedText === limitText) {
+			usedText = fullNumberFormatter.format(used);
+			limitText = fullNumberFormatter.format(limit);
+		}
+	}
+
+	return l10n.t('{used} of {limit} credits', { used: usedText, limit: limitText });
 }
 
 /** What an AI usage meter renders — see `resolveAiUsage` for the sentinel rules behind it. */
@@ -26,6 +54,15 @@ export interface ResolvedAiUsage {
 	/** `undefined` when there's no ratio to draw, which suppresses the bar (and the reset line). */
 	percent: number | undefined;
 	nearlyOut: boolean;
+	/**
+	 * The allowance is spent in full (or over-drawn). Mutually exclusive with `nearlyOut`, which is the
+	 * approach to this state rather than a weaker form of it — a surface showing both at once would be
+	 * telling the user they're almost out of something they have none of.
+	 *
+	 * Distinct from the zero-allowance sentinel, which never reaches this: "no weekly allowance" is
+	 * having nothing to spend, not having spent it.
+	 */
+	exhausted: boolean;
 	/**
 	 * The genuinely-unlimited sentinel, kept separate from `percent == null` because the "no weekly
 	 * allowance" sentinel produces that too. A surface offering to top the allowance up has to tell them
@@ -43,12 +80,16 @@ export interface ResolvedAiUsage {
  * unlimited, while 0 is "no weekly allowance at all" (e.g. trials, org-disabled AI). Rendering 0 as
  * unlimited — or as a 0/0 bar that reads as full — tells a user with nothing that they have
  * everything. Neither sentinel has a ratio to draw, so both suppress the bar (as gk.dev does).
+ *
+ * A spent allowance is its own state (`exhausted`), not the top of the `nearlyOut` band: the meter used
+ * to say "nearly out" at 100%, since the warning had no ceiling.
  */
 export function resolveAiUsage(usage: AiUsageInfo): ResolvedAiUsage {
 	const unlimited = usage.limit === -1;
 
 	let figure: string;
 	let percent: number | undefined;
+	let exhausted = false;
 	if (unlimited) {
 		figure = l10n.t('Unlimited');
 	} else if (usage.limit === 0) {
@@ -56,15 +97,21 @@ export function resolveAiUsage(usage: AiUsageInfo): ResolvedAiUsage {
 	} else {
 		figure = formatAiUsageFigure(usage.used, usage.limit);
 		percent = Math.min(100, Math.max(0, (usage.used / usage.limit) * 100));
+		// From the raw counts, not `percent`: the clamp above flattens an over-draw to exactly 100, so a
+		// ratio can't tell "spent it all" from "spent more than the allowance". Resolved inside this
+		// branch so the zero-allowance sentinel — where `used >= limit` is trivially true — can't reach
+		// it and report an absent allowance as a spent one.
+		exhausted = usage.used >= usage.limit;
 	}
 
-	// gk.dev warns as the allowance runs out. Strictly greater than 90 — exactly 90% is not a warning.
-	// Whatever surfaces this must also carry it in words, so the amber fill is never the only signal
-	// (docs/accessibility.md).
 	return {
 		figure: figure,
 		percent: percent,
-		nearlyOut: percent != null && percent > 90,
+		// gk.dev warns as the allowance runs out. Strictly greater than 90 — exactly 90% is not a warning.
+		// Whatever surfaces this must also carry it in words, so the amber fill is never the only signal
+		// (docs/accessibility.md).
+		nearlyOut: percent != null && percent > 90 && !exhausted,
+		exhausted: exhausted,
 		unlimited: unlimited,
 	};
 }
