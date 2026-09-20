@@ -61,7 +61,12 @@ import type {
 	PullRequestFilter,
 } from './models.js';
 import { isRepoIdsInput, providersMetadata } from './models.js';
-import { getProviderResponseBodyMessage, isProviderIssueNotFoundError, throwProviderError } from './providerErrors.js';
+import {
+	getProviderResponseBodyMessage,
+	isProviderIssueNotFoundError,
+	throwProviderError,
+	UnexpectedHtmlResponseError,
+} from './providerErrors.js';
 import {
 	collectProviderPagedResult,
 	mergeCollectionMetadata,
@@ -1830,16 +1835,29 @@ export class ProvidersApi {
 // This is copied over from the shared provider library because the current version is not respecting the "forceIsFetch: true"
 // option in the config and our custom fetch function isn't being wrapped by the necessary fetch wrapper. Remove this once the library
 // properly wraps our custom fetch and use `forceIsFetch: true` in the config.
-async function parseFetchResponseForApi<T>(response: Response): Promise<ProviderRequestResponse<T>> {
-	const contentType = response.headers.get('content-type') || '';
+export async function parseFetchResponseForApi<T>(response: Response): Promise<ProviderRequestResponse<T>> {
+	// Media types are case-insensitive (RFC 9110 §8.3.1) and `fetch` hands the header back exactly as the server
+	// wrote it, so match on a lowercased copy rather than the raw value.
+	const contentType = (response.headers.get('content-type') || '').toLowerCase();
 	let body;
+	let servedHtml = false;
 
 	// parse the response body
 	if (contentType.startsWith('application/json')) {
 		const text = await response.text();
-		body = text.trim().length > 0 ? JSON.parse(text) : null;
+		// A sign-in page a server mislabels as JSON is the same page under another header, and `<` can never open
+		// valid JSON — so recognize it rather than letting JSON.parse throw a SyntaxError carrying no status.
+		if (text.trimStart().startsWith('<')) {
+			servedHtml = true;
+			body = text;
+		} else {
+			body = text.trim().length > 0 ? JSON.parse(text) : null;
+		}
 	} else if (contentType.startsWith('text/') || contentType === '') {
 		body = await response.text();
+		// An empty body is never a sign-in page, and a write answering `204` can carry a stale `text/html` from
+		// whatever its endpoint usually returns — so require actual markup, not just the header.
+		servedHtml = contentType.startsWith('text/html') && body.trim().length > 0;
 	} else if (contentType.startsWith('application/vnd.github.raw+json')) {
 		body = await response.arrayBuffer();
 	} else {
@@ -1852,6 +1870,12 @@ async function parseFetchResponseForApi<T>(response: Response): Promise<Provider
 		status: response.status,
 		statusText: response.statusText,
 	};
+
+	// A 2xx carrying a page rather than data is a rejected credential wearing a success status (GKDEV-3617); a
+	// non-2xx keeps its own status error below, which is the better diagnostic.
+	if (response.ok && servedHtml) {
+		throw new UnexpectedHtmlResponseError(response.status, contentType, result);
+	}
 
 	// throw an error if the response is not ok
 	if (!response.ok) {
