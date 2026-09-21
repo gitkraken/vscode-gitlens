@@ -20,15 +20,7 @@ import {
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
-import {
-	AuthenticationError,
-	AuthenticationErrorReason,
-	isRateLimitResponse,
-	RequestClientError,
-	RequestNotFoundError,
-	toError,
-	toRateLimitError,
-} from '../errors.js';
+import { RequestNotFoundError, toError } from '../errors.js';
 import { requestJiraIssueByKey } from './jiraIssueByKey.js';
 import type {
 	GetIssueFn,
@@ -70,7 +62,7 @@ import type {
 	PullRequestFilter,
 } from './models.js';
 import { isRepoIdsInput, providersMetadata } from './models.js';
-import { isProviderIssueNotFoundError } from './providerErrors.js';
+import { getProviderResponseBodyMessage, isProviderIssueNotFoundError, throwProviderError } from './providerErrors.js';
 import {
 	collectProviderPagedResult,
 	mergeCollectionMetadata,
@@ -90,7 +82,6 @@ const createProviderApis: ProviderApisFactory =
 // `Repository <x> not found`. Anchoring to that shape (rather than a loose `not found` substring) keeps
 // the message fallbacks from misclassifying unrelated GraphQL/transport failures as a confident negative.
 const repoNotFoundMessage = /^Repository .+ not found$/i;
-
 // Duck-typed rather than `ex instanceof GraphQLErrors`, because importing the class as a value makes this
 // module unloadable from plain Node ESM consumers: `@gitkraken/provider-apis` is CommonJS and declares its
 // exports through getters, which Node's `cjs-module-lexer` cannot see, so the only named exports it can
@@ -564,43 +555,13 @@ export class ProvidersApi {
 	}
 
 	private handleProviderError<T>(tokenWithInfo: TokenWithInfo, error: any): T {
-		const { accessToken: token, ...tokenInfo } = tokenWithInfo;
 		const providerId = tokenWithInfo.providerId;
 		const provider = this.providers[providerId];
 		if (provider == null) {
 			throw new Error(`Provider with id ${providerId} not registered`);
 		}
 
-		if (error?.response?.status != null) {
-			const status: number = error.response.status;
-			switch (status) {
-				case 404: // Not found
-				case 410: // Gone
-				case 422: // Unprocessable Entity
-					throw new RequestNotFoundError(error);
-				case 429: // Too Many Requests
-					throw toRateLimitError(error, token);
-				case 401: // Unauthorized
-				case 403: // Forbidden
-					// A throttled request arrives on both statuses depending on the host (see
-					// `isRateLimitResponse`); 403 previously skipped the check, so every provider going through the
-					// SDK reported a rate limit as `auth` and asked the user to reconnect a healthy account.
-					if (isRateLimitResponse({ status: status, message: error.message })) {
-						throw toRateLimitError(error, token);
-					}
-					throw new AuthenticationError(
-						tokenInfo,
-						status === 401 ? AuthenticationErrorReason.Unauthorized : AuthenticationErrorReason.Forbidden,
-						error,
-					);
-				default:
-					if (status >= 400 && status < 500) {
-						throw new RequestClientError(error);
-					}
-			}
-		}
-
-		throw error;
+		return throwProviderError(tokenWithInfo, error);
 	}
 
 	async getPagedResult<T>(
@@ -1917,29 +1878,4 @@ async function parseFetchResponseForApi<T>(response: Response): Promise<Provider
 	}
 
 	return result;
-}
-
-const maxProviderErrorBodyLength = 500;
-
-/** Extracts the useful provider prose from an already-parsed SDK response body. */
-function getProviderResponseBodyMessage(body: unknown): string | undefined {
-	let message: string | undefined;
-	if (typeof body === 'string') {
-		message = body;
-	} else if (body != null && typeof body === 'object') {
-		const { message: direct, error } = body as { message?: unknown; error?: unknown };
-		if (typeof direct === 'string') {
-			message = direct;
-		} else if (typeof error === 'string') {
-			message = error;
-		} else if (error != null && typeof error === 'object') {
-			const nested = (error as { message?: unknown }).message;
-			if (typeof nested === 'string') {
-				message = nested;
-			}
-		}
-	}
-
-	message = message?.trim();
-	return message ? message.slice(0, maxProviderErrorBodyLength) : undefined;
 }
