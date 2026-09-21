@@ -594,6 +594,35 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		const downstreamMap = new Map<string, string[]>();
 
+		// Appends `localName` to `upstreamName`'s downstream list, skipping it if it's already present so
+		// seeding from `branchMap` and the in-walk push below can't produce duplicate entries.
+		const addDownstream = (upstreamName: string, localName: string): void => {
+			let downstreams = downstreamMap.get(upstreamName);
+			if (downstreams == null) {
+				downstreams = [];
+				downstreamMap.set(upstreamName, downstreams);
+			}
+
+			if (!downstreams.includes(localName)) {
+				downstreams.push(localName);
+			}
+		};
+
+		// Seeds `downstreamMap` from every local branch in `branchMap` with a configured upstream, so a
+		// branch is known to be tracked even when its tip falls outside the walked row window. `branchMap`
+		// contains both local and remote branches, so the `!branch.remote` check matters. Safe to call more
+		// than once (e.g. again after the incremental-walk fallback clears the map) since `addDownstream`
+		// dedupes.
+		const seedDownstreamMapFromBranches = (): void => {
+			for (const branch of branchMap.values()) {
+				if (!branch.remote && branch.upstream?.name != null) {
+					addDownstream(branch.upstream.name, branch.name);
+				}
+			}
+		};
+
+		seedDownstreamMapFromBranches();
+
 		// There *HAS* to be a better way to get git log to return stashes, but this is the best we've found
 		const gitStash = getSettledValue(stashResult);
 		const { stdin, remappedIds } = convertStashesToStdin(gitStash?.stashes);
@@ -977,15 +1006,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				}
 			}
 
-			// Downstreams: each branch tip → its upstream name.
+			// Downstreams: each branch tip → its upstream name. Fallback for when `getBranches` failed and
+			// `branchMap` (and so the seed above) is empty; `addDownstream` dedupes against the seed.
 			for (const h of refHeads) {
 				if (h.upstream?.name != null) {
-					let downstreams = downstreamMap.get(h.upstream.name);
-					if (downstreams == null) {
-						downstreams = [];
-						downstreamMap.set(h.upstream.name, downstreams);
-					}
-					downstreams.push(h.name);
+					addDownstream(h.upstream.name, h.name);
 				}
 			}
 
@@ -1712,6 +1737,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				reachableRefs.clear();
 				tipShasWithChildren.clear();
 				downstreamMap.clear();
+				seedDownstreamMapFromBranches();
 				headSha = undefined;
 				rewriteableNextSha = undefined;
 

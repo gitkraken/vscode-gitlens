@@ -109,7 +109,13 @@ import { laneSpacing, nodeRadiusFor, renderGutterSvg, renderWavyFilterDefs } fro
 import type { CommitGraphProfile } from './profile.js';
 import { minimalCommitGraphProfile } from './profile.js';
 import type { GraphCommitRef, RowRefOrder } from './rows/commit.js';
-import { columnsToZones, isRefHidden, pickGhostRef, zonesToColumnsConfig } from './rows/commit.js';
+import {
+	columnsToZones,
+	isRefHidden,
+	isTrackedUpstreamRef,
+	pickGhostRef,
+	zonesToColumnsConfig,
+} from './rows/commit.js';
 import { nearestNonWorkdirDate } from './rows/dates.js';
 import type { FixedSizeLayoutSpecifier } from './rows/layout.js';
 import { fixedSizeVertical } from './rows/layout.js';
@@ -362,13 +368,18 @@ export type GraphRowHiddenReason =
 	| 'search-filter'
 	| 'unknown';
 
-/** The ref narrowing a row-visibility pass runs under. An absent member means that class isn't narrowing. */
+/** The ref narrowing a row-visibility pass runs under. An absent member means that class isn't narrowing —
+ *  except `downstreams`, which narrows nothing and only relaxes (see below). */
 type RefVisibilityFilter = {
 	includeOnly?: GraphIncludeOnlyRefs;
 	excludeRefs?: GraphExcludeRefs;
 	hideHeads: boolean;
 	hideRemotes: boolean;
 	hideTags: boolean;
+	/** Tracked-upstream membership (`owner/name` → the locals tracking it). NOT a narrowing class: it only
+	 *  excepts a remote that some local branch tracks from `hideRemotes`, so it can never make this filter
+	 *  active on its own — `resolveRefVisibility`'s "nothing is narrowing" fast path deliberately ignores it. */
+	downstreams?: GraphDownstreams;
 };
 
 /** Classes of narrowing to resolve as if unset — how `getRowHiddenReason` asks which one dropped a row. */
@@ -1369,6 +1380,12 @@ export class GlCommitGraph extends LitElement {
 	private lastIncludeOnlyRefsRef?: GraphIncludeOnlyRefs;
 	private lastExcludeRefsForRows?: GraphExcludeRefs;
 	private lastExcludeTypesForRows?: GraphExcludeTypes;
+	// Deliberately NOT `lastDownstreamsRef` (the label/adornment/scroll-marker tracker): that one is
+	// read-and-latched unconditionally further down willUpdate, so sharing it would have whichever consumer
+	// runs first swallow the other's change signal. The row filter reads `downstreams` for the
+	// tracked-upstream exception to "Hide Remote Branches", so a downstreams-only push must re-run
+	// recomputeRows or the rows stay filtered against stale upstream membership.
+	private lastDownstreamsForRows?: GraphDownstreams;
 	// Pinned branch tracking + its resolved sha (the leftmost-lane pin + the jump-pill target). A change
 	// re-runs recomputeRows so the engine re-pins via `pinnedShas`.
 	private lastPinnedRef?: GraphPinnedRef;
@@ -1811,10 +1828,13 @@ export class GlCommitGraph extends LitElement {
 		const pinnedChanged = this.pinnedRef !== this.lastPinnedRef;
 		// Branches-visibility / hidden-ref filtering now drops commit ROWS from the engine input, so a
 		// change to any of these re-runs recomputeRows (identity compare — the host ships fresh objects).
+		// `downstreams` is in here because the row filter consults it to except a tracked upstream from
+		// "Hide Remote Branches" — see `lastDownstreamsForRows` for why it needs its own tracker.
 		const refVisibilityChanged =
 			this.includeOnlyRefs !== this.lastIncludeOnlyRefsRef ||
 			this.excludeRefs !== this.lastExcludeRefsForRows ||
-			this.excludeTypes !== this.lastExcludeTypesForRows;
+			this.excludeTypes !== this.lastExcludeTypesForRows ||
+			this.downstreams !== this.lastDownstreamsForRows;
 		const rowsChanged =
 			changed.has('rows') ||
 			this.rows !== this.lastRowsRef ||
@@ -1904,6 +1924,7 @@ export class GlCommitGraph extends LitElement {
 			this.lastIncludeOnlyRefsRef = this.includeOnlyRefs;
 			this.lastExcludeRefsForRows = this.excludeRefs;
 			this.lastExcludeTypesForRows = this.excludeTypes;
+			this.lastDownstreamsForRows = this.downstreams;
 			this.recomputeRows(idLength);
 
 			// The context-menu pin lasts exactly as long as the menu that raised it. A rows refresh means
@@ -2898,6 +2919,8 @@ export class GlCommitGraph extends LitElement {
 	 * Nothing here mutates the mode, so unfocusing simply resumes filtering against it.
 	 *
 	 * `waivers` resolves one class of narrowing as if unset — only {@link getRowHiddenReason} passes them.
+	 * They cover the narrowing classes only; `downstreams` rides along unwaived since waiving `excludeTypes`
+	 * already turns `hideRemotes` off, which makes its exception moot.
 	 */
 	private resolveRefVisibility(waivers?: RefVisibilityWaivers): RefVisibilityFilter | undefined {
 		const includeOnly = waivers?.includeOnly === true || this.scope != null ? undefined : this.includeOnlyRefs;
@@ -2910,7 +2933,11 @@ export class GlCommitGraph extends LitElement {
 			hideHeads: !waiveTypes && this.excludeTypes?.heads === true,
 			hideRemotes: !waiveTypes && this.excludeTypes?.remotes === true,
 			hideTags: !waiveTypes && this.excludeTypes?.tags === true,
+			downstreams: this.downstreams,
 		};
+		// `downstreams` is deliberately absent from this check: it only RELAXES `hideRemotes` (tracked
+		// upstreams keep seeding the walk), so counting it as narrowing would make every repo with an
+		// upstream take the filtered path for nothing.
 		if (
 			filter.includeOnly == null &&
 			filter.excludeRefs == null &&
@@ -2927,7 +2954,7 @@ export class GlCommitGraph extends LitElement {
 	/** Shas of the rows carrying a ref tip `filter` leaves visible — the seeds of the row filter's
 	 *  reachability walk. */
 	private collectVisibleRefTips(rows: readonly CommitGraphSourceRow[], filter: RefVisibilityFilter): Sha[] {
-		const { includeOnly, excludeRefs, hideHeads, hideRemotes, hideTags } = filter;
+		const { includeOnly, excludeRefs, hideHeads, hideRemotes, hideTags, downstreams } = filter;
 		const excludedRemotes = getExcludedRemotes(excludeRefs);
 
 		const refVisible = (id: string | undefined, hiddenType: boolean): boolean => {
@@ -2957,10 +2984,18 @@ export class GlCommitGraph extends LitElement {
 			}
 			if (!visible && row.remotes != null) {
 				for (const r of row.remotes) {
+					// The whole-remote "Hide Remote" wildcard is checked FIRST and outranks the tracked-upstream
+					// exception below: hiding a remote outright hides every one of its non-excepted refs, upstreams
+					// included — the same precedence `isRefHidden` documents for the pill.
 					const excludedRemote = excludedRemotes?.get(r.owner);
 					if (excludedRemote != null && (r.id == null || !excludedRemote.exceptIds.has(r.id))) continue;
 
-					if (refVisible(r.id, hideRemotes)) {
+					// "Hide Remote-only Branches" means exactly that — a remote some local branch tracks is not
+					// remote-only, so it keeps seeding the walk and the commits reachable only through it stay in the
+					// graph, matching `isRefHidden` keeping its pill. Without this the toggle deleted a tracked
+					// upstream's ROWS, not just its label (#5852). The exception relaxes ONLY the type flag:
+					// `excludeRefs` and an active `includeOnly` set still apply, inside `refVisible`.
+					if (refVisible(r.id, hideRemotes && !isTrackedUpstreamRef(r.owner, r.name, downstreams))) {
 						visible = true;
 						break;
 					}
@@ -8468,6 +8503,9 @@ export class GlCommitGraph extends LitElement {
 		includeOnlyRefs: GraphIncludeOnlyRefs | undefined;
 		excludeRefs: GraphExcludeRefs | undefined;
 		excludeTypes: GraphExcludeTypes | undefined;
+		// Read by `collectVisibleRefTips` for the tracked-upstream exception, so it keys the probes too —
+		// otherwise `getRowHiddenReason` could answer from a probe taken against stale upstream membership.
+		downstreams: GraphDownstreams | undefined;
 		scoped: boolean;
 		reachable: Map<string, ReadonlySet<Sha>>;
 	};
@@ -8484,6 +8522,7 @@ export class GlCommitGraph extends LitElement {
 			cached.includeOnlyRefs === this.includeOnlyRefs &&
 			cached.excludeRefs === this.excludeRefs &&
 			cached.excludeTypes === this.excludeTypes &&
+			cached.downstreams === this.downstreams &&
 			cached.scoped === (this.scope != null)
 		) {
 			probes = cached.reachable;
@@ -8494,6 +8533,7 @@ export class GlCommitGraph extends LitElement {
 				includeOnlyRefs: this.includeOnlyRefs,
 				excludeRefs: this.excludeRefs,
 				excludeTypes: this.excludeTypes,
+				downstreams: this.downstreams,
 				scoped: this.scope != null,
 				reachable: probes,
 			};

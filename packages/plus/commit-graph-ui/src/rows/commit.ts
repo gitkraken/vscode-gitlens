@@ -20,15 +20,27 @@ function excludeKindKey(kind: GraphCommitRef['kind']): keyof GraphExcludeTypes {
 
 /** Key format matching packages/git-cli's `downstreamMap`: `${remoteOwner}/${branchName}` — the same
  *  string a local branch's `upstream.name` carries (e.g. `origin/main`). */
-function downstreamKey(ref: Pick<GraphCommitRef, 'owner' | 'name'>): string {
-	return `${ref.owner ?? ''}/${ref.name}`;
+function downstreamKey(owner: string | undefined, name: string): string {
+	return `${owner ?? ''}/${name}`;
 }
 
-/** True when a remote ref is the tracked upstream of at least one local branch (a non-empty
- *  `downstreams` entry) — excepts it from the "Hide Remote Branches" type filter and flags the
- *  scroll-rail `upstream` marker. */
+/** True when the remote branch `owner`/`name` is the tracked upstream of at least one local branch (a
+ *  non-empty `downstreams` entry). Takes the raw pair rather than a ref so the graph's row-visibility
+ *  filter — which walks source rows, not {@link GraphCommitRef}s — shares this one copy of the key
+ *  format instead of re-deriving the literal. */
+export function isTrackedUpstreamRef(
+	owner: string | undefined,
+	name: string,
+	downstreams: GraphDownstreams | undefined,
+): boolean {
+	return (downstreams?.[downstreamKey(owner, name)]?.length ?? 0) > 0;
+}
+
+/** True when a remote ref is the tracked upstream of at least one local branch — excepts it from the
+ *  "Hide Remote Branches" type filter (its pill here, its commit ROW via the graph's
+ *  `collectVisibleRefTips`) and flags the scroll-rail `upstream` marker. */
 export function isTrackedUpstream(ref: GraphCommitRef, downstreams: GraphDownstreams | undefined): boolean {
-	return ref.kind === 'remote' && (downstreams?.[downstreamKey(ref)]?.length ?? 0) > 0;
+	return ref.kind === 'remote' && isTrackedUpstreamRef(ref.owner, ref.name, downstreams);
 }
 
 /**
