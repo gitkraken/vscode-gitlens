@@ -194,6 +194,10 @@ export class AzureDevOpsApi implements Disposable {
 
 			return await this.toPullRequest(pr, provider, token, owner, options.baseUrl, scope);
 		} catch (ex) {
+			// A rejected credential is actionable and must not be reported as an absent result; every other
+			// failure keeps the existing degrade-to-undefined behavior.
+			if (ex instanceof AuthenticationError) throw ex;
+
 			scope?.error(ex);
 			return undefined;
 		}
@@ -260,6 +264,10 @@ export class AzureDevOpsApi implements Disposable {
 
 			return await this.toPullRequest(pullRequest, provider, token, owner, baseUrl, scope, cancellation);
 		} catch (ex) {
+			// A rejected credential is actionable and must not be reported as an absent result; every other
+			// failure keeps the existing degrade-to-undefined behavior.
+			if (ex instanceof AuthenticationError) throw ex;
+
 			scope?.error(ex);
 			return undefined;
 		}
@@ -329,6 +337,10 @@ export class AzureDevOpsApi implements Disposable {
 					};
 				}
 			} catch (ex) {
+				// A rejected credential is actionable and must not be reported as an absent issue; every other
+				// non-404 keeps the existing degrade-to-undefined behavior.
+				if (ex instanceof AuthenticationError) throw ex;
+
 				if (ex.original?.status !== 404) {
 					scope?.error(ex);
 					return undefined;
@@ -366,6 +378,10 @@ export class AzureDevOpsApi implements Disposable {
 
 				return undefined;
 			} catch (ex) {
+				// A rejected credential is actionable and must not be reported as an absent issue; every other
+				// non-404 keeps the existing degrade-to-undefined behavior.
+				if (ex instanceof AuthenticationError) throw ex;
+
 				if (ex.original?.status !== 404) {
 					scope?.error(ex);
 					return undefined;
@@ -422,6 +438,10 @@ export class AzureDevOpsApi implements Disposable {
 				return fromAzureWorkItem(issueResult, provider, project, stateCategory);
 			}
 		} catch (ex) {
+			// A rejected credential is actionable and must not be reported as an absent work item; every other
+			// non-404 keeps the existing degrade-to-undefined behavior.
+			if (ex instanceof AuthenticationError) throw ex;
+
 			if (ex.original?.status !== 404) {
 				scope?.error(ex);
 				return undefined;
@@ -481,6 +501,10 @@ export class AzureDevOpsApi implements Disposable {
 				avatarUrl: undefined,
 			} satisfies UnidentifiedAuthor;
 		} catch (ex) {
+			// A rejected credential is actionable and must not be reported as an absent work item; every other
+			// non-404 keeps the existing degrade-to-undefined behavior.
+			if (ex instanceof AuthenticationError) throw ex;
+
 			if (ex.original?.status !== 404) {
 				scope?.error(ex);
 				return undefined;
@@ -546,6 +570,9 @@ export class AzureDevOpsApi implements Disposable {
 				username: username,
 			};
 		} catch (ex) {
+			// A rejected credential is the whole point of this read failing; reporting "no user" instead hides it.
+			if (ex instanceof AuthenticationError) throw ex;
+
 			scope?.error(ex, `Failed to get current user from ${baseUrl}`);
 			return undefined;
 		}
@@ -598,6 +625,11 @@ export class AzureDevOpsApi implements Disposable {
 
 			return issueResult?.value ?? [];
 		} catch (ex) {
+			// A rejected credential must not be degraded to an empty state list: the caller caches whatever this
+			// returns, so an empty list would pin every work item of this type to an unknown state until the
+			// cache is dropped — long after the session recovery this error is supposed to trigger.
+			if (ex instanceof AuthenticationError) throw ex;
+
 			scope?.error(ex);
 			return [];
 		}
@@ -650,6 +682,10 @@ export class AzureDevOpsApi implements Disposable {
 						: undefined,
 			} satisfies RepositoryMetadata;
 		} catch (ex) {
+			// A rejected credential is not a probe outcome: it is actionable, and the caller routes it into the
+			// session recovery. A cancellation or a 404 still degrades quietly.
+			if (ex instanceof AuthenticationError) throw ex;
+
 			// Cancellations and 404s are expected outcomes for a probe; don't log them as errors.
 			if (!isCancellationError(ex) && !(ex instanceof RequestNotFoundError)) {
 				scope?.error(ex);
@@ -695,6 +731,10 @@ export class AzureDevOpsApi implements Disposable {
 				name: normalizeAzureBranchName(response.defaultBranch),
 			} satisfies DefaultBranch;
 		} catch (ex) {
+			// A rejected credential is not a probe outcome: it is actionable, and the caller routes it into the
+			// session recovery. A cancellation or a 404 still degrades quietly.
+			if (ex instanceof AuthenticationError) throw ex;
+
 			// Cancellations and 404s are expected outcomes for a probe; don't log them as errors.
 			if (!isCancellationError(ex) && !(ex instanceof RequestNotFoundError)) {
 				scope?.error(ex);
@@ -867,6 +907,20 @@ export class AzureDevOpsApi implements Disposable {
 				);
 
 				if (rsp.ok) {
+					// Azure answers a rejected credential by redirecting to its sign-in page, which returns `203
+					// text/html` rather than `401`. `rsp.ok` spans 200-299, so that page used to reach `json()` and
+					// die as a bare `SyntaxError` — which `getIssue` and friends catch and report as "not found",
+					// making an invalid credential indistinguishable from a missing work item (GKDEV-3617).
+					const contentType = rsp.headers.get('content-type')?.toLowerCase() ?? '';
+					if (contentType.startsWith('text/html')) {
+						const { accessToken: _accessToken, ...tokenInfo } = token;
+						throw new AuthenticationError(
+							tokenInfo,
+							AuthenticationErrorReason.Unauthorized,
+							new Error(`(${rsp.status}) Azure DevOps returned a sign-in page instead of data`),
+						);
+					}
+
 					return (await rsp.json()) as T;
 				}
 

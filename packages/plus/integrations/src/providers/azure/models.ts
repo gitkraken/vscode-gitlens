@@ -1,4 +1,4 @@
-import type { IssueMember } from '@gitlens/git/models/issue.js';
+import type { IssueIteration, IssueMember } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestMember, PullRequestReviewer } from '@gitlens/git/models/pullRequest.js';
@@ -130,7 +130,7 @@ export interface WorkItem {
 	fields: {
 		//'System.AreaPath': string;
 		'System.TeamProject': string;
-		// 'System.IterationPath': string;
+		'System.IterationPath'?: string;
 		'System.WorkItemType': string;
 		'System.State': string;
 		// 'System.Reason': string;
@@ -719,5 +719,29 @@ export function fromAzureWorkItem(
 		undefined,
 		workItem.fields['System.Description'],
 		project,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		toWorkItemIterations(workItem.fields['System.IterationPath']),
 	);
+}
+
+/**
+ * Azure reports the iteration as a backslash-delimited path rooted at the project. The project root is its default
+ * for a work item with no sprint, so only a nested path names one; the path is the identity because Azure supplies
+ * no iteration id here.
+ *
+ * Mirrors `normalizeIteration` in provider-apis so the same work item yields the same identity whether it is read
+ * here or through the SDK. That contract keeps the path **verbatim** — it is what the iteration is matched back by,
+ * so it is deliberately not trimmed — and trims only the display name.
+ */
+function toWorkItemIterations(path: string | undefined): IssueIteration[] | undefined {
+	if (!path) return undefined;
+
+	const segments = path.split('\\');
+	if (segments.length < 2) return undefined;
+
+	const name = segments.at(-1)?.trim();
+	return name ? [{ id: path, name: name }] : undefined;
 }
