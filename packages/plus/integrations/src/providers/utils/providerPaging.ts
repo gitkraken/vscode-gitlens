@@ -32,13 +32,17 @@ export function parsePageCursor(cursor: string | undefined): number | undefined 
 }
 
 /** Preserves successful sibling scopes, but doesn't turn an all-scope provider failure into an empty success. */
-export function flatSettledResultsOrThrow<T>(results: PromiseSettledResult<T[]>[]): T[] {
-	const fulfilled = results.filter((result): result is PromiseFulfilledResult<T[]> => result.status === 'fulfilled');
-	if (fulfilled.length === 0) {
-		const rejected = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
-		if (rejected != null) throw rejected.reason;
-	}
+export function throwIfAllSettledFailed<T>(results: PromiseSettledResult<T>[]): void {
+	if (results.some(result => result.status === 'fulfilled')) return;
 
+	const rejected = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+	if (rejected != null) throw rejected.reason;
+}
+
+export function flatSettledResultsOrThrow<T>(results: PromiseSettledResult<T[]>[]): T[] {
+	throwIfAllSettledFailed(results);
+
+	const fulfilled = results.filter((result): result is PromiseFulfilledResult<T[]> => result.status === 'fulfilled');
 	return fulfilled.flatMap(result => result.value);
 }
 

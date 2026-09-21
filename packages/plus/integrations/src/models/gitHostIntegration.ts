@@ -22,7 +22,11 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
-import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
+import {
+	throwIfCallerContractError,
+	toCollectionFailureError,
+	toCollectionScopeFailure,
+} from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { toError } from '../errors.js';
@@ -50,7 +54,7 @@ import {
 	toProviderPullRequestStates,
 } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
-import { mergeCollectionMetadata } from '../providers/utils/providerPaging.js';
+import { mergeCollectionMetadata, throwIfAllSettledFailed } from '../providers/utils/providerPaging.js';
 import type {
 	IntegrationResult,
 	IntegrationType,
@@ -765,10 +769,17 @@ export abstract class GitHostIntegration<
 		const customUrl =
 			options?.customUrl ?? getSelfManagedApiBaseUrl(providerId, session.domain || this.domain, session.protocol);
 
-		const api = await this.getProvidersApi();
+		let api: ProvidersApi;
+		try {
+			api = await this.getProvidersApi();
+		} catch (ex) {
+			this.handleProviderException('getIssuesForRepos', ex, { scope: scope, connectionId: connectionId });
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+		const repoIdsInput = api.isRepoIdsInput(reposOrRepoIds);
 		if (
 			providerId !== GitCloudHostIntegrationId.GitLab &&
-			(api.isRepoIdsInput(reposOrRepoIds) ||
+			(repoIdsInput ||
 				(isAzureDevOpsProvider(providerId) &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
@@ -809,7 +820,10 @@ export abstract class GitHostIntegration<
 				try {
 					userAccount = await this.getFilterAccount(api, session, customUrl, organization);
 				} catch (ex) {
-					Logger.error(ex, 'getIssuesForRepos');
+					this.handleProviderException('getIssuesForRepos', ex, {
+						scope: scope,
+						connectionId: connectionId,
+					});
 					return { error: toError(ex), duration: performance.now() - start };
 				}
 
@@ -879,6 +893,7 @@ export abstract class GitHostIntegration<
 						return { projectInput: projectInput, results: results };
 					}),
 				);
+				throwIfAllSettledFailed(settled);
 
 				for (let i = 0; i < settled.length; i++) {
 					const outcome = settled[i];
@@ -922,6 +937,7 @@ export abstract class GitHostIntegration<
 					cursor.page = options.page;
 				}
 
+				this.resetRequestExceptionCount('getIssuesForRepos');
 				return {
 					value: {
 						values: data,
@@ -939,7 +955,10 @@ export abstract class GitHostIntegration<
 					duration: performance.now() - start,
 				};
 			} catch (ex) {
-				Logger.error(ex, 'getIssuesForRepos');
+				this.handleProviderException('getIssuesForRepos', ex, {
+					scope: scope,
+					connectionId: connectionId,
+				});
 				return { error: toError(ex), duration: performance.now() - start };
 			}
 		}
@@ -955,7 +974,10 @@ export abstract class GitHostIntegration<
 			try {
 				userAccount = await this.getFilterAccount(api, session, customUrl);
 			} catch (ex) {
-				Logger.error(ex, 'getIssuesForRepos');
+				this.handleProviderException('getIssuesForRepos', ex, {
+					scope: scope,
+					connectionId: connectionId,
+				});
 				return { error: toError(ex), duration: performance.now() - start };
 			}
 
@@ -982,7 +1004,7 @@ export abstract class GitHostIntegration<
 			};
 		}
 
-		if (api.getProviderIssuesPagingMode(providerId) === PagingMode.Repo && !api.isRepoIdsInput(reposOrRepoIds)) {
+		if (api.getProviderIssuesPagingMode(providerId) === PagingMode.Repo && !repoIdsInput) {
 			const cursorInfo = this.parseCursorInfo<PagedRepoInput>(options?.cursor);
 			const cursors: PagedRepoInput[] = cursorInfo.cursors ?? [];
 			let repoInputs: PagedRepoInput[] = reposOrRepoIds.map(repo => ({ repo: repo, cursor: undefined }));
@@ -1019,6 +1041,7 @@ export abstract class GitHostIntegration<
 						return { repoInput: repoInput, results: results };
 					}),
 				);
+				throwIfAllSettledFailed(settled);
 
 				for (let i = 0; i < settled.length; i++) {
 					const outcome = settled[i];
@@ -1056,6 +1079,7 @@ export abstract class GitHostIntegration<
 					cursor.page = options.page;
 				}
 
+				this.resetRequestExceptionCount('getIssuesForRepos');
 				return {
 					value: {
 						values: data,
@@ -1073,13 +1097,17 @@ export abstract class GitHostIntegration<
 					duration: performance.now() - start,
 				};
 			} catch (ex) {
-				Logger.error(ex, 'getIssuesForRepos');
+				this.handleProviderException('getIssuesForRepos', ex, {
+					scope: scope,
+					connectionId: connectionId,
+				});
 				return { error: toError(ex), duration: performance.now() - start };
 			}
 		}
 
 		try {
-			const result = await api.getIssuesForRepos(toTokenWithInfo(providerId, session), reposOrRepoIds, {
+			const tokenWithInfo = toTokenWithInfo(providerId, session);
+			const result = await api.getIssuesForRepos(tokenWithInfo, reposOrRepoIds, {
 				...getIssuesOptions,
 				cursor: options?.cursor,
 				baseUrl: customUrl,
@@ -1088,9 +1116,28 @@ export abstract class GitHostIntegration<
 				states: states,
 				sort: options?.sort,
 			});
+			const failures = result.metadata?.failures;
+			if (
+				repoIdsInput &&
+				reposOrRepoIds.length > 0 &&
+				result.values.length === 0 &&
+				failures?.length === reposOrRepoIds.length
+			) {
+				const ex = toCollectionFailureError(failures[0], tokenWithInfo);
+				this.handleProviderException('getIssuesForRepos', ex, {
+					scope: scope,
+					connectionId: connectionId,
+				});
+				return { error: ex, duration: performance.now() - start };
+			}
+
+			this.resetRequestExceptionCount('getIssuesForRepos');
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
-			Logger.error(ex, 'getIssuesForRepos');
+			this.handleProviderException('getIssuesForRepos', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
@@ -1152,7 +1199,16 @@ export abstract class GitHostIntegration<
 		const customUrl =
 			options?.customUrl ?? getSelfManagedApiBaseUrl(providerId, session.domain || this.domain, session.protocol);
 
-		const api = await this.getProvidersApi();
+		let api: ProvidersApi;
+		try {
+			api = await this.getProvidersApi();
+		} catch (ex) {
+			this.handleProviderException('getPullRequestsForRepos', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
+			return { error: toError(ex), duration: performance.now() - start };
+		}
 		if (
 			providerId !== GitCloudHostIntegrationId.GitLab &&
 			(api.isRepoIdsInput(reposOrRepoIds) ||
@@ -1200,14 +1256,20 @@ export abstract class GitHostIntegration<
 				try {
 					userAccount = await this.getFilterAccount(api, session, customUrl, organization);
 				} catch (ex) {
-					Logger.error(ex, 'getPullRequestsForRepos');
+					this.handleProviderException('getPullRequestsForRepos', ex, {
+						scope: scope,
+						connectionId: connectionId,
+					});
 					return { error: toError(ex), duration: performance.now() - start };
 				}
 			} else {
 				try {
 					userAccount = await this.getFilterAccount(api, session, customUrl);
 				} catch (ex) {
-					Logger.error(ex, 'getPullRequestsForRepos');
+					this.handleProviderException('getPullRequestsForRepos', ex, {
+						scope: scope,
+						connectionId: connectionId,
+					});
 					return { error: toError(ex), duration: performance.now() - start };
 				}
 			}
@@ -1316,6 +1378,7 @@ export abstract class GitHostIntegration<
 						return { repoInput: repoInput, results: results };
 					}),
 				);
+				throwIfAllSettledFailed(settled);
 
 				// `allSettled` preserves order, so `settled[i]` is `repoInputs[i]`.
 				settled.forEach((outcome, i) => {
@@ -1356,6 +1419,7 @@ export abstract class GitHostIntegration<
 					cursor.page = options.page;
 				}
 
+				this.resetRequestExceptionCount('getPullRequestsForRepos');
 				return {
 					value: {
 						values: data,
@@ -1373,7 +1437,10 @@ export abstract class GitHostIntegration<
 					duration: performance.now() - start,
 				};
 			} catch (ex) {
-				Logger.error(ex, 'getPullRequestsForRepos');
+				this.handleProviderException('getPullRequestsForRepos', ex, {
+					scope: scope,
+					connectionId: connectionId,
+				});
 				return { error: toError(ex), duration: performance.now() - start };
 			}
 		}
@@ -1390,9 +1457,13 @@ export abstract class GitHostIntegration<
 				includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
 				fields: options?.summary ? summaryPullRequestFields : undefined,
 			});
+			this.resetRequestExceptionCount('getPullRequestsForRepos');
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
-			Logger.error(ex, 'getPullRequestsForRepos');
+			this.handleProviderException('getPullRequestsForRepos', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}

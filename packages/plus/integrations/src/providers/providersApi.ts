@@ -1485,7 +1485,7 @@ export class ProvidersApi {
 		tokenOptInfo: TokenOptInfo,
 		reposOrIds: ProviderReposInput,
 		options?: GetIssuesOptions & { isPAT?: boolean; baseUrl?: string },
-	): Promise<PagedResult<ProviderIssue>> {
+	): Promise<ProviderApiPagedResult<ProviderIssue>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getIssuesForReposFn',
