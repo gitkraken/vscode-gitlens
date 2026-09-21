@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the _Delete Worktree_ confirm offering to delete a branch's upstream when that upstream is already missing from the remote
 - Fixes the _GitKraken AI_ usage meter saying _Nearly out_ when the weekly allowance is spent in full &mdash; it now reads _Allowance used_ in the error color, in both _GitLens Settings_ and the _Commit Graph_'s account rollup
   - Fixes the credits figure rounding a nearly-spent allowance to look identical to a fully-spent one (`3.2M of 3.2M credits` for either) &mdash; it now shows enough precision to tell the two counts apart, and the account rollup's percentage no longer rounds up to `100%` while credits remain
+- Fixes Azure DevOps pull requests returning `undefined` for their base and head repository links &mdash; the repository reference Azure embeds in a pull request does not include a web URL, so the link is now built from the organization and server the pull request was read from ([#5839](https://github.com/gitkraken/vscode-gitlens/issues/5839))
+- Fixes Azure DevOps Server links dropping the collection when the server sits behind a virtual directory &mdash; `https://server/tfs/DefaultCollection/…` read `tfs` as the organization and lost everything after it ([#5840](https://github.com/gitkraken/vscode-gitlens/issues/5840))
+- Fixes an Azure DevOps pull request's repository links being able to point at another organization, or another server entirely, when the pull request payload said so &mdash; the links are built from the configured organization now, and a fork's link must belong to it ([#5842](https://github.com/gitkraken/vscode-gitlens/issues/5842))
+- Fixes malformed Azure DevOps pull request web URLs &mdash; the URL had a double slash after the host (both `dev.azure.com` and `*.visualstudio.com`) and left project and repository names unencoded, so a project or repository named with a space put a literal space in the link ([#5836](https://github.com/gitkraken/vscode-gitlens/issues/5836))
 
 ## [19.2.0] - 2026-09-16
 
@@ -151,10 +155,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes Azure DevOps pull requests returning `undefined` for their base and head repository links &mdash; the repository reference Azure embeds in a pull request does not include a web URL, so the link is now built from the organization and server the pull request was read from ([#5839](https://github.com/gitkraken/vscode-gitlens/issues/5839))
-- Fixes Azure DevOps Server links dropping the collection when the server sits behind a virtual directory &mdash; `https://server/tfs/DefaultCollection/…` read `tfs` as the organization and lost everything after it ([#5840](https://github.com/gitkraken/vscode-gitlens/issues/5840))
-- Fixes an Azure DevOps pull request's repository links being able to point at another organization, or another server entirely, when the pull request payload said so &mdash; the links are built from the configured organization now, and a fork's link must belong to it ([#5842](https://github.com/gitkraken/vscode-gitlens/issues/5842))
-- Fixes malformed Azure DevOps pull request web URLs &mdash; the URL had a double slash after the host (both `dev.azure.com` and `*.visualstudio.com`) and left project and repository names unencoded, so a project or repository named with a space put a literal space in the link ([#5836](https://github.com/gitkraken/vscode-gitlens/issues/5836))
 - Fixes the _Commit Graph_ wedging on "Loading commits…" when its initial load fails &mdash; it now shows what went wrong with a _Retry_ action
 - Fixes the _Commit Graph_ getting stuck on "No repository open" when its webview reconnects before repository discovery finishes
 - Fixes a blank _Commit Graph_ after a GitLens update &mdash; VS Code could restore the panel pointing at the old version's resources, requiring the tab to be closed and reopened ([#2990](https://github.com/gitkraken/vscode-gitlens/issues/2990))
