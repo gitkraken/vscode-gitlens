@@ -3176,6 +3176,7 @@
 	"PR #{0}: {1}  {2}  {3}, {4}": "PR #{0}: {1}  {2}  {3}, {4}",
 	"PR $(watch)": "PR $(watch)",
 	"PR head reference not found": "PR head reference not found",
+	"PR head repository URL not found": "PR head repository URL not found",
 	"PRO/Short account badge abbreviation for GitLens Pro.": {
 		"message": "PRO",
 		"comment": ["Short account badge abbreviation for GitLens Pro."]
