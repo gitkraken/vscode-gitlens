@@ -55,6 +55,12 @@ export async function listIssueTrackerIssuesPage(
 		cursor?: string;
 		itemsPerPage?: number;
 		connectionId?: string;
+		/**
+		 * Explicit self-managed tracker host. Used to select the instance when the requested connection has no
+		 * configured domain; it must come from the trusted authentication configuration, never from repository
+		 * or remote data. Ignored for the cloud trackers.
+		 */
+		domain?: string;
 	},
 ): Promise<ProviderPagedResult<IssueShape>> {
 	// Pagination is opt-in: only window the projects when the caller actually asked to page. A caller that
@@ -136,10 +142,10 @@ export async function listIssueTrackerIssuesPage(
 		return emptyPage(true);
 	}
 
-	const integration = await ctx.getIntegrationForRead(options.providerId, options.connectionId);
+	const integration = await ctx.getIntegrationForRead(options.providerId, options.connectionId, options.domain);
 	if (integration == null) {
-		// A supplied connectionId that no longer resolves is a broken connection, not an empty account.
-		const early = ctx.earlyReturnConnectionWarnings(options.providerId, options.connectionId);
+		// A supplied connectionId or domain that no longer resolves is a broken target, not an empty account.
+		const early = ctx.earlyReturnConnectionWarnings(options.providerId, options.connectionId, options.domain);
 		warnings.push(...early.warnings);
 		return emptyPage(early.fetchFailed);
 	}
@@ -150,7 +156,7 @@ export async function listIssueTrackerIssuesPage(
 		return emptyPage(true);
 	}
 
-	const domain = ctx.domainForRead(integration, options.providerId, options.connectionId);
+	const domain = ctx.domainForRead(integration, options.providerId, options.connectionId, options.domain);
 
 	// Before any upstream request: the discovery fan-outs below (resources, projects, per-resource accounts) are
 	// three round trips, and an order this tracker can't express refuses the read whatever they return. Placed after

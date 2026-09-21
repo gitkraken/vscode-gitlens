@@ -56,6 +56,7 @@ import {
 } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import { mergeCollectionMetadata, throwIfAllSettledFailed } from '../providers/utils/providerPaging.js';
+import { baseUrlFromDomain } from '../utils/domain.utils.js';
 import type {
 	IntegrationResult,
 	IntegrationType,
@@ -74,34 +75,12 @@ function isAzureDevOpsProvider(
 	);
 }
 
-function normalizeSelfManagedBaseUrl(domain: string | undefined, protocol: string | undefined): string | undefined {
-	const value = domain?.trim();
-	if (!value) return undefined;
-
-	if (/^[a-z][a-z\d+\-.]*:\/\//i.test(value)) {
-		try {
-			const url = new URL(value);
-			return `${url.protocol}//${url.host}${url.pathname.replace(/\/+$/, '')}`;
-		} catch {
-			return undefined;
-		}
-	}
-
-	const scheme = protocol ?? 'https:';
-	try {
-		const url = new URL(`${scheme}//${value}`);
-		return `${url.protocol}//${url.host}${url.pathname.replace(/\/+$/, '')}`;
-	} catch {
-		return undefined;
-	}
-}
-
 function getSelfManagedApiBaseUrl(
 	providerId: IntegrationIds,
 	domain: string | undefined,
 	protocol: string | undefined,
 ): string | undefined {
-	const baseUrl = normalizeSelfManagedBaseUrl(domain, protocol);
+	const baseUrl = baseUrlFromDomain(domain, protocol);
 	if (baseUrl == null) return undefined;
 
 	switch (providerId) {

@@ -4,6 +4,7 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
 	supportedOrderedCloudIntegrationIds,
 } from '../constants.js';
 
@@ -24,6 +25,17 @@ export interface ProviderAuthenticationSession extends AuthenticationSessionLike
 	readonly type: CloudIntegrationAuthType | undefined;
 	readonly expiresAt?: Date;
 	readonly domain: string;
+	/**
+	 * The connection's address exactly as it was configured, path and all, when that differs from
+	 * {@link domain}.
+	 *
+	 * `domain` is the IDENTITY a self-managed connection is keyed by, so it is normalized to a bare host
+	 * (`hostFromDomain`) and one host cannot key two connections. An instance mounted below a context path —
+	 * Jira Data Center's `/jira`, a reverse-proxied GitLab or Bitbucket — still has to be ADDRESSED at that
+	 * path, and normalizing it away is what made every request go to the root. Absent when the backend
+	 * reported nothing beyond the host, which is the common case.
+	 */
+	readonly baseUrl?: string;
 	readonly protocol?: string;
 	/** The provider app key paired with the token for providers whose client needs one (e.g. Trello). */
 	readonly appKey?: string;
@@ -108,6 +120,15 @@ export interface ConfiguredIntegrationDescriptor {
 	readonly integrationId: IntegrationIds;
 	readonly scopes: string;
 	readonly domain?: string;
+	/**
+	 * The address this connection was configured with, path included — see
+	 * {@link ProviderAuthenticationSession.baseUrl}.
+	 *
+	 * Mirrored onto the descriptor so reconciliation can tell a re-pointed connection from an unchanged one
+	 * without reading its secret: {@link domain} is normalized to a bare host, so a backend connection moved
+	 * from one context path to another on the SAME host looks identical by domain alone.
+	 */
+	readonly baseUrl?: string;
 	readonly expiresAt?: string | Date;
 }
 
@@ -141,6 +162,7 @@ export interface CloudIntegrationConnection {
 
 export type CloudIntegrationType =
 	| 'jira'
+	| 'jiraServer'
 	| 'linear'
 	| 'trello'
 	| 'gitlab'
@@ -175,6 +197,7 @@ export function isIssueCloudIntegrationId(id: string): id is IssuesCloudHostInte
 
 export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationIds } = {
 	jira: IssuesCloudHostIntegrationId.Jira,
+	jiraServer: IssuesSelfManagedHostIntegrationId.JiraServer,
 	linear: IssuesCloudHostIntegrationId.Linear,
 	trello: IssuesCloudHostIntegrationId.Trello,
 	gitlab: GitCloudHostIntegrationId.GitLab,
@@ -189,6 +212,7 @@ export const toIntegrationId: { [key in CloudIntegrationType]: IntegrationIds } 
 
 export const toCloudIntegrationType: { [key in IntegrationIds]: CloudIntegrationType | undefined } = {
 	[IssuesCloudHostIntegrationId.Jira]: 'jira',
+	[IssuesSelfManagedHostIntegrationId.JiraServer]: 'jiraServer',
 	[IssuesCloudHostIntegrationId.Linear]: 'linear',
 	[IssuesCloudHostIntegrationId.Trello]: 'trello',
 	[GitCloudHostIntegrationId.GitLab]: 'gitlab',
