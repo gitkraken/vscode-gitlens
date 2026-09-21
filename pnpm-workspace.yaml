@@ -152,6 +152,15 @@ overrides:
     # GHSA-5p4m-2wfm-xmqj: quadratic CPU in !!omap resolution, never backported to 4.x. Bounded
     # below at 4.0.0 so the selector can't drag a 3.x copy across js-yaml's breaking v4 API change.
     'js-yaml@>=4.0.0 <4.3.1': ^4.3.1
+    # GHSA-jxfw-x594-9x9m: Unicode line separators (NEL/U+2028/U+2029) survive morgan's escaping
+    # into the access log, letting a request forge log records. Dev-only, via @vscode/test-web's
+    # koa-morgan, which is unmaintained and ranges wide open (`^1.6.1`) — so the floor lives here.
+    'morgan@<1.12.0': ^1.12.0
+    # GHSA-x5fp-wj9c-mxmx and GHSA-4mjr-xmp4-gh2g, both parse-side. Neither path reaches parse:
+    # @modelcontextprotocol/sdk keeps express in its HTTP/auth transports and
+    # scripts/mcp-vscode-server.mjs uses stdio, and typed-rest-client only calls qs.stringify.
+    # Fixed for hygiene.
+    'qs@<6.16.0': ^6.16.0
     'serialize-javascript@<7.0.5': '^7.0.5'
 
 patchedDependencies:
