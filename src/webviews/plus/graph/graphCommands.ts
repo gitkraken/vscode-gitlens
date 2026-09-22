@@ -46,6 +46,7 @@ import type { ExplainStashCommandArgs } from '../../../commands/explainStash.js'
 import type { ExplainWipCommandArgs } from '../../../commands/explainWip.js';
 import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog.js';
 import { generateChangelogAndOpenMarkdownDocument } from '../../../commands/generateChangelog.js';
+import type { KeplerCommandArgs } from '../../../commands/kepler.js';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote.js';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote.js';
 import type { ApplyPatchFromClipboardCommandArgs, CreatePatchCommandArgs } from '../../../commands/patches.js';
@@ -2654,6 +2655,19 @@ export class GraphCommands {
 			await executeCommand<OpenPullRequestOnRemoteCommandArgs>('gitlens.openPullRequestOnRemote', {
 				pr: { url: url },
 				clipboard: clipboard,
+			});
+		}
+	}
+
+	@command('gitlens.kepler.startReview:')
+	@debug()
+	private async startReviewInKepler(item?: GraphItemContext): Promise<void> {
+		if (isGraphItemTypedContext(item, 'pullrequest')) {
+			const pr = item.webviewItemValue;
+			await executeCommand<KeplerCommandArgs>('gitlens.kepler.startReview', {
+				pr: { url: pr.url, provider: { id: pr.provider.id, name: pr.provider.name } },
+				repoPath: pr.repoPath,
+				source: { source: 'graph' },
 			});
 		}
 	}
