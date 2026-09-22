@@ -56,7 +56,8 @@ import {
 } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import { mergeCollectionMetadata, throwIfAllSettledFailed } from '../providers/utils/providerPaging.js';
-import { baseUrlFromDomain } from '../utils/domain.utils.js';
+import { areDomainsOnSameHost } from '../utils/domain.utils.js';
+import { getSelfManagedBaseUrl, isGitSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type {
 	IntegrationResult,
 	IntegrationType,
@@ -73,28 +74,6 @@ function isAzureDevOpsProvider(
 		providerId === GitCloudHostIntegrationId.AzureDevOps ||
 		providerId === GitSelfManagedHostIntegrationId.AzureDevOpsServer
 	);
-}
-
-function getSelfManagedApiBaseUrl(
-	providerId: IntegrationIds,
-	domain: string | undefined,
-	protocol: string | undefined,
-): string | undefined {
-	const baseUrl = baseUrlFromDomain(domain, protocol);
-	if (baseUrl == null) return undefined;
-
-	switch (providerId) {
-		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
-			return `${baseUrl.replace(/\/api(?:\/v\d+)?$/, '')}/api/v3`;
-		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
-			return baseUrl.replace(/\/api(?:\/v\d+)?$/, '');
-		case GitSelfManagedHostIntegrationId.BitbucketServer:
-			return `${baseUrl.replace(/\/rest\/api\/1\.0$/, '')}/rest/api/1.0`;
-		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
-			return baseUrl;
-		default:
-			return undefined;
-	}
 }
 
 /** Read options for {@link GitHostIntegration.searchMyPullRequests} and the provider hook behind it. */
@@ -156,6 +135,37 @@ export abstract class GitHostIntegration<
 	T extends ResourceDescriptor = ResourceDescriptor,
 > extends IntegrationBase<ID> {
 	readonly type: IntegrationType = 'git';
+
+	/** The self-managed installation `session` addresses, validated against this integration's host. */
+	protected getSelfManagedInstallationUrl(session: ProviderAuthenticationSession): string {
+		const baseUrl = getSelfManagedBaseUrl(
+			this.id,
+			session.baseUrl ?? (session.domain || this.domain),
+			session.protocol,
+		);
+		if (baseUrl == null || !areDomainsOnSameHost(baseUrl, this.domain)) {
+			throw new Error('Invalid self-managed integration base URL');
+		}
+
+		return baseUrl;
+	}
+
+	protected getSelfManagedApiBaseUrl(session: ProviderAuthenticationSession): string {
+		const baseUrl = this.getSelfManagedInstallationUrl(session);
+		switch (this.id) {
+			case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
+				return `${baseUrl}/api/v3`;
+			case GitSelfManagedHostIntegrationId.BitbucketServer:
+				return `${baseUrl}/rest/api/1.0`;
+			default:
+				return baseUrl;
+		}
+	}
+
+	/** The base the repository-list reads hand the provider client for a self-managed host. */
+	protected getRepositoriesApiBaseUrl(session: ProviderAuthenticationSession, _repos: ProviderReposInput): string {
+		return this.getSelfManagedApiBaseUrl(session);
+	}
 
 	@gate()
 	@trace()
@@ -760,11 +770,14 @@ export abstract class GitHostIntegration<
 		if (session == null) return undefined;
 
 		const start = performance.now();
-		const customUrl =
-			options?.customUrl ?? getSelfManagedApiBaseUrl(providerId, session.domain || this.domain, session.protocol);
-
+		let customUrl: string | undefined;
 		let api: ProvidersApi;
 		try {
+			customUrl =
+				options?.customUrl ??
+				(isGitSelfManagedHostIntegrationId(providerId)
+					? this.getRepositoriesApiBaseUrl(session, reposOrRepoIds)
+					: undefined);
 			api = await this.getProvidersApi();
 		} catch (ex) {
 			this.handleProviderException('getIssuesForRepos', ex, { scope: scope, connectionId: connectionId });
@@ -1190,11 +1203,14 @@ export abstract class GitHostIntegration<
 		if (session == null) return undefined;
 
 		const start = performance.now();
-		const customUrl =
-			options?.customUrl ?? getSelfManagedApiBaseUrl(providerId, session.domain || this.domain, session.protocol);
-
+		let customUrl: string | undefined;
 		let api: ProvidersApi;
 		try {
+			customUrl =
+				options?.customUrl ??
+				(isGitSelfManagedHostIntegrationId(providerId)
+					? this.getRepositoriesApiBaseUrl(session, reposOrRepoIds)
+					: undefined);
 			api = await this.getProvidersApi();
 		} catch (ex) {
 			this.handleProviderException('getPullRequestsForRepos', ex, {
@@ -1359,7 +1375,12 @@ export abstract class GitHostIntegration<
 							{
 								...getPullRequestsOptions,
 								cursor: repoInput.cursor,
-								baseUrl: customUrl,
+								// Per repository: an unfiltered read may span organizations, and a host can narrow the base
+								// to each repository's own.
+								baseUrl:
+									options?.customUrl == null && isGitSelfManagedHostIntegrationId(providerId)
+										? this.getRepositoriesApiBaseUrl(session, [repoInput.repo])
+										: customUrl,
 								// Continuation is driven by the per-repo cursor; only apply an explicit page on the
 								// first request so it can't clobber a continuation cursor on later pages.
 								page: repoInput.cursor == null ? options?.page : undefined,

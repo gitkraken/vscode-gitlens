@@ -26,6 +26,18 @@ export function areDomainsOnSameHost(first: string | undefined, second: string |
 }
 
 /**
+ * Whether two URL-or-host domain values name the same machine, ignoring the port. For comparing an SSH remote
+ * against a web address: an SSH port says nothing about the port the host serves its web UI and API on.
+ */
+export function areDomainsOnSameHostname(first: string | undefined, second: string | undefined): boolean {
+	const firstHost = hostFromDomain(first);
+	const secondHost = hostFromDomain(second);
+	if (firstHost == null || secondHost == null) return false;
+
+	return new URL(`https://${firstHost}`).hostname === new URL(`https://${secondHost}`).hostname;
+}
+
+/**
  * Builds the API base URL for a self-managed host from a domain expressed as either a URL or a bare host.
  *
  * Distinct from {@link hostFromDomain}, which exists to collapse a domain to the identity the connection is
@@ -61,4 +73,13 @@ export function sameConfiguredBaseUrl(first: string | undefined, second: string 
 	const firstUrl = baseUrlFromDomain(first, undefined);
 	const secondUrl = baseUrlFromDomain(second, undefined);
 	return firstUrl != null && secondUrl != null && firstUrl === secondUrl;
+}
+
+/** Decodes one percent-encoded URL path segment, keeping a malformed one as written. */
+export function decodePathSegment(segment: string): string {
+	try {
+		return decodeURIComponent(segment);
+	} catch {
+		return segment;
+	}
 }

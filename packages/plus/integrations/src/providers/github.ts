@@ -108,7 +108,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	 * by appending GitHub Enterprise's paths. Only a GHE instance base belongs here; cloud passes `undefined`,
 	 * the sole value that selects the cloud endpoints (see the cloud subclass).
 	 */
-	protected abstract get apiBaseUrl(): string | undefined;
+	protected abstract apiBaseUrlFor(session: ProviderAuthenticationSession): string | undefined;
 
 	protected override async getProviderAccountForCommit(
 		session: ProviderAuthenticationSession,
@@ -126,7 +126,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			rev,
 			{
 				...options,
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -147,7 +147,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			email,
 			{
 				...options,
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -178,7 +178,9 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		}
 
 		if (toResolve.length) {
-			const resolved = await api.getAccountsForEmails(this, token, toResolve, { baseUrl: this.apiBaseUrl });
+			const resolved = await api.getAccountsForEmails(this, token, toResolve, {
+				baseUrl: this.apiBaseUrlFor(session),
+			});
 			for (const [emailLower, login] of resolved) {
 				loginByEmail.set(emailLower, login);
 			}
@@ -188,7 +190,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		// all lookups at once, to avoid a request burst that could trip secondary rate limiting. Then map keys to each email.
 		const keysByLogin = new Map<string, string[]>();
 		await batch([...new Set(loginByEmail.values())], sshSigningKeyResolveBatchSize, async login => {
-			const keys = await api.getUserSshSigningKeys(this, token, login, { baseUrl: this.apiBaseUrl });
+			const keys = await api.getUserSshSigningKeys(this, token, login, { baseUrl: this.apiBaseUrlFor(session) });
 			keysByLogin.set(
 				login,
 				keys.map(k => k.key),
@@ -212,7 +214,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			repo.owner,
 			repo.name,
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -229,7 +231,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			repo.name,
 			Number(id),
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -246,7 +248,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			repo.name,
 			Number(id),
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 				includeBody: true,
 			},
 		);
@@ -264,7 +266,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			repo.name,
 			parseInt(id, 10),
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -291,7 +293,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			{
 				...opts,
 				include: include?.map(s => toGitHubPullRequestState(s)),
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -308,7 +310,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			repo.name,
 			rev,
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -324,7 +326,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			repo.owner,
 			repo.name,
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 			cancellation,
 		);
@@ -335,14 +337,18 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	): Promise<ProviderHierarchyResult<ProviderOrganization> | undefined> {
 		const api = await this.getProvidersApi();
 		const result = await api.getGitHubOrgsForCurrentUser(toTokenWithInfo(this.id, session), {
-			baseUrl: this.apiBaseUrl,
+			baseUrl: this.apiBaseUrlFor(session),
 		});
+		const webUrl =
+			this.id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
+				? this.getSelfManagedInstallationUrl(session)
+				: `https://${this.domain}`;
 		return {
 			values: result.values.map(o => ({
 				id: o.id,
 				providerId: this.id,
 				name: o.username,
-				url: `https://${this.domain}/${o.username}`,
+				url: `${webUrl}/${o.username}`,
 			})),
 			...(result.truncated ? { truncated: true } : {}),
 			...(result.metadata != null ? { metadata: result.metadata } : {}),
@@ -356,7 +362,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined> {
 		const api = await this.getProvidersApi();
 		return api.getReposForOrg(toTokenWithInfo(this.id, session), org, {
-			baseUrl: this.apiBaseUrl,
+			baseUrl: this.apiBaseUrlFor(session),
 			cursor: options?.cursor,
 		});
 	}
@@ -370,7 +376,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		// repos — matching gkcli's org-less `provider repos github` walk (not every repo of every org).
 		return api.getReposForCurrentUser(toTokenWithInfo(this.id, session), {
 			affiliations: ['owner', 'collaborator', 'organization_member'],
-			baseUrl: this.apiBaseUrl,
+			baseUrl: this.apiBaseUrlFor(session),
 			cursor: options?.cursor,
 		});
 	}
@@ -386,10 +392,10 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		const session = await this.resolveReadSession(repo.connectionId, undefined);
 		if (session == null) return undefined;
 
-		// `apiBaseUrl` is undefined for cloud (which is what selects the cloud endpoints) and the GHE instance base
+		// `apiBaseUrlFor` is undefined for cloud (which is what selects the cloud endpoints) and the GHE instance base
 		// for enterprise (inherited override).
 		return api.getRepo(toTokenWithInfo(this.id, session), repo.owner, repo.name, repo.project, {
-			baseUrl: this.apiBaseUrl,
+			baseUrl: this.apiBaseUrlFor(session),
 		});
 	}
 
@@ -404,7 +410,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			toTokenWithInfo(this.id, session),
 			{
 				repos: repos?.map(r => `${r.owner}/${r.name}`),
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 				silent: options?.silent,
 				state: options?.state,
 			},
@@ -476,7 +482,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			facetsToQuery.map(async facet => ({
 				key: facet.key,
 				result: await github.searchMyPullRequestsPage(this, toTokenWithInfo(this.id, session), {
-					baseUrl: this.apiBaseUrl,
+					baseUrl: this.apiBaseUrlFor(session),
 					state: facet.state,
 					cursor: cursors[facet.key],
 					summary: options?.summary,
@@ -580,7 +586,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			toTokenWithInfo(this.id, session),
 			{
 				repos: repos?.map(r => `${r.owner}/${r.name}`),
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 				includeBody: true,
 				includeAllAssignees: options?.includeAllAssignees,
 				cursor: options?.cursor,
@@ -622,7 +628,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				repos: options.repos?.map(r => `${r.namespace}/${r.name}`),
 				org: options.org,
 				criteria: options.criteria,
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 				cursor: options.cursor,
 				pageSize: options.pageSize,
 				summary: options.summary,
@@ -657,7 +663,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				repos: options.repos?.map(r => `${r.namespace}/${r.name}`),
 				org: options.org,
 				criteria: options.criteria,
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 				includeBody: true,
 				cursor: options.cursor,
 				pageSize: options.pageSize,
@@ -683,7 +689,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				org: s.org,
 				criteria: s.criteria,
 			})),
-			{ baseUrl: this.apiBaseUrl },
+			{ baseUrl: this.apiBaseUrlFor(session) },
 			cancellation,
 		);
 	}
@@ -701,7 +707,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			this,
 			toTokenWithInfo(this.id, session),
 			coordinates,
-			{ baseUrl: this.apiBaseUrl, includeBody: true },
+			{ baseUrl: this.apiBaseUrlFor(session), includeBody: true },
 			cancellation,
 		);
 	}
@@ -723,7 +729,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				org: s.org,
 				criteria: s.criteria,
 			})),
-			{ baseUrl: this.apiBaseUrl },
+			{ baseUrl: this.apiBaseUrlFor(session) },
 			cancellation,
 		);
 	}
@@ -741,7 +747,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			{
 				search: searchQuery,
 				repos: repos?.map(r => `${r.owner}/${r.name}`),
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 				...options,
 			},
 			cancellation,
@@ -777,7 +783,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			owner,
 			repo,
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 			cancellation,
 		);
@@ -833,7 +839,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					headRefSha,
 					{
 						mergeMethod: options?.mergeMethod,
-						baseUrl: this.apiBaseUrl,
+						baseUrl: this.apiBaseUrlFor(session),
 					},
 					cancellation,
 				)) ?? false
@@ -848,7 +854,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				headRefSha,
 				{
 					mergeMethod: options?.mergeMethod,
-					baseUrl: this.apiBaseUrl,
+					baseUrl: this.apiBaseUrlFor(session),
 				},
 				cancellation,
 			) ?? false
@@ -864,7 +870,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			toTokenWithInfo(this.id, session),
 			{
 				...options,
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -883,7 +889,7 @@ export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegra
 		return metadata.domain;
 	}
 
-	protected override get apiBaseUrl(): string | undefined {
+	protected override apiBaseUrlFor(_session: ProviderAuthenticationSession): string | undefined {
 		// Undefined on purpose, NOT 'https://api.github.com'. `@gitkraken/provider-apis` treats this value as an
 		// *enterprise* base and derives both endpoints from it by appending GitHub Enterprise's paths:
 		// `getRESTBaseUrl` appends `/api/v3` and `getGraphQLEndpoint` appends `/api/graphql` (githubHelpers.ts).
@@ -924,8 +930,8 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<GitSelfMa
 		return this._domain;
 	}
 
-	protected override get apiBaseUrl(): string {
-		return `https://${this._domain}/api/v3`;
+	protected override apiBaseUrlFor(session: ProviderAuthenticationSession): string {
+		return this.getSelfManagedApiBaseUrl(session);
 	}
 
 	constructor(
