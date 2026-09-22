@@ -28,6 +28,7 @@ import type {
 	GraphActionTarget,
 	GraphCompareSeed,
 	GraphComposeScopeSeed,
+	GraphIntent,
 	GraphScopeBranch,
 	GraphScopeOrigin,
 	GraphShowAction,
@@ -39,7 +40,10 @@ import type {
 export type GraphWebviewShowingArgs = [
 	| GlRepository
 	| { ref: GitReference; source?: Source }
-	| { repository: GlRepository; search?: SearchQuery; source?: Source }
+	/** `intent` is carried by the caller rather than sniffed in `onShowing`: once a `file:"…"`
+	 *  search is a query string it is indistinguishable from a user-typed search, so the two
+	 *  history commands tag themselves. */
+	| { repository: GlRepository; search?: SearchQuery; intent?: GraphIntent; source?: Source }
 	| { repository: GlRepository; compare: GraphCompareSeed; source?: Source }
 	| { sidebarPanel: GraphSidebarPanel; source?: Source }
 	| { visualization: VisualizationMode; repository?: GlRepository; source?: Source }
@@ -65,6 +69,9 @@ export type ShowInCommitGraphCommandArgs =
 	| {
 			repository: GlRepository;
 			search?: SearchQuery;
+			/** See {@link GraphWebviewShowingArgs} — the history commands tag their own intent
+			 *  because a `file:"…"` query is indistinguishable from a user-typed search. */
+			intent?: GraphIntent;
 			selectSha?: string;
 			preserveFocus?: boolean;
 			source?: Source;
@@ -221,7 +228,12 @@ export function registerGraphWebviewCommands<T>(
 		// graph compare-mode/multicommit panels whose context builds a `gitlens-git://` URI).
 		const selectSha = typeof args[1] === 'string' ? args[1] : gitUri.sha;
 
-		showInCommitGraph({ repository: repository, search: searchQuery, selectSha: selectSha });
+		showInCommitGraph({
+			repository: repository,
+			search: searchQuery,
+			selectSha: selectSha,
+			intent: { kind: 'show-file-history', subject: relativePath },
+		});
 	}
 	async function openFolderHistoryInGraph(...args: any[]): Promise<void> {
 		const uri = getUriFromArgs(args);
@@ -242,7 +254,11 @@ export function registerGraphWebviewCommands<T>(
 			matchRegex: false,
 		};
 
-		showInCommitGraph({ repository: repository, search: searchQuery });
+		showInCommitGraph({
+			repository: repository,
+			search: searchQuery,
+			intent: { kind: 'show-folder-history', subject: relativePath },
+		});
 	}
 
 	return Disposable.from(

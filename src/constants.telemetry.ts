@@ -2545,6 +2545,8 @@ interface GraphIntroShownEvent extends GraphContextEventData {
 interface GraphSignInShownEvent extends GraphContextEventData {
 	/** Which sign-in gate variant rendered — `unassigned` = no cohort, rendered as the default gate but excluded from arm comparisons */
 	variant: 'default' | 'intro-video' | 'unassigned';
+	/** The task that brought the user here (`commit`, `file-history`, `compose`, …), absent for an intentless arrival. Matches the suffix on the sign-in actions' `source.detail`, so impressions and conversions slice by the same key */
+	intent?: string;
 }
 
 interface GraphLayoutPromptChoiceEvent extends GraphContextEventData {

@@ -341,6 +341,27 @@ export type GraphShowAction =
 	/** Opens the automatic rebase summary sheet for the target repo's session */
 	| 'show-rebase-summary';
 
+/** Why the graph was opened — display-only context for the access walls (#5820). Derived
+ *  centrally in `onShowing` so every producer (terminal links, hovers, deep links, view
+ *  context menus, …) gets task-specific wall copy without touching its call site. Extends
+ *  `GraphShowAction` with the arrivals that carry no action of their own. */
+export type GraphIntentKind =
+	| GraphShowAction
+	| 'show-commit'
+	| 'show-branch'
+	| 'show-tag'
+	| 'show-stash'
+	| 'show-file-history'
+	| 'show-folder-history';
+
+export interface GraphIntent {
+	kind: GraphIntentKind;
+	/** Human-readable subject for the promise line — a ref name, short sha, or repo-relative path. */
+	subject?: string;
+	/** Only `open-compare` uses this: the right-hand ref of the comparison. */
+	subject2?: string;
+}
+
 /** Optional target row for a `GraphShowAction`. When provided, the webview routes the action
  *  to this specific row (used by context-menu invocations on secondary WIP rows where the
  *  action targets a worktree other than the primary). When absent, the webview falls back to
@@ -624,6 +645,9 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	/** A two-ref compare seeded by a cold show request (e.g. a terminal-link range). Consumed on
 	 *  bootstrap by the app, mirroring {@link pendingAction}; warm shows notify directly instead. */
 	pendingCompare?: DidRequestOpenCompareModeParams;
+	/** Why this show happened — drives the access walls' task-specific copy (#5820). Display-only:
+	 *  the graph itself is driven by `pendingAction`/`pendingCompare`/`searchRequest`/`selectedRows`. */
+	pendingIntent?: GraphIntent;
 	/** Per-worktree commit drafts for this repo's WIP rows, keyed by worktree fsPath (== `repoPath`
 	 *  for the primary WIP, == the secondary worktree's fsPath for each secondary WIP row).
 	 *  Restored on WIP row selection; mutated via the `wip` RPC service's `updateDraft`. */

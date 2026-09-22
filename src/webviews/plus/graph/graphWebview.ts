@@ -255,6 +255,8 @@ import type {
 	GraphExcludeTypes,
 	GraphIncludeOnlyRef,
 	GraphIncludeOnlyRefs,
+	GraphIntent,
+	GraphIntentKind,
 	GraphItemContext,
 	GraphMinimapMarkerTypes,
 	GraphPinnedRef,
@@ -301,11 +303,15 @@ interface ResolvedScopeAnchor {
 	mergeTargetName?: string;
 }
 
-function hasRepository(arg: any): arg is { repository: GlRepository; search?: SearchQuery; selectSha?: string } {
+function hasRepository(
+	arg: any,
+): arg is { repository: GlRepository; search?: SearchQuery; selectSha?: string; intent?: GraphIntent } {
 	return arg?.repository != null;
 }
 
-function hasSearchQuery(arg: any): arg is { repository: GlRepository; search: SearchQuery; selectSha?: string } {
+function hasSearchQuery(
+	arg: any,
+): arg is { repository: GlRepository; search: SearchQuery; selectSha?: string; intent?: GraphIntent } {
 	return hasRepository(arg) && arg.search != null;
 }
 
@@ -340,6 +346,22 @@ function hasAction(arg: any): arg is {
 	scopeOrigin?: GraphScopeOrigin;
 } {
 	return typeof arg?.action === 'string';
+}
+
+/** Maps a revealed ref's type onto the wall-copy intent it should produce. Bare revisions and
+ *  every non-branch/tag/stash ref read as a commit — the copy is shared, only the promise
+ *  line's noun differs. */
+function refTypeToIntentKind(refType: GitReference['refType']): GraphIntentKind {
+	switch (refType) {
+		case 'branch':
+			return 'show-branch';
+		case 'tag':
+			return 'show-tag';
+		case 'stash':
+			return 'show-stash';
+		default:
+			return 'show-commit';
+	}
 }
 
 /** Maps the merge sheet's IPC literal onto the integration's enum. */
@@ -1475,6 +1497,29 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		  }
 		| undefined;
 	private _pendingCompare: DidRequestOpenCompareModeParams | undefined;
+	/** Why the current show happened — see `GraphIntent`. Parked like `_pendingAction`: emitted by
+	 *  the account-gated early return WITHOUT clearing (so the wall can re-render its copy on every
+	 *  rebuild) and cleared only by the full state build. */
+	private _pendingIntent: GraphIntent | undefined;
+	/** Whether either access wall (account screen or plan gate) was up as of the last state build.
+	 *  While one is, the graph subtree the lightweight RPC events target doesn't exist, so a warm
+	 *  show must park its request for the un-gating rebuild instead of firing it into the void
+	 *  (#5820). Kept accurate by every access flip forcing a rebuild — see `onSubscriptionChanged`. */
+	private _accessWallUp = false;
+
+	/** A warm show onto an access wall changes nothing the app can see: the wall is already up, the
+	 *  repository usually hasn't moved, and nothing else in the `onShowing` chain pushes state — so the
+	 *  newly parked intent (and the re-parked `_pendingAction`) would sit on the host while the wall kept
+	 *  advertising the PREVIOUS task. Push the gated build so the copy names what's actually queued.
+	 *
+	 *  A cold show (`loading`) already carries it through the bootstrap. Behind the account screen the
+	 *  build is the cheap early return; behind the plan gate it's the full build, which that wall already
+	 *  pays for on every other state change (#5820). */
+	private pushPendingIntentToAccessWall(loading: boolean): void {
+		if (loading || !this._accessWallUp || !this.host.ready || this._pendingIntent == null) return;
+
+		this._data.updateState();
+	}
 
 	async onShowing(
 		loading: boolean,
@@ -1497,6 +1542,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (GlRepository.is(arg)) {
 			this.repository = arg;
 		} else if (hasGitReference(arg)) {
+			this._pendingIntent = { kind: refTypeToIntentKind(arg.ref.refType), subject: arg.ref.name };
+
 			// A same-family target keeps the current binding: family rows (and every worktree's WIP row) are
 			// already in the graph, so switching to the reveal's named repo would tear down the session,
 			// selection, and any scope for a row that's already on screen.
@@ -1538,6 +1585,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					// Synthetic WIP rows can't be paged in via `onGetMoreRows`; selecting + notifying is enough.
 					if (isWipRow || this._data.session.current.ids.has(id)) {
 						this.notifyDidChangeSelection();
+						// This return skips the tail of `onShowing`, so the wall's copy has to be pushed
+						// here too — `notifyDidChangeSelection` carries the selection only. Reachable
+						// behind the PLAN gate, whose full build leaves a loaded session; the account
+						// wall skips the pipeline entirely, so its session is null and it never lands
+						// here (#5820).
+						this.pushPendingIntentToAccessWall(loading);
 						return [true, this.getShownTelemetryContext()];
 					}
 
@@ -1569,13 +1622,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this._requestVisualizationEvent.fire({ visualization: arg.visualization });
 			}
 		} else if (hasCompare(arg)) {
+			this._pendingIntent = {
+				kind: 'open-compare',
+				subject: arg.compare.leftRef,
+				subject2: arg.compare.rightRef,
+			};
+
 			const repoChanged = this._repository !== arg.repository;
 			this.repository = arg.repository;
 			const params: DidRequestOpenCompareModeParams = { repoPath: arg.repository.path, ...arg.compare };
 			// Cold show / repo swap / not-yet-ready must route through the state bootstrap so the compare
 			// lands with the repo's own state instead of racing it; a warm same-repo show fires the
 			// navigation event directly. Mirrors the search path below and the `pendingAction` mechanism.
-			if (loading || repoChanged || !this.host.ready) {
+			// An access wall (`_accessWallUp`) parks too: `openCompareMode` routes through the details
+			// panel, which isn't mounted behind either wall, so the event would be dropped (#5820).
+			if (loading || repoChanged || !this.host.ready || this._accessWallUp) {
 				this._pendingCompare = params;
 			} else {
 				this._requestOpenCompareModeEvent.fire(params);
@@ -1586,6 +1647,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// Repository-only args (e.g. the SCM "Show Commit Graph" button or a repo-folder node)
 			// just switch repos; only run the search-specific work when a search is also present.
 			if (hasSearchQuery(arg)) {
+				// Only the history commands tag an intent — a user-typed search carries none.
+				if (arg.intent != null) {
+					this._pendingIntent = arg.intent;
+				}
+
 				// Callers can hand us the `uncommitted` REVISION (e.g. Open File History on a
 				// working-changes file node) — no rendered row carries it, so map it to this
 				// worktree's synthetic WIP row id or the selection never highlights.
@@ -1617,7 +1683,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// Otherwise (warm + same-repo + ready) use the lightweight RPC event — bypasses
 				// the ~750ms `updateState` → `getState` pipeline since the only delta is the search.
 				// Mirrors the `DidRequestOpenCompareMode` / `DidRequestOpenTimelineScope` pattern.
-				if (loading || repoChanged || !this.host.ready) {
+				//   4. An access wall is up (`_accessWallUp`): the app renders the account screen or the
+				//      plan gate INSTEAD of the graph, so `setExternalSearchQuery`'s target header
+				//      doesn't exist and the event would be dropped outright (#5820).
+				if (loading || repoChanged || !this.host.ready || this._accessWallUp) {
 					this._searchRequest = arg.search;
 				} else {
 					this.notifyRequestSearch({ search: arg.search, selectSha: selectSha });
@@ -1630,6 +1699,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this._requestActiveSidebarPanelEvent.fire({ panel: arg.sidebarPanel });
 			}
 		} else if (hasAction(arg)) {
+			// A passive follow delivery is the background controller tracking the terminal, not the user
+			// asking for anything — attributing it as an intent would make the wall advertise a task the
+			// user never started ("Your working changes will open…") and would credit its conversion to
+			// that task in telemetry. Only `follow.ts` sets these, and it sets both (#5820).
+			if (!arg.followed && !arg.revealOnly) {
+				this._pendingIntent = {
+					kind: arg.action,
+					subject: arg.action === 'scope-to-branch' ? arg.scopeBranch?.branchName : undefined,
+				};
+			}
+
 			if (arg.action === 'scope-to-branch' && arg.target == null) {
 				void this.warnIfScopeToCurrentBranchDetached();
 			}
@@ -1801,6 +1881,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 			}
 		}
+
+		this.pushPendingIntentToAccessWall(loading);
 
 		// Non-blocking: surface any compose stashes from interrupted runs so the user can
 		// recover without digging through `git stash list`. Scoped to the current repo —
@@ -5305,12 +5387,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			};
 		}
 
-		const searchRequest = this._searchRequest;
-		this._searchRequest = undefined;
-
 		const subscription = await this.container.subscription.getSubscription();
 		this._accountAccessRequired = isAccountAccessRequired(subscription);
 		if (this._accountAccessRequired) {
+			// Raise the wall flag here, not before this branch: clearing it optimistically on every build
+			// would blind the warm-show park guards (see `_accessWallUp`) for the whole span between this
+			// point and where `allowed` is finally known, near the end of a long full build — and that
+			// span is exactly when a plan-gated warm show lands. Only ever set from a KNOWN wall state,
+			// so the stale value biases to parking (safe: the build in flight delivers it) rather than
+			// to firing an event into a webview that has no graph subtree (#5820).
+			this._accessWallUp = true;
 			// Signed out or unverified: the webview renders only the account-access screen, so skip the
 			// entire graph data pipeline (git walk, WIP, branch/PR/remote/worktree lookups). A full reload
 			// is forced from `onSubscriptionChanged` once the account becomes usable.
@@ -5356,12 +5442,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				isWeb: isWeb,
 				subscription: subscription,
 				signInGateVariant: signInGateVariant,
-				// Sent but NOT cleared (unlike the full build below): the app can't act on it while the
-				// account screen is up, but uses it to pick task-specific sign-in messaging (#5534); the
-				// un-gating full rebuild re-delivers it for actual consumption.
+				// Sent but NOT cleared (unlike the full build below): the app can't act on them while the
+				// account screen is up, but uses them to pick task-specific sign-in messaging (#5534,
+				// #5820); the un-gating full rebuild re-delivers them for actual consumption.
 				pendingAction: this._pendingAction,
+				pendingIntent: this._pendingIntent,
 			};
 		}
+
+		// Read AFTER the account-gated early return: that path returns without emitting
+		// `searchRequest`, so consuming it above would destroy a file-history request made while
+		// signed out (#5820). Held on the host instead and delivered by the un-gating rebuild.
+		const searchRequest = this._searchRequest;
+		this._searchRequest = undefined;
 
 		// Runs on every state build, not just opens — its own guards make repeats cheap no-ops
 		void this.container.subscription.autoResetTrialIfEligible({ source: 'graph' });
@@ -5871,6 +5964,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// thus the switch affordance, is shown) to avoid an aggregate visibility() scan on the common
 		// allowed path. The result is cached on the provider.
 		const allowed = this.isGraphAccessAllowed(access, featurePreview);
+		// The plan gate is the other wall that replaces the graph subtree — see `_accessWallUp`.
+		this._accessWallUp = !allowed;
 		const allowRepoSwitch = allowed === false ? (await this.container.git.visibility()) === 'mixed' : false;
 
 		const overviewData = this._panels.getOverviewData();
@@ -5984,6 +6079,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			minimap: { ...storedPanels?.minimap },
 			pendingAction: this._pendingAction,
 			pendingCompare: this._pendingCompare,
+			pendingIntent: this._pendingIntent,
 			wipDrafts: this._wip.sliceWipDraftsForPanel(),
 			timeline: {
 				period: storedGraphState?.timeline?.period,
@@ -6015,6 +6111,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._pendingVisualization = undefined;
 		this._pendingAction = undefined;
 		this._pendingCompare = undefined;
+		this._pendingIntent = undefined;
 		return result;
 	}
 
