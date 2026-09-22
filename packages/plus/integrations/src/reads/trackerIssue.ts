@@ -17,7 +17,13 @@ export interface TrackerIssueResult {
 	issue?: IssueShape;
 }
 
-/** Issue trackers are cloud-only, so this read takes no `domain`. */
+/**
+ * Takes no `domain`: the point read resolves a host-keyed tracker's primary connection, which is only safe
+ * while no such tracker implements `getProviderIssueByResourceId` (the `supportsIssueLookupByResourceId`
+ * guard below refuses before a host is resolved). Thread `domain` through, as `listIssueTrackerIssuesPage`
+ * now does, before adding that point read to a self-managed tracker — otherwise the read silently answers
+ * from whichever host happens to be primary (#5872).
+ */
 export async function getTrackerIssue(
 	ctx: ProviderReadContext,
 	options: {

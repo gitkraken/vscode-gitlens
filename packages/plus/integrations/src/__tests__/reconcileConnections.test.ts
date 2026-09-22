@@ -1,7 +1,11 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { Account } from '@gitlens/git/models/author.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
+} from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
@@ -1385,5 +1389,86 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		assert.equal(switched, false, 'cloud Bitbucket refresh must not switch Bitbucket Data Center');
 
 		manager.dispose();
+	});
+
+	test('a re-pointed Jira Server context path is re-fetched on a routine check-in, an unchanged one is not', async () => {
+		// Same host, same unexpired token, different context path. `host` is normalized, so the descriptor's
+		// domain is identical either way — only the address the connection actually carries changed, and every
+		// read would stay on the stale path until expiry if the routine check-in short-circuited on domain alone.
+		const runFor = async (wireDomain: string) => {
+			const { runtime, manager, paths } = createManager({
+				connections: [
+					{
+						tokenId: 'js1',
+						provider: 'jiraServer',
+						type: 'pat',
+						domain: wireDomain,
+						accountName: 'js-user',
+					},
+				],
+				token: () => ({
+					tokenId: 'js1',
+					accessToken: 'tok-js1',
+					expiresIn: 3600,
+					scopes: '',
+					type: 'pat',
+				}),
+			});
+			const future = new Date(Date.now() + 3600_000).toISOString();
+			await runtime.storage.store('integrations:configured', {
+				'jira-server': [
+					{
+						id: 'js1',
+						cloud: true,
+						integrationId: 'jira-server',
+						scopes: '',
+						primary: true,
+						domain: 'jira.example.com',
+						baseUrl: 'https://jira.example.com/jira',
+						expiresAt: future,
+					},
+				],
+			});
+			await runtime.storage.storeSecret(
+				'integration.auth.cloud:jira-server|js1',
+				JSON.stringify({
+					id: 'js1',
+					accessToken: 'tok-js1',
+					scopes: [],
+					cloud: true,
+					type: 'pat',
+					domain: 'jira.example.com',
+					baseUrl: 'https://jira.example.com/jira',
+				}),
+			);
+			paths.splice(0);
+
+			// A warm integration for the host: storing a new session is not enough on its own, since this
+			// instance holds its own and would keep addressing the old path until told to re-resolve.
+			const integration = await manager.get(IssuesSelfManagedHostIntegrationId.JiraServer, 'jira.example.com');
+			assert.ok(integration != null);
+			let switched = false;
+			integration.switchConnection = () => {
+				switched = true;
+			};
+
+			runtime.fireSubscriptionCheckIn(false);
+			await flush();
+
+			const refetched = paths.some(p => p.startsWith('v1/provider-tokens/tokens/'));
+			const stored = manager.getConfigured(IssuesSelfManagedHostIntegrationId.JiraServer)[0];
+			manager.dispose();
+			return { refetched: refetched, baseUrl: stored?.baseUrl, switched: switched };
+		};
+
+		const unchanged = await runFor('https://jira.example.com/jira');
+		assert.equal(unchanged.refetched, false, 'an unchanged address keeps the routine check-in cheap');
+		assert.equal(unchanged.baseUrl, 'https://jira.example.com/jira');
+		assert.equal(unchanged.switched, false, 'and does not churn a warm integration');
+
+		const moved = await runFor('https://jira.example.com/jira-dc');
+		assert.equal(moved.refetched, true, 'a re-pointed connection falls through to the fetch');
+		assert.equal(moved.baseUrl, 'https://jira.example.com/jira-dc', 'and the new address is persisted');
+		assert.equal(moved.switched, true, 'and the warm integration is told to re-resolve its session');
 	});
 });

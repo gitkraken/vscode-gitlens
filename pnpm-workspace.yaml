@@ -26,7 +26,7 @@ catalog:
     '@arethetypeswrong/cli': 0.18.5
     '@awesome.me/webawesome': 3.12.0
     '@lit-labs/virtualizer': 2.1.1
-    '@gitkraken/provider-apis': 0.59.0
+    '@gitkraken/provider-apis': 0.60.0
     # The @octokit/* packages depend on each other; version them as a family so a lone bump can't
     # split them. @octokit/graphql wants `@octokit/request: ^10.0.6` — see the overrides entry.
     '@octokit/graphql': 9.0.4

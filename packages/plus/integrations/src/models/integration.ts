@@ -21,22 +21,23 @@ import type {
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { RejectedTokenTracker } from '../authentication/rejectedTokenTracker.js';
-import type { IntegrationIds, IssuesCloudHostIntegrationId } from '../constants.js';
+import type { IntegrationIds, IssuesCloudHostIntegrationId, IssuesHostIntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { AuthenticationError, RequestClientError, toError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import { providersMetadata } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import type { Sources } from '../telemetry.js';
 import { areDomainsOnSameHost } from '../utils/domain.utils.js';
-import { isGitSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
+import { isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type { GitHostIntegration } from './gitHostIntegration.js';
 import { getCachedIssue } from './issueCache.js';
 import type { AccountWideIssuesResult, SearchMyIssuesOptions } from './issueReads.js';
 import type { IssuesIntegration } from './issuesIntegration.js';
 
 export type Integration = GitHostIntegration | IssuesIntegration;
-export type IntegrationById<T extends IntegrationIds> = T extends IssuesCloudHostIntegrationId
+export type IntegrationById<T extends IntegrationIds> = T extends IssuesHostIntegrationIds
 	? IssuesIntegration
 	: GitHostIntegration;
 export type IntegrationType = 'git' | 'issues';
@@ -46,6 +47,9 @@ export type IntegrationType = 'git' | 'issues';
 export type { AccountWideIssuesResult, ProviderIssueSearchPage, SearchMyIssuesOptions } from './issueReads.js';
 export type { ProviderPullRequestSearchPage } from './pullRequestReads.js';
 
+// Keep this in step with `isSelfManagedHostIntegrationId`: it is the type-level twin of that predicate, and a
+// disagreement compiles cleanly while the runtime writes a domain-keyed key the type says is unkeyed (so the
+// local-disconnect flag is written under one key and read under another).
 export type IntegrationKey<T extends IntegrationIds = IntegrationIds> = T extends
 	| GitCloudHostIntegrationId
 	| IssuesCloudHostIntegrationId
@@ -127,8 +131,17 @@ export abstract class IntegrationBase<
 		return { domain: this.domain, scopes: this.authProvider.scopes };
 	}
 
+	/**
+	 * The `gl-provider-<key>` glicon key for this provider, which is NOT always its id.
+	 *
+	 * `providersMetadata.iconKey` is the field that says which glyph a provider draws with, and a
+	 * self-managed variant reuses its cloud family's — Jira Data Center draws with Jira's, because it is the
+	 * same product and the id only selects an icon. Returning the id instead named a glyph the registry has
+	 * no entry for, so a consumer rendering a `gl-provider-` glicon from `issue.provider.icon` requested a
+	 * glyph that does not exist.
+	 */
 	get icon(): string {
-		return this.id;
+		return providersMetadata[this.id]?.iconKey ?? this.id;
 	}
 
 	access(): Promise<boolean> {
@@ -180,7 +193,7 @@ export abstract class IntegrationBase<
 	}
 
 	private isSessionForIntegrationHost(session: ProviderAuthenticationSession): boolean {
-		if (!isGitSelfManagedHostIntegrationId(this.id)) return true;
+		if (!isSelfManagedHostIntegrationId(this.id)) return true;
 
 		return areDomainsOnSameHost(this.domain, session.domain);
 	}

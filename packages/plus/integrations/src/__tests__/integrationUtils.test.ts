@@ -4,6 +4,7 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import { isNonExpiringZeroTokenIntegrationId } from '../utils/integration.utils.js';
 
@@ -23,6 +24,12 @@ suite('isNonExpiringZeroTokenIntegrationId (#5438)', () => {
 			true,
 			'Trello token never expires',
 		);
+	});
+
+	test('includes the self-managed trackers, whose PAT the backend cannot refresh', () => {
+		// Jira Data Center authenticates with a PAT the backend stores as-is, so a 0 here means "no meaningful
+		// expiry". Reading it as already-expired would re-resolve the session on every single read (#5864).
+		assert.equal(isNonExpiringZeroTokenIntegrationId(IssuesSelfManagedHostIntegrationId.JiraServer), true);
 	});
 
 	test('excludes providers whose 0 would mean actually-expired', () => {

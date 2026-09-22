@@ -6,6 +6,7 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
 } from '@gitlens/integrations/constants.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
@@ -213,6 +214,13 @@ const supportedIntegrationIdsToEnrich: Record<IntegrationIds, EnrichedItemRespon
 	[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: 'gitlab',
 	[GitSelfManagedHostIntegrationId.BitbucketServer]: 'bitbucket',
 	[IssuesCloudHostIntegrationId.Jira]: 'jira',
+	// Collapsed onto the cloud provider, like every self-hosted id above it: the enrich backend
+	// (`gitkraken/drafts-service`) validates `provider` against a fixed set that has no self-hosted member, so
+	// a `jira-server` value would be rejected outright. Safe because `provider` doesn't identify the entity —
+	// the host travels inside `entityId` (an encoded entity identifier carrying the provider AND domain) and
+	// `entityUrl`, which are what the backend hashes for uniqueness, so two Jira instances can't collide.
+	// gitkraken.dev maps all five self-hosted ids the same way, calling the enrich API "inconsistent".
+	[IssuesSelfManagedHostIntegrationId.JiraServer]: 'jira',
 	[IssuesCloudHostIntegrationId.Linear]: 'linear',
 	[IssuesCloudHostIntegrationId.Trello]: 'trello',
 };

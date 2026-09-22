@@ -1,9 +1,16 @@
 import type { RemoteProvider, RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
-import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../constants.js';
+import type {
+	CloudGitSelfManagedHostIntegrationIds,
+	CloudSelfManagedHostIntegrationIds,
+	IntegrationIds,
+	IssuesHostIntegrationIds,
+	SelfManagedHostIntegrationIds,
+} from '../constants.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { Integration, IntegrationConnectedKey } from '../models/integration.js';
@@ -20,6 +27,10 @@ const selfHostedIntegrationIds: GitSelfManagedHostIntegrationId[] = [
 	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 ] as const;
 
+const selfHostedIssuesIntegrationIds: IssuesSelfManagedHostIntegrationId[] = [
+	IssuesSelfManagedHostIntegrationId.JiraServer,
+] as const;
+
 export const supportedIntegrationIds: IntegrationIds[] = [
 	GitCloudHostIntegrationId.GitHub,
 	GitCloudHostIntegrationId.GitLab,
@@ -28,6 +39,7 @@ export const supportedIntegrationIds: IntegrationIds[] = [
 	IssuesCloudHostIntegrationId.Jira,
 	IssuesCloudHostIntegrationId.Trello,
 	...selfHostedIntegrationIds,
+	...selfHostedIssuesIntegrationIds,
 ] as const;
 
 export function convertRemoteProviderIdToIntegrationId(
@@ -53,7 +65,7 @@ export function getIntegrationConnectedKey<T extends IntegrationIds>(
 	id: T,
 	domain?: string,
 ): IntegrationConnectedKey<T> {
-	if (isGitSelfManagedHostIntegrationId(id)) {
+	if (isSelfManagedHostIntegrationId(id)) {
 		if (!domain) {
 			throw new Error(`Domain is required for self-managed integration ID: ${id}`);
 		}
@@ -108,16 +120,30 @@ export function isCloudGitSelfManagedHostIntegrationId(
 }
 
 /**
+ * Whether this id is a self-managed host whose token comes from the GK cloud backend — the check behind
+ * "expand this provider to one instance per configured host". Distinct from
+ * {@link isCloudGitSelfManagedHostIntegrationId}, which stays git-only because its callers go on to ask the
+ * instance for repositories.
+ */
+export function isCloudSelfManagedHostIntegrationId(id: IntegrationIds): id is CloudSelfManagedHostIntegrationIds {
+	return isCloudGitSelfManagedHostIntegrationId(id) || isIssuesSelfManagedHostIntegrationId(id);
+}
+
+/**
  * Whether a provider's cloud token uses `expiresIn: 0` to mean "never expires" (rather than "already
  * expired"). GitHub and the cloud self-managed hosts always return 0 for their non-expiring tokens; Trello
  * is issued with `expiration: never` (identity-service), so its cloud token comes back as 0 too. Callers
  * must map 0 → a far-future expiry for these, or the session is immediately treated as expired.
+ *
+ * Every backend-managed self-managed host qualifies, not just the git ones: a self-hosted tracker's token is
+ * a PAT the backend stores as-is and cannot refresh, so reading 0 as "already expired" would re-resolve the
+ * session on every single read.
  */
 export function isNonExpiringZeroTokenIntegrationId(id: IntegrationIds): boolean {
 	return (
 		id === GitCloudHostIntegrationId.GitHub ||
 		id === IssuesCloudHostIntegrationId.Trello ||
-		isCloudGitSelfManagedHostIntegrationId(id)
+		isCloudSelfManagedHostIntegrationId(id)
 	);
 }
 
@@ -141,6 +167,24 @@ export function isGitSelfManagedHostIntegrationId(id: IntegrationIds): id is Git
 	return selfHostedIntegrationIds.includes(id as GitSelfManagedHostIntegrationId);
 }
 
+export function isIssuesSelfManagedHostIntegrationId(id: IntegrationIds): id is IssuesSelfManagedHostIntegrationId {
+	return selfHostedIssuesIntegrationIds.includes(id as IssuesSelfManagedHostIntegrationId);
+}
+
+/**
+ * Whether this id addresses ONE customer-run host, whatever it hosts — the predicate the domain-keyed
+ * machinery runs on: the integration cache key, the secret key, the `connected:${id}:${domain}` flag, domain
+ * normalization, per-host primary selection, and multi-account reconcile.
+ *
+ * Deliberately wider than {@link isGitSelfManagedHostIntegrationId}, which is reserved for reads that go on to
+ * ask for repositories, pull requests, or a git remote. Widening THOSE to a tracker would attribute a Jira
+ * host's remotes to Jira; narrowing THESE to git hosts would key a tracker's connections under an empty
+ * domain, collapsing every host of it into one bucket.
+ */
+export function isSelfManagedHostIntegrationId(id: IntegrationIds): id is SelfManagedHostIntegrationIds {
+	return isGitSelfManagedHostIntegrationId(id) || isIssuesSelfManagedHostIntegrationId(id);
+}
+
 /**
  * Whether this id belongs to a dedicated issue tracker (resource → project) rather than a git host.
  *
@@ -148,11 +192,12 @@ export function isGitSelfManagedHostIntegrationId(id: IntegrationIds): id is Git
  * issue-tracker project read asked of GitHub — before resolving a connection. The instance-level
  * {@link isIssuesIntegration} answers the same question once an integration is in hand.
  */
-export function isIssuesHostIntegrationId(id: IntegrationIds): id is IssuesCloudHostIntegrationId {
+export function isIssuesHostIntegrationId(id: IntegrationIds): id is IssuesHostIntegrationIds {
 	switch (id) {
 		case IssuesCloudHostIntegrationId.Jira:
 		case IssuesCloudHostIntegrationId.Linear:
 		case IssuesCloudHostIntegrationId.Trello:
+		case IssuesSelfManagedHostIntegrationId.JiraServer:
 			return true;
 		default:
 			return false;
@@ -166,7 +211,7 @@ export function isIssuesHostIntegrationId(id: IntegrationIds): id is IssuesCloud
  * success with no warning and no `fetchFailed`, indistinguishable from "this host has nothing".
  */
 export function warnOnMissingSessionForDomain(id: IntegrationIds, domain: string | undefined): boolean {
-	return domain != null && isGitSelfManagedHostIntegrationId(id);
+	return domain != null && isSelfManagedHostIntegrationId(id);
 }
 
 /** Maps an integration id to the git-remote provider type used by the remote-URL matcher. */

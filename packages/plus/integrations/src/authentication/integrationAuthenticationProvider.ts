@@ -5,7 +5,7 @@ import { Emitter } from '@gitlens/utils/event.js';
 import type { IntegrationIds } from '../constants.js';
 import type { Sources } from '../telemetry.js';
 import { areDomainsOnSameHost } from '../utils/domain.utils.js';
-import { isGitSelfManagedHostIntegrationId, isNonExpiringZeroTokenIntegrationId } from '../utils/integration.utils.js';
+import { isNonExpiringZeroTokenIntegrationId, isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
 import type { IntegrationAuthenticationService } from './integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from './models.js';
@@ -115,7 +115,7 @@ abstract class IntegrationAuthenticationProviderBase<
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		options?: { preserveConfigured?: boolean },
 	): Promise<void> {
-		const domain = isGitSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined;
+		const domain = isSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined;
 		const configured = this.configuredIntegrationService.getConfigured(this.authProviderId, {
 			domain: domain,
 		});
@@ -139,7 +139,7 @@ abstract class IntegrationAuthenticationProviderBase<
 	async deleteAllSessions(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void> {
 		// Self-managed providers group every host under one provider id, so scope the clear to this
 		// descriptor's host when given; for cloud providers the domain stays undefined here, clearing every account.
-		const domain = isGitSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined;
+		const domain = isSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined;
 		const configured = this.configuredIntegrationService.getConfigured(this.authProviderId, {
 			domain: domain,
 		});
@@ -297,21 +297,38 @@ export class CloudIntegrationAuthenticationProvider<
 		// through to the provider-scoped path only when nothing is configured yet (legacy/first sync).
 		const connectionId =
 			descriptor.connectionId ??
-			(isGitSelfManagedHostIntegrationId(this.authProviderId)
+			(isSelfManagedHostIntegrationId(this.authProviderId)
 				? this.configuredIntegrationService.getConfiguredConnectionId(
 						this.authProviderId,
 						descriptor.domain,
 						true,
 					)
 				: undefined);
-		let session = await cloudIntegrations.getConnectionSession(this.authProviderId, undefined, connectionId);
-		if (
+		// Refuses a session issued for a DIFFERENT host than the one this connection is keyed by, which would
+		// otherwise let host B's token serve host A.
+		//
+		// A session that names no host is accepted ONLY when it was fetched by a connection id WE have stored
+		// for this host. That descriptor is what ties the token to the host, so an absent domain then means the
+		// backend did not say rather than that the token belongs elsewhere, and refusing it would strand the
+		// refresh.
+		//
+		// A non-null id is not enough on its own: `descriptor.connectionId` can come from the caller, and with
+		// no id at all the fetch goes to the provider-GLOBAL primary endpoint whose token can belong to any
+		// configured host. In both of those cases a domainless response must be refused, or a token would be
+		// bound to — and sent to — a host it was never issued for.
+		const scopedToThisHost = this.configuredIntegrationService.isConnectionConfiguredForHost(
+			this.authProviderId,
+			connectionId,
+			descriptor.domain,
+		);
+		const isForAnotherHost = (session: { domain: string } | undefined) =>
 			session != null &&
-			isGitSelfManagedHostIntegrationId(this.authProviderId) &&
-			!areDomainsOnSameHost(session.domain, descriptor.domain)
-		) {
-			return undefined;
-		}
+			isSelfManagedHostIntegrationId(this.authProviderId) &&
+			(!scopedToThisHost || Boolean(session.domain?.trim())) &&
+			!areDomainsOnSameHost(session.domain, descriptor.domain);
+
+		let session = await cloudIntegrations.getConnectionSession(this.authProviderId, undefined, connectionId);
+		if (isForAnotherHost(session)) return undefined;
 
 		// GitHub, the cloud self-managed hosts, and Trello return `expiresIn: 0` for a token that never
 		// expires; left as 0 the session would be built with `expiresAt = now` and rejected as expired on the
@@ -332,13 +349,7 @@ export class CloudIntegrationAuthenticationProvider<
 				session.accessToken,
 				connectionId,
 			);
-			if (
-				session != null &&
-				isGitSelfManagedHostIntegrationId(this.authProviderId) &&
-				!areDomainsOnSameHost(session.domain, descriptor.domain)
-			) {
-				return undefined;
-			}
+			if (isForAnotherHost(session)) return undefined;
 		}
 
 		if (!session) return undefined;
@@ -369,6 +380,18 @@ export class CloudIntegrationAuthenticationProvider<
 			expiresAt: new Date(session.expiresIn * 1000 + Date.now()),
 			// Note: do not use the session's domain, because the format is different than in our model
 			domain: descriptor.domain,
+			// That format difference is exactly what `baseUrl` is for: the descriptor's domain is the
+			// normalized host this connection is keyed by, so a context path only survives on the wire value.
+			// When the backend reports no domain at all, KEEP the address already configured rather than
+			// writing `undefined` — `writeSecret` mirrors this onto the descriptor, so falling back to the
+			// bare host here would drop a context path the user never changed on the next refresh.
+			baseUrl:
+				session.domain ||
+				this.configuredIntegrationService.getConfiguredBaseUrl(
+					this.authProviderId,
+					connectionId,
+					descriptor.domain,
+				),
 			protocol: sessionProtocol ?? undefined,
 			// Carried for providers whose client needs an app key alongside the token (e.g. Trello).
 			appKey: session.appKey,

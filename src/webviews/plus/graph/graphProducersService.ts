@@ -6,6 +6,7 @@ import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { supportedOrderedCloudIssuesIntegrationIds } from '@gitlens/integrations/constants.js';
+import { isSelfManagedHostIntegrationId } from '@gitlens/integrations/utils/integration.utils.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { getBranchId, getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -840,8 +841,29 @@ export class GraphProducersService {
 	private async checkIssueIntegrations(): Promise<boolean> {
 		const results = await Promise.allSettled(
 			supportedOrderedCloudIssuesIntegrationIds.map(async id => {
-				const integration = await this.container.integrations.get(id);
-				return integration?.maybeConnected ?? (await integration?.isConnected()) ?? false;
+				// A self-managed tracker is one id spanning a connection PER HOST, and a domainless `get()`
+				// resolves a single cached instance — so asking it alone would report "no issue integration"
+				// whenever the instance it happened to return is the disconnected one, disabling issue
+				// enrichment while another host is still connected. Ask every configured host instead.
+				const domains = isSelfManagedHostIntegrationId(id)
+					? [
+							...new Set(
+								this.container.integrations
+									.getConfigured(id)
+									.map(c => c.domain)
+									.filter((d): d is string => d != null && d.length > 0),
+							),
+						]
+					: [undefined];
+				if (domains.length === 0) return false;
+
+				const connected = await Promise.allSettled(
+					domains.map(async domain => {
+						const integration = await this.container.integrations.get(id, domain);
+						return integration?.maybeConnected ?? (await integration?.isConnected()) ?? false;
+					}),
+				);
+				return connected.some(r => r.status === 'fulfilled' && r.value);
 			}),
 		);
 		const connected = results.map(r => (r.status === 'fulfilled' ? r.value : false));

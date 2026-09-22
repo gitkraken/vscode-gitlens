@@ -14,6 +14,7 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import { isCloudGitSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type { AzureProjectInputDescriptor } from './azure/models.js';
@@ -93,6 +94,13 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 	if (provider === EntityIdentifierProviderType.AzureDevOpsServer) {
 		domain = entity.provider.domain ?? null;
 	}
+	if (provider === EntityIdentifierProviderType.JiraServer) {
+		// The host is the identity here, not a decoration: two self-hosted instances routinely issue the same
+		// project and issue keys, so an identifier without it collides across them. The SDK's
+		// `JiraIssueEntityIdentifierInput` says as much — its `JiraServer` arm requires `domain` where the
+		// `Jira` arm requires `resourceId`.
+		domain = entity.provider.domain ?? null;
+	}
 
 	let projectId = null;
 	let resourceId = null;
@@ -106,6 +114,14 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 
 		projectId = entity.project.id;
 		resourceId = entity.project.resourceId;
+	} else if (provider === EntityIdentifierProviderType.JiraServer) {
+		if (!isIssue(entity) || entity.project == null) {
+			throw new Error('Jira Server issues must have a project');
+		}
+
+		// `projectId` only; the SDK's `JiraServer` arm carries `domain` where Cloud carries `resourceId`, and a
+		// self-hosted instance's single synthetic resource is the host the `domain` above already names.
+		projectId = entity.project.id;
 	} else if (
 		provider === EntityIdentifierProviderType.Azure ||
 		provider === EntityIdentifierProviderType.AzureDevOpsServer
@@ -179,6 +195,8 @@ export function getProviderIdFromEntityIdentifier(
 			return GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted;
 		case EntityIdentifierProviderType.Jira:
 			return IssuesCloudHostIntegrationId.Jira;
+		case EntityIdentifierProviderType.JiraServer:
+			return IssuesSelfManagedHostIntegrationId.JiraServer;
 		case EntityIdentifierProviderType.Linear:
 			return IssuesCloudHostIntegrationId.Linear;
 		case EntityIdentifierProviderType.Trello:
@@ -212,6 +230,8 @@ function fromStringToEntityIdentifierProviderType(
 			return EntityIdentifierProviderType.Gitlab;
 		case 'jira':
 			return EntityIdentifierProviderType.Jira;
+		case 'jira-server':
+			return EntityIdentifierProviderType.JiraServer;
 		case 'linear':
 			return EntityIdentifierProviderType.Linear;
 		case 'trello':
@@ -337,6 +357,13 @@ export async function getIssueFromGitConfigEntityIdentifier(
 	}
 
 	// TODO: Centralize where we represent all supported providers for issues
+	//
+	// `JiraServer` is deliberately absent, even though `getEntityIdentifierInput` now encodes it: resolution
+	// goes through `resolveIntegration(id)`, which takes no domain and therefore answers from whichever
+	// connection is primary. For a host-keyed tracker that silently reads the wrong instance — the same trap
+	// `getTrackerIssue` refuses at (see `reads/trackerIssue.ts`). Encoding without decoding loses a branch
+	// association; decoding without a domain returns someone else's issue under the right key. Add it here
+	// once the resolver carries the identifier's `domain` (#5872).
 	if (
 		identifier.provider !== EntityIdentifierProviderType.Jira &&
 		identifier.provider !== EntityIdentifierProviderType.Linear &&
