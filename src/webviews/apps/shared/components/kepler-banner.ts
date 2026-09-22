@@ -44,11 +44,11 @@ export class GlKeplerBanner extends LitElement {
 	// No secondary button and not dismissible, unlike the other banners in this folder — satisfying the
 	// walkthrough's `kepler` step (by opening Kepler via the primary button) is the only way this banner goes away.
 	override render(): unknown {
-		// Both the "Learn more" link and the primary button route through `gitlens.getKepler` (rather
-		// than linking `urls.kepler` directly) so either click fires `kepler/productPage/opened` telemetry and
+		// Both the "Learn more" link and the primary button route through `gitlens.kepler.openProductPage`
+		// (rather than linking `urls.kepler` directly) so either click fires `kepler/productPage/opened` telemetry and
 		// satisfies the walkthrough's `kepler` step — the banner is non-dismissible, so a link that
 		// bypassed the command would leave it stuck forever for anyone who only ever clicks the link.
-		const keplerCommandLink = createCommandLink('gitlens.getKepler', { source: this.source });
+		const keplerCommandLink = createCommandLink('gitlens.kepler.openProductPage', { source: this.source });
 		const bodyHtml = html`${localizedContent(l10n.t('Kepler is the agent-agnostic development environment for running AI agents across the entire development workflow, from idea or issue to merged PR. {learnMore}'), { learnMore: html`<a href=${keplerCommandLink}>${l10n.t('Learn more')}</a>` })}`;
 
 		return html`
