@@ -1,13 +1,13 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import * as l10n from '@vscode/l10n';
-import { html, LitElement } from 'lit';
+import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../system/commands.js';
-import type { GraphShowAction } from '../../../plus/graph/protocol.js';
+import type { GraphIntent } from '../../../plus/graph/protocol.js';
 import { notifyService } from '../../shared/actions/rpc.js';
 import { featureGateContentStyles } from '../../shared/components/feature-gate.css.js';
 import { subscriptionContext } from '../../shared/contexts/subscription.js';
@@ -15,7 +15,8 @@ import type { SubscriptionContextState } from '../../shared/contexts/subscriptio
 import { waitForFocusSettled } from '../../shared/focus.js';
 import { linkStyles } from '../shared/components/vscode.css.js';
 import { graphServicesContext, graphStateContext } from './context.js';
-import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
+import type { GraphIntentCopy } from './intentCopy.js';
+import { getIntentCopy, getIntentSourceDetail } from './intentCopy.js';
 import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/feature-badge.js';
 import '../../shared/components/feature-gate.js';
@@ -34,15 +35,38 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 	@consume({ context: graphServicesContext, subscribe: true })
 	private readonly _services?: typeof graphServicesContext.__context__;
 
-	/** The task that brought the user here (parked by the app while gated) — selects the gate copy;
-	 *  actions without task copy fall back to the generic Commit Graph pitch. */
+	/** Why the user is here (parked by the app while gated) — selects the gate copy; arrivals
+	 *  without task copy fall back to the generic Commit Graph pitch. */
 	@property({ attribute: false })
-	intentAction?: GraphShowAction;
+	intent?: GraphIntent;
+
+	/** The queued-task receipt — see `.feature__promise`. Uses `localizedContent` (not `l10n.t`
+	 *  arguments) so the ref or path can carry its own styling inside the translated sentence.
+	 *  Deliberately near-duplicate of `GlGraphAccessAccount.renderPromise` — `intentCopy.ts` stays
+	 *  pure and Lit-free, so this doesn't factor into a shared module that imports `lit`. */
+	private renderPromise(promise: NonNullable<GraphIntentCopy['promise']>): unknown {
+		const token = (value: string) => html`<span class="feature__promise__subject">${value}</span>`;
+		// Only include the keys the message actually has — `localizedContent` warns on an unused
+		// value even when it's `undefined` (it checks `Object.keys(values)`, not nullishness).
+		const values: Record<string, unknown> = {};
+		if (promise.subject != null) {
+			values.subject = token(promise.subject);
+		}
+
+		if (promise.subject2 != null) {
+			values.subject2 = token(promise.subject2);
+		}
+
+		return html`<p class="feature__promise" role="note">
+			<code-icon icon="history"></code-icon>
+			<span>${localizedContent(promise.message, values)}</span>
+		</p>`;
+	}
 
 	override render() {
 		const orgCount = this._subscription.organizationsCount.get();
-		const copy = this.intentAction != null ? intentCopyByAction[this.intentAction] : undefined;
-		const source: Source = { source: 'graph', detail: getIntentSourceDetail('gate', this.intentAction) };
+		const copy = getIntentCopy(this.intent);
+		const source: Source = { source: 'graph', detail: getIntentSourceDetail('gate', this.intent) };
 
 		return html`<gl-feature-gate
 			variant="sheet"
@@ -81,6 +105,7 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 						</p>
 					</hgroup>
 				</header>
+				${copy?.promise ? this.renderPromise(copy.promise) : nothing}
 
 				<p class="feature__sub">
 					${localizedContent(

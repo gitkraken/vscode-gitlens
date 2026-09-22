@@ -6,8 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds task-specific messaging to the _Commit Graph_'s sign-in and upgrade screens ([#5820](https://github.com/gitkraken/vscode-gitlens/issues/5820), [#5784](https://github.com/gitkraken/vscode-gitlens/issues/5784)) &mdash; opening a commit, branch, tag, or stash, a file or folder's history, a comparison, your working changes, a branch focus, or an automatic rebase summary now names that task on the screen that interrupts it, and confirms it will open in the _Commit Graph_ once you have access. Ctrl-clicking a commit hash in the terminal no longer lands on an unexplained sign-in screen &mdash; it names the commit and holds it until you're signed in
+
 ### Fixed
 
+- Fixes a comparison, or a file or folder history, opened in the _Commit Graph_ while signed out or before upgrading being discarded instead of opening once access is granted ([#5820](https://github.com/gitkraken/vscode-gitlens/issues/5820))
+- Fixes the _Commit Graph_'s sign-in and upgrade screens still describing the previous task when a second one arrives while they're open ([#5820](https://github.com/gitkraken/vscode-gitlens/issues/5820))
 - Fixes _Delete Branch..._ on a branch that has a worktree deleting the worktree but leaving the branch behind &mdash; Git refuses to delete a branch that's checked out in a worktree, so both now happen together in a single confirm with _Delete Branch_ pre-checked; uncheck it to keep the branch. _Prune Branches..._ works the same way
 - Fixes the _Delete Worktree_ confirm offering to delete a branch's upstream when that upstream is already missing from the remote
 - Fixes the _GitKraken AI_ usage meter saying _Nearly out_ when the weekly allowance is spent in full &mdash; it now reads _Allowance used_ in the error color, in both _GitLens Settings_ and the _Commit Graph_'s account rollup

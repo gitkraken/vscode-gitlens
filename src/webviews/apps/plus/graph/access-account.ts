@@ -10,10 +10,11 @@ import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { SubscriptionLoginCommandArgs } from '../../../../plus/gk/models/subscription.js';
 import { createCommandLink } from '../../../../system/commands.js';
-import type { GraphShowAction } from '../../../plus/graph/protocol.js';
+import type { GraphIntent } from '../../../plus/graph/protocol.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { graphStateContext } from './context.js';
-import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
+import type { GraphIntentCopy } from './intentCopy.js';
+import { getIntentCopy, getIntentSourceDetail, getIntentTelemetryDetail } from './intentCopy.js';
 import '../../shared/components/button.js';
 import '../../shared/components/card/card.js';
 import '@gitlens/components/components/codeIcon.js';
@@ -430,6 +431,46 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				color: var(--vscode-descriptionForeground);
 				text-wrap: pretty;
 				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 120ms both;
+			}
+
+			.promise {
+				display: flex;
+				gap: var(--gl-space-8);
+				align-items: flex-start;
+				inline-size: 100%;
+				padding: var(--gl-space-8) var(--gl-space-12);
+				margin-block: var(--gl-space-16) 0;
+				font-size: var(--gl-font-md);
+				line-height: 1.4;
+				color: var(--color-foreground--85);
+				text-align: start;
+				text-wrap: pretty;
+				background: color-mix(in lab, var(--vscode-editor-background) 100%, var(--vscode-foreground) 12%);
+				border-inline-start: 0.2rem solid var(--color-alert-infoBorder);
+				border-radius: var(--gl-radius-sm);
+				/* No opacity here: gl-fade-up fills both, so its final keyframe (opacity 1) wins
+				   over any declared value — the dim would apply ONLY under prefers-reduced-motion,
+				   where the animation is suppressed. The surface and accent rule carry the
+				   separation from .body; dimming would undo the point of the callout. */
+				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 150ms both;
+			}
+
+			.promise code-icon {
+				flex: none;
+				color: var(--color-alert-infoBorder);
+			}
+
+			/* A flex item defaults to min-width:auto, so without this the text can't shrink below its
+			   longest unbreakable run and a deep file path pushes out of the callout. */
+			.promise > span {
+				min-inline-size: 0;
+			}
+
+			.promise__subject {
+				font-family: var(--vscode-editor-font-family);
+				/* File paths have no ordinary break opportunities, so they must be able to break
+				   mid-token — anywhere only kicks in when the line would otherwise overflow. */
+				overflow-wrap: anywhere;
 			}
 
 			.nowrap {
@@ -1033,6 +1074,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				.success,
 				.heading,
 				.body,
+				.promise,
 				.actions,
 				.waiting,
 				.sync-status,
@@ -1062,10 +1104,10 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 	@consume({ context: graphStateContext, subscribe: false })
 	graphState!: typeof graphStateContext.__context__;
 
-	/** The task that brought the user here (parked by the app while gated) — selects the
-	 *  sign-in copy; actions without task copy fall back to the generic pitch. */
+	/** Why the user is here (parked by the app while gated) — selects the sign-in copy;
+	 *  arrivals without task copy fall back to the generic pitch. */
 	@property({ attribute: false })
-	intentAction?: GraphShowAction;
+	intent?: GraphIntent;
 
 	/** Selects the welcome copy variant — true keeps the "You're signed in" framing; false
 	 *  (already signed in on first entry) drops it. */
@@ -1176,7 +1218,9 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			this._signInShownReported = true;
 			emitTelemetrySentEvent<'graph/signin/shown'>(this, {
 				name: 'graph/signin/shown',
-				data: { variant: variant },
+				// Carries the task so this impression can be the denominator for the task-sliced
+				// conversions the actions below report via `signInSource` (#5820).
+				data: { variant: variant, intent: getIntentTelemetryDetail(this.intent) },
 			});
 		}
 
@@ -1215,12 +1259,33 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private get signInCopy(): { heading: string; body: string } | undefined {
-		return this.intentAction != null ? intentCopyByAction[this.intentAction] : undefined;
+	private get signInCopy(): GraphIntentCopy | undefined {
+		return getIntentCopy(this.intent);
 	}
 
 	private get signInSource(): Source {
-		return { source: 'graph', detail: getIntentSourceDetail('signin', this.intentAction) };
+		return { source: 'graph', detail: getIntentSourceDetail('signin', this.intent) };
+	}
+
+	/** The queued-task receipt — see `.promise`. Uses `localizedContent` (not `l10n.t` arguments) so
+	 *  the ref or path can carry its own styling inside the translated sentence. */
+	private renderPromise(promise: NonNullable<GraphIntentCopy['promise']>): unknown {
+		const token = (value: string) => html`<span class="promise__subject">${value}</span>`;
+		// Only include the keys the message actually has — `localizedContent` warns on an unused
+		// value even when it's `undefined` (it checks `Object.keys(values)`, not nullishness).
+		const values: Record<string, unknown> = {};
+		if (promise.subject != null) {
+			values.subject = token(promise.subject);
+		}
+
+		if (promise.subject2 != null) {
+			values.subject2 = token(promise.subject2);
+		}
+
+		return html`<p class="promise" role="note">
+			<code-icon icon="history"></code-icon>
+			<span>${localizedContent(promise.message, values)}</span>
+		</p>`;
 	}
 
 	private renderSignIn(): unknown {
@@ -1253,6 +1318,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 							)
 						}
 					</p>
+					${copy?.promise ? this.renderPromise(copy.promise) : nothing}
 					${this.waiting ? this.renderWaiting() : this.renderSignInActions()}
 					${
 						this.introVideo

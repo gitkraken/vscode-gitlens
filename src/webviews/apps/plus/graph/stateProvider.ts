@@ -395,6 +395,9 @@ export class GraphStateProvider implements Disposable {
 	accessor pendingCompare: AppState['pendingCompare'];
 
 	@signalState()
+	accessor pendingIntent: AppState['pendingIntent'];
+
+	@signalState()
 	accessor wipDrafts: State['wipDrafts'];
 
 	@signalState()

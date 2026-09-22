@@ -39,6 +39,7 @@ import type {
 	GraphComponentConfig,
 	GraphComposeScopeSeed,
 	GraphDisplayMode,
+	GraphIntent,
 	GraphItemContext,
 	GraphMinimapMarkerTypes,
 	GraphScopeBranch,
@@ -1072,6 +1073,22 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	};
 	private _wasAccessGated = false;
 
+	/** The parked show-intent behind an access wall — drives both walls' task-specific copy (#5820).
+	 *  Separate from `_gatedPendingAction` because most intents (a commit reveal, a file history, a
+	 *  comparison) carry no `GraphShowAction` at all. */
+	@state()
+	private _gatedIntent?: GraphIntent;
+
+	/** An interrupted comparison parked behind an access wall — `updated`'s consumer routes through
+	 *  `withDetailsPanel`, which no-ops while the graph subtree is unmounted, so consuming it while
+	 *  gated would drop it outright (#5820). */
+	private _gatedPendingCompare?: DidRequestOpenCompareModeParams;
+
+	/** An interrupted external search (e.g. Open File History in Graph) parked behind an access wall —
+	 *  `updated` hands it to `graphHeader`, which doesn't exist while a wall is up, so consuming it
+	 *  there would drop it and stamp `_lastSearchRequest` against ever re-running it (#5820). */
+	private _gatedSearchRequest?: SearchQuery;
+
 	/** Drives the welcome's live-sign-in copy variant: armed when the account wall clears live (a
 	 *  sign-in completed while the account screen was showing) with no parked task to run — a task
 	 *  arrival goes straight to the graph instead, both for intent and because
@@ -1107,7 +1124,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// dismissed, `true` = dismissed.
 			this._dismissals?.get('graph:intro') === false &&
 			this._gatedPendingAction == null &&
-			this.graphState.pendingAction == null
+			this.graphState.pendingAction == null &&
+			// Only the PARKED intent gates onboarding. `graphState.pendingIntent` deliberately isn't
+			// checked: it's display-only, so nothing consumes it once the graph itself is rendering, and
+			// gating on it would suppress the first-run welcome for the rest of the session for anyone
+			// whose graph opened from a terminal sha link or Open File History (#5820).
+			this._gatedIntent == null
 		);
 	}
 
@@ -1505,7 +1527,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this._wasAccountGated &&
 			(this.graphState.allowed ?? false) &&
 			this._gatedPendingAction == null &&
-			this.graphState.pendingAction == null
+			this.graphState.pendingAction == null &&
+			// The parked intent is the one that matters here — this runs before the un-gating branch
+			// below clears it, so an interrupted task still suppresses the interstitial. See
+			// `shouldShowWelcome` for why `graphState.pendingIntent` is not checked.
+			this._gatedIntent == null
 		) {
 			this._postSignInPending = true;
 		}
@@ -1528,6 +1554,27 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				this._gatedPendingAction = pending;
 			}
 
+			const intent = this.graphState.pendingIntent;
+			if (intent != null) {
+				this.graphState.pendingIntent = undefined;
+				this._gatedIntent = intent;
+			}
+
+			// `updated()` would consume these two in this same cycle and drop them on the floor — the
+			// graph subtree they target isn't mounted while a wall is up. `willUpdate` runs first, so
+			// park them here and replay on the un-gating flip below (#5820).
+			const compare = this.graphState.pendingCompare;
+			if (compare != null) {
+				this.graphState.pendingCompare = undefined;
+				this._gatedPendingCompare = compare;
+			}
+
+			const search = this.graphState.searchRequest;
+			if (search != null) {
+				this.graphState.searchRequest = undefined;
+				this._gatedSearchRequest = search;
+			}
+
 			// A sign-out or plan change interrupting a live task: capture it on the flip, before this
 			// render tears the details panel down. An explicit parked action wins over the ambient mode.
 			if (!this._wasAccessGated && this._gatedPendingAction == null) {
@@ -1543,17 +1590,42 @@ export class GraphApp extends SignalWatcher(LitElement) {
 									},
 								}
 							: task;
+					// The walls read `_gatedIntent`, not the parked action, so the copy needs the same
+					// capture — without it an interrupted live task falls back to the generic pitch,
+					// losing the task-specific messaging #5534 added. An explicit arrival parked above
+					// still wins.
+					this._gatedIntent ??= {
+						kind: task.action,
+						subject: task.compare?.leftRef,
+						subject2: task.compare?.rightRef,
+					};
 				}
 			}
 		} else if (this._wasAccessGated) {
 			const parked = this._gatedPendingAction;
 			this._gatedPendingAction = undefined;
+			this._gatedIntent = undefined;
 			// Only the account wall's rebuild re-delivers a host-held action by itself (its `getState`
 			// early-return sends `pendingAction` without clearing it) — there the parked copy would be
 			// a duplicate. The plan gate goes through the full build, which does clear it, so the parked
 			// copy is the only one left. Consuming only when the rebuild carried nothing covers both.
 			if (parked != null && this.graphState.pendingAction == null) {
 				void this.updateComplete.then(() => this.consumePendingAction(parked));
+			}
+
+			const parkedCompare = this._gatedPendingCompare;
+			this._gatedPendingCompare = undefined;
+			if (parkedCompare != null && this.graphState.pendingCompare == null) {
+				void this.updateComplete.then(() => this.openCompareMode(parkedCompare));
+			}
+
+			// Routed back through the state signal rather than straight to `setExternalSearchQuery` so
+			// this render's `updated()` runs the whole consumer — leaving a non-graph display mode,
+			// dropping a stale timeline scope, and stamping `_lastSearchRequest` for the de-dup.
+			const parkedSearch = this._gatedSearchRequest;
+			this._gatedSearchRequest = undefined;
+			if (parkedSearch != null && this.graphState.searchRequest == null) {
+				this.graphState.searchRequest = parkedSearch;
 			}
 		}
 		this._wasAccessGated = gated;
@@ -1760,6 +1832,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			}
 		}
 
+		// The intent is display-only and the walls hold their own parked copy, so once the graph is
+		// rendering it has no consumer left — drop it rather than leave a delivered one-shot field set
+		// for the rest of the session, the way every sibling `pending*` field is consumed here (#5820).
+		if (this.graphState.pendingIntent != null) {
+			this.graphState.pendingIntent = undefined;
+		}
+
 		// Handle pending action from walkthrough CTA or external show request
 		const pendingAction = this.graphState.pendingAction;
 		if (pendingAction != null) {
@@ -1822,7 +1901,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	override render() {
 		if (this.isAccountGated || this.shouldShowWelcome) {
 			return html`<gl-graph-access-account
-				.intentAction=${this._gatedPendingAction?.action}
+				.intent=${this._gatedIntent}
 				.welcome=${this.shouldShowWelcome}
 				.liveSignIn=${this._postSignInPending}
 				.showLayoutOptions=${this.layoutPromptNeeded}
@@ -1832,7 +1911,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 
 		if (!this.graphState.allowed) {
-			return html`<gl-graph-gate .intentAction=${this._gatedPendingAction?.action}></gl-graph-gate>`;
+			return html`<gl-graph-gate .intent=${this._gatedIntent}></gl-graph-gate>`;
 		}
 
 		const detailsVisible = this.graphState.details?.visible ?? false;
