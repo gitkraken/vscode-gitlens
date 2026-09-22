@@ -639,21 +639,36 @@ export interface IntegrationManager {
 	 * {@link getIssuesBatch}, which cannot serve one.
 	 *
 	 * `issue: undefined` is a proven absence and may be cached. A failed read returns no item and sets
-	 * `fetchFailed`. `resourceId` is required and trusted; Jira also requires the resource's site URL so the result
-	 * retains its browser link. The read performs no resource discovery.
+	 * `fetchFailed`. `resourceId` is required and trusted; Jira Cloud also requires the resource's site URL so the
+	 * result retains its browser link. The read performs no resource discovery.
 	 *
-	 * Jira and Linear only. Trello refuses: its single-issue read falls back to a capped board scan for a numeric
-	 * identifier, so it cannot prove absence.
+	 * Jira (Cloud and Data Center) and Linear only. Trello refuses: its single-issue read falls back to a capped
+	 * board scan for a numeric identifier, so it cannot prove absence.
+	 *
+	 * Jira Data Center is addressed per host and, unlike the paged reads, this one never falls back to the primary
+	 * connection: it requires a `domain` or a `connectionId` with a configured host and refuses otherwise, since two
+	 * self-hosted instances routinely issue the same keys and a cached absence must name the host it was proven on.
 	 */
 	getTrackerIssue(options: {
 		providerId: IntegrationIds;
-		/** Provider resource ID for the Atlassian site or Linear workspace. */
+		/**
+		 * Provider resource ID for the Atlassian site or Linear workspace. For Jira Data Center it is the host, the
+		 * instance's single resource as `listOrgs` reports it, and must name the host the read resolves to.
+		 */
 		resourceId: string;
-		/** Jira site URL from resource discovery. Required for Jira so the result retains a browser link. */
+		/**
+		 * Jira site URL from resource discovery. Required for Jira Cloud so the result retains a browser link; Jira
+		 * Data Center builds it from the connection's own base URL.
+		 */
 		resourceUrl?: string;
 		/** The provider's own key, e.g. `ABC-123`. Not a number. */
 		key: string;
 		connectionId?: string;
+		/**
+		 * Self-managed tracker host; see {@link ProviderSweepTarget.domain}. Ignored for the cloud trackers. Required
+		 * for Jira Data Center unless `connectionId` names a configured host — see above.
+		 */
+		domain?: string;
 	}): Promise<ProviderResult<TrackerIssueResult>>;
 	/**
 	 * How many pull requests match each scope, fetching none of them — the PR twin of {@link countIssues}, behind a

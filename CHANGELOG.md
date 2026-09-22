@@ -8,8 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds _Jira Data Center_ to the integrations in _GitLens Settings_, so a self-hosted Jira Server or Data Center instance can be connected alongside Jira Cloud ([#5864](https://github.com/gitkraken/vscode-gitlens/issues/5864)). It connects through your GitKraken account like the other self-hosted integrations, and each configured host is its own connection. The rest of the wiring &mdash; the _Commit Graph_'s issue tracker picker, autolinks &mdash; is not there yet, so a connected instance is not yet read anywhere else in GitLens
+- Adds _Jira Data Center_ to the integrations in _GitLens Settings_, so a self-hosted Jira Server or Data Center instance can be connected alongside Jira Cloud ([#5864](https://github.com/gitkraken/vscode-gitlens/issues/5864)). It connects through your GitKraken account like the other self-hosted integrations, and each configured host is its own connection. The rest of the wiring &mdash; the _Commit Graph_'s issue tracker picker, autolinks &mdash; is not there yet, so apart from branch associations a connected instance is not yet read anywhere else in GitLens
   - The _Commit Graph_'s check for whether any issue integration is connected now looks at every configured host of a self-hosted tracker, so disconnecting one host no longer turns off issue enrichment while another is still connected
+  - Reads a branch's associated _Jira Data Center_ issues from the instance the association names, never from another configured host that happens to be primary ([#5872](https://github.com/gitkraken/vscode-gitlens/issues/5872))
 
 ### Fixed
 

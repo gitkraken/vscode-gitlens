@@ -8,6 +8,7 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
 import type { IntegrationBase } from '@gitlens/integrations/models/integration.js';
+import { isSelfManagedHostIntegrationId } from '@gitlens/integrations/utils/integration.utils.js';
 import { isPromise } from '@gitlens/utils/promise.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { ResourceUsage, ResourceUsageMetric } from '@gitlens/utils/resourceUsage.js';
@@ -194,7 +195,7 @@ export class CacheProvider implements Disposable {
 		options?: ExpiryOptions & { connectionId?: string; etag?: string },
 	): CacheResult<Issue> {
 		const { connectionId, etag: etagOverride, ...cacheOptions } = options ?? {};
-		const { key, etag } = this.getResourceKeyAndEtag(resource, integration);
+		const { key, etag } = this.getIssueResourceKeyAndEtag(resource, integration);
 		const connectionKey = connectionId ? `:${connectionId}` : '';
 
 		if (resource == null) {
@@ -307,7 +308,7 @@ export class CacheProvider implements Disposable {
 	}
 
 	peekIssue(id: string, resource: ResourceDescriptor, integration: IntegrationBase | undefined): Issue | undefined {
-		const { key } = this.getResourceKeyAndEtag(resource, integration);
+		const { key } = this.getIssueResourceKeyAndEtag(resource, integration);
 		return this.peek(
 			'issuesByIdAndResource',
 			`id:${id}:${key}:${'issue' satisfies IssueOrPullRequestType}:${JSON.stringify(resource)}}`,
@@ -423,6 +424,17 @@ export class CacheProvider implements Disposable {
 			key: resource.key,
 			etag: `${resource.key}:${integration?.maybeConnected ?? false}:${fingerprint}`,
 		};
+	}
+
+	/**
+	 * Two self-managed hosts routinely issue the same project and issue keys, so an issue's cache key names the
+	 * host too; otherwise a cached issue from one instance is returned for an identifier naming another (#5872).
+	 */
+	private getIssueResourceKeyAndEtag(resource: ResourceDescriptor, integration: IntegrationBase | undefined) {
+		const { key, etag } = this.getResourceKeyAndEtag(resource, integration);
+		if (integration == null || !isSelfManagedHostIntegrationId(integration.id)) return { key: key, etag: etag };
+
+		return { key: `${key}@${integration.domain}`, etag: etag };
 	}
 
 	private getIntegrationCacheKey(integration: IntegrationBase): string {
