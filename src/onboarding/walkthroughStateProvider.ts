@@ -108,6 +108,9 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'command:gitlens.welcome.openKepler:executed',
 				'command:gitlens.getKepler:executed',
 				'command:gitlens.kepler.openProductPage:executed',
+				// Tracked by `KeplerService` when it detects an installed Kepler, so a user who already
+				// has it isn't invited to get it
+				'action:gitlens.kepler.installed:happened',
 			],
 		},
 	],
