@@ -23,6 +23,9 @@ import type { AgentDescriptor, AgentRoute } from './plus/agents/agentDescriptor.
 import type { AutoRebaseUndoRefusalReason } from './plus/coretools/conflict/autoRebase.types.js';
 import type { OrganizationRole } from './plus/gk/models/organization.js';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription.js';
+import type { KeplerProviderId } from './plus/kepler/keplerProviders.js';
+import type { KeplerChannel } from './plus/kepler/keplerService.js';
+import type { KeplerTaskAction, KeplerTaskIntent } from './plus/kepler/keplerTask.js';
 import type { GraphColumnConfig, GraphScopeSource } from './webviews/plus/graph/protocol.js';
 import type { TimelinePeriod, TimelineScopeType, TimelineSliceBy } from './webviews/plus/timeline/protocol.js';
 
@@ -621,6 +624,10 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when the user opens Kepler's product page from the "Try Kepler" CTA (Settings or Graph sidebar banner) */
 	'kepler/productPage/opened': void;
+	/** Sent when the user starts a Kepler task — a deep link into an installed Kepler's Task Composer was handed off. Records what was sent, not whether Kepler handled it */
+	'kepler/task/start': KeplerTaskStartEvent;
+	/** Sent when starting a Kepler task fails — the item's provider is one Kepler cannot serve, or the deep link could not be handed off */
+	'kepler/task/start/failed': KeplerTaskStartFailedEvent;
 
 	/** Sent when the user takes an action on the Launchpad title bar */
 	'launchpad/title/action': LaunchpadTitleActionEvent;
@@ -2653,6 +2660,28 @@ interface GraphKanbanSessionActionEvent extends GraphContextEventData {
 interface GraphKanbanPermissionResolvedEvent extends GraphContextEventData {
 	decision: 'allow' | 'deny';
 	'permission.kind': string;
+}
+
+interface KeplerTaskStartEvent {
+	/** Which entry point started the task */
+	intent: KeplerTaskIntent;
+	/** The kind of item the task starts from; absent for a task started from a repository */
+	kind?: 'pr' | 'issue';
+	/** The Kepler provider id the item's provider mapped to */
+	provider?: KeplerProviderId;
+	/** Whether the item's provider mapped to a Kepler provider id; absent when there is no item. A necessary precondition for Kepler to classify the item, never proof it did */
+	'provider.mapped'?: boolean;
+	/** Whether a local clone resolved silently and was sent as an exact `repo=` match */
+	'repo.resolved': boolean;
+	/** The Kepler channel the deep link targets */
+	channel: KeplerChannel;
+	/** The Kepler action pinned by the deep link */
+	action?: KeplerTaskAction;
+}
+
+interface KeplerTaskStartFailedEvent extends KeplerTaskStartEvent {
+	/** Why the task was not started. `unsupported-provider` = Kepler cannot serve the item's provider for its kind, so no link was sent; `open-failed` = the deep link could not be handed off */
+	'failure.reason': 'open-failed' | 'unsupported-provider';
 }
 
 type InspectCommitContextEventData = {

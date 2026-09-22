@@ -2388,6 +2388,8 @@
 	"Keep everything at your fingertips with Launchpad & Worktrees.": "Keep everything at your fingertips with Launchpad & Worktrees.",
 	"Keeps paths outside this sparse checkout collapsed into directory entries.": "Keeps paths outside this sparse checkout collapsed into directory entries.",
 	"Kepler": "Kepler",
+	"Kepler doesn't support issues from {0}": "Kepler doesn't support issues from {0}",
+	"Kepler doesn't support pull requests from {0}": "Kepler doesn't support pull requests from {0}",
 	"Kepler is the agent-agnostic development environment for running AI agents across the entire development workflow, from idea or issue to merged PR. {learnMore}": "Kepler is the agent-agnostic development environment for running AI agents across the entire development workflow, from idea or issue to merged PR. {learnMore}",
 	"Kept current": "Kept current",
 	"Key ID:": "Key ID:",
