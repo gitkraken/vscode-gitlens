@@ -18,6 +18,7 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
 import { requestJiraIssueByKey } from './jiraIssueByKey.js';
@@ -48,6 +49,7 @@ import type {
 	ProviderIssue,
 	ProviderJiraProject,
 	ProviderJiraResource,
+	ProviderJiraServerProject,
 	ProviderLinearOrganization,
 	ProviderLinearTeam,
 	ProviderPullRequest,
@@ -430,6 +432,19 @@ export class ProvidersApi {
 				getIssuesForProjectFn: providerApis.jira.getIssuesForProject.bind(providerApis.jira),
 				getIssuesForResourceForCurrentUserFn: providerApis.jira.getIssuesForResourceForCurrentUser.bind(
 					providerApis.jira,
+				),
+			},
+			[IssuesSelfManagedHostIntegrationId.JiraServer]: {
+				...providersMetadata[IssuesSelfManagedHostIntegrationId.JiraServer],
+				provider: providerApis.jiraServer,
+				getJiraServerCurrentUserFn: providerApis.jiraServer.getCurrentUser.bind(providerApis.jiraServer),
+				getJiraServerProjectsFn: providerApis.jiraServer.getJiraProjects.bind(providerApis.jiraServer),
+				getJiraServerIssuesForProjectFn: providerApis.jiraServer.getIssuesForProject.bind(
+					providerApis.jiraServer,
+				),
+				getJiraServerIssueFn: providerApis.jiraServer.getIssue.bind(providerApis.jiraServer),
+				getJiraServerIssuesForCurrentUserFn: providerApis.jiraServer.getIssuesForResourceForCurrentUser.bind(
+					providerApis.jiraServer,
 				),
 			},
 			[IssuesCloudHostIntegrationId.Linear]: {
@@ -1634,6 +1649,140 @@ export class ProvidersApi {
 				{ token: token },
 			);
 			if (result == null) return undefined;
+			return {
+				data: result.data,
+				hasMore: result.pageInfo?.hasNextPage ?? false,
+				nextCursor: result.pageInfo?.endCursor ?? undefined,
+			};
+		} catch (e) {
+			return this.handleProviderError(tokenWithInfo, e);
+		}
+	}
+
+	// Jira Server reads. Every one of them is addressed by `baseUrl` — the connection's own host — rather than
+	// by a resource id: a self-hosted instance IS the resource, and routing by anything else would send one
+	// host's token to another. `baseUrl` is therefore required, not optional, on all of them.
+	async getJiraServerCurrentUser(
+		tokenOptInfo: TokenWithInfo<IssuesSelfManagedHostIntegrationId.JiraServer>,
+		baseUrl: string,
+	): Promise<ProviderAccount | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getJiraServerCurrentUserFn',
+		);
+
+		try {
+			const result = await provider.getJiraServerCurrentUserFn?.({
+				token: tokenWithInfo.accessToken,
+				baseUrl: baseUrl,
+			});
+			return result?.data;
+		} catch (e) {
+			return this.handleProviderError<ProviderAccount | undefined>(tokenWithInfo, e);
+		}
+	}
+
+	/**
+	 * Jira Server's project list, which is a single unpaged `/rest/api/2/project` read rather than Cloud's
+	 * paged `project/search`, so there is no cursor to thread and the result is always the complete set.
+	 */
+	async getJiraServerProjects(
+		tokenOptInfo: TokenWithInfo<IssuesSelfManagedHostIntegrationId.JiraServer>,
+		baseUrl: string,
+	): Promise<ProviderJiraServerProject[] | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getJiraServerProjectsFn',
+		);
+
+		try {
+			const result = await provider.getJiraServerProjectsFn?.({
+				token: tokenWithInfo.accessToken,
+				baseUrl: baseUrl,
+			});
+			return result?.data;
+		} catch (e) {
+			return this.handleProviderError<ProviderJiraServerProject[] | undefined>(tokenWithInfo, e);
+		}
+	}
+
+	/**
+	 * One page of a Jira Server project's issues, preserving the SDK's `pageInfo` so the integration can drain
+	 * every page — the same contract as {@link getIssuesForProjectPaged} on Cloud.
+	 */
+	async getJiraServerIssuesForProjectPaged(
+		tokenOptInfo: TokenWithInfo<IssuesSelfManagedHostIntegrationId.JiraServer>,
+		baseUrl: string,
+		projectKey: string,
+		options?: GetIssuesOptions,
+	): Promise<{ data: ProviderIssue[]; hasMore: boolean; nextCursor: string | undefined } | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getJiraServerIssuesForProjectFn',
+		);
+
+		try {
+			const result = await provider.getJiraServerIssuesForProjectFn?.(
+				{ projectKey: projectKey, ...options, includeTransitions: jiraListIncludeTransitions },
+				{ token: tokenWithInfo.accessToken, baseUrl: baseUrl },
+			);
+			if (result == null) return undefined;
+
+			return {
+				data: result.data,
+				hasMore: result.pageInfo?.hasNextPage ?? false,
+				nextCursor: result.pageInfo?.endCursor ?? undefined,
+			};
+		} catch (e) {
+			return this.handleProviderError(tokenWithInfo, e);
+		}
+	}
+
+	async getJiraServerIssue(
+		tokenOptInfo: TokenWithInfo<IssuesSelfManagedHostIntegrationId.JiraServer>,
+		baseUrl: string,
+		number: string,
+	): Promise<ProviderIssue | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getJiraServerIssueFn',
+		);
+
+		try {
+			const result = await provider.getJiraServerIssueFn?.(
+				{ number: number },
+				{ token: tokenWithInfo.accessToken, baseUrl: baseUrl },
+			);
+			return result?.data;
+		} catch (e) {
+			// A key that names no issue is a lookup MISS, not a failure: both callers
+			// (`getProviderLinkedIssueOrPullRequest`, `getProviderIssue`) read an autolink or a stored
+			// reference that may simply be gone, and translating it would surface a `RequestNotFoundError`
+			// where Jira Cloud's `getJiraIssueByKey` and the generic `getIssue` both return undefined.
+			if (isProviderIssueNotFoundError(tokenWithInfo.providerId, e)) return undefined;
+
+			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
+		}
+	}
+
+	/** The account-wide read: every issue related to the current user on this instance, no project needed. */
+	async getJiraServerIssuesForCurrentUser(
+		tokenOptInfo: TokenWithInfo<IssuesSelfManagedHostIntegrationId.JiraServer>,
+		baseUrl: string,
+		options?: { cursor?: string; sort?: IssueSorting },
+	): Promise<{ data: ProviderIssue[]; hasMore: boolean; nextCursor: string | undefined } | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getJiraServerIssuesForCurrentUserFn',
+		);
+
+		try {
+			const result = await provider.getJiraServerIssuesForCurrentUserFn?.(
+				{ cursor: options?.cursor, sort: options?.sort, includeTransitions: jiraListIncludeTransitions },
+				{ token: tokenWithInfo.accessToken, baseUrl: baseUrl },
+			);
+			if (result == null) return undefined;
+
 			return {
 				data: result.data,
 				hasMore: result.pageInfo?.hasNextPage ?? false,

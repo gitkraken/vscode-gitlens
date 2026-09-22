@@ -10,8 +10,8 @@ import type {
 } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { providersMetadata } from '../providers/models.js';
-import { areDomainsOnSameHost, hostFromDomain } from '../utils/domain.utils.js';
-import { isGitSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
+import { areDomainsOnSameHost, hostFromDomain, sameConfiguredBaseUrl } from '../utils/domain.utils.js';
+import { isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider.js';
 import type {
 	CloudIntegrationAuthType,
@@ -28,6 +28,8 @@ interface StoredSession {
 	type: CloudIntegrationAuthType | undefined;
 	expiresAt?: string;
 	domain?: string;
+	/** See {@link ProviderAuthenticationSession.baseUrl}: the configured address, path included. */
+	baseUrl?: string;
 	protocol?: string;
 	/** The provider app key paired with the token for providers whose client needs one (e.g. Trello). */
 	appKey?: string;
@@ -165,8 +167,13 @@ export class ConfiguredIntegrationService implements Disposable {
 
 		let changed: boolean;
 		if (existing != null) {
+			// `baseUrl` is compared alongside `domain`, not folded into it: `domain` is normalized to a bare
+			// host, so a connection re-pointed to another context path on the SAME host is identical by domain
+			// and would otherwise be treated as unchanged — leaving the stored descriptor, and every warm
+			// integration listening for the change, on the old address.
 			if (
 				existing.domain === normalized.domain &&
+				sameConfiguredBaseUrl(existing.baseUrl, normalized.baseUrl) &&
 				existing.expiresAt === normalized.expiresAt &&
 				existing.scopes === normalized.scopes &&
 				(existing.primary ?? false) === (normalized.primary ?? false) &&
@@ -176,9 +183,10 @@ export class ConfiguredIntegrationService implements Disposable {
 				return;
 			}
 
-			// Only fire the change event on domain/scopes/primary/type/accountName changes (ignore expiresAt churn)
+			// Only fire the change event on address/scopes/primary/type/accountName changes (ignore expiresAt churn)
 			changed =
 				existing.domain !== normalized.domain ||
+				!sameConfiguredBaseUrl(existing.baseUrl, normalized.baseUrl) ||
 				existing.scopes !== normalized.scopes ||
 				(existing.primary ?? false) !== (normalized.primary ?? false) ||
 				existing.type !== normalized.type ||
@@ -387,7 +395,8 @@ export class ConfiguredIntegrationService implements Disposable {
 		await this.addOrUpdateConfigured({
 			id: session.id,
 			integrationId: id,
-			domain: isGitSelfManagedHostIntegrationId(id) ? session.domain : undefined,
+			domain: isSelfManagedHostIntegrationId(id) ? session.domain : undefined,
+			baseUrl: isSelfManagedHostIntegrationId(id) ? session.baseUrl : undefined,
 			expiresAt: session.expiresAt,
 			scopes: session.scopes.join(','),
 			cloud: session.cloud ?? false,
@@ -410,7 +419,7 @@ export class ConfiguredIntegrationService implements Disposable {
 					const configured = this.configured.get(id);
 					const connectionId = storedSession.id ?? sessionId;
 					const sessionCloud = storedSession.cloud ?? cloud;
-					const domain = isGitSelfManagedHostIntegrationId(id)
+					const domain = isSelfManagedHostIntegrationId(id)
 						? (storedSession.domain ?? storedSession.id)
 						: undefined;
 					if (
@@ -424,6 +433,10 @@ export class ConfiguredIntegrationService implements Disposable {
 							id: connectionId,
 							integrationId: id,
 							domain: domain,
+							// Rebuilt from the secret, so it must carry the address the session does; omitting it
+							// leaves the descriptor claiming no context path and makes reconcile read every
+							// routine check-in as a re-pointed connection.
+							baseUrl: isSelfManagedHostIntegrationId(id) ? storedSession.baseUrl : undefined,
 							expiresAt: storedSession.expiresAt,
 							scopes: storedSession.scopes.join(','),
 							cloud: sessionCloud,
@@ -465,7 +478,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		descriptors: ConfiguredIntegrationDescriptor[],
 		domain: string | undefined,
 	): ConfiguredIntegrationDescriptor[] {
-		return isGitSelfManagedHostIntegrationId(id)
+		return isSelfManagedHostIntegrationId(id)
 			? descriptors.filter(d => this.isInPrimaryScope(id, d, domain))
 			: descriptors;
 	}
@@ -475,7 +488,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		descriptor: ConfiguredIntegrationDescriptor,
 		domain: string | undefined,
 	): boolean {
-		return !isGitSelfManagedHostIntegrationId(id) || this.domainsMatch(id, descriptor.domain, domain);
+		return !isSelfManagedHostIntegrationId(id) || this.domainsMatch(id, descriptor.domain, domain);
 	}
 
 	/**
@@ -491,7 +504,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		// rather than keying a secret under an empty id.
 		if (descriptor.connectionId) return descriptor.connectionId;
 
-		const domain = isGitSelfManagedHostIntegrationId(id) ? descriptor.domain : undefined;
+		const domain = isSelfManagedHostIntegrationId(id) ? descriptor.domain : undefined;
 		const candidates = this.scopeConnectionCandidates(id, domain, descriptor.cloud);
 		return (candidates?.find(c => c.primary) ?? candidates?.[0])?.id ?? descriptor.domain;
 	}
@@ -504,8 +517,45 @@ export class ConfiguredIntegrationService implements Disposable {
 	 * token fetch to one host of a multi-host self-managed provider, or fall through to the provider-global
 	 * primary endpoint on `undefined`.
 	 */
+	/**
+	 * The address already stored for a self-managed connection — see {@link ConfiguredIntegrationDescriptor.baseUrl}.
+	 *
+	 * Exists so a session rebuilt from a backend response that omits the domain can keep the address the
+	 * connection was configured with, rather than silently falling back to the bare host and losing a context
+	 * path the user never changed. Looked up by connection id first, then by host for an unscoped fetch.
+	 */
+	/**
+	 * Whether `connectionId` names a cloud connection configured for `domain`'s host.
+	 *
+	 * The caller-facing question is "is this id evidence that a token belongs to this host". A connection id
+	 * can arrive from a caller rather than from our own configuration, so it is only evidence once it matches
+	 * a descriptor we stored for that host — see the host guard in `CloudIntegrationAuthenticationProvider`.
+	 */
+	isConnectionConfiguredForHost(
+		id: IntegrationIds,
+		connectionId: string | undefined,
+		domain: string | undefined,
+	): boolean {
+		if (connectionId == null) return false;
+
+		const connection = this.getConfigured(id, { cloud: true }).find(c => c.id === connectionId);
+		if (connection == null) return false;
+
+		return !isSelfManagedHostIntegrationId(id) || this.domainsMatch(id, connection.domain, domain);
+	}
+
+	getConfiguredBaseUrl(id: IntegrationIds, connectionId: string | undefined, domain?: string): string | undefined {
+		if (!isSelfManagedHostIntegrationId(id)) return undefined;
+
+		const configured = this.getConfigured(id, { cloud: true });
+		const byId = connectionId != null ? configured.find(c => c.id === connectionId) : undefined;
+		if (byId != null) return byId.baseUrl;
+
+		return configured.find(c => this.domainsMatch(id, c.domain, domain))?.baseUrl;
+	}
+
 	getConfiguredConnectionId(id: IntegrationIds, domain: string | undefined, cloud?: boolean): string | undefined {
-		const scoped = isGitSelfManagedHostIntegrationId(id) ? domain : undefined;
+		const scoped = isSelfManagedHostIntegrationId(id) ? domain : undefined;
 		const candidates = this.scopeConnectionCandidates(id, scoped, cloud);
 		const connection = candidates?.find(c => c.primary) ?? candidates?.[0];
 		if (connection == null) return undefined;
@@ -556,7 +606,7 @@ export class ConfiguredIntegrationService implements Disposable {
 			descriptors.find(d => d.id === connectionId && d.cloud) ?? descriptors.find(d => d.id === connectionId);
 		if (target == null) return;
 
-		const domain = isGitSelfManagedHostIntegrationId(id) ? target.domain : undefined;
+		const domain = isSelfManagedHostIntegrationId(id) ? target.domain : undefined;
 		// A connection id can have both a local (PAT) and cloud descriptor. Mark the primary on a single
 		// canonical variant (prefer cloud, since multi-account primaries are cloud-driven) within the
 		// provider/host scope, so other self-managed hosts keep their own default connection.
@@ -596,14 +646,14 @@ export class ConfiguredIntegrationService implements Disposable {
 	private _fireChangeDebounced?: () => void;
 
 	private normalizeConfiguredDomain(id: IntegrationIds, domain: string | undefined): string | undefined {
-		if (!isGitSelfManagedHostIntegrationId(id)) return domain;
+		if (!isSelfManagedHostIntegrationId(id)) return domain;
 
 		return hostFromDomain(domain) ?? domain;
 	}
 
 	private domainsMatch(id: IntegrationIds, first: string | undefined, second: string | undefined): boolean {
 		if (first === second) return true;
-		if (!isGitSelfManagedHostIntegrationId(id)) return false;
+		if (!isSelfManagedHostIntegrationId(id)) return false;
 		if (first == null || second == null) return false;
 
 		return areDomainsOnSameHost(first, second);
@@ -647,6 +697,7 @@ function convertStoredSessionToSession(
 		cloud: storedSession.cloud ?? cloudIfMissing,
 		expiresAt: storedSession.expiresAt ? new Date(storedSession.expiresAt) : undefined,
 		domain: storedSession.domain ?? descriptor.domain,
+		baseUrl: storedSession.baseUrl,
 		protocol: storedSession.protocol,
 		type: storedSession.type,
 		// Carried for providers whose client needs an app key alongside the token (e.g. Trello); without

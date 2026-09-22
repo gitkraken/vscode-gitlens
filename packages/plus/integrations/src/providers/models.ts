@@ -30,6 +30,8 @@ import type {
 	Jira,
 	JiraProject,
 	JiraResource,
+	JiraServer,
+	JiraServerProject,
 	Linear,
 	LinearOrganization,
 	LinearTeam,
@@ -77,6 +79,7 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import type { Integration, IntegrationType } from '../models/integration.js';
 import type {
@@ -215,6 +218,9 @@ export type ProviderIssue = ProviderApiIssue;
 export type ProviderEnterpriseOptions = EnterpriseOptions;
 export type ProviderJiraProject = JiraProject;
 export type ProviderJiraResource = JiraResource;
+// Jira Server's project shape is its own: `/rest/api/2/project` returns only an id and a name, with no `key`
+// and no enclosing resource (the instance itself is the resource).
+export type ProviderJiraServerProject = JiraServerProject;
 export type ProviderLinearTeam = LinearTeam;
 export type ProviderLinearOrganization = LinearOrganization;
 export type ProviderAzureProject = AzureProject;
@@ -698,6 +704,14 @@ export type GetBitbucketServerPullRequestsForCurrentUserFn = (
 	data: GitPullRequest[];
 }>;
 export type GetIssuesForProjectFn = Jira['getIssuesForProject'];
+// Jira Server's own reads, derived from its client rather than shared with Cloud's: every one of them is
+// addressed by the instance's `baseUrl`/`resourceUrl` instead of Cloud's `resourceId`, and its project read is
+// a single unpaged call, so the shapes genuinely differ.
+export type GetJiraServerCurrentUserFn = JiraServer['getCurrentUser'];
+export type GetJiraServerProjectsFn = (options?: EnterpriseOptions) => Promise<{ data: JiraServerProject[] }>;
+export type GetJiraServerIssuesForProjectFn = JiraServer['getIssuesForProject'];
+export type GetJiraServerIssueFn = JiraServer['getIssue'];
+export type GetJiraServerIssuesForCurrentUserFn = JiraServer['getIssuesForResourceForCurrentUser'];
 // Derived from the client method rather than hand-declared, as its project-scoped sibling above already is: the
 // hand-written shape named only `resourceId`, so every other field the SDK accepts (the cursor, the sort, the
 // transitions switch) was invisible to the type system and had to be smuggled through `getPagedResult`'s `any`.
@@ -713,7 +727,7 @@ export type GetTrelloIssuesForBoardFn = Trello['getIssuesForBoard'];
 export type GetTrelloLabelsForBoardFn = Trello['getLabelsForBoard'];
 
 export interface ProviderInfo extends ProviderMetadata {
-	provider: GitHub | GitLab | Bitbucket | BitbucketServer | Jira | Linear | Trello | AzureDevOps;
+	provider: GitHub | GitLab | Bitbucket | BitbucketServer | Jira | JiraServer | Linear | Trello | AzureDevOps;
 	getRepoFn?: GetRepoFn;
 	getRepoOfProjectFn?: GetRepoOfProjectFn;
 	getPullRequestsForReposFn?: GetPullRequestsForReposFn;
@@ -740,6 +754,11 @@ export interface ProviderInfo extends ProviderMetadata {
 	getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?: GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn;
 	getBitbucketServerPullRequestsForCurrentUserFn?: GetBitbucketServerPullRequestsForCurrentUserFn;
 	getJiraProjectsForResourcesFn?: GetJiraProjectsForResourcesFn;
+	getJiraServerCurrentUserFn?: GetJiraServerCurrentUserFn;
+	getJiraServerProjectsFn?: GetJiraServerProjectsFn;
+	getJiraServerIssuesForProjectFn?: GetJiraServerIssuesForProjectFn;
+	getJiraServerIssueFn?: GetJiraServerIssueFn;
+	getJiraServerIssuesForCurrentUserFn?: GetJiraServerIssuesForCurrentUserFn;
 	getJiraProjectsForResourceFn?: GetJiraProjectsForResourceFn;
 	getAzureProjectsForResourceFn?: GetAzureProjectsForResourceFn;
 	getIssuesForProjectFn?: GetIssuesForProjectFn;
@@ -1182,6 +1201,23 @@ export const providersMetadata: ProvidersMetadata = {
 		// capability is reported under `issues`, which is what `listIssueTrackerIssuesPage` validates against.
 		supportedIssueSorts: jiraIssueSorts,
 	},
+	[IssuesSelfManagedHostIntegrationId.JiraServer]: {
+		// Self-hosted: there is no canonical domain, so every read is addressed by the connection's own host
+		// (see `JiraServerIntegration.apiBaseUrl`), exactly as the self-managed git hosts do.
+		domain: '',
+		id: IssuesSelfManagedHostIntegrationId.JiraServer,
+		name: 'Jira Data Center',
+		type: 'issues',
+		// Reuses Jira's glicon: it is the same product, and the id only selects an icon.
+		iconKey: IssuesCloudHostIntegrationId.Jira,
+		// Jira Cloud's entries are Atlassian OAuth scope strings, which a self-hosted instance doesn't issue:
+		// its token is a PAT the backend stores as-is, so there is no scope set to request.
+		scopes: [],
+		// The same JQL clauses Cloud narrows with — `jiraHelpers` builds one query for both.
+		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		// One JQL `ORDER BY` builder serves Cloud and Server, so they share a surface (see `issueSorts.ts`).
+		supportedIssueSorts: jiraIssueSorts,
+	},
 	[IssuesCloudHostIntegrationId.Linear]: {
 		domain: 'linear.app',
 		id: IssuesCloudHostIntegrationId.Linear,
@@ -1261,9 +1297,14 @@ export function toIssueShape(
 	if (issue.updatedDate == null || issue.url == null) return undefined;
 
 	// Jira SDK results derive this category from a localized display name and default unknown names to DONE.
-	// Only the direct point read opts in because it maps Jira's stable status-category key itself.
-	const reliableStateCategory =
-		provider.id !== IssuesCloudHostIntegrationId.Jira || options?.reliableStateCategory === true;
+	// Only the direct point read opts in because it maps Jira's stable status-category key itself. The whole
+	// Jira family shares that mapper (`jiraHelpers` serves Cloud and Server alike), so the gate is keyed on the
+	// family rather than the cloud id — a self-hosted instance in any non-English locale would otherwise report
+	// every open issue as closed.
+	const isJira =
+		provider.id === IssuesCloudHostIntegrationId.Jira ||
+		provider.id === IssuesSelfManagedHostIntegrationId.JiraServer;
+	const reliableStateCategory = !isJira || options?.reliableStateCategory === true;
 	const closed = issue.closedDate != null || (issue.state?.category === 'DONE' && reliableStateCategory);
 
 	return {
@@ -1322,7 +1363,8 @@ export function toIssueShape(
 		commentsCount: issue.commentCount ?? undefined,
 		thumbsUpCount: issue.upvoteCount ?? undefined,
 		body: issue.description ?? undefined,
-		bodyFormat: provider.id === IssuesCloudHostIntegrationId.Jira ? 'jira-wiki' : undefined,
+		// Both Jira flavors return `/rest/api/2` wiki markup for the description.
+		bodyFormat: isJira ? 'jira-wiki' : undefined,
 		issueType: issue.type ?? undefined,
 		iterations: toIssueIterations(issue),
 	};

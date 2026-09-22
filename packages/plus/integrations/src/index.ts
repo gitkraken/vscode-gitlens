@@ -190,6 +190,7 @@ export {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
 	isIntegrationId,
 	isSupportedCloudIntegrationId,
 } from './constants.js';

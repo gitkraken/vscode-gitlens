@@ -22,22 +22,36 @@ export enum IssuesCloudHostIntegrationId {
 	Trello = 'trello',
 }
 
+/**
+ * Issue trackers that live on a customer-run host rather than a single cloud endpoint, so every read must be
+ * routed by the connection's own domain. Separate from {@link GitSelfManagedHostIntegrationId} because a
+ * tracker has no repositories or pull requests: the two enums differ in what the id can be ASKED for, while
+ * what they share — being keyed by host — is expressed by {@link SelfManagedHostIntegrationIds} and the
+ * `isSelfManagedHostIntegrationId` predicate.
+ */
+export enum IssuesSelfManagedHostIntegrationId {
+	JiraServer = 'jira-server',
+}
+
 export type CloudGitSelfManagedHostIntegrationIds =
 	| GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
 	| GitSelfManagedHostIntegrationId.BitbucketServer
 	| GitSelfManagedHostIntegrationId.AzureDevOpsServer
 	| GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted;
 
+/** The self-managed ids whose tokens are issued by the GK cloud backend, whatever they host. */
+export type CloudSelfManagedHostIntegrationIds =
+	| CloudGitSelfManagedHostIntegrationIds
+	| IssuesSelfManagedHostIntegrationId.JiraServer;
+
 export type GitHostIntegrationIds = GitCloudHostIntegrationId | GitSelfManagedHostIntegrationId;
-export type IssuesHostIntegrationIds = IssuesCloudHostIntegrationId;
+export type IssuesHostIntegrationIds = IssuesCloudHostIntegrationId | IssuesSelfManagedHostIntegrationId;
+
+/** Every id addressed by host, across both families — what the domain-keyed machinery keys off. */
+export type SelfManagedHostIntegrationIds = GitSelfManagedHostIntegrationId | IssuesSelfManagedHostIntegrationId;
 
 export type IntegrationIds = GitHostIntegrationIds | IssuesHostIntegrationIds;
 
-export const supportedOrderedCloudIssuesIntegrationIds = [
-	IssuesCloudHostIntegrationId.Jira,
-	IssuesCloudHostIntegrationId.Linear,
-	IssuesCloudHostIntegrationId.Trello,
-];
 export const supportedOrderedCloudIntegrationIds = [
 	GitCloudHostIntegrationId.GitHub,
 	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
@@ -48,9 +62,23 @@ export const supportedOrderedCloudIntegrationIds = [
 	GitCloudHostIntegrationId.Bitbucket,
 	GitSelfManagedHostIntegrationId.BitbucketServer,
 	IssuesCloudHostIntegrationId.Jira,
+	IssuesSelfManagedHostIntegrationId.JiraServer,
 	IssuesCloudHostIntegrationId.Linear,
 	IssuesCloudHostIntegrationId.Trello,
 ];
+
+/**
+ * The issue trackers of {@link supportedOrderedCloudIntegrationIds}, in the same order. Derived rather than
+ * listed again: the two were parallel literals, and an id added to one and forgotten in the other drops that
+ * tracker out of default project discovery and the Graph's issue-integration check with no other symptom.
+ */
+export const supportedOrderedCloudIssuesIntegrationIds = supportedOrderedCloudIntegrationIds.filter(
+	(id): id is IssuesHostIntegrationIds =>
+		// `Object.values`, not `in`: these are string enums, so the object is keyed by member name and `in`
+		// would test the id against `Jira`/`Linear` rather than against `jira`/`linear`.
+		(Object.values(IssuesCloudHostIntegrationId) as IntegrationIds[]).includes(id) ||
+		(Object.values(IssuesSelfManagedHostIntegrationId) as IntegrationIds[]).includes(id),
+);
 
 export const integrationIds = [
 	GitCloudHostIntegrationId.GitHub,
@@ -62,6 +90,7 @@ export const integrationIds = [
 	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
 	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
 	IssuesCloudHostIntegrationId.Jira,
+	IssuesSelfManagedHostIntegrationId.JiraServer,
 	IssuesCloudHostIntegrationId.Linear,
 	IssuesCloudHostIntegrationId.Trello,
 ];
@@ -99,6 +128,11 @@ export interface StoredConfiguredIntegrationDescriptor {
 	cloud: boolean;
 	integrationId: IntegrationIds;
 	domain?: string;
+	/**
+	 * The address a self-managed connection was configured with, path included, when it differs from the
+	 * host-normalized {@link domain} — see `ProviderAuthenticationSession.baseUrl`.
+	 */
+	baseUrl?: string;
 	expiresAt?: string;
 	scopes: string;
 }
@@ -169,6 +203,13 @@ export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 	{
 		id: IssuesCloudHostIntegrationId.Jira,
 		name: 'Jira',
+		icon: 'gl-provider-jira',
+		supports: ['issues'],
+		requiresPro: true,
+	},
+	{
+		id: IssuesSelfManagedHostIntegrationId.JiraServer,
+		name: 'Jira Data Center',
 		icon: 'gl-provider-jira',
 		supports: ['issues'],
 		requiresPro: true,

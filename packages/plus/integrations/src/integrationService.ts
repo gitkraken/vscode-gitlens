@@ -40,6 +40,7 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
 } from './constants.js';
 import type {
 	AuthenticationSessionsChangeEvent,
@@ -109,14 +110,15 @@ import type {
 	ResolveRepositoryResult,
 } from './results.js';
 import type { Source } from './telemetry.js';
-import { hostFromDomain } from './utils/domain.utils.js';
+import { hostFromDomain, sameConfiguredBaseUrl } from './utils/domain.utils.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
 	getIntegrationIdForRemote,
-	isCloudGitSelfManagedHostIntegrationId,
+	isCloudSelfManagedHostIntegrationId,
 	isGitCloudHostIntegrationId,
 	isGitSelfManagedHostIntegrationId,
 	isNonExpiringZeroTokenIntegrationId,
+	isSelfManagedHostIntegrationId,
 	remoteProviderTypeForConfig,
 	remoteProviderTypeForIntegration,
 } from './utils/integration.utils.js';
@@ -281,7 +283,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		// — a full URL from a stored session/descriptor, a bare host from `hostFromDomain` — and the cache key is
 		// `${id}:${domain}`, so the same host arriving in two shapes would build two instances (and two
 		// "primaries") for one host.
-		if (isGitSelfManagedHostIntegrationId(id)) {
+		if (isSelfManagedHostIntegrationId(id)) {
 			domain = hostFromDomain(domain) ?? domain;
 		}
 
@@ -503,6 +505,46 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 					) as IssuesIntegration as IntegrationById<T>;
 					break;
 
+				case IssuesSelfManagedHostIntegrationId.JiraServer:
+					if (domain == null) {
+						integration = this.findCachedById(id);
+						// return immediately in order to not to cache it after the "switch" block:
+						if (integration != null) return integration;
+
+						const configured = this.getConfigured(IssuesSelfManagedHostIntegrationId.JiraServer);
+						if (configured.length) {
+							const { domain: configuredDomain } = configured.find(c => c.primary) ?? configured[0];
+							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
+
+							integration = new (
+								await import(/* webpackChunkName: "integrations" */ './providers/jira-server.js')
+							).JiraServerIntegration(
+								this.ctx,
+								this.authenticationService,
+								this.getProvidersApi.bind(this),
+								this._onDidChangeIntegrationConnection,
+								configuredDomain,
+							) as IssuesIntegration as IntegrationById<T>;
+
+							// assign domain because it's part of caching key:
+							domain = configuredDomain;
+							break;
+						}
+
+						return undefined;
+					}
+
+					integration = new (
+						await import(/* webpackChunkName: "integrations" */ './providers/jira-server.js')
+					).JiraServerIntegration(
+						this.ctx,
+						this.authenticationService,
+						this.getProvidersApi.bind(this),
+						this._onDidChangeIntegrationConnection,
+						domain,
+					) as IssuesIntegration as IntegrationById<T>;
+					break;
+
 				case IssuesCloudHostIntegrationId.Linear:
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/linear.js')
@@ -568,7 +610,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		args: integrationIds => ({ integrationIds: integrationIds?.length ? integrationIds.join(',') : '<undefined>' }),
 	})
 	async getMyIssues(
-		integrationIds?: (GitCloudHostIntegrationId | IssuesCloudHostIntegrationId | GitSelfManagedHostIntegrationId)[],
+		integrationIds?: IntegrationIds[],
 		options?: { openRepositoriesOnly?: boolean; cancellation?: AbortSignal },
 	): Promise<IntegrationResult<IssueShape[] | undefined>> {
 		const integrations: Map<Integration, ResourceDescriptor[] | undefined> = new Map();
@@ -610,6 +652,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 			: [
 					...Object.values(GitCloudHostIntegrationId),
 					...Object.values(IssuesCloudHostIntegrationId),
+					...Object.values(IssuesSelfManagedHostIntegrationId),
 					...Object.values(GitSelfManagedHostIntegrationId),
 				]) {
 			const integration = await this.get(integrationId);
@@ -872,7 +915,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		connectionId: string | undefined,
 		domain?: string,
 	): { warnings: ProviderWarning[]; fetchFailed: boolean } {
-		const requestedDomain = isGitSelfManagedHostIntegrationId(id) ? domain : undefined;
+		const requestedDomain = isSelfManagedHostIntegrationId(id) ? domain : undefined;
 		const invalidDomain = this.isEmptyExplicitSelector(domain);
 		if (connectionId == null && requestedDomain == null && !invalidDomain) {
 			return { warnings: [], fetchFailed: false };
@@ -894,7 +937,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		connectionId: string | undefined,
 		domain?: string,
 	): string | undefined {
-		if (!isGitSelfManagedHostIntegrationId(id)) {
+		if (!isSelfManagedHostIntegrationId(id)) {
 			return connectionId != null ? this.getConfiguredConnectionDomain(id, connectionId) : integration.domain;
 		}
 
@@ -928,7 +971,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		connectionId: string | undefined,
 		domain: string | undefined,
 	): string | undefined {
-		if (!isGitSelfManagedHostIntegrationId(id)) return undefined;
+		if (!isSelfManagedHostIntegrationId(id)) return undefined;
 
 		return (
 			(connectionId != null ? this.getConfiguredConnectionDomain(id, connectionId) : undefined) ??
@@ -1217,8 +1260,10 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	 * incompleteness IS surfaced as `page.truncated` (Jira/Linear report the backstop hit) rather than passed
 	 * off as a complete read.
 	 *
-	 * Takes no `domain`, unlike the git-host reads: every issue-tracker provider is cloud-only
-	 * ({@link IssuesCloudHostIntegrationId}), so there is no self-managed host to address.
+	 * `connectionId`/`domain` select which connection to read, as on the git-host reads. Both matter for a
+	 * self-managed tracker ({@link IssuesSelfManagedHostIntegrationId}), where one provider id spans a
+	 * connection per configured host; omitting them reads the primary. A cloud tracker has a single canonical
+	 * host, so neither changes what it reads.
 	 */
 	async listIssueTrackerIssuesPage(options: {
 		providerId: IntegrationIds;
@@ -1236,6 +1281,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		cursor?: string;
 		itemsPerPage?: number;
 		connectionId?: string;
+		domain?: string;
 	}): Promise<ProviderPagedResult<IssueShape>> {
 		return listIssueTrackerIssuesPage(this, options);
 	}
@@ -1471,18 +1517,15 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		return this._integrations.get(this.getCacheKey(id, domain)) as IntegrationById<T> | undefined;
 	}
 
-	private getCacheKey(
-		id: GitCloudHostIntegrationId | IssuesCloudHostIntegrationId | GitSelfManagedHostIntegrationId,
-		domain?: string,
-	): IntegrationKey {
-		return isGitSelfManagedHostIntegrationId(id) ? (`${id}:${domain}` as const) : id;
+	private getCacheKey(id: IntegrationIds, domain?: string): IntegrationKey {
+		return isSelfManagedHostIntegrationId(id) ? (`${id}:${domain}` as const) : id;
 	}
 
 	private async *getSupportedCloudIntegrations(
 		domainsById: Map<IntegrationIds, Set<string>>,
 	): AsyncIterable<Integration> {
 		for (const id of getSupportedCloudIntegrationIds()) {
-			if (isCloudGitSelfManagedHostIntegrationId(id)) {
+			if (isCloudSelfManagedHostIntegrationId(id)) {
 				const domains = new Set(domainsById.get(id) ?? []);
 				for (const domain of this.configuredIntegrationService
 					.getConfigured(id, { cloud: true })
@@ -1523,7 +1566,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		connectedIntegrations: Set<IntegrationIds>,
 		domainsById: Map<IntegrationIds, Set<string>>,
 	): 'connected' | 'disconnected' {
-		if (isCloudGitSelfManagedHostIntegrationId(integration.id)) {
+		if (isCloudSelfManagedHostIntegrationId(integration.id)) {
 			const host = hostFromDomain(integration.domain) ?? integration.domain;
 			return domainsById.get(integration.id)?.has(host) ? 'connected' : 'disconnected';
 		}
@@ -1545,7 +1588,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	}
 
 	private getCachedForDomain<T extends IntegrationIds>(id: T, domain?: string): IntegrationById<T> | undefined {
-		return isGitSelfManagedHostIntegrationId(id) ? this.getCached(id, domain) : this.findCachedById(id);
+		return isSelfManagedHostIntegrationId(id) ? this.getCached(id, domain) : this.findCachedById(id);
 	}
 
 	private getConfiguredCloudConnection(id: IntegrationIds, connectionId: string): ConfiguredIntegrationDescriptor {
@@ -1559,7 +1602,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	}
 
 	private getConfiguredConnectionDomain(id: IntegrationIds, connectionId: string): string | undefined {
-		if (!isGitSelfManagedHostIntegrationId(id)) return undefined;
+		if (!isSelfManagedHostIntegrationId(id)) return undefined;
 		return this.configuredIntegrationService.getConfigured(id).find(c => c.id === connectionId)?.domain;
 	}
 
@@ -1568,7 +1611,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		const fallbackByDomain = new Map<string | undefined, string>();
 
 		for (const descriptor of this.configuredIntegrationService.getConfigured(id, { cloud: true })) {
-			const domain = isGitSelfManagedHostIntegrationId(id)
+			const domain = isSelfManagedHostIntegrationId(id)
 				? (hostFromDomain(descriptor.domain) ?? descriptor.domain)
 				: undefined;
 			if (!fallbackByDomain.has(domain)) {
@@ -1678,7 +1721,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	 * set to `false` on a local disconnect and cleared on (re)connect.
 	 */
 	private isLocallyDisconnected(id: IntegrationIds, host: string | undefined): boolean {
-		const key = isGitSelfManagedHostIntegrationId(id) ? `connected:${id}:${host ?? ''}` : `connected:${id}`;
+		const key = isSelfManagedHostIntegrationId(id) ? `connected:${id}:${host ?? ''}` : `connected:${id}`;
 		return this.ctx.storage.getWorkspace<boolean>(key) === false;
 	}
 
@@ -1714,6 +1757,10 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		const existingById = new Map(
 			this.configuredIntegrationService.getConfigured(id, { cloud: true }).map(c => [c.id, c]),
 		);
+		// Hosts whose connection was re-pointed to a different address this cycle. Fetching and storing the new
+		// session is not enough on its own: a warm integration holds its own `_session`, so it would keep
+		// addressing the old path until something unrelated made it re-resolve.
+		const repointedDomains = new Set<string | undefined>();
 		const preparedConnections = await Promise.all(
 			identified.map(async connection => {
 				// The wire `domain` is usually a full URL, though cloud providers can return a bare host.
@@ -1724,7 +1771,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 				// session and descriptor under an empty host — producing ambiguous keys (`connected:<id>:`) that
 				// break later resolution and local-disconnect checks. Skip such a connection rather than corrupt
 				// state; cloud providers key off their canonical domain and are unaffected.
-				if (isGitSelfManagedHostIntegrationId(id) && !host) {
+				if (isSelfManagedHostIntegrationId(id) && !host) {
 					scope?.warn(`Skipping connection '${connection.id}' for ${id}: unresolved host from domain`);
 					return undefined;
 				}
@@ -1742,16 +1789,30 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 				// traffic and secret churn. Still treat it as synced (so it doesn't trip the prune guard) and
 				// record its primary below. Forced syncs, new connections, and expired tokens fall through and
 				// fetch as before.
+				// A re-pointed connection is NOT unchanged, even though the token is still good: `host` is
+				// normalized, so a backend connection moved to a different context path on the same host looks
+				// identical by domain and would keep every read on the stale path until expiry. Compare the
+				// addresses the two actually carry and fall through to the fetch when they disagree.
 				const cached = existingById.get(connection.id);
-				if (!forceConnect && cached != null && !isDescriptorExpired(cached)) {
+				// A wire domain that is absent says nothing about the address, so it is not a move — only a
+				// domain the backend actually reported can disagree with the stored one.
+				const baseUrlChanged =
+					isSelfManagedHostIntegrationId(id) &&
+					Boolean(connection.domain?.trim()) &&
+					!sameConfiguredBaseUrl(cached?.baseUrl, connection.domain);
+				if (!forceConnect && cached != null && !isDescriptorExpired(cached) && !baseUrlChanged) {
 					return { kind: 'cached' as const, connection: connection, host: host };
+				}
+
+				if (baseUrlChanged && cached != null) {
+					repointedDomains.add(host);
 				}
 
 				try {
 					const session = await cloudIntegrations.getConnectionSession(id, undefined, connection.id);
 					if (session == null) return undefined;
 
-					let providerSession = toProviderSession(id, connection, session, host);
+					let providerSession = toProviderSession(id, connection, session, host, cached?.baseUrl);
 
 					// Resolve a human-readable account handle with the same precedence as the gk CLI:
 					// (1) the value the backend put on the connection, (2) a previously-resolved name cached in
@@ -1795,7 +1856,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 
 			syncedIds.add(prepared.connection.id);
 			if (prepared.connection.primary) {
-				const domain = isGitSelfManagedHostIntegrationId(id) ? prepared.host : undefined;
+				const domain = isSelfManagedHostIntegrationId(id) ? prepared.host : undefined;
 				if (!syncedPrimaryIdsByDomain.has(domain)) {
 					syncedPrimaryIdsByDomain.set(domain, prepared.connection.id);
 				}
@@ -1813,7 +1874,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 			const liveIds = new Set(identified.map(c => c.id));
 			for (const descriptor of this.configuredIntegrationService.getConfigured(id, { cloud: true })) {
 				if (!liveIds.has(descriptor.id)) {
-					prunedDomains.add(isGitSelfManagedHostIntegrationId(id) ? descriptor.domain : undefined);
+					prunedDomains.add(isSelfManagedHostIntegrationId(id) ? descriptor.domain : undefined);
 					await this.configuredIntegrationService.deleteConnection(id, descriptor.id, true);
 				}
 			}
@@ -1835,9 +1896,20 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		for (const domain of prunedDomains) {
 			domains.add(domain);
 		}
+		for (const domain of repointedDomains) {
+			domains.add(domain);
+		}
 		for (const domain of domains) {
-			if (primaryBefore.get(domain) === primaryAfter.get(domain) && !prunedDomains.has(domain)) continue;
+			if (
+				primaryBefore.get(domain) === primaryAfter.get(domain) &&
+				!prunedDomains.has(domain) &&
+				!repointedDomains.has(domain)
+			) {
+				continue;
+			}
 
+			// Drops the in-memory session so the next read resolves the one just stored — which is what
+			// carries the new address — and fires the change events a consumer needs to re-read.
 			this.getCachedForDomain(id, domain)?.switchConnection();
 		}
 	}
@@ -1978,6 +2050,7 @@ function toProviderSession(
 		appKey?: string;
 	},
 	host: string | undefined,
+	knownBaseUrl: string | undefined,
 ): ProviderAuthenticationSession {
 	// GitHub, the cloud self-managed hosts, and Trello return `expiresIn: 0` for a non-expiring token; left
 	// as 0 the session's `expiresAt` would be `now` and rejected as expired on the next read. Map it to the
@@ -1995,7 +2068,12 @@ function toProviderSession(
 		type: session.type,
 		expiresAt: new Date(expiresIn * 1000 + Date.now()),
 		// Self-managed connections are keyed by their host; cloud providers use the canonical domain.
-		domain: isGitSelfManagedHostIntegrationId(id) ? (host ?? '') : (providersMetadata[id]?.domain ?? ''),
+		domain: isSelfManagedHostIntegrationId(id) ? (host ?? '') : (providersMetadata[id]?.domain ?? ''),
+		// `host` above dropped any context path, which is the right call for the key and the wrong one for the
+		// address — so the wire domain is carried alongside it for whoever builds a request URL. A response
+		// that reports no domain keeps whatever was already configured: it means the backend did not say, not
+		// that the connection moved to the bare host.
+		...(connection.domain ? { baseUrl: connection.domain } : knownBaseUrl ? { baseUrl: knownBaseUrl } : {}),
 		...(protocol != null ? { protocol: protocol } : {}),
 		// Carried for providers whose client needs an app key alongside the token (e.g. Trello).
 		...(session.appKey != null ? { appKey: session.appKey } : {}),

@@ -672,7 +672,6 @@ export interface IntegrationManager {
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
 	}): Promise<ProviderResult<PullRequestCountResult>>;
-	/** Issue trackers are cloud-only, so this read takes no `domain`. */
 	listIssueTrackerIssuesPage(options: {
 		providerId: IntegrationIds;
 		org?: string;
@@ -705,6 +704,11 @@ export interface IntegrationManager {
 		 */
 		itemsPerPage?: number;
 		connectionId?: string;
+		/**
+		 * Self-managed tracker host domain fallback; see {@link ProviderSweepTarget.domain}. Ignored for the
+		 * cloud trackers, which have a single canonical host.
+		 */
+		domain?: string;
 	}): Promise<ProviderPagedResult<IssueShape>>;
 	sweepPullRequests(options?: PullRequestSweepOptions): Promise<ProviderSweepResult<PullRequestShape>>;
 	sweepClosedPullRequests(options?: ClosedPullRequestSweepOptions): Promise<ProviderSweepResult<PullRequestShape>>;

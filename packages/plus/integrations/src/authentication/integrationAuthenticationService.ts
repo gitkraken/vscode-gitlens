@@ -7,6 +7,7 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationService } from '../integrationService.js';
@@ -95,6 +96,7 @@ export class IntegrationAuthenticationService implements Disposable {
 			case GitCloudHostIntegrationId.Bitbucket:
 			case GitCloudHostIntegrationId.GitLab:
 			case IssuesCloudHostIntegrationId.Jira:
+			case IssuesSelfManagedHostIntegrationId.JiraServer:
 			case IssuesCloudHostIntegrationId.Linear:
 			case IssuesCloudHostIntegrationId.Trello:
 			case GitCloudHostIntegrationId.GitHub:
@@ -130,6 +132,7 @@ export class IntegrationAuthenticationService implements Disposable {
 			case GitCloudHostIntegrationId.Bitbucket:
 			case GitSelfManagedHostIntegrationId.BitbucketServer:
 			case IssuesCloudHostIntegrationId.Jira:
+			case IssuesSelfManagedHostIntegrationId.JiraServer:
 			case IssuesCloudHostIntegrationId.Linear:
 			case IssuesCloudHostIntegrationId.Trello:
 				provider = new CloudIntegrationAuthenticationProvider(
