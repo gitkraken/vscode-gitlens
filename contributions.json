@@ -5400,7 +5400,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(repository|repo-folder)\\b/ && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:(repository|repo-folder)\\b/ && !listMultiSelection && !isWeb",
 						"group": "2_gitlens_quickopen",
 						"order": 5
 					}
@@ -5413,7 +5413,7 @@
 			"menus": {
 				"view/item/context": [
 					{
-						"when": "viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && !listMultiSelection",
+						"when": "viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && !listMultiSelection && !isWeb",
 						"group": "1_gitlens_actions",
 						"order": 3
 					}
@@ -5426,7 +5426,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:pullrequest\\b/",
+						"when": "webviewItem =~ /gitlens:pullrequest\\b/ && !isWeb",
 						"group": "1_gitlens_actions",
 						"order": 100
 					}

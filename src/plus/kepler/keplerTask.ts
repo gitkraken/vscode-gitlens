@@ -4,6 +4,7 @@ import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import { getRepositoryIdentityForPullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
+import { executeCommand } from '../../system/-webview/command.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import type { KeplerTaskLinkOptions } from './keplerLink.js';
 import { createKeplerTaskLink } from './keplerLink.js';
@@ -104,6 +105,27 @@ export async function startKeplerTask(
 		channel: container.kepler.channel,
 		action: resolution.supported ? resolution.action : undefined,
 	};
+
+	// Defence in depth: the menus that lead here are already hidden on the web, so this should be
+	// unreachable in normal use. No telemetry — there is no actionable failure reason to report for
+	// a path that should never be entered.
+	if (!container.kepler.available) return false;
+
+	if (container.kepler.installed === false) {
+		container.telemetry.sendEvent(
+			'kepler/task/start/failed',
+			{ ...data, 'failure.reason': 'not-installed' },
+			source,
+		);
+
+		const getKeplerItem = l10n.t('Get Kepler');
+		const chosen = await window.showWarningMessage(l10n.t("Kepler isn't installed"), getKeplerItem);
+		if (chosen === getKeplerItem) {
+			void executeCommand('gitlens.kepler.openProductPage', source);
+		}
+
+		return false;
+	}
 
 	if (!resolution.supported) {
 		container.telemetry.sendEvent(

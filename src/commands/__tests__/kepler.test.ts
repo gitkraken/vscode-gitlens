@@ -33,7 +33,7 @@ function makeContainer(options: { knownRepoPath?: string; identityRepoPath?: str
 		path != null ? { virtual: false, path: path, uri: { fsPath: path } } : undefined;
 
 	return {
-		kepler: { channel: 'production', scheme: 'kepler://' },
+		kepler: { channel: 'production', scheme: 'kepler://', installed: true, available: true },
 		telemetry: { sendEvent: () => {} },
 		git: { getRepository: (p: string) => (p === options.knownRepoPath ? repoFor(p) : undefined) },
 		repositoryIdentity: { getRepository: () => Promise.resolve(repoFor(options.identityRepoPath)) },

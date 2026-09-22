@@ -2391,6 +2391,7 @@
 	"Kepler doesn't support issues from {0}": "Kepler doesn't support issues from {0}",
 	"Kepler doesn't support pull requests from {0}": "Kepler doesn't support pull requests from {0}",
 	"Kepler is the agent-agnostic development environment for running AI agents across the entire development workflow, from idea or issue to merged PR. {learnMore}": "Kepler is the agent-agnostic development environment for running AI agents across the entire development workflow, from idea or issue to merged PR. {learnMore}",
+	"Kepler isn't installed": "Kepler isn't installed",
 	"Kept current": "Kept current",
 	"Key ID:": "Key ID:",
 	"Keyboard Shortcuts": "Keyboard Shortcuts",

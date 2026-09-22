@@ -1,6 +1,11 @@
 import * as assert from 'node:assert';
 import * as sinon from 'sinon';
-import { env, window } from 'vscode';
+import { commands, env, window } from 'vscode';
+// Side-effect only: `keplerTask.ts` now pulls in `system/-webview/command.js` for `executeCommand`,
+// whose first load is re-entered through container.ts's dependency chain before its
+// `registrableCommands` array exists — same ordering landmine `keplerService.test.ts` and
+// `graphProducersService.upstreamMetadata.test.ts` document. Loading container.ts first avoids it.
+import '../../../container.js';
 import type { Container } from '../../../container.js';
 import type { KeplerTaskItem } from '../keplerTask.js';
 import { getKeplerRepoPath, resolveKeplerTaskRequest, startKeplerTask } from '../keplerTask.js';
@@ -13,9 +18,21 @@ const githubPr: KeplerTaskItem = {
 
 const repoPath = '/Users/keith/code/vscode-gitlens';
 
-function makeContainer(sendEvent: sinon.SinonSpy): Container {
+function makeContainer(
+	sendEvent: sinon.SinonSpy,
+	kepler?: { installed?: boolean | undefined; available?: boolean },
+): Container {
+	// `installed` defaults to `true` when omitted, but `{ installed: undefined }` is a deliberate
+	// "can't tell" override — `??` can't tell those two apart, so the key's presence is checked directly.
+	const installed = kepler != null && Object.hasOwn(kepler, 'installed') ? kepler.installed : true;
+
 	return {
-		kepler: { channel: 'staging', scheme: 'kepler-staging://' },
+		kepler: {
+			channel: 'staging',
+			scheme: 'kepler-staging://',
+			installed: installed,
+			available: kepler?.available ?? true,
+		},
 		telemetry: { sendEvent: sendEvent },
 	} as unknown as Container;
 }
@@ -88,12 +105,14 @@ suite('startKeplerTask', () => {
 	let sandbox: sinon.SinonSandbox;
 	let openExternal: sinon.SinonStub;
 	let showWarningMessage: sinon.SinonStub;
+	let executeCommand: sinon.SinonStub;
 	let sendEvent: sinon.SinonSpy;
 
 	setup(() => {
 		sandbox = sinon.createSandbox();
 		openExternal = sandbox.stub(env, 'openExternal').resolves(true);
 		showWarningMessage = sandbox.stub(window, 'showWarningMessage').resolves(undefined);
+		executeCommand = sandbox.stub(commands, 'executeCommand').resolves(undefined);
 		sendEvent = sandbox.spy();
 	});
 
@@ -162,6 +181,70 @@ suite('startKeplerTask', () => {
 			assert.strictEqual(call.args[1]['provider.mapped'], undefined);
 			assert.strictEqual(call.args[1]['repo.resolved'], false);
 		}
+	});
+
+	test('installed === false: warns with a single Get Kepler action, sends no link, reports not-installed', async () => {
+		const started = await startKeplerTask(makeContainer(sendEvent, { installed: false }), {
+			intent: 'new-task',
+		});
+
+		assert.strictEqual(started, false);
+		assert.strictEqual(openExternal.callCount, 0);
+		assert.strictEqual(showWarningMessage.callCount, 1);
+		assert.ok(String(showWarningMessage.firstCall.args[0]).includes("isn't installed"));
+		// A single action item, and nothing else (no modal option)
+		assert.strictEqual(showWarningMessage.firstCall.args.length, 2);
+
+		assert.strictEqual(sendEvent.callCount, 1);
+		const [name, data] = sendEvent.firstCall.args;
+		assert.strictEqual(name, 'kepler/task/start/failed');
+		assert.strictEqual(data['failure.reason'], 'not-installed');
+	});
+
+	test('installed === false: choosing Get Kepler runs the open-product-page command', async () => {
+		const getKeplerItem = 'Get Kepler';
+		showWarningMessage.resolves(getKeplerItem);
+
+		const started = await startKeplerTask(
+			makeContainer(sendEvent, { installed: false }),
+			{ intent: 'new-task' },
+			{ source: 'view' },
+		);
+
+		assert.strictEqual(started, false);
+		assert.strictEqual(executeCommand.callCount, 1);
+		assert.deepStrictEqual(executeCommand.firstCall.args, ['gitlens.kepler.openProductPage', { source: 'view' }]);
+	});
+
+	test('installed === false: dismissing the warning does not run the open-product-page command', async () => {
+		showWarningMessage.resolves(undefined);
+
+		await startKeplerTask(makeContainer(sendEvent, { installed: false }), { intent: 'new-task' });
+
+		assert.strictEqual(executeCommand.callCount, 0);
+	});
+
+	test("installed === undefined (can't tell): proceeds and sends the link", async () => {
+		const started = await startKeplerTask(makeContainer(sendEvent, { installed: undefined }), {
+			intent: 'new-task',
+		});
+
+		assert.strictEqual(started, true);
+		assert.strictEqual(openExternal.callCount, 1);
+		assert.strictEqual(showWarningMessage.callCount, 0);
+		assert.strictEqual(sendEvent.firstCall.args[0], 'kepler/task/start');
+	});
+
+	test('available === false: refuses silently, before the installed gate, with no telemetry', async () => {
+		const started = await startKeplerTask(makeContainer(sendEvent, { available: false, installed: false }), {
+			intent: 'new-task',
+		});
+
+		assert.strictEqual(started, false);
+		assert.strictEqual(openExternal.callCount, 0);
+		assert.strictEqual(showWarningMessage.callCount, 0);
+		assert.strictEqual(executeCommand.callCount, 0);
+		assert.strictEqual(sendEvent.callCount, 0);
 	});
 });
 

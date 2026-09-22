@@ -22549,7 +22549,7 @@
 				},
 				{
 					"command": "gitlens.kepler.startReview",
-					"when": "viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && !listMultiSelection",
+					"when": "viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && !listMultiSelection && !isWeb",
 					"group": "1_gitlens_actions@3"
 				},
 				{
@@ -22826,7 +22826,7 @@
 				},
 				{
 					"command": "gitlens.kepler.newTask",
-					"when": "viewItem =~ /gitlens:(repository|repo-folder)\\b/ && !listMultiSelection",
+					"when": "viewItem =~ /gitlens:(repository|repo-folder)\\b/ && !listMultiSelection && !isWeb",
 					"group": "2_gitlens_quickopen@5"
 				},
 				{
@@ -29087,7 +29087,7 @@
 				},
 				{
 					"command": "gitlens.kepler.startReview:graph",
-					"when": "webviewItem =~ /gitlens:pullrequest\\b/",
+					"when": "webviewItem =~ /gitlens:pullrequest\\b/ && !isWeb",
 					"group": "1_gitlens_actions@100"
 				},
 				{
