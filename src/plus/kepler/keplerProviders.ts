@@ -1,4 +1,5 @@
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
+import type { KeplerChannel } from './keplerService.js';
 
 // This is the single home for every table mirrored from the Kepler repo (design doc §6.4 — "Drift
 // risk — four hand-maintained twins"). Each table below carries a comment naming the exact Kepler
@@ -89,4 +90,86 @@ export function isKeplerSupportedProvider(kind: 'pr' | 'issue', providerId: stri
 
 	const capableProviders = kind === 'pr' ? keplerPrCapableProviders : keplerIssueCapableProviders;
 	return capableProviders.includes(providerId as KeplerProviderId);
+}
+
+/**
+ * The channel's product name — the macOS bundle name, the Linux install dir and the userData dir
+ * all derive from it. Mirrors `getChannelProductName` in the Kepler repo:
+ * `scripts/_product-name.mjs#getChannelProductName`. Kepler's own fallback for an unknown channel
+ * is not mirrored because `KeplerChannel` is closed.
+ */
+export function getKeplerProductName(channel: KeplerChannel): string {
+	switch (channel) {
+		case 'production':
+			return 'Kepler';
+		case 'staging':
+			return 'Kepler (staging)';
+		case 'dev':
+			return 'Kepler (dev)';
+		case 'source':
+			return 'Kepler (source)';
+	}
+}
+
+/**
+ * The channel's package name (`extraMetadata.name`). Mirrors `getChannelPackageName` in the Kepler
+ * repo: `scripts/_channel-identity.mjs#getChannelPackageName`.
+ */
+export function getKeplerPackageName(channel: KeplerChannel): string {
+	return channel === 'production' ? 'kepler' : `kepler-${channel}`;
+}
+
+export interface KeplerInstallEnvironment {
+	/** The user's home directory; empty when unknown */
+	readonly home: string;
+	/** `%LOCALAPPDATA%` on Windows; undefined when unset */
+	readonly localAppData: string | undefined;
+}
+
+/**
+ * Where an installed Kepler of the given channel lives on disk, most likely first. Pure — the
+ * platform and environment are parameters — and builds each path with that platform's own
+ * separator rather than `node:path`, whose separator is the host's. Spaces and parentheses in the
+ * product name are literal: electron-builder's `sanitizedProductName` keeps them.
+ *
+ * - macOS: the bundle is `<productName>.app`. The DMG is drag-to-install, so a per-user
+ *   `~/Applications` is probed alongside `/Applications`.
+ * - Windows: the NSIS installer is one-click and per-user (neither `oneClick` nor `perMachine` is
+ *   set in Kepler's `electron-builder.yml`), so there is no Program Files install. For that mode
+ *   electron-builder names the dir from the package name, not the product name
+ *   (`getWindowsInstallationDirName` in `app-builder-lib/out/targets/targetUtil.js`), which
+ *   contradicts Kepler's own comment on `getChannelWindowsExecutableName` — so both are probed.
+ * - Linux: deb/rpm unpack to `/opt/<productName>`. Mirrors `getChannelLinuxInstallDir` in
+ *   `scripts/_channel-identity.mjs`. AppImage, Snap and Flatpak installs are not detected.
+ */
+export function getKeplerInstallPaths(
+	channel: KeplerChannel,
+	platform: string,
+	env: KeplerInstallEnvironment,
+): string[] {
+	const productName = getKeplerProductName(channel);
+
+	switch (platform) {
+		case 'darwin': {
+			const paths = [`/Applications/${productName}.app`];
+			if (env.home) {
+				paths.push(`${env.home}/Applications/${productName}.app`);
+			}
+			return paths;
+		}
+		case 'win32': {
+			if (!env.localAppData) return [];
+
+			const paths = [`${env.localAppData}\\Programs\\${getKeplerPackageName(channel)}`];
+			// Windows paths are case-insensitive, so production's two spellings are one path
+			if (channel !== 'production') {
+				paths.push(`${env.localAppData}\\Programs\\${productName}`);
+			}
+			return paths;
+		}
+		case 'linux':
+			return [`/opt/${productName}`];
+		default:
+			return [];
+	}
 }

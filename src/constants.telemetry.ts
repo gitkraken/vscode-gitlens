@@ -2742,8 +2742,8 @@ interface KeplerTaskStartEvent {
 }
 
 interface KeplerTaskStartFailedEvent extends KeplerTaskStartEvent {
-	/** Why the task was not started. `unsupported-provider` = Kepler cannot serve the item's provider for its kind, so no link was sent; `open-failed` = the deep link could not be handed off */
-	'failure.reason': 'open-failed' | 'unsupported-provider';
+	/** Why the task was not started. `not-installed` = Kepler is not installed, so no link was sent; `unsupported-provider` = Kepler cannot serve the item's provider for its kind, so no link was sent; `open-failed` = the deep link could not be handed off */
+	'failure.reason': 'not-installed' | 'open-failed' | 'unsupported-provider';
 }
 
 type InspectCommitContextEventData = {
@@ -3535,6 +3535,7 @@ export type TrackedGlActions =
 	| 'gitlens.graph.overview.shown'
 	| 'gitlens.graph.scope.changed'
 	| 'gitlens.graph.walkthrough.started'
+	| 'gitlens.kepler.installed'
 	| 'gitlens.mcp.ipcRequest'
 	| 'gitlens.mcp.bundledMcpDefinitionProvided';
 
