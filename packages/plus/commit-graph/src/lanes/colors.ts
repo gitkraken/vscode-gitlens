@@ -115,6 +115,12 @@ export function colorForColumn(column: number): string {
 	return activePalette[column % activePalette.length];
 }
 
+// Luminance at which black and white give equal WCAG contrast against a fill: solving
+// (L + 0.05) / 0.05 === 1.05 / (L + 0.05) gives L = sqrt(1.05 * 0.05) - 0.05. Above it black wins,
+// below it white does. This is also the crossover CSS `contrast-color()` uses, so when that function
+// is available everywhere this whole helper can be replaced by it with no visual change.
+const contrastCrossoverLuminance = 0.17913;
+
 /**
  * Best-contrast text color (black or white) for text/icons placed ON a solid `hex` fill — using the
  * WCAG relative-luminance of the fill. Light lanes (amber/gold/green/teal) get dark text, dark lanes
@@ -126,7 +132,7 @@ export function contrastColor(hex: string): string {
 		return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 	};
 	const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
-	return luminance > 0.4 ? '#000000' : '#ffffff';
+	return luminance > contrastCrossoverLuminance ? '#000000' : '#ffffff';
 }
 
 /**
