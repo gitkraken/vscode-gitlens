@@ -5667,6 +5667,54 @@ or
 void
 ```
 
+### kepler/task/start
+
+> Sent when the user starts a Kepler task — a deep link into an installed Kepler's Task Composer was handed off. Records what was sent, not whether Kepler handled it
+
+```typescript
+{
+  // The Kepler action pinned by the deep link
+  'action': 'default-plan' | 'default-review',
+  // The Kepler channel the deep link targets
+  'channel': 'dev' | 'production' | 'source' | 'staging',
+  // Which entry point started the task
+  'intent': 'new-task' | 'start-review' | 'start-work',
+  // The kind of item the task starts from; absent for a task started from a repository
+  'kind': 'issue' | 'pr',
+  // The Kepler provider id the item's provider mapped to
+  'provider': 'azure' | 'bitbucket' | 'github' | 'githubEnterprise' | 'gitlab' | 'gitlabSelfHosted' | 'jira' | 'linear' | 'trello',
+  // Whether the item's provider mapped to a Kepler provider id; absent when there is no item. A necessary precondition for Kepler to classify the item, never proof it did
+  'provider.mapped': boolean,
+  // Whether a local clone resolved silently and was sent as an exact `repo=` match
+  'repo.resolved': boolean
+}
+```
+
+### kepler/task/start/failed
+
+> Sent when starting a Kepler task fails — the item's provider is one Kepler cannot serve, or the deep link could not be handed off
+
+```typescript
+{
+  // The Kepler action pinned by the deep link
+  'action': 'default-plan' | 'default-review',
+  // The Kepler channel the deep link targets
+  'channel': 'dev' | 'production' | 'source' | 'staging',
+  // Why the task was not started. `unsupported-provider` = Kepler cannot serve the item's provider for its kind, so no link was sent; `open-failed` = the deep link could not be handed off
+  'failure.reason': 'open-failed' | 'unsupported-provider',
+  // Which entry point started the task
+  'intent': 'new-task' | 'start-review' | 'start-work',
+  // The kind of item the task starts from; absent for a task started from a repository
+  'kind': 'issue' | 'pr',
+  // The Kepler provider id the item's provider mapped to
+  'provider': 'azure' | 'bitbucket' | 'github' | 'githubEnterprise' | 'gitlab' | 'gitlabSelfHosted' | 'jira' | 'linear' | 'trello',
+  // Whether the item's provider mapped to a Kepler provider id; absent when there is no item. A necessary precondition for Kepler to classify the item, never proof it did
+  'provider.mapped': boolean,
+  // Whether a local clone resolved silently and was sent as an exact `repo=` match
+  'repo.resolved': boolean
+}
+```
+
 ### launchpad/action
 
 > Sent when the user takes an action on a launchpad item
