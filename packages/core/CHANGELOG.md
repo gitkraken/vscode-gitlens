@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-22
+
 ### Fixed
 
 - Rejects a provider response that carries an HTML page under a success status instead of handing it on as data. Azure DevOps answers a rejected credential by redirecting to its sign-in page, which then returns `203 text/html` rather than `401`, and `response.ok` spans the whole 200-299 range — so the page was read as the body and passed to provider code typed as the JSON it is not. It surfaced as an opaque `TypeError` deep inside a provider, or as nothing at all on a route returning `void`, which made a bad credential look like a successful write. Such a response now raises `UnexpectedHtmlResponseError`. On Azure DevOps, the one provider known to answer a rejected credential this way, it is classified as an authentication failure so a fan-out reports what it actually was; on every other provider it stays a request failure, because a 2xx page there is far more likely a maintenance or WAF interstitial and calling that an auth failure would expire a valid cloud session and count against the budget that disconnects the integration. A page mislabelled as JSON is caught the same way, since `<` can never open valid JSON, and content types are matched case-insensitively as the spec requires. An empty body is exempt, since a write answering `204` can carry a stale `text/html` from its endpoint's usual responses and a sign-in page is never empty. The response attached to the error is stripped of its credential-bearing headers (the session cookie Azure sets, the challenges whose payload names the tenant) and its body cut to a diagnostic prefix, because an error is something a consumer may reasonably log or forward. Azure DevOps' own REST client takes the same guard on its direct reads, where the page previously reached `rsp.json()` and died as a bare `SyntaxError` that every caller reported as a missing work item. An `AuthenticationError` now propagates out of every one of those reads — the work-item and linked issue-or-PR lookups, the PR-for-branch and PR-for-commit reads, the current-user read, the repository-metadata and default-branch probes, which degrade quietly on a 404 by design but must not on a rejected credential, and the work-item state-list read, whose empty-list fallback was cached and so pinned every work item of that type to an unknown state long after the session recovery should have run. Everything else keeps its existing degrade-to-undefined behavior. A non-2xx keeps its own status error, which says more
@@ -352,7 +354,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.6.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.7.0...HEAD
+[0.7.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.6.0...gitkraken:releases/core/v0.7.0
 [0.6.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.116...gitkraken:releases/core/v0.6.0
 [0.5.116]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.115...gitkraken:releases/core/v0.5.116
 [0.5.115]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.114...gitkraken:releases/core/v0.5.115
