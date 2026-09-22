@@ -17,6 +17,7 @@ import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { filterMap, flatten } from '@gitlens/utils/iterable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import { CloudIntegrationService } from './authentication/cloudIntegrationService.js';
 import type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
 import { ConfiguredIntegrationService } from './authentication/configuredIntegrationService.js';
@@ -41,6 +42,7 @@ import {
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 	IssuesSelfManagedHostIntegrationId,
+	providerFanOutConcurrency,
 } from './constants.js';
 import type {
 	AuthenticationSessionsChangeEvent,
@@ -110,7 +112,7 @@ import type {
 	ResolveRepositoryResult,
 } from './results.js';
 import type { Source } from './telemetry.js';
-import { hostFromDomain, sameConfiguredBaseUrl } from './utils/domain.utils.js';
+import { getRemoteHostMatcher, hostFromDomain, sameConfiguredBaseUrl } from './utils/domain.utils.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
 	getIntegrationIdForRemote,
@@ -613,40 +615,34 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		integrationIds?: IntegrationIds[],
 		options?: { openRepositoriesOnly?: boolean; cancellation?: AbortSignal },
 	): Promise<IntegrationResult<IssueShape[] | undefined>> {
-		const integrations: Map<Integration, ResourceDescriptor[] | undefined> = new Map();
-		const hostingIntegrationIds = integrationIds?.filter(
-			id => id in GitCloudHostIntegrationId || id in GitSelfManagedHostIntegrationId,
-		) as GitCloudHostIntegrationId[];
-		const openRemotesByIntegrationId = new Map<IntegrationIds, ResourceDescriptor[]>();
+		// Grouped by integration id, then credited to a host below: a self-managed id resolves to one instance per
+		// configured host (see `getIntegrationsForAccountWideRead`), and a host must only be asked about the
+		// repositories that live on it, since `owner/name` is not unique across two GitHub Enterprise servers.
+		const openRemotesByIntegrationId = new Map<IntegrationIds, { remote: GitRemote; repo: ResourceDescriptor }[]>();
 		let hasOpenAzureRepository = false;
 		for (const remote of await this.ctx.repositories.getOpenRemotes()) {
-			const remoteIntegration = await this.getByRemote(remote);
-			if (remoteIntegration == null) continue;
+			const integrationId = getIntegrationIdForRemote(remote.provider);
+			if (integrationId == null) continue;
 
-			if (remoteIntegration.id === GitCloudHostIntegrationId.AzureDevOps) {
+			if (integrationId === GitCloudHostIntegrationId.AzureDevOps) {
 				hasOpenAzureRepository = true;
 			}
-			for (const integrationId of hostingIntegrationIds?.length
-				? hostingIntegrationIds
-				: [...Object.values(GitCloudHostIntegrationId), ...Object.values(GitSelfManagedHostIntegrationId)]) {
-				if (
-					remoteIntegration.id === integrationId &&
-					remote.provider?.owner != null &&
-					remote.provider?.repoName != null
-				) {
-					const descriptor = {
-						key: `${remote.provider.owner}/${remote.provider.repoName}`,
-						owner: remote.provider.owner,
-						name: remote.provider.repoName,
-					};
-					if (openRemotesByIntegrationId.has(integrationId)) {
-						openRemotesByIntegrationId.get(integrationId)?.push(descriptor);
-					} else {
-						openRemotesByIntegrationId.set(integrationId, [descriptor]);
-					}
-				}
+			if (remote.provider?.owner == null || remote.provider?.repoName == null) continue;
+
+			const repo = {
+				key: `${remote.provider.owner}/${remote.provider.repoName}`,
+				owner: remote.provider.owner,
+				name: remote.provider.repoName,
+			};
+			const remotes = openRemotesByIntegrationId.get(integrationId);
+			if (remotes != null) {
+				remotes.push({ remote: remote, repo: repo });
+			} else {
+				openRemotesByIntegrationId.set(integrationId, [{ remote: remote, repo: repo }]);
 			}
 		}
+
+		const integrations: Map<Integration, ResourceDescriptor[] | undefined> = new Map();
 		for (const integrationId of integrationIds?.length
 			? integrationIds
 			: [
@@ -655,23 +651,26 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 					...Object.values(IssuesSelfManagedHostIntegrationId),
 					...Object.values(GitSelfManagedHostIntegrationId),
 				]) {
-			const integration = await this.get(integrationId);
-			const isInvalidIntegration =
-				(options?.openRepositoriesOnly &&
+			if (integrationId === GitCloudHostIntegrationId.AzureDevOps && !hasOpenAzureRepository) continue;
+
+			const integrationsForId = await this.getIntegrationsForAccountWideRead(integrationId);
+			for (const integration of integrationsForId) {
+				const openRemotes = this.getOpenRemotesForHost(
+					integration,
+					integrationsForId,
+					openRemotesByIntegrationId.get(integrationId),
+				);
+				if (
+					options?.openRepositoriesOnly &&
 					integrationId !== GitCloudHostIntegrationId.AzureDevOps &&
 					(isGitCloudHostIntegrationId(integrationId) || isGitSelfManagedHostIntegrationId(integrationId)) &&
-					!openRemotesByIntegrationId.has(integrationId)) ||
-				(integrationId === GitCloudHostIntegrationId.AzureDevOps && !hasOpenAzureRepository);
-			if (integration == null || isInvalidIntegration) {
-				continue;
-			}
+					openRemotes == null
+				) {
+					continue;
+				}
 
-			integrations.set(
-				integration,
-				options?.openRepositoriesOnly && !isInvalidIntegration
-					? openRemotesByIntegrationId.get(integrationId)
-					: undefined,
-			);
+				integrations.set(integration, options?.openRepositoriesOnly ? openRemotes : undefined);
+			}
 		}
 		if (integrations.size === 0) return undefined;
 
@@ -684,14 +683,11 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	): Promise<IntegrationResult<IssueShape[] | undefined>> {
 		const start = performance.now();
 
-		const promises: Promise<IntegrationResult<IssueShape[] | undefined>>[] = [];
-		for (const [integration, repos] of integrations) {
-			if (integration == null) continue;
-
-			promises.push(integration.searchMyIssuesResult(repos, cancellation));
-		}
-
-		const results = await Promise.allSettled(promises);
+		// Bounded like every other provider fan-out: a self-managed id contributes one integration per configured
+		// host, so the number of concurrent reads is no longer capped by the number of providers.
+		const results = await mapSettledBounded([...integrations], providerFanOutConcurrency, ([integration, repos]) =>
+			integration.searchMyIssuesResult(repos, cancellation),
+		);
 		const successfulResults = [
 			...flatten(
 				filterMap(results, r =>
@@ -798,13 +794,9 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		for (const integrationId of integrationIds?.length
 			? integrationIds
 			: Object.values(GitCloudHostIntegrationId)) {
-			let integration;
-			try {
-				integration = await this.get(integrationId);
-			} catch {}
-			if (integration == null) continue;
-
-			integrations.set(integration, undefined);
+			for (const integration of await this.getIntegrationsForAccountWideRead(integrationId)) {
+				integrations.set(integration, undefined);
+			}
 		}
 		if (integrations.size === 0) return undefined;
 
@@ -818,14 +810,9 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	): Promise<IntegrationResult<PullRequest[] | undefined>> {
 		const start = performance.now();
 
-		const promises: Promise<IntegrationResult<PullRequest[] | undefined>>[] = [];
-		for (const [integration, repos] of integrations) {
-			if (integration == null) continue;
-
-			promises.push(integration.searchMyPullRequests(repos, cancellation, options));
-		}
-
-		const results = await Promise.allSettled(promises);
+		const results = await mapSettledBounded([...integrations], providerFanOutConcurrency, ([integration, repos]) =>
+			integration.searchMyPullRequests(repos, cancellation, options),
+		);
 		const successfulResults = [
 			...flatten(
 				filterMap(results, r =>
@@ -964,6 +951,68 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		} catch {
 			return undefined;
 		}
+	}
+
+	/**
+	 * Resolves every integration instance an account-wide read must cover for `id`. A cloud id has one instance;
+	 * a self-managed id has one per configured host, so the read fans out over all of them rather than `get(id)`
+	 * silently picking whichever host was cached (or flagged primary) first, which dropped every other GitHub
+	 * Enterprise server, GitLab instance, Bitbucket Data Center, Azure DevOps Server or Jira Data Center the user
+	 * is connected to (#5873).
+	 *
+	 * Hosts come from every configured connection, local as well as cloud: that is the set `get(id)` already picked
+	 * its primary from, and a locally configured host is as much the user's as a cloud-synced one. This is where it
+	 * departs from {@link getSupportedCloudIntegrations}, which only walks cloud connections because it exists to
+	 * sync them. The two share the per-host resolution and the fallback to whatever instance is already cached when
+	 * no host is configured. A lookup that throws counts as "not available", like {@link getIntegrationForRead}.
+	 */
+	private async getIntegrationsForAccountWideRead<T extends IntegrationIds>(id: T): Promise<IntegrationById<T>[]> {
+		const hosts = new Set<string>();
+		if (isSelfManagedHostIntegrationId(id)) {
+			for (const { domain } of this.getConfigured(id)) {
+				const host = hostFromDomain(domain) ?? domain;
+				if (host) {
+					hosts.add(host);
+				}
+			}
+		}
+
+		const targets: (string | undefined)[] = hosts.size !== 0 ? [...hosts] : [undefined];
+		const integrations: IntegrationById<T>[] = [];
+		for (const host of targets) {
+			const integration = await this.get(id, host).catch(() => undefined);
+			if (integration != null) {
+				integrations.push(integration);
+			}
+		}
+		return integrations;
+	}
+
+	/**
+	 * The open repositories to scope `integration`'s read to, out of the remotes open for its integration id.
+	 *
+	 * With a single host for the id (every cloud id, and a self-managed id with one configured host) every remote
+	 * is that host's, as it was before the read fanned out, so a remote addressed through an SSH alias or a custom
+	 * domain keeps its repositories scoped. With several hosts a remote belongs to the one configured host it
+	 * names, compared the way {@link resolveRepository} compares them: exactly for a web remote, by hostname for an
+	 * SSH/git one, whose parsed domain has lost any port. A remote naming no host, or several (two ports on one
+	 * machine), is credited to none, like `resolveRepository`'s `host-mismatch`: asking one server about another
+	 * server's `owner/name` reads a different repository, or nothing, under the right name.
+	 */
+	private getOpenRemotesForHost(
+		integration: Integration,
+		integrationsForId: readonly Integration[],
+		remotes: readonly { remote: GitRemote; repo: ResourceDescriptor }[] | undefined,
+	): ResourceDescriptor[] | undefined {
+		if (!remotes?.length) return undefined;
+		if (integrationsForId.length <= 1) return remotes.map(r => r.repo);
+
+		const owned = remotes.filter(r => {
+			const hostsMatch = getRemoteHostMatcher(r.remote.scheme);
+			const matching = integrationsForId.filter(i => hostsMatch(r.remote.provider?.domain, i.domain));
+			return matching.length === 1 && matching[0] === integration;
+		});
+		return owned.length ? owned.map(r => r.repo) : undefined;
 	}
 
 	resolveDomainForRead(
