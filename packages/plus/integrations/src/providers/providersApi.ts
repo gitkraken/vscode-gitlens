@@ -21,6 +21,7 @@ import {
 	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
+import { requestBitbucketServerProjects, requestBitbucketServerRepositories } from './bitbucket-server/discovery.js';
 import { requestJiraIssueByKey } from './jiraIssueByKey.js';
 import type {
 	GetIssueFn,
@@ -52,6 +53,7 @@ import type {
 	ProviderJiraServerProject,
 	ProviderLinearOrganization,
 	ProviderLinearTeam,
+	ProviderOrganization,
 	ProviderPullRequest,
 	ProviderRepoInput,
 	ProviderReposInput,
@@ -1166,6 +1168,28 @@ export class ProvidersApi {
 			options?.isPAT,
 			options?.baseUrl,
 		);
+	}
+
+	async getBitbucketServerProjects(
+		tokenWithInfo: TokenWithInfo<GitSelfManagedHostIntegrationId.BitbucketServer>,
+		baseUrl: string,
+		connectionId: string,
+	): Promise<ProviderHierarchyResult<ProviderOrganization>> {
+		const { paging: _paging, ...result } = await collectProviderPagedResult(
+			cursor => requestBitbucketServerProjects(this.request, tokenWithInfo, baseUrl, connectionId, cursor),
+			20,
+			{ providerId: tokenWithInfo.providerId },
+		);
+		return result;
+	}
+
+	getBitbucketServerRepositories(
+		tokenWithInfo: TokenWithInfo<GitSelfManagedHostIntegrationId.BitbucketServer>,
+		baseUrl: string,
+		connectionId: string,
+		options?: { project?: string; cursor?: string },
+	): Promise<ProviderApiPagedResult<ProviderRepository>> {
+		return requestBitbucketServerRepositories(this.request, tokenWithInfo, baseUrl, connectionId, options);
 	}
 
 	async getReposForCurrentUser(

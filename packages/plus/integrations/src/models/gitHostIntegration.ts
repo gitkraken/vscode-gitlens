@@ -356,7 +356,7 @@ export abstract class GitHostIntegration<
 
 	/**
 	 * Whether this git host implements generic org discovery. False for providers that register no
-	 * {@link getProviderOrganizationsForUser} hook (e.g. Bitbucket Data Center) — the facade uses this to
+	 * {@link getProviderOrganizationsForUser} hook — the facade uses this to
 	 * report `unsupported` instead of a silent empty list, which is indistinguishable from "has no orgs".
 	 */
 	get supportsOrganizationDiscovery(): boolean {
@@ -420,7 +420,22 @@ export abstract class GitHostIntegration<
 		const start = performance.now();
 		try {
 			const result = await this.getProviderOrganizationsForUser?.(session);
-			this.resetRequestExceptionCount('getOrganizationsForUser');
+			const authFailure = result?.metadata?.failures?.find(
+				failure =>
+					failure.kind === 'authentication' &&
+					failure.scope != null &&
+					failure.scope.providerId === this.id &&
+					Object.keys(failure.scope).length === 1,
+			);
+			if (authFailure != null) {
+				this.handleProviderException(
+					'getOrganizationsForUser',
+					toCollectionFailureError(authFailure, toTokenWithInfo(this.id, session)),
+					{ scope: scope, connectionId: connectionId },
+				);
+			} else {
+				this.resetRequestExceptionCount('getOrganizationsForUser');
+			}
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getOrganizationsForUser', ex, {

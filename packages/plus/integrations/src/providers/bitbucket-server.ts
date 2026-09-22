@@ -29,7 +29,12 @@ import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationKey } from '../models/integration.js';
 import type { BitbucketRepositoryDescriptor } from './bitbucket/models.js';
-import type { ProviderPullRequest, ProviderRepository } from './models.js';
+import type {
+	ProviderHierarchyResult,
+	ProviderOrganization,
+	ProviderPullRequest,
+	ProviderRepository,
+} from './models.js';
 import {
 	fromProviderPullRequest,
 	providerPullRequestMatchesSearch,
@@ -244,6 +249,47 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		}
 
 		return this._accounts.get(accessToken);
+	}
+
+	protected override async getProviderOrganizationsForUser(
+		session: ProviderAuthenticationSession,
+	): Promise<ProviderHierarchyResult<ProviderOrganization>> {
+		const api = await this.getProvidersApi();
+		return api.getBitbucketServerProjects(
+			toTokenWithInfo(this.id, session),
+			this.apiBaseUrlFor(session),
+			session.id,
+		);
+	}
+
+	protected override async getProviderRepositoriesForOrg(
+		session: ProviderAuthenticationSession,
+		org: string,
+		options?: { cursor?: string },
+	): Promise<ProviderHierarchyResult<ProviderRepository>> {
+		const api = await this.getProvidersApi();
+		return api.getBitbucketServerRepositories(
+			toTokenWithInfo(this.id, session),
+			this.apiBaseUrlFor(session),
+			session.id,
+			{
+				project: org,
+				cursor: options?.cursor,
+			},
+		);
+	}
+
+	protected override async getProviderRepositoriesForUser(
+		session: ProviderAuthenticationSession,
+		options?: { cursor?: string },
+	): Promise<ProviderHierarchyResult<ProviderRepository>> {
+		const api = await this.getProvidersApi();
+		return api.getBitbucketServerRepositories(
+			toTokenWithInfo(this.id, session),
+			this.apiBaseUrlFor(session),
+			session.id,
+			options,
+		);
 	}
 
 	protected override async searchProviderMyPullRequests(
