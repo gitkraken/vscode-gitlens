@@ -22,6 +22,14 @@ export type GlCommandsDeprecated =
 	| 'gitlens.scm.ai.generateCommitMessage'
 	/** @deprecated use `gitlens.ai.switchProvider` */
 	| 'gitlens.switchAIModel'
+	/**
+	 * @deprecated use `gitlens.kepler.openProductPage`
+	 *
+	 * Listed only so the PERSISTED usage key `command:gitlens.getKepler:executed` stays nameable in
+	 * `TrackedUsageKeys` (see `walkthroughStateProvider.ts`). The id was internal and never
+	 * contributed, so nothing registers it as an alias — membership here is type-level only.
+	 */
+	| 'gitlens.getKepler'
 	| 'gitlens.diffHeadWith'
 	| 'gitlens.diffWorkingWith'
 	| 'gitlens.openBranchesInRemote'
@@ -99,7 +107,7 @@ type InternalGlCommands =
 	| 'gitlens.diffWithPrevious:views'
 	| 'gitlens.diffWithWorking:command'
 	| 'gitlens.diffWithWorking:views'
-	| 'gitlens.getKepler'
+	| 'gitlens.kepler.openProductPage'
 	| 'gitlens.openChatAction'
 	| 'gitlens.openCloudPatch'
 	| 'gitlens.openOnRemote'
