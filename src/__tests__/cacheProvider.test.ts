@@ -1,12 +1,14 @@
 import * as assert from 'assert';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
+import type { Issue } from '@gitlens/git/models/issue.js';
+import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { IntegrationBase } from '@gitlens/integrations/models/integration.js';
 import { CacheProvider } from '../cache.js';
 
-function createIntegration(domain: string): IntegrationBase {
+function createIntegration(domain: string, id: string = 'cloud-github-enterprise'): IntegrationBase {
 	const integration = {
-		id: 'cloud-github-enterprise',
+		id: id,
 		domain: domain,
 		maybeConnected: true,
 		sessionFingerprint: 'shared-session',
@@ -62,6 +64,23 @@ suite('CacheProvider', () => {
 
 		assert.deepStrictEqual(lookups, ['acct-a', 'acct-b']);
 		assert.strictEqual(accountA2?.id, 'acct-a', 'the first domain keeps its own cached account entry');
+	});
+
+	test('issues from self-managed hosts are keyed by domain (#5872)', async () => {
+		const cache = new CacheProvider({} as never);
+		const resource: ResourceDescriptor = { id: '10000', key: 'PROJ', name: 'PROJ' };
+		const hostA = createIntegration('jira-a.example.com', 'jira-server');
+		const hostB = createIntegration('jira-b.example.com', 'jira-server');
+		const issueA = { id: 'PROJ-1', title: 'Host A' } satisfies Partial<Issue> as Issue;
+
+		await cache.getIssue('PROJ-1', resource, hostA, () => ({ value: Promise.resolve(issueA) }));
+
+		assert.strictEqual(cache.peekIssue('PROJ-1', resource, hostA), issueA);
+		assert.strictEqual(
+			cache.peekIssue('PROJ-1', resource, hostB),
+			undefined,
+			'a same-key issue cached for one host is not returned for another',
+		);
 	});
 
 	test('a stale rejected load does not evict its replacement', async () => {

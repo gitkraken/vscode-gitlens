@@ -512,6 +512,23 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 	}
 
 	/**
+	 * The point read behind `getTrackerIssue` (#5872). `resourceId` is this connection's single synthetic
+	 * resource — the host itself, see {@link JiraServerResourceDescriptor} — so it selects nothing further here:
+	 * the host was chosen upstream by `domain` (or the connection's configured domain) and the request is
+	 * addressed to the SESSION's base URL like every other read. No `resourceUrl` is needed either, unlike Jira
+	 * Cloud: its REST `self` link is an API endpoint, whereas `getJiraServerIssue` builds the browser link from
+	 * the base URL it was addressed to. A key that names no issue resolves to `undefined`, a proven absence.
+	 */
+	protected override getProviderIssueByResourceId(
+		session: ProviderAuthenticationSession,
+		_resourceId: string,
+		id: string,
+		_resourceUrl: string | undefined,
+	): Promise<Issue | undefined> {
+		return this.getProviderIssue(session, this.resourceFor(session), id);
+	}
+
+	/**
 	 * Caches are keyed by the ADDRESS the read was made against as well as the token: one integration instance
 	 * exists per configured host and two hosts can hold the same token, so a token-only key would serve one
 	 * host's projects for the other — and the host alone is not enough either, because a connection re-pointed

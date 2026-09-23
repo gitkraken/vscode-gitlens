@@ -1,11 +1,23 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import type { Issue } from '@gitlens/git/models/issue.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
-import { IssuesCloudHostIntegrationId, IssuesSelfManagedHostIntegrationId } from '../constants.js';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
+} from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
+import type { GitConfigEntityIdentifier } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
+import {
+	encodeIssueOrPullRequestForGitConfig,
+	getIssueFromGitConfigEntityIdentifier,
+	getIssueOwner,
+} from '../providers/utils.js';
 import { isIssuesHostIntegrationId, isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
@@ -50,6 +62,52 @@ function providerIssue(number: string, baseUrl: string) {
 		assignees: [],
 		labels: [],
 	};
+}
+
+/**
+ * An issue as the SDK reports it for a point read: `number` is the KEY (`PROJ-1`), which becomes `IssueShape.id`.
+ *
+ * The project is supplied by the stub. The SDK's Jira normalizer reports `project.resourceId` and `namespace` as
+ * null for Jira Server, which `toIssueShape` reads as "no project", and a branch association cannot be encoded
+ * without one; what is under test here is the identifier's host routing, not that mapping.
+ */
+function providerIssueForKey(key: string, baseUrl: string) {
+	return {
+		...providerIssue(key.replace(/^PROJ-/, ''), baseUrl),
+		number: key,
+		project: { id: 'p1', name: 'PROJ', key: 'PROJ', resourceId: new URL(baseUrl).host, namespace: 'PROJ' },
+	};
+}
+
+/** Two hosts whose point reads record the base URL they were addressed to, so routing is asserted on requests. */
+async function twoHostsRecordingIssueReads(manager: ReturnType<typeof createIntegrationManager>) {
+	const hostA = withSession(
+		(await manager.get(IssuesSelfManagedHostIntegrationId.JiraServer, 'jira-a.example.com'))!,
+		'jira-a.example.com',
+	);
+	const hostB = withSession(
+		(await manager.get(IssuesSelfManagedHostIntegrationId.JiraServer, 'jira-b.example.com'))!,
+		'jira-b.example.com',
+	);
+	const reads: string[] = [];
+	for (const host of [hostA, hostB]) {
+		stubApi(host, {
+			getJiraServerIssue: (_t: unknown, baseUrl: string, key: string) => {
+				reads.push(baseUrl);
+				return Promise.resolve(key === 'PROJ-404' ? undefined : providerIssueForKey(key, baseUrl));
+			},
+		});
+	}
+	return { hostA: hostA, hostB: hostB, reads: reads };
+}
+
+/** Encodes a branch association for `PROJ-1` read from the given host, the way the extension does. */
+async function encodedAssociationFrom(host: IssuesIntegration): Promise<GitConfigEntityIdentifier> {
+	const issue = await host.getIssue((await host.getResourcesForUser())![0], 'PROJ-1');
+	assert.ok(issue != null, 'the host answered the point read');
+	const owner = getIssueOwner(issue);
+	assert.ok(owner != null, 'a self-hosted issue derives an owner from its project');
+	return encodeIssueOrPullRequestForGitConfig(issue, owner);
 }
 
 suite('Jira Server/Data Center (#5864)', () => {
@@ -725,5 +783,276 @@ suite('Jira Server/Data Center (#5864)', () => {
 		} finally {
 			manager.dispose();
 		}
+	});
+
+	test('a branch association round-trips through the host it was encoded for (#5872)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const { hostA, reads } = await twoHostsRecordingIssueReads(manager);
+
+		const identifier = await encodedAssociationFrom(hostA);
+		const encoded = identifier as unknown as { provider: string; domain: string | null; projectId: string | null };
+		assert.equal(encoded.provider, 'jiraServer');
+		assert.equal(encoded.domain, 'jira-a.example.com', 'the host is the identity of a self-hosted issue');
+		assert.equal(encoded.projectId, 'p1');
+
+		reads.length = 0;
+		const askedFor: (string | undefined)[] = [];
+		const resolved = await getIssueFromGitConfigEntityIdentifier((id, domain) => {
+			askedFor.push(domain);
+			return manager.get(id, domain);
+		}, identifier);
+
+		assert.deepEqual(askedFor, ['jira-a.example.com'], 'the resolver is handed the encoded host');
+		assert.deepEqual(reads, ['https://jira-a.example.com'], 'the read went to the encoded host and nowhere else');
+		assert.equal(resolved?.id, 'PROJ-1');
+		assert.equal(resolved?.provider.domain, 'jira-a.example.com');
+
+		manager.dispose();
+	});
+
+	test('a branch association encoded on one host never resolves against another (#5872)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const { hostA, reads } = await twoHostsRecordingIssueReads(manager);
+
+		const identifier = await encodedAssociationFrom(hostA);
+		reads.length = 0;
+
+		// A resolver that knows only host B — a machine where host A is not configured — yields nothing, and host
+		// B is never read even though it would answer for the same key with a different issue.
+		const resolvedElsewhere = await getIssueFromGitConfigEntityIdentifier(
+			(id, domain) => (domain === 'jira-b.example.com' ? manager.get(id, domain) : Promise.resolve(undefined)),
+			identifier,
+		);
+		assert.equal(resolvedElsewhere, undefined);
+		assert.deepEqual(reads, [], 'no host was read');
+
+		// An identifier that names no host is dropped rather than resolved through the primary connection, which
+		// is what a domainless `resolveIntegration(id)` used to fall back to.
+		const domainless = { ...identifier, domain: null } as unknown as GitConfigEntityIdentifier;
+		let resolverCalls = 0;
+		const resolvedWithoutHost = await getIssueFromGitConfigEntityIdentifier((id, domain) => {
+			resolverCalls++;
+			return manager.get(id, domain);
+		}, domainless);
+		assert.equal(resolvedWithoutHost, undefined);
+		assert.equal(resolverCalls, 0, 'the resolver is not consulted, since it would answer from the primary');
+		assert.deepEqual(reads, []);
+
+		manager.dispose();
+	});
+
+	test('getTrackerIssue serves Jira Data Center by domain, and never reads the other host (#5872)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const { reads } = await twoHostsRecordingIssueReads(manager);
+		// No `resourceUrl`: the browser link comes from the base URL the read was addressed to.
+		const target = {
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			resourceId: 'jira-b.example.com',
+			domain: 'jira-b.example.com',
+		};
+
+		const found = await manager.getTrackerIssue({ ...target, key: 'PROJ-7' });
+
+		assert.deepEqual(reads, ['https://jira-b.example.com'], 'one request, to the requested host only');
+		assert.equal(found.items[0]?.key, 'PROJ-7');
+		assert.equal(found.items[0]?.issue?.id, 'PROJ-7');
+		assert.match(found.items[0]?.issue?.url ?? '', /^https:\/\/jira-b\.example\.com\//);
+		assert.deepEqual(found.warnings, []);
+		assert.equal(found.fetchFailed, undefined);
+
+		const absent = await manager.getTrackerIssue({ ...target, key: 'PROJ-404' });
+
+		assert.deepEqual(absent.items, [{ key: 'PROJ-404' }], 'a key that names no issue is a proven absence');
+		assert.deepEqual(absent.warnings, []);
+		assert.equal(absent.fetchFailed, undefined);
+
+		manager.dispose();
+	});
+
+	test('getTrackerIssue refuses a Jira Data Center resource id that names another host (#5872)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const { reads } = await twoHostsRecordingIssueReads(manager);
+
+		// The read is cached under `resourceId`, so host B's answer must not be stored under host A's resource.
+		const result = await manager.getTrackerIssue({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			resourceId: 'jira-a.example.com',
+			domain: 'jira-b.example.com',
+			key: 'PROJ-404',
+		});
+
+		assert.deepEqual(reads, [], 'no host is read');
+		assert.deepEqual(result.items, [], 'no absence is reported under the mismatched resource');
+		assert.equal(result.fetchFailed, true);
+		assert.match(result.warnings[0].message, /resource id/i);
+
+		manager.dispose();
+	});
+
+	test('getTrackerIssue refuses a Jira Data Center read that names no host (#5872)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		// Both instances are cached, so a domainless resolution would have fallen back to whichever was built first.
+		const { reads } = await twoHostsRecordingIssueReads(manager);
+
+		const result = await manager.getTrackerIssue({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			resourceId: 'jira-a.example.com',
+			key: 'PROJ-1',
+		});
+
+		assert.deepEqual(reads, [], 'no host is consulted, primary or otherwise');
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.match(result.warnings[0].message, /domain or a configured connection id/i);
+
+		manager.dispose();
+	});
+
+	test('getTrackerIssue refuses a Jira Data Center domain that names no host (#5872)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const { reads } = await twoHostsRecordingIssueReads(manager);
+
+		// An unparsable domain selects no host, so resolving it would fall back to the primary one.
+		const result = await manager.getTrackerIssue({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			resourceId: 'jira-a.example.com',
+			domain: 'https://%',
+			key: 'PROJ-404',
+		});
+
+		assert.deepEqual(reads, [], 'no host is consulted, primary or otherwise');
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.match(result.warnings[0].message, /domain or a configured connection id/i);
+
+		manager.dispose();
+	});
+
+	test('getTrackerIssue refuses a Jira Data Center connection id that names no configured connection (#5872)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const { reads } = await twoHostsRecordingIssueReads(manager);
+
+		// An unknown id selects no host, so resolving it would fall back to the primary one.
+		const result = await manager.getTrackerIssue({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			resourceId: 'jira-a.example.com',
+			connectionId: 'no-such-connection',
+			key: 'PROJ-1',
+		});
+
+		assert.deepEqual(reads, [], 'no host is consulted, primary or otherwise');
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.match(result.warnings[0].message, /domain or a configured connection id/i);
+
+		manager.dispose();
+	});
+	test('getTrackerIssue refuses a Jira Data Center connection that has no host (#5872)', async () => {
+		const runtime = createFakeRuntime();
+		// A legacy descriptor without a domain selects no host, so it would resolve the primary one.
+		await runtime.storage.store('integrations:configured', {
+			[IssuesSelfManagedHostIntegrationId.JiraServer]: [
+				{
+					id: 'hostless',
+					cloud: true,
+					integrationId: IssuesSelfManagedHostIntegrationId.JiraServer,
+					domain: '',
+					scopes: '',
+				},
+				{
+					id: 'jira-a',
+					cloud: true,
+					integrationId: IssuesSelfManagedHostIntegrationId.JiraServer,
+					domain: 'jira-a.example.com',
+					scopes: '',
+					primary: true,
+				},
+			],
+		});
+		const manager = createIntegrationManager(runtime);
+		const { reads } = await twoHostsRecordingIssueReads(manager);
+
+		const result = await manager.getTrackerIssue({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			resourceId: 'jira-a.example.com',
+			connectionId: 'hostless',
+			key: 'PROJ-404',
+		});
+
+		assert.deepEqual(reads, [], 'the primary host is not read on behalf of a hostless connection');
+		assert.deepEqual(result.items, [], 'no absence is reported for it');
+		assert.equal(result.fetchFailed, true);
+		assert.match(result.warnings[0].message, /domain or a configured connection id/i);
+
+		manager.dispose();
+	});
+});
+
+suite('Branch-association host routing for the self-managed git hosts (#5872)', () => {
+	function association(provider: string, domain: string | null): GitConfigEntityIdentifier {
+		return {
+			provider: provider,
+			entityType: 'issue',
+			version: '1',
+			domain: domain,
+			entityId: '7',
+			accountOrOrgId: null,
+			organizationName: null,
+			projectId: null,
+			repoId: null,
+			resourceId: null,
+			metadata: {
+				id: '7',
+				owner: { key: 'org/repo', id: 'org/repo', name: 'repo', owner: 'org' },
+				createdDate: new Date(0).toISOString(),
+				isCloudEnterprise: true,
+			},
+		} as unknown as GitConfigEntityIdentifier;
+	}
+
+	async function resolverArgs(identifier: GitConfigEntityIdentifier): Promise<[string, string | undefined][]> {
+		const calls: [string, string | undefined][] = [];
+		await getIssueFromGitConfigEntityIdentifier((id, domain) => {
+			calls.push([id, domain]);
+			return Promise.resolve(undefined);
+		}, identifier);
+		return calls;
+	}
+
+	test('a self-managed git host resolves the integration for the host its identifier carries', async () => {
+		assert.deepEqual(await resolverArgs(association('githubEnterprise', 'ghe.example.com')), [
+			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 'ghe.example.com'],
+		]);
+		assert.deepEqual(await resolverArgs(association('gitlabSelfHosted', 'gitlab.example.com')), [
+			[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted, 'gitlab.example.com'],
+		]);
+		assert.deepEqual(await resolverArgs(association('azureDevOpsServer', 'ado.example.com')), [
+			[GitSelfManagedHostIntegrationId.AzureDevOpsServer, 'ado.example.com'],
+		]);
+	});
+
+	test('a cached read of an unresolvable self-managed identifier does not peek the unscoped key', async () => {
+		const peeked: (string | undefined)[] = [];
+		const resolved = await getIssueFromGitConfigEntityIdentifier(
+			() => Promise.resolve(undefined),
+			association('githubEnterprise', null),
+			{
+				cached: true,
+				peekCachedIssue: (_integration, resource) => {
+					peeked.push(resource.key);
+					return undefined;
+				},
+			},
+		);
+
+		// Without an integration the key cannot name the host, so it would match what github.com writes.
+		assert.equal(resolved, undefined);
+		assert.deepEqual(peeked, []);
+	});
+
+	test('a cloud host is resolved without a domain', async () => {
+		assert.deepEqual(await resolverArgs(association('github', null)), [
+			[GitCloudHostIntegrationId.GitHub, undefined],
+		]);
 	});
 });

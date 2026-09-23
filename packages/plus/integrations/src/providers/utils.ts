@@ -16,7 +16,11 @@ import {
 	IssuesCloudHostIntegrationId,
 	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
-import { isCloudGitSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
+import {
+	isCloudGitSelfManagedHostIntegrationId,
+	isIssuesSelfManagedHostIntegrationId,
+	isSelfManagedHostIntegrationId,
+} from '../utils/integration.utils.js';
 import type { AzureProjectInputDescriptor } from './azure/models.js';
 import type { GitConfigEntityIdentifier } from './models.js';
 import { isGitHubDotCom, isGitLabDotCom } from './models.js';
@@ -325,17 +329,43 @@ export function decodeEntityIdentifiersFromGitConfig(str: string): GitConfigEnti
 			debugger;
 			Logger.error('Invalid Jira issue in git config');
 		}
+
+		// The host is the identity of a self-hosted issue (see `getEntityIdentifierInput`); without it the
+		// identifier cannot be resolved against any instance and `getIssueFromGitConfigEntityIdentifier` drops it.
+		if (
+			decodedEntity.provider === EntityIdentifierProviderType.JiraServer &&
+			(getDomainFromEntityIdentifier(decodedEntity) == null || decodedEntity.projectId == null)
+		) {
+			debugger;
+			Logger.error('Invalid Jira Server issue in git config');
+		}
 	}
 
 	return decoded;
+}
+
+/**
+ * The host a self-managed identifier names, or `undefined` for a cloud one (or a malformed self-managed one).
+ * `domain` lives on some arms of `AnyEntityIdentifierInput` and on the catch-all, so the read is structural.
+ */
+function getDomainFromEntityIdentifier(identifier: GitConfigEntityIdentifier): string | undefined {
+	const domain = 'domain' in identifier ? identifier.domain : undefined;
+	return typeof domain === 'string' && domain.trim().length > 0 ? domain : undefined;
 }
 
 interface IssueResolvableIntegration {
 	getIssue(owner: unknown, id: string): Promise<Issue | undefined>;
 }
 
+/**
+ * Resolves the issue a branch association names.
+ *
+ * `resolveIntegration` receives the identifier's `domain` alongside the integration id, so a host-keyed
+ * provider resolves the instance the association was encoded for rather than whichever connection is primary
+ * (#5872). It is `undefined` for a cloud provider, which has a single host.
+ */
 export async function getIssueFromGitConfigEntityIdentifier(
-	resolveIntegration: (id: IntegrationIds) => Promise<IssueResolvableIntegration | undefined>,
+	resolveIntegration: (id: IntegrationIds, domain?: string) => Promise<IssueResolvableIntegration | undefined>,
 	identifier: GitConfigEntityIdentifier,
 	options?: {
 		/** Only return a value already in the local cache. No remote fetch — returns undefined on cache miss. */
@@ -357,15 +387,9 @@ export async function getIssueFromGitConfigEntityIdentifier(
 	}
 
 	// TODO: Centralize where we represent all supported providers for issues
-	//
-	// `JiraServer` is deliberately absent, even though `getEntityIdentifierInput` now encodes it: resolution
-	// goes through `resolveIntegration(id)`, which takes no domain and therefore answers from whichever
-	// connection is primary. For a host-keyed tracker that silently reads the wrong instance — the same trap
-	// `getTrackerIssue` refuses at (see `reads/trackerIssue.ts`). Encoding without decoding loses a branch
-	// association; decoding without a domain returns someone else's issue under the right key. Add it here
-	// once the resolver carries the identifier's `domain` (#5872).
 	if (
 		identifier.provider !== EntityIdentifierProviderType.Jira &&
+		identifier.provider !== EntityIdentifierProviderType.JiraServer &&
 		identifier.provider !== EntityIdentifierProviderType.Linear &&
 		identifier.provider !== EntityIdentifierProviderType.Github &&
 		identifier.provider !== EntityIdentifierProviderType.Gitlab &&
@@ -385,7 +409,16 @@ export async function getIssueFromGitConfigEntityIdentifier(
 		return undefined;
 	}
 
-	const integration = await resolveIntegration(integrationId);
+	// A self-hosted tracker's identifier must name its host: two instances routinely issue the same project and
+	// issue keys, so resolving the primary connection instead would return a DIFFERENT instance's issue under
+	// the right key. Dropping the association is the lesser failure, and the only safe one (#5872).
+	const domain = getDomainFromEntityIdentifier(identifier);
+	if (domain == null && isIssuesSelfManagedHostIntegrationId(integrationId)) {
+		Logger.error(`Cannot resolve a '${integrationId}' issue from git config without a domain`);
+		return undefined;
+	}
+
+	const integration = await resolveIntegration(integrationId, domain);
 
 	const resource: ResourceDescriptor = {
 		id: identifier.metadata.owner.id,
@@ -397,10 +430,14 @@ export async function getIssueFromGitConfigEntityIdentifier(
 		identifier.provider === EntityIdentifierProviderType.Trello ? identifier.entityId : identifier.metadata.id;
 
 	// Cache-only read (no remote fetch). The package can't reach the host cache directly, so defer to the
-	// host-supplied reader; without one, honor the no-fetch contract by returning undefined. The cache key
-	// is resource+id (the integration only affects the etag), so peek even when the integration is
-	// unresolvable — a still-cached issue must survive an unconfigured/disconnected integration.
+	// host-supplied reader; without one, honor the no-fetch contract by returning undefined. For a cloud
+	// provider the cache key is resource+id (the integration only affects the etag), so peek even when the
+	// integration is unresolvable — a still-cached issue must survive an unconfigured/disconnected integration.
+	// A self-managed host's key also names the host, which only a resolved integration can supply: without one
+	// the peek would fall back to the unscoped key a cloud provider writes for the same resource, so skip it.
 	if (options?.cached) {
+		if (integration == null && isSelfManagedHostIntegrationId(integrationId)) return undefined;
+
 		const cachedIssue = options.peekCachedIssue?.(integration, resource, identifier.metadata.id);
 		if (
 			cachedIssue != null ||

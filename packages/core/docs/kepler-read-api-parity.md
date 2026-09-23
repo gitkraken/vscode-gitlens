@@ -198,5 +198,14 @@ than a browser link; supplying both retains the one-request contract. Linear nee
 Linear only; Trello refuses because its single-issue read can fall back to a capped board scan for a numeric
 identifier, where a "not found" result cannot be distinguished from a card beyond the cap.
 
+**Jira Data Center point reads (#5872).** The same read serves a self-hosted Jira instance once it carries the host:
+`getTrackerIssue` takes the `domain` its paged siblings already took, and `resourceId` is the host itself (the
+instance's single resource; one naming another host than the read resolves to is refused). It does NOT fall back to the primary connection the way the paged reads do — a
+self-managed tracker requires a `domain` or a `connectionId` with a configured host and is refused otherwise —
+because its proven absence is cacheable and two self-hosted instances routinely issue the same keys, so an answer
+from whichever host is primary would be cached under a key naming a different instance. The branch-association
+resolver (`getIssueFromGitConfigEntityIdentifier`) follows the same rule from the other side: its resolver receives
+the identifier's `domain`, and a Jira Data Center identifier without one is dropped rather than resolved.
+
 **Kepler-side follow-up:** `ProviderScopeFilter` carries a single `repo?: string` today and needs the criteria
 set; the `provider-data` adapter then routes "All visible" to `searchIssuesPage` + `countIssues`.

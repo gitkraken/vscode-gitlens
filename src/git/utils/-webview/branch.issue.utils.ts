@@ -77,15 +77,20 @@ export async function getAssociatedIssuesForBranch(
 					return (
 						await Promise.allSettled(
 							(associatedIssues ?? []).map(i =>
-								getIssueFromGitConfigEntityIdentifier(id => container.integrations.get(id), i, {
-									cached: options?.cached,
-									peekCachedIssue: (integration, resource, id) =>
-										container.cache.peekIssue(
-											id,
-											resource,
-											integration as IntegrationBase | undefined,
-										),
-								}),
+								// The identifier's domain selects the host for a self-managed provider (#5872)
+								getIssueFromGitConfigEntityIdentifier(
+									(id, domain) => container.integrations.get(id, domain),
+									i,
+									{
+										cached: options?.cached,
+										peekCachedIssue: (integration, resource, id) =>
+											container.cache.peekIssue(
+												id,
+												resource,
+												integration as IntegrationBase | undefined,
+											),
+									},
+								),
 							),
 						)
 					)
