@@ -10,7 +10,12 @@ import type {
 } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { providersMetadata } from '../providers/models.js';
-import { areDomainsOnSameHost, hostFromDomain, sameConfiguredBaseUrl } from '../utils/domain.utils.js';
+import {
+	areDomainsOnSameHost,
+	baseUrlFromDomain,
+	hostFromDomain,
+	sameConfiguredBaseUrl,
+} from '../utils/domain.utils.js';
 import { isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider.js';
 import type {
@@ -67,6 +72,7 @@ export class ConfiguredIntegrationService implements Disposable {
 
 				const descriptors = configured.map(d => ({
 					...d,
+					baseUrl: isSelfManagedHostIntegrationId(id) ? getStoredBaseUrl(d.baseUrl, d.domain) : d.baseUrl,
 					domain: this.normalizeConfiguredDomain(id, d.domain),
 					// Backfill a stable connection id for pre-multi-account stored data: the domain for
 					// self-managed hosts, or the provider's canonical domain for cloud (which is the legacy
@@ -142,6 +148,9 @@ export class ConfiguredIntegrationService implements Disposable {
 	private async addOrUpdateConfigured(descriptor: ConfiguredIntegrationDescriptor): Promise<void> {
 		descriptor = {
 			...descriptor,
+			baseUrl: isSelfManagedHostIntegrationId(descriptor.integrationId)
+				? getStoredBaseUrl(descriptor.baseUrl, descriptor.domain)
+				: descriptor.baseUrl,
 			domain: this.normalizeConfiguredDomain(descriptor.integrationId, descriptor.domain),
 		};
 		const descriptors = this.configured.get(descriptor.integrationId) ?? [];
@@ -697,11 +706,22 @@ function convertStoredSessionToSession(
 		cloud: storedSession.cloud ?? cloudIfMissing,
 		expiresAt: storedSession.expiresAt ? new Date(storedSession.expiresAt) : undefined,
 		domain: storedSession.domain ?? descriptor.domain,
-		baseUrl: storedSession.baseUrl,
+		baseUrl: getStoredBaseUrl(storedSession.baseUrl, storedSession.domain, storedSession.protocol),
 		protocol: storedSession.protocol,
 		type: storedSession.type,
 		// Carried for providers whose client needs an app key alongside the token (e.g. Trello); without
 		// this a rehydrated session silently loses the key and every read no-ops.
 		appKey: storedSession.appKey,
 	};
+}
+
+function getStoredBaseUrl(
+	baseUrl: string | undefined,
+	domain: string | undefined,
+	protocol?: string,
+): string | undefined {
+	if (baseUrl != null) return baseUrl;
+
+	const legacyUrl = baseUrlFromDomain(domain, protocol);
+	return legacyUrl != null && new URL(legacyUrl).pathname !== '/' ? legacyUrl : undefined;
 }

@@ -19,6 +19,7 @@ import type { Integration, IntegrationConnectedKey } from '../models/integration
 // while `providers/models.ts` is still loading triggers a TDZ on `providersMetadata`. Importing the shared
 // predicates keeps one definition of each regex — duplicating them let a fix land in only one place.
 import { isAzureCloudDomain, isBitbucketCloudDomain, isGitHubDotCom, isGitLabDotCom } from '../providers/models.js';
+import { baseUrlFromDomain } from './domain.utils.js';
 
 const selfHostedIntegrationIds: GitSelfManagedHostIntegrationId[] = [
 	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
@@ -256,5 +257,24 @@ export function remoteProviderTypeForConfig(type: string): RemoteProviderId | un
 			return 'gerrit';
 		default:
 			return undefined;
+	}
+}
+
+export function getSelfManagedBaseUrl(
+	id: IntegrationIds,
+	domain: string | undefined,
+	protocol?: string,
+): string | undefined {
+	const baseUrl = baseUrlFromDomain(domain, protocol);
+	if (baseUrl == null) return undefined;
+
+	switch (id) {
+		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
+		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
+			return baseUrl.replace(/\/api(?:\/v\d+)?$/, '');
+		case GitSelfManagedHostIntegrationId.BitbucketServer:
+			return baseUrl.replace(/\/rest\/api\/1\.0$/, '');
+		default:
+			return baseUrl;
 	}
 }

@@ -482,11 +482,12 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 	});
 
 	test('Bitbucket Data Center refuses filtered PRs when the current account cannot be resolved', async () => {
+		const session = { ...primarySession('t'), domain: 'bitbucket.example.com' };
 		const integration = Object.create(BitbucketServerIntegration.prototype) as Record<string, unknown>;
 		Object.assign(integration, {
 			id: GitSelfManagedHostIntegrationId.BitbucketServer,
 			_domain: 'bitbucket.example.com',
-			_session: primarySession('t'),
+			_session: session,
 			getProvidersApi: () =>
 				Promise.resolve({
 					getBitbucketServerPullRequestsForCurrentUser: () => Promise.resolve({ data: [], hasMore: false }),
@@ -503,7 +504,7 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 							options: { filters: PullRequestFilter[] },
 						) => Promise<PagedResult<ProviderPullRequest> | undefined>;
 					}
-				).getProviderMyPullRequestsForUser(primarySession('t'), {
+				).getProviderMyPullRequestsForUser(session, {
 					filters: [PullRequestFilter.Author],
 				}),
 			/current Bitbucket Data Center account/,

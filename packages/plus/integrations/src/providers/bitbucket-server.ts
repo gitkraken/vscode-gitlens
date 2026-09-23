@@ -73,9 +73,8 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		return this._domain;
 	}
 
-	protected get apiBaseUrl(): string {
-		const protocol = this._session?.protocol ?? 'https:';
-		return `${protocol}//${this.domain}/rest/api/1.0`;
+	protected apiBaseUrlFor(session: ProviderAuthenticationSession): string {
+		return this.getSelfManagedApiBaseUrl(session);
 	}
 
 	protected override async mergeProviderPullRequest(
@@ -88,7 +87,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		const api = await this.getProvidersApi();
 		return api.mergePullRequest(toTokenWithInfo(this.id, session), pr, {
 			mergeMethod: options?.mergeMethod,
-			baseUrl: this.apiBaseUrl,
+			baseUrl: this.apiBaseUrlFor(session),
 		});
 	}
 
@@ -106,7 +105,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			repo.owner,
 			repo.name,
 			rev,
-			this.apiBaseUrl,
+			this.apiBaseUrlFor(session),
 			{
 				avatarSize: options?.avatarSize,
 			},
@@ -146,7 +145,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			repo.owner,
 			repo.name,
 			id,
-			this.apiBaseUrl,
+			this.apiBaseUrlFor(session),
 		);
 	}
 
@@ -173,7 +172,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			repo.owner,
 			repo.name,
 			branch,
-			this.apiBaseUrl,
+			this.apiBaseUrlFor(session),
 		);
 	}
 
@@ -188,7 +187,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			repo.owner,
 			repo.name,
 			rev,
-			this.apiBaseUrl,
+			this.apiBaseUrlFor(session),
 		);
 	}
 
@@ -204,7 +203,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		if (session == null) return undefined;
 
 		return api.getRepo(toTokenWithInfo(this.id, session), repo.owner, repo.name, repo.project, {
-			baseUrl: this.apiBaseUrl,
+			baseUrl: this.apiBaseUrlFor(session),
 		});
 	}
 
@@ -227,7 +226,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		if (cachedAccount == null) {
 			const api = await this.getProvidersApi();
 			const user = await api.getCurrentUser(toTokenWithInfo(this.id, session), {
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			});
 			this._accounts.set(
 				accessToken,
@@ -265,7 +264,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 
 		const prs = await api.getBitbucketServerPullRequestsForCurrentUser(
 			toTokenWithInfo(this.id, session),
-			this.apiBaseUrl,
+			this.apiBaseUrlFor(session),
 			{ states: toProviderPullRequestStates(options?.state) },
 		);
 		return prs?.data.map(pr => fromProviderPullRequest(pr, this));
@@ -283,7 +282,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		const page = parsePageCursor(options?.cursor);
 		const result = await api.getBitbucketServerPullRequestsForCurrentUser(
 			toTokenWithInfo(this.id, session),
-			this.apiBaseUrl,
+			this.apiBaseUrlFor(session),
 			{ states: states, page: page },
 		);
 		if (result == null) return undefined;
@@ -353,7 +352,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 					if (cancellation?.aborted) throw new CancellationError();
 
 					return api.getPullRequestsForRepo(token, repo, {
-						baseUrl: this.apiBaseUrl,
+						baseUrl: this.apiBaseUrlFor(session),
 						cursor: cursor,
 						states: states,
 					});

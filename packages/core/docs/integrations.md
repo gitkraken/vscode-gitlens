@@ -706,7 +706,13 @@ Markdown by this package.
   drain every project of every org and return one aggregate page; a failed project becomes a scoped warning
   while its siblings survive. Only Azure can narrow an account-wide issue read by `org`/`project`.
   `resolveRepository` needs a project in the remote URL. Azure DevOps Server uses the trusted connection's
-  domain/protocol as `baseUrl`; the remote host must match that configured connection.
+  `baseUrl`, including its installation path. A repository's virtual directory must match that path and is
+  applied once; a connection addressed at the host root takes the repository's own virtual directory. An address
+  that also names the repository's collection (`https://server/tfs/DefaultCollection`) resolves and reads that
+  collection's repositories without repeating it; another collection's repositories and account discovery need an
+  address without the collection. Installation paths match case-insensitively, as IIS serves them. An SSH remote
+  that names no virtual directory is read against the whole address, since it can't tell a virtual directory from
+  another collection named there.
 - **Jira (Cloud + Data Center) / Linear / Trello** — paged by **project**, not by issue: `itemsPerPage` counts projects (default
   20), each drained in full. Passing none of `page`/`cursor`/`itemsPerPage` aggregates every matched project
   in one page. A single project exceeding its internal drain backstop shows up as `page.truncated`.
@@ -717,6 +723,16 @@ Markdown by this package.
   retries, preserve a caller's aggregate-all mode, and suppress projects already emitted before discovery
   recovered. `hasMore` reports only untouched forward progress. A cursor can therefore remain with
   `hasMore: false`; reusing it is an explicit manual retry of failed work, not a normal paging loop.
+
+Self-managed descriptors keep `domain` as the normalized host and expose the configured installation address
+in `baseUrl`. Provider requests use the selected connection's address, including during account discovery.
+HTTPS repository resolution requires the configured host, web port, and installation path; the installation
+prefix is removed before parsing the repository identity. Without a `connectionId`, the connection whose
+installation path is the longest prefix of the remote resolves it (the primary on a tie); a remote under an
+installation that an unpinned read can't reach through its own session resolves as `host-mismatch` rather
+than through another installation's session. SSH resolution uses the configured web address and
+port, since the SSH endpoint can use a different port and omit the web installation path. If several configured
+web authorities share an SSH hostname, select one with `connectionId` or a trusted `domain`.
 
 **`broadenIssues` vs `searchIssuesPage`.** `broadenIssues` now reads each org through the org-scoped
 filtered search where the provider declares one (GitHub/GHE), so it no longer discovers repositories first

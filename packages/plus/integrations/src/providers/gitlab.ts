@@ -110,7 +110,12 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 	ID,
 	GitLabRepositoryDescriptor
 > {
-	protected abstract get apiBaseUrl(): string;
+	protected abstract apiBaseUrlFor(session: ProviderAuthenticationSession): string;
+
+	/** The installation base the PAT-based reads take on self-hosted GitLab; gitlab.com passes none. */
+	protected enterpriseBaseUrlFor(session: ProviderAuthenticationSession): string | undefined {
+		return this.isEnterprise ? this.getSelfManagedApiBaseUrl(session) : undefined;
+	}
 
 	/** Self-hosted GitLab uses PAT semantics and a domain-based API base; gitlab.com does not. */
 	protected get isEnterprise(): boolean {
@@ -133,7 +138,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			rev,
 			{
 				...options,
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -154,7 +159,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			email,
 			{
 				...options,
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -177,7 +182,9 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			const account = await this.getProviderAccountForEmail(session, repo, email);
 			if (account?.id == null) return;
 
-			const keys = await api.getUserSigningKeys(this, token, account.id, { baseUrl: this.apiBaseUrl });
+			const keys = await api.getUserSigningKeys(this, token, account.id, {
+				baseUrl: this.apiBaseUrlFor(session),
+			});
 			result.set(
 				email.toLowerCase(),
 				keys.map(k => k.key),
@@ -197,7 +204,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			repo.owner,
 			repo.name,
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -214,7 +221,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			repo.name,
 			Number(id),
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -235,7 +242,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			toTokenWithInfo(this.id, session),
 			repo.owner,
 			repo.name,
-			this.apiBaseUrl,
+			this.apiBaseUrlFor(session),
 			undefined,
 		);
 		if (!repoId) {
@@ -247,7 +254,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			{ namespace: repo.owner, name: repo.name, number: id },
 			{
 				isPAT: this.isEnterprise,
-				baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+				baseUrl: this.enterpriseBaseUrlFor(session),
 			},
 		);
 		const issue = apiResult != null ? toIssueShape(apiResult, this) : undefined;
@@ -276,7 +283,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			{
 				...opts,
 				include: include?.map(s => toGitLabMergeRequestState(s)),
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -293,7 +300,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			repo.name,
 			rev,
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -310,7 +317,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			resource.name,
 			parseInt(id, 10),
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -328,7 +335,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 
 		return api.getRepo(toTokenWithInfo(this.id, session), repo.owner, repo.name, repo.project, {
 			isPAT: this.isEnterprise,
-			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+			baseUrl: this.enterpriseBaseUrlFor(session),
 		});
 	}
 
@@ -343,7 +350,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			repo.owner,
 			repo.name,
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 			cancellation,
 		);
@@ -355,7 +362,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		const api = await this.getProvidersApi();
 		const result = await api.getGitlabGroupsForCurrentUser(toTokenWithInfo(this.id, session), {
 			isPAT: this.isEnterprise,
-			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+			baseUrl: this.enterpriseBaseUrlFor(session),
 		});
 		return {
 			values: result.values.map(g => ({ id: g.id, providerId: this.id, name: g.fullPath, url: g.webUrl })),
@@ -380,7 +387,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		const api = await this.getProvidersApi();
 		const result = await api.getReposForCurrentUser(toTokenWithInfo(this.id, session), {
 			isPAT: this.isEnterprise,
-			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+			baseUrl: this.enterpriseBaseUrlFor(session),
 			cursor: options?.cursor,
 		});
 		return {
@@ -398,7 +405,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		// version of the per-org read above (which pages the same source and filters by namespace).
 		return api.getReposForCurrentUser(toTokenWithInfo(this.id, session), {
 			isPAT: this.isEnterprise,
-			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+			baseUrl: this.enterpriseBaseUrlFor(session),
 			cursor: options?.cursor,
 		});
 	}
@@ -419,7 +426,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 
 		const apiResult = await api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
 			isPAT: this.isEnterprise,
-			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+			baseUrl: this.enterpriseBaseUrlFor(session),
 			states: toProviderPullRequestStates(options?.state),
 		});
 
@@ -508,7 +515,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 				association: association,
 				result: await api.getGitLabPullRequestsForUserAssociation(tokenWithInfo, username, association, {
 					isPAT: this.isEnterprise,
-					baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+					baseUrl: this.enterpriseBaseUrlFor(session),
 					states: toProviderPullRequestStates(options?.state),
 					cursor: cursors[association],
 				}),
@@ -585,7 +592,14 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 
 		const repoIdsResult = await Promise.allSettled(
 			repos.map((r: GitLabRepositoryDescriptor): Promise<string | undefined> =>
-				api.getProjectId(this, toTokenWithInfo(this.id, session), r.owner, r.name, this.apiBaseUrl, undefined),
+				api.getProjectId(
+					this,
+					toTokenWithInfo(this.id, session),
+					r.owner,
+					r.name,
+					this.apiBaseUrlFor(session),
+					undefined,
+				),
 			) ?? [],
 		);
 		const repoInput = repoIdsResult
@@ -593,7 +607,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			.filter((r): r is string => r != null);
 		const apiResult = await providerApi.getIssuesForRepos(toTokenWithInfo(this.id, session), repoInput, {
 			isPAT: this.isEnterprise,
-			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+			baseUrl: this.enterpriseBaseUrlFor(session),
 		});
 
 		return apiResult.values
@@ -635,7 +649,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		if (!options?.includeAllAssignees && username == null) return undefined;
 		if (cancellation?.aborted) throw new CancellationError();
 
-		const baseUrl = this.isEnterprise ? `https://${this.domain}` : undefined;
+		const baseUrl = this.enterpriseBaseUrlFor(session);
 		const maxPages = 20;
 		// Dedupe by `url`, not `IssueShape.id`: for GitLab `id` is the per-project `iid`, which collides across
 		// projects in an account-wide read (two repos both have issue `#1`), so an id-keyed map would silently
@@ -721,7 +735,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			{
 				search: searchQuery,
 				repos: repos?.map(r => `${r.owner}/${r.name}`),
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 				include: options?.include,
 			},
 			cancellation,
@@ -742,7 +756,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			const res = await api.mergePullRequest(toTokenWithInfo(this.id, session), pr, {
 				...options,
 				isPAT: this.isEnterprise,
-				baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+				baseUrl: this.enterpriseBaseUrlFor(session),
 			});
 			return res;
 		} catch (ex) {
@@ -777,7 +791,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		const api = await this.getProvidersApi();
 		const currentUser = await api.getCurrentUser(toTokenWithInfo(this.id, session), {
 			isPAT: this.isEnterprise,
-			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+			baseUrl: this.enterpriseBaseUrlFor(session),
 		});
 		if (currentUser == null) return undefined;
 
@@ -810,7 +824,7 @@ export class GitLabIntegration extends GitLabIntegrationBase<GitCloudHostIntegra
 		return metadata.domain;
 	}
 
-	protected get apiBaseUrl(): string {
+	protected apiBaseUrlFor(_session: ProviderAuthenticationSession): string {
 		return 'https://gitlab.com/api';
 	}
 
@@ -828,8 +842,8 @@ export class GitLabSelfHostedIntegration extends GitLabIntegrationBase<GitSelfMa
 	get domain(): string {
 		return this._domain;
 	}
-	protected override get apiBaseUrl(): string {
-		return `https://${this._domain}/api`;
+	protected override apiBaseUrlFor(session: ProviderAuthenticationSession): string {
+		return `${this.getSelfManagedApiBaseUrl(session)}/api`;
 	}
 
 	constructor(
