@@ -5,7 +5,9 @@ import type { Account } from '@gitlens/git/models/author.js';
 import { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import { getRepositoryIdentityForPullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
-import { providerFanOutConcurrency } from '@gitlens/integrations/constants.js';
+import { GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '@gitlens/integrations/constants.js';
+import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
+import { getGitHubPullRequestIdentityFromMaybeUrl } from '@gitlens/integrations/providers/github/github.utils.js';
 import {
 	getActionablePullRequests,
 	toProviderPullRequestWithUniqueId,
@@ -83,7 +85,104 @@ function categorize(items: LaunchpadItem[], enriched: EnrichedItem[]) {
 	return categorizePullRequests(items, accounts, { enrichedItemsByUniqueId: byId });
 }
 
+function createSearchProvider(
+	integrations: Pick<
+		GitHostIntegration,
+		'id' | 'domain' | 'getPullRequestIdentityFromMaybeUrl' | 'getPullRequest' | 'searchPullRequests'
+	>[],
+): LaunchpadProvider {
+	const provider = Object.create(LaunchpadProvider.prototype) as LaunchpadProvider;
+	provider.getConnectedIntegrations = () => Promise.resolve(new Map(integrations.map(i => [i.id, true])));
+	Object.defineProperty(provider, 'container', {
+		value: {
+			integrations: {
+				getIntegrationsForAccountWideRead: (id: string) =>
+					Promise.resolve(integrations.filter(integration => integration.id === id)),
+			},
+		},
+	});
+	return provider;
+}
+
 suite('Launchpad host identity', () => {
+	test('searches every host with bounded concurrency and retains results when one host fails', async () => {
+		const items = Array.from({ length: providerFanOutConcurrency * 2 + 1 }, (_, index) =>
+			createItem({ ...hostA, domain: `ghe-${index}.example.com` }),
+		);
+		let active = 0;
+		let maximumActive = 0;
+		let release!: () => void;
+		const pending = new Promise<void>(resolve => {
+			release = resolve;
+		});
+		const failure = new Error('Host unavailable');
+		const queries: string[] = [];
+		const provider = createSearchProvider(
+			items.map((item, index) => ({
+				id: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+				domain: item.provider.domain,
+				getPullRequestIdentityFromMaybeUrl: () => undefined,
+				getPullRequest: () => Promise.resolve(undefined),
+				searchPullRequests: async search => {
+					queries.push(search);
+					maximumActive = Math.max(maximumActive, ++active);
+					await pending;
+					active--;
+					if (index === 0) throw failure;
+
+					return [item.underlyingPullRequest];
+				},
+			})),
+		);
+		const pendingResult = provider['getSearchedPullRequests']('author:me');
+		await new Promise<void>(resolve => setImmediate(resolve));
+		release();
+		const result = await pendingResult;
+		assert.strictEqual(maximumActive, providerFanOutConcurrency);
+		assert.deepStrictEqual(
+			queries,
+			items.map(() => 'author:me'),
+		);
+		assert.deepStrictEqual(
+			result.value.map(pr => pr.provider.domain).sort(),
+			items
+				.slice(1)
+				.map(i => i.provider.domain)
+				.sort(),
+		);
+		assert.strictEqual(result.error, failure);
+	});
+
+	test('searches a pasted pull request URL only on its host, including the web port', async () => {
+		const items = [createItem(hostA), createItem(hostB), createItem({ ...hostB, domain: `${hostB.domain}:8443` })];
+		const reads: string[] = [];
+		const parsed: string[] = [];
+		const provider = createSearchProvider(
+			items.map(item => ({
+				id: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+				domain: item.provider.domain,
+				getPullRequestIdentityFromMaybeUrl: search => {
+					parsed.push(item.provider.domain);
+					return getGitHubPullRequestIdentityFromMaybeUrl(
+						search,
+						GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					);
+				},
+				getPullRequest: () => {
+					reads.push(item.provider.domain);
+					return Promise.resolve(item.underlyingPullRequest);
+				},
+				searchPullRequests: () => {
+					assert.fail('A recognized URL must use the point lookup');
+				},
+			})),
+		);
+		const result = await provider['getSearchedPullRequests']('https://GHE-B.EXAMPLE.COM:8443/owner/repo/pull/1');
+		assert.deepStrictEqual(result.value, [items[2].underlyingPullRequest]);
+		assert.deepStrictEqual(reads, [`${hostB.domain}:8443`]);
+		assert.deepStrictEqual(parsed, reads);
+	});
+
 	test('bounds account lookups across hosts and retains accounts when one lookup fails', async () => {
 		const items = Array.from({ length: providerFanOutConcurrency * 2 + 1 }, (_, index) =>
 			createItem({ ...hostA, domain: `ghe-${index}.example.com` }),

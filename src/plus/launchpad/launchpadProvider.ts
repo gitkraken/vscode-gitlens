@@ -401,10 +401,19 @@ export class LaunchpadProvider implements Disposable {
 
 	private async getSearchedPullRequests(search: string, cancellation?: CancellationToken) {
 		const connectedIntegrations = await this.getConnectedIntegrations();
-		const prUrlIdentity: PullRequestUrlIdentity | undefined = await this.getPullRequestIdentityFromSearch(
-			search,
-			connectedIntegrations,
-		);
+		const searchUrl = URL.canParse(search) ? new URL(search) : undefined;
+		const integrations: GitHostIntegration[] = [];
+		for (const [id, connected] of connectedIntegrations) {
+			if (!connected || !isSupportedLaunchpadIntegrationId(id)) continue;
+
+			for (const integration of await this.container.integrations.getIntegrationsForAccountWideRead(id)) {
+				if (searchUrl?.host && hostFromDomain(searchUrl.host) !== hostFromDomain(integration.domain)) continue;
+
+				integrations.push(integration);
+			}
+		}
+
+		const prUrlIdentity = this.getPullRequestIdentityFromSearch(search, integrations);
 		const result: { readonly value: PullRequest[]; duration: number; error?: Error } = {
 			value: [],
 			duration: 0,
@@ -450,24 +459,14 @@ export class LaunchpadProvider implements Disposable {
 
 		const searchIntegrationPRs = prUrlIdentity ? findByPrIdentity : findByQuery;
 
-		const results = await Promise.allSettled(
-			[...connectedIntegrations.keys()]
-				.filter(
-					(id: IntegrationIds): id is SupportedLaunchpadIntegrationIds =>
-						(connectedIntegrations.get(id) && isSupportedLaunchpadIntegrationId(id)) ?? false,
-				)
-				.map(async (id: SupportedLaunchpadIntegrationIds) => {
-					const integration = await this.container.integrations.get(id);
-					if (integration == null) return;
-
-					const searchResult = await searchIntegrationPRs(integration);
-					const prs = searchResult?.value;
-					if (prs) {
-						result.value?.push(...prs);
-						result.duration = Math.max(result.duration, searchResult.duration);
-					}
-				}),
-		);
+		const results = await mapSettledBounded(integrations, providerFanOutConcurrency, async integration => {
+			const searchResult = await searchIntegrationPRs(integration);
+			const prs = searchResult?.value;
+			if (prs) {
+				result.value.push(...prs);
+				result.duration = Math.max(result.duration, searchResult.duration);
+			}
+		});
 
 		// Surface search failures instead of silently reporting them as "no results"
 		const errors = [
@@ -750,18 +749,13 @@ export class LaunchpadProvider implements Disposable {
 		);
 	}
 
-	async getPullRequestIdentityFromSearch(
+	private getPullRequestIdentityFromSearch(
 		search: string,
-		connectedIntegrations: Map<IntegrationIds, boolean>,
-	): Promise<PullRequestUrlIdentity | undefined> {
-		for (const integrationId of supportedLaunchpadIntegrations) {
-			if (connectedIntegrations.get(integrationId)) {
-				const integration = await this.container.integrations.get(integrationId);
-				if (integration == null) continue;
-
-				const prIdentity = integration.getPullRequestIdentityFromMaybeUrl(search);
-				if (prIdentity) return prIdentity;
-			}
+		integrations: readonly GitHostIntegration[],
+	): PullRequestUrlIdentity | undefined {
+		for (const integration of integrations) {
+			const prIdentity = integration.getPullRequestIdentityFromMaybeUrl(search);
+			if (prIdentity) return prIdentity;
 		}
 		return getPullRequestIdentityFromMaybeUrl(search);
 	}

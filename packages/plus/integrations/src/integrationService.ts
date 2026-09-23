@@ -966,7 +966,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	 * sync them. The two share the per-host resolution and the fallback to whatever instance is already cached when
 	 * no host is configured. A lookup that throws counts as "not available", like {@link getIntegrationForRead}.
 	 */
-	private async getIntegrationsForAccountWideRead<T extends IntegrationIds>(id: T): Promise<IntegrationById<T>[]> {
+	async getIntegrationsForAccountWideRead<T extends IntegrationIds>(id: T): Promise<IntegrationById<T>[]> {
 		const hosts = new Set<string>();
 		if (isSelfManagedHostIntegrationId(id)) {
 			for (const { domain } of this.getConfigured(id)) {
