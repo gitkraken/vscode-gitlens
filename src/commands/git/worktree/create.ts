@@ -177,6 +177,9 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 		this._canSkipConfirmOverride = undefined;
 
 		let setCreateBranchFlag = false;
+		// Tracks a branch name we derived from the picked remote branch (rather than one the caller passed
+		// in or the user typed), so it can be dropped if the base reference changes
+		let derivedCreateBranch: string | undefined;
 
 		try {
 			while (!steps.isComplete) {
@@ -239,6 +242,14 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 						state.flags = state.flags.filter(f => f !== '-b');
 						setCreateBranchFlag = false;
 					}
+
+					if (derivedCreateBranch != null) {
+						if (state.createBranch === derivedCreateBranch) {
+							state.createBranch = undefined;
+						}
+
+						derivedCreateBranch = undefined;
+					}
 				}
 
 				state.uri ??= context.defaultUri!;
@@ -251,7 +262,10 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 				const isRemoteBranch = isBranchReference(state.reference) && state.reference?.remote;
 				const remoteBranchName = isRemoteBranch ? getReferenceNameWithoutRemote(state.reference) : undefined;
 				if (
-					(isRemoteBranch || isRevisionReference(state.reference) || state.worktree != null) &&
+					(isRemoteBranch ||
+						isRevisionReference(state.reference) ||
+						state.worktree != null ||
+						state.createBranch != null) &&
 					!state.flags.includes('-b')
 				) {
 					setCreateBranchFlag = true;
@@ -260,12 +274,17 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 					setCreateBranchFlag = false;
 				}
 
-				if (isRemoteBranch) {
-					state.createBranch = getReferenceNameWithoutRemote(state.reference);
-					const branch = await state.repo.git.branches.getBranch(state.createBranch);
+				// Default the new branch name to the remote branch's name, but never clobber a name the caller
+				// passed in (e.g. Create Branch handing off to a worktree) or the user already typed
+				if (isRemoteBranch && state.createBranch == null) {
+					let createBranch = getReferenceNameWithoutRemote(state.reference);
+					const branch = await state.repo.git.branches.getBranch(createBranch);
 					if (branch != null && !branch.remote) {
-						state.createBranch = branch.name;
+						createBranch = branch.name;
 					}
+
+					state.createBranch = createBranch;
+					derivedCreateBranch = createBranch;
 				}
 
 				if (state.flags.includes('-b')) {
