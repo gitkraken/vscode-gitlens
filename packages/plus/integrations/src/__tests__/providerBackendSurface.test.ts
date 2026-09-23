@@ -4527,7 +4527,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('a provider without discovery hooks (Bitbucket Data Center) reports unsupported, not empty (#5438)', async () => {
+	test('a provider without discovery hooks reports unsupported, not empty', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
 		const bbs = await manager.get(GitSelfManagedHostIntegrationId.BitbucketServer, 'https://bb.example.com');
@@ -4536,8 +4536,8 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			domain: 'bb.example.com',
 		};
 
-		// Bitbucket Data Center registers no org/repo discovery hook. listOrgs/listRepos must say so rather
-		// than return an empty list indistinguishable from a genuinely empty account.
+		assert.ok(bbs);
+		Object.assign(bbs, { getProviderOrganizationsForUser: undefined, getProviderRepositoriesForOrg: undefined });
 		const orgs = await manager.listOrgs({ providerId: GitSelfManagedHostIntegrationId.BitbucketServer });
 		assert.equal(orgs.items.length, 0);
 		assert.equal(orgs.fetchFailed, true);
