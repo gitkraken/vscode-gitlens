@@ -1,1 +1,6 @@
-last 2 Electron versions
+# Electron is the desktop floor (`engines.vscode` ^1.101.0); Firefox/Safari cover VS Code for the
+# Web. Chrome/Edge are omitted — both are newer than the Electron floor, so they add no constraint.
+# Pinned, not `last N Electron versions`: that resolves to the newest Electron, ~21 majors ahead.
+electron 35.5.1
+last 2 firefox versions
+last 2 safari versions

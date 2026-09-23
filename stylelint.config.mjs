@@ -13,7 +13,7 @@ import postcssScss from 'postcss-scss';
  * under pnpm's strict node_modules, stylelint (running from the store) cannot resolve a
  * bare `customSyntax` string against the project's node_modules.
  *
- * Browser support is read from `.browserslistrc` (last 2 Electron versions) by the
+ * Browser support is read from `.browserslistrc` (the Electron behind our minimum VS Code) by the
  * no-unsupported-browser-features plugin — kept as warnings so a new feature surfaces
  * without hard-failing the build.
  *
@@ -74,11 +74,23 @@ export default {
 	rules: {
 		'plugin/no-unsupported-browser-features': [
 			true,
-			// These features are supported across our Electron targets; the plugin's caniuse data
-			// flags them conservatively (often as "partial support"), so ignore them to avoid noise.
 			{
 				severity: 'warning',
-				ignore: ['css-display-contents', 'css-clip-path', 'text-decoration', 'multicolumn'],
+				ignore: [
+					// Supported on our Electron target; caniuse flags them conservatively.
+					'css-display-contents',
+					'css-clip-path',
+					'text-decoration',
+					'multicolumn',
+					// Flagged only by Firefox/Safari, and each verified against the caniuse note as not
+					// affecting the values we use (e.g. the mix-blend-mode partial is hue/saturation/color/
+					// luminosity; we use soft-light). Reopen individually before relying on a new value.
+					'intrinsic-width',
+					'text-size-adjust',
+					'css-touch-action',
+					'css-mixblendmode',
+					'css-marker-pseudo',
+				],
 			},
 		],
 	},
