@@ -1040,14 +1040,16 @@ export class LaunchpadProvider implements Disposable {
 
 	async getConnectedIntegrations(): Promise<Map<IntegrationIds, boolean>> {
 		const connected = new Map<IntegrationIds, boolean>();
-		await Promise.allSettled(
-			supportedLaunchpadIntegrations.map(async integrationId => {
+		for (const integrationId of supportedLaunchpadIntegrations) {
+			try {
 				connected.set(
 					integrationId,
 					await this.container.integrations.isConnectedForAccountWideRead(integrationId, { access: true }),
 				);
-			}),
-		);
+			} catch {
+				connected.set(integrationId, false);
+			}
+		}
 
 		void setContext(
 			'gitlens:launchpad:connected',

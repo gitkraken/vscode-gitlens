@@ -12,7 +12,9 @@ import {
 	getActionablePullRequests,
 	toProviderPullRequestWithUniqueId,
 } from '@gitlens/integrations/providers/models.js';
+import type { Container } from '../../../container.js';
 import { getViewNodeId } from '../../../views/nodes/abstract/viewNode.js';
+import { getConnectedIntegrations as getStartWorkConnectedIntegrations } from '../../startWork/startWorkBase.js';
 import { findLaunchpadItem, getLaunchpadItemKey, getViewerAccountKey } from '../launchpadIdentity.js';
 import type { LaunchpadItem } from '../launchpadProvider.js';
 import { categorizePullRequests, LaunchpadProvider } from '../launchpadProvider.js';
@@ -105,6 +107,44 @@ function createSearchProvider(
 }
 
 suite('Launchpad host identity', () => {
+	for (const surface of ['Launchpad', 'Start Work']) {
+		test(`${surface} does not overlap the bounded connection windows of different providers`, async () => {
+			let active = 0;
+			let maximumActive = 0;
+			let release!: () => void;
+			const pending = new Promise<void>(resolve => {
+				release = resolve;
+			});
+			const reads: string[] = [];
+			const container = {
+				integrations: {
+					isConnectedForAccountWideRead: async (id: string) => {
+						reads.push(id);
+						maximumActive = Math.max(maximumActive, ++active);
+						await pending;
+						active--;
+						if (id === 'github') throw new Error('Provider unavailable');
+
+						return true;
+					},
+				},
+			} as unknown as Container;
+			const provider = Object.create(LaunchpadProvider.prototype) as LaunchpadProvider;
+			Object.defineProperty(provider, 'container', { value: container });
+			const result =
+				surface === 'Launchpad'
+					? provider.getConnectedIntegrations()
+					: getStartWorkConnectedIntegrations(container);
+			await new Promise<void>(resolve => setImmediate(resolve));
+			release();
+			const connected = await result;
+			assert.strictEqual(maximumActive, 1);
+			assert.ok(reads.length > 1);
+			assert.strictEqual(connected.size, reads.length);
+			assert.strictEqual([...connected.values()].filter(value => !value).length, 1);
+		});
+	}
+
 	test('searches every host with bounded concurrency and retains results when one host fails', async () => {
 		const items = Array.from({ length: providerFanOutConcurrency * 2 + 1 }, (_, index) =>
 			createItem({ ...hostA, domain: `ghe-${index}.example.com` }),

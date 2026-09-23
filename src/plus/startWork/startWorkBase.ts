@@ -671,18 +671,16 @@ export async function getConnectedIntegrations(
 	container: Container,
 ): Promise<Map<SupportedStartWorkIntegrationIds, boolean>> {
 	const connected = new Map<SupportedStartWorkIntegrationIds, boolean>();
-	await Promise.allSettled(
-		supportedStartWorkIntegrations.map(async integrationId => {
-			// Record a verdict even on failure — an id missing from the map reads as disconnected without
-			// counting as one. Pro access isn't folded in here; the EnsureAccess step owns that gate
-			try {
-				connected.set(integrationId, await container.integrations.isConnectedForAccountWideRead(integrationId));
-			} catch (ex) {
-				Logger.error(ex, `Unable to determine whether '${integrationId}' is connected`);
-				connected.set(integrationId, false);
-			}
-		}),
-	);
+	for (const integrationId of supportedStartWorkIntegrations) {
+		// Record a verdict even on failure — an id missing from the map reads as disconnected without
+		// counting as one. Pro access isn't folded in here; the EnsureAccess step owns that gate
+		try {
+			connected.set(integrationId, await container.integrations.isConnectedForAccountWideRead(integrationId));
+		} catch (ex) {
+			Logger.error(ex, `Unable to determine whether '${integrationId}' is connected`);
+			connected.set(integrationId, false);
+		}
+	}
 
 	return connected;
 }
