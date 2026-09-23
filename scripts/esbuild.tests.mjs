@@ -63,7 +63,7 @@ async function buildTests(target) {
 			}),
 		],
 		sourcemap: true,
-		target: ['es2023', 'chrome124', 'node20.14.0'],
+		target: ['es2023', 'chrome134', 'node22.15.1'],
 		tsconfig: target === 'webworker' ? 'tsconfig.test.browser.json' : 'tsconfig.test.json',
 	};
 

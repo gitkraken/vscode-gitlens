@@ -82,7 +82,7 @@ async function buildBenchmarks(benchmarks) {
 		outExtension: { '.js': '.mjs' },
 		platform: 'node',
 		sourcemap: true,
-		target: 'node20.14.0',
+		target: 'node22.15.1',
 	});
 }
 
