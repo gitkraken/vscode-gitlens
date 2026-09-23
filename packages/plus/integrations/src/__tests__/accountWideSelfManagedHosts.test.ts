@@ -100,6 +100,28 @@ function stubIssues(byHost: Map<string, GitHostIntegration>, reads: string[]): v
 }
 
 suite('account-wide reads over every self-managed host (#5873)', () => {
+	for (const firstHost of ['disconnected', 'unavailable', 'inaccessible'] as const) {
+		test(`connection checks find a later host when the first is ${firstHost}`, async () => {
+			const runtime = createFakeRuntime();
+			const { manager, byHost } = await connectedHosts(runtime);
+			const a = byHost.get(hostA)!;
+			const b = byHost.get(hostB)!;
+			Object.defineProperty(a, 'maybeConnected', {
+				value: firstHost === 'unavailable' ? undefined : firstHost === 'inaccessible',
+			});
+			a.isConnected = () => Promise.reject(new Error('Host unavailable'));
+			a.access = () => Promise.resolve(false);
+			b.access = () => Promise.resolve(true);
+
+			assert.equal(await manager.isConnectedForAccountWideRead(a.id), true);
+			assert.equal(await manager.isConnectedForAccountWideRead(a.id, { access: true }), true);
+			b.access = () => Promise.resolve(false);
+			assert.equal(await manager.isConnectedForAccountWideRead(a.id, { access: true }), false);
+			assert.equal(await manager.isConnectedForAccountWideRead(a.id), true);
+			manager.dispose();
+		});
+	}
+
 	test('getMyIssues reads every configured host of a self-managed provider, not just the primary', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, byHost } = await connectedHosts(runtime);

@@ -676,13 +676,7 @@ export async function getConnectedIntegrations(
 			// Record a verdict even on failure — an id missing from the map reads as disconnected without
 			// counting as one. Pro access isn't folded in here; the EnsureAccess step owns that gate
 			try {
-				const integration = await container.integrations.get(integrationId);
-				if (integration == null) {
-					connected.set(integrationId, false);
-					return;
-				}
-
-				connected.set(integrationId, integration.maybeConnected ?? (await integration.isConnected()));
+				connected.set(integrationId, await container.integrations.isConnectedForAccountWideRead(integrationId));
 			} catch (ex) {
 				Logger.error(ex, `Unable to determine whether '${integrationId}' is connected`);
 				connected.set(integrationId, false);

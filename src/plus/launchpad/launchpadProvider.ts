@@ -1034,10 +1034,7 @@ export class LaunchpadProvider implements Disposable {
 
 	async hasConnectedIntegration(): Promise<boolean> {
 		for (const integrationId of supportedLaunchpadIntegrations) {
-			const integration = await this.container.integrations.get(integrationId);
-			if (integration == null) continue;
-
-			if (integration.maybeConnected ?? (await integration.isConnected())) {
+			if (await this.container.integrations.isConnectedForAccountWideRead(integrationId)) {
 				void setContext('gitlens:launchpad:connected', true);
 				return true;
 			}
@@ -1051,15 +1048,10 @@ export class LaunchpadProvider implements Disposable {
 		const connected = new Map<IntegrationIds, boolean>();
 		await Promise.allSettled(
 			supportedLaunchpadIntegrations.map(async integrationId => {
-				const integration = await this.container.integrations.get(integrationId);
-				if (integration == null) {
-					connected.set(integrationId, false);
-					return;
-				}
-
-				const isConnected = integration.maybeConnected ?? (await integration.isConnected());
-				const hasAccess = isConnected && (await integration.access());
-				connected.set(integrationId, hasAccess);
+				connected.set(
+					integrationId,
+					await this.container.integrations.isConnectedForAccountWideRead(integrationId, { access: true }),
+				);
 			}),
 		);
 

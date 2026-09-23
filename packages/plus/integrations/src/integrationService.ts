@@ -988,6 +988,15 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		return integrations;
 	}
 
+	async isConnectedForAccountWideRead(id: IntegrationIds, options?: { access?: boolean }): Promise<boolean> {
+		const integrations = await this.getIntegrationsForAccountWideRead(id);
+		const results = await mapSettledBounded(integrations, providerFanOutConcurrency, async integration => {
+			const connected = integration.maybeConnected ?? (await integration.isConnected());
+			return connected && (!options?.access || (await integration.access()));
+		});
+		return results.some(result => result.status === 'fulfilled' && result.value);
+	}
+
 	/**
 	 * The open repositories to scope `integration`'s read to, out of the remotes open for its integration id.
 	 *

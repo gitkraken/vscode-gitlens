@@ -1,8 +1,18 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
-import { GitSelfManagedHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
+import type { Issue } from '@gitlens/git/models/issue.js';
+import {
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
+} from '../constants.js';
 import type { GitConfigEntityIdentifier } from '../providers/models.js';
-import { getEntityIdentifierInput, getIssueFromGitConfigEntityIdentifier } from '../providers/utils.js';
+import {
+	decodeEntityIdentifiersFromGitConfig,
+	encodeIssueOrPullRequestForGitConfig,
+	getEntityIdentifierInput,
+	getIssueFromGitConfigEntityIdentifier,
+} from '../providers/utils.js';
 
 /**
  * A branch association has to be read back from the host it was written for. Start Work associates issues from
@@ -13,6 +23,53 @@ import { getEntityIdentifierInput, getIssueFromGitConfigEntityIdentifier } from 
 const hostB = 'ghe-b.example.com';
 
 suite('branch-associated issues across self-managed hosts (#5873)', () => {
+	test('round-trips Jira Server associations through the named host and refuses a missing host', async () => {
+		const issue = {
+			type: 'issue',
+			id: 'PROJ-7',
+			nodeId: '10007',
+			provider: { id: IssuesSelfManagedHostIntegrationId.JiraServer, name: 'Jira', domain: hostB, icon: '' },
+			project: { id: '10000', resourceId: hostB, resourceName: 'Jira B', name: 'Project' },
+		} satisfies Partial<Issue> as Issue;
+		const encoded = encodeIssueOrPullRequestForGitConfig(issue, { key: hostB, id: hostB, name: 'Jira B' });
+		const [identifier] = decodeEntityIdentifiersFromGitConfig(JSON.stringify([encoded]));
+		const reads: string[] = [];
+		const result = await getIssueFromGitConfigEntityIdentifier((id, domain) => {
+			assert.equal(id, IssuesSelfManagedHostIntegrationId.JiraServer);
+			assert.equal(domain, hostB);
+			return Promise.resolve({
+				getIssue: (_resource: unknown, issueId: string) => {
+					reads.push(issueId);
+					return Promise.resolve(issue);
+				},
+			});
+		}, identifier);
+		assert.equal(result, issue);
+		assert.deepEqual(reads, ['PROJ-7']);
+
+		for (const domain of [undefined, '', ' ']) {
+			assert.equal(
+				await getIssueFromGitConfigEntityIdentifier(
+					() => {
+						assert.fail('An association without a Jira Server host must not select the primary host');
+					},
+					{ ...identifier, domain: domain } as GitConfigEntityIdentifier,
+				),
+				undefined,
+			);
+		}
+
+		assert.equal(
+			await getIssueFromGitConfigEntityIdentifier(() => Promise.resolve(undefined), identifier, {
+				cached: true,
+				peekCachedIssue: () => {
+					assert.fail("An unresolved host must not read another integration's cache");
+				},
+			}),
+			undefined,
+		);
+	});
+
 	test('a branch-associated self-managed issue is read back from the host it was written for', async () => {
 		// Start Work associates issues from any configured host, so the identifier must name that host and the
 		// read must go there — two hosts routinely share `owner/repo#number`.
