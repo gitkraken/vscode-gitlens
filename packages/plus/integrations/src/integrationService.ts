@@ -793,7 +793,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		const integrations: Map<GitHostIntegration, ResourceDescriptor[] | undefined> = new Map();
 		for (const integrationId of integrationIds?.length
 			? integrationIds
-			: Object.values(GitCloudHostIntegrationId)) {
+			: [...Object.values(GitCloudHostIntegrationId), ...Object.values(GitSelfManagedHostIntegrationId)]) {
 			for (const integration of await this.getIntegrationsForAccountWideRead(integrationId)) {
 				integrations.set(integration, undefined);
 			}

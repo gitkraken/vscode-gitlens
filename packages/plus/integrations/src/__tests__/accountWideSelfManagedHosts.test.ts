@@ -267,23 +267,35 @@ suite('account-wide reads over every self-managed host (#5873)', () => {
 		manager.dispose();
 	});
 
-	test('getMyPullRequests reads every configured host of a self-managed provider', async () => {
-		const runtime = createFakeRuntime();
-		const { manager, byHost } = await connectedHosts(runtime);
-		const reads: string[] = [];
-		for (const integration of byHost.values()) {
-			(integration as unknown as MyPullRequestsSeam).searchProviderMyPullRequests = session => {
-				reads.push(session.accessToken);
-				return Promise.resolve([]);
-			};
-		}
+	for (const selection of ['explicit', 'omitted', 'empty'] as const) {
+		test(`getMyPullRequests reads every configured host with ${selection} ids`, async () => {
+			const runtime = createFakeRuntime();
+			const { manager, byHost } = await connectedHosts(runtime);
+			const reads: string[] = [];
+			for (const integration of byHost.values()) {
+				(integration as unknown as MyPullRequestsSeam).searchProviderMyPullRequests = session => {
+					reads.push(session.accessToken);
+					return Promise.resolve([]);
+				};
+			}
 
-		await manager.getMyPullRequests([GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]);
+			await manager.getMyPullRequests(
+				selection === 'explicit'
+					? [GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]
+					: selection === 'empty'
+						? []
+						: undefined,
+			);
 
-		assert.deepEqual(reads.sort(), [`token-${hostA}`, `token-${hostB}`], 'each host is read with its own session');
+			assert.deepEqual(
+				reads.sort(),
+				[`token-${hostA}`, `token-${hostB}`],
+				'each host is read with its own session',
+			);
 
-		manager.dispose();
-	});
+			manager.dispose();
+		});
+	}
 
 	test('getMyIssues credits an SSH remote to the host configured with a web port', async () => {
 		// `parseGitRemoteUrl` drops an SSH port, so the remote names `host` while the connection is keyed
