@@ -16,7 +16,12 @@ import {
 } from '@gitlens/git/utils/pullRequest.utils.js';
 import { gitSuffixRegex } from '@gitlens/git/utils/remote.utils.js';
 import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '@gitlens/integrations/constants.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	isIntegrationId,
+	providerFanOutConcurrency,
+} from '@gitlens/integrations/constants.js';
 import type { ConnectionStateChangeEvent } from '@gitlens/integrations/index.js';
 import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
 import type { IntegrationResult } from '@gitlens/integrations/models/integration.js';
@@ -31,6 +36,8 @@ import {
 	getActionablePullRequests,
 	toProviderPullRequestWithUniqueId,
 } from '@gitlens/integrations/providers/models.js';
+import { hostFromDomain } from '@gitlens/integrations/utils/domain.utils.js';
+import { isSelfManagedHostIntegrationId } from '@gitlens/integrations/utils/integration.utils.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
@@ -38,7 +45,7 @@ import { filterMap, groupByMap, map, some } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { TimedResult } from '@gitlens/utils/promise.js';
-import { getSettledValue, timedWithSlowThreshold } from '@gitlens/utils/promise.js';
+import { getSettledValue, mapSettledBounded, timedWithSlowThreshold } from '@gitlens/utils/promise.js';
 import type { Container } from '../../container.js';
 import { openComparisonChanges } from '../../git/actions/commit.js';
 import type { GlRepository } from '../../git/models/repository.js';
@@ -61,6 +68,7 @@ import {
 	isEnrichableIntegrationId,
 	isEnrichableRemoteProviderId,
 } from './enrichmentService.js';
+import { getLaunchpadItemKey, getViewerAccountKey } from './launchpadIdentity.js';
 import type { EnrichableItem, EnrichedItem } from './models/enrichedItem.js';
 import type { LaunchpadAction, LaunchpadActionCategory, LaunchpadGroup } from './models/launchpad.js';
 import {
@@ -235,15 +243,42 @@ export function canonicalizeViewerIdentity(
 	};
 }
 
+function getEnrichedItemsForHost(
+	provider: { id: string; domain?: string },
+	enrichedItems: EnrichedItemsByUniqueId | undefined,
+): EnrichedItemsByUniqueId | undefined {
+	if (enrichedItems == null || !isIntegrationId(provider.id) || !isSelfManagedHostIntegrationId(provider.id)) {
+		return enrichedItems;
+	}
+
+	const host = hostFromDomain(provider.domain);
+	if (host == null) return enrichedItems;
+
+	// Persisted UUIDs can omit the host. Filter before categorizing so the SDK owns pin priority and snooze state.
+	// Compare hosts, not paths: repository renames must not orphan pins. Legacy items without a URL stay usable.
+	const own: EnrichedItemsByUniqueId = {};
+	for (const [uuid, items] of Object.entries(enrichedItems)) {
+		const matching = items.filter(item => {
+			const url = URL.canParse(item.entityUrl) ? new URL(item.entityUrl) : undefined;
+			return url?.host ? hostFromDomain(url.host) === host : true;
+		});
+		if (matching.length) {
+			own[uuid] = matching;
+		}
+	}
+	return own;
+}
+
 // TODO: Switch to using getActionablePullRequests from the shared provider library
 // once it supports passing in multiple current users, one for each provider
-/** Splits pull requests by integration so each batch is categorized against that provider's current
- *  user, since the shared library takes a single viewer. Shared with the graph's PRs panel, which
+/** Splits pull requests by integration (and, for a self-managed provider, by host) so each batch is
+ *  categorized against that provider's current user, since the shared library takes a single viewer.
+ *  `currentUsers` is keyed by {@link getViewerAccountKey}. Shared with the graph's PRs panel, which
  *  categorizes without the enrichment (pin/snooze) half.
  *
  *  `options.viewer: 'none'` categorizes with no viewer at all — see below. */
 export function categorizePullRequests(
-	pullRequests: (PullRequestWithUniqueID & { provider: { id: string } })[],
+	pullRequests: (PullRequestWithUniqueID & { provider: { id: string; domain?: string } })[],
 	currentUsers: Map<string, Account> | undefined,
 	options?: { enrichedItemsByUniqueId?: EnrichedItemsByUniqueId; viewer?: 'current' | 'none' },
 ): ProviderActionablePullRequest[] {
@@ -256,20 +291,27 @@ export function categorizePullRequests(
 	// (GitHub fetched provider-natively) that doesn't already agree.
 	if (options?.viewer === 'none') return getActionablePullRequests(pullRequests, null, options);
 
-	const pullRequestsByIntegration = groupByMap<string, PullRequestWithUniqueID & { provider: { id: string } }>(
-		pullRequests,
-		pr => pr.provider.id,
-	);
+	const pullRequestsByViewer = groupByMap<
+		string,
+		PullRequestWithUniqueID & { provider: { id: string; domain?: string } }
+	>(pullRequests, pr => getViewerAccountKey(pr.provider));
 
 	const actionablePullRequests: ProviderActionablePullRequest[] = [];
-	for (const [integrationId, prs] of pullRequestsByIntegration.entries()) {
-		const currentUser = currentUsers?.get(integrationId);
+	for (const [viewerKey, prs] of pullRequestsByViewer.entries()) {
+		const currentUser = currentUsers?.get(viewerKey);
 		if (currentUser == null) {
-			Logger.warn(`No current user for integration ${integrationId}`);
+			Logger.warn(`No current user for integration ${viewerKey}`);
 			continue;
 		}
 
-		const actionablePrs = getActionablePullRequests(prs, { id: currentUser.id }, options);
+		const actionablePrs = getActionablePullRequests(
+			prs,
+			{ id: currentUser.id },
+			{
+				...options,
+				enrichedItemsByUniqueId: getEnrichedItemsForHost(prs[0].provider, options?.enrichedItemsByUniqueId),
+			},
+		);
 		actionablePullRequests.push(...actionablePrs);
 	}
 
@@ -359,10 +401,19 @@ export class LaunchpadProvider implements Disposable {
 
 	private async getSearchedPullRequests(search: string, cancellation?: CancellationToken) {
 		const connectedIntegrations = await this.getConnectedIntegrations();
-		const prUrlIdentity: PullRequestUrlIdentity | undefined = await this.getPullRequestIdentityFromSearch(
-			search,
-			connectedIntegrations,
-		);
+		const searchUrl = URL.canParse(search) ? new URL(search) : undefined;
+		const integrations: GitHostIntegration[] = [];
+		for (const [id, connected] of connectedIntegrations) {
+			if (!connected || !isSupportedLaunchpadIntegrationId(id)) continue;
+
+			for (const integration of await this.container.integrations.getIntegrationsForAccountWideRead(id)) {
+				if (searchUrl?.host && hostFromDomain(searchUrl.host) !== hostFromDomain(integration.domain)) continue;
+
+				integrations.push(integration);
+			}
+		}
+
+		const prUrlIdentity = this.getPullRequestIdentityFromSearch(search, integrations);
 		const result: { readonly value: PullRequest[]; duration: number; error?: Error } = {
 			value: [],
 			duration: 0,
@@ -408,24 +459,14 @@ export class LaunchpadProvider implements Disposable {
 
 		const searchIntegrationPRs = prUrlIdentity ? findByPrIdentity : findByQuery;
 
-		const results = await Promise.allSettled(
-			[...connectedIntegrations.keys()]
-				.filter(
-					(id: IntegrationIds): id is SupportedLaunchpadIntegrationIds =>
-						(connectedIntegrations.get(id) && isSupportedLaunchpadIntegrationId(id)) ?? false,
-				)
-				.map(async (id: SupportedLaunchpadIntegrationIds) => {
-					const integration = await this.container.integrations.get(id);
-					if (integration == null) return;
-
-					const searchResult = await searchIntegrationPRs(integration);
-					const prs = searchResult?.value;
-					if (prs) {
-						result.value?.push(...prs);
-						result.duration = Math.max(result.duration, searchResult.duration);
-					}
-				}),
-		);
+		const results = await mapSettledBounded(integrations, providerFanOutConcurrency, async integration => {
+			const searchResult = await searchIntegrationPRs(integration);
+			const prs = searchResult?.value;
+			if (prs) {
+				result.value.push(...prs);
+				result.duration = Math.max(result.duration, searchResult.duration);
+			}
+		});
 
 		// Surface search failures instead of silently reporting them as "no results"
 		const errors = [
@@ -535,7 +576,9 @@ export class LaunchpadProvider implements Disposable {
 
 		if (!(await confirmPullRequestMerge(item.underlyingPullRequest))) return;
 
-		const integration = await this.container.integrations.get(integrationId);
+		// By the pull request's own host: a self-managed id spans several, and `get(id)` alone answers with
+		// whichever was cached first, which would send this merge to a different server.
+		const integration = await this.container.integrations.get(integrationId, item.provider.domain);
 		if (integration == null) return;
 
 		await mergePullRequestWithProgress(integration, item.underlyingPullRequest);
@@ -706,18 +749,13 @@ export class LaunchpadProvider implements Disposable {
 		);
 	}
 
-	async getPullRequestIdentityFromSearch(
+	private getPullRequestIdentityFromSearch(
 		search: string,
-		connectedIntegrations: Map<IntegrationIds, boolean>,
-	): Promise<PullRequestUrlIdentity | undefined> {
-		for (const integrationId of supportedLaunchpadIntegrations) {
-			if (connectedIntegrations.get(integrationId)) {
-				const integration = await this.container.integrations.get(integrationId);
-				if (integration == null) continue;
-
-				const prIdentity = integration.getPullRequestIdentityFromMaybeUrl(search);
-				if (prIdentity) return prIdentity;
-			}
+		integrations: readonly GitHostIntegration[],
+	): PullRequestUrlIdentity | undefined {
+		for (const integration of integrations) {
+			const prIdentity = integration.getPullRequestIdentityFromMaybeUrl(search);
+			if (prIdentity) return prIdentity;
 		}
 		return getPullRequestIdentityFromMaybeUrl(search);
 	}
@@ -820,8 +858,7 @@ export class LaunchpadProvider implements Disposable {
 			// that was related to this piece of code.
 			// But since the code has changed it might be hard to find it, therefore I'm leaving the link here,
 			// because it's still relevant.
-			const myAccounts: Map<string, Account> =
-				await this.container.integrations.getMyCurrentAccounts(supportedLaunchpadIntegrations);
+			const myAccounts = await this.getViewerAccounts(filteredPrs);
 
 			const inputPrs: (EnrichablePullRequest | undefined)[] = filteredPrs.map(pr => {
 				const providerPr = toProviderPullRequestWithUniqueId(pr);
@@ -830,7 +867,7 @@ export class LaunchpadProvider implements Disposable {
 
 				// Keyed the same way `categorizePullRequests` groups below, so a pull request is canonicalized
 				// against the very account it is then categorized against.
-				const account = myAccounts.get(providerId);
+				const account = myAccounts.get(getViewerAccountKey(pr.provider));
 
 				const enrichProviderId = !isSupportedLaunchpadIntegrationId(providerId)
 					? undefined
@@ -897,7 +934,7 @@ export class LaunchpadProvider implements Disposable {
 
 					return {
 						...item,
-						currentViewer: myAccounts.get(item.provider.id)!,
+						currentViewer: myAccounts.get(getViewerAccountKey(item.provider))!,
 						isNew: isSearching ? false : this.isItemNewInGroup(item, actionableCategory),
 						isSearched: isSearching,
 						actionableCategory: actionableCategory,
@@ -947,7 +984,7 @@ export class LaunchpadProvider implements Disposable {
 	private isItemNewInGroup(item: LaunchpadPullRequest, actionableCategory: LaunchpadActionCategory) {
 		return (
 			this._groupedIds != null &&
-			!this._groupedIds.has(`${item.uuid}:${launchpadCategoryToGroupMap.get(actionableCategory)}`)
+			!this._groupedIds.has(`${getLaunchpadItemKey(item)}:${launchpadCategoryToGroupMap.get(actionableCategory)}`)
 		);
 	}
 
@@ -955,7 +992,7 @@ export class LaunchpadProvider implements Disposable {
 		const groupedIds = new Set<string>();
 		for (const item of items) {
 			const group = launchpadCategoryToGroupMap.get(item.actionableCategory)!;
-			const key = `${item.uuid}:${group}`;
+			const key = `${getLaunchpadItemKey(item)}:${group}`;
 			if (!groupedIds.has(key)) {
 				groupedIds.add(key);
 			}
@@ -964,12 +1001,34 @@ export class LaunchpadProvider implements Disposable {
 		this._groupedIds = groupedIds;
 	}
 
+	/**
+	 * The current account for every host the pull requests came from, keyed by {@link getViewerAccountKey}.
+	 * Resolved per host rather than per id (`getMyCurrentAccounts`), since an account-wide read now covers every
+	 * configured host of a self-managed provider and each host has its own user. A failed lookup leaves that
+	 * host out, as it did per id.
+	 */
+	private async getViewerAccounts(prs: readonly PullRequest[]): Promise<Map<string, Account>> {
+		const providers = new Map<string, PullRequest['provider']>();
+		for (const pr of prs) {
+			providers.set(getViewerAccountKey(pr.provider), pr.provider);
+		}
+
+		const accounts = new Map<string, Account>();
+		await mapSettledBounded([...providers], providerFanOutConcurrency, async ([key, provider]) => {
+			if (!isSupportedLaunchpadIntegrationId(provider.id)) return;
+
+			const integration = await this.container.integrations.get(provider.id, provider.domain);
+			const account = await integration?.getCurrentAccount();
+			if (account != null) {
+				accounts.set(key, account);
+			}
+		});
+		return accounts;
+	}
+
 	async hasConnectedIntegration(): Promise<boolean> {
 		for (const integrationId of supportedLaunchpadIntegrations) {
-			const integration = await this.container.integrations.get(integrationId);
-			if (integration == null) continue;
-
-			if (integration.maybeConnected ?? (await integration.isConnected())) {
+			if (await this.container.integrations.isConnectedForAccountWideRead(integrationId)) {
 				void setContext('gitlens:launchpad:connected', true);
 				return true;
 			}
@@ -981,19 +1040,16 @@ export class LaunchpadProvider implements Disposable {
 
 	async getConnectedIntegrations(): Promise<Map<IntegrationIds, boolean>> {
 		const connected = new Map<IntegrationIds, boolean>();
-		await Promise.allSettled(
-			supportedLaunchpadIntegrations.map(async integrationId => {
-				const integration = await this.container.integrations.get(integrationId);
-				if (integration == null) {
-					connected.set(integrationId, false);
-					return;
-				}
-
-				const isConnected = integration.maybeConnected ?? (await integration.isConnected());
-				const hasAccess = isConnected && (await integration.access());
-				connected.set(integrationId, hasAccess);
-			}),
-		);
+		for (const integrationId of supportedLaunchpadIntegrations) {
+			try {
+				connected.set(
+					integrationId,
+					await this.container.integrations.isConnectedForAccountWideRead(integrationId, { access: true }),
+				);
+			} catch {
+				connected.set(integrationId, false);
+			}
+		}
 
 		void setContext(
 			'gitlens:launchpad:connected',

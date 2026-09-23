@@ -37,6 +37,22 @@ export function areDomainsOnSameHostname(first: string | undefined, second: stri
 	return new URL(`https://${firstHost}`).hostname === new URL(`https://${secondHost}`).hostname;
 }
 
+/** Whether a git remote was addressed over the host's web protocol (`https://`/`http://`) rather than SSH/git. */
+export function isWebRemoteScheme(scheme: string | undefined): boolean {
+	return scheme === 'https://' || scheme === 'http://';
+}
+
+/**
+ * The comparison to use when matching a git remote's host against a configured (web) host. A web remote names
+ * the very host and port the API is served on, so it must match exactly; an SSH or git remote's port — which
+ * `parseGitRemoteUrl` drops anyway — says nothing about the web port, so only the hostname can be compared.
+ */
+export function getRemoteHostMatcher(
+	scheme: string | undefined,
+): (first: string | undefined, second: string | undefined) => boolean {
+	return isWebRemoteScheme(scheme) ? areDomainsOnSameHost : areDomainsOnSameHostname;
+}
+
 /**
  * Builds the API base URL for a self-managed host from a domain expressed as either a URL or a bare host.
  *

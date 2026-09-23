@@ -8,6 +8,7 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
 import type { IntegrationBase } from '@gitlens/integrations/models/integration.js';
+import { hostFromDomain } from '@gitlens/integrations/utils/domain.utils.js';
 import { isSelfManagedHostIntegrationId } from '@gitlens/integrations/utils/integration.utils.js';
 import { isPromise } from '@gitlens/utils/promise.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
@@ -434,7 +435,8 @@ export class CacheProvider implements Disposable {
 		const { key, etag } = this.getResourceKeyAndEtag(resource, integration);
 		if (integration == null || !isSelfManagedHostIntegrationId(integration.id)) return { key: key, etag: etag };
 
-		return { key: `${key}@${integration.domain}`, etag: etag };
+		const host = hostFromDomain(integration.domain) ?? integration.domain;
+		return { key: `${integration.id}:${host}:${key}`, etag: etag };
 	}
 
 	private getIntegrationCacheKey(integration: IntegrationBase): string {

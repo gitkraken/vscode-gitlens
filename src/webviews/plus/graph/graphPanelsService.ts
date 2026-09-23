@@ -42,6 +42,7 @@ import {
 } from '../../../git/utils/-webview/remote.utils.js';
 import { getOpenedWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../plus/gk/utils/subscription.utils.js';
+import { getViewerAccountKey } from '../../../plus/launchpad/launchpadIdentity.js';
 import {
 	canonicalizeViewerIdentity,
 	categorizePullRequests,
@@ -944,8 +945,8 @@ export class GraphPanelsService {
 				integrationId === GitCloudHostIntegrationId.Bitbucket ||
 				integrationId === GitSelfManagedHostIntegrationId.BitbucketServer;
 
-			// Keyed by `pr.provider.id`, which is this integration's id — every pull request here came from it.
-			const currentUsers = account != null ? new Map([[integrationId, account]]) : undefined;
+			// Keyed the way `categorizePullRequests` groups — every pull request here came from this integration.
+			const currentUsers = account != null ? new Map([[getViewerAccountKey(integration), account]]) : undefined;
 
 			// Keyed by the pull request itself, not by a field of it — these are the very objects the rows are
 			// built from, so object identity is exact and can't be wrong about which row a verdict belongs to.

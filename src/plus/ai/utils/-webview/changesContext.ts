@@ -173,7 +173,7 @@ async function collectBranchAssociations(
 	const issuesPaused = getSettledValue(issuesResult);
 	const issues = await resolveMaybePaused(issuesPaused, signal);
 	if (issues != null) {
-		for (const issue of issues) {
+		for (const { issue } of issues) {
 			if (items.length >= maxItems) break;
 
 			registerItem(items, seen, issueToItem(issue, { source: 'branch-associated', branch: branch.name }));

@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes `IntegrationService.getMyIssues` and `getMyPullRequests` reading only one host of a self-managed provider ([#5873](https://github.com/gitkraken/vscode-gitlens/issues/5873)). Both resolved each id with `get(id)` and no domain, which answers with a single instance (the first cached, else the primary configured host), so a user connected to two GitHub Enterprise servers, GitLab instances, Bitbucket Data Centers, Azure DevOps Servers or Jira Data Center instances got results from one of them and no sign the others were skipped. Every self-managed id is now read on each configured host, local and cloud connections alike, and both reads run within `providerFanOutConcurrency`. A failing host still leaves the others' results in place, and results are not deduplicated on key, since two hosts routinely share `owner/repo#number`. With `openRepositoriesOnly`, multiple hosts receive only repositories whose remotes match exactly one host: by host and port for web remotes, or by hostname for SSH remotes. Ambiguous SSH remotes are skipped. A single host retains all of its provider's open repositories, including SSH aliases. `getRemoteHostMatcher` and `isWebRemoteScheme` move to `utils/domain.utils` for that (plus/integrations)
+- Fixes branch-associated GitHub Enterprise and GitLab self-hosted issues being read back from the wrong host. `getEntityIdentifierInput` only recorded a `domain` when it rewrote a `github`/`gitlab` provider id, so an issue read through the self-managed integration, which already carries the enterprise id, was encoded with no host. It now records the host for those issues. The resolver passed to `getIssueFromGitConfigEntityIdentifier` receives the identifier's `domain` as a second argument, which a self-managed provider must honor. A resolver that ignores it keeps compiling and keeps its old behavior. Pull request identifiers are unchanged, since they are also the Launchpad uuid that stored pins and snoozes key on, and identifiers written before this carry no host and resolve by id as before (plus/integrations)
+
 ## [0.7.0] - 2026-09-22
 
 ### Fixed

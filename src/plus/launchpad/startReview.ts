@@ -50,6 +50,7 @@ import type { AgentDescriptor, AgentRoute } from '../agents/agentDescriptor.js';
 import type { ResolveAgentFlowResult } from '../agents/agentPicker.js';
 import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/agentPicker.js';
 import { ensureIntegrationConnectAllowed } from '../integrations/utils/-webview/integration.utils.js';
+import { getLaunchpadItemKey } from './launchpadIdentity.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
 import { getLaunchpadItemIdHash, supportedLaunchpadIntegrations } from './launchpadProvider.js';
 import {
@@ -582,7 +583,9 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 					i.launchpadItem.author?.avatarUrl != null ? Uri.parse(i.launchpadItem.author.avatarUrl) : undefined,
 				alwaysShow: alwaysShow,
 				item: i,
-				picked: i.launchpadItem.uuid === state.item?.launchpadItem.uuid,
+				picked:
+					state.item != null &&
+					getLaunchpadItemKey(i.launchpadItem) === getLaunchpadItemKey(state.item.launchpadItem),
 				buttons: buttons,
 			};
 		};

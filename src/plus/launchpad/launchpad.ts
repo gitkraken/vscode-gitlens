@@ -61,6 +61,7 @@ import { configuration } from '../../system/-webview/configuration.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/agentPicker.js';
 import { ensureIntegrationConnectAllowed } from '../integrations/utils/-webview/integration.utils.js';
+import { findLaunchpadItem, getLaunchpadItemKey } from './launchpadIdentity.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
 import {
 	countLaunchpadItemGroups,
@@ -138,7 +139,7 @@ interface GroupedLaunchpadItem extends LaunchpadItem {
 }
 
 interface State {
-	id?: { uuid: string; group: LaunchpadGroup };
+	id?: { uuid: string; provider?: LaunchpadItem['provider']; group: LaunchpadGroup };
 	item?: GroupedLaunchpadItem;
 	action?: LaunchpadAction;
 	initialGroup?: LaunchpadGroup;
@@ -320,7 +321,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 			if (steps.isAtStepOrUnset(Steps.PickItem) || state.item == null) {
 				if (state.id != null) {
-					const item = context.result.items?.find(item => item.uuid === state.id?.uuid);
+					const item = findLaunchpadItem(context.result.items, state.id);
 					if (item != null) {
 						state.item = { ...item, group: state.id.group };
 						continue;
@@ -343,7 +344,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				using step = steps.enterStep(Steps.PickItem);
 
 				const pickResult = yield* this.pickLaunchpadItemStep(state, context, {
-					picked: state.item?.graphQLId ?? state.item?.uuid,
+					picked: state.item != null ? getLaunchpadItemKey(state.item) : undefined,
 					selectTopItem: state.selectTopItem,
 				});
 				if (pickResult === StepResultBreak) {
@@ -594,11 +595,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							: new ThemeIcon('account'),
 				item: i,
 				picked:
-					i.graphQLId != null
-						? i.graphQLId === picked || i.graphQLId === topItem?.graphQLId
-						: i.uuid != null
-							? i.uuid === picked || i.uuid === topItem?.uuid
-							: false,
+					getLaunchpadItemKey(i) === picked ||
+					(topItem != null && getLaunchpadItemKey(i) === getLaunchpadItemKey(topItem)),
 				group: ui,
 			};
 		};
@@ -900,7 +898,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						this.sendItemActionTelemetry('snooze', item, group, context);
 
 						// Update optimistically
-						const contextItem = context.result.items?.find(i => i.uuid === item.uuid);
+						const contextItem = findLaunchpadItem(context.result.items, item);
 						if (contextItem != null) {
 							contextItem.viewer.snoozed = true;
 							optimisticallyUpdateItems(quickpick);
@@ -913,7 +911,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						this.sendItemActionTelemetry('unsnooze', item, group, context);
 
 						// Update optimistically
-						const contextItem = context.result.items?.find(i => i.uuid === item.uuid);
+						const contextItem = findLaunchpadItem(context.result.items, item);
 						if (contextItem != null) {
 							contextItem.viewer.snoozed = false;
 							optimisticallyUpdateItems(quickpick);
@@ -926,7 +924,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						this.sendItemActionTelemetry('pin', item, group, context);
 
 						// Update optimistically
-						const contextItem = context.result.items?.find(i => i.uuid === item.uuid);
+						const contextItem = findLaunchpadItem(context.result.items, item);
 						if (contextItem != null) {
 							contextItem.viewer.pinned = true;
 							optimisticallyUpdateItems(quickpick);
@@ -939,7 +937,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						this.sendItemActionTelemetry('unpin', item, group, context);
 
 						// Update optimistically
-						const contextItem = context.result.items?.find(i => i.uuid === item.uuid);
+						const contextItem = findLaunchpadItem(context.result.items, item);
 						if (contextItem != null) {
 							contextItem.viewer.pinned = false;
 							optimisticallyUpdateItems(quickpick);
