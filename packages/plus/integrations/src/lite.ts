@@ -195,7 +195,7 @@ function stripScheme(domain: string): string {
  * GitHub's base URL, which `@gitkraken/provider-apis` derives BOTH the REST and the GraphQL endpoint from by
  * appending GitHub Enterprise's paths (`/api/v3`, `/api/graphql`). Cloud must therefore pass nothing rather than
  * `https://api.github.com`, which would build `https://api.github.com/api/graphql` and get a 404; omitting it is
- * what selects the cloud endpoints. Mirrors the cloud `GitHubIntegration.apiBaseUrl` getter.
+ * what selects the cloud endpoints. Mirrors the cloud `GitHubIntegration.apiBaseUrlFor`.
  */
 function resolveGitHubApiBaseUrl(
 	id: GitCloudHostIntegrationId.GitHub | GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
@@ -205,9 +205,10 @@ function resolveGitHubApiBaseUrl(
 }
 
 /**
- * Mirrors the per-provider `apiBaseUrl` getters on the `GitHostIntegration` subclasses, for every family whose
- * base URL is always concrete (GitHub's is not — see {@link resolveGitHubApiBaseUrl}). `rawDomain` may carry a
- * scheme (only Azure DevOps Server honors it); `host` is the bare host used everywhere else.
+ * Mirrors the per-provider `apiBaseUrlFor` methods on the `GitHostIntegration` subclasses for an installation at
+ * the host root. Covers every family whose base URL is always concrete (GitHub's is not — see
+ * {@link resolveGitHubApiBaseUrl}). `rawDomain` may carry a scheme (only Azure DevOps Server honors it); `host` is
+ * the bare host used everywhere else.
  */
 function resolveApiBaseUrl(
 	id: Exclude<

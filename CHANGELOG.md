@@ -41,6 +41,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes self-managed integrations dropping the installation path from API requests, including Azure DevOps Server virtual directories, while keeping existing connections usable ([#5871](https://github.com/gitkraken/vscode-gitlens/issues/5871))
+
 - Fixes GitKraken AI telling someone on a Pro trial to _Upgrade to GitLens Pro_ when a request is refused for lack of entitlement &mdash; it now names the trial and offers to upgrade to the trialed plan ([#5789](https://github.com/gitkraken/vscode-gitlens/issues/5789))
 - Fixes a comparison, or a file or folder history, opened in the _Commit Graph_ while signed out or before upgrading being discarded instead of opening once access is granted ([#5820](https://github.com/gitkraken/vscode-gitlens/issues/5820))
 - Fixes the _Commit Graph_'s sign-in and upgrade screens still describing the previous task when a second one arrives while they're open ([#5820](https://github.com/gitkraken/vscode-gitlens/issues/5820))

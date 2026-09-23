@@ -29,6 +29,7 @@ import type { IntegrationConnectionChangeEvent } from '../integrationService.js'
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { AccountWideIssuesResult, IntegrationKey, SearchMyIssuesOptions } from '../models/integration.js';
+import { decodePathSegment } from '../utils/domain.utils.js';
 import type {
 	AzureOrganizationDescriptor,
 	AzureProjectDescriptor,
@@ -43,6 +44,7 @@ import type {
 	ProviderOrganization,
 	ProviderPullRequest,
 	ProviderRepoInput,
+	ProviderReposInput,
 	ProviderRepository,
 } from './models.js';
 import {
@@ -75,15 +77,37 @@ function getAzureRepositoryIdentity(repo: Pick<AzureRepositoryDescriptor, 'owner
 	};
 }
 
-function getAzureRepositoryApiBaseUrl(baseUrl: string, repo: Pick<AzureRepositoryDescriptor, 'virtualDirectory'>) {
-	if (repo.virtualDirectory == null) return baseUrl;
-
-	const segments = repo.virtualDirectory.split('/');
-	if (segments.some(segment => !segment || segment === '.' || segment === '..')) {
+function getAzureRepositoryApiBaseUrl(
+	baseUrl: string,
+	repo: Pick<AzureRepositoryDescriptor, 'owner' | 'virtualDirectory'>,
+): string {
+	const directory = repo.virtualDirectory?.split('/');
+	if (directory?.some(segment => !segment || segment === '.' || segment === '..')) {
 		throw new Error(`Invalid Azure virtual directory '${repo.virtualDirectory}'.`);
 	}
 
-	return `${baseUrl.replace(/\/+$/, '')}/${segments.map(encodeURIComponent).join('/')}`;
+	const url = new URL(baseUrl);
+	const toUrl = (segments: string[]) => `${url.protocol}//${url.host}${segments.map(s => `/${s}`).join('')}`;
+	const configured = url.pathname.split('/').filter(Boolean);
+	// A connection addressed at the host root takes the repository's own directory.
+	if (!configured.length) return toUrl(directory?.map(encodeURIComponent) ?? []);
+
+	// Otherwise the address is the installation, optionally followed by the repository's collection, which
+	// requests append themselves (as the owner). IIS serves these paths case-insensitively.
+	const namesCollection = sameAzurePathSegment(configured.at(-1)!, repo.owner);
+	const installation = namesCollection ? configured.slice(0, -1) : configured;
+	if (directory == null) return toUrl(installation);
+
+	for (const candidate of namesCollection ? [configured, installation] : [configured]) {
+		if (candidate.length === directory.length && candidate.every((s, i) => sameAzurePathSegment(s, directory[i]))) {
+			return toUrl(candidate);
+		}
+	}
+	throw new Error('Azure repository virtual directory does not match the configured installation');
+}
+
+function sameAzurePathSegment(encoded: string, value: string): boolean {
+	return decodePathSegment(encoded).toLowerCase() === value.toLowerCase();
 }
 
 /**
@@ -99,7 +123,7 @@ export abstract class AzureDevOpsIntegrationBase<
 	TIntegrationId extends GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 	TRepositoryDescriptor extends AzureRepositoryDescriptor = AzureRepositoryDescriptor,
 > extends GitHostIntegration<TIntegrationId, TRepositoryDescriptor> {
-	protected abstract get apiBaseUrl(): string;
+	protected abstract apiBaseUrlFor(session: ProviderAuthenticationSession): string;
 	protected getApiOptions(
 		session: ProviderAuthenticationSession,
 		doNotConvertToPat: boolean = false,
@@ -364,7 +388,7 @@ export abstract class AzureDevOpsIntegrationBase<
 				id: o.id,
 				providerId: this.id,
 				name: o.name,
-				url: `${this.apiBaseUrl}/${o.name}`,
+				url: `${this.apiBaseUrlFor(session)}/${o.name}`,
 			})),
 		};
 	}
@@ -394,7 +418,7 @@ export abstract class AzureDevOpsIntegrationBase<
 				providerId: this.id,
 				name: p.name,
 				org: p.resourceName,
-				url: `${this.apiBaseUrl}/${p.resourceName}/${p.name}`,
+				url: `${this.apiBaseUrlFor(session)}/${p.resourceName}/${p.name}`,
 			})),
 			...(projects.metadata != null ? { metadata: projects.metadata } : {}),
 		};
@@ -515,7 +539,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			repo.owner,
 			repo.name,
 			rev,
-			getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo),
+			getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo),
 			options,
 		);
 	}
@@ -541,7 +565,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			toTokenWithInfo(this.id, session),
 			repo.owner,
 			repo.name,
-			{ baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo) },
+			{ baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo) },
 			cancellation,
 		);
 	}
@@ -559,7 +583,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			repo.name,
 			id,
 			{
-				baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo),
+				baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo),
 				type: type,
 			},
 		);
@@ -588,7 +612,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			matchingProject,
 			id,
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
 	}
@@ -609,7 +633,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			repo.name,
 			branch,
 			{
-				baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo),
+				baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo),
 			},
 		);
 	}
@@ -625,7 +649,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			repo.owner,
 			repo.name,
 			rev,
-			getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo),
+			getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo),
 		);
 	}
 
@@ -647,7 +671,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		const { tokenWithInfo, options } = this.getApiOptions(session);
 		return api.getRepo(tokenWithInfo, identity.resourceName, identity.repositoryName, identity.projectName, {
 			...options,
-			baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo),
+			baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo),
 		});
 	}
 
@@ -661,7 +685,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			toTokenWithInfo(this.id, session),
 			repo.owner,
 			repo.name,
-			{ baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo) },
+			{ baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo) },
 			cancellation,
 		);
 	}
@@ -1288,7 +1312,7 @@ export class AzureDevOpsIntegration extends AzureDevOpsIntegrationBase<GitCloudH
 	get domain(): string {
 		return cloudMetadata.domain;
 	}
-	protected override get apiBaseUrl(): string {
+	protected override apiBaseUrlFor(_session: ProviderAuthenticationSession): string {
 		return 'https://dev.azure.com';
 	}
 }
@@ -1313,9 +1337,23 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		this.key = `${this.id}:${this.domain}`;
 	}
 
-	protected override get apiBaseUrl(): string {
-		const protocol = this._session?.protocol ?? 'https:';
-		return `${protocol}//${this.domain}`;
+	protected override apiBaseUrlFor(session: ProviderAuthenticationSession): string {
+		return this.getSelfManagedApiBaseUrl(session);
+	}
+
+	protected override getRepositoriesApiBaseUrl(
+		session: ProviderAuthenticationSession,
+		repos: ProviderReposInput,
+	): string {
+		// Requests append each repository's organization (its collection), which an address naming that collection
+		// already ends with. Only repositories of a single organization can share one base; mixed ones keep the
+		// address, so another collection's repository stays below it (see `resolveRepository`).
+		const owners = new Set(repos.map(r => (typeof r === 'object' ? r.namespace : undefined)));
+		const [owner] = owners;
+		const baseUrl = this.apiBaseUrlFor(session);
+		return owners.size === 1 && owner != null
+			? getAzureRepositoryApiBaseUrl(baseUrl, { owner: owner, virtualDirectory: undefined })
+			: baseUrl;
 	}
 
 	protected override getApiOptions(
@@ -1328,7 +1366,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		const { options, ...rest } = super.getApiOptions(session, doNotConvertToPat);
 		return {
 			...rest,
-			options: { ...options, baseUrl: this.apiBaseUrl },
+			options: { ...options, baseUrl: this.apiBaseUrlFor(session) },
 		};
 	}
 
@@ -1337,7 +1375,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	): Promise<Account | undefined> {
 		const azure = await this.authenticationService.apis.azure;
 		const user = azure
-			? await azure.getCurrentUserOnServer(this, toTokenWithInfo(this.id, session), this.apiBaseUrl)
+			? await azure.getCurrentUserOnServer(this, toTokenWithInfo(this.id, session), this.apiBaseUrlFor(session))
 			: undefined;
 		return user
 			? {
