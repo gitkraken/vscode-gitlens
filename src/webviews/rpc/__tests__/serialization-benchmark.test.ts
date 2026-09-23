@@ -17,6 +17,7 @@
  * webview intermediary (which adds JSON serialization overhead).
  */
 import * as assert from 'assert';
+import type { MessagePort, Transferable } from 'node:worker_threads';
 import { MessageChannel } from 'node:worker_threads';
 import type { Endpoint, Remote } from '@eamodio/supertalk';
 import { Connection } from '@eamodio/supertalk';
@@ -115,13 +116,13 @@ function generateRows(count: number): SyntheticGraphRow[] {
  * Node MessagePorts use `on`/`off` instead of `addEventListener`/`removeEventListener`
  * and emit data directly instead of wrapping it in a MessageEvent.
  */
-function adaptPort(port: import('node:worker_threads').MessagePort, counter: { count: number }): Endpoint {
-	// Cast needed because Endpoint.postMessage uses DOM's Transferable type,
-	// which isn't available in the Node.js tsconfig target.
+function adaptPort(port: MessagePort, counter: { count: number }): Endpoint {
+	// Endpoint.postMessage uses the DOM's Transferable, not the `node:worker_threads` one imported
+	// above, and the DOM lib isn't in the Node tsconfig — hence the cast.
 	return {
 		postMessage: (message: unknown, transfer?: unknown[]) => {
 			counter.count++;
-			port.postMessage(message, (transfer ?? []) as import('node:worker_threads').TransferListItem[]);
+			port.postMessage(message, (transfer ?? []) as Transferable[]);
 		},
 		addEventListener: (_type: 'message', listener: (event: MessageEvent) => void) => {
 			port.on('message', (data: unknown) => {

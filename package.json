@@ -30889,7 +30889,7 @@
 		"@profoundlogic/hogan": "3.0.4",
 		"@swc/core": "1.16.2",
 		"@types/mocha": "catalog:",
-		"@types/node": "20.16.15",
+		"@types/node": "22.15.35",
 		"@types/sinon": "catalog:",
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.9",

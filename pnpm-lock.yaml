@@ -109,7 +109,7 @@ importers:
     dependencies:
       '@awesome.me/webawesome':
         specifier: 'catalog:'
-        version: 3.12.0(@floating-ui/utils@0.2.12)(@types/node@20.16.15)(@types/react@19.2.17)
+        version: 3.12.0(@floating-ui/utils@0.2.12)(@types/node@22.15.35)(@types/react@19.2.17)
       '@configcat/sdk':
         specifier: 1.1.0
         version: 1.1.0
@@ -262,8 +262,8 @@ importers:
         specifier: 'catalog:'
         version: 10.0.10
       '@types/node':
-        specifier: 20.16.15
-        version: 20.16.15
+        specifier: 22.15.35
+        version: 22.15.35
       '@types/sinon':
         specifier: 'catalog:'
         version: 22.0.0
@@ -347,7 +347,7 @@ importers:
         version: 9.1.7
       image-minimizer-webpack-plugin:
         specifier: 5.0.0
-        version: 5.0.0(sharp@0.35.4(@types/node@20.16.15))(svgo@4.1.0)(webpack@5.111.0)
+        version: 5.0.0(sharp@0.35.4(@types/node@22.15.35))(svgo@4.1.0)(webpack@5.111.0)
       license-checker-rseidelsohn:
         specifier: 5.0.1
         version: 5.0.1(supports-color@10.2.2)
@@ -365,7 +365,7 @@ importers:
         version: 1.3.5
       ovsx:
         specifier: 1.2.0
-        version: 1.2.0(@types/node@20.16.15)(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
+        version: 1.2.0(@types/node@22.15.35)(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       oxfmt:
         specifier: 0.67.0
         version: 0.67.0
@@ -401,7 +401,7 @@ importers:
         version: 4.5.0
       sharp:
         specifier: 0.35.4
-        version: 0.35.4(@types/node@20.16.15)
+        version: 0.35.4(@types/node@22.15.35)
       sinon:
         specifier: 'catalog:'
         version: 22.1.0
@@ -461,7 +461,7 @@ importers:
     dependencies:
       '@awesome.me/webawesome':
         specifier: 'catalog:'
-        version: 3.12.0(@floating-ui/utils@0.2.12)(@types/node@20.16.15)(@types/react@19.2.17)
+        version: 3.12.0(@floating-ui/utils@0.2.12)(@types/node@22.15.35)(@types/react@19.2.17)
       '@gitlens/utils':
         specifier: workspace:*
         version: link:../utils
@@ -691,7 +691,7 @@ importers:
     dependencies:
       '@awesome.me/webawesome':
         specifier: 'catalog:'
-        version: 3.12.0(@floating-ui/utils@0.2.12)(@types/node@20.16.15)(@types/react@19.2.17)
+        version: 3.12.0(@floating-ui/utils@0.2.12)(@types/node@22.15.35)(@types/react@19.2.17)
       '@gitkraken/commit-graph':
         specifier: workspace:*
         version: link:../commit-graph
@@ -2953,8 +2953,8 @@ packages:
   '@types/mocha@10.0.10':
     resolution: {integrity: sha512-xPyYSz1cMPnJQhl0CLMH68j3gprKZaTjG3s5Vi+fDgx+uhG9NOXwbVt52eFS8ECyXhyKcjDLCBEqBExKuiZb7Q==}
 
-  '@types/node@20.16.15':
-    resolution: {integrity: sha512-DV58qQz9dBMqVVn+qnKwGa51QzCD4YM/tQM16qLKxdf5tqz5W4QwtrMzjSTbabN1cFTSuyxVYBy+QWHjWW8X/g==}
+  '@types/node@22.15.35':
+    resolution: {integrity: sha512-stV91mHxlWpDksiUiivmFfQzjy2JLlb2NUTxKipiANEbxBZsdbDU9fSrT7SHY4uoCXAxYfJZVasn3x2/hqpd3g==}
 
   '@types/normalize-package-data@2.4.4':
     resolution: {integrity: sha512-37i+OaWTh9qeK4LSHPsyRC7NahnGotNuZvjLSgcPzblpHB3rrCJxAOgI5gCdKm7coonsaX1Of0ILiTcnZjbfxA==}
@@ -7922,8 +7922,8 @@ packages:
   underscore@1.13.8:
     resolution: {integrity: sha512-DXtD3ZtEQzc7M8m4cXotyHR+FAS18C64asBYY5vqZexfYryNNnDc02W4hKg3rdQuqOYas1jkseX0+nZXjTXnvQ==}
 
-  undici-types@6.19.8:
-    resolution: {integrity: sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw==}
+  undici-types@6.21.0:
+    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
   undici@6.28.0:
     resolution: {integrity: sha512-LIY910g9TI13YS95lrMFrs8Rm/u/irgHeTWoKCoteeJ04CUJ92eEfj0rVn+7VKMPBpUPiUoBKfhNyLI23EE/KA==}
@@ -8291,12 +8291,12 @@ snapshots:
       typescript: 5.6.1-rc
       validate-npm-package-name: 5.0.1
 
-  '@awesome.me/webawesome@3.12.0(@floating-ui/utils@0.2.12)(@types/node@20.16.15)(@types/react@19.2.17)':
+  '@awesome.me/webawesome@3.12.0(@floating-ui/utils@0.2.12)(@types/node@22.15.35)(@types/react@19.2.17)':
     dependencies:
       '@ctrl/tinycolor': 4.1.0
       '@floating-ui/dom': 1.8.0
       '@konnorr/qr-creator': 1.1.0
-      '@lit-labs/ssr': 4.1.0(@types/node@20.16.15)
+      '@lit-labs/ssr': 4.1.0(@types/node@22.15.35)
       '@lit-labs/ssr-client': 1.1.8
       '@lit/context': 1.1.6
       '@lit/react': 1.0.8(@types/react@19.2.17)
@@ -8857,128 +8857,128 @@ snapshots:
 
   '@inquirer/ansi@1.0.2': {}
 
-  '@inquirer/checkbox@4.3.2(@types/node@20.16.15)':
+  '@inquirer/checkbox@4.3.2(@types/node@22.15.35)':
     dependencies:
       '@inquirer/ansi': 1.0.2
-      '@inquirer/core': 10.3.2(@types/node@20.16.15)
+      '@inquirer/core': 10.3.2(@types/node@22.15.35)
       '@inquirer/figures': 1.0.15
-      '@inquirer/type': 3.0.10(@types/node@20.16.15)
+      '@inquirer/type': 3.0.10(@types/node@22.15.35)
       yoctocolors-cjs: 2.1.3
     optionalDependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
 
-  '@inquirer/confirm@5.1.21(@types/node@20.16.15)':
+  '@inquirer/confirm@5.1.21(@types/node@22.15.35)':
     dependencies:
-      '@inquirer/core': 10.3.2(@types/node@20.16.15)
-      '@inquirer/type': 3.0.10(@types/node@20.16.15)
+      '@inquirer/core': 10.3.2(@types/node@22.15.35)
+      '@inquirer/type': 3.0.10(@types/node@22.15.35)
     optionalDependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
 
-  '@inquirer/core@10.3.2(@types/node@20.16.15)':
+  '@inquirer/core@10.3.2(@types/node@22.15.35)':
     dependencies:
       '@inquirer/ansi': 1.0.2
       '@inquirer/figures': 1.0.15
-      '@inquirer/type': 3.0.10(@types/node@20.16.15)
+      '@inquirer/type': 3.0.10(@types/node@22.15.35)
       cli-width: 4.1.0
       mute-stream: 2.0.0
       signal-exit: 4.1.0
       wrap-ansi: 6.2.0
       yoctocolors-cjs: 2.1.3
     optionalDependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
 
-  '@inquirer/editor@4.2.23(@types/node@20.16.15)':
+  '@inquirer/editor@4.2.23(@types/node@22.15.35)':
     dependencies:
-      '@inquirer/core': 10.3.2(@types/node@20.16.15)
-      '@inquirer/external-editor': 1.0.3(@types/node@20.16.15)
-      '@inquirer/type': 3.0.10(@types/node@20.16.15)
+      '@inquirer/core': 10.3.2(@types/node@22.15.35)
+      '@inquirer/external-editor': 1.0.3(@types/node@22.15.35)
+      '@inquirer/type': 3.0.10(@types/node@22.15.35)
     optionalDependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
 
-  '@inquirer/expand@4.0.23(@types/node@20.16.15)':
+  '@inquirer/expand@4.0.23(@types/node@22.15.35)':
     dependencies:
-      '@inquirer/core': 10.3.2(@types/node@20.16.15)
-      '@inquirer/type': 3.0.10(@types/node@20.16.15)
+      '@inquirer/core': 10.3.2(@types/node@22.15.35)
+      '@inquirer/type': 3.0.10(@types/node@22.15.35)
       yoctocolors-cjs: 2.1.3
     optionalDependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
 
-  '@inquirer/external-editor@1.0.3(@types/node@20.16.15)':
+  '@inquirer/external-editor@1.0.3(@types/node@22.15.35)':
     dependencies:
       chardet: 2.2.0
       iconv-lite: 0.7.3
     optionalDependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
 
   '@inquirer/figures@1.0.15': {}
 
-  '@inquirer/input@4.3.1(@types/node@20.16.15)':
+  '@inquirer/input@4.3.1(@types/node@22.15.35)':
     dependencies:
-      '@inquirer/core': 10.3.2(@types/node@20.16.15)
-      '@inquirer/type': 3.0.10(@types/node@20.16.15)
+      '@inquirer/core': 10.3.2(@types/node@22.15.35)
+      '@inquirer/type': 3.0.10(@types/node@22.15.35)
     optionalDependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
 
-  '@inquirer/number@3.0.23(@types/node@20.16.15)':
+  '@inquirer/number@3.0.23(@types/node@22.15.35)':
     dependencies:
-      '@inquirer/core': 10.3.2(@types/node@20.16.15)
-      '@inquirer/type': 3.0.10(@types/node@20.16.15)
+      '@inquirer/core': 10.3.2(@types/node@22.15.35)
+      '@inquirer/type': 3.0.10(@types/node@22.15.35)
     optionalDependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
 
-  '@inquirer/password@4.0.23(@types/node@20.16.15)':
-    dependencies:
-      '@inquirer/ansi': 1.0.2
-      '@inquirer/core': 10.3.2(@types/node@20.16.15)
-      '@inquirer/type': 3.0.10(@types/node@20.16.15)
-    optionalDependencies:
-      '@types/node': 20.16.15
-
-  '@inquirer/prompts@7.10.1(@types/node@20.16.15)':
-    dependencies:
-      '@inquirer/checkbox': 4.3.2(@types/node@20.16.15)
-      '@inquirer/confirm': 5.1.21(@types/node@20.16.15)
-      '@inquirer/editor': 4.2.23(@types/node@20.16.15)
-      '@inquirer/expand': 4.0.23(@types/node@20.16.15)
-      '@inquirer/input': 4.3.1(@types/node@20.16.15)
-      '@inquirer/number': 3.0.23(@types/node@20.16.15)
-      '@inquirer/password': 4.0.23(@types/node@20.16.15)
-      '@inquirer/rawlist': 4.1.11(@types/node@20.16.15)
-      '@inquirer/search': 3.2.2(@types/node@20.16.15)
-      '@inquirer/select': 4.4.2(@types/node@20.16.15)
-    optionalDependencies:
-      '@types/node': 20.16.15
-
-  '@inquirer/rawlist@4.1.11(@types/node@20.16.15)':
-    dependencies:
-      '@inquirer/core': 10.3.2(@types/node@20.16.15)
-      '@inquirer/type': 3.0.10(@types/node@20.16.15)
-      yoctocolors-cjs: 2.1.3
-    optionalDependencies:
-      '@types/node': 20.16.15
-
-  '@inquirer/search@3.2.2(@types/node@20.16.15)':
-    dependencies:
-      '@inquirer/core': 10.3.2(@types/node@20.16.15)
-      '@inquirer/figures': 1.0.15
-      '@inquirer/type': 3.0.10(@types/node@20.16.15)
-      yoctocolors-cjs: 2.1.3
-    optionalDependencies:
-      '@types/node': 20.16.15
-
-  '@inquirer/select@4.4.2(@types/node@20.16.15)':
+  '@inquirer/password@4.0.23(@types/node@22.15.35)':
     dependencies:
       '@inquirer/ansi': 1.0.2
-      '@inquirer/core': 10.3.2(@types/node@20.16.15)
-      '@inquirer/figures': 1.0.15
-      '@inquirer/type': 3.0.10(@types/node@20.16.15)
+      '@inquirer/core': 10.3.2(@types/node@22.15.35)
+      '@inquirer/type': 3.0.10(@types/node@22.15.35)
+    optionalDependencies:
+      '@types/node': 22.15.35
+
+  '@inquirer/prompts@7.10.1(@types/node@22.15.35)':
+    dependencies:
+      '@inquirer/checkbox': 4.3.2(@types/node@22.15.35)
+      '@inquirer/confirm': 5.1.21(@types/node@22.15.35)
+      '@inquirer/editor': 4.2.23(@types/node@22.15.35)
+      '@inquirer/expand': 4.0.23(@types/node@22.15.35)
+      '@inquirer/input': 4.3.1(@types/node@22.15.35)
+      '@inquirer/number': 3.0.23(@types/node@22.15.35)
+      '@inquirer/password': 4.0.23(@types/node@22.15.35)
+      '@inquirer/rawlist': 4.1.11(@types/node@22.15.35)
+      '@inquirer/search': 3.2.2(@types/node@22.15.35)
+      '@inquirer/select': 4.4.2(@types/node@22.15.35)
+    optionalDependencies:
+      '@types/node': 22.15.35
+
+  '@inquirer/rawlist@4.1.11(@types/node@22.15.35)':
+    dependencies:
+      '@inquirer/core': 10.3.2(@types/node@22.15.35)
+      '@inquirer/type': 3.0.10(@types/node@22.15.35)
       yoctocolors-cjs: 2.1.3
     optionalDependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
 
-  '@inquirer/type@3.0.10(@types/node@20.16.15)':
+  '@inquirer/search@3.2.2(@types/node@22.15.35)':
+    dependencies:
+      '@inquirer/core': 10.3.2(@types/node@22.15.35)
+      '@inquirer/figures': 1.0.15
+      '@inquirer/type': 3.0.10(@types/node@22.15.35)
+      yoctocolors-cjs: 2.1.3
     optionalDependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
+
+  '@inquirer/select@4.4.2(@types/node@22.15.35)':
+    dependencies:
+      '@inquirer/ansi': 1.0.2
+      '@inquirer/core': 10.3.2(@types/node@22.15.35)
+      '@inquirer/figures': 1.0.15
+      '@inquirer/type': 3.0.10(@types/node@22.15.35)
+      yoctocolors-cjs: 2.1.3
+    optionalDependencies:
+      '@types/node': 22.15.35
+
+  '@inquirer/type@3.0.10(@types/node@22.15.35)':
+    optionalDependencies:
+      '@types/node': 22.15.35
 
   '@isaacs/cliui@8.0.2':
     dependencies:
@@ -9001,7 +9001,7 @@ snapshots:
 
   '@jest/pattern@30.4.0':
     dependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
       jest-regex-util: 30.4.0
 
   '@jest/schemas@30.4.1':
@@ -9014,7 +9014,7 @@ snapshots:
       '@jest/schemas': 30.4.1
       '@types/istanbul-lib-coverage': 2.0.6
       '@types/istanbul-reports': 3.0.4
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
       '@types/yargs': 17.0.35
       chalk: 4.1.2
 
@@ -9074,7 +9074,7 @@ snapshots:
 
   '@lit-labs/ssr-dom-shim@1.6.0': {}
 
-  '@lit-labs/ssr@4.1.0(@types/node@20.16.15)':
+  '@lit-labs/ssr@4.1.0(@types/node@22.15.35)':
     dependencies:
       '@lit-labs/ssr-client': 1.1.8
       '@lit-labs/ssr-dom-shim': 1.6.0
@@ -9087,7 +9087,7 @@ snapshots:
       node-fetch: 3.3.2
       parse5: 7.3.0
     optionalDependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
 
   '@lit-labs/virtualizer@2.1.1':
     dependencies:
@@ -10066,7 +10066,7 @@ snapshots:
 
   '@types/clean-css@4.2.11':
     dependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
       source-map: 0.6.1
 
   '@types/esrecurse@4.3.1': {}
@@ -10099,9 +10099,9 @@ snapshots:
 
   '@types/mocha@10.0.10': {}
 
-  '@types/node@20.16.15':
+  '@types/node@22.15.35':
     dependencies:
-      undici-types: 6.19.8
+      undici-types: 6.21.0
 
   '@types/normalize-package-data@2.4.4': {}
 
@@ -10115,7 +10115,7 @@ snapshots:
 
   '@types/sax@1.2.7':
     dependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
 
   '@types/sinon@22.0.0':
     dependencies:
@@ -10922,7 +10922,7 @@ snapshots:
 
   caniuse-api@3.0.0:
     dependencies:
-      browserslist: 4.28.8
+      browserslist: 4.29.0
       caniuse-lite: 1.0.30001810
       lodash.memoize: 4.1.2
       lodash.uniq: 4.5.0
@@ -11161,9 +11161,9 @@ snapshots:
     optionalDependencies:
       typescript: 7.0.2
 
-  cross-keychain@1.1.0(@types/node@20.16.15):
+  cross-keychain@1.1.0(@types/node@22.15.35):
     dependencies:
-      '@inquirer/prompts': 7.10.1(@types/node@20.16.15)
+      '@inquirer/prompts': 7.10.1(@types/node@22.15.35)
       meow: 14.1.0
     optionalDependencies:
       '@napi-rs/keyring': 1.3.0
@@ -11267,7 +11267,7 @@ snapshots:
 
   cssnano-preset-default@7.0.17(postcss@8.5.28):
     dependencies:
-      browserslist: 4.28.8
+      browserslist: 4.29.0
       css-declaration-sorter: 7.4.0(postcss@8.5.28)
       cssnano-utils: 5.0.3(postcss@8.5.28)
       postcss: 8.5.28
@@ -12380,13 +12380,13 @@ snapshots:
 
   ignore@7.0.9: {}
 
-  image-minimizer-webpack-plugin@5.0.0(sharp@0.35.4(@types/node@20.16.15))(svgo@4.1.0)(webpack@5.111.0):
+  image-minimizer-webpack-plugin@5.0.0(sharp@0.35.4(@types/node@22.15.35))(svgo@4.1.0)(webpack@5.111.0):
     dependencies:
       schema-utils: 4.5.0
       serialize-javascript: 7.1.0
       webpack: 5.111.0(@swc/core@1.16.2(@swc/helpers@0.5.23))(clean-css@5.3.3)(cssnano@7.1.9(postcss@8.5.28))(csso@5.0.5)(esbuild@0.28.2)(html-minifier-terser@7.2.0)(postcss@8.5.28)(uglify-js@3.19.3)(webpack-cli@7.2.3)
     optionalDependencies:
-      sharp: 0.35.4(@types/node@20.16.15)
+      sharp: 0.35.4(@types/node@22.15.35)
       svgo: 4.1.0
 
   immediate@3.0.6: {}
@@ -12547,7 +12547,7 @@ snapshots:
   jest-util@30.4.1:
     dependencies:
       '@jest/types': 30.4.1
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
       chalk: 4.1.2
       ci-info: 4.4.0
       graceful-fs: 4.2.11
@@ -12555,13 +12555,13 @@ snapshots:
 
   jest-worker@27.5.1:
     dependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
       merge-stream: 2.0.0
       supports-color: 8.1.1
 
   jest-worker@30.4.1:
     dependencies:
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
       '@ungap/structured-clone': 1.4.0
       jest-util: 30.4.1
       merge-stream: 2.0.0
@@ -13398,12 +13398,12 @@ snapshots:
 
   os-browserify@0.3.0: {}
 
-  ovsx@1.2.0(@types/node@20.16.15)(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2):
+  ovsx@1.2.0(@types/node@22.15.35)(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2):
     dependencies:
-      '@inquirer/prompts': 7.10.1(@types/node@20.16.15)
+      '@inquirer/prompts': 7.10.1(@types/node@22.15.35)
       '@vscode/vsce': 3.9.2(supports-color@10.2.2)
       commander: 6.2.1
-      cross-keychain: 1.1.0(@types/node@20.16.15)
+      cross-keychain: 1.1.0(@types/node@22.15.35)
       follow-redirects: 1.16.0(debug@4.4.3(supports-color@10.2.2))
       is-ci: 2.0.0
       leven: 3.1.0
@@ -13681,7 +13681,7 @@ snapshots:
   postcss-calc@10.1.1(postcss@8.5.28):
     dependencies:
       postcss: 8.5.28
-      postcss-selector-parser: 7.1.5
+      postcss-selector-parser: 7.1.6
       postcss-value-parser: 4.2.0
 
   postcss-calc@11.1.2(postcss@8.5.28):
@@ -13692,7 +13692,7 @@ snapshots:
   postcss-colormin@7.0.10(postcss@8.5.28):
     dependencies:
       '@colordx/core': 5.6.0
-      browserslist: 4.28.8
+      browserslist: 4.29.0
       caniuse-api: 3.0.0
       postcss: 8.5.28
       postcss-value-parser: 4.2.0
@@ -13707,7 +13707,7 @@ snapshots:
 
   postcss-convert-values@7.0.12(postcss@8.5.28):
     dependencies:
-      browserslist: 4.28.8
+      browserslist: 4.29.0
       postcss: 8.5.28
       postcss-value-parser: 4.2.0
 
@@ -13720,7 +13720,7 @@ snapshots:
   postcss-discard-comments@7.0.8(postcss@8.5.28):
     dependencies:
       postcss: 8.5.28
-      postcss-selector-parser: 7.1.5
+      postcss-selector-parser: 7.1.6
 
   postcss-discard-comments@9.0.2(postcss@8.5.28):
     dependencies:
@@ -13801,11 +13801,11 @@ snapshots:
 
   postcss-merge-rules@7.0.11(postcss@8.5.28):
     dependencies:
-      browserslist: 4.28.8
+      browserslist: 4.29.0
       caniuse-api: 3.0.0
       cssnano-utils: 5.0.3(postcss@8.5.28)
       postcss: 8.5.28
-      postcss-selector-parser: 7.1.5
+      postcss-selector-parser: 7.1.6
 
   postcss-merge-rules@9.0.3(postcss@8.5.28):
     dependencies:
@@ -13841,7 +13841,7 @@ snapshots:
 
   postcss-minify-params@7.0.9(postcss@8.5.28):
     dependencies:
-      browserslist: 4.28.8
+      browserslist: 4.29.0
       cssnano-utils: 5.0.3(postcss@8.5.28)
       postcss: 8.5.28
       postcss-value-parser: 4.2.0
@@ -13855,11 +13855,11 @@ snapshots:
 
   postcss-minify-selectors@7.1.2(postcss@8.5.28):
     dependencies:
-      browserslist: 4.28.8
+      browserslist: 4.29.0
       caniuse-api: 3.0.0
       cssesc: 3.0.0
       postcss: 8.5.28
-      postcss-selector-parser: 7.1.5
+      postcss-selector-parser: 7.1.6
 
   postcss-minify-selectors@9.0.3(postcss@8.5.28):
     dependencies:
@@ -13950,7 +13950,7 @@ snapshots:
 
   postcss-normalize-unicode@7.0.9(postcss@8.5.28):
     dependencies:
-      browserslist: 4.28.8
+      browserslist: 4.29.0
       postcss: 8.5.28
       postcss-value-parser: 4.2.0
 
@@ -13999,7 +13999,7 @@ snapshots:
 
   postcss-reduce-initial@7.0.9(postcss@8.5.28):
     dependencies:
-      browserslist: 4.28.8
+      browserslist: 4.29.0
       caniuse-api: 3.0.0
       postcss: 8.5.28
 
@@ -14058,7 +14058,7 @@ snapshots:
   postcss-unique-selectors@7.0.7(postcss@8.5.28):
     dependencies:
       postcss: 8.5.28
-      postcss-selector-parser: 7.1.5
+      postcss-selector-parser: 7.1.6
 
   postcss-unique-selectors@9.0.2(postcss@8.5.28):
     dependencies:
@@ -14597,7 +14597,7 @@ snapshots:
     dependencies:
       kind-of: 6.0.3
 
-  sharp@0.35.4(@types/node@20.16.15):
+  sharp@0.35.4(@types/node@22.15.35):
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2
@@ -14628,7 +14628,7 @@ snapshots:
       '@img/sharp-win32-arm64': 0.35.4
       '@img/sharp-win32-ia32': 0.35.4
       '@img/sharp-win32-x64': 0.35.4
-      '@types/node': 20.16.15
+      '@types/node': 22.15.35
 
   shebang-command@2.0.0:
     dependencies:
@@ -14880,9 +14880,9 @@ snapshots:
 
   stylehacks@7.0.11(postcss@8.5.28):
     dependencies:
-      browserslist: 4.28.8
+      browserslist: 4.29.0
       postcss: 8.5.28
-      postcss-selector-parser: 7.1.5
+      postcss-selector-parser: 7.1.6
 
   stylehacks@9.0.3(postcss@8.5.28):
     dependencies:
@@ -15367,7 +15367,7 @@ snapshots:
 
   underscore@1.13.8: {}
 
-  undici-types@6.19.8: {}
+  undici-types@6.21.0: {}
 
   undici@6.28.0: {}
 
