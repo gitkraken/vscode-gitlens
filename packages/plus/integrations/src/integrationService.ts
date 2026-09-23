@@ -49,6 +49,7 @@ import type {
 	IntegrationServiceContext,
 	IntegrationsRemoteConfig,
 } from './context.js';
+import { toError } from './errors.js';
 import type {
 	ClosedPullRequestSweepOptions,
 	ListOrgsOptions,
@@ -695,11 +696,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 				),
 			),
 		];
-		const errors = [
-			...filterMap(results, r =>
-				r.status === 'fulfilled' && r.value?.error != null ? r.value.error : undefined,
-			),
-		];
+		const errors = [...filterMap(results, r => (r.status === 'rejected' ? toError(r.reason) : r.value?.error))];
 
 		const error =
 			errors.length === 0
@@ -820,11 +817,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 				),
 			),
 		];
-		const errors = [
-			...filterMap(results, r =>
-				r.status === 'fulfilled' && r.value?.error != null ? r.value.error : undefined,
-			),
-		];
+		const errors = [...filterMap(results, r => (r.status === 'rejected' ? toError(r.reason) : r.value?.error))];
 
 		const error =
 			errors.length === 0

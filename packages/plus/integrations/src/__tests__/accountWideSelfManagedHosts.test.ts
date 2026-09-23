@@ -175,6 +175,50 @@ suite('account-wide reads over every self-managed host (#5873)', () => {
 		manager.dispose();
 	});
 
+	for (const method of ['getMyIssues', 'getMyPullRequests'] as const) {
+		test(`${method} reports a session rejection alongside another host's results`, async () => {
+			const runtime = createFakeRuntime();
+			const { manager, byHost } = await connectedHosts(runtime);
+			const a = byHost.get(hostA)!;
+			const b = byHost.get(hostB)!;
+			const failure = new Error('host A session unavailable');
+			Object.defineProperty(a, 'maybeConnected', { value: undefined });
+			a.isConnected = () => Promise.reject(failure);
+			(b as unknown as MyIssuesSeam).searchProviderMyIssues = () => Promise.resolve([issue(hostB, '7')]);
+			(b as unknown as MyPullRequestsSeam).searchProviderMyPullRequests = () =>
+				Promise.resolve([{ id: '7' } satisfies Partial<PullRequest> as PullRequest]);
+
+			const result = await manager[method]([GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]);
+
+			assert.deepEqual(
+				result?.value?.map(item => item.id),
+				['7'],
+			);
+			assert.equal(result?.error, failure);
+			manager.dispose();
+		});
+
+		test(`${method} combines session rejections and provider errors`, async () => {
+			const runtime = createFakeRuntime();
+			const { manager, byHost } = await connectedHosts(runtime);
+			const a = byHost.get(hostA)!;
+			const b = byHost.get(hostB)!;
+			const failure = new Error('host B request failed');
+			Object.defineProperty(a, 'maybeConnected', { value: undefined });
+			// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- Session providers can reject with non-Error values.
+			a.isConnected = () => Promise.reject('host A session unavailable');
+			(b as unknown as MyIssuesSeam).searchProviderMyIssues = () => Promise.reject(failure);
+			(b as unknown as MyPullRequestsSeam).searchProviderMyPullRequests = () => Promise.reject(failure);
+
+			const result = await manager[method]([GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]);
+
+			assert.deepEqual(result?.value, []);
+			assert.ok(result?.error instanceof AggregateError);
+			assert.deepEqual(result.error.errors, [new Error('host A session unavailable'), failure]);
+			manager.dispose();
+		});
+	}
+
 	test('getMyIssues with openRepositoriesOnly scopes each host to the repositories open on that host', async () => {
 		const runtime = createFakeRuntime();
 		runtime.repositories.getOpenRemotes = () =>
