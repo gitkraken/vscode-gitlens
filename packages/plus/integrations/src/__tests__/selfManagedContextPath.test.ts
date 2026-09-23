@@ -40,10 +40,11 @@ function providerResponse(id: IntegrationIds, url: URL): Response {
 		if (url.pathname.endsWith('/connectionData')) {
 			return json({ authenticatedUser: { id: 'me', properties: { Account: { $value: 'me' } } } });
 		}
-		if (url.pathname.endsWith('/repositories/repo')) {
+		if (url.pathname.endsWith('/repositories/repo') || url.pathname.endsWith('/repositories/%252e')) {
+			const name = url.pathname.endsWith('/repositories/%252e') ? '%2e' : 'repo';
 			return json({
 				id: '1',
-				name: 'repo',
+				name: name,
 				project: { id: 'project', name: 'project' },
 				remoteUrl: `${url.origin}/repo`,
 				_links: { web: { href: `${url.origin}/repo` } },
@@ -566,6 +567,58 @@ suite('self-managed installation addresses through the public manager', () => {
 			}
 		});
 	}
+
+	test('Azure rejects encoded dot segments in HTTPS and SSH remote paths', async () => {
+		const id = GitSelfManagedHostIntegrationId.AzureDevOpsServer;
+		const server = createServer(id, 'https://server.test/tfs');
+		const manager = server.createManager();
+		try {
+			await manager.refreshConnections();
+			const [connection] = manager.getConfigured(id);
+			const count = server.requests.length;
+			for (const segment of ['%2e', '%2e%2e', '.%2E', '%2e.', '%5c', '%2f']) {
+				for (const path of [
+					`${segment}/evil/_git/repo`,
+					`owner/${segment}/_git/repo`,
+					`owner/project/_git/${segment}`,
+				]) {
+					for (const prefix of ['https://server.test/tfs/', 'ssh://git@server.test/tfs/']) {
+						const remoteUrl = `${prefix}${path}`;
+						const result = await manager.resolveRepository({ ...target(connection), remoteUrl: remoteUrl });
+						assert.equal(result.resolution.status, 'invalid-remote-url', remoteUrl);
+						assert.equal(server.requests.length, count, remoteUrl);
+					}
+				}
+			}
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('Azure resolves a repository literally named %2e from HTTPS and SSH remotes', async () => {
+		const id = GitSelfManagedHostIntegrationId.AzureDevOpsServer;
+		const server = createServer(id, 'https://server.test/tfs');
+		const manager = server.createManager();
+		try {
+			await manager.refreshConnections();
+			const [connection] = manager.getConfigured(id);
+			for (const prefix of ['https://server.test/tfs/', 'ssh://git@server.test/tfs/']) {
+				const remoteUrl = `${prefix}owner/project/_git/%252e`;
+				const count = server.requests.length;
+				const result = await manager.resolveRepository({ ...target(connection), remoteUrl: remoteUrl });
+				assert.equal(result.resolution.status, 'resolved', remoteUrl);
+				assert.equal(result.resolution.identity?.name, '%2e');
+				assert.ok(
+					server.requests
+						.slice(count)
+						.some(r => r.url.pathname === '/tfs/owner/project/_apis/git/repositories/%252e'),
+					remoteUrl,
+				);
+			}
+		} finally {
+			manager.dispose();
+		}
+	});
 
 	test('Azure keeps a collection named in the connection address out of the installation path', async () => {
 		const id = GitSelfManagedHostIntegrationId.AzureDevOpsServer;

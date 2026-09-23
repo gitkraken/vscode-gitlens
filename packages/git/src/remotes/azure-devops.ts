@@ -57,13 +57,13 @@ export type AzureDevOpsRepositoryDescriptor = ResourceDescriptor & {
 };
 
 function parseAzureRepositoryPath(path: string, legacyVsts: boolean, cloud: boolean): AzureRepositoryPath | undefined {
-	const segments = path.split('/');
+	const segments = path.split('/').map(segment => decodeURIComponent(segment));
 	const gitIndex = segments.length - 2;
 	const projectIndex = gitIndex - 1;
 	if (
 		gitIndex < 1 ||
 		segments[gitIndex]?.toLowerCase() !== '_git' ||
-		segments.some(segment => !segment || segment === '.' || segment === '..')
+		segments.some(segment => !segment || segment === '.' || segment === '..' || /[/\\]/.test(segment))
 	) {
 		return undefined;
 	}
@@ -146,8 +146,8 @@ export class AzureDevOpsRemoteProvider extends RemoteProvider<AzureDevOpsReposit
 		// Azure DevOps allows projects and repository names with spaces. In that situation,
 		// the `path` will be previously encoded during git clone
 		// revert that encoding to avoid double-encoding by gitlens during copy remote and open remote
-		path = decodeURIComponent(path);
 		const repositoryPath = parseAzureRepositoryPath(path, isVsts, domain.toLowerCase() === 'dev.azure.com');
+		path = decodeURIComponent(path);
 		super(domain, path, protocol, name, undefined, context);
 		this.collection = repositoryPath?.collection;
 		this.project = repositoryPath?.project;

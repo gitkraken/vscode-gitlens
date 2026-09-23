@@ -59,7 +59,7 @@ suite('AzureDevOpsApi pull requests', () => {
 		const pr = await getPullRequestForBranch(api, 'https://dev.azure.com');
 
 		assert.deepEqual(requests, [
-			'https://dev.azure.com/myorg/Project/_apis/git/repositories/Repo/pullRequests?searchCriteria.status=all&searchCriteria.sourceRefName=refs/heads/feature',
+			'https://dev.azure.com/myorg/Project/_apis/git/repositories/Repo/pullRequests?searchCriteria.status=all&searchCriteria.sourceRefName=refs%2Fheads%2Ffeature',
 		]);
 		assert.equal(pr?.refs?.base.url, 'https://dev.azure.com/myorg/Project/_git/Repo');
 		assert.equal(pr?.refs?.head.url, 'https://dev.azure.com/myorg/Project/_git/Repo');
@@ -75,7 +75,7 @@ suite('AzureDevOpsApi pull requests', () => {
 		const pr = await getPullRequestForBranch(api, 'https://azure.example.com/tfs', 'collection');
 
 		assert.deepEqual(requests, [
-			'https://azure.example.com/tfs/collection/Project/_apis/git/repositories/Repo/pullRequests?searchCriteria.status=all&searchCriteria.sourceRefName=refs/heads/feature',
+			'https://azure.example.com/tfs/collection/Project/_apis/git/repositories/Repo/pullRequests?searchCriteria.status=all&searchCriteria.sourceRefName=refs%2Fheads%2Ffeature',
 		]);
 		assert.equal(pr?.refs?.base.url, 'https://azure.example.com/tfs/collection/Project/_git/Repo');
 	});

@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes Azure DevOps requests escaping the configured installation path with specially encoded remote names, and preserves names and branches containing spaces or reserved characters ([#5878](https://github.com/gitkraken/vscode-gitlens/issues/5878))
 - Fixes self-managed integrations dropping the installation path from API requests, including Azure DevOps Server virtual directories, while keeping existing connections usable ([#5871](https://github.com/gitkraken/vscode-gitlens/issues/5871))
 
 - Fixes GitKraken AI telling someone on a Pro trial to _Upgrade to GitLens Pro_ when a request is refused for lack of entitlement &mdash; it now names the trial and offers to upgrade to the trialed plan ([#5789](https://github.com/gitkraken/vscode-gitlens/issues/5789))

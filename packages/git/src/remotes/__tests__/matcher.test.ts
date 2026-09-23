@@ -118,6 +118,53 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 		});
 	});
 
+	suite('Azure repository paths', () => {
+		for (const { domain, prefix, virtualDirectory } of [
+			{ domain: 'dev.azure.com', prefix: 'myorg/', virtualDirectory: undefined },
+			{ domain: 'myorg.visualstudio.com', prefix: '', virtualDirectory: undefined },
+			{ domain: 'server.test', prefix: 'tfs/myorg/', virtualDirectory: 'tfs' },
+		]) {
+			const matcher = createRemoteProviderMatcher([{ domain: 'server.test', type: 'azure-devops' }]);
+			test(`decodes names exactly once for ${domain}`, () => {
+				const path = `${prefix}Project%20%23%3F%25/_git/Repo%20%23%3F%25`;
+				const provider = matcher(`https://${domain}/${path}`, domain, path, 'https');
+				assert.ok(provider?.providerDesc);
+				assert.deepEqual(provider.repoDesc, {
+					owner: 'myorg',
+					name: 'Project #?%/_git/Repo #?%',
+					...(virtualDirectory == null ? {} : { virtualDirectory: virtualDirectory }),
+				});
+			});
+
+			test(`rejects encoded dot and separator segments for ${domain}`, () => {
+				for (const segment of ['.', '..', '%2e', '%2e%2e', '.%2e', '%2e.', '%5c', '%2f']) {
+					for (const path of [`${prefix}${segment}/_git/Repo`, `${prefix}Project/_git/${segment}`]) {
+						const provider = matcher(`https://${domain}/${path}`, domain, path, 'https');
+						assert.ok(provider);
+						assert.strictEqual(provider.providerDesc, undefined, path);
+					}
+				}
+			});
+
+			test(`preserves literal percent sequences in names for ${domain}`, () => {
+				for (const { encoded, name } of [
+					{ encoded: '%252e', name: '%2e' },
+					{ encoded: '%252e%252e', name: '%2e%2e' },
+					{ encoded: '%252f', name: '%2f' },
+				]) {
+					const path = `${prefix}Project/_git/${encoded}`;
+					const provider = matcher(`https://${domain}/${path}`, domain, path, 'https');
+					assert.ok(provider?.providerDesc);
+					assert.deepEqual(provider.repoDesc, {
+						owner: 'myorg',
+						name: `Project/_git/${name}`,
+						...(virtualDirectory == null ? {} : { virtualDirectory: virtualDirectory }),
+					});
+				}
+			});
+		}
+	});
+
 	suite('custom provider configs', () => {
 		test('matches custom domain config for GitHub type', () => {
 			const configs: RemoteProviderConfig[] = [{ domain: 'git.mycorp.com', type: 'github' }];
