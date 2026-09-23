@@ -64,9 +64,21 @@ import type {
 	ProviderIssueSearchPage,
 	ProviderPullRequestCount,
 	ProviderPullRequestSearchPage,
+	ProviderSearchCount,
 } from './integration.js';
 import { IntegrationBase } from './integration.js';
 import type { MyIssuesForReposOptions } from './issueReads.js';
+
+/**
+ * Whether an SDK read for `providerId` must send the session's secret as an HTTP Basic credential.
+ *
+ * Azure DevOps authenticates a PAT only as Basic — Azure DevOps Server refuses one sent as a bearer token outright —
+ * and the Azure integration's own reads already pass it that way (`AzureDevOpsIntegrationBase.getApiOptions`). The
+ * reads here are shared by every host, so they have to ask; every other provider keeps the SDK's default.
+ */
+function sendsBasicCredential(providerId: IntegrationIds, session: ProviderAuthenticationSession): boolean | undefined {
+	return isAzureDevOpsProvider(providerId) ? session.type !== 'oauth' : undefined;
+}
 
 function isAzureDevOpsProvider(
 	providerId: IntegrationIds,
@@ -746,7 +758,10 @@ export abstract class GitHostIntegration<
 			const tokenWithInfo = toTokenWithInfo(this.authProvider.id, session);
 			pending = (
 				organization != null
-					? api.getCurrentUserForInstance(tokenWithInfo, organization, { baseUrl: customUrl })
+					? api.getCurrentUserForInstance(tokenWithInfo, organization, {
+							baseUrl: customUrl,
+							isPAT: sendsBasicCredential(this.id, session),
+						})
 					: api.getCurrentUser(tokenWithInfo, { baseUrl: customUrl })
 			).catch((ex: unknown) => {
 				this._filterAccounts.delete(key);
@@ -905,6 +920,7 @@ export abstract class GitHostIntegration<
 								...getIssuesOptions,
 								cursor: projectInput.cursor,
 								baseUrl: customUrl,
+								isPAT: sendsBasicCredential(providerId, session),
 								// Continuation is driven by the per-project cursor; only apply an explicit page on the
 								// first request so it can't clobber a continuation cursor on later pages.
 								page: projectInput.cursor == null ? options?.page : undefined,
@@ -1134,6 +1150,7 @@ export abstract class GitHostIntegration<
 				...getIssuesOptions,
 				cursor: options?.cursor,
 				baseUrl: customUrl,
+				isPAT: sendsBasicCredential(providerId, session),
 				page: options?.page,
 				pageSize: options?.pageSize,
 				states: states,
@@ -1391,6 +1408,7 @@ export abstract class GitHostIntegration<
 							{
 								...getPullRequestsOptions,
 								cursor: repoInput.cursor,
+								isPAT: sendsBasicCredential(providerId, session),
 								// Per repository: an unfiltered read may span organizations, and a host can narrow the base
 								// to each repository's own.
 								baseUrl:
@@ -1480,6 +1498,7 @@ export abstract class GitHostIntegration<
 			const result = await api.getPullRequestsForRepos(toTokenWithInfo(providerId, session), reposOrRepoIds, {
 				...getPullRequestsOptions,
 				cursor: options?.cursor,
+				isPAT: sendsBasicCredential(providerId, session),
 				baseUrl: customUrl,
 				page: options?.page,
 				pageSize: options?.pageSize,
@@ -1775,13 +1794,14 @@ export abstract class GitHostIntegration<
 	 * at all. Recovers thrown errors into `{ error }` like the reads around it.
 	 *
 	 * Counts come back POSITIONALLY — one per input scope, in order — because a caller's key must never reach the
-	 * provider query. `undefined` in a slot means the provider didn't report a count for it, never zero matches.
+	 * provider query. See {@link ProviderSearchCount} for what each slot can hold; `undefined` means the provider
+	 * didn't report a count for it, never zero matches.
 	 */
 	async countIssuesResult(
 		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: IssueSearchCriteria }[],
 		cancellation?: AbortSignal,
 		connectionId?: string,
-	): Promise<IntegrationResult<(number | undefined)[] | undefined>> {
+	): Promise<IntegrationResult<ProviderSearchCount[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -1800,16 +1820,16 @@ export abstract class GitHostIntegration<
 
 	/**
 	 * OPTIONAL: only a provider that can answer "how many match" WITHOUT fetching the matches implements this.
-	 * GitHub's search reports `issueCount` on a zero-node selection; GitLab's REST exposes a total on some
-	 * endpoints but not for a search-shaped query, and Azure has no equivalent. A provider that can't answer
-	 * doesn't implement it and the facade refuses the probe, so a consumer hides its count rather than being shown
-	 * a fabricated one.
+	 * GitHub's search reports `issueCount` on a zero-node selection, and Azure DevOps Server's WIQL returns the
+	 * matching ids without their details; GitLab's REST exposes a total on some endpoints but not for a
+	 * search-shaped query. A provider that can't answer doesn't implement it and the facade refuses the probe, so a
+	 * consumer hides its count rather than being shown a fabricated one.
 	 */
 	protected countProviderIssues?(
 		session: ProviderAuthenticationSession,
 		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: IssueSearchCriteria }[],
 		cancellation?: AbortSignal,
-	): Promise<(number | undefined)[] | undefined>;
+	): Promise<ProviderSearchCount[] | undefined>;
 
 	/**
 	 * Result-returning wrapper for the BATCH issue read: resolves several `(owner, repo, number)` coordinates in
@@ -1862,13 +1882,14 @@ export abstract class GitHostIntegration<
 	/**
 	 * The PR twin of {@link countIssuesResult}: counts each scope's pull requests, transferring none where the
 	 * provider has a count query. Each slot is a {@link ProviderPullRequestCount}, so a provider that can only count
-	 * by reading (Bitbucket Data Center) can mark a figure it stopped short of as a floor.
+	 * by reading (Bitbucket Data Center) can mark a figure it stopped short of as a floor, or an `Error` refusing only
+	 * that scope (Azure DevOps Server).
 	 */
 	async countPullRequestsResult(
 		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: PullRequestSearchCriteria }[],
 		cancellation?: AbortSignal,
 		connectionId?: string,
-	): Promise<IntegrationResult<ProviderPullRequestCount[] | undefined>> {
+	): Promise<IntegrationResult<(ProviderPullRequestCount | Error)[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -1888,13 +1909,14 @@ export abstract class GitHostIntegration<
 	/**
 	 * OPTIONAL, like {@link countProviderIssues}: only a provider that can answer "how many match" implements it —
 	 * GitHub/GHE with a zero-node search, Bitbucket Data Center by reading within a budget and reporting a floor
-	 * past it. Must agree with `ProviderMetadata.supportedPullRequestSearch`, which the facade validates against.
+	 * past it, Azure DevOps Server from the drain its search reads. Must agree with
+	 * `ProviderMetadata.supportedPullRequestSearch`, which the facade validates against.
 	 */
 	protected countProviderPullRequests?(
 		session: ProviderAuthenticationSession,
 		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: PullRequestSearchCriteria }[],
 		cancellation?: AbortSignal,
-	): Promise<ProviderPullRequestCount[] | undefined>;
+	): Promise<(ProviderPullRequestCount | Error)[] | undefined>;
 
 	getPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
 		return this.getProviderPullRequestIdentityFromMaybeUrl?.(search);

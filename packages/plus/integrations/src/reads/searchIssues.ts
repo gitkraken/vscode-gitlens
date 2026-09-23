@@ -124,7 +124,7 @@ export async function searchIssuesPage(
 	// AFTER the criteria check, which is what reports a provider with no filtered issue search at all: that is
 	// the more fundamental refusal, and answering "your scope name is malformed" to a caller whose provider has
 	// no such search names the wrong defect. Matches the pull-request twin, which probes existence first.
-	const scope = resolveIssueSearchScope(options.repos, options.org, options.criteria);
+	const scope = resolveIssueSearchScope(options.providerId, options.repos, options.org, options.criteria);
 	switch (scope.rejection?.reason) {
 		case 'unscoped':
 			return refused(
@@ -184,6 +184,7 @@ export async function searchIssuesPage(
 	// The largest total any page reported. Folded across the walk so a cap detected on page 1 is still reportable
 	// after paging on to page N — the one thing this read accumulates that its sibling doesn't.
 	let totalCount = first.value?.totalCount;
+	let limitReached = first.value?.limitReached === true;
 	const drained = await drainFlatPagesToRequestedPage(first, {
 		requestedPage: page,
 		suppliedCursor: options.cursor,
@@ -193,6 +194,7 @@ export async function searchIssuesPage(
 			if (p.totalCount != null) {
 				totalCount = Math.max(totalCount ?? 0, p.totalCount);
 			}
+			limitReached ||= p.limitReached === true;
 		},
 	});
 	const { value, currentPage, requestedPageMissing } = drained;
@@ -236,6 +238,7 @@ export async function searchIssuesPage(
 				options.connectionId,
 				totalCount,
 				effectiveIssueSort(options.criteria?.sort),
+				limitReached,
 			) ??
 				truncationWarning(
 					options.providerId,

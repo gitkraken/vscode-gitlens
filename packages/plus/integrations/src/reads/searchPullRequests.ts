@@ -175,6 +175,7 @@ export async function searchPullRequestsPage(
 	// retry drops out because its rows came back. So the latest page read is the one to assess, including when a later
 	// page fails the walk outright — never union the pages, which would bring a recovered failure back.
 	let lastMetadata = first.value?.metadata;
+	let limitReached = first.value?.limitReached === true;
 	const drained = await drainFlatPagesToRequestedPage(first, {
 		requestedPage: page,
 		suppliedCursor: options.cursor,
@@ -185,6 +186,7 @@ export async function searchPullRequestsPage(
 				totalCount = Math.max(totalCount ?? 0, p.totalCount);
 			}
 			lastMetadata = p.metadata;
+			limitReached ||= p.limitReached === true;
 		},
 	});
 	const { value, currentPage, requestedPageMissing } = drained;
@@ -218,6 +220,7 @@ export async function searchPullRequestsPage(
 				options.connectionId,
 				totalCount,
 				options.criteria?.sort ?? defaultPullRequestSort,
+				limitReached,
 			) ??
 				truncationWarning(options.providerId, domain, options.connectionId, 'Pull request search', 'exhausted'),
 		);
