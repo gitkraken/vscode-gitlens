@@ -113,39 +113,42 @@ provider before calling the token backend; never reuse an id discovered under a 
 Every read returns `ProviderResult<T>` (`items` + `warnings` + `fetchFailed?`), and every paged read extends
 it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side failure** — see §6.
 
-| Method                       | Returns                   | Scope                                                                                        |
-| ---------------------------- | ------------------------- | -------------------------------------------------------------------------------------------- |
-| `listOrgs`                   | `ProviderOrganization`    | Orgs / workspaces / groups / Bitbucket DC projects; issue-tracker resources (Jira sites, …). |
-| `listProjects`               | `ProviderOrganization`    | The project tier: Azure DevOps, and issue-tracker projects.                                  |
-| `listRepos`                  | `ProviderRepositoryShape` | Repos of an `org`, or account-wide user-affiliated repos when `org` is omitted.              |
-| `listPullRequestsPage`       | `PullRequestShape`        | With `repos`: those repos' PRs. Without: the user's PRs account-wide.                        |
-| `searchPullRequestsPage`     | `PullRequestShape`        | PRs involving the user that match structured criteria, optionally repo/org-scoped.           |
-| `countPullRequests`          | `PullRequestCountResult`  | How many PRs match each scope, fetching none of them. See §5.1.                              |
-| `listIssuesPage`             | `IssueShape`              | Same split, for a **git host**'s issues.                                                     |
-| `searchIssuesPage`           | `IssueShape`              | Issues matching structured criteria over a repo/org scope — **no** `@me` binding.            |
-| `countIssues`                | `IssueCountResult`        | How many match each scope, fetching none of them. See §5.1.                                  |
-| `getIssuesBatch`             | `IssueBatchResult`        | Resolves N `(owner, repo, number)` coordinates in one request; an absence is proven.         |
-| `getTrackerIssue`            | `TrackerIssueResult`      | Resolves ONE tracker issue by key within a resource; an absence is proven. Jira/Linear.      |
-| `listIssueTrackerIssuesPage` | `IssueShape`              | Jira (Cloud + Data Center) / Linear / Trello (issues live under resource → project).         |
-| `sweepPullRequests`          | `ProviderSweepResult`     | Drains **every** page across providers (`maxPages`, default 100).                            |
-| `sweepClosedPullRequests`    | `ProviderSweepResult`     | Same, pinned to `['closed','merged']`.                                                       |
-| `broadenIssues`              | `ProviderBroadenResult`   | Per-org fan-out for every visible issue, unfiltered by assignee.                             |
-| `resolveRepository`          | `ResolveRepositoryResult` | Remote URL → canonical provider identity (the `gk repo resolve` equivalent).                 |
-| `getSupportedFilters`        | filter capability table   | Static, connection-free. See §7.                                                             |
+| Method                       | Returns                   | Scope                                                                                                           |
+| ---------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `listOrgs`                   | `ProviderOrganization`    | Orgs / workspaces / groups / Bitbucket DC projects; issue-tracker resources (Jira sites, …).                    |
+| `listProjects`               | `ProviderOrganization`    | The project tier: Azure DevOps, and issue-tracker projects.                                                     |
+| `listRepos`                  | `ProviderRepositoryShape` | Repos of an `org`, or account-wide user-affiliated repos when `org` is omitted.                                 |
+| `listPullRequestsPage`       | `PullRequestShape`        | With `repos`: those repos' PRs. Without: the user's PRs account-wide.                                           |
+| `searchPullRequestsPage`     | `PullRequestShape`        | PRs involving the user that match structured criteria, optionally repo/org-scoped.                              |
+| `countPullRequests`          | `PullRequestCountResult`  | How many PRs match each scope, fetching none of them. See §5.1.                                                 |
+| `listIssuesPage`             | `IssueShape`              | Same split, for a **git host**'s issues.                                                                        |
+| `searchIssuesPage`           | `IssueShape`              | Issues matching structured criteria over a repo/org scope — **no** `@me` binding.                               |
+| `countIssues`                | `IssueCountResult`        | How many match each scope, fetching none of them. See §5.1.                                                     |
+| `getIssuesBatch`             | `IssueBatchResult`        | Resolves N `(owner, repo, number)` coordinates in one request; an absence is proven.                            |
+| `getTrackerIssue`            | `TrackerIssueResult`      | Resolves ONE tracker issue by key within a resource; an absence is proven. Jira (Cloud + Data Center) / Linear. |
+| `listIssueTrackerIssuesPage` | `IssueShape`              | Jira (Cloud + Data Center) / Linear / Trello (issues live under resource → project).                            |
+| `sweepPullRequests`          | `ProviderSweepResult`     | Drains **every** page across providers (`maxPages`, default 100).                                               |
+| `sweepClosedPullRequests`    | `ProviderSweepResult`     | Same, pinned to `['closed','merged']`.                                                                          |
+| `broadenIssues`              | `ProviderBroadenResult`   | Per-org fan-out for every visible issue, unfiltered by assignee.                                                |
+| `resolveRepository`          | `ResolveRepositoryResult` | Remote URL → canonical provider identity (the `gk repo resolve` equivalent).                                    |
+| `getSupportedFilters`        | filter capability table   | Static, connection-free. See §7.                                                                                |
 
 A provider that cannot serve a surface says so explicitly — a warning explaining that the operation is
 unsupported plus `fetchFailed`, never a silent empty page. That distinction is the whole point of the result
 shape: an empty `items` with no warning means "this account genuinely has nothing".
 
-`getTrackerIssue` takes `resourceId` for both supported trackers. Jira Cloud also takes `resourceUrl`, the site URL
+`getTrackerIssue` takes `resourceId` for every supported tracker. Jira Cloud also takes `resourceUrl`, the site URL
 returned by `listOrgs`; the REST response only supplies an API `self` link, so the caller provides the already-known
-site identity rather than making this point read perform resource discovery. Linear does not need it.
+site identity rather than making this point read perform resource discovery. Linear does not need it, and neither
+does Jira Data Center, whose browser link is built from the connection's own base URL.
 
-`getTrackerIssue` does **not** serve Jira Data Center. That read takes no `domain`, so for a host-keyed tracker it
-would answer from whichever connection is primary — a different instance's issue under the right key, since two
-self-hosted instances routinely share project and issue keys. It is refused explicitly (warning + `fetchFailed`)
-rather than answered wrongly. Use `listIssueTrackerIssuesPage` with a `domain`, or read the issue through the
-integration for that host.
+For Jira Data Center `resourceId` is the host — the instance's single resource, as `listOrgs` reports it — and the
+read takes the `domain` its siblings take to select the instance. Unlike them it never falls back to the primary
+connection: a self-managed tracker requires a `domain` or a `connectionId` with a configured host, and is refused
+(warning + `fetchFailed`) otherwise. Two self-hosted instances routinely share project and issue keys, and this
+read's `issue: undefined` is a proven absence a caller may cache, so an answer from whichever host happens to be
+primary would be cached under a key that names a different instance. For the same reason a `resourceId` that names
+a different host than the one the read resolves to is refused rather than read.
 
 ## 5. Paging
 
@@ -551,27 +554,27 @@ reach for `includeReviews`, which only exists on the all-at-once sweep.
 Derived from the provider models and `providersMetadata`. ✓ supported · ✗ reported unsupported
 (warning + `fetchFailed`) · — not applicable. Self-managed variants inherit their cloud family's hooks.
 
-| Surface                      | GitHub / GHE | GitLab / self-hosted | Bitbucket | Bitbucket DC | Azure DevOps (+ Server) |  Jira (+ DC)   | Linear | Trello |
-| ---------------------------- | :----------: | :------------------: | :-------: | :----------: | :---------------------: | :------------: | :----: | :----: |
-| `listOrgs`                   |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |       ✓        |   ✓    |   ✓    |
-| `listProjects`               |      —       |          —           |     —     |      —       |            ✓            |       ✓        |   ✓    |   ✓    |
-| `listRepos` (`org`)          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |       ✗        |   ✗    |   ✗    |
-| `listRepos` (account-wide)   |      ✓       |          ✓           |     ✗     |      ✓       |            ✗            |       ✗        |   ✗    |   ✗    |
-| PRs, repo-scoped             |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |       ✗        |   ✗    |   ✗    |
-| PRs, account-wide            |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |       ✗        |   ✗    |   ✗    |
-| PR `states` account-wide     |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |       —        |   —    |   —    |
-| `searchPullRequestsPage`     |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |       ✗        |   ✗    |   ✗    |
-| `countPullRequests`          |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |       ✗        |   ✗    |   ✗    |
-| Issues, repo-scoped          |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |       —        |   —    |   —    |
-| Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |       —        |   —    |   —    |
-| `searchIssuesPage`           |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |       ✗        |   ✗    |   ✗    |
-| `countIssues`                |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |       ✗        |   ✗    |   ✗    |
-| `getIssuesBatch`             |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |       ✗        |   ✗    |   ✗    |
-| `getTrackerIssue`            |      ✗       |          ✗           |     ✗     |      ✗       |            ✗            | ✓ (Cloud only) |   ✓    |   ✗    |
-| Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |       ✓        |   ✓    |   ✓    |
-| `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |       ✓        |   ✓    |   ✓    |
-| `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |       ✗        |   ✗    |   ✗    |
-| `resolveRepository`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |       ✗        |   ✗    |   ✗    |
+| Surface                      | GitHub / GHE | GitLab / self-hosted | Bitbucket | Bitbucket DC | Azure DevOps (+ Server) | Jira (+ DC) | Linear | Trello |
+| ---------------------------- | :----------: | :------------------: | :-------: | :----------: | :---------------------: | :---------: | :----: | :----: |
+| `listOrgs`                   |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✓      |   ✓    |   ✓    |
+| `listProjects`               |      —       |          —           |     —     |      —       |            ✓            |      ✓      |   ✓    |   ✓    |
+| `listRepos` (`org`)          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
+| `listRepos` (account-wide)   |      ✓       |          ✓           |     ✗     |      ✓       |            ✗            |      ✗      |   ✗    |   ✗    |
+| PRs, repo-scoped             |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
+| PRs, account-wide            |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
+| PR `states` account-wide     |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      —      |   —    |   —    |
+| `searchPullRequestsPage`     |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |
+| `countPullRequests`          |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |
+| Issues, repo-scoped          |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |
+| Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |
+| `searchIssuesPage`           |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |
+| `countIssues`                |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |
+| `getIssuesBatch`             |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |
+| `getTrackerIssue`            |      ✗       |          ✗           |     ✗     |      ✗       |            ✗            |      ✓      |   ✓    |   ✗    |
+| Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |      ✓      |   ✓    |   ✓    |
+| `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |      ✓      |   ✓    |   ✓    |
+| `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✗      |   ✗    |   ✗    |
+| `resolveRepository`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
 
 Bitbucket Data Center exposes its projects through `listOrgs`: both `id` and `name` are the project key.
 Pass that key as `org` to `listRepos` to select a project, or omit `org` to enumerate all accessible repositories,
@@ -582,9 +585,9 @@ Both reads deduplicate results across pages and retain the configured installati
 A link the server returns is kept only when it names that entry on the configured installation; otherwise the web and
 HTTPS links are rebuilt from the configured URL and an SSH link, whose host and port cannot be derived, is omitted.
 
-Jira Data Center inherits Jira Cloud's row everywhere except `getTrackerIssue`, which it reports unsupported (see
-§4). Its reads are addressed per host, so `domain` selects the instance and every read below is scoped to that one
-connection; a read that omits it gets the primary configured host. `listOrgs` returns exactly one resource — the
+Jira Data Center inherits Jira Cloud's row. Its reads are addressed per host, so `domain` selects the instance and
+every read below is scoped to that one connection; a paged read that omits it gets the primary configured host,
+while `getTrackerIssue` refuses instead (see §4). `listOrgs` returns exactly one resource — the
 instance itself, synthesized from the configured host rather than fetched — and its projects carry the display name
 as `key`, because `/rest/api/2/project` reports no project key; reads address the project by id regardless. No
 autolinks are registered for the same reason: an autolink prefix has to be the project key.

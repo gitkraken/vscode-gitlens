@@ -1220,6 +1220,11 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		resourceUrl?: string;
 		key: string;
 		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Unlike the paged reads this one does not fall back to the primary
+		 * connection for a self-managed tracker; see {@link IntegrationManager.getTrackerIssue}.
+		 */
+		domain?: string;
 	}): Promise<ProviderResult<TrackerIssueResult>> {
 		return getTrackerIssue(this, options);
 	}
