@@ -11,12 +11,7 @@ import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { isAzureCloudDomain, isBitbucketCloudDomain, isGitHubDotCom, isGitLabDotCom } from '../providers/models.js';
 import type { RepositoryIdentity, RepositoryResolution, ResolveRepositoryResult } from '../results.js';
 import { toProviderWarning } from '../results.js';
-import {
-	areDomainsOnSameHost,
-	areDomainsOnSameHostname,
-	decodePathSegment,
-	hostFromDomain,
-} from '../utils/domain.utils.js';
+import { decodePathSegment, getRemoteHostMatcher, hostFromDomain, isWebRemoteScheme } from '../utils/domain.utils.js';
 import {
 	getIntegrationIdForRemote,
 	getSelfManagedBaseUrl,
@@ -60,7 +55,7 @@ export async function resolveRepository(
 
 	const [scheme, parsedDomain, path] = parseGitRemoteUrl(options.remoteUrl);
 	// An SSH remote's port belongs to its SSH daemon, not to the web authority a connection is keyed by.
-	const hostsMatch = isWebRemoteScheme(scheme) ? areDomainsOnSameHost : areDomainsOnSameHostname;
+	const hostsMatch = getRemoteHostMatcher(scheme);
 	const parsedHost = hostFromDomain(parsedDomain);
 	const explicitHost = hostFromDomain(options.host);
 	if (parsedHost != null && explicitHost != null && !hostsMatch(parsedHost, explicitHost)) {
@@ -259,10 +254,6 @@ export async function resolveRepository(
 		}
 		return { resolution: resolution };
 	}
-}
-
-function isWebRemoteScheme(scheme: string | undefined): boolean {
-	return scheme === 'https://' || scheme === 'http://';
 }
 
 /**

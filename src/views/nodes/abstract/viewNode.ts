@@ -17,6 +17,7 @@ import type { GitUri } from '../../../git/gitUri.js';
 import { unknownGitUri } from '../../../git/gitUri.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import type { Draft } from '../../../plus/drafts/models/drafts.js';
+import { getLaunchpadItemKey } from '../../../plus/launchpad/launchpadIdentity.js';
 import type { LaunchpadItem } from '../../../plus/launchpad/launchpadProvider.js';
 import type { LaunchpadGroup } from '../../../plus/launchpad/models/launchpad.js';
 import {
@@ -175,12 +176,12 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 	if (context.launchpadGroup != null) {
 		uniqueness += `/lp/${context.launchpadGroup}`;
 		if (context.launchpadItem != null) {
-			uniqueness += `/${context.launchpadItem.type}/${context.launchpadItem.uuid}`;
+			uniqueness += `/${context.launchpadItem.type}/${getLaunchpadItemKey(context.launchpadItem)}`;
 		}
 	} else if (context.launchpadItem != null) {
 		uniqueness += `/lp/${launchpadCategoryToGroupMap.get(
 			sharedCategoryToLaunchpadActionCategoryMap.get(context.launchpadItem.suggestedActionCategory)!,
-		)}/${context.launchpadItem.type}/${context.launchpadItem.uuid}`;
+		)}/${context.launchpadItem.type}/${getLaunchpadItemKey(context.launchpadItem)}`;
 	}
 	if (context.pullRequest != null) {
 		uniqueness += `/pr/${context.pullRequest.id}`;

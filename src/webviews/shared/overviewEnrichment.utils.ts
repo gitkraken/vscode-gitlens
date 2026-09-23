@@ -439,7 +439,9 @@ export async function getOverviewEnrichment(
 			const associatedPR = getBranchAssociatedPullRequest(container, branch, { avatarSize: 64 });
 			promises.pr = getPullRequestInfo(container, branch, launchpadPromise, associatedPR);
 			promises.autolinks = getBranchEnrichedAutolinks(container, branch);
-			promises.issues = getAssociatedIssuesForBranch(container, branch).then(issues => issues.value);
+			promises.issues = getAssociatedIssuesForBranch(container, branch).then(async result =>
+				(await result.value)?.map(association => association.issue),
+			);
 			promises.contributors =
 				getBranchOverview?.(branch, associatedPR) ??
 				container.git

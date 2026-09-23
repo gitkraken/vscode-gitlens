@@ -437,7 +437,7 @@ export class GraphProducersService {
 			// have to completely refresh the component to see the new issue
 			const resolveIssue = async (): Promise<void> => {
 				let issues: IssueShape[] | undefined = await getAssociatedIssuesForBranch(this.container, branch).then(
-					issues => issues.value,
+					async result => (await result.value)?.map(association => association.issue),
 				);
 				if (!issues?.length) {
 					const enrichedAutolinks = await getBranchEnrichedAutolinks(this.container, branch);

@@ -7,7 +7,8 @@ import {
 	getActionablePullRequests,
 	toProviderPullRequestWithUniqueId,
 } from '@gitlens/integrations/providers/models.js';
-import { canonicalizeViewerIdentity } from '../launchpadProvider.js';
+import { getViewerAccountKey } from '../launchpadIdentity.js';
+import { canonicalizeViewerIdentity, categorizePullRequests } from '../launchpadProvider.js';
 
 /**
  * The shared categorizer matches the viewer to a pull request's people by `id` alone, so every
@@ -126,5 +127,32 @@ suite('Launchpad viewer identity matching', () => {
 		const canonicalized = canonicalizeViewerIdentity(toProviderPullRequestWithUniqueId(pr), pr, account);
 		assert.strictEqual(canonicalized.author?.id, 'someone');
 		assert.strictEqual(canonicalized.reviews?.[0].reviewer.id, '123456');
+	});
+
+	test('categorizes each self-managed host against its own account, not the first host resolved for the id', () => {
+		// Account-wide reads cover every configured host of a self-managed provider, and each host has its own
+		// user. Keyed by id alone, host B's pull requests were categorized against host A's account.
+		const hostA: ProviderReference = {
+			id: 'cloud-github-enterprise',
+			name: 'GitHub Enterprise',
+			domain: 'ghe-a.example.com',
+			icon: 'github',
+		};
+		const hostB: ProviderReference = { ...hostA, domain: 'ghe-b.example.com' };
+		const viewerOnB: PullRequestMember = { id: 'b-42', name: 'Me on B', username: 'me-b' };
+		const author: PullRequestMember = { id: 'b-7', name: 'Someone', username: 'someone' };
+		const pr = createPullRequest(author, viewerOnB);
+		const prOnB = { ...toProviderPullRequestWithUniqueId(pr), provider: hostB };
+
+		assert.notStrictEqual(getViewerAccountKey(hostA), getViewerAccountKey(hostB));
+		assert.strictEqual(getViewerAccountKey(githubProvider), 'github', 'a cloud provider keeps its id as the key');
+
+		const accounts = new Map<string, Account>([
+			[getViewerAccountKey(hostA), { ...createAccount('a-1', 'me-a'), provider: hostA }],
+			[getViewerAccountKey(hostB), { ...createAccount('b-42', 'me-b'), provider: hostB }],
+		]);
+		const [item] = categorizePullRequests([prOnB], accounts);
+		assert.strictEqual(item.viewer.isReviewer, true, "host B's pull request is matched to host B's account");
+		assert.strictEqual(item.suggestedActionCategory, 'needsMyReview');
 	});
 });

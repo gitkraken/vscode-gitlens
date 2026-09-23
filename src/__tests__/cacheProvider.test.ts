@@ -17,6 +17,30 @@ function createIntegration(domain: string, id: string = 'cloud-github-enterprise
 }
 
 suite('CacheProvider', () => {
+	test('keeps same-key issues cached independently across self-managed hosts', async () => {
+		const cache = new CacheProvider({} as never);
+		const resource = { key: 'owner/repo', owner: 'owner', name: 'repo' };
+		const hostA = createIntegration('ghe-a.example.com');
+		const hostB = createIntegration('ghe-b.example.com');
+		const issueA = { id: '1', title: 'Host A', closed: false } satisfies Partial<Issue> as Issue;
+		const issueB = { id: '1', title: 'Host B', closed: false } satisfies Partial<Issue> as Issue;
+
+		await cache.getIssue('1', resource, hostA, () => ({ value: Promise.resolve(issueA) }));
+		assert.strictEqual(cache.peekIssue('1', resource, hostB), undefined);
+		await cache.getIssue('1', resource, hostB, () => ({ value: Promise.resolve(issueB) }));
+		assert.strictEqual(cache.peekIssue('1', resource, hostA), issueA);
+		assert.strictEqual(cache.peekIssue('1', resource, hostB), issueB);
+		assert.strictEqual(cache.peekIssue('1', resource, createIntegration('https://GHE-A.EXAMPLE.COM:443/')), issueA);
+		assert.strictEqual(cache.peekIssue('1', resource, createIntegration('ghe-a.example.com:8443')), undefined);
+		assert.strictEqual(cache.peekIssue('1', resource, undefined), undefined);
+		assert.strictEqual(
+			await cache.getIssue('1', resource, hostA, () => {
+				assert.fail('Host B must not replace or invalidate host A');
+			}),
+			issueA,
+		);
+	});
+
 	test('getResourceUsage reports total and per-type retained entry counts', () => {
 		const cache = new CacheProvider({} as never);
 		const account = Object.create(null) as Account;

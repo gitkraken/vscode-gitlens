@@ -95,6 +95,19 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 		provider = EntityIdentifierProviderType.GitlabSelfHosted;
 		domain = entity.provider.domain ?? null;
 	}
+	// An issue read through the self-managed integration already carries the enterprise id, so the rewrites above
+	// never see it and its host was dropped — for exactly the issues that have one. A branch association has to
+	// name it to be read back from the right server, since two hosts routinely share `owner/repo#number`. Issues
+	// only: a pull request's identifier is also its Launchpad uuid, which keys stored pins and snoozes, so giving it
+	// a host would orphan every existing one.
+	if (
+		entityType === EntityType.Issue &&
+		domain == null &&
+		(provider === EntityIdentifierProviderType.GithubEnterprise ||
+			provider === EntityIdentifierProviderType.GitlabSelfHosted)
+	) {
+		domain = entity.provider.domain ?? null;
+	}
 	if (provider === EntityIdentifierProviderType.AzureDevOpsServer) {
 		domain = entity.provider.domain ?? null;
 	}
