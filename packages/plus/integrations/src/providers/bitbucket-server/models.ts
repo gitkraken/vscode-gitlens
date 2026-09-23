@@ -128,7 +128,16 @@ export interface BitbucketServerPullRequest {
 	version: number;
 	title: string;
 	description: string;
-	state: 'OPEN' | 'MERGED' | 'DECLINED';
+	/**
+	 * `SUPERSEDED` is not in the published schema, but a server can still report it for a pull request closed by a
+	 * newer one (the Bitbucket SDK maps it too); it is a closed pull request, like `DECLINED`.
+	 */
+	state: 'OPEN' | 'MERGED' | 'DECLINED' | 'SUPERSEDED';
+	/**
+	 * Drafts shipped in Bitbucket Data Center 8.18 (8.17 exposed the field experimentally); absent means the server
+	 * has no drafts, so not a draft.
+	 */
+	draft?: boolean;
 	open: boolean;
 	closed: boolean;
 	createdDate: number;
@@ -191,6 +200,7 @@ export const normalizeBitbucketServerPullRequest = (pr: BitbucketServerPullReque
 		OPEN: GitPullRequestState.Open,
 		MERGED: GitPullRequestState.Merged,
 		DECLINED: GitPullRequestState.Closed,
+		SUPERSEDED: GitPullRequestState.Closed,
 	};
 
 	const reviewerStatusToGitState = {
@@ -224,7 +234,7 @@ export const normalizeBitbucketServerPullRequest = (pr: BitbucketServerPullReque
 		url: pr.links.self[0].href,
 		state: bitbucketStateToGitState[pr.state],
 		isCrossRepository: pr.toRef.repository.id !== pr.fromRef.repository.id,
-		isDraft: false,
+		isDraft: pr.draft === true,
 		createdDate: new Date(pr.createdDate),
 		updatedDate: new Date(pr.updatedDate),
 		closedDate: pr.closedDate ? new Date(pr.closedDate) : null,

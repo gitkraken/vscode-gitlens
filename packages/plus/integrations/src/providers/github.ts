@@ -30,6 +30,7 @@ import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type {
 	ProviderIssueSearchPage,
+	ProviderPullRequestCount,
 	ProviderPullRequestSearchPage,
 	SearchMyIssuesOptions,
 } from '../models/integration.js';
@@ -720,8 +721,10 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		session: ProviderAuthenticationSession,
 		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: PullRequestSearchCriteria }[],
 		cancellation?: AbortSignal,
-	): Promise<(number | undefined)[] | undefined> {
-		return (await this.authenticationService.apis.github)?.countPullRequests(
+	): Promise<ProviderPullRequestCount[] | undefined> {
+		const counts = await (
+			await this.authenticationService.apis.github
+		)?.countPullRequests(
 			this,
 			toTokenWithInfo(this.id, session),
 			scopes.map(s => ({
@@ -732,6 +735,8 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			{ baseUrl: this.apiBaseUrlFor(session) },
 			cancellation,
 		);
+		// `issueCount` is the search's own total, never a floor, so no slot is a lower bound.
+		return counts?.map(count => ({ count: count }));
 	}
 
 	protected override async searchProviderPullRequests(
