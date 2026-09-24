@@ -2,10 +2,12 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import {
+	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
+import { createIntegrationService } from '../integrationService.js';
 import type { GitConfigEntityIdentifier } from '../providers/models.js';
 import {
 	decodeEntityIdentifiersFromGitConfig,
@@ -13,6 +15,7 @@ import {
 	getEntityIdentifierInput,
 	getIssueFromGitConfigEntityIdentifier,
 } from '../providers/utils.js';
+import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
  * A branch association has to be read back from the host it was written for. Start Work associates issues from
@@ -54,6 +57,7 @@ suite('branch-associated issues across self-managed hosts (#5873)', () => {
 						assert.fail('An association without a Jira Server host must not select the primary host');
 					},
 					{ ...identifier, domain: domain } as GitConfigEntityIdentifier,
+					{ getConfiguredIntegrations: () => [{ domain: hostB }] },
 				),
 				undefined,
 			);
@@ -144,5 +148,203 @@ suite('branch-associated issues across self-managed hosts (#5873)', () => {
 		}, identifier);
 
 		assert.deepEqual(resolved, [{ id: IssuesCloudHostIntegrationId.Linear, domain: undefined }]);
+	});
+});
+
+suite('legacy branch associations without a self-managed git host', () => {
+	const owner = { key: 'org/repo', owner: 'org', name: 'repo' };
+	const hostA = 'host-a.example.com';
+	const hostB = 'host-b.example.com';
+
+	function issue(provider: string, domain: string): Issue {
+		return {
+			type: 'issue',
+			id: '7',
+			nodeId: 'I_7',
+			provider: { id: provider, name: provider, domain: domain, icon: '' },
+			project: { id: 'project', name: 'Project', resourceId: 'resource', resourceName: 'Resource' },
+		} satisfies Partial<Issue> as Issue;
+	}
+
+	async function configuredHosts(
+		provider: GitSelfManagedHostIntegrationId,
+		domains: string[],
+	): Promise<ReturnType<typeof createIntegrationService>> {
+		const runtime = createFakeRuntime();
+		await runtime.storage.store('integrations:configured', {
+			[provider]: domains.map((domain, index) => ({
+				id: `connection-${index}`,
+				integrationId: provider,
+				domain: domain,
+				cloud: index === 0,
+				scopes: 'repo',
+				primary: index === 0,
+			})),
+		});
+		return createIntegrationService(runtime);
+	}
+
+	for (const provider of Object.values(GitSelfManagedHostIntegrationId)) {
+		test(`${provider} resolves a legacy association only with one configured host`, async () => {
+			const expected = issue(provider, hostA);
+			const identifier = encodeIssueOrPullRequestForGitConfig(expected, owner);
+			for (const domains of [[], [hostA], [hostA, hostB]]) {
+				const manager = await configuredHosts(provider, domains);
+				try {
+					const integration = await manager.get(provider, hostA);
+					assert.ok(integration);
+					const reads: string[] = [];
+					integration.getIssue = (_resource, id) => {
+						reads.push(id);
+						return Promise.resolve(expected);
+					};
+					for (const domain of [undefined, null, '', ' \t']) {
+						const resolutions: (string | undefined)[] = [];
+						const result = await getIssueFromGitConfigEntityIdentifier(
+							(id, resolvedDomain) => {
+								resolutions.push(resolvedDomain);
+								return manager.get(id, resolvedDomain);
+							},
+							{ ...identifier, domain: domain } as GitConfigEntityIdentifier,
+							{ getConfiguredIntegrations: id => manager.getConfigured(id) },
+						);
+						assert.equal(result, domains.length === 1 ? expected : undefined);
+						assert.deepEqual(resolutions, domains.length === 1 ? [hostA] : []);
+					}
+					assert.deepEqual(reads, domains.length === 1 ? ['7', '7', '7', '7'] : []);
+				} finally {
+					manager.dispose();
+				}
+			}
+		});
+
+		test(`${provider} keeps cache-only legacy reads scoped to the unique configured host`, async () => {
+			const expected = issue(provider, hostA);
+			const identifier = {
+				...encodeIssueOrPullRequestForGitConfig(expected, owner),
+				domain: null,
+			} as unknown as GitConfigEntityIdentifier;
+			for (const domains of [[], [hostA], [hostA, hostB]]) {
+				const manager = await configuredHosts(provider, domains);
+				try {
+					const integration = await manager.get(provider, hostA);
+					assert.ok(integration);
+					integration.getIssue = () => assert.fail('A cache-only read must not fetch an issue');
+					let peeks = 0;
+					const result = await getIssueFromGitConfigEntityIdentifier(
+						(id, domain) => manager.get(id, domain),
+						identifier,
+						{
+							cached: true,
+							getConfiguredIntegrations: id => manager.getConfigured(id),
+							peekCachedIssue: resolved => {
+								assert.equal(resolved, integration);
+								peeks++;
+								return expected;
+							},
+						},
+					);
+					assert.equal(result, domains.length === 1 ? expected : undefined);
+					assert.equal(peeks, domains.length === 1 ? 1 : 0);
+				} finally {
+					manager.dispose();
+				}
+			}
+		});
+
+		test(`${provider} round-trips an explicit host independently of the primary host`, async () => {
+			const manager = await configuredHosts(provider, [hostA, hostB]);
+			try {
+				const expected = issue(provider, hostB);
+				const encoded = encodeIssueOrPullRequestForGitConfig(expected, owner);
+				const [identifier] = decodeEntityIdentifiersFromGitConfig(JSON.stringify([encoded]));
+				assert.equal('domain' in identifier ? identifier.domain : undefined, hostB);
+				const primary = await manager.get(provider, hostA);
+				const secondary = await manager.get(provider, hostB);
+				assert.ok(primary && secondary);
+				primary.getIssue = () => assert.fail('An explicit host must not resolve through the primary');
+				secondary.getIssue = () => Promise.resolve(expected);
+				assert.equal(
+					await getIssueFromGitConfigEntityIdentifier((id, domain) => manager.get(id, domain), identifier, {
+						getConfiguredIntegrations: () => assert.fail('An explicit host needs no configuration lookup'),
+					}),
+					expected,
+				);
+			} finally {
+				manager.dispose();
+			}
+		});
+	}
+
+	test('counts normalized hosts rather than connections and refuses unknown hosts or distinct ports', async () => {
+		const expected = issue(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, hostA);
+		const identifier = {
+			...encodeIssueOrPullRequestForGitConfig(expected, owner),
+			domain: null,
+		} as unknown as GitConfigEntityIdentifier;
+		for (const domains of [
+			[hostA, 'https://HOST-A.EXAMPLE.COM:443/path'],
+			[hostA, `${hostA}:8443`],
+			[hostA, undefined],
+			[hostA, ''],
+			[hostA, 'https://'],
+		]) {
+			const resolutions: (string | undefined)[] = [];
+			await getIssueFromGitConfigEntityIdentifier(
+				(_id, domain) => {
+					resolutions.push(domain);
+					return Promise.resolve(undefined);
+				},
+				identifier,
+				{ getConfiguredIntegrations: () => domains.map(domain => ({ domain: domain })) },
+			);
+			assert.deepEqual(resolutions, domains[1] === 'https://HOST-A.EXAMPLE.COM:443/path' ? [hostA] : []);
+		}
+	});
+
+	test('refuses a legacy self-managed association when the caller supplies no host configuration', async () => {
+		const identifier = {
+			...encodeIssueOrPullRequestForGitConfig(
+				issue(GitSelfManagedHostIntegrationId.BitbucketServer, hostA),
+				owner,
+			),
+			domain: null,
+		} as unknown as GitConfigEntityIdentifier;
+		assert.equal(
+			await getIssueFromGitConfigEntityIdentifier(
+				() => assert.fail('Missing configuration must not fall back to the primary host'),
+				identifier,
+			),
+			undefined,
+		);
+	});
+
+	for (const provider of Object.values(GitCloudHostIntegrationId)) {
+		test(`${provider} keeps resolving cloud associations without a configuration lookup`, async () => {
+			const identifier = {
+				...encodeIssueOrPullRequestForGitConfig(issue(provider, `${provider}.com`), owner),
+				domain: null,
+			} as unknown as GitConfigEntityIdentifier;
+			const resolutions: (string | undefined)[] = [];
+			await getIssueFromGitConfigEntityIdentifier(
+				(_id, domain) => {
+					resolutions.push(domain);
+					return Promise.resolve(undefined);
+				},
+				identifier,
+				{ getConfiguredIntegrations: () => assert.fail('A cloud association needs no host selection') },
+			);
+			assert.deepEqual(resolutions, [undefined]);
+		});
+	}
+
+	test('keeps Bitbucket Server pull request identifiers compatible with stored pins and snoozes', () => {
+		const input = getEntityIdentifierInput({
+			type: 'pullrequest',
+			uuid: 'stored-pin',
+			graphQLId: 'PR_7',
+			provider: { id: GitSelfManagedHostIntegrationId.BitbucketServer, domain: hostA },
+		});
+		assert.equal('domain' in input ? input.domain : undefined, null);
 	});
 });

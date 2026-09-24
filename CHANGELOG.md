@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes branch-associated issues from self-managed Git hosts resolving through the wrong server when an older association has no host. These associations remain usable with a single configured host, and new Bitbucket Server issue associations retain their host ([#5883](https://github.com/gitkraken/vscode-gitlens/issues/5883))
 - Fixes Azure DevOps requests escaping the configured installation path with specially encoded remote names, and preserves names and branches containing spaces or reserved characters ([#5878](https://github.com/gitkraken/vscode-gitlens/issues/5878))
 - Fixes self-managed integrations dropping the installation path from API requests, including Azure DevOps Server virtual directories, while keeping existing connections usable ([#5871](https://github.com/gitkraken/vscode-gitlens/issues/5871))
 - Fixes _Delete Branch..._ on a branch that has a worktree deleting the worktree but leaving the branch behind &mdash; Git refuses to delete a branch that's checked out in a worktree, so both now happen together in a single confirm with _Delete Branch_ pre-checked; uncheck it to keep the branch. _Prune Branches..._ works the same way

@@ -12,7 +12,11 @@ import {
 	getIssueFromGitConfigEntityIdentifier,
 	getProviderIdFromEntityIdentifier,
 } from '@gitlens/integrations/providers/utils.js';
-import { areDomainsOnSameHost, hostFromDomain } from '@gitlens/integrations/utils/domain.utils.js';
+import {
+	areDomainsOnSameHost,
+	getSingleConfiguredDomain,
+	hostFromDomain,
+} from '@gitlens/integrations/utils/domain.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { MaybePausedResult } from '@gitlens/utils/promise.js';
 import { getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
@@ -62,16 +66,21 @@ export async function addAssociatedIssueToBranch(
 		const legacyIndex = associatedIssues.findIndex(
 			i =>
 				(i.provider === EntityIdentifierProviderType.GithubEnterprise ||
-					i.provider === EntityIdentifierProviderType.GitlabSelfHosted) &&
+					i.provider === EntityIdentifierProviderType.GitlabSelfHosted ||
+					i.provider === EntityIdentifierProviderType.BitbucketServer ||
+					i.provider === EntityIdentifierProviderType.AzureDevOpsServer) &&
 				!('domain' in i && i.domain?.trim()) &&
 				getAssociatedIssueId({ ...i, domain: issue.provider.domain }) === id,
 		);
 		const integrationId = legacyIndex === -1 ? undefined : getProviderIdFromEntityIdentifier(identifier);
-		const primary = integrationId == null ? undefined : await container.integrations.get(integrationId);
+		const configuredDomain =
+			integrationId == null
+				? undefined
+				: getSingleConfiguredDomain(container.integrations.getConfigured(integrationId));
 		if (options?.cancellation?.aborted) return;
 
-		// Host-less git-provider associations resolve through the primary integration, so only that host can claim them.
-		if (legacyIndex !== -1 && areDomainsOnSameHost(primary?.domain, issue.provider.domain)) {
+		// An ambiguous legacy association must not be claimed by whichever host happens to be primary.
+		if (legacyIndex !== -1 && areDomainsOnSameHost(configuredDomain, issue.provider.domain)) {
 			associatedIssues[legacyIndex] = identifier;
 		} else {
 			associatedIssues.push(identifier);
@@ -121,6 +130,7 @@ export async function getAssociatedIssuesForBranch(
 									(id, domain) => container.integrations.get(id, domain),
 									i,
 									{
+										getConfiguredIntegrations: id => container.integrations.getConfigured(id),
 										cached: options?.cached,
 										peekCachedIssue: (integration, resource, id) =>
 											container.cache.peekIssue(
