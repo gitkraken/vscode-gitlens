@@ -3242,7 +3242,7 @@ type StartWorkAgentResolvedEvent = StartWorkConnectedEventData & AgentResolvedEv
 
 type AgentResolvedEventData =
 	| {
-			'agent.resolution': 'manual' | 'cancel';
+			'agent.resolution': 'manual' | 'kepler' | 'cancel';
 	  }
 	| {
 			'agent.resolution': 'agent';
