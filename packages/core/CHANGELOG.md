@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes a git command that never started because its cancellation had already fired — the signal was aborted when the call was made, or while the command waited in the queue — rejecting as a `GitError` instead of a `CancellationError`. A typed mutator took that as git refusing the operation and reported a failure of its own, such as a `ReferenceUpdateError` with no reason, where its caller expected a cancellation. An `errors: 'ignore'` run still reports it as `failed`/`unstarted` (git-cli)
+
 ## [0.7.2] - 2026-09-25
 
 ### Fixed

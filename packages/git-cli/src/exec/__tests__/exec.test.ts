@@ -311,6 +311,22 @@ suite('Shell Test Suite', () => {
 			);
 			assert.strictEqual(cacheable.invalidated, true, 'aborted result invalidated so it is never cached');
 		});
+
+		// The throwing form of the same queue refusal. A typed mutator catches a `GitError` as "git refused",
+		// so a cancellation that surfaced as one read as a failure of the operation itself.
+		test('a command the queue refuses for an aborted signal rejects as a CancellationError', async () => {
+			const git = new Git(async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' }));
+
+			await assert.rejects(
+				git.run({ cwd: '/repo', cancellation: AbortSignal.abort() }, 'update-ref', 'refs/x', 'HEAD'),
+				(err: unknown) => err instanceof Error && err.name === 'CancellationError',
+			);
+			// Narrow on purpose: a command that failed to start with no abort in play is still a git failure.
+			await assert.rejects(
+				git.run({ cwd: '/repo' }, 'update-ref', 'refs/x', 'HEAD'),
+				(err: unknown) => err instanceof Error && err.name !== 'CancellationError',
+			);
+		});
 	});
 
 	// `GitResult.completion` exists because `exitCode` alone cannot answer "can I trust `stdout`?" — several

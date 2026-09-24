@@ -1005,8 +1005,11 @@ export class Git {
 				};
 			}
 
-			if (ex instanceof CancelledRunError) {
-				exception = new CancellationError(ex);
+			// The queue refuses an already-aborted signal, or drops a command aborted while it waited, by
+			// rejecting with the signal's own reason; that never reached a spawn, so it isn't a `RunError`,
+			// and wrapping it as a `GitError` would make a cancellation read as the command failing.
+			if (ex instanceof CancelledRunError || (!(ex instanceof RunError) && cancellation?.aborted)) {
+				exception = new CancellationError(ex instanceof Error ? ex : undefined);
 			} else {
 				exception = new GitError(ex);
 			}
