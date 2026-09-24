@@ -821,7 +821,7 @@ void
   'action': 'connect' | 'manage',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -836,7 +836,7 @@ void
   'action': 'soft-open',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -851,7 +851,7 @@ void
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -865,7 +865,7 @@ void
 {
   'instance': number,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual'
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual'
 }
 ```
 
@@ -878,7 +878,7 @@ void
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -892,7 +892,7 @@ void
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -906,7 +906,7 @@ void
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -921,7 +921,7 @@ void
   'action': 'connect',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -5762,7 +5762,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'agent.resolution': 'cancel' | 'manual',
+  'agent.resolution': 'cancel' | 'kepler' | 'manual',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,
@@ -7163,7 +7163,7 @@ void
   'action': 'connect' | 'manage',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7175,10 +7175,10 @@ void
 ```typescript
 {
   'instance': number,
-  'agent.resolution': 'cancel' | 'manual',
+  'agent.resolution': 'cancel' | 'kepler' | 'manual',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7193,7 +7193,7 @@ or
   'agent.resolution': 'agent',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7206,7 +7206,7 @@ or
 {
   'instance': number,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual'
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual'
 }
 ```
 
@@ -7219,7 +7219,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7234,7 +7234,7 @@ or
   'action': 'soft-open',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -7249,7 +7249,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -7264,7 +7264,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7278,7 +7278,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7293,7 +7293,7 @@ or
   'action': 'connect',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7308,7 +7308,7 @@ or
   'action': 'connect' | 'manage',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7320,10 +7320,10 @@ or
 ```typescript
 {
   'instance': number,
-  'agent.resolution': 'cancel' | 'manual',
+  'agent.resolution': 'cancel' | 'kepler' | 'manual',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7338,7 +7338,7 @@ or
   'agent.resolution': 'agent',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7353,7 +7353,7 @@ or
   'action': 'soft-open',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -7368,7 +7368,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -7382,7 +7382,7 @@ or
 {
   'instance': number,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual'
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual'
 }
 ```
 
@@ -7395,7 +7395,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7409,7 +7409,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7423,7 +7423,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7438,7 +7438,7 @@ or
   'action': 'connect',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
