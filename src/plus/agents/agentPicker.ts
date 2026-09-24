@@ -75,6 +75,26 @@ function sectionLabelFor(kind: AgentDescriptor['kind']): string | undefined {
 }
 
 /**
+ * The route Start Work / Start Review run with. An explicit `showOpenInAgent` wins; otherwise the
+ * `gitlens.ai.openInAgent` setting applies, so the plain commands honour it too.
+ *
+ * EXCEPT for programmatic callers that already say how to finish — `useDefaults` or
+ * `openChatOnComplete` (e.g. the gk CLI's `mcp/issue/start` and `mcp/pr/review/start`). They keep
+ * the legacy path (`undefined`): routing them through the agent flow would resolve to manual under
+ * `useDefaults` and silently drop the chat hand-off they asked for.
+ */
+export function getRequestedAgentRoute(args?: {
+	showOpenInAgent?: AgentRoute;
+	useDefaults?: boolean;
+	openChatOnComplete?: boolean;
+}): AgentRoute | undefined {
+	if (args?.showOpenInAgent != null) return args.showOpenInAgent;
+	if (args?.useDefaults || args?.openChatOnComplete != null) return undefined;
+
+	return configuration.get('ai.openInAgent');
+}
+
+/**
  * Step 1 of the agent flow — yields a wizard step that asks "Continue manually" vs "Open in an agent",
  * with a checkbox toggle for setting the default. Returns the chosen route, or `StepResultBreak`
  * when the user backs out (the wizard machinery handles the back navigation).

@@ -48,7 +48,7 @@ import { executeCommand } from '../../system/-webview/command.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import type { AgentDescriptor, AgentRoute } from '../agents/agentDescriptor.js';
 import type { ResolveAgentFlowResult } from '../agents/agentPicker.js';
-import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/agentPicker.js';
+import { buildAgentResolvedTelemetryData, getRequestedAgentRoute, resolveAgentFlow } from '../agents/agentPicker.js';
 import { ensureIntegrationConnectAllowed } from '../integrations/utils/-webview/integration.utils.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
 import { getLaunchpadItemIdHash, supportedLaunchpadIntegrations } from './launchpadProvider.js';
@@ -185,7 +185,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 			instructions: args?.instructions,
 			useDefaults: args?.useDefaults,
 			openChatOnComplete: args?.openChatOnComplete,
-			showOpenInAgent: args?.showOpenInAgent,
+			showOpenInAgent: getRequestedAgentRoute(args),
 			result: args?.result,
 		};
 	}

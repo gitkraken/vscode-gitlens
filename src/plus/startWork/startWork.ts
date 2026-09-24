@@ -9,7 +9,7 @@ import type { Source, Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import type { AgentRoute } from '../agents/agentDescriptor.js';
 import type { ResolveAgentFlowResult } from '../agents/agentPicker.js';
-import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/agentPicker.js';
+import { buildAgentResolvedTelemetryData, getRequestedAgentRoute, resolveAgentFlow } from '../agents/agentPicker.js';
 import type { StartWorkChatAction } from '../chat/chatActions.js';
 import type { StartWorkContext, StartWorkStepState } from './startWorkBase.js';
 import { StartWorkBaseCommand } from './startWorkBase.js';
@@ -56,7 +56,7 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 			instructions: args?.instructions,
 			useDefaults: args?.useDefaults,
 			openChatOnComplete: args?.openChatOnComplete,
-			showOpenInAgent: args?.showOpenInAgent,
+			showOpenInAgent: getRequestedAgentRoute(args),
 			result: args?.result,
 		};
 	}
