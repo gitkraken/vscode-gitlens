@@ -1,32 +1,58 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
 import { ConfigurationTarget, l10n, QuickInputButtons, QuickPickItemKind, ThemeIcon, window } from 'vscode';
-import type {
-	AsyncStepResultGenerator,
-	StepResultGenerator,
-	StepSelection,
-} from '../../commands/quick-wizard/models/steps.js';
+import type { AsyncStepResultGenerator, StepSelection } from '../../commands/quick-wizard/models/steps.js';
 import { StepResultBreak } from '../../commands/quick-wizard/models/steps.js';
-import { canPickStepContinue, createPickStep } from '../../commands/quick-wizard/utils/steps.utils.js';
+import type { QuickPickStep } from '../../commands/quick-wizard/models/steps.quickpick.js';
+import {
+	canPickStepContinue,
+	confirmOptionsSeparatorLabel,
+	createPickStep,
+	rerenderConfirmStepItems,
+} from '../../commands/quick-wizard/utils/steps.utils.js';
 import type { Container } from '../../container.js';
+import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import type { ConfirmToggleQuickPickItem } from '../../quickpicks/items/directive.js';
+import { createConfirmToggleQuickPickItem } from '../../quickpicks/items/directive.js';
 import { executeCoreCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import type { AgentDescriptor, AgentRoute } from './agentDescriptor.js';
 import { getSupportedAgents, resolveDefaultAgent } from './agentRegistry.js';
 
-const passEmpty = new ThemeIcon('pass');
-const passFilled = new ThemeIcon('pass-filled');
-
-function checkButton(isCurrentDefault: boolean, unsetTooltip: string, setTooltip: string): QuickInputButton {
-	return {
-		iconPath: isCurrentDefault ? passFilled : passEmpty,
-		tooltip: isCurrentDefault ? unsetTooltip : setTooltip,
-	};
-}
-
 const settingsButton: QuickInputButton = {
 	iconPath: new ThemeIcon('gear'),
 	tooltip: l10n.t('Open Default Agent Setting'),
 };
+
+const routeSettingsButton: QuickInputButton = {
+	iconPath: new ThemeIcon('gear'),
+	tooltip: l10n.t('Open Default Route Setting'),
+};
+
+/**
+ * Builds the in-list "Always use this …" row the agent-flow pickers offer, on the wizard's Don't Ask
+ * Again toggle. Unlike that toggle, flipping this one writes nothing — it only arms the pick that
+ * follows, so tick-then-back saves nothing. Always starts unchecked: these pickers only appear when
+ * no usable default is set.
+ */
+function createAlwaysUseToggle(
+	label: string,
+	settingButton: QuickInputButton,
+	onDidChange: () => void,
+): ConfirmToggleQuickPickItem {
+	const toggle = createConfirmToggleQuickPickItem({
+		label: label,
+		detail: l10n.t('Skip this step from now on — change anytime in settings'),
+		checked: false,
+		onDidChange: onDidChange,
+	});
+	// The detail promises "change anytime in settings" — the row button honors it
+	toggle.buttons = [settingButton];
+	return toggle;
+}
+
+function appendAlwaysUseToggle<T extends QuickPickItem>(items: T[], toggle: ConfirmToggleQuickPickItem): T[] {
+	return [...items, createQuickPickSeparator<T>(confirmOptionsSeparatorLabel), toggle as unknown as T];
+}
 
 interface RouteItem extends QuickPickItem {
 	readonly route: 'manual' | 'agent';
@@ -96,56 +122,39 @@ export function getRequestedAgentRoute(args?: {
 
 /**
  * Step 1 of the agent flow — yields a wizard step that asks "Continue manually" vs "Open in an agent",
- * with a checkbox toggle for setting the default. Returns the chosen route, or `StepResultBreak`
- * when the user backs out (the wizard machinery handles the back navigation).
+ * with an "Always use this choice" toggle that, when armed, persists the picked route as the
+ * `gitlens.ai.openInAgent` default. Returns the chosen route, or `StepResultBreak` when the user backs
+ * out (the wizard machinery handles the back navigation).
  */
-export function* pickRouteStep(options?: { showBackButton?: boolean }): StepResultGenerator<'manual' | 'agent'> {
-	let current: AgentRoute = configuration.get('ai.openInAgent') ?? 'ask';
-
-	const buildItems = (currentDefault: AgentRoute): RouteItem[] => [
+export async function* pickRouteStep(options?: {
+	showBackButton?: boolean;
+}): AsyncStepResultGenerator<'manual' | 'agent'> {
+	const items: RouteItem[] = [
 		{
 			route: 'agent',
 			label: l10n.t('$(robot) Open in an agent'),
 			description: l10n.t('Open a chat or CLI session with the issue context'),
-			picked: currentDefault === 'agent',
-			buttons: [
-				checkButton(
-					currentDefault === 'agent',
-					l10n.t('Unset as default (Open in an agent)'),
-					l10n.t('Always open in an agent (set as default)'),
-				),
-			],
 		},
 		{
 			route: 'manual',
 			label: l10n.t('$(arrow-right) Continue manually'),
 			description: l10n.t('Creates the branch/worktree based on your previous selection'),
-			picked: currentDefault === 'manual',
-			buttons: [
-				checkButton(
-					currentDefault === 'manual',
-					l10n.t('Unset as default (Continue manually)'),
-					l10n.t('Always continue manually (set as default)'),
-				),
-			],
 		},
 	];
 
-	const step = createPickStep<RouteItem>({
+	let step: QuickPickStep<RouteItem>;
+	const toggle = createAlwaysUseToggle(l10n.t('Always use this choice'), routeSettingsButton, () =>
+		rerenderConfirmStepItems(step),
+	);
+
+	step = createPickStep<RouteItem>({
 		title: l10n.t('Start with Agent'),
-		placeholder: l10n.t(
-			'Choose to continue with an agent or manually · mark the checkbox of a row to set as default',
-		),
-		items: buildItems(current),
+		placeholder: l10n.t('Choose to continue with an agent or manually'),
+		items: appendAlwaysUseToggle(items, toggle),
 		buttons: options?.showBackButton ? [QuickInputButtons.Back] : undefined,
-		onDidClickItemButton: async (qp, _button, item) => {
-			const newDefault: AgentRoute = current === item.route ? 'ask' : item.route;
-			await configuration.update('ai.openInAgent', newDefault, ConfigurationTarget.Global);
-			current = newDefault;
-			qp.items = buildItems(newDefault);
-			const restored = qp.items.find((i): i is RouteItem => 'route' in i && i.route === item.route);
-			if (restored != null) {
-				qp.activeItems = [restored];
+		onDidClickItemButton: (_qp, button) => {
+			if (button === routeSettingsButton) {
+				void executeCoreCommand('workbench.action.openSettings', 'gitlens.ai.openInAgent');
 			}
 			return false;
 		},
@@ -153,7 +162,12 @@ export function* pickRouteStep(options?: { showBackButton?: boolean }): StepResu
 
 	const selection: StepSelection<typeof step> = yield step;
 	if (!canPickStepContinue(step, {}, selection)) return StepResultBreak;
-	return selection[0].route;
+
+	const { route } = selection[0];
+	if (toggle.checked) {
+		await configuration.update('ai.openInAgent', route, ConfigurationTarget.Global);
+	}
+	return route;
 }
 
 export type PickAgentResult =
@@ -167,95 +181,68 @@ export interface AgentPickerOptions {
 }
 
 /**
- * Step 2 of the agent flow — yields a wizard step listing the available agents. Returns the chosen
- * descriptor, `'manual'` (empty-state opt-out), or `StepResultBreak` (back / close).
+ * Step 2 of the agent flow — yields a wizard step listing the available agents, with an "Always use
+ * this agent" toggle that, when armed, persists the picked agent as the `gitlens.ai.defaultAgent`
+ * default. Returns the chosen descriptor, `'manual'` (empty-state opt-out), or `StepResultBreak`
+ * (back / close).
  */
 export async function* pickAgentStep(
 	container: Container,
 	options?: AgentPickerOptions & { showBackButton?: boolean },
 ): AsyncStepResultGenerator<PickAgentResult> {
 	const available = await getSupportedAgents(container);
-	let currentDefault: string | null = configuration.get('ai.defaultAgent') ?? null;
+	const currentDefault: string | null = configuration.get('ai.defaultAgent') ?? null;
 
-	const buildItems = (currentDefaultId: string | null): AgentItem[] => {
-		if (available.length === 0) {
-			return [
-				{
-					label: l10n.t('$(warning) No agents available'),
-					description: l10n.t('No supported IDE chat host, no Claude extension, no detected CLIs'),
-					kind: QuickPickItemKind.Separator,
-				},
-				{
-					label: l10n.t('$(arrow-right) Continue Manually'),
-					description: l10n.t('Skip the agent and proceed with manual flow'),
-					action: 'manual',
-				},
-				{
-					label: l10n.t('$(close) Close'),
-					description: l10n.t('Cancel the wizard'),
-					action: 'cancel',
-				},
-			];
-		}
+	let step: QuickPickStep<AgentItem>;
+	const toggle = createAlwaysUseToggle(l10n.t('Always use this agent'), settingsButton, () =>
+		rerenderConfirmStepItems(step),
+	);
 
-		const items: AgentItem[] = [];
-		let lastKind: AgentDescriptor['kind'] | undefined;
-		for (const d of available) {
-			if (d.kind !== lastKind) {
-				const sep = sectionLabelFor(d.kind);
-				if (sep != null) {
-					items.push({ label: sep, kind: QuickPickItemKind.Separator });
-				}
-				lastKind = d.kind;
-			}
-			items.push({
-				descriptor: d,
-				label: `$(${(iconFor(d.kind) as { id?: string }).id ?? 'circle-outline'}) ${d.label}`,
-				description: descriptionFor(d),
-				picked: currentDefaultId === d.id,
-				buttons: [
-					checkButton(
-						currentDefaultId === d.id,
-						l10n.t('Unset as default (Use {0})', d.label),
-						l10n.t('Always use {0} (set as default)', d.label),
-					),
-				],
-			});
-		}
-		return items;
-	};
+	let items: AgentItem[];
+	if (available.length === 0) {
+		items = [
+			{
+				label: l10n.t('$(warning) No agents available'),
+				description: l10n.t('No supported IDE chat host, no Claude extension, no detected CLIs'),
+				kind: QuickPickItemKind.Separator,
+			},
+			{
+				label: l10n.t('$(arrow-right) Continue Manually'),
+				description: l10n.t('Skip the agent and proceed with manual flow'),
+				action: 'manual',
+			},
+			{
+				label: l10n.t('$(close) Close'),
+				description: l10n.t('Cancel the wizard'),
+				action: 'cancel',
+			},
+		];
+	} else {
+		// No toggle on the empty state — there is no agent to make the default
+		items = appendAlwaysUseToggle(buildAgentItems(available, currentDefault), toggle);
+	}
 
 	const titleButtons: QuickInputButton[] = [settingsButton];
 	if (options?.showBackButton) {
 		titleButtons.unshift(QuickInputButtons.Back);
 	}
 
-	const step = createPickStep<AgentItem>({
+	step = createPickStep<AgentItem>({
 		title: options?.title ?? l10n.t('Choose an Agent'),
 		placeholder:
 			available.length === 0
 				? l10n.t('No agents available')
-				: options?.placeholder == null
-					? l10n.t('Select where to proceed · mark the checkbox of a row to set as default')
-					: l10n.t('{0} · mark the checkbox of a row to set as default', options.placeholder),
-		items: buildItems(currentDefault),
+				: (options?.placeholder ?? l10n.t('Select where to proceed')),
+		items: items,
 		buttons: titleButtons,
 		onDidClickButton: (_qp, button) => {
 			if (button === settingsButton) {
 				void executeCoreCommand('workbench.action.openSettings', 'gitlens.ai.defaultAgent');
 			}
 		},
-		onDidClickItemButton: async (qp, _button, item) => {
-			if (item.descriptor == null) return false;
-
-			const id = item.descriptor.id;
-			const newDefault = currentDefault === id ? null : id;
-			await configuration.update('ai.defaultAgent', newDefault, ConfigurationTarget.Global);
-			currentDefault = newDefault;
-			qp.items = buildItems(newDefault);
-			const restored = qp.items.find((i): i is AgentItem => 'descriptor' in i && i.descriptor?.id === id);
-			if (restored != null) {
-				qp.activeItems = [restored];
+		onDidClickItemButton: (_qp, button) => {
+			if (button === settingsButton) {
+				void executeCoreCommand('workbench.action.openSettings', 'gitlens.ai.defaultAgent');
 			}
 			return false;
 		},
@@ -265,78 +252,84 @@ export async function* pickAgentStep(
 	if (!canPickStepContinue(step, {}, selection)) return StepResultBreak;
 
 	const [item] = selection;
-	if (item.descriptor != null) return { kind: 'agent', descriptor: item.descriptor };
+	if (item.descriptor != null) {
+		if (toggle.checked) {
+			await configuration.update('ai.defaultAgent', item.descriptor.id, ConfigurationTarget.Global);
+		}
+		return { kind: 'agent', descriptor: item.descriptor };
+	}
 	if (item.action === 'manual') return { kind: 'manual' };
 	// 'cancel' or anything else → break
 	return StepResultBreak;
+}
+
+/** The agent rows (grouped under per-kind separators) the agent pickers share. */
+function buildAgentItems(available: readonly AgentDescriptor[], currentDefault: string | null): AgentItem[] {
+	const items: AgentItem[] = [];
+	let lastKind: AgentDescriptor['kind'] | undefined;
+	for (const d of available) {
+		if (d.kind !== lastKind) {
+			const sep = sectionLabelFor(d.kind);
+			if (sep != null) {
+				items.push({ label: sep, kind: QuickPickItemKind.Separator });
+			}
+			lastKind = d.kind;
+		}
+		items.push({
+			descriptor: d,
+			label: `$(${(iconFor(d.kind) as { id?: string }).id ?? 'circle-outline'}) ${d.label}`,
+			description: descriptionFor(d),
+			picked: currentDefault === d.id,
+		});
+	}
+	return items;
 }
 
 /**
  * Standalone version of the agent picker for non-wizard contexts (e.g., the "Pick another agent"
  * toast action that fires AFTER the wizard has completed). Safe to call when no wizard is active.
  * DO NOT use from inside a wizard's continuation — use {@link pickAgentStep} instead.
+ *
+ * Offers the same "Always use this agent" toggle as {@link pickAgentStep}; outside the wizard nothing
+ * dispatches a directive row's `onDidSelect`, so the accept handler below does it by hand.
  */
 export async function pickAgentStandalone(
 	container: Container,
 	options?: AgentPickerOptions,
 ): Promise<AgentDescriptor | undefined> {
 	const available = await getSupportedAgents(container);
-	let currentDefault: string | null = configuration.get('ai.defaultAgent') ?? null;
+	const currentDefault: string | null = configuration.get('ai.defaultAgent') ?? null;
 
 	const qp = window.createQuickPick<AgentItem>();
 	const disposables: { dispose: () => void }[] = [qp];
 
-	const buildItems = (currentDefaultId: string | null): AgentItem[] => {
-		if (available.length === 0) {
-			return [
-				{
-					label: l10n.t('$(warning) No agents available'),
-					description: l10n.t('No supported IDE chat host, no Claude extension, no detected CLIs'),
-					kind: QuickPickItemKind.Separator,
-				},
-				{
-					label: l10n.t('$(close) Close'),
-				},
-			];
-		}
-
-		const items: AgentItem[] = [];
-		let lastKind: AgentDescriptor['kind'] | undefined;
-		for (const d of available) {
-			if (d.kind !== lastKind) {
-				const sep = sectionLabelFor(d.kind);
-				if (sep != null) {
-					items.push({ label: sep, kind: QuickPickItemKind.Separator });
-				}
-				lastKind = d.kind;
-			}
-			items.push({
-				descriptor: d,
-				label: `$(${(iconFor(d.kind) as { id?: string }).id ?? 'circle-outline'}) ${d.label}`,
-				description: descriptionFor(d),
-				picked: currentDefaultId === d.id,
-				buttons: [
-					checkButton(
-						currentDefaultId === d.id,
-						l10n.t('Unset as default (Use {0})', d.label),
-						l10n.t('Always use {0} (set as default)', d.label),
-					),
-				],
-			});
-		}
-		return items;
-	};
+	const toggle = createAlwaysUseToggle(l10n.t('Always use this agent'), settingsButton, () => {
+		// A shown row mutated in place needs an items reassignment for the quickpick to notice
+		const active = qp.activeItems;
+		qp.items = [...qp.items];
+		qp.activeItems = active;
+	});
 
 	try {
 		qp.title = options?.title ?? l10n.t('Choose an Agent');
 		qp.placeholder =
 			available.length === 0
 				? l10n.t('No agents available')
-				: options?.placeholder == null
-					? l10n.t('Select where to proceed · mark the checkbox of a row to set as default')
-					: l10n.t('{0} · mark the checkbox of a row to set as default', options.placeholder);
+				: (options?.placeholder ?? l10n.t('Select where to proceed'));
 		qp.buttons = [settingsButton];
-		qp.items = buildItems(currentDefault);
+		qp.items =
+			available.length === 0
+				? [
+						{
+							label: l10n.t('$(warning) No agents available'),
+							description: l10n.t('No supported IDE chat host, no Claude extension, no detected CLIs'),
+							kind: QuickPickItemKind.Separator,
+						},
+						{
+							label: l10n.t('$(close) Close'),
+						},
+					]
+				: appendAlwaysUseToggle(buildAgentItems(available, currentDefault), toggle);
 		qp.activeItems = qp.items.filter(i => i.picked);
 
 		return await new Promise<AgentDescriptor | undefined>(resolve => {
@@ -346,21 +339,22 @@ export async function pickAgentStandalone(
 						void executeCoreCommand('workbench.action.openSettings', 'gitlens.ai.defaultAgent');
 					}
 				}),
-				qp.onDidTriggerItemButton(async e => {
-					if (e.item.descriptor == null) return;
-
-					const id = e.item.descriptor.id;
-					const newDefault = currentDefault === id ? null : id;
-					await configuration.update('ai.defaultAgent', newDefault, ConfigurationTarget.Global);
-					currentDefault = newDefault;
-					qp.items = buildItems(newDefault);
-					const restored = qp.items.find(i => i.descriptor?.id === id);
-					if (restored != null) {
-						qp.activeItems = [restored];
+				qp.onDidTriggerItemButton(e => {
+					if (e.button === settingsButton) {
+						void executeCoreCommand('workbench.action.openSettings', 'gitlens.ai.defaultAgent');
 					}
 				}),
-				qp.onDidAccept(() => {
+				qp.onDidAccept(async () => {
 					const item = qp.selectedItems[0];
+					if (item === toggle) {
+						// Keeps the picker open, as `Directive.Noop` does inside the wizard
+						await toggle.onDidSelect?.(qp);
+						return;
+					}
+
+					if (item?.descriptor != null && toggle.checked) {
+						await configuration.update('ai.defaultAgent', item.descriptor.id, ConfigurationTarget.Global);
+					}
 					resolve(item?.descriptor);
 				}),
 				qp.onDidHide(() => resolve(undefined)),
@@ -376,8 +370,8 @@ export async function pickAgentStandalone(
 
 /**
  * Picks an agent and persists the selection to `gitlens.ai.defaultAgent` (writes immediately on
- * accept). Unlike {@link pickAgentStandalone}, no per-item checkbox/toggle is shown — choosing an
- * item IS the action. The current default is pre-selected as the active item.
+ * accept). Unlike {@link pickAgentStandalone}, no "Always use this agent" toggle is shown — choosing
+ * an item IS the action. The current default is pre-selected as the active item.
  *
  * Returns the chosen descriptor, or `undefined` when the user dismisses the picker (no write).
  */

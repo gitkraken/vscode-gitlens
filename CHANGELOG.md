@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Changes _Start Work_ and _Start PR Review_ to follow the `gitlens.ai.openInAgent` setting &mdash; after you pick an issue or pull request they now ask whether to open it in an agent or continue manually, unless you've set a default
+- Changes the agent pickers to remember your choice with a single _Always use this choice_ / _Always use this agent_ option, instead of a checkbox on every row
 
 ### Fixed
 
