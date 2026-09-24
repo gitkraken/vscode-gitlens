@@ -60,11 +60,12 @@ function createContainer(
 			}),
 		},
 		integrations: {
-			getConfigured: () => configuredDomains.map(domain => ({ domain: domain })),
-			get: (_id: string, domain?: string) => {
+			getConfigured: (id: string) =>
+				id === primaryIssue?.provider.id ? configuredDomains.map(domain => ({ domain: domain })) : [],
+			get: (id: string, domain?: string) => {
 				resolutions++;
 				return Promise.resolve(
-					primaryIssue == null
+					id !== primaryIssue?.provider.id
 						? undefined
 						: {
 								domain: domain ?? primaryIssue.provider.domain,
@@ -213,6 +214,25 @@ suite('branch issue associations', () => {
 			assert.deepStrictEqual(read(), []);
 		});
 	}
+
+	test("ignores another provider's configured host for a legacy association", async () => {
+		const configured = createIssue('cloud-github-enterprise', 'host-a.example.com');
+		const issue = createIssue('cloud-gitlab-self-hosted', 'host-a.example.com');
+		const legacy = {
+			...encodeIssueOrPullRequestForGitConfig(issue, owner),
+			domain: null,
+		} as unknown as GitConfigEntityIdentifier;
+		const { container, read } = createContainer([legacy], configured);
+
+		const result = await getAssociatedIssuesForBranch(container, branch as GitBranch);
+		assert.deepStrictEqual(await result.value, []);
+
+		await addAssociatedIssueToBranch(container, branch, issue, owner);
+		assert.deepStrictEqual(read().map(getAssociatedIssueId), [
+			getAssociatedIssueId(legacy),
+			getAssociatedIssueId(issue),
+		]);
+	});
 
 	test('keeps distinct ports and providers independent', async () => {
 		const { container, read } = createContainer();
