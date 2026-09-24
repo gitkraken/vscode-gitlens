@@ -18,7 +18,13 @@ export type AgentDescriptor =
 	| { readonly id: 'claude-extension'; readonly kind: 'claude-extension'; readonly label: string }
 	| { readonly id: `cli:${string}`; readonly kind: 'cli'; readonly agent: GkAgent; readonly label: string };
 
-export type AgentRoute = 'ask' | 'manual' | 'agent';
+/**
+ * Where Start Work / Start Review hands off. `'kepler'` is a route, not an {@link AgentDescriptor}:
+ * an agent is dispatched AFTER the branch/worktree is created, whereas Kepler creates its own
+ * worktree, so it must short-circuit before that — an agent-shaped Kepler would mean two worktrees
+ * per item. It lives in `gitlens.ai.openInAgent` despite not being an agent (design doc §5.3).
+ */
+export type AgentRoute = 'ask' | 'manual' | 'agent' | 'kepler';
 
 export function getAgentDescriptorId(descriptor: AgentDescriptor): string {
 	return descriptor.id;

@@ -13,12 +13,25 @@ import type { Container } from '../../../container.js';
 import type { ConfirmToggleQuickPickItem } from '../../../quickpicks/items/directive.js';
 import { Directive, isDirectiveQuickPickItem } from '../../../quickpicks/items/directive.js';
 import { configuration } from '../../../system/-webview/configuration.js';
-import type { AgentDescriptor } from '../agentDescriptor.js';
-import { getRequestedAgentRoute, pickAgentStandalone, pickAgentStep, pickRouteStep } from '../agentPicker.js';
+import type { AgentDescriptor, AgentRoute } from '../agentDescriptor.js';
+import type { AgentRouteItem, ResolveAgentFlowResult } from '../agentPicker.js';
+import {
+	canOfferKeplerRoute,
+	getRequestedAgentRoute,
+	pickAgentStandalone,
+	pickAgentStep,
+	pickRouteStep,
+	resolveAgentFlow,
+	resolveAgentRoute,
+} from '../agentPicker.js';
 
 type Row = QuickPickItem & { route?: string; descriptor?: AgentDescriptor };
 
 const cliAgentId = 'cli:codex';
+
+const githubIssue: AgentRouteItem = { kind: 'issue', providerId: 'github' };
+const bitbucketIssue: AgentRouteItem = { kind: 'issue', providerId: 'bitbucket' };
+const bitbucketPr: AgentRouteItem = { kind: 'pr', providerId: 'bitbucket' };
 
 function makeContainer(): Container {
 	const agent: GkAgent = {
@@ -345,5 +358,158 @@ suite('pickAgentStandalone', () => {
 
 		assert.strictEqual(await picked, undefined);
 		assert.strictEqual(update.called, false);
+	});
+});
+
+suite('canOfferKeplerRoute', () => {
+	test('offers the route for an item whose provider Kepler supports for its kind', () => {
+		assert.strictEqual(canOfferKeplerRoute(true, githubIssue), true);
+		assert.strictEqual(canOfferKeplerRoute(true, { kind: 'pr', providerId: 'github' }), true);
+		assert.strictEqual(canOfferKeplerRoute(true, { kind: 'issue', providerId: 'jira' }), true);
+	});
+
+	test('Bitbucket: offered for a PR, NOT for an issue', () => {
+		assert.strictEqual(canOfferKeplerRoute(true, bitbucketPr), true);
+		assert.strictEqual(canOfferKeplerRoute(true, bitbucketIssue), false);
+	});
+
+	test('not offered where Kepler cannot launch (VS Code for the web)', () => {
+		assert.strictEqual(canOfferKeplerRoute(false, githubIssue), false);
+		assert.strictEqual(canOfferKeplerRoute(false, bitbucketPr), false);
+	});
+
+	test('not offered without an item, or for a provider with no Kepler id', () => {
+		assert.strictEqual(canOfferKeplerRoute(true, undefined), false);
+		assert.strictEqual(canOfferKeplerRoute(true, { kind: 'pr', providerId: 'bitbucket-server' }), false);
+		assert.strictEqual(canOfferKeplerRoute(true, { kind: 'pr', providerId: 'not-a-provider' }), false);
+	});
+});
+
+suite('resolveAgentRoute', () => {
+	test("'ask' or no requested route defers to the persisted default", () => {
+		assert.strictEqual(resolveAgentRoute('ask', 'manual', true), 'manual');
+		assert.strictEqual(resolveAgentRoute(undefined, 'agent', true), 'agent');
+		assert.strictEqual(resolveAgentRoute(undefined, undefined, true), 'ask');
+	});
+
+	test('an explicit requested route overrides the persisted default', () => {
+		assert.strictEqual(resolveAgentRoute('agent', 'kepler', true), 'agent');
+		assert.strictEqual(resolveAgentRoute('manual', 'kepler', true), 'manual');
+	});
+
+	test("a persisted 'kepler' default is honored when Kepler can serve the item", () => {
+		assert.strictEqual(resolveAgentRoute('ask', 'kepler', true), 'kepler');
+	});
+
+	test("a persisted 'kepler' default falls back to asking when Kepler can't serve the item", () => {
+		assert.strictEqual(resolveAgentRoute('ask', 'kepler', false), 'ask');
+		assert.strictEqual(resolveAgentRoute(undefined, 'kepler', false), 'ask');
+	});
+
+	test("an explicit 'kepler' request falls back to asking when Kepler can't serve the item", () => {
+		assert.strictEqual(resolveAgentRoute('kepler', 'manual', false), 'ask');
+		assert.strictEqual(resolveAgentRoute('kepler', 'manual', true), 'kepler');
+	});
+});
+
+suite('resolveAgentFlow — Kepler route', () => {
+	let sandbox: sinon.SinonSandbox;
+
+	setup(() => {
+		sandbox = sinon.createSandbox();
+	});
+
+	teardown(() => {
+		sandbox.restore();
+	});
+
+	function stubSettings(openInAgent: AgentRoute): void {
+		const get = sandbox.stub(configuration, 'get') as sinon.SinonStub;
+		get.withArgs('ai.openInAgent').returns(openInAgent);
+		get.withArgs('ai.defaultAgent').returns(null);
+	}
+
+	function makeContainer(available: boolean): Container {
+		return {
+			kepler: { available: available },
+			usage: { track: sandbox.stub().resolves() },
+		} as unknown as Container;
+	}
+
+	/** Advances the flow once: either it resolves without prompting, or it yields its first step. */
+	async function start(
+		container: Container,
+		options: Parameters<typeof resolveAgentFlow>[1],
+	): Promise<{ result?: ResolveAgentFlowResult; routes?: string[]; keplerDescription?: string }> {
+		const next = await resolveAgentFlow(container, options).next();
+		if (next.done) {
+			assert.notStrictEqual(typeof next.value, 'symbol', 'expected a flow result, not a break');
+			return { result: next.value as ResolveAgentFlowResult };
+		}
+
+		const step = next.value as QuickPickStep;
+		const items = step.items as { route?: string; description?: string }[];
+		return {
+			// Only the route rows — the Options separator and the Always-use toggle carry no route
+			routes: items.flatMap(i => (i.route != null ? [i.route] : [])),
+			keplerDescription: items.find(i => i.route === 'kepler')?.description,
+		};
+	}
+
+	test("persisted 'kepler' + a supported issue resolves to Kepler without prompting", async () => {
+		stubSettings('kepler');
+		const { result } = await start(makeContainer(true), { requestedRoute: 'ask', item: githubIssue });
+		assert.deepStrictEqual(result, { kind: 'kepler' });
+	});
+
+	test("persisted 'kepler' + a Bitbucket PR resolves to Kepler", async () => {
+		stubSettings('kepler');
+		const { result } = await start(makeContainer(true), { requestedRoute: 'ask', item: bitbucketPr });
+		assert.deepStrictEqual(result, { kind: 'kepler' });
+	});
+
+	test("persisted 'kepler' + a Bitbucket issue asks instead, without a Kepler row", async () => {
+		stubSettings('kepler');
+		const { result, routes } = await start(makeContainer(true), { requestedRoute: 'ask', item: bitbucketIssue });
+		assert.strictEqual(result, undefined);
+		assert.deepStrictEqual(routes, ['agent', 'manual']);
+	});
+
+	test("persisted 'kepler' on the web asks instead, without a Kepler row", async () => {
+		stubSettings('kepler');
+		const { result, routes } = await start(makeContainer(false), { requestedRoute: 'ask', item: githubIssue });
+		assert.strictEqual(result, undefined);
+		assert.deepStrictEqual(routes, ['agent', 'manual']);
+	});
+
+	test("'ask' offers the Kepler row for a supported item", async () => {
+		stubSettings('ask');
+		const { routes } = await start(makeContainer(true), { requestedRoute: 'ask', item: githubIssue });
+		assert.deepStrictEqual(routes, ['kepler', 'agent', 'manual']);
+	});
+
+	test('the Kepler row describes an issue as work and a PR as a review', async () => {
+		stubSettings('ask');
+		const issue = await start(makeContainer(true), { requestedRoute: 'ask', item: githubIssue });
+		assert.strictEqual(issue.keplerDescription, 'Start a Kepler task to set up, run, and track the work');
+
+		const pr = await start(makeContainer(true), { requestedRoute: 'ask', item: bitbucketPr });
+		assert.strictEqual(pr.keplerDescription, 'Start a Kepler task to set up, run, and track the review');
+	});
+
+	test("'ask' offers no Kepler row when the caller passes no item", async () => {
+		stubSettings('ask');
+		const { routes } = await start(makeContainer(true), { requestedRoute: 'ask' });
+		assert.deepStrictEqual(routes, ['agent', 'manual']);
+	});
+
+	test("useDefaults with a persisted 'kepler' continues manually — never a Kepler hand-off", async () => {
+		stubSettings('kepler');
+		const { result } = await start(makeContainer(true), {
+			useDefaults: true,
+			requestedRoute: 'ask',
+			item: githubIssue,
+		});
+		assert.deepStrictEqual(result, { kind: 'manual' });
 	});
 });

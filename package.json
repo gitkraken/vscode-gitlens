@@ -4850,12 +4850,14 @@
 						"enum": [
 							"ask",
 							"manual",
-							"agent"
+							"agent",
+							"kepler"
 						],
 						"enumDescriptions": [
 							"%config.ai.openInAgent.enumDescriptions.0%",
 							"%config.ai.openInAgent.enumDescriptions.1%",
-							"%config.ai.openInAgent.enumDescriptions.2%"
+							"%config.ai.openInAgent.enumDescriptions.2%",
+							"%config.ai.openInAgent.enumDescriptions.3%"
 						],
 						"default": "ask",
 						"markdownDescription": "%config.ai.openInAgent.markdownDescription%",
