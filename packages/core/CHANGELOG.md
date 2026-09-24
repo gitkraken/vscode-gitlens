@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-09-24
+
 ### Added
 
 - Adds Bitbucket Data Center to the filtered pull-request search and its count probe ([#5875](https://github.com/gitkraken/vscode-gitlens/issues/5875)). `getSupportedFilters(BitbucketServer).pullRequestSearch` now declares the relationships `Author`, `ReviewRequested` and `Reviewed`, the states `open`/`closed`/`merged`/`all`, `text`, `draft`, `includeArchived`, the repository scope and the sorts `updated:desc`/`updated:asc` — and nothing its REST API cannot express: no assignee or mention (its pull requests have neither), no date filters, no `created` order, and no organization scope, since there is no project-wide pull-request list. `searchPullRequestsPage` reads each requested repository × relationship as its own request, or the user's dashboard for a relationship without repositories (`Reviewed` as its reviewer and participant lists, since the dashboard only filters by review status together with a role), follows every facet's own `nextPageStart` so matches past the first page are found, and binds its cursor to the connection, the configured installation URL (context path included) and the query, refusing it under anything else. Every criterion is re-checked on the rows returned, so a server that ignores one (`draft` before 8.18) narrows the page instead of widening it, and a repository that fails is reported as a scoped warning with `fetchFailed` while the others still answer, and is retried once at the page it missed before being dropped. `countPullRequests` applies the same facets and predicates, so its count is exactly the number of rows the search returns — the union of the requested states, unlike GitHub's per-state maximum. Bitbucket Data Center has no count query, so it reads each facet's first page of up to 1,000 and reports a larger scope as a floor through the new optional `PullRequestCountResult.lowerBound`. Its pull requests now also report `isDraft` from the server's `draft` field rather than always `false` (plus/integrations)
@@ -370,7 +372,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.7.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.7.1...HEAD
+[0.7.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.7.0...gitkraken:releases/core/v0.7.1
 [0.7.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.6.0...gitkraken:releases/core/v0.7.0
 [0.6.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.116...gitkraken:releases/core/v0.6.0
 [0.5.116]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.115...gitkraken:releases/core/v0.5.116
