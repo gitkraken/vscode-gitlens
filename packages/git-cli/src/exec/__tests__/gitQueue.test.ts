@@ -74,10 +74,10 @@ suite('GitQueue Test Suite', () => {
 			await Promise.all(tasks.map(t => t.task));
 		});
 
-		test('uses default maxConcurrent of 7 when not configured', () => {
+		test('uses default maxConcurrent of 20 when not configured', () => {
 			const queue = new GitQueue();
 			const stats = queue.getStats();
-			assert.strictEqual(stats.maxConcurrent, 7);
+			assert.strictEqual(stats.maxConcurrent, 20);
 		});
 	});
 
