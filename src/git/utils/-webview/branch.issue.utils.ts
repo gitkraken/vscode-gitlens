@@ -7,7 +7,6 @@ import type { GitConfigEntityIdentifier } from '@gitlens/integrations/providers/
 import {
 	decodeEntityIdentifiersFromGitConfig,
 	encodeIssueOrPullRequestForGitConfig,
-	EntityIdentifierProviderType,
 	getEntityIdentifierInput,
 	getIssueFromGitConfigEntityIdentifier,
 	getProviderIdFromEntityIdentifier,
@@ -17,6 +16,7 @@ import {
 	getSingleConfiguredDomain,
 	hostFromDomain,
 } from '@gitlens/integrations/utils/domain.utils.js';
+import { isGitSelfManagedHostIntegrationId } from '@gitlens/integrations/utils/integration.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { MaybePausedResult } from '@gitlens/utils/promise.js';
 import { getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
@@ -63,24 +63,21 @@ export async function addAssociatedIssueToBranch(
 			return;
 		}
 
-		const legacyIndex = associatedIssues.findIndex(
-			i =>
-				(i.provider === EntityIdentifierProviderType.GithubEnterprise ||
-					i.provider === EntityIdentifierProviderType.GitlabSelfHosted ||
-					i.provider === EntityIdentifierProviderType.BitbucketServer ||
-					i.provider === EntityIdentifierProviderType.AzureDevOpsServer) &&
-				!('domain' in i && i.domain?.trim()) &&
-				getAssociatedIssueId({ ...i, domain: issue.provider.domain }) === id,
-		);
-		const integrationId = legacyIndex === -1 ? undefined : getProviderIdFromEntityIdentifier(identifier);
+		const integrationId = getProviderIdFromEntityIdentifier(identifier);
+		// Only a self-managed git host wrote host-less associations, and an ambiguous one must not be claimed by
+		// whichever host happens to be primary.
 		const configuredDomain =
-			integrationId == null
-				? undefined
-				: getSingleConfiguredDomain(container.integrations.getConfigured(integrationId));
-		if (options?.cancellation?.aborted) return;
-
-		// An ambiguous legacy association must not be claimed by whichever host happens to be primary.
-		if (legacyIndex !== -1 && areDomainsOnSameHost(configuredDomain, issue.provider.domain)) {
+			integrationId != null && isGitSelfManagedHostIntegrationId(integrationId)
+				? getSingleConfiguredDomain(container.integrations.getConfigured(integrationId))
+				: undefined;
+		const legacyIndex = areDomainsOnSameHost(configuredDomain, issue.provider.domain)
+			? associatedIssues.findIndex(
+					i =>
+						!('domain' in i && i.domain?.trim()) &&
+						getAssociatedIssueId({ ...i, domain: issue.provider.domain }) === id,
+				)
+			: -1;
+		if (legacyIndex !== -1) {
 			associatedIssues[legacyIndex] = identifier;
 		} else {
 			associatedIssues.push(identifier);
