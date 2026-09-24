@@ -5394,6 +5394,45 @@
 				]
 			}
 		},
+		"gitlens.kepler.newTask": {
+			"label": "Start Task in Kepler",
+			"icon": "$(gitlens-kepler)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:(repository|repo-folder)\\b/ && !listMultiSelection && !isWeb",
+						"group": "2_gitlens_quickopen",
+						"order": 5
+					}
+				]
+			}
+		},
+		"gitlens.kepler.startReview": {
+			"label": "Start Review in Kepler",
+			"icon": "$(gitlens-kepler)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:(pullrequest\\b|launchpad:item\\b(?=.*?\\b\\+pr\\b))/ && !listMultiSelection && !isWeb",
+						"group": "1_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.kepler.startReview:graph": {
+			"label": "Start Review in Kepler",
+			"icon": "$(gitlens-kepler)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:pullrequest\\b/ && !isWeb",
+						"group": "1_gitlens_actions",
+						"order": 100
+					}
+				]
+			}
+		},
 		"gitlens.launchpad.indicator.toggle": {
 			"label": "Toggle Launchpad Indicator",
 			"icon": "$(rocket)",

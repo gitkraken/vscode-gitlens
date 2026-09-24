@@ -229,7 +229,7 @@ interface AgentsConfig {
 
 interface AIConfig {
 	readonly enabled: boolean;
-	readonly openInAgent: 'ask' | 'manual' | 'agent';
+	readonly openInAgent: 'ask' | 'manual' | 'agent' | 'kepler';
 	readonly defaultAgent: string | null;
 	readonly autoRebase: {
 		/** Minimum AI confidence (0–1) required to auto-apply a conflict resolution during an automatic rebase */

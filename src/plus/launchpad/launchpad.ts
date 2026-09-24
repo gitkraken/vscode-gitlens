@@ -460,7 +460,9 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			);
 		}
 
-		if (flow.kind === 'cancel') return;
+		// The route is forced to `'agent'` and no `item` is passed, so Kepler is never resolved here;
+		// returning on it anyway keeps a Kepler result from ever falling through to creating a worktree
+		if (flow.kind === 'cancel' || flow.kind === 'kepler') return;
 
 		const agent = flow.kind === 'agent' ? flow.descriptor : undefined;
 		try {

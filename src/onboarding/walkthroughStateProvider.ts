@@ -100,7 +100,18 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 	[
 		'kepler',
 		{
-			usage: ['command:gitlens.welcome.openKepler:executed', 'command:gitlens.getKepler:executed'],
+			// `command:gitlens.getKepler:executed` is a PERSISTED usage key (`storage.get('usages')`)
+			// from before `gitlens.getKepler` was renamed to `gitlens.kepler.openProductPage`. It stays
+			// alongside the new key because dropping it would silently un-complete this step for every
+			// existing user who already triggered it under the old id.
+			usage: [
+				'command:gitlens.welcome.openKepler:executed',
+				'command:gitlens.getKepler:executed',
+				'command:gitlens.kepler.openProductPage:executed',
+				// Tracked by `KeplerService` when it detects an installed Kepler, so a user who already
+				// has it isn't invited to get it
+				'action:gitlens.kepler.installed:happened',
+			],
 		},
 	],
 	[

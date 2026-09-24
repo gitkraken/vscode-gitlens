@@ -821,7 +821,7 @@ void
   'action': 'connect' | 'manage',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -836,7 +836,7 @@ void
   'action': 'soft-open',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -851,7 +851,7 @@ void
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -865,7 +865,7 @@ void
 {
   'instance': number,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual'
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual'
 }
 ```
 
@@ -878,7 +878,7 @@ void
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -892,7 +892,7 @@ void
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -906,7 +906,7 @@ void
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -921,7 +921,7 @@ void
   'action': 'connect',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -5667,6 +5667,54 @@ or
 void
 ```
 
+### kepler/task/start
+
+> Sent when the user starts a Kepler task — a deep link into an installed Kepler's Task Composer was handed off. Records what was sent, not whether Kepler handled it
+
+```typescript
+{
+  // The Kepler action pinned by the deep link
+  'action': 'default-plan' | 'default-review',
+  // The Kepler channel the deep link targets
+  'channel': 'dev' | 'production' | 'source' | 'staging',
+  // Which entry point started the task
+  'intent': 'new-task' | 'start-review' | 'start-work',
+  // The kind of item the task starts from; absent for a task started from a repository
+  'kind': 'issue' | 'pr',
+  // The Kepler provider id the item's provider mapped to
+  'provider': 'azure' | 'bitbucket' | 'github' | 'githubEnterprise' | 'gitlab' | 'gitlabSelfHosted' | 'jira' | 'linear' | 'trello',
+  // Whether the item's provider mapped to a Kepler provider id; absent when there is no item. A necessary precondition for Kepler to classify the item, never proof it did
+  'provider.mapped': boolean,
+  // Whether a local clone resolved silently and was sent as an exact `repo=` match
+  'repo.resolved': boolean
+}
+```
+
+### kepler/task/start/failed
+
+> Sent when starting a Kepler task fails — the item's provider is one Kepler cannot serve, or the deep link could not be handed off
+
+```typescript
+{
+  // The Kepler action pinned by the deep link
+  'action': 'default-plan' | 'default-review',
+  // The Kepler channel the deep link targets
+  'channel': 'dev' | 'production' | 'source' | 'staging',
+  // Why the task was not started. `not-installed` = Kepler is not installed, so no link was sent; `unsupported-provider` = Kepler cannot serve the item's provider for its kind, so no link was sent; `open-failed` = the deep link could not be handed off
+  'failure.reason': 'not-installed' | 'open-failed' | 'unsupported-provider',
+  // Which entry point started the task
+  'intent': 'new-task' | 'start-review' | 'start-work',
+  // The kind of item the task starts from; absent for a task started from a repository
+  'kind': 'issue' | 'pr',
+  // The Kepler provider id the item's provider mapped to
+  'provider': 'azure' | 'bitbucket' | 'github' | 'githubEnterprise' | 'gitlab' | 'gitlabSelfHosted' | 'jira' | 'linear' | 'trello',
+  // Whether the item's provider mapped to a Kepler provider id; absent when there is no item. A necessary precondition for Kepler to classify the item, never proof it did
+  'provider.mapped': boolean,
+  // Whether a local clone resolved silently and was sent as an exact `repo=` match
+  'repo.resolved': boolean
+}
+```
+
 ### launchpad/action
 
 > Sent when the user takes an action on a launchpad item
@@ -5714,7 +5762,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'agent.resolution': 'cancel' | 'manual',
+  'agent.resolution': 'cancel' | 'kepler' | 'manual',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,
@@ -6991,7 +7039,7 @@ void
   'action': 'connect' | 'manage',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7003,10 +7051,10 @@ void
 ```typescript
 {
   'instance': number,
-  'agent.resolution': 'cancel' | 'manual',
+  'agent.resolution': 'cancel' | 'kepler' | 'manual',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7021,7 +7069,7 @@ or
   'agent.resolution': 'agent',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7034,7 +7082,7 @@ or
 {
   'instance': number,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual'
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual'
 }
 ```
 
@@ -7047,7 +7095,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7062,7 +7110,7 @@ or
   'action': 'soft-open',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -7077,7 +7125,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -7092,7 +7140,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7106,7 +7154,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7121,7 +7169,7 @@ or
   'action': 'connect',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7136,7 +7184,7 @@ or
   'action': 'connect' | 'manage',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7148,10 +7196,10 @@ or
 ```typescript
 {
   'instance': number,
-  'agent.resolution': 'cancel' | 'manual',
+  'agent.resolution': 'cancel' | 'kepler' | 'manual',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7166,7 +7214,7 @@ or
   'agent.resolution': 'agent',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7181,7 +7229,7 @@ or
   'action': 'soft-open',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -7196,7 +7244,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   [`item.${string}`]: string | number | boolean,
   'items.count': number
 }
@@ -7210,7 +7258,7 @@ or
 {
   'instance': number,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual'
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual'
 }
 ```
 
@@ -7223,7 +7271,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7237,7 +7285,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7251,7 +7299,7 @@ or
   'instance': number,
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```
@@ -7266,7 +7314,7 @@ or
   'action': 'connect',
   'connected': boolean,
   // Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in.
-  'context.showOpenInAgent': 'agent' | 'ask' | 'manual',
+  'context.showOpenInAgent': 'agent' | 'ask' | 'kepler' | 'manual',
   'items.count': number
 }
 ```

@@ -56,6 +56,7 @@ import { UrlsProvider } from './plus/gk/urlsProvider.js';
 import { GraphFollowController } from './plus/graph/follow.js';
 import { GraphStatusBarController } from './plus/graph/statusbar.js';
 import { createIntegrationServiceContext } from './plus/integrations/host/context.js';
+import { KeplerService } from './plus/kepler/keplerService.js';
 import { EnrichmentService } from './plus/launchpad/enrichmentService.js';
 import { LaunchpadIndicator } from './plus/launchpad/launchpadIndicator.js';
 import { LaunchpadProvider } from './plus/launchpad/launchpadProvider.js';
@@ -273,6 +274,7 @@ export class Container {
 		this._disposables.push((this._subscription = new SubscriptionService(this, this._connection, previousVersion)));
 		this._disposables.push((this._walkthrough = new WalkthroughStateProvider(this)));
 		this._disposables.push((this._organizations = new OrganizationService(this, this._connection)));
+		this._disposables.push((this._kepler = new KeplerService(this)));
 
 		this._disposables.push((this._eventBus = new EventBus()));
 		this._disposables.push((this._ipc = new IpcService(this)));
@@ -673,6 +675,11 @@ export class Container {
 			this._disposables.push((this._integrations = createIntegrationService(this.integrationContext)));
 		}
 		return this._integrations;
+	}
+
+	private readonly _kepler: KeplerService;
+	get kepler(): KeplerService {
+		return this._kepler;
 	}
 
 	private readonly _keyboard: Keyboard;

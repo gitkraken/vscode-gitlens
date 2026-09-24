@@ -3,18 +3,16 @@
 //  *  Licensed under the MIT License. See License.txt in the project root for license information.
 //  *--------------------------------------------------------------------------------------------*/
 
+// Upstream VS Code also seeds this map with the platform constants (`isMac`, `isWeb`, …),
+// baked in at parse time because the real extension host evaluates a `when` clause on the one
+// machine it already knows the platform of. This script instead round-trips `when` clauses for
+// `package.json`, evaluated later on an end user's (unknown, possibly different) machine — folding
+// those keys here would silently fold `!isWeb` to the literal `true` (dropped by an enclosing
+// AND) or a bare `isWeb` to `false` (collapsing the whole AND to `false`). Only the literal
+// `true`/`false` keywords are genuine compile-time constants; keep just those.
 const CONSTANT_VALUES = new Map<string, boolean>();
 CONSTANT_VALUES.set('false', false);
 CONSTANT_VALUES.set('true', true);
-CONSTANT_VALUES.set('isMac', false);
-CONSTANT_VALUES.set('isLinux', false);
-CONSTANT_VALUES.set('isWindows', false);
-CONSTANT_VALUES.set('isWeb', false);
-CONSTANT_VALUES.set('isMacNative', false);
-CONSTANT_VALUES.set('isEdge', false);
-CONSTANT_VALUES.set('isFirefox', false);
-CONSTANT_VALUES.set('isChrome', false);
-CONSTANT_VALUES.set('isSafari', false);
 
 const CharCode = Object.freeze({
 	Space: 32,

@@ -15,6 +15,7 @@ import type { ConfirmToggleQuickPickItem } from '../../quickpicks/items/directiv
 import { createConfirmToggleQuickPickItem } from '../../quickpicks/items/directive.js';
 import { executeCoreCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
+import { getKeplerProviderId, isKeplerSupportedProvider } from '../kepler/keplerProviders.js';
 import type { AgentDescriptor, AgentRoute } from './agentDescriptor.js';
 import { getSupportedAgents, resolveDefaultAgent } from './agentRegistry.js';
 
@@ -54,8 +55,10 @@ function appendAlwaysUseToggle<T extends QuickPickItem>(items: T[], toggle: Conf
 	return [...items, createQuickPickSeparator<T>(confirmOptionsSeparatorLabel), toggle as unknown as T];
 }
 
+type PickableRoute = Exclude<AgentRoute, 'ask'>;
+
 interface RouteItem extends QuickPickItem {
-	readonly route: 'manual' | 'agent';
+	readonly route: PickableRoute;
 }
 
 interface AgentItem extends QuickPickItem {
@@ -100,6 +103,13 @@ function sectionLabelFor(kind: AgentDescriptor['kind']): string | undefined {
 	}
 }
 
+/** The PR or issue a route is being resolved for — only what decides whether Kepler can serve it. */
+export interface AgentRouteItem {
+	readonly kind: 'pr' | 'issue';
+	/** The item's GitLens provider (integration) id, i.e. `ProviderReference.id` */
+	readonly providerId: string;
+}
+
 /**
  * The route Start Work / Start Review run with. An explicit `showOpenInAgent` wins; otherwise the
  * `gitlens.ai.openInAgent` setting applies, so the plain commands honour it too.
@@ -121,15 +131,65 @@ export function getRequestedAgentRoute(args?: {
 }
 
 /**
- * Step 1 of the agent flow — yields a wizard step that asks "Continue manually" vs "Open in an agent",
- * with an "Always use this choice" toggle that, when armed, persists the picked route as the
- * `gitlens.ai.openInAgent` default. Returns the chosen route, or `StepResultBreak` when the user backs
- * out (the wizard machinery handles the back navigation).
+ * Whether the route step can offer "Open in Kepler" for this item: Kepler must be launchable here
+ * (not VS Code for the web) and support the item's provider for its kind — a Bitbucket PR qualifies,
+ * a Bitbucket issue does not. Deliberately ignores `KeplerService.installed`: a Kepler that isn't
+ * installed is handled when the task starts (a warning offering Get Kepler), as the tree commands
+ * do, since detection can't see every install.
+ */
+export function canOfferKeplerRoute(keplerAvailable: boolean, item: AgentRouteItem | undefined): boolean {
+	if (!keplerAvailable || item == null) return false;
+
+	return isKeplerSupportedProvider(item.kind, getKeplerProviderId(item.providerId));
+}
+
+/**
+ * Resolves the effective route. An explicit route from the caller wins; `'ask'` (or none) defers to
+ * the persisted `gitlens.ai.openInAgent` default. A `'kepler'` route that Kepler can't serve for
+ * THIS item falls back to `'ask'` — the default is a preference across items, so one Kepler can't
+ * take (an unsupported provider, or the web) should show the picker rather than fail.
+ */
+export function resolveAgentRoute(
+	requested: AgentRoute | undefined,
+	persisted: AgentRoute | undefined,
+	keplerOffered: boolean,
+): AgentRoute {
+	const route = requested == null || requested === 'ask' ? (persisted ?? 'ask') : requested;
+	if (route === 'kepler' && !keplerOffered) return 'ask';
+
+	return route;
+}
+
+/**
+ * Step 1 of the agent flow — yields a wizard step that asks "Continue manually" vs "Open in an agent"
+ * (plus "Open in Kepler", first, when `kepler` is set), with an "Always use this choice" toggle that,
+ * when armed, persists the picked route as the `gitlens.ai.openInAgent` default. Returns the chosen
+ * route, or `StepResultBreak` when the user backs out (the wizard machinery handles the back
+ * navigation).
  */
 export async function* pickRouteStep(options?: {
 	showBackButton?: boolean;
-}): AsyncStepResultGenerator<'manual' | 'agent'> {
+	/**
+	 * Offer the "Open in Kepler" row for this kind of item — see {@link canOfferKeplerRoute}. The
+	 * kind also picks the row's description: an issue is started as work, a PR as a review.
+	 */
+	kepler?: AgentRouteItem['kind'];
+}): AsyncStepResultGenerator<PickableRoute> {
+	const kepler = options?.kepler;
+
 	const items: RouteItem[] = [
+		...(kepler != null
+			? [
+					{
+						route: 'kepler',
+						label: l10n.t('$(gitlens-kepler) Open in Kepler'),
+						description:
+							kepler === 'pr'
+								? l10n.t('Start a Kepler task to set up, run, and track the review')
+								: l10n.t('Start a Kepler task to set up, run, and track the work'),
+					} satisfies RouteItem,
+				]
+			: []),
 		{
 			route: 'agent',
 			label: l10n.t('$(robot) Open in an agent'),
@@ -149,7 +209,10 @@ export async function* pickRouteStep(options?: {
 
 	step = createPickStep<RouteItem>({
 		title: l10n.t('Start with Agent'),
-		placeholder: l10n.t('Choose to continue with an agent or manually'),
+		placeholder:
+			kepler != null
+				? l10n.t('Choose to continue in Kepler, with an agent, or manually')
+				: l10n.t('Choose to continue with an agent or manually'),
 		items: appendAlwaysUseToggle(items, toggle),
 		buttons: options?.showBackButton ? [QuickInputButtons.Back] : undefined,
 		onDidClickItemButton: (_qp, button) => {
@@ -459,13 +522,15 @@ export async function pickAndSetDefaultAgent(
 export type ResolveAgentFlowResult =
 	| { readonly kind: 'manual' }
 	| { readonly kind: 'agent'; readonly descriptor: AgentDescriptor }
+	/** Hand off to Kepler — the caller must return BEFORE creating any branch/worktree */
+	| { readonly kind: 'kepler' }
 	| { readonly kind: 'cancel' };
 
 /** Builds the `agent.resolution` telemetry payload for a resolved manual-vs-agent flow. */
 export function buildAgentResolvedTelemetryData(
 	result: ResolveAgentFlowResult,
 ):
-	| { 'agent.resolution': 'manual' | 'cancel' }
+	| { 'agent.resolution': 'manual' | 'kepler' | 'cancel' }
 	| { 'agent.resolution': 'agent'; 'agent.id': string; 'agent.kind': AgentDescriptor['kind'] } {
 	if (result.kind === 'agent') {
 		return {
@@ -487,18 +552,25 @@ export function buildAgentResolvedTelemetryData(
  */
 export async function* resolveAgentFlow(
 	container: Container | undefined,
-	options: { useDefaults?: boolean; requestedRoute?: AgentRoute },
+	options: {
+		useDefaults?: boolean;
+		requestedRoute?: AgentRoute;
+		/** The item being started; the Kepler route is only offered when this is set and Kepler can serve it */
+		item?: AgentRouteItem;
+	},
 ): AsyncStepResultGenerator<ResolveAgentFlowResult> {
 	// `'ask'` from the caller (or unspecified) defers to the persisted `gitlens.ai.openInAgent`
 	// default so the user's preference is honored on generic UI entries (the Graph WIP empty pane).
 	// `'manual'`/`'agent'` from the caller are explicit overrides (e.g., the "Start Work in Agent"
 	// surfaces) and always force that route regardless of the persisted setting.
-	const requested: AgentRoute = options.requestedRoute ?? 'ask';
-	const route: AgentRoute = requested === 'ask' ? (configuration.get('ai.openInAgent') ?? 'ask') : requested;
+	const keplerOffered = container != null && canOfferKeplerRoute(container.kepler.available, options.item);
+	const route = resolveAgentRoute(options.requestedRoute, configuration.get('ai.openInAgent'), keplerOffered);
 	const persistedAgentId: string | undefined = configuration.get('ai.defaultAgent') ?? undefined;
 
 	if (options.useDefaults) {
 		// Hard contract: never pop a picker when useDefaults is true (would deadlock MCP/IPC callers).
+		// A `'kepler'` route continues manually too: `useDefaults` callers (MCP/IPC) await the
+		// created branch/worktree, which a Kepler hand-off never produces.
 		if (route !== 'agent') {
 			return { kind: 'manual' };
 		}
@@ -520,17 +592,21 @@ export async function* resolveAgentFlow(
 
 	// Interactive flow — yield steps to the wizard machinery.
 	while (true) {
-		let chosenRoute: 'manual' | 'agent';
-		if (route === 'manual' || route === 'agent') {
+		let chosenRoute: PickableRoute;
+		if (route !== 'ask') {
 			chosenRoute = route;
 		} else {
-			const result = yield* pickRouteStep({ showBackButton: true });
+			const result = yield* pickRouteStep({
+				showBackButton: true,
+				kepler: keplerOffered ? options.item?.kind : undefined,
+			});
 			if (result === StepResultBreak) return { kind: 'cancel' };
 
 			chosenRoute = result;
 		}
 
 		if (chosenRoute === 'manual') return { kind: 'manual' };
+		if (chosenRoute === 'kepler') return { kind: 'kepler' };
 
 		// Agent route: try persisted default first.
 		if (persistedAgentId != null) {

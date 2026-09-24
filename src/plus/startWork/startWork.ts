@@ -11,6 +11,7 @@ import type { AgentRoute } from '../agents/agentDescriptor.js';
 import type { ResolveAgentFlowResult } from '../agents/agentPicker.js';
 import { buildAgentResolvedTelemetryData, getRequestedAgentRoute, resolveAgentFlow } from '../agents/agentPicker.js';
 import type { StartWorkChatAction } from '../chat/chatActions.js';
+import { getKeplerRepoPath, startKeplerTask } from '../kepler/keplerTask.js';
 import type { StartWorkContext, StartWorkStepState } from './startWorkBase.js';
 import { StartWorkBaseCommand } from './startWorkBase.js';
 import { createBranchNameFromIssue } from './utils/-webview/startWork.utils.js';
@@ -33,6 +34,8 @@ export interface StartWorkCommandArgs {
 	//   - `'manual'` : force manual — skip chat hand-off entirely, regardless of persisted setting
 	//   - `'agent'`  : force agent — skip the pre-picker and go straight to the agent picker (or the
 	//                  persisted `gitlens.ai.defaultAgent` if set and available)
+	//   - `'kepler'` : hand off to Kepler without creating a branch/worktree, or ask when Kepler
+	//                  can't serve this item
 	//   - undefined  : do not run the new flow; legacy `openChatOnComplete` behavior applies
 	showOpenInAgent?: AgentRoute;
 
@@ -101,12 +104,34 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 			const flow = yield* resolveAgentFlow(this.container, {
 				useDefaults: state.useDefaults,
 				requestedRoute: state.showOpenInAgent,
+				item: { kind: 'issue', providerId: issue.provider.id },
 			});
 			if (flow === StepResultBreak) return;
 
 			this.sendAgentResolvedTelemetry(flow, context);
 
 			if (flow.kind === 'cancel') return;
+
+			// Kepler creates its own worktree for the task, so return BEFORE `getSteps` below — no
+			// branch, no worktree. `state.result` can't be fulfilled without a branch, so settle it
+			// with the reason rather than the base command's generic "cancelled".
+			if (flow.kind === 'kepler') {
+				state.result?.cancel(new Error('Start Work was handed off to Kepler'));
+				await startKeplerTask(
+					this.container,
+					{
+						intent: 'start-work',
+						item: {
+							kind: 'issue',
+							url: issue.url,
+							provider: { id: issue.provider.id, name: issue.provider.name },
+						},
+						repoPath: getKeplerRepoPath(this.container, repo?.path),
+					},
+					this.source,
+				);
+				return;
+			}
 
 			if (flow.kind === 'agent') {
 				chatAction = {
