@@ -17,8 +17,8 @@ The codebase uses a discriminated error type pattern with static `.is()` type gu
 **Error files:**
 
 - `src/errors.ts` — General extension errors (Auth, Cancellation, Provider, Request)
-- `src/git/errors.ts` — 20+ Git operation errors (Push, Pull, Merge, Branch, Checkout, Stash, Worktree, etc.)
-- `src/env/node/git/shell.errors.ts` — Shell execution errors (RunError)
+- `packages/git/src/errors.ts` — 20+ Git operation errors (Push, Pull, Merge, Branch, Checkout, Stash, Worktree, etc.)
+- `packages/utils/src/env/node/exec.ts` — Shell execution errors (RunError)
 
 **Static `.is()` type guard pattern:**
 Every custom error class has a static `is()` method with optional reason filtering:
