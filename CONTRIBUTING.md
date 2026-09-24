@@ -179,7 +179,7 @@ Entries should be written in future tense:
 
 ### Update the README
 
-If this is your first contribution to GitLens, please give yourself credit by adding yourself to the `Contributors` section of the [README](README.md#contributors-) in the following format:
+If this is your first contribution to GitLens, please give yourself credit by adding yourself to the `Contributors` section of the [README](README.md#contributors) in the following format:
 
 > - `Your Name ([@<your-github-username>](https://github.com/<your-github-username>)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=<your-github-username>)`
 
@@ -411,4 +411,4 @@ runBenchmark();
 - **Display clear results**: Show ops/sec, average time, and margin of error
 - **Focus on hot paths**: Benchmark performance-critical code
 
-See the full [Benchmarking Guide](docs/benchmarking.md) for detailed information and the `src/system/__tests__/string.benchmark.ts` example.
+See the `packages/utils/src/__tests__/string.benchmark.ts` example.
