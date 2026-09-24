@@ -4,9 +4,8 @@ const cancellationErrorBrand = Symbol.for('CancellationError');
 
 /**
  * A standalone CancellationError for use in the library.
- * Uses a symbol brand so that both this class and the extension's
- * CancellationError (which extends vscode.CancellationError) are
- * recognized by `isCancellationError`.
+ * Uses a symbol brand so that instances from any bundle are recognized
+ * by `isCancellationError`.
  */
 export class CancellationError extends Error {
 	// TS-only nominal brand (not read anywhere) — without it, `CancellationError` has the same

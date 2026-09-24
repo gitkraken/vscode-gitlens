@@ -16,9 +16,10 @@ The codebase uses a discriminated error type pattern with static `.is()` type gu
 
 **Error files:**
 
-- `src/errors.ts` — General extension errors (Auth, Cancellation, Provider, Request)
+- `src/errors.ts` — General extension errors (Access, Account, Provider, Request); re-exports the shared Auth and Request client errors from `packages/git/src/errors.ts`
 - `packages/git/src/errors.ts` — 20+ Git operation errors (Push, Pull, Merge, Branch, Checkout, Stash, Worktree, etc.)
 - `packages/utils/src/env/node/exec.ts` — Shell execution errors (RunError)
+- `packages/utils/src/cancellation.ts` — `CancellationError` and `isCancellationError()`
 
 **Static `.is()` type guard pattern:**
 Every custom error class has a static `is()` method with optional reason filtering:
@@ -44,7 +45,7 @@ Errors commonly wrap an `original` error and carry typed `details` with a `reaso
 throw new PushError({ reason: 'rejected', branch: 'main', remote: 'origin' }, originalGitError);
 ```
 
-**`CancellationError`**: Special case — extends VS Code's `CancellationError`. Used by `@gate()` timeout, user cancellation, and operation abort. Check with `isCancellationError(ex)`.
+**`CancellationError`**: Special case — carries a symbol brand instead of relying on `instanceof`, so it is recognized across bundles. Used by `@gate()` timeout, user cancellation, and operation abort. Check with `isCancellationError(ex)`.
 
 **General rules:**
 
