@@ -107,6 +107,12 @@ import type { ProviderRepositoryShape } from '../results.js';
 export type { ProviderOrganization, ProviderRepositoryShape } from '../results.js';
 import { fromProviderAccount, toProviderAccount } from './accounts.js';
 import {
+	azurePullRequestSearchSorts,
+	azureWorkItemSearchRelationships,
+	azureWorkItemSearchResultLimit,
+	azureWorkItemSearchSorts,
+} from './azure/search.js';
+import {
 	azureAccountWideIssueSorts,
 	azureIssueSorts,
 	githubAccountWideIssueSorts,
@@ -872,6 +878,15 @@ export interface ProviderMetadata {
 	 * instead of quoting a limit that was never published.
 	 */
 	issueSearchResultLimit?: number;
+	/**
+	 * Whether the filtered searches reach the provider with scope names verbatim — as encoded URL segments, or
+	 * matched against the names discovery reported — rather than inside a query string the provider sanitizes.
+	 *
+	 * Relaxes the scope-name rule (`isUsableSearchScopeName`) for that provider to refuse only blank names and
+	 * control characters: a space or a quote can't split or alter a scope that is never parsed as a query, and
+	 * refusing them would refuse real names. Absent for a query-string search (GitHub's), where both do.
+	 */
+	exactSearchScopeNames?: boolean;
 }
 
 export type Providers = Record<IntegrationIds, ProviderInfo>;
@@ -955,6 +970,47 @@ const bitbucketServerPullRequestSearchCapabilities: PullRequestSearchCapabilitie
 	repositoryScope: true,
 	organizationScope: false,
 	sorts: ['updated:desc', 'updated:asc'],
+};
+
+/**
+ * Azure DevOps Server's filtered pull-request search. Azure's pull request query narrows only by creator, reviewer,
+ * status and repository, so the provider drains each facet and applies text, draft and dates to the complete facet
+ * before merging — so a criterion never narrows a page after its count, and the only sort keys are the two a merged
+ * page can be re-ordered by. What text and `updatedAfter` match is bounded by the list endpoint: see
+ * `toAzurePullRequestSearchFilter`.
+ *
+ * `Assignee` and `ReviewRequested` both read by reviewer: Azure has no assignee distinct from its reviewers.
+ * `Reviewed` and `Mention` are absent because the pull request query has no axis for either, and `includeArchived`
+ * because Azure has no archived repositories to exclude.
+ */
+const azureServerPullRequestSearchCapabilities: PullRequestSearchCapabilities = {
+	relationships: [PullRequestFilter.Author, PullRequestFilter.Assignee, PullRequestFilter.ReviewRequested],
+	states: ['open', 'closed', 'merged', 'all'],
+	text: true,
+	updatedAfter: true,
+	createdAfter: true,
+	includeArchived: false,
+	draft: true,
+	repositoryScope: true,
+	organizationScope: true,
+	sorts: azurePullRequestSearchSorts,
+};
+
+/**
+ * Azure DevOps Server's filtered work-item search: one WIQL query per collection, every criterion a clause of it.
+ * `mentioned` is absent because `@RecentMentions` only reaches back 30 days; `milestone` and
+ * `withoutLinkedPullRequest` because WIQL has no flat-query clause for either. See `azure/search.ts`.
+ */
+const azureServerIssueSearchCapabilities: IssueSearchCapabilities = {
+	relationships: azureWorkItemSearchRelationships,
+	text: true,
+	labels: true,
+	milestone: false,
+	updatedAfter: true,
+	createdAfter: true,
+	withoutLinkedPullRequest: false,
+	states: true,
+	sorts: azureWorkItemSearchSorts,
 };
 
 export const providersMetadata: ProvidersMetadata = {
@@ -1178,6 +1234,10 @@ export const providersMetadata: ProvidersMetadata = {
 		// dropped from that surface for the same reason they are dropped from GitLab's.
 		supportedIssueSorts: azureIssueSorts,
 		supportedAccountWideIssueSorts: azureAccountWideIssueSorts,
+		supportedPullRequestSearch: azureServerPullRequestSearchCapabilities,
+		supportedIssueSearch: azureServerIssueSearchCapabilities,
+		issueSearchResultLimit: azureWorkItemSearchResultLimit,
+		exactSearchScopeNames: true,
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
 	},
 	[IssuesCloudHostIntegrationId.Jira]: {

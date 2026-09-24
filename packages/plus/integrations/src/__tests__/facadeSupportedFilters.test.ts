@@ -255,7 +255,7 @@ suite('IntegrationManager.getSupportedFilters', () => {
 	});
 
 	suite('pullRequestSearch', () => {
-		test('is always present and only GitHub/GHE and Bitbucket Data Center declare support today', () => {
+		test('is always present and only GitHub/GHE, Bitbucket Data Center and Azure DevOps Server declare support today', () => {
 			const manager = createIntegrationManager(createFakeRuntime());
 			try {
 				for (const id of allIds) {
@@ -265,12 +265,15 @@ suite('IntegrationManager.getSupportedFilters', () => {
 				const withSearch = allIds.filter(
 					id => manager.getSupportedFilters(id).pullRequestSearch.relationships.length > 0,
 				);
+				// Azure DevOps Services keeps no search: the server search drains per collection, which Services'
+				// organization-wide scope was never measured against.
 				assert.deepEqual(
 					withSearch.sort(),
 					[
 						GitCloudHostIntegrationId.GitHub,
 						GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
 						GitSelfManagedHostIntegrationId.BitbucketServer,
+						GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 					].sort(),
 				);
 			} finally {
@@ -412,7 +415,7 @@ suite('IntegrationManager.getSupportedFilters', () => {
 			}
 		});
 
-		test('only GitHub and GHE declare a filtered issue search today', () => {
+		test('only GitHub, GHE and Azure DevOps Server declare a filtered issue search today', () => {
 			const manager = createIntegrationManager(createFakeRuntime());
 			try {
 				const withSearch = allIds.filter(
@@ -420,7 +423,11 @@ suite('IntegrationManager.getSupportedFilters', () => {
 				);
 				assert.deepEqual(
 					withSearch.sort(),
-					[GitCloudHostIntegrationId.GitHub, GitSelfManagedHostIntegrationId.CloudGitHubEnterprise].sort(),
+					[
+						GitCloudHostIntegrationId.GitHub,
+						GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+						GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+					].sort(),
 				);
 			} finally {
 				manager.dispose();

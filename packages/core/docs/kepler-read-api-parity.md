@@ -156,11 +156,12 @@ was the standing argument for refusing a multi-repo "assigned to anyone" read. M
 `org:gitkraken` 315. Any scope works; only the unscoped form is meaningless (6.7 M), which is what the guards
 actually refuse.
 
-**Provider coverage:** GitHub/GHE only. GitLab and Azure declare no `issueSearch` capability, so the read is
-refused there rather than serving an unnarrowed list — unimplemented, not impossible: GitLab maps to `search` /
-`updated_after` / `labels` / `milestone` with one relationship per REST call (its `assignee_username` +
-`author_username` compose with AND, so relationships must stay separate drains), and Azure to per-project WIQL.
-`withoutLinkedPullRequest` and free text have no equivalent on either.
+**Provider coverage:** GitHub/GHE, and Azure DevOps Server through one collection-scoped WIQL query (#5876; see
+[`integrations.md` §9](./integrations.md#9-per-provider-behavior-worth-designing-around) for what it declares).
+GitLab and Azure DevOps Services declare no `issueSearch` capability, so the read is refused there rather than
+serving an unnarrowed list — unimplemented, not impossible: GitLab maps to `search` / `updated_after` / `labels` /
+`milestone` with one relationship per REST call (its `assignee_username` + `author_username` compose with AND, so
+relationships must stay separate drains).
 
 **`countPullRequests`** is the PR twin, closing the asymmetry the audit flagged: the PR side had
 `searchPullRequestsPage` but no count probe, so an explicit "search everywhere" on PRs ran blind while the same
@@ -169,7 +170,10 @@ action on issues showed a number. It reuses GitHub's `issueCount`-on-a-zero-node
 one-relationship-per-scope rules. The one PR-specific decision: a scope's `states` are counted as independent
 searches, so the reported count is the **largest** of them (the total `searchPullRequestsPage` itself surfaces
 via `Math.max` over facets), not their sum, and `exceedsProviderLimit` compares that max against the per-search
-ceiling. GitHub/GHE only, matching `searchPullRequestsPage`.
+ceiling. GitHub/GHE, Bitbucket Data Center and Azure DevOps Server, matching `searchPullRequestsPage`. Bitbucket
+Data Center counts by reading, so it reports the exact union (a floor with `lowerBound` past its first page) and
+accepts several relationships in one scope; Azure's count is the union of the states from the same facet drain its
+search pages through, or `undefined` past the drain bound.
 
 **Since done:** `broadenIssues`' inner per-org read WAS swapped onto the filtered search (#5804). Only that
 inner read changed — the fan-out keeps its own result type, per-org cursor bundle and per-provider
