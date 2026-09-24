@@ -171,7 +171,7 @@ export function resolvePullRequestSearchScope(
 	// missing one. `org` is passed bare, matching the issue twin — the helper applies its own empty-means-
 	// unsupplied guard, so re-testing `hasOrganizationScope` here would only make the two resolvers look like
 	// they differ.
-	const unusable = unusableSearchScopeNames(org, resolvedRepos);
+	const unusable = unusableSearchScopeNames(id, org, resolvedRepos);
 	if (unusable.length > 0) return { rejection: { reason: 'unusable-scope', scopes: unusable } };
 
 	if (resolvedRepos != null || hasOrganizationScope || (criteria?.relationships?.length ?? 0) > 0) {
@@ -368,11 +368,15 @@ export type IssueSearchScopeRejection =
  *
  * Provider-NEUTRAL by design, and deliberately not an import of GitHub's `sanitizeGitHubQualifierValue`: this
  * module validates for every provider, and a GitHub-specific rule reaching in here would be wrong for the next
- * one that declares a search. Only GitHub and GHE declare one today, so the character class below is GitHub's in
- * practice; it is stated as the common part of any query language because each class breaks a query on its own
- * terms — a quote closes its own qualifier, a control character cannot appear at all, whitespace delimits the
- * next qualifier — but a provider whose names legitimately carry one (Azure DevOps project names can contain
- * spaces) needs its own rule alongside its `supported*Search` capability rather than an exception here.
+ * one that declares a search. The character class below is stated as the common part of any query language,
+ * because each class breaks a query on its own terms — a quote closes its own qualifier, a control character
+ * cannot appear at all, whitespace delimits the next qualifier.
+ *
+ * A provider that never puts a scope name into a query string declares
+ * {@link ProviderMetadata.exactSearchScopeNames}, and only blank names and control characters are refused for it:
+ * Azure DevOps Server addresses a collection or repository as an encoded URL segment and matches a project against
+ * the names discovery reported, so a space or a quote reaches it naming the same scope — and its names legitimately
+ * contain both.
  *
  * EDGES ARE STRIPPED before the test, which is what keeps the predicate no stricter than the provider's own
  * sanitizing — the invariant that makes refusing safe to add, since it means this can only reject a name the
@@ -385,8 +389,13 @@ export type IssueSearchScopeRejection =
  * empties, an INNER space or control character still splits (`'git\u0000kraken'` emits `git kraken`, two
  * tokens), and a quote still alters wherever it sits.
  */
-function isUsableSearchScopeName(name: string): boolean {
+function isUsableSearchScopeName(id: IntegrationIds, name: string): boolean {
 	const stripped = stripSearchScopeEdges(name);
+	if (providersMetadata[id]?.exactSearchScopeNames === true) {
+		// eslint-disable-next-line no-control-regex
+		return stripped.length > 0 && !/[\u0000-\u001f\u007f]/.test(stripped);
+	}
+
 	// eslint-disable-next-line no-control-regex
 	return stripped.length > 0 && !/["\u0000-\u001f\u007f\s]/.test(stripped);
 }
@@ -401,12 +410,16 @@ function stripSearchScopeEdges(value: string): string {
  * The scope names a search cannot carry as given, as the strings to name in the refusal — empty when every one is
  * usable. See {@link isUsableSearchScopeName} for the rule and why it refuses rather than sanitizes.
  */
-function unusableSearchScopeNames(org: string | undefined, repos: readonly ProviderRepoInput[] | undefined): string[] {
+function unusableSearchScopeNames(
+	id: IntegrationIds,
+	org: string | undefined,
+	repos: readonly ProviderRepoInput[] | undefined,
+): string[] {
 	const unusable: string[] = [];
 
 	// An EMPTY org is "no org supplied" and falls through to the remaining scopes; any other unusable value WAS
 	// supplied, so it is refused rather than dropped.
-	if (org != null && org.length > 0 && !isUsableSearchScopeName(org)) {
+	if (org != null && org.length > 0 && !isUsableSearchScopeName(id, org)) {
 		unusable.push(org);
 	}
 
@@ -426,7 +439,7 @@ function unusableSearchScopeNames(org: string | undefined, repos: readonly Provi
 		//   stripping removes it — `' /a'` strips to `'/a'`, a perfectly spellable qualifier naming no repository.
 		// Each half is measured after the same stripping, so `' '` and `''` are one case rather than two.
 		if (
-			!isUsableSearchScopeName(path) ||
+			!isUsableSearchScopeName(id, path) ||
 			stripSearchScopeEdges(namespace).length === 0 ||
 			stripSearchScopeEdges(name).length === 0
 		) {
@@ -454,6 +467,7 @@ function unusableSearchScopeNames(org: string | undefined, repos: readonly Provi
  * non-empty, and that distinction is a SECURITY one rather than a nicety — see {@link isUsableSearchScopeName}.
  */
 export function resolveIssueSearchScope(
+	id: IntegrationIds,
 	repos: ProviderReposInput | undefined,
 	org: string | undefined,
 	criteria: IssueSearchCriteria | undefined,
@@ -471,7 +485,7 @@ export function resolveIssueSearchScope(
 
 	// Checked BEFORE the "is it scoped at all" rule below, so an unusable value is never reported as a missing
 	// one: it was supplied, and telling the caller to pass a scope it already passed names the wrong defect.
-	const unusable = unusableSearchScopeNames(org, resolvedRepos);
+	const unusable = unusableSearchScopeNames(id, org, resolvedRepos);
 	if (unusable.length > 0) return { rejection: { reason: 'unusable-scope', scopes: unusable } };
 
 	if (resolvedRepos != null) return { repos: resolvedRepos };

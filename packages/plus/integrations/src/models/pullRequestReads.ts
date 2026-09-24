@@ -25,6 +25,8 @@ export type ProviderPullRequestSearchPage = {
 	page: number;
 	totalCount?: number;
 	metadata?: CollectionMetadata;
+	/** See `ProviderIssueSearchPage.limitReached`. */
+	limitReached?: boolean;
 };
 
 /**
@@ -33,6 +35,9 @@ export type ProviderPullRequestSearchPage = {
  * `lowerBound` marks a count that stopped before the scope was exhausted: a provider with no count query
  * (Bitbucket Data Center) counts by reading, within a budget, so past it `count` is how many matched in what was
  * read — a floor, never the total.
+ *
+ * An `Error` in its place refuses that ONE scope for its own reasons (Azure DevOps Server refusing a scope it can't
+ * search): the facade warns and drops only it, as it does for a scope it refuses itself.
  */
 export type ProviderPullRequestCount = {
 	count: number | undefined;

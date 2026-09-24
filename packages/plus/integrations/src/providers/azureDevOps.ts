@@ -12,10 +12,8 @@ import type {
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
-import type { Emitter } from '@gitlens/utils/event.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
-import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type {
 	AuthenticationSessionLike as AuthenticationSession,
 	ProviderAuthenticationSession,
@@ -23,12 +21,11 @@ import type {
 } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
-import type { IntegrationServiceContext } from '../context.js';
-import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import type { GitSelfManagedHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { AccountWideIssuesResult, IntegrationKey, SearchMyIssuesOptions } from '../models/integration.js';
+import type { AccountWideIssuesResult, SearchMyIssuesOptions } from '../models/integration.js';
 import { decodePathSegment } from '../utils/domain.utils.js';
 import type {
 	AzureOrganizationDescriptor,
@@ -40,11 +37,11 @@ import type {
 import type {
 	ProviderApiCollectionResult,
 	ProviderApiPagedResult,
+	ProviderAzureResource,
 	ProviderHierarchyResult,
 	ProviderOrganization,
 	ProviderPullRequest,
 	ProviderRepoInput,
-	ProviderReposInput,
 	ProviderRepository,
 } from './models.js';
 import {
@@ -57,14 +54,13 @@ import {
 	PullRequestFilter,
 	toProviderPullRequestStates,
 } from './models.js';
-import type { ProvidersApi } from './providersApi.js';
 import {
 	collectProviderPagedResult,
 	flatSettledResultsOrThrow,
 	mergeCollectionMetadata,
 } from './utils/providerPaging.js';
 
-function getAzureRepositoryIdentity(repo: Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project'>): {
+export function getAzureRepositoryIdentity(repo: Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project'>): {
 	resourceName: string;
 	projectName?: string;
 	repositoryName: string;
@@ -77,7 +73,7 @@ function getAzureRepositoryIdentity(repo: Pick<AzureRepositoryDescriptor, 'owner
 	};
 }
 
-function getAzureRepositoryApiBaseUrl(
+export function getAzureRepositoryApiBaseUrl(
 	baseUrl: string,
 	repo: Pick<AzureRepositoryDescriptor, 'owner' | 'virtualDirectory'>,
 ): string {
@@ -108,6 +104,25 @@ function getAzureRepositoryApiBaseUrl(
 
 function sameAzurePathSegment(encoded: string, value: string): boolean {
 	return decodePathSegment(encoded).toLowerCase() === value.toLowerCase();
+}
+
+/**
+ * Whether two collection or project names name the same scope. Azure DevOps treats them case-insensitively, so a
+ * name typed by hand must still select the collection or project discovery reported.
+ */
+export function sameAzureName(a: string, b: string): boolean {
+	return a.toLowerCase() === b.toLowerCase();
+}
+
+/** The distinct names in `names`, compared as Azure compares them, keeping the first spelling of each. */
+export function uniqueAzureNames(names: readonly string[]): string[] {
+	const unique: string[] = [];
+	for (const name of names) {
+		if (!unique.some(n => sameAzureName(n, name))) {
+			unique.push(name);
+		}
+	}
+	return unique;
 }
 
 /**
@@ -143,20 +158,70 @@ export abstract class AzureDevOpsIntegrationBase<
 		};
 	}
 
+	/**
+	 * The options for a request addressed below one collection (an Azure DevOps Services organization).
+	 *
+	 * The same as {@link getApiOptions} unless a self-managed address already names the collection, which requests
+	 * append themselves: see the server override, which keeps it from being applied twice.
+	 */
+	protected getCollectionApiOptions(
+		session: ProviderAuthenticationSession,
+		_collection: string,
+	): { isPAT: boolean; baseUrl?: string } {
+		return this.getApiOptions(session).options;
+	}
+
+	/** The base a request or link below `collection` appends the collection to; see {@link getCollectionApiOptions}. */
+	protected collectionApiBaseUrl(session: ProviderAuthenticationSession, _collection: string): string {
+		return this.apiBaseUrlFor(session);
+	}
+
+	/** Reads the organizations (Azure DevOps Server: the collections) the account can see. */
+	protected async requestResourcesForUser(
+		session: ProviderAuthenticationSession,
+		userId: string,
+	): Promise<ProviderAzureResource[] | undefined> {
+		const api = await this.getProvidersApi();
+		const { tokenWithInfo, options } = this.getApiOptions(session);
+		return api.getAzureResourcesForUser(tokenWithInfo, userId, options);
+	}
+
+	/**
+	 * The identity id a pull-request creator/reviewer filter must carry for `collection`.
+	 *
+	 * On Azure DevOps Services that is the account id, one per user. The server override resolves it per collection,
+	 * since Azure DevOps Server gives one person a different id in each collection than at the server level.
+	 */
+	protected async getFilterUserId(
+		session: ProviderAuthenticationSession,
+		_collection: string,
+	): Promise<string | undefined> {
+		return (await this.getProviderCurrentAccount(session))?.id;
+	}
+
+	/**
+	 * What the discovery caches (account, organizations, projects, and their stored copies) are keyed by. Azure DevOps
+	 * Services has a single address, so the credential alone identifies what it discovers; the server override adds
+	 * the installation address.
+	 */
+	protected discoveryKey(session: ProviderAuthenticationSession): string {
+		return session.accessToken;
+	}
+
 	private _accounts: Map<string, Account | undefined> | undefined;
 	protected override async getProviderCurrentAccount(
 		session: ProviderAuthenticationSession,
 	): Promise<Account | undefined> {
-		const { accessToken } = session;
+		const key = this.discoveryKey(session);
 		this._accounts ??= new Map<string, Account | undefined>();
 
-		const cachedAccount = this._accounts.get(accessToken);
+		const cachedAccount = this._accounts.get(key);
 		if (cachedAccount == null) {
 			const user = await this._requestForCurrentUser(session);
-			this._accounts.set(accessToken, user);
+			this._accounts.set(key, user);
 		}
 
-		return this._accounts.get(accessToken);
+		return this._accounts.get(key);
 	}
 
 	protected async _requestForCurrentUser(session: ProviderAuthenticationSession): Promise<Account | undefined> {
@@ -176,28 +241,23 @@ export abstract class AzureDevOpsIntegrationBase<
 	}
 
 	private _organizations: Map<string, AzureOrganizationDescriptor[] | undefined> | undefined;
-	private async getProviderResourcesForUser(
+	protected async getProviderResourcesForUser(
 		session: ProviderAuthenticationSession,
 		force: boolean = false,
 	): Promise<AzureOrganizationDescriptor[] | undefined> {
 		this._organizations ??= new Map<string, AzureOrganizationDescriptor[] | undefined>();
-		const { accessToken } = session;
-		const cachedResources = this._organizations.get(accessToken);
+		const key = this.discoveryKey(session);
+		const cachedResources = this._organizations.get(key);
 
 		if (cachedResources == null || force) {
-			const api = await this.getProvidersApi();
 			const account = await this.getProviderCurrentAccount(session);
 			if (account?.id == null) return undefined;
 
-			const { tokenWithInfo, options } = this.getApiOptions(session);
-			const resources = await api.getAzureResourcesForUser(tokenWithInfo, account.id, options);
-			this._organizations.set(
-				accessToken,
-				resources != null ? resources.map(r => ({ ...r, key: r.id })) : undefined,
-			);
+			const resources = await this.requestResourcesForUser(session, account.id);
+			this._organizations.set(key, resources != null ? resources.map(r => ({ ...r, key: r.id })) : undefined);
 		}
 
-		return this._organizations.get(accessToken);
+		return this._organizations.get(key);
 	}
 
 	private _projects: Map<string, AzureProjectDescriptor[] | undefined> | undefined;
@@ -208,21 +268,21 @@ export abstract class AzureDevOpsIntegrationBase<
 	 * caller can surface the incomplete project set (a whole org's PRs/issues silently missing otherwise) as a
 	 * scope-aware warning + `fetchFailed` rather than an all-pages success over a hole.
 	 */
-	private async getProviderProjectsForResources(
+	protected async getProviderProjectsForResources(
 		session: ProviderAuthenticationSession,
 		resources: AzureOrganizationDescriptor[],
 		force: boolean = false,
 		failures?: CollectionScopeFailure[],
 	): Promise<ProviderApiCollectionResult<AzureProjectDescriptor>> {
 		this._projects ??= new Map<string, AzureProjectDescriptor[] | undefined>();
-		const { accessToken } = session;
+		const discoveryKey = this.discoveryKey(session);
 
 		let resourcesWithoutProjects = [];
 		if (force) {
 			resourcesWithoutProjects = resources;
 		} else {
 			for (const resource of resources) {
-				const resourceKey = `${accessToken}:${resource.id}`;
+				const resourceKey = `${discoveryKey}:${resource.id}`;
 				const cachedProjects = this._projects.get(resourceKey);
 				if (cachedProjects == null) {
 					resourcesWithoutProjects.push(resource);
@@ -235,7 +295,7 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		if (resourcesWithoutProjects.length > 0) {
 			const api = await this.getProvidersApi();
-			const { tokenWithInfo, options } = this.getApiOptions(session);
+			const { tokenWithInfo } = this.getApiOptions(session);
 			// The projects API is paginated; a single call would drop every project past the first page (and
 			// with it their repos and PRs). Drain all pages per resource, threading the returned cursor.
 			// Per-resource (not a shared flatSettled) so a resource whose drain was truncated (hit the paging
@@ -249,7 +309,7 @@ export abstract class AzureDevOpsIntegrationBase<
 					result: await collectProviderPagedResult(
 						cursor =>
 							api.getAzureProjectsForResource(tokenWithInfo, resource.name, {
-								...options,
+								...this.getCollectionApiOptions(session, resource.name),
 								cursor: cursor,
 							}),
 						20,
@@ -317,12 +377,12 @@ export abstract class AzureDevOpsIntegrationBase<
 					return;
 				}
 
-				this._projects!.set(`${accessToken}:${resource.id}`, projects);
+				this._projects!.set(`${discoveryKey}:${resource.id}`, projects);
 			});
 		}
 
 		const cachedProjects = resources.reduce<AzureProjectDescriptor[]>((projects, resource) => {
-			const resourceProjects = this._projects!.get(`${accessToken}:${resource.id}`);
+			const resourceProjects = this._projects!.get(`${discoveryKey}:${resource.id}`);
 			if (resourceProjects != null) {
 				projects.push(...resourceProjects);
 			}
@@ -349,11 +409,16 @@ export abstract class AzureDevOpsIntegrationBase<
 		if (projects.length === 0) return descriptors;
 
 		const api = await this.getProvidersApi();
-		const { tokenWithInfo, options } = this.getApiOptions(session);
+		const { tokenWithInfo } = this.getApiOptions(session);
 		await Promise.all(
 			projects.map(async project => {
 				const repos = (
-					await api.getReposForAzureProject(tokenWithInfo, project.resourceName, project.name, options)
+					await api.getReposForAzureProject(
+						tokenWithInfo,
+						project.resourceName,
+						project.name,
+						this.getCollectionApiOptions(session, project.resourceName),
+					)
 				)?.values;
 				if (repos != null && repos.length > 0) {
 					descriptors.set(
@@ -388,7 +453,7 @@ export abstract class AzureDevOpsIntegrationBase<
 				id: o.id,
 				providerId: this.id,
 				name: o.name,
-				url: `${this.apiBaseUrlFor(session)}/${o.name}`,
+				url: `${this.collectionApiBaseUrl(session, o.name)}/${o.name}`,
 			})),
 		};
 	}
@@ -418,7 +483,7 @@ export abstract class AzureDevOpsIntegrationBase<
 				providerId: this.id,
 				name: p.name,
 				org: p.resourceName,
-				url: `${this.apiBaseUrlFor(session)}/${p.resourceName}/${p.name}`,
+				url: `${this.collectionApiBaseUrl(session, p.resourceName)}/${p.resourceName}/${p.name}`,
 			})),
 			...(projects.metadata != null ? { metadata: projects.metadata } : {}),
 		};
@@ -437,7 +502,8 @@ export abstract class AzureDevOpsIntegrationBase<
 		options?: { project?: string; cursor?: string },
 	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined> {
 		const api = await this.getProvidersApi();
-		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
+		const { tokenWithInfo } = this.getApiOptions(session);
+		const apiOptions = this.getCollectionApiOptions(session, org);
 
 		if (options?.project) {
 			return api.getReposForAzureProject(tokenWithInfo, org, options.project, {
@@ -505,7 +571,8 @@ export abstract class AzureDevOpsIntegrationBase<
 		const api = await this.getProvidersApi();
 		if (pr.refs == null || pr.project == null) return false;
 
-		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
+		const { tokenWithInfo } = this.getApiOptions(session);
+		const apiOptions = this.getCollectionApiOptions(session, pr.repository.owner);
 
 		try {
 			const merged = await api.mergePullRequest(tokenWithInfo, pr, {
@@ -612,7 +679,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			matchingProject,
 			id,
 			{
-				baseUrl: this.apiBaseUrlFor(session),
+				baseUrl: this.collectionApiBaseUrl(session, matchingProject.resourceName),
 			},
 		);
 	}
@@ -705,8 +772,8 @@ export abstract class AzureDevOpsIntegrationBase<
 		const states = toProviderPullRequestStates(options?.state);
 
 		const user = await this.getProviderCurrentAccount(session);
-		// Azure filters key on the identity GUID (account id), not the display name — see
-		// getProviderMyPullRequestsForUser and the repo-scoped path in gitHostIntegration.ts.
+		// Azure filters key on the identity GUID, not the display name — see getProviderMyPullRequestsForUser and the
+		// repo-scoped path in gitHostIntegration.ts. The GUID itself is resolved per organization below.
 		if (user?.id == null) return undefined;
 
 		const orgs = await this.getProviderResourcesForUser(session);
@@ -721,38 +788,49 @@ export abstract class AzureDevOpsIntegrationBase<
 			.filter(r => r != null)
 			.flat();
 
-		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
-		const projectInputs = projects.values.map(p => ({ namespace: p.resourceName, project: p.name }));
+		const { tokenWithInfo } = this.getApiOptions(session);
 		// Legacy array-returning path (Launchpad/focus view): unwrap `.values` from the SDK collection result.
 		// The metadata (partial/failures) isn't surfaced here because this path's return type has no warning
 		// channel; the metadata-aware ProviderBackend surface is getProviderMyPullRequestsForUser above.
-		const assignedPrs = (
-			await api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
-				...apiOptions,
-				assigneeLogins: [user.id],
-				states: states,
-			})
-		).values.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects.values));
-		const authoredPrs = (
-			await api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
-				...apiOptions,
-				authorLogin: user.id,
-				states: states,
-			})
-		).values.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects.values));
-		const prsById = new Map<string, PullRequest>();
-		for (const pr of authoredPrs) {
-			prsById.set(pr.id, pr);
-		}
+		//
+		// Read per organization, since both the identity the filters compare and the base the requests address are
+		// the organization's own (see `getFilterUserId` and `getCollectionApiOptions`).
+		const assignedPrs: PullRequest[] = [];
+		const authoredPrs: PullRequest[] = [];
+		for (const org of uniqueAzureNames(projects.values.map(p => p.resourceName))) {
+			const userId = await this.getFilterUserId(session, org);
+			if (userId == null) continue;
 
-		for (const pr of assignedPrs) {
-			const existing = prsById.get(pr.id);
-			if (existing == null) {
-				prsById.set(pr.id, pr);
+			const projectInputs = projects.values
+				.filter(p => sameAzureName(p.resourceName, org))
+				.map(p => ({ namespace: p.resourceName, project: p.name }));
+			const orgOptions = this.getCollectionApiOptions(session, org);
+			const reads: [{ assigneeLogins?: string[]; authorLogin?: string }, PullRequest[]][] = [
+				[{ assigneeLogins: [userId] }, assignedPrs],
+				[{ authorLogin: userId }, authoredPrs],
+			];
+			for (const [filter, into] of reads) {
+				const result = await api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
+					...orgOptions,
+					...filter,
+					states: states,
+				});
+				into.push(
+					...result.values.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects.values)),
+				);
+			}
+		}
+		// Azure's pull request id is only unique within a repository, so the two passes are merged by repository and
+		// id: keying on the id alone let one repository's pull request hide another's with the same number.
+		const prsByIdentity = new Map<string, PullRequest>();
+		for (const pr of [...authoredPrs, ...assignedPrs]) {
+			const identity = `${pr.repository.owner}/${pr.repository.id || pr.repository.repo}#${pr.id}`;
+			if (!prsByIdentity.has(identity)) {
+				prsByIdentity.set(identity, pr);
 			}
 		}
 
-		return [...prsById.values()];
+		return [...prsByIdentity.values()];
 	}
 
 	protected override async getProviderMyPullRequestsForUser(
@@ -762,8 +840,9 @@ export abstract class AzureDevOpsIntegrationBase<
 		const api = await this.getProvidersApi();
 		const user = await this.getProviderCurrentAccount(session);
 		// Azure routes authorLogin/assigneeLogins to `searchCriteria.creatorId`/`reviewerId`, which require the
-		// identity GUID (account id), not the display name — matching the repo-scoped path in
-		// gitHostIntegration.ts. Using `username` here would match nothing and return zero PRs.
+		// identity GUID, not the display name — matching the repo-scoped path in gitHostIntegration.ts. Using
+		// `username` here would match nothing and return zero PRs. The GUID is resolved per organization below
+		// (see `getFilterUserId`); this only checks there is a user at all.
 		if (user?.id == null) return undefined;
 
 		// Azure PRs are org + project scoped: enumerate the user's orgs and their projects, then read authored
@@ -787,7 +866,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			};
 		}
 
-		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
+		const { tokenWithInfo } = this.getApiOptions(session);
 		const states = toProviderPullRequestStates(options?.state);
 		const maxPagesPerProject = 20;
 
@@ -809,7 +888,9 @@ export abstract class AzureDevOpsIntegrationBase<
 			for (let i = 0; i < maxPagesPerProject; i++) {
 				try {
 					const result = await api.getPullRequestsForAzureProject(tokenWithInfo, project, {
-						...apiOptions,
+						// Addressed below the project's own collection, applied once even when the configured address
+						// already names it (the request appends the collection as `namespace`).
+						...this.getCollectionApiOptions(session, project.namespace),
 						...filter,
 						states: states,
 						page: page,
@@ -873,16 +954,29 @@ export abstract class AzureDevOpsIntegrationBase<
 			requested == null ||
 			requested.has(PullRequestFilter.Assignee) ||
 			requested.has(PullRequestFilter.ReviewRequested);
+		const userIds = new Map<string, string | undefined>();
+		for (const org of uniqueAzureNames(projects.values.map(p => p.resourceName))) {
+			userIds.set(org.toLowerCase(), await this.getFilterUserId(session, org));
+		}
 		const outcomes = await Promise.all(
 			projects.values.flatMap(p => {
 				const project = { namespace: p.resourceName, project: p.name };
 				const scope = { providerId: this.id, resourceId: p.resourceId, projectId: p.name };
+				const userId = userIds.get(p.resourceName.toLowerCase());
+				if (userId == null) {
+					failures.push(
+						toCollectionScopeFailure(scope, new Error('The current user could not be resolved here')),
+					);
+					truncated = true;
+					return [];
+				}
+
 				const drains = [];
 				if (wantAuthored) {
-					drains.push(drainProject(project, scope, { authorLogin: user.id }));
+					drains.push(drainProject(project, scope, { authorLogin: userId }));
 				}
 				if (wantReviewed) {
-					drains.push(drainProject(project, scope, { reviewerId: user.id }));
+					drains.push(drainProject(project, scope, { reviewerId: userId }));
 				}
 				return drains;
 			}),
@@ -954,7 +1048,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		if (repoInputs?.length === 0) return [];
 
 		const api = await this.getProvidersApi();
-		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
+		const { tokenWithInfo } = this.getApiOptions(session);
 		const states = toProviderPullRequestStates(options?.include);
 		const searchScopes: { project: { namespace: string; project: string }; repo?: ProviderRepoInput }[] =
 			repoInputs != null
@@ -985,7 +1079,7 @@ export abstract class AzureDevOpsIntegrationBase<
 					if (cancellation?.aborted) throw new CancellationError();
 
 					const result = await api.getPullRequestsForAzureProject(tokenWithInfo, scope.project, {
-						...apiOptions,
+						...this.getCollectionApiOptions(session, scope.project.namespace),
 						page: page,
 						repo: scope.repo,
 						states: states,
@@ -1075,7 +1169,7 @@ export abstract class AzureDevOpsIntegrationBase<
 				: { values: [], truncated: false };
 		}
 
-		const { tokenWithInfo, options } = this.getApiOptions(session);
+		const { tokenWithInfo } = this.getApiOptions(session);
 
 		// Drain one (project × filter) read fully, threading the provider's paging cursor. The scope is passed so
 		// a page-level failure preserves the already-drained prefix and records a structured failure instead of
@@ -1092,7 +1186,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			const result = await collectProviderPagedResult(
 				cursor =>
 					api.getIssuesForAzureProject(tokenWithInfo, p.resourceName, p.name, {
-						...options,
+						...this.getCollectionApiOptions(session, p.resourceName),
 						...filter,
 						cursor: cursor,
 						sort: searchOptions?.sort,
@@ -1165,12 +1259,14 @@ export abstract class AzureDevOpsIntegrationBase<
 	protected override async providerOnConnect(): Promise<void> {
 		if (this._session == null) return;
 
+		const discoveryKey = this.discoveryKey(this._session);
+
 		const canHydrateStoredProjects = (metadata: CollectionMetadata | undefined): boolean =>
 			metadata == null || metadata.completeness === 'complete';
 
-		const storedAccount = this.ctx.storage.get(`azure:${this._session.accessToken}:account`);
-		const storedOrganizations = this.ctx.storage.get(`azure:${this._session.accessToken}:organizations`);
-		const storedProjects = this.ctx.storage.get(`azure:${this._session.accessToken}:projects`);
+		const storedAccount = this.ctx.storage.get(`azure:${discoveryKey}:account`);
+		const storedOrganizations = this.ctx.storage.get(`azure:${discoveryKey}:organizations`);
+		const storedProjects = this.ctx.storage.get(`azure:${discoveryKey}:projects`);
 		let account: Account | undefined = storedAccount?.data ? { ...storedAccount.data, provider: this } : undefined;
 
 		let organizations = storedOrganizations?.data?.map((o: AzureOrganizationDescriptor) => ({ ...o }));
@@ -1195,7 +1291,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			if (account != null) {
 				// Clear all other stored organizations and projects and accounts when our session changes
 				await this.ctx.storage.deleteWithPrefix('azure');
-				await this.ctx.storage.store(`azure:${this._session.accessToken}:account`, {
+				await this.ctx.storage.store(`azure:${discoveryKey}:account`, {
 					v: 1,
 					timestamp: Date.now(),
 					data: {
@@ -1210,11 +1306,11 @@ export abstract class AzureDevOpsIntegrationBase<
 		}
 
 		this._accounts ??= new Map<string, Account | undefined>();
-		this._accounts.set(this._session.accessToken, account);
+		this._accounts.set(discoveryKey, account);
 
 		if (storedOrganizations == null) {
 			organizations = await this.getProviderResourcesForUser(this._session, true);
-			await this.ctx.storage.store(`azure:${this._session.accessToken}:organizations`, {
+			await this.ctx.storage.store(`azure:${discoveryKey}:organizations`, {
 				v: 1,
 				timestamp: Date.now(),
 				data: organizations,
@@ -1222,25 +1318,25 @@ export abstract class AzureDevOpsIntegrationBase<
 		}
 
 		this._organizations ??= new Map<string, AzureOrganizationDescriptor[] | undefined>();
-		this._organizations.set(this._session.accessToken, organizations);
+		this._organizations.set(discoveryKey, organizations);
 
 		if (projects == null && organizations?.length) {
 			projects = await this.getProviderProjectsForResources(this._session, organizations);
 			if (projects != null && canHydrateStoredProjects(projects.metadata)) {
-				await this.ctx.storage.store(`azure:${this._session.accessToken}:projects`, {
+				await this.ctx.storage.store(`azure:${discoveryKey}:projects`, {
 					v: 2,
 					timestamp: Date.now(),
 					data: projects,
 				});
 			} else {
-				await this.ctx.storage.delete(`azure:${this._session.accessToken}:projects`);
+				await this.ctx.storage.delete(`azure:${discoveryKey}:projects`);
 			}
 		}
 
 		this._projects ??= new Map<string, AzureProjectDescriptor[] | undefined>();
 		if (projects != null && canHydrateStoredProjects(projects.metadata)) {
 			for (const project of projects.values) {
-				const projectKey = `${this._session.accessToken}:${project.resourceId}`;
+				const projectKey = `${discoveryKey}:${project.resourceId}`;
 				const projects = this._projects.get(projectKey);
 				if (projects == null) {
 					this._projects.set(projectKey, [project]);
@@ -1314,78 +1410,5 @@ export class AzureDevOpsIntegration extends AzureDevOpsIntegrationBase<GitCloudH
 	}
 	protected override apiBaseUrlFor(_session: ProviderAuthenticationSession): string {
 		return 'https://dev.azure.com';
-	}
-}
-
-const serverMetadata = providersMetadata[GitSelfManagedHostIntegrationId.AzureDevOpsServer];
-const serverAuthProvider = Object.freeze({ id: serverMetadata.id, scopes: serverMetadata.scopes });
-
-export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<GitSelfManagedHostIntegrationId.AzureDevOpsServer> {
-	readonly authProvider: IntegrationAuthenticationProviderDescriptor = serverAuthProvider;
-	readonly id = GitSelfManagedHostIntegrationId.AzureDevOpsServer;
-	protected readonly key: IntegrationKey<GitSelfManagedHostIntegrationId.AzureDevOpsServer>;
-	readonly name: string = 'Azure DevOps Server';
-
-	constructor(
-		ctx: IntegrationServiceContext,
-		authenticationService: IntegrationAuthenticationService,
-		getProvidersApi: () => Promise<ProvidersApi>,
-		didChangeConnection: Emitter<IntegrationConnectionChangeEvent>,
-		readonly domain: string,
-	) {
-		super(ctx, authenticationService, getProvidersApi, didChangeConnection);
-		this.key = `${this.id}:${this.domain}`;
-	}
-
-	protected override apiBaseUrlFor(session: ProviderAuthenticationSession): string {
-		return this.getSelfManagedApiBaseUrl(session);
-	}
-
-	protected override getRepositoriesApiBaseUrl(
-		session: ProviderAuthenticationSession,
-		repos: ProviderReposInput,
-	): string {
-		// Requests append each repository's organization (its collection), which an address naming that collection
-		// already ends with. Only repositories of a single organization can share one base; mixed ones keep the
-		// address, so another collection's repository stays below it (see `resolveRepository`).
-		const owners = new Set(repos.map(r => (typeof r === 'object' ? r.namespace : undefined)));
-		const [owner] = owners;
-		const baseUrl = this.apiBaseUrlFor(session);
-		return owners.size === 1 && owner != null
-			? getAzureRepositoryApiBaseUrl(baseUrl, { owner: owner, virtualDirectory: undefined })
-			: baseUrl;
-	}
-
-	protected override getApiOptions(
-		session: ProviderAuthenticationSession,
-		doNotConvertToPat: boolean = false,
-	): {
-		tokenWithInfo: TokenWithInfo<GitSelfManagedHostIntegrationId.AzureDevOpsServer>;
-		options: { isPAT: boolean; baseUrl?: string };
-	} {
-		const { options, ...rest } = super.getApiOptions(session, doNotConvertToPat);
-		return {
-			...rest,
-			options: { ...options, baseUrl: this.apiBaseUrlFor(session) },
-		};
-	}
-
-	protected override async _requestForCurrentUser(
-		session: ProviderAuthenticationSession,
-	): Promise<Account | undefined> {
-		const azure = await this.authenticationService.apis.azure;
-		const user = azure
-			? await azure.getCurrentUserOnServer(this, toTokenWithInfo(this.id, session), this.apiBaseUrlFor(session))
-			: undefined;
-		return user
-			? {
-					provider: this,
-					id: user.id,
-					name: user.name ?? undefined,
-					email: user.email ?? undefined,
-					avatarUrl: user.avatarUrl ?? undefined,
-					username: user.username ?? undefined,
-				}
-			: undefined;
 	}
 }

@@ -4,10 +4,11 @@ import { chunk } from '@gitlens/utils/array.js';
 import { mapBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import type { ProviderSearchCount } from '../models/integration.js';
 import type { ProviderRepoInput, ProviderReposInput } from '../providers/models.js';
 import { providersMetadata } from '../providers/models.js';
 import type { ProviderResult, ProviderWarning } from '../results.js';
-import { appendDedupedWarning } from '../results.js';
+import { appendDedupedWarning, toProviderWarning } from '../results.js';
 import {
 	isGitHostIntegration,
 	isIssuesHostIntegrationId,
@@ -129,7 +130,8 @@ export interface PullRequestCountResult {
 	 *
 	 * For a multi-state scope, GitHub/GHE report the LARGEST of their per-state counts (the same total
 	 * `searchPullRequestsPage` surfaces, since each state is its own capped search), not their sum. Bitbucket Data
-	 * Center has no ceiling to stay under, so it reports the exact union — the number of rows the search returns.
+	 * Center has no ceiling to stay under, so it reports the exact union — the number of rows the search returns —
+	 * and so does Azure DevOps Server, which reads every state in one drain.
 	 */
 	count?: number;
 	/**
@@ -296,16 +298,14 @@ export async function countIssues(
 			continue;
 		}
 
-		for (let i = 0; i < batch.length; i++) {
-			const count = value[i];
-			items.push({
-				key: batch[i].key,
-				count: count,
-				// Only a reported count can exceed a declared ceiling; unknown-vs-limit is not a comparison.
-				exceedsProviderLimit: count != null && providerLimit != null && count > providerLimit,
-				providerLimit: providerLimit,
-			});
-		}
+		fetchFailed =
+			collectCounts(batch, value, providerLimit, items, (key, error) => {
+				const warning = toProviderWarning(options.providerId, domain, options.connectionId, error);
+				appendDedupedWarning(warnings, {
+					...warning,
+					message: `Issue count scope '${key}': ${warning.message}`,
+				});
+			}) || fetchFailed;
 	}
 
 	// A provider with no count support returns `undefined` with no error, which lands as an empty `items` and no
@@ -319,6 +319,42 @@ export async function countIssues(
 	}
 
 	return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
+}
+
+/**
+ * Turns one batch of positional issue counts into keyed results, returning whether any scope was refused.
+ *
+ * A slot holding an `Error` is a scope the PROVIDER refused for its own reasons (a scope naming a collection it
+ * can't search, say): reported and dropped exactly like a scope the facade refuses, so its siblings in the batch
+ * still come back. `'exceeds-limit'` is a count the provider can only bound — more than its ceiling matched — which
+ * is reported as `exceedsProviderLimit` with no `count` rather than as the ceiling, which would understate it.
+ */
+function collectCounts<T extends { key: string }>(
+	batch: readonly T[],
+	value: readonly ProviderSearchCount[],
+	providerLimit: number | undefined,
+	items: { key: string; count?: number; exceedsProviderLimit: boolean; providerLimit?: number }[],
+	onRefused: (key: string, error: Error) => void,
+): boolean {
+	let refused = false;
+	for (let i = 0; i < batch.length; i++) {
+		const count = value[i];
+		if (count instanceof Error) {
+			onRefused(batch[i].key, count);
+			refused = true;
+			continue;
+		}
+
+		const exceeds = count === 'exceeds-limit';
+		items.push({
+			key: batch[i].key,
+			count: exceeds ? undefined : count,
+			// Only a reported count can exceed a declared ceiling; unknown-vs-limit is not a comparison.
+			exceedsProviderLimit: exceeds || (count != null && providerLimit != null && count > providerLimit),
+			providerLimit: providerLimit,
+		});
+	}
+	return refused;
 }
 
 /** The first key that appears twice, or `undefined` when every key is unique. */
@@ -353,7 +389,7 @@ function rejectScope(
 
 	// AFTER the criteria check, mirroring `searchIssuesPage`: a provider with no filtered issue search is the more
 	// fundamental refusal, and a count must preview the refusal its read would give.
-	const scoping = resolveIssueSearchScope(scope.repos, scope.org, scope.criteria);
+	const scoping = resolveIssueSearchScope(providerId, scope.repos, scope.org, scope.criteria);
 	switch (scoping.rejection?.reason) {
 		case 'repo-ids':
 			return otherWarning(
@@ -406,7 +442,8 @@ function rejectScope(
  * of them (mirroring `searchPullRequestsPage`'s total), so an unpaged read still can't exceed a single search's
  * ceiling undetected. Bitbucket Data Center has no ceiling and no count query: it counts the exact union by reading
  * each scope within a budget, and flags a scope that had more as `lowerBound`. Because it deduplicates rows, it is
- * also the one provider that accepts several relationships in one scope.
+ * also the one provider that accepts several relationships in one scope. Azure DevOps Server counts the union of the
+ * states from the one drain its search pages through.
  */
 export async function countPullRequests(
 	ctx: ProviderReadContext,
@@ -537,11 +574,23 @@ export async function countPullRequests(
 		}
 
 		for (let i = 0; i < batch.length; i++) {
-			const count = value[i]?.count;
+			const slot = value[i];
+			// A scope the provider refused for its own reasons: reported and dropped like one the facade refuses.
+			if (slot instanceof Error) {
+				const warning = toProviderWarning(options.providerId, domain, options.connectionId, slot);
+				appendDedupedWarning(warnings, {
+					...warning,
+					message: `Pull request count scope '${batch[i].key}': ${warning.message}`,
+				});
+				fetchFailed = true;
+				continue;
+			}
+
+			const count = slot?.count;
 			items.push({
 				key: batch[i].key,
 				count: count,
-				...(count != null && value[i]?.lowerBound === true ? { lowerBound: true } : {}),
+				...(count != null && slot?.lowerBound === true ? { lowerBound: true } : {}),
 				// Only a reported count can exceed a declared ceiling; unknown-vs-limit is not a comparison.
 				exceedsProviderLimit: count != null && providerLimit != null && count > providerLimit,
 				providerLimit: providerLimit,

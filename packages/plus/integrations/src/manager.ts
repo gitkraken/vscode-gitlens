@@ -402,6 +402,14 @@ export interface IntegrationManager {
 	 * pre-ceiling facet count, not the reachable or returned row count; this mirrors the per-search ceiling's own
 	 * unit.
 	 *
+	 * **Azure DevOps Server** differs in how it gets there, because its pull request API can't filter by text, date or
+	 * draft: the first page drains every facet (up to 1,000 rows each) and later pages are served from that drain,
+	 * so a first page can cost many requests and a continuation none. A continuation whose drain expired is refused;
+	 * restart without the cursor. `itemsPerPage` sizes the whole page, not a
+	 * facet. Past a facet's drain bound the page is `truncated` with no `totalCount`. Scope names with spaces or
+	 * quotes are accepted there, since they reach the provider as encoded URL segments. See
+	 * `docs/integrations.md` §9.
+	 *
 	 * Check `getSupportedFilters().pullRequestSearch` before calling. A provider that reports no relationships
 	 * refuses the read rather than returning a page that never honored the criteria or scope.
 	 */
@@ -419,7 +427,8 @@ export interface IntegrationManager {
 		 *
 		 * Held to a STRICTER rule than the free-form `criteria.text`, which is sanitized: a scope name carrying a
 		 * quote, or an inner space or control character, is REFUSED (warning + `fetchFailed`), and the refusal
-		 * names the value. Leading and trailing whitespace and control characters are stripped and accepted,
+		 * names the value — except on a provider whose scope names never enter a query string (Azure DevOps
+		 * Server), where only blank names and control characters are. Leading and trailing whitespace and control characters are stripped and accepted,
 		 * since removing them cannot change which scope the query names. Sanitizing a scope would answer the wrong question — the sanitized value may name a real but
 		 * DIFFERENT organization, whose result looks entirely normal. Pass the name exactly as the provider spells
 		 * it; `''` means "no org supplied" and falls through to the other scopes.
@@ -435,7 +444,8 @@ export interface IntegrationManager {
 		 * 2-state search returns up to `6 × itemsPerPage` items before deduplication, and fewer than that where
 		 * the facets overlap. Deduplication does NOT bring the page back to this size: it removes only the rows the
 		 * facets share. `page.itemsPerPage` reports what actually came back, so size the UI off that rather than
-		 * off this. A provider may also cap it below what is asked for.
+		 * off this. A provider may also cap it below what is asked for. Azure DevOps Server is the exception: it
+		 * serves one merged page, so there this is the page size (at most 100).
 		 */
 		itemsPerPage?: number;
 		forceSync?: boolean;
@@ -538,7 +548,15 @@ export interface IntegrationManager {
 	 *   matched), `limit` (how many are reachable) and `sort` (the order that window was selected under) with
 	 *   `recovery: 'none'`, so a consumer can say "19.240 matched, showing the 1.000 most recent" — naming the
 	 *   order, since which 1.000 are reachable depends on it — and know not to offer a "load more". It never falls
-	 *   back to a per-repository recovery walk.
+	 *   back to a per-repository recovery walk. A provider that can prove the ceiling was reached without counting
+	 *   past it (Azure DevOps Server, at 20,000) omits `totalCount`, so render the limit alone. An Azure DevOps Server
+	 *   that refuses the match set even with the bounded query fails the page instead (warning + `fetchFailed`),
+	 *   while its count still reports `exceedsProviderLimit`; narrow the search.
+	 *
+	 * On **Azure DevOps Server** every relationship is one WIQL query over one collection (`org`, or the
+	 * repositories' collection), so `itemsPerPage` sizes the whole page. Continuations page through the ids the
+	 * first page queried while the pagination keeps reading; one whose ids have expired is refused, and the read
+	 * must restart without the cursor. See `docs/integrations.md` §9.
 	 *
 	 * Check `getSupportedFilters().issueSearch` first: a provider with no filtered issue search reports empty
 	 * relationships (and this read refuses), and a criterion or sort key it can't express refuses the whole read
@@ -558,7 +576,8 @@ export interface IntegrationManager {
 		 *
 		 * Held to a STRICTER rule than the free-form criteria, which are sanitized: a scope name carrying a quote,
 		 * or an inner space or control character, is REFUSED (warning + `fetchFailed`), and the refusal names the
-		 * value. Leading and trailing whitespace and control characters are stripped and accepted, since removing
+		 * value — except on Azure DevOps Server, whose scope names never enter a query string, where only blank
+		 * names and control characters are. Leading and trailing whitespace and control characters are stripped and accepted, since removing
 		 * them cannot change which scope the query names.
 		 * The sanitized value may name a real but DIFFERENT org, whose result looks entirely normal. `''` means
 		 * "no org supplied" and falls through to the other scopes.
@@ -601,8 +620,8 @@ export interface IntegrationManager {
 	 *
 	 * `count: undefined` means the provider didn't report one — NOT zero, which is a real answer. Render the
 	 * difference: showing an unknown count as 0 tells the user a filter matches nothing when it may match
-	 * thousands. A provider that can't count at all (only GitHub/GHE can today) refuses the probe outright rather
-	 * than returning fabricated numbers.
+	 * thousands. A provider that can't count at all (only GitHub/GHE and Azure DevOps Server can today) refuses the
+	 * probe outright rather than returning fabricated numbers.
 	 */
 	countIssues(options: {
 		providerId: IntegrationIds;
@@ -676,7 +695,7 @@ export interface IntegrationManager {
 	/**
 	 * How many pull requests match each scope — the PR twin of {@link countIssues}, behind a "this will fetch ~N pull
 	 * requests" preview and a live count next to an unapplied filter. Same per-scope isolation, `key`-echo, and
-	 * `count: undefined` ≠ zero rule as the issue count; GitHub/GHE and Bitbucket Data Center.
+	 * `count: undefined` ≠ zero rule as the issue count; GitHub/GHE, Bitbucket Data Center and Azure DevOps Server.
 	 *
 	 * The one PR-specific difference: on GitHub/GHE a scope's `states` are counted as independent searches, so the
 	 * reported count is the LARGEST of them (the same total {@link searchPullRequestsPage} surfaces), not their sum.
@@ -687,6 +706,9 @@ export interface IntegrationManager {
 	 * requests rather than none, and one past that page comes back as a floor with `lowerBound: true`. Reading lets it
 	 * deduplicate the rows, so it counts the exact union of the states AND of several relationships in one scope,
 	 * matching what the search it previews returns.
+	 *
+	 * Azure DevOps Server counts from the same drain its search pages through (reusing one its search read in the
+	 * last minute), so its count is the union of the states — for disjoint states their sum — and costs requests too.
 	 */
 	countPullRequests(options: {
 		providerId: IntegrationIds;

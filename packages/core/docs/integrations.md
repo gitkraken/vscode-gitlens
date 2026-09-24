@@ -337,7 +337,9 @@ The one difference is inherent to pull requests: on GitHub/GHE a scope's `states
 counted as independent searches, so the reported `count` is the **largest** of them — the same total
 `searchPullRequestsPage` surfaces — not their sum. Because the result ceiling applies per search, that max is
 what `exceedsProviderLimit` compares against. Several states in one scope are therefore fine (they are
-disjoint); only several relationships are refused, except on Bitbucket Data Center (below).
+disjoint); only several relationships are refused, except on Bitbucket Data Center (below). Azure DevOps Server
+reads every state in one drain, so its count is their union (the sum, since states are disjoint), again the total
+its search pages through.
 
 Bitbucket Data Center has no count query, no total on its pages and no result ceiling, so it counts by reading
 each facet's first page of up to 1,000 pull requests through the same predicates the search applies. Its `count`
@@ -617,8 +619,12 @@ PR **search** capabilities (`getSupportedFilters().pullRequestSearch`): GitHub/G
 `updated:desc|asc, created:desc|asc`. Bitbucket Data Center expresses relationships `Author, ReviewRequested,
 Reviewed`, states `open, closed, merged, all`, `text` (title or description), `includeArchived`, `draft`, the
 repository scope, and sorts `updated:desc|asc` — no assignee or mention (its pull requests have neither), no date
-filters, no `created` order, and no organization scope, since it has no project-wide pull-request list. Every other
-provider declares empty lists and false flags, so the read is refused rather than returning a page that did not
+filters, no `created` order, and no organization scope, since it has no project-wide pull-request list. Azure DevOps
+Server expresses relationships `Author, Assignee, ReviewRequested` (the last two both read Azure's reviewers, since
+it has no separate assignee), the same four states, `text` (title or description), `updatedAfter`, `createdAfter`,
+`draft`, repository/organization scopes and `updated:desc|asc, created:desc|asc`; not `Reviewed`, `Mention` or
+`includeArchived`. Every other provider — including Azure DevOps Services — declares empty lists and false flags,
+so the read is refused rather than returning a page that did not
 apply a requested criterion or scope. `updatedAfter` /
 `createdAfter` are ISO `YYYY-MM-DD` and are the most effective narrowing on a large scope — the way to bound a broad
 closed-PR read, rather than capping page iterations. `draft` is tri-state: `true` returns only drafts, `false` only
@@ -632,11 +638,13 @@ Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Aut
 `Assignee, Author` · everything else none.
 Issue **search** criteria (`getSupportedFilters().issueSearch`): GitHub/GHE express all of them —
 relationships `authored, assigned, mentioned, any-assignee, unassigned`, plus `text`, `labels`, `milestone`,
-`updatedAfter`, `createdAfter`, `withoutLinkedPullRequest`, `state` — and every other provider declares none,
-so the read is refused there rather than serving a list that was never narrowed. GitLab and Azure could
-express most of it (GitLab: `search`, `updated_after`, `labels`, `milestone`, one relationship per REST call;
-Azure: WIQL per project), so the gap is unimplemented rather than impossible; `withoutLinkedPullRequest` and
-free text have no equivalent on either.
+`updatedAfter`, `createdAfter`, `withoutLinkedPullRequest`, `state`. Azure DevOps Server expresses relationships
+`authored, assigned, any-assignee, unassigned`, `text` (a title substring), `labels` (whole tags), `updatedAfter`,
+`createdAfter` and `state`, and sorts `updated`, `created`, `closed`, `comments` and `title` in both directions —
+not `mentioned` (`@RecentMentions` only reaches back 30 days), `milestone` or `withoutLinkedPullRequest`, and not
+`priority`/`resolved`, whose process-template fields an on-premises collection may not define. Every other provider
+declares none, so the read is refused there rather than serving a list that was never narrowed. GitLab and Azure
+DevOps Services could express most of it, so the gap is unimplemented rather than impossible.
 
 > `supportedCloudIntegrationDescriptors.supports` (in `constants.ts`) describes what GitLens _advertises in
 > its connect UI_, including enrichment-only capabilities. It is **not** the read-capability answer — use
@@ -748,11 +756,50 @@ Markdown by this package.
   `resolveRepository` needs a project in the remote URL. Azure DevOps Server uses the trusted connection's
   `baseUrl`, including its installation path. A repository's virtual directory must match that path and is
   applied once; a connection addressed at the host root takes the repository's own virtual directory. An address
-  that also names the repository's collection (`https://server/tfs/DefaultCollection`) resolves and reads that
-  collection's repositories without repeating it; another collection's repositories and account discovery need an
-  address without the collection. Installation paths match case-insensitively, as IIS serves them. An SSH remote
+  that also names a collection (`https://server/tfs/DefaultCollection`) reads that collection without repeating it:
+  discovery reports it as the one collection visible there, since Azure only lists collections at the server level,
+  and another collection's repositories need an address without the collection. Installation paths match case-insensitively, as IIS serves them. An SSH remote
   that names no virtual directory is read against the whole address, since it can't tell a virtual directory from
   another collection named there.
+
+  Azure DevOps Server also has the filtered searches and their counts, with the collection applied exactly once
+  whichever way the address is written. Scope names are encoded as URL segments (collections, projects,
+  repositories) or escaped as WIQL string literals (a repository's project in the work-item query), never spliced
+  into a qualifier syntax, so names with spaces or quotes are accepted there.
+  - **Work items** (`searchIssuesPage` / `countIssues`) run ONE WIQL query per page over ONE collection, with every
+    relationship OR-ed in it, so an item matching two relationships is one row and the count is the exact size of
+    the same match set. `org` names the collection; without it the repositories' collection is used, and without
+    either the only collection the account can see. A search across several collections is refused (pass `org`),
+    as is one whose repositories name a project the collection doesn't have. Repositories bound the query by
+    their project, since work items belong to projects. The page reads the first 20,000 matches (Azure's documented
+    query result limit), bounded with `$top`; past that it is `truncated` with a `provider-limit` omission carrying
+    `limit` and `sort` but no `totalCount`, and the count reports `exceedsProviderLimit: true` with no `count` rather
+    than the limit. Verified against Azure DevOps Server 2020 with 20,014 matches. A server that refuses the match set
+    even with `$top` (`VS402337`) fails the page (warning + `fetchFailed`, "narrow the search"), since no bounded query
+    could serve that order's first window; its count still reports `exceedsProviderLimit`.
+    A pagination pages through the ids its first page queried, kept while it keeps reading (5 minutes after the last
+    page, 30 at most, among the 50 most recently read paginations); every first page queries its own, so a pagination of the same query started later never
+    replaces it. A continuation whose snapshot is gone is refused (warning + `fetchFailed`) rather than resumed
+    against a fresh query, where an item moved by the `updated` order could be skipped. Restart without the cursor.
+    A cursor is bound to its query and refused under another one. `page` without a cursor walks from page 1 against
+    a fresh query. Requests use REST `api-version=5.0`, so Azure DevOps Server 2019 or later is required.
+  - **Pull requests** (`searchPullRequestsPage` / `countPullRequests`) drain every facet — each repository, or each
+    project of the `org` (every visible project when only relationships bound the search), times each
+    relationship — reading up to 1,000 pull requests per facet, then apply text, draft and dates, union by repository
+    identity (so pull request #1 in two projects stays two rows) and order the result. A pagination pages through
+    the drain its own first page read while it keeps reading (5 minutes after the last page, 30 at most, among the 50
+    most recently read paginations), from a
+    keyset cursor; a later first page of the same query drains anew without replacing it. A continuation whose drain
+    is gone, or handed to another connection, is refused like an expired work-item snapshot, since a re-drain could
+    move a pull request whose close date changed past the position already served. The count reuses the drain a
+    first page of the same query read within the last minute, and drains afresh otherwise, so a polled count stays
+    live. A facet that exceeds the drain bound makes the result `truncated` with no total, and its count `undefined`.
+    Dates that aren't `YYYY-MM-DD` are refused before anything is read, and in a count only for their own scope. A facet whose
+    read fails fails the whole search rather than serving a union with a hole in its order. Text matches the title
+    or the first 400 characters of the description (all a pull request list returns), and `updatedAfter` compares
+    Azure's close date (or creation date while open), since Azure reports no last-activity date. `itemsPerPage`
+    is per page here, not per facet. A repository name of `.` or `..` is refused rather than resolved as a path.
+
 - **Jira (Cloud + Data Center) / Linear / Trello** — paged by **project**, not by issue: `itemsPerPage` counts projects (default
   20), each drained in full. Passing none of `page`/`cursor`/`itemsPerPage` aggregates every matched project
   in one page. A single project exceeding its internal drain backstop shows up as `page.truncated`.
@@ -775,10 +822,10 @@ port, since the SSH endpoint can use a different port and omit the web installat
 web authorities share an SSH hostname, select one with `connectionId` or a trusted `domain`.
 
 **`broadenIssues` vs `searchIssuesPage`.** `broadenIssues` now reads each org through the org-scoped
-filtered search where the provider declares one (GitHub/GHE), so it no longer discovers repositories first
-and no longer routes through the SDK read's recovery walk — one request per page, per org. A provider with
-no filtered search (Azure DevOps, GitLab) still takes the repository drain, since refusing the org would be
-worse. It remains the read for "fan out across these orgs, whatever repos they turn out to contain", with
+filtered search where the provider declares one (GitHub/GHE, Azure DevOps Server), so it no longer discovers
+repositories first and no longer routes through the SDK read's recovery walk — one request per page, per org. A
+provider with no filtered search (Azure DevOps Services, GitLab) still takes the repository drain, since refusing
+the org would be worse. It remains the read for "fan out across these orgs, whatever repos they turn out to contain", with
 per-provider attribution (`broadenedProviderIds` / `failedProviderIds` / `incompleteProviderIds`) that the
 single-provider search doesn't produce; reach for `searchIssuesPage` when you want ONE scope with an order
 you control.

@@ -469,7 +469,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
 
 							integration = new (
-								await import(/* webpackChunkName: "integrations" */ './providers/azureDevOps.js')
+								await import(/* webpackChunkName: "integrations" */ './providers/azureDevOpsServer.js')
 							).AzureDevOpsServerIntegration(
 								this.ctx,
 								this.authenticationService,
@@ -487,7 +487,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 					}
 
 					integration = new (
-						await import(/* webpackChunkName: "integrations" */ './providers/azureDevOps.js')
+						await import(/* webpackChunkName: "integrations" */ './providers/azureDevOpsServer.js')
 					).AzureDevOpsServerIntegration(
 						this.ctx,
 						this.authenticationService,

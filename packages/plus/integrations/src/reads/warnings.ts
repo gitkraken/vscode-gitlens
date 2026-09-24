@@ -463,26 +463,57 @@ export function issueSearchCapResultWarning(
 	connectionId: string | undefined,
 	totalCount: number | undefined,
 	sort: IssueSorting,
+	/** The provider proved the ceiling was reached without reporting how many matched; see `limitReached`. */
+	limitReached?: boolean,
 ): ProviderWarning | undefined {
-	const limit = providersMetadata[id]?.issueSearchResultLimit;
+	return searchCapResultWarning(
+		id,
+		domain,
+		connectionId,
+		'Issue search',
+		providersMetadata[id]?.issueSearchResultLimit,
+		totalCount,
+		sort,
+		limitReached,
+	);
+}
+
+/**
+ * The shared body of the two ceiling warnings. Only a ceiling that was actually reached warns: either a reported
+ * total above it, or a provider that proved the ceiling was reached but can't count past it — in which case the
+ * omission carries the limit and the order but no `totalCount`, since any figure would be invented.
+ */
+function searchCapResultWarning(
+	id: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	readKind: 'Issue search' | 'Pull request search',
+	limit: number | undefined,
+	totalCount: number | undefined,
+	sort: IssueSorting | PullRequestSorting,
+	limitReached: boolean | undefined,
+): ProviderWarning | undefined {
 	if (limit == null) return undefined;
+
 	// Below the ceiling this warning would be a false claim; the caller's truncation had another cause.
-	if (totalCount == null || totalCount <= limit) return undefined;
+	const counted = totalCount != null && totalCount > limit;
+	if (!counted && limitReached !== true) return undefined;
 
 	const [field, direction] = sort.split(':');
+	const matched = counted ? `matched ${totalCount} results` : `matched more than ${limit} results`;
 	return {
 		...otherWarning(
 			id,
 			domain,
 			connectionId,
-			`Issue search matched ${totalCount} results, but '${id}' serves at most ${limit}, ordered by ${field} ${direction}ending; narrow the search to read the rest.`,
+			`${readKind} ${matched}, but '${id}' serves at most ${limit}, ordered by ${field} ${direction}ending; narrow the search to read the rest.`,
 		),
 		omission: {
 			kind: 'provider-limit',
 			// The items past the ceiling can't be fetched by anything, so never offer a "load more".
 			recovery: 'none',
 			limit: limit,
-			totalCount: totalCount,
+			...(counted ? { totalCount: totalCount } : {}),
 			sort: sort,
 		},
 	};
@@ -495,29 +526,20 @@ export function pullRequestSearchCapResultWarning(
 	connectionId: string | undefined,
 	totalCount: number | undefined,
 	sort: PullRequestSorting,
+	/** See {@link issueSearchCapResultWarning}. */
+	limitReached?: boolean,
 ): ProviderWarning | undefined {
-	const limit = providersMetadata[id]?.pullRequestSearchResultLimit;
-	if (limit == null || totalCount == null || totalCount <= limit) return undefined;
-
-	// Name the order: the reachable window is the first `limit` under THIS sort, and a different key reaches a
-	// different subset, so a ceiling message that omits it can't say which slice was served. Same reasoning as
-	// `issueSearchCapResultWarning`.
-	const [field, direction] = sort.split(':');
-	return {
-		...otherWarning(
-			id,
-			domain,
-			connectionId,
-			`Pull request search matched ${totalCount} results, but '${id}' serves at most ${limit}, ordered by ${field} ${direction}ending; narrow the search to read the rest.`,
-		),
-		omission: {
-			kind: 'provider-limit',
-			recovery: 'none',
-			limit: limit,
-			totalCount: totalCount,
-			sort: sort,
-		},
-	};
+	// Named order for the same reason as the issue twin: the reachable window is the first `limit` under THIS sort.
+	return searchCapResultWarning(
+		id,
+		domain,
+		connectionId,
+		'Pull request search',
+		providersMetadata[id]?.pullRequestSearchResultLimit,
+		totalCount,
+		sort,
+		limitReached,
+	);
 }
 
 /** Warning for a git host that doesn't expose issues on this surface (e.g. Bitbucket, deprecated in favor of Jira). */

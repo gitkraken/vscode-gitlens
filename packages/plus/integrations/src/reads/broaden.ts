@@ -423,6 +423,7 @@ async function readOrgIssuesViaSearch(
 					connectionId,
 					page.totalCount,
 					effectiveIssueSort(undefined),
+					page.limitReached,
 				) ?? truncationWarning(org.providerId, domain, connectionId, 'Issue search', 'exhausted'),
 			);
 		}
@@ -434,8 +435,8 @@ async function readOrgIssuesViaSearch(
 /**
  * The original engine: drain the org's repositories, then read the issues across them.
  *
- * Kept for a provider that declares NO filtered issue search (Azure DevOps, GitLab), where refusing the org would
- * be a regression rather than a saving. Its cost, and the arbitrary subset it serves past the result ceiling, are
+ * Kept for a provider that declares NO filtered issue search (Azure DevOps Services, GitLab), where refusing the
+ * org would be a regression rather than a saving. Its cost, and the arbitrary subset it serves past the result ceiling, are
  * what {@link readOrgIssuesViaSearch} exists to avoid — see the module docstring's measurement. Those providers
  * keep both, because on them there is nothing better to switch to.
  */
@@ -599,7 +600,7 @@ async function readOrgSlice(
 	// drawing the line between them would leave the emptiest case on the wrong side of the rule. (`repo-ids`
 	// cannot arise: no repositories are passed.) Refusing them all is also what lets the engine choice below be
 	// a plain capability question again, since no rejection survives this point.
-	const scopeRejection = resolveIssueSearchScope(undefined, org.name, undefined).rejection;
+	const scopeRejection = resolveIssueSearchScope(org.providerId, undefined, org.name, undefined).rejection;
 	if (scopeRejection != null) {
 		return barrenSlice(
 			[
