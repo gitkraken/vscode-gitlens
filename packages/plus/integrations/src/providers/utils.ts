@@ -16,9 +16,10 @@ import {
 	IssuesCloudHostIntegrationId,
 	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
+import { getSingleConfiguredDomain } from '../utils/domain.utils.js';
 import {
 	isCloudGitSelfManagedHostIntegrationId,
-	isIssuesSelfManagedHostIntegrationId,
+	isGitSelfManagedHostIntegrationId,
 	isSelfManagedHostIntegrationId,
 } from '../utils/integration.utils.js';
 import type { AzureProjectInputDescriptor } from './azure/models.js';
@@ -104,7 +105,8 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 		entityType === EntityType.Issue &&
 		domain == null &&
 		(provider === EntityIdentifierProviderType.GithubEnterprise ||
-			provider === EntityIdentifierProviderType.GitlabSelfHosted)
+			provider === EntityIdentifierProviderType.GitlabSelfHosted ||
+			provider === EntityIdentifierProviderType.BitbucketServer)
 	) {
 		domain = entity.provider.domain ?? null;
 	}
@@ -381,6 +383,8 @@ export async function getIssueFromGitConfigEntityIdentifier(
 	resolveIntegration: (id: IntegrationIds, domain?: string) => Promise<IssueResolvableIntegration | undefined>,
 	identifier: GitConfigEntityIdentifier,
 	options?: {
+		/** Legacy git-host associations need configured connections to prove their host is unambiguous. */
+		getConfiguredIntegrations?: (id: IntegrationIds) => readonly { domain?: string }[];
 		/** Only return a value already in the local cache. No remote fetch — returns undefined on cache miss. */
 		cached?: boolean;
 		/**
@@ -422,12 +426,14 @@ export async function getIssueFromGitConfigEntityIdentifier(
 		return undefined;
 	}
 
-	// A self-hosted tracker's identifier must name its host: two instances routinely issue the same project and
-	// issue keys, so resolving the primary connection instead would return a DIFFERENT instance's issue under
-	// the right key. Dropping the association is the lesser failure, and the only safe one (#5872).
-	const domain = getDomainFromEntityIdentifier(identifier);
-	if (domain == null && isIssuesSelfManagedHostIntegrationId(integrationId)) {
-		Logger.error(`Cannot resolve a '${integrationId}' issue from git config without a domain`);
+	let domain = getDomainFromEntityIdentifier(identifier);
+	if (domain == null && isGitSelfManagedHostIntegrationId(integrationId)) {
+		domain = getSingleConfiguredDomain(options?.getConfiguredIntegrations?.(integrationId) ?? []);
+	}
+	// Hosts can share issue keys. Legacy git associations may omit the host, but can only be recovered when
+	// configuration identifies exactly one; self-hosted tracker associations always require an explicit host.
+	if (domain == null && isSelfManagedHostIntegrationId(integrationId)) {
+		Logger.error(`Cannot resolve a '${integrationId}' issue from git config without an unambiguous domain`);
 		return undefined;
 	}
 
