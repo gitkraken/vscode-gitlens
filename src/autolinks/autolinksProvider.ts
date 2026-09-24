@@ -4,7 +4,6 @@ import type { DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProvider, RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
-import type { ConfiguredIntegrationsChangeEvent } from '@gitlens/integrations/authentication/configuredIntegrationService.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
 import type { Integration } from '@gitlens/integrations/models/integration.js';
@@ -93,6 +92,7 @@ export class AutolinksProvider implements Disposable {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.integrations.onDidChange(this.onIntegrationsChanged, this),
+			container.integrations.onDidChangeConnectionState(this.onIntegrationsChanged, this),
 		);
 
 		this.setAutolinksFromConfig();
@@ -111,7 +111,7 @@ export class AutolinksProvider implements Disposable {
 		}
 	}
 
-	private onIntegrationsChanged(_e: ConfiguredIntegrationsChangeEvent) {
+	private onIntegrationsChanged() {
 		this._refsetCache.clear();
 		this._enrichedAutolinksCache.clear();
 	}
@@ -272,14 +272,19 @@ export class AutolinksProvider implements Disposable {
 			);
 		}
 
-		return this._enrichedAutolinksCache.getOrCreate(key, () =>
-			this.enrichAutolinksCore(messageOrAutolinks, remote),
+		const failures: Promise<boolean>[] = [];
+		return this._enrichedAutolinksCache.getOrCreate(
+			key,
+			() => this.enrichAutolinksCore(messageOrAutolinks, remote, failures),
+			// A failed lookup resolves to `undefined` for callers, but must not be retained as the answer
+			{ evictWhen: async () => (await Promise.all(failures)).some(Boolean) },
 		);
 	}
 
 	private async enrichAutolinksCore(
 		messageOrAutolinks: string | Map<string, Autolink>,
 		remote: GitRemote | undefined,
+		failures: Promise<boolean>[],
 	): Promise<Map<string, EnrichedAutolink> | undefined> {
 		if (typeof messageOrAutolinks === 'string') {
 			messageOrAutolinks = await this.getAutolinks(messageOrAutolinks, remote);
@@ -332,7 +337,7 @@ export class AutolinksProvider implements Disposable {
 					? integration.getLinkedIssueOrPullRequest(
 							link.descriptor ?? remote.provider.repoDesc,
 							this.getAutolinkEnrichableId(link),
-							{ type: link.type },
+							{ type: link.type, throwOnError: true },
 						)
 					: link.descriptor != null
 						? linkIntegration?.getLinkedIssueOrPullRequest(
@@ -340,10 +345,22 @@ export class AutolinksProvider implements Disposable {
 								this.getAutolinkEnrichableId(link),
 								{
 									type: link.type,
+									throwOnError: true,
 								},
 							)
 						: undefined;
-			enrichedAutolinks.set(id, [issueOrPullRequestPromise, link]);
+
+			if (issueOrPullRequestPromise != null) {
+				// Track the raw outcome for cache eviction, but never let a rejection reach consumers of the map
+				failures.push(
+					issueOrPullRequestPromise.then(
+						() => false,
+						() => true,
+					),
+				);
+			}
+
+			enrichedAutolinks.set(id, [issueOrPullRequestPromise?.catch(() => undefined), link]);
 		}
 
 		return enrichedAutolinks;

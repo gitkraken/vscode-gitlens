@@ -785,7 +785,7 @@ export abstract class IntegrationBase<
 	async getLinkedIssueOrPullRequest(
 		resource: T,
 		link: { id: string; key: string },
-		options?: { expiryOverride?: boolean | number; type?: IssueOrPullRequestType },
+		options?: { expiryOverride?: boolean | number; type?: IssueOrPullRequestType; throwOnError?: boolean },
 	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getScopedLogger();
 
@@ -794,12 +794,14 @@ export abstract class IntegrationBase<
 
 		await this.refreshSessionIfExpired(scope);
 
+		const { throwOnError, ...cacheOptions } = options ?? {};
+
 		const issueOrPR = this.ctx.cache.getIssueOrPullRequest(
 			link.key,
 			options?.type,
 			resource,
 			this,
-			() => ({
+			cacheable => ({
 				value: (async () => {
 					try {
 						const result = await this.getProviderLinkedIssueOrPullRequest(
@@ -811,12 +813,16 @@ export abstract class IntegrationBase<
 						this.resetRequestExceptionCount('getIssueOrPullRequest');
 						return result;
 					} catch (ex) {
+						// A failed lookup is not an answer — and a missed issue/PR never expires from the cache.
+						cacheable.invalidate();
 						this.handleProviderException('getIssueOrPullRequest', ex, { scope: scope });
+						if (throwOnError) throw ex;
+
 						return undefined;
 					}
 				})(),
 			}),
-			options,
+			cacheOptions,
 		);
 		return issueOrPR;
 	}
