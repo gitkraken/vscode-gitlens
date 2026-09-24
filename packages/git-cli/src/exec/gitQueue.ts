@@ -21,7 +21,10 @@ function abortReason(signal: AbortSignal): Error {
 }
 
 export interface GitQueueConfig {
-	/** Maximum number of concurrent git processes. Defaults to 7. */
+	/**
+	 * Maximum number of concurrent git processes. Defaults to 20, the default of GitLens'
+	 * `advanced.git.maxConcurrentProcesses`.
+	 */
 	maxConcurrent?: number;
 	/** Maximum number of queued commands per priority level. Defaults to 500. Set to 0 to disable. */
 	maxQueueDepth?: number;
@@ -84,7 +87,7 @@ export class GitQueue {
 
 	/** Get the configured max concurrent processes */
 	private get maxConcurrent(): number {
-		return this._config.maxConcurrent ?? 7;
+		return this._config.maxConcurrent ?? 20;
 	}
 
 	/** Update configuration (e.g., when user changes settings) */
