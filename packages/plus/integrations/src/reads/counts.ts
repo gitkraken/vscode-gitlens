@@ -3,7 +3,7 @@ import type { PullRequestSearchCriteria } from '@gitlens/git/models/pullRequest.
 import { chunk } from '@gitlens/utils/array.js';
 import { mapBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationIds } from '../constants.js';
-import { providerFanOutConcurrency } from '../constants.js';
+import { GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { ProviderRepoInput, ProviderReposInput } from '../providers/models.js';
 import { providersMetadata } from '../providers/models.js';
 import type { ProviderResult, ProviderWarning } from '../results.js';
@@ -46,8 +46,20 @@ const issueCountChunkSize = 25;
  * The same latency/complexity reasoning as {@link issueCountChunkSize}, kept slightly smaller because a pull-request
  * scope can fan out into one aliased count PER requested state (open/closed/merged), so a chunk of scopes carries a
  * small multiple of that many `search` aliases.
+ *
+ * A provider that counts by reading batches nothing, so it is chunked one scope at a time instead: a chunk is then
+ * just a scope, and the facade's bounded concurrency is what paces the requests.
  */
 const pullRequestCountChunkSize = 15;
+
+/**
+ * Whether a provider counts pull requests by READING the matches rather than asking for a total — Bitbucket Data
+ * Center, which has no count query. Two rules follow from it: it batches nothing, and it deduplicates the rows
+ * themselves, so a relationship set is an exact union it can count in one scope rather than a refusal.
+ */
+function countsPullRequestsByReading(providerId: IntegrationIds): boolean {
+	return providerId === GitSelfManagedHostIntegrationId.BitbucketServer;
+}
 
 /**
  * One scope to count.
@@ -113,10 +125,20 @@ export interface PullRequestCountResult {
 	key: string;
 	/**
 	 * Total matches the provider reports. `undefined` when the provider didn't report one for this scope — NEVER
-	 * zero, which is a real answer. For a multi-state scope this is the LARGEST of its per-state counts, the same
-	 * total `searchPullRequestsPage` surfaces, not their sum.
+	 * zero, which is a real answer.
+	 *
+	 * For a multi-state scope, GitHub/GHE report the LARGEST of their per-state counts (the same total
+	 * `searchPullRequestsPage` surfaces, since each state is its own capped search), not their sum. Bitbucket Data
+	 * Center has no ceiling to stay under, so it reports the exact union — the number of rows the search returns.
 	 */
 	count?: number;
+	/**
+	 * True when `count` is a FLOOR rather than the total: the provider has no count query (Bitbucket Data Center),
+	 * so it counts by reading within a budget, and this scope had more than the budget read. Render it as "N+", and
+	 * treat the scope as at least that expensive. Absent means `count` is exact — the provider's own total, or for a
+	 * provider that counts by reading, every match it read.
+	 */
+	lowerBound?: boolean;
 	/**
 	 * True when `count` exceeds the provider's own per-search result ceiling, so a full read CANNOT return
 	 * everything no matter how it is paged. This is the signal to warn before starting an expensive fetch.
@@ -380,9 +402,11 @@ function rejectScope(
  *
  * Identical batching, per-scope isolation, and `key`-echo contract as {@link countIssues}; see it for the cost
  * model and the `count: undefined` ≠ zero rule. The one difference is inherent to pull requests: a scope's criteria
- * can name several STATES, which the provider counts as independent searches — the reported `count` is the LARGEST
+ * can name several STATES, which GitHub/GHE count as independent searches — the reported `count` is the LARGEST
  * of them (mirroring `searchPullRequestsPage`'s total), so an unpaged read still can't exceed a single search's
- * ceiling undetected.
+ * ceiling undetected. Bitbucket Data Center has no ceiling and no count query: it counts the exact union by reading
+ * each scope within a budget, and flags a scope that had more as `lowerBound`. Because it deduplicates rows, it is
+ * also the one provider that accepts several relationships in one scope.
  */
 export async function countPullRequests(
 	ctx: ProviderReadContext,
@@ -481,7 +505,8 @@ export async function countPullRequests(
 	// Chunks are independent requests over their own slice of scopes, `runCaptured` never throws, so they run
 	// concurrently, bounded like every other fan-out on the facade. `mapBounded` returns in input order, so `items`
 	// and `warnings` stay in scope order.
-	const batches = await mapBounded(chunk(countable, pullRequestCountChunkSize), providerFanOutConcurrency, batch =>
+	const chunks = chunk(countable, countsPullRequestsByReading(options.providerId) ? 1 : pullRequestCountChunkSize);
+	const batches = await mapBounded(chunks, providerFanOutConcurrency, batch =>
 		runCaptured(
 			options.providerId,
 			domain,
@@ -512,10 +537,11 @@ export async function countPullRequests(
 		}
 
 		for (let i = 0; i < batch.length; i++) {
-			const count = value[i];
+			const count = value[i]?.count;
 			items.push({
 				key: batch[i].key,
 				count: count,
+				...(count != null && value[i]?.lowerBound === true ? { lowerBound: true } : {}),
 				// Only a reported count can exceed a declared ceiling; unknown-vs-limit is not a comparison.
 				exceedsProviderLimit: count != null && providerLimit != null && count > providerLimit,
 				providerLimit: providerLimit,
@@ -596,8 +622,9 @@ function rejectPullRequestScope(
 	// Count-only, with no counterpart in the read: a relationship set is an OR across several searches, which one
 	// count can't express — summing would double-count overlaps and max would under-report. Ask the caller to count
 	// each relationship as its own scope, where the keys make the OR explicit. (States are disjoint, so a scope may
-	// still name several — the provider counts them as the max, not a refusal.)
-	if ((scope.criteria?.relationships?.length ?? 0) > 1) {
+	// still name several — the provider counts them as the max, not a refusal.) A provider that counts by reading
+	// deduplicates the matching rows themselves, so it counts the OR exactly, as the search it previews returns it.
+	if ((scope.criteria?.relationships?.length ?? 0) > 1 && !countsPullRequestsByReading(providerId)) {
 		return otherWarning(
 			providerId,
 			domain,

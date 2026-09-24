@@ -5,12 +5,13 @@ import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/mo
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestSearchCriteria,
 	PullRequestState,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
-import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, raceWithSignal } from '@gitlens/utils/cancellation.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
@@ -27,12 +28,14 @@ import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationKey } from '../models/integration.js';
+import type { IntegrationKey, ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/integration.js';
+import type { BitbucketServerSearchUser } from './bitbucket-server/pullRequestSearch.js';
 import type { BitbucketRepositoryDescriptor } from './bitbucket/models.js';
 import type {
 	ProviderHierarchyResult,
 	ProviderOrganization,
 	ProviderPullRequest,
+	ProviderRepoInput,
 	ProviderRepository,
 } from './models.js';
 import {
@@ -220,21 +223,31 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		return Promise.resolve(undefined);
 	}
 
+	/**
+	 * Accounts by {@link getAccountKey}. One integration serves every installation on its host, and installations
+	 * mounted at different context paths are different servers whose users differ, even under the same token.
+	 */
 	private _accounts: Map<string, Account | undefined> | undefined;
+
+	/** The installation the session's reads address, plus the credential — what decides whose account it is. */
+	private getAccountKey(session: ProviderAuthenticationSession): string {
+		return `${this.apiBaseUrlFor(session)}\n${session.accessToken}`;
+	}
+
 	protected override async getProviderCurrentAccount(
 		session: ProviderAuthenticationSession,
 	): Promise<Account | undefined> {
-		const { accessToken } = session;
+		const key = this.getAccountKey(session);
 		this._accounts ??= new Map<string, Account | undefined>();
 
-		const cachedAccount = this._accounts.get(accessToken);
+		const cachedAccount = this._accounts.get(key);
 		if (cachedAccount == null) {
 			const api = await this.getProvidersApi();
 			const user = await api.getCurrentUser(toTokenWithInfo(this.id, session), {
 				baseUrl: this.apiBaseUrlFor(session),
 			});
 			this._accounts.set(
-				accessToken,
+				key,
 				user
 					? {
 							provider: this,
@@ -248,7 +261,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			);
 		}
 
-		return this._accounts.get(accessToken);
+		return this._accounts.get(key);
 	}
 
 	protected override async getProviderOrganizationsForUser(
@@ -413,6 +426,97 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			.map(pr => fromProviderPullRequest(pr, this));
 	}
 
+	/**
+	 * The filtered pull-request search, read by this module's own requests rather than the SDK's: the SDK's list
+	 * reads carry no text, draft or participant-status filter and no per-facet continuation. Every request goes to
+	 * the session's own address, context path included, so one connection's cursor can't be replayed on another.
+	 */
+	protected override async searchProviderPullRequestsPage(
+		session: ProviderAuthenticationSession,
+		options: {
+			repos?: ProviderRepoInput[];
+			org?: string;
+			criteria?: PullRequestSearchCriteria;
+			cursor?: string;
+			pageSize?: number;
+			summary?: boolean;
+		},
+		cancellation?: AbortSignal,
+	): Promise<ProviderPullRequestSearchPage | undefined> {
+		const api = await this.getProvidersApi();
+		return api.searchBitbucketServerPullRequestsPage(
+			toTokenWithInfo(this.id, session),
+			{
+				baseUrl: this.apiBaseUrlFor(session),
+				connectionId: session.id,
+				provider: this,
+				repos: options.repos,
+				org: options.org,
+				criteria: options.criteria,
+				currentUser: await this.getSearchUser(session, options.criteria, cancellation),
+				cursor: options.cursor,
+				pageSize: options.pageSize,
+			},
+			cancellation,
+		);
+	}
+
+	/**
+	 * Counts each scope by reading it, since Bitbucket Data Center has neither a count query nor a total on its
+	 * pages. The facade hands over one scope per call and runs those calls concurrently (see `countPullRequests`),
+	 * so scopes here are counted one after another rather than multiplying that concurrency.
+	 */
+	protected override async countProviderPullRequests(
+		session: ProviderAuthenticationSession,
+		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: PullRequestSearchCriteria }[],
+		cancellation?: AbortSignal,
+	): Promise<ProviderPullRequestCount[] | undefined> {
+		const api = await this.getProvidersApi();
+		const token = toTokenWithInfo(this.id, session);
+		const counts: ProviderPullRequestCount[] = [];
+		for (const scope of scopes) {
+			counts.push(
+				await api.countBitbucketServerPullRequests(
+					token,
+					{
+						baseUrl: this.apiBaseUrlFor(session),
+						repos: scope.repos,
+						org: scope.org,
+						criteria: scope.criteria,
+						currentUser: await this.getSearchUser(session, scope.criteria, cancellation),
+					},
+					cancellation,
+				),
+			);
+		}
+		return counts;
+	}
+
+	/**
+	 * The session's own user, which a relationship facet filters by. Resolved per session rather than from the
+	 * primary connection, so a read pinned to one account never filters by another's identity; an account that
+	 * can't be resolved refuses the read instead of widening it to everyone's pull requests.
+	 *
+	 * The lookup is raced against `cancellation` so a cancelled read settles at once. The SDK's current-user read
+	 * takes no signal, so the request itself runs on; its answer still lands in the per-token account cache, so a
+	 * cold lookup a cancellation abandoned isn't wasted on the next read.
+	 */
+	private async getSearchUser(
+		session: ProviderAuthenticationSession,
+		criteria: PullRequestSearchCriteria | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<BitbucketServerSearchUser | undefined> {
+		if (!criteria?.relationships?.length) return undefined;
+
+		const lookup = this.getProviderCurrentAccount(session);
+		const account = await (cancellation != null ? raceWithSignal(lookup, cancellation) : lookup);
+		if (account?.id == null || account.username == null) {
+			throw new Error('Unable to resolve the current Bitbucket Data Center account for a relationship search.');
+		}
+
+		return { id: account.id, username: account.username };
+	}
+
 	private async getWorkspaceRepoInputs(): Promise<{ name: string; namespace: string }[]> {
 		const remotes = await this.ctx.repositories.getOpenRemotes();
 		const inputs = await nonnullSettled(
@@ -456,7 +560,8 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 	protected override async providerOnConnect(): Promise<void> {
 		if (this._session == null) return;
 
-		const accountStorageKey = md5(this._session.accessToken);
+		const accountKey = this.getAccountKey(this._session);
+		const accountStorageKey = md5(accountKey);
 
 		const storedAccount = this.ctx.storage.get(`${this.storagePrefix}:${accountStorageKey}:account`);
 
@@ -481,7 +586,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			}
 		}
 		this._accounts ??= new Map<string, Account | undefined>();
-		this._accounts.set(this._session.accessToken, account);
+		this._accounts.set(accountKey, account);
 	}
 
 	protected override providerOnDisconnect(): void {

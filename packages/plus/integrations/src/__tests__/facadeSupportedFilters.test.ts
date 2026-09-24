@@ -255,7 +255,7 @@ suite('IntegrationManager.getSupportedFilters', () => {
 	});
 
 	suite('pullRequestSearch', () => {
-		test('is always present and only GitHub/GHE declare support today', () => {
+		test('is always present and only GitHub/GHE and Bitbucket Data Center declare support today', () => {
 			const manager = createIntegrationManager(createFakeRuntime());
 			try {
 				for (const id of allIds) {
@@ -267,7 +267,46 @@ suite('IntegrationManager.getSupportedFilters', () => {
 				);
 				assert.deepEqual(
 					withSearch.sort(),
-					[GitCloudHostIntegrationId.GitHub, GitSelfManagedHostIntegrationId.CloudGitHubEnterprise].sort(),
+					[
+						GitCloudHostIntegrationId.GitHub,
+						GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+						GitSelfManagedHostIntegrationId.BitbucketServer,
+					].sort(),
+				);
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test('Bitbucket Data Center declares exactly what its REST API can express', () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				assert.deepEqual(
+					manager.getSupportedFilters(GitSelfManagedHostIntegrationId.BitbucketServer).pullRequestSearch,
+					{
+						// No assignee on a Bitbucket pull request, and no endpoint filters by mention.
+						relationships: [
+							PullRequestFilter.Author,
+							PullRequestFilter.ReviewRequested,
+							PullRequestFilter.Reviewed,
+						],
+						states: ['open', 'closed', 'merged', 'all'],
+						text: true,
+						// No date filter, and `order` is by last update only.
+						updatedAfter: false,
+						createdAfter: false,
+						includeArchived: true,
+						draft: true,
+						repositoryScope: true,
+						// No project-wide pull-request list.
+						organizationScope: false,
+						sorts: ['updated:desc', 'updated:asc'],
+					},
+				);
+				// Bitbucket Cloud is a different API and keeps declaring no search.
+				assert.deepEqual(
+					manager.getSupportedFilters(GitCloudHostIntegrationId.Bitbucket).pullRequestSearch.relationships,
+					[],
 				);
 			} finally {
 				manager.dispose();

@@ -45,7 +45,7 @@ export type IntegrationType = 'git' | 'issues';
 // The issue-read contracts live in their own module (pure data, and their relationship to each other is the
 // point of reading them together); re-exported here so the providers that implement these reads keep one import.
 export type { AccountWideIssuesResult, ProviderIssueSearchPage, SearchMyIssuesOptions } from './issueReads.js';
-export type { ProviderPullRequestSearchPage } from './pullRequestReads.js';
+export type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from './pullRequestReads.js';
 
 // Keep this in step with `isSelfManagedHostIntegrationId`: it is the type-level twin of that predicate, and a
 // disagreement compiles cleanly while the runtime writes a domain-keyed key the type says is unkeyed (so the

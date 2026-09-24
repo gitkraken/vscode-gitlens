@@ -120,7 +120,7 @@ it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side fai
 | `listRepos`                  | `ProviderRepositoryShape` | Repos of an `org`, or account-wide user-affiliated repos when `org` is omitted.                                 |
 | `listPullRequestsPage`       | `PullRequestShape`        | With `repos`: those repos' PRs. Without: the user's PRs account-wide.                                           |
 | `searchPullRequestsPage`     | `PullRequestShape`        | PRs involving the user that match structured criteria, optionally repo/org-scoped.                              |
-| `countPullRequests`          | `PullRequestCountResult`  | How many PRs match each scope, fetching none of them. See §5.1.                                                 |
+| `countPullRequests`          | `PullRequestCountResult`  | How many PRs match each scope, fetching none where the provider can count. See §5.1.                            |
 | `listIssuesPage`             | `IssueShape`              | Same split, for a **git host**'s issues.                                                                        |
 | `searchIssuesPage`           | `IssueShape`              | Issues matching structured criteria over a repo/org scope — **no** `@me` binding.                               |
 | `countIssues`                | `IssueCountResult`        | How many match each scope, fetching none of them. See §5.1.                                                     |
@@ -217,9 +217,11 @@ Omit `relationships` to search every PR in the supplied repo/org scope; without 
 relationship is mandatory. This is deliberately not `involves:@me`: that GitHub shortcut excludes
 `review-requested` but includes `commenter`, so it cannot match the adjacent visible-PR list.
 
-The provider always orders this read most-recently-updated-first. A threaded `cursor` is exactly one upstream
-request; GitHub puts every active relationship × state facet into aliases in that one GraphQL document. A page
-number without a cursor walks from page 1. At GitHub's 1,000-result-per-facet ceiling, `page.truncated` is true and
+The read is ordered by `criteria.sort`, most-recently-updated-first when omitted; the keys a provider accepts are
+`getSupportedFilters().pullRequestSearch.sorts`. On GitHub/GHE a threaded `cursor` is exactly one upstream request,
+since every active relationship × state facet travels as an alias in one GraphQL document; Bitbucket Data Center
+has no such batching and spends one request per repository × relationship facet still being read. A page number
+without a cursor walks from page 1. At GitHub's 1,000-result-per-facet ceiling, `page.truncated` is true and
 the warning's `omission` carries `totalCount`, `limit`, and `recovery: 'none'`. `totalCount` is the largest
 provider-reported pre-ceiling facet count, matching the per-search ceiling's unit; it is not the returned or
 still-reachable row count. Free text is sanitized so qualifier-shaped tokens such as `org:other` are removed
@@ -331,11 +333,21 @@ const counts = await manager.countPullRequests({
 });
 ```
 
-The one difference is inherent to pull requests: a scope's `states` (open/closed/merged) are counted as
-independent searches, so the reported `count` is the **largest** of them — the same total
+The one difference is inherent to pull requests: on GitHub/GHE a scope's `states` (open/closed/merged) are
+counted as independent searches, so the reported `count` is the **largest** of them — the same total
 `searchPullRequestsPage` surfaces — not their sum. Because the result ceiling applies per search, that max is
 what `exceedsProviderLimit` compares against. Several states in one scope are therefore fine (they are
-disjoint); only several relationships are refused.
+disjoint); only several relationships are refused, except on Bitbucket Data Center (below).
+
+Bitbucket Data Center has no count query, no total on its pages and no result ceiling, so it counts by reading
+each facet's first page of up to 1,000 pull requests through the same predicates the search applies. Its `count`
+is therefore the exact **union** of the requested states — the number of rows the search returns — and when a
+facet has more than one page it comes back with `lowerBound: true`: a floor, to be shown as "N+" and treated as
+at least that expensive. Absent `lowerBound` means the count is exact, though computed from the rows read rather
+than reported by the server. Because it reads the
+rows, it also counts several relationships in one scope as their exact union, the same OR the search applies, so
+the one-relationship-per-scope refusal does not apply there. Each scope is its own set of requests, so a Bitbucket
+Data Center count is not free the way a GitHub one is; debounce and cache it.
 
 ## 6. Failures: warnings, `fetchFailed`, `truncated`
 
@@ -542,7 +554,7 @@ read, and GitHub's carries `latestReviews` natively; account-wide (no `repos`) i
 no option opts it back in. `commitOid` is absent from both: only the full projection populates it.
 
 The paginated read that does carry the full projection is `searchPullRequestsPage` with
-`criteria.relationships` (GitHub/GHE, which is also the only family that exposes a filtered PR search at all):
+`criteria.relationships` on GitHub/GHE (Bitbucket Data Center also exposes the search, with its native row shape):
 its results always include the review projection with `commitOid`, it honors `itemsPerPage`, and one threaded
 cursor page is exactly one upstream request — every relationship × state facet travels in the same query,
 unlike the account-wide read, which spends one request per facet per page. So a surface that pages
@@ -563,8 +575,8 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | PRs, repo-scoped             |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
 | PRs, account-wide            |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
 | PR `states` account-wide     |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      —      |   —    |   —    |
-| `searchPullRequestsPage`     |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |
-| `countPullRequests`          |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |
+| `searchPullRequestsPage`     |      ✓       |          ✗           |     ✗     |      ✓       |            ✗            |      ✗      |   ✗    |   ✗    |
+| `countPullRequests`          |      ✓       |          ✗           |     ✗     |      ✓       |            ✗            |      ✗      |   ✗    |   ✗    |
 | Issues, repo-scoped          |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |
 | Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |
 | `searchIssuesPage`           |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |
@@ -602,8 +614,12 @@ exposes a reviewed-by axis on the repo-scoped read, so it is absent from the rep
 PR **search** capabilities (`getSupportedFilters().pullRequestSearch`): GitHub/GHE express relationships
 `Author, Assignee, ReviewRequested, Reviewed, Mention`, states `open, closed, merged, all`, `text`, `updatedAfter`,
 `createdAfter`, `includeArchived`, `draft`, repository/organization scopes, and sorts
-`updated:desc|asc, created:desc|asc`. Every other provider declares empty lists and false flags, so the read is
-refused rather than returning a page that did not apply a requested criterion or scope. `updatedAfter` /
+`updated:desc|asc, created:desc|asc`. Bitbucket Data Center expresses relationships `Author, ReviewRequested,
+Reviewed`, states `open, closed, merged, all`, `text` (title or description), `includeArchived`, `draft`, the
+repository scope, and sorts `updated:desc|asc` — no assignee or mention (its pull requests have neither), no date
+filters, no `created` order, and no organization scope, since it has no project-wide pull-request list. Every other
+provider declares empty lists and false flags, so the read is refused rather than returning a page that did not
+apply a requested criterion or scope. `updatedAfter` /
 `createdAfter` are ISO `YYYY-MM-DD` and are the most effective narrowing on a large scope — the way to bound a broad
 closed-PR read, rather than capping page iterations. `draft` is tri-state: `true` returns only drafts, `false` only
 ready-for-review PRs, and omitting it places no constraint — so a consumer sending `draft: false` must not treat it
@@ -714,6 +730,18 @@ Markdown by this package.
 - **Bitbucket Data Center** — projects are the org tier; repositories can be listed by project or account-wide.
   Discovery follows exact `nextPageStart` offsets, with cursors bound to the connection and scope. It has no
   issues. Pull-request reads use the SDK's 1-based page numbers, carried inside their own opaque cursors.
+  The filtered PR search reads each requested repository × relationship as its own request (a relationship
+  without repositories reads the user's dashboard; `Reviewed` there is two requests, the reviewer and the
+  participant lists, because the dashboard only filters by review status together with a role), follows each
+  facet's own `nextPageStart`, and binds its
+  cursor to the connection, the configured installation URL and the query. Every criterion is re-checked on the
+  rows returned, so a server that ignores one (`draft` before 8.18) narrows instead of widening. A repository that
+  fails becomes a scoped warning with `fetchFailed` while the others still answer, and is retried once, at the
+  page it missed, on the next page; if the retry fails too it is dropped and reported on every later page, so one
+  that never answers can't hold `hasMore` open. A 401, or a 403 on the dashboard, is the credential and fails the
+  read; a 403 on one repository is that repository refusing the token, reported for it alone. Several states
+  (and `closed`, which is `DECLINED` plus `SUPERSEDED`) are read as every state and filtered, rather than costing
+  a request each.
 - **Azure DevOps** — org + project scoped. Repo-scoped reads accept one org per call. Account-wide reads
   drain every project of every org and return one aggregate page; a failed project becomes a scoped warning
   while its siblings survive. Only Azure can narrow an account-wide issue read by `org`/`project`.

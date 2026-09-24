@@ -933,6 +933,30 @@ const githubPullRequestSearchCapabilities: PullRequestSearchCapabilities = {
 	sorts: githubPullRequestSorts,
 };
 
+/**
+ * Bitbucket Data Center's filtered pull-request search (`bitbucket-server/pullRequestSearch.ts`), declared from what
+ * its REST API can express rather than from what a PR shape carries:
+ * - relationships: `role=AUTHOR`, and a reviewer's `UNAPPROVED` status for a pending review versus `APPROVED` or
+ *   `NEEDS_WORK` for one already given. A Bitbucket pull request has no assignee, and nothing filters by mention.
+ * - text is `filterText` (title or description), draft is `draft`, and archived repositories are excluded unless
+ *   asked for — all re-checked on each row, since the dashboard read has neither filter.
+ * - no date filters and no `created` ordering: `order` is only `NEWEST`/`OLDEST` by last update, and filtering a
+ *   date on the rows read would page through everything before it.
+ * - no organization scope: there is no project-wide pull-request list, only per repository and the dashboard.
+ */
+const bitbucketServerPullRequestSearchCapabilities: PullRequestSearchCapabilities = {
+	relationships: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested, PullRequestFilter.Reviewed],
+	states: ['open', 'closed', 'merged', 'all'],
+	text: true,
+	updatedAfter: false,
+	createdAfter: false,
+	includeArchived: true,
+	draft: true,
+	repositoryScope: true,
+	organizationScope: false,
+	sorts: ['updated:desc', 'updated:asc'],
+};
+
 export const providersMetadata: ProvidersMetadata = {
 	[GitCloudHostIntegrationId.GitHub]: {
 		domain: 'github.com',
@@ -1090,6 +1114,8 @@ export const providersMetadata: ProvidersMetadata = {
 		iconKey: GitSelfManagedHostIntegrationId.BitbucketServer,
 		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
 		supportedAccountWidePullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
+		supportedPullRequestSearch: bitbucketServerPullRequestSearchCapabilities,
+		// No `pullRequestSearchResultLimit`: nothing caps how far a search pages.
 		scopes: ['Project (Read)', 'Repository (Write)'],
 	},
 	[GitCloudHostIntegrationId.AzureDevOps]: {

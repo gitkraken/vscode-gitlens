@@ -63,6 +63,7 @@ import type {
 	IntegrationResult,
 	IntegrationType,
 	ProviderIssueSearchPage,
+	ProviderPullRequestCount,
 	ProviderPullRequestSearchPage,
 } from './integration.js';
 import { IntegrationBase } from './integration.js';
@@ -1869,12 +1870,16 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 	): Promise<(IssueShape | undefined)[] | undefined>;
 
-	/** The PR twin of {@link countIssuesResult}: counts each scope's pull requests, transferring none. */
+	/**
+	 * The PR twin of {@link countIssuesResult}: counts each scope's pull requests, transferring none where the
+	 * provider has a count query. Each slot is a {@link ProviderPullRequestCount}, so a provider that can only count
+	 * by reading (Bitbucket Data Center) can mark a figure it stopped short of as a floor.
+	 */
 	async countPullRequestsResult(
 		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: PullRequestSearchCriteria }[],
 		cancellation?: AbortSignal,
 		connectionId?: string,
-	): Promise<IntegrationResult<(number | undefined)[] | undefined>> {
+	): Promise<IntegrationResult<ProviderPullRequestCount[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -1891,12 +1896,16 @@ export abstract class GitHostIntegration<
 		}
 	}
 
-	/** OPTIONAL, like {@link countProviderIssues}: only a provider that can count without fetching implements it. */
+	/**
+	 * OPTIONAL, like {@link countProviderIssues}: only a provider that can answer "how many match" implements it —
+	 * GitHub/GHE with a zero-node search, Bitbucket Data Center by reading within a budget and reporting a floor
+	 * past it. Must agree with `ProviderMetadata.supportedPullRequestSearch`, which the facade validates against.
+	 */
 	protected countProviderPullRequests?(
 		session: ProviderAuthenticationSession,
 		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: PullRequestSearchCriteria }[],
 		cancellation?: AbortSignal,
-	): Promise<(number | undefined)[] | undefined>;
+	): Promise<ProviderPullRequestCount[] | undefined>;
 
 	getPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
 		return this.getProviderPullRequestIdentityFromMaybeUrl?.(search);

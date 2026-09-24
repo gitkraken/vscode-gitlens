@@ -381,7 +381,8 @@ export interface IntegrationManager {
 	 * scope.
 	 *
 	 * This is a separate read from {@link listPullRequestsPage}: free text reaches the provider instead of filtering
-	 * whichever rows happened to be loaded, and every cursor-threaded page costs exactly one upstream request.
+	 * whichever rows happened to be loaded, and on GitHub/GHE every cursor-threaded page costs exactly one upstream
+	 * request (Bitbucket Data Center spends one per repository × relationship facet it is still reading).
 	 * `criteria.relationships` and `criteria.states` are OR sets, so `[closed, merged]` expresses the complete
 	 * terminal set and `[Author, Assignee, ReviewRequested]` matches the visible PR list without falling back to
 	 * GitHub's mismatched `involves:@me`. Omit relationships only with a repository/organization scope to search
@@ -391,8 +392,10 @@ export interface IntegrationManager {
 	 * criterion — a key not in `getSupportedFilters().pullRequestSearch.sorts` refuses the whole read rather than
 	 * falling back, because at a bounded result window another order reaches another subset. The page is a union of
 	 * the provider's relationship × state facets, so it is re-ordered as a whole rather than served as concatenated
-	 * per-facet runs. Changing the sort invalidates a threaded cursor (it is part of the cursor's fingerprint,
-	 * alongside the text and the scope); drop the cursor when you change the order.
+	 * per-facet runs. The order holds within a page, not across pages: each facet advances by its own continuation, so
+	 * a later page can hold a row that sorts before the last row of an earlier one — sort the accumulated rows when a
+	 * surface shows several pages as one list. Changing the sort invalidates a threaded cursor (it is part of the
+	 * cursor's fingerprint, alongside the text and the scope); drop the cursor when you change the order.
 	 *
 	 * If the provider's result ceiling is reached, the request still succeeds and carries a warning omission with
 	 * `totalCount`, `limit`, `sort`, and `recovery: 'none'`. `totalCount` is the largest provider-reported
@@ -671,14 +674,19 @@ export interface IntegrationManager {
 		domain?: string;
 	}): Promise<ProviderResult<TrackerIssueResult>>;
 	/**
-	 * How many pull requests match each scope, fetching none of them — the PR twin of {@link countIssues}, behind a
-	 * "this will fetch ~N pull requests" preview and a live count next to an unapplied filter. Same cost model,
-	 * per-scope isolation, `key`-echo, and `count: undefined` ≠ zero rule as the issue count; GitHub/GHE only.
+	 * How many pull requests match each scope — the PR twin of {@link countIssues}, behind a "this will fetch ~N pull
+	 * requests" preview and a live count next to an unapplied filter. Same per-scope isolation, `key`-echo, and
+	 * `count: undefined` ≠ zero rule as the issue count; GitHub/GHE and Bitbucket Data Center.
 	 *
-	 * The one PR-specific difference: a scope's `states` are counted as independent searches, so the reported count
-	 * is the LARGEST of them (the same total {@link searchPullRequestsPage} surfaces), not their sum. Several states
-	 * in one scope are therefore fine; only several relationships are refused — one relationship per scope, see
-	 * {@link PullRequestCountScope}.
+	 * The one PR-specific difference: on GitHub/GHE a scope's `states` are counted as independent searches, so the
+	 * reported count is the LARGEST of them (the same total {@link searchPullRequestsPage} surfaces), not their sum.
+	 * Several states in one scope are therefore fine; only several relationships are refused — one relationship per
+	 * scope, see {@link PullRequestCountScope}.
+	 *
+	 * Bitbucket Data Center has no count query: it counts by reading each facet's first page, so a count there costs
+	 * requests rather than none, and one past that page comes back as a floor with `lowerBound: true`. Reading lets it
+	 * deduplicate the rows, so it counts the exact union of the states AND of several relationships in one scope,
+	 * matching what the search it previews returns.
 	 */
 	countPullRequests(options: {
 		providerId: IntegrationIds;
