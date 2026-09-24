@@ -21,7 +21,12 @@ import {
 	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
+import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
 import { requestBitbucketServerProjects, requestBitbucketServerRepositories } from './bitbucket-server/discovery.js';
+import {
+	countBitbucketServerPullRequests,
+	searchBitbucketServerPullRequestsPage,
+} from './bitbucket-server/pullRequestSearch.js';
 import { requestJiraIssueByKey } from './jiraIssueByKey.js';
 import type {
 	GetIssueFn,
@@ -1190,6 +1195,22 @@ export class ProvidersApi {
 		options?: { project?: string; cursor?: string },
 	): Promise<ProviderApiPagedResult<ProviderRepository>> {
 		return requestBitbucketServerRepositories(this.request, tokenWithInfo, baseUrl, connectionId, options);
+	}
+
+	searchBitbucketServerPullRequestsPage(
+		tokenWithInfo: TokenWithInfo<GitSelfManagedHostIntegrationId.BitbucketServer>,
+		options: Parameters<typeof searchBitbucketServerPullRequestsPage>[2],
+		cancellation?: AbortSignal,
+	): Promise<ProviderPullRequestSearchPage> {
+		return searchBitbucketServerPullRequestsPage(this.request, tokenWithInfo, options, cancellation);
+	}
+
+	countBitbucketServerPullRequests(
+		tokenWithInfo: TokenWithInfo<GitSelfManagedHostIntegrationId.BitbucketServer>,
+		options: Parameters<typeof countBitbucketServerPullRequests>[2],
+		cancellation?: AbortSignal,
+	): Promise<ProviderPullRequestCount> {
+		return countBitbucketServerPullRequests(this.request, tokenWithInfo, options, cancellation);
 	}
 
 	async getReposForCurrentUser(

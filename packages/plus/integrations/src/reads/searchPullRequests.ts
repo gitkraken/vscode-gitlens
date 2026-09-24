@@ -1,5 +1,6 @@
 import type { PullRequestSearchCriteria, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { defaultPullRequestSort } from '@gitlens/git/models/pullRequest.js';
+import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import type { ProviderReposInput } from '../providers/models.js';
 import type { ProviderPagedResult, ProviderWarning } from '../results.js';
@@ -169,6 +170,11 @@ export async function searchPullRequestsPage(
 	const first = await readPage(options.cursor);
 	const warnings = first.warning != null ? [first.warning] : [];
 	let totalCount = first.value?.totalCount;
+	// Facets whose rows are missing while their siblings answered. A page reports the walk's completeness so far, not
+	// just its own requests: a failure dropped for good repeats on every later page, while one that recovered on a
+	// retry drops out because its rows came back. So the latest page read is the one to assess, including when a later
+	// page fails the walk outright — never union the pages, which would bring a recovered failure back.
+	let lastMetadata = first.value?.metadata;
 	const drained = await drainFlatPagesToRequestedPage(first, {
 		requestedPage: page,
 		suppliedCursor: options.cursor,
@@ -178,9 +184,11 @@ export async function searchPullRequestsPage(
 			if (p.totalCount != null) {
 				totalCount = Math.max(totalCount ?? 0, p.totalCount);
 			}
+			lastMetadata = p.metadata;
 		},
 	});
 	const { value, currentPage, requestedPageMissing } = drained;
+	const assessment = mergeAssessmentInto(warnings, options.providerId, domain, options.connectionId, lastMetadata);
 
 	if (value == null && warnings.length === 0) {
 		return refused(
@@ -199,7 +207,9 @@ export async function searchPullRequestsPage(
 		},
 		undefined,
 	);
-	const truncated = continuation.truncated;
+	// A facet that failed while its siblings answered leaves the result incomplete, as `listPullRequestsPage` reports
+	// it; its warning is already in `warnings`, so it adds no generic one below.
+	const truncated = continuation.truncated || assessment.truncated;
 	if (truncated && warnings.length === 0) {
 		warnings.push(
 			pullRequestSearchCapResultWarning(
@@ -230,6 +240,6 @@ export async function searchPullRequestsPage(
 		},
 		hasMore: continuation.hasMore,
 		cursor: continuation.cursor,
-		fetchFailed: drained.fetchFailed || undefined,
+		fetchFailed: drained.fetchFailed || assessment.fetchFailed || undefined,
 	};
 }
