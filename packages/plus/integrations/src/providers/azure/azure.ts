@@ -311,6 +311,58 @@ export class AzureDevOpsApi implements Disposable {
 	}
 
 	@trace({
+		args: (provider, token, owner, projectOrName, id) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			projectOrName: projectOrName,
+			id: id,
+		}),
+	})
+	public async getPullRequest(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		projectOrName: string,
+		id: string,
+		options: { baseUrl: string },
+	): Promise<PullRequest | undefined> {
+		const scope = getScopedLogger();
+		// A pull request id is unique within the organization, so no repository is required here — only the
+		// project. `projectOrName` is either a bare project name or a `{project}/_git/{repo}` descriptor; either
+		// way the project is its first segment.
+		const projectName = projectOrName.split('/')[0];
+
+		try {
+			const pr = await this.request<AzurePullRequest>(
+				provider,
+				token,
+				options.baseUrl,
+				`${encodePathSegment(owner)}/${encodePathSegment(projectName)}/_apis/git/pullrequests/${encodePathSegment(id)}`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			if (pr != null) {
+				return await this.toPullRequest(pr, provider, token, owner, options.baseUrl, scope);
+			}
+		} catch (ex) {
+			// A rejected credential is actionable and must not be reported as an absent pull request; every other
+			// non-404 keeps the existing degrade-to-undefined behavior.
+			if (ex instanceof AuthenticationError) throw ex;
+
+			if (ex.original?.status !== 404) {
+				scope?.error(ex);
+				return undefined;
+			}
+		}
+
+		return undefined;
+	}
+
+	@trace({
 		args: (provider, token, owner, repo, id) => ({
 			provider: provider.name,
 			token: `<token:${token.microHash}>`,

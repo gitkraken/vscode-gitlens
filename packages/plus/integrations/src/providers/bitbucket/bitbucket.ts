@@ -190,6 +190,60 @@ export class BitbucketApi implements Disposable {
 			baseUrl: baseUrl,
 		}),
 	})
+	public async getPullRequest(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		id: string,
+		baseUrl: string,
+	): Promise<PullRequest | undefined> {
+		const scope = getScopedLogger();
+
+		try {
+			return await this.requestPullRequest(provider, token, owner, repo, id, baseUrl, scope);
+		} catch (ex) {
+			if (ex.original?.status !== 404) {
+				scope?.error(ex);
+			}
+
+			return undefined;
+		}
+	}
+
+	private async requestPullRequest(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		id: string,
+		baseUrl: string,
+		scope: ScopedLogger | undefined,
+	): Promise<PullRequest | undefined> {
+		const prResponse = await this.request<BitbucketPullRequest>(
+			provider,
+			token,
+			baseUrl,
+			`repositories/${owner}/${repo}/pullrequests/${id}?fields=%2Bvalues.reviewers,%2Bvalues.participants`,
+			{
+				method: 'GET',
+			},
+			scope,
+		);
+
+		return prResponse ? fromBitbucketPullRequest(prResponse, provider) : undefined;
+	}
+
+	@trace({
+		args: (provider, token, owner, repo, id, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			id: id,
+			baseUrl: baseUrl,
+		}),
+	})
 	async getIssue(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -247,21 +301,10 @@ export class BitbucketApi implements Disposable {
 
 		if (options?.type === undefined || options?.type === 'pullrequest') {
 			try {
-				const prResponse = await this.request<BitbucketPullRequest>(
-					provider,
-					token,
-					baseUrl,
-					`repositories/${owner}/${repo}/pullrequests/${id}?fields=%2Bvalues.reviewers,%2Bvalues.participants`,
-					{
-						method: 'GET',
-					},
-					scope,
-				);
-
-				if (prResponse) {
-					return fromBitbucketPullRequest(prResponse, provider);
-				}
+				const pr = await this.requestPullRequest(provider, token, owner, repo, id, baseUrl, scope);
+				if (pr != null) return pr;
 			} catch (ex) {
+				// Only a missing pull request falls through to the issue lookup; any other failure is not a miss
 				if (ex.original?.status !== 404) {
 					scope?.error(ex);
 					return undefined;
@@ -322,7 +365,7 @@ export class BitbucketApi implements Disposable {
 		repo: string,
 		id: string,
 		baseUrl: string,
-	): Promise<IssueOrPullRequest | undefined> {
+	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
 		try {

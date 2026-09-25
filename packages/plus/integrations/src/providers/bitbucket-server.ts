@@ -11,6 +11,7 @@ import type {
 } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
+import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import { CancellationError, raceWithSignal } from '@gitlens/utils/cancellation.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import type { Emitter } from '@gitlens/utils/event.js';
@@ -30,6 +31,7 @@ import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationKey, ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/integration.js';
 import type { BitbucketServerSearchUser } from './bitbucket-server/pullRequestSearch.js';
+import { getBitbucketServerPullRequestIdentityFromMaybeUrl } from './bitbucket/bitbucket.utils.js';
 import type { BitbucketRepositoryDescriptor } from './bitbucket/models.js';
 import type {
 	ProviderHierarchyResult,
@@ -197,6 +199,25 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			rev,
 			this.apiBaseUrlFor(session),
 		);
+	}
+
+	protected override async getProviderPullRequest(
+		session: ProviderAuthenticationSession,
+		resource: BitbucketRepositoryDescriptor,
+		id: string,
+	): Promise<PullRequest | undefined> {
+		return (await this.authenticationService.apis.bitbucket)?.getServerPullRequestById(
+			this,
+			toTokenWithInfo(this.id, session),
+			resource.owner,
+			resource.name,
+			id,
+			this.apiBaseUrlFor(session),
+		);
+	}
+
+	protected override getProviderPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
+		return getBitbucketServerPullRequestIdentityFromMaybeUrl(search, this.id);
 	}
 
 	public override async getRepoInfo(repo: {
