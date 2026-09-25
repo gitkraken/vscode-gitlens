@@ -94,7 +94,25 @@ export class CliGitProvider implements GitProvider {
 	private readonly _localRepositories: boolean;
 
 	constructor(options: CliGitProviderOptions) {
-		this.context = options.context;
+		// Every typed write announces itself through `onReset`, so the provider clears its own state there
+		// rather than trusting each host to: a host with no handler still reads fresh after a write. A write
+		// hard-evicts, so a caller after it never joins a read that started before it; watcher-driven clears
+		// reach `Cache.clearCaches` directly and keep sharing in-flight reads.
+		const hostHooks = options.context.hooks;
+		this.context = {
+			...options.context,
+			hooks: {
+				...hostHooks,
+				cache: {
+					...hostHooks?.cache,
+					onReset: (repoPath, ...types) => {
+						this._cache.evictCaches(repoPath, ...types);
+						this._git.clearPendingCommands();
+						hostHooks?.cache?.onReset?.(repoPath, ...types);
+					},
+				},
+			},
+		};
 		this._localRepositories = options.localRepositories ?? true;
 		this._git =
 			options.git ??
