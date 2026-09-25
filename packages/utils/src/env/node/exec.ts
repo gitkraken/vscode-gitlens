@@ -471,7 +471,7 @@ export function runSpawn<T extends string | Buffer>(
 			resolve({ exitCode: code ?? undefined, signal: signal ?? undefined, stdout: stdout, stderr: stderr });
 		});
 
-		if (stdin) {
+		if (stdin != null) {
 			if (typeof stdin === 'string') {
 				proc.stdin.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
 			} else if (stdin instanceof Buffer) {

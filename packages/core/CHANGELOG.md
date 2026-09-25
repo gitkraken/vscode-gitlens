@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes a git command that never started because its cancellation had already fired — the signal was aborted when the call was made, or while the command waited in the queue — rejecting as a `GitError` instead of a `CancellationError`. A typed mutator took that as git refusing the operation and reported a failure of its own, such as a `ReferenceUpdateError` with no reason, where its caller expected a cancellation. An `errors: 'ignore'` run still reports it as `failed`/`unstarted` (git-cli)
+- Fixes a git command given an empty stdin waiting for input until the command timeout killed it. The spawn path only closed git's stdin for a non-empty value, so `patch.createEmptyInitialCommit`, which hashes the empty tree from an empty stdin, failed this way every time, and a commit given an empty message hung for the full timeout instead of being refused (utils, git-cli)
 
 ## [0.7.2] - 2026-09-25
 
