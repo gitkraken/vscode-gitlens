@@ -11,6 +11,7 @@ import type {
 } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
@@ -27,6 +28,7 @@ import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { AccountWideIssuesResult, SearchMyIssuesOptions } from '../models/integration.js';
 import { decodePathSegment } from '../utils/domain.utils.js';
+import { getAzurePullRequestIdentityFromMaybeUrl } from './azure/azure.utils.js';
 import type {
 	AzureOrganizationDescriptor,
 	AzureProjectDescriptor,
@@ -718,6 +720,25 @@ export abstract class AzureDevOpsIntegrationBase<
 			rev,
 			getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo),
 		);
+	}
+
+	protected override async getProviderPullRequest(
+		session: ProviderAuthenticationSession,
+		resource: AzureRepositoryDescriptor,
+		id: string,
+	): Promise<PullRequest | undefined> {
+		return (await this.authenticationService.apis.azure)?.getPullRequest(
+			this,
+			toTokenWithInfo(this.id, session),
+			resource.owner,
+			resource.name,
+			id,
+			{ baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), resource) },
+		);
+	}
+
+	protected override getProviderPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
+		return getAzurePullRequestIdentityFromMaybeUrl(search, this.id);
 	}
 
 	public override async getRepoInfo(repo: {

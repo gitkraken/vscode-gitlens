@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import { AuthenticationError } from '../../../errors.js';
 import type { ProviderApiConfig } from '../../apiConfig.js';
 import { AzureDevOpsApi } from '../azure.js';
 import type { AzurePullRequest, AzureRepositoryUrls } from '../models.js';
@@ -392,5 +393,85 @@ suite('AzureDevOpsApi pull requests', () => {
 			'https://dev.azure.com/myorg/Project/_apis/git/repositories/Repo/pullrequestquery?api-version=4.1',
 			'https://dev.azure.com/myorg/project-id/_apis/git/repositories/repository-id/pullRequests/5',
 		]);
+	});
+});
+
+suite('AzureDevOpsApi.getPullRequest', () => {
+	function completedPullRequest(): AzurePullRequest {
+		const pr = pullRequest();
+		pr.status = 'completed';
+		pr.closedDate = '2026-09-12T00:00:00Z';
+		return pr;
+	}
+
+	function configForOrgPullRequest(pr: AzurePullRequest | undefined): {
+		config: ProviderApiConfig;
+		requests: string[];
+	} {
+		const requests: string[] = [];
+		return {
+			requests: requests,
+			config: {
+				fetch: input => {
+					requests.push(input.toString());
+					if (pr == null) {
+						return Promise.resolve(new Response('{}', { status: 404, statusText: 'Not Found' }));
+					}
+
+					return Promise.resolve(Response.json(pr));
+				},
+				wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()),
+			},
+		};
+	}
+
+	test('reads by id at the org/project level and reports state, mergedDate and closedDate', async () => {
+		const { config, requests } = configForOrgPullRequest(completedPullRequest());
+		const api = new AzureDevOpsApi(config);
+
+		const pr = await api.getPullRequest(azureProvider, azureToken, 'myorg', 'Project', '5', {
+			baseUrl: 'https://dev.azure.com',
+		});
+
+		assert.deepEqual(requests, ['https://dev.azure.com/myorg/Project/_apis/git/pullrequests/5']);
+		assert.equal(pr?.state, 'merged');
+		assert.ok(pr?.mergedDate instanceof Date, 'mergedDate is set for a completed pull request');
+		assert.ok(pr?.closedDate instanceof Date, 'closedDate is set for a completed pull request');
+	});
+
+	test('resolves the project from a {project}/_git/{repo} descriptor the same way as a bare project name', async () => {
+		const { config, requests } = configForOrgPullRequest(completedPullRequest());
+		const api = new AzureDevOpsApi(config);
+
+		await api.getPullRequest(azureProvider, azureToken, 'myorg', 'Project/_git/Repo', '5', {
+			baseUrl: 'https://dev.azure.com',
+		});
+
+		assert.deepEqual(requests, ['https://dev.azure.com/myorg/Project/_apis/git/pullrequests/5']);
+	});
+
+	test('a missing pull request resolves to undefined', async () => {
+		const { config } = configForOrgPullRequest(undefined);
+		const api = new AzureDevOpsApi(config);
+
+		const pr = await api.getPullRequest(azureProvider, azureToken, 'myorg', 'Project', '5', {
+			baseUrl: 'https://dev.azure.com',
+		});
+
+		assert.equal(pr, undefined);
+	});
+
+	test('an authentication failure is rethrown rather than swallowed', async () => {
+		const api = new AzureDevOpsApi({
+			fetch: () => Promise.resolve(new Response('{}', { status: 401, statusText: 'Unauthorized' })),
+			wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()),
+		});
+
+		await assert.rejects(
+			api.getPullRequest(azureProvider, azureToken, 'myorg', 'Project', '5', {
+				baseUrl: 'https://dev.azure.com',
+			}),
+			(ex: unknown) => ex instanceof AuthenticationError,
+		);
 	});
 });
