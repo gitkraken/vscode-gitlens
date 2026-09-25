@@ -20,12 +20,14 @@ import type {
 	TokenWithInfo,
 } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
+import type { ProviderRefusal } from '../collectionMetadata.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import type { GitSelfManagedHostIntegrationId } from '../constants.js';
 import { GitCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { AccountWideIssuesResult, SearchMyIssuesOptions } from '../models/integration.js';
+import type { ProviderWarningCause, ProviderWarningScope } from '../results.js';
 import { decodePathSegment } from '../utils/domain.utils.js';
 import type {
 	AzureOrganizationDescriptor,
@@ -238,6 +240,66 @@ export abstract class AzureDevOpsIntegrationBase<
 					username: user.username ?? undefined,
 				}
 			: undefined;
+	}
+
+	/**
+	 * The profile request the account cache would otherwise answer; see `IntegrationBase.validateCredential`. No
+	 * account proves nothing, since Azure DevOps Server's request answers every failure but a refusal that way.
+	 */
+	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
+		if ((await this._requestForCurrentUser(session)) == null) {
+			throw new Error('Azure DevOps did not confirm the credential');
+		}
+	}
+
+	/**
+	 * Names a confirmed credential's refusal from the answers Azure DevOps gives, captured live (#5890):
+	 * - `VS403463` in the explanation is a Conditional Access policy;
+	 * - a typed `UnauthorizedRequestException` body is an organization or project the account has no access to;
+	 * - a `401` to an OAuth token that explains nothing (sent as Basic), or only `TF400813` (sent as Bearer), is an
+	 *   organization whose "Third-party application access via OAuth" policy is off. It is the same answer an
+	 *   expired token gets, which is why this is only asked once the credential passed. The policy does not govern
+	 *   personal access tokens, so a PAT is never given it.
+	 *
+	 * Any other explanation is left unnamed, so the warning keeps Azure's own words rather than a guess.
+	 */
+	protected override describeRefusal(
+		session: ProviderAuthenticationSession,
+		refusal: ProviderRefusal,
+		scope: ProviderWarningScope,
+	): ProviderWarningCause | undefined {
+		const code = /\b(?:TF|VS)\d{6}\b/.exec(refusal.detail ?? '')?.[0];
+		if (code === 'VS403463') return { reason: 'conditional-access', code: code };
+		if (refusal.typeKey === 'UnauthorizedRequestException') {
+			return { reason: 'access-denied', ...(code != null ? { code: code } : {}) };
+		}
+		if (
+			this.id !== GitCloudHostIntegrationId.AzureDevOps ||
+			session.type !== 'oauth' ||
+			refusal.status !== 401 ||
+			refusal.typeKey != null ||
+			(refusal.detail != null && code !== 'TF400813')
+		) {
+			return undefined;
+		}
+
+		// The organization's name, for the policy page, comes from the discovery the failure was recorded under. Most
+		// reads record the organization's id, the repo-scoped ones its name.
+		const org =
+			scope.resourceId != null
+				? this._organizations
+						?.get(this.discoveryKey(session))
+						?.find(o => o.id === scope.resourceId || o.name === scope.resourceId)?.name
+				: undefined;
+		return {
+			reason: 'oauth-app-not-allowed',
+			...(code != null ? { code: code } : {}),
+			...(org != null
+				? {
+						remedyUrl: `${this.apiBaseUrlFor(session)}/${encodeURIComponent(org)}/_settings/organizationPolicy`,
+					}
+				: {}),
+		};
 	}
 
 	private _organizations: Map<string, AzureOrganizationDescriptor[] | undefined> | undefined;

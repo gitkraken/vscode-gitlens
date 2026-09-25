@@ -145,7 +145,16 @@ export function isRateLimitResponse(ex: { status: number; message?: string }): b
  * duck-typing on `get` rather than `instanceof Headers`, so this works in both the Node and webworker builds
  * without depending on the global being present.
  */
-type ResponseHeaders = Pick<Headers, 'get'> | Record<string, unknown>;
+export type ResponseHeaders = Pick<Headers, 'get'> | Record<string, unknown>;
+
+/** Reads one header off either shape of {@link ResponseHeaders}; names are the lower-case ones both shapes use. */
+export function getResponseHeader(headers: ResponseHeaders | undefined, name: string): unknown {
+	if (headers == null) return undefined;
+
+	return typeof headers.get === 'function'
+		? (headers.get as (name: string) => string | null)(name)
+		: (headers as Record<string, unknown>)[name];
+}
 
 /**
  * Builds a {@link RequestRateLimitError} from a provider error response, reading the reset epoch from the
@@ -156,13 +165,7 @@ export function toRateLimitError(
 	ex: Error & { response?: { headers?: ResponseHeaders } },
 	token: string | undefined,
 ): RequestRateLimitError {
-	const headers = ex.response?.headers as { get?: unknown } & Record<string, unknown>;
-	const raw =
-		headers == null
-			? undefined
-			: typeof headers.get === 'function'
-				? (headers.get as (name: string) => string | null)('x-ratelimit-reset')
-				: headers['x-ratelimit-reset'];
+	const raw = getResponseHeader(ex.response?.headers, 'x-ratelimit-reset');
 
 	// Only a header that actually came back as a string/number can be a reset epoch; anything else (a nested SDK
 	// object, an array of values) would stringify to garbage and parse to NaN anyway.

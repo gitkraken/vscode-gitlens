@@ -554,6 +554,12 @@ suite('Jira Server/Data Center (#5864)', () => {
 		assert.equal(result?.truncated, true);
 		assert.equal(result?.values.length, 1);
 		assert.equal(result?.metadata?.completeness, 'partial');
+		// The stall belongs to the whole connection, so it names no sub-scope a consumer would read as confined
+		// (#5890): the instance is this connection's only resource.
+		assert.deepEqual(
+			result?.metadata?.failures?.map(f => f.scope),
+			[{ providerId: IssuesSelfManagedHostIntegrationId.JiraServer }],
+		);
 
 		manager.dispose();
 	});

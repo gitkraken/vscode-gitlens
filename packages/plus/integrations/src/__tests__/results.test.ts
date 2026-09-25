@@ -158,6 +158,24 @@ suite('provider warning dedup', () => {
 		assert.equal(into.length, 3, 'kind and totalCount each discriminate; the exact repeat collapses');
 	});
 
+	test('two failures that differ only in scope stay two warnings (#5890)', () => {
+		// Same message on purpose, as above: the scope is part of the warning's identity whether or not the prose
+		// spells it out.
+		const auth = (scope?: ProviderWarning['scope']): ProviderWarning => ({
+			...warning('refused'),
+			kind: 'auth',
+			isAuth: true,
+			...(scope != null ? { scope: scope } : {}),
+		});
+		const into: ProviderWarning[] = [];
+		appendDedupedWarning(into, auth({ resourceId: 'org-a' }));
+		appendDedupedWarning(into, auth({ resourceId: 'org-b' }));
+		appendDedupedWarning(into, auth());
+		appendDedupedWarning(into, auth({ resourceId: 'org-a' }));
+
+		assert.equal(into.length, 3, 'each scope and the account-wide failure are distinct; the repeat collapses');
+	});
+
 	test('an omission-bearing warning is distinct from an otherwise identical one without it', () => {
 		const into: ProviderWarning[] = [];
 		appendDedupedWarning(into, warning('incomplete'));
