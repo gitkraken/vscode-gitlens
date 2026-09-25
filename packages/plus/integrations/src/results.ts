@@ -152,9 +152,11 @@ export interface ProviderWarning {
 	 *
 	 * So the promise holds for a read that carries no unscoped `auth` warning of its own; one that does already asks
 	 * for a reconnect, and its other scoped refusals are not checked. Two exceptions stay scoped even then. A check
-	 * that could not complete or was denied (a network error, a throttle, a `403`) proves nothing, so the warnings
-	 * are published unconfirmed, with no {@link cause}. And a credential confirmed within the last minute is not
-	 * probed again, so a revocation can take up to a minute to surface.
+	 * that could not complete or was denied (a network error, a throttle, a `403`, Bitbucket Data Center refusing a
+	 * credential it authenticated, or a Bitbucket Data Center project access token, whose user the check cannot
+	 * find) proves nothing, so the warnings are published unconfirmed, with no {@link cause}, and the next read
+	 * checks again. And a credential confirmed within the last minute is not probed again, so a revocation can take
+	 * up to a minute to surface.
 	 */
 	scope?: ProviderWarningScope;
 	/**

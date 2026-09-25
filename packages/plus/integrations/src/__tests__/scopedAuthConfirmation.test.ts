@@ -209,25 +209,24 @@ suite('scoped auth confirmation (#5890)', () => {
 		}
 
 		/**
-		 * `/users`' 401 as `throwProviderError` wraps it (see `providersApi.ts`), captured from Bitbucket Data Center
-		 * 8.8: the same body whether the credential is dead or authenticated, with `X-AUSERNAME` naming the user only
-		 * in the latter case.
+		 * `/users`' refusal as `throwProviderError` wraps it (see `providersApi.ts`, which puts the body's message in
+		 * the error's). Defaults to the answer captured from Bitbucket Data Center 8.8 for a dead token, which is the
+		 * same body an authenticated credential gets, except that `X-AUSERNAME` then names its user.
 		 */
-		function usersRefusal(username?: string): AuthenticationError {
-			const original = Object.assign(new Error('(401) Unauthorized.'), {
+		function usersRefusal(
+			options: { username?: string; message?: string; exceptionName?: string } = {},
+		): AuthenticationError {
+			const {
+				username,
+				message = 'You are not permitted to access this resource',
+				exceptionName = 'com.atlassian.bitbucket.AuthorisationException',
+			} = options;
+			const original = Object.assign(new Error(`(401) Unauthorized. ${message}`), {
 				response: {
 					status: 401,
 					statusText: 'Unauthorized',
 					headers: username != null ? { 'x-ausername': username } : {},
-					body: {
-						errors: [
-							{
-								context: null,
-								message: 'You are not permitted to access this resource',
-								exceptionName: 'com.atlassian.bitbucket.AuthorisationException',
-							},
-						],
-					},
+					body: { errors: [{ context: null, message: message, exceptionName: exceptionName }] },
 				},
 			});
 			return new AuthenticationError(
@@ -243,91 +242,72 @@ suite('scoped auth confirmation (#5890)', () => {
 			);
 		}
 
-		test('a dead token is a connection failure, not one refusal per repository', async () => {
-			const manager = await bitbucketServerRefusingEveryRepository(() => Promise.reject(usersRefusal()));
-
-			try {
-				const result = await manager.listPullRequestsPage({
-					providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
-					repos: repos,
-					domain: 'bb.example.com',
-				});
-
-				const auth = result.warnings.filter(w => w.kind === 'auth');
-				assert.equal(auth.length, 1);
-				assert.equal('scope' in auth[0], false, 'the refused credential is reported for the connection');
-				assert.equal(result.fetchFailed, true);
-			} finally {
-				manager.dispose();
-			}
-		});
-
-		test('a credential the check refuses but authenticated is not a dead one', async () => {
-			const manager = await bitbucketServerRefusingEveryRepository(() =>
-				Promise.reject(usersRefusal('project-token-bot')),
-			);
-
-			try {
-				const result = await manager.listPullRequestsPage({
-					providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
-					repos: repos,
-					domain: 'bb.example.com',
-				});
-
-				assert.deepEqual(
-					result.warnings.filter(w => w.kind === 'auth').map(w => w.scope),
-					[{ repositoryId: 'PROJ/one' }, { repositoryId: 'PROJ/two' }],
-					'the check proves nothing, so the read is left as it was',
-				);
-			} finally {
-				manager.dispose();
-			}
-		});
-
-		test('a project access token, whose bot user the check cannot find, is not a dead one', async () => {
-			// What the SDK throws when `/users` answers but does not list the user the token authenticated as.
-			const manager = await bitbucketServerRefusingEveryRepository(() =>
-				Promise.reject(new Error('Could not find current Bitbucket Server user')),
-			);
-
-			try {
-				const result = await manager.listPullRequestsPage({
-					providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
-					repos: repos,
-					domain: 'bb.example.com',
-				});
-
-				assert.deepEqual(
-					result.warnings.filter(w => w.kind === 'auth').map(w => w.scope),
-					[{ repositoryId: 'PROJ/one' }, { repositoryId: 'PROJ/two' }],
-				);
-			} finally {
-				manager.dispose();
-			}
-		});
-
-		test('a sound token keeps each repository its own refusal', async () => {
+		/** Reads the refused repositories' pull requests twice, returning the first read and the checks made. */
+		async function readTwice(probe: () => Promise<unknown>) {
 			let probes = 0;
 			const manager = await bitbucketServerRefusingEveryRepository(() => {
 				probes++;
-				return Promise.resolve({ id: 'u1' });
+				return probe();
 			});
-
 			try {
-				const result = await manager.listPullRequestsPage({
-					providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
-					repos: repos,
-					domain: 'bb.example.com',
-				});
+				const read = () =>
+					manager.listPullRequestsPage({
+						providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+						repos: repos,
+						domain: 'bb.example.com',
+					});
+				const result = await read();
+				await read();
+				return { result: result, probes: probes };
+			} finally {
+				manager.dispose();
+			}
+		}
+
+		test('a dead token is a connection failure, not one refusal per repository', async () => {
+			const { result } = await readTwice(() => Promise.reject(usersRefusal()));
+
+			const auth = result.warnings.filter(w => w.kind === 'auth');
+			assert.equal(auth.length, 1);
+			assert.equal('scope' in auth[0], false, 'the refused credential is reported for the connection');
+			assert.equal(result.fetchFailed, true);
+		});
+
+		for (const [label, probe] of [
+			['a refusal naming the user it authenticated', () => Promise.reject(usersRefusal({ username: 'jdoe' }))],
+			[
+				'a refusal of an unlicensed user',
+				() =>
+					Promise.reject(
+						usersRefusal({ message: 'The currently authenticated user is not a licensed user.' }),
+					),
+			],
+			[
+				// What the SDK throws when `/users` answers but does not list the user the token authenticated as.
+				'a project access token, whose bot user `/users` does not list,',
+				() => Promise.reject(new Error('Could not find current Bitbucket Server user')),
+			],
+		] as const) {
+			test(`${label} proves nothing, and is checked again on the next read`, async () => {
+				const { result, probes } = await readTwice(probe);
 
 				assert.deepEqual(
 					result.warnings.filter(w => w.kind === 'auth').map(w => w.scope),
 					[{ repositoryId: 'PROJ/one' }, { repositoryId: 'PROJ/two' }],
+					'the read is left as it was',
 				);
-				assert.equal(probes, 1);
-			} finally {
-				manager.dispose();
-			}
+				assert.equal(probes, 2, 'a check that proved nothing is not remembered');
+			});
+		}
+
+		test('a sound token keeps each repository its own refusal', async () => {
+			const { result, probes } = await readTwice(() => Promise.resolve({ id: 'u1' }));
+
+			assert.deepEqual(
+				result.warnings.filter(w => w.kind === 'auth').map(w => w.scope),
+				[{ repositoryId: 'PROJ/one' }, { repositoryId: 'PROJ/two' }],
+			);
+			assert.equal(probes, 1, 'a pass is remembered');
 		});
 	});
 });

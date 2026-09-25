@@ -570,10 +570,11 @@ export abstract class IntegrationBase<
 	 * A refusal the provider pins on the credential itself (see {@link isCredentialRefusal}) is published for the
 	 * connection instead, without a probe.
 	 *
-	 * A token that passed within the last minute is not probed again, so a scope that keeps refusing a sound
-	 * credential costs one probe a minute, and a revocation right after a probe can take up to a minute to surface:
-	 * until then its refusals stay scoped, and may be named. A probe that proved nothing is not remembered, so the
-	 * next read probes again.
+	 * A token that passed within the last minute is not probed again, so a scope that keeps refusing it costs one
+	 * probe a minute, and a revocation right after a probe can take up to a minute to surface: until then its
+	 * refusals stay scoped, and may be named. A probe that proved nothing is not remembered, so the next read probes
+	 * again, and a credential no probe can confirm (e.g. a Bitbucket Data Center project access token) is probed on
+	 * every read that has scoped refusals.
 	 */
 	protected async confirmScopedAuthFailures(
 		session: ProviderAuthenticationSession,

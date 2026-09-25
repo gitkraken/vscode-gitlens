@@ -413,9 +413,10 @@ The promise holds for a read that carries no unscoped `auth` warning of its own:
 reconnect, and its other scoped refusals are not checked. Two cases stay scoped even then. A check that could not
 complete or was denied (a network error, a throttle, a `403`, Bitbucket Data Center refusing a credential it
 authenticated, or a Bitbucket Data Center project access token, whose user the check cannot find) proves nothing,
-so the warnings are published unconfirmed and carry no `cause`, and the next read checks again. And a credential
-confirmed within the last minute is not checked again, so a scope that keeps refusing a sound credential costs at
-most one extra check a minute, and a revocation can take up to a minute to surface as a connection failure.
+so the warnings are published unconfirmed and carry no `cause`, and the next read checks again: a credential the
+check can never confirm, like a project access token, costs one check on every read that has scoped refusals. And a
+credential confirmed within the last minute is not checked again, so a scope that keeps refusing it costs at most
+one extra check a minute, and a revocation can take up to a minute to surface as a connection failure.
 
 `scope.resourceId` is the resource as the read addressed it: its id on most reads, its name on the few that
 address it by name (Azure DevOps' repo-scoped reads, Bitbucket's workspace reads). Match it against both
