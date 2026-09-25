@@ -628,7 +628,7 @@ export interface GitHooks {
 const emptyArray: readonly never[] = Object.freeze([]);
 const emptyObj = Object.freeze({});
 const trailingNewlineRegex = /[\r|\n]+$/;
-const uniqueCounterForStdin = getScopedCounter();
+const unsharedRunCounter = getScopedCounter();
 const uniqueCounterForStream = getScopedCounter();
 
 type ExitCodeOnlyGitCommandOptions = GitRunOptions & { exitCodeOnly: true };
@@ -879,8 +879,11 @@ export class Git {
 			quiet: errorHandling === 'ignore',
 		};
 
+		// A run fed its own stdin or per-call env is never shared: the same argv can answer differently for
+		// each (a temporary index through `GIT_INDEX_FILE`, config injected through `GIT_CONFIG_*`).
+		const unshared = options?.stdin != null || (options?.env != null && Object.keys(options.env).length > 0);
 		const cacheKey = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${
-			options?.stdin != null ? `${uniqueCounterForStdin.next()}:` : ''
+			unshared ? `${unsharedRunCounter.next()}:` : ''
 		}${cancellation != null ? `${getAbortSignalId(cancellation)}:` : ''}${gitCommand}`;
 
 		// When the subprocess actually started — `start` includes GitQueue wait, which is congestion rather
