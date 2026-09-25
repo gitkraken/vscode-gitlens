@@ -20,12 +20,14 @@ import type {
 	TokenWithInfo,
 } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
+import type { ProviderRefusal } from '../collectionMetadata.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import type { GitSelfManagedHostIntegrationId } from '../constants.js';
 import { GitCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { AccountWideIssuesResult, SearchMyIssuesOptions } from '../models/integration.js';
+import type { ProviderWarningCause, ProviderWarningScope } from '../results.js';
 import { decodePathSegment } from '../utils/domain.utils.js';
 import type {
 	AzureOrganizationDescriptor,
@@ -243,6 +245,44 @@ export abstract class AzureDevOpsIntegrationBase<
 	/** The profile request the account cache would otherwise answer; see `IntegrationBase.validateCredential`. */
 	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
 		await this._requestForCurrentUser(session);
+	}
+
+	/**
+	 * Names a confirmed credential's refusal from the answers Azure DevOps gives, captured live (#5890):
+	 * - `VS403463` in the explanation is a Conditional Access policy;
+	 * - a typed `UnauthorizedRequestException` body is an organization or project the account has no access to;
+	 * - a bare `401` to an OAuth token, with no typed body, is an organization whose "Third-party application access
+	 *   via OAuth" policy is off. It is the same answer an expired token gets, which is why this is only asked once
+	 *   the credential passed. The policy does not govern personal access tokens, so a PAT is never given it.
+	 */
+	protected override describeRefusal(
+		session: ProviderAuthenticationSession,
+		refusal: ProviderRefusal,
+		scope: ProviderWarningScope,
+	): ProviderWarningCause | undefined {
+		const code = /\b(?:TF|VS)\d{6}\b/.exec(refusal.detail ?? '')?.[0];
+		if (code === 'VS403463') return { reason: 'conditional-access', code: code };
+		if (refusal.typeKey === 'UnauthorizedRequestException') {
+			return { reason: 'access-denied', ...(code != null ? { code: code } : {}) };
+		}
+		if (this.id !== GitCloudHostIntegrationId.AzureDevOps || session.type !== 'oauth' || refusal.status !== 401) {
+			return undefined;
+		}
+
+		// The organization's name, for the policy page, comes from the discovery the failure was recorded under.
+		const org =
+			scope.resourceId != null
+				? this._organizations?.get(this.discoveryKey(session))?.find(o => o.id === scope.resourceId)?.name
+				: undefined;
+		return {
+			reason: 'oauth-app-not-allowed',
+			...(code != null ? { code: code } : {}),
+			...(org != null
+				? {
+						remedyUrl: `${this.apiBaseUrlFor(session)}/${encodeURIComponent(org)}/_settings/organizationPolicy`,
+					}
+				: {}),
+		};
 	}
 
 	private _organizations: Map<string, AzureOrganizationDescriptor[] | undefined> | undefined;

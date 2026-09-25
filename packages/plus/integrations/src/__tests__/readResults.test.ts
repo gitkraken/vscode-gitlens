@@ -5,7 +5,14 @@ import { suite, test } from 'mocha';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { assessCollectionMetadata, isIncompleteCollection, mergeAssessmentInto } from '../collectionMetadata.js';
+import type { ProviderScopeFailure } from '../collectionMetadata.js';
+import {
+	assessCollectionMetadata,
+	attributeScopedAuthFailures,
+	isIncompleteCollection,
+	mergeAssessmentInto,
+	toCollectionScopeFailure,
+} from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import {
 	AuthenticationError,
@@ -20,6 +27,7 @@ import type { IntegrationResult } from '../models/integration.js';
 import type { ProviderIssue, ProviderPullRequest, ProviderReposInput } from '../providers/models.js';
 import { PagingMode } from '../providers/models.js';
 import type { ProviderWarning } from '../results.js';
+import { globalPatNotAllowed, noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -427,6 +435,118 @@ suite('read result cores (#5438)', () => {
  * flags incompleteness rather than discarding them), and completeness maps to truncation without inventing a
  * second generic warning when a specific failure already explains it.
  */
+/**
+ * What an authentication refusal leaves on the scope failure it becomes (#5890): the provider's own explanation and
+ * the facts a provider names the cause from, never the response itself, and the cause once one is named.
+ */
+suite('scope failure refusals (#5890)', () => {
+	const scope = { providerId: GitCloudHostIntegrationId.AzureDevOps, resourceId: 'org-denied' };
+
+	test('keeps the facts of the refusal, never the response', () => {
+		const failure = toCollectionScopeFailure(scope, oauthAppNotAllowed());
+
+		assert.equal(failure.kind, 'authentication');
+		assert.deepEqual(failure.refusal, { status: 401 });
+		// The response carries the provider's session cookie, and this failure reaches consumers and logs.
+		assert.equal(JSON.stringify(failure).includes('VstsSession'), false);
+		// Not "credentials are either invalid or expired": a scope refusing a sound credential is the case this
+		// failure exists to tell apart, and that sentence says the opposite.
+		assert.equal(failure.message, '(401) Unauthorized.');
+	});
+
+	test("describes the refusal in the provider's own words when it gives any", () => {
+		const typed = toCollectionScopeFailure(scope, noAccess());
+		assert.deepEqual(typed.refusal, {
+			status: 401,
+			detail: "TF400813: The user 'fb80544b-3a07-6095-8fcc-5e895f9d39c4' is not authorized to access this resource.",
+			typeKey: 'UnauthorizedRequestException',
+		});
+		assert.equal(typed.message, typed.refusal?.detail);
+
+		// Here only the header explains it, percent-encoded, next to an HTML page.
+		const header = toCollectionScopeFailure(scope, globalPatNotAllowed());
+		assert.match(header.message ?? '', /^The organization's security policy prohibits access by global Personal/);
+		assert.equal(header.refusal?.typeKey, undefined);
+	});
+
+	test("reads a ProviderFetchError's Response as well as the SDK adapter's plain object", () => {
+		const ex = oauthAppNotAllowed();
+		Object.assign(ex.original as Error, {
+			response: new Response(null, {
+				status: 401,
+				headers: {
+					'x-tfs-serviceerror':
+						'TF400813%3A%20The%20user%20is%20not%20authorized%20to%20access%20this%20resource.%20',
+				},
+			}),
+		});
+
+		const failure = toCollectionScopeFailure(scope, ex);
+		assert.deepEqual(failure.refusal, {
+			status: 401,
+			detail: 'TF400813: The user is not authorized to access this resource.',
+		});
+	});
+
+	test('only a scoped authentication failure that kept its refusal is named', () => {
+		const named = toCollectionScopeFailure(scope, oauthAppNotAllowed());
+		const accountWide = toCollectionScopeFailure(
+			{ providerId: GitCloudHostIntegrationId.AzureDevOps },
+			oauthAppNotAllowed(),
+		);
+		const bare: ProviderScopeFailure = { scope: scope, kind: 'authentication' };
+		const throttled: ProviderScopeFailure = { ...named, kind: 'rate-limit' };
+		const seen: unknown[] = [];
+
+		attributeScopedAuthFailures(
+			{ completeness: 'partial', failures: [named, accountWide, bare, throttled] },
+			(refusal, s) => {
+				seen.push(s);
+				return { reason: 'oauth-app-not-allowed' };
+			},
+		);
+
+		assert.deepEqual(named.cause, { reason: 'oauth-app-not-allowed' });
+		assert.deepEqual(
+			seen,
+			[{ resourceId: 'org-denied' }],
+			'the connection, a bare failure and a throttle are left alone',
+		);
+		assert.equal(accountWide.cause, undefined);
+		assert.equal(bare.cause, undefined);
+		assert.equal(throttled.cause, undefined);
+	});
+
+	test('the warning carries the named cause, and words its message from it', () => {
+		const failure: ProviderScopeFailure = {
+			...toCollectionScopeFailure(scope, oauthAppNotAllowed()),
+			cause: {
+				reason: 'oauth-app-not-allowed',
+				remedyUrl: 'https://dev.azure.com/org/_settings/organizationPolicy',
+			},
+		};
+		const result = assessCollectionMetadata(GitCloudHostIntegrationId.AzureDevOps, 'dev.azure.com', undefined, {
+			completeness: 'partial',
+			failures: [failure],
+		});
+
+		assert.equal(result.warnings.length, 1);
+		assert.deepEqual(result.warnings[0].cause, failure.cause);
+		assert.notStrictEqual(
+			result.warnings[0].cause,
+			failure.cause,
+			'the failure object is retained and re-merged upstream',
+		);
+		assert.equal(
+			result.warnings[0].message,
+			'Failed to read authentication scope (resource org-denied): the organization does not allow third-party OAuth apps',
+		);
+		// Unchanged by the cause: it names why a sound credential was refused, not a different kind of failure.
+		assert.equal(result.warnings[0].kind, 'auth');
+		assert.equal(result.warnings[0].isAuth, true);
+	});
+});
+
 suite('assessCollectionMetadata (#5438)', () => {
 	const providerId = GitCloudHostIntegrationId.GitHub;
 

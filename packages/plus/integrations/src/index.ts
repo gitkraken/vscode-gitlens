@@ -205,6 +205,8 @@ export type {
 	ProviderResult,
 	ProviderSweepResult,
 	ProviderWarning,
+	ProviderWarningCause,
+	ProviderWarningCauseReason,
 	ProviderWarningKind,
 	ProviderWarningOmission,
 	ProviderWarningOmissionKind,

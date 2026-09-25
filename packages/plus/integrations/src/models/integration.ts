@@ -23,7 +23,8 @@ import type {
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { RejectedTokenTracker } from '../authentication/rejectedTokenTracker.js';
-import { hasOnlyScopedAuthFailures } from '../collectionMetadata.js';
+import type { ProviderRefusal } from '../collectionMetadata.js';
+import { attributeScopedAuthFailures, hasOnlyScopedAuthFailures } from '../collectionMetadata.js';
 import type { IntegrationIds, IssuesCloudHostIntegrationId, IssuesHostIntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
@@ -31,6 +32,7 @@ import { AuthenticationError, RequestClientError, toError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import { providersMetadata } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
+import type { ProviderWarningCause, ProviderWarningScope } from '../results.js';
 import type { Sources } from '../telemetry.js';
 import { areDomainsOnSameHost } from '../utils/domain.utils.js';
 import { isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
@@ -515,7 +517,7 @@ export abstract class IntegrationBase<
 	 * Implemented only by providers that serve discovery from a per-token cache (Azure DevOps, Bitbucket, Jira
 	 * Cloud). There, a token revoked since discovery is only sent to the scopes a read still requests, so it
 	 * comes back as scoped refusals with no failure of the connection: the same shape as one scope refusing a
-	 * sound credential. {@link throwIfCredentialRefused} uses this to tell the two apart.
+	 * sound credential. {@link confirmScopedAuthFailures} uses this to tell the two apart.
 	 */
 	protected validateCredential?(session: ProviderAuthenticationSession): Promise<void>;
 
@@ -526,19 +528,33 @@ export abstract class IntegrationBase<
 	private readonly _validatedCredentials = new PromiseCache<string, void>({ createTTL: 60 * 1000, capacity: 10 });
 
 	/**
-	 * Throws the refusal when a read's only authentication failures are scoped and the credential itself turns
-	 * out to be refused. The caller's `catch` then fails the read as a whole, exactly as it does when discovery
-	 * is not cached and the first request is the one refused.
+	 * Names why a confirmed credential was refused by one scope, from what the refusal said (see
+	 * `ProviderWarning.cause`). Called only by {@link confirmScopedAuthFailures}, once the credential passed: the
+	 * refusals this names are indistinguishable from a dead credential until then.
+	 */
+	protected describeRefusal?(
+		session: ProviderAuthenticationSession,
+		refusal: ProviderRefusal,
+		scope: ProviderWarningScope,
+	): ProviderWarningCause | undefined;
+
+	/**
+	 * Settles what a read's only-scoped authentication failures mean, when the provider can tell (see
+	 * {@link validateCredential}).
 	 *
-	 * Without this, a token revoked after discovery would publish scoped `auth` warnings, which a consumer must
-	 * not answer with a reconnect (see `ProviderWarning.scope`), next to results served from the cache, for as
-	 * long as the token stays stored. Anything but a refusal leaves the read as it was: a probe that fails for
-	 * another reason proves nothing either way.
+	 * A refused credential is thrown: the caller's `catch` then fails the read as a whole, exactly as it does when
+	 * discovery is not cached and the first request is the one refused. Without this, a token revoked after
+	 * discovery would publish scoped `auth` warnings, which a consumer must not answer with a reconnect (see
+	 * `ProviderWarning.scope`), next to results served from the cache, for as long as the token stays stored.
+	 *
+	 * A confirmed credential makes each refusal the scope's own, so its cause is named through
+	 * {@link describeRefusal}. A probe that fails for another reason proves nothing either way and leaves the read
+	 * as it was.
 	 *
 	 * A token that passed within the last minute is not probed again, so a scope that keeps refusing costs one
 	 * probe a minute, and a revocation right after a probe can take up to a minute to surface.
 	 */
-	protected async throwIfCredentialRefused(
+	protected async confirmScopedAuthFailures(
 		session: ProviderAuthenticationSession,
 		metadata: CollectionMetadata | undefined,
 	): Promise<void> {
@@ -549,6 +565,13 @@ export abstract class IntegrationBase<
 			await this._validatedCredentials.getOrCreate(session.accessToken, () => validateCredential(session));
 		} catch (ex) {
 			if (ex instanceof AuthenticationError) throw ex;
+
+			return;
+		}
+
+		const describeRefusal = this.describeRefusal?.bind(this);
+		if (describeRefusal != null) {
+			attributeScopedAuthFailures(metadata, (refusal, scope) => describeRefusal(session, refusal, scope));
 		}
 	}
 
@@ -838,7 +861,7 @@ export abstract class IntegrationBase<
 				cancellation,
 				options,
 			);
-			await this.throwIfCredentialRefused(session, result?.metadata);
+			await this.confirmScopedAuthFailures(session, result?.metadata);
 			this.resetRequestExceptionCount('searchMyIssues');
 			return { value: result };
 		} catch (ex) {

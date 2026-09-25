@@ -52,6 +52,30 @@ export interface ProviderWarningScope {
 	repositoryId?: string;
 }
 
+/**
+ * Why a provider refused a credential it otherwise accepts, when the refusal itself says so:
+ * - `oauth-app-not-allowed`: the organization does not let third-party OAuth apps in. On Azure DevOps this is the
+ *   organization policy "Third-party application access via OAuth", off by default for new organizations. An
+ *   organization admin enables it, or the user connects with a personal access token instead, which the policy
+ *   does not govern.
+ * - `access-denied`: the account has no access to that organization or project (not a member, or lacking the
+ *   permission). Someone who administers it has to grant access.
+ * - `conditional-access`: a Microsoft Entra Conditional Access policy blocked the request (Azure DevOps
+ *   `VS403463`). Its admin has to exempt the request, e.g. by location or device.
+ *
+ * None of these is healed by reconnecting, which is the point of naming them.
+ */
+export type ProviderWarningCauseReason = 'oauth-app-not-allowed' | 'access-denied' | 'conditional-access';
+
+/** See {@link ProviderWarning.cause}. */
+export interface ProviderWarningCause {
+	reason: ProviderWarningCauseReason;
+	/** The provider's own error code, when it reports one (Azure DevOps `TF400813`, `VS403463`). */
+	code?: string;
+	/** Where the setting behind the refusal is changed, when this layer can address it. */
+	remedyUrl?: string;
+}
+
 /** Which repository / project / resource an omission is attributed to. All fields optional; a scope may name none. */
 export interface ProviderWarningOmissionScope extends ProviderWarningScope {
 	providerId?: string;
@@ -120,6 +144,16 @@ export interface ProviderWarning {
 	 * a minute to surface.
 	 */
 	scope?: ProviderWarningScope;
+	/**
+	 * Why the provider refused, when the refusal itself says so: see {@link ProviderWarningCauseReason}. Switch on
+	 * `reason` to recommend a fix instead of a reconnect; `message` then carries the same explanation as prose.
+	 *
+	 * Set only on a scoped `auth` warning whose credential was confirmed first (see {@link scope}), because the
+	 * refusals it names are indistinguishable from a dead credential until then: Azure DevOps answers a
+	 * third-party OAuth app its organization disallows exactly as it answers an expired token. Only Azure DevOps
+	 * reports one today. Its absence proves nothing about the cause.
+	 */
+	cause?: ProviderWarningCause;
 	/**
 	 * Present when this warning describes results the read could not return even though the request itself
 	 * SUCCEEDED — a provider-enforced cap, an exhausted recovery budget, a page budget, or a sub-scope the read
@@ -447,8 +481,9 @@ export function reconcileOmissionsWithFailure(warnings: ProviderWarning[], fetch
 /**
  * A stable key for deduplicating warnings accumulated across drained pages / fan-out scopes.
  *
- * The scope is keyed for the reason the omission is (see {@link providerWarningOmissionKey}): today's failure
- * messages happen to spell it out, but two failures of different scopes must stay two warnings even if they don't.
+ * The scope and the cause are keyed for the reason the omission is (see {@link providerWarningOmissionKey}): today's
+ * failure messages happen to spell them out, but two failures that differ in either must stay two warnings even if
+ * they don't.
  *
  * `message` stays LAST. It is the only free-form segment — provider prose, spaces and all — so anything
  * appended after it could be impersonated by a message that happens to end in the same text.
@@ -460,6 +495,7 @@ function providerWarningKey(warning: ProviderWarning): string {
 		warning.domain ?? '',
 		warning.kind,
 		collectionScopeKey(warning.scope),
+		warning.cause?.reason ?? '',
 		providerWarningOmissionKey(warning.omission),
 		warning.message,
 	].join(' ');
@@ -467,7 +503,7 @@ function providerWarningKey(warning: ProviderWarning): string {
 
 /**
  * Appends `warning` to `into` only when an equal warning (by provider/connection/domain/kind/message, plus the
- * structured scope and omission when present) is absent.
+ * structured scope, cause and omission when present) is absent.
  */
 export function appendDedupedWarning(into: ProviderWarning[], warning: ProviderWarning): void {
 	const key = providerWarningKey(warning);

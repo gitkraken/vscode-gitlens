@@ -408,7 +408,42 @@ connection recovery. A credential confirmed within the last minute is not probed
 refusing costs at most one extra request a minute per token, and a revocation can take up to a minute to
 surface as a connection failure.
 
-Warnings also dedup on `scope`, so failures of two scopes stay two warnings.
+Warnings also dedup on `scope` and `cause`, so failures of two scopes stay two warnings.
+
+### `cause` — why a sound credential was refused
+
+A scoped `auth` warning can also say **why** the scope refused, so a consumer recommends the fix instead of a
+reconnect. `ProviderWarning.cause` carries a closed `reason` to switch on (also exported as
+`ProviderWarningCauseReason`), the provider's own `code` when it reports one, and a `remedyUrl` when this layer
+can address the setting behind the refusal. `message` says the same in prose.
+
+```ts
+switch (warning.cause?.reason) {
+	case 'oauth-app-not-allowed':
+		// An admin enables the org's third-party OAuth policy at `remedyUrl`, or the user connects with a PAT.
+		suggestAllowingOAuthApps(warning.scope, warning.cause.remedyUrl);
+		break;
+	case 'access-denied':
+		suggestRequestingAccess(warning.scope);
+		break;
+	case 'conditional-access':
+		suggestAskingTheTenantAdmin(warning.scope);
+		break;
+}
+```
+
+| `cause.reason`          | Means                                                                                    | Fixed by                                                                                                                                                                      |
+| ----------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `oauth-app-not-allowed` | The organization does not let third-party OAuth apps in.                                 | An organization admin enabling **Third-party application access via OAuth** (Azure DevOps; off by default for new organizations), or a PAT, which the policy does not govern. |
+| `access-denied`         | The account has no access to that organization or project (not a member, no permission). | Someone who administers it granting access.                                                                                                                                   |
+| `conditional-access`    | A Microsoft Entra Conditional Access policy blocked the request (`VS403463`).            | The tenant admin exempting the request.                                                                                                                                       |
+
+It is set **only on a scoped `auth` warning whose credential was confirmed** (see `scope` above), because until
+then these refusals look exactly like a dead credential: Azure DevOps answers a third-party OAuth app its
+organization disallows with the same bare `401` it gives an expired token. Only Azure DevOps names causes today,
+from answers captured against the live service. **Its absence proves nothing**: a refusal this layer cannot name
+still carries the provider's own explanation, when it gave one, in `message`, e.g. an organization that only
+allowlists global personal access tokens.
 
 ### `omission` — succeeded, but withheld results
 

@@ -16,7 +16,12 @@ import {
 import type { TokenWithInfo } from './authentication/models.js';
 import type { IntegrationIds } from './constants.js';
 import { isRateLimitResponse } from './errors.js';
-import type { ProviderWarning, ProviderWarningOmission, ProviderWarningScope } from './results.js';
+import type {
+	ProviderWarning,
+	ProviderWarningCause,
+	ProviderWarningOmission,
+	ProviderWarningScope,
+} from './results.js';
 import { appendDedupedWarning } from './results.js';
 
 /**
@@ -50,12 +55,81 @@ export function toCollectionFailureKind(ex: unknown): CollectionScopeFailure['ki
 	return 'provider';
 }
 
-/** Builds a structured SDK scope failure from a caught GitLens request error. */
-export function toCollectionScopeFailure(scope: CollectionScopeFailure['scope'], ex: unknown): CollectionScopeFailure {
+/**
+ * What an authentication refusal's response said, kept on the failure so the provider can name its cause once the
+ * credential behind it is confirmed (see `IntegrationBase.confirmScopedAuthFailures`). Only these facts are kept,
+ * never the response: its headers carry the provider's session cookies.
+ */
+export interface ProviderRefusal {
+	status: number;
+	/** The provider's own explanation: Azure DevOps' `X-TFS-ServiceError`, or the error body's `message`. */
+	detail?: string;
+	/** The provider's error type, when the body names one (Azure DevOps `typeKey`). */
+	typeKey?: string;
+}
+
+/** A scope failure as recorded here: the SDK's shape, plus what the refusal said and, once it is known, why. */
+export interface ProviderScopeFailure extends CollectionScopeFailure {
+	refusal?: ProviderRefusal;
+	cause?: ProviderWarningCause;
+}
+
+/**
+ * Reads the refusal off an `AuthenticationError` that carries the provider's response: the SDK adapter's plain
+ * `{ status, headers, body }` (`providersApi.ts`), or the `Response` of a `ProviderFetchError`, whose body was
+ * already read into its message.
+ */
+function toProviderRefusal(ex: unknown): ProviderRefusal | undefined {
+	if (!(ex instanceof AuthenticationError)) return undefined;
+
+	const response = (ex.original as { response?: unknown } | undefined)?.response as
+		| { status?: unknown; headers?: unknown; body?: unknown }
+		| undefined;
+	if (typeof response?.status !== 'number') return undefined;
+
+	const headers = response.headers as { get?: (name: string) => string | null } | Record<string, string> | undefined;
+	const serviceError =
+		typeof headers?.get === 'function'
+			? headers.get('x-tfs-serviceerror')
+			: (headers as Record<string, string> | undefined)?.['x-tfs-serviceerror'];
+	const body = response.body as { message?: unknown; typeKey?: unknown } | null | undefined;
+	const bodyMessage = typeof body === 'object' && typeof body?.message === 'string' ? body.message : undefined;
+	const detail = decodeServiceError(serviceError) ?? bodyMessage?.trim();
+
+	return {
+		status: response.status,
+		...(detail ? { detail: detail } : {}),
+		...(typeof body === 'object' && typeof body?.typeKey === 'string' ? { typeKey: body.typeKey } : {}),
+	};
+}
+
+/** Azure DevOps sends `X-TFS-ServiceError` percent-encoded. */
+function decodeServiceError(value: string | null | undefined): string | undefined {
+	if (!value) return undefined;
+
+	try {
+		return decodeURIComponent(value).trim() || undefined;
+	} catch {
+		return value.trim() || undefined;
+	}
+}
+
+/**
+ * Builds a structured SDK scope failure from a caught GitLens request error.
+ *
+ * An authentication refusal is described in the provider's own words when it gives any, and otherwise by the
+ * response's status line, rather than by `AuthenticationError`'s generic "credentials are either invalid or
+ * expired": a scope refusing a sound credential is the case this failure exists to tell apart, and that sentence
+ * says the opposite.
+ */
+export function toCollectionScopeFailure(scope: CollectionScopeFailure['scope'], ex: unknown): ProviderScopeFailure {
+	const refusal = toProviderRefusal(ex);
+	const message = refusal != null ? (refusal.detail ?? (ex as AuthenticationError).original?.message) : undefined;
 	return {
 		scope: scope,
 		kind: toCollectionFailureKind(ex),
-		...(ex instanceof Error && ex.message ? { message: ex.message } : {}),
+		...(message ? { message: message } : ex instanceof Error && ex.message ? { message: ex.message } : {}),
+		...(refusal != null ? { refusal: refusal } : {}),
 	};
 }
 
@@ -135,8 +209,24 @@ function collectionScopeText(scope: CollectionScope | undefined): string {
 	return parts.length ? ` (${parts.join(', ')})` : '';
 }
 
-function collectionFailureMessage(failure: CollectionScopeFailure): string {
-	const detail = failure.message != null ? `: ${failure.message}` : '';
+/** The cause in the consumer's terms, for the prose that goes with the structured {@link ProviderWarningCause}. */
+function causeText(cause: ProviderWarningCause): string {
+	switch (cause.reason) {
+		case 'oauth-app-not-allowed':
+			return 'the organization does not allow third-party OAuth apps';
+		case 'access-denied':
+			return 'the account has no access to it';
+		case 'conditional-access':
+			return 'a Conditional Access policy blocked the request';
+		default:
+			cause.reason satisfies never;
+			return 'the provider refused the request';
+	}
+}
+
+function collectionFailureMessage(failure: ProviderScopeFailure): string {
+	const text = failure.cause != null ? causeText(failure.cause) : failure.message;
+	const detail = text != null ? `: ${text}` : '';
 	return `Failed to read ${failure.kind} scope${collectionScopeText(failure.scope)}${detail}`;
 }
 
@@ -167,7 +257,7 @@ function toProviderWarningScope(scope: CollectionScope | undefined): ProviderWar
 /**
  * Whether `metadata` reports authentication failures only for scopes below the provider, with none for the
  * connection itself. A credential revoked since a provider cached its discovery produces exactly this shape,
- * the same one a scope's own refusal does; `IntegrationBase.throwIfCredentialRefused` tells them apart.
+ * the same one a scope's own refusal does; `IntegrationBase.confirmScopedAuthFailures` tells them apart.
  *
  * Classified exactly as {@link assessCollectionMetadata} classifies the warnings, so it agrees with what a
  * consumer would be shown.
@@ -181,6 +271,29 @@ export function hasOnlyScopedAuthFailures(metadata: CollectionMetadata | undefin
 		scoped = true;
 	}
 	return scoped;
+}
+
+/**
+ * Names the cause of each scoped authentication failure in `metadata` that kept its refusal. Only for a read whose
+ * credential was just confirmed: before that, the refusals this can name look exactly like a dead credential.
+ */
+export function attributeScopedAuthFailures(
+	metadata: CollectionMetadata | undefined,
+	describe: (refusal: ProviderRefusal, scope: ProviderWarningScope) => ProviderWarningCause | undefined,
+): void {
+	for (const failure of (metadata?.failures ?? []) as ProviderScopeFailure[]) {
+		if (failure.refusal == null || failure.cause != null || toCollectionFailureWarningKind(failure) !== 'auth') {
+			continue;
+		}
+
+		const scope = toProviderWarningScope(failure.scope);
+		if (scope == null) continue;
+
+		const cause = describe(failure.refusal, scope);
+		if (cause != null) {
+			failure.cause = cause;
+		}
+	}
 }
 
 /**
@@ -279,7 +392,7 @@ export function assessCollectionMetadata(
 	if (metadata == null) return { warnings: [], fetchFailed: false, truncated: false };
 
 	const warnings: ProviderWarning[] = [];
-	const failures = metadata.failures ?? [];
+	const failures: ProviderScopeFailure[] = metadata.failures ?? [];
 	for (const failure of failures) {
 		const kind = toCollectionFailureWarningKind(failure);
 		const scope = toProviderWarningScope(failure.scope);
@@ -291,6 +404,8 @@ export function assessCollectionMetadata(
 			kind: kind,
 			isAuth: kind === 'auth',
 			...(scope != null ? { scope: scope } : {}),
+			// Copied for the reason the scope is: the failure object is retained and re-merged across pages.
+			...(failure.cause != null ? { cause: { ...failure.cause } } : {}),
 		});
 	}
 

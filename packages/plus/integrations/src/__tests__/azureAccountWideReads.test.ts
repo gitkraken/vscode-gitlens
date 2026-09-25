@@ -3,12 +3,13 @@ import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
-import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import type { CloudIntegrationAuthType, ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IntegrationResult } from '../models/integration.js';
 import type { ProviderApiPagedResult, ProviderIssue, ProviderPullRequest } from '../providers/models.js';
+import { conditionalAccess, globalPatNotAllowed, noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { primarySession, providerPr, stubApi } from './sweepHelpers.js';
 
@@ -37,18 +38,22 @@ function refusedCredential(): AuthenticationError {
  * discovery with a 401. Discovery runs for real; only the SDK surface is stubbed. `probe` answers the uncached
  * profile request that confirms the credential.
  */
-async function azureWithRefusingOrg(probe: () => Promise<unknown>) {
+async function azureWithRefusingOrg(
+	probe: () => Promise<unknown>,
+	options?: { refusal?: () => Error; type?: CloudIntegrationAuthType },
+) {
 	const manager = createIntegrationManager(createFakeRuntime());
 	const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
 	(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
 		...primarySession('t'),
 		domain: 'dev.azure.com',
+		...(options?.type != null ? { type: options.type } : {}),
 	};
 
 	stubApi(azure, {
 		getAzureProjectsForResource: (_t: unknown, resourceName: string) =>
 			resourceName === 'Org Denied'
-				? Promise.reject(refusedCredential())
+				? Promise.reject((options?.refusal ?? refusedCredential)())
 				: Promise.resolve({
 						values: [{ id: 'p1', name: 'proj', namespace: resourceName }],
 						paging: { more: false },
@@ -63,17 +68,16 @@ async function azureWithRefusingOrg(probe: () => Promise<unknown>) {
 				hasMore: false,
 				nextPage: null,
 			}),
+		// Through the real discovery cache, which is where a refused organization's name is found again.
+		getAzureResourcesForUser: () =>
+			Promise.resolve([
+				{ id: 'org-ok', name: 'Org OK' },
+				{ id: 'org-denied', name: 'Org Denied' },
+			]),
 		getCurrentUser: probe,
 	});
 	(azure as unknown as { getProviderCurrentAccount: () => Promise<{ id: string }> }).getProviderCurrentAccount = () =>
 		Promise.resolve({ id: 'guid-1' });
-	(
-		azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
-	).getProviderResourcesForUser = () =>
-		Promise.resolve([
-			{ id: 'org-ok', name: 'Org OK' },
-			{ id: 'org-denied', name: 'Org Denied' },
-		]);
 
 	return manager;
 }
@@ -482,23 +486,113 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 
 	test('Azure: a probe that fails is not remembered, so the next read confirms the credential again (#5890)', async () => {
 		let probes = 0;
-		const manager = await azureWithRefusingOrg(() =>
-			++probes === 1 ? Promise.reject(new Error('socket hang up')) : Promise.resolve({ id: 'guid-1' }),
+		const manager = await azureWithRefusingOrg(
+			() => (++probes === 1 ? Promise.reject(new Error('socket hang up')) : Promise.resolve({ id: 'guid-1' })),
+			{ refusal: oauthAppNotAllowed },
 		);
 		const read = () => manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps });
 
 		try {
 			const first = await read();
-			// Proves nothing either way, so the refusal is reported as it was recorded.
-			assert.deepEqual(first.warnings.find(w => w.kind === 'auth')?.scope, { resourceId: 'org-denied' });
+			// Proves nothing either way, so the refusal is reported as it was recorded, and not named: unconfirmed,
+			// this answer is also what an expired token gets.
+			const unconfirmed = first.warnings.find(w => w.kind === 'auth');
+			assert.deepEqual(unconfirmed?.scope, { resourceId: 'org-denied' });
+			assert.equal(unconfirmed?.cause, undefined);
 
-			await read();
+			const second = await read();
 			assert.equal(probes, 2, 'the failed probe was not remembered as a pass');
+			assert.equal(second.warnings.find(w => w.kind === 'auth')?.cause?.reason, 'oauth-app-not-allowed');
 
 			await read();
 			assert.equal(probes, 2, 'the probe that passed is');
 		} finally {
 			manager.dispose();
+		}
+	});
+
+	test('Azure: an organization that disallows third-party OAuth apps is named, with its policy page (#5890)', async () => {
+		const manager = await azureWithRefusingOrg(() => Promise.resolve({ id: 'guid-1' }), {
+			refusal: oauthAppNotAllowed,
+		});
+
+		try {
+			const result = await manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+
+			const auth = result.warnings.filter(w => w.kind === 'auth');
+			assert.equal(auth.length, 1);
+			assert.deepEqual(auth[0].scope, { resourceId: 'org-denied' });
+			// What a consumer recommends a fix from, instead of a reconnect that could never heal it.
+			assert.deepEqual(auth[0].cause, {
+				reason: 'oauth-app-not-allowed',
+				remedyUrl: 'https://dev.azure.com/Org%20Denied/_settings/organizationPolicy',
+			});
+			assert.match(auth[0].message, /does not allow third-party OAuth apps$/);
+			assert.equal(result.items.length, 1, "the healthy organization's pull requests survive");
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('Azure: an organization the account has no access to is access-denied, not an OAuth policy (#5890)', async () => {
+		const manager = await azureWithRefusingOrg(() => Promise.resolve({ id: 'guid-1' }), { refusal: noAccess });
+
+		try {
+			const result = await manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+
+			const auth = result.warnings.find(w => w.kind === 'auth');
+			assert.deepEqual(auth?.cause, { reason: 'access-denied', code: 'TF400813' });
+			assert.match(auth?.message ?? '', /the account has no access to it$/);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('Azure: a Conditional Access block is named from VS403463 (#5890)', async () => {
+		const manager = await azureWithRefusingOrg(() => Promise.resolve({ id: 'guid-1' }), {
+			refusal: conditionalAccess,
+		});
+
+		try {
+			const result = await manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+
+			assert.deepEqual(result.warnings.find(w => w.kind === 'auth')?.cause, {
+				reason: 'conditional-access',
+				code: 'VS403463',
+			});
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('Azure: a personal access token is never told an OAuth policy refused it (#5890)', async () => {
+		// The policy does not govern PATs, so the same bare 401 is left unnamed rather than misdiagnosed.
+		const bare = await azureWithRefusingOrg(() => Promise.resolve({ id: 'guid-1' }), {
+			refusal: oauthAppNotAllowed,
+			type: 'pat',
+		});
+		// And one the organization explains in its own words keeps them.
+		const explained = await azureWithRefusingOrg(() => Promise.resolve({ id: 'guid-1' }), {
+			refusal: globalPatNotAllowed,
+			type: 'pat',
+		});
+
+		try {
+			const bareAuth = (
+				await bare.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps })
+			).warnings.find(w => w.kind === 'auth');
+			assert.deepEqual(bareAuth?.scope, { resourceId: 'org-denied' });
+			assert.equal(bareAuth?.cause, undefined);
+			assert.match(bareAuth?.message ?? '', /\(401\) Unauthorized\.$/);
+
+			const explainedAuth = (
+				await explained.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps })
+			).warnings.find(w => w.kind === 'auth');
+			assert.equal(explainedAuth?.cause, undefined);
+			assert.match(explainedAuth?.message ?? '', /prohibits access by global Personal Access Token/);
+		} finally {
+			bare.dispose();
+			explained.dispose();
 		}
 	});
 
