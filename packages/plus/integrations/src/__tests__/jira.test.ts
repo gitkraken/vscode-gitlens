@@ -26,6 +26,16 @@ function jiraSession(): ProviderAuthenticationSession {
 	};
 }
 
+function jiraTokenInfo() {
+	return {
+		providerId: IssuesCloudHostIntegrationId.Jira,
+		microHash: undefined,
+		cloud: true,
+		type: 'oauth' as const,
+		scopes: [],
+	};
+}
+
 function stubApi(integration: IssuesIntegration, api: Record<string, unknown>): void {
 	(integration as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () =>
 		Promise.resolve(api);
@@ -264,6 +274,52 @@ suite('Jira project fan-out metadata + caching (#5438)', () => {
 		assert.deepEqual(calls.sort(), ['r1', 'r2'], 'both resources are requested on the first read');
 
 		manager.dispose();
+	});
+
+	test("a site's scoped refusal is only published once the credential is confirmed (#5890)", async () => {
+		// Jira Cloud caches its sites per token, so a token revoked since would reach only the site still requested.
+		const read = async (probe: () => Promise<unknown>) => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+			(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+			stubApi(jira, {
+				getJiraProjectsForResource: () =>
+					Promise.resolve({
+						values: [],
+						paging: { cursor: '{}', more: false },
+						metadata: {
+							completeness: 'partial',
+							failures: [{ kind: 'authentication', scope: { resourceId: 'r2' } }],
+						},
+					}),
+				getJiraResourcesForCurrentUser: probe,
+			});
+			try {
+				return await (
+					jira as unknown as {
+						getProjectsForResourcesWithMetadataResult: (
+							resources: unknown[],
+						) => Promise<{ value?: { metadata?: { failures?: unknown[] } }; error?: Error }>;
+					}
+				).getProjectsForResourcesWithMetadataResult([orgBad]);
+			} finally {
+				manager.dispose();
+			}
+		};
+
+		const confirmed = await read(() => Promise.resolve([orgOk, orgBad]));
+		assert.equal(confirmed.error, undefined);
+		assert.equal(confirmed.value?.metadata?.failures?.length, 1, "the site's own refusal is kept");
+
+		const refused = await read(() => Promise.reject(new AuthenticationError(jiraTokenInfo(), 'token revoked')));
+		assert.ok(
+			refused.error instanceof AuthenticationError,
+			'a refused credential fails the read for the connection',
+		);
+
+		const unconfirmed = await read(() => Promise.resolve(undefined));
+		assert.equal(unconfirmed.error, undefined, 'a probe that proves nothing leaves the read as it was');
+		assert.equal(unconfirmed.value?.metadata?.failures?.length, 1);
 	});
 
 	test('a failed resource is not cached as empty and is retried on the next call', async () => {

@@ -446,7 +446,7 @@ suite('scope failure refusals (#5890)', () => {
 		const failure = toCollectionScopeFailure(scope, oauthAppNotAllowed());
 
 		assert.equal(failure.kind, 'authentication');
-		assert.deepEqual(failure.refusal, { status: 401, statusText: 'Unauthorized' });
+		assert.deepEqual(failure.refusal, { status: 401 });
 		// The response carries the provider's session cookie, and this failure reaches consumers and logs.
 		assert.equal(JSON.stringify(failure).includes('VstsSession'), false);
 		// Not "credentials are either invalid or expired": a scope refusing a sound credential is the case this
@@ -458,7 +458,6 @@ suite('scope failure refusals (#5890)', () => {
 		const typed = toCollectionScopeFailure(scope, noAccess());
 		assert.deepEqual(typed.refusal, {
 			status: 401,
-			statusText: 'Unauthorized',
 			detail: "TF400813: The user 'fb80544b-3a07-6095-8fcc-5e895f9d39c4' is not authorized to access this resource.",
 			typeKey: 'UnauthorizedRequestException',
 		});
@@ -470,16 +469,26 @@ suite('scope failure refusals (#5890)', () => {
 		assert.equal(header.refusal?.typeKey, undefined);
 	});
 
-	test('a page is never the explanation: the status line stands in for it', () => {
-		// The body of `globalPatNotAllowed` is HTML, yet its header explains it; without the header, only the page is
-		// left, and a proxy's or a sign-in form's markup must not become the warning's prose.
+	test('a page is never the explanation: the error it raised is sanitized like any warning', () => {
+		// The SDK adapter folds a string body into the error it raises, so a sign-in form or a proxy's page reaches
+		// the error's message; it must not become the warning's prose.
 		const ex = globalPatNotAllowed();
-		const response = (ex.original as unknown as { response: { headers: Record<string, string> } }).response;
-		delete response.headers['x-tfs-serviceerror'];
+		const original = ex.original as Error & { response: { headers: Record<string, string>; body: unknown } };
+		delete original.response.headers['x-tfs-serviceerror'];
+		original.message = `(401) Unauthorized. ${String(original.response.body)}`;
 
 		const failure = toCollectionScopeFailure(scope, ex);
 		assert.equal(failure.refusal?.detail, undefined);
-		assert.equal(failure.message, '(401) Unauthorized.');
+		assert.equal(failure.message, 'Provider request failed with status 401.');
+
+		// While prose the provider raised, with no body to read it from, is kept: GitHub's errors carry theirs only
+		// in the message.
+		const prose = oauthAppNotAllowed();
+		(prose.original as Error).message = 'Resource protected by organization SAML enforcement.';
+		assert.equal(
+			toCollectionScopeFailure(scope, prose).message,
+			'Resource protected by organization SAML enforcement.',
+		);
 	});
 
 	test("reads a ProviderFetchError's Response as well as the SDK adapter's plain object", () => {

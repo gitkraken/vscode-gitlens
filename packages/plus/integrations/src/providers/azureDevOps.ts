@@ -285,10 +285,11 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		// The organization's name, for the policy page, comes from the discovery the failure was recorded under. Most
 		// reads record the organization's id, the repo-scoped ones its name.
-		const orgs = this._organizations?.get(this.discoveryKey(session));
 		const org =
 			scope.resourceId != null
-				? (orgs?.find(o => o.id === scope.resourceId) ?? orgs?.find(o => o.name === scope.resourceId))?.name
+				? this._organizations
+						?.get(this.discoveryKey(session))
+						?.find(o => o.id === scope.resourceId || o.name === scope.resourceId)?.name
 				: undefined;
 		return {
 			reason: 'oauth-app-not-allowed',

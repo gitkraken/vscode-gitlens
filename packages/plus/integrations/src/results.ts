@@ -146,8 +146,9 @@ export interface ProviderWarning {
 	 * discovery served from a per-token cache (Azure DevOps, Bitbucket, Jira Cloud) or an SDK fan-out across the
 	 * requested repositories (Bitbucket Data Center). So when a read's only auth failures are scoped, those providers
 	 * confirm the credential with one uncached request first, and a refused credential fails the whole read with an
-	 * unscoped `auth` warning. So does a refusal the provider attributes to the credential itself, like Bitbucket's
-	 * for a token missing the OAuth scopes a read needs, which a reconnect fixes.
+	 * unscoped `auth` warning. A refusal the provider attributes to the credential itself, like Bitbucket's for a
+	 * token missing the OAuth scopes a read needs, which a reconnect fixes, is published unscoped too, while the
+	 * scopes that answered keep their results.
 	 *
 	 * Two exceptions stay scoped. A check that could not complete (a network error, a throttle) proves nothing, so
 	 * the warnings are published unconfirmed, with no {@link cause}. And a credential confirmed within the last
@@ -336,7 +337,8 @@ export interface ResolveRepositoryResult {
 
 const maxProviderWarningMessageLength = 500;
 
-function providerWarningMessage(ex: unknown): string {
+/** A caught error's message as a warning can carry it: an HTML page becomes its status, and prose is capped. */
+export function providerWarningMessage(ex: unknown): string {
 	const raw = (ex instanceof Error ? ex.message : String(ex)).trim();
 	const carrier = ex as { status?: unknown; response?: { status?: unknown } } | null | undefined;
 	const status =

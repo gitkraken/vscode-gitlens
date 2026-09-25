@@ -22,14 +22,17 @@ import type {
 } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { toTokenWithInfo } from '../authentication/models.js';
 import { RejectedTokenTracker } from '../authentication/rejectedTokenTracker.js';
 import type { ProviderRefusal } from '../collectionMetadata.js';
-import { attributeScopedAuthFailures, hasOnlyScopedAuthFailures, scopedAuthRefusals } from '../collectionMetadata.js';
+import {
+	attributeScopedAuthFailures,
+	hasOnlyScopedAuthFailures,
+	markCredentialRefusals,
+} from '../collectionMetadata.js';
 import type { IntegrationIds, IssuesCloudHostIntegrationId, IssuesHostIntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
-import { AuthenticationError, AuthenticationErrorReason, RequestClientError, toError } from '../errors.js';
+import { AuthenticationError, RequestClientError, toError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import { providersMetadata } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
@@ -512,13 +515,14 @@ export abstract class IntegrationBase<
 	}
 
 	/**
-	 * Proves the credential with one request no discovery cache answers, rejecting with the provider's
-	 * `AuthenticationError` when it is refused.
+	 * Proves the credential with an uncached check, rejecting with the provider's `AuthenticationError` when it is
+	 * refused, and with anything else when the check proves nothing.
 	 *
-	 * Implemented only by providers that serve discovery from a per-token cache (Azure DevOps, Bitbucket, Jira
-	 * Cloud). There, a token revoked since discovery is only sent to the scopes a read still requests, so it
-	 * comes back as scoped refusals with no failure of the connection: the same shape as one scope refusing a
-	 * sound credential. {@link confirmScopedAuthFailures} uses this to tell the two apart.
+	 * Implemented by the providers whose reads can reach their scopes without an uncached request to the connection
+	 * first: discovery served from a per-token cache (Azure DevOps, Bitbucket, Jira Cloud), or an SDK fan-out across
+	 * the requested repositories (Bitbucket Data Center). There, a dead token comes back as scoped refusals with no
+	 * failure of the connection: the same shape as one scope refusing a sound credential.
+	 * {@link confirmScopedAuthFailures} uses this to tell the two apart.
 	 */
 	protected validateCredential?(session: ProviderAuthenticationSession): Promise<void>;
 
@@ -532,8 +536,9 @@ export abstract class IntegrationBase<
 	/**
 	 * Whether a scope's refusal is the credential's own, by the provider's account of it: e.g. a token missing the
 	 * OAuth scopes the read needs. The probe cannot see that, because it proves the token authenticates, not that
-	 * it is authorized. So {@link confirmScopedAuthFailures} fails the read on one as a connection failure, which
-	 * a reconnect (consenting to the scopes again) can fix.
+	 * it is authorized. So {@link confirmScopedAuthFailures} publishes one for the connection, unscoped, which asks
+	 * for the reconnect (consenting to the scopes again) that fixes it, and keeps the results of the scopes that
+	 * answered.
 	 */
 	protected isCredentialRefusal?(refusal: ProviderRefusal): boolean;
 
@@ -561,8 +566,8 @@ export abstract class IntegrationBase<
 	 * {@link describeRefusal}. A probe that fails for another reason proves nothing either way and leaves the read
 	 * as it was.
 	 *
-	 * A refusal the provider pins on the credential itself (see {@link isCredentialRefusal}) is thrown the same way,
-	 * without a probe.
+	 * A refusal the provider pins on the credential itself (see {@link isCredentialRefusal}) is published for the
+	 * connection instead, without a probe.
 	 *
 	 * A token that passed within the last minute is not probed again, so a scope that keeps refusing costs one
 	 * probe a minute, and a revocation right after a probe can take up to a minute to surface: until then its
@@ -574,15 +579,10 @@ export abstract class IntegrationBase<
 	): Promise<void> {
 		if (!hasOnlyScopedAuthFailures(metadata)) return;
 
+		// Published for the connection, as a refusal outside any scope would be, while the scopes that answered keep
+		// their results. That already asks for a reconnect, so there is nothing left for a probe to settle.
 		const isCredentialRefusal = this.isCredentialRefusal?.bind(this);
-		const credentialRefusal =
-			isCredentialRefusal != null ? scopedAuthRefusals(metadata).find(r => isCredentialRefusal(r)) : undefined;
-		if (credentialRefusal != null) {
-			const { accessToken: _accessToken, ...tokenInfo } = toTokenWithInfo(this.id, session);
-			throw credentialRefusal.detail != null
-				? new AuthenticationError(tokenInfo, credentialRefusal.detail)
-				: new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden);
-		}
+		if (isCredentialRefusal != null && markCredentialRefusals(metadata, isCredentialRefusal)) return;
 
 		const validateCredential = this.validateCredential?.bind(this);
 		if (validateCredential == null) return;

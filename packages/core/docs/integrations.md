@@ -405,8 +405,9 @@ organizations, workspaces or sites, and their projects), or an SDK fan-out acros
 (Bitbucket Data Center). So when a read's only auth failures are scoped, those providers confirm the credential
 with one uncached request before reporting them. A refused credential fails the whole read instead: an
 unscoped `auth` warning, `fetchFailed`, no results served from the cache, and the usual connection recovery.
-So does a refusal the provider pins on the credential itself, like Bitbucket's for a token missing the OAuth
-scopes the read needs, because a reconnect (consenting to them again) is what fixes it.
+A refusal the provider pins on the credential itself, like Bitbucket's for a token missing the OAuth scopes the
+read needs, is published unscoped too, because a reconnect (consenting to them again) is what fixes it; the
+scopes that answered keep their results.
 
 Two cases stay scoped. A check that could not complete (a network error, a throttle) proves nothing, so the
 warnings are published unconfirmed and carry no `cause`. And a credential confirmed within the last minute is

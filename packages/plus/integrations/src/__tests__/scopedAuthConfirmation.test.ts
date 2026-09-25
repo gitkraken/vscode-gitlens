@@ -5,7 +5,7 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../c
 import { AuthenticationError, AuthenticationErrorReason } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import { createFakeRuntime } from './fakeRuntime.js';
-import { primarySession, stubApi } from './sweepHelpers.js';
+import { primarySession, providerPr, stubApi } from './sweepHelpers.js';
 
 /**
  * A scoped `auth` warning promises the credential itself was accepted (#5890). These cover the Bitbucket reads that
@@ -37,15 +37,24 @@ function bitbucketRefusal(status: 401 | 403, message: string): AuthenticationErr
 	);
 }
 
-/** A Bitbucket connection with one workspace, whose authored pull requests are read with `authored`. */
-async function bitbucketWithWorkspace(authored: () => Promise<unknown>, probe: () => Promise<unknown>) {
+/**
+ * A Bitbucket connection with two workspaces, `ws` and `ok`, whose authored pull requests are read with `authored`.
+ */
+async function bitbucketWithWorkspaces(
+	authored: (workspace: string) => Promise<unknown>,
+	probe: () => Promise<unknown>,
+) {
 	const manager = createIntegrationManager(createFakeRuntime());
 	const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
 	(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
 		...primarySession('t'),
 		domain: 'bitbucket.org',
 	};
-	stubApi(bb, { getBitbucketPullRequestsAuthoredByUserForWorkspace: authored, getCurrentUser: probe });
+	stubApi(bb, {
+		getBitbucketPullRequestsAuthoredByUserForWorkspace: (_t: unknown, _u: string, workspace: string) =>
+			authored(workspace),
+		getCurrentUser: probe,
+	});
 	(
 		bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
 	).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
@@ -53,15 +62,40 @@ async function bitbucketWithWorkspace(authored: () => Promise<unknown>, probe: (
 		bb as unknown as {
 			getProviderResourcesForCurrentUser: () => Promise<{ values: { id: string; slug: string }[] }>;
 		}
-	).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [{ id: 'w1', slug: 'ws' }] });
+	).getProviderResourcesForCurrentUser = () =>
+		Promise.resolve({
+			values: [
+				{ id: 'w1', slug: 'ws' },
+				{ id: 'w2', slug: 'ok' },
+			],
+		});
 	return manager;
 }
 
+/** The healthy workspace's one pull request. */
+function okWorkspacePullRequests() {
+	return Promise.resolve({
+		data: [
+			providerPr('pr-ok', {
+				url: 'https://bitbucket.org/ok/repo/pull-requests/1',
+				repository: { id: 'ok/repo', name: 'repo', owner: { login: 'ok' }, remoteInfo: null },
+			}),
+		],
+		hasMore: false,
+		nextPage: null,
+	});
+}
+
 suite('scoped auth confirmation (#5890)', () => {
-	test('Bitbucket: a token missing the OAuth scopes a read needs is a connection failure, not a scoped one', async () => {
+	test('Bitbucket: a token missing the OAuth scopes a read needs is reported for the connection', async () => {
 		let probes = 0;
-		const manager = await bitbucketWithWorkspace(
-			() => Promise.reject(bitbucketRefusal(403, 'Your credentials lack one or more required privilege scopes.')),
+		const manager = await bitbucketWithWorkspaces(
+			workspace =>
+				workspace === 'ok'
+					? okWorkspacePullRequests()
+					: Promise.reject(
+							bitbucketRefusal(403, 'Your credentials lack one or more required privilege scopes.'),
+						),
 			() => {
 				probes++;
 				return Promise.resolve({ id: 'u1' });
@@ -76,9 +110,14 @@ suite('scoped auth confirmation (#5890)', () => {
 			// The account probe would pass (it needs only the account scope), yet a reconnect, consenting to the
 			// scopes again, is exactly the fix; a scope would tell a consumer the opposite.
 			assert.equal('scope' in auth[0], false);
-			assert.equal(auth[0].message, 'Your credentials lack one or more required privilege scopes.');
-			assert.equal(result.fetchFailed, true);
+			assert.match(auth[0].message, /lack one or more required privilege scopes\.$/);
 			assert.equal(probes, 0, 'the refusal says what it is, so nothing is probed');
+			// Never a throw: the workspace that answered keeps its results.
+			assert.deepEqual(
+				result.items.map(pr => pr.url),
+				['https://bitbucket.org/ok/repo/pull-requests/1'],
+			);
+			assert.equal(result.fetchFailed, true);
 		} finally {
 			manager.dispose();
 		}
@@ -86,8 +125,11 @@ suite('scoped auth confirmation (#5890)', () => {
 
 	test("Bitbucket: a workspace's own refusal of a sound credential stays scoped", async () => {
 		let probes = 0;
-		const manager = await bitbucketWithWorkspace(
-			() => Promise.reject(bitbucketRefusal(403, 'Access denied. You must have write or admin access.')),
+		const manager = await bitbucketWithWorkspaces(
+			workspace =>
+				workspace === 'ok'
+					? okWorkspacePullRequests()
+					: Promise.reject(bitbucketRefusal(403, 'Access denied. You must have write or admin access.')),
 			() => {
 				probes++;
 				return Promise.resolve({ id: 'u1' });
@@ -101,6 +143,7 @@ suite('scoped auth confirmation (#5890)', () => {
 			assert.deepEqual(auth?.scope, { resourceId: 'ws' });
 			assert.match(auth?.message ?? '', /Access denied\. You must have write or admin access\.$/);
 			assert.equal(probes, 1, 'the credential was confirmed before the scope was trusted');
+			assert.equal(result.items.length, 1);
 		} finally {
 			manager.dispose();
 		}
