@@ -234,6 +234,21 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		return `${this.apiBaseUrlFor(session)}\n${session.accessToken}`;
 	}
 
+	/**
+	 * The account request the account cache would otherwise answer; see `IntegrationBase.validateCredential`. Needed
+	 * without any discovery cache: a repo-scoped pull request read fans out across its repositories in the SDK with
+	 * no request to the connection first, so a dead token comes back as one refused repository per request.
+	 */
+	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
+		const api = await this.getProvidersApi();
+		const user = await api.getCurrentUser(toTokenWithInfo(this.id, session), {
+			baseUrl: this.apiBaseUrlFor(session),
+		});
+		if (user == null) {
+			throw new Error('Bitbucket Data Center did not confirm the credential');
+		}
+	}
+
 	protected override async getProviderCurrentAccount(
 		session: ProviderAuthenticationSession,
 	): Promise<Account | undefined> {

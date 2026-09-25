@@ -47,6 +47,11 @@ export type ProviderWarningOmissionRecovery = 'none' | 'page-budget' | 'narrow-s
  * repository. All fields optional; see {@link ProviderWarning.scope} for when one is forwarded.
  */
 export interface ProviderWarningScope {
+	/**
+	 * The resource as the read addressed it: its id on most reads, its name on the few that address it by name
+	 * (Azure DevOps' repo-scoped reads, Bitbucket's workspace reads). Match it against both
+	 * `ProviderOrganization.id` and `name`.
+	 */
 	resourceId?: string;
 	projectId?: string;
 	repositoryId?: string;
@@ -136,12 +141,17 @@ export interface ProviderWarning {
 	 *
 	 * Its ABSENCE means account-wide or unattributed, so existing handling stays correct without it.
 	 *
-	 * A scoped `auth` failure also means the credential itself was accepted. Azure DevOps, Bitbucket and Jira
-	 * Cloud serve discovery from a per-token cache, where a token revoked since then would reach only the scopes
-	 * still requested. So when a read's only auth failures are scoped, those providers confirm the credential
-	 * with one uncached request first, and a refused credential fails the whole read with an unscoped `auth`
-	 * warning. A credential confirmed within the last minute is not probed again, so a revocation can take up to
-	 * a minute to surface.
+	 * A scoped `auth` failure also means the credential itself was accepted. A dead token can come back as nothing
+	 * but scoped refusals wherever a read reaches its scopes without an uncached request to the connection first:
+	 * discovery served from a per-token cache (Azure DevOps, Bitbucket, Jira Cloud) or an SDK fan-out across the
+	 * requested repositories (Bitbucket Data Center). So when a read's only auth failures are scoped, those providers
+	 * confirm the credential with one uncached request first, and a refused credential fails the whole read with an
+	 * unscoped `auth` warning. So does a refusal the provider attributes to the credential itself, like Bitbucket's
+	 * for a token missing the OAuth scopes a read needs, which a reconnect fixes.
+	 *
+	 * Two exceptions stay scoped. A check that could not complete (a network error, a throttle) proves nothing, so
+	 * the warnings are published unconfirmed, with no {@link cause}. And a credential confirmed within the last
+	 * minute is not probed again, so a revocation can take up to a minute to surface.
 	 */
 	scope?: ProviderWarningScope;
 	/**

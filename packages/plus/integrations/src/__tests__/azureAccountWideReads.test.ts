@@ -9,7 +9,13 @@ import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError }
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IntegrationResult } from '../models/integration.js';
 import type { ProviderApiPagedResult, ProviderIssue, ProviderPullRequest } from '../providers/models.js';
-import { conditionalAccess, globalPatNotAllowed, noAccess, oauthAppNotAllowed } from './azureRefusals.js';
+import {
+	conditionalAccess,
+	explainedRefusal,
+	globalPatNotAllowed,
+	noAccess,
+	oauthAppNotAllowed,
+} from './azureRefusals.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { primarySession, providerPr, stubApi } from './sweepHelpers.js';
 
@@ -593,6 +599,108 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 		} finally {
 			bare.dispose();
 			explained.dispose();
+		}
+	});
+
+	test('Azure: a refusal Azure explains otherwise is not guessed at, and keeps its own words (#5890)', async () => {
+		const manager = await azureWithRefusingOrg(() => Promise.resolve({ id: 'guid-1' }), {
+			refusal: explainedRefusal,
+		});
+
+		try {
+			const result = await manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+
+			const auth = result.warnings.find(w => w.kind === 'auth');
+			assert.deepEqual(auth?.scope, { resourceId: 'org-denied' });
+			assert.equal(auth?.cause, undefined, 'only the answers captured for the OAuth policy are named after it');
+			assert.match(auth?.message ?? '', /VS30063: You are not authorized/);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('Azure: a probe that returns no account proves nothing (#5890)', async () => {
+		// Azure DevOps Server's current-user request answers every failure but a refusal this way.
+		let probes = 0;
+		const manager = await azureWithRefusingOrg(
+			() => {
+				probes++;
+				return Promise.resolve(undefined);
+			},
+			{ refusal: oauthAppNotAllowed },
+		);
+		const read = () => manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+
+		try {
+			const first = await read();
+			const auth = first.warnings.find(w => w.kind === 'auth');
+			assert.deepEqual(auth?.scope, { resourceId: 'org-denied' }, 'the read is left as it was');
+			assert.equal(auth?.cause, undefined, 'and nothing is named on an unconfirmed credential');
+
+			await read();
+			assert.equal(probes, 2, 'not remembered as a pass');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('Azure: a refused credential stops the probe that passed from vouching for it (#5890)', async () => {
+		let probes = 0;
+		const manager = await azureWithRefusingOrg(() => {
+			probes++;
+			return Promise.resolve({ id: 'guid-1' });
+		});
+		const read = () => manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+
+		try {
+			await read();
+			await read();
+			assert.equal(probes, 1, 'a pass is remembered');
+
+			// Any read of this connection that sees the credential refused, e.g. an uncached one elsewhere.
+			const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+			(azure as unknown as { handleProviderException(usecase: string, ex: Error): void }).handleProviderException(
+				'getIssue',
+				refusedCredential(),
+			);
+			(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+				...primarySession('t'),
+				domain: 'dev.azure.com',
+			};
+
+			await read();
+			assert.equal(probes, 2, 'the credential is confirmed again rather than trusted');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test("Azure: the policy page is found from an organization's name as well as its id (#5890)", async () => {
+		const manager = await azureWithRefusingOrg(() => Promise.resolve({ id: 'guid-1' }));
+
+		try {
+			// Fills the discovery cache the failure is recorded under.
+			await manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+
+			// Repo-scoped reads record the organization by name.
+			const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+			const session = (azure as unknown as { _session: ProviderAuthenticationSession })._session;
+			const describe = (
+				azure as unknown as {
+					describeRefusal(
+						session: ProviderAuthenticationSession,
+						refusal: { status: number },
+						scope: { resourceId?: string },
+					): { reason: string; remedyUrl?: string } | undefined;
+				}
+			).describeRefusal.bind(azure);
+
+			assert.equal(
+				describe(session, { status: 401 }, { resourceId: 'Org Denied' })?.remedyUrl,
+				'https://dev.azure.com/Org%20Denied/_settings/organizationPolicy',
+			);
+		} finally {
+			manager.dispose();
 		}
 	});
 

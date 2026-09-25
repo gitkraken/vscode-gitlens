@@ -8,7 +8,12 @@ import { AuthenticationError, AuthenticationErrorReason } from '../errors.js';
  */
 function azureRefusal(status: 401 | 403, headers: Record<string, string>, body: unknown): AuthenticationError {
 	const original = Object.assign(new Error(`(${status}) ${status === 401 ? 'Unauthorized' : 'Forbidden'}.`), {
-		response: { status: status, statusText: '', headers: headers, body: body },
+		response: {
+			status: status,
+			statusText: status === 401 ? 'Unauthorized' : 'Forbidden',
+			headers: headers,
+			body: body,
+		},
 	});
 	return new AuthenticationError(
 		{
@@ -82,5 +87,14 @@ export function globalPatNotAllowed(): AuthenticationError {
 			),
 		},
 		'<!DOCTYPE html ><html><head><title>The organization&#39;s security policy prohibits access</title></head></html>',
+	);
+}
+
+/** A 401 Azure explains with something other than `TF400813`. Not captured: stands in for any such explanation. */
+export function explainedRefusal(): AuthenticationError {
+	return azureRefusal(
+		401,
+		{},
+		{ $id: '1', message: 'VS30063: You are not authorized to access https://dev.azure.com.' },
 	);
 }

@@ -15,7 +15,9 @@ import {
 } from '@gitlens/git/errors.js';
 import type { TokenWithInfo } from './authentication/models.js';
 import type { IntegrationIds } from './constants.js';
-import { isRateLimitResponse } from './errors.js';
+import type { ResponseHeaders } from './errors.js';
+import { getResponseHeader, isRateLimitResponse } from './errors.js';
+import { getProviderResponseBodyMessage } from './providers/providerErrors.js';
 import type {
 	ProviderWarning,
 	ProviderWarningCause,
@@ -62,7 +64,8 @@ export function toCollectionFailureKind(ex: unknown): CollectionScopeFailure['ki
  */
 export interface ProviderRefusal {
 	status: number;
-	/** The provider's own explanation: Azure DevOps' `X-TFS-ServiceError`, or the error body's `message`. */
+	statusText?: string;
+	/** The provider's own explanation: Azure DevOps' `X-TFS-ServiceError`, or the error body's message. */
 	detail?: string;
 	/** The provider's error type, when the body names one (Azure DevOps `typeKey`). */
 	typeKey?: string;
@@ -83,29 +86,28 @@ function toProviderRefusal(ex: unknown): ProviderRefusal | undefined {
 	if (!(ex instanceof AuthenticationError)) return undefined;
 
 	const response = (ex.original as { response?: unknown } | undefined)?.response as
-		| { status?: unknown; headers?: unknown; body?: unknown }
+		| { status?: unknown; statusText?: unknown; headers?: ResponseHeaders; body?: unknown }
 		| undefined;
 	if (typeof response?.status !== 'number') return undefined;
 
-	const headers = response.headers as { get?: (name: string) => string | null } | Record<string, string> | undefined;
-	const serviceError =
-		typeof headers?.get === 'function'
-			? headers.get('x-tfs-serviceerror')
-			: (headers as Record<string, string> | undefined)?.['x-tfs-serviceerror'];
-	const body = response.body as { message?: unknown; typeKey?: unknown } | null | undefined;
-	const bodyMessage = typeof body === 'object' && typeof body?.message === 'string' ? body.message : undefined;
-	const detail = decodeServiceError(serviceError) ?? bodyMessage?.trim();
+	// Only a structured body: a string one is a page (a proxy's, a sign-in form), not an explanation.
+	const body = typeof response.body === 'object' && response.body != null ? response.body : undefined;
+	const detail =
+		decodeServiceError(getResponseHeader(response.headers, 'x-tfs-serviceerror')) ??
+		getProviderResponseBodyMessage(body);
+	const typeKey = body != null && 'typeKey' in body ? body.typeKey : undefined;
 
 	return {
 		status: response.status,
+		...(typeof response.statusText === 'string' && response.statusText ? { statusText: response.statusText } : {}),
 		...(detail ? { detail: detail } : {}),
-		...(typeof body === 'object' && typeof body?.typeKey === 'string' ? { typeKey: body.typeKey } : {}),
+		...(typeof typeKey === 'string' ? { typeKey: typeKey } : {}),
 	};
 }
 
 /** Azure DevOps sends `X-TFS-ServiceError` percent-encoded. */
-function decodeServiceError(value: string | null | undefined): string | undefined {
-	if (!value) return undefined;
+function decodeServiceError(value: unknown): string | undefined {
+	if (typeof value !== 'string' || !value) return undefined;
 
 	try {
 		return decodeURIComponent(value).trim() || undefined;
@@ -120,11 +122,14 @@ function decodeServiceError(value: string | null | undefined): string | undefine
  * An authentication refusal is described in the provider's own words when it gives any, and otherwise by the
  * response's status line, rather than by `AuthenticationError`'s generic "credentials are either invalid or
  * expired": a scope refusing a sound credential is the case this failure exists to tell apart, and that sentence
- * says the opposite.
+ * says the opposite. Never by the body itself, which can be a whole page.
  */
 export function toCollectionScopeFailure(scope: CollectionScopeFailure['scope'], ex: unknown): ProviderScopeFailure {
 	const refusal = toProviderRefusal(ex);
-	const message = refusal != null ? (refusal.detail ?? (ex as AuthenticationError).original?.message) : undefined;
+	const message =
+		refusal != null
+			? (refusal.detail ?? `(${refusal.status})${refusal.statusText ? ` ${refusal.statusText}` : ''}.`)
+			: undefined;
 	return {
 		scope: scope,
 		kind: toCollectionFailureKind(ex),
@@ -273,6 +278,25 @@ export function hasOnlyScopedAuthFailures(metadata: CollectionMetadata | undefin
 	return scoped;
 }
 
+/** The scoped authentication failures in `metadata` that kept their refusal, with the scope they were forwarded as. */
+function* refusedScopes(
+	metadata: CollectionMetadata | undefined,
+): Generator<{ failure: ProviderScopeFailure & { refusal: ProviderRefusal }; scope: ProviderWarningScope }> {
+	for (const failure of (metadata?.failures ?? []) as ProviderScopeFailure[]) {
+		if (failure.refusal == null || toCollectionFailureWarningKind(failure) !== 'auth') continue;
+
+		const scope = toProviderWarningScope(failure.scope);
+		if (scope == null) continue;
+
+		yield { failure: failure as ProviderScopeFailure & { refusal: ProviderRefusal }, scope: scope };
+	}
+}
+
+/** What the scoped authentication failures in `metadata` said, for a provider to judge. */
+export function scopedAuthRefusals(metadata: CollectionMetadata | undefined): ProviderRefusal[] {
+	return Array.from(refusedScopes(metadata), ({ failure }) => failure.refusal);
+}
+
 /**
  * Names the cause of each scoped authentication failure in `metadata` that kept its refusal. Only for a read whose
  * credential was just confirmed: before that, the refusals this can name look exactly like a dead credential.
@@ -281,13 +305,8 @@ export function attributeScopedAuthFailures(
 	metadata: CollectionMetadata | undefined,
 	describe: (refusal: ProviderRefusal, scope: ProviderWarningScope) => ProviderWarningCause | undefined,
 ): void {
-	for (const failure of (metadata?.failures ?? []) as ProviderScopeFailure[]) {
-		if (failure.refusal == null || failure.cause != null || toCollectionFailureWarningKind(failure) !== 'auth') {
-			continue;
-		}
-
-		const scope = toProviderWarningScope(failure.scope);
-		if (scope == null) continue;
+	for (const { failure, scope } of refusedScopes(metadata)) {
+		if (failure.cause != null) continue;
 
 		const cause = describe(failure.refusal, scope);
 		if (cause != null) {

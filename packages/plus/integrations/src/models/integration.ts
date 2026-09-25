@@ -22,13 +22,14 @@ import type {
 } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import { toTokenWithInfo } from '../authentication/models.js';
 import { RejectedTokenTracker } from '../authentication/rejectedTokenTracker.js';
 import type { ProviderRefusal } from '../collectionMetadata.js';
-import { attributeScopedAuthFailures, hasOnlyScopedAuthFailures } from '../collectionMetadata.js';
+import { attributeScopedAuthFailures, hasOnlyScopedAuthFailures, scopedAuthRefusals } from '../collectionMetadata.js';
 import type { IntegrationIds, IssuesCloudHostIntegrationId, IssuesHostIntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
-import { AuthenticationError, RequestClientError, toError } from '../errors.js';
+import { AuthenticationError, AuthenticationErrorReason, RequestClientError, toError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import { providersMetadata } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
@@ -522,10 +523,19 @@ export abstract class IntegrationBase<
 	protected validateCredential?(session: ProviderAuthenticationSession): Promise<void>;
 
 	/**
-	 * Tokens that passed {@link validateCredential} within the last minute, keyed by the token itself. A probe
-	 * already in flight is shared rather than repeated, and a refused one is not kept.
+	 * Credentials that passed {@link validateCredential} within the last minute. A probe already in flight is
+	 * shared rather than repeated, and a refused one is not kept. Cleared whenever a credential is refused (see
+	 * {@link handleProviderException}), so a pass is never vouched for past a refusal this instance has seen.
 	 */
 	private readonly _validatedCredentials = new PromiseCache<string, void>({ createTTL: 60 * 1000, capacity: 10 });
+
+	/**
+	 * Whether a scope's refusal is the credential's own, by the provider's account of it: e.g. a token missing the
+	 * OAuth scopes the read needs. The probe cannot see that, because it proves the token authenticates, not that
+	 * it is authorized. So {@link confirmScopedAuthFailures} fails the read on one as a connection failure, which
+	 * a reconnect (consenting to the scopes again) can fix.
+	 */
+	protected isCredentialRefusal?(refusal: ProviderRefusal): boolean;
 
 	/**
 	 * Names why a confirmed credential was refused by one scope, from what the refusal said (see
@@ -551,18 +561,37 @@ export abstract class IntegrationBase<
 	 * {@link describeRefusal}. A probe that fails for another reason proves nothing either way and leaves the read
 	 * as it was.
 	 *
+	 * A refusal the provider pins on the credential itself (see {@link isCredentialRefusal}) is thrown the same way,
+	 * without a probe.
+	 *
 	 * A token that passed within the last minute is not probed again, so a scope that keeps refusing costs one
-	 * probe a minute, and a revocation right after a probe can take up to a minute to surface.
+	 * probe a minute, and a revocation right after a probe can take up to a minute to surface: until then its
+	 * refusals stay scoped, and may be named.
 	 */
 	protected async confirmScopedAuthFailures(
 		session: ProviderAuthenticationSession,
 		metadata: CollectionMetadata | undefined,
 	): Promise<void> {
-		const validateCredential = this.validateCredential?.bind(this);
-		if (validateCredential == null || !hasOnlyScopedAuthFailures(metadata)) return;
+		if (!hasOnlyScopedAuthFailures(metadata)) return;
 
+		const isCredentialRefusal = this.isCredentialRefusal?.bind(this);
+		const credentialRefusal =
+			isCredentialRefusal != null ? scopedAuthRefusals(metadata).find(r => isCredentialRefusal(r)) : undefined;
+		if (credentialRefusal != null) {
+			const { accessToken: _accessToken, ...tokenInfo } = toTokenWithInfo(this.id, session);
+			throw credentialRefusal.detail != null
+				? new AuthenticationError(tokenInfo, credentialRefusal.detail)
+				: new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden);
+		}
+
+		const validateCredential = this.validateCredential?.bind(this);
+		if (validateCredential == null) return;
+
+		// Keyed by the address as well as the token: a self-managed instance serves every installation on its host,
+		// and one installation accepting a token says nothing about another.
+		const key = [session.domain, session.baseUrl ?? '', session.accessToken].join('\n');
 		try {
-			await this._validatedCredentials.getOrCreate(session.accessToken, () => validateCredential(session));
+			await this._validatedCredentials.getOrCreate(key, () => validateCredential(session));
 		} catch (ex) {
 			if (ex instanceof AuthenticationError) throw ex;
 
@@ -581,6 +610,11 @@ export abstract class IntegrationBase<
 		options?: { scope?: ScopedLogger | undefined; silent?: boolean; connectionId?: string },
 	): void {
 		if (isCancellationError(ex)) return;
+
+		// A refused credential may be one a probe passed moments ago: stop vouching for it.
+		if (ex instanceof AuthenticationError) {
+			this._validatedCredentials.clear();
+		}
 
 		if (options?.scope != null) {
 			options.scope.error(ex);

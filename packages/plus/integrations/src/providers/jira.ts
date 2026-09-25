@@ -119,7 +119,9 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	/** The site-list request the resource cache would otherwise answer; see `IntegrationBase.validateCredential`. */
 	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
 		const api = await this.getProvidersApi();
-		await api.getJiraResourcesForCurrentUser(toTokenWithInfo(this.id, session));
+		if ((await api.getJiraResourcesForCurrentUser(toTokenWithInfo(this.id, session))) == null) {
+			throw new Error('Jira did not confirm the credential');
+		}
 	}
 
 	private _organizations: Map<string, JiraOrganizationDescriptor[] | undefined> | undefined;
