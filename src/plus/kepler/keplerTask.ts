@@ -181,12 +181,16 @@ export function getKeplerRepoPath(container: Container, repoPath: string | undef
  * Finds a local clone for a PR by lookup only — unlike `getOrOpenPullRequestRepository`, which
  * registers a closed repository for a known-but-unopened clone (`openIfNeeded`) and, for GitHub,
  * adds a virtual repository whose path is not on disk. Never prompts (design doc §7).
+ *
+ * Tries the PR's BASE repository before its head: the PR's url names the base, and Kepler moves the
+ * composer onto the head branch only when `repo=` resolves to that same repository. Sending a fork
+ * clone first would name a different repository and lose that move.
  */
 export async function findKeplerRepoPathForPullRequest(
 	container: Container,
 	pr: PullRequest,
 ): Promise<string | undefined> {
-	for (const identity of [getRepositoryIdentityForPullRequest(pr), getRepositoryIdentityForPullRequest(pr, false)]) {
+	for (const identity of [getRepositoryIdentityForPullRequest(pr, false), getRepositoryIdentityForPullRequest(pr)]) {
 		const repo = await container.repositoryIdentity.getRepository(identity, {
 			openIfNeeded: false,
 			prompt: false,

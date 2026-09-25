@@ -6,9 +6,15 @@ import { commands, env, window } from 'vscode';
 // `registrableCommands` array exists — same ordering landmine `keplerService.test.ts` and
 // `graphProducersService.upstreamMetadata.test.ts` document. Loading container.ts first avoids it.
 import '../../../container.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { Container } from '../../../container.js';
 import type { KeplerTaskItem } from '../keplerTask.js';
-import { getKeplerRepoPath, resolveKeplerTaskRequest, startKeplerTask } from '../keplerTask.js';
+import {
+	findKeplerRepoPathForPullRequest,
+	getKeplerRepoPath,
+	resolveKeplerTaskRequest,
+	startKeplerTask,
+} from '../keplerTask.js';
 
 const githubPr: KeplerTaskItem = {
 	kind: 'pr',
@@ -280,5 +286,48 @@ suite('getKeplerRepoPath', () => {
 		);
 		assert.strictEqual(getKeplerRepoPath(makeGitContainer(undefined), repoPath), undefined);
 		assert.strictEqual(getKeplerRepoPath(makeGitContainer(undefined), undefined), undefined);
+	});
+});
+
+suite('findKeplerRepoPathForPullRequest', () => {
+	// A fork PR: the head lives in `contributor/app`, the PR itself (and its url) in `acme/app`
+	const forkPr = {
+		url: 'https://github.com/acme/app/pull/7',
+		provider: { id: 'github', name: 'GitHub', domain: 'github.com' },
+		repository: { owner: 'acme', repo: 'app' },
+		refs: {
+			base: { owner: 'acme', repo: 'app', url: 'https://github.com/acme/app' },
+			head: { owner: 'contributor', repo: 'app', url: 'https://github.com/contributor/app' },
+		},
+	} as unknown as PullRequest;
+
+	function makeIdentityContainer(clones: Record<string, string>): { container: Container; names: string[] } {
+		const names: string[] = [];
+		const container = {
+			repositoryIdentity: {
+				getRepository: (identity: { name: string }) => {
+					names.push(identity.name);
+					const path = clones[identity.name];
+					return Promise.resolve(path != null ? { path: path, virtual: false } : undefined);
+				},
+			},
+		} as unknown as Container;
+		return { container: container, names: names };
+	}
+
+	test("prefers the base clone, since Kepler only moves onto the head branch for the PR's own repo", async () => {
+		const { container, names } = makeIdentityContainer({
+			'acme/app': '/src/acme-app',
+			'contributor/app': '/src/contributor-app',
+		});
+
+		assert.strictEqual(await findKeplerRepoPathForPullRequest(container, forkPr), '/src/acme-app');
+		assert.deepStrictEqual(names, ['acme/app']);
+	});
+
+	test('falls back to the head clone when there is no base clone', async () => {
+		const { container } = makeIdentityContainer({ 'contributor/app': '/src/contributor-app' });
+
+		assert.strictEqual(await findKeplerRepoPathForPullRequest(container, forkPr), '/src/contributor-app');
 	});
 });
