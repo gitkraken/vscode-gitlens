@@ -32,7 +32,7 @@ import {
 import type { IntegrationIds, IssuesCloudHostIntegrationId, IssuesHostIntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
-import { AuthenticationError, RequestClientError, toError } from '../errors.js';
+import { AuthenticationError, AuthenticationErrorReason, RequestClientError, toError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import { providersMetadata } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
@@ -516,7 +516,8 @@ export abstract class IntegrationBase<
 
 	/**
 	 * Proves the credential with an uncached check, rejecting with the provider's `AuthenticationError` when it is
-	 * refused, and with anything else when the check proves nothing.
+	 * refused, and with anything else when the check proves nothing. A `403` proves nothing either: the credential
+	 * authenticated and was only denied the check's request.
 	 *
 	 * Implemented by the providers whose reads can reach their scopes without an uncached request to the connection
 	 * first: discovery served from a per-token cache (Azure DevOps, Bitbucket, Jira Cloud), or an SDK fan-out across
@@ -593,7 +594,9 @@ export abstract class IntegrationBase<
 		try {
 			await this._validatedCredentials.getOrCreate(key, () => validateCredential(session));
 		} catch (ex) {
-			if (ex instanceof AuthenticationError) throw ex;
+			// A 403 answered a credential that authenticated and was only denied the check's own request, so it proves
+			// nothing about the scopes' refusals either.
+			if (ex instanceof AuthenticationError && ex.reason !== AuthenticationErrorReason.Forbidden) throw ex;
 
 			return;
 		}

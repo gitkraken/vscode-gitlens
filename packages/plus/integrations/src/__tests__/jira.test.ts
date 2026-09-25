@@ -2,7 +2,7 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
-import { AuthenticationError } from '../errors.js';
+import { AuthenticationError, AuthenticationErrorReason } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
 import { IssueFilter } from '../providers/models.js';
@@ -278,48 +278,100 @@ suite('Jira project fan-out metadata + caching (#5438)', () => {
 
 	test("a site's scoped refusal is only published once the credential is confirmed (#5890)", async () => {
 		// Jira Cloud caches its sites per token, so a token revoked since would reach only the site still requested.
-		const read = async (probe: () => Promise<unknown>) => {
-			const manager = createIntegrationManager(createFakeRuntime());
-			const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		let probe: () => Promise<unknown> = () => Promise.resolve([orgOk, orgBad]);
+		let probes = 0;
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+		stubApi(jira, {
+			getJiraProjectsForResource: () =>
+				Promise.resolve({
+					values: [],
+					paging: { cursor: '{}', more: false },
+					metadata: {
+						completeness: 'partial',
+						failures: [{ kind: 'authentication', scope: { resourceId: 'r2' } }],
+					},
+				}),
+			getJiraResourcesForCurrentUser: () => {
+				probes++;
+				return probe();
+			},
+		});
+		const read = () =>
+			(
+				jira as unknown as {
+					getProjectsForResourcesWithMetadataResult: (
+						resources: unknown[],
+					) => Promise<{ value?: { metadata?: { failures?: unknown[] } }; error?: Error }>;
+				}
+			).getProjectsForResourcesWithMetadataResult([orgBad]);
+
+		try {
+			// A check that proves nothing leaves the read as it was, and is not remembered as a pass: the refusal
+			// that follows is still seen.
+			probe = () => Promise.resolve(undefined);
+			const unconfirmed = await read();
+			assert.equal(unconfirmed.error, undefined);
+			assert.equal(unconfirmed.value?.metadata?.failures?.length, 1);
+
+			probe = () => Promise.reject(new AuthenticationError(jiraTokenInfo(), 'token revoked'));
+			const refused = await read();
+			assert.ok(
+				refused.error instanceof AuthenticationError,
+				'a refused credential fails the read for the connection',
+			);
+
+			// The refusal ran the usual recovery, which expired the session; start the next read from a sound one.
 			(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
-			stubApi(jira, {
-				getJiraProjectsForResource: () =>
-					Promise.resolve({
-						values: [],
-						paging: { cursor: '{}', more: false },
-						metadata: {
-							completeness: 'partial',
-							failures: [{ kind: 'authentication', scope: { resourceId: 'r2' } }],
-						},
-					}),
-				getJiraResourcesForCurrentUser: probe,
-			});
-			try {
-				return await (
-					jira as unknown as {
-						getProjectsForResourcesWithMetadataResult: (
-							resources: unknown[],
-						) => Promise<{ value?: { metadata?: { failures?: unknown[] } }; error?: Error }>;
-					}
-				).getProjectsForResourcesWithMetadataResult([orgBad]);
-			} finally {
-				manager.dispose();
-			}
-		};
+			probe = () => Promise.resolve([orgOk, orgBad]);
+			const confirmed = await read();
+			assert.equal(confirmed.error, undefined);
+			assert.equal(confirmed.value?.metadata?.failures?.length, 1, "the site's own refusal is kept");
+			assert.equal(probes, 3);
+		} finally {
+			manager.dispose();
+		}
+	});
 
-		const confirmed = await read(() => Promise.resolve([orgOk, orgBad]));
-		assert.equal(confirmed.error, undefined);
-		assert.equal(confirmed.value?.metadata?.failures?.length, 1, "the site's own refusal is kept");
+	test('a token missing an OAuth scope the read needs is refused for the connection, without a probe (#5890)', async () => {
+		const scopeMismatch = Object.assign(new Error('(401) Unauthorized. Unauthorized; scope does not match'), {
+			response: {
+				status: 401,
+				statusText: 'Unauthorized',
+				headers: {},
+				body: { code: 401, message: 'Unauthorized; scope does not match' },
+			},
+		});
+		let probes = 0;
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+		stubApi(jira, {
+			getJiraProjectsForResource: () =>
+				Promise.reject(
+					new AuthenticationError(jiraTokenInfo(), AuthenticationErrorReason.Unauthorized, scopeMismatch),
+				),
+			getJiraResourcesForCurrentUser: () => {
+				probes++;
+				return Promise.resolve([orgOk, orgBad]);
+			},
+		});
 
-		const refused = await read(() => Promise.reject(new AuthenticationError(jiraTokenInfo(), 'token revoked')));
-		assert.ok(
-			refused.error instanceof AuthenticationError,
-			'a refused credential fails the read for the connection',
-		);
+		try {
+			const result = await (
+				jira as unknown as {
+					getProjectsForResourcesWithMetadataResult: (
+						resources: unknown[],
+					) => Promise<{ value?: { metadata?: { failures?: { credentialRefused?: true }[] } } }>;
+				}
+			).getProjectsForResourcesWithMetadataResult([orgBad]);
 
-		const unconfirmed = await read(() => Promise.resolve(undefined));
-		assert.equal(unconfirmed.error, undefined, 'a probe that proves nothing leaves the read as it was');
-		assert.equal(unconfirmed.value?.metadata?.failures?.length, 1);
+			assert.equal(result.value?.metadata?.failures?.[0]?.credentialRefused, true);
+			assert.equal(probes, 0);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test('a failed resource is not cached as empty and is retried on the next call', async () => {

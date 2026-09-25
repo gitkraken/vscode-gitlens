@@ -25,6 +25,7 @@ import type {
 import { toTokenWithInfo } from '../authentication/models.js';
 import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
+import { AuthenticationError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
@@ -241,9 +242,16 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 	 */
 	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
 		const api = await this.getProvidersApi();
-		const user = await api.getCurrentUser(toTokenWithInfo(this.id, session), {
-			baseUrl: this.apiBaseUrlFor(session),
-		});
+		const user = await api
+			.getCurrentUser(toTokenWithInfo(this.id, session), { baseUrl: this.apiBaseUrlFor(session) })
+			.catch((ex: unknown) => {
+				// `/users` needs a licensed user, and answers one without a license (e.g. a project or repository access
+				// token's bot user) with a 401 it never gives a dead token: that credential authenticated.
+				if (ex instanceof AuthenticationError && /not a licensed user/i.test(ex.original?.message ?? '')) {
+					throw new Error('Bitbucket Data Center could not confirm an unlicensed credential', { cause: ex });
+				}
+				throw ex;
+			});
 		if (user == null) {
 			throw new Error('Bitbucket Data Center did not confirm the credential');
 		}

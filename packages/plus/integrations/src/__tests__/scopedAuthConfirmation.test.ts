@@ -123,6 +123,24 @@ suite('scoped auth confirmation (#5890)', () => {
 		}
 	});
 
+	test('Bitbucket: every scope refusing a token that lacks OAuth scopes is still one warning, for the connection', async () => {
+		const manager = await bitbucketWithWorkspaces(
+			() => Promise.reject(bitbucketRefusal(403, 'Your credentials lack one or more required privilege scopes.')),
+			() => Promise.resolve({ id: 'u1' }),
+		);
+
+		try {
+			const result = await manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.Bitbucket });
+
+			const auth = result.warnings.filter(w => w.kind === 'auth');
+			assert.equal(auth.length, 1, 'one credential, one warning, not one per workspace');
+			assert.equal('scope' in auth[0], false);
+			assert.doesNotMatch(auth[0].message, /\(resource /);
+		} finally {
+			manager.dispose();
+		}
+	});
+
 	test("Bitbucket: a workspace's own refusal of a sound credential stays scoped", async () => {
 		let probes = 0;
 		const manager = await bitbucketWithWorkspaces(
@@ -217,6 +235,47 @@ suite('scoped auth confirmation (#5890)', () => {
 				assert.equal(auth.length, 1);
 				assert.equal('scope' in auth[0], false, 'the refused credential is reported for the connection');
 				assert.equal(result.fetchFailed, true);
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test('an unlicensed credential (e.g. a project access token) is not a dead one', async () => {
+			// `/users` needs a licensed user; a bot user authenticates but holds no license.
+			const unlicensed = Object.assign(
+				new Error('(401) Unauthorized. The currently authenticated user is not a licensed user.'),
+				{
+					response: { status: 401, statusText: 'Unauthorized', headers: {}, body: undefined },
+				},
+			);
+			const manager = await bitbucketServerRefusingEveryRepository(() =>
+				Promise.reject(
+					new AuthenticationError(
+						{
+							providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+							microHash: undefined,
+							cloud: false,
+							type: 'pat',
+							scopes: [],
+						},
+						AuthenticationErrorReason.Unauthorized,
+						unlicensed,
+					),
+				),
+			);
+
+			try {
+				const result = await manager.listPullRequestsPage({
+					providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+					repos: repos,
+					domain: 'bb.example.com',
+				});
+
+				assert.deepEqual(
+					result.warnings.filter(w => w.kind === 'auth').map(w => w.scope),
+					[{ repositoryId: 'PROJ/one' }, { repositoryId: 'PROJ/two' }],
+					'the check proves nothing, so the read is left as it was',
+				);
 			} finally {
 				manager.dispose();
 			}

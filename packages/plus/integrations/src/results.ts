@@ -145,14 +145,16 @@ export interface ProviderWarning {
 	 * but scoped refusals wherever a read reaches its scopes without an uncached request to the connection first:
 	 * discovery served from a per-token cache (Azure DevOps, Bitbucket, Jira Cloud) or an SDK fan-out across the
 	 * requested repositories (Bitbucket Data Center). So when a read's only auth failures are scoped, those providers
-	 * confirm the credential with one uncached request first, and a refused credential fails the whole read with an
-	 * unscoped `auth` warning. A refusal the provider attributes to the credential itself, like Bitbucket's for a
-	 * token missing the OAuth scopes a read needs, which a reconnect fixes, is published unscoped too, while the
-	 * scopes that answered keep their results.
+	 * confirm the credential with one uncached check first, and a refused credential fails the whole read with an
+	 * unscoped `auth` warning. A refusal the provider attributes to the credential itself, like Bitbucket's or Jira
+	 * Cloud's for a token missing the OAuth scopes a read needs, which a reconnect fixes, is published unscoped too,
+	 * once for the connection, while the scopes that answered keep their results.
 	 *
-	 * Two exceptions stay scoped. A check that could not complete (a network error, a throttle) proves nothing, so
-	 * the warnings are published unconfirmed, with no {@link cause}. And a credential confirmed within the last
-	 * minute is not probed again, so a revocation can take up to a minute to surface.
+	 * So the promise holds for a read that carries no unscoped `auth` warning of its own; one that does already asks
+	 * for a reconnect, and its other scoped refusals are not checked. Two exceptions stay scoped even then. A check
+	 * that could not complete or was denied (a network error, a throttle, a `403`) proves nothing, so the warnings
+	 * are published unconfirmed, with no {@link cause}. And a credential confirmed within the last minute is not
+	 * probed again, so a revocation can take up to a minute to surface.
 	 */
 	scope?: ProviderWarningScope;
 	/**

@@ -9,6 +9,7 @@ import { Logger } from '@gitlens/utils/logger.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
+import type { ProviderRefusal } from '../collectionMetadata.js';
 import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import type { IssuesForProjectOptions, ProjectIssuesDrain } from '../models/issueReads.js';
@@ -122,6 +123,14 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		if ((await api.getJiraResourcesForCurrentUser(toTokenWithInfo(this.id, session))) == null) {
 			throw new Error('Jira did not confirm the credential');
 		}
+	}
+
+	/**
+	 * Atlassian's `401` for a token missing a scope the request needs, which a reconnect fixes by consenting to it
+	 * again; see `IntegrationBase.isCredentialRefusal`.
+	 */
+	protected override isCredentialRefusal(refusal: ProviderRefusal): boolean {
+		return refusal.status === 401 && /scope does not match/i.test(refusal.detail ?? '');
 	}
 
 	private _organizations: Map<string, JiraOrganizationDescriptor[] | undefined> | undefined;

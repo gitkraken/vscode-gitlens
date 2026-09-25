@@ -438,7 +438,8 @@ export function assessCollectionMetadata(
 			providerId: providerId,
 			domain: domain,
 			connectionId: connectionId,
-			message: collectionFailureMessage(failure),
+			// A credential-level refusal names no scope in prose either, so every scope's copy of it is one warning.
+			message: collectionFailureMessage(failure.credentialRefused ? { ...failure, scope: undefined } : failure),
 			kind: kind,
 			isAuth: kind === 'auth',
 			...(scope != null ? { scope: scope } : {}),

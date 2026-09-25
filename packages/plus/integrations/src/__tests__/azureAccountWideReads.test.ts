@@ -644,6 +644,43 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 		}
 	});
 
+	test('Azure: a probe denied with a 403 proves nothing (#5890)', async () => {
+		// The credential authenticated and was only denied the check's own request.
+		let probes = 0;
+		const manager = await azureWithRefusingOrg(
+			() => {
+				probes++;
+				return Promise.reject(
+					new AuthenticationError(
+						{
+							providerId: GitCloudHostIntegrationId.AzureDevOps,
+							microHash: undefined,
+							cloud: true,
+							type: 'oauth',
+							scopes: [],
+						},
+						AuthenticationErrorReason.Forbidden,
+					),
+				);
+			},
+			{ refusal: oauthAppNotAllowed },
+		);
+		const read = () => manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+
+		try {
+			const first = await read();
+			const auth = first.warnings.find(w => w.kind === 'auth');
+			assert.deepEqual(auth?.scope, { resourceId: 'org-denied' }, 'not failed as a connection failure');
+			assert.equal(auth?.cause, undefined, 'and nothing is named on an unconfirmed credential');
+			assert.equal(first.items.length, 1);
+
+			await read();
+			assert.equal(probes, 2, 'not remembered as a pass');
+		} finally {
+			manager.dispose();
+		}
+	});
+
 	test('Azure: a refused credential stops the probe that passed from vouching for it (#5890)', async () => {
 		let probes = 0;
 		const manager = await azureWithRefusingOrg(() => {

@@ -403,16 +403,18 @@ nothing but scoped refusals wherever a read reaches its scopes without an uncach
 first: discovery served from a per-token cache (Azure DevOps, Bitbucket and Jira Cloud cache the account, its
 organizations, workspaces or sites, and their projects), or an SDK fan-out across the requested repositories
 (Bitbucket Data Center). So when a read's only auth failures are scoped, those providers confirm the credential
-with one uncached request before reporting them. A refused credential fails the whole read instead: an
+with one uncached check before reporting them. A refused credential fails the whole read instead: an
 unscoped `auth` warning, `fetchFailed`, no results served from the cache, and the usual connection recovery.
-A refusal the provider pins on the credential itself, like Bitbucket's for a token missing the OAuth scopes the
-read needs, is published unscoped too, because a reconnect (consenting to them again) is what fixes it; the
-scopes that answered keep their results.
+A refusal the provider pins on the credential itself, like Bitbucket's or Jira Cloud's for a token missing the
+OAuth scopes the read needs, is published unscoped too, once for the connection, because a reconnect
+(consenting to them again) is what fixes it; the scopes that answered keep their results.
 
-Two cases stay scoped. A check that could not complete (a network error, a throttle) proves nothing, so the
-warnings are published unconfirmed and carry no `cause`. And a credential confirmed within the last minute is
-not probed again, so a scope that keeps refusing costs at most one extra request a minute per credential, and
-a revocation can take up to a minute to surface as a connection failure.
+The promise holds for a read that carries no unscoped `auth` warning of its own: one that does already asks for
+a reconnect, and its other scoped refusals are not checked. Two cases stay scoped even then. A check that could
+not complete or was denied (a network error, a throttle, a `403`) proves nothing, so the warnings are published
+unconfirmed and carry no `cause`. And a credential confirmed within the last minute is not checked again, so a
+scope that keeps refusing costs at most one extra check a minute per credential, and a revocation can take up
+to a minute to surface as a connection failure.
 
 `scope.resourceId` is the resource as the read addressed it: its id on most reads, its name on the few that
 address it by name (Azure DevOps' repo-scoped reads, Bitbucket's workspace reads). Match it against both
