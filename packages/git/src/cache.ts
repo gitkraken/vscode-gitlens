@@ -563,6 +563,25 @@ export class Cache implements Disposable {
 
 	@debug({ onlyExit: true })
 	clearCaches(repoPath: string | undefined, ...types: CachedGitTypes[]): void {
+		this.clearCachesCore('share', repoPath, ...types);
+	}
+
+	/**
+	 * Hard-evicts the same cache keys {@link clearCaches} would clear for `repoPath`, but a shared
+	 * (commonPath-keyed) entry that is still in flight is deleted outright instead of soft-invalidated —
+	 * a caller after this call never joins a read that started before it. Use for a forced read/write
+	 * that must not be answered from pre-change work; `clearCaches` remains the right call whenever
+	 * letting an in-flight read complete and share its answer with new callers is fine.
+	 */
+	evictCaches(repoPath: string, ...types: CachedGitTypes[]): void {
+		this.clearCachesCore('evict', repoPath, ...types);
+	}
+
+	private clearCachesCore(
+		inFlight: 'share' | 'evict',
+		repoPath: string | undefined,
+		...types: CachedGitTypes[]
+	): void {
 		const keysToClear = new Set<keyof AllCaches>();
 
 		if (!types.length) {
@@ -730,7 +749,7 @@ export class Cache implements Disposable {
 			if (repoPath == null) {
 				cache.clear();
 			} else if (sharedCacheKeys.has(key)) {
-				this.evictShared(key, repoPath);
+				this.evictShared(key, repoPath, inFlight);
 			} else {
 				cache.delete(repoPath);
 			}
@@ -739,18 +758,23 @@ export class Cache implements Disposable {
 
 	/**
 	 * Evicts a single shared (commonPath-keyed) cache entry for `repoPath` and its sibling worktrees.
-	 * Prefers `invalidate` where supported so in-flight work is shared across new callers and
-	 * self-evicts on settle rather than spawning a duplicate factory. `invalidate` does the right
-	 * thing per-entry: entries with a `CacheController` (created via `getOrCreate`) are marked
-	 * invalidated; entries without one (created via plain `.set()`, e.g. per-worktree mapper results)
-	 * are hard-deleted. Caches that don't support `invalidate` fall back to `delete`.
+	 * When `inFlight` is `'share'` (the default), prefers `invalidate` where supported so in-flight work
+	 * is shared across new callers and self-evicts on settle rather than spawning a duplicate factory.
+	 * `invalidate` does the right thing per-entry: entries with a `CacheController` (created via
+	 * `getOrCreate`) are marked invalidated; entries without one (created via plain `.set()`, e.g.
+	 * per-worktree mapper results) are hard-deleted. Caches that don't support `invalidate` fall back to
+	 * `delete`.
+	 *
+	 * When `inFlight` is `'evict'`, always hard-deletes regardless of `invalidate` support — a new caller
+	 * must never join a read that started before this eviction (see {@link evictCaches}).
 	 */
-	private evictShared(key: keyof AllCaches, repoPath: string): void {
+	private evictShared(key: keyof AllCaches, repoPath: string, inFlight: 'share' | 'evict' = 'share'): void {
 		const cache = this._caches[key];
 		if (cache == null) return;
 
 		const commonPath = this.getCommonPath(repoPath);
-		const invalidate = (cache as { invalidate?: (k: string) => void }).invalidate;
+		const invalidate =
+			inFlight === 'share' ? (cache as { invalidate?: (k: string) => void }).invalidate : undefined;
 		if (typeof invalidate === 'function') {
 			invalidate.call(cache, commonPath);
 			for (const worktreePath of this.getWorktreePaths(commonPath)) {

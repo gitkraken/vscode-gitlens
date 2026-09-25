@@ -1,9 +1,11 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { createDisposable } from '@gitlens/utils/disposable.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import { Cache, shouldEvictBlameCacheEntry } from '../cache.js';
 import type { GitBlame, ProgressiveGitBlame } from '../models/blame.js';
+import type { GitBranch } from '../models/branch.js';
 import type { GitCommitLine } from '../models/commit.js';
 
 function createCompletedBlame(lineCount: number): ProgressiveGitBlame {
@@ -182,6 +184,83 @@ suite('Cache.clearCaches — branchMergedStatus', () => {
 		await cache.getBranchOverview(repoPath, 'main|origin/main', overviewFactory);
 		assert.strictEqual(mergedStatusCount, 1, 'branchMergedStatus is content-keyed, so it should be preserved');
 		assert.strictEqual(overviewCount, 2, 'branchOverviews should still be cleared on a branches event');
+	});
+});
+
+suite('Cache.evictCaches vs clearCaches — in-flight shared entries', () => {
+	let cache: Cache;
+
+	setup(() => {
+		cache = new Cache();
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	function pagedBranches(name: string): PagedResult<GitBranch> {
+		return { values: [{ name: name }] as unknown as GitBranch[] };
+	}
+
+	test('clearCaches lets a new caller join an in-flight shared entry (factory runs once)', async () => {
+		const repoPath = '/test/repo';
+		let factoryCount = 0;
+		let resolveFirst!: (value: PagedResult<GitBranch>) => void;
+
+		const first = cache.branches.getOrCreate(
+			repoPath,
+			() =>
+				new Promise<PagedResult<GitBranch>>(resolve => {
+					factoryCount++;
+					resolveFirst = resolve;
+				}),
+		);
+
+		// Soft-invalidate: the entry stays in the map and is still rideable while in flight.
+		cache.clearCaches(repoPath, 'branches');
+
+		const second = cache.branches.getOrCreate(repoPath, () => {
+			factoryCount++;
+			return Promise.resolve(pagedBranches('unused'));
+		});
+
+		resolveFirst(pagedBranches('shared'));
+
+		const [firstResult, secondResult] = await Promise.all([first, second]);
+		assert.strictEqual(factoryCount, 1, 'clearCaches should let the new caller join the in-flight factory');
+		assert.strictEqual(firstResult, secondResult, 'both callers should observe the same shared result');
+	});
+
+	test("evictCaches hard-evicts so a new caller does not join, and the first caller's promise still resolves", async () => {
+		const repoPath = '/test/repo';
+		let factoryCount = 0;
+		let resolveFirst!: (value: PagedResult<GitBranch>) => void;
+		const firstValue = pagedBranches('first');
+		const secondValue = pagedBranches('second');
+
+		const first = cache.branches.getOrCreate(
+			repoPath,
+			() =>
+				new Promise<PagedResult<GitBranch>>(resolve => {
+					factoryCount++;
+					resolveFirst = resolve;
+				}),
+		);
+
+		// Hard-delete: a new caller must spawn its own factory rather than ride the in-flight one.
+		cache.evictCaches(repoPath, 'branches');
+
+		const second = cache.branches.getOrCreate(repoPath, () => {
+			factoryCount++;
+			return Promise.resolve(secondValue);
+		});
+
+		resolveFirst(firstValue);
+
+		const [firstResult, secondResult] = await Promise.all([first, second]);
+		assert.strictEqual(factoryCount, 2, 'evictCaches should force the new caller to run its own factory');
+		assert.strictEqual(firstResult, firstValue, "the first caller's promise still resolves with its own value");
+		assert.strictEqual(secondResult, secondValue);
 	});
 });
 

@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - **Breaking (git, git-cli)** — `refs.updateReference` now THROWS on failure instead of logging and resolving. A ref writer whose failures are invisible by default is the bug, not a mode to opt out of; no caller in this repository relied on the old behavior. Its signature is now `(repoPath, ref, sha, options?, cancellation?)`
 - Every staging mutation (`stageFile(s)`, `stageDirectory`, `stageAll`, `unstage*`, `removeFile(s)`) now fires `cache.onReset('status', 'diff', 'tracking')` and the `index` repository change, except when it targets a temporary index, which is not the repository's. Before this the sub-provider fired nothing, so a consumer that staged through the typed API and then read the status could be answered from the index as it stood before the stage (git-cli)
+- Core now clears its own caches and pending git commands whenever it announces a write through `cache.onReset`, rather than leaving that to each host's handler. A host with no handler kept serving pre-write reads after every typed write, and one that forwarded to `Cache.clearCaches` could still hand a caller that arrived after the write a read, or a git run, that started before it, because `clearCaches` keeps sharing an entry that is still in flight. A write now hard-evicts through the new `Cache.evictCaches`; clears from a file watcher keep sharing in-flight reads. A handler that forwards to `clearCaches` keeps working and is now redundant (git, git-cli)
 
 ### Fixed
 
