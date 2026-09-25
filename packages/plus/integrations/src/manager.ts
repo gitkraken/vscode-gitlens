@@ -17,6 +17,7 @@ import type {
 } from './reads/counts.js';
 import type { SupportedFilters } from './reads/filters.js';
 import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
+import type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
 import type { TrackerIssueResult } from './reads/trackerIssue.js';
 import type {
 	ConnectionStateChangeEvent,
@@ -656,6 +657,20 @@ export interface IntegrationManager {
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
 	}): Promise<ProviderResult<IssueBatchResult>>;
+	/**
+	 * Resolves several pull requests BY COORDINATE — `(owner, repo, number)` — in one round of requests, the
+	 * {@link getIssuesBatch} twin for pull requests. `pullRequest: undefined` means PROVEN ABSENT and is safe to
+	 * cache; a target whose read failed is NOT returned at all (see `fetchFailed`), so the two stay
+	 * distinguishable. GitHub/GHE and GitLab/self-hosted only.
+	 */
+	getPullRequestsBatch(options: {
+		providerId: IntegrationIds;
+		/** Each `key` must be unique — a duplicate refuses the whole call, since keys identify results. */
+		targets: readonly PullRequestBatchTarget[];
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+	}): Promise<ProviderResult<PullRequestBatchResult>>;
 	/**
 	 * Resolves one issue-tracker issue by key within a resource — the tracker counterpart of
 	 * {@link getIssuesBatch}, which cannot serve one.

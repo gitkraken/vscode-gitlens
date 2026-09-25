@@ -7,6 +7,7 @@ import type {
 	PullRequest,
 	PullRequestMergeMethod,
 	PullRequestSearchCriteria,
+	PullRequestShape,
 	PullRequestStackInfo,
 	PullRequestState,
 	PullRequestStateFilter,
@@ -709,6 +710,21 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			toTokenWithInfo(this.id, session),
 			coordinates,
 			{ baseUrl: this.apiBaseUrlFor(session), includeBody: true },
+			cancellation,
+		);
+	}
+
+	/** The PR twin of {@link getProviderIssuesBatch}: resolves several coordinates in one aliased request. */
+	protected override async getProviderPullRequestsBatch(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number }[],
+		cancellation?: AbortSignal,
+	): Promise<(PullRequestShape | Error | undefined)[] | undefined> {
+		return (await this.authenticationService.apis.github)?.getPullRequestsBatch(
+			this,
+			toTokenWithInfo(this.id, session),
+			coordinates,
+			{ baseUrl: this.apiBaseUrlFor(session) },
 			cancellation,
 		);
 	}

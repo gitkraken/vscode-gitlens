@@ -4367,6 +4367,75 @@ export class GitHubApi {
 	}
 
 	/**
+	 * Resolves several pull requests BY COORDINATE in one request, aliasing the point read like
+	 * {@link getIssuesBatch}. Returns POSITIONALLY; an unmappable node is an `Error` slot, never `undefined`,
+	 * because `undefined` here is a cached proven absence.
+	 */
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async getPullRequestsBatch(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		coordinates: readonly { owner: string; repo: string; number: number }[],
+		options?: { baseUrl?: string; avatarSize?: number },
+		cancellation?: AbortSignal,
+	): Promise<(PullRequestShape | Error | undefined)[]> {
+		const scope = getScopedLogger();
+		if (coordinates.length === 0) return [];
+
+		const params = coordinates
+			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$k${i}: Int!`)
+			.join('\n\t\t\t\t');
+		const fields = coordinates
+			.map(
+				(_, i) => `p${i}: repository(owner: $o${i}, name: $n${i}) {
+					pullRequest(number: $k${i}) {
+						${gqlPullRequestLiteFragment}
+						${gqlPullRequestStackFragmentFor(options)}
+					}
+				}`,
+			)
+			.join('\n\t\t\t\t');
+		const query = `query getPullRequestsBatch(
+				${params}
+				$avatarSize: Int
+			) {
+				${fields}
+			}`;
+
+		const variables: Record<string, unknown> = {
+			baseUrl: options?.baseUrl,
+			avatarSize: options?.avatarSize,
+		};
+		coordinates.forEach((c, i) => {
+			variables[`o${i}`] = c.owner;
+			variables[`n${i}`] = c.repo;
+			variables[`k${i}`] = c.number;
+		});
+
+		try {
+			// `allowPartialNotFound`: a missing coordinate is this read's answer for that slot, not a batch failure.
+			const rsp = await this.graphql<
+				Record<string, { pullRequest?: GitHubPullRequestLite | null } | null | undefined>
+			>(provider, token, query, variables, scope, cancellation, true);
+			if (rsp == null) return coordinates.map(() => undefined);
+
+			return coordinates.map((c, i) => {
+				const node = rsp[`p${i}`]?.pullRequest;
+				if (node == null) return undefined;
+
+				try {
+					return fromGitHubPullRequestLite(node, provider);
+				} catch (ex) {
+					scope?.warn(`skipped unmappable pull request; ${c.owner}/${c.repo}#${c.number}, ex=${ex}`);
+					return ex instanceof Error ? ex : new Error(String(ex));
+				}
+			});
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
 	 * The PR twin of {@link countIssues}: counts pull requests for several scopes in ONE request via aliased
 	 * `search` fields selecting only `issueCount` with `first: 0`. Same positional/undefined contract as the issue
 	 * count.
