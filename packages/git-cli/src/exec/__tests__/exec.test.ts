@@ -112,6 +112,19 @@ suite('Shell Test Suite', () => {
 			assert.strictEqual(result.stdout, 'HELLO FROM STDIN');
 		});
 
+		// An empty string is still stdin: the pipe has to close, or a process that reads to EOF (`hash-object
+		// --stdin`, `commit -F -`) waits until the command timeout kills it.
+		test('closes stdin when it is an empty string', async () => {
+			const result = await runSpawn<string>(
+				nodeExecutable,
+				nodeArgs(`process.stdin.on('end', () => process.stdout.write('eof'));process.stdin.resume();`),
+				'utf8',
+				{ stdin: '', timeout: 5000 },
+			);
+
+			assert.strictEqual(result.stdout, 'eof');
+		});
+
 		test('returns the exit code without rejecting when exitCodeOnly is set', async () => {
 			const result = await runSpawn(nodeExecutable, nodeArgs(`process.exit(7);`), 'utf8', {
 				exitCodeOnly: true,
