@@ -138,7 +138,11 @@ export type GitConflictCommand = 'merge' | 'rebase' | 'cherry-pick' | 'revert' |
 export interface GitServiceHooks {
 	/** Cache lifecycle hooks — wired by the provider to its cache-reset emitter */
 	readonly cache?: {
-		/** Called when cache entries should be cleared */
+		/**
+		 * Called after the provider changed repository state (a typed write, or `notifyChanged`). The provider
+		 * has already cleared its own caches for those types and its pending commands; the handler only needs to
+		 * update host-side state. Forwarding to `Cache.clearCaches` as well is redundant but harmless.
+		 */
 		onReset?(repoPath: string, ...types: CachedGitTypes[]): void;
 	};
 	/** Repository state hooks — wired by the provider to its repository-changed emitter */
