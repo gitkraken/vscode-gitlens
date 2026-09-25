@@ -186,7 +186,7 @@ export async function getIssuesBatch(
 	return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
 }
 
-function findDuplicateKey(targets: readonly { key: string }[]): string | undefined {
+export function findDuplicateKey(targets: readonly { key: string }[]): string | undefined {
 	const seen = new Set<string>();
 	for (const target of targets) {
 		if (seen.has(target.key)) return target.key;

@@ -7,6 +7,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestShape,
 	PullRequestState,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
@@ -16,15 +17,15 @@ import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.util
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
-import { batch } from '@gitlens/utils/promise.js';
+import { batch, mapBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
-import { IntegrationReadUnavailableError } from '../errors.js';
+import { IntegrationReadUnavailableError, toError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
@@ -320,6 +321,37 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 				baseUrl: this.apiBaseUrlFor(session),
 			},
 		);
+	}
+
+	/**
+	 * Reads each coordinate directly (no aliased/batched query exists), bounded and per-coordinate: a throw
+	 * becomes an `Error` slot for that coordinate so it is never read as absent.
+	 */
+	protected override async getProviderPullRequestsBatch(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number }[],
+		cancellation?: AbortSignal,
+	): Promise<(PullRequestShape | Error | undefined)[]> {
+		const token = toTokenWithInfo(this.id, session);
+		const baseUrl = this.apiBaseUrlFor(session);
+		const api = await this.authenticationService.apis.gitlab;
+		return mapBounded(coordinates, providerFanOutConcurrency, async c => {
+			try {
+				return await api?.getPullRequest(
+					this,
+					token,
+					c.owner,
+					c.repo,
+					c.number,
+					{ baseUrl: baseUrl },
+					cancellation,
+				);
+			} catch (ex) {
+				const error = toError(ex);
+				this.handleProviderException('getPullRequestsBatch', error, { connectionId: session.id });
+				return error;
+			}
+		});
 	}
 
 	public override async getRepoInfo(repo: {

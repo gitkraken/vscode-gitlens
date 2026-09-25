@@ -7,6 +7,7 @@ import type {
 	PullRequest,
 	PullRequestMergeMethod,
 	PullRequestSearchCriteria,
+	PullRequestShape,
 	PullRequestStackInfo,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
@@ -1878,6 +1879,45 @@ export abstract class GitHostIntegration<
 		coordinates: readonly { owner: string; repo: string; number: number }[],
 		cancellation?: AbortSignal,
 	): Promise<(IssueShape | undefined)[] | undefined>;
+
+	/**
+	 * The {@link getIssuesBatchResult} twin for pull requests. Results are POSITIONAL: `undefined` is a proven
+	 * absence (safe to cache), an `Error` names a coordinate whose own read failed (never cache that as absent).
+	 */
+	async getPullRequestsBatchResult(
+		coordinates: readonly { owner: string; repo: string; number: number }[],
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<(PullRequestShape | Error | undefined)[] | undefined>> {
+		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		const start = performance.now();
+		try {
+			const pullRequests = await this.getProviderPullRequestsBatch?.(session, coordinates, cancellation);
+			// A per-coordinate `Error` slot (GitLab) already ran `handleProviderException` for its own failure;
+			// resetting the count here regardless would erase that bookkeeping and let failures never accumulate.
+			if (!pullRequests?.some(pr => pr instanceof Error)) {
+				this.resetRequestExceptionCount('getPullRequestsBatch');
+			}
+			return { value: pullRequests, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleProviderException('getPullRequestsBatch', ex, { scope: scope, connectionId: connectionId });
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	/**
+	 * OPTIONAL: only GitHub/GHE (aliased) and GitLab/self-hosted (per-coordinate) implement this. A missing
+	 * hook refuses the read rather than degrading into N requests behind the caller's back.
+	 */
+	protected getProviderPullRequestsBatch?(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number }[],
+		cancellation?: AbortSignal,
+	): Promise<(PullRequestShape | Error | undefined)[] | undefined>;
 
 	/**
 	 * The PR twin of {@link countIssuesResult}: counts each scope's pull requests, transferring none where the

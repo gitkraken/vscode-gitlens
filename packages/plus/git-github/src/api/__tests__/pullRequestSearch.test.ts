@@ -8,25 +8,27 @@ import { GitHubApi } from '../github.js';
 import { toGitHubPullRequestSearchFacets, toGitHubPullRequestSortQualifier } from '../pullRequestSearchQuery.js';
 import type { GitHubTokenInfo } from '../token.js';
 
+// Shared by every suite in this file (search, count, and the batch read): one fake provider/token, since none
+// of them assert anything about identity — only about the request each read emits and the page/slot it maps.
+const provider = {
+	id: 'github',
+	name: 'GitHub',
+	domain: 'github.com',
+	icon: 'github',
+	getIgnoreSSLErrors: () => false,
+	reauthenticate: () => Promise.resolve(),
+	trackRequestException: () => {},
+} as unknown as Provider;
+
+const token: GitHubTokenInfo = {
+	providerId: 'github',
+	accessToken: 'token',
+	microHash: 'hash',
+	cloud: true,
+	type: undefined,
+};
+
 suite('GitHubApi.searchPullRequestsPage', () => {
-	const provider = {
-		id: 'github',
-		name: 'GitHub',
-		domain: 'github.com',
-		icon: 'github',
-		getIgnoreSSLErrors: () => false,
-		reauthenticate: () => Promise.resolve(),
-		trackRequestException: () => {},
-	} as unknown as Provider;
-
-	const token: GitHubTokenInfo = {
-		providerId: 'github',
-		accessToken: 'token',
-		microHash: 'hash',
-		cloud: true,
-		type: undefined,
-	};
-
 	type SearchResponse = {
 		issueCount?: number;
 		endCursor?: string | null;
@@ -604,24 +606,6 @@ suite('toGitHubPullRequestSortQualifier', () => {
 });
 
 suite('GitHubApi.countPullRequests', () => {
-	const provider = {
-		id: 'github',
-		name: 'GitHub',
-		domain: 'github.com',
-		icon: 'github',
-		getIgnoreSSLErrors: () => false,
-		reauthenticate: () => Promise.resolve(),
-		trackRequestException: () => {},
-	} as unknown as Provider;
-
-	const token: GitHubTokenInfo = {
-		providerId: 'github',
-		accessToken: 'token',
-		microHash: 'hash',
-		cloud: true,
-		type: undefined,
-	};
-
 	/**
 	 * Answers each `s{scope}f{facet}` alias with the count in `countsByAlias`; an alias absent from the record is
 	 * OMITTED from the response, which is how "not reported" is exercised (distinct from a reported zero).
@@ -755,5 +739,153 @@ suite('GitHubApi.countPullRequests', () => {
 		const counts = await api.countPullRequests(provider, token, [{ repos: ['o/a'] }, { repos: ['o/b'] }]);
 
 		assert.deepEqual(counts, [7, undefined]);
+	});
+});
+
+/**
+ * The batch pull request read (#5894): N `(owner, repo, number)` coordinates in one aliased document, the
+ * `getIssuesBatch` (#5802) twin — see `issueSearch.test.ts` for the shared partial-NOT_FOUND tolerance this
+ * reuses unchanged.
+ *
+ * The one place this read diverges from its issue twin: an unmappable node is an `Error` SLOT, not `undefined`,
+ * because `undefined` here is a cached proven absence and a mapping failure must never be cached as one.
+ */
+suite('GitHubApi.getPullRequestsBatch (#5894)', () => {
+	function batchServe(
+		byAlias: Record<string, unknown>,
+		errors?: { type: string; path: string[] }[],
+	): { config: GitHubApiConfig; getVariables: () => Record<string, unknown> } {
+		let variables: Record<string, unknown> = {};
+		const config = {
+			isWeb: false,
+			wrapForForcedInsecureSSL: (_i: unknown, fn: () => unknown) => fn(),
+			fetch: async (_url: unknown, init?: { body?: string }) => {
+				const body = JSON.parse(init?.body ?? '{}') as { variables?: Record<string, unknown> };
+				variables = body.variables ?? {};
+				return new Response(JSON.stringify({ data: byAlias, ...(errors != null ? { errors: errors } : {}) }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			},
+		} as unknown as GitHubApiConfig;
+		return { config: config, getVariables: () => variables };
+	}
+
+	// The lite-fragment shape `getPullRequestsBatch` selects — same fields `getPullRequest`/`getPullRequestForBranch`
+	// read in `github.test.ts`, and what `fromGitHubPullRequestLite` requires to map without throwing.
+	function prLiteNode(number: number, overrides?: Record<string, unknown>): Record<string, unknown> {
+		return {
+			id: `pr-${number}`,
+			number: number,
+			title: `PR ${number}`,
+			body: `Body ${number}`,
+			permalink: `https://github.com/o/a/pull/${number}`,
+			url: `https://github.com/o/a/pull/${number}`,
+			state: 'OPEN',
+			createdAt: '2026-01-01T00:00:00Z',
+			updatedAt: '2026-01-01T00:00:00Z',
+			closedAt: null,
+			mergedAt: null,
+			author: { login: 'octo', avatarUrl: '', url: 'https://github.com/octo' },
+			baseRefName: 'main',
+			baseRefOid: 'base',
+			headRefName: 'feature',
+			headRefOid: 'head',
+			headRepository: {
+				isFork: false,
+				name: 'a',
+				owner: { login: 'o' },
+				sshUrl: 'git@github.com:o/a.git',
+				url: 'https://github.com/o/a',
+			},
+			repository: {
+				isFork: false,
+				name: 'a',
+				owner: { login: 'o' },
+				sshUrl: 'git@github.com:o/a.git',
+				url: 'https://github.com/o/a',
+				viewerPermission: 'WRITE',
+			},
+			isCrossRepository: false,
+			isDraft: false,
+			...overrides,
+		};
+	}
+
+	test('resolves every coordinate in one request, positionally', async () => {
+		const { config, getVariables } = batchServe({
+			p0: { pullRequest: prLiteNode(1) },
+			p1: { pullRequest: prLiteNode(2) },
+		});
+		const api = new GitHubApi(config);
+
+		const out = await api.getPullRequestsBatch(provider, token, [
+			{ owner: 'o', repo: 'a', number: 1 },
+			{ owner: 'o', repo: 'b', number: 2 },
+		]);
+
+		assert.deepEqual(
+			out.map(pr => (pr instanceof Error ? 'error' : pr?.id)),
+			['1', '2'],
+		);
+		// Coordinates reach the query as VARIABLES, never interpolated into it.
+		assert.equal(getVariables().o0, 'o');
+		assert.equal(getVariables().n1, 'b');
+		assert.equal(getVariables().k1, 2);
+	});
+
+	test('a NOT_FOUND alongside real results yields absences, not a thrown batch', async () => {
+		// Same tolerant shape `getIssuesBatch` relies on: 200, full `data`, one NOT_FOUND per missing coordinate.
+		const { config } = batchServe({ p0: { pullRequest: prLiteNode(1) }, p1: { pullRequest: null }, p2: null }, [
+			{ type: 'NOT_FOUND', path: ['p1', 'pullRequest'] },
+			{ type: 'NOT_FOUND', path: ['p2'] },
+		]);
+		const api = new GitHubApi(config);
+
+		const out = await api.getPullRequestsBatch(provider, token, [
+			{ owner: 'o', repo: 'a', number: 1 },
+			{ owner: 'o', repo: 'a', number: 999 },
+			{ owner: 'o', repo: 'gone', number: 1 },
+		]);
+
+		assert.deepEqual(
+			out.map(pr => (pr instanceof Error ? 'error' : pr?.id)),
+			['1', undefined, undefined],
+		);
+	});
+
+	test('an unmappable node is an Error slot, never a proven absence', async () => {
+		// `repository: null` cannot happen against the real schema (the field is non-null), but it is exactly
+		// the shape of failure the per-node try/catch exists for: something the mapper cannot read without
+		// throwing. Reading it as `undefined` would tell a caller the pull request doesn't exist and cache that.
+		const { config } = batchServe({
+			p0: { pullRequest: prLiteNode(1) },
+			p1: { pullRequest: prLiteNode(2, { repository: null }) },
+		});
+		const api = new GitHubApi(config);
+
+		const out = await api.getPullRequestsBatch(provider, token, [
+			{ owner: 'o', repo: 'a', number: 1 },
+			{ owner: 'o', repo: 'a', number: 2 },
+		]);
+
+		assert.equal(out[0] instanceof Error, false);
+		assert.ok(out[1] instanceof Error, 'a node the mapper cannot read is an Error slot, not undefined');
+	});
+
+	test('no coordinates costs no request', async () => {
+		let called = false;
+		const config = {
+			isWeb: false,
+			wrapForForcedInsecureSSL: (_i: unknown, fn: () => unknown) => fn(),
+			fetch: async () => {
+				called = true;
+				return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+			},
+		} as unknown as GitHubApiConfig;
+		const api = new GitHubApi(config);
+
+		assert.deepEqual(await api.getPullRequestsBatch(provider, token, []), []);
+		assert.equal(called, false);
 	});
 });
