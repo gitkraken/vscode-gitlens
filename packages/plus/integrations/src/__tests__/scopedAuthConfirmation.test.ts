@@ -262,7 +262,7 @@ suite('scoped auth confirmation (#5890)', () => {
 			}
 		});
 
-		test('a credential the check refuses but authenticated (e.g. a project access token) is not a dead one', async () => {
+		test('a credential the check refuses but authenticated is not a dead one', async () => {
 			const manager = await bitbucketServerRefusingEveryRepository(() =>
 				Promise.reject(usersRefusal('project-token-bot')),
 			);
@@ -278,6 +278,28 @@ suite('scoped auth confirmation (#5890)', () => {
 					result.warnings.filter(w => w.kind === 'auth').map(w => w.scope),
 					[{ repositoryId: 'PROJ/one' }, { repositoryId: 'PROJ/two' }],
 					'the check proves nothing, so the read is left as it was',
+				);
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test('a project access token, whose bot user the check cannot find, is not a dead one', async () => {
+			// What the SDK throws when `/users` answers but does not list the user the token authenticated as.
+			const manager = await bitbucketServerRefusingEveryRepository(() =>
+				Promise.reject(new Error('Could not find current Bitbucket Server user')),
+			);
+
+			try {
+				const result = await manager.listPullRequestsPage({
+					providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+					repos: repos,
+					domain: 'bb.example.com',
+				});
+
+				assert.deepEqual(
+					result.warnings.filter(w => w.kind === 'auth').map(w => w.scope),
+					[{ repositoryId: 'PROJ/one' }, { repositoryId: 'PROJ/two' }],
 				);
 			} finally {
 				manager.dispose();

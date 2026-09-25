@@ -240,6 +240,9 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 	 * The account request the account cache would otherwise answer; see `IntegrationBase.validateCredential`. Needed
 	 * without any discovery cache: a repo-scoped pull request read fans out across its repositories in the SDK with
 	 * no request to the connection first, so a dead token comes back as one refused repository per request.
+	 *
+	 * A project or repository access token never confirms: its bot user authenticates, but `/users` does not list
+	 * it, so the SDK cannot find the current user and the check proves nothing.
 	 */
 	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
 		const api = await this.getProvidersApi();
@@ -248,8 +251,8 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			.catch((ex: unknown) => {
 				// Bitbucket Data Center names the user it authenticated in `X-AUSERNAME`, and answers a dead token
 				// exactly as it answers no credential: the same 401 and body, without that header. So a refusal that
-				// names a user came from a credential that authenticated, e.g. a project access token's bot user,
-				// which `/users` may refuse, and proves nothing about the scopes' refusals.
+				// names a user came from a credential that authenticated, and proves nothing about the scopes'
+				// refusals.
 				const headers = (ex as { original?: { response?: { headers?: ResponseHeaders } } }).original?.response
 					?.headers;
 				if (ex instanceof AuthenticationError && getResponseHeader(headers, 'x-ausername')) {
