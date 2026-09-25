@@ -361,7 +361,7 @@ prove from structured errors:
 
 | `kind`          | Meaning                                                                                                                                         | Reasonable response                                                                         |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `auth`          | Token rejected (401/403 that isn't a throttle).                                                                                                 | Prompt to reconnect that connection.                                                        |
+| `auth`          | Token rejected (401/403 that isn't a throttle).                                                                                                 | Prompt to reconnect that connection. A scoped one is narrower: see `scope` below.           |
 | `rate-limit`    | Throttled (429, or a 403 whose body says so).                                                                                                   | Back off and retry; keep the last snapshot.                                                 |
 | `not-found`     | 404/410/422 on the requested scope.                                                                                                             | Drop that scope; don't reconnect.                                                           |
 | `no-connection` | The requested `connectionId`/`domain` doesn't resolve.                                                                                          | Re-resolve the target or re-authenticate.                                                   |
@@ -372,6 +372,43 @@ rate-limit and not-found distinctions**, which then have to be re-derived from r
 Conversely, `other` is intentionally not a complete failure taxonomy. Treat `message` as display/diagnostic
 text rather than a stable protocol; use `fetchFailed`, `page.truncated`, and `page.allPages` for completeness
 and keep unknown failures conservative.
+
+### `scope` — which part of the read failed
+
+A fan-out read records a failure against the organization, project or repository it happened in.
+`ProviderWarning.scope` forwards that attribution (`resourceId`, `projectId`, `repositoryId`, whichever the
+provider reported), so a consumer can tell "one organization refused this token" from "the connection's token
+is dead" without parsing `message`:
+
+```ts
+if (warning.kind === 'auth' && warning.scope == null) {
+	promptToReconnect(warning.providerId, warning.connectionId);
+} else if (warning.kind === 'auth') {
+	// One organization/project/repository refused the credential, e.g. an Azure DevOps organization with
+	// third-party OAuth access disabled, one in another Entra tenant, or a Conditional Access policy.
+	// Reconnecting cannot fix that, so mark only that scope unavailable and keep the others.
+	markScopeUnavailable(warning.providerId, warning.connectionId, warning.scope);
+}
+```
+
+`kind` and `isAuth` do not change with it: a scoped 401 is still an authentication failure, and `scope` says
+how far it reaches. **Its absence means account-wide or unattributed**, so a consumer that ignores the field
+keeps its existing behavior. It is set only on warnings derived from a structured scope failure, and names at
+least one ID when present; a failure attributed to nothing below the provider carries none. A warning built
+from a caught exception never carries one, even when that call targeted a single organization, and an omission
+keeps its attribution in `omission.scope` instead.
+
+A scoped `auth` failure also means **the credential itself was accepted**. Azure DevOps, Bitbucket and Jira
+Cloud serve discovery (the account, its organizations, workspaces or sites, and their projects) from a
+per-token cache, where a token revoked since then would reach only the scopes a read still requests and come
+back looking exactly like one scope's refusal. So when a read's only auth failures are scoped, those providers
+confirm the credential with one uncached request before reporting them. A refused credential fails the whole
+read instead: an unscoped `auth` warning, `fetchFailed`, no results served from the cache, and the usual
+connection recovery. A credential confirmed within the last minute is not probed again, so a scope that keeps
+refusing costs at most one extra request a minute per token, and a revocation can take up to a minute to
+surface as a connection failure.
+
+Warnings also dedup on `scope`, so failures of two scopes stay two warnings.
 
 ### `omission` — succeeded, but withheld results
 

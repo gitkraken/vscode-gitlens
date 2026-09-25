@@ -433,6 +433,7 @@ export abstract class GitHostIntegration<
 		const start = performance.now();
 		try {
 			const result = await this.getProviderOrganizationsForUser?.(session);
+			await this.throwIfCredentialRefused(session, result?.metadata);
 			const authFailure = result?.metadata?.failures?.find(
 				failure =>
 					failure.kind === 'authentication' &&
@@ -487,6 +488,7 @@ export abstract class GitHostIntegration<
 		const start = performance.now();
 		try {
 			const result = await this.getProviderProjectsForOrg(session, org);
+			await this.throwIfCredentialRefused(session, result?.metadata);
 			this.resetRequestExceptionCount('getProjectsForOrg');
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
@@ -524,6 +526,7 @@ export abstract class GitHostIntegration<
 		const start = performance.now();
 		try {
 			const result = await this.getProviderRepositoriesForOrg?.(session, org, options);
+			await this.throwIfCredentialRefused(session, result?.metadata);
 			this.resetRequestExceptionCount('getRepositoriesForOrg');
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
@@ -565,6 +568,7 @@ export abstract class GitHostIntegration<
 		const start = performance.now();
 		try {
 			const result = await this.getProviderRepositoriesForUser(session, options);
+			await this.throwIfCredentialRefused(session, result?.metadata);
 			this.resetRequestExceptionCount('getRepositoriesForUser');
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
@@ -976,6 +980,7 @@ export abstract class GitHostIntegration<
 					cursor.page = options.page;
 				}
 
+				await this.throwIfCredentialRefused(session, metadata);
 				this.resetRequestExceptionCount('getIssuesForRepos');
 				return {
 					value: {
@@ -1118,6 +1123,7 @@ export abstract class GitHostIntegration<
 					cursor.page = options.page;
 				}
 
+				await this.throwIfCredentialRefused(session, metadata);
 				this.resetRequestExceptionCount('getIssuesForRepos');
 				return {
 					value: {
@@ -1171,6 +1177,7 @@ export abstract class GitHostIntegration<
 				return { error: ex, duration: performance.now() - start };
 			}
 
+			await this.throwIfCredentialRefused(session, result.metadata);
 			this.resetRequestExceptionCount('getIssuesForRepos');
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
@@ -1468,6 +1475,7 @@ export abstract class GitHostIntegration<
 					cursor.page = options.page;
 				}
 
+				await this.throwIfCredentialRefused(session, metadata);
 				this.resetRequestExceptionCount('getPullRequestsForRepos');
 				return {
 					value: {
@@ -1507,6 +1515,7 @@ export abstract class GitHostIntegration<
 				includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
 				fields: options?.summary ? summaryPullRequestFields : undefined,
 			});
+			await this.throwIfCredentialRefused(session, result.metadata);
 			this.resetRequestExceptionCount('getPullRequestsForRepos');
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
@@ -1585,6 +1594,7 @@ export abstract class GitHostIntegration<
 		const start = performance.now();
 		try {
 			const result = await this.getProviderMyPullRequestsForUser(session, options);
+			await this.throwIfCredentialRefused(session, result?.metadata);
 			this.resetRequestExceptionCount('getMyPullRequestsForUser');
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
@@ -1669,6 +1679,7 @@ export abstract class GitHostIntegration<
 		const start = performance.now();
 		try {
 			const result = await this.searchProviderPullRequestsPage?.(session, options, cancellation);
+			await this.throwIfCredentialRefused(session, result?.metadata);
 			this.resetRequestExceptionCount('searchPullRequestsPage');
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {

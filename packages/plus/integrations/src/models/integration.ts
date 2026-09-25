@@ -1,3 +1,4 @@
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -14,6 +15,7 @@ import { fnv1aHash64 } from '@gitlens/utils/hash.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationSessionDescriptor,
@@ -21,6 +23,7 @@ import type {
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { RejectedTokenTracker } from '../authentication/rejectedTokenTracker.js';
+import { hasOnlyScopedAuthFailures } from '../collectionMetadata.js';
 import type { IntegrationIds, IssuesCloudHostIntegrationId, IssuesHostIntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
@@ -505,6 +508,50 @@ export abstract class IntegrationBase<
 		}
 	}
 
+	/**
+	 * Proves the credential with one request no discovery cache answers, rejecting with the provider's
+	 * `AuthenticationError` when it is refused.
+	 *
+	 * Implemented only by providers that serve discovery from a per-token cache (Azure DevOps, Bitbucket, Jira
+	 * Cloud). There, a token revoked since discovery is only sent to the scopes a read still requests, so it
+	 * comes back as scoped refusals with no failure of the connection: the same shape as one scope refusing a
+	 * sound credential. {@link throwIfCredentialRefused} uses this to tell the two apart.
+	 */
+	protected validateCredential?(session: ProviderAuthenticationSession): Promise<void>;
+
+	/**
+	 * Tokens that passed {@link validateCredential} within the last minute, keyed by the token itself. A probe
+	 * already in flight is shared rather than repeated, and a refused one is not kept.
+	 */
+	private readonly _validatedCredentials = new PromiseCache<string, void>({ createTTL: 60 * 1000, capacity: 10 });
+
+	/**
+	 * Throws the refusal when a read's only authentication failures are scoped and the credential itself turns
+	 * out to be refused. The caller's `catch` then fails the read as a whole, exactly as it does when discovery
+	 * is not cached and the first request is the one refused.
+	 *
+	 * Without this, a token revoked after discovery would publish scoped `auth` warnings, which a consumer must
+	 * not answer with a reconnect (see `ProviderWarning.scope`), next to results served from the cache, for as
+	 * long as the token stays stored. Anything but a refusal leaves the read as it was: a probe that fails for
+	 * another reason proves nothing either way.
+	 *
+	 * A token that passed within the last minute is not probed again, so a scope that keeps refusing costs one
+	 * probe a minute, and a revocation right after a probe can take up to a minute to surface.
+	 */
+	protected async throwIfCredentialRefused(
+		session: ProviderAuthenticationSession,
+		metadata: CollectionMetadata | undefined,
+	): Promise<void> {
+		const validateCredential = this.validateCredential?.bind(this);
+		if (validateCredential == null || !hasOnlyScopedAuthFailures(metadata)) return;
+
+		try {
+			await this._validatedCredentials.getOrCreate(session.accessToken, () => validateCredential(session));
+		} catch (ex) {
+			if (ex instanceof AuthenticationError) throw ex;
+		}
+	}
+
 	protected handleProviderException(
 		syncReqUsecase: SyncReqUsecase,
 		ex: Error,
@@ -791,6 +838,7 @@ export abstract class IntegrationBase<
 				cancellation,
 				options,
 			);
+			await this.throwIfCredentialRefused(session, result?.metadata);
 			this.resetRequestExceptionCount('searchMyIssues');
 			return { value: result };
 		} catch (ex) {

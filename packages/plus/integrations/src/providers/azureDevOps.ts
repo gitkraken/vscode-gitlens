@@ -240,6 +240,11 @@ export abstract class AzureDevOpsIntegrationBase<
 			: undefined;
 	}
 
+	/** The profile request the account cache would otherwise answer; see `IntegrationBase.validateCredential`. */
+	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
+		await this._requestForCurrentUser(session);
+	}
+
 	private _organizations: Map<string, AzureOrganizationDescriptor[] | undefined> | undefined;
 	protected async getProviderResourcesForUser(
 		session: ProviderAuthenticationSession,

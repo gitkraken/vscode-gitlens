@@ -632,7 +632,7 @@ suite('assessCollectionMetadata (#5438)', () => {
 		);
 	});
 
-	test('authentication failure → auth warning with isAuth, fetchFailed, truncation, scope in message', () => {
+	test('authentication failure → auth warning with isAuth, fetchFailed, truncation, and its scope', () => {
 		const metadata: CollectionMetadata = {
 			completeness: 'partial',
 			failures: [{ kind: 'authentication', scope: { resourceId: 'r1' }, message: '401' }],
@@ -642,9 +642,44 @@ suite('assessCollectionMetadata (#5438)', () => {
 		assert.equal(result.truncated, true);
 		assert.equal(result.warnings.length, 1, 'no extra generic warning when a failure already explains it');
 		assert.equal(result.warnings[0].kind, 'auth');
-		assert.equal(result.warnings[0].isAuth, true);
+		assert.equal(result.warnings[0].isAuth, true, 'a scoped 401 is still an authentication failure');
 		assert.equal(result.warnings[0].connectionId, 'c1', 'warning carries the connection id');
 		assert.ok(result.warnings[0].message.includes('r1'), 'the failed scope is identified in the message');
+		// #5890: the structured fact a consumer reads instead of the prose, so "one organization refused this
+		// token" is distinguishable from "the connection's token is dead".
+		assert.deepEqual(result.warnings[0].scope, { resourceId: 'r1' });
+	});
+
+	test('a failure naming nothing below the provider is account-wide and carries no scope (#5890)', () => {
+		for (const scope of [undefined, {}, { providerId: providerId }]) {
+			const result = assessCollectionMetadata(providerId, 'github.com', 'c1', {
+				completeness: 'partial',
+				failures: [{ kind: 'authentication', scope: scope }],
+			});
+			assert.equal(result.warnings.length, 1);
+			assert.equal(result.warnings[0].isAuth, true);
+			// Absence is what an account-wide failure has always looked like, so existing consumers keep treating
+			// it as a connection failure. A `{ providerId }` scope must not be forwarded as a confined one.
+			assert.equal('scope' in result.warnings[0], false, `scope ${JSON.stringify(scope)} is account-wide`);
+		}
+	});
+
+	test('a forwarded scope names only the IDs below the provider, as a copy (#5890)', () => {
+		const failureScope = { providerId: providerId, resourceId: 'r1', projectId: 'p1' };
+		const result = assessCollectionMetadata(providerId, 'github.com', 'c1', {
+			completeness: 'partial',
+			failures: [
+				{ kind: 'authentication', scope: failureScope },
+				{ kind: 'rate-limit', scope: { repositoryId: 'acme/api' } },
+			],
+		});
+
+		// `providerId` is the warning's own; repeating it in `scope` would say nothing the warning doesn't.
+		assert.deepEqual(result.warnings[0].scope, { resourceId: 'r1', projectId: 'p1' });
+		assert.notEqual(result.warnings[0].scope, failureScope, 'the SDK object is retained and re-merged upstream');
+		// Not auth-specific: every structured failure says which scope it belongs to.
+		assert.equal(result.warnings[1].kind, 'rate-limit');
+		assert.deepEqual(result.warnings[1].scope, { repositoryId: 'acme/api' });
 	});
 
 	test('rate-limit and not-found failures keep their kinds', () => {

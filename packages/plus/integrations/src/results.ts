@@ -13,7 +13,8 @@ export interface ConnectionStateChangeEvent {
  * these to drive auth recovery, retry, or truncation messaging without the read itself throwing.
  *
  * `kind` is the programmatic discriminant (a rate-limit is retryable, a 404 is not, an auth failure
- * needs re-connection); `isAuth` is retained as a convenience mirror of `kind === 'auth'`.
+ * needs re-connection unless {@link ProviderWarning.scope} confines it); `isAuth` is retained as a
+ * convenience mirror of `kind === 'auth'`.
  */
 export type ProviderWarningKind = 'auth' | 'rate-limit' | 'not-found' | 'no-connection' | 'other';
 
@@ -41,12 +42,19 @@ export type ProviderWarningOmissionKind = 'provider-limit' | 'recovery-budget' |
  */
 export type ProviderWarningOmissionRecovery = 'none' | 'page-budget' | 'narrow-scope';
 
-/** Which repository / project / resource an omission is attributed to. All fields optional; a scope may name none. */
-export interface ProviderWarningOmissionScope {
-	providerId?: string;
+/**
+ * The part of a provider a warning is confined to: one resource (organization, workspace, site), project or
+ * repository. All fields optional; see {@link ProviderWarning.scope} for when one is forwarded.
+ */
+export interface ProviderWarningScope {
 	resourceId?: string;
 	projectId?: string;
 	repositoryId?: string;
+}
+
+/** Which repository / project / resource an omission is attributed to. All fields optional; a scope may name none. */
+export interface ProviderWarningOmissionScope extends ProviderWarningScope {
+	providerId?: string;
 }
 
 export interface ProviderWarningOmission {
@@ -88,8 +96,30 @@ export interface ProviderWarning {
 	connectionId?: string;
 	message: string;
 	kind: ProviderWarningKind;
-	/** Convenience mirror of `kind === 'auth'`. */
+	/** Convenience mirror of `kind === 'auth'`, scoped or not; read {@link scope} before prompting to reconnect. */
 	isAuth: boolean;
+	/**
+	 * Present when the failure was recorded against one sub-scope of the read (an organization, project or
+	 * repository) rather than against the connection. A scoped `auth` failure is that one scope refusing this
+	 * credential, e.g. an Azure DevOps organization that disallows third-party OAuth apps, one in another Entra
+	 * tenant, or a Conditional Access policy. Reconnecting cannot fix those, so this warning alone is no reason
+	 * to prompt for it.
+	 *
+	 * `kind` and `isAuth` are unaffected: a scoped 401 is still an authentication failure, and this field says
+	 * how far it reaches. It names at least one of its IDs, and is never set on an omission (which carries its
+	 * own {@link ProviderWarningOmission.scope}) or on a warning derived from a caught exception (see
+	 * {@link toProviderWarning}), even when that call targeted a single organization.
+	 *
+	 * Its ABSENCE means account-wide or unattributed, so existing handling stays correct without it.
+	 *
+	 * A scoped `auth` failure also means the credential itself was accepted. Azure DevOps, Bitbucket and Jira
+	 * Cloud serve discovery from a per-token cache, where a token revoked since then would reach only the scopes
+	 * still requested. So when a read's only auth failures are scoped, those providers confirm the credential
+	 * with one uncached request first, and a refused credential fails the whole read with an unscoped `auth`
+	 * warning. A credential confirmed within the last minute is not probed again, so a revocation can take up to
+	 * a minute to surface.
+	 */
+	scope?: ProviderWarningScope;
 	/**
 	 * Present when this warning describes results the read could not return even though the request itself
 	 * SUCCEEDED — a provider-enforced cap, an exhausted recovery budget, a page budget, or a sub-scope the read
@@ -417,6 +447,9 @@ export function reconcileOmissionsWithFailure(warnings: ProviderWarning[], fetch
 /**
  * A stable key for deduplicating warnings accumulated across drained pages / fan-out scopes.
  *
+ * The scope is keyed for the reason the omission is (see {@link providerWarningOmissionKey}): today's failure
+ * messages happen to spell it out, but two failures of different scopes must stay two warnings even if they don't.
+ *
  * `message` stays LAST. It is the only free-form segment — provider prose, spaces and all — so anything
  * appended after it could be impersonated by a message that happens to end in the same text.
  */
@@ -426,6 +459,7 @@ function providerWarningKey(warning: ProviderWarning): string {
 		warning.connectionId ?? '',
 		warning.domain ?? '',
 		warning.kind,
+		collectionScopeKey(warning.scope),
 		providerWarningOmissionKey(warning.omission),
 		warning.message,
 	].join(' ');
@@ -433,7 +467,7 @@ function providerWarningKey(warning: ProviderWarning): string {
 
 /**
  * Appends `warning` to `into` only when an equal warning (by provider/connection/domain/kind/message, plus the
- * structured omission when one is present) is absent.
+ * structured scope and omission when present) is absent.
  */
 export function appendDedupedWarning(into: ProviderWarning[], warning: ProviderWarning): void {
 	const key = providerWarningKey(warning);

@@ -116,6 +116,12 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		return toAccount(user, this);
 	}
 
+	/** The site-list request the resource cache would otherwise answer; see `IntegrationBase.validateCredential`. */
+	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
+		const api = await this.getProvidersApi();
+		await api.getJiraResourcesForCurrentUser(toTokenWithInfo(this.id, session));
+	}
+
 	private _organizations: Map<string, JiraOrganizationDescriptor[] | undefined> | undefined;
 	protected override async getProviderResourcesForUser(
 		session: ProviderAuthenticationSession,

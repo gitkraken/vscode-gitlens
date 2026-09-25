@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes a `ProviderWarning` from a scoped authentication failure being indistinguishable from an account-wide one ([#5890](https://github.com/gitkraken/vscode-gitlens/issues/5890)). A fan-out read that records a failure against one organization, project or repository (for example an Azure DevOps organization with third-party OAuth access disabled answering its project discovery with a 401) produced the same `{ kind: 'auth', isAuth: true }` warning as a dead token, with the scope only in the English `message`, so a consumer could only prompt to reconnect, which can never fix it. Warnings derived from a structured scope failure now carry an optional `scope` (the new `ProviderWarningScope`: `resourceId`, `projectId`, `repositoryId`) naming the part of the read that failed. `kind` and `isAuth` are unchanged, and an absent `scope` still means account-wide or unattributed, so existing consumers keep their behavior. Azure DevOps, Bitbucket and Jira Cloud serve discovery from a per-token cache, where a revoked token would reach only the scopes still requested and look like one scope's refusal. When a read's only authentication failures are scoped, these providers now confirm the credential with one uncached request (at most once a minute per token), and a refused credential fails the read as a connection failure instead, so a scoped `auth` warning means the credential itself was accepted. Failures of two scopes also stay two warnings rather than relying on their messages differing (plus/integrations)
+
 ## [0.7.1] - 2026-09-24
 
 ### Added

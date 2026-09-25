@@ -5,18 +5,78 @@ import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
-import { RequestRateLimitError } from '../errors.js';
+import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IntegrationResult } from '../models/integration.js';
 import type { ProviderApiPagedResult, ProviderIssue, ProviderPullRequest } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
-import { primarySession, stubApi } from './sweepHelpers.js';
+import { primarySession, providerPr, stubApi } from './sweepHelpers.js';
 
 /**
  * Azure DevOps' account-wide reads, which fan out per project: pull requests and work items, each preserving
  * the projects that succeeded when one fails, keeping same-id rows from different organizations apart, and
  * reporting the truncation its page backstop caused (#5438).
  */
+
+function refusedCredential(): AuthenticationError {
+	return new AuthenticationError(
+		{
+			providerId: GitCloudHostIntegrationId.AzureDevOps,
+			microHash: undefined,
+			cloud: true,
+			type: 'oauth',
+			scopes: [],
+		},
+		AuthenticationErrorReason.Unauthorized,
+	);
+}
+
+/**
+ * The #5890 repro: an Azure DevOps connection whose profile and organization list succeed, and whose second
+ * organization (third-party OAuth access disabled, another tenant, Conditional Access) answers its project
+ * discovery with a 401. Discovery runs for real; only the SDK surface is stubbed. `probe` answers the uncached
+ * profile request that confirms the credential.
+ */
+async function azureWithRefusingOrg(probe: () => Promise<unknown>) {
+	const manager = createIntegrationManager(createFakeRuntime());
+	const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+	(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+		...primarySession('t'),
+		domain: 'dev.azure.com',
+	};
+
+	stubApi(azure, {
+		getAzureProjectsForResource: (_t: unknown, resourceName: string) =>
+			resourceName === 'Org Denied'
+				? Promise.reject(refusedCredential())
+				: Promise.resolve({
+						values: [{ id: 'p1', name: 'proj', namespace: resourceName }],
+						paging: { more: false },
+					}),
+		getPullRequestsForAzureProject: (_t: unknown, project: { namespace: string; project: string }) =>
+			Promise.resolve({
+				data: [
+					providerPr('pr-1', {
+						url: `https://dev.azure.com/${project.namespace}/${project.project}/_git/repo/pullrequest/1`,
+					}),
+				],
+				hasMore: false,
+				nextPage: null,
+			}),
+		getCurrentUser: probe,
+	});
+	(azure as unknown as { getProviderCurrentAccount: () => Promise<{ id: string }> }).getProviderCurrentAccount = () =>
+		Promise.resolve({ id: 'guid-1' });
+	(
+		azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+	).getProviderResourcesForUser = () =>
+		Promise.resolve([
+			{ id: 'org-ok', name: 'Org OK' },
+			{ id: 'org-denied', name: 'Org Denied' },
+		]);
+
+	return manager;
+}
 
 suite('Azure DevOps account-wide reads (#5438)', () => {
 	test("Azure account-wide PR read: one project's failure does not discard the others (#5438)", async () => {
@@ -380,6 +440,118 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 		);
 
 		manager.dispose();
+	});
+
+	test('Azure: one organization refusing the token is a scoped auth warning, not a connection failure (#5890)', async () => {
+		let probes = 0;
+		const manager = await azureWithRefusingOrg(() => {
+			probes++;
+			return Promise.resolve({ id: 'guid-1' });
+		});
+
+		try {
+			const [result, concurrent] = await Promise.all([
+				manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps }),
+				manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps }),
+			]);
+
+			assert.equal(result.items.length, 1, "the healthy organization's pull requests survive");
+			assert.equal(result.fetchFailed, true, 'the refused organization leaves the read incomplete');
+			const auth = result.warnings.filter(w => w.kind === 'auth');
+			assert.equal(auth.length, 1);
+			assert.equal(auth[0].isAuth, true);
+			// The structural distinction a consumer needs before prompting to reconnect: the failure belongs to
+			// one organization, and reconnecting can never heal it because the credential is fine.
+			assert.deepEqual(auth[0].scope, { resourceId: 'org-denied' });
+			// Only scoped refusals came back, which a revoked token served from cached discovery would produce
+			// too, so the credential was confirmed first.
+			assert.equal(
+				probes,
+				1,
+				'the credential is probed once before the scope is trusted, even by two reads at once',
+			);
+			assert.deepEqual(concurrent.warnings.find(w => w.kind === 'auth')?.scope, { resourceId: 'org-denied' });
+
+			const again = await manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+			assert.deepEqual(again.warnings.find(w => w.kind === 'auth')?.scope, { resourceId: 'org-denied' });
+			assert.equal(probes, 1, 'a scope that keeps refusing does not cost a probe on every read');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('Azure: a probe that fails is not remembered, so the next read confirms the credential again (#5890)', async () => {
+		let probes = 0;
+		const manager = await azureWithRefusingOrg(() =>
+			++probes === 1 ? Promise.reject(new Error('socket hang up')) : Promise.resolve({ id: 'guid-1' }),
+		);
+		const read = () => manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+
+		try {
+			const first = await read();
+			// Proves nothing either way, so the refusal is reported as it was recorded.
+			assert.deepEqual(first.warnings.find(w => w.kind === 'auth')?.scope, { resourceId: 'org-denied' });
+
+			await read();
+			assert.equal(probes, 2, 'the failed probe was not remembered as a pass');
+
+			await read();
+			assert.equal(probes, 2, 'the probe that passed is');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('Azure: a token revoked after discovery fails the read as a connection failure, not a scoped one (#5890)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		// The first read discovers 'Org OK' and caches its projects per token. Then the token is revoked and the
+		// user is also in 'Org Denied', which is the only organization the second read still has to request.
+		let revoked = false;
+		const discovered: string[] = [];
+		stubApi(azure, {
+			getAzureProjectsForResource: (_t: unknown, resourceName: string) => {
+				discovered.push(resourceName);
+				return revoked
+					? Promise.reject(refusedCredential())
+					: Promise.resolve({
+							values: [{ id: 'p1', name: 'proj', namespace: resourceName }],
+							paging: { more: false },
+						});
+			},
+			getCurrentUser: () => (revoked ? Promise.reject(refusedCredential()) : Promise.resolve({ id: 'guid-1' })),
+		});
+		const orgs = [{ id: 'org-ok', name: 'Org OK' }];
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () => Promise.resolve(orgs);
+
+		try {
+			const first = await manager.listProjects({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+			assert.equal(first.items.length, 1);
+			assert.deepEqual(first.warnings, []);
+
+			revoked = true;
+			orgs.push({ id: 'org-denied', name: 'Org Denied' });
+			const result = await manager.listProjects({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+
+			assert.deepEqual(discovered, ['Org OK', 'Org Denied'], "'Org OK' was answered from the cache");
+			const auth = result.warnings.filter(w => w.kind === 'auth');
+			assert.equal(auth.length, 1);
+			// Without the probe this is `{ resourceId: 'org-denied' }` next to the cached project: exactly what one
+			// organization refusing a sound credential looks like, so a consumer would never offer to reconnect.
+			assert.equal('scope' in auth[0], false, 'the refused credential is reported for the connection');
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(result.items, [], 'cached results are not published under a refused credential');
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test('Azure account-wide issue read broadens to a single unfiltered drain per project when includeAllAssignees is set (#5535)', async () => {

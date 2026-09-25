@@ -256,6 +256,12 @@ export class BitbucketIntegration extends GitHostIntegration<
 		return this._accounts.get(accessToken);
 	}
 
+	/** The profile request the account cache would otherwise answer; see `IntegrationBase.validateCredential`. */
+	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
+		const api = await this.getProvidersApi();
+		await api.getCurrentUser(toTokenWithInfo(this.id, session));
+	}
+
 	private _workspaces: Map<string, ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined> | undefined;
 	private async getProviderResourcesForCurrentUser(
 		session: ProviderAuthenticationSession,

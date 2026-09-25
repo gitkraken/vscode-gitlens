@@ -16,7 +16,7 @@ import {
 import type { TokenWithInfo } from './authentication/models.js';
 import type { IntegrationIds } from './constants.js';
 import { isRateLimitResponse } from './errors.js';
-import type { ProviderWarning, ProviderWarningOmission } from './results.js';
+import type { ProviderWarning, ProviderWarningOmission, ProviderWarningScope } from './results.js';
 import { appendDedupedWarning } from './results.js';
 
 /**
@@ -141,6 +141,49 @@ function collectionFailureMessage(failure: CollectionScopeFailure): string {
 }
 
 /**
+ * Forwards the part of a failure's scope below the provider, so a consumer can tell "one organization refused
+ * this token" from "the connection's token is dead" without parsing {@link collectionFailureMessage}.
+ *
+ * `providerId` is dropped: the warning already names its provider, and a scope naming nothing below it is a
+ * failure of the connection itself. That is the distinction `getOrganizationsForUserResult` also draws before
+ * counting an auth failure against the connection, though it reads a scope with no keys but `providerId`, so an
+ * absent scope does not count there. Forwarding such a scope would make an account-wide failure look confined.
+ *
+ * Copied field by field, for the reason {@link toProviderWarningOmission} copies its scope.
+ */
+function toProviderWarningScope(scope: CollectionScope | undefined): ProviderWarningScope | undefined {
+	if (scope == null) return undefined;
+
+	const { resourceId, projectId, repositoryId } = scope;
+	if (resourceId == null && projectId == null && repositoryId == null) return undefined;
+
+	return {
+		...(resourceId != null ? { resourceId: resourceId } : {}),
+		...(projectId != null ? { projectId: projectId } : {}),
+		...(repositoryId != null ? { repositoryId: repositoryId } : {}),
+	};
+}
+
+/**
+ * Whether `metadata` reports authentication failures only for scopes below the provider, with none for the
+ * connection itself. A credential revoked since a provider cached its discovery produces exactly this shape,
+ * the same one a scope's own refusal does; `IntegrationBase.throwIfCredentialRefused` tells them apart.
+ *
+ * Classified exactly as {@link assessCollectionMetadata} classifies the warnings, so it agrees with what a
+ * consumer would be shown.
+ */
+export function hasOnlyScopedAuthFailures(metadata: CollectionMetadata | undefined): boolean {
+	let scoped = false;
+	for (const failure of metadata?.failures ?? []) {
+		if (toCollectionFailureWarningKind(failure) !== 'auth') continue;
+		if (toProviderWarningScope(failure.scope) == null) return false;
+
+		scoped = true;
+	}
+	return scoped;
+}
+
+/**
  * Explains one omission in the consumer's terms — what was left out and, where the SDK reports it, how much.
  *
  * An omission is a completeness fact, never a failure: the read succeeded, and the provider (or the SDK's own
@@ -239,6 +282,7 @@ export function assessCollectionMetadata(
 	const failures = metadata.failures ?? [];
 	for (const failure of failures) {
 		const kind = toCollectionFailureWarningKind(failure);
+		const scope = toProviderWarningScope(failure.scope);
 		appendDedupedWarning(warnings, {
 			providerId: providerId,
 			domain: domain,
@@ -246,6 +290,7 @@ export function assessCollectionMetadata(
 			message: collectionFailureMessage(failure),
 			kind: kind,
 			isAuth: kind === 'auth',
+			...(scope != null ? { scope: scope } : {}),
 		});
 	}
 

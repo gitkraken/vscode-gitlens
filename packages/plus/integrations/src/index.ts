@@ -210,6 +210,7 @@ export type {
 	ProviderWarningOmissionKind,
 	ProviderWarningOmissionRecovery,
 	ProviderWarningOmissionScope,
+	ProviderWarningScope,
 	ProviderOrganization,
 	ProviderRepositoryShape,
 	RepositoryIdentity,
