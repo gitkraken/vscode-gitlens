@@ -325,6 +325,37 @@ suite('Shell Test Suite', () => {
 			assert.strictEqual(cacheable.invalidated, true, 'aborted result invalidated so it is never cached');
 		});
 
+		// Identical argv is not an identical command when the environment differs (`GIT_INDEX_FILE` for a
+		// temporary index, a credential helper, config injected through `GIT_CONFIG_*`).
+		test('concurrent runs with the same argv but a different per-call env are not shared', async () => {
+			const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+			const cwd = await mkdtemp(join(tmpdir(), 'gitlens-exec-test-'));
+
+			try {
+				const read = (value: string) =>
+					git.run(
+						{
+							cwd: cwd,
+							errors: 'throw',
+							env: {
+								GIT_CONFIG_COUNT: '1',
+								GIT_CONFIG_KEY_0: 'gitlens.probe',
+								GIT_CONFIG_VALUE_0: value,
+							},
+						},
+						'config',
+						'--get',
+						'gitlens.probe',
+					);
+				const [a, b] = await Promise.all([read('first'), read('second')]);
+
+				assert.strictEqual(a.stdout.trim(), 'first');
+				assert.strictEqual(b.stdout.trim(), 'second');
+			} finally {
+				await rm(cwd, { recursive: true, force: true });
+			}
+		});
+
 		// The throwing form of the same queue refusal. A typed mutator catches a `GitError` as "git refused",
 		// so a cancellation that surfaced as one read as a failure of the operation itself.
 		test('a command the queue refuses for an aborted signal rejects as a CancellationError', async () => {
