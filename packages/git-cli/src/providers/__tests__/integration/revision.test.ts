@@ -63,3 +63,36 @@ suite('RevisionSubProvider.resolveShas', () => {
 		assert.strictEqual(resolved.size, 0);
 	});
 });
+
+suite('RevisionSubProvider.resolveRevision — force bypasses the cache', () => {
+	let repo: TestRepo;
+
+	setup(() => {
+		repo = createTestRepo();
+	});
+
+	teardown(() => {
+		repo.cleanup();
+	});
+
+	test('an unforced read stays stale after an external move; force sees the new sha and stores it', async () => {
+		const oldSha = getHeadSha(repo.path);
+
+		const warmed = await repo.provider.revision.resolveRevision(repo.path, 'main');
+		assert.strictEqual(warmed.sha, oldSha);
+
+		// Moves `main` outside the provider — GitLens's cache-invalidation hooks never fire.
+		addCommit(repo.path, 'file1.txt', 'content', 'Second commit');
+		const newSha = getHeadSha(repo.path);
+		assert.notStrictEqual(newSha, oldSha);
+
+		const stale = await repo.provider.revision.resolveRevision(repo.path, 'main');
+		assert.strictEqual(stale.sha, oldSha, 'an unforced read must still answer from the cache');
+
+		const forced = await repo.provider.revision.resolveRevision(repo.path, 'main', undefined, { force: true });
+		assert.strictEqual(forced.sha, newSha, 'a forced read must see the external move');
+
+		const afterForce = await repo.provider.revision.resolveRevision(repo.path, 'main');
+		assert.strictEqual(afterForce.sha, newSha, 'the forced answer must be stored for later unforced reads');
+	});
+});

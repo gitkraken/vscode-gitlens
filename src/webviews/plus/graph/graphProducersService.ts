@@ -952,7 +952,7 @@ export class GraphProducersService {
 		// getBranch + getWorktreesByBranch are independent — allSettled so a non-critical worktree failure
 		// doesn't drop the branch state; branch.id is only read after both resolve.
 		const [branchResult, worktreesByBranchResult] = await Promise.allSettled([
-			this.repository.git.branches.getBranch(undefined, signal),
+			this.repository.git.branches.getBranch(undefined, undefined, signal),
 			getWorktreesByBranch(this.repository, undefined, signal),
 		]);
 		const branch: GitBranch | undefined = getSettledValue(branchResult);

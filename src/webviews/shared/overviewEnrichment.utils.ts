@@ -115,7 +115,7 @@ export async function getBranchMergeTargetStatusInfo(
 	if (target == null) return undefined;
 
 	const svc = container.git.getRepositoryService(branch.repoPath);
-	const targetBranch = await svc.branches.getBranch(target, cancellation);
+	const targetBranch = await svc.branches.getBranch(target, undefined, cancellation);
 	// The tip SHA is required — without it the graph's scope anchor can't be placed.
 	if (targetBranch?.sha == null) return undefined;
 	// Self target with equal tips (the default branch up to date with its own remote): 0/0 counts and a
