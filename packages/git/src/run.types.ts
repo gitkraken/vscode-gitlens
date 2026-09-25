@@ -72,6 +72,7 @@ export interface GitResultCache {
 		factory: (cacheable: CacheController, signal?: AbortSignal) => Promise<GitResult<unknown>>,
 		options?: { createTTL?: number; accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<GitResult<unknown>>;
+	delete(repoPath: string, key: string): void;
 }
 
 /**
@@ -116,6 +117,11 @@ export interface GitRunOptions {
 		/** The common repository path for worktree-shared caching. If not provided, defaults to cwd. */
 		commonPath?: string;
 		options?: { createTTL?: number; accessTTL?: number };
+		/**
+		 * Drops this command's cached result first, so the run neither returns the stale value nor joins
+		 * an in-flight run of it, and stores the fresh result for later unforced reads.
+		 */
+		force?: boolean;
 	};
 
 	// Below options comes from RunOptions<BufferEncoding | 'buffer' | string>

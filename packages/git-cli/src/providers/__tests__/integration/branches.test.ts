@@ -5,7 +5,7 @@ import { BranchError } from '@gitlens/git/errors.js';
 import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
 import { GitError } from '../../../exec/git.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, cloneTestRepo, createBranch, createTestRepo } from './helpers.js';
+import { addCommit, cloneTestRepo, createBranch, createTestRepo, getHeadSha } from './helpers.js';
 
 suite('BranchesSubProvider', () => {
 	let repo: TestRepo;
@@ -420,5 +420,61 @@ suite('BranchesSubProvider — branch identity bookkeeping (end to end)', () => 
 		} finally {
 			stub.restore();
 		}
+	});
+});
+
+suite('BranchesSubProvider.getBranch — force bypasses the cache', () => {
+	let repo: TestRepo;
+
+	setup(() => {
+		repo = createTestRepo();
+	});
+
+	teardown(() => {
+		repo.cleanup();
+	});
+
+	test('a named branch: unforced stays stale after an external move; force sees the fresh sha and stores it', async () => {
+		createBranch(repo.path, 'moved-branch');
+		const oldSha = getHeadSha(repo.path);
+
+		const warmed = await repo.provider.branches.getBranch(repo.path, 'moved-branch');
+		assert.strictEqual(warmed?.sha, oldSha);
+
+		addCommit(repo.path, 'file-force.txt', 'content', 'Move target commit');
+		const newSha = getHeadSha(repo.path);
+		// Moves the (non-current) branch's ref outside the provider.
+		execFileSync('git', ['update-ref', 'refs/heads/moved-branch', newSha], { cwd: repo.path, stdio: 'pipe' });
+
+		const stale = await repo.provider.branches.getBranch(repo.path, 'moved-branch');
+		assert.strictEqual(stale?.sha, oldSha, 'an unforced read must still answer from the cache');
+
+		const forced = await repo.provider.branches.getBranch(repo.path, 'moved-branch', { force: true });
+		assert.strictEqual(forced?.sha, newSha, 'a forced read must see the external move');
+
+		const afterForce = await repo.provider.branches.getBranch(repo.path, 'moved-branch');
+		assert.strictEqual(afterForce?.sha, newSha, 'the forced answer must be stored for later unforced reads');
+	});
+
+	test('the current branch: unforced stays stale after an external move; force sees the fresh sha and stores it', async () => {
+		const oldSha = getHeadSha(repo.path);
+
+		const warmed = await repo.provider.branches.getBranch(repo.path);
+		assert.strictEqual(warmed?.name, 'main');
+		assert.strictEqual(warmed?.sha, oldSha);
+
+		// Advances the checked-out branch outside the provider.
+		addCommit(repo.path, 'file-force-current.txt', 'content', 'Advance current branch');
+		const newSha = getHeadSha(repo.path);
+		assert.notStrictEqual(newSha, oldSha);
+
+		const stale = await repo.provider.branches.getBranch(repo.path);
+		assert.strictEqual(stale?.sha, oldSha, 'an unforced read must still answer from the cache');
+
+		const forced = await repo.provider.branches.getBranch(repo.path, undefined, { force: true });
+		assert.strictEqual(forced?.sha, newSha, 'a forced read must see the external move');
+
+		const afterForce = await repo.provider.branches.getBranch(repo.path);
+		assert.strictEqual(afterForce?.sha, newSha, 'the forced answer must be stored for later unforced reads');
 	});
 });

@@ -1206,7 +1206,7 @@ export class GraphWipService {
 		// rejection — degrade to `undefined` instead of throwing.
 		let branch: GitBranch | undefined;
 		try {
-			branch = await repo.git.branches.getBranch(status.branch, signal);
+			branch = await repo.git.branches.getBranch(status.branch, undefined, signal);
 		} catch (ex) {
 			signal?.throwIfAborted();
 			Logger.error(ex, 'graph: failed to get branch for WIP');

@@ -71,13 +71,22 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	}
 
 	@debug()
-	async getReference(repoPath: string, ref: string, _cancellation?: AbortSignal): Promise<GitReference | undefined> {
+	async getReference(
+		repoPath: string,
+		ref: string,
+		options?: { force?: boolean },
+		_cancellation?: AbortSignal,
+	): Promise<GitReference | undefined> {
 		if (!ref || ref === deletedOrMissing) return undefined;
 
 		if (!(await this.isValidReference(repoPath, ref))) return undefined;
 
 		if (ref !== 'HEAD' && !isShaWithOptionalRevisionSuffix(ref)) {
-			const branch = await this.provider.branches.getBranch(repoPath, ref);
+			const branch = await this.provider.branches.getBranch(
+				repoPath,
+				ref,
+				options?.force ? { force: true } : undefined,
+			);
 			if (branch != null) {
 				return createReference(branch.ref, repoPath, {
 					id: branch.id,
@@ -159,7 +168,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	validateReference(
 		_repoPath: string,
 		ref: string,
-		_relativePath?: string,
+		_options?: { relativePath?: string; force?: boolean },
 		_cancellation?: AbortSignal,
 	): Promise<string | undefined> {
 		return Promise.resolve(ref);

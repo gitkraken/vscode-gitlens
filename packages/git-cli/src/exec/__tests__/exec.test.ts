@@ -291,6 +291,7 @@ suite('Shell Test Suite', () => {
 					seenOptions = options;
 					return factory(cacheable, aggregate.signal);
 				},
+				delete: () => {},
 			};
 
 			const result = await git.run(
@@ -323,6 +324,28 @@ suite('Shell Test Suite', () => {
 				'queue-spliced bare abort never started a process',
 			);
 			assert.strictEqual(cacheable.invalidated, true, 'aborted result invalidated so it is never cached');
+		});
+
+		// `caching.force` has to drop the cached (or in-flight) entry BEFORE `getOrCreate` runs — otherwise a
+		// forced caller could still join a run that started before it, or return the value it deleted right
+		// before we asked for a fresh one.
+		test('caching.force deletes the cached entry before getOrCreate', async () => {
+			const git = new Git(async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' }));
+
+			const calls: string[] = [];
+			const fakeCache: GitResultCache = {
+				delete: (repoPath, key) => {
+					calls.push(`delete:${repoPath}:${key}`);
+				},
+				getOrCreate: (repoPath, key, factory) => {
+					calls.push(`getOrCreate:${repoPath}:${key}`);
+					return factory(new CacheController());
+				},
+			};
+
+			await git.run({ cwd: '/repo', errors: 'ignore', caching: { cache: fakeCache, force: true } }, 'status');
+
+			assert.deepStrictEqual(calls, ['delete:/repo:git status', 'getOrCreate:/repo:git status']);
 		});
 
 		// Identical argv is not an identical command when the environment differs (`GIT_INDEX_FILE` for a

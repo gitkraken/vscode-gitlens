@@ -5694,7 +5694,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const promises = Promise.allSettled([
 			this.getGraphAccess(),
 			this._wip.getWorkingTreeStatsAndPausedOperations(undefined, cancellation.token),
-			this.repository.git.branches.getBranch(undefined, toAbortSignal(cancellation.token)),
+			this.repository.git.branches.getBranch(undefined, undefined, toAbortSignal(cancellation.token)),
 			this.repository.getLastFetched(),
 			// Anchor/label topology only — NO clean/dirty probing here. The probe fans `git diff`/
 			// `ls-files` out across every worktree; awaiting it gated the ENTIRE initial state on the
@@ -5803,7 +5803,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// the gate, and the next build supplies a stamped value.
 		let branchStateRevision: number | undefined;
 		try {
-			const reread = await this.repository.git.branches.getBranch(undefined, toAbortSignal(cancellation.token));
+			const reread = await this.repository.git.branches.getBranch(
+				undefined,
+				undefined,
+				toAbortSignal(cancellation.token),
+			);
 			if (reread != null) {
 				branch = reread;
 				branchStateRevision = this._producers.nextBranchStateRevision();
@@ -5890,7 +5894,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					(
 						await this.container.git
 							.getRepositoryService(branch.repoPath)
-							.branches.getBranch(upstreamName, toAbortSignal(cancellation.token))
+							.branches.getBranch(upstreamName, undefined, toAbortSignal(cancellation.token))
 					)?.sha;
 			}
 		}

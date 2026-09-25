@@ -139,7 +139,7 @@ export class BranchesService {
 		const svc = this.container.git.getRepositoryService(repoPath);
 		// `getBranch(undefined)` rather than `getCurrentBranch()` — the latter hardcodes a zeroed tracking
 		// state, and this must agree with the `BranchState` the button renders from, which is built the same way.
-		const branch = await svc.branches.getBranch(undefined, signal);
+		const branch = await svc.branches.getBranch(undefined, undefined, signal);
 		signal?.throwIfAborted();
 
 		const upstream = branch?.upstream;
@@ -293,7 +293,7 @@ export class BranchesService {
 	): Promise<BranchEnrichment | undefined> {
 		signal?.throwIfAborted();
 		const svc = this.container.git.getRepositoryService(repoPath);
-		const branch = await svc.branches.getBranch(branchName, signal);
+		const branch = await svc.branches.getBranch(branchName, undefined, signal);
 		signal?.throwIfAborted();
 		if (branch == null) return undefined;
 

@@ -13,7 +13,13 @@ export interface GitRefsSubProvider {
 		options?: { forkPoint?: boolean | undefined; priority?: GitCommandPriority },
 		cancellation?: AbortSignal,
 	): Promise<string | undefined>;
-	getReference(repoPath: string, ref: string, cancellation?: AbortSignal): Promise<GitReference | undefined>;
+	getReference(
+		repoPath: string,
+		ref: string,
+		/** `force`: skips the cached answer and any in-flight read that started before this call, and stores the fresh answer. */
+		options?: { force?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<GitReference | undefined>;
 	/**
 	 * Lightweight enumeration of ref tips (heads/remotes/tags) — no enrichment.
 	 * Use this when you need a SHA-to-refs map; use `getBranches`/`getTags` for full models.
@@ -61,7 +67,11 @@ export interface GitRefsSubProvider {
 	validateReference(
 		repoPath: string,
 		ref: string,
-		relativePath?: string,
+		options?: {
+			relativePath?: string;
+			/** Skips the cached answer and any in-flight read that started before this call, and stores the fresh answer. */
+			force?: boolean;
+		},
 		cancellation?: AbortSignal,
 	): Promise<string | undefined>;
 	/**
