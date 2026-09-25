@@ -21,6 +21,7 @@ import type {
 	ProviderAuthenticationSession,
 } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
+import type { ProviderRefusal } from '../collectionMetadata.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
@@ -254,6 +255,22 @@ export class BitbucketIntegration extends GitHostIntegration<
 		}
 
 		return this._accounts.get(accessToken);
+	}
+
+	/** The profile request the account cache would otherwise answer; see `IntegrationBase.validateCredential`. */
+	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
+		const api = await this.getProvidersApi();
+		if ((await api.getCurrentUser(toTokenWithInfo(this.id, session))) == null) {
+			throw new Error('Bitbucket did not confirm the credential');
+		}
+	}
+
+	/**
+	 * Bitbucket's `403` for a token missing the OAuth scopes a request needs, which a reconnect fixes by consenting to
+	 * them again; see `IntegrationBase.isCredentialRefusal`.
+	 */
+	protected override isCredentialRefusal(refusal: ProviderRefusal): boolean {
+		return refusal.status === 403 && /required privilege scopes/i.test(refusal.detail ?? '');
 	}
 
 	private _workspaces: Map<string, ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined> | undefined;

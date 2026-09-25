@@ -361,7 +361,7 @@ prove from structured errors:
 
 | `kind`          | Meaning                                                                                                                                         | Reasonable response                                                                         |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `auth`          | Token rejected (401/403 that isn't a throttle).                                                                                                 | Prompt to reconnect that connection.                                                        |
+| `auth`          | Token rejected (401/403 that isn't a throttle).                                                                                                 | Prompt to reconnect that connection. A scoped one is narrower: see `scope` below.           |
 | `rate-limit`    | Throttled (429, or a 403 whose body says so).                                                                                                   | Back off and retry; keep the last snapshot.                                                 |
 | `not-found`     | 404/410/422 on the requested scope.                                                                                                             | Drop that scope; don't reconnect.                                                           |
 | `no-connection` | The requested `connectionId`/`domain` doesn't resolve.                                                                                          | Re-resolve the target or re-authenticate.                                                   |
@@ -372,6 +372,92 @@ rate-limit and not-found distinctions**, which then have to be re-derived from r
 Conversely, `other` is intentionally not a complete failure taxonomy. Treat `message` as display/diagnostic
 text rather than a stable protocol; use `fetchFailed`, `page.truncated`, and `page.allPages` for completeness
 and keep unknown failures conservative.
+
+### `scope` — which part of the read failed
+
+A fan-out read records a failure against the organization, project or repository it happened in.
+`ProviderWarning.scope` forwards that attribution (`resourceId`, `projectId`, `repositoryId`, whichever the
+provider reported), so a consumer can tell "one organization refused this token" from "the connection's token
+is dead" without parsing `message`:
+
+```ts
+if (warning.kind === 'auth' && warning.scope == null) {
+	promptToReconnect(warning.providerId, warning.connectionId);
+} else if (warning.kind === 'auth') {
+	// One organization/project/repository refused the credential, e.g. an Azure DevOps organization with
+	// third-party OAuth access disabled, one in another Entra tenant, or a Conditional Access policy.
+	// Reconnecting cannot fix that, so mark only that scope unavailable and keep the others.
+	markScopeUnavailable(warning.providerId, warning.connectionId, warning.scope);
+}
+```
+
+`kind` and `isAuth` do not change with it: a scoped 401 is still an authentication failure, and `scope` says
+how far it reaches. **Its absence means account-wide or unattributed**, so a consumer that ignores the field
+keeps its existing behavior. It is set only on warnings derived from a structured scope failure, and names at
+least one ID when present; a failure attributed to nothing below the provider carries none. A warning built
+from a caught exception never carries one, even when that call targeted a single organization, and an omission
+keeps its attribution in `omission.scope` instead.
+
+A scoped `auth` failure also means **the credential itself was accepted**. A dead token can come back as
+nothing but scoped refusals wherever a read reaches its scopes without an uncached request to the connection
+first: discovery served from a per-token cache (Azure DevOps, Bitbucket and Jira Cloud cache the account, its
+organizations, workspaces or sites, and their projects), or an SDK fan-out across the requested repositories
+(Bitbucket Data Center). So when a read's only auth failures are scoped, those providers confirm the credential
+with one uncached check before reporting them. A refused credential fails the whole read instead: an
+unscoped `auth` warning, `fetchFailed`, no results served from the cache, and the usual connection recovery.
+A refusal the provider pins on the credential itself, like Bitbucket's or Jira Cloud's for a token missing the
+OAuth scopes the read needs, is published unscoped too, once for the connection, because a reconnect
+(consenting to them again) is what fixes it; the scopes that answered keep their results.
+
+The promise holds for a read that carries no unscoped `auth` warning of its own: one that does already asks for a
+reconnect, and its other scoped refusals are not checked. Two cases stay scoped even then. A check that could not
+complete or was denied (a network error, a throttle, a `403`, Bitbucket Data Center refusing a credential it
+authenticated, or a Bitbucket Data Center project access token, whose user the check cannot find) proves nothing,
+so the warnings are published unconfirmed and carry no `cause`, and the next read checks again: a credential the
+check can never confirm, like a project access token, costs one check on every read that has scoped refusals. And a
+credential confirmed within the last minute is not checked again, so a scope that keeps refusing it costs at most
+one extra check a minute, and a revocation can take up to a minute to surface as a connection failure.
+
+`scope.resourceId` is the resource as the read addressed it: its id on most reads, its name on the few that
+address it by name (Azure DevOps' repo-scoped reads, Bitbucket's workspace reads). Match it against both
+`ProviderOrganization.id` and `name`.
+
+Warnings also dedup on `scope` and `cause`, so failures of two scopes stay two warnings.
+
+### `cause` — why a sound credential was refused
+
+A scoped `auth` warning can also say **why** the scope refused, so a consumer recommends the fix instead of a
+reconnect. `ProviderWarning.cause` carries a closed `reason` to switch on (also exported as
+`ProviderWarningCauseReason`), the provider's own `code` when it reports one, and a `remedyUrl` when this layer
+can address the setting behind the refusal. `message` says the same in prose.
+
+```ts
+switch (warning.cause?.reason) {
+	case 'oauth-app-not-allowed':
+		// An admin enables the org's third-party OAuth policy at `remedyUrl`, or the user connects with a PAT.
+		suggestAllowingOAuthApps(warning.scope, warning.cause.remedyUrl);
+		break;
+	case 'access-denied':
+		suggestRequestingAccess(warning.scope);
+		break;
+	case 'conditional-access':
+		suggestAskingTheTenantAdmin(warning.scope);
+		break;
+}
+```
+
+| `cause.reason`          | Means                                                                                    | Fixed by                                                                                                                                                                      |
+| ----------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `oauth-app-not-allowed` | The organization does not let third-party OAuth apps in.                                 | An organization admin enabling **Third-party application access via OAuth** (Azure DevOps; off by default for new organizations), or a PAT, which the policy does not govern. |
+| `access-denied`         | The account has no access to that organization or project (not a member, no permission). | Someone who administers it granting access.                                                                                                                                   |
+| `conditional-access`    | A Microsoft Entra Conditional Access policy blocked the request (`VS403463`).            | The tenant admin exempting the request.                                                                                                                                       |
+
+It is set **only on a scoped `auth` warning whose credential was confirmed** (see `scope` above), because until
+then these refusals look exactly like a dead credential: Azure DevOps answers a third-party OAuth app its
+organization disallows with the same bare `401` it gives an expired token. Only Azure DevOps names causes today,
+from answers captured against the live service. **Its absence proves nothing**: a refusal this layer cannot name
+still carries the provider's own explanation, when it gave one, in `message`, e.g. an organization that only
+allowlists global personal access tokens.
 
 ### `omission` — succeeded, but withheld results
 

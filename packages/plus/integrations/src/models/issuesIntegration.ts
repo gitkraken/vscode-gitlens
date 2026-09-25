@@ -138,6 +138,7 @@ export abstract class IssuesIntegration<
 
 		try {
 			const projects = await this.getProviderProjectsForResourcesWithMetadata(session, resources);
+			await this.confirmScopedAuthFailures(session, projects.metadata);
 			this.resetRequestExceptionCount('getProjectsForResources');
 			return { value: projects };
 		} catch (ex) {
@@ -216,6 +217,7 @@ export abstract class IssuesIntegration<
 
 		try {
 			const result = await this.getProviderIssuesForProjectWithTruncation(session, project, options);
+			await this.confirmScopedAuthFailures(session, result?.metadata);
 			this.resetRequestExceptionCount('getIssuesForProject');
 			return { value: result };
 		} catch (ex) {

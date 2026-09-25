@@ -25,6 +25,8 @@ import type {
 import { toTokenWithInfo } from '../authentication/models.js';
 import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
+import type { ResponseHeaders } from '../errors.js';
+import { AuthenticationError, getResponseHeader } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
@@ -232,6 +234,39 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 	/** The installation the session's reads address, plus the credential — what decides whose account it is. */
 	private getAccountKey(session: ProviderAuthenticationSession): string {
 		return `${this.apiBaseUrlFor(session)}\n${session.accessToken}`;
+	}
+
+	/**
+	 * The account request the account cache would otherwise answer; see `IntegrationBase.validateCredential`. Needed
+	 * without any discovery cache: a repo-scoped pull request read fans out across its repositories in the SDK with
+	 * no request to the connection first, so a dead token comes back as one refused repository per request.
+	 *
+	 * A project access token never confirms: its bot user authenticates, but `/users` does not list it, so the SDK
+	 * cannot find the current user and the check proves nothing.
+	 */
+	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
+		const api = await this.getProvidersApi();
+		const user = await api
+			.getCurrentUser(toTokenWithInfo(this.id, session), { baseUrl: this.apiBaseUrlFor(session) })
+			.catch((ex: unknown) => {
+				if (!(ex instanceof AuthenticationError)) throw ex;
+
+				// Bitbucket Data Center names the user it authenticated in `X-AUSERNAME`, and answers a dead token
+				// exactly as it answers no credential: the same 401 and body, without that header. So a refusal that
+				// names a user, or says the user holds no license, came from a credential that authenticated, and
+				// proves nothing about the scopes' refusals.
+				const response = (ex.original as { response?: { headers?: ResponseHeaders } } | undefined)?.response;
+				if (
+					getResponseHeader(response?.headers, 'x-ausername') ||
+					/not (?:a|currently) licensed/i.test(ex.original?.message ?? '')
+				) {
+					throw new Error('Bitbucket Data Center could not confirm the credential', { cause: ex });
+				}
+				throw ex;
+			});
+		if (user == null) {
+			throw new Error('Bitbucket Data Center did not confirm the credential');
+		}
 	}
 
 	protected override async getProviderCurrentAccount(

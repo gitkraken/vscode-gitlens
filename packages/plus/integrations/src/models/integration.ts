@@ -1,3 +1,4 @@
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -14,6 +15,7 @@ import { fnv1aHash64 } from '@gitlens/utils/hash.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationSessionDescriptor,
@@ -21,13 +23,20 @@ import type {
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { RejectedTokenTracker } from '../authentication/rejectedTokenTracker.js';
+import type { ProviderRefusal } from '../collectionMetadata.js';
+import {
+	attributeScopedAuthFailures,
+	hasOnlyScopedAuthFailures,
+	markCredentialRefusals,
+} from '../collectionMetadata.js';
 import type { IntegrationIds, IssuesCloudHostIntegrationId, IssuesHostIntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
-import { AuthenticationError, RequestClientError, toError } from '../errors.js';
+import { AuthenticationError, AuthenticationErrorReason, RequestClientError, toError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import { providersMetadata } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
+import type { ProviderWarningCause, ProviderWarningScope } from '../results.js';
 import type { Sources } from '../telemetry.js';
 import { areDomainsOnSameHost } from '../utils/domain.utils.js';
 import { isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
@@ -505,12 +514,112 @@ export abstract class IntegrationBase<
 		}
 	}
 
+	/**
+	 * Proves the credential with an uncached check, rejecting with the provider's `AuthenticationError` when it is
+	 * refused, and with anything else when the check proves nothing. A `403` proves nothing either: the credential
+	 * authenticated and was only denied the check's request.
+	 *
+	 * Implemented by the providers whose reads can reach their scopes without an uncached request to the connection
+	 * first: discovery served from a per-token cache (Azure DevOps, Bitbucket, Jira Cloud), or an SDK fan-out across
+	 * the requested repositories (Bitbucket Data Center). There, a dead token comes back as scoped refusals with no
+	 * failure of the connection: the same shape as one scope refusing a sound credential.
+	 * {@link confirmScopedAuthFailures} uses this to tell the two apart.
+	 */
+	protected validateCredential?(session: ProviderAuthenticationSession): Promise<void>;
+
+	/**
+	 * Credentials that passed {@link validateCredential} within the last minute. A probe already in flight is
+	 * shared rather than repeated, and a refused one is not kept. Cleared whenever a credential is refused (see
+	 * {@link handleProviderException}), so a pass is never vouched for past a refusal this instance has seen.
+	 */
+	private readonly _validatedCredentials = new PromiseCache<string, void>({ createTTL: 60 * 1000, capacity: 10 });
+
+	/**
+	 * Whether a scope's refusal is the credential's own, by the provider's account of it: e.g. a token missing the
+	 * OAuth scopes the read needs. The probe cannot see that, because it proves the token authenticates, not that
+	 * it is authorized. So {@link confirmScopedAuthFailures} publishes one for the connection, unscoped, which asks
+	 * for the reconnect (consenting to the scopes again) that fixes it, and keeps the results of the scopes that
+	 * answered.
+	 */
+	protected isCredentialRefusal?(refusal: ProviderRefusal): boolean;
+
+	/**
+	 * Names why a confirmed credential was refused by one scope, from what the refusal said (see
+	 * `ProviderWarning.cause`). Called only by {@link confirmScopedAuthFailures}, once the credential passed: the
+	 * refusals this names are indistinguishable from a dead credential until then.
+	 */
+	protected describeRefusal?(
+		session: ProviderAuthenticationSession,
+		refusal: ProviderRefusal,
+		scope: ProviderWarningScope,
+	): ProviderWarningCause | undefined;
+
+	/**
+	 * Settles what a read's only-scoped authentication failures mean, when the provider can tell (see
+	 * {@link validateCredential}).
+	 *
+	 * A refused credential is thrown: the caller's `catch` then fails the read as a whole, exactly as it does when
+	 * discovery is not cached and the first request is the one refused. Without this, a token revoked after
+	 * discovery would publish scoped `auth` warnings, which a consumer must not answer with a reconnect (see
+	 * `ProviderWarning.scope`), next to results served from the cache, for as long as the token stays stored.
+	 *
+	 * A confirmed credential makes each refusal the scope's own, so its cause is named through
+	 * {@link describeRefusal}. A probe that fails for another reason proves nothing either way and leaves the read
+	 * as it was.
+	 *
+	 * A refusal the provider pins on the credential itself (see {@link isCredentialRefusal}) is published for the
+	 * connection instead, without a probe.
+	 *
+	 * A token that passed within the last minute is not probed again, so a scope that keeps refusing it costs one
+	 * probe a minute, and a revocation right after a probe can take up to a minute to surface: until then its
+	 * refusals stay scoped, and may be named. A probe that proved nothing is not remembered, so the next read probes
+	 * again, and a credential no probe can confirm (e.g. a Bitbucket Data Center project access token) is probed on
+	 * every read that has scoped refusals.
+	 */
+	protected async confirmScopedAuthFailures(
+		session: ProviderAuthenticationSession,
+		metadata: CollectionMetadata | undefined,
+	): Promise<void> {
+		if (!hasOnlyScopedAuthFailures(metadata)) return;
+
+		// Published for the connection, as a refusal outside any scope would be, while the scopes that answered keep
+		// their results. That already asks for a reconnect, so there is nothing left for a probe to settle.
+		const isCredentialRefusal = this.isCredentialRefusal?.bind(this);
+		if (isCredentialRefusal != null && markCredentialRefusals(metadata, isCredentialRefusal)) return;
+
+		const validateCredential = this.validateCredential?.bind(this);
+		if (validateCredential == null) return;
+
+		// Keyed by the address as well as the token: a self-managed instance serves every installation on its host,
+		// and one installation accepting a token says nothing about another.
+		const key = [session.domain, session.baseUrl ?? '', session.accessToken].join('\n');
+		try {
+			await this._validatedCredentials.getOrCreate(key, () => validateCredential(session));
+		} catch (ex) {
+			// A 403 answered a credential that authenticated and was only denied the check's own request, so it proves
+			// nothing about the scopes' refusals either.
+			if (ex instanceof AuthenticationError && ex.reason !== AuthenticationErrorReason.Forbidden) throw ex;
+
+			return;
+		}
+
+		const describeRefusal = this.describeRefusal?.bind(this);
+		if (describeRefusal != null) {
+			attributeScopedAuthFailures(metadata, (refusal, scope) => describeRefusal(session, refusal, scope));
+		}
+	}
+
 	protected handleProviderException(
 		syncReqUsecase: SyncReqUsecase,
 		ex: Error,
 		options?: { scope?: ScopedLogger | undefined; silent?: boolean; connectionId?: string },
 	): void {
 		if (isCancellationError(ex)) return;
+
+		// A refused credential may be one a probe passed moments ago: stop vouching for it.
+		if (ex instanceof AuthenticationError) {
+			this._validatedCredentials.clear();
+		}
 
 		if (options?.scope != null) {
 			options.scope.error(ex);
@@ -791,6 +900,7 @@ export abstract class IntegrationBase<
 				cancellation,
 				options,
 			);
+			await this.confirmScopedAuthFailures(session, result?.metadata);
 			this.resetRequestExceptionCount('searchMyIssues');
 			return { value: result };
 		} catch (ex) {

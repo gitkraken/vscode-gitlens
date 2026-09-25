@@ -434,7 +434,9 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		// one instance, so there is no sibling to protect and swallowing would turn every failure — an expired
 		// token, an unreachable host — into an empty success. `searchMyIssuesWithTruncationResult` recovers the
 		// throw into `{ error }`, which is what lets the caller warn instead of reporting "no issues".
-		const accountScope = { providerId: this.id, resourceId: this.domain };
+		// Only the provider: the instance is this connection's single resource, so naming it would publish a
+		// failure of the whole connection as one confined to a sub-scope (see `ProviderWarning.scope`).
+		const accountScope = { providerId: this.id };
 		const results: IssueShape[] = [];
 		let cursor: string | undefined;
 		let truncated = false;
