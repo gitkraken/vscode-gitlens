@@ -93,6 +93,41 @@ suite('CliGitProvider.init', () => {
 	});
 });
 
+suite('PatchGitSubProvider.createEmptyInitialCommit', () => {
+	// It hashes the empty tree from an EMPTY stdin — which never closed git's stdin pipe, so the call waited
+	// until the command timeout killed it.
+	test('commits the empty tree to a repository with no commits', async () => {
+		const parent = mkdtempSync(join(tmpdir(), 'gitlens-test-empty-initial-'));
+		const target = join(parent, 'repo');
+		const provider = createBareProvider();
+		try {
+			await provider.init(target);
+			// `commit-tree` needs an identity, and a CI runner has no global one to fall back on
+			execFileSync('git', ['config', 'user.email', 'test@gitlens.test'], { cwd: target, stdio: 'pipe' });
+			execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: target, stdio: 'pipe' });
+
+			const sha = await provider.patch.createEmptyInitialCommit(target);
+
+			const head = execFileSync('git', ['symbolic-ref', 'HEAD'], { cwd: target, encoding: 'utf-8' }).trim();
+			assert.strictEqual(head, 'refs/heads/main');
+			assert.strictEqual(
+				execFileSync('git', ['rev-parse', 'refs/heads/main'], { cwd: target, encoding: 'utf-8' }).trim(),
+				sha,
+			);
+
+			const tree = execFileSync('git', ['rev-parse', `${sha}^{tree}`], { cwd: target, encoding: 'utf-8' }).trim();
+			const emptyTree = execFileSync('git', ['hash-object', '-t', 'tree', '/dev/null'], {
+				cwd: target,
+				encoding: 'utf-8',
+			}).trim();
+			assert.strictEqual(tree, emptyTree);
+		} finally {
+			provider.dispose();
+			rmSync(parent, { recursive: true, force: true });
+		}
+	});
+});
+
 suite('CliGitProvider.notifyChanged', () => {
 	test('fires both hooks and clears a previously cached config read', async () => {
 		const onReset: [string, CachedGitTypes[]][] = [];
