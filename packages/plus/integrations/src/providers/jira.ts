@@ -127,7 +127,8 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 	/**
 	 * Atlassian's `401` for a token missing a scope the request needs, which a reconnect fixes by consenting to it
-	 * again; see `IntegrationBase.isCredentialRefusal`.
+	 * again; see `IntegrationBase.isCredentialRefusal`. Atlassian gives the same answer to a malformed request URL,
+	 * so a request the SDK built wrong would read as the credential's too.
 	 */
 	protected override isCredentialRefusal(refusal: ProviderRefusal): boolean {
 		return refusal.status === 401 && /scope does not match/i.test(refusal.detail ?? '');

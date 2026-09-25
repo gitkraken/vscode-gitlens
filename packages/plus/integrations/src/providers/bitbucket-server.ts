@@ -25,7 +25,8 @@ import type {
 import { toTokenWithInfo } from '../authentication/models.js';
 import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
-import { AuthenticationError } from '../errors.js';
+import type { ResponseHeaders } from '../errors.js';
+import { AuthenticationError, getResponseHeader } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
@@ -245,10 +246,14 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		const user = await api
 			.getCurrentUser(toTokenWithInfo(this.id, session), { baseUrl: this.apiBaseUrlFor(session) })
 			.catch((ex: unknown) => {
-				// `/users` needs a licensed user, and answers one without a license (e.g. a project or repository access
-				// token's bot user) with a 401 it never gives a dead token: that credential authenticated.
-				if (ex instanceof AuthenticationError && /not a licensed user/i.test(ex.original?.message ?? '')) {
-					throw new Error('Bitbucket Data Center could not confirm an unlicensed credential', { cause: ex });
+				// Bitbucket Data Center names the user it authenticated in `X-AUSERNAME`, and answers a dead token
+				// exactly as it answers no credential: the same 401 and body, without that header. So a refusal that
+				// names a user came from a credential that authenticated, e.g. a project access token's bot user,
+				// which `/users` may refuse, and proves nothing about the scopes' refusals.
+				const headers = (ex as { original?: { response?: { headers?: ResponseHeaders } } }).original?.response
+					?.headers;
+				if (ex instanceof AuthenticationError && getResponseHeader(headers, 'x-ausername')) {
+					throw new Error('Bitbucket Data Center could not confirm the credential', { cause: ex });
 				}
 				throw ex;
 			});

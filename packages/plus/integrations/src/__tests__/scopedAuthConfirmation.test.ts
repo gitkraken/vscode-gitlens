@@ -208,21 +208,43 @@ suite('scoped auth confirmation (#5890)', () => {
 			return manager;
 		}
 
-		test('a dead token is a connection failure, not one refusal per repository', async () => {
-			const manager = await bitbucketServerRefusingEveryRepository(() =>
-				Promise.reject(
-					new AuthenticationError(
-						{
-							providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
-							microHash: undefined,
-							cloud: false,
-							type: 'pat',
-							scopes: [],
-						},
-						AuthenticationErrorReason.Unauthorized,
-					),
-				),
+		/**
+		 * `/users`' 401 as `throwProviderError` wraps it (see `providersApi.ts`), captured from Bitbucket Data Center
+		 * 8.8: the same body whether the credential is dead or authenticated, with `X-AUSERNAME` naming the user only
+		 * in the latter case.
+		 */
+		function usersRefusal(username?: string): AuthenticationError {
+			const original = Object.assign(new Error('(401) Unauthorized.'), {
+				response: {
+					status: 401,
+					statusText: 'Unauthorized',
+					headers: username != null ? { 'x-ausername': username } : {},
+					body: {
+						errors: [
+							{
+								context: null,
+								message: 'You are not permitted to access this resource',
+								exceptionName: 'com.atlassian.bitbucket.AuthorisationException',
+							},
+						],
+					},
+				},
+			});
+			return new AuthenticationError(
+				{
+					providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+					microHash: undefined,
+					cloud: false,
+					type: 'pat',
+					scopes: [],
+				},
+				AuthenticationErrorReason.Unauthorized,
+				original,
 			);
+		}
+
+		test('a dead token is a connection failure, not one refusal per repository', async () => {
+			const manager = await bitbucketServerRefusingEveryRepository(() => Promise.reject(usersRefusal()));
 
 			try {
 				const result = await manager.listPullRequestsPage({
@@ -240,28 +262,9 @@ suite('scoped auth confirmation (#5890)', () => {
 			}
 		});
 
-		test('an unlicensed credential (e.g. a project access token) is not a dead one', async () => {
-			// `/users` needs a licensed user; a bot user authenticates but holds no license.
-			const unlicensed = Object.assign(
-				new Error('(401) Unauthorized. The currently authenticated user is not a licensed user.'),
-				{
-					response: { status: 401, statusText: 'Unauthorized', headers: {}, body: undefined },
-				},
-			);
+		test('a credential the check refuses but authenticated (e.g. a project access token) is not a dead one', async () => {
 			const manager = await bitbucketServerRefusingEveryRepository(() =>
-				Promise.reject(
-					new AuthenticationError(
-						{
-							providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
-							microHash: undefined,
-							cloud: false,
-							type: 'pat',
-							scopes: [],
-						},
-						AuthenticationErrorReason.Unauthorized,
-						unlicensed,
-					),
-				),
+				Promise.reject(usersRefusal('project-token-bot')),
 			);
 
 			try {
