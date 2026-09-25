@@ -256,7 +256,12 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	}
 
 	@debug()
-	async resolveRevision(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<ResolvedRevision> {
+	async resolveRevision(
+		repoPath: string,
+		ref: string,
+		pathOrUri?: string | Uri,
+		options?: { force?: boolean },
+	): Promise<ResolvedRevision> {
 		const path = pathOrUri != null ? toFsPath(pathOrUri) : undefined;
 		if (!ref || ref === deletedOrMissing) return { sha: ref, revision: ref };
 
@@ -269,8 +274,13 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		}
 
 		const key = path != null ? `${ref}|${this.provider.getRelativePath(path, repoPath)}` : ref;
+		if (options?.force) {
+			// Hard-delete first: a later caller must never join a read that started before this one.
+			this.cache.resolvedRevisions.delete(repoPath, key);
+		}
+
 		return this.cache.resolvedRevisions.getOrCreate(repoPath, key, () =>
-			this.resolveRevisionCore(repoPath, ref, path),
+			this.resolveRevisionCore(repoPath, ref, path, options?.force),
 		);
 	}
 
@@ -278,9 +288,10 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		repoPath: string,
 		ref: string,
 		path: string | undefined,
+		force?: boolean,
 	): Promise<ResolvedRevision> {
 		if (path == null) {
-			const sha = await this.provider.refs.validateReference(repoPath, ref);
+			const sha = await this.provider.refs.validateReference(repoPath, ref, force ? { force: true } : undefined);
 			if (sha == null) return { sha: ref, revision: ref };
 
 			return {
@@ -311,7 +322,8 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 		const parser = getShaAndFileSummaryLogParser();
 		let result = await this.git.run(
-			{ cwd: repoPath, errors: 'ignore', caching: resolvedRevisionCaching },
+			// Forced here only: this read is keyed by `ref`, which can move; the follow-up below is keyed by a sha
+			{ cwd: repoPath, errors: 'ignore', caching: { ...resolvedRevisionCaching, force: force } },
 			'log',
 			...parser.arguments,
 			'-n1',

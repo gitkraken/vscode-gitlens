@@ -31,7 +31,13 @@ export type GitBranchMergedStatus =
 	| { merged: true; confidence: MergeDetectionConfidence; localBranchOnly?: GitBranchReference };
 
 export interface GitBranchesSubProvider {
-	getBranch(repoPath: string, name?: string, cancellation?: AbortSignal): Promise<GitBranch | undefined>;
+	getBranch(
+		repoPath: string,
+		name?: string,
+		/** `force`: skips the cached answer and any in-flight read that started before this call, and stores the fresh answer. */
+		options?: { force?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<GitBranch | undefined>;
 	getBranches(
 		repoPath: string,
 		options?: {

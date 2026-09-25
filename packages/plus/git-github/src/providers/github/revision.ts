@@ -102,7 +102,13 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	}
 
 	@debug()
-	async resolveRevision(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<ResolvedRevision> {
+	async resolveRevision(
+		repoPath: string,
+		ref: string,
+		pathOrUri?: string | Uri,
+		// Nothing to force here — every call resolves fresh from the GitHub API; there is no cache to bypass.
+		_options?: { force?: boolean },
+	): Promise<ResolvedRevision> {
 		if (!ref || ref === deletedOrMissing) return { sha: ref, revision: ref };
 
 		let relativePath;

@@ -150,6 +150,25 @@ single-parent, identity-less `commits.createUnreachableCommitFromTree` could not
 `GitProvider.clone` existed; `init(path, options?: { defaultBranch?, bare? })` did not. Kepler creates a
 repository for a folder the user adds.
 
+## 9. Forced ref reads — added
+
+After a change core neither made nor was told about (another process moving a branch, a raw `fetch` the
+consumer has not reported yet), an ordinary read can answer from cache until its TTL runs out. `notifyChanged`
+is the fix when the consumer made the change; `force` is for a read that must be current regardless.
+
+- `refs.validateReference(repoPath, ref, { relativePath?, force? }, cancellation?)`,
+  `refs.getReference(repoPath, ref, { force? }, cancellation?)`,
+  `branches.getBranch(repoPath, name?, { force? }, cancellation?)` and
+  `revision.resolveRevision(repoPath, ref, pathOrUri?, { force? })`. A forced read drops its cache entry before
+  reading, so it neither returns the cached answer nor joins a read already in flight (a fresh entry gets a
+  fresh cancellation aggregate, whose id is part of the executor's dedup key), and it stores the fresh answer
+  for later unforced reads. `getStatus({ force })` and `getPausedOperationStatus({ force })` are the precedent.
+- `getBranch({ force })` evicts the whole branch cascade first: branch lists, ref tips, merge bases, commit
+  counts and resolved revisions, the set a branch move clears, since each can be derived from a ref that moved.
+  `getReference({ force })` forces its validation and branch lookup; tags are not forced.
+- `validateReference`'s `relativePath` moved into the options object, and `getBranch` / `getReference` take
+  options before `cancellation`, matching `getStatus`.
+
 ## Overlaps with existing APIs, and how each was settled
 
 - **Refs containing a sha.** `branches.getBranchesWithCommits(repoPath, [sha], undefined, { all, mode })` and

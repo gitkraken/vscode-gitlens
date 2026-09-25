@@ -56,7 +56,16 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	) {}
 
 	@debug()
-	async getBranch(repoPath: string, name?: string, cancellation?: AbortSignal): Promise<GitBranch | undefined> {
+	async getBranch(
+		repoPath: string,
+		name?: string,
+		options?: { force?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<GitBranch | undefined> {
+		if (options?.force) {
+			this.cache.evictCaches(repoPath, 'branches');
+		}
+
 		if (name != null) {
 			const {
 				values: [branch],
@@ -485,7 +494,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			if (mergeTarget == null && options?.associatedPullRequest != null) {
 				const pr = await options.associatedPullRequest;
 				if (pr?.refs?.base != null) {
-					const branch = await this.getBranch(repoPath, ref, cancellation);
+					const branch = await this.getBranch(repoPath, ref, undefined, cancellation);
 					if (branch == null) return undefined;
 
 					mergeTarget = `${branch.remoteName}/${pr.refs.base.branch}`;

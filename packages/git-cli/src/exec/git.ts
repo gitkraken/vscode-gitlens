@@ -808,8 +808,16 @@ export class Git {
 
 		// If cache is provided, use it to cache the full result
 		if (options.caching != null) {
+			const cachePath = options.caching.commonPath ?? options.cwd!;
+			// Drop the cached (or in-flight) entry first so `getOrCreate` below always creates a fresh
+			// entry with its own `AbortAggregate` — the underlying spawn can then never join an in-flight
+			// run that started before this caller's own write.
+			if (options.caching.force) {
+				options.caching.cache.delete(cachePath, gitCommand);
+			}
+
 			return options.caching.cache.getOrCreate(
-				options.caching.commonPath ?? options.cwd!,
+				cachePath,
 				gitCommand,
 				async (cacheable, signal) => {
 					// Bind the shared spawn to the aggregate `signal` (fires only when ALL current callers

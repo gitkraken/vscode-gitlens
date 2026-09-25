@@ -23,8 +23,17 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	) {}
 
 	@debug()
-	async getBranch(repoPath: string, name?: string, cancellation?: AbortSignal): Promise<GitBranch | undefined> {
+	async getBranch(
+		repoPath: string,
+		name?: string,
+		options?: { force?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<GitBranch | undefined> {
 		const scope = getScopedLogger();
+
+		if (options?.force) {
+			this.cache.evictCaches(repoPath, 'branches');
+		}
 
 		if (name != null) {
 			const {

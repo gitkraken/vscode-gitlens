@@ -332,3 +332,93 @@ suite('RefsSubProvider ref updates', () => {
 		}
 	});
 });
+
+suite('RefsSubProvider.validateReference — force bypasses the cache', () => {
+	let repo: TestRepo;
+
+	setup(() => {
+		repo = createTestRepo();
+	});
+
+	teardown(() => {
+		repo.cleanup();
+	});
+
+	test('an unforced read stays stale after an external move; force sees the new sha and stores it', async () => {
+		const oldSha = getHeadSha(repo.path);
+
+		const warmed = await repo.provider.refs.validateReference(repo.path, 'main');
+		assert.strictEqual(warmed, oldSha);
+
+		// Moves `main` outside the provider — GitLens's cache-invalidation hooks never fire.
+		addCommit(repo.path, 'file1.txt', 'content', 'Second commit');
+		const newSha = getHeadSha(repo.path);
+		assert.notStrictEqual(newSha, oldSha);
+
+		const stale = await repo.provider.refs.validateReference(repo.path, 'main');
+		assert.strictEqual(stale, oldSha, 'an unforced read must still answer from the cache');
+
+		const forced = await repo.provider.refs.validateReference(repo.path, 'main', { force: true });
+		assert.strictEqual(forced, newSha, 'a forced read must see the external move');
+
+		const afterForce = await repo.provider.refs.validateReference(repo.path, 'main');
+		assert.strictEqual(afterForce, newSha, 'the forced answer must be stored for later unforced reads');
+	});
+
+	test('a forced read never joins an unforced read that started before it', async () => {
+		// Started but deliberately not awaited — its underlying `git rev-parse` may or may not have
+		// spawned yet by the time the ref moves below.
+		const unawaited = repo.provider.refs.validateReference(repo.path, 'main');
+
+		addCommit(repo.path, 'file2.txt', 'content', 'Move while the unforced read is in flight');
+		const newSha = getHeadSha(repo.path);
+
+		const forced = await repo.provider.refs.validateReference(repo.path, 'main', { force: true });
+		assert.strictEqual(forced, newSha, 'the forced read must see the move regardless of the unawaited read');
+
+		await unawaited.catch(() => {});
+	});
+});
+
+suite('RefsSubProvider.getReference — force bypasses the branch cache', () => {
+	let repo: TestRepo;
+
+	setup(() => {
+		repo = createTestRepo();
+	});
+
+	teardown(() => {
+		repo.cleanup();
+	});
+
+	test('force refreshes the resolved branch and stores it for later unforced reads', async () => {
+		createBranch(repo.path, 'getref-target');
+		const oldSha = getHeadSha(repo.path);
+
+		const warmedRef = await repo.provider.refs.getReference(repo.path, 'getref-target');
+		assert.ok(warmedRef, 'should resolve the branch');
+		assert.strictEqual(warmedRef.refType, 'branch');
+		const warmedBranch = await repo.provider.branches.getBranch(repo.path, 'getref-target');
+		assert.strictEqual(warmedBranch?.sha, oldSha);
+
+		addCommit(repo.path, 'file3.txt', 'content', 'Move target commit');
+		const newSha = getHeadSha(repo.path);
+		// Moves the (non-current) branch's ref outside the provider.
+		execFileSync('git', ['update-ref', 'refs/heads/getref-target', newSha], { cwd: repo.path, stdio: 'pipe' });
+
+		const staleBranch = await repo.provider.branches.getBranch(repo.path, 'getref-target');
+		assert.strictEqual(staleBranch?.sha, oldSha, 'an unforced branch read must still answer from the cache');
+
+		const forcedRef = await repo.provider.refs.getReference(repo.path, 'getref-target', { force: true });
+		assert.ok(forcedRef, 'should still resolve the branch');
+		assert.strictEqual(forcedRef.refType, 'branch');
+		assert.strictEqual(forcedRef.name, 'getref-target');
+
+		const freshBranch = await repo.provider.branches.getBranch(repo.path, 'getref-target');
+		assert.strictEqual(
+			freshBranch?.sha,
+			newSha,
+			'getReference({ force: true }) must refresh and store the branch it resolves',
+		);
+	});
+});

@@ -28,5 +28,11 @@ export interface GitRevisionSubProvider {
 	getTrackedFiles(repoPath: string): Promise<string[]>;
 	getTreeEntryForRevision(repoPath: string, path: string, rev: string): Promise<GitTreeEntry | undefined>;
 	getTreeForRevision(repoPath: string, rev: string): Promise<GitTreeEntry[]>;
-	resolveRevision(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<ResolvedRevision>;
+	resolveRevision(
+		repoPath: string,
+		ref: string,
+		pathOrUri?: string | Uri,
+		/** `force`: skips the cached answer and any in-flight read that started before this call, and stores the fresh answer. */
+		options?: { force?: boolean },
+	): Promise<ResolvedRevision>;
 }

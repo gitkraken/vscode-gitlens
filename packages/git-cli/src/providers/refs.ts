@@ -343,13 +343,26 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	}
 
 	@debug()
-	async getReference(repoPath: string, ref: string, cancellation?: AbortSignal): Promise<GitReference | undefined> {
+	async getReference(
+		repoPath: string,
+		ref: string,
+		options?: { force?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<GitReference | undefined> {
 		if (!ref || ref === deletedOrMissing) return undefined;
 
-		if (!(await this.isValidReference(repoPath, ref, undefined, cancellation))) return undefined;
+		const valid = options?.force
+			? await this.validateReference(repoPath, ref, { force: true }, cancellation)
+			: await this.isValidReference(repoPath, ref, undefined, cancellation);
+		if (!valid) return undefined;
 
 		if (ref !== 'HEAD' && !isShaWithOptionalRevisionSuffix(ref)) {
-			const branch = await this.provider.branches.getBranch(repoPath, ref, cancellation);
+			const branch = await this.provider.branches.getBranch(
+				repoPath,
+				ref,
+				options?.force ? { force: true } : undefined,
+				cancellation,
+			);
 			if (branch != null) {
 				return createReference(branch.ref, repoPath, {
 					id: branch.id,
@@ -360,6 +373,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 				});
 			}
 
+			// Not forced: a tag that moves is rare enough that `force` is scoped to branches and validation.
 			const tag = await this.provider.tags.getTag(repoPath, ref, cancellation);
 			if (tag != null) {
 				return createReference(tag.ref, repoPath, {
@@ -435,19 +449,22 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	): Promise<boolean> {
 		const path = pathOrUri != null ? toFsPath(pathOrUri) : undefined;
 		const relativePath = path ? this.provider.getRelativePath(path, repoPath) : undefined;
-		return Boolean((await this.validateReference(repoPath, ref, relativePath, cancellation))?.length);
+		return Boolean(
+			(await this.validateReference(repoPath, ref, { relativePath: relativePath }, cancellation))?.length,
+		);
 	}
 
 	@trace()
 	async validateReference(
 		repoPath: string,
 		ref: string,
-		relativePath?: string,
+		options?: { relativePath?: string; force?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
 		if (!ref) return undefined;
 		if (ref === deletedOrMissing || isUncommitted(ref)) return ref;
 
+		const relativePath = options?.relativePath;
 		const supportsEndOfOptions = await this.git.supports('git:rev-parse:end-of-options');
 
 		// Why: a SHA-only validation (no path suffix) is effectively immutable — 5-min TTL is safe.
@@ -463,6 +480,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 				caching: {
 					cache: this.cache.gitResults,
 					options: { accessTTL: stable ? 5 * 60 * 1000 : 60 * 1000 },
+					force: options?.force,
 				},
 			},
 			'rev-parse',
