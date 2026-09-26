@@ -131,6 +131,7 @@ it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side fai
 | `sweepClosedPullRequests`    | `ProviderSweepResult`     | Same, pinned to `['closed','merged']`.                                                       |
 | `broadenIssues`              | `ProviderBroadenResult`   | Per-org fan-out for every visible issue, unfiltered by assignee.                             |
 | `resolveRepository`          | `ResolveRepositoryResult` | Remote URL → canonical provider identity (the `gk repo resolve` equivalent).                 |
+| `getCurrentAccount`          | `CurrentAccountResult`    | Who a git host connection is signed in as; trackers refuse.                                  |
 | `getSupportedFilters`        | filter capability table   | Static, connection-free. See §7.                                                             |
 
 A provider that cannot serve a surface says so explicitly — a warning explaining that the operation is
@@ -163,6 +164,11 @@ request read in provider-apis, so those rows come from GitLens' own REST read an
 and the clone URLs. On GitLab, a miss the confirming read then contradicts fails the target rather than answering
 with the confirming read's own, differently-identified row. It is uncached and bypasses the
 host's `IntegrationCacheProvider.getPullRequest`, so the caller owns caching the answer.
+
+`getCurrentAccount` answers who a git host connection is signed in as. It returns a single `account?` rather
+than `items`, and `account` is never absent without a warning: no session, a failed request, or an issue tracker,
+which has only a per-resource account and refuses (see §8). It goes through the host-supplied
+`IntegrationManagerCacheProvider.getCurrentAccount` cache rather than adding a second one.
 
 ## 5. Paging
 
@@ -689,6 +695,7 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |      ✓      |   ✓    |   ✓    |
 | `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✗      |   ✗    |   ✗    |
 | `resolveRepository`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
+| `getCurrentAccount`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
 
 Bitbucket Data Center exposes its projects through `listOrgs`: both `id` and `name` are the project key.
 Pass that key as `org` to `listRepos` to select a project, or omit `org` to enumerate all accessible repositories,
