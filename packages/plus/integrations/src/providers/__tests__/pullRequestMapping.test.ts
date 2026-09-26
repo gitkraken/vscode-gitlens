@@ -168,12 +168,101 @@ suite('pull request ref mapping (#5435 clone URLs + fork)', () => {
 				},
 			}),
 			fakeProvider,
-			{ currentAccountId: 'me' },
+			{ currentAccount: { id: 'me' } },
 		);
 
 		assert.equal(pr.number, 42, 'the provider-visible PR number is not derived from its opaque id');
 		assert.equal(pr.authoredByMe, true, 'authorship is resolved against the selected provider account');
 		assert.equal(toProviderPullRequest(pr).number, 42, 'the provider-visible number survives a round-trip');
+	});
+
+	test('a GitHub row from our own client is mine when the login matches, even though the ids never can', () => {
+		// GitLens' own GitHub GraphQL client keys `author.id` by login, while `currentAccount.id` is GitHub's
+		// numeric database id — the two namespaces never intersect, so only the username fallback can resolve
+		// authorship on this path.
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				author: {
+					id: 'eamodio',
+					name: 'Eric Amodio',
+					email: null,
+					username: 'eamodio',
+					avatarUrl: null,
+					url: null,
+				},
+			}),
+			fakeProvider,
+			{ currentAccount: { id: '641685', username: 'eamodio' } },
+		);
+
+		assert.equal(pr.authoredByMe, true);
+	});
+
+	test('a GitHub row from our own client authored by someone else is not mine', () => {
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				author: {
+					id: 'octocat',
+					name: 'The Octocat',
+					email: null,
+					username: 'octocat',
+					avatarUrl: null,
+					url: null,
+				},
+			}),
+			fakeProvider,
+			{ currentAccount: { id: '641685', username: 'eamodio' } },
+		);
+
+		assert.equal(pr.authoredByMe, false);
+	});
+
+	test('a provider-apis-shaped GitHub row still matches by id alone', () => {
+		// provider-apis' own reads key a row's author by the same numeric database id as the account, so an
+		// id match is all this path ever needs — the login fallback must not be required for it to work.
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				author: {
+					id: '641685',
+					name: 'Eric Amodio',
+					email: null,
+					username: 'eamodio',
+					avatarUrl: null,
+					url: null,
+				},
+			}),
+			fakeProvider,
+			{ currentAccount: { id: '641685', username: 'eamodio' } },
+		);
+
+		assert.equal(pr.authoredByMe, true);
+	});
+
+	test('an Azure DevOps row with a different id but the same username as the account is not mine', () => {
+		// `toProviderAccount` fills `username` with a display name outside GitHub, and two Azure DevOps
+		// members can share one — the username fallback must stay GitHub-only.
+		const azureProvider = {
+			id: 'azureDevOps',
+			name: 'Azure DevOps',
+			domain: 'dev.azure.com',
+			icon: 'azure-devops',
+		} as unknown as Provider;
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				author: {
+					id: 'other-person',
+					name: 'Eric Amodio',
+					email: null,
+					username: 'Eric Amodio',
+					avatarUrl: null,
+					url: null,
+				},
+			}),
+			azureProvider,
+			{ currentAccount: { id: 'me', username: 'Eric Amodio' } },
+		);
+
+		assert.equal(pr.authoredByMe, false);
 	});
 
 	test('remoteInfo is left null when a ref carries only a partial clone URL pair', () => {
