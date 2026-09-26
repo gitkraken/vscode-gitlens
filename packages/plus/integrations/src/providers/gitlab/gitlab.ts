@@ -659,6 +659,12 @@ export class GitLabApi implements Disposable {
 		id: number,
 		options?: {
 			baseUrl?: string;
+			/**
+			 * Returns `undefined` only for a `null` project or merge request, which is how GitLab's GraphQL
+			 * answers a missing one. A thrown not-found or an empty response means the endpoint is wrong, so
+			 * both throw instead of reading as absent.
+			 */
+			strict?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest | undefined> {
@@ -727,12 +733,18 @@ export class GitLabApi implements Disposable {
 				scope,
 			);
 
-			if (rsp?.data?.project?.mergeRequest == null) return undefined;
+			if (rsp?.data == null) {
+				if (options?.strict) throw new Error('GitLab returned no data for the merge request');
+
+				return undefined;
+			}
+
+			if (rsp.data.project?.mergeRequest == null) return undefined;
 
 			const pr = rsp.data.project.mergeRequest;
 			return fromGitLabMergeRequest(pr, provider);
 		} catch (ex) {
-			if (ex instanceof RequestNotFoundError) return undefined;
+			if (!options?.strict && ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
 		}

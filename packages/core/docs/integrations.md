@@ -125,6 +125,7 @@ it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side fai
 | `searchIssuesPage`           | `IssueShape`              | Issues matching structured criteria over a repo/org scope — **no** `@me` binding.       |
 | `countIssues`                | `IssueCountResult`        | How many match each scope, fetching none of them. See §5.1.                             |
 | `getIssuesBatch`             | `IssueBatchResult`        | Resolves N `(owner, repo, number)` coordinates in one request; an absence is proven.    |
+| `getPullRequestsBatch`       | `PullRequestBatchResult`  | Resolves N PRs by `(owner, repo, number)`, in any state; an absence is proven.          |
 | `getTrackerIssue`            | `TrackerIssueResult`      | Resolves ONE tracker issue by key within a resource; an absence is proven. Jira/Linear. |
 | `listIssueTrackerIssuesPage` | `IssueShape`              | Jira / Linear / Trello (issues live under resource → project).                          |
 | `sweepPullRequests`          | `ProviderSweepResult`     | Drains **every** page across providers (`maxPages`, default 100).                       |
@@ -140,6 +141,16 @@ shape: an empty `items` with no warning means "this account genuinely has nothin
 `getTrackerIssue` takes `resourceId` for both supported trackers. Jira also takes `resourceUrl`, the site URL
 returned by `listOrgs`; the REST response only supplies an API `self` link, so the caller provides the already-known
 site identity rather than making this point read perform resource discovery. Linear does not need it.
+
+`getPullRequestsBatch` is the pull request counterpart of `getIssuesBatch`, with the same absence/failure contract,
+and it serves every git host. Azure DevOps also requires `project` on each target. GitHub/GHE resolve up to 25
+targets per request; every other host costs one request per target, and GitLab a second one to confirm a miss. A
+target GitHub refuses on its own, e.g. in an org enforcing SAML SSO the token isn't authorized for, fails only that
+target. Its rows carry the same fields as the list reads' rows, except on Bitbucket Cloud — which has no single pull
+request read in provider-apis, so those rows come from GitLens' own REST read and lack `commentsCount`, `isDraft`
+and the clone URLs. On GitLab, a miss the confirming read then contradicts fails the target rather than answering
+with the confirming read's own, differently-identified row. It is uncached and bypasses the
+host's `IntegrationCacheProvider.getPullRequest`, so the caller owns caching the answer.
 
 ## 5. Paging
 
@@ -560,7 +571,8 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  —   |   —    |   —    |
 | `searchIssuesPage`           |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
 | `countIssues`                |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
-| `getIssuesBatch`             |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
+| `getIssuesBatch`             |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
+| `getPullRequestsBatch`       |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  ✗   |   ✗    |   ✗    |
 | `getTrackerIssue`            |      ✗       |          ✗           |     ✗     |      ✗       |            ✗            |  ✓   |   ✓    |   ✗    |
 | Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |  ✓   |   ✓    |   ✓    |
 | `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |  ✓   |   ✓    |   ✓    |

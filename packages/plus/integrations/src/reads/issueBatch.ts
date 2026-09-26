@@ -12,7 +12,7 @@ import {
 } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
-import { gitHostOnlySurfaceWarning, issuesUnsupportedWarning, otherWarning } from './warnings.js';
+import { gitHostOnlySurfaceWarning, issuesUnsupportedWarning, noConnectionWarning, otherWarning } from './warnings.js';
 
 /**
  * The BATCH issue read: resolve N `(owner, repo, number)` coordinates in one request.
@@ -186,7 +186,26 @@ export async function getIssuesBatch(
 	return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
 }
 
-function findDuplicateKey(targets: readonly { key: string }[]): string | undefined {
+/**
+ * The answer when no integration resolves for a batch read. Targets were asked about, so this is never a silent
+ * empty success: a supplied connection or domain that no longer resolves gets its own warning, and the untargeted
+ * primary path (e.g. a self-managed provider with no configured host) a connection warning — either way
+ * `fetchFailed`, so no caller mistakes the dropped targets for an answer.
+ */
+export function unresolvedIntegration<T>(
+	ctx: ProviderReadContext,
+	providerId: IntegrationIds,
+	connectionId: string | undefined,
+	domain: string | undefined,
+): ProviderResult<T> {
+	const early = ctx.earlyReturnConnectionWarnings(providerId, connectionId, domain);
+	if (early.warnings.length > 0) return { items: [], warnings: early.warnings, fetchFailed: true };
+
+	const resolvedDomain = ctx.resolveDomainForRead(providerId, connectionId, domain);
+	return { items: [], warnings: [noConnectionWarning(providerId, resolvedDomain, connectionId)], fetchFailed: true };
+}
+
+export function findDuplicateKey(targets: readonly { key: string }[]): string | undefined {
 	const seen = new Set<string>();
 	for (const target of targets) {
 		if (seen.has(target.key)) return target.key;

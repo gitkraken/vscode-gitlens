@@ -63,6 +63,7 @@ import type {
 import { isRepoIdsInput, providersMetadata } from './models.js';
 import {
 	getProviderResponseBodyMessage,
+	isAzureProviderId,
 	isProviderIssueNotFoundError,
 	throwProviderError,
 	UnexpectedHtmlResponseError,
@@ -126,6 +127,23 @@ function isGraphQLRepoNotFoundError(ex: unknown): boolean {
 	// GitLab's `getRepo` throws a plain Error; match its not-found message specifically so unrelated
 	// bare Errors (network/parse failures) still reach the generic error bucket.
 	return ex instanceof Error && repoNotFoundMessage.test(ex.message);
+}
+
+// The `typeKey`s Azure DevOps itself uses for "this pull request/repository/project does not exist". A 404 can
+// also come from a wrong path (e.g. an Azure DevOps Server virtual directory or collection misconfigured), which
+// answers with an HTML error page instead of this shape, so the body must be checked, not just the status.
+const azurePullRequestNotFoundTypeKeys = new Set([
+	'GitPullRequestNotFoundException',
+	'GitRepositoryNotFoundException',
+	'ProjectDoesNotExistWithNameException',
+]);
+
+function isAzurePullRequestNotFoundResponse(ex: unknown): boolean {
+	const response = (ex as { response?: { status?: unknown; body?: unknown } } | undefined)?.response;
+	if (response?.status !== 404 || response.body == null || typeof response.body !== 'object') return false;
+
+	const typeKey = (response.body as { typeKey?: unknown }).typeKey;
+	return typeof typeKey === 'string' && azurePullRequestNotFoundTypeKeys.has(typeKey);
 }
 
 const trelloBaseUrl = 'https://api.trello.com';
@@ -282,6 +300,7 @@ export class ProvidersApi {
 					providerApis.gitlab,
 				) as GetPullRequestsForReposFn,
 				getPullRequestsForRepoFn: providerApis.gitlab.getPullRequestsForRepo.bind(providerApis.gitlab),
+				getPullRequestForRepoFn: providerApis.gitlab.getPullRequestForRepo.bind(providerApis.gitlab),
 				getPullRequestsForUserFn: providerApis.gitlab.getPullRequestsAssociatedWithUser.bind(
 					providerApis.gitlab,
 				) as GetPullRequestsForUserFn,
@@ -307,6 +326,7 @@ export class ProvidersApi {
 					providerApis.gitlab,
 				) as GetPullRequestsForReposFn,
 				getPullRequestsForRepoFn: providerApis.gitlab.getPullRequestsForRepo.bind(providerApis.gitlab),
+				getPullRequestForRepoFn: providerApis.gitlab.getPullRequestForRepo.bind(providerApis.gitlab),
 				getPullRequestsForUserFn: providerApis.gitlab.getPullRequestsAssociatedWithUser.bind(
 					providerApis.gitlab,
 				) as GetPullRequestsForUserFn,
@@ -371,6 +391,7 @@ export class ProvidersApi {
 				getPullRequestsForRepoFn: providerApis.azureDevOps.getPullRequestsForRepo.bind(
 					providerApis.azureDevOps,
 				),
+				getPullRequestForRepoFn: providerApis.azureDevOps.getPullRequestForRepo.bind(providerApis.azureDevOps),
 				getPullRequestsForAzureProjectsFn: providerApis.azureDevOps.getPullRequestsForProjects.bind(
 					providerApis.azureDevOps,
 				),
@@ -403,6 +424,7 @@ export class ProvidersApi {
 				getPullRequestsForRepoFn: providerApis.azureDevOps.getPullRequestsForRepo.bind(
 					providerApis.azureDevOps,
 				),
+				getPullRequestForRepoFn: providerApis.azureDevOps.getPullRequestForRepo.bind(providerApis.azureDevOps),
 				getPullRequestsForAzureProjectsFn: providerApis.azureDevOps.getPullRequestsForProjects.bind(
 					providerApis.azureDevOps,
 				),
@@ -715,6 +737,41 @@ export class ProvidersApi {
 				if (isGraphQLRepoNotFoundError(e)) throw new RequestNotFoundError(toError(e));
 				return this.handleProviderError<ProviderRepository>(tokenWithInfo, e);
 			}
+		}
+	}
+
+	/**
+	 * One pull request by repository and number, in any state. `undefined` when the provider reports it absent:
+	 * a `null` from GitLab (which alone is NOT proof — see the GitLab batch hook), or, from Azure DevOps, a 404
+	 * whose body names the pull request, repository or project as not found (see
+	 * {@link isAzurePullRequestNotFoundResponse}). Any other Azure error, including a 410 or a 404 that isn't that
+	 * shape (e.g. a wrong path answering with an HTML page), goes through `handleProviderError` and fails instead.
+	 */
+	async getPullRequestForRepo(
+		tokenOptInfo: TokenOptInfo,
+		repo: ProviderRepoInput,
+		number: number,
+		options?: { isPAT?: boolean; baseUrl?: string; includeRemoteInfo?: boolean },
+	): Promise<ProviderPullRequest | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getPullRequestForRepoFn',
+		);
+		const providerId = tokenWithInfo.providerId;
+
+		try {
+			const result = await provider.getPullRequestForRepoFn?.(
+				{ repo: repo, number: number, includeRemoteInfo: options?.includeRemoteInfo },
+				{ token: tokenWithInfo.accessToken, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
+			);
+			return result?.data ?? undefined;
+		} catch (e) {
+			// Azure DevOps throws on a missing pull request instead of answering `{ data: null }`.
+			if (isAzureProviderId(providerId) && isAzurePullRequestNotFoundResponse(e)) {
+				return undefined;
+			}
+
+			return this.handleProviderError<ProviderPullRequest | undefined>(tokenWithInfo, e);
 		}
 	}
 

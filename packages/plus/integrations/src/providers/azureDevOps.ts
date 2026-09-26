@@ -6,6 +6,7 @@ import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/mo
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestShape,
 	PullRequestState,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
@@ -27,7 +28,7 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFan
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
-import { GitHostIntegration } from '../models/gitHostIntegration.js';
+import { getSelfManagedApiBaseUrl, GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { AccountWideIssuesResult, IntegrationKey, SearchMyIssuesOptions } from '../models/integration.js';
 import type {
 	AzureOrganizationDescriptor,
@@ -627,6 +628,34 @@ export abstract class AzureDevOpsIntegrationBase<
 			rev,
 			getAzureRepositoryApiBaseUrl(this.apiBaseUrl, repo),
 		);
+	}
+
+	/**
+	 * One request per target, settled independently so one target's failure rejects only its own slot; converted
+	 * like the repo-scoped list rows — not through {@link fromAzureProviderPullRequest}, which only the
+	 * account-wide searches use.
+	 */
+	protected override async getProviderPullRequestsBatch(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { currentAccount?: { id: string; username?: string } } | undefined,
+		_cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
+		const api = await this.getProvidersApi();
+		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
+		const baseUrl = getSelfManagedApiBaseUrl(this.id, session.domain || this.domain, session.protocol);
+
+		return mapSettledBounded(coordinates, providerFanOutConcurrency, async c => {
+			const pr = await api.getPullRequestForRepo(
+				tokenWithInfo,
+				{ namespace: c.owner, name: c.repo, project: c.project },
+				c.number,
+				{ isPAT: apiOptions.isPAT, baseUrl: baseUrl, includeRemoteInfo: true },
+			);
+			return pr != null
+				? fromProviderPullRequest(pr, this, { currentAccount: options?.currentAccount })
+				: undefined;
+		});
 	}
 
 	public override async getRepoInfo(repo: {

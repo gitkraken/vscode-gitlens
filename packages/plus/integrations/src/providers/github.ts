@@ -7,6 +7,7 @@ import type {
 	PullRequest,
 	PullRequestMergeMethod,
 	PullRequestSearchCriteria,
+	PullRequestShape,
 	PullRequestStackInfo,
 	PullRequestState,
 	PullRequestStateFilter,
@@ -15,14 +16,15 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
+import { chunk } from '@gitlens/utils/array.js';
 import type { Emitter } from '@gitlens/utils/event.js';
-import { batch } from '@gitlens/utils/promise.js';
+import { batch, mapBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
@@ -44,6 +46,7 @@ import type {
 	ProviderRepository,
 } from './models.js';
 import {
+	fromProviderPullRequest,
 	getProviderPullRequestIdentity,
 	IssueFilter,
 	providersMetadata,
@@ -98,6 +101,45 @@ export type GitHubRepositoryDescriptor = RepositoryDescriptor;
 
 /** How many per-login SSH signing-key lookups to run concurrently, to avoid a request burst that trips rate limiting. */
 const sshSigningKeyResolveBatchSize = 10;
+
+// One aliased document costs about the same as a single read up to 25 targets; past that, latency climbs.
+const pullRequestsBatchChunkSize = 25;
+
+/**
+ * Runs an aliased batch read over `items` in chunks of `chunkSize`, with bounded concurrency, converting each
+ * fulfilled slot with `map`. Settled per target throughout: a chunk that throws rejects only its own slots, and a
+ * slot whose conversion throws rejects only itself, so one bad row never takes its chunk's siblings down with it.
+ */
+async function readChunked<T, V, R>(
+	items: readonly T[],
+	chunkSize: number,
+	read: (chunk: T[]) => Promise<PromiseSettledResult<V>[]>,
+	map: (value: V) => R,
+): Promise<PromiseSettledResult<R>[]> {
+	const settledChunks = await mapBounded(
+		chunk([...items], chunkSize),
+		providerFanOutConcurrency,
+		async (chunkItems): Promise<PromiseSettledResult<R>[]> => {
+			let slots: PromiseSettledResult<V>[];
+			try {
+				slots = await read(chunkItems);
+			} catch (ex) {
+				return chunkItems.map(() => ({ status: 'rejected', reason: ex }));
+			}
+
+			return slots.map((slot): PromiseSettledResult<R> => {
+				if (slot.status === 'rejected') return slot;
+
+				try {
+					return { status: 'fulfilled', value: map(slot.value) };
+				} catch (ex) {
+					return { status: 'rejected', reason: ex };
+				}
+			});
+		},
+	);
+	return settledChunks.flat();
+}
 
 abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends GitHostIntegration<
 	ID,
@@ -703,6 +745,42 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			coordinates,
 			{ baseUrl: this.apiBaseUrl, includeBody: true },
 			cancellation,
+		);
+	}
+
+	/**
+	 * Resolves several pull requests by `(owner, repo, number)` by aliasing the point read — see
+	 * {@link GitHubApi.getPullRequestsBatch} — chunked into requests of up to {@link pullRequestsBatchChunkSize}
+	 * coordinates, run with bounded concurrency. Rows take the same conversion as the account-wide list rows, so a
+	 * pull request reads the same whichever of the two returned it.
+	 *
+	 * A chunk that throws rejects only its own slots, so its sibling chunks still answer.
+	 */
+	protected override async getProviderPullRequestsBatch(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { currentAccount?: { id: string; username?: string } } | undefined,
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
+		const github = await this.authenticationService.apis.github;
+		if (github == null) return undefined;
+
+		const currentAccount = options?.currentAccount;
+		return readChunked(
+			coordinates,
+			pullRequestsBatchChunkSize,
+			chunkCoordinates =>
+				github.getPullRequestsBatch(
+					this,
+					toTokenWithInfo(this.id, session),
+					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
+					{ baseUrl: this.apiBaseUrl },
+					cancellation,
+				),
+			(pr): PullRequestShape | undefined =>
+				pr != null
+					? fromProviderPullRequest(toProviderPullRequest(pr), this, { currentAccount: currentAccount })
+					: undefined,
 		);
 	}
 

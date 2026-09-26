@@ -91,6 +91,8 @@ import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
 import { getIssuesBatch } from './reads/issueBatch.js';
 import { listIssuesPage } from './reads/issues.js';
 import { listIssueTrackerIssuesPage } from './reads/issueTracker.js';
+import type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
+import { getPullRequestsBatch } from './reads/pullRequestBatch.js';
 import { listPullRequestsPage } from './reads/pullRequests.js';
 import { resolveRepository } from './reads/resolveRepository.js';
 import { searchIssuesPage } from './reads/searchIssues.js';
@@ -1169,6 +1171,19 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 	}): Promise<ProviderResult<IssueBatchResult>> {
 		return getIssuesBatch(this, options);
+	}
+
+	async getPullRequestsBatch(options: {
+		providerId: IntegrationIds;
+		targets: readonly PullRequestBatchTarget[];
+		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
+	}): Promise<ProviderResult<PullRequestBatchResult>> {
+		return getPullRequestsBatch(this, options);
 	}
 
 	async getTrackerIssue(options: {

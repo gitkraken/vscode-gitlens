@@ -198,5 +198,22 @@ than a browser link; supplying both retains the one-request contract. Linear nee
 Linear only; Trello refuses because its single-issue read can fall back to a capped board scan for a numeric
 identifier, where a "not found" result cannot be distinguished from a card beyond the cap.
 
+**Batch pull request resolution.** `getPullRequestsBatch` is the identity read for pull requests: N
+`(owner, repo, number)` coordinates, plus `project` on Azure DevOps, in any state. Before it the facade had only
+list, search, count and sweep reads for pull requests, so a consumer found one by scanning its repository's most
+recently updated pull requests per state and matching the URL — and an older merged pull request could be neither
+found nor proven gone. Same absence/failure contract as `getIssuesBatch`. Unlike the issue read it serves every
+git host: GitHub/GHE alias up to 25 point reads into one document, while GitLab, Bitbucket, Bitbucket DC and
+Azure DevOps have no batch form and cost one request per target. A GitLab miss costs a second request, because
+provider-apis' GitLab read reports a reply that carries only GraphQL errors the same way as a missing merge
+request, so its `null` alone does not prove absence; an Azure DevOps miss is trusted only when Azure's own error
+body names the pull request, repository or project as not found, not on any other 404 or a 410. Rows take the
+list reads' conversion on every host but Bitbucket Cloud, which has no single pull request read in provider-apis
+and so answers from GitLens' own REST read instead, missing `commentsCount`, `isDraft` and the clone URLs. On
+GitLab, a miss the confirming read then contradicts fails the target rather than answering with the confirming
+read's own, differently-identified row. The read is uncached and does not go through
+`IntegrationCacheProvider.getPullRequest`, whose key carries no connection, so the consumer's cache is the only
+one holding the answer.
+
 **Kepler-side follow-up:** `ProviderScopeFilter` carries a single `repo?: string` today and needs the criteria
 set; the `provider-data` adapter then routes "All visible" to `searchIssuesPage` + `countIssues`.

@@ -6,6 +6,7 @@ import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/mo
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestShape,
 	PullRequestState,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
@@ -14,7 +15,7 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
-import { batchResults, flatSettled, nonnullSettled } from '@gitlens/utils/promise.js';
+import { batchResults, flatSettled, mapSettledBounded, nonnullSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type {
 	AuthenticationSessionLike as AuthenticationSession,
@@ -22,7 +23,7 @@ import type {
 } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { GitCloudHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
@@ -160,6 +161,27 @@ export class BitbucketIntegration extends GitHostIntegration<
 			{
 				type: type,
 			},
+		);
+	}
+
+	/**
+	 * One request per target, settled independently so one target's failure rejects only its own slot:
+	 * provider-apis has no single pull request read for Bitbucket, so this uses our own.
+	 */
+	protected override async getProviderPullRequestsBatch(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { currentAccount?: { id: string; username?: string } } | undefined,
+		_cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
+		const api = await this.authenticationService.apis.bitbucket;
+		if (api == null) return undefined;
+
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+		return mapSettledBounded(coordinates, providerFanOutConcurrency, c =>
+			api.getPullRequest(this, tokenWithInfo, c.owner, c.repo, String(c.number), this.apiBaseUrl, {
+				currentAccount: options?.currentAccount,
+			}),
 		);
 	}
 

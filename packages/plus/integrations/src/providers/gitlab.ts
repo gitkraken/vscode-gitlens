@@ -7,6 +7,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestShape,
 	PullRequestState,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
@@ -16,18 +17,18 @@ import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.util
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
-import { batch } from '@gitlens/utils/promise.js';
+import { batch, mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
-import { GitHostIntegration } from '../models/gitHostIntegration.js';
+import { getSelfManagedApiBaseUrl, GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { AccountWideIssuesResult, SearchMyIssuesOptions } from '../models/integration.js';
 import type { GitLabIntegrationIds } from './gitlab/gitlab.utils.js';
 import { getGitLabPullRequestIdentityFromMaybeUrl, matchesGitLabOrgNamespace } from './gitlab/gitlab.utils.js';
@@ -40,6 +41,7 @@ import type {
 	ProviderRepository,
 } from './models.js';
 import {
+	fromProviderPullRequest,
 	getProviderPullRequestIdentity,
 	IssueFilter,
 	ProviderPullRequestReviewState,
@@ -313,6 +315,54 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 				baseUrl: this.apiBaseUrl,
 			},
 		);
+	}
+
+	/**
+	 * One request per target, settled independently so one target's failure rejects only its own slot; through
+	 * the same SDK read and conversion the manager's list rows take.
+	 */
+	protected override async getProviderPullRequestsBatch(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { currentAccount?: { id: string; username?: string } } | undefined,
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
+		const api = await this.getProvidersApi();
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+		const baseUrl = getSelfManagedApiBaseUrl(this.id, session.domain || this.domain, session.protocol);
+		// The confirming read must ask the same host, over the same protocol, as the read it confirms.
+		const confirmBaseUrl = baseUrl != null ? `${baseUrl}/api` : this.apiBaseUrl;
+
+		return mapSettledBounded(coordinates, providerFanOutConcurrency, async c => {
+			const pr = await api.getPullRequestForRepo(tokenWithInfo, { namespace: c.owner, name: c.repo }, c.number, {
+				isPAT: this.isEnterprise,
+				baseUrl: baseUrl,
+			});
+			if (pr != null) return fromProviderPullRequest(pr, this, { currentAccount: options?.currentAccount });
+
+			// provider-apis' GitLab GraphQL helper ignores the response's `errors`, so a reply carrying only errors
+			// (e.g. a server-side timeout) comes back as `null`, the same as not-found. Our own client throws on
+			// `errors`, and `strict` makes it answer `undefined` only for a real miss.
+			const gitlab = await this.authenticationService.apis.gitlab;
+			if (gitlab == null) {
+				throw new IntegrationReadUnavailableError(this.name, 'cannot confirm a missing merge request');
+			}
+
+			const confirmed = await gitlab.getPullRequest(
+				this,
+				tokenWithInfo,
+				c.owner,
+				c.repo,
+				c.number,
+				{ baseUrl: confirmBaseUrl, strict: true },
+				cancellation,
+			);
+			// Our own client's row can't produce the list rows' shape (`id` is the iid, not the global id; no
+			// `authoredByMe`), so a disagreement fails rather than answering with a different identity.
+			if (confirmed != null) throw new Error(`GitLab reported pull request ${c.number} missing, then found it`);
+
+			return undefined;
+		});
 	}
 
 	public override async getRepoInfo(repo: {

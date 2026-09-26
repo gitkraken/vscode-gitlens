@@ -17,6 +17,7 @@ import type {
 } from './reads/counts.js';
 import type { SupportedFilters } from './reads/filters.js';
 import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
+import type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
 import type { TrackerIssueResult } from './reads/trackerIssue.js';
 import type {
 	ConnectionStateChangeEvent,
@@ -634,6 +635,39 @@ export interface IntegrationManager {
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
 	}): Promise<ProviderResult<IssueBatchResult>>;
+	/**
+	 * Resolves several pull requests BY COORDINATE — `(owner, repo, number)`, plus `project` on Azure DevOps — in
+	 * any state (open, closed or merged). The pull-request twin of {@link getIssuesBatch}, answering the same
+	 * identity question: "which pull request does this branch or link name".
+	 *
+	 * Results are echoed under the caller's own `key`, so no positional matching is needed. Per-target isolation
+	 * is the rule: a read that fails upstream warns and drops only its own targets (with `fetchFailed` set) while
+	 * every other target still answers.
+	 *
+	 * - `{ key, pullRequest }` — found, whatever its state.
+	 * - `{ key }` with no `pullRequest` — PROVEN ABSENT: the host answered not-found for the pull request or its
+	 *   repository, or it is not visible to this connection. Safe to cache.
+	 * - No item for a key, with `fetchFailed` and a warning — the read could not check (auth, rate limit, network,
+	 *   missing session, an unmappable response). Never treat that as absent: caching a failure as an absence is
+	 *   exactly the bug this distinction prevents.
+	 *
+	 * UNCACHED, and deliberately not routed through the integration's cached single pull request read: that
+	 * cache's key carries no connection, and the GitLens host's by-id bucket never expires a miss, so a proven
+	 * absence would become permanent there — and a consumer would hold a second cache, with a different lifetime,
+	 * for the same answer. The caller owns caching.
+	 *
+	 * Request cost: GitHub/GHE resolve up to 25 targets per request (one aliased GraphQL document). Every other
+	 * host costs one request per target, run with bounded concurrency; GitLab spends a second request to confirm a
+	 * miss, and Azure DevOps one more per target (two for a fork) to fill clone URLs.
+	 */
+	getPullRequestsBatch(options: {
+		providerId: IntegrationIds;
+		/** Each `key` must be unique — a duplicate refuses the whole call, since keys identify results. */
+		targets: readonly PullRequestBatchTarget[];
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+	}): Promise<ProviderResult<PullRequestBatchResult>>;
 	/**
 	 * Resolves one issue-tracker issue by key within a resource — the tracker counterpart of
 	 * {@link getIssuesBatch}, which cannot serve one.
