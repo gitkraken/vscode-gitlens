@@ -716,6 +716,25 @@ suite('self-managed installation addresses through the public manager', () => {
 		}
 	});
 
+	test('Azure batch issue reads keep a collection named in the address once', async () => {
+		const id = GitSelfManagedHostIntegrationId.AzureDevOpsServer;
+		const server = createServer(id, 'https://server.test/tfs/DefaultCollection');
+		const manager = server.createManager();
+		try {
+			await manager.refreshConnections();
+			const [connection] = manager.getConfigured(id);
+			const count = server.requests.length;
+			await manager.getIssuesBatch({
+				...target(connection),
+				targets: [{ key: 'a', owner: 'DefaultCollection', repo: 'repo', number: 7, project: 'project' }],
+			});
+			const paths = server.requests.slice(count).map(r => r.url.pathname);
+			assert.deepEqual(paths, ['/tfs/DefaultCollection/project/_apis/wit/workitems/7']);
+		} finally {
+			manager.dispose();
+		}
+	});
+
 	test('Azure never widens an address naming the collection to another directory', async () => {
 		const id = GitSelfManagedHostIntegrationId.AzureDevOpsServer;
 		const server = createServer(id, 'https://server.test/DefaultCollection');

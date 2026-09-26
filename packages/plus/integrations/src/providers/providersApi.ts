@@ -23,7 +23,8 @@ import {
 } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
-import type { AzurePullRequest } from './azure/models.js';
+import type { AzurePullRequest, AzureWorkItemResponse } from './azure/models.js';
+import { encodeAzurePathSegment, fromAzureWorkItemToProviderIssue } from './azure/models.js';
 import { requestBitbucketServerProjects, requestBitbucketServerRepositories } from './bitbucket-server/discovery.js';
 import {
 	countBitbucketServerPullRequests,
@@ -140,6 +141,11 @@ function isGraphQLRepoNotFoundError(ex: unknown): boolean {
 	return ex instanceof Error && repoNotFoundMessage.test(ex.message);
 }
 
+// provider-apis' GitLab `getIssue` throws a plain Error with exactly this message for a null issue (and
+// `repoNotFoundMessage`'s for a null project). Its GraphQL helper ignores `errors`, so a reply carrying only errors
+// throws the same messages; neither proves a miss on its own.
+const gitLabIssueNotFoundMessage = /^Issue .+ not found$/i;
+
 // The `typeKey`s Azure DevOps itself uses for "this pull request/repository/project does not exist". A 404 can
 // also come from a wrong path (e.g. an Azure DevOps Server virtual directory or collection misconfigured), which
 // answers with an HTML error page instead of this shape, so the body must be checked, not just the status.
@@ -149,12 +155,20 @@ const azurePullRequestNotFoundTypeKeys = new Set([
 	'ProjectDoesNotExistWithNameException',
 ]);
 
-function isAzurePullRequestNotFoundResponse(ex: unknown): boolean {
+// The same for a work item. Azure answers a missing work item with TF401232, "Work item N does not exist, or you
+// do not have permissions to read it" — one type for both, so absent here means "not visible to this connection",
+// as it does for every other batch read.
+const azureWorkItemNotFoundTypeKeys = new Set([
+	'WorkItemUnauthorizedAccessException',
+	'ProjectDoesNotExistWithNameException',
+]);
+
+function isAzureNotFoundResponse(ex: unknown, typeKeys: ReadonlySet<string>): boolean {
 	const response = (ex as { response?: { status?: unknown; body?: unknown } } | undefined)?.response;
 	if (response?.status !== 404 || response.body == null || typeof response.body !== 'object') return false;
 
 	const typeKey = (response.body as { typeKey?: unknown }).typeKey;
-	return typeof typeKey === 'string' && azurePullRequestNotFoundTypeKeys.has(typeKey);
+	return typeof typeKey === 'string' && typeKeys.has(typeKey);
 }
 
 const azureDevOpsBaseUrl = 'https://dev.azure.com';
@@ -769,7 +783,7 @@ export class ProvidersApi {
 	 * One pull request by repository and number, in any state. `undefined` when the provider reports it absent:
 	 * a `null` from GitLab (which alone is NOT proof — see the GitLab batch hook), or, from Azure DevOps, a 404
 	 * whose body names the pull request, repository or project as not found (see
-	 * {@link isAzurePullRequestNotFoundResponse}). Any other Azure error, including a 410 or a 404 that isn't that
+	 * {@link azurePullRequestNotFoundTypeKeys}). Any other Azure error, including a 410 or a 404 that isn't that
 	 * shape (e.g. a wrong path answering with an HTML page), goes through `handleProviderError` and fails instead.
 	 */
 	async getPullRequestForRepo(
@@ -792,7 +806,7 @@ export class ProvidersApi {
 			return result?.data ?? undefined;
 		} catch (e) {
 			// Azure DevOps throws on a missing pull request instead of answering `{ data: null }`.
-			if (isAzureProviderId(providerId) && isAzurePullRequestNotFoundResponse(e)) {
+			if (isAzureProviderId(providerId) && isAzureNotFoundResponse(e, azurePullRequestNotFoundTypeKeys)) {
 				return undefined;
 			}
 
@@ -824,10 +838,11 @@ export class ProvidersApi {
 			'searchCriteria.status': 'all',
 			$top: String(top),
 		});
+		const url = `${baseUrl}/${encodeAzurePathSegment(repo.namespace)}/${encodeAzurePathSegment(repo.project)}/_apis/git/repositories/${encodeAzurePathSegment(repo.name)}/pullrequests?${params.toString()}`;
 
 		try {
 			const result = await this.request<{ value?: AzurePullRequest[] }>({
-				url: `${baseUrl}/${encodeURIComponent(repo.namespace)}/${encodeURIComponent(repo.project)}/_apis/git/repositories/${encodeURIComponent(repo.name)}/pullrequests?${params.toString()}`,
+				url: url,
 				headers: { Authorization: options.isPAT ? `Basic ${base64(`:${token}`)}` : `Bearer ${token}` },
 			});
 			const pullRequests = result.body?.value;
@@ -835,10 +850,95 @@ export class ProvidersApi {
 
 			return pullRequests;
 		} catch (e) {
-			if (isAzurePullRequestNotFoundResponse(e)) return undefined;
+			if (isAzureNotFoundResponse(e, azurePullRequestNotFoundTypeKeys)) return undefined;
 
 			return this.handleProviderError<AzurePullRequest[] | undefined>(tokenWithInfo, e);
 		}
+	}
+
+	/**
+	 * One issue by repository and number through provider-apis' GitLab `getIssue`, in the shape its list reads
+	 * return. Strict, unlike {@link getIssue}: `undefined` only when provider-apis reports the project or issue
+	 * missing, which alone is NOT proof (see the GitLab batch hook), and never for an HTTP status — a 404 there
+	 * means a wrong endpoint, so it fails instead of reading as absent.
+	 */
+	async getIssueForRepo(
+		tokenOptInfo: TokenOptInfo,
+		repo: { namespace: string; name: string },
+		number: number,
+		options?: { isPAT?: boolean; baseUrl?: string },
+	): Promise<ProviderIssue | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(tokenOptInfo, 'getIssueFn');
+
+		try {
+			const result = await provider.getIssueFn?.(
+				{ namespace: repo.namespace, name: repo.name, number: String(number) },
+				{ token: tokenWithInfo.accessToken, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
+			);
+			if (result?.data == null) throw new Error(`No data returned for issue ${number}`);
+
+			return result.data;
+		} catch (e) {
+			if (
+				e instanceof Error &&
+				(repoNotFoundMessage.test(e.message) || gitLabIssueNotFoundMessage.test(e.message))
+			) {
+				return undefined;
+			}
+
+			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
+		}
+	}
+
+	/**
+	 * One Azure DevOps work item by id, converted as provider-apis converts its list rows (see
+	 * {@link fromAzureWorkItemToProviderIssue}). provider-apis has no single work item read, so this asks Azure
+	 * directly, with the credential provider-apis would send, and expands links as its list read does: the HTML
+	 * link is the issue's `url`.
+	 *
+	 * `undefined` only when Azure itself says the work item or the project doesn't exist (see
+	 * {@link azureWorkItemNotFoundTypeKeys}). Every other failure throws, including a 410, a 404 that isn't that
+	 * shape, an empty response, a work item the SDK's conversion would skip, and one in another project.
+	 */
+	async getAzureWorkItem(
+		tokenOptInfo: TokenOptInfo,
+		scope: { namespace: string; project: string },
+		id: number,
+		options: { isPAT?: boolean; baseUrl?: string },
+	): Promise<ProviderIssue | undefined> {
+		const { tokenWithInfo } = await this.ensureProviderToken(tokenOptInfo);
+		const token = tokenWithInfo.accessToken;
+
+		const baseUrl = (options.baseUrl ?? azureDevOpsBaseUrl).replace(/\/$/, '');
+		const params = new URLSearchParams({ $expand: 'Links', 'api-version': '6.0' });
+		const url = `${baseUrl}/${encodeAzurePathSegment(scope.namespace)}/${encodeAzurePathSegment(scope.project)}/_apis/wit/workitems/${id}?${params.toString()}`;
+
+		let workItem: AzureWorkItemResponse | null | undefined;
+		try {
+			const result = await this.request<AzureWorkItemResponse | null>({
+				url: url,
+				headers: { Authorization: options.isPAT ? `Basic ${base64(`:${token}`)}` : `Bearer ${token}` },
+			});
+			workItem = result.body;
+		} catch (e) {
+			if (isAzureNotFoundResponse(e, azureWorkItemNotFoundTypeKeys)) return undefined;
+
+			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
+		}
+
+		const issue =
+			workItem != null ? fromAzureWorkItemToProviderIssue(workItem, scope.namespace, scope.project) : undefined;
+		if (issue == null) throw new Error(`Azure DevOps returned no readable work item ${id}`);
+
+		// The route's project is not trusted to scope the read: work item ids are unique across the organization, and
+		// one from another project must not answer for this coordinate. Azure compares project names
+		// case-insensitively.
+		const project = workItem?.fields?.['System.TeamProject'];
+		if (typeof project === 'string' && project.toLowerCase() !== scope.project.toLowerCase()) {
+			throw new Error(`Azure DevOps work item ${id} is in project '${project}', not '${scope.project}'`);
+		}
+
+		return issue;
 	}
 
 	async getCurrentUser(

@@ -199,7 +199,17 @@ draining the whole scope, where a miss is the common outcome. A key asked of sev
 target per resource. `resourceId` is trusted, so the read performs no resource discovery; Jira Cloud also requires
 `resourceUrl`, because the issue response's `self` is an API endpoint rather than a browser link. Trello refuses:
 its single-issue read can fall back to a capped board scan for a numeric identifier, where a "not found" cannot be
-told from a card beyond the cap. Every other provider refuses too.
+told from a card beyond the cap. Bitbucket and Bitbucket DC, which have no issues, refuse too.
+
+GitLab and Azure DevOps take the same coordinates as GitHub, plus `project` on Azure DevOps, whose work items belong to
+the project rather than to a repository, so `repo` is ignored there. They cost one request per target and replace a
+scoped page-walk over `listIssuesPage`, which could not prove absence either. Neither host's existing single-issue
+read could, so each has a strict one. A GitLab miss costs a second request, because provider-apis reports a reply
+carrying only GraphQL errors the same way as a missing issue. An Azure DevOps miss is trusted only on Azure's own
+not-found body: `WorkItemUnauthorizedAccessException` (TF401232, "does not exist, or you do not have permissions to
+read it", so absent means not visible to this connection) or `ProjectDoesNotExistWithNameException`. An HTML 404, a
+410 or any other failure fails the target. Rows match the repository-scoped `listIssuesPage` rows, except that an
+Azure DevOps row has no `project`.
 
 A self-hosted Jira (Data Center, #5872) is served by the same tracker targets once the call carries the host:
 `getIssuesBatch` takes the `domain` its paged siblings take, and a target's `resourceId` is the host itself (the
@@ -215,9 +225,9 @@ identifier's `domain`, and a Jira Data Center identifier without one is dropped 
 `(owner, repo, number)` coordinates, plus `project` on Azure DevOps, in any state. Before it the facade had only
 list, search, count and sweep reads for pull requests, so a consumer found one by scanning its repository's most
 recently updated pull requests per state and matching the URL — and an older merged pull request could be neither
-found nor proven gone. Same absence/failure contract as `getIssuesBatch`. Unlike the issue read it serves every
-git host: GitHub/GHE alias up to 25 point reads into one document, while GitLab, Bitbucket, Bitbucket DC and
-Azure DevOps have no batch form and cost one request per target. A GitLab miss costs a second request, because
+found nor proven gone. Same absence/failure contract as `getIssuesBatch`. It serves every git host, Bitbucket and
+Bitbucket DC included: GitHub/GHE alias up to 25 point reads into one document, while GitLab, Bitbucket, Bitbucket
+DC and Azure DevOps have no batch form and cost one request per target. A GitLab miss costs a second request, because
 provider-apis' GitLab read reports a reply that carries only GraphQL errors the same way as a missing merge
 request, so its `null` alone does not prove absence; an Azure DevOps miss is trusted only when Azure's own error
 body names the pull request, repository or project as not found, not on any other 404 or a 410. Rows take the
