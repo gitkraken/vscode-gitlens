@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
-import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import type { ProviderAuthenticationSession, TokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
@@ -13,21 +13,51 @@ import { connectedGitHub } from './sweepHelpers.js';
  * The batch issue read (#5802): resolve N `(owner, repo, number)` coordinates in one request.
  *
  * What these pin is the distinction the read exists for — an absent slot is a PROVEN ABSENCE, safe to cache,
- * while a target whose chunk failed is not returned at all. Conflating the two is the bug this contract prevents:
- * a caller that caches a failure as an absence never re-resolves the issue.
+ * while a target that failed — its own chunk outright, or just its own alias within an otherwise-answering
+ * chunk — is not returned at all. Conflating the two is the bug this contract prevents: a caller that caches a
+ * failure as an absence never re-resolves the issue.
  */
 
+type Coordinate = { owner: string; repo: string; number: number };
+type Slot = PromiseSettledResult<IssueShape | undefined>;
 type BatchFn = (
-	coordinates: readonly { owner: string; repo: string; number: number }[],
+	coordinates: readonly Coordinate[],
 	cancellation?: AbortSignal,
 	connectionId?: string,
-) => Promise<IntegrationResult<(IssueShape | undefined)[] | undefined>>;
+) => Promise<IntegrationResult<Slot[] | undefined>>;
 
 function stubBatch(integration: GitHostIntegration, fn: BatchFn): void {
 	(integration as unknown as { getIssuesBatchResult: BatchFn }).getIssuesBatchResult = fn;
 }
 
+/** The integration's memoized API client, whose methods a test can replace. */
+async function apiClient(integration: GitHostIntegration, key: 'github'): Promise<Record<string, unknown>> {
+	const { apis } = (
+		integration as unknown as {
+			authenticationService: { apis: Record<string, Promise<Record<string, unknown> | undefined>> };
+		}
+	).authenticationService;
+	const client = await apis[key];
+	assert.ok(client != null);
+	return client;
+}
+
+function getRequestExceptionCount(integration: GitHostIntegration): number {
+	return (integration as unknown as { requestExceptionCount: number }).requestExceptionCount;
+}
+
 const issue = (n: number) => ({ id: `i${n}`, title: `issue ${n}` }) as unknown as IssueShape;
+
+function found(value: IssueShape | undefined): Slot {
+	return { status: 'fulfilled', value: value };
+}
+
+function failed(reason: unknown): Slot {
+	return { status: 'rejected', reason: reason };
+}
+
+const samlForbiddenMessage =
+	'Resource protected by organization SAML enforcement. You must grant your OAuth token access to this organization.';
 
 suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 	test('resolves every coordinate in one request and echoes the caller keys', async () => {
@@ -37,7 +67,7 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 		stubBatch(gh, coordinates => {
 			calls++;
 			received = coordinates;
-			return Promise.resolve({ value: coordinates.map(c => issue(c.number)) });
+			return Promise.resolve({ value: coordinates.map(c => found(issue(c.number))) });
 		});
 
 		const result = await manager.getIssuesBatch({
@@ -69,7 +99,7 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 	test('an absent issue is returned as a proven absence, not dropped', async () => {
 		const { manager, gh } = await connectedGitHub(createFakeRuntime());
 		stubBatch(gh, coordinates =>
-			Promise.resolve({ value: coordinates.map(c => (c.number === 2 ? undefined : issue(c.number))) }),
+			Promise.resolve({ value: coordinates.map(c => found(c.number === 2 ? undefined : issue(c.number))) }),
 		);
 
 		const result = await manager.getIssuesBatch({
@@ -97,7 +127,7 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 		stubBatch(gh, coordinates =>
 			coordinates.some(c => c.number === 1)
 				? Promise.resolve({ error: new Error('batch boom') })
-				: Promise.resolve({ value: coordinates.map(c => issue(c.number)) }),
+				: Promise.resolve({ value: coordinates.map(c => found(issue(c.number))) }),
 		);
 
 		const targets = Array.from({ length: 30 }, (_, i) => ({
@@ -119,12 +149,103 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 		manager.dispose();
 	});
 
+	test('a target that fails on its own — e.g. SAML — is dropped, while the rest of its chunk still answers', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		stubBatch(gh, coordinates =>
+			Promise.resolve({
+				value: coordinates.map(c =>
+					c.number === 2 ? failed(new Error(samlForbiddenMessage)) : found(issue(c.number)),
+				),
+			}),
+		);
+
+		const result = await manager.getIssuesBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'found', owner: 'o', repo: 'a', number: 1 },
+				{ key: 'saml', owner: 'o', repo: 'saml-org', number: 2 },
+			],
+		});
+
+		assert.deepEqual(
+			result.items.map(i => i.key),
+			['found'],
+			'the SAML-forbidden target is dropped, never reported absent',
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings[0]?.kind, 'other', 'a target failing on its own is not an auth warning');
+		assert.match(result.warnings[0]?.message ?? '', /SAML enforcement/);
+
+		manager.dispose();
+	});
+
+	test('GitHub: a target that fails on its own (e.g. SAML) costs no strike or session expiry', async () => {
+		// Exercises the REAL `getIssuesBatchResult`/`getProviderIssuesBatch`, not a stub of the result wrapper,
+		// so `throwIfAllSettledFailed` and `handleProviderException` actually run, as they do in production.
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const github = await apiClient(gh, 'github');
+		github.getIssuesBatch = (_p: unknown, _t: TokenWithInfo, coordinates: readonly Coordinate[]) =>
+			Promise.resolve(
+				coordinates.map((c, i) => (i === 1 ? failed(new Error(samlForbiddenMessage)) : found(issue(c.number)))),
+			);
+		const sessionBefore = { ...(gh as unknown as { _session: ProviderAuthenticationSession })._session };
+
+		const result = await manager.getIssuesBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'found', owner: 'o', repo: 'a', number: 1 },
+				{ key: 'saml', owner: 'o', repo: 'saml-org', number: 2 },
+			],
+		});
+
+		assert.deepEqual(
+			result.items.map(i => i.key),
+			['found'],
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(getRequestExceptionCount(gh), 0, 'a working token must not spend a strike');
+		assert.deepEqual(
+			(gh as unknown as { _session: ProviderAuthenticationSession })._session,
+			sessionBefore,
+			'a working token must not have its session expired',
+		);
+
+		manager.dispose();
+	});
+
+	test('GitHub: a single SAML-forbidden target — every slot failed — still costs no strike and no session expiry', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const github = await apiClient(gh, 'github');
+		github.getIssuesBatch = () => Promise.resolve([failed(new Error(samlForbiddenMessage))]);
+		const sessionBefore = { ...(gh as unknown as { _session: ProviderAuthenticationSession })._session };
+
+		const result = await manager.getIssuesBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [{ key: 'saml', owner: 'o', repo: 'saml-org', number: 2 }],
+		});
+
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(
+			getRequestExceptionCount(gh),
+			0,
+			'a working token must not spend a strike even when every slot failed',
+		);
+		assert.deepEqual(
+			(gh as unknown as { _session: ProviderAuthenticationSession })._session,
+			sessionBefore,
+			'a working token must not have its session expired even when every slot failed',
+		);
+
+		manager.dispose();
+	});
+
 	test('refuses the whole call on a duplicate key rather than answering ambiguously', async () => {
 		const { manager, gh } = await connectedGitHub(createFakeRuntime());
 		let calls = 0;
 		stubBatch(gh, coordinates => {
 			calls++;
-			return Promise.resolve({ value: coordinates.map(c => issue(c.number)) });
+			return Promise.resolve({ value: coordinates.map(c => found(issue(c.number))) });
 		});
 
 		const result = await manager.getIssuesBatch({

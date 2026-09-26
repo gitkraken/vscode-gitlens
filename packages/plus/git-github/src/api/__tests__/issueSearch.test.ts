@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { AuthenticationError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { IssueSearchCriteria, IssueSearchRelationship, IssueSorting } from '@gitlens/git/models/issue.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubApiConfig } from '../config.js';
@@ -1518,7 +1519,7 @@ suite('GitHubApi.searchIssuesPage ceiling slide, end to end (#5805)', () => {
 suite('GitHubApi.getIssuesBatch (#5802)', () => {
 	function batchServe(
 		byAlias: Record<string, unknown>,
-		errors?: { type: string; path: string[] }[],
+		errors?: { type: string; path?: string[]; message?: string; extensions?: Record<string, unknown> }[],
 	): { config: GitHubApiConfig; getVariables: () => Record<string, unknown> } {
 		let variables: Record<string, unknown> = {};
 		const config = {
@@ -1567,7 +1568,7 @@ suite('GitHubApi.getIssuesBatch (#5802)', () => {
 
 		// `IssueShape.id` is the issue NUMBER as a string, not the GraphQL node id.
 		assert.deepEqual(
-			out.map(i => i?.id),
+			out.map(r => (r.status === 'fulfilled' ? r.value?.id : 'rejected')),
 			['1', '2'],
 		);
 		// Coordinates reach the query as VARIABLES, never interpolated into it.
@@ -1591,28 +1592,127 @@ suite('GitHubApi.getIssuesBatch (#5802)', () => {
 			{ owner: 'o', repo: 'gone', number: 1 },
 		]);
 
+		assert.ok(out.every(r => r.status === 'fulfilled'));
 		assert.deepEqual(
-			out.map(i => i?.id),
+			out.map(r => (r.status === 'fulfilled' ? r.value?.id : 'rejected')),
 			['1', undefined, undefined],
 		);
 	});
 
-	test('an error that is NOT a NOT_FOUND still throws rather than reading as absences', async () => {
-		// The narrowing that keeps the tolerance honest: a rate limit or auth failure must not be reported as a
-		// batch of issues that do not exist, which a caller would then cache.
+	test('a target that fails on its own — e.g. SAML — rejects only that slot', async () => {
+		// GitHub answers a SAML-enforcing org with HTTP 200: the other alias's data, plus a FORBIDDEN for the one
+		// the token isn't authorized for. The token still worked, so this must not throw the whole batch, and
+		// the rejection must NOT be an AuthenticationError (that would expire the session over a working token).
 		const { config } = batchServe({ i0: { issue: issueNode(1) }, i1: { issue: null } }, [
-			{ type: 'RATE_LIMITED', path: ['i1'] },
+			{
+				type: 'FORBIDDEN',
+				path: ['i1'],
+				message:
+					'Resource protected by organization SAML enforcement. You must grant your OAuth token access to this organization.',
+				extensions: { saml_failure: true },
+			},
 		]);
 		const api = new GitHubApi(config);
 
-		await assert.rejects(
-			() =>
-				api.getIssuesBatch(provider, token, [
-					{ owner: 'o', repo: 'a', number: 1 },
-					{ owner: 'o', repo: 'a', number: 2 },
-				]),
-			'a real failure is not silently converted into absences',
+		const out = await api.getIssuesBatch(provider, token, [
+			{ owner: 'o', repo: 'a', number: 1 },
+			{ owner: 'o', repo: 'saml-org', number: 2 },
+		]);
+
+		assert.equal(out[0].status, 'fulfilled');
+		assert.equal(out[0].status === 'fulfilled' ? out[0].value?.id : undefined, '1');
+		assert.equal(out[1].status, 'rejected');
+		const reason = out[1].status === 'rejected' ? (out[1].reason as unknown) : undefined;
+		assert.ok(
+			!(reason instanceof AuthenticationError),
+			'a SAML refusal on one target must not become auth failure',
 		);
+		assert.match((reason as Error).message, /SAML enforcement/);
+	});
+
+	test('NOT_FOUND on one alias and FORBIDDEN on another resolve independently', async () => {
+		const { config } = batchServe({ i0: { issue: null }, i1: { issue: null } }, [
+			{ type: 'NOT_FOUND', path: ['i0', 'issue'] },
+			{ type: 'FORBIDDEN', path: ['i1'], message: 'forbidden' },
+		]);
+		const api = new GitHubApi(config);
+
+		const out = await api.getIssuesBatch(provider, token, [
+			{ owner: 'o', repo: 'a', number: 1 },
+			{ owner: 'o', repo: 'saml-org', number: 2 },
+		]);
+
+		assert.equal(out[0].status, 'fulfilled');
+		assert.equal(out[0].status === 'fulfilled' ? out[0].value : undefined, undefined);
+		assert.equal(out[1].status, 'rejected');
+	});
+
+	test('an alias reporting NOT_FOUND then FORBIDDEN rejects, not absent', async () => {
+		// A later, non-NOT_FOUND error on the SAME alias must win: the issue was never proven absent, it was
+		// refused outright, and the rejection carries the refusal's own message.
+		const { config } = batchServe({ i0: { issue: null } }, [
+			{ type: 'NOT_FOUND', path: ['i0', 'issue'] },
+			{ type: 'FORBIDDEN', path: ['i0'], message: 'forbidden after all' },
+		]);
+		const api = new GitHubApi(config);
+
+		const out = await api.getIssuesBatch(provider, token, [{ owner: 'o', repo: 'a', number: 1 }]);
+
+		assert.equal(out[0].status, 'rejected');
+		const reason = out[0].status === 'rejected' ? (out[0].reason as Error) : undefined;
+		assert.match(reason?.message ?? '', /forbidden after all/);
+	});
+
+	test('a present issue with a nested-path NOT_FOUND rejects rather than being trusted', async () => {
+		// A NOT_FOUND nested under the alias — e.g. a sub-field GitHub couldn't resolve — is still an error ON
+		// that alias. The top-level node coming back non-null does not make it safe to use.
+		const { config } = batchServe({ i0: { issue: issueNode(1) } }, [
+			{ type: 'NOT_FOUND', path: ['i0', 'issue', 'repository'], message: 'repository not found' },
+		]);
+		const api = new GitHubApi(config);
+
+		const out = await api.getIssuesBatch(provider, token, [{ owner: 'o', repo: 'a', number: 1 }]);
+
+		assert.equal(out[0].status, 'rejected');
+	});
+
+	test('an error with no path still throws the whole call, typed as today', async () => {
+		const { config } = batchServe({ i0: { issue: issueNode(1) } }, [{ type: 'RATE_LIMITED' }]);
+		const api = new GitHubApi(config);
+
+		await assert.rejects(
+			() => api.getIssuesBatch(provider, token, [{ owner: 'o', repo: 'a', number: 1 }]),
+			(ex: unknown) => ex instanceof RequestRateLimitError,
+		);
+	});
+
+	test('FORBIDDEN with no path still throws AuthenticationError, as today', async () => {
+		const { config } = batchServe({ i0: { issue: issueNode(1) } }, [{ type: 'FORBIDDEN' }]);
+		const api = new GitHubApi(config);
+
+		await assert.rejects(
+			() => api.getIssuesBatch(provider, token, [{ owner: 'o', repo: 'a', number: 1 }]),
+			(ex: unknown) => ex instanceof AuthenticationError,
+		);
+	});
+
+	test('an unmappable issue rejects its slot rather than reading as a proven absence', async () => {
+		// A false absence would be CACHED, publishing a live issue as gone. Dropping `repository` makes
+		// `fromGitHubIssue` throw when it reads the issue's repository fields.
+		const { repository: _repository, ...unmappable } = issueNode(1) as Record<string, unknown>;
+		const { config } = batchServe({ i0: { issue: unmappable } });
+		const api = new GitHubApi(config);
+
+		const out = await api.getIssuesBatch(provider, token, [{ owner: 'o', repo: 'a', number: 1 }]);
+
+		assert.equal(out[0].status, 'rejected');
+	});
+
+	test('a response with no data throws rather than reading as a batch of absences', async () => {
+		const { config } = batchServe(null as unknown as Record<string, unknown>);
+		const api = new GitHubApi(config);
+
+		await assert.rejects(() => api.getIssuesBatch(provider, token, [{ owner: 'o', repo: 'a', number: 1 }]));
 	});
 
 	test('no coordinates costs no request', async () => {
