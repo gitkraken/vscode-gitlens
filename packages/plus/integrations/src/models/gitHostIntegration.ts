@@ -1906,6 +1906,71 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined>;
 
+	/**
+	 * Result-returning wrapper for the pull-requests-by-branch read: for each target, every pull request whose head
+	 * is that branch, in any state, in ONE call to {@link getProviderPullRequestsForBranches}. One settled slot
+	 * per target: `fulfilled` with an empty list means the host answered and nothing matched; `rejected` means
+	 * that target could not be checked, never that it has no pull requests.
+	 *
+	 * Uncached, and deliberately not built on {@link getPullRequestForBranch}: that read caches through
+	 * `IntegrationCacheProvider.getPullRequestForBranch`, answers one pull request, and on several hosts looks the
+	 * branch ref up, which answers "none" once a merged pull request's branch is deleted.
+	 *
+	 * Failure isolation is per target, as in {@link getPullRequestsBatchResult}: the whole call counts against the
+	 * request-exception budget only when EVERY slot rejected, so it never spends more than one strike.
+	 */
+	async getPullRequestsForBranchesResult(
+		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
+		options: { currentAccount?: { id: string; username?: string }; limit: number },
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<
+		IntegrationResult<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined>
+	> {
+		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		const start = performance.now();
+		try {
+			const slots = await this.getProviderPullRequestsForBranches?.(session, targets, options, cancellation);
+			if (slots == null) {
+				this.resetRequestExceptionCount('getPullRequestsForBranches');
+				return { value: undefined, duration: performance.now() - start };
+			}
+
+			throwIfAllSettledFailed(slots);
+
+			this.resetRequestExceptionCount('getPullRequestsForBranches');
+			return { value: slots, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleProviderException('getPullRequestsForBranches', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	/**
+	 * OPTIONAL: one settled slot per target, in order. A fulfilled slot lists the matching pull requests, newest
+	 * first and at most `options.limit` of them, in the same shape the list reads return for this provider where
+	 * the host allows it; `truncated` means more may match than were returned.
+	 *
+	 * A row matches only when its head branch is the target's `branch` AND its head repository is the base
+	 * repository itself (`headOwner` omitted) or the fork `headOwner` owns — a same-named branch in some other
+	 * fork is a different branch. A host that reads one target per request fans out with `mapSettledBounded`, so
+	 * one target's failure rejects only its own slot; GitHub/GHE alias up to 25 targets per request, and a request
+	 * that throws rejects only its own targets.
+	 */
+	protected getProviderPullRequestsForBranches?(
+		session: ProviderAuthenticationSession,
+		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
+		options: { currentAccount?: { id: string; username?: string }; limit: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined>;
+
 	/** The PR twin of {@link countIssuesResult}: counts each scope's pull requests, transferring none. */
 	async countPullRequestsResult(
 		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: PullRequestSearchCriteria }[],

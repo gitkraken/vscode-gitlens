@@ -28,6 +28,7 @@ import {
 } from '../../errors.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
+import { selectBranchPullRequests } from '../utils/providerPaging.js';
 import { selectGitLabUserForCommit } from './gitlab.utils.js';
 import type {
 	GitLabCommit,
@@ -44,6 +45,7 @@ import {
 	fromGitLabMergeRequest,
 	fromGitLabMergeRequestREST,
 	fromGitLabMergeRequestState,
+	getRepoNamespace,
 	toGitLabMergeRequestState,
 } from './models.js';
 
@@ -746,6 +748,130 @@ export class GitLabApi implements Disposable {
 		} catch (ex) {
 			if (!options?.strict && ex instanceof RequestNotFoundError) return undefined;
 
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
+	 * The iids of the merge requests into `owner/repo` whose source is `branch`, in any state, newest first, at most
+	 * `limit`: from the project itself when `headOwner` is omitted, otherwise from a fork in the `headOwner`
+	 * namespace. Only the iids, so a caller resolves the rows through the same read as its by-number lookups.
+	 *
+	 * Keyed on the source branch NAME, so a merged request whose branch was deleted still matches. Strict like
+	 * {@link getPullRequest}'s `strict`: an empty list means GitLab answered, a `null` project included; a 404 or
+	 * an empty response means the endpoint is wrong and throws. Requests from a deleted fork carry no source
+	 * project and so match nothing.
+	 */
+	@trace({
+		args: (provider, token, owner, repo, branch) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			branch: branch,
+		}),
+	})
+	async getPullRequestNumbersForBranch(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		branch: string,
+		options: { baseUrl?: string; headOwner?: string; limit: number },
+		cancellation?: AbortSignal,
+	): Promise<{ numbers: number[]; truncated: boolean }> {
+		const scope = getScopedLogger();
+
+		interface MergeRequestHead {
+			iid: string;
+			updatedAt: string;
+			sourceBranch: string;
+			project: { id: string };
+			sourceProject: { id: string; fullPath: string } | null;
+		}
+
+		interface QueryResult {
+			data: {
+				project: {
+					mergeRequests: {
+						count: number;
+						pageInfo: { hasNextPage: boolean };
+						nodes: MergeRequestHead[];
+					} | null;
+				} | null;
+			} | null;
+		}
+
+		try {
+			const query = `query getMergeRequestsForBranch(
+	$fullPath: ID!
+	$branches: [String!]
+	$limit: Int!
+) {
+	project(fullPath: $fullPath) {
+		mergeRequests(sourceBranches: $branches, state: all, sort: UPDATED_DESC, first: $limit) {
+			count
+			pageInfo {
+				hasNextPage
+			}
+			nodes {
+				iid
+				updatedAt
+				sourceBranch
+				project {
+					id
+				}
+				sourceProject {
+					id
+					fullPath
+				}
+			}
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				options.baseUrl,
+				query,
+				{ fullPath: `${owner}/${repo}`, branches: [branch], limit: options.limit },
+				cancellation,
+				scope,
+			);
+			if (rsp?.data == null) throw new Error('GitLab returned no data for the merge requests by branch');
+
+			const project = rsp.data.project;
+			if (project == null) return { numbers: [], truncated: false };
+
+			const connection = project.mergeRequests;
+			if (connection == null) {
+				throw new Error(`GitLab returned no merge requests for ${owner}/${repo}:${branch}`);
+			}
+
+			const headOwner = options.headOwner;
+			const { values, truncated } = selectBranchPullRequests(connection.nodes, {
+				matchesHead: mr => {
+					if (mr.sourceBranch !== branch || mr.sourceProject == null) return false;
+					if (headOwner == null) return mr.sourceProject.id === mr.project.id;
+
+					return (
+						mr.sourceProject.id !== mr.project.id &&
+						equalsIgnoreCase(getRepoNamespace(mr.sourceProject.fullPath), headOwner)
+					);
+				},
+				updatedAt: mr => Date.parse(mr.updatedAt),
+				map: mr => {
+					const iid = Number(mr.iid);
+					if (!Number.isSafeInteger(iid)) throw new Error(`GitLab returned a merge request iid '${mr.iid}'`);
+
+					return iid;
+				},
+				limit: options.limit,
+				more: connection.pageInfo.hasNextPage || connection.count > connection.nodes.length,
+			});
+			return { numbers: values, truncated: truncated };
+		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
 		}
 	}

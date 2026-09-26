@@ -61,6 +61,8 @@ import {
 	collectProviderPagedResult,
 	flatSettledResultsOrThrow,
 	mergeCollectionMetadata,
+	resolveBranchPullRequests,
+	selectBranchPullRequests,
 } from './utils/providerPaging.js';
 
 function getAzureRepositoryIdentity(repo: Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project'>): {
@@ -656,6 +658,60 @@ export abstract class AzureDevOpsIntegrationBase<
 				? fromProviderPullRequest(pr, this, { currentAccount: options?.currentAccount })
 				: undefined;
 		});
+	}
+
+	/**
+	 * Two steps, because provider-apis has no source-branch filter: a direct Azure read finds each branch's matching
+	 * pull request ids, one request per target, then {@link getProviderPullRequestsBatch} resolves them — so a row is
+	 * the one `getPullRequestsBatch` returns for that pull request, `url` and `authoredByMe` included.
+	 *
+	 * Serves only a branch in the base repository: an Azure DevOps fork shares its organization and is identified
+	 * by repository, so `headOwner` can't name one — the manager read refuses one that names a different owner.
+	 */
+	protected override async getProviderPullRequestsForBranches(
+		session: ProviderAuthenticationSession,
+		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
+		options: { currentAccount?: { id: string; username?: string }; limit: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined> {
+		const api = await this.getProvidersApi();
+		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
+		const baseUrl = getSelfManagedApiBaseUrl(this.id, session.domain || this.domain, session.protocol);
+
+		const found = await mapSettledBounded(targets, providerFanOutConcurrency, async t => {
+			if (t.project == null || t.headOwner != null) {
+				throw new Error(`Azure DevOps needs a project and no head owner to find ${t.branch}'s pull requests`);
+			}
+
+			// One past the cap, since Azure reports no total to tell a full page from a truncated one.
+			const rows = await api.getAzurePullRequestsForBranch(
+				tokenWithInfo,
+				{ namespace: t.owner, project: t.project, name: t.repo },
+				t.branch,
+				options.limit + 1,
+				{ isPAT: apiOptions.isPAT, baseUrl: baseUrl },
+			);
+			if (rows == null) return { numbers: [], truncated: false };
+
+			const ref = `refs/heads/${t.branch}`;
+			const { values, truncated } = selectBranchPullRequests(rows, {
+				matchesHead: pr => pr.sourceRefName === ref && pr.forkSource == null,
+				// Azure reports no update time; this is the one the batch read's rows carry.
+				updatedAt: pr => Date.parse(pr.closedDate || pr.creationDate),
+				map: pr => pr.pullRequestId,
+				limit: options.limit,
+				more: rows.length > options.limit,
+			});
+			return { numbers: values, truncated: truncated };
+		});
+		return resolveBranchPullRequests(targets, found, coordinates =>
+			this.getProviderPullRequestsBatch(
+				session,
+				coordinates,
+				{ currentAccount: options.currentAccount },
+				cancellation,
+			),
+		);
 	}
 
 	public override async getRepoInfo(repo: {

@@ -51,7 +51,11 @@ import {
 	toProviderPullRequestStates,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
-import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
+import {
+	collectProviderPagedResult,
+	mergeCollectionMetadata,
+	resolveBranchPullRequests,
+} from './utils/providerPaging.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.GitLab];
 const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
@@ -363,6 +367,46 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 
 			return undefined;
 		});
+	}
+
+	/**
+	 * Two steps, because provider-apis has no source-branch filter: GitLens' own GitLab client finds each branch's
+	 * matching iids, one request per target, then {@link getProviderPullRequestsBatch} resolves them — so a row is
+	 * the one `getPullRequestsBatch` returns for that merge request, `url` and `authoredByMe` included.
+	 */
+	protected override async getProviderPullRequestsForBranches(
+		session: ProviderAuthenticationSession,
+		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
+		options: { currentAccount?: { id: string; username?: string }; limit: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined> {
+		const gitlab = await this.authenticationService.apis.gitlab;
+		if (gitlab == null) return undefined;
+
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+		const baseUrl = getSelfManagedApiBaseUrl(this.id, session.domain || this.domain, session.protocol);
+		// The session's own host and protocol, as the batch read's confirming read uses.
+		const apiBaseUrl = baseUrl != null ? `${baseUrl}/api` : this.apiBaseUrl;
+
+		const found = await mapSettledBounded(targets, providerFanOutConcurrency, t =>
+			gitlab.getPullRequestNumbersForBranch(
+				this,
+				tokenWithInfo,
+				t.owner,
+				t.repo,
+				t.branch,
+				{ baseUrl: apiBaseUrl, headOwner: t.headOwner, limit: options.limit },
+				cancellation,
+			),
+		);
+		return resolveBranchPullRequests(targets, found, coordinates =>
+			this.getProviderPullRequestsBatch(
+				session,
+				coordinates,
+				{ currentAccount: options.currentAccount },
+				cancellation,
+			),
+		);
 	}
 
 	public override async getRepoInfo(repo: {

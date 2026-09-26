@@ -172,6 +172,34 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		);
 	}
 
+	/**
+	 * One request per target, settled independently, through our own client: provider-apis' pull request list has
+	 * no source-branch filter. Serves only a branch in the base repository — the manager read refuses a `headOwner`
+	 * naming another owner here, since Bitbucket Data Center finds a branch's pull requests only through the
+	 * repository the branch lives in, and a fork's slug can't be derived from its owner.
+	 */
+	protected override async getProviderPullRequestsForBranches(
+		session: ProviderAuthenticationSession,
+		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
+		options: { currentAccount?: { id: string; username?: string }; limit: number },
+		_cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined> {
+		const api = await this.authenticationService.apis.bitbucket;
+		if (api == null) return undefined;
+
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+		return mapSettledBounded(targets, providerFanOutConcurrency, async t => {
+			if (t.headOwner != null) {
+				throw new Error(`Bitbucket Data Center can't find ${t.branch}'s pull requests in a fork by its owner`);
+			}
+
+			return api.getServerPullRequestsForBranch(this, tokenWithInfo, t.owner, t.repo, t.branch, this.apiBaseUrl, {
+				limit: options.limit,
+				currentAccount: options.currentAccount,
+			});
+		});
+	}
+
 	protected override async getProviderIssue(
 		_session: AuthenticationSession,
 		_repo: BitbucketRepositoryDescriptor,

@@ -227,6 +227,7 @@ export type { PullRequestSearchCapabilities, PullRequestSearchCriteria } from '.
 export type { IssueCountResult, IssueCountScope } from './reads/counts.js';
 export type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
 export type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
+export type { PullRequestBranchResult, PullRequestBranchTarget } from './reads/pullRequestBranches.js';
 // The current-account read's result, and the account shape every identity-bearing read already returns.
 export type { CurrentAccountResult } from './reads/currentAccount.js';
 export type { Account } from '@gitlens/git/models/author.js';

@@ -19,6 +19,7 @@ import type { CurrentAccountResult } from './reads/currentAccount.js';
 import type { SupportedFilters } from './reads/filters.js';
 import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
 import type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
+import type { PullRequestBranchResult, PullRequestBranchTarget } from './reads/pullRequestBranches.js';
 import type {
 	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
@@ -675,6 +676,44 @@ export interface IntegrationManager {
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
 	}): Promise<ProviderResult<PullRequestBatchResult>>;
+	/**
+	 * Finds, for each branch, every pull request whose head is that branch — in any state (open, closed or merged),
+	 * most recently updated first, up to 10 per branch. "Which pull requests does this branch have", answered
+	 * without the user's relationship to them, so a teammate's pull request from the user's branch is found too,
+	 * which the account-wide sweeps can't do.
+	 *
+	 * A target names the repository the pull requests are opened AGAINST, the head branch's short name, and, for a
+	 * branch in a fork, `headOwner` (the base repository's own owner, or none, means the base repository). A pull
+	 * request matches only when its head repository is the right one — the base repository itself, or the fork
+	 * `headOwner` owns — so a `main` in the base repository never claims every fork's `main`. The match is on the
+	 * head branch NAME, so a merged pull request whose branch was since deleted is still found.
+	 *
+	 * Same result contract as {@link getPullRequestsBatch}, echoed under the caller's own `key`:
+	 * - `{ key, pullRequests: [...] }` — found. `truncated` means more may match than were returned.
+	 * - `{ key, pullRequests: [] }` with no `truncated` — PROVEN NONE: the host answered and nothing matched, or the
+	 *   base repository doesn't exist or isn't visible to this connection. Safe to cache.
+	 * - No item for a key, with `fetchFailed` and a warning — the read could not check. Never treat that as none.
+	 *
+	 * UNCACHED, and not routed through the integration's cached single pull request read for a branch (see
+	 * `IntegrationCacheProvider.getPullRequestForBranch`), which answers one pull request and, on several hosts,
+	 * looks the branch ref up and so answers "none" once a merged branch is deleted. The caller owns caching.
+	 *
+	 * Request cost: GitHub/GHE answer up to 25 targets per request (one aliased GraphQL document, fetching up to 10
+	 * full pull requests per target). Every other host costs one request per target, run with bounded concurrency;
+	 * GitLab and Azure DevOps then resolve each matched pull request — typically 0–1 per branch — through
+	 * {@link getPullRequestsBatch}'s own read, at that read's cost, so their rows are exactly its rows. Rows carry
+	 * the list reads' fields on GitHub/GHE and Bitbucket Data Center and Bitbucket Cloud's by-id read's on
+	 * Bitbucket Cloud. A `headOwner` naming another owner is refused on Bitbucket Data Center and Azure DevOps,
+	 * where a fork can't be found by its owner.
+	 */
+	getPullRequestsForBranches(options: {
+		providerId: IntegrationIds;
+		/** Each `key` must be unique — a duplicate refuses the whole call, since keys identify results. */
+		targets: readonly PullRequestBranchTarget[];
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+	}): Promise<ProviderResult<PullRequestBranchResult>>;
 	/**
 	 * How many pull requests match each scope, fetching none of them — the PR twin of {@link countIssues}, behind a
 	 * "this will fetch ~N pull requests" preview and a live count next to an unapplied filter. Same cost model,

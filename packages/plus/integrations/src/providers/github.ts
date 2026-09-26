@@ -787,6 +787,41 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	}
 
 	/**
+	 * Finds each branch's pull requests by aliasing a head-ref-name query per target — see
+	 * {@link GitHubApi.getPullRequestsForBranches} — chunked and converted exactly as
+	 * {@link getProviderPullRequestsBatch} is, with the same per-target and per-chunk failure isolation.
+	 */
+	protected override async getProviderPullRequestsForBranches(
+		session: ProviderAuthenticationSession,
+		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
+		options: { currentAccount?: { id: string; username?: string }; limit: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined> {
+		const github = await this.authenticationService.apis.github;
+		if (github == null) return undefined;
+
+		const currentAccount = options.currentAccount;
+		return readChunked(
+			targets,
+			pullRequestsBatchChunkSize,
+			chunkTargets =>
+				github.getPullRequestsForBranches(
+					this,
+					toTokenWithInfo(this.id, session),
+					chunkTargets.map(t => ({ owner: t.owner, repo: t.repo, branch: t.branch, headOwner: t.headOwner })),
+					{ baseUrl: this.apiBaseUrl, limit: options.limit },
+					cancellation,
+				),
+			(found): { pullRequests: PullRequestShape[]; truncated: boolean } => ({
+				pullRequests: found.pullRequests.map(pr =>
+					fromProviderPullRequest(toProviderPullRequest(pr), this, { currentAccount: currentAccount }),
+				),
+				truncated: found.truncated,
+			}),
+		);
+	}
+
+	/**
 	 * Counts several pull-request scopes in ONE request. Like {@link countProviderIssues}, GitHub's `search`
 	 * reports `issueCount` on a zero-node selection, so a count preview costs no pull-request transfer.
 	 */

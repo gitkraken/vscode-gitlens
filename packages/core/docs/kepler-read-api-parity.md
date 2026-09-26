@@ -214,6 +214,20 @@ read's own, differently-identified row. The read is uncached and does not go thr
 `IntegrationCacheProvider.getPullRequest`, whose key carries no connection, so the consumer's cache is the only
 one holding the answer.
 
+**Pull requests by branch.** `getPullRequestsForBranches` answers "which pull requests have this branch as their
+head, in this repository" with no relationship to the user. Before it, Kepler correlated a local branch by matching
+the account-wide sweep, which holds only pull requests the user authored, is assigned or reviews — so a teammate's
+pull request from the user's branch never correlated — and a cold card paid for that whole sweep before showing
+anything. It matches on the head branch name in every state, so a merged pull request whose branch was deleted is
+still found, and on the head repository, the base one or the `headOwner` fork, so a same-named branch in another
+fork never correlates; a `headOwner` equal to the owner means the base repository, so Kepler can pass the owner of
+the remote the branch was pushed to. Up to 10 per branch; an empty list without `truncated` is a proven none a
+consumer can cache, and a failed target is dropped with `fetchFailed`. GitHub/GHE answer up to 25 branches per
+request, and every other host costs one request per branch. GitLab and Azure DevOps resolve each match (typically
+0–1 per branch) through `getPullRequestsBatch`'s own read, so a pull request's `url`, and so its identity, is the
+same whichever read found it. Bitbucket DC and Azure DevOps serve base-repository branches only and refuse a
+`headOwner` naming another owner.
+
 **Current account resolution.** `getCurrentAccount` answers who a git host connection is signed in as, on
 demand. Before it, Kepler learned the viewer's account only when its `IntegrationManagerCacheProvider`
 `getCurrentAccount` hook fired during some other read, so "is this pull request mine" could stay unanswered until

@@ -185,6 +185,29 @@ export class BitbucketIntegration extends GitHostIntegration<
 		);
 	}
 
+	/**
+	 * One request per target, settled independently, through our own client: provider-apis' pull request list has
+	 * no source-branch filter.
+	 */
+	protected override async getProviderPullRequestsForBranches(
+		session: ProviderAuthenticationSession,
+		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
+		options: { currentAccount?: { id: string; username?: string }; limit: number },
+		_cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined> {
+		const api = await this.authenticationService.apis.bitbucket;
+		if (api == null) return undefined;
+
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+		return mapSettledBounded(targets, providerFanOutConcurrency, t =>
+			api.getPullRequestsForBranch(this, tokenWithInfo, t.owner, t.repo, t.branch, this.apiBaseUrl, {
+				headOwner: t.headOwner,
+				limit: options.limit,
+				currentAccount: options.currentAccount,
+			}),
+		);
+	}
+
 	protected override async getProviderIssue(
 		session: ProviderAuthenticationSession,
 		repo: BitbucketRepositoryDescriptor,

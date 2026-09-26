@@ -95,6 +95,8 @@ import { listIssuesPage } from './reads/issues.js';
 import { listIssueTrackerIssuesPage } from './reads/issueTracker.js';
 import type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
 import { getPullRequestsBatch } from './reads/pullRequestBatch.js';
+import type { PullRequestBranchResult, PullRequestBranchTarget } from './reads/pullRequestBranches.js';
+import { getPullRequestsForBranches } from './reads/pullRequestBranches.js';
 import { listPullRequestsPage } from './reads/pullRequests.js';
 import { resolveRepository } from './reads/resolveRepository.js';
 import { searchIssuesPage } from './reads/searchIssues.js';
@@ -1184,6 +1186,19 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 	}): Promise<ProviderResult<PullRequestBatchResult>> {
 		return getPullRequestsBatch(this, options);
+	}
+
+	async getPullRequestsForBranches(options: {
+		providerId: IntegrationIds;
+		targets: readonly PullRequestBranchTarget[];
+		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
+	}): Promise<ProviderResult<PullRequestBranchResult>> {
+		return getPullRequestsForBranches(this, options);
 	}
 
 	/**

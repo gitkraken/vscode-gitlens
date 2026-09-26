@@ -126,6 +126,7 @@ it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side fai
 | `countIssues`                | `IssueCountResult`        | How many match each scope, fetching none of them. See §5.1.                        |
 | `getIssuesBatch`             | `IssueBatchResult`        | Resolves N issues by coordinate or tracker identifier; an absence is proven.       |
 | `getPullRequestsBatch`       | `PullRequestBatchResult`  | Resolves N PRs by `(owner, repo, number)`, in any state; an absence is proven.     |
+| `getPullRequestsForBranches` | `PullRequestBranchResult` | Each branch's PRs, in any state and fork-aware; an empty list is a proven none.    |
 | `listIssueTrackerIssuesPage` | `IssueShape`              | Jira / Linear / Trello (issues live under resource → project).                     |
 | `sweepPullRequests`          | `ProviderSweepResult`     | Drains **every** page across providers (`maxPages`, default 100).                  |
 | `sweepClosedPullRequests`    | `ProviderSweepResult`     | Same, pinned to `['closed','merged']`.                                             |
@@ -154,6 +155,21 @@ request read in provider-apis, so those rows come from GitLens' own REST read an
 and the clone URLs. On GitLab, a miss the confirming read then contradicts fails the target rather than answering
 with the confirming read's own, differently-identified row. It is uncached and bypasses the
 host's `IntegrationCacheProvider.getPullRequest`, so the caller owns caching the answer.
+
+`getPullRequestsForBranches` answers "which pull requests have this branch as their head" without the user's
+relationship to them, so unlike the sweeps it finds a teammate's pull request from the user's branch. A target names
+the repository the pull requests are opened against, the branch's short name and, for a branch in a fork,
+`headOwner`; one equal to the target's owner means the base repository. A pull request matches only when its head
+repository is that base repository or that fork, so a `main` never claims every fork's `main`. The match is on the
+head branch name in every state, so a merged pull request whose branch was deleted is still found. Each target
+returns up to 10, most recently updated first. An empty list without `truncated` is a proven none, a missing base
+repository included; `truncated` means more may match than were returned. GitHub/GHE answer up to 25 targets per
+request, and every other host costs one request per target. GitLab and Azure DevOps, where that request only finds
+the matching numbers, then resolve each match (typically 0–1 per branch) through `getPullRequestsBatch`'s own read,
+so their rows are exactly its rows; a match that read can't check fails its whole branch. Rows carry the list reads'
+fields on GitHub/GHE and Bitbucket DC and the by-id read's on Bitbucket Cloud. Bitbucket DC and Azure DevOps refuse a
+`headOwner` naming another owner, since neither can find a fork by its owner. It is uncached and bypasses
+`IntegrationCacheProvider.getPullRequestForBranch`.
 
 `getCurrentAccount` answers who a git host connection is signed in as. It returns a single `account?` rather
 than `items`, and `account` is never absent without a warning: no session, a failed request, or an issue tracker,
@@ -581,11 +597,16 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | `countIssues`                |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
 | `getIssuesBatch`             |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |  ✓   |   ✓    |   ✗    |
 | `getPullRequestsBatch`       |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  ✗   |   ✗    |   ✗    |
+| `getPullRequestsForBranches` |      ✓       |          ✓           |     ✓     |      ✓¹      |           ✓¹            |  ✗   |   ✗    |   ✗    |
 | Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |  ✓   |   ✓    |   ✓    |
 | `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |  ✓   |   ✓    |   ✓    |
 | `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  ✗   |   ✗    |   ✗    |
 | `resolveRepository`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  ✗   |   ✗    |   ✗    |
 | `getCurrentAccount`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  ✗   |   ✗    |   ✗    |
+
+¹ Branches in the base repository only: a target whose `headOwner` names another owner is refused, since Bitbucket DC
+finds a branch's pull requests only through the repository the branch lives in, and an Azure DevOps fork shares its
+organization.
 
 Repo-scoped PR filters: GitHub/GHE `Author, Assignee, ReviewRequested, Mention` · GitLab `Author, Assignee,
 ReviewRequested` · Bitbucket + Bitbucket DC `Author, ReviewRequested` · Azure `Author, Assignee,
