@@ -4525,6 +4525,141 @@ export class GitHubApi {
 	}
 
 	/**
+	 * Finds, for several branches in one request, every pull request whose head is that branch — in any state,
+	 * most recently updated first, up to `limit` per branch. Each target names the BASE repository the pull
+	 * requests are opened against, the head branch's short name and, for a branch that lives in a fork,
+	 * `headOwner`, the fork's owner.
+	 *
+	 * Keyed on the head ref NAME (`repository.pullRequests(headRefName:)`) rather than on the ref itself
+	 * (`repository.ref(qualifiedName:).associatedPullRequests`, which {@link getPullRequestForBranch} uses): a
+	 * merged pull request's branch is usually deleted afterwards, and the ref lookup then answers "none" for a
+	 * pull request that exists.
+	 *
+	 * `headRefName` matches every fork's branch of that name too, so rows are kept only when their head
+	 * repository is the base repository itself (`headOwner` omitted) or a fork owned by `headOwner` — otherwise
+	 * a `main` in the base repository would claim every fork's `main`. That filter runs after the server's
+	 * `limit`, so `truncated` is set whenever the server matched more rows than it returned, since any of the
+	 * unfetched ones might have passed it.
+	 *
+	 * Returns POSITIONALLY, with the same per-alias rules as {@link getPullRequestsBatch}: a missing base
+	 * repository (NOT_FOUND on a null repository) is a PROVEN "none" — an empty list — while any other error on
+	 * a target's alias rejects only that target, and a whole-request failure still throws.
+	 */
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async getPullRequestsForBranches(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		targets: readonly { owner: string; repo: string; branch: string; headOwner?: string }[],
+		options: { baseUrl?: string; avatarSize?: number; limit: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<{ pullRequests: PullRequest[]; truncated: boolean }>[]> {
+		const scope = getScopedLogger();
+		if (targets.length === 0) return [];
+
+		interface BranchPullRequest extends GitHubPullRequest {
+			headRepositoryOwner: { login: string } | null;
+		}
+
+		const params = targets
+			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$h${i}: String!`)
+			.join('\n\t\t\t\t');
+		const fields = targets
+			.map(
+				(_, i) => `b${i}: repository(owner: $o${i}, name: $n${i}) {
+					pullRequests(headRefName: $h${i}, states: [OPEN, CLOSED, MERGED], first: $limit, orderBy: {field: UPDATED_AT, direction: DESC}) {
+						totalCount
+						nodes {
+							${gqlPullRequestFragment}
+							${gqlPullRequestStackFragmentFor(options)}
+							headRepositoryOwner {
+								login
+							}
+						}
+					}
+				}`,
+			)
+			.join('\n\t\t\t\t');
+		const query = `query getPullRequestsForBranches(
+				${params}
+				$limit: Int!
+				$avatarSize: Int
+			) {
+				${fields}
+			}`;
+
+		const variables: Record<string, unknown> = {
+			baseUrl: options.baseUrl,
+			avatarSize: options.avatarSize,
+			limit: options.limit,
+		};
+		targets.forEach((t, i) => {
+			variables[`o${i}`] = t.owner;
+			variables[`n${i}`] = t.repo;
+			variables[`h${i}`] = t.branch;
+		});
+
+		try {
+			// `'aliased'`, for the same reason as `getPullRequestsBatch`: a missing repository, or one target
+			// refused on its own (e.g. SAML), must settle only that target.
+			const rsp = await this.graphql<
+				Record<
+					string,
+					| { pullRequests?: { totalCount: number; nodes: (BranchPullRequest | null)[] } | null }
+					| null
+					| undefined
+				>
+			>(provider, token, query, variables, scope, cancellation, 'aliased');
+			// No data at all proves nothing about any slot, so it must not read as a batch of "none"s.
+			if (rsp?.data == null) throw new Error('GitHub returned no data for the pull requests by branch');
+
+			return targets.map((t, i): PromiseSettledResult<{ pullRequests: PullRequest[]; truncated: boolean }> => {
+				const alias = `b${i}`;
+				const repository = rsp.data[alias];
+
+				const verdict = getAliasErrorVerdict(rsp.errors, alias, repository);
+				if (verdict != null && verdict !== 'absent') return verdict;
+				if (repository == null) return { status: 'fulfilled', value: { pullRequests: [], truncated: false } };
+
+				const connection = repository.pullRequests;
+				if (connection == null) {
+					return {
+						status: 'rejected',
+						reason: new Error(`GitHub returned no pull requests for ${t.owner}/${t.repo}:${t.branch}`),
+					};
+				}
+
+				const headOwner = t.headOwner?.toLowerCase();
+				const nodes = connection.nodes.filter((pr): pr is BranchPullRequest => pr != null);
+				const matches = nodes.filter(
+					pr =>
+						pr.headRefName === t.branch &&
+						(headOwner == null
+							? !pr.isCrossRepository
+							: pr.isCrossRepository && pr.headRepositoryOwner?.login.toLowerCase() === headOwner),
+				);
+
+				try {
+					// `first: $limit` already caps `nodes`, so the matches never exceed `limit`.
+					const pullRequests = matches
+						.map(pr => fromGitHubPullRequest(pr, provider))
+						.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime());
+					return {
+						status: 'fulfilled',
+						value: { pullRequests: pullRequests, truncated: connection.totalCount > nodes.length },
+					};
+				} catch (ex) {
+					// Rejects rather than answering with the rows that did map: a list missing a live pull request
+					// would read as a complete answer the consumer caches.
+					scope?.warn(`failed to map pull requests; ${t.owner}/${t.repo}:${t.branch}, ex=${ex}`);
+					return { status: 'rejected', reason: ex };
+				}
+			});
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
 	 * The PR twin of {@link countIssues}: counts pull requests for several scopes in ONE request via aliased
 	 * `search` fields selecting only `issueCount` with `first: 0`. Same positional/undefined contract as the issue
 	 * count.

@@ -266,6 +266,6 @@ function fromGitLabMergeRequestRefs(pr: GitLabMergeRequestFull): PullRequestRefs
 	};
 }
 
-function getRepoNamespace(projectFullPath: string) {
+export function getRepoNamespace(projectFullPath: string): string {
 	return projectFullPath.split('/').slice(0, -1).join('/');
 }
