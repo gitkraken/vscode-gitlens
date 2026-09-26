@@ -8,6 +8,7 @@ import type {
 	TrelloList,
 } from '@gitkraken/provider-apis';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
+import { base64 } from '@gitlens/utils/base64.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
@@ -22,6 +23,7 @@ import {
 } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
+import type { AzurePullRequest } from './azure/models.js';
 import { requestBitbucketServerProjects, requestBitbucketServerRepositories } from './bitbucket-server/discovery.js';
 import {
 	countBitbucketServerPullRequests,
@@ -155,6 +157,7 @@ function isAzurePullRequestNotFoundResponse(ex: unknown): boolean {
 	return typeof typeKey === 'string' && azurePullRequestNotFoundTypeKeys.has(typeKey);
 }
 
+const azureDevOpsBaseUrl = 'https://dev.azure.com';
 const trelloBaseUrl = 'https://api.trello.com';
 
 /**
@@ -794,6 +797,47 @@ export class ProvidersApi {
 			}
 
 			return this.handleProviderError<ProviderPullRequest | undefined>(tokenWithInfo, e);
+		}
+	}
+
+	/**
+	 * Azure DevOps pull requests into a repository whose source is `refs/heads/{branch}`, in every status, as Azure
+	 * returns them, at most `top`. provider-apis' pull request list has no source-branch filter, so this asks Azure
+	 * directly, with the credential provider-apis would send.
+	 *
+	 * `undefined` only when Azure itself says the repository or project doesn't exist, by the same rule as
+	 * {@link getPullRequestForRepo}; every other failure, including a 404 that isn't that shape, throws.
+	 */
+	async getAzurePullRequestsForBranch(
+		tokenOptInfo: TokenOptInfo,
+		repo: { namespace: string; project: string; name: string },
+		branch: string,
+		top: number,
+		options: { isPAT?: boolean; baseUrl?: string },
+	): Promise<AzurePullRequest[] | undefined> {
+		const { tokenWithInfo } = await this.ensureProviderToken(tokenOptInfo);
+		const token = tokenWithInfo.accessToken;
+
+		const baseUrl = (options.baseUrl ?? azureDevOpsBaseUrl).replace(/\/$/, '');
+		const params = new URLSearchParams({
+			'searchCriteria.sourceRefName': `refs/heads/${branch}`,
+			'searchCriteria.status': 'all',
+			$top: String(top),
+		});
+
+		try {
+			const result = await this.request<{ value?: AzurePullRequest[] }>({
+				url: `${baseUrl}/${encodeURIComponent(repo.namespace)}/${encodeURIComponent(repo.project)}/_apis/git/repositories/${encodeURIComponent(repo.name)}/pullrequests?${params.toString()}`,
+				headers: { Authorization: options.isPAT ? `Basic ${base64(`:${token}`)}` : `Bearer ${token}` },
+			});
+			const pullRequests = result.body?.value;
+			if (pullRequests == null) throw new Error('Azure DevOps returned no pull requests');
+
+			return pullRequests;
+		} catch (e) {
+			if (isAzurePullRequestNotFoundResponse(e)) return undefined;
+
+			return this.handleProviderError<AzurePullRequest[] | undefined>(tokenWithInfo, e);
 		}
 	}
 

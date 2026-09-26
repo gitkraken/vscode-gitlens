@@ -455,14 +455,22 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 		// No host means no integration resolves at all, before any session is asked for.
 		const manager = createIntegrationManager(createFakeRuntime());
 
-		const result = await manager.getPullRequestsBatch({
-			providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
-			targets: [{ key: 'a', owner: 'o', repo: 'r', number: 1, project: 'p' }],
-		});
+		const [batch, branches] = await Promise.all([
+			manager.getPullRequestsBatch({
+				providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+				targets: [{ key: 'a', owner: 'o', repo: 'r', number: 1, project: 'p' }],
+			}),
+			manager.getPullRequestsForBranches({
+				providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+				targets: [{ key: 'a', owner: 'o', repo: 'r', project: 'p', branch: 'feature' }],
+			}),
+		]);
 
-		assert.deepEqual(result.items, []);
-		assert.equal(result.fetchFailed, true);
-		assert.equal(result.warnings[0]?.kind, 'no-connection');
+		for (const result of [batch, branches]) {
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.equal(result.warnings[0]?.kind, 'no-connection');
+		}
 
 		manager.dispose();
 	});
