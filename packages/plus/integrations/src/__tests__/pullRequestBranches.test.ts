@@ -18,7 +18,15 @@ import type { GetPullRequestForRepoFn } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
-import { connectedGitHub, connectedGitLab, primarySession, providerPr } from './sweepHelpers.js';
+import {
+	connectedAzure,
+	connectedBitbucket,
+	connectedBitbucketServer,
+	connectedGitHub,
+	connectedGitLab,
+	primarySession,
+	providerPr,
+} from './sweepHelpers.js';
 
 /**
  * The pull-requests-by-branch read: for each branch, every pull request whose head is that branch, in any state.
@@ -185,53 +193,6 @@ function sdkPullRequest(number: number): { data: ReturnType<typeof providerPr> }
 /** An error shaped like provider-apis' for an HTTP failure, which `ProvidersApi` classifies by `response`. */
 function sdkHttpError(status: number, body: unknown): Error {
 	return Object.assign(new Error(`(${status})`), { response: { status: status, body: body, headers: {} } });
-}
-
-async function connectedAzure(runtime: FakeRuntime): Promise<{ manager: Manager; azure: GitHostIntegration }> {
-	const manager = createIntegrationManager(runtime);
-	const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
-	(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
-		...primarySession('t'),
-		domain: 'dev.azure.com',
-	};
-	return { manager: manager, azure: azure };
-}
-
-async function connectedBitbucket(
-	runtime: FakeRuntime,
-): Promise<{ manager: Manager; integration: GitHostIntegration }> {
-	const manager = createIntegrationManager(runtime);
-	const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
-	(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
-		...primarySession('t'),
-		domain: 'bitbucket.org',
-	};
-	return { manager: manager, integration: bb };
-}
-
-async function connectedBitbucketServer(
-	runtime: FakeRuntime,
-): Promise<{ manager: Manager; integration: GitHostIntegration }> {
-	await runtime.storage.store('integrations:configured', {
-		[GitSelfManagedHostIntegrationId.BitbucketServer]: [
-			{
-				id: 'bbs-1',
-				cloud: true,
-				integrationId: GitSelfManagedHostIntegrationId.BitbucketServer,
-				domain: 'https://bbs.example.com',
-				scopes: 'repo',
-				primary: true,
-			},
-		],
-	});
-	const manager = createIntegrationManager(runtime);
-	const bbs = await manager.get(GitSelfManagedHostIntegrationId.BitbucketServer, 'bbs.example.com');
-	assert.ok(bbs != null);
-	(bbs as unknown as { _session: ProviderAuthenticationSession })._session = {
-		...primarySession('t'),
-		domain: 'bbs.example.com',
-	};
-	return { manager: manager, integration: bbs };
 }
 
 /** A GitHub GraphQL pull request node from `o/a`'s `feature` branch, or from a fork's `feature` when `forkOwner`. */
