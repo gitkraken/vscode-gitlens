@@ -37,6 +37,11 @@ import {
 	parseRawBitbucketAuthor,
 } from './models.js';
 
+/** `handleRequestError` maps 410 and 422 to the same error as a 404, but only a 404 proves the resource absent. */
+function isNotFoundResponse(ex: unknown): boolean {
+	return RequestNotFoundError.is(ex) && ex.original instanceof ProviderFetchError && ex.original.status === 404;
+}
+
 export class BitbucketApi implements Disposable {
 	private readonly _disposable: Disposable | undefined;
 
@@ -247,25 +252,11 @@ export class BitbucketApi implements Disposable {
 
 		if (options?.type === undefined || options?.type === 'pullrequest') {
 			try {
-				const prResponse = await this.request<BitbucketPullRequest>(
-					provider,
-					token,
-					baseUrl,
-					`repositories/${owner}/${repo}/pullrequests/${id}?fields=%2Bvalues.reviewers,%2Bvalues.participants`,
-					{
-						method: 'GET',
-					},
-					scope,
-				);
-
-				if (prResponse) {
-					return fromBitbucketPullRequest(prResponse, provider);
-				}
+				const pr = await this.getPullRequest(provider, token, owner, repo, id, baseUrl);
+				if (pr != null) return pr;
 			} catch (ex) {
-				if (ex.original?.status !== 404) {
-					scope?.error(ex);
-					return undefined;
-				}
+				scope?.error(ex);
+				return undefined;
 			}
 		}
 
@@ -326,7 +317,86 @@ export class BitbucketApi implements Disposable {
 		const scope = getScopedLogger();
 
 		try {
-			const prResponse = await this.request<BitbucketServerPullRequest>(
+			return await this.getServerPullRequest(provider, token, owner, repo, id, baseUrl);
+		} catch (ex) {
+			scope?.error(ex);
+			return undefined;
+		}
+	}
+
+	/**
+	 * A Bitbucket Cloud pull request by id. Strict, unlike {@link getIssueOrPullRequest}: `undefined` means a 404,
+	 * and every other failure throws, so the answer can be cached as a proven absence.
+	 */
+	@trace({
+		args: (provider, token, owner, repo, id, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			id: id,
+			baseUrl: baseUrl,
+		}),
+	})
+	public async getPullRequest(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		id: string,
+		baseUrl: string,
+		options?: { currentAccount?: { id: string; username?: string } },
+	): Promise<PullRequest | undefined> {
+		const scope = getScopedLogger();
+
+		try {
+			const pr = await this.request<BitbucketPullRequest>(
+				provider,
+				token,
+				baseUrl,
+				`repositories/${owner}/${repo}/pullrequests/${id}?fields=%2Bvalues.reviewers,%2Bvalues.participants`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+			if (pr == null) throw new Error(`Bitbucket returned no pull request for ${owner}/${repo}#${id}`);
+
+			return fromBitbucketPullRequest(pr, provider, { currentAccount: options?.currentAccount });
+		} catch (ex) {
+			if (isNotFoundResponse(ex)) return undefined;
+
+			throw ex;
+		}
+	}
+
+	/**
+	 * A Bitbucket Data Center pull request by id. Strict, unlike {@link getServerPullRequestById}: `undefined` means
+	 * a 404, and every other failure throws, so the answer can be cached as a proven absence.
+	 */
+	@trace({
+		args: (provider, token, owner, repo, id, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			id: id,
+			baseUrl: baseUrl,
+		}),
+	})
+	public async getServerPullRequest(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		id: string,
+		baseUrl: string,
+		options?: { currentAccount?: { id: string; username?: string } },
+	): Promise<PullRequest | undefined> {
+		const scope = getScopedLogger();
+
+		try {
+			const pr = await this.request<BitbucketServerPullRequest>(
 				provider,
 				token,
 				baseUrl,
@@ -336,20 +406,16 @@ export class BitbucketApi implements Disposable {
 				},
 				scope,
 			);
+			if (pr == null) throw new Error(`Bitbucket returned no pull request for ${owner}/${repo}#${id}`);
 
-			if (prResponse) {
-				const providersPr = normalizeBitbucketServerPullRequest(prResponse);
-				const gitlensPr = fromProviderPullRequest(providersPr, provider);
-				return gitlensPr;
-			}
+			return fromProviderPullRequest(normalizeBitbucketServerPullRequest(pr), provider, {
+				currentAccount: options?.currentAccount,
+			});
 		} catch (ex) {
-			if (ex.original?.status !== 404) {
-				scope?.error(ex);
-				return undefined;
-			}
-		}
+			if (isNotFoundResponse(ex)) return undefined;
 
-		return undefined;
+			throw ex;
+		}
 	}
 
 	@trace({

@@ -480,6 +480,11 @@ export type GetPullRequestsForRepoFn = (
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderPullRequest[]; pageInfo?: PageInfo }>;
 
+export type GetPullRequestForRepoFn = (
+	input: { repo: ProviderRepoInput; number: number; includeRemoteInfo?: boolean },
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderPullRequest | null }>;
+
 export type GetPullRequestsForUserFn = (
 	input: GetPullRequestsForUserInput | GetPullRequestsAssociatedWithUserInput,
 	options?: EnterpriseOptions,
@@ -738,6 +743,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getRepoOfProjectFn?: GetRepoOfProjectFn;
 	getPullRequestsForReposFn?: GetPullRequestsForReposFn;
 	getPullRequestsForRepoFn?: GetPullRequestsForRepoFn;
+	getPullRequestForRepoFn?: GetPullRequestForRepoFn;
 	getPullRequestsForUserFn?: GetPullRequestsForUserFn;
 	getGitLabPullRequestsForUserAssociationFn?: GetGitLabPullRequestsForUserAssociationFn;
 	getPullRequestsForAzureProjectsFn?: GetPullRequestsForAzureProjectsFn;

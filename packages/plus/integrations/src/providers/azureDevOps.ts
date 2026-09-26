@@ -6,6 +6,7 @@ import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/mo
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestShape,
 	PullRequestState,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
@@ -780,6 +781,33 @@ export abstract class AzureDevOpsIntegrationBase<
 			rev,
 			getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo),
 		);
+	}
+
+	/**
+	 * One request per target, settled independently so one target's failure rejects only its own slot; converted
+	 * like the repo-scoped list rows — not through {@link fromAzureProviderPullRequest}, which only the
+	 * account-wide searches use.
+	 */
+	protected override async getProviderPullRequestsBatch(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { currentAccount?: { id: string; username?: string } } | undefined,
+		_cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
+		const api = await this.getProvidersApi();
+		const { tokenWithInfo } = this.getApiOptions(session);
+
+		return mapSettledBounded(coordinates, providerFanOutConcurrency, async c => {
+			const pr = await api.getPullRequestForRepo(
+				tokenWithInfo,
+				{ namespace: c.owner, name: c.repo, project: c.project },
+				c.number,
+				{ ...this.getCollectionApiOptions(session, c.owner), includeRemoteInfo: true },
+			);
+			return pr != null
+				? fromProviderPullRequest(pr, this, { currentAccount: options?.currentAccount })
+				: undefined;
+		});
 	}
 
 	public override async getRepoInfo(repo: {

@@ -234,6 +234,7 @@ export type {
 	PullRequestCountResult,
 	PullRequestCountScope,
 } from './reads/counts.js';
+export type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
 export type { TrackerIssueResult } from './reads/trackerIssue.js';
 // Cross-provider PR/issue state filters (string unions in the git models).
 export type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
