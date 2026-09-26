@@ -178,25 +178,71 @@ which excludes unassigned issues. A provider that declares no filtered search ke
 See the note in `reads/broaden.ts` and
 [`integrations.md` §9](./integrations.md#9-per-provider-behavior-worth-designing-around).
 
-**Batch issue resolution (#5802).** `getIssuesBatch` resolves N `(owner, repo, number)` coordinates in one
-request, for the identity question a search cannot answer: "which issue does this branch name reference".
-It aliases the point read rather than a search, so there is no result ceiling and no ordering — and an
-absent slot is a PROVEN absence rather than "not found within a page budget", which is what lets a consumer
-CACHE a miss. A target whose chunk failed is not returned at all, so the two stay distinguishable; caching a
-failure as an absence is the bug that distinction prevents. GitHub/GHE only, matching `countIssues`.
+**Batch issue resolution (#5802, #5810).** `getIssuesBatch` resolves N issues by identity in one call, for the
+identity question a search cannot answer: "which issue does this branch name reference". It uses the point read
+rather than a search, so there is no result ceiling and no ordering — and an absent slot is a PROVEN absence
+rather than "not found within a page budget", which is what lets a consumer CACHE a miss. A target that failed —
+its whole request, or just that target, e.g. in an org enforcing SAML SSO the token isn't authorized for — is not
+returned at all, so the two stay distinguishable; caching a failure as an absence is the bug that distinction
+prevents.
 
-**Tracker issue resolution by key (#5810).** `getTrackerIssue` is the same identity read for an issue TRACKER,
-which `getIssuesBatch` cannot serve: its target is `(owner, repo, number)`, and a tracker issue is addressed by
-`(resourceId, ABC-123)` — no owner, no repo, and an identifier that is not a number. It answers in one request
-where the only published tracker surface (`listIssueTrackerIssuesPage`) needs a scoped page-walk that cannot
-prove absence without draining the whole scope. Same absence/failure contract as the batch read, and the same
-reason it matters: a tracker miss is the common outcome and was never cacheable.
+A target takes the form its provider addresses an issue by. GitHub/GHE take `(owner, repo, number)` coordinates,
+aliased up to 25 per request. A tracker issue is addressed by `(resourceId, ABC-123)` — no owner, no repo, and an
+identifier that is not a number — so Jira and Linear take `{ key, resourceId, resourceUrl?, identifier }` targets,
+each answered by the single-issue read the tracker already implements. That replaces a scoped page-walk over
+`listIssueTrackerIssuesPage`, which cannot prove absence without draining the whole scope, where a miss is the
+common outcome. A key asked of several resources is one call with one target per resource. `resourceId` is
+trusted, so the read performs no resource discovery; Jira also requires `resourceUrl`, because the issue
+response's `self` is an API endpoint rather than a browser link. Trello refuses: its single-issue read can fall
+back to a capped board scan for a numeric identifier, where a "not found" cannot be told from a card beyond the
+cap. Bitbucket and Bitbucket DC, which have no issues, refuse too.
 
-`resourceId` is required and trusted, so the read performs no resource discovery. Jira also requires
-`resourceUrl`, obtained alongside the resource ID, because the issue response's `self` is an API endpoint rather
-than a browser link; supplying both retains the one-request contract. Linear needs only the resource ID. Jira and
-Linear only; Trello refuses because its single-issue read can fall back to a capped board scan for a numeric
-identifier, where a "not found" result cannot be distinguished from a card beyond the cap.
+GitLab and Azure DevOps take the same coordinates as GitHub, plus `project` on Azure DevOps, whose work items belong to
+the project rather than to a repository, so `repo` is ignored there. They cost one request per target and replace a
+scoped page-walk over `listIssuesPage`, which could not prove absence either. Neither host's existing single-issue
+read could, so each has a strict one. A GitLab miss costs a second request, because provider-apis reports a reply
+carrying only GraphQL errors the same way as a missing issue. An Azure DevOps miss is trusted only on Azure's own
+not-found body: `WorkItemUnauthorizedAccessException` (TF401232, "does not exist, or you do not have permissions to
+read it", so absent means not visible to this connection) or `ProjectDoesNotExistWithNameException`. An HTML 404, a
+410 or any other failure fails the target. Rows match the repository-scoped `listIssuesPage` rows, except that an
+Azure DevOps row has no `project`.
+
+**Batch pull request resolution.** `getPullRequestsBatch` is the identity read for pull requests: N
+`(owner, repo, number)` coordinates, plus `project` on Azure DevOps, in any state. Before it the facade had only
+list, search, count and sweep reads for pull requests, so a consumer found one by scanning its repository's most
+recently updated pull requests per state and matching the URL — and an older merged pull request could be neither
+found nor proven gone. Same absence/failure contract as `getIssuesBatch`. Unlike the issue read it serves every
+git host: GitHub/GHE alias up to 25 point reads into one document, while GitLab, Bitbucket, Bitbucket DC and
+Azure DevOps have no batch form and cost one request per target. A GitLab miss costs a second request, because
+provider-apis' GitLab read reports a reply that carries only GraphQL errors the same way as a missing merge
+request, so its `null` alone does not prove absence; an Azure DevOps miss is trusted only when Azure's own error
+body names the pull request, repository or project as not found, not on any other 404 or a 410. Rows take the
+list reads' conversion on every host but Bitbucket Cloud, which has no single pull request read in provider-apis
+and so answers from GitLens' own REST read instead, missing `commentsCount`, `isDraft` and the clone URLs. On
+GitLab, a miss the confirming read then contradicts fails the target rather than answering with the confirming
+read's own, differently-identified row. The read is uncached and does not go through
+`IntegrationCacheProvider.getPullRequest`, whose key carries no connection, so the consumer's cache is the only
+one holding the answer.
+
+**Pull requests by branch.** `getPullRequestsForBranches` answers "which pull requests have this branch as their
+head, in this repository" with no relationship to the user. Before it, Kepler correlated a local branch by matching
+the account-wide sweep, which holds only pull requests the user authored, is assigned or reviews — so a teammate's
+pull request from the user's branch never correlated — and a cold card paid for that whole sweep before showing
+anything. It matches on the head branch name in every state, so a merged pull request whose branch was deleted is
+still found, and on the head repository, the base one or the `headOwner` fork, so a same-named branch in another
+fork never correlates; a `headOwner` equal to the owner means the base repository, so Kepler can pass the owner of
+the remote the branch was pushed to. Up to 10 per branch; an empty list without `truncated` is a proven none a
+consumer can cache, and a failed target is dropped with `fetchFailed`. GitHub/GHE answer up to 25 branches per
+request, and every other host costs one request per branch. GitLab and Azure DevOps resolve each match (typically
+0–1 per branch) through `getPullRequestsBatch`'s own read, so a pull request's `url`, and so its identity, is the
+same whichever read found it. Bitbucket DC and Azure DevOps serve base-repository branches only and refuse a
+`headOwner` naming another owner.
+
+**Current account resolution.** `getCurrentAccount` answers who a git host connection is signed in as, on
+demand. Before it, Kepler learned the viewer's account only when its `IntegrationManagerCacheProvider`
+`getCurrentAccount` hook fired during some other read, so "is this pull request mine" could stay unanswered until
+something else resolved the account. The read goes through that same hook, so there is still one cache. `account`
+is never absent without a warning. Jira, Linear and Trello refuse: they have only a per-resource account.
 
 **Kepler-side follow-up:** `ProviderScopeFilter` carries a single `repo?: string` today and needs the criteria
 set; the `provider-data` adapter then routes "All visible" to `searchIssuesPage` + `countIssues`.

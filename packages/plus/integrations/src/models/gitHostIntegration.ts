@@ -7,6 +7,7 @@ import type {
 	PullRequest,
 	PullRequestMergeMethod,
 	PullRequestSearchCriteria,
+	PullRequestShape,
 	PullRequestStackInfo,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
@@ -54,6 +55,7 @@ import {
 	toProviderIssueStates,
 	toProviderPullRequestStates,
 } from '../providers/models.js';
+import { isAzureProviderId } from '../providers/providerErrors.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import { mergeCollectionMetadata, throwIfAllSettledFailed } from '../providers/utils/providerPaging.js';
 import type {
@@ -64,15 +66,6 @@ import type {
 } from './integration.js';
 import { IntegrationBase } from './integration.js';
 import type { MyIssuesForReposOptions } from './issueReads.js';
-
-function isAzureDevOpsProvider(
-	providerId: IntegrationIds,
-): providerId is GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer {
-	return (
-		providerId === GitCloudHostIntegrationId.AzureDevOps ||
-		providerId === GitSelfManagedHostIntegrationId.AzureDevOpsServer
-	);
-}
 
 function normalizeSelfManagedBaseUrl(domain: string | undefined, protocol: string | undefined): string | undefined {
 	const value = domain?.trim();
@@ -96,7 +89,7 @@ function normalizeSelfManagedBaseUrl(domain: string | undefined, protocol: strin
 	}
 }
 
-function getSelfManagedApiBaseUrl(
+export function getSelfManagedApiBaseUrl(
 	providerId: IntegrationIds,
 	domain: string | undefined,
 	protocol: string | undefined,
@@ -795,14 +788,14 @@ export abstract class GitHostIntegration<
 		if (
 			providerId !== GitCloudHostIntegrationId.GitLab &&
 			(repoIdsInput ||
-				(isAzureDevOpsProvider(providerId) &&
+				(isAzureProviderId(providerId) &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
 			return unsupportedRead(`Unsupported input for provider ${providerId}`, start, 'getIssuesForRepos');
 		}
 
 		let getIssuesOptions: GetIssuesOptions | undefined;
-		if (isAzureDevOpsProvider(providerId)) {
+		if (isAzureProviderId(providerId)) {
 			const organizations = new Set<string>();
 			const projects = new Set<string>();
 			for (const repo of reposOrRepoIds as ProviderRepoInput[]) {
@@ -1227,7 +1220,7 @@ export abstract class GitHostIntegration<
 		if (
 			providerId !== GitCloudHostIntegrationId.GitLab &&
 			(api.isRepoIdsInput(reposOrRepoIds) ||
-				(isAzureDevOpsProvider(providerId) &&
+				(isAzureProviderId(providerId) &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
 			return unsupportedRead(`Unsupported input for provider ${providerId}`, start);
@@ -1244,7 +1237,7 @@ export abstract class GitHostIntegration<
 			}
 
 			let userAccount: ProviderAccount | undefined;
-			if (isAzureDevOpsProvider(providerId)) {
+			if (isAzureProviderId(providerId)) {
 				const organizations = new Set<string>();
 				for (const repo of reposOrRepoIds as ProviderRepoInput[]) {
 					organizations.add(repo.namespace);
@@ -1387,7 +1380,7 @@ export abstract class GitHostIntegration<
 								pageSize: options?.pageSize,
 								states: states,
 								// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
-								includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
+								includeRemoteInfo: isAzureProviderId(providerId) ? true : undefined,
 							},
 						);
 						return { repoInput: repoInput, results: results };
@@ -1469,7 +1462,7 @@ export abstract class GitHostIntegration<
 				pageSize: options?.pageSize,
 				states: states,
 				// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
-				includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
+				includeRemoteInfo: isAzureProviderId(providerId) ? true : undefined,
 				fields: options?.summary ? summaryPullRequestFields : undefined,
 			});
 			this.resetRequestExceptionCount('getPullRequestsForRepos');
@@ -1796,8 +1789,10 @@ export abstract class GitHostIntegration<
 	): Promise<(number | undefined)[] | undefined>;
 
 	/**
-	 * Result-returning wrapper for the BATCH issue read: resolves several `(owner, repo, number)` coordinates in
-	 * one request. Recovers thrown errors into `{ error }` like the reads around it.
+	 * Result-returning wrapper for the BATCH issue read: resolves several `(owner, repo, number)` coordinates, plus
+	 * `project` on Azure DevOps, in ONE call to {@link getProviderIssuesBatch}. One settled slot per input
+	 * coordinate: `fulfilled` with `undefined` means the issue does not exist or is not visible to this token;
+	 * `rejected` means that target could not be checked, never that it is absent.
 	 *
 	 * Distinct from every search on this class, and deliberately so. A search answers "what matches"; this answers
 	 * "does this exact issue exist", which is the question a caller correlating a branch name to an issue is
@@ -1806,14 +1801,17 @@ export abstract class GitHostIntegration<
 	 * miss instead of re-walking for it forever.
 	 *
 	 * Results come back POSITIONALLY — one per input coordinate, in order — for the same reason
-	 * {@link countIssuesResult} does: a caller's key must never reach the provider query. `undefined` in a slot
-	 * means the issue does not exist or is not visible to this token, never that the read failed.
+	 * {@link countIssuesResult} does: a caller's key must never reach the provider query.
+	 *
+	 * Failure isolation happens PER TARGET, mirroring {@link getPullRequestsBatchResult}: the whole call counts
+	 * as a failure against the integration's request-exception budget only when EVERY slot rejected
+	 * (`throwIfAllSettledFailed`), so a batch of mostly-good targets never spends more than one strike.
 	 */
 	async getIssuesBatchResult(
-		coordinates: readonly { owner: string; repo: string; number: number }[],
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
 		cancellation?: AbortSignal,
 		connectionId?: string,
-	): Promise<IntegrationResult<(IssueShape | undefined)[] | undefined>> {
+	): Promise<IntegrationResult<PromiseSettledResult<IssueShape | undefined>[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -1821,9 +1819,16 @@ export abstract class GitHostIntegration<
 
 		const start = performance.now();
 		try {
-			const issues = await this.getProviderIssuesBatch?.(session, coordinates, cancellation);
+			const slots = await this.getProviderIssuesBatch?.(session, coordinates, cancellation);
+			if (slots == null) {
+				this.resetRequestExceptionCount('getIssuesBatch');
+				return { value: undefined, duration: performance.now() - start };
+			}
+
+			throwIfAllSettledFailed(slots);
+
 			this.resetRequestExceptionCount('getIssuesBatch');
-			return { value: issues, duration: performance.now() - start };
+			return { value: slots, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getIssuesBatch', ex, { scope: scope, connectionId: connectionId });
 			return { error: toError(ex), duration: performance.now() - start };
@@ -1831,17 +1836,142 @@ export abstract class GitHostIntegration<
 	}
 
 	/**
-	 * OPTIONAL: only a provider that can resolve SEVERAL issues by coordinate in one request implements this.
-	 * GitHub aliases its point read into one document; the SDK exposes only a singular `getIssue` for every other
-	 * provider, and there is no plural variant to build on. A provider that can't answer doesn't implement it and
-	 * the facade refuses the read, so a caller keeps its own per-issue path rather than being handed a batch that
-	 * silently degraded into N requests.
+	 * OPTIONAL: one settled slot per input coordinate, in order, in the same shape the list reads return for this
+	 * provider. `fulfilled` with `undefined` is a PROVEN ABSENCE a caller may cache; `rejected` means that target
+	 * could not be checked — never conflate the two, so a host implements this only where it can tell them apart.
+	 *
+	 * GitHub/GHE alias up to 25 coordinates into one document and so chunk internally; a chunk that throws rejects
+	 * every slot in that chunk, not the ones in other chunks. GitLab and Azure DevOps read one issue per request and
+	 * fan out with `mapSettledBounded`, so one target's failure rejects only its own slot. Bitbucket has no issues.
 	 */
 	protected getProviderIssuesBatch?(
 		session: ProviderAuthenticationSession,
-		coordinates: readonly { owner: string; repo: string; number: number }[],
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
 		cancellation?: AbortSignal,
-	): Promise<(IssueShape | undefined)[] | undefined>;
+	): Promise<PromiseSettledResult<IssueShape | undefined>[] | undefined>;
+
+	/**
+	 * Result-returning wrapper for the BATCH pull request read: resolves several coordinates, in any state, BY
+	 * IDENTITY, in ONE call to {@link getProviderPullRequestsBatch}. One settled slot per input coordinate:
+	 * `fulfilled` with `undefined` means the pull request does not exist or is not visible to this token;
+	 * `rejected` means that target could not be checked, never that it is absent.
+	 *
+	 * Failure isolation happens PER TARGET, not per call: a hook that reads one pull request per request (every
+	 * host but GitHub/GHE) fans its coordinates out itself and settles each independently, so one bad target
+	 * rejects only its own slot. Mirrors {@link getMyPullRequestsForReposResult}'s per-repo fan-out — the whole
+	 * call counts as a failure against the integration's request-exception budget only when EVERY slot rejected
+	 * (`throwIfAllSettledFailed`), so a batch of mostly-good targets never spends more than one strike.
+	 */
+	async getPullRequestsBatchResult(
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options?: { currentAccount?: { id: string; username?: string } },
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<PromiseSettledResult<PullRequestShape | undefined>[] | undefined>> {
+		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		const start = performance.now();
+		try {
+			const slots = await this.getProviderPullRequestsBatch?.(session, coordinates, options, cancellation);
+			if (slots == null) {
+				this.resetRequestExceptionCount('getPullRequestsBatch');
+				return { value: undefined, duration: performance.now() - start };
+			}
+
+			throwIfAllSettledFailed(slots);
+
+			this.resetRequestExceptionCount('getPullRequestsBatch');
+			return { value: slots, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleProviderException('getPullRequestsBatch', ex, { scope: scope, connectionId: connectionId });
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	/**
+	 * OPTIONAL: resolves several coordinates, returning one settled slot per input coordinate, in order, in the
+	 * same shape the list reads return for this provider. `fulfilled` with `undefined` is a PROVEN ABSENCE a
+	 * caller may cache; `rejected` means that target could not be checked — never conflate the two.
+	 *
+	 * A provider that reads one pull request per upstream request (every host but GitHub/GHE) fans its
+	 * coordinates out with `mapSettledBounded`, so one target's failure rejects only its own slot instead of
+	 * taking the whole call down. GitHub/GHE alias up to 25 coordinates into one document and so chunk
+	 * internally; a chunk that throws rejects every slot in that chunk, not the ones in other chunks.
+	 */
+	protected getProviderPullRequestsBatch?(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { currentAccount?: { id: string; username?: string } } | undefined,
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined>;
+
+	/**
+	 * Result-returning wrapper for the pull-requests-by-branch read: for each target, every pull request whose head
+	 * is that branch, in any state, in ONE call to {@link getProviderPullRequestsForBranches}. One settled slot
+	 * per target: `fulfilled` with an empty list means the host answered and nothing matched; `rejected` means
+	 * that target could not be checked, never that it has no pull requests.
+	 *
+	 * Uncached, and deliberately not built on {@link getPullRequestForBranch}: that read caches through
+	 * `IntegrationCacheProvider.getPullRequestForBranch`, answers one pull request, and on several hosts looks the
+	 * branch ref up, which answers "none" once a merged pull request's branch is deleted.
+	 *
+	 * Failure isolation is per target, as in {@link getPullRequestsBatchResult}: the whole call counts against the
+	 * request-exception budget only when EVERY slot rejected, so it never spends more than one strike.
+	 */
+	async getPullRequestsForBranchesResult(
+		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
+		options: { currentAccount?: { id: string; username?: string }; limit: number },
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<
+		IntegrationResult<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined>
+	> {
+		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		const start = performance.now();
+		try {
+			const slots = await this.getProviderPullRequestsForBranches?.(session, targets, options, cancellation);
+			if (slots == null) {
+				this.resetRequestExceptionCount('getPullRequestsForBranches');
+				return { value: undefined, duration: performance.now() - start };
+			}
+
+			throwIfAllSettledFailed(slots);
+
+			this.resetRequestExceptionCount('getPullRequestsForBranches');
+			return { value: slots, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleProviderException('getPullRequestsForBranches', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	/**
+	 * OPTIONAL: one settled slot per target, in order. A fulfilled slot lists the matching pull requests, newest
+	 * first and at most `options.limit` of them, in the same shape the list reads return for this provider where
+	 * the host allows it; `truncated` means more may match than were returned.
+	 *
+	 * A row matches only when its head branch is the target's `branch` AND its head repository is the base
+	 * repository itself (`headOwner` omitted) or the fork `headOwner` owns — a same-named branch in some other
+	 * fork is a different branch. A host that reads one target per request fans out with `mapSettledBounded`, so
+	 * one target's failure rejects only its own slot; GitHub/GHE alias up to 25 targets per request, and a request
+	 * that throws rejects only its own targets.
+	 */
+	protected getProviderPullRequestsForBranches?(
+		session: ProviderAuthenticationSession,
+		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
+		options: { currentAccount?: { id: string; username?: string }; limit: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined>;
 
 	/** The PR twin of {@link countIssuesResult}: counts each scope's pull requests, transferring none. */
 	async countPullRequestsResult(

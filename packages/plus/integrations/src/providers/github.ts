@@ -7,6 +7,7 @@ import type {
 	PullRequest,
 	PullRequestMergeMethod,
 	PullRequestSearchCriteria,
+	PullRequestShape,
 	PullRequestStackInfo,
 	PullRequestState,
 	PullRequestStateFilter,
@@ -15,14 +16,15 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
+import { chunk } from '@gitlens/utils/array.js';
 import type { Emitter } from '@gitlens/utils/event.js';
-import { batch } from '@gitlens/utils/promise.js';
+import { batch, mapBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
@@ -44,6 +46,7 @@ import type {
 	ProviderRepository,
 } from './models.js';
 import {
+	fromProviderPullRequest,
 	getProviderPullRequestIdentity,
 	IssueFilter,
 	providersMetadata,
@@ -98,6 +101,58 @@ export type GitHubRepositoryDescriptor = RepositoryDescriptor;
 
 /** How many per-login SSH signing-key lookups to run concurrently, to avoid a request burst that trips rate limiting. */
 const sshSigningKeyResolveBatchSize = 10;
+
+// One aliased document costs about the same as a single read up to 25 targets; past that, latency climbs.
+const pullRequestsBatchChunkSize = 25;
+
+/**
+ * How many coordinates go into one aliased issue request.
+ *
+ * Measured rather than inherited from `issueCountChunkSize`, since that one rests on a zero-node selection and
+ * this carries the full issue projection per alias. Against the live API on all-resolving coordinates: 10 took
+ * 875ms, 25 took 890ms — so up to 25 is effectively free — 50 took 1.3s, and 75 took 2.7s. No complexity refusal
+ * appeared up to 100.
+ *
+ * 25 is where latency is still flat, with room before it degrades. It also puts any realistic correlation batch
+ * in ONE request, which is the whole point of the read.
+ */
+const issuesBatchChunkSize = 25;
+
+/**
+ * Runs an aliased batch read over `items` in chunks of `chunkSize`, with bounded concurrency, converting each
+ * fulfilled slot with `map`. Settled per target throughout: a chunk that throws rejects only its own slots, and a
+ * slot whose conversion throws rejects only itself, so one bad row never takes its chunk's siblings down with it.
+ */
+async function readChunked<T, V, R>(
+	items: readonly T[],
+	chunkSize: number,
+	read: (chunk: T[]) => Promise<PromiseSettledResult<V>[]>,
+	map: (value: V) => R,
+): Promise<PromiseSettledResult<R>[]> {
+	const settledChunks = await mapBounded(
+		chunk([...items], chunkSize),
+		providerFanOutConcurrency,
+		async (chunkItems): Promise<PromiseSettledResult<R>[]> => {
+			let slots: PromiseSettledResult<V>[];
+			try {
+				slots = await read(chunkItems);
+			} catch (ex) {
+				return chunkItems.map(() => ({ status: 'rejected', reason: ex }));
+			}
+
+			return slots.map((slot): PromiseSettledResult<R> => {
+				if (slot.status === 'rejected') return slot;
+
+				try {
+					return { status: 'fulfilled', value: map(slot.value) };
+				} catch (ex) {
+					return { status: 'rejected', reason: ex };
+				}
+			});
+		},
+	);
+	return settledChunks.flat();
+}
 
 abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends GitHostIntegration<
 	ID,
@@ -689,20 +744,103 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	}
 
 	/**
-	 * Resolves several issues by `(owner, repo, number)` in ONE request, by aliasing the point read rather than a
-	 * search — see {@link GitHubApi.getIssuesBatch} for why that distinction is the whole design.
+	 * Resolves several issues by `(owner, repo, number)` by aliasing the point read rather than a search — see
+	 * {@link GitHubApi.getIssuesBatch} for why that distinction is the whole design — chunked into requests of up
+	 * to {@link issuesBatchChunkSize} coordinates, run with bounded concurrency. Settled per target already: a
+	 * coordinate whose alias fails on its own (e.g. an org enforcing SAML SSO the token isn't authorized for)
+	 * rejects only that slot, and a chunk that throws rejects only its own slots.
 	 */
 	protected override async getProviderIssuesBatch(
 		session: ProviderAuthenticationSession,
-		coordinates: readonly { owner: string; repo: string; number: number }[],
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
 		cancellation?: AbortSignal,
-	): Promise<(IssueShape | undefined)[] | undefined> {
-		return (await this.authenticationService.apis.github)?.getIssuesBatch(
-			this,
-			toTokenWithInfo(this.id, session),
+	): Promise<PromiseSettledResult<IssueShape | undefined>[] | undefined> {
+		const github = await this.authenticationService.apis.github;
+		if (github == null) return undefined;
+
+		return readChunked(
 			coordinates,
-			{ baseUrl: this.apiBaseUrl, includeBody: true },
-			cancellation,
+			issuesBatchChunkSize,
+			chunkCoordinates =>
+				github.getIssuesBatch(
+					this,
+					toTokenWithInfo(this.id, session),
+					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
+					{ baseUrl: this.apiBaseUrl, includeBody: true },
+					cancellation,
+				),
+			issue => issue,
+		);
+	}
+
+	/**
+	 * Resolves several pull requests by `(owner, repo, number)` by aliasing the point read — see
+	 * {@link GitHubApi.getPullRequestsBatch} — chunked into requests of up to {@link pullRequestsBatchChunkSize}
+	 * coordinates, run with bounded concurrency. Rows take the same conversion as the account-wide list rows, so a
+	 * pull request reads the same whichever of the two returned it.
+	 *
+	 * A chunk that throws rejects only its own slots, so its sibling chunks still answer.
+	 */
+	protected override async getProviderPullRequestsBatch(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { currentAccount?: { id: string; username?: string } } | undefined,
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
+		const github = await this.authenticationService.apis.github;
+		if (github == null) return undefined;
+
+		const currentAccount = options?.currentAccount;
+		return readChunked(
+			coordinates,
+			pullRequestsBatchChunkSize,
+			chunkCoordinates =>
+				github.getPullRequestsBatch(
+					this,
+					toTokenWithInfo(this.id, session),
+					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
+					{ baseUrl: this.apiBaseUrl },
+					cancellation,
+				),
+			(pr): PullRequestShape | undefined =>
+				pr != null
+					? fromProviderPullRequest(toProviderPullRequest(pr), this, { currentAccount: currentAccount })
+					: undefined,
+		);
+	}
+
+	/**
+	 * Finds each branch's pull requests by aliasing a head-ref-name query per target — see
+	 * {@link GitHubApi.getPullRequestsForBranches} — chunked and converted exactly as
+	 * {@link getProviderPullRequestsBatch} is, with the same per-target and per-chunk failure isolation.
+	 */
+	protected override async getProviderPullRequestsForBranches(
+		session: ProviderAuthenticationSession,
+		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
+		options: { currentAccount?: { id: string; username?: string }; limit: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined> {
+		const github = await this.authenticationService.apis.github;
+		if (github == null) return undefined;
+
+		const currentAccount = options.currentAccount;
+		return readChunked(
+			targets,
+			pullRequestsBatchChunkSize,
+			chunkTargets =>
+				github.getPullRequestsForBranches(
+					this,
+					toTokenWithInfo(this.id, session),
+					chunkTargets.map(t => ({ owner: t.owner, repo: t.repo, branch: t.branch, headOwner: t.headOwner })),
+					{ baseUrl: this.apiBaseUrl, limit: options.limit },
+					cancellation,
+				),
+			(found): { pullRequests: PullRequestShape[]; truncated: boolean } => ({
+				pullRequests: found.pullRequests.map(pr =>
+					fromProviderPullRequest(toProviderPullRequest(pr), this, { currentAccount: currentAccount }),
+				),
+				truncated: found.truncated,
+			}),
 		);
 	}
 

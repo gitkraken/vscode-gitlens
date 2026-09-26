@@ -75,6 +75,8 @@ type SyncReqUsecase = Exclude<
 	| 'getProjectsForOrg'
 	| 'getProjectsForResources'
 	| 'getPullRequest'
+	| 'getPullRequestsBatch'
+	| 'getPullRequestsForBranches'
 	| 'getRepositoriesForOrg'
 	| 'getRepositoriesForUser'
 	| 'getPullRequestForBranch'
@@ -959,6 +961,11 @@ export abstract class IntegrationBase<
 		session: ProviderAuthenticationSession,
 		options?: { avatarSize?: number },
 	): Promise<Account | undefined>;
+
+	/** Whether this integration can answer {@link getCurrentAccount} at all — Jira, Linear and Trello cannot. */
+	get supportsCurrentAccount(): boolean {
+		return this.getProviderCurrentAccount != null;
+	}
 
 	/**
 	 * Resolves the account for a specific session/token — including connections other than the current

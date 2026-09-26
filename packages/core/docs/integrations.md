@@ -113,33 +113,77 @@ provider before calling the token backend; never reuse an id discovered under a 
 Every read returns `ProviderResult<T>` (`items` + `warnings` + `fetchFailed?`), and every paged read extends
 it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side failure** — see §6.
 
-| Method                       | Returns                   | Scope                                                                                   |
-| ---------------------------- | ------------------------- | --------------------------------------------------------------------------------------- |
-| `listOrgs`                   | `ProviderOrganization`    | Orgs / workspaces / groups; issue-tracker resources (Jira sites, …).                    |
-| `listProjects`               | `ProviderOrganization`    | The project tier: Azure DevOps, and issue-tracker projects.                             |
-| `listRepos`                  | `ProviderRepositoryShape` | Repos of an `org`, or account-wide user-affiliated repos when `org` is omitted.         |
-| `listPullRequestsPage`       | `PullRequestShape`        | With `repos`: those repos' PRs. Without: the user's PRs account-wide.                   |
-| `searchPullRequestsPage`     | `PullRequestShape`        | PRs involving the user that match structured criteria, optionally repo/org-scoped.      |
-| `countPullRequests`          | `PullRequestCountResult`  | How many PRs match each scope, fetching none of them. See §5.1.                         |
-| `listIssuesPage`             | `IssueShape`              | Same split, for a **git host**'s issues.                                                |
-| `searchIssuesPage`           | `IssueShape`              | Issues matching structured criteria over a repo/org scope — **no** `@me` binding.       |
-| `countIssues`                | `IssueCountResult`        | How many match each scope, fetching none of them. See §5.1.                             |
-| `getIssuesBatch`             | `IssueBatchResult`        | Resolves N `(owner, repo, number)` coordinates in one request; an absence is proven.    |
-| `getTrackerIssue`            | `TrackerIssueResult`      | Resolves ONE tracker issue by key within a resource; an absence is proven. Jira/Linear. |
-| `listIssueTrackerIssuesPage` | `IssueShape`              | Jira / Linear / Trello (issues live under resource → project).                          |
-| `sweepPullRequests`          | `ProviderSweepResult`     | Drains **every** page across providers (`maxPages`, default 100).                       |
-| `sweepClosedPullRequests`    | `ProviderSweepResult`     | Same, pinned to `['closed','merged']`.                                                  |
-| `broadenIssues`              | `ProviderBroadenResult`   | Per-org fan-out for every visible issue, unfiltered by assignee.                        |
-| `resolveRepository`          | `ResolveRepositoryResult` | Remote URL → canonical provider identity (the `gk repo resolve` equivalent).            |
-| `getSupportedFilters`        | filter capability table   | Static, connection-free. See §7.                                                        |
+| Method                       | Returns                   | Scope                                                                              |
+| ---------------------------- | ------------------------- | ---------------------------------------------------------------------------------- |
+| `listOrgs`                   | `ProviderOrganization`    | Orgs / workspaces / groups; issue-tracker resources (Jira sites, …).               |
+| `listProjects`               | `ProviderOrganization`    | The project tier: Azure DevOps, and issue-tracker projects.                        |
+| `listRepos`                  | `ProviderRepositoryShape` | Repos of an `org`, or account-wide user-affiliated repos when `org` is omitted.    |
+| `listPullRequestsPage`       | `PullRequestShape`        | With `repos`: those repos' PRs. Without: the user's PRs account-wide.              |
+| `searchPullRequestsPage`     | `PullRequestShape`        | PRs involving the user that match structured criteria, optionally repo/org-scoped. |
+| `countPullRequests`          | `PullRequestCountResult`  | How many PRs match each scope, fetching none of them. See §5.1.                    |
+| `listIssuesPage`             | `IssueShape`              | Same split, for a **git host**'s issues.                                           |
+| `searchIssuesPage`           | `IssueShape`              | Issues matching structured criteria over a repo/org scope — **no** `@me` binding.  |
+| `countIssues`                | `IssueCountResult`        | How many match each scope, fetching none of them. See §5.1.                        |
+| `getIssuesBatch`             | `IssueBatchResult`        | Resolves N issues by coordinate or tracker identifier; an absence is proven.       |
+| `getPullRequestsBatch`       | `PullRequestBatchResult`  | Resolves N PRs by `(owner, repo, number)`, in any state; an absence is proven.     |
+| `getPullRequestsForBranches` | `PullRequestBranchResult` | Each branch's PRs, in any state and fork-aware; an empty list is a proven none.    |
+| `listIssueTrackerIssuesPage` | `IssueShape`              | Jira / Linear / Trello (issues live under resource → project).                     |
+| `sweepPullRequests`          | `ProviderSweepResult`     | Drains **every** page across providers (`maxPages`, default 100).                  |
+| `sweepClosedPullRequests`    | `ProviderSweepResult`     | Same, pinned to `['closed','merged']`.                                             |
+| `broadenIssues`              | `ProviderBroadenResult`   | Per-org fan-out for every visible issue, unfiltered by assignee.                   |
+| `resolveRepository`          | `ResolveRepositoryResult` | Remote URL → canonical provider identity (the `gk repo resolve` equivalent).       |
+| `getCurrentAccount`          | `CurrentAccountResult`    | Who a git host connection is signed in as; trackers refuse.                        |
+| `getSupportedFilters`        | filter capability table   | Static, connection-free. See §7.                                                   |
 
 A provider that cannot serve a surface says so explicitly — a warning explaining that the operation is
 unsupported plus `fetchFailed`, never a silent empty page. That distinction is the whole point of the result
 shape: an empty `items` with no warning means "this account genuinely has nothing".
 
-`getTrackerIssue` takes `resourceId` for both supported trackers. Jira also takes `resourceUrl`, the site URL
-returned by `listOrgs`; the REST response only supplies an API `self` link, so the caller provides the already-known
-site identity rather than making this point read perform resource discovery. Linear does not need it.
+`getIssuesBatch` takes the target form its provider addresses an issue by: `{ key, owner, repo, number, project? }` on
+GitHub/GHE, GitLab and Azure DevOps, and `{ key, resourceId, resourceUrl?, identifier }` on Jira and Linear; a call
+carrying the other form is refused whole. GitHub/GHE resolve up to 25 coordinates per request; GitLab, Azure DevOps
+and the trackers cost one request per target. Azure DevOps requires `project` and ignores `repo`, since work items
+belong to the project. Rows take the repository-scoped `listIssuesPage` conversion, except that an Azure DevOps row
+has no `project`, which only the account-wide read fills from project discovery. What counts as a proven absence is
+per host. On GitLab it is a null project or issue, and a miss costs a second request to confirm it, since
+provider-apis reports a reply carrying only GraphQL errors the same way; a 404 or an empty response fails the target.
+On Azure DevOps it is Azure's own 404 body naming the work item (`WorkItemUnauthorizedAccessException`, which Azure also
+uses for a work item this connection cannot read) or the project (`ProjectDoesNotExistWithNameException`); an HTML
+404, a 410 or any other `typeKey` fails the target. Bitbucket and Bitbucket DC have no issues and refuse. A tracker
+target's `resourceId` is trusted, so the read performs no resource discovery. Jira also requires `resourceUrl`, the
+site URL returned by `listOrgs`; the REST response only supplies an API `self` link, so the caller provides the
+already-known site identity. Linear does not need it. A key asked of several resources is one call, with one target
+per resource.
+
+`getPullRequestsBatch` is the pull request counterpart of `getIssuesBatch`, with the same absence/failure contract,
+and it serves every git host. Azure DevOps also requires `project` on each target. GitHub/GHE resolve up to 25
+targets per request; every other host costs one request per target, and GitLab a second one to confirm a miss. A
+target GitHub refuses on its own, e.g. in an org enforcing SAML SSO the token isn't authorized for, fails only that
+target. Its rows carry the same fields as the list reads' rows, except on Bitbucket Cloud — which has no single pull
+request read in provider-apis, so those rows come from GitLens' own REST read and lack `commentsCount`, `isDraft`
+and the clone URLs. On GitLab, a miss the confirming read then contradicts fails the target rather than answering
+with the confirming read's own, differently-identified row. It is uncached and bypasses the
+host's `IntegrationCacheProvider.getPullRequest`, so the caller owns caching the answer.
+
+`getPullRequestsForBranches` answers "which pull requests have this branch as their head" without the user's
+relationship to them, so unlike the sweeps it finds a teammate's pull request from the user's branch. A target names
+the repository the pull requests are opened against, the branch's short name and, for a branch in a fork,
+`headOwner`; one equal to the target's owner means the base repository. A pull request matches only when its head
+repository is that base repository or that fork, so a `main` never claims every fork's `main`. The match is on the
+head branch name in every state, so a merged pull request whose branch was deleted is still found. Each target
+returns up to 10, most recently updated first. An empty list without `truncated` is a proven none, a missing base
+repository included; `truncated` means more may match than were returned. GitHub/GHE answer up to 25 targets per
+request, and every other host costs one request per target. GitLab and Azure DevOps, where that request only finds
+the matching numbers, then resolve each match (typically 0–1 per branch) through `getPullRequestsBatch`'s own read,
+so their rows are exactly its rows; a match that read can't check fails its whole branch. Rows carry the list reads'
+fields on GitHub/GHE and Bitbucket DC and the by-id read's on Bitbucket Cloud. Bitbucket DC and Azure DevOps refuse a
+`headOwner` naming another owner, since neither can find a fork by its owner. It is uncached and bypasses
+`IntegrationCacheProvider.getPullRequestForBranch`.
+
+`getCurrentAccount` answers who a git host connection is signed in as. It returns a single `account?` rather
+than `items`, and `account` is never absent without a warning: no session, a failed request, or an issue tracker,
+which has only a per-resource account and refuses (see §8). It goes through the host-supplied
+`IntegrationManagerCacheProvider.getCurrentAccount` cache rather than adding a second one.
 
 ## 5. Paging
 
@@ -560,12 +604,18 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  —   |   —    |   —    |
 | `searchIssuesPage`           |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
 | `countIssues`                |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
-| `getIssuesBatch`             |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
-| `getTrackerIssue`            |      ✗       |          ✗           |     ✗     |      ✗       |            ✗            |  ✓   |   ✓    |   ✗    |
+| `getIssuesBatch`             |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  ✓   |   ✓    |   ✗    |
+| `getPullRequestsBatch`       |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  ✗   |   ✗    |   ✗    |
+| `getPullRequestsForBranches` |      ✓       |          ✓           |     ✓     |      ✓¹      |           ✓¹            |  ✗   |   ✗    |   ✗    |
 | Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |  ✓   |   ✓    |   ✓    |
 | `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |  ✓   |   ✓    |   ✓    |
 | `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  ✗   |   ✗    |   ✗    |
 | `resolveRepository`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  ✗   |   ✗    |   ✗    |
+| `getCurrentAccount`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  ✗   |   ✗    |   ✗    |
+
+¹ Branches in the base repository only: a target whose `headOwner` names another owner is refused, since Bitbucket DC
+finds a branch's pull requests only through the repository the branch lives in, and an Azure DevOps fork shares its
+organization.
 
 Repo-scoped PR filters: GitHub/GHE `Author, Assignee, ReviewRequested, Mention` · GitLab `Author, Assignee,
 ReviewRequested` · Bitbucket + Bitbucket DC `Author, ReviewRequested` · Azure `Author, Assignee,

@@ -84,6 +84,8 @@ import type {
 	PullRequestCountScope,
 } from './reads/counts.js';
 import { countIssues, countPullRequests } from './reads/counts.js';
+import type { CurrentAccountResult } from './reads/currentAccount.js';
+import { getCurrentAccount } from './reads/currentAccount.js';
 import type { SupportedFilters } from './reads/filters.js';
 import { getSupportedFilters } from './reads/filters.js';
 import { listOrgs, listProjects, listRepos } from './reads/hierarchy.js';
@@ -91,13 +93,15 @@ import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
 import { getIssuesBatch } from './reads/issueBatch.js';
 import { listIssuesPage } from './reads/issues.js';
 import { listIssueTrackerIssuesPage } from './reads/issueTracker.js';
+import type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
+import { getPullRequestsBatch } from './reads/pullRequestBatch.js';
+import type { PullRequestBranchResult, PullRequestBranchTarget } from './reads/pullRequestBranches.js';
+import { getPullRequestsForBranches } from './reads/pullRequestBranches.js';
 import { listPullRequestsPage } from './reads/pullRequests.js';
 import { resolveRepository } from './reads/resolveRepository.js';
 import { searchIssuesPage } from './reads/searchIssues.js';
 import { searchPullRequestsPage } from './reads/searchPullRequests.js';
 import { sweepClosedPullRequests, sweepPullRequests } from './reads/sweeps.js';
-import type { TrackerIssueResult } from './reads/trackerIssue.js';
-import { getTrackerIssue } from './reads/trackerIssue.js';
 import { noConnectionWarning } from './reads/warnings.js';
 import type {
 	ConnectionStateChangeEvent,
@@ -1171,14 +1175,30 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		return getIssuesBatch(this, options);
 	}
 
-	async getTrackerIssue(options: {
+	async getPullRequestsBatch(options: {
 		providerId: IntegrationIds;
-		resourceId: string;
-		resourceUrl?: string;
-		key: string;
+		targets: readonly PullRequestBatchTarget[];
 		connectionId?: string;
-	}): Promise<ProviderResult<TrackerIssueResult>> {
-		return getTrackerIssue(this, options);
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
+	}): Promise<ProviderResult<PullRequestBatchResult>> {
+		return getPullRequestsBatch(this, options);
+	}
+
+	async getPullRequestsForBranches(options: {
+		providerId: IntegrationIds;
+		targets: readonly PullRequestBranchTarget[];
+		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
+	}): Promise<ProviderResult<PullRequestBranchResult>> {
+		return getPullRequestsForBranches(this, options);
 	}
 
 	/**
@@ -1299,6 +1319,23 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 	}): Promise<ResolveRepositoryResult> {
 		return resolveRepository(this, options);
+	}
+
+	/**
+	 * Who the connection is signed in as — "who am I on this provider" — for a git host or issue tracker alike.
+	 * Goes through {@link Integration.getCurrentAccount}'s own cache, so this and whatever else warms it (see
+	 * `IntegrationManagerCacheProvider.getCurrentAccount`) stay one cache.
+	 */
+	async getCurrentAccount(options: {
+		providerId: IntegrationIds;
+		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
+	}): Promise<CurrentAccountResult> {
+		return getCurrentAccount(this, options);
 	}
 
 	/** {@link RepositoryResolutionContext} seam: the user's `remotes` configs, for the remote matcher. */

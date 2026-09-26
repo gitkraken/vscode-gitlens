@@ -503,6 +503,35 @@ repository {
 }
 `;
 
+/** One field-level error GitHub attaches to a GraphQL response, as thrown via {@link GraphqlResponseError}. */
+type GraphqlAliasError = NonNullable<GraphqlResponseError<unknown>['errors']>[number];
+
+/**
+ * {@link GitHubApi.graphql}'s `'aliased'`-mode result: the (possibly partial) `data` alongside any field-level
+ * errors GitHub attached to a specific alias. Used by the coordinate batch reads ({@link GitHubApi.getIssuesBatch},
+ * {@link GitHubApi.getPullRequestsBatch}) to isolate one alias's failure — e.g. FORBIDDEN from an org enforcing
+ * SAML SSO the token isn't authorized for — from the rest of the request.
+ */
+type AliasedGraphqlResult<T> = { data: T; errors: readonly GraphqlAliasError[] };
+
+/**
+ * What an alias's own errors say about its slot in an {@link AliasedGraphqlResult}: `'absent'` only when its node
+ * is null and every error on it is NOT_FOUND; a rejection when a node arrived with an error, or on any other error
+ * (even a NOT_FOUND nested under the node), since neither is trustworthy; `undefined` when the alias has no errors.
+ */
+function getAliasErrorVerdict(
+	errors: readonly GraphqlAliasError[],
+	alias: string,
+	node: unknown,
+): 'absent' | PromiseRejectedResult | undefined {
+	const aliasErrors = errors.filter(e => e.path?.[0] === alias);
+	if (aliasErrors.length === 0) return undefined;
+	if (node == null && aliasErrors.every(e => e.type === 'NOT_FOUND')) return 'absent';
+
+	const primary = aliasErrors.find(e => e.type !== 'NOT_FOUND') ?? aliasErrors[0];
+	return { status: 'rejected', reason: new Error(primary.message) };
+}
+
 export class GitHubApi {
 	private readonly _onDidReauthenticate = new Emitter<void>();
 	get onDidReauthenticate(): Event<void> {
@@ -3345,20 +3374,36 @@ export class GitHubApi {
 		query: string,
 		variables: RequestParameters,
 		scope: ScopedLogger | undefined,
+		cancellation: AbortSignal | undefined,
+		allowPartialNotFound: 'aliased',
+	): Promise<AliasedGraphqlResult<T> | undefined>;
+	private async graphql<T>(
+		provider: Provider | undefined,
+		token: GitHubTokenInfo,
+		query: string,
+		variables: RequestParameters,
+		scope: ScopedLogger | undefined,
+		cancellation?: AbortSignal | undefined,
+	): Promise<T | undefined>;
+	private async graphql<T>(
+		provider: Provider | undefined,
+		token: GitHubTokenInfo,
+		query: string,
+		variables: RequestParameters,
+		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal | undefined,
 		/**
-		 * Accept a response whose only failures are NOT_FOUND, returning its PARTIAL data instead of throwing.
+		 * Opt in to the ALIASED batch shape: on a response whose failures aren't total, returns the PARTIAL
+		 * `data` together with the response's `errors` instead of throwing, so the caller can isolate one
+		 * alias's failure — e.g. FORBIDDEN from an org enforcing SAML SSO the token isn't authorized for —
+		 * instead of failing every alias in the request over one that refused on its own.
 		 *
-		 * For a single-entity query a NOT_FOUND is the whole answer, so throwing is right. For an ALIASED batch it
-		 * is one slot's answer: GitHub replies 200 with every resolvable alias populated and a NOT_FOUND per
-		 * missing one, so throwing discards the results that did resolve. Since a missing coordinate is the common
-		 * case for a batch, that would make the read useless for the very question it answers.
-		 *
-		 * Narrow on purpose: any error that is NOT a NOT_FOUND still throws, so auth, rate-limit and query-cost
-		 * failures keep their existing handling rather than being silently reported as a batch of absences.
+		 * Narrow on purpose: an error whose `path[0]` doesn't name a top-level key in the response's `data` (no
+		 * `path` at all, or a global failure) still throws, classified exactly as without this flag — so auth,
+		 * rate-limit and query-cost failures keep their existing handling.
 		 */
-		allowPartialNotFound?: boolean,
-	): Promise<T | undefined> {
+		allowPartialNotFound?: 'aliased',
+	): Promise<T | AliasedGraphqlResult<T> | undefined> {
 		const { accessToken, ...tokenInfo } = token;
 		// Only dedupe when no cancellation/request option is in play — sharing a promise that
 		// carries one caller's AbortSignal would let one cancellation cancel for everyone.
@@ -3366,18 +3411,19 @@ export class GitHubApi {
 		let dedupeKey: string | undefined;
 		if (dedupable) {
 			try {
-				dedupeKey = `${token.microHash}|${provider?.id ?? ''}|${query}|${JSON.stringify(variables ?? null)}`;
+				// The mode is part of the key: `'aliased'` resolves to a different shape than a plain read.
+				dedupeKey = `${token.microHash}|${provider?.id ?? ''}|${allowPartialNotFound ?? ''}|${query}|${JSON.stringify(variables ?? null)}`;
 			} catch {
 				// Non-serializable variable (BigInt, function, circular ref) — fall through to direct exec.
 				dedupeKey = undefined;
 			}
 			if (dedupeKey != null) {
 				const inflight = this._pendingGraphQL.get(dedupeKey);
-				if (inflight != null) return inflight as Promise<T | undefined>;
+				if (inflight != null) return inflight as Promise<T | AliasedGraphqlResult<T> | undefined>;
 			}
 		}
 
-		const run = async (): Promise<T | undefined> => {
+		const run = async (): Promise<T | AliasedGraphqlResult<T> | undefined> => {
 			try {
 				if (cancellation != null) {
 					if (cancellation.aborted) throw new CancellationError();
@@ -3391,7 +3437,7 @@ export class GitHubApi {
 				// Retry transient gateway/network failures, but only confirmed read queries — never
 				// mutations (re-running one isn't idempotent)
 				const retryable = graphqlReadQueryRegex.test(query);
-				return await this.requestWithRetries(
+				const data = await this.requestWithRetries<T>(
 					() =>
 						this.config.wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
 							this.getDefaults(accessToken, graphql)(query, variables),
@@ -3400,16 +3446,26 @@ export class GitHubApi {
 					cancellation,
 					scope,
 				);
+
+				// `'aliased'` always returns the {data, errors} shape, even on a clean response with no errors,
+				// so the caller has one shape to branch on instead of a separate success case.
+				return allowPartialNotFound === 'aliased' ? { data: data, errors: [] } : data;
 			} catch (ex) {
 				if (ex instanceof GraphqlResponseError) {
-					// `every`, not `[0]`: a batch can report several, and one non-NOT_FOUND among them is a real
-					// failure that must not be reported as a set of absences.
 					if (
-						allowPartialNotFound &&
+						allowPartialNotFound === 'aliased' &&
 						ex.data != null &&
-						(ex.errors?.every(e => e.type === 'NOT_FOUND') ?? false)
+						ex.errors != null &&
+						ex.errors.length > 0
 					) {
-						return ex.data as T;
+						// Every alias-scoped error's `path[0]` names a top-level key in `ex.data` — these queries
+						// have no other top-level fields. An error with no `path`, or naming something outside
+						// `data` (rate limits, bad credentials, query-cost errors), isn't alias-scoped and falls
+						// through to the whole-request classification below, unchanged.
+						const aliasScoped = ex.errors.every(
+							e => e.path != null && e.path.length > 0 && e.path[0] in (ex.data as object),
+						);
+						if (aliasScoped) return { data: ex.data as T, errors: ex.errors };
 					}
 
 					switch (ex.errors?.[0]?.type) {
@@ -4287,8 +4343,10 @@ export class GitHubApi {
 	 *
 	 * Returns POSITIONALLY — one slot per input coordinate, in order — for the same reason {@link countIssues}
 	 * does: a caller's key is arbitrary text and would break the GraphQL document, so the aliases are generated
-	 * and the caller maps back by index. `undefined` in a slot means the issue does not exist (or is not visible
-	 * to this token), never that the read failed; a failure throws.
+	 * and the caller maps back by index. A `fulfilled` slot with `undefined` means the issue does not exist (or
+	 * is not visible to this token) — a PROVEN ABSENCE. A `rejected` slot means only THAT target failed — e.g. an
+	 * org enforcing SAML SSO the token isn't authorized for — which is not proof the issue is gone, so it must
+	 * not be cached as absent. A whole-request failure (bad credentials, rate limit, no data at all) still throws.
 	 */
 	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async getIssuesBatch(
@@ -4297,7 +4355,7 @@ export class GitHubApi {
 		coordinates: readonly { owner: string; repo: string; number: number }[],
 		options?: { baseUrl?: string; avatarSize?: number; includeBody?: boolean },
 		cancellation?: AbortSignal,
-	): Promise<(IssueShape | undefined)[]> {
+	): Promise<PromiseSettledResult<IssueShape | undefined>[]> {
 		const scope = getScopedLogger();
 		if (coordinates.length === 0) return [];
 
@@ -4331,10 +4389,11 @@ export class GitHubApi {
 		});
 
 		try {
-			// `allowPartialNotFound`: a coordinate that does not exist is this read's ANSWER for that slot, not a
-			// failure of the batch. GitHub replies 200 with the resolvable aliases populated and a NOT_FOUND per
-			// missing one, so without this a single bad coordinate would discard every good result — and a miss
-			// is the common outcome for the caller this read exists for.
+			// `'aliased'`: a coordinate that does not exist, or whose alias fails on its own — e.g. FORBIDDEN
+			// from an org enforcing SAML SSO the token isn't authorized for — is this read's ANSWER for that
+			// slot, not a failure of the whole batch. GitHub replies 200 with the resolvable aliases populated
+			// and one error per problem alias, so without this a single bad coordinate would discard every good
+			// result — and a miss is the common outcome for the caller this read exists for.
 			const rsp = await this.graphql<Record<string, { issue?: GitHubIssue | null } | null | undefined>>(
 				provider,
 				token,
@@ -4342,23 +4401,257 @@ export class GitHubApi {
 				variables,
 				scope,
 				cancellation,
-				true,
+				'aliased',
 			);
-			if (rsp == null) return coordinates.map(() => undefined);
+			// No data at all proves nothing about any slot, so it must not read as a batch of absences.
+			if (rsp?.data == null) throw new Error('GitHub returned no data for the issue batch');
 
-			// Mapped slot by slot so one unmappable issue can't discard the whole batch, matching the aliased
-			// search's node-by-node mapping. An unmappable issue reads as absent, which is the safe direction
-			// here only because the caller is asking "does this exist", and a false absent costs a re-read
-			// rather than a wrong issue.
-			return coordinates.map((c, i) => {
-				const node = rsp[`i${i}`]?.issue;
-				if (node == null) return undefined;
+			// Mapped slot by slot so one bad coordinate can't discard the whole batch, matching the aliased
+			// search's node-by-node mapping.
+			return coordinates.map((c, i): PromiseSettledResult<IssueShape | undefined> => {
+				const alias = `i${i}`;
+				const node = rsp.data[alias]?.issue;
+
+				const verdict = getAliasErrorVerdict(rsp.errors, alias, node);
+				if (verdict === 'absent') return { status: 'fulfilled', value: undefined };
+				if (verdict != null) return verdict;
+				if (node == null) return { status: 'fulfilled', value: undefined };
 
 				try {
-					return fromGitHubIssue(node, provider);
+					return { status: 'fulfilled', value: fromGitHubIssue(node, provider) };
 				} catch (ex) {
-					scope?.warn(`skipped unmappable issue; ${c.owner}/${c.repo}#${c.number}, ex=${ex}`);
-					return undefined;
+					// Rejects rather than reading as absent: `undefined` here is a proven absence the consumer
+					// caches, so it would publish a live issue as gone.
+					scope?.warn(`failed to map issue; ${c.owner}/${c.repo}#${c.number}, ex=${ex}`);
+					return { status: 'rejected', reason: ex };
+				}
+			});
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
+	 * Resolves several pull requests, in any state (open/closed/merged), BY COORDINATE — `(owner, repo, number)`
+	 * — in one request, via aliased `repository` fields rather than aliased searches. The pull-request twin of
+	 * {@link getIssuesBatch}; see that method for why aliasing the point read (exact number, no result ceiling,
+	 * a proven absence) is the design.
+	 *
+	 * Selects the FULL {@link gqlPullRequestFragment} — not the lite shape {@link getPullRequest} uses — so a
+	 * row from this read carries the same fields (reviews, review requests, checks, diff stats, assignees,
+	 * mergeable state) as {@link searchMyPullRequestsPage}'s account-wide rows.
+	 *
+	 * Returns POSITIONALLY — one slot per input coordinate, in order — for the same reason {@link getIssuesBatch}
+	 * does: a caller's key is arbitrary text and would break the GraphQL document, so the aliases are generated
+	 * and the caller maps back by index. A `fulfilled` slot with `undefined` means the pull request (or its
+	 * repository) does not exist or is not visible to this token — a PROVEN ABSENCE. A `rejected` slot means only
+	 * THAT target failed — e.g. an org enforcing SAML SSO the token isn't authorized for — which is not proof the
+	 * pull request is gone, so it must not be cached as absent. A whole-request failure still throws.
+	 */
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async getPullRequestsBatch(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		coordinates: readonly { owner: string; repo: string; number: number }[],
+		options?: { baseUrl?: string; avatarSize?: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequest | undefined>[]> {
+		const scope = getScopedLogger();
+		if (coordinates.length === 0) return [];
+
+		const params = coordinates
+			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$k${i}: Int!`)
+			.join('\n\t\t\t\t');
+		const fields = coordinates
+			.map(
+				(_, i) => `p${i}: repository(owner: $o${i}, name: $n${i}) {
+					pullRequest(number: $k${i}) {
+						${gqlPullRequestFragment}
+						${gqlPullRequestStackFragmentFor(options)}
+					}
+				}`,
+			)
+			.join('\n\t\t\t\t');
+		const query = `query getPullRequestsBatch(
+				${params}
+				$avatarSize: Int
+			) {
+				${fields}
+			}`;
+
+		const variables: Record<string, unknown> = {
+			baseUrl: options?.baseUrl,
+			avatarSize: options?.avatarSize,
+		};
+		coordinates.forEach((c, i) => {
+			variables[`o${i}`] = c.owner;
+			variables[`n${i}`] = c.repo;
+			variables[`k${i}`] = c.number;
+		});
+
+		try {
+			// `'aliased'`: a coordinate that does not exist, or whose alias fails on its own — e.g. FORBIDDEN
+			// from an org enforcing SAML SSO the token isn't authorized for — is this read's ANSWER for that
+			// slot, not a failure of the whole batch. GitHub replies 200 with the resolvable aliases populated
+			// and one error per problem alias, so without this a single bad coordinate would discard every good
+			// result — and a miss is the common outcome for the caller this read exists for.
+			const rsp = await this.graphql<
+				Record<string, { pullRequest?: GitHubPullRequest | null } | null | undefined>
+			>(provider, token, query, variables, scope, cancellation, 'aliased');
+			// No data at all proves nothing about any slot, so it must not read as a batch of absences.
+			if (rsp?.data == null) throw new Error('GitHub returned no data for the pull request batch');
+
+			return coordinates.map((c, i): PromiseSettledResult<PullRequest | undefined> => {
+				const alias = `p${i}`;
+				const node = rsp.data[alias]?.pullRequest;
+
+				const verdict = getAliasErrorVerdict(rsp.errors, alias, node);
+				if (verdict === 'absent') return { status: 'fulfilled', value: undefined };
+				if (verdict != null) return verdict;
+				if (node == null) return { status: 'fulfilled', value: undefined };
+
+				try {
+					return { status: 'fulfilled', value: fromGitHubPullRequest(node, provider) };
+				} catch (ex) {
+					// An unmappable node rejects its slot rather than reading as absent: `undefined` here is a
+					// proven absence the consumer caches, so it would publish a live pull request as gone.
+					scope?.warn(`failed to map pull request; ${c.owner}/${c.repo}#${c.number}, ex=${ex}`);
+					return { status: 'rejected', reason: ex };
+				}
+			});
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
+	 * Finds, for several branches in one request, every pull request whose head is that branch — in any state,
+	 * most recently updated first, up to `limit` per branch. Each target names the BASE repository the pull
+	 * requests are opened against, the head branch's short name and, for a branch that lives in a fork,
+	 * `headOwner`, the fork's owner.
+	 *
+	 * Keyed on the head ref NAME (`repository.pullRequests(headRefName:)`) rather than on the ref itself
+	 * (`repository.ref(qualifiedName:).associatedPullRequests`, which {@link getPullRequestForBranch} uses): a
+	 * merged pull request's branch is usually deleted afterwards, and the ref lookup then answers "none" for a
+	 * pull request that exists.
+	 *
+	 * `headRefName` matches every fork's branch of that name too, so rows are kept only when their head
+	 * repository is the base repository itself (`headOwner` omitted) or a fork owned by `headOwner` — otherwise
+	 * a `main` in the base repository would claim every fork's `main`. That filter runs after the server's
+	 * `limit`, so `truncated` is set whenever the server matched more rows than it returned, since any of the
+	 * unfetched ones might have passed it.
+	 *
+	 * Returns POSITIONALLY, with the same per-alias rules as {@link getPullRequestsBatch}: a missing base
+	 * repository (NOT_FOUND on a null repository) is a PROVEN "none" — an empty list — while any other error on
+	 * a target's alias rejects only that target, and a whole-request failure still throws.
+	 */
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async getPullRequestsForBranches(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		targets: readonly { owner: string; repo: string; branch: string; headOwner?: string }[],
+		options: { baseUrl?: string; avatarSize?: number; limit: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<{ pullRequests: PullRequest[]; truncated: boolean }>[]> {
+		const scope = getScopedLogger();
+		if (targets.length === 0) return [];
+
+		interface BranchPullRequest extends GitHubPullRequest {
+			headRepositoryOwner: { login: string } | null;
+		}
+
+		const params = targets
+			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$h${i}: String!`)
+			.join('\n\t\t\t\t');
+		const fields = targets
+			.map(
+				(_, i) => `b${i}: repository(owner: $o${i}, name: $n${i}) {
+					pullRequests(headRefName: $h${i}, states: [OPEN, CLOSED, MERGED], first: $limit, orderBy: {field: UPDATED_AT, direction: DESC}) {
+						totalCount
+						nodes {
+							${gqlPullRequestFragment}
+							${gqlPullRequestStackFragmentFor(options)}
+							headRepositoryOwner {
+								login
+							}
+						}
+					}
+				}`,
+			)
+			.join('\n\t\t\t\t');
+		const query = `query getPullRequestsForBranches(
+				${params}
+				$limit: Int!
+				$avatarSize: Int
+			) {
+				${fields}
+			}`;
+
+		const variables: Record<string, unknown> = {
+			baseUrl: options.baseUrl,
+			avatarSize: options.avatarSize,
+			limit: options.limit,
+		};
+		targets.forEach((t, i) => {
+			variables[`o${i}`] = t.owner;
+			variables[`n${i}`] = t.repo;
+			variables[`h${i}`] = t.branch;
+		});
+
+		try {
+			// `'aliased'`, for the same reason as `getPullRequestsBatch`: a missing repository, or one target
+			// refused on its own (e.g. SAML), must settle only that target.
+			const rsp = await this.graphql<
+				Record<
+					string,
+					| { pullRequests?: { totalCount: number; nodes: (BranchPullRequest | null)[] } | null }
+					| null
+					| undefined
+				>
+			>(provider, token, query, variables, scope, cancellation, 'aliased');
+			// No data at all proves nothing about any slot, so it must not read as a batch of "none"s.
+			if (rsp?.data == null) throw new Error('GitHub returned no data for the pull requests by branch');
+
+			return targets.map((t, i): PromiseSettledResult<{ pullRequests: PullRequest[]; truncated: boolean }> => {
+				const alias = `b${i}`;
+				const repository = rsp.data[alias];
+
+				const verdict = getAliasErrorVerdict(rsp.errors, alias, repository);
+				if (verdict != null && verdict !== 'absent') return verdict;
+				if (repository == null) return { status: 'fulfilled', value: { pullRequests: [], truncated: false } };
+
+				const connection = repository.pullRequests;
+				if (connection == null) {
+					return {
+						status: 'rejected',
+						reason: new Error(`GitHub returned no pull requests for ${t.owner}/${t.repo}:${t.branch}`),
+					};
+				}
+
+				const headOwner = t.headOwner?.toLowerCase();
+				const nodes = connection.nodes.filter((pr): pr is BranchPullRequest => pr != null);
+				const matches = nodes.filter(
+					pr =>
+						pr.headRefName === t.branch &&
+						(headOwner == null
+							? !pr.isCrossRepository
+							: pr.isCrossRepository && pr.headRepositoryOwner?.login.toLowerCase() === headOwner),
+				);
+
+				try {
+					// `first: $limit` already caps `nodes`, so the matches never exceed `limit`.
+					const pullRequests = matches
+						.map(pr => fromGitHubPullRequest(pr, provider))
+						.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime());
+					return {
+						status: 'fulfilled',
+						value: { pullRequests: pullRequests, truncated: connection.totalCount > nodes.length },
+					};
+				} catch (ex) {
+					// Rejects rather than answering with the rows that did map: a list missing a live pull request
+					// would read as a complete answer the consumer caches.
+					scope?.warn(`failed to map pull requests; ${t.owner}/${t.repo}:${t.branch}, ex=${ex}`);
+					return { status: 'rejected', reason: ex };
 				}
 			});
 		} catch (ex) {

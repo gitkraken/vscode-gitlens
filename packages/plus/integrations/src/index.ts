@@ -225,7 +225,12 @@ export type { IssueSearchCapabilities, IssueSearchCriteria, IssueSearchRelations
 export type { PullRequestSearchCapabilities, PullRequestSearchCriteria } from './providerFilters.js';
 // The count-only issue probe's input and result shapes.
 export type { IssueCountResult, IssueCountScope } from './reads/counts.js';
-export type { TrackerIssueResult } from './reads/trackerIssue.js';
+export type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
+export type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
+export type { PullRequestBranchResult, PullRequestBranchTarget } from './reads/pullRequestBranches.js';
+// The current-account read's result, and the account shape every identity-bearing read already returns.
+export type { CurrentAccountResult } from './reads/currentAccount.js';
+export type { Account } from '@gitlens/git/models/author.js';
 // Cross-provider PR/issue state filters (string unions in the git models).
 export type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 export type { IssueStateFilter } from '@gitlens/git/models/issue.js';

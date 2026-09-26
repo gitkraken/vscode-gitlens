@@ -15,9 +15,11 @@ import type {
 	PullRequestCountResult,
 	PullRequestCountScope,
 } from './reads/counts.js';
+import type { CurrentAccountResult } from './reads/currentAccount.js';
 import type { SupportedFilters } from './reads/filters.js';
 import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
-import type { TrackerIssueResult } from './reads/trackerIssue.js';
+import type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
+import type { PullRequestBranchResult, PullRequestBranchTarget } from './reads/pullRequestBranches.js';
 import type {
 	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
@@ -610,21 +612,32 @@ export interface IntegrationManager {
 		domain?: string;
 	}): Promise<ProviderResult<IssueCountResult>>;
 	/**
-	 * Resolves several issues BY COORDINATE — `(owner, repo, number)` — in one request.
+	 * Resolves several issues BY IDENTITY in one call. Each target takes the form its provider addresses an issue
+	 * by: a repository coordinate `(owner, repo, number)` on GitHub/GHE, GitLab and Azure DevOps (which also needs
+	 * `project`, and ignores `repo`), or the tracker's own identifier within a resource `(resourceId, ABC-123)` on
+	 * Jira and Linear. A call carrying the other form is refused whole.
 	 *
 	 * The read for "which issue does this branch name reference", which is an IDENTITY question rather than a
 	 * search. Emulating it by paging a scoped list and matching the identifier cannot prove absence without
 	 * walking the whole scope, so a miss stays unproven, uncacheable, and repeats its whole budget on every pass.
-	 * This answers it in one request per chunk, and a miss is final.
+	 * Here a miss is final.
 	 *
 	 * Results are echoed under the caller's own `key`, so no positional matching is needed. Per-target isolation
-	 * is the rule: a chunk that fails upstream warns and drops only its own targets (with `fetchFailed` set) while
+	 * is the rule: a read that fails upstream warns and drops only its own targets (with `fetchFailed` set) while
 	 * every other target still answers.
 	 *
 	 * `issue: undefined` means PROVEN ABSENT — the issue does not exist, or is not visible to this connection —
-	 * and is safe to cache. A target whose chunk failed is NOT returned at all, so the two are distinguishable;
-	 * caching a failure as an absence is exactly the bug this distinction prevents. GitHub/GHE only: a provider
-	 * that cannot batch refuses outright rather than degrading into N requests behind the caller's back.
+	 * and is safe to cache. A target whose read failed is NOT returned at all, so the two are distinguishable;
+	 * caching a failure as an absence is exactly the bug this distinction prevents. Uncached: the caller owns
+	 * caching.
+	 *
+	 * GitHub/GHE resolve up to 25 coordinates per request. GitLab and Azure DevOps cost one request per target, with
+	 * bounded concurrency; GitLab spends a second request to confirm a miss, and Azure DevOps trusts a miss only
+	 * when its own error body says the work item or project does not exist. Jira and Linear cost one request per
+	 * target, so a key asked of several resources is one call; `resourceId` is trusted and the read does no
+	 * resource discovery, and Jira also requires `resourceUrl`. Every other provider refuses outright — Bitbucket
+	 * because it has no issues, Trello because its single-issue read can fall back to a capped board scan, which
+	 * cannot prove an absence.
 	 */
 	getIssuesBatch(options: {
 		providerId: IntegrationIds;
@@ -635,26 +648,76 @@ export interface IntegrationManager {
 		domain?: string;
 	}): Promise<ProviderResult<IssueBatchResult>>;
 	/**
-	 * Resolves one issue-tracker issue by key within a resource — the tracker counterpart of
-	 * {@link getIssuesBatch}, which cannot serve one.
+	 * Resolves several pull requests BY COORDINATE — `(owner, repo, number)`, plus `project` on Azure DevOps — in
+	 * any state (open, closed or merged). The pull-request twin of {@link getIssuesBatch}, answering the same
+	 * identity question: "which pull request does this branch or link name".
 	 *
-	 * `issue: undefined` is a proven absence and may be cached. A failed read returns no item and sets
-	 * `fetchFailed`. `resourceId` is required and trusted; Jira also requires the resource's site URL so the result
-	 * retains its browser link. The read performs no resource discovery.
+	 * Results are echoed under the caller's own `key`, so no positional matching is needed. Per-target isolation
+	 * is the rule: a read that fails upstream warns and drops only its own targets (with `fetchFailed` set) while
+	 * every other target still answers.
 	 *
-	 * Jira and Linear only. Trello refuses: its single-issue read falls back to a capped board scan for a numeric
-	 * identifier, so it cannot prove absence.
+	 * - `{ key, pullRequest }` — found, whatever its state.
+	 * - `{ key }` with no `pullRequest` — PROVEN ABSENT: the host answered not-found for the pull request or its
+	 *   repository, or it is not visible to this connection. Safe to cache.
+	 * - No item for a key, with `fetchFailed` and a warning — the read could not check (auth, rate limit, network,
+	 *   missing session, an unmappable response). Never treat that as absent: caching a failure as an absence is
+	 *   exactly the bug this distinction prevents.
+	 *
+	 * UNCACHED, and deliberately not routed through the integration's cached single pull request read: that
+	 * cache's key carries no connection, and the GitLens host's by-id bucket never expires a miss, so a proven
+	 * absence would become permanent there — and a consumer would hold a second cache, with a different lifetime,
+	 * for the same answer. The caller owns caching.
+	 *
+	 * Request cost: GitHub/GHE resolve up to 25 targets per request (one aliased GraphQL document). Every other
+	 * host costs one request per target, run with bounded concurrency; GitLab spends a second request to confirm a
+	 * miss, and Azure DevOps one more per target (two for a fork) to fill clone URLs.
 	 */
-	getTrackerIssue(options: {
+	getPullRequestsBatch(options: {
 		providerId: IntegrationIds;
-		/** Provider resource ID for the Atlassian site or Linear workspace. */
-		resourceId: string;
-		/** Jira site URL from resource discovery. Required for Jira so the result retains a browser link. */
-		resourceUrl?: string;
-		/** The provider's own key, e.g. `ABC-123`. Not a number. */
-		key: string;
+		/** Each `key` must be unique — a duplicate refuses the whole call, since keys identify results. */
+		targets: readonly PullRequestBatchTarget[];
 		connectionId?: string;
-	}): Promise<ProviderResult<TrackerIssueResult>>;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+	}): Promise<ProviderResult<PullRequestBatchResult>>;
+	/**
+	 * Finds, for each branch, every pull request whose head is that branch — in any state (open, closed or merged),
+	 * most recently updated first, up to 10 per branch. "Which pull requests does this branch have", answered
+	 * without the user's relationship to them, so a teammate's pull request from the user's branch is found too,
+	 * which the account-wide sweeps can't do.
+	 *
+	 * A target names the repository the pull requests are opened AGAINST, the head branch's short name, and, for a
+	 * branch in a fork, `headOwner` (the base repository's own owner, or none, means the base repository). A pull
+	 * request matches only when its head repository is the right one — the base repository itself, or the fork
+	 * `headOwner` owns — so a `main` in the base repository never claims every fork's `main`. The match is on the
+	 * head branch NAME, so a merged pull request whose branch was since deleted is still found.
+	 *
+	 * Same result contract as {@link getPullRequestsBatch}, echoed under the caller's own `key`:
+	 * - `{ key, pullRequests: [...] }` — found. `truncated` means more may match than were returned.
+	 * - `{ key, pullRequests: [] }` with no `truncated` — PROVEN NONE: the host answered and nothing matched, or the
+	 *   base repository doesn't exist or isn't visible to this connection. Safe to cache.
+	 * - No item for a key, with `fetchFailed` and a warning — the read could not check. Never treat that as none.
+	 *
+	 * UNCACHED, and not routed through the integration's cached single pull request read for a branch (see
+	 * `IntegrationCacheProvider.getPullRequestForBranch`), which answers one pull request and, on several hosts,
+	 * looks the branch ref up and so answers "none" once a merged branch is deleted. The caller owns caching.
+	 *
+	 * Request cost: GitHub/GHE answer up to 25 targets per request (one aliased GraphQL document, fetching up to 10
+	 * full pull requests per target). Every other host costs one request per target, run with bounded concurrency;
+	 * GitLab and Azure DevOps then resolve each matched pull request — typically 0–1 per branch — through
+	 * {@link getPullRequestsBatch}'s own read, at that read's cost, so their rows are exactly its rows. Rows carry
+	 * the list reads' fields on GitHub/GHE and Bitbucket Data Center and Bitbucket Cloud's by-id read's on
+	 * Bitbucket Cloud. A `headOwner` naming another owner is refused on Bitbucket Data Center and Azure DevOps,
+	 * where a fork can't be found by its owner.
+	 */
+	getPullRequestsForBranches(options: {
+		providerId: IntegrationIds;
+		/** Each `key` must be unique — a duplicate refuses the whole call, since keys identify results. */
+		targets: readonly PullRequestBranchTarget[];
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+	}): Promise<ProviderResult<PullRequestBranchResult>>;
 	/**
 	 * How many pull requests match each scope, fetching none of them — the PR twin of {@link countIssues}, behind a
 	 * "this will fetch ~N pull requests" preview and a live count next to an unapplied filter. Same cost model,
@@ -732,4 +795,18 @@ export interface IntegrationManager {
 		 */
 		domain?: string;
 	}): Promise<ResolveRepositoryResult>;
+	/**
+	 * Who the connection is signed in as on a git host. `account` is never absent without a warning. Goes through
+	 * the host-supplied `IntegrationManagerCacheProvider.getCurrentAccount` cache rather than adding a second one.
+	 * Issue trackers refuse: they have only a per-resource account, not a per-connection one.
+	 */
+	getCurrentAccount(options: {
+		providerId: IntegrationIds;
+		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
+	}): Promise<CurrentAccountResult>;
 }
