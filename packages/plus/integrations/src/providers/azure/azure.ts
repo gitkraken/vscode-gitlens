@@ -49,6 +49,7 @@ import type {
 import {
 	azurePullRequestStatusToState,
 	azureWorkItemsStateCategoryToState,
+	encodeAzurePathSegment,
 	fromAzurePullRequest,
 	fromAzureWorkItem,
 	getAzurePullRequestWebUrl,
@@ -71,12 +72,6 @@ const forkRepositoryUrlCacheTtl = 5 * 60 * 1000;
 /** How long a work-item search's id snapshot outlives the last page read from it, and the most it lives at all. */
 const workItemSearchSnapshotTtl = 5 * 60 * 1000;
 const workItemSearchSnapshotMaxTtl = 30 * 60 * 1000;
-
-function encodePathSegment(value: string): string {
-	if (value === '.' || value === '..') throw new Error(`Invalid Azure path segment '${value}'.`);
-
-	return encodeURIComponent(value);
-}
 
 /** Whether Azure refused a WIQL query for matching more work items than it will return (`VS402337`). */
 function isWorkItemLimitRefusal(ex: unknown): boolean {
@@ -201,7 +196,7 @@ export class AzureDevOpsApi implements Disposable {
 				provider,
 				token,
 				options?.baseUrl,
-				`${encodePathSegment(owner)}/${encodePathSegment(projectName)}/_apis/git/repositories/${encodePathSegment(repoName)}/pullRequests?searchCriteria.status=all&searchCriteria.sourceRefName=${encodeURIComponent(`refs/heads/${branch}`)}`,
+				`${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(projectName)}/_apis/git/repositories/${encodeAzurePathSegment(repoName)}/pullRequests?searchCriteria.status=all&searchCriteria.sourceRefName=${encodeURIComponent(`refs/heads/${branch}`)}`,
 				{
 					method: 'GET',
 				},
@@ -269,7 +264,7 @@ export class AzureDevOpsApi implements Disposable {
 				provider,
 				token,
 				baseUrl,
-				`${encodePathSegment(owner)}/${encodePathSegment(projectName)}/_apis/git/repositories/${encodePathSegment(repoName)}/pullrequestquery?api-version=4.1`,
+				`${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(projectName)}/_apis/git/repositories/${encodeAzurePathSegment(repoName)}/pullrequestquery?api-version=4.1`,
 				{
 					method: 'POST',
 					body: JSON.stringify({
@@ -292,7 +287,7 @@ export class AzureDevOpsApi implements Disposable {
 				provider,
 				token,
 				baseUrl,
-				`${encodePathSegment(owner)}/${encodePathSegment(pr.repository.project.id)}/_apis/git/repositories/${encodePathSegment(pr.repository.id)}/pullRequests/${encodePathSegment(pr.pullRequestId.toString())}`,
+				`${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(pr.repository.project.id)}/_apis/git/repositories/${encodeAzurePathSegment(pr.repository.id)}/pullRequests/${encodeAzurePathSegment(pr.pullRequestId.toString())}`,
 				{ method: 'GET' },
 				scope,
 				cancellation,
@@ -340,7 +335,7 @@ export class AzureDevOpsApi implements Disposable {
 					provider,
 					token,
 					options?.baseUrl,
-					`${encodePathSegment(owner)}/${encodePathSegment(projectName)}/_apis/wit/workItems/${encodePathSegment(id)}`,
+					`${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(projectName)}/_apis/wit/workItems/${encodeAzurePathSegment(id)}`,
 					{
 						method: 'GET',
 					},
@@ -391,7 +386,7 @@ export class AzureDevOpsApi implements Disposable {
 					provider,
 					token,
 					options?.baseUrl,
-					`${encodePathSegment(owner)}/${encodePathSegment(projectName)}/_apis/git/repositories/${encodePathSegment(repoName)}/pullRequests/${encodePathSegment(id)}`,
+					`${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(projectName)}/_apis/git/repositories/${encodeAzurePathSegment(repoName)}/pullRequests/${encodeAzurePathSegment(id)}`,
 					{
 						method: 'GET',
 					},
@@ -453,7 +448,7 @@ export class AzureDevOpsApi implements Disposable {
 				provider,
 				token,
 				options?.baseUrl,
-				`${encodePathSegment(project.resourceName)}/${encodePathSegment(project.name)}/_apis/wit/workItems/${encodePathSegment(id)}`,
+				`${encodeAzurePathSegment(project.resourceName)}/${encodeAzurePathSegment(project.name)}/_apis/wit/workItems/${encodeAzurePathSegment(id)}`,
 				{
 					method: 'GET',
 				},
@@ -518,7 +513,7 @@ export class AzureDevOpsApi implements Disposable {
 				provider,
 				token,
 				baseUrl,
-				`${encodePathSegment(owner)}/${encodePathSegment(projectName)}/_apis/git/repositories/${encodePathSegment(repoName)}/commits/${encodePathSegment(rev)}`,
+				`${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(projectName)}/_apis/git/repositories/${encodeAzurePathSegment(repoName)}/commits/${encodeAzurePathSegment(rev)}`,
 				{
 					method: 'GET',
 				},
@@ -695,7 +690,7 @@ export class AzureDevOpsApi implements Disposable {
 				provider,
 				token,
 				options?.baseUrl,
-				`${encodePathSegment(owner)}/${encodePathSegment(projectName)}/_apis/wit/workItemTypes/${encodePathSegment(workItemType)}/states`,
+				`${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(projectName)}/_apis/wit/workItemTypes/${encodeAzurePathSegment(workItemType)}/states`,
 				{
 					method: 'GET',
 				},
@@ -930,7 +925,7 @@ export class AzureDevOpsApi implements Disposable {
 				provider,
 				token,
 				options.baseUrl,
-				`${encodePathSegment(collection)}/_apis/wit/workitemsbatch?api-version=5.0`,
+				`${encodeAzurePathSegment(collection)}/_apis/wit/workitemsbatch?api-version=5.0`,
 				{ method: 'POST', body: JSON.stringify({ ids: slice, $expand: 'Links', errorPolicy: 'Omit' }) },
 				scope,
 				cancellation,
@@ -1040,7 +1035,7 @@ export class AzureDevOpsApi implements Disposable {
 			provider,
 			token,
 			baseUrl,
-			`${encodePathSegment(collection)}/_apis/wit/wiql?$top=${top}&timePrecision=true&api-version=5.0`,
+			`${encodeAzurePathSegment(collection)}/_apis/wit/wiql?$top=${top}&timePrecision=true&api-version=5.0`,
 			{ method: 'POST', body: JSON.stringify({ query: wiql }) },
 			scope,
 			cancellation,
@@ -1064,7 +1059,7 @@ export class AzureDevOpsApi implements Disposable {
 			provider,
 			token,
 			baseUrl,
-			`${encodePathSegment(owner)}/${encodePathSegment(projectName)}/_apis/git/repositories/${encodePathSegment(repoName)}?api-version=7.1`,
+			`${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(projectName)}/_apis/git/repositories/${encodeAzurePathSegment(repoName)}?api-version=7.1`,
 			{ method: 'GET' },
 			scope,
 			cancellation,
@@ -1154,7 +1149,7 @@ export class AzureDevOpsApi implements Disposable {
 				provider,
 				token,
 				baseUrl,
-				`${encodePathSegment(owner)}/_apis/git/repositories/${encodePathSegment(repositoryId)}?api-version=4.1`,
+				`${encodeAzurePathSegment(owner)}/_apis/git/repositories/${encodeAzurePathSegment(repositoryId)}?api-version=4.1`,
 				{ method: 'GET' },
 				scope,
 				cancellation,

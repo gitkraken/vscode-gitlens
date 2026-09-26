@@ -55,6 +55,7 @@ import {
 	providerPullRequestMatchesSearch,
 	providersMetadata,
 	PullRequestFilter,
+	toIssueShape,
 	toProviderPullRequestStates,
 } from './models.js';
 import {
@@ -783,6 +784,40 @@ export abstract class AzureDevOpsIntegrationBase<
 			rev,
 			getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo),
 		);
+	}
+
+	/**
+	 * One request per target, settled independently so one target's failure rejects only its own slot; converted
+	 * like the repo-scoped list rows. Not through {@link getProviderIssue}: that read swallows every failure but a
+	 * rejected credential into `undefined`, discovers every project of every organization first, and converts
+	 * differently from the list reads.
+	 */
+	protected override async getProviderIssuesBatch(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		_cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<IssueShape | undefined>[] | undefined> {
+		const api = await this.getProvidersApi();
+		const { tokenWithInfo } = this.getApiOptions(session);
+
+		return mapSettledBounded(coordinates, providerFanOutConcurrency, async c => {
+			if (c.project == null) throw new Error(`Azure DevOps needs a project to read work item ${c.number}`);
+
+			const issue = await api.getAzureWorkItem(
+				tokenWithInfo,
+				{ namespace: c.owner, project: c.project },
+				c.number,
+				this.getCollectionApiOptions(session, c.owner),
+			);
+			if (issue == null) return undefined;
+
+			const shape = toIssueShape(issue, this);
+			if (shape == null) {
+				throw new Error(`Azure DevOps returned work item ${c.number} without a URL or change date`);
+			}
+
+			return shape;
+		});
 	}
 
 	/**
