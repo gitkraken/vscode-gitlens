@@ -15,6 +15,7 @@ import type {
 	PullRequestCountResult,
 	PullRequestCountScope,
 } from './reads/counts.js';
+import type { CurrentAccountResult } from './reads/currentAccount.js';
 import type { SupportedFilters } from './reads/filters.js';
 import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
 import type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
@@ -751,4 +752,18 @@ export interface IntegrationManager {
 		 */
 		domain?: string;
 	}): Promise<ResolveRepositoryResult>;
+	/**
+	 * Who the connection is signed in as on a git host. `account` is never absent without a warning. Goes through
+	 * the host-supplied `IntegrationManagerCacheProvider.getCurrentAccount` cache rather than adding a second one.
+	 * Issue trackers refuse: they have only a per-resource account, not a per-connection one.
+	 */
+	getCurrentAccount(options: {
+		providerId: IntegrationIds;
+		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
+	}): Promise<CurrentAccountResult>;
 }

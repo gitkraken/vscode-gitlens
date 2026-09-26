@@ -214,5 +214,11 @@ read's own, differently-identified row. The read is uncached and does not go thr
 `IntegrationCacheProvider.getPullRequest`, whose key carries no connection, so the consumer's cache is the only
 one holding the answer.
 
+**Current account resolution.** `getCurrentAccount` answers who a git host connection is signed in as, on
+demand. Before it, Kepler learned the viewer's account only when its `IntegrationManagerCacheProvider`
+`getCurrentAccount` hook fired during some other read, so "is this pull request mine" could stay unanswered until
+something else resolved the account. The read goes through that same hook, so there is still one cache. `account`
+is never absent without a warning. Jira, Linear and Trello refuse: they have only a per-resource account.
+
 **Kepler-side follow-up:** `ProviderScopeFilter` carries a single `repo?: string` today and needs the criteria
 set; the `provider-data` adapter then routes "All visible" to `searchIssuesPage` + `countIssues`.

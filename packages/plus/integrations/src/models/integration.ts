@@ -961,6 +961,11 @@ export abstract class IntegrationBase<
 		options?: { avatarSize?: number },
 	): Promise<Account | undefined>;
 
+	/** Whether this integration can answer {@link getCurrentAccount} at all — Jira, Linear and Trello cannot. */
+	get supportsCurrentAccount(): boolean {
+		return this.getProviderCurrentAccount != null;
+	}
+
 	/**
 	 * Resolves the account for a specific session/token — including connections other than the current
 	 * primary (multi-account) — using this integration's provider API base URL and auth type. Returns

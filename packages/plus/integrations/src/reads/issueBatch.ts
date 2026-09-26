@@ -336,8 +336,8 @@ function findInvalidTrackerTarget(
 /**
  * The answer when no integration resolves for a batch read. Targets were asked about, so this is never a silent
  * empty success: a supplied connection or domain that no longer resolves gets its own warning, and the untargeted
- * primary path (e.g. a self-managed provider with no configured host) a connection warning — either way
- * `fetchFailed`, so no caller mistakes the dropped targets for an answer.
+ * primary path (e.g. a self-managed provider with no configured host) a connection warning, as `getCurrentAccount`
+ * gives — either way `fetchFailed`, so no caller mistakes the dropped targets for an answer.
  */
 export function unresolvedIntegration<T>(
 	ctx: ProviderReadContext,

@@ -84,6 +84,8 @@ import type {
 	PullRequestCountScope,
 } from './reads/counts.js';
 import { countIssues, countPullRequests } from './reads/counts.js';
+import type { CurrentAccountResult } from './reads/currentAccount.js';
+import { getCurrentAccount } from './reads/currentAccount.js';
 import type { SupportedFilters } from './reads/filters.js';
 import { getSupportedFilters } from './reads/filters.js';
 import { listOrgs, listProjects, listRepos } from './reads/hierarchy.js';
@@ -1302,6 +1304,23 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 	}): Promise<ResolveRepositoryResult> {
 		return resolveRepository(this, options);
+	}
+
+	/**
+	 * Who the connection is signed in as — "who am I on this provider" — for a git host or issue tracker alike.
+	 * Goes through {@link Integration.getCurrentAccount}'s own cache, so this and whatever else warms it (see
+	 * `IntegrationManagerCacheProvider.getCurrentAccount`) stay one cache.
+	 */
+	async getCurrentAccount(options: {
+		providerId: IntegrationIds;
+		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
+	}): Promise<CurrentAccountResult> {
+		return getCurrentAccount(this, options);
 	}
 
 	/** {@link RepositoryResolutionContext} seam: the user's `remotes` configs, for the remote matcher. */
