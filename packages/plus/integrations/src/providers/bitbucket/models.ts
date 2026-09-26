@@ -390,10 +390,15 @@ export function fromBitbucketIssue(issue: BitbucketIssue, provider: Provider): I
 	);
 }
 
-export function fromBitbucketPullRequest(pr: BitbucketPullRequest, provider: Provider): PullRequest {
+export function fromBitbucketPullRequest(
+	pr: BitbucketPullRequest,
+	provider: Provider,
+	options?: { currentAccount?: { id: string; username?: string } },
+): PullRequest {
+	const author = fromBitbucketUser(pr.author);
 	return new PullRequest(
 		provider,
-		fromBitbucketUser(pr.author),
+		author,
 		pr.id.toString(),
 		pr.id.toString(),
 		pr.title,
@@ -442,5 +447,12 @@ export function fromBitbucketPullRequest(pr: BitbucketPullRequest, provider: Pro
 		undefined, // assignees:PullRequestMember[] -- it looks like there is no such thing as assignees on Bitbucket
 		undefined, // PullRequestStatusCheckRollupState
 		undefined, // IssueProject
+		undefined, // version
+		undefined, // commitCount
+		undefined, // stack
+		undefined, // filesChanged
+		pr.description ?? undefined,
+		pr.id,
+		options?.currentAccount != null ? author.id === options.currentAccount.id : undefined,
 	);
 }
