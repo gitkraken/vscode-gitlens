@@ -293,7 +293,7 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 		manager.dispose();
 	});
 
-	test('reports an issue tracker as the wrong surface instead of attempting it', async () => {
+	test('refuses a repository coordinate sent to an issue tracker instead of attempting it', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 
 		const result = await manager.getIssuesBatch({
@@ -303,7 +303,7 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 
 		assert.deepEqual(result.items, []);
 		assert.equal(result.fetchFailed, true);
-		assert.match(result.warnings[0].message, /not supported/i);
+		assert.match(result.warnings[0].message, /takes tracker identifiers/);
 
 		manager.dispose();
 	});
