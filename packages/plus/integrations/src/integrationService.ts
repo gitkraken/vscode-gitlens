@@ -102,8 +102,6 @@ import { resolveRepository } from './reads/resolveRepository.js';
 import { searchIssuesPage } from './reads/searchIssues.js';
 import { searchPullRequestsPage } from './reads/searchPullRequests.js';
 import { sweepClosedPullRequests, sweepPullRequests } from './reads/sweeps.js';
-import type { TrackerIssueResult } from './reads/trackerIssue.js';
-import { getTrackerIssue } from './reads/trackerIssue.js';
 import { noConnectionWarning } from './reads/warnings.js';
 import type {
 	ConnectionStateChangeEvent,
@@ -1260,7 +1258,9 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		connectionId?: string;
 		/**
 		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
-		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 * it must come from the trusted authentication configuration, not repository or remote data. Unlike the
+		 * paged reads, a self-managed tracker does not fall back to the primary connection without one; see
+		 * {@link IntegrationManager.getIssuesBatch}.
 		 */
 		domain?: string;
 	}): Promise<ProviderResult<IssueBatchResult>> {
@@ -1278,21 +1278,6 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 	}): Promise<ProviderResult<PullRequestBatchResult>> {
 		return getPullRequestsBatch(this, options);
-	}
-
-	async getTrackerIssue(options: {
-		providerId: IntegrationIds;
-		resourceId: string;
-		resourceUrl?: string;
-		key: string;
-		connectionId?: string;
-		/**
-		 * Explicit self-managed host domain. Unlike the paged reads this one does not fall back to the primary
-		 * connection for a self-managed tracker; see {@link IntegrationManager.getTrackerIssue}.
-		 */
-		domain?: string;
-	}): Promise<ProviderResult<TrackerIssueResult>> {
-		return getTrackerIssue(this, options);
 	}
 
 	/**

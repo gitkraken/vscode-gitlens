@@ -182,35 +182,34 @@ which excludes unassigned issues. A provider that declares no filtered search ke
 See the note in `reads/broaden.ts` and
 [`integrations.md` §9](./integrations.md#9-per-provider-behavior-worth-designing-around).
 
-**Batch issue resolution (#5802).** `getIssuesBatch` resolves N `(owner, repo, number)` coordinates in one
-request, for the identity question a search cannot answer: "which issue does this branch name reference".
-It aliases the point read rather than a search, so there is no result ceiling and no ordering — and an
-absent slot is a PROVEN absence rather than "not found within a page budget", which is what lets a consumer
-CACHE a miss. A target that failed — its whole request, or just that target, e.g. in an org enforcing SAML SSO
-the token isn't authorized for — is not returned at all, so the two stay distinguishable; caching a failure as an
-absence is the bug that distinction prevents. GitHub/GHE only, matching `countIssues`.
+**Batch issue resolution (#5802, #5810).** `getIssuesBatch` resolves N issues by identity in one call, for the
+identity question a search cannot answer: "which issue does this branch name reference". It uses the point read
+rather than a search, so there is no result ceiling and no ordering — and an absent slot is a PROVEN absence
+rather than "not found within a page budget", which is what lets a consumer CACHE a miss. A target that failed —
+its whole request, or just that target, e.g. in an org enforcing SAML SSO the token isn't authorized for — is not
+returned at all, so the two stay distinguishable; caching a failure as an absence is the bug that distinction
+prevents.
 
-**Tracker issue resolution by key (#5810).** `getTrackerIssue` is the same identity read for an issue TRACKER,
-which `getIssuesBatch` cannot serve: its target is `(owner, repo, number)`, and a tracker issue is addressed by
-`(resourceId, ABC-123)` — no owner, no repo, and an identifier that is not a number. It answers in one request
-where the only published tracker surface (`listIssueTrackerIssuesPage`) needs a scoped page-walk that cannot
-prove absence without draining the whole scope. Same absence/failure contract as the batch read, and the same
-reason it matters: a tracker miss is the common outcome and was never cacheable.
+A target takes the form its provider addresses an issue by. GitHub/GHE take `(owner, repo, number)` coordinates,
+aliased up to 25 per request. A tracker issue is addressed by `(resourceId, ABC-123)` — no owner, no repo, and an
+identifier that is not a number — so Jira (Cloud and Data Center) and Linear take
+`{ key, resourceId, resourceUrl?, identifier }` targets, each answered by the single-issue read the tracker already
+implements. That replaces a scoped page-walk over `listIssueTrackerIssuesPage`, which cannot prove absence without
+draining the whole scope, where a miss is the common outcome. A key asked of several resources is one call with one
+target per resource. `resourceId` is trusted, so the read performs no resource discovery; Jira Cloud also requires
+`resourceUrl`, because the issue response's `self` is an API endpoint rather than a browser link. Trello refuses:
+its single-issue read can fall back to a capped board scan for a numeric identifier, where a "not found" cannot be
+told from a card beyond the cap. Every other provider refuses too.
 
-`resourceId` is required and trusted, so the read performs no resource discovery. Jira also requires
-`resourceUrl`, obtained alongside the resource ID, because the issue response's `self` is an API endpoint rather
-than a browser link; supplying both retains the one-request contract. Linear needs only the resource ID. Jira and
-Linear only; Trello refuses because its single-issue read can fall back to a capped board scan for a numeric
-identifier, where a "not found" result cannot be distinguished from a card beyond the cap.
-
-**Jira Data Center point reads (#5872).** The same read serves a self-hosted Jira instance once it carries the host:
-`getTrackerIssue` takes the `domain` its paged siblings already took, and `resourceId` is the host itself (the
-instance's single resource; one naming another host than the read resolves to is refused). It does NOT fall back to the primary connection the way the paged reads do — a
-self-managed tracker requires a `domain` or a `connectionId` with a configured host and is refused otherwise —
-because its proven absence is cacheable and two self-hosted instances routinely issue the same keys, so an answer
-from whichever host is primary would be cached under a key naming a different instance. The branch-association
-resolver (`getIssueFromGitConfigEntityIdentifier`) follows the same rule from the other side: its resolver receives
-the identifier's `domain`, and a Jira Data Center identifier without one is dropped rather than resolved.
+A self-hosted Jira (Data Center, #5872) is served by the same tracker targets once the call carries the host:
+`getIssuesBatch` takes the `domain` its paged siblings take, and a target's `resourceId` is the host itself (the
+instance's single resource; a call with any target naming another host than the read resolves to is refused whole).
+It does NOT fall back to the primary connection the way the paged reads do — a self-managed tracker requires a
+`domain` or a `connectionId` with a configured host and the call is refused otherwise — because its proven absence
+is cacheable and two self-hosted instances routinely issue the same keys, so an answer from whichever host is
+primary would be cached under a key naming a different instance. The branch-association resolver
+(`getIssueFromGitConfigEntityIdentifier`) follows the same rule from the other side: its resolver receives the
+identifier's `domain`, and a Jira Data Center identifier without one is dropped rather than resolved.
 
 **Batch pull request resolution.** `getPullRequestsBatch` is the identity read for pull requests: N
 `(owner, repo, number)` coordinates, plus `project` on Azure DevOps, in any state. Before it the facade had only
