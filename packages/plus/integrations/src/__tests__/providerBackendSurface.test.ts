@@ -542,6 +542,66 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listPullRequestsPage resolves account-wide GitHub authorship by login when the ids never can', async () => {
+		// GitLens' own GitHub GraphQL client keys a row's author by login, while `getCurrentAccount` answers
+		// GitHub's numeric database id — an id-only match always misses on this path, so this pins the
+		// username fallback that resolves it instead.
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		assert.ok(gh);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		(
+			gh as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult = () =>
+			Promise.resolve({
+				value: {
+					values: [
+						providerPr('mine', {
+							number: 1,
+							author: {
+								id: 'eamodio',
+								name: 'Eric Amodio',
+								email: null,
+								username: 'eamodio',
+								avatarUrl: null,
+								url: null,
+							},
+						}),
+						providerPr('not-mine', {
+							number: 2,
+							author: {
+								id: 'octocat',
+								name: 'The Octocat',
+								email: null,
+								username: 'octocat',
+								avatarUrl: null,
+								url: null,
+							},
+						}),
+					],
+					paging: { more: false, cursor: '{}' },
+				},
+			});
+		(gh as unknown as { getCurrentAccount: () => Promise<{ id: string; username: string }> }).getCurrentAccount =
+			() => Promise.resolve({ id: '641685', username: 'eamodio' });
+
+		const result = await manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.GitHub });
+
+		assert.deepEqual(
+			result.items.map(pr => ({ id: pr.id, authoredByMe: pr.authoredByMe })),
+			[
+				{ id: 'mine', authoredByMe: true },
+				{ id: 'not-mine', authoredByMe: false },
+			],
+		);
+
+		manager.dispose();
+	});
+
 	test('listPullRequestsPage returns an empty account-wide page beyond the terminal cursor', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);

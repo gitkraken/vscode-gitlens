@@ -216,7 +216,11 @@ export async function searchBitbucketServerPullRequestsPage(
 	const state = { failed: failed, retrying: retrying, truncated: truncated };
 	return {
 		values: values
-			.map(pr => fromProviderPullRequest(pr, options.provider, { currentAccountId: options.currentUser?.id }))
+			.map(pr =>
+				fromProviderPullRequest(pr, options.provider, {
+					currentAccount: options.currentUser?.id != null ? { id: options.currentUser.id } : undefined,
+				}),
+			)
 			.sort(comparator),
 		cursor: hasMore
 			? JSON.stringify({
