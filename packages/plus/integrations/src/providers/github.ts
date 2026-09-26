@@ -732,13 +732,15 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 
 	/**
 	 * Resolves several issues by `(owner, repo, number)` in ONE request, by aliasing the point read rather than a
-	 * search — see {@link GitHubApi.getIssuesBatch} for why that distinction is the whole design.
+	 * search — see {@link GitHubApi.getIssuesBatch} for why that distinction is the whole design. Settled per
+	 * target already: a coordinate whose alias fails on its own (e.g. an org enforcing SAML SSO the token isn't
+	 * authorized for) rejects only that slot, so it doesn't take the rest of this chunk down with it.
 	 */
 	protected override async getProviderIssuesBatch(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number }[],
 		cancellation?: AbortSignal,
-	): Promise<(IssueShape | undefined)[] | undefined> {
+	): Promise<PromiseSettledResult<IssueShape | undefined>[] | undefined> {
 		return (await this.authenticationService.apis.github)?.getIssuesBatch(
 			this,
 			toTokenWithInfo(this.id, session),

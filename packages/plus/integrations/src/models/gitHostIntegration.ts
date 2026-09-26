@@ -1789,8 +1789,10 @@ export abstract class GitHostIntegration<
 	): Promise<(number | undefined)[] | undefined>;
 
 	/**
-	 * Result-returning wrapper for the BATCH issue read: resolves several `(owner, repo, number)` coordinates in
-	 * one request. Recovers thrown errors into `{ error }` like the reads around it.
+	 * Result-returning wrapper for the BATCH issue read: resolves several `(owner, repo, number)` coordinates, in
+	 * ONE call to {@link getProviderIssuesBatch}. One settled slot per input coordinate: `fulfilled` with
+	 * `undefined` means the issue does not exist or is not visible to this token; `rejected` means that target
+	 * could not be checked, never that it is absent.
 	 *
 	 * Distinct from every search on this class, and deliberately so. A search answers "what matches"; this answers
 	 * "does this exact issue exist", which is the question a caller correlating a branch name to an issue is
@@ -1799,14 +1801,17 @@ export abstract class GitHostIntegration<
 	 * miss instead of re-walking for it forever.
 	 *
 	 * Results come back POSITIONALLY — one per input coordinate, in order — for the same reason
-	 * {@link countIssuesResult} does: a caller's key must never reach the provider query. `undefined` in a slot
-	 * means the issue does not exist or is not visible to this token, never that the read failed.
+	 * {@link countIssuesResult} does: a caller's key must never reach the provider query.
+	 *
+	 * Failure isolation happens PER TARGET, mirroring {@link getPullRequestsBatchResult}: the whole call counts
+	 * as a failure against the integration's request-exception budget only when EVERY slot rejected
+	 * (`throwIfAllSettledFailed`), so a batch of mostly-good targets never spends more than one strike.
 	 */
 	async getIssuesBatchResult(
 		coordinates: readonly { owner: string; repo: string; number: number }[],
 		cancellation?: AbortSignal,
 		connectionId?: string,
-	): Promise<IntegrationResult<(IssueShape | undefined)[] | undefined>> {
+	): Promise<IntegrationResult<PromiseSettledResult<IssueShape | undefined>[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -1814,9 +1819,16 @@ export abstract class GitHostIntegration<
 
 		const start = performance.now();
 		try {
-			const issues = await this.getProviderIssuesBatch?.(session, coordinates, cancellation);
+			const slots = await this.getProviderIssuesBatch?.(session, coordinates, cancellation);
+			if (slots == null) {
+				this.resetRequestExceptionCount('getIssuesBatch');
+				return { value: undefined, duration: performance.now() - start };
+			}
+
+			throwIfAllSettledFailed(slots);
+
 			this.resetRequestExceptionCount('getIssuesBatch');
-			return { value: issues, duration: performance.now() - start };
+			return { value: slots, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getIssuesBatch', ex, { scope: scope, connectionId: connectionId });
 			return { error: toError(ex), duration: performance.now() - start };
@@ -1834,7 +1846,7 @@ export abstract class GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number }[],
 		cancellation?: AbortSignal,
-	): Promise<(IssueShape | undefined)[] | undefined>;
+	): Promise<PromiseSettledResult<IssueShape | undefined>[] | undefined>;
 
 	/**
 	 * Result-returning wrapper for the BATCH pull request read: resolves several coordinates, in any state, BY

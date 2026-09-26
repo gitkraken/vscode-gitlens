@@ -4,7 +4,7 @@ import { mapBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationIds } from '../constants.js';
 import { providerFanOutConcurrency } from '../constants.js';
 import type { ProviderResult, ProviderWarning } from '../results.js';
-import { appendDedupedWarning } from '../results.js';
+import { appendDedupedWarning, toProviderWarning } from '../results.js';
 import {
 	isGitHostIntegration,
 	isIssuesHostIntegrationId,
@@ -46,9 +46,10 @@ export interface IssueBatchResult {
 	/**
 	 * The resolved issue, or `undefined` when it PROVABLY does not exist (or is not visible to this connection).
 	 *
-	 * Absent is an answer here, unlike every paged read on this facade: a target whose chunk FAILED is not
-	 * returned at all and sets `fetchFailed`, so a caller can tell "proven absent" from "unknown" and cache the
-	 * first without ever caching the second.
+	 * Absent is an answer here, unlike every paged read on this facade: a target that FAILED — its own chunk
+	 * outright, or just its own alias within an otherwise-answering chunk (e.g. an org enforcing SAML SSO the
+	 * token isn't authorized for) — is not returned at all and sets `fetchFailed`, so a caller can tell
+	 * "proven absent" from "unknown" and cache the first without ever caching the second.
 	 */
 	issue?: IssueShape;
 }
@@ -111,9 +112,7 @@ export async function getIssuesBatch(
 
 	const integration = await ctx.getIntegrationForRead(options.providerId, options.connectionId, options.domain);
 	if (integration == null) {
-		// A supplied connection or domain that no longer resolves is a broken target, not an empty account.
-		const early = ctx.earlyReturnConnectionWarnings(options.providerId, options.connectionId, options.domain);
-		return { items: [], warnings: early.warnings, fetchFailed: early.fetchFailed || undefined };
+		return unresolvedIntegration(ctx, options.providerId, options.connectionId, options.domain);
 	}
 	if (!isGitHostIntegration(integration)) {
 		return refused(
@@ -178,7 +177,18 @@ export async function getIssuesBatch(
 		}
 
 		for (let i = 0; i < batch.length; i++) {
-			const issue = value[i];
+			const slot = value[i];
+			if (slot.status === 'rejected') {
+				// Dropped, never reported absent, like a whole-chunk failure: only THIS target failed.
+				appendDedupedWarning(
+					warnings,
+					toProviderWarning(options.providerId, domain, options.connectionId, slot.reason),
+				);
+				fetchFailed = true;
+				continue;
+			}
+
+			const issue = slot.value;
 			items.push({ key: batch[i].key, ...(issue != null ? { issue: issue } : {}) });
 		}
 	}

@@ -182,8 +182,9 @@ See the note in `reads/broaden.ts` and
 request, for the identity question a search cannot answer: "which issue does this branch name reference".
 It aliases the point read rather than a search, so there is no result ceiling and no ordering — and an
 absent slot is a PROVEN absence rather than "not found within a page budget", which is what lets a consumer
-CACHE a miss. A target whose chunk failed is not returned at all, so the two stay distinguishable; caching a
-failure as an absence is the bug that distinction prevents. GitHub/GHE only, matching `countIssues`.
+CACHE a miss. A target that failed — its whole request, or just that target, e.g. in an org enforcing SAML SSO
+the token isn't authorized for — is not returned at all, so the two stay distinguishable; caching a failure as an
+absence is the bug that distinction prevents. GitHub/GHE only, matching `countIssues`.
 
 **Tracker issue resolution by key (#5810).** `getTrackerIssue` is the same identity read for an issue TRACKER,
 which `getIssuesBatch` cannot serve: its target is `(owner, repo, number)`, and a tracker issue is addressed by

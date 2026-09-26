@@ -3384,7 +3384,6 @@ export class GitHubApi {
 		variables: RequestParameters,
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal | undefined,
-		allowPartialNotFound?: boolean,
 	): Promise<T | undefined>;
 	private async graphql<T>(
 		provider: Provider | undefined,
@@ -3394,20 +3393,16 @@ export class GitHubApi {
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal | undefined,
 		/**
-		 * Accept a response whose failures don't have to fail the whole request:
-		 * - `true`: returns the PARTIAL `data` instead of throwing, but only if EVERY error is NOT_FOUND. For a
-		 *   single-entity query a NOT_FOUND is the whole answer, so throwing is right. For an ALIASED batch it is
-		 *   one slot's answer: GitHub replies 200 with every resolvable alias populated and a NOT_FOUND per
-		 *   missing one, so throwing would discard the results that did resolve.
-		 * - `'aliased'`: returns the PARTIAL `data` together with the response's `errors`, so the caller can
-		 *   isolate one alias's failure — e.g. FORBIDDEN from an org enforcing SAML SSO the token isn't authorized
-		 *   for — instead of failing every alias in the request over one that refused on its own.
+		 * Opt in to the ALIASED batch shape: on a response whose failures aren't total, returns the PARTIAL
+		 * `data` together with the response's `errors` instead of throwing, so the caller can isolate one
+		 * alias's failure — e.g. FORBIDDEN from an org enforcing SAML SSO the token isn't authorized for —
+		 * instead of failing every alias in the request over one that refused on its own.
 		 *
-		 * Narrow on purpose either way: `true` still throws on any error that isn't NOT_FOUND, and `'aliased'` on
-		 * an error whose `path[0]` doesn't name a top-level key in `data` (no `path` at all, or a global failure),
-		 * so auth, rate-limit and query-cost failures keep their existing handling.
+		 * Narrow on purpose: an error whose `path[0]` doesn't name a top-level key in the response's `data` (no
+		 * `path` at all, or a global failure) still throws, classified exactly as without this flag — so auth,
+		 * rate-limit and query-cost failures keep their existing handling.
 		 */
-		allowPartialNotFound?: boolean | 'aliased',
+		allowPartialNotFound?: 'aliased',
 	): Promise<T | AliasedGraphqlResult<T> | undefined> {
 		const { accessToken, ...tokenInfo } = token;
 		// Only dedupe when no cancellation/request option is in play — sharing a promise that
@@ -3471,14 +3466,6 @@ export class GitHubApi {
 							e => e.path != null && e.path.length > 0 && e.path[0] in (ex.data as object),
 						);
 						if (aliasScoped) return { data: ex.data as T, errors: ex.errors };
-					} else if (
-						// `every`, not `[0]`: a batch can report several, and one non-NOT_FOUND among them is a real
-						// failure that must not be reported as a set of absences.
-						allowPartialNotFound === true &&
-						ex.data != null &&
-						(ex.errors?.every(e => e.type === 'NOT_FOUND') ?? false)
-					) {
-						return ex.data as T;
 					}
 
 					switch (ex.errors?.[0]?.type) {
@@ -4356,8 +4343,10 @@ export class GitHubApi {
 	 *
 	 * Returns POSITIONALLY — one slot per input coordinate, in order — for the same reason {@link countIssues}
 	 * does: a caller's key is arbitrary text and would break the GraphQL document, so the aliases are generated
-	 * and the caller maps back by index. `undefined` in a slot means the issue does not exist (or is not visible
-	 * to this token), never that the read failed; a failure throws.
+	 * and the caller maps back by index. A `fulfilled` slot with `undefined` means the issue does not exist (or
+	 * is not visible to this token) — a PROVEN ABSENCE. A `rejected` slot means only THAT target failed — e.g. an
+	 * org enforcing SAML SSO the token isn't authorized for — which is not proof the issue is gone, so it must
+	 * not be cached as absent. A whole-request failure (bad credentials, rate limit, no data at all) still throws.
 	 */
 	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async getIssuesBatch(
@@ -4366,7 +4355,7 @@ export class GitHubApi {
 		coordinates: readonly { owner: string; repo: string; number: number }[],
 		options?: { baseUrl?: string; avatarSize?: number; includeBody?: boolean },
 		cancellation?: AbortSignal,
-	): Promise<(IssueShape | undefined)[]> {
+	): Promise<PromiseSettledResult<IssueShape | undefined>[]> {
 		const scope = getScopedLogger();
 		if (coordinates.length === 0) return [];
 
@@ -4400,10 +4389,11 @@ export class GitHubApi {
 		});
 
 		try {
-			// `allowPartialNotFound`: a coordinate that does not exist is this read's ANSWER for that slot, not a
-			// failure of the batch. GitHub replies 200 with the resolvable aliases populated and a NOT_FOUND per
-			// missing one, so without this a single bad coordinate would discard every good result — and a miss
-			// is the common outcome for the caller this read exists for.
+			// `'aliased'`: a coordinate that does not exist, or whose alias fails on its own — e.g. FORBIDDEN
+			// from an org enforcing SAML SSO the token isn't authorized for — is this read's ANSWER for that
+			// slot, not a failure of the whole batch. GitHub replies 200 with the resolvable aliases populated
+			// and one error per problem alias, so without this a single bad coordinate would discard every good
+			// result — and a miss is the common outcome for the caller this read exists for.
 			const rsp = await this.graphql<Record<string, { issue?: GitHubIssue | null } | null | undefined>>(
 				provider,
 				token,
@@ -4411,23 +4401,29 @@ export class GitHubApi {
 				variables,
 				scope,
 				cancellation,
-				true,
+				'aliased',
 			);
-			if (rsp == null) return coordinates.map(() => undefined);
+			// No data at all proves nothing about any slot, so it must not read as a batch of absences.
+			if (rsp?.data == null) throw new Error('GitHub returned no data for the issue batch');
 
-			// Mapped slot by slot so one unmappable issue can't discard the whole batch, matching the aliased
-			// search's node-by-node mapping. An unmappable issue reads as absent, which is the safe direction
-			// here only because the caller is asking "does this exist", and a false absent costs a re-read
-			// rather than a wrong issue.
-			return coordinates.map((c, i) => {
-				const node = rsp[`i${i}`]?.issue;
-				if (node == null) return undefined;
+			// Mapped slot by slot so one bad coordinate can't discard the whole batch, matching the aliased
+			// search's node-by-node mapping.
+			return coordinates.map((c, i): PromiseSettledResult<IssueShape | undefined> => {
+				const alias = `i${i}`;
+				const node = rsp.data[alias]?.issue;
+
+				const verdict = getAliasErrorVerdict(rsp.errors, alias, node);
+				if (verdict === 'absent') return { status: 'fulfilled', value: undefined };
+				if (verdict != null) return verdict;
+				if (node == null) return { status: 'fulfilled', value: undefined };
 
 				try {
-					return fromGitHubIssue(node, provider);
+					return { status: 'fulfilled', value: fromGitHubIssue(node, provider) };
 				} catch (ex) {
-					scope?.warn(`skipped unmappable issue; ${c.owner}/${c.repo}#${c.number}, ex=${ex}`);
-					return undefined;
+					// Rejects rather than reading as absent: `undefined` here is a proven absence the consumer
+					// caches, so it would publish a live issue as gone.
+					scope?.warn(`failed to map issue; ${c.owner}/${c.repo}#${c.number}, ex=${ex}`);
+					return { status: 'rejected', reason: ex };
 				}
 			});
 		} catch (ex) {
