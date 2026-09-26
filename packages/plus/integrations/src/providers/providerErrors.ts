@@ -104,12 +104,30 @@ function getProviderGraphQLErrors(body: unknown): ProviderGraphQLError[] {
 		: [];
 }
 
-function isAzureProviderId(providerId: IntegrationIds): boolean {
+export function isAzureProviderId(
+	providerId: IntegrationIds,
+): providerId is GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer {
 	return (
 		providerId === GitCloudHostIntegrationId.AzureDevOps ||
 		providerId === GitSelfManagedHostIntegrationId.AzureDevOpsServer
 	);
 }
+
+export function isGitHubProviderId(
+	providerId: IntegrationIds,
+): providerId is GitCloudHostIntegrationId.GitHub | GitSelfManagedHostIntegrationId.CloudGitHubEnterprise {
+	return (
+		providerId === GitCloudHostIntegrationId.GitHub ||
+		providerId === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
+	);
+}
+
+/**
+ * GitHub's GraphQL schema declares coordinate variables (issue/PR number) as `Int!`, a 32-bit signed integer.
+ * A number above this coerces with no `path` on the error, which fails every aliased target in the chunk rather
+ * than just the one with the bad number — so the read layer refuses the whole call up front instead.
+ */
+export const githubGraphQLInt32Max = 2147483647;
 
 function isLinearRateLimitError(providerId: IntegrationIds, ex: unknown): boolean {
 	if (providerId !== IssuesCloudHostIntegrationId.Linear) return false;
