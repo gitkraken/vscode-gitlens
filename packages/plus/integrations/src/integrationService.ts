@@ -98,8 +98,6 @@ import { resolveRepository } from './reads/resolveRepository.js';
 import { searchIssuesPage } from './reads/searchIssues.js';
 import { searchPullRequestsPage } from './reads/searchPullRequests.js';
 import { sweepClosedPullRequests, sweepPullRequests } from './reads/sweeps.js';
-import type { TrackerIssueResult } from './reads/trackerIssue.js';
-import { getTrackerIssue } from './reads/trackerIssue.js';
 import { noConnectionWarning } from './reads/warnings.js';
 import type {
 	ConnectionStateChangeEvent,
@@ -1184,16 +1182,6 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 	}): Promise<ProviderResult<PullRequestBatchResult>> {
 		return getPullRequestsBatch(this, options);
-	}
-
-	async getTrackerIssue(options: {
-		providerId: IntegrationIds;
-		resourceId: string;
-		resourceUrl?: string;
-		key: string;
-		connectionId?: string;
-	}): Promise<ProviderResult<TrackerIssueResult>> {
-		return getTrackerIssue(this, options);
 	}
 
 	/**

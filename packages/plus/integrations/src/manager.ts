@@ -18,7 +18,6 @@ import type {
 import type { SupportedFilters } from './reads/filters.js';
 import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
 import type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
-import type { TrackerIssueResult } from './reads/trackerIssue.js';
 import type {
 	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
@@ -611,21 +610,28 @@ export interface IntegrationManager {
 		domain?: string;
 	}): Promise<ProviderResult<IssueCountResult>>;
 	/**
-	 * Resolves several issues BY COORDINATE — `(owner, repo, number)` — in one request.
+	 * Resolves several issues BY IDENTITY in one call. Each target takes the form its provider addresses an issue
+	 * by: a repository coordinate `(owner, repo, number)` on GitHub/GHE, or the tracker's own identifier within a
+	 * resource `(resourceId, ABC-123)` on Jira and Linear. A call carrying the other form is refused whole.
 	 *
 	 * The read for "which issue does this branch name reference", which is an IDENTITY question rather than a
 	 * search. Emulating it by paging a scoped list and matching the identifier cannot prove absence without
 	 * walking the whole scope, so a miss stays unproven, uncacheable, and repeats its whole budget on every pass.
-	 * This answers it in one request per chunk, and a miss is final.
+	 * Here a miss is final.
 	 *
 	 * Results are echoed under the caller's own `key`, so no positional matching is needed. Per-target isolation
-	 * is the rule: a chunk that fails upstream warns and drops only its own targets (with `fetchFailed` set) while
+	 * is the rule: a read that fails upstream warns and drops only its own targets (with `fetchFailed` set) while
 	 * every other target still answers.
 	 *
 	 * `issue: undefined` means PROVEN ABSENT — the issue does not exist, or is not visible to this connection —
-	 * and is safe to cache. A target whose chunk failed is NOT returned at all, so the two are distinguishable;
-	 * caching a failure as an absence is exactly the bug this distinction prevents. GitHub/GHE only: a provider
-	 * that cannot batch refuses outright rather than degrading into N requests behind the caller's back.
+	 * and is safe to cache. A target whose read failed is NOT returned at all, so the two are distinguishable;
+	 * caching a failure as an absence is exactly the bug this distinction prevents. Uncached: the caller owns
+	 * caching.
+	 *
+	 * GitHub/GHE resolve up to 25 coordinates per request. Jira and Linear cost one request per target, with
+	 * bounded concurrency, so a key asked of several resources is one call; `resourceId` is trusted and the read
+	 * does no resource discovery, and Jira also requires `resourceUrl`. Every other provider refuses outright —
+	 * Trello because its single-issue read can fall back to a capped board scan, which cannot prove an absence.
 	 */
 	getIssuesBatch(options: {
 		providerId: IntegrationIds;
@@ -668,27 +674,6 @@ export interface IntegrationManager {
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
 	}): Promise<ProviderResult<PullRequestBatchResult>>;
-	/**
-	 * Resolves one issue-tracker issue by key within a resource — the tracker counterpart of
-	 * {@link getIssuesBatch}, which cannot serve one.
-	 *
-	 * `issue: undefined` is a proven absence and may be cached. A failed read returns no item and sets
-	 * `fetchFailed`. `resourceId` is required and trusted; Jira also requires the resource's site URL so the result
-	 * retains its browser link. The read performs no resource discovery.
-	 *
-	 * Jira and Linear only. Trello refuses: its single-issue read falls back to a capped board scan for a numeric
-	 * identifier, so it cannot prove absence.
-	 */
-	getTrackerIssue(options: {
-		providerId: IntegrationIds;
-		/** Provider resource ID for the Atlassian site or Linear workspace. */
-		resourceId: string;
-		/** Jira site URL from resource discovery. Required for Jira so the result retains a browser link. */
-		resourceUrl?: string;
-		/** The provider's own key, e.g. `ABC-123`. Not a number. */
-		key: string;
-		connectionId?: string;
-	}): Promise<ProviderResult<TrackerIssueResult>>;
 	/**
 	 * How many pull requests match each scope, fetching none of them — the PR twin of {@link countIssues}, behind a
 	 * "this will fetch ~N pull requests" preview and a live count next to an unapplied filter. Same cost model,
