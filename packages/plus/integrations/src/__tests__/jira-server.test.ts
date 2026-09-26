@@ -847,17 +847,18 @@ suite('Jira Server/Data Center (#5864)', () => {
 		manager.dispose();
 	});
 
-	test('getTrackerIssue serves Jira Data Center by domain, and never reads the other host (#5872)', async () => {
+	test('getIssuesBatch serves Jira Data Center by domain, and never reads the other host (#5872)', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const { reads } = await twoHostsRecordingIssueReads(manager);
 		// No `resourceUrl`: the browser link comes from the base URL the read was addressed to.
-		const target = {
-			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
-			resourceId: 'jira-b.example.com',
-			domain: 'jira-b.example.com',
-		};
+		const read = (key: string) =>
+			manager.getIssuesBatch({
+				providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+				domain: 'jira-b.example.com',
+				targets: [{ key: key, resourceId: 'jira-b.example.com', identifier: key }],
+			});
 
-		const found = await manager.getTrackerIssue({ ...target, key: 'PROJ-7' });
+		const found = await read('PROJ-7');
 
 		assert.deepEqual(reads, ['https://jira-b.example.com'], 'one request, to the requested host only');
 		assert.equal(found.items[0]?.key, 'PROJ-7');
@@ -866,7 +867,7 @@ suite('Jira Server/Data Center (#5864)', () => {
 		assert.deepEqual(found.warnings, []);
 		assert.equal(found.fetchFailed, undefined);
 
-		const absent = await manager.getTrackerIssue({ ...target, key: 'PROJ-404' });
+		const absent = await read('PROJ-404');
 
 		assert.deepEqual(absent.items, [{ key: 'PROJ-404' }], 'a key that names no issue is a proven absence');
 		assert.deepEqual(absent.warnings, []);
@@ -875,35 +876,40 @@ suite('Jira Server/Data Center (#5864)', () => {
 		manager.dispose();
 	});
 
-	test('getTrackerIssue refuses a Jira Data Center resource id that names another host (#5872)', async () => {
+	test('getIssuesBatch refuses a Jira Data Center resource id that names another host (#5872)', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const { reads } = await twoHostsRecordingIssueReads(manager);
 
-		// The read is cached under `resourceId`, so host B's answer must not be stored under host A's resource.
-		const result = await manager.getTrackerIssue({
+		// A caller caches each answer under its target's `resourceId`, so host B's answer must not be stored under
+		// host A's resource. The whole call is refused, so even the target that names host B is not read.
+		const result = await manager.getIssuesBatch({
 			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
-			resourceId: 'jira-a.example.com',
 			domain: 'jira-b.example.com',
-			key: 'PROJ-404',
+			targets: [
+				{ key: 'b', resourceId: 'jira-b.example.com', identifier: 'PROJ-7' },
+				{ key: 'a', resourceId: 'jira-a.example.com', identifier: 'PROJ-404' },
+			],
 		});
 
 		assert.deepEqual(reads, [], 'no host is read');
 		assert.deepEqual(result.items, [], 'no absence is reported under the mismatched resource');
 		assert.equal(result.fetchFailed, true);
-		assert.match(result.warnings[0].message, /resource id/i);
+		assert.match(
+			result.warnings[0].message,
+			/'a' requires the resource id .* to name the host the read resolved to/,
+		);
 
 		manager.dispose();
 	});
 
-	test('getTrackerIssue refuses a Jira Data Center read that names no host (#5872)', async () => {
+	test('getIssuesBatch refuses a Jira Data Center read that names no host (#5872)', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		// Both instances are cached, so a domainless resolution would have fallen back to whichever was built first.
 		const { reads } = await twoHostsRecordingIssueReads(manager);
 
-		const result = await manager.getTrackerIssue({
+		const result = await manager.getIssuesBatch({
 			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
-			resourceId: 'jira-a.example.com',
-			key: 'PROJ-1',
+			targets: [{ key: 'PROJ-1', resourceId: 'jira-a.example.com', identifier: 'PROJ-1' }],
 		});
 
 		assert.deepEqual(reads, [], 'no host is consulted, primary or otherwise');
@@ -914,16 +920,15 @@ suite('Jira Server/Data Center (#5864)', () => {
 		manager.dispose();
 	});
 
-	test('getTrackerIssue refuses a Jira Data Center domain that names no host (#5872)', async () => {
+	test('getIssuesBatch refuses a Jira Data Center domain that names no host (#5872)', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const { reads } = await twoHostsRecordingIssueReads(manager);
 
 		// An unparsable domain selects no host, so resolving it would fall back to the primary one.
-		const result = await manager.getTrackerIssue({
+		const result = await manager.getIssuesBatch({
 			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
-			resourceId: 'jira-a.example.com',
 			domain: 'https://%',
-			key: 'PROJ-404',
+			targets: [{ key: 'PROJ-404', resourceId: 'jira-a.example.com', identifier: 'PROJ-404' }],
 		});
 
 		assert.deepEqual(reads, [], 'no host is consulted, primary or otherwise');
@@ -934,16 +939,15 @@ suite('Jira Server/Data Center (#5864)', () => {
 		manager.dispose();
 	});
 
-	test('getTrackerIssue refuses a Jira Data Center connection id that names no configured connection (#5872)', async () => {
+	test('getIssuesBatch refuses a Jira Data Center connection id that names no configured connection (#5872)', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const { reads } = await twoHostsRecordingIssueReads(manager);
 
 		// An unknown id selects no host, so resolving it would fall back to the primary one.
-		const result = await manager.getTrackerIssue({
+		const result = await manager.getIssuesBatch({
 			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
-			resourceId: 'jira-a.example.com',
 			connectionId: 'no-such-connection',
-			key: 'PROJ-1',
+			targets: [{ key: 'PROJ-1', resourceId: 'jira-a.example.com', identifier: 'PROJ-1' }],
 		});
 
 		assert.deepEqual(reads, [], 'no host is consulted, primary or otherwise');
@@ -953,7 +957,7 @@ suite('Jira Server/Data Center (#5864)', () => {
 
 		manager.dispose();
 	});
-	test('getTrackerIssue refuses a Jira Data Center connection that has no host (#5872)', async () => {
+	test('getIssuesBatch refuses a Jira Data Center connection that has no host (#5872)', async () => {
 		const runtime = createFakeRuntime();
 		// A legacy descriptor without a domain selects no host, so it would resolve the primary one.
 		await runtime.storage.store('integrations:configured', {
@@ -978,11 +982,10 @@ suite('Jira Server/Data Center (#5864)', () => {
 		const manager = createIntegrationManager(runtime);
 		const { reads } = await twoHostsRecordingIssueReads(manager);
 
-		const result = await manager.getTrackerIssue({
+		const result = await manager.getIssuesBatch({
 			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
-			resourceId: 'jira-a.example.com',
 			connectionId: 'hostless',
-			key: 'PROJ-404',
+			targets: [{ key: 'PROJ-404', resourceId: 'jira-a.example.com', identifier: 'PROJ-404' }],
 		});
 
 		assert.deepEqual(reads, [], 'the primary host is not read on behalf of a hostless connection');

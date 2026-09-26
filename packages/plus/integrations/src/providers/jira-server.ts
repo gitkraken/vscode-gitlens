@@ -514,9 +514,9 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 	}
 
 	/**
-	 * The point read behind `getTrackerIssue` (#5872). `resourceId` is this connection's single synthetic
-	 * resource — the host itself, see {@link JiraServerResourceDescriptor} — so it selects nothing further here:
-	 * the host was chosen upstream by `domain` (or the connection's configured domain) and the request is
+	 * The point read behind `getIssuesBatch`'s tracker targets (#5872). `resourceId` is this connection's single
+	 * synthetic resource — the host itself, see {@link JiraServerResourceDescriptor} — so it selects nothing further
+	 * here: the host was chosen upstream by `domain` (or the connection's configured domain) and the request is
 	 * addressed to the SESSION's base URL like every other read. No `resourceUrl` is needed either, unlike Jira
 	 * Cloud: its REST `self` link is an API endpoint, whereas `getJiraServerIssue` builds the browser link from
 	 * the base URL it was addressed to. A key that names no issue resolves to `undefined`, a proven absence.

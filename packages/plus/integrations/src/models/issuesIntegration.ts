@@ -4,10 +4,13 @@ import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
-import { IntegrationReadUnavailableError, toError } from '../errors.js';
+import { providerFanOutConcurrency } from '../constants.js';
+import { toError } from '../errors.js';
 import type { ProviderApiCollectionResult } from '../providers/models.js';
+import { throwIfAllSettledFailed } from '../providers/utils/providerPaging.js';
 import type { Integration, IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
 import type { IssuesForProjectOptions, ProjectIssuesDrain } from './issueReads.js';
@@ -26,26 +29,44 @@ export abstract class IssuesIntegration<
 		return this.getProviderIssueByResourceId != null;
 	}
 
-	getIssueByResourceIdResult(
-		resourceId: string,
-		id: string,
-		options?: { connectionId?: string; expiryOverride?: boolean | number; resourceUrl?: string },
-	): Promise<IntegrationResult<Issue | undefined>> {
-		const getProviderIssue = this.getProviderIssueByResourceId;
-		if (getProviderIssue == null) {
-			return Promise.resolve({
-				error: new IntegrationReadUnavailableError(
-					this.name,
-					'does not support direct issue reads by resource id',
-				),
-			});
-		}
+	/**
+	 * Result-returning wrapper for the BATCH tracker issue read: resolves several `(resourceId, identifier)` targets
+	 * with one {@link getProviderIssueByResourceId} request each, run with bounded concurrency. One settled slot per
+	 * input target: `fulfilled` with `undefined` means the issue does not exist or is not visible to this token;
+	 * `rejected` means that target could not be checked, never that it is absent.
+	 *
+	 * Failure isolation happens PER TARGET, mirroring `GitHostIntegration.getPullRequestsBatchResult`: the whole
+	 * call counts as a failure against the integration's request-exception budget only when EVERY slot rejected
+	 * (`throwIfAllSettledFailed`), so a batch of mostly-good targets never spends more than one strike.
+	 *
+	 * Uncached on purpose: the caller owns caching, as with the git hosts' batch reads.
+	 */
+	async getIssuesByResourceIdBatchResult(
+		targets: readonly { resourceId: string; identifier: string; resourceUrl?: string }[],
+		connectionId?: string,
+	): Promise<IntegrationResult<PromiseSettledResult<IssueShape | undefined>[] | undefined>> {
+		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
 
-		const { resourceUrl, ...readOptions } = options ?? {};
-		const resource = { key: resourceId, resourceId: resourceId, resourceUrl: resourceUrl };
-		return this.getIssueResultCore(resource, id, readOptions, session =>
-			getProviderIssue.call(this, session, resourceId, id, resourceUrl),
-		);
+		const getProviderIssue = this.getProviderIssueByResourceId;
+		if (getProviderIssue == null) return { value: undefined };
+
+		const start = performance.now();
+		try {
+			const slots = await mapSettledBounded(targets, providerFanOutConcurrency, t =>
+				getProviderIssue.call(this, session, t.resourceId, t.identifier, t.resourceUrl),
+			);
+
+			throwIfAllSettledFailed(slots);
+
+			this.resetRequestExceptionCount('getIssue');
+			return { value: slots, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleProviderException('getIssue', ex, { scope: scope, connectionId: connectionId });
+			return { error: toError(ex), duration: performance.now() - start };
+		}
 	}
 
 	protected getProviderIssueByResourceId?(

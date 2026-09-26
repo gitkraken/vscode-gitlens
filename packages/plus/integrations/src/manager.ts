@@ -18,7 +18,6 @@ import type {
 import type { SupportedFilters } from './reads/filters.js';
 import type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
 import type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
-import type { TrackerIssueResult } from './reads/trackerIssue.js';
 import type {
 	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
@@ -633,28 +632,44 @@ export interface IntegrationManager {
 		domain?: string;
 	}): Promise<ProviderResult<IssueCountResult>>;
 	/**
-	 * Resolves several issues BY COORDINATE — `(owner, repo, number)` — in one request.
+	 * Resolves several issues BY IDENTITY in one call. Each target takes the form its provider addresses an issue
+	 * by: a repository coordinate `(owner, repo, number)` on GitHub/GHE, or the tracker's own identifier within a
+	 * resource `(resourceId, ABC-123)` on Jira and Linear. A call carrying the other form is refused whole.
 	 *
 	 * The read for "which issue does this branch name reference", which is an IDENTITY question rather than a
 	 * search. Emulating it by paging a scoped list and matching the identifier cannot prove absence without
 	 * walking the whole scope, so a miss stays unproven, uncacheable, and repeats its whole budget on every pass.
-	 * This answers it in one request per chunk, and a miss is final.
+	 * Here a miss is final.
 	 *
 	 * Results are echoed under the caller's own `key`, so no positional matching is needed. Per-target isolation
-	 * is the rule: a chunk that fails upstream warns and drops only its own targets (with `fetchFailed` set) while
+	 * is the rule: a read that fails upstream warns and drops only its own targets (with `fetchFailed` set) while
 	 * every other target still answers.
 	 *
 	 * `issue: undefined` means PROVEN ABSENT — the issue does not exist, or is not visible to this connection —
-	 * and is safe to cache. A target whose chunk failed is NOT returned at all, so the two are distinguishable;
-	 * caching a failure as an absence is exactly the bug this distinction prevents. GitHub/GHE only: a provider
-	 * that cannot batch refuses outright rather than degrading into N requests behind the caller's back.
+	 * and is safe to cache. A target whose read failed is NOT returned at all, so the two are distinguishable;
+	 * caching a failure as an absence is exactly the bug this distinction prevents. Uncached: the caller owns
+	 * caching.
+	 *
+	 * GitHub/GHE resolve up to 25 coordinates per request. Jira (Cloud and Data Center) and Linear cost one request
+	 * per target, with bounded concurrency, so a key asked of several resources is one call; `resourceId` is trusted
+	 * and the read does no resource discovery, and Jira Cloud also requires `resourceUrl`. Every other provider
+	 * refuses outright — Trello because its single-issue read can fall back to a capped board scan, which cannot
+	 * prove an absence.
+	 *
+	 * A self-managed tracker (Jira Data Center) never falls back to the primary connection, unlike the paged reads:
+	 * the call is refused unless `domain` names a host or `connectionId` a configured connection that has one, and
+	 * every target's `resourceId` must name the host the read resolved to. Two self-hosted instances routinely issue
+	 * the same keys, and a cached absence must name the host it was proven on.
 	 */
 	getIssuesBatch(options: {
 		providerId: IntegrationIds;
 		/** Each `key` must be unique — a duplicate refuses the whole call, since keys identify results. */
 		targets: readonly IssueBatchTarget[];
 		connectionId?: string;
-		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		/**
+		 * Self-managed host domain; see {@link ProviderSweepTarget.domain}. A fallback for a git host, but required
+		 * for a self-managed tracker unless `connectionId` names a configured host — see above.
+		 */
 		domain?: string;
 	}): Promise<ProviderResult<IssueBatchResult>>;
 	/**
@@ -690,42 +705,6 @@ export interface IntegrationManager {
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
 	}): Promise<ProviderResult<PullRequestBatchResult>>;
-	/**
-	 * Resolves one issue-tracker issue by key within a resource — the tracker counterpart of
-	 * {@link getIssuesBatch}, which cannot serve one.
-	 *
-	 * `issue: undefined` is a proven absence and may be cached. A failed read returns no item and sets
-	 * `fetchFailed`. `resourceId` is required and trusted; Jira Cloud also requires the resource's site URL so the
-	 * result retains its browser link. The read performs no resource discovery.
-	 *
-	 * Jira (Cloud and Data Center) and Linear only. Trello refuses: its single-issue read falls back to a capped
-	 * board scan for a numeric identifier, so it cannot prove absence.
-	 *
-	 * Jira Data Center is addressed per host and, unlike the paged reads, this one never falls back to the primary
-	 * connection: it requires a `domain` or a `connectionId` with a configured host and refuses otherwise, since two
-	 * self-hosted instances routinely issue the same keys and a cached absence must name the host it was proven on.
-	 */
-	getTrackerIssue(options: {
-		providerId: IntegrationIds;
-		/**
-		 * Provider resource ID for the Atlassian site or Linear workspace. For Jira Data Center it is the host, the
-		 * instance's single resource as `listOrgs` reports it, and must name the host the read resolves to.
-		 */
-		resourceId: string;
-		/**
-		 * Jira site URL from resource discovery. Required for Jira Cloud so the result retains a browser link; Jira
-		 * Data Center builds it from the connection's own base URL.
-		 */
-		resourceUrl?: string;
-		/** The provider's own key, e.g. `ABC-123`. Not a number. */
-		key: string;
-		connectionId?: string;
-		/**
-		 * Self-managed tracker host; see {@link ProviderSweepTarget.domain}. Ignored for the cloud trackers. Required
-		 * for Jira Data Center unless `connectionId` names a configured host — see above.
-		 */
-		domain?: string;
-	}): Promise<ProviderResult<TrackerIssueResult>>;
 	/**
 	 * How many pull requests match each scope — the PR twin of {@link countIssues}, behind a "this will fetch ~N pull
 	 * requests" preview and a live count next to an unapplied filter. Same per-scope isolation, `key`-echo, and
