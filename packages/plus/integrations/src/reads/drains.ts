@@ -407,12 +407,13 @@ export function resolvePullRequestSweepTargets(options: PullRequestSweepOptions 
 	};
 }
 
-export async function getCurrentAccountId(
+export async function getCurrentAccountIdentity(
 	integration: GitHostIntegration,
 	connectionId: string | undefined,
-): Promise<string | undefined> {
+): Promise<{ id: string; username?: string } | undefined> {
 	try {
-		return (await integration.getCurrentAccount({ connectionId: connectionId }))?.id;
+		const account = await integration.getCurrentAccount({ connectionId: connectionId });
+		return account != null ? { id: account.id, username: account.username } : undefined;
 	} catch {
 		// Authorship is optional enrichment; don't turn a successful PR read into a failure if identity lookup fails.
 		return undefined;

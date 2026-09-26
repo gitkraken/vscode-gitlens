@@ -1652,7 +1652,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 export function fromProviderPullRequest(
 	pr: ProviderPullRequest,
 	provider: Provider,
-	options?: { project?: IssueProject; currentAccountId?: string },
+	options?: { project?: IssueProject; currentAccount?: { id: string; username?: string } },
 ): PullRequest {
 	const repository = pr.repository;
 	const repositoryName = repository?.name ?? '';
@@ -1727,8 +1727,27 @@ export function fromProviderPullRequest(
 		pr.fileCount ?? undefined,
 		pr.description ?? undefined,
 		pr.number,
-		options?.currentAccountId != null ? pr.author?.id === options.currentAccountId : undefined,
+		options?.currentAccount != null ? authoredByCurrentAccount(pr, provider, options.currentAccount) : undefined,
 	);
+}
+
+/**
+ * GitLens' own GitHub GraphQL client keys people by login, while the current account's `id` is GitHub's
+ * numeric database id, so an id-only match always misses there. The login is a unique handle on every
+ * GitHub row shape, so the username fallback is safe there; elsewhere `toProviderAccount` fills `username`
+ * from a display name that two people can share, so only GitHub and GitHub Enterprise get the fallback.
+ */
+function authoredByCurrentAccount(
+	pr: ProviderPullRequest,
+	provider: Provider,
+	currentAccount: { id: string; username?: string },
+): boolean {
+	if (pr.author?.id === currentAccount.id) return true;
+
+	const isGitHub =
+		provider.id === GitCloudHostIntegrationId.GitHub ||
+		provider.id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
+	return isGitHub && currentAccount.username != null && pr.author?.username === currentAccount.username;
 }
 
 export function fromProviderIssue(
