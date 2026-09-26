@@ -139,12 +139,21 @@ A provider that cannot serve a surface says so explicitly — a warning explaini
 unsupported plus `fetchFailed`, never a silent empty page. That distinction is the whole point of the result
 shape: an empty `items` with no warning means "this account genuinely has nothing".
 
-`getIssuesBatch` takes the target form its provider addresses an issue by: `{ key, owner, repo, number }` on
-GitHub/GHE, up to 25 per request, and `{ key, resourceId, resourceUrl?, identifier }` on Jira and Linear, one request
-per target; a call carrying the other form is refused whole. A tracker target's `resourceId` is trusted, so the read
-performs no resource discovery. Jira also requires `resourceUrl`, the site URL returned by `listOrgs`; the REST
-response only supplies an API `self` link, so the caller provides the already-known site identity. Linear does not
-need it. A key asked of several resources is one call, with one target per resource.
+`getIssuesBatch` takes the target form its provider addresses an issue by: `{ key, owner, repo, number, project? }` on
+GitHub/GHE, GitLab and Azure DevOps, and `{ key, resourceId, resourceUrl?, identifier }` on Jira and Linear; a call
+carrying the other form is refused whole. GitHub/GHE resolve up to 25 coordinates per request; GitLab, Azure DevOps
+and the trackers cost one request per target. Azure DevOps requires `project` and ignores `repo`, since work items
+belong to the project. Rows take the repository-scoped `listIssuesPage` conversion, except that an Azure DevOps row
+has no `project`, which only the account-wide read fills from project discovery. What counts as a proven absence is
+per host. On GitLab it is a null project or issue, and a miss costs a second request to confirm it, since
+provider-apis reports a reply carrying only GraphQL errors the same way; a 404 or an empty response fails the target.
+On Azure DevOps it is Azure's own 404 body naming the work item (`WorkItemUnauthorizedAccessException`, which Azure also
+uses for a work item this connection cannot read) or the project (`ProjectDoesNotExistWithNameException`); an HTML
+404, a 410 or any other `typeKey` fails the target. Bitbucket and Bitbucket DC have no issues and refuse. A tracker
+target's `resourceId` is trusted, so the read performs no resource discovery. Jira also requires `resourceUrl`, the
+site URL returned by `listOrgs`; the REST response only supplies an API `self` link, so the caller provides the
+already-known site identity. Linear does not need it. A key asked of several resources is one call, with one target
+per resource.
 
 `getPullRequestsBatch` is the pull request counterpart of `getIssuesBatch`, with the same absence/failure contract,
 and it serves every git host. Azure DevOps also requires `project` on each target. GitHub/GHE resolve up to 25
@@ -595,7 +604,7 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  —   |   —    |   —    |
 | `searchIssuesPage`           |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
 | `countIssues`                |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
-| `getIssuesBatch`             |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |  ✓   |   ✓    |   ✗    |
+| `getIssuesBatch`             |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  ✓   |   ✓    |   ✗    |
 | `getPullRequestsBatch`       |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  ✗   |   ✗    |   ✗    |
 | `getPullRequestsForBranches` |      ✓       |          ✓           |     ✓     |      ✓¹      |           ✓¹            |  ✗   |   ✗    |   ✗    |
 | Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |  ✓   |   ✓    |   ✓    |

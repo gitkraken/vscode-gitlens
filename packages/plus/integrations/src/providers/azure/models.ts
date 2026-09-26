@@ -10,6 +10,7 @@ import {
 } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import type { ProviderAccount, ProviderIssue } from '../models.js';
 
 const vstsHostnameSuffix = '.visualstudio.com';
 
@@ -744,4 +745,126 @@ function toWorkItemIterations(path: string | undefined): IssueIteration[] | unde
 
 	const name = segments.at(-1)?.trim();
 	return name ? [{ id: path, name: name }] : undefined;
+}
+
+/**
+ * A work item as `GET …/_apis/wit/workitems/{id}?$expand=Links` returns it. Loosely typed because
+ * {@link fromAzureWorkItemToProviderIssue} checks every field it reads, as provider-apis does.
+ */
+export interface AzureWorkItemResponse {
+	id?: unknown;
+	fields?: Record<string, unknown>;
+	_links?: { html?: { href?: unknown } };
+}
+
+/**
+ * Converts a work item exactly as provider-apis' `getIssuesForAzureProject` converts each row it reads, so a work
+ * item read by id reaches `toIssueShape` identical to the list read's row for it. provider-apis exports neither
+ * that converter nor a single work item read, so this mirrors it field for field; the batch issue tests compare
+ * the two, so a provider-apis change that this misses fails there.
+ *
+ * `undefined` for a work item the SDK would skip: no positive integer id, no title, or no valid created date.
+ * `state.name` is the raw `System.State`, as on every list read here, which passes the SDK no state-name map.
+ */
+export function fromAzureWorkItemToProviderIssue(
+	workItem: AzureWorkItemResponse,
+	namespace: string,
+	project: string,
+): ProviderIssue | undefined {
+	const fields = workItem.fields;
+	const id = workItem.id;
+	const title = fields?.['System.Title'];
+	const createdDate = parseAzureWorkItemDate(fields?.['System.CreatedDate']);
+	if (
+		fields == null ||
+		typeof id !== 'number' ||
+		!Number.isSafeInteger(id) ||
+		id <= 0 ||
+		typeof title !== 'string' ||
+		!title.trim() ||
+		createdDate == null
+	) {
+		return undefined;
+	}
+
+	const assignee = fromAzureWorkItemIdentity(fields['System.AssignedTo']);
+	const commentCount = fields['System.CommentCount'];
+	const url = workItem._links?.html?.href;
+	const tags = fields['System.Tags'];
+	const state = fields['System.State'];
+	const type = fields['System.WorkItemType'];
+	const description = fields['System.Description'];
+	return {
+		id: id.toString(),
+		number: id.toString(),
+		title: title,
+		commentCount: typeof commentCount === 'number' && Number.isFinite(commentCount) ? commentCount : null,
+		author: fromAzureWorkItemIdentity(fields['System.CreatedBy']),
+		closedDate: parseAzureWorkItemDate(fields['Microsoft.VSTS.Common.ClosedDate']),
+		createdDate: createdDate,
+		updatedDate: parseAzureWorkItemDate(fields['System.ChangedDate']),
+		url: typeof url === 'string' ? url : null,
+		assignees: assignee != null ? [assignee] : [],
+		description: typeof description === 'string' ? description : null,
+		state: typeof state === 'string' && state ? { name: state, color: null } : null,
+		type: typeof type === 'string' ? type : null,
+		iteration: toAzureWorkItemIteration(fields['System.IterationPath']),
+		repository: null,
+		project: { namespace: namespace, name: project, resourceId: null, key: null, id: null },
+		upvoteCount: 0,
+		labels: (typeof tags === 'string' ? tags.split(';') : []).map(tag => ({
+			color: null,
+			description: null,
+			id: null,
+			name: tag.trim(),
+		})),
+	};
+}
+
+/** An identity field, as provider-apis maps it: `name` from `uniqueName`, `username` from `displayName`. */
+function fromAzureWorkItemIdentity(value: unknown): ProviderAccount | null {
+	const identity = value as
+		| { id?: unknown; uniqueName?: unknown; displayName?: unknown; _links?: { avatar?: { href?: unknown } } }
+		| null
+		| undefined;
+	if (typeof identity?.id !== 'string' || !identity.id.trim()) return null;
+
+	const avatarUrl = identity._links?.avatar?.href;
+	return {
+		avatarUrl: typeof avatarUrl === 'string' ? avatarUrl : null,
+		email: null,
+		id: identity.id,
+		name: typeof identity.uniqueName === 'string' ? identity.uniqueName : null,
+		username: typeof identity.displayName === 'string' ? identity.displayName : null,
+		url: null,
+	};
+}
+
+/** Only a UTC ISO timestamp naming a real calendar date and time, as provider-apis accepts; anything else is `null`. */
+function parseAzureWorkItemDate(value: unknown): Date | null {
+	if (typeof value !== 'string') return null;
+
+	const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,7})?Z$/.exec(value);
+	if (match == null) return null;
+
+	const [year, month, day, hour, minute, second] = match.slice(1).map(Number);
+	const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+	const daysInMonth = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+	if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1] || hour > 23 || minute > 59 || second > 59) {
+		return null;
+	}
+
+	const date = new Date(value);
+	return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** The SDK's `iteration`: only a nested path names a sprint; the project root is a work item's default. */
+function toAzureWorkItemIteration(path: unknown): ProviderIssue['iteration'] {
+	if (typeof path !== 'string' || !path) return undefined;
+
+	const segments = path.split('\\');
+	if (segments.length < 2) return undefined;
+
+	const name = segments.at(-1)?.trim();
+	return name ? { path: path, name: name } : undefined;
 }

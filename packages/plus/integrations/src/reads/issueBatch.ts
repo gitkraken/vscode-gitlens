@@ -1,16 +1,11 @@
 import type { IssueShape } from '@gitlens/git/models/issue.js';
-import { chunk } from '@gitlens/utils/array.js';
-import { mapBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationIds } from '../constants.js';
-import { IssuesCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
+import { githubGraphQLInt32Max, isAzureProviderId, isGitHubProviderId } from '../providers/providerErrors.js';
 import type { ProviderResult, ProviderWarning } from '../results.js';
 import { appendDedupedWarning, toProviderWarning } from '../results.js';
-import {
-	isGitHostIntegration,
-	isIssuesHostIntegrationId,
-	warnOnMissingSessionForDomain,
-} from '../utils/integration.utils.js';
+import { isGitHostIntegration, isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
 import {
@@ -37,12 +32,33 @@ import {
  *
  * Modeled on `countIssues` for its shape — caller-owned `key` echoed back, per-target isolation, as few requests
  * as the provider allows — because both take a set of independent questions and answer them together.
+ *
+ * ONE integration call per invocation, whatever the target count, as in `getPullRequestsBatch`: the integration
+ * fans its targets out (chunked for GitHub/GHE, one request per target with bounded concurrency on GitLab and
+ * Azure DevOps and on the trackers) and settles each independently, so failing targets spend at most one strike
+ * of the integration's failure budget.
  */
 
 /** One issue to resolve, echoed back under the caller's own `key`. Which form a call takes depends on its provider. */
 export type IssueBatchTarget =
-	/** A git host's issue, by repository coordinate. GitHub and GitHub Enterprise. */
-	| { key: string; owner: string; repo: string; number: number }
+	/**
+	 * A git host's issue, by repository coordinate. GitHub/GHE, GitLab (and self-managed) and Azure DevOps (and
+	 * Server); Bitbucket and Bitbucket Data Center have no issues and refuse.
+	 */
+	| {
+			key: string;
+			/** GitHub owner, GitLab namespace path (may be nested), or Azure DevOps organization (or collection). */
+			owner: string;
+			/**
+			 * Repository name. Required, but ignored on Azure DevOps, whose work items belong to the project rather
+			 * than to a repository.
+			 */
+			repo: string;
+			/** Issue number, GitLab issue iid, or Azure DevOps work item id. */
+			number: number;
+			/** Azure DevOps project. Required there, ignored elsewhere. */
+			project?: string;
+	  }
 	/** An issue tracker's issue, by its own identifier (e.g. `ABC-123`) within a resource. Jira and Linear. */
 	| { key: string; resourceId: string; resourceUrl?: string; identifier: string };
 
@@ -62,19 +78,6 @@ export interface IssueBatchResult {
 	 */
 	issue?: IssueShape;
 }
-
-/**
- * How many coordinates go into one upstream request.
- *
- * Measured rather than inherited from `issueCountChunkSize`, since that one rests on a zero-node selection and
- * this carries the full issue projection per alias. Against the live API on all-resolving coordinates: 10 took
- * 875ms, 25 took 890ms — so up to 25 is effectively free — 50 took 1.3s, and 75 took 2.7s. No complexity refusal
- * appeared up to 100.
- *
- * 25 is where latency is still flat, with room before it degrades. It also puts any realistic correlation batch
- * in ONE request, which is the whole point of the read.
- */
-const issueBatchChunkSize = 25;
 
 const surface = 'Batch issue resolution';
 
@@ -124,9 +127,16 @@ export async function getIssuesBatch(
 				options.providerId,
 				undefined,
 				options.connectionId,
-				`${surface} for '${options.providerId}' takes repository coordinates { key, owner, repo, number }, not tracker identifiers.`,
+				`${surface} for '${options.providerId}' takes repository coordinates { key, owner, repo, number, project? }, not tracker identifiers.`,
 			),
 		);
+	}
+
+	// Deterministic caller bugs, refused like a duplicate key rather than sent upstream, where a blank owner or repo
+	// would come back as a missing repository — a proven absence the caller would cache.
+	const invalid = findInvalidCoordinateTarget(options.providerId, targets);
+	if (invalid != null) {
+		return refused(otherWarning(options.providerId, undefined, options.connectionId, invalid));
 	}
 
 	const integration = await ctx.getIntegrationForRead(options.providerId, options.connectionId, options.domain);
@@ -138,7 +148,6 @@ export async function getIssuesBatch(
 	}
 
 	const domain = ctx.domainForRead(integration, options.providerId, options.connectionId, options.domain);
-	const warnOnMissingSession = warnOnMissingSessionForDomain(options.providerId, options.domain);
 
 	if (!integration.supportsIssues) {
 		return refused(issuesUnsupportedWarning(options.providerId, domain, options.connectionId));
@@ -147,64 +156,57 @@ export async function getIssuesBatch(
 	const warnings: ProviderWarning[] = [];
 	let fetchFailed = false;
 
-	// Chunks are independent requests over their own slice of targets — nothing in one reads what another
-	// produced, and `runCaptured` never throws — so they run concurrently, bounded like every other fan-out here.
-	// `mapBounded` returns in input order, so `items` stays in target order.
-	const batches = await mapBounded(chunk([...targets], issueBatchChunkSize), providerFanOutConcurrency, batch =>
-		runCaptured(
-			options.providerId,
-			domain,
-			options.connectionId,
-			() =>
-				integration.getIssuesBatchResult(
-					batch.map(t => ({ owner: t.owner, repo: t.repo, number: t.number })),
-					undefined,
-					options.connectionId,
-				),
-			{ warnOnMissingSession: warnOnMissingSession },
-		).then(result => ({ batch: batch, ...result })),
+	const { value: slots, warning } = await runCaptured(
+		options.providerId,
+		domain,
+		options.connectionId,
+		() =>
+			integration.getIssuesBatchResult(
+				targets.map(t => ({ owner: t.owner, repo: t.repo, number: t.number, project: t.project })),
+				undefined,
+				options.connectionId,
+			),
+		// A missing session must surface as a connection warning, including on the primary path, which
+		// otherwise reads it as "not connected" and says nothing — and this read would then call it unsupported.
+		{ warnOnMissingSession: true },
 	);
+	if (warning != null) {
+		appendDedupedWarning(warnings, warning);
+	}
+
+	if (slots == null) {
+		// A provider that doesn't implement the batch hook answers `undefined` with no error. Either way its
+		// targets are DROPPED rather than reported as absent — the difference between "unknown" and "proven
+		// absent" is the read's whole value, and a failure must never be cached as an answer.
+		if (warning == null) {
+			appendDedupedWarning(
+				warnings,
+				otherWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					`${surface} is not supported by '${options.providerId}'; resolve issues individually instead.`,
+				),
+			);
+		}
+		return { items: [], warnings: warnings, fetchFailed: true };
+	}
 
 	const items: IssueBatchResult[] = [];
-	for (const { batch, value, warning } of batches) {
-		if (warning != null) {
-			appendDedupedWarning(warnings, warning);
-		}
-		if (value == null) {
-			// A provider that doesn't implement the batch hook answers `undefined` with no error. Either way this
-			// chunk contributes nothing while the chunks around it still do, so its targets are DROPPED rather
-			// than reported as absent — the difference between "unknown" and "proven absent" is the read's whole
-			// value, and a failure must never be cached as an answer.
-			if (warning == null) {
-				appendDedupedWarning(
-					warnings,
-					otherWarning(
-						options.providerId,
-						domain,
-						options.connectionId,
-						`${surface} is not supported by '${options.providerId}'; resolve issues individually instead.`,
-					),
-				);
-			}
+	for (let i = 0; i < targets.length; i++) {
+		const slot = slots[i];
+		if (slot.status === 'rejected') {
+			// Dropped, never reported absent, like a whole-call failure: only THIS target failed.
+			appendDedupedWarning(
+				warnings,
+				toProviderWarning(options.providerId, domain, options.connectionId, slot.reason),
+			);
 			fetchFailed = true;
 			continue;
 		}
 
-		for (let i = 0; i < batch.length; i++) {
-			const slot = value[i];
-			if (slot.status === 'rejected') {
-				// Dropped, never reported absent, like a whole-chunk failure: only THIS target failed.
-				appendDedupedWarning(
-					warnings,
-					toProviderWarning(options.providerId, domain, options.connectionId, slot.reason),
-				);
-				fetchFailed = true;
-				continue;
-			}
-
-			const issue = slot.value;
-			items.push({ key: batch[i].key, ...(issue != null ? { issue: issue } : {}) });
-		}
+		const issue = slot.value;
+		items.push({ key: targets[i].key, ...(issue != null ? { issue: issue } : {}) });
 	}
 
 	return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
@@ -313,6 +315,33 @@ function isCoordinateTarget(target: IssueBatchTarget): target is CoordinateTarge
 
 function isTrackerTarget(target: IssueBatchTarget): target is TrackerTarget {
 	return 'resourceId' in target;
+}
+
+function findInvalidCoordinateTarget(
+	providerId: IntegrationIds,
+	targets: readonly CoordinateTarget[],
+): string | undefined {
+	const isAzure = isAzureProviderId(providerId);
+	const isGitHub = isGitHubProviderId(providerId);
+	for (const target of targets) {
+		if (!Number.isSafeInteger(target.number) || target.number <= 0) {
+			return `Issue batch target '${target.key}' has number ${target.number}; expected a positive integer.`;
+		}
+		if (isGitHub && target.number > githubGraphQLInt32Max) {
+			return `Issue batch target '${target.key}' has number ${target.number}; GitHub numbers are 32-bit and cannot exceed ${githubGraphQLInt32Max}.`;
+		}
+		if (target.owner.trim().length === 0) {
+			return `Issue batch target '${target.key}' requires a non-empty owner.`;
+		}
+		if (isAzure) {
+			if (!target.project?.trim()) {
+				return `Issue batch target '${target.key}' requires a project for '${providerId}'.`;
+			}
+		} else if (target.repo.trim().length === 0) {
+			return `Issue batch target '${target.key}' requires a non-empty repo.`;
+		}
+	}
+	return undefined;
 }
 
 function findInvalidTrackerTarget(

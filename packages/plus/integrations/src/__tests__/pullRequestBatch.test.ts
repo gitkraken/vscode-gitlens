@@ -16,7 +16,16 @@ import type { GetPullRequestForRepoFn, ProviderRepoInput } from '../providers/mo
 import type { ProvidersApi } from '../providers/providersApi.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
-import { connectedGitHub, connectedGitLab, primarySession, providerPr, stubApi } from './sweepHelpers.js';
+import {
+	connectedAzure,
+	connectedBitbucket,
+	connectedBitbucketServer,
+	connectedGitHub,
+	connectedGitLab,
+	primarySession,
+	providerPr,
+	stubApi,
+} from './sweepHelpers.js';
 
 /**
  * The batch pull request read: resolve N pull requests by coordinate, in any state.
@@ -142,53 +151,6 @@ function pullRequest(provider: ProviderReference, number: number, author: string
 		new Date(0),
 		new Date(0),
 	);
-}
-
-async function connectedAzure(runtime: FakeRuntime): Promise<{ manager: Manager; azure: GitHostIntegration }> {
-	const manager = createIntegrationManager(runtime);
-	const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
-	(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
-		...primarySession('t'),
-		domain: 'dev.azure.com',
-	};
-	return { manager: manager, azure: azure };
-}
-
-async function connectedBitbucket(
-	runtime: FakeRuntime,
-): Promise<{ manager: Manager; integration: GitHostIntegration }> {
-	const manager = createIntegrationManager(runtime);
-	const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
-	(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
-		...primarySession('t'),
-		domain: 'bitbucket.org',
-	};
-	return { manager: manager, integration: bb };
-}
-
-async function connectedBitbucketServer(
-	runtime: FakeRuntime,
-): Promise<{ manager: Manager; integration: GitHostIntegration }> {
-	await runtime.storage.store('integrations:configured', {
-		[GitSelfManagedHostIntegrationId.BitbucketServer]: [
-			{
-				id: 'bbs-1',
-				cloud: true,
-				integrationId: GitSelfManagedHostIntegrationId.BitbucketServer,
-				domain: 'https://bbs.example.com',
-				scopes: 'repo',
-				primary: true,
-			},
-		],
-	});
-	const manager = createIntegrationManager(runtime);
-	const bbs = await manager.get(GitSelfManagedHostIntegrationId.BitbucketServer, 'bbs.example.com');
-	assert.ok(bbs != null);
-	(bbs as unknown as { _session: ProviderAuthenticationSession })._session = {
-		...primarySession('t'),
-		domain: 'bbs.example.com',
-	};
-	return { manager: manager, integration: bbs };
 }
 
 function bitbucketCloudPullRequest(id: number): Record<string, unknown> {

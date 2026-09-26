@@ -1789,10 +1789,10 @@ export abstract class GitHostIntegration<
 	): Promise<(number | undefined)[] | undefined>;
 
 	/**
-	 * Result-returning wrapper for the BATCH issue read: resolves several `(owner, repo, number)` coordinates, in
-	 * ONE call to {@link getProviderIssuesBatch}. One settled slot per input coordinate: `fulfilled` with
-	 * `undefined` means the issue does not exist or is not visible to this token; `rejected` means that target
-	 * could not be checked, never that it is absent.
+	 * Result-returning wrapper for the BATCH issue read: resolves several `(owner, repo, number)` coordinates, plus
+	 * `project` on Azure DevOps, in ONE call to {@link getProviderIssuesBatch}. One settled slot per input
+	 * coordinate: `fulfilled` with `undefined` means the issue does not exist or is not visible to this token;
+	 * `rejected` means that target could not be checked, never that it is absent.
 	 *
 	 * Distinct from every search on this class, and deliberately so. A search answers "what matches"; this answers
 	 * "does this exact issue exist", which is the question a caller correlating a branch name to an issue is
@@ -1808,7 +1808,7 @@ export abstract class GitHostIntegration<
 	 * (`throwIfAllSettledFailed`), so a batch of mostly-good targets never spends more than one strike.
 	 */
 	async getIssuesBatchResult(
-		coordinates: readonly { owner: string; repo: string; number: number }[],
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
 		cancellation?: AbortSignal,
 		connectionId?: string,
 	): Promise<IntegrationResult<PromiseSettledResult<IssueShape | undefined>[] | undefined>> {
@@ -1836,15 +1836,17 @@ export abstract class GitHostIntegration<
 	}
 
 	/**
-	 * OPTIONAL: only a provider that can resolve SEVERAL issues by coordinate in one request implements this.
-	 * GitHub aliases its point read into one document; the SDK exposes only a singular `getIssue` for every other
-	 * provider, and there is no plural variant to build on. A provider that can't answer doesn't implement it and
-	 * the facade refuses the read, so a caller keeps its own per-issue path rather than being handed a batch that
-	 * silently degraded into N requests.
+	 * OPTIONAL: one settled slot per input coordinate, in order, in the same shape the list reads return for this
+	 * provider. `fulfilled` with `undefined` is a PROVEN ABSENCE a caller may cache; `rejected` means that target
+	 * could not be checked — never conflate the two, so a host implements this only where it can tell them apart.
+	 *
+	 * GitHub/GHE alias up to 25 coordinates into one document and so chunk internally; a chunk that throws rejects
+	 * every slot in that chunk, not the ones in other chunks. GitLab and Azure DevOps read one issue per request and
+	 * fan out with `mapSettledBounded`, so one target's failure rejects only its own slot. Bitbucket has no issues.
 	 */
 	protected getProviderIssuesBatch?(
 		session: ProviderAuthenticationSession,
-		coordinates: readonly { owner: string; repo: string; number: number }[],
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<IssueShape | undefined>[] | undefined>;
 

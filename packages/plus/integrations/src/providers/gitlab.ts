@@ -322,6 +322,57 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 	}
 
 	/**
+	 * One request per target, settled independently so one target's failure rejects only its own slot; through the
+	 * SDK's issue read and the conversion the repo-scoped list rows take. GitLens' own GitLab client can't alias
+	 * the read instead: it fails a whole document on any GraphQL error, where a batch needs per-target errors.
+	 */
+	protected override async getProviderIssuesBatch(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<IssueShape | undefined>[] | undefined> {
+		const api = await this.getProvidersApi();
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+		const baseUrl = getSelfManagedApiBaseUrl(this.id, session.domain || this.domain, session.protocol);
+		// The confirming read must ask the same host, over the same protocol, as the read it confirms.
+		const confirmBaseUrl = baseUrl != null ? `${baseUrl}/api` : this.apiBaseUrl;
+
+		return mapSettledBounded(coordinates, providerFanOutConcurrency, async c => {
+			const issue = await api.getIssueForRepo(tokenWithInfo, { namespace: c.owner, name: c.repo }, c.number, {
+				isPAT: this.isEnterprise,
+				baseUrl: baseUrl,
+			});
+			if (issue != null) {
+				const shape = toIssueShape(issue, this);
+				if (shape == null) throw new Error(`GitLab returned issue ${c.number} without a URL or update time`);
+
+				return shape;
+			}
+
+			// provider-apis' "not found" can come from a reply carrying only GraphQL errors (see `getIssueForRepo`),
+			// so only our own strict read can prove the miss.
+			const gitlab = await this.authenticationService.apis.gitlab;
+			if (gitlab == null) {
+				throw new IntegrationReadUnavailableError(this.name, 'cannot confirm a missing issue');
+			}
+
+			const exists = await gitlab.hasIssue(
+				this,
+				tokenWithInfo,
+				c.owner,
+				c.repo,
+				c.number,
+				{ baseUrl: confirmBaseUrl },
+				cancellation,
+			);
+			// Our own query can't produce the list rows' shape, so a disagreement fails rather than answering thinner.
+			if (exists) throw new Error(`GitLab reported issue ${c.number} missing, then found it`);
+
+			return undefined;
+		});
+	}
+
+	/**
 	 * One request per target, settled independently so one target's failure rejects only its own slot; through
 	 * the same SDK read and conversion the manager's list rows take.
 	 */

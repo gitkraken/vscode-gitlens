@@ -106,6 +106,19 @@ const sshSigningKeyResolveBatchSize = 10;
 const pullRequestsBatchChunkSize = 25;
 
 /**
+ * How many coordinates go into one aliased issue request.
+ *
+ * Measured rather than inherited from `issueCountChunkSize`, since that one rests on a zero-node selection and
+ * this carries the full issue projection per alias. Against the live API on all-resolving coordinates: 10 took
+ * 875ms, 25 took 890ms — so up to 25 is effectively free — 50 took 1.3s, and 75 took 2.7s. No complexity refusal
+ * appeared up to 100.
+ *
+ * 25 is where latency is still flat, with room before it degrades. It also puts any realistic correlation batch
+ * in ONE request, which is the whole point of the read.
+ */
+const issuesBatchChunkSize = 25;
+
+/**
  * Runs an aliased batch read over `items` in chunks of `chunkSize`, with bounded concurrency, converting each
  * fulfilled slot with `map`. Settled per target throughout: a chunk that throws rejects only its own slots, and a
  * slot whose conversion throws rejects only itself, so one bad row never takes its chunk's siblings down with it.
@@ -731,22 +744,32 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	}
 
 	/**
-	 * Resolves several issues by `(owner, repo, number)` in ONE request, by aliasing the point read rather than a
-	 * search — see {@link GitHubApi.getIssuesBatch} for why that distinction is the whole design. Settled per
-	 * target already: a coordinate whose alias fails on its own (e.g. an org enforcing SAML SSO the token isn't
-	 * authorized for) rejects only that slot, so it doesn't take the rest of this chunk down with it.
+	 * Resolves several issues by `(owner, repo, number)` by aliasing the point read rather than a search — see
+	 * {@link GitHubApi.getIssuesBatch} for why that distinction is the whole design — chunked into requests of up
+	 * to {@link issuesBatchChunkSize} coordinates, run with bounded concurrency. Settled per target already: a
+	 * coordinate whose alias fails on its own (e.g. an org enforcing SAML SSO the token isn't authorized for)
+	 * rejects only that slot, and a chunk that throws rejects only its own slots.
 	 */
 	protected override async getProviderIssuesBatch(
 		session: ProviderAuthenticationSession,
-		coordinates: readonly { owner: string; repo: string; number: number }[],
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<IssueShape | undefined>[] | undefined> {
-		return (await this.authenticationService.apis.github)?.getIssuesBatch(
-			this,
-			toTokenWithInfo(this.id, session),
+		const github = await this.authenticationService.apis.github;
+		if (github == null) return undefined;
+
+		return readChunked(
 			coordinates,
-			{ baseUrl: this.apiBaseUrl, includeBody: true },
-			cancellation,
+			issuesBatchChunkSize,
+			chunkCoordinates =>
+				github.getIssuesBatch(
+					this,
+					toTokenWithInfo(this.id, session),
+					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
+					{ baseUrl: this.apiBaseUrl, includeBody: true },
+					cancellation,
+				),
+			issue => issue,
 		);
 	}
 

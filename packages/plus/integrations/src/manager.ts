@@ -613,8 +613,9 @@ export interface IntegrationManager {
 	}): Promise<ProviderResult<IssueCountResult>>;
 	/**
 	 * Resolves several issues BY IDENTITY in one call. Each target takes the form its provider addresses an issue
-	 * by: a repository coordinate `(owner, repo, number)` on GitHub/GHE, or the tracker's own identifier within a
-	 * resource `(resourceId, ABC-123)` on Jira and Linear. A call carrying the other form is refused whole.
+	 * by: a repository coordinate `(owner, repo, number)` on GitHub/GHE, GitLab and Azure DevOps (which also needs
+	 * `project`, and ignores `repo`), or the tracker's own identifier within a resource `(resourceId, ABC-123)` on
+	 * Jira and Linear. A call carrying the other form is refused whole.
 	 *
 	 * The read for "which issue does this branch name reference", which is an IDENTITY question rather than a
 	 * search. Emulating it by paging a scoped list and matching the identifier cannot prove absence without
@@ -630,10 +631,13 @@ export interface IntegrationManager {
 	 * caching a failure as an absence is exactly the bug this distinction prevents. Uncached: the caller owns
 	 * caching.
 	 *
-	 * GitHub/GHE resolve up to 25 coordinates per request. Jira and Linear cost one request per target, with
-	 * bounded concurrency, so a key asked of several resources is one call; `resourceId` is trusted and the read
-	 * does no resource discovery, and Jira also requires `resourceUrl`. Every other provider refuses outright —
-	 * Trello because its single-issue read can fall back to a capped board scan, which cannot prove an absence.
+	 * GitHub/GHE resolve up to 25 coordinates per request. GitLab and Azure DevOps cost one request per target, with
+	 * bounded concurrency; GitLab spends a second request to confirm a miss, and Azure DevOps trusts a miss only
+	 * when its own error body says the work item or project does not exist. Jira and Linear cost one request per
+	 * target, so a key asked of several resources is one call; `resourceId` is trusted and the read does no
+	 * resource discovery, and Jira also requires `resourceUrl`. Every other provider refuses outright — Bitbucket
+	 * because it has no issues, Trello because its single-issue read can fall back to a capped board scan, which
+	 * cannot prove an absence.
 	 */
 	getIssuesBatch(options: {
 		providerId: IntegrationIds;

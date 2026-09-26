@@ -421,6 +421,64 @@ export class GitLabApi implements Disposable {
 		}
 	}
 
+	/**
+	 * Whether `owner/repo` has issue `iid`. Strict like {@link getPullRequest}'s `strict`: `false` only for a `null`
+	 * project or issue, which is how GitLab's GraphQL answers a missing one; GraphQL `errors`, an empty response and
+	 * any HTTP error (a 404 means a wrong endpoint) all throw instead of reading as absent.
+	 */
+	@trace({
+		args: (provider, token, owner, repo, iid) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			iid: iid,
+		}),
+	})
+	async hasIssue(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		iid: number,
+		options: { baseUrl?: string },
+		cancellation?: AbortSignal,
+	): Promise<boolean> {
+		const scope = getScopedLogger();
+
+		interface QueryResult {
+			data: { project: { issue: { iid: string } | null } | null } | null;
+		}
+
+		try {
+			const query = `query hasIssue(
+	$fullPath: ID!
+	$iid: String!
+) {
+	project(fullPath: $fullPath) {
+		issue(iid: $iid) {
+			iid
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				options.baseUrl,
+				query,
+				{ fullPath: `${owner}/${repo}`, iid: String(iid) },
+				cancellation,
+				scope,
+			);
+			if (rsp?.data == null) throw new Error('GitLab returned no data for the issue');
+
+			return rsp.data.project?.issue != null;
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
 	@trace({
 		args: (provider, token, owner, repo, branch) => ({
 			provider: provider.name,
