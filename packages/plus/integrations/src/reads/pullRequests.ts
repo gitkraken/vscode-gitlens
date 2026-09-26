@@ -11,7 +11,7 @@ import {
 	warnOnMissingSessionForDomain,
 } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
-import { getCurrentAccountId, runCaptured } from './drains.js';
+import { getCurrentAccountIdentity, runCaptured } from './drains.js';
 import { resolveAccountWidePullRequestFilters, resolvePullRequestFilters } from './filters.js';
 import {
 	drainToRequestedPage,
@@ -228,12 +228,12 @@ export async function listPullRequestsPage(
 	}
 	// A metadata omission from an earlier page asserts the read succeeded; a later page may since have failed.
 	reconcileOmissionsWithFailure(warnings, assessment.fetchFailed || pageFetchFailed);
-	const currentAccountId = items.some(pr => pr.author != null)
-		? await getCurrentAccountId(integration, options.connectionId)
+	const currentAccount = items.some(pr => pr.author != null)
+		? await getCurrentAccountIdentity(integration, options.connectionId)
 		: undefined;
 	return {
 		// Normalize the raw provider-apis PRs to the GitLens-owned shape at the surface boundary.
-		items: items.map(pr => fromProviderPullRequest(pr, integration, { currentAccountId: currentAccountId })),
+		items: items.map(pr => fromProviderPullRequest(pr, integration, { currentAccount: currentAccount })),
 		warnings: warnings,
 		// The account-wide read can't take a page size, so don't echo the requested `itemsPerPage` as if it
 		// had been applied — report what came back.

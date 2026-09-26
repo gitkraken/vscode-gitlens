@@ -683,10 +683,11 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 					getProviderPullRequestIdentity(pr) ?? `project:${facet.collection}/${facet.project.name}:${pr.id}`;
 				if (rows.has(identity)) continue;
 
+				const userId = userIds.get(facet.collection);
 				rows.set(identity, {
 					pr: fromProviderPullRequest(pr, this, {
 						project: facet.project,
-						currentAccountId: userIds.get(facet.collection),
+						currentAccount: userId != null ? { id: userId } : undefined,
 					}),
 					position: toAzurePullRequestSearchPosition(pr, sort, identity),
 				});

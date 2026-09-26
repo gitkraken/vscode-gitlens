@@ -13,7 +13,7 @@ import type { ProviderSweepResult, ProviderWarning } from '../results.js';
 import { appendDedupedWarning } from '../results.js';
 import { isGitHostIntegration, isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
-import { drainPullRequests, getCurrentAccountId, resolvePullRequestSweepTargets } from './drains.js';
+import { drainPullRequests, getCurrentAccountIdentity, resolvePullRequestSweepTargets } from './drains.js';
 import { resolveAccountWidePullRequestFilters, resolvePullRequestFilters } from './filters.js';
 import {
 	gitHostOnlySurfaceWarning,
@@ -116,14 +116,14 @@ async function sweepTarget(
 		maxPages,
 		attributeUnavailableProviders,
 	);
-	const currentAccountId = drain.items.some(pr => pr.author != null)
-		? await getCurrentAccountId(integration, connectionId)
+	const currentAccount = drain.items.some(pr => pr.author != null)
+		? await getCurrentAccountIdentity(integration, connectionId)
 		: undefined;
 	// Normalize the raw provider-apis PRs to the GitLens-owned shape here, where the per-provider
 	// `integration` (the mapper's provider reference) is in scope; the aggregation below only sees drains.
 	return {
 		...drain,
-		items: drain.items.map(pr => fromProviderPullRequest(pr, integration, { currentAccountId: currentAccountId })),
+		items: drain.items.map(pr => fromProviderPullRequest(pr, integration, { currentAccount: currentAccount })),
 		providerId: id,
 	};
 }
