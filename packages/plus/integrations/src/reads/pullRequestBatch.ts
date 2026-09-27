@@ -2,11 +2,11 @@ import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { IntegrationIds } from '../constants.js';
 import { githubGraphQLInt32Max, isAzureProviderId, isGitHubProviderId } from '../providers/providerErrors.js';
 import type { ProviderResult, ProviderWarning } from '../results.js';
-import { appendDedupedWarning, toProviderWarning } from '../results.js';
+import { appendDedupedWarning } from '../results.js';
 import { isGitHostIntegration, isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { getCurrentAccountIdentity, runCaptured } from './drains.js';
-import { findDuplicateKey, trimCoordinateFields, unresolvedIntegration } from './issueBatch.js';
+import { appendBatchSlotWarning, findDuplicateKey, trimCoordinateFields, unresolvedIntegration } from './issueBatch.js';
 import { gitHostOnlySurfaceWarning, otherWarning } from './warnings.js';
 
 /**
@@ -155,10 +155,7 @@ export async function getPullRequestsBatch(
 		const slot = slots[i];
 		if (slot.status === 'rejected') {
 			// Dropped, never reported absent, like a whole-call failure.
-			appendDedupedWarning(
-				warnings,
-				toProviderWarning(options.providerId, domain, options.connectionId, slot.reason),
-			);
+			appendBatchSlotWarning(warnings, options.providerId, domain, options.connectionId, slot);
 			fetchFailed = true;
 			continue;
 		}

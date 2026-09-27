@@ -441,14 +441,17 @@ how far it reaches. **Its absence means account-wide or unattributed**, so a con
 keeps its existing behavior. It is set only on warnings derived from a structured scope failure, and names at
 least one ID when present; a failure attributed to nothing below the provider carries none. A warning built
 from a caught exception never carries one, even when that call targeted a single organization, and an omission
-keeps its attribution in `omission.scope` instead.
+keeps its attribution in `omission.scope` instead. The batch reads (`getIssuesBatch`, `getPullRequestsBatch`,
+`getPullRequestsForBranches`) are the exception: a refused target's warning names the scope its target names —
+the Azure DevOps organization and project, the repository on other git hosts, or the tracker's resource.
 
 A scoped `auth` failure also means **the credential itself was accepted**. A dead token can come back as
 nothing but scoped refusals wherever a read reaches its scopes without an uncached request to the connection
 first: discovery served from a per-token cache (Azure DevOps, Bitbucket and Jira Cloud cache the account, its
 organizations, workspaces or sites, and their projects), or an SDK fan-out across the requested repositories
 (Bitbucket Data Center). So when a read's only auth failures are scoped, those providers confirm the credential
-with one uncached check before reporting them. A refused credential fails the whole read instead: an
+with one uncached check before reporting them; a batch read does so only when every target was refused, since a
+target that answered already proved the credential. A refused credential fails the whole read instead: an
 unscoped `auth` warning, `fetchFailed`, no results served from the cache, and the usual connection recovery.
 A refusal the provider pins on the credential itself, like Bitbucket's or Jira Cloud's for a token missing the
 OAuth scopes the read needs, is published unscoped too, once for the connection, because a reconnect

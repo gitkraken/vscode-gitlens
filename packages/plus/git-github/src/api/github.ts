@@ -6,6 +6,7 @@ import * as l10n from '@vscode/l10n';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
+	reportRequestFailure,
 	RequestClientError,
 	RequestNotFoundError,
 	RequestRateLimitError,
@@ -3403,6 +3404,9 @@ export class GitHubApi {
 		 * Narrow on purpose: an error whose `path[0]` doesn't name a top-level key in the response's `data` (no
 		 * `path` at all, or a global failure) still throws, classified exactly as without this flag — so auth,
 		 * rate-limit and query-cost failures keep their existing handling.
+		 *
+		 * Only the batch reads alias, so this also leaves a server error's strike and notice to the batch, which
+		 * counts them once for the whole call (see `reportRequestFailure`).
 		 */
 		allowPartialNotFound?: 'aliased',
 	): Promise<T | AliasedGraphqlResult<T> | undefined> {
@@ -3494,7 +3498,7 @@ export class GitHubApi {
 						this.config.onDebugError?.(`GitHub request failed: ${ex.errors?.[0]?.message ?? ex.message}`);
 					}
 				} else if (ex instanceof RequestError || ex.name === 'AbortError') {
-					this.handleRequestError(provider, token, ex, scope);
+					this.handleRequestError(provider, token, ex, scope, allowPartialNotFound === 'aliased');
 				} else if (Logger.isDebugging) {
 					this.config.onDebugError?.(`GitHub request failed: ${ex.message}`);
 				}
@@ -3586,7 +3590,7 @@ export class GitHubApi {
 			);
 		} catch (ex) {
 			if (ex instanceof RequestError || ex.name === 'AbortError') {
-				this.handleRequestError(provider, token, ex, scope);
+				this.handleRequestError(provider, token, ex, scope, undefined);
 			} else if (Logger.isDebugging) {
 				this.config.onDebugError?.(`GitHub request failed: ${ex.message}`);
 			}
@@ -3662,6 +3666,7 @@ export class GitHubApi {
 		token: GitHubTokenInfo,
 		ex: RequestError | (Error & { name: 'AbortError' }),
 		scope: ScopedLogger | undefined,
+		deferFailure: boolean | undefined,
 	): void {
 		if (ex.name === 'AbortError') throw new CancellationError(ex);
 
@@ -3688,15 +3693,20 @@ export class GitHubApi {
 			case 500: // Internal Server Error
 				scope?.error(ex);
 				if (ex.response != null) {
-					provider?.trackRequestException();
-					this.config.onRequestError?.(
+					reportRequestFailure(
 						provider,
-						provider == null || provider.id === 'github'
-							? l10n.t(
-									'{0} failed to respond and might be experiencing issues. Please visit the [GitHub status page](https://githubstatus.com) for more information.',
-									provider?.name ?? 'GitHub',
-								)
-							: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
+						ex,
+						() =>
+							this.config.onRequestError?.(
+								provider,
+								provider == null || provider.id === 'github'
+									? l10n.t(
+											'{0} failed to respond and might be experiencing issues. Please visit the [GitHub status page](https://githubstatus.com) for more information.',
+											provider?.name ?? 'GitHub',
+										)
+									: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
+							),
+						deferFailure,
 					);
 				}
 				return;
@@ -3704,22 +3714,31 @@ export class GitHubApi {
 				scope?.error(ex);
 				// GitHub seems to return this status code for timeouts
 				if (ex.message.includes('timeout')) {
-					provider?.trackRequestException();
-					this.config.onRequestError?.(provider, `${provider?.name ?? 'GitHub'} request timed out`);
+					reportRequestFailure(
+						provider,
+						ex,
+						() => this.config.onRequestError?.(provider, `${provider?.name ?? 'GitHub'} request timed out`),
+						deferFailure,
+					);
 					return;
 				}
 				break;
 			case 503: // Service Unavailable
 				scope?.error(ex);
-				provider?.trackRequestException();
-				this.config.onRequestError?.(
+				reportRequestFailure(
 					provider,
-					provider == null || provider.id === 'github'
-						? l10n.t(
-								'{0} failed to respond and might be experiencing issues. Please visit the [GitHub status page](https://githubstatus.com) for more information.',
-								provider?.name ?? 'GitHub',
-							)
-						: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
+					ex,
+					() =>
+						this.config.onRequestError?.(
+							provider,
+							provider == null || provider.id === 'github'
+								? l10n.t(
+										'{0} failed to respond and might be experiencing issues. Please visit the [GitHub status page](https://githubstatus.com) for more information.',
+										provider?.name ?? 'GitHub',
+									)
+								: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
+						),
+					deferFailure,
 				);
 				return;
 			default:

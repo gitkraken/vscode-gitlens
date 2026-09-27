@@ -1,6 +1,8 @@
 import type { IssueShape } from '@gitlens/git/models/issue.js';
+import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds, IssuesHostIntegrationIds } from '../constants.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
+import type { BatchSlot } from '../models/integration.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { githubGraphQLInt32Max, isAzureProviderId, isGitHubProviderId } from '../providers/providerErrors.js';
 import type { ProviderResult, ProviderWarning } from '../results.js';
@@ -210,10 +212,7 @@ export async function getIssuesBatch(
 		const slot = slots[i];
 		if (slot.status === 'rejected') {
 			// Dropped, never reported absent, like a whole-call failure: only THIS target failed.
-			appendDedupedWarning(
-				warnings,
-				toProviderWarning(options.providerId, domain, options.connectionId, slot.reason),
-			);
+			appendBatchSlotWarning(warnings, options.providerId, domain, options.connectionId, slot);
 			fetchFailed = true;
 			continue;
 		}
@@ -359,7 +358,7 @@ async function getIssuesBatchForTracker(
 		const slot = slots[i];
 		if (slot.status === 'rejected') {
 			// Dropped, never reported absent, like a whole-call failure.
-			appendDedupedWarning(warnings, toProviderWarning(providerId, resolvedDomain, connectionId, slot.reason));
+			appendBatchSlotWarning(warnings, providerId, resolvedDomain, connectionId, slot);
 			fetchFailed = true;
 			continue;
 		}
@@ -460,6 +459,29 @@ export function unresolvedIntegration<T>(
 
 	const resolvedDomain = ctx.resolveDomainForRead(providerId, connectionId, domain);
 	return { items: [], warnings: [noConnectionWarning(providerId, resolvedDomain, connectionId)], fetchFailed: true };
+}
+
+/**
+ * Appends the warning for a batch target that could not be checked, shared by every batch read: for a refusal, the
+ * scope failure it was recorded as (see `IntegrationBase.settleBatchRefusals`), published as an account-wide read
+ * publishes one, scoped and with its cause; otherwise, the reason itself.
+ */
+export function appendBatchSlotWarning(
+	warnings: ProviderWarning[],
+	providerId: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	slot: Extract<BatchSlot<unknown>, { status: 'rejected' }>,
+): void {
+	if (slot.failure != null) {
+		mergeAssessmentInto(warnings, providerId, domain, connectionId, {
+			completeness: 'partial',
+			failures: [slot.failure],
+		});
+		return;
+	}
+
+	appendDedupedWarning(warnings, toProviderWarning(providerId, domain, connectionId, slot.reason));
 }
 
 export function findDuplicateKey(targets: readonly { key: string }[]): string | undefined {

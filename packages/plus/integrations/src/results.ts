@@ -137,7 +137,9 @@ export interface ProviderWarning {
 	 * `kind` and `isAuth` are unaffected: a scoped 401 is still an authentication failure, and this field says
 	 * how far it reaches. It names at least one of its IDs, and is never set on an omission (which carries its
 	 * own {@link ProviderWarningOmission.scope}) or on a warning derived from a caught exception (see
-	 * {@link toProviderWarning}), even when that call targeted a single organization.
+	 * {@link toProviderWarning}), even when that call targeted a single organization. The exception is a batch
+	 * read's refused target, which names its scope: the Azure DevOps organization and project, the repository on
+	 * other git hosts, or the tracker's resource.
 	 *
 	 * Its ABSENCE means account-wide or unattributed, so existing handling stays correct without it.
 	 *
@@ -146,7 +148,8 @@ export interface ProviderWarning {
 	 * discovery served from a per-token cache (Azure DevOps, Bitbucket, Jira Cloud) or an SDK fan-out across the
 	 * requested repositories (Bitbucket Data Center). So when a read's only auth failures are scoped, those providers
 	 * confirm the credential with one uncached check first, and a refused credential fails the whole read with an
-	 * unscoped `auth` warning. A refusal the provider attributes to the credential itself, like Bitbucket's or Jira
+	 * unscoped `auth` warning. A batch read checks it only when every target was refused, since a target that
+	 * answered already proved it. A refusal the provider attributes to the credential itself, like Bitbucket's or Jira
 	 * Cloud's for a token missing the OAuth scopes a read needs, which a reconnect fixes, is published unscoped too,
 	 * once for the connection, while the scopes that answered keep their results.
 	 *

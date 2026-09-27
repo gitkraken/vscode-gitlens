@@ -69,6 +69,20 @@ export function providerPr(id: string, overrides?: Partial<ProviderPullRequest>)
 	};
 }
 
+/** Records the "failed to respond" and "timed out" notices a runtime shows, and the disconnect it announces. */
+export function watchRequestFailures(runtime: ReturnType<typeof createFakeRuntime>): {
+	notices: string[];
+	disconnected?: string;
+} {
+	const watched: { notices: string[]; disconnected?: string } = { notices: [] };
+	runtime.hooks!.ui = {
+		onRequestFailed: message => void watched.notices.push(message),
+		onRequestTimedOut: name => void watched.notices.push(`${name} timed out`),
+		onDisconnectedAfterTooManyFailures: name => void (watched.disconnected = name),
+	};
+	return watched;
+}
+
 export async function connectedGitHub(
 	runtime: ReturnType<typeof createFakeRuntime>,
 ): Promise<{ manager: ReturnType<typeof createIntegrationManager>; gh: GitHostIntegration }> {

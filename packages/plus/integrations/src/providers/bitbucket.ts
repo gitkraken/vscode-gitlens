@@ -183,6 +183,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		return mapSettledBounded(coordinates, providerFanOutConcurrency, c =>
 			api.getPullRequest(this, tokenWithInfo, c.owner, c.repo, String(c.number), this.apiBaseUrl, {
 				currentAccount: options?.currentAccount,
+				deferFailure: true,
 			}),
 		);
 	}
@@ -206,6 +207,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 				headOwner: t.headOwner,
 				limit: options.limit,
 				currentAccount: options.currentAccount,
+				deferFailure: true,
 			}),
 		);
 	}

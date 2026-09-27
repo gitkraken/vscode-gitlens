@@ -14,6 +14,7 @@ import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
 import type { GetPullRequestForRepoFn, ProviderRepoInput } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
+import { noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import {
@@ -25,6 +26,7 @@ import {
 	primarySession,
 	providerPr,
 	stubApi,
+	watchRequestFailures,
 } from './sweepHelpers.js';
 
 /**
@@ -631,6 +633,27 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 		manager.dispose();
 	});
 
+	test('GitHub: six requests of 25 targets each failing with 500 cost one strike and one notice, and do not disconnect', async () => {
+		const runtime = createFakeRuntime();
+		runtime.http.fetch = () => Promise.resolve(json(500, { message: 'Server Error' }));
+		const { manager, gh } = await connectedGitHub(runtime);
+		stubCurrentAccount(gh, 'me');
+		const watched = watchRequestFailures(runtime);
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: Array.from({ length: 150 }, (_, i) => ({ key: `k${i}`, owner: 'o', repo: 'r', number: i + 1 })),
+		});
+
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(getRequestExceptionCount(gh), 1, 'one strike for the whole call');
+		assert.equal(watched.notices.length, 1, 'one notice for the whole call');
+		assert.equal(watched.disconnected, undefined);
+
+		manager.dispose();
+	});
+
 	test('a mix of found, absent and failed targets on a one-PR-per-request host settles each independently, in one integration call', async () => {
 		const { manager, gl } = await connectedGitLab(createFakeRuntime());
 		stubCurrentAccount(gl, 'me');
@@ -837,6 +860,34 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 			assert.equal(pr?.id, 'gid-1');
 			assert.equal(pr?.number, 7);
 			assert.equal(pr?.authoredByMe, true);
+
+			manager.dispose();
+		});
+
+		test('six targets whose confirming reads fail with 500 cost one strike and one notice, and do not disconnect', async () => {
+			const runtime = createFakeRuntime();
+			// Only our own confirming read reaches `fetch`; provider-apis is stubbed to miss.
+			runtime.http.fetch = () => Promise.resolve(json(500, { message: '500 Internal Server Error' }));
+			const { manager, gl } = await connectedGitLab(runtime);
+			stubCurrentAccount(gl, 'me');
+			stubApi(gl, { getPullRequestForRepo: () => Promise.resolve(undefined) });
+			const watched = watchRequestFailures(runtime);
+
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitCloudHostIntegrationId.GitLab,
+				targets: Array.from({ length: 6 }, (_, i) => ({
+					key: `k${i}`,
+					owner: 'group',
+					repo: 'r',
+					number: i + 1,
+				})),
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.equal(getRequestExceptionCount(gl), 1, 'one strike for the whole call');
+			assert.equal(watched.notices.length, 1, 'one notice for the whole call');
+			assert.equal(watched.disconnected, undefined);
 
 			manager.dispose();
 		});
@@ -1097,6 +1148,100 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 			manager.dispose();
 		});
 
+		test('Bitbucket Data Center: six targets each failing with 500 cost one strike and one notice, and do not disconnect', async () => {
+			const runtime = createFakeRuntime();
+			bitbucketStatus(runtime, 500);
+			const { manager, integration } = await connectedBitbucketServer(runtime);
+			stubCurrentAccount(integration, 'me');
+			const watched = watchRequestFailures(runtime);
+
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+				targets: Array.from({ length: 6 }, (_, i) => ({ key: `k${i}`, owner: 'o', repo: 'r', number: i + 1 })),
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.equal(getRequestExceptionCount(integration), 1, 'one strike for the whole call');
+			assert.equal(watched.notices.length, 1, 'one notice for the whole call');
+			assert.equal(watched.disconnected, undefined);
+
+			manager.dispose();
+		});
+
+		test('Bitbucket Data Center: a call that answered one target shows one notice for the others failing with 500, and spends no strike', async () => {
+			const runtime = createFakeRuntime();
+			runtime.http.fetch = input =>
+				Promise.resolve(json(input.toString().endsWith('/pull-requests/1') ? 404 : 500, { errors: [] }));
+			const { manager, integration } = await connectedBitbucketServer(runtime);
+			stubCurrentAccount(integration, 'me');
+			const watched = watchRequestFailures(runtime);
+
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+				targets: Array.from({ length: 6 }, (_, i) => ({ key: `k${i}`, owner: 'o', repo: 'r', number: i + 1 })),
+			});
+
+			assert.deepEqual(result.items, [{ key: 'k0' }]);
+			assert.equal(result.fetchFailed, true);
+			assert.equal(getRequestExceptionCount(integration), 0);
+			assert.equal(watched.notices.length, 1);
+			assert.equal(watched.disconnected, undefined);
+
+			manager.dispose();
+		});
+
+		test('Bitbucket Data Center: a call failed by a client error as well as by 500s spends one strike, not two', async () => {
+			const runtime = createFakeRuntime();
+			// The call fails on the first target's 400, a `RequestClientError` that spends a strike of its own.
+			runtime.http.fetch = input =>
+				Promise.resolve(json(input.toString().endsWith('/pull-requests/1') ? 400 : 500, { errors: [] }));
+			const { manager, integration } = await connectedBitbucketServer(runtime);
+			stubCurrentAccount(integration, 'me');
+			const watched = watchRequestFailures(runtime);
+
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+				targets: Array.from({ length: 6 }, (_, i) => ({ key: `k${i}`, owner: 'o', repo: 'r', number: i + 1 })),
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.equal(getRequestExceptionCount(integration), 1);
+			assert.equal(watched.notices.length, 1);
+			assert.equal(watched.disconnected, undefined);
+
+			manager.dispose();
+		});
+
+		test('Bitbucket Data Center: a read outside a batch still spends a strike and shows a notice per failed request', async () => {
+			const runtime = createFakeRuntime();
+			bitbucketStatus(runtime, 500);
+			const { manager, integration } = await connectedBitbucketServer(runtime);
+			const watched = watchRequestFailures(runtime);
+			const bitbucket = await apiClient(integration, 'bitbucket');
+			const token = { accessToken: 't', microHash: 'h' } as unknown as TokenWithInfo;
+			const read = (method: string) =>
+				(bitbucket[method] as (...args: unknown[]) => Promise<unknown>).call(
+					bitbucket,
+					integration,
+					token,
+					'o',
+					'r',
+					'7',
+					'https://bbs.example.com/rest/api/1.0',
+				);
+
+			// The same strict read the batch makes, through the legacy read that swallows its failure.
+			assert.equal(await read('getServerPullRequestById'), undefined);
+			await assert.rejects(read('getServerPullRequestForBranch'));
+
+			assert.equal(getRequestExceptionCount(integration), 2);
+			assert.equal(watched.notices.length, 2);
+
+			manager.dispose();
+		});
+
 		test('the legacy by-id reads still swallow a failure', async () => {
 			const runtime = createFakeRuntime();
 			bitbucketStatus(runtime, 500);
@@ -1117,6 +1262,193 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 
 			assert.equal(await read('getIssueOrPullRequest'), undefined);
 			assert.equal(await read('getServerPullRequestById'), undefined);
+
+			manager.dispose();
+		});
+	});
+
+	suite('scoped refusals (#5890)', () => {
+		/**
+		 * An Azure DevOps connection whose pull request reads refuse a project with `refusal`, or answer that the
+		 * pull request is absent. `probe` answers the profile request that confirms the credential; the account the
+		 * read looks up first is stubbed, so every profile request counted is a probe.
+		 */
+		async function azureRefusing(
+			refusal: (project: string) => Error | undefined,
+			probe: () => Promise<unknown>,
+			cloud: boolean = true,
+		) {
+			const { manager, azure } = await connectedAzure(createFakeRuntime());
+			const session = { ...primarySession('t'), domain: 'dev.azure.com', cloud: cloud };
+			(azure as unknown as { _session: ProviderAuthenticationSession })._session = session;
+			stubCurrentAccount(azure, 'me');
+			const checks = { probes: 0 };
+			stubApi(azure, {
+				getPullRequestForRepo: (_t: unknown, repo: { project: string }) => {
+					const refused = refusal(repo.project);
+					return refused != null ? Promise.reject(refused) : Promise.resolve(undefined);
+				},
+				getCurrentUser: () => {
+					checks.probes++;
+					return probe();
+				},
+			});
+			return { manager: manager, azure: azure, session: session, checks: checks };
+		}
+
+		function authWarnings(result: { warnings: { kind: string; scope?: unknown; cause?: unknown }[] }) {
+			return result.warnings.filter(w => w.kind === 'auth').map(w => ({ scope: w.scope, cause: w.cause }));
+		}
+
+		const refusedTargets = [
+			{ key: 'a', owner: 'org', repo: 'r', number: 1, project: 'proj' },
+			{ key: 'b', owner: 'org', repo: 's', number: 2, project: 'proj' },
+			{ key: 'c', owner: 'org', repo: 'r', number: 3, project: 'other' },
+		];
+
+		for (const cloud of [true, false]) {
+			test(`Azure: every target refused, by a credential the probe confirms, is scoped to its organization and costs nothing (${cloud ? 'cloud' : 'local'} session)`, async () => {
+				const { manager, azure, session, checks } = await azureRefusing(
+					project => (project === 'proj' ? oauthAppNotAllowed() : noAccess()),
+					() => Promise.resolve({ id: 'guid-1' }),
+					cloud,
+				);
+
+				const result = await manager.getPullRequestsBatch({
+					providerId: GitCloudHostIntegrationId.AzureDevOps,
+					targets: refusedTargets,
+				});
+
+				assert.deepEqual(result.items, [], 'a refused target is dropped, never reported absent');
+				assert.equal(result.fetchFailed, true);
+				assert.deepEqual(authWarnings(result), [
+					{ scope: { resourceId: 'org', projectId: 'proj' }, cause: { reason: 'oauth-app-not-allowed' } },
+					{
+						scope: { resourceId: 'org', projectId: 'other' },
+						cause: { reason: 'access-denied', code: 'TF400813' },
+					},
+				]);
+				assert.equal(checks.probes, 1);
+				assert.equal(getRequestExceptionCount(azure), 0, 'a confirmed credential spends no strike');
+				assert.deepEqual(
+					(azure as unknown as { _session: ProviderAuthenticationSession })._session,
+					session,
+					'and keeps its session',
+				);
+
+				manager.dispose();
+			});
+		}
+
+		test('Azure: a probe that refuses the credential fails the batch as a connection failure, as before', async () => {
+			const { manager, azure, checks } = await azureRefusing(
+				() => oauthAppNotAllowed(),
+				// The profile request's answer to a dead token, which is also what those organizations answered.
+				() => Promise.reject(oauthAppNotAllowed()),
+				// A local session takes the direct strike path, so the count is exact.
+				false,
+			);
+
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				targets: refusedTargets,
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(authWarnings(result), [{ scope: undefined, cause: undefined }]);
+			assert.equal(checks.probes, 1, 'the credential was checked before the refusals were trusted');
+			assert.equal(getRequestExceptionCount(azure), 1, 'one strike for the whole call');
+
+			manager.dispose();
+		});
+
+		test('Azure: a target refused while another answered is scoped without a probe', async () => {
+			const { manager, azure, session, checks } = await azureRefusing(
+				project => (project === 'denied' ? oauthAppNotAllowed() : undefined),
+				() => Promise.resolve({ id: 'guid-1' }),
+			);
+
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				targets: [
+					{ key: 'answered', owner: 'org', repo: 'r', number: 1, project: 'ok' },
+					{ key: 'refused', owner: 'org', repo: 'r', number: 2, project: 'denied' },
+				],
+			});
+
+			assert.deepEqual(result.items, [{ key: 'answered' }]);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(authWarnings(result), [
+				{ scope: { resourceId: 'org', projectId: 'denied' }, cause: { reason: 'oauth-app-not-allowed' } },
+			]);
+			assert.equal(checks.probes, 0, 'the answered target already proved the credential');
+			assert.equal(getRequestExceptionCount(azure), 0);
+			assert.deepEqual((azure as unknown as { _session: ProviderAuthenticationSession })._session, session);
+
+			manager.dispose();
+		});
+
+		test('Azure: a confirmed credential is remembered, so a second refused batch probes nothing', async () => {
+			const { manager, checks } = await azureRefusing(
+				() => oauthAppNotAllowed(),
+				() => Promise.resolve({ id: 'guid-1' }),
+			);
+			const read = () =>
+				manager.getPullRequestsBatch({
+					providerId: GitCloudHostIntegrationId.AzureDevOps,
+					targets: [{ key: 'a', owner: 'org', repo: 'r', number: 1, project: 'proj' }],
+				});
+
+			await read();
+			const second = await read();
+
+			assert.equal(checks.probes, 1);
+			assert.deepEqual(authWarnings(second), [
+				{ scope: { resourceId: 'org', projectId: 'proj' }, cause: { reason: 'oauth-app-not-allowed' } },
+			]);
+
+			manager.dispose();
+		});
+
+		test('Bitbucket Data Center: every target refused, by a credential the probe confirms, is scoped to its repository and costs no strike', async () => {
+			const runtime = createFakeRuntime();
+			runtime.http.fetch = () => Promise.resolve(json(401, { errors: [{ message: 'Authentication failed' }] }));
+			const { manager, integration } = await connectedBitbucketServer(runtime);
+			// A local session takes the direct strike path, so the count is exact.
+			(integration as unknown as { _session: ProviderAuthenticationSession })._session = {
+				...primarySession('t'),
+				domain: 'bbs.example.com',
+				cloud: false,
+			};
+			stubCurrentAccount(integration, 'me');
+			let probes = 0;
+			stubApi(integration, {
+				getCurrentUser: () => {
+					probes++;
+					return Promise.resolve({ id: 'u1' });
+				},
+			});
+
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+				targets: [
+					{ key: 'a', owner: 'PROJ', repo: 'one', number: 1 },
+					{ key: 'b', owner: 'PROJ', repo: 'two', number: 2 },
+				],
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(
+				result.warnings.map(w => ({ kind: w.kind, scope: w.scope })),
+				[
+					{ kind: 'auth', scope: { repositoryId: 'PROJ/one' } },
+					{ kind: 'auth', scope: { repositoryId: 'PROJ/two' } },
+				],
+			);
+			assert.equal(probes, 1);
+			assert.equal(getRequestExceptionCount(integration), 0);
 
 			manager.dispose();
 		});
