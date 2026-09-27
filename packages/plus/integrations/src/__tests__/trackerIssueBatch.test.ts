@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { ProviderAuthenticationSession, TokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
-import { RequestClientError } from '../errors.js';
+import { AuthenticationError, AuthenticationErrorReason, RequestClientError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { GetIssueFn, ProviderIssue } from '../providers/models.js';
@@ -688,6 +688,157 @@ suite('IntegrationManager.getIssuesBatch — tracker targets (#5810)', () => {
 		assert.equal(calls, 0);
 
 		manager.dispose();
+	});
+
+	suite('scoped refusals (#5890)', () => {
+		/** A refusal as `throwProviderError` wraps an Atlassian error response (see `providersApi.ts`). */
+		function jiraRefusal(status: 401 | 403, message: string): AuthenticationError {
+			const original = Object.assign(new Error(`(${status}) ${message}`), {
+				response: { status: status, headers: {}, body: { code: status, message: message } },
+			});
+			return new AuthenticationError(
+				{
+					providerId: IssuesCloudHostIntegrationId.Jira,
+					microHash: undefined,
+					cloud: true,
+					type: 'oauth',
+					scopes: [],
+				},
+				status === 401 ? AuthenticationErrorReason.Unauthorized : AuthenticationErrorReason.Forbidden,
+				original,
+			);
+		}
+
+		/**
+		 * A Jira connection whose issue reads refuse a site with `refusal`, or answer that the issue is absent.
+		 * `probe` answers the site-list request that confirms the credential.
+		 */
+		async function jiraRefusing(
+			refusal: (resourceId: string) => Error | undefined,
+			probe: () => Promise<unknown>,
+			cloud: boolean = true,
+		) {
+			const checks = { probes: 0 };
+			const { manager, jira } = await connectedJira(createFakeRuntime(), {
+				getJiraIssueByKey: (_token: TokenWithInfo, resourceId: string) => {
+					const refused = refusal(resourceId);
+					return refused != null ? Promise.reject(refused) : Promise.resolve(undefined);
+				},
+				getJiraResourcesForCurrentUser: () => {
+					checks.probes++;
+					return probe();
+				},
+			});
+			const session = { ...trackerSession('atlassian.net'), cloud: cloud };
+			(jira as unknown as { _session: ProviderAuthenticationSession })._session = session;
+			return { manager: manager, jira: jira, session: session, checks: checks };
+		}
+
+		function target(key: string, resourceId: string) {
+			return { key: key, resourceId: resourceId, resourceUrl: jiraResourceUrl, identifier: 'ABC-1' };
+		}
+
+		test('Jira: every target refused, by a credential the probe confirms, is scoped to its site and costs nothing', async () => {
+			const { manager, jira, session, checks } = await jiraRefusing(
+				() => jiraRefusal(403, 'The app is not installed on this site.'),
+				() => Promise.resolve([{ id: 'site-a' }]),
+			);
+
+			const result = await manager.getIssuesBatch({
+				providerId: IssuesCloudHostIntegrationId.Jira,
+				targets: [target('a', 'site-a'), target('b', 'site-b')],
+			});
+
+			assert.deepEqual(result.items, [], 'a refused target is dropped, never reported absent');
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(
+				result.warnings.map(w => ({ kind: w.kind, scope: w.scope })),
+				[
+					{ kind: 'auth', scope: { resourceId: 'site-a' } },
+					{ kind: 'auth', scope: { resourceId: 'site-b' } },
+				],
+			);
+			assert.equal(checks.probes, 1);
+			assert.equal(getRequestExceptionCount(jira), 0, 'a confirmed credential spends no strike');
+			assert.deepEqual(
+				(jira as unknown as { _session: ProviderAuthenticationSession })._session,
+				session,
+				'and keeps its session',
+			);
+
+			manager.dispose();
+		});
+
+		test('Jira: a probe that refuses the credential fails the batch as a connection failure, as before', async () => {
+			const { manager, jira, checks } = await jiraRefusing(
+				() => jiraRefusal(401, 'Unauthorized'),
+				() => Promise.reject(jiraRefusal(401, 'Unauthorized')),
+				// A local session takes the direct strike path, so the count is exact.
+				false,
+			);
+
+			const result = await manager.getIssuesBatch({
+				providerId: IssuesCloudHostIntegrationId.Jira,
+				targets: [target('a', 'site-a'), target('b', 'site-b')],
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(
+				result.warnings.map(w => ({ kind: w.kind, scope: w.scope })),
+				[{ kind: 'auth', scope: undefined }],
+			);
+			assert.equal(checks.probes, 1, 'the credential was checked before the refusals were trusted');
+			assert.equal(getRequestExceptionCount(jira), 1, 'one strike for the whole call');
+
+			manager.dispose();
+		});
+
+		test('Jira: a target refused while another answered is scoped without a probe', async () => {
+			const { manager, checks } = await jiraRefusing(
+				resourceId =>
+					resourceId === 'site-b' ? jiraRefusal(403, 'The app is not installed on this site.') : undefined,
+				() => Promise.resolve([{ id: 'site-a' }]),
+			);
+
+			const result = await manager.getIssuesBatch({
+				providerId: IssuesCloudHostIntegrationId.Jira,
+				targets: [target('answered', 'site-a'), target('refused', 'site-b')],
+			});
+
+			assert.deepEqual(result.items, [{ key: 'answered' }]);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(
+				result.warnings.map(w => ({ kind: w.kind, scope: w.scope })),
+				[{ kind: 'auth', scope: { resourceId: 'site-b' } }],
+			);
+			assert.equal(checks.probes, 0, 'the answered target already proved the credential');
+
+			manager.dispose();
+		});
+
+		test('Jira: a refusal pinned on the credential stays unscoped, even while another target answered', async () => {
+			const { manager, checks } = await jiraRefusing(
+				resourceId =>
+					resourceId === 'site-b' ? jiraRefusal(401, 'Unauthorized; scope does not match') : undefined,
+				() => Promise.resolve([{ id: 'site-a' }]),
+			);
+
+			const result = await manager.getIssuesBatch({
+				providerId: IssuesCloudHostIntegrationId.Jira,
+				targets: [target('answered', 'site-a'), target('refused', 'site-b')],
+			});
+
+			assert.deepEqual(result.items, [{ key: 'answered' }]);
+			// A reconnect, consenting to the scopes again, is the fix; a scope would tell a consumer the opposite.
+			assert.deepEqual(
+				result.warnings.map(w => ({ kind: w.kind, scope: w.scope })),
+				[{ kind: 'auth', scope: undefined }],
+			);
+			assert.equal(checks.probes, 0);
+
+			manager.dispose();
+		});
 	});
 });
 

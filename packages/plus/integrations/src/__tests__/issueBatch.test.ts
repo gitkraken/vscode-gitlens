@@ -7,9 +7,11 @@ import {
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
+import { AuthenticationError, AuthenticationErrorReason } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
+import { noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import {
@@ -19,6 +21,8 @@ import {
 	connectedGitHub,
 	connectedGitLab,
 	primarySession,
+	stubApi,
+	watchRequestFailures,
 } from './sweepHelpers.js';
 
 /**
@@ -810,6 +814,34 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 
 			manager.dispose();
 		});
+
+		test('six targets whose confirming reads time out cost one strike and one notice, and do not disconnect', async () => {
+			const runtime = createFakeRuntime();
+			gitLabGraphQL(runtime, {
+				sdk: () => json(200, { data: { project: null } }),
+				own: () => json(502, { message: 'upstream request timeout' }),
+			});
+			const { manager, gl } = await connectedGitLab(runtime);
+			const watched = watchRequestFailures(runtime);
+
+			const result = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.GitLab,
+				targets: Array.from({ length: 6 }, (_, i) => ({
+					key: `k${i}`,
+					owner: 'group',
+					repo: 'r',
+					number: i + 1,
+				})),
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.equal(getRequestExceptionCount(gl), 1, 'one strike for the whole call');
+			assert.deepEqual(watched.notices, ['GitLab timed out'], 'one notice for the whole call');
+			assert.equal(watched.disconnected, undefined);
+
+			manager.dispose();
+		});
 	});
 
 	suite('Azure DevOps', () => {
@@ -1139,6 +1171,216 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 				manager.dispose();
 			});
 		}
+	});
+
+	suite('scoped refusals (#5890)', () => {
+		/**
+		 * An Azure DevOps connection whose work item reads refuse a project with `refusal`, or answer that the work
+		 * item is absent. `probe` answers the profile request that confirms the credential.
+		 */
+		async function azureRefusing(
+			refusal: (project: string) => Error | undefined,
+			probe: () => Promise<unknown>,
+			cloud: boolean = true,
+		) {
+			const { manager, azure } = await connectedAzure(createFakeRuntime());
+			const session = { ...primarySession('t'), domain: 'dev.azure.com', cloud: cloud };
+			(azure as unknown as { _session: ProviderAuthenticationSession })._session = session;
+			const checks = { probes: 0 };
+			stubApi(azure, {
+				getAzureWorkItem: (_t: unknown, project: { project: string }) => {
+					const refused = refusal(project.project);
+					return refused != null ? Promise.reject(refused) : Promise.resolve(undefined);
+				},
+				getCurrentUser: () => {
+					checks.probes++;
+					return probe();
+				},
+			});
+			return { manager: manager, azure: azure, session: session, checks: checks };
+		}
+
+		function authWarnings(result: { warnings: { kind: string; scope?: unknown; cause?: unknown }[] }) {
+			return result.warnings.filter(w => w.kind === 'auth').map(w => ({ scope: w.scope, cause: w.cause }));
+		}
+
+		// Work items belong to the project, so no repository is named: not in the target, nor in the scope.
+		const refusedTargets = [
+			{ key: 'a', owner: 'org', repo: '', number: 1, project: 'proj' },
+			{ key: 'b', owner: 'org', repo: '', number: 2, project: 'proj' },
+			{ key: 'c', owner: 'org', repo: '', number: 3, project: 'other' },
+		];
+
+		test('Azure: every target refused, by a credential the probe confirms, is scoped to its organization and costs nothing', async () => {
+			const { manager, azure, session, checks } = await azureRefusing(
+				project => (project === 'proj' ? oauthAppNotAllowed() : noAccess()),
+				() => Promise.resolve({ id: 'guid-1' }),
+			);
+
+			const result = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				targets: refusedTargets,
+			});
+
+			assert.deepEqual(result.items, [], 'a refused target is dropped, never reported absent');
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(authWarnings(result), [
+				{ scope: { resourceId: 'org', projectId: 'proj' }, cause: { reason: 'oauth-app-not-allowed' } },
+				{
+					scope: { resourceId: 'org', projectId: 'other' },
+					cause: { reason: 'access-denied', code: 'TF400813' },
+				},
+			]);
+			assert.equal(checks.probes, 1);
+			assert.equal(getRequestExceptionCount(azure), 0, 'a confirmed credential spends no strike');
+			assert.deepEqual(
+				(azure as unknown as { _session: ProviderAuthenticationSession })._session,
+				session,
+				'and keeps its session',
+			);
+
+			manager.dispose();
+		});
+
+		test('Azure: a probe that refuses the credential fails the batch as a connection failure, as before', async () => {
+			const { manager, azure, checks } = await azureRefusing(
+				() => oauthAppNotAllowed(),
+				// The profile request's answer to a dead token, which is also what those organizations answered.
+				() => Promise.reject(oauthAppNotAllowed()),
+				// A local session takes the direct strike path, so the count is exact.
+				false,
+			);
+
+			const result = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				targets: refusedTargets,
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(authWarnings(result), [{ scope: undefined, cause: undefined }]);
+			assert.equal(checks.probes, 1, 'the credential was checked before the refusals were trusted');
+			assert.equal(getRequestExceptionCount(azure), 1, 'one strike for the whole call');
+
+			manager.dispose();
+		});
+
+		test('Azure: a target refused while every other target failed for another reason fails the call on that other reason', async () => {
+			const { manager, azure, session, checks } = await azureRefusing(
+				project => (project === 'denied' ? oauthAppNotAllowed() : new Error('socket hang up')),
+				() => Promise.resolve({ id: 'guid-1' }),
+			);
+
+			const result = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				targets: [
+					// First, so failing on the first rejection would fail on the refusal.
+					{ key: 'refused', owner: 'org', repo: '', number: 1, project: 'denied' },
+					{ key: 'failed', owner: 'org', repo: '', number: 2, project: 'ok' },
+				],
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(authWarnings(result), [], 'the call failed on the other reason, not on the refusal');
+			assert.equal(checks.probes, 0);
+			assert.deepEqual(
+				(azure as unknown as { _session: ProviderAuthenticationSession })._session,
+				session,
+				"one target's refusal does not expire the session",
+			);
+
+			manager.dispose();
+		});
+
+		test('Azure: a target refused while another answered is scoped without a probe', async () => {
+			const { manager, azure, session, checks } = await azureRefusing(
+				project => (project === 'denied' ? oauthAppNotAllowed() : undefined),
+				() => Promise.resolve({ id: 'guid-1' }),
+			);
+
+			const result = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				targets: [
+					{ key: 'answered', owner: 'org', repo: '', number: 1, project: 'ok' },
+					{ key: 'refused', owner: 'org', repo: '', number: 2, project: 'denied' },
+				],
+			});
+
+			assert.deepEqual(result.items, [{ key: 'answered' }]);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(authWarnings(result), [
+				{ scope: { resourceId: 'org', projectId: 'denied' }, cause: { reason: 'oauth-app-not-allowed' } },
+			]);
+			assert.equal(checks.probes, 0, 'the answered target already proved the credential');
+			assert.equal(getRequestExceptionCount(azure), 0);
+			assert.deepEqual((azure as unknown as { _session: ProviderAuthenticationSession })._session, session);
+
+			manager.dispose();
+		});
+
+		test('Azure: a confirmed credential is remembered, so a second refused batch probes nothing', async () => {
+			const { manager, checks } = await azureRefusing(
+				() => oauthAppNotAllowed(),
+				() => Promise.resolve({ id: 'guid-1' }),
+			);
+			const read = () =>
+				manager.getIssuesBatch({
+					providerId: GitCloudHostIntegrationId.AzureDevOps,
+					targets: [{ key: 'a', owner: 'org', repo: '', number: 1, project: 'proj' }],
+				});
+
+			await read();
+			const second = await read();
+
+			assert.equal(checks.probes, 1);
+			assert.deepEqual(authWarnings(second), [
+				{ scope: { resourceId: 'org', projectId: 'proj' }, cause: { reason: 'oauth-app-not-allowed' } },
+			]);
+
+			manager.dispose();
+		});
+
+		test('GitHub: a target refused while another answered is scoped to its repository, with no probe to make', async () => {
+			const { manager, gh } = await connectedGitHub(createFakeRuntime());
+			const github = await apiClient(gh, 'github');
+			github.getIssuesBatch = (_p: unknown, _t: TokenWithInfo, coordinates: readonly Coordinate[]) =>
+				Promise.resolve(
+					coordinates.map(c =>
+						c.repo === 'denied'
+							? failed(
+									new AuthenticationError(
+										{
+											providerId: GitCloudHostIntegrationId.GitHub,
+											microHash: undefined,
+											cloud: true,
+											type: 'oauth',
+											scopes: [],
+										},
+										AuthenticationErrorReason.Forbidden,
+									),
+								)
+							: found(issue(c.number)),
+					),
+				);
+
+			const result = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: [
+					{ key: 'found', owner: 'o', repo: 'a', number: 1 },
+					{ key: 'refused', owner: 'o', repo: 'denied', number: 2 },
+				],
+			});
+
+			assert.deepEqual(
+				result.items.map(i => i.key),
+				['found'],
+			);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(authWarnings(result), [{ scope: { repositoryId: 'o/denied' }, cause: undefined }]);
+
+			manager.dispose();
+		});
 	});
 });
 

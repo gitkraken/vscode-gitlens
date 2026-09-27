@@ -10,8 +10,7 @@ import type { IntegrationIds } from '../constants.js';
 import { providerFanOutConcurrency } from '../constants.js';
 import { toError } from '../errors.js';
 import type { ProviderApiCollectionResult } from '../providers/models.js';
-import { throwIfAllSettledFailed } from '../providers/utils/providerPaging.js';
-import type { Integration, IntegrationResult, IntegrationType } from './integration.js';
+import type { BatchSlot, Integration, IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
 import type { IssuesForProjectOptions, ProjectIssuesDrain } from './issueReads.js';
 
@@ -36,15 +35,16 @@ export abstract class IssuesIntegration<
 	 * `rejected` means that target could not be checked, never that it is absent.
 	 *
 	 * Failure isolation happens PER TARGET, mirroring `GitHostIntegration.getPullRequestsBatchResult`: the whole
-	 * call counts as a failure against the integration's request-exception budget only when EVERY slot rejected
-	 * (`throwIfAllSettledFailed`), so a batch of mostly-good targets never spends more than one strike.
+	 * call counts as a failure against the integration's request-exception budget only when EVERY slot rejected,
+	 * and not even then when a credential that checks out was refused by each target's own resource
+	 * (`settleBatchRefusals`), so a batch of mostly-good targets never spends more than one strike.
 	 *
 	 * Uncached on purpose: the caller owns caching, as with the git hosts' batch reads.
 	 */
 	async getIssuesByResourceIdBatchResult(
 		targets: readonly { resourceId: string; identifier: string; resourceUrl?: string }[],
 		connectionId?: string,
-	): Promise<IntegrationResult<PromiseSettledResult<IssueShape | undefined>[] | undefined>> {
+	): Promise<IntegrationResult<BatchSlot<IssueShape | undefined>[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -59,10 +59,10 @@ export abstract class IssuesIntegration<
 				getProviderIssue.call(this, session, t.resourceId, t.identifier, t.resourceUrl),
 			);
 
-			throwIfAllSettledFailed(slots);
+			const settled = await this.settleBatchRefusals(session, targets, slots);
 
 			this.resetRequestExceptionCount('getIssue');
-			return { value: slots, duration: performance.now() - start };
+			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getIssue', ex, { scope: scope, connectionId: connectionId });
 			return { error: toError(ex), duration: performance.now() - start };

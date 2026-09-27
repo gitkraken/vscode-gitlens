@@ -369,7 +369,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 				c.owner,
 				c.repo,
 				c.number,
-				{ baseUrl: confirmBaseUrl },
+				{ baseUrl: confirmBaseUrl, deferFailure: true },
 				cancellation,
 			);
 			// Our own query can't produce the list rows' shape, so a disagreement fails rather than answering thinner.
@@ -416,7 +416,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 				c.owner,
 				c.repo,
 				c.number,
-				{ baseUrl: confirmBaseUrl, strict: true },
+				{ baseUrl: confirmBaseUrl, strict: true, deferFailure: true },
 				cancellation,
 			);
 			// Our own client's row can't produce the list rows' shape (`id` is the iid, not the global id; no
@@ -452,7 +452,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 				t.owner,
 				t.repo,
 				t.branch,
-				{ baseUrl: apiBaseUrl, headOwner: t.headOwner, limit: options.limit },
+				{ baseUrl: apiBaseUrl, headOwner: t.headOwner, limit: options.limit, deferFailure: true },
 				cancellation,
 			),
 		);

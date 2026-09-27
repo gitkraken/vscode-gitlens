@@ -1,4 +1,5 @@
 import * as l10n from '@vscode/l10n';
+import { reportRequestFailure } from '@gitlens/git/errors.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -441,7 +442,7 @@ export class GitLabApi implements Disposable {
 		owner: string,
 		repo: string,
 		iid: number,
-		options: { baseUrl?: string },
+		options: { baseUrl?: string; deferFailure?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<boolean> {
 		const scope = getScopedLogger();
@@ -470,6 +471,7 @@ export class GitLabApi implements Disposable {
 				{ fullPath: `${owner}/${repo}`, iid: String(iid) },
 				cancellation,
 				scope,
+				options.deferFailure,
 			);
 			if (rsp?.data == null) throw new Error('GitLab returned no data for the issue');
 
@@ -725,6 +727,7 @@ export class GitLabApi implements Disposable {
 			 * both throw instead of reading as absent.
 			 */
 			strict?: boolean;
+			deferFailure?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest | undefined> {
@@ -791,6 +794,7 @@ export class GitLabApi implements Disposable {
 				},
 				cancellation,
 				scope,
+				options?.deferFailure,
 			);
 
 			if (rsp?.data == null) {
@@ -835,7 +839,7 @@ export class GitLabApi implements Disposable {
 		owner: string,
 		repo: string,
 		branch: string,
-		options: { baseUrl?: string; headOwner?: string; limit: number },
+		options: { baseUrl?: string; headOwner?: string; limit: number; deferFailure?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<{ numbers: number[]; truncated: boolean }> {
 		const scope = getScopedLogger();
@@ -896,6 +900,7 @@ export class GitLabApi implements Disposable {
 				{ fullPath: `${owner}/${repo}`, branches: [branch], limit: options.limit },
 				cancellation,
 				scope,
+				options.deferFailure,
 			);
 			if (rsp?.data == null) throw new Error('GitLab returned no data for the merge requests by branch');
 
@@ -1321,6 +1326,7 @@ $search: String!
 		variables: Record<string, any>,
 		cancellation: AbortSignal | undefined,
 		scope: ScopedLogger | undefined,
+		deferFailure?: boolean,
 	): Promise<T | undefined> {
 		const { accessToken } = token;
 		let rsp: Response;
@@ -1356,7 +1362,7 @@ $search: String!
 			}
 		} catch (ex) {
 			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
-				this.handleRequestError(provider, token, ex, scope);
+				this.handleRequestError(provider, token, ex, scope, deferFailure);
 			} else if (Logger.isDebugging) {
 				this.config.onError?.(`GitLab request failed: ${ex.message}`);
 			}
@@ -1403,7 +1409,7 @@ $search: String!
 			}
 		} catch (ex) {
 			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
-				this.handleRequestError(provider, token, ex, scope);
+				this.handleRequestError(provider, token, ex, scope, undefined);
 			} else if (Logger.isDebugging) {
 				this.config.onError?.(`GitLab request failed: ${ex.message}`);
 			}
@@ -1417,6 +1423,7 @@ $search: String!
 		token: TokenWithInfo,
 		ex: ProviderFetchError | (Error & { name: 'AbortError' }),
 		scope: ScopedLogger | undefined,
+		deferFailure: boolean | undefined,
 	): void {
 		if (ex.name === 'AbortError' || !(ex instanceof ProviderFetchError)) throw new CancellationError(ex);
 
@@ -1439,14 +1446,19 @@ $search: String!
 			case 500: // Internal Server Error
 				scope?.error(ex);
 				if (ex.response != null) {
-					provider?.trackRequestException();
-					this.config.onRequestFailed?.(
-						provider == null || provider.id === 'gitlab'
-							? l10n.t(
-									'{0} failed to respond and might be experiencing issues. Please visit the [GitLab status page](https://status.gitlab.com) for more information.',
-									provider?.name ?? 'GitLab',
-								)
-							: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
+					reportRequestFailure(
+						provider,
+						ex,
+						() =>
+							this.config.onRequestFailed?.(
+								provider == null || provider.id === 'gitlab'
+									? l10n.t(
+											'{0} failed to respond and might be experiencing issues. Please visit the [GitLab status page](https://status.gitlab.com) for more information.',
+											provider?.name ?? 'GitLab',
+										)
+									: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
+							),
+						deferFailure,
 					);
 				}
 				return;
@@ -1454,8 +1466,12 @@ $search: String!
 				scope?.error(ex);
 				// GitHub seems to return this status code for timeouts
 				if (ex.message.includes('timeout')) {
-					provider?.trackRequestException();
-					this.config.onRequestTimedOut?.(provider?.name ?? 'GitLab');
+					reportRequestFailure(
+						provider,
+						ex,
+						() => this.config.onRequestTimedOut?.(provider?.name ?? 'GitLab'),
+						deferFailure,
+					);
 					return;
 				}
 				break;

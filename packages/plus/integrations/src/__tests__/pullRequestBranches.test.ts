@@ -16,6 +16,7 @@ import { createAzureForkSource, createAzurePullRequest } from '../providers/azur
 import type { AzurePullRequest } from '../providers/azure/models.js';
 import type { GetPullRequestForRepoFn } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
+import { noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import {
@@ -26,6 +27,8 @@ import {
 	connectedGitLab,
 	primarySession,
 	providerPr,
+	stubApi,
+	watchRequestFailures,
 } from './sweepHelpers.js';
 
 /**
@@ -1097,6 +1100,32 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 				manager.dispose();
 			});
 		}
+
+		test('six branch queries each failing with 500 cost one strike and one notice, and do not disconnect', async () => {
+			const runtime = createFakeRuntime();
+			branchQuery(runtime, () => json(500, { message: '500 Internal Server Error' }));
+			const { manager, gl } = await connectedGitLab(runtime);
+			stubCurrentAccount(gl, 'me');
+			const watched = watchRequestFailures(runtime);
+
+			const result = await manager.getPullRequestsForBranches({
+				providerId: GitCloudHostIntegrationId.GitLab,
+				targets: Array.from({ length: 6 }, (_, i) => ({
+					key: `k${i}`,
+					owner: 'group',
+					repo: 'r',
+					branch: `b${i}`,
+				})),
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.equal(getRequestExceptionCount(gl), 1, 'one strike for the whole call');
+			assert.equal(watched.notices.length, 1, 'one notice for the whole call');
+			assert.equal(watched.disconnected, undefined);
+
+			manager.dispose();
+		});
 	});
 
 	suite('Bitbucket', () => {
@@ -1538,5 +1567,189 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 				manager.dispose();
 			});
 		}
+	});
+
+	suite('scoped refusals (#5890)', () => {
+		/**
+		 * An Azure DevOps connection whose branch reads refuse a project with `refusal`, or answer that the branch has
+		 * no pull requests. `probe` answers the profile request that confirms the credential; the account the read
+		 * looks up first is stubbed, so every profile request counted is a probe.
+		 */
+		async function azureRefusing(
+			refusal: (project: string) => Error | undefined,
+			probe: () => Promise<unknown>,
+			cloud: boolean = true,
+		) {
+			const { manager, azure } = await connectedAzure(createFakeRuntime());
+			const session = { ...primarySession('t'), domain: 'dev.azure.com', cloud: cloud };
+			(azure as unknown as { _session: ProviderAuthenticationSession })._session = session;
+			stubCurrentAccount(azure, 'me');
+			const checks = { probes: 0 };
+			stubApi(azure, {
+				getAzurePullRequestsForBranch: (_t: unknown, repo: { project: string }) => {
+					const refused = refusal(repo.project);
+					return refused != null ? Promise.reject(refused) : Promise.resolve([]);
+				},
+				getCurrentUser: () => {
+					checks.probes++;
+					return probe();
+				},
+			});
+			return { manager: manager, azure: azure, session: session, checks: checks };
+		}
+
+		function authWarnings(result: { warnings: { kind: string; scope?: unknown; cause?: unknown }[] }) {
+			return result.warnings.filter(w => w.kind === 'auth').map(w => ({ scope: w.scope, cause: w.cause }));
+		}
+
+		const refusedTargets = [
+			{ key: 'a', owner: 'org', repo: 'r', project: 'proj', branch: 'one' },
+			{ key: 'b', owner: 'org', repo: 's', project: 'proj', branch: 'two' },
+			{ key: 'c', owner: 'org', repo: 'r', project: 'other', branch: 'three' },
+		];
+
+		test('Azure: every target refused, by a credential the probe confirms, is scoped to its organization and costs nothing', async () => {
+			const { manager, azure, session, checks } = await azureRefusing(
+				project => (project === 'proj' ? oauthAppNotAllowed() : noAccess()),
+				() => Promise.resolve({ id: 'guid-1' }),
+			);
+
+			const result = await manager.getPullRequestsForBranches({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				targets: refusedTargets,
+			});
+
+			assert.deepEqual(result.items, [], 'a refused target is dropped, never reported as "none"');
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(authWarnings(result), [
+				{ scope: { resourceId: 'org', projectId: 'proj' }, cause: { reason: 'oauth-app-not-allowed' } },
+				{
+					scope: { resourceId: 'org', projectId: 'other' },
+					cause: { reason: 'access-denied', code: 'TF400813' },
+				},
+			]);
+			assert.equal(checks.probes, 1);
+			assert.equal(getRequestExceptionCount(azure), 0, 'a confirmed credential spends no strike');
+			assert.deepEqual(
+				(azure as unknown as { _session: ProviderAuthenticationSession })._session,
+				session,
+				'and keeps its session',
+			);
+
+			manager.dispose();
+		});
+
+		test('Azure: a probe that refuses the credential fails the batch as a connection failure, as before', async () => {
+			const { manager, azure, checks } = await azureRefusing(
+				() => oauthAppNotAllowed(),
+				// The profile request's answer to a dead token, which is also what those organizations answered.
+				() => Promise.reject(oauthAppNotAllowed()),
+				// A local session takes the direct strike path, so the count is exact.
+				false,
+			);
+
+			const result = await manager.getPullRequestsForBranches({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				targets: refusedTargets,
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(authWarnings(result), [{ scope: undefined, cause: undefined }]);
+			assert.equal(checks.probes, 1, 'the credential was checked before the refusals were trusted');
+			assert.equal(getRequestExceptionCount(azure), 1, 'one strike for the whole call');
+
+			manager.dispose();
+		});
+
+		test('Azure: a target refused while another answered is scoped without a probe', async () => {
+			const { manager, azure, session, checks } = await azureRefusing(
+				project => (project === 'denied' ? oauthAppNotAllowed() : undefined),
+				() => Promise.resolve({ id: 'guid-1' }),
+			);
+
+			const result = await manager.getPullRequestsForBranches({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				targets: [
+					{ key: 'answered', owner: 'org', repo: 'r', project: 'ok', branch: 'one' },
+					{ key: 'refused', owner: 'org', repo: 'r', project: 'denied', branch: 'two' },
+				],
+			});
+
+			assert.deepEqual(result.items, [{ key: 'answered', pullRequests: [] }]);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(authWarnings(result), [
+				{ scope: { resourceId: 'org', projectId: 'denied' }, cause: { reason: 'oauth-app-not-allowed' } },
+			]);
+			assert.equal(checks.probes, 0, 'the answered target already proved the credential');
+			assert.equal(getRequestExceptionCount(azure), 0);
+			assert.deepEqual((azure as unknown as { _session: ProviderAuthenticationSession })._session, session);
+
+			manager.dispose();
+		});
+
+		test('Azure: a confirmed credential is remembered, so a second refused batch probes nothing', async () => {
+			const { manager, checks } = await azureRefusing(
+				() => oauthAppNotAllowed(),
+				() => Promise.resolve({ id: 'guid-1' }),
+			);
+			const read = () =>
+				manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.AzureDevOps,
+					targets: [{ key: 'a', owner: 'org', repo: 'r', project: 'proj', branch: 'one' }],
+				});
+
+			await read();
+			const second = await read();
+
+			assert.equal(checks.probes, 1);
+			assert.deepEqual(authWarnings(second), [
+				{ scope: { resourceId: 'org', projectId: 'proj' }, cause: { reason: 'oauth-app-not-allowed' } },
+			]);
+
+			manager.dispose();
+		});
+
+		test('Bitbucket Data Center: every target refused, by a credential the probe confirms, is scoped to its repository and costs no strike', async () => {
+			const runtime = createFakeRuntime();
+			serve(runtime, () => json(401, { errors: [{ message: 'Authentication failed' }] }));
+			const { manager, integration } = await connectedBitbucketServer(runtime);
+			// A local session takes the direct strike path, so the count is exact.
+			(integration as unknown as { _session: ProviderAuthenticationSession })._session = {
+				...primarySession('t'),
+				domain: 'bbs.example.com',
+				cloud: false,
+			};
+			stubCurrentAccount(integration, 'me');
+			let probes = 0;
+			stubApi(integration, {
+				getCurrentUser: () => {
+					probes++;
+					return Promise.resolve({ id: 'u1' });
+				},
+			});
+
+			const result = await manager.getPullRequestsForBranches({
+				providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+				targets: [
+					{ key: 'a', owner: 'PROJ', repo: 'one', branch: 'feature' },
+					{ key: 'b', owner: 'PROJ', repo: 'two', branch: 'feature' },
+				],
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(
+				result.warnings.map(w => ({ kind: w.kind, scope: w.scope })),
+				[
+					{ kind: 'auth', scope: { repositoryId: 'PROJ/one' } },
+					{ kind: 'auth', scope: { repositoryId: 'PROJ/two' } },
+				],
+			);
+			assert.equal(probes, 1);
+			assert.equal(getRequestExceptionCount(integration), 0);
+
+			manager.dispose();
+		});
 	});
 });

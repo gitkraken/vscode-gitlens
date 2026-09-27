@@ -184,6 +184,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 				this.apiBaseUrlFor(session),
 				{
 					currentAccount: options?.currentAccount,
+					deferFailure: true,
 				},
 			),
 		);
@@ -220,6 +221,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 				{
 					limit: options.limit,
 					currentAccount: options.currentAccount,
+					deferFailure: true,
 				},
 			);
 		});
