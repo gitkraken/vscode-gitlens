@@ -521,7 +521,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 		manager.dispose();
 	});
 
-	test('refuses an empty branch, or one given as a full ref, before asking anything', async () => {
+	test('refuses an empty or padded branch, or one given as a full ref, before asking anything', async () => {
 		const { manager, gh } = await connectedGitHub(createFakeRuntime());
 		let calls = 0;
 		stubBranchesResult(gh, targets => {
@@ -532,6 +532,9 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 		for (const [branch, message] of [
 			['', /requires a non-empty branch/],
 			['  ', /requires a non-empty branch/],
+			// Sent as is, a padded name would match no branch and answer a cacheable "none".
+			[' feature', /can't start or end with whitespace/],
+			['feature\t', /can't start or end with whitespace/],
 			['refs/heads/feature', /pass the branch's short name, without 'refs\/heads\/'/],
 		] as const) {
 			const result = await manager.getPullRequestsForBranches({
@@ -853,6 +856,34 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			const result = await manager.getPullRequestsForBranches({
 				providerId: GitCloudHostIntegrationId.GitHub,
 				targets: [{ key: 'a', owner: 'o', repo: 'a', branch: 'feature', headOwner: 'O' }],
+			});
+
+			assert.deepEqual(ids(result.items[0]), ['1']);
+			assert.equal(requests.urls.length, 1);
+
+			manager.dispose();
+		});
+
+		test('a padded headOwner equal to the owner means the base repository', async () => {
+			const runtime = createFakeRuntime();
+			const requests = serve(runtime, () =>
+				json(200, {
+					data: {
+						b0: {
+							pullRequests: {
+								totalCount: 2,
+								nodes: [gitHubPullRequestNode(1), gitHubPullRequestNode(2, 'forker')],
+							},
+						},
+					},
+				}),
+			);
+			const { manager, gh } = await connectedGitHub(runtime);
+			stubCurrentAccount(gh, 'me');
+
+			const result = await manager.getPullRequestsForBranches({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: [{ key: 'a', owner: 'o', repo: 'a', branch: 'feature', headOwner: '  o  ' }],
 			});
 
 			assert.deepEqual(ids(result.items[0]), ['1']);

@@ -6,7 +6,7 @@ import { appendDedupedWarning, toProviderWarning } from '../results.js';
 import { isGitHostIntegration, isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { getCurrentAccountIdentity, runCaptured } from './drains.js';
-import { findDuplicateKey, unresolvedIntegration } from './issueBatch.js';
+import { findDuplicateKey, trimCoordinateFields, unresolvedIntegration } from './issueBatch.js';
 import { gitHostOnlySurfaceWarning, otherWarning } from './warnings.js';
 
 /**
@@ -92,8 +92,11 @@ export async function getPullRequestsBatch(
 		);
 	}
 
+	// The validated value must be the one sent to the provider, so every string field is trimmed once here.
+	const targets = options.targets.map(trimCoordinateFields);
+
 	// Deterministic caller bugs, refused like a duplicate key rather than sent upstream to fail one by one.
-	const invalid = findInvalidTarget(options.providerId, options.targets);
+	const invalid = findInvalidTarget(options.providerId, targets);
 	if (invalid != null) {
 		return refused(otherWarning(options.providerId, undefined, options.connectionId, invalid));
 	}
@@ -118,7 +121,7 @@ export async function getPullRequestsBatch(
 		options.connectionId,
 		() =>
 			integration.getPullRequestsBatchResult(
-				options.targets.map(t => ({ owner: t.owner, repo: t.repo, number: t.number, project: t.project })),
+				targets.map(t => ({ owner: t.owner, repo: t.repo, number: t.number, project: t.project })),
 				{ currentAccount: currentAccount },
 				undefined,
 				options.connectionId,
@@ -148,7 +151,7 @@ export async function getPullRequestsBatch(
 	}
 
 	const items: PullRequestBatchResult[] = [];
-	for (let i = 0; i < options.targets.length; i++) {
+	for (let i = 0; i < targets.length; i++) {
 		const slot = slots[i];
 		if (slot.status === 'rejected') {
 			// Dropped, never reported absent, like a whole-call failure.
@@ -161,7 +164,7 @@ export async function getPullRequestsBatch(
 		}
 
 		const pullRequest = slot.value;
-		items.push({ key: options.targets[i].key, ...(pullRequest != null ? { pullRequest: pullRequest } : {}) });
+		items.push({ key: targets[i].key, ...(pullRequest != null ? { pullRequest: pullRequest } : {}) });
 	}
 
 	return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
@@ -177,10 +180,10 @@ function findInvalidTarget(providerId: IntegrationIds, targets: readonly PullReq
 		if (isGitHub && target.number > githubGraphQLInt32Max) {
 			return `Pull request batch target '${target.key}' has number ${target.number}; GitHub numbers are 32-bit and cannot exceed ${githubGraphQLInt32Max}.`;
 		}
-		if (target.owner.trim().length === 0 || target.repo.trim().length === 0) {
+		if (target.owner.length === 0 || target.repo.length === 0) {
 			return `Pull request batch target '${target.key}' requires a non-empty owner and repo.`;
 		}
-		if (requiresProject && !target.project?.trim()) {
+		if (requiresProject && !target.project) {
 			return `Pull request batch target '${target.key}' requires a project for '${providerId}'.`;
 		}
 	}

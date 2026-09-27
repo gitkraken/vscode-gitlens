@@ -951,6 +951,27 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 			});
 		}
 
+		test('a padded project reaches the provider trimmed', async () => {
+			const runtime = createFakeRuntime();
+			const requests = azureStatus(runtime, 404, {
+				typeKey: 'GitPullRequestNotFoundException',
+				message: 'not found',
+			});
+			const { manager, azure } = await connectedAzure(runtime);
+			stubCurrentAccount(azure, 'me');
+
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				targets: [{ key: 'a', owner: 'org', repo: 'r', number: 7, project: ' proj ' }],
+			});
+
+			assert.equal(requests.urls.length, 1);
+			assert.match(requests.urls[0], /\/org\/proj\/_apis\/git\/repositories\/r\/pullrequests\/7/);
+			assert.deepEqual(result.items, [{ key: 'a' }]);
+
+			manager.dispose();
+		});
+
 		test('a hit asks for clone URLs and is converted like the repo-scoped list rows', async () => {
 			const { manager, azure } = await connectedAzure(createFakeRuntime());
 			stubCurrentAccount(azure, 'me');
