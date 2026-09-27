@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-27
+
 ### Added
 
 - Adds compare-and-swap reference updates and a reference delete, so a consumer can move a ref only if it still points where it last saw it. `refs.updateReference(repoPath, ref, sha, { expected })` passes git's own old-value check (`update-ref <ref> <new> <old>`) when `expected` is a sha, and the empty old value — git's spelling of "must not exist yet" — when it is `'absent'`; `refs.deleteReference(repoPath, ref, { expected })` is the `update-ref -d --no-deref` form — it deletes a symbolic ref itself, never the ref it points to, and refuses `HEAD` — and deletes a local branch the way `git branch -d` leaves things apart from its merged check: refused while checked out in any worktree, with its `branch.<name>` config section and GitLens's per-branch metadata removed alongside. Both throw a typed `ReferenceUpdateError` (`conflict`, `invalidRef`, `invalidObject`, `notFound`, `checkedOut`) and fire the cache and repository hooks a branch, remote-tracking, tag or `HEAD` move fires; a ref in another namespace announces nothing, since nothing core caches can observe it. A cancelled call rejects as `CancellationError`, never `ReferenceUpdateError`, so a host serving `@gitkraken/sync-tools`' compare-and-swap `updateRef` op can tell a refusal from a cancellation (git, git-cli)
@@ -415,7 +417,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.7.2...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.8.0...HEAD
+[0.8.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.7.2...gitkraken:releases/core/v0.8.0
 [0.7.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.7.1...gitkraken:releases/core/v0.7.2
 [0.7.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.7.0...gitkraken:releases/core/v0.7.1
 [0.7.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.6.0...gitkraken:releases/core/v0.7.0
