@@ -1,6 +1,7 @@
 import * as l10n from '@vscode/l10n';
 import { getNumericFormat } from '@gitlens/utils/date.js';
 import type { GitPausedOperationStatus } from './models/pausedOperationStatus.js';
+import type { Provider } from './models/remoteProvider.js';
 
 /** The `t` surface a message builder renders through — the real `l10n` for `localizedMessage`, `english` for `message`. */
 type Translator = Pick<typeof l10n, 't'>;
@@ -2237,6 +2238,34 @@ export class RequestRateLimitError extends Error {
 
 		Error.captureStackTrace?.(this, new.target);
 	}
+}
+
+const deferredRequestFailures = new WeakMap<Error, () => void>();
+
+/**
+ * Spends `provider`'s strike toward disconnecting for a request that failed with a server error or timed out, and
+ * shows `notify`'s notice; or, with `defer`, leaves both to the batch read that made the request, which counts its
+ * failed requests once for the whole call (see {@link getDeferredRequestFailure}). A batch fans out into a request
+ * per target, so one outage would otherwise disconnect the integration in the middle of a batch.
+ */
+export function reportRequestFailure(
+	provider: Provider | undefined,
+	ex: Error,
+	notify: () => void,
+	defer: boolean | undefined,
+): void {
+	if (defer) {
+		deferredRequestFailures.set(ex, notify);
+		return;
+	}
+
+	provider?.trackRequestException();
+	notify();
+}
+
+/** The notice a failed request left to its batch read (see {@link reportRequestFailure}), if it left one. */
+export function getDeferredRequestFailure(ex: unknown): (() => void) | undefined {
+	return ex instanceof Error ? deferredRequestFailures.get(ex) : undefined;
 }
 
 export type SigningErrorReason = 'noKey' | 'gpgNotFound' | 'sshNotFound' | 'passphraseFailed' | 'unknown';

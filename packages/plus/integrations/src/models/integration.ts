@@ -1,4 +1,5 @@
-import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import type { CollectionMetadata, CollectionScope } from '@gitkraken/provider-apis';
+import { getDeferredRequestFailure } from '@gitlens/git/errors.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -23,11 +24,12 @@ import type {
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { RejectedTokenTracker } from '../authentication/rejectedTokenTracker.js';
-import type { ProviderRefusal } from '../collectionMetadata.js';
+import type { ProviderRefusal, ProviderScopeFailure } from '../collectionMetadata.js';
 import {
 	attributeScopedAuthFailures,
 	hasOnlyScopedAuthFailures,
 	markCredentialRefusals,
+	toCollectionScopeFailure,
 } from '../collectionMetadata.js';
 import type { IntegrationIds, IssuesCloudHostIntegrationId, IssuesHostIntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
@@ -35,7 +37,9 @@ import type { IntegrationServiceContext } from '../context.js';
 import { AuthenticationError, AuthenticationErrorReason, RequestClientError, toError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import { providersMetadata } from '../providers/models.js';
+import { isAzureProviderId } from '../providers/providerErrors.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
+import { throwIfAllSettledFailed } from '../providers/utils/providerPaging.js';
 import type { ProviderWarningCause, ProviderWarningScope } from '../results.js';
 import type { Sources } from '../telemetry.js';
 import { areDomainsOnSameHost } from '../utils/domain.utils.js';
@@ -76,6 +80,30 @@ export type IntegrationResult<T> =
 	| { value: T; duration?: number; error?: Error }
 	| { error: Error; duration?: number; value?: never }
 	| undefined;
+
+/**
+ * One target's answer in a batch read. A slot rejected by an authentication refusal carries the scope failure it was
+ * recorded as (see `IntegrationBase.settleBatchRefusals`).
+ */
+export type BatchSlot<T> = PromiseFulfilledResult<T> | (PromiseRejectedResult & { failure?: ProviderScopeFailure });
+
+/** A batch read's target, in the form its provider addresses it by: a repository coordinate, or a tracker's resource. */
+type BatchTarget = { owner: string; repo: string; project?: string } | { resourceId: string };
+
+/**
+ * The scope a batch read records a refused target under. It is decided here rather than in the read, which has the
+ * same targets, because naming the refusal's cause (`describeRefusal`) needs it too. Azure DevOps: the organization
+ * and project, since its refusals come from those (an organization's OAuth policy or tenant, a project's permissions)
+ * and its work items belong to no repository. Every other git host: the repository, `owner/repo`, which is how its
+ * repo-scoped reads record one. A tracker: the resource.
+ */
+function batchTargetScope(providerId: IntegrationIds, target: BatchTarget): CollectionScope {
+	if ('resourceId' in target) return { providerId: providerId, resourceId: target.resourceId };
+	if (isAzureProviderId(providerId)) {
+		return { providerId: providerId, resourceId: target.owner, projectId: target.project };
+	}
+	return { providerId: providerId, repositoryId: `${target.owner}/${target.repo}` };
+}
 
 type SyncReqUsecase = Exclude<
 	| 'getAccountForCommit'
@@ -586,11 +614,107 @@ export abstract class IntegrationBase<
 
 		// Published for the connection, as a refusal outside any scope would be, while the scopes that answered keep
 		// their results. That already asks for a reconnect, so there is nothing left for a probe to settle.
-		const isCredentialRefusal = this.isCredentialRefusal?.bind(this);
-		if (isCredentialRefusal != null && markCredentialRefusals(metadata, isCredentialRefusal)) return;
+		if (this.markCredentialRefusals(metadata)) return;
+		if ((await this.confirmCredential(session)) !== 'confirmed') return;
 
+		this.nameRefusalCauses(session, metadata);
+	}
+
+	/**
+	 * Settles what a batch read's authentication refusals mean before the call is judged, as
+	 * {@link confirmScopedAuthFailures} settles an account-wide read's: each refused slot comes back carrying the scope
+	 * failure it was recorded as, against the scope its target names (see {@link batchTargetScope}), and a read
+	 * publishes that instead of the bare reason.
+	 *
+	 * When any target answered, that proved the credential, so each refusal is its own target's. When every target
+	 * failed, the call fails as a whole, as it always has, unless every failure is a refusal of a credential that checks
+	 * out. Every target refusing is also what a dead credential looks like, so the credential is checked once first,
+	 * with {@link validateCredential}. A check that proves nothing leaves the refusals scoped and unnamed, as it leaves
+	 * an account-wide read's. A provider with no check cannot tell, and a refusal it pins on the credential (see
+	 * {@link isCredentialRefusal}) needs none, so either still fails the call.
+	 */
+	protected async settleBatchRefusals<T>(
+		session: ProviderAuthenticationSession,
+		targets: readonly BatchTarget[],
+		slots: PromiseSettledResult<T>[],
+	): Promise<BatchSlot<T>[]> {
+		const failures = slots.map((slot, i) =>
+			slot.status === 'rejected' && slot.reason instanceof AuthenticationError
+				? toCollectionScopeFailure(batchTargetScope(this.id, targets[i]), slot.reason)
+				: undefined,
+		);
+		const refused = failures.filter(f => f != null);
+		if (!refused.length) {
+			throwIfAllSettledFailed(slots);
+			return slots;
+		}
+
+		const metadata: CollectionMetadata = { completeness: 'partial', failures: refused };
+		const credentialRefused = this.markCredentialRefusals(metadata);
+		if (slots.some(slot => slot.status === 'fulfilled')) {
+			this.nameRefusalCauses(session, metadata);
+		} else if (credentialRefused) {
+			throwIfAllSettledFailed(slots);
+		} else if (refused.length < slots.length) {
+			// Fails on a target that failed for another reason: failing on a refusal would run the credential's own
+			// recovery (a session expiry or a disconnect strike) for what may be only its target's refusal.
+			throwIfAllSettledFailed(slots.filter((_, i) => failures[i] == null));
+		} else {
+			const confirmation = await this.confirmCredential(session);
+			if (confirmation == null) {
+				throwIfAllSettledFailed(slots);
+			} else if (confirmation === 'confirmed') {
+				this.nameRefusalCauses(session, metadata);
+			}
+		}
+
+		return slots.map((slot, i) => {
+			const failure = failures[i];
+			return slot.status === 'rejected' && failure != null ? { ...slot, failure: failure } : slot;
+		});
+	}
+
+	/**
+	 * Shows one notice, and spends at most one strike, for a batch read whose targets failed with a server error or a
+	 * timeout. Our own clients leave both to the batch (see `reportRequestFailure`) instead of spending them per
+	 * target. `strike` is true only when every target failed and the call's own failure spent none: a call that
+	 * answered some targets showed the host is up, and budgets strikes the same way as the rest of its failures.
+	 */
+	protected reportDeferredRequestFailures(
+		slots: readonly PromiseSettledResult<unknown>[] | undefined,
+		strike: boolean,
+	): void {
+		let notify: (() => void) | undefined;
+		for (const slot of slots ?? []) {
+			if (slot.status !== 'rejected') continue;
+
+			notify = getDeferredRequestFailure(slot.reason);
+			if (notify != null) break;
+		}
+
+		if (notify == null) return;
+
+		if (strike) {
+			this.trackRequestException();
+		}
+		notify();
+	}
+
+	/** Marks the scoped refusals the provider pins on the credential (see {@link isCredentialRefusal}). */
+	private markCredentialRefusals(metadata: CollectionMetadata | undefined): boolean {
+		const isCredentialRefusal = this.isCredentialRefusal?.bind(this);
+		return isCredentialRefusal != null && markCredentialRefusals(metadata, isCredentialRefusal);
+	}
+
+	/**
+	 * Checks the credential with {@link validateCredential}, rethrowing the provider's refusal when it is refused.
+	 * `undefined` when the provider has no check, and `'unproven'` when the check proved nothing either way.
+	 */
+	private async confirmCredential(
+		session: ProviderAuthenticationSession,
+	): Promise<'confirmed' | 'unproven' | undefined> {
 		const validateCredential = this.validateCredential?.bind(this);
-		if (validateCredential == null) return;
+		if (validateCredential == null) return undefined;
 
 		// Keyed by the address as well as the token: a self-managed instance serves every installation on its host,
 		// and one installation accepting a token says nothing about another.
@@ -602,21 +726,26 @@ export abstract class IntegrationBase<
 			// nothing about the scopes' refusals either.
 			if (ex instanceof AuthenticationError && ex.reason !== AuthenticationErrorReason.Forbidden) throw ex;
 
-			return;
+			return 'unproven';
 		}
-
-		const describeRefusal = this.describeRefusal?.bind(this);
-		if (describeRefusal != null) {
-			attributeScopedAuthFailures(metadata, (refusal, scope) => describeRefusal(session, refusal, scope));
-		}
+		return 'confirmed';
 	}
 
+	/** Names each scoped refusal's cause (see {@link describeRefusal}); only once the credential is proven. */
+	private nameRefusalCauses(session: ProviderAuthenticationSession, metadata: CollectionMetadata | undefined): void {
+		const describeRefusal = this.describeRefusal?.bind(this);
+		if (describeRefusal == null) return;
+
+		attributeScopedAuthFailures(metadata, (refusal, scope) => describeRefusal(session, refusal, scope));
+	}
+
+	/** Returns whether it spent a strike toward disconnecting (see {@link trackRequestException}). */
 	protected handleProviderException(
 		syncReqUsecase: SyncReqUsecase,
 		ex: Error,
 		options?: { scope?: ScopedLogger | undefined; silent?: boolean; connectionId?: string },
-	): void {
-		if (isCancellationError(ex)) return;
+	): boolean {
+		if (isCancellationError(ex)) return false;
 
 		// A refused credential may be one a probe passed moments ago: stop vouching for it.
 		if (ex instanceof AuthenticationError) {
@@ -640,25 +769,25 @@ export abstract class IntegrationBase<
 		// recover, fall through to the shared failure budget, which disconnects after
 		// `requestExceptionLimit` and surfaces the reconnect prompt.
 		if (ex instanceof AuthenticationError && options?.connectionId) {
-			if (!this._rejectedTokens.recordRejection(options.connectionId)) {
-				this.trackRequestException(options);
-			}
-			return;
+			if (this._rejectedTokens.recordRejection(options.connectionId)) return false;
+
+			this.trackRequestException(options);
+			return true;
 		}
 
-		if (ex instanceof AuthenticationError && this._session?.cloud) {
-			if (!this.hasSessionSyncRequests()) {
-				this.requestSessionSyncForUsecase(syncReqUsecase);
-				this._session = {
-					...this._session,
-					expiresAt: new Date(Date.now() - 1),
-				};
-			} else {
-				this.trackRequestException(options);
-			}
-		} else if (ex instanceof AuthenticationError || ex instanceof RequestClientError) {
-			this.trackRequestException(options);
+		if (ex instanceof AuthenticationError && this._session?.cloud && !this.hasSessionSyncRequests()) {
+			this.requestSessionSyncForUsecase(syncReqUsecase);
+			this._session = {
+				...this._session,
+				expiresAt: new Date(Date.now() - 1),
+			};
+			return false;
 		}
+
+		if (!(ex instanceof AuthenticationError) && !(ex instanceof RequestClientError)) return false;
+
+		this.trackRequestException(options);
+		return true;
 	}
 
 	private missingExpirityReported = false;

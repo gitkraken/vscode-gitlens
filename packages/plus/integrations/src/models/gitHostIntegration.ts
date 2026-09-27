@@ -61,6 +61,7 @@ import { mergeCollectionMetadata, throwIfAllSettledFailed } from '../providers/u
 import { areDomainsOnSameHost } from '../utils/domain.utils.js';
 import { getSelfManagedBaseUrl, isGitSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type {
+	BatchSlot,
 	IntegrationResult,
 	IntegrationType,
 	ProviderIssueSearchPage,
@@ -79,16 +80,7 @@ import type { MyIssuesForReposOptions } from './issueReads.js';
  * reads here are shared by every host, so they have to ask; every other provider keeps the SDK's default.
  */
 function sendsBasicCredential(providerId: IntegrationIds, session: ProviderAuthenticationSession): boolean | undefined {
-	return isAzureDevOpsProvider(providerId) ? session.type !== 'oauth' : undefined;
-}
-
-function isAzureDevOpsProvider(
-	providerId: IntegrationIds,
-): providerId is GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer {
-	return (
-		providerId === GitCloudHostIntegrationId.AzureDevOps ||
-		providerId === GitSelfManagedHostIntegrationId.AzureDevOpsServer
-	);
+	return isAzureProviderId(providerId) ? session.type !== 'oauth' : undefined;
 }
 
 /** Read options for {@link GitHostIntegration.searchMyPullRequests} and the provider hook behind it. */
@@ -1860,33 +1852,41 @@ export abstract class GitHostIntegration<
 	 * {@link countIssuesResult} does: a caller's key must never reach the provider query.
 	 *
 	 * Failure isolation happens PER TARGET, mirroring {@link getPullRequestsBatchResult}: the whole call counts
-	 * as a failure against the integration's request-exception budget only when EVERY slot rejected
-	 * (`throwIfAllSettledFailed`), so a batch of mostly-good targets never spends more than one strike.
+	 * as a failure against the integration's request-exception budget only when EVERY slot rejected, and not even
+	 * then when a credential that checks out was refused by each target's own scope (`settleBatchRefusals`).
+	 * Server errors and timeouts on the targets show one notice however many hit one, and cost a strike only as
+	 * part of that whole-call failure (`reportDeferredRequestFailures`), so a call never spends more than one.
 	 */
 	async getIssuesBatchResult(
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
 		cancellation?: AbortSignal,
 		connectionId?: string,
-	): Promise<IntegrationResult<PromiseSettledResult<IssueShape | undefined>[] | undefined>> {
+	): Promise<IntegrationResult<BatchSlot<IssueShape | undefined>[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
 		if (session == null) return undefined;
 
 		const start = performance.now();
+		let slots: PromiseSettledResult<IssueShape | undefined>[] | undefined;
 		try {
-			const slots = await this.getProviderIssuesBatch?.(session, coordinates, cancellation);
+			slots = await this.getProviderIssuesBatch?.(session, coordinates, cancellation);
 			if (slots == null) {
 				this.resetRequestExceptionCount('getIssuesBatch');
 				return { value: undefined, duration: performance.now() - start };
 			}
 
-			throwIfAllSettledFailed(slots);
+			const settled = await this.settleBatchRefusals(session, coordinates, slots);
 
 			this.resetRequestExceptionCount('getIssuesBatch');
-			return { value: slots, duration: performance.now() - start };
+			this.reportDeferredRequestFailures(slots, false);
+			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
-			this.handleProviderException('getIssuesBatch', ex, { scope: scope, connectionId: connectionId });
+			const struck = this.handleProviderException('getIssuesBatch', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
+			this.reportDeferredRequestFailures(slots, !struck);
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
@@ -1915,34 +1915,42 @@ export abstract class GitHostIntegration<
 	 * Failure isolation happens PER TARGET, not per call: a hook that reads one pull request per request (every
 	 * host but GitHub/GHE) fans its coordinates out itself and settles each independently, so one bad target
 	 * rejects only its own slot. Mirrors {@link getMyPullRequestsForReposResult}'s per-repo fan-out — the whole
-	 * call counts as a failure against the integration's request-exception budget only when EVERY slot rejected
-	 * (`throwIfAllSettledFailed`), so a batch of mostly-good targets never spends more than one strike.
+	 * call counts as a failure against the integration's request-exception budget only when EVERY slot rejected,
+	 * and not even then when a credential that checks out was refused by each target's own scope
+	 * (`settleBatchRefusals`). Server errors and timeouts on the targets show one notice however many hit one, and
+	 * cost a strike only as part of that whole-call failure (`reportDeferredRequestFailures`).
 	 */
 	async getPullRequestsBatchResult(
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
 		options?: { currentAccount?: { id: string; username?: string } },
 		cancellation?: AbortSignal,
 		connectionId?: string,
-	): Promise<IntegrationResult<PromiseSettledResult<PullRequestShape | undefined>[] | undefined>> {
+	): Promise<IntegrationResult<BatchSlot<PullRequestShape | undefined>[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
 		if (session == null) return undefined;
 
 		const start = performance.now();
+		let slots: PromiseSettledResult<PullRequestShape | undefined>[] | undefined;
 		try {
-			const slots = await this.getProviderPullRequestsBatch?.(session, coordinates, options, cancellation);
+			slots = await this.getProviderPullRequestsBatch?.(session, coordinates, options, cancellation);
 			if (slots == null) {
 				this.resetRequestExceptionCount('getPullRequestsBatch');
 				return { value: undefined, duration: performance.now() - start };
 			}
 
-			throwIfAllSettledFailed(slots);
+			const settled = await this.settleBatchRefusals(session, coordinates, slots);
 
 			this.resetRequestExceptionCount('getPullRequestsBatch');
-			return { value: slots, duration: performance.now() - start };
+			this.reportDeferredRequestFailures(slots, false);
+			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
-			this.handleProviderException('getPullRequestsBatch', ex, { scope: scope, connectionId: connectionId });
+			const struck = this.handleProviderException('getPullRequestsBatch', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
+			this.reportDeferredRequestFailures(slots, !struck);
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
@@ -1975,38 +1983,41 @@ export abstract class GitHostIntegration<
 	 * branch ref up, which answers "none" once a merged pull request's branch is deleted.
 	 *
 	 * Failure isolation is per target, as in {@link getPullRequestsBatchResult}: the whole call counts against the
-	 * request-exception budget only when EVERY slot rejected, so it never spends more than one strike.
+	 * request-exception budget only when EVERY slot rejected, and not when each target's own scope refused a
+	 * credential that checks out. Server errors and timeouts on the targets show one notice however many hit one, and
+	 * cost a strike only as part of that whole-call failure.
 	 */
 	async getPullRequestsForBranchesResult(
 		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
 		options: { currentAccount?: { id: string; username?: string }; limit: number },
 		cancellation?: AbortSignal,
 		connectionId?: string,
-	): Promise<
-		IntegrationResult<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined>
-	> {
+	): Promise<IntegrationResult<BatchSlot<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
 		if (session == null) return undefined;
 
 		const start = performance.now();
+		let slots: PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined;
 		try {
-			const slots = await this.getProviderPullRequestsForBranches?.(session, targets, options, cancellation);
+			slots = await this.getProviderPullRequestsForBranches?.(session, targets, options, cancellation);
 			if (slots == null) {
 				this.resetRequestExceptionCount('getPullRequestsForBranches');
 				return { value: undefined, duration: performance.now() - start };
 			}
 
-			throwIfAllSettledFailed(slots);
+			const settled = await this.settleBatchRefusals(session, targets, slots);
 
 			this.resetRequestExceptionCount('getPullRequestsForBranches');
-			return { value: slots, duration: performance.now() - start };
+			this.reportDeferredRequestFailures(slots, false);
+			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
-			this.handleProviderException('getPullRequestsForBranches', ex, {
+			const struck = this.handleProviderException('getPullRequestsForBranches', ex, {
 				scope: scope,
 				connectionId: connectionId,
 			});
+			this.reportDeferredRequestFailures(slots, !struck);
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}

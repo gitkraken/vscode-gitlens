@@ -1,4 +1,5 @@
 import * as l10n from '@vscode/l10n';
+import { reportRequestFailure } from '@gitlens/git/errors.js';
 import type { Account, CommitAuthor, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
@@ -347,7 +348,7 @@ export class BitbucketApi implements Disposable {
 		repo: string,
 		id: string,
 		baseUrl: string,
-		options?: { currentAccount?: { id: string; username?: string } },
+		options?: { currentAccount?: { id: string; username?: string }; deferFailure?: boolean },
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
@@ -361,6 +362,8 @@ export class BitbucketApi implements Disposable {
 					method: 'GET',
 				},
 				scope,
+				undefined,
+				options?.deferFailure,
 			);
 			if (pr == null) throw new Error(`Bitbucket returned no pull request for ${owner}/${repo}#${id}`);
 
@@ -393,7 +396,7 @@ export class BitbucketApi implements Disposable {
 		repo: string,
 		id: string,
 		baseUrl: string,
-		options?: { currentAccount?: { id: string; username?: string } },
+		options?: { currentAccount?: { id: string; username?: string }; deferFailure?: boolean },
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
@@ -407,6 +410,8 @@ export class BitbucketApi implements Disposable {
 					method: 'GET',
 				},
 				scope,
+				undefined,
+				options?.deferFailure,
 			);
 			if (pr == null) throw new Error(`Bitbucket returned no pull request for ${owner}/${repo}#${id}`);
 
@@ -445,7 +450,12 @@ export class BitbucketApi implements Disposable {
 		repo: string,
 		branch: string,
 		baseUrl: string,
-		options: { headOwner?: string; limit: number; currentAccount?: { id: string; username?: string } },
+		options: {
+			headOwner?: string;
+			limit: number;
+			currentAccount?: { id: string; username?: string };
+			deferFailure?: boolean;
+		},
 	): Promise<{ pullRequests: PullRequest[]; truncated: boolean }> {
 		const scope = getScopedLogger();
 
@@ -466,6 +476,8 @@ export class BitbucketApi implements Disposable {
 				`repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pullrequests?${params.toString()}`,
 				{ method: 'GET' },
 				scope,
+				undefined,
+				options.deferFailure,
 			);
 			if (response?.values == null) {
 				throw new Error(`Bitbucket returned no pull requests for ${owner}/${repo}:${branch}`);
@@ -521,7 +533,7 @@ export class BitbucketApi implements Disposable {
 		repo: string,
 		branch: string,
 		baseUrl: string,
-		options: { limit: number; currentAccount?: { id: string; username?: string } },
+		options: { limit: number; currentAccount?: { id: string; username?: string }; deferFailure?: boolean },
 	): Promise<{ pullRequests: PullRequest[]; truncated: boolean }> {
 		const scope = getScopedLogger();
 
@@ -542,6 +554,8 @@ export class BitbucketApi implements Disposable {
 				`projects/${encodeURIComponent(owner)}/repos/${encodeURIComponent(repo)}/pull-requests?${params.toString()}`,
 				{ method: 'GET' },
 				scope,
+				undefined,
+				options.deferFailure,
 			);
 			if (response?.values == null) {
 				throw new Error(`Bitbucket returned no pull requests for ${owner}/${repo}:${branch}`);
@@ -1009,6 +1023,7 @@ export class BitbucketApi implements Disposable {
 		options?: { method: RequestInit['method'] } & Record<string, unknown>,
 		scope?: ScopedLogger | undefined,
 		cancellation?: AbortSignal | undefined,
+		deferFailure?: boolean,
 	): Promise<T | undefined> {
 		const { accessToken } = token;
 		const url = `${baseUrl}/${route}`;
@@ -1039,7 +1054,7 @@ export class BitbucketApi implements Disposable {
 			}
 		} catch (ex) {
 			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
-				this.handleRequestError(provider, token, ex, scope);
+				this.handleRequestError(provider, token, ex, scope, deferFailure);
 			} else if (Logger.isDebugging) {
 				this.config.onError?.(`Bitbucket request failed: ${ex.message}`);
 			}
@@ -1053,6 +1068,7 @@ export class BitbucketApi implements Disposable {
 		token: TokenWithInfo,
 		ex: ProviderFetchError | (Error & { name: 'AbortError' }),
 		scope: ScopedLogger | undefined,
+		deferFailure: boolean | undefined,
 	): void {
 		if (ex.name === 'AbortError' || !(ex instanceof ProviderFetchError)) throw new CancellationError(ex);
 
@@ -1076,14 +1092,19 @@ export class BitbucketApi implements Disposable {
 			case 500: // Internal Server Error
 				scope?.error(ex);
 				if (ex.response != null) {
-					provider?.trackRequestException();
-					this.config.onRequestFailed?.(
-						provider == null || provider.id === 'bitbucket'
-							? l10n.t(
-									'{0} failed to respond and might be experiencing issues. Please visit the [Bitbucket status page](https://bitbucket.status.atlassian.com/) for more information.',
-									provider?.name ?? 'Bitbucket',
-								)
-							: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
+					reportRequestFailure(
+						provider,
+						ex,
+						() =>
+							this.config.onRequestFailed?.(
+								provider == null || provider.id === 'bitbucket'
+									? l10n.t(
+											'{0} failed to respond and might be experiencing issues. Please visit the [Bitbucket status page](https://bitbucket.status.atlassian.com/) for more information.',
+											provider?.name ?? 'Bitbucket',
+										)
+									: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
+							),
+						deferFailure,
 					);
 				}
 				return;
