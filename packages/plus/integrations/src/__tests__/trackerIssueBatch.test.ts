@@ -153,6 +153,28 @@ suite('IntegrationManager.getIssuesBatch — tracker targets (#5810)', () => {
 		manager.dispose();
 	});
 
+	test('a padded identifier reaches the provider trimmed', async () => {
+		const runtime = createFakeRuntime();
+		const requests: string[] = [];
+		runtime.http.fetch = input => {
+			requests.push(input.toString());
+			return Promise.resolve(jsonResponse(200, jiraIssueResponse('ABC-1')));
+		};
+		const { manager } = await connectedTracker(runtime, IssuesCloudHostIntegrationId.Jira);
+
+		const result = await manager.getIssuesBatch({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			targets: [{ key: 'my-key', resourceId: 'org-1', resourceUrl: jiraResourceUrl, identifier: ' ABC-1 ' }],
+		});
+
+		assert.equal(requests.length, 1);
+		assert.match(requests[0], /\/org-1\/rest\/api\/2\/issue\/ABC-1\?/);
+		assert.equal(result.items[0]?.key, 'my-key', 'the result is keyed by the caller key, unaffected by trimming');
+		assert.equal(result.items[0]?.issue?.id, 'ABC-1');
+
+		manager.dispose();
+	});
+
 	test('uses Jira status keys rather than localized display names', async () => {
 		const runtime = createFakeRuntime();
 		runtime.http.fetch = () =>
