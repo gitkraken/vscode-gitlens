@@ -122,6 +122,32 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 		manager.dispose();
 	});
 
+	test('a padded owner reaches the provider trimmed', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		let received: readonly { owner: string; repo: string; number: number }[] = [];
+		stubBatch(gh, coordinates => {
+			received = coordinates;
+			return Promise.resolve({ value: coordinates.map(c => found(issue(c.number))) });
+		});
+
+		const result = await manager.getIssuesBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [{ key: 'a', owner: ' o ', repo: 'a', number: 1 }],
+		});
+
+		assert.deepEqual(
+			received.map(c => c.owner),
+			['o'],
+		);
+		assert.deepEqual(
+			result.items.map(i => i.key),
+			['a'],
+			'the result is keyed by the caller key, unaffected by trimming',
+		);
+
+		manager.dispose();
+	});
+
 	test('an absent issue is returned as a proven absence, not dropped', async () => {
 		const { manager, gh } = await connectedGitHub(createFakeRuntime());
 		stubBatch(gh, coordinates =>

@@ -142,9 +142,12 @@ export async function getIssuesBatch(
 		);
 	}
 
+	// The validated value must be the one sent to the provider, so every string field is trimmed once here.
+	const trimmedTargets = targets.map(trimCoordinateFields);
+
 	// Deterministic caller bugs, refused like a duplicate key rather than sent upstream, where a blank owner or repo
 	// would come back as a missing repository — a proven absence the caller would cache.
-	const invalid = findInvalidCoordinateTarget(options.providerId, targets);
+	const invalid = findInvalidCoordinateTarget(options.providerId, trimmedTargets);
 	if (invalid != null) {
 		return refused(otherWarning(options.providerId, undefined, options.connectionId, invalid));
 	}
@@ -172,7 +175,7 @@ export async function getIssuesBatch(
 		options.connectionId,
 		() =>
 			integration.getIssuesBatchResult(
-				targets.map(t => ({ owner: t.owner, repo: t.repo, number: t.number, project: t.project })),
+				trimmedTargets.map(t => ({ owner: t.owner, repo: t.repo, number: t.number, project: t.project })),
 				undefined,
 				options.connectionId,
 			),
@@ -203,7 +206,7 @@ export async function getIssuesBatch(
 	}
 
 	const items: IssueBatchResult[] = [];
-	for (let i = 0; i < targets.length; i++) {
+	for (let i = 0; i < trimmedTargets.length; i++) {
 		const slot = slots[i];
 		if (slot.status === 'rejected') {
 			// Dropped, never reported absent, like a whole-call failure: only THIS target failed.
@@ -216,7 +219,7 @@ export async function getIssuesBatch(
 		}
 
 		const issue = slot.value;
-		items.push({ key: targets[i].key, ...(issue != null ? { issue: issue } : {}) });
+		items.push({ key: trimmedTargets[i].key, ...(issue != null ? { issue: issue } : {}) });
 	}
 
 	return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
@@ -256,8 +259,11 @@ async function getIssuesBatchForTracker(
 		);
 	}
 
+	// The validated value must be the one sent to the provider, so every string field is trimmed once here.
+	const trimmedTargets = targets.map(trimTrackerTarget);
+
 	// Deterministic caller bugs, refused like a duplicate key rather than sent upstream to fail one by one.
-	const invalid = findInvalidTrackerTarget(providerId, targets);
+	const invalid = findInvalidTrackerTarget(providerId, trimmedTargets);
 	if (invalid != null) {
 		return refused(otherWarning(providerId, undefined, connectionId, invalid));
 	}
@@ -302,7 +308,7 @@ async function getIssuesBatchForTracker(
 	// host B's answer — including a cacheable absence — would be stored under host A's key. Refused whole, like
 	// the caller bugs above: a target naming another host means the call selected a host its caller did not mean.
 	if (isIssuesSelfManagedHostIntegrationId(providerId)) {
-		const mismatched = targets.find(t => !areDomainsOnSameHost(t.resourceId, integration.domain));
+		const mismatched = trimmedTargets.find(t => !areDomainsOnSameHost(t.resourceId, integration.domain));
 		if (mismatched != null) {
 			return refused(
 				otherWarning(
@@ -325,10 +331,10 @@ async function getIssuesBatchForTracker(
 		connectionId,
 		() =>
 			integration.getIssuesByResourceIdBatchResult(
-				targets.map(t => ({
+				trimmedTargets.map(t => ({
 					resourceId: t.resourceId,
 					identifier: t.identifier,
-					resourceUrl: t.resourceUrl?.trim() || undefined,
+					resourceUrl: t.resourceUrl,
 				})),
 				connectionId,
 			),
@@ -349,7 +355,7 @@ async function getIssuesBatchForTracker(
 	}
 
 	const items: IssueBatchResult[] = [];
-	for (let i = 0; i < targets.length; i++) {
+	for (let i = 0; i < trimmedTargets.length; i++) {
 		const slot = slots[i];
 		if (slot.status === 'rejected') {
 			// Dropped, never reported absent, like a whole-call failure.
@@ -359,7 +365,7 @@ async function getIssuesBatchForTracker(
 		}
 
 		const issue = slot.value;
-		items.push({ key: targets[i].key, ...(issue != null ? { issue: issue } : {}) });
+		items.push({ key: trimmedTargets[i].key, ...(issue != null ? { issue: issue } : {}) });
 	}
 
 	return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
@@ -371,6 +377,25 @@ function isCoordinateTarget(target: IssueBatchTarget): target is CoordinateTarge
 
 function isTrackerTarget(target: IssueBatchTarget): target is TrackerTarget {
 	return 'resourceId' in target;
+}
+
+/**
+ * Trims `owner`, `repo` and `project` once, shared by every coordinate-form batch read (this one, the pull request
+ * batch and the pull-requests-by-branch read): leading/trailing whitespace can't change which repository a
+ * coordinate names, so it's stripped and accepted rather than refused, matching #5821's scope-name precedent.
+ */
+export function trimCoordinateFields<T extends { owner: string; repo: string; project?: string }>(target: T): T {
+	return { ...target, owner: target.owner.trim(), repo: target.repo.trim(), project: target.project?.trim() };
+}
+
+/** Trims `resourceId`, `resourceUrl` and `identifier` once; the validated value must be the one sent to the provider. */
+function trimTrackerTarget(target: TrackerTarget): TrackerTarget {
+	return {
+		...target,
+		resourceId: target.resourceId.trim(),
+		resourceUrl: target.resourceUrl?.trim() || undefined,
+		identifier: target.identifier.trim(),
+	};
 }
 
 function findInvalidCoordinateTarget(
@@ -386,14 +411,14 @@ function findInvalidCoordinateTarget(
 		if (isGitHub && target.number > githubGraphQLInt32Max) {
 			return `Issue batch target '${target.key}' has number ${target.number}; GitHub numbers are 32-bit and cannot exceed ${githubGraphQLInt32Max}.`;
 		}
-		if (target.owner.trim().length === 0) {
+		if (target.owner.length === 0) {
 			return `Issue batch target '${target.key}' requires a non-empty owner.`;
 		}
 		if (isAzure) {
-			if (!target.project?.trim()) {
+			if (!target.project) {
 				return `Issue batch target '${target.key}' requires a project for '${providerId}'.`;
 			}
-		} else if (target.repo.trim().length === 0) {
+		} else if (target.repo.length === 0) {
 			return `Issue batch target '${target.key}' requires a non-empty repo.`;
 		}
 	}
@@ -405,13 +430,13 @@ function findInvalidTrackerTarget(
 	targets: readonly TrackerTarget[],
 ): string | undefined {
 	for (const target of targets) {
-		if (target.resourceId.trim().length === 0) {
+		if (target.resourceId.length === 0) {
 			return `Issue batch target '${target.key}' requires a resource id.`;
 		}
-		if (target.identifier.trim().length === 0) {
+		if (target.identifier.length === 0) {
 			return `Issue batch target '${target.key}' requires an issue identifier.`;
 		}
-		if (providerId === IssuesCloudHostIntegrationId.Jira && !target.resourceUrl?.trim()) {
+		if (providerId === IssuesCloudHostIntegrationId.Jira && !target.resourceUrl) {
 			return `Issue batch target '${target.key}' requires the Jira resource URL so the result contains a browser link without resource discovery.`;
 		}
 	}

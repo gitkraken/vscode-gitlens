@@ -8,7 +8,7 @@ import { appendDedupedWarning, toProviderWarning } from '../results.js';
 import { isGitHostIntegration, isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { getCurrentAccountIdentity, runCaptured } from './drains.js';
-import { findDuplicateKey, unresolvedIntegration } from './issueBatch.js';
+import { findDuplicateKey, trimCoordinateFields, unresolvedIntegration } from './issueBatch.js';
 import { gitHostOnlySurfaceWarning, otherWarning } from './warnings.js';
 
 /**
@@ -108,8 +108,16 @@ export async function getPullRequestsForBranches(
 		);
 	}
 
+	// The validated value must be the one sent to the provider, so every string field is trimmed once here.
+	// `branch` is left alone: a git ref name can't carry surrounding whitespace, so a padded one is refused below
+	// rather than being silently repaired.
+	const targets = options.targets.map(target => ({
+		...trimCoordinateFields(target),
+		headOwner: target.headOwner?.trim(),
+	}));
+
 	// Deterministic caller bugs, refused like a duplicate key rather than sent upstream to fail one by one.
-	const invalid = findInvalidTarget(options.providerId, options.targets);
+	const invalid = findInvalidTarget(options.providerId, targets);
 	if (invalid != null) {
 		return refused(otherWarning(options.providerId, undefined, options.connectionId, invalid));
 	}
@@ -134,7 +142,7 @@ export async function getPullRequestsForBranches(
 		options.connectionId,
 		() =>
 			integration.getPullRequestsForBranchesResult(
-				options.targets.map(t => ({
+				targets.map(t => ({
 					owner: t.owner,
 					repo: t.repo,
 					project: t.project,
@@ -170,7 +178,7 @@ export async function getPullRequestsForBranches(
 	}
 
 	const items: PullRequestBranchResult[] = [];
-	for (let i = 0; i < options.targets.length; i++) {
+	for (let i = 0; i < targets.length; i++) {
 		const slot = slots[i];
 		if (slot.status === 'rejected') {
 			// Dropped, never reported as "none", like a whole-call failure.
@@ -183,7 +191,7 @@ export async function getPullRequestsForBranches(
 		}
 
 		items.push({
-			key: options.targets[i].key,
+			key: targets[i].key,
 			pullRequests: slot.value.pullRequests,
 			...(slot.value.truncated ? { truncated: true } : {}),
 		});
@@ -204,19 +212,23 @@ function findInvalidTarget(
 	const isAzure = isAzureProviderId(providerId);
 	const isBitbucketServer = providerId === GitSelfManagedHostIntegrationId.BitbucketServer;
 	for (const target of targets) {
-		if (target.owner.trim().length === 0 || target.repo.trim().length === 0) {
+		if (target.owner.length === 0 || target.repo.length === 0) {
 			return `Pull request branch target '${target.key}' requires a non-empty owner and repo.`;
 		}
 		if (target.branch.trim().length === 0) {
 			return `Pull request branch target '${target.key}' requires a non-empty branch.`;
 		}
+		// Sent as is, a padded name matches no branch and answers a cacheable "none".
+		if (target.branch !== target.branch.trim()) {
+			return `Pull request branch target '${target.key}' has branch '${target.branch}'; a branch name can't start or end with whitespace.`;
+		}
 		if (target.branch.startsWith('refs/')) {
 			return `Pull request branch target '${target.key}' has branch '${target.branch}'; pass the branch's short name, without 'refs/heads/'.`;
 		}
-		if (isAzure && !target.project?.trim()) {
+		if (isAzure && !target.project) {
 			return `Pull request branch target '${target.key}' requires a project for '${providerId}'.`;
 		}
-		if (target.headOwner?.trim().length === 0) {
+		if (target.headOwner?.length === 0) {
 			return `Pull request branch target '${target.key}' has an empty headOwner; omit it for a branch in the base repository.`;
 		}
 		if (forkOwner(target) != null) {
