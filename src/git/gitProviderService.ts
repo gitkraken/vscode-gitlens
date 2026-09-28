@@ -33,6 +33,7 @@ import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
+import type { GitOperationRunOptions } from '@gitlens/git/providers/operations.js';
 import type {
 	GitProviderDescriptor,
 	GitProviderId,
@@ -1582,9 +1583,14 @@ export class GitProviderService implements UnifiedDisposable {
 	}
 
 	@debug()
-	async clone(url: string, parentPath: string): Promise<string | undefined> {
+	async clone(
+		url: string,
+		parentPath: string,
+		options?: { folderName?: string },
+		runOptions?: GitOperationRunOptions,
+	): Promise<string | undefined> {
 		const { provider } = this.getProvider(parentPath);
-		return provider.clone?.(url, parentPath);
+		return provider.clone?.(url, parentPath, options, runOptions);
 	}
 
 	@debug({ onlyExit: true })

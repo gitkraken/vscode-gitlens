@@ -6,6 +6,7 @@ import type { GitServiceContext } from '@gitlens/git/context.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import { deletedOrMissing } from '@gitlens/git/models/revision.js';
+import type { GitOperationRunOptions } from '@gitlens/git/providers/operations.js';
 import type { GitProvider, GitProviderDescriptor } from '@gitlens/git/providers/provider.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
@@ -181,19 +182,30 @@ export class CliGitProvider implements GitProvider {
 		return this._git.path();
 	}
 
-	async clone(url: string, parentPath: string): Promise<string | undefined> {
-		let count = 0;
-		const [, , remotePath] = parseGitRemoteUrl(url);
-		const remoteName = remotePath.split('/').pop();
-		if (!remoteName) return undefined;
+	async clone(
+		url: string,
+		parentPath: string,
+		options?: { folderName?: string },
+		runOptions?: GitOperationRunOptions,
+	): Promise<string | undefined> {
+		let folderPath: string;
+		if (options?.folderName) {
+			folderPath = joinPaths(parentPath, options.folderName);
+		} else {
+			const [, , remotePath] = parseGitRemoteUrl(url);
+			const remoteName = remotePath.split('/').pop();
+			if (!remoteName) return undefined;
 
-		let folderPath = joinPaths(parentPath, remoteName);
-		while ((await fsExists(folderPath)) && count < 20) {
-			count++;
-			folderPath = joinPaths(parentPath, `${remoteName}-${count}`);
+			let count = 0;
+			folderPath = joinPaths(parentPath, remoteName);
+			while ((await fsExists(folderPath)) && count < 20) {
+				count++;
+				folderPath = joinPaths(parentPath, `${remoteName}-${count}`);
+			}
 		}
 
-		await this._git.run({ cwd: parentPath }, 'clone', url, folderPath);
+		// `throw`: the default handler swallows `remoteConnectionError`, which would return a folder never cloned
+		await this._git.run({ cwd: parentPath, errors: 'throw', ...runOptions }, 'clone', url, folderPath);
 
 		return folderPath;
 	}
