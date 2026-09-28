@@ -1,5 +1,6 @@
 import type { UnifiedAsyncDisposable } from '@gitlens/utils/disposable.js';
 import type { Uri } from '@gitlens/utils/uri.js';
+import type { GitOperationRunOptions } from './operations.js';
 
 export interface DisposableTemporaryGitIndex extends UnifiedAsyncDisposable {
 	path: string;
@@ -47,5 +48,6 @@ export interface GitStagingSubProvider {
 			force?: boolean;
 			ignored?: boolean;
 		},
+		runOptions?: GitOperationRunOptions,
 	): Promise<void>;
 }

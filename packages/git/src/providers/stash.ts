@@ -1,6 +1,7 @@
 import type { Uri } from '@gitlens/utils/uri.js';
 import type { GitFileChange } from '../models/fileChange.js';
 import type { GitStash } from '../models/stash.js';
+import type { GitOperationRunOptions } from './operations.js';
 
 export interface StashApplyResult {
 	readonly conflicted: boolean;
@@ -17,6 +18,7 @@ export interface GitStashSubProvider {
 		repoPath: string,
 		stashNameOrSha: string,
 		options?: { deleteAfter?: boolean | undefined; index?: boolean | undefined },
+		runOptions?: GitOperationRunOptions,
 	): Promise<StashApplyResult>;
 	/**
 	 * Creates a stash commit without adding it to the stash list (plumbing — equivalent to
@@ -46,6 +48,7 @@ export interface GitStashSubProvider {
 		message?: string,
 		pathsOrUris?: (string | Uri)[],
 		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
+		runOptions?: GitOperationRunOptions,
 	): Promise<void>;
 	saveSnapshot(repoPath: string, message?: string): Promise<void>;
 }
