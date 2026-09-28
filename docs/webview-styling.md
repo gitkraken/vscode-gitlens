@@ -49,6 +49,12 @@ Defined in [`tokens.scss`](../src/webviews/apps/shared/styles/tokens.scss). Typo
 
 The weight tokens bridge to `--vscode-fontWeight-regular` / `-semiBold` (1.129+). VS Code's ramp has only these two steps, so other weights in use (500, 700) are bespoke and stay literal.
 
+`--gl-view-header-text-transform` (default `uppercase`) is the casing for GitLens headers that imitate VS Code's native view/section headers (`gl-webview-pane` titles, graph sidebar/overview group headers). Under Modern UI it switches to `capitalize`, matching native headers, unless the user opts back into uppercase (`data-modern-ui-uppercase-view-headers`). Use it instead of a hardcoded `text-transform: uppercase` on such headers.
+
+Under Modern UI those headers also take native header typography: `--gl-view-header-font-size` (`--gl-font-md`, 12px) and `--gl-view-header-font-weight` (semibold), plus `--gl-view-header-letter-spacing: normal` whenever they're capitalized. These three are defined only under `body[data-modern-ui]`, so consume them with the header's classic value as the fallback, e.g. `font-size: var(--gl-view-header-font-size, var(--gl-font-sm))`, which keeps the classic look when Modern UI is off.
+
+The GitLens webview `<body>` carries `data-modern-ui`, `data-modern-ui-compact`, and `data-modern-ui-uppercase-view-headers` (boolean presence attributes mirroring VS Code's `.modern-ui*` workbench classes).
+
 ### Radius
 
 Bridges to VS Code's `--vscode-cornerRadius-*` tokens (1.110+), with `rem` fallbacks.

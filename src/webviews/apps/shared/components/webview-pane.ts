@@ -70,8 +70,9 @@ export class WebviewPane extends LitElement {
 				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				font-weight: bold;
-				text-transform: uppercase;
+				font-size: var(--gl-view-header-font-size, var(--gl-font-sm));
+				font-weight: var(--gl-view-header-font-weight, bold);
+				text-transform: var(--gl-view-header-text-transform);
 				white-space: nowrap;
 			}
 

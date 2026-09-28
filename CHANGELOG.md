@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Changes _Start Work_ and _Start PR Review_ to follow the `gitlens.ai.openInAgent` setting &mdash; after you pick an issue or pull request they now ask whether to open it in an agent or continue manually, unless you've set a default
 - Changes the agent pickers to remember your choice with a single _Always use this choice_ / _Always use this agent_ option, instead of a checkbox on every row
+- Changes section headers in GitLens views, such as _Files Changed_ in _Inspect_ and the _Commit Graph_'s sidebar panels, to match VS Code's Modern UI headers &mdash; with Modern UI on they use its 12px semibold header text in title case (or all caps when `workbench.experimental.modernUIUppercaseViewHeaders` is enabled), and they're unchanged when it's off
 
 ### Fixed
 

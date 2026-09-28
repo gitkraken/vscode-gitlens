@@ -19,6 +19,9 @@
 	--gl-font-weight-regular: var(--vscode-fontWeight-regular, 400);
 	--gl-font-weight-semibold: var(--vscode-fontWeight-semiBold, 600);
 
+	// Casing for GitLens headers that imitate VS Code's native view/section headers; follows Modern UI (see below)
+	--gl-view-header-text-transform: uppercase;
+
 	// Input max-width (AI input / action input)
 	--gl-max-input: 560px;
 
@@ -106,4 +109,17 @@
 		0 4px 12px -4px color-mix(in srgb, var(--gl-shadow-color) 95%, transparent),
 		0 12px 28px -8px color-mix(in srgb, var(--gl-shadow-color) 55%, transparent);
 	--gl-shadow-tooltip: 0 2px 8px var(--vscode-widget-shadow); // single-layer, byte-identical to VS Code's native hover
+}
+
+// Modern UI sets native view headers in Label 1 (12px) at semibold, and capitalizes them unless the user opts back
+// into uppercase (mirrors VS Code's fontRamp.css). The size, weight and letter-spacing tokens are only defined here,
+// so each header keeps its own classic value as its var() fallback when Modern UI is off.
+body[data-modern-ui] {
+	--gl-view-header-font-size: var(--gl-font-md);
+	--gl-view-header-font-weight: var(--gl-font-weight-semibold);
+}
+
+body[data-modern-ui]:not([data-modern-ui-uppercase-view-headers]) {
+	--gl-view-header-text-transform: capitalize;
+	--gl-view-header-letter-spacing: normal;
 }

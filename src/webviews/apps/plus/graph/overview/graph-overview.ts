@@ -82,7 +82,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				font-size: var(--gl-font-sm);
 				font-weight: var(--gl-font-weight-regular);
 				color: var(--vscode-descriptionForeground);
-				text-transform: uppercase;
+				text-transform: var(--gl-view-header-text-transform);
 			}
 
 			.group__header {

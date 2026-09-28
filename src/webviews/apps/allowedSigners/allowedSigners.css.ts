@@ -112,11 +112,11 @@ export const allowedSignersStyles = css`
 
 	.list__group {
 		padding: 0.6rem 1.2rem;
-		font-size: 1.1rem;
-		font-weight: var(--gl-font-weight-semibold);
+		font-size: var(--gl-view-header-font-size, 1.1rem);
+		font-weight: var(--gl-view-header-font-weight, var(--gl-font-weight-semibold));
 		color: var(--vscode-descriptionForeground);
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
+		text-transform: var(--gl-view-header-text-transform);
+		letter-spacing: var(--gl-view-header-letter-spacing, 0.04em);
 		background: var(--vscode-sideBarSectionHeader-background, var(--vscode-editorWidget-background));
 		border-bottom: 1px solid var(--vscode-panel-border);
 	}

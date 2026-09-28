@@ -547,10 +547,10 @@ would expose the graph through fade or at the gap left by the translate). */
 				align-items: center;
 				min-height: 2.2rem;
 				padding: 0 0 0 var(--gl-space-4);
-				font-size: var(--gl-font-sm);
-				font-weight: var(--gl-font-weight-semibold);
+				font-size: var(--gl-view-header-font-size, var(--gl-font-sm));
+				font-weight: var(--gl-view-header-font-weight, var(--gl-font-weight-semibold));
 				color: var(--color-view-header-foreground);
-				text-transform: uppercase;
+				text-transform: var(--gl-view-header-text-transform);
 				background-color: var(--color-view-background);
 				border-color: var(--vscode-sideBarSectionHeader-border, transparent);
 				border-bottom: var(--gl-border-width) solid transparent;
