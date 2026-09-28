@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds `refspecs` to `ops.fetch`, passed verbatim after `remote` (`git fetch <remote> <refspec>...`), for fetching one ref into a chosen destination. It never adds `-u`, so git still refuses to write into a checked-out branch. A refspec that writes a local branch or tag also announces `heads` or `tags` (git, git-cli)
 - Adds `notify` to `git.run`'s options, so a raw command announces its own change through `provider.notifyChanged` once it settles, whether it succeeded or failed. `'infer'` classifies the argv: read-only and object-store-only commands announce nothing; a write announces its verb's change kinds for the repository it ran in, the `-C` target when given, and run under `-C` it also announces the kinds every worktree sharing that `.git` sees, such as a branch, tag or stash it wrote, to the caller's own tree. An explicit list announces exactly those kinds. Left unset, nothing is classified (git, git-cli)
 - Adds a trailing `runOptions` (`env`, `cancellation`, `timeout`) to `stash.applyStash`, `stash.saveStash` and `staging.clean`, as the other long-running operations already take, so a caller can lift the default timeout for a large stash or clean, or cancel one. Defaults are unchanged (git, git-cli)
 

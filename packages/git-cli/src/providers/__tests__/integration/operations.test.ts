@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { SigningErrorReason } from '@gitlens/git/errors.js';
-import { CommitError, MergeError, PullError, SigningError } from '@gitlens/git/errors.js';
+import { CommitError, FetchError, MergeError, PullError, SigningError } from '@gitlens/git/errors.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
@@ -594,5 +594,75 @@ suite('OperationsGitSubProvider.pull — fastForward', () => {
 				origin.cleanup();
 			}
 		});
+	});
+});
+
+function createBareRemoteFrom(sourceRepoPath: string): { path: string; cleanup: () => void } {
+	const bareDir = mkdtempSync(join(tmpdir(), 'gitlens-test-bare-'));
+	execFileSync('git', ['clone', '--bare', sourceRepoPath, bareDir], { stdio: 'pipe' });
+	return { path: bareDir, cleanup: () => rmSync(bareDir, { recursive: true, force: true }) };
+}
+
+suite('OperationsGitSubProvider.fetch — explicit refspecs', () => {
+	test('fetches a single ref-to-remote-tracking refspec and moves only that ref', async () => {
+		const source = createTestRepo();
+		let bare: { path: string; cleanup: () => void } | undefined;
+		let local: ReturnType<typeof createTestRepo> | undefined;
+		try {
+			createBranch(source.path, 'feature', { checkout: true });
+			addCommit(source.path, 'feature.txt', 'feature content', 'Feature commit');
+			const featureSha = getHeadSha(source.path);
+			checkout(source.path, 'main');
+
+			bare = createBareRemoteFrom(source.path);
+			local = createTestRepo();
+			execFileSync('git', ['remote', 'add', 'origin', bare.path], { cwd: local.path, stdio: 'pipe' });
+
+			await local.provider.ops.fetch(local.path, {
+				remote: 'origin',
+				refspecs: ['+refs/heads/feature:refs/remotes/origin/feature'],
+			});
+
+			const remoteRefs = execFileSync(
+				'git',
+				['for-each-ref', '--format=%(refname) %(objectname)', 'refs/remotes/origin'],
+				{ cwd: local.path, encoding: 'utf-8' },
+			).trim();
+			assert.strictEqual(
+				remoteRefs,
+				`refs/remotes/origin/feature ${featureSha}`,
+				'only origin/feature should have moved — nothing else was in the fetched refspec',
+			);
+		} finally {
+			local?.cleanup();
+			bare?.cleanup();
+			source.cleanup();
+		}
+	});
+
+	test('rejects (FetchError) fetching into a local branch that is checked out, since no -u is added', async () => {
+		const source = createTestRepo();
+		let bare: { path: string; cleanup: () => void } | undefined;
+		let local: ReturnType<typeof createTestRepo> | undefined;
+		try {
+			createBranch(source.path, 'feature', { checkout: true });
+			addCommit(source.path, 'feature.txt', 'feature content', 'Feature commit');
+			checkout(source.path, 'main');
+
+			bare = createBareRemoteFrom(source.path);
+			local = createTestRepo();
+			execFileSync('git', ['remote', 'add', 'origin', bare.path], { cwd: local.path, stdio: 'pipe' });
+			// With no `-u`, git itself refuses to write into the checked-out branch
+			createBranch(local.path, 'feature', { checkout: true });
+
+			await assert.rejects(
+				local.provider.ops.fetch(local.path, { remote: 'origin', refspecs: ['feature:feature'] }),
+				(ex: unknown) => FetchError.is(ex),
+			);
+		} finally {
+			local?.cleanup();
+			bare?.cleanup();
+			source.cleanup();
+		}
 	});
 });
