@@ -1,5 +1,6 @@
 import type { WorkspaceFolder } from 'vscode';
 import type { GitDir } from '@gitlens/git/models/repository.js';
+import type { GitOperationRunOptions } from '@gitlens/git/providers/operations.js';
 import type { GitProviderDescriptor, RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import type { UnsafeGit } from '@gitlens/git/run.types.js';
 import type { RevisionUriOptions } from '@gitlens/git/utils/uriAuthority.js';
@@ -94,7 +95,16 @@ export interface GlGitProvider extends UnifiedDisposable {
 	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined>;
 
 	applyChangesToWorkingFile?(uri: GitUri, ref1?: string, ref2?: string): Promise<void>;
-	clone?(url: string, parentPath: string): Promise<string | undefined>;
+	clone?(
+		url: string,
+		parentPath: string,
+		options?: {
+			/** Used exactly, with no collision probing or auto-numbering; git itself refuses a non-empty target. */
+			folderName?: string;
+		},
+		/** Spread into the run (`env`, `cancellation`, `timeout`) — the caller decides the timeout for a large clone. */
+		runOptions?: GitOperationRunOptions,
+	): Promise<string | undefined>;
 	hasUnsafeRepositories?(): boolean;
 	isTrackable(uri: Uri): boolean;
 	isTracked(uri: Uri): Promise<boolean>;
