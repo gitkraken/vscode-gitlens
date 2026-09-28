@@ -33,6 +33,7 @@ import { isAgentDescriptor } from '../../plus/agents/agentDescriptor.js';
 import { ensureAccount } from '../../plus/gk/utils/-webview/acount.utils.js';
 import { ensurePaidPlan } from '../../plus/gk/utils/-webview/plus.utils.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
+import { toAbortSignal } from '../../system/-webview/cancellation.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getOrOpenTextEditor } from '../../system/-webview/vscode/editors.js';
@@ -1095,19 +1096,35 @@ export class DeepLinkService implements Disposable {
 					if (this._context.repoOpenUri != null && remoteUrl != null && repoOpenType === 'clone') {
 						// clone the repository, then set repoOpenUri to the repo path
 						let repoClonePath;
+						let cloneCancelled = false;
 						try {
 							repoClonePath = await window.withProgress(
 								{
 									location: ProgressLocation.Notification,
 									title: l10n.t('Cloning repository for link: {0}', String(this._context.url)),
+									cancellable: true,
 								},
-
-								async () =>
-									this.container.git.clone(remoteUrl, this._context.repoOpenUri?.fsPath ?? ''),
+								async (_progress, token) => {
+									// A large repository can outlast the git timeout, so the clone runs uncapped and
+									// the notification's Cancel is how it stops
+									const path = await this.container.git.clone(
+										remoteUrl,
+										this._context.repoOpenUri?.fsPath ?? '',
+										undefined,
+										{ cancellation: toAbortSignal(token), timeout: 0 },
+									);
+									cloneCancelled = path == null && token.isCancellationRequested;
+									return path;
+								},
 							);
 						} catch {
 							action = DeepLinkServiceAction.DeepLinkErrored;
 							message = 'Unable to clone repository';
+							break;
+						}
+
+						if (cloneCancelled) {
+							action = DeepLinkServiceAction.DeepLinkCancelled;
 							break;
 						}
 
