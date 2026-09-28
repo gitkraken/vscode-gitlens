@@ -625,6 +625,56 @@ export interface GitHooks {
 	}): void;
 }
 
+/**
+ * Keys dropped from the INHERITED `process.env` before it seeds the base git environment. git hands these
+ * to anything it launches (a hook, `rebase -x`, an editor invoked as `GIT_EDITOR`) to describe the command
+ * it is running; a host started that way would otherwise run every command against THAT repository with
+ * THAT command's settings, whatever `cwd` we pass. None is worth keeping when set deliberately either: a
+ * `GIT_DIR` would point every repository the host opens at one. `options.env`, `options.getEnvironment()`
+ * and a per-call `env` are merged in afterwards, so any of them can still set these keys (e.g. a temporary
+ * `GIT_INDEX_FILE` for a call).
+ */
+const inheritedEnvKeysToDrop: ReadonlySet<string> = new Set([
+	// The parent's repository location — must come from our own cwd
+	'GIT_DIR',
+	'GIT_WORK_TREE',
+	'GIT_INDEX_FILE',
+	'GIT_COMMON_DIR',
+	'GIT_OBJECT_DIRECTORY',
+	'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+	'GIT_NAMESPACE',
+	// What git tells a child about the command it's running: its `-c` overrides, its helpers' location, the
+	// subdirectory it ran from, and the label for its reflog entries
+	'GIT_CONFIG_PARAMETERS',
+	'GIT_EXEC_PATH',
+	'GIT_PREFIX',
+	'GIT_REFLOG_ACTION',
+]);
+
+/**
+ * Dropped only when git launched the host, which it always marks by exporting `GIT_EXEC_PATH`: an editor
+ * opened for `commit --amend` gets that commit's author and date, while an identity set deliberately (e.g.
+ * by direnv) must still reach our commits.
+ */
+const inheritedIdentityKeysToDrop: ReadonlySet<string> = new Set([
+	'GIT_AUTHOR_NAME',
+	'GIT_AUTHOR_EMAIL',
+	'GIT_AUTHOR_DATE',
+	'GIT_COMMITTER_NAME',
+	'GIT_COMMITTER_EMAIL',
+	'GIT_COMMITTER_DATE',
+]);
+
+/** `process.env` with {@link inheritedEnvKeysToDrop} removed, and {@link inheritedIdentityKeysToDrop} when git launched us. */
+function getInheritedEnv(): Record<string, string | undefined> {
+	const launchedByGit = process.env.GIT_EXEC_PATH != null;
+	return Object.fromEntries(
+		Object.entries(process.env).filter(
+			([key]) => !inheritedEnvKeysToDrop.has(key) && !(launchedByGit && inheritedIdentityKeysToDrop.has(key)),
+		),
+	);
+}
+
 const emptyArray: readonly never[] = Object.freeze([]);
 const emptyObj = Object.freeze({});
 const trailingNewlineRegex = /[\r|\n]+$/;
@@ -643,7 +693,7 @@ export class Git {
 	/** Count of git commands currently in flight, across both the exec and streaming paths */
 	private _activeCommandCount = 0;
 
-	/** Cached base environment: process.env + static options.env + GCM/LC_ALL vars */
+	/** Cached base environment: process.env (minus {@link inheritedEnvKeysToDrop}) + static options.env + GCM/LC_ALL vars */
 	private _baseEnv: Record<string, string | undefined> | undefined;
 	/** Cached full environment: base + dynamic getEnvironment() result */
 	private _fullEnv: Record<string, string | undefined> | undefined;
@@ -664,7 +714,7 @@ export class Git {
 	 */
 	private getBaseEnv(): Record<string, string | undefined> {
 		return (this._baseEnv ??= {
-			...process.env,
+			...getInheritedEnv(),
 			...(this.options.env ?? emptyObj),
 			GCM_INTERACTIVE: 'NEVER',
 			GCM_PRESERVE_CREDS: 'TRUE',

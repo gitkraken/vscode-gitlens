@@ -502,3 +502,120 @@ suite('Git.ensureSupports', () => {
 		);
 	});
 });
+
+suite('Git base environment', () => {
+	type TestableGit = {
+		getBaseEnv(): Record<string, string | undefined>;
+		buildEnv(perCallEnv: Record<string, string | undefined> | undefined): Record<string, string | undefined>;
+	};
+
+	function asTestable(git: Git): TestableGit {
+		return git as unknown as TestableGit;
+	}
+
+	// Repository-location keys a parent git process (a hook, `rebase -x`, an editor invoked as
+	// GIT_EDITOR) sets for ITSELF, and which must not leak into a command we run against a different cwd.
+	const droppedRepoLocationKeys = [
+		'GIT_DIR',
+		'GIT_WORK_TREE',
+		'GIT_INDEX_FILE',
+		'GIT_COMMON_DIR',
+		'GIT_OBJECT_DIRECTORY',
+		'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+		'GIT_NAMESPACE',
+	] as const;
+	// What git tells a child about the command it's running — not ours to inherit either.
+	const droppedGitCommandKeys = [
+		'GIT_CONFIG_PARAMETERS',
+		'GIT_EXEC_PATH',
+		'GIT_PREFIX',
+		'GIT_REFLOG_ACTION',
+	] as const;
+	// Deliberate user/tool config for every git process — must survive, unlike GIT_CONFIG_PARAMETERS.
+	const keptConfigKeys = ['GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0'] as const;
+	// Dropped only when git launched the host (`GIT_EXEC_PATH` inherited).
+	const identityKeys = [
+		'GIT_AUTHOR_NAME',
+		'GIT_AUTHOR_EMAIL',
+		'GIT_AUTHOR_DATE',
+		'GIT_COMMITTER_NAME',
+		'GIT_COMMITTER_EMAIL',
+		'GIT_COMMITTER_DATE',
+	] as const;
+
+	const allTouchedKeys = [...droppedRepoLocationKeys, ...droppedGitCommandKeys, ...keptConfigKeys, ...identityKeys];
+	let originalValues: Record<string, string | undefined>;
+
+	setup(() => {
+		originalValues = {};
+		for (const key of allTouchedKeys) {
+			originalValues[key] = process.env[key];
+		}
+		for (const key of [...droppedRepoLocationKeys, ...droppedGitCommandKeys, ...identityKeys]) {
+			process.env[key] = `inherited-${key}`;
+		}
+		process.env.GIT_CONFIG_COUNT = '1';
+		process.env.GIT_CONFIG_KEY_0 = 'user.name';
+		process.env.GIT_CONFIG_VALUE_0 = 'Test';
+	});
+
+	teardown(() => {
+		for (const key of allTouchedKeys) {
+			if (originalValues[key] === undefined) {
+				Reflect.deleteProperty(process.env, key);
+			} else {
+				process.env[key] = originalValues[key];
+			}
+		}
+	});
+
+	test('drops the repository location and the launching command state inherited from process.env', () => {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+		const env = asTestable(git).getBaseEnv();
+
+		for (const key of [...droppedRepoLocationKeys, ...droppedGitCommandKeys]) {
+			assert.strictEqual(env[key], undefined, `${key} should have been dropped`);
+		}
+
+		assert.strictEqual(env.GIT_CONFIG_COUNT, '1');
+		assert.strictEqual(env.GIT_CONFIG_KEY_0, 'user.name');
+		assert.strictEqual(env.GIT_CONFIG_VALUE_0, 'Test');
+	});
+
+	test('drops an inherited author and committer when git launched the host', () => {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+		const env = asTestable(git).getBaseEnv();
+
+		for (const key of identityKeys) {
+			assert.strictEqual(env[key], undefined, `${key} should have been dropped`);
+		}
+	});
+
+	test('keeps a deliberately set author and committer when git did not launch the host', () => {
+		Reflect.deleteProperty(process.env, 'GIT_EXEC_PATH');
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+		const env = asTestable(git).getBaseEnv();
+
+		for (const key of identityKeys) {
+			assert.strictEqual(env[key], `inherited-${key}`, `${key} should have been kept`);
+		}
+		// The repository location is dropped either way: a host pointed at one repository can't serve the rest
+		assert.strictEqual(env.GIT_DIR, undefined);
+	});
+
+	test('static options.env can still set a dropped key', () => {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), {
+			env: { GIT_DIR: '/explicit/.git' },
+		});
+		const env = asTestable(git).getBaseEnv();
+
+		assert.strictEqual(env.GIT_DIR, '/explicit/.git');
+	});
+
+	test('a per-call env override can still set a dropped key', () => {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+		const env = asTestable(git).buildEnv({ GIT_INDEX_FILE: '/tmp/index.tmp' });
+
+		assert.strictEqual(env.GIT_INDEX_FILE, '/tmp/index.tmp');
+	});
+});
