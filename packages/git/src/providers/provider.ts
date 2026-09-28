@@ -57,8 +57,13 @@ export interface GitProvider {
 	 * Notifies the provider that `repoPath` was mutated outside of a typed sub-provider method — e.g. a
 	 * consumer that ran a command through the raw `git.run`/`provider.git.run` escape hatch. Fires the same
 	 * `cache.onReset`/`repository.onChanged` hooks a typed mutator would, so, exactly as after a typed write,
-	 * the provider clears its own caches for `repoPath` (every type, or just `options.cache` when given) and
-	 * its pending commands before the host's handlers run.
+	 * the provider clears its own caches for `repoPath` and the repository's pending commands before the
+	 * host's handlers run.
+	 *
+	 * What is reset: `options.cache` when given (`'all'` for everything, `[]` for nothing); otherwise the
+	 * cache types `changes` map to, the same mapping a file watcher's changes get. An empty `changes`, or one
+	 * naming `'unknown'` or `'closed'`, resets everything. Changes that map to no cache type (e.g.
+	 * `'starred'`) reset nothing and fire no `onReset`; `onChanged` always fires.
 	 */
 	notifyChanged?(
 		repoPath: string,

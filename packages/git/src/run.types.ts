@@ -132,7 +132,12 @@ export interface GitRunOptions {
 	 * then announces nothing. An explicit array announces exactly those {@link RepositoryChange} kinds,
 	 * regardless of what the argv looks like. Left unset, nothing is classified or announced — zero cost
 	 * for every existing caller. The change is announced for `cwd`, or the `-C` target, as given: run from the
-	 * repository root, since that's the path core's caches are keyed by.
+	 * repository root, since that's the path core's caches are keyed by. A `-C`-scoped verb whose effect every
+	 * worktree shares (`branch`, `fetch`, …) is announced for the caller's `cwd` too, resetting once per repository.
+	 *
+	 * The announcement resets only the caches the announced kinds can have made stale, the same ones a file
+	 * watcher's change of those kinds clears, and drops the repository's pending git runs. A write `'infer'`
+	 * can't classify announces `[]`, which resets everything, as does `['unknown']`.
 	 */
 	notify?: 'infer' | readonly RepositoryChange[];
 
