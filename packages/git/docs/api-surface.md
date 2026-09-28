@@ -261,7 +261,7 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | Method                                                                             | Returns                                   |
 | ---------------------------------------------------------------------------------- | ----------------------------------------- |
 | `getCommit(repoPath, rev, cancellation?)`                                          | `GitCommit \| undefined`                  |
-| `getCommitCount(repoPath, rev, cancellation?)`                                     | `number \| undefined`                     |
+| `getCommitCount(repoPath, rev, options?, cancellation?)`                           | `number \| undefined`                     |
 | `getCommitFiles(repoPath, rev, cancellation?)`                                     | `GitFileChange[]`                         |
 | `getCommitForFile(repoPath, pathOrUri, rev?, options?, cancellation?)`             | `GitCommit \| undefined`                  |
 | `getLeftRightCommitCount(repoPath, range, options?, cancellation?)`                | `LeftRightCommitCountResult \| undefined` |

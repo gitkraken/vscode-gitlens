@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds `excluding` to `commits.getCommitCount`, counting what `rev` has that other refs don't, such as what deleting a branch would orphan. `branches`, `remotes` and `tags` exclude a whole namespace, and `except` takes full ref names back out of it, which core converts to the short form git's `--exclude` actually matches (a raw `--exclude=refs/heads/x --branches` excludes nothing). GitHub returns `undefined` when `excluding` is set (git, git-cli, plus/git-github)
 - Adds `refs.getReflogEntries(repoPath, ref, { grep })`, a ref's reflog entries (sha and message, newest first) optionally filtered by git's `--grep-reflog` pattern. A failed read rejects rather than resolving `[]`, so "no match" is distinguishable from "never read" (git, git-cli)
 - Adds `untracked` (`'no'`, `'normal'` or `'all'`) and `branch: false` to `status.getStatus`, for a caller that only needs the file list: `branch: false` skips `--branch`, so no upstream ahead/behind is computed, and leaves the result's branch fields unset. Defaults are unchanged (git, git-cli)
 - Adds `folderName` and a trailing `runOptions` to `clone`. `folderName` is used exactly, with no auto-numbering, so git's own refusal of a non-empty folder surfaces; without it the folder is still derived from the URL and numbered past a taken one. `runOptions` carries the clone's `env`, `cancellation` and `timeout` (git, git-cli)
@@ -15,6 +16,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `refspecs` to `ops.fetch`, passed verbatim after `remote` (`git fetch <remote> <refspec>...`), for fetching one ref into a chosen destination. It never adds `-u`, so git still refuses to write into a checked-out branch. A refspec that writes a local branch or tag also announces `heads` or `tags` (git, git-cli)
 - Adds `notify` to `git.run`'s options, so a raw command announces its own change through `provider.notifyChanged` once it settles, whether it succeeded or failed. `'infer'` classifies the argv: read-only and object-store-only commands announce nothing; a write announces its verb's change kinds for the repository it ran in, the `-C` target when given, and run under `-C` it also announces the kinds every worktree sharing that `.git` sees, such as a branch, tag or stash it wrote, to the caller's own tree. An explicit list announces exactly those kinds. Left unset, nothing is classified (git, git-cli)
 - Adds a trailing `runOptions` (`env`, `cancellation`, `timeout`) to `stash.applyStash`, `stash.saveStash` and `staging.clean`, as the other long-running operations already take, so a caller can lift the default timeout for a large stash or clean, or cancel one. Defaults are unchanged (git, git-cli)
+
+### Changed
+
+- **Breaking (git, git-cli, plus/git-github)** — `commits.getCommitCount` takes `options` before `cancellation`, `getCommitCount(repoPath, rev, options?, cancellation?)`. A caller passing a cancellation positionally must move it
 
 ### Fixed
 
