@@ -1,7 +1,8 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { TestRepo } from './helpers.js';
@@ -643,5 +644,46 @@ suite('DiffSubProvider.getDiff — untracked via a scratch index (#5604, #5605)'
 		} finally {
 			r.cleanup();
 		}
+	});
+});
+
+suite('DiffSubProvider — root commit in a SHA-256 repository', () => {
+	let repo: TestRepo;
+	let sha256Dir: string | undefined;
+	let sha256Root: string | undefined;
+
+	suiteSetup(function () {
+		repo = createTestRepo();
+
+		const dir = mkdtempSync(join(tmpdir(), 'gitlens-test-sha256-diff-'));
+		try {
+			execFileSync('git', ['init', '-b', 'main', '--object-format=sha256', dir], { stdio: 'pipe' });
+		} catch {
+			// The installed git predates --object-format (2.29) and refused to create the repository.
+			rmSync(dir, { recursive: true, force: true });
+			this.skip();
+		}
+		execFileSync('git', ['config', 'user.email', 'test@gitlens.test'], { cwd: dir, stdio: 'pipe' });
+		execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: dir, stdio: 'pipe' });
+		writeFileSync(join(dir, 'a.txt'), 'hello\n');
+		execFileSync('git', ['add', 'a.txt'], { cwd: dir, stdio: 'pipe' });
+		execFileSync('git', ['commit', '-m', 'root commit'], { cwd: dir, stdio: 'pipe' });
+
+		sha256Dir = dir;
+		sha256Root = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf-8' }).trim();
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+		if (sha256Dir != null) {
+			rmSync(sha256Dir, { recursive: true, force: true });
+		}
+	});
+
+	test('getDiffForFile against the root commit’s missing parent does not throw', async () => {
+		// An added file resolves `undefined` (`getDiffForFile` keeps only M/R/C); what matters is that it resolves
+		await assert.doesNotReject(
+			repo.provider.diff.getDiffForFile(sha256Dir!, 'a.txt', `${sha256Root}^`, sha256Root),
+		);
 	});
 });

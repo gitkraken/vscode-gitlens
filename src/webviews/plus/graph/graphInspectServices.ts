@@ -2,7 +2,7 @@ import type { CancellationTokenSource, Disposable } from 'vscode';
 import { env, l10n, ProgressLocation, Uri, window } from 'vscode';
 import type { AIReviewResult } from '@gitlens/ai/models/results.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
-import { rootSha, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { DisposableTemporaryGitIndex } from '@gitlens/git/providers/staging.js';
 import { classifyConflictAction, getConflictKindLabel } from '@gitlens/git/utils/conflictResolution.utils.js';
@@ -1656,7 +1656,7 @@ export class GraphInspectServices {
 			const baseAnchorCommit =
 				baseAnchorSha === planResult.headSha
 					? headCommit
-					: baseAnchorSha === rootSha
+					: baseAnchorSha === (await svc.revision.getEmptyTreeSha())
 						? undefined
 						: await svc.commits.getCommit(baseAnchorSha);
 			signal?.throwIfAborted();

@@ -1,6 +1,5 @@
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
-import { rootSha } from '@gitlens/git/models/revision.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
 import type { ScopeFile, ScopeSelection } from './graphService.js';
@@ -171,7 +170,7 @@ async function getCommitFiles(
 		return files ?? [];
 	} catch {
 		signal?.throwIfAborted();
-		const files = await svc.diff.getDiffStatus(rootSha, sha);
+		const files = await svc.diff.getDiffStatus(await svc.revision.getEmptyTreeSha(), sha);
 		signal?.throwIfAborted();
 		return files ?? [];
 	}
@@ -200,7 +199,9 @@ async function collectCommittedRangeFiles(
 		return files ?? [];
 	} catch {
 		signal?.throwIfAborted();
-		const files = await svc.diff.getDiffStatus(rootSha, newest, { similarityThreshold: 50 });
+		const files = await svc.diff.getDiffStatus(await svc.revision.getEmptyTreeSha(), newest, {
+			similarityThreshold: 50,
+		});
 		signal?.throwIfAborted();
 		return files ?? [];
 	}

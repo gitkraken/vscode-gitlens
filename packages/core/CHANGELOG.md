@@ -20,11 +20,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- **Breaking (git)** — `rootSha` is removed; use `revision.getEmptyTreeSha(repoPath)`
 - **Breaking (git, git-cli, plus/git-github)** — `commits.getCommitCount` takes `options` before `cancellation`, `getCommitCount(repoPath, rev, options?, cancellation?)`. A caller passing a cancellation positionally must move it
 - **Breaking (git)** — `GitRevisionSubProvider` requires `getEmptyTreeSha(repoPath)`, so a custom implementation must add it
 
 ### Fixed
 
+- Fixes diffs against a root commit's missing parent, and against a stash's untracked files, failing in a SHA-256 repository, which the hardcoded SHA-1 empty tree doesn't exist in (git-cli)
 - Fixes detecting a branch's base from its reflog failing for a branch named like a tracked file, or named `delete`, `expire` or `exists` (git-cli)
 - Fixes every git command core runs targeting the wrong repository when the host itself was launched by git — from a hook, a `rebase -x` step, or as `GIT_EDITOR` (a VS Code window opened by `git rebase -i`). The inherited `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_COMMON_DIR`, `GIT_OBJECT_DIRECTORY`, `GIT_ALTERNATE_OBJECT_DIRECTORIES` and `GIT_NAMESPACE` overrode each command's working directory, and `GIT_CONFIG_PARAMETERS`, `GIT_EXEC_PATH`, `GIT_PREFIX` and `GIT_REFLOG_ACTION` carried the launching command's own state into all of them. They are now dropped from the inherited environment, and so are `GIT_AUTHOR_*` / `GIT_COMMITTER_*` when git launched the host (it always exports `GIT_EXEC_PATH`), since an editor opened for `commit --amend` inherits that commit's author and date; an identity set deliberately still applies. A host's `env` option or a call's own `env` can still set any of them (git-cli)
 
