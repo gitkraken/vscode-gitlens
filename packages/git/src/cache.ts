@@ -658,7 +658,8 @@ export class Cache implements Disposable {
 				keysToClear.add('logShas');
 				keysToClear.add('refs');
 				keysToClear.add('refTips');
-				// No change type clears `emptyTreeSha`: a repository's object format never changes
+				// No change type clears `emptyTreeSha`: a repository's object format never changes. A full reset
+				// (no types) still clears it, along with everything else
 			}
 
 			if (types.includes('config')) {
@@ -999,16 +1000,33 @@ export class Cache implements Disposable {
 		this._caches = createEmptyCaches();
 	}
 
+	/** Applies a watcher-observed change, sharing reads still in flight (see {@link applyRepositoryChanges}). */
 	@debug({ onlyExit: true })
 	onRepositoryChanged(repoPath: string, changes: Iterable<RepositoryChange>): void {
 		const changesSet = new Set(changes);
-
-		const hasAny = (...c: RepositoryChange[]) => c.some(ch => changesSet.has(ch));
-
-		if (hasAny('unknown', 'closed')) {
+		if (changesSet.has('unknown') || changesSet.has('closed')) {
 			this.unregisterRepoPath(repoPath);
 			return;
 		}
+
+		this.applyRepositoryChanges(repoPath, changesSet, 'share');
+	}
+
+	/**
+	 * Clears what `changes` can have made stale for `repoPath`, advances its status clock, and reconciles a
+	 * `'gkConfig'` change, returning the cache types it cleared. `inFlight` is as {@link clearCaches}
+	 * (`'share'`) vs {@link evictCaches} (`'evict'`). `'unknown'` and `'closed'` map to nothing here: the
+	 * watcher unregisters the path on them, and an announced write resets everything instead.
+	 */
+	@debug({ onlyExit: true })
+	applyRepositoryChanges(
+		repoPath: string,
+		changes: Iterable<RepositoryChange>,
+		inFlight: 'share' | 'evict',
+	): CachedGitTypes[] {
+		const changesSet = new Set(changes);
+
+		const hasAny = (...c: RepositoryChange[]) => c.some(ch => changesSet.has(ch));
 
 		// Advance the status clock (see {@link getStatusGeneration}) for changes that alter `git status` output but
 		// aren't mapped to the `'status'` cache type below: files (index/head/heads), untracked set (ignores/config),
@@ -1088,8 +1106,9 @@ export class Cache implements Disposable {
 		}
 
 		if (types.size) {
-			this.clearCaches(repoPath, ...types);
+			this.clearCachesCore(inFlight, repoPath, ...types);
 		}
+		return [...types];
 	}
 
 	/**

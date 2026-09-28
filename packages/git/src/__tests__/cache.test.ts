@@ -7,6 +7,8 @@ import { Cache, shouldEvictBlameCacheEntry } from '../cache.js';
 import type { GitBlame, ProgressiveGitBlame } from '../models/blame.js';
 import type { GitBranch } from '../models/branch.js';
 import type { GitCommitLine } from '../models/commit.js';
+import type { GitTag } from '../models/tag.js';
+import type { GitWorktree } from '../models/worktree.js';
 
 function createCompletedBlame(lineCount: number): ProgressiveGitBlame {
 	const blame: GitBlame = {
@@ -892,5 +894,81 @@ suite('Cache.getCloseGeneration', () => {
 	test('a sibling path closing does not disturb this one', () => {
 		cache.unregisterRepoPath('/test/repo-feature');
 		assert.strictEqual(cache.getCloseGeneration(repoPath), 0);
+	});
+});
+
+suite('Cache.applyRepositoryChanges', () => {
+	const repoPath = '/test/repo';
+	let cache: Cache;
+
+	setup(() => {
+		cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	test("an 'index' change clears only what the index feeds, and advances the status clock", () => {
+		cache.blame.set(repoPath, 'file.ts', Promise.resolve(undefined));
+		cache.branches.set(repoPath, Promise.resolve({ values: [] } satisfies PagedResult<GitBranch>));
+		cache.tags.set(repoPath, Promise.resolve({ values: [] } satisfies PagedResult<GitTag>));
+		cache.worktrees.set(repoPath, Promise.resolve([]));
+		cache.stashes.set(repoPath, 'all', Promise.resolve({ repoPath: repoPath, stashes: new Map() }));
+
+		const types = cache.applyRepositoryChanges(repoPath, ['index'], 'evict');
+
+		assert.deepStrictEqual([...types].sort(), ['blame', 'diff', 'fileLog', 'tracking']);
+		assert.strictEqual(cache.getStatusGeneration(repoPath), 1);
+		assert.strictEqual(cache.blame.get(repoPath, 'file.ts'), undefined, 'blame is fed by the index');
+		assert.ok(cache.branches.has(repoPath), 'an index change cannot move a branch');
+		assert.ok(cache.tags.has(repoPath), 'an index change cannot move a tag');
+		assert.ok(cache.worktrees.has(repoPath), 'an index change cannot add or remove a worktree');
+		assert.notStrictEqual(cache.stashes.get(repoPath, 'all'), undefined, 'an index change cannot stash');
+	});
+
+	test('a change that maps to no cache type clears nothing', () => {
+		cache.worktrees.set(repoPath, Promise.resolve([]));
+
+		const types = cache.applyRepositoryChanges(repoPath, ['starred'], 'evict');
+
+		assert.deepStrictEqual(types, []);
+		assert.ok(cache.worktrees.has(repoPath));
+		assert.strictEqual(cache.getStatusGeneration(repoPath), 0);
+	});
+
+	test("'evict' never lets a later caller join a read that started before it; 'share' does", async () => {
+		async function factoryCallsAcross(inFlight: 'share' | 'evict'): Promise<number> {
+			let calls = 0;
+			let release!: (worktrees: GitWorktree[]) => void;
+			const gate = new Promise<GitWorktree[]>(resolve => (release = resolve));
+			const factory = (): Promise<GitWorktree[]> => {
+				calls++;
+				return gate;
+			};
+
+			const before = cache.worktrees.getOrCreate(repoPath, factory);
+			cache.applyRepositoryChanges(repoPath, ['worktrees'], inFlight);
+			const after = cache.worktrees.getOrCreate(repoPath, factory);
+			release([]);
+			await Promise.all([before, after]);
+			cache.worktrees.delete(repoPath);
+			return calls;
+		}
+
+		assert.strictEqual(await factoryCallsAcross('share'), 1, 'a watcher clear keeps sharing the in-flight read');
+		assert.strictEqual(await factoryCallsAcross('evict'), 2, 'an announced write must start a fresh read');
+	});
+
+	test('the watcher path applies the same mapping, sharing in-flight reads', () => {
+		cache.blame.set(repoPath, 'file.ts', Promise.resolve(undefined));
+		cache.branches.set(repoPath, Promise.resolve({ values: [] } satisfies PagedResult<GitBranch>));
+
+		cache.onRepositoryChanged(repoPath, ['index']);
+
+		assert.strictEqual(cache.getStatusGeneration(repoPath), 1);
+		assert.strictEqual(cache.blame.get(repoPath, 'file.ts'), undefined);
+		assert.ok(cache.branches.has(repoPath));
 	});
 });
