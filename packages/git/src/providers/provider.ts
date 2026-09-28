@@ -10,7 +10,7 @@ import type { GitContributorsSubProvider } from './contributors.js';
 import type { GitDiffSubProvider } from './diff.js';
 import type { GitGraphSubProvider } from './graph.js';
 import type { GitMaintenanceSubProvider } from './maintenance.js';
-import type { GitOperationsSubProvider } from './operations.js';
+import type { GitOperationRunOptions, GitOperationsSubProvider } from './operations.js';
 import type { GitPatchSubProvider } from './patch.js';
 import type { GitPausedOperationsSubProvider } from './pausedOperations.js';
 import type { GitRefsSubProvider } from './refs.js';
@@ -37,7 +37,16 @@ export interface GitProvider {
 	getAbsoluteUri(pathOrUri: string | Uri, base: string | Uri): Uri;
 	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string;
 
-	clone?(url: string, parentPath: string): Promise<string | undefined>;
+	clone?(
+		url: string,
+		parentPath: string,
+		options?: {
+			/** Used exactly, with no collision probing or auto-numbering; git itself refuses a non-empty target. */
+			folderName?: string;
+		},
+		/** Spread into the run (`env`, `cancellation`, `timeout`) — the caller decides the timeout for a large clone. */
+		runOptions?: GitOperationRunOptions,
+	): Promise<string | undefined>;
 	excludeIgnoredUris?(repoPath: string, uris: Uri[]): Promise<Uri[]>;
 	getIgnoreFilter?(repoPath: string, gitDirPath: string): GitIgnoreFilter;
 	getIgnoredUrisFilter?(repoPath: string): Promise<(uri: Uri) => boolean>;

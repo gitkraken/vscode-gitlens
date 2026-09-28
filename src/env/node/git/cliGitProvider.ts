@@ -16,6 +16,7 @@ import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import type { GitDir } from '@gitlens/git/models/repository.js';
 import { forcedRepositoryChanges } from '@gitlens/git/models/repository.js';
 import { deletedOrMissing, uncommitted } from '@gitlens/git/models/revision.js';
+import type { GitOperationRunOptions } from '@gitlens/git/providers/operations.js';
 import type { GitProvider } from '@gitlens/git/providers/provider.js';
 import type { GitProviderDescriptor, RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import type { UnsafeGit } from '@gitlens/git/run.types.js';
@@ -1257,11 +1258,16 @@ export class GlCliGitProvider implements GlGitProvider {
 	}
 
 	@debug()
-	async clone(url: string, parentPath: string): Promise<string | undefined> {
+	async clone(
+		url: string,
+		parentPath: string,
+		options?: { folderName?: string },
+		runOptions?: GitOperationRunOptions,
+	): Promise<string | undefined> {
 		const scope = getScopedLogger();
 
 		try {
-			return await this.provider.clone?.(url, parentPath);
+			return await this.provider.clone?.(url, parentPath, options, runOptions);
 		} catch (ex) {
 			scope?.error(ex);
 			void showGenericErrorMessage(l10n.t("Unable to clone '{0}'", url));
