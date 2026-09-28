@@ -913,6 +913,9 @@ function getHtmlPlugin(name, plus, mode, env) {
 		minify:
 			mode === 'production'
 				? {
+						// Keeps attribute names as written — otherwise the bare `#{hostEnvironment}` token in each
+						// `<body>` is lowercased and no longer matches `replaceWebviewHtmlTokens`
+						caseSensitive: true,
 						removeComments: true,
 						collapseWhitespace: true,
 						removeRedundantAttributes: false,

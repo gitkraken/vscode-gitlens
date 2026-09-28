@@ -23,6 +23,7 @@
 	<body
 		class="preload"
 		data-placement="#{placement}"
+		#{hostEnvironment}
 		data-vscode-context='{ "preventDefaultContextMenuItems": true, "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
 		<gl-settings-app name="SettingsWebview" placement="#{placement}" context="#{state}"></gl-settings-app>

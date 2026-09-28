@@ -545,3 +545,39 @@ suite('Webview localization HTML', () => {
 		assert.strictEqual(result, 'en:e30=');
 	});
 });
+
+suite('Webview host environment HTML', () => {
+	test('expands the hostEnvironment token to the given body attributes', () => {
+		const result = replaceWebviewHtmlTokens(
+			'<body data-placement="#{placement}" #{hostEnvironment}>',
+			'gitlens.graph',
+			undefined,
+			'',
+			'',
+			'',
+			'',
+			'view',
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			'data-modern-ui data-modern-ui-compact',
+		);
+		assert.strictEqual(result, '<body data-placement="view" data-modern-ui data-modern-ui-compact>');
+	});
+
+	test('expands the hostEnvironment token to nothing when no host environment is given', () => {
+		const result = replaceWebviewHtmlTokens(
+			'<body #{hostEnvironment}>',
+			'gitlens.graph',
+			undefined,
+			'',
+			'',
+			'',
+			'',
+			'view',
+		);
+		assert.strictEqual(result, '<body >');
+	});
+});

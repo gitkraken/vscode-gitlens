@@ -28,6 +28,7 @@
 	<body
 		class="scrollable"
 		data-placement="#{placement}"
+		#{hostEnvironment}
 		data-vscode-context='{ "preventDefaultContextMenuItems": true, "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
 		<gl-graph-apphost name="GraphView" placement="#{placement}" context="#{state}"></gl-graph-apphost>

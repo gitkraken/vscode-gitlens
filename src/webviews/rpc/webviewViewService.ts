@@ -1,12 +1,15 @@
 /**
- * Webview view service — host-pushed focus/visibility events, webview-reported focus changes,
- * and the RPC session handshake.
+ * Webview view service — host-pushed focus/visibility/host-environment events, webview-reported
+ * focus changes, and the RPC session handshake.
  *
  * The sole transport for these pushes since the legacy core IPC notifications (and the
  * `WebviewReadyRequest` they rode alongside) were removed.
  */
 
 import type { Disposable, Event } from 'vscode';
+import { configuration } from '../../system/-webview/configuration.js';
+import type { WebviewHostEnvironment } from '../hostEnvironment.js';
+import { getWebviewHostEnvironment, hostEnvironmentChanged } from '../hostEnvironment.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from './eventVisibilityBuffer.js';
 import { createRpcEventSubscription } from './eventVisibilityBuffer.js';
 import type { RpcEventSubscription } from './services/types.js';
@@ -48,13 +51,18 @@ export class WebviewViewService {
 	readonly onWebviewFocusChanged: RpcEventSubscription<{ focused: boolean }>;
 	/** Save-last: same reasoning as {@link onWebviewFocusChanged}. */
 	readonly onHostWindowFocusChanged: RpcEventSubscription<{ focused: boolean }>;
+	/**
+	 * Save-last: each payload is the complete Modern UI state (the `<body>` attributes the HTML
+	 * rendered at first paint), so a hidden webview only needs the newest one when it is shown.
+	 */
+	readonly onHostEnvironmentChanged: RpcEventSubscription<WebviewHostEnvironment>;
 
 	constructor(
 		private readonly host: WebviewViewServiceHost,
 		buffer?: EventVisibilityBuffer,
 		tracker?: SubscriptionTracker,
 	) {
-		/** Fixes the `buffer`/mode/`tracker` that are identical for all three subscriptions below, leaving
+		/** Fixes the `buffer`/mode/`tracker` that are identical for all the subscriptions below, leaving
 		 *  only what actually differs between them: the key, the host event, and the payload mapping. */
 		function subscribeSaveLast<T>(
 			key: string,
@@ -71,6 +79,13 @@ export class WebviewViewService {
 		);
 		this.onHostWindowFocusChanged = subscribeSaveLast<{ focused: boolean }>('hostWindowFocusChanged', buffered =>
 			host.onDidChangeWindowFocus(focused => buffered({ focused: focused })),
+		);
+		this.onHostEnvironmentChanged = subscribeSaveLast<WebviewHostEnvironment>('hostEnvironmentChanged', buffered =>
+			configuration.onDidChangeAny(e => {
+				if (!hostEnvironmentChanged(e)) return;
+
+				buffered(getWebviewHostEnvironment());
+			}),
 		);
 	}
 

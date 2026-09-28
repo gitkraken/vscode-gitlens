@@ -47,7 +47,12 @@ import type { TelemetrySendEventParams } from '../telemetry.js';
 interface CoreWebviewServices {
 	readonly webview: Pick<
 		WebviewViewService,
-		'connect' | 'focusChanged' | 'onHostWindowFocusChanged' | 'onVisibilityChanged' | 'onWebviewFocusChanged'
+		| 'connect'
+		| 'focusChanged'
+		| 'onHostEnvironmentChanged'
+		| 'onHostWindowFocusChanged'
+		| 'onVisibilityChanged'
+		| 'onWebviewFocusChanged'
 	>;
 	readonly telemetry: Pick<TelemetryService, 'sendEvent'>;
 }
@@ -342,6 +347,17 @@ export class RpcController<TServices extends object> implements ReactiveControll
 						// No window event: only the Graph consumes host-window focus, via its app-level
 						// override through the options callback.
 						this.options?.onHostWindowFocusChanged?.(focused);
+					}),
+				() =>
+					webview.onHostEnvironmentChanged(env => {
+						// Keeps the `<body>` attributes the host rendered at first paint (`#{hostEnvironment}`
+						// in each app's HTML) in sync with the Modern UI settings.
+						document.body.toggleAttribute('data-modern-ui', env.modernUI);
+						document.body.toggleAttribute('data-modern-ui-compact', env.compact);
+						document.body.toggleAttribute(
+							'data-modern-ui-uppercase-view-headers',
+							env.uppercaseViewHeaders,
+						);
 					}),
 			]);
 		});
