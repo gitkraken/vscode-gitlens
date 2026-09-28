@@ -15,6 +15,7 @@ import {
 	SigningError,
 } from '@gitlens/git/errors.js';
 import type { GitBranchReference, GitReference } from '@gitlens/git/models/reference.js';
+import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import type { GitConflictFile } from '@gitlens/git/models/staging.js';
 import type {
@@ -237,7 +238,23 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	@debug()
 	async fetch(
 		repoPath: string,
-		options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
+		options?:
+			| {
+					all?: boolean;
+					branch?: GitBranchReference;
+					prune?: boolean;
+					pull?: boolean;
+					remote?: string;
+					refspecs?: undefined;
+			  }
+			| {
+					all?: undefined;
+					branch?: undefined;
+					prune?: boolean;
+					pull?: undefined;
+					remote: string;
+					refspecs: readonly string[];
+			  },
 		runOptions?: GitOperationRunOptions,
 	): Promise<void> {
 		const scope = getScopedLogger();
@@ -263,21 +280,64 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			}
 
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'tags');
-			// A `pull` fetch writes `<upstream>:<branch>`, moving the local branch too
-			this.context.hooks?.repository?.onChanged?.(
-				repoPath,
-				isBranchReference(branch) && options?.pull ? ['heads', 'remotes'] : ['remotes'],
-			);
+			this.context.hooks?.repository?.onChanged?.(repoPath, this.getFetchChanges(branch, options));
 		} catch (ex) {
 			scope?.error(ex);
 			throw ex;
 		}
 	}
 
+	/** `remotes`, plus `heads`/`tags` for any local branch or tag the fetch writes — a `pull` fetch writes `<upstream>:<branch>` */
+	private getFetchChanges(
+		branch: GitBranchReference | undefined,
+		options: { pull?: boolean; refspecs?: readonly string[] } | undefined,
+	): RepositoryChange[] {
+		if (isBranchReference(branch)) {
+			return options?.pull ? ['heads', 'remotes'] : ['remotes'];
+		}
+		if (!options?.refspecs?.length) return ['remotes'];
+
+		const changes: RepositoryChange[] = ['remotes'];
+		for (const refspec of options.refspecs) {
+			const stripped = refspec.startsWith('+') ? refspec.slice(1) : refspec;
+			const colonIndex = stripped.indexOf(':');
+			if (colonIndex === -1) continue;
+
+			// Qualified as git's fetch does: an empty destination stores nothing, `heads/`/`tags/`/`remotes/`
+			// get `refs/`, and any other unqualified name is a local branch
+			let destination = stripped.slice(colonIndex + 1);
+			if (!destination) continue;
+
+			if (!destination.startsWith('refs/')) {
+				destination = /^(?:heads|tags|remotes)\//.test(destination)
+					? `refs/${destination}`
+					: `refs/heads/${destination}`;
+			}
+
+			if (destination.startsWith('refs/tags/')) {
+				if (!changes.includes('tags')) {
+					changes.push('tags');
+				}
+			} else if (destination.startsWith('refs/heads/')) {
+				if (!changes.includes('heads')) {
+					changes.push('heads');
+				}
+			}
+		}
+		return changes;
+	}
+
 	private async fetchCore(
 		repoPath: string,
 		options:
-			| { all?: boolean; branch?: undefined; prune?: boolean; pull?: boolean; remote?: string }
+			| {
+					all?: boolean;
+					branch?: undefined;
+					prune?: boolean;
+					pull?: boolean;
+					remote?: string;
+					refspecs?: undefined;
+			  }
 			| {
 					all?: undefined;
 					branch: string;
@@ -290,6 +350,15 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					 * checked out; `false` keeps git's own refusal as a guard against a stale worktree lookup.
 					 */
 					updateHeadOk?: boolean;
+					refspecs?: undefined;
+			  }
+			| {
+					all?: undefined;
+					branch?: undefined;
+					prune?: boolean;
+					pull?: undefined;
+					remote: string;
+					refspecs: readonly string[];
 			  },
 		runOptions?: GitOperationRunOptions,
 	): Promise<void> {
@@ -308,6 +377,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			} else {
 				params.push(options.remote, options.upstream || options.branch);
 			}
+		} else if (options.refspecs?.length) {
+			params.push(options.remote, ...options.refspecs);
 		} else if (options.remote) {
 			params.push(options.remote);
 		} else if (options.all) {
