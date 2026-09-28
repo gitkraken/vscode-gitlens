@@ -139,12 +139,12 @@
 	--wa-color-primary-600: var(--vscode-button-hoverBackground);
 
 	--wa-border-radius-small: 0.3rem; // 0.1875rem;
-	--wa-border-radius-medium: 0.4rem; // 0.25rem;
-	--wa-border-radius-large: 0.8rem; // 0.5rem;
+	--wa-border-radius-medium: var(--gl-radius-sm, 0.4rem); // 0.25rem;
+	--wa-border-radius-large: var(--gl-radius-lg, 0.8rem); // 0.5rem;
 	--wa-border-radius-x-large: 1.6rem; // 1rem;
 
 	--wa-border-radius-circle: 50%;
-	--wa-border-radius-pill: 9999px;
+	--wa-border-radius-pill: var(--gl-radius-circle, 9999px);
 
 	// WebAwesome shadow aliases track the --gl-shadow-* scale so WA component shadows stay
 	// theme-reactive and vanish in high-contrast like the rest of the system (large → tooltip is

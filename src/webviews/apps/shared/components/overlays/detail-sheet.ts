@@ -136,8 +136,8 @@ export class GlDetailSheet extends LitElement {
 				color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 				background: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
 				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
-				border-top-left-radius: 0.4rem;
-				border-top-right-radius: 0.4rem;
+				border-top-left-radius: var(--gl-radius-sm);
+				border-top-right-radius: var(--gl-radius-sm);
 			}
 
 			.sheet__header-row {

@@ -54,7 +54,7 @@ export class GlDragShiftOverlay extends LitElement {
 			color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
 			background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
 			border: 0.1rem solid var(--vscode-editorWidget-border, var(--vscode-widget-border, transparent));
-			border-radius: 0.4rem;
+			border-radius: var(--gl-radius-sm);
 			box-shadow: 0 0.2rem 0.8rem rgb(0 0 0 / 36%);
 		}
 

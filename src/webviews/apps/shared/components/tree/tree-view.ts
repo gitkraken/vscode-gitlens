@@ -239,7 +239,7 @@ glyph or the attention indicator. Tabular figures so 2/3 and 2/10 align down a c
 				font-size: var(--gl-font-micro);
 				font-variant-numeric: tabular-nums;
 				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
-				border-radius: 0.8rem;
+				border-radius: var(--gl-radius-lg);
 			}
 
 			/* The layers glyph reads ~1px high against the count under flex centering; nudge it level. */

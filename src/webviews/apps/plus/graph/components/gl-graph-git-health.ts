@@ -306,7 +306,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			color: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground));
 			background: var(--vscode-inputValidation-errorBackground);
 			border: var(--gl-border-width) solid var(--vscode-inputValidation-errorBorder, transparent);
-			border-radius: 0.2rem;
+			border-radius: var(--gl-radius-xs);
 		}
 
 		/* ── Verdict: the panel's answer, read first. */

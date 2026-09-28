@@ -145,7 +145,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			height: 2.2rem;
 			color: var(--vscode-focusBorder);
 			background: color-mix(in srgb, var(--vscode-focusBorder) 15%, transparent);
-			border-radius: 0.6rem;
+			border-radius: var(--gl-radius-md);
 		}
 
 		.coachmark__icon code-icon {

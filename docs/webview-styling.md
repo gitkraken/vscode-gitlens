@@ -31,29 +31,67 @@ When you need a token VS Code doesn't provide, **derive it from `--vscode-*`** v
 
 ## GitLens tokens (`--gl-*`)
 
-Defined in [`tokens.scss`](../src/webviews/apps/shared/styles/tokens.scss). The _dimensionless_ layer is deliberately thin today — most lengths are hardcoded (see [What has no scale yet](#what-has-no-scale-yet)).
+Defined in [`tokens.scss`](../src/webviews/apps/shared/styles/tokens.scss). Typography, radius, spacing, and border width each have a scale that bridges to VS Code's own design tokens; motion (duration/easing) still has none (see [What has no scale yet](#what-has-no-scale-yet)).
 
 ### Typography
 
-| Token             | Value         | Use                                     |
-| ----------------- | ------------- | --------------------------------------- |
-| `--gl-font-micro` | 1rem / 10px   | tiny badge counts only                  |
-| `--gl-font-sm`    | 1.1rem / 11px | secondary metadata, dates, stats, chips |
-| `--gl-font-base`  | 1.3rem / 13px | primary body text, messages, controls   |
-| `--gl-font-lg`    | 1.4rem / 14px | emphasized headline (commit subject)    |
+| Token                       | Value         | Use                                     |
+| --------------------------- | ------------- | --------------------------------------- |
+| `--gl-font-micro`           | 1rem / 10px   | tiny badge counts only                  |
+| `--gl-font-sm`              | 1.1rem / 11px | secondary metadata, dates, stats, chips |
+| `--gl-font-md`              | 1.2rem / 12px | most-used mid step                      |
+| `--gl-font-base`            | 1.3rem / 13px | primary body text, messages, controls   |
+| `--gl-font-lg`              | 1.4rem / 14px | emphasized headline (commit subject)    |
+| `--gl-font-weight-regular`  | 400           | normal text                             |
+| `--gl-font-weight-semibold` | 600           | emphasis, headers                       |
+
+`sm` / `md` / `base` bridge through a chain: VS Code `fontSize.body2` / `label1` / `body1` (1.129+) → the deprecated `bodyFontSize*` tokens (1.110+) → the `rem` value above. `micro` and `lg` are bespoke (VS Code has no equivalent).
+
+The weight tokens bridge to `--vscode-fontWeight-regular` / `-semiBold` (1.129+). VS Code's ramp has only these two steps, so other weights in use (500, 700) are bespoke and stay literal.
+
+### Radius
+
+Bridges to VS Code's `--vscode-cornerRadius-*` tokens (1.110+), with `rem` fallbacks.
+
+| Token                | Value         | Use                               |
+| -------------------- | ------------- | --------------------------------- |
+| `--gl-radius-xs`     | 0.2rem / 2px  | small chips, tiny highlights      |
+| `--gl-radius-sm`     | 0.4rem / 4px  | controls (buttons, inputs, diffs) |
+| `--gl-radius-md`     | 0.6rem / 6px  | cards, callouts                   |
+| `--gl-radius-lg`     | 0.8rem / 8px  | panels, popovers                  |
+| `--gl-radius-xl`     | 1.2rem / 12px | large surfaces                    |
+| `--gl-radius-circle` | 9999px        | pills and fully-rounded ends      |
+
+Use `50%` (not `--gl-radius-circle`) for true circles.
+
+### Spacing
+
+Bridges to VS Code's `--vscode-spacing-size*` tokens (1.110+), with `rem` fallbacks. Steps are named by pixels (`1rem = 10px`) and map to `spacing.size{px * 10}` — e.g. `--gl-space-8` → `--vscode-spacing-size80`.
+
+| Token                                                                                                       | Value                                    |
+| ----------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `--gl-space-2` / `-4` / `-6` / `-8` / `-10` / `-12` / `-16` / `-20` / `-24` / `-28` / `-32` / `-36` / `-40` | 0.2rem … 4rem (the name is the px value) |
+
+### Border width
+
+| Token               | Value        | Use                          |
+| ------------------- | ------------ | ---------------------------- |
+| `--gl-border-width` | 0.1rem / 1px | border and outline thickness |
+
+Bridges to `--vscode-strokeThickness` (1.110+), with a `rem` fallback.
 
 ### Controls & layout
 
-| Token                                | Value  | Use                                                  |
-| ------------------------------------ | ------ | ---------------------------------------------------- |
-| `--gl-input-border-radius`           | 0.4rem | text-entry control radius (inputs, textareas)        |
-| `--gl-max-input`                     | 560px  | AI / action input max-width                          |
-| `--gl-panel-padding-left` / `-right` | 1.2rem | detail-panel horizontal padding (hosts may override) |
-| `--gitlens-gutter-width`             | 20px   | gutter width (in `properties.scss`)                  |
+| Token                                | Value                 | Use                                                                     |
+| ------------------------------------ | --------------------- | ----------------------------------------------------------------------- |
+| `--gl-input-border-radius`           | `var(--gl-radius-sm)` | text-entry control radius (inputs, textareas); aliases `--gl-radius-sm` |
+| `--gl-max-input`                     | 560px                 | AI / action input max-width                                             |
+| `--gl-panel-padding-left` / `-right` | 1.2rem                | detail-panel horizontal padding (hosts may override)                    |
+| `--gitlens-gutter-width`             | 20px                  | gutter width (in `properties.scss`)                                     |
 
 ### What has no scale yet
 
-Spacing, border-radius, and motion (duration/easing) are largely **hardcoded** — there's no shared `--gl-*` scale for them yet. When adding these values:
+Radius and spacing now have scales (above) — use them instead of raw values. **Motion** (duration/easing) is the one that still has none, so it stays hardcoded. When adding these values:
 
 - **Match the surrounding component's existing values.** Don't invent a new step. (Spacing clusters around a ~2px step: 0.2 / 0.4 / 0.6 / 0.8 / 1.0 / 1.2rem.)
 - **Don't reach into `--wa-*`** for a length scale — those are WebAwesome-isolated, not a GitLens scale.
@@ -134,7 +172,7 @@ A surface that also wants a border in _normal_ themes (e.g. a dialog or dropdown
 
 ## Quick guardrails
 
-- **Hardcoded spacing/radius:** match neighboring values — there's no shared scale yet; don't invent steps, and don't reach into `--wa-*`.
+- **Radius/spacing:** use the `--gl-radius-*` / `--gl-space-*` scales; for values with no scale (e.g. motion), match neighboring values — don't invent steps, and don't reach into `--wa-*`.
 - **Custom colors:** derive from `--vscode-*` (`color-mix()` / relative color) — don't hardcode hex.
 - **z-index past ~100:** tier token, `isolation: isolate`, or top layer — not a bigger number.
 - **Shadows:** never apply `--gl-shadow-*` raw — use the `elevated-surface` helper so the high-contrast border comes with it.

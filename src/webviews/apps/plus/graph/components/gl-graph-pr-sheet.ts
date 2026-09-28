@@ -175,7 +175,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			.title__link:focus-visible {
 				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: 0.2rem;
-				border-radius: 0.2rem;
+				border-radius: var(--gl-radius-xs);
 			}
 
 			.title__id {

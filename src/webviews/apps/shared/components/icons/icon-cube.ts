@@ -23,7 +23,7 @@ export class GlIconCube extends LitElement {
 				width: calc(var(--gl-icon-cube-size) * 1.6);
 				aspect-ratio: 1;
 				background: var(--gl-icon-cube-background);
-				border-radius: 0.6rem;
+				border-radius: var(--gl-radius-md);
 			}
 
 			:host([appearance='brand']) {

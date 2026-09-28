@@ -294,7 +294,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				height: 0.4rem;
 				overflow: hidden;
 				background: color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
-				border-radius: 999px;
+				border-radius: var(--gl-radius-circle);
 			}
 
 			/* Two-tone fill: green = resolved fraction, amber = still-needs-input fraction, so the bar reads
@@ -371,7 +371,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				font-weight: 700;
 				color: var(--vscode-badge-foreground);
 				background: var(--vscode-badge-background);
-				border-radius: 999px;
+				border-radius: var(--gl-radius-circle);
 			}
 
 			.resolve-section__head--needs .resolve-section__count {
