@@ -228,8 +228,11 @@ core rejects with:
 - A write hard-evicts while a watcher clear keeps sharing in-flight reads, rather than one policy for both. A
   write is a known point after which an older read is wrong; a watcher tick has no such ordering, and sharing
   the in-flight read is what keeps a burst of file events from multiplying git processes.
-- `notifyChanged` on the provider rather than an option on `git.run`. The executor has no context and no
-  hooks; the provider does. A consumer that runs a raw mutation knows what it changed.
+- `notifyChanged` on the provider, and `git.run({ notify })` bound to it rather than a second invalidation
+  path. The executor has no cache and no hooks, so the provider binds itself to its `Git` and a `notify` run
+  calls the same `notifyChanged`. `'infer'` classifies the argv (read-only and object-store-only commands
+  announce nothing; a `-C` write also announces to the caller's tree what every worktree sees), for a
+  consumer whose raw runs are too varied to name the changes by hand.
 - Staging hooks skip the temporary-index case rather than firing unconditionally. A scratch index is not the
   repository's; announcing an index change for it would invalidate status for nothing.
 

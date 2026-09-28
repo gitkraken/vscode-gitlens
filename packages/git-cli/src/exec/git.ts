@@ -1,5 +1,6 @@
 import type { SpawnOptions } from 'child_process';
 import { spawn } from 'child_process';
+import { resolve as resolvePath } from 'path';
 import * as process from 'process';
 import type {
 	BranchErrorReason,
@@ -29,6 +30,7 @@ import type {
 } from '@gitlens/git/errors.js';
 import { GitWarnings, WorkspaceUntrustedError } from '@gitlens/git/errors.js';
 import type { GitHealthSlownessCategory } from '@gitlens/git/gitHealth.js';
+import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import type { GitRunCancellation } from '@gitlens/git/run.types.js';
 import { CancellationError, getAbortSignalId, isCancellationError } from '@gitlens/utils/cancellation.js';
@@ -41,6 +43,7 @@ import { dirname, isAbsolute, joinPaths, normalizePath } from '@gitlens/utils/pa
 import { defer } from '@gitlens/utils/promise.js';
 import type { Mutable } from '@gitlens/utils/types.js';
 import { compare, fromString } from '@gitlens/utils/version.js';
+import { getChangesForCommand, leadingCommand } from './commandClassifier.js';
 import { EventLoopMonitor } from './eventLoopMonitor.js';
 import { CancelledRunError, RunError } from './exec.errors.js';
 import type { RunOptions, RunResult } from './exec.js';
@@ -700,11 +703,25 @@ export class Git {
 	/** Last dynamic env reference, used to detect when getEnvironment() returns a new object */
 	private _lastDynamicEnv: Record<string, string | undefined> | undefined | null;
 
+	/** Bound via {@link bindChangeNotifier}; announces a `notify`-flagged run's changes. No-op until bound. */
+	private _changeNotifier: ((repoPaths: readonly string[], changes: readonly RepositoryChange[]) => void) | undefined;
+
 	constructor(
 		private readonly _locator: () => Promise<GitLocation>,
 		readonly options: GitOptions = {},
 	) {
 		this._queue = new GitQueue(options.queue, { onSlowQueue: options.hooks?.onSlowQueue });
+	}
+
+	/**
+	 * Binds the callback a `notify`-flagged {@link run} calls once it settles. `CliGitProvider` wires this
+	 * to its own `notifyChanged` from its constructor — including when it's handed a pre-built `Git` via
+	 * `options.git`, so a host-supplied instance gets bound too. With nothing bound, `notify` is a no-op.
+	 * `repoPaths` holds more than one path only for a `-C`-scoped shared-state verb: the `-C` target, then the
+	 * caller's own `cwd`.
+	 */
+	bindChangeNotifier(fn: (repoPaths: readonly string[], changes: readonly RepositoryChange[]) => void): void {
+		this._changeNotifier = fn;
 	}
 
 	/**
@@ -854,6 +871,17 @@ export class Git {
 		if (this.options.isTrusted?.() === false) throw new WorkspaceUntrustedError();
 
 		const runArgs = args.filter(a => a != null);
+
+		// `notify` announces once the run settles (success, failure or cancellation), which the bare
+		// `return <promise>` paths below don't wait for; callers without it never take this branch.
+		if (options.notify != null) {
+			try {
+				return await this.run<T>({ ...options, notify: undefined }, ...args);
+			} finally {
+				this.applyNotify(options, runArgs);
+			}
+		}
+
 		const gitCommand = `git ${runArgs.join(' ')}`;
 
 		// If cache is provided, use it to cache the full result
@@ -904,6 +932,52 @@ export class Git {
 		}
 
 		return this.runCore<T>(options, runArgs, gitCommand);
+	}
+
+	/**
+	 * Applies `options.notify` once a {@link run} has settled — a no-op unless both `notify` and a
+	 * {@link bindChangeNotifier bound} notifier are present, so an unflagged caller pays nothing.
+	 */
+	private applyNotify(options: GitRunOptions, args: readonly string[]): void {
+		const notify = options.notify;
+		if (notify == null || this._changeNotifier == null || options.cwd == null) return;
+
+		if (notify !== 'infer') {
+			// The caller decided exactly what changed; still resolve WHERE it changed the same way `infer`
+			// does, since the caller may have passed its own `-C` in the argv.
+			this._changeNotifier([this.resolveNotifyPath(options.cwd, leadingCommand(args).pathOverride)], notify);
+			return;
+		}
+
+		const command = getChangesForCommand(args);
+		if (command == null) return; // read-only or object-store-only — nothing to announce
+
+		const ranIn = this.resolveNotifyPath(options.cwd, command.pathOverride);
+
+		// A `-C`-scoped write also changes what the caller's own `cwd` sees when both share a `.git`: a branch,
+		// tag or stash it wrote. The target may be a worktree the cache never registered, so its eviction can't be
+		// trusted to reach `cwd`; announce the shared kinds there too, and only those. A write it can't classify
+		// (`[]`) resets both, since what it shares is unknown.
+		const cwd = normalizePath(options.cwd);
+		if (
+			command.pathOverride != null &&
+			cwd !== ranIn &&
+			(command.sharedChanges.length || !command.changes.length)
+		) {
+			if (command.sharedChanges.length === command.changes.length) {
+				this._changeNotifier([ranIn, cwd], command.changes);
+			} else {
+				this._changeNotifier([ranIn], command.changes);
+				this._changeNotifier([cwd], command.sharedChanges);
+			}
+			return;
+		}
+
+		this._changeNotifier([ranIn], command.changes);
+	}
+
+	private resolveNotifyPath(cwd: string, pathOverride: string | undefined): string {
+		return normalizePath(pathOverride != null ? resolvePath(cwd, pathOverride) : cwd);
 	}
 
 	private async runCore<T extends string | Buffer>(

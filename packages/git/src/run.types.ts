@@ -1,6 +1,7 @@
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { GitWarningKey } from './errors.js';
 import type { GitHealthSlownessCategory } from './gitHealth.js';
+import type { RepositoryChange } from './models/repository.js';
 
 export type GitErrorHandling = 'throw' | 'ignore';
 
@@ -123,6 +124,17 @@ export interface GitRunOptions {
 		 */
 		force?: boolean;
 	};
+
+	/**
+	 * Opt-in: after the run settles (success, failure, or cancellation), announce a change to the provider
+	 * for this run's repository, the same way a typed sub-provider mutator does. `'infer'` classifies the
+	 * command's argv (a `-C <path>` re-scopes which repository); a read-only or object-store-only command
+	 * then announces nothing. An explicit array announces exactly those {@link RepositoryChange} kinds,
+	 * regardless of what the argv looks like. Left unset, nothing is classified or announced — zero cost
+	 * for every existing caller. The change is announced for `cwd`, or the `-C` target, as given: run from the
+	 * repository root, since that's the path core's caches are keyed by.
+	 */
+	notify?: 'infer' | readonly RepositoryChange[];
 
 	// Below options comes from RunOptions<BufferEncoding | 'buffer' | string>
 	cwd?: string;
