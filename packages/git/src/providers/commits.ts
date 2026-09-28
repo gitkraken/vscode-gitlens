@@ -68,6 +68,21 @@ export interface IncomingActivityOptions extends GitLogOptionsBase {
 	skip?: number;
 }
 
+/**
+ * Refs whose commits a history read leaves out, as `--not`. `branches`/`remotes`/`tags` exclude every
+ * ref in that namespace; `except` carves full ref names or globs (`refs/heads/feat`, `refs/remotes/origin/*`)
+ * back out of an enabled namespace and is ignored otherwise; `refs` are further revisions, passed verbatim.
+ * A read is cached until a branch, remote-tracking branch or tag changes, so a `refs` entry outside those namespaces
+ * (a tool's own `refs/<tool>/…`) can move without refreshing it: pass that ref's SHA instead, which keys a new read.
+ */
+export interface GitRefExclusions {
+	branches?: boolean;
+	remotes?: boolean;
+	tags?: boolean;
+	refs?: readonly string[];
+	except?: readonly string[];
+}
+
 export interface GitCommitReachability {
 	readonly partial?: boolean;
 	readonly refs: (
@@ -78,7 +93,13 @@ export interface GitCommitReachability {
 
 export interface GitCommitsSubProvider {
 	getCommit(repoPath: string, rev: string, cancellation?: AbortSignal): Promise<GitCommit | undefined>;
-	getCommitCount(repoPath: string, rev: string, cancellation?: AbortSignal): Promise<number | undefined>;
+	/** Counts the commits reachable from `rev`, less any reachable from `excluding` — e.g. what only one branch has */
+	getCommitCount(
+		repoPath: string,
+		rev: string,
+		options?: { excluding?: GitRefExclusions },
+		cancellation?: AbortSignal,
+	): Promise<number | undefined>;
 	/** Whether `rev` has any commits not reachable from any remote-tracking ref (i.e. unpushed/unpublished).
 	 *  Cheap early-exit probe (`rev-list --not --remotes <rev> -n 1`) — it does NOT count them. Returns
 	 *  `undefined` when it can't be determined. */

@@ -1,8 +1,9 @@
 import * as assert from 'assert';
+import { execFileSync } from 'node:child_process';
 import * as sinon from 'sinon';
 import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, cloneTestRepo, createTestRepo, getHeadSha } from './helpers.js';
+import { addCommit, checkout, cloneTestRepo, createBranch, createTestRepo, getHeadSha } from './helpers.js';
 
 suite('CommitsSubProvider', () => {
 	let repo: TestRepo;
@@ -87,8 +88,8 @@ suite('CommitsSubProvider', () => {
 		const first = new AbortController();
 		const second = new AbortController();
 
-		const p1 = repo.provider.commits.getCommitCount(repo.path, rev, first.signal);
-		const p2 = repo.provider.commits.getCommitCount(repo.path, rev, second.signal);
+		const p1 = repo.provider.commits.getCommitCount(repo.path, rev, undefined, first.signal);
+		const p2 = repo.provider.commits.getCommitCount(repo.path, rev, undefined, second.signal);
 		first.abort();
 
 		const [r1, r2] = await Promise.allSettled([p1, p2]);
@@ -195,5 +196,44 @@ suite('CommitsSubProvider.filterUnpublishedShas', () => {
 		} finally {
 			stub.restore();
 		}
+	});
+});
+
+suite('CommitsSubProvider.getCommitCount — excluding', () => {
+	let repo: TestRepo;
+
+	suiteSetup(() => {
+		repo = createTestRepo(); // main has one commit
+		createBranch(repo.path, 'feat', { checkout: true });
+		addCommit(repo.path, 'a.txt', 'a', 'feat commit 1');
+		addCommit(repo.path, 'b.txt', 'b', 'feat commit 2');
+		checkout(repo.path, 'main');
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+	});
+
+	test('excluding every OTHER branch counts only feat’s own two commits', async () => {
+		const count = await repo.provider.commits.getCommitCount(repo.path, 'feat', {
+			excluding: { branches: true, except: ['refs/heads/feat'] },
+		});
+		assert.strictEqual(count, 2);
+	});
+
+	test('a remote-tracking ref at the same tip, also excluded, drops the count to 0', async () => {
+		execFileSync('git', ['update-ref', 'refs/remotes/o/feat', 'feat'], { cwd: repo.path, stdio: 'pipe' });
+
+		const count = await repo.provider.commits.getCommitCount(repo.path, 'feat', {
+			excluding: { branches: true, remotes: true, except: ['refs/heads/feat'] },
+		});
+		assert.strictEqual(count, 0, 'the remote-tracking ref reaches the same 2 commits, so they are excluded too');
+	});
+
+	test('excepting the remote-tracking ref too restores the count to 2', async () => {
+		const count = await repo.provider.commits.getCommitCount(repo.path, 'feat', {
+			excluding: { branches: true, remotes: true, except: ['refs/heads/feat', 'refs/remotes/o/feat'] },
+		});
+		assert.strictEqual(count, 2);
 	});
 });
