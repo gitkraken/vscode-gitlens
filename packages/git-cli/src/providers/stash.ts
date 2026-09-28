@@ -9,8 +9,10 @@ import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import { GitFileWorkingTreeStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitStash } from '@gitlens/git/models/stash.js';
 import type { GitUser } from '@gitlens/git/models/user.js';
+import type { GitOperationRunOptions } from '@gitlens/git/providers/operations.js';
 import type { GitStashSubProvider, StashApplyResult } from '@gitlens/git/providers/stash.js';
 import { countStringLength } from '@gitlens/utils/array.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { skip } from '@gitlens/utils/iterable.js';
@@ -40,6 +42,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		repoPath: string,
 		stashNameOrSha: string,
 		options?: { deleteAfter?: boolean; index?: boolean },
+		runOptions?: GitOperationRunOptions,
 	): Promise<StashApplyResult> {
 		if (!stashNameOrSha) return { conflicted: false };
 
@@ -48,20 +51,21 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			args.push('--index');
 		}
 		args.push(stashNameOrSha);
-		return this.applyStashCore(repoPath, args, options?.deleteAfter ? 'stash-pop' : 'stash-apply');
+		return this.applyStashCore(repoPath, args, options?.deleteAfter ? 'stash-pop' : 'stash-apply', runOptions);
 	}
 
 	private async applyStashCore(
 		repoPath: string,
 		args: string[],
 		conflictCommand: 'stash-apply' | 'stash-pop',
+		runOptions?: GitOperationRunOptions,
 	): Promise<StashApplyResult> {
 		try {
-			await this.git.run({ cwd: repoPath }, ...args);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'stashes');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['stash']);
+			await this.git.run({ cwd: repoPath, ...runOptions }, ...args);
 			return { conflicted: false };
 		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
 			if (ex instanceof Error) {
 				const msg: string = ex.message ?? '';
 				if (
@@ -84,6 +88,10 @@ export class StashGitSubProvider implements GitStashSubProvider {
 						ex,
 					),
 			);
+		} finally {
+			// A conflicted, failed or cancelled apply may already have changed the stash list or working tree
+			this.context.hooks?.cache?.onReset?.(repoPath, 'stashes', 'status');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['stash']);
 		}
 	}
 
@@ -333,12 +341,11 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		message?: string,
 		pathsOrUris?: (string | Uri)[],
 		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
+		runOptions?: GitOperationRunOptions,
 	): Promise<void> {
 		const paths = pathsOrUris?.map(toFsPath);
 		if (!paths?.length) {
-			await this.stashPushCore(repoPath, message, options);
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['stash']);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'stashes', 'status');
+			await this.stashPushCore(repoPath, message, options, runOptions);
 			return;
 		}
 
@@ -370,13 +377,16 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			);
 		}
 
-		await this.stashPushCore(repoPath, message, {
-			...options,
-			pathspecs: pathspecs,
-			stdin: stdin,
-		});
-		this.context.hooks?.cache?.onReset?.(repoPath, 'stashes', 'status');
-		this.context.hooks?.repository?.onChanged?.(repoPath, ['stash']);
+		await this.stashPushCore(
+			repoPath,
+			message,
+			{
+				...options,
+				pathspecs: pathspecs,
+				stdin: stdin,
+			},
+			runOptions,
+		);
 	}
 
 	private async stashPushCore(
@@ -389,6 +399,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			pathspecs?: string[];
 			stdin?: boolean;
 		},
+		runOptions?: GitOperationRunOptions,
 	): Promise<void> {
 		const params = ['stash', 'push'];
 
@@ -447,16 +458,18 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			params.push('--');
 		}
 
+		let nothingToSave = false;
 		try {
-			const result = await this.git.run({ cwd: repoPath, stdin: stdin }, ...params);
+			const result = await this.git.run({ cwd: repoPath, ...runOptions, stdin: stdin }, ...params);
 			if (GitErrors.stashNothingToSave.test(result.stdout)) {
+				nothingToSave = true;
 				throw new StashPushError({
 					reason: 'nothingToSave',
 					gitCommand: { repoPath: repoPath, args: params },
 				});
 			}
 		} catch (ex) {
-			if (ex instanceof StashPushError) throw ex;
+			if (ex instanceof StashPushError || isCancellationError(ex)) throw ex;
 
 			throw getGitCommandError(
 				'stash-push',
@@ -467,6 +480,13 @@ export class StashGitSubProvider implements GitStashSubProvider {
 						ex,
 					),
 			);
+		} finally {
+			// A failed or cancelled push may already have stashed, and reset the working tree; one with nothing to
+			// save changed nothing
+			if (!nothingToSave) {
+				this.context.hooks?.cache?.onReset?.(repoPath, 'stashes', 'status');
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['stash']);
+			}
 		}
 	}
 

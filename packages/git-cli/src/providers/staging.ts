@@ -3,6 +3,7 @@ import { tmpdir } from 'os';
 import * as l10n from '@vscode/l10n';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
+import type { GitOperationRunOptions } from '@gitlens/git/providers/operations.js';
 import type { DisposableTemporaryGitIndex, GitStagingSubProvider } from '@gitlens/git/providers/staging.js';
 import { countStringLength } from '@gitlens/utils/array.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
@@ -245,6 +246,7 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 			force?: boolean;
 			ignored?: boolean;
 		},
+		runOptions?: GitOperationRunOptions,
 	): Promise<void> {
 		const args = ['clean'];
 		if (options?.force ?? true) {
@@ -258,8 +260,12 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 		}
 
 		if (options?.paths == null) {
-			await this.git.run({ cwd: repoPath, errors: 'throw' }, ...args);
-			this.announceIndexChanged(repoPath);
+			try {
+				await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...args);
+			} finally {
+				// A clean that failed or was cancelled partway may already have removed files
+				this.announceIndexChanged(repoPath);
+			}
 			return;
 		}
 
@@ -274,7 +280,7 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 		const batches = chunk(paths, batchSize);
 		try {
 			for (const batch of batches) {
-				await this.git.run({ cwd: repoPath, errors: 'throw' }, ...args, '--', ...batch);
+				await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...args, '--', ...batch);
 			}
 		} finally {
 			// Even when a later batch fails, the earlier ones already removed files
