@@ -14,7 +14,14 @@ export interface GitWorkingChangesState {
 export interface GitStatusSubProvider {
 	getStatus(
 		repoPath: string | undefined,
-		options?: { priority?: GitCommandPriority; force?: boolean },
+		options?: {
+			priority?: GitCommandPriority;
+			force?: boolean;
+			/** `git status -u<value>`; defaults to `'all'` (today's `-u`, listing files in an untracked directory individually). */
+			untracked?: 'no' | 'normal' | 'all';
+			/** `false` omits `--branch`, computing no upstream ahead/behind; the result's `branch`, `sha`, `upstream` and `detached` are then not read and mean nothing */
+			branch?: false;
+		},
 		cancellation?: AbortSignal,
 	): Promise<GitStatus | undefined>;
 	getStatusForFile?(

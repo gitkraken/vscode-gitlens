@@ -77,6 +77,19 @@ suite('Status Parser Test Suite', () => {
 		assert.strictEqual(result.upstream?.state.behind, 0, 'Behind should be 0 for gone upstream');
 	});
 
+	test('V1: without --branch (no ## line) still parses every file', () => {
+		const data = [' M src/foo.ts', '?? src/new.ts'].join('\n');
+
+		const result = parseGitStatus(data, repoPath, 1, getUri);
+
+		assert.ok(result, 'Should return a status');
+		assert.strictEqual(result.sha, '', 'v1 never carries a sha');
+		assert.strictEqual(result.upstream, undefined, 'no upstream without a ## header');
+		assert.strictEqual(result.files.length, 2, 'both files should still be parsed');
+		assert.strictEqual(result.files[0].path, 'src/foo.ts');
+		assert.strictEqual(result.files[1].path, 'src/new.ts');
+	});
+
 	test('V1: parses modified file', () => {
 		const data = ['## main', ' M src/foo.ts'].join('\n');
 
@@ -221,6 +234,19 @@ suite('Status Parser Test Suite', () => {
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.upstream?.missing, true, 'Should be missing when no branch.ab header');
+	});
+
+	test('V2: without --branch (no # lines) still parses every file', () => {
+		const data = ['1 .M N... 100644 100644 100644 abc1234 def5678 src/foo.ts', '? src/new.ts'].join('\n');
+
+		const result = parseGitStatus(data, repoPath, 2, getUri);
+
+		assert.ok(result, 'Should return a status');
+		assert.strictEqual(result.sha, '', 'sha is empty without header lines');
+		assert.strictEqual(result.upstream, undefined, 'no upstream without header lines');
+		assert.strictEqual(result.files.length, 2, 'both files should still be parsed');
+		assert.strictEqual(result.files[0].path, 'src/foo.ts');
+		assert.strictEqual(result.files[1].path, 'src/new.ts');
 	});
 
 	test('V2: parses normal changed file (type 1)', () => {
