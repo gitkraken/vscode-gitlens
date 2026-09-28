@@ -53,13 +53,24 @@ export interface GitOperationsSubProvider {
 	): Promise<void>;
 	fetch(
 		repoPath: string,
-		options?: {
-			all?: boolean | undefined;
-			branch?: GitBranchReference | undefined;
-			prune?: boolean | undefined;
-			pull?: boolean | undefined;
-			remote?: string | undefined;
-		},
+		options?:
+			| {
+					all?: boolean | undefined;
+					branch?: GitBranchReference | undefined;
+					prune?: boolean | undefined;
+					pull?: boolean | undefined;
+					remote?: string | undefined;
+					refspecs?: undefined;
+			  }
+			| {
+					all?: undefined;
+					branch?: undefined;
+					prune?: boolean | undefined;
+					pull?: undefined;
+					remote: string;
+					/** Passed verbatim after `remote`; never adds `-u`, so git keeps refusing to write into a checked-out branch. */
+					refspecs: readonly string[];
+			  },
 		runOptions?: GitOperationRunOptions,
 	): Promise<void>;
 	merge(
