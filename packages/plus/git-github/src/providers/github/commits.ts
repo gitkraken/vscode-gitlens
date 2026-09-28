@@ -12,6 +12,7 @@ import type {
 	GitLogForPathOptions,
 	GitLogOptions,
 	GitLogShasOptions,
+	GitRefExclusions,
 	GitSearchCommitsOptions,
 	LeftRightCommitCountResult,
 	SearchCommitsResult,
@@ -115,8 +116,15 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@debug()
-	getCommitCount(repoPath: string, rev: string, _cancellation?: AbortSignal): Promise<number | undefined> {
+	getCommitCount(
+		repoPath: string,
+		rev: string,
+		options?: { excluding?: GitRefExclusions },
+		_cancellation?: AbortSignal,
+	): Promise<number | undefined> {
 		if (repoPath == null) return Promise.resolve(undefined);
+		// GitHub can't count against other refs, and a plain count would be the wrong answer
+		if (options?.excluding != null) return Promise.resolve(undefined);
 
 		return this.cache.commitCount.getOrCreate(repoPath, stripOrigin(rev), async () => {
 			const scope = getScopedLogger();

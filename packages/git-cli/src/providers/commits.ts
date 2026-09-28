@@ -19,6 +19,7 @@ import type {
 	GitLogForPathOptions,
 	GitLogOptions,
 	GitLogShasOptions,
+	GitRefExclusions,
 	GitSearchCommitsOptions,
 	IncomingActivityOptions,
 	LeftRightCommitCountResult,
@@ -72,6 +73,50 @@ const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> 
 const reflogCommands = ['merge', 'pull'];
 /** Keeps `filterUnpublishedShas` well inside Windows' ~32K command-line cap (40 hex chars + separator each). */
 const maxShasPerRevListSpawn = 500;
+
+const refExclusionNamespaces = [
+	['branches', 'refs/heads/', '--branches'],
+	['remotes', 'refs/remotes/', '--remotes'],
+	['tags', 'refs/tags/', '--tags'],
+] as const;
+
+/**
+ * Each `except` entry is emitted in its short form right before its own namespace's pseudo-ref: git matches
+ * `--exclude` against the short name and applies it only to the next pseudo-ref, so `--exclude=refs/heads/x
+ * --branches` excludes nothing.
+ */
+function getRefExclusionArgs(excluding: GitRefExclusions | undefined): string[] {
+	if (excluding == null) return [];
+
+	const args: string[] = [];
+	for (const [key, prefix, flag] of refExclusionNamespaces) {
+		if (!excluding[key]) continue;
+
+		for (const ref of excluding.except ?? []) {
+			if (ref.startsWith(prefix)) {
+				args.push(`--exclude=${ref.slice(prefix.length)}`);
+			}
+		}
+		args.push(flag);
+	}
+
+	if (excluding.refs?.length) {
+		args.push(...excluding.refs);
+	}
+
+	return args.length ? ['--not', ...args] : [];
+}
+
+function getRefExclusionsKey(excluding: GitRefExclusions): string {
+	const { branches, remotes, tags, refs, except } = excluding;
+	return JSON.stringify([branches, remotes, tags, refs, except]);
+}
+
+function getCommitCountKey(rev: string, excluding: GitRefExclusions | undefined): string {
+	if (excluding == null) return rev;
+
+	return `${rev}\0${getRefExclusionsKey(excluding)}`;
+}
 
 export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	constructor(
@@ -191,10 +236,17 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@debug({ exit: true })
-	getCommitCount(repoPath: string, rev: string, cancellation?: AbortSignal): Promise<number | undefined> {
+	getCommitCount(
+		repoPath: string,
+		rev: string,
+		options?: { excluding?: GitRefExclusions },
+		cancellation?: AbortSignal,
+	): Promise<number | undefined> {
+		const excludeArgs = getRefExclusionArgs(options?.excluding);
+
 		return this.cache.commitCount.getOrCreate(
 			repoPath,
-			rev,
+			getCommitCountKey(rev, options?.excluding),
 			async (cacheable, signal) => {
 				// Bind the shared spawn to the aggregate `signal` (fires only when ALL current callers
 				// abort), not this-caller's `cancellation` — otherwise a superseded caller's abort would
@@ -204,6 +256,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					'rev-list',
 					'--count',
 					rev,
+					...excludeArgs,
 					'--',
 				);
 				if (result.completion.status === 'cancelled' || signal?.aborted) {
