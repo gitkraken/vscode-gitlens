@@ -1,6 +1,5 @@
 import { l10n } from 'vscode';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
-import { rootSha } from '@gitlens/git/models/revision.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { GitRepositoryService } from '../../../../git/gitRepositoryService.js';
 import { getSimulatorState } from '../../../../plus/ai/__debug__simulatorState.js';
@@ -84,7 +83,7 @@ export async function runSimulatedComposeChanges(input: {
 	// Resolve HEAD up front — both for the wip-only base anchor and the synthetic hunks.
 	const headCommit = await svc.commits.getCommit('HEAD');
 	signal?.throwIfAborted();
-	const headSha = headCommit?.sha ?? rootSha;
+	const headSha = headCommit?.sha ?? (await svc.revision.getEmptyTreeSha());
 
 	// Pull file list straight from `git status` — same source the real path uses
 	// downstream via `wipByPath`, so file rows light up identically.
