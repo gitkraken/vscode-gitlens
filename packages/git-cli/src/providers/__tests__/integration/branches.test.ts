@@ -5,7 +5,15 @@ import { BranchError } from '@gitlens/git/errors.js';
 import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
 import { GitError } from '../../../exec/git.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, cloneTestRepo, createBranch, createTestRepo, getHeadSha } from './helpers.js';
+import {
+	addCommit,
+	checkout,
+	cloneTestRepo,
+	createBranch,
+	createBranchAt,
+	createTestRepo,
+	getHeadSha,
+} from './helpers.js';
 
 suite('BranchesSubProvider', () => {
 	let repo: TestRepo;
@@ -476,5 +484,55 @@ suite('BranchesSubProvider.getBranch — force bypasses the cache', () => {
 
 		const afterForce = await repo.provider.branches.getBranch(repo.path);
 		assert.strictEqual(afterForce?.sha, newSha, 'the forced answer must be stored for later unforced reads');
+	});
+});
+
+suite('BranchesSubProvider.getBaseBranchName — reflog fallback', () => {
+	let repo: TestRepo;
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+	});
+
+	suiteTeardown(async () => {
+		// `getBaseBranchName` self-writes its answer into gk-config `void` (fire-and-forget, by design —
+		// see the comment on it) — give that a turn to finish before disposing the provider under it.
+		await new Promise(resolve => setTimeout(resolve, 50));
+		repo.cleanup();
+	});
+
+	test('a branch created from an explicit start-point resolves that branch as its base', async () => {
+		createBranchAt(repo.path, 'from-branch', 'main');
+
+		const base = await repo.provider.branches.getBaseBranchName(repo.path, 'from-branch');
+		assert.strictEqual(base, 'main');
+	});
+
+	test('a branch created via `checkout -b` (from HEAD) resolves the branch HEAD moved from as its base', async () => {
+		createBranch(repo.path, 'from-checkout', { checkout: true });
+		try {
+			const base = await repo.provider.branches.getBaseBranchName(repo.path, 'from-checkout');
+			assert.strictEqual(base, 'main');
+		} finally {
+			checkout(repo.path, 'main');
+		}
+	});
+
+	test('a ref git cannot resolve has no base, and that answer is kept rather than re-read', async () => {
+		// Unborn, or deleted since it was listed: git reports a bad revision, which answers "no base"
+		// as surely as an empty reflog does
+		const reflog = sinon.spy(repo.provider.refs, 'getReflogEntries');
+		try {
+			const base = await repo.provider.branches.getBaseBranchName(repo.path, 'vanished-branch');
+			assert.strictEqual(base, undefined);
+			const reads = reflog.callCount;
+			assert.ok(reads > 0, 'sanity: the base was looked for in the reflog');
+
+			const again = await repo.provider.branches.getBaseBranchName(repo.path, 'vanished-branch');
+			assert.strictEqual(again, undefined);
+			assert.strictEqual(reflog.callCount, reads, 'a second lookup must not re-run the reflog');
+		} finally {
+			reflog.restore();
+		}
 	});
 });

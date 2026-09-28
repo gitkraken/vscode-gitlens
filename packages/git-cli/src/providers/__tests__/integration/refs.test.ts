@@ -6,7 +6,16 @@ import { join } from 'node:path';
 import * as sinon from 'sinon';
 import { ReferenceUpdateError } from '@gitlens/git/errors.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, addWorktree, createBranch, createTag, createTestRepo, getHeadSha, revParse } from './helpers.js';
+import {
+	addCommit,
+	addWorktree,
+	createBranch,
+	createBranchAt,
+	createTag,
+	createTestRepo,
+	getHeadSha,
+	revParse,
+} from './helpers.js';
 
 /** 40 hex chars — well-formed but not an object any test repo here ever writes. */
 const unknownSha = 'd34dbeefd34dbeefd34dbeefd34dbeefd34dbeef';
@@ -420,5 +429,60 @@ suite('RefsSubProvider.getReference — force bypasses the branch cache', () => 
 			newSha,
 			'getReference({ force: true }) must refresh and store the branch it resolves',
 		);
+	});
+});
+
+suite('RefsSubProvider.getReflogEntries', () => {
+	let repo: TestRepo;
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+	});
+
+	test('a branch created from an explicit start-point has exactly one matching reflog entry', async () => {
+		const sha = getHeadSha(repo.path);
+		createBranchAt(repo.path, 'feature', 'main');
+
+		const entries = await repo.provider.refs.getReflogEntries(repo.path, 'feature', {
+			grep: 'branch: Created from .*',
+		});
+
+		assert.strictEqual(entries.length, 1);
+		assert.strictEqual(entries[0].message, 'branch: Created from main');
+		assert.strictEqual(entries[0].sha, sha);
+	});
+
+	test('a grep matching nothing returns []', async () => {
+		const entries = await repo.provider.refs.getReflogEntries(repo.path, 'feature', {
+			grep: 'this pattern matches nothing',
+		});
+
+		assert.deepStrictEqual(entries, []);
+	});
+
+	test('a nonexistent ref rejects', async () => {
+		await assert.rejects(repo.provider.refs.getReflogEntries(repo.path, 'no-such-branch'));
+	});
+
+	test('a branch literally named delete reads its own reflog, not `git reflog delete`', async () => {
+		createBranchAt(repo.path, 'delete', 'main');
+
+		const entries = await repo.provider.refs.getReflogEntries(repo.path, 'delete');
+
+		assert.ok(entries.length > 0, "should read 'delete' branch's own reflog, not run the delete subcommand");
+	});
+
+	test('a branch named like a tracked file reads its reflog rather than failing as ambiguous', async () => {
+		createBranchAt(repo.path, 'README.md', 'main');
+
+		const entries = await repo.provider.refs.getReflogEntries(repo.path, 'README.md', {
+			grep: 'branch: Created from .*',
+		});
+
+		assert.strictEqual(entries.length, 1);
 	});
 });

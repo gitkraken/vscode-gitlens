@@ -118,6 +118,28 @@ suite('RefsGitSubProvider Test Suite', () => {
 		sandbox.restore();
 	});
 
+	suite('getReflogEntries', () => {
+		test('formats only the fields it reads, and maps them to sha and message', async () => {
+			gitStub.run.resolves(
+				createGitResult(
+					`${recordSep}${['aaa1', 'branch: Created from main'].join(fieldSep)}${fieldSep}` +
+						`${recordSep}${['bbb2', 'commit: second'].join(fieldSep)}${fieldSep}`,
+				),
+			);
+
+			const entries = await refsProvider.getReflogEntries('/repo', 'refs/heads/topic');
+
+			const format =
+				(gitStub.run.getCall(0).args.slice(1) as string[]).find(a => a.startsWith('--format=')) ?? '';
+			assert.ok(format.includes('%H') && format.includes('%gs'), 'sanity: the sha and subject are formatted');
+			assert.ok(!format.includes('%gD'), 'the reflog selector is never read, so it is never formatted');
+			assert.deepStrictEqual(entries, [
+				{ sha: 'aaa1', message: 'branch: Created from main' },
+				{ sha: 'bbb2', message: 'commit: second' },
+			]);
+		});
+	});
+
 	suite('getRefTips', () => {
 		const repoPath = '/repo';
 

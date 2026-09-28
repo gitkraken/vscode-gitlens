@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds `refs.getReflogEntries(repoPath, ref, { grep })`, a ref's reflog entries (sha and message, newest first) optionally filtered by git's `--grep-reflog` pattern. A failed read rejects rather than resolving `[]`, so "no match" is distinguishable from "never read" (git, git-cli)
 - Adds `untracked` (`'no'`, `'normal'` or `'all'`) and `branch: false` to `status.getStatus`, for a caller that only needs the file list: `branch: false` skips `--branch`, so no upstream ahead/behind is computed, and leaves the result's branch fields unset. Defaults are unchanged (git, git-cli)
 - Adds `folderName` and a trailing `runOptions` to `clone`. `folderName` is used exactly, with no auto-numbering, so git's own refusal of a non-empty folder surfaces; without it the folder is still derived from the URL and numbered past a taken one. `runOptions` carries the clone's `env`, `cancellation` and `timeout` (git, git-cli)
 - Adds `preserveFetchHead` to `ops.fetch` (`--no-write-fetch-head`), for a fetch that must not disturb `FETCH_HEAD` before a user's own `git pull` reads it. Ignored on git older than 2.29, leaving `FETCH_HEAD` written as before (git, git-cli)
@@ -17,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes detecting a branch's base from its reflog failing for a branch named like a tracked file, or named `delete`, `expire` or `exists` (git-cli)
 - Fixes every git command core runs targeting the wrong repository when the host itself was launched by git — from a hook, a `rebase -x` step, or as `GIT_EDITOR` (a VS Code window opened by `git rebase -i`). The inherited `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_COMMON_DIR`, `GIT_OBJECT_DIRECTORY`, `GIT_ALTERNATE_OBJECT_DIRECTORIES` and `GIT_NAMESPACE` overrode each command's working directory, and `GIT_CONFIG_PARAMETERS`, `GIT_EXEC_PATH`, `GIT_PREFIX` and `GIT_REFLOG_ACTION` carried the launching command's own state into all of them. They are now dropped from the inherited environment, and so are `GIT_AUTHOR_*` / `GIT_COMMITTER_*` when git launched the host (it always exports `GIT_EXEC_PATH`), since an editor opened for `commit --amend` inherits that commit's author and date; an identity set deliberately still applies. A host's `env` option or a call's own `env` can still set any of them (git-cli)
 
 ## [0.8.0] - 2026-09-27
