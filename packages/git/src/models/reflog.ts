@@ -4,6 +4,13 @@ import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import type { Shape } from '@gitlens/utils/types.js';
 import { shortenRevision } from '../utils/revision.utils.js';
 
+/** One entry of `refs.getReflogEntries`; {@link GitReflog} is the aggregated HEAD walk instead */
+export interface GitReflogEntry {
+	readonly sha: string;
+	/** The reflog subject, `%gs`. */
+	readonly message: string;
+}
+
 export interface GitReflog {
 	readonly repoPath: string;
 	readonly records: GitReflogRecord[];

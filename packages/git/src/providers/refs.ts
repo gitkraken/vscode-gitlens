@@ -1,6 +1,7 @@
 import type { Uri } from '@gitlens/utils/uri.js';
 import type { GitBranch } from '../models/branch.js';
 import type { GitReference, GitRefTip } from '../models/reference.js';
+import type { GitReflogEntry } from '../models/reflog.js';
 import type { GitTag } from '../models/tag.js';
 import type { GitCommandPriority } from '../run.types.js';
 
@@ -20,6 +21,17 @@ export interface GitRefsSubProvider {
 		options?: { force?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<GitReference | undefined>;
+	/**
+	 * Reads `ref`'s reflog, newest first, optionally keeping only entries whose message matches `grep` (git's
+	 * `--grep-reflog` pattern). Resolves `[]` when nothing matches or `ref` has no reflog, and rejects when the
+	 * read fails (e.g. `ref` doesn't exist), so "no answer" is distinguishable from "never read".
+	 */
+	getReflogEntries?(
+		repoPath: string,
+		ref: string,
+		options?: { grep?: string; priority?: GitCommandPriority },
+		cancellation?: AbortSignal,
+	): Promise<GitReflogEntry[]>;
 	/**
 	 * Lightweight enumeration of ref tips (heads/remotes/tags) — no enrichment.
 	 * Use this when you need a SHA-to-refs map; use `getBranches`/`getTags` for full models.

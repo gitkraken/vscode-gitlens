@@ -3,6 +3,7 @@ import type { GitServiceContext } from '@gitlens/git/context.js';
 import { ReferenceUpdateError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitReference, GitRefTip, RefRecord } from '@gitlens/git/models/reference.js';
+import type { GitReflogEntry } from '@gitlens/git/models/reflog.js';
 import { deletedOrMissing } from '@gitlens/git/models/revision.js';
 import type { GitTag } from '@gitlens/git/models/tag.js';
 import type { GitRefsSubProvider } from '@gitlens/git/providers/refs.js';
@@ -21,7 +22,8 @@ import type { Uri } from '@gitlens/utils/uri.js';
 import { toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { Git, GitError } from '../exec/git.js';
-import { getGitCommandError, gitConfigsBranch } from '../exec/git.js';
+import { getGitCommandError, gitConfigsBranch, gitConfigsLog } from '../exec/git.js';
+import { getReflogEntryParser } from '../parsers/reflogParser.js';
 import { getRefParser } from '../parsers/refParser.js';
 
 export class RefsGitSubProvider implements GitRefsSubProvider {
@@ -340,6 +342,41 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 
 			return undefined;
 		}
+	}
+
+	@debug()
+	async getReflogEntries(
+		repoPath: string,
+		ref: string,
+		options?: { grep?: string; priority?: GitCommandPriority },
+		cancellation?: AbortSignal,
+	): Promise<GitReflogEntry[]> {
+		// `show` so a branch named `delete`, `expire` or `exists` isn't read as that subcommand, and the trailing
+		// `--` so one named like a tracked file isn't rejected as ambiguous
+		const parser = getReflogEntryParser();
+		const args = ['reflog', 'show', ...parser.arguments];
+		if (options?.grep) {
+			args.push(`--grep-reflog=${options.grep}`);
+		}
+		args.push(ref, '--');
+
+		const result = await this.git.run(
+			{
+				cwd: repoPath,
+				errors: 'throw',
+				cancellation: cancellation,
+				// A user's `log.showSignature` would print gpg output into the records
+				configs: gitConfigsLog,
+				...(options?.priority != null ? { priority: options.priority } : undefined),
+			},
+			...args,
+		);
+
+		const entries: GitReflogEntry[] = [];
+		for (const entry of parser.parse(result.stdout)) {
+			entries.push({ sha: entry.sha, message: entry.subject });
+		}
+		return entries;
 	}
 
 	@debug()

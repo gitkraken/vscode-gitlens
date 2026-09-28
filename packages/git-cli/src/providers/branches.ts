@@ -1661,18 +1661,16 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const priorityOpts = priority != null ? { priority: priority } : undefined;
 
 		try {
-			let result = await this.git.run(
-				{ cwd: repoPath, cancellation: cancellation, ...priorityOpts },
-				'reflog',
+			let entries = await this.provider.refs.getReflogEntries(
+				repoPath,
 				ref,
-				'--grep-reflog=branch: Created from *.',
+				{ grep: 'branch: Created from *.', priority: priority },
+				cancellation,
 			);
-
-			let entries = result.stdout.split('\n').filter(entry => Boolean(entry));
 			if (entries.length !== 1) return { branch: undefined, failed: false };
 
 			// Check if branch created from an explicit branch
-			let match = entries[0].match(/branch: Created from (.*)$/);
+			let match = entries[0].message.match(/branch: Created from (.*)$/);
 			if (match?.length === 2) {
 				let name: string | undefined = match[1];
 				if (name !== 'HEAD') {
@@ -1691,17 +1689,15 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			}
 
 			// Check if branch was created from HEAD
-			result = await this.git.run(
-				{ cwd: repoPath, cancellation: cancellation, ...priorityOpts },
-				'reflog',
+			entries = await this.provider.refs.getReflogEntries(
+				repoPath,
 				'HEAD',
-				`--grep-reflog=checkout: moving from .* to ${ref.replace('refs/heads/', '')}`,
+				{ grep: `checkout: moving from .* to ${ref.replace('refs/heads/', '')}`, priority: priority },
+				cancellation,
 			);
-
-			entries = result.stdout.split('\n').filter(entry => Boolean(entry));
 			if (!entries.length) return { branch: undefined, failed: false };
 
-			match = entries.at(-1)!.match(/checkout: moving from ([^\s]+)\s/);
+			match = entries.at(-1)!.message.match(/checkout: moving from ([^\s]+)\s/);
 			if (match?.length === 2) {
 				let name: string | undefined = match[1];
 				if (options?.upstream) {
@@ -1719,8 +1715,18 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
 
-			// The reads use default error handling, so a spawn failure, queue rejection or swallowed
-			// `GitWarnings` match lands here rather than producing an empty answer.
+			// A ref that is unborn, or gone since it was listed, has no reflog to read: an answer, not a failure
+			const msg: string = ex?.toString() ?? '';
+			const stderr = ex instanceof GitError ? ex.stderr : undefined;
+			if (
+				[GitErrors.badRevision, GitErrors.ambiguousArgument].some(
+					error => error.test(msg) || (stderr != null && error.test(stderr)),
+				)
+			) {
+				return { branch: undefined, failed: false };
+			}
+
+			// `getReflogEntries` rejects on a failed read, so a read that never happened isn't taken as "no base"
 			return { branch: undefined, failed: true };
 		}
 
