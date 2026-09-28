@@ -50,6 +50,8 @@ export interface GitLogForPathOptions extends Omit<GitLogOptions, 'stashes'> {
 export interface GitLogShasOptions extends GitLogOptionsBase {
 	all?: boolean;
 	authors?: GitUser[];
+	/** Leaves out commits reachable from these refs, relative to `rev` (`HEAD` when omitted) — see {@link GitRefExclusions} */
+	excluding?: GitRefExclusions;
 	merges?: boolean | 'first-parent';
 	pathOrUri?: string | Uri;
 	reverse?: boolean;
@@ -69,8 +71,8 @@ export interface IncomingActivityOptions extends GitLogOptionsBase {
 }
 
 /**
- * Refs whose commits a history read leaves out, as `--not`. `branches`/`remotes`/`tags` exclude every
- * ref in that namespace; `except` carves full ref names or globs (`refs/heads/feat`, `refs/remotes/origin/*`)
+ * Refs whose commits a history read (`getCommitCount`, `getLogShas`) leaves out, as `--not`.
+ * `branches`/`remotes`/`tags` exclude every ref in that namespace; `except` carves full ref names or globs (`refs/heads/feat`, `refs/remotes/origin/*`)
  * back out of an enabled namespace and is ignored otherwise; `refs` are further revisions, passed verbatim.
  * A read is cached until a branch, remote-tracking branch or tag changes, so a `refs` entry outside those namespaces
  * (a tool's own `refs/<tool>/…`) can move without refreshing it: pass that ref's SHA instead, which keys a new read.

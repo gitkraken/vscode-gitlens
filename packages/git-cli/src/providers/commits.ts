@@ -1389,9 +1389,14 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
 				}
 
+				const excludeArgs = getRefExclusionArgs(options.excluding);
 				if (rev && !isUncommittedStaged(rev)) {
 					args.push(rev);
+				} else if (excludeArgs.length) {
+					// A bare `--not` lists nothing, so anchor the exclusion to HEAD
+					args.push('HEAD');
 				}
+				args.push(...excludeArgs);
 
 				args.push('--');
 
@@ -1421,7 +1426,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		if (cacheable) {
 			return this.cache.logShas.getOrCreate(
 				repoPath,
-				`${rev ?? ''}:${options.ordering ?? ''}:${options.limit}:${options.merges}:${options.since ?? ''}`,
+				`${rev ?? ''}:${options.ordering ?? ''}:${options.limit}:${options.merges}:${options.since ?? ''}${options.excluding == null ? '' : `:${getRefExclusionsKey(options.excluding)}`}`,
 				() => getCore(),
 			);
 		}
