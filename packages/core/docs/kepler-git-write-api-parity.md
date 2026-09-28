@@ -14,6 +14,9 @@ no method for, or had one whose contract did not fit. Each such site stayed on `
 comment naming the missing API. This document is the list of those APIs, what was added for each, and what was
 deliberately left alone.
 
+§1–§9 were the first round. §10–§19 are the second: the commands Kepler still ran raw once the first round
+shipped, each because a typed method lacked one option or one behavior.
+
 Verdict legend: **added** (a typed method now exists) · **extended** (an existing method gained the missing
 option) · **deferred** (left on the raw escape hatch on purpose, with the reason).
 
@@ -169,6 +172,105 @@ is the fix when the consumer made the change; `force` is for a read that must be
 - `validateReference`'s `relativePath` moved into the options object, and `getBranch` / `getReference` take
   options before `cancellation`, matching `getStatus`.
 
+## 10. An inherited git environment — fixed
+
+A host launched by git (a hook, a `rebase -x` step, an editor opened as `GIT_EDITOR`) inherits that
+repository's `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE` and friends, and git lets them override the working
+directory, so every command core ran targeted the launching repository. The base environment now drops
+`GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_COMMON_DIR`, `GIT_OBJECT_DIRECTORY`,
+`GIT_ALTERNATE_OBJECT_DIRECTORIES` and `GIT_NAMESPACE` from the inherited `process.env`, plus the state git
+hands a child about its own command: `GIT_CONFIG_PARAMETERS` (its `-c` options), `GIT_EXEC_PATH`, `GIT_PREFIX`
+and `GIT_REFLOG_ACTION`. None is worth keeping when set deliberately: a `GIT_DIR` would point every repository
+the host opens at one. `GIT_AUTHOR_*` / `GIT_COMMITTER_*` are different, since a deliberate identity (direnv,
+say) breaks nothing, so they are dropped only when git launched the host, which it always marks by exporting
+`GIT_EXEC_PATH`: an editor opened for `commit --amend` inherits that commit's author and date. `GIT_CONFIG_COUNT` /
+`GIT_CONFIG_KEY_<n>` / `GIT_CONFIG_VALUE_<n>` are kept: git never sets them itself, so inherited ones are the
+user's deliberate configuration. Only the inherited environment is scrubbed; a host's `env`, `getEnvironment()`
+and a per-call `env` can still set any of these, as temporary-index staging does with `GIT_INDEX_FILE`.
+
+## 11. Run options on stash and clean — extended
+
+`stash.applyStash`, `stash.saveStash` and `staging.clean` take the trailing `runOptions` (`env`,
+`cancellation`, `timeout`) every other long-running operation already did. No typed default changed: see the
+timeout decision below.
+
+## 12. A raw run that announces its own change — added
+
+`git.run({ notify })` calls the provider's `notifyChanged` once the run settles, succeeded or failed (a
+command that fails partway may still have moved something). An explicit `RepositoryChange[]` announces exactly
+that. `'infer'` classifies the argv: read-only and object-store-only commands announce nothing, a write
+announces its verb's changes for the repository it ran in (the `-C` target when given). Run under `-C`, a
+write also announces to the caller's own tree the kinds every worktree sharing that `.git` sees (`heads`,
+`tags`, `stash`, `remotes`, `worktrees`, `config`), since the target may be a worktree the cache never
+registered; its HEAD, index, paused operation and FETCH_HEAD are the target's alone. A write it can't
+classify resets both trees in full. Unset, nothing is classified and the run takes the same path as before.
+
+## 13. Fetch with explicit refspecs, and without FETCH_HEAD — extended
+
+- `ops.fetch(repoPath, { remote, refspecs, prune? })` passes the refspecs verbatim after the remote
+  (`+refs/heads/x:refs/remotes/o/x`, `upstream:local`). It never adds `-u`, so git keeps refusing to write
+  into a checked-out branch, which a caller fast-forwarding a branch checked out nowhere relies on. A refspec
+  whose destination is a local branch or tag also announces `heads` or `tags`. The type refuses `refspecs`
+  beside `branch`, `all` or `pull`.
+- `preserveFetchHead` passes `--no-write-fetch-head`, on every form of fetch. A checkout has one
+  `FETCH_HEAD`, and a user's own `git pull` reads it back right after its fetch, so a background fetch landing
+  in between breaks that pull. Git older than 2.29 has no such flag; there the option is ignored rather than
+  failing the fetch.
+
+## 14. Clone into an exact folder — extended
+
+`clone(url, parentPath, { folderName }, runOptions)`, on both core's `GitProvider` and GitLens's
+`GlGitProvider`. `folderName` is used as given, with no numbering past a taken name, so git's own refusal of a
+non-empty folder surfaces. Without it the folder is derived from the URL and numbered as before. `runOptions`
+carries the clone's credentials, cancellation and timeout.
+
+## 15. Status without untracked detail or branch state — extended
+
+`status.getStatus(repoPath, { untracked: 'no' | 'normal' | 'all', branch: false })`. `untracked` picks git's
+`-u` mode (default `all`, as before). `branch: false` skips `--branch`, whose ahead/behind against the upstream
+is the slow part on a large divergence; the result's `branch`, `sha`, `upstream` and `detached` are then unset
+and mean nothing. A narrower read gets its own dedup key, so a full-status caller never joins it and loses
+files. `GIT_OPTIONAL_LOCKS=0` was already set on every status read, so there is no lock option.
+
+## 16. A reflog read filtered by message — added
+
+`refs.getReflogEntries(repoPath, ref, { grep? })` returns `{ sha, message }` per entry, newest first, where
+`grep` is git's `--grep-reflog` pattern. It resolves `[]` when nothing matches or the ref has no reflog, and
+rejects when the read fails, so a caller can tell "no answer" from "never read". It runs `reflog show <ref> --`,
+not `reflog <ref>`: a branch named `delete`, `expire` or `exists` would otherwise run that subcommand, and one
+named like a tracked file would fail as ambiguous. Core's own base-branch inference moved onto it, which
+fixed both cases there.
+
+## 17. Commit counts that exclude other refs — extended
+
+`commits.getCommitCount(repoPath, rev, { excluding: { branches?, remotes?, tags?, refs?, except? } },
+cancellation?)` counts what `rev` has that other refs don't, such as what deleting a branch would orphan.
+`branches` / `remotes` / `tags` exclude a whole namespace, `refs` adds revisions verbatim, and `except` takes
+full ref names back out of an excluded namespace. Core rewrites each `except` entry to the short form and
+places it right before its own `--branches` / `--remotes` / `--tags`, because git matches `--exclude` against
+the short name and applies it only to the next pseudo-ref option. The spelling that reads naturally,
+`--exclude=refs/heads/x --branches`, excludes nothing. The GitHub provider returns `undefined` for an excluding
+count, which its API cannot answer. A count is cached until a branch, remote-tracking branch or tag changes,
+so a `refs` entry outside those namespaces (a tool's own `refs/<tool>/…`) can move without refreshing it;
+pass its SHA instead, which keys a new read.
+
+**Breaking:** `getCommitCount` takes `options` before `cancellation`.
+
+## 18. The empty tree in the repository's object format — added / fixed
+
+The empty tree's id differs between SHA-1 and SHA-256 repositories, and core hardcoded the SHA-1 one as
+`rootSha`, so every diff against a root commit's missing parent failed in a SHA-256 repository.
+`revision.getEmptyTreeSha(repoPath)` computes it with `hash-object -t tree --stdin` (no `-w`; git knows the
+empty tree without storing it), once per repository and shared across its worktrees. Every `rootSha` use now
+goes through it, and `rootSha` is removed. GitHub repositories are always SHA-1.
+
+**Breaking:** `rootSha` is removed from `@gitlens/git/models/revision`.
+
+## 19. A link's clone of a large repository — fixed (GitLens)
+
+Not a Kepler gap, found alongside §14: GitLens's deep-link clone ran under `gitlens.advanced.git.timeout` and
+died partway through a large repository. It now runs uncapped, from a cancellable progress notification.
+
 ## Overlaps with existing APIs, and how each was settled
 
 - **Refs containing a sha.** `branches.getBranchesWithCommits(repoPath, [sha], undefined, { all, mode })` and
@@ -184,6 +286,13 @@ is the fix when the consumer made the change; `force` is for a read that must be
   compare-and-swap form for any namespace, and shares the branch cleanup with `deleteLocalBranch`.
 - **Clearing caches.** `evictCaches` stays beside `clearCaches`: a write hard-evicts, a watcher clear keeps
   sharing in-flight reads (see the decisions below).
+- **Reflog reads.** `getReflogEntries` stays beside `commits.getIncomingActivity`, which walks `HEAD`'s reflog
+  for merges and pulls, pages, and aggregates; a message grep on it would change its paging. Core's private
+  reflog greps were folded into `getReflogEntries` rather than kept.
+- **Dirty checks.** `getStatus({ untracked, branch: false })` stays beside `status.hasWorkingChanges`, which
+  answers yes/no with early exits; a caller counting files needs the list.
+- **Unpushed commits.** `getCommitCount({ excluding })` stays beside `hasUnpublishedCommits` /
+  `filterUnpublishedShas`, which are early-exit probes against remotes alone and count nothing.
 
 ## Deferred, deliberately
 
@@ -191,10 +300,6 @@ is the fix when the consumer made the change; `force` is for a read that must be
   `hash-object -w --stdin`, `cat-file -p`). The libraries drive these through `exec` with a scratch
   `GIT_INDEX_FILE` and parse the results themselves; a typed surface would re-encode the same argv with more
   room to drift. Revisit when a second consumer needs them.
-- **A reflog read filtered by message.** Kepler reads `git reflog <branch> --grep-reflog='branch: Created from'`
-  to recover a branch's creation point. `getIncomingActivity` walks `HEAD`'s reflog for a different purpose;
-  bolting a grep onto it would change its paging. Worth its own method on `branches` once the base-branch
-  inference core already does privately is unified with it.
 - **Generic `for-each-ref` with a caller-supplied format.** The `RefRecord` shape is private on purpose.
 - **A typed `worktree remove` for every consumer.** Kept the raw form where a consumer classifies platform
   failures from stderr; §3's `original` makes the typed form usable for that too.
@@ -233,10 +338,21 @@ core rejects with:
   calls the same `notifyChanged`. `'infer'` classifies the argv (read-only and object-store-only commands
   announce nothing; a `-C` write also announces to the caller's tree what every worktree sees), for a
   consumer whose raw runs are too varied to name the changes by hand.
+- Timeouts stay the caller's. No typed operation's default was lifted to "no timeout" for this round, even
+  for fetch or clone: GitLens passes its `gitlens.advanced.git.timeout` setting as core's default, and an
+  uncapped background fetch would hang with nothing to stop it. A caller that knows an operation is long
+  passes `timeout: 0` with a cancellation, as GitLens's deep-link clone now does.
+- `except` takes full ref names and core converts them, rather than exposing git's short-form `--exclude`. The
+  short form is what every caller gets wrong, silently.
 - Staging hooks skip the temporary-index case rather than firing unconditionally. A scratch index is not the
   repository's; announcing an index change for it would invalidate status for nothing.
 
 **Kepler-side follow-up**, once a core release carries these: serve sync-tools' `updateRef` op through
 `updateReference` / `deleteReference` (mapping in §1), delete the review ref with `deleteReference`, drop the
-verb classifier in `core-git-port.ts` in favour of `notifyChanged`, and retire the remaining
-`TODO(core-gitlens)` residuals.
+verb classifier in `core-git-port.ts` in favour of `git.run({ notify: 'infer' })`, and drop its interim
+environment scrub (§10). Then move the second round's raw sites onto their typed forms: credential fetches onto
+`fetch({ remote, refspecs, preserveFetchHead: true })` (§13), the clone onto `clone(..., { folderName }, { env,
+timeout: 0 })` (§14), the porcelain count onto `getStatus({ untracked: 'normal', branch: false, force: true })`
+(§15), the creation probe onto `getReflogEntries` (§16), the unpushed count onto `getCommitCount({ excluding })`
+(§17, which also fixes its always-zero `--exclude`), and the object-format probe onto `getEmptyTreeSha` (§18).
+Then retire the remaining `TODO(core-gitlens)` residuals.
