@@ -89,7 +89,7 @@ export class WebviewPane extends LitElement {
 
 			.icon {
 				margin: 0 var(--gl-space-2);
-				font-weight: normal;
+				font-weight: var(--gl-font-weight-regular);
 			}
 
 			.content {

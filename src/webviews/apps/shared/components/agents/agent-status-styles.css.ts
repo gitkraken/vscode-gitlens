@@ -34,7 +34,7 @@ export const agentToolStyles = css`
  *  surrounding phase label. */
 export const agentPhaseElapsedStyles = css`
 	.agent-phase-elapsed {
-		font-weight: normal;
+		font-weight: var(--gl-font-weight-regular);
 		text-transform: none;
 		letter-spacing: 0;
 	}

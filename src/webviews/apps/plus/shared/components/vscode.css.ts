@@ -2,7 +2,7 @@ import { css } from 'lit';
 
 export const linkStyles = css`
 	a {
-		font-weight: 400;
+		font-weight: var(--gl-font-weight-regular);
 		color: var(--link-foreground);
 		text-decoration: var(--link-decoration-default, none);
 		outline: none;

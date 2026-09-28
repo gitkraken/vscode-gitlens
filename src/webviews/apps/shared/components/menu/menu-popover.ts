@@ -47,7 +47,7 @@ export class GlMenuPopover extends GlElement {
   webview-pane title), so reset them here or the menu rows inherit that styling. */
 		menu-list {
 			padding: var(--gl-space-2) 0;
-			font-weight: normal;
+			font-weight: var(--gl-font-weight-regular);
 			text-transform: none;
 			letter-spacing: normal;
 			background: transparent;

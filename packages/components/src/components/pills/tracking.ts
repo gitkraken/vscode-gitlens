@@ -54,7 +54,7 @@ export class GlTrackingPill extends LitElement {
 			.working {
 				display: inline-block;
 				width: 1rem;
-				font-weight: normal;
+				font-weight: var(--gl-font-weight-regular);
 				vertical-align: text-bottom;
 				text-align: center;
 			}

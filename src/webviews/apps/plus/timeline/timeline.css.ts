@@ -28,7 +28,7 @@ export const timelineBaseStyles = css`
 	}
 
 	b {
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 	}
 
 	p {
@@ -48,13 +48,13 @@ export const timelineBaseStyles = css`
 	}
 
 	h2 {
-		font-weight: 400;
+		font-weight: var(--gl-font-weight-regular);
 	}
 
 	h3 {
 		margin-bottom: 0;
 		font-size: 1.5rem;
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		color: var(--color-view-header-foreground);
 		white-space: nowrap;
 		border: none;
@@ -63,7 +63,7 @@ export const timelineBaseStyles = css`
 	h4 {
 		margin: 0.5rem 0 1rem;
 		font-size: 1.5rem;
-		font-weight: 400;
+		font-weight: var(--gl-font-weight-regular);
 	}
 `;
 

@@ -89,7 +89,7 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 
 			.label {
 				font-size: 1.25rem;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground);
 			}
 

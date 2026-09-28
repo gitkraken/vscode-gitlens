@@ -54,7 +54,7 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 		}
 
 		.strip__msg strong {
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 		}
 
 		.strip__evidence {
@@ -76,7 +76,7 @@ export class GlGraphHealthBanner extends SignalWatcher(LitElement) {
 			align-items: center;
 			padding: 0 var(--gl-space-8);
 			font-size: var(--gl-font-sm);
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			line-height: 1.8rem;
 			color: var(--vscode-foreground);
 			background: color-mix(in srgb, var(--color-alert-infoBorder) 14%, transparent);

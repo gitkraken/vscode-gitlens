@@ -84,7 +84,7 @@ export class GlRefOverflowChip extends LitElement {
 		.chip__count {
 			padding-left: var(--gl-space-4);
 			font-size: 0.85em;
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 		}
 
 		.chip code-icon {

@@ -80,13 +80,13 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 				align-items: baseline;
 				margin-block-end: 0.7rem;
 				font-size: 1.25rem;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground);
 			}
 
 			.label__dirty {
 				font-size: 1.05rem;
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 				color: var(--color-foreground--65);
 			}
 
@@ -143,7 +143,7 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 				padding: 0.2rem 0.2rem 0;
 				margin: 0;
 				font-size: 1.05rem;
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 				color: var(--color-foreground--50);
 				text-transform: uppercase;
 				letter-spacing: 0.05em;

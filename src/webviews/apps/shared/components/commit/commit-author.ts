@@ -138,7 +138,7 @@ export class GlCommitAuthor extends LitElement {
 		}
 
 		.author-email {
-			font-weight: 400;
+			font-weight: var(--gl-font-weight-regular);
 			color: var(--vscode-descriptionForeground);
 
 			a {
@@ -201,7 +201,7 @@ export class GlCommitAuthor extends LitElement {
 
 		.committer-label {
 			font-size: 0.9em;
-			font-weight: 400;
+			font-weight: var(--gl-font-weight-regular);
 			color: var(--vscode-descriptionForeground);
 		}
 	`;

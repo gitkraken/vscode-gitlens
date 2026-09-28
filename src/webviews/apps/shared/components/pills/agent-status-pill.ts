@@ -474,7 +474,7 @@ the base 3-track layout. */
 				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				white-space: nowrap;
 			}
 
@@ -487,7 +487,7 @@ the base 3-track layout. */
 			}
 
 			.hover-summary-row__phase--needs-input {
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--gl-agent-pill-attention-color);
 			}
 

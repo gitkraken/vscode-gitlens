@@ -69,7 +69,7 @@ export const graphJumpToastStyles = css`
 
 	/* The message TemplateResult marks the target with <strong> (a ref name) or <code> (a sha). */
 	.toast__message strong {
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		color: var(--vscode-foreground);
 	}
 

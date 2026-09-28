@@ -111,7 +111,7 @@ export class IssuePullRequest extends GlElement {
 			flex: 1 1 60%;
 			min-width: 0;
 			margin: 0;
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			overflow-wrap: break-word;
 		}
 

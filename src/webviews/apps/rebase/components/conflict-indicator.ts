@@ -129,7 +129,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 
 			.popover__title {
 				margin: 0;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.popover__message {

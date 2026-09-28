@@ -127,7 +127,7 @@ export class GlAgentsChip extends SignalWatcher(LitElement) {
 				flex: 0 0 auto;
 				padding: 0 var(--gl-space-6) var(--gl-space-2);
 				font-size: var(--gl-font-micro);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				font-variant: all-small-caps;
 				line-height: 1;
 				/* Mixing toward the surface foreground rather than pinning a colour: one declaration then

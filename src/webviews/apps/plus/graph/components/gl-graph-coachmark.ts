@@ -133,7 +133,7 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 			gap: var(--gl-space-8);
 			align-items: center;
 			min-width: 0;
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 		}
 
 		.coachmark__icon {

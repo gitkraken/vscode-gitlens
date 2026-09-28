@@ -340,7 +340,7 @@ export const compareModePanelStyles = css`
 	}
 
 	.compare-all-notice strong {
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 	}
 
 	/* Breathing room between the AI actions row (Explain input + Generate Changelog) and the
@@ -470,7 +470,7 @@ export const compareModePanelStyles = css`
 		padding: 0.1rem 0.3rem 0.1rem 0.4rem;
 		margin: 0 var(--gl-space-6);
 		font-size: var(--gl-font-md);
-		font-weight: normal;
+		font-weight: var(--gl-font-weight-regular);
 		line-height: 1;
 		color: var(--vscode-statusBarItem-warningForeground, var(--vscode-foreground));
 		background: color-mix(
@@ -575,7 +575,7 @@ export const compareModePanelStyles = css`
 		overflow: hidden;
 		text-overflow: ellipsis;
 		font-size: var(--gl-font-micro);
-		font-weight: normal;
+		font-weight: var(--gl-font-weight-regular);
 		font-variant-numeric: tabular-nums;
 		vertical-align: middle;
 		white-space: nowrap;
@@ -759,14 +759,14 @@ export const compareModePanelStyles = css`
 	.compare-contributor__name {
 		overflow: hidden;
 		text-overflow: ellipsis;
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		white-space: nowrap;
 	}
 
 	.compare-contributor__you {
 		margin-left: 0.3rem;
 		font-size: 0.9em;
-		font-weight: 400;
+		font-weight: var(--gl-font-weight-regular);
 		color: var(--vscode-descriptionForeground);
 	}
 

@@ -179,7 +179,7 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 			}
 
 			.rule__title-type {
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.rule__title-matcher {
@@ -284,7 +284,7 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 
 			.urls__heading {
 				font-size: 1.2rem;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground);
 			}
 

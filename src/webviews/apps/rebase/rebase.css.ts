@@ -285,7 +285,7 @@ export const rebaseStyles = css`
 		.rebase-progress {
 			flex: none;
 			margin-left: auto;
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 		}
 
 		.rebase-remaining {
@@ -433,7 +433,7 @@ export const rebaseStyles = css`
 		gap: var(--gl-space-4);
 		align-items: center;
 		padding: 0.5rem 0;
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		color: var(--vscode-editorWarning-foreground, #cca700);
 	}
 
@@ -489,7 +489,7 @@ export const rebaseStyles = css`
 		kbd {
 			display: inline-block;
 			font-family: var(--vscode-font-family);
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			line-height: 1.4;
 			vertical-align: middle;
 			color: var(--vscode-keybindingLabel-foreground);

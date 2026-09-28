@@ -58,7 +58,7 @@ export class GlGraphComparePinned extends LitElement {
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-size: var(--gl-font-lg);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
 				white-space: nowrap;
 			}

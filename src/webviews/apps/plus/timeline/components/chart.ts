@@ -276,7 +276,7 @@ export class GlTimelineChart extends GlElement {
 			overflow: hidden;
 			text-overflow: ellipsis;
 			font-size: var(--gl-font-sm);
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			white-space: nowrap;
 		}
 
@@ -296,7 +296,7 @@ export class GlTimelineChart extends GlElement {
 		}
 
 		.rail-tooltip__name {
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 		}
 
 		.rail-tooltip__meta {
@@ -482,7 +482,7 @@ export class GlTimelineChart extends GlElement {
 
 		.tooltip .tooltip__author {
 			margin-bottom: var(--gl-space-2);
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 		}
 
 		.tooltip .tooltip__row {

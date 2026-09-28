@@ -120,7 +120,7 @@ export class GlAutocomplete extends LitElement {
 			.autocomplete-item__primary {
 				font-family: var(--vscode-editor-font-family);
 				font-size: 0.9em;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.autocomplete-item.selected .autocomplete-item__primary {
@@ -185,7 +185,7 @@ export class GlAutocomplete extends LitElement {
 			}
 
 			.autocomplete-item.help .autocomplete-item__primary {
-				font-weight: normal;
+				font-weight: var(--gl-font-weight-regular);
 				color: var(--vscode-descriptionForeground);
 			}
 

@@ -548,7 +548,7 @@ would expose the graph through fade or at the gap left by the translate). */
 				min-height: 2.2rem;
 				padding: 0 0 0 var(--gl-space-4);
 				font-size: var(--gl-font-sm);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-view-header-foreground);
 				text-transform: uppercase;
 				background-color: var(--color-view-background);

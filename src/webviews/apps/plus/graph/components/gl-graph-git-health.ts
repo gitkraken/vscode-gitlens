@@ -249,7 +249,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 			overflow: hidden;
 			text-overflow: ellipsis;
 			font-size: var(--gl-font-sm);
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			text-transform: uppercase;
 			white-space: nowrap;
 		}
@@ -341,7 +341,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 
 		.verdict-title {
 			font-size: 1.6rem;
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			line-height: 2.4rem;
 		}
 
@@ -361,7 +361,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		}
 
 		.verdict-facts b {
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			font-variant-numeric: tabular-nums;
 			color: var(--vscode-foreground);
 		}
@@ -408,7 +408,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 
 		.card-title {
 			font-size: var(--gl-font-lg);
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 		}
 
 		.card-action {
@@ -555,7 +555,7 @@ export class GlGraphGitHealth extends SignalWatcher(LitElement) {
 		}
 
 		.meter-labels b {
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			font-variant-numeric: tabular-nums;
 			color: var(--vscode-foreground);
 		}

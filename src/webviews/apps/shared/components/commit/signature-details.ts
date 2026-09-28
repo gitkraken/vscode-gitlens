@@ -35,7 +35,7 @@ export class GlSignatureDetails extends LitElement {
 			flex: 1;
 			flex-direction: column;
 			gap: 0.25rem;
-			font-weight: 400;
+			font-weight: var(--gl-font-weight-regular);
 		}
 
 		.signature-status-message {

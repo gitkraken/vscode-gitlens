@@ -490,7 +490,7 @@ here so the avatar state can use the shipped codicon font via <code-icon>. */
 				width: 18px;
 				height: 18px;
 				font-size: 0.9rem;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground);
 				text-transform: uppercase;
 			}

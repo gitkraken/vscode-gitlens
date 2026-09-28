@@ -95,7 +95,7 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 			.header span {
 				padding-block-end: var(--gl-space-4);
 				font-size: 1.1rem;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground--65);
 				text-transform: uppercase;
 				letter-spacing: 0.04em;
@@ -116,7 +116,7 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 				grid-column: 1 / -1;
 				padding-block: var(--gl-space-8) var(--gl-space-2);
 				font-size: 1.05rem;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground--50);
 				text-transform: uppercase;
 				letter-spacing: 0.04em;
@@ -148,7 +148,7 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 
 			.row__not-detected {
 				font-size: 1rem;
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 			}
 
 			.cell__status {

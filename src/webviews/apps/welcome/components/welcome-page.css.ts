@@ -137,7 +137,7 @@ const section = css`
 
 	.section h2 {
 		font-size: var(--p-font-size);
-		font-weight: normal;
+		font-weight: var(--gl-font-weight-regular);
 		color: var(--heading-color);
 	}
 

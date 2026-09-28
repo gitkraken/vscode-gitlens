@@ -36,7 +36,7 @@ export const segmentedStyles = css`
 	/* Fill + weight, not color alone, distinguish the selected segment;
 	   the contrast border keeps it visible in high-contrast themes. */
 	.segment[aria-checked='true'] {
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		color: var(--vscode-button-foreground);
 		background-color: var(--vscode-button-background);
 		border-color: var(--vscode-contrastBorder, transparent);

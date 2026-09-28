@@ -73,7 +73,7 @@ export const chipStyles = css`
 		flex: 1;
 		margin: 0;
 		font-size: var(--gl-font-lg);
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		line-height: 1.7;
 
 		small {

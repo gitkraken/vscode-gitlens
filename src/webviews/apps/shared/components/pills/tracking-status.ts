@@ -19,7 +19,7 @@ export class GlTrackingStatus extends LitElement {
 		.pill {
 			--gl-pill-border: color-mix(in srgb, transparent 80%, var(--color-foreground));
 
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 		}
 
 		.tracking__tooltip {

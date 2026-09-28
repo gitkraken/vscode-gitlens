@@ -5,7 +5,7 @@ export const badgeBase = css`
 		display: inline-flex;
 		padding: 0 0.8rem 0.1rem;
 		font-size: var(--gl-badge-font-size, x-small);
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		font-variant: all-small-caps;
 		color: var(--gl-badge-color, var(--color-foreground--50));
 		white-space: nowrap;
@@ -76,7 +76,7 @@ export const badgeBase = css`
 		align-items: center;
 		justify-content: center;
 		padding: 0.1rem 0.6rem;
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		font-variant: normal;
 		color: var(--vscode-editorWarning-foreground, var(--color-foreground--65));
 		letter-spacing: 0.06em;

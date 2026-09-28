@@ -76,7 +76,7 @@ export class GlPopoverConfirm extends LitElement {
 			.confirm-popover__title {
 				margin: 0;
 				font-size: var(--gl-font-base);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				line-height: 1.4;
 			}
 

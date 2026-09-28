@@ -459,7 +459,7 @@ toolbar widget heights so the row stays tight. The inner gl-button's
 			}
 
 			:host([aria-current='page']) {
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--vscode-foreground);
 			}
 

@@ -203,7 +203,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-size: var(--gl-font-lg);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				line-height: 1.35;
 				white-space: nowrap;
 			}
@@ -305,7 +305,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 				align-items: center;
 				padding: 0.2rem 0.6rem;
 				font-size: var(--gl-font-sm);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				white-space: nowrap;
 				border: var(--gl-border-width) solid currentColor;
 				border-radius: var(--gl-radius-sm);
@@ -471,7 +471,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 			.sec__title {
 				margin: 0;
 				font-size: var(--gl-font-sm);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground--65);
 				text-transform: uppercase;
 				letter-spacing: 0.05em;

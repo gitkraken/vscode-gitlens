@@ -180,7 +180,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			.title__id {
 				flex: none;
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 				font-variant-numeric: tabular-nums;
 				color: var(--color-foreground--65);
 			}
@@ -194,7 +194,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 				height: 1.5rem;
 				padding: 0 var(--gl-space-4);
 				font-size: var(--gl-font-micro);
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 				font-variant-numeric: tabular-nums;
 				line-height: 1;
 				color: var(--color-foreground--65);
@@ -218,7 +218,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			.subtitle__state {
 				flex: none;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.subtitle__author {
@@ -331,7 +331,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			/* The heading row's right-side annotation keeps normal casing. */
 			.section-label__aside {
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 				text-transform: none;
 				letter-spacing: normal;
 			}
@@ -473,7 +473,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 
 			.verdict__title {
 				align-self: center;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				line-height: 1.2;
 				color: var(--verdict-accent);
 			}
@@ -721,7 +721,7 @@ export class GlGraphPrSheet extends SheetWrapper(LitElement) {
 			}
 
 			.stack-rail__position--current {
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground);
 			}
 		`,

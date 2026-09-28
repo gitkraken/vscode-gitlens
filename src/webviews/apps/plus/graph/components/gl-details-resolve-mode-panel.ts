@@ -220,7 +220,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 
 			.auto-rebase__title {
 				flex: none;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.auto-rebase__onto {
@@ -277,7 +277,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-progress__done {
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.resolve-progress__sep {
@@ -285,7 +285,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-progress__need {
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--vscode-editorWarning-foreground, #cca700);
 			}
 
@@ -397,7 +397,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				flex: 1;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				white-space: nowrap;
 			}
 
@@ -463,7 +463,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				white-space: nowrap;
 			}
 

@@ -233,7 +233,7 @@ export const reviewModePanelStyles = css`
 		flex: 1 1 auto;
 		min-width: 0;
 		font-size: var(--gl-font-base);
-		font-weight: normal;
+		font-weight: var(--gl-font-weight-regular);
 		color: var(--vscode-foreground);
 		text-transform: uppercase;
 	}

@@ -44,7 +44,7 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 		.title {
 			margin: 0;
 			font-size: var(--gl-font-lg);
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 		}
 
 		.description {

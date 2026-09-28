@@ -237,7 +237,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			.identity__name {
 				margin: 0;
 				font-size: 1.5rem;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground);
 			}
 
@@ -246,7 +246,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-size: var(--gl-font-md);
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 				color: var(--color-foreground--65);
 				white-space: nowrap;
 			}
@@ -318,7 +318,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			.plan__title {
 				margin: 0;
 				font-size: var(--gl-font-lg);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground);
 			}
 
@@ -383,7 +383,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 			.plan__features-title {
 				margin-block: 0 var(--gl-space-10);
 				font-size: 1.05rem;
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 				color: var(--color-foreground--50);
 				text-transform: uppercase;
 				letter-spacing: 0.06em;
@@ -463,7 +463,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				flex: 1;
 				margin: 0;
 				font-size: var(--gl-font-base);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground);
 			}
 
@@ -670,7 +670,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-size: var(--gl-font-base);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground);
 				white-space: nowrap;
 			}

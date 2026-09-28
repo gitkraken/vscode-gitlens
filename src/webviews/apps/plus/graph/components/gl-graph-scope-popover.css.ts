@@ -182,7 +182,7 @@ export const graphScopePopoverStyles = css`
 	.mode-popover__section-title {
 		flex: 1;
 		font-size: var(--gl-font-micro);
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		color: var(--vscode-menu-foreground, var(--color-foreground));
 		text-transform: uppercase;
 		letter-spacing: 0.5px;

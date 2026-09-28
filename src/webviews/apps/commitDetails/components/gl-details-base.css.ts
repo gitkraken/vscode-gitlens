@@ -100,7 +100,7 @@ export const detailsBaseStyles = [
 
 		.message-block__text strong {
 			font-size: var(--gl-font-lg);
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 		}
 
 		.message-block__copy {
@@ -244,7 +244,7 @@ export const detailsBaseStyles = [
 		}
 
 		.reachability-range-chip--local-branch {
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			color: var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, #4ec9b0);
 		}
 
@@ -257,7 +257,7 @@ export const detailsBaseStyles = [
 		}
 
 		.reachability-range-chip--current .reachability-range-chip__label {
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 		}
 
 		.reachability-range-chip__label {
@@ -284,7 +284,7 @@ export const detailsBaseStyles = [
 		.reachability-range-chip__count {
 			padding-left: var(--gl-space-4);
 			font-size: var(--gl-font-micro);
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			color: var(--color-foreground--50);
 		}
 
@@ -316,7 +316,7 @@ export const detailsBaseStyles = [
 		}
 
 		.reachability-list-item--current {
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 		}
 
 		.reachability-list-item__icon {

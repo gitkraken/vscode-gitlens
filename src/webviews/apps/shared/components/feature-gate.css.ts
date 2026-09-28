@@ -221,7 +221,7 @@ export const featureGateContentStyles = css`
 		align-items: baseline;
 		margin: 0;
 		font-size: 1.6rem;
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		line-height: 1.2;
 		color: var(--color-foreground);
 	}

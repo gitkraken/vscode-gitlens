@@ -100,7 +100,7 @@ export const bannerStyles = css`
 
 	.banner--gradient-purple .banner__title {
 		font-size: var(--gl-font-base);
-		font-weight: normal;
+		font-weight: var(--gl-font-weight-regular);
 		color: var(--vscode-foreground);
 	}
 

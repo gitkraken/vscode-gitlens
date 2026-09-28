@@ -120,7 +120,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			.chip {
 				padding-right: var(--gl-space-6);
 				font-size: var(--gl-font-sm);
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 				line-height: 2rem;
 				text-transform: uppercase;
 				background-color: var(--gl-rollup-raised);
@@ -297,13 +297,13 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			.details__title {
 				margin: 0;
 				font-size: var(--gl-font-base);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.details__subtitle {
 				margin: 0;
 				font-size: var(--gl-font-sm);
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 				color: var(--color-foreground--65);
 			}
 
@@ -324,7 +324,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				height: 2.4rem;
 				margin-right: var(--gl-space-6);
 				font-size: var(--gl-font-micro);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				line-height: 2.4rem;
 				color: var(--color-foreground--65);
 				background-color: var(--vscode-toolbar-hoverBackground);

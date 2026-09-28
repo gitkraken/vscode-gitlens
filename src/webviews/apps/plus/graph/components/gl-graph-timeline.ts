@@ -78,7 +78,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		.header-row__title {
 			flex: none;
 			font-size: var(--gl-font-sm);
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			text-transform: uppercase;
 			white-space: nowrap;
 		}

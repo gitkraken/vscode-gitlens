@@ -40,7 +40,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			.chip__label {
 				margin-right: var(--gl-space-4);
 				font-size: var(--gl-font-sm);
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 				color: var(--color-foreground--75);
 				text-transform: uppercase;
 			}

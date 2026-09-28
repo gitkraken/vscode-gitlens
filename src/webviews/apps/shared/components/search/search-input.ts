@@ -241,7 +241,7 @@ export class GlSearchInput extends GlElement {
 
 		/* CSS Custom Highlight API for operators */
 		::highlight(search-operators) {
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			color: var(--vscode-textLink-foreground);
 		}
 

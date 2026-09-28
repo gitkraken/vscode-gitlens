@@ -419,7 +419,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			.heading {
 				margin-block: 0;
 				font-size: var(--gl-font-lg);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--vscode-foreground);
 				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 60ms both;
 			}
@@ -600,7 +600,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			.setup__label {
 				margin-block: 0 var(--gl-space-6);
 				font-size: var(--gl-font-sm);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--vscode-foreground);
 			}
 
@@ -623,7 +623,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			}
 
 			.setup-card__title {
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--vscode-foreground);
 			}
 
@@ -660,7 +660,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			.layout__question {
 				margin: 0;
 				font-size: var(--gl-font-sm);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--vscode-foreground);
 			}
 
@@ -707,7 +707,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			}
 
 			.layout__option-label {
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.layout__illustration {
@@ -804,7 +804,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 
 			.pro-strip__title {
 				font-size: var(--gl-font-lg);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--vscode-foreground);
 			}
 

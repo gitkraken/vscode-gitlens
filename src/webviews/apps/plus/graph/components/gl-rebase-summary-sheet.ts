@@ -255,7 +255,7 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 
 			.step__label {
 				flex: none;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.step__message {
@@ -317,7 +317,7 @@ export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				white-space: nowrap;
 			}
 

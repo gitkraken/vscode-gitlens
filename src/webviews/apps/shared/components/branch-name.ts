@@ -64,7 +64,7 @@ export class GlBranchName extends LitElement {
 			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			white-space: nowrap;
 		}
 

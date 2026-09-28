@@ -222,7 +222,7 @@ export const resolveDisplayStyles = css`
 		align-items: center;
 		padding: 0.25rem 0.5rem;
 		font-size: var(--gl-font-sm);
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		font-variant: all-small-caps;
 		line-height: 1;
 		color: var(--vscode-badge-foreground);

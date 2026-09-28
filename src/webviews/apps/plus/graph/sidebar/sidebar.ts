@@ -129,7 +129,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			height: 100%;
 			padding: 0.5rem 0;
 			font-size: 9px;
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			color: var(--color-view-foreground--65);
 			background-color: var(--color-view-background);
 			border-color: var(--vscode-sideBar-border, transparent);
@@ -321,7 +321,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			flex-direction: column;
 			min-width: 14rem;
 			font-size: var(--vscode-font-size);
-			font-weight: normal;
+			font-weight: var(--gl-font-weight-regular);
 		}
 
 		/* A full-width menu row, so the default corner overhang would push the dot into the padding. */

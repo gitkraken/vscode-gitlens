@@ -120,7 +120,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 				align-items: center;
 				margin: 0;
 				font-size: var(--gl-font-lg);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.close {
@@ -172,7 +172,7 @@ export class GlGraphFeedbackDialog extends LitElement {
 
 			.field label {
 				font-size: var(--gl-font-sm);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 			}
 

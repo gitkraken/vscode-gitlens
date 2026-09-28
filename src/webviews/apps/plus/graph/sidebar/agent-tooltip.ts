@@ -71,7 +71,7 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		.header__name {
 			overflow: hidden;
 			text-overflow: ellipsis;
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			white-space: nowrap;
 		}
 

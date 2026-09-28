@@ -108,7 +108,7 @@ export class GlWipStats extends LitElement {
 				align-items: center;
 				padding: 0.1rem 0.4rem;
 				font-size: var(--gl-font-sm);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				line-height: 2rem;
 				color: var(--wip-stats-operation-foreground, #000);
 				white-space: nowrap;

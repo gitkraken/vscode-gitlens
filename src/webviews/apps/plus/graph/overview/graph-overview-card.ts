@@ -241,7 +241,7 @@ export class GlGraphOverviewCard extends LitElement {
 		}
 
 		.branch-item__name--secondary {
-			font-weight: normal;
+			font-weight: var(--gl-font-weight-regular);
 			color: var(--vscode-descriptionForeground);
 			text-decoration: none;
 		}

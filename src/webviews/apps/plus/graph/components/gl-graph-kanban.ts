@@ -170,7 +170,7 @@ horizontal column scroll and the per-column vertical scroll silently disappear. 
 				gap: var(--gl-space-8);
 				align-items: baseline;
 				font-size: var(--gl-font-base);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.header__title h2 {
@@ -178,7 +178,7 @@ horizontal column scroll and the per-column vertical scroll silently disappear. 
 				margin: 0;
 				font: inherit;
 				font-size: var(--gl-font-sm);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				text-transform: uppercase;
 				white-space: nowrap;
 			}
@@ -244,7 +244,7 @@ view (not just one control) is experimental. */
 				align-items: center;
 				padding: var(--gl-space-8) var(--gl-space-10);
 				font-size: var(--gl-font-sm);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground--65);
 				text-transform: uppercase;
 				letter-spacing: 0.04em;
@@ -268,7 +268,7 @@ view (not just one control) is experimental. */
 			.column__count {
 				margin-left: auto;
 				font-size: var(--gl-font-micro);
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 				color: var(--color-foreground--65);
 				text-transform: none;
 				letter-spacing: 0;
@@ -364,7 +364,7 @@ view (not just one control) is experimental. */
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-size: var(--gl-font-md);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				white-space: nowrap;
 			}
 

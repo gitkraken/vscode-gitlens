@@ -78,7 +78,7 @@ export class GlSettingsScmViews extends SignalWatcher(LitElement) {
 			.header span {
 				padding-block-end: var(--gl-space-4);
 				font-size: 1.1rem;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground--65);
 				text-transform: uppercase;
 				letter-spacing: 0.04em;

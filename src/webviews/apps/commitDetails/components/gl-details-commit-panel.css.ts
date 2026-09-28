@@ -114,7 +114,7 @@ export const detailsCommitPanelStyles = css`
 		gap: 0.5rem;
 		align-items: center;
 		font-size: var(--gl-font-base);
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
 	}
 
@@ -334,7 +334,7 @@ export const detailsCommitPanelStyles = css`
 		/* Stats-only cluster (actions now live on the left): keep it inset from the right edge. */
 		margin-right: 0.5rem;
 		font-size: var(--gl-font-sm);
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 	}
 
 	/* Reachability (below metadata bar) */
@@ -500,7 +500,7 @@ export const detailsCommitPanelStyles = css`
 		gap: var(--gl-space-4);
 		align-items: center;
 		font-size: var(--gl-font-sm);
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		color: var(--color-foreground--50);
 		text-transform: uppercase;
 		letter-spacing: 0.04em;

@@ -194,7 +194,7 @@ margin + matching padding-top similarly covers the section's 'padding-top' zone.
 					calc(-1 * var(--gl-panel-padding-left, 1.2rem));
 				font: inherit;
 				font-size: 0.85em;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				line-height: 1.2;
 				color: var(--vscode-descriptionForeground);
 				text-align: left;
@@ -376,7 +376,7 @@ static Agents label. Live headings retain the normal foreground summary color. *
 			}
 
 			.section__cluster-summary strong {
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--gl-agent-waiting-color);
 			}
 
@@ -468,7 +468,7 @@ cluster size a row of ringed, pulsing marks reads as noise, and that cluster ans
 				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				white-space: nowrap;
 			}
 
@@ -481,7 +481,7 @@ cluster size a row of ringed, pulsing marks reads as noise, and that cluster ans
 			}
 
 			.section__hover-phase--needs-input {
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--gl-agent-waiting-color);
 			}
 
@@ -657,7 +657,7 @@ distinguishable in FORM, not just color, and stay so with prefers-reduced-motion
 				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				white-space: nowrap;
 			}
 
@@ -670,7 +670,7 @@ distinguishable in FORM, not just color, and stay so with prefers-reduced-motion
 			}
 
 			.card__phase--needs-input {
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--gl-agent-waiting-color);
 			}
 

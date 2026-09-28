@@ -209,7 +209,7 @@ export const entryStyles = css`
 		flex-wrap: wrap;
 		gap: var(--gl-space-4);
 		align-items: center;
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor, #c74e39);
 
 		hr {

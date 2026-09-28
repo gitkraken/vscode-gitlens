@@ -162,7 +162,7 @@ export const graphBranchSheetPaneStyles = css`
 		min-width: 0;
 		max-width: 100%;
 		padding: 0;
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		color: inherit;
 		text-decoration: none;
 		cursor: pointer;
@@ -183,7 +183,7 @@ export const graphBranchSheetPaneStyles = css`
 	}
 
 	.relationship-card__token--muted {
-		font-weight: normal;
+		font-weight: var(--gl-font-weight-regular);
 		color: var(--color-foreground--65);
 	}
 
@@ -390,7 +390,7 @@ export const graphBranchSheetPaneStyles = css`
 		display: flex;
 		gap: var(--gl-space-6);
 		align-items: center;
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		overflow-wrap: anywhere;
 	}
 

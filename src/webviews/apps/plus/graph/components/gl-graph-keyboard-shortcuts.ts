@@ -130,7 +130,7 @@ dialog:not([open]) { display: none } and paint the closed sheet inline under the
 				align-items: center;
 				margin: 0;
 				font-size: var(--gl-font-lg);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.close {
@@ -186,7 +186,7 @@ back below that cap when the dialog itself is height-capped by a short viewport.
 			.group h3 {
 				margin: 0 0 0.7rem;
 				font-size: 1rem;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 				text-transform: uppercase;
 				letter-spacing: 0.08em;

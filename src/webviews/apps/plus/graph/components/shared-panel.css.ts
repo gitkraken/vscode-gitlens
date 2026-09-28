@@ -313,7 +313,7 @@ export const panelErrorStyles = css`
 	}
 
 	.panel-error__title {
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		color: var(--vscode-foreground);
 	}
 

@@ -134,7 +134,7 @@ otherwise the pane is taller than its grid cell and bleeds past the divider. */
 
 			.side__name {
 				flex-shrink: 0;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--vscode-foreground);
 			}
 

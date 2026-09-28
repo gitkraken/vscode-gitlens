@@ -49,7 +49,7 @@ export const settingsAppStyles = [
 		.header__title {
 			margin: 0;
 			font-size: 1.6rem;
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			line-height: 1;
 			white-space: nowrap;
 		}

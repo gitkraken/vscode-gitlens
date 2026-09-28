@@ -61,7 +61,7 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 				padding: 0.6rem 1.4rem 0.5rem;
 				margin: 0;
 				font-size: 1.05rem;
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 				color: var(--color-foreground--50);
 				text-transform: uppercase;
 				letter-spacing: 0.06em;

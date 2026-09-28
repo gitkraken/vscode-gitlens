@@ -128,7 +128,7 @@ export class GlSettingsSetup extends SignalWatcher(LitElement) {
 			.hero__title {
 				margin: 0;
 				font-size: 1.7rem;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground);
 			}
 
@@ -168,7 +168,7 @@ export class GlSettingsSetup extends SignalWatcher(LitElement) {
 				position: relative;
 				font-family: var(--vscode-editor-font-family);
 				font-size: 1.2rem;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground--65);
 			}
 
@@ -297,7 +297,7 @@ export class GlSettingsSetup extends SignalWatcher(LitElement) {
 
 			.step__title {
 				font-size: 1.25rem;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.step--done .step__title {

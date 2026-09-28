@@ -206,7 +206,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			overflow: hidden;
 			text-overflow: ellipsis;
 			font-size: var(--gl-font-sm);
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			text-transform: uppercase;
 			white-space: nowrap;
 		}

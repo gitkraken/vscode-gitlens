@@ -106,7 +106,7 @@ export class GlMergeConflictWarning extends LitElement {
 			}
 
 			.label__text--emphasized {
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.separator {
@@ -198,7 +198,7 @@ export class GlMergeConflictWarning extends LitElement {
 				--button-compact-padding: 0.1rem var(--gl-space-8);
 
 				margin-right: var(--gl-space-2);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				white-space: nowrap;
 			}
 

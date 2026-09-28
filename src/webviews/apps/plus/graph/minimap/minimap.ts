@@ -198,13 +198,13 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		#tooltip .header--title {
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			white-space: nowrap;
 		}
 
 		#tooltip .header--description {
 			font-style: italic;
-			font-weight: normal;
+			font-weight: var(--gl-font-weight-regular);
 			overflow-wrap: anywhere;
 		}
 

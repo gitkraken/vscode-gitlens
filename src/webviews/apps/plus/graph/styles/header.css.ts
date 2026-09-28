@@ -217,14 +217,14 @@ export const titlebarStyles = css`
 
 	.scope-banner__label {
 		font-size: 1.1rem;
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		letter-spacing: 0.04em;
 		text-transform: uppercase;
 		opacity: 0.85;
 	}
 
 	.scope-banner__name {
-		font-weight: 600;
+		font-weight: var(--gl-font-weight-semibold);
 		overflow-wrap: anywhere;
 	}
 

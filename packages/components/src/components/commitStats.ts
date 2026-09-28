@@ -61,7 +61,7 @@ export class CommitStats extends LitElement {
 			flex-direction: row;
 			align-items: center;
 			font-size: var(--gl-font-sm);
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 			white-space: nowrap;
 		}
 
@@ -134,7 +134,7 @@ export class CommitStats extends LitElement {
 			--code-icon-v-align: middle;
 
 			margin-inline-end: var(--gl-space-2);
-			font-weight: 600;
+			font-weight: var(--gl-font-weight-semibold);
 		}
 
 		/* Pill styles */

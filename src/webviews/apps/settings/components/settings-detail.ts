@@ -74,7 +74,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 				align-items: center;
 				margin: 0;
 				font-size: 1.6rem;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground);
 			}
 
@@ -113,7 +113,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 			.preview__label {
 				margin: 0 0 var(--gl-space-8);
 				font-size: 1.05rem;
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 				color: var(--color-foreground--50);
 				text-transform: uppercase;
 				letter-spacing: 0.06em;
@@ -143,7 +143,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 				align-items: center;
 				margin: 0;
 				font-size: 1.4rem;
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				color: var(--color-foreground);
 			}
 

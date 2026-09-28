@@ -56,7 +56,7 @@ export class GlFeatureBadge extends LitElement {
 				display: inline-block;
 				padding: 0 0.8rem 0.1rem;
 				font-size: var(--gl-feature-badge-font-size, x-small);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 				font-variant: all-small-caps;
 				color: var(--gl-feature-badge-color, currentColor);
 				white-space: nowrap;
@@ -71,7 +71,7 @@ export class GlFeatureBadge extends LitElement {
 
 			.badge-icon {
 				margin-left: var(--gl-space-4);
-				font-weight: 400;
+				font-weight: var(--gl-font-weight-regular);
 				white-space: nowrap;
 			}
 
@@ -90,7 +90,7 @@ export class GlFeatureBadge extends LitElement {
 
 			.popup-title {
 				font-size: var(--gl-font-base);
-				font-weight: 600;
+				font-weight: var(--gl-font-weight-semibold);
 			}
 
 			.popup-subtitle {
