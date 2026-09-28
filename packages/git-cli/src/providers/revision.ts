@@ -70,6 +70,21 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		});
 	}
 
+	/** `hash-object` without `-w` computes the id in the repository's format without storing anything */
+	@debug()
+	getEmptyTreeSha(repoPath: string): Promise<string> {
+		return this.cache.getEmptyTreeSha(repoPath, async () => {
+			const result = await this.git.run(
+				{ cwd: repoPath, stdin: '', errors: 'throw' },
+				'hash-object',
+				'-t',
+				'tree',
+				'--stdin',
+			);
+			return result.stdout.trim();
+		});
+	}
+
 	@gate()
 	@debug()
 	getRevisionContent(repoPath: string, path: string, rev: string): Promise<Uint8Array | undefined> {
