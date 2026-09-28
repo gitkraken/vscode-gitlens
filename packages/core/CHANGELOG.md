@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds `untracked` (`'no'`, `'normal'` or `'all'`) and `branch: false` to `status.getStatus`, for a caller that only needs the file list: `branch: false` skips `--branch`, so no upstream ahead/behind is computed, and leaves the result's branch fields unset. Defaults are unchanged (git, git-cli)
 - Adds `folderName` and a trailing `runOptions` to `clone`. `folderName` is used exactly, with no auto-numbering, so git's own refusal of a non-empty folder surfaces; without it the folder is still derived from the URL and numbered past a taken one. `runOptions` carries the clone's `env`, `cancellation` and `timeout` (git, git-cli)
 - Adds `preserveFetchHead` to `ops.fetch` (`--no-write-fetch-head`), for a fetch that must not disturb `FETCH_HEAD` before a user's own `git pull` reads it. Ignored on git older than 2.29, leaving `FETCH_HEAD` written as before (git, git-cli)
 - Adds `refspecs` to `ops.fetch`, passed verbatim after `remote` (`git fetch <remote> <refspec>...`), for fetching one ref into a chosen destination. It never adds `-u`, so git still refuses to write into a checked-out branch. A refspec that writes a local branch or tag also announces `heads` or `tags` (git, git-cli)
