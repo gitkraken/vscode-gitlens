@@ -1,6 +1,5 @@
 import type { CancellationToken } from 'vscode';
 import { l10n } from 'vscode';
-import { rootSha } from '@gitlens/git/models/revision.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { GitRepositoryService } from '../../../../git/gitRepositoryService.js';
@@ -643,7 +642,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			branchName: branch.name,
 			headSha: headSha,
 			tipSha: covered.tipSha,
-			rewriteFromSha: covered.baseParentSha ?? rootSha,
+			rewriteFromSha: covered.baseParentSha ?? (await svc.revision.getEmptyTreeSha()),
 			baseSha: covered.baseSha,
 			selectedShas: covered.shas,
 			kind: hasWip ? 'wip+commits' : 'commits-only',

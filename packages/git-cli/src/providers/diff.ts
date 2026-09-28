@@ -11,7 +11,7 @@ import type {
 } from '@gitlens/git/models/diff.js';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import type { GitRevisionRange, GitRevisionRangeNotation } from '@gitlens/git/models/revision.js';
-import { deletedOrMissing, rootSha, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { deletedOrMissing, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import {
 	parseGitApplyFiles,
 	parseGitDiff,
@@ -803,9 +803,9 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 
 		if (ref1) {
-			// <sha>^3 signals an untracked file in a stash and if we are trying to find its parent, use the root sha
+			// <sha>^3 signals an untracked file in a stash and if we are trying to find its parent, use the empty tree
 			if (ref1.endsWith('^3^')) {
-				ref1 = rootSha;
+				ref1 = await this.provider.revision.getEmptyTreeSha(repoPath);
 			}
 			params.push(isUncommittedStaged(ref1) ? '--staged' : ref1);
 		}
@@ -825,9 +825,15 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			if (match !== null) {
 				const [, ref] = match;
 
-				// If the bad ref is trying to find a parent ref, assume we hit to the last commit, so try again using the root sha
+				// If the bad ref is trying to find a parent ref, assume we hit to the last commit, so try again using the empty tree
 				if (ref === ref1 && ref?.endsWith('^')) {
-					return this.diff(repoPath, fileName, rootSha, ref2, options);
+					return this.diff(
+						repoPath,
+						fileName,
+						await this.provider.revision.getEmptyTreeSha(repoPath),
+						ref2,
+						options,
+					);
 				}
 			}
 
@@ -881,9 +887,15 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			if (match !== null) {
 				const [, matchedRef] = match;
 
-				// If the bad ref is trying to find a parent ref, assume we hit to the last commit, so try again using the root sha
+				// If the bad ref is trying to find a parent ref, assume we hit to the last commit, so try again using the empty tree
 				if (matchedRef === ref && matchedRef?.endsWith('^')) {
-					return this.diffContents(repoPath, fileName, rootSha, contents, options);
+					return this.diffContents(
+						repoPath,
+						fileName,
+						await this.provider.revision.getEmptyTreeSha(repoPath),
+						contents,
+						options,
+					);
 				}
 			}
 
