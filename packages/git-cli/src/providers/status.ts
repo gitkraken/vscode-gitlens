@@ -40,6 +40,23 @@ export function computeDeadlockBackstopMs(gitTimeout: number | undefined): numbe
 	return timeout > 0 ? timeout * 2 : disabledTimeoutBackstopMs;
 }
 
+/**
+ * A non-default `untracked`/`branch` gets its own key, so a full-status caller never joins a narrower run; the
+ * default stays `'getStatus'`, which `getStatusForPathCore`'s rename path joins.
+ */
+function getStatusReadKey(options?: { untracked?: 'no' | 'normal' | 'all'; branch?: false }): string {
+	if (options?.untracked == null && options?.branch !== false) return 'getStatus';
+
+	const parts: string[] = [];
+	if (options?.untracked != null) {
+		parts.push(`untracked=${options.untracked}`);
+	}
+	if (options?.branch === false) {
+		parts.push('branch=false');
+	}
+	return `getStatus:${parts.join(':')}`;
+}
+
 export class StatusGitSubProvider implements GitStatusSubProvider {
 	constructor(
 		private readonly context: GitServiceContext,
@@ -111,24 +128,37 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	@debug()
 	getStatus(
 		repoPath: string | undefined,
-		options?: { priority?: GitCommandPriority; force?: boolean },
+		options?: {
+			priority?: GitCommandPriority;
+			force?: boolean;
+			untracked?: 'no' | 'normal' | 'all';
+			branch?: false;
+		},
 		cancellation?: AbortSignal,
 	): Promise<GitStatus | undefined> {
 		if (repoPath == null) return Promise.resolve(undefined);
 
+		// `-u` already means `-uall`, so an explicit `'all'` shares the default run
+		const opts = options?.untracked === 'all' ? { ...options, untracked: undefined } : options;
+
 		return this.dedupeByStatusGeneration(
 			repoPath,
-			'getStatus',
+			getStatusReadKey(opts),
 			(correlationKey, signal) =>
-				this.getStatusCore(repoPath, { ...options, correlationKey: correlationKey }, signal),
+				this.getStatusCore(repoPath, { ...opts, correlationKey: correlationKey }, signal),
 			cancellation,
-			options?.force,
+			opts?.force,
 		);
 	}
 
 	private async getStatusCore(
 		repoPath: string,
-		options?: { priority?: GitCommandPriority; correlationKey?: string },
+		options?: {
+			priority?: GitCommandPriority;
+			correlationKey?: string;
+			untracked?: 'no' | 'normal' | 'all';
+			branch?: false;
+		},
 		cancellation?: AbortSignal,
 	): Promise<GitStatus | undefined> {
 		const porcelainVersion = (await this.git.supports('git:status:porcelain-v2')) ? 2 : 1;
@@ -140,6 +170,8 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 				similarityThreshold: this.context.config?.commits.similarityThreshold,
 				priority: options?.priority,
 				correlationKey: options?.correlationKey,
+				untracked: options?.untracked,
+				branch: options?.branch,
 			},
 			cancellation,
 		);
@@ -147,6 +179,15 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		const status = parseGitStatus(result.stdout, repoPath, porcelainVersion, p =>
 			joinUriPath(repoUri, normalizePath(p)),
 		);
+
+		if (options?.branch === false) {
+			// Without `--branch` a clean tree prints nothing at all, which the parser reads as no status
+			if (status == null && result.completion.status === 'exited' && result.exitCode === 0) {
+				return new GitStatus(normalizePath(repoPath), '', '', []);
+			}
+			// No branch name either, which `GitStatus` reads as detached, so there is no paused rebase to look up
+			return status;
+		}
 
 		if (status?.detached) {
 			const pausedOpStatus = await this.provider.pausedOps?.getPausedOperationStatus?.(
@@ -252,16 +293,21 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	private async statusCore(
 		repoPath: string,
 		porcelainVersion: number = 1,
-		options?: { similarityThreshold?: number | null; priority?: GitCommandPriority; correlationKey?: string },
+		options?: {
+			similarityThreshold?: number | null;
+			priority?: GitCommandPriority;
+			correlationKey?: string;
+			untracked?: 'no' | 'normal' | 'all';
+			branch?: false;
+		},
 		cancellation?: AbortSignal,
 		...pathspecs: string[]
 	): Promise<GitResult> {
-		const params = [
-			'status',
-			porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain',
-			'--branch',
-			'-u',
-		];
+		const params = ['status', porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain'];
+		if (options?.branch !== false) {
+			params.push('--branch');
+		}
+		params.push(options?.untracked != null ? `-u${options.untracked}` : '-u');
 		if (await this.git.supports('git:status:find-renames')) {
 			params.push(
 				`--find-renames${options?.similarityThreshold == null ? '' : `=${options.similarityThreshold}%`}`,
