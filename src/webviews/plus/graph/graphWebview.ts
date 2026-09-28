@@ -4586,7 +4586,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._lastAutoFetchAttemptAt = Date.now();
 			// Skip the interactive Fetch wizard (and its progress notification) — auto-fetch is silent
 			// by design; the live "Fetch (now)" label will reflect completion via the lastFetched event.
-			await repo.git.fetch({ progress: false });
+			// `preserveFetchHead`, as a timed fetch landing mid-way through the user's own `git pull` would
+			// swap out the FETCH_HEAD that pull is about to merge
+			await repo.git.fetch({ preserveFetchHead: true, progress: false });
 			this.host.sendTelemetryEvent('graph/autoFetch', {
 				intervalSeconds: intervalSeconds,
 				sinceLastFetchedMs: sinceLastFetchedMs,

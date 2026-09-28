@@ -371,6 +371,7 @@ export class GitRepositoryService {
 	async fetch(options?: {
 		all?: boolean;
 		branch?: GitBranchReference;
+		preserveFetchHead?: boolean;
 		progress?: boolean;
 		prune?: boolean;
 		pull?: boolean;
@@ -399,6 +400,7 @@ export class GitRepositoryService {
 	private async fetchCore(options?: {
 		all?: boolean;
 		branch?: GitBranchReference;
+		preserveFetchHead?: boolean;
 		prune?: boolean;
 		pull?: boolean;
 		remote?: string;
