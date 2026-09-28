@@ -3,6 +3,7 @@ export type GitFeatures =
 	| 'git:checkout:pathspec-from-file'
 	| 'git:commit-graph'
 	| 'git:commit-graph:changed-paths'
+	| 'git:fetch:no-write-fetch-head'
 	| 'git:for-each-ref:worktreePath'
 	| 'git:fsmonitor'
 	| 'git:fsmonitor:linux'
@@ -49,6 +50,7 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	// Changed-path Bloom filters (`--changed-paths`), the v2 filter format — pre-2.31 shipped Bloom filters
 	// with real correctness bugs (bad results for merge commits), so 2.31 is the safe floor to write them.
 	['git:commit-graph:changed-paths', '2.31'],
+	['git:fetch:no-write-fetch-head', '2.29'],
 	['git:for-each-ref:worktreePath', '2.23'],
 	// `core.fsmonitor=true` selects the built-in FSMonitor daemon (accepting a bool rather than only a
 	// hook path). This 2.37 floor is the Windows + macOS one.
