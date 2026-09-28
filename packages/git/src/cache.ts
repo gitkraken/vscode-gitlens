@@ -733,6 +733,8 @@ export class Cache implements Disposable {
 				// `branch`/`branches` cascade above clears for.
 				keysToClear.add('commit');
 				keysToClear.add('commitCount');
+				// Same drift for a tag-named rev, and a `getLogShas` excluding tags lists different commits once a tag moves
+				keysToClear.add('logShas');
 				// Keyed by the revision as given, so a tag name resolves to wherever the tag pointed when first read
 				keysToClear.add('resolvedRevisions');
 			}

@@ -237,3 +237,34 @@ suite('CommitsSubProvider.getCommitCount — excluding', () => {
 		assert.strictEqual(count, 2);
 	});
 });
+
+suite('CommitsSubProvider.getLogShas — excluding', () => {
+	let repo: TestRepo;
+	const shas: string[] = [];
+
+	suiteSetup(() => {
+		repo = createTestRepo(); // main has one commit
+		createBranch(repo.path, 'feat', { checkout: true });
+		for (const name of ['a', 'b', 'c']) {
+			addCommit(repo.path, `${name}.txt`, name, `feat commit ${name}`);
+			shas.push(getHeadSha(repo.path));
+		}
+		execFileSync('git', ['update-ref', 'refs/heads/up', shas[0]], { cwd: repo.path, stdio: 'pipe' });
+		checkout(repo.path, 'main');
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+	});
+
+	test('lists what rev has beyond the upstream and the target, and agrees with getCommitCount', async () => {
+		const excluding = { refs: ['up', 'main'] };
+
+		const list = [...(await repo.provider.commits.getLogShas(repo.path, 'feat', { excluding: excluding }))];
+		const count = await repo.provider.commits.getCommitCount(repo.path, 'feat', { excluding: excluding });
+
+		assert.deepStrictEqual(new Set(list), new Set([shas[1], shas[2]]));
+		assert.strictEqual(list.length, 2);
+		assert.strictEqual(count, 2);
+	});
+});

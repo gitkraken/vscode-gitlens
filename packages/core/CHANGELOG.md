@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds `excluding` to `commits.getLogShas`, the same `GitRefExclusions` `getCommitCount` takes, for listing what `rev` has that other refs don't; GitHub returns no SHAs when it's set (git, git-cli, plus/git-github)
 - Adds `revision.getEmptyTreeSha(repoPath)`, the empty tree's id in the repository's own object format, SHA-1 or SHA-256, cached per repository. GitHub repositories are always SHA-1 (git, git-cli, plus/git-github)
 - Adds `excluding` to `commits.getCommitCount`, counting what `rev` has that other refs don't, such as what deleting a branch would orphan. `branches`, `remotes` and `tags` exclude a whole namespace, and `except` takes full ref names back out of it, which core converts to the short form git's `--exclude` actually matches (a raw `--exclude=refs/heads/x --branches` excludes nothing). GitHub returns `undefined` when `excluding` is set (git, git-cli, plus/git-github)
 - Adds `refs.getReflogEntries(repoPath, ref, { grep })`, a ref's reflog entries (sha and message, newest first) optionally filtered by git's `--grep-reflog` pattern. A failed read rejects rather than resolving `[]`, so "no match" is distinguishable from "never read" (git, git-cli)

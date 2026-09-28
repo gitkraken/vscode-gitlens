@@ -629,6 +629,8 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		cancellation?: AbortSignal,
 	): Promise<Iterable<string>> {
 		if (repoPath == null) return [];
+		// GitHub can't evaluate `--not`, and an unfiltered list would be the wrong answer
+		if (options?.excluding != null) return [];
 
 		const scope = getScopedLogger();
 
