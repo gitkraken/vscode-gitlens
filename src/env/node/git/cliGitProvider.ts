@@ -7,6 +7,7 @@ import { fetch } from '@env/fetch.js';
 import { isLinux, isWindows } from '@env/platform.js';
 import type { CliGitProviderOptions } from '@gitlens/git-cli/cliGitProvider.js';
 import { CliGitProvider } from '@gitlens/git-cli/cliGitProvider.js';
+import type { Git } from '@gitlens/git-cli/exec/git.js';
 import { slowCallWarningThreshold } from '@gitlens/git-cli/exec/git.js';
 import type { GitLocation } from '@gitlens/git-cli/exec/locator.js';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from '@gitlens/git-cli/exec/locator.js';
@@ -58,6 +59,7 @@ import { Schemes } from '../../../constants.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import { getPresentableErrorMessage } from '../../../errors.js';
+import type { GitCacheResetEvent } from '../../../eventBus.js';
 import type { Features } from '../../../features.js';
 import { gitMinimumVersion } from '../../../features.js';
 import type {
@@ -91,6 +93,19 @@ const RepoSearchWarnings = {
 };
 
 const driveLetterRegex = /(?<=^\/?)([a-zA-Z])(?=:\/)/;
+
+/**
+ * Drops the in-flight git runs a cache reset makes stale: only the reset repository's, so identical reads
+ * running at once in other repositories keep sharing a process, or every run for a reset naming no repository.
+ */
+export function clearPendingCommandsForReset(
+	git: Pick<Git, 'clearPendingCommands'>,
+	reset: GitCacheResetEvent['data'],
+): void {
+	if (reset.types?.length && reset.types.every(t => t === 'providers')) return;
+
+	git.clearPendingCommands(reset.repoPath != null ? [reset.repoPath] : undefined);
+}
 
 export class GlCliGitProvider implements GlGitProvider {
 	readonly descriptor: GitProviderDescriptor = { id: 'git', name: 'Git', virtual: false };
@@ -188,11 +203,10 @@ export class GlCliGitProvider implements GlGitProvider {
 							scheme === Schemes.GitLens
 						);
 					}),
-					// Clear pending commands on @gitlens/git-cli's Git when the cache resets
 					this.container.events.on('git:cache:reset', e => {
-						if (e.data.types?.every(t => t === 'providers')) return;
+						if (this._provider == null) return;
 
-						this._provider?.git.clearPendingCommands();
+						clearPendingCommandsForReset(this._provider.git, e.data);
 					}),
 				);
 			} finally {
