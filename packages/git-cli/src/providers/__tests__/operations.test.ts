@@ -81,6 +81,7 @@ suite('OperationsGitSubProvider Test Suite', () => {
 
 		gitStub = sandbox.createStubInstance(MockGit) as unknown as sinon.SinonStubbedInstance<Git>;
 		(gitStub.run as sinon.SinonStub).resolves(successResult());
+		(gitStub.supports as sinon.SinonStub).resolves(true);
 
 		const context = {} as unknown as GitServiceContext;
 		// `checkout({ createBranch })` clears the new branch's cached and persisted base — see the note
@@ -218,6 +219,50 @@ suite('OperationsGitSubProvider Test Suite', () => {
 			await operations.fetch(repoPath, { remote: 'origin', refspecs: ['refs/tags/v1:refs/tags/v1'] });
 
 			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['remotes', 'tags']]);
+		});
+	});
+
+	suite('fetch with preserveFetchHead', () => {
+		test('preserveFetchHead: true adds --no-write-fetch-head for a plain remote fetch', async () => {
+			await operations.fetch(repoPath, { remote: 'origin', preserveFetchHead: true });
+
+			assert.ok(fetchArgs().includes('--no-write-fetch-head'));
+		});
+
+		test('preserveFetchHead: true adds --no-write-fetch-head for an all-remotes fetch', async () => {
+			await operations.fetch(repoPath, { all: true, preserveFetchHead: true });
+
+			assert.ok(fetchArgs().includes('--no-write-fetch-head'));
+		});
+
+		test('preserveFetchHead: true adds --no-write-fetch-head for a refspec fetch', async () => {
+			await operations.fetch(repoPath, {
+				remote: 'origin',
+				refspecs: ['+refs/heads/feature:refs/remotes/origin/feature'],
+				preserveFetchHead: true,
+			});
+
+			assert.ok(fetchArgs().includes('--no-write-fetch-head'));
+		});
+
+		test('preserveFetchHead unset omits --no-write-fetch-head', async () => {
+			await operations.fetch(repoPath, { remote: 'origin' });
+
+			assert.ok(!fetchArgs().includes('--no-write-fetch-head'));
+		});
+
+		test('preserveFetchHead: false omits --no-write-fetch-head', async () => {
+			await operations.fetch(repoPath, { remote: 'origin', preserveFetchHead: false });
+
+			assert.ok(!fetchArgs().includes('--no-write-fetch-head'));
+		});
+
+		test('omits --no-write-fetch-head when the installed git does not support it', async () => {
+			(gitStub.supports as sinon.SinonStub).withArgs('git:fetch:no-write-fetch-head').resolves(false);
+
+			await operations.fetch(repoPath, { remote: 'origin', preserveFetchHead: true });
+
+			assert.ok(!fetchArgs().includes('--no-write-fetch-head'));
 		});
 	});
 

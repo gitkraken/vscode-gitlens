@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { SigningErrorReason } from '@gitlens/git/errors.js';
@@ -658,6 +658,49 @@ suite('OperationsGitSubProvider.fetch — explicit refspecs', () => {
 			await assert.rejects(
 				local.provider.ops.fetch(local.path, { remote: 'origin', refspecs: ['feature:feature'] }),
 				(ex: unknown) => FetchError.is(ex),
+			);
+		} finally {
+			local?.cleanup();
+			bare?.cleanup();
+			source.cleanup();
+		}
+	});
+});
+
+suite('OperationsGitSubProvider.fetch — preserveFetchHead', () => {
+	function fetchHeadPath(repoPath: string): string {
+		return join(repoPath, '.git', 'FETCH_HEAD');
+	}
+
+	test('preserveFetchHead: true leaves FETCH_HEAD untouched; a plain fetch writes/updates it', async () => {
+		const source = createTestRepo();
+		let bare: { path: string; cleanup: () => void } | undefined;
+		let local: ReturnType<typeof createTestRepo> | undefined;
+		try {
+			bare = createBareRemoteFrom(source.path);
+			local = createTestRepo();
+			execFileSync('git', ['remote', 'add', 'origin', bare.path], { cwd: local.path, stdio: 'pipe' });
+
+			assert.ok(!existsSync(fetchHeadPath(local.path)), 'sanity: no FETCH_HEAD yet');
+
+			await local.provider.ops.fetch(local.path, { remote: 'origin', preserveFetchHead: true });
+			assert.ok(!existsSync(fetchHeadPath(local.path)), 'preserveFetchHead: true must not create FETCH_HEAD');
+
+			await local.provider.ops.fetch(local.path, { remote: 'origin' });
+			assert.ok(existsSync(fetchHeadPath(local.path)), 'a plain fetch must write FETCH_HEAD');
+			const beforeContent = readFileSync(fetchHeadPath(local.path));
+
+			// Advance the remote (the bare clone doesn't track `source` on its own, so pull the new commit
+			// into its own `main` directly) so a plain fetch would have something new to record, then fetch
+			// again with preserveFetchHead: true — the existing file must come out byte-identical.
+			addCommit(source.path, 'advance.txt', 'x', 'origin advances');
+			execFileSync('git', ['fetch', source.path, 'main:main'], { cwd: bare.path, stdio: 'pipe' });
+			await local.provider.ops.fetch(local.path, { remote: 'origin', preserveFetchHead: true });
+
+			assert.deepStrictEqual(
+				readFileSync(fetchHeadPath(local.path)),
+				beforeContent,
+				'preserveFetchHead: true must leave an existing FETCH_HEAD byte-identical',
 			);
 		} finally {
 			local?.cleanup();
