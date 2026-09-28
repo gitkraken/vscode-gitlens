@@ -258,6 +258,9 @@ count, which its API cannot answer. A count is cached until a branch, remote-tra
 so a `refs` entry outside those namespaces (a tool's own `refs/<tool>/…`) can move without refreshing it;
 pass its SHA instead, which keys a new read.
 
+`commits.getLogShas` takes the same `excluding`, listing the SHAs instead of counting them; an omitted `rev` is
+anchored to `HEAD` (a bare `--not` lists nothing), and the GitHub provider returns no SHAs.
+
 **Breaking:** `getCommitCount` takes `options` before `cancellation`.
 
 ## 18. The empty tree in the repository's object format — added / fixed
