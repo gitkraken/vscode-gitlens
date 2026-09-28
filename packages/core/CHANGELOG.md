@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes every git command core runs targeting the wrong repository when the host itself was launched by git — from a hook, a `rebase -x` step, or as `GIT_EDITOR` (a VS Code window opened by `git rebase -i`). The inherited `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_COMMON_DIR`, `GIT_OBJECT_DIRECTORY`, `GIT_ALTERNATE_OBJECT_DIRECTORIES` and `GIT_NAMESPACE` overrode each command's working directory, and `GIT_CONFIG_PARAMETERS`, `GIT_EXEC_PATH`, `GIT_PREFIX` and `GIT_REFLOG_ACTION` carried the launching command's own state into all of them. They are now dropped from the inherited environment, and so are `GIT_AUTHOR_*` / `GIT_COMMITTER_*` when git launched the host (it always exports `GIT_EXEC_PATH`), since an editor opened for `commit --amend` inherits that commit's author and date; an identity set deliberately still applies. A host's `env` option or a call's own `env` can still set any of them (git-cli)
+
 ## [0.8.0] - 2026-09-27
 
 ### Added
