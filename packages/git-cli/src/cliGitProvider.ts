@@ -128,6 +128,14 @@ export class CliGitProvider implements GitProvider {
 			});
 		this._cacheOwned = !(options.cache instanceof Cache);
 		this._cache = options.cache instanceof Cache ? options.cache : new Cache();
+
+		// Wires a raw `git.run({ notify })` call back to this provider's own cache/host announcement —
+		// unconditionally, so a host-supplied `options.git` gets bound exactly like one we construct here.
+		this._git.bindChangeNotifier((repoPaths, changes) => {
+			for (const repoPath of repoPaths) {
+				this.notifyChanged(repoPath, changes);
+			}
+		});
 	}
 
 	/** The underlying cache instance (for repo path registration, etc.) */

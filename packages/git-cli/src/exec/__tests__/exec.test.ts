@@ -1,9 +1,10 @@
 import * as assert from 'assert';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { execPath } from 'process';
 import * as sinon from 'sinon';
+import { normalizePath } from '@gitlens/utils/path.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
 import { CancelledRunError, RunError } from '../exec.errors.js';
 import { run, runSpawn } from '../exec.js';
@@ -617,5 +618,122 @@ suite('Git base environment', () => {
 		const env = asTestable(git).buildEnv({ GIT_INDEX_FILE: '/tmp/index.tmp' });
 
 		assert.strictEqual(env.GIT_INDEX_FILE, '/tmp/index.tmp');
+	});
+});
+
+suite('Git.run notify', () => {
+	type Notified = { repoPaths: readonly string[]; changes: readonly string[] };
+
+	function newGitWithBinder(): { git: Git; notified: Notified[] } {
+		// A nonexistent binary makes every run fail fast (ENOENT) without ever spawning a real process —
+		// `notify` is applied once the run SETTLES regardless of outcome, so a failure exercises it exactly
+		// like a success would, and much faster than a real git invocation.
+		const git = new Git(async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' }));
+		const notified: Notified[] = [];
+		git.bindChangeNotifier((repoPaths, changes) => notified.push({ repoPaths: repoPaths, changes: changes }));
+		return { git: git, notified: notified };
+	}
+
+	test("notify: 'infer' on a write calls the binder once with cwd and the verb's changes", async () => {
+		const { git, notified } = newGitWithBinder();
+
+		await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+		assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['head', 'heads', 'index', 'pausedOp'] }]);
+	});
+
+	test("notify: 'infer' on a read-only command never calls the binder", async () => {
+		const { git, notified } = newGitWithBinder();
+
+		await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'status');
+
+		assert.deepStrictEqual(notified, []);
+	});
+
+	test("notify: 'infer' on a -C shared-state write announces the -C target and cwd in one call", async () => {
+		const { git, notified } = newGitWithBinder();
+
+		await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'branch', '-d', 'x');
+
+		assert.deepStrictEqual(notified, [
+			{ repoPaths: [normalizePath(resolve('/repo', '/other')), '/repo'], changes: ['heads', 'remotes', 'tags'] },
+		]);
+	});
+
+	test("notify: 'infer' on a -C branch-moving write announces the -C target, and only the branch move to cwd", async () => {
+		const { git, notified } = newGitWithBinder();
+
+		await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'commit', '-m', 'msg');
+
+		assert.deepStrictEqual(notified, [
+			{ repoPaths: [normalizePath(resolve('/repo', '/other'))], changes: ['head', 'heads', 'index', 'pausedOp'] },
+			{ repoPaths: ['/repo'], changes: ['heads'] },
+		]);
+	});
+
+	test("notify: 'infer' on a -C pull announces its worktree-local changes only to the -C target", async () => {
+		const { git, notified } = newGitWithBinder();
+
+		await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'pull');
+
+		assert.strictEqual(notified.length, 2);
+		assert.deepStrictEqual(notified[0].repoPaths, [normalizePath(resolve('/repo', '/other'))]);
+		assert.deepStrictEqual(notified[1], { repoPaths: ['/repo'], changes: ['heads', 'remotes', 'tags'] });
+	});
+
+	test("notify: 'infer' on a -C stash push announces only the stash to cwd", async () => {
+		const { git, notified } = newGitWithBinder();
+
+		await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'stash', 'push');
+
+		assert.deepStrictEqual(notified, [
+			{ repoPaths: [normalizePath(resolve('/repo', '/other'))], changes: ['stash', 'index'] },
+			{ repoPaths: ['/repo'], changes: ['stash'] },
+		]);
+	});
+
+	test("notify: 'infer' on a -C write it can't classify resets cwd too, since what it shares is unknown", async () => {
+		const { git, notified } = newGitWithBinder();
+
+		await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'reflog', 'expire', '--all');
+
+		assert.deepStrictEqual(notified, [
+			{ repoPaths: [normalizePath(resolve('/repo', '/other')), '/repo'], changes: [] },
+		]);
+	});
+
+	test("notify: 'infer' on a -C write that moves no branch announces only the -C target", async () => {
+		const { git, notified } = newGitWithBinder();
+
+		await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'add', 'file.ts');
+
+		assert.deepStrictEqual(notified, [
+			{ repoPaths: [normalizePath(resolve('/repo', '/other'))], changes: ['index'] },
+		]);
+	});
+
+	test('an explicit notify array is announced exactly, regardless of the argv', async () => {
+		const { git, notified } = newGitWithBinder();
+
+		await git.run({ cwd: '/repo', errors: 'ignore', notify: ['stash'] }, 'status');
+
+		assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['stash'] }]);
+	});
+
+	test('a FAILED run is still notified', async () => {
+		const { git, notified } = newGitWithBinder();
+
+		const result = await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, 'commit', '-m', 'msg');
+
+		assert.strictEqual(result.completion.status, 'failed');
+		assert.deepStrictEqual(notified, [{ repoPaths: ['/repo'], changes: ['head', 'heads', 'index', 'pausedOp'] }]);
+	});
+
+	test('an unset notify never calls the binder', async () => {
+		const { git, notified } = newGitWithBinder();
+
+		await git.run({ cwd: '/repo', errors: 'ignore' }, 'commit', '-m', 'msg');
+
+		assert.deepStrictEqual(notified, []);
 	});
 });
