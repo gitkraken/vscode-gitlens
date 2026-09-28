@@ -30,6 +30,7 @@ import {
 } from '@gitlens/git/utils/revision.utils.js';
 import type { RevisionUriData, RevisionUriOptions } from '@gitlens/git/utils/uriAuthority.js';
 import { encodeGitLensRevisionUriAuthority } from '@gitlens/git/utils/uriAuthority.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
@@ -1269,6 +1270,8 @@ export class GlCliGitProvider implements GlGitProvider {
 		try {
 			return await this.provider.clone?.(url, parentPath, options, runOptions);
 		} catch (ex) {
+			if (isCancellationError(ex)) return undefined;
+
 			scope?.error(ex);
 			void showGenericErrorMessage(l10n.t("Unable to clone '{0}'", url));
 		}
