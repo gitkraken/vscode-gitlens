@@ -20,6 +20,20 @@ export function getReflogParser(): ReflogLogParser {
 	return _reflogParser;
 }
 
+const reflogEntryMapping = {
+	sha: '%H',
+	subject: '%gs',
+};
+
+type ReflogEntryLogParser = LogParser<typeof reflogEntryMapping>;
+let _reflogEntryParser: ReflogEntryLogParser | undefined;
+
+/** Just a reflog entry's sha and message, for a read that never needs the selector */
+export function getReflogEntryParser(): ReflogEntryLogParser {
+	_reflogEntryParser ??= createLogParser(reflogEntryMapping);
+	return _reflogEntryParser;
+}
+
 // Layer 2 — Smart parser: correlates raw entries into GitReflogRecords
 
 function isHEADSelector(selector: string): boolean {
