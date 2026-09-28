@@ -61,6 +61,8 @@ export interface GitOperationsSubProvider {
 					pull?: boolean | undefined;
 					remote?: string | undefined;
 					refspecs?: undefined;
+					/** Leaves `FETCH_HEAD` for a user's own `git pull` to read (`--no-write-fetch-head`); ignored on git older than 2.29 */
+					preserveFetchHead?: boolean | undefined;
 			  }
 			| {
 					all?: undefined;
@@ -70,6 +72,8 @@ export interface GitOperationsSubProvider {
 					remote: string;
 					/** Passed verbatim after `remote`; never adds `-u`, so git keeps refusing to write into a checked-out branch. */
 					refspecs: readonly string[];
+					/** Leaves `FETCH_HEAD` for a user's own `git pull` to read (`--no-write-fetch-head`); ignored on git older than 2.29 */
+					preserveFetchHead?: boolean | undefined;
 			  },
 		runOptions?: GitOperationRunOptions,
 	): Promise<void>;

@@ -246,6 +246,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					pull?: boolean;
 					remote?: string;
 					refspecs?: undefined;
+					preserveFetchHead?: boolean;
 			  }
 			| {
 					all?: undefined;
@@ -254,6 +255,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					pull?: undefined;
 					remote: string;
 					refspecs: readonly string[];
+					preserveFetchHead?: boolean;
 			  },
 		runOptions?: GitOperationRunOptions,
 	): Promise<void> {
@@ -272,6 +274,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 						remote: remoteName,
 						upstream: getBranchTrackingWithoutRemote(branch)!,
 						pull: options?.pull,
+						preserveFetchHead: options?.preserveFetchHead,
 					},
 					runOptions,
 				);
@@ -337,6 +340,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					pull?: boolean;
 					remote?: string;
 					refspecs?: undefined;
+					preserveFetchHead?: boolean;
 			  }
 			| {
 					all?: undefined;
@@ -351,6 +355,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					 */
 					updateHeadOk?: boolean;
 					refspecs?: undefined;
+					preserveFetchHead?: boolean;
 			  }
 			| {
 					all?: undefined;
@@ -359,6 +364,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					pull?: undefined;
 					remote: string;
 					refspecs: readonly string[];
+					preserveFetchHead?: boolean;
 			  },
 		runOptions?: GitOperationRunOptions,
 	): Promise<void> {
@@ -366,6 +372,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		if (options.prune) {
 			params.push('--prune');
+		}
+
+		if (options.preserveFetchHead && (await this.git.supports('git:fetch:no-write-fetch-head'))) {
+			params.push('--no-write-fetch-head');
 		}
 
 		if (options.branch && options.remote) {
