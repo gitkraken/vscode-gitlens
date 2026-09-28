@@ -140,8 +140,9 @@ export interface GitServiceHooks {
 	readonly cache?: {
 		/**
 		 * Called after the provider changed repository state (a typed write, or `notifyChanged`). The provider
-		 * has already cleared its own caches for those types and its pending commands; the handler only needs to
-		 * update host-side state. Forwarding to `Cache.clearCaches` as well is redundant but harmless.
+		 * has already cleared its own caches for those types and the repository's pending commands (its sibling
+		 * worktrees included); the handler only needs to update host-side state. Forwarding to
+		 * `Cache.clearCaches` as well is redundant but harmless.
 		 */
 		onReset?(repoPath: string, ...types: CachedGitTypes[]): void;
 	};

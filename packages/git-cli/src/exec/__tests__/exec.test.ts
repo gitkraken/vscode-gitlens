@@ -737,3 +737,42 @@ suite('Git.run notify', () => {
 		assert.deepStrictEqual(notified, []);
 	});
 });
+
+suite('Git.clearPendingCommands', () => {
+	type PendingCommand = { cwd: string | undefined; promise: Promise<unknown> };
+
+	/** Seeds one in-flight run per cwd, keyed the way `runCore` keys them, and returns the map. */
+	function seedPending(git: Git, cwds: (string | undefined)[]): Map<string, PendingCommand> {
+		const pending = (git as unknown as { pendingCommands: Map<string, PendingCommand> }).pendingCommands;
+		for (const cwd of cwds) {
+			pending.set(`[${cwd}] git status`, { cwd: cwd, promise: new Promise(() => {}) });
+		}
+		return pending;
+	}
+
+	function newGit(): Git {
+		return new Git(async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' }));
+	}
+
+	test("with no paths it drops every repository's pending runs", () => {
+		const git = newGit();
+		const pending = seedPending(git, ['/repo-a', '/repo-b', undefined]);
+
+		git.clearPendingCommands();
+
+		assert.strictEqual(pending.size, 0);
+	});
+
+	test('with paths it drops only runs in, or inside, one of them', () => {
+		const git = newGit();
+		const pending = seedPending(git, ['/repo-a', '/repo-a/sub', '/repo-a-wt', '/repo-ab', '/repo-b', undefined]);
+
+		git.clearPendingCommands(['/repo-a', '/repo-a-wt']);
+
+		assert.deepStrictEqual(
+			Array.from(pending.values(), p => p.cwd),
+			['/repo-ab', '/repo-b', undefined],
+			'a run in another repository — even one whose path merely starts the same — keeps being shared',
+		);
+	});
+});

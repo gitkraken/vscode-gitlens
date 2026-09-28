@@ -39,7 +39,7 @@ import { getDurationMilliseconds, hrtime } from '@gitlens/utils/hrtime.js';
 import type { LogChannel } from '@gitlens/utils/logger.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { formatLoggableScopeBlock } from '@gitlens/utils/logger.scoped.js';
-import { dirname, isAbsolute, joinPaths, normalizePath } from '@gitlens/utils/path.js';
+import { arePathsEqual, dirname, isAbsolute, isDescendant, joinPaths, normalizePath } from '@gitlens/utils/path.js';
 import { defer } from '@gitlens/utils/promise.js';
 import type { Mutable } from '@gitlens/utils/types.js';
 import { compare, fromString } from '@gitlens/utils/version.js';
@@ -688,7 +688,10 @@ type ExitCodeOnlyGitCommandOptions = GitRunOptions & { exitCodeOnly: true };
 
 export class Git {
 	/** Map of running git commands — avoids running duplicate overlapping commands */
-	private readonly pendingCommands = new Map<string, Promise<RunResult<string | Buffer>>>();
+	private readonly pendingCommands = new Map<
+		string,
+		{ readonly cwd: string | undefined; readonly promise: Promise<RunResult<string | Buffer>> }
+	>();
 	/** Queue for throttling background git operations */
 	private readonly _queue: GitQueue;
 	/** Detects event-loop stalls while at least one git command is in flight */
@@ -768,9 +771,24 @@ export class Git {
 		this._eventLoopMonitor.dispose();
 	}
 
-	/** Clear pending commands (e.g. on cache reset) */
-	clearPendingCommands(): void {
-		this.pendingCommands.clear();
+	/**
+	 * Drops in-flight commands so a later identical call spawns its own run instead of joining one that
+	 * started before a change. With `repoPaths`, drops only runs whose `cwd` is one of them or inside one;
+	 * without, drops every run.
+	 */
+	clearPendingCommands(repoPaths?: readonly string[]): void {
+		if (repoPaths == null) {
+			this.pendingCommands.clear();
+			return;
+		}
+
+		for (const [key, { cwd }] of this.pendingCommands) {
+			if (cwd == null) continue;
+
+			if (repoPaths.some(p => arePathsEqual(cwd, p) || isDescendant(cwd, p))) {
+				this.pendingCommands.delete(key);
+			}
+		}
 	}
 
 	/** Marks one more git command as in flight; starts the event-loop monitor on the first. */
@@ -1022,7 +1040,7 @@ export class Git {
 		// than anything the repository did. Stays undefined for a dedup rider or a command aborted while queued.
 		let execStart: ReturnType<typeof hrtime> | undefined;
 		let waiting;
-		let promise = this.pendingCommands.get(cacheKey);
+		let promise = this.pendingCommands.get(cacheKey)?.promise;
 		if (promise == null) {
 			waiting = false;
 
@@ -1030,7 +1048,7 @@ export class Git {
 			// Note: cancellation tokens are not part of the dedup key — calls with different AbortSignals will not be deduplicated
 			const deferred = defer<RunResult<string | Buffer>>();
 			promise = deferred.promise;
-			this.pendingCommands.set(cacheKey, promise);
+			this.pendingCommands.set(cacheKey, { cwd: options.cwd, promise: promise });
 
 			// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 			// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
@@ -1063,7 +1081,10 @@ export class Git {
 				)
 				.then(deferred.fulfill, (e: unknown) => deferred.cancel(e instanceof Error ? e : new Error(String(e))))
 				.finally(() => {
-					this.pendingCommands.delete(cacheKey);
+					// A clear may have dropped this run and a later identical call registered its own under the key
+					if (this.pendingCommands.get(cacheKey)?.promise === deferred.promise) {
+						this.pendingCommands.delete(cacheKey);
+					}
 				})
 				.catch(() => {});
 		} else {

@@ -85,13 +85,17 @@ to 60s. `clearCaches` fixed that read but fired none of the host's hooks, so not
 the refs moved.
 
 - The provider wraps `onReset` when it is constructed. On every reset it hard-evicts its own caches for those
-  types (`Cache.evictCaches`, so a later caller never joins pre-write work), drops pending commands, then calls
-  the host's handler. Clears driven by a file watcher reach `clearCaches` directly and keep sharing in-flight
-  reads, which is what stops a burst of file events from spawning duplicate reads. A host's handler now only
-  has host-side state to update; forwarding to `clearCaches` as well is redundant but harmless.
+  types (`Cache.evictCaches`, so a later caller never joins pre-write work), drops the written repository's
+  pending commands (its registered worktrees' included, no other repository's), then calls the host's handler.
+  Clears driven by a file watcher reach `clearCaches` directly and keep sharing in-flight reads, which is what
+  stops a burst of file events from spawning duplicate reads. A host's handler now only has host-side state to
+  update; forwarding to `clearCaches` as well is redundant but harmless.
 - `provider.notifyChanged(repoPath, changes: RepositoryChange[], options?: { cache?: CachedGitTypes[] | 'all' })`
-  fires the same `cache.onReset` (all types by default) and `repository.onChanged` a typed write would, so a
-  raw mutation gets exactly the same treatment, host listeners included.
+  fires the same `cache.onReset` and `repository.onChanged` a typed write would, so a raw mutation gets the
+  same treatment, host listeners included. Without `cache` it resets what `changes` map to, the same caches a
+  file watcher's change of those kinds clears; an empty `changes`, or one naming `unknown`, resets everything,
+  and `cache: 'all'` always does. A consumer naming its own changes must name every kind the write can touch
+  (a `commit` that concludes a merge is `pausedOp` too), or those caches keep their pre-write answer.
 
 ## 3. Worktree administration — added / extended
 
