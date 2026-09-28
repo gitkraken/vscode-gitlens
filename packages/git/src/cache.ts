@@ -152,6 +152,8 @@ interface SharedCaches {
 	contributorsLite: RepoPromiseCacheMap<string, GitContributor[]> | undefined;
 	contributorsStats: RepoPromiseCacheMap<string, GitContributorsStats | undefined> | undefined;
 	defaultBranchName: RepoPromiseCacheMap<string, string | undefined> | undefined;
+	/** The empty tree's id — a property of the repository's object format, which never changes for its lifetime. */
+	emptyTreeSha: PromiseMap<RepoPath, string> | undefined;
 	gitResults: RepoPromiseCacheMap<string, GitResult> | undefined;
 	gkConfigMap: PromiseMap<RepoPath, Map<string, string>> | undefined;
 	initialCommitSha: PromiseMap<RepoPath, string | undefined> | undefined;
@@ -183,6 +185,7 @@ const sharedCacheKeys: ReadonlySet<keyof AllCaches> = new Set(
 		'contributorsLite',
 		'contributorsStats',
 		'defaultBranchName',
+		'emptyTreeSha',
 		'gitResults',
 		'gkConfigMap',
 		'initialCommitSha',
@@ -225,6 +228,7 @@ function createEmptyCaches(): AllCaches {
 		currentBranchReference: undefined,
 		currentUser: undefined,
 		defaultBranchName: undefined,
+		emptyTreeSha: undefined,
 		gitDir: undefined,
 		gitIgnore: undefined,
 		gitResults: undefined,
@@ -427,6 +431,10 @@ export class Cache implements Disposable {
 
 	get defaultBranchName(): RepoPromiseCacheMap<string, string | undefined> {
 		return (this._caches.defaultBranchName ??= new RepoPromiseCacheMap<string, string | undefined>());
+	}
+
+	get emptyTreeSha(): PromiseMap<RepoPath, string> {
+		return (this._caches.emptyTreeSha ??= new PromiseMap<RepoPath, string>());
 	}
 
 	get gitDir(): Map<RepoPath, GitDir> {
@@ -650,6 +658,7 @@ export class Cache implements Disposable {
 				keysToClear.add('logShas');
 				keysToClear.add('refs');
 				keysToClear.add('refTips');
+				// No change type clears `emptyTreeSha`: a repository's object format never changes
 			}
 
 			if (types.includes('config')) {
@@ -1601,6 +1610,11 @@ export class Cache implements Disposable {
 		factory: (commonPath: string) => PromiseOrValue<string | undefined>,
 	): Promise<string | undefined> {
 		return this.getSharedSimple(this.initialCommitSha, repoPath, factory);
+	}
+
+	/** A rejected factory is never cached (`PromiseMap` evicts on rejection) — a failed read retries next time. */
+	getEmptyTreeSha(repoPath: string, factory: (commonPath: string) => PromiseOrValue<string>): Promise<string> {
+		return this.getSharedSimple(this.emptyTreeSha, repoPath, factory);
 	}
 
 	getLastFetchedTimestamp(

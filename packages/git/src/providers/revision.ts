@@ -22,6 +22,8 @@ export interface GitRevisionSubProvider {
 		path: string,
 		revOrOptions?: string | { untracked?: 'only' | 'include' },
 	): Promise<boolean>;
+	/** The empty tree's id in this repository's object format (SHA-1 or SHA-256). */
+	getEmptyTreeSha(repoPath: string): Promise<string>;
 	getRevisionContent(repoPath: string, path: string, rev: string): Promise<Uint8Array | undefined>;
 	getSubmoduleHead?(repoPath: string, submodulePath: string): Promise<string | undefined>;
 	/** Gets tracked file paths from the index (reflects working tree state, even during rebase) */

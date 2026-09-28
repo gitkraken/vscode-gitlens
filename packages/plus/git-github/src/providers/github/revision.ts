@@ -15,8 +15,15 @@ import type { Uri } from '@gitlens/utils/uri.js';
 import { toTokenInfo } from '../../api/tokenUtils.js';
 import type { GitHubGitProviderInternal } from '../githubProvider.js';
 
+/** GitHub repositories are always SHA-1 */
+const sha1EmptyTreeSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+
 export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	constructor(private readonly provider: GitHubGitProviderInternal) {}
+
+	getEmptyTreeSha(_repoPath: string): Promise<string> {
+		return Promise.resolve(sha1EmptyTreeSha);
+	}
 
 	@gate()
 	@debug()
