@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes `remotes.removeRemote`, and `remotes.addRemote` with `fetch`, leaving branch lists and history reads cached without the remote-tracking branches they deleted or created, so a count excluding remote branches kept its old answer (git-cli)
 - Fixes every typed write and `provider.notifyChanged` dropping the in-flight git runs of every repository, so identical reads running at once in other repositories each spawned their own process. Only the written repository's runs, its worktrees' included, are dropped now; `git.clearPendingCommands(repoPaths)` takes the paths to drop, and with none still drops all (git-cli)
 - Fixes diffs against a root commit's missing parent, and against a stash's untracked files, failing in a SHA-256 repository, which the hardcoded SHA-1 empty tree doesn't exist in (git-cli)
 - Fixes detecting a branch's base from its reflog failing for a branch named like a tracked file, or named `delete`, `expire` or `exists` (git-cli)
