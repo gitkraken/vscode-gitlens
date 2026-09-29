@@ -966,3 +966,112 @@ suite('GitHubApi rate limit classification', () => {
 		assert.ok(ex instanceof AuthenticationError, `expected AuthenticationError, got ${String(ex)}`);
 	});
 });
+
+suite('GitHubApi reads that must not prompt for reauthentication', () => {
+	const provider = {
+		id: 'github',
+		name: 'GitHub',
+		domain: 'github.com',
+		icon: 'github',
+		getIgnoreSSLErrors: () => false,
+		reauthenticate: () => Promise.resolve(),
+		trackRequestException: () => {},
+	} as unknown as Provider;
+
+	const token: GitHubTokenInfo = {
+		providerId: 'github',
+		accessToken: 'token',
+		microHash: 'hash',
+		cloud: true,
+		type: undefined,
+	};
+
+	/** Answers every request with `status`, counting the reauthentication prompts the client raises. */
+	function refusingConfig(
+		status: number,
+		body: unknown,
+		headers?: Record<string, string>,
+	): { config: GitHubApiConfig; prompts: () => number } {
+		let prompts = 0;
+		const config = {
+			isWeb: false,
+			fetch: async () =>
+				new Response(JSON.stringify(body), {
+					status: status,
+					headers: { 'content-type': 'application/json', ...headers },
+				}),
+			wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
+			onAuthenticationFailure: () => {
+				prompts++;
+				return Promise.resolve(false);
+			},
+		} as unknown as GitHubApiConfig;
+		return { config: config, prompts: () => prompts };
+	}
+
+	async function settle(read: Promise<unknown>): Promise<unknown> {
+		try {
+			return await read;
+		} catch (ex) {
+			return ex;
+		}
+	}
+
+	test('getRepositoryAccess answers false on a 404', async () => {
+		const { config } = refusingConfig(404, { message: 'Not Found' });
+
+		assert.equal(await new GitHubApi(config).getRepositoryAccess(provider, token, 'octo', 'gone'), false);
+	});
+
+	test('getRepositoryAccess throws a refusal carrying the response, without a prompt', async () => {
+		const { config, prompts } = refusingConfig(
+			403,
+			{ message: 'the `octo` organization has enabled OAuth App access restrictions' },
+			{ 'x-oauth-client-id': 'abc123' },
+		);
+
+		const ex = await settle(new GitHubApi(config).getRepositoryAccess(provider, token, 'octo', 'hidden'));
+
+		assert.ok(ex instanceof AuthenticationError, `expected AuthenticationError, got ${String(ex)}`);
+		const response = (ex.original as { response?: { headers?: Record<string, string> } }).response;
+		assert.equal(response?.headers?.['x-oauth-client-id'], 'abc123');
+		assert.equal(prompts(), 0);
+	});
+
+	for (const status of [500, 503]) {
+		test(`getRepositoryAccess does not charge a failed confirmation to the connection (${status})`, async () => {
+			let strikes = 0;
+			let notices = 0;
+			const { config } = refusingConfig(status, { message: 'Service unavailable' });
+			config.onRequestError = () => {
+				notices++;
+			};
+			const trackedProvider: Provider = {
+				...provider,
+				trackRequestException: () => {
+					strikes++;
+				},
+			};
+
+			const ex = await settle(new GitHubApi(config).getRepositoryAccess(trackedProvider, token, 'octo', 'gone'));
+
+			assert.ok(ex instanceof Error);
+			assert.equal(strikes, 0);
+			assert.equal(notices, 0);
+		});
+	}
+
+	test('getCurrentAccount prompts on a refusal unless it is asked to be silent', async () => {
+		const loud = refusingConfig(401, { message: 'Bad credentials' });
+		assert.ok(
+			(await settle(new GitHubApi(loud.config).getCurrentAccount(provider, token))) instanceof
+				AuthenticationError,
+		);
+		assert.equal(loud.prompts(), 1);
+
+		const quiet = refusingConfig(401, { message: 'Bad credentials' });
+		const ex = await settle(new GitHubApi(quiet.config).getCurrentAccount(provider, token, { silent: true }));
+		assert.ok(ex instanceof AuthenticationError, `expected AuthenticationError, got ${String(ex)}`);
+		assert.equal(quiet.prompts(), 0);
+	});
+});
