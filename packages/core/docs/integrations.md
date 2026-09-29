@@ -443,7 +443,11 @@ least one ID when present; a failure attributed to nothing below the provider ca
 from a caught exception never carries one, even when that call targeted a single organization, and an omission
 keeps its attribution in `omission.scope` instead. The batch reads (`getIssuesBatch`, `getPullRequestsBatch`,
 `getPullRequestsForBranches`) are the exception: a refused target's warning names the scope its target names —
-the Azure DevOps organization and project, the repository on other git hosts, or the tracker's resource.
+the Azure DevOps organization and project, the repository on other git hosts, or the tracker's resource. So is
+`resolveRepository`: a `401`/`403` for the one repository it resolves settles as a batch read's refused target does,
+so on a host that can check the credential (Azure DevOps, Azure DevOps Server, Bitbucket, Bitbucket Data Center,
+GitHub, GitHub Enterprise) an `unauthorized` resolution whose credential checks out carries a warning scoped to that
+repository, while on one that cannot (GitLab) it stays the connection's.
 
 A scoped `auth` failure also means **the credential itself was accepted**. A dead token can come back as
 nothing but scoped refusals wherever a read reaches its scopes without an uncached request to the connection
@@ -454,8 +458,8 @@ with one uncached check before reporting them; a batch read does so only when ev
 target that answered already proved the credential. A refused credential fails the whole read instead: an
 unscoped `auth` warning, `fetchFailed`, no results served from the cache, and the usual connection recovery.
 A refusal the provider pins on the credential itself, like Bitbucket's or Jira Cloud's for a token missing the
-OAuth scopes the read needs, is published unscoped too, once for the connection, because a reconnect
-(consenting to them again) is what fixes it; the scopes that answered keep their results.
+OAuth scopes the read needs, is published unscoped too, once for the connection, because a reconnect (consenting
+to them again) is what fixes it; the scopes that answered keep their results.
 
 The promise holds for a read that carries no unscoped `auth` warning of its own: one that does already asks for a
 reconnect, and its other scoped refusals are not checked. Two cases stay scoped even then. A check that could not
@@ -502,10 +506,23 @@ switch (warning.cause?.reason) {
 
 It is set **only on a scoped `auth` warning whose credential was confirmed** (see `scope` above), because until
 then these refusals look exactly like a dead credential: Azure DevOps answers a third-party OAuth app its
-organization disallows with the same bare `401` it gives an expired token. Only Azure DevOps names causes today,
-from answers captured against the live service. **Its absence proves nothing**: a refusal this layer cannot name
+organization disallows with the same bare `401` it gives an expired token. Azure DevOps and GitHub name causes
+today, from answers captured against the live services. **Its absence proves nothing**: a refusal this layer cannot name
 still carries the provider's own explanation, when it gave one, in `message`, e.g. an organization that only
 allowlists global personal access tokens.
+
+GitHub's `oauth-app-not-allowed` is an organization with **OAuth App access restrictions** that has not approved the
+OAuth app the token belongs to. GitHub leaves that organization's private repositories out of every listing and search
+without an error, and GraphQL answers a lookup of one exactly as it answers a missing repository, so the only read that
+can report it is `resolveRepository`: a GitHub miss is confirmed over REST, which refuses such a repository with a
+`403` that says why. The resolution is then `unauthorized` with the warning scoped to the repository
+(`scope.repositoryId`), and `cause.remedyUrl` is the app's page in the user's authorized OAuth apps, where they ask the
+organization to approve it. The restriction belongs to the organization, so one approval fixes every repository it
+hid. A GitHub organization enforcing SAML SSO is not this path: GraphQL answers it `FORBIDDEN`, not `NOT_FOUND`, so
+its repository resolves `undetermined`, as before. Neither the confirming read nor the credential check raises the
+reauthentication prompt (`onReauthenticationRequired`): an organization's restriction is not fixed by
+reauthenticating, and a credential the check refuses is reported by the resolution itself, as an unscoped `auth`
+warning.
 
 ### `omission` — succeeded, but withheld results
 

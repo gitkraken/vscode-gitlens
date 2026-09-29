@@ -4,12 +4,13 @@ import type { RemoteProviderConfig } from '@gitlens/git/remotes/matcher.js';
 import { createRemoteProviderMatcher } from '@gitlens/git/remotes/matcher.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import type { ConfiguredIntegrationDescriptor } from '../authentication/models.js';
+import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { AuthenticationError, RequestNotFoundError } from '../errors.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { isAzureCloudDomain, isBitbucketCloudDomain, isGitHubDotCom, isGitLabDotCom } from '../providers/models.js';
-import type { RepositoryIdentity, RepositoryResolution, ResolveRepositoryResult } from '../results.js';
+import type { ProviderWarning, RepositoryIdentity, RepositoryResolution, ResolveRepositoryResult } from '../results.js';
 import { toProviderWarning } from '../results.js';
 import { decodePathSegment, getRemoteHostMatcher, hostFromDomain, isWebRemoteScheme } from '../utils/domain.utils.js';
 import {
@@ -248,7 +249,31 @@ export async function resolveRepository(
 		if (ex instanceof RequestNotFoundError) {
 			resolution = { status: 'not-found' };
 		} else if (ex instanceof AuthenticationError) {
-			resolution = { status: 'unauthorized', warning: toProviderWarning(id, domain, connectionId, ex) };
+			// One repository refusing a credential that works (e.g. GitHub's OAuth App access restrictions) is that
+			// repository's warning, scoped and with its cause, not a dead connection's.
+			let warning = toProviderWarning(id, domain, connectionId, ex);
+			try {
+				const failure = await integration.settleRepositoryRefusal(
+					{ owner: owner, name: name, project: project, connectionId: connectionId },
+					ex,
+				);
+				if (failure != null) {
+					const warnings: ProviderWarning[] = [];
+					mergeAssessmentInto(warnings, id, domain, connectionId, {
+						completeness: 'partial',
+						failures: [failure],
+					});
+					warning = warnings[0] ?? warning;
+				}
+			} catch (credentialError) {
+				if (credentialError instanceof AuthenticationError) {
+					warning = toProviderWarning(id, domain, connectionId, credentialError);
+				}
+			}
+			resolution = {
+				status: 'unauthorized',
+				warning: warning,
+			};
 		} else {
 			resolution = { status: 'undetermined', warning: toProviderWarning(id, domain, connectionId, ex) };
 		}

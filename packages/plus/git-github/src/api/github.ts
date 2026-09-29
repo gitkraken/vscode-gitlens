@@ -572,9 +572,11 @@ export class GitHubApi {
 		options?: {
 			baseUrl?: string;
 			avatarSize?: number;
+			silent?: boolean;
 		},
 	): Promise<Account | undefined> {
 		const scope = getScopedLogger();
+		const { silent, ...variables } = options ?? {};
 
 		interface QueryResult {
 			viewer: {
@@ -597,7 +599,7 @@ export class GitHubApi {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(provider, token, query, { ...options }, scope);
+			const rsp = await this.graphql<QueryResult>(provider, token, query, variables, scope);
 			if (rsp?.viewer?.login == null) return undefined;
 
 			return {
@@ -626,7 +628,7 @@ export class GitHubApi {
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, provider, scope);
+			throw this.handleException(ex, provider, scope, silent);
 		}
 	}
 
@@ -2667,6 +2669,50 @@ export class GitHubApi {
 		}
 	}
 
+	/**
+	 * Whether this credential can read the repository, asked of REST rather than GraphQL. GraphQL answers a
+	 * repository hidden by its organization's OAuth App access restrictions exactly as it answers one that does not
+	 * exist (`NOT_FOUND`), while REST answers `403` and says why, so this is how a GraphQL miss is told apart from
+	 * one. Resolves `false` on a `404`; a refusal throws `AuthenticationError` carrying GitHub's response.
+	 *
+	 * Silent: the refusal it exists to surface is one organization's policy, which reauthenticating cannot fix, so it
+	 * must not raise the reauthentication prompt a failed read otherwise raises.
+	 */
+	@trace({
+		args: (provider, token, owner, repo) => ({
+			provider: provider?.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+		}),
+	})
+	async getRepositoryAccess(
+		provider: Provider | undefined,
+		token: GitHubTokenInfo,
+		owner: string,
+		repo: string,
+		options?: { baseUrl?: string },
+	): Promise<boolean> {
+		const scope = getScopedLogger();
+
+		try {
+			await this.request(
+				provider,
+				token,
+				'GET /repos/{owner}/{repo}',
+				{ owner: owner, repo: repo, ...options },
+				scope,
+				undefined,
+				true,
+			);
+			return true;
+		} catch (ex) {
+			if (ex instanceof RequestNotFoundError) return false;
+
+			throw this.handleException(ex, provider, scope, true);
+		}
+	}
+
 	@trace({ args: (token, owner, repo) => ({ token: `<token:${token.microHash}>`, owner: owner, repo: repo }) })
 	async getContributors(token: GitHubTokenInfo, owner: string, repo: string): Promise<GitHubContributor[]> {
 		const scope = getScopedLogger();
@@ -3531,6 +3577,7 @@ export class GitHubApi {
 		options: (Endpoints[R]['parameters'] & RequestParameters) | undefined,
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal | undefined,
+		deferFailure?: boolean,
 	): Promise<Endpoints[R]['response']> {
 		return (await this.requestCore(
 			provider,
@@ -3539,6 +3586,7 @@ export class GitHubApi {
 			options,
 			scope,
 			cancellation,
+			deferFailure,
 		)) as Endpoints[R]['response'];
 	}
 
@@ -3565,6 +3613,7 @@ export class GitHubApi {
 		options: RequestParameters | undefined,
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal | undefined,
+		deferFailure?: boolean,
 	): Promise<unknown> {
 		const { accessToken } = token;
 		try {
@@ -3590,7 +3639,7 @@ export class GitHubApi {
 			);
 		} catch (ex) {
 			if (ex instanceof RequestError || ex.name === 'AbortError') {
-				this.handleRequestError(provider, token, ex, scope, undefined);
+				this.handleRequestError(provider, token, ex, scope, deferFailure);
 			} else if (Logger.isDebugging) {
 				this.config.onDebugError?.(`GitHub request failed: ${ex.message}`);
 			}

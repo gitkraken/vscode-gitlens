@@ -510,6 +510,24 @@ suite('scope failure refusals (#5890)', () => {
 		});
 	});
 
+	test("reads Octokit's response, and the OAuth app GitHub reports the token belongs to", () => {
+		const message =
+			'Although you appear to have the correct authorization credentials, the `gitkraken` organization has enabled OAuth App access restrictions, meaning that data access to third-parties is limited.';
+		const ex = oauthAppNotAllowed();
+		Object.assign(ex.original as Error, {
+			response: {
+				status: 403,
+				url: 'https://api.github.com/repos/gitkraken/codesee',
+				headers: { 'x-oauth-client-id': '55a4dd30e5f97b55e750', 'set-cookie': 'session=secret' },
+				data: { message: message, documentation_url: 'https://docs.github.com/rest' },
+			},
+		});
+
+		const failure = toCollectionScopeFailure({ providerId: GitCloudHostIntegrationId.GitHub }, ex);
+		assert.deepEqual(failure.refusal, { status: 403, detail: message, oauthClientId: '55a4dd30e5f97b55e750' });
+		assert.equal(JSON.stringify(failure).includes('session=secret'), false);
+	});
+
 	test('only a scoped authentication failure that kept its refusal is named', () => {
 		const named = toCollectionScopeFailure(scope, oauthAppNotAllowed());
 		const accountWide = toCollectionScopeFailure(

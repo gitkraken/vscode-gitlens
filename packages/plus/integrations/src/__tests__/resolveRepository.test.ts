@@ -8,7 +8,7 @@ import {
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
-import { AuthenticationError, RequestNotFoundError } from '../errors.js';
+import { AuthenticationError, AuthenticationErrorReason, RequestNotFoundError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { ProviderRepository } from '../providers/models.js';
@@ -43,6 +43,24 @@ function stubGetRepo(
 		Promise.resolve({
 			getRepo: (_t: unknown, owner: string, name: string, project?: string) => impl(owner, name, project),
 		});
+}
+
+/** Like {@link stubGetRepo}, plus the profile read a provider's `validateCredential` probes the credential with. */
+function stubGetRepoAndProbe(
+	integration: GitHostIntegration,
+	getRepo: () => Promise<ProviderRepository | undefined>,
+	probe: () => Promise<unknown>,
+): { probes: () => number } {
+	let probes = 0;
+	(integration as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () =>
+		Promise.resolve({
+			getRepo: getRepo,
+			getCurrentUser: () => {
+				probes++;
+				return probe();
+			},
+		});
+	return { probes: () => probes };
 }
 
 async function connect(
@@ -98,6 +116,77 @@ async function stubRealGetRepoOfProjectFn(
 	const provider = providers[id];
 	assert.ok(provider != null, `provider ${id} should be registered on ProvidersApi`);
 	provider.getRepoOfProjectFn = impl;
+}
+
+/**
+ * Replaces the integration's GitHub API client (`authenticationService.apis.github`) with the two reads the miss
+ * confirmation uses: the REST repository read and the profile read that proves the credential.
+ */
+async function stubGitHubClient(
+	gh: GitHostIntegration,
+	impl: {
+		access: () => Promise<boolean>;
+		account?: () => Promise<{ id: string; username: string }>;
+	},
+): Promise<{ accessReads: string[]; accountReads: () => number }> {
+	const accessReads: string[] = [];
+	let accountReads = 0;
+	const { apis } = (
+		gh as unknown as {
+			authenticationService: { apis: Record<string, Promise<Record<string, unknown> | undefined>> };
+		}
+	).authenticationService;
+	const client = await apis.github;
+	assert.ok(client != null);
+	client.getRepositoryAccess = (_provider: unknown, _token: unknown, owner: string, repo: string) => {
+		accessReads.push(`${owner}/${repo}`);
+		return impl.access();
+	};
+	client.getCurrentAccount = () => {
+		accountReads++;
+		return impl.account?.() ?? Promise.resolve(undefined);
+	};
+	return { accessReads: accessReads, accountReads: () => accountReads };
+}
+
+function githubAuthError(reason: AuthenticationErrorReason, original?: Error): AuthenticationError {
+	return new AuthenticationError(
+		{
+			providerId: GitCloudHostIntegrationId.GitHub,
+			microHash: undefined,
+			cloud: true,
+			type: 'oauth',
+			scopes: ['repo'],
+		},
+		reason,
+		original,
+	);
+}
+
+/** A refusal as the GitHub client's REST read raises it: Octokit's `RequestError`, with GitHub's response. */
+function gitHubRefusal(status: number, message: string, clientId: string | undefined): AuthenticationError {
+	const original = Object.assign(new Error(message), {
+		status: status,
+		response: {
+			status: status,
+			url: 'https://api.github.com/repos/x/y',
+			headers: clientId != null ? { 'x-oauth-client-id': clientId } : {},
+			data: { message: message, documentation_url: 'https://docs.github.com/rest' },
+		},
+	});
+	return githubAuthError(
+		status === 401 ? AuthenticationErrorReason.Unauthorized : AuthenticationErrorReason.Forbidden,
+		original,
+	);
+}
+
+/** GitHub's own answer for a repository its organization hides from an unapproved OAuth app. */
+function oauthAppRestriction(org: string, clientId: string | undefined): AuthenticationError {
+	return gitHubRefusal(
+		403,
+		`Although you appear to have the correct authorization credentials, the \`${org}\` organization has enabled OAuth App access restrictions, meaning that data access to third-parties is limited. For more information on these restrictions, including how to enable this app, visit https://docs.github.com/articles/restricting-access-to-your-organization-s-data/`,
+		clientId,
+	);
 }
 
 /** A GraphQL error entry as the SDK receives it from the provider's `body.errors`. */
@@ -592,6 +681,251 @@ suite('resolveRepository — GraphQL not-found classification (#5559)', () => {
 		manager.dispose();
 	});
 
+	test('GitHub: a miss the REST read also calls a miss stays not-found', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		stubGetRepo(gh, () => Promise.reject(new RequestNotFoundError(new Error('404'))));
+		const { accessReads } = await stubGitHubClient(gh, { access: () => Promise.resolve(false) });
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/gone.git' });
+		assert.equal(result.resolution.status, 'not-found');
+		assert.equal(result.resolution.warning, undefined);
+		assert.deepEqual(accessReads, ['octocat/gone']);
+
+		manager.dispose();
+	});
+
+	test('GitHub: a miss whose REST read cannot confirm either way keeps the GraphQL answer', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		stubGetRepo(gh, () => Promise.reject(new RequestNotFoundError(new Error('404'))));
+		await stubGitHubClient(gh, { access: () => Promise.reject(new Error('socket hang up')) });
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/gone.git' });
+		assert.equal(result.resolution.status, 'not-found');
+		assert.equal(result.resolution.warning, undefined);
+
+		manager.dispose();
+	});
+
+	test('GitHub: a repository hidden by OAuth App access restrictions is a scoped refusal naming its cause', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		stubGetRepo(gh, () => Promise.reject(new RequestNotFoundError(new Error('404'))));
+		const { accountReads } = await stubGitHubClient(gh, {
+			access: () => Promise.reject(oauthAppRestriction('gitkraken', '55a4dd30e5f97b55e750')),
+			account: () => Promise.resolve({ id: '1', username: 'me' }),
+		});
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/gitkraken/codesee.git' });
+		assert.equal(result.resolution.status, 'unauthorized');
+		const warning = result.resolution.warning;
+		assert.equal(warning?.kind, 'auth');
+		assert.deepEqual(warning?.scope, { repositoryId: 'gitkraken/codesee' });
+		assert.deepEqual(warning?.cause, {
+			reason: 'oauth-app-not-allowed',
+			remedyUrl: 'https://github.com/settings/connections/applications/55a4dd30e5f97b55e750',
+		});
+		assert.match(warning?.message ?? '', /does not allow third-party OAuth apps/);
+		assert.equal(accountReads(), 1, 'the credential is confirmed once before the refusal is named');
+
+		manager.dispose();
+	});
+
+	test('GitHub: a restricted repository with no client id on the refusal still names its cause', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		stubGetRepo(gh, () => Promise.reject(new RequestNotFoundError(new Error('404'))));
+		await stubGitHubClient(gh, {
+			access: () => Promise.reject(oauthAppRestriction('gitkraken', undefined)),
+			account: () => Promise.resolve({ id: '1', username: 'me' }),
+		});
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/gitkraken/codesee.git' });
+		assert.deepEqual(result.resolution.warning?.cause, { reason: 'oauth-app-not-allowed' });
+
+		manager.dispose();
+	});
+
+	test("GitHub: another repository refusal stays scoped but unnamed, keeping GitHub's own words", async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		stubGetRepo(gh, () => Promise.reject(new RequestNotFoundError(new Error('404'))));
+		await stubGitHubClient(gh, {
+			access: () =>
+				Promise.reject(gitHubRefusal(403, 'Resource not accessible by integration', '55a4dd30e5f97b55e750')),
+			account: () => Promise.resolve({ id: '1', username: 'me' }),
+		});
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/gitkraken/other.git' });
+		assert.equal(result.resolution.status, 'unauthorized');
+		assert.deepEqual(result.resolution.warning?.scope, { repositoryId: 'gitkraken/other' });
+		assert.equal(result.resolution.warning?.cause, undefined);
+		assert.match(result.resolution.warning?.message ?? '', /Resource not accessible by integration/);
+
+		manager.dispose();
+	});
+
+	test("GitHub: a restricted repository whose credential no longer checks out is the connection's failure", async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		stubGetRepo(gh, () => Promise.reject(new RequestNotFoundError(new Error('404'))));
+		await stubGitHubClient(gh, {
+			access: () => Promise.reject(oauthAppRestriction('gitkraken', '55a4dd30e5f97b55e750')),
+			account: () => Promise.reject(githubAuthError(AuthenticationErrorReason.Unauthorized)),
+		});
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/gitkraken/codesee.git' });
+		assert.equal(result.resolution.status, 'unauthorized');
+		assert.equal(result.resolution.warning?.kind, 'auth');
+		assert.equal(result.resolution.warning?.scope, undefined);
+		assert.equal(result.resolution.warning?.cause, undefined);
+
+		manager.dispose();
+	});
+
+	test("GitHub: a 401 on the REST read, which the credential check refuses too, is the connection's failure", async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		stubGetRepo(gh, () => Promise.reject(new RequestNotFoundError(new Error('404'))));
+		const { accountReads } = await stubGitHubClient(gh, {
+			access: () => Promise.reject(gitHubRefusal(401, 'Bad credentials', undefined)),
+			account: () => Promise.reject(gitHubRefusal(401, 'Bad credentials', undefined)),
+		});
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/gitkraken/codesee.git' });
+		assert.equal(result.resolution.status, 'unauthorized');
+		assert.equal(result.resolution.warning?.kind, 'auth');
+		assert.equal(result.resolution.warning?.scope, undefined);
+		assert.equal(accountReads(), 1);
+
+		manager.dispose();
+	});
+
+	test('GitHub: a confirmed credential is remembered, so a second restricted repository probes nothing', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		stubGetRepo(gh, () => Promise.reject(new RequestNotFoundError(new Error('404'))));
+		const { accountReads } = await stubGitHubClient(gh, {
+			access: () => Promise.reject(oauthAppRestriction('gitkraken', '55a4dd30e5f97b55e750')),
+			account: () => Promise.resolve({ id: '1', username: 'me' }),
+		});
+
+		for (const name of ['codesee', 'vscode-symbol-maps']) {
+			const result = await manager.resolveRepository({ remoteUrl: `https://github.com/gitkraken/${name}.git` });
+			assert.equal(result.resolution.warning?.cause?.reason, 'oauth-app-not-allowed');
+		}
+		assert.equal(accountReads(), 1);
+
+		manager.dispose();
+	});
+
+	test('GitHub: a probe that proves nothing leaves the refusal scoped but unnamed', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		stubGetRepo(gh, () => Promise.reject(new RequestNotFoundError(new Error('404'))));
+		await stubGitHubClient(gh, {
+			access: () => Promise.reject(oauthAppRestriction('gitkraken', '55a4dd30e5f97b55e750')),
+			account: () => Promise.reject(new Error('socket hang up')),
+		});
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/gitkraken/codesee.git' });
+		assert.equal(result.resolution.status, 'unauthorized');
+		assert.deepEqual(result.resolution.warning?.scope, { repositoryId: 'gitkraken/codesee' });
+		assert.equal(result.resolution.warning?.cause, undefined);
+
+		manager.dispose();
+	});
+
+	test('GitHub: confirming a miss never prompts for reauthentication, even when the credential check is refused', async () => {
+		const runtime = createFakeRuntime();
+		let prompts = 0;
+		runtime.hooks!.onReauthenticationRequired = () => {
+			prompts++;
+			return Promise.resolve(false);
+		};
+		runtime.http.fetch = (url, init) => {
+			const json = (status: number, body: unknown, headers?: Record<string, string>) =>
+				Promise.resolve(
+					new Response(JSON.stringify(body), {
+						status: status,
+						headers: { 'content-type': 'application/json', ...headers },
+					}),
+				);
+			if ((typeof init?.body === 'string' ? init.body : '').includes('getCurrentAccount')) {
+				return json(401, { message: 'Bad credentials' });
+			}
+
+			assert.match(String(url), /\/repos\/gitkraken\/codesee$/);
+			return json(
+				403,
+				{ message: 'the `gitkraken` organization has enabled OAuth App access restrictions' },
+				{ 'x-oauth-client-id': '55a4dd30e5f97b55e750' },
+			);
+		};
+		const manager = createIntegrationManager(runtime);
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		stubGetRepo(gh, () => Promise.reject(new RequestNotFoundError(new Error('404'))));
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/gitkraken/codesee.git' });
+		assert.equal(result.resolution.status, 'unauthorized');
+		assert.equal(result.resolution.warning?.scope, undefined, 'a refused credential check is the connection');
+		assert.equal(prompts, 0);
+
+		manager.dispose();
+	});
+
+	test('GitHub Enterprise: the remedy page is on the instance, not github.com', async () => {
+		const runtime = createFakeRuntime();
+		await runtime.storage.store('integrations:configured', {
+			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: [
+				{
+					id: 'ghe-a',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'https://ghe-a.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+			],
+		});
+		await runtime.storage.storeSecret(
+			`integration.auth.cloud:${GitSelfManagedHostIntegrationId.CloudGitHubEnterprise}|ghe-a`,
+			JSON.stringify({
+				id: 'ghe-a',
+				accessToken: 't',
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+				domain: 'ghe-a.example.com',
+			}),
+		);
+		const manager = createIntegrationManager(runtime);
+		const gh = await connectSelfManaged(
+			manager,
+			GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			'ghe-a.example.com',
+		);
+		stubGetRepo(gh, () => Promise.reject(new RequestNotFoundError(new Error('404'))));
+		await stubGitHubClient(gh, {
+			access: () => Promise.reject(oauthAppRestriction('corp', 'abc123')),
+			account: () => Promise.resolve({ id: '1', username: 'me' }),
+		});
+
+		const result = await manager.resolveRepository({
+			providerId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			connectionId: 'ghe-a',
+			remoteUrl: 'https://ghe-a.example.com/corp/repo.git',
+		});
+		assert.equal(result.resolution.status, 'unauthorized');
+		assert.deepEqual(result.resolution.warning?.cause, {
+			reason: 'oauth-app-not-allowed',
+			remedyUrl: 'https://ghe-a.example.com/settings/connections/applications/abc123',
+		});
+
+		manager.dispose();
+	});
+
 	test('GitLab: a bare Error("Repository <path> not found") maps to not-found', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		await connect(manager, GitCloudHostIntegrationId.GitLab, 'gitlab.com');
@@ -616,6 +950,149 @@ suite('resolveRepository — GraphQL not-found classification (#5559)', () => {
 		const result = await manager.resolveRepository({ remoteUrl: 'https://gitlab.com/group/proj.git' });
 		assert.equal(result.resolution.status, 'undetermined');
 		assert.notEqual(result.resolution.warning, undefined);
+
+		manager.dispose();
+	});
+});
+
+/**
+ * A 401/403 from one repository settles as a batch read's refused target does (see `settleBatchRefusals`), on every
+ * host that resolves repositories, not only the one whose refusal this path was written for (#5900).
+ */
+suite('resolveRepository — a repository refusing its credential (#5900)', () => {
+	function refusal(
+		providerId: GitCloudHostIntegrationId,
+		status: 401 | 403,
+		body: unknown,
+		reason = status === 401 ? AuthenticationErrorReason.Unauthorized : AuthenticationErrorReason.Forbidden,
+	): AuthenticationError {
+		const original = Object.assign(new Error(`(${status}) ${status === 401 ? 'Unauthorized' : 'Forbidden'}.`), {
+			response: { status: status, headers: {}, body: body },
+		});
+		return new AuthenticationError(
+			{ providerId: providerId, microHash: undefined, cloud: true, type: 'oauth', scopes: [] },
+			reason,
+			original,
+		);
+	}
+
+	test("Bitbucket: a repository's 403 to a credential the probe confirms is that repository's", async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const bb = await connect(manager, GitCloudHostIntegrationId.Bitbucket, 'bitbucket.org');
+		const { probes } = stubGetRepoAndProbe(
+			bb,
+			() =>
+				Promise.reject(
+					refusal(GitCloudHostIntegrationId.Bitbucket, 403, {
+						type: 'error',
+						error: { message: 'Access denied. You must have write or admin access.' },
+					}),
+				),
+			() => Promise.resolve({ id: 'u1' }),
+		);
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://bitbucket.org/ws/repo.git' });
+		assert.equal(result.resolution.status, 'unauthorized');
+		assert.deepEqual(result.resolution.warning?.scope, { repositoryId: 'ws/repo' });
+		assert.equal(result.resolution.warning?.cause, undefined);
+		assert.match(result.resolution.warning?.message ?? '', /Access denied/);
+		assert.equal(probes(), 1);
+
+		manager.dispose();
+	});
+
+	test("Bitbucket: a token missing the OAuth scopes the read needs stays the connection's failure", async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const bb = await connect(manager, GitCloudHostIntegrationId.Bitbucket, 'bitbucket.org');
+		const { probes } = stubGetRepoAndProbe(
+			bb,
+			() =>
+				Promise.reject(
+					refusal(GitCloudHostIntegrationId.Bitbucket, 403, {
+						type: 'error',
+						error: { message: 'Your credentials lack one or more required privilege scopes.' },
+					}),
+				),
+			() => Promise.resolve({ id: 'u1' }),
+		);
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://bitbucket.org/ws/repo.git' });
+		assert.equal(result.resolution.status, 'unauthorized');
+		assert.equal(result.resolution.warning?.kind, 'auth');
+		assert.equal(result.resolution.warning?.scope, undefined);
+		assert.equal(probes(), 0, 'the refusal says what it is, so nothing is probed');
+
+		manager.dispose();
+	});
+
+	test("Bitbucket: a refusal whose probe refuses the credential too is the connection's failure", async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const bb = await connect(manager, GitCloudHostIntegrationId.Bitbucket, 'bitbucket.org');
+		const { probes } = stubGetRepoAndProbe(
+			bb,
+			() => Promise.reject(refusal(GitCloudHostIntegrationId.Bitbucket, 403, '')),
+			() => Promise.reject(refusal(GitCloudHostIntegrationId.Bitbucket, 401, '')),
+		);
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://bitbucket.org/ws/repo.git' });
+		assert.equal(result.resolution.status, 'unauthorized');
+		assert.equal(result.resolution.warning?.kind, 'auth');
+		assert.equal(result.resolution.warning?.scope, undefined);
+		assert.match(result.resolution.warning?.message ?? '', /invalid or expired/);
+		assert.equal(probes(), 1);
+
+		manager.dispose();
+	});
+
+	test("GitLab: with no credential check, a refusal stays the connection's failure, as before", async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gl = await connect(manager, GitCloudHostIntegrationId.GitLab, 'gitlab.com');
+		stubGetRepo(gl, () =>
+			Promise.reject(refusal(GitCloudHostIntegrationId.GitLab, 403, { message: '403 Forbidden' })),
+		);
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://gitlab.com/group/proj.git' });
+		assert.equal(result.resolution.status, 'unauthorized');
+		assert.equal(result.resolution.warning?.kind, 'auth');
+		assert.equal(result.resolution.warning?.scope, undefined);
+
+		manager.dispose();
+	});
+
+	test('Azure DevOps: an organization that disallows OAuth apps is scoped to it and named, once the credential checks out', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const az = await connect(manager, GitCloudHostIntegrationId.AzureDevOps, 'dev.azure.com');
+		stubGetRepoAndProbe(
+			az,
+			() => Promise.reject(refusal(GitCloudHostIntegrationId.AzureDevOps, 401, '')),
+			() => Promise.resolve({ id: 'guid-1' }),
+		);
+
+		const result = await manager.resolveRepository({
+			remoteUrl: 'https://dev.azure.com/myorg/myproject/_git/myrepo',
+		});
+		assert.equal(result.resolution.status, 'unauthorized');
+		assert.deepEqual(result.resolution.warning?.scope, { resourceId: 'myorg', projectId: 'myproject' });
+		assert.equal(result.resolution.warning?.cause?.reason, 'oauth-app-not-allowed');
+
+		manager.dispose();
+	});
+
+	test("Azure DevOps: the same 401 with a probe that refuses the credential is the connection's failure", async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const az = await connect(manager, GitCloudHostIntegrationId.AzureDevOps, 'dev.azure.com');
+		stubGetRepoAndProbe(
+			az,
+			() => Promise.reject(refusal(GitCloudHostIntegrationId.AzureDevOps, 401, '')),
+			() => Promise.reject(refusal(GitCloudHostIntegrationId.AzureDevOps, 401, '')),
+		);
+
+		const result = await manager.resolveRepository({
+			remoteUrl: 'https://dev.azure.com/myorg/myproject/_git/myrepo',
+		});
+		assert.equal(result.resolution.status, 'unauthorized');
+		assert.equal(result.resolution.warning?.scope, undefined);
+		assert.equal(result.resolution.warning?.cause, undefined);
 
 		manager.dispose();
 	});

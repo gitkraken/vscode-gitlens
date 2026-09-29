@@ -68,6 +68,12 @@ export interface ProviderRefusal {
 	detail?: string;
 	/** The provider's error type, when the body names one (Azure DevOps `typeKey`). */
 	typeKey?: string;
+	/**
+	 * The OAuth app the refused token belongs to, when the provider says (GitHub's `X-OAuth-Client-Id`). Not a
+	 * secret: it is the app's public client id, which the page where a user asks an organization to approve the app
+	 * is addressed by.
+	 */
+	oauthClientId?: string;
 }
 
 /** A scope failure as recorded here: the SDK's shape, plus what the refusal said and, once it is known, why. */
@@ -80,28 +86,31 @@ export interface ProviderScopeFailure extends CollectionScopeFailure {
 
 /**
  * Reads the refusal off an `AuthenticationError` that carries the provider's response: the SDK adapter's plain
- * `{ status, headers, body }` (`providersApi.ts`), or the `Response` of a `ProviderFetchError`, whose body was
- * already read into its message.
+ * `{ status, headers, body }` (`providersApi.ts`), Octokit's `{ status, headers, data }` (the GitHub client's REST
+ * reads), or the `Response` of a `ProviderFetchError`, whose body was already read into its message.
  */
 function toProviderRefusal(ex: unknown): ProviderRefusal | undefined {
 	if (!(ex instanceof AuthenticationError)) return undefined;
 
 	const response = (ex.original as { response?: unknown } | undefined)?.response as
-		| { status?: unknown; headers?: ResponseHeaders; body?: unknown }
+		| { status?: unknown; headers?: ResponseHeaders; body?: unknown; data?: unknown }
 		| undefined;
 	if (typeof response?.status !== 'number') return undefined;
 
 	// Only a structured body: a string one is a page (a proxy's, a sign-in form), not an explanation.
-	const body = typeof response.body === 'object' && response.body != null ? response.body : undefined;
+	const raw = response.body ?? response.data;
+	const body = typeof raw === 'object' && raw != null ? raw : undefined;
 	const detail =
 		decodeServiceError(getResponseHeader(response.headers, 'x-tfs-serviceerror')) ??
 		getProviderResponseBodyMessage(body);
 	const typeKey = body != null && 'typeKey' in body ? body.typeKey : undefined;
+	const oauthClientId = getResponseHeader(response.headers, 'x-oauth-client-id');
 
 	return {
 		status: response.status,
 		...(detail ? { detail: detail } : {}),
 		...(typeof typeKey === 'string' ? { typeKey: typeKey } : {}),
+		...(typeof oauthClientId === 'string' && oauthClientId ? { oauthClientId: oauthClientId } : {}),
 	};
 }
 
