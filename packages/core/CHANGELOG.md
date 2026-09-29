@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-09-29
+
+### Added
+
+- Adds GitHub and GitHub Enterprise to the refusals `resolveRepository` names. An organization with OAuth App access restrictions that has not approved the OAuth app a token belongs to hides its private repositories from every listing and search without an error, and GraphQL answers a lookup of one exactly as it answers a missing repository, so such a repository resolved as `not-found`, indistinguishable from a deleted one. A GitHub miss is now confirmed over REST (the new `GitHubApi.getRepositoryAccess`), which refuses such a repository with a `403` saying why; the resolution is then `unauthorized` with a warning scoped to the repository (`scope.repositoryId`) and, once the credential is confirmed with a profile read (the new GitHub `validateCredential`), `cause: { reason: 'oauth-app-not-allowed', remedyUrl }`, where `remedyUrl` is the app's page in the user's authorized OAuth apps, addressed by the client id GitHub reports in `X-OAuth-Client-Id`. A REST read that cannot confirm either way keeps the `not-found`, and any other `403` stays scoped with GitHub's own words and no cause. Neither the confirming read nor the credential check raises the reauthentication prompt (`GitHubApi.getCurrentAccount` takes `silent`). A refusal's facts now also read Octokit's `{ status, headers, data }` response, and carry the refused token's OAuth client id (plus/integrations, plus/git-github)
+
+### Changed
+
+- Changes `resolveRepository`'s `unauthorized` on Azure DevOps, Azure DevOps Server, Bitbucket and Bitbucket Data Center: a `401`/`403` for the repository now settles as a batch read's refused target does, so once the credential checks out, the warning is scoped to that repository (and, on Azure DevOps, named by its `cause`) instead of reported for the connection. GitLab, which has no credential check, is unchanged. Also, a GitHub batch read whose every target is refused now checks the credential once and, when it passes, publishes each refusal scoped to its repository, spending no strike and keeping the session, instead of failing as the connection's (plus/integrations)
+
 ## [0.9.0] - 2026-09-29
 
 ### Added
@@ -21,16 +31,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `notify` to `git.run`'s options, so a raw command announces its own change through `provider.notifyChanged` once it settles, whether it succeeded or failed. `'infer'` classifies the argv: read-only and object-store-only commands announce nothing; a write announces its verb's change kinds for the repository it ran in, the `-C` target when given, and run under `-C` it also announces the kinds every worktree sharing that `.git` sees, such as a branch, tag or stash it wrote, to the caller's own tree, dropping a repository's in-flight runs once however many of its worktrees are named. An explicit list announces exactly those kinds. Left unset, nothing is classified (git, git-cli)
 - Adds a trailing `runOptions` (`env`, `cancellation`, `timeout`) to `stash.applyStash`, `stash.saveStash` and `staging.clean`, as the other long-running operations already take, so a caller can lift the default timeout for a large stash or clean, or cancel one. Defaults are unchanged (git, git-cli)
 
-- Adds GitHub and GitHub Enterprise to the refusals `resolveRepository` names. An organization with OAuth App access restrictions that has not approved the OAuth app a token belongs to hides its private repositories from every listing and search without an error, and GraphQL answers a lookup of one exactly as it answers a missing repository, so such a repository resolved as `not-found`, indistinguishable from a deleted one. A GitHub miss is now confirmed over REST (the new `GitHubApi.getRepositoryAccess`), which refuses such a repository with a `403` saying why; the resolution is then `unauthorized` with a warning scoped to the repository (`scope.repositoryId`) and, once the credential is confirmed with a profile read (the new GitHub `validateCredential`), `cause: { reason: 'oauth-app-not-allowed', remedyUrl }`, where `remedyUrl` is the app's page in the user's authorized OAuth apps, addressed by the client id GitHub reports in `X-OAuth-Client-Id`. A REST read that cannot confirm either way keeps the `not-found`, and any other `403` stays scoped with GitHub's own words and no cause. Neither the confirming read nor the credential check raises the reauthentication prompt (`GitHubApi.getCurrentAccount` takes `silent`). A refusal's facts now also read Octokit's `{ status, headers, data }` response, and carry the refused token's OAuth client id (plus/integrations, plus/git-github)
-
 ### Changed
 
 - **Breaking (git)** — `rootSha` is removed; use `revision.getEmptyTreeSha(repoPath)`
 - **Breaking (git, git-cli, plus/git-github)** — `commits.getCommitCount` takes `options` before `cancellation`, `getCommitCount(repoPath, rev, options?, cancellation?)`. A caller passing a cancellation positionally must move it
 - **Breaking (git)** — `GitRevisionSubProvider` requires `getEmptyTreeSha(repoPath)`, so a custom implementation must add it
 - **Breaking (git, git-cli)** — `provider.notifyChanged` without `cache` now resets only what its `changes` can have made stale — the caches a file watcher's change of the same kinds clears, status clock included — instead of every cache, and fires `cache.onReset` with those types. An empty `changes`, or one naming `unknown`, still resets everything; a kind no cache depends on, such as `starred`, resets nothing and fires no `cache.onReset`. Pass `cache: 'all'` for the old behavior (git, git-cli)
-
-- Changes `resolveRepository`'s `unauthorized` on Azure DevOps, Azure DevOps Server, Bitbucket and Bitbucket Data Center: a `401`/`403` for the repository now settles as a batch read's refused target does, so once the credential checks out, the warning is scoped to that repository (and, on Azure DevOps, named by its `cause`) instead of reported for the connection. GitLab, which has no credential check, is unchanged. Also, a GitHub batch read whose every target is refused now checks the credential once and, when it passes, publishes each refusal scoped to its repository, spending no strike and keeping the session, instead of failing as the connection's (plus/integrations)
 
 ### Fixed
 
@@ -451,7 +457,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.1...HEAD
+[0.9.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.0...gitkraken:releases/core/v0.9.1
 [0.9.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.8.0...gitkraken:releases/core/v0.9.0
 [0.8.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.7.2...gitkraken:releases/core/v0.8.0
 [0.7.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.7.1...gitkraken:releases/core/v0.7.2
