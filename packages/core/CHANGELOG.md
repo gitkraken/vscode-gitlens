@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-29
+
 ### Added
 
 - Adds `excluding` to `commits.getLogShas`, the same `GitRefExclusions` `getCommitCount` takes, for listing what `rev` has that other refs don't; GitHub returns no SHAs when it's set (git, git-cli, plus/git-github)
@@ -445,7 +447,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.8.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.0...HEAD
+[0.9.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.8.0...gitkraken:releases/core/v0.9.0
 [0.8.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.7.2...gitkraken:releases/core/v0.8.0
 [0.7.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.7.1...gitkraken:releases/core/v0.7.2
 [0.7.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.7.0...gitkraken:releases/core/v0.7.1
