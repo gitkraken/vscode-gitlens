@@ -6495,7 +6495,6 @@
 	"{count, plural, one{{count} commit behind {target}} other{{count} commits behind {target}}}": "{count, plural, other{落后 {target} {count} 个提交}}",
 	"{count, plural, one{{count} commit in between} other{{count} commits in between}}": "{count, plural, other{之间有 {count} 个提交}}",
 	"{count, plural, one{{count} commit in comparison `{from}` … `{to}`} other{{count} commits in comparison `{from}` … `{to}`}}": "{count, plural, other{比较 `{from}` … `{to}` 中有 {count} 个提交}}",
-	"{count, plural, one{{count} commit selected} other{{count} commits selected}}": "{count, plural, other{已选择 {count} 个提交}}",
 	"{count, plural, one{{count} commit skipped as empty} other{{count} commits skipped as empty}}": "{count, plural, other{{count} 个提交因内容为空而跳过}}",
 	"{count, plural, one{{count} commit to pull from `{upstream}` on {provider}\\\n{status}} other{{count} commits to pull from `{upstream}` on {provider}\\\n{status}}}": "{count, plural, other{可从 {provider} 上的 `{upstream}` 拉取 {count} 个提交\\\n{status}}}",
 	"{count, plural, one{{count} commit to pull from `{upstream}`\\\n{status}} other{{count} commits to pull from `{upstream}`\\\n{status}}}": "{count, plural, other{可从 `{upstream}` 拉取 {count} 个提交\\\n{status}}}",

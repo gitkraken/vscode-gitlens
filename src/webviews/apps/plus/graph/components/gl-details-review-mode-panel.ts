@@ -346,8 +346,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		// close button when in this results sub-state (see `gl-details-header.inResultsView`).
 		// The Copy + Send-to-chat actions live in an always-visible footer beneath the
 		// scrollable results so they stay reachable regardless of scroll position.
-		return html`${this.renderReadyMetadataBar()}
-			<div class="review-results scrollable">
+		return html`<div class="review-results scrollable">
 				${this.stale ? this.renderStaleBanner() : nothing} ${this.renderOverview()} ${this.renderFocusAreas()}
 			</div>
 			${this.renderReadyFooter()}${this.renderRefineInput()}`;
@@ -497,59 +496,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 				composed: true,
 			}),
 		);
-	}
-
-	private renderReadyMetadataBar() {
-		const scope = this.scope;
-		if (!scope) return nothing;
-
-		// Compare-style scopes render their own compact bar so the result view matches the
-		// single-commit framing. Single-commit and WIP scopes inherit the host's bar.
-		if (scope.type !== 'compare') return nothing;
-
-		const fromSha = scope.fromSha;
-		const toSha = scope.toSha;
-		if (!fromSha || !toSha) return nothing;
-
-		const includedCount = scope.includeShas?.length ?? 0;
-
-		return html`<div class="review-metadata">
-			<div class="review-metadata__left">
-				<gl-commit-sha-copy
-					class="review-metadata__sha"
-					appearance="toolbar"
-					tooltip-placement="bottom"
-					copy-label=${l10n.t('Copy SHA')}
-					copied-label=${l10n.t('Copied!')}
-					.sha=${fromSha}
-					icon="git-commit"
-				></gl-commit-sha-copy>
-				<span class="review-metadata__dots">..</span>
-				<gl-commit-sha-copy
-					class="review-metadata__sha"
-					appearance="toolbar"
-					tooltip-placement="bottom"
-					copy-label=${l10n.t('Copy SHA')}
-					copied-label=${l10n.t('Copied!')}
-					.sha=${toSha}
-					icon="git-commit"
-				></gl-commit-sha-copy>
-			</div>
-			${
-				includedCount > 0
-					? html`<div class="review-metadata__right">
-							<span class="review-metadata__count"
-								>${formatPlural(
-									l10n.t(
-										'{count, plural, one{{count} commit selected} other{{count} commits selected}}',
-									),
-									{ count: includedCount },
-								)}</span
-							>
-						</div>`
-					: nothing
-			}
-		</div>`;
 	}
 
 	private scopeSummary(): string {

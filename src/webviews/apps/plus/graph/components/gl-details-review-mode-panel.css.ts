@@ -124,54 +124,6 @@ export const reviewModePanelStyles = css`
 		opacity: 1;
 	}
 
-	/* Compact metadata bar for compare-style review (multi-commit selection). Mirrors the
-	   single-commit case (rendered by the host gl-details-commit-panel) and the comparison metadata
-	   bar in gl-details-multicommit-panel — keeps the result framing consistent across scopes. */
-	.review-metadata {
-		display: flex;
-		flex: none;
-		gap: var(--gl-space-6);
-		align-items: center;
-		justify-content: space-between;
-		min-height: var(--gl-metadata-bar-min-height);
-		padding: 0 var(--gl-panel-padding-right, 1.2rem) 0 var(--gl-panel-padding-left, 1.2rem);
-		font-size: var(--gl-font-sm);
-		background-color: var(--gl-metadata-bar-bg);
-		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
-		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
-	}
-
-	.review-metadata__left {
-		display: flex;
-		flex: 1;
-		gap: 0.5rem;
-		align-items: center;
-		min-width: 0;
-		overflow: hidden;
-	}
-
-	.review-metadata__sha {
-		flex-shrink: 0;
-		font-size: var(--gl-font-base);
-	}
-
-	.review-metadata__dots {
-		font-family: var(--vscode-editor-font-family, monospace);
-		color: var(--color-foreground--50);
-	}
-
-	.review-metadata__right {
-		display: flex;
-		flex-shrink: 0;
-		gap: var(--gl-space-4);
-		align-items: center;
-	}
-
-	.review-metadata__count {
-		font-size: var(--gl-font-sm);
-		color: var(--vscode-descriptionForeground);
-	}
-
 	.stale-banner {
 		margin-bottom: var(--gl-space-8);
 	}
