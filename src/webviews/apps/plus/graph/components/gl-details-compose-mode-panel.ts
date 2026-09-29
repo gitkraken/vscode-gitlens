@@ -234,13 +234,38 @@ export class GlDetailsComposeModePanel extends LitElement {
 	@state() private _selectedFiles: readonly { path: string }[] = [];
 	/** Mirrors the idle curation pane's multi-selection; separate from `_selectedFiles` (ready-state tree) so selection doesn't leak across states. */
 	@state() private _idleSelectedFiles: readonly { path: string }[] = [];
-	@property({ attribute: false }) excludedFiles: ReadonlySet<string> = new Set();
+	/** Live file exclusions, seeded by the host from the engaged entry. Lit re-commits object
+	 *  bindings on every parent render, so a re-push of the same seed is ignored — otherwise any
+	 *  unrelated host render would restore the seed (usually the shared empty set) and undo the
+	 *  user's unchecks. Local edits write `_excludedFiles` directly. */
+	get excludedFiles(): ReadonlySet<string> {
+		return this._excludedFiles;
+	}
+	set excludedFiles(value: ReadonlySet<string>) {
+		if (value === this._excludedFilesSeed) return;
+
+		this._excludedFilesSeed = value;
+		this._excludedFiles = value;
+	}
+	private _excludedFilesSeed?: ReadonlySet<string>;
+	@state() private _excludedFiles: ReadonlySet<string> = new Set();
 	@state() private _aiExcludedSet: ReadonlySet<string> | undefined;
 	/** Commit ids the user has excluded from the next "Commit" action. Independent of the
 	 *  refine-excluded set — refine-exclusion affects what the AI leaves alone during recompose,
 	 *  commit-exclusion affects what gets applied at commit time. Panel-local because it resets
-	 *  per plan (a fresh recompose result starts with all commits included). */
-	@property({ attribute: false }) commitExcludedIds: ReadonlySet<string> = new Set();
+	 *  per plan (a fresh recompose result starts with all commits included). Seeded like
+	 *  {@link excludedFiles}, with the same same-seed guard. */
+	get commitExcludedIds(): ReadonlySet<string> {
+		return this._commitExcludedIds;
+	}
+	set commitExcludedIds(value: ReadonlySet<string>) {
+		if (value === this._commitExcludedIdsSeed) return;
+
+		this._commitExcludedIdsSeed = value;
+		this._commitExcludedIds = value;
+	}
+	private _commitExcludedIdsSeed?: ReadonlySet<string>;
+	@state() private _commitExcludedIds: ReadonlySet<string> = new Set();
 
 	/** Panel posture: false = commit (green checkmarks pick what will be committed), true = refine
 	 *  (orange checkmarks pick what the AI may reshape). Toggled by the "Refine with AI" checkbox.
@@ -334,7 +359,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 			if (result != null) {
 				this._aiExcludedSet = result.aiExcludedSet;
 				if (result.excludedFiles != null) {
-					this.excludedFiles = result.excludedFiles;
+					this._excludedFiles = result.excludedFiles;
 				}
 			}
 		}
@@ -342,7 +367,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 		if (changedProperties.has('files')) {
 			const pruned = prunePathsToFiles(this.excludedFiles, this.files);
 			if (pruned != null) {
-				this.excludedFiles = pruned;
+				this._excludedFiles = pruned;
 			}
 			this._idleSelectedFiles = [];
 		}
@@ -351,10 +376,10 @@ export class GlDetailsComposeModePanel extends LitElement {
 		// the whole-plan contract, so drop them the moment the range becomes interior.
 		if (this.isInteriorScope) {
 			if (this.excludedFiles.size > 0) {
-				this.excludedFiles = new Set();
+				this._excludedFiles = new Set();
 			}
 			if (this.commitExcludedIds.size > 0) {
-				this.commitExcludedIds = new Set();
+				this._commitExcludedIds = new Set();
 			}
 		}
 
@@ -402,7 +427,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 				}
 			}
 			if (changed) {
-				this.commitExcludedIds = next;
+				this._commitExcludedIds = next;
 			}
 		}
 	}
@@ -731,7 +756,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 		const next = fileCheckedExclusion(e, this.excludedFiles, () => !this.isInteriorScope);
 		if (next == null) return;
 
-		this.excludedFiles = next;
+		this._excludedFiles = next;
 		this.invalidateForward();
 	}
 
@@ -739,7 +764,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 		const next = checkAllExclusion(e, this.excludedFiles, () => !this.isInteriorScope);
 		if (next == null) return;
 
-		this.excludedFiles = next;
+		this._excludedFiles = next;
 		this.invalidateForward();
 	}
 
@@ -1638,7 +1663,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 		} else {
 			next.add(commitId);
 		}
-		this.commitExcludedIds = next;
+		this._commitExcludedIds = next;
 	}
 
 	private handleToggleRefineMode(e: Event): void {

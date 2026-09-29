@@ -215,7 +215,22 @@ export class GlDetailsReviewModePanel extends LitElement {
 			: '';
 	}
 
-	@property({ attribute: false }) excludedFiles: ReadonlySet<string> = new Set();
+	/** Live file exclusions, seeded by the host from the engaged entry. Lit re-commits object
+	 *  bindings on every parent render, so a re-push of the same seed is ignored — otherwise any
+	 *  unrelated host render would restore the seed (usually the shared empty set) and re-check
+	 *  every file the user just unchecked. Local edits write `_excludedFiles` directly. */
+	get excludedFiles(): ReadonlySet<string> {
+		return this._excludedFiles;
+	}
+	set excludedFiles(value: ReadonlySet<string>) {
+		if (value === this._excludedFilesSeed) return;
+
+		this._excludedFilesSeed = value;
+		this._excludedFiles = value;
+	}
+	private _excludedFilesSeed?: ReadonlySet<string>;
+	@state() private _excludedFiles: ReadonlySet<string> = new Set();
+
 	/** Mirrors the pane's multi-selection so the "Open Changes" chip can swap to "Open Selected". */
 	@state() private _selectedFiles: readonly { path: string }[] = [];
 
@@ -259,7 +274,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 			if (result != null) {
 				this._aiExcludedSet = result.aiExcludedSet;
 				if (result.excludedFiles != null) {
-					this.excludedFiles = result.excludedFiles;
+					this._excludedFiles = result.excludedFiles;
 				}
 			}
 		}
@@ -267,7 +282,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		if (changedProperties.has('files')) {
 			const pruned = prunePathsToFiles(this.excludedFiles, this.files);
 			if (pruned != null) {
-				this.excludedFiles = pruned;
+				this._excludedFiles = pruned;
 			}
 			this._selectedFiles = [];
 		}
@@ -889,7 +904,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const next = fileCheckedExclusion(e, this.excludedFiles);
 		if (next == null) return;
 
-		this.excludedFiles = next;
+		this._excludedFiles = next;
 		this.invalidateForward();
 	}
 
@@ -897,7 +912,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const next = checkAllExclusion(e, this.excludedFiles);
 		if (next == null) return;
 
-		this.excludedFiles = next;
+		this._excludedFiles = next;
 		this.invalidateForward();
 	}
 
