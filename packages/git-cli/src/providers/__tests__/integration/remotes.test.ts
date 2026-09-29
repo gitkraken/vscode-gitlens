@@ -45,6 +45,31 @@ suite('RemotesSubProvider', () => {
 		);
 	});
 
+	test('adding a remote with fetch, then removing it, refreshes a count that excludes remote-tracking branches', async () => {
+		const { path, provider, cleanup } = (await import('./helpers.js')).createTestRepo();
+		try {
+			const excluding = { excluding: { remotes: true } };
+			const unpushed = await provider.commits.getCommitCount(path, 'HEAD', excluding);
+			assert.ok(unpushed != null && unpushed > 0, 'with no remotes, every commit is unpushed');
+
+			await provider.remotes.addRemote(path, 'self', path, { fetch: true });
+			assert.strictEqual(
+				await provider.commits.getCommitCount(path, 'HEAD', excluding),
+				0,
+				'the fetched tracking branches contain every commit',
+			);
+
+			await provider.remotes.removeRemote(path, 'self');
+			assert.strictEqual(
+				await provider.commits.getCommitCount(path, 'HEAD', excluding),
+				unpushed,
+				'removing the remote deletes its tracking branches',
+			);
+		} finally {
+			cleanup();
+		}
+	});
+
 	test('getRemotes returns empty for repo without remotes', async () => {
 		// Use a separate repo to avoid cache issues
 		const { path: emptyPath, provider: emptyProvider, cleanup } = (await import('./helpers.js')).createTestRepo();

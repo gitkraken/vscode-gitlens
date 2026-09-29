@@ -80,7 +80,12 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 	@debug()
 	async addRemote(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void> {
 		await this.git.run({ cwd: repoPath }, 'remote', 'add', options?.fetch ? '-f' : undefined, name, url);
-		this.context.hooks?.cache?.onReset?.(repoPath, 'remotes');
+		// A fetch creates the remote's tracking branches, which the branch, ref and history caches hold
+		if (options?.fetch) {
+			this.context.hooks?.cache?.onReset?.(repoPath, 'remotes', 'branches');
+		} else {
+			this.context.hooks?.cache?.onReset?.(repoPath, 'remotes');
+		}
 		this.context.hooks?.repository?.onChanged?.(repoPath, ['remotes']);
 	}
 
@@ -109,7 +114,8 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 	@debug()
 	async removeRemote(repoPath: string, name: string): Promise<void> {
 		await this.git.run({ cwd: repoPath }, 'remote', 'remove', name);
-		this.context.hooks?.cache?.onReset?.(repoPath, 'remotes');
+		// Removing a remote deletes its tracking branches too
+		this.context.hooks?.cache?.onReset?.(repoPath, 'remotes', 'branches');
 		this.context.hooks?.repository?.onChanged?.(repoPath, ['remotes']);
 	}
 }
