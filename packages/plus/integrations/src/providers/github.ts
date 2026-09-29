@@ -23,10 +23,11 @@ import type { IntegrationAuthenticationProviderDescriptor } from '../authenticat
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
+import type { ProviderRefusal } from '../collectionMetadata.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
-import { IntegrationReadUnavailableError } from '../errors.js';
+import { AuthenticationError, IntegrationReadUnavailableError, RequestNotFoundError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
@@ -36,6 +37,7 @@ import type {
 	ProviderPullRequestSearchPage,
 	SearchMyIssuesOptions,
 } from '../models/integration.js';
+import type { ProviderWarningCause } from '../results.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
 import type {
@@ -450,9 +452,70 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 
 		// `apiBaseUrlFor` is undefined for cloud (which is what selects the cloud endpoints) and the GHE instance base
 		// for enterprise (inherited override).
-		return api.getRepo(toTokenWithInfo(this.id, session), repo.owner, repo.name, repo.project, {
+		try {
+			return await api.getRepo(toTokenWithInfo(this.id, session), repo.owner, repo.name, repo.project, {
+				baseUrl: this.apiBaseUrlFor(session),
+			});
+		} catch (ex) {
+			if (!(ex instanceof RequestNotFoundError)) throw ex;
+
+			// GraphQL answers a repository its organization hides from this OAuth app (OAuth App access restrictions)
+			// exactly as it answers a missing one, so a miss is confirmed over REST, which refuses such a repository
+			// with a `403` saying why. Only that refusal replaces the miss: a REST read that cannot confirm either way
+			// leaves the answer GraphQL gave.
+			const github = await this.authenticationService.apis.github;
+			try {
+				await github?.getRepositoryAccess(this, toTokenWithInfo(this.id, session), repo.owner, repo.name, {
+					baseUrl: this.apiBaseUrlFor(session),
+				});
+			} catch (refusal) {
+				if (refusal instanceof AuthenticationError) throw refusal;
+			}
+			throw ex;
+		}
+	}
+
+	/**
+	 * The profile request that proves the credential; see `IntegrationBase.validateCredential`. Silent: a refusal
+	 * here is rethrown to the read that asked, which reports it as it reports its own failure (or, for
+	 * `resolveRepository`, as the resolution's warning), so the check must not raise a prompt of its own.
+	 */
+	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
+		const github = await this.authenticationService.apis.github;
+		const account = await github?.getCurrentAccount(this, toTokenWithInfo(this.id, session), {
 			baseUrl: this.apiBaseUrlFor(session),
+			silent: true,
 		});
+		if (account == null) throw new Error('GitHub did not confirm the credential');
+	}
+
+	/**
+	 * Names a confirmed credential's refusal from what GitHub said. A `403` whose explanation cites OAuth App access
+	 * restrictions is an organization that has not approved the OAuth app this token belongs to; its remedy page is
+	 * that app's page in the user's authorized apps, where they request an organization's approval, addressed by the
+	 * client id GitHub reports on the refusal. Any other refusal is left unnamed, so the warning keeps GitHub's own
+	 * words.
+	 */
+	protected override describeRefusal(
+		session: ProviderAuthenticationSession,
+		refusal: ProviderRefusal,
+	): ProviderWarningCause | undefined {
+		if (refusal.status !== 403 || !/\bOAuth App access restrictions\b/i.test(refusal.detail ?? '')) {
+			return undefined;
+		}
+
+		const webUrl =
+			this.id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
+				? this.getSelfManagedInstallationUrl(session)
+				: `https://${this.domain}`;
+		return {
+			reason: 'oauth-app-not-allowed',
+			...(refusal.oauthClientId != null
+				? {
+						remedyUrl: `${webUrl}/settings/connections/applications/${encodeURIComponent(refusal.oauthClientId)}`,
+					}
+				: {}),
+		};
 	}
 
 	protected override async searchProviderMyPullRequests(

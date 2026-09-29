@@ -24,6 +24,7 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
+import type { ProviderScopeFailure } from '../collectionMetadata.js';
 import {
 	throwIfCallerContractError,
 	toCollectionFailureError,
@@ -304,6 +305,27 @@ export abstract class GitHostIntegration<
 		project?: string;
 		connectionId?: string;
 	}): Promise<ProviderRepository | undefined>;
+
+	/**
+	 * Settles what one repository's refusal of the credential means, as a batch read settles a refused target (see
+	 * `IntegrationBase.settleBatchRefusals`): the scope failure it is recorded as, against that repository (and, on
+	 * Azure DevOps, its project), with its cause named once the credential checks out. A refused credential throws
+	 * its own error, which the caller reports for the connection instead of the repository's refusal.
+	 */
+	async settleRepositoryRefusal(
+		repo: { owner: string; name: string; project?: string; connectionId?: string },
+		refusal: unknown,
+	): Promise<ProviderScopeFailure | undefined> {
+		const session = await this.resolveReadSession(repo.connectionId, undefined);
+		if (session == null) return undefined;
+
+		const [slot] = await this.settleBatchRefusals(
+			session,
+			[{ owner: repo.owner, repo: repo.name, project: repo.project }],
+			[{ status: 'rejected', reason: refusal }],
+		);
+		return slot?.status === 'rejected' ? slot.failure : undefined;
+	}
 
 	/** Stack membership for every stacked pull request in the repository, keyed by pull request number.
 	 *  Only hosts with a stacks concept implement this (currently GitHub). */

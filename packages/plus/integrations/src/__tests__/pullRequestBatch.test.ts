@@ -633,6 +633,82 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 		manager.dispose();
 	});
 
+	suite('GitHub: every target refused (#5900)', () => {
+		/** Refuses every batch request with `status`, and answers the profile read that checks the credential. */
+		async function gitHubRefusing(status: 401 | 403, message: string, probeStatus: 200 | 401 = 200) {
+			const runtime = createFakeRuntime();
+			const checks = { probes: 0 };
+			runtime.http.fetch = (_url, init) => {
+				if ((typeof init?.body === 'string' ? init.body : '').includes('getCurrentAccount')) {
+					checks.probes++;
+					return Promise.resolve(
+						probeStatus === 200
+							? json(200, { data: { viewer: { databaseId: 1, login: 'me' } } })
+							: json(probeStatus, { message: 'Bad credentials' }),
+					);
+				}
+				return Promise.resolve(json(status, { message: message }));
+			};
+			const { manager, gh } = await connectedGitHub(runtime);
+			stubCurrentAccount(gh, 'me');
+			const session = { ...(gh as unknown as { _session: ProviderAuthenticationSession })._session };
+			return { manager: manager, gh: gh, session: session, checks: checks };
+		}
+
+		const targets = [
+			{ key: 'a', owner: 'o', repo: 'r', number: 1 },
+			{ key: 'b', owner: 'o', repo: 's', number: 2 },
+		];
+
+		test('by a credential the probe confirms, each target is scoped to its repository and costs nothing', async () => {
+			const { manager, gh, session, checks } = await gitHubRefusing(
+				403,
+				'Resource not accessible by integration',
+			);
+
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: targets,
+			});
+
+			assert.deepEqual(result.items, [], 'a refused target is dropped, never reported absent');
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(
+				result.warnings.filter(w => w.kind === 'auth').map(w => w.scope),
+				[{ repositoryId: 'o/r' }, { repositoryId: 'o/s' }],
+			);
+			assert.equal(checks.probes, 1);
+			assert.equal(getRequestExceptionCount(gh), 0, 'a confirmed credential spends no strike');
+			assert.deepEqual((gh as unknown as { _session: ProviderAuthenticationSession })._session, session);
+
+			manager.dispose();
+		});
+
+		test("a 401 the credential check refuses too is the connection's failure", async () => {
+			const { manager, gh, session, checks } = await gitHubRefusing(401, 'Bad credentials', 401);
+
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: targets,
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(
+				result.warnings.filter(w => w.kind === 'auth').map(w => w.scope),
+				[undefined],
+			);
+			assert.equal(checks.probes, 1);
+			assert.notDeepEqual(
+				(gh as unknown as { _session: ProviderAuthenticationSession })._session,
+				session,
+				'the cloud session is expired so the next read refreshes it',
+			);
+
+			manager.dispose();
+		});
+	});
+
 	test('GitHub: six requests of 25 targets each failing with 500 cost one strike and one notice, and do not disconnect', async () => {
 		const runtime = createFakeRuntime();
 		runtime.http.fetch = () => Promise.resolve(json(500, { message: 'Server Error' }));
