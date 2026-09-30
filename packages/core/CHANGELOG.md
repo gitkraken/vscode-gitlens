@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes a typed `ops.fetch`, `pull` or `push` that rejects announcing nothing, so reads kept serving what they cached before a run that had already stored some refs or stopped on a conflict, until a file watcher caught up. They announce their changes as a finished run does; a fetch that ran no git command still announces nothing (git-cli)
 - Fixes `diff.getDiff` and `getParsedDiff` failing to diff from `HEAD` in a repository with no commits yet, where HEAD names nothing. It diffs against the empty tree, and `GitDiff.from` reports that tree's id (git-cli)
 
 ## [0.9.1] - 2026-09-29

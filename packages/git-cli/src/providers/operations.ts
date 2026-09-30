@@ -262,11 +262,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		const scope = getScopedLogger();
 
 		const { branch, ...opts } = options ?? {};
+		let ran = false;
 		try {
 			if (isBranchReference(branch)) {
 				const [branchName, remoteName] = getBranchNameAndRemote(branch);
 				if (remoteName == null) return;
 
+				ran = true;
 				await this.fetchCore(
 					repoPath,
 					{
@@ -279,14 +281,18 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					runOptions,
 				);
 			} else {
+				ran = true;
 				await this.fetchCore(repoPath, opts, runOptions);
 			}
-
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'tags');
-			this.context.hooks?.repository?.onChanged?.(repoPath, this.getFetchChanges(branch, options));
 		} catch (ex) {
 			scope?.error(ex);
 			throw ex;
+		} finally {
+			// A rejected fetch may have stored some of its refs before it failed
+			if (ran) {
+				this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'tags');
+				this.context.hooks?.repository?.onChanged?.(repoPath, this.getFetchChanges(branch, options));
+			}
 		}
 	}
 
@@ -487,6 +493,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	): Promise<void> {
 		const scope = getScopedLogger();
 
+		// Set once a git command is about to run, so a pull that fails partway (a merge or rebase stopping on a
+		// conflict, a fetch that stored some refs) announces what it changed the way a finished one does
+		let announce: (() => void) | undefined;
 		try {
 			if (isBranchReference(options?.branch)) {
 				const branch = options.branch;
@@ -499,6 +508,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					// Branch is checked out in a worktree — run git pull in that worktree's directory
 					// Any rebase state (e.g. from `pull.rebase=true`) appears under the worktree path
 					const worktreePath = normalizePath(worktree.uri.fsPath);
+					// Its HEAD, index and any paused merge or rebase belong to that worktree, not to `repoPath`
+					announce = () => {
+						this.announcePull(repoPath);
+						if (worktreePath !== normalizePath(repoPath)) {
+							this.announcePull(worktreePath);
+						}
+					};
 					this.context.hooks?.operations?.onRebaseCapableOperation?.(worktreePath, 'pull', 'started');
 					try {
 						await this.pullCore(
@@ -514,9 +530,6 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					} finally {
 						this.context.hooks?.operations?.onRebaseCapableOperation?.(worktreePath, 'pull', 'ended');
 					}
-
-					this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status', 'tags');
-					this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'remotes', 'index']);
 				} else if (options?.fastForward === 'only') {
 					// Not checked out anywhere, so there is no working tree to merge into — but a fast-forward
 					// needs none: fetching `<upstream>:<branch>` advances the local branch, and git refuses that
@@ -533,6 +546,12 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 						});
 					}
 
+					// A `pull` fetch writes `<upstream>:<branch>`, moving the local branch too — same
+					// hooks `fetch()` fires for a pull fetch with a branch reference.
+					announce = () => {
+						this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'tags');
+						this.context.hooks?.repository?.onChanged?.(repoPath, ['heads', 'remotes']);
+					};
 					try {
 						await this.fetchCore(
 							repoPath,
@@ -554,11 +573,6 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 						}
 						throw ex;
 					}
-
-					this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'tags');
-					// A `pull` fetch writes `<upstream>:<branch>`, moving the local branch too — same
-					// hooks `fetch()` fires for a pull fetch with a branch reference.
-					this.context.hooks?.repository?.onChanged?.(repoPath, ['heads', 'remotes']);
 				} else {
 					// Branch is not checked out anywhere — can only fetch (no working tree to merge into)
 					await this.fetch(repoPath, { branch: branch }, runOptions);
@@ -566,6 +580,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				return;
 			}
 
+			announce = () => this.announcePull(repoPath);
 			this.context.hooks?.operations?.onRebaseCapableOperation?.(repoPath, 'pull', 'started');
 			try {
 				await this.pullCore(
@@ -581,13 +596,17 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			} finally {
 				this.context.hooks?.operations?.onRebaseCapableOperation?.(repoPath, 'pull', 'ended');
 			}
-
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status', 'tags');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'remotes', 'index']);
 		} catch (ex) {
 			scope?.error(ex);
 			throw ex;
+		} finally {
+			announce?.();
 		}
+	}
+
+	private announcePull(repoPath: string): void {
+		this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status', 'tags');
+		this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'remotes', 'index']);
 	}
 
 	private async pullCore(
@@ -721,15 +740,16 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					scope?.error(ex, 'Unable to set upstream tracking after publish');
 				}
 			}
-
+		} catch (ex) {
+			scope?.error(ex);
+			throw ex;
+		} finally {
+			// A rejected push may have updated some of its remote-tracking refs before it failed
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
 			this.context.hooks?.repository?.onChanged?.(
 				repoPath,
 				options?.publish != null ? ['config', 'heads', 'remotes'] : ['remotes'],
 			);
-		} catch (ex) {
-			scope?.error(ex);
-			throw ex;
 		}
 	}
 
