@@ -2656,6 +2656,46 @@ or
 }
 ```
 
+### graph/previewBanner/shown
+
+> Sent when the signed-out private-repo preview banner strip is shown (once per Graph instance)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'panel' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whole days remaining in the preview window (ceiling; 0 = under a day)
+  'daysLeft': number
+}
+```
+
+### graph/previewBanner/signIn
+
+> Sent when the user clicks Sign In on the preview banner strip
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'panel' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whole days remaining in the preview window (ceiling; 0 = under a day)
+  'daysLeft': number
+}
+```
+
 ### graph/pullRequests/filtered
 
 > Sent when the user types in the filter box in the sidebar pull requests panel
