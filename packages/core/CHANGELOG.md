@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds single pull request reads and URL identity parsing for Azure DevOps, Bitbucket Cloud and Bitbucket Data Center ([#5886](https://github.com/gitkraken/vscode-gitlens/issues/5886)). `Integration.getPullRequest(resource, id)` and `getPullRequestIdentityFromMaybeUrl(url)`, until now only implemented by GitHub and GitLab, resolve on these hosts too. Azure DevOps reads `{org}/{project}/_apis/git/pullrequests/{id}` — no repository required, since a pull request id is unique within the organization — with the project taken from the descriptor's `project` or else from a `{project}/_git/{repo}` or bare project name, and its URL parser decodes the path and anchors on `/_git/{repo}/pullrequest/{id}`, covering `dev.azure.com`, a Server address behind a virtual directory (dropped from the identity, so the connection's configured URL must include it), the legacy `{org}.visualstudio.com` host, and the short `{org}/_git/{repo}` form. Bitbucket Cloud and Data Center read through the strict by-id reads `getPullRequest` and `getServerPullRequest`, and their parsers accept `{workspace}/{repo}/pull-requests/{id}` and `projects/{KEY}/repos/{repo}/pull-requests/{id}` (a personal repository's `users/{slug}/repos/…` as project `~{slug}`), each rejecting the other's path shapes. Only a 404 resolves to `undefined`; every other failure reaches `getPullRequest`'s own error handling, so it is not cached as a miss (plus/integrations)
+
 ### Fixed
 
 - Fixes a page-budgeted GitHub pull request sweep reporting its stop as an unrecoverable cap when the account has more than 1,000 matches — the search ceiling is now flagged only on the page where it ends the walk. This also changes an account-wide GitHub `listPullRequestsPage`: a page over the ceiling that can still continue no longer reports `page.truncated` or an `exhausted` warning, and only the page the ceiling ends on does (plus/git-github)

@@ -306,6 +306,53 @@ export class AzureDevOpsApi implements Disposable {
 	}
 
 	@trace({
+		args: (provider, token, owner, projectOrName, id) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			projectOrName: projectOrName,
+			id: id,
+		}),
+	})
+	public async getPullRequest(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		projectOrName: string,
+		id: string,
+		options: { baseUrl: string },
+	): Promise<PullRequest | undefined> {
+		const scope = getScopedLogger();
+		// A pull request id is unique within the organization, so no repository is required here — only the
+		// project. `projectOrName` is either a bare project name or a `{project}/_git/{repo}` descriptor; either
+		// way the project is its first segment.
+		const projectName = projectOrName.split('/')[0];
+
+		try {
+			const pr = await this.request<AzurePullRequest>(
+				provider,
+				token,
+				options.baseUrl,
+				`${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(projectName)}/_apis/git/pullrequests/${encodeAzurePathSegment(id)}`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			return pr != null
+				? await this.toPullRequest(pr, provider, token, owner, options.baseUrl, scope)
+				: undefined;
+		} catch (ex) {
+			// Only a 404 is a proven absence; `Integration.getPullRequest` handles every other failure, so it is not
+			// cached as a miss
+			if (ex.original?.status === 404) return undefined;
+
+			throw ex;
+		}
+	}
+
+	@trace({
 		args: (provider, token, owner, repo, id) => ({
 			provider: provider.name,
 			token: `<token:${token.microHash}>`,

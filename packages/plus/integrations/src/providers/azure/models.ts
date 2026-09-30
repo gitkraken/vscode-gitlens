@@ -12,7 +12,7 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { ProviderAccount, ProviderIssue } from '../models.js';
 
-const vstsHostnameSuffix = '.visualstudio.com';
+export const vstsHostnameSuffix = '.visualstudio.com';
 
 export interface AzureRepositoryDescriptor extends ResourceDescriptor {
 	owner: string;
