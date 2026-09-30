@@ -26,7 +26,7 @@ function link(href: string): { href: string } {
 	return { href: href };
 }
 
-function user(name: string): BitbucketPullRequest['author'] {
+export function user(name: string): BitbucketPullRequest['author'] {
 	return {
 		type: 'user',
 		uuid: `{${name}}`,
@@ -37,6 +37,32 @@ function user(name: string): BitbucketPullRequest['author'] {
 			avatar: link(`https://bitbucket.org/${name}/avatar`),
 			html: link(`https://bitbucket.org/${name}`),
 		},
+	};
+}
+
+// Shape Bitbucket returns for a review bot (e.g. CodeAnt AI): `links` has `avatar` but no `html`, and there is no
+// `nickname`. See gitkraken/gk-ade#47.
+export function appUser(name: string = 'CodeAnt AI'): BitbucketPullRequest['author'] {
+	return {
+		type: 'app_user',
+		uuid: '{bot}',
+		account_id: 'bot-account',
+		display_name: name,
+		links: { avatar: link('https://bitbucket.org/bot/avatar') },
+	};
+}
+
+export function participant(
+	participantUser: BitbucketPullRequest['author'],
+	options?: { role?: 'PARTICIPANT' | 'REVIEWER'; participatedOn?: string | null },
+): NonNullable<BitbucketPullRequest['participants']>[number] {
+	return {
+		type: 'participant',
+		user: participantUser,
+		role: options?.role ?? 'PARTICIPANT',
+		approved: false,
+		state: null,
+		participated_on: options?.participatedOn === undefined ? '2026-09-11T12:00:00Z' : options.participatedOn,
 	};
 }
 
