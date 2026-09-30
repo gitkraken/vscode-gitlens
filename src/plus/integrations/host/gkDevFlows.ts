@@ -74,6 +74,10 @@ async function connectViaGkDev(
 	if (account != null) {
 		// Re-authenticate the GK CLI MCP so it can use the (about-to-be-)connected integrations.
 		void commands.executeCommand('gitlens.ai.mcp.authCLI');
+	} else {
+		// Signed out, the OAuth callback below lands in `loginWithCode` — connecting signs the user
+		// in as a side effect, so say so up front instead of silently creating a session
+		void window.showInformationMessage(l10n.t('Connecting an integration will also sign you in to GitKraken.'));
 	}
 
 	let query = 'source=gitlens';
