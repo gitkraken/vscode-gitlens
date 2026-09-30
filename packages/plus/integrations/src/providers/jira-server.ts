@@ -14,11 +14,16 @@ import { IssuesSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { IntegrationKey } from '../models/integration.js';
-import type { AccountWideIssuesResult, IssuesForProjectOptions, ProjectIssuesDrain } from '../models/issueReads.js';
+import type {
+	AccountWideIssuesResult,
+	IssuesForProjectOptions,
+	ProjectIssuesDrain,
+	SearchMyIssuesOptions,
+} from '../models/issueReads.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import { areDomainsOnSameHost, baseUrlFromDomain } from '../utils/domain.utils.js';
 import type { ProviderIssue } from './models.js';
-import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models.js';
+import { IssueFilter, providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
 import { isJiraMissingProjectError } from './providerErrors.js';
 import type { ProvidersApi } from './providersApi.js';
 import { DiscoveryCache } from './utils/discoveryCache.js';
@@ -204,6 +209,7 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 			resourceId: project.resourceId,
 			projectId: project.id,
 		};
+		const states = toProviderIssueStates(options?.state);
 		const drainIssues = async (scope: {
 			authorLogin?: string;
 			assigneeLogins?: string[];
@@ -219,6 +225,7 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 					result = await api.getJiraServerIssuesForProjectPaged(tokenWithInfo, baseUrl, projectJqlKey, {
 						...scope,
 						cursor: cursor,
+						states: states,
 						sort: options?.sort,
 					});
 				} catch (ex) {
@@ -438,8 +445,10 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		session: ProviderAuthenticationSession,
 		_resources?: JiraServerResourceDescriptor[],
 		cancellation?: AbortSignal,
+		options?: SearchMyIssuesOptions,
 	): Promise<AccountWideIssuesResult | undefined> {
 		const api = await this.getProvidersApi();
+		const states = toProviderIssueStates(options?.state);
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 		const baseUrl = this.apiBaseUrlFor(session);
 
@@ -467,7 +476,10 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		for (let i = 0; i < maxPagesPerRequest; i++) {
 			if (cancellation?.aborted) break;
 
-			const page = await api.getJiraServerIssuesForCurrentUser(tokenWithInfo, baseUrl, { cursor: cursor });
+			const page = await api.getJiraServerIssuesForCurrentUser(tokenWithInfo, baseUrl, {
+				cursor: cursor,
+				states: states,
+			});
 			if (page == null) {
 				// Nothing fetched yet and no page is an empty account, not a failure; after a continuation it
 				// means the server dropped the drain mid-way.

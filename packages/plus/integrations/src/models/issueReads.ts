@@ -96,6 +96,13 @@ export type IssuesForProjectOptions = {
 	 * no normalized issue carries; this option orders one project's query.
 	 */
 	sort?: IssueSorting;
+	/**
+	 * Which issue states to read. Omitted reads open issues only, which is every tracker's own default.
+	 *
+	 * Validated by the facade against `ProviderMetadata.supportsIssueStates`. A tracker that can't express a state
+	 * (Trello) refuses anything but `'open'` rather than serving its open cards as if they were the closed ones.
+	 */
+	state?: IssueStateFilter;
 };
 
 export type ProjectIssuesDrain = {
@@ -176,6 +183,13 @@ export type SearchMyIssuesOptions = {
 	 */
 	org?: string;
 	project?: string;
+	/**
+	 * Which issue states to read. Omitted reads open issues only.
+	 *
+	 * Honored by the issue trackers that declare `ProviderMetadata.supportsIssueStates` (Jira, Jira Data Center,
+	 * Linear). The git hosts' account-wide reads ignore it and keep their own open-only default.
+	 */
+	state?: IssueStateFilter;
 	/**
 	 * How the provider should order the read, as `field:direction`.
 	 *

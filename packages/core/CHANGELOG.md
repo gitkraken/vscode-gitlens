@@ -6,8 +6,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `state` (`'open' | 'closed' | 'all'`, omitted reads open) to the issue-tracker reads: `listIssueTrackerIssuesPage` and `IssuesIntegration.getIssuesForProject*`, reported as `getSupportedFilters().issueStates`. The trackers' account-wide read (`searchMyIssuesWithTruncationResult`'s `SearchMyIssuesOptions`) takes it too, though no facade read reaches that path yet. Linear, Jira and Jira Data Center narrow server-side on every page of their drains, so a project's done work no longer spends the page budget before its open issues. Trello can only read open cards, so it refuses `'closed'` and `'all'` with a warning and `fetchFailed` rather than serving the open ones. Every tracker also refuses a value outside the three (the integration reads too, before any request), and a cursor minted under one state when resumed under another (#5911) (plus/integrations)
+
 ### Fixed
 
+- Fixes Linear issue reads listing completed and canceled issues. Both Linear list reads now default to open work, as every other tracker already did: pass `state: 'all'` to keep the old behavior, or `'closed'` for done work only. Requires `@gitkraken/provider-apis` 0.61.0 (#5911) (plus/integrations)
 - Fixes a Bitbucket Cloud pull request with a review bot among its participants (an `app_user` account, e.g. CodeAnt AI) failing the whole read. Bitbucket returns those accounts without `links.html` (and without a `nickname`), and the direct REST mapper read the link unguarded, so `getPullRequest`, `getPullRequestForBranch`, `getPullRequestsForBranch` (the whole list), `getIssueOrPullRequest` and `getPullRequestForCommit` threw. Such an account, as a participant, reviewer, author, issue reporter or assignee, now maps with no `url` (and no `avatarUrl` if Bitbucket sends none) ([#5910](https://github.com/gitkraken/vscode-gitlens/issues/5910)) (plus/integrations)
 
 ## [0.9.3] - 2026-09-30
