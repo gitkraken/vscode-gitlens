@@ -7,6 +7,7 @@ import { keyed } from 'lit/directives/keyed.js';
 import { focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
+import { proFeaturePreviewUsageDurationInDays } from '../../../../constants.subscription.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { SubscriptionLoginCommandArgs } from '../../../../plus/gk/models/subscription.js';
 import { createCommandLink } from '../../../../system/commands.js';
@@ -1130,6 +1131,11 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 	@property({ type: Boolean })
 	upgradedFromPreV19 = false;
 
+	/** The signed-out private-repo preview has ended (host-decided) — swaps the sign-in copy to say so.
+	 *  Task-specific intent copy still takes precedence; the preview note then rides below it. */
+	@property({ type: Boolean })
+	previewExpired = false;
+
 	@state()
 	private _selectedLayout?: 'sidebar' | 'panel';
 
@@ -1304,20 +1310,43 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				}
 				<div class="content">
 					<gitlens-logo-circle class="logo"></gitlens-logo-circle>
-					<h1 class="heading">${copy?.heading ?? l10n.t('Sign In to GitLens')}</h1>
+					<h1 class="heading">
+						${
+							copy?.heading ??
+							(this.previewExpired ? l10n.t('Commit Graph Preview Ended') : l10n.t('Sign In to GitLens'))
+						}
+					</h1>
 					<p class="body">
 						${
 							copy?.body ??
-							localizedContent(
-								l10n.t({
-									message:
-										'Supercharge Git and stay in control of {aiAssisted} development by connecting coding agents, worktrees, commits, and reviews directly into the Git workflow.',
-									comment: ['{aiAssisted} is the styled phrase “AI-assisted”, kept on one line.'],
-								}),
-								{ aiAssisted: html`<span class="nowrap">${l10n.t('AI-assisted')}</span>` },
-							)
+							(this.previewExpired
+								? l10n.t(
+										'Your {0}-day Commit Graph preview for privately hosted repos has ended — sign in or start a free Pro trial to keep using it here. Public and local repos stay free.',
+										proFeaturePreviewUsageDurationInDays,
+									)
+								: localizedContent(
+										l10n.t({
+											message:
+												'Supercharge Git and stay in control of {aiAssisted} development by connecting coding agents, worktrees, commits, and reviews directly into the Git workflow.',
+											comment: [
+												'{aiAssisted} is the styled phrase “AI-assisted”, kept on one line.',
+											],
+										}),
+										{ aiAssisted: html`<span class="nowrap">${l10n.t('AI-assisted')}</span>` },
+									))
 						}
 					</p>
+					${
+						// Task copy took the heading/body — the preview note still explains why the wall is up
+						this.previewExpired && copy != null
+							? html`<p class="body" role="note">
+									${l10n.t(
+										'Your {0}-day Commit Graph preview for privately hosted repos has ended — public and local repos stay free.',
+										proFeaturePreviewUsageDurationInDays,
+									)}
+								</p>`
+							: nothing
+					}
 					${copy?.promise ? this.renderPromise(copy.promise) : nothing}
 					${this.waiting ? this.renderWaiting() : this.renderSignInActions()}
 					${

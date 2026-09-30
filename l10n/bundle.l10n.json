@@ -1138,6 +1138,7 @@
 	"Commit Fixup & Squash": "Commit Fixup & Squash",
 	"Commit Graph": "Commit Graph",
 	"Commit Graph & Visual File History on private repos": "Commit Graph & Visual File History on private repos",
+	"Commit Graph Preview Ended": "Commit Graph Preview Ended",
 	"Commit Graph:": "Commit Graph:",
 	"Commit Graph: Your Command Center": "Commit Graph: Your Command Center",
 	"Commit Link": "Commit Link",
@@ -3326,6 +3327,7 @@
 	"Preview": "Preview",
 	"Preview feature": "Preview feature",
 	"Preview unavailable": "Preview unavailable",
+	"Previewing the Commit Graph on privately hosted repos — {remaining}.": "Previewing the Commit Graph on privately hosted repos — {remaining}.",
 	"Previous / next branch or tag": "Previous / next branch or tag",
 	"Previous / next commit": "Previous / next commit",
 	"Previous / next fork": "Previous / next fork",
@@ -3359,7 +3361,8 @@
 	"Prune Branches": "Prune Branches",
 	"Prune Branches & Delete Worktrees": "Prune Branches & Delete Worktrees",
 	"Prune Remote": "Prune Remote",
-	"Pruning worktrees requires a newer version of Git (>= {0}) than is currently installed ({1}). Please install a more recent version of Git and try again.": "Pruning worktrees requires a newer version of Git (>= {0}) than is currently installed ({1}). Please install a more recent version of Git and try again.",
+	"Pruning worktrees requires a newer version of Git (&gt;= {0}) than is currently installed ({1}). Please install a more recent version of Git and try again.": "Pruning worktrees requires a newer version of Git (&gt;= {0}) than is currently installed ({1}). Please install a more recent version of Git and try again.",
+	"Public and local repos stay free.": "Public and local repos stay free."
 	"Publish": "Publish",
 	"Publish (push) this branch to a remote": "Publish (push) this branch to a remote",
 	"Publish (push) {branch} to a remote": "Publish (push) {branch} to a remote",
@@ -5814,6 +5817,8 @@
 	"Your working changes": "Your working changes",
 	"Your working changes were left in the stash.": "Your working changes were left in the stash.",
 	"Your working changes will open in the Commit Graph.": "Your working changes will open in the Commit Graph.",
+	"Your {0}-day Commit Graph preview for privately hosted repos has ended — public and local repos stay free.": "Your {0}-day Commit Graph preview for privately hosted repos has ended — public and local repos stay free.",
+	"Your {0}-day Commit Graph preview for privately hosted repos has ended — sign in or start a free Pro trial to keep using it here. Public and local repos stay free.": "Your {0}-day Commit Graph preview for privately hosted repos has ended — sign in or start a free Pro trial to keep using it here. Public and local repos stay free.",
 	"Your {cloudPatch} will be securely stored in your organization's self-hosted storage/{cloudPatch} is a link to the Cloud Patch product page.": {
 		"message": "Your {cloudPatch} will be securely stored in your organization's self-hosted storage",
 		"comment": ["{cloudPatch} is a link to the Cloud Patch product page."]
@@ -5987,6 +5992,7 @@
 	"launchpad ({0})": "launchpad ({0})",
 	"launchpad •  {0}": "launchpad •  {0}",
 	"left": "left",
+	"less than a day left": "less than a day left",
 	"line": "line",
 	"line & annotation": "line & annotation",
 	"line history": "line history",
@@ -6871,6 +6877,7 @@
 	"{date} by @unknown": "{date} by @unknown",
 	"{date} by @{author}": "{date} by @{author}",
 	"{days, plural, one{You have {count} more day left in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.} other{You have {count} more days left in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.}}": "{days, plural, one{You have {count} more day left in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.} other{You have {count} more days left in your Pro trial. Once your trial ends, you will only be able to use Pro features on publicly-hosted repos.}}",
+	"{days, plural, one{{days} day left} other{{days} days left}}": "{days, plural, one{{days} day left} other{{days} days left}}",
 	"{days}d": "{days}d",
 	"{days}d {hours}h": "{days}d {hours}h",
 	"{dot} — uncommitted changes sitting there/{dot} is the styled label “Dot”.": {

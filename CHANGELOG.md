@@ -50,6 +50,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Changes the _Commit Graph_ to no longer require an account on public and local repos &mdash; signed-out users get the full graph with no prompts
+  - On privately hosted repos, a preview starts automatically on first open, with a persistent notice above the graph showing the time left, a _Sign In_ action, and a reminder that public and local repos stay free; the sign-in screen now appears only after the preview ends (or for unverified accounts)
 - Changes the _Commit Graph_ preview for privately hosted repos to one continuous 3-day window &mdash; previously three separate one-day sessions, each started manually with _Continue Preview_
 - Changes _Start Work_ and _Start PR Review_ to follow the `gitlens.ai.openInAgent` setting &mdash; after you pick an issue or pull request they now ask whether to open it in an agent or continue manually, unless you've set a default
 - Changes the agent pickers to remember your choice with a single _Always use this choice_ / _Always use this agent_ option, instead of a checkbox on every row
