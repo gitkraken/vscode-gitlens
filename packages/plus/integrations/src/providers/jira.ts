@@ -16,6 +16,8 @@ import type { IssuesForProjectOptions, ProjectIssuesDrain } from '../models/issu
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models.js';
+import { isJiraMissingProjectError } from './providerErrors.js';
+import { DiscoveryCache, discoveryCacheTtl } from './utils/discoveryCache.js';
 import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Jira];
@@ -53,57 +55,104 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		return 'https://api.atlassian.com';
 	}
 
-	private _autolinks: Map<string, (AutolinkReference | DynamicAutolinkReference)[]> | undefined;
+	/**
+	 * Built from the sites and their projects, so it follows them: rebuilt when a site's project list changes or the
+	 * caches are dropped, and once older than {@link discoveryCacheTtl}. An expired set is still served while it is
+	 * rebuilt in the background, because autolinks are read on every render of a commit message and must not wait
+	 * on the network, nor go empty just because nothing read the projects for a while (#5907).
+	 */
+	private readonly _autolinks = new Map<
+		string,
+		{ autolinks: (AutolinkReference | DynamicAutolinkReference)[]; builtAt: number }
+	>();
+	private readonly _autolinksBuilds = new Map<string, Promise<(AutolinkReference | DynamicAutolinkReference)[]>>();
+
 	override async autolinks(): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected || this._session == null || this._organizations == null || this._projects == null) {
-			return [];
+		if (!connected || this._session == null) return [];
+
+		const session = this._session;
+		const cached = this._autolinks.get(session.accessToken);
+		if (cached == null) return this.buildAutolinks(session);
+
+		if (Date.now() - cached.builtAt >= discoveryCacheTtl) {
+			void this.buildAutolinks(session);
 		}
+		return cached.autolinks;
+	}
 
-		const cachedAutolinks = this._autolinks?.get(this._session.accessToken);
-		if (cachedAutolinks != null) return cachedAutolinks;
+	/** One build per token at a time: concurrent renders share it rather than each re-reading sites and projects. */
+	private buildAutolinks(
+		session: ProviderAuthenticationSession,
+	): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
+		const { accessToken } = session;
+		let build = this._autolinksBuilds.get(accessToken);
+		if (build == null) {
+			build = this.buildAutolinksCore(session).finally(() => this._autolinksBuilds.delete(accessToken));
+			this._autolinksBuilds.set(accessToken, build);
+		}
+		return build;
+	}
 
-		const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
-		const organizations = this._organizations.get(this._session.accessToken);
-		if (organizations != null) {
-			for (const organization of organizations) {
-				const projects = this._projects.get(`${this._session.accessToken}:${organization.id}`);
-				if (projects != null) {
-					for (const project of projects) {
-						const dashedPrefix = `${project.key}-`;
-						const underscoredPrefix = `${project.key}_`;
-						autolinks.push({
-							prefix: dashedPrefix,
-							url: `${organization.url}/browse/${dashedPrefix}<num>`,
-							alphanumeric: false,
-							ignoreCase: false,
-							title: l10n.t('Open Issue {0} on {1}', `${dashedPrefix}<num>`, organization.name),
+	private async buildAutolinksCore(
+		session: ProviderAuthenticationSession,
+	): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
+		const { accessToken } = session;
+		const generation = this._projects.generation;
+		try {
+			const organizations = await this.getProviderResourcesForUser(session);
+			if (!organizations?.length) return [];
 
-							type: 'issue',
-							description: l10n.t('{0} Issue {1}', organization.name, `${dashedPrefix}<num>`),
-							descriptor: { ...organization },
-						});
-						autolinks.push({
-							prefix: underscoredPrefix,
-							url: `${organization.url}/browse/${dashedPrefix}<num>`,
-							alphanumeric: false,
-							ignoreCase: false,
-							referenceType: 'branch',
-							title: l10n.t('Open Issue {0} on {1}', `${dashedPrefix}<num>`, organization.name),
+			// Served from the cache for every site whose projects are still fresh; only the rest are read.
+			const { values: projects, metadata } = await this.getProviderProjectsForResourcesWithMetadata(
+				session,
+				organizations,
+			);
 
-							type: 'issue',
-							description: l10n.t('{0} Issue {1}', organization.name, `${dashedPrefix}<num>`),
-							descriptor: { ...organization },
-						});
-					}
-				}
+			const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
+			for (const project of projects) {
+				const organization = organizations.find(o => o.id === project.resourceId);
+				if (organization == null) continue;
+
+				const dashedPrefix = `${project.key}-`;
+				const underscoredPrefix = `${project.key}_`;
+				autolinks.push({
+					prefix: dashedPrefix,
+					url: `${organization.url}/browse/${dashedPrefix}<num>`,
+					alphanumeric: false,
+					ignoreCase: false,
+					title: l10n.t('Open Issue {0} on {1}', `${dashedPrefix}<num>`, organization.name),
+
+					type: 'issue',
+					description: l10n.t('{0} Issue {1}', organization.name, `${dashedPrefix}<num>`),
+					descriptor: { ...organization },
+				});
+				autolinks.push({
+					prefix: underscoredPrefix,
+					url: `${organization.url}/browse/${dashedPrefix}<num>`,
+					alphanumeric: false,
+					ignoreCase: false,
+					referenceType: 'branch',
+					title: l10n.t('Open Issue {0} on {1}', `${dashedPrefix}<num>`, organization.name),
+
+					type: 'issue',
+					description: l10n.t('{0} Issue {1}', organization.name, `${dashedPrefix}<num>`),
+					descriptor: { ...organization },
+				});
 			}
+
+			// A set missing a site's projects is served but not kept, so the next call tries that site again; one
+			// built from projects read before the caches were dropped is not kept either.
+			const complete = metadata == null || metadata.completeness === 'complete';
+			if (complete && this._projects.generation === generation) {
+				this._autolinks.set(accessToken, { autolinks: autolinks, builtAt: Date.now() });
+			}
+			return autolinks;
+		} catch (ex) {
+			// Autolinks are decoration: keep serving the last set rather than failing the render that asked.
+			Logger.error(ex, 'JiraIntegration.autolinks');
+			return this._autolinks.get(accessToken)?.autolinks ?? [];
 		}
-
-		this._autolinks ??= new Map<string, (AutolinkReference | DynamicAutolinkReference)[]>();
-		this._autolinks.set(this._session.accessToken, autolinks);
-
-		return autolinks;
 	}
 
 	protected override async getProviderAccountForResource(
@@ -134,29 +183,37 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		return refusal.status === 401 && /scope does not match/i.test(refusal.detail ?? '');
 	}
 
-	private _organizations: Map<string, JiraOrganizationDescriptor[] | undefined> | undefined;
+	/**
+	 * The sites and the projects discovered under them, both of which expire and are dropped on a re-sync, so a site
+	 * or project created or deleted mid-session is picked up (#5907). Keyed by token, and projects by token and site.
+	 */
+	private readonly _organizations = new DiscoveryCache<JiraOrganizationDescriptor[]>();
+	private readonly _projects = new DiscoveryCache<JiraProjectDescriptor[]>();
+	/** When the caches were last dropped; a persisted discovery read before then is as stale as they were. */
+	private _discoveryInvalidatedAt = 0;
+
 	protected override async getProviderResourcesForUser(
 		session: ProviderAuthenticationSession,
 		force: boolean = false,
 	): Promise<JiraOrganizationDescriptor[] | undefined> {
 		const { accessToken } = session;
-		this._organizations ??= new Map<string, JiraOrganizationDescriptor[] | undefined>();
 
 		const cachedResources = this._organizations.get(accessToken);
+		if (cachedResources != null && !force) return cachedResources;
 
-		if (cachedResources == null || force) {
-			const api = await this.getProvidersApi();
-			const resources = await api.getJiraResourcesForCurrentUser(toTokenWithInfo(this.id, session));
-			this._organizations.set(
-				accessToken,
-				resources != null ? resources.map(r => ({ ...r, key: r.id })) : undefined,
-			);
+		const generation = this._organizations.generation;
+		const api = await this.getProvidersApi();
+		const resources = await api.getJiraResourcesForCurrentUser(toTokenWithInfo(this.id, session));
+		const organizations = resources?.map(r => ({ ...r, key: r.id }));
+		if (organizations == null) {
+			this._organizations.delete(accessToken);
+			return undefined;
 		}
 
-		return this._organizations.get(accessToken);
+		this._organizations.set(accessToken, organizations, { generation: generation });
+		return organizations;
 	}
 
-	private _projects: Map<string, JiraProjectDescriptor[] | undefined> | undefined;
 	protected override async getProviderProjectsForResources(
 		session: ProviderAuthenticationSession,
 		resources: JiraOrganizationDescriptor[],
@@ -171,7 +228,8 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		force: boolean = false,
 	): Promise<ProviderApiCollectionResult<JiraProjectDescriptor>> {
 		const { accessToken } = session;
-		const projectsCache = (this._projects ??= new Map<string, JiraProjectDescriptor[] | undefined>());
+		const projectsCache = this._projects;
+		const generation = projectsCache.generation;
 
 		let resourcesWithoutProjects = [];
 		if (force) {
@@ -235,7 +293,14 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 					return;
 				}
 
-				projectsCache.set(`${accessToken}:${resource.id}`, projects);
+				// Not stored when the cache was dropped while this read was in flight, but still returned below: it
+				// is what this read found, only no longer trusted for the next one.
+				if (!projectsCache.set(`${accessToken}:${resource.id}`, projects, { generation: generation })) {
+					partialProjects.push(...projects);
+					return;
+				}
+
+				this._autolinks.delete(accessToken);
 			});
 		}
 
@@ -297,6 +362,16 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 						sort: options?.sort,
 					});
 				} catch (ex) {
+					// A project this token can no longer see (deleted, or its browse permission removed) holds no issues
+					// for it, and the site's project list that named it is stale: drop that list so the next read
+					// re-reads it, instead of failing the whole provider on every read until a restart (#5907).
+					if (collected.length === 0 && isJiraMissingProjectError(ex)) {
+						Logger.warn(`Jira project '${project.key}' no longer exists or is not visible`);
+						this._projects.delete(`${session.accessToken}:${project.resourceId}`);
+						this._autolinks.delete(session.accessToken);
+						return { issues: [], status: 'complete' };
+					}
+
 					// A page failure after the first page leaves the already-drained prefix intact; record the
 					// failure at the project scope instead of re-throwing and discarding the prefix. If nothing was
 					// fetched yet, the original throw behavior is preserved so the caller sees a hard error rather
@@ -572,54 +647,94 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	}
 
 	protected override async providerOnConnect(): Promise<void> {
-		this._autolinks = undefined;
+		this._autolinks.clear();
 		if (this._session == null) return;
 
-		const storedOrganizations = this.ctx.storage.get(`jira:${this._session.accessToken}:organizations`);
-		const storedProjects = this.ctx.storage.get(`jira:${this._session.accessToken}:projects`);
+		const session = this._session;
+		const { accessToken } = session;
+		const organizationsGeneration = this._organizations.generation;
+		const projectsGeneration = this._projects.generation;
 
-		let organizations = storedOrganizations?.data?.map((o: JiraOrganizationDescriptor) => ({ ...o }));
+		// Persisted discovery seeds the caches only while it would still be fresh in them: read within the TTL, and
+		// after the caches were last dropped. Otherwise a re-sync, which runs this again, would put back the very
+		// project list it just dropped, and a restart would trust one read any time before (#5907).
+		const isFresh = (timestamp: unknown): timestamp is number =>
+			typeof timestamp === 'number' &&
+			timestamp > this._discoveryInvalidatedAt &&
+			Date.now() - timestamp < discoveryCacheTtl;
 
-		let projects = storedProjects?.data?.map((p: JiraProjectDescriptor) => ({ ...p }));
+		const storedOrganizations = this.ctx.storage.get(`jira:${accessToken}:organizations`);
+		// Projects persisted without their sites belong to a session whose sites were cleared below; ignore them.
+		const storedProjects =
+			storedOrganizations != null ? this.ctx.storage.get(`jira:${accessToken}:projects`) : undefined;
 
-		if (storedOrganizations == null) {
-			organizations = await this.getProviderResourcesForUser(this._session, true);
-			// Clear all other stored organizations and projects when our session changes
-			await this.ctx.storage.deleteWithPrefix('jira');
-			await this.ctx.storage.store(`jira:${this._session.accessToken}:organizations`, {
-				v: 1,
-				timestamp: Date.now(),
-				data: organizations,
+		let organizations: JiraOrganizationDescriptor[] | undefined;
+		if (storedOrganizations?.data != null && isFresh(storedOrganizations.timestamp)) {
+			const seeded = storedOrganizations.data.map((o: JiraOrganizationDescriptor) => ({ ...o }));
+			organizations = seeded;
+			this._organizations.set(accessToken, seeded, {
+				generation: organizationsGeneration,
+				storedAt: storedOrganizations.timestamp,
 			});
+		} else {
+			// Stamped with when the read started, so the TTL counts from what it actually saw.
+			const readAt = Date.now();
+			organizations = await this.getProviderResourcesForUser(session, true);
+			if (storedOrganizations == null) {
+				// Clear all other stored organizations and projects when our session changes
+				await this.ctx.storage.deleteWithPrefix('jira');
+			}
+			// Not persisted when the caches were dropped while it was in flight: it is then a read from before the
+			// refresh, and the next start, which knows nothing of that refresh, would take it for fresh.
+			if (this._organizations.generation === organizationsGeneration) {
+				await this.ctx.storage.store(`jira:${accessToken}:organizations`, {
+					v: 1,
+					timestamp: readAt,
+					data: organizations,
+				});
+			}
 		}
 
-		this._organizations ??= new Map<string, JiraOrganizationDescriptor[] | undefined>();
-		this._organizations.set(this._session.accessToken, organizations);
-
-		if (storedProjects == null && organizations?.length) {
-			projects = await this.getProviderProjectsForResources(this._session, organizations);
-			await this.ctx.storage.store(`jira:${this._session.accessToken}:projects`, {
-				v: 1,
-				timestamp: Date.now(),
-				data: projects,
-			});
-		}
-
-		this._projects ??= new Map<string, JiraProjectDescriptor[] | undefined>();
-		for (const project of projects ?? []) {
-			const projectKey = `${this._session.accessToken}:${project.resourceId}`;
-			const projects = this._projects.get(projectKey);
-			if (projects == null) {
-				this._projects.set(projectKey, [project]);
-			} else if (!projects.some(p => p.id === project.id)) {
-				projects.push(project);
+		if (storedProjects?.data != null && isFresh(storedProjects.timestamp)) {
+			const projectsByResource = new Map<string, JiraProjectDescriptor[]>();
+			for (const project of storedProjects.data as JiraProjectDescriptor[]) {
+				const projects = projectsByResource.get(project.resourceId);
+				if (projects == null) {
+					projectsByResource.set(project.resourceId, [{ ...project }]);
+				} else if (!projects.some(p => p.id === project.id)) {
+					projects.push({ ...project });
+				}
+			}
+			for (const [resourceId, projects] of projectsByResource) {
+				this._projects.set(`${accessToken}:${resourceId}`, projects, {
+					generation: projectsGeneration,
+					storedAt: storedProjects.timestamp,
+				});
+			}
+		} else if (organizations?.length) {
+			const readAt = Date.now();
+			const projects = await this.getProviderProjectsForResources(session, organizations, true);
+			// See the organizations above.
+			if (this._projects.generation === projectsGeneration) {
+				await this.ctx.storage.store(`jira:${accessToken}:projects`, {
+					v: 1,
+					timestamp: readAt,
+					data: projects,
+				});
 			}
 		}
 	}
 
+	override invalidateDiscoveryCaches(): void {
+		this._discoveryInvalidatedAt = Date.now();
+		this._organizations.clear();
+		this._projects.clear();
+		this._autolinks.clear();
+	}
+
 	protected override providerOnDisconnect(): void {
-		this._organizations = undefined;
-		this._projects = undefined;
-		this._autolinks = undefined;
+		this._organizations.clear();
+		this._projects.clear();
+		this._autolinks.clear();
 	}
 }
