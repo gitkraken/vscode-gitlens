@@ -651,6 +651,10 @@ const filters = wanted.filter(f => capability.includes(f));
   can't name. Reported as per-criterion flags rather than a list, and **always present** — a provider with no
   filtered issue search reports empty `relationships` and all-false flags, which is the signal to hide the
   surface rather than individual chips.
+- `issueStates` — whether the issue-tracker reads take a `state` other than open (`'closed'`, `'all'`). True for
+  Jira, Jira Data Center and Linear, which narrow server-side on every page of their drains; false for Trello,
+  which can only read open cards and refuses the other two (warning + `fetchFailed`). An omitted `state` reads
+  open issues on every tracker.
 
 It's a _capability_ table, not a recommendation: passing fewer filters than listed is fine.
 

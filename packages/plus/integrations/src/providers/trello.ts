@@ -107,6 +107,12 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		// A non-issue descriptor genuinely has nothing to read (empty), but a missing app key is a broken read.
 		if (!isIssueResourceDescriptor(project)) return undefined;
 
+		// The board read always excludes archived cards, and a card has no other state, so only open cards can be
+		// read. Refused rather than ignored: answering `closed` with the open cards would publish them as closed.
+		if (options?.state != null && options.state !== 'open') {
+			throw new IntegrationReadUnavailableError(metadata.name, `issue state '${options.state}' is not supported`);
+		}
+
 		const appKey = this.requireAppKey(session);
 
 		const api = await this.getProvidersApi();

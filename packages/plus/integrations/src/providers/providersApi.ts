@@ -1,6 +1,7 @@
 import ProviderApis from '@gitkraken/provider-apis';
 import type {
 	CollectionMetadata,
+	GitIssueState,
 	GitPullRequestState,
 	GraphQLError,
 	GraphQLErrors,
@@ -1059,7 +1060,13 @@ export class ProvidersApi {
 	 */
 	async getLinearIssues(
 		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Linear>,
-		input: { teams?: string[]; projects?: string[]; labels?: string[] },
+		input: {
+			teams?: string[];
+			projects?: string[];
+			labels?: string[];
+			/** Omitted reads open issues (workflow state type other than `completed`/`canceled`). */
+			states?: GitIssueState[];
+		},
 		options?: PagingInput & {
 			/** See {@link GetIssuesOptions.sort}. Linear expresses `created`/`updated`, descending only. */
 			sort?: IssueSorting;
@@ -1788,6 +1795,8 @@ export class ProvidersApi {
 			 */
 			authorUsername?: string;
 			pageSize?: number;
+			/** Linear only; GitLab's REST read ignores it. Omitted reads open issues. */
+			states?: GitIssueState[];
 			/** See {@link GetIssuesOptions.sort}. Forwarded to the provider fn; ordering is translated in the SDK. */
 			sort?: IssueSorting;
 			isPAT?: boolean;
@@ -1805,6 +1814,7 @@ export class ProvidersApi {
 				authorUsername: options?.authorUsername,
 				page: options?.page,
 				pageSize: options?.pageSize,
+				states: options?.states,
 				sort: options?.sort,
 			},
 			provider.getIssuesForCurrentUserFn,
@@ -2015,7 +2025,7 @@ export class ProvidersApi {
 	async getJiraServerIssuesForCurrentUser(
 		tokenOptInfo: TokenWithInfo<IssuesSelfManagedHostIntegrationId.JiraServer>,
 		baseUrl: string,
-		options?: { cursor?: string; sort?: IssueSorting },
+		options?: { cursor?: string; states?: GitIssueState[]; sort?: IssueSorting },
 	): Promise<{ data: ProviderIssue[]; hasMore: boolean; nextCursor: string | undefined } | undefined> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
@@ -2024,7 +2034,12 @@ export class ProvidersApi {
 
 		try {
 			const result = await provider.getJiraServerIssuesForCurrentUserFn?.(
-				{ cursor: options?.cursor, sort: options?.sort, includeTransitions: jiraListIncludeTransitions },
+				{
+					cursor: options?.cursor,
+					states: options?.states,
+					sort: options?.sort,
+					includeTransitions: jiraListIncludeTransitions,
+				},
 				{ token: tokenWithInfo.accessToken, baseUrl: baseUrl },
 			);
 			if (result == null) return undefined;
@@ -2166,6 +2181,8 @@ export class ProvidersApi {
 			 * field of it would give whoever adds that option no ordering and no error.
 			 */
 			sort?: IssueSorting;
+			/** Omitted reads open issues (`statusCategory != Done`). */
+			states?: GitIssueState[];
 			isPAT?: boolean;
 			baseUrl?: string;
 		},
@@ -2176,7 +2193,12 @@ export class ProvidersApi {
 		);
 
 		return this.getPagedResult<ProviderIssue>(
-			{ resourceId: resourceId, sort: options?.sort, includeTransitions: jiraListIncludeTransitions },
+			{
+				resourceId: resourceId,
+				states: options?.states,
+				sort: options?.sort,
+				includeTransitions: jiraListIncludeTransitions,
+			},
 			provider.getIssuesForResourceForCurrentUserFn,
 			tokenWithInfo,
 			options?.cursor,

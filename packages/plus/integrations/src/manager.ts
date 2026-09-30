@@ -1,4 +1,4 @@
-import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type {
 	PullRequestSearchCriteria,
 	PullRequestShape,
@@ -789,6 +789,11 @@ export interface IntegrationManager {
 		 * full, so which projects a round covers doesn't depend on how their issues are ordered.
 		 */
 		sort?: IssueSorting;
+		/**
+		 * Which issue states to read. Omitted reads open issues. `'closed'`/`'all'` need
+		 * `getSupportedFilters().issueStates` and are refused otherwise (warning + `fetchFailed`).
+		 */
+		state?: IssueStateFilter;
 		forceSync?: boolean;
 		page?: number;
 		/**

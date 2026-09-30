@@ -544,6 +544,14 @@ export type SupportedFilters = {
 	 * `issueSorts`.
 	 */
 	issueSortsAccountWide: IssueSorting[];
+	/**
+	 * Whether an issue tracker's reads can be asked for a `state` other than open (`closed`, `all`). False means
+	 * only open issues are readable, and the read refuses the other two rather than serving the open list.
+	 *
+	 * Tracker-only, like `issues`: the git hosts' state support belongs to the filtered search, under
+	 * `issueSearch.states`.
+	 */
+	issueStates: boolean;
 };
 
 /**
@@ -624,5 +632,6 @@ export function getSupportedFilters(providerId: IntegrationIds): SupportedFilter
 		},
 		issueSorts: [...(metadata?.supportedIssueSorts ?? [])],
 		issueSortsAccountWide: [...(metadata?.supportedAccountWideIssueSorts ?? [])],
+		issueStates: metadata?.supportsIssueStates === true,
 	};
 }

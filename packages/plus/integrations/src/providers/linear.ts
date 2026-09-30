@@ -21,7 +21,7 @@ import type {
 } from '../models/issueReads.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
-import { fromProviderIssue, providersMetadata, toIssueShape } from './models.js';
+import { fromProviderIssue, providersMetadata, toIssueShape, toProviderIssueStates } from './models.js';
 import { DiscoveryCache, discoveryCacheTtl } from './utils/discoveryCache.js';
 import { mergeCollectionMetadata } from './utils/providerPaging.js';
 
@@ -278,6 +278,11 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		// `getProviderProjectsForResources` returns Linear teams, so `project.id` is a team id here. Drain the
 		// team's issues (Linear pages by cursor); bounded by maxPagesPerRequest as a backstop. `truncated` is
 		// set when that backstop stopped the drain with more pages still available.
+		//
+		// The state is narrowed server-side, not after the drain: a team's completed and canceled issues would
+		// otherwise count against the backstop, so a team with enough done work runs out of pages before its open
+		// issues, and the viewer filter below would then hand back a page that looks complete.
+		const states = toProviderIssueStates(options?.state);
 		let cursor: string | undefined;
 		let hasMore: boolean;
 		let requestCount = 0;
@@ -289,7 +294,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			try {
 				result = await api.getLinearIssues(
 					toTokenWithInfo(this.id, session),
-					{ teams: [project.id] },
+					{ teams: [project.id], states: states },
 					{ cursor: cursor, sort: options?.sort },
 				);
 			} catch (ex) {
@@ -409,6 +414,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		}
 
 		const api = await this.getProvidersApi();
+		const states = toProviderIssueStates(options?.state);
 		let cursor = undefined;
 		// Starts false so an immediate cancellation, which leaves the loop before the first response, reads as
 		// "no more pages known" rather than as an unfinished drain.
@@ -424,6 +430,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 				const result = await api.getIssuesForCurrentUser(toTokenWithInfo(this.id, session), {
 					cursor: cursor,
+					states: states,
 					sort: options?.sort,
 				});
 				requestCount += 1;

@@ -1,3 +1,4 @@
+import type { IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type { IntegrationIds } from '../constants.js';
 import { toPageCursor } from '../providers/utils/providerPaging.js';
 import { hostFromDomain } from '../utils/domain.utils.js';
@@ -29,6 +30,12 @@ export interface IssueTrackerPageCursor {
 	retryPages?: number[];
 	retryProjects?: string[];
 	completedProjects?: string[];
+	/**
+	 * The `state` the read that minted this cursor asked for, omitted for open. `completedProjects` records what was
+	 * already drained UNDER that state, so resuming it under another would skip projects whose other-state issues
+	 * were never read.
+	 */
+	state?: 'closed' | 'all';
 }
 
 /** Positive safe integers only, deduped; `undefined` when nothing survives (so the field is omitted). */
@@ -76,6 +83,7 @@ export function parseIssueTrackerPageCursor(cursor: string | undefined): IssueTr
 			...(retryPages != null ? { retryPages: retryPages } : {}),
 			...(retryProjects != null ? { retryProjects: retryProjects } : {}),
 			...(completedProjects != null ? { completedProjects: completedProjects } : {}),
+			...(parsed.state === 'closed' || parsed.state === 'all' ? { state: parsed.state } : {}),
 		};
 	} catch {
 		return undefined;
@@ -89,6 +97,7 @@ export function toIssueTrackerPageCursor(options: {
 	retryPages: readonly number[];
 	retryProjects: readonly string[];
 	completedProjects?: readonly string[];
+	state?: IssueStateFilter;
 }): string | undefined {
 	const retryPages = [...new Set(options.retryPages)].sort((a, b) => a - b);
 	const retryProjects = [...new Set(options.retryProjects)].sort();
@@ -106,7 +115,10 @@ export function toIssueTrackerPageCursor(options: {
 		retryProjects.length === 0 &&
 		completedProjects.length === 0 &&
 		options.nextPage != null &&
-		options.unpaged !== true
+		options.unpaged !== true &&
+		// A page cursor carries no state, so a narrowed read keeps the composite one: resumed under another state, a
+		// plain cursor would start at its window and skip the earlier projects' issues of that state.
+		(options.state == null || options.state === 'open')
 	) {
 		return toPageCursor(options.nextPage);
 	}
@@ -118,6 +130,7 @@ export function toIssueTrackerPageCursor(options: {
 		...(retryPages.length > 0 ? { retryPages: retryPages } : {}),
 		...(retryProjects.length > 0 ? { retryProjects: retryProjects } : {}),
 		...(completedProjects.length > 0 ? { completedProjects: completedProjects } : {}),
+		...(options.state === 'closed' || options.state === 'all' ? { state: options.state } : {}),
 	} satisfies IssueTrackerPageCursor);
 }
 
