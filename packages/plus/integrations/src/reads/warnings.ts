@@ -183,6 +183,31 @@ export function truncationWarning(
 	return incompleteReadWarning(id, domain, connectionId, truncationMessage(id, readKind, cause), cause);
 }
 
+/**
+ * The part of a drain that paging could not reach, when that drain ALSO stopped at its page budget with a usable
+ * cursor — one facet of a composite read reaching the provider's ceiling while a sibling can still page. Reported
+ * beside the `page-budget` {@link truncationWarning}, never in place of it: raising the budget returns more of the
+ * rest, and nothing returns this part, so each warning speaks only for its own.
+ *
+ * The message names no mechanism. The fact behind it is `paging.truncated`, which a provider cap sets but so does
+ * `hasMore` with no usable cursor (GitHub's `structuralIncompleteness`) and any per-repository truncation on the
+ * repo-scoped path, so "capped by the provider" would name a cause we cannot confirm.
+ */
+export function cappedBesideBudgetWarning(
+	id: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	readKind: TruncatedReadKind,
+): ProviderWarning {
+	return incompleteReadWarning(
+		id,
+		domain,
+		connectionId,
+		`${readKind} read for '${id}' could not reach part of its results by paging; raising the page budget will not return those.`,
+		'exhausted',
+	);
+}
+
 function truncationMessage(id: IntegrationIds, readKind: TruncatedReadKind, cause: IncompleteReadCause): string {
 	switch (cause) {
 		case 'interrupted':
