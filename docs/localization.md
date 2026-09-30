@@ -35,14 +35,25 @@ formatPlural(l10n.t('{count, plural, one{{count} file changed} other{{count} fil
 
 - `package.nls.json` contains English manifest text. Continue writing generated contribution labels in English in `contributions.json`; run `pnpm run generate:contributions` to update the manifest and catalog together. Other manifest references and their English catalog entries are maintained together.
 - `l10n/bundle.l10n.json` is generated from runtime source, including workspace packages, excluding tests and fixtures. Run `pnpm run generate:l10n` after changing messages. Do not hand-edit this catalog.
-- `pnpm run check:l10n` detects stale runtime catalogs, unresolved manifest references, obsolete translations and placeholder mismatches. Partial translations are allowed because VS Code falls back per message. `pnpm run check` includes it.
+- `pnpm run check:l10n` detects stale runtime catalogs, unresolved manifest references, obsolete translations and placeholder mismatches. Partial translations pass because VS Code falls back per message, but that fallback is a safety net, not the workflow — see [Keeping shipped locales current](#keeping-shipped-locales-current). `pnpm run check` includes it.
 - `pnpm run test:localization` exercises extraction, validation, host/browser initialization and the literal-message lint rule.
 - `pnpm run test:localization:browser` uses Playwright Chromium to verify translated markup remains text, multiline tooltips/confirmations retain line breaks, and rich links still work. Install its browser with `pnpm exec playwright install chromium` if needed.
 - `pnpm run generate:l10n:pseudo` creates ignored `qps-ploc` catalogs at the manifest root and in `l10n`. Use Microsoft's Pseudo Language Pack and reload with the pseudo display language to exercise expanded text. These generated files are excluded from VSIX packages.
 
-Production translation files are `package.nls.<locale>.json` at the extension root and `l10n/bundle.l10n.<locale>.json`. Preserve keys and placeholders exactly; translations may reorder or repeat placeholders. Translator comments belong in the English source, and commented runtime messages use the extractor's message/comment key. New language catalogs should receive human review before being advertised as supported languages.
+Production translation files are `package.nls.<locale>.json` at the extension root and `l10n/bundle.l10n.<locale>.json`. Preserve keys and placeholders exactly; translations may reorder or repeat placeholders. Translator comments belong in the English source, and commented runtime messages use the extractor's message/comment key. A new language's catalogs should receive human review before it is advertised as supported; that gate covers introducing a language, not updating entries in a shipped one.
 
 Microsoft's `@vscode/l10n-dev` can export/import XLIFF. After importing, place manifest catalogs at the root and runtime catalogs under `l10n`; its output-directory option does not make this distinction for you. Run the catalog checks before committing.
+
+### Keeping shipped locales current
+
+A change that adds or edits user-facing text updates every shipped locale in the same change, in both catalogs — runtime messages in `l10n/bundle.l10n.<locale>.json`, manifest text in `package.nls.<locale>.json`. Translate following the locale's terminology table and conventions in `l10n/README.md`.
+
+- **New message** — add a translation to each locale.
+- **Edited message, same meaning** (spelling, punctuation, casing, a rewording that says the same thing) — the English text is the key, so the edit orphans the old entry and `check:l10n` reports it as an unknown message. Move the existing translation to the new key, adjusting it only where it mirrored what you fixed.
+- **Edited message, different meaning, or its placeholders changed** — retranslate. A kept translation that no longer says what the English says is worse than the English fallback.
+- **Removed message** — delete its entries (`node scripts/localization-chunks.mjs prune <locale>` does this for every orphan at once). Pruning is only for text that is gone; never use it to clear the orphans of an edit.
+
+The locale key is the English source key exactly — for a commented runtime message, the extractor's `message/comment` key — and the locale value is always a plain string. The English fallback still covers a message a change genuinely cannot translate, but say so in the pull request rather than leaving it silently.
 
 ## Runtime loading
 

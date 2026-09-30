@@ -40,7 +40,9 @@ Install Microsoft's language pack for the locale, set **Configure Display Langua
 
 ## Review
 
-New languages get a human review before they are advertised as supported. Open a pull request with the two locale files; the catalog check runs in CI.
+A new language gets a human review of its whole catalog before it is advertised as supported. Open a pull request with the two locale files; the catalog check runs in CI.
+
+This gate is for introducing a language, not for changes to one that already ships. Adding, editing or retranslating entries in a shipped locale is part of the ordinary change that touched the English text and is reviewed with it (see [Keeping shipped locales current](../docs/localization.md#keeping-shipped-locales-current)) — never hold such a change back, or leave its translations out, waiting for a separate review.
 
 ## Chunked translation workflow
 
@@ -52,7 +54,7 @@ node scripts/localization-chunks.mjs merge zh-cn        # merges translated chun
 node scripts/localization-chunks.mjs prune zh-cn        # drops entries whose English message no longer exists
 ```
 
-`split` writes `<catalog>-NN.json` chunk files (manifest catalog as `manifest-NN.json`, runtime catalog as `bundle-NN.json`), each holding ~600 English entries. Translate the **values** in each chunk — the same rules as above: keys stay byte-identical, placeholders (`{0}`, `{name}`, codicons, brace-wrapped fragments) are preserved, whitespace and Markdown survive, product names stay untranslated. Write the translated chunk to the same file name, then `merge` validates every chunk (reusing the same rules as `pnpm run check:l10n`) and folds the entries into the locale files, preserving any existing translations. `prune` removes entries orphaned when an English message is edited (the old text becomes an unknown key and fails the catalog check).
+`split` writes `<catalog>-NN.json` chunk files (manifest catalog as `manifest-NN.json`, runtime catalog as `bundle-NN.json`), each holding ~600 English entries. Translate the **values** in each chunk — the same rules as above: keys stay byte-identical, placeholders (`{0}`, `{name}`, codicons, brace-wrapped fragments) are preserved, whitespace and Markdown survive, product names stay untranslated. Write the translated chunk to the same file name, then `merge` validates every chunk (reusing the same rules as `pnpm run check:l10n`) and folds the entries into the locale files, preserving any existing translations. `prune` removes every orphaned entry — one whose English key no longer exists, which fails the catalog check. It cannot tell a removed message from an edited one, so it discards the translation of an edit too: when the English was reworded, move or retranslate the entry instead (see [Keeping shipped locales current](../docs/localization.md#keeping-shipped-locales-current)).
 
 When the English source changes, rerun `split`: it diffs the fresh catalogs against the locale files and emits chunks containing only the untranslated entries.
 
