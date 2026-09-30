@@ -596,6 +596,11 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	layoutPromptNeeded?: boolean;
 	/** Upgraded from a pre-19 version — surfaces the "new home for the Commit Graph" notice on the sign-in screen */
 	upgradedFromPreV19?: boolean;
+	/** Host-decided: the app renders the account screen. A missing account alone no longer implies it —
+	 *  signed-out users get the graph on public/local repos and during the private-repo preview. */
+	accountGate?: boolean;
+	/** The signed-out private-repo preview has ended — selects the sign-in screen's preview-ended copy */
+	previewExpired?: boolean;
 	/** A/B (intro-video): `unassigned` = no cohort — renders the default gate, impression marked cohort-less */
 	signInGateVariant?: 'default' | 'intro-video' | 'unassigned';
 
