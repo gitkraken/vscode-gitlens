@@ -143,6 +143,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			}
 		}
 
+		const hasFrom = from != null;
 		from = prepareToFromDiffArgs(to, from, args, options?.notation);
 
 		let paths: Set<string> | undefined;
@@ -160,6 +161,20 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				args.includes('--') ? undefined : '--',
 			);
 		} catch (ex) {
+			// Before its first commit HEAD names nothing, so a diff from it fails; the empty tree is what it is against
+			if (isHead(from) && (await this.isUnbornHeadFailure(repoPath, ex))) {
+				const emptyTree = await this.provider.revision.getEmptyTreeSha(repoPath);
+				// With no `from`, a `to` of HEAD means the working tree against HEAD, so it is the empty tree alone
+				const retried = await this.getDiff(
+					repoPath,
+					!hasFrom && isHead(to) ? '' : to,
+					emptyTree,
+					options,
+					_cancellation,
+				);
+				return retried != null ? { ...retried, to: to } : undefined;
+			}
+
 			scope?.error(ex);
 			if (options?.errors === 'throw') throw ex;
 
@@ -168,6 +183,14 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 		const diff: GitDiff = { contents: result.stdout, from: from, to: to, notation: options?.notation };
 		return diff;
+	}
+
+	/** Whether `ex` is git failing to resolve `HEAD` because the repository has no commit yet */
+	private async isUnbornHeadFailure(repoPath: string, ex: unknown): Promise<boolean> {
+		const ref = GitErrors.badRevision.exec(String(ex))?.[1];
+		if (!isHead(ref)) return false;
+
+		return (await this.provider.refs.validateReference(repoPath, 'HEAD', { force: true })) == null;
 	}
 
 	@debug()
@@ -1103,8 +1126,12 @@ function isWorkingTreeComparison(to: string | undefined, from: string | undefine
 
 	// `getChangedFilesCount` uses `prepareToFromDiffArgs`, which translates `to` (with no `from`)
 	// to `${to}^ ${to}` UNLESS `to` is HEAD or empty.
-	if (to.toUpperCase() === 'HEAD' && from == null) return true;
+	if (isHead(to) && from == null) return true;
 	return false;
+}
+
+function isHead(ref: string | undefined): boolean {
+	return ref?.toUpperCase() === 'HEAD';
 }
 
 function prepareToFromDiffArgs(
@@ -1129,7 +1156,7 @@ function prepareToFromDiffArgs(
 			from = 'HEAD';
 		}
 	} else if (from == null) {
-		if (to === '' || to.toUpperCase() === 'HEAD') {
+		if (to === '' || isHead(to)) {
 			from = 'HEAD';
 			args.push(from);
 		} else {

@@ -785,3 +785,58 @@ suite("DiffSubProvider — errors: 'throw'", () => {
 		assert.ok(diff?.contents.includes('a.txt'));
 	});
 });
+
+suite('DiffSubProvider.getDiff — unborn HEAD', () => {
+	let repo: TestRepo;
+	let unbornPath: string;
+	let emptyTree: string;
+
+	suiteSetup(async () => {
+		// `createTestRepo` always commits, so it only supplies the provider; the repository under test is a plain `git init` with nothing committed
+		repo = createTestRepo();
+		unbornPath = mkdtempSync(join(tmpdir(), 'gitlens-unborn-'));
+		execFileSync('git', ['init', '-b', 'main'], { cwd: unbornPath, stdio: 'pipe' });
+		writeFileSync(join(unbornPath, 'a.txt'), 'one\n');
+		execFileSync('git', ['add', 'a.txt'], { cwd: unbornPath, stdio: 'pipe' });
+		writeFileSync(join(unbornPath, 'a.txt'), 'one\ntwo\n');
+		emptyTree = await repo.provider.revision.getEmptyTreeSha(unbornPath);
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+		rmSync(unbornPath, { recursive: true, force: true });
+	});
+
+	test('the working tree against HEAD diffs against the empty tree', async () => {
+		const diff = await repo.provider.diff.getDiff?.(unbornPath, uncommitted, 'HEAD');
+		assert.ok(diff, 'Expected a diff rather than undefined');
+		assert.strictEqual(diff.from, emptyTree);
+		assert.ok(diff.contents.includes('+two'), 'The working tree’s content should be in the diff');
+	});
+
+	test('HEAD with no `from` diffs the working tree against the empty tree', async () => {
+		const diff = await repo.provider.diff.getDiff?.(unbornPath, 'HEAD');
+		assert.ok(diff, 'Expected a diff rather than undefined');
+		assert.strictEqual(diff.from, emptyTree);
+		assert.strictEqual(diff.to, 'HEAD');
+		assert.ok(diff.contents.includes('a.txt'));
+	});
+
+	test('an empty `to` against HEAD diffs the working tree against the empty tree', async () => {
+		const diff = await repo.provider.diff.getDiff?.(unbornPath, '', 'HEAD');
+		assert.ok(diff?.contents.includes('a.txt'));
+	});
+
+	test("resolves rather than rejects with errors: 'throw'", async () => {
+		const diff = await repo.provider.diff.getDiff?.(unbornPath, uncommitted, 'HEAD', { errors: 'throw' });
+		assert.ok(diff?.contents.includes('a.txt'));
+	});
+
+	test('getParsedDiff resolves the file', async () => {
+		const parsed = await repo.provider.diff.getParsedDiff?.(unbornPath, uncommitted, 'HEAD');
+		assert.deepStrictEqual(
+			parsed?.files.map(f => f.path),
+			['a.txt'],
+		);
+	});
+});
