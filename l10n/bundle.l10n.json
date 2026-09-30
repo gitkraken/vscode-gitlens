@@ -4488,6 +4488,7 @@
 	"There is no previous commit.": "There is no previous commit.",
 	"There was no selection provided for line history.": "There was no selection provided for line history.",
 	"These files are no longer conflicted — nothing was applied.": "These files are no longer conflicted — nothing was applied.",
+	"This AI feature isn't included in your GitLens {0} trial. Please upgrade to {0} and try again.": "This AI feature isn't included in your GitLens {0} trial. Please upgrade to {0} and try again.",
 	"This AI feature isn't included in your current plan. Please upgrade and try again.": "This AI feature isn't included in your current plan. Please upgrade and try again.",
 	"This AI feature requires GitLens Pro or a trial": "This AI feature requires GitLens Pro or a trial",
 	"This AI preview feature requires GitLens Advanced or a trial": "This AI preview feature requires GitLens Advanced or a trial",
