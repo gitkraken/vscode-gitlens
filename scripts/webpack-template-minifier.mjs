@@ -50,6 +50,33 @@ let processor;
  * the parens, and a string-level replace could not tell the two apart.
  */
 const placeholderValueSuffix = /@TEMPLATE_EXPRESSION_*\(\)$/;
+
+/**
+ * That same `;` ends the declaration early when a value closes with two or more interpolations
+ * (`--x: ${a} ${b};`): only the first placeholder stays in the value, and each one after it parses as a
+ * standalone `@TEMPLATE_EXPRESSION();` at-rule. The restorer below never sees those, so the split fuses
+ * the next declaration in, and cssnano has already dropped the space between the values.
+ *
+ * Fold them back into the value before minifying. A real standalone interpolation (a mixin in a rule
+ * body) can't be confused with one: it follows an author-written `;`, which PostCSS keeps in the
+ * at-rule's `raws.before`.
+ */
+const placeholderAtRuleName = /^TEMPLATE_EXPRESSION_*$/;
+const placeholderValueFolder = postcss([
+	{
+		postcssPlugin: 'fold-template-expression-values',
+		AtRule(atRule) {
+			if (!placeholderAtRuleName.test(atRule.name) || atRule.raws.before?.includes(';')) return;
+
+			const prev = atRule.prev();
+			if (prev?.type !== 'decl' || !placeholderValueSuffix.test(prev.value.trimEnd())) return;
+
+			prev.value = `${prev.value.trimEnd()} @${atRule.name}${atRule.params}`;
+			atRule.remove();
+		},
+	},
+]);
+
 const semicolonRestorer = postcss([
 	{
 		postcssPlugin: 'restore-template-expression-semicolons',
@@ -124,8 +151,9 @@ export default function templateMinifierLoader(source) {
 
 	Promise.all(
 		stylesheets.map(css =>
-			processor
+			placeholderValueFolder
 				.process(css, { from: undefined })
+				.then(r => processor.process(r.css, { from: undefined }))
 				.then(r => semicolonRestorer.process(r.css, { from: undefined }))
 				.then(r => [css, r.css]),
 		),
