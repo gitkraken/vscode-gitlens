@@ -19,7 +19,9 @@ import { IssuesIntegration } from '../models/issuesIntegration.js';
 import { areDomainsOnSameHost, baseUrlFromDomain } from '../utils/domain.utils.js';
 import type { ProviderIssue } from './models.js';
 import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models.js';
+import { isJiraMissingProjectError } from './providerErrors.js';
 import type { ProvidersApi } from './providersApi.js';
+import { DiscoveryCache } from './utils/discoveryCache.js';
 import { mergeCollectionMetadata } from './utils/providerPaging.js';
 
 /**
@@ -132,7 +134,8 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		return Promise.resolve([this.resourceFor(session)]);
 	}
 
-	private _projects: Map<string, JiraServerProjectDescriptor[] | undefined> | undefined;
+	/** Expires, and is dropped on a re-sync, so a project created or deleted mid-session is picked up (#5907). */
+	private readonly _projects = new DiscoveryCache<JiraServerProjectDescriptor[]>();
 	protected override async getProviderProjectsForResources(
 		session: ProviderAuthenticationSession,
 		resources: JiraServerResourceDescriptor[],
@@ -143,9 +146,10 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		if (resources.length === 0) return [];
 
 		const cacheKey = this.projectsCacheKey(session);
-		const cached = this._projects?.get(cacheKey);
+		const cached = this._projects.get(cacheKey);
 		if (cached != null && !force) return cached;
 
+		const generation = this._projects.generation;
 		const api = await this.getProvidersApi();
 		const projects = await api.getJiraServerProjects(
 			toTokenWithInfo(this.id, session),
@@ -166,8 +170,7 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 			resourceId: resourceId,
 		}));
 
-		this._projects ??= new Map<string, JiraServerProjectDescriptor[] | undefined>();
-		this._projects.set(cacheKey, descriptors);
+		this._projects.set(cacheKey, descriptors, { generation: generation });
 
 		return descriptors;
 	}
@@ -219,6 +222,17 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 						sort: options?.sort,
 					});
 				} catch (ex) {
+					// A project this connection can no longer see (deleted, or its browse permission removed) holds
+					// no issues for it, and the project list that named it is stale: drop that list so the next read
+					// re-reads it, instead of failing the whole provider on every read until a restart (#5907).
+					if (collected.length === 0 && isJiraMissingProjectError(ex)) {
+						Logger.warn(
+							`Jira Server project '${project.name}' (${project.id}) no longer exists or is not visible`,
+						);
+						this._projects.delete(this.projectsCacheKey(session));
+						return { issues: [], status: 'complete' };
+					}
+
 					// A page failure after the first leaves the drained prefix intact; record it at the project
 					// scope instead of re-throwing. With nothing fetched yet the original throw is preserved, so
 					// the caller sees a hard error rather than an empty partial success.
@@ -541,7 +555,11 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		return `${this.apiBaseUrlFor(session)}:${session.accessToken}`;
 	}
 
+	override invalidateDiscoveryCaches(): void {
+		this._projects.clear();
+	}
+
 	protected override providerOnDisconnect(): void {
-		this._projects = undefined;
+		this._projects.clear();
 	}
 }
