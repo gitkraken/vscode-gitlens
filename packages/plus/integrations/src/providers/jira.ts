@@ -12,10 +12,15 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import type { ProviderRefusal } from '../collectionMetadata.js';
 import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
-import type { IssuesForProjectOptions, ProjectIssuesDrain } from '../models/issueReads.js';
+import type {
+	AccountWideIssuesResult,
+	IssuesForProjectOptions,
+	ProjectIssuesDrain,
+	SearchMyIssuesOptions,
+} from '../models/issueReads.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
-import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models.js';
+import { IssueFilter, providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
 import { isJiraMissingProjectError } from './providerErrors.js';
 import { DiscoveryCache, discoveryCacheTtl } from './utils/discoveryCache.js';
 import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
@@ -344,6 +349,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			resourceId: project.resourceId,
 			projectId: project.name,
 		};
+		const states = toProviderIssueStates(options?.state);
 		const drainIssues = async (scope: {
 			authorLogin?: string;
 			assigneeLogins?: string[];
@@ -359,6 +365,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 					result = await api.getIssuesForProjectPaged(tokenWithInfo, project.name, project.resourceId, {
 						...scope,
 						cursor: cursor,
+						states: states,
 						sort: options?.sort,
 					});
 				} catch (ex) {
@@ -560,6 +567,20 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		resources?: JiraOrganizationDescriptor[],
 		cancellation?: AbortSignal,
 	): Promise<IssueShape[] | undefined> {
+		return (await this.searchProviderMyIssuesWithTruncation(session, resources, cancellation))?.values;
+	}
+
+	/**
+	 * Overridden so `state` reaches the per-site read, which the default drops. Still reports `truncated: false`,
+	 * as the default did: the per-site loop has no way to say it stopped early.
+	 */
+	protected override async searchProviderMyIssuesWithTruncation(
+		session: ProviderAuthenticationSession,
+		resources?: JiraOrganizationDescriptor[],
+		cancellation?: AbortSignal,
+		options?: SearchMyIssuesOptions,
+	): Promise<AccountWideIssuesResult | undefined> {
+		const states = toProviderIssueStates(options?.state);
 		const myResources = resources ?? (await this.getProviderResourcesForUser(session));
 		if (!myResources) return undefined;
 
@@ -581,6 +602,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 						resource.id,
 						{
 							cursor: cursor,
+							states: states,
 						},
 					);
 					requestCount += 1;
@@ -600,7 +622,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			}
 		}
 
-		return results;
+		return { values: results, truncated: false };
 	}
 
 	protected override async getProviderLinkedIssueOrPullRequest(

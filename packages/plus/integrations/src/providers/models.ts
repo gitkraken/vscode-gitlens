@@ -581,6 +581,8 @@ export type GetIssuesForCurrentUserInput = PagingInput & {
 	assigneeUsername?: string;
 	authorUsername?: string;
 	pageSize?: number;
+	/** Linear only (GitLab's REST read has its own `state`, not threaded here). Omitted reads open issues. */
+	states?: GitIssueState[];
 	/** See {@link GetIssuesOptions.sort}. */
 	sort?: IssueSorting;
 };
@@ -645,7 +647,7 @@ export type GetJiraResourcesForCurrentUserFn = (options?: EnterpriseOptions) => 
 export type GetLinearOrganizationFn = (options?: EnterpriseOptions) => Promise<{ data: LinearOrganization }>;
 export type GetLinearTeamsForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: LinearTeam[] }>;
 export type GetLinearIssuesFn = (
-	input: { teams?: string[]; projects?: string[]; labels?: string[] } & PagingInput,
+	input: { teams?: string[]; projects?: string[]; labels?: string[]; states?: GitIssueState[] } & PagingInput,
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderIssue[]; pageInfo?: PageInfo }>;
 /**
@@ -864,6 +866,16 @@ export interface ProviderMetadata {
 	 * honor, which is what makes intersecting against it sufficient.
 	 */
 	supportedAccountWideIssueSorts?: IssueSorting[];
+	/**
+	 * Whether an issue tracker's reads (the project-scoped read, which is `listIssueTrackerIssuesPage`, and its
+	 * account-wide read) can be asked for a `state` other than open, and honor it server-side.
+	 *
+	 * A tracker read is open-only unless asked otherwise, so absent does not mean the read returns every state: it
+	 * means only `'open'` is expressible, and `'closed'`/`'all'` are refused rather than served as the open list.
+	 * Server-side, because each read drains to a page backstop: dropping states afterwards would let a project full
+	 * of done work spend that budget before reaching the open issues.
+	 */
+	supportsIssueStates?: boolean;
 	/**
 	 * What the provider's FILTERED issue search (`searchIssuesPage`, and the `countIssues` probe over the same
 	 * criteria) can express server-side. A third, wider surface than either filter set above: it is not bound to
@@ -1292,6 +1304,8 @@ export const providersMetadata: ProvidersMetadata = {
 		// A tracker's issues live under resource -> project, so it has no account-wide surface to declare: its
 		// capability is reported under `issues`, which is what `listIssueTrackerIssuesPage` validates against.
 		supportedIssueSorts: jiraIssueSorts,
+		// `statusCategory` clauses in the same JQL, shared with Server through `jiraHelpers`.
+		supportsIssueStates: true,
 	},
 	[IssuesSelfManagedHostIntegrationId.JiraServer]: {
 		// Self-hosted: there is no canonical domain, so every read is addressed by the connection's own host
@@ -1309,6 +1323,7 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		// One JQL `ORDER BY` builder serves Cloud and Server, so they share a surface (see `issueSorts.ts`).
 		supportedIssueSorts: jiraIssueSorts,
+		supportsIssueStates: true,
 	},
 	[IssuesCloudHostIntegrationId.Linear]: {
 		domain: 'linear.app',
@@ -1322,6 +1337,9 @@ export const providersMetadata: ProvidersMetadata = {
 		// Both directions, and one table for both reads: they are the same root `issues` query taking the same
 		// `sort` argument, so there is no account-wide narrowing to declare.
 		supportedIssueSorts: linearIssueSorts,
+		// A workflow-state type clause on both reads (`completed`/`canceled` are closed), the same types the SDK
+		// normalizes to the `DONE` category.
+		supportsIssueStates: true,
 	},
 	[IssuesCloudHostIntegrationId.Trello]: {
 		domain: 'trello.com',
@@ -1334,6 +1352,8 @@ export const providersMetadata: ProvidersMetadata = {
 		supportedIssueFilters: [IssueFilter.Assignee],
 		// `sort:edited` / `sort:-edited`. Trello's other search sorts (`created`, `due`) have no card-order effect.
 		supportedIssueSorts: trelloIssueSorts,
+		// No `supportsIssueStates`: a card has no state beyond being archived, and the board read always sends
+		// `-is:archived`, so `'closed'`/`'all'` are refused rather than answered with the open cards.
 	},
 };
 
@@ -1626,9 +1646,16 @@ export function toProviderPullRequestStates(
 	return states.length > 0 ? [...new Set(states)] : undefined;
 }
 
-/** Maps an issue state filter to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */
+/**
+ * Maps an issue state filter to the SDK's `states` input. `undefined`/omitted preserves the open-only default.
+ *
+ * Throws on any other value, which only an untyped caller can pass: read as omitted it would serve open issues as
+ * the state that was asked for. Called before a read's first request, so the throw refuses the whole read.
+ */
 export function toProviderIssueStates(state: IssueStateFilter | undefined): GitIssueState[] | undefined {
 	switch (state) {
+		case undefined:
+			return undefined;
 		case 'open':
 			return [GitIssueState.Open];
 		case 'closed':
@@ -1636,7 +1663,7 @@ export function toProviderIssueStates(state: IssueStateFilter | undefined): GitI
 		case 'all':
 			return [GitIssueState.Open, GitIssueState.Closed];
 		default:
-			return undefined;
+			throw new Error(`Unknown issue state; expected one of open, closed, all`);
 	}
 }
 

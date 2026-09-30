@@ -1,5 +1,5 @@
 import type { Account } from '@gitlens/git/models/author.js';
-import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type {
 	PullRequest,
 	PullRequestSearchCriteria,
@@ -1362,6 +1362,11 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		 * is where a tracker reports; a key no normalized issue carries is refused for a multi-project page.
 		 */
 		sort?: IssueSorting;
+		/**
+		 * Which issue states to read. Omitted reads open issues. `'closed'`/`'all'` need
+		 * `getSupportedFilters().issueStates` and are refused otherwise.
+		 */
+		state?: IssueStateFilter;
 		forceSync?: boolean;
 		page?: number;
 		cursor?: string;

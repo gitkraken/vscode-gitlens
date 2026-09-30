@@ -1,5 +1,5 @@
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
-import type { IssueShape, IssueSorting } from '@gitlens/git/models/issue.js';
+import type { IssueShape, IssueSorting, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { mapBounded } from '@gitlens/utils/promise.js';
 import { assessCollectionMetadata, mergeAssessmentInto } from '../collectionMetadata.js';
@@ -23,6 +23,8 @@ import {
 	unmergeableIssueSortWarning,
 	unsupportedIssueSortWarning,
 } from './warnings.js';
+
+const issueStateFilters: readonly IssueStateFilter[] = ['open', 'closed', 'all'];
 
 export async function listIssueTrackerIssuesPage(
 	ctx: ProviderReadContext,
@@ -50,6 +52,14 @@ export async function listIssueTrackerIssuesPage(
 		 * ordered. Only the order within a page changes.
 		 */
 		sort?: IssueSorting;
+		/**
+		 * Which issue states to read. Omitted reads open issues only.
+		 *
+		 * Applied server-side by every project read, so it narrows each project's drain rather than the merged page.
+		 * Only a tracker declaring `ProviderMetadata.supportsIssueStates` can express anything but `'open'`; asking
+		 * another for `'closed'`/`'all'` refuses the read rather than serving its open issues.
+		 */
+		state?: IssueStateFilter;
 		forceSync?: boolean;
 		page?: number;
 		cursor?: string;
@@ -99,6 +109,7 @@ export async function listIssueTrackerIssuesPage(
 						retryPages: retry.pages ?? [],
 						retryProjects: retry.projects ?? [],
 						completedProjects: retry.completedProjects ?? [],
+						state: options.state,
 					})
 				: undefined;
 		return {
@@ -170,6 +181,44 @@ export async function listIssueTrackerIssuesPage(
 	}
 
 	const sort = resolvedSort.sort;
+
+	// Refused before any request for the same reason as the sort: a state the tracker can't express would otherwise
+	// be dropped by its project reads, and their open issues published as the requested state. A value outside the
+	// vocabulary is refused too, since `toProviderIssueStates` would read it as omitted, which means open.
+	if (
+		options.state != null &&
+		(!issueStateFilters.includes(options.state) ||
+			(options.state !== 'open' && !providersMetadata[options.providerId]?.supportsIssueStates))
+	) {
+		warnings.push(
+			otherWarning(
+				options.providerId,
+				domain,
+				options.connectionId,
+				issueStateFilters.includes(options.state)
+					? `Issue state '${options.state}' is not supported by '${options.providerId}'.`
+					: `Unknown issue state; expected one of ${issueStateFilters.join(', ')}.`,
+			),
+		);
+		return emptyPage(true);
+	}
+
+	// A cursor resumed under another state than it was minted for skips what it already covered, whose other-state
+	// issues were never read. A narrowed read only mints composite cursors, which record their state, so any other
+	// cursor came from an open read.
+	const cursorState =
+		compositeCursor != null ? (compositeCursor.state ?? 'open') : options.cursor != null ? 'open' : undefined;
+	if (cursorState != null && cursorState !== (options.state ?? 'open')) {
+		warnings.push(
+			otherWarning(
+				options.providerId,
+				domain,
+				options.connectionId,
+				'The cursor belongs to a read of another issue state; start again without it.',
+			),
+		);
+		return emptyPage(true);
+	}
 
 	await ctx.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
 
@@ -470,6 +519,7 @@ export async function listIssueTrackerIssuesPage(
 					userId: userIdForProject(project),
 					filters: options.filters,
 					sort: sort,
+					state: options.state,
 				},
 				options.connectionId,
 			),
@@ -570,6 +620,7 @@ export async function listIssueTrackerIssuesPage(
 			(retryPages.length > 0 || nextPage != null)
 				? [...completedProjectKeys]
 				: [],
+		state: options.state,
 	});
 	return {
 		items: orderedItems,
