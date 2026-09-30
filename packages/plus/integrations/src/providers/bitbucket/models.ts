@@ -29,16 +29,18 @@ interface BitbucketLink {
 	name?: string;
 }
 
+// Bitbucket's `account` schema: a person (`user`) or an app/bot (`app_user`, e.g. a review bot on a PR).
+// An `app_user` has no `links.html` and no `nickname`, and the schema requires none of the links.
 interface BitbucketUser {
-	type: 'user';
+	type: 'user' | 'app_user';
 	uuid: string;
 	display_name: string;
 	account_id?: string;
 	nickname?: string;
-	links: {
-		self: BitbucketLink;
-		avatar: BitbucketLink;
-		html: BitbucketLink;
+	links?: {
+		self?: BitbucketLink;
+		avatar?: BitbucketLink;
+		html?: BitbucketLink;
 	};
 }
 
@@ -295,10 +297,10 @@ export function isClosedBitbucketIssueState(state: BitbucketIssueState): boolean
 
 export function fromBitbucketUser(user: BitbucketUser): PullRequestMember {
 	return {
-		avatarUrl: user.links.avatar.href,
+		avatarUrl: user.links?.avatar?.href,
 		name: user.display_name,
 		username: user.nickname,
-		url: user.links.html.href,
+		url: user.links?.html?.href,
 		id: user.uuid,
 	};
 }
