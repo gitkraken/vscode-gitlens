@@ -1121,6 +1121,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private get shouldShowWelcome(): boolean {
 		return (
 			!this.isAccountGated &&
+			// The graph:intro interstitial is a post-sign-in first-run surface — never shown to
+			// signed-out users, who get the graph with no prompt on public/local repos (and the
+			// preview banner on private). Without this, `gl-graph-access-account`'s `screen` getter
+			// falls to 'signin' for a null account and the welcome renders as the sign-in wall.
+			this.graphState.subscription?.account != null &&
 			(this.graphState.allowed ?? false) &&
 			// Client-read onboarding flag: `undefined` until known (don't flash), `false` = not yet
 			// dismissed, `true` = dismissed.
