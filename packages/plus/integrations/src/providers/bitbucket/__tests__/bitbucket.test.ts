@@ -7,28 +7,37 @@ import { createIntegrationService } from '../../../integrationService.js';
 import type { ApiClients } from '../../apiClients.js';
 import type { ProviderApiConfig } from '../../apiConfig.js';
 import { BitbucketApi } from '../bitbucket.js';
-import type { BitbucketPullRequest } from '../models.js';
-import { bitbucketProvider, bitbucketToken, createBitbucketPullRequest } from './fixtures.js';
+import type { BitbucketIssue, BitbucketPullRequest } from '../models.js';
+import { fromBitbucketIssue } from '../models.js';
+import {
+	appUser,
+	bitbucketProvider,
+	bitbucketToken,
+	createBitbucketPullRequest,
+	participant,
+	user,
+} from './fixtures.js';
+
+// Answers every request with `body` as JSON, or with a 404 when `body` is undefined.
+function configFor(body: unknown): { config: ProviderApiConfig; requests: string[] } {
+	const requests: string[] = [];
+	return {
+		requests: requests,
+		config: {
+			fetch: input => {
+				requests.push(input.toString());
+				if (body == null) {
+					return Promise.resolve(new Response('{}', { status: 404, statusText: 'Not Found' }));
+				}
+
+				return Promise.resolve(Response.json(body));
+			},
+			wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()),
+		},
+	};
+}
 
 suite('BitbucketApi.getPullRequest', () => {
-	function configFor(pr: BitbucketPullRequest | undefined): { config: ProviderApiConfig; requests: string[] } {
-		const requests: string[] = [];
-		return {
-			requests: requests,
-			config: {
-				fetch: input => {
-					requests.push(input.toString());
-					if (pr == null) {
-						return Promise.resolve(new Response('{}', { status: 404, statusText: 'Not Found' }));
-					}
-
-					return Promise.resolve(Response.json(pr));
-				},
-				wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()),
-			},
-		};
-	}
-
 	test('reads a pull request by id and reports it merged', async () => {
 		const { config, requests } = configFor(createBitbucketPullRequest());
 		const api = new BitbucketApi(config);
@@ -120,6 +129,169 @@ suite('BitbucketApi.getPullRequest', () => {
 
 		assert.equal(result, undefined);
 		assert.equal(requests.length, 1, 'the issue endpoint is not requested after a non-404 pull request failure');
+	});
+});
+
+// A review bot is an `app_user` whose `links` has no `html`: mapping it must not throw and fail the whole read.
+suite('BitbucketApi app_user accounts', () => {
+	const baseUrl = 'https://api.bitbucket.org/2.0';
+
+	function apiFor(body: unknown): { api: BitbucketApi; requests: string[] } {
+		const { config, requests } = configFor(body);
+		return { api: new BitbucketApi(config), requests: requests };
+	}
+
+	function createPullRequestWithBot(id: number = 5): BitbucketPullRequest {
+		return {
+			...createBitbucketPullRequest('myworkspace', 'myrepo', id),
+			state: 'OPEN',
+			closed_by: null,
+			participants: [
+				participant(user('human')),
+				participant(appUser(), { role: 'PARTICIPANT' }),
+				participant(appUser('Review Bot'), { role: 'REVIEWER', participatedOn: null }),
+			],
+		};
+	}
+
+	test('getPullRequest maps an app_user participant without links.html', async () => {
+		const { api } = apiFor(createPullRequestWithBot());
+
+		const pr = await api.getPullRequest(bitbucketProvider, bitbucketToken, 'myworkspace', 'myrepo', '5', baseUrl);
+
+		assert.ok(pr, 'the pull request maps');
+		const bot = pr.latestReviews?.find(r => r.reviewer.name === 'CodeAnt AI')?.reviewer;
+		assert.deepEqual(bot, {
+			avatarUrl: 'https://bitbucket.org/bot/avatar',
+			name: 'CodeAnt AI',
+			username: undefined,
+			url: undefined,
+			id: '{bot}',
+		});
+		const human = pr.latestReviews?.find(r => r.reviewer.name === 'human')?.reviewer;
+		assert.equal(human?.url, 'https://bitbucket.org/human', 'a regular user keeps its profile url');
+		assert.deepEqual(
+			pr.reviewRequests?.map(r => r.reviewer.name),
+			['Review Bot'],
+			'an app_user reviewer who has not reviewed yet is a pending review request',
+		);
+	});
+
+	test('getPullRequest maps an app_user author and an account with no links at all', async () => {
+		const noLinks: BitbucketPullRequest['author'] = { type: 'user', uuid: '{nolinks}', display_name: 'No Links' };
+		const { api } = apiFor({
+			...createPullRequestWithBot(),
+			author: appUser(),
+			participants: [participant(noLinks)],
+		});
+
+		const pr = await api.getPullRequest(bitbucketProvider, bitbucketToken, 'myworkspace', 'myrepo', '5', baseUrl);
+
+		assert.equal(pr?.author.name, 'CodeAnt AI');
+		assert.equal(pr?.author.url, undefined);
+		assert.equal(pr?.author.avatarUrl, 'https://bitbucket.org/bot/avatar');
+		const reviewer = pr?.latestReviews?.[0]?.reviewer;
+		assert.equal(reviewer?.name, 'No Links');
+		assert.equal(reviewer?.avatarUrl, undefined);
+		assert.equal(reviewer?.url, undefined);
+	});
+
+	test('getIssueOrPullRequest returns a pull request with an app_user participant', async () => {
+		const { api, requests } = apiFor(createPullRequestWithBot());
+
+		const result = await api.getIssueOrPullRequest(
+			bitbucketProvider,
+			bitbucketToken,
+			'myworkspace',
+			'myrepo',
+			'5',
+			baseUrl,
+		);
+
+		assert.equal(result?.type, 'pullrequest');
+		assert.equal(requests.length, 1, 'the issue endpoint is not requested once the pull request maps');
+	});
+
+	test('getPullRequestForBranch maps a pull request with an app_user participant', async () => {
+		const { api } = apiFor({ values: [createPullRequestWithBot()], pagelen: 1, size: 1, page: 1 });
+
+		const pr = await api.getPullRequestForBranch(
+			bitbucketProvider,
+			bitbucketToken,
+			'myworkspace',
+			'myrepo',
+			'feature',
+			baseUrl,
+		);
+
+		assert.equal(pr?.id, '5');
+	});
+
+	test('getPullRequestsForBranch keeps every pull request when one carries an app_user participant', async () => {
+		const human = { ...createBitbucketPullRequest('myworkspace', 'myrepo', 4), state: 'OPEN' as const };
+		const { api } = apiFor({ values: [createPullRequestWithBot(5), human] });
+
+		const { pullRequests, truncated } = await api.getPullRequestsForBranch(
+			bitbucketProvider,
+			bitbucketToken,
+			'myworkspace',
+			'myrepo',
+			'feature',
+			baseUrl,
+			{ limit: 10 },
+		);
+
+		assert.deepEqual(pullRequests.map(pr => pr.id).sort(), ['4', '5']);
+		assert.equal(truncated, false);
+	});
+
+	test('getPullRequestForCommit maps a pull request with an app_user participant', async () => {
+		const { api } = apiFor({ values: [createPullRequestWithBot()] });
+
+		const pr = await api.getPullRequestForCommit(
+			bitbucketProvider,
+			bitbucketToken,
+			'myworkspace',
+			'myrepo',
+			'head-sha',
+			baseUrl,
+		);
+
+		assert.equal(pr?.id, '5');
+	});
+
+	test('fromBitbucketIssue maps an app_user reporter and assignee', () => {
+		const issueUrl = 'https://bitbucket.org/myworkspace/myrepo/issues/7';
+		const issue: BitbucketIssue = {
+			type: 'issue',
+			id: 7,
+			title: 'An issue',
+			reporter: appUser(),
+			assignee: appUser('Triage Bot'),
+			state: 'new',
+			created_on: '2026-01-01T00:00:00Z',
+			updated_on: '2026-01-01T00:00:00Z',
+			repository: createBitbucketPullRequest().destination.repository,
+			votes: 0,
+			content: { raw: '', markup: 'markdown', html: '' },
+			links: {
+				self: { href: issueUrl },
+				html: { href: issueUrl },
+				comments: { href: `${issueUrl}/comments` },
+				attachments: { href: `${issueUrl}/attachments` },
+				watch: { href: `${issueUrl}/watch` },
+				vote: { href: `${issueUrl}/vote` },
+			},
+		};
+
+		const result = fromBitbucketIssue(issue, bitbucketProvider);
+
+		assert.equal(result.author?.name, 'CodeAnt AI');
+		assert.equal(result.author?.url, undefined);
+		assert.deepEqual(
+			result.assignees.map(a => [a.name, a.url]),
+			[['Triage Bot', undefined]],
+		);
 	});
 });
 

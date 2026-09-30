@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes a Bitbucket Cloud pull request with a review bot among its participants (an `app_user` account, e.g. CodeAnt AI) failing the whole read. Bitbucket returns those accounts without `links.html` (and without a `nickname`), and the direct REST mapper read the link unguarded, so `getPullRequest`, `getPullRequestForBranch`, `getPullRequestsForBranch` (the whole list), `getIssueOrPullRequest` and `getPullRequestForCommit` threw. Such an account, as a participant, reviewer, author, issue reporter or assignee, now maps with no `url` (and no `avatarUrl` if Bitbucket sends none) ([#5910](https://github.com/gitkraken/vscode-gitlens/issues/5910)) (plus/integrations)
+
 ## [0.9.3] - 2026-09-30
 
 ### Added
