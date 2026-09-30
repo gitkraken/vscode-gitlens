@@ -104,14 +104,14 @@ suite('pull request sweeps (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('a capped page reaching the budget raises one warning, and the cap is what it reports', async () => {
+	test('a capped page reaching the budget reports the cap beside the budget, not instead of it', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
 
 		// Every page is capped by the provider AND has a usable cursor, so the drain runs to `maxPages` with
-		// both facts true. They disagree about the remedy: a budget can be raised, a cap cannot. One drain must
-		// raise ONE warning, and it has to be the cap — otherwise a consumer offers a "load more" that can
-		// never return the capped part.
+		// both facts true. They describe different parts of the read: a bigger budget returns more rows, and
+		// nothing returns the capped ones. Folding them into one warning misstates one part either way — `none`
+		// alone freezes a consumer on a read it could continue, `page-budget` alone promises the capped rows.
 		let calls = 0;
 		(
 			gh as unknown as {
@@ -133,21 +133,27 @@ suite('pull request sweeps (#5438)', () => {
 			maxPages: 2,
 		});
 
-		const truncations = result.warnings.filter(w => /truncat|page budget/i.test(w.message));
-		assert.equal(truncations.length, 1, 'two truncation warnings would contradict each other');
-		assert.equal(truncations[0].omission?.recovery, 'none', 'the cap outranks the budget');
+		assert.deepEqual(
+			result.warnings.map(w => w.omission?.recovery),
+			['page-budget', 'none'],
+			'the budget stop and the capped part are each reported once',
+		);
+		assert.doesNotMatch(
+			result.warnings[1].message,
+			/cannot be continued/,
+			'the capped part does not deny the rest',
+		);
 
 		manager.dispose();
 	});
 
-	test('a cap reported through SDK metadata still outranks the budget', async () => {
+	test('a cap reported through SDK metadata is not repeated beside the budget stop', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
 
 		// GitHub's 1,000-result search cap arrives as an SDK omission, not as `paging.truncated` — the shape
 		// the sibling test above does NOT cover. `assessCollectionMetadata` already warned about it, so this
-		// drain adds no second warning; what it must not do is then report the budget as the reason, since a
-		// bigger budget cannot lift a provider cap.
+		// drain adds no cap warning of its own; it reports only its own stop, which is the budget.
 		let calls = 0;
 		(
 			gh as unknown as {
@@ -173,14 +179,59 @@ suite('pull request sweeps (#5438)', () => {
 			maxPages: 2,
 		});
 
-		// The drain also stopped at its budget, so two warnings describe this page — but they must AGREE.
-		// Raising the budget would return more of the capped set and still never all of it, and the field is
-		// deliberately conservative, so both report `none` and neither offers a load-more.
-		assert.ok(result.warnings.length >= 2, 'the cap and the drain stop are both reported');
+		// Raising the budget returns more of the capped set and never all of it: the SDK's `provider-limit`
+		// says the second, the drain's `page-budget` says the first.
 		assert.deepEqual(
-			[...new Set(result.warnings.filter(w => w.omission != null).map(w => w.omission!.recovery))],
-			['none'],
-			'no warning may offer a bigger budget once the provider itself capped the results',
+			result.warnings.filter(w => w.omission != null).map(w => [w.omission!.kind, w.omission!.recovery]),
+			[
+				['provider-limit', 'none'],
+				['pagination-incomplete', 'page-budget'],
+			],
+		);
+
+		manager.dispose();
+	});
+
+	test('a GitHub facet capped at the ceiling does not hide a sibling facet the budget can continue', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		// The closed-PR sweep reads `merged` and `closed` as separate searches folded into one provider page. Here
+		// `merged` walks into GitHub's 1,000-result ceiling on the first page while `closed` still has a cursor, so
+		// the drain's budget stop has both a capped facet and a live one. Driven down to the GraphQL response,
+		// because the per-facet cursor bundle is what keeps the live facet reachable.
+		const githubApi = await (
+			gh as unknown as {
+				authenticationService: { apis: { github: Promise<Record<string, unknown> | undefined> } };
+			}
+		).authenticationService.apis.github;
+		assert.ok(githubApi);
+		let closedCalls = 0;
+		githubApi.graphql = (_provider: unknown, _token: unknown, _query: unknown, variables: { search: string }) => {
+			if (variables.search.includes('is:merged')) {
+				return Promise.resolve({
+					search: { issueCount: 1005, pageInfo: { endCursor: null, hasNextPage: false }, nodes: [] },
+				});
+			}
+
+			closedCalls++;
+			return Promise.resolve({
+				search: { issueCount: 400, pageInfo: { endCursor: `c${closedCalls}`, hasNextPage: true }, nodes: [] },
+			});
+		};
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			states: ['closed', 'merged'],
+			maxPages: 2,
+		});
+
+		assert.equal(closedCalls, 2, 'the live facet is followed to the budget');
+		assert.equal(result.page.truncated, true);
+		assert.deepEqual(
+			result.warnings.map(w => w.omission?.recovery),
+			['page-budget', 'none'],
+			'more `closed` rows are a bigger budget away; the `merged` rows past the ceiling are not',
 		);
 
 		manager.dispose();

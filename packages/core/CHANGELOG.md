@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes a page-budgeted GitHub pull request sweep reporting its stop as an unrecoverable cap when the account has more than 1,000 matches — the search ceiling is now flagged only on the page where it ends the walk. This also changes an account-wide GitHub `listPullRequestsPage`: a page over the ceiling that can still continue no longer reports `page.truncated` or an `exhausted` warning, and only the page the ceiling ends on does (plus/git-github)
+- Fixes a pull request sweep that stopped at its page budget reporting it cannot be continued once any page was capped. A read that folds several searches into one page (GitHub's per-state facets) caps them independently, so one facet reaching the 1,000-result ceiling no longer hides a sibling that a bigger budget still reaches. This reverses 0.5.102's rule that a cap outranks a budget stop: a stop with a usable cursor is now always `page-budget`, and one drain can report two warnings, the `page-budget` one and, for the part paging could not reach, one with `recovery: 'none'` (or the SDK's own `provider-limit`, when the cap came from its metadata). A consumer that treated `page-budget` as proof the provider capped nothing must now check the drain's other warnings too (plus/integrations)
 
 ## [0.9.2] - 2026-09-30
 
