@@ -36,11 +36,11 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	private _webview!: WebviewContext;
 
 	@property({ type: Object }) wip?: Wip;
-	/** The branch's associated pull request (if any). When set, the PR slot in `computeNextSteps`
+	/** The branch's associated pull request (if any). When set and open, the PR slot in `computeNextSteps`
 	 *  renders a "View Pull Request" row linking to `pr.url`. When unset and `pullRequestLoading`
 	 *  is true, renders an inline loading row. When unset and not loading, renders the
 	 *  "Create a Pull Request" action. */
-	@property({ type: Object }) pullRequest?: { id: string; title: string; url: string };
+	@property({ type: Object }) pullRequest?: { id: string; title: string; url: string; state: string };
 	/** True while the host's PR enrichment fetch is in flight for this branch. Used to render a
 	 *  stable "Checking for pull request…" row that anchors the layout until enrichment lands. */
 	@property({ type: Boolean }) pullRequestLoading = false;
@@ -240,9 +240,10 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			// section doesn't shrink/grow when the PR fetch settles. Loading shows a spinner row;
 			// resolving with a PR swaps to a "View Pull Request" row; resolving with no PR swaps
 			// to the "Create a Pull Request" action row. Always pushes a row, never collapses —
-			// the row's role transforms in place.
-			if (this.pullRequest != null) {
-				const pr = this.pullRequest;
+			// the row's role transforms in place. A merged/closed PR is still the branch's associated PR
+			// (the header chip shows it), but it isn't a next step, so it takes the Create PR leg.
+			const pr = this.pullRequest?.state === 'opened' ? this.pullRequest : undefined;
+			if (pr != null) {
 				steps.push({
 					icon: 'git-pull-request',
 					label: l10n.t('Pull Request #{id}: {title}', { id: pr.id, title: pr.title }),

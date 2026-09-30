@@ -1246,7 +1246,8 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		// View → Checking… → Create PR. The no-PR Create PR leg uses the ref's GraphItemContext
 		// (threaded from the pill); it collapses only when the context is unavailable.
 		if (!upstreamMissing) {
-			const pr = this._pullRequest;
+			// A merged/closed PR stays in the header chip as context, but isn't a next step
+			const pr = this._pullRequest?.state === 'opened' ? this._pullRequest : undefined;
 			if (pr != null) {
 				steps.push({
 					icon: 'git-pull-request',

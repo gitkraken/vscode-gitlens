@@ -47,6 +47,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes autolinked pull requests and issues disappearing from _Inspect_, hovers, and views until the window is reloaded &mdash; a failed lookup (a rate limit, server error, or timeout) was remembered as "not found" for the rest of the session, and enrichment done before an integration finished connecting was kept for 30 minutes; failed lookups are now retried the next time they're needed
 - Fixes files you uncheck in the _Commit Graph_'s _Review_ and _Compose_ modes getting checked again &mdash; the details panel refreshing reset your exclusions (and, in _Compose_, your excluded commits), so an unchecked file could quietly end up back in the review or commit plan
 - Fixes the commit range appearing twice at the top of the _Commit Graph_'s _Review_ results for a commit selection
+- Fixes the _Commit Graph_'s _Next steps_ permanently listing a branch's merged or closed pull request as something to act on ([#5846](https://github.com/gitkraken/vscode-gitlens/issues/5846)) &mdash; only an open pull request is offered now, and a branch whose pull request is merged or closed gets _Create a Pull Request_ instead; the header still shows the merged or closed pull request
 
 ## [19.2.0] - 2026-09-16
 
