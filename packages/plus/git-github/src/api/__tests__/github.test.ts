@@ -388,6 +388,22 @@ suite('GitHubApi.searchMyPullRequestsPage summaries', () => {
 		assert.equal(searches[3], 'is:pr involves:@me archived:false sort:updated');
 	});
 
+	test('flags the 1,000-result ceiling only on the page that ends the walk', async () => {
+		const read = async (hasNextPage: boolean) => {
+			const { config } = captureQuery({
+				search: {
+					...emptySearchPage.search,
+					issueCount: 1005,
+					pageInfo: { endCursor: 'c', hasNextPage: hasNextPage },
+				},
+			});
+			return new GitHubApi(config).searchMyPullRequestsPage(provider, token, { state: 'merged' });
+		};
+
+		assert.equal((await read(true)).truncated, false);
+		assert.equal((await read(false)).truncated, true);
+	});
+
 	/**
 	 * The page follows the projection: the full fragment is what GitHub rejects at 100 nodes, so it pages at the
 	 * reduced size on EVERY path — an omitted `summary` included, since that also selects it. No caller is exempt;

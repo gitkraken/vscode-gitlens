@@ -186,6 +186,46 @@ suite('pull request sweeps (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('a GitHub search past its 1,000-result ceiling stops at the budget before the ceiling does', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		// The cap and the budget above are both arranged at the drain. This goes through the real GitHub read,
+		// down to the GraphQL response, because that is where the ceiling was reported on EVERY page once the
+		// account matched more than 1,000 — latching the cap before the walk ever reached it, so a budget stop
+		// with a live cursor came back `exhausted` and a consumer froze on a read it could have continued.
+		const githubApi = await (
+			gh as unknown as {
+				authenticationService: { apis: { github: Promise<Record<string, unknown> | undefined> } };
+			}
+		).authenticationService.apis.github;
+		assert.ok(githubApi);
+		let calls = 0;
+		githubApi.graphql = () => {
+			calls++;
+			return Promise.resolve({
+				search: { issueCount: 1005, pageInfo: { endCursor: `c${calls}`, hasNextPage: true }, nodes: [] },
+			});
+		};
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			states: ['merged'],
+			maxPages: 2,
+		});
+
+		assert.equal(calls, 2, 'drained exactly maxPages pages');
+		assert.equal(result.page.truncated, true);
+		const truncations = result.warnings.filter(w => w.omission != null);
+		assert.deepEqual(
+			truncations.map(w => w.omission),
+			[{ kind: 'pagination-incomplete', recovery: 'page-budget' }],
+			'no page had reached the ceiling yet, so a bigger budget is what returns the rest',
+		);
+
+		manager.dispose();
+	});
+
 	test('a provider that cycles its cursors is not reported as merely out of budget', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);

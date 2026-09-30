@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes a page-budgeted GitHub pull request sweep reporting its stop as an unrecoverable cap when the account has more than 1,000 matches — the search ceiling is now flagged only on the page where it ends the walk. This also changes an account-wide GitHub `listPullRequestsPage`: a page over the ceiling that can still continue no longer reports `page.truncated` or an `exhausted` warning, and only the page the ceiling ends on does (plus/git-github)
+
 ## [0.9.2] - 2026-09-30
 
 ### Added
