@@ -1058,7 +1058,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	 * exchanged token rather than a possibly-stale cached one. Both paths refresh, by different mechanisms: a
 	 * per-connection (`connectionId`) read syncs that specific connection's session directly through the auth
 	 * provider (the integration's primary-only sync path would never reach a secondary account), while a
-	 * primary read syncs via the integration's own cloud-connection machinery.
+	 * primary read syncs via the integration's own cloud-connection machinery. Either way the integration's cached
+	 * discovery (a tracker's project list) is dropped, so the read sees projects created or deleted since.
 	 * Best-effort — a failed sync is swallowed so the read still proceeds (and surfaces its own warning).
 	 */
 	async forceRefreshIfRequested(
@@ -1067,6 +1068,10 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		connectionId: string | undefined,
 	): Promise<void> {
 		if (forceSync !== true) return;
+
+		// Up front and unconditionally: the per-connection branch below re-syncs through the auth provider, which
+		// never reaches the integration's own re-sync that drops them, and a failed sync still has the read go ahead.
+		integration.invalidateDiscoveryCaches();
 
 		try {
 			if (connectionId != null) {

@@ -145,6 +145,32 @@ export function isProviderIssueNotFoundError(providerId: IntegrationIds, ex: unk
 	return status === 404 || status === 410 || status === 422;
 }
 
+const jiraMissingProjectMessage = /^The value '.*' does not exist for the field 'project'\.?$/i;
+
+/**
+ * Jira's refusal of a search scoped to a project it cannot find: `400` with
+ * `{"errorMessages":["The value 'KPSC290' does not exist for the field 'project'."]}`, measured against Jira Data
+ * Center 10.7.3 for a deleted project key and for a numeric id that names no project. Jira answers a project the
+ * user lost browse permission on the same way, since it will not confirm a project the user cannot see.
+ *
+ * Only a `400` whose EVERY message is that one: a JQL that is wrong in some other way also answers `400`, and that
+ * is a real failure rather than a project that is simply gone. Accepts the SDK's error or the `RequestClientError`
+ * `throwProviderError` wraps it in, whose `original` keeps the response.
+ */
+export function isJiraMissingProjectError(ex: unknown): boolean {
+	for (const candidate of [ex, (ex as { original?: unknown } | undefined)?.original]) {
+		const response = (candidate as { response?: { status?: unknown; body?: unknown } } | undefined)?.response;
+		if (response?.status !== 400) continue;
+
+		const messages = (response.body as { errorMessages?: unknown } | null | undefined)?.errorMessages;
+		if (!Array.isArray(messages) || messages.length === 0) continue;
+
+		return messages.every(m => typeof m === 'string' && jiraMissingProjectMessage.test(m.trim()));
+	}
+
+	return false;
+}
+
 export function throwProviderError(tokenWithInfo: TokenWithInfo, error: unknown): never {
 	const { accessToken: token, ...tokenInfo } = tokenWithInfo;
 	const providerId = tokenWithInfo.providerId;

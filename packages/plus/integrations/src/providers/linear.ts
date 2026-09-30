@@ -22,6 +22,7 @@ import type {
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape } from './models.js';
+import { DiscoveryCache, discoveryCacheTtl } from './utils/discoveryCache.js';
 import { mergeCollectionMetadata } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Linear];
@@ -55,22 +56,56 @@ export interface LinearOrganizationDescriptor extends IssueResourceDescriptor {
 export interface LinearProjectDescriptor extends IssueResourceDescriptor {}
 
 export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrationId.Linear> {
-	private _autolinks: Map<string, (AutolinkReference | DynamicAutolinkReference)[]> | undefined;
+	/**
+	 * Built from the teams, so it follows them: rebuilt when the team list changes or the caches are dropped, and once
+	 * older than {@link discoveryCacheTtl}. An expired set is still served while it is rebuilt in the background, because
+	 * autolinks are read on every render of a commit message and must not wait on the network (#5907).
+	 */
+	private readonly _autolinks = new Map<
+		string,
+		{ autolinks: (AutolinkReference | DynamicAutolinkReference)[]; builtAt: number }
+	>();
+	private readonly _autolinksBuilds = new Map<string, Promise<(AutolinkReference | DynamicAutolinkReference)[]>>();
+
 	override async autolinks(): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected || this._session == null) {
 			return [];
 		}
 
-		const cachedAutolinks = this._autolinks?.get(this._session.accessToken);
-		if (cachedAutolinks != null) return cachedAutolinks;
+		const session = this._session;
+		const cached = this._autolinks.get(session.accessToken);
+		if (cached == null) return this.buildAutolinks(session);
 
-		const organization = await this.getOrganization(this._session);
+		if (Date.now() - cached.builtAt >= discoveryCacheTtl) {
+			void this.buildAutolinks(session).catch(() => {});
+		}
+		return cached.autolinks;
+	}
+
+	/** One build per token at a time: concurrent renders share it rather than each re-reading the teams. */
+	private buildAutolinks(
+		session: ProviderAuthenticationSession,
+	): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
+		const { accessToken } = session;
+		let build = this._autolinksBuilds.get(accessToken);
+		if (build == null) {
+			build = this.buildAutolinksCore(session).finally(() => this._autolinksBuilds.delete(accessToken));
+			this._autolinksBuilds.set(accessToken, build);
+		}
+		return build;
+	}
+
+	private async buildAutolinksCore(
+		session: ProviderAuthenticationSession,
+	): Promise<(AutolinkReference | DynamicAutolinkReference)[]> {
+		const generation = this._teams.generation;
+		const organization = await this.getOrganization(session);
 		if (organization == null) return [];
 
 		const autolinks: (AutolinkReference | DynamicAutolinkReference)[] = [];
 
-		const teams = await this.getTeams(this._session);
+		const teams = await this.getTeams(session);
 		for (const team of teams ?? []) {
 			const dashedPrefix = `${team.key}-`;
 			const underscoredPrefix = `${team.key}_`;
@@ -100,9 +135,10 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			});
 		}
 
-		this._autolinks ??= new Map<string, (AutolinkReference | DynamicAutolinkReference)[]>();
-		this._autolinks.set(this._session.accessToken, autolinks);
-
+		// Not kept when built from teams read before the caches were dropped.
+		if (this._teams.generation === generation) {
+			this._autolinks.set(session.accessToken, { autolinks: autolinks, builtAt: Date.now() });
+		}
 		return autolinks;
 	}
 
@@ -133,7 +169,8 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return this._organizations.get(accessToken);
 	}
 
-	private _teams: Map<string, LinearTeamDescriptor[] | undefined> | undefined;
+	/** Expires, and is dropped on a re-sync, so a team created or left mid-session is picked up (#5907). */
+	private readonly _teams = new DiscoveryCache<LinearTeamDescriptor[]>();
 	private async getTeams(
 		session: ProviderAuthenticationSession,
 		force: boolean = false,
@@ -146,11 +183,11 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		force: boolean = false,
 	): Promise<ProviderApiCollectionResult<LinearTeamDescriptor> | undefined> {
 		const { accessToken } = session;
-		this._teams ??= new Map<string, LinearTeamDescriptor[] | undefined>();
 
 		const cachedResources = this._teams.get(accessToken);
 		if (cachedResources != null && !force) return { values: cachedResources };
 
+		const generation = this._teams.generation;
 		const api = await this.getProvidersApi();
 		const teams = await api.getLinearTeamsForCurrentUser(toTokenWithInfo(this.id, session));
 		const descriptors: LinearTeamDescriptor[] | undefined = teams?.map(t => ({
@@ -169,7 +206,10 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			return { values: descriptors, metadata: { completeness: 'unknown' } };
 		}
 
-		this._teams.set(accessToken, descriptors);
+		if (this._teams.set(accessToken, descriptors, { generation: generation })) {
+			// Built from the teams; a new set means new prefixes.
+			this._autolinks.delete(accessToken);
+		}
 		return { values: descriptors };
 	}
 
@@ -190,6 +230,12 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		_resources: ResourceDescriptor[],
 	): Promise<ProviderApiCollectionResult<ResourceDescriptor>> {
 		return (await this.getTeamsWithMetadata(session)) ?? { values: [] };
+	}
+
+	override invalidateDiscoveryCaches(): void {
+		this._organizations = undefined;
+		this._teams.clear();
+		this._autolinks.clear();
 	}
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
 

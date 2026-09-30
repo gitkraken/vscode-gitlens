@@ -405,7 +405,17 @@ export abstract class IntegrationBase<
 	 */
 	protected onStoredTokensReplaced(): void {
 		this._rejectedTokens.clear();
+		this.invalidateDiscoveryCaches();
 	}
+
+	/**
+	 * Drops what this integration discovered through its session and kept for later reads: a tracker's sites,
+	 * projects or teams. Called by every path that replaces the stored tokens (see {@link onStoredTokensReplaced}),
+	 * which includes the forced re-sync a consumer's refresh runs, and by a read asked to `forceSync`. A refresh is
+	 * the consumer saying the account may have changed, and a project created or deleted since the first read would
+	 * otherwise stay invisible, or keep being searched, for the rest of the session (#5907).
+	 */
+	invalidateDiscoveryCaches(): void {}
 
 	private static readonly requestExceptionLimit = 5;
 	private requestExceptionCount = 0;
