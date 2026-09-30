@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-09-30
+
 ### Added
 
 - Adds `errors: 'throw'` to `diff.getDiff`, `getParsedDiff`, `getDiffStatus` and `getChangedFilesCount`, so a failed diff rejects instead of resolving `undefined`: with a `GitError` carrying git's `stderr` when git ran and failed (an unresolvable revision, a path that is no longer a repository, a permission denial), or with the error that kept it from starting (a deleted working directory, a missing git binary). Without it they resolve `undefined` as before (git, git-cli)
@@ -466,7 +468,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.2...HEAD
+[0.9.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.1...gitkraken:releases/core/v0.9.2
 [0.9.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.0...gitkraken:releases/core/v0.9.1
 [0.9.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.8.0...gitkraken:releases/core/v0.9.0
 [0.8.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.7.2...gitkraken:releases/core/v0.8.0
