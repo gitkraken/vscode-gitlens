@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-09-30
+
 ### Added
 
 - Adds single pull request reads and URL identity parsing for Azure DevOps, Bitbucket Cloud and Bitbucket Data Center ([#5886](https://github.com/gitkraken/vscode-gitlens/issues/5886)). `Integration.getPullRequest(resource, id)` and `getPullRequestIdentityFromMaybeUrl(url)`, until now only implemented by GitHub and GitLab, resolve on these hosts too. Azure DevOps reads `{org}/{project}/_apis/git/pullrequests/{id}` — no repository required, since a pull request id is unique within the organization — with the project taken from the descriptor's `project` or else from a `{project}/_git/{repo}` or bare project name, and its URL parser decodes the path and anchors on `/_git/{repo}/pullrequest/{id}`, covering `dev.azure.com`, a Server address behind a virtual directory (dropped from the identity, so the connection's configured URL must include it), the legacy `{org}.visualstudio.com` host, and the short `{org}/_git/{repo}` form. Bitbucket Cloud and Data Center read through the strict by-id reads `getPullRequest` and `getServerPullRequest`, and their parsers accept `{workspace}/{repo}/pull-requests/{id}` and `projects/{KEY}/repos/{repo}/pull-requests/{id}` (a personal repository's `users/{slug}/repos/…` as project `~{slug}`), each rejecting the other's path shapes. Only a 404 resolves to `undefined`; every other failure reaches `getPullRequest`'s own error handling, so it is not cached as a miss (plus/integrations)
@@ -478,7 +480,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.2...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.3...HEAD
+[0.9.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.2...gitkraken:releases/core/v0.9.3
 [0.9.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.1...gitkraken:releases/core/v0.9.2
 [0.9.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.0...gitkraken:releases/core/v0.9.1
 [0.9.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.8.0...gitkraken:releases/core/v0.9.0
