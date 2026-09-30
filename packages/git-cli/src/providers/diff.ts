@@ -27,6 +27,7 @@ import type {
 } from '@gitlens/git/providers/diff.js';
 import type { DisposableTemporaryGitIndex } from '@gitlens/git/providers/staging.js';
 import type { DiffRange, RevisionUri } from '@gitlens/git/providers/types.js';
+import type { GitErrorHandling } from '@gitlens/git/run.types.js';
 import {
 	getRevisionRangeParts,
 	isRevisionRange,
@@ -61,7 +62,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		repoPath: string,
 		to?: string,
 		from?: string,
-		options?: { uris?: (string | Uri)[]; includeUntracked?: boolean },
+		options?: { uris?: (string | Uri)[]; includeUntracked?: boolean; errors?: GitErrorHandling },
 		_cancellation?: AbortSignal,
 	): Promise<GitDiffShortStat | undefined> {
 		const scope = getScopedLogger();
@@ -77,8 +78,9 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		}
 
 		try {
+			// A default run swallows a failure matching a git warning (not a repository, say) into empty output
 			const result = await this.git.run(
-				{ cwd: repoPath, configs: gitConfigsDiff },
+				{ cwd: repoPath, configs: gitConfigsDiff, errors: options?.errors === 'throw' ? 'throw' : undefined },
 				'diff',
 				'--shortstat',
 				'--no-ext-diff',
@@ -106,7 +108,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			return stat;
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
-			if (GitErrors.noMergeBase.test(msg) || GitErrors.badRevision.test(msg)) {
+			if (options?.errors !== 'throw' && (GitErrors.noMergeBase.test(msg) || GitErrors.badRevision.test(msg))) {
 				return undefined;
 			}
 
@@ -125,6 +127,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			index?: DisposableTemporaryGitIndex;
 			notation?: GitRevisionRangeNotation;
 			uris?: (string | Uri)[];
+			errors?: GitErrorHandling;
 		},
 		_cancellation?: AbortSignal,
 	): Promise<GitDiff | undefined> {
@@ -158,6 +161,8 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			);
 		} catch (ex) {
 			scope?.error(ex);
+			if (options?.errors === 'throw') throw ex;
+
 			return undefined;
 		}
 
@@ -174,6 +179,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			context?: number;
 			notation?: GitRevisionRangeNotation;
 			uris?: (string | Uri)[];
+			errors?: GitErrorHandling;
 		},
 		cancellation?: AbortSignal,
 	): Promise<ParsedGitDiff | undefined> {
@@ -216,6 +222,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			path?: string;
 			renameLimit?: number;
 			similarityThreshold?: number;
+			errors?: GitErrorHandling;
 		},
 	): Promise<GitFile[] | undefined> {
 		try {
@@ -226,7 +233,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 					? [...gitConfigsDiff, '-c', `diff.renameLimit=${options.renameLimit}`]
 					: gitConfigsDiff;
 			const result = await this.git.run(
-				{ cwd: repoPath, configs: configs },
+				{ cwd: repoPath, configs: configs, errors: options?.errors === 'throw' ? 'throw' : undefined },
 				'diff',
 				'--numstat',
 				'--summary',
@@ -267,7 +274,9 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			}
 
 			return files.length ? files : undefined;
-		} catch (_ex) {
+		} catch (ex) {
+			if (options?.errors === 'throw') throw ex;
+
 			return undefined;
 		}
 	}

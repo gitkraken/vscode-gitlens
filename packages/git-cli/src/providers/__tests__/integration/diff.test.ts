@@ -5,6 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { GitError } from '../../../exec/git.js';
 import type { TestRepo } from './helpers.js';
 import { addCommit, createTestRepo } from './helpers.js';
 
@@ -685,5 +686,102 @@ suite('DiffSubProvider — root commit in a SHA-256 repository', () => {
 		await assert.doesNotReject(
 			repo.provider.diff.getDiffForFile(sha256Dir!, 'a.txt', `${sha256Root}^`, sha256Root),
 		);
+	});
+});
+
+suite("DiffSubProvider — errors: 'throw'", () => {
+	let repo: TestRepo;
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+		addCommit(repo.path, 'a.txt', 'one\n', 'Add a.txt');
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+	});
+
+	const missing = 'no-such-revision';
+
+	function assertNamesRevision(ex: unknown): true {
+		assert.ok(ex instanceof GitError, `expected a GitError, got ${String(ex)}`);
+		assert.ok(ex.stderr?.includes(missing), `stderr should carry git's own text, got: ${ex.stderr}`);
+		return true;
+	}
+
+	test('getDiff resolves undefined for an unresolvable revision by default', async () => {
+		assert.strictEqual(await repo.provider.diff.getDiff?.(repo.path, missing, 'HEAD'), undefined);
+	});
+
+	test('getDiff rejects with a GitError carrying git’s stderr', async () => {
+		await assert.rejects(
+			async () => repo.provider.diff.getDiff?.(repo.path, missing, 'HEAD', { errors: 'throw' }),
+			assertNamesRevision,
+		);
+	});
+
+	test('getParsedDiff rejects with a GitError carrying git’s stderr', async () => {
+		await assert.rejects(
+			async () => repo.provider.diff.getParsedDiff?.(repo.path, missing, 'HEAD', { errors: 'throw' }),
+			assertNamesRevision,
+		);
+	});
+
+	test('getDiffStatus resolves undefined for an unresolvable revision by default', async () => {
+		assert.strictEqual(await repo.provider.diff.getDiffStatus(repo.path, missing, 'HEAD'), undefined);
+	});
+
+	test('getDiffStatus rejects with a GitError carrying git’s stderr', async () => {
+		await assert.rejects(
+			async () => repo.provider.diff.getDiffStatus(repo.path, missing, 'HEAD', { errors: 'throw' }),
+			assertNamesRevision,
+		);
+	});
+
+	test('getChangedFilesCount resolves undefined for an unresolvable revision by default', async () => {
+		assert.strictEqual(await repo.provider.diff.getChangedFilesCount(repo.path, missing, 'HEAD'), undefined);
+	});
+
+	test('getChangedFilesCount rejects with a GitError carrying git’s stderr', async () => {
+		await assert.rejects(
+			async () => repo.provider.diff.getChangedFilesCount(repo.path, missing, 'HEAD', { errors: 'throw' }),
+			assertNamesRevision,
+		);
+	});
+
+	test('getDiff rejects when the working directory is gone', async () => {
+		const gone = createTestRepo();
+		try {
+			rmSync(gone.path, { recursive: true, force: true });
+			assert.strictEqual(await gone.provider.diff.getDiff?.(gone.path, 'HEAD', 'HEAD~1'), undefined);
+			await assert.rejects(async () =>
+				gone.provider.diff.getDiff?.(gone.path, 'HEAD', 'HEAD~1', { errors: 'throw' }),
+			);
+		} finally {
+			gone.cleanup();
+		}
+	});
+
+	test('getDiffStatus and getChangedFilesCount reject outside a repository', async () => {
+		// git's "not a git repository" is a warning a default run swallows into empty output
+		const outside = mkdtempSync(join(tmpdir(), 'gitlens-not-a-repo-'));
+		try {
+			assert.strictEqual(await repo.provider.diff.getChangedFilesCount(outside, 'HEAD'), undefined);
+			await assert.rejects(
+				async () => repo.provider.diff.getChangedFilesCount(outside, 'HEAD', undefined, { errors: 'throw' }),
+				GitError,
+			);
+			await assert.rejects(
+				async () => repo.provider.diff.getDiffStatus(outside, 'HEAD', undefined, { errors: 'throw' }),
+				GitError,
+			);
+		} finally {
+			rmSync(outside, { recursive: true, force: true });
+		}
+	});
+
+	test('getDiff still resolves a good diff with errors: throw', async () => {
+		const diff = await repo.provider.diff.getDiff?.(repo.path, 'HEAD', 'HEAD~1', { errors: 'throw' });
+		assert.ok(diff?.contents.includes('a.txt'));
 	});
 });
