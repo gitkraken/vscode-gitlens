@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-09-30
+
 ### Added
 
 - Adds `state` (`'open' | 'closed' | 'all'`, omitted reads open) to the issue-tracker reads: `listIssueTrackerIssuesPage` and `IssuesIntegration.getIssuesForProject*`, reported as `getSupportedFilters().issueStates`. The trackers' account-wide read (`searchMyIssuesWithTruncationResult`'s `SearchMyIssuesOptions`) takes it too, though no facade read reaches that path yet. Linear, Jira and Jira Data Center narrow server-side on every page of their drains, so a project's done work no longer spends the page budget before its open issues. Trello can only read open cards, so it refuses `'closed'` and `'all'` with a warning and `fetchFailed` rather than serving the open ones. Every tracker also refuses a value outside the three (the integration reads too, before any request), and a cursor minted under one state when resumed under another (#5911) (plus/integrations)
@@ -489,7 +491,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.3...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.4...HEAD
+[0.9.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.3...gitkraken:releases/core/v0.9.4
 [0.9.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.2...gitkraken:releases/core/v0.9.3
 [0.9.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.1...gitkraken:releases/core/v0.9.2
 [0.9.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.0...gitkraken:releases/core/v0.9.1
