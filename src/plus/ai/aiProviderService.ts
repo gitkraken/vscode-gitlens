@@ -155,7 +155,7 @@ export interface AIModelChangeEvent {
  * `GET v1/ai-tasks/usage` payload we consume.
  *
  * `limit === -1` means unlimited and `limit === 0` means no allowance; never conflate the two, or a
- * trial user with no allowance reads as having infinite AI.
+ * user with no allowance reads as having infinite AI.
  */
 export interface AIUsageLimits {
 	readonly limit: number;

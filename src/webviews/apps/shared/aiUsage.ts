@@ -77,7 +77,7 @@ export interface ResolvedAiUsage {
  * compact meter can't disagree about them.
  *
  * The two sentinels mean opposite things and must NEVER collapse into each other: -1 is genuinely
- * unlimited, while 0 is "no weekly allowance at all" (e.g. trials, org-disabled AI). Rendering 0 as
+ * unlimited, while 0 is "no weekly allowance at all" (e.g. org-disabled AI). Rendering 0 as
  * unlimited — or as a 0/0 bar that reads as full — tells a user with nothing that they have
  * everything. Neither sentinel has a ratio to draw, so both suppress the bar (as gk.dev does).
  *
