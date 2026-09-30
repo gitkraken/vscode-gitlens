@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { SigningErrorReason } from '@gitlens/git/errors.js';
@@ -706,6 +706,196 @@ suite('OperationsGitSubProvider.fetch — preserveFetchHead', () => {
 			local?.cleanup();
 			bare?.cleanup();
 			source.cleanup();
+		}
+	});
+});
+
+suite('OperationsGitSubProvider — announcing a write that failed', () => {
+	// A failed write may still have changed the repository, so it announces the way a successful one does:
+	// otherwise reads keep serving what they cached before it, until a file watcher catches up (a host with
+	// no watcher never does).
+	function watch() {
+		const changes: string[][] = [];
+		const resets: string[][] = [];
+		return {
+			changes: changes,
+			resets: resets,
+			hooks: {
+				repository: { onChanged: (_repoPath: string, c: readonly string[]) => changes.push([...c]) },
+				cache: { onReset: (_repoPath: string, ...types: string[]) => resets.push(types) },
+			},
+		};
+	}
+
+	test('a fetch that rejects after moving one ref leaves no stale branch read', async () => {
+		const source = createTestRepo();
+		let bare: { path: string; cleanup: () => void } | undefined;
+		let local: ReturnType<typeof createTestRepo> | undefined;
+		try {
+			createBranch(source.path, 'shared', { checkout: true });
+			addCommit(source.path, 'shared.txt', 'one\n', 'Shared commit');
+			checkout(source.path, 'main');
+
+			bare = createBareRemoteFrom(source.path);
+			local = createTestRepo();
+			execFileSync('git', ['remote', 'add', 'origin', bare.path], { cwd: local.path, stdio: 'pipe' });
+			execFileSync('git', ['fetch', 'origin', 'refs/heads/shared:refs/remotes/origin/shared'], {
+				cwd: local.path,
+				stdio: 'pipe',
+			});
+
+			// The remote rewrites `shared` (a non-fast-forward for the tracking ref) and gains a new branch
+			checkout(source.path, 'shared');
+			execFileSync('git', ['commit', '--amend', '-m', 'Rewritten'], { cwd: source.path, stdio: 'pipe' });
+			createBranch(source.path, 'fresh');
+			execFileSync('git', ['push', '--force', bare.path, 'shared', 'fresh'], {
+				cwd: source.path,
+				stdio: 'pipe',
+			});
+
+			const before = await local.provider.branches.getBranches(local.path);
+			assert.ok(!before.values.some(b => b.name === 'origin/fresh'), 'sanity: origin/fresh is not there yet');
+
+			// Refuses `shared` as a non-fast-forward, yet stores `fresh` — git exits non-zero for the run
+			await assert.rejects(
+				local.provider.ops.fetch(local.path, {
+					remote: 'origin',
+					refspecs: [
+						'refs/heads/shared:refs/remotes/origin/shared',
+						'refs/heads/fresh:refs/remotes/origin/fresh',
+					],
+				}),
+				(ex: unknown) => FetchError.is(ex),
+			);
+			assert.strictEqual(
+				execFileSync('git', ['for-each-ref', 'refs/remotes/origin/fresh'], {
+					cwd: local.path,
+					encoding: 'utf-8',
+				}).trim() !== '',
+				true,
+				'sanity: the rejected fetch still stored origin/fresh',
+			);
+
+			const after = await local.provider.branches.getBranches(local.path);
+			assert.ok(
+				after.values.some(b => b.name === 'origin/fresh'),
+				'the branch read must not serve what it cached before the failed fetch',
+			);
+		} finally {
+			local?.cleanup();
+			bare?.cleanup();
+			source.cleanup();
+		}
+	});
+
+	test('a fetch that runs nothing announces nothing', async () => {
+		const watched = watch();
+		const r = createTestRepo({ hooks: watched.hooks });
+		try {
+			// A branch with no remote has nothing to fetch
+			await r.provider.ops.fetch(r.path, {
+				branch: createReference('main', r.path, { refType: 'branch', name: 'main', remote: false }),
+			});
+			assert.deepStrictEqual(watched.changes, []);
+			assert.deepStrictEqual(watched.resets, []);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('a push the remote rejects still announces', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		let bare: { path: string; cleanup: () => void } | undefined;
+		let local: ReturnType<typeof createTestRepo> | undefined;
+		try {
+			bare = createBareRemoteFrom(origin.path);
+			local = cloneTestRepo(bare.path, { hooks: watched.hooks });
+			// The remote moves on, so the clone's push is a non-fast-forward
+			addCommit(origin.path, 'ahead.txt', 'x', 'Origin advances');
+			execFileSync('git', ['push', bare.path, 'main'], { cwd: origin.path, stdio: 'pipe' });
+			addCommit(local.path, 'local.txt', 'y', 'Clone advances');
+
+			await assert.rejects(local.provider.ops.push(local.path));
+
+			assert.ok(
+				watched.changes.some(c => c.includes('remotes')),
+				`the failed push should announce 'remotes', got ${JSON.stringify(watched.changes)}`,
+			);
+		} finally {
+			local?.cleanup();
+			bare?.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('a pull that stops on a conflict still announces the index', async () => {
+		const watched = watch();
+		const origin = createTestRepo();
+		let local: ReturnType<typeof createTestRepo> | undefined;
+		try {
+			addCommit(origin.path, 'shared.txt', 'base\n', 'Add shared');
+			local = cloneTestRepo(origin.path, { hooks: watched.hooks });
+			// `rebase: false` passes no flag, so without this git refuses divergent branches (or follows a global `pull.rebase`)
+			execFileSync('git', ['config', 'pull.rebase', 'false'], { cwd: local.path, stdio: 'pipe' });
+			addCommit(origin.path, 'shared.txt', 'origin\n', 'Origin edits');
+			addCommit(local.path, 'shared.txt', 'local\n', 'Clone edits');
+
+			await assert.rejects(local.provider.ops.pull(local.path, { rebase: false }), (ex: unknown) =>
+				PullError.is(ex, 'conflict'),
+			);
+
+			assert.ok(
+				watched.changes.some(c => c.includes('index')),
+				`the conflicted pull should announce 'index', got ${JSON.stringify(watched.changes)}`,
+			);
+		} finally {
+			local?.cleanup();
+			origin.cleanup();
+		}
+	});
+
+	test('a pull in a linked worktree that stops on a conflict announces that worktree', async () => {
+		const announced: { repoPath: string; changes: string[] }[] = [];
+		const origin = createTestRepo();
+		let local: ReturnType<typeof createTestRepo> | undefined;
+		let worktree: { path: string; cleanup: () => void } | undefined;
+		try {
+			createBranch(origin.path, 'side');
+			local = cloneTestRepo(origin.path, {
+				hooks: {
+					repository: {
+						onChanged: (repoPath: string, c: readonly string[]) =>
+							announced.push({ repoPath: repoPath, changes: [...c] }),
+					},
+				},
+			});
+			execFileSync('git', ['config', 'pull.rebase', 'false'], { cwd: local.path, stdio: 'pipe' });
+			createTrackingBranch(local.path, 'side', 'origin/side');
+			worktree = createWorktree(local.path, 'side');
+			checkout(origin.path, 'side');
+			addCommit(origin.path, 'shared.txt', 'origin\n', 'Origin edits');
+			addCommit(worktree.path, 'shared.txt', 'worktree\n', 'Worktree edits');
+
+			const side = createReference('side', local.path, {
+				refType: 'branch',
+				name: 'side',
+				remote: false,
+				upstream: { name: 'origin/side', missing: false },
+			});
+			await assert.rejects(local.provider.ops.pull(local.path, { branch: side }), (ex: unknown) =>
+				PullError.is(ex, 'conflict'),
+			);
+
+			const worktreePath = realpathSync(worktree.path);
+			assert.ok(
+				announced.some(a => realpathSync(a.repoPath) === worktreePath && a.changes.includes('index')),
+				`the worktree's index should be announced, got ${JSON.stringify(announced)}`,
+			);
+		} finally {
+			worktree?.cleanup();
+			local?.cleanup();
+			origin.cleanup();
 		}
 	});
 });
