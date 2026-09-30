@@ -48,6 +48,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes files you uncheck in the _Commit Graph_'s _Review_ and _Compose_ modes getting checked again &mdash; the details panel refreshing reset your exclusions (and, in _Compose_, your excluded commits), so an unchecked file could quietly end up back in the review or commit plan
 - Fixes the commit range appearing twice at the top of the _Commit Graph_'s _Review_ results for a commit selection
 - Fixes the _Commit Graph_'s _Next steps_ permanently listing a branch's merged or closed pull request as something to act on ([#5846](https://github.com/gitkraken/vscode-gitlens/issues/5846)) &mdash; only an open pull request is offered now, and a branch whose pull request is merged or closed gets _Create a Pull Request_ instead; the header still shows the merged or closed pull request
+- Fixes entering a reference in the _Git Command Palette_'s _show_ command discarding it and going back to the command menu ([#5855](https://github.com/gitkraken/vscode-gitlens/issues/5855)) &mdash; pressing Enter before the reference finished resolving chose _Back_, and a branch or tag name never resolved at all; Enter now waits for the reference, branch and tag names resolve to their commit in every commit step, and a reference that doesn't resolve keeps what you typed
 
 ## [19.2.0] - 2026-09-16
 

@@ -212,7 +212,11 @@ export function* pickCommitStep<
 			}
 		},
 		onValidateValue: getValidateGitReferenceFn(state.repo, {
-			revs: { allow: true, buttons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton] },
+			revs: {
+				allow: true,
+				buttons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
+				resolveRefNames: true,
+			},
 		}),
 	});
 

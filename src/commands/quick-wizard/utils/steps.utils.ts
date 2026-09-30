@@ -6,7 +6,12 @@ import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../../quickpicks/items/directive.js';
-import { createDirectiveQuickPickItem, Directive, isDirective } from '../../../quickpicks/items/directive.js';
+import {
+	createDirectiveQuickPickItem,
+	Directive,
+	isDirective,
+	isDirectiveQuickPickItem,
+} from '../../../quickpicks/items/directive.js';
 import { createCommitQuickPickItem, createRefQuickPickItem } from '../../../quickpicks/items/gitWizard.js';
 import type { CustomStep } from '../models/steps.custom.js';
 import type { PartialStepState, StepItemType, StepResultBreak, StepState } from '../models/steps.js';
@@ -227,11 +232,12 @@ export function appendReposToTitle<
 export function getValidateGitReferenceFn(
 	repos: GlRepository | GlRepository[] | undefined,
 	options?: {
-		revs?: { allow: boolean; buttons?: QuickInputButton[] };
+		/** `resolveRefNames` resolves branch and tag names to their commits (for steps whose items aren't refs) */
+		revs?: { allow: boolean; buttons?: QuickInputButton[]; resolveRefNames?: boolean };
 		ranges?: { allow: boolean; buttons?: QuickInputButton[]; validate?: boolean };
 	},
 ) {
-	return async (quickpick: QuickPick<any>, value: string): Promise<boolean> => {
+	return async (quickpick: QuickPick<any>, value: string, items?: QuickPickItem[]): Promise<boolean> => {
 		if (repos == null) return false;
 
 		if (Array.isArray(repos)) {
@@ -239,6 +245,11 @@ export function getValidateGitReferenceFn(
 
 			repos = repos[0];
 		}
+
+		// Callers validate as the user types, so an older, slower validation must not overwrite the items
+		// for a newer value. Returning `true` tells the caller the items are handled (left untouched)
+		const requested = value.trim();
+		const isStale = () => quickpick.value.trim() !== requested;
 
 		let allowRevs = false;
 		if (value.startsWith('#')) {
@@ -256,6 +267,7 @@ export function getValidateGitReferenceFn(
 					parts?.left != null ? repos.git.refs.isValidReference(parts.left) : Promise.resolve(true),
 					parts?.right != null ? repos.git.refs.isValidReference(parts.right) : Promise.resolve(true),
 				]);
+				if (isStale()) return true;
 
 				if (!getSettledValue(leftResult, false) || !getSettledValue(rightResult, false)) {
 					quickpick.items = [
@@ -279,6 +291,8 @@ export function getValidateGitReferenceFn(
 		}
 
 		if (!(await repos.git.refs.isValidReference(value))) {
+			if (isStale()) return true;
+
 			if (allowRevs) {
 				quickpick.items = [
 					createDirectiveQuickPickItem(Directive.Noop, true, {
@@ -288,20 +302,35 @@ export function getValidateGitReferenceFn(
 				return true;
 			}
 
+			// Lead with a Noop so Enter (on the auto-focused first item) keeps the value instead of acting on
+			// Back/Cancel, while still letting the user arrow to them deliberately
+			if (options?.revs?.resolveRefNames) {
+				quickpick.items = [
+					createDirectiveQuickPickItem(Directive.Noop, true, {
+						label: l10n.t('No matching reference or commit SHA'),
+					}),
+					...(items?.filter(i => isDirectiveQuickPickItem(i)) ?? []),
+				];
+				return true;
+			}
+
 			return false;
 		}
 
-		if (!allowRevs) {
+		// Branch/tag pickers already list the matching refs, so leave those to the list's own filtering
+		if (!allowRevs && !options?.revs?.resolveRefNames) {
 			if (
 				await repos.git.refs.hasBranchOrTag({
 					filter: { branches: b => b.name.includes(value), tags: t => t.name.includes(value) },
 				})
 			) {
-				return false;
+				return isStale();
 			}
 		}
 
 		const commit = await repos.git.commits.getCommit(value);
+		if (isStale()) return true;
+
 		quickpick.items = [
 			await createCommitQuickPickItem(commit!, true, {
 				alwaysShow: true,

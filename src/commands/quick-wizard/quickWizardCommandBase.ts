@@ -497,6 +497,25 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 
 				let firstActiveChange = true;
 				let overrideItems = false;
+				let pendingValidation: { value: string; promise: Promise<boolean> } | undefined;
+
+				async function getValidatedItem(value: string): Promise<QuickPickItem | undefined> {
+					if (pendingValidation?.value !== value) return undefined;
+
+					quickpick.busy = true;
+					try {
+						await pendingValidation.promise.catch(() => false);
+					} finally {
+						quickpick.busy = false;
+					}
+
+					// Only accept an item the validation produced — the step's own items may be filtered out of view
+					if (!overrideItems || quickpick.value.trim() !== value) return undefined;
+
+					// Read `items`, not `activeItems` — the host-side active items can lag behind a replaced list
+					const resolved = quickpick.items.filter(i => !isDirectiveQuickPickItem(i));
+					return resolved.length === 1 ? resolved[0] : undefined;
+				}
 
 				disposables.push(
 					scope,
@@ -634,7 +653,23 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 						) {
 							if (step.onValidateValue == null) return;
 
-							overrideItems = await step.onValidateValue(quickpick, e.trim(), await step.items);
+							const value = e.trim();
+							const validation = (async () =>
+								step.onValidateValue!(quickpick, value, await step.items))();
+							pendingValidation = { value: value, promise: validation };
+
+							let result;
+							try {
+								result = await validation;
+							} finally {
+								if (pendingValidation?.promise === validation) {
+									pendingValidation = undefined;
+								}
+							}
+							// A newer value may have been typed while validating — only the current value's result counts
+							if (quickpick.value.trim() !== value) return;
+
+							overrideItems = result;
 						} else {
 							overrideItems = false;
 						}
@@ -705,7 +740,30 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 						}
 
 						if (items.length === 1) {
-							const [item] = items;
+							let [item] = items;
+							// VS Code refocuses the first visible item on every filter, so a Back/Cancel accepted while the
+							// typed value is still validating is that auto-focus, not an intent to leave. Wait for the value
+							// to resolve instead of discarding it. Once validated, an unresolved value leads the list with a
+							// Noop item, so a Back/Cancel accepted then was chosen deliberately
+							if (
+								pendingValidation != null &&
+								isDirectiveQuickPickItem(item) &&
+								(item.directive === Directive.Back || item.directive === Directive.Cancel) &&
+								step.onValidateValue != null &&
+								!quickpick.canSelectMany &&
+								rootStep.command != null
+							) {
+								const value = quickpick.value.trim();
+								if (value.length !== 0) {
+									const resolved = await getValidatedItem(value);
+									// Still unresolved — keep the value rather than acting on the auto-focused directive
+									if (resolved == null) return;
+
+									item = resolved;
+									items = [resolved];
+								}
+							}
+
 							if (isDirectiveQuickPickItem(item)) {
 								await item.onDidSelect?.(quickpick);
 

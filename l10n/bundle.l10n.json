@@ -2828,6 +2828,7 @@
 	"No matches —": "No matches —",
 	"No matching commits": "No matching commits",
 	"No matching files": "No matching files",
+	"No matching reference or commit SHA": "No matching reference or commit SHA",
 	"No matching repositories found for provider {0}.": "No matching repositories found for provider {0}.",
 	"No matching settings": "No matching settings",
 	"No matching stashes found": "No matching stashes found",
