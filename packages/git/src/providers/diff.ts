@@ -9,6 +9,7 @@ import type {
 } from '../models/diff.js';
 import type { GitFile } from '../models/file.js';
 import type { GitRevisionRange, GitRevisionRangeNotation } from '../models/revision.js';
+import type { GitErrorHandling } from '../run.types.js';
 import type { DisposableTemporaryGitIndex } from './staging.js';
 import type { DiffRange, RevisionUri } from './types.js';
 
@@ -32,7 +33,7 @@ export interface GitDiffSubProvider {
 		repoPath: string,
 		to?: string,
 		from?: string,
-		options?: { uris?: (string | Uri)[]; includeUntracked?: boolean },
+		options?: { uris?: (string | Uri)[]; includeUntracked?: boolean; errors?: GitErrorHandling },
 		cancellation?: AbortSignal,
 	): Promise<GitDiffShortStat | undefined>;
 	getDiff?(
@@ -44,6 +45,11 @@ export interface GitDiffSubProvider {
 			index?: DisposableTemporaryGitIndex;
 			notation?: GitRevisionRangeNotation;
 			uris?: (string | Uri)[];
+			/**
+			 * `'throw'` rejects with the failure (a `GitError` carrying git's `stderr` when git ran) rather than
+			 * resolving `undefined`, which is the default for every failure
+			 */
+			errors?: GitErrorHandling;
 		},
 		cancellation?: AbortSignal,
 	): Promise<GitDiff | undefined>;
@@ -62,6 +68,7 @@ export interface GitDiffSubProvider {
 			context?: number;
 			notation?: GitRevisionRangeNotation;
 			uris?: (string | Uri)[];
+			errors?: GitErrorHandling;
 		},
 		cancellation?: AbortSignal,
 	): Promise<ParsedGitDiff | undefined>;
@@ -76,6 +83,7 @@ export interface GitDiffSubProvider {
 			path?: string;
 			renameLimit?: number;
 			similarityThreshold?: number;
+			errors?: GitErrorHandling;
 		},
 	): Promise<GitFile[] | undefined>;
 	getDiffTool?(repoPath?: string): Promise<string | undefined>;

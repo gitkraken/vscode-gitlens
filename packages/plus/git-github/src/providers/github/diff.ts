@@ -11,6 +11,7 @@ import type {
 	PreviousRangeComparisonUrisResult,
 } from '@gitlens/git/providers/diff.js';
 import type { DiffRange, RevisionUri } from '@gitlens/git/providers/types.js';
+import type { GitErrorHandling } from '@gitlens/git/run.types.js';
 import { getChangedFilesCount } from '@gitlens/git/utils/commit.utils.js';
 import {
 	createRevisionRange,
@@ -86,12 +87,13 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		repoPath: string,
 		ref1OrRange: string | GitRevisionRange,
 		ref2?: string,
-		_options?: {
+		options?: {
 			filters?: GitDiffFilter[];
 			includeUntracked?: boolean;
 			path?: string;
 			renameLimit?: number;
 			similarityThreshold?: number;
+			errors?: GitErrorHandling;
 		},
 	): Promise<GitFile[] | undefined> {
 		if (repoPath == null) return undefined;
@@ -156,6 +158,8 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		} catch (ex) {
 			scope?.error(ex);
 			debugger;
+			if (options?.errors === 'throw') throw ex;
+
 			return undefined;
 		}
 	}

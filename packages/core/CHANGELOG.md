@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `errors: 'throw'` to `diff.getDiff`, `getParsedDiff`, `getDiffStatus` and `getChangedFilesCount`, so a failed diff rejects instead of resolving `undefined`: with a `GitError` carrying git's `stderr` when git ran and failed (an unresolvable revision, a path that is no longer a repository, a permission denial), or with the error that kept it from starting (a deleted working directory, a missing git binary). Without it they resolve `undefined` as before (git, git-cli)
+
 ## [0.9.1] - 2026-09-29
 
 ### Added
