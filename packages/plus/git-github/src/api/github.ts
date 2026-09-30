@@ -4019,7 +4019,7 @@ export class GitHubApi {
 				values: results,
 				cursor: rsp.search.pageInfo.endCursor ?? undefined,
 				hasMore: rsp.search.pageInfo.hasNextPage,
-				truncated: rsp.search.issueCount > githubSearchResultLimit,
+				truncated: rsp.search.issueCount > githubSearchResultLimit && !rsp.search.pageInfo.hasNextPage,
 			};
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope, options?.silent);
@@ -5436,6 +5436,9 @@ export class GitHubApi {
 					continuationMissing = true;
 				}
 				totalCount = Math.max(totalCount, category?.issueCount ?? 0);
+				// Deliberately from the FIRST page, unlike `searchMyPullRequestsPage`, which flags only the page where
+				// the ceiling ends the walk: this search has no page budget to mislabel, and its consumer turns the flag
+				// into a "narrow the search" warning, which is worth showing before the user pages into the ceiling.
 				providerLimitReached ||= (category?.issueCount ?? 0) > githubSearchResultLimit;
 			}
 			const truncated = cursor?.truncated === true || providerLimitReached || continuationMissing;
