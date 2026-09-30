@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds `errors: 'throw'` to `diff.getDiff`, `getParsedDiff`, `getDiffStatus` and `getChangedFilesCount`, so a failed diff rejects instead of resolving `undefined`: with a `GitError` carrying git's `stderr` when git ran and failed (an unresolvable revision, a path that is no longer a repository, a permission denial), or with the error that kept it from starting (a deleted working directory, a missing git binary). Without it they resolve `undefined` as before (git, git-cli)
 
+### Fixed
+
+- Fixes `diff.getDiff` and `getParsedDiff` failing to diff from `HEAD` in a repository with no commits yet, where HEAD names nothing. It diffs against the empty tree, and `GitDiff.from` reports that tree's id (git-cli)
+
 ## [0.9.1] - 2026-09-29
 
 ### Added
