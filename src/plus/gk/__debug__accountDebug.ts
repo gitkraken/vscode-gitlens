@@ -1,7 +1,7 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { l10n, QuickInputButtonLocation, ThemeIcon, window } from 'vscode';
 import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
-import { proFeaturePreviewUsages, proTrialLengthInDays, SubscriptionState } from '../../constants.subscription.js';
+import { proTrialLengthInDays, SubscriptionState } from '../../constants.subscription.js';
 import type { Container } from '../../container.js';
 import { setSimulatedRepoVisibility } from '../../git/__debug__visibilityDebug.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
@@ -40,7 +40,8 @@ export function registerAccountDebug(container: Container, service: Subscription
 }
 
 interface SimulatedFeaturePreviews {
-	day: number;
+	status: 'eligible' | 'active' | 'expired';
+	/** An active (or newly started) simulated preview expires this many seconds from now */
 	durationSeconds: number;
 }
 
@@ -195,27 +196,27 @@ class AccountDebug {
 					label: l10n.t('Community'),
 					description: l10n.t('Community, no account'),
 					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Community, featurePreviews: { day: 0, durationSeconds: 30 } },
+					item: {
+						state: SubscriptionState.Community,
+						featurePreviews: { status: 'eligible', durationSeconds: 30 },
+					},
 				},
 				{
-					label: l10n.t('Community: Feature Previews (Start Day 2)'),
-					description: l10n.t('Community, no account'),
-					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Community, featurePreviews: { day: 1, durationSeconds: 30 } },
-				},
-				{
-					label: l10n.t('Community: Feature Previews (Start Day 3)'),
-					description: l10n.t('Community, no account'),
-					iconPath: new ThemeIcon('blank'),
-					item: { state: SubscriptionState.Community, featurePreviews: { day: 2, durationSeconds: 30 } },
-				},
-				{
-					label: l10n.t('Community: Feature Previews (Expired)'),
+					label: l10n.t('Community: Feature Preview (Active)'),
 					description: l10n.t('Community, no account'),
 					iconPath: new ThemeIcon('blank'),
 					item: {
 						state: SubscriptionState.Community,
-						featurePreviews: { day: proFeaturePreviewUsages, durationSeconds: 30 },
+						featurePreviews: { status: 'active', durationSeconds: 30 },
+					},
+				},
+				{
+					label: l10n.t('Community: Feature Preview (Expired)'),
+					description: l10n.t('Community, no account'),
+					iconPath: new ThemeIcon('blank'),
+					item: {
+						state: SubscriptionState.Community,
+						featurePreviews: { status: 'expired', durationSeconds: 30 },
 					},
 				},
 				// createQuickPickSeparator('Preview'),

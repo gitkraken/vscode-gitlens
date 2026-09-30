@@ -41,7 +41,6 @@ import { urls } from '../../constants.js';
 import type { StoredFeaturePreviewUsagePeriod } from '../../constants.storage.js';
 import {
 	proFeaturePreviewUsageDurationInDays,
-	proFeaturePreviewUsages,
 	proTrialLengthInDays,
 	SubscriptionState,
 } from '../../constants.subscription.js';
@@ -62,7 +61,7 @@ import {
 	RequestsAreBlockedTemporarilyError,
 } from '../../errors.js';
 import type { FeaturePreview, FeaturePreviews } from '../../features.js';
-import { featurePreviews, getFeaturePreviewLabel, getFeaturePreviewStatus } from '../../features.js';
+import { featurePreviews, getFeaturePreviewExpiry, getFeaturePreviewStatus } from '../../features.js';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService.js';
 import { executeCommand, registerCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
@@ -160,6 +159,10 @@ export class SubscriptionService implements Disposable {
 		this.changeSubscription(subscription, undefined, { silent: true });
 		setTimeout(() => void this.ensureSession(false, undefined), 10000);
 
+		for (const feature of featurePreviews) {
+			this.armFeaturePreviewExpiryTimer(this.getStoredFeaturePreview(feature));
+		}
+
 		if (container.previousVersion != null && satisfies(container.previousVersion, '< 18.0.0')) {
 			void this.container.storage.store(`plus:preview:graph:usages`, undefined);
 		}
@@ -167,6 +170,11 @@ export class SubscriptionService implements Disposable {
 
 	dispose(): void {
 		this._statusBarSubscription?.dispose();
+
+		for (const timer of this._featurePreviewExpiryTimers.values()) {
+			clearTimeout(timer);
+		}
+		this._featurePreviewExpiryTimers.clear();
 
 		this._disposable.dispose();
 	}
@@ -244,7 +252,7 @@ export class SubscriptionService implements Disposable {
 				m.registerAccountDebug(this.container, {
 					getSubscription: () => this._subscription,
 					getSession: () => this._session,
-					overrideFeaturePreviews: ({ day, durationSeconds }) => {
+					overrideFeaturePreviews: ({ status, durationSeconds }) => {
 						savedFeaturePreviewOverrides ??= {
 							getFn: this.getStoredFeaturePreview,
 							setFn: this.storeFeaturePreview,
@@ -252,61 +260,59 @@ export class SubscriptionService implements Disposable {
 
 						const map = new Map<FeaturePreviews, FeaturePreview>();
 
+						// Status derives from the start + the preview duration, so simulate by shifting
+						// the start to leave `durationSeconds` remaining
+						const makeStartedUsages = (): StoredFeaturePreviewUsagePeriod[] => {
+							const startedOn = new Date(
+								Date.now() -
+									proFeaturePreviewUsageDurationInDays * 24 * 3600000 +
+									durationSeconds * 1000,
+							);
+							return [
+								{
+									startedOn: startedOn.toISOString(),
+									expiresOn: createFromDateDelta(startedOn, {
+										days: proFeaturePreviewUsageDurationInDays,
+									}).toISOString(),
+								},
+							];
+						};
+
 						this.getStoredFeaturePreview = (feature: FeaturePreviews) => {
 							let featurePreview = map.get(feature);
 							if (featurePreview == null) {
-								featurePreview = {
-									feature: feature,
-									usages: [],
-								};
-								map.set(feature, featurePreview);
-
-								if (!day) return featurePreview;
-
-								const expired = new Date(0).toISOString();
-								for (let i = 1; i <= day; i++) {
-									featurePreview.usages.push({ startedOn: expired, expiresOn: expired });
+								let usages: StoredFeaturePreviewUsagePeriod[];
+								switch (status) {
+									case 'eligible':
+										usages = [];
+										break;
+									case 'active':
+										usages = makeStartedUsages();
+										break;
+									case 'expired': {
+										const expired = new Date(0).toISOString();
+										usages = [{ startedOn: expired, expiresOn: expired }];
+										break;
+									}
 								}
+
+								featurePreview = { feature: feature, usages: usages };
+								map.set(feature, featurePreview);
 							}
 
 							return featurePreview;
 						};
 
 						this.storeFeaturePreview = (feature: FeaturePreviews) => {
-							let featurePreview = map.get(feature);
-							if (featurePreview == null) {
-								featurePreview = {
-									feature: feature,
-									usages: [],
-								};
-								map.set(feature, featurePreview);
-							}
-
-							day++;
-
-							const now = new Date();
-							const expired = new Date(0).toISOString();
-
-							for (let i = 1; i <= day; i++) {
-								if (i !== day) {
-									featurePreview.usages.push({ startedOn: expired, expiresOn: expired });
-									continue;
-								}
-
-								featurePreview.usages.push({
-									startedOn: now.toISOString(),
-									expiresOn: createFromDateDelta(now, {
-										seconds: durationSeconds,
-									}).toISOString(),
-								});
-							}
-
+							map.set(feature, { feature: feature, usages: makeStartedUsages() });
 							return Promise.resolve();
 						};
 
 						// Fire a change for all feature previews
 						for (const feature of featurePreviews) {
-							this._onDidChangeFeaturePreview.fire(this.getStoredFeaturePreview(feature));
+							const preview = this.getStoredFeaturePreview(feature);
+							this._onDidChangeFeaturePreview.fire(preview);
+							this.armFeaturePreviewExpiryTimer(preview);
 						}
 					},
 					restoreFeaturePreviews: () => {
@@ -317,7 +323,9 @@ export class SubscriptionService implements Disposable {
 
 							// Fire a change for all feature previews
 							for (const feature of featurePreviews) {
-								this._onDidChangeFeaturePreview.fire(this.getStoredFeaturePreview(feature));
+								const preview = this.getStoredFeaturePreview(feature);
+								this._onDidChangeFeaturePreview.fire(preview);
+								this.armFeaturePreviewExpiryTimer(preview);
 							}
 						}
 					},
@@ -381,10 +389,6 @@ export class SubscriptionService implements Disposable {
 			registerCommand('gitlens.plus.restore', (src?: Source) => this.setProFeaturesVisibility(true, src)),
 
 			registerCommand('gitlens.plus.validate', (src?: Source) => this.validate({ force: true }, src)),
-
-			registerCommand('gitlens.plus.continueFeaturePreview', ({ feature }: { feature: FeaturePreviews }) =>
-				this.continueFeaturePreview(feature),
-			),
 		];
 	}
 
@@ -402,46 +406,57 @@ export class SubscriptionService implements Disposable {
 
 	@gate()
 	@debug()
-	async continueFeaturePreview(feature: FeaturePreviews): Promise<void> {
-		const preview = this.getStoredFeaturePreview(feature);
-		const status = getFeaturePreviewStatus(preview);
-
-		// If the current iteration is still active, don't do anything
-		if (status === 'active') return;
-
-		if (status === 'expired') {
-			void window.showInformationMessage(
-				l10n.t('Your {days}-day preview of the {feature} has expired.', {
-					days: getNumericFormat()(proFeaturePreviewUsages),
-					feature: getFeaturePreviewLabel(feature),
-				}),
-			);
-			return;
-		}
+	async startFeaturePreview(feature: FeaturePreviews): Promise<void> {
+		if (getFeaturePreviewStatus(this.getStoredFeaturePreview(feature)) !== 'eligible') return;
 
 		const now = new Date();
-		const usages = [
-			...preview.usages,
+		await this.storeFeaturePreview(feature, [
 			{
 				startedOn: now.toISOString(),
 				expiresOn: createFromDateDelta(now, {
 					days: proFeaturePreviewUsageDurationInDays,
 				}).toISOString(),
 			},
-		];
+		]);
 
-		await this.storeFeaturePreview(feature, usages);
-
-		this._onDidChangeFeaturePreview.fire({ feature: feature, usages: usages });
+		// Re-read after the store so a debug override's adjusted window flows to the event and timer
+		const preview = this.getStoredFeaturePreview(feature);
+		this._onDidChangeFeaturePreview.fire(preview);
+		this.armFeaturePreviewExpiryTimer(preview);
 
 		if (this.container.telemetry.enabled) {
 			const data: FeaturePreviewActionEventData = {
 				action: `start-preview-trial:${feature}`,
-				...flattenFeaturePreview({ feature: feature, usages: usages }),
+				...flattenFeaturePreview(preview),
 			};
 
 			this.container.telemetry.sendEvent('subscription/action', data, { source: feature });
 		}
+	}
+
+	private _featurePreviewExpiryTimers = new Map<FeaturePreviews, ReturnType<typeof setTimeout>>();
+
+	/** Re-fires the feature preview change event at expiry, so walls/banners update without a reload */
+	private armFeaturePreviewExpiryTimer(preview: FeaturePreview): void {
+		const timer = this._featurePreviewExpiryTimers.get(preview.feature);
+		if (timer != null) {
+			clearTimeout(timer);
+			this._featurePreviewExpiryTimers.delete(preview.feature);
+		}
+
+		if (getFeaturePreviewStatus(preview) !== 'active') return;
+
+		const delay = getFeaturePreviewExpiry(preview)!.getTime() - Date.now();
+		// A preview never outlives the setTimeout limit (~24.8 days), but guard anyway
+		if (delay > 2147483647) return;
+
+		this._featurePreviewExpiryTimers.set(
+			preview.feature,
+			setTimeout(() => {
+				this._featurePreviewExpiryTimers.delete(preview.feature);
+				this._onDidChangeFeaturePreview.fire(this.getStoredFeaturePreview(preview.feature));
+			}, delay + 1000),
+		);
 	}
 
 	getFeaturePreview(feature: FeaturePreviews): FeaturePreview {

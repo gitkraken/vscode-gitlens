@@ -61,7 +61,6 @@ type InternalLaunchPadCommands = 'gitlens.launchpad.indicator.action';
 
 type InternalPlusCommands =
 	| 'gitlens.plus.aiAllAccess.optIn'
-	| 'gitlens.plus.continueFeaturePreview'
 	| 'gitlens.plus.resendVerification'
 	| 'gitlens.plus.showPlans'
 	| 'gitlens.plus.validate';
