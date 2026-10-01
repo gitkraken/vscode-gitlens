@@ -1,4 +1,5 @@
 import type { CollectionMetadata, CollectionScope, CollectionScopeFailure } from '@gitkraken/provider-apis';
+import { GitPullRequestState } from '@gitkraken/provider-apis';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -14,8 +15,8 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
-import { Logger } from '@gitlens/utils/logger.js';
-import { mapBounded, mapSettledBounded } from '@gitlens/utils/promise.js';
+import { mapSettledBounded } from '@gitlens/utils/promise.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type {
 	AuthenticationSessionLike as AuthenticationSession,
@@ -39,7 +40,6 @@ import type {
 	AzureProjectInputDescriptor,
 	AzureRemoteRepositoryDescriptor,
 	AzureRepositoryDescriptor,
-	AzureTeam,
 } from './azure/models.js';
 import type {
 	ProviderApiCollectionResult,
@@ -62,6 +62,7 @@ import {
 	toIssueShape,
 	toProviderPullRequestStates,
 } from './models.js';
+import { discoveryCacheTtl } from './utils/discoveryCache.js';
 import {
 	collectProviderPagedResult,
 	flatSettledResultsOrThrow,
@@ -136,20 +137,51 @@ export function uniqueAzureNames(names: readonly string[]): string[] {
 }
 
 /**
- * The most of the current user's teams in one organization (Azure DevOps Server: collection) a reviewer read drains
- * pull requests for. Each team costs one more reviewer drain, so this bounds what a member of many teams adds to
- * every read; past it, the teams left out are reported as an incomplete read rather than silently skipped.
+ * Flags the reviews of `pr` that name one of the current user's groups (see `PullRequestReviewer.isMyGroup`), which a
+ * reviewer read finds through that group rather than through the user.
  */
-export const azureReviewerTeamLimit = 50;
+export function markMyGroupReviews(pr: ProviderPullRequest, groupIds: ReadonlySet<string>): ProviderPullRequest {
+	if (pr.reviews == null || !pr.reviews.some(r => groupIds.has(r.reviewer.id))) return pr;
+
+	return { ...pr, reviews: pr.reviews.map(r => (groupIds.has(r.reviewer.id) ? { ...r, isMyGroup: true } : r)) };
+}
+
+/** One read a reviewer relationship takes in a project or repository, and the rows of it the relationship keeps. */
+export interface AzureReviewerRead {
+	filter: { reviewerId?: string; states?: GitPullRequestState[] };
+	keep?: (pr: ProviderPullRequest) => boolean;
+}
 
 /**
- * Flags the reviews of `pr` that name one of the current user's teams (see `PullRequestReviewer.isMyTeam`), which a
- * reviewer read finds through that team rather than through the user.
+ * The reads a reviewer relationship over `states` (omitted: open) takes for `userId`, whose groups are `groupIds`:
+ *
+ * - Open pull requests: all of them, kept when one names the user, or names one of the user's groups and the user
+ *   didn't write it. Azure's reviewer filter only matches the identity it names, never the groups that identity is in,
+ *   and a group asked to review the user's own pull request isn't asking the user.
+ * - Closed and merged ones: Azure's own filter for the user. They are every pull request a project ever had, too many
+ *   to read whole on every read, so a group's request is only followed while the pull request is open.
  */
-export function markMyTeamReviews(pr: ProviderPullRequest, teamIds: ReadonlySet<string>): ProviderPullRequest {
-	if (pr.reviews == null || !pr.reviews.some(r => teamIds.has(r.reviewer.id))) return pr;
+export function toAzureReviewerReads(
+	userId: string,
+	groupIds: ReadonlySet<string>,
+	states: readonly GitPullRequestState[] | undefined,
+): AzureReviewerRead[] {
+	const reads: AzureReviewerRead[] = [];
+	if (states == null || states.includes(GitPullRequestState.Open)) {
+		reads.push({
+			filter: { states: [GitPullRequestState.Open] },
+			keep: pr =>
+				pr.reviews?.some(
+					r => r.reviewer.id === userId || (groupIds.has(r.reviewer.id) && pr.author?.id !== userId),
+				) ?? false,
+		});
+	}
 
-	return { ...pr, reviews: pr.reviews.map(r => (teamIds.has(r.reviewer.id) ? { ...r, isMyTeam: true } : r)) };
+	const closed = states?.filter(s => s !== GitPullRequestState.Open) ?? [];
+	if (closed.length > 0) {
+		reads.push({ filter: { reviewerId: userId, states: closed } });
+	}
+	return reads;
 }
 
 /**
@@ -227,26 +259,44 @@ export abstract class AzureDevOpsIntegrationBase<
 	}
 
 	/**
-	 * The teams the current user is a member of in `collection`, at most {@link azureReviewerTeamLimit}, and whether
-	 * there were more. A reviewer filter by the user's own id misses a pull request whose reviewer is one of these
-	 * teams (the usual shape when a branch policy requires a team), so reviewer reads add one drain per team.
-	 *
-	 * One request per collection, asking one past the limit to tell "exactly the limit" from "more". Not cached:
-	 * membership changes without notice, and a stale list would keep hiding a new team's pull requests.
+	 * The current user's groups per credential, collection and user, kept for {@link discoveryCacheTtl} like the other
+	 * discovered sets: membership changes rarely, and a sweep that reads every few minutes would otherwise pay for it
+	 * every time. A failed read isn't kept, and a re-sync drops them all (see {@link invalidateDiscoveryCaches}).
 	 */
-	protected async getReviewerTeams(
+	private readonly _reviewerGroupIds = new PromiseCache<string, Set<string>>({
+		capacity: 50,
+		createTTL: discoveryCacheTtl,
+	});
+
+	/**
+	 * Every group the current user (`userId`, as {@link getFilterUserId} resolved it) is a member of in `collection`:
+	 * teams and security groups, in any project, directly or through other groups. Two requests per collection,
+	 * however many groups, and none while the last read is kept.
+	 */
+	protected getReviewerGroupIds(
 		session: ProviderAuthenticationSession,
 		collection: string,
-	): Promise<{ teams: AzureTeam[]; truncated: boolean }> {
-		const api = await this.getProvidersApi();
-		const { tokenWithInfo } = this.getApiOptions(session);
-		const teams = await api.getAzureTeamsForCurrentUser(
-			tokenWithInfo,
-			collection,
-			azureReviewerTeamLimit + 1,
-			this.getCollectionApiOptions(session, collection),
+		userId: string,
+	): Promise<Set<string>> {
+		return this._reviewerGroupIds.getOrCreate(
+			JSON.stringify([this.discoveryKey(session), collection.toLowerCase(), userId]),
+			async () => {
+				const api = await this.getProvidersApi();
+				const { tokenWithInfo } = this.getApiOptions(session);
+				const ids = await api.getAzureGroupIdsForUser(
+					tokenWithInfo,
+					collection,
+					userId,
+					this.getCollectionApiOptions(session, collection),
+				);
+				return new Set(ids);
+			},
 		);
-		return { teams: teams.slice(0, azureReviewerTeamLimit), truncated: teams.length > azureReviewerTeamLimit };
+	}
+
+	override invalidateDiscoveryCaches(): void {
+		super.invalidateDiscoveryCaches();
+		this._reviewerGroupIds.clear();
 	}
 
 	/**
@@ -1006,103 +1056,30 @@ export abstract class AzureDevOpsIntegrationBase<
 		_cancellation?: AbortSignal,
 		options?: SearchMyPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
-		const api = await this.getProvidersApi();
 		if (repos != null) {
 			// TODO: implement repos version
 			return undefined;
 		}
 
-		const states = toProviderPullRequestStates(options?.state);
+		// Legacy array-returning path (Launchpad/focus view): the account-wide read, mapped to the normalized model.
+		// Its metadata (partial/failures) isn't surfaced here because this path's return type has no warning channel.
+		const result = await this.getProviderMyPullRequestsForUser(session, {
+			state: options?.state != null ? [options.state] : undefined,
+		});
+		if (result == null) return undefined;
 
-		const user = await this.getProviderCurrentAccount(session);
-		// Azure filters key on the identity GUID, not the display name — see getProviderMyPullRequestsForUser and the
-		// repo-scoped path in gitHostIntegration.ts. The GUID itself is resolved per organization below.
-		if (user?.id == null) return undefined;
-
-		const orgs = await this.getProviderResourcesForUser(session);
-		if (orgs == null || orgs.length === 0) return undefined;
-
-		const projects = await this.getProviderProjectsForResources(session, orgs);
-		if (projects.values.length === 0) return undefined;
+		// Both served from the discovery caches the read above just filled.
+		const projects = (
+			await this.getProviderProjectsForResources(session, (await this.getProviderResourcesForUser(session)) ?? [])
+		).values;
+		if (projects.length === 0) return undefined;
 
 		const repoDescriptors = [
-			...((await this.getRepoDescriptorsForProjects(session, projects.values)) ?? new Map()).values(),
+			...((await this.getRepoDescriptorsForProjects(session, projects)) ?? new Map()).values(),
 		]
 			.filter(r => r != null)
 			.flat();
-
-		const { tokenWithInfo } = this.getApiOptions(session);
-		// Legacy array-returning path (Launchpad/focus view): unwrap `.values` from the SDK collection result.
-		// The metadata (partial/failures) isn't surfaced here because this path's return type has no warning
-		// channel; the metadata-aware ProviderBackend surface is getProviderMyPullRequestsForUser above.
-		//
-		// Read per organization, since both the identity the filters compare and the base the requests address are
-		// the organization's own (see `getFilterUserId` and `getCollectionApiOptions`).
-		const assignedPrs: PullRequest[] = [];
-		const authoredPrs: PullRequest[] = [];
-		for (const org of uniqueAzureNames(projects.values.map(p => p.resourceName))) {
-			const userId = await this.getFilterUserId(session, org);
-			if (userId == null) continue;
-
-			const orgProjects = projects.values.filter(p => sameAzureName(p.resourceName, org));
-			const toInput = (p: AzureProjectDescriptor) => ({ namespace: p.resourceName, project: p.name });
-			// The user's teams are also read as reviewers, each in its own project (see `getReviewerTeams`). With no
-			// warning channel here, a team read that fails narrows this path to the user's own requests, as a failed
-			// project already does, and is only logged.
-			const teams = await this.getReviewerTeams(session, org).then(
-				r => r.teams,
-				(ex: unknown): AzureTeam[] => {
-					Logger.error(
-						ex,
-						`Azure DevOps teams in '${org}' could not be read; reading the user's own reviews only`,
-					);
-					return [];
-				},
-			);
-			const teamIds = new Set(teams.map(t => t.id));
-			const orgOptions = this.getCollectionApiOptions(session, org);
-			const reads: [
-				{ assigneeLogins?: string[]; authorLogin?: string },
-				PullRequest[],
-				{ namespace: string; project: string }[],
-			][] = [
-				[{ assigneeLogins: [userId] }, assignedPrs, orgProjects.map(toInput)],
-				[{ authorLogin: userId }, authoredPrs, orgProjects.map(toInput)],
-			];
-			for (const team of teams) {
-				const project = orgProjects.find(p => p.id === team.projectId);
-				if (project != null) {
-					reads.push([{ assigneeLogins: [team.id] }, assignedPrs, [toInput(project)]]);
-				}
-			}
-			for (const [filter, into, projectInputs] of reads) {
-				const result = await api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
-					...orgOptions,
-					...filter,
-					states: states,
-				});
-				into.push(
-					...result.values.map(pr =>
-						this.fromAzureProviderPullRequest(
-							markMyTeamReviews(pr, teamIds),
-							repoDescriptors,
-							projects.values,
-						),
-					),
-				);
-			}
-		}
-		// Azure's pull request id is only unique within a repository, so the two passes are merged by repository and
-		// id: keying on the id alone let one repository's pull request hide another's with the same number.
-		const prsByIdentity = new Map<string, PullRequest>();
-		for (const pr of [...authoredPrs, ...assignedPrs]) {
-			const identity = `${pr.repository.owner}/${pr.repository.id || pr.repository.repo}#${pr.id}`;
-			if (!prsByIdentity.has(identity)) {
-				prsByIdentity.set(identity, pr);
-			}
-		}
-
-		return [...prsByIdentity.values()];
+		return result.values.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
 	}
 
 	protected override async getProviderMyPullRequestsForUser(
@@ -1152,7 +1129,12 @@ export abstract class AzureDevOpsIntegrationBase<
 		const drainProject = async (
 			project: { namespace: string; project: string },
 			scope: CollectionScope,
-			filter: { authorLogin?: string; assigneeLogins?: string[]; reviewerId?: string },
+			filter: {
+				authorLogin?: string;
+				assigneeLogins?: string[];
+				reviewerId?: string;
+				states?: GitPullRequestState[];
+			},
 		): Promise<{ prs: ProviderPullRequest[]; projectIdentity: string; failure?: CollectionScopeFailure }> => {
 			const collected: ProviderPullRequest[] = [];
 			const projectIdentity = `${project.namespace}/${project.project}`;
@@ -1163,8 +1145,9 @@ export abstract class AzureDevOpsIntegrationBase<
 						// Addressed below the project's own collection, applied once even when the configured address
 						// already names it (the request appends the collection as `namespace`).
 						...this.getCollectionApiOptions(session, project.namespace),
-						...filter,
+						// A reviewer read narrows the states itself (see `toAzureReviewerReads`).
 						states: states,
+						...filter,
 						page: page,
 					});
 					if (result == null) {
@@ -1230,15 +1213,16 @@ export abstract class AzureDevOpsIntegrationBase<
 		for (const org of uniqueAzureNames(projects.values.map(p => p.resourceName))) {
 			userIds.set(org.toLowerCase(), await this.getFilterUserId(session, org));
 		}
-		const scopeOf = (p: AzureProjectDescriptor) => ({
-			providerId: this.id,
-			resourceId: p.resourceId,
-			projectId: p.name,
-		});
-		const directOutcomes = Promise.all(
+		const groups = wantReviewed
+			? await this.getReviewerGroupsByOrganization(session, projects.values, userIds, failures)
+			: undefined;
+		if (groups?.incomplete) {
+			truncated = true;
+		}
+		const outcomes = await Promise.all(
 			projects.values.flatMap(p => {
 				const project = { namespace: p.resourceName, project: p.name };
-				const scope = scopeOf(p);
+				const scope = { providerId: this.id, resourceId: p.resourceId, projectId: p.name };
 				const userId = userIds.get(p.resourceName.toLowerCase());
 				if (userId == null) {
 					failures.push(
@@ -1253,29 +1237,18 @@ export abstract class AzureDevOpsIntegrationBase<
 					drains.push(drainProject(project, scope, { authorLogin: userId }));
 				}
 				if (wantReviewed) {
-					drains.push(drainProject(project, scope, { reviewerId: userId }));
+					const groupIds = groups?.byOrganization.get(p.resourceName.toLowerCase()) ?? new Set<string>();
+					for (const { filter, keep } of toAzureReviewerReads(userId, groupIds, states)) {
+						drains.push(
+							drainProject(project, scope, filter).then(o =>
+								keep != null ? { ...o, prs: o.prs.filter(keep) } : o,
+							),
+						);
+					}
 				}
 				return drains;
 			}),
 		);
-		// Read while the drains above run. Organizations whose user could not be resolved were already reported.
-		const teams = wantReviewed
-			? await this.getReviewerTeamDrains(
-					session,
-					projects.values.filter(p => userIds.get(p.resourceName.toLowerCase()) != null),
-					failures,
-				)
-			: undefined;
-		if (teams?.incomplete) {
-			truncated = true;
-		}
-		// Bounded on their own, so however many teams the user is in, they add at most this many requests at once.
-		const teamOutcomes = mapBounded(teams?.drains ?? [], providerFanOutConcurrency, d =>
-			drainProject({ namespace: d.project.resourceName, project: d.project.name }, scopeOf(d.project), {
-				reviewerId: d.teamId,
-			}),
-		);
-		const outcomes = [...(await directOutcomes), ...(await teamOutcomes)];
 
 		// Azure's `pullRequestId` is not account-global. Prefer repository + PR id, then the org-qualified URL.
 		// If neither is available, preserve the row instead of collapsing unrelated repositories by numeric id.
@@ -1298,65 +1271,49 @@ export abstract class AzureDevOpsIntegrationBase<
 			projects.metadata,
 		);
 
-		const teamIds = teams?.teamIds ?? new Set<string>();
+		const groupIds = groups?.groupIds ?? new Set<string>();
 		return {
-			values: Array.from(prsByIdentity.values(), pr => markMyTeamReviews(pr, teamIds)),
+			values: Array.from(prsByIdentity.values(), pr => markMyGroupReviews(pr, groupIds)),
 			paging: { cursor: '{}', more: false, truncated: truncated || undefined },
 			metadata: metadata,
 		};
 	}
 
 	/**
-	 * The reviewer drains a read adds for the current user's teams: one per team (see {@link getReviewerTeams}) in a
-	 * project of `projects`; a team elsewhere has nothing for the read to find. An organization whose teams could not
-	 * all be read is recorded in `failures` and reported `incomplete`, since pull requests only those teams review are
-	 * missing from the read.
+	 * Per organization (keyed by its lowercased name), every group the user is in (see {@link getReviewerGroupIds}),
+	 * and their union. An organization whose groups can't be read gets none and is recorded in `failures`, with the
+	 * read reported `incomplete`: what only its groups review is missing, while what names the user is still read.
+	 * Organizations whose user could not be resolved are left out; the read already reports them.
 	 */
-	private async getReviewerTeamDrains(
+	private async getReviewerGroupsByOrganization(
 		session: ProviderAuthenticationSession,
 		projects: readonly AzureProjectDescriptor[],
+		userIds: ReadonlyMap<string, string | undefined>,
 		failures: CollectionScopeFailure[],
-	): Promise<{
-		drains: { project: AzureProjectDescriptor; teamId: string }[];
-		teamIds: Set<string>;
-		incomplete: boolean;
-	}> {
-		const drains: { project: AzureProjectDescriptor; teamId: string }[] = [];
-		const teamIds = new Set<string>();
+	): Promise<{ byOrganization: Map<string, Set<string>>; groupIds: Set<string>; incomplete: boolean }> {
+		const byOrganization = new Map<string, Set<string>>();
+		const groupIds = new Set<string>();
 		let incomplete = false;
 		await Promise.all(
 			uniqueAzureNames(projects.map(p => p.resourceName)).map(async org => {
-				const orgProjects = projects.filter(p => sameAzureName(p.resourceName, org));
-				const scope = { providerId: this.id, resourceId: orgProjects[0].resourceId };
-				let result;
-				try {
-					result = await this.getReviewerTeams(session, org);
-				} catch (ex) {
-					failures.push(toCollectionScopeFailure(scope, ex));
-					incomplete = true;
-					return;
-				}
+				const userId = userIds.get(org.toLowerCase());
+				if (userId == null) return;
 
-				if (result.truncated) {
-					failures.push(
-						toCollectionScopeFailure(
-							scope,
-							new Error(`The current user is in more than ${azureReviewerTeamLimit} teams here`),
-						),
-					);
-					incomplete = true;
-				}
-				for (const team of result.teams) {
-					teamIds.add(team.id);
-					const project = orgProjects.find(p => p.id === team.projectId);
-					if (project != null) {
-						drains.push({ project: project, teamId: team.id });
+				try {
+					const ids = await this.getReviewerGroupIds(session, org, userId);
+					byOrganization.set(org.toLowerCase(), ids);
+					for (const id of ids) {
+						groupIds.add(id);
 					}
+				} catch (ex) {
+					const resourceId = projects.find(p => sameAzureName(p.resourceName, org))!.resourceId;
+					failures.push(toCollectionScopeFailure({ providerId: this.id, resourceId: resourceId }, ex));
+					incomplete = true;
 				}
 			}),
 		);
 
-		return { drains: drains, teamIds: teamIds, incomplete: incomplete };
+		return { byOrganization: byOrganization, groupIds: groupIds, incomplete: incomplete };
 	}
 
 	protected override async searchProviderPullRequests(
@@ -1700,6 +1657,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		this._organizations = undefined;
 		this._projects = undefined;
 		this._accounts = undefined;
+		this._reviewerGroupIds.clear();
 	}
 
 	protected fromAzureProviderPullRequest(

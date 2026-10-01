@@ -683,17 +683,23 @@ second is a PR you have already reviewed (so it is waiting on the author). A "ne
 both, as separate reads. The review row itself rides along only where the full projection does — the
 filtered search, or a sweep with `includeReviews` — not from `Reviewed` on its own.
 
-On Azure DevOps (+ Server), `ReviewRequested` and `Assignee` also find pull requests whose reviewer is a team the
-user is a member of, directly or through a team nested in it, which is how a branch policy usually requires a review. Azure's reviewer filter only matches the
-identity it names, so these reads ask for the user's teams once per organization (collection) and add one reviewer
-drain per team, in that team's project; a team's request carries `isMyTeam: true` on its `reviewRequests` (or
-`latestReviews`) entry, while a request to the user by name does not. The extra cost is that one team read plus one
-drain per team, run at most `providerFanOutConcurrency` at a time, and is paid only when a reviewer relationship is
-asked for. At most 50 teams per organization are drained: past that, or when the teams can't be read, the
-account-wide read keeps the rows it found and reports the organization as a scoped failure (warning + `fetchFailed`),
-and the Server filtered search reports `page.truncated` or fails. Only teams are resolved, so a pull request is still missed when its
-reviewer is a security group that isn't a team (e.g. `[project]\Contributors`), or a team of another project than
-the pull request's.
+On Azure DevOps (+ Server), `ReviewRequested` and `Assignee` also find open pull requests whose reviewer is a group the
+user is a member of: a team (which is how a branch policy usually requires a review), a security group such as
+`[project]\Contributors`, a group reached through another, or a group of another project. Azure's reviewer filter only
+matches the identity it names, so these reads ask once per organization (collection) for every group the user is in
+(`_apis/identities` with expanded membership, then `_apis/identitybatch` per 100 groups; this needs the Identity read
+scope, `vso.identity`, which the connection declares), keep that set for five minutes, and read each project's open
+pull requests once without a reviewer filter. A pull request is kept when it names the user, or names one of the user's
+groups and the user didn't write it: a group asked to review the user's own pull request isn't asking the user. A
+group's request carries `isMyGroup: true` on its `reviewRequests` (or `latestReviews`) entry, while a request to the
+user by name does not.
+
+Closed and merged pull requests are every pull request a project ever had, so they are still read through Azure's
+filter for the user: a group's request is only followed while the pull request is open. The cost of an open read is the
+same number of pull request requests as before (one read of each project's open pull requests in place of the filtered
+one), plus the group read when the kept set has expired. When the groups can't be read, the reads keep what names the
+user and report the organization (collection) as a scoped failure: the account-wide read with a warning and
+`fetchFailed`, the Server filtered search with a warning and `page.truncated`, and its count as uncounted.
 
 `includeReviewRequested` is a legacy account-wide breadth option used only when no explicit `filters` are
 supplied. It remains useful for Bitbucket Cloud, where the reviewer slice requires an expensive

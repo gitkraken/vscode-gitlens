@@ -33,15 +33,6 @@ export interface AzureProjectDescriptor extends ResourceDescriptor {
 	resourceName: string;
 }
 
-/**
- * A team the current user is a member of. A team is also an identity: its `id` is the one a pull request lists it
- * under as a reviewer, and the one `searchCriteria.reviewerId` matches.
- */
-export interface AzureTeam {
-	id: string;
-	projectId: string;
-}
-
 export interface AzureRemoteRepositoryDescriptor extends ResourceDescriptor {
 	id: string;
 	nodeId?: string;

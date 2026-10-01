@@ -18,8 +18,8 @@ export const providerPullRequestReviewStateDismissed = 'DISMISSED' as const;
 export type ProviderPullRequestReview = Omit<NonNullable<GitPullRequest['reviews']>[number], 'state'> & {
 	state: GitPullRequestReviewState | typeof providerPullRequestReviewStateDismissed;
 	commitOid?: string;
-	/** See {@link PullRequestReviewer.isMyTeam}. Only the Azure DevOps reads that resolve the user's teams set it. */
-	isMyTeam?: boolean;
+	/** See {@link PullRequestReviewer.isMyGroup}. Only the Azure DevOps reads that resolve the user's groups set it. */
+	isMyGroup?: boolean;
 };
 /**
  * The review list as it travels on {@link ProviderPullRequest}: `null` when the read carried no review data at
@@ -56,7 +56,7 @@ export function toProviderReviews(reviewers: PullRequestReviewer[]): ProviderPul
 			reviewer: toProviderAccount(reviewer.reviewer),
 			state: toProviderPullRequestReviewState[reviewer.state] ?? GitPullRequestReviewState.ReviewRequested,
 			commitOid: reviewer.commitOid,
-			...(reviewer.isMyTeam ? { isMyTeam: true } : {}),
+			...(reviewer.isMyGroup ? { isMyGroup: true } : {}),
 		}));
 }
 
@@ -69,7 +69,7 @@ export function toReviewRequests(reviews: ProviderPullRequestReviews): PullReque
 					isCodeOwner: false, // TODO: Find this value, and implement in the shared lib if needed
 					reviewer: fromProviderAccount(r.reviewer),
 					state: PullRequestReviewState.ReviewRequested,
-					...(r.isMyTeam ? { isMyTeam: true } : {}),
+					...(r.isMyGroup ? { isMyGroup: true } : {}),
 				}));
 }
 
@@ -93,7 +93,7 @@ export function toCompletedReviews(reviews: ProviderPullRequestReviews): PullReq
 					reviewer: fromProviderAccount(r.reviewer),
 					state: fromProviderPullRequestReviewState[r.state],
 					commitOid: r.commitOid,
-					...(r.isMyTeam ? { isMyTeam: true } : {}),
+					...(r.isMyGroup ? { isMyGroup: true } : {}),
 				}));
 }
 

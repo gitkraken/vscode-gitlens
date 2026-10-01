@@ -348,11 +348,12 @@ export interface PullRequestReviewer {
 	 */
 	commitOid?: string;
 	/**
-	 * The reviewer is a team the current user is a member of, rather than a person: a request to it is one the
-	 * user can answer as a member, not one addressed to them by name. Only Azure DevOps' account-wide read and its
-	 * filtered search set it; absent elsewhere, including for teams a read could not tell the user belongs to.
+	 * The reviewer is a group the current user is a member of (a team or another group, directly or through a group
+	 * nested in it) rather than a person: a request to it is one the user can answer as a member, not one addressed to
+	 * them by name. Only the Azure DevOps reads that resolve the user's groups set it; absent elsewhere, including for
+	 * groups a read could not tell the user belongs to.
 	 */
-	isMyTeam?: boolean;
+	isMyGroup?: boolean;
 }
 
 export type PullRequestRepositoryIdentityDescriptor = RequireSomeWithProps<

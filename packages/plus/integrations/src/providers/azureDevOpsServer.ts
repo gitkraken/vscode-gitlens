@@ -1,3 +1,4 @@
+import type { CollectionScopeFailure } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { IssueSearchCriteria } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestSearchCriteria, PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
@@ -11,6 +12,7 @@ import type { IntegrationAuthenticationProviderDescriptor } from '../authenticat
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
+import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { IntegrationReadUnavailableError, RequestNotFoundError } from '../errors.js';
@@ -22,7 +24,7 @@ import type {
 	ProviderPullRequestSearchPage,
 	ProviderSearchCount,
 } from '../models/integration.js';
-import type { AzureOrganizationDescriptor, AzureProjectDescriptor, AzureTeam } from './azure/models.js';
+import type { AzureOrganizationDescriptor, AzureProjectDescriptor } from './azure/models.js';
 import type { AzurePullRequestSearchPosition } from './azure/search.js';
 import {
 	compareAzurePullRequestSearchPositions,
@@ -34,12 +36,14 @@ import {
 	toAzurePullRequestSearchPosition,
 	toAzureSearchPageSize,
 } from './azure/search.js';
+import type { AzureReviewerRead } from './azureDevOps.js';
 import {
 	AzureDevOpsIntegrationBase,
 	getAzureRepositoryApiBaseUrl,
 	getAzureRepositoryIdentity,
-	markMyTeamReviews,
+	markMyGroupReviews,
 	sameAzureName,
+	toAzureReviewerReads,
 	uniqueAzureNames,
 } from './azureDevOps.js';
 import type {
@@ -130,6 +134,8 @@ interface AzurePullRequestSearchRow {
 interface AzurePullRequestSearchDrain {
 	rows: AzurePullRequestSearchRow[];
 	truncated: boolean;
+	/** Collections whose groups couldn't be read, so what only those groups review is missing. */
+	failures?: CollectionScopeFailure[];
 }
 
 /**
@@ -474,6 +480,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 			page: page,
 			truncated: drain.truncated,
 			totalCount: drain.truncated ? undefined : drain.rows.length,
+			metadata: drain.failures != null ? { completeness: 'partial', failures: drain.failures } : undefined,
 		};
 	}
 
@@ -556,10 +563,13 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	 * Every pull request matching the search, filtered, deduplicated and ordered.
 	 *
 	 * One facet per (repository or project) × relationship: `Author` reads by creator, while `Assignee` and
-	 * `ReviewRequested` both read by reviewer, since Azure has no assignee distinct from its reviewers: by the user, and
-	 * by each of the user's teams in the facet's project. Each facet is drained to {@link azurePullRequestSearchFacetLimit}; a facet that still has more marks the whole result
-	 * truncated, because its unread rows could sort anywhere in the union. A facet that fails fails the search: a
-	 * union missing one facet would be served in an order it doesn't have.
+	 * `ReviewRequested` both read by reviewer, since Azure has no assignee distinct from its reviewers: every open pull
+	 * request, kept when it names the user or one of the user's groups, and closed or merged ones through Azure's filter
+	 * for the user (see `toAzureReviewerReads`). Each facet is drained to {@link azurePullRequestSearchFacetLimit}; a
+	 * facet that still has more marks the whole result truncated, because its unread rows could sort anywhere in the
+	 * union. A facet that fails fails the search: a union missing one facet would be served in an order it doesn't
+	 * have. A collection whose groups can't be read is the exception: its facets still read what names the user, and
+	 * the result is reported incomplete with that collection's failure.
 	 */
 	private async drainPullRequestSearch(
 		session: ProviderAuthenticationSession,
@@ -595,40 +605,52 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 			}
 		}
 
-		// The user's teams in each collection, which the reviewer side also reads by (see `getReviewerTeams`). A
-		// member of more teams than are read is served a truncated search, as a facet past its budget is.
-		const teamsByCollection = new Map<string, AzureTeam[]>();
-		let teamsTruncated = false;
-		if (wantReviewed) {
-			for (const collection of userIds.keys()) {
-				const { teams, truncated } = await this.getReviewerTeams(session, collection);
-				teamsByCollection.set(collection, teams);
-				teamsTruncated ||= truncated;
-			}
-		}
-		const teamIds = new Set([...teamsByCollection.values()].flat().map(t => t.id));
+		// Every group the user is in, per collection, which the reviewer facets keep pull requests for too (see
+		// `toAzureReviewerReads`). A collection whose groups can't be read (e.g. a token without the Identity scope)
+		// keeps what names the user and is reported as a failure of that collection, so the search is incomplete
+		// rather than refused, and a credential its other reads accept isn't treated as a dead one.
+		const failures: CollectionScopeFailure[] = [];
+		const groupsByCollection = new Map(
+			wantReviewed
+				? await Promise.all(
+						Array.from(userIds, async ([collection, userId]) => {
+							try {
+								return [
+									collection,
+									await this.getReviewerGroupIds(session, collection, userId),
+								] as const;
+							} catch (ex) {
+								const resourceId = facets.find(f => f.collection === collection)!.project.resourceId;
+								failures.push(
+									toCollectionScopeFailure({ providerId: this.id, resourceId: resourceId }, ex),
+								);
+								return [collection, new Set<string>()] as const;
+							}
+						}),
+					)
+				: [],
+		);
+		const groupIds = new Set([...groupsByCollection.values()].flatMap(ids => [...ids]));
 
-		const filtersFor = (facet: {
-			collection: string;
-			project: AzureProjectDescriptor;
-		}): { authorLogin?: string; reviewerId?: string }[] => {
-			if (relationships.size === 0) return [{}];
+		const states = toProviderPullRequestStates(criteria?.states?.length ? criteria.states : 'open');
+		const filtersFor = (
+			collection: string,
+		): { filter: AzureReviewerRead['filter'] & { authorLogin?: string }; keep?: AzureReviewerRead['keep'] }[] => {
+			if (relationships.size === 0) return [{ filter: {} }];
 
-			const userId = userIds.get(facet.collection)!;
-			const teams = teamsByCollection.get(facet.collection)?.filter(t => t.projectId === facet.project.id) ?? [];
+			const userId = userIds.get(collection)!;
 			return [
-				...(wantAuthored ? [{ authorLogin: userId }] : []),
-				...(wantReviewed ? [{ reviewerId: userId }, ...teams.map(t => ({ reviewerId: t.id }))] : []),
+				...(wantAuthored ? [{ filter: { authorLogin: userId } }] : []),
+				...(wantReviewed ? toAzureReviewerReads(userId, groupsByCollection.get(collection)!, states) : []),
 			];
 		};
 
 		const api = await this.getProvidersApi();
 		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
-		const states = toProviderPullRequestStates(criteria?.states?.length ? criteria.states : 'open');
 		const drains = await mapBounded(
-			facets.flatMap(facet => filtersFor(facet).map(filter => ({ facet: facet, filter: filter }))),
+			facets.flatMap(facet => filtersFor(facet.collection).map(f => ({ facet: facet, ...f }))),
 			providerFanOutConcurrency,
-			async ({ facet, filter }) => {
+			async ({ facet, filter, keep }) => {
 				const baseUrl = this.collectionApiBaseUrl(session, facet.collection);
 				const values: ProviderPullRequest[] = [];
 				let page = 1;
@@ -637,8 +659,9 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 
 					const input = {
 						...apiOptions,
-						...filter,
+						// A reviewer facet narrows the states itself (see `toAzureReviewerReads`).
 						states: states,
+						...filter,
 						page: page,
 						pageSize: azurePullRequestSearchPageSize,
 						baseUrl: baseUrl,
@@ -674,7 +697,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 					if (result == null) throw new Error('Azure DevOps returned no pull request page');
 
 					values.push(...result.values);
-					if (!result.more) return { facet: facet, values: values, truncated: false };
+					if (!result.more) return { facet: facet, keep: keep, values: values, truncated: false };
 					// Follows the page the provider says comes next rather than assuming one: a continuation that
 					// doesn't advance would re-read or skip rows, so it fails the facet — and with it the search —
 					// instead of serving a union built from it.
@@ -684,7 +707,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 					// The budget counts pages READ, not rows kept: several states are one `status=all` query the SDK
 					// narrows client-side, so counting survivors would keep paging through rows it discards.
 					if (read * azurePullRequestSearchPageSize >= azurePullRequestSearchFacetLimit) {
-						return { facet: facet, values: values, truncated: true };
+						return { facet: facet, keep: keep, values: values, truncated: true };
 					}
 
 					page = result.nextPage;
@@ -693,8 +716,9 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		);
 
 		const rows = new Map<string, AzurePullRequestSearchRow>();
-		for (const { facet, values } of drains) {
+		for (const { facet, keep, values } of drains) {
 			for (const pr of values) {
+				if (keep != null && !keep(pr)) continue;
 				if (!matches(pr)) continue;
 
 				const identity =
@@ -703,7 +727,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 
 				const userId = userIds.get(facet.collection);
 				rows.set(identity, {
-					pr: fromProviderPullRequest(markMyTeamReviews(pr, teamIds), this, {
+					pr: fromProviderPullRequest(markMyGroupReviews(pr, groupIds), this, {
 						project: facet.project,
 						currentAccount: userId != null ? { id: userId } : undefined,
 					}),
@@ -716,7 +740,8 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 			rows: [...rows.values()].sort((a, b) =>
 				compareAzurePullRequestSearchPositions(a.position, b.position, sort),
 			),
-			truncated: teamsTruncated || drains.some(d => d.truncated),
+			truncated: failures.length > 0 || drains.some(d => d.truncated),
+			failures: failures.length > 0 ? failures : undefined,
 		};
 	}
 

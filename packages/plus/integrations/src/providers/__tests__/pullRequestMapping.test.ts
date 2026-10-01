@@ -528,36 +528,36 @@ suite('pull request dismissed review projection', () => {
 		);
 	});
 
-	test("carries a review by one of the user's teams both ways, and nothing for any other reviewer", () => {
+	test("carries a review by one of the user's groups both ways, and nothing for any other reviewer", () => {
 		const account = (id: string) => ({ id: id, name: id, username: id, email: null, avatarUrl: null, url: null });
 		const pr = fromProviderPullRequest(
 			createProviderPullRequest({
 				reviews: [
-					{ reviewer: account('team'), state: GitPullRequestReviewState.ReviewRequested, isMyTeam: true },
+					{ reviewer: account('group'), state: GitPullRequestReviewState.ReviewRequested, isMyGroup: true },
 					{ reviewer: account('person'), state: GitPullRequestReviewState.ReviewRequested },
-					{ reviewer: account('other-team'), state: GitPullRequestReviewState.Approved, isMyTeam: true },
+					{ reviewer: account('other-group'), state: GitPullRequestReviewState.Approved, isMyGroup: true },
 				],
 			}),
 			fakeProvider,
 		);
 
 		assert.deepEqual(
-			pr.reviewRequests?.map(r => [r.reviewer.id, 'isMyTeam' in r ? r.isMyTeam : 'absent']),
+			pr.reviewRequests?.map(r => [r.reviewer.id, 'isMyGroup' in r ? r.isMyGroup : 'absent']),
 			[
-				['team', true],
+				['group', true],
 				['person', 'absent'],
 			],
 		);
 		assert.deepEqual(
-			pr.latestReviews?.map(r => [r.reviewer.id, r.isMyTeam]),
-			[['other-team', true]],
+			pr.latestReviews?.map(r => [r.reviewer.id, r.isMyGroup]),
+			[['other-group', true]],
 		);
 		assert.deepEqual(
-			toProviderPullRequest(pr).reviews?.map(r => [r.reviewer.id, 'isMyTeam' in r ? r.isMyTeam : 'absent']),
+			toProviderPullRequest(pr).reviews?.map(r => [r.reviewer.id, 'isMyGroup' in r ? r.isMyGroup : 'absent']),
 			[
-				['team', true],
+				['group', true],
 				['person', 'absent'],
-				['other-team', true],
+				['other-group', true],
 			],
 		);
 	});
