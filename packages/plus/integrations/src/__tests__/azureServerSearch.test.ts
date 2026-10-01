@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { toCloudIntegrationType } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationManager } from '../index.js';
@@ -84,6 +85,12 @@ function createServer(options: {
 	relativeDirectoryPrefix?: string;
 	/** Refuses the collection's identity reads with this status. */
 	failGroups?: number;
+	/** The id the user has in each collection, by name; the token's user name (`me`) when omitted. */
+	identities?: Record<string, string>;
+	/** Refuses the current user's connection data below these collections, as a transient outage would. */
+	failIdentityFor?: string[];
+	/** Refuses the current user's server-level connection data, as a transient outage would. */
+	failServerIdentity?: boolean;
 }) {
 	const runtime = createFakeRuntime();
 	const requests: Request[] = [];
@@ -139,7 +146,11 @@ function createServer(options: {
 		const serverRoute = (segments[0] === '_apis' ? segments : segments.slice(1)).join('/');
 		if (serverRoute.toLowerCase() === '_apis/connectiondata') {
 			const atServer = segments[0] === '_apis';
-			const id = atServer ? `server-${me}` : me;
+			if (atServer ? options.failServerIdentity : options.failIdentityFor?.includes(segments[0])) {
+				return json({ message: 'boom' }, 500);
+			}
+
+			const id = atServer ? `server-${me}` : (options.identities?.[segments[0]] ?? me);
 			return json({
 				authenticatedUser: { id: id, providerDisplayName: me, properties: { Account: { $value: me } } },
 				authorizedUser: { id: id, providerDisplayName: me, properties: { Account: { $value: me } } },
@@ -270,6 +281,17 @@ function createServer(options: {
 					webUrl: `${options.installation}/${collection.name}/${project}/_git/${name}`,
 				})),
 			});
+		}
+
+		const pull = /^([^/]+)\/_apis\/git\/repositories\/([^/]+)\/pullRequests\/(\d+)$/i.exec(route);
+		if (pull != null) {
+			const [, project, repository, number] = pull;
+			const p = collection.pullRequests.find(
+				x => x.project === project && x.repository === repository && x.id === Number(number),
+			);
+			if (p == null) return json({ message: 'TF401180: not found' }, 404);
+
+			return json(toAzurePullRequest(options.installation, collection, p));
 		}
 
 		const pulls = /^([^/]+)\/_apis\/git\/(?:repositories\/([^/]+)\/)?pullRequests$/i.exec(route);
@@ -2164,6 +2186,248 @@ suite('Azure DevOps Server filtered search', () => {
 			} finally {
 				service.dispose();
 			}
+		});
+	});
+});
+
+suite('Azure DevOps Server current-account identity (#5916)', () => {
+	/** Two collections where the user has a different id in each, and neither is the server-level `server-me`. */
+	const collections: FakeCollection[] = [
+		{
+			name: 'Default Collection',
+			projects: ['Web'],
+			workItems: [],
+			pullRequests: [
+				{
+					id: 1,
+					project: 'Web',
+					repository: 'site',
+					title: 'Mine',
+					created: '2026-01-01T00:00:00Z',
+					creator: 'me-a',
+				},
+				{
+					id: 2,
+					project: 'Web',
+					repository: 'site',
+					title: 'To review',
+					created: '2026-01-02T00:00:00Z',
+					creator: 'someone',
+					reviewers: ['me-a', 'other'],
+				},
+			],
+		},
+		{
+			name: 'Second',
+			projects: ['Api'],
+			workItems: [],
+			pullRequests: [
+				{
+					id: 1,
+					project: 'Api',
+					repository: 'svc',
+					title: 'Mine too',
+					created: '2026-01-03T00:00:00Z',
+					creator: 'me-b',
+				},
+				{
+					id: 2,
+					project: 'Api',
+					repository: 'svc',
+					title: 'Reviewing',
+					created: '2026-01-04T00:00:00Z',
+					creator: 'me-a',
+					reviewers: ['me-b'],
+				},
+			],
+		},
+	];
+	const identities = { 'Default Collection': 'me-a', Second: 'me-b' };
+
+	function rows(items: readonly PullRequestShape[]) {
+		return items
+			.map(pr => ({
+				pr: `${pr.repository?.owner}/${pr.repository?.repo}#${pr.id}`,
+				authoredByMe: pr.authoredByMe,
+				viewer: pr.viewer?.id,
+			}))
+			.sort((a, b) => a.pr.localeCompare(b.pr));
+	}
+
+	test('the sweep resolves authorship and the viewer per collection, not by the server-level id', async () => {
+		const server = createServer({
+			installation: 'https://server.test/tfs',
+			collections: collections,
+			identities: identities,
+		});
+		await withManager(server, async (manager, target) => {
+			const result = await manager.sweepPullRequests({ targets: [target], states: ['all'] });
+			assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+			assert.deepEqual(rows(result.items), [
+				{ pr: 'Default Collection/site#1', authoredByMe: true, viewer: 'me-a' },
+				{ pr: 'Default Collection/site#2', authoredByMe: false, viewer: 'me-a' },
+				{ pr: 'Second/svc#1', authoredByMe: true, viewer: 'me-b' },
+				// Created by the id the user has in the OTHER collection, which is a different identity here.
+				{ pr: 'Second/svc#2', authoredByMe: false, viewer: 'me-b' },
+			]);
+
+			// The viewer is what a consumer matches the reviewer entries against.
+			for (const pr of result.items.filter(pr => pr.authoredByMe === false)) {
+				assert.ok(
+					pr.reviewRequests?.some(r => r.reviewer.id === pr.viewer?.id),
+					`${pr.repository?.owner}#${pr.id} is requested from the viewer`,
+				);
+			}
+
+			const identityReads = server.requests.filter(r => /\/_apis\/connectionData$/i.test(r.url.pathname));
+			assert.equal(
+				identityReads.filter(r => decodeURIComponent(r.url.pathname).includes('/Second/')).length,
+				1,
+				'the identity the filters resolved is reused, not read again for the rows',
+			);
+		});
+	});
+
+	test('the account-wide and repo-scoped page reads resolve authorship per collection', async () => {
+		const server = createServer({
+			installation: 'https://server.test/tfs',
+			collections: collections,
+			identities: identities,
+		});
+		await withManager(server, async (manager, target) => {
+			const accountWide = await manager.listPullRequestsPage({ ...target, states: ['all'] });
+			assert.ok(!accountWide.fetchFailed, JSON.stringify(accountWide.warnings));
+			assert.deepEqual(
+				rows(accountWide.items).map(r => [r.pr, r.authoredByMe, r.viewer]),
+				[
+					['Default Collection/site#1', true, 'me-a'],
+					['Default Collection/site#2', false, 'me-a'],
+					['Second/svc#1', true, 'me-b'],
+					['Second/svc#2', false, 'me-b'],
+				],
+			);
+
+			// No relationship filter, so nothing resolved the collection's id before the rows were mapped.
+			const repoScoped = await manager.listPullRequestsPage({
+				...target,
+				repos: [{ namespace: 'Second', name: 'svc', project: 'Api' }],
+				states: ['all'],
+			});
+			assert.ok(!repoScoped.fetchFailed, JSON.stringify(repoScoped.warnings));
+			assert.deepEqual(rows(repoScoped.items), [
+				{ pr: 'Second/svc#1', authoredByMe: true, viewer: 'me-b' },
+				{ pr: 'Second/svc#2', authoredByMe: false, viewer: 'me-b' },
+			]);
+		});
+	});
+
+	test('the batch and branch reads resolve authorship by the target collection', async () => {
+		const server = createServer({
+			installation: 'https://server.test/tfs',
+			collections: collections,
+			identities: identities,
+		});
+		await withManager(server, async (manager, target) => {
+			const batch = await manager.getPullRequestsBatch({
+				...target,
+				targets: [
+					{ key: 'a', owner: 'Default Collection', repo: 'site', project: 'Web', number: 1 },
+					{ key: 'b', owner: 'Second', repo: 'svc', project: 'Api', number: 1 },
+					{ key: 'c', owner: 'Second', repo: 'svc', project: 'Api', number: 2 },
+				],
+			});
+			assert.ok(!batch.fetchFailed, JSON.stringify(batch.warnings));
+			assert.deepEqual(
+				batch.items.map(i => [i.key, i.pullRequest?.authoredByMe, i.pullRequest?.viewer?.id]),
+				[
+					['a', true, 'me-a'],
+					['b', true, 'me-b'],
+					['c', false, 'me-b'],
+				],
+			);
+
+			const branches = await manager.getPullRequestsForBranches({
+				...target,
+				targets: [{ key: 'k', owner: 'Second', repo: 'svc', project: 'Api', branch: 'feature' }],
+			});
+			assert.ok(!branches.fetchFailed, JSON.stringify(branches.warnings));
+			assert.deepEqual(rows(branches.items[0]?.pullRequests ?? []), [
+				{ pr: 'Second/svc#1', authoredByMe: true, viewer: 'me-b' },
+				{ pr: 'Second/svc#2', authoredByMe: false, viewer: 'me-b' },
+			]);
+		});
+	});
+
+	test("a collection whose identity can't be read leaves only its rows' authorship unknown", async () => {
+		const server = createServer({
+			installation: 'https://server.test/tfs',
+			collections: collections,
+			identities: identities,
+			failIdentityFor: ['Second'],
+		});
+		await withManager(server, async (manager, target) => {
+			const batch = await manager.getPullRequestsBatch({
+				...target,
+				targets: [
+					{ key: 'a', owner: 'Default Collection', repo: 'site', project: 'Web', number: 1 },
+					{ key: 'b', owner: 'Second', repo: 'svc', project: 'Api', number: 1 },
+					{ key: 'c', owner: 'Second', repo: 'svc', project: 'Api', number: 2 },
+				],
+			});
+			assert.ok(!batch.fetchFailed, JSON.stringify(batch.warnings));
+			assert.deepEqual(
+				batch.items.map(i => [i.key, i.pullRequest?.id, i.pullRequest?.authoredByMe, i.pullRequest?.viewer]),
+				[
+					['a', '1', true, { id: 'me-a' }],
+					['b', '1', undefined, undefined],
+					['c', '2', undefined, undefined],
+				],
+				'never matched against the server-level id instead',
+			);
+			assert.equal(
+				server.requests.filter(r =>
+					/\/Second\/_apis\/connectionData$/i.test(decodeURIComponent(r.url.pathname)),
+				).length,
+				1,
+				"a collection whose id can't be read is asked once per read, not once per row",
+			);
+
+			const page = await manager.listPullRequestsPage({
+				...target,
+				repos: [
+					{ namespace: 'Default Collection', name: 'site', project: 'Web' },
+					{ namespace: 'Second', name: 'svc', project: 'Api' },
+				],
+				states: ['all'],
+			});
+			assert.ok(!page.fetchFailed, JSON.stringify(page.warnings));
+			assert.deepEqual(rows(page.items), [
+				{ pr: 'Default Collection/site#1', authoredByMe: true, viewer: 'me-a' },
+				{ pr: 'Default Collection/site#2', authoredByMe: false, viewer: 'me-a' },
+				{ pr: 'Second/svc#1', authoredByMe: undefined, viewer: undefined },
+				{ pr: 'Second/svc#2', authoredByMe: undefined, viewer: undefined },
+			]);
+		});
+	});
+
+	test("the batch read resolves the collection's id even when the server-level account can't be read", async () => {
+		const server = createServer({
+			installation: 'https://server.test/tfs',
+			collections: collections,
+			identities: identities,
+			failServerIdentity: true,
+		});
+		await withManager(server, async (manager, target) => {
+			const batch = await manager.getPullRequestsBatch({
+				...target,
+				targets: [{ key: 'b', owner: 'Second', repo: 'svc', project: 'Api', number: 1 }],
+			});
+			assert.ok(!batch.fetchFailed, JSON.stringify(batch.warnings));
+			assert.deepEqual(
+				batch.items.map(i => [i.key, i.pullRequest?.authoredByMe, i.pullRequest?.viewer?.id]),
+				[['b', true, 'me-b']],
+				'the same answer the sweep and page reads give, which never read the server-level account',
+			);
 		});
 	});
 });

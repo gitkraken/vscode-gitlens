@@ -41,6 +41,14 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly stack?: PullRequestStackInfo;
 	readonly number?: number;
 	readonly authoredByMe?: boolean;
+	/**
+	 * The current account as this pull request's members identify it: the identity {@link authoredByMe} was matched
+	 * against, present exactly when that was. A consumer matching {@link reviewRequests} or {@link latestReviews}
+	 * entries to the current user compares against this, not the account `getCurrentAccount` returns: Azure DevOps
+	 * Server gives one person a different id in each collection than at the server level, and the members carry the
+	 * collection's. Core matches `username` too only on GitHub and GitHub Enterprise, whose rows key people by login.
+	 */
+	readonly viewer?: { readonly id: string; readonly username?: string };
 }
 
 @loggable(i => i.id)
@@ -85,6 +93,7 @@ export class PullRequest implements PullRequestShape {
 		public readonly body?: string,
 		public readonly number?: number,
 		public readonly authoredByMe?: boolean,
+		public readonly viewer?: { readonly id: string; readonly username?: string },
 	) {}
 
 	get closed(): boolean {

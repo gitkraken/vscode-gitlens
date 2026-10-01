@@ -456,5 +456,6 @@ export function fromBitbucketPullRequest(
 		pr.description ?? undefined,
 		pr.id,
 		options?.currentAccount != null ? author.id === options.currentAccount.id : undefined,
+		options?.currentAccount,
 	);
 }

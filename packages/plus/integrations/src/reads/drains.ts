@@ -431,3 +431,22 @@ export async function getCurrentAccountIdentity(
 		return undefined;
 	}
 }
+
+/**
+ * The current account to map each raw row against, in order (see {@link GitHostIntegration.getPullRequestViewers}).
+ * Rows with no author can't be matched, so a read of only those resolves nothing; a failed lookup leaves every row's
+ * authorship unknown rather than failing the read.
+ */
+export async function getPullRequestViewers(
+	integration: GitHostIntegration,
+	connectionId: string | undefined,
+	pullRequests: readonly ProviderPullRequest[],
+): Promise<({ id: string; username?: string } | undefined)[]> {
+	if (!pullRequests.some(pr => pr.author != null)) return pullRequests.map(() => undefined);
+
+	try {
+		return await integration.getPullRequestViewers(pullRequests, connectionId);
+	} catch {
+		return pullRequests.map(() => undefined);
+	}
+}
