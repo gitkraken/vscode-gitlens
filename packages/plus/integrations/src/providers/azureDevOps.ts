@@ -14,7 +14,8 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
-import { mapSettledBounded } from '@gitlens/utils/promise.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { mapBounded, mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type {
 	AuthenticationSessionLike as AuthenticationSession,
@@ -38,6 +39,7 @@ import type {
 	AzureProjectInputDescriptor,
 	AzureRemoteRepositoryDescriptor,
 	AzureRepositoryDescriptor,
+	AzureTeam,
 } from './azure/models.js';
 import type {
 	ProviderApiCollectionResult,
@@ -134,6 +136,23 @@ export function uniqueAzureNames(names: readonly string[]): string[] {
 }
 
 /**
+ * The most of the current user's teams in one organization (Azure DevOps Server: collection) a reviewer read drains
+ * pull requests for. Each team costs one more reviewer drain, so this bounds what a member of many teams adds to
+ * every read; past it, the teams left out are reported as an incomplete read rather than silently skipped.
+ */
+export const azureReviewerTeamLimit = 50;
+
+/**
+ * Flags the reviews of `pr` that name one of the current user's teams (see `PullRequestReviewer.isMyTeam`), which a
+ * reviewer read finds through that team rather than through the user.
+ */
+export function markMyTeamReviews(pr: ProviderPullRequest, teamIds: ReadonlySet<string>): ProviderPullRequest {
+	if (pr.reviews == null || !pr.reviews.some(r => teamIds.has(r.reviewer.id))) return pr;
+
+	return { ...pr, reviews: pr.reviews.map(r => (teamIds.has(r.reviewer.id) ? { ...r, isMyTeam: true } : r)) };
+}
+
+/**
  * Matches an org/project descriptor against a caller-supplied name, mirroring the facade's own
  * key/id/name comparison so `listIssuesPage({ org, project })` narrows on the same identifiers a consumer
  * already got back from `listOrgs`/`listProjects`.
@@ -205,6 +224,29 @@ export abstract class AzureDevOpsIntegrationBase<
 		_collection: string,
 	): Promise<string | undefined> {
 		return (await this.getProviderCurrentAccount(session))?.id;
+	}
+
+	/**
+	 * The teams the current user is a member of in `collection`, at most {@link azureReviewerTeamLimit}, and whether
+	 * there were more. A reviewer filter by the user's own id misses a pull request whose reviewer is one of these
+	 * teams (the usual shape when a branch policy requires a team), so reviewer reads add one drain per team.
+	 *
+	 * One request per collection, asking one past the limit to tell "exactly the limit" from "more". Not cached:
+	 * membership changes without notice, and a stale list would keep hiding a new team's pull requests.
+	 */
+	protected async getReviewerTeams(
+		session: ProviderAuthenticationSession,
+		collection: string,
+	): Promise<{ teams: AzureTeam[]; truncated: boolean }> {
+		const api = await this.getProvidersApi();
+		const { tokenWithInfo } = this.getApiOptions(session);
+		const teams = await api.getAzureTeamsForCurrentUser(
+			tokenWithInfo,
+			collection,
+			azureReviewerTeamLimit + 1,
+			this.getCollectionApiOptions(session, collection),
+		);
+		return { teams: teams.slice(0, azureReviewerTeamLimit), truncated: teams.length > azureReviewerTeamLimit };
 	}
 
 	/**
@@ -1002,22 +1044,51 @@ export abstract class AzureDevOpsIntegrationBase<
 			const userId = await this.getFilterUserId(session, org);
 			if (userId == null) continue;
 
-			const projectInputs = projects.values
-				.filter(p => sameAzureName(p.resourceName, org))
-				.map(p => ({ namespace: p.resourceName, project: p.name }));
+			const orgProjects = projects.values.filter(p => sameAzureName(p.resourceName, org));
+			const toInput = (p: AzureProjectDescriptor) => ({ namespace: p.resourceName, project: p.name });
+			// The user's teams are also read as reviewers, each in its own project (see `getReviewerTeams`). With no
+			// warning channel here, a team read that fails narrows this path to the user's own requests, as a failed
+			// project already does, and is only logged.
+			const teams = await this.getReviewerTeams(session, org).then(
+				r => r.teams,
+				(ex: unknown): AzureTeam[] => {
+					Logger.error(
+						ex,
+						`Azure DevOps teams in '${org}' could not be read; reading the user's own reviews only`,
+					);
+					return [];
+				},
+			);
+			const teamIds = new Set(teams.map(t => t.id));
 			const orgOptions = this.getCollectionApiOptions(session, org);
-			const reads: [{ assigneeLogins?: string[]; authorLogin?: string }, PullRequest[]][] = [
-				[{ assigneeLogins: [userId] }, assignedPrs],
-				[{ authorLogin: userId }, authoredPrs],
+			const reads: [
+				{ assigneeLogins?: string[]; authorLogin?: string },
+				PullRequest[],
+				{ namespace: string; project: string }[],
+			][] = [
+				[{ assigneeLogins: [userId] }, assignedPrs, orgProjects.map(toInput)],
+				[{ authorLogin: userId }, authoredPrs, orgProjects.map(toInput)],
 			];
-			for (const [filter, into] of reads) {
+			for (const team of teams) {
+				const project = orgProjects.find(p => p.id === team.projectId);
+				if (project != null) {
+					reads.push([{ assigneeLogins: [team.id] }, assignedPrs, [toInput(project)]]);
+				}
+			}
+			for (const [filter, into, projectInputs] of reads) {
 				const result = await api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
 					...orgOptions,
 					...filter,
 					states: states,
 				});
 				into.push(
-					...result.values.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects.values)),
+					...result.values.map(pr =>
+						this.fromAzureProviderPullRequest(
+							markMyTeamReviews(pr, teamIds),
+							repoDescriptors,
+							projects.values,
+						),
+					),
 				);
 			}
 		}
@@ -1159,10 +1230,15 @@ export abstract class AzureDevOpsIntegrationBase<
 		for (const org of uniqueAzureNames(projects.values.map(p => p.resourceName))) {
 			userIds.set(org.toLowerCase(), await this.getFilterUserId(session, org));
 		}
-		const outcomes = await Promise.all(
+		const scopeOf = (p: AzureProjectDescriptor) => ({
+			providerId: this.id,
+			resourceId: p.resourceId,
+			projectId: p.name,
+		});
+		const directOutcomes = Promise.all(
 			projects.values.flatMap(p => {
 				const project = { namespace: p.resourceName, project: p.name };
-				const scope = { providerId: this.id, resourceId: p.resourceId, projectId: p.name };
+				const scope = scopeOf(p);
 				const userId = userIds.get(p.resourceName.toLowerCase());
 				if (userId == null) {
 					failures.push(
@@ -1182,6 +1258,24 @@ export abstract class AzureDevOpsIntegrationBase<
 				return drains;
 			}),
 		);
+		// Read while the drains above run. Organizations whose user could not be resolved were already reported.
+		const teams = wantReviewed
+			? await this.getReviewerTeamDrains(
+					session,
+					projects.values.filter(p => userIds.get(p.resourceName.toLowerCase()) != null),
+					failures,
+				)
+			: undefined;
+		if (teams?.incomplete) {
+			truncated = true;
+		}
+		// Bounded on their own, so however many teams the user is in, they add at most this many requests at once.
+		const teamOutcomes = mapBounded(teams?.drains ?? [], providerFanOutConcurrency, d =>
+			drainProject({ namespace: d.project.resourceName, project: d.project.name }, scopeOf(d.project), {
+				reviewerId: d.teamId,
+			}),
+		);
+		const outcomes = [...(await directOutcomes), ...(await teamOutcomes)];
 
 		// Azure's `pullRequestId` is not account-global. Prefer repository + PR id, then the org-qualified URL.
 		// If neither is available, preserve the row instead of collapsing unrelated repositories by numeric id.
@@ -1204,11 +1298,65 @@ export abstract class AzureDevOpsIntegrationBase<
 			projects.metadata,
 		);
 
+		const teamIds = teams?.teamIds ?? new Set<string>();
 		return {
-			values: [...prsByIdentity.values()],
+			values: Array.from(prsByIdentity.values(), pr => markMyTeamReviews(pr, teamIds)),
 			paging: { cursor: '{}', more: false, truncated: truncated || undefined },
 			metadata: metadata,
 		};
+	}
+
+	/**
+	 * The reviewer drains a read adds for the current user's teams: one per team (see {@link getReviewerTeams}) in a
+	 * project of `projects`; a team elsewhere has nothing for the read to find. An organization whose teams could not
+	 * all be read is recorded in `failures` and reported `incomplete`, since pull requests only those teams review are
+	 * missing from the read.
+	 */
+	private async getReviewerTeamDrains(
+		session: ProviderAuthenticationSession,
+		projects: readonly AzureProjectDescriptor[],
+		failures: CollectionScopeFailure[],
+	): Promise<{
+		drains: { project: AzureProjectDescriptor; teamId: string }[];
+		teamIds: Set<string>;
+		incomplete: boolean;
+	}> {
+		const drains: { project: AzureProjectDescriptor; teamId: string }[] = [];
+		const teamIds = new Set<string>();
+		let incomplete = false;
+		await Promise.all(
+			uniqueAzureNames(projects.map(p => p.resourceName)).map(async org => {
+				const orgProjects = projects.filter(p => sameAzureName(p.resourceName, org));
+				const scope = { providerId: this.id, resourceId: orgProjects[0].resourceId };
+				let result;
+				try {
+					result = await this.getReviewerTeams(session, org);
+				} catch (ex) {
+					failures.push(toCollectionScopeFailure(scope, ex));
+					incomplete = true;
+					return;
+				}
+
+				if (result.truncated) {
+					failures.push(
+						toCollectionScopeFailure(
+							scope,
+							new Error(`The current user is in more than ${azureReviewerTeamLimit} teams here`),
+						),
+					);
+					incomplete = true;
+				}
+				for (const team of result.teams) {
+					teamIds.add(team.id);
+					const project = orgProjects.find(p => p.id === team.projectId);
+					if (project != null) {
+						drains.push({ project: project, teamId: team.id });
+					}
+				}
+			}),
+		);
+
+		return { drains: drains, teamIds: teamIds, incomplete: incomplete };
 	}
 
 	protected override async searchProviderPullRequests(

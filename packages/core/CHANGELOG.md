@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes Azure DevOps and Azure DevOps Server reviewer reads missing every pull request whose reviewer is a team the user is a member of, the usual shape when a branch policy requires a team. Azure's `searchCriteria.reviewerId` only matches the identity it names, so the account-wide read (`listPullRequestsPage` and sweeps with `ReviewRequested` or `Assignee`) and Azure DevOps Server's filtered search and count now read the user's teams per organization (`_apis/teams?$mine=true`, one request) and add one reviewer drain per team, in that team's project, deduplicated by pull request identity. A request to one of those teams carries the new `PullRequestReviewer.isMyTeam` on `reviewRequests` (and `latestReviews`), so a consumer can tell a team review from one asked of the user by name. At most 50 teams per organization are drained; past that, or when the teams can't be read, the account-wide read keeps what it found and reports the organization as a scoped failure (warning + `fetchFailed`), while the filtered search reports itself truncated or fails. Only teams are resolved: a reviewer that is a non-team security group, or a team of another project than the pull request's, is still not matched. The legacy `getMyPullRequests` read (Launchpad) adds the same team reads ([#5917](https://github.com/gitkraken/vscode-gitlens/issues/5917)) (plus/integrations)
+
 ## [0.9.4] - 2026-09-30
 
 ### Added

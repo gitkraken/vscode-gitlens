@@ -22,7 +22,7 @@ import type {
 	ProviderPullRequestSearchPage,
 	ProviderSearchCount,
 } from '../models/integration.js';
-import type { AzureOrganizationDescriptor, AzureProjectDescriptor } from './azure/models.js';
+import type { AzureOrganizationDescriptor, AzureProjectDescriptor, AzureTeam } from './azure/models.js';
 import type { AzurePullRequestSearchPosition } from './azure/search.js';
 import {
 	compareAzurePullRequestSearchPositions,
@@ -38,6 +38,7 @@ import {
 	AzureDevOpsIntegrationBase,
 	getAzureRepositoryApiBaseUrl,
 	getAzureRepositoryIdentity,
+	markMyTeamReviews,
 	sameAzureName,
 	uniqueAzureNames,
 } from './azureDevOps.js';
@@ -555,8 +556,8 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	 * Every pull request matching the search, filtered, deduplicated and ordered.
 	 *
 	 * One facet per (repository or project) × relationship: `Author` reads by creator, while `Assignee` and
-	 * `ReviewRequested` both read by reviewer, since Azure has no assignee distinct from its reviewers. Each facet is
-	 * drained to {@link azurePullRequestSearchFacetLimit}; a facet that still has more marks the whole result
+	 * `ReviewRequested` both read by reviewer, since Azure has no assignee distinct from its reviewers: by the user, and
+	 * by each of the user's teams in the facet's project. Each facet is drained to {@link azurePullRequestSearchFacetLimit}; a facet that still has more marks the whole result
 	 * truncated, because its unread rows could sort anywhere in the union. A facet that fails fails the search: a
 	 * union missing one facet would be served in an order it doesn't have.
 	 */
@@ -594,13 +595,30 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 			}
 		}
 
-		const filtersFor = (collection: string): { authorLogin?: string; reviewerId?: string }[] => {
+		// The user's teams in each collection, which the reviewer side also reads by (see `getReviewerTeams`). A
+		// member of more teams than are read is served a truncated search, as a facet past its budget is.
+		const teamsByCollection = new Map<string, AzureTeam[]>();
+		let teamsTruncated = false;
+		if (wantReviewed) {
+			for (const collection of userIds.keys()) {
+				const { teams, truncated } = await this.getReviewerTeams(session, collection);
+				teamsByCollection.set(collection, teams);
+				teamsTruncated ||= truncated;
+			}
+		}
+		const teamIds = new Set([...teamsByCollection.values()].flat().map(t => t.id));
+
+		const filtersFor = (facet: {
+			collection: string;
+			project: AzureProjectDescriptor;
+		}): { authorLogin?: string; reviewerId?: string }[] => {
 			if (relationships.size === 0) return [{}];
 
-			const userId = userIds.get(collection)!;
+			const userId = userIds.get(facet.collection)!;
+			const teams = teamsByCollection.get(facet.collection)?.filter(t => t.projectId === facet.project.id) ?? [];
 			return [
 				...(wantAuthored ? [{ authorLogin: userId }] : []),
-				...(wantReviewed ? [{ reviewerId: userId }] : []),
+				...(wantReviewed ? [{ reviewerId: userId }, ...teams.map(t => ({ reviewerId: t.id }))] : []),
 			];
 		};
 
@@ -608,7 +626,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
 		const states = toProviderPullRequestStates(criteria?.states?.length ? criteria.states : 'open');
 		const drains = await mapBounded(
-			facets.flatMap(facet => filtersFor(facet.collection).map(filter => ({ facet: facet, filter: filter }))),
+			facets.flatMap(facet => filtersFor(facet).map(filter => ({ facet: facet, filter: filter }))),
 			providerFanOutConcurrency,
 			async ({ facet, filter }) => {
 				const baseUrl = this.collectionApiBaseUrl(session, facet.collection);
@@ -685,7 +703,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 
 				const userId = userIds.get(facet.collection);
 				rows.set(identity, {
-					pr: fromProviderPullRequest(pr, this, {
+					pr: fromProviderPullRequest(markMyTeamReviews(pr, teamIds), this, {
 						project: facet.project,
 						currentAccount: userId != null ? { id: userId } : undefined,
 					}),
@@ -698,7 +716,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 			rows: [...rows.values()].sort((a, b) =>
 				compareAzurePullRequestSearchPositions(a.position, b.position, sort),
 			),
-			truncated: drains.some(d => d.truncated),
+			truncated: teamsTruncated || drains.some(d => d.truncated),
 		};
 	}
 

@@ -24,7 +24,7 @@ import {
 } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
-import type { AzurePullRequest, AzureWorkItemResponse } from './azure/models.js';
+import type { AzurePullRequest, AzureTeam, AzureWorkItemResponse } from './azure/models.js';
 import { encodeAzurePathSegment, fromAzureWorkItemToProviderIssue } from './azure/models.js';
 import { requestBitbucketServerProjects, requestBitbucketServerRepositories } from './bitbucket-server/discovery.js';
 import {
@@ -855,6 +855,51 @@ export class ProvidersApi {
 
 			return this.handleProviderError<AzurePullRequest[] | undefined>(tokenWithInfo, e);
 		}
+	}
+
+	/**
+	 * The teams the credential's user is a member of across one Azure DevOps organization (Azure DevOps Server: one
+	 * collection), at most `top`, each with its project. provider-apis has no team read, so this asks Azure directly,
+	 * with the credential provider-apis would send.
+	 *
+	 * The organization-wide route is still a preview on every release; `5.0-preview.2` is the version Azure DevOps
+	 * Server 2019, the oldest the pull request reads support, knows it by, and Azure DevOps Services still accepts it.
+	 */
+	async getAzureTeamsForCurrentUser(
+		tokenOptInfo: TokenOptInfo,
+		namespace: string,
+		top: number,
+		options: { isPAT?: boolean; baseUrl?: string },
+	): Promise<AzureTeam[]> {
+		const { tokenWithInfo } = await this.ensureProviderToken(tokenOptInfo);
+		const token = tokenWithInfo.accessToken;
+
+		const baseUrl = (options.baseUrl ?? azureDevOpsBaseUrl).replace(/\/$/, '');
+		const params = new URLSearchParams({ $mine: 'true', $top: String(top), 'api-version': '5.0-preview.2' });
+		const url = `${baseUrl}/${encodeAzurePathSegment(namespace)}/_apis/teams?${params.toString()}`;
+
+		let teams: unknown;
+		try {
+			const result = await this.request<{ value?: unknown }>({
+				url: url,
+				headers: { Authorization: options.isPAT ? `Basic ${base64(`:${token}`)}` : `Bearer ${token}` },
+			});
+			teams = result.body?.value;
+		} catch (e) {
+			return this.handleProviderError<AzureTeam[]>(tokenWithInfo, e);
+		}
+
+		// A row without its ids could neither be searched by nor tied to a project, and dropping it would narrow the
+		// read silently, so an answer of another shape fails instead.
+		if (!Array.isArray(teams)) throw new Error('Azure DevOps returned no teams');
+
+		return teams.map((t: { id?: unknown; projectId?: unknown }) => {
+			if (typeof t?.id !== 'string' || typeof t.projectId !== 'string') {
+				throw new Error('Azure DevOps returned a team without its id or project');
+			}
+
+			return { id: t.id, projectId: t.projectId };
+		});
 	}
 
 	/**

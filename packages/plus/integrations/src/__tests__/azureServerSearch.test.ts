@@ -37,6 +37,8 @@ interface FakeCollection {
 	projects: string[];
 	workItems: FakeWorkItem[];
 	pullRequests: FakePullRequest[];
+	/** Its teams, each an identity a pull request can list as a reviewer, and the users who are its members. */
+	teams?: { id: string; project: string; members: string[] }[];
 	/** The category its process maps every work item state to; `InProgress` when omitted. */
 	stateCategory?: string;
 }
@@ -77,6 +79,8 @@ function createServer(options: {
 	wiqlLimitIgnoresTop?: boolean;
 	/** Reports a collection's relative directory below the installation's own virtual directory (e.g. `tfs/`). */
 	relativeDirectoryPrefix?: string;
+	/** Refuses the collection's team read with this status. */
+	failTeams?: number;
 }) {
 	const runtime = createFakeRuntime();
 	const requests: Request[] = [];
@@ -155,6 +159,22 @@ function createServer(options: {
 		if (collection == null) return json({ message: 'unknown collection' }, 404);
 
 		const route = segments.slice(1).join('/');
+		if (route === '_apis/teams') {
+			if (options.failTeams != null) return json({ message: 'teams refused' }, options.failTeams);
+
+			assert.equal(url.searchParams.get('$mine'), 'true', 'only the teams the user is in are read');
+			const top = Number(url.searchParams.get('$top') ?? 100);
+			const mine = (collection.teams ?? []).filter(t => t.members.includes(me)).slice(0, top);
+			return json({
+				value: mine.map(t => ({
+					id: t.id,
+					name: t.id,
+					projectId: `${t.project}-id`,
+					projectName: t.project,
+				})),
+				count: mine.length,
+			});
+		}
 		if (route === '_apis/projects') {
 			if (options.failProjectFor === collection.name) return json({ message: 'boom' }, 500);
 
@@ -1757,6 +1777,284 @@ suite('Azure DevOps Server filtered search', () => {
 				assert.equal(result.fetchFailed, true);
 				assert.deepEqual(result.items, []);
 				assert.equal(result.warnings[0].kind, 'auth');
+			});
+		});
+	});
+
+	suite('team reviewers (#5917)', () => {
+		/**
+		 * Pull requests whose reviewer is a team: one the user is in (`web-team`, `api-team`), one the user is not
+		 * (`web-other`). Azure's reviewer filter by the user's own id finds none of them, only #3, which also names
+		 * the user directly.
+		 */
+		const teamCollection: FakeCollection = {
+			name: 'Default Collection',
+			projects: ['Web', 'Api'],
+			workItems: [],
+			teams: [
+				{ id: 'web-team', project: 'Web', members: ['me'] },
+				{ id: 'web-other', project: 'Web', members: ['someone'] },
+				{ id: 'api-team', project: 'Api', members: ['me'] },
+			],
+			pullRequests: [
+				{
+					id: 1,
+					project: 'Web',
+					repository: 'site',
+					title: 'Team',
+					created: '2026-01-05T00:00:00Z',
+					reviewers: ['web-team'],
+				},
+				{
+					id: 2,
+					project: 'Web',
+					repository: 'site',
+					title: 'Other team',
+					created: '2026-01-04T00:00:00Z',
+					reviewers: ['web-other'],
+				},
+				{
+					id: 3,
+					project: 'Web',
+					repository: 'site',
+					title: 'Team and me',
+					created: '2026-01-03T00:00:00Z',
+					reviewers: ['web-team', 'me'],
+				},
+				{
+					id: 4,
+					project: 'Api',
+					repository: 'svc',
+					title: 'Api team',
+					created: '2026-01-02T00:00:00Z',
+					reviewers: ['api-team'],
+				},
+				{
+					id: 5,
+					project: 'Web',
+					repository: 'site',
+					title: 'Mine',
+					created: '2026-01-01T00:00:00Z',
+					creator: 'me',
+				},
+			],
+		};
+
+		/** The reviewer each pull request read filtered by, as `project:reviewer`. */
+		function reviewerReads(server: ReturnType<typeof createServer>): string[] {
+			return server.requests
+				.filter(
+					r => /\/pullRequests$/i.test(r.url.pathname) && r.url.searchParams.has('searchCriteria.reviewerId'),
+				)
+				.map(r => {
+					const project = decodeURIComponent(r.url.pathname).split('/').at(-4);
+					return `${project}:${r.url.searchParams.get('searchCriteria.reviewerId')}`;
+				})
+				.sort();
+		}
+
+		function teamReads(server: ReturnType<typeof createServer>): Request[] {
+			return server.requests.filter(r => r.url.pathname.endsWith('/_apis/teams'));
+		}
+
+		test("the filtered search finds pull requests reviewed by the user's teams, and only in their projects", async () => {
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [teamCollection] });
+			await withManager(server, async (manager, target) => {
+				const result = await manager.searchPullRequestsPage({
+					...target,
+					org: 'Default Collection',
+					criteria: { relationships: [PullRequestFilter.ReviewRequested], sort: 'created:desc' },
+				});
+				assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+				assert.deepEqual(
+					result.items.map(pr => pr.id),
+					['1', '3', '4'],
+					"a team the user isn't in finds nothing, and #3 found twice is one row",
+				);
+				assert.deepEqual(
+					reviewerReads(server),
+					['Api:api-team', 'Api:me', 'Web:me', 'Web:web-team'],
+					'each team is read only in its own project',
+				);
+				assert.equal(teamReads(server).length, 1, 'one team read for the collection');
+				assert.equal(teamReads(server)[0].url.searchParams.get('$top'), '51', 'one past the team limit');
+
+				const byId = new Map(result.items.map(pr => [pr.id, pr]));
+				assert.deepEqual(
+					byId.get('1')?.reviewRequests?.map(r => [r.reviewer.id, r.isMyTeam ?? false]),
+					[['web-team', true]],
+					'a request to a team the user is in is told apart from one to the user',
+				);
+				assert.deepEqual(
+					byId.get('3')?.reviewRequests?.map(r => [r.reviewer.id, r.isMyTeam ?? false]),
+					[
+						['web-team', true],
+						['me', false],
+					],
+				);
+
+				const counted = await manager.countPullRequests({
+					...target,
+					scopes: [
+						{
+							key: 'k',
+							org: 'Default Collection',
+							criteria: { relationships: [PullRequestFilter.ReviewRequested] },
+						},
+					],
+				});
+				assert.equal(counted.items[0]?.count, 3, 'the count includes what the teams find');
+			});
+		});
+
+		test('the filtered search reads no teams for authored pull requests alone', async () => {
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [teamCollection] });
+			await withManager(server, async (manager, target) => {
+				const result = await manager.searchPullRequestsPage({
+					...target,
+					org: 'Default Collection',
+					criteria: { relationships: [PullRequestFilter.Author] },
+				});
+				assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+				assert.deepEqual(
+					result.items.map(pr => pr.id),
+					['5'],
+				);
+				assert.equal(teamReads(server).length, 0);
+				assert.deepEqual(reviewerReads(server), []);
+			});
+		});
+
+		test('the filtered search fails, rather than serving a union without the teams, when they cannot be read', async () => {
+			const server = createServer({
+				installation: 'https://server.test/tfs',
+				collections: [teamCollection],
+				failTeams: 500,
+			});
+			await withManager(server, async (manager, target) => {
+				const result = await manager.searchPullRequestsPage({
+					...target,
+					org: 'Default Collection',
+					criteria: { relationships: [PullRequestFilter.ReviewRequested] },
+				});
+				assert.equal(result.fetchFailed, true);
+				assert.deepEqual(result.items, []);
+			});
+		});
+
+		test('a member of more teams than are read is served a truncated search, draining only the limit', async () => {
+			const teams = Array.from({ length: 52 }, (_, i) => ({ id: `team-${i}`, project: 'Web', members: ['me'] }));
+			const server = createServer({
+				installation: 'https://server.test/tfs',
+				collections: [{ ...teamCollection, teams: teams }],
+			});
+			await withManager(server, async (manager, target) => {
+				const result = await manager.searchPullRequestsPage({
+					...target,
+					org: 'Default Collection',
+					criteria: { relationships: [PullRequestFilter.ReviewRequested] },
+				});
+				assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+				assert.equal(result.page.truncated, true);
+				assert.equal(
+					reviewerReads(server).filter(r => r.startsWith('Web:team-')).length,
+					50,
+					'the teams past the limit are not drained',
+				);
+			});
+		});
+
+		test("the account-wide read finds pull requests reviewed by the user's teams and marks those requests", async () => {
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [teamCollection] });
+			await withManager(server, async (manager, target) => {
+				const result = await manager.listPullRequestsPage({
+					...target,
+					filters: [PullRequestFilter.ReviewRequested],
+				});
+				assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+				assert.deepEqual(result.items.map(pr => pr.id).sort(), ['1', '3', '4']);
+				assert.deepEqual(reviewerReads(server), ['Api:api-team', 'Api:me', 'Web:me', 'Web:web-team']);
+				assert.deepEqual(
+					result.items.find(pr => pr.id === '4')?.reviewRequests?.map(r => [r.reviewer.id, r.isMyTeam]),
+					[['api-team', true]],
+				);
+			});
+		});
+
+		test('the account-wide read keeps what the user reviews directly when the teams cannot be read, and says so', async () => {
+			const server = createServer({
+				installation: 'https://server.test/tfs',
+				collections: [teamCollection],
+				failTeams: 500,
+			});
+			await withManager(server, async (manager, target) => {
+				const result = await manager.listPullRequestsPage({
+					...target,
+					filters: [PullRequestFilter.ReviewRequested],
+				});
+				assert.deepEqual(
+					result.items.map(pr => pr.id),
+					['3'],
+				);
+				assert.equal(result.fetchFailed, true, 'the missing team reviews are not presented as a complete read');
+				assert.ok(result.warnings.length > 0);
+			});
+		});
+
+		test("the legacy my pull requests read finds pull requests reviewed by the user's teams", async () => {
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [teamCollection] });
+			const service = createIntegrationService(server.runtime);
+			try {
+				await service.refreshConnections();
+				const result = await service.getMyPullRequests([id]);
+				assert.ok(result != null && result.error == null, String(result?.error));
+				assert.deepEqual(
+					result.value?.map(pr => pr.id).sort(),
+					['1', '3', '4', '5'],
+					"the user's authored and reviewed pull requests, including the teams', but not another team's",
+				);
+				assert.deepEqual(reviewerReads(server), ['Api:api-team', 'Api:me', 'Web:me', 'Web:web-team']);
+				assert.deepEqual(
+					result.value?.find(pr => pr.id === '1')?.reviewRequests?.map(r => [r.reviewer.id, r.isMyTeam]),
+					[['web-team', true]],
+				);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test("the legacy my pull requests read keeps the user's own pull requests when the teams cannot be read", async () => {
+			const server = createServer({
+				installation: 'https://server.test/tfs',
+				collections: [teamCollection],
+				failTeams: 500,
+			});
+			const service = createIntegrationService(server.runtime);
+			try {
+				await service.refreshConnections();
+				const result = await service.getMyPullRequests([id]);
+				assert.ok(result != null && result.error == null, String(result?.error));
+				assert.deepEqual(
+					result.value?.map(pr => pr.id).sort(),
+					['3', '5'],
+					'what the user authored or reviews by name',
+				);
+				assert.deepEqual(reviewerReads(server), ['Api:me', 'Web:me'], 'no team is read by');
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test('the account-wide read reads no teams for authored pull requests alone', async () => {
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [teamCollection] });
+			await withManager(server, async (manager, target) => {
+				const result = await manager.listPullRequestsPage({ ...target, filters: [PullRequestFilter.Author] });
+				assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+				assert.deepEqual(
+					result.items.map(pr => pr.id),
+					['5'],
+				);
+				assert.equal(teamReads(server).length, 0);
 			});
 		});
 	});

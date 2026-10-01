@@ -1,14 +1,21 @@
 import * as assert from 'node:assert/strict';
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import { GitPullRequestReviewState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
-import type { CloudIntegrationAuthType, ProviderAuthenticationSession } from '../authentication/models.js';
-import { GitCloudHostIntegrationId } from '../constants.js';
+import type {
+	CloudIntegrationAuthType,
+	ProviderAuthenticationSession,
+	TokenWithInfo,
+} from '../authentication/models.js';
+import { GitCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IntegrationResult } from '../models/integration.js';
+import { PullRequestFilter } from '../providerFilters.js';
 import type { ProviderApiPagedResult, ProviderIssue, ProviderPullRequest } from '../providers/models.js';
+import type { ProvidersApi } from '../providers/providersApi.js';
 import {
 	conditionalAccess,
 	explainedRefusal,
@@ -57,6 +64,7 @@ async function azureWithRefusingOrg(
 	};
 
 	stubApi(azure, {
+		getAzureTeamsForCurrentUser: () => Promise.resolve([]),
 		getAzureProjectsForResource: (_t: unknown, resourceName: string) =>
 			resourceName === 'Org Denied'
 				? Promise.reject((options?.refusal ?? refusedCredential)())
@@ -101,6 +109,7 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 		// The 'bad' project's read throws (e.g. a 429/403 mid-sweep); the 'good' project drains cleanly. The
 		// fan-out must be settled per-project so the failure doesn't take down the good project's PRs.
 		stubApi(azure, {
+			getAzureTeamsForCurrentUser: () => Promise.resolve([]),
 			getPullRequestsForAzureProject: (_t: unknown, project: { project: string }) => {
 				if (project.project === 'bad') return Promise.reject(new Error('boom'));
 				return Promise.resolve({
@@ -162,6 +171,7 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 		// Both orgs surface a URL-less PR whose Azure pullRequestId is "42" (ids are only org-unique). Keyed by
 		// id one would be dropped; keyed by repository + id both survive while authored/reviewer facets dedupe.
 		stubApi(azure, {
+			getAzureTeamsForCurrentUser: () => Promise.resolve([]),
 			getPullRequestsForAzureProject: (_t: unknown, project: { namespace: string; project: string }) =>
 				Promise.resolve({
 					data: [
@@ -224,6 +234,7 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 		// A single project fans out into an authored + assigned read, so 2 × 20 = 40 calls for one project.
 		let calls = 0;
 		stubApi(azure, {
+			getAzureTeamsForCurrentUser: () => Promise.resolve([]),
 			getPullRequestsForAzureProject: (_t: unknown, project: { project: string }, o?: { page?: number }) => {
 				calls += 1;
 				const page = o?.page ?? 1;
@@ -842,6 +853,277 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 		assert.equal(seenFilters.length, 1, 'one unfiltered drain per project, not the assigned+authored pair');
 		assert.equal(seenFilters[0].assigneeLogins, undefined, 'the per-user assignee filter is dropped');
 		assert.equal(seenFilters[0].authorLogin, undefined, 'no author filter is applied either');
+
+		manager.dispose();
+	});
+});
+
+/** A pending review request from `reviewerId`, as provider-apis normalizes an Azure reviewer. */
+function requestedFrom(reviewerId: string) {
+	return {
+		reviewer: { id: reviewerId, name: reviewerId, username: reviewerId, email: null, avatarUrl: null, url: null },
+		state: GitPullRequestReviewState.ReviewRequested,
+	};
+}
+
+/**
+ * An Azure DevOps connection with one organization and two projects, whose pull request reads answer by the reviewer
+ * they filter by (`rows`), recording each read as `project:reviewerId` (or `project:author`).
+ */
+async function azureWithTeams(options: {
+	teams: () => Promise<{ id: string; projectId: string }[]>;
+	rows?: Record<string, ProviderPullRequest[]>;
+	onRead?: (reviewerId: string | undefined) => Promise<void>;
+}) {
+	const manager = createIntegrationManager(createFakeRuntime());
+	const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+	(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+		...primarySession('t'),
+		domain: 'dev.azure.com',
+	};
+
+	const reads: string[] = [];
+	const teamReads: { namespace: string; top: number }[] = [];
+	stubApi(azure, {
+		getAzureTeamsForCurrentUser: (_t: unknown, namespace: string, top: number) => {
+			teamReads.push({ namespace: namespace, top: top });
+			return options.teams();
+		},
+		getPullRequestsForAzureProject: async (
+			_t: unknown,
+			project: { project: string },
+			o?: { reviewerId?: string; authorLogin?: string },
+		) => {
+			reads.push(`${project.project}:${o?.reviewerId ?? 'author'}`);
+			await options.onRead?.(o?.reviewerId);
+			return {
+				data: o?.reviewerId != null ? (options.rows?.[`${project.project}:${o.reviewerId}`] ?? []) : [],
+				hasMore: false,
+				nextPage: null,
+			};
+		},
+	});
+	(azure as unknown as { getProviderCurrentAccount: () => Promise<{ id: string }> }).getProviderCurrentAccount = () =>
+		Promise.resolve({ id: 'me' });
+	(
+		azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+	).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
+	(
+		azure as unknown as {
+			getProviderProjectsForResources: () => Promise<{
+				values: { id: string; resourceId: string; resourceName: string; name: string }[];
+			}>;
+		}
+	).getProviderProjectsForResources = () =>
+		Promise.resolve({
+			values: [
+				{ id: 'web-id', resourceId: 'org-1', resourceName: 'Org One', name: 'web' },
+				{ id: 'api-id', resourceId: 'org-1', resourceName: 'Org One', name: 'api' },
+			],
+		});
+
+	const read = (filters?: PullRequestFilter[]) =>
+		(
+			azure as unknown as {
+				getMyPullRequestsForUserResult: (options?: {
+					filters?: PullRequestFilter[];
+				}) => Promise<IntegrationResult<ProviderApiPagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult({ filters: filters });
+
+	return { manager: manager, read: read, reads: reads, teamReads: teamReads };
+}
+
+function team(id: string, projectId: string) {
+	return { id: id, projectId: projectId };
+}
+
+suite('Azure DevOps team reviewer reads (#5917)', () => {
+	test("adds one reviewer drain per team the user is in, only in the team's project, and marks its requests", async () => {
+		// `#1` is reviewed by the user's team only; `#2` by the user and the team; `#3` by a team the user isn't in.
+		const pr1 = providerPr('pr-1', { reviews: [requestedFrom('web-team')] });
+		const pr2 = providerPr('pr-2', { reviews: [requestedFrom('me'), requestedFrom('web-team')] });
+		const pr3 = providerPr('pr-3', { reviews: [requestedFrom('web-team'), requestedFrom('stranger-team')] });
+		const { manager, read, reads, teamReads } = await azureWithTeams({
+			teams: () =>
+				Promise.resolve([
+					team('web-team', 'web-id'),
+					team('web-second', 'web-id'),
+					// A team in a project the read doesn't cover has nothing for it to find.
+					team('elsewhere-team', 'elsewhere-id'),
+				]),
+			rows: {
+				'web:me': [pr2],
+				'web:web-team': [pr1, pr2, pr3],
+				'web:web-second': [pr1],
+			},
+		});
+
+		const result = await read([PullRequestFilter.ReviewRequested]);
+		assert.deepEqual(result?.value?.metadata?.failures ?? [], []);
+		assert.deepEqual(
+			reads.sort(),
+			['api:me', 'web:me', 'web:web-second', 'web:web-team'],
+			'no author read, and no team read outside its project',
+		);
+		assert.deepEqual(teamReads, [{ namespace: 'Org One', top: 51 }], 'one team read, one past the limit');
+
+		const values = result?.value?.values ?? [];
+		assert.deepEqual(
+			values.map(pr => pr.id).sort(),
+			['pr-1', 'pr-2', 'pr-3'],
+			'a pull request several drains find is one row',
+		);
+		const marks = (id: string) =>
+			values.find(pr => pr.id === id)?.reviews?.map(r => [r.reviewer.id, r.isMyTeam ?? false]);
+		assert.deepEqual(marks('pr-1'), [['web-team', true]]);
+		assert.deepEqual(marks('pr-2'), [
+			['me', false],
+			['web-team', true],
+		]);
+		assert.deepEqual(
+			marks('pr-3'),
+			[
+				['web-team', true],
+				['stranger-team', false],
+			],
+			"a team the user isn't in is not marked",
+		);
+
+		manager.dispose();
+	});
+
+	test('reads no teams when only authored pull requests are asked for', async () => {
+		const { manager, read, reads, teamReads } = await azureWithTeams({
+			teams: () => Promise.resolve([team('web-team', 'web-id')]),
+		});
+
+		const result = await read([PullRequestFilter.Author]);
+		assert.deepEqual(result?.value?.metadata?.failures ?? [], []);
+		assert.deepEqual(teamReads, []);
+		assert.deepEqual(reads.sort(), ['api:author', 'web:author']);
+
+		manager.dispose();
+	});
+
+	test('reads the teams for the assignee relationship too, which Azure reads by reviewer', async () => {
+		const { manager, read, reads } = await azureWithTeams({
+			teams: () => Promise.resolve([team('web-team', 'web-id')]),
+		});
+
+		await read([PullRequestFilter.Assignee]);
+		assert.deepEqual(reads.sort(), ['api:me', 'web:me', 'web:web-team']);
+
+		manager.dispose();
+	});
+
+	test('keeps the direct reviewer rows and reports the organization when its teams cannot be read', async () => {
+		const { manager, read, reads } = await azureWithTeams({
+			teams: () => Promise.reject(new RequestRateLimitError(new Error('throttled'), undefined, undefined)),
+			rows: { 'web:me': [providerPr('pr-1', { reviews: [requestedFrom('me')] })] },
+		});
+
+		const result = await read([PullRequestFilter.ReviewRequested]);
+		assert.deepEqual(
+			result?.value?.values.map(pr => pr.id),
+			['pr-1'],
+		);
+		assert.deepEqual(reads.sort(), ['api:me', 'web:me']);
+		const failures = result?.value?.metadata?.failures ?? [];
+		assert.equal(failures.length, 1);
+		assert.equal(failures[0].scope?.resourceId, 'org-1', 'attributed to the organization');
+		assert.equal(failures[0].kind, 'rate-limit', 'the failure keeps its kind, so it stays actionable');
+		assert.equal(result?.value?.metadata?.completeness, 'partial');
+		assert.equal(result?.value?.paging?.truncated, true);
+
+		manager.dispose();
+	});
+
+	test('drains at most the team limit and reports the teams past it', async () => {
+		const teams = Array.from({ length: 51 }, (_, i) => team(`team-${i}`, 'web-id'));
+		const { manager, read, reads } = await azureWithTeams({ teams: () => Promise.resolve(teams) });
+
+		const result = await read([PullRequestFilter.ReviewRequested]);
+		assert.equal(reads.filter(r => r.startsWith('web:team-')).length, 50);
+		assert.ok(!reads.includes('web:team-50'), 'the team past the limit is not drained');
+		const failures = result?.value?.metadata?.failures ?? [];
+		assert.equal(failures.length, 1);
+		assert.match(failures[0].message ?? '', /more than 50 teams/);
+		assert.equal(result?.value?.paging?.truncated, true);
+
+		manager.dispose();
+	});
+
+	test('reads the teams from the organization-wide route, with the credential provider-apis would send', async () => {
+		const runtime = createFakeRuntime();
+		const requests: { url: string; authorization: string }[] = [];
+		let body: unknown = { value: [{ id: 't1', name: 'Team', projectId: 'p1', projectName: 'Web' }], count: 1 };
+		runtime.http.fetch = (input, init) => {
+			requests.push({ url: String(input), authorization: new Headers(init?.headers).get('authorization') ?? '' });
+			return Promise.resolve(
+				new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } }),
+			);
+		};
+		const manager = createIntegrationManager(runtime);
+		const api = await (manager as unknown as { getProvidersApi: () => Promise<ProvidersApi> }).getProvidersApi();
+		const token: TokenWithInfo<GitCloudHostIntegrationId.AzureDevOps> = {
+			providerId: GitCloudHostIntegrationId.AzureDevOps,
+			accessToken: 'secret',
+			microHash: undefined,
+			cloud: true,
+			type: 'oauth',
+			scopes: [],
+		};
+
+		assert.deepEqual(await api.getAzureTeamsForCurrentUser(token, 'My Org', 51, { isPAT: true }), [
+			{ id: 't1', projectId: 'p1' },
+		]);
+		assert.deepEqual(requests[0], {
+			url: 'https://dev.azure.com/My%20Org/_apis/teams?%24mine=true&%24top=51&api-version=5.0-preview.2',
+			authorization: `Basic ${Buffer.from(':secret').toString('base64')}`,
+		});
+
+		// Azure DevOps Server: below the installation the configured address names.
+		await api.getAzureTeamsForCurrentUser(token, 'Default Collection', 51, {
+			isPAT: true,
+			baseUrl: 'https://server.test/tfs/',
+		});
+		assert.ok(
+			requests[1].url.startsWith('https://server.test/tfs/Default%20Collection/_apis/teams?'),
+			requests[1].url,
+		);
+
+		// An answer that names no team, or a team without its ids, fails rather than narrowing the read.
+		body = { message: 'not a list' };
+		await assert.rejects(api.getAzureTeamsForCurrentUser(token, 'My Org', 51, { isPAT: true }), /no teams/);
+		body = { value: [{ name: 'Nameless' }] };
+		await assert.rejects(
+			api.getAzureTeamsForCurrentUser(token, 'My Org', 51, { isPAT: true }),
+			/without its id or project/,
+		);
+
+		manager.dispose();
+	});
+
+	test('runs the team drains at most a fan-out at a time, whatever the number of teams', async () => {
+		let inFlight = 0;
+		let peak = 0;
+		const teams = Array.from({ length: 20 }, (_, i) => team(`team-${i}`, 'web-id'));
+		const { manager, read, reads } = await azureWithTeams({
+			teams: () => Promise.resolve(teams),
+			onRead: async reviewerId => {
+				if (!reviewerId?.startsWith('team-')) return;
+
+				inFlight++;
+				peak = Math.max(peak, inFlight);
+				await new Promise(resolve => setTimeout(resolve, 5));
+				inFlight--;
+			},
+		});
+
+		await read([PullRequestFilter.ReviewRequested]);
+		assert.equal(reads.filter(r => r.startsWith('web:team-')).length, 20);
+		assert.ok(peak <= providerFanOutConcurrency, `at most ${providerFanOutConcurrency} at once, saw ${peak}`);
 
 		manager.dispose();
 	});
