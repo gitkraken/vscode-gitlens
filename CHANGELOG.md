@@ -8,10 +8,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds task-specific messaging to the _Commit Graph_'s sign-in and upgrade screens ([#5820](https://github.com/gitkraken/vscode-gitlens/issues/5820), [#5784](https://github.com/gitkraken/vscode-gitlens/issues/5784)) &mdash; opening a commit, branch, tag, or stash, a file or folder's history, a comparison, your working changes, a branch focus, or an automatic rebase summary now names that task on the screen that interrupts it, and confirms it will open in the _Commit Graph_ once you have access. Ctrl-clicking a commit hash in the terminal no longer lands on an unexplained sign-in screen &mdash; it names the commit and holds it until you're signed in
-- Adds start actions to the _Commit Graph_'s no-repository empty state &mdash; grouped ways to get going: open a folder, clone a repository, or start a new project (open a remote repository on the web), alongside _Start Work on an Issue_ and _Start Review on a PR_
-  - Adds _Start Work_ and _Start PR Review_ support when no repository is open &mdash; both now list your issues and pull requests across your connected integrations, and offer to locate the repository in a local folder before continuing, or to clone it when the integration supplies a repository URL (every pull request, and GitHub issues)
-  - _Start Work_ now tells you when a connected integration can't search issues account-wide, instead of letting it contribute nothing to a seemingly empty list &mdash; Bitbucket has no account-wide issue search, so it now says so and points you to open a repository
+- Adds starting a task or a pull request review in Kepler, right from where you are in GitLens ([#5760](https://github.com/gitkraken/vscode-gitlens/issues/5760))
+  - Adds _Start Task in Kepler_ to repositories, and _Start Review in Kepler_ to pull requests in GitLens views, _Launchpad_, and the _Commit Graph_ &mdash; each opens Kepler with the repository or pull request ready to go
+  - Adds _Open in Kepler_ to _Start Work_ and _Start PR Review_ for items Kepler supports, alongside opening in an agent or continuing manually &mdash; or choose `kepler` for `gitlens.ai.openInAgent` to go straight there
+  - Offers to get the Kepler application when it isn't installed, and stops showing the _Try Kepler_ banner once it is
 - Adds rebasing an entire stacked pull request chain in one action ([#5838](https://github.com/gitkraken/vscode-gitlens/issues/5838))
   - _Rebase Stack..._ cascades bottom to top, replaying each layer onto the one below it and the bottom layer onto the stack's trunk &mdash; and creates a local branch for any layer you haven't checked out, so no link in the chain is skipped
   - _Auto-Rebase Stack..._ resolves conflicts with AI the whole way up, pausing instead of unwinding when it needs your help &mdash; _Continue with Auto-Rebase_ then picks up the rest of the stack, not just the branch you fixed
@@ -19,6 +19,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Offers _Force Push Stack_ on completion, listing each rewritten branch pre-checked so you can hold any of them back &mdash; the offer also lives on the _Auto-Rebase Summary_ and as a _Git Force Push Pull Request Stack..._ command, so it survives the notification being dismissed, and retires itself once every branch is published
   - Offered only when the stack has drifted from its trunk &mdash; behind it, or conflicting with it &mdash; so an already-current stack isn't invited into a rebase that would do nothing
   - Reachable from the _Commit Graph_'s pull request sheet and side bar stack rows, _Launchpad_, the rebase quick pick, and the _Git Rebase Pull Request Stack..._ and _Auto-Rebase Pull Request Stack..._ commands
+- Adds start actions to the _Commit Graph_'s no-repository empty state &mdash; grouped ways to get going: open a folder, clone a repository, or start a new project (open a remote repository on the web), alongside _Start Work on an Issue_ and _Start Review on a PR_
+  - Adds _Start Work_ and _Start PR Review_ support when no repository is open &mdash; both now list your issues and pull requests across your connected integrations, and offer to locate the repository in a local folder before continuing, or to clone it when the integration supplies a repository URL (every pull request, and GitHub issues)
+  - _Start Work_ now tells you when a connected integration can't search issues account-wide, instead of letting it contribute nothing to a seemingly empty list &mdash; Bitbucket has no account-wide issue search, so it now says so and points you to open a repository
+- Adds task-specific context to the _Commit Graph_'s sign-in and upgrade screens when navigating to it from other areas of GitLens ([#5820](https://github.com/gitkraken/vscode-gitlens/issues/5820), [#5784](https://github.com/gitkraken/vscode-gitlens/issues/5784))
+  - Names the task that was interrupted &mdash; opening a commit, branch, tag, or stash, a file or folder's history, a comparison, your working changes, a branch focus, or an automatic rebase summary &mdash; and confirms it will open in the _Commit Graph_ once you have access
+  - Ctrl-clicking a commit hash in the terminal now names the commit and holds it until you're signed in, instead of landing on an unexplained sign-in screen
 
 ### Changed
 
