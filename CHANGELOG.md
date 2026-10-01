@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [19.3.0] - 2026-10-01
+
 ### Added
 
 - Adds starting a task or a pull request review in Kepler, right from where you are in GitLens ([#5760](https://github.com/gitkraken/vscode-gitlens/issues/5760))
@@ -7454,7 +7456,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.2.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.3.0...HEAD
+[19.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.2.0...gitkraken:v19.3.0
 [19.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.1.0...gitkraken:v19.2.0
 [19.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.0.1...gitkraken:v19.1.0
 [19.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v19.0.0...gitkraken:v19.0.1
