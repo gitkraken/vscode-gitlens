@@ -338,7 +338,7 @@
 			"label": "Undo Auto-Rebase"
 		},
 		"gitlens.ai.autoRebaseStack": {
-			"label": "Auto-Rebase Pull Request Stack...",
+			"label": "Auto-Rebase Stacked Pull Requests...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed"
 		},
 		"gitlens.ai.connectAgents": {
@@ -3176,7 +3176,7 @@
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
 		"gitlens.git.forcePushStack": {
-			"label": "Git Force Push Pull Request Stack...",
+			"label": "Git Force Push Stacked Pull Requests...",
 			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
 		"gitlens.git.history": {
@@ -3192,7 +3192,7 @@
 			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
 		"gitlens.git.rebaseStack": {
-			"label": "Git Rebase Pull Request Stack...",
+			"label": "Git Rebase Stacked Pull Requests...",
 			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
 		"gitlens.git.remote": {

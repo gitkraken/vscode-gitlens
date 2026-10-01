@@ -204,7 +204,7 @@ export class StackRebaseService implements Disposable {
 	 *  session behind and the caller just surfaces the message. */
 	private async ensureAvailable(svc: GitRepositoryService, mode: 'manual' | 'ai'): Promise<void> {
 		if (svc.ops == null) {
-			throw new Error(l10n.t('Rebasing a pull request stack is not available in this environment.'));
+			throw new Error(l10n.t('Rebasing stacked pull requests is not available in this environment.'));
 		}
 
 		if (mode === 'ai' && !this.container.ai.allowed) {
