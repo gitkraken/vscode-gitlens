@@ -619,6 +619,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		const failures = [];
 		let hasMore = false;
 		let truncated = false;
+		let totalCount: number | undefined;
 		let structuralIncompleteness = false;
 		let unkeyedPullRequest = 0;
 		for (const outcome of results) {
@@ -647,6 +648,9 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			}
 			if (result.truncated) {
 				truncated = true;
+				if (result.totalCount != null) {
+					totalCount = Math.max(totalCount ?? 0, result.totalCount);
+				}
 			}
 		}
 
@@ -656,6 +660,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				more: hasMore,
 				cursor: hasMore ? JSON.stringify({ type: 'cursor', cursors: nextCursors }) : '{}',
 				truncated: truncated || undefined,
+				...(totalCount != null ? { totalCount: totalCount } : undefined),
 			},
 			...(failures.length || structuralIncompleteness
 				? {
