@@ -186,9 +186,16 @@ commit; an issue's state and update time — and it is not the provider's HTTP E
 - `{ key }` — proven absent, as before.
 - no row, with `fetchFailed` and a warning — unknown, as before.
 
-GitHub/GHE are the only hosts with a cheap check so far: one aliased document per 25 targets, like the full read,
-selecting only the change state. Every other host, and the tracker form of `getIssuesBatch`, accepts the `etag`,
-reads the target in full, and etags the row. On GitHub/GHE a call is up to three integration calls: the cheap check
+The hosts with a cheap check select only the change state:
+
+- **GitHub/GHE:** one aliased document per 25 targets, like the full read.
+- **GitLab and GitLab self-managed:** one query per project per 100 iids. That drops to 10 iids when `etagIncludes`
+  has `'checks'`, because GitLab resolves every job of each head pipeline for that input. GitLab resets a merge
+  request's merge status whenever its target branch moves, so on a busy repository `'mergeable'` changes, and costs a
+  full read, more often than the merge request itself does.
+
+Every other host, and the tracker form of `getIssuesBatch`, accepts the `etag`, reads the target in full, and etags
+the row. On a host with a cheap check, a call is up to three integration calls: the cheap check
 of the targets that sent an `etag`, a full read of the rest started alongside it, and a full read of the targets
 whose etag no longer matched once the check settles. A call in which no target sends an `etag` makes exactly the one
 full read it always made. `getPullRequestsBatch` also takes `etagIncludes`, a list drawn from `'mergeable'`,
