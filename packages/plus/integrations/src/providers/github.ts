@@ -25,7 +25,7 @@ import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import { chunk } from '@gitlens/utils/array.js';
 import type { Emitter } from '@gitlens/utils/event.js';
-import { batch, mapBounded } from '@gitlens/utils/promise.js';
+import { batch, mapBounded, mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
@@ -65,6 +65,7 @@ import {
 	stampNativePullRequest,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
+import { resolveBranchPullRequests } from './utils/providerPaging.js';
 
 type GitHubPullRequestFacetCursor = Record<string, string>;
 
@@ -993,6 +994,17 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	 * Finds each branch's pull requests by aliasing a head-ref-name query per target — see
 	 * {@link GitHubApi.getPullRequestsForBranches} — chunked and converted exactly as
 	 * {@link getProviderPullRequestsBatch} is, with the same per-target and per-chunk failure isolation.
+	 *
+	 * That query matches the branch NAME across every fork and filters by head repository afterwards, so a name
+	 * many forks share (`main`, `patch-1`) comes back `truncated` whether or not anything it left out could match.
+	 * Only those targets take a second step: {@link GitHubApi.getPullRequestNumbersForBranch} asks REST, which
+	 * filters by head owner on the server, for the numbers that match, and any number the first step didn't return
+	 * is resolved through {@link getProviderPullRequestsBatch}, so its row is identical to the others. The answer
+	 * is the UNION of both steps: REST can't see a pull request from a since-deleted fork, which the first step still
+	 * matches by its owner, so a deleted fork's pull request on the first step's page is kept. One past that page
+	 * can't be found by either step, so on such a target a deleted fork's pull request may be missing from an
+	 * answer that isn't `truncated`. A target whose second step fails is rejected, never answered from the first
+	 * step alone.
 	 */
 	protected override async getProviderPullRequestsForBranches(
 		session: ProviderAuthenticationSession,
@@ -1003,16 +1015,18 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		const github = await this.authenticationService.apis.github;
 		if (github == null) return undefined;
 
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+		const baseUrl = this.apiBaseUrlFor(session);
 		const currentAccount = options.currentAccount;
-		return readChunked(
+		const slots = await readChunked(
 			targets,
 			pullRequestsBatchChunkSize,
 			chunkTargets =>
 				github.getPullRequestsForBranches(
 					this,
-					toTokenWithInfo(this.id, session),
+					tokenWithInfo,
 					chunkTargets.map(t => ({ owner: t.owner, repo: t.repo, branch: t.branch, headOwner: t.headOwner })),
-					{ baseUrl: this.apiBaseUrlFor(session), limit: options.limit },
+					{ baseUrl: baseUrl, limit: options.limit },
 					cancellation,
 				),
 			(found): { pullRequests: PullRequestShape[]; truncated: boolean } => ({
@@ -1022,6 +1036,58 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				truncated: found.truncated,
 			}),
 		);
+
+		const ambiguous = slots.flatMap((slot, i) =>
+			slot.status === 'fulfilled' && slot.value.truncated ? [{ index: i, found: slot.value.pullRequests }] : [],
+		);
+		if (!ambiguous.length) return slots;
+
+		const heads = await mapSettledBounded(ambiguous, providerFanOutConcurrency, async a => {
+			const t = targets[a.index];
+			const head = await github.getPullRequestNumbersForBranch(
+				this,
+				tokenWithInfo,
+				t.owner,
+				t.repo,
+				t.branch,
+				{ baseUrl: baseUrl, headOwner: t.headOwner, limit: options.limit },
+				cancellation,
+			);
+			const found = new Set(a.found.map(pr => pr.number));
+			return { numbers: head.numbers.filter(n => !found.has(n)), truncated: head.truncated };
+		});
+		const extras = await resolveBranchPullRequests(
+			ambiguous.map(a => targets[a.index]),
+			heads,
+			coordinates =>
+				this.getProviderPullRequestsBatch(
+					session,
+					coordinates,
+					{ currentAccount: currentAccount },
+					cancellation,
+				),
+		);
+
+		const settled = [...slots];
+		ambiguous.forEach((a, i) => {
+			const extra = extras[i];
+			if (extra.status === 'rejected') {
+				settled[a.index] = extra;
+				return;
+			}
+
+			const pullRequests = [...a.found, ...extra.value.pullRequests].sort(
+				(x, y) => y.updatedDate.getTime() - x.updatedDate.getTime(),
+			);
+			settled[a.index] = {
+				status: 'fulfilled',
+				value: {
+					pullRequests: pullRequests.slice(0, options.limit),
+					truncated: extra.value.truncated || pullRequests.length > options.limit,
+				},
+			};
+		});
+		return settled;
 	}
 
 	/**
