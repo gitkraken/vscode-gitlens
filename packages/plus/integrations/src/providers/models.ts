@@ -218,7 +218,14 @@ export function isRepoIdsInput(input: unknown): input is (string | number)[] {
 	);
 }
 
-export type ProviderPullRequest = Omit<GitPullRequest, 'reviews'> & { reviews: ProviderPullRequestReviews };
+/**
+ * provider-apis' pull request. `mergeableState` is optional because {@link toProviderPullRequest} also converts
+ * GitLens' own rows, and a read that didn't select it has none to give.
+ */
+export type ProviderPullRequest = Omit<GitPullRequest, 'reviews' | 'mergeableState'> & {
+	reviews: ProviderPullRequestReviews;
+	mergeableState?: GitPullRequestMergeableState;
+};
 export type ProviderRepository = GitRepository;
 export type ProviderIssue = ProviderApiIssue;
 export type ProviderEnterpriseOptions = EnterpriseOptions;
@@ -241,12 +248,14 @@ export type ProviderGitLabGroup = GitLabGroup;
  * when available so the same row still deduplicates when a later facet adds or removes its URL.
  */
 export function getProviderPullRequestIdentity(
-	pr: Pick<ProviderPullRequest, 'id' | 'repository' | 'url'>,
+	pr: Pick<ProviderPullRequest, 'id' | 'repository' | 'url'> | Pick<PullRequest, 'id' | 'repository' | 'url'>,
 ): string | undefined {
 	const repository = pr.repository as
 		| {
 				id?: string | number;
 				name?: string;
+				/** A `PullRequest`'s name for `name`, so its key matches its provider-apis form's. */
+				repo?: string;
 				namespace?: string;
 				owner?: { login?: string } | string;
 				project?: string;
@@ -259,7 +268,7 @@ export function getProviderPullRequestIdentity(
 	const repositoryId = repository.id != null ? String(repository.id).trim() : '';
 	if (repositoryId !== '') return `repository:${repositoryId}:pull-request:${pr.id}`;
 
-	const name = repository.name?.trim() ?? '';
+	const name = (repository.name ?? repository.repo)?.trim() ?? '';
 	const namespace = (repository.namespace ?? owner)?.trim() ?? '';
 	const project = repository.project?.trim() ?? '';
 	if (name !== '' && (namespace !== '' || project !== '')) {
@@ -1468,7 +1477,8 @@ export function toIssueShape(
 				? {
 						owner: issue.repository.owner.login,
 						repo: issue.repository.name,
-						id: issue.repository.id,
+						// provider-apis sends `''` for an id it doesn't know.
+						id: issue.repository.id || undefined,
 					}
 				: undefined,
 		labels: issue.labels.map(label => ({ color: label.color ?? undefined, name: label.name })),
@@ -1720,7 +1730,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 		commentCount: pr.commentsCount ?? null,
 		upvoteCount: pr.thumbsUpCount ?? null,
 		commitCount: pr.commitCount ?? null,
-		fileCount: null,
+		fileCount: pr.filesChanged ?? null,
 		additions: pr.additions ?? null,
 		deletions: pr.deletions ?? null,
 		author: toProviderAccount(pr.author),
@@ -1744,6 +1754,8 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 		// lets a consumer tell "nobody has reviewed this" from "this read never fetched reviews" (see
 		// `PullRequestShape.latestReviews`). An empty array from a full projection stays an empty array.
 		reviews: pr.reviewRequests == null && pr.latestReviews == null ? null : toProviderReviews(prReviews),
+		// Derived for provider-apis' categorizer (Launchpad), which reads a pending request as "waiting for review"
+		// and a comment as "reviewer commented" even where the host made no decision.
 		reviewDecision: toProviderReviewDecision(pr.reviewDecision, prReviews),
 		repository:
 			pr.repository != null
@@ -1795,18 +1807,19 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 			pr.viewerCanUpdate == null
 				? null
 				: {
+						// An unknown access level doesn't block a merge. Only GitHub's reads know it; any other row
+						// with a `viewerCanUpdate` got it from provider-apis' own `canMerge`, which a missing access
+						// level must not overturn. provider-apis' categorizer reads absent `permissions` the same way.
 						canMerge:
 							pr.viewerCanUpdate === true &&
-							pr.repository.accessLevel != null &&
-							pr.repository.accessLevel >= RepositoryAccessLevel.Write,
+							(pr.repository.accessLevel == null ||
+								pr.repository.accessLevel >= RepositoryAccessLevel.Write),
 						canMergeAndBypassProtections:
 							pr.viewerCanUpdate === true &&
 							pr.repository.accessLevel != null &&
 							pr.repository.accessLevel >= RepositoryAccessLevel.Admin,
 					},
-		mergeableState: pr.mergeableState
-			? toProviderPullRequestMergeableState[pr.mergeableState]
-			: GitPullRequestMergeableState.Unknown,
+		mergeableState: pr.mergeableState ? toProviderPullRequestMergeableState[pr.mergeableState] : undefined,
 	};
 }
 
@@ -1832,9 +1845,8 @@ export function fromProviderPullRequest(
 		{
 			owner: repositoryOwner,
 			repo: repositoryName,
-			// This has to be here until we can take this information from ProviderPullRequest:
-			accessLevel: RepositoryAccessLevel.Write,
-			id: repository?.id ?? '',
+			// provider-apis sends `''` for an id it doesn't know.
+			id: repository?.id || undefined,
 		},
 		fromProviderPullRequestState(pr.state),
 		pr.createdDate,
@@ -1842,6 +1854,7 @@ export function fromProviderPullRequest(
 		pr.closedDate ?? undefined,
 		pr.mergedDate ?? undefined,
 		pr.mergeableState ? fromProviderPullRequestMergeableState[pr.mergeableState] : undefined,
+		// The SDK's `permissions` can only say "can merge", so its `false` stays unknown rather than "can't update".
 		pr.permissions?.canMerge || pr.permissions?.canMergeAndBypassProtections ? true : undefined,
 		{
 			base: {
@@ -1884,13 +1897,56 @@ export function fromProviderPullRequest(
 		options?.project,
 		pr.version,
 		pr.commitCount ?? undefined,
-		undefined, // stack — GK's proxy type has no stack concept; membership is joined host-side
+		undefined, // stack
 		pr.fileCount ?? undefined,
 		pr.description ?? undefined,
 		pr.number,
-		options?.currentAccount != null ? authoredByCurrentAccount(pr, provider, options.currentAccount) : undefined,
+		options?.currentAccount != null
+			? authoredByCurrentAccount(pr.author, provider, options.currentAccount)
+			: undefined,
 		options?.currentAccount,
 	);
+}
+
+/**
+ * A GitLens-native row (GitHub's own reads) with `authoredByMe` and `viewer` resolved by the same rule
+ * {@link fromProviderPullRequest} applies. Returns a copy: the mapper's row stays as it was built.
+ */
+export function stampNativePullRequest(
+	pr: PullRequest,
+	options: { currentAccount?: { id: string; username?: string } },
+): PullRequest {
+	return Object.assign(Object.create(PullRequest.prototype) as PullRequest, pr, {
+		authoredByMe:
+			options.currentAccount != null
+				? authoredByCurrentAccount(pr.author, pr.provider, options.currentAccount)
+				: undefined,
+		viewer: options.currentAccount,
+	});
+}
+
+/**
+ * A row of an account-wide read as a `PullRequest`. GitHub's are GitLens-native, which {@link stampNativePullRequest}
+ * finishes; every other host's are provider-apis', which {@link fromProviderPullRequest} converts.
+ */
+export function toPullRequestRow(
+	pr: ProviderPullRequest | PullRequest,
+	provider: Provider,
+	options: { currentAccount?: { id: string; username?: string } },
+): PullRequest {
+	return isNativePullRequest(pr)
+		? stampNativePullRequest(pr, options)
+		: fromProviderPullRequest(pr, provider, options);
+}
+
+/**
+ * By shape rather than by class, which a second copy of the model module fails: a native row is a `'pullrequest'` that
+ * names its provider, which provider-apis' rows never do. Both, so a key provider-apis adds later can't reroute its
+ * rows.
+ */
+export function isNativePullRequest(pr: ProviderPullRequest | PullRequest): pr is PullRequest {
+	const row = pr as { type?: unknown; provider?: unknown };
+	return row.type === 'pullrequest' && row.provider != null && typeof row.provider === 'object';
 }
 
 /**
@@ -1900,16 +1956,16 @@ export function fromProviderPullRequest(
  * from a display name that two people can share, so only GitHub and GitHub Enterprise get the fallback.
  */
 function authoredByCurrentAccount(
-	pr: ProviderPullRequest,
-	provider: Provider,
+	author: { id?: string | null; username?: string | null } | null | undefined,
+	provider: ProviderReference,
 	currentAccount: { id: string; username?: string },
 ): boolean {
-	if (pr.author?.id === currentAccount.id) return true;
+	if (author?.id === currentAccount.id) return true;
 
 	const isGitHub =
 		provider.id === GitCloudHostIntegrationId.GitHub ||
 		provider.id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
-	return isGitHub && currentAccount.username != null && pr.author?.username === currentAccount.username;
+	return isGitHub && currentAccount.username != null && author?.username === currentAccount.username;
 }
 
 export function fromProviderIssue(
@@ -1935,7 +1991,8 @@ export function fromProviderIssue(
 			? {
 					owner: issue.repository.owner.login ?? '',
 					repo: issue.repository.name,
-					id: issue.repository.id,
+					// provider-apis sends `''` for an id it doesn't know.
+					id: issue.repository.id || undefined,
 				}
 			: undefined,
 		issue.closedDate ?? undefined,
@@ -1967,9 +2024,18 @@ export function fromProviderIssue(
 }
 
 export function toProviderPullRequestWithUniqueId(pr: PullRequest): PullRequestWithUniqueID {
-	const { reviews, ...providerPr } = toProviderPullRequest(pr);
+	const { reviews, mergeableState, ...providerPr } = toProviderPullRequest(pr);
 	return {
 		...providerPr,
+		// The SDK's type requires a mergeability, and its categorizer only acts on a known one, so an unfetched
+		// one goes over as its own `UNKNOWN`. Except on Bitbucket Cloud, which reports no mergeability at all:
+		// Launchpad's "Ready to merge" needs one, so its rows go over as `MERGEABLE`, as provider-apis' own
+		// Bitbucket rows already do.
+		mergeableState:
+			mergeableState ??
+			(pr.provider.id === GitCloudHostIntegrationId.Bitbucket
+				? GitPullRequestMergeableState.Mergeable
+				: GitPullRequestMergeableState.Unknown),
 		// The SDK boundary: `getActionablePullRequests` categorizes by review state and only knows
 		// provider-apis' own vocabulary, so the locally-added dismissed state is dropped here rather than
 		// handed over as a value it would fall through on. Our own projection keeps it — see

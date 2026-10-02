@@ -1,5 +1,5 @@
 import type { IssueIteration, IssueMember } from '@gitlens/git/models/issue.js';
-import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
+import { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestMember, PullRequestReviewer } from '@gitlens/git/models/pullRequest.js';
 import {
@@ -651,14 +651,13 @@ export function fromAzurePullRequest(
 			owner: owner,
 			repo: pr.repository.name,
 			id: pr.repository.id,
-			// TODO: Remove this assumption once actual access level is available
-			accessLevel: RepositoryAccessLevel.Write,
 		},
 		azurePullRequestStatusToState(pr.status),
 		new Date(pr.creationDate),
 		new Date(pr.closedDate || pr.creationDate),
 		pr.closedDate ? new Date(pr.closedDate) : undefined,
 		pr.closedDate && pr.status === 'completed' ? new Date(pr.closedDate) : undefined,
+		// The read selects the merge status, so an absent one is Azure's own "not set", as provider-apis maps it.
 		fromAzurePullRequestMergeStatusToMergeableState(pr.mergeStatus ?? 'notSet'),
 		undefined,
 		{
@@ -821,7 +820,8 @@ export function fromAzureWorkItemToProviderIssue(
 		iteration: toAzureWorkItemIteration(fields['System.IterationPath']),
 		repository: null,
 		project: { namespace: namespace, name: project, resourceId: null, key: null, id: null },
-		upvoteCount: 0,
+		// provider-apis fills 0, but work items have no reactions.
+		upvoteCount: null,
 		labels: (typeof tags === 'string' ? tags.split(';') : []).map(tag => ({
 			color: null,
 			description: null,

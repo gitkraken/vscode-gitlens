@@ -100,6 +100,7 @@ function providerIssue(id: string): ProviderIssue {
 
 function searchPullRequest(id: string, state: 'open' | 'closed' | 'merged'): PullRequest {
 	return {
+		type: 'pullrequest',
 		id: id,
 		nodeId: `node-${id}`,
 		title: `PR ${id}`,
@@ -393,7 +394,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		assert.deepEqual(
 			result.items.map(pr => pr.body).sort(),
 			['Body of PR 1', 'Body of PR 2'],
-			'the search fragment body survives the per-state round-trip through toProviderPullRequest (#5549)',
+			'the search fragment body survives the per-state account-wide read (#5549)',
 		);
 		assert.equal(result.page.truncated, true, 'GitHub search truncation is surfaced on the page');
 		assert.equal(result.warnings.length, 1, 'a generic truncation warning is emitted when no metadata explains it');

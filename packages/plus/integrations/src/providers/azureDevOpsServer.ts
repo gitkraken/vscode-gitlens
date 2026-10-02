@@ -56,6 +56,7 @@ import type {
 import {
 	fromProviderPullRequest,
 	getProviderPullRequestIdentity,
+	isNativePullRequest,
 	providersMetadata,
 	PullRequestFilter,
 	toProviderPullRequestStates,
@@ -855,7 +856,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	 * stays unknown.
 	 */
 	override async getPullRequestViewers(
-		pullRequests: readonly ProviderPullRequest[],
+		pullRequests: readonly (ProviderPullRequest | PullRequest)[],
 		connectionId?: string,
 	): Promise<({ id: string; username?: string } | undefined)[]> {
 		const session = await this.resolveReadSession(connectionId, undefined);
@@ -864,7 +865,8 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		const viewerFor = this.getOrganizationViewers(session, undefined);
 		return Promise.all(
 			pullRequests.map(pr => {
-				const collection = pr.repository?.owner?.login;
+				// Azure DevOps Server's rows are provider-apis' own; only GitHub's are native.
+				const collection = isNativePullRequest(pr) ? undefined : pr.repository?.owner?.login;
 				return collection && pr.author != null ? viewerFor(collection) : Promise.resolve(undefined);
 			}),
 		);

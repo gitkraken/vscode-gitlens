@@ -1105,7 +1105,13 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 			const issue = result.items[0]?.issue;
 			assert.ok(issue != null);
 			assert.equal(list.items.length, 1);
-			assert.deepEqual(issue, list.items[0]);
+			// The reaction count differs: provider-apis fills a literal 0, which GitLens' copy leaves unset, since work items
+			// have no reactions. Every other field is the same conversion.
+			const { thumbsUpCount: listedThumbsUp, ...listed } = list.items[0];
+			const { thumbsUpCount: batchedThumbsUp, ...batched } = issue;
+			assert.equal(listedThumbsUp, 0);
+			assert.equal(batchedThumbsUp, undefined);
+			assert.deepEqual(batched, listed);
 			// Set by the list read's conversion, and by neither half of GitLens' own work item conversion.
 			assert.deepEqual(
 				issue.labels?.map(l => l.name),

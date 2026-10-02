@@ -73,6 +73,38 @@ suite('issue mapping', () => {
 		assert.equal(shape.bodyFormat, undefined);
 	});
 
+	test("reads provider-apis' blank repository id as unknown in both issue mappers", () => {
+		const providerIssue: ProviderIssue = {
+			author: null,
+			assignees: [],
+			commentCount: 0,
+			closedDate: null,
+			createdDate: new Date(0),
+			description: null,
+			id: 'global-id',
+			labels: [],
+			number: '42',
+			repository: { id: '', name: 'repo', owner: { login: 'octocat' } },
+			state: null,
+			title: 'Issue 42',
+			type: null,
+			updatedDate: new Date(1),
+			upvoteCount: 0,
+			url: 'https://example.com/octocat/repo/issues/42',
+		};
+
+		assert.deepEqual(fromProviderIssue(providerIssue, fakeIntegration).repository, {
+			owner: 'octocat',
+			repo: 'repo',
+			id: undefined,
+		});
+		assert.deepEqual(toIssueShape(providerIssue, fakeIntegration)?.repository, {
+			owner: 'octocat',
+			repo: 'repo',
+			id: undefined,
+		});
+	});
+
 	test('identifies Jira descriptions as wiki markup in both issue mappers', () => {
 		const providerIssue: ProviderIssue = {
 			author: null,

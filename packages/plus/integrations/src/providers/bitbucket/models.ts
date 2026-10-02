@@ -1,13 +1,8 @@
 import type { IssueRepository } from '@gitlens/git/models/issue.js';
-import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
+import { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestMember, PullRequestReviewer } from '@gitlens/git/models/pullRequest.js';
-import {
-	PullRequest,
-	PullRequestMergeableState,
-	PullRequestReviewDecision,
-	PullRequestReviewState,
-} from '@gitlens/git/models/pullRequest.js';
+import { PullRequest, PullRequestReviewDecision, PullRequestReviewState } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 
@@ -188,6 +183,7 @@ export interface BitbucketPullRequest {
 	title: string;
 	description: string;
 	state: BitbucketPullRequestState;
+	draft?: boolean;
 	merge_commit: null | BitbucketBriefCommit;
 	comment_count: number;
 	task_count: number;
@@ -357,8 +353,6 @@ function fromBitbucketRepository(repo: BitbucketRepository): IssueRepository {
 		owner: repo.full_name.split('/')[0],
 		repo: repo.name,
 		id: repo.uuid,
-		// TODO: Remove this assumption once actual access level is available
-		accessLevel: RepositoryAccessLevel.Write,
 	};
 }
 
@@ -411,8 +405,7 @@ export function fromBitbucketPullRequest(
 		new Date(pr.updated_on),
 		pr.closed_by ? new Date(pr.updated_on) : undefined,
 		pr.state === 'MERGED' ? new Date(pr.updated_on) : undefined,
-		// TODO: Remove this assumption once actual mergeable state is available
-		PullRequestMergeableState.Mergeable, // mergeableState
+		undefined, // mergeableState: not read
 		undefined, // viewerCanUpdate
 		{
 			base: {
@@ -433,7 +426,7 @@ export function fromBitbucketPullRequest(
 			},
 			isCrossRepository: pr.source.repository.uuid !== pr.destination.repository.uuid,
 		},
-		undefined, // isDraft
+		pr.draft,
 		undefined, // additions
 		undefined, // deletions
 		undefined, // commentsCount
