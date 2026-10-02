@@ -326,8 +326,13 @@ export interface PullRequestSearchCapabilities {
 }
 
 export interface PullRequestRef {
-	owner: string;
-	repo: string;
+	/**
+	 * `undefined` when the ref's repository was deleted (a removed fork): GitHub's rows say so, with `exists` false.
+	 * provider-apis' converters fill `''` instead, so test for a value rather than for `undefined`.
+	 */
+	owner: string | undefined;
+	/** `undefined` (or `''`) when the ref's repository was deleted, as {@link owner}. */
+	repo: string | undefined;
 	branch: string;
 	sha: string;
 	exists: boolean;

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking (git)** — `PullRequestRef.owner` and `repo` are typed `string | undefined`, which they already were at runtime for a pull request whose head repository was deleted: GitHub's rows leave both `undefined`, with `exists` `false`, so a consumer's type check now catches code that assumed a string. provider-apis' converters still fill `''` there, so test for a value rather than for `undefined`. Converting such a row to provider-apis' shape now gives no head repository instead of a blank one (git, plus/integrations)
+
 ## [0.9.5] - 2026-10-02
 
 ### Added
