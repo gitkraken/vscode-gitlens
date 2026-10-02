@@ -9,10 +9,26 @@ import {
 	PullRequestReviewState,
 	PullRequestStatusCheckRollupState,
 } from '@gitlens/git/models/pullRequest.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
-import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../models/integration.js';
-import { pullRequestEtagIncludes, pullRequestRevision } from '../models/integration.js';
-import { issueEtag, issueEtagFieldsFromShape, pullRequestEtag, pullRequestEtagFieldsFromShape } from '../reads/etag.js';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../constants.js';
+import type {
+	IssueEtagFields,
+	IssueEtagInclude,
+	PullRequestEtagFields,
+	PullRequestEtagInclude,
+} from '../models/integration.js';
+import { issueEtagIncludes, pullRequestEtagIncludes, pullRequestRevision } from '../models/integration.js';
+import {
+	findInvalidIssueEtagInclude,
+	issueEtag,
+	issueEtagFieldsFromShape,
+	normalizeIssueEtagIncludes,
+	pullRequestEtag,
+	pullRequestEtagFieldsFromShape,
+} from '../reads/etag.js';
 
 /**
  * The batch reads' etags: a cheap check answers `unchanged` only when its etag equals the caller's, so the property
@@ -283,15 +299,67 @@ suite('issueEtag', () => {
 
 	test('is deterministic', () => {
 		assert.equal(
-			issueEtag({ ...issueBase }),
-			issueEtag({ ...issueBase, updatedDate: new Date(issueBase.updatedDate) }),
+			issueEtag({ ...issueBase }, []),
+			issueEtag({ ...issueBase, updatedDate: new Date(issueBase.updatedDate) }, []),
 		);
-		assert.match(issueEtag(issueBase), /^is1:/);
+		assert.match(issueEtag(issueBase, []), /^is1:/);
 	});
 
 	test('a change of state or updatedDate changes the etag', () => {
-		assert.notEqual(issueEtag({ ...issueBase, state: 'closed' }), issueEtag(issueBase));
-		assert.notEqual(issueEtag({ ...issueBase, updatedDate: new Date(1) }), issueEtag(issueBase));
+		assert.notEqual(issueEtag({ ...issueBase, state: 'closed' }, []), issueEtag(issueBase, []));
+		assert.notEqual(issueEtag({ ...issueBase, updatedDate: new Date(1) }, []), issueEtag(issueBase, []));
+	});
+
+	test('no includes gives the exact `is1:` form etags had before includes existed', () => {
+		assert.equal(issueEtag(issueBase, []), 'is1:["opened",1767225600000]');
+		assert.equal(issueEtag({ ...issueBase, thumbsUpCount: 3 }, []), 'is1:["opened",1767225600000]');
+	});
+
+	test("'reactions' names itself in the prefix and adds the thumbs-up count, `null` when the row has none", () => {
+		assert.equal(
+			issueEtag({ ...issueBase, thumbsUpCount: 3 }, ['reactions']),
+			'is1+reactions:["opened",1767225600000,3]',
+		);
+		assert.equal(
+			issueEtag({ ...issueBase, thumbsUpCount: 0 }, ['reactions']),
+			'is1+reactions:["opened",1767225600000,0]',
+		);
+		assert.equal(issueEtag(issueBase, ['reactions']), 'is1+reactions:["opened",1767225600000,null]');
+	});
+
+	test("a change of the thumbs-up count changes the etag only when 'reactions' is listed", () => {
+		for (const [from, to] of [
+			[0, 1],
+			[2, 3],
+			[undefined, 0],
+		]) {
+			const before = { ...issueBase, thumbsUpCount: from };
+			const after = { ...issueBase, thumbsUpCount: to };
+			assert.equal(issueEtag(after, []), issueEtag(before, []), `${from} -> ${to} without the include`);
+			assert.notEqual(issueEtag(after, ['reactions']), issueEtag(before, ['reactions']), `${from} -> ${to}`);
+		}
+	});
+
+	test('the order of the includes and repeats in them do not change the etag', () => {
+		const once = issueEtag({ ...issueBase, thumbsUpCount: 2 }, ['reactions']);
+		assert.equal(issueEtag({ ...issueBase, thumbsUpCount: 2 }, ['reactions', 'reactions']), once);
+		assert.deepEqual(normalizeIssueEtagIncludes(['reactions', 'reactions']), ['reactions']);
+		assert.deepEqual(normalizeIssueEtagIncludes([]), []);
+	});
+
+	test('two different sets never produce the same etag, even when the values they read are identical', () => {
+		for (const fields of [issueBase, { ...issueBase, thumbsUpCount: 1 }]) {
+			const sets: readonly (readonly IssueEtagInclude[])[] = [[], issueEtagIncludes];
+			const etags = sets.map(includes => issueEtag(fields, includes));
+			assert.equal(new Set(etags).size, 2);
+		}
+	});
+
+	test('an unknown include is found, and a known one is not', () => {
+		assert.equal(findInvalidIssueEtagInclude(['reactions']), undefined);
+		assert.equal(findInvalidIssueEtagInclude([]), undefined);
+		assert.equal(findInvalidIssueEtagInclude(['reactions', 'votes']), 'votes');
+		assert.equal(findInvalidIssueEtagInclude(['mergeable']), 'mergeable');
 	});
 
 	test('reads its fields off an issue shape', () => {
@@ -299,14 +367,48 @@ suite('issueEtag', () => {
 		assert.deepEqual(issueEtagFieldsFromShape(issue), { state: 'closed', updatedDate: new Date(5) });
 	});
 
+	test('reads the thumbs-up count only off a row whose read fetched reactions', () => {
+		const row = (providerId: string, projection: string | undefined, thumbsUpCount: number | undefined) =>
+			({
+				id: '1',
+				provider: { id: providerId, name: providerId, domain: 'example.com', icon: 'x' },
+				state: 'opened',
+				updatedDate: new Date(5),
+				thumbsUpCount: thumbsUpCount,
+				projection: projection,
+			}) as unknown as IssueShape;
+
+		const fetched: [string, number][] = [
+			[GitCloudHostIntegrationId.GitHub, 4],
+			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 0],
+			[GitCloudHostIntegrationId.GitLab, 2],
+			[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted, 1],
+		];
+		for (const [providerId, count] of fetched) {
+			assert.equal(issueEtagFieldsFromShape(row(providerId, 'batch', count)).thumbsUpCount, count, providerId);
+		}
+
+		// A tracker's votes and Azure DevOps' placeholder are not reactions; an untagged row's read is unknown.
+		const ignored: [string, string | undefined][] = [
+			[IssuesCloudHostIntegrationId.Jira, 'batch'],
+			[IssuesCloudHostIntegrationId.Linear, 'batch'],
+			[GitCloudHostIntegrationId.AzureDevOps, 'batch'],
+			[GitCloudHostIntegrationId.GitHub, undefined],
+		];
+		for (const [providerId, projection] of ignored) {
+			const fields = issueEtagFieldsFromShape(row(providerId, projection, 7));
+			assert.ok(!('thumbsUpCount' in fields), `${providerId} (${projection})`);
+		}
+	});
+
 	test('a missing or unparseable date never throws, and never matches a real one', () => {
 		for (const updatedDate of [undefined, new Date(Number.NaN)]) {
 			const fields = { ...issueBase, updatedDate: updatedDate as unknown as Date };
-			assert.doesNotThrow(() => issueEtag(fields));
+			assert.doesNotThrow(() => issueEtag(fields, []));
 			assert.doesNotThrow(() =>
 				pullRequestEtag({ state: 'opened', updatedDate: fields.updatedDate }, pullRequestEtagIncludes),
 			);
-			assert.notEqual(issueEtag(fields), issueEtag(issueBase));
+			assert.notEqual(issueEtag(fields, []), issueEtag(issueBase, []));
 		}
 	});
 });

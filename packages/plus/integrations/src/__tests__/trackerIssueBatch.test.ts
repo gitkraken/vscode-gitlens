@@ -576,7 +576,7 @@ suite('IntegrationManager.getIssuesBatch — tracker targets (#5810)', () => {
 
 		const [found, absent] = first.items;
 		assert.ok(found.issue != null);
-		assert.equal(found.etag, issueEtag(issueEtagFieldsFromShape(found.issue)));
+		assert.equal(found.etag, issueEtag(issueEtagFieldsFromShape(found.issue), []));
 		assert.deepEqual(absent, { key: 'absent' }, 'a proven absence has no etag');
 
 		const second = await manager.getIssuesBatch({

@@ -64,6 +64,7 @@ import type {
 	IntegrationById,
 	IntegrationKey,
 	IntegrationResult,
+	IssueEtagInclude,
 	PullRequestEtagInclude,
 } from './models/integration.js';
 import type { IssuesIntegration } from './models/issuesIntegration.js';
@@ -1281,6 +1282,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		 * {@link IntegrationManager.getIssuesBatch}.
 		 */
 		domain?: string;
+		/** Widens every etag to the listed inputs; see {@link IntegrationManager.getIssuesBatch}. */
+		etagIncludes?: readonly IssueEtagInclude[];
 	}): Promise<ProviderResult<IssueBatchResult>> {
 		return getIssuesBatch(this, options);
 	}

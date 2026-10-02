@@ -68,6 +68,7 @@ import type {
 	GitHubCommitRef,
 	GitHubContributor,
 	GitHubIssue,
+	GitHubIssueEtagInclude,
 	GitHubIssueEtagNode,
 	GitHubIssueOrPullRequest,
 	GitHubPagedResult,
@@ -561,6 +562,18 @@ number
 state
 updatedAt
 `;
+
+/**
+ * The selection each {@link GitHubIssueEtagInclude} adds to {@link gqlIssueEtagFragment}, copied from
+ * {@link gqIssueFragment} like it.
+ */
+const gqlIssueEtagIncludeFragments: Record<GitHubIssueEtagInclude, string> = {
+	reactions: `
+reactions(content: THUMBS_UP) {
+	totalCount
+}
+`,
+};
 
 /** One field-level error GitHub attaches to a GraphQL response, as thrown via {@link GraphqlResponseError}. */
 type GraphqlAliasError = NonNullable<GraphqlResponseError<unknown>['errors']>[number];
@@ -4735,19 +4748,25 @@ export class GitHubApi {
 
 	/**
 	 * The issue twin of {@link getPullRequestsEtagFieldsBatch}: {@link getIssuesBatch}'s aliased document, slot
-	 * rules and failure handling, selecting only an issue's change state ({@link gqlIssueEtagFragment}). Returns
-	 * the raw nodes, and declares no `$avatarSize`, for the same reasons.
+	 * rules and failure handling, selecting only an issue's change state ({@link gqlIssueEtagFragment}) — plus the
+	 * selection of each of `etagIncludes` ({@link gqlIssueEtagIncludeFragments}). Returns the raw nodes, and declares
+	 * no `$avatarSize`, for the same reasons.
 	 */
 	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async getIssuesEtagFieldsBatch(
 		provider: Provider,
 		token: GitHubTokenInfo,
 		coordinates: readonly { owner: string; repo: string; number: number }[],
-		options?: { baseUrl?: string },
+		options?: { baseUrl?: string; etagIncludes?: readonly GitHubIssueEtagInclude[] },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<GitHubIssueEtagNode | undefined>[]> {
 		const scope = getScopedLogger();
 		if (coordinates.length === 0) return [];
+
+		const includeFragments = Array.from(
+			new Set(options?.etagIncludes),
+			include => gqlIssueEtagIncludeFragments[include],
+		);
 
 		const params = coordinates
 			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$k${i}: Int!`)
@@ -4757,6 +4776,7 @@ export class GitHubApi {
 				(_, i) => `i${i}: repository(owner: $o${i}, name: $n${i}) {
 					issue(number: $k${i}) {
 						${gqlIssueEtagFragment}
+						${includeFragments.join('')}
 					}
 				}`,
 			)
