@@ -1,7 +1,8 @@
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../models/integration.js';
-import { pullRequestEtagIncludes } from '../models/integration.js';
+import { pullRequestEtagIncludes, pullRequestRevision } from '../models/integration.js';
 
 /**
  * The etags the batch reads hand back (`getPullRequestsBatch`, `getIssuesBatch`): an opaque stamp of an item's
@@ -9,15 +10,23 @@ import { pullRequestEtagIncludes } from '../models/integration.js';
  *
  * Computed by core, never the provider's HTTP ETag, and from the fields alone — not the item's id, since the
  * caller's key already identifies the target and ids cross vocabularies between reads. Not hashed: the stamp IS
- * the serialized fields, so two different change states can never collide into a false `unchanged`. The prefix
- * names the scheme (`pr1`, `is1`) and, for a pull request, every {@link PullRequestEtagInclude} it covers, in
- * canonical order (`pr1+mergeable+checks:`), so two different sets can never collide even when their values do (a
+ * the serialized fields, so two different change states can never collide into a false `unchanged` — except for an
+ * Azure DevOps pull request's `revision`, a 64-bit hash of the fields Azure changes without a timestamp, where a
+ * collision (about 2^-64) is the only way a change can hide. The prefix names the scheme (`pr1`, `is1`) and, for a
+ * pull request, every {@link PullRequestEtagInclude} it covers, in canonical order (`pr1+mergeable+checks:`), so two
+ * different sets can never collide even when their values do (a
  * `null` mergeability and a `null` rollup). A stamp from another scheme or another set just compares unequal and
  * costs a full read.
  */
 
+/** The hosts that keep no update time on a pull request, whose etag adds a {@link pullRequestRevision}. */
+const revisionProviderIds: ReadonlySet<string> = new Set([
+	GitCloudHostIntegrationId.AzureDevOps,
+	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+]);
+
 export function pullRequestEtagFieldsFromShape(pr: PullRequestShape): PullRequestEtagFields {
-	return {
+	const fields: PullRequestEtagFields = {
 		state: pr.state,
 		isDraft: pr.isDraft,
 		updatedDate: pr.updatedDate,
@@ -29,6 +38,11 @@ export function pullRequestEtagFieldsFromShape(pr: PullRequestShape): PullReques
 		// row's etag so that no cheap check ever matches it again.
 		statusCheckRollupState: 'statusCheckRollupState' in pr ? (pr as PullRequest).statusCheckRollupState : undefined,
 	};
+	// Read defensively, as `timeOf` reads the date: a row without a provider must not fail the read.
+	if (pr.provider != null && revisionProviderIds.has(pr.provider.id)) {
+		fields.revision = pullRequestRevision(pr);
+	}
+	return fields;
 }
 
 export function issueEtagFieldsFromShape(issue: IssueShape): IssueEtagFields {
@@ -57,6 +71,11 @@ export function findInvalidPullRequestEtagInclude(includes: readonly string[]): 
 export function pullRequestEtag(fields: PullRequestEtagFields, includes: readonly PullRequestEtagInclude[]): string {
 	const covered = normalizePullRequestEtagIncludes(includes);
 	const state: unknown[] = [fields.state, fields.isDraft ?? null, timeOf(fields.updatedDate), fields.headSha ?? null];
+	// Only where it is set, so every other host's etag stays exactly what it was.
+	if (fields.revision != null) {
+		state.push(fields.revision);
+	}
+
 	if (covered.length === 0) return `pr1:${JSON.stringify(state)}`;
 
 	for (const include of covered) {

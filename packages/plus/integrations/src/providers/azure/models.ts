@@ -10,7 +10,23 @@ import {
 } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../../models/integration.js';
+import { pullRequestRevision } from '../../models/integration.js';
 import type { ProviderAccount, ProviderIssue } from '../models.js';
+import {
+	fromProviderPullRequestMergeableState,
+	fromProviderPullRequestState,
+	GitPullRequestMergeableState,
+	GitPullRequestReviewState,
+	GitPullRequestState,
+} from '../models.js';
+import type { ProviderPullRequestReview } from '../pullRequestReviews.js';
+import {
+	decideProviderReviewDecision,
+	fromPullRequestReviewDecision,
+	toCompletedReviews,
+	toReviewRequests,
+} from '../pullRequestReviews.js';
 
 export const vstsHostnameSuffix = '.visualstudio.com';
 
@@ -872,4 +888,163 @@ function parseAzureWorkItemDate(value: unknown): Date | null {
 function toAzureWorkItemIteration(path: unknown): ProviderIssue['iteration'] {
 	const [iteration] = toWorkItemIterations(typeof path === 'string' ? path : undefined) ?? [];
 	return iteration != null ? { path: iteration.id, name: iteration.name } : undefined;
+}
+
+/**
+ * The most ids one cheap work item read asks for: the most Azure DevOps' work item list (`GET …/_apis/wit/workitems`)
+ * takes.
+ */
+export const azureWorkItemsEtagFieldsMaxIds = 200;
+
+/**
+ * The fields the cheap work item read selects: only the ones a full row's etag reads, and the project the full read
+ * checks the work item against. Not `System.State`: {@link fromAzureWorkItemToProviderIssue} gives the state no
+ * category, so `toIssueShape` closes a work item by its closed date alone.
+ */
+export const azureWorkItemEtagFieldNames: readonly string[] = [
+	'System.TeamProject',
+	'System.ChangedDate',
+	'Microsoft.VSTS.Common.ClosedDate',
+];
+
+/**
+ * A cheap read's work item, as the fields its full batch row's etag reads: `toIssueShape` closes the row the full
+ * read builds (see {@link fromAzureWorkItemToProviderIssue}) exactly when it has a closed date, parsed by the same rule.
+ * Throws where the full read fails the work item: on one in another project than `project` (compared as Azure
+ * compares names), and on a missing or unparseable change date, so the target falls through to the full read.
+ */
+export function toAzureWorkItemEtagFields(workItem: AzureWorkItemResponse, project: string): IssueEtagFields {
+	const fields = workItem.fields;
+	const teamProject = fields?.['System.TeamProject'];
+	if (typeof teamProject === 'string' && teamProject.toLowerCase() !== project.toLowerCase()) {
+		throw new Error(
+			`Azure DevOps work item ${String(workItem.id)} is in project '${teamProject}', not '${project}'`,
+		);
+	}
+
+	const updatedDate = parseAzureWorkItemDate(fields?.['System.ChangedDate']);
+	if (updatedDate == null) {
+		throw new Error(`Azure DevOps returned work item ${String(workItem.id)} without a change date`);
+	}
+
+	return {
+		state: parseAzureWorkItemDate(fields?.['Microsoft.VSTS.Common.ClosedDate']) != null ? 'closed' : 'opened',
+		updatedDate: updatedDate,
+	};
+}
+
+type ProviderPullRequestState = Parameters<typeof fromProviderPullRequestState>[0];
+type ProviderMergeableState = keyof typeof fromProviderPullRequestMergeableState;
+type ProviderReviewState = keyof typeof fromPullRequestReviewDecision;
+
+// The tables below mirror provider-apis' (0.61.0) Azure DevOps pull request mapping behind `getPullRequestForRepo` (`Xe`
+// and its helpers in the bundle), which it doesn't export. A full batch row takes these values on through
+// `fromProviderPullRequest`, so the cheap check composes the same steps to compute the same etag.
+
+/** provider-apis' pull request `status` map (`bi`). It has no `notSet`, which therefore maps to `undefined`. */
+const azurePullRequestProviderStates: Partial<Record<string, ProviderPullRequestState>> = {
+	active: GitPullRequestState.Open,
+	completed: GitPullRequestState.Merged,
+	abandoned: GitPullRequestState.Closed,
+};
+
+/** provider-apis' `mergeStatus` map (`Ti`); any other status, or none, is unknown. */
+const azureMergeStatusProviderStates: Partial<Record<string, ProviderMergeableState>> = {
+	conflicts: GitPullRequestMergeableState.Conflicts,
+	failure: GitPullRequestMergeableState.FailingChecks,
+	rejectedByPolicy: GitPullRequestMergeableState.Blocked,
+	succeeded: GitPullRequestMergeableState.Mergeable,
+};
+
+/** provider-apis' reviewer `vote` map (`Di`); any other vote reads as review requested. */
+const azureVoteProviderReviewStates: Partial<Record<number, ProviderReviewState>> = {
+	10: GitPullRequestReviewState.Approved,
+	5: GitPullRequestReviewState.Approved,
+	0: GitPullRequestReviewState.ReviewRequested,
+	[-5]: GitPullRequestReviewState.ChangesRequested,
+	[-10]: GitPullRequestReviewState.ChangesRequested,
+};
+
+/** provider-apis' reviewer mapping (`ve`), with the state its vote maps to: every reviewer, required or optional. */
+function toAzureProviderReview(reviewer: AzureUserWithVote): ProviderPullRequestReview {
+	return {
+		reviewer: {
+			id: reviewer.id,
+			name: reviewer.displayName ?? null,
+			username: (reviewer.uniqueName || reviewer.displayName) ?? null,
+			email: null,
+			avatarUrl: reviewer.imageUrl ?? null,
+			url: null,
+		},
+		state: toAzureProviderReviewState(reviewer),
+	};
+}
+
+function toAzureProviderReviewState(reviewer: AzureUserWithVote): ProviderReviewState {
+	return azureVoteProviderReviewStates[reviewer.vote ?? 0] ?? GitPullRequestReviewState.ReviewRequested;
+}
+
+/**
+ * A cheap read's pull request (the same `GET …/pullrequests/{id}` provider-apis sends), as the fields its full batch
+ * row's etag reads: provider-apis' mapping (see the tables above), then `fromProviderPullRequest`'s. Azure DevOps
+ * reports no update time, so provider-apis' `updatedDate` is the close time, else the creation time, which is why
+ * the fields Azure changes without one are fingerprinted into the `revision`, from the values the full row ends up
+ * with: provider-apis' title, description (`?? null`, which the row reads `?? undefined`) and target branch, and its
+ * reviews, split into requests and completed reviews by `fromProviderPullRequest`'s own helpers.
+ *
+ * Throws where provider-apis' mapping throws, on a field it reads without a guard, so a pull request the full read
+ * fails on falls through to it rather than matching an etag. A full row never carries a check rollup (provider-apis
+ * maps none for Azure DevOps), so the `checks` include always reads `undefined`, as there.
+ */
+export function toAzurePullRequestEtagFields(
+	pr: AzurePullRequest,
+	etagIncludes: readonly PullRequestEtagInclude[],
+): PullRequestEtagFields {
+	if (
+		pr.pullRequestId == null ||
+		pr.createdBy == null ||
+		pr.repository?.project == null ||
+		pr.lastMergeSourceCommit == null ||
+		pr.lastMergeTargetCommit == null ||
+		!Array.isArray(pr.reviewers) ||
+		pr.reviewers.some(r => r == null) ||
+		typeof pr.url !== 'string' ||
+		typeof pr.sourceRefName !== 'string' ||
+		typeof pr.targetRefName !== 'string'
+	) {
+		throw new Error(`Azure DevOps returned pull request ${String(pr.pullRequestId)} without a field it maps`);
+	}
+
+	const reviews = pr.reviewers.map(toAzureProviderReview);
+	const fields: PullRequestEtagFields = {
+		// `notSet` passes `undefined` here, as its full row does.
+		state: fromProviderPullRequestState(azurePullRequestProviderStates[pr.status] as ProviderPullRequestState),
+		isDraft: pr.isDraft,
+		updatedDate: new Date(pr.closedDate || pr.creationDate),
+		headSha: pr.lastMergeSourceCommit.commitId ?? '',
+		revision: pullRequestRevision({
+			title: pr.title,
+			body: pr.description ?? undefined,
+			refs: { base: { branch: normalizeAzureBranchName(pr.targetRefName) } },
+			reviewRequests: toReviewRequests(reviews),
+			latestReviews: toCompletedReviews(reviews),
+		}),
+	};
+
+	if (etagIncludes.includes('mergeable')) {
+		const mergeable =
+			(pr.mergeStatus != null ? azureMergeStatusProviderStates[pr.mergeStatus] : undefined) ??
+			GitPullRequestMergeableState.Unknown;
+		fields.mergeableState = fromProviderPullRequestMergeableState[mergeable];
+	}
+
+	if (etagIncludes.includes('reviewDecision')) {
+		// Only the required reviewers decide.
+		const decision = decideProviderReviewDecision(
+			pr.reviewers.filter(r => r.isRequired).map(toAzureProviderReviewState),
+		);
+		fields.reviewDecision = decision ? fromPullRequestReviewDecision[decision] : undefined;
+	}
+
+	return fields;
 }

@@ -669,11 +669,11 @@ export interface IntegrationManager {
 	 * board scan, which cannot prove an absence.
 	 *
 	 * Change detection: every found row carries an opaque `etag`; send it back on the target and, where the host has a
-	 * cheap check (GitHub/GHE, GitLab and Jira Cloud so far), an issue whose etag still matches comes back
-	 * `{ key, unchanged: true, etag }` without being read again. That costs up to three integration calls instead of
-	 * one — the cheap check, a full read of the targets with no etag started alongside it, and a full read of the ones
-	 * that changed — and still one when no target carries an etag. A cheap check that fails falls through to the full
-	 * read, except on an auth, rate-limit or connection failure, which drops its targets with that warning. See
+	 * cheap check (GitHub/GHE, GitLab, Azure DevOps and Jira Cloud so far), an issue whose etag still matches comes
+	 * back `{ key, unchanged: true, etag }` without being read again. That costs up to three integration calls instead
+	 * of one — the cheap check, a full read of the targets with no etag started alongside it, and a full read of the
+	 * ones that changed — and still one when no target carries an etag. A cheap check that fails falls through to the
+	 * full read, except on an auth, rate-limit or connection failure, which drops its targets with that warning. See
 	 * {@link IssueBatchResult}.
 	 *
 	 * A self-managed tracker (Jira Data Center) never falls back to the primary connection, unlike the paged reads:
@@ -718,10 +718,12 @@ export interface IntegrationManager {
 	 * miss, and Azure DevOps one more per target (two for a fork) to fill clone URLs.
 	 *
 	 * Change detection: every found row carries an opaque `etag`; send it back on the target and, where the host has a
-	 * cheap check (GitHub/GHE, a minimal aliased document; GitLab, one minimal request per project), a pull request
-	 * whose etag still matches comes back `{ key, unchanged: true, etag }` without being read again. That costs up to
-	 * three integration calls instead of one — the cheap check, a full read of the targets with no etag started
-	 * alongside it, and a full read of the ones that changed — and still one when no target carries an etag.
+	 * cheap check (GitHub/GHE, a minimal aliased document; GitLab, one minimal request per project; Azure DevOps, one
+	 * request per target without the clone URL reads, which fingerprints the title, description, target branch and
+	 * reviewers as Azure DevOps reports no update time, but stays blind to comments), a pull request whose etag still
+	 * matches comes back `{ key, unchanged: true, etag }` without being read again. That costs up to three integration
+	 * calls instead of one — the cheap check, a full read of the targets with no etag started alongside it, and a full
+	 * read of the ones that changed — and still one when no target carries an etag.
 	 * `etagIncludes` widens the etag to the listed inputs (mergeability, review decision, check rollup), which a host
 	 * changes without moving the update time and each of which costs its own fields in the cheap check (the review
 	 * decision costs the most). A cheap check that fails falls through to the full read, except on an auth, rate-limit

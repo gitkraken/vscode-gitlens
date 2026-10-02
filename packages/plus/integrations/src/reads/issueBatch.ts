@@ -46,10 +46,10 @@ import {
  * bounded concurrency on GitLab and Azure DevOps and on the trackers) and settles each independently, so failing
  * targets spend at most one strike of the integration's failure budget.
  *
- * With etags, up to THREE on a host with a cheap check (GitHub/GHE and GitLab; Jira Cloud among the trackers): the
- * cheap check of the targets that carry one, a full read of the rest started alongside it, and a full read of the
- * targets whose etag no longer matches — see `readEtaggedBatch`. Every other host and tracker still makes one call and
- * etags its rows.
+ * With etags, up to THREE on a host with a cheap check (GitHub/GHE, GitLab and Azure DevOps; Jira Cloud among the
+ * trackers): the cheap check of the targets that carry one, a full read of the rest started alongside it, and a full
+ * read of the targets whose etag no longer matches — see `readEtaggedBatch`. Every other tracker still makes one call
+ * and etags its rows.
  */
 
 /** One issue to resolve, echoed back under the caller's own `key`. Which form a call takes depends on its provider. */

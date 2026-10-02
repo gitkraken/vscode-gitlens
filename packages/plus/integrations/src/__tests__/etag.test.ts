@@ -1,15 +1,17 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
-import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestReviewer, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import {
 	PullRequest,
 	PullRequestMergeableState,
 	PullRequestReviewDecision,
+	PullRequestReviewState,
 	PullRequestStatusCheckRollupState,
 } from '@gitlens/git/models/pullRequest.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../models/integration.js';
-import { pullRequestEtagIncludes } from '../models/integration.js';
+import { pullRequestEtagIncludes, pullRequestRevision } from '../models/integration.js';
 import { issueEtag, issueEtagFieldsFromShape, pullRequestEtag, pullRequestEtagFieldsFromShape } from '../reads/etag.js';
 
 /**
@@ -159,6 +161,121 @@ suite('pullRequestEtag', () => {
 		const { statusCheckRollupState: _rollup, ...shape } = pr;
 		assert.equal(pullRequestEtagFieldsFromShape(shape as PullRequestShape).statusCheckRollupState, undefined);
 	});
+
+	test('a revision is appended to the base inputs only when set, and every change of it changes the etag', () => {
+		for (const includes of includeSets) {
+			const withRevision = pullRequestEtag({ ...base, revision: '0123456789abcdef' }, includes);
+			assert.notEqual(withRevision, pullRequestEtag(base, includes));
+			assert.notEqual(withRevision, pullRequestEtag({ ...base, revision: 'fedcba9876543210' }, includes));
+		}
+		assert.equal(
+			pullRequestEtag({ ...base, revision: '0123456789abcdef' }, []),
+			'pr1:["opened",false,1767225600000,"abc","0123456789abcdef"]',
+		);
+		assert.equal(
+			pullRequestEtag({ ...base, revision: '0123456789abcdef' }, ['mergeable']),
+			'pr1+mergeable:["opened",false,1767225600000,"abc","0123456789abcdef","Mergeable"]',
+		);
+	});
+
+	test('a host without a revision keeps the exact etag it had before revisions existed', () => {
+		const pr = gitHubPullRequestShape();
+		const fields = pullRequestEtagFieldsFromShape(pr);
+		assert.ok(!('revision' in fields), 'a GitHub row carries no revision');
+		assert.equal(pullRequestEtag(fields, []), 'pr1:["opened",false,1767225600000,"abc"]');
+		assert.equal(
+			pullRequestEtag(fields, pullRequestEtagIncludes),
+			'pr1+mergeable+reviewDecision+checks:["opened",false,1767225600000,"abc","Mergeable","Approved","success"]',
+		);
+	});
+
+	test('an Azure DevOps or Azure DevOps Server row carries the revision of its own fields; no other host does', () => {
+		for (const providerId of [
+			GitCloudHostIntegrationId.AzureDevOps,
+			GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+		]) {
+			const pr = gitHubPullRequestShape({
+				provider: { id: providerId, name: 'Azure', domain: 'dev.azure.com', icon: 'azdo' },
+			});
+			const fields = pullRequestEtagFieldsFromShape(pr);
+			assert.equal(fields.revision, pullRequestRevision(pr), providerId);
+			assert.match(pullRequestEtag(fields, []), /^pr1:\["opened",false,1767225600000,"abc","[0-9a-f]{16}"\]$/);
+		}
+		for (const providerId of [
+			GitCloudHostIntegrationId.GitHub,
+			GitCloudHostIntegrationId.GitLab,
+			GitCloudHostIntegrationId.Bitbucket,
+			GitSelfManagedHostIntegrationId.BitbucketServer,
+			GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+		]) {
+			const pr = gitHubPullRequestShape({
+				provider: { id: providerId, name: 'Host', domain: 'example.com', icon: 'x' },
+			});
+			assert.equal(pullRequestEtagFieldsFromShape(pr).revision, undefined, providerId);
+		}
+	});
+});
+
+suite('pullRequestRevision', () => {
+	const reviewer = (id: string, state: PullRequestReviewState): PullRequestReviewer => ({
+		reviewer: { id: id, name: `name of ${id}` },
+		state: state,
+	});
+	const source = {
+		title: 'Title',
+		body: 'Body',
+		refs: { base: { branch: 'main' } },
+		reviewRequests: [reviewer('a', PullRequestReviewState.ReviewRequested)],
+		latestReviews: [
+			reviewer('b', PullRequestReviewState.Approved),
+			reviewer('c', PullRequestReviewState.ChangesRequested),
+		],
+	};
+
+	test('is a 64-bit hex hash, and is deterministic', () => {
+		assert.match(pullRequestRevision(source), /^[0-9a-f]{16}$/);
+		assert.equal(pullRequestRevision({ ...source }), pullRequestRevision(source));
+	});
+
+	const changes: [string, Partial<typeof source> & Record<string, unknown>][] = [
+		['the title', { title: 'Retitled' }],
+		['the description', { body: 'Edited' }],
+		['the description removed', { body: undefined }],
+		['the target branch', { refs: { base: { branch: 'release' } } }],
+		[
+			'a reviewer added',
+			{ reviewRequests: [...source.reviewRequests, reviewer('d', PullRequestReviewState.ReviewRequested)] },
+		],
+		['a reviewer removed', { latestReviews: [source.latestReviews[0]] }],
+		['a vote', { latestReviews: [source.latestReviews[0], reviewer('c', PullRequestReviewState.Approved)] }],
+		[
+			'a request answered',
+			{
+				reviewRequests: [],
+				latestReviews: [...source.latestReviews, reviewer('a', PullRequestReviewState.Approved)],
+			},
+		],
+		['reviews never read', { reviewRequests: undefined, latestReviews: undefined }],
+	];
+	for (const [name, change] of changes) {
+		test(`a change of ${name} changes the revision`, () => {
+			assert.notEqual(pullRequestRevision({ ...source, ...change }), pullRequestRevision(source));
+		});
+	}
+
+	test("reads only each reviewer's id and state, in no particular order", () => {
+		assert.equal(
+			pullRequestRevision({
+				...source,
+				latestReviews: [
+					{ ...source.latestReviews[1], reviewer: { id: 'c', name: 'renamed', avatarUrl: 'x' } },
+					source.latestReviews[0],
+				],
+			}),
+			pullRequestRevision(source),
+		);
+	});
 });
 
 suite('issueEtag', () => {
@@ -193,3 +310,39 @@ suite('issueEtag', () => {
 		}
 	});
 });
+
+function gitHubPullRequestShape(overrides?: Pick<PullRequestShape, 'provider'>): PullRequestShape {
+	const pr = new PullRequest(
+		{ id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
+		{ id: 'octo', name: 'octo' },
+		'1',
+		'node1',
+		'title',
+		'https://github.com/o/r/pull/1',
+		{ owner: 'o', repo: 'r' },
+		'opened',
+		new Date(0),
+		base.updatedDate,
+		undefined,
+		undefined,
+		PullRequestMergeableState.Mergeable,
+		undefined,
+		{
+			head: { owner: 'o', repo: 'r', branch: 'feature', sha: 'abc', exists: true, url: '' },
+			base: { owner: 'o', repo: 'r', branch: 'main', sha: 'base', exists: true, url: '' },
+			isCrossRepository: false,
+		},
+		false,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		PullRequestReviewDecision.Approved,
+		undefined,
+		undefined,
+		undefined,
+		PullRequestStatusCheckRollupState.Success,
+	);
+	// A copy that keeps the class's getters, as `stampNativePullRequest` copies a row.
+	return overrides != null ? Object.assign(Object.create(PullRequest.prototype) as PullRequest, pr, overrides) : pr;
+}

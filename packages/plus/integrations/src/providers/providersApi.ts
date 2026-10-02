@@ -25,7 +25,11 @@ import {
 import { RequestNotFoundError, toError } from '../errors.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
 import type { AzurePullRequest, AzureWorkItemResponse } from './azure/models.js';
-import { encodeAzurePathSegment, fromAzureWorkItemToProviderIssue } from './azure/models.js';
+import {
+	azureWorkItemEtagFieldNames,
+	encodeAzurePathSegment,
+	fromAzureWorkItemToProviderIssue,
+} from './azure/models.js';
 import { requestBitbucketServerProjects, requestBitbucketServerRepositories } from './bitbucket-server/discovery.js';
 import {
 	countBitbucketServerPullRequests,
@@ -1036,6 +1040,77 @@ export class ProvidersApi {
 		}
 
 		return issue;
+	}
+
+	/**
+	 * The cheap check behind the batch issue read's etags: `ids` (at most `azureWorkItemsEtagFieldsMaxIds`) in ONE
+	 * request, where {@link getAzureWorkItem} reads one work item per request, selecting only
+	 * `azureWorkItemEtagFieldNames`. Asked with `errorPolicy=omit`, without which one missing id fails the whole
+	 * request; Azure then leaves out every id it can't return, for whatever reason, so a caller matches the work items
+	 * to its ids by `id`, never by position, and reads an omission as unknown rather than absent. Every failure throws,
+	 * classified as {@link getAzureWorkItem} classifies it.
+	 */
+	async getAzureWorkItemsEtagFields(
+		tokenOptInfo: TokenOptInfo,
+		scope: { namespace: string; project: string },
+		ids: readonly number[],
+		options: { isPAT?: boolean; baseUrl?: string },
+	): Promise<AzureWorkItemResponse[]> {
+		const { tokenWithInfo } = await this.ensureProviderToken(tokenOptInfo);
+		const token = tokenWithInfo.accessToken;
+
+		const baseUrl = (options.baseUrl ?? azureDevOpsBaseUrl).replace(/\/$/, '');
+		// Commas left unencoded, as Azure documents these lists. The same `api-version` as `getAzureWorkItem`, so a
+		// server that serves the full read also serves this check.
+		const query = `ids=${ids.join(',')}&fields=${azureWorkItemEtagFieldNames.join(',')}&errorPolicy=omit&api-version=6.0`;
+		const url = `${baseUrl}/${encodeAzurePathSegment(scope.namespace)}/${encodeAzurePathSegment(scope.project)}/_apis/wit/workitems?${query}`;
+
+		try {
+			const result = await this.request<{ value?: (AzureWorkItemResponse | null)[] } | null>({
+				url: url,
+				headers: { Authorization: options.isPAT ? `Basic ${base64(`:${token}`)}` : `Bearer ${token}` },
+			});
+			const workItems = result.body?.value;
+			if (!Array.isArray(workItems)) throw new Error('Azure DevOps returned no work items');
+
+			// Documented to answer an omitted id with `null` in its place; it has been seen to drop it instead.
+			return workItems.filter(w => w != null);
+		} catch (e) {
+			return this.handleProviderError<AzureWorkItemResponse[]>(tokenWithInfo, e);
+		}
+	}
+
+	/**
+	 * The cheap check behind the batch pull request read's etags: one pull request as Azure DevOps returns it, by the
+	 * same request {@link getPullRequestForRepo} has provider-apis send, but without the repository read it adds for
+	 * clone URLs. `undefined` only by the same not-found rule as {@link getPullRequestForRepo}; every other failure
+	 * throws.
+	 */
+	async getAzurePullRequest(
+		tokenOptInfo: TokenOptInfo,
+		repo: { namespace: string; project: string; name: string },
+		id: number,
+		options: { isPAT?: boolean; baseUrl?: string },
+	): Promise<AzurePullRequest | undefined> {
+		const { tokenWithInfo } = await this.ensureProviderToken(tokenOptInfo);
+		const token = tokenWithInfo.accessToken;
+
+		const baseUrl = (options.baseUrl ?? azureDevOpsBaseUrl).replace(/\/$/, '');
+		const url = `${baseUrl}/${encodeAzurePathSegment(repo.namespace)}/${encodeAzurePathSegment(repo.project)}/_apis/git/repositories/${encodeAzurePathSegment(repo.name)}/pullrequests/${id}?api-version=7.1`;
+
+		try {
+			const result = await this.request<AzurePullRequest | null>({
+				url: url,
+				headers: { Authorization: options.isPAT ? `Basic ${base64(`:${token}`)}` : `Bearer ${token}` },
+			});
+			if (result.body == null) throw new Error(`Azure DevOps returned no pull request ${id}`);
+
+			return result.body;
+		} catch (e) {
+			if (isAzureNotFoundResponse(e, azurePullRequestNotFoundTypeKeys)) return undefined;
+
+			return this.handleProviderError<AzurePullRequest | undefined>(tokenWithInfo, e);
+		}
 	}
 
 	async getCurrentUser(
