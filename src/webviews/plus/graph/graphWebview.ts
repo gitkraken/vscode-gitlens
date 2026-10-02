@@ -5364,7 +5364,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		access: Awaited<ReturnType<GraphWebviewProvider['getGraphAccess']>>[0] | undefined,
 		featurePreview: FeaturePreview,
 	) {
-		return (access?.allowed ?? false) !== false || getFeaturePreviewStatus(featurePreview) === 'active';
+		if ((access?.allowed ?? false) !== false) return true;
+
+		// The preview only grants access while SIGNED OUT — it's a no-account concept, and its stored
+		// usage record is global (not per-account) and outlives a sign-in. Without this guard, a signed-in
+		// no-pro user who had started the preview while signed out would keep full access instead of the
+		// plan gate the matrix requires for that cell.
+		return (
+			access != null &&
+			access.subscription.current.account == null &&
+			getFeaturePreviewStatus(featurePreview) === 'active'
+		);
 	}
 
 	/** The account wall (sign-in / verify screen) state: skips the entire graph data pipeline (git walk,

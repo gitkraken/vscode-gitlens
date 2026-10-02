@@ -126,11 +126,51 @@ function nextSimulatedVisibility(current: RepositoryVisibility | undefined): Rep
 	}
 }
 
+type SimulatedPreviewStatus = 'eligible' | 'active' | 'expired';
+
+function getPreviewButton(status: SimulatedPreviewStatus | undefined): QuickInputButton {
+	const inline = supportedInVSCodeVersion('quickpick-button-location') ? QuickInputButtonLocation.Inline : undefined;
+	switch (status) {
+		case 'eligible':
+			return {
+				iconPath: new ThemeIcon('circle-outline'),
+				tooltip: l10n.t('Preview: Eligible'),
+				location: inline,
+			};
+		case 'active':
+			return { iconPath: new ThemeIcon('circle-filled'), tooltip: l10n.t('Preview: Active'), location: inline };
+		case 'expired':
+			return { iconPath: new ThemeIcon('circle-slash'), tooltip: l10n.t('Preview: Expired'), location: inline };
+		default:
+			return { iconPath: new ThemeIcon('history'), tooltip: l10n.t('Simulate Graph Preview'), location: inline };
+	}
+}
+
+/** Cycles the Graph preview override independently of the picked subscription state, so account states
+ *  can be combined with a preview record (e.g. a no-pro account that still holds an active preview). */
+function nextSimulatedPreview(current: SimulatedPreviewStatus | undefined): SimulatedPreviewStatus | undefined {
+	switch (current) {
+		case undefined:
+			return 'eligible';
+		case 'eligible':
+			return 'active';
+		case 'active':
+			return 'expired';
+		default:
+			return undefined;
+	}
+}
+
+function getItemFeaturePreviews(item: SimulationState | undefined): SimulatedFeaturePreviews | undefined {
+	return item?.state === SubscriptionState.Community ? item.featurePreviews : undefined;
+}
+
 class AccountDebug {
 	private simulatingPick: SimulateQuickPickItem | undefined;
 	/** Tracks direct (non-quickpick) simulation too, which never sets `simulatingPick` */
 	private simulating: SimulationState | undefined;
 	private simulatedVisibility: RepositoryVisibility | undefined;
+	private simulatedPreview: SimulatedPreviewStatus | undefined;
 	private onboardingSnapshot: OnboardingSnapshot | undefined;
 
 	constructor(
@@ -377,17 +417,29 @@ class AccountDebug {
 						quickpick.items = items;
 						quickpick.activeItems = picked ? [picked] : [];
 					}),
-					quickpick.onDidTriggerButton(() => {
-						this.simulatedVisibility = nextSimulatedVisibility(this.simulatedVisibility);
-						setSimulatedRepoVisibility(this.simulatedVisibility);
+					quickpick.onDidTriggerButton(button => {
+						// Buttons are a fixed pair rebuilt on each change; the preview toggle is the second
+						if (button === quickpick.buttons[1]) {
+							this.simulatedPreview = nextSimulatedPreview(this.simulatedPreview);
+							this.applyPreviewOverride(getItemFeaturePreviews(this.simulatingPick?.item));
+						} else {
+							this.simulatedVisibility = nextSimulatedVisibility(this.simulatedVisibility);
+							setSimulatedRepoVisibility(this.simulatedVisibility);
+						}
 						this.service.refireSubscriptionChange();
-						quickpick.buttons = [getVisibilityButton(this.simulatedVisibility)];
+						quickpick.buttons = [
+							getVisibilityButton(this.simulatedVisibility),
+							getPreviewButton(this.simulatedPreview),
+						];
 					}),
 				);
 
 				quickpick.title = l10n.t('Subscription Simulator');
 				quickpick.placeholder = l10n.t('Choose the subscription state to simulate');
-				quickpick.buttons = [getVisibilityButton(this.simulatedVisibility)];
+				quickpick.buttons = [
+					getVisibilityButton(this.simulatedVisibility),
+					getPreviewButton(this.simulatedPreview),
+				];
 
 				const [items, picked] = getItemsAndPicked(this.simulatingPick);
 				quickpick.items = items;
@@ -401,10 +453,26 @@ class AccountDebug {
 		}
 	}
 
+	/** Applies the effective Graph preview override: the independent toggle wins over the picked item's
+	 *  own `featurePreviews` (so e.g. a no-pro account can carry a simulated active preview); when neither
+	 *  is set, the real stored preview is restored. */
+	private applyPreviewOverride(itemFeaturePreviews: SimulatedFeaturePreviews | undefined): void {
+		const preview =
+			this.simulatedPreview != null
+				? { status: this.simulatedPreview, durationSeconds: 30 }
+				: itemFeaturePreviews;
+		if (preview != null) {
+			this.service.overrideFeaturePreviews(preview);
+		} else {
+			this.service.restoreFeaturePreviews();
+		}
+	}
+
 	private endSimulation() {
 		this.simulatingPick = undefined;
 		this.simulating = undefined;
 		this.simulatedVisibility = undefined;
+		this.simulatedPreview = undefined;
 		setSimulatedRepoVisibility(undefined);
 
 		this.service.restoreFeaturePreviews();
@@ -437,18 +505,17 @@ class AccountDebug {
 		switch (state) {
 			case SubscriptionState.Community:
 				this.service.overrideSession(null);
-				if (featurePreviews != null) {
-					this.service.overrideFeaturePreviews(featurePreviews);
-				} else {
-					this.service.restoreFeaturePreviews();
-				}
+				this.applyPreviewOverride(featurePreviews);
 
 				this.service.changeSubscription(undefined, undefined, { store: false });
 
 				return true;
 		}
 
-		this.service.restoreFeaturePreviews();
+		// Account states don't carry their own preview, but the independent toggle still applies — lets a
+		// no-pro/trial/paid account be combined with a simulated preview record (the signed-out → sign-in
+		// transition)
+		this.applyPreviewOverride(undefined);
 		this.service.restoreSession();
 
 		const subscription = this.service.getStoredSubscription();
