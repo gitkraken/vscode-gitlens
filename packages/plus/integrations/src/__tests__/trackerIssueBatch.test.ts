@@ -323,6 +323,63 @@ suite('IntegrationManager.getIssuesBatch — tracker targets (#5810)', () => {
 		manager.dispose();
 	});
 
+	test("reads Linear's own answer for a missing issue, through the real provider path, as a proven absence", async () => {
+		// Linear answers an identifier it can't resolve with HTTP 200 and this single GraphQL error.
+		const runtime = createFakeRuntime();
+		runtime.http.fetch = () =>
+			Promise.resolve(
+				jsonResponse(200, {
+					errors: [
+						{
+							message: 'Entity not found: Issue',
+							path: ['issue'],
+							extensions: {
+								type: 'invalid input',
+								code: 'INPUT_ERROR',
+								statusCode: 400,
+								userError: true,
+							},
+						},
+					],
+					data: null,
+				}),
+			);
+		const { manager } = await connectedTracker(runtime, IssuesCloudHostIntegrationId.Linear);
+
+		const result = await manager.getIssuesBatch({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			targets: [{ key: 'ENG-404', resourceId: 'workspace-1', identifier: 'ENG-404' }],
+		});
+
+		assert.deepEqual(result.items, [{ key: 'ENG-404' }]);
+		assert.deepEqual(result.warnings, []);
+		assert.equal(result.fetchFailed, undefined);
+
+		manager.dispose();
+	});
+
+	test('reads a missing-issue error that arrives with any other Linear error as a failure, never an absence', async () => {
+		const runtime = createFakeRuntime();
+		runtime.http.fetch = () =>
+			Promise.resolve(
+				jsonResponse(200, {
+					errors: [{ message: 'Entity not found: Issue' }, { message: 'Something else went wrong' }],
+					data: null,
+				}),
+			);
+		const { manager } = await connectedTracker(runtime, IssuesCloudHostIntegrationId.Linear);
+
+		const result = await manager.getIssuesBatch({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			targets: [{ key: 'ENG-404', resourceId: 'workspace-1', identifier: 'ENG-404' }],
+		});
+
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+
+		manager.dispose();
+	});
+
 	test('normalizes the Linear SDK missing-issue error into a proven absence', async () => {
 		const { manager } = await connectedTracker(createFakeRuntime(), IssuesCloudHostIntegrationId.Linear);
 		await stubLinearGetIssueFn(manager, () => Promise.reject(new Error('Linear issue not found: ENG-404')));
