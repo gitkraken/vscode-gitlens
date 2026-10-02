@@ -5,9 +5,12 @@ import type {
 	CollectionScopeFailure,
 } from '@gitkraken/provider-apis';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import { chunk } from '@gitlens/utils/array.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
+import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import { throwIfCallerContractError, toCollectionScopeFailure } from '../../collectionMetadata.js';
+import { providerFanOutConcurrency } from '../../constants.js';
 import { collectionScopeKey } from '../../results.js';
 import type { ProviderApiPagedResult, ProviderHierarchyResult } from '../models.js';
 
@@ -122,6 +125,60 @@ export async function resolveBranchPullRequests(
 			},
 		};
 	});
+}
+
+/**
+ * Runs a cheap etag read over `coordinates` with one request per repository and chunk of `chunkSize` numbers, with
+ * bounded concurrency, and maps the answers back to the coordinates positionally (`read` answers one entry per
+ * number, in order, `undefined` for a proven absence). Settled per target: a request that throws rejects only its
+ * own slots, and a slot whose conversion throws rejects only itself.
+ */
+export async function readEtagFieldsByRepository<Node, Fields>(
+	coordinates: readonly { owner: string; repo: string; number: number }[],
+	chunkSize: number,
+	read: (owner: string, repo: string, numbers: number[]) => Promise<(Node | undefined)[]>,
+	map: (node: Node) => Fields,
+): Promise<PromiseSettledResult<Fields | undefined>[]> {
+	const byRepository = new Map<string, number[]>();
+	for (const [index, c] of coordinates.entries()) {
+		const key = `${c.owner}/${c.repo}`;
+		let indices = byRepository.get(key);
+		if (indices == null) {
+			indices = [];
+			byRepository.set(key, indices);
+		}
+		indices.push(index);
+	}
+
+	const requests = [...byRepository.values()].flatMap(indices =>
+		chunk(indices, chunkSize).map(chunkIndices => ({ indices: chunkIndices })),
+	);
+	const answers = await mapSettledBounded(requests, providerFanOutConcurrency, r => {
+		const { owner, repo } = coordinates[r.indices[0]];
+		return read(
+			owner,
+			repo,
+			r.indices.map(i => coordinates[i].number),
+		);
+	});
+
+	const slots = new Array<PromiseSettledResult<Fields | undefined>>(coordinates.length);
+	for (const [i, answer] of answers.entries()) {
+		for (const [j, index] of requests[i].indices.entries()) {
+			if (answer.status === 'rejected') {
+				slots[index] = answer;
+				continue;
+			}
+
+			const node = answer.value[j];
+			try {
+				slots[index] = { status: 'fulfilled', value: node != null ? map(node) : undefined };
+			} catch (ex) {
+				slots[index] = { status: 'rejected', reason: ex };
+			}
+		}
+	}
+	return slots;
 }
 
 export function flatSettledResultsOrThrow<T>(results: PromiseSettledResult<T[]>[]): T[] {

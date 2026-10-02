@@ -14,7 +14,6 @@ import type {
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
-import { chunk } from '@gitlens/utils/array.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
@@ -67,6 +66,7 @@ import type { ProvidersApi } from './providersApi.js';
 import {
 	collectProviderPagedResult,
 	mergeCollectionMetadata,
+	readEtagFieldsByRepository,
 	resolveBranchPullRequests,
 } from './utils/providerPaging.js';
 
@@ -124,57 +124,6 @@ export type GitLabRepositoryDescriptor = RepositoryDescriptor;
 
 /** How many SSH signing-key lookups (account resolve + keys fetch) to run concurrently, to avoid a request burst. */
 const sshSigningKeyResolveBatchSize = 10;
-
-/**
- * Runs an etag read over `coordinates` with one request per project and chunk of `chunkSize` iids, with bounded
- * concurrency, and maps the answers back to the coordinates positionally. Settled per target: a
- * request that throws rejects only its own slots, and a slot whose conversion throws rejects only itself.
- */
-async function readEtagFieldsByProject<Node, Fields>(
-	coordinates: readonly { owner: string; repo: string; number: number }[],
-	chunkSize: number,
-	read: (fullPath: string, iids: number[]) => Promise<(Node | undefined)[]>,
-	map: (node: Node) => Fields,
-): Promise<PromiseSettledResult<Fields | undefined>[]> {
-	const byProject = new Map<string, number[]>();
-	for (const [index, c] of coordinates.entries()) {
-		const fullPath = `${c.owner}/${c.repo}`;
-		let indices = byProject.get(fullPath);
-		if (indices == null) {
-			indices = [];
-			byProject.set(fullPath, indices);
-		}
-		indices.push(index);
-	}
-
-	const requests = [...byProject].flatMap(([fullPath, indices]) =>
-		chunk(indices, chunkSize).map(chunkIndices => ({ fullPath: fullPath, indices: chunkIndices })),
-	);
-	const answers = await mapSettledBounded(requests, providerFanOutConcurrency, r =>
-		read(
-			r.fullPath,
-			r.indices.map(i => coordinates[i].number),
-		),
-	);
-
-	const slots = new Array<PromiseSettledResult<Fields | undefined>>(coordinates.length);
-	for (const [i, answer] of answers.entries()) {
-		for (const [j, index] of requests[i].indices.entries()) {
-			if (answer.status === 'rejected') {
-				slots[index] = answer;
-				continue;
-			}
-
-			const node = answer.value[j];
-			try {
-				slots[index] = { status: 'fulfilled', value: node != null ? map(node) : undefined };
-			} catch (ex) {
-				slots[index] = { status: 'rejected', reason: ex };
-			}
-		}
-	}
-	return slots;
-}
 
 abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends GitHostIntegration<
 	ID,
@@ -514,14 +463,14 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		// The host and protocol the full read's confirming read asks.
 		const baseUrl = this.apiBaseUrlFor(session);
 
-		return readEtagFieldsByProject(
+		return readEtagFieldsByRepository(
 			coordinates,
 			gitLabEtagFieldsMaxIids,
-			(fullPath, iids) =>
+			(owner, repo, iids) =>
 				gitlab.getIssuesEtagFields(
 					this,
 					tokenWithInfo,
-					fullPath,
+					`${owner}/${repo}`,
 					iids,
 					{ baseUrl: baseUrl, deferFailure: true },
 					cancellation,
@@ -550,14 +499,14 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		const baseUrl = this.apiBaseUrlFor(session);
 		const etagIncludes = options.etagIncludes ?? [];
 
-		return readEtagFieldsByProject(
+		return readEtagFieldsByRepository(
 			coordinates,
 			etagIncludes.includes('checks') ? gitLabEtagFieldsWithChecksMaxIids : gitLabEtagFieldsMaxIids,
-			(fullPath, iids) =>
+			(owner, repo, iids) =>
 				gitlab.getMergeRequestsEtagFields(
 					this,
 					tokenWithInfo,
-					fullPath,
+					`${owner}/${repo}`,
 					iids,
 					{ baseUrl: baseUrl, etagIncludes: etagIncludes, deferFailure: true },
 					cancellation,

@@ -1941,13 +1941,14 @@ suite('IntegrationManager.getPullRequestsBatch etags', () => {
 	});
 
 	test('a host with no cheap check makes one full call, etags and all', async () => {
-		const { manager, integration } = await connectedBitbucket(createFakeRuntime());
+		const { manager, integration } = await connectedBitbucketServer(createFakeRuntime());
 		stubCurrentAccount(integration, 'me');
 		assert.equal(integration.supportsPullRequestEtags, false);
 		const full = stubFullReads(integration);
 
 		const result = await manager.getPullRequestsBatch({
-			providerId: GitCloudHostIntegrationId.Bitbucket,
+			providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+			domain: 'bbs.example.com',
 			targets: [
 				{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
 				{ key: 'b', owner: 'o', repo: 'r', number: 2 },
