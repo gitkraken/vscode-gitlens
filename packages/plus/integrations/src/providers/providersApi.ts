@@ -31,7 +31,8 @@ import {
 	countBitbucketServerPullRequests,
 	searchBitbucketServerPullRequestsPage,
 } from './bitbucket-server/pullRequestSearch.js';
-import { requestJiraIssueByKey } from './jiraIssueByKey.js';
+import type { JiraIssueEtagResponse } from './jiraIssueByKey.js';
+import { requestJiraIssueByKey, requestJiraIssuesEtagFields } from './jiraIssueByKey.js';
 import type {
 	GetIssueFn,
 	GetIssuesForReposFn,
@@ -2317,6 +2318,24 @@ export class ProvidersApi {
 			if (status === 404) return undefined;
 
 			return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
+		}
+	}
+
+	/**
+	 * The change state of up to `jiraBulkFetchMaxKeys` issues of one Jira Cloud site, in one bulk fetch. Unlike
+	 * {@link getJiraIssueByKey}, a 404 is a failure: it names a wrong site or endpoint, never an absent issue.
+	 */
+	async getJiraIssuesEtagFields(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Jira>,
+		resourceId: string,
+		keys: readonly string[],
+	): Promise<{ issues: JiraIssueEtagResponse[]; errorCount: number }> {
+		const { tokenWithInfo } = await this.ensureProviderToken(tokenOptInfo);
+
+		try {
+			return await requestJiraIssuesEtagFields(this.request, tokenWithInfo.accessToken, resourceId, keys);
+		} catch (e) {
+			return this.handleProviderError<{ issues: JiraIssueEtagResponse[]; errorCount: number }>(tokenWithInfo, e);
 		}
 	}
 

@@ -4,14 +4,14 @@ import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { githubGraphQLInt32Max, isAzureProviderId, isGitHubProviderId } from '../providers/providerErrors.js';
 import type { ProviderResult, ProviderWarning } from '../results.js';
-import { appendDedupedWarning } from '../results.js';
 import { areDomainsOnSameHost, hostFromDomain } from '../utils/domain.utils.js';
 import {
 	isGitHostIntegration,
 	isIssuesHostIntegrationId,
 	isIssuesSelfManagedHostIntegrationId,
 } from '../utils/integration.utils.js';
-import { appendBatchSlotWarning, readEtaggedBatch } from './batchEtags.js';
+import type { EtaggedBatchRow } from './batchEtags.js';
+import { readEtaggedBatch } from './batchEtags.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
 import { issueEtag, issueEtagFieldsFromShape } from './etag.js';
@@ -46,9 +46,10 @@ import {
  * bounded concurrency on GitLab and Azure DevOps and on the trackers) and settles each independently, so failing
  * targets spend at most one strike of the integration's failure budget.
  *
- * With etags, up to THREE on a git host with a cheap check (GitHub/GHE and GitLab): the cheap check of the targets that
- * carry one, a full read of the rest started alongside it, and a full read of the targets whose etag no longer
- * matches — see `readEtaggedBatch`. Every other host, and every tracker, still makes one call and etags its rows.
+ * With etags, up to THREE on a host with a cheap check (GitHub/GHE and GitLab; Jira Cloud among the trackers): the
+ * cheap check of the targets that carry one, a full read of the rest started alongside it, and a full read of the
+ * targets whose etag no longer matches — see `readEtaggedBatch`. Every other host and tracker still makes one call and
+ * etags its rows.
  */
 
 /** One issue to resolve, echoed back under the caller's own `key`. Which form a call takes depends on its provider. */
@@ -85,8 +86,8 @@ export type IssueBatchTarget =
 			resourceUrl?: string;
 			identifier: string;
 			/**
-			 * The {@link IssueBatchResult.etag} of the copy the caller holds. Accepted, but no tracker has a cheap
-			 * check yet, so the issue is read in full.
+			 * The {@link IssueBatchResult.etag} of the copy the caller holds. Checked cheaply on Jira Cloud; every
+			 * other tracker accepts it but reads the issue in full.
 			 */
 			etag?: string;
 	  };
@@ -247,23 +248,15 @@ export async function getIssuesBatch(
 			),
 	});
 
-	return {
-		items: result.items.map(row => ({
-			key: row.key,
-			...(row.value != null ? { issue: row.value } : {}),
-			...(row.unchanged ? { unchanged: true as const } : {}),
-			...(row.etag != null ? { etag: row.etag } : {}),
-		})),
-		warnings: result.warnings,
-		fetchFailed: result.fetchFailed,
-	};
+	return toIssueBatchResult(result);
 }
 
 /**
- * The tracker form. ONE integration call per invocation, whatever the target count: the integration makes one
- * single-issue request per target, with bounded concurrency, and settles each independently — see
- * `IssuesIntegration.getIssuesByResourceIdBatchResult`. No tracker has a cheap check yet, so a target's `etag` is
- * ignored and every found row is read in full and etagged.
+ * The tracker form. ONE integration call per invocation when no target carries an `etag`, whatever the target count:
+ * the integration makes one single-issue request per target, with bounded concurrency, and settles each independently
+ * — see `IssuesIntegration.getIssuesByResourceIdBatchResult`. With etags, a tracker with a cheap check (Jira Cloud's
+ * bulk fetch) takes the coordinate form's `readEtaggedBatch` flow; every other tracker ignores a target's `etag` and
+ * reads and etags every found row in full.
  *
  * `resourceId` is trusted and the read does no resource discovery. It is handed to the provider's by-resource-id
  * read as-is, never wrapped into a synthesized descriptor: Linear and Trello answer `undefined` for a descriptor
@@ -357,56 +350,56 @@ async function getIssuesBatchForTracker(
 	}
 
 	const resolvedDomain = ctx.domainForRead(integration, providerId, connectionId, domain);
-	const warnings: ProviderWarning[] = [];
-	let fetchFailed = false;
 
-	const { value: slots, warning } = await runCaptured(
-		providerId,
-		resolvedDomain,
-		connectionId,
-		() =>
-			integration.getIssuesByResourceIdBatchResult(
-				trimmedTargets.map(t => ({
-					resourceId: t.resourceId,
-					identifier: t.identifier,
-					resourceUrl: t.resourceUrl,
-				})),
+	const toResourceTarget = (t: TrackerTarget) => ({
+		resourceId: t.resourceId,
+		identifier: t.identifier,
+		resourceUrl: t.resourceUrl,
+	});
+	const result = await readEtaggedBatch({
+		providerId: providerId,
+		domain: resolvedDomain,
+		connectionId: connectionId,
+		targets: trimmedTargets,
+		supportsEtags: integration.supportsIssueEtagsByResourceId,
+		readFull: batch =>
+			runCaptured(
+				providerId,
+				resolvedDomain,
 				connectionId,
+				() => integration.getIssuesByResourceIdBatchResult(batch.map(toResourceTarget), connectionId),
+				// The read core answers `undefined` when it cannot resolve a session. That must surface as a connection
+				// warning, including on the primary path, rather than as nothing — or worse, be read as absence.
+				{ warnOnMissingSession: true },
 			),
-		// The read core answers `undefined` when it cannot resolve a session. That must surface as a connection
-		// warning, including on the primary path, rather than as nothing — or worse, be read as absence.
-		{ warnOnMissingSession: true },
-	);
-	if (warning != null) {
-		appendDedupedWarning(warnings, warning);
-	}
+		readEtagFields: batch =>
+			runCaptured(
+				providerId,
+				resolvedDomain,
+				connectionId,
+				() => integration.getIssuesEtagFieldsByResourceIdBatchResult(batch.map(toResourceTarget), connectionId),
+				{ warnOnMissingSession: true },
+			),
+		itemEtag: issue => issueEtag(issueEtagFieldsFromShape(issue)),
+		fieldsEtag: issueEtag,
+		unsupportedWarning: unsupported,
+	});
 
-	if (slots == null) {
-		// Dropped, never reported absent: "unknown" and "proven absent" must stay distinguishable.
-		if (warning == null) {
-			appendDedupedWarning(warnings, unsupported());
-		}
-		return { items: [], warnings: warnings, fetchFailed: true };
-	}
+	return toIssueBatchResult(result);
+}
 
-	const items: IssueBatchResult[] = [];
-	for (let i = 0; i < trimmedTargets.length; i++) {
-		const slot = slots[i];
-		if (slot.status === 'rejected') {
-			// Dropped, never reported absent, like a whole-call failure.
-			appendBatchSlotWarning(warnings, providerId, resolvedDomain, connectionId, slot);
-			fetchFailed = true;
-			continue;
-		}
-
-		const issue = slot.value;
-		items.push({
-			key: trimmedTargets[i].key,
-			...(issue != null ? { issue: issue, etag: issueEtag(issueEtagFieldsFromShape(issue)) } : {}),
-		});
-	}
-
-	return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
+/** The etag flow's rows as this read's results, under the `issue` name the result type gives the item. */
+function toIssueBatchResult(result: ProviderResult<EtaggedBatchRow<IssueShape>>): ProviderResult<IssueBatchResult> {
+	return {
+		items: result.items.map(row => ({
+			key: row.key,
+			...(row.value != null ? { issue: row.value } : {}),
+			...(row.unchanged ? { unchanged: true as const } : {}),
+			...(row.etag != null ? { etag: row.etag } : {}),
+		})),
+		warnings: result.warnings,
+		fetchFailed: result.fetchFailed,
+	};
 }
 
 function isCoordinateTarget(target: IssueBatchTarget): target is CoordinateTarget {

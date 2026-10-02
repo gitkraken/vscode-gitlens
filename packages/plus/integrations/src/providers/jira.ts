@@ -5,13 +5,16 @@ import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/m
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { IssueResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { chunk } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import type { ProviderRefusal } from '../collectionMetadata.js';
 import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
-import { IssuesCloudHostIntegrationId } from '../constants.js';
+import { IssuesCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import type { IssueEtagFields } from '../models/integration.js';
 import type {
 	AccountWideIssuesResult,
 	IssuesForProjectOptions,
@@ -19,6 +22,8 @@ import type {
 	SearchMyIssuesOptions,
 } from '../models/issueReads.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
+import type { JiraIssueEtagResponse } from './jiraIssueByKey.js';
+import { jiraBulkFetchMaxKeys, toJiraIssueEtagFields } from './jiraIssueByKey.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { IssueFilter, providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
 import { isJiraMissingProjectError } from './providerErrors.js';
@@ -28,6 +33,8 @@ import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/pro
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Jira];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 const maxPagesPerRequest = 10;
+/** A numeric issue id, which Jira's issue reads accept in place of a key. */
+const numericIssueId = /^\d+$/;
 
 type JiraProjectIssuesDrain<T> = {
 	issues: T[];
@@ -666,6 +673,119 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		const apiResult = await api.getJiraIssueByKey(toTokenWithInfo(this.id, session), resourceId, resourceUrl, id);
 		const issue = apiResult != null ? toIssueShape(apiResult, this, { reliableStateCategory: true }) : undefined;
 		return issue != null ? { ...issue, type: 'issue' } : undefined;
+	}
+
+	/**
+	 * The cheap check behind the batch issue read's etags: one bulk fetch per site and {@link jiraBulkFetchMaxKeys}
+	 * distinct keys, where {@link getProviderIssueByResourceId} sends one request per issue. A request that throws
+	 * rejects only its own targets' slots, with its error classified as the full read's would be.
+	 *
+	 * A target identified by a numeric issue id, which both reads accept as well as a key, is matched by the returned
+	 * issue's `id`; every other target by its key.
+	 *
+	 * Never proves an absence. Jira silently omits a key it can't find or show (listing it in no `issueErrors` either),
+	 * and answers a moved issue under its new key, which no longer matches the key asked for. Either way the target's
+	 * slot is rejected, so the full read, whose 404 does prove an absence, decides. When no target was answered and
+	 * nothing failed, the check declines instead, so a batch of only such keys costs a full read, not a failure.
+	 */
+	protected override async getProviderIssuesEtagFieldsByResourceId(
+		session: ProviderAuthenticationSession,
+		targets: readonly { resourceId: string; identifier: string; resourceUrl?: string }[],
+	): Promise<PromiseSettledResult<IssueEtagFields | undefined>[] | undefined> {
+		const slots = new Array<PromiseSettledResult<IssueEtagFields | undefined>>(targets.length);
+		let answered = false;
+		let failed = false;
+
+		// Each site's distinct keys, matched case-insensitively as Jira matches them, with the targets asking for each.
+		const bySite = new Map<string, Map<string, number[]>>();
+		for (const [index, target] of targets.entries()) {
+			if (target.resourceUrl == null) {
+				// Required as the full read requires it, so a check never answers for a target the full read refuses.
+				slots[index] = {
+					status: 'rejected',
+					reason: new Error('Jira direct issue reads require a resource URL'),
+				};
+				failed = true;
+				continue;
+			}
+
+			let keys = bySite.get(target.resourceId);
+			if (keys == null) {
+				keys = new Map();
+				bySite.set(target.resourceId, keys);
+			}
+
+			const key = target.identifier.toUpperCase();
+			let indices = keys.get(key);
+			if (indices == null) {
+				indices = [];
+				keys.set(key, indices);
+			}
+			indices.push(index);
+		}
+
+		const requests = [...bySite].flatMap(([resourceId, keys]) =>
+			chunk([...keys], jiraBulkFetchMaxKeys).map(entries => ({ resourceId: resourceId, entries: entries })),
+		);
+		if (!requests.length) return slots;
+
+		const api = await this.getProvidersApi();
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+		const answers = await mapSettledBounded(requests, providerFanOutConcurrency, r =>
+			api.getJiraIssuesEtagFields(
+				tokenWithInfo,
+				r.resourceId,
+				r.entries.map(([key]) => key),
+			),
+		);
+
+		for (const [i, answer] of answers.entries()) {
+			const { entries } = requests[i];
+			if (answer.status === 'rejected') {
+				failed = true;
+				for (const [, indices] of entries) {
+					for (const index of indices) {
+						slots[index] = answer;
+					}
+				}
+				continue;
+			}
+
+			if (answer.value.errorCount > 0) {
+				failed = true;
+			}
+
+			// By key or id, never by position: Jira returns the issues in its own order, and only the ones it found.
+			const byKey = new Map<string, JiraIssueEtagResponse>();
+			const byId = new Map<string, JiraIssueEtagResponse>();
+			for (const issue of answer.value.issues) {
+				byKey.set(issue.key.toUpperCase(), issue);
+				byId.set(issue.id, issue);
+			}
+
+			for (const [key, indices] of entries) {
+				// A key target never matches by id, so an issue returned under a different key (moved) is rejected.
+				const issue = numericIssueId.test(key) ? byId.get(key) : byKey.get(key);
+				let slot: PromiseSettledResult<IssueEtagFields | undefined>;
+				if (issue == null) {
+					slot = { status: 'rejected', reason: new Error(`Jira bulk fetch did not return ${key}`) };
+				} else {
+					try {
+						slot = { status: 'fulfilled', value: toJiraIssueEtagFields(issue) };
+						answered = true;
+					} catch (ex) {
+						slot = { status: 'rejected', reason: ex };
+						failed = true;
+					}
+				}
+
+				for (const index of indices) {
+					slots[index] = slot;
+				}
+			}
+		}
+
+		return answered || failed ? slots : undefined;
 	}
 
 	protected override async providerOnConnect(): Promise<void> {
