@@ -66,10 +66,13 @@ import type {
 	BatchSlot,
 	IntegrationResult,
 	IntegrationType,
+	IssueEtagFields,
 	ProviderIssueSearchPage,
 	ProviderPullRequestCount,
 	ProviderPullRequestSearchPage,
 	ProviderSearchCount,
+	PullRequestEtagFields,
+	PullRequestEtagInclude,
 } from './integration.js';
 import { IntegrationBase } from './integration.js';
 import type { MyIssuesForReposOptions } from './issueReads.js';
@@ -437,6 +440,20 @@ export abstract class GitHostIntegration<
 	 */
 	get supportsIssues(): boolean {
 		return true;
+	}
+
+	/**
+	 * Whether this host has the cheap check behind the batch pull request read's etags
+	 * ({@link getProviderPullRequestsEtagFields}). The read decides before calling anything, so a host without one
+	 * full-reads every target in a single call.
+	 */
+	get supportsPullRequestEtags(): boolean {
+		return this.getProviderPullRequestsEtagFields != null;
+	}
+
+	/** The issue twin of {@link supportsPullRequestEtags}: whether {@link getProviderIssuesEtagFields} exists. */
+	get supportsIssueEtags(): boolean {
+		return this.getProviderIssuesEtagFields != null;
 	}
 
 	/**
@@ -1905,7 +1922,10 @@ export abstract class GitHostIntegration<
 	 * as a failure against the integration's request-exception budget only when EVERY slot rejected, and not even
 	 * then when a credential that checks out was refused by each target's own scope (`settleBatchRefusals`).
 	 * Server errors and timeouts on the targets show one notice however many hit one, and cost a strike only as
-	 * part of that whole-call failure (`reportDeferredRequestFailures`), so a call never spends more than one.
+	 * part of that whole-call failure (`reportDeferredRequestFailures`), so a call spends at most one. A batch read
+	 * with etags makes up to two such calls (a full read of the targets without an etag, and a full read of the ones
+	 * that changed), so it can spend two; its cheap check ({@link getIssuesEtagFieldsResult}) spends nothing unless
+	 * the credential is refused.
 	 */
 	async getIssuesBatchResult(
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
@@ -1968,7 +1988,10 @@ export abstract class GitHostIntegration<
 	 * call counts as a failure against the integration's request-exception budget only when EVERY slot rejected,
 	 * and not even then when a credential that checks out was refused by each target's own scope
 	 * (`settleBatchRefusals`). Server errors and timeouts on the targets show one notice however many hit one, and
-	 * cost a strike only as part of that whole-call failure (`reportDeferredRequestFailures`).
+	 * cost a strike only as part of that whole-call failure (`reportDeferredRequestFailures`), so one call spends at
+	 * most one. A batch read with etags makes up to two such calls (a full read of the targets without an etag, and a
+	 * full read of the ones that changed), so it can spend two; its cheap check
+	 * ({@link getPullRequestsEtagFieldsResult}) spends nothing unless the credential is refused.
 	 */
 	async getPullRequestsBatchResult(
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
@@ -2021,6 +2044,111 @@ export abstract class GitHostIntegration<
 		options: { currentAccount?: { id: string; username?: string } } | undefined,
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined>;
+
+	/**
+	 * Result-returning wrapper for the cheap check behind the batch issue read's etags: each coordinate's change
+	 * state ({@link IssueEtagFields}), in ONE call to {@link getProviderIssuesEtagFields}. The slots mean what
+	 * {@link getIssuesBatchResult}'s do — `fulfilled` with `undefined` is a PROVEN ABSENCE, `rejected` means that
+	 * target could not be checked.
+	 *
+	 * Unlike there, failures other than a refused credential are never the call's: every slot comes back as it
+	 * settled, even when none answered, so each failed target is judged by its own reason. Such failures spend no
+	 * strike and show no notice, since the targets they touch fall through to the full read, which does both if the
+	 * host really is failing, or are dropped as rate-limited or without a connection. Refusals are settled as there
+	 * (`settleBatchRefusals` with `keepOtherFailures`), and only a refused credential fails the call, on the auth path
+	 * (`handleEtagCheckException`). The failure budget is reset only when some target answered.
+	 */
+	async getIssuesEtagFieldsResult(
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<BatchSlot<IssueEtagFields | undefined>[] | undefined>> {
+		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		const start = performance.now();
+		try {
+			const slots = await this.getProviderIssuesEtagFields?.(session, coordinates, cancellation);
+			if (slots == null) return { value: undefined, duration: performance.now() - start };
+
+			const settled = await this.settleBatchRefusals(session, coordinates, slots, { keepOtherFailures: true });
+
+			if (slots.some(slot => slot.status === 'fulfilled')) {
+				this.resetRequestExceptionCount('getIssuesEtagFields');
+			}
+			return { value: settled, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleEtagCheckException('getIssuesEtagFields', ex, { scope: scope, connectionId: connectionId });
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	/**
+	 * OPTIONAL: the cheap check behind the batch issue read's etags — one settled slot per input coordinate, in
+	 * order, holding the issue's change state in the vocabulary {@link getProviderIssuesBatch}'s rows end in, so
+	 * both reads compute the same etag. `fulfilled` with `undefined` is a PROVEN ABSENCE, as there. A host
+	 * implements this only where it is cheaper than the full read.
+	 */
+	protected getProviderIssuesEtagFields?(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<IssueEtagFields | undefined>[] | undefined>;
+
+	/**
+	 * Result-returning wrapper for the cheap check behind the batch pull request read's etags: each coordinate's
+	 * change state ({@link PullRequestEtagFields}), plus the inputs of each of `options.etagIncludes`, in ONE call to
+	 * {@link getProviderPullRequestsEtagFields}. The slots mean what {@link getPullRequestsBatchResult}'s do —
+	 * `fulfilled` with `undefined` is a PROVEN ABSENCE, `rejected` means that target could not be checked. Failures
+	 * are judged and budgeted as in {@link getIssuesEtagFieldsResult}: only a refused credential fails the call or
+	 * spends a strike.
+	 */
+	async getPullRequestsEtagFieldsResult(
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { etagIncludes?: readonly PullRequestEtagInclude[] },
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<BatchSlot<PullRequestEtagFields | undefined>[] | undefined>> {
+		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		const start = performance.now();
+		try {
+			const slots = await this.getProviderPullRequestsEtagFields?.(session, coordinates, options, cancellation);
+			if (slots == null) return { value: undefined, duration: performance.now() - start };
+
+			const settled = await this.settleBatchRefusals(session, coordinates, slots, { keepOtherFailures: true });
+
+			if (slots.some(slot => slot.status === 'fulfilled')) {
+				this.resetRequestExceptionCount('getPullRequestsEtagFields');
+			}
+			return { value: settled, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleEtagCheckException('getPullRequestsEtagFields', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	/**
+	 * OPTIONAL: the cheap check behind the batch pull request read's etags — one settled slot per input coordinate,
+	 * in order, holding the pull request's change state in the vocabulary {@link getProviderPullRequestsBatch}'s
+	 * rows end in, after their WHOLE conversion chain, so both reads compute the same etag. Each include's inputs are
+	 * read only when it is listed in `options.etagIncludes`. `fulfilled` with `undefined` is a PROVEN ABSENCE, as
+	 * there. A host implements this only where it is cheaper than the full read.
+	 */
+	protected getProviderPullRequestsEtagFields?(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { etagIncludes?: readonly PullRequestEtagInclude[] },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestEtagFields | undefined>[] | undefined>;
 
 	/**
 	 * Result-returning wrapper for the pull-requests-by-branch read: for each target, every pull request whose head

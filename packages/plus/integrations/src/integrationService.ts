@@ -64,6 +64,7 @@ import type {
 	IntegrationById,
 	IntegrationKey,
 	IntegrationResult,
+	PullRequestEtagInclude,
 } from './models/integration.js';
 import type { IssuesIntegration } from './models/issuesIntegration.js';
 import type { ApiClients } from './providers/apiClients.js';
@@ -1293,6 +1294,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		 * it must come from the trusted authentication configuration, not repository or remote data.
 		 */
 		domain?: string;
+		/** Widens every etag to the listed inputs; see {@link IntegrationManager.getPullRequestsBatch}. */
+		etagIncludes?: readonly PullRequestEtagInclude[];
 	}): Promise<ProviderResult<PullRequestBatchResult>> {
 		return getPullRequestsBatch(this, options);
 	}

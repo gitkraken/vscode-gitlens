@@ -238,6 +238,18 @@ read's own, differently-identified row. The read is uncached and does not go thr
 `IntegrationCacheProvider.getPullRequest`, whose key carries no connection, so the consumer's cache is the only
 one holding the answer.
 
+**Change detection.** Kepler refreshes the pull requests and issues on screen every few minutes, and most refreshes
+find nothing changed, yet each re-read the full GitHub projection (2.6–3.7 s for ~50 pull requests). Both batch
+reads now hand back an opaque `etag` on every fully read row; a target that sends it back is first checked
+cheaply, and comes back `{ key, unchanged: true, etag }` when it still matches, so only what moved is read in full.
+One call still answers everything — known and new targets mix freely — and core alone defines "changed". The cheap
+check exists on GitHub/GHE so far; every other host reads in full and etags the row. `etagIncludes` (any of
+`'mergeable'`, `'reviewDecision'`, `'checks'`) widens the etag to those inputs, which GitHub changes without moving
+`updatedAt`; each costs its own fields in the cheap check, the review decision most. A cheap
+check that fails never answers `unchanged`: it falls through to the full read, or, on an auth, rate-limit or
+connection failure, drops its targets as a failed read does. See
+[`integrations.md` §4](./integrations.md#4-the-reads).
+
 **Pull requests by branch.** `getPullRequestsForBranches` answers "which pull requests have this branch as their
 head, in this repository" with no relationship to the user. Before it, Kepler correlated a local branch by matching
 the account-wide sweep, which holds only pull requests the user authored, is assigned or reviews — so a teammate's

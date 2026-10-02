@@ -7,10 +7,11 @@ import {
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
-import { AuthenticationError, AuthenticationErrorReason } from '../errors.js';
+import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult } from '../models/integration.js';
+import type { IntegrationResult, IssueEtagFields } from '../models/integration.js';
+import { issueEtag } from '../reads/etag.js';
 import { noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
@@ -76,7 +77,8 @@ function getRequestExceptionCount(integration: GitHostIntegration): number {
 	return (integration as unknown as { requestExceptionCount: number }).requestExceptionCount;
 }
 
-const issue = (n: number) => ({ id: `i${n}`, title: `issue ${n}` }) as unknown as IssueShape;
+const issue = (n: number) =>
+	({ id: `i${n}`, title: `issue ${n}`, state: 'opened', updatedDate: new Date(0) }) as unknown as IssueShape;
 
 function found(value: IssueShape | undefined): Slot {
 	return { status: 'fulfilled', value: value };
@@ -1387,6 +1389,343 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 
 			manager.dispose();
 		});
+	});
+});
+
+type EtagSlot = PromiseSettledResult<IssueEtagFields | undefined>;
+type EtagFieldsResultFn = (
+	coordinates: readonly Coordinate[],
+	cancellation?: AbortSignal,
+	connectionId?: string,
+) => Promise<IntegrationResult<EtagSlot[] | undefined>>;
+
+/** Records every full read's target numbers; issue `n` at `version` was updated at `version` seconds. */
+function stubFullReads(integration: GitHostIntegration, version: (n: number) => number = () => 0): number[][] {
+	const calls: number[][] = [];
+	stubBatch(integration, coordinates => {
+		calls.push(coordinates.map(c => c.number));
+		return Promise.resolve({ value: coordinates.map(c => found(versionedIssue(c.number, version(c.number)))) });
+	});
+	return calls;
+}
+
+function stubEtagFieldsResult(
+	integration: GitHostIntegration,
+	answer: (coordinates: readonly Coordinate[]) => Promise<IntegrationResult<EtagSlot[] | undefined>>,
+): number[][] {
+	const calls: number[][] = [];
+	(integration as unknown as { getIssuesEtagFieldsResult: EtagFieldsResultFn }).getIssuesEtagFieldsResult =
+		coordinates => {
+			calls.push(coordinates.map(c => c.number));
+			return answer(coordinates);
+		};
+	return calls;
+}
+
+function versionedIssue(n: number, version: number = 0): IssueShape {
+	return { ...issue(n), updatedDate: new Date(1000 * version) };
+}
+
+/** The issue's number names the target only: an issue etag covers its change state, not its identity. */
+function heldEtag(_n: number, version: number = 0): string {
+	return issueEtag({ state: 'opened', updatedDate: new Date(1000 * version) });
+}
+
+function etagFields(_n: number, version: number = 0): EtagSlot {
+	return { status: 'fulfilled', value: { state: 'opened', updatedDate: new Date(1000 * version) } };
+}
+
+/**
+ * Etags on the coordinate issue batch: the pull-request read's flow (see `pullRequestBatch.test.ts`), pinned again
+ * here because the issue read wires its own cheap check.
+ */
+suite('IntegrationManager.getIssuesBatch etags', () => {
+	test('no etags: one full call and no cheap check, and every found row carries an etag', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const full = stubFullReads(gh);
+		const cheap = stubEtagFieldsResult(gh, () => Promise.reject(new Error('no etag was sent')));
+
+		const result = await manager.getIssuesBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'a', owner: 'o', repo: 'r', number: 1 },
+				{ key: 'b', owner: 'o', repo: 'r', number: 2 },
+			],
+		});
+
+		assert.deepEqual(full, [[1, 2]]);
+		assert.deepEqual(cheap, []);
+		assert.deepEqual(
+			result.items.map(i => [i.key, i.issue?.id, i.etag]),
+			[
+				['a', 'i1', heldEtag(1)],
+				['b', 'i2', heldEtag(2)],
+			],
+		);
+
+		manager.dispose();
+	});
+
+	test('every etag matches: every row is unchanged and nothing is read in full', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const full = stubFullReads(gh);
+		stubEtagFieldsResult(gh, coordinates => Promise.resolve({ value: coordinates.map(c => etagFields(c.number)) }));
+
+		const result = await manager.getIssuesBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
+				{ key: 'b', owner: 'o', repo: 'r', number: 2, etag: heldEtag(2) },
+			],
+		});
+
+		assert.deepEqual(full, []);
+		assert.deepEqual(result, {
+			items: [
+				{ key: 'a', unchanged: true, etag: heldEtag(1) },
+				{ key: 'b', unchanged: true, etag: heldEtag(2) },
+			],
+			warnings: [],
+			fetchFailed: undefined,
+		});
+
+		manager.dispose();
+	});
+
+	test('a mixed batch reads the new targets alongside the cheap check, then the changed ones, in target order', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const full = stubFullReads(gh, n => (n === 3 ? 1 : 0));
+		let resolveCheck!: (value: IntegrationResult<EtagSlot[] | undefined>) => void;
+		const cheap = stubEtagFieldsResult(gh, () => new Promise(resolve => (resolveCheck = resolve)));
+
+		const pending = manager.getIssuesBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'new', owner: 'o', repo: 'r', number: 1 },
+				{ key: 'same', owner: 'o', repo: 'r', number: 2, etag: heldEtag(2) },
+				{ key: 'moved', owner: 'o', repo: 'r', number: 3, etag: heldEtag(3, 0) },
+				{ key: 'gone', owner: 'o', repo: 'r', number: 4, etag: heldEtag(4) },
+			],
+		});
+
+		for (let i = 0; i < 20 && full.length === 0; i++) {
+			await Promise.resolve();
+		}
+		assert.deepEqual(full, [[1]], 'the new target is read in full before the cheap check settles');
+		assert.deepEqual(cheap, [[2, 3, 4]]);
+
+		resolveCheck({ value: [etagFields(2), etagFields(3, 1), { status: 'fulfilled', value: undefined }] });
+		const result = await pending;
+
+		assert.deepEqual(full, [[1], [3]]);
+		assert.deepEqual(
+			result.items.map(i => [i.key, i.issue?.id, i.unchanged, i.etag]),
+			[
+				['new', 'i1', undefined, heldEtag(1)],
+				['same', undefined, true, heldEtag(2)],
+				['moved', 'i3', undefined, heldEtag(3, 1)],
+				['gone', undefined, undefined, undefined],
+			],
+		);
+		assert.equal(result.fetchFailed, undefined);
+
+		manager.dispose();
+	});
+
+	test('a target the cheap check failed for its own reason falls through, its warning dropped once answered', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const full = stubFullReads(gh);
+		stubEtagFieldsResult(gh, () =>
+			Promise.resolve({ value: [{ status: 'rejected', reason: new Error(samlForbiddenMessage) }] }),
+		);
+
+		const result = await manager.getIssuesBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) }],
+		});
+
+		assert.deepEqual(full, [[1]]);
+		assert.deepEqual(
+			result.items.map(i => i.issue?.id),
+			['i1'],
+		);
+		assert.deepEqual(result.warnings, []);
+		assert.equal(result.fetchFailed, undefined);
+
+		manager.dispose();
+	});
+
+	test('a rate-limited target is dropped with that warning, never retried in full', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const full = stubFullReads(gh);
+		stubEtagFieldsResult(gh, () =>
+			Promise.resolve({
+				value: [
+					etagFields(1),
+					{
+						status: 'rejected',
+						reason: new RequestRateLimitError(new Error('rate limited'), undefined, undefined),
+					},
+				],
+			}),
+		);
+
+		const result = await manager.getIssuesBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
+				{ key: 'b', owner: 'o', repo: 'r', number: 2, etag: heldEtag(2) },
+			],
+		});
+
+		assert.deepEqual(full, []);
+		assert.deepEqual(
+			result.items.map(i => i.key),
+			['a'],
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(
+			result.warnings.map(w => w.kind),
+			['rate-limit'],
+		);
+
+		manager.dispose();
+	});
+
+	test('a cheap check refused outright on the credential drops every target it held, without a full read', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const full = stubFullReads(gh);
+		stubEtagFieldsResult(gh, () =>
+			Promise.resolve({
+				error: new AuthenticationError(
+					{ providerId: 'github', microHash: undefined, cloud: true, type: 'oauth', scopes: [] },
+					AuthenticationErrorReason.Unauthorized,
+				),
+			}),
+		);
+
+		const result = await manager.getIssuesBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) }],
+		});
+
+		assert.deepEqual(full, []);
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(
+			result.warnings.map(w => w.kind),
+			['auth'],
+		);
+
+		manager.dispose();
+	});
+
+	suite('failure budget: the cheap check spends a strike only for a refused credential', () => {
+		/** Fails every request with a 500, counting the cheap checks and full reads. */
+		function serveOutage(runtime: FakeRuntime): { check: number; full: number } {
+			const asked = { check: 0, full: 0 };
+			runtime.http.fetch = (_url, init) => {
+				const body = typeof init?.body === 'string' ? init.body : '';
+				if (body.includes('getIssuesEtagFieldsBatch')) {
+					asked.check++;
+				} else if (body.includes('getIssuesBatch')) {
+					asked.full++;
+				}
+				return Promise.resolve(json(500, { message: 'Server Error' }));
+			};
+			return asked;
+		}
+
+		const etagged = [
+			{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
+			{ key: 'b', owner: 'o', repo: 'r', number: 2, etag: heldEtag(2) },
+		];
+
+		test('a total outage of a fully etagged batch spends one strike and shows one notice', async () => {
+			const runtime = createFakeRuntime();
+			const asked = serveOutage(runtime);
+			const { manager, gh } = await connectedGitHub(runtime);
+			const watched = watchRequestFailures(runtime);
+
+			const result = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: etagged,
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual([asked.check, asked.full], [1, 1], 'every target fell through to one full read');
+			assert.equal(getRequestExceptionCount(gh), 1, 'the full read spends the only strike');
+			assert.equal(watched.notices.length, 1);
+			assert.equal(watched.disconnected, undefined);
+
+			manager.dispose();
+		});
+
+		test('a total outage of a mixed batch spends at most two strikes, one per full read', async () => {
+			const runtime = createFakeRuntime();
+			const asked = serveOutage(runtime);
+			const { manager, gh } = await connectedGitHub(runtime);
+			const watched = watchRequestFailures(runtime);
+
+			const result = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: [...etagged, { key: 'new', owner: 'o', repo: 'r', number: 3 }],
+			});
+
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual([asked.check, asked.full], [1, 2]);
+			assert.equal(getRequestExceptionCount(gh), 2, 'one strike per full read, none for the cheap check');
+			assert.equal(watched.notices.length, 2);
+
+			manager.dispose();
+		});
+	});
+
+	test('a host with no cheap check makes one full call, etags and all', async () => {
+		const { manager, gl } = await connectedGitLab(createFakeRuntime());
+		assert.equal(gl.supportsIssueEtags, false);
+		const full = stubFullReads(gl);
+
+		const result = await manager.getIssuesBatch({
+			providerId: GitCloudHostIntegrationId.GitLab,
+			targets: [
+				{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
+				{ key: 'b', owner: 'o', repo: 'r', number: 2 },
+			],
+		});
+
+		assert.deepEqual(full, [[1, 2]]);
+		assert.deepEqual(
+			result.items.map(i => [i.key, i.unchanged, i.etag]),
+			[
+				['a', undefined, heldEtag(1)],
+				['b', undefined, heldEtag(2)],
+			],
+		);
+
+		manager.dispose();
+	});
+
+	test('a duplicate key is still refused before any request', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const full = stubFullReads(gh);
+		const cheap = stubEtagFieldsResult(gh, () => Promise.reject(new Error('must not be called')));
+
+		const result = await manager.getIssuesBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'same', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
+				{ key: 'same', owner: 'o', repo: 'r', number: 2, etag: heldEtag(2) },
+			],
+		});
+
+		assert.deepEqual(full, []);
+		assert.deepEqual(cheap, []);
+		assert.equal(result.fetchFailed, true);
+
+		manager.dispose();
 	});
 });
 

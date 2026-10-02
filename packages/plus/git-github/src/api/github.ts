@@ -62,10 +62,13 @@ import type {
 	GitHubCommitRef,
 	GitHubContributor,
 	GitHubIssue,
+	GitHubIssueEtagNode,
 	GitHubIssueOrPullRequest,
 	GitHubPagedResult,
 	GitHubPageInfo,
 	GitHubPullRequest,
+	GitHubPullRequestEtagInclude,
+	GitHubPullRequestEtagNode,
 	GitHubPullRequestLite,
 	GitHubPullRequestState,
 	GitHubSshSigningKey,
@@ -504,6 +507,53 @@ repository {
 	viewerPermission
 	url
 }
+`;
+
+/**
+ * The change state a pull request's etag reads (see {@link GitHubPullRequestEtagNode}). Every selection is copied
+ * from {@link gqlPullRequestFragment} — same arguments, same nesting — so the cheap read sees exactly the values
+ * the full read maps; only a requested reviewer drops its avatar and URL, since its nullness is all the etag reads.
+ * `merged` is not needed: `state` already reads `MERGED`.
+ */
+const gqlPullRequestEtagFragment = `
+id
+number
+state
+isDraft
+updatedAt
+headRefOid
+`;
+
+/**
+ * The selection each {@link GitHubPullRequestEtagInclude} adds to {@link gqlPullRequestEtagFragment}, copied from
+ * {@link gqlPullRequestFragment} like it.
+ */
+const gqlPullRequestEtagIncludeFragments: Record<GitHubPullRequestEtagInclude, string> = {
+	mergeable: `
+mergeable
+`,
+	reviewDecision: `
+reviewDecision
+`,
+	checks: `
+commits(last: 1) {
+	nodes {
+		commit {
+			statusCheckRollup {
+				state
+			}
+		}
+	}
+}
+`,
+};
+
+/** The change state an issue's etag reads (see {@link GitHubIssueEtagNode}). */
+const gqlIssueEtagFragment = `
+id
+number
+state
+updatedAt
 `;
 
 /** One field-level error GitHub attaches to a GraphQL response, as thrown via {@link GraphqlResponseError}. */
@@ -4589,6 +4639,151 @@ export class GitHubApi {
 					scope?.warn(`failed to map pull request; ${c.owner}/${c.repo}#${c.number}, ex=${ex}`);
 					return { status: 'rejected', reason: ex };
 				}
+			});
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
+	 * The cheap check behind the batch reads' etags: {@link getPullRequestsBatch}'s aliased document, slot rules and
+	 * failure handling, selecting only a pull request's change state ({@link gqlPullRequestEtagFragment}) — plus
+	 * the selection of each of `etagIncludes` ({@link gqlPullRequestEtagIncludeFragments}). Returns the raw nodes:
+	 * the caller maps them through the same conversions a full row takes, so both reads' etags agree.
+	 *
+	 * Declares no `$avatarSize`: nothing here selects an avatar, and GitHub rejects a document that declares a
+	 * variable it never uses.
+	 */
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async getPullRequestsEtagFieldsBatch(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		coordinates: readonly { owner: string; repo: string; number: number }[],
+		options?: { baseUrl?: string; etagIncludes?: readonly GitHubPullRequestEtagInclude[] },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<GitHubPullRequestEtagNode | undefined>[]> {
+		const scope = getScopedLogger();
+		if (coordinates.length === 0) return [];
+
+		const includeFragments = Array.from(
+			new Set(options?.etagIncludes),
+			include => gqlPullRequestEtagIncludeFragments[include],
+		);
+
+		const params = coordinates
+			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$k${i}: Int!`)
+			.join('\n\t\t\t\t');
+		const fields = coordinates
+			.map(
+				(_, i) => `p${i}: repository(owner: $o${i}, name: $n${i}) {
+					pullRequest(number: $k${i}) {
+						${gqlPullRequestEtagFragment}
+						${includeFragments.join('')}
+					}
+				}`,
+			)
+			.join('\n\t\t\t\t');
+		const query = `query getPullRequestsEtagFieldsBatch(
+				${params}
+			) {
+				${fields}
+			}`;
+
+		const variables: Record<string, unknown> = { baseUrl: options?.baseUrl };
+		coordinates.forEach((c, i) => {
+			variables[`o${i}`] = c.owner;
+			variables[`n${i}`] = c.repo;
+			variables[`k${i}`] = c.number;
+		});
+
+		try {
+			// `'aliased'`, for the same reason as `getPullRequestsBatch`: one coordinate's absence or refusal is
+			// its own slot's answer, never the whole batch's.
+			const rsp = await this.graphql<
+				Record<string, { pullRequest?: GitHubPullRequestEtagNode | null } | null | undefined>
+			>(provider, token, query, variables, scope, cancellation, 'aliased');
+			// No data at all proves nothing about any slot, so it must not read as a batch of absences.
+			if (rsp?.data == null) throw new Error('GitHub returned no data for the pull request etag batch');
+
+			return coordinates.map((_, i): PromiseSettledResult<GitHubPullRequestEtagNode | undefined> => {
+				const alias = `p${i}`;
+				const node = rsp.data[alias]?.pullRequest;
+
+				const verdict = getAliasErrorVerdict(rsp.errors, alias, node);
+				if (verdict === 'absent') return { status: 'fulfilled', value: undefined };
+				if (verdict != null) return verdict;
+
+				return { status: 'fulfilled', value: node ?? undefined };
+			});
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
+	 * The issue twin of {@link getPullRequestsEtagFieldsBatch}: {@link getIssuesBatch}'s aliased document, slot
+	 * rules and failure handling, selecting only an issue's change state ({@link gqlIssueEtagFragment}). Returns
+	 * the raw nodes, and declares no `$avatarSize`, for the same reasons.
+	 */
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async getIssuesEtagFieldsBatch(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		coordinates: readonly { owner: string; repo: string; number: number }[],
+		options?: { baseUrl?: string },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<GitHubIssueEtagNode | undefined>[]> {
+		const scope = getScopedLogger();
+		if (coordinates.length === 0) return [];
+
+		const params = coordinates
+			.map((_, i) => `$o${i}: String!\n\t\t\t\t$n${i}: String!\n\t\t\t\t$k${i}: Int!`)
+			.join('\n\t\t\t\t');
+		const fields = coordinates
+			.map(
+				(_, i) => `i${i}: repository(owner: $o${i}, name: $n${i}) {
+					issue(number: $k${i}) {
+						${gqlIssueEtagFragment}
+					}
+				}`,
+			)
+			.join('\n\t\t\t\t');
+		const query = `query getIssuesEtagFieldsBatch(
+				${params}
+			) {
+				${fields}
+			}`;
+
+		const variables: Record<string, unknown> = { baseUrl: options?.baseUrl };
+		coordinates.forEach((c, i) => {
+			variables[`o${i}`] = c.owner;
+			variables[`n${i}`] = c.repo;
+			variables[`k${i}`] = c.number;
+		});
+
+		try {
+			// `'aliased'`, for the same reason as `getIssuesBatch`.
+			const rsp = await this.graphql<Record<string, { issue?: GitHubIssueEtagNode | null } | null | undefined>>(
+				provider,
+				token,
+				query,
+				variables,
+				scope,
+				cancellation,
+				'aliased',
+			);
+			// No data at all proves nothing about any slot, so it must not read as a batch of absences.
+			if (rsp?.data == null) throw new Error('GitHub returned no data for the issue etag batch');
+
+			return coordinates.map((_, i): PromiseSettledResult<GitHubIssueEtagNode | undefined> => {
+				const alias = `i${i}`;
+				const node = rsp.data[alias]?.issue;
+
+				const verdict = getAliasErrorVerdict(rsp.errors, alias, node);
+				if (verdict === 'absent') return { status: 'fulfilled', value: undefined };
+				if (verdict != null) return verdict;
+
+				return { status: 'fulfilled', value: node ?? undefined };
 			});
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);

@@ -3,8 +3,18 @@ import { getDeferredRequestFailure } from '@gitlens/git/errors.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
-import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type {
+	IssueOrPullRequest,
+	IssueOrPullRequestState,
+	IssueOrPullRequestType,
+} from '@gitlens/git/models/issueOrPullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMergeableState,
+	PullRequestReviewDecision,
+	PullRequestState,
+	PullRequestStatusCheckRollupState,
+} from '@gitlens/git/models/pullRequest.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
@@ -87,6 +97,38 @@ export type IntegrationResult<T> =
  */
 export type BatchSlot<T> = PromiseFulfilledResult<T> | (PromiseRejectedResult & { failure?: ProviderScopeFailure });
 
+/**
+ * An input a pull request's etag can be widened to, each of which GitHub changes without moving `updatedAt`. Every
+ * entry costs its own fields in the cheap check, so a caller picks only the ones it needs. `'checks'` is the check
+ * rollup.
+ */
+export type PullRequestEtagInclude = 'mergeable' | 'reviewDecision' | 'checks';
+
+/** Every {@link PullRequestEtagInclude}, in the canonical order an etag lists them in. */
+export const pullRequestEtagIncludes: readonly PullRequestEtagInclude[] = ['mergeable', 'reviewDecision', 'checks'];
+
+/**
+ * The change state a batch read's etag is computed from (see `reads/etag.ts`), in the NORMALIZED vocabulary of
+ * `PullRequestShape` — the values a full row carries after its provider's whole conversion chain, so a cheap
+ * check and a full read of the same pull request yield the same fields. Each of `mergeableState`, `reviewDecision`
+ * and `statusCheckRollupState` counts only when its {@link PullRequestEtagInclude} is requested.
+ */
+export interface PullRequestEtagFields {
+	state: PullRequestState;
+	isDraft?: boolean;
+	updatedDate: Date;
+	headSha?: string;
+	mergeableState?: PullRequestMergeableState;
+	reviewDecision?: PullRequestReviewDecision;
+	statusCheckRollupState?: PullRequestStatusCheckRollupState;
+}
+
+/** The issue twin of {@link PullRequestEtagFields}, in {@link IssueShape}'s normalized vocabulary. */
+export interface IssueEtagFields {
+	state: IssueOrPullRequestState;
+	updatedDate: Date;
+}
+
 /** A batch read's target, in the form its provider addresses it by: a repository coordinate, or a tracker's resource. */
 type BatchTarget = { owner: string; repo: string; project?: string } | { resourceId: string };
 
@@ -114,6 +156,7 @@ type SyncReqUsecase = Exclude<
 	| 'getIssue'
 	| 'getIssueOrPullRequest'
 	| 'getIssuesBatch'
+	| 'getIssuesEtagFields'
 	| 'getIssuesForProject'
 	| 'getIssuesForRepos'
 	| 'getMyPullRequestsForUser'
@@ -122,6 +165,7 @@ type SyncReqUsecase = Exclude<
 	| 'getProjectsForResources'
 	| 'getPullRequest'
 	| 'getPullRequestsBatch'
+	| 'getPullRequestsEtagFields'
 	| 'getPullRequestsForBranches'
 	| 'getRepositoriesForOrg'
 	| 'getRepositoriesForUser'
@@ -642,12 +686,19 @@ export abstract class IntegrationBase<
 	 * with {@link validateCredential}. A check that proves nothing leaves the refusals scoped and unnamed, as it leaves
 	 * an account-wide read's. A provider with no check cannot tell, and a refusal it pins on the credential (see
 	 * {@link isCredentialRefusal}) needs none, so either still fails the call.
+	 *
+	 * `keepOtherFailures` is for the etag cheap check, whose failed targets fall through to a full read one by one:
+	 * there, only a refused credential fails the call, always on one of the refusals, and every other failure stays
+	 * its own slot's. A batch with refusals and other failures but no answer then has its credential checked, as when
+	 * every target refused, and a provider with no check leaves its refusals scoped and unnamed.
 	 */
 	protected async settleBatchRefusals<T>(
 		session: ProviderAuthenticationSession,
 		targets: readonly BatchTarget[],
 		slots: PromiseSettledResult<T>[],
+		options?: { keepOtherFailures?: boolean },
 	): Promise<BatchSlot<T>[]> {
+		const keepOtherFailures = options?.keepOtherFailures ?? false;
 		const failures = slots.map((slot, i) =>
 			slot.status === 'rejected' && slot.reason instanceof AuthenticationError
 				? toCollectionScopeFailure(batchTargetScope(this.id, targets[i]), slot.reason)
@@ -655,7 +706,9 @@ export abstract class IntegrationBase<
 		);
 		const refused = failures.filter(f => f != null);
 		if (!refused.length) {
-			throwIfAllSettledFailed(slots);
+			if (!keepOtherFailures) {
+				throwIfAllSettledFailed(slots);
+			}
 			return slots;
 		}
 
@@ -664,15 +717,17 @@ export abstract class IntegrationBase<
 		if (slots.some(slot => slot.status === 'fulfilled')) {
 			this.nameRefusalCauses(session, metadata);
 		} else if (credentialRefused) {
-			throwIfAllSettledFailed(slots);
-		} else if (refused.length < slots.length) {
+			throwIfAllSettledFailed(keepOtherFailures ? slots.filter((_, i) => failures[i] != null) : slots);
+		} else if (refused.length < slots.length && !keepOtherFailures) {
 			// Fails on a target that failed for another reason: failing on a refusal would run the credential's own
 			// recovery (a session expiry or a disconnect strike) for what may be only its target's refusal.
 			throwIfAllSettledFailed(slots.filter((_, i) => failures[i] == null));
 		} else {
 			const confirmation = await this.confirmCredential(session);
 			if (confirmation == null) {
-				throwIfAllSettledFailed(slots);
+				if (refused.length === slots.length) {
+					throwIfAllSettledFailed(slots);
+				}
 			} else if (confirmation === 'confirmed') {
 				this.nameRefusalCauses(session, metadata);
 			}
@@ -708,6 +763,31 @@ export abstract class IntegrationBase<
 			this.trackRequestException();
 		}
 		notify();
+	}
+
+	/**
+	 * The failure handling of an etag cheap check that failed as a whole. Only a refused credential runs
+	 * {@link handleProviderException}, for its session expiry, re-authentication and strike. Anything else is only
+	 * logged, spending no strike and showing no notice: every target the check held then falls through to a full
+	 * read, which spends and notifies if the host really is failing, or is dropped, as rate-limited or without a
+	 * connection, with the check's warning. A rate limit costs nothing in `handleProviderException` either.
+	 */
+	protected handleEtagCheckException(
+		syncReqUsecase: SyncReqUsecase,
+		ex: Error,
+		options: { scope: ScopedLogger | undefined; connectionId: string | undefined },
+	): void {
+		if (ex instanceof AuthenticationError) {
+			this.handleProviderException(syncReqUsecase, ex, options);
+			return;
+		}
+		if (isCancellationError(ex)) return;
+
+		if (options.scope != null) {
+			options.scope.error(ex);
+		} else {
+			Logger.error(ex);
+		}
 	}
 
 	/** Marks the scoped refusals the provider pins on the credential (see {@link isCredentialRefusal}). */
