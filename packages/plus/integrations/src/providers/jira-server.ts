@@ -1,4 +1,5 @@
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import { JIRA_MAX_PROJECT_KEYS_PER_REQUEST } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -9,7 +10,7 @@ import type { IntegrationAuthenticationProviderDescriptor } from '../authenticat
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
-import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
+import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { IssuesSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
@@ -18,30 +19,52 @@ import type {
 	AccountWideIssuesResult,
 	IssuesForProjectOptions,
 	ProjectIssuesDrain,
+	ProjectIssuesRequest,
 	SearchMyIssuesOptions,
 } from '../models/issueReads.js';
-import { IssuesIntegration } from '../models/issuesIntegration.js';
+import { groupProjectIssuesSearches, IssuesIntegration } from '../models/issuesIntegration.js';
 import { areDomainsOnSameHost, baseUrlFromDomain } from '../utils/domain.utils.js';
-import type { ProviderIssue } from './models.js';
-import { IssueFilter, providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
+import { providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
 import { isJiraMissingProjectError } from './providerErrors.js';
 import type { ProvidersApi } from './providersApi.js';
 import { DiscoveryCache } from './utils/discoveryCache.js';
+import type { JiraDrainOptions, JiraIssuePageFetcher } from './utils/jiraIssueDrains.js';
+import {
+	drainJiraIssues,
+	readUserScopedJiraIssues,
+	searchJiraProjectIssues,
+	toUniqueJiraIssueShapes,
+} from './utils/jiraIssueDrains.js';
 import { mergeCollectionMetadata } from './utils/providerPaging.js';
-
-/**
- * Why three states rather than a boolean, matching `jira.ts`: the backstop is recoverable by narrowing the
- * scope, a page error or a stalled cursor is not, and {@link ProjectIssuesDrain} makes the caller say which.
- */
-type JiraServerProjectIssuesDrain<T> = {
-	issues: T[];
-	status: 'complete' | 'backstop' | 'incomplete';
-	metadata?: CollectionMetadata;
-};
 
 const metadata = providersMetadata[IssuesSelfManagedHostIntegrationId.JiraServer];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 const maxPagesPerRequest = 10;
+
+/**
+ * Every clause is scoped by the HANDLE, and `options.userId` is deliberately ignored here — the one
+ * place this provider diverges from Jira Cloud's, which applies it to `assignee`/`creator` (#5857).
+ *
+ * The two are not interchangeable because `Account.id` means something different per deployment. On
+ * Cloud it is the `accountId`, which JQL resolves, so scoping by it fixes the deactivated-account case
+ * where the display name no longer resolves. On Server it is the user KEY (`JIRAUSER10224`), which JQL
+ * does not resolve at all: measured against a live Jira Server 8.20.13 site, `assignee in
+ * ("JIRAUSER10224")` returns 0 with `"The value 'JIRAUSER10224' does not exist for the field
+ * 'assignee'"` — the identical warning a genuinely nonexistent user produces — while the username and
+ * the display name both return the real 4.
+ *
+ * So applying `userId` here would silently empty the read rather than harden it. Do not "fix" this
+ * asymmetry to match Cloud without re-measuring against a Server instance.
+ *
+ * The handle itself is already the right one: `provider-apis` 0.60.0 maps `Account.username` from the
+ * Server payload's `name` (falling back to `displayName` when absent), so these clauses are scoped by the
+ * real username rather than a display name (GKDEV-3629). That is what makes the `mention` clause work at
+ * all — it is a free-text `comment ~ "..."` over comment bodies, and a Jira mention is stored as
+ * `[~username]`, which a display name never matches.
+ */
+function toUserIdentities(user: string): { userField: string; mention: string } {
+	return { userField: user, mention: user };
+}
 
 /**
  * The single resource a Jira Server connection has: the instance itself.
@@ -197,220 +220,51 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		const api = await this.getProvidersApi();
 		const baseUrl = this.apiBaseUrlFor(session);
 
-		// Mirrors Jira Cloud's drain (see `jira.ts`): page to a defensive backstop, and report `truncated` plus
-		// a structured failure rather than discarding an already-fetched prefix, so the facade can warn and set
-		// fetchFailed while still publishing what was read.
-		// The numeric project id, not the name: JQL resolves `project = "<value>"` against key first, so a
-		// display name that matches another project's key reads that project's issues instead. A Jira project
-		// key must begin with a letter, so a purely numeric value can only be an id.
-		const projectJqlKey = project.id;
-		const projectScope = {
-			providerId: this.id,
-			resourceId: project.resourceId,
-			projectId: project.id,
-		};
+		// The same drain as Jira Cloud's (`jiraIssueDrains.ts`): page to a defensive backstop, and report `truncated`
+		// plus a structured failure rather than discarding an already-fetched prefix.
 		const states = toProviderIssueStates(options?.state);
-		const drainIssues = async (scope: {
-			authorLogin?: string;
-			assigneeLogins?: string[];
-			mentionLogin?: string;
-		}): Promise<JiraServerProjectIssuesDrain<ProviderIssue>> => {
-			const collected: ProviderIssue[] = [];
-			let cursor: string | undefined;
-			let status: JiraServerProjectIssuesDrain<ProviderIssue>['status'] = 'complete';
-			let metadata: CollectionMetadata | undefined;
-			for (let i = 0; i < maxPagesPerRequest; i++) {
-				let result: Awaited<ReturnType<typeof api.getJiraServerIssuesForProjectPaged>> | undefined;
-				try {
-					result = await api.getJiraServerIssuesForProjectPaged(tokenWithInfo, baseUrl, projectJqlKey, {
-						...scope,
-						cursor: cursor,
-						states: states,
-						sort: options?.sort,
-					});
-				} catch (ex) {
-					// A project this connection can no longer see (deleted, or its browse permission removed) holds
-					// no issues for it, and the project list that named it is stale: drop that list so the next read
-					// re-reads it, instead of failing the whole provider on every read until a restart (#5907).
-					if (collected.length === 0 && isJiraMissingProjectError(ex)) {
-						Logger.warn(
-							`Jira Server project '${project.name}' (${project.id}) no longer exists or is not visible`,
-						);
-						this._projects.delete(this.projectsCacheKey(session));
-						return { issues: [], status: 'complete' };
-					}
-
-					// A page failure after the first leaves the drained prefix intact; record it at the project
-					// scope instead of re-throwing. With nothing fetched yet the original throw is preserved, so
-					// the caller sees a hard error rather than an empty partial success.
-					if (collected.length === 0) throw ex;
-
-					status = 'incomplete';
-					metadata = mergeCollectionMetadata(metadata, {
-						completeness: 'partial',
-						failures: [toCollectionScopeFailure(projectScope, ex)],
-					});
-					break;
-				}
-				if (result == null) {
-					if (cursor == null) break;
-
-					status = 'incomplete';
-					metadata = mergeCollectionMetadata(metadata, {
-						completeness: 'partial',
-						failures: [
-							toCollectionScopeFailure(
-								projectScope,
-								new Error('Jira Server returned no page after advertising a continuation'),
-							),
-						],
-					});
-					break;
-				}
-
-				collected.push(...result.data);
-				if (!result.hasMore) break;
-
-				// More pages are claimed but no advancing cursor came back: the drain can't continue, so flag it
-				// rather than stopping silently.
-				if (result.nextCursor == null || result.nextCursor === cursor) {
-					status = 'incomplete';
-					metadata = mergeCollectionMetadata(metadata, {
-						completeness: 'partial',
-						failures: [
-							toCollectionScopeFailure(
-								projectScope,
-								new Error('Jira Server returned no advancing issue continuation'),
-							),
-						],
-					});
-					break;
-				}
-
-				cursor = result.nextCursor;
-				// Pages remain but this was the last allowed iteration: the backstop stopped the drain, which a
-				// narrower scope would avoid.
-				if (i === maxPagesPerRequest - 1) {
-					status = 'backstop';
-				}
-			}
-			return { issues: collected, status: status, metadata: metadata };
-		};
-
-		/**
-		 * Every clause is scoped by the HANDLE, and `options.userId` is deliberately ignored here — the one
-		 * place this provider diverges from Jira Cloud's, which applies it to `assignee`/`creator` (#5857).
-		 *
-		 * The two are not interchangeable because `Account.id` means something different per deployment. On
-		 * Cloud it is the `accountId`, which JQL resolves, so scoping by it fixes the deactivated-account case
-		 * where the display name no longer resolves. On Server it is the user KEY (`JIRAUSER10224`), which JQL
-		 * does not resolve at all: measured against a live Jira Server 8.20.13 site, `assignee in
-		 * ("JIRAUSER10224")` returns 0 with `"The value 'JIRAUSER10224' does not exist for the field
-		 * 'assignee'"` — the identical warning a genuinely nonexistent user produces — while the username and
-		 * the display name both return the real 4.
-		 *
-		 * So applying `userId` here would silently empty the read rather than harden it. Do not "fix" this
-		 * asymmetry to match Cloud without re-measuring against a Server instance.
-		 *
-		 * The handle itself is already the right one: `provider-apis` 0.60.0 maps `Account.username` from the
-		 * Server payload's `name` (falling back to `displayName` when absent), so these clauses are scoped by the
-		 * real username rather than a display name (GKDEV-3629). That is what makes the `mention` clause work at
-		 * all — it is a free-text `comment ~ "..."` over comment bodies, and a Jira mention is stored as
-		 * `[~username]`, which a display name never matches.
-		 */
-		const getSearchedUserIssuesForFilter = async (
-			user: string,
-			filter: IssueFilter,
-		): Promise<JiraServerProjectIssuesDrain<IssueShape>> => {
-			const result = await drainIssues({
-				authorLogin: filter === IssueFilter.Author ? user : undefined,
-				assigneeLogins: filter === IssueFilter.Assignee ? [user] : undefined,
-				mentionLogin: filter === IssueFilter.Mention ? user : undefined,
+		// The numeric project id, not the name: JQL resolves `project = "<value>"` against key first, so a display
+		// name that matches another project's key reads that project's issues instead. A Jira project key must begin
+		// with a letter, so a purely numeric value can only be an id.
+		const fetchPage: JiraIssuePageFetcher = (scope, cursor) =>
+			api.getJiraServerIssuesForProjectPaged(tokenWithInfo, baseUrl, project.id, {
+				...scope,
+				cursor: cursor,
+				states: states,
+				sort: options?.sort,
 			});
+		const drainOptions: JiraDrainOptions = {
+			maxPages: maxPagesPerRequest,
+			failureScope: { providerId: this.id, resourceId: project.resourceId, projectId: project.id },
+			providerName: 'Jira Server',
+			// A project this connection can no longer see (deleted, or its browse permission removed) holds
+			// no issues for it, and the project list that named it is stale: drop that list so the next read
+			// re-reads it, instead of failing the whole provider on every read until a restart (#5907).
+			isEmptyFailure: ex => {
+				if (!isJiraMissingProjectError(ex)) return false;
 
-			return {
-				issues: result.issues
-					.map(issue => toIssueShape(issue, this))
-					.filter((r): r is IssueShape => r !== undefined),
-				status: result.status,
-				metadata: result.metadata,
-			};
+				Logger.warn(`Jira Server project '${project.name}' (${project.id}) no longer exists or is not visible`);
+				this._projects.delete(this.projectsCacheKey(session));
+				return true;
+			},
 		};
 
 		if (options?.user != null) {
-			const user = options.user;
-			// A resolved user always scopes the read, defaulting to "my issues" when no explicit filters are
-			// given — otherwise it would fall through to the unscoped fetch and return the whole project (#5438).
-			const filters = options.filters?.length ? options.filters : [IssueFilter.Assignee];
-			const settled = await Promise.allSettled(
-				filters.map(filter => getSearchedUserIssuesForFilter(user, filter)),
+			const read = await readUserScopedJiraIssues(
+				fetchPage,
+				options.filters,
+				toUserIdentities(options.user),
+				drainOptions,
 			);
-
-			// Every branch rejected: the read failed outright, so propagate the first reason as-is (not wrapped)
-			// to keep its auth/rate-limit classification, and log the rest, which would otherwise be discarded.
-			if (settled.every(r => r.status === 'rejected')) {
-				for (let i = 1; i < settled.length; i++) {
-					const outcome = settled[i];
-					if (outcome.status === 'rejected') {
-						Logger.error(
-							outcome.reason,
-							`getProviderIssuesForProjectWithTruncation: filter '${filters[i]}' failed`,
-						);
-					}
-				}
-				throw settled[0].status === 'rejected' ? settled[0].reason : new Error('Jira Server issue read failed');
-			}
-
-			let truncated = false;
-			let metadata: CollectionMetadata | undefined;
-			const resultsById = new Map<string, IssueShape>();
-			for (let i = 0; i < settled.length; i++) {
-				const outcome = settled[i];
-				const filter = filters[i];
-				// One rejected branch with a succeeding sibling means this project's issues are incomplete: keep
-				// the sibling results and record a per-filter failure so the facade can warn on it specifically.
-				if (outcome.status !== 'fulfilled') {
-					// Identical for every branch, so degrading it would report one failure per filter for a
-					// single invalid call — see `throwIfCallerContractError`.
-					throwIfCallerContractError(outcome.reason);
-
-					truncated = true;
-					const failure = toCollectionScopeFailure(projectScope, outcome.reason);
-					metadata = mergeCollectionMetadata(metadata, {
-						completeness: 'partial',
-						failures: [
-							{
-								...failure,
-								message: `Issue filter '${filter}' could not be read${
-									failure.message != null ? `: ${failure.message}` : ''
-								}`,
-							},
-						],
-					});
-					continue;
-				}
-
-				if (outcome.value.status !== 'complete') {
-					truncated = true;
-				}
-				if (outcome.value.metadata != null) {
-					metadata = mergeCollectionMetadata(metadata, outcome.value.metadata);
-				}
-				for (const resultIssue of outcome.value.issues) {
-					if (!resultsById.has(resultIssue.id)) {
-						resultsById.set(resultIssue.id, resultIssue);
-					}
-				}
-			}
-
+			const values = toUniqueJiraIssueShapes(read.issues, this);
 			// `recovery: 'none'` for the whole set: the filter branches merge here, so even a pure backstop in one
 			// branch is not fixable by narrowing this read's scope.
-			return truncated
-				? { values: [...resultsById.values()], truncated: true, recovery: 'none', metadata: metadata }
-				: { values: [...resultsById.values()], truncated: false, metadata: metadata };
+			return read.truncated
+				? { values: values, truncated: true, recovery: 'none', metadata: read.metadata }
+				: { values: values, truncated: false, metadata: read.metadata };
 		}
 
-		const unscoped = await drainIssues({});
+		const unscoped = await drainJiraIssues(fetchPage, {}, drainOptions);
 		const values = unscoped.issues
 			.map(issue => toIssueShape(issue, this))
 			.filter((result): result is IssueShape => result !== undefined);
@@ -422,6 +276,57 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 					metadata: unscoped.metadata,
 				}
 			: { values: values, truncated: false, metadata: unscoped.metadata };
+	}
+
+	/**
+	 * Searches the instance's projects together for a user-scoped read, as Jira Cloud does per site: one JQL names
+	 * up to {@link JIRA_MAX_PROJECT_KEYS_PER_REQUEST} projects of one user scope. An unscoped read stays per project,
+	 * since its backstop is reported as `narrow-scope` per project.
+	 */
+	protected override getProjectIssuesSearches(
+		requests: readonly ProjectIssuesRequest<JiraServerProjectDescriptor>[],
+	): number[][] | undefined {
+		return groupProjectIssuesSearches(
+			requests,
+			({ options }) =>
+				options.user != null
+					? [options.user, options.sort ?? '', options.state ?? '', options.filters?.join(',') ?? ''].join(
+							'\0',
+						)
+					: undefined,
+			JIRA_MAX_PROJECT_KEYS_PER_REQUEST,
+		);
+	}
+
+	protected override async searchProviderProjectIssues(
+		session: ProviderAuthenticationSession,
+		requests: readonly ProjectIssuesRequest<JiraServerProjectDescriptor>[],
+	): Promise<IssueShape[][] | undefined> {
+		// Every request of a search shares its user scope (see `getProjectIssuesSearches`).
+		const { options } = requests[0];
+		if (options.user == null) return undefined;
+
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+		const api = await this.getProvidersApi();
+		const baseUrl = this.apiBaseUrlFor(session);
+		// By numeric id, as the per-project read names them (see there).
+		const projectIds = requests.map(request => request.project.id);
+		const states = toProviderIssueStates(options.state);
+
+		return searchJiraProjectIssues(
+			(userScope, cursor) =>
+				api.getJiraServerIssuesForProjectsPaged(tokenWithInfo, baseUrl, projectIds, {
+					...userScope,
+					cursor: cursor,
+					states: states,
+					sort: options.sort,
+				}),
+			projectIds,
+			options.filters,
+			toUserIdentities(options.user),
+			{ maxPages: maxPagesPerRequest, failureScope: { providerId: this.id }, providerName: 'Jira Server' },
+			this,
+		);
 	}
 
 	protected override async searchProviderMyIssues(

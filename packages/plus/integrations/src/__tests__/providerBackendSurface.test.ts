@@ -24,6 +24,7 @@ import type {
 } from '../providers/models.js';
 import { IssueFilter, PagingMode, PullRequestFilter } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
+import { readProjectsOneByOne } from './projectReads.js';
 
 /**
  * Verifies the IntegrationService ProviderBackend facade (#5438): page ↔ cursor round-trip, hasMore
@@ -3006,6 +3007,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
 		let capturedUser: string | undefined;
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: (
@@ -3060,6 +3062,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
 		// One failing token fails every project the same way. The per-project warning is built from the provider
 		// error alone and names no project, so all three are structurally identical.
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as { getIssuesForProjectWithTruncationResult: () => Promise<{ error: Error }> }
 		).getIssuesForProjectWithTruncationResult = () => Promise.resolve({ error: new Error('token expired') });
@@ -3106,6 +3109,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		};
 
 		const capturedReads: Array<{ projectId: string; user: string | undefined }> = [];
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: (
@@ -3158,6 +3162,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 				: Promise.resolve({ error: new Error('account lookup failed') });
 
 		let issueReads = 0;
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: () => Promise<{
@@ -3221,6 +3226,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		};
 
 		const reads: string[] = [];
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: (project: {
@@ -3287,6 +3293,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
 		const readProjects: string[] = [];
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: (p: {
@@ -3345,6 +3352,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			});
 		const reads: string[] = [];
 		let p1Calls = 0;
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: (project: {
@@ -3415,6 +3423,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			});
 		const reads: string[] = [];
 		let p2Calls = 0;
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: (project: {
@@ -3510,6 +3519,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 
 			const reads: string[] = [];
 			let p2Calls = 0;
+			readProjectsOneByOne(jira);
 			(
 				jira as unknown as {
 					getIssuesForProjectWithTruncationResult: (project: {
@@ -3668,6 +3678,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 				},
 			});
 		const reads: string[] = [];
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: (project: {
@@ -3759,6 +3770,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			});
 		};
 		const reads: string[] = [];
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: (project: {
@@ -3838,6 +3850,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			}
 		).getProjectsForResourcesWithMetadataResult = () => Promise.resolve({ value: { values: projects } });
 		let issueReads = 0;
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: () => Promise<{
@@ -3887,6 +3900,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
 		let reads = 0;
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: (p: {
@@ -3926,6 +3940,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		).getProjectsForResourcesWithMetadataResult = () =>
 			Promise.resolve({ value: { values: [{ key: 't1', id: 't1', name: 'Team 1' }] } });
 		let read = false;
+		readProjectsOneByOne(linear);
 		(
 			linear as unknown as {
 				getIssuesForProjectWithTruncationResult: () => Promise<{
@@ -3975,6 +3990,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		(
 			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: (p: {
@@ -4013,6 +4029,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
 		let issueReads = 0;
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: () => Promise<{
@@ -4054,6 +4071,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			linear as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
 		// A thrown/unsupported read (Linear's not-implemented) recovers into { error } at the result core.
+		readProjectsOneByOne(linear);
 		(
 			linear as unknown as { getIssuesForProjectWithTruncationResult: () => Promise<{ error: Error }> }
 		).getIssuesForProjectWithTruncationResult = () =>
@@ -4086,6 +4104,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: undefined }> }
 		).getAccountForResourceResult = () => Promise.resolve({ value: undefined });
 		let readCalled = false;
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: () => Promise<{
@@ -4120,6 +4139,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		).getProjectsForResourcesWithMetadataResult = () =>
 			Promise.resolve({ value: { values: [{ key: 'proj', id: 'p1', name: 'Project One' }] } });
 		let readCalled = false;
+		readProjectsOneByOne(jira);
 		(
 			jira as unknown as {
 				getIssuesForProjectWithTruncationResult: () => Promise<{
@@ -4166,6 +4186,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			linear as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
 		// A provider-native cap (e.g. Trello's cards_limit) returns data but flags truncation with no cursor.
+		readProjectsOneByOne(linear);
 		(
 			linear as unknown as {
 				getIssuesForProjectWithTruncationResult: () => Promise<{
