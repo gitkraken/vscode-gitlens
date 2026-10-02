@@ -90,6 +90,14 @@ function sanitizeErrorResponse(status: number, response: ProviderErrorResponse |
 
 const linearIssueNotFoundMessage = /^Linear issue not found: .+$/i;
 
+/**
+ * What Linear actually answers for an identifier it can't resolve: HTTP 200 with the single GraphQL error
+ * `Entity not found: Issue` (`INPUT_ERROR`), which provider-apis rethrows as `Linear GraphQL errors: <messages>`, the
+ * response not attached. Only that one message proves the miss; any other error, or another alongside it, is a
+ * failure.
+ */
+const linearIssueEntityNotFoundMessage = /^Linear GraphQL errors: Entity not found: Issue$/;
+
 type ProviderGraphQLError = {
 	message?: unknown;
 	extensions?: { code?: unknown };
@@ -138,7 +146,10 @@ function isLinearRateLimitError(providerId: IntegrationIds, ex: unknown): boolea
 
 export function isProviderIssueNotFoundError(providerId: IntegrationIds, ex: unknown): boolean {
 	if (providerId === IssuesCloudHostIntegrationId.Linear) {
-		return ex instanceof Error && linearIssueNotFoundMessage.test(ex.message);
+		return (
+			ex instanceof Error &&
+			(linearIssueNotFoundMessage.test(ex.message) || linearIssueEntityNotFoundMessage.test(ex.message))
+		);
 	}
 
 	const status = (ex as { response?: { status?: unknown } }).response?.status;
