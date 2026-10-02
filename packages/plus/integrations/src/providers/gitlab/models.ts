@@ -1,9 +1,25 @@
+import type { GitBuildStatus } from '@gitkraken/provider-apis';
 import type { PullRequestRefs, PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
-import type { Integration } from '../../models/integration.js';
+import type {
+	Integration,
+	IssueEtagFields,
+	PullRequestEtagFields,
+	PullRequestEtagInclude,
+} from '../../models/integration.js';
 import type { ProviderPullRequest } from '../models.js';
-import { fromProviderPullRequest } from '../models.js';
+import {
+	fromProviderPullRequest,
+	fromProviderPullRequestMergeableState,
+	fromProviderPullRequestState,
+	GitBuildStatusState,
+	GitPullRequestMergeableState,
+	GitPullRequestReviewState,
+	GitPullRequestState,
+	toStatusCheckRollupState,
+} from '../models.js';
+import { fromPullRequestReviewDecision } from '../pullRequestReviews.js';
 
 export interface GitLabUser {
 	id: number;
@@ -262,4 +278,173 @@ function fromGitLabMergeRequestRefs(pr: GitLabMergeRequestFull): PullRequestRefs
 
 export function getRepoNamespace(projectFullPath: string): string {
 	return projectFullPath.split('/').slice(0, -1).join('/');
+}
+
+/** The most iids one etag read asks for: GitLab's GraphQL page size limit, so every iid's answer fits one page. */
+export const gitLabEtagFieldsMaxIids = 100;
+
+/**
+ * The most iids one etag read asks for when it selects the check rollup. GitLab resolves every job of each head
+ * pipeline server-side, one merge request after another within a request, so a large request is far slower than a
+ * few small ones run concurrently, and slower than the full read it replaces.
+ */
+export const gitLabEtagFieldsWithChecksMaxIids = 10;
+
+/**
+ * A merge request as the cheap etag read selects it (`GitLabApi.getMergeRequestsEtagFields`): only the fields
+ * provider-apis' `getPullRequestForRepo` maps into a full row's etag inputs. Each include's field is present only
+ * when that include was requested.
+ */
+export interface GitLabMergeRequestEtagNode {
+	iid: string;
+	state: string;
+	draft: boolean;
+	updatedAt: string;
+	diffRefs: { headSha: string | null } | null;
+	mergeStatusEnum?: string | null;
+	reviewers?: {
+		nodes: { mergeRequestInteraction: { reviewState: string | null } | null }[] | null;
+	} | null;
+	headPipeline?: {
+		stages: {
+			nodes: { jobs: { nodes: { status: string | null; allowFailure: boolean }[] | null } | null }[] | null;
+		} | null;
+	} | null;
+}
+
+/** An issue as the cheap etag read selects it (`GitLabApi.getIssuesEtagFields`). */
+export interface GitLabIssueEtagNode {
+	iid: string;
+	closedAt: string | null;
+	updatedAt: string;
+}
+
+type ProviderPullRequestState = Parameters<typeof fromProviderPullRequestState>[0];
+type ProviderMergeableState = keyof typeof fromProviderPullRequestMergeableState;
+type ProviderReviewState = keyof typeof fromPullRequestReviewDecision;
+type ProviderBuildStatusState = NonNullable<GitBuildStatus['state']>;
+
+// The tables below mirror provider-apis' (0.61.0) GitLab merge request mapping behind `getPullRequestForRepo` (`rs`
+// and its helpers in the bundle), which it doesn't export. A full batch row takes these values on through
+// `fromProviderPullRequest`, so the cheap check composes the same steps to compute the same etag.
+
+/** provider-apis' merge request `state` map (`Oa`). It has no `locked`, which therefore maps to `undefined`. */
+const gitLabMergeRequestProviderStates: Partial<Record<string, ProviderPullRequestState>> = {
+	opened: GitPullRequestState.Open,
+	merged: GitPullRequestState.Merged,
+	closed: GitPullRequestState.Closed,
+};
+
+/** provider-apis' `mergeStatusEnum` map (`va`). */
+const gitLabMergeStatusProviderStates: Partial<Record<string, ProviderMergeableState>> = {
+	CAN_BE_MERGED: GitPullRequestMergeableState.Mergeable,
+	CANNOT_BE_MERGED: GitPullRequestMergeableState.Conflicts,
+	CANNOT_BE_MERGED_RECHECK: GitPullRequestMergeableState.Unknown,
+	UNCHECKED: GitPullRequestMergeableState.Unknown,
+	CHECKING: GitPullRequestMergeableState.Unknown,
+};
+
+/** provider-apis' reviewer `reviewState` map (`ja`); a reviewer without one reads as review requested. */
+const gitLabReviewProviderStates: Partial<Record<string, ProviderReviewState>> = {
+	APPROVED: GitPullRequestReviewState.Approved,
+	REQUESTED_CHANGES: GitPullRequestReviewState.ChangesRequested,
+	REVIEWED: GitPullRequestReviewState.Commented,
+	UNAPPROVED: GitPullRequestReviewState.ReviewRequested,
+	UNREVIEWED: GitPullRequestReviewState.ReviewRequested,
+};
+
+/** provider-apis' review severity (`Us`), by which its `ne` picks the decision: the most severe review wins. */
+const reviewDecisionSeverity: Partial<Record<string, number>> = {
+	[GitPullRequestReviewState.Approved]: 0,
+	[GitPullRequestReviewState.Commented]: 1,
+	[GitPullRequestReviewState.ReviewRequested]: 2,
+	[GitPullRequestReviewState.ChangesRequested]: 3,
+};
+
+/** provider-apis' CI job `status` map (`Ba`); a failed job that may fail reads as a warning. */
+const gitLabJobProviderStates: Partial<Record<string, ProviderBuildStatusState>> = {
+	CANCELED: GitBuildStatusState.Cancelled,
+	CREATED: GitBuildStatusState.Pending,
+	FAILED: GitBuildStatusState.Failed,
+	MANUAL: GitBuildStatusState.OptionalActionRequired,
+	PENDING: GitBuildStatusState.Pending,
+	PREPARING: GitBuildStatusState.Running,
+	RUNNING: GitBuildStatusState.Running,
+	SCHEDULED: GitBuildStatusState.Pending,
+	SKIPPED: GitBuildStatusState.Skipped,
+	SUCCESS: GitBuildStatusState.Success,
+	WAITING_FOR_CALLBACK: GitBuildStatusState.Pending,
+	WAITING_FOR_RESOURCE: GitBuildStatusState.Pending,
+};
+
+function toGitLabJobBuildStatus(job: { status: string | null; allowFailure: boolean }): GitBuildStatus {
+	const state = !job.status
+		? null
+		: job.status === 'FAILED' && job.allowFailure
+			? GitBuildStatusState.Warning
+			: (gitLabJobProviderStates[job.status] ?? null);
+	// The rollup reads only `state`.
+	return { completedAt: null, description: null, name: null, state: state, stage: null, startedAt: null, url: '' };
+}
+
+/**
+ * A cheap etag read's merge request, as the fields its full batch row's etag reads: provider-apis' mapping (see the
+ * tables above), then `fromProviderPullRequest`'s. Neither step is the identity everywhere — a locked merge request
+ * reads as merged, a missing head SHA as `''` — so each value takes both rather than a mapping of its own.
+ */
+export function toGitLabPullRequestEtagFields(
+	node: GitLabMergeRequestEtagNode,
+	etagIncludes: readonly PullRequestEtagInclude[],
+): PullRequestEtagFields {
+	const fields: PullRequestEtagFields = {
+		// A locked merge request passes `undefined` here, as its full row does.
+		state: fromProviderPullRequestState(gitLabMergeRequestProviderStates[node.state] as ProviderPullRequestState),
+		isDraft: node.draft,
+		updatedDate: new Date(node.updatedAt),
+		headSha: node.diffRefs?.headSha ?? '',
+	};
+
+	if (etagIncludes.includes('mergeable')) {
+		const mergeable =
+			node.mergeStatusEnum != null ? gitLabMergeStatusProviderStates[node.mergeStatusEnum] : undefined;
+		fields.mergeableState = mergeable ? fromProviderPullRequestMergeableState[mergeable] : undefined;
+	}
+
+	if (etagIncludes.includes('reviewDecision')) {
+		const reviews = node.reviewers?.nodes?.map(r =>
+			r.mergeRequestInteraction?.reviewState
+				? gitLabReviewProviderStates[r.mergeRequestInteraction.reviewState]
+				: GitPullRequestReviewState.ReviewRequested,
+		);
+		// A review state provider-apis doesn't know maps to `undefined`, which never outranks the decision so far.
+		const decision = reviews?.length
+			? reviews.reduce<ProviderReviewState>(
+					(decided, review) =>
+						review != null &&
+						(reviewDecisionSeverity[review] ?? -1) > (reviewDecisionSeverity[decided] ?? -1)
+							? review
+							: decided,
+					GitPullRequestReviewState.Approved,
+				)
+			: undefined;
+		fields.reviewDecision = decision ? fromPullRequestReviewDecision[decision] : undefined;
+	}
+
+	if (etagIncludes.includes('checks')) {
+		const statuses =
+			node.headPipeline?.stages?.nodes?.flatMap(stage => stage.jobs?.nodes?.map(toGitLabJobBuildStatus) ?? []) ??
+			[];
+		fields.statusCheckRollupState = toStatusCheckRollupState(statuses);
+	}
+
+	return fields;
+}
+
+/**
+ * A cheap etag read's issue, as the fields its full batch row's etag reads. provider-apis maps a GitLab issue's
+ * state to a name without a category, so `toIssueShape` decides `closed` from `closedAt` alone (`closedDate`, which
+ * provider-apis sets only for a truthy `closedAt`); GitLab's own `state` never counts.
+ */
+export function toGitLabIssueEtagFields(node: GitLabIssueEtagNode): IssueEtagFields {
+	return { state: node.closedAt ? 'closed' : 'opened', updatedDate: new Date(node.updatedAt) };
 }

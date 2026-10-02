@@ -32,8 +32,8 @@ import { gitHostOnlySurfaceWarning, otherWarning, unsupportedWarning } from './w
  * request per target with bounded concurrency everywhere else) and settles each independently, so one bad target
  * never spends more than its own slot — see `GitHostIntegration.getPullRequestsBatchResult`.
  *
- * With etags, up to THREE on a host with a cheap check (GitHub/GHE so far): the cheap check of the targets that
- * carry one, a full read of the targets that don't, started alongside it, and a full read of the targets whose
+ * With etags, up to THREE on a host with a cheap check (GitHub/GHE and GitLab so far): the cheap check of the targets
+ * that carry one, a full read of the targets that don't, started alongside it, and a full read of the targets whose
  * etag no longer matches — see `readEtaggedBatch`. A host without a cheap check still makes one call.
  */
 
@@ -99,7 +99,7 @@ export async function getPullRequestsBatch(
 		 */
 		domain?: string;
 		/**
-		 * Widens every etag to the listed inputs, each of which GitHub changes without moving the pull request's
+		 * Widens every etag to the listed inputs, each of which a host changes without moving the pull request's
 		 * update time, and each of which costs its own fields in the cheap check. `'checks'` is the check rollup.
 		 * Order and repeats don't matter. An unknown value refuses the whole call. Changes only which etag is
 		 * computed; the full read is the same. Calls that differ in this set never match each other's etags.

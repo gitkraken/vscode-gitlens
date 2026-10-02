@@ -27,6 +27,7 @@ import {
 	RequestNotFoundError,
 	toRateLimitError,
 } from '../../errors.js';
+import type { PullRequestEtagInclude } from '../../models/integration.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
 import { selectBranchPullRequests } from '../utils/providerPaging.js';
@@ -34,7 +35,9 @@ import { selectGitLabUserForCommit } from './gitlab.utils.js';
 import type {
 	GitLabCommit,
 	GitLabIssue,
+	GitLabIssueEtagNode,
 	GitLabMergeRequest,
+	GitLabMergeRequestEtagNode,
 	GitLabMergeRequestFull,
 	GitLabMergeRequestREST,
 	GitLabMergeRequestState,
@@ -47,6 +50,7 @@ import {
 	fromGitLabMergeRequestREST,
 	fromGitLabMergeRequestState,
 	getRepoNamespace,
+	gitLabEtagFieldsMaxIids,
 	toGitLabMergeRequestState,
 } from './models.js';
 
@@ -937,6 +941,194 @@ export class GitLabApi implements Disposable {
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
 		}
+	}
+
+	/**
+	 * The change state of merge requests `iids` in `fullPath` — the cheap check behind the batch pull request read's
+	 * etags. Selects only what provider-apis' `getPullRequestForRepo` maps into a full row's etag inputs, plus the
+	 * fields of each of `options.etagIncludes`, in ONE request for up to {@link gitLabEtagFieldsMaxIids} iids. One
+	 * entry per input iid, in order; `undefined` is a PROVEN ABSENCE (see {@link getEtagFieldsByIid}).
+	 */
+	@trace({
+		args: (provider, token, fullPath, iids) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			fullPath: fullPath,
+			iids: iids.length,
+		}),
+	})
+	async getMergeRequestsEtagFields(
+		provider: Provider,
+		token: TokenWithInfo,
+		fullPath: string,
+		iids: readonly number[],
+		options: { baseUrl?: string; etagIncludes: readonly PullRequestEtagInclude[]; deferFailure?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<(GitLabMergeRequestEtagNode | undefined)[]> {
+		const scope = getScopedLogger();
+
+		const selections = ['iid', 'state', 'draft', 'updatedAt', 'diffRefs { headSha }'];
+		if (options.etagIncludes.includes('mergeable')) {
+			selections.push('mergeStatusEnum');
+		}
+		if (options.etagIncludes.includes('reviewDecision')) {
+			selections.push('reviewers { nodes { mergeRequestInteraction { reviewState } } }');
+		}
+		if (options.etagIncludes.includes('checks')) {
+			selections.push('headPipeline { stages { nodes { jobs { nodes { status allowFailure } } } } }');
+		}
+
+		try {
+			const query = `query getMergeRequestsEtagFields(
+	$fullPath: ID!
+	$iids: [String!]
+	$first: Int!
+) {
+	project(fullPath: $fullPath) {
+		mergeRequests(iids: $iids, state: all, first: $first) {
+			pageInfo {
+				hasNextPage
+			}
+			nodes {
+				${selections.join('\n\t\t\t\t')}
+			}
+		}
+	}
+}`;
+
+			return await this.getEtagFieldsByIid<GitLabMergeRequestEtagNode>(
+				provider,
+				token,
+				options.baseUrl,
+				query,
+				'mergeRequests',
+				fullPath,
+				iids,
+				cancellation,
+				scope,
+				options.deferFailure,
+			);
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
+	 * The change state of issues `iids` in `fullPath` — the cheap check behind the batch issue read's etags — selecting
+	 * only what provider-apis' issue read maps into a full row's etag inputs, in ONE request for up to
+	 * {@link gitLabEtagFieldsMaxIids} iids. One entry per input iid, in order; `undefined` is a PROVEN ABSENCE (see
+	 * {@link getEtagFieldsByIid}).
+	 */
+	@trace({
+		args: (provider, token, fullPath, iids) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			fullPath: fullPath,
+			iids: iids.length,
+		}),
+	})
+	async getIssuesEtagFields(
+		provider: Provider,
+		token: TokenWithInfo,
+		fullPath: string,
+		iids: readonly number[],
+		options: { baseUrl?: string; deferFailure?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<(GitLabIssueEtagNode | undefined)[]> {
+		const scope = getScopedLogger();
+
+		try {
+			const query = `query getIssuesEtagFields(
+	$fullPath: ID!
+	$iids: [String!]
+	$first: Int!
+) {
+	project(fullPath: $fullPath) {
+		issues(iids: $iids, state: all, first: $first) {
+			pageInfo {
+				hasNextPage
+			}
+			nodes {
+				iid
+				closedAt
+				updatedAt
+			}
+		}
+	}
+}`;
+
+			return await this.getEtagFieldsByIid<GitLabIssueEtagNode>(
+				provider,
+				token,
+				options.baseUrl,
+				query,
+				'issues',
+				fullPath,
+				iids,
+				cancellation,
+				scope,
+				options.deferFailure,
+			);
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
+	 * Runs an etag read's `query` and maps its `connection`'s nodes back to `iids`, positionally.
+	 *
+	 * Strict like {@link getPullRequest}'s `strict`: an iid is absent only when the project is `null`, or when it is
+	 * missing from a complete page of an error-free reply — the answers that prove a miss to the full read's own
+	 * confirming read. GraphQL `errors`, an empty response, a `null` connection, a page that has more and any HTTP
+	 * error (a 404 means a wrong endpoint) throw instead. The query asks for `state: all`, so no default state filter
+	 * can hide a closed or merged item and have it read as missing.
+	 */
+	private async getEtagFieldsByIid<T extends { iid: string }>(
+		provider: Provider,
+		token: TokenWithInfo,
+		baseUrl: string | undefined,
+		query: string,
+		connection: 'mergeRequests' | 'issues',
+		fullPath: string,
+		iids: readonly number[],
+		cancellation: AbortSignal | undefined,
+		scope: ScopedLogger | undefined,
+		deferFailure: boolean | undefined,
+	): Promise<(T | undefined)[]> {
+		if (!iids.length) return [];
+		if (iids.length > gitLabEtagFieldsMaxIids) {
+			throw new Error(`Cannot read more than ${gitLabEtagFieldsMaxIids} GitLab iids in one request`);
+		}
+
+		interface QueryResult {
+			data: {
+				project: Partial<
+					Record<'mergeRequests' | 'issues', { pageInfo: { hasNextPage: boolean }; nodes: T[] } | null>
+				> | null;
+			} | null;
+		}
+
+		const rsp = await this.graphql<QueryResult>(
+			provider,
+			token,
+			baseUrl,
+			query,
+			{ fullPath: fullPath, iids: iids.map(String), first: iids.length },
+			cancellation,
+			scope,
+			deferFailure,
+		);
+		if (rsp?.data == null) throw new Error(`GitLab returned no data for the ${connection} of ${fullPath}`);
+
+		const project = rsp.data.project;
+		if (project == null) return iids.map(() => undefined);
+
+		const page = project[connection];
+		if (page?.nodes == null) throw new Error(`GitLab returned no ${connection} for ${fullPath}`);
+		if (page.pageInfo.hasNextPage) throw new Error(`GitLab returned a partial page of ${connection}`);
+
+		const byIid = new Map(page.nodes.map(node => [node.iid, node]));
+		return iids.map(iid => byIid.get(String(iid)));
 	}
 
 	@trace({
