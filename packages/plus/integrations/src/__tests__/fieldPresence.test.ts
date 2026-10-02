@@ -20,6 +20,8 @@ import { PagingMode } from '../providers/models.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { assertIssuePresence, assertPullRequestPresence } from './fieldPresenceHelpers.js';
+import type { GitHubPullRequestFixture } from './githubFixtures.js';
+import { gitHubPullRequest } from './githubFixtures.js';
 import { connectedGitHub, connectedGitLab, providerPr, stubApi } from './sweepHelpers.js';
 
 /**
@@ -66,47 +68,31 @@ const repository = {
  * Every field GitLens' own full and stack fragments select. `viewerPermission: READ` and `viewerCanUpdate: false` are
  * values a hardcoded or rebuilt viewer would lose, and the code-owner request is one a lossy conversion would flatten.
  */
-function nativePullRequestNode(): Node {
-	return {
-		id: 'PR_1',
-		number: 1,
-		title: 'PR 1',
-		body: 'Body',
-		permalink: 'https://github.com/o/r/pull/1',
-		url: 'https://github.com/o/r/pull/1',
-		state: 'OPEN',
-		closed: false,
-		createdAt: createdAt,
-		updatedAt: updatedAt,
-		closedAt: null,
-		mergedAt: null,
-		author: member,
-		baseRefName: 'main',
-		baseRefOid: 'base',
-		headRefName: 'feature',
-		headRefOid: 'head',
-		headRepository: repository,
-		repository: { ...repository, viewerPermission: 'READ' },
-		isCrossRepository: false,
-		isDraft: false,
-		stack: { id: 'S_1', number: 7, size: 2, baseRefName: 'main' },
-		stackEntry: { position: 1 },
-		additions: 3,
-		assignees: { nodes: [member] },
-		changedFiles: 2,
-		checksUrl: '',
-		deletions: 1,
-		mergeable: 'MERGEABLE',
-		mergedBy: null,
-		reviewDecision: 'APPROVED',
-		latestReviews: { nodes: [{ id: 'R_1', author: reviewer, state: 'APPROVED', commit: { oid: 'head' } }] },
-		viewerLatestReview: null,
-		reviewRequests: { nodes: [{ asCodeOwner: true, id: 'RR_1', requestedReviewer: reviewer }] },
-		commits: { totalCount: 4, nodes: [{ commit: { statusCheckRollup: { state: 'SUCCESS' } } }] },
-		totalCommentsCount: 5,
-		viewerCanUpdate: false,
-		headRepositoryOwner: { login: 'o' },
-	};
+function nativePullRequestNode(): GitHubPullRequestFixture {
+	return gitHubPullRequest(
+		1,
+		{
+			id: 'PR_1',
+			body: 'Body',
+			updatedAt: updatedAt,
+			author: member,
+			headRepository: repository,
+			repository: { ...repository, viewerPermission: 'READ' },
+			stack: { id: 'S_1', number: 7, size: 2, baseRefName: 'main' },
+			stackEntry: { position: 1 },
+			additions: 3,
+			assignees: { nodes: [member] },
+			changedFiles: 2,
+			deletions: 1,
+			latestReviews: { nodes: [{ id: 'R_1', author: reviewer, state: 'APPROVED', commit: { oid: 'head' } }] },
+			reviewRequests: { nodes: [{ asCodeOwner: true, requestedReviewer: reviewer }] },
+			commits: { totalCount: 4, nodes: [{ commit: { statusCheckRollup: { state: 'SUCCESS' } } }] },
+			totalCommentsCount: 5,
+			viewerCanUpdate: false,
+			headRepositoryOwner: { login: 'o' },
+		},
+		{ owner: 'o', name: 'r' },
+	);
 }
 
 /** The fields only the full fragment selects, beyond the lite one. */

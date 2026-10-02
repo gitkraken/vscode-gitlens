@@ -6,6 +6,7 @@ import type { GitHubPullRequestEtagInclude } from '../../models.js';
 import type { GitHubApiConfig } from '../config.js';
 import { GitHubApi } from '../github.js';
 import type { GitHubTokenInfo } from '../token.js';
+import { gitHubPullRequest } from './fixtures.js';
 
 /**
  * The cheap checks behind the batch reads' etags: the aliased document of `getPullRequestsBatch` /
@@ -64,14 +65,14 @@ function assertEveryDeclaredVariableIsUsed(query: string): void {
 	}
 }
 
-const prNode = (number: number) => ({
-	id: `node-${number}`,
-	number: number,
-	state: 'OPEN',
-	isDraft: false,
-	updatedAt: '2026-01-01T00:00:00Z',
-	headRefOid: `head-${number}`,
-});
+/** The change state alone, which is all the etag-fields read selects. */
+const prNode = (number: number) => {
+	const { id, state, isDraft, updatedAt, headRefOid } = gitHubPullRequest(number, {
+		updatedAt: '2026-01-01T00:00:00Z',
+		headRefOid: `head-${number}`,
+	});
+	return { id: id, number: number, state: state, isDraft: isDraft, updatedAt: updatedAt, headRefOid: headRefOid };
+};
 
 suite('GitHubApi.getPullRequestsEtagFieldsBatch', () => {
 	test('selects only the change state, positionally, in one request', async () => {
