@@ -37,6 +37,11 @@ interface FakeCollection {
 	projects: string[];
 	workItems: FakeWorkItem[];
 	pullRequests: FakePullRequest[];
+	/**
+	 * Its groups (teams and security groups), each an identity a pull request can list as a reviewer, with its direct
+	 * members: users, or the ids of groups nested in it.
+	 */
+	groups?: { id: string; members: string[] }[];
 	/** The category its process maps every work item state to; `InProgress` when omitted. */
 	stateCategory?: string;
 }
@@ -77,6 +82,8 @@ function createServer(options: {
 	wiqlLimitIgnoresTop?: boolean;
 	/** Reports a collection's relative directory below the installation's own virtual directory (e.g. `tfs/`). */
 	relativeDirectoryPrefix?: string;
+	/** Refuses the collection's identity reads with this status. */
+	failGroups?: number;
 }) {
 	const runtime = createFakeRuntime();
 	const requests: Request[] = [];
@@ -155,6 +162,29 @@ function createServer(options: {
 		if (collection == null) return json({ message: 'unknown collection' }, 404);
 
 		const route = segments.slice(1).join('/');
+		if (route === '_apis/identities') {
+			if (options.failGroups != null) return json({ message: 'identities refused' }, options.failGroups);
+
+			assert.equal(url.searchParams.get('queryMembership'), 'Expanded', 'membership is read transitively');
+			const user = url.searchParams.get('identityIds');
+			// Expanded: every group the user reaches, directly or through the groups nested in it.
+			const memberOf = new Set<string>();
+			const reach = (member: string) => {
+				for (const g of collection.groups ?? []) {
+					if (g.members.includes(member) && !memberOf.has(g.id)) {
+						memberOf.add(g.id);
+						reach(g.id);
+					}
+				}
+			};
+			reach(user!);
+			return json({ value: [{ id: user, memberOf: Array.from(memberOf, g => `desc;${g}`) }] });
+		}
+		if (route === '_apis/identitybatch') {
+			assert.equal(init?.method, 'POST');
+			const { descriptors } = JSON.parse(body!) as { descriptors: string[] };
+			return json({ value: descriptors.map(d => ({ id: d.replace(/^desc;/, '') })) });
+		}
 		if (route === '_apis/projects') {
 			if (options.failProjectFor === collection.name) return json({ message: 'boom' }, 500);
 
@@ -1758,6 +1788,382 @@ suite('Azure DevOps Server filtered search', () => {
 				assert.deepEqual(result.items, []);
 				assert.equal(result.warnings[0].kind, 'auth');
 			});
+		});
+	});
+
+	suite('group reviewers (#5917)', () => {
+		/**
+		 * Pull requests whose reviewer is a group. The user is a member of `web-team` and `api-team` directly, and of
+		 * `contributors` only through `web-team`; not of `web-other`. Azure's reviewer filter by the user's own id finds
+		 * none of them, only #3, which also names the user directly.
+		 */
+		const groupCollection: FakeCollection = {
+			name: 'Default Collection',
+			projects: ['Web', 'Api'],
+			workItems: [],
+			groups: [
+				{ id: 'web-team', members: ['me'] },
+				{ id: 'web-other', members: ['someone'] },
+				{ id: 'api-team', members: ['me'] },
+				{ id: 'contributors', members: ['web-team', 'someone'] },
+			],
+			pullRequests: [
+				{
+					id: 1,
+					project: 'Web',
+					repository: 'site',
+					title: 'Team',
+					created: '2026-01-08T00:00:00Z',
+					reviewers: ['web-team'],
+				},
+				{
+					id: 2,
+					project: 'Web',
+					repository: 'site',
+					title: 'Other team',
+					created: '2026-01-07T00:00:00Z',
+					reviewers: ['web-other'],
+				},
+				{
+					id: 3,
+					project: 'Web',
+					repository: 'site',
+					title: 'Team and me',
+					created: '2026-01-06T00:00:00Z',
+					reviewers: ['web-team', 'me'],
+				},
+				{
+					id: 4,
+					project: 'Api',
+					repository: 'svc',
+					title: 'Api team',
+					created: '2026-01-05T00:00:00Z',
+					reviewers: ['api-team'],
+				},
+				{
+					id: 5,
+					project: 'Web',
+					repository: 'site',
+					title: 'Mine',
+					created: '2026-01-04T00:00:00Z',
+					creator: 'me',
+				},
+				{
+					id: 6,
+					project: 'Web',
+					repository: 'site',
+					title: 'Nested group',
+					created: '2026-01-03T00:00:00Z',
+					reviewers: ['contributors'],
+				},
+				// A group of another project can review a pull request here, as Azure allows.
+				{
+					id: 7,
+					project: 'Web',
+					repository: 'site',
+					title: 'Cross-project team',
+					created: '2026-01-02T00:00:00Z',
+					reviewers: ['api-team'],
+				}, // Merged: a group's request is only followed while a pull request is open; the user's own always is.
+				{
+					id: 8,
+					project: 'Web',
+					repository: 'site',
+					title: 'Merged team review',
+					created: '2025-12-01T00:00:00Z',
+					closed: '2026-01-01T00:00:00Z',
+					status: 'completed',
+					reviewers: ['web-team'],
+				},
+				{
+					id: 9,
+					project: 'Web',
+					repository: 'site',
+					title: 'Merged review of mine',
+					created: '2025-11-01T00:00:00Z',
+					closed: '2026-01-01T00:00:00Z',
+					status: 'completed',
+					reviewers: ['me'],
+				},
+				// The user's own pull requests: a group of theirs asked to review one isn't asking them; the user named
+				// on one is.
+				{
+					id: 10,
+					project: 'Web',
+					repository: 'site',
+					title: 'Mine, my team reviews',
+					created: '2026-01-09T00:00:00Z',
+					creator: 'me',
+					reviewers: ['web-team'],
+				},
+				{
+					id: 11,
+					project: 'Web',
+					repository: 'site',
+					title: 'Mine, I review',
+					created: '2026-01-10T00:00:00Z',
+					creator: 'me',
+					reviewers: ['me'],
+				},
+			],
+		};
+
+		/** Each pull request read, as `project:filter:status`, the filter being the reviewer, `creator=…` or `all`. */
+		function pullRequestReads(server: ReturnType<typeof createServer>): string[] {
+			return server.requests
+				.filter(r => /\/pullRequests$/i.test(r.url.pathname))
+				.map(r => {
+					const project = decodeURIComponent(r.url.pathname).split('/').at(-4);
+					const reviewer = r.url.searchParams.get('searchCriteria.reviewerId');
+					const creator = r.url.searchParams.get('searchCriteria.creatorId');
+					const status = r.url.searchParams.get('searchCriteria.status');
+					return `${project}:${reviewer ?? (creator != null ? `creator=${creator}` : 'all')}:${status}`;
+				})
+				.sort();
+		}
+
+		function identityReads(server: ReturnType<typeof createServer>): string[] {
+			return server.requests
+				.filter(r => /\/_apis\/identit(?:ies|ybatch)$/.test(r.url.pathname))
+				.map(r => `${r.method} ${decodeURIComponent(r.url.pathname)}`);
+		}
+
+		function groupMarks(pr: { reviewRequests?: { reviewer: { id: string }; isMyGroup?: boolean }[] } | undefined) {
+			return pr?.reviewRequests?.map(r => [r.reviewer.id, r.isMyGroup ?? false]);
+		}
+
+		test("the filtered search finds pull requests any of the user's groups reviews, in any project", async () => {
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [groupCollection] });
+			await withManager(server, async (manager, target) => {
+				const result = await manager.searchPullRequestsPage({
+					...target,
+					org: 'Default Collection',
+					criteria: { relationships: [PullRequestFilter.ReviewRequested], sort: 'created:desc' },
+				});
+				assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+				assert.deepEqual(
+					result.items.map(pr => pr.id),
+					['11', '1', '3', '4', '6', '7'],
+					"a group the user isn't in finds nothing, nor one asked to review the user's own pull request; nested and other-project groups do",
+				);
+				assert.deepEqual(
+					pullRequestReads(server),
+					['Api:all:active', 'Web:all:active'],
+					'open pull requests: one read of each project, whatever the number of groups',
+				);
+				assert.deepEqual(identityReads(server), [
+					'GET /tfs/Default Collection/_apis/identities',
+					'POST /tfs/Default Collection/_apis/identitybatch',
+				]);
+
+				const byId = new Map(result.items.map(pr => [pr.id, pr]));
+				assert.deepEqual(groupMarks(byId.get('1')), [['web-team', true]]);
+				assert.deepEqual(groupMarks(byId.get('3')), [
+					['web-team', true],
+					['me', false],
+				]);
+				assert.deepEqual(
+					groupMarks(byId.get('6')),
+					[['contributors', true]],
+					'a group reached through another',
+				);
+				assert.deepEqual(groupMarks(byId.get('7')), [['api-team', true]]);
+
+				const counted = await manager.countPullRequests({
+					...target,
+					scopes: [
+						{
+							key: 'k',
+							org: 'Default Collection',
+							criteria: { relationships: [PullRequestFilter.ReviewRequested] },
+						},
+					],
+				});
+				assert.equal(counted.items[0]?.count, 6, 'the count includes what the groups find');
+			});
+		});
+
+		test("the filtered search over closed states follows only the user's own requests there", async () => {
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [groupCollection] });
+			await withManager(server, async (manager, target) => {
+				const result = await manager.searchPullRequestsPage({
+					...target,
+					org: 'Default Collection',
+					criteria: {
+						relationships: [PullRequestFilter.ReviewRequested],
+						states: ['all'],
+						sort: 'created:desc',
+					},
+				});
+				assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+				assert.deepEqual(
+					result.items.map(pr => pr.id),
+					['11', '1', '3', '4', '6', '7', '9'],
+					"#9 names the user; #8, merged, only the user's team",
+				);
+				assert.deepEqual(
+					pullRequestReads(server),
+					['Api:all:active', 'Api:me:all', 'Web:all:active', 'Web:me:all'],
+					'open pull requests read whole, closed ones through the filter for the user',
+				);
+
+				server.requests.length = 0;
+				const merged = await manager.searchPullRequestsPage({
+					...target,
+					org: 'Default Collection',
+					criteria: { relationships: [PullRequestFilter.ReviewRequested], states: ['merged'] },
+				});
+				assert.deepEqual(
+					merged.items.map(pr => pr.id),
+					['9'],
+				);
+				assert.deepEqual(
+					pullRequestReads(server),
+					['Api:me:completed', 'Web:me:completed'],
+					'no read of every pull request',
+				);
+			});
+		});
+
+		test('the filtered search reads no groups for authored pull requests alone', async () => {
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [groupCollection] });
+			await withManager(server, async (manager, target) => {
+				const result = await manager.searchPullRequestsPage({
+					...target,
+					org: 'Default Collection',
+					criteria: { relationships: [PullRequestFilter.Author] },
+				});
+				assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+				assert.deepEqual(
+					result.items.map(pr => pr.id),
+					['11', '10', '5'],
+				);
+				assert.deepEqual(identityReads(server), []);
+				assert.deepEqual(pullRequestReads(server), ['Api:creator=me:active', 'Web:creator=me:active']);
+			});
+		});
+
+		test('the filtered search keeps what names the user, and reports the collection, when the groups cannot be read', async () => {
+			const server = createServer({
+				installation: 'https://server.test/tfs',
+				collections: [groupCollection],
+				failGroups: 401,
+			});
+			await withManager(server, async (manager, target) => {
+				const result = await manager.searchPullRequestsPage({
+					...target,
+					org: 'Default Collection',
+					criteria: { relationships: [PullRequestFilter.ReviewRequested], sort: 'created:desc' },
+				});
+				assert.deepEqual(
+					result.items.map(pr => pr.id),
+					['11', '3'],
+				);
+				assert.equal(
+					result.page.truncated,
+					true,
+					'the missing group reviews are not presented as a complete result',
+				);
+				assert.equal(result.warnings.length, 1, JSON.stringify(result.warnings));
+				assert.equal(result.warnings[0].kind, 'auth', 'the refusal keeps its kind');
+				assert.notEqual(result.warnings[0].scope, undefined, 'scoped to the collection, not the connection');
+
+				const counted = await manager.countPullRequests({
+					...target,
+					scopes: [
+						{
+							key: 'k',
+							org: 'Default Collection',
+							criteria: { relationships: [PullRequestFilter.ReviewRequested] },
+						},
+					],
+				});
+				assert.equal(counted.items[0]?.count, undefined, 'an incomplete search is not counted');
+			});
+		});
+
+		test("the account-wide read finds pull requests any of the user's groups reviews and marks those requests", async () => {
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [groupCollection] });
+			await withManager(server, async (manager, target) => {
+				const result = await manager.listPullRequestsPage({
+					...target,
+					filters: [PullRequestFilter.ReviewRequested],
+				});
+				assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+				assert.deepEqual(result.items.map(pr => pr.id).sort(), ['1', '11', '3', '4', '6', '7']);
+				assert.deepEqual(pullRequestReads(server), ['Api:all:active', 'Web:all:active']);
+				assert.deepEqual(groupMarks(result.items.find(pr => pr.id === '7')), [['api-team', true]]);
+			});
+		});
+
+		test('the account-wide read keeps what the user reviews directly when the groups cannot be read, and says so', async () => {
+			const server = createServer({
+				installation: 'https://server.test/tfs',
+				collections: [groupCollection],
+				failGroups: 500,
+			});
+			await withManager(server, async (manager, target) => {
+				const result = await manager.listPullRequestsPage({
+					...target,
+					filters: [PullRequestFilter.ReviewRequested],
+				});
+				assert.deepEqual(result.items.map(pr => pr.id).sort(), ['11', '3']);
+				assert.equal(
+					result.fetchFailed,
+					true,
+					'the missing group reviews are not presented as a complete read',
+				);
+				assert.ok(result.warnings.length > 0);
+			});
+		});
+
+		test('the account-wide read reads no groups for authored pull requests alone', async () => {
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [groupCollection] });
+			await withManager(server, async (manager, target) => {
+				const result = await manager.listPullRequestsPage({ ...target, filters: [PullRequestFilter.Author] });
+				assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+				assert.deepEqual(result.items.map(pr => pr.id).sort(), ['10', '11', '5']);
+				assert.deepEqual(identityReads(server), []);
+			});
+		});
+
+		test("the legacy my pull requests read finds pull requests any of the user's groups reviews", async () => {
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [groupCollection] });
+			const service = createIntegrationService(server.runtime);
+			try {
+				await service.refreshConnections();
+				const result = await service.getMyPullRequests([id]);
+				assert.ok(result != null && result.error == null, String(result?.error));
+				assert.deepEqual(
+					result.value?.map(pr => pr.id).sort(),
+					['1', '10', '11', '3', '4', '5', '6', '7'],
+					"the user's authored and reviewed pull requests, including the groups', but not another group's",
+				);
+				assert.deepEqual(groupMarks(result.value?.find(pr => pr.id === '6')), [['contributors', true]]);
+			} finally {
+				service.dispose();
+			}
+		});
+
+		test("the legacy my pull requests read keeps the user's own pull requests when the groups cannot be read", async () => {
+			const server = createServer({
+				installation: 'https://server.test/tfs',
+				collections: [groupCollection],
+				failGroups: 500,
+			});
+			const service = createIntegrationService(server.runtime);
+			try {
+				await service.refreshConnections();
+				const result = await service.getMyPullRequests([id]);
+				assert.ok(result != null && result.error == null, String(result?.error));
+				assert.deepEqual(
+					result.value?.map(pr => pr.id).sort(),
+					['10', '11', '3', '5'],
+					'what the user authored or reviews by name',
+				);
+			} finally {
+				service.dispose();
+			}
 		});
 	});
 });

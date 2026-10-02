@@ -528,6 +528,40 @@ suite('pull request dismissed review projection', () => {
 		);
 	});
 
+	test("carries a review by one of the user's groups both ways, and nothing for any other reviewer", () => {
+		const account = (id: string) => ({ id: id, name: id, username: id, email: null, avatarUrl: null, url: null });
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				reviews: [
+					{ reviewer: account('group'), state: GitPullRequestReviewState.ReviewRequested, isMyGroup: true },
+					{ reviewer: account('person'), state: GitPullRequestReviewState.ReviewRequested },
+					{ reviewer: account('other-group'), state: GitPullRequestReviewState.Approved, isMyGroup: true },
+				],
+			}),
+			fakeProvider,
+		);
+
+		assert.deepEqual(
+			pr.reviewRequests?.map(r => [r.reviewer.id, 'isMyGroup' in r ? r.isMyGroup : 'absent']),
+			[
+				['group', true],
+				['person', 'absent'],
+			],
+		);
+		assert.deepEqual(
+			pr.latestReviews?.map(r => [r.reviewer.id, r.isMyGroup]),
+			[['other-group', true]],
+		);
+		assert.deepEqual(
+			toProviderPullRequest(pr).reviews?.map(r => [r.reviewer.id, 'isMyGroup' in r ? r.isMyGroup : 'absent']),
+			[
+				['group', true],
+				['person', 'absent'],
+				['other-group', true],
+			],
+		);
+	});
+
 	/**
 	 * An unsubmitted draft carries no verdict and is visible only to its author. It is the ONE state that stays
 	 * unmapped, so this pins that it is dropped rather than falling through to the `ReviewRequested` default —

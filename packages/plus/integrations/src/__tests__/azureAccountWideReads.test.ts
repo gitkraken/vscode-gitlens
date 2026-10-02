@@ -1,14 +1,22 @@
 import * as assert from 'node:assert/strict';
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import { GitPullRequestReviewState, GitPullRequestState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
-import type { CloudIntegrationAuthType, ProviderAuthenticationSession } from '../authentication/models.js';
+import type {
+	CloudIntegrationAuthType,
+	ProviderAuthenticationSession,
+	TokenWithInfo,
+} from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IntegrationResult } from '../models/integration.js';
+import { PullRequestFilter } from '../providerFilters.js';
 import type { ProviderApiPagedResult, ProviderIssue, ProviderPullRequest } from '../providers/models.js';
+import type { ProvidersApi } from '../providers/providersApi.js';
 import {
 	conditionalAccess,
 	explainedRefusal,
@@ -57,6 +65,7 @@ async function azureWithRefusingOrg(
 	};
 
 	stubApi(azure, {
+		getAzureGroupIdsForUser: () => Promise.resolve([]),
 		getAzureProjectsForResource: (_t: unknown, resourceName: string) =>
 			resourceName === 'Org Denied'
 				? Promise.reject((options?.refusal ?? refusedCredential)())
@@ -101,6 +110,7 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 		// The 'bad' project's read throws (e.g. a 429/403 mid-sweep); the 'good' project drains cleanly. The
 		// fan-out must be settled per-project so the failure doesn't take down the good project's PRs.
 		stubApi(azure, {
+			getAzureGroupIdsForUser: () => Promise.resolve([]),
 			getPullRequestsForAzureProject: (_t: unknown, project: { project: string }) => {
 				if (project.project === 'bad') return Promise.reject(new Error('boom'));
 				return Promise.resolve({
@@ -162,6 +172,7 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 		// Both orgs surface a URL-less PR whose Azure pullRequestId is "42" (ids are only org-unique). Keyed by
 		// id one would be dropped; keyed by repository + id both survive while authored/reviewer facets dedupe.
 		stubApi(azure, {
+			getAzureGroupIdsForUser: () => Promise.resolve([]),
 			getPullRequestsForAzureProject: (_t: unknown, project: { namespace: string; project: string }) =>
 				Promise.resolve({
 					data: [
@@ -224,6 +235,7 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 		// A single project fans out into an authored + assigned read, so 2 × 20 = 40 calls for one project.
 		let calls = 0;
 		stubApi(azure, {
+			getAzureGroupIdsForUser: () => Promise.resolve([]),
 			getPullRequestsForAzureProject: (_t: unknown, project: { project: string }, o?: { page?: number }) => {
 				calls += 1;
 				const page = o?.page ?? 1;
@@ -842,6 +854,359 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 		assert.equal(seenFilters.length, 1, 'one unfiltered drain per project, not the assigned+authored pair');
 		assert.equal(seenFilters[0].assigneeLogins, undefined, 'the per-user assignee filter is dropped');
 		assert.equal(seenFilters[0].authorLogin, undefined, 'no author filter is applied either');
+
+		manager.dispose();
+	});
+});
+
+/** A pending review request from `reviewerId`, as provider-apis normalizes an Azure reviewer. */
+function requestedFrom(reviewerId: string) {
+	return {
+		reviewer: { id: reviewerId, name: reviewerId, username: reviewerId, email: null, avatarUrl: null, url: null },
+		state: GitPullRequestReviewState.ReviewRequested,
+	};
+}
+
+/**
+ * An Azure DevOps connection with one organization and two projects, `web` and `api`. Its pull request reads answer
+ * by filter from `rows`, keyed `project:all` for a read with no filter and `project:<reviewerId>` for a reviewer
+ * read, and are recorded the same way (`project:creator` for an author read).
+ */
+async function azureWithGroups(options: {
+	groups: () => Promise<string[]>;
+	rows?: Record<string, ProviderPullRequest[]>;
+}) {
+	const manager = createIntegrationManager(createFakeRuntime());
+	const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+	(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+		...primarySession('t'),
+		domain: 'dev.azure.com',
+	};
+	const reads: string[] = [];
+	const readStates = new Map<string, GitPullRequestState[] | undefined>();
+	const groupReads: { namespace: string; userId: string }[] = [];
+	stubApi(azure, {
+		getAzureGroupIdsForUser: (_t: unknown, namespace: string, userId: string) => {
+			groupReads.push({ namespace: namespace, userId: userId });
+			return options.groups();
+		},
+		getPullRequestsForAzureProject: (
+			_t: unknown,
+			project: { project: string },
+			o?: { reviewerId?: string; authorLogin?: string; states?: GitPullRequestState[] },
+		) => {
+			const key = `${project.project}:${o?.reviewerId ?? (o?.authorLogin != null ? 'creator' : 'all')}`;
+			reads.push(key);
+			readStates.set(key, o?.states);
+			return Promise.resolve({ data: options.rows?.[key] ?? [], hasMore: false, nextPage: null });
+		},
+	});
+	(azure as unknown as { getProviderCurrentAccount: () => Promise<{ id: string }> }).getProviderCurrentAccount = () =>
+		Promise.resolve({ id: 'me' });
+	(
+		azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+	).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
+	(
+		azure as unknown as {
+			getProviderProjectsForResources: () => Promise<{
+				values: { id: string; resourceId: string; resourceName: string; name: string }[];
+			}>;
+		}
+	).getProviderProjectsForResources = () =>
+		Promise.resolve({
+			values: [
+				{ id: 'web-id', resourceId: 'org-1', resourceName: 'Org One', name: 'web' },
+				{ id: 'api-id', resourceId: 'org-1', resourceName: 'Org One', name: 'api' },
+			],
+		});
+
+	const read = (filters?: PullRequestFilter[], state?: PullRequestStateFilter[]) =>
+		(
+			azure as unknown as {
+				getMyPullRequestsForUserResult: (options?: {
+					filters?: PullRequestFilter[];
+					state?: PullRequestStateFilter[];
+				}) => Promise<IntegrationResult<ProviderApiPagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult({ filters: filters, state: state });
+	return {
+		manager: manager,
+		azure: azure,
+		read: read,
+		reads: reads,
+		readStates: readStates,
+		groupReads: groupReads,
+	};
+}
+
+suite('Azure DevOps group reviewer reads (#5917)', () => {
+	// `#1` is reviewed by the user's team only; `#2` by the user and the team; `#3` by a group of another project the
+	// user is in and by a stranger group; `#4` only by a group the user isn't in; `#5` by nobody.
+	const pr1 = providerPr('pr-1', { reviews: [requestedFrom('web-team')] });
+	const pr2 = providerPr('pr-2', { reviews: [requestedFrom('me'), requestedFrom('web-team')] });
+	const pr3 = providerPr('pr-3', { reviews: [requestedFrom('api-contributors'), requestedFrom('stranger-group')] });
+	const pr4 = providerPr('pr-4', { reviews: [requestedFrom('stranger-group')] });
+	const pr5 = providerPr('pr-5', { reviews: [] });
+	// The user's own: `#6` only their team reviews, which isn't asking them; `#7` names them.
+	const me = { id: 'me', name: 'Me', username: 'me', email: null, avatarUrl: null, url: null };
+	const pr6 = providerPr('pr-6', { author: me, reviews: [requestedFrom('web-team')] });
+	const pr7 = providerPr('pr-7', { author: me, reviews: [requestedFrom('me'), requestedFrom('web-team')] });
+	const marks = (values: ProviderPullRequest[] | undefined, id: string) =>
+		values?.find(pr => pr.id === id)?.reviews?.map(r => [r.reviewer.id, r.isMyGroup ?? false]);
+
+	test("reads each project once and keeps what the user or any of the user's groups reviews, marking the groups", async () => {
+		const { manager, read, reads, groupReads } = await azureWithGroups({
+			groups: () => Promise.resolve(['web-team', 'api-contributors']),
+			rows: { 'web:all': [pr1, pr2, pr3, pr4, pr5, pr6, pr7], 'api:all': [] },
+		});
+
+		const result = await read([PullRequestFilter.ReviewRequested]);
+		assert.deepEqual(result?.value?.metadata?.failures ?? [], []);
+		assert.deepEqual(
+			reads.sort(),
+			['api:all', 'web:all'],
+			'open pull requests: no reviewer filter, no author read',
+		);
+		assert.deepEqual(groupReads, [{ namespace: 'Org One', userId: 'me' }], 'one group read per organization');
+
+		const values = result?.value?.values;
+		assert.deepEqual(values?.map(pr => pr.id).sort(), ['pr-1', 'pr-2', 'pr-3', 'pr-7']);
+		assert.deepEqual(marks(values, 'pr-1'), [['web-team', true]]);
+		assert.deepEqual(marks(values, 'pr-2'), [
+			['me', false],
+			['web-team', true],
+		]);
+		assert.deepEqual(
+			marks(values, 'pr-3'),
+			[
+				['api-contributors', true],
+				['stranger-group', false],
+			],
+			"a group the user isn't in is not marked",
+		);
+
+		manager.dispose();
+	});
+	test("over closed states, follows only the user's own requests there, through Azure's filter", async () => {
+		const old = providerPr('pr-old', { reviews: [requestedFrom('me')] });
+		const { manager, read, reads, readStates } = await azureWithGroups({
+			groups: () => Promise.resolve(['web-team']),
+			// The read of every pull request stops short of `pr-old`, as a backstopped history would.
+			rows: { 'web:all': [pr1], 'web:me': [old] },
+		});
+		const result = await read([PullRequestFilter.ReviewRequested], ['all']);
+		assert.deepEqual(reads.sort(), ['api:all', 'api:me', 'web:all', 'web:me']);
+		assert.deepEqual(
+			readStates.get('web:all'),
+			[GitPullRequestState.Open],
+			'only open pull requests are read whole',
+		);
+		assert.deepEqual(readStates.get('web:me'), [GitPullRequestState.Closed, GitPullRequestState.Merged]);
+		assert.deepEqual(result?.value?.values.map(pr => pr.id).sort(), ['pr-1', 'pr-old']);
+
+		reads.length = 0;
+		await read([PullRequestFilter.ReviewRequested], ['merged']);
+		assert.deepEqual(reads.sort(), ['api:me', 'web:me'], 'no open pull request asked for, none read whole');
+
+		manager.dispose();
+	});
+
+	test('reads no groups, and no pull request without a filter, when only authored pull requests are asked for', async () => {
+		const { manager, read, reads, groupReads } = await azureWithGroups({
+			groups: () => Promise.resolve(['web-team']),
+		});
+
+		const result = await read([PullRequestFilter.Author]);
+		assert.deepEqual(result?.value?.metadata?.failures ?? [], []);
+		assert.deepEqual(groupReads, []);
+		assert.deepEqual(reads.sort(), ['api:creator', 'web:creator']);
+
+		manager.dispose();
+	});
+
+	test('reads the groups for the assignee relationship too, which Azure reads by reviewer', async () => {
+		const { manager, read, reads, groupReads } = await azureWithGroups({
+			groups: () => Promise.resolve(['web-team']),
+			rows: { 'web:all': [pr1] },
+		});
+
+		const result = await read([PullRequestFilter.Assignee]);
+		assert.equal(groupReads.length, 1);
+		assert.deepEqual(reads.sort(), ['api:all', 'web:all']);
+		assert.deepEqual(
+			result?.value?.values.map(pr => pr.id),
+			['pr-1'],
+		);
+
+		manager.dispose();
+	});
+
+	test("keeps the user's own requests and reports the organization when its groups cannot be read", async () => {
+		const { manager, read } = await azureWithGroups({
+			groups: () => Promise.reject(new RequestRateLimitError(new Error('throttled'), undefined, undefined)),
+			rows: { 'web:all': [pr1, pr2, pr3] },
+		});
+
+		const result = await read([PullRequestFilter.ReviewRequested]);
+		assert.deepEqual(
+			result?.value?.values.map(pr => pr.id),
+			['pr-2'],
+			'what the user reviews by name, and nothing marked as a group of theirs',
+		);
+		assert.deepEqual(marks(result?.value?.values, 'pr-2'), [
+			['me', false],
+			['web-team', false],
+		]);
+		const failures = result?.value?.metadata?.failures ?? [];
+		assert.equal(failures.length, 1);
+		assert.equal(failures[0].scope?.resourceId, 'org-1', 'attributed to the organization');
+		assert.equal(failures[0].kind, 'rate-limit', 'the failure keeps its kind, so it stays actionable');
+		assert.equal(result?.value?.metadata?.completeness, 'partial');
+		assert.equal(result?.value?.paging?.truncated, true);
+
+		manager.dispose();
+	});
+
+	test("keeps the user's groups between reads until the connection is re-synced, but never keeps a failure", async () => {
+		let fail = true;
+		const { manager, azure, read, groupReads } = await azureWithGroups({
+			groups: () => (fail ? Promise.reject(new Error('identities unavailable')) : Promise.resolve(['web-team'])),
+			rows: { 'web:all': [pr1] },
+		});
+
+		const failed = await read([PullRequestFilter.ReviewRequested]);
+		assert.deepEqual(failed?.value?.values ?? [], []);
+		assert.equal(groupReads.length, 1);
+
+		fail = false;
+		const first = await read([PullRequestFilter.ReviewRequested]);
+		assert.deepEqual(
+			first?.value?.values.map(pr => pr.id),
+			['pr-1'],
+		);
+		assert.equal(groupReads.length, 2, 'the failed read was not kept');
+
+		await read([PullRequestFilter.ReviewRequested]);
+		assert.equal(groupReads.length, 2, 'the next read reuses the groups');
+
+		azure.invalidateDiscoveryCaches();
+		await read([PullRequestFilter.ReviewRequested]);
+		assert.equal(groupReads.length, 3, 'a re-sync reads them again');
+
+		manager.dispose();
+	});
+
+	test('reads the groups from the identity routes, with the credential provider-apis would send', async () => {
+		const runtime = createFakeRuntime();
+		const requests: { method: string; url: string; authorization: string; body?: string }[] = [];
+		let memberOf: unknown = ['desc;a', 'desc;b'];
+		let batch: (descriptors: string[]) => unknown = descriptors => ({
+			value: descriptors.map(d => ({ id: d.replace('desc;', 'id-') })),
+		});
+		runtime.http.fetch = (input, init) => {
+			const url = String(input);
+			requests.push({
+				method: init?.method ?? 'GET',
+				url: url,
+				authorization: new Headers(init?.headers).get('authorization') ?? '',
+				body: typeof init?.body === 'string' ? init.body : undefined,
+			});
+			const answer = url.includes('/_apis/identitybatch')
+				? batch((JSON.parse(init!.body as string) as { descriptors: string[] }).descriptors)
+				: { value: [{ id: 'me', memberOf: memberOf }] };
+			return Promise.resolve(
+				new Response(JSON.stringify(answer), { status: 200, headers: { 'content-type': 'application/json' } }),
+			);
+		};
+		const manager = createIntegrationManager(runtime);
+		const api = await (manager as unknown as { getProvidersApi: () => Promise<ProvidersApi> }).getProvidersApi();
+		const token: TokenWithInfo<GitCloudHostIntegrationId.AzureDevOps> = {
+			providerId: GitCloudHostIntegrationId.AzureDevOps,
+			accessToken: 'secret',
+			microHash: undefined,
+			cloud: true,
+			type: 'oauth',
+			scopes: [],
+		};
+		const basic = `Basic ${Buffer.from(':secret').toString('base64')}`;
+
+		assert.deepEqual(await api.getAzureGroupIdsForUser(token, 'My Org', 'me', { isPAT: true }), ['id-a', 'id-b']);
+		assert.deepEqual(requests, [
+			{
+				method: 'GET',
+				url: 'https://vssps.dev.azure.com/My%20Org/_apis/identities?identityIds=me&queryMembership=Expanded&api-version=5.0',
+				authorization: basic,
+				body: undefined,
+			},
+			{
+				method: 'POST',
+				url: 'https://vssps.dev.azure.com/My%20Org/_apis/identitybatch?api-version=5.0-preview.1',
+				authorization: basic,
+				body: JSON.stringify({ descriptors: ['desc;a', 'desc;b'], queryMembership: 'None' }),
+			},
+		]);
+
+		// Azure DevOps Server: below the collection, on the installation's own host.
+		requests.length = 0;
+		await api.getAzureGroupIdsForUser(token, 'Default Collection', 'me', {
+			isPAT: true,
+			baseUrl: 'https://server.test/tfs/',
+		});
+		assert.deepEqual(
+			requests.map(r => r.url.split('?')[0]),
+			[
+				'https://server.test/tfs/Default%20Collection/_apis/identities',
+				'https://server.test/tfs/Default%20Collection/_apis/identitybatch',
+			],
+		);
+
+		// No groups: no batch read.
+		requests.length = 0;
+		memberOf = [];
+		assert.deepEqual(await api.getAzureGroupIdsForUser(token, 'My Org', 'me', { isPAT: true }), []);
+		assert.equal(requests.length, 1);
+
+		// A group Azure no longer resolves (deleted) can't be anyone's reviewer, so it is skipped.
+		memberOf = ['desc;a', 'desc;gone'];
+		batch = () => ({ value: [{ id: 'id-a' }, null] });
+		assert.deepEqual(await api.getAzureGroupIdsForUser(token, 'My Org', 'me', { isPAT: true }), ['id-a']);
+
+		// Many groups: resolved in batches of 100, never one oversized request.
+		requests.length = 0;
+		memberOf = Array.from({ length: 150 }, (_, i) => `desc;${i}`);
+		batch = descriptors => ({ value: descriptors.map(d => ({ id: d.replace('desc;', 'id-') })) });
+		const many = await api.getAzureGroupIdsForUser(token, 'My Org', 'me', { isPAT: true });
+		assert.equal(many.length, 150);
+		assert.deepEqual(
+			requests
+				.filter(r => r.method === 'POST')
+				.map(r => (JSON.parse(r.body!) as { descriptors: string[] }).descriptors.length),
+			[100, 50],
+		);
+
+		// A later batch that comes back short fails the read, as the first would.
+		batch = descriptors => ({
+			value: descriptors.slice(0, descriptors.length === 50 ? 49 : undefined).map(d => ({ id: d })),
+		});
+		await assert.rejects(
+			api.getAzureGroupIdsForUser(token, 'My Org', 'me', { isPAT: true }),
+			/did not resolve every group/,
+		);
+
+		memberOf = ['desc;a', 'desc;b'];
+		// Anything else that can't be matched to a reviewer fails rather than narrowing the read.
+		batch = () => ({ value: [{ id: 'id-a' }] });
+		await assert.rejects(
+			api.getAzureGroupIdsForUser(token, 'My Org', 'me', { isPAT: true }),
+			/did not resolve every group/,
+		);
+		batch = () => ({ value: [{ id: 'id-a' }, { name: 'no id' }] });
+		await assert.rejects(api.getAzureGroupIdsForUser(token, 'My Org', 'me', { isPAT: true }), /without its id/);
+		memberOf = undefined;
+		await assert.rejects(
+			api.getAzureGroupIdsForUser(token, 'My Org', 'me', { isPAT: true }),
+			/no group membership/,
+		);
 
 		manager.dispose();
 	});

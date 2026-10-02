@@ -347,6 +347,13 @@ export interface PullRequestReviewer {
 	 * repo-scoped read carries natively.
 	 */
 	commitOid?: string;
+	/**
+	 * The reviewer is a group the current user is a member of (a team or another group, directly or through a group
+	 * nested in it) rather than a person: a request to it is one the user can answer as a member, not one addressed to
+	 * them by name. Only the Azure DevOps reads that resolve the user's groups set it; absent elsewhere, including for
+	 * groups a read could not tell the user belongs to.
+	 */
+	isMyGroup?: boolean;
 }
 
 export type PullRequestRepositoryIdentityDescriptor = RequireSomeWithProps<
