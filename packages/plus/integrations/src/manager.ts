@@ -669,7 +669,7 @@ export interface IntegrationManager {
 	 * board scan, which cannot prove an absence.
 	 *
 	 * Change detection: every found row carries an opaque `etag`; send it back on the target and, where the host has a
-	 * cheap check (GitHub/GHE and GitLab so far), an issue whose etag still matches comes back
+	 * cheap check (GitHub/GHE, GitLab and Jira Cloud so far), an issue whose etag still matches comes back
 	 * `{ key, unchanged: true, etag }` without being read again. That costs up to three integration calls instead of
 	 * one — the cheap check, a full read of the targets with no etag started alongside it, and a full read of the ones
 	 * that changed — and still one when no target carries an etag. A cheap check that fails falls through to the full

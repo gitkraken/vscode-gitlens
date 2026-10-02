@@ -5,8 +5,8 @@ import type { ProviderResult, ProviderWarning, ProviderWarningKind } from '../re
 import { appendDedupedWarning, toProviderWarning } from '../results.js';
 
 /**
- * The etag flow shared by the coordinate batch reads (`getPullRequestsBatch`, `getIssuesBatch`): targets that carry
- * the etag of the caller's copy are first asked a cheap "what is your change state" question, and only the ones
+ * The etag flow shared by the batch reads (`getPullRequestsBatch`, and both forms of `getIssuesBatch`): targets that
+ * carry the etag of the caller's copy are first asked a cheap "what is your change state" question, and only the ones
  * that moved are read in full.
  *
  * - No target carries an etag, or the integration has no cheap check: ONE full read of every target, exactly as

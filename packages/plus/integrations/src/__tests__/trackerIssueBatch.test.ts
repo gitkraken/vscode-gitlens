@@ -539,18 +539,28 @@ suite('IntegrationManager.getIssuesBatch — tracker targets (#5810)', () => {
 	});
 
 	test('etags every found row, and reads a target in full even when it sends a matching etag', async () => {
-		// No tracker has a cheap check yet, so a sent etag changes nothing but the caller can seed etags from here.
+		// Linear has no cheap check, so a sent etag changes nothing, but the caller can seed etags from here. Jira
+		// Cloud's cheap check is pinned in `jiraEtag.test.ts`.
 		let reads = 0;
-		const { manager } = await connectedJira(createFakeRuntime(), {
-			getJiraIssueByKey: (_token: TokenWithInfo, _resourceId: string, _resourceUrl: string, key: string) => {
+		const { manager, integration } = await connectedTracker(
+			createFakeRuntime(),
+			IssuesCloudHostIntegrationId.Linear,
+		);
+		stubApi(integration, {
+			getIssue: (_token: TokenWithInfo, input: { number: string }) => {
 				reads++;
-				return Promise.resolve(key === 'ABC-2' ? undefined : providerIssue(key));
+				return Promise.resolve(input.number === 'ENG-2' ? undefined : providerIssue(input.number));
 			},
+		});
+		const linearTarget = (identifier: string, key: string) => ({
+			key: key,
+			resourceId: 'workspace-1',
+			identifier: identifier,
 		});
 
 		const first = await manager.getIssuesBatch({
-			providerId: IssuesCloudHostIntegrationId.Jira,
-			targets: [jiraTarget('ABC-1', 'found'), jiraTarget('ABC-2', 'absent')],
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			targets: [linearTarget('ENG-1', 'found'), linearTarget('ENG-2', 'absent')],
 		});
 
 		const [found, absent] = first.items;
@@ -559,13 +569,13 @@ suite('IntegrationManager.getIssuesBatch — tracker targets (#5810)', () => {
 		assert.deepEqual(absent, { key: 'absent' }, 'a proven absence has no etag');
 
 		const second = await manager.getIssuesBatch({
-			providerId: IssuesCloudHostIntegrationId.Jira,
-			targets: [{ ...jiraTarget('ABC-1', 'found'), etag: found.etag }],
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			targets: [{ ...linearTarget('ENG-1', 'found'), etag: found.etag }],
 		});
 
 		assert.equal(reads, 3);
 		assert.equal(second.items[0].unchanged, undefined);
-		assert.equal(second.items[0].issue?.id, 'ABC-1');
+		assert.equal(second.items[0].issue?.id, 'ENG-1');
 		assert.equal(second.items[0].etag, found.etag);
 
 		manager.dispose();

@@ -194,8 +194,11 @@ The hosts with a cheap check select only the change state:
   request's merge status whenever its target branch moves, so on a busy repository `'mergeable'` changes, and costs a
   full read, more often than the merge request itself does.
 
-Every other host, and the tracker form of `getIssuesBatch`, accepts the `etag`, reads the target in full, and etags
-the row. On a host with a cheap check, a call is up to three integration calls: the cheap check
+- **Jira Cloud** (the tracker form of `getIssuesBatch`): one bulk fetch per site per 100 keys. Bulk fetch silently
+  leaves out a key it can't answer (deleted, not visible, malformed or moved), so such a key falls through to its own
+  full read, whose 404 is what proves an absence.
+
+Every other host and tracker accepts the `etag`, reads the target in full, and etags the row. On a host with a cheap check, a call is up to three integration calls: the cheap check
 of the targets that sent an `etag`, a full read of the rest started alongside it, and a full read of the targets
 whose etag no longer matched once the check settles. A call in which no target sends an `etag` makes exactly the one
 full read it always made. `getPullRequestsBatch` also takes `etagIncludes`, a list drawn from `'mergeable'`,
