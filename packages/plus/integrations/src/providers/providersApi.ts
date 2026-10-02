@@ -831,13 +831,12 @@ export class ProvidersApi {
 	}
 
 	/**
-	 * Reads issues scoped to Linear teams/projects/labels (Linear's issue-list filter). One page per call —
-	 * follow `paging.cursor`. Linear's `getIssues` has no author/assignee filter, so per-user scoping is
-	 * applied client-side by the caller.
+	 * Reads issues scoped to Linear teams/projects/labels/assignees (Linear's issue-list filter). One page per
+	 * call — follow `paging.cursor`. `assignees` takes Linear user ids (the viewer's `id`), not names.
 	 */
 	async getLinearIssues(
 		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Linear>,
-		input: { teams?: string[]; projects?: string[]; labels?: string[] },
+		input: { teams?: string[]; projects?: string[]; labels?: string[]; assignees?: string[] },
 		options?: PagingInput & {
 			/** See {@link GetIssuesOptions.sort}. Linear expresses `created`/`updated`, descending only. */
 			sort?: IssueSorting;

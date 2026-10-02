@@ -290,6 +290,18 @@ suite('Jira multi-project issue searches', () => {
 		manager.dispose();
 	});
 
+	test('reads a search project by project when an issue matches no requested project', async () => {
+		const { manager, projectReads } = await connectedJira([{ id: 'org-1', projects: 2 }], () =>
+			Promise.resolve({ data: [providerIssue('elsewhere', 'X-1')], hasMore: false, nextCursor: undefined }),
+		);
+
+		await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Jira, itemsPerPage: 20 });
+
+		assert.deepEqual(projectReads.sort(), ['org-1 Project 0', 'org-1 Project 1']);
+
+		manager.dispose();
+	});
+
 	test('dedupes an issue two relationships both match', async () => {
 		const { manager, searches } = await connectedJira([{ id: 'org-1', projects: 2 }], () =>
 			Promise.resolve({ data: [providerIssue('org-1-p1', 'B-1')], hasMore: false, nextCursor: undefined }),

@@ -627,10 +627,9 @@ export type GetCurrentUserForResourceFn = (
 export type GetJiraResourcesForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: JiraResource[] }>;
 export type GetLinearOrganizationFn = (options?: EnterpriseOptions) => Promise<{ data: LinearOrganization }>;
 export type GetLinearTeamsForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: LinearTeam[] }>;
-export type GetLinearIssuesFn = (
-	input: { teams?: string[]; projects?: string[]; labels?: string[] } & PagingInput,
-	options?: EnterpriseOptions,
-) => Promise<{ data: ProviderIssue[]; pageInfo?: PageInfo }>;
+// Derived from the client method, like the Jira reads below, so a filter the SDK adds (`assignees`, `states`)
+// reaches the type system instead of being smuggled through `getPagedResult`'s `any`.
+export type GetLinearIssuesFn = Linear['getIssues'];
 /**
  * Linear's current-user (viewer) query. Its raw `@linear/sdk` User isn't a `ProviderAccount` (no
  * username/avatar/url), so it's typed with the minimal fields the viewer query actually returns rather than

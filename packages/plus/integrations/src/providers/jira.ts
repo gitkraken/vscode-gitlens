@@ -1,32 +1,23 @@
 import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
-import {
-	isInvalidRequestError,
-	isUnsupportedSortError,
-	JIRA_MAX_PROJECT_KEYS_PER_REQUEST,
-} from '@gitkraken/provider-apis';
+import { JIRA_MAX_PROJECT_KEYS_PER_REQUEST } from '@gitkraken/provider-apis';
 import * as l10n from '@vscode/l10n';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { IssueResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
-import { groupByMap } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
-import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import { mapBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
-import {
-	throwIfCallerContractError,
-	toCollectionFailureKind,
-	toCollectionScopeFailure,
-} from '../collectionMetadata.js';
-import { IssuesCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
-import { toError } from '../errors.js';
-import type { IntegrationResult } from '../models/integration.js';
+import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
+import { IssuesCloudHostIntegrationId } from '../constants.js';
 import type { IssuesForProjectOptions, ProjectIssuesDrain, ProjectIssuesRequest } from '../models/issueReads.js';
-import { IssuesIntegration } from '../models/issuesIntegration.js';
+import {
+	groupProjectIssuesSearches,
+	IssuesIntegration,
+	splitProjectIssuesSearch,
+} from '../models/issuesIntegration.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
@@ -50,9 +41,6 @@ type JiraIssuesDrain = {
 };
 
 type JiraUserScopedRead = { issues: ProviderIssue[]; truncated: boolean; metadata?: CollectionMetadata };
-
-/** The projects of one site that share a user scope, at most as many as one JQL search can name. */
-type JiraProjectSearch = { resourceId: string; user: string; options: IssuesForProjectOptions; indices: number[] };
 
 /**
  * Follows a search's cursor up to `maxPages`. A page failure after the first page leaves the already-drained prefix
@@ -109,56 +97,6 @@ async function drainJiraIssues(
 		}
 	}
 	return { issues: issues, status: status, metadata: metadata };
-}
-
-/**
- * Groups the requests into searches: one JQL search names projects of a single site and a single user scope, and
- * at most {@link JIRA_MAX_PROJECT_KEYS_PER_REQUEST} of them, past which the SDK refuses the call rather than
- * risk a query string Jira rejects. Undefined when any request reads every assignee, which is never searched
- * across projects (see `JiraIntegration.getIssuesForProjectsWithTruncationResult`).
- */
-function toProjectSearches(
-	requests: readonly ProjectIssuesRequest<JiraProjectDescriptor>[],
-): JiraProjectSearch[] | undefined {
-	const searchesByScope = new Map<string, JiraProjectSearch[]>();
-	for (let index = 0; index < requests.length; index++) {
-		const { project, options } = requests[index];
-		const user = options.user;
-		if (user == null) return undefined;
-
-		const scopeKey = [
-			project.resourceId,
-			user,
-			options.userId ?? '',
-			options.sort ?? '',
-			options.filters?.join(',') ?? '',
-		].join('\0');
-		let searches = searchesByScope.get(scopeKey);
-		if (searches == null) {
-			searches = [];
-			searchesByScope.set(scopeKey, searches);
-		}
-
-		let search = searches.at(-1);
-		if (search == null || search.indices.length >= JIRA_MAX_PROJECT_KEYS_PER_REQUEST) {
-			search = { resourceId: project.resourceId, user: user, options: options, indices: [] };
-			searches.push(search);
-		}
-		search.indices.push(index);
-	}
-	return [...searchesByScope.values()].flat();
-}
-
-/**
- * Whether a failed search would fail each of its projects' own reads the same way: a rejected or rate-limited token,
- * or a call the SDK refuses before sending. Anything else (a JQL the site rejects because one project is gone or no
- * longer browsable, a server error) may be one project's problem, so its siblings are read one by one instead.
- */
-function failsEveryProject(ex: unknown): boolean {
-	const kind = toCollectionFailureKind(ex);
-	return (
-		kind === 'authentication' || kind === 'rate-limit' || isInvalidRequestError(ex) || isUnsupportedSortError(ex)
-	);
 }
 
 export type JiraBaseDescriptor = IssueResourceDescriptor;
@@ -431,108 +369,70 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	}
 
 	/**
-	 * Reads the current user's issues of many projects with one Jira search per site, instead of one search per
-	 * project. A project the user has no issues in still costs a request in the per-project read, which is what
-	 * made an account-wide "my issues" page grow with the number of projects the account can see.
+	 * Searches a site's projects together for a user-scoped read: one JQL names up to
+	 * {@link JIRA_MAX_PROJECT_KEYS_PER_REQUEST} projects of one site and one user scope, past which the SDK refuses
+	 * the call rather than risk a query string Jira rejects.
 	 *
-	 * Only a user-scoped read is batched. An unscoped read is a drain of every issue in the project, and its
-	 * backstop is reported as `narrow-scope` per project; one search across projects would hit the same backstop
-	 * without saying which project to narrow to, so it keeps the per-project read.
-	 *
-	 * A search's pages are global to its project set, so only a search that completes says something about each of
-	 * its projects. One that does not (a page or relationship failed, the cursor stalled, the backstop was reached),
-	 * or that fails for a reason that may belong to a single project, is read again project by project, which
-	 * reports completeness, failures and retries per project exactly as before. Only a failure every project would
-	 * hit on its own read too fails them all at once.
+	 * An unscoped read is never searched across projects: it drains every issue in the project, and its backstop is
+	 * reported as `narrow-scope` per project, which one search across projects could not attribute.
 	 */
-	override async getIssuesForProjectsWithTruncationResult(
+	protected override getProjectIssuesSearches(
 		requests: readonly ProjectIssuesRequest<JiraProjectDescriptor>[],
-		connectionId?: string,
-	): Promise<IntegrationResult<ProjectIssuesDrain | undefined>[]> {
-		const searches = toProjectSearches(requests);
-		if (searches == null) return super.getIssuesForProjectsWithTruncationResult(requests, connectionId);
-
-		const scope = getScopedLogger();
-		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return requests.map(() => undefined);
-
-		const results: IntegrationResult<ProjectIssuesDrain | undefined>[] = requests.map(() => undefined);
-		const unsearchedIndices: number[] = [];
-		await mapBounded(searches, providerFanOutConcurrency, async search => {
-			try {
-				const issuesByProjectId = await this.searchUserScopedIssues(session, requests, search);
-				if (issuesByProjectId == null) {
-					unsearchedIndices.push(...search.indices);
-					return;
-				}
-
-				this.resetRequestExceptionCount('getIssuesForProject');
-				for (const index of search.indices) {
-					const issues = issuesByProjectId.get(requests[index].project.id) ?? [];
-					results[index] = { value: { values: this.toUniqueIssueShapes(issues), truncated: false } };
-				}
-			} catch (ex) {
-				if (!failsEveryProject(ex)) {
-					Logger.warn(scope, `Jira project search failed (${String(ex)}); reading its projects one by one`);
-					unsearchedIndices.push(...search.indices);
-					return;
-				}
-
-				this.handleProviderException('getIssuesForProject', ex, { connectionId: connectionId });
-				const error = toError(ex);
-				for (const index of search.indices) {
-					results[index] = { error: error };
-				}
-			}
-		});
-
-		// After every search rather than inside each, so the fallback reads share one concurrency bound.
-		if (unsearchedIndices.length > 0) {
-			const fallback = await super.getIssuesForProjectsWithTruncationResult(
-				unsearchedIndices.map(index => requests[index]),
-				connectionId,
-			);
-			unsearchedIndices.forEach((index, i) => {
-				results[index] = fallback[i];
-			});
-		}
-		return results;
+	): number[][] | undefined {
+		return groupProjectIssuesSearches(
+			requests,
+			({ project, options }) =>
+				options.user != null
+					? [
+							project.resourceId,
+							options.user,
+							options.userId ?? '',
+							options.sort ?? '',
+							options.filters?.join(',') ?? '',
+						].join('\0')
+					: undefined,
+			JIRA_MAX_PROJECT_KEYS_PER_REQUEST,
+		);
 	}
 
-	/**
-	 * One search's issues keyed by project id, or undefined when the search did not complete and its projects must
-	 * be read one by one. Throws when every relationship failed.
-	 */
-	private async searchUserScopedIssues(
+	protected override async searchProviderProjectIssues(
 		session: ProviderAuthenticationSession,
 		requests: readonly ProjectIssuesRequest<JiraProjectDescriptor>[],
-		search: JiraProjectSearch,
-	): Promise<Map<string | undefined, ProviderIssue[]> | undefined> {
+	): Promise<IssueShape[][] | undefined> {
+		// Every request of a search shares its site and user scope (see `getProjectIssuesSearches`).
+		const { project, options } = requests[0];
+		if (options.user == null) return undefined;
+
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 		const api = await this.getProvidersApi();
-		const projectKeys = search.indices.map(index => requests[index].project.key);
+		const projectKeys = requests.map(request => request.project.key);
 
-		// The budget of a single project's read: a search that needs more falls back to the per-project reads,
-		// which run concurrently, rather than walking one long cursor chain.
+		// The budget of a single project's read: a search that needs more is read again per project, whose reads
+		// run concurrently, rather than walking one long cursor chain.
 		const read = await this.readUserScopedIssues(
 			(userScope, cursor) =>
-				api.getIssuesForProjectsPaged(tokenWithInfo, projectKeys, search.resourceId, {
+				api.getIssuesForProjectsPaged(tokenWithInfo, projectKeys, project.resourceId, {
 					...userScope,
 					cursor: cursor,
-					sort: search.options.sort,
+					sort: options.sort,
 				}),
 			maxPagesPerRequest,
-			search.user,
-			search.options,
+			options.user,
+			options,
 			// Never published: an incomplete search is read again per project, which records its own failures.
-			{ providerId: this.id, resourceId: search.resourceId },
+			{ providerId: this.id, resourceId: project.resourceId },
 		);
 		// Deliberately discarded rather than served: an incomplete search says nothing about which of its projects
 		// it covered, so only the per-project reads can report each one's completeness. The waste is bounded by
 		// one project's page budget, and paid only by a search that needed more than that or failed partway.
 		if (read.truncated) return undefined;
 
-		return groupByMap(read.issues, issue => issue.project?.id ?? undefined, { filterNullGroups: true });
+		const split = splitProjectIssuesSearch(
+			requests.map(request => request.project.id),
+			read.issues,
+			issue => issue.project?.id ?? undefined,
+		);
+		return split?.map(issues => this.toUniqueIssueShapes(issues));
 	}
 
 	/**
