@@ -2,19 +2,11 @@ import { consume } from '@lit/context';
 import * as l10n from '@vscode/l10n';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { getNumericFormat } from '@gitlens/utils/date.js';
-import { formatPlural } from '@gitlens/utils/plural.js';
 import { urls } from '../../../../../constants.js';
-import {
-	proFeaturePreviewUsages,
-	proTrialLengthInDays,
-	SubscriptionState,
-} from '../../../../../constants.subscription.js';
+import { proTrialLengthInDays, SubscriptionState } from '../../../../../constants.subscription.js';
 import type { Source } from '../../../../../constants.telemetry.js';
-import type { FeaturePreview } from '../../../../../features.js';
-import { getFeaturePreviewStatus } from '../../../../../features.js';
 import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { GlButton } from '../../../shared/components/button.js';
@@ -100,10 +92,6 @@ export class GlFeatureGatePlusState extends LitElement {
 				text-align: center;
 			}
 
-			.preview-image {
-				width: 100%;
-			}
-
 			.actions-row {
 				display: flex;
 				gap: 0.6em;
@@ -143,12 +131,6 @@ export class GlFeatureGatePlusState extends LitElement {
 	@property()
 	appearance?: 'alert' | 'default';
 
-	@property({ type: Object })
-	featurePreview?: FeaturePreview;
-
-	@property()
-	featurePreviewCommandLink?: string;
-
 	@property()
 	featureRestriction?: 'all' | 'private-repos';
 
@@ -163,9 +145,6 @@ export class GlFeatureGatePlusState extends LitElement {
 
 	@property({ attribute: false, type: Number })
 	state?: SubscriptionState;
-
-	@property()
-	webroot?: string;
 
 	private _ctaPrimed = false;
 
@@ -213,10 +192,6 @@ export class GlFeatureGatePlusState extends LitElement {
 				`;
 
 			case SubscriptionState.Community:
-				if (this.featurePreview && getFeaturePreviewStatus(this.featurePreview) !== 'expired') {
-					return html`${this.renderFeaturePreview(this.featurePreview)}`;
-				}
-
 				return html`<slot name="feature"></slot>
 					<p class="centered">
 						${localizedContent(this.featureRestriction === 'private-repos' ? l10n.t('Unlock this feature for privately hosted repos with {pro}.') : l10n.t('Unlock this feature with {pro}.'), { pro: html`<a href=${urls.communityVsPro}>GitLens Pro</a>` })}
@@ -283,113 +258,6 @@ export class GlFeatureGatePlusState extends LitElement {
 		}
 
 		return undefined;
-	}
-
-	private renderFeaturePreview(featurePreview: FeaturePreview) {
-		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : undefined;
-		const used = featurePreview.usages.length;
-
-		if (used === 0) {
-			return html`<slot name="feature"></slot>
-				<p class="actions-row">
-					<gl-button href="${ifDefined(this.featurePreviewCommandLink)}">${l10n.t('Continue')}</gl-button>
-				</p>
-				<hr />
-				<p class="centered">
-					${l10n.t('Already have an account?')}
-					<a href="${createCommandLink<Source>('gitlens.plus.login', this.source)}" title=${l10n.t('Sign In')}
-						>${l10n.t('sign in')}</a
-					><br />
-					${appearance !== 'alert' ? html`<br />` : ''}
-					<a href="${createCommandLink<Source>('gitlens.plus.signUp', this.source)}"
-						>${l10n.t('Want full access to all Pro features? Start your free {0}-day Pro trial', proTrialLengthInDays)}</a
-					>
-					${l10n.t('— no credit card required.')}
-				</p> `;
-		}
-
-		const left = proFeaturePreviewUsages - used;
-
-		return html`
-			${this.renderFeaturePreviewStep(featurePreview, used)}
-			<p class="actions-row">
-				<gl-button class="inline" href="${ifDefined(this.featurePreviewCommandLink)}"
-					>${l10n.t('Continue Preview')}</gl-button
-				><span
-					>${localizedContent(l10n.t('or {signIn}'), {
-						signIn: html`<a
-							href="${createCommandLink<Source>('gitlens.plus.login', this.source)}"
-							title=${l10n.t('Sign In')}
-							>${l10n.t('sign in')}</a
-						>`,
-					})}</span
-				>
-			</p>
-			<hr />
-			<p class="centered">
-				${
-					this.featureWithArticleIfNeeded
-						? formatPlural(
-								l10n.t(
-									'{days, plural, one{{days} more day to preview {feature} on privately hosted repos.} other{{days} more days to preview {feature} on privately hosted repos.}}',
-								),
-								{ days: left, feature: this.featureWithArticleIfNeeded },
-							)
-						: formatPlural(
-								l10n.t(
-									'{0, plural, one{{0} more day to preview privately hosted repos.} other{{0} more days to preview privately hosted repos.}}',
-								),
-								[left],
-							)
-				}<br />
-				${appearance !== 'alert' ? html`<br />` : ''}
-				<a href="${createCommandLink<Source>('gitlens.plus.signUp', this.source)}"
-					>${l10n.t('Want full access to all Pro features? Start your free {0}-day Pro trial', proTrialLengthInDays)}</a
-				>
-				${l10n.t('— no credit card required.')}
-			</p>
-		`;
-	}
-
-	private renderFeaturePreviewStep(featurePreview: FeaturePreview, used: number) {
-		switch (featurePreview.feature) {
-			case 'graph':
-				switch (used) {
-					case 1:
-						return html`<p>${l10n.t('Try Commit Search')}</p>
-							<p>
-								${l10n.t('Search for commits in your repo by author, commit message, SHA, file, change, or type. Turn on the commit filter to show only commits that match your query.')}
-							</p>
-							<p>
-								<img
-									class="preview-image"
-									src="${this.webroot ?? ''}/media/graph-commit-search.webp"
-									alt=${l10n.t('Graph Commit Search')}
-								/>
-							</p> `;
-
-					case 2:
-						return html`
-							<p>${l10n.t('Try the Graph Minimap')}</p>
-							<p>
-								${l10n.t('Visualize the amount of changes to a repository over time, and inspect specific points in the history to locate branches, stashes, tags and pull requests.')}
-							</p>
-							<p>
-								<img
-									class="preview-image"
-									src="${this.webroot ?? ''}/media/graph-minimap.webp"
-									alt=${l10n.t('Graph Minimap')}
-								/>
-							</p>
-						`;
-
-					default:
-						return html`<slot name="feature"></slot>`;
-				}
-
-			default:
-				return html`<slot name="feature"></slot>`;
-		}
 	}
 
 	private renderPromo() {
