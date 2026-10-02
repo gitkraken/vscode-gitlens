@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes Azure DevOps and Azure DevOps Server reviewer reads missing every pull request whose reviewer is a group the user is a member of: a team (the usual shape when a branch policy requires one), a security group such as `[project]\Contributors`, a group reached through another, or a group of another project. Azure's `searchCriteria.reviewerId` only matches the identity it names, so the account-wide read (`listPullRequestsPage` and sweeps with `ReviewRequested` or `Assignee`), Azure DevOps Server's filtered search and count, and the legacy `getMyPullRequests` read (Launchpad, which now goes through the account-wide read and so drains every page) read the user's groups once per organization (`_apis/identities` with expanded membership, then `_apis/identitybatch`: two requests for up to 100 groups, kept for five minutes and dropped on re-sync) and read each project's open pull requests once without a reviewer filter, keeping those that name the user, or name one of the user's groups and weren't written by the user. Closed and merged pull requests are still read through Azure's filter for the user, so a group's request is only followed while a pull request is open. A request to one of those groups carries the new `PullRequestReviewer.isMyGroup` on `reviewRequests` (and `latestReviews`), so a consumer can tell a group review from one asked of the user by name. When the groups can't be read (e.g. a personal access token without the Identity scope), the reads keep what names the user and report the organization or collection as a scoped failure (warning, and the search and its count reported incomplete), and the legacy read keeps the user's own reviews ([#5917](https://github.com/gitkraken/vscode-gitlens/issues/5917)) (plus/integrations)
+
 ## [0.9.4] - 2026-09-30
 
 ### Added

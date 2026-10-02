@@ -172,7 +172,16 @@ function isAzureNotFoundResponse(ex: unknown, typeKeys: ReadonlySet<string>): bo
 	return typeof typeKey === 'string' && typeKeys.has(typeKey);
 }
 
+/** The credential provider-apis sends Azure DevOps: a PAT as Basic (encoded here, as it does), anything else as a bearer. */
+function azureAuthorization(token: string, isPAT: boolean | undefined): string {
+	return isPAT ? `Basic ${base64(`:${token}`)}` : `Bearer ${token}`;
+}
+
 const azureDevOpsBaseUrl = 'https://dev.azure.com';
+/** The most group descriptors one identity batch read resolves. */
+const azureIdentityBatchSize = 100;
+/** Azure DevOps Services serves the identity APIs from its own host, below the organization like the main one. */
+const azureDevOpsIdentityBaseUrl = 'https://vssps.dev.azure.com';
 const trelloBaseUrl = 'https://api.trello.com';
 
 /**
@@ -844,7 +853,7 @@ export class ProvidersApi {
 		try {
 			const result = await this.request<{ value?: AzurePullRequest[] }>({
 				url: url,
-				headers: { Authorization: options.isPAT ? `Basic ${base64(`:${token}`)}` : `Bearer ${token}` },
+				headers: { Authorization: azureAuthorization(token, options.isPAT) },
 			});
 			const pullRequests = result.body?.value;
 			if (pullRequests == null) throw new Error('Azure DevOps returned no pull requests');
@@ -855,6 +864,92 @@ export class ProvidersApi {
 
 			return this.handleProviderError<AzurePullRequest[] | undefined>(tokenWithInfo, e);
 		}
+	}
+
+	/**
+	 * The ids of every group `userId` is a member of in one Azure DevOps organization (Azure DevOps Server: one
+	 * collection), directly or through other groups: its teams and security groups, in every project and at the
+	 * organization level. A group is an identity like a person, so these are the ids a pull request lists a group under
+	 * as a reviewer. provider-apis has no identity read, so this asks Azure directly, with the credential provider-apis
+	 * would send.
+	 *
+	 * Two requests, however many groups: the user's expanded membership, which names its groups only by descriptor,
+	 * then one batch read resolving those descriptors to ids. Azure DevOps Services serves identities from its
+	 * `vssps` host; Azure DevOps Server from the collection itself.
+	 */
+	async getAzureGroupIdsForUser(
+		tokenOptInfo: TokenOptInfo,
+		namespace: string,
+		userId: string,
+		options: { isPAT?: boolean; baseUrl?: string },
+	): Promise<string[]> {
+		const { tokenWithInfo } = await this.ensureProviderToken(tokenOptInfo);
+		const token = tokenWithInfo.accessToken;
+
+		const base =
+			options.baseUrl != null
+				? `${options.baseUrl.replace(/\/$/, '')}/${encodeAzurePathSegment(namespace)}`
+				: `${azureDevOpsIdentityBaseUrl}/${encodeAzurePathSegment(namespace)}`;
+		const headers = {
+			Authorization: azureAuthorization(token, options.isPAT),
+			'Content-Type': 'application/json',
+		};
+
+		let memberOf: unknown;
+		try {
+			const params = new URLSearchParams({
+				identityIds: userId,
+				queryMembership: 'Expanded',
+				'api-version': '5.0',
+			});
+			const user = await this.request<{ value?: { memberOf?: unknown }[] }>({
+				url: `${base}/_apis/identities?${params.toString()}`,
+				headers: headers,
+			});
+			memberOf = user.body?.value?.[0]?.memberOf;
+		} catch (e) {
+			return this.handleProviderError<string[]>(tokenWithInfo, e);
+		}
+
+		// Checked before the batch read, so a malformed answer fails instead of reading as no groups.
+		if (!Array.isArray(memberOf) || memberOf.some(d => typeof d !== 'string')) {
+			throw new Error('Azure DevOps returned no group membership for the current user');
+		}
+		if (memberOf.length === 0) return [];
+
+		// Resolved one batch at a time, so a member of very many groups never sends Azure more than a batch at once.
+		const chunks: string[][] = [];
+		for (let i = 0; i < memberOf.length; i += azureIdentityBatchSize) {
+			chunks.push(memberOf.slice(i, i + azureIdentityBatchSize));
+		}
+		const batches: unknown[] = [];
+		try {
+			for (const descriptors of chunks) {
+				const batch = await this.request<{ value?: unknown }>({
+					url: `${base}/_apis/identitybatch?api-version=5.0-preview.1`,
+					method: 'POST',
+					headers: headers,
+					body: JSON.stringify({ descriptors: descriptors, queryMembership: 'None' }),
+				});
+				batches.push(batch.body?.value);
+			}
+		} catch (e) {
+			return this.handleProviderError<string[]>(tokenWithInfo, e);
+		}
+
+		// A group left unresolved could never be matched to a reviewer, and dropping it would narrow the read silently.
+		if (batches.some((batch, i) => !Array.isArray(batch) || batch.length !== chunks[i].length)) {
+			throw new Error('Azure DevOps did not resolve every group of the current user');
+		}
+
+		const groups = (batches as ({ id?: unknown } | null)[][]).flat();
+		// A descriptor Azure no longer resolves (a deleted group) answers `null`: it can't be anyone's reviewer.
+		return groups.flatMap((g: { id?: unknown } | null) => {
+			if (g == null) return [];
+			if (typeof g.id !== 'string') throw new Error('Azure DevOps returned a group without its id');
+
+			return [g.id];
+		});
 	}
 
 	/**
@@ -918,7 +1013,7 @@ export class ProvidersApi {
 		try {
 			const result = await this.request<AzureWorkItemResponse | null>({
 				url: url,
-				headers: { Authorization: options.isPAT ? `Basic ${base64(`:${token}`)}` : `Bearer ${token}` },
+				headers: { Authorization: azureAuthorization(token, options.isPAT) },
 			});
 			workItem = result.body;
 		} catch (e) {
