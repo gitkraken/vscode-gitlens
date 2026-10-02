@@ -1,8 +1,13 @@
 import type { Endpoints } from '@octokit/types';
 import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
-import type { IssueLabel } from '@gitlens/git/models/issue.js';
+import type { IssueLabel, IssueProjection } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
-import type { PullRequestMember, PullRequestStackInfo, PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequestMember,
+	PullRequestProjection,
+	PullRequestStackInfo,
+	PullRequestState,
+} from '@gitlens/git/models/pullRequest.js';
 import {
 	PullRequest,
 	PullRequestMergeableState,
@@ -304,7 +309,11 @@ function fromGitHubMemberOrGhost(member: GitHubMember | null | undefined): PullR
 	};
 }
 
-export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: Provider): PullRequest {
+export function fromGitHubPullRequestLite(
+	pr: GitHubPullRequestLite,
+	provider: Provider,
+	projection?: PullRequestProjection,
+): PullRequest {
 	return new PullRequest(
 		provider,
 		fromGitHubMemberOrGhost(pr.author),
@@ -367,6 +376,8 @@ export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: P
 		undefined, // filesChanged
 		pr.body ?? undefined,
 		pr.number,
+		undefined, // authoredByMe
+		projection,
 	);
 }
 
@@ -479,7 +490,11 @@ export function fromGitHubPullRequestStatusCheckRollupState(
 	}
 }
 
-export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider): PullRequest {
+export function fromGitHubPullRequest(
+	pr: GitHubPullRequest,
+	provider: Provider,
+	projection?: PullRequestProjection,
+): PullRequest {
 	// `latestReviews` is capped, so keep the viewer's own review even when it falls outside that window, deduped
 	// by review id since the two selections overlap. Unsubmitted drafts are dropped from the union rather than
 	// from the viewer's side alone: `PENDING` is in GitHub's review-state enum on both selections, and the field
@@ -581,10 +596,12 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 		pr.changedFiles,
 		pr.body ?? undefined,
 		pr.number,
+		undefined, // authoredByMe
+		projection,
 	);
 }
 
-export function fromGitHubIssue(value: GitHubIssue, provider: Provider): Issue {
+export function fromGitHubIssue(value: GitHubIssue, provider: Provider, projection?: IssueProjection): Issue {
 	return new Issue(
 		{
 			id: provider.id,
@@ -632,6 +649,13 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider): Issue {
 		value.comments?.totalCount,
 		value.reactions?.totalCount,
 		value.body,
+		undefined, // project
+		undefined, // number
+		undefined, // issueType
+		undefined, // providerState
+		undefined, // bodyFormat
+		undefined, // iterations
+		projection,
 	);
 }
 

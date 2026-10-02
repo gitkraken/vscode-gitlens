@@ -327,7 +327,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 				baseUrl: this.enterpriseBaseUrlFor(session),
 			},
 		);
-		const issue = apiResult != null ? toIssueShape(apiResult, this) : undefined;
+		const issue = apiResult != null ? toIssueShape(apiResult, this, { projection: 'point' }) : undefined;
 		return issue != null ? { ...issue, type: 'issue' } : undefined;
 	}
 
@@ -414,7 +414,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 				baseUrl: baseUrl,
 			});
 			if (issue != null) {
-				const shape = toIssueShape(issue, this);
+				const shape = toIssueShape(issue, this, { projection: 'batch' });
 				if (shape == null) throw new Error(`GitLab returned issue ${c.number} without a URL or update time`);
 
 				return shape;
@@ -464,7 +464,12 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 				isPAT: this.isEnterprise,
 				baseUrl: baseUrl,
 			});
-			if (pr != null) return fromProviderPullRequest(pr, this, { currentAccount: options?.currentAccount });
+			if (pr != null) {
+				return fromProviderPullRequest(pr, this, {
+					currentAccount: options?.currentAccount,
+					projection: 'batch',
+				});
+			}
 
 			// provider-apis' GitLab GraphQL helper ignores the response's `errors`, so a reply carrying only errors
 			// (e.g. a server-side timeout) comes back as `null`, the same as not-found. Our own client throws on
@@ -745,7 +750,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 
 						return isAssignee || isRequestedReviewer || isAuthor;
 					})
-					.map(pr => fromGitLabMergeRequestProvidersApi(pr, this)),
+					.map(pr => fromGitLabMergeRequestProvidersApi(pr, this, 'search')),
 			],
 			r => r.url,
 			(original, _current) => original,
@@ -889,7 +894,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		});
 
 		return apiResult.values
-			.map(issue => toIssueShape(issue, this))
+			.map(issue => toIssueShape(issue, this, { projection: 'account' }))
 			.filter((result): result is IssueShape => result != null);
 	}
 
@@ -979,7 +984,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			);
 
 			for (const issue of result.values) {
-				const shape = toIssueShape(issue, this);
+				const shape = toIssueShape(issue, this, { projection: 'account' });
 				if (shape != null && !issuesByUrl.has(shape.url)) {
 					issuesByUrl.set(shape.url, shape);
 				}

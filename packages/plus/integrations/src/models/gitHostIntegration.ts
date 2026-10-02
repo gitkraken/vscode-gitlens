@@ -1243,7 +1243,7 @@ export abstract class GitHostIntegration<
 		if (result.value == null) return { value: undefined, duration: result.duration };
 
 		const values = result.value.values
-			.map(issue => toIssueShape(issue, this))
+			.map(issue => toIssueShape(issue, this, { projection: 'repos' }))
 			.filter((issue): issue is IssueShape => issue != null);
 		return { value: { ...result.value, values: values }, duration: result.duration };
 	}

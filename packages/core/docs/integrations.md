@@ -254,6 +254,260 @@ Azure DevOps Server, the account itself everywhere else. To tell whether a revie
 user, or which review is theirs, compare the reviewer entries against `viewer`, not against `getCurrentAccount`. A row
 whose identity couldn't be resolved has neither field, and its authorship is unknown rather than `false`.
 
+### Field presence
+
+Every pull request and issue row carries `projection`, naming the read that produced it: `point` (a single-item
+read), `search` and `search-summary` (the filtered search, and on the host its "my pull requests" and issue searches),
+`text-search` (the host's free-text `searchPullRequests`), `account` and `account-summary` (the account-wide list and
+sweeps, `account` being a sweep's `includeReviews`, and a tracker's "my issues"), `repos` and `repos-summary` (the
+repository-scoped list and sweeps), `project` (a tracker project's issues: `listIssueTrackerIssuesPage`,
+`getIssuesForProject`), and `batch` (`getPullRequestsBatch`, `getPullRequestsForBranches`, `getIssuesBatch`). Issues
+have no `-summary` reads; `broadenIssues` rows carry the tag of the read that served each org. The tag names a read,
+not a field set: the same tag can carry different fields on different providers.
+
+Which fields a row carries depends on that read. A field it never fetched is `undefined`, but so is a fetched field that
+is empty, and provider-apis' converters still fill a few placeholders (see
+[Every other provider](#every-other-provider)), so neither a missing nor a present value says what the read fetched.
+`getPullRequestFieldPresence(row)` and `getIssueFieldPresence(row)` answer it per field group:
+
+- `fetched` — the read asked for it and surfaces it, so an empty value means "none".
+- `not-requested` — this read didn't ask for it, or doesn't surface it faithfully. **Ignore the value even when one is
+  present**; another read may supply it. When merging rows from several reads, take each group from a row that
+  fetched it.
+- `unavailable` — this host can't supply it on this read.
+
+Both return `undefined` for an untagged row, and for a tag the row's provider never produces. The serialized copies
+(`serializePullRequest`, `serializeIssue`) drop fields a table can call fetched, so they carry no tag.
+
+A group is `fetched` only if every field in it is. Pull request groups: `description` (`body`), `reviews`
+(`latestReviews`), `reviewRequests` (who is requested; each request's `isCodeOwner` is set only by GitLens' own GitHub
+reads, and is `undefined` elsewhere), `reviewDecision`, `assignees`, `checks` (`statusCheckRollupState`), `mergeable`
+(`mergeableState`), `diffStats` (`additions`, `deletions`, `filesChanged`), `commitCount`, `comments` (`commentsCount`),
+`reactions` (`thumbsUpCount`), `access` (`viewerCanUpdate` and `repository.accessLevel`), `authoredByMe` (with `viewer`,
+the identity it was matched against) and `stack`. `statusCheckRollupState`, `commitCount` and `viewerCanUpdate` live on
+the `PullRequest` class every row is, not on the `PullRequestShape` type. Issue groups: `description` (`body`),
+`assignees`, `labels`, `comments` (`commentsCount`), `reactions` (`thumbsUpCount`) and `access`
+(`repository.accessLevel`).
+
+Each table below covers a cloud host and its self-managed variant: where a cell reads `cloud / self-managed` the two
+differ, and `—` means that host never produces the tag.
+
+#### GitHub and GitHub Enterprise
+
+<!-- field-presence: pull-requests -->
+
+| Group          | point                 | search                | search-summary        | text-search           | account               | account-summary       | repos                   | repos-summary | batch                 |
+| -------------- | --------------------- | --------------------- | --------------------- | --------------------- | --------------------- | --------------------- | ----------------------- | ------------- | --------------------- |
+| description    | fetched               | fetched               | fetched               | fetched               | fetched               | fetched               | fetched                 | fetched       | fetched               |
+| reviews        | not-requested         | fetched               | not-requested         | fetched               | fetched               | not-requested         | not-requested           | not-requested | fetched               |
+| reviewRequests | not-requested         | fetched               | not-requested         | fetched               | fetched               | not-requested         | not-requested           | not-requested | fetched               |
+| reviewDecision | not-requested         | fetched               | not-requested         | fetched               | fetched               | not-requested         | not-requested           | not-requested | fetched               |
+| assignees      | not-requested         | fetched               | not-requested         | fetched               | fetched               | not-requested         | fetched                 | fetched       | fetched               |
+| checks         | not-requested         | fetched               | not-requested         | fetched               | fetched               | not-requested         | fetched / not-requested | not-requested | fetched               |
+| mergeable      | not-requested         | fetched               | not-requested         | fetched               | fetched               | not-requested         | fetched                 | fetched       | fetched               |
+| diffStats      | not-requested         | fetched               | not-requested         | fetched               | fetched               | not-requested         | fetched                 | fetched       | fetched               |
+| commitCount    | not-requested         | fetched               | not-requested         | fetched               | fetched               | not-requested         | fetched                 | not-requested | fetched               |
+| comments       | not-requested         | fetched               | not-requested         | fetched               | fetched               | not-requested         | fetched                 | fetched       | fetched               |
+| reactions      | not-requested         | not-requested         | not-requested         | not-requested         | not-requested         | not-requested         | fetched                 | fetched       | not-requested         |
+| access         | not-requested         | fetched               | not-requested         | fetched               | fetched               | not-requested         | not-requested           | not-requested | fetched               |
+| authoredByMe   | not-requested         | not-requested         | not-requested         | not-requested         | not-requested         | not-requested         | not-requested           | not-requested | not-requested         |
+| stack          | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | not-requested           | not-requested | fetched / unavailable |
+
+<!-- field-presence: issues -->
+
+| Group       | point   | search  | account | repos         | batch   |
+| ----------- | ------- | ------- | ------- | ------------- | ------- |
+| description | fetched | fetched | fetched | not-requested | fetched |
+| assignees   | fetched | fetched | fetched | fetched       | fetched |
+| labels      | fetched | fetched | fetched | fetched       | fetched |
+| comments    | fetched | fetched | fetched | fetched       | fetched |
+| reactions   | fetched | fetched | fetched | fetched       | fetched |
+| access      | fetched | fetched | fetched | not-requested | fetched |
+
+The cells that aren't obvious from the projection names:
+
+- `account`, `account-summary` and `batch` rows are GitLens' own, the same rows `search` and `search-summary` return,
+  so they read like them. That includes `reviewDecision`: where GitHub reports none (the repository requires no
+  review), the row has none either, even while a review is requested.
+- `repos` rows come from provider-apis, which drops dismissed reviews and code-owner review requests, derives the
+  review decision from what is left, and doesn't read `repository.accessLevel`. It does select reactions, which
+  GitLens' own reads don't. Its comment count is issue comments only, where `search` counts review
+  comments too. On GitHub Enterprise it reads check runs only from server 3.0 on, which the table can't see.
+- `authoredByMe` needs the current account, which a read may fail to resolve, so it is never `fetched`.
+- `stack` is selected only against github.com.
+
+#### Every other provider
+
+What holds for all of them:
+
+- **`summary` and `includeReviews` change nothing.** Only GitHub's reads have a lighter projection, so every other
+  provider answers a `-summary` read, or an account-wide sweep without `includeReviews`, with the same fields as the
+  full one. The rows still carry the tag of the read that was asked for, and the two tags have the same cells.
+- **`reviewDecision` is never `fetched`.** Only GitHub reports a review decision. Elsewhere the row's decision is
+  derived from its reviewers' states, which ignores the host's own approval rules (GitLab's approval rules, Azure
+  DevOps' branch policies, Bitbucket's merge checks), so derive one from `reviews` and `reviewRequests` instead.
+- **`access` and `authoredByMe` are never `fetched`**: no other host's read sets `repository.accessLevel`, and the
+  current account may not resolve. No other host has stacks.
+- **Substitutions.** Azure DevOps has no pull request assignees: both of its converters fill `assignees` with the
+  reviewers, which `reviews` and `reviewRequests` already hold, so `assignees` is `unavailable` there. Votes are not
+  reactions: a Jira issue's or Trello card's votes, and a Bitbucket issue's, land in `thumbsUpCount` (and read 0
+  where voting is off), so `reactions` is `unavailable` for them. A GitLab upvote is a thumbs-up award, so it counts.
+- **Placeholders.** GitLens' own reads leave a field they didn't fetch `undefined`, but provider-apis' converters,
+  which GitLens doesn't own, still fill some: Bitbucket's and Bitbucket Data Center's `mergeableState` is a literal
+  Mergeable, GitLab turns a null count into 0, Linear's `labels` is an empty list, and an Azure DevOps work item's
+  `thumbsUpCount` is 0 (GitLens' own batch read of one leaves it `undefined`). Each is `not-requested` or
+  `unavailable` in the tables.
+
+<!-- field-presence: gitlab-pull-requests -->
+
+| Group          | point         | search                  | text-search   | account                 | account-summary         | repos                   | repos-summary           | batch                   |
+| -------------- | ------------- | ----------------------- | ------------- | ----------------------- | ----------------------- | ----------------------- | ----------------------- | ----------------------- |
+| description    | not-requested | fetched                 | not-requested | fetched                 | fetched                 | fetched                 | fetched                 | fetched                 |
+| reviews        | not-requested | fetched                 | not-requested | fetched                 | fetched                 | fetched                 | fetched                 | fetched                 |
+| reviewRequests | not-requested | fetched                 | not-requested | fetched                 | fetched                 | fetched                 | fetched                 | fetched                 |
+| reviewDecision | not-requested | not-requested           | not-requested | not-requested           | not-requested           | not-requested           | not-requested           | not-requested           |
+| assignees      | not-requested | fetched                 | not-requested | fetched                 | fetched                 | fetched                 | fetched                 | fetched                 |
+| checks         | not-requested | fetched                 | not-requested | fetched                 | fetched                 | fetched                 | fetched                 | fetched                 |
+| mergeable      | not-requested | fetched                 | not-requested | fetched                 | fetched                 | fetched                 | fetched                 | fetched                 |
+| diffStats      | not-requested | not-requested           | not-requested | not-requested           | not-requested           | not-requested           | not-requested           | not-requested           |
+| commitCount    | not-requested | not-requested           | not-requested | not-requested           | not-requested           | not-requested           | not-requested           | not-requested           |
+| comments       | not-requested | fetched / not-requested | not-requested | fetched / not-requested | fetched / not-requested | fetched / not-requested | fetched / not-requested | fetched / not-requested |
+| reactions      | not-requested | fetched                 | not-requested | fetched                 | fetched                 | fetched                 | fetched                 | fetched                 |
+| access         | not-requested | not-requested           | not-requested | not-requested           | not-requested           | not-requested           | not-requested           | not-requested           |
+| authoredByMe   | not-requested | not-requested           | not-requested | not-requested           | not-requested           | not-requested           | not-requested           | not-requested           |
+| stack          | unavailable   | unavailable             | unavailable   | unavailable             | unavailable             | unavailable             | unavailable             | unavailable             |
+
+<!-- field-presence: gitlab-issues -->
+
+| Group       | point                   | account       | repos                   | batch                   |
+| ----------- | ----------------------- | ------------- | ----------------------- | ----------------------- |
+| description | fetched                 | fetched       | fetched                 | fetched                 |
+| assignees   | fetched                 | fetched       | fetched                 | fetched                 |
+| labels      | fetched                 | fetched       | fetched                 | fetched                 |
+| comments    | fetched / not-requested | fetched       | fetched / not-requested | fetched / not-requested |
+| reactions   | fetched                 | fetched       | fetched                 | fetched                 |
+| access      | not-requested           | not-requested | not-requested           | not-requested           |
+
+- The point reads and the free-text search are GitLens' own, and leave everything but the merge request's identity,
+  refs and dates off the row, including the description they select. Every other read is provider-apis'.
+- provider-apis turns a null count into 0. GitLab's schema makes the diff stats, the commit count and the comment
+  count nullable, so diff stats and commit counts are never `fetched`. GitLab.com's comment count resolver answers 0
+  rather than null, so its comment count is; a self-managed version's isn't known to. The account-wide issue read is
+  REST, whose comment count is always a number.
+
+<!-- field-presence: azure-pull-requests -->
+
+| Group          | point         | search        | search-summary    | text-search   | account       | account-summary | repos         | repos-summary | batch         |
+| -------------- | ------------- | ------------- | ----------------- | ------------- | ------------- | --------------- | ------------- | ------------- | ------------- |
+| description    | not-requested | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | fetched       |
+| reviews        | fetched       | fetched       | — / fetched       | fetched       | fetched       | fetched         | fetched       | fetched       | fetched       |
+| reviewRequests | fetched       | fetched       | — / fetched       | fetched       | fetched       | fetched         | fetched       | fetched       | fetched       |
+| reviewDecision | not-requested | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested |
+| assignees      | unavailable   | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable   |
+| checks         | not-requested | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested |
+| mergeable      | fetched       | fetched       | — / fetched       | fetched       | fetched       | fetched         | fetched       | fetched       | fetched       |
+| diffStats      | not-requested | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested |
+| commitCount    | not-requested | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested |
+| comments       | not-requested | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested |
+| reactions      | unavailable   | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable   |
+| access         | not-requested | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested |
+| authoredByMe   | not-requested | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested |
+| stack          | unavailable   | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable   |
+
+<!-- field-presence: azure-issues -->
+
+| Group       | point         | search            | account     | repos       | batch       |
+| ----------- | ------------- | ----------------- | ----------- | ----------- | ----------- |
+| description | fetched       | — / fetched       | fetched     | fetched     | fetched     |
+| assignees   | fetched       | — / fetched       | fetched     | fetched     | fetched     |
+| labels      | not-requested | — / not-requested | fetched     | fetched     | fetched     |
+| comments    | fetched       | — / fetched       | fetched     | fetched     | fetched     |
+| reactions   | unavailable   | — / unavailable   | unavailable | unavailable | unavailable |
+| access      | unavailable   | — / unavailable   | unavailable | unavailable | unavailable |
+
+- Azure truncates the description of a pull request it lists (to 400 characters), so only the batch reads, which
+  fetch each pull request by id, have it. GitLens' own point reads leave it off the row.
+- The point read and Azure DevOps Server's work item search use GitLens' own converter, which drops the tags.
+- Work items belong to a project, not a repository, so `access` is `unavailable`.
+
+<!-- field-presence: bitbucket-pull-requests -->
+
+| Group          | point                   | search        | search-summary    | text-search   | account       | account-summary | repos         | repos-summary | batch                   |
+| -------------- | ----------------------- | ------------- | ----------------- | ------------- | ------------- | --------------- | ------------- | ------------- | ----------------------- |
+| description    | fetched                 | fetched       | — / fetched       | fetched       | fetched       | fetched         | fetched       | fetched       | fetched                 |
+| reviews        | not-requested / fetched | fetched       | — / fetched       | fetched       | fetched       | fetched         | fetched       | fetched       | fetched                 |
+| reviewRequests | not-requested / fetched | fetched       | — / fetched       | fetched       | fetched       | fetched         | fetched       | fetched       | fetched                 |
+| reviewDecision | not-requested           | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested           |
+| assignees      | unavailable             | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable             |
+| checks         | not-requested           | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested           |
+| mergeable      | not-requested           | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested           |
+| diffStats      | not-requested           | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested           |
+| commitCount    | not-requested           | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested           |
+| comments       | not-requested / fetched | fetched       | — / fetched       | fetched       | fetched       | fetched         | fetched       | fetched       | not-requested / fetched |
+| reactions      | unavailable             | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable             |
+| access         | not-requested           | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested           |
+| authoredByMe   | not-requested           | not-requested | — / not-requested | not-requested | not-requested | not-requested   | not-requested | not-requested | not-requested           |
+| stack          | unavailable             | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable             |
+
+<!-- field-presence: bitbucket-issues -->
+
+| Group       | point         | account       |
+| ----------- | ------------- | ------------- |
+| description | fetched       | fetched       |
+| assignees   | fetched       | fetched       |
+| labels      | unavailable   | unavailable   |
+| comments    | not-requested | not-requested |
+| reactions   | unavailable   | unavailable   |
+| access      | not-requested | not-requested |
+
+- Bitbucket Cloud's point and batch reads are GitLens' own, which drop the comment count. The point read for a commit
+  selects `+values.*`, which isn't known to bring the participants the reviews come from as the other point reads'
+  selections do, so the point reads don't promise them.
+- Bitbucket Cloud's issues are its deprecated tracker, which the facade refuses; only the host's own `getIssue` and
+  `searchMyIssues` read them. Bitbucket Data Center has no issues.
+- Bitbucket Data Center reports a pull request's comment count in its `properties`; a pull request without one there
+  reads as having none.
+
+<!-- field-presence: jira-issues -->
+
+| Group       | point         | account       | project       | batch                   |
+| ----------- | ------------- | ------------- | ------------- | ----------------------- |
+| description | fetched       | fetched       | fetched       | fetched                 |
+| assignees   | fetched       | fetched       | fetched       | fetched                 |
+| labels      | fetched       | fetched       | fetched       | fetched                 |
+| comments    | not-requested | not-requested | not-requested | fetched / not-requested |
+| reactions   | unavailable   | unavailable   | unavailable   | unavailable             |
+| access      | unavailable   | unavailable   | unavailable   | unavailable             |
+
+<!-- field-presence: linear-issues -->
+
+| Group       | point         | account       | project       | batch         |
+| ----------- | ------------- | ------------- | ------------- | ------------- |
+| description | fetched       | fetched       | fetched       | fetched       |
+| assignees   | fetched       | fetched       | fetched       | fetched       |
+| labels      | not-requested | not-requested | not-requested | not-requested |
+| comments    | not-requested | not-requested | not-requested | not-requested |
+| reactions   | not-requested | not-requested | not-requested | not-requested |
+| access      | unavailable   | unavailable   | unavailable   | unavailable   |
+
+<!-- field-presence: trello-issues -->
+
+| Group       | point         | project       |
+| ----------- | ------------- | ------------- |
+| description | not-requested | not-requested |
+| assignees   | fetched       | fetched       |
+| labels      | fetched       | fetched       |
+| comments    | fetched       | fetched       |
+| reactions   | unavailable   | unavailable   |
+| access      | unavailable   | unavailable   |
+
+- Tracker issues belong to no repository, so `access` is `unavailable`.
+- provider-apis' Jira converter counts the comments embedded in the issue rather than reading their total, so only
+  Jira Cloud's batch read, which is GitLens' own by-key read, has a comment count. Jira Data Center's batch read goes
+  through provider-apis.
+- provider-apis' Linear fragment selects no labels (it fills an empty list), comments or reactions.
+- A Trello card's description is never read. Trello has no batch or account-wide read.
+
 ## 5. Paging
 
 Two mechanisms live behind one shape, and they are **not** interchangeable:
@@ -785,8 +1039,9 @@ either way), so the option is purely projection plus its page cost. What it does
 count, since one document holds every facet: five relationships × four states is 20 full-projection selections.
 
 `listPullRequestsPage` has no projection switch. Scoped to `repos` it goes through the provider's repo-scoped
-read, and GitHub's carries `latestReviews` natively; account-wide (no `repos`) it is always the lite shape and
-no option opts it back in. `commitOid` is absent from both: only the full projection populates it.
+read, which on GitHub selects `latestReviews` but drops dismissed reviews (see [Field presence](#field-presence));
+account-wide (no `repos`) it is always the lite shape and no option opts it back in. `commitOid` is absent from
+both: only the full projection populates it.
 
 The paginated read that does carry the full projection is `searchPullRequestsPage` with
 `criteria.relationships` on GitHub/GHE (Bitbucket Data Center also exposes the search, with its native row shape):
@@ -814,8 +1069,8 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | `countPullRequests`          |      ✓       |          ✗           |     ✗     |      ✓       |            ✗            |      ✗      |   ✗    |   ✗    |
 | Issues, repo-scoped          |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |
 | Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |
-| `searchIssuesPage`           |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |
-| `countIssues`                |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |
+| `searchIssuesPage`           |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |
+| `countIssues`                |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |
 | `getIssuesBatch`             |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✓      |   ✓    |   ✗    |
 | `getPullRequestsBatch`       |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
 | `getPullRequestsForBranches` |      ✓       |          ✓           |     ✓     |      ✓¹      |           ✓¹            |      ✗      |   ✗    |   ✗    |
@@ -951,6 +1206,10 @@ direct read mirrors `provider-apis`' own normalization.
 while GitHub, GitLab, and Linear descriptions are Markdown. Jira issues therefore set
 `bodyFormat: 'jira-wiki'`; an omitted `bodyFormat` means consumers should preserve the existing behavior and treat
 `body` as Markdown. The `'markdown'` value is reserved for providers that need to make that format explicit.
+
+Two exceptions carry HTML with `bodyFormat` omitted: Azure DevOps work items (`System.Description`) and Bitbucket
+Cloud issues (`content.html`). Their `bodyFormat` is left unset rather than changed, so check the provider before
+treating either as Markdown.
 
 Rendering and conversion remain consumer concerns. In particular, the Jira body is neither ADF nor converted to
 Markdown by this package.

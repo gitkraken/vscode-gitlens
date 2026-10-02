@@ -138,7 +138,7 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		});
 
 		const values = result.values.flatMap(issue => {
-			const mapped = toIssueShape(issue, this);
+			const mapped = toIssueShape(issue, this, { projection: 'project' });
 			return mapped == null ? [] : [{ ...mapped, project: boardProject } satisfies IssueShape];
 		});
 
@@ -202,6 +202,7 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 		return issue != null
 			? fromProviderIssue(issue, this, {
+					projection: 'point',
 					project: {
 						id: resource.id,
 						name: resource.name,

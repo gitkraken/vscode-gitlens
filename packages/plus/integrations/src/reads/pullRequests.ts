@@ -229,9 +229,12 @@ export async function listPullRequestsPage(
 	// A metadata omission from an earlier page asserts the read succeeded; a later page may since have failed.
 	reconcileOmissionsWithFailure(warnings, assessment.fetchFailed || pageFetchFailed);
 	const viewers = await getPullRequestViewers(integration, options.connectionId, items);
+	const projection = accountWide ? 'account-summary' : options.summary ? 'repos-summary' : 'repos';
 	return {
 		// Normalize the raw rows to the GitLens-owned shape at the surface boundary.
-		items: items.map((pr, i) => toPullRequestRow(pr, integration, { currentAccount: viewers[i] })),
+		items: items.map((pr, i) =>
+			toPullRequestRow(pr, integration, { currentAccount: viewers[i], projection: projection }),
+		),
 		warnings: warnings,
 		// The account-wide read can't take a page size, so don't echo the requested `itemsPerPage` as if it
 		// had been applied — report what came back.

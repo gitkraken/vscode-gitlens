@@ -127,8 +127,14 @@ const pullRequestSearchMaxTtl = 30 * 60 * 1000;
  */
 const pullRequestCountReuseTtl = 60 * 1000;
 
+/**
+ * Kept unconverted, so each page converts its rows with the projection its own caller asked for: the drain is shared
+ * by every page of a query, whatever `summary` each page passes.
+ */
 interface AzurePullRequestSearchRow {
-	pr: PullRequest;
+	pr: ProviderPullRequest;
+	project: AzureProjectDescriptor;
+	currentAccount: { id: string } | undefined;
 	position: AzurePullRequestSearchPosition;
 }
 
@@ -473,7 +479,13 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		const last = slice.at(-1);
 		const hasMore = last != null && start + slice.length < drain.rows.length;
 		return {
-			values: slice.map(r => r.pr),
+			values: slice.map(r =>
+				fromProviderPullRequest(r.pr, this, {
+					project: r.project,
+					currentAccount: r.currentAccount,
+					projection: options.summary ? 'search-summary' : 'search',
+				}),
+			),
 			cursor: hasMore
 				? JSON.stringify({ key: key, drain: drainId, page: page + 1, after: last.position })
 				: undefined,
@@ -728,10 +740,9 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 
 				const userId = userIds.get(facet.collection);
 				rows.set(identity, {
-					pr: fromProviderPullRequest(markMyGroupReviews(pr, groupIds), this, {
-						project: facet.project,
-						currentAccount: userId != null ? { id: userId } : undefined,
-					}),
+					pr: markMyGroupReviews(pr, groupIds),
+					project: facet.project,
+					currentAccount: userId != null ? { id: userId } : undefined,
 					position: toAzurePullRequestSearchPosition(pr, sort, identity),
 				});
 			}

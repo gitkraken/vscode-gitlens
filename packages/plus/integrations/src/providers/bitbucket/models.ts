@@ -1,7 +1,7 @@
-import type { IssueRepository } from '@gitlens/git/models/issue.js';
+import type { IssueProjection, IssueRepository } from '@gitlens/git/models/issue.js';
 import { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequestMember, PullRequestReviewer } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestMember, PullRequestProjection, PullRequestReviewer } from '@gitlens/git/models/pullRequest.js';
 import { PullRequest, PullRequestReviewDecision, PullRequestReviewState } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
@@ -356,7 +356,7 @@ function fromBitbucketRepository(repo: BitbucketRepository): IssueRepository {
 	};
 }
 
-export function fromBitbucketIssue(issue: BitbucketIssue, provider: Provider): Issue {
+export function fromBitbucketIssue(issue: BitbucketIssue, provider: Provider, projection?: IssueProjection): Issue {
 	return new Issue(
 		provider,
 		issue.id.toString(),
@@ -383,13 +383,19 @@ export function fromBitbucketIssue(issue: BitbucketIssue, provider: Provider): I
 					resourceId: issue.repository.project.uuid,
 					resourceName: issue.repository.project.name,
 				},
+		undefined, // number
+		undefined, // issueType
+		undefined, // providerState
+		undefined, // bodyFormat
+		undefined, // iterations
+		projection,
 	);
 }
 
 export function fromBitbucketPullRequest(
 	pr: BitbucketPullRequest,
 	provider: Provider,
-	options?: { currentAccount?: { id: string; username?: string } },
+	options?: { currentAccount?: { id: string; username?: string }; projection?: PullRequestProjection },
 ): PullRequest {
 	const author = fromBitbucketUser(pr.author);
 	return new PullRequest(
@@ -449,6 +455,7 @@ export function fromBitbucketPullRequest(
 		pr.description ?? undefined,
 		pr.id,
 		options?.currentAccount != null ? author.id === options.currentAccount.id : undefined,
+		options?.projection,
 		options?.currentAccount,
 	);
 }

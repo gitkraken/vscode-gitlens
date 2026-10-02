@@ -185,6 +185,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 			api.getPullRequest(this, tokenWithInfo, c.owner, c.repo, String(c.number), this.apiBaseUrl, {
 				currentAccount: options?.currentAccount,
 				deferFailure: true,
+				projection: 'batch',
 			}),
 		);
 	}
@@ -274,6 +275,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 			resource.name,
 			id,
 			this.apiBaseUrl,
+			{ projection: 'point' },
 		);
 	}
 
@@ -439,7 +441,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 				ws.slug,
 				{ states: states },
 			);
-			return prs?.data.map(pr => fromProviderPullRequest(pr, this));
+			return prs?.data.map(pr => fromProviderPullRequest(pr, this, { projection: 'search' }));
 		});
 
 		if (!options?.includeReviewRequested) {
@@ -479,7 +481,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 			.getPullRequestsForRepos(toTokenWithInfo(this.id, session), workspaceRepos, {
 				query: stateClause ? `${stateClause} AND ${reviewerClause}` : reviewerClause,
 			})
-			.then(r => r.values?.map(pr => fromProviderPullRequest(pr, this)));
+			.then(r => r.values?.map(pr => fromProviderPullRequest(pr, this, { projection: 'search' })));
 
 		return [
 			...uniqueBy(
@@ -742,7 +744,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		);
 		if (cancellation?.aborted) throw new CancellationError();
 
-		return providerPullRequests.map(pr => fromProviderPullRequest(pr, this));
+		return providerPullRequests.map(pr => fromProviderPullRequest(pr, this, { projection: 'text-search' }));
 	}
 
 	private async getWorkspaceRepoInputs(): Promise<{ name: string; namespace: string }[]> {
