@@ -198,6 +198,11 @@ suite('IntegrationManager.countPullRequests', () => {
 			assert.deepEqual(result.items, []);
 			assert.equal(result.fetchFailed, true);
 			assert.match(result.warnings[0].message, /several relationships/);
+			assert.equal(
+				result.warnings[0].kind,
+				'unsupported',
+				"Bitbucket Data Center counts it, so the refusal is this provider's capability",
+			);
 			assert.equal(calls.length, 0);
 		} finally {
 			manager.dispose();

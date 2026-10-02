@@ -4228,7 +4228,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		assert.equal(readCalled, false, 'the read is skipped rather than run unfiltered');
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
-		assert.equal(result.warnings[0].kind, 'other');
+		assert.equal(result.warnings[0].kind, 'unsupported');
 
 		manager.dispose();
 	});
@@ -4264,7 +4264,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		assert.equal(readCalled, false, 'the read is skipped rather than dropping the unsupported filter');
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
-		assert.equal(result.warnings[0].kind, 'other');
+		assert.equal(result.warnings[0].kind, 'unsupported');
 
 		manager.dispose();
 	});
@@ -4693,7 +4693,7 @@ suite('listIssuesPage project scoping', () => {
 		assert.equal(result.hasMore, false);
 		assert.ok(
 			result.warnings.some(
-				w => w.kind === 'other' && w.message.includes('Project-scoped issue reads are not supported'),
+				w => w.kind === 'unsupported' && w.message.includes('Project-scoped issue reads are not supported'),
 			),
 			'the caller is told the scope was refused, not handed an unscoped page',
 		);

@@ -36,6 +36,7 @@ import {
 	unmergeableIssueSortWarning,
 	unsupportedAccountWideIssueFiltersWarning,
 	unsupportedIssueSortWarning,
+	unsupportedWarning,
 } from './warnings.js';
 
 /**
@@ -240,7 +241,7 @@ async function readAccountWideIssuesPage({
 			options.providerId === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise)
 	) {
 		return refused(
-			otherWarning(
+			unsupportedWarning(
 				options.providerId,
 				domain,
 				options.connectionId,
@@ -255,7 +256,7 @@ async function readAccountWideIssuesPage({
 	// "no issues" for a page that simply held none of the requested project's.
 	if ((options.org != null || options.project != null) && !integration.supportsProjectDiscovery) {
 		return refused(
-			otherWarning(
+			unsupportedWarning(
 				options.providerId,
 				domain,
 				options.connectionId,
@@ -341,7 +342,7 @@ async function readAccountWideIssuesPage({
 	// empty success — the caller must fall back (e.g. broadenIssues over repos).
 	if (value == null && warnings.length === 0) {
 		return refused(
-			otherWarning(
+			unsupportedWarning(
 				options.providerId,
 				domain,
 				options.connectionId,

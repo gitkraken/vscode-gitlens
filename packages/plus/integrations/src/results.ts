@@ -1,3 +1,4 @@
+import { isUnsupportedSortError } from '@gitkraken/provider-apis';
 import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { IssueSorting } from '@gitlens/git/models/issue.js';
 import type { PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
@@ -12,11 +13,19 @@ export interface ConnectionStateChangeEvent {
  * A per-provider, per-connection warning surfaced alongside (partial) read results. Consumers use
  * these to drive auth recovery, retry, or truncation messaging without the read itself throwing.
  *
- * `kind` is the programmatic discriminant (a rate-limit is retryable, a 404 is not, an auth failure
- * needs re-connection unless {@link ProviderWarning.scope} confines it); `isAuth` is retained as a
- * convenience mirror of `kind === 'auth'`.
+ * `kind` is the programmatic discriminant (a rate-limit is retryable, a 404 is not, an unsupported capability
+ * never succeeds on retry, an auth failure needs re-connection unless {@link ProviderWarning.scope} confines
+ * it); `isAuth` is retained as a convenience mirror of `kind === 'auth'`.
+ *
+ * `'unsupported'`: the provider — or this integration of it — lacks the capability the request asked for: a
+ * surface (issues on Bitbucket, pull requests on an issue tracker, a batch read, org/repo discovery,
+ * current-account lookup, project-scoped or account-wide issue reads), or a filter, sort, state, search
+ * criterion or option combination it cannot express. Retrying the same request never succeeds; a different
+ * provider, scope or request may. NOT unsupported (these stay `'other'`): malformed or contradictory caller
+ * input the caller fixes in the request itself (a duplicate batch key, invalid target numbers, an empty owner,
+ * an unusable scope), incompleteness or omission warnings, and unclassified errors.
  */
-export type ProviderWarningKind = 'auth' | 'rate-limit' | 'not-found' | 'no-connection' | 'other';
+export type ProviderWarningKind = 'auth' | 'rate-limit' | 'not-found' | 'no-connection' | 'unsupported' | 'other';
 
 /**
  * Why a read that SUCCEEDED still withheld results:
@@ -416,6 +425,8 @@ export function toProviderWarning(
 		kind = 'rate-limit';
 	} else if (ex instanceof RequestNotFoundError) {
 		kind = 'not-found';
+	} else if (isUnsupportedSortError(ex)) {
+		kind = 'unsupported';
 	} else {
 		kind = 'other';
 	}

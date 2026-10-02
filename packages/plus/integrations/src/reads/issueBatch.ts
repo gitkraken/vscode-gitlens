@@ -21,6 +21,7 @@ import {
 	issueTrackerOnlySurfaceWarning,
 	noConnectionWarning,
 	otherWarning,
+	unsupportedWarning,
 } from './warnings.js';
 
 /**
@@ -294,7 +295,7 @@ async function getIssuesBatchForTracker(
 	}
 
 	const unsupported = (): ProviderWarning =>
-		otherWarning(
+		unsupportedWarning(
 			providerId,
 			undefined,
 			connectionId,

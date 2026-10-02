@@ -9,7 +9,7 @@ import { isGitHostIntegration, isIssuesHostIntegrationId } from '../utils/integr
 import type { ProviderReadContext } from './context.js';
 import { getCurrentAccountIdentity, runCaptured } from './drains.js';
 import { appendBatchSlotWarning, findDuplicateKey, trimCoordinateFields, unresolvedIntegration } from './issueBatch.js';
-import { gitHostOnlySurfaceWarning, otherWarning } from './warnings.js';
+import { gitHostOnlySurfaceWarning, otherWarning, unsupportedWarning } from './warnings.js';
 
 /**
  * The pull-requests-by-branch read: for each branch, every pull request whose head is that branch, in any state.
@@ -166,7 +166,7 @@ export async function getPullRequestsForBranches(
 		if (warning == null) {
 			appendDedupedWarning(
 				warnings,
-				otherWarning(
+				unsupportedWarning(
 					options.providerId,
 					domain,
 					options.connectionId,

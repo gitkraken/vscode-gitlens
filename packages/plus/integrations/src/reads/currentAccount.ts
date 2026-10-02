@@ -4,7 +4,7 @@ import type { ProviderWarning } from '../results.js';
 import { appendDedupedWarning } from '../results.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
-import { noConnectionWarning, otherWarning } from './warnings.js';
+import { noConnectionWarning, unsupportedWarning } from './warnings.js';
 
 /**
  * "Who am I on this provider / connection" — {@link IntegrationBase.getCurrentAccount}'s own answer, exposed on
@@ -50,7 +50,7 @@ export async function getCurrentAccount(
 	if (!integration.supportsCurrentAccount) {
 		return {
 			warnings: [
-				otherWarning(
+				unsupportedWarning(
 					options.providerId,
 					domain,
 					options.connectionId,

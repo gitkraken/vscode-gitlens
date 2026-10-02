@@ -135,8 +135,8 @@ it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side fai
 | `getCurrentAccount`          | `CurrentAccountResult`    | Who a git host connection is signed in as; trackers refuse.                                  |
 | `getSupportedFilters`        | filter capability table   | Static, connection-free. See §7.                                                             |
 
-A provider that cannot serve a surface says so explicitly — a warning explaining that the operation is
-unsupported plus `fetchFailed`, never a silent empty page. That distinction is the whole point of the result
+A provider that cannot serve a surface says so explicitly — a `kind: 'unsupported'` warning (§6) plus
+`fetchFailed`, never a silent empty page. That distinction is the whole point of the result
 shape: an empty `items` with no warning means "this account genuinely has nothing".
 
 `getIssuesBatch` takes the target form its provider addresses an issue by: `{ key, owner, repo, number, project? }` on
@@ -412,13 +412,14 @@ result** instead of rejecting the call. One provider's expired token never blank
 `ProviderWarning.kind` (also exported as `ProviderWarningKind`) carries the classifications the facade can
 prove from structured errors:
 
-| `kind`          | Meaning                                                                                                                                         | Reasonable response                                                                         |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `auth`          | Token rejected (401/403 that isn't a throttle).                                                                                                 | Prompt to reconnect that connection. A scoped one is narrower: see `scope` below.           |
-| `rate-limit`    | Throttled (429, or a 403 whose body says so).                                                                                                   | Back off and retry; keep the last snapshot.                                                 |
-| `not-found`     | 404/410/422 on the requested scope.                                                                                                             | Drop that scope; don't reconnect.                                                           |
-| `no-connection` | The requested `connectionId`/`domain` doesn't resolve.                                                                                          | Re-resolve the target or re-authenticate.                                                   |
-| `other`         | Catch-all: unsupported input, truncation, upstream/network failure, or an unclassified error. Read `omission` before treating one as a failure. | Preserve the warning and use the result flags; do not assume it is benign or non-retryable. |
+| `kind`          | Meaning                                                                                                                                                        | Reasonable response                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `auth`          | Token rejected (401/403 that isn't a throttle).                                                                                                                | Prompt to reconnect that connection. A scoped one is narrower: see `scope` below.           |
+| `rate-limit`    | Throttled (429, or a 403 whose body says so).                                                                                                                  | Back off and retry; keep the last snapshot.                                                 |
+| `not-found`     | 404/410/422 on the requested scope.                                                                                                                            | Drop that scope; don't reconnect.                                                           |
+| `no-connection` | The requested `connectionId`/`domain` doesn't resolve.                                                                                                         | Re-resolve the target or re-authenticate.                                                   |
+| `unsupported`   | The provider can't serve this capability: a surface, filter, sort, state, search criterion or option combination it can't express.                             | Hide or disable the feature for that provider; don't retry or reconnect.                    |
+| `other`         | Catch-all: malformed or contradictory input, truncation, upstream/network failure, or an unclassified error. Read `omission` before treating one as a failure. | Preserve the warning and use the result flags; do not assume it is benign or non-retryable. |
 
 `isAuth` is a convenience mirror of `kind === 'auth'`. **Collapsing `kind` into that boolean loses the
 rate-limit and not-found distinctions**, which then have to be re-derived from raw provider prose.
@@ -1055,7 +1056,7 @@ and Azure DevOps (+ Server). **Not** Bitbucket Data Center. A self-managed id re
 2. Pick an auth strategy (§2) and verify `getConfigured()` reflects your connections.
 3. Thread `connectionId` through every read if you support multiple accounts per provider.
 4. Persist the **opaque `cursor`**, not just a page number (§5).
-5. Branch on specific `warning.kind` values, handle `other` conservatively, and gate caching on
+5. Branch on specific `warning.kind` values (`unsupported` means hide the feature, not retry), handle `other` conservatively, and gate caching on
    `fetchFailed` / `page.allPages` (§6).
 6. Intersect repo-scoped and account-wide `filters` against their distinct `getSupportedFilters` fields (§7).
 7. Treat "unsupported" as a first-class outcome per provider (§8) — don't render it as an error.
