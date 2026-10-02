@@ -7,6 +7,7 @@ import { createIntegrationService as createIntegrationManager } from '../integra
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { GetIssueFn, ProviderIssue } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
+import { issueEtag, issueEtagFieldsFromShape } from '../reads/etag.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { connectedGitHub } from './sweepHelpers.js';
 
@@ -533,6 +534,39 @@ suite('IntegrationManager.getIssuesBatch — tracker targets (#5810)', () => {
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
 		assert.match(result.warnings[0].message, /upstream exploded/);
+
+		manager.dispose();
+	});
+
+	test('etags every found row, and reads a target in full even when it sends a matching etag', async () => {
+		// No tracker has a cheap check yet, so a sent etag changes nothing but the caller can seed etags from here.
+		let reads = 0;
+		const { manager } = await connectedJira(createFakeRuntime(), {
+			getJiraIssueByKey: (_token: TokenWithInfo, _resourceId: string, _resourceUrl: string, key: string) => {
+				reads++;
+				return Promise.resolve(key === 'ABC-2' ? undefined : providerIssue(key));
+			},
+		});
+
+		const first = await manager.getIssuesBatch({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			targets: [jiraTarget('ABC-1', 'found'), jiraTarget('ABC-2', 'absent')],
+		});
+
+		const [found, absent] = first.items;
+		assert.ok(found.issue != null);
+		assert.equal(found.etag, issueEtag(issueEtagFieldsFromShape(found.issue)));
+		assert.deepEqual(absent, { key: 'absent' }, 'a proven absence has no etag');
+
+		const second = await manager.getIssuesBatch({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			targets: [{ ...jiraTarget('ABC-1', 'found'), etag: found.etag }],
+		});
+
+		assert.equal(reads, 3);
+		assert.equal(second.items[0].unchanged, undefined);
+		assert.equal(second.items[0].issue?.id, 'ABC-1');
+		assert.equal(second.items[0].etag, found.etag);
 
 		manager.dispose();
 	});

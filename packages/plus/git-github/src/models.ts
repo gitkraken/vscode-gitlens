@@ -255,6 +255,34 @@ export interface GitHubPullRequest extends GitHubPullRequestLite {
 	viewerCanUpdate: boolean;
 }
 
+/**
+ * An input beyond a pull request's lifecycle fields that `GitHubApi.getPullRequestsEtagFieldsBatch` can select.
+ * Mirrors the integrations package's `PullRequestEtagInclude`, which this package cannot import.
+ */
+export type GitHubPullRequestEtagInclude = 'mergeable' | 'reviewDecision' | 'checks';
+
+/**
+ * The change state `GitHubApi.getPullRequestsEtagFieldsBatch` selects: a pull request's lifecycle fields, plus,
+ * for each requested {@link GitHubPullRequestEtagInclude}, what its etag reads. Each selection is the full
+ * fragment's own, so a value here is the one a full read would have mapped.
+ */
+export interface GitHubPullRequestEtagNode extends Pick<
+	GitHubPullRequest,
+	'id' | 'number' | 'state' | 'isDraft' | 'updatedAt' | 'headRefOid'
+> {
+	/** Only with `mergeable`. */
+	mergeable?: GitHubPullRequestMergeableState | null;
+	/** Only with `reviewDecision`. `null` on a repository that requires no review. */
+	reviewDecision?: GitHubPullRequestReviewDecision | null;
+	/** Only with `checks`. */
+	commits?: {
+		nodes: { commit: { statusCheckRollup: { state: GitHubPullRequestStatusCheckRollupState } | null } }[];
+	};
+}
+
+/** The change state `GitHubApi.getIssuesEtagFieldsBatch` selects. */
+export type GitHubIssueEtagNode = Pick<GitHubIssue, 'id' | 'number' | 'state' | 'updatedAt'>;
+
 export type GitHubViewerPermission =
 	| 'ADMIN' // Can read, clone, and push to this repository. Can also manage issues, pull requests, and repository settings, including adding collaborators
 	| 'MAINTAIN' // Can read, clone, and push to this repository. They can also manage issues, pull requests, and some repository settings

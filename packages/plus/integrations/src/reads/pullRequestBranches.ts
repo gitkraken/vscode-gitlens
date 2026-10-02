@@ -6,9 +6,10 @@ import { isAzureProviderId } from '../providers/providerErrors.js';
 import type { ProviderResult, ProviderWarning } from '../results.js';
 import { appendDedupedWarning } from '../results.js';
 import { isGitHostIntegration, isIssuesHostIntegrationId } from '../utils/integration.utils.js';
+import { appendBatchSlotWarning } from './batchEtags.js';
 import type { ProviderReadContext } from './context.js';
 import { getCurrentAccountIdentity, runCaptured } from './drains.js';
-import { appendBatchSlotWarning, findDuplicateKey, trimCoordinateFields, unresolvedIntegration } from './issueBatch.js';
+import { findDuplicateKey, trimCoordinateFields, unresolvedIntegration } from './issueBatch.js';
 import { gitHostOnlySurfaceWarning, otherWarning, unsupportedWarning } from './warnings.js';
 
 /**

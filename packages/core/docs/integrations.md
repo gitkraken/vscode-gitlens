@@ -175,6 +175,36 @@ and the clone URLs. On GitLab, a miss the confirming read then contradicts fails
 with the confirming read's own, differently-identified row. It is uncached and bypasses the
 host's `IntegrationCacheProvider.getPullRequest`, so the caller owns caching the answer.
 
+Both batch reads detect change with **etags**. Every fully read row carries an opaque `etag`, whether or not the
+caller sent one; send it back as the target's `etag` on the next call. Compare etags for equality only and never
+parse one: core computes it from the item's change state — a pull request's state, draft flag, update time and head
+commit; an issue's state and update time — and it is not the provider's HTTP ETag. A row is in one of four states:
+
+- `{ key, pullRequest | issue, etag }` — read in full.
+- `{ key, unchanged: true, etag }` — a cheap check proved the caller's copy current and nothing else was fetched.
+  Only for a target that sent an `etag`, on a host with a cheap check.
+- `{ key }` — proven absent, as before.
+- no row, with `fetchFailed` and a warning — unknown, as before.
+
+GitHub/GHE are the only hosts with a cheap check so far: one aliased document per 25 targets, like the full read,
+selecting only the change state. Every other host, and the tracker form of `getIssuesBatch`, accepts the `etag`,
+reads the target in full, and etags the row. On GitHub/GHE a call is up to three integration calls: the cheap check
+of the targets that sent an `etag`, a full read of the rest started alongside it, and a full read of the targets
+whose etag no longer matched once the check settles. A call in which no target sends an `etag` makes exactly the one
+full read it always made. `getPullRequestsBatch` also takes `etagIncludes`, a list drawn from `'mergeable'`,
+`'reviewDecision'` and `'checks'` (the check rollup). Each entry widens every etag to one input GitHub changes without
+moving the update time — without `'checks'` a red CI run goes unnoticed — and costs its own fields in the cheap
+check, so a caller lists only what it needs; on GitHub the review decision is the costliest
+(GitHub computes it per pull request), the rollup next, mergeability cheapest. Order and repeats don't matter (core sorts and dedupes the list), and an unknown value refuses the whole
+call before any request, like a bad target. It changes only which etag is computed (and the cheap check's
+selection), and an etag from another set, or from an older scheme, simply compares unequal and costs a full read,
+never a false `unchanged`. A target the cheap check fails falls through to the full read, which has the final word and supplies
+the warning if it fails too — except on an `auth`, `rate-limit` or `no-connection` failure, which the full read
+would only hit again: those targets are dropped with that warning and `fetchFailed`, exactly as a failed full read
+drops them. Each target is judged by its own failure, so one target's rate limit never drops another the check only
+failed to answer. The cheap check counts toward the integration's disconnect budget only when the credential is
+refused; any other failure of it is left to the full reads, so a call counts at most twice, once per full read.
+
 `getPullRequestsForBranches` answers "which pull requests have this branch as their head" without the user's
 relationship to them, so unlike the sweeps it finds a teammate's pull request from the user's branch. A target names
 the repository the pull requests are opened against, the branch's short name and, for a branch in a fork,
