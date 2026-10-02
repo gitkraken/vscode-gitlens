@@ -19,7 +19,7 @@ import {
 	GitPullRequestState,
 	toStatusCheckRollupState,
 } from '../models.js';
-import { fromPullRequestReviewDecision } from '../pullRequestReviews.js';
+import { decideProviderReviewDecision, fromPullRequestReviewDecision } from '../pullRequestReviews.js';
 
 export interface GitLabUser {
 	id: number;
@@ -353,14 +353,6 @@ const gitLabReviewProviderStates: Partial<Record<string, ProviderReviewState>> =
 	UNREVIEWED: GitPullRequestReviewState.ReviewRequested,
 };
 
-/** provider-apis' review severity (`Us`), by which its `ne` picks the decision: the most severe review wins. */
-const reviewDecisionSeverity: Partial<Record<string, number>> = {
-	[GitPullRequestReviewState.Approved]: 0,
-	[GitPullRequestReviewState.Commented]: 1,
-	[GitPullRequestReviewState.ReviewRequested]: 2,
-	[GitPullRequestReviewState.ChangesRequested]: 3,
-};
-
 /** provider-apis' CI job `status` map (`Ba`); a failed job that may fail reads as a warning. */
 const gitLabJobProviderStates: Partial<Record<string, ProviderBuildStatusState>> = {
 	CANCELED: GitBuildStatusState.Cancelled,
@@ -411,22 +403,14 @@ export function toGitLabPullRequestEtagFields(
 	}
 
 	if (etagIncludes.includes('reviewDecision')) {
-		const reviews = node.reviewers?.nodes?.map(r =>
-			r.mergeRequestInteraction?.reviewState
-				? gitLabReviewProviderStates[r.mergeRequestInteraction.reviewState]
-				: GitPullRequestReviewState.ReviewRequested,
-		);
 		// A review state provider-apis doesn't know maps to `undefined`, which never outranks the decision so far.
-		const decision = reviews?.length
-			? reviews.reduce<ProviderReviewState>(
-					(decided, review) =>
-						review != null &&
-						(reviewDecisionSeverity[review] ?? -1) > (reviewDecisionSeverity[decided] ?? -1)
-							? review
-							: decided,
-					GitPullRequestReviewState.Approved,
-				)
-			: undefined;
+		const decision = decideProviderReviewDecision(
+			node.reviewers?.nodes?.map(r =>
+				r.mergeRequestInteraction?.reviewState
+					? gitLabReviewProviderStates[r.mergeRequestInteraction.reviewState]
+					: GitPullRequestReviewState.ReviewRequested,
+			),
+		);
 		fields.reviewDecision = decision ? fromPullRequestReviewDecision[decision] : undefined;
 	}
 

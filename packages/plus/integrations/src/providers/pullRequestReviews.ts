@@ -130,3 +130,32 @@ export const fromPullRequestReviewDecision = {
 	[GitPullRequestReviewState.Commented]: undefined,
 	[GitPullRequestReviewState.ReviewRequested]: PullRequestReviewDecision.ReviewRequired,
 };
+
+/** provider-apis' (0.61.0) review severity (`Us` in its bundle), by which it picks a review decision. */
+const providerReviewDecisionSeverity: Partial<Record<string, number>> = {
+	[GitPullRequestReviewState.Approved]: 0,
+	[GitPullRequestReviewState.Commented]: 1,
+	[GitPullRequestReviewState.ReviewRequested]: 2,
+	[GitPullRequestReviewState.ChangesRequested]: 3,
+};
+
+/**
+ * The review decision provider-apis' GitLab and Azure DevOps mappers derive from a pull request's review states (`ne`
+ * in its bundle): the most severe state wins, starting from approved, and no states at all is no decision. A state it
+ * doesn't rank (`undefined` here, for one provider-apis doesn't know) never outranks the decision so far. For a cheap
+ * etag check, which must reproduce a full row's decision without provider-apis' mapping.
+ */
+export function decideProviderReviewDecision(
+	states: readonly (GitPullRequestReviewState | undefined)[] | undefined,
+): GitPullRequestReviewState | undefined {
+	if (!states?.length) return undefined;
+
+	return states.reduce<GitPullRequestReviewState>(
+		(decided, state) =>
+			state != null &&
+			(providerReviewDecisionSeverity[state] ?? -1) > (providerReviewDecisionSeverity[decided] ?? -1)
+				? state
+				: decided,
+		GitPullRequestReviewState.Approved,
+	);
+}

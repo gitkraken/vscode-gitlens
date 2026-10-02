@@ -178,7 +178,8 @@ host's `IntegrationCacheProvider.getPullRequest`, so the caller owns caching the
 Both batch reads detect change with **etags**. Every fully read row carries an opaque `etag`, whether or not the
 caller sent one; send it back as the target's `etag` on the next call. Compare etags for equality only and never
 parse one: core computes it from the item's change state — a pull request's state, draft flag, update time and head
-commit; an issue's state and update time — and it is not the provider's HTTP ETag. A row is in one of four states:
+commit (plus, on Azure DevOps, a fingerprint of the fields it changes without an update time; see below); an issue's
+state and update time — and it is not the provider's HTTP ETag. A row is in one of four states:
 
 - `{ key, pullRequest | issue, etag }` — read in full.
 - `{ key, unchanged: true, etag }` — a cheap check proved the caller's copy current and nothing else was fetched.
@@ -194,6 +195,16 @@ The hosts with a cheap check select only the change state:
   request's merge status whenever its target branch moves, so on a busy repository `'mergeable'` changes, and costs a
   full read, more often than the merge request itself does.
 
+- **Azure DevOps and Azure DevOps Server:** work items in one batch request per project per 200 ids; an id the batch
+  leaves out falls through to its own full read. Pull requests can't be batched by id, so the check is one request
+  per pull request instead of the full read's two. Azure DevOps keeps no update time on a pull request, so its etag
+  also carries a revision: a 64-bit hash of the title, description, target branch and every reviewer with their vote,
+  read off the same response at no extra cost. It sees state, draft, closing, new pushes and those edits, including
+  a reviewer added or removed and an optional reviewer's vote (plus mergeability when included). It can't see a
+  comment or a label, which its full row doesn't carry either, or a vote that keeps the reviewer's state, such as an
+  approval becoming an approval with suggestions. A hash collision is the only way an edit it does see can hide,
+  at about 2^-64. An Azure DevOps pull request etag from before the revision existed compares unequal once and costs
+  one full read.
 - **Jira Cloud** (the tracker form of `getIssuesBatch`): one bulk fetch per site per 100 keys. Bulk fetch silently
   leaves out a key it can't answer (deleted, not visible, malformed or moved), so such a key falls through to its own
   full read, whose 404 is what proves an absence.

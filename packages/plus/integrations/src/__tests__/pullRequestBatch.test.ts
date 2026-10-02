@@ -1941,16 +1941,16 @@ suite('IntegrationManager.getPullRequestsBatch etags', () => {
 	});
 
 	test('a host with no cheap check makes one full call, etags and all', async () => {
-		const { manager, azure } = await connectedAzure(createFakeRuntime());
-		stubCurrentAccount(azure, 'me');
-		assert.equal(azure.supportsPullRequestEtags, false);
-		const full = stubFullReads(azure);
+		const { manager, integration } = await connectedBitbucket(createFakeRuntime());
+		stubCurrentAccount(integration, 'me');
+		assert.equal(integration.supportsPullRequestEtags, false);
+		const full = stubFullReads(integration);
 
 		const result = await manager.getPullRequestsBatch({
-			providerId: GitCloudHostIntegrationId.AzureDevOps,
+			providerId: GitCloudHostIntegrationId.Bitbucket,
 			targets: [
-				{ key: 'a', owner: 'o', repo: 'r', number: 1, project: 'p', etag: heldEtag(1) },
-				{ key: 'b', owner: 'o', repo: 'r', number: 2, project: 'p' },
+				{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
+				{ key: 'b', owner: 'o', repo: 'r', number: 2 },
 			],
 		});
 

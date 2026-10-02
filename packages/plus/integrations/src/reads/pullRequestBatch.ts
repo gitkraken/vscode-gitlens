@@ -32,9 +32,9 @@ import { gitHostOnlySurfaceWarning, otherWarning, unsupportedWarning } from './w
  * request per target with bounded concurrency everywhere else) and settles each independently, so one bad target
  * never spends more than its own slot — see `GitHostIntegration.getPullRequestsBatchResult`.
  *
- * With etags, up to THREE on a host with a cheap check (GitHub/GHE and GitLab so far): the cheap check of the targets
- * that carry one, a full read of the targets that don't, started alongside it, and a full read of the targets whose
- * etag no longer matches — see `readEtaggedBatch`. A host without a cheap check still makes one call.
+ * With etags, up to THREE on a host with a cheap check (GitHub/GHE, GitLab and Azure DevOps so far): the cheap check
+ * of the targets that carry one, a full read of the targets that don't, started alongside it, and a full read of the
+ * targets whose etag no longer matches — see `readEtaggedBatch`. A host without a cheap check still makes one call.
  */
 
 /** One pull request to resolve, identified by coordinate and echoed back under the caller's own `key`. */
@@ -78,9 +78,10 @@ export interface PullRequestBatchResult {
 	pullRequest?: PullRequestShape;
 	/**
 	 * Opaque: compare for equality only, never parse. Computed by core from the pull request's change state — its
-	 * state, draft flag, update time and head commit, plus each input the call's `etagIncludes` listed — and NOT the
-	 * provider's HTTP ETag. Send it back as {@link PullRequestBatchTarget.etag}. An etag from another scheme or
-	 * another `etagIncludes` set simply compares unequal and costs a full read, never a false `unchanged`.
+	 * state, draft flag, update time and head commit (on Azure DevOps, also a revision of the fields it changes without
+	 * an update time), plus each input the call's `etagIncludes` listed — and NOT the provider's HTTP ETag. Send it
+	 * back as {@link PullRequestBatchTarget.etag}. An etag from another scheme or another `etagIncludes` set simply
+	 * compares unequal and costs a full read, never a false `unchanged`.
 	 */
 	etag?: string;
 	/** The caller's copy is current (its `etag` matched); `pullRequest` is absent because nothing was read. */
