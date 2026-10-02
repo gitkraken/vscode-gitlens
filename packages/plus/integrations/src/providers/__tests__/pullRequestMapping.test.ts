@@ -124,6 +124,22 @@ suite('pull request ref mapping (#5435 clone URLs + fork)', () => {
 		assert.equal(roundTrip.headRepository?.isFork, true);
 	});
 
+	test('a pull request whose head repository was deleted converts to no head repository, not a blank one', () => {
+		const pr = fromGitHubPullRequest(gitHubPullRequestNode({ headRepository: null }), fakeProvider);
+
+		assert.equal(pr.refs?.head.exists, false);
+		assert.equal(pr.refs?.head.owner, undefined);
+		assert.equal(pr.refs?.head.repo, undefined);
+		assert.equal(toProviderPullRequest(pr).headRepository, null);
+		assert.equal(
+			toProviderPullRequest(
+				fromProviderPullRequest(createProviderPullRequest({ headRepository: null }), fakeProvider),
+			).headRepository,
+			null,
+			"provider-apis' rows fill the missing owner and name with '', which reads the same",
+		);
+	});
+
 	test('same-name repositories in different owners retain distinct pull request identities', () => {
 		const first = toProviderPullRequest(
 			fromProviderPullRequest(

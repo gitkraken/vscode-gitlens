@@ -1780,7 +1780,8 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 						remoteInfo: null,
 					},
 		headRepository:
-			pr.refs?.head != null
+			// A deleted head repository has no owner or name: GitHub's rows leave them `undefined`, provider-apis' `''`.
+			pr.refs?.head?.owner && pr.refs.head.repo
 				? {
 						id: pr.refs.head.repo,
 						name: pr.refs.head.repo,

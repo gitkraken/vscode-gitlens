@@ -178,7 +178,9 @@ export async function setupPullRequestBranch(
 	}
 
 	const remoteUrl = headRef.url;
-	if (!remoteUrl) {
+	const remoteOwner = headRef.owner;
+	// A deleted head repository (a removed fork) has neither.
+	if (!remoteUrl || !remoteOwner) {
 		throw new StartReviewError('PR head repository URL not found', l10n.t('PR head repository URL not found'));
 	}
 
@@ -197,7 +199,7 @@ export async function setupPullRequestBranch(
 		await repo.git.ops?.fetch({ remote: remoteName });
 	} else {
 		// Add remote for fork
-		remoteName = headRef.owner;
+		remoteName = remoteOwner;
 		addRemote = { name: remoteName, url: remoteUrl };
 	}
 
