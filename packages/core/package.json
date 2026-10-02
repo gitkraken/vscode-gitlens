@@ -1,7 +1,7 @@
 {
 	"name": "@gitkraken/core-gitlens",
 	"description": "GitLens core — shared Git / AI / GitHub primitives for internal GitKraken consumption",
-	"version": "0.9.4",
+	"version": "0.9.5",
 	"license": "SEE LICENSE IN LICENSE",
 	"author": {
 		"name": "GitKraken",

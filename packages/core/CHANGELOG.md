@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-10-02
+
 ### Added
 
 - Adds `viewer` (`{ id, username? }`) to `PullRequestShape`: the identity a row's `authoredByMe` was matched against, present exactly when that was. Match `reviewRequests` and `latestReviews` entries against it rather than against `getCurrentAccount`, which on Azure DevOps Server is a different id than any collection's. Rows are resolved per row through the new `GitHostIntegration.getPullRequestViewers` (#5916) (git, plus/integrations)
@@ -509,7 +511,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.4...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.5...HEAD
+[0.9.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.4...gitkraken:releases/core/v0.9.5
 [0.9.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.3...gitkraken:releases/core/v0.9.4
 [0.9.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.2...gitkraken:releases/core/v0.9.3
 [0.9.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.1...gitkraken:releases/core/v0.9.2
