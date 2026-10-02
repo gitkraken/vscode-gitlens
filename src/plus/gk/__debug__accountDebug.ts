@@ -3,6 +3,7 @@ import { l10n, QuickInputButtonLocation, ThemeIcon, window } from 'vscode';
 import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import { proTrialLengthInDays, SubscriptionState } from '../../constants.subscription.js';
 import type { Container } from '../../container.js';
+import { getFeaturePreviewStatus } from '../../features.js';
 import { setSimulatedRepoVisibility } from '../../git/__debug__visibilityDebug.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
@@ -24,6 +25,7 @@ const SimulatedOrganizationId = '000000000000000000000000';
 type SubscriptionServiceFacade = {
 	getSubscription: () => SubscriptionService['_subscription'];
 	getSession: () => SubscriptionService['_session'];
+	getFeaturePreview: SubscriptionService['getFeaturePreview'];
 	overrideFeaturePreviews: (featurePreviews: SimulatedFeaturePreviews) => void;
 	overrideSession: (session: SubscriptionService['_session']) => void;
 	restoreFeaturePreviews: () => void;
@@ -161,17 +163,22 @@ function nextSimulatedPreview(current: SimulatedPreviewStatus | undefined): Simu
 	}
 }
 
-function getItemFeaturePreviews(item: SimulationState | undefined): SimulatedFeaturePreviews | undefined {
-	return item?.state === SubscriptionState.Community ? item.featurePreviews : undefined;
-}
-
 class AccountDebug {
 	private simulatingPick: SimulateQuickPickItem | undefined;
 	/** Tracks direct (non-quickpick) simulation too, which never sets `simulatingPick` */
 	private simulating: SimulationState | undefined;
 	private simulatedVisibility: RepositoryVisibility | undefined;
-	private simulatedPreview: SimulatedPreviewStatus | undefined;
+	/** Whether the Graph preview is currently being overridden by the toggle. The displayed status is
+	 *  always read live from storage (see `effectivePreviewStatus`) so an auto-start doesn't leave the
+	 *  button stale. */
+	private previewOverriding = false;
 	private onboardingSnapshot: OnboardingSnapshot | undefined;
+
+	/** The status to show on the preview toggle: the live stored status while overriding, else `undefined`
+	 *  (off = not simulating the preview). */
+	private get effectivePreviewStatus(): SimulatedPreviewStatus | undefined {
+		return this.previewOverriding ? getFeaturePreviewStatus(this.service.getFeaturePreview('graph')) : undefined;
+	}
 
 	constructor(
 		private readonly container: Container,
@@ -416,12 +423,24 @@ class AccountDebug {
 						const [items, picked] = getItemsAndPicked(this.simulatingPick);
 						quickpick.items = items;
 						quickpick.activeItems = picked ? [picked] : [];
+						// A Community pick can install its own preview — refresh the toggle to the live status
+						quickpick.buttons = [
+							getVisibilityButton(this.simulatedVisibility),
+							getPreviewButton(this.effectivePreviewStatus),
+						];
 					}),
 					quickpick.onDidTriggerButton(button => {
-						// Buttons are a fixed pair rebuilt on each change; the preview toggle is the second
+						// Buttons are a fixed pair rebuilt on each change; the preview toggle is the second.
+						// Cycle from the LIVE status so the step is always relative to what's shown.
 						if (button === quickpick.buttons[1]) {
-							this.simulatedPreview = nextSimulatedPreview(this.simulatedPreview);
-							this.applyPreviewOverride(getItemFeaturePreviews(this.simulatingPick?.item));
+							const next = nextSimulatedPreview(this.effectivePreviewStatus);
+							if (next == null) {
+								this.previewOverriding = false;
+								this.service.restoreFeaturePreviews();
+							} else {
+								this.previewOverriding = true;
+								this.service.overrideFeaturePreviews({ status: next, durationSeconds: 30 });
+							}
 						} else {
 							this.simulatedVisibility = nextSimulatedVisibility(this.simulatedVisibility);
 							setSimulatedRepoVisibility(this.simulatedVisibility);
@@ -429,7 +448,7 @@ class AccountDebug {
 						this.service.refireSubscriptionChange();
 						quickpick.buttons = [
 							getVisibilityButton(this.simulatedVisibility),
-							getPreviewButton(this.simulatedPreview),
+							getPreviewButton(this.effectivePreviewStatus),
 						];
 					}),
 				);
@@ -438,7 +457,7 @@ class AccountDebug {
 				quickpick.placeholder = l10n.t('Choose the subscription state to simulate');
 				quickpick.buttons = [
 					getVisibilityButton(this.simulatedVisibility),
-					getPreviewButton(this.simulatedPreview),
+					getPreviewButton(this.effectivePreviewStatus),
 				];
 
 				const [items, picked] = getItemsAndPicked(this.simulatingPick);
@@ -453,16 +472,19 @@ class AccountDebug {
 		}
 	}
 
-	/** Applies the effective Graph preview override: the independent toggle wins over the picked item's
-	 *  own `featurePreviews` (so e.g. a no-pro account can carry a simulated active preview); when neither
-	 *  is set, the real stored preview is restored. */
+	/** Applies the effective Graph preview override when (re)starting a simulation: an active toggle wins
+	 *  over the picked item's own `featurePreviews` and preserves its current live status across the
+	 *  re-apply (so e.g. a no-pro account can carry the preview the user was in); otherwise the item's
+	 *  preview is installed, or the real stored preview restored. */
 	private applyPreviewOverride(itemFeaturePreviews: SimulatedFeaturePreviews | undefined): void {
-		const preview =
-			this.simulatedPreview != null
-				? { status: this.simulatedPreview, durationSeconds: 30 }
-				: itemFeaturePreviews;
-		if (preview != null) {
-			this.service.overrideFeaturePreviews(preview);
+		if (this.previewOverriding) {
+			this.service.overrideFeaturePreviews({
+				status: this.effectivePreviewStatus ?? 'eligible',
+				durationSeconds: 30,
+			});
+		} else if (itemFeaturePreviews != null) {
+			this.previewOverriding = true;
+			this.service.overrideFeaturePreviews(itemFeaturePreviews);
 		} else {
 			this.service.restoreFeaturePreviews();
 		}
@@ -472,7 +494,7 @@ class AccountDebug {
 		this.simulatingPick = undefined;
 		this.simulating = undefined;
 		this.simulatedVisibility = undefined;
-		this.simulatedPreview = undefined;
+		this.previewOverriding = false;
 		setSimulatedRepoVisibility(undefined);
 
 		this.service.restoreFeaturePreviews();
