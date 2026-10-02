@@ -5,6 +5,7 @@ import type { PullRequestMember, PullRequestProjection, PullRequestReviewer } fr
 import { PullRequest, PullRequestReviewDecision, PullRequestReviewState } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import type { PullRequestEtagFields, PullRequestEtagInclude } from '../../models/integration.js';
 
 export interface BitbucketRepositoryDescriptor extends ResourceDescriptor {
 	owner: string;
@@ -320,7 +321,15 @@ export function fromBitbucketParticipantToReviewer(
 	};
 }
 
-function getBitbucketReviewDecision(pr: BitbucketPullRequest): PullRequestReviewDecision | undefined {
+/**
+ * The review decision a Bitbucket Cloud row carries, derived from its participants and reviewers. Reads only the
+ * participants' `participated_on`, `approved` and `state` and whether there are reviewers, which is what the cheap etag
+ * read selects for it.
+ */
+export function getBitbucketReviewDecision(pr: {
+	participants?: readonly Pick<BitbucketPullRequestParticipant, 'approved' | 'state' | 'participated_on'>[];
+	reviewers?: readonly unknown[];
+}): PullRequestReviewDecision | undefined {
 	if (!pr.participants?.length && pr.reviewers?.length) {
 		return PullRequestReviewDecision.ReviewRequired;
 	}
@@ -458,4 +467,50 @@ export function fromBitbucketPullRequest(
 		options?.projection,
 		options?.currentAccount,
 	);
+}
+
+/** The most pull request ids one etag read asks for: Bitbucket Cloud's largest page of pull requests. */
+export const bitbucketEtagFieldsMaxIds = 50;
+
+/**
+ * A pull request as the cheap etag read selects it (`BitbucketApi.getPullRequestsEtagFields`): only the fields
+ * {@link fromBitbucketPullRequest} maps into a full row's etag inputs. `participants` and `reviewers` are selected
+ * only for the `reviewDecision` include.
+ */
+export interface BitbucketPullRequestEtagNode {
+	id: number;
+	state: BitbucketPullRequestState;
+	updated_on: string;
+	draft?: boolean;
+	source: { commit: { hash: string } };
+	participants?: Pick<BitbucketPullRequestParticipant, 'approved' | 'state' | 'participated_on'>[];
+	reviewers?: unknown[];
+}
+
+/**
+ * A cheap etag read's pull request in the vocabulary {@link fromBitbucketPullRequest}'s row ends in, so both reads
+ * compute the same etag. That row reads neither a mergeability nor a check rollup, so neither does this.
+ */
+export function toBitbucketPullRequestEtagFields(
+	node: BitbucketPullRequestEtagNode,
+	etagIncludes: readonly PullRequestEtagInclude[],
+): PullRequestEtagFields {
+	const fields: PullRequestEtagFields = {
+		state: bitbucketPullRequestStateToState(node.state),
+		isDraft: node.draft,
+		updatedDate: new Date(node.updated_on),
+		headSha: node.source.commit.hash,
+	};
+
+	if (etagIncludes.includes('reviewDecision')) {
+		// The full read always has both lists, and the decision tells a missing list from an empty one, so a row
+		// without them can't be compared: it rejects, and the full read answers instead.
+		if (node.participants == null || node.reviewers == null) {
+			throw new Error(`Bitbucket returned pull request ${node.id} without its participants or reviewers`);
+		}
+
+		fields.reviewDecision = getBitbucketReviewDecision(node);
+	}
+
+	return fields;
 }

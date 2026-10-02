@@ -28,8 +28,10 @@ import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { PullRequestEtagFields, PullRequestEtagInclude } from '../models/integration.js';
 import { getBitbucketPullRequestIdentityFromMaybeUrl } from './bitbucket/bitbucket.utils.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
+import { bitbucketEtagFieldsMaxIds, toBitbucketPullRequestEtagFields } from './bitbucket/models.js';
 import type {
 	ProviderApiCollectionResult,
 	ProviderApiPagedResult,
@@ -50,6 +52,7 @@ import {
 	flatSettledOrThrow,
 	mergeCollectionMetadata,
 	parsePageCursor,
+	readEtagFieldsByRepository,
 	toPageCursor,
 } from './utils/providerPaging.js';
 
@@ -187,6 +190,47 @@ export class BitbucketIntegration extends GitHostIntegration<
 				deferFailure: true,
 				projection: 'batch',
 			}),
+		);
+	}
+
+	/**
+	 * The cheap check behind the batch pull request read's etags: GitLens' own client lists each repository's pull
+	 * requests by id, up to {@link bitbucketEtagFieldsMaxIds} in ONE request, where
+	 * {@link getProviderPullRequestsBatch} sends one per target, and selects only the fields its rows' etags read.
+	 * Each is converted as {@link fromBitbucketPullRequest} converts the full one, so both reads compute the same
+	 * etag. A request that throws rejects only its own targets' slots.
+	 *
+	 * The full row reads neither a mergeability nor a check rollup, so its etag sees a pull request's state, draft
+	 * flag, update time and head commit, plus its participants' review decision when included; the `mergeable` and
+	 * `checks` includes add nothing and cost nothing.
+	 */
+	protected override async getProviderPullRequestsEtagFields(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { etagIncludes?: readonly PullRequestEtagInclude[] },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestEtagFields | undefined>[] | undefined> {
+		const api = await this.authenticationService.apis.bitbucket;
+		if (api == null) return undefined;
+
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+		const etagIncludes = options.etagIncludes ?? [];
+
+		return readEtagFieldsByRepository(
+			coordinates,
+			bitbucketEtagFieldsMaxIds,
+			(owner, repo, ids) =>
+				api.getPullRequestsEtagFields(
+					this,
+					tokenWithInfo,
+					owner,
+					repo,
+					ids,
+					this.apiBaseUrl,
+					{ etagIncludes: etagIncludes, deferFailure: true },
+					cancellation,
+				),
+			node => toBitbucketPullRequestEtagFields(node, etagIncludes),
 		);
 	}
 

@@ -26,14 +26,23 @@ import {
 	RequestNotFoundError,
 	toRateLimitError,
 } from '../../errors.js';
+import type { PullRequestEtagInclude } from '../../models/integration.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
 import type { BitbucketServerCommit, BitbucketServerPullRequest } from '../bitbucket-server/models.js';
 import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models.js';
 import { fromProviderPullRequest } from '../models.js';
 import { selectBranchPullRequests } from '../utils/providerPaging.js';
-import type { BitbucketCommit, BitbucketIssue, BitbucketPullRequest, BitbucketRepository } from './models.js';
+import type {
+	BitbucketCommit,
+	BitbucketIssue,
+	BitbucketPullRequest,
+	BitbucketPullRequestEtagNode,
+	BitbucketPullRequestState,
+	BitbucketRepository,
+} from './models.js';
 import {
+	bitbucketEtagFieldsMaxIds,
 	bitbucketIssueStateToState,
 	fromBitbucketIssue,
 	fromBitbucketPullRequest,
@@ -378,6 +387,95 @@ export class BitbucketApi implements Disposable {
 			});
 		} catch (ex) {
 			if (isNotFoundResponse(ex)) return undefined;
+
+			throw ex;
+		}
+	}
+
+	/**
+	 * The change state of pull requests `ids` in `owner/repo` — the cheap check behind the batch read's etags — in ONE
+	 * request for up to {@link bitbucketEtagFieldsMaxIds} ids, selecting only what {@link getPullRequest}'s row reads
+	 * into its etag (plus the participants and reviewers for the `reviewDecision` include). One entry per input id, in
+	 * order.
+	 *
+	 * Strict like {@link getPullRequest}: `undefined` is a PROVEN ABSENCE, for an id missing from a complete page, or
+	 * for every id when the repository is a 404, as each id's own read would be. A page with more (`next`) and every
+	 * other failure throw. Every state is asked for, since the list answers only open pull requests by default.
+	 */
+	@trace({
+		args: (provider, token, owner, repo, ids) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			ids: ids.length,
+		}),
+	})
+	public async getPullRequestsEtagFields(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		ids: readonly number[],
+		baseUrl: string,
+		options: { etagIncludes: readonly PullRequestEtagInclude[]; deferFailure?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<(BitbucketPullRequestEtagNode | undefined)[]> {
+		const scope = getScopedLogger();
+
+		if (!ids.length) return [];
+		if (ids.length > bitbucketEtagFieldsMaxIds) {
+			throw new Error(
+				`Cannot read more than ${bitbucketEtagFieldsMaxIds} Bitbucket pull requests in one request`,
+			);
+		}
+
+		const fields = [
+			'values.id',
+			'values.state',
+			'values.draft',
+			'values.updated_on',
+			'values.source.commit.hash',
+			'next',
+		];
+		if (options.etagIncludes.includes('reviewDecision')) {
+			fields.push(
+				'values.participants.approved',
+				'values.participants.state',
+				'values.participants.participated_on',
+				'values.reviewers.uuid',
+			);
+		}
+
+		const params = new URLSearchParams({
+			q: `id IN (${ids.join(',')})`,
+			fields: fields.join(','),
+			pagelen: String(ids.length),
+		});
+		for (const state of ['OPEN', 'MERGED', 'DECLINED', 'SUPERSEDED'] satisfies BitbucketPullRequestState[]) {
+			params.append('state', state);
+		}
+
+		try {
+			const response = await this.request<{ values?: BitbucketPullRequestEtagNode[]; next?: string }>(
+				provider,
+				token,
+				baseUrl,
+				`repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pullrequests?${params.toString()}`,
+				{ method: 'GET' },
+				scope,
+				cancellation,
+				options.deferFailure,
+			);
+			if (response?.values == null) {
+				throw new Error(`Bitbucket returned no pull requests for ${owner}/${repo}`);
+			}
+			if (response.next != null) throw new Error(`Bitbucket returned a partial page of ${owner}/${repo}`);
+
+			const byId = new Map(response.values.map(pr => [pr.id, pr]));
+			return ids.map(id => byId.get(id));
+		} catch (ex) {
+			if (isNotFoundResponse(ex)) return ids.map(() => undefined);
 
 			throw ex;
 		}
