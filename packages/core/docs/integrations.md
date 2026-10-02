@@ -170,8 +170,8 @@ and it serves every git host. Azure DevOps also requires `project` on each targe
 targets per request; every other host costs one request per target, and GitLab a second one to confirm a miss. A
 target GitHub refuses on its own, e.g. in an org enforcing SAML SSO the token isn't authorized for, fails only that
 target. Its rows carry the same fields as the list reads' rows, except on Bitbucket Cloud — which has no single pull
-request read in provider-apis, so those rows come from GitLens' own REST read and lack `commentsCount`, `isDraft`
-and the clone URLs. On GitLab, a miss the confirming read then contradicts fails the target rather than answering
+request read in provider-apis, so those rows come from GitLens' own REST read and lack `commentsCount` and the clone
+URLs. On GitLab, a miss the confirming read then contradicts fails the target rather than answering
 with the confirming read's own, differently-identified row. It is uncached and bypasses the
 host's `IntegrationCacheProvider.getPullRequest`, so the caller owns caching the answer.
 
@@ -205,6 +205,11 @@ The hosts with a cheap check select only the change state:
   approval becoming an approval with suggestions. A hash collision is the only way an edit it does see can hide,
   at about 2^-64. An Azure DevOps pull request etag from before the revision existed compares unequal once and costs
   one full read.
+- **Bitbucket Cloud:** one list request per repository per 50 pull requests, by id and in every state, where the
+  full read sends one request per pull request. A pull request missing from the list is proven absent, as the full
+  read's 404 would prove it. Bitbucket Cloud's rows carry no mergeability or check rollup, so its etag
+  sees state, draft, update time and head commit, plus the participants' review decision when `'reviewDecision'` is
+  included; `'mergeable'` and `'checks'` add nothing and cost nothing.
 - **Jira Cloud** (the tracker form of `getIssuesBatch`): one bulk fetch per site per 100 keys. Bulk fetch silently
   leaves out a key it can't answer (deleted, not visible, malformed or moved), so such a key falls through to its own
   full read, whose 404 is what proves an absence.

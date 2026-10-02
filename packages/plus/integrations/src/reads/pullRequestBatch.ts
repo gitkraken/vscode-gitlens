@@ -32,9 +32,10 @@ import { gitHostOnlySurfaceWarning, otherWarning, unsupportedWarning } from './w
  * request per target with bounded concurrency everywhere else) and settles each independently, so one bad target
  * never spends more than its own slot — see `GitHostIntegration.getPullRequestsBatchResult`.
  *
- * With etags, up to THREE on a host with a cheap check (GitHub/GHE, GitLab and Azure DevOps so far): the cheap check
- * of the targets that carry one, a full read of the targets that don't, started alongside it, and a full read of the
- * targets whose etag no longer matches — see `readEtaggedBatch`. A host without a cheap check still makes one call.
+ * With etags, up to THREE on a host with a cheap check (GitHub/GHE, GitLab, Azure DevOps and Bitbucket Cloud so far):
+ * the cheap check of the targets that carry one, a full read of the targets that don't, started alongside it, and a
+ * full read of the targets whose etag no longer matches — see `readEtaggedBatch`. A host without a cheap check still
+ * makes one call.
  */
 
 /** One pull request to resolve, identified by coordinate and echoed back under the caller's own `key`. */
