@@ -4,13 +4,15 @@ import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { mapBounded } from '@gitlens/utils/promise.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
+import { providerFanOutConcurrency } from '../constants.js';
 import { IntegrationReadUnavailableError, toError } from '../errors.js';
 import type { ProviderApiCollectionResult } from '../providers/models.js';
 import type { Integration, IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
-import type { IssuesForProjectOptions, ProjectIssuesDrain } from './issueReads.js';
+import type { IssuesForProjectOptions, ProjectIssuesDrain, ProjectIssuesRequest } from './issueReads.js';
 
 export function isIssuesIntegration(integration: Integration): integration is IssuesIntegration {
 	return integration.type === 'issues';
@@ -222,6 +224,30 @@ export abstract class IssuesIntegration<
 			this.handleProviderException('getIssuesForProject', ex, { connectionId: connectionId });
 			return { error: toError(ex) };
 		}
+	}
+
+	/**
+	 * Reads several projects' issues, one result per request in request order, each with the contract of
+	 * {@link getIssuesForProjectWithTruncationResult}, so one project failing leaves its siblings readable.
+	 *
+	 * The default reads the projects one by one. A tracker that can search several projects in one query (Jira)
+	 * overrides it, so a project with none of the user's issues costs no request of its own.
+	 */
+	async getIssuesForProjectsWithTruncationResult(
+		requests: readonly ProjectIssuesRequest<T>[],
+		connectionId?: string,
+	): Promise<IntegrationResult<ProjectIssuesDrain | undefined>[]> {
+		return mapBounded(requests, providerFanOutConcurrency, async request => {
+			try {
+				return await this.getIssuesForProjectWithTruncationResult(
+					request.project,
+					request.options,
+					connectionId,
+				);
+			} catch (ex) {
+				return { error: toError(ex) };
+			}
+		});
 	}
 
 	protected abstract getProviderIssuesForProject(

@@ -58,14 +58,18 @@ async function connectedJira(account: { id?: string; username?: string; name?: s
 	const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
 	(jira as unknown as { _session: ProviderAuthenticationSession })._session = trackerSession('atlassian.net');
 	const queries: IssueQuery[] = [];
+	// Recorded from either search: a user-scoped facade read names its projects together, a direct project read
+	// names one, and both must send the same identity.
+	const issuesPage = (_token: unknown, _projects: unknown, _resourceId: unknown, options: IssueQuery) => {
+		queries.push(options);
+		return Promise.resolve({ data: [], hasMore: false, nextCursor: undefined });
+	};
 	stubApi(jira, {
 		getJiraResourcesForCurrentUser: () => Promise.resolve([jiraResource]),
 		getCurrentUserForResource: () => Promise.resolve(account),
 		getJiraProjectsForResource: () => Promise.resolve({ values: [jiraProject], paging: undefined }),
-		getIssuesForProjectPaged: (_token: unknown, _project: unknown, _resourceId: unknown, options: IssueQuery) => {
-			queries.push(options);
-			return Promise.resolve({ data: [], hasMore: false, nextCursor: undefined });
-		},
+		getIssuesForProjectPaged: issuesPage,
+		getIssuesForProjectsPaged: issuesPage,
 	});
 	return { manager: manager, queries: queries };
 }

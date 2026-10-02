@@ -5,6 +5,9 @@ import { mapBounded } from '@gitlens/utils/promise.js';
 import { assessCollectionMetadata, mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { providerFanOutConcurrency } from '../constants.js';
+import { toError } from '../errors.js';
+import type { IntegrationResult } from '../models/integration.js';
+import type { ProjectIssuesDrain } from '../models/issueReads.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { IssueFilter, providersMetadata } from '../providers/models.js';
 import { mergeCollectionMetadata, parsePageCursor } from '../providers/utils/providerPaging.js';
@@ -454,21 +457,34 @@ export async function listIssueTrackerIssuesPage(
 		return emptyPage(true);
 	}
 
-	const perProject = await mapBounded(scopedProjects, providerFanOutConcurrency, async project => ({
-		project: project,
-		...(await runCaptured(options.providerId, domain, options.connectionId, () =>
-			integration.getIssuesForProjectWithTruncationResult(
-				project,
-				{
+	// One call for the whole window, so a tracker that can search several projects at once (Jira) does, instead
+	// of paying one drain per project. Results still come back per project, which the accounting below needs.
+	let projectReads: IntegrationResult<ProjectIssuesDrain | undefined>[];
+	try {
+		projectReads = await integration.getIssuesForProjectsWithTruncationResult(
+			scopedProjects.map(project => ({
+				project: project,
+				options: {
 					user: userForProject(project),
 					userId: userIdForProject(project),
 					filters: options.filters,
 					sort: sort,
 				},
-				options.connectionId,
-			),
-		)),
-	}));
+			})),
+			options.connectionId,
+		);
+	} catch (ex) {
+		const error = toError(ex);
+		projectReads = scopedProjects.map(() => ({ error: error }));
+	}
+	const perProject = await Promise.all(
+		scopedProjects.map(async (project, index) => ({
+			project: project,
+			...(await runCaptured(options.providerId, domain, options.connectionId, () =>
+				Promise.resolve(projectReads[index]),
+			)),
+		})),
+	);
 
 	// Partial project discovery means some projects' issues are missing from this page; propagate it so the
 	// page reports fetchFailed even when every discovered project's own read succeeded.

@@ -698,6 +698,7 @@ export type GetBitbucketServerPullRequestsForCurrentUserFn = (
 	data: GitPullRequest[];
 }>;
 export type GetIssuesForProjectFn = Jira['getIssuesForProject'];
+export type GetIssuesForProjectsFn = Jira['getIssuesForProjects'];
 // Derived from the client method rather than hand-declared, as its project-scoped sibling above already is: the
 // hand-written shape named only `resourceId`, so every other field the SDK accepts (the cursor, the sort, the
 // transitions switch) was invisible to the type system and had to be smuggled through `getPagedResult`'s `any`.
@@ -743,6 +744,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getJiraProjectsForResourceFn?: GetJiraProjectsForResourceFn;
 	getAzureProjectsForResourceFn?: GetAzureProjectsForResourceFn;
 	getIssuesForProjectFn?: GetIssuesForProjectFn;
+	getIssuesForProjectsFn?: GetIssuesForProjectsFn;
 	getReposForAzureProjectFn?: GetReposForAzureProjectFn;
 	getIssuesForResourceForCurrentUserFn?: GetIssuesForResourceForCurrentUserFn;
 	mergePullRequestFn?: MergePullRequestFn;

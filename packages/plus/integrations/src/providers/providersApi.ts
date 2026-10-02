@@ -428,6 +428,7 @@ export class ProvidersApi {
 				getJiraProjectsForResourceFn: providerApis.jira.getJiraProjectsForResource.bind(providerApis.jira),
 				getIssueFn: providerApis.jira.getIssue.bind(providerApis.jira) as GetIssueFn,
 				getIssuesForProjectFn: providerApis.jira.getIssuesForProject.bind(providerApis.jira),
+				getIssuesForProjectsFn: providerApis.jira.getIssuesForProjects.bind(providerApis.jira),
 				getIssuesForResourceForCurrentUserFn: providerApis.jira.getIssuesForResourceForCurrentUser.bind(
 					providerApis.jira,
 				),
@@ -1627,6 +1628,44 @@ export class ProvidersApi {
 			const result = await provider.getIssuesForProjectFn?.(
 				{
 					projectKey: project,
+					resourceId: resourceId,
+					...options,
+					includeTransitions: jiraListIncludeTransitions,
+				},
+				{ token: token },
+			);
+			if (result == null) return undefined;
+			return {
+				data: result.data,
+				hasMore: result.pageInfo?.hasNextPage ?? false,
+				nextCursor: result.pageInfo?.endCursor ?? undefined,
+			};
+		} catch (e) {
+			return this.handleProviderError(tokenWithInfo, e);
+		}
+	}
+
+	/**
+	 * Single page of one issue search across several projects of the same Jira site. The page, its cursor and
+	 * `hasMore` are global to the whole project set, not per project; at most `JIRA_MAX_PROJECT_KEYS_PER_REQUEST`
+	 * keys are accepted per call (the SDK throws past it), so the caller chunks.
+	 */
+	async getIssuesForProjectsPaged(
+		tokenOptInfo: TokenWithInfo,
+		projectKeys: string[],
+		resourceId: string,
+		options?: GetIssuesOptions,
+	): Promise<{ data: ProviderIssue[]; hasMore: boolean; nextCursor: string | undefined } | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getIssuesForProjectsFn',
+		);
+		const token = tokenWithInfo.accessToken;
+
+		try {
+			const result = await provider.getIssuesForProjectsFn?.(
+				{
+					projectKeys: projectKeys,
 					resourceId: resourceId,
 					...options,
 					includeTransitions: jiraListIncludeTransitions,
