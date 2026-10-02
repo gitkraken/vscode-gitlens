@@ -4816,9 +4816,12 @@ export class GitHubApi {
 	 *
 	 * `headRefName` matches every fork's branch of that name too, so rows are kept only when their head
 	 * repository is the base repository itself (`headOwner` omitted) or a fork owned by `headOwner` — otherwise
-	 * a `main` in the base repository would claim every fork's `main`. That filter runs after the server's
-	 * `limit`, so `truncated` is set whenever the server matched more rows than it returned, since any of the
-	 * unfetched ones might have passed it.
+	 * a `main` in the base repository would claim every fork's `main`. The fork is matched by
+	 * `headRepositoryOwner`, which GitHub keeps after the fork is deleted, so a deleted fork's pull request still
+	 * matches its old owner. That filter runs after the server's `limit`, so `truncated` is set whenever the server
+	 * matched more rows than it returned, since any of the unfetched ones might have passed it;
+	 * {@link getPullRequestNumbersForBranch} settles such a target, though it can't see a deleted fork's pull
+	 * request, so its caller keeps the rows matched here as well.
 	 *
 	 * Returns POSITIONALLY, with the same per-alias rules as {@link getPullRequestsBatch}: a missing base
 	 * repository (NOT_FOUND on a null repository) is a PROVEN "none" — an empty list — while any other error on
@@ -4914,7 +4917,10 @@ export class GitHubApi {
 						pr.headRefName === t.branch &&
 						(headOwner == null
 							? !pr.isCrossRepository
-							: pr.isCrossRepository && pr.headRepositoryOwner?.login.toLowerCase() === headOwner),
+							: // `headRepositoryOwner`, not `headRepository`: GitHub keeps a deleted fork's owner here,
+								// so its pull request still matches. REST's `head` filter can't see it, which is why
+								// the caller unions the two steps rather than trusting REST alone.
+								pr.isCrossRepository && pr.headRepositoryOwner?.login.toLowerCase() === headOwner),
 				);
 
 				try {
@@ -4935,6 +4941,75 @@ export class GitHubApi {
 			});
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
+	 * The numbers of the pull requests into `owner/repo` whose head is `branch` in the repository `headOwner` owns
+	 * — the base repository's owner when omitted — in any state, most recently updated first, at most `limit`.
+	 * Only the numbers, so a caller resolves the rows through the same read as its by-number lookups.
+	 *
+	 * REST, because its `head` filter matches the head repository's OWNER and the branch on the server, before the
+	 * page is cut, where GraphQL's `headRefName` matches the name across every fork: this settles a target
+	 * {@link getPullRequestsForBranches} reported `truncated` only because other forks share its branch name.
+	 * Keyed on the ref NAME like that read, so a merged pull request whose branch was deleted still matches; one
+	 * whose fork was deleted has no head repository and matches nothing, so this can't prove such a pull request
+	 * absent.
+	 *
+	 * Strict: an empty list means GitHub answered, and any failure throws, a 404 included — the caller has already
+	 * read the base repository, so a missing one here proves nothing. A server error or timeout is left to the
+	 * calling batch to report once (see `reportRequestFailure`), and an authentication failure prompts nothing,
+	 * since one target's refusal isn't the credential's.
+	 */
+	@trace({
+		args: (provider, token, owner, repo, branch) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			branch: branch,
+		}),
+	})
+	async getPullRequestNumbersForBranch(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		owner: string,
+		repo: string,
+		branch: string,
+		options: { baseUrl?: string; headOwner?: string; limit: number },
+		cancellation?: AbortSignal,
+	): Promise<{ numbers: number[]; truncated: boolean }> {
+		const scope = getScopedLogger();
+
+		try {
+			// One more than `limit`, so a full page says whether more match.
+			const rsp = await this.request(
+				provider,
+				token,
+				'GET /repos/{owner}/{repo}/pulls',
+				{
+					owner: owner,
+					repo: repo,
+					head: `${options.headOwner ?? owner}:${branch}`,
+					state: 'all',
+					// The default sorts by creation; the read returns the most recently UPDATED.
+					sort: 'updated',
+					direction: 'desc',
+					per_page: options.limit + 1,
+					baseUrl: options.baseUrl,
+				},
+				scope,
+				cancellation,
+				true,
+			);
+			if (rsp?.data == null) throw new Error('GitHub returned no data for the pull requests by head');
+
+			return {
+				numbers: rsp.data.slice(0, options.limit).map(pr => pr.number),
+				truncated: rsp.data.length > options.limit,
+			};
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope, true);
 		}
 	}
 

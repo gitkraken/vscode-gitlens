@@ -9,6 +9,7 @@ import {
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
+import { getPullRequestFieldPresence } from '../fieldPresence.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
@@ -725,6 +726,8 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			const sizes: number[] = [];
 			const limits: number[] = [];
 			const forwarded: Target[] = [];
+			// The truncated target takes the REST step, which confirms more match than were returned.
+			github.getPullRequestNumbersForBranch = () => Promise.resolve({ numbers: [1], truncated: true });
 			github.getPullRequestsForBranches = (
 				provider: ProviderReference,
 				_t: unknown,
@@ -897,6 +900,316 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			assert.equal(requests.urls.length, 1);
 
 			manager.dispose();
+		});
+		suite('a branch name other forks share', () => {
+			/** A node from `o/a`'s `feature` branch, or a fork's, updated on day `day` of January 2026. */
+			function node(number: number, day: number, forkOwner?: string): Record<string, unknown> {
+				return {
+					...gitHubPullRequestNode(number, forkOwner),
+					updatedAt: `2026-01-${String(day).padStart(2, '0')}T00:00:00Z`,
+				};
+			}
+
+			/** Ten pull requests from ten other forks' `feature`, out of `totalCount` of that name. */
+			function strangers(): Record<string, unknown>[] {
+				return Array.from({ length: 10 }, (_, i) => node(100 + i, 1, `stranger${i}`));
+			}
+
+			/**
+			 * Serves the branch query (`branches` per alias), the REST head filter (`heads` by `head` parameter) and
+			 * the batch read (any number in `nodes`), recording which of them were asked.
+			 */
+			function serveGitHub(
+				runtime: FakeRuntime,
+				branches: Record<string, { nodes: Record<string, unknown>[]; totalCount: number }>,
+				heads: Record<string, number[] | Response>,
+				nodes: Record<number, Record<string, unknown>> = {},
+			): { heads: URL[]; batches: number[][]; urls: string[] } {
+				const asked = { heads: [] as URL[], batches: [] as number[][] };
+				const requests = serve(runtime, (url, body) => {
+					if (url.includes('/pulls?')) {
+						const parsed = new URL(url);
+						asked.heads.push(parsed);
+						const head = heads[parsed.searchParams.get('head') ?? ''];
+						if (head instanceof Response) return head;
+
+						return json(
+							200,
+							(head ?? []).map(n => ({ number: n })),
+						);
+					}
+
+					const { query, variables } = JSON.parse(body) as {
+						query: string;
+						variables: Record<string, unknown>;
+					};
+					if (query.includes('query getPullRequestsBatch')) {
+						const numbers = Object.keys(variables)
+							.filter(k => /^k\d+$/.test(k))
+							.map(k => variables[k] as number);
+						asked.batches.push(numbers);
+						return json(200, {
+							data: Object.fromEntries(
+								numbers.map((n, i) => [`p${i}`, { pullRequest: nodes[n] ?? null }]),
+							),
+						});
+					}
+
+					return json(200, {
+						data: Object.fromEntries(
+							Object.entries(branches).map(([alias, b]) => [
+								alias,
+								{ pullRequests: { totalCount: b.totalCount, nodes: b.nodes } },
+							]),
+						),
+					});
+				});
+				return { ...asked, urls: requests.urls };
+			}
+
+			test('none of thirty same-named pull requests is a proven "none" once REST finds no match', async () => {
+				const runtime = createFakeRuntime();
+				const asked = serveGitHub(
+					runtime,
+					{ b0: { nodes: strangers(), totalCount: 30 } },
+					{ 'mine:feature': [] },
+				);
+				const { manager, gh } = await connectedGitHub(runtime);
+				stubCurrentAccount(gh, 'me');
+
+				const result = await manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [{ key: 'a', owner: 'o', repo: 'a', branch: 'feature', headOwner: 'mine' }],
+				});
+
+				assert.deepEqual(ids(result.items[0]), []);
+				assert.equal(result.items[0].truncated, undefined);
+				assert.equal(result.fetchFailed, undefined);
+				assert.equal(asked.heads.length, 1);
+				const head = asked.heads[0];
+				assert.equal(head.pathname, '/repos/o/a/pulls');
+				assert.equal(head.searchParams.get('head'), 'mine:feature', "a fork's branch is headed by its owner");
+				assert.equal(head.searchParams.get('state'), 'all');
+				assert.equal(head.searchParams.get('sort'), 'updated');
+				assert.equal(head.searchParams.get('direction'), 'desc');
+				assert.equal(head.searchParams.get('per_page'), '11');
+				assert.deepEqual(asked.batches, [], 'nothing to resolve');
+
+				manager.dispose();
+			});
+
+			test('two matches among thirty: both, newest first, the unfetched one resolved like the rest', async () => {
+				const runtime = createFakeRuntime();
+				const page = [...strangers().slice(0, 9), node(5, 2, 'mine')];
+				const asked = serveGitHub(
+					runtime,
+					{ b0: { nodes: page, totalCount: 30 } },
+					{ 'mine:feature': [9, 5] },
+					{ 9: node(9, 3, 'mine') },
+				);
+				const { manager, gh } = await connectedGitHub(runtime);
+				stubCurrentAccount(gh, 'me');
+
+				const result = await manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [{ key: 'a', owner: 'o', repo: 'a', branch: 'feature', headOwner: 'mine' }],
+				});
+
+				assert.deepEqual(
+					result.items[0].pullRequests.map(pr => pr.number),
+					[9, 5],
+				);
+				assert.equal(result.items[0].truncated, undefined);
+				assert.deepEqual(asked.batches, [[9]], 'only the number the branch query missed is resolved');
+				const [resolved, found] = result.items[0].pullRequests;
+				assert.notEqual(getPullRequestFieldPresence(resolved), undefined);
+				assert.deepEqual(
+					getPullRequestFieldPresence(resolved),
+					getPullRequestFieldPresence(found),
+					'a resolved row carries the same field presence as a row the branch query returned',
+				);
+
+				manager.dispose();
+			});
+
+			test('a branch in the base repository is headed by its owner, and found rows cost no resolve', async () => {
+				const runtime = createFakeRuntime();
+				const page = [...strangers().slice(0, 9), node(5, 2)];
+				const asked = serveGitHub(runtime, { b0: { nodes: page, totalCount: 30 } }, { 'o:feature': [5] });
+				const { manager, gh } = await connectedGitHub(runtime);
+				stubCurrentAccount(gh, 'me');
+
+				const result = await manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [{ key: 'a', owner: 'o', repo: 'a', branch: 'feature' }],
+				});
+
+				assert.deepEqual(
+					result.items[0].pullRequests.map(pr => pr.number),
+					[5],
+				);
+				assert.equal(result.items[0].truncated, undefined);
+				assert.equal(asked.heads[0].searchParams.get('head'), 'o:feature');
+				assert.deepEqual(asked.batches, []);
+
+				manager.dispose();
+			});
+
+			test('truncated when REST holds more matches than the limit', async () => {
+				const runtime = createFakeRuntime();
+				const numbers = Array.from({ length: 11 }, (_, i) => 200 + i);
+				const asked = serveGitHub(
+					runtime,
+					{ b0: { nodes: strangers(), totalCount: 40 } },
+					{ 'o:feature': numbers },
+					Object.fromEntries(numbers.map(n => [n, node(n, 20 - (n - 200))])),
+				);
+				const { manager, gh } = await connectedGitHub(runtime);
+				stubCurrentAccount(gh, 'me');
+
+				const result = await manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [{ key: 'a', owner: 'o', repo: 'a', branch: 'feature' }],
+				});
+
+				assert.deepEqual(
+					result.items[0].pullRequests.map(pr => pr.number),
+					numbers.slice(0, 10),
+				);
+				assert.equal(result.items[0].truncated, true);
+				assert.deepEqual(asked.batches, [numbers.slice(0, 10)], 'the extra one is never resolved');
+
+				manager.dispose();
+			});
+
+			test("a deleted fork's pull request on the first page is kept alongside REST's matches", async () => {
+				// GitHub keeps the deleted fork's owner on `headRepositoryOwner` (live: microsoft/vscode#336605), so
+				// the branch query still matches it, while REST's `head` filter can't see it: the answer is the union.
+				const runtime = createFakeRuntime();
+				const deleted = { ...node(7, 2, 'mine'), headRepository: null };
+				const asked = serveGitHub(
+					runtime,
+					{ b0: { nodes: [...strangers().slice(0, 9), deleted], totalCount: 30 } },
+					{ 'mine:feature': [9] },
+					{ 9: node(9, 3, 'mine') },
+				);
+				const { manager, gh } = await connectedGitHub(runtime);
+				stubCurrentAccount(gh, 'me');
+
+				const result = await manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [{ key: 'a', owner: 'o', repo: 'a', branch: 'feature', headOwner: 'mine' }],
+				});
+
+				assert.deepEqual(
+					result.items[0].pullRequests.map(pr => pr.number),
+					[9, 7],
+					"the pull request REST found, and the deleted fork's the branch query found",
+				);
+				assert.equal(result.items[0].truncated, undefined);
+				assert.equal(result.fetchFailed, undefined);
+				assert.equal(asked.heads.length, 1);
+				assert.deepEqual(asked.batches, [[9]], 'only the number the branch query missed is resolved');
+
+				manager.dispose();
+			});
+
+			test('a target REST fails for is dropped, never answered from the branch query alone', async () => {
+				const runtime = createFakeRuntime();
+				serveGitHub(
+					runtime,
+					{
+						b0: { nodes: strangers(), totalCount: 30 },
+						b1: { nodes: strangers(), totalCount: 30 },
+					},
+					{ 'o:feature': [], 'o:other': json(500, { message: '500 Internal Server Error' }) },
+				);
+				const { manager, gh } = await connectedGitHub(runtime);
+				stubCurrentAccount(gh, 'me');
+				const watched = watchRequestFailures(runtime);
+
+				const result = await manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [
+						{ key: 'answered', owner: 'o', repo: 'a', branch: 'feature' },
+						{ key: 'failed', owner: 'o', repo: 'a', branch: 'other' },
+					],
+				});
+
+				assert.deepEqual(
+					result.items.map(i => i.key),
+					['answered'],
+				);
+				assert.deepEqual(ids(result.items[0]), []);
+				assert.equal(result.fetchFailed, true);
+				assert.equal(getRequestExceptionCount(gh), 0, 'one target failing costs no strike');
+				assert.equal(watched.notices.length, 1, 'one notice for the whole call');
+
+				manager.dispose();
+			});
+
+			test('a match the batch read cannot check fails its target, not its siblings', async () => {
+				const runtime = createFakeRuntime();
+				serveGitHub(
+					runtime,
+					{
+						b0: { nodes: strangers(), totalCount: 30 },
+						b1: { nodes: strangers(), totalCount: 30 },
+					},
+					{ 'o:feature': [8], 'o:other': [] },
+				);
+				// The branch query missed 8, and the batch read's alias for it refuses.
+				const inner = runtime.http.fetch;
+				runtime.http.fetch = async (input, init) => {
+					const body = typeof init?.body === 'string' ? init.body : '';
+					if (body.includes('query getPullRequestsBatch')) {
+						return json(200, {
+							data: { p0: null },
+							errors: [{ type: 'FORBIDDEN', path: ['p0'], message: 'Resource not accessible' }],
+						});
+					}
+					return inner(input, init);
+				};
+				const { manager, gh } = await connectedGitHub(runtime);
+				stubCurrentAccount(gh, 'me');
+
+				const result = await manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [
+						{ key: 'unresolved', owner: 'o', repo: 'a', branch: 'feature' },
+						{ key: 'answered', owner: 'o', repo: 'a', branch: 'other' },
+					],
+				});
+
+				assert.deepEqual(
+					result.items.map(i => i.key),
+					['answered'],
+				);
+				assert.equal(result.fetchFailed, true);
+
+				manager.dispose();
+			});
+
+			test('a target the branch query settled takes no REST step', async () => {
+				const runtime = createFakeRuntime();
+				const asked = serveGitHub(runtime, { b0: { nodes: [node(5, 2, 'mine')], totalCount: 1 } }, {});
+				const { manager, gh } = await connectedGitHub(runtime);
+				stubCurrentAccount(gh, 'me');
+
+				const result = await manager.getPullRequestsForBranches({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [{ key: 'a', owner: 'o', repo: 'a', branch: 'feature', headOwner: 'mine' }],
+				});
+
+				assert.deepEqual(
+					result.items[0].pullRequests.map(pr => pr.number),
+					[5],
+				);
+				assert.equal(asked.urls.length, 1);
+				assert.deepEqual(asked.heads, []);
+
+				manager.dispose();
+			});
 		});
 	});
 

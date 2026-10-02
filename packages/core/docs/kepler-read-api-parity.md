@@ -259,7 +259,9 @@ still found, and on the head repository, the base one or the `headOwner` fork, s
 fork never correlates; a `headOwner` equal to the owner means the base repository, so Kepler can pass the owner of
 the remote the branch was pushed to. Up to 10 per branch; an empty list without `truncated` is a proven none a
 consumer can cache, and a failed target is dropped with `fetchFailed`. GitHub/GHE answer up to 25 branches per
-request, and every other host costs one request per branch. GitLab and Azure DevOps resolve each match (typically
+request, plus one REST request for each branch whose name more forks share than that request returned, so a fork's
+`main` settles instead of reading `truncated` on every refresh. That REST request can't see a pull request from a
+deleted fork, so on such a branch one the first request didn't return can be missing from a proven none; every other host costs one request per branch. GitLab and Azure DevOps resolve each match (typically
 0–1 per branch) through `getPullRequestsBatch`'s own read, so a pull request's `url`, and so its identity, is the
 same whichever read found it. Bitbucket DC and Azure DevOps serve base-repository branches only and refuse a
 `headOwner` naming another owner.
