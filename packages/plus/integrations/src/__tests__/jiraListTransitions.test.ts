@@ -52,6 +52,7 @@ async function captureJiraListInputs(): Promise<{
 		return Promise.resolve({ data: [], pageInfo: undefined });
 	};
 	provider.getIssuesForProjectFn = capture;
+	provider.getIssuesForProjectsFn = capture;
 	provider.getIssuesForResourceForCurrentUserFn = capture;
 
 	return { api: api, inputs: inputs, dispose: () => manager.dispose() };
@@ -73,6 +74,16 @@ suite('Jira list reads and issue transitions', () => {
 		const token = toTokenWithInfo(IssuesCloudHostIntegrationId.Jira, jiraSession());
 
 		await api.getIssuesForProjectPaged(token, 'p1', 'org-1');
+
+		assert.equal(inputs[0]?.includeTransitions, false);
+		dispose();
+	});
+
+	test('the multi-project read opts out of transitions', async () => {
+		const { api, inputs, dispose } = await captureJiraListInputs();
+		const token = toTokenWithInfo(IssuesCloudHostIntegrationId.Jira, jiraSession());
+
+		await api.getIssuesForProjectsPaged(token, ['P1', 'P2'], 'org-1');
 
 		assert.equal(inputs[0]?.includeTransitions, false);
 		dispose();

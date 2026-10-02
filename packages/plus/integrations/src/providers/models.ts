@@ -657,10 +657,9 @@ export type GetCurrentUserForResourceFn = (
 export type GetJiraResourcesForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: JiraResource[] }>;
 export type GetLinearOrganizationFn = (options?: EnterpriseOptions) => Promise<{ data: LinearOrganization }>;
 export type GetLinearTeamsForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: LinearTeam[] }>;
-export type GetLinearIssuesFn = (
-	input: { teams?: string[]; projects?: string[]; labels?: string[]; states?: GitIssueState[] } & PagingInput,
-	options?: EnterpriseOptions,
-) => Promise<{ data: ProviderIssue[]; pageInfo?: PageInfo }>;
+// Derived from the client method, like the Jira reads below, so a filter the SDK adds (`assignees`, `states`)
+// reaches the type system instead of being smuggled through `getPagedResult`'s `any`.
+export type GetLinearIssuesFn = Linear['getIssues'];
 /**
  * Linear's current-user (viewer) query. Its raw `@linear/sdk` User isn't a `ProviderAccount` (no
  * username/avatar/url), so it's typed with the minimal fields the viewer query actually returns rather than
@@ -734,8 +733,10 @@ export type GetIssuesForProjectFn = Jira['getIssuesForProject'];
 export type GetJiraServerCurrentUserFn = JiraServer['getCurrentUser'];
 export type GetJiraServerProjectsFn = (options?: EnterpriseOptions) => Promise<{ data: JiraServerProject[] }>;
 export type GetJiraServerIssuesForProjectFn = JiraServer['getIssuesForProject'];
+export type GetJiraServerIssuesForProjectsFn = JiraServer['getIssuesForProjects'];
 export type GetJiraServerIssueFn = JiraServer['getIssue'];
 export type GetJiraServerIssuesForCurrentUserFn = JiraServer['getIssuesForResourceForCurrentUser'];
+export type GetIssuesForProjectsFn = Jira['getIssuesForProjects'];
 // Derived from the client method rather than hand-declared, as its project-scoped sibling above already is: the
 // hand-written shape named only `resourceId`, so every other field the SDK accepts (the cursor, the sort, the
 // transitions switch) was invisible to the type system and had to be smuggled through `getPagedResult`'s `any`.
@@ -782,11 +783,13 @@ export interface ProviderInfo extends ProviderMetadata {
 	getJiraServerCurrentUserFn?: GetJiraServerCurrentUserFn;
 	getJiraServerProjectsFn?: GetJiraServerProjectsFn;
 	getJiraServerIssuesForProjectFn?: GetJiraServerIssuesForProjectFn;
+	getJiraServerIssuesForProjectsFn?: GetJiraServerIssuesForProjectsFn;
 	getJiraServerIssueFn?: GetJiraServerIssueFn;
 	getJiraServerIssuesForCurrentUserFn?: GetJiraServerIssuesForCurrentUserFn;
 	getJiraProjectsForResourceFn?: GetJiraProjectsForResourceFn;
 	getAzureProjectsForResourceFn?: GetAzureProjectsForResourceFn;
 	getIssuesForProjectFn?: GetIssuesForProjectFn;
+	getIssuesForProjectsFn?: GetIssuesForProjectsFn;
 	getReposForAzureProjectFn?: GetReposForAzureProjectFn;
 	getIssuesForResourceForCurrentUserFn?: GetIssuesForResourceForCurrentUserFn;
 	mergePullRequestFn?: MergePullRequestFn;

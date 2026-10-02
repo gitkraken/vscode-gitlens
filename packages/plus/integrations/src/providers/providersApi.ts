@@ -493,6 +493,7 @@ export class ProvidersApi {
 				getJiraProjectsForResourceFn: providerApis.jira.getJiraProjectsForResource.bind(providerApis.jira),
 				getIssueFn: providerApis.jira.getIssue.bind(providerApis.jira) as GetIssueFn,
 				getIssuesForProjectFn: providerApis.jira.getIssuesForProject.bind(providerApis.jira),
+				getIssuesForProjectsFn: providerApis.jira.getIssuesForProjects.bind(providerApis.jira),
 				getIssuesForResourceForCurrentUserFn: providerApis.jira.getIssuesForResourceForCurrentUser.bind(
 					providerApis.jira,
 				),
@@ -503,6 +504,9 @@ export class ProvidersApi {
 				getJiraServerCurrentUserFn: providerApis.jiraServer.getCurrentUser.bind(providerApis.jiraServer),
 				getJiraServerProjectsFn: providerApis.jiraServer.getJiraProjects.bind(providerApis.jiraServer),
 				getJiraServerIssuesForProjectFn: providerApis.jiraServer.getIssuesForProject.bind(
+					providerApis.jiraServer,
+				),
+				getJiraServerIssuesForProjectsFn: providerApis.jiraServer.getIssuesForProjects.bind(
 					providerApis.jiraServer,
 				),
 				getJiraServerIssueFn: providerApis.jiraServer.getIssue.bind(providerApis.jiraServer),
@@ -1227,9 +1231,8 @@ export class ProvidersApi {
 	}
 
 	/**
-	 * Reads issues scoped to Linear teams/projects/labels (Linear's issue-list filter). One page per call —
-	 * follow `paging.cursor`. Linear's `getIssues` has no author/assignee filter, so per-user scoping is
-	 * applied client-side by the caller.
+	 * Reads issues scoped to Linear teams/projects/labels/assignees (Linear's issue-list filter). One page per
+	 * call — follow `paging.cursor`. `assignees` takes Linear user ids (the viewer's `id`), not names.
 	 */
 	async getLinearIssues(
 		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Linear>,
@@ -1237,6 +1240,8 @@ export class ProvidersApi {
 			teams?: string[];
 			projects?: string[];
 			labels?: string[];
+			/** Linear user ids (the viewer's `id`), not names. */
+			assignees?: string[];
 			/** Omitted reads open issues (workflow state type other than `completed`/`canceled`). */
 			states?: GitIssueState[];
 		},
@@ -2185,6 +2190,39 @@ export class ProvidersApi {
 		}
 	}
 
+	/**
+	 * Single page of one issue search across several projects of a Jira Server instance — the contract of
+	 * {@link getIssuesForProjectsPaged} on Cloud: the page and its cursor are global to the project set, and at
+	 * most `JIRA_MAX_PROJECT_KEYS_PER_REQUEST` keys are accepted per call.
+	 */
+	async getJiraServerIssuesForProjectsPaged(
+		tokenOptInfo: TokenWithInfo<IssuesSelfManagedHostIntegrationId.JiraServer>,
+		baseUrl: string,
+		projectKeys: string[],
+		options?: GetIssuesOptions,
+	): Promise<{ data: ProviderIssue[]; hasMore: boolean; nextCursor: string | undefined } | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getJiraServerIssuesForProjectsFn',
+		);
+
+		try {
+			const result = await provider.getJiraServerIssuesForProjectsFn?.(
+				{ projectKeys: projectKeys, ...options, includeTransitions: jiraListIncludeTransitions },
+				{ token: tokenWithInfo.accessToken, baseUrl: baseUrl },
+			);
+			if (result == null) return undefined;
+
+			return {
+				data: result.data,
+				hasMore: result.pageInfo?.hasNextPage ?? false,
+				nextCursor: result.pageInfo?.endCursor ?? undefined,
+			};
+		} catch (e) {
+			return this.handleProviderError(tokenWithInfo, e);
+		}
+	}
+
 	async getJiraServerIssue(
 		tokenOptInfo: TokenWithInfo<IssuesSelfManagedHostIntegrationId.JiraServer>,
 		baseUrl: string,
@@ -2235,6 +2273,44 @@ export class ProvidersApi {
 			);
 			if (result == null) return undefined;
 
+			return {
+				data: result.data,
+				hasMore: result.pageInfo?.hasNextPage ?? false,
+				nextCursor: result.pageInfo?.endCursor ?? undefined,
+			};
+		} catch (e) {
+			return this.handleProviderError(tokenWithInfo, e);
+		}
+	}
+
+	/**
+	 * Single page of one issue search across several projects of the same Jira site. The page, its cursor and
+	 * `hasMore` are global to the whole project set, not per project; at most `JIRA_MAX_PROJECT_KEYS_PER_REQUEST`
+	 * keys are accepted per call (the SDK throws past it), so the caller chunks.
+	 */
+	async getIssuesForProjectsPaged(
+		tokenOptInfo: TokenWithInfo,
+		projectKeys: string[],
+		resourceId: string,
+		options?: GetIssuesOptions,
+	): Promise<{ data: ProviderIssue[]; hasMore: boolean; nextCursor: string | undefined } | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getIssuesForProjectsFn',
+		);
+		const token = tokenWithInfo.accessToken;
+
+		try {
+			const result = await provider.getIssuesForProjectsFn?.(
+				{
+					projectKeys: projectKeys,
+					resourceId: resourceId,
+					...options,
+					includeTransitions: jiraListIncludeTransitions,
+				},
+				{ token: token },
+			);
+			if (result == null) return undefined;
 			return {
 				data: result.data,
 				hasMore: result.pageInfo?.hasNextPage ?? false,

@@ -39,18 +39,22 @@ async function connectedJira(mode: 'endless' | 'stall') {
 	const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
 	(jira as unknown as { _session: ProviderAuthenticationSession })._session = trackerSession('atlassian.net');
 	let page = 0;
+	// The per-project and the multi-project search answer alike, so the result doesn't depend on which one a read
+	// takes: a user-scoped read searches its projects together, an unscoped one reads them one by one.
+	const issuesPage = () => {
+		page++;
+		return Promise.resolve({
+			data: [],
+			hasMore: true,
+			nextCursor: mode === 'endless' ? `c${page}` : 'stuck',
+		});
+	};
 	stubApi(jira, {
 		getJiraResourcesForCurrentUser: () => Promise.resolve([jiraResource]),
 		getCurrentUserForResource: () => Promise.resolve({ id: 'me', name: 'Me', username: 'me' }),
 		getJiraProjectsForResource: () => Promise.resolve({ values: [jiraProject], paging: undefined }),
-		getIssuesForProjectPaged: () => {
-			page++;
-			return Promise.resolve({
-				data: [],
-				hasMore: true,
-				nextCursor: mode === 'endless' ? `c${page}` : 'stuck',
-			});
-		},
+		getIssuesForProjectPaged: issuesPage,
+		getIssuesForProjectsPaged: issuesPage,
 	});
 	return { manager: manager, jira: jira };
 }

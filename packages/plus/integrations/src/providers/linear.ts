@@ -1,4 +1,4 @@
-import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import type { CollectionMetadata, CollectionScopeFailure, GitIssueState } from '@gitkraken/provider-apis';
 import * as l10n from '@vscode/l10n';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
@@ -9,6 +9,7 @@ import { isIssueResourceDescriptor } from '@gitlens/git/utils/resourceDescriptor
 import { chunk } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
@@ -20,9 +21,14 @@ import type {
 	AccountWideIssuesResult,
 	IssuesForProjectOptions,
 	ProjectIssuesDrain,
+	ProjectIssuesRequest,
 	SearchMyIssuesOptions,
 } from '../models/issueReads.js';
-import { IssuesIntegration } from '../models/issuesIntegration.js';
+import {
+	groupProjectIssuesSearches,
+	IssuesIntegration,
+	splitProjectIssuesSearch,
+} from '../models/issuesIntegration.js';
 import type { LinearIssueEtagNode } from './linearIssuesEtag.js';
 import { linearIssuesEtagMaxNumbers, toLinearIssueEtagFields } from './linearIssuesEtag.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
@@ -281,15 +287,144 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	): Promise<ProjectIssuesDrain | undefined> {
 		if (!isIssueResourceDescriptor(project)) return undefined;
 
-		const api = await this.getProvidersApi();
-		// `getProviderProjectsForResources` returns Linear teams, so `project.id` is a team id here. Drain the
-		// team's issues (Linear pages by cursor); bounded by maxPagesPerRequest as a backstop. `truncated` is
-		// set when that backstop stopped the drain with more pages still available.
+		// Scope to "my issues" by the viewer's stable id, not the passed display name: Linear's `name` (full name)
+		// and `displayName` (nickname) are distinct fields, and assignees are normalized with `.name` = the full
+		// name while the caller's `user` is the displayName — so a name string can miss. The assignee `.id` is the
+		// Linear user id, which is unambiguous.
+		let viewerId: string | undefined;
+		if (options?.user != null) {
+			viewerId = await this.getViewerId(session, options);
+			// If the viewer can't be resolved we can't scope to "my issues" — returning the unfiltered team
+			// issues would leak everyone else's, and returning [] is indistinguishable from "no issues assigned
+			// to me". Throw so the facade (getIssuesForProjectResult → runCaptured) surfaces a warning +
+			// fetchFailed the caller can act on, instead of a silent empty.
+			if (viewerId == null) {
+				throw new IntegrationReadUnavailableError(
+					metadata.name,
+					'could not resolve the current user to scope issues to',
+				);
+			}
+		}
+
+		// `getProviderProjectsForResources` returns Linear teams, so `project.id` is a team id here.
 		//
-		// The state is narrowed server-side, not after the drain: a team's completed and canceled issues would
-		// otherwise count against the backstop, so a team with enough done work runs out of pages before its open
-		// issues, and the viewer filter below would then hand back a page that looks complete.
-		const states = toProviderIssueStates(options?.state);
+		// The state and the viewer are narrowed server-side, not after the drain: a team's done work and other
+		// people's issues would otherwise count against the backstop, so a busy team runs out of pages before the
+		// viewer's open issues and hands back a page that looks complete.
+		const drain = await this.drainIssues(
+			session,
+			{
+				teams: [project.id],
+				...(viewerId != null ? { assignees: [viewerId] } : {}),
+				states: toProviderIssueStates(options?.state),
+			},
+			options?.sort,
+			{ providerId: this.id, projectId: project.id },
+		);
+
+		return drain.truncated
+			? { values: drain.issues, truncated: true, recovery: 'none', metadata: drain.metadata }
+			: { values: drain.issues, truncated: false, metadata: drain.metadata };
+	}
+
+	/**
+	 * Searches every team of a user-scoped read together: one `getIssues` names all of them and the viewer as
+	 * assignee, so a team with none of the user's issues costs no request of its own. Linear's filter is a GraphQL
+	 * body, not a query string, so there is no key bound to chunk at.
+	 */
+	protected override getProjectIssuesSearches(
+		requests: readonly ProjectIssuesRequest<ResourceDescriptor>[],
+	): number[][] | undefined {
+		return groupProjectIssuesSearches(requests, ({ project, options }) =>
+			options.user != null && isIssueResourceDescriptor(project)
+				? [options.user, options.userId ?? '', options.sort ?? '', options.state ?? ''].join('\0')
+				: undefined,
+		);
+	}
+
+	protected override async searchProviderProjectIssues(
+		session: ProviderAuthenticationSession,
+		requests: readonly ProjectIssuesRequest<ResourceDescriptor>[],
+	): Promise<IssueShape[][] | undefined> {
+		// Every request of a search shares its user scope (see `getProjectIssuesSearches`).
+		const { options } = requests[0];
+		if (options.user == null) return undefined;
+
+		// Unresolvable here means each team's own read throws the same warning, so let them.
+		const viewerId = await this.getViewerId(session, options);
+		if (viewerId == null) return undefined;
+
+		const teams = requests.map(request => request.project).filter(isIssueResourceDescriptor);
+		if (teams.length !== requests.length) return undefined;
+
+		const drain = await this.drainIssues(
+			session,
+			{
+				teams: teams.map(team => team.id),
+				assignees: [viewerId],
+				states: toProviderIssueStates(options.state),
+			},
+			options.sort,
+			// Never published: an incomplete search is read again per team, which records its own failures.
+			{ providerId: this.id },
+		);
+		// Deliberately discarded rather than served: an incomplete search says nothing about which of its teams it
+		// covered, so only the per-team reads can report each one's completeness. The waste is bounded by one team's
+		// page budget, and paid only by a search that needed more than that or failed partway.
+		if (drain.truncated || (drain.metadata != null && drain.metadata.completeness !== 'complete')) {
+			return undefined;
+		}
+
+		// A normalized Linear issue carries its team only inside `project`, which is absent for an issue in no
+		// Linear project, so split by the identifier instead: Linear numbers every issue `<team key>-<n>`, and
+		// renumbers it under its new team's key when it moves.
+		return splitProjectIssuesSearch(
+			teams.map(team => team.key),
+			drain.issues,
+			issue => {
+				const separator = issue.id.lastIndexOf('-');
+				return separator > 0 ? issue.id.slice(0, separator) : undefined;
+			},
+		);
+	}
+
+	private readonly _viewerIds = new PromiseCache<string, string | undefined>({ capacity: 10 });
+	/**
+	 * The viewer's Linear user id: the caller's resolved `userId` when it has one, else the viewer query, shared per
+	 * token. A tracker read hands each team the id of the team's own resource, which Linear's team descriptors don't
+	 * name, so without sharing every team read (and a search's fallback) would ask for the viewer again.
+	 */
+	private getViewerId(
+		session: ProviderAuthenticationSession,
+		options: IssuesForProjectOptions,
+	): Promise<string | undefined> {
+		if (options.userId) return Promise.resolve(options.userId);
+
+		return this._viewerIds.getOrCreate(
+			session.accessToken,
+			async () => {
+				const api = await this.getProvidersApi();
+				return (await api.getLinearCurrentUser(toTokenWithInfo(this.id, session)))?.id;
+			},
+			// Only a resolved id is worth keeping; an unresolved viewer is asked for again next time, as is a failure.
+			{ evictWhen: id => id == null },
+		);
+	}
+
+	/**
+	 * Follows `getIssues`' cursor up to {@link maxPagesPerRequest}. `truncated` is set when that backstop stopped
+	 * the drain with more pages still available, when the provider stalled its cursor or flagged its paging as
+	 * truncated, or when a page after the first failed, which is recorded at `failureScope` while the prefix is
+	 * kept. A first-page failure throws, so the caller sees a hard error rather than an empty success.
+	 */
+	private async drainIssues(
+		session: ProviderAuthenticationSession,
+		filter: { teams: string[]; assignees?: string[]; states?: GitIssueState[] },
+		sort: IssuesForProjectOptions['sort'],
+		failureScope: CollectionScopeFailure['scope'],
+	): Promise<{ issues: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata }> {
+		const api = await this.getProvidersApi();
+		const assignees = filter.assignees?.length ? filter.assignees : undefined;
 		let cursor: string | undefined;
 		let hasMore: boolean;
 		let requestCount = 0;
@@ -299,21 +434,17 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		do {
 			let result: Awaited<ReturnType<typeof api.getLinearIssues>>;
 			try {
-				result = await api.getLinearIssues(
-					toTokenWithInfo(this.id, session),
-					{ teams: [project.id], states: states },
-					{ cursor: cursor, sort: options?.sort },
-				);
+				result = await api.getLinearIssues(toTokenWithInfo(this.id, session), filter, {
+					cursor: cursor,
+					sort: sort,
+				});
 			} catch (ex) {
-				// A page failure after the first page leaves the already-drained prefix intact; record the
-				// failure at the project scope instead of re-throwing and discarding the prefix. If nothing was
-				// fetched yet, preserve the original throw behavior so the caller sees a hard error.
 				if (issues.length === 0) throw ex;
 
 				truncated = true;
 				collectionMetadata = mergeCollectionMetadata(collectionMetadata, {
 					completeness: 'partial',
-					failures: [toCollectionScopeFailure({ providerId: this.id, projectId: project.id }, ex)],
+					failures: [toCollectionScopeFailure(failureScope, ex)],
 				});
 				break;
 			}
@@ -324,7 +455,9 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			collectionMetadata = mergeCollectionMetadata(collectionMetadata, result.metadata);
 			for (const issue of result.values) {
 				const shape = toIssueShape(issue, this, { projection: 'project' });
-				if (shape != null) {
+				// The query already scopes to the assignees; checking again keeps another user's issue out of "my
+				// issues" should the provider ever return one.
+				if (shape != null && (assignees == null || shape.assignees?.some(a => assignees.includes(a.id)))) {
 					issues.push(shape);
 				}
 			}
@@ -341,34 +474,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			}
 		} while (requestCount < maxPagesPerRequest && hasMore);
 
-		// Linear's issue list has no server-side author/assignee filter, so scope to the current user
-		// client-side when a user was requested (the assignee filter is what "my issues" means here).
-		// Match on the viewer's stable id, not the passed display name: Linear's `name` (full name) and
-		// `displayName` (nickname) are distinct fields, and assignees are normalized with `.name` = the full
-		// name while the caller's `user` is the displayName — so a name string can miss. The assignee `.id`
-		// is the Linear user id, which is unambiguous.
-		if (options?.user != null) {
-			const viewerId = (await api.getLinearCurrentUser(toTokenWithInfo(this.id, session)))?.id;
-			// If the viewer can't be resolved we can't scope to "my issues" — returning the unfiltered team
-			// issues would leak everyone else's, and returning [] is indistinguishable from "no issues assigned
-			// to me". Throw so the facade (getIssuesForProjectResult → runCaptured) surfaces a warning +
-			// fetchFailed the caller can act on, instead of a silent empty.
-			if (viewerId == null) {
-				throw new IntegrationReadUnavailableError(
-					metadata.name,
-					'could not resolve the current user to scope issues to',
-				);
-			}
-
-			const values = issues.filter(issue => issue.assignees?.some(a => a.id === viewerId));
-			return truncated
-				? { values: values, truncated: true, recovery: 'none', metadata: collectionMetadata }
-				: { values: values, truncated: false, metadata: collectionMetadata };
-		}
-
-		return truncated
-			? { values: issues, truncated: true, recovery: 'none', metadata: collectionMetadata }
-			: { values: issues, truncated: false, metadata: collectionMetadata };
+		return { issues: issues, truncated: truncated, metadata: collectionMetadata };
 	}
 
 	override get id(): IssuesCloudHostIntegrationId.Linear {
