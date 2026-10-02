@@ -14,6 +14,7 @@ import type {
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
+import { chunk } from '@gitlens/utils/array.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
@@ -30,7 +31,13 @@ import type { GitSelfManagedHostIntegrationId } from '../constants.js';
 import { GitCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { AccountWideIssuesResult, SearchMyIssuesOptions } from '../models/integration.js';
+import type {
+	AccountWideIssuesResult,
+	IssueEtagFields,
+	PullRequestEtagFields,
+	PullRequestEtagInclude,
+	SearchMyIssuesOptions,
+} from '../models/integration.js';
 import type { ProviderWarningCause, ProviderWarningScope } from '../results.js';
 import { decodePathSegment } from '../utils/domain.utils.js';
 import { getAzurePullRequestIdentityFromMaybeUrl } from './azure/azure.utils.js';
@@ -40,6 +47,12 @@ import type {
 	AzureProjectInputDescriptor,
 	AzureRemoteRepositoryDescriptor,
 	AzureRepositoryDescriptor,
+	AzureWorkItemResponse,
+} from './azure/models.js';
+import {
+	azureWorkItemsEtagFieldsMaxIds,
+	toAzurePullRequestEtagFields,
+	toAzureWorkItemEtagFields,
 } from './azure/models.js';
 import type {
 	ProviderApiCollectionResult,
@@ -951,6 +964,149 @@ export abstract class AzureDevOpsIntegrationBase<
 			if (pr == null) return undefined;
 
 			return fromProviderPullRequest(pr, this, { currentAccount: await viewerFor(c.owner) });
+		});
+	}
+
+	/**
+	 * The cheap check behind the batch issue read's etags: one request per organization, project and
+	 * {@link azureWorkItemsEtagFieldsMaxIds} distinct ids, where {@link getProviderIssuesBatch} sends one per target,
+	 * asking only for each work item's change state. A request that throws rejects only its own targets' slots, with
+	 * its error classified as the full read's would be.
+	 *
+	 * Never proves an absence. Azure silently leaves out every id it can't return, whether missing, hidden or failing,
+	 * so such a target's slot is rejected and the full read, whose not-found does prove an absence, decides. So is a
+	 * work item in another project, which the full read fails. When no target was answered and nothing failed, the
+	 * check declines instead, so a batch of only such ids costs a full read, not a failure.
+	 */
+	protected override async getProviderIssuesEtagFields(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		_cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<IssueEtagFields | undefined>[] | undefined> {
+		const slots = new Array<PromiseSettledResult<IssueEtagFields | undefined>>(coordinates.length);
+		let answered = false;
+		let failed = false;
+
+		// Each organization and project's distinct ids, with the targets asking for each.
+		const byProject = new Map<string, { owner: string; project: string; ids: Map<number, number[]> }>();
+		for (const [index, c] of coordinates.entries()) {
+			if (c.project == null) {
+				// Required as the full read requires it, so a check never answers for a target the full read refuses.
+				slots[index] = {
+					status: 'rejected',
+					reason: new Error(`Azure DevOps needs a project to read work item ${c.number}`),
+				};
+				failed = true;
+				continue;
+			}
+
+			const key = JSON.stringify([c.owner, c.project]);
+			let group = byProject.get(key);
+			if (group == null) {
+				group = { owner: c.owner, project: c.project, ids: new Map() };
+				byProject.set(key, group);
+			}
+
+			let indices = group.ids.get(c.number);
+			if (indices == null) {
+				indices = [];
+				group.ids.set(c.number, indices);
+			}
+			indices.push(index);
+		}
+
+		const requests = [...byProject.values()].flatMap(group =>
+			chunk([...group.ids], azureWorkItemsEtagFieldsMaxIds).map(entries => ({ ...group, entries: entries })),
+		);
+		if (!requests.length) return slots;
+
+		const api = await this.getProvidersApi();
+		const { tokenWithInfo } = this.getApiOptions(session);
+		const answers = await mapSettledBounded(requests, providerFanOutConcurrency, r =>
+			api.getAzureWorkItemsEtagFields(
+				tokenWithInfo,
+				{ namespace: r.owner, project: r.project },
+				r.entries.map(([id]) => id),
+				this.getCollectionApiOptions(session, r.owner),
+			),
+		);
+
+		for (const [i, answer] of answers.entries()) {
+			const { project, entries } = requests[i];
+			if (answer.status === 'rejected') {
+				failed = true;
+				for (const [, indices] of entries) {
+					for (const index of indices) {
+						slots[index] = answer;
+					}
+				}
+				continue;
+			}
+
+			// By id, never by position: Azure leaves out the ids it can't return.
+			const workItems = new Map<unknown, AzureWorkItemResponse>();
+			for (const workItem of answer.value) {
+				workItems.set(workItem.id, workItem);
+			}
+
+			for (const [id, indices] of entries) {
+				const workItem = workItems.get(id);
+				let slot: PromiseSettledResult<IssueEtagFields | undefined>;
+				if (workItem == null) {
+					slot = { status: 'rejected', reason: new Error(`Azure DevOps did not return work item ${id}`) };
+				} else {
+					try {
+						slot = { status: 'fulfilled', value: toAzureWorkItemEtagFields(workItem, project) };
+						answered = true;
+					} catch (ex) {
+						slot = { status: 'rejected', reason: ex };
+						failed = true;
+					}
+				}
+
+				for (const index of indices) {
+					slots[index] = slot;
+				}
+			}
+		}
+
+		return answered || failed ? slots : undefined;
+	}
+
+	/**
+	 * The cheap check behind the batch pull request read's etags: still one request per target, as Azure DevOps has
+	 * no read of several pull requests by id, but only the one {@link getProviderPullRequestsBatch} sends first —
+	 * not the repository read provider-apis adds to it for clone URLs, once per pull request. Settled per target,
+	 * with absence proven by the same not-found rule as the full read.
+	 *
+	 * Azure DevOps reports no update time, so a full row's `updatedDate` is its close time, else its creation time,
+	 * and moves only when it closes. Its etag therefore adds a `revision` of the fields that change without it —
+	 * title, description, target branch, and every reviewer and their vote — read off the same response at no extra
+	 * cost. It sees a pull request's state, draft flag, head commit and those fields, and, when included, its
+	 * mergeability and its required reviewers' review decision; never a comment or a label, which its full row
+	 * doesn't carry either. A full row carries no check rollup, so the `checks` include adds nothing and costs nothing.
+	 */
+	protected override async getProviderPullRequestsEtagFields(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { etagIncludes?: readonly PullRequestEtagInclude[] },
+		_cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestEtagFields | undefined>[] | undefined> {
+		const api = await this.getProvidersApi();
+		const { tokenWithInfo } = this.getApiOptions(session);
+		const etagIncludes = options.etagIncludes ?? [];
+
+		return mapSettledBounded(coordinates, providerFanOutConcurrency, async c => {
+			// Required as provider-apis requires it for the full read.
+			if (c.project == null) throw new Error(`Azure DevOps needs a project to read pull request ${c.number}`);
+
+			const pr = await api.getAzurePullRequest(
+				tokenWithInfo,
+				{ namespace: c.owner, project: c.project, name: c.repo },
+				c.number,
+				this.getCollectionApiOptions(session, c.owner),
+			);
+			return pr != null ? toAzurePullRequestEtagFields(pr, etagIncludes) : undefined;
 		});
 	}
 

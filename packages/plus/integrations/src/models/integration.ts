@@ -12,6 +12,7 @@ import type {
 	PullRequest,
 	PullRequestMergeableState,
 	PullRequestReviewDecision,
+	PullRequestReviewState,
 	PullRequestState,
 	PullRequestStatusCheckRollupState,
 } from '@gitlens/git/models/pullRequest.js';
@@ -121,6 +122,50 @@ export interface PullRequestEtagFields {
 	mergeableState?: PullRequestMergeableState;
 	reviewDecision?: PullRequestReviewDecision;
 	statusCheckRollupState?: PullRequestStatusCheckRollupState;
+	/**
+	 * A fingerprint of the fields a host changes without moving an update time ({@link pullRequestRevision}); set
+	 * only for hosts that keep none (Azure DevOps and Server). Part of the etag whenever it is set, not an include.
+	 */
+	revision?: string;
+}
+
+/**
+ * The fields of a pull request {@link pullRequestRevision} reads, as a full row carries them. A `PullRequestShape`
+ * is one, so a full read passes its row as is and a cheap check builds one from the same mapped values.
+ */
+export interface PullRequestRevisionSource {
+	readonly title: string;
+	readonly body?: string;
+	readonly refs?: { readonly base: { readonly branch: string } };
+	readonly reviewRequests?: readonly PullRequestRevisionReviewer[];
+	readonly latestReviews?: readonly PullRequestRevisionReviewer[];
+}
+
+interface PullRequestRevisionReviewer {
+	readonly reviewer: { readonly id: string };
+	readonly state: PullRequestReviewState;
+}
+
+/**
+ * {@link PullRequestEtagFields.revision}: a 64-bit hash of a pull request's title, description, target branch and
+ * reviewers (each one's id and review state, in a canonical order). Hashed to keep the etag short, so a collision is
+ * the only way a change can hide, at about 2^-64.
+ */
+export function pullRequestRevision(pr: PullRequestRevisionSource): string {
+	return fnv1aHash64(
+		JSON.stringify([
+			pr.title,
+			pr.body ?? null,
+			pr.refs?.base.branch ?? null,
+			toRevisionReviewers(pr.reviewRequests),
+			toRevisionReviewers(pr.latestReviews),
+		]),
+	);
+}
+
+/** Each reviewer as its serialized `[id, state]`, sorted, so the host's order never moves the revision. */
+function toRevisionReviewers(reviewers: readonly PullRequestRevisionReviewer[] | undefined): string[] | null {
+	return reviewers?.map(r => JSON.stringify([r.reviewer.id, r.state])).sort() ?? null;
 }
 
 /** The issue twin of {@link PullRequestEtagFields}, in {@link IssueShape}'s normalized vocabulary. */

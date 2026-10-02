@@ -1685,6 +1685,9 @@ suite('IntegrationManager.getIssuesBatch etags', () => {
 
 	test('a host with no cheap check makes one full call, etags and all', async () => {
 		const { manager, azure } = await connectedAzure(createFakeRuntime());
+		// Every git host with issues has a cheap check, so one without is made by removing Azure DevOps' hook, which
+		// is what `supportsIssueEtags` reads.
+		(azure as unknown as { getProviderIssuesEtagFields: undefined }).getProviderIssuesEtagFields = undefined;
 		assert.equal(azure.supportsIssueEtags, false);
 		const full = stubFullReads(azure);
 
