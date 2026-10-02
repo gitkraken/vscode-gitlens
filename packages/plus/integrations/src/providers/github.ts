@@ -40,6 +40,7 @@ import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type {
 	IssueEtagFields,
+	IssueEtagInclude,
 	ProviderIssueSearchPage,
 	ProviderPullRequestCount,
 	ProviderPullRequestSearchPage,
@@ -202,8 +203,17 @@ function toPullRequestEtagFields(
 }
 
 /** A cheap etag read's issue, as the fields its full row's etag reads, through `fromGitHubIssue`'s own conversions. */
-function toIssueEtagFields(node: GitHubIssueEtagNode): IssueEtagFields {
-	return { state: fromGitHubIssueOrPullRequestState(node.state), updatedDate: new Date(node.updatedAt) };
+function toIssueEtagFields(node: GitHubIssueEtagNode, etagIncludes: readonly IssueEtagInclude[]): IssueEtagFields {
+	const fields: IssueEtagFields = {
+		state: fromGitHubIssueOrPullRequestState(node.state),
+		updatedDate: new Date(node.updatedAt),
+	};
+
+	if (etagIncludes.includes('reactions')) {
+		fields.thumbsUpCount = node.reactions?.totalCount;
+	}
+
+	return fields;
 }
 
 abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends GitHostIntegration<
@@ -934,16 +944,19 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 
 	/**
 	 * The cheap check behind the batch issue read's etags: {@link getProviderIssuesBatch}'s chunks and failure
-	 * isolation over {@link GitHubApi.getIssuesEtagFieldsBatch}, which selects only an issue's change state.
+	 * isolation over {@link GitHubApi.getIssuesEtagFieldsBatch}, which selects only an issue's change state plus the
+	 * selection of each of `options.etagIncludes`.
 	 */
 	protected override async getProviderIssuesEtagFields(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { etagIncludes?: readonly IssueEtagInclude[] },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<IssueEtagFields | undefined>[] | undefined> {
 		const github = await this.authenticationService.apis.github;
 		if (github == null) return undefined;
 
+		const etagIncludes = options.etagIncludes ?? [];
 		return readChunked(
 			coordinates,
 			issuesBatchChunkSize,
@@ -952,10 +965,10 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					this,
 					toTokenWithInfo(this.id, session),
 					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
-					{ baseUrl: this.apiBaseUrlFor(session) },
+					{ baseUrl: this.apiBaseUrlFor(session), etagIncludes: etagIncludes },
 					cancellation,
 				),
-			(node): IssueEtagFields | undefined => (node != null ? toIssueEtagFields(node) : undefined),
+			(node): IssueEtagFields | undefined => (node != null ? toIssueEtagFields(node, etagIncludes) : undefined),
 		);
 	}
 

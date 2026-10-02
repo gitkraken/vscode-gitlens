@@ -32,6 +32,7 @@ import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type {
 	AccountWideIssuesResult,
 	IssueEtagFields,
+	IssueEtagInclude,
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
 	SearchMyIssuesOptions,
@@ -449,11 +450,13 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 	 * The cheap check behind the batch issue read's etags: GitLens' own GitLab client reads each project's issues by
 	 * iid, up to {@link gitLabEtagFieldsMaxIids} in ONE request, where {@link getProviderIssuesBatch} sends one or
 	 * two per target. Each row is converted as provider-apis and `toIssueShape` convert the full one, so both reads
-	 * compute the same etag. A request that throws rejects only its own targets' slots.
+	 * compute the same etag, and `'reactions'` adds the upvote count the full row's `thumbsUpCount` comes from. A
+	 * request that throws rejects only its own targets' slots.
 	 */
 	protected override async getProviderIssuesEtagFields(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { etagIncludes?: readonly IssueEtagInclude[] },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<IssueEtagFields | undefined>[] | undefined> {
 		const gitlab = await this.authenticationService.apis.gitlab;
@@ -462,6 +465,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 		// The host and protocol the full read's confirming read asks.
 		const baseUrl = this.apiBaseUrlFor(session);
+		const etagIncludes = options.etagIncludes ?? [];
 
 		return readEtagFieldsByRepository(
 			coordinates,
@@ -472,10 +476,10 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 					tokenWithInfo,
 					`${owner}/${repo}`,
 					iids,
-					{ baseUrl: baseUrl, deferFailure: true },
+					{ baseUrl: baseUrl, etagIncludes: etagIncludes, deferFailure: true },
 					cancellation,
 				),
-			toGitLabIssueEtagFields,
+			node => toGitLabIssueEtagFields(node, etagIncludes),
 		);
 	}
 

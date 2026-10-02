@@ -5,6 +5,7 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type {
 	Integration,
 	IssueEtagFields,
+	IssueEtagInclude,
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
 } from '../../models/integration.js';
@@ -362,11 +363,15 @@ export interface GitLabMergeRequestEtagNode {
 	} | null;
 }
 
-/** An issue as the cheap etag read selects it (`GitLabApi.getIssuesEtagFields`). */
+/**
+ * An issue as the cheap etag read selects it (`GitLabApi.getIssuesEtagFields`). `upvotes` is present only when the
+ * `reactions` include was requested.
+ */
 export interface GitLabIssueEtagNode {
 	iid: string;
 	closedAt: string | null;
 	updatedAt: string;
+	upvotes?: number | null;
 }
 
 type ProviderPullRequestState = Parameters<typeof fromProviderPullRequestState>[0];
@@ -477,8 +482,21 @@ export function toGitLabPullRequestEtagFields(
 /**
  * A cheap etag read's issue, as the fields its full batch row's etag reads. provider-apis maps a GitLab issue's
  * state to a name without a category, so `toIssueShape` decides `closed` from `closedAt` alone (`closedDate`, which
- * provider-apis sets only for a truthy `closedAt`); GitLab's own `state` never counts.
+ * provider-apis sets only for a truthy `closedAt`); GitLab's own `state` never counts. The thumbs-up count is
+ * provider-apis' `upvoteCount: upvotes`, which `toIssueShape` reads with `?? undefined`.
  */
-export function toGitLabIssueEtagFields(node: GitLabIssueEtagNode): IssueEtagFields {
-	return { state: node.closedAt ? 'closed' : 'opened', updatedDate: new Date(node.updatedAt) };
+export function toGitLabIssueEtagFields(
+	node: GitLabIssueEtagNode,
+	etagIncludes: readonly IssueEtagInclude[],
+): IssueEtagFields {
+	const fields: IssueEtagFields = {
+		state: node.closedAt ? 'closed' : 'opened',
+		updatedDate: new Date(node.updatedAt),
+	};
+
+	if (etagIncludes.includes('reactions')) {
+		fields.thumbsUpCount = node.upvotes ?? undefined;
+	}
+
+	return fields;
 }

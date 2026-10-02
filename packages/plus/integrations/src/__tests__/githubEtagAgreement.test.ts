@@ -3,9 +3,11 @@ import { suite, test } from 'mocha';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
+import { getIssueFieldPresence } from '../fieldPresence.js';
 import type {
 	BatchSlot,
 	IssueEtagFields,
+	IssueEtagInclude,
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
 } from '../models/integration.js';
@@ -160,7 +162,7 @@ function serveGraphQL(runtime: FakeRuntime, byNumber: Map<number, object>, field
 					? node
 					: field === 'pullRequest'
 						? cheapPrNode(node as GitHubPullRequestFixture, includes)
-						: cheapIssueNode(node as Node),
+						: cheapIssueNode(node as Node, /\breactions\b/.test(body.query)),
 			};
 		}
 		return Promise.resolve(
@@ -298,68 +300,143 @@ function issueNode(number: number, overrides: Node): Node {
 	};
 }
 
-/** Exactly what `getIssuesEtagFieldsBatch` selects. */
-function cheapIssueNode(node: Node): Node {
-	return { id: node.id, number: node.number, state: node.state, updatedAt: node.updatedAt };
+/** Exactly what `getIssuesEtagFieldsBatch` selects: the thumbs-up reactions only when the query asked for them. */
+function cheapIssueNode(node: Node, reactions: boolean): Node {
+	const picked: Node = { id: node.id, number: node.number, state: node.state, updatedAt: node.updatedAt };
+	if (reactions) {
+		picked.reactions = node.reactions;
+	}
+	return picked;
 }
 
+/** Every set the issue agreement is proven for. */
+const issueEtagIncludeSets: readonly (readonly IssueEtagInclude[])[] = [[], ['reactions']];
+
+const closedIssue: Node = { state: 'CLOSED', closed: true, closedAt: '2026-01-03T00:00:00Z' };
+const issueCases: [string, Node][] = [
+	['open', {}],
+	['closed', closedIssue],
+	['no reactions', { reactions: { totalCount: 0 } }],
+	['3 reactions', { reactions: { totalCount: 3 } }],
+	['closed, 12 reactions', { ...closedIssue, reactions: { totalCount: 12 } }],
+];
+
 suite('GitHub issue etag agreement', () => {
-	test('open and closed issues compute the same etag on the cheap check and the full read', async () => {
-		const cases: [string, Node][] = [
-			['open', {}],
-			['closed', { state: 'CLOSED', closed: true, closedAt: '2026-01-03T00:00:00Z' }],
-		];
-		const runtime = createFakeRuntime();
-		const byNumber = new Map(cases.map(([, overrides], i) => [i + 1, issueNode(i + 1, overrides)]));
-		serveGraphQL(runtime, byNumber, 'issue');
-		const { manager, gh } = await connectedGitHub(runtime);
-		const coordinates = cases.map((_, i) => ({ owner: 'o', repo: 'r', number: i + 1 }));
+	for (const includes of issueEtagIncludeSets) {
+		test(`open and closed issues, with no and some reactions, compute the same etag on the cheap check and the full read (etagIncludes: [${includes.join(', ')}])`, async () => {
+			const runtime = createFakeRuntime();
+			const byNumber = new Map(issueCases.map(([, overrides], i) => [i + 1, issueNode(i + 1, overrides)]));
+			const queries = serveGraphQL(runtime, byNumber, 'issue');
+			const { manager, gh } = await connectedGitHub(runtime);
+			const coordinates = issueCases.map((_, i) => ({ owner: 'o', repo: 'r', number: i + 1 }));
 
-		const fullRows = fulfilled<IssueShape | undefined>((await gh.getIssuesBatchResult(coordinates))?.value);
-		const cheapRows = fulfilled<IssueEtagFields | undefined>(
-			(await gh.getIssuesEtagFieldsResult(coordinates))?.value,
-		);
+			const fullRows = fulfilled<IssueShape | undefined>((await gh.getIssuesBatchResult(coordinates))?.value);
+			const cheapRows = fulfilled<IssueEtagFields | undefined>(
+				(await gh.getIssuesEtagFieldsResult(coordinates, { etagIncludes: includes }))?.value,
+			);
 
-		cases.forEach(([name], i) => {
-			const shape = fullRows[i];
-			const fields = cheapRows[i];
-			assert.ok(shape != null && fields != null, name);
-			assert.equal(issueEtag(fields), issueEtag(issueEtagFieldsFromShape(shape)), name);
+			const cheapQuery = queries.find(q => q.startsWith('query getIssuesEtagFieldsBatch('));
+			assert.ok(cheapQuery != null);
+			assert.equal(/\breactions\b/.test(cheapQuery), includes.includes('reactions'), 'selects reactions');
+			const etags = new Map<string, string>();
+			issueCases.forEach(([name], i) => {
+				const shape = fullRows[i];
+				const fields = cheapRows[i];
+				assert.ok(shape != null && fields != null, name);
+				// The full row's count counts only where its read is known to fetch reactions.
+				assert.equal(getIssueFieldPresence(shape)?.reactions, 'fetched', name);
+				const etag = issueEtag(fields, includes);
+				assert.equal(etag, issueEtag(issueEtagFieldsFromShape(shape), includes), name);
+				etags.set(name, etag);
+			});
+			assert.notEqual(etags.get('open'), etags.get('closed'), 'the state is part of the etag');
+			assert.equal(
+				etags.get('no reactions') !== etags.get('3 reactions'),
+				includes.includes('reactions'),
+				'the reaction count is part of the etag only with the include',
+			);
+
+			manager.dispose();
 		});
-		assert.notEqual(issueEtag(cheapRows[0]!), issueEtag(cheapRows[1]!), 'the state is part of the etag');
+	}
 
-		manager.dispose();
-	});
+	for (const includes of issueEtagIncludeSets) {
+		test(`end to end: etags a full read hands back come back unchanged, with no full request (etagIncludes: [${includes.join(', ')}])`, async () => {
+			const runtime = createFakeRuntime();
+			const byNumber = new Map([
+				[1, issueNode(1, { reactions: { totalCount: 2 } })],
+				[2, issueNode(2, closedIssue)],
+			]);
+			const queries = serveGraphQL(runtime, byNumber, 'issue');
+			const { manager } = await connectedGitHub(runtime);
+			const targets = [
+				{ key: 'open', owner: 'o', repo: 'r', number: 1 },
+				{ key: 'closed', owner: 'o', repo: 'r', number: 2 },
+			];
 
-	test('end to end: etags a full read hands back come back unchanged, with no full request', async () => {
-		const runtime = createFakeRuntime();
-		const byNumber = new Map([
-			[1, issueNode(1, {})],
-			[2, issueNode(2, { state: 'CLOSED', closed: true, closedAt: '2026-01-03T00:00:00Z' })],
-		]);
-		const queries = serveGraphQL(runtime, byNumber, 'issue');
-		const { manager } = await connectedGitHub(runtime);
-		const targets = [
-			{ key: 'open', owner: 'o', repo: 'r', number: 1 },
-			{ key: 'closed', owner: 'o', repo: 'r', number: 2 },
-		];
+			const first = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: targets,
+				etagIncludes: includes,
+			});
+			queries.length = 0;
+			const second = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: targets.map((t, i) => ({ ...t, etag: first.items[i].etag })),
+				etagIncludes: includes,
+			});
 
-		const first = await manager.getIssuesBatch({ providerId: GitCloudHostIntegrationId.GitHub, targets: targets });
-		queries.length = 0;
-		const second = await manager.getIssuesBatch({
-			providerId: GitCloudHostIntegrationId.GitHub,
-			targets: targets.map((t, i) => ({ ...t, etag: first.items[i].etag })),
+			assert.ok(queries.every(q => q.startsWith('query getIssuesEtagFieldsBatch(')));
+			assert.deepEqual(
+				second.items.map(i => [i.key, i.unchanged]),
+				[
+					['open', true],
+					['closed', true],
+				],
+			);
+
+			manager.dispose();
 		});
+	}
 
-		assert.ok(queries.every(q => q.startsWith('query getIssuesEtagFieldsBatch(')));
-		assert.deepEqual(
-			second.items.map(i => [i.key, i.unchanged]),
-			[
-				['open', true],
-				['closed', true],
-			],
-		);
+	for (const includes of issueEtagIncludeSets) {
+		const covered = includes.length > 0;
+		test(`end to end: a reaction alone, which moves no update time, is ${covered ? 'read in full' : 'unseen'} when the etag ${covered ? 'covers' : "doesn't cover"} reactions`, async () => {
+			const runtime = createFakeRuntime();
+			const byNumber = new Map([
+				[1, issueNode(1, { reactions: { totalCount: 0 } })],
+				[2, issueNode(2, { reactions: { totalCount: 5 } })],
+			]);
+			const queries = serveGraphQL(runtime, byNumber, 'issue');
+			const { manager } = await connectedGitHub(runtime);
+			const targets = [
+				{ key: 'reacted', owner: 'o', repo: 'r', number: 1 },
+				{ key: 'untouched', owner: 'o', repo: 'r', number: 2 },
+			];
 
-		manager.dispose();
-	});
+			const first = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: targets,
+				etagIncludes: includes,
+			});
+			byNumber.set(1, issueNode(1, { reactions: { totalCount: 1 } }));
+			queries.length = 0;
+			const second = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: targets.map((t, i) => ({ ...t, etag: first.items[i].etag })),
+				etagIncludes: includes,
+			});
+
+			assert.deepEqual(
+				queries.map(q => /^query (\w+)\(/.exec(q)?.[1]),
+				covered ? ['getIssuesEtagFieldsBatch', 'getIssuesBatch'] : ['getIssuesEtagFieldsBatch'],
+			);
+			assert.deepEqual(
+				second.items.map(i => [i.key, i.unchanged, i.issue?.thumbsUpCount]),
+				[covered ? ['reacted', undefined, 1] : ['reacted', true, undefined], ['untouched', true, undefined]],
+			);
+
+			manager.dispose();
+		});
+	}
 });

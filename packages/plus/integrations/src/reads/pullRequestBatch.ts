@@ -82,7 +82,8 @@ export interface PullRequestBatchResult {
 	 * state, draft flag, update time and head commit (on Azure DevOps, also a revision of the fields it changes without
 	 * an update time), plus each input the call's `etagIncludes` listed — and NOT the provider's HTTP ETag. Send it
 	 * back as {@link PullRequestBatchTarget.etag}. An etag from another scheme or another `etagIncludes` set simply
-	 * compares unequal and costs a full read, never a false `unchanged`.
+	 * compares unequal and costs a full read, never a false `unchanged`. Reactions are never an input: a host can add
+	 * one without moving the update time, so an `unchanged` copy's `thumbsUpCount` may be stale.
 	 */
 	etag?: string;
 	/** The caller's copy is current (its `etag` matched); `pullRequest` is absent because nothing was read. */

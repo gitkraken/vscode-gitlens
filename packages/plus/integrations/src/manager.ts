@@ -8,7 +8,7 @@ import type { Event } from '@gitlens/utils/event.js';
 import type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
 import type { ConfiguredIntegrationDescriptor } from './authentication/models.js';
 import type { IntegrationIds } from './constants.js';
-import type { PullRequestEtagInclude } from './models/integration.js';
+import type { IssueEtagInclude, PullRequestEtagInclude } from './models/integration.js';
 import type { IssueFilter, IssueSorting, PullRequestFilter } from './providerFilters.js';
 import type {
 	IssueCountResult,
@@ -672,8 +672,10 @@ export interface IntegrationManager {
 	 * cheap check (GitHub/GHE, GitLab, Azure DevOps, Jira Cloud and Linear so far), an issue whose etag still matches comes
 	 * back `{ key, unchanged: true, etag }` without being read again. That costs up to three integration calls instead
 	 * of one — the cheap check, a full read of the targets with no etag started alongside it, and a full read of the
-	 * ones that changed — and still one when no target carries an etag. A cheap check that fails falls through to the
-	 * full read, except on an auth, rate-limit or connection failure, which drops its targets with that warning. See
+	 * ones that changed — and still one when no target carries an etag. `etagIncludes: ['reactions']` widens the etag
+	 * to the thumbs-up count, which a host changes without moving the update time; only GitHub/GHE and GitLab rows
+	 * carry a real count, so it widens nothing elsewhere. A cheap check that fails falls through to the full read,
+	 * except on an auth, rate-limit or connection failure, which drops its targets with that warning. See
 	 * {@link IssueBatchResult}.
 	 *
 	 * A self-managed tracker (Jira Data Center) never falls back to the primary connection, unlike the paged reads:
@@ -691,6 +693,12 @@ export interface IntegrationManager {
 		 * for a self-managed tracker unless `connectionId` names a configured host — see above.
 		 */
 		domain?: string;
+		/**
+		 * Widens every etag to the listed inputs; order and repeats don't matter, and an unknown value refuses the
+		 * whole call. `'reactions'` is the thumbs-up count, and costs its field in the cheap check on GitHub/GHE and
+		 * GitLab. Changes only which etag is computed (and the cheap check's selection); the full read is the same.
+		 */
+		etagIncludes?: readonly IssueEtagInclude[];
 	}): Promise<ProviderResult<IssueBatchResult>>;
 	/**
 	 * Resolves several pull requests BY COORDINATE — `(owner, repo, number)`, plus `project` on Azure DevOps — in

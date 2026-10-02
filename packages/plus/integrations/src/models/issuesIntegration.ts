@@ -10,7 +10,14 @@ import type { IntegrationIds } from '../constants.js';
 import { providerFanOutConcurrency } from '../constants.js';
 import { toError } from '../errors.js';
 import type { ProviderApiCollectionResult } from '../providers/models.js';
-import type { BatchSlot, Integration, IntegrationResult, IntegrationType, IssueEtagFields } from './integration.js';
+import type {
+	BatchSlot,
+	Integration,
+	IntegrationResult,
+	IntegrationType,
+	IssueEtagFields,
+	IssueEtagInclude,
+} from './integration.js';
 import { IntegrationBase } from './integration.js';
 import type { IssuesForProjectOptions, ProjectIssuesDrain } from './issueReads.js';
 
@@ -90,7 +97,8 @@ export abstract class IssuesIntegration<
 
 	/**
 	 * Result-returning wrapper for the cheap check behind the batch tracker issue read's etags: each target's change
-	 * state ({@link IssueEtagFields}), in ONE call to {@link getProviderIssuesEtagFieldsByResourceId}. The slots mean
+	 * state ({@link IssueEtagFields}), in ONE call to {@link getProviderIssuesEtagFieldsByResourceId}, which is handed
+	 * `options.etagIncludes` as the git hosts' check is. The slots mean
 	 * what {@link getIssuesByResourceIdBatchResult}'s do — `fulfilled` with `undefined` is a PROVEN ABSENCE, `rejected`
 	 * means that target could not be checked. Failures are judged and budgeted as in
 	 * `GitHostIntegration.getIssuesEtagFieldsResult`: every slot comes back as it settled, even when none answered, and
@@ -98,6 +106,7 @@ export abstract class IssuesIntegration<
 	 */
 	async getIssuesEtagFieldsByResourceIdBatchResult(
 		targets: readonly { resourceId: string; identifier: string; resourceUrl?: string }[],
+		options: { etagIncludes?: readonly IssueEtagInclude[] },
 		connectionId?: string,
 	): Promise<IntegrationResult<BatchSlot<IssueEtagFields | undefined>[] | undefined>> {
 		const scope = getScopedLogger();
@@ -110,7 +119,7 @@ export abstract class IssuesIntegration<
 
 		const start = performance.now();
 		try {
-			const slots = await getProviderEtagFields.call(this, session, targets);
+			const slots = await getProviderEtagFields.call(this, session, targets, options);
 			if (slots == null) return { value: undefined, duration: performance.now() - start };
 
 			const settled = await this.settleBatchRefusals(session, targets, slots, { keepOtherFailures: true });
@@ -131,11 +140,13 @@ export abstract class IssuesIntegration<
 	 * so both reads compute the same etag. `fulfilled` with `undefined` is a PROVEN ABSENCE, as there; a tracker whose
 	 * cheap read can't prove one rejects the slot instead, so the full read decides. `undefined` declines the whole
 	 * check, sending every target to the full read without counting as a failure. A tracker implements this only
-	 * where it is cheaper than the full read.
+	 * where it is cheaper than the full read. No tracker's row carries a real reaction count, so `'reactions'` in
+	 * `options.etagIncludes` reads nothing here.
 	 */
 	protected getProviderIssuesEtagFieldsByResourceId?(
 		session: ProviderAuthenticationSession,
 		targets: readonly { resourceId: string; identifier: string; resourceUrl?: string }[],
+		options: { etagIncludes?: readonly IssueEtagInclude[] },
 	): Promise<PromiseSettledResult<IssueEtagFields | undefined>[] | undefined>;
 
 	@trace()

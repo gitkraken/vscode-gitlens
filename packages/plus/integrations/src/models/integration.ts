@@ -168,10 +168,21 @@ function toRevisionReviewers(reviewers: readonly PullRequestRevisionReviewer[] |
 	return reviewers?.map(r => JSON.stringify([r.reviewer.id, r.state])).sort() ?? null;
 }
 
+/**
+ * An input an issue's etag can be widened to, which a host changes without moving `updatedAt`. `'reactions'` is the
+ * thumbs-up count, and widens the etag only on hosts whose rows really fetch one (GitHub/GHE and GitLab).
+ */
+export type IssueEtagInclude = 'reactions';
+
+/** Every {@link IssueEtagInclude}, in the canonical order an etag lists them in. */
+export const issueEtagIncludes: readonly IssueEtagInclude[] = ['reactions'];
+
 /** The issue twin of {@link PullRequestEtagFields}, in {@link IssueShape}'s normalized vocabulary. */
 export interface IssueEtagFields {
 	state: IssueOrPullRequestState;
 	updatedDate: Date;
+	/** Counts only when `'reactions'` is requested, and only from a row whose read fetched reactions. */
+	thumbsUpCount?: number;
 }
 
 /** A batch read's target, in the form its provider addresses it by: a repository coordinate, or a tracker's resource. */

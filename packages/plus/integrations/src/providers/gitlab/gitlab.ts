@@ -27,7 +27,7 @@ import {
 	RequestNotFoundError,
 	toRateLimitError,
 } from '../../errors.js';
-import type { PullRequestEtagInclude } from '../../models/integration.js';
+import type { IssueEtagInclude, PullRequestEtagInclude } from '../../models/integration.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
 import { selectBranchPullRequests } from '../utils/providerPaging.js';
@@ -1037,9 +1037,9 @@ export class GitLabApi implements Disposable {
 
 	/**
 	 * The change state of issues `iids` in `fullPath` — the cheap check behind the batch issue read's etags — selecting
-	 * only what provider-apis' issue read maps into a full row's etag inputs, in ONE request for up to
-	 * {@link gitLabEtagFieldsMaxIids} iids. One entry per input iid, in order; `undefined` is a PROVEN ABSENCE (see
-	 * {@link getEtagFieldsByIid}).
+	 * only what provider-apis' issue read maps into a full row's etag inputs, plus the field of each of
+	 * `options.etagIncludes`, in ONE request for up to {@link gitLabEtagFieldsMaxIids} iids. One entry per input iid,
+	 * in order; `undefined` is a PROVEN ABSENCE (see {@link getEtagFieldsByIid}).
 	 */
 	@trace({
 		args: (provider, token, fullPath, iids) => ({
@@ -1054,10 +1054,15 @@ export class GitLabApi implements Disposable {
 		token: TokenWithInfo,
 		fullPath: string,
 		iids: readonly number[],
-		options: { baseUrl?: string; deferFailure?: boolean },
+		options: { baseUrl?: string; etagIncludes: readonly IssueEtagInclude[]; deferFailure?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<(GitLabIssueEtagNode | undefined)[]> {
 		const scope = getScopedLogger();
+
+		const selections = ['iid', 'closedAt', 'updatedAt'];
+		if (options.etagIncludes.includes('reactions')) {
+			selections.push('upvotes');
+		}
 
 		try {
 			const query = `query getIssuesEtagFields(
@@ -1071,9 +1076,7 @@ export class GitLabApi implements Disposable {
 				hasNextPage
 			}
 			nodes {
-				iid
-				closedAt
-				updatedAt
+				${selections.join('\n\t\t\t\t')}
 			}
 		}
 	}

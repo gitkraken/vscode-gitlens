@@ -66,6 +66,7 @@ import type {
 	IntegrationResult,
 	IntegrationType,
 	IssueEtagFields,
+	IssueEtagInclude,
 	ProviderIssueSearchPage,
 	ProviderPullRequestCount,
 	ProviderPullRequestSearchPage,
@@ -2036,7 +2037,8 @@ export abstract class GitHostIntegration<
 
 	/**
 	 * Result-returning wrapper for the cheap check behind the batch issue read's etags: each coordinate's change
-	 * state ({@link IssueEtagFields}), in ONE call to {@link getProviderIssuesEtagFields}. The slots mean what
+	 * state ({@link IssueEtagFields}), plus the inputs of each of `options.etagIncludes`, in ONE call to
+	 * {@link getProviderIssuesEtagFields}. The slots mean what
 	 * {@link getIssuesBatchResult}'s do — `fulfilled` with `undefined` is a PROVEN ABSENCE, `rejected` means that
 	 * target could not be checked.
 	 *
@@ -2049,6 +2051,7 @@ export abstract class GitHostIntegration<
 	 */
 	async getIssuesEtagFieldsResult(
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { etagIncludes?: readonly IssueEtagInclude[] },
 		cancellation?: AbortSignal,
 		connectionId?: string,
 	): Promise<IntegrationResult<BatchSlot<IssueEtagFields | undefined>[] | undefined>> {
@@ -2059,7 +2062,7 @@ export abstract class GitHostIntegration<
 
 		const start = performance.now();
 		try {
-			const slots = await this.getProviderIssuesEtagFields?.(session, coordinates, cancellation);
+			const slots = await this.getProviderIssuesEtagFields?.(session, coordinates, options, cancellation);
 			if (slots == null) return { value: undefined, duration: performance.now() - start };
 
 			const settled = await this.settleBatchRefusals(session, coordinates, slots, { keepOtherFailures: true });
@@ -2077,12 +2080,14 @@ export abstract class GitHostIntegration<
 	/**
 	 * OPTIONAL: the cheap check behind the batch issue read's etags — one settled slot per input coordinate, in
 	 * order, holding the issue's change state in the vocabulary {@link getProviderIssuesBatch}'s rows end in, so
-	 * both reads compute the same etag. `fulfilled` with `undefined` is a PROVEN ABSENCE, as there. A host
-	 * implements this only where it is cheaper than the full read.
+	 * both reads compute the same etag. Each include's inputs are read only when it is listed in
+	 * `options.etagIncludes`, and only where a full row carries them. `fulfilled` with `undefined` is a PROVEN
+	 * ABSENCE, as there. A host implements this only where it is cheaper than the full read.
 	 */
 	protected getProviderIssuesEtagFields?(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { etagIncludes?: readonly IssueEtagInclude[] },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<IssueEtagFields | undefined>[] | undefined>;
 
