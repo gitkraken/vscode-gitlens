@@ -1,20 +1,20 @@
 import type { IssueShape } from '@gitlens/git/models/issue.js';
-import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds, IssuesHostIntegrationIds } from '../constants.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
-import type { BatchSlot } from '../models/integration.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { githubGraphQLInt32Max, isAzureProviderId, isGitHubProviderId } from '../providers/providerErrors.js';
 import type { ProviderResult, ProviderWarning } from '../results.js';
-import { appendDedupedWarning, toProviderWarning } from '../results.js';
+import { appendDedupedWarning } from '../results.js';
 import { areDomainsOnSameHost, hostFromDomain } from '../utils/domain.utils.js';
 import {
 	isGitHostIntegration,
 	isIssuesHostIntegrationId,
 	isIssuesSelfManagedHostIntegrationId,
 } from '../utils/integration.utils.js';
+import { appendBatchSlotWarning, readEtaggedBatch } from './batchEtags.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
+import { issueEtag, issueEtagFieldsFromShape } from './etag.js';
 import {
 	gitHostOnlySurfaceWarning,
 	issuesUnsupportedWarning,
@@ -41,10 +41,14 @@ import {
  * Modeled on `countIssues` for its shape — caller-owned `key` echoed back, per-target isolation, as few requests
  * as the provider allows — because both take a set of independent questions and answer them together.
  *
- * ONE integration call per invocation, whatever the target count, as in `getPullRequestsBatch`: the integration
- * fans its targets out (chunked for GitHub/GHE, one request per target with bounded concurrency on GitLab and
- * Azure DevOps and on the trackers) and settles each independently, so failing targets spend at most one strike
- * of the integration's failure budget.
+ * ONE integration call per invocation when no target carries an `etag`, whatever the target count, as in
+ * `getPullRequestsBatch`: the integration fans its targets out (chunked for GitHub/GHE, one request per target with
+ * bounded concurrency on GitLab and Azure DevOps and on the trackers) and settles each independently, so failing
+ * targets spend at most one strike of the integration's failure budget.
+ *
+ * With etags, up to THREE on a git host with a cheap check (GitHub/GHE so far): the cheap check of the targets that
+ * carry one, a full read of the rest started alongside it, and a full read of the targets whose etag no longer
+ * matches — see `readEtaggedBatch`. Every other host, and every tracker, still makes one call and etags its rows.
  */
 
 /** One issue to resolve, echoed back under the caller's own `key`. Which form a call takes depends on its provider. */
@@ -66,6 +70,8 @@ export type IssueBatchTarget =
 			number: number;
 			/** Azure DevOps project. Required there, ignored elsewhere. */
 			project?: string;
+			/** The {@link IssueBatchResult.etag} of the copy the caller holds; see {@link IssueBatchResult}. */
+			etag?: string;
 	  }
 	/**
 	 * An issue tracker's issue, by its own identifier (e.g. `ABC-123`) within a resource. Jira (Cloud and Data
@@ -73,16 +79,35 @@ export type IssueBatchTarget =
 	 * `listOrgs` reports it — and `resourceUrl` is not needed, since the browser link is built from the
 	 * connection's own base URL; Jira Cloud requires it.
 	 */
-	| { key: string; resourceId: string; resourceUrl?: string; identifier: string };
+	| {
+			key: string;
+			resourceId: string;
+			resourceUrl?: string;
+			identifier: string;
+			/**
+			 * The {@link IssueBatchResult.etag} of the copy the caller holds. Accepted, but no tracker has a cheap
+			 * check yet, so the issue is read in full.
+			 */
+			etag?: string;
+	  };
 
 type CoordinateTarget = Extract<IssueBatchTarget, { owner: string }>;
 type TrackerTarget = Extract<IssueBatchTarget, { resourceId: string }>;
 
-/** The answer for one {@link IssueBatchTarget}. */
+/**
+ * The answer for one {@link IssueBatchTarget}, in one of four states:
+ * - `{ key, issue, etag }` — read in full. Every fully read row carries an `etag`, whether or not the caller sent
+ *   one, so a caller can seed its etags from the reads it already makes.
+ * - `{ key, unchanged: true, etag }` — the cheap check proved the caller's copy current, and nothing else was
+ *   fetched. Only for a target that sent an `etag`, on a host with a cheap check.
+ * - `{ key }` — PROVEN ABSENT.
+ * - no row, with `fetchFailed` and a warning — the read could not check. Never treat that as absent.
+ */
 export interface IssueBatchResult {
 	key: string;
 	/**
-	 * The resolved issue, or `undefined` when it PROVABLY does not exist (or is not visible to this connection).
+	 * The resolved issue, or `undefined` when it PROVABLY does not exist (or is not visible to this connection) —
+	 * or when it is `unchanged`.
 	 *
 	 * Absent is an answer here, unlike every paged read on this facade: a target that FAILED — its own request
 	 * outright, or just its own alias within an otherwise-answering GitHub chunk (e.g. an org enforcing SAML SSO
@@ -90,6 +115,14 @@ export interface IssueBatchResult {
 	 * "proven absent" from "unknown" and cache the first without ever caching the second.
 	 */
 	issue?: IssueShape;
+	/**
+	 * Opaque: compare for equality only, never parse. Computed by core from the issue's change state — its state and
+	 * update time — and NOT the provider's HTTP ETag. Send it back as the target's `etag`. An etag from another
+	 * scheme simply compares unequal and costs a full read, never a false `unchanged`.
+	 */
+	etag?: string;
+	/** The caller's copy is current (its `etag` matched); `issue` is absent because nothing was read. */
+	unchanged?: true;
 }
 
 const surface = 'Batch issue resolution';
@@ -169,66 +202,68 @@ export async function getIssuesBatch(
 		return refused(issuesUnsupportedWarning(options.providerId, domain, options.connectionId));
 	}
 
-	const warnings: ProviderWarning[] = [];
-	let fetchFailed = false;
-
-	const { value: slots, warning } = await runCaptured(
-		options.providerId,
-		domain,
-		options.connectionId,
-		() =>
-			integration.getIssuesBatchResult(
-				trimmedTargets.map(t => ({ owner: t.owner, repo: t.repo, number: t.number, project: t.project })),
-				undefined,
+	const toCoordinate = (t: CoordinateTarget) => ({
+		owner: t.owner,
+		repo: t.repo,
+		number: t.number,
+		project: t.project,
+	});
+	const result = await readEtaggedBatch({
+		providerId: options.providerId,
+		domain: domain,
+		connectionId: options.connectionId,
+		targets: trimmedTargets,
+		supportsEtags: integration.supportsIssueEtags,
+		readFull: batch =>
+			runCaptured(
+				options.providerId,
+				domain,
 				options.connectionId,
+				() => integration.getIssuesBatchResult(batch.map(toCoordinate), undefined, options.connectionId),
+				// A missing session must surface as a connection warning, including on the primary path, which
+				// otherwise reads it as "not connected" and says nothing — and this read would then call it
+				// unsupported.
+				{ warnOnMissingSession: true },
 			),
-		// A missing session must surface as a connection warning, including on the primary path, which
-		// otherwise reads it as "not connected" and says nothing — and this read would then call it unsupported.
-		{ warnOnMissingSession: true },
-	);
-	if (warning != null) {
-		appendDedupedWarning(warnings, warning);
-	}
+		readEtagFields: batch =>
+			runCaptured(
+				options.providerId,
+				domain,
+				options.connectionId,
+				() => integration.getIssuesEtagFieldsResult(batch.map(toCoordinate), undefined, options.connectionId),
+				{ warnOnMissingSession: true },
+			),
+		itemEtag: issue => issueEtag(issueEtagFieldsFromShape(issue)),
+		fieldsEtag: issueEtag,
+		// A provider that doesn't implement the batch hook answers `undefined` with no error. Either way its targets
+		// are DROPPED rather than reported as absent — the difference between "unknown" and "proven absent" is the
+		// read's whole value, and a failure must never be cached as an answer.
+		unsupportedWarning: () =>
+			unsupportedWarning(
+				options.providerId,
+				domain,
+				options.connectionId,
+				`${surface} is not supported by '${options.providerId}'; resolve issues individually instead.`,
+			),
+	});
 
-	if (slots == null) {
-		// A provider that doesn't implement the batch hook answers `undefined` with no error. Either way its
-		// targets are DROPPED rather than reported as absent — the difference between "unknown" and "proven
-		// absent" is the read's whole value, and a failure must never be cached as an answer.
-		if (warning == null) {
-			appendDedupedWarning(
-				warnings,
-				otherWarning(
-					options.providerId,
-					domain,
-					options.connectionId,
-					`${surface} is not supported by '${options.providerId}'; resolve issues individually instead.`,
-				),
-			);
-		}
-		return { items: [], warnings: warnings, fetchFailed: true };
-	}
-
-	const items: IssueBatchResult[] = [];
-	for (let i = 0; i < trimmedTargets.length; i++) {
-		const slot = slots[i];
-		if (slot.status === 'rejected') {
-			// Dropped, never reported absent, like a whole-call failure: only THIS target failed.
-			appendBatchSlotWarning(warnings, options.providerId, domain, options.connectionId, slot);
-			fetchFailed = true;
-			continue;
-		}
-
-		const issue = slot.value;
-		items.push({ key: trimmedTargets[i].key, ...(issue != null ? { issue: issue } : {}) });
-	}
-
-	return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
+	return {
+		items: result.items.map(row => ({
+			key: row.key,
+			...(row.value != null ? { issue: row.value } : {}),
+			...(row.unchanged ? { unchanged: true as const } : {}),
+			...(row.etag != null ? { etag: row.etag } : {}),
+		})),
+		warnings: result.warnings,
+		fetchFailed: result.fetchFailed,
+	};
 }
 
 /**
  * The tracker form. ONE integration call per invocation, whatever the target count: the integration makes one
  * single-issue request per target, with bounded concurrency, and settles each independently — see
- * `IssuesIntegration.getIssuesByResourceIdBatchResult`.
+ * `IssuesIntegration.getIssuesByResourceIdBatchResult`. No tracker has a cheap check yet, so a target's `etag` is
+ * ignored and every found row is read in full and etagged.
  *
  * `resourceId` is trusted and the read does no resource discovery. It is handed to the provider's by-resource-id
  * read as-is, never wrapped into a synthesized descriptor: Linear and Trello answer `undefined` for a descriptor
@@ -365,7 +400,10 @@ async function getIssuesBatchForTracker(
 		}
 
 		const issue = slot.value;
-		items.push({ key: trimmedTargets[i].key, ...(issue != null ? { issue: issue } : {}) });
+		items.push({
+			key: trimmedTargets[i].key,
+			...(issue != null ? { issue: issue, etag: issueEtag(issueEtagFieldsFromShape(issue)) } : {}),
+		});
 	}
 
 	return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
@@ -460,29 +498,6 @@ export function unresolvedIntegration<T>(
 
 	const resolvedDomain = ctx.resolveDomainForRead(providerId, connectionId, domain);
 	return { items: [], warnings: [noConnectionWarning(providerId, resolvedDomain, connectionId)], fetchFailed: true };
-}
-
-/**
- * Appends the warning for a batch target that could not be checked, shared by every batch read: for a refusal, the
- * scope failure it was recorded as (see `IntegrationBase.settleBatchRefusals`), published as an account-wide read
- * publishes one, scoped and with its cause; otherwise, the reason itself.
- */
-export function appendBatchSlotWarning(
-	warnings: ProviderWarning[],
-	providerId: IntegrationIds,
-	domain: string | undefined,
-	connectionId: string | undefined,
-	slot: Extract<BatchSlot<unknown>, { status: 'rejected' }>,
-): void {
-	if (slot.failure != null) {
-		mergeAssessmentInto(warnings, providerId, domain, connectionId, {
-			completeness: 'partial',
-			failures: [slot.failure],
-		});
-		return;
-	}
-
-	appendDedupedWarning(warnings, toProviderWarning(providerId, domain, connectionId, slot.reason));
 }
 
 export function findDuplicateKey(targets: readonly { key: string }[]): string | undefined {

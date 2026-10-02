@@ -1,0 +1,195 @@
+import assert from 'node:assert/strict';
+import { suite, test } from 'mocha';
+import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import {
+	PullRequest,
+	PullRequestMergeableState,
+	PullRequestReviewDecision,
+	PullRequestStatusCheckRollupState,
+} from '@gitlens/git/models/pullRequest.js';
+import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../models/integration.js';
+import { pullRequestEtagIncludes } from '../models/integration.js';
+import { issueEtag, issueEtagFieldsFromShape, pullRequestEtag, pullRequestEtagFieldsFromShape } from '../reads/etag.js';
+
+/**
+ * The batch reads' etags: a cheap check answers `unchanged` only when its etag equals the caller's, so the property
+ * that matters is that every change-state input moves the etag — a stamp that ignored one would answer `unchanged`
+ * for a pull request that changed.
+ */
+
+const base: PullRequestEtagFields = {
+	state: 'opened',
+	isDraft: false,
+	updatedDate: new Date('2026-01-01T00:00:00Z'),
+	headSha: 'abc',
+	mergeableState: PullRequestMergeableState.Mergeable,
+	reviewDecision: PullRequestReviewDecision.Approved,
+	statusCheckRollupState: PullRequestStatusCheckRollupState.Success,
+};
+
+const noIncludes: readonly PullRequestEtagInclude[] = [];
+const includeSets: readonly (readonly PullRequestEtagInclude[])[] = [
+	noIncludes,
+	['mergeable'],
+	['reviewDecision'],
+	['checks'],
+	['mergeable', 'reviewDecision'],
+	['mergeable', 'checks'],
+	['reviewDecision', 'checks'],
+	pullRequestEtagIncludes,
+];
+
+suite('pullRequestEtag', () => {
+	test('is deterministic: equal fields give equal etags, whatever object holds them', () => {
+		for (const includes of includeSets) {
+			assert.equal(
+				pullRequestEtag({ ...base }, includes),
+				pullRequestEtag({ ...base, updatedDate: new Date(base.updatedDate.getTime()) }, includes),
+			);
+		}
+	});
+
+	const changes: [string, Partial<PullRequestEtagFields>][] = [
+		['state', { state: 'merged' }],
+		['isDraft', { isDraft: true }],
+		['isDraft unknown', { isDraft: undefined }],
+		['updatedDate', { updatedDate: new Date('2026-01-01T00:00:01Z') }],
+		['headSha', { headSha: 'def' }],
+		['headSha unknown', { headSha: undefined }],
+	];
+	for (const [name, change] of changes) {
+		test(`a change of ${name} changes the etag, whatever the includes`, () => {
+			for (const includes of includeSets) {
+				assert.notEqual(pullRequestEtag({ ...base, ...change }, includes), pullRequestEtag(base, includes));
+			}
+		});
+	}
+
+	const includeChanges: [PullRequestEtagInclude, string, Partial<PullRequestEtagFields>][] = [
+		['mergeable', 'mergeableState', { mergeableState: PullRequestMergeableState.Conflicting }],
+		['mergeable', 'mergeableState unknown', { mergeableState: undefined }],
+		['reviewDecision', 'reviewDecision', { reviewDecision: PullRequestReviewDecision.ChangesRequested }],
+		['reviewDecision', 'reviewDecision unknown', { reviewDecision: undefined }],
+		['checks', 'statusCheckRollupState', { statusCheckRollupState: PullRequestStatusCheckRollupState.Failed }],
+		['checks', 'statusCheckRollupState unknown', { statusCheckRollupState: undefined }],
+	];
+	for (const [include, name, change] of includeChanges) {
+		test(`a change of ${name} changes the etag only when '${include}' is listed`, () => {
+			for (const includes of includeSets) {
+				const changed = pullRequestEtag({ ...base, ...change }, includes);
+				const unchanged = pullRequestEtag(base, includes);
+				if (includes.includes(include)) {
+					assert.notEqual(changed, unchanged, `[${includes.join(', ')}] must see it`);
+				} else {
+					assert.equal(changed, unchanged, `[${includes.join(', ')}] must not force a full read for it`);
+				}
+			}
+		});
+	}
+
+	test('the order of the includes and repeats in them do not change the etag', () => {
+		const canonical = pullRequestEtag(base, ['mergeable', 'reviewDecision', 'checks']);
+		assert.equal(pullRequestEtag(base, ['checks', 'mergeable', 'reviewDecision']), canonical);
+		assert.equal(
+			pullRequestEtag(base, ['reviewDecision', 'checks', 'mergeable', 'checks', 'mergeable']),
+			canonical,
+		);
+		assert.equal(pullRequestEtag(base, ['checks', 'checks']), pullRequestEtag(base, ['checks']));
+	});
+
+	test('no includes gives the bare `pr1:` form, and a set names its includes in canonical order', () => {
+		assert.match(pullRequestEtag(base, []), /^pr1:\[/);
+		assert.match(pullRequestEtag(base, ['checks']), /^pr1\+checks:\[/);
+		assert.match(pullRequestEtag(base, ['checks', 'mergeable']), /^pr1\+mergeable\+checks:\[/);
+		assert.match(
+			pullRequestEtag(base, ['checks', 'reviewDecision', 'mergeable']),
+			/^pr1\+mergeable\+reviewDecision\+checks:\[/,
+		);
+	});
+
+	test('two different sets never produce the same etag, even when the values they read are identical', () => {
+		const nothing: PullRequestEtagFields = { state: 'opened', updatedDate: base.updatedDate };
+		for (const fields of [nothing, base]) {
+			const etags = includeSets.map(includes => pullRequestEtag(fields, includes));
+			assert.equal(new Set(etags).size, includeSets.length);
+		}
+		assert.notEqual(pullRequestEtag(nothing, ['mergeable']), pullRequestEtag(nothing, ['checks']));
+	});
+
+	test('reads the check rollup off a PullRequest, where the shape has no such field — by name, not by class', () => {
+		const pr = new PullRequest(
+			{ id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
+			{ id: 'octo', name: 'octo' },
+			'1',
+			'node1',
+			'title',
+			'https://github.com/o/r/pull/1',
+			{ owner: 'o', repo: 'r' },
+			'opened',
+			new Date(0),
+			base.updatedDate,
+			undefined,
+			undefined,
+			PullRequestMergeableState.Mergeable,
+			undefined,
+			{
+				head: { owner: 'o', repo: 'r', branch: 'feature', sha: 'abc', exists: true, url: '' },
+				base: { owner: 'o', repo: 'r', branch: 'main', sha: 'base', exists: true, url: '' },
+				isCrossRepository: false,
+			},
+			false,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			PullRequestReviewDecision.Approved,
+			undefined,
+			undefined,
+			undefined,
+			PullRequestStatusCheckRollupState.Success,
+		);
+
+		assert.deepEqual(pullRequestEtagFieldsFromShape(pr), base);
+		assert.deepEqual(
+			pullRequestEtagFieldsFromShape({ ...pr } as PullRequestShape),
+			base,
+			'a copy that is no longer a `PullRequest` instance keeps its rollup',
+		);
+		const { statusCheckRollupState: _rollup, ...shape } = pr;
+		assert.equal(pullRequestEtagFieldsFromShape(shape as PullRequestShape).statusCheckRollupState, undefined);
+	});
+});
+
+suite('issueEtag', () => {
+	const issueBase: IssueEtagFields = { state: 'opened', updatedDate: new Date('2026-01-01T00:00:00Z') };
+
+	test('is deterministic', () => {
+		assert.equal(
+			issueEtag({ ...issueBase }),
+			issueEtag({ ...issueBase, updatedDate: new Date(issueBase.updatedDate) }),
+		);
+		assert.match(issueEtag(issueBase), /^is1:/);
+	});
+
+	test('a change of state or updatedDate changes the etag', () => {
+		assert.notEqual(issueEtag({ ...issueBase, state: 'closed' }), issueEtag(issueBase));
+		assert.notEqual(issueEtag({ ...issueBase, updatedDate: new Date(1) }), issueEtag(issueBase));
+	});
+
+	test('reads its fields off an issue shape', () => {
+		const issue = { id: '1', state: 'closed', updatedDate: new Date(5), title: 'x' } as unknown as IssueShape;
+		assert.deepEqual(issueEtagFieldsFromShape(issue), { state: 'closed', updatedDate: new Date(5) });
+	});
+
+	test('a missing or unparseable date never throws, and never matches a real one', () => {
+		for (const updatedDate of [undefined, new Date(Number.NaN)]) {
+			const fields = { ...issueBase, updatedDate: updatedDate as unknown as Date };
+			assert.doesNotThrow(() => issueEtag(fields));
+			assert.doesNotThrow(() =>
+				pullRequestEtag({ state: 'opened', updatedDate: fields.updatedDate }, pullRequestEtagIncludes),
+			);
+			assert.notEqual(issueEtag(fields), issueEtag(issueBase));
+		}
+	});
+});

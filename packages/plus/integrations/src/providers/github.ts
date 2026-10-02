@@ -1,4 +1,11 @@
 import { gitHubPullRequestRelationshipQualifiers } from '@gitlens/git-github/api/pullRequestSearchQuery.js';
+import type { GitHubIssueEtagNode, GitHubPullRequestEtagNode } from '@gitlens/git-github/models.js';
+import {
+	fromGitHubIssueOrPullRequestState,
+	fromGitHubPullRequestMergeableState,
+	fromGitHubPullRequestReviewDecision,
+	fromGitHubPullRequestStatusCheckRollupState,
+} from '@gitlens/git-github/models.js';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
@@ -32,9 +39,12 @@ import type { IntegrationConnectionChangeEvent } from '../integrationService.js'
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type {
+	IssueEtagFields,
 	ProviderIssueSearchPage,
 	ProviderPullRequestCount,
 	ProviderPullRequestSearchPage,
+	PullRequestEtagFields,
+	PullRequestEtagInclude,
 	SearchMyIssuesOptions,
 } from '../models/integration.js';
 import type { ProviderWarningCause } from '../results.js';
@@ -153,6 +163,46 @@ async function readChunked<T, V, R>(
 		},
 	);
 	return settledChunks.flat();
+}
+
+/**
+ * A cheap etag read's pull request, as the fields its full row's etag reads, through `fromGitHubPullRequest`'s own
+ * conversions, so a cheap check and a full read of the same pull request compute the same etag.
+ */
+function toPullRequestEtagFields(
+	node: GitHubPullRequestEtagNode,
+	etagIncludes: readonly PullRequestEtagInclude[],
+): PullRequestEtagFields {
+	const fields: PullRequestEtagFields = {
+		state: fromGitHubIssueOrPullRequestState(node.state),
+		isDraft: node.isDraft,
+		updatedDate: new Date(node.updatedAt),
+		headSha: node.headRefOid,
+	};
+
+	if (etagIncludes.includes('mergeable')) {
+		fields.mergeableState =
+			node.mergeable != null ? fromGitHubPullRequestMergeableState(node.mergeable) : undefined;
+	}
+
+	if (etagIncludes.includes('reviewDecision')) {
+		// GitHub's `null` (the repository requires no review) is no decision, even while a review is requested.
+		fields.reviewDecision =
+			node.reviewDecision != null ? fromGitHubPullRequestReviewDecision(node.reviewDecision) : undefined;
+	}
+
+	if (etagIncludes.includes('checks')) {
+		fields.statusCheckRollupState = fromGitHubPullRequestStatusCheckRollupState(
+			node.commits?.nodes?.[0]?.commit.statusCheckRollup?.state,
+		);
+	}
+
+	return fields;
+}
+
+/** A cheap etag read's issue, as the fields its full row's etag reads, through `fromGitHubIssue`'s own conversions. */
+function toIssueEtagFields(node: GitHubIssueEtagNode): IssueEtagFields {
+	return { state: fromGitHubIssueOrPullRequestState(node.state), updatedDate: new Date(node.updatedAt) };
 }
 
 abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends GitHostIntegration<
@@ -876,6 +926,64 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				),
 			(pr): PullRequestShape | undefined =>
 				pr != null ? stampNativePullRequest(pr, { currentAccount: currentAccount }) : undefined,
+		);
+	}
+
+	/**
+	 * The cheap check behind the batch issue read's etags: {@link getProviderIssuesBatch}'s chunks and failure
+	 * isolation over {@link GitHubApi.getIssuesEtagFieldsBatch}, which selects only an issue's change state.
+	 */
+	protected override async getProviderIssuesEtagFields(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<IssueEtagFields | undefined>[] | undefined> {
+		const github = await this.authenticationService.apis.github;
+		if (github == null) return undefined;
+
+		return readChunked(
+			coordinates,
+			issuesBatchChunkSize,
+			chunkCoordinates =>
+				github.getIssuesEtagFieldsBatch(
+					this,
+					toTokenWithInfo(this.id, session),
+					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
+					{ baseUrl: this.apiBaseUrlFor(session) },
+					cancellation,
+				),
+			(node): IssueEtagFields | undefined => (node != null ? toIssueEtagFields(node) : undefined),
+		);
+	}
+
+	/**
+	 * The cheap check behind the batch pull request read's etags: {@link getProviderPullRequestsBatch}'s chunks and
+	 * failure isolation over {@link GitHubApi.getPullRequestsEtagFieldsBatch}, which selects only a pull request's
+	 * change state plus the selection of each of `options.etagIncludes`.
+	 */
+	protected override async getProviderPullRequestsEtagFields(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		options: { etagIncludes?: readonly PullRequestEtagInclude[] },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestEtagFields | undefined>[] | undefined> {
+		const github = await this.authenticationService.apis.github;
+		if (github == null) return undefined;
+
+		const etagIncludes = options.etagIncludes ?? [];
+		return readChunked(
+			coordinates,
+			pullRequestsBatchChunkSize,
+			chunkCoordinates =>
+				github.getPullRequestsEtagFieldsBatch(
+					this,
+					toTokenWithInfo(this.id, session),
+					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
+					{ baseUrl: this.apiBaseUrlFor(session), etagIncludes: etagIncludes },
+					cancellation,
+				),
+			(node): PullRequestEtagFields | undefined =>
+				node != null ? toPullRequestEtagFields(node, etagIncludes) : undefined,
 		);
 	}
 

@@ -8,6 +8,7 @@ import type { Event } from '@gitlens/utils/event.js';
 import type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
 import type { ConfiguredIntegrationDescriptor } from './authentication/models.js';
 import type { IntegrationIds } from './constants.js';
+import type { PullRequestEtagInclude } from './models/integration.js';
 import type { IssueFilter, IssueSorting, PullRequestFilter } from './providerFilters.js';
 import type {
 	IssueCountResult,
@@ -667,6 +668,13 @@ export interface IntegrationManager {
 	 * outright — Bitbucket because it has no issues, Trello because its single-issue read can fall back to a capped
 	 * board scan, which cannot prove an absence.
 	 *
+	 * Change detection: every found row carries an opaque `etag`; send it back on the target and, where the host has a
+	 * cheap check (GitHub/GHE so far), an issue whose etag still matches comes back `{ key, unchanged: true, etag }`
+	 * without being read again. That costs up to three integration calls instead of one — the cheap check, a full
+	 * read of the targets with no etag started alongside it, and a full read of the ones that changed — and still one
+	 * when no target carries an etag. A cheap check that fails falls through to the full read, except on an auth,
+	 * rate-limit or connection failure, which drops its targets with that warning. See {@link IssueBatchResult}.
+	 *
 	 * A self-managed tracker (Jira Data Center) never falls back to the primary connection, unlike the paged reads:
 	 * the call is refused unless `domain` names a host or `connectionId` a configured connection that has one, and
 	 * every target's `resourceId` must name the host the read resolved to. Two self-hosted instances routinely issue
@@ -707,6 +715,16 @@ export interface IntegrationManager {
 	 * Request cost: GitHub/GHE resolve up to 25 targets per request (one aliased GraphQL document). Every other
 	 * host costs one request per target, run with bounded concurrency; GitLab spends a second request to confirm a
 	 * miss, and Azure DevOps one more per target (two for a fork) to fill clone URLs.
+	 *
+	 * Change detection: every found row carries an opaque `etag`; send it back on the target and, where the host has a
+	 * cheap check (GitHub/GHE so far, a minimal aliased document), a pull request whose etag still matches comes back
+	 * `{ key, unchanged: true, etag }` without being read again. That costs up to three integration calls instead of
+	 * one — the cheap check, a full read of the targets with no etag started alongside it, and a full read of the
+	 * ones that changed — and still one when no target carries an etag. `etagIncludes` widens the etag to the listed
+	 * inputs (mergeability, review decision, check rollup), which GitHub changes without moving the update time and
+	 * each of which costs its own fields in the cheap check (the review decision costs the most). A cheap check
+	 * that fails falls through to the full read, except on an auth, rate-limit or connection failure, which drops its
+	 * targets with that warning. See {@link PullRequestBatchResult}.
 	 */
 	getPullRequestsBatch(options: {
 		providerId: IntegrationIds;
@@ -715,6 +733,13 @@ export interface IntegrationManager {
 		connectionId?: string;
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
+		/**
+		 * Widens every etag to the listed inputs; order and repeats don't matter, and an unknown value refuses the
+		 * whole call. Each entry widens the etag to one input GitHub changes without moving the update time, and
+		 * costs its own fields in the cheap check; `'checks'` is the check rollup. Changes only which etag is
+		 * computed (and the cheap check's selection); the full read is the same.
+		 */
+		etagIncludes?: readonly PullRequestEtagInclude[];
 	}): Promise<ProviderResult<PullRequestBatchResult>>;
 	/**
 	 * Finds, for each branch, every pull request whose head is that branch — in any state (open, closed or merged),

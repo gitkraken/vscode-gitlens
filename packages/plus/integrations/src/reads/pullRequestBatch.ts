@@ -1,12 +1,20 @@
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { IntegrationIds } from '../constants.js';
+import type { PullRequestEtagInclude } from '../models/integration.js';
+import { pullRequestEtagIncludes } from '../models/integration.js';
 import { githubGraphQLInt32Max, isAzureProviderId, isGitHubProviderId } from '../providers/providerErrors.js';
 import type { ProviderResult, ProviderWarning } from '../results.js';
-import { appendDedupedWarning } from '../results.js';
 import { isGitHostIntegration, isIssuesHostIntegrationId } from '../utils/integration.utils.js';
+import { readEtaggedBatch } from './batchEtags.js';
 import type { ProviderReadContext } from './context.js';
 import { getCurrentAccountIdentity, runCaptured } from './drains.js';
-import { appendBatchSlotWarning, findDuplicateKey, trimCoordinateFields, unresolvedIntegration } from './issueBatch.js';
+import {
+	findInvalidPullRequestEtagInclude,
+	normalizePullRequestEtagIncludes,
+	pullRequestEtag,
+	pullRequestEtagFieldsFromShape,
+} from './etag.js';
+import { findDuplicateKey, trimCoordinateFields, unresolvedIntegration } from './issueBatch.js';
 import { gitHostOnlySurfaceWarning, otherWarning, unsupportedWarning } from './warnings.js';
 
 /**
@@ -19,10 +27,14 @@ import { gitHostOnlySurfaceWarning, otherWarning, unsupportedWarning } from './w
  * connected and on any failure, and caches through `IntegrationCacheProvider.getPullRequest`, whose key carries no
  * connection and whose by-id bucket never expires a miss.
  *
- * ONE integration call per invocation, whatever the target count: the manager makes a single
- * `getPullRequestsBatchResult` call and the integration fans its targets out (chunked for GitHub/GHE, one request
- * per target with bounded concurrency everywhere else) and settles each independently, so one bad target never
- * spends more than its own slot — see `GitHostIntegration.getPullRequestsBatchResult`.
+ * ONE integration call per invocation when no target carries an `etag`, whatever the target count: the manager makes
+ * a single `getPullRequestsBatchResult` call and the integration fans its targets out (chunked for GitHub/GHE, one
+ * request per target with bounded concurrency everywhere else) and settles each independently, so one bad target
+ * never spends more than its own slot — see `GitHostIntegration.getPullRequestsBatchResult`.
+ *
+ * With etags, up to THREE on a host with a cheap check (GitHub/GHE so far): the cheap check of the targets that
+ * carry one, a full read of the targets that don't, started alongside it, and a full read of the targets whose
+ * etag no longer matches — see `readEtaggedBatch`. A host without a cheap check still makes one call.
  */
 
 /** One pull request to resolve, identified by coordinate and echoed back under the caller's own `key`. */
@@ -40,16 +52,39 @@ export interface PullRequestBatchTarget {
 	number: number;
 	/** Azure DevOps project. Required there, ignored elsewhere. */
 	project?: string;
+	/**
+	 * The {@link PullRequestBatchResult.etag} of the copy the caller holds. When the host can check it cheaply and
+	 * it still matches, the pull request isn't read again and comes back `unchanged`.
+	 */
+	etag?: string;
 }
 
-/** The answer for one {@link PullRequestBatchTarget}. */
+/**
+ * The answer for one {@link PullRequestBatchTarget}, in one of four states:
+ * - `{ key, pullRequest, etag }` — read in full, whatever its state. Every fully read row carries an `etag`,
+ *   whether or not the caller sent one, so a caller can seed its etags from the reads it already makes.
+ * - `{ key, unchanged: true, etag }` — the cheap check proved the caller's copy current, and nothing else was
+ *   fetched. Only for a target that sent an `etag`, on a host with a cheap check.
+ * - `{ key }` — PROVEN ABSENT: it does not exist, or is not visible to this connection.
+ * - no row, with `fetchFailed` and a warning — the read could not check. Never treat that as absent.
+ */
 export interface PullRequestBatchResult {
 	key: string;
 	/**
 	 * The resolved pull request, whatever its state, or `undefined` when it PROVABLY does not exist (or is not
-	 * visible to this connection). A target whose read FAILED is not returned at all and sets `fetchFailed`.
+	 * visible to this connection) — or when it is `unchanged`. A target whose read FAILED is not returned at
+	 * all and sets `fetchFailed`.
 	 */
 	pullRequest?: PullRequestShape;
+	/**
+	 * Opaque: compare for equality only, never parse. Computed by core from the pull request's change state — its
+	 * state, draft flag, update time and head commit, plus each input the call's `etagIncludes` listed — and NOT the
+	 * provider's HTTP ETag. Send it back as {@link PullRequestBatchTarget.etag}. An etag from another scheme or
+	 * another `etagIncludes` set simply compares unequal and costs a full read, never a false `unchanged`.
+	 */
+	etag?: string;
+	/** The caller's copy is current (its `etag` matched); `pullRequest` is absent because nothing was read. */
+	unchanged?: true;
 }
 
 export async function getPullRequestsBatch(
@@ -63,6 +98,13 @@ export async function getPullRequestsBatch(
 		 * it must come from the trusted authentication configuration, not repository or remote data.
 		 */
 		domain?: string;
+		/**
+		 * Widens every etag to the listed inputs, each of which GitHub changes without moving the pull request's
+		 * update time, and each of which costs its own fields in the cheap check. `'checks'` is the check rollup.
+		 * Order and repeats don't matter. An unknown value refuses the whole call. Changes only which etag is
+		 * computed; the full read is the same. Calls that differ in this set never match each other's etags.
+		 */
+		etagIncludes?: readonly PullRequestEtagInclude[];
 	},
 ): Promise<ProviderResult<PullRequestBatchResult>> {
 	const refused = (warning: ProviderWarning): ProviderResult<PullRequestBatchResult> => ({
@@ -92,6 +134,19 @@ export async function getPullRequestsBatch(
 		);
 	}
 
+	// Same as a bad target: refused whole before any request, naming the value and what's allowed.
+	const invalidInclude = findInvalidPullRequestEtagInclude(options.etagIncludes ?? []);
+	if (invalidInclude != null) {
+		return refused(
+			otherWarning(
+				options.providerId,
+				undefined,
+				options.connectionId,
+				`Unknown pull request etag include '${invalidInclude}'; expected one of ${pullRequestEtagIncludes.map(i => `'${i}'`).join(', ')}.`,
+			),
+		);
+	}
+
 	// The validated value must be the one sent to the provider, so every string field is trimmed once here.
 	const targets = options.targets.map(trimCoordinateFields);
 
@@ -110,61 +165,80 @@ export async function getPullRequestsBatch(
 	}
 
 	const domain = ctx.domainForRead(integration, options.providerId, options.connectionId, options.domain);
-	const currentAccount = await getCurrentAccountIdentity(integration, options.connectionId);
+	const etagIncludes = normalizePullRequestEtagIncludes(options.etagIncludes ?? []);
+	const toCoordinate = (t: PullRequestBatchTarget) => ({
+		owner: t.owner,
+		repo: t.repo,
+		number: t.number,
+		project: t.project,
+	});
 
-	const warnings: ProviderWarning[] = [];
-	let fetchFailed = false;
+	// Read once per invocation, however many full reads it takes, and only when one does: a call whose every
+	// target is unchanged has no row to resolve authorship for.
+	let currentAccount: Promise<{ id: string; username?: string } | undefined> | undefined;
 
-	const { value: slots, warning } = await runCaptured(
-		options.providerId,
-		domain,
-		options.connectionId,
-		() =>
-			integration.getPullRequestsBatchResult(
-				targets.map(t => ({ owner: t.owner, repo: t.repo, number: t.number, project: t.project })),
-				{ currentAccount: currentAccount },
-				undefined,
+	const result = await readEtaggedBatch({
+		providerId: options.providerId,
+		domain: domain,
+		connectionId: options.connectionId,
+		targets: targets,
+		supportsEtags: integration.supportsPullRequestEtags,
+		readFull: batch =>
+			runCaptured(
+				options.providerId,
+				domain,
 				options.connectionId,
+				async () =>
+					integration.getPullRequestsBatchResult(
+						batch.map(toCoordinate),
+						{
+							currentAccount: await (currentAccount ??= getCurrentAccountIdentity(
+								integration,
+								options.connectionId,
+							)),
+						},
+						undefined,
+						options.connectionId,
+					),
+				// A missing session must surface as a connection warning, including on the primary path, which
+				// otherwise reads it as "not connected" and says nothing.
+				{ warnOnMissingSession: true },
 			),
-		// A missing session must surface as a connection warning, including on the primary path, which
-		// otherwise reads it as "not connected" and says nothing.
-		{ warnOnMissingSession: true },
-	);
-	if (warning != null) {
-		appendDedupedWarning(warnings, warning);
-	}
+		readEtagFields: batch =>
+			runCaptured(
+				options.providerId,
+				domain,
+				options.connectionId,
+				() =>
+					integration.getPullRequestsEtagFieldsResult(
+						batch.map(toCoordinate),
+						{ etagIncludes: etagIncludes },
+						undefined,
+						options.connectionId,
+					),
+				{ warnOnMissingSession: true },
+			),
+		itemEtag: pr => pullRequestEtag(pullRequestEtagFieldsFromShape(pr), etagIncludes),
+		fieldsEtag: fields => pullRequestEtag(fields, etagIncludes),
+		unsupportedWarning: () =>
+			unsupportedWarning(
+				options.providerId,
+				domain,
+				options.connectionId,
+				`${surface} is not supported by '${options.providerId}'; resolve pull requests individually instead.`,
+			),
+	});
 
-	if (slots == null) {
-		// Dropped, never reported absent: "unknown" and "proven absent" must stay distinguishable.
-		if (warning == null) {
-			appendDedupedWarning(
-				warnings,
-				unsupportedWarning(
-					options.providerId,
-					domain,
-					options.connectionId,
-					`${surface} is not supported by '${options.providerId}'; resolve pull requests individually instead.`,
-				),
-			);
-		}
-		return { items: [], warnings: warnings, fetchFailed: true };
-	}
-
-	const items: PullRequestBatchResult[] = [];
-	for (let i = 0; i < targets.length; i++) {
-		const slot = slots[i];
-		if (slot.status === 'rejected') {
-			// Dropped, never reported absent, like a whole-call failure.
-			appendBatchSlotWarning(warnings, options.providerId, domain, options.connectionId, slot);
-			fetchFailed = true;
-			continue;
-		}
-
-		const pullRequest = slot.value;
-		items.push({ key: targets[i].key, ...(pullRequest != null ? { pullRequest: pullRequest } : {}) });
-	}
-
-	return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
+	return {
+		items: result.items.map(row => ({
+			key: row.key,
+			...(row.value != null ? { pullRequest: row.value } : {}),
+			...(row.unchanged ? { unchanged: true as const } : {}),
+			...(row.etag != null ? { etag: row.etag } : {}),
+		})),
+		warnings: result.warnings,
+		fetchFailed: result.fetchFailed,
+	};
 }
 
 function findInvalidTarget(providerId: IntegrationIds, targets: readonly PullRequestBatchTarget[]): string | undefined {

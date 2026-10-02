@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
-import { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import {
+	PullRequest,
+	PullRequestMergeableState,
+	PullRequestStatusCheckRollupState,
+} from '@gitlens/git/models/pullRequest.js';
 import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import type { ProviderAuthenticationSession, TokenWithInfo } from '../authentication/models.js';
 import {
@@ -9,11 +13,13 @@ import {
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
+import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult } from '../models/integration.js';
+import type { IntegrationResult, PullRequestEtagFields, PullRequestEtagInclude } from '../models/integration.js';
 import type { GetPullRequestForRepoFn, ProviderRepoInput } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
+import { pullRequestEtag, pullRequestEtagFieldsFromShape } from '../reads/etag.js';
 import { noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
@@ -1547,6 +1553,685 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 	});
 });
 
+type EtagSlot = PromiseSettledResult<PullRequestEtagFields | undefined>;
+type EtagFieldsResultFn = (
+	coordinates: readonly Coordinate[],
+	options: { etagIncludes?: readonly PullRequestEtagInclude[] },
+	cancellation?: AbortSignal,
+	connectionId?: string,
+) => Promise<IntegrationResult<EtagSlot[] | undefined>>;
+
+/** Records every full read's target numbers, answering each from `answer`. */
+function stubFullReads(
+	integration: GitHostIntegration,
+	answer: (c: Coordinate) => Slot = c => found(etagShape(c.number)),
+): number[][] {
+	const calls: number[][] = [];
+	stubBatchResult(integration, coordinates => {
+		calls.push(coordinates.map(c => c.number));
+		return Promise.resolve({ value: coordinates.map(answer) });
+	});
+	return calls;
+}
+
+/** Records every cheap check's target numbers and options, answering each with `answer`. */
+function stubEtagFieldsResult(
+	integration: GitHostIntegration,
+	answer: (coordinates: readonly Coordinate[]) => Promise<IntegrationResult<EtagSlot[] | undefined>>,
+): { numbers: number[][]; options: { etagIncludes?: readonly PullRequestEtagInclude[] }[] } {
+	const calls = {
+		numbers: [] as number[][],
+		options: [] as { etagIncludes?: readonly PullRequestEtagInclude[] }[],
+	};
+	(
+		integration as unknown as { getPullRequestsEtagFieldsResult: EtagFieldsResultFn }
+	).getPullRequestsEtagFieldsResult = (coordinates, options) => {
+		calls.numbers.push(coordinates.map(c => c.number));
+		calls.options.push(options);
+		return answer(coordinates);
+	};
+	return calls;
+}
+
+/** A full row whose change state is derived from its number and `version`, so a test can move one on purpose. */
+function etagShape(number: number, version: number = 0): PullRequest {
+	return new PullRequest(
+		{ id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
+		{ id: 'octo', name: 'octo' },
+		String(number),
+		`PR_node${number}`,
+		`PR ${number}`,
+		`https://github.com/o/r/pull/${number}`,
+		{ owner: 'o', repo: 'r' },
+		'opened',
+		new Date(0),
+		new Date(1000 * version),
+		undefined,
+		undefined,
+		PullRequestMergeableState.Mergeable,
+		undefined,
+		{
+			head: { owner: 'o', repo: 'r', branch: 'feature', sha: `head-${number}`, exists: true, url: '' },
+			base: { owner: 'o', repo: 'r', branch: 'main', sha: 'base', exists: true, url: '' },
+			isCrossRepository: false,
+		},
+		false,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		PullRequestStatusCheckRollupState.Success,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		number,
+	);
+}
+
+/** The etag the caller holds after a full read of `etagShape(number, version)`. */
+function heldEtag(number: number, version: number = 0, includes: readonly PullRequestEtagInclude[] = []): string {
+	return pullRequestEtag(pullRequestEtagFieldsFromShape(etagShape(number, version)), includes);
+}
+
+/** What the cheap check reads for `etagShape(number, version)`. */
+function etagFields(number: number, version: number = 0): EtagSlot {
+	return { status: 'fulfilled', value: pullRequestEtagFieldsFromShape(etagShape(number, version)) };
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>(r => {
+		resolve = r;
+	});
+	return { promise: promise, resolve: resolve };
+}
+
+/**
+ * Etags on the batch read: a target sent with the etag of the caller's copy is checked cheaply first and read in
+ * full only when it moved. The properties pinned here are the read's promises — never a false `unchanged`, never
+ * a retry against a credential or limit that just failed, and exactly today's single call when no etag is sent.
+ */
+suite('IntegrationManager.getPullRequestsBatch etags', () => {
+	test('no etags: one full call and no cheap check, as before etags existed, and every found row carries an etag', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		stubCurrentAccount(gh, 'me');
+		const full = stubFullReads(gh, c => found(c.number === 2 ? undefined : etagShape(c.number)));
+		const cheap = stubEtagFieldsResult(gh, () => Promise.reject(new Error('no etag was sent')));
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'a', owner: 'o', repo: 'r', number: 1 },
+				{ key: 'b', owner: 'o', repo: 'r', number: 2 },
+				{ key: 'c', owner: 'o', repo: 'r', number: 3 },
+			],
+		});
+
+		assert.deepEqual(full, [[1, 2, 3]], 'one call for every target, exactly as before');
+		assert.deepEqual(cheap.numbers, []);
+		assert.deepEqual(
+			result.items.map(i => [i.key, i.pullRequest?.id, i.etag, i.unchanged]),
+			[
+				['a', '1', heldEtag(1), undefined],
+				['b', undefined, undefined, undefined],
+				['c', '3', heldEtag(3), undefined],
+			],
+		);
+		assert.deepEqual(result.warnings, []);
+		assert.equal(result.fetchFailed, undefined);
+
+		manager.dispose();
+	});
+
+	test('every etag matches: every row is unchanged and nothing is read in full', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const account = stubCurrentAccount(gh, 'me');
+		const full = stubFullReads(gh);
+		const cheap = stubEtagFieldsResult(gh, coordinates =>
+			Promise.resolve({ value: coordinates.map(c => etagFields(c.number)) }),
+		);
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
+				{ key: 'b', owner: 'o', repo: 'r', number: 2, etag: heldEtag(2) },
+			],
+		});
+
+		assert.deepEqual(cheap.numbers, [[1, 2]]);
+		assert.deepEqual(full, [], 'nothing changed, so nothing is read in full');
+		assert.equal(account.connectionIds.length, 0, 'no row to resolve authorship for');
+		assert.deepEqual(result, {
+			items: [
+				{ key: 'a', unchanged: true, etag: heldEtag(1) },
+				{ key: 'b', unchanged: true, etag: heldEtag(2) },
+			],
+			warnings: [],
+			fetchFailed: undefined,
+		});
+
+		manager.dispose();
+	});
+
+	test('a mixed batch reads the new targets alongside the cheap check, then the changed ones, in target order', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const account = stubCurrentAccount(gh, 'me');
+		const full = stubFullReads(gh, c => found(etagShape(c.number, c.number === 3 ? 1 : 0)));
+		const check = deferred<IntegrationResult<EtagSlot[] | undefined>>();
+		const cheap = stubEtagFieldsResult(gh, () => check.promise);
+
+		const pending = manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'new', owner: 'o', repo: 'r', number: 1 },
+				{ key: 'same', owner: 'o', repo: 'r', number: 2, etag: heldEtag(2) },
+				{ key: 'moved', owner: 'o', repo: 'r', number: 3, etag: heldEtag(3, 0) },
+				{ key: 'new2', owner: 'o', repo: 'r', number: 4 },
+			],
+		});
+
+		// The full read of the targets with no etag must not wait on the cheap check.
+		for (let i = 0; i < 20 && full.length === 0; i++) {
+			await Promise.resolve();
+		}
+		assert.deepEqual(full, [[1, 4]], 'the new targets are read in full before the cheap check settles');
+		assert.deepEqual(cheap.numbers, [[2, 3]]);
+
+		check.resolve({ value: [etagFields(2), etagFields(3, 1)] });
+		const result = await pending;
+
+		assert.deepEqual(full, [[1, 4], [3]], 'the changed target gets a second full read');
+		assert.equal(account.connectionIds.length, 1, 'the account is read once per call, not once per full read');
+		assert.deepEqual(
+			result.items.map(i => [i.key, i.pullRequest?.id, i.unchanged, i.etag]),
+			[
+				['new', '1', undefined, heldEtag(1)],
+				['same', undefined, true, heldEtag(2)],
+				['moved', '3', undefined, heldEtag(3, 1)],
+				['new2', '4', undefined, heldEtag(4)],
+			],
+		);
+		assert.equal(result.fetchFailed, undefined);
+
+		manager.dispose();
+	});
+
+	test('a target the cheap check proves absent is answered absent with no full read', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		stubCurrentAccount(gh, 'me');
+		const full = stubFullReads(gh);
+		stubEtagFieldsResult(gh, () => Promise.resolve({ value: [{ status: 'fulfilled', value: undefined }] }));
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [{ key: 'gone', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) }],
+		});
+
+		assert.deepEqual(full, []);
+		assert.deepEqual(result.items, [{ key: 'gone' }], 'a proven absence, cacheable as before');
+		assert.equal(result.fetchFailed, undefined);
+
+		manager.dispose();
+	});
+
+	test('a target the cheap check failed for its own reason falls through, and the full read’s answer stands alone', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		stubCurrentAccount(gh, 'me');
+		const full = stubFullReads(gh);
+		stubEtagFieldsResult(gh, () =>
+			Promise.resolve({
+				value: [etagFields(1), { status: 'rejected', reason: new Error(samlForbiddenMessage) }],
+			}),
+		);
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'same', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
+				{ key: 'failed', owner: 'o', repo: 'r', number: 2, etag: heldEtag(2) },
+			],
+		});
+
+		assert.deepEqual(full, [[2]]);
+		assert.deepEqual(
+			result.items.map(i => [i.key, i.unchanged, i.pullRequest?.id]),
+			[
+				['same', true, undefined],
+				['failed', undefined, '2'],
+			],
+		);
+		assert.deepEqual(result.warnings, [], 'the full read answered, so the cheap failure is not reported');
+		assert.equal(result.fetchFailed, undefined);
+
+		manager.dispose();
+	});
+
+	test('a target the full read also fails is dropped with the full read’s warning', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		stubCurrentAccount(gh, 'me');
+		const full = stubFullReads(gh, () => failed(new Error('full read exploded')));
+		stubEtagFieldsResult(gh, () =>
+			Promise.resolve({ value: [{ status: 'rejected', reason: new Error('cheap check exploded') }] }),
+		);
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [{ key: 'failed', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) }],
+		});
+
+		assert.deepEqual(full, [[1]]);
+		assert.deepEqual(result.items, [], 'dropped, never reported absent or unchanged');
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(
+			result.warnings.map(w => w.message),
+			['full read exploded'],
+		);
+
+		manager.dispose();
+	});
+
+	const noRetry: [string, () => Error, string][] = [
+		['rate limit', () => new RequestRateLimitError(new Error('rate limited'), undefined, undefined), 'rate-limit'],
+		[
+			'refused credential',
+			() =>
+				new AuthenticationError(
+					{ providerId: 'github', microHash: undefined, cloud: true, type: 'oauth', scopes: [] },
+					AuthenticationErrorReason.Unauthorized,
+				),
+			'auth',
+		],
+	];
+	for (const [name, reason, kind] of noRetry) {
+		test(`a target the cheap check failed on a ${name} is dropped with that warning, never retried in full`, async () => {
+			const { manager, gh } = await connectedGitHub(createFakeRuntime());
+			stubCurrentAccount(gh, 'me');
+			const full = stubFullReads(gh);
+			stubEtagFieldsResult(gh, () =>
+				Promise.resolve({ value: [etagFields(1), { status: 'rejected', reason: reason() }] }),
+			);
+
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: [
+					{ key: 'same', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
+					{ key: 'failed', owner: 'o', repo: 'r', number: 2, etag: heldEtag(2) },
+				],
+			});
+
+			assert.deepEqual(full, [], 'a full read would only hit the same failure again');
+			assert.deepEqual(
+				result.items.map(i => i.key),
+				['same'],
+			);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(
+				result.warnings.map(w => w.kind),
+				[kind],
+			);
+
+			manager.dispose();
+		});
+	}
+
+	test('a rate-limited cheap check drops every target it held, while the new targets are still read in full', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		stubCurrentAccount(gh, 'me');
+		const full = stubFullReads(gh);
+		stubEtagFieldsResult(gh, () =>
+			Promise.resolve({ error: new RequestRateLimitError(new Error('rate limited'), undefined, undefined) }),
+		);
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'new', owner: 'o', repo: 'r', number: 1 },
+				{ key: 'held1', owner: 'o', repo: 'r', number: 2, etag: heldEtag(2) },
+				{ key: 'held2', owner: 'o', repo: 'r', number: 3, etag: heldEtag(3) },
+			],
+		});
+
+		assert.deepEqual(full, [[1]], 'only the targets the cheap check never held');
+		assert.deepEqual(
+			result.items.map(i => i.key),
+			['new'],
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(
+			result.warnings.map(w => w.kind),
+			['rate-limit'],
+		);
+
+		manager.dispose();
+	});
+
+	test('a cheap check that failed outright for another reason hands every target to the full read', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		stubCurrentAccount(gh, 'me');
+		const full = stubFullReads(gh);
+		stubEtagFieldsResult(gh, () => Promise.resolve({ error: new Error('cheap check exploded') }));
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
+				{ key: 'b', owner: 'o', repo: 'r', number: 2, etag: heldEtag(2) },
+			],
+		});
+
+		assert.deepEqual(full, [[1, 2]]);
+		assert.deepEqual(
+			result.items.map(i => [i.key, i.pullRequest?.id, i.etag]),
+			[
+				['a', '1', heldEtag(1)],
+				['b', '2', heldEtag(2)],
+			],
+		);
+		assert.deepEqual(result.warnings, []);
+
+		manager.dispose();
+	});
+
+	test('a host with no cheap check makes one full call, etags and all', async () => {
+		const { manager, gl } = await connectedGitLab(createFakeRuntime());
+		stubCurrentAccount(gl, 'me');
+		assert.equal(gl.supportsPullRequestEtags, false);
+		const full = stubFullReads(gl);
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitLab,
+			targets: [
+				{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
+				{ key: 'b', owner: 'o', repo: 'r', number: 2 },
+			],
+		});
+
+		assert.deepEqual(full, [[1, 2]], 'one call, not one per etag partition');
+		assert.deepEqual(
+			result.items.map(i => [i.key, i.unchanged, i.etag]),
+			[
+				['a', undefined, heldEtag(1)],
+				['b', undefined, heldEtag(2)],
+			],
+			'a matching etag is still a full row: nothing proved it current without reading it',
+		);
+
+		manager.dispose();
+	});
+
+	test('an etag from another etagIncludes set reads as changed, and the row comes back with the new one', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		stubCurrentAccount(gh, 'me');
+		const full = stubFullReads(gh);
+		const cheap = stubEtagFieldsResult(gh, coordinates =>
+			Promise.resolve({ value: coordinates.map(c => etagFields(c.number)) }),
+		);
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1, 0, []) }],
+			etagIncludes: ['checks'],
+		});
+
+		assert.deepEqual(cheap.options, [{ etagIncludes: ['checks'] }]);
+		assert.deepEqual(full, [[1]]);
+		assert.equal(result.items[0].etag, heldEtag(1, 0, ['checks']));
+		assert.match(result.items[0].etag ?? '', /^pr1\+checks:/);
+		assert.equal(result.items[0].unchanged, undefined);
+
+		manager.dispose();
+	});
+
+	test('toggling the include set between calls costs a full read each time', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		stubCurrentAccount(gh, 'me');
+		const full = stubFullReads(gh);
+		stubEtagFieldsResult(gh, coordinates => Promise.resolve({ value: coordinates.map(c => etagFields(c.number)) }));
+
+		let etag: string | undefined;
+		for (const etagIncludes of [['mergeable'], ['mergeable'], ['mergeable', 'checks'], []] as const) {
+			full.length = 0;
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: [{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: etag }],
+				etagIncludes: etagIncludes,
+			});
+
+			// The first call has no etag, and the second repeats the set that minted it: only the other sets mismatch.
+			const sameSet = etag === heldEtag(1, 0, etagIncludes);
+			assert.deepEqual(full, sameSet ? [] : [[1]], `[${etagIncludes.join(', ')}]`);
+			assert.equal(result.items[0].etag, heldEtag(1, 0, etagIncludes));
+			etag = result.items[0].etag;
+		}
+
+		manager.dispose();
+	});
+
+	test('with etagIncludes, a matching etag still answers unchanged, whatever the order and repeats', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		stubCurrentAccount(gh, 'me');
+		const full = stubFullReads(gh);
+		const cheap = stubEtagFieldsResult(gh, coordinates =>
+			Promise.resolve({ value: coordinates.map(c => etagFields(c.number)) }),
+		);
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1, 0, ['mergeable', 'checks']) }],
+			etagIncludes: ['checks', 'mergeable', 'checks'],
+		});
+
+		assert.deepEqual(full, []);
+		assert.deepEqual(
+			cheap.options,
+			[{ etagIncludes: ['mergeable', 'checks'] }],
+			'the hook gets the normalized set',
+		);
+		assert.deepEqual(result.items, [{ key: 'a', unchanged: true, etag: heldEtag(1, 0, ['mergeable', 'checks']) }]);
+
+		manager.dispose();
+	});
+
+	test('an unknown etagIncludes value refuses the whole call before any request', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const full = stubFullReads(gh);
+		const cheap = stubEtagFieldsResult(gh, () => Promise.reject(new Error('must not be called')));
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
+				{ key: 'b', owner: 'o', repo: 'r', number: 2 },
+			],
+			etagIncludes: ['mergeable', 'review'] as unknown as PullRequestEtagInclude[],
+		});
+
+		assert.deepEqual(full, []);
+		assert.deepEqual(cheap.numbers, []);
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.match(result.warnings[0].message, /Unknown pull request etag include 'review'/);
+		assert.match(result.warnings[0].message, /'mergeable', 'reviewDecision', 'checks'/);
+
+		manager.dispose();
+	});
+
+	test('a duplicate key is still refused before any request, etags or not', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const full = stubFullReads(gh);
+		const cheap = stubEtagFieldsResult(gh, () => Promise.reject(new Error('must not be called')));
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'same', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
+				{ key: 'same', owner: 'o', repo: 'r', number: 2 },
+			],
+		});
+
+		assert.deepEqual(full, []);
+		assert.deepEqual(cheap.numbers, []);
+		assert.equal(result.fetchFailed, true);
+		assert.match(result.warnings[0].message, /Duplicate pull request batch target key 'same'/);
+
+		manager.dispose();
+	});
+});
+
+/**
+ * The failure budget of an etagged read, through the real wrappers and GitHub client: the cheap check spends a strike
+ * toward disconnecting, and shows a notice, only for a refused credential. Every other failure leaves both to the
+ * full reads its targets fall through to, so one refresh can't spend three of the five strikes.
+ */
+suite('IntegrationManager.getPullRequestsBatch etags: failure budget', () => {
+	/** Answers each GraphQL document by its operation name, counting them; anything unlisted gets a 500. */
+	function serveGitHub(
+		runtime: FakeRuntime,
+		answers: Partial<Record<'check' | 'full' | 'probe', () => Response>>,
+	): { check: number; full: number; probe: number } {
+		const asked = { check: 0, full: 0, probe: 0 };
+		runtime.http.fetch = (_url, init) => {
+			const body = typeof init?.body === 'string' ? init.body : '';
+			const operation = body.includes('getPullRequestsEtagFieldsBatch')
+				? 'check'
+				: body.includes('getPullRequestsBatch')
+					? 'full'
+					: body.includes('getCurrentAccount')
+						? 'probe'
+						: undefined;
+			if (operation != null) {
+				asked[operation]++;
+			}
+			return Promise.resolve(
+				(operation != null ? answers[operation]?.() : undefined) ?? json(500, { message: 'Server Error' }),
+			);
+		};
+		return asked;
+	}
+
+	const etagged = [
+		{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: 'held-1' },
+		{ key: 'b', owner: 'o', repo: 's', number: 2, etag: 'held-2' },
+	];
+
+	test('a total outage of a fully etagged batch spends one strike and shows one notice', async () => {
+		const runtime = createFakeRuntime();
+		const asked = serveGitHub(runtime, {});
+		const { manager, gh } = await connectedGitHub(runtime);
+		stubCurrentAccount(gh, 'me');
+		const watched = watchRequestFailures(runtime);
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: etagged,
+		});
+
+		assert.deepEqual(result.items, [], 'dropped, never reported absent or unchanged');
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual([asked.check, asked.full], [1, 1], 'every target fell through to one full read');
+		assert.equal(getRequestExceptionCount(gh), 1, 'the full read spends the only strike');
+		assert.equal(watched.notices.length, 1, 'and shows the only notice');
+		assert.equal(watched.disconnected, undefined);
+
+		manager.dispose();
+	});
+
+	test('a total outage of a mixed batch spends at most two strikes, one per full read', async () => {
+		const runtime = createFakeRuntime();
+		const asked = serveGitHub(runtime, {});
+		const { manager, gh } = await connectedGitHub(runtime);
+		stubCurrentAccount(gh, 'me');
+		const watched = watchRequestFailures(runtime);
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [...etagged, { key: 'new', owner: 'o', repo: 'r', number: 3 }],
+		});
+
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual([asked.check, asked.full], [1, 2]);
+		assert.equal(getRequestExceptionCount(gh), 2, 'one strike per full read, none for the cheap check');
+		assert.equal(watched.notices.length, 2);
+		assert.equal(watched.disconnected, undefined);
+
+		manager.dispose();
+	});
+
+	test('every cheap target refused by a credential the probe confirms is scoped and dropped, as before', async () => {
+		const runtime = createFakeRuntime();
+		const asked = serveGitHub(runtime, {
+			check: () => json(403, { message: 'Resource not accessible by integration' }),
+			probe: () => json(200, { data: { viewer: { databaseId: 1, login: 'me' } } }),
+		});
+		const { manager, gh } = await connectedGitHub(runtime);
+		stubCurrentAccount(gh, 'me');
+		const session = { ...(gh as unknown as { _session: ProviderAuthenticationSession })._session };
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: etagged,
+		});
+
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(
+			result.warnings.filter(w => w.kind === 'auth').map(w => w.scope),
+			[{ repositoryId: 'o/r' }, { repositoryId: 'o/s' }],
+		);
+		assert.deepEqual([asked.check, asked.probe, asked.full], [1, 1, 0], 'a full read would be refused again');
+		assert.equal(getRequestExceptionCount(gh), 0, 'a confirmed credential spends no strike');
+		assert.deepEqual((gh as unknown as { _session: ProviderAuthenticationSession })._session, session);
+
+		manager.dispose();
+	});
+
+	test("a credential the cheap check's probe refuses too fails the check on the auth path, as before", async () => {
+		const runtime = createFakeRuntime();
+		const asked = serveGitHub(runtime, {
+			check: () => json(401, { message: 'Bad credentials' }),
+			probe: () => json(401, { message: 'Bad credentials' }),
+		});
+		const { manager, gh } = await connectedGitHub(runtime);
+		stubCurrentAccount(gh, 'me');
+		const session = { ...(gh as unknown as { _session: ProviderAuthenticationSession })._session };
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: etagged,
+		});
+
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(
+			result.warnings.map(w => [w.kind, w.scope]),
+			[['auth', undefined]],
+			"the connection's failure, not a target's",
+		);
+		assert.deepEqual([asked.check, asked.probe, asked.full], [1, 1, 0]);
+		assert.notDeepEqual(
+			(gh as unknown as { _session: ProviderAuthenticationSession })._session,
+			session,
+			'the cloud session is expired so the next read refreshes it',
+		);
+
+		manager.dispose();
+	});
+});
+
 function providerShape(number: number): PullRequestShape {
-	return { id: `pr-${number}`, number: number } as unknown as PullRequestShape;
+	return {
+		id: `pr-${number}`,
+		number: number,
+		state: 'opened',
+		updatedDate: new Date(0),
+	} as unknown as PullRequestShape;
 }

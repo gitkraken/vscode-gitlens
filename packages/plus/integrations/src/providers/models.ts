@@ -1575,7 +1575,7 @@ export const fromProviderBuildStatusState = {
  *  carrying no verdict (cancelled, skipped, optional action required, warning) don't vote. Reads the raw
  *  state rather than `fromProviderBuildStatusState`, which drops errored and running to `undefined` and
  *  would let a lone success outvote a check still in flight. */
-function toStatusCheckRollupState(
+export function toStatusCheckRollupState(
 	statuses: GitBuildStatus[] | null | undefined,
 ): PullRequestStatusCheckRollupState | undefined {
 	if (!statuses?.length) return undefined;
