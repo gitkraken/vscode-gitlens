@@ -63,8 +63,11 @@ export interface PullRequestBranchResult {
 	 */
 	pullRequests: PullRequestShape[];
 	/**
-	 * Set when more pull requests may match than were returned: more matched than the cap, or the host held more
-	 * pull requests of this branch name than it returned and some of those might have matched.
+	 * Set when a pull request that wasn't returned could still match: more matched than the cap, or the host held
+	 * more pull requests of this branch name than it returned and couldn't rule them out. GitHub/GHE rule them out
+	 * with a second request filtered by head owner, so there it means more than the cap truly match. That request
+	 * can't see a pull request from a since-deleted fork, so on GitHub/GHE such a pull request outside the first
+	 * request's page can be missing even when this is not set.
 	 */
 	truncated?: boolean;
 }

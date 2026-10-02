@@ -231,10 +231,16 @@ relationship to them, so unlike the sweeps it finds a teammate's pull request fr
 the repository the pull requests are opened against, the branch's short name and, for a branch in a fork,
 `headOwner`; one equal to the target's owner means the base repository. A pull request matches only when its head
 repository is that base repository or that fork, so a `main` never claims every fork's `main`. The match is on the
-head branch name in every state, so a merged pull request whose branch was deleted is still found. Each target
-returns up to 10, most recently updated first. An empty list without `truncated` is a proven none, a missing base
-repository included; `truncated` means more may match than were returned. GitHub/GHE answer up to 25 targets per
-request, and every other host costs one request per target. GitLab and Azure DevOps, where that request only finds
+head branch name in every state, so a merged pull request whose branch was deleted is still found, and a fork is
+matched by its owner, so a pull request whose fork was deleted still matches that `headOwner`. Each target returns up
+to 10, most recently updated first. An empty list without `truncated` is a proven none, a missing base repository included; `truncated` means a
+pull request that wasn't returned could still match. GitHub/GHE answer up to 25 targets per request, matching the
+branch name across every fork. A target whose name more forks share than that request returned (`main` or `patch-1`
+in a fork-heavy repository) costs one more REST request, which filters by head owner on the server; a match the first
+request missed is resolved through `getPullRequestsBatch`'s own read, the answer is the union of both requests'
+matches, and the target is `truncated` only when more than 10 truly match. The REST request can't see a pull request
+from a deleted fork, so on such a target one that the first request didn't return can't be found, and may be missing
+from an answer, even an empty one, that isn't `truncated`. Every other host costs one request per target. GitLab and Azure DevOps, where that request only finds
 the matching numbers, then resolve each match (typically 0–1 per branch) through `getPullRequestsBatch`'s own read,
 so their rows are exactly its rows; a match that read can't check fails its whole branch. Rows carry the list reads'
 fields on GitHub/GHE and Bitbucket DC and the by-id read's on Bitbucket Cloud. Bitbucket DC and Azure DevOps refuse a

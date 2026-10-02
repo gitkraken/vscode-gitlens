@@ -754,10 +754,14 @@ export interface IntegrationManager {
 	 * branch in a fork, `headOwner` (the base repository's own owner, or none, means the base repository). A pull
 	 * request matches only when its head repository is the right one — the base repository itself, or the fork
 	 * `headOwner` owns — so a `main` in the base repository never claims every fork's `main`. The match is on the
-	 * head branch NAME, so a merged pull request whose branch was since deleted is still found.
+	 * head branch NAME, so a merged pull request whose branch was since deleted is still found, and a fork is matched
+	 * by its owner, so one whose fork was since deleted still matches that `headOwner`.
 	 *
 	 * Same result contract as {@link getPullRequestsBatch}, echoed under the caller's own `key`:
-	 * - `{ key, pullRequests: [...] }` — found. `truncated` means more may match than were returned.
+	 * - `{ key, pullRequests: [...] }` — found. `truncated` means a pull request that wasn't returned could still
+	 *   match. One exception on GitHub/GHE: on a branch name more forks share than the first request returned, a
+	 *   pull request from a since-deleted fork that request didn't return can't be found at all, so it can be
+	 *   missing from an answer, even an empty one, that isn't `truncated`.
 	 * - `{ key, pullRequests: [] }` with no `truncated` — PROVEN NONE: the host answered and nothing matched, or the
 	 *   base repository doesn't exist or isn't visible to this connection. Safe to cache.
 	 * - No item for a key, with `fetchFailed` and a warning — the read could not check. Never treat that as none.
@@ -767,9 +771,12 @@ export interface IntegrationManager {
 	 * looks the branch ref up and so answers "none" once a merged branch is deleted. The caller owns caching.
 	 *
 	 * Request cost: GitHub/GHE answer up to 25 targets per request (one aliased GraphQL document, fetching up to 10
-	 * full pull requests per target). Every other host costs one request per target, run with bounded concurrency;
-	 * GitLab and Azure DevOps then resolve each matched pull request — typically 0–1 per branch — through
-	 * {@link getPullRequestsBatch}'s own read, at that read's cost, so their rows are exactly its rows. Rows carry
+	 * full pull requests per target). That document matches the branch name across every fork, so a target whose
+	 * name more forks share than it returned costs one more REST request filtered by head owner, and a match only
+	 * that request found is resolved through {@link getPullRequestsBatch}'s own read, so its row is identical to the
+	 * others; the answer is the union of both requests' matches. Every other host costs one request per target, run
+	 * with bounded concurrency; GitLab and Azure DevOps then resolve each matched pull request — typically 0–1 per
+	 * branch — through {@link getPullRequestsBatch}'s own read, at that read's cost, so their rows are exactly its rows. Rows carry
 	 * the list reads' fields on GitHub/GHE and Bitbucket Data Center and Bitbucket Cloud's by-id read's on
 	 * Bitbucket Cloud. A `headOwner` naming another owner is refused on Bitbucket Data Center and Azure DevOps,
 	 * where a fork can't be found by its owner.

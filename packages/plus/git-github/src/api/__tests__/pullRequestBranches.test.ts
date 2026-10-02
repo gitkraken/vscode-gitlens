@@ -163,6 +163,7 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 		assert.doesNotMatch(getQuery(), /associatedPullRequests/);
 		// The full fragment, like the batch read.
 		assert.match(getQuery(), /reviewDecision/);
+		// The fork filter reads `headRepositoryOwner`, which outlives a deleted fork.
 		assert.match(getQuery(), /headRepositoryOwner/);
 		assert.equal(getVariables().h0, 'feature');
 		assert.equal(getVariables().n1, 'b');
@@ -212,6 +213,8 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 	});
 
 	test("a fork's pull request is still found after the fork was deleted", async () => {
+		// GitHub keeps a deleted fork's `headRepositoryOwner` (live: microsoft/vscode#336605) though it drops the
+		// head repository. Matching on the owner keeps the pull request, which REST's `head=owner:branch` can't see.
 		const { config } = serve({ b0: connection([prNode(4, { forkOwner: 'forker', forkDeleted: true })]) });
 		const api = new GitHubApi(config);
 
@@ -362,5 +365,132 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 
 		assert.deepEqual(await api.getPullRequestsForBranches(provider, token, [], limit), []);
 		assert.equal(called, false);
+	});
+});
+
+/**
+ * The REST step that settles a truncated branch target: `head=owner:branch` filters by head owner AND branch on the
+ * server, so its page holds only real matches, where GraphQL's `headRefName` page holds every fork's branch of that
+ * name.
+ */
+suite('GitHubApi.getPullRequestNumbersForBranch', () => {
+	const provider = {
+		id: 'github',
+		name: 'GitHub',
+		domain: 'github.com',
+		icon: 'github',
+		getIgnoreSSLErrors: () => false,
+		reauthenticate: () => Promise.resolve(),
+		trackRequestException: () => {},
+	} as unknown as Provider;
+
+	const token: GitHubTokenInfo = {
+		providerId: 'github',
+		accessToken: 'token',
+		microHash: 'hash',
+		cloud: true,
+		type: undefined,
+	};
+
+	function serve(status: number, body: unknown): { config: GitHubApiConfig; urls: string[] } {
+		const urls: string[] = [];
+		const config = {
+			isWeb: false,
+			wrapForForcedInsecureSSL: (_i: unknown, fn: () => unknown) => fn(),
+			fetch: async (url: unknown) => {
+				urls.push(String(url));
+				return new Response(JSON.stringify(body), {
+					status: status,
+					headers: { 'content-type': 'application/json' },
+				});
+			},
+		} as unknown as GitHubApiConfig;
+		return { config: config, urls: urls };
+	}
+
+	function pulls(...numbers: number[]): { number: number }[] {
+		return numbers.map(n => ({ number: n }));
+	}
+
+	test('asks for every state, newest updated first, one more than the limit, by head owner and branch', async () => {
+		const { config, urls } = serve(200, pulls(3, 1));
+		const api = new GitHubApi(config);
+
+		const out = await api.getPullRequestNumbersForBranch(provider, token, 'o', 'a', 'feature', {
+			headOwner: 'forker',
+			limit: 10,
+		});
+
+		assert.deepEqual(out, { numbers: [3, 1], truncated: false });
+		assert.equal(urls.length, 1);
+		const url = new URL(urls[0]);
+		assert.equal(url.origin, 'https://api.github.com');
+		assert.equal(url.pathname, '/repos/o/a/pulls');
+		assert.equal(url.searchParams.get('head'), 'forker:feature');
+		assert.equal(url.searchParams.get('state'), 'all');
+		assert.equal(url.searchParams.get('sort'), 'updated');
+		assert.equal(url.searchParams.get('direction'), 'desc');
+		assert.equal(url.searchParams.get('per_page'), '11');
+	});
+
+	test("a branch in the base repository is headed by the base repository's owner", async () => {
+		const { config, urls } = serve(200, []);
+		const api = new GitHubApi(config);
+
+		const out = await api.getPullRequestNumbersForBranch(provider, token, 'o', 'a', 'main', { limit: 10 });
+
+		assert.deepEqual(out, { numbers: [], truncated: false }, 'an empty page is a proven "none"');
+		assert.equal(new URL(urls[0]).searchParams.get('head'), 'o:main');
+	});
+
+	test('truncated when GitHub returned more than the limit, keeping only the limit', async () => {
+		const { config } = serve(200, pulls(...Array.from({ length: 11 }, (_, i) => 20 - i)));
+		const api = new GitHubApi(config);
+
+		const out = await api.getPullRequestNumbersForBranch(provider, token, 'o', 'a', 'main', { limit: 10 });
+
+		assert.equal(out.truncated, true);
+		assert.deepEqual(out.numbers, [20, 19, 18, 17, 16, 15, 14, 13, 12, 11]);
+	});
+
+	test('asks the GitHub Enterprise host it is given', async () => {
+		const { config, urls } = serve(200, []);
+		const api = new GitHubApi(config);
+
+		await api.getPullRequestNumbersForBranch(provider, token, 'o', 'a', 'main', {
+			baseUrl: 'https://ghe.example.com/api/v3',
+			limit: 10,
+		});
+
+		const url = new URL(urls[0]);
+		assert.equal(url.origin, 'https://ghe.example.com');
+		assert.equal(url.pathname, '/api/v3/repos/o/a/pulls');
+	});
+
+	for (const status of [404, 500]) {
+		test(`a ${status} throws rather than reading as "none"`, async () => {
+			const { config } = serve(status, { message: 'nope' });
+			const api = new GitHubApi(config);
+
+			await assert.rejects(() =>
+				api.getPullRequestNumbersForBranch(provider, token, 'o', 'a', 'main', { limit: 10 }),
+			);
+		});
+	}
+
+	test('a 403 is an authentication failure for the caller to judge, prompting nothing', async () => {
+		let prompted = false;
+		const { config } = serve(403, { message: 'Resource protected by organization SAML enforcement.' });
+		(config as { onAuthenticationFailure?: () => Promise<boolean> }).onAuthenticationFailure = () => {
+			prompted = true;
+			return Promise.resolve(false);
+		};
+		const api = new GitHubApi(config);
+
+		await assert.rejects(
+			() => api.getPullRequestNumbersForBranch(provider, token, 'o', 'a', 'main', { limit: 10 }),
+			(ex: unknown) => ex instanceof AuthenticationError,
+		);
+		assert.equal(prompted, false);
 	});
 });
