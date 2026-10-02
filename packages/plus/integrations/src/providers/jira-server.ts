@@ -1,6 +1,6 @@
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
-import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
+import type { Issue, IssueProjection, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { IssueResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { Emitter } from '@gitlens/utils/event.js';
@@ -330,7 +330,7 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 
 			return {
 				issues: result.issues
-					.map(issue => toIssueShape(issue, this))
+					.map(issue => toIssueShape(issue, this, { projection: 'project' }))
 					.filter((r): r is IssueShape => r !== undefined),
 				status: result.status,
 				metadata: result.metadata,
@@ -412,7 +412,7 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 
 		const unscoped = await drainIssues({});
 		const values = unscoped.issues
-			.map(issue => toIssueShape(issue, this))
+			.map(issue => toIssueShape(issue, this, { projection: 'project' }))
 			.filter((result): result is IssueShape => result !== undefined);
 		return unscoped.status !== 'complete'
 			? {
@@ -490,7 +490,9 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 			}
 
 			results.push(
-				...page.data.map(issue => toIssueShape(issue, this)).filter((r): r is IssueShape => r != null),
+				...page.data
+					.map(issue => toIssueShape(issue, this, { projection: 'account' }))
+					.filter((r): r is IssueShape => r != null),
 			);
 
 			if (!page.hasMore) break;
@@ -521,7 +523,7 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 	): Promise<IssueOrPullRequest | undefined> {
 		const api = await this.getProvidersApi();
 		const issue = await api.getJiraServerIssue(toTokenWithInfo(this.id, session), this.apiBaseUrlFor(session), key);
-		return issue != null ? toIssueShape(issue, this) : undefined;
+		return issue != null ? toIssueShape(issue, this, { projection: 'point' }) : undefined;
 	}
 
 	protected override async getProviderIssue(
@@ -529,13 +531,21 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		_resource: JiraServerResourceDescriptor,
 		id: string,
 	): Promise<Issue | undefined> {
+		return this.readIssue(session, id, 'point');
+	}
+
+	private async readIssue(
+		session: ProviderAuthenticationSession,
+		id: string,
+		projection: IssueProjection,
+	): Promise<Issue | undefined> {
 		const api = await this.getProvidersApi();
 		const apiResult = await api.getJiraServerIssue(
 			toTokenWithInfo(this.id, session),
 			this.apiBaseUrlFor(session),
 			id,
 		);
-		const issue = apiResult != null ? toIssueShape(apiResult, this) : undefined;
+		const issue = apiResult != null ? toIssueShape(apiResult, this, { projection: projection }) : undefined;
 		return issue != null ? { ...issue, type: 'issue' } : undefined;
 	}
 
@@ -553,7 +563,7 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		id: string,
 		_resourceUrl: string | undefined,
 	): Promise<Issue | undefined> {
-		return this.getProviderIssue(session, this.resourceFor(session), id);
+		return this.readIssue(session, id, 'batch');
 	}
 
 	/**

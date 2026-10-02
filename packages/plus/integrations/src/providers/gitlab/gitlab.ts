@@ -643,6 +643,28 @@ export class GitLabApi implements Disposable {
 				// TODO@eamodio this isn't right, but GitLab doesn't seem to provide a closedAt on merge requests in GraphQL
 				pr.state !== 'closed' ? undefined : new Date(pr.updatedAt),
 				pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
+				undefined, // mergeableState
+				undefined, // viewerCanUpdate
+				undefined, // refs
+				undefined, // isDraft
+				undefined, // additions
+				undefined, // deletions
+				undefined, // commentsCount
+				undefined, // thumbsUpCount
+				undefined, // reviewDecision
+				undefined, // reviewRequests
+				undefined, // latestReviews
+				undefined, // assignees
+				undefined, // statusCheckRollupState
+				undefined, // project
+				undefined, // version
+				undefined, // commitCount
+				undefined, // stack
+				undefined, // filesChanged
+				undefined, // body
+				undefined, // number
+				undefined, // authoredByMe
+				'point',
 			);
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
@@ -700,7 +722,7 @@ export class GitLabApi implements Disposable {
 				);
 			}
 
-			return fromGitLabMergeRequestREST(mrs[0], provider, { owner: owner, repo: repo });
+			return fromGitLabMergeRequestREST(mrs[0], provider, { owner: owner, repo: repo }, 'point');
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
@@ -810,7 +832,7 @@ export class GitLabApi implements Disposable {
 			if (rsp.data.project?.mergeRequest == null) return undefined;
 
 			const pr = rsp.data.project.mergeRequest;
-			return fromGitLabMergeRequest(pr, provider);
+			return fromGitLabMergeRequest(pr, provider, 'point');
 		} catch (ex) {
 			if (!options?.strict && ex instanceof RequestNotFoundError) return undefined;
 
@@ -1340,7 +1362,7 @@ export class GitLabApi implements Disposable {
 						sourceBranch: restPR.source_branch,
 						targetBranch: restPR.target_branch,
 					};
-					accum.push(fromGitLabMergeRequest(fullPr, provider));
+					accum.push(fromGitLabMergeRequest(fullPr, provider, 'text-search'));
 					return accum;
 				}, []);
 				return resultPRs;

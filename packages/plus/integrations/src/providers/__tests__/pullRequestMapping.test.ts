@@ -710,13 +710,14 @@ function gitHubPullRequestNode(overrides?: Record<string, unknown>): GitHubPullR
 	} as unknown as GitHubPullRequest;
 }
 
-/** GitLens' own GitHub read, as the account-wide and batch reads return it: the native row. */
+/** GitLens' own GitHub read, as the account-wide and batch reads return it: the native row, tagged for the read. */
 function nativeGitHub(
 	overrides?: Record<string, unknown>,
 	currentAccount?: { id: string; username?: string },
 ): PullRequest {
 	return stampNativePullRequest(fromGitHubPullRequest(gitHubPullRequestNode(overrides), fakeProvider), {
 		currentAccount: currentAccount,
+		projection: 'batch',
 	});
 }
 
@@ -832,15 +833,17 @@ suite('the GitHub native row keeps what the read fetched, and invents nothing', 
 	});
 });
 
-suite('a GitHub native row is finished for the read that returned it', () => {
-	test('on a copy of the mapped row', () => {
-		const mapped = fromGitHubPullRequest(gitHubPullRequestNode(), fakeProvider);
-		const stamped = stampNativePullRequest(mapped, {});
+suite('a GitHub native row is tagged for the read that returned it', () => {
+	test('with its projection, on a copy of the mapped row', () => {
+		const mapped = fromGitHubPullRequest(gitHubPullRequestNode(), fakeProvider, 'search');
+		const stamped = stampNativePullRequest(mapped, { projection: 'batch' });
 
 		assert.ok(stamped instanceof PullRequest);
 		assert.notEqual(stamped, mapped);
+		assert.equal(stamped.projection, 'batch');
+		assert.equal(mapped.projection, 'search', 'the mapped row is left as it was built');
 		assert.equal(stamped.closed, false, 'the class getters still answer');
-		assert.deepEqual({ ...stamped }, { ...mapped });
+		assert.deepEqual({ ...stamped, projection: 'search' }, { ...mapped });
 	});
 
 	test("with authorship by provider-apis rows' rule: the login matches, though the ids never can", () => {
@@ -866,24 +869,30 @@ suite('a GitHub native row is finished for the read that returned it', () => {
 		assert.equal(pr.authoredByMe, false);
 	});
 
-	test("an account-wide row is kept when it is native, and converted when it is provider-apis'", () => {
+	test("an account-wide row is tagged when it is native, and converted when it is provider-apis'", () => {
 		const native = toPullRequestRow(fromGitHubPullRequest(gitHubPullRequestNode(), fakeProvider), fakeProvider, {
 			currentAccount: { id: '641685', username: 'reviewer' },
+			projection: 'account',
 		});
+		assert.equal(native.projection, 'account');
 		assert.equal(native.authoredByMe, true);
 		assert.equal(native.viewerCanUpdate, false, "a value the SDK's shape has no slot for is kept");
 
-		const sdk = toPullRequestRow(createProviderPullRequest({ description: 'From the SDK' }), fakeProvider, {});
+		const sdk = toPullRequestRow(createProviderPullRequest({ description: 'From the SDK' }), fakeProvider, {
+			projection: 'account-summary',
+		});
+		assert.equal(sdk.projection, 'account-summary');
 		assert.equal(sdk.body, 'From the SDK');
 	});
 
 	test('a provider-apis row that grows a `type` key is still converted, not taken for a native one', () => {
 		const sdkRow = { ...createProviderPullRequest({ description: 'From the SDK' }), type: 'pullrequest' };
 
-		const pr = toPullRequestRow(sdkRow, fakeProvider, {});
+		const pr = toPullRequestRow(sdkRow, fakeProvider, { projection: 'repos' });
 
 		assert.equal(pr.body, 'From the SDK');
 		assert.equal(pr.provider, fakeProvider);
+		assert.equal(pr.projection, 'repos');
 	});
 });
 

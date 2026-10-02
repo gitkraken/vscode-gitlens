@@ -779,8 +779,13 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 
 			assert.equal(calls.own, 0);
 			const issue = result.items[0]?.issue;
-			assert.ok(issue != null);
-			assert.deepEqual(issue, list.items[0]);
+			assert.ok(issue != null && list.items[0] != null);
+			// The tag names the read, so the two rows' tags differ; every other field is the same conversion.
+			const { projection, ...listed } = list.items[0];
+			const { projection: batchProjection, ...batched } = issue;
+			assert.equal(projection, 'repos');
+			assert.equal(batchProjection, 'batch');
+			assert.deepEqual(batched, listed);
 			// Neither is set by GitLens' own GitLab issue conversion, only by the list read's.
 			assert.deepEqual(issue.labels, [{ name: 'bug', color: '#ff0000' }]);
 			assert.equal(issue.thumbsUpCount, 3);
@@ -1105,12 +1110,15 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 			});
 
 			const issue = result.items[0]?.issue;
-			assert.ok(issue != null);
+			assert.ok(issue != null && list.items[0] != null);
 			assert.equal(list.items.length, 1);
-			// The reaction count differs: provider-apis fills a literal 0, which GitLens' copy leaves unset, since work items
-			// have no reactions. Every other field is the same conversion.
-			const { thumbsUpCount: listedThumbsUp, ...listed } = list.items[0];
-			const { thumbsUpCount: batchedThumbsUp, ...batched } = issue;
+			// The tag names the read, so the two rows' tags differ. The reaction count does too: provider-apis fills a
+			// literal 0, which GitLens' copy leaves unset, since work items have no reactions. Every other field is the
+			// same conversion.
+			const { projection, thumbsUpCount: listedThumbsUp, ...listed } = list.items[0];
+			const { projection: batchProjection, thumbsUpCount: batchedThumbsUp, ...batched } = issue;
+			assert.equal(projection, 'repos');
+			assert.equal(batchProjection, 'batch');
 			assert.equal(listedThumbsUp, 0);
 			assert.equal(batchedThumbsUp, undefined);
 			assert.deepEqual(batched, listed);

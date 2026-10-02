@@ -1,5 +1,6 @@
 import type { CollectionScope, CollectionScopeFailure, CollectionScopeFailureKind } from '@gitkraken/provider-apis';
 import type {
+	PullRequestProjection,
 	PullRequestSearchCriteria,
 	PullRequestSorting,
 	PullRequestStateFilter,
@@ -138,7 +139,14 @@ const orderParams: Partial<Record<PullRequestSorting, string>> = {
 export async function searchBitbucketServerPullRequestsPage(
 	request: ProviderRequestFunction,
 	token: Token,
-	options: SearchOptions & { connectionId: string; provider: Provider; cursor?: string; pageSize?: number },
+	options: SearchOptions & {
+		connectionId: string;
+		provider: Provider;
+		cursor?: string;
+		pageSize?: number;
+		/** The calling read, stamped on every row. */
+		projection?: PullRequestProjection;
+	},
 	cancellation?: AbortSignal,
 ): Promise<ProviderPullRequestSearchPage> {
 	const query = toQuery(options);
@@ -219,6 +227,7 @@ export async function searchBitbucketServerPullRequestsPage(
 			.map(pr =>
 				fromProviderPullRequest(pr, options.provider, {
 					currentAccount: options.currentUser?.id != null ? { id: options.currentUser.id } : undefined,
+					projection: options.projection,
 				}),
 			)
 			.sort(comparator),

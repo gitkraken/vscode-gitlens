@@ -1,5 +1,5 @@
 import type { GitBuildStatus } from '@gitkraken/provider-apis';
-import type { PullRequestRefs, PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestProjection, PullRequestRefs, PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type {
@@ -152,6 +152,7 @@ export function fromGitLabMergeRequestREST(
 	pr: GitLabMergeRequestREST,
 	provider: Provider,
 	repo: { owner: string; repo: string },
+	projection?: PullRequestProjection,
 ): PullRequest {
 	return new PullRequest(
 		provider,
@@ -173,6 +174,28 @@ export function fromGitLabMergeRequestREST(
 		new Date(pr.updated_at),
 		pr.closed_at == null ? undefined : new Date(pr.closed_at),
 		pr.merged_at == null ? undefined : new Date(pr.merged_at),
+		undefined, // mergeableState
+		undefined, // viewerCanUpdate
+		undefined, // refs
+		undefined, // isDraft
+		undefined, // additions
+		undefined, // deletions
+		undefined, // commentsCount
+		undefined, // thumbsUpCount
+		undefined, // reviewDecision
+		undefined, // reviewRequests
+		undefined, // latestReviews
+		undefined, // assignees
+		undefined, // statusCheckRollupState
+		undefined, // project
+		undefined, // version
+		undefined, // commitCount
+		undefined, // stack
+		undefined, // filesChanged
+		undefined, // body
+		undefined, // number
+		undefined, // authoredByMe
+		projection,
 	);
 }
 
@@ -192,16 +215,24 @@ export interface GitLabProjectREST {
 	};
 }
 
-export function fromGitLabMergeRequestProvidersApi(pr: ProviderPullRequest, provider: Integration): PullRequest {
+export function fromGitLabMergeRequestProvidersApi(
+	pr: ProviderPullRequest,
+	provider: Integration,
+	projection?: PullRequestProjection,
+): PullRequest {
 	const wrappedPr: ProviderPullRequest = {
 		...pr,
 		// @gitkraken/providers-api returns global ID as id, while allover GitLens we use internal ID (iid) that is returned as `number`:
 		id: String(pr.number),
 	};
-	return fromProviderPullRequest(wrappedPr, provider);
+	return fromProviderPullRequest(wrappedPr, provider, { projection: projection });
 }
 
-export function fromGitLabMergeRequest(pr: GitLabMergeRequestFull, provider: Provider): PullRequest {
+export function fromGitLabMergeRequest(
+	pr: GitLabMergeRequestFull,
+	provider: Provider,
+	projection?: PullRequestProjection,
+): PullRequest {
 	let avatarUrl: string | undefined;
 	try {
 		avatarUrl = new URL(pr.author?.avatarUrl ?? '').toString();
@@ -247,6 +278,25 @@ export function fromGitLabMergeRequest(pr: GitLabMergeRequestFull, provider: Pro
 		undefined, // mergeableState: not selected
 		undefined, // viewerCanUpdate
 		fromGitLabMergeRequestRefs(pr), // PullRequestRefs
+		undefined, // isDraft
+		undefined, // additions
+		undefined, // deletions
+		undefined, // commentsCount
+		undefined, // thumbsUpCount
+		undefined, // reviewDecision
+		undefined, // reviewRequests
+		undefined, // latestReviews
+		undefined, // assignees
+		undefined, // statusCheckRollupState
+		undefined, // project
+		undefined, // version
+		undefined, // commitCount
+		undefined, // stack
+		undefined, // filesChanged
+		undefined, // body
+		undefined, // number
+		undefined, // authoredByMe
+		projection,
 	);
 }
 

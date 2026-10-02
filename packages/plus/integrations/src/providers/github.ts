@@ -927,7 +927,9 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					cancellation,
 				),
 			(pr): PullRequestShape | undefined =>
-				pr != null ? stampNativePullRequest(pr, { currentAccount: currentAccount }) : undefined,
+				pr != null
+					? stampNativePullRequest(pr, { currentAccount: currentAccount, projection: 'batch' })
+					: undefined,
 		);
 	}
 
@@ -1017,7 +1019,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				),
 			(found): { pullRequests: PullRequestShape[]; truncated: boolean } => ({
 				pullRequests: found.pullRequests.map(pr =>
-					stampNativePullRequest(pr, { currentAccount: currentAccount }),
+					stampNativePullRequest(pr, { currentAccount: currentAccount, projection: 'batch' }),
 				),
 				truncated: found.truncated,
 			}),

@@ -7,6 +7,7 @@ import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/mo
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestProjection,
 	PullRequestShape,
 	PullRequestState,
 	PullRequestStateFilter,
@@ -930,7 +931,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			);
 			if (issue == null) return undefined;
 
-			const shape = toIssueShape(issue, this);
+			const shape = toIssueShape(issue, this, { projection: 'batch' });
 			if (shape == null) {
 				throw new Error(`Azure DevOps returned work item ${c.number} without a URL or change date`);
 			}
@@ -963,7 +964,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			);
 			if (pr == null) return undefined;
 
-			return fromProviderPullRequest(pr, this, { currentAccount: await viewerFor(c.owner) });
+			return fromProviderPullRequest(pr, this, { currentAccount: await viewerFor(c.owner), projection: 'batch' });
 		});
 	}
 
@@ -1248,7 +1249,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		]
 			.filter(r => r != null)
 			.flat();
-		return result.values.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
+		return result.values.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects, 'search'));
 	}
 
 	protected override async getProviderMyPullRequestsForUser(
@@ -1573,7 +1574,7 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		return [...new Map(providerPullRequests.map(pr => [pr.url ?? `${pr.repository.id}:${pr.id}`, pr])).values()]
 			.filter(pr => providerPullRequestMatchesSearch(pr, searchQuery))
-			.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
+			.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects, 'text-search'));
 	}
 
 	protected override async searchProviderMyIssues(
@@ -1670,7 +1671,7 @@ export abstract class AzureDevOpsIntegrationBase<
 				{ providerId: this.id, resourceId: p.resourceId, projectId: p.name },
 			);
 			return {
-				issues: result.values.map(i => fromProviderIssue(i, this, { project: p })),
+				issues: result.values.map(i => fromProviderIssue(i, this, { project: p, projection: 'account' })),
 				// Azure work-item ids are organization-scoped. Include both org and project so the
 				// assigned/authored passes dedupe the same item without collapsing another org's item.
 				projectKey: `${p.resourceId}:${p.id}`,
@@ -1833,6 +1834,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		azurePullRequest: ProviderPullRequest,
 		repoDescriptors: AzureRemoteRepositoryDescriptor[],
 		projectDescriptors: AzureProjectDescriptor[],
+		projection: PullRequestProjection,
 	): PullRequest {
 		const baseRepoDescriptor = repoDescriptors.find(r => r.id === azurePullRequest.repository.id);
 		const headRepoDescriptor =
@@ -1869,7 +1871,7 @@ export abstract class AzureDevOpsIntegrationBase<
 				p => p.resourceName === baseRepoDescriptor.resourceName && p.name === baseRepoDescriptor.projectName,
 			);
 		}
-		return fromProviderPullRequest(azurePullRequest, this, { project: project });
+		return fromProviderPullRequest(azurePullRequest, this, { project: project, projection: projection });
 	}
 }
 

@@ -13,7 +13,13 @@ import {
 } from '@gitlens/git/errors.js';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
-import type { Issue, IssueSearchCriteria, IssueShape, IssueSorting } from '@gitlens/git/models/issue.js';
+import type {
+	Issue,
+	IssueProjection,
+	IssueSearchCriteria,
+	IssueShape,
+	IssueSorting,
+} from '@gitlens/git/models/issue.js';
 import { defaultIssueSort } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
@@ -1168,7 +1174,7 @@ export class GitHubApi {
 
 			if (rsp?.repository?.issue == null) return undefined;
 
-			return fromGitHubIssue(rsp.repository.issue, provider);
+			return fromGitHubIssue(rsp.repository.issue, provider, issueProjection('point', options));
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
@@ -1237,7 +1243,7 @@ export class GitHubApi {
 
 			if (rsp?.repository?.pullRequest == null) return undefined;
 
-			return fromGitHubPullRequestLite(rsp.repository.pullRequest, provider);
+			return fromGitHubPullRequestLite(rsp.repository.pullRequest, provider, 'point');
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
@@ -1335,7 +1341,7 @@ export class GitHubApi {
 				);
 			}
 
-			return fromGitHubPullRequestLite(prs[0], provider);
+			return fromGitHubPullRequestLite(prs[0], provider, 'point');
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
@@ -1431,7 +1437,7 @@ export class GitHubApi {
 				);
 			}
 
-			return fromGitHubPullRequestLite(prs[0], provider);
+			return fromGitHubPullRequestLite(prs[0], provider, 'point');
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
@@ -4063,7 +4069,9 @@ export class GitHubApi {
 			if (rsp == null) return { values: [], hasMore: false, truncated: false };
 
 			const results: PullRequest[] = rsp.search.nodes.map(pr =>
-				options?.summary ? fromGitHubPullRequestLite(pr, provider) : fromGitHubPullRequest(pr, provider),
+				options?.summary
+					? fromGitHubPullRequestLite(pr, provider, 'search-summary')
+					: fromGitHubPullRequest(pr, provider, 'search'),
 			);
 			return {
 				values: results,
@@ -4254,6 +4262,7 @@ export class GitHubApi {
 				// This read emitted no `sort:` qualifier at all before ordering existed, so a cursor with no
 				// recorded key came out of a relevance-ordered walk.
 				legacySort: unsortedCursorSort,
+				projection: 'account',
 			},
 			cancellation,
 		);
@@ -4344,6 +4353,7 @@ export class GitHubApi {
 				// recorded key came out of a walk under exactly that key, and only a caller asking for a
 				// different one has to restart.
 				legacySort: defaultIssueSort,
+				projection: 'search',
 			},
 			cancellation,
 		);
@@ -4539,7 +4549,10 @@ export class GitHubApi {
 				if (node == null) return { status: 'fulfilled', value: undefined };
 
 				try {
-					return { status: 'fulfilled', value: fromGitHubIssue(node, provider) };
+					return {
+						status: 'fulfilled',
+						value: fromGitHubIssue(node, provider, issueProjection('batch', options)),
+					};
 				} catch (ex) {
 					// Rejects rather than reading as absent: `undefined` here is a proven absence the consumer
 					// caches, so it would publish a live issue as gone.
@@ -5042,6 +5055,8 @@ export class GitHubApi {
 			pageSize?: number;
 			sort?: IssueSorting;
 			legacySort: IssueSorting | typeof unsortedCursorSort;
+			/** The calling read, stamped on every row. */
+			projection: IssueProjection;
 		},
 		cancellation?: AbortSignal,
 	): Promise<AliasedIssueSearchResult | undefined> {
@@ -5223,7 +5238,7 @@ export class GitHubApi {
 					if (node?.id == null) continue;
 
 					try {
-						const issue = fromGitHubIssue(node, provider);
+						const issue = fromGitHubIssue(node, provider, issueProjection(options.projection, options));
 						if (seen?.has(issue.url) !== true) {
 							mapped.push(issue);
 						}
@@ -5583,8 +5598,8 @@ export class GitHubApi {
 						// report "no reviewers"/"no checks" as FACTS rather than as unselected.
 						pullRequests.push(
 							options?.summary
-								? fromGitHubPullRequestLite(node, provider)
-								: fromGitHubPullRequest(node, provider),
+								? fromGitHubPullRequestLite(node, provider, 'search-summary')
+								: fromGitHubPullRequest(node, provider, 'search'),
 						);
 					} catch (ex) {
 						scope?.warn(`skipped unmappable pull request; id=${node.id}, url=${node.url}, ex=${ex}`);
@@ -5740,7 +5755,7 @@ export class GitHubApi {
 			const results: PullRequest[] = [];
 			for (const { alias } of stateSearches) {
 				for (const node of rsp[alias]?.nodes ?? []) {
-					results.push(fromGitHubPullRequest(node, provider));
+					results.push(fromGitHubPullRequest(node, provider, 'text-search'));
 				}
 			}
 
@@ -5985,6 +6000,17 @@ export class GitHubApi {
 			throw this.handleException(ex, provider, scope);
 		}
 	}
+}
+
+/**
+ * Every issue read's presence table assumes the body was selected, so a read without `includeBody` is left
+ * untagged (unknown) rather than claiming a description it never fetched.
+ */
+function issueProjection(
+	projection: IssueProjection,
+	options: { includeBody?: boolean } | undefined,
+): IssueProjection | undefined {
+	return options?.includeBody ? projection : undefined;
 }
 
 function isGitHubDotCom(options?: { baseUrl?: string }) {

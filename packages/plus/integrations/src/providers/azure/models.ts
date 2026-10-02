@@ -1,7 +1,7 @@
-import type { IssueIteration, IssueMember } from '@gitlens/git/models/issue.js';
+import type { IssueIteration, IssueMember, IssueProjection } from '@gitlens/git/models/issue.js';
 import { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequestMember, PullRequestReviewer } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestMember, PullRequestProjection, PullRequestReviewer } from '@gitlens/git/models/pullRequest.js';
 import {
 	PullRequest,
 	PullRequestMergeableState,
@@ -648,6 +648,7 @@ export function fromAzurePullRequest(
 	owner: string,
 	baseUrl: string,
 	forkRepositoryUrls: AzureForkRepositoryUrls | undefined,
+	projection?: PullRequestProjection,
 ): PullRequest {
 	const baseRepositoryUrl = getAzureRepositoryWebUrl(baseUrl, owner, pr.repository.project.name, pr.repository.name);
 	const baseCloneHttps = getAzureRepositoryCloneUrl(pr.repository, baseUrl, owner);
@@ -713,6 +714,14 @@ export function fromAzurePullRequest(
 			resourceId: '', // TODO: This is a workaround until we can get the org id here.
 			resourceName: owner,
 		},
+		undefined, // version
+		undefined, // commitCount
+		undefined, // stack
+		undefined, // filesChanged
+		undefined, // body
+		undefined, // number
+		undefined, // authoredByMe
+		projection,
 	);
 }
 
@@ -721,6 +730,7 @@ export function fromAzureWorkItem(
 	provider: Provider,
 	project: AzureProjectDescriptor,
 	stateCategory?: AzureWorkItemStateCategory,
+	projection?: IssueProjection,
 ): Issue {
 	return new Issue(
 		provider,
@@ -750,6 +760,7 @@ export function fromAzureWorkItem(
 		undefined,
 		undefined,
 		toWorkItemIterations(workItem.fields['System.IterationPath']),
+		projection,
 	);
 }
 

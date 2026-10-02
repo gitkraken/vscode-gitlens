@@ -161,6 +161,24 @@ export interface IssueSearchCapabilities {
 	sorts: IssueSorting[];
 }
 
+/**
+ * The read that produced an issue row, as a key for `getIssueFieldPresence` (`@gitlens/integrations`). It names a
+ * READ, not a field set: the same tag can carry different fields on different providers.
+ */
+export type IssueProjection =
+	/** A single-item read. */
+	| 'point'
+	/** The filtered search. */
+	| 'search'
+	/** The account-wide list, and the trackers' "my issues". */
+	| 'account'
+	/** A repository-scoped list. */
+	| 'repos'
+	/** A tracker project's issues (`listIssueTrackerIssuesPage`, `getIssuesForProject`). */
+	| 'project'
+	/** The batch read. */
+	| 'batch';
+
 export interface IssueShape extends IssueOrPullRequest {
 	/** `undefined` when the provider can't resolve the author, e.g. a deleted GitHub account */
 	author: IssueMember | undefined;
@@ -170,12 +188,17 @@ export interface IssueShape extends IssueOrPullRequest {
 	repository?: IssueRepository;
 	labels?: IssueLabel[];
 	body?: string;
-	/** The syntax used by `body`. When omitted, consumers should treat `body` as Markdown. */
+	/**
+	 * The syntax used by `body`. When omitted, consumers should treat `body` as Markdown — except that Azure DevOps
+	 * work items and Bitbucket Cloud issues carry HTML with no `bodyFormat` set.
+	 */
 	bodyFormat?: IssueBodyFormat;
 	project?: IssueProject;
 	issueType?: string;
 	/** An issue can belong to several Jira sprints; Azure reports one iteration. */
 	iterations?: IssueIteration[];
+	/** The read that produced this row. Absent means unknown: a legacy row, or a provider or read not yet tagged. */
+	readonly projection?: IssueProjection;
 }
 
 @loggable(i => i.id)
@@ -206,6 +229,7 @@ export class Issue implements IssueShape {
 		public readonly providerState?: IssueProviderState,
 		public readonly bodyFormat?: IssueBodyFormat,
 		public readonly iterations?: IssueIteration[],
+		public readonly projection?: IssueProjection,
 	) {}
 
 	static is(issue: unknown): issue is Issue {
