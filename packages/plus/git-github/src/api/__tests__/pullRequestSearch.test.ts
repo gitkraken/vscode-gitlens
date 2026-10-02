@@ -7,6 +7,7 @@ import type { GitHubApiConfig } from '../config.js';
 import { GitHubApi } from '../github.js';
 import { toGitHubPullRequestSearchFacets, toGitHubPullRequestSortQualifier } from '../pullRequestSearchQuery.js';
 import type { GitHubTokenInfo } from '../token.js';
+import { gitHubPullRequest } from './fixtures.js';
 
 suite('GitHubApi.searchPullRequestsPage', () => {
 	const provider = {
@@ -93,53 +94,11 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 	}
 
 	function prNode(number: number, updatedAt: string): unknown {
-		return {
-			id: `node-${number}`,
-			number: number,
-			title: `PR ${number}`,
-			body: `Body ${number}`,
-			permalink: `https://github.com/octo/repo/pull/${number}`,
-			url: `https://github.com/octo/repo/pull/${number}`,
-			state: 'OPEN',
-			createdAt: '2024-01-01T00:00:00Z',
-			updatedAt: updatedAt,
-			closedAt: null,
-			mergedAt: null,
-			author: { login: 'octo', avatarUrl: '', url: 'https://github.com/octo' },
-			baseRefName: 'main',
-			baseRefOid: 'base',
-			headRefName: 'feature',
-			headRefOid: 'head',
-			headRepository: {
-				isFork: false,
-				name: 'repo',
-				owner: { login: 'octo' },
-				sshUrl: 'git@github.com:octo/repo.git',
-				url: 'https://github.com/octo/repo',
-			},
-			repository: {
-				isFork: false,
-				name: 'repo',
-				owner: { login: 'octo' },
-				sshUrl: 'git@github.com:octo/repo.git',
-				url: 'https://github.com/octo/repo',
-				viewerPermission: 'WRITE',
-			},
-			isCrossRepository: false,
-			isDraft: false,
-			additions: 1,
-			deletions: 1,
-			checksUrl: '',
-			mergeable: 'MERGEABLE',
-			reviewDecision: 'APPROVED',
-			latestReviews: { nodes: [] },
-			viewerLatestReview: null,
-			reviewRequests: { nodes: [] },
-			assignees: { nodes: [] },
-			commits: { nodes: [] },
-			totalCommentsCount: 0,
-			viewerCanUpdate: true,
-		};
+		return gitHubPullRequest(
+			number,
+			{ createdAt: '2024-01-01T00:00:00Z', updatedAt: updatedAt },
+			{ owner: 'octo', name: 'repo' },
+		);
 	}
 
 	test('unions visible relationships and terminal states in one upstream request', async () => {

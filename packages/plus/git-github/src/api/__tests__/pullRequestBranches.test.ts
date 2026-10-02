@@ -5,6 +5,7 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubApiConfig } from '../config.js';
 import { GitHubApi } from '../github.js';
 import type { GitHubTokenInfo } from '../token.js';
+import { gitHubPullRequest } from './fixtures.js';
 
 /**
  * The pull-requests-by-branch read: N branches in one aliased document, each answered with every pull request whose
@@ -68,59 +69,29 @@ suite('GitHubApi.getPullRequestsForBranches', () => {
 			forkDeleted?: boolean;
 		},
 	): Record<string, unknown> {
-		const branch = options?.branch ?? 'feature';
+		const state = options?.state ?? 'OPEN';
+		const updatedAt = options?.updatedAt ?? '2026-01-01T00:00:00Z';
 		const headOwner = options?.forkOwner ?? 'o';
-		const repository = {
-			isFork: false,
-			name: 'a',
-			owner: { login: 'o' },
-			sshUrl: 'git@github.com:o/a.git',
-			url: 'https://github.com/o/a',
-		};
 		return {
-			id: `node-${number}`,
-			number: number,
-			title: `PR ${number}`,
-			body: `Body ${number}`,
-			permalink: `https://github.com/o/a/pull/${number}`,
-			url: `https://github.com/o/a/pull/${number}`,
-			state: options?.state ?? 'OPEN',
-			createdAt: '2026-01-01T00:00:00Z',
-			updatedAt: options?.updatedAt ?? '2026-01-01T00:00:00Z',
-			closedAt: options?.state === 'MERGED' ? (options.updatedAt ?? '2026-01-01T00:00:00Z') : null,
-			mergedAt: options?.state === 'MERGED' ? (options.updatedAt ?? '2026-01-01T00:00:00Z') : null,
-			closed: options?.state === 'MERGED' || options?.state === 'CLOSED',
-			author: { login: 'octo', avatarUrl: '', url: 'https://github.com/octo' },
-			baseRefName: 'main',
-			baseRefOid: 'base',
-			headRefName: branch,
-			headRefOid: 'head',
-			headRepository: options?.forkDeleted
-				? null
-				: {
-						isFork: options?.forkOwner != null,
-						name: 'a',
-						owner: { login: headOwner },
-						sshUrl: `git@github.com:${headOwner}/a.git`,
-						url: `https://github.com/${headOwner}/a`,
-					},
-			headRepositoryOwner: { login: headOwner },
-			repository: { ...repository, viewerPermission: 'WRITE' },
-			isCrossRepository: options?.forkOwner != null,
-			isDraft: false,
-			additions: 1,
-			deletions: 1,
-			changedFiles: 1,
-			checksUrl: '',
-			mergeable: 'MERGEABLE',
-			reviewDecision: 'APPROVED',
-			latestReviews: { nodes: [] },
-			viewerLatestReview: null,
-			reviewRequests: { nodes: [] },
-			assignees: { nodes: [] },
-			commits: { totalCount: 0, nodes: [] },
-			totalCommentsCount: 0,
-			viewerCanUpdate: true,
+			...gitHubPullRequest(number, {
+				state: state,
+				updatedAt: updatedAt,
+				closedAt: state === 'MERGED' ? updatedAt : null,
+				mergedAt: state === 'MERGED' ? updatedAt : null,
+				closed: state === 'MERGED' || state === 'CLOSED',
+				headRefName: options?.branch ?? 'feature',
+				headRepository: options?.forkDeleted
+					? null
+					: {
+							isFork: options?.forkOwner != null,
+							name: 'a',
+							owner: { login: headOwner },
+							sshUrl: `git@github.com:${headOwner}/a.git`,
+							url: `https://github.com/${headOwner}/a`,
+						},
+				headRepositoryOwner: { login: headOwner },
+				isCrossRepository: options?.forkOwner != null,
+			}),
 		};
 	}
 

@@ -20,6 +20,7 @@ import type { ProvidersApi } from '../providers/providersApi.js';
 import { noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
+import { gitHubPullRequest } from './githubFixtures.js';
 import {
 	connectedAzure,
 	connectedBitbucket,
@@ -206,49 +207,19 @@ function sdkHttpError(status: number, body: unknown): Error {
 /** A GitHub GraphQL pull request node from `o/a`'s `feature` branch, or from a fork's `feature` when `forkOwner`. */
 function gitHubPullRequestNode(number: number, forkOwner?: string): Record<string, unknown> {
 	const headOwner = forkOwner ?? 'o';
-	const repository = {
-		isFork: false,
-		name: 'a',
-		owner: { login: 'o' },
-		sshUrl: 'git@github.com:o/a.git',
-		url: 'https://github.com/o/a',
-	};
 	return {
-		id: `node-${number}`,
-		number: number,
-		title: `PR ${number}`,
-		body: '',
-		permalink: `https://github.com/o/a/pull/${number}`,
-		url: `https://github.com/o/a/pull/${number}`,
-		state: 'OPEN',
-		createdAt: '2026-01-01T00:00:00Z',
-		updatedAt: '2026-01-01T00:00:00Z',
-		closedAt: null,
-		mergedAt: null,
-		closed: false,
-		author: { login: 'octo', avatarUrl: '', url: 'https://github.com/octo' },
-		baseRefName: 'main',
-		baseRefOid: 'base',
-		headRefName: 'feature',
-		headRefOid: 'head',
-		headRepository: { ...repository, isFork: forkOwner != null, owner: { login: headOwner } },
-		headRepositoryOwner: { login: headOwner },
-		repository: { ...repository, viewerPermission: 'WRITE' },
-		isCrossRepository: forkOwner != null,
-		isDraft: false,
-		additions: 1,
-		deletions: 1,
-		changedFiles: 1,
-		checksUrl: '',
-		mergeable: 'MERGEABLE',
-		reviewDecision: 'APPROVED',
-		latestReviews: { nodes: [] },
-		viewerLatestReview: null,
-		reviewRequests: { nodes: [] },
-		assignees: { nodes: [] },
-		commits: { totalCount: 0, nodes: [] },
-		totalCommentsCount: 0,
-		viewerCanUpdate: true,
+		...gitHubPullRequest(number, {
+			body: '',
+			headRepository: {
+				isFork: forkOwner != null,
+				name: 'a',
+				owner: { login: headOwner },
+				sshUrl: 'git@github.com:o/a.git',
+				url: 'https://github.com/o/a',
+			},
+			headRepositoryOwner: { login: headOwner },
+			isCrossRepository: forkOwner != null,
+		}),
 	};
 }
 
