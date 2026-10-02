@@ -98,7 +98,7 @@ export type IntegrationResult<T> =
 export type BatchSlot<T> = PromiseFulfilledResult<T> | (PromiseRejectedResult & { failure?: ProviderScopeFailure });
 
 /**
- * An input a pull request's etag can be widened to, each of which GitHub changes without moving `updatedAt`. Every
+ * An input a pull request's etag can be widened to, each of which a host changes without moving `updatedAt`. Every
  * entry costs its own fields in the cheap check, so a caller picks only the ones it needs. `'checks'` is the check
  * rollup.
  */
