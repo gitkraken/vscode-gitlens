@@ -187,6 +187,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 				{
 					currentAccount: options?.currentAccount,
 					deferFailure: true,
+					projection: 'batch',
 				},
 			),
 		);
@@ -283,6 +284,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			resource.name,
 			id,
 			this.apiBaseUrlFor(session),
+			{ projection: 'point' },
 		);
 	}
 
@@ -450,7 +452,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			this.apiBaseUrlFor(session),
 			{ states: toProviderPullRequestStates(options?.state) },
 		);
-		return prs?.data.map(pr => fromProviderPullRequest(pr, this));
+		return prs?.data.map(pr => fromProviderPullRequest(pr, this, { projection: 'search' }));
 	}
 
 	protected override async getProviderMyPullRequestsForUser(
@@ -547,7 +549,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 
 		return providerPullRequests
 			.filter(pr => providerPullRequestMatchesSearch(pr, searchQuery))
-			.map(pr => fromProviderPullRequest(pr, this));
+			.map(pr => fromProviderPullRequest(pr, this, { projection: 'text-search' }));
 	}
 
 	/**
@@ -580,6 +582,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 				currentUser: await this.getSearchUser(session, options.criteria, cancellation),
 				cursor: options.cursor,
 				pageSize: options.pageSize,
+				projection: options.summary ? 'search-summary' : 'search',
 			},
 			cancellation,
 		);

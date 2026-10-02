@@ -468,7 +468,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 			return {
 				issues: result.issues
-					.map(issue => toIssueShape(issue, this))
+					.map(issue => toIssueShape(issue, this, { projection: 'project' }))
 					.filter((r): r is IssueShape => r !== undefined),
 				status: result.status,
 				metadata: result.metadata,
@@ -557,7 +557,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 		const unscoped = await drainIssues({});
 		const values = unscoped.issues
-			.map(issue => toIssueShape(issue, this))
+			.map(issue => toIssueShape(issue, this, { projection: 'project' }))
 			.filter((result): result is IssueShape => result !== undefined);
 		return unscoped.status !== 'complete'
 			? {
@@ -616,7 +616,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 					hasMore = resourceIssues.paging?.more ?? false;
 					cursor = resourceIssues.paging?.cursor;
 					const formattedIssues = resourceIssues.values
-						.map(issue => toIssueShape(issue, this))
+						.map(issue => toIssueShape(issue, this, { projection: 'account' }))
 						.filter((result): result is IssueShape => result != null);
 					if (formattedIssues.length > 0) {
 						results.push(...formattedIssues);
@@ -642,7 +642,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			resourceId: resource.id,
 			number: key,
 		});
-		return issue != null ? toIssueShape(issue, this) : undefined;
+		return issue != null ? toIssueShape(issue, this, { projection: 'point' }) : undefined;
 	}
 
 	protected override async getProviderIssue(
@@ -655,7 +655,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			resourceId: resource.id,
 			number: id,
 		});
-		const issue = apiResult != null ? toIssueShape(apiResult, this) : undefined;
+		const issue = apiResult != null ? toIssueShape(apiResult, this, { projection: 'point' }) : undefined;
 		return issue != null ? { ...issue, type: 'issue' } : undefined;
 	}
 
@@ -671,7 +671,10 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 		const api = await this.getProvidersApi();
 		const apiResult = await api.getJiraIssueByKey(toTokenWithInfo(this.id, session), resourceId, resourceUrl, id);
-		const issue = apiResult != null ? toIssueShape(apiResult, this, { reliableStateCategory: true }) : undefined;
+		const issue =
+			apiResult != null
+				? toIssueShape(apiResult, this, { reliableStateCategory: true, projection: 'batch' })
+				: undefined;
 		return issue != null ? { ...issue, type: 'issue' } : undefined;
 	}
 

@@ -4,7 +4,7 @@ import type { Account, CommitAuthor, UnidentifiedAuthor } from '@gitlens/git/mod
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestProjection } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
@@ -97,7 +97,7 @@ export class BitbucketApi implements Disposable {
 		if (!response?.values?.length) {
 			return undefined;
 		}
-		return fromBitbucketPullRequest(response.values[0], provider);
+		return fromBitbucketPullRequest(response.values[0], provider, { projection: 'point' });
 	}
 
 	@trace({
@@ -141,7 +141,7 @@ export class BitbucketApi implements Disposable {
 		}
 
 		const providersPr = normalizeBitbucketServerPullRequest(response.values[0]);
-		const gitlensPr = fromProviderPullRequest(providersPr, provider);
+		const gitlensPr = fromProviderPullRequest(providersPr, provider, { projection: 'point' });
 		return gitlensPr;
 	}
 
@@ -185,7 +185,7 @@ export class BitbucketApi implements Disposable {
 		if (!response?.values?.length) {
 			return undefined;
 		}
-		return response.values.map(issue => fromBitbucketIssue(issue, provider));
+		return response.values.map(issue => fromBitbucketIssue(issue, provider, 'account'));
 	}
 
 	@trace({
@@ -221,7 +221,7 @@ export class BitbucketApi implements Disposable {
 			);
 
 			if (response) {
-				return fromBitbucketIssue(response, provider);
+				return fromBitbucketIssue(response, provider, 'point');
 			}
 			return undefined;
 		} catch (ex) {
@@ -348,7 +348,12 @@ export class BitbucketApi implements Disposable {
 		repo: string,
 		id: string,
 		baseUrl: string,
-		options?: { currentAccount?: { id: string; username?: string }; deferFailure?: boolean },
+		options?: {
+			currentAccount?: { id: string; username?: string };
+			deferFailure?: boolean;
+			/** The calling read, stamped on the row. */
+			projection?: PullRequestProjection;
+		},
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
@@ -367,7 +372,10 @@ export class BitbucketApi implements Disposable {
 			);
 			if (pr == null) throw new Error(`Bitbucket returned no pull request for ${owner}/${repo}#${id}`);
 
-			return fromBitbucketPullRequest(pr, provider, { currentAccount: options?.currentAccount });
+			return fromBitbucketPullRequest(pr, provider, {
+				currentAccount: options?.currentAccount,
+				projection: options?.projection,
+			});
 		} catch (ex) {
 			if (isNotFoundResponse(ex)) return undefined;
 
@@ -396,7 +404,12 @@ export class BitbucketApi implements Disposable {
 		repo: string,
 		id: string,
 		baseUrl: string,
-		options?: { currentAccount?: { id: string; username?: string }; deferFailure?: boolean },
+		options?: {
+			currentAccount?: { id: string; username?: string };
+			deferFailure?: boolean;
+			/** The calling read, stamped on the row. */
+			projection?: PullRequestProjection;
+		},
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
@@ -417,6 +430,7 @@ export class BitbucketApi implements Disposable {
 
 			return fromProviderPullRequest(normalizeBitbucketServerPullRequest(pr), provider, {
 				currentAccount: options?.currentAccount,
+				projection: options?.projection,
 			});
 		} catch (ex) {
 			if (isNotFoundResponse(ex)) return undefined;
@@ -496,7 +510,11 @@ export class BitbucketApi implements Disposable {
 					);
 				},
 				updatedAt: pr => Date.parse(pr.updated_on),
-				map: pr => fromBitbucketPullRequest(pr, provider, { currentAccount: options.currentAccount }),
+				map: pr =>
+					fromBitbucketPullRequest(pr, provider, {
+						currentAccount: options.currentAccount,
+						projection: 'batch',
+					}),
 				limit: options.limit,
 				more: response.next != null,
 			});
@@ -569,6 +587,7 @@ export class BitbucketApi implements Disposable {
 				map: pr =>
 					fromProviderPullRequest(normalizeBitbucketServerPullRequest(pr), provider, {
 						currentAccount: options.currentAccount,
+						projection: 'batch',
 					}),
 				limit: options.limit,
 				more: response.isLastPage !== true,
@@ -809,7 +828,7 @@ export class BitbucketApi implements Disposable {
 			if (!prResponse) return undefined;
 
 			const providersPr = normalizeBitbucketServerPullRequest(prResponse);
-			const gitlensPr = fromProviderPullRequest(providersPr, provider);
+			const gitlensPr = fromProviderPullRequest(providersPr, provider, { projection: 'point' });
 			return gitlensPr;
 		} catch (ex) {
 			scope?.error(ex);
@@ -868,7 +887,7 @@ export class BitbucketApi implements Disposable {
 				undefined,
 			);
 			if (!pr) return undefined;
-			return fromBitbucketPullRequest(pr, provider);
+			return fromBitbucketPullRequest(pr, provider, { projection: 'point' });
 		} catch (ex) {
 			if (ex.original instanceof ProviderFetchError) {
 				const json = await ex.original.response.json();

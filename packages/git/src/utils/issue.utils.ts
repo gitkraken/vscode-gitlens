@@ -109,6 +109,10 @@ export function getRepositoryIdentityForIssue(issue: IssueShape | Issue): IssueR
 	};
 }
 
+/**
+ * Deliberately leaves `projection` out: this copy drops `repository.accessLevel`, so a tag would have field presence
+ * report the viewer's access as fetched when the copy no longer has it.
+ */
 export function serializeIssue(value: IssueShape): IssueShape {
 	const serialized: IssueShape = {
 		type: value.type,

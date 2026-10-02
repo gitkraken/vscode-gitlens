@@ -117,11 +117,15 @@ async function sweepTarget(
 		attributeUnavailableProviders,
 	);
 	const viewers = await getPullRequestViewers(integration, connectionId, drain.items);
+	// Mirrors the projection `drainPullRequests` requests.
+	const projection = accountWide ? (options?.includeReviews ? 'account' : 'account-summary') : 'repos';
 	// Normalize the raw rows to the GitLens-owned shape here, where the per-provider `integration` (the
 	// mapper's provider reference) is in scope; the aggregation below only sees drains.
 	return {
 		...drain,
-		items: drain.items.map((pr, i) => toPullRequestRow(pr, integration, { currentAccount: viewers[i] })),
+		items: drain.items.map((pr, i) =>
+			toPullRequestRow(pr, integration, { currentAccount: viewers[i], projection: projection }),
+		),
 		providerId: id,
 	};
 }

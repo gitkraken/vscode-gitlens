@@ -52,12 +52,14 @@ import type { Account as UserAccount } from '@gitlens/git/models/author.js';
 import type {
 	IssueIteration,
 	IssueProject,
+	IssueProjection,
 	IssueProviderState,
 	IssueShape,
 	IssueStateFilter,
 } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type {
+	PullRequestProjection,
 	PullRequestRef,
 	PullRequestRefs,
 	PullRequestRepositoryIdentityDescriptor,
@@ -1409,7 +1411,7 @@ function toIssueProviderState(
 export function toIssueShape(
 	issue: ProviderIssue,
 	provider: ProviderReference,
-	options?: { reliableStateCategory?: boolean },
+	options?: { reliableStateCategory?: boolean; projection?: IssueProjection },
 ): IssueShape | undefined {
 	// TODO: Add some protections/baselines rather than killing the transformation here
 	// `author` is intentionally not required: some providers have no per-item creator (e.g. Trello cards,
@@ -1489,6 +1491,8 @@ export function toIssueShape(
 		bodyFormat: isJira ? 'jira-wiki' : undefined,
 		issueType: issue.type ?? undefined,
 		iterations: toIssueIterations(issue),
+		// Only when tagged, so an untagged row keeps exactly the keys it always had.
+		...(options?.projection != null ? { projection: options.projection } : {}),
 	};
 }
 
@@ -1826,7 +1830,11 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 export function fromProviderPullRequest(
 	pr: ProviderPullRequest,
 	provider: Provider,
-	options?: { project?: IssueProject; currentAccount?: { id: string; username?: string } },
+	options?: {
+		project?: IssueProject;
+		currentAccount?: { id: string; username?: string };
+		projection?: PullRequestProjection;
+	},
 ): PullRequest {
 	const repository = pr.repository;
 	const repositoryName = repository?.name ?? '';
@@ -1904,17 +1912,19 @@ export function fromProviderPullRequest(
 		options?.currentAccount != null
 			? authoredByCurrentAccount(pr.author, provider, options.currentAccount)
 			: undefined,
+		options?.projection,
 		options?.currentAccount,
 	);
 }
 
 /**
- * A GitLens-native row (GitHub's own reads) with `authoredByMe` and `viewer` resolved by the same rule
- * {@link fromProviderPullRequest} applies. Returns a copy: the mapper's row stays as it was built.
+ * A GitLens-native row (GitHub's own reads) tagged for the read that returned it, with `authoredByMe` and `viewer`
+ * resolved by the same rule {@link fromProviderPullRequest} applies. Returns a copy: the mapper's row stays as it was
+ * built.
  */
 export function stampNativePullRequest(
 	pr: PullRequest,
-	options: { currentAccount?: { id: string; username?: string } },
+	options: { currentAccount?: { id: string; username?: string }; projection?: PullRequestProjection },
 ): PullRequest {
 	return Object.assign(Object.create(PullRequest.prototype) as PullRequest, pr, {
 		authoredByMe:
@@ -1922,17 +1932,18 @@ export function stampNativePullRequest(
 				? authoredByCurrentAccount(pr.author, pr.provider, options.currentAccount)
 				: undefined,
 		viewer: options.currentAccount,
+		projection: options.projection,
 	});
 }
 
 /**
  * A row of an account-wide read as a `PullRequest`. GitHub's are GitLens-native, which {@link stampNativePullRequest}
- * finishes; every other host's are provider-apis', which {@link fromProviderPullRequest} converts.
+ * tags; every other host's are provider-apis', which {@link fromProviderPullRequest} converts.
  */
 export function toPullRequestRow(
 	pr: ProviderPullRequest | PullRequest,
 	provider: Provider,
-	options: { currentAccount?: { id: string; username?: string } },
+	options: { currentAccount?: { id: string; username?: string }; projection?: PullRequestProjection },
 ): PullRequest {
 	return isNativePullRequest(pr)
 		? stampNativePullRequest(pr, options)
@@ -1971,7 +1982,7 @@ function authoredByCurrentAccount(
 export function fromProviderIssue(
 	issue: ProviderIssue,
 	integration: Integration,
-	options?: { project?: IssueProject },
+	options?: { project?: IssueProject; projection?: IssueProjection },
 ): Issue {
 	const identifier = toIssueIdentifier(issue.number);
 	const closed = issue.closedDate != null || issue.state?.category === 'DONE';
@@ -2020,6 +2031,7 @@ export function fromProviderIssue(
 		toIssueProviderState(issue.state, integration.id !== IssuesCloudHostIntegrationId.Jira),
 		integration.id === IssuesCloudHostIntegrationId.Jira ? 'jira-wiki' : undefined,
 		toIssueIterations(issue),
+		options?.projection,
 	);
 }
 

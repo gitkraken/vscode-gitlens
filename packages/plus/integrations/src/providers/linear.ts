@@ -316,7 +316,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			truncated ||= result.paging?.truncated === true;
 			collectionMetadata = mergeCollectionMetadata(collectionMetadata, result.metadata);
 			for (const issue of result.values) {
-				const shape = toIssueShape(issue, this);
+				const shape = toIssueShape(issue, this, { projection: 'project' });
 				if (shape != null) {
 					issues.push(shape);
 				}
@@ -440,7 +440,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 				// Keep this page before deciding whether to continue: the request is already paid for, so
 				// dropping its rows would lose real results to save nothing.
 				const formattedIssues = result.values
-					.map(issue => toIssueShape(issue, this))
+					.map(issue => toIssueShape(issue, this, { projection: 'account' }))
 					.filter((result): result is IssueShape => result != null);
 				if (formattedIssues.length > 0) {
 					issues.push(...formattedIssues);
@@ -484,7 +484,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			...issue,
 			url: this.getIssueAutolinkLikeUrl(issue),
 		};
-		return autolinkableIssue && toIssueShape(autolinkableIssue, this);
+		return autolinkableIssue && toIssueShape(autolinkableIssue, this, { projection: 'point' });
 	}
 	protected override async getProviderIssue(
 		session: ProviderAuthenticationSession,
@@ -492,7 +492,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		id: string,
 	): Promise<Issue | undefined> {
 		const result = await this.getRawProviderIssue(session, resource, id);
-		return result && fromProviderIssue(result, this);
+		return result && fromProviderIssue(result, this, { projection: 'point' });
 	}
 
 	protected override async getProviderIssueByResourceId(
@@ -506,7 +506,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			resourceId: resourceId,
 			number: id,
 		});
-		return result && fromProviderIssue(result, this);
+		return result && fromProviderIssue(result, this, { projection: 'batch' });
 	}
 
 	private async getRawProviderIssue(

@@ -244,3 +244,8 @@ export type { Account } from '@gitlens/git/models/author.js';
 // Cross-provider PR/issue state filters (string unions in the git models).
 export type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 export type { IssueStateFilter } from '@gitlens/git/models/issue.js';
+// Which read produced a row, and which of its fields that read fetched.
+export type { PullRequestProjection } from '@gitlens/git/models/pullRequest.js';
+export type { IssueProjection } from '@gitlens/git/models/issue.js';
+export type { FieldPresence, IssueFieldGroup, PullRequestFieldGroup } from './fieldPresence.js';
+export { getIssueFieldPresence, getPullRequestFieldPresence } from './fieldPresence.js';

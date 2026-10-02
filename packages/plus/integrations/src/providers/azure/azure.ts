@@ -514,7 +514,7 @@ export class AzureDevOpsApi implements Disposable {
 					project.name,
 					options,
 				);
-				return fromAzureWorkItem(issueResult, provider, project, stateCategory);
+				return fromAzureWorkItem(issueResult, provider, project, stateCategory, 'point');
 			}
 		} catch (ex) {
 			// A rejected credential is actionable and must not be reported as an absent work item; every other
@@ -999,7 +999,7 @@ export class AzureDevOpsApi implements Disposable {
 					project.name,
 					options,
 				);
-				values.push(fromAzureWorkItem(workItem, provider, project, stateCategory));
+				values.push(fromAzureWorkItem(workItem, provider, project, stateCategory, 'search'));
 			}
 		}
 
@@ -1131,7 +1131,8 @@ export class AzureDevOpsApi implements Disposable {
 			scope,
 			cancellation,
 		);
-		return fromAzurePullRequest(pr, provider, owner, baseUrl, forkRepositoryUrls);
+		// Only the point reads convert through here.
+		return fromAzurePullRequest(pr, provider, owner, baseUrl, forkRepositoryUrls, 'point');
 	}
 
 	/**
