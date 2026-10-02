@@ -312,7 +312,7 @@ suite('GitHubApi.searchMyPullRequestsPage summaries', () => {
 					JSON.stringify({
 						data: {
 							search: {
-								issueCount: 1,
+								issueCount: 1393,
 								pageInfo: { endCursor: null, hasNextPage: false },
 								nodes: [node],
 							},
@@ -337,6 +337,7 @@ suite('GitHubApi.searchMyPullRequestsPage summaries', () => {
 		assert.match(query, /search\(first: 100,/, 'the lite fragment keeps the 100-node maximum');
 		assert.equal(result.values[0].body, 'Summary body');
 		assert.equal(result.values[0].refs?.head.branch, 'feature');
+		assert.equal(result.totalCount, 1393);
 	});
 
 	test('orders by sort:updated so a page-budgeted sweep retains a recency window', async () => {

@@ -1,4 +1,5 @@
 import type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
+import { defaultPullRequestSort } from '@gitlens/git/models/pullRequest.js';
 import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { supportedOrderedCloudIntegrationIds } from '../constants.js';
@@ -11,7 +12,12 @@ import { getProviderPullRequestIdentity } from '../providers/models.js';
 import type { ProviderWarning } from '../results.js';
 import { appendDedupedWarning, reconcileOmissionsWithFailure, toProviderWarning } from '../results.js';
 import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
-import { cappedBesideBudgetWarning, noConnectionWarning, truncationWarning } from './warnings.js';
+import {
+	cappedBesideBudgetWarning,
+	noConnectionWarning,
+	pullRequestSearchCapResultWarning,
+	truncationWarning,
+} from './warnings.js';
 
 /**
  * The all-pages reads: a provider read run repeatedly until it runs out of pages, as opposed to the single-page
@@ -98,6 +104,20 @@ export async function drainPullRequests(
 	// A page the provider capped or couldn't vouch for, and which no other warning already explains — decides
 	// whether this drain raises one of its own for that part.
 	let unexplainedTruncation = false;
+	// The largest match count reported on a truncated page, from which the drain derives the provider's cap.
+	let truncatedTotalCount: number | undefined;
+	const capWarning = (): ProviderWarning | undefined =>
+		pullRequestSearchCapResultWarning(id, domain, connectionId, truncatedTotalCount, defaultPullRequestSort);
+	const appendTruncationWarnings = (cause: 'interrupted' | 'exhausted'): void => {
+		const cap = capWarning();
+		if (cap != null) {
+			appendDedupedWarning(warnings, cap);
+		}
+		// A cap explains the missing tail of a read that succeeded; a failed read still owes its own warning.
+		if (unexplainedTruncation && (cap == null || cause === 'interrupted')) {
+			appendDedupedWarning(warnings, truncationWarning(id, domain, connectionId, 'Pull request', cause));
+		}
+	};
 
 	// With no repos this is an account-wide "my PRs" sweep. The repo-scoped core rejects an empty `repos`
 	// input, so read the provider-native account-wide core instead.
@@ -149,12 +169,7 @@ export async function drainPullRequests(
 			// A cap seen on an earlier page still left results out, so it is still worth saying — but as part
 			// of a read that failed, never as an omission. (`failed` is always true here when anything was
 			// latched: reaching this exit past page 1 means a later page was lost.)
-			if (unexplainedTruncation) {
-				appendDedupedWarning(
-					warnings,
-					truncationWarning(id, domain, connectionId, 'Pull request', failed ? 'interrupted' : 'exhausted'),
-				);
-			}
+			appendTruncationWarnings(failed ? 'interrupted' : 'exhausted');
 			// An earlier page may already have emitted an omission before this one died; it asserts the read
 			// succeeded, which is no longer true.
 			reconcileOmissionsWithFailure(warnings, failed);
@@ -203,23 +218,18 @@ export async function drainPullRequests(
 		// Whether this drain owes its OWN warning for a capped page — `mergeAssessmentInto` has already appended
 		// one when the fact came from SDK metadata, and repeating it would be noise.
 		unexplainedTruncation = unexplainedTruncation || (pageTruncated && !assessment.truncated);
+		// Only the account-wide read reports a search match count here; the repo-scoped one reports the item
+		// total, which no cap is derived from. Latched even when SDK metadata explains the page: a composite page
+		// reports a failed or cursorless sibling facet there, which says nothing about the cap another reached.
+		if (accountWide && pageTruncated && value.paging?.totalCount != null) {
+			truncatedTotalCount = Math.max(truncatedTotalCount ?? 0, value.paging.totalCount);
+		}
 
 		if (!(value.paging?.more ?? false)) {
 			// A read that can't confirm completeness (single-page provider reads with no `hasNextPage`)
 			// sets `paging.truncated`; propagate it (and any top-level `truncated` and SDK incompleteness)
 			// so the sweep doesn't claim an all-pages result.
-			if (unexplainedTruncation) {
-				appendDedupedWarning(
-					warnings,
-					truncationWarning(
-						id,
-						domain,
-						connectionId,
-						'Pull request',
-						fetchFailed ? 'interrupted' : 'exhausted',
-					),
-				);
-			}
+			appendTruncationWarnings(fetchFailed ? 'interrupted' : 'exhausted');
 			reconcileOmissionsWithFailure(warnings, fetchFailed);
 			return {
 				items: items,
@@ -259,7 +269,10 @@ export async function drainPullRequests(
 					fetchFailed ? 'interrupted' : budgetStop ? 'page-budget' : 'exhausted',
 				),
 			);
-			if (budgetStop && unexplainedTruncation) {
+			const cap = capWarning();
+			if (cap != null) {
+				appendDedupedWarning(warnings, cap);
+			} else if (budgetStop && unexplainedTruncation) {
 				appendDedupedWarning(warnings, cappedBesideBudgetWarning(id, domain, connectionId, 'Pull request'));
 			}
 			reconcileOmissionsWithFailure(warnings, fetchFailed);

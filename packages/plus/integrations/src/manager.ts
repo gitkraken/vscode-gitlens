@@ -182,6 +182,12 @@ type PullRequestSweepCommonOptions = {
 	 */
 	includeReviews?: boolean;
 	forceSync?: boolean;
+	/**
+	 * Page budget per provider. A stop at this budget with a resumable cursor is reported as
+	 * `pagination-incomplete` with `recovery: 'page-budget'`. A part no budget reaches is reported beside it
+	 * with `recovery: 'none'`: a `provider-limit` omission when the reported match count exceeds the provider's
+	 * known result limit.
+	 */
 	maxPages?: number;
 	/**
 	 * Fired once per target as it settles, for host-side per-provider attribution.
