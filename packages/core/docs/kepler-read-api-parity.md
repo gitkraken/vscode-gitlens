@@ -243,7 +243,7 @@ find nothing changed, yet each re-read the full GitHub projection (2.6–3.7 s f
 reads now hand back an opaque `etag` on every fully read row; a target that sends it back is first checked
 cheaply, and comes back `{ key, unchanged: true, etag }` when it still matches, so only what moved is read in full.
 One call still answers everything — known and new targets mix freely — and core alone defines "changed". The cheap
-check exists on GitHub/GHE, GitLab, Azure DevOps (self-managed too for both), Bitbucket Cloud and Jira Cloud; every other host reads in full and etags the row. `etagIncludes` (any of
+check exists on GitHub/GHE, GitLab, Azure DevOps (self-managed too for both), Bitbucket Cloud, Jira Cloud and Linear; every other host reads in full and etags the row. `etagIncludes` (any of
 `'mergeable'`, `'reviewDecision'`, `'checks'`) widens the etag to those inputs, which GitHub changes without moving
 `updatedAt`; each costs its own fields in the cheap check, the review decision most. A cheap
 check that fails never answers `unchanged`: it falls through to the full read, or, on an auth, rate-limit or

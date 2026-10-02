@@ -802,50 +802,5 @@ suite('Jira Cloud cheap etag check', () => {
 
 			manager.dispose();
 		});
-
-		test('Linear', async () => {
-			const manager = createIntegrationManager(createFakeRuntime());
-			const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
-			(linear as unknown as { _session: ProviderAuthenticationSession })._session = {
-				...session(),
-				domain: 'linear.app',
-			};
-			const calls: string[] = [];
-			(linear as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () =>
-				Promise.resolve({
-					getIssue: (_t: TokenWithInfo, input: { resourceId: string; number: string }) => {
-						calls.push(`getIssue ${input.number}`);
-						return Promise.resolve({
-							id: `i-${input.number}`,
-							number: input.number,
-							title: input.number,
-							url: `https://linear.app/team/issue/${input.number}`,
-							createdDate: new Date(0),
-							updatedDate: new Date(0),
-							closedDate: null,
-							author: null,
-							assignees: [],
-							labels: [],
-						});
-					},
-				});
-			assert.equal(linear.supportsIssueEtagsByResourceId, false);
-			const read = (etag?: string) =>
-				manager.getIssuesBatch({
-					providerId: IssuesCloudHostIntegrationId.Linear,
-					targets: [
-						{ key: 'k', resourceId: 'workspace-1', identifier: 'ENG-1', ...(etag ? { etag: etag } : {}) },
-					],
-				});
-
-			const first = await read();
-			const second = await read(first.items[0].etag);
-
-			assert.deepEqual(calls, ['getIssue ENG-1', 'getIssue ENG-1']);
-			assert.equal(second.items[0].unchanged, undefined);
-			assert.equal(second.items[0].etag, first.items[0].etag);
-
-			manager.dispose();
-		});
 	});
 });
