@@ -33,6 +33,7 @@ suite('provider model serialization', () => {
 			updatedDate: now,
 			closed: false,
 			authoredByMe: true,
+			viewer: { id: '1', username: 'me' },
 			latestReviews: [
 				{
 					reviewer: { id: 'reviewer-1', name: 'Reviewer' },
@@ -46,6 +47,8 @@ suite('provider model serialization', () => {
 
 		assert.equal(serialized.number, 42);
 		assert.equal(serialized.authoredByMe, true);
+		assert.deepEqual(serialized.viewer, { id: '1', username: 'me' });
+		assert.notEqual(serialized.viewer, pullRequest.viewer, 'the viewer is copied, not shared');
 		assert.deepEqual(serialized.latestReviews, pullRequest.latestReviews);
 	});
 

@@ -195,6 +195,14 @@ than `items`, and `account` is never absent without a warning: no session, a fai
 which has only a per-resource account and refuses (see §8). It goes through the host-supplied
 `IntegrationManagerCacheProvider.getCurrentAccount` cache rather than adding a second one.
 
+That account is not always how a pull request names the same person. Azure DevOps Server gives one person a
+different identity id in each collection than at the server level, and a pull request's `author`, `reviewRequests`
+and `latestReviews` carry the collection's. So the pull request reads resolve the current account per row, and every
+row whose `authoredByMe` was resolved also carries `viewer`, the identity it was matched against: per collection on
+Azure DevOps Server, the account itself everywhere else. To tell whether a review was requested from the current
+user, or which review is theirs, compare the reviewer entries against `viewer`, not against `getCurrentAccount`. A row
+whose identity couldn't be resolved has neither field, and its authorship is unknown rather than `false`.
+
 ## 5. Paging
 
 Two mechanisms live behind one shape, and they are **not** interchangeable:

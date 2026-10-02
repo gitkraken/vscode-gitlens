@@ -222,6 +222,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		latestReviews: value.latestReviews,
 		assignees: value.assignees,
 		authoredByMe: value.authoredByMe,
+		viewer: value.viewer != null ? { id: value.viewer.id, username: value.viewer.username } : undefined,
 		project: value.project
 			? {
 					id: value.project.id,

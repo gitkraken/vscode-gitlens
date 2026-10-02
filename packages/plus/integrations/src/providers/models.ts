@@ -1889,6 +1889,7 @@ export function fromProviderPullRequest(
 		pr.description ?? undefined,
 		pr.number,
 		options?.currentAccount != null ? authoredByCurrentAccount(pr, provider, options.currentAccount) : undefined,
+		options?.currentAccount,
 	);
 }
 

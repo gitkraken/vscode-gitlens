@@ -530,6 +530,9 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 
 		assert.equal(result.items.find(i => i.key === 'mine')?.pullRequest?.authoredByMe, true);
 		assert.equal(result.items.find(i => i.key === 'not-mine')?.pullRequest?.authoredByMe, false);
+		for (const item of result.items) {
+			assert.deepEqual(item.pullRequest?.viewer, { id: '641685', username: 'eamodio' });
+		}
 
 		manager.dispose();
 	});
@@ -1146,6 +1149,8 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 
 			assert.equal(result.items[0]?.pullRequest?.id, '7');
 			assert.equal(result.items[0]?.pullRequest?.state, 'merged');
+			assert.equal(result.items[0]?.pullRequest?.authoredByMe, true);
+			assert.deepEqual(result.items[0]?.pullRequest?.viewer, { id: '{me}', username: undefined });
 
 			manager.dispose();
 		});
