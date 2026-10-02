@@ -11,7 +11,6 @@ import {
 } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import {
-	GitPullRequestMergeableState as BitbucketServerGitPullRequestMergeableState,
 	GitPullRequestReviewState as BitbucketServerGitPullRequestReviewState,
 	GitPullRequestState as BitbucketServerGitPullRequestState,
 } from '../bitbucket-server/models.js';
@@ -31,12 +30,9 @@ import { EntityIdentifierProviderType, EntityType, EntityVersion } from '../util
 // test entrypoint at `scripts/test.mjs` bundles this suite through esbuild, which is why the SDK's CJS named
 // exports are available here as runtime values.
 //
-// Two local copies are intentional subsets, not full mirrors, so they're asserted with
-// `assertLocalMatchesSdk` (every local entry must match the SDK; extra SDK members are allowed) rather than
-// a bidirectional deep-equal:
-// - `utils.ts` `EntityVersion` — the package only ever writes version `1`.
-// - `bitbucket-server/models.ts` `GitPullRequestMergeableState` — Bitbucket Server only normalizes to
-//   `Unknown`.
+// One local copy is an intentional subset, not a full mirror, so it's asserted with `assertLocalMatchesSdk`
+// (every local entry must match the SDK; extra SDK members are allowed) rather than a bidirectional deep-equal:
+// `utils.ts` `EntityVersion` — the package only ever writes version `1`.
 type EnumLike = Record<string, string>;
 
 function sortEntries(enumLike: EnumLike): [string, string][] {
@@ -118,14 +114,6 @@ suite('provider-apis enum parity (drift guard)', () => {
 				BitbucketServerGitPullRequestReviewState,
 				SdkGitPullRequestReviewState,
 				'GitPullRequestReviewState',
-			);
-		});
-
-		test('GitPullRequestMergeableState is a subset that matches the SDK', () => {
-			assertLocalMatchesSdk(
-				BitbucketServerGitPullRequestMergeableState,
-				SdkGitPullRequestMergeableState,
-				'GitPullRequestMergeableState',
 			);
 		});
 	});

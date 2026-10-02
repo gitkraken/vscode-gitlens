@@ -136,17 +136,21 @@ function serve(
 }
 
 function pullRequest(provider: ProviderReference, number: number, author: string = 'octocat'): PullRequest {
-	return new PullRequest(
-		provider,
-		{ id: author, name: author, username: author },
-		String(number),
-		`PR_node${number}`,
-		`PR ${number}`,
-		`https://github.com/o/r/pull/${number}`,
-		{ owner: 'o', repo: 'r' },
-		'merged',
-		new Date(0),
-		new Date(0),
+	// With the number, as `fromGitHubPullRequest` maps it; the constructor takes it in a late positional slot.
+	return Object.assign(
+		new PullRequest(
+			provider,
+			{ id: author, name: author, username: author },
+			String(number),
+			`PR_node${number}`,
+			`PR ${number}`,
+			`https://github.com/o/r/pull/${number}`,
+			{ owner: 'o', repo: 'r' },
+			'merged',
+			new Date(0),
+			new Date(0),
+		),
+		{ number: number },
 	);
 }
 

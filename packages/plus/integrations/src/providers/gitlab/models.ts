@@ -1,5 +1,5 @@
 import type { PullRequestRefs, PullRequestState } from '@gitlens/git/models/pullRequest.js';
-import { PullRequest, PullRequestMergeableState } from '@gitlens/git/models/pullRequest.js';
+import { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { Integration } from '../../models/integration.js';
 import type { ProviderPullRequest } from '../models.js';
@@ -181,12 +181,6 @@ export function fromGitLabMergeRequestProvidersApi(pr: ProviderPullRequest, prov
 		...pr,
 		// @gitkraken/providers-api returns global ID as id, while allover GitLens we use internal ID (iid) that is returned as `number`:
 		id: String(pr.number),
-		// Substitute some defaults that are needed to enable PRs because @gitkraken/providers-api always returns null here:
-		// Discussed: https://github.com/gitkraken/provider-apis-package-js/blob/6ee521eb6b46bbb759d9c68646979c3b25681d90/src/providers/gitlab/gitlab.ts#L597
-		permissions: pr.permissions ?? {
-			canMerge: true,
-			canMergeAndBypassProtections: false,
-		},
 	};
 	return fromProviderPullRequest(wrappedPr, provider);
 }
@@ -234,7 +228,7 @@ export function fromGitLabMergeRequest(pr: GitLabMergeRequestFull, provider: Pro
 		// TODO@eamodio this isn't right, but GitLab doesn't seem to provide a closedAt on merge requests in GraphQL
 		pr.state !== 'closed' ? undefined : new Date(pr.updatedAt),
 		pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
-		PullRequestMergeableState.Unknown,
+		undefined, // mergeableState: not selected
 		undefined, // viewerCanUpdate
 		fromGitLabMergeRequestRefs(pr), // PullRequestRefs
 	);

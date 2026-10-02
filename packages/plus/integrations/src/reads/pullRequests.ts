@@ -1,8 +1,8 @@
-import type { PullRequestShape, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestShape, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import type { ProviderPullRequest, ProviderReposInput, PullRequestFilter } from '../providers/models.js';
-import { fromProviderPullRequest, PagingMode, providersMetadata } from '../providers/models.js';
+import { PagingMode, providersMetadata, toPullRequestRow } from '../providers/models.js';
 import type { ProviderPagedResult } from '../results.js';
 import { reconcileOmissionsWithFailure } from '../results.js';
 import {
@@ -184,7 +184,7 @@ export async function listPullRequestsPage(
 		options.cursor == null &&
 		paged.page.currentPage === 1
 	) {
-		const drained = await drainToRequestedPage<ProviderPullRequest>(
+		const drained = await drainToRequestedPage<ProviderPullRequest | PullRequest>(
 			{ items: items, paged: paged, metadata: allMetadata, fetchFailed: pageFetchFailed },
 			{
 				requestedPage: page,
@@ -230,8 +230,8 @@ export async function listPullRequestsPage(
 	reconcileOmissionsWithFailure(warnings, assessment.fetchFailed || pageFetchFailed);
 	const viewers = await getPullRequestViewers(integration, options.connectionId, items);
 	return {
-		// Normalize the raw provider-apis PRs to the GitLens-owned shape at the surface boundary.
-		items: items.map((pr, i) => fromProviderPullRequest(pr, integration, { currentAccount: viewers[i] })),
+		// Normalize the raw rows to the GitLens-owned shape at the surface boundary.
+		items: items.map((pr, i) => toPullRequestRow(pr, integration, { currentAccount: viewers[i] })),
 		warnings: warnings,
 		// The account-wide read can't take a page size, so don't echo the requested `itemsPerPage` as if it
 		// had been applied — report what came back.

@@ -1580,8 +1580,9 @@ export abstract class GitHostIntegration<
 	}
 
 	/**
-	 * Account-wide, user-scoped counterpart of {@link getMyPullRequestsForReposResult} that returns the raw
-	 * `ProviderPullRequest` shape (not the normalized model). Unlike the repo-scoped core, this needs no
+	 * Account-wide, user-scoped counterpart of {@link getMyPullRequestsForReposResult} that returns each host's raw
+	 * rows: provider-apis' `ProviderPullRequest`, or GitHub's own `PullRequest`, still to be tagged for the read
+	 * (`toPullRequestRow`). Unlike the repo-scoped core, this needs no
 	 * `repos` — it reads the current user's pull requests across the account, so the ProviderBackend sweep
 	 * can drive its Kanban "done" column even when no repositories are supplied (where the repo-scoped core
 	 * rejects an empty `repos` input). Recovers thrown errors into `{ error }` so callers surface warnings.
@@ -1597,7 +1598,7 @@ export abstract class GitHostIntegration<
 			summary?: boolean;
 		},
 		connectionId?: string,
-	): Promise<IntegrationResult<ProviderApiPagedResult<ProviderPullRequest> | undefined>> {
+	): Promise<IntegrationResult<ProviderApiPagedResult<ProviderPullRequest | PullRequest> | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -1624,7 +1625,8 @@ export abstract class GitHostIntegration<
 
 	/**
 	 * Reads the current user's pull requests across the whole account using each provider's native "my PRs"
-	 * query, returning the raw provider shape. Without `filters`, the exact user scopes depend on provider-native
+	 * query, returning its raw rows (see {@link getMyPullRequestsForUserResult}). Without `filters`, the exact user
+	 * scopes depend on provider-native
 	 * behavior and options like `includeReviewRequested`. With `filters`, each member is an exact account-wide OR
 	 * relationship validated by the facade before this provider hook is called. Optional: providers that can't
 	 * express an account-wide user query leave it undefined and the surface falls back to repo-scoped.
@@ -1646,7 +1648,7 @@ export abstract class GitHostIntegration<
 			filters?: PullRequestFilter[];
 			summary?: boolean;
 		},
-	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined>;
+	): Promise<ProviderApiPagedResult<ProviderPullRequest | PullRequest> | undefined>;
 
 	/**
 	 * The current account as each of `pullRequests` identifies its members, in order: what a raw row's
@@ -1655,7 +1657,7 @@ export abstract class GitHostIntegration<
 	 * Throws only when the account itself can't be read.
 	 */
 	async getPullRequestViewers(
-		pullRequests: readonly ProviderPullRequest[],
+		pullRequests: readonly (ProviderPullRequest | PullRequest)[],
 		connectionId?: string,
 	): Promise<({ id: string; username?: string } | undefined)[]> {
 		const account = await this.getCurrentAccount({ connectionId: connectionId });

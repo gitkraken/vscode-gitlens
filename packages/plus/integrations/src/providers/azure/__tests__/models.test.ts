@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import { PullRequestMergeableState } from '@gitlens/git/models/pullRequest.js';
 import { fromAzurePullRequest, getAzurePullRequestWebUrl, sanitizeAzureRepositoryUrl } from '../models.js';
 import { azureProvider, createAzureForkSource, createAzurePullRequest as pr } from './fixtures.js';
 
@@ -110,6 +111,31 @@ suite('fromAzurePullRequest', () => {
 		assert.equal(pullRequest.url, 'https://dev.azure.com/myorg/My%20Project/_git/my%20repo/pullrequest/5');
 		assert.equal(pullRequest.refs?.base.owner, 'myorg');
 		assert.equal(pullRequest.repository?.owner, 'myorg');
+	});
+
+	test("reads an absent merge status as Unknown, as provider-apis' row of the same pull request does", () => {
+		const azurePullRequest = pr(
+			'https://dev.azure.com/myorg/project-id/_apis/git/repositories/repository-id/pullRequests/5',
+			'My Project',
+			'my repo',
+		);
+		const withoutStatus = fromAzurePullRequest(
+			{ ...azurePullRequest, mergeStatus: undefined },
+			azureProvider,
+			'myorg',
+			'https://dev.azure.com',
+			undefined,
+		);
+		assert.equal(withoutStatus.mergeableState, PullRequestMergeableState.Unknown);
+
+		const withStatus = fromAzurePullRequest(
+			{ ...azurePullRequest, mergeStatus: 'conflicts' },
+			azureProvider,
+			'myorg',
+			'https://dev.azure.com',
+			undefined,
+		);
+		assert.equal(withStatus.mergeableState, PullRequestMergeableState.Conflicting);
 	});
 
 	test('names the configured collection as the owner on an Azure DevOps Server', () => {

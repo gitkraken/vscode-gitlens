@@ -237,7 +237,8 @@ export interface GitHubPullRequest extends GitHubPullRequestLite {
 	reviewRequests: {
 		nodes: {
 			asCodeOwner: boolean;
-			requestedReviewer: GitHubMember | null;
+			/** Empty for a team (or anything else that isn't a user), which the `... on User` selection doesn't match. */
+			requestedReviewer: Partial<GitHubMember> | null;
 		}[];
 	};
 	commits: {
@@ -262,9 +263,9 @@ export type GitHubViewerPermission =
 	| 'READ' // Can read and clone this repository. Can also open and comment on issues and pull requests
 	| 'NONE';
 
-/** `ghost` is how github.com renders an actor whose account was deleted */
+/** `ghost` is how github.com renders an actor whose account was deleted, under the handle `ghost` */
 function fromGitHubMemberOrGhost(member: GitHubMember | null | undefined): PullRequestMember {
-	if (member == null) return { id: 'ghost', name: 'ghost' };
+	if (member == null) return { id: 'ghost', name: 'ghost', username: 'ghost' };
 
 	return {
 		id: member.login,
@@ -337,6 +338,7 @@ export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: P
 		fromGitHubPullRequestStack(pr),
 		undefined, // filesChanged
 		pr.body ?? undefined,
+		pr.number,
 	);
 }
 
@@ -511,7 +513,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 		pr.additions,
 		pr.deletions,
 		pr.totalCommentsCount,
-		0, //pr.reactions.totalCount,
+		undefined, // thumbsUpCount: the fragment selects no reactions
 		fromGitHubPullRequestReviewDecision(pr.reviewDecision),
 		pr.reviewRequests.nodes
 			.map(r =>
@@ -519,7 +521,8 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 					? {
 							isCodeOwner: r.asCodeOwner,
 							reviewer: {
-								id: r.requestedReviewer.login,
+								// A team has no login: an empty id, which matches no one, rather than a missing one.
+								id: r.requestedReviewer.login ?? '',
 								name: r.requestedReviewer.login,
 								username: r.requestedReviewer.login,
 								avatarUrl: r.requestedReviewer.avatarUrl,
@@ -549,6 +552,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 		fromGitHubPullRequestStack(pr),
 		pr.changedFiles,
 		pr.body ?? undefined,
+		pr.number,
 	);
 }
 

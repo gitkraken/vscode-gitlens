@@ -44,17 +44,15 @@ import type {
 	ProviderApiPagedResult,
 	ProviderHierarchyResult,
 	ProviderOrganization,
-	ProviderPullRequest,
 	ProviderRepoInput,
 	ProviderRepository,
 } from './models.js';
 import {
-	fromProviderPullRequest,
 	getProviderPullRequestIdentity,
 	IssueFilter,
 	providersMetadata,
 	PullRequestFilter,
-	toProviderPullRequest,
+	stampNativePullRequest,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 
@@ -546,7 +544,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			filters?: PullRequestFilter[];
 			summary?: boolean;
 		},
-	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined> {
+	): Promise<ProviderApiPagedResult<PullRequest> | undefined> {
 		const explicitFilters = options?.filters?.length ? [...new Set(options.filters)] : undefined;
 		// Every account-wide read goes through our own facet search — there is deliberately no SDK
 		// `getPullRequestsForUser` fallback. It could express neither a state set, nor exact relationships (its
@@ -614,7 +612,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			if (first?.status === 'rejected') throw first.reason;
 		}
 
-		const values = new Map<string, ProviderPullRequest>();
+		const values = new Map<string, PullRequest>();
 		const nextCursors: GitHubPullRequestFacetCursor = {};
 		const failures = [];
 		let hasMore = false;
@@ -631,10 +629,9 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 
 			const { key, result } = outcome.value;
 			for (const pr of result.values) {
-				const mapped = toProviderPullRequest(pr);
-				const identity = getProviderPullRequestIdentity(mapped) ?? `unkeyed:${unkeyedPullRequest++}`;
+				const identity = getProviderPullRequestIdentity(pr) ?? `unkeyed:${unkeyedPullRequest++}`;
 				if (!values.has(identity)) {
-					values.set(identity, mapped);
+					values.set(identity, pr);
 				}
 			}
 			if (result.hasMore) {
@@ -878,9 +875,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					cancellation,
 				),
 			(pr): PullRequestShape | undefined =>
-				pr != null
-					? fromProviderPullRequest(toProviderPullRequest(pr), this, { currentAccount: currentAccount })
-					: undefined,
+				pr != null ? stampNativePullRequest(pr, { currentAccount: currentAccount }) : undefined,
 		);
 	}
 
@@ -912,7 +907,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				),
 			(found): { pullRequests: PullRequestShape[]; truncated: boolean } => ({
 				pullRequests: found.pullRequests.map(pr =>
-					fromProviderPullRequest(toProviderPullRequest(pr), this, { currentAccount: currentAccount }),
+					stampNativePullRequest(pr, { currentAccount: currentAccount }),
 				),
 				truncated: found.truncated,
 			}),

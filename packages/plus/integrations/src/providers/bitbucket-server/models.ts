@@ -1,19 +1,15 @@
 import type {
-	GitPullRequestMergeableState as GitPullRequestMergeableStateType,
 	GitPullRequestReviewState as GitPullRequestReviewStateType,
 	GitPullRequestState as GitPullRequestStateType,
 } from '@gitkraken/provider-apis';
 import type { ProviderAccount, ProviderPullRequest } from '../models.js';
 
-type GitPullRequestMergeableState = GitPullRequestMergeableStateType;
 type GitPullRequestReviewState = GitPullRequestReviewStateType;
 type GitPullRequestState = GitPullRequestStateType;
 
 // Local runtime copies of the `@gitkraken/provider-apis` PR string enums, duplicated for the same
 // CJS-from-ESM reason as the enums in `../models.ts`. Exported so the enum-parity test can guard them
-// against upstream drift. `GitPullRequestMergeableState` is an intentional subset: Bitbucket Server
-// only ever normalizes to `Unknown`, so the parity test asserts each local entry matches the SDK
-// rather than a full mirror.
+// against upstream drift.
 export const GitPullRequestState = {
 	Open: 'OPEN' as GitPullRequestState,
 	Closed: 'CLOSED' as GitPullRequestState,
@@ -25,10 +21,6 @@ export const GitPullRequestReviewState = {
 	ChangesRequested: 'CHANGES_REQUESTED' as GitPullRequestReviewState,
 	Commented: 'COMMENTED' as GitPullRequestReviewState,
 	ReviewRequested: 'REVIEW_REQUESTED' as GitPullRequestReviewState,
-} as const;
-
-export const GitPullRequestMergeableState = {
-	Unknown: 'UNKNOWN' as GitPullRequestMergeableState,
 } as const;
 
 export interface BitbucketServerLink {
@@ -286,7 +278,6 @@ export const normalizeBitbucketServerPullRequest = (pr: BitbucketServerPullReque
 					: null,
 		},
 		headCommit: null,
-		mergeableState: GitPullRequestMergeableState.Unknown,
 		permissions: null,
 		version: pr.version,
 	};
