@@ -1,4 +1,4 @@
-import type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import { defaultPullRequestSort } from '@gitlens/git/models/pullRequest.js';
 import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
@@ -86,13 +86,13 @@ export async function drainPullRequests(
 	maxPages: number,
 	attributeUnavailableProvider: boolean,
 ): Promise<{
-	items: ProviderPullRequest[];
+	items: (ProviderPullRequest | PullRequest)[];
 	warnings: ProviderWarning[];
 	fetchFailed: boolean;
 	truncated: boolean;
 	failedProvider: boolean;
 }> {
-	const items: ProviderPullRequest[] = [];
+	const items: (ProviderPullRequest | PullRequest)[] = [];
 	const itemIndexByIdentity = new Map<string, number>();
 	const warnings: ProviderWarning[] = [];
 	let cursor: string | undefined;
@@ -440,7 +440,7 @@ export async function getCurrentAccountIdentity(
 export async function getPullRequestViewers(
 	integration: GitHostIntegration,
 	connectionId: string | undefined,
-	pullRequests: readonly ProviderPullRequest[],
+	pullRequests: readonly (ProviderPullRequest | PullRequest)[],
 ): Promise<({ id: string; username?: string } | undefined)[]> {
 	if (!pullRequests.some(pr => pr.author != null)) return pullRequests.map(() => undefined);
 

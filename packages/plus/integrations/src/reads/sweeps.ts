@@ -8,7 +8,7 @@ import type {
 	ProviderSweepTargetEvent,
 	PullRequestSweepOptions,
 } from '../manager.js';
-import { fromProviderPullRequest } from '../providers/models.js';
+import { toPullRequestRow } from '../providers/models.js';
 import type { ProviderSweepResult, ProviderWarning } from '../results.js';
 import { appendDedupedWarning } from '../results.js';
 import { isGitHostIntegration, isIssuesHostIntegrationId } from '../utils/integration.utils.js';
@@ -117,11 +117,11 @@ async function sweepTarget(
 		attributeUnavailableProviders,
 	);
 	const viewers = await getPullRequestViewers(integration, connectionId, drain.items);
-	// Normalize the raw provider-apis PRs to the GitLens-owned shape here, where the per-provider
-	// `integration` (the mapper's provider reference) is in scope; the aggregation below only sees drains.
+	// Normalize the raw rows to the GitLens-owned shape here, where the per-provider `integration` (the
+	// mapper's provider reference) is in scope; the aggregation below only sees drains.
 	return {
 		...drain,
-		items: drain.items.map((pr, i) => fromProviderPullRequest(pr, integration, { currentAccount: viewers[i] })),
+		items: drain.items.map((pr, i) => toPullRequestRow(pr, integration, { currentAccount: viewers[i] })),
 		providerId: id,
 	};
 }

@@ -13,11 +13,15 @@ import { fromProviderAccount, toProviderAccount } from './accounts.js';
  * the next push, which is exactly the "the PR moved past my review" situation the oid detects. Dropping such a
  * review instead would hand a consumer a PR out of the `reviewed-by:@me` set with no review row at all,
  * indistinguishable from never having reviewed it.
+ *
+ * It also carries GitHub's code-owner flag on a request, which provider-apis doesn't report, so its rows leave it
+ * unset.
  */
 export const providerPullRequestReviewStateDismissed = 'DISMISSED' as const;
 export type ProviderPullRequestReview = Omit<NonNullable<GitPullRequest['reviews']>[number], 'state'> & {
 	state: GitPullRequestReviewState | typeof providerPullRequestReviewStateDismissed;
 	commitOid?: string;
+	isCodeOwner?: boolean;
 	/** See {@link PullRequestReviewer.isMyGroup}. Only the Azure DevOps reads that resolve the user's groups set it. */
 	isMyGroup?: boolean;
 };
@@ -56,6 +60,7 @@ export function toProviderReviews(reviewers: PullRequestReviewer[]): ProviderPul
 			reviewer: toProviderAccount(reviewer.reviewer),
 			state: toProviderPullRequestReviewState[reviewer.state] ?? GitPullRequestReviewState.ReviewRequested,
 			commitOid: reviewer.commitOid,
+			isCodeOwner: reviewer.isCodeOwner,
 			...(reviewer.isMyGroup ? { isMyGroup: true } : {}),
 		}));
 }
@@ -66,7 +71,7 @@ export function toReviewRequests(reviews: ProviderPullRequestReviews): PullReque
 		: reviews
 				?.filter(r => r.state === GitPullRequestReviewState.ReviewRequested)
 				.map(r => ({
-					isCodeOwner: false, // TODO: Find this value, and implement in the shared lib if needed
+					isCodeOwner: r.isCodeOwner,
 					reviewer: fromProviderAccount(r.reviewer),
 					state: PullRequestReviewState.ReviewRequested,
 					...(r.isMyGroup ? { isMyGroup: true } : {}),
@@ -89,7 +94,7 @@ export function toCompletedReviews(reviews: ProviderPullRequestReviews): PullReq
 						fromProviderPullRequestReviewState[r.state] != null,
 				)
 				.map(r => ({
-					isCodeOwner: false, // TODO: Find this value, and implement in the shared lib if needed
+					isCodeOwner: r.isCodeOwner,
 					reviewer: fromProviderAccount(r.reviewer),
 					state: fromProviderPullRequestReviewState[r.state],
 					commitOid: r.commitOid,

@@ -7,14 +7,26 @@ import {
 	GitPullRequestState,
 } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
-import { PullRequestReviewState, PullRequestStatusCheckRollupState } from '@gitlens/git/models/pullRequest.js';
+import type { GitHubPullRequest } from '@gitlens/git-github/models.js';
+import { fromGitHubPullRequest } from '@gitlens/git-github/models.js';
+import { RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
+import {
+	PullRequest,
+	PullRequestMergeableState,
+	PullRequestReviewDecision,
+	PullRequestReviewState,
+	PullRequestStatusCheckRollupState,
+} from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.js';
 import type { ProviderPullRequest } from '../models.js';
 import {
 	fromProviderPullRequest,
 	getProviderPullRequestIdentity,
+	stampNativePullRequest,
 	toProviderPullRequest,
 	toProviderPullRequestWithUniqueId,
+	toPullRequestRow,
 } from '../models.js';
 import { providerPullRequestReviewStateDismissed, toProviderReviews } from '../pullRequestReviews.js';
 
@@ -303,9 +315,23 @@ suite('pull request ref mapping (#5435 clone URLs + fork)', () => {
 
 		assert.equal(pr.repository.owner, '');
 		assert.equal(pr.repository.repo, '');
-		assert.equal(pr.repository.id, '');
+		assert.equal(pr.repository.id, undefined);
 		assert.equal(pr.refs?.base.owner, '');
 		assert.equal(pr.refs?.base.repo, '');
+	});
+
+	test("reads provider-apis' blank repository id as unknown, and hands the SDK its blank one back", () => {
+		const blank = fromProviderPullRequest(
+			createProviderPullRequest({
+				repository: { id: '', name: 'repo', owner: { login: 'base' }, remoteInfo: null },
+			}),
+			fakeProvider,
+		);
+		assert.equal(blank.repository.id, undefined, "provider-apis' '' means it doesn't know the id");
+		assert.equal(fromProviderPullRequest(createProviderPullRequest(), fakeProvider).repository.id, 'base-id');
+
+		// The SDK's shape requires a string, so the boundary keeps sending `''` for an unknown id.
+		assert.equal(toProviderPullRequest(blank).repository.id, '');
 	});
 });
 
@@ -624,5 +650,399 @@ suite('pull request dismissed review projection', () => {
 			[GitPullRequestReviewState.Approved],
 			'and nothing round-trips into a fabricated review request',
 		);
+	});
+});
+
+/** A full GitHub node as GitLens' own full and stack fragments select it, as `fromGitHubPullRequest` reads it. */
+function gitHubPullRequestNode(overrides?: Record<string, unknown>): GitHubPullRequest {
+	const repository = {
+		isFork: false,
+		name: 'repo',
+		owner: { login: 'base' },
+		sshUrl: 'git@github.com:base/repo.git',
+		url: 'https://github.com/base/repo',
+	};
+	const reviewer = { login: 'reviewer', avatarUrl: '', url: 'https://github.com/reviewer' };
+	return {
+		id: 'PR_1',
+		number: 1,
+		title: 'PR',
+		body: 'Body',
+		permalink: 'https://github.com/base/repo/pull/1',
+		url: 'https://github.com/base/repo/pull/1',
+		state: 'OPEN',
+		closed: false,
+		createdAt: '2026-01-01T00:00:00Z',
+		updatedAt: '2026-01-02T00:00:00Z',
+		closedAt: null,
+		mergedAt: null,
+		author: reviewer,
+		baseRefName: 'main',
+		baseRefOid: 'base-sha',
+		headRefName: 'feature',
+		headRefOid: 'head-sha',
+		headRepository: repository,
+		repository: { ...repository, viewerPermission: 'READ' },
+		isCrossRepository: false,
+		isDraft: false,
+		stack: { id: 'S_1', number: 7, size: 2, baseRefName: 'main' },
+		stackEntry: { position: 1 },
+		additions: 3,
+		deletions: 1,
+		changedFiles: 2,
+		checksUrl: '',
+		mergeable: 'MERGEABLE',
+		mergedBy: null,
+		reviewDecision: 'REVIEW_REQUIRED',
+		latestReviews: { nodes: [] },
+		viewerLatestReview: null,
+		reviewRequests: {
+			nodes: [
+				{ asCodeOwner: true, id: 'RR_1', requestedReviewer: reviewer },
+				{ asCodeOwner: false, id: 'RR_2', requestedReviewer: { ...reviewer, login: 'other' } },
+			],
+		},
+		assignees: { nodes: [] },
+		commits: { totalCount: 1, nodes: [] },
+		totalCommentsCount: 0,
+		viewerCanUpdate: false,
+		...overrides,
+	} as unknown as GitHubPullRequest;
+}
+
+/** GitLens' own GitHub read, as the account-wide and batch reads return it: the native row. */
+function nativeGitHub(
+	overrides?: Record<string, unknown>,
+	currentAccount?: { id: string; username?: string },
+): PullRequest {
+	return stampNativePullRequest(fromGitHubPullRequest(gitHubPullRequestNode(overrides), fakeProvider), {
+		currentAccount: currentAccount,
+	});
+}
+
+suite('the GitHub native row keeps what the read fetched, and invents nothing', () => {
+	test('keeps the files changed, the stack, the code-owner flags, the viewer and the access level', () => {
+		const pr = nativeGitHub();
+
+		assert.equal(pr.filesChanged, 2);
+		assert.deepEqual(pr.stack, { id: 'S_1', number: 7, size: 2, position: 1, baseRef: 'main' });
+		assert.deepEqual(
+			pr.reviewRequests?.map(r => [r.reviewer.id, r.isCodeOwner]),
+			[
+				['reviewer', true],
+				['other', false],
+			],
+		);
+		assert.equal(pr.viewerCanUpdate, false, 'a fetched false is not lost');
+		assert.equal(pr.repository.accessLevel, RepositoryAccessLevel.Read);
+		assert.equal(pr.mergeableState, PullRequestMergeableState.Mergeable);
+	});
+
+	test('keeps a viewer who can update, with the access level it was read with', () => {
+		const pr = nativeGitHub({
+			viewerCanUpdate: true,
+			repository: {
+				isFork: false,
+				name: 'repo',
+				owner: { login: 'base' },
+				sshUrl: 'git@github.com:base/repo.git',
+				url: 'https://github.com/base/repo',
+				viewerPermission: 'ADMIN',
+			},
+		});
+
+		assert.equal(pr.viewerCanUpdate, true);
+		assert.equal(pr.repository.accessLevel, RepositoryAccessLevel.Admin);
+	});
+
+	test('carries the number, beside the id rows are keyed by', () => {
+		const pr = nativeGitHub({ number: 42 });
+
+		assert.equal(pr.number, 42);
+		assert.equal(pr.id, '42');
+		assert.equal(pr.nodeId, 'PR_1');
+	});
+
+	test("keeps both refs' fork flags, and leaves the unselected repository id unset", () => {
+		const pr = nativeGitHub({
+			repository: {
+				isFork: true,
+				name: 'repo',
+				owner: { login: 'base' },
+				sshUrl: 'git@github.com:base/repo.git',
+				url: 'https://github.com/base/repo',
+				viewerPermission: 'READ',
+			},
+		});
+
+		assert.equal(pr.refs?.base.isFork, true);
+		assert.equal(pr.refs?.head.isFork, false);
+		assert.equal(pr.repository.id, undefined);
+	});
+
+	test('a team review request keeps a blank reviewer id, which matches no one', () => {
+		const pr = nativeGitHub({
+			reviewRequests: { nodes: [{ asCodeOwner: true, id: 'RR_3', requestedReviewer: {} }] },
+		});
+
+		assert.equal(pr.reviewRequests?.length, 1);
+		assert.equal(pr.reviewRequests?.[0].reviewer.id, '');
+		assert.equal(pr.reviewRequests?.[0].isCodeOwner, true);
+	});
+
+	test('leaves the unselected reactions unset rather than 0', () => {
+		assert.equal(nativeGitHub().thumbsUpCount, undefined);
+	});
+
+	test('leaves an unfetched mergeability unset rather than Unknown, and keeps a reported one', () => {
+		assert.equal(nativeGitHub({ mergeable: null }).mergeableState, undefined);
+		assert.equal(nativeGitHub({ mergeable: 'UNKNOWN' }).mergeableState, PullRequestMergeableState.Unknown);
+	});
+
+	test("hands provider-apis' categorizer UNKNOWN for an unfetched mergeability, which its type requires", () => {
+		const pr = fromGitHubPullRequest(gitHubPullRequestNode({ mergeable: null }), fakeProvider);
+
+		assert.equal(toProviderPullRequest(pr).mergeableState, undefined);
+		assert.equal(toProviderPullRequestWithUniqueId(pr).mergeableState, GitPullRequestMergeableState.Unknown);
+	});
+
+	test("keeps GitHub's own review decision: none stays none while a review is requested", () => {
+		const noneRequired = nativeGitHub({ reviewDecision: null });
+		assert.equal(noneRequired.reviewDecision, undefined);
+		assert.equal(noneRequired.reviewRequests?.length, 2);
+
+		assert.equal(nativeGitHub().reviewDecision, PullRequestReviewDecision.ReviewRequired);
+		assert.equal(nativeGitHub({ reviewDecision: 'APPROVED' }).reviewDecision, PullRequestReviewDecision.Approved);
+	});
+
+	test("still hands provider-apis' categorizer a pending request as REVIEW_REQUESTED where GitHub made no decision", () => {
+		const pr = nativeGitHub({ reviewDecision: null });
+
+		assert.equal(toProviderPullRequestWithUniqueId(pr).reviewDecision, GitPullRequestReviewState.ReviewRequested);
+	});
+
+	test("derives the categorizer's merge permission from the viewer and the access level it was read with", () => {
+		const readOnly = toProviderPullRequest(
+			fromGitHubPullRequest(gitHubPullRequestNode({ viewerCanUpdate: true }), fakeProvider),
+		);
+		assert.deepEqual(readOnly.permissions, { canMerge: false, canMergeAndBypassProtections: false });
+
+		const cannotUpdate = toProviderPullRequest(fromGitHubPullRequest(gitHubPullRequestNode(), fakeProvider));
+		assert.deepEqual(cannotUpdate.permissions, { canMerge: false, canMergeAndBypassProtections: false });
+	});
+});
+
+suite('a GitHub native row is finished for the read that returned it', () => {
+	test('on a copy of the mapped row', () => {
+		const mapped = fromGitHubPullRequest(gitHubPullRequestNode(), fakeProvider);
+		const stamped = stampNativePullRequest(mapped, {});
+
+		assert.ok(stamped instanceof PullRequest);
+		assert.notEqual(stamped, mapped);
+		assert.equal(stamped.closed, false, 'the class getters still answer');
+		assert.deepEqual({ ...stamped }, { ...mapped });
+	});
+
+	test("with authorship by provider-apis rows' rule: the login matches, though the ids never can", () => {
+		assert.equal(nativeGitHub(undefined, { id: '641685', username: 'reviewer' }).authoredByMe, true);
+		assert.equal(nativeGitHub(undefined, { id: '641685', username: 'eamodio' }).authoredByMe, false);
+		assert.equal(nativeGitHub(undefined, { id: 'reviewer' }).authoredByMe, true, 'an id match is enough');
+		assert.equal(nativeGitHub().authoredByMe, undefined, 'an unresolved account leaves it unknown');
+	});
+
+	test('with the viewer authorship was matched against, present exactly when it was', () => {
+		const viewer = { id: '641685', username: 'eamodio' };
+		const pr = nativeGitHub(undefined, viewer);
+
+		assert.equal(pr.authoredByMe, false);
+		assert.deepEqual(pr.viewer, viewer, 'set whether or not the account authored it');
+		assert.equal(nativeGitHub().viewer, undefined, 'an unresolved account leaves no viewer');
+	});
+
+	test('a ghost author is nobody the current account can be', () => {
+		const pr = nativeGitHub({ author: null }, { id: '641685', username: 'eamodio' });
+
+		assert.deepEqual(pr.author, { id: 'ghost', name: 'ghost', username: 'ghost' });
+		assert.equal(pr.authoredByMe, false);
+	});
+
+	test("an account-wide row is kept when it is native, and converted when it is provider-apis'", () => {
+		const native = toPullRequestRow(fromGitHubPullRequest(gitHubPullRequestNode(), fakeProvider), fakeProvider, {
+			currentAccount: { id: '641685', username: 'reviewer' },
+		});
+		assert.equal(native.authoredByMe, true);
+		assert.equal(native.viewerCanUpdate, false, "a value the SDK's shape has no slot for is kept");
+
+		const sdk = toPullRequestRow(createProviderPullRequest({ description: 'From the SDK' }), fakeProvider, {});
+		assert.equal(sdk.body, 'From the SDK');
+	});
+
+	test('a provider-apis row that grows a `type` key is still converted, not taken for a native one', () => {
+		const sdkRow = { ...createProviderPullRequest({ description: 'From the SDK' }), type: 'pullrequest' };
+
+		const pr = toPullRequestRow(sdkRow, fakeProvider, {});
+
+		assert.equal(pr.body, 'From the SDK');
+		assert.equal(pr.provider, fakeProvider);
+	});
+});
+
+suite('the Launchpad boundary for a GitHub row', () => {
+	test("hands provider-apis' categorizer the SDK shape, and nothing beyond it", () => {
+		const reviewer = { avatarUrl: '', email: '', url: 'https://github.com/reviewer' };
+		const remoteInfo = {
+			cloneUrlHTTPS: 'https://github.com/base/repo.git',
+			cloneUrlSSH: 'git@github.com:base/repo.git',
+		};
+
+		assert.deepEqual(toProviderPullRequestWithUniqueId(nativeGitHub()), {
+			id: '1',
+			graphQLId: 'PR_1',
+			number: 1,
+			title: 'PR',
+			description: 'Body',
+			url: 'https://github.com/base/repo/pull/1',
+			state: GitPullRequestState.Open,
+			isCrossRepository: false,
+			isDraft: false,
+			createdDate: new Date('2026-01-01T00:00:00Z'),
+			updatedDate: new Date('2026-01-02T00:00:00Z'),
+			closedDate: null,
+			mergedDate: null,
+			commentCount: 0,
+			upvoteCount: null,
+			commitCount: 1,
+			fileCount: 2,
+			additions: 3,
+			deletions: 1,
+			author: { ...reviewer, id: 'reviewer', name: 'reviewer', username: 'reviewer' },
+			assignees: [],
+			baseRef: { name: 'main', oid: 'base-sha' },
+			headRef: { name: 'feature', oid: 'head-sha' },
+			reviewDecision: GitPullRequestReviewState.ReviewRequested,
+			// The SDK's type requires a string, so an unread id goes over blank.
+			repository: { id: '', name: 'repo', owner: { login: 'base' }, remoteInfo: remoteInfo },
+			headRepository: {
+				id: 'repo',
+				name: 'repo',
+				owner: { login: 'base' },
+				remoteInfo: remoteInfo,
+				isFork: false,
+			},
+			headCommit: null,
+			// READ can't merge, whatever the viewer can update.
+			permissions: { canMerge: false, canMergeAndBypassProtections: false },
+			mergeableState: GitPullRequestMergeableState.Mergeable,
+			reviews: [
+				{
+					reviewer: { ...reviewer, id: 'reviewer', name: 'reviewer', username: 'reviewer' },
+					state: GitPullRequestReviewState.ReviewRequested,
+					commitOid: undefined,
+					isCodeOwner: true,
+				},
+				{
+					reviewer: { ...reviewer, id: 'other', name: 'other', username: 'other' },
+					state: GitPullRequestReviewState.ReviewRequested,
+					commitOid: undefined,
+					isCodeOwner: false,
+				},
+			],
+			uuid: '["github","pr","1","","PR_1"]',
+		});
+	});
+});
+
+suite("provider-apis' rows carry no invented viewer", () => {
+	test('leaves the access level unset, and reads a viewer only from a permission to merge', () => {
+		const canMerge = fromProviderPullRequest(
+			createProviderPullRequest({ permissions: { canMerge: true, canMergeAndBypassProtections: false } }),
+			fakeProvider,
+		);
+		assert.equal(canMerge.repository.accessLevel, undefined);
+		assert.equal(canMerge.viewerCanUpdate, true);
+
+		// The SDK's `permissions` can't say "can't update", so a refused merge stays unknown.
+		const cannotMerge = fromProviderPullRequest(
+			createProviderPullRequest({ permissions: { canMerge: false, canMergeAndBypassProtections: false } }),
+			fakeProvider,
+		);
+		assert.equal(cannotMerge.viewerCanUpdate, undefined);
+
+		const noPermissions = fromProviderPullRequest(createProviderPullRequest(), fakeProvider);
+		assert.equal(noPermissions.viewerCanUpdate, undefined);
+		assert.equal(noPermissions.stack, undefined);
+	});
+
+	test('an unknown access level keeps a merge the SDK allowed when the row goes back to the categorizer', () => {
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({ permissions: { canMerge: true, canMergeAndBypassProtections: false } }),
+			fakeProvider,
+		);
+
+		assert.deepEqual(toProviderPullRequestWithUniqueId(pr).permissions, {
+			canMerge: true,
+			canMergeAndBypassProtections: false,
+		});
+	});
+
+	test('leaves a review request whose code ownership the SDK never reports unset rather than false', () => {
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				reviews: [{ reviewer: approver, state: GitPullRequestReviewState.ReviewRequested }],
+			}),
+			fakeProvider,
+		);
+
+		assert.equal(pr.reviewRequests?.length, 1);
+		assert.equal(pr.reviewRequests?.[0]?.isCodeOwner, undefined);
+	});
+
+	test("keeps provider-apis' own review decision", () => {
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				reviews: [{ reviewer: approver, state: GitPullRequestReviewState.ReviewRequested }],
+				reviewDecision: GitPullRequestReviewState.ReviewRequested,
+			}),
+			fakeProvider,
+		);
+
+		assert.equal(pr.reviewDecision, PullRequestReviewDecision.ReviewRequired);
+	});
+});
+
+suite("Launchpad's mergeability for a row that has none", () => {
+	function unreadMergeability(providerId: string, mergeableState?: GitPullRequestMergeableState): PullRequest {
+		return fromProviderPullRequest(createProviderPullRequest({ mergeableState: mergeableState }), {
+			...fakeProvider,
+			id: providerId,
+		});
+	}
+
+	test("a Bitbucket Cloud row goes over as MERGEABLE, as provider-apis' own Bitbucket rows do", () => {
+		const pr = unreadMergeability(GitCloudHostIntegrationId.Bitbucket);
+
+		assert.equal(pr.mergeableState, undefined, 'the row itself stays honest');
+		assert.equal(toProviderPullRequestWithUniqueId(pr).mergeableState, GitPullRequestMergeableState.Mergeable);
+	});
+
+	test('a Bitbucket Cloud row keeps a mergeability it has', () => {
+		const pr = unreadMergeability(GitCloudHostIntegrationId.Bitbucket, GitPullRequestMergeableState.Conflicts);
+
+		assert.equal(toProviderPullRequestWithUniqueId(pr).mergeableState, GitPullRequestMergeableState.Conflicts);
+	});
+
+	test('every other host goes over as UNKNOWN', () => {
+		for (const providerId of [
+			GitCloudHostIntegrationId.GitHub,
+			GitCloudHostIntegrationId.GitLab,
+			GitSelfManagedHostIntegrationId.BitbucketServer,
+			GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+		]) {
+			assert.equal(
+				toProviderPullRequestWithUniqueId(unreadMergeability(providerId)).mergeableState,
+				GitPullRequestMergeableState.Unknown,
+				providerId,
+			);
+		}
 	});
 });
