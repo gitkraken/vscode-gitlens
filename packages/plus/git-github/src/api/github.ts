@@ -3907,7 +3907,7 @@ export class GitHubApi {
 			includeDefaultInvolvement?: boolean;
 		},
 		cancellation?: AbortSignal,
-	): Promise<{ values: PullRequest[]; cursor?: string; hasMore: boolean; truncated: boolean }> {
+	): Promise<{ values: PullRequest[]; cursor?: string; hasMore: boolean; truncated: boolean; totalCount?: number }> {
 		const scope = getScopedLogger();
 		// The page follows the projection rather than being a separate decision: the full fragment is what GitHub
 		// rejects at 100 nodes (see `defaultPullRequestSearchPageSize`), so every read that selects it pages at the
@@ -4020,6 +4020,7 @@ export class GitHubApi {
 				cursor: rsp.search.pageInfo.endCursor ?? undefined,
 				hasMore: rsp.search.pageInfo.hasNextPage,
 				truncated: rsp.search.issueCount > githubSearchResultLimit && !rsp.search.pageInfo.hasNextPage,
+				totalCount: rsp.search.issueCount,
 			};
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope, options?.silent);
