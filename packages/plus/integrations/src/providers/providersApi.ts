@@ -1098,7 +1098,7 @@ export class ProvidersApi {
 		const token = tokenWithInfo.accessToken;
 
 		const baseUrl = (options.baseUrl ?? azureDevOpsBaseUrl).replace(/\/$/, '');
-		const url = `${baseUrl}/${encodeAzurePathSegment(repo.namespace)}/${encodeAzurePathSegment(repo.project)}/_apis/git/repositories/${encodeAzurePathSegment(repo.name)}/pullrequests/${id}?api-version=7.1`;
+		const url = `${baseUrl}/${encodeAzurePathSegment(repo.namespace)}/${encodeAzurePathSegment(repo.project)}/_apis/git/repositories/${encodeAzurePathSegment(repo.name)}/pullrequests/${id}?api-version=6.0`;
 
 		try {
 			const result = await this.request<AzurePullRequest | null>({

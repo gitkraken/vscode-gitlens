@@ -74,7 +74,7 @@ const stateCases: { state: IssueStateFilter | undefined; states: GitIssueState[]
 // A Linear workspace behind the real `ProvidersApi` and the real provider-apis client, so the test sees the
 // GraphQL document provider-apis actually builds and the issues come back through its own normalization.
 
-type WorkflowType = 'triage' | 'backlog' | 'unstarted' | 'started' | 'completed' | 'canceled';
+type WorkflowType = 'triage' | 'backlog' | 'unstarted' | 'started' | 'completed' | 'canceled' | 'duplicate';
 
 interface LinearNode {
 	identifier: string;
@@ -159,6 +159,8 @@ const mixedTeam: LinearNode[] = [
 	{ identifier: 'TEAM-5', type: 'started', assigneeId: viewer.id },
 	{ identifier: 'TEAM-6', type: 'backlog', assigneeId: viewer.id },
 	{ identifier: 'TEAM-7', type: 'triage', assigneeId: 'someone-else' },
+	// Closed as a duplicate: Linear gives it a state type of its own, which counts as closed (provider-apis 0.63.0).
+	{ identifier: 'TEAM-8', type: 'duplicate', assigneeId: viewer.id },
 ];
 
 const team = { id: 'team-1', key: 'TEAM', name: 'Team', resourceId: 'org-1' };
@@ -230,7 +232,11 @@ suite('Issue tracker state selector (#5911)', () => {
 					// Three open issues at two a page: two pages. Unnarrowed, the four done ones ahead of them would make it
 					// four, which is the budget a team full of done work used to spend before reaching open work.
 					assert.equal(queries.length, 2, 'the done issues never cost a page');
-					assert.ok(queries.every(q => q.includes('state: { type: { nin: ["completed", "canceled"] } }')));
+					assert.ok(
+						queries.every(q =>
+							q.includes('state: { type: { nin: ["completed", "canceled", "duplicate"] } }'),
+						),
+					);
 				}
 			}));
 
@@ -240,9 +246,9 @@ suite('Issue tracker state selector (#5911)', () => {
 				const { queries } = stubLinearServer(runtime, mixedTeam);
 
 				const closed = await drainTeam(linear, { state: 'closed' });
-				assert.deepEqual(ids(closed.values), ['TEAM-1', 'TEAM-2', 'TEAM-3', 'TEAM-4']);
+				assert.deepEqual(ids(closed.values), ['TEAM-1', 'TEAM-2', 'TEAM-3', 'TEAM-4', 'TEAM-8']);
 				assert.ok(closed.values.every(v => v.providerState?.category === 'DONE' && v.closed));
-				assert.match(queries.at(-1)!, /state: \{ type: \{ in: \["completed", "canceled"\] \} \}/);
+				assert.match(queries.at(-1)!, /state: \{ type: \{ in: \["completed", "canceled", "duplicate"\] \} \}/);
 
 				const all = await drainTeam(linear, { state: 'all' });
 				assert.deepEqual(ids(all.values), mixedTeam.map(n => n.identifier).sort());
@@ -261,7 +267,8 @@ suite('Issue tracker state selector (#5911)', () => {
 					false,
 					"another assignee's issue is dropped",
 				);
-				assert.equal(all.values.length, 6);
+				// The viewer's six done/open issues plus the one closed as a duplicate.
+				assert.equal(all.values.length, 7);
 			}));
 
 		test('the account-wide drain ANDs the state with the involvement filter', () =>
