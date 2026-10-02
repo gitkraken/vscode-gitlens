@@ -46,10 +46,10 @@ import {
  * bounded concurrency on GitLab and Azure DevOps and on the trackers) and settles each independently, so failing
  * targets spend at most one strike of the integration's failure budget.
  *
- * With etags, up to THREE on a host with a cheap check (GitHub/GHE, GitLab and Azure DevOps; Jira Cloud among the
- * trackers): the cheap check of the targets that carry one, a full read of the rest started alongside it, and a full
- * read of the targets whose etag no longer matches — see `readEtaggedBatch`. Every other tracker still makes one call
- * and etags its rows.
+ * With etags, up to THREE on a host with a cheap check (GitHub/GHE, GitLab and Azure DevOps; Jira Cloud and Linear
+ * among the trackers): the cheap check of the targets that carry one, a full read of the rest started alongside it,
+ * and a full read of the targets whose etag no longer matches — see `readEtaggedBatch`. Every other tracker still makes
+ * one call and etags its rows.
  */
 
 /** One issue to resolve, echoed back under the caller's own `key`. Which form a call takes depends on its provider. */
@@ -86,8 +86,8 @@ export type IssueBatchTarget =
 			resourceUrl?: string;
 			identifier: string;
 			/**
-			 * The {@link IssueBatchResult.etag} of the copy the caller holds. Checked cheaply on Jira Cloud; every
-			 * other tracker accepts it but reads the issue in full.
+			 * The {@link IssueBatchResult.etag} of the copy the caller holds. Checked cheaply on Jira Cloud and Linear;
+			 * every other tracker accepts it but reads the issue in full.
 			 */
 			etag?: string;
 	  };
@@ -255,8 +255,8 @@ export async function getIssuesBatch(
  * The tracker form. ONE integration call per invocation when no target carries an `etag`, whatever the target count:
  * the integration makes one single-issue request per target, with bounded concurrency, and settles each independently
  * — see `IssuesIntegration.getIssuesByResourceIdBatchResult`. With etags, a tracker with a cheap check (Jira Cloud's
- * bulk fetch) takes the coordinate form's `readEtaggedBatch` flow; every other tracker ignores a target's `etag` and
- * reads and etags every found row in full.
+ * bulk fetch, Linear's per-team query) takes the coordinate form's `readEtaggedBatch` flow; every other tracker
+ * ignores a target's `etag` and reads and etags every found row in full.
  *
  * `resourceId` is trusted and the read does no resource discovery. It is handed to the provider's by-resource-id
  * read as-is, never wrapped into a synthesized descriptor: Linear and Trello answer `undefined` for a descriptor

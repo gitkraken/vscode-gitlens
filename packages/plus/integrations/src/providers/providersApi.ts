@@ -37,6 +37,8 @@ import {
 } from './bitbucket-server/pullRequestSearch.js';
 import type { JiraIssueEtagResponse } from './jiraIssueByKey.js';
 import { requestJiraIssueByKey, requestJiraIssuesEtagFields } from './jiraIssueByKey.js';
+import type { LinearIssueEtagNode } from './linearIssuesEtag.js';
+import { requestLinearIssuesEtagFields } from './linearIssuesEtag.js';
 import type {
 	GetIssueFn,
 	GetIssuesForReposFn,
@@ -1253,6 +1255,24 @@ export class ProvidersApi {
 			tokenWithInfo,
 			options?.cursor ?? undefined,
 		);
+	}
+
+	/**
+	 * The change state of up to `linearIssuesEtagMaxNumbers` issues of one Linear team, by number, in one GraphQL
+	 * request. Its failures are classified as {@link getIssue}'s are, so a throttled or refused check reads the same.
+	 */
+	async getLinearIssuesEtagFields(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Linear>,
+		teamKey: string,
+		numbers: readonly number[],
+	): Promise<LinearIssueEtagNode[]> {
+		const { tokenWithInfo } = await this.ensureProviderToken(tokenOptInfo);
+
+		try {
+			return await requestLinearIssuesEtagFields(this.request, tokenWithInfo.accessToken, teamKey, numbers);
+		} catch (e) {
+			return this.handleProviderError<LinearIssueEtagNode[]>(tokenWithInfo, e);
+		}
 	}
 
 	/** Resolves Linear's current user (viewer). The viewer query returns only id/name/email/displayName. */

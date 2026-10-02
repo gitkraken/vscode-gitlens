@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { ProviderAuthenticationSession, TokenWithInfo } from '../authentication/models.js';
-import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
+import {
+	GitCloudHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
+} from '../constants.js';
 import { AuthenticationError, AuthenticationErrorReason, RequestClientError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
@@ -539,28 +543,35 @@ suite('IntegrationManager.getIssuesBatch — tracker targets (#5810)', () => {
 	});
 
 	test('etags every found row, and reads a target in full even when it sends a matching etag', async () => {
-		// Linear has no cheap check, so a sent etag changes nothing, but the caller can seed etags from here. Jira
-		// Cloud's cheap check is pinned in `jiraEtag.test.ts`.
+		// Jira Data Center has no cheap check, so a sent etag changes nothing, but the caller can seed etags from here.
+		// The cheap checks of Jira Cloud and Linear are pinned in `jiraEtag.test.ts` and `linearEtag.test.ts`.
 		let reads = 0;
-		const { manager, integration } = await connectedTracker(
-			createFakeRuntime(),
-			IssuesCloudHostIntegrationId.Linear,
-		);
+		const host = 'jira.example.com';
+		const manager = createIntegrationManager(createFakeRuntime());
+		const integration = (await manager.get(
+			IssuesSelfManagedHostIntegrationId.JiraServer,
+			host,
+		)) as IssuesIntegration;
+		(integration as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...trackerSession(host),
+			type: 'pat',
+		};
 		stubApi(integration, {
-			getIssue: (_token: TokenWithInfo, input: { number: string }) => {
+			getJiraServerIssue: (_token: TokenWithInfo, _baseUrl: string, key: string) => {
 				reads++;
-				return Promise.resolve(input.number === 'ENG-2' ? undefined : providerIssue(input.number));
+				return Promise.resolve(key === 'ABC-2' ? undefined : providerIssue(key));
 			},
 		});
-		const linearTarget = (identifier: string, key: string) => ({
+		const dataCenterTarget = (identifier: string, key: string) => ({
 			key: key,
-			resourceId: 'workspace-1',
+			resourceId: host,
 			identifier: identifier,
 		});
 
 		const first = await manager.getIssuesBatch({
-			providerId: IssuesCloudHostIntegrationId.Linear,
-			targets: [linearTarget('ENG-1', 'found'), linearTarget('ENG-2', 'absent')],
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			domain: host,
+			targets: [dataCenterTarget('ABC-1', 'found'), dataCenterTarget('ABC-2', 'absent')],
 		});
 
 		const [found, absent] = first.items;
@@ -569,13 +580,15 @@ suite('IntegrationManager.getIssuesBatch — tracker targets (#5810)', () => {
 		assert.deepEqual(absent, { key: 'absent' }, 'a proven absence has no etag');
 
 		const second = await manager.getIssuesBatch({
-			providerId: IssuesCloudHostIntegrationId.Linear,
-			targets: [{ ...linearTarget('ENG-1', 'found'), etag: found.etag }],
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			domain: host,
+			targets: [{ ...dataCenterTarget('ABC-1', 'found'), etag: found.etag }],
 		});
 
+		assert.equal(integration.supportsIssueEtagsByResourceId, false);
 		assert.equal(reads, 3);
 		assert.equal(second.items[0].unchanged, undefined);
-		assert.equal(second.items[0].issue?.id, 'ENG-1');
+		assert.equal(second.items[0].issue?.id, 'ABC-1');
 		assert.equal(second.items[0].etag, found.etag);
 
 		manager.dispose();

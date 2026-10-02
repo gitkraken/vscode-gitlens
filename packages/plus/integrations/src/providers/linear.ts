@@ -6,13 +6,16 @@ import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { IssueResourceDescriptor, ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { isIssueResourceDescriptor } from '@gitlens/git/utils/resourceDescriptor.utils.js';
+import { chunk } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
-import { IssuesCloudHostIntegrationId } from '../constants.js';
+import { IssuesCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
+import type { IssueEtagFields } from '../models/integration.js';
 import type {
 	AccountWideIssuesResult,
 	IssuesForProjectOptions,
@@ -20,6 +23,8 @@ import type {
 	SearchMyIssuesOptions,
 } from '../models/issueReads.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
+import type { LinearIssueEtagNode } from './linearIssuesEtag.js';
+import { linearIssuesEtagMaxNumbers, toLinearIssueEtagFields } from './linearIssuesEtag.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape, toProviderIssueStates } from './models.js';
 import { DiscoveryCache, discoveryCacheTtl } from './utils/discoveryCache.js';
@@ -44,6 +49,8 @@ const maxPagesPerRequest = 10;
  */
 const maxAccountWidePagesPerRequest = 50;
 const linearImplicitTeamsPageSize = 50;
+/** A team key and issue number, as Linear writes an issue's identifier (`ENG-123`). */
+const linearIdentifier = /^([A-Za-z0-9]+)-(\d+)$/;
 
 export interface LinearTeamDescriptor extends IssueResourceDescriptor {
 	avatarUrl: string | undefined;
@@ -507,6 +514,113 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			number: id,
 		});
 		return result && fromProviderIssue(result, this, { projection: 'batch' });
+	}
+
+	/**
+	 * The cheap check behind the batch issue read's etags: one `issues` query per team and
+	 * {@link linearIssuesEtagMaxNumbers} distinct numbers, where {@link getProviderIssueByResourceId} sends one request
+	 * per issue. A request that throws rejects only its own targets' slots, with its error classified as the full
+	 * read's would be.
+	 *
+	 * Never proves an absence. The query filters by the team's CURRENT key and asks for archived issues too, but the
+	 * full read's `issue(id:)` may also resolve an identifier the issue no longer carries (its team was renamed, or it
+	 * moved to another team), so an issue the query leaves out may still exist. Its target's slot is rejected, as is a
+	 * target whose identifier isn't a team key and a number, so the full read decides. When no target was answered and
+	 * nothing failed, the check declines instead, so a batch of only such targets costs a full read, not a failure.
+	 */
+	protected override async getProviderIssuesEtagFieldsByResourceId(
+		session: ProviderAuthenticationSession,
+		targets: readonly { resourceId: string; identifier: string; resourceUrl?: string }[],
+	): Promise<PromiseSettledResult<IssueEtagFields | undefined>[] | undefined> {
+		const slots = new Array<PromiseSettledResult<IssueEtagFields | undefined>>(targets.length);
+		let answered = false;
+		let failed = false;
+
+		// Each workspace and team's distinct numbers, with the targets asking for each.
+		const byTeam = new Map<string, { teamKey: string; numbers: Map<number, number[]> }>();
+		for (const [index, target] of targets.entries()) {
+			const match = linearIdentifier.exec(target.identifier);
+			const number = match != null ? Number(match[2]) : Number.NaN;
+			// Only a number written as Linear writes it, so `ENG-012` never answers for `ENG-12`.
+			if (match == null || !Number.isSafeInteger(number) || String(number) !== match[2]) {
+				slots[index] = {
+					status: 'rejected',
+					reason: new Error(`Not a Linear issue identifier: ${target.identifier}`),
+				};
+				continue;
+			}
+
+			const teamKey = match[1].toUpperCase();
+			const groupKey = `${target.resourceId}\n${teamKey}`;
+			let group = byTeam.get(groupKey);
+			if (group == null) {
+				group = { teamKey: teamKey, numbers: new Map() };
+				byTeam.set(groupKey, group);
+			}
+
+			let indices = group.numbers.get(number);
+			if (indices == null) {
+				indices = [];
+				group.numbers.set(number, indices);
+			}
+			indices.push(index);
+		}
+
+		const requests = [...byTeam.values()].flatMap(({ teamKey, numbers }) =>
+			chunk([...numbers], linearIssuesEtagMaxNumbers).map(entries => ({ teamKey: teamKey, entries: entries })),
+		);
+		if (requests.length) {
+			const api = await this.getProvidersApi();
+			const tokenWithInfo = toTokenWithInfo(this.id, session);
+			const answers = await mapSettledBounded(requests, providerFanOutConcurrency, r =>
+				api.getLinearIssuesEtagFields(
+					tokenWithInfo,
+					r.teamKey,
+					r.entries.map(([number]) => number),
+				),
+			);
+
+			for (const [i, answer] of answers.entries()) {
+				const { teamKey, entries } = requests[i];
+				if (answer.status === 'rejected') {
+					failed = true;
+					for (const [, indices] of entries) {
+						for (const index of indices) {
+							slots[index] = answer;
+						}
+					}
+					continue;
+				}
+
+				// By number, never by position: Linear returns the issues in its own order, and only the ones it found.
+				const byNumber = new Map<number, LinearIssueEtagNode>();
+				for (const issue of answer.value) {
+					byNumber.set(issue.number, issue);
+				}
+
+				for (const [number, indices] of entries) {
+					const issue = byNumber.get(number);
+					let slot: PromiseSettledResult<IssueEtagFields | undefined>;
+					if (issue == null) {
+						slot = { status: 'rejected', reason: new Error(`Linear did not return ${teamKey}-${number}`) };
+					} else {
+						try {
+							slot = { status: 'fulfilled', value: toLinearIssueEtagFields(issue) };
+							answered = true;
+						} catch (ex) {
+							slot = { status: 'rejected', reason: ex };
+							failed = true;
+						}
+					}
+
+					for (const index of indices) {
+						slots[index] = slot;
+					}
+				}
+			}
+		}
+
+		return answered || failed ? slots : undefined;
 	}
 
 	private async getRawProviderIssue(
