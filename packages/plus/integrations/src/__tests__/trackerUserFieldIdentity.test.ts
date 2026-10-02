@@ -58,16 +58,24 @@ async function connectedJira(account: { id?: string; username?: string; name?: s
 	const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
 	(jira as unknown as { _session: ProviderAuthenticationSession })._session = trackerSession('atlassian.net');
 	const queries: IssueQuery[] = [];
+	const projectReads = { count: 0 };
+	// Recorded from either search: a user-scoped facade read names its projects together, a direct project read
+	// names one, and both must send the same identity.
+	const issuesPage = (_token: unknown, _projects: unknown, _resourceId: unknown, options: IssueQuery) => {
+		queries.push(options);
+		return Promise.resolve({ data: [], hasMore: false, nextCursor: undefined });
+	};
 	stubApi(jira, {
 		getJiraResourcesForCurrentUser: () => Promise.resolve([jiraResource]),
 		getCurrentUserForResource: () => Promise.resolve(account),
 		getJiraProjectsForResource: () => Promise.resolve({ values: [jiraProject], paging: undefined }),
-		getIssuesForProjectPaged: (_token: unknown, _project: unknown, _resourceId: unknown, options: IssueQuery) => {
-			queries.push(options);
-			return Promise.resolve({ data: [], hasMore: false, nextCursor: undefined });
+		getIssuesForProjectPaged: (...args: Parameters<typeof issuesPage>) => {
+			projectReads.count++;
+			return issuesPage(...args);
 		},
+		getIssuesForProjectsPaged: issuesPage,
 	});
-	return { manager: manager, queries: queries };
+	return { manager: manager, jira: jira, queries: queries, projectReads: projectReads };
 }
 
 suite('tracker user-field identity', () => {
@@ -160,5 +168,33 @@ suite('tracker user-field identity', () => {
 			queries.map(q => q.assigneeLogins),
 			[[DISPLAY_NAME]],
 		);
+	});
+
+	// The facade reads one project through the search above; a single project's own read is what a search falls
+	// back to, and it builds its clauses separately, so it is pinned on its own.
+	test("a project's own read scopes user fields by account id and keeps the display name for a mention", async () => {
+		const { manager, jira, queries, projectReads } = await connectedJira({
+			id: ACCOUNT_ID,
+			username: DISPLAY_NAME,
+			name: DISPLAY_NAME,
+		});
+
+		await jira.getIssuesForProjectWithTruncationResult(jiraProject, {
+			user: DISPLAY_NAME,
+			userId: ACCOUNT_ID,
+			filters: [IssueFilter.Assignee, IssueFilter.Author, IssueFilter.Mention],
+		});
+
+		assert.equal(projectReads.count, 3, 'one per-project search per relationship');
+		assert.deepEqual(
+			queries.map(q => [q.assigneeLogins, q.authorLogin, q.mentionLogin]),
+			[
+				[[ACCOUNT_ID], undefined, undefined],
+				[undefined, ACCOUNT_ID, undefined],
+				[undefined, undefined, DISPLAY_NAME],
+			],
+		);
+
+		manager.dispose();
 	});
 });

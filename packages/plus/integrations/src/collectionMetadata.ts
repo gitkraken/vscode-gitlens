@@ -48,6 +48,19 @@ export function throwIfCallerContractError(ex: unknown): void {
 }
 
 /**
+ * Whether a failed query that covered several scopes would fail each scope's own read the same way: a rejected or
+ * rate-limited token, or a call the SDK refused before sending. Anything else (a query the provider rejects because
+ * one scope is gone or no longer visible, a server error) may be one scope's problem, so the scopes are worth
+ * reading on their own.
+ */
+export function failsEveryScope(ex: unknown): boolean {
+	const kind = toCollectionFailureKind(ex);
+	return (
+		kind === 'authentication' || kind === 'rate-limit' || isUnsupportedSortError(ex) || isInvalidRequestError(ex)
+	);
+}
+
+/**
  * Maps a caught GitLens request error to the SDK collection failure vocabulary used inside provider fan-outs.
  */
 export function toCollectionFailureKind(ex: unknown): CollectionScopeFailure['kind'] {

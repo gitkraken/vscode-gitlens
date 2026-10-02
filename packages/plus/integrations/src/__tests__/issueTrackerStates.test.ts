@@ -5,9 +5,11 @@ import type { IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js'
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId, IssuesSelfManagedHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
+import type { Integration } from '../models/integration.js';
 import { parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from '../reads/cursors.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { primarySession } from './issueSortHelpers.js';
+import { readProjectsOneByOne } from './projectReads.js';
 
 /**
  * The `state` option on the issue-tracker reads (#5911): what reaches provider-apis for each value, that Linear's
@@ -510,6 +512,9 @@ suite('Issue tracker state selector (#5911)', () => {
 	suite('listIssueTrackerIssuesPage', () => {
 		function stubTracker(integration: Record<string, unknown>) {
 			const calls: Record<string, unknown>[] = [];
+			// Pins what the facade hands each project; the trackers' own searches are covered in
+			// `linearTeamSearches.test.ts` and `jiraProjectSearches.test.ts`.
+			readProjectsOneByOne(integration as unknown as Integration);
 			integration.getResourcesForUserResult = () =>
 				Promise.resolve({ value: [{ id: 'org-1', key: 'org', name: 'Org' }] });
 			integration.getProjectsForResourcesWithMetadataResult = () =>

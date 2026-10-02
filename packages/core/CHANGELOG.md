@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds `viewer` (`{ id, username? }`) to `PullRequestShape`: the identity a row's `authoredByMe` was matched against, present exactly when that was. Match `reviewRequests` and `latestReviews` entries against it rather than against `getCurrentAccount`, which on Azure DevOps Server is a different id than any collection's. Rows are resolved per row through the new `GitHostIntegration.getPullRequestViewers` (#5916) (git, plus/integrations)
 
+### Changed
+
+- Changes a user-scoped `listIssueTrackerIssuesPage` read to search a tracker's projects together instead of draining each one ([#5902](https://github.com/gitkraken/vscode-gitlens/issues/5902)), so a page wide enough to order by recency across every project no longer costs a request per project, even one with none of the user's issues. Jira and Jira Data Center send one JQL per site (instance), user scope and relationship, up to 50 projects each; Linear sends one `getIssues` for every team, filtered to the viewer server-side. A search only serves its projects when it completes: an incomplete one, or one failing for a reason that may be one project's (e.g. a project deleted since discovery), is read project by project, so completeness, warnings and retry cursors stay per project as before. Reads of every assignee (`includeAllAssignees`) stay per project. The new `IssuesIntegration.getIssuesForProjectsWithTruncationResult` returns one result per project
+
 ### Fixed
 
 - Fixes Linear issues closed as duplicates being listed as open work, and Bitbucket Data Center pull request reads that ask for several states being refused (`state=ALL`), by bumping `@gitkraken/provider-apis` to 0.63.0. A multi-state Bitbucket Data Center read now returns its rows grouped by state rather than newest-first across states. The bump also lets Azure DevOps Server 2020 read and merge pull requests (its PR routes now use api-version 6.0)
