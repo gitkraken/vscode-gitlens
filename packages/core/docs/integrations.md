@@ -1070,7 +1070,8 @@ reach for `includeReviews`, which only exists on the all-at-once sweep.
 ## 8. Provider capability matrix
 
 Derived from the provider models and `providersMetadata`. ✓ supported · ✗ reported unsupported
-(warning + `fetchFailed`) · — not applicable. Self-managed variants inherit their cloud family's hooks.
+(warning + `fetchFailed`) · — not applicable. Self-managed variants inherit their cloud family's hooks unless a
+footnote says otherwise.
 
 | Surface                      | GitHub / GHE | GitLab / self-hosted | Bitbucket | Bitbucket DC | Azure DevOps (+ Server) | Jira (+ DC) | Linear | Trello |
 | ---------------------------- | :----------: | :------------------: | :-------: | :----------: | :---------------------: | :---------: | :----: | :----: |
@@ -1081,12 +1082,12 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | PRs, repo-scoped             |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
 | PRs, account-wide            |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
 | PR `states` account-wide     |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      —      |   —    |   —    |
-| `searchPullRequestsPage`     |      ✓       |          ✗           |     ✗     |      ✓       |            ✗            |      ✗      |   ✗    |   ✗    |
-| `countPullRequests`          |      ✓       |          ✗           |     ✗     |      ✓       |            ✗            |      ✗      |   ✗    |   ✗    |
+| `searchPullRequestsPage`     |      ✓       |          ✗           |     ✗     |      ✓       |           ✗²            |      ✗      |   ✗    |   ✗    |
+| `countPullRequests`          |      ✓       |          ✗           |     ✗     |      ✓       |           ✗²            |      ✗      |   ✗    |   ✗    |
 | Issues, repo-scoped          |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |
 | Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      —      |   —    |   —    |
-| `searchIssuesPage`           |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |
-| `countIssues`                |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |
+| `searchIssuesPage`           |      ✓       |          ✗           |     ✗     |      ✗       |           ✗²            |      ✗      |   ✗    |   ✗    |
+| `countIssues`                |      ✓       |          ✗           |     ✗     |      ✗       |           ✗²            |      ✗      |   ✗    |   ✗    |
 | `getIssuesBatch`             |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✓      |   ✓    |   ✗    |
 | `getPullRequestsBatch`       |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
 | `getPullRequestsForBranches` |      ✓       |          ✓           |     ✓     |      ✓¹      |           ✓¹            |      ✗      |   ✗    |   ✗    |
@@ -1115,6 +1116,8 @@ autolinks are registered for the same reason: an autolink prefix has to be the p
 ¹ Branches in the base repository only: a target whose `headOwner` names another owner is refused, since Bitbucket DC
 finds a branch's pull requests only through the repository the branch lives in, and an Azure DevOps fork shares its
 organization.
+
+² Refused by Azure DevOps (cloud) only: Azure DevOps Server serves the filtered searches and their counts.
 
 Repo-scoped PR filters: GitHub/GHE `Author, Assignee, ReviewRequested, Mention` · GitLab `Author, Assignee,
 ReviewRequested` · Bitbucket + Bitbucket DC `Author, ReviewRequested` · Azure `Author, Assignee,
