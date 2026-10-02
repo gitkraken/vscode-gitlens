@@ -1,8 +1,24 @@
 import * as assert from 'node:assert/strict';
+import { InvalidRequestError, UnsupportedSortError } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
-import { GitCloudHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
 import type { IncompleteReadCause } from '../reads/warnings.js';
-import { incompleteReadWarning, truncationWarning } from '../reads/warnings.js';
+import {
+	gitHostOnlySurfaceWarning,
+	incompleteReadWarning,
+	issuesUnsupportedWarning,
+	issueTrackerOnlySurfaceWarning,
+	otherWarning,
+	truncationWarning,
+	unmergeableIssueSortWarning,
+	unsupportedAccountWideIssueFiltersWarning,
+	unsupportedAccountWidePullRequestFiltersWarning,
+	unsupportedFiltersWarning,
+	unsupportedIssueSearchCriteriaWarning,
+	unsupportedIssueSortWarning,
+	unsupportedPullRequestSearchCriteriaWarning,
+	unsupportedWarning,
+} from '../reads/warnings.js';
 import type { ProviderWarning } from '../results.js';
 import { appendDedupedWarning, reconcileOmissionsWithFailure, toProviderWarning } from '../results.js';
 
@@ -243,5 +259,90 @@ suite('provider warning dedup', () => {
 		);
 
 		assert.equal(into.length, 3);
+	});
+});
+
+suite('unsupported-capability warnings', () => {
+	const github = GitCloudHostIntegrationId.GitHub;
+	const jira = IssuesCloudHostIntegrationId.Jira;
+
+	function assertUnsupported(warning: ProviderWarning): void {
+		assert.equal(warning.kind, 'unsupported');
+		assert.equal(warning.isAuth, false);
+		assert.equal(warning.omission, undefined);
+	}
+
+	test('the builder assigns the kind and carries the identity it was given', () => {
+		const warning = unsupportedWarning(github, 'github.com', 'c1', 'nope');
+
+		assertUnsupported(warning);
+		assert.equal(warning.providerId, github);
+		assert.equal(warning.domain, 'github.com');
+		assert.equal(warning.connectionId, 'c1');
+		assert.equal(warning.message, 'nope');
+	});
+
+	test('each named capability refusal is unsupported', () => {
+		assertUnsupported(gitHostOnlySurfaceWarning(jira, undefined, 'c1', 'Pull requests'));
+		assertUnsupported(issueTrackerOnlySurfaceWarning(github, 'c1', 'Project issue reads'));
+		assertUnsupported(issuesUnsupportedWarning(GitCloudHostIntegrationId.Bitbucket, undefined, 'c1'));
+		assertUnsupported(unsupportedAccountWideIssueFiltersWarning(github, undefined, 'c1', []));
+		assertUnsupported(unsupportedAccountWidePullRequestFiltersWarning(github, undefined, 'c1', []));
+		assertUnsupported(unsupportedFiltersWarning(github, undefined, 'c1'));
+		assertUnsupported(
+			unsupportedIssueSortWarning(jira, undefined, 'c1', {
+				reason: 'unsupported-sort',
+				requested: 'priority:desc',
+				supported: ['created:desc'],
+			}),
+		);
+		assertUnsupported(
+			unmergeableIssueSortWarning(jira, undefined, 'c1', { requested: 'priority:desc' }, 'projects'),
+		);
+	});
+
+	test('search criteria are unsupported per reason, and a contradictory set stays other', () => {
+		assertUnsupported(
+			unsupportedPullRequestSearchCriteriaWarning(github, undefined, 'c1', { reason: 'unsupported-search' }),
+		);
+		assertUnsupported(
+			unsupportedPullRequestSearchCriteriaWarning(github, undefined, 'c1', {
+				reason: 'unsupported-criteria',
+				criteria: ['draft'],
+			}),
+		);
+		assertUnsupported(
+			unsupportedIssueSearchCriteriaWarning(github, undefined, 'c1', { reason: 'unsupported-search' }),
+		);
+		assertUnsupported(
+			unsupportedIssueSearchCriteriaWarning(github, undefined, 'c1', {
+				reason: 'unsupported-criteria',
+				criteria: ['labels'],
+			}),
+		);
+
+		const contradictory = unsupportedIssueSearchCriteriaWarning(github, undefined, 'c1', {
+			reason: 'contradictory-relationships',
+		});
+		assert.equal(contradictory.kind, 'other');
+		assert.equal(contradictory.isAuth, false);
+	});
+
+	test('the other builder still produces other', () => {
+		assert.equal(otherWarning(github, undefined, 'c1', 'x').kind, 'other');
+	});
+
+	test('an SDK UnsupportedSortError is unsupported, and an InvalidRequestError stays other', () => {
+		const sort = toProviderWarning(
+			jira,
+			undefined,
+			'c1',
+			new UnsupportedSortError('jira', 'priority:desc', ['created:desc']),
+		);
+		assertUnsupported(sort);
+		assert.match(sort.message, /priority:desc/);
+
+		const invalid = toProviderWarning(jira, undefined, 'c1', new InvalidRequestError(jira, 'bad request'));
+		assert.equal(invalid.kind, 'other');
 	});
 });

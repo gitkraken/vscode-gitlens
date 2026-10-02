@@ -235,6 +235,11 @@ suite('IntegrationManager.countIssues', () => {
 			assert.deepEqual(result.items, []);
 			assert.equal(result.fetchFailed, true);
 			assert.match(result.warnings[0].message, /one scope per relationship/);
+			assert.equal(
+				result.warnings[0].kind,
+				'other',
+				'refused on every provider, so contradictory input rather than a missing capability',
+			);
 		} finally {
 			manager.dispose();
 		}

@@ -7,7 +7,7 @@ import { isGitHostIntegration, isIssuesHostIntegrationId } from '../utils/integr
 import type { ProviderReadContext } from './context.js';
 import { getCurrentAccountIdentity, runCaptured } from './drains.js';
 import { appendBatchSlotWarning, findDuplicateKey, trimCoordinateFields, unresolvedIntegration } from './issueBatch.js';
-import { gitHostOnlySurfaceWarning, otherWarning } from './warnings.js';
+import { gitHostOnlySurfaceWarning, otherWarning, unsupportedWarning } from './warnings.js';
 
 /**
  * The BATCH pull request read: resolve N pull requests, in any state, BY COORDINATE — the pull-request twin of
@@ -139,7 +139,7 @@ export async function getPullRequestsBatch(
 		if (warning == null) {
 			appendDedupedWarning(
 				warnings,
-				otherWarning(
+				unsupportedWarning(
 					options.providerId,
 					domain,
 					options.connectionId,

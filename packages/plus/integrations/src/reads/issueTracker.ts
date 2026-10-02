@@ -22,6 +22,7 @@ import {
 	otherWarning,
 	unmergeableIssueSortWarning,
 	unsupportedIssueSortWarning,
+	unsupportedWarning,
 } from './warnings.js';
 
 const issueStateFilters: readonly IssueStateFilter[] = ['open', 'closed', 'all'];
@@ -190,15 +191,22 @@ export async function listIssueTrackerIssuesPage(
 		(!issueStateFilters.includes(options.state) ||
 			(options.state !== 'open' && !providersMetadata[options.providerId]?.supportsIssueStates))
 	) {
+		// A known state this tracker can't express is an unsupported capability; a value outside the vocabulary is
+		// caller input the caller fixes in the request.
 		warnings.push(
-			otherWarning(
-				options.providerId,
-				domain,
-				options.connectionId,
-				issueStateFilters.includes(options.state)
-					? `Issue state '${options.state}' is not supported by '${options.providerId}'.`
-					: `Unknown issue state; expected one of ${issueStateFilters.join(', ')}.`,
-			),
+			issueStateFilters.includes(options.state)
+				? unsupportedWarning(
+						options.providerId,
+						domain,
+						options.connectionId,
+						`Issue state '${options.state}' is not supported by '${options.providerId}'.`,
+					)
+				: otherWarning(
+						options.providerId,
+						domain,
+						options.connectionId,
+						`Unknown issue state; expected one of ${issueStateFilters.join(', ')}.`,
+					),
 		);
 		return emptyPage(true);
 	}
@@ -286,7 +294,7 @@ export async function listIssueTrackerIssuesPage(
 		const allSupported = supported != null && options.filters.every(f => supported.includes(f));
 		if (!allSupported) {
 			warnings.push(
-				otherWarning(
+				unsupportedWarning(
 					options.providerId,
 					domain,
 					options.connectionId,
@@ -303,7 +311,7 @@ export async function listIssueTrackerIssuesPage(
 	// the incompatible combination up front rather than publishing a differently-scoped set as the result.
 	if (options.includeAllAssignees === true && options.filters?.some(f => f !== IssueFilter.Assignee)) {
 		warnings.push(
-			otherWarning(
+			unsupportedWarning(
 				options.providerId,
 				domain,
 				options.connectionId,
