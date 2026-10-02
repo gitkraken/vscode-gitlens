@@ -36,7 +36,7 @@ import {
 	withProviderContext,
 } from './hierarchy.utils.js';
 import { pageToCursor, refusedPage, resolveContinuation, resolveCurrentPage, toProviderPageInfo } from './paging.js';
-import { gitHostOnlySurfaceWarning, otherWarning, truncationWarning } from './warnings.js';
+import { gitHostOnlySurfaceWarning, truncationWarning, unsupportedWarning } from './warnings.js';
 
 /**
  * Folds a flat hierarchy result's incompleteness into `warnings`, returning whether it leaves the read
@@ -131,7 +131,7 @@ export async function listOrgs(
 			// tell apart from "this account has no orgs".
 			fetchFailed = true;
 			warnings.push(
-				otherWarning(id, domain, connectionId, `Organization discovery is not supported by '${id}'.`),
+				unsupportedWarning(id, domain, connectionId, `Organization discovery is not supported by '${id}'.`),
 			);
 		} else {
 			const { value, warning } = await runCaptured(
@@ -331,7 +331,7 @@ export async function listRepos(
 		return refusedPage(
 			page,
 			[
-				otherWarning(
+				unsupportedWarning(
 					options.providerId,
 					domain,
 					options.connectionId,

@@ -261,6 +261,11 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 		assert.deepEqual(result.items, []);
 		assert.equal(result.fetchFailed, true);
 		assert.match(result.warnings[0].message, /Duplicate pull request batch target key 'same'/);
+		assert.equal(
+			result.warnings[0].kind,
+			'other',
+			'caller input the caller fixes is not an unsupported capability',
+		);
 
 		manager.dispose();
 	});
@@ -275,6 +280,8 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 
 		assert.deepEqual(result.items, []);
 		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings[0].kind, 'unsupported');
+		assert.equal(result.warnings[0].isAuth, false);
 		assert.match(result.warnings[0].message, /not supported/i);
 
 		manager.dispose();

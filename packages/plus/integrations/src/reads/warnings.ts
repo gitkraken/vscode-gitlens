@@ -22,12 +22,13 @@ import type { UnmergeableIssueSort, UnsupportedIssueSortRejection } from './orde
  */
 
 /**
- * The single builder for a provider-neutral, non-auth warning: an unsupported capability, a
- * contradictory/inexpressible request, or a read that couldn't confirm completeness. Every `kind: 'other'`
- * warning the facade raises on its own terms goes through here (directly, or via one of the named builders
- * below that pin a recurring message), so the discriminant is assigned in one place. The warnings mapped from
- * SDK collection metadata are the documented exception — `collectionMetadata.ts` builds those from the
- * structured failure/omission it is given.
+ * The single builder for a provider-neutral, non-auth `kind: 'other'` warning: a contradictory or malformed
+ * request the caller fixes itself, or a read that couldn't confirm completeness. A refusal for a capability the
+ * provider lacks goes through {@link unsupportedWarning} instead, so a consumer can tell the two apart without
+ * reading `message`. Every `'other'` or `'unsupported'` warning the facade raises on its own terms goes through
+ * one of the two (directly, or via a named builder below that pins a recurring message), so the discriminant is
+ * assigned in one place. The warnings mapped from SDK collection metadata are the documented exception —
+ * `collectionMetadata.ts` builds those from the structured failure/omission it is given.
  *
  * The kinds that carry a programmatic remedy — `auth`, `rate-limit`, `not-found`, `no-connection` — are derived
  * from the caught error's type instead and never come from here; see `ProviderWarningKind` and
@@ -45,6 +46,33 @@ export function otherWarning(
 		connectionId: connectionId,
 		message: message,
 		kind: 'other',
+		isAuth: false,
+	};
+}
+
+/**
+ * Builds a `kind: 'unsupported'` warning: the provider — or this integration of it — lacks the capability the
+ * request asked for: a surface (issues on Bitbucket, pull requests on an issue tracker, a batch read, org/repo
+ * discovery, current-account lookup, project-scoped or account-wide issue reads), or a filter, sort, state,
+ * search criterion or option combination it cannot express. Retrying the same request never succeeds; a
+ * different provider, scope or request may.
+ *
+ * NOT for malformed or contradictory caller input the caller fixes in the request itself (a duplicate batch key,
+ * invalid target numbers, an empty owner, an unusable scope), nor for incompleteness warnings; those are
+ * {@link otherWarning}.
+ */
+export function unsupportedWarning(
+	id: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	message: string,
+): ProviderWarning {
+	return {
+		providerId: id,
+		domain: domain,
+		connectionId: connectionId,
+		message: message,
+		kind: 'unsupported',
 		isAuth: false,
 	};
 }
@@ -79,7 +107,7 @@ export function gitHostOnlySurfaceWarning(
 	connectionId: string | undefined,
 	surface: string,
 ): ProviderWarning {
-	return otherWarning(
+	return unsupportedWarning(
 		id,
 		domain,
 		connectionId,
@@ -93,7 +121,7 @@ export function issueTrackerOnlySurfaceWarning(
 	connectionId: string | undefined,
 	surface: string,
 ): ProviderWarning {
-	return otherWarning(
+	return unsupportedWarning(
 		id,
 		undefined,
 		connectionId,
@@ -248,7 +276,7 @@ export function unsupportedAccountWideIssueFiltersWarning(
 	filters: IssueFilter[],
 ): ProviderWarning {
 	const supported = providersMetadata[id]?.supportedAccountWideIssueFilters ?? [];
-	return otherWarning(
+	return unsupportedWarning(
 		id,
 		domain,
 		connectionId,
@@ -264,7 +292,7 @@ export function unsupportedAccountWidePullRequestFiltersWarning(
 	filters: PullRequestFilter[],
 ): ProviderWarning {
 	const supported = providersMetadata[id]?.supportedAccountWidePullRequestFilters ?? [];
-	return otherWarning(
+	return unsupportedWarning(
 		id,
 		domain,
 		connectionId,
@@ -278,7 +306,7 @@ export function unsupportedFiltersWarning(
 	domain: string | undefined,
 	connectionId: string | undefined,
 ): ProviderWarning {
-	return otherWarning(
+	return unsupportedWarning(
 		id,
 		domain,
 		connectionId,
@@ -329,7 +357,7 @@ export function unsupportedPullRequestSearchCriteriaWarning(
 		}
 	}
 
-	return otherWarning(id, domain, connectionId, message);
+	return unsupportedWarning(id, domain, connectionId, message);
 }
 
 function describePullRequestSearchCapabilities(capabilities: PullRequestSearchCapabilities): string {
@@ -353,7 +381,9 @@ function describePullRequestSearchCapabilities(capabilities: PullRequestSearchCa
  *
  * One builder for all three because they are one decision from the caller's side ("this search can't be run as
  * asked") and the remedy differs only in what the message says. The rejection shape carries which case it is, so
- * the wording can't drift from the check that produced it (see {@link resolveIssueSearchCriteria}).
+ * the wording can't drift from the check that produced it (see {@link resolveIssueSearchCriteria}). The kind
+ * follows the reason: the first two are `'unsupported'` capabilities; a contradictory set is caller input and
+ * stays `'other'`.
  */
 export function unsupportedIssueSearchCriteriaWarning(
 	id: IntegrationIds,
@@ -377,13 +407,18 @@ export function unsupportedIssueSearchCriteriaWarning(
 			break;
 		}
 		case 'contradictory-relationships':
-			message = `The relationships \`any-assignee\` and \`unassigned\` are contradictory — they partition the scope between them, so no issue satisfies both; pass only one.`;
-			break;
+			// Caller input the caller fixes in the request itself, so `'other'` rather than `'unsupported'`.
+			return otherWarning(
+				id,
+				domain,
+				connectionId,
+				`The relationships \`any-assignee\` and \`unassigned\` are contradictory — they partition the scope between them, so no issue satisfies both; pass only one.`,
+			);
 	}
 	// No `default`: the union is declared alongside the validator, so `noImplicitReturns` fails the build here if
 	// a rejection reason is added without its own wording.
 
-	return otherWarning(id, domain, connectionId, message);
+	return unsupportedWarning(id, domain, connectionId, message);
 }
 
 /** The criteria a provider CAN express, for the "supported: …" half of a refusal message. */
@@ -422,7 +457,7 @@ export function unsupportedIssueSortWarning(
 	connectionId: string | undefined,
 	rejection: UnsupportedIssueSortRejection,
 ): ProviderWarning {
-	return otherWarning(
+	return unsupportedWarning(
 		id,
 		domain,
 		connectionId,
@@ -457,7 +492,7 @@ export function unmergeableIssueSortWarning(
 		projects: { many: 'projects', one: 'project' },
 		filters: { many: 'issue relationships', one: 'relationship' },
 	}[scope];
-	return otherWarning(
+	return unsupportedWarning(
 		id,
 		domain,
 		connectionId,
@@ -573,7 +608,7 @@ export function issuesUnsupportedWarning(
 	domain: string | undefined,
 	connectionId: string | undefined,
 ): ProviderWarning {
-	return otherWarning(
+	return unsupportedWarning(
 		id,
 		domain,
 		connectionId,

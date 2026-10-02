@@ -28,6 +28,7 @@ import {
 	otherWarning,
 	unsupportedIssueSearchCriteriaWarning,
 	unsupportedPullRequestSearchCriteriaWarning,
+	unsupportedWarning,
 	unusableSearchScopeMessage,
 } from './warnings.js';
 
@@ -673,8 +674,9 @@ function rejectPullRequestScope(
 	// each relationship as its own scope, where the keys make the OR explicit. (States are disjoint, so a scope may
 	// still name several — the provider counts them as the max, not a refusal.) A provider that counts by reading
 	// deduplicates the matching rows themselves, so it counts the OR exactly, as the search it previews returns it.
+	// That makes the refusal the provider's capability, so `unsupported`; the issue twin refuses on every provider.
 	if ((scope.criteria?.relationships?.length ?? 0) > 1 && !countsPullRequestsByReading(providerId)) {
-		return otherWarning(
+		return unsupportedWarning(
 			providerId,
 			domain,
 			connectionId,

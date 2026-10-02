@@ -90,7 +90,7 @@ suite('IntegrationManager.getCurrentAccount', () => {
 		assert.equal(result.account, undefined);
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
-		assert.equal(result.warnings[0].kind, 'other');
+		assert.equal(result.warnings[0].kind, 'unsupported');
 		assert.match(result.warnings[0].message, /not supported/i);
 
 		manager.dispose();
