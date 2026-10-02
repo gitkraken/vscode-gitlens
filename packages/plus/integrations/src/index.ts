@@ -236,7 +236,7 @@ export type {
 } from './reads/counts.js';
 export type { IssueBatchResult, IssueBatchTarget } from './reads/issueBatch.js';
 export type { PullRequestBatchResult, PullRequestBatchTarget } from './reads/pullRequestBatch.js';
-export type { PullRequestEtagInclude } from './models/integration.js';
+export type { IssueEtagInclude, PullRequestEtagInclude } from './models/integration.js';
 export type { PullRequestBranchResult, PullRequestBranchTarget } from './reads/pullRequestBranches.js';
 // The current-account read's result, and the account shape every identity-bearing read already returns.
 export type { CurrentAccountResult } from './reads/currentAccount.js';

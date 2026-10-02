@@ -179,7 +179,10 @@ Both batch reads detect change with **etags**. Every fully read row carries an o
 caller sent one; send it back as the target's `etag` on the next call. Compare etags for equality only and never
 parse one: core computes it from the item's change state — a pull request's state, draft flag, update time and head
 commit (plus, on Azure DevOps, a fingerprint of the fields it changes without an update time; see below); an issue's
-state and update time — and it is not the provider's HTTP ETag. A row is in one of four states:
+state and update time — and it is not the provider's HTTP ETag. A field the host changes without moving the update
+time is not an input unless `etagIncludes` names it. Reactions are such a field: GitHub adds a reaction without
+touching the update time, so an `unchanged` issue's `thumbsUpCount` can be stale unless the call listed `'reactions'`,
+and an `unchanged` pull request's always can. A row is in one of four states:
 
 - `{ key, pullRequest | issue, etag }` — read in full.
 - `{ key, unchanged: true, etag }` — a cheap check proved the caller's copy current and nothing else was fetched.
@@ -226,7 +229,10 @@ full read it always made. `getPullRequestsBatch` also takes `etagIncludes`, a li
 `'reviewDecision'` and `'checks'` (the check rollup). Each entry widens every etag to one input GitHub changes without
 moving the update time — without `'checks'` a red CI run goes unnoticed — and costs its own fields in the cheap
 check, so a caller lists only what it needs; on GitHub the review decision is the costliest
-(GitHub computes it per pull request), the rollup next, mergeability cheapest. Order and repeats don't matter (core sorts and dedupes the list), and an unknown value refuses the whole
+(GitHub computes it per pull request), the rollup next, mergeability cheapest. `getIssuesBatch` takes `etagIncludes`
+too, drawn from `'reactions'`: the thumbs-up count, which costs one field in the cheap check on GitHub/GHE (the full
+read's own `reactions(content: THUMBS_UP)` selection) and GitLab (`upvotes`). Azure DevOps work items, Jira and Linear
+rows carry no real reaction count, so there it widens nothing and costs nothing. Order and repeats don't matter (core sorts and dedupes the list), and an unknown value refuses the whole
 call before any request, like a bad target. It changes only which etag is computed (and the cheap check's
 selection), and an etag from another set, or from an older scheme, simply compares unequal and costs a full read,
 never a false `unchanged`. A target the cheap check fails falls through to the full read, which has the final word and supplies

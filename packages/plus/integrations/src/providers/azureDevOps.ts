@@ -35,6 +35,7 @@ import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type {
 	AccountWideIssuesResult,
 	IssueEtagFields,
+	IssueEtagInclude,
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
 	SearchMyIssuesOptions,
@@ -978,10 +979,13 @@ export abstract class AzureDevOpsIntegrationBase<
 	 * so such a target's slot is rejected and the full read, whose not-found does prove an absence, decides. So is a
 	 * work item in another project, which the full read fails. When no target was answered and nothing failed, the
 	 * check declines instead, so a batch of only such ids costs a full read, not a failure.
+	 *
+	 * A work item has no reactions, and its full row no count, so `'reactions'` reads nothing and costs nothing.
 	 */
 	protected override async getProviderIssuesEtagFields(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
+		_options: { etagIncludes?: readonly IssueEtagInclude[] },
 		_cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<IssueEtagFields | undefined>[] | undefined> {
 		const slots = new Array<PromiseSettledResult<IssueEtagFields | undefined>>(coordinates.length);

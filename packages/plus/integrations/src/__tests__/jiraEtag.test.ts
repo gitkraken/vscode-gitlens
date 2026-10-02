@@ -252,12 +252,12 @@ suite('Jira Cloud cheap etag check', () => {
 					(await jira.getIssuesByResourceIdBatchResult(targets))?.value,
 				);
 				const [cheap] = fulfilled<IssueEtagFields | undefined>(
-					(await jira.getIssuesEtagFieldsByResourceIdBatchResult(targets))?.value,
+					(await jira.getIssuesEtagFieldsByResourceIdBatchResult(targets, {}))?.value,
 				);
 
 				assert.ok(full != null && cheap != null);
 				assert.equal(full.closed, c.closed, 'the full read maps the category as expected');
-				assert.equal(issueEtag(cheap), issueEtag(issueEtagFieldsFromShape(full)));
+				assert.equal(issueEtag(cheap, []), issueEtag(issueEtagFieldsFromShape(full), []));
 				assert.equal(cheap.updatedDate.getTime(), new Date(c.updated).getTime());
 				assert.deepEqual(
 					requests.map(r => r.method),
@@ -276,8 +276,8 @@ suite('Jira Cloud cheap etag check', () => {
 			const { manager, jira } = await connectedJira(runtime);
 			const targets = [{ resourceId: 'site-1', identifier: 'ABC-1', resourceUrl: resourceUrl }];
 			const etag = async () => {
-				const [fields] = fulfilled((await jira.getIssuesEtagFieldsByResourceIdBatchResult(targets))?.value);
-				return issueEtag(fields!);
+				const [fields] = fulfilled((await jira.getIssuesEtagFieldsByResourceIdBatchResult(targets, {}))?.value);
+				return issueEtag(fields!, []);
 			};
 
 			const before = await etag();
@@ -326,6 +326,44 @@ suite('Jira Cloud cheap etag check', () => {
 			manager.dispose();
 		});
 
+		test("'reactions' widens nothing on Jira: the votes its full row carries never fail the check", async () => {
+			const runtime = createFakeRuntime();
+			const voted = (votes: number): RawIssue => {
+				const issue = jiraIssue('ABC-1');
+				issue.fields.votes = { votes: votes };
+				return issue;
+			};
+			const sites = { 'site-1': [voted(7)] };
+			const requests = fakeJira(runtime, sites);
+			const { manager } = await connectedJira(runtime);
+
+			const first = await manager.getIssuesBatch({
+				providerId: IssuesCloudHostIntegrationId.Jira,
+				targets: [target('ABC-1')],
+				etagIncludes: ['reactions'],
+			});
+			// The full row reads the votes into `thumbsUpCount`, which the bulk fetch never selects: they aren't
+			// reactions, so neither side's etag reads them.
+			assert.equal(first.items[0].issue?.thumbsUpCount, 7);
+			assert.match(first.items[0].etag ?? '', /^is1\+reactions:\[.*,null\]$/);
+			sites['site-1'] = [voted(8)];
+			requests.length = 0;
+
+			const second = await manager.getIssuesBatch({
+				providerId: IssuesCloudHostIntegrationId.Jira,
+				targets: [target('ABC-1', { etag: first.items[0].etag })],
+				etagIncludes: ['reactions'],
+			});
+
+			assert.deepEqual(second.items, [{ key: 'ABC-1', unchanged: true, etag: first.items[0].etag }]);
+			assert.deepEqual(
+				requests.map(r => r.method),
+				['POST'],
+			);
+
+			manager.dispose();
+		});
+
 		test('only the issue that moved is read in full, and a target without an etag is read alongside', async () => {
 			const runtime = createFakeRuntime();
 			const sites = { 'site-1': [jiraIssue('ABC-1'), jiraIssue('ABC-2'), jiraIssue('ABC-3')] };
@@ -354,7 +392,7 @@ suite('Jira Cloud cheap etag check', () => {
 			assert.ok(changed.issue != null);
 			assert.equal(changed.issue.state, 'closed');
 			assert.notEqual(changed.etag, etags.get('ABC-2'));
-			assert.equal(changed.etag, issueEtag(issueEtagFieldsFromShape(changed.issue)));
+			assert.equal(changed.etag, issueEtag(issueEtagFieldsFromShape(changed.issue), []));
 			assert.equal(unasked.issue?.id, 'ABC-3');
 			assert.deepEqual(posts(requests)[0].keys, ['ABC-1', 'ABC-2']);
 			assert.deepEqual(

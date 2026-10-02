@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { AuthenticationError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
-import type { GitHubPullRequestEtagInclude } from '../../models.js';
+import type { GitHubIssueEtagInclude, GitHubPullRequestEtagInclude } from '../../models.js';
 import type { GitHubApiConfig } from '../config.js';
 import { GitHubApi } from '../github.js';
 import type { GitHubTokenInfo } from '../token.js';
@@ -292,6 +292,41 @@ suite('GitHubApi.getIssuesEtagFieldsBatch', () => {
 		assertEveryDeclaredVariableIsUsed(query);
 		assert.equal(variables.k1, 2);
 	});
+
+	for (const includes of [[], ['reactions'], ['reactions', 'reactions']] as GitHubIssueEtagInclude[][]) {
+		test(`selects the full fragment's thumbs-up reactions only with 'reactions', and once (etagIncludes: [${includes.join(', ')}])`, async () => {
+			const { config, requests } = batchServe({
+				i0: { issue: { ...issueNode(1), reactions: { totalCount: 3 } } },
+				i1: { issue: issueNode(2) },
+			});
+			const api = new GitHubApi(config);
+
+			const out = await api.getIssuesEtagFieldsBatch(
+				provider,
+				token,
+				[
+					{ owner: 'o', repo: 'a', number: 1 },
+					{ owner: 'o', repo: 'b', number: 2 },
+				],
+				{ etagIncludes: includes },
+			);
+
+			const { query, variables } = requests[0];
+			const selection = /reactions\(content: THUMBS_UP\) \{\s*totalCount\s*\}/g;
+			assert.equal(query.match(selection)?.length ?? 0, includes.length ? 2 : 0, 'once per alias');
+			if (!includes.length) {
+				assert.doesNotMatch(query, /\b(reactions|totalCount)\b/);
+			}
+			assert.doesNotMatch(query, /\$avatarSize/);
+			assert.ok(!('avatarSize' in variables));
+			assertEveryDeclaredVariableIsUsed(query);
+			assert.deepEqual(
+				out.map(r => (r.status === 'fulfilled' ? r.value?.reactions?.totalCount : 'rejected')),
+				[3, undefined],
+				'the node is returned as GitHub answered it',
+			);
+		});
+	}
 
 	test('a NOT_FOUND alias is a proven absence; another alias’s refusal rejects only its own slot', async () => {
 		const { config } = batchServe({ i0: { issue: issueNode(1) }, i1: { issue: null }, i2: { issue: null } }, [

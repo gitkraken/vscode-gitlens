@@ -758,7 +758,7 @@ suite('Azure DevOps work item etag agreement', () => {
 		sent.length = 0;
 
 		const cheapRows = fulfilled<IssueEtagFields | undefined>(
-			(await azure.getIssuesEtagFieldsResult(workItemCoordinates))?.value,
+			(await azure.getIssuesEtagFieldsResult(workItemCoordinates, {}))?.value,
 		);
 		assert.deepEqual(
 			sent.map(r => r.kind),
@@ -769,7 +769,7 @@ suite('Azure DevOps work item etag agreement', () => {
 			const shape = fullRows[i];
 			const fields = cheapRows[i];
 			assert.ok(shape != null && fields != null, name);
-			assert.equal(issueEtag(fields), issueEtag(issueEtagFieldsFromShape(shape)), name);
+			assert.equal(issueEtag(fields, []), issueEtag(issueEtagFieldsFromShape(shape), []), name);
 		});
 		assert.deepEqual(
 			cheapRows.map(f => f?.state),
@@ -835,6 +835,7 @@ suite('Azure DevOps etag check: work item requests and matching', () => {
 
 		await azure.getIssuesEtagFieldsResult(
 			[1, 3].map(n => ({ owner: 'org', repo: '', number: n, project: 'proj' })),
+			{},
 		);
 
 		assert.equal(sent.length, 1);
@@ -853,6 +854,7 @@ suite('Azure DevOps etag check: work item requests and matching', () => {
 
 		const result = await azure.getIssuesEtagFieldsResult(
 			[1, 2, 3].map(n => ({ owner: 'org', repo: '', number: n, project: 'proj' })),
+			{},
 		);
 
 		assert.deepEqual(
@@ -870,6 +872,7 @@ suite('Azure DevOps etag check: work item requests and matching', () => {
 
 		const result = await azure.getIssuesEtagFieldsResult(
 			[1, 999].map(n => ({ owner: 'org', repo: '', number: n, project: 'proj' })),
+			{},
 		);
 
 		assert.deepEqual(
@@ -919,6 +922,7 @@ suite('Azure DevOps etag check: work item requests and matching', () => {
 
 		const cheap = await azure.getIssuesEtagFieldsResult(
 			[1, 2].map(n => ({ owner: 'org', repo: '', number: n, project: 'proj' })),
+			{},
 		);
 		assert.deepEqual(cheap?.value, undefined, 'the check declines rather than failing every slot');
 		assert.equal(cheap?.error, undefined);
@@ -979,6 +983,7 @@ suite('Azure DevOps etag check: work item requests and matching', () => {
 
 		const result = await azure.getIssuesEtagFieldsResult(
 			ids.map(n => ({ owner: 'org', repo: '', number: n, project: 'proj' })),
+			{},
 		);
 
 		assert.deepEqual(
@@ -995,12 +1000,15 @@ suite('Azure DevOps etag check: work item requests and matching', () => {
 		const sent = serveAzure(runtime, { prs: new Map(), workItems: workItems(1, 2, 3) });
 		const { manager, azure } = await connectedAzure(runtime);
 
-		const result = await azure.getIssuesEtagFieldsResult([
-			{ owner: 'org', repo: '', number: 1, project: 'proj' },
-			{ owner: 'org', repo: '', number: 2, project: 'other' },
-			{ owner: 'org', repo: '', number: 1, project: 'proj' },
-			{ owner: 'org2', repo: '', number: 3, project: 'proj' },
-		]);
+		const result = await azure.getIssuesEtagFieldsResult(
+			[
+				{ owner: 'org', repo: '', number: 1, project: 'proj' },
+				{ owner: 'org', repo: '', number: 2, project: 'other' },
+				{ owner: 'org', repo: '', number: 1, project: 'proj' },
+				{ owner: 'org2', repo: '', number: 3, project: 'proj' },
+			],
+			{},
+		);
 
 		assert.deepEqual(
 			sent.map(r => [r.url.pathname, r.url.searchParams.get('ids')]),
@@ -1026,10 +1034,13 @@ suite('Azure DevOps etag check: work item requests and matching', () => {
 		);
 		const { manager, azure } = await connectedAzure(runtime);
 
-		const result = await azure.getIssuesEtagFieldsResult([
-			{ owner: 'org', repo: '', number: 1, project: 'broken' },
-			{ owner: 'org', repo: '', number: 2, project: 'proj' },
-		]);
+		const result = await azure.getIssuesEtagFieldsResult(
+			[
+				{ owner: 'org', repo: '', number: 1, project: 'broken' },
+				{ owner: 'org', repo: '', number: 2, project: 'proj' },
+			],
+			{},
+		);
 
 		assert.deepEqual(
 			result?.value?.map(slot => slot.status),
@@ -1056,6 +1067,7 @@ suite('Azure DevOps etag check: work item requests and matching', () => {
 
 		const result = await azure.getIssuesEtagFieldsResult(
 			[1, 2].map(n => ({ owner: 'org', repo: '', number: n, project: 'proj' })),
+			{},
 		);
 
 		assert.deepEqual(
@@ -1240,9 +1252,10 @@ suite('Azure DevOps Server etag check', () => {
 			[{ owner: 'DefaultCollection', repo: 'r', number: 1, project: 'proj' }],
 			{},
 		);
-		const issues = await server.getIssuesEtagFieldsResult([
-			{ owner: 'DefaultCollection', repo: '', number: 7, project: 'proj' },
-		]);
+		const issues = await server.getIssuesEtagFieldsResult(
+			[{ owner: 'DefaultCollection', repo: '', number: 7, project: 'proj' }],
+			{},
+		);
 
 		assert.deepEqual(
 			fulfilled(prs?.value).map(f => f?.headSha),

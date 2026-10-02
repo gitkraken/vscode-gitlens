@@ -285,8 +285,20 @@ export interface GitHubPullRequestEtagNode extends Pick<
 	};
 }
 
-/** The change state `GitHubApi.getIssuesEtagFieldsBatch` selects. */
-export type GitHubIssueEtagNode = Pick<GitHubIssue, 'id' | 'number' | 'state' | 'updatedAt'>;
+/**
+ * An input beyond an issue's lifecycle fields that `GitHubApi.getIssuesEtagFieldsBatch` can select. Mirrors the
+ * integrations package's `IssueEtagInclude`, which this package cannot import.
+ */
+export type GitHubIssueEtagInclude = 'reactions';
+
+/**
+ * The change state `GitHubApi.getIssuesEtagFieldsBatch` selects, plus, for each requested
+ * {@link GitHubIssueEtagInclude}, the full fragment's own selection of it.
+ */
+export interface GitHubIssueEtagNode extends Pick<GitHubIssue, 'id' | 'number' | 'state' | 'updatedAt'> {
+	/** Only with `reactions`: the thumbs-up reactions, as the full fragment selects them. */
+	reactions?: { totalCount: number };
+}
 
 export type GitHubViewerPermission =
 	| 'ADMIN' // Can read, clone, and push to this repository. Can also manage issues, pull requests, and repository settings, including adding collaborators

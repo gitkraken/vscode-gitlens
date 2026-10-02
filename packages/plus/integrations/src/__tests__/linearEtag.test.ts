@@ -260,12 +260,12 @@ suite('Linear cheap etag check', () => {
 					(await linear.getIssuesByResourceIdBatchResult(targets))?.value,
 				);
 				const [cheap] = fulfilled<IssueEtagFields | undefined>(
-					(await linear.getIssuesEtagFieldsByResourceIdBatchResult(targets))?.value,
+					(await linear.getIssuesEtagFieldsByResourceIdBatchResult(targets, {}))?.value,
 				);
 
 				assert.ok(full != null && cheap != null);
 				assert.equal(full.closed, c.closed, 'the full read maps the state as expected');
-				assert.equal(issueEtag(cheap), issueEtag(issueEtagFieldsFromShape(full)));
+				assert.equal(issueEtag(cheap, []), issueEtag(issueEtagFieldsFromShape(full), []));
 				assert.equal(cheap.updatedDate.getTime(), new Date(c.updatedAt).getTime());
 				assert.deepEqual(kinds(requests), ['full', 'cheap']);
 				assert.deepEqual(cheapChecks(requests)[0].numbers, [1]);
@@ -282,8 +282,10 @@ suite('Linear cheap etag check', () => {
 			const { manager, linear } = await connectedLinear(runtime);
 			const targets = [{ resourceId: 'workspace-1', identifier: 'ENG-1' }];
 			const etag = async () => {
-				const [fields] = fulfilled((await linear.getIssuesEtagFieldsByResourceIdBatchResult(targets))?.value);
-				return issueEtag(fields!);
+				const [fields] = fulfilled(
+					(await linear.getIssuesEtagFieldsByResourceIdBatchResult(targets, {}))?.value,
+				);
+				return issueEtag(fields!, []);
 			};
 
 			const before = await etag();
@@ -310,9 +312,10 @@ suite('Linear cheap etag check', () => {
 			const { manager, linear } = await connectedLinear(runtime);
 
 			const slots = (
-				await linear.getIssuesEtagFieldsByResourceIdBatchResult([
-					{ resourceId: 'workspace-1', identifier: 'ENG-1' },
-				])
+				await linear.getIssuesEtagFieldsByResourceIdBatchResult(
+					[{ resourceId: 'workspace-1', identifier: 'ENG-1' }],
+					{},
+				)
 			)?.value;
 
 			assert.ok(slots != null);
@@ -379,7 +382,7 @@ suite('Linear cheap etag check', () => {
 			assert.ok(changed.issue != null);
 			assert.equal(changed.issue.state, 'closed');
 			assert.notEqual(changed.etag, etags.get('ENG-2'));
-			assert.equal(changed.etag, issueEtag(issueEtagFieldsFromShape(changed.issue)));
+			assert.equal(changed.etag, issueEtag(issueEtagFieldsFromShape(changed.issue), []));
 			assert.equal(unasked.issue?.id, 'ENG-3');
 			assert.deepEqual(cheapChecks(requests)[0].numbers, [1, 2]);
 			assert.deepEqual(
@@ -699,7 +702,7 @@ suite('Linear cheap etag check', () => {
 			const targets = [{ resourceId: 'workspace-1', identifier: 'ENG-1' }];
 
 			await linear.getIssuesByResourceIdBatchResult(targets);
-			await linear.getIssuesEtagFieldsByResourceIdBatchResult(targets);
+			await linear.getIssuesEtagFieldsByResourceIdBatchResult(targets, {});
 
 			const [full, cheap] = requests;
 			assert.match(cheap.query, /\bincludeArchived:\s*true\b/);

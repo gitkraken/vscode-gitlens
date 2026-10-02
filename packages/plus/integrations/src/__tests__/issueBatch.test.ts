@@ -10,7 +10,7 @@ import {
 import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult, IssueEtagFields } from '../models/integration.js';
+import type { IntegrationResult, IssueEtagFields, IssueEtagInclude } from '../models/integration.js';
 import { issueEtag } from '../reads/etag.js';
 import { noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import type { FakeRuntime } from './fakeRuntime.js';
@@ -1403,6 +1403,7 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 type EtagSlot = PromiseSettledResult<IssueEtagFields | undefined>;
 type EtagFieldsResultFn = (
 	coordinates: readonly Coordinate[],
+	options: { etagIncludes?: readonly IssueEtagInclude[] },
 	cancellation?: AbortSignal,
 	connectionId?: string,
 ) => Promise<IntegrationResult<EtagSlot[] | undefined>>;
@@ -1420,13 +1421,17 @@ function stubFullReads(integration: GitHostIntegration, version: (n: number) => 
 function stubEtagFieldsResult(
 	integration: GitHostIntegration,
 	answer: (coordinates: readonly Coordinate[]) => Promise<IntegrationResult<EtagSlot[] | undefined>>,
+	options?: { etagIncludes?: readonly IssueEtagInclude[] }[],
 ): number[][] {
 	const calls: number[][] = [];
-	(integration as unknown as { getIssuesEtagFieldsResult: EtagFieldsResultFn }).getIssuesEtagFieldsResult =
-		coordinates => {
-			calls.push(coordinates.map(c => c.number));
-			return answer(coordinates);
-		};
+	(integration as unknown as { getIssuesEtagFieldsResult: EtagFieldsResultFn }).getIssuesEtagFieldsResult = (
+		coordinates,
+		callOptions,
+	) => {
+		calls.push(coordinates.map(c => c.number));
+		options?.push(callOptions);
+		return answer(coordinates);
+	};
 	return calls;
 }
 
@@ -1436,7 +1441,7 @@ function versionedIssue(n: number, version: number = 0): IssueShape {
 
 /** The issue's number names the target only: an issue etag covers its change state, not its identity. */
 function heldEtag(_n: number, version: number = 0): string {
-	return issueEtag({ state: 'opened', updatedDate: new Date(1000 * version) });
+	return issueEtag({ state: 'opened', updatedDate: new Date(1000 * version) }, []);
 }
 
 function etagFields(_n: number, version: number = 0): EtagSlot {
@@ -1738,6 +1743,84 @@ suite('IntegrationManager.getIssuesBatch etags', () => {
 
 		manager.dispose();
 	});
+
+	test("'reactions' reaches the cheap check normalized, and its etag matches whatever the order and repeats", async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const full = stubFullReads(gh);
+		const options: { etagIncludes?: readonly IssueEtagInclude[] }[] = [];
+		stubEtagFieldsResult(
+			gh,
+			coordinates =>
+				Promise.resolve({
+					value: coordinates.map((): EtagSlot => ({
+						status: 'fulfilled',
+						value: { state: 'opened', updatedDate: new Date(0), thumbsUpCount: 2 },
+					})),
+				}),
+			options,
+		);
+		const held = issueEtag({ state: 'opened', updatedDate: new Date(0), thumbsUpCount: 2 }, ['reactions']);
+
+		const result = await manager.getIssuesBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: held }],
+			etagIncludes: ['reactions', 'reactions'],
+		});
+
+		assert.deepEqual(full, []);
+		assert.deepEqual(options, [{ etagIncludes: ['reactions'] }], 'the hook gets the normalized set');
+		assert.deepEqual(result.items, [{ key: 'a', unchanged: true, etag: held }]);
+
+		manager.dispose();
+	});
+
+	test('an etag minted without reactions reads as changed under them, and the row comes back with the new one', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		const full = stubFullReads(gh);
+		stubEtagFieldsResult(gh, coordinates => Promise.resolve({ value: coordinates.map(c => etagFields(c.number)) }));
+
+		const result = await manager.getIssuesBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) }],
+			etagIncludes: ['reactions'],
+		});
+
+		assert.deepEqual(full, [[1]]);
+		assert.equal(result.items[0].unchanged, undefined);
+		assert.match(result.items[0].etag ?? '', /^is1\+reactions:/);
+
+		manager.dispose();
+	});
+
+	for (const [form, providerId, target] of [
+		[
+			'coordinate',
+			GitCloudHostIntegrationId.GitHub,
+			{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: heldEtag(1) },
+		],
+		['tracker', IssuesCloudHostIntegrationId.Linear, { key: 'a', resourceId: 'team', identifier: 'ABC-1' }],
+	] as const) {
+		test(`an unknown etagIncludes value refuses the whole call before any request (${form} form)`, async () => {
+			const { manager, gh } = await connectedGitHub(createFakeRuntime());
+			const full = stubFullReads(gh);
+			const cheap = stubEtagFieldsResult(gh, () => Promise.reject(new Error('must not be called')));
+
+			const result = await manager.getIssuesBatch({
+				providerId: providerId,
+				targets: [target],
+				etagIncludes: ['reactions', 'votes'] as unknown as IssueEtagInclude[],
+			});
+
+			assert.deepEqual(full, []);
+			assert.deepEqual(cheap, []);
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.match(result.warnings[0].message, /Unknown issue etag include 'votes'/);
+			assert.match(result.warnings[0].message, /expected one of 'reactions'/);
+
+			manager.dispose();
+		});
+	}
 });
 
 function json(status: number, body: unknown): Response {

@@ -1,8 +1,14 @@
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
-import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../models/integration.js';
-import { pullRequestEtagIncludes, pullRequestRevision } from '../models/integration.js';
+import { getIssueFieldPresence } from '../fieldPresence.js';
+import type {
+	IssueEtagFields,
+	IssueEtagInclude,
+	PullRequestEtagFields,
+	PullRequestEtagInclude,
+} from '../models/integration.js';
+import { issueEtagIncludes, pullRequestEtagIncludes, pullRequestRevision } from '../models/integration.js';
 
 /**
  * The etags the batch reads hand back (`getPullRequestsBatch`, `getIssuesBatch`): an opaque stamp of an item's
@@ -12,9 +18,9 @@ import { pullRequestEtagIncludes, pullRequestRevision } from '../models/integrat
  * caller's key already identifies the target and ids cross vocabularies between reads. Not hashed: the stamp IS
  * the serialized fields, so two different change states can never collide into a false `unchanged` — except for an
  * Azure DevOps pull request's `revision`, a 64-bit hash of the fields Azure changes without a timestamp, where a
- * collision (about 2^-64) is the only way a change can hide. The prefix names the scheme (`pr1`, `is1`) and, for a
- * pull request, every {@link PullRequestEtagInclude} it covers, in canonical order (`pr1+mergeable+checks:`), so two
- * different sets can never collide even when their values do (a
+ * collision (about 2^-64) is the only way a change can hide. The prefix names the scheme (`pr1`, `is1`) and every
+ * include it covers ({@link PullRequestEtagInclude}, {@link IssueEtagInclude}), in canonical order
+ * (`pr1+mergeable+checks:`, `is1+reactions:`), so two different sets can never collide even when their values do (a
  * `null` mergeability and a `null` rollup). A stamp from another scheme or another set just compares unequal and
  * costs a full read.
  */
@@ -46,7 +52,17 @@ export function pullRequestEtagFieldsFromShape(pr: PullRequestShape): PullReques
 }
 
 export function issueEtagFieldsFromShape(issue: IssueShape): IssueEtagFields {
-	return { state: issue.state, updatedDate: issue.updatedDate };
+	const fields: IssueEtagFields = { state: issue.state, updatedDate: issue.updatedDate };
+	// Only where the row's read really fetched reactions: elsewhere a count is a placeholder or a tracker's votes,
+	// which no cheap check reads, so taking it would fail every check of that row under `'reactions'`.
+	if (
+		issue.thumbsUpCount != null &&
+		issue.provider != null &&
+		getIssueFieldPresence(issue)?.reactions === 'fetched'
+	) {
+		fields.thumbsUpCount = issue.thumbsUpCount;
+	}
+	return fields;
 }
 
 /**
@@ -95,8 +111,31 @@ export function pullRequestEtag(fields: PullRequestEtagFields, includes: readonl
 	return `pr1+${covered.join('+')}:${JSON.stringify(state)}`;
 }
 
-export function issueEtag(fields: IssueEtagFields): string {
-	return `is1:${JSON.stringify([fields.state, timeOf(fields.updatedDate)])}`;
+/** The issue twin of {@link normalizePullRequestEtagIncludes}; validate with {@link findInvalidIssueEtagInclude}. */
+export function normalizeIssueEtagIncludes(includes: readonly IssueEtagInclude[]): readonly IssueEtagInclude[] {
+	return issueEtagIncludes.filter(include => includes.includes(include));
+}
+
+/** The first of `includes` that isn't an {@link IssueEtagInclude}, if any. */
+export function findInvalidIssueEtagInclude(includes: readonly string[]): string | undefined {
+	return includes.find(include => !(issueEtagIncludes as readonly string[]).includes(include));
+}
+
+/** `'reactions'` adds the thumbs-up count, which a host changes without moving `updatedDate`. */
+export function issueEtag(fields: IssueEtagFields, includes: readonly IssueEtagInclude[]): string {
+	const covered = normalizeIssueEtagIncludes(includes);
+	const state: unknown[] = [fields.state, timeOf(fields.updatedDate)];
+	if (covered.length === 0) return `is1:${JSON.stringify(state)}`;
+
+	for (const include of covered) {
+		switch (include) {
+			case 'reactions':
+				state.push(fields.thumbsUpCount ?? null);
+				break;
+		}
+	}
+
+	return `is1+${covered.join('+')}:${JSON.stringify(state)}`;
 }
 
 /**

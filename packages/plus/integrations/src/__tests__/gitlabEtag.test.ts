@@ -9,11 +9,13 @@ import {
 } from '@gitlens/git/models/pullRequest.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import { getIssueFieldPresence } from '../fieldPresence.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type {
 	BatchSlot,
 	IssueEtagFields,
+	IssueEtagInclude,
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
 } from '../models/integration.js';
@@ -181,9 +183,13 @@ function issueNode(iid: number, overrides: Node): Node {
 	};
 }
 
-/** Exactly what `getIssuesEtagFields` selects. */
-function cheapIssueNode(node: Node): Node {
-	return { iid: node.iid, closedAt: node.closedAt, updatedAt: node.updatedAt };
+/** Exactly what `getIssuesEtagFields` selects: the upvotes only when the query asked for them. */
+function cheapIssueNode(node: Node, upvotes: boolean): Node {
+	const picked: Node = { iid: node.iid, closedAt: node.closedAt, updatedAt: node.updatedAt };
+	if (upvotes) {
+		picked.upvotes = node.upvotes;
+	}
+	return picked;
 }
 
 /** What the document asked for, read back from its text, so the served node answers with what was selected. */
@@ -290,7 +296,9 @@ function serveGitLab(
 					.map(iid => project.get(Number(iid)))
 					.filter(node => node != null)
 					.map(node =>
-						operation === 'getIssuesEtagFields' ? cheapIssueNode(node) : cheapMrNode(node, includes),
+						operation === 'getIssuesEtagFields'
+							? cheapIssueNode(node, /\bupvotes\b/.test(body.query))
+							: cheapMrNode(node, includes),
 					);
 				const connection = operation === 'getIssuesEtagFields' ? 'issues' : 'mergeRequests';
 				return Promise.resolve(
@@ -557,63 +565,130 @@ const issueCases: [string, Node][] = [
 	['closed without closedAt', { state: 'closed', closedAt: null }],
 	['locked', { state: 'locked' }],
 	['a later updatedAt', { updatedAt: '2026-05-06T07:08:09Z' }],
+	['4 upvotes', { upvotes: 4 }],
+	['closed, 9 upvotes', { state: 'closed', closedAt: '2026-01-03T00:00:00Z', upvotes: 9 }],
 ];
+
+/** Every set the issue agreement is proven for. */
+const issueEtagIncludeSets: readonly (readonly IssueEtagInclude[])[] = [[], ['reactions']];
 
 function issueProjects(): Projects {
 	return new Map([['group/r', new Map(issueCases.map(([, overrides], i) => [i + 1, issueNode(i + 1, overrides)]))]]);
 }
 
 suite('GitLab issue etag agreement', () => {
-	test('opened, closed and locked issues compute the same etag on the cheap check and the full read', async () => {
-		const runtime = createFakeRuntime();
-		const sent = serveGitLab(runtime, issueProjects());
-		const { manager, gl } = await connectedGitLab(runtime);
-		const coordinates = issueCases.map((_, i) => ({ owner: 'group', repo: 'r', number: i + 1 }));
+	for (const includes of issueEtagIncludeSets) {
+		test(`opened, closed and locked issues, with no and some upvotes, compute the same etag on the cheap check and the full read (etagIncludes: [${includes.join(', ')}])`, async () => {
+			const runtime = createFakeRuntime();
+			const sent = serveGitLab(runtime, issueProjects());
+			const { manager, gl } = await connectedGitLab(runtime);
+			const coordinates = issueCases.map((_, i) => ({ owner: 'group', repo: 'r', number: i + 1 }));
 
-		const fullRows = fulfilled<IssueShape | undefined>((await gl.getIssuesBatchResult(coordinates))?.value);
-		const cheapRows = fulfilled<IssueEtagFields | undefined>(
-			(await gl.getIssuesEtagFieldsResult(coordinates))?.value,
-		);
+			const fullRows = fulfilled<IssueShape | undefined>((await gl.getIssuesBatchResult(coordinates))?.value);
+			const cheapRows = fulfilled<IssueEtagFields | undefined>(
+				(await gl.getIssuesEtagFieldsResult(coordinates, { etagIncludes: includes }))?.value,
+			);
 
-		assert.equal(sent.filter(r => r.operation === 'getIssuesEtagFields').length, 1);
-		issueCases.forEach(([name], i) => {
-			const shape = fullRows[i];
-			const fields = cheapRows[i];
-			assert.ok(shape != null && fields != null, name);
-			assert.equal(issueEtag(fields), issueEtag(issueEtagFieldsFromShape(shape)), name);
+			assert.equal(sent.filter(r => r.operation === 'getIssuesEtagFields').length, 1);
+			const etags = new Map<string, string>();
+			issueCases.forEach(([name], i) => {
+				const shape = fullRows[i];
+				const fields = cheapRows[i];
+				assert.ok(shape != null && fields != null, name);
+				// The full row's count counts only where its read is known to fetch reactions.
+				assert.equal(getIssueFieldPresence(shape)?.reactions, 'fetched', name);
+				const etag = issueEtag(fields, includes);
+				assert.equal(etag, issueEtag(issueEtagFieldsFromShape(shape), includes), name);
+				etags.set(name, etag);
+			});
+			assert.deepEqual(
+				cheapRows.map(f => f?.state),
+				['opened', 'closed', 'opened', 'opened', 'opened', 'opened', 'closed'],
+			);
+			assert.deepEqual(
+				cheapRows.map(f => f?.thumbsUpCount),
+				includes.includes('reactions') ? [0, 0, 0, 0, 0, 4, 9] : new Array(issueCases.length).fill(undefined),
+			);
+			// `opened` and `4 upvotes` differ in their upvotes and their update time; compare two that differ in only one.
+			const reacted = issueEtag({ ...cheapRows[0]!, thumbsUpCount: 4 }, includes);
+			assert.equal(reacted !== etags.get('opened'), includes.includes('reactions'));
+
+			manager.dispose();
 		});
-		assert.deepEqual(
-			cheapRows.map(f => f?.state),
-			['opened', 'closed', 'opened', 'opened', 'opened'],
-		);
+	}
 
-		manager.dispose();
-	});
+	for (const includes of issueEtagIncludeSets) {
+		test(`end to end: etags a full read hands back come back unchanged, with only the cheap query sent (etagIncludes: [${includes.join(', ')}])`, async () => {
+			const runtime = createFakeRuntime();
+			const sent = serveGitLab(runtime, issueProjects());
+			const { manager } = await connectedGitLab(runtime);
+			const targets = issueCases.map(([name], i) => ({ key: name, owner: 'group', repo: 'r', number: i + 1 }));
 
-	test('end to end: etags a full read hands back come back unchanged, with only the cheap query sent', async () => {
-		const runtime = createFakeRuntime();
-		const sent = serveGitLab(runtime, issueProjects());
-		const { manager } = await connectedGitLab(runtime);
-		const targets = issueCases.map(([name], i) => ({ key: name, owner: 'group', repo: 'r', number: i + 1 }));
+			const first = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.GitLab,
+				targets: targets,
+				etagIncludes: includes,
+			});
+			sent.length = 0;
+			const second = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.GitLab,
+				targets: targets.map((t, i) => ({ ...t, etag: first.items[i].etag })),
+				etagIncludes: includes,
+			});
 
-		const first = await manager.getIssuesBatch({ providerId: GitCloudHostIntegrationId.GitLab, targets: targets });
-		sent.length = 0;
-		const second = await manager.getIssuesBatch({
-			providerId: GitCloudHostIntegrationId.GitLab,
-			targets: targets.map((t, i) => ({ ...t, etag: first.items[i].etag })),
+			assert.deepEqual(
+				sent.map(r => r.operation),
+				['getIssuesEtagFields'],
+			);
+			assert.deepEqual(
+				second.items.map(i => [i.key, i.unchanged]),
+				issueCases.map(([name]) => [name, true]),
+			);
+
+			manager.dispose();
 		});
+	}
 
-		assert.deepEqual(
-			sent.map(r => r.operation),
-			['getIssuesEtagFields'],
-		);
-		assert.deepEqual(
-			second.items.map(i => [i.key, i.unchanged]),
-			issueCases.map(([name]) => [name, true]),
-		);
+	for (const includes of issueEtagIncludeSets) {
+		const covered = includes.length > 0;
+		test(`end to end: an upvote alone, which moves no update time, is ${covered ? 'read in full' : 'unseen'} when the etag ${covered ? 'covers' : "doesn't cover"} reactions`, async () => {
+			const runtime = createFakeRuntime();
+			const issues = new Map([
+				[1, issueNode(1, { upvotes: 0 })],
+				[2, issueNode(2, { upvotes: 3 })],
+			]);
+			const sent = serveGitLab(runtime, new Map([['group/r', issues]]));
+			const { manager } = await connectedGitLab(runtime);
+			const targets = [
+				{ key: 'upvoted', owner: 'group', repo: 'r', number: 1 },
+				{ key: 'untouched', owner: 'group', repo: 'r', number: 2 },
+			];
 
-		manager.dispose();
-	});
+			const first = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.GitLab,
+				targets: targets,
+				etagIncludes: includes,
+			});
+			issues.set(1, issueNode(1, { upvotes: 1 }));
+			sent.length = 0;
+			const second = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.GitLab,
+				targets: targets.map((t, i) => ({ ...t, etag: first.items[i].etag })),
+				etagIncludes: includes,
+			});
+
+			assert.deepEqual(
+				sent.map(r => r.operation),
+				covered ? ['getIssuesEtagFields', 'GetSingleIssue'] : ['getIssuesEtagFields'],
+			);
+			assert.deepEqual(
+				second.items.map(i => [i.key, i.unchanged, i.issue?.thumbsUpCount]),
+				[covered ? ['upvoted', undefined, 1] : ['upvoted', true, undefined], ['untouched', true, undefined]],
+			);
+
+			manager.dispose();
+		});
+	}
 });
 
 suite('GitLab etag check: requests and slots', () => {
@@ -889,11 +964,14 @@ suite('GitLab etag check: requests and slots', () => {
 		);
 		const { manager, gl } = await connectedGitLab(runtime);
 
-		const result = await gl.getIssuesEtagFieldsResult([
-			{ owner: 'group', repo: 'r', number: 1 },
-			{ owner: 'group', repo: 'gone', number: 1 },
-			{ owner: 'group', repo: 'r', number: 2 },
-		]);
+		const result = await gl.getIssuesEtagFieldsResult(
+			[
+				{ owner: 'group', repo: 'r', number: 1 },
+				{ owner: 'group', repo: 'gone', number: 1 },
+				{ owner: 'group', repo: 'r', number: 2 },
+			],
+			{},
+		);
 
 		assert.equal(sent.length, 2);
 		assert.deepEqual(
@@ -943,7 +1021,10 @@ suite('GitLab etag check: query text', () => {
 		}));
 	}
 
-	async function sentQuery(etagIncludes: readonly PullRequestEtagInclude[] | 'issues'): Promise<SentRequest> {
+	async function sentQuery(
+		etagIncludes: readonly PullRequestEtagInclude[] | 'issues',
+		issueEtagIncludes: readonly IssueEtagInclude[] = [],
+	): Promise<SentRequest> {
 		const runtime = createFakeRuntime();
 		const sent = serveGitLab(runtime, new Map([['group/r', new Map()]]));
 		const { manager, gl } = await connectedGitLab(runtime);
@@ -952,7 +1033,7 @@ suite('GitLab etag check: query text', () => {
 			{ owner: 'group', repo: 'r', number: 8 },
 		];
 		if (etagIncludes === 'issues') {
-			await gl.getIssuesEtagFieldsResult(coordinates);
+			await gl.getIssuesEtagFieldsResult(coordinates, { etagIncludes: issueEtagIncludes });
 		} else {
 			await gl.getPullRequestsEtagFieldsResult(coordinates, { etagIncludes: etagIncludes });
 		}
@@ -984,6 +1065,16 @@ suite('GitLab etag check: query text', () => {
 		const request = await sentQuery('issues');
 
 		assert.match(request.query, /nodes \{\s*iid\s+closedAt\s+updatedAt\s*\}/);
+		assert.doesNotMatch(request.query, /\bupvotes\b/);
+	});
+
+	test("issues select their upvotes only with 'reactions', once", async () => {
+		const request = await sentQuery('issues', ['reactions', 'reactions']);
+
+		assert.match(request.query, /nodes \{\s*iid\s+closedAt\s+updatedAt\s+upvotes\s*\}/);
+		for (const variable of declaredVariables(request.query)) {
+			assert.ok(variable.used, `$${variable.name} is declared but never used`);
+		}
 	});
 
 	for (const includes of etagIncludeSets) {

@@ -1,6 +1,8 @@
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { IntegrationIds, IssuesHostIntegrationIds } from '../constants.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
+import type { IssueEtagInclude } from '../models/integration.js';
+import { issueEtagIncludes } from '../models/integration.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { githubGraphQLInt32Max, isAzureProviderId, isGitHubProviderId } from '../providers/providerErrors.js';
 import type { ProviderResult, ProviderWarning } from '../results.js';
@@ -14,7 +16,12 @@ import type { EtaggedBatchRow } from './batchEtags.js';
 import { readEtaggedBatch } from './batchEtags.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
-import { issueEtag, issueEtagFieldsFromShape } from './etag.js';
+import {
+	findInvalidIssueEtagInclude,
+	issueEtag,
+	issueEtagFieldsFromShape,
+	normalizeIssueEtagIncludes,
+} from './etag.js';
 import {
 	gitHostOnlySurfaceWarning,
 	issuesUnsupportedWarning,
@@ -118,8 +125,10 @@ export interface IssueBatchResult {
 	issue?: IssueShape;
 	/**
 	 * Opaque: compare for equality only, never parse. Computed by core from the issue's change state — its state and
-	 * update time — and NOT the provider's HTTP ETag. Send it back as the target's `etag`. An etag from another
-	 * scheme simply compares unequal and costs a full read, never a false `unchanged`.
+	 * update time, plus each input the call's `etagIncludes` listed — and NOT the provider's HTTP ETag. Send it back
+	 * as the target's `etag`. An etag from another scheme or another `etagIncludes` set simply compares unequal and
+	 * costs a full read, never a false `unchanged`. A host can add a reaction without moving the update time, so
+	 * unless `'reactions'` is listed, an `unchanged` copy's `thumbsUpCount` may be stale.
 	 */
 	etag?: string;
 	/** The caller's copy is current (its `etag` matched); `issue` is absent because nothing was read. */
@@ -143,6 +152,14 @@ export async function getIssuesBatch(
 		 * it must come from the trusted authentication configuration, not repository or remote data.
 		 */
 		domain?: string;
+		/**
+		 * Widens every etag to the listed inputs, each of which a host changes without moving the issue's update
+		 * time, and each of which costs its own fields in the cheap check. `'reactions'` is the thumbs-up count; it
+		 * widens nothing on a host whose rows carry no real count (Azure DevOps work items and the trackers). Order
+		 * and repeats don't matter. An unknown value refuses the whole call. Changes only which etag is computed; the
+		 * full read is the same. Calls that differ in this set never match each other's etags.
+		 */
+		etagIncludes?: readonly IssueEtagInclude[];
 	},
 ): Promise<ProviderResult<IssueBatchResult>> {
 	// Nothing was asked for, so nothing is missing: an empty success, not a refusal.
@@ -163,8 +180,30 @@ export async function getIssuesBatch(
 		);
 	}
 
+	// Same as a bad target: refused whole before any request, naming the value and what's allowed.
+	const invalidInclude = findInvalidIssueEtagInclude(options.etagIncludes ?? []);
+	if (invalidInclude != null) {
+		return refused(
+			otherWarning(
+				options.providerId,
+				undefined,
+				options.connectionId,
+				`Unknown issue etag include '${invalidInclude}'; expected one of ${issueEtagIncludes.map(i => `'${i}'`).join(', ')}.`,
+			),
+		);
+	}
+
+	const etagIncludes = normalizeIssueEtagIncludes(options.etagIncludes ?? []);
+
 	if (isIssuesHostIntegrationId(options.providerId)) {
-		return getIssuesBatchForTracker(ctx, options.providerId, options.targets, options.connectionId, options.domain);
+		return getIssuesBatchForTracker(
+			ctx,
+			options.providerId,
+			options.targets,
+			options.connectionId,
+			options.domain,
+			etagIncludes,
+		);
 	}
 
 	const targets = options.targets;
@@ -231,11 +270,17 @@ export async function getIssuesBatch(
 				options.providerId,
 				domain,
 				options.connectionId,
-				() => integration.getIssuesEtagFieldsResult(batch.map(toCoordinate), undefined, options.connectionId),
+				() =>
+					integration.getIssuesEtagFieldsResult(
+						batch.map(toCoordinate),
+						{ etagIncludes: etagIncludes },
+						undefined,
+						options.connectionId,
+					),
 				{ warnOnMissingSession: true },
 			),
-		itemEtag: issue => issueEtag(issueEtagFieldsFromShape(issue)),
-		fieldsEtag: issueEtag,
+		itemEtag: issue => issueEtag(issueEtagFieldsFromShape(issue), etagIncludes),
+		fieldsEtag: fields => issueEtag(fields, etagIncludes),
 		// A provider that doesn't implement the batch hook answers `undefined` with no error. Either way its targets
 		// are DROPPED rather than reported as absent — the difference between "unknown" and "proven absent" is the
 		// read's whole value, and a failure must never be cached as an answer.
@@ -275,6 +320,7 @@ async function getIssuesBatchForTracker(
 	targets: readonly IssueBatchTarget[],
 	connectionId: string | undefined,
 	domain: string | undefined,
+	etagIncludes: readonly IssueEtagInclude[],
 ): Promise<ProviderResult<IssueBatchResult>> {
 	if (!targets.every(isTrackerTarget)) {
 		return refused(
@@ -377,11 +423,16 @@ async function getIssuesBatchForTracker(
 				providerId,
 				resolvedDomain,
 				connectionId,
-				() => integration.getIssuesEtagFieldsByResourceIdBatchResult(batch.map(toResourceTarget), connectionId),
+				() =>
+					integration.getIssuesEtagFieldsByResourceIdBatchResult(
+						batch.map(toResourceTarget),
+						{ etagIncludes: etagIncludes },
+						connectionId,
+					),
 				{ warnOnMissingSession: true },
 			),
-		itemEtag: issue => issueEtag(issueEtagFieldsFromShape(issue)),
-		fieldsEtag: issueEtag,
+		itemEtag: issue => issueEtag(issueEtagFieldsFromShape(issue), etagIncludes),
+		fieldsEtag: fields => issueEtag(fields, etagIncludes),
 		unsupportedWarning: unsupported,
 	});
 
