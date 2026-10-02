@@ -4,6 +4,7 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubApiConfig } from '../config.js';
 import { GitHubApi } from '../github.js';
 import type { GitHubTokenInfo } from '../token.js';
+import { gitHubPullRequestLite } from './fixtures.js';
 
 /**
  * The read tag each GitLens-native read stamps. Every issue read's field presence assumes the body was selected, so
@@ -47,30 +48,27 @@ const issueNode = {
 	body: 'Body',
 };
 
-const repository = { isFork: false, name: 'r', owner: { login: 'o' }, sshUrl: '', url: 'https://github.com/o/r' };
-const pullRequestNode = {
-	id: 'PR_1',
-	number: 1,
-	title: 'PR 1',
-	body: '',
-	permalink: 'https://github.com/o/r/pull/1',
-	url: 'https://github.com/o/r/pull/1',
-	state: 'OPEN',
-	closed: false,
-	createdAt: '2026-01-01T00:00:00Z',
-	updatedAt: '2026-01-02T00:00:00Z',
-	closedAt: null,
-	mergedAt: null,
-	author: null,
-	baseRefName: 'main',
-	baseRefOid: 'base',
-	headRefName: 'feature',
-	headRefOid: 'head',
-	headRepository: repository,
-	repository: { ...repository, viewerPermission: 'READ' },
-	isCrossRepository: false,
-	isDraft: false,
-};
+const pullRequestNode = gitHubPullRequestLite(
+	1,
+	{
+		id: 'PR_1',
+		body: '',
+		createdAt: '2026-01-01T00:00:00Z',
+		updatedAt: '2026-01-02T00:00:00Z',
+		author: null,
+		baseRefOid: 'base',
+		headRepository: { isFork: false, name: 'r', owner: { login: 'o' }, sshUrl: '', url: 'https://github.com/o/r' },
+		repository: {
+			isFork: false,
+			name: 'r',
+			owner: { login: 'o' },
+			sshUrl: '',
+			url: 'https://github.com/o/r',
+			viewerPermission: 'READ',
+		},
+	},
+	{ owner: 'o', name: 'r' },
+);
 
 /** Answers every request with `data(query)`. */
 function api(data: (query: string) => unknown): GitHubApi {

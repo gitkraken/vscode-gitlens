@@ -13,6 +13,8 @@ import { pullRequestEtagIncludes } from '../models/integration.js';
 import { issueEtag, issueEtagFieldsFromShape, pullRequestEtag, pullRequestEtagFieldsFromShape } from '../reads/etag.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
+import type { GitHubPullRequestFixture, GitHubPullRequestFixtureOverrides } from './githubFixtures.js';
+import { gitHubPullRequest } from './githubFixtures.js';
 import { connectedGitHub } from './sweepHelpers.js';
 
 /**
@@ -27,65 +29,24 @@ import { connectedGitHub } from './sweepHelpers.js';
 
 type Node = Record<string, unknown>;
 
-function prNode(number: number, overrides: Node): Node {
-	return {
-		id: `node-${number}`,
-		number: number,
-		title: `PR ${number}`,
-		body: `Body ${number}`,
-		permalink: `https://github.com/o/r/pull/${number}`,
-		url: `https://github.com/o/r/pull/${number}`,
-		state: 'OPEN',
-		closed: false,
-		createdAt: '2026-01-01T00:00:00Z',
-		updatedAt: '2026-01-02T03:04:05Z',
-		closedAt: null,
-		mergedAt: null,
-		author: { login: 'octo', avatarUrl: '', url: 'https://github.com/octo' },
-		baseRefName: 'main',
-		baseRefOid: 'base',
-		headRefName: 'feature',
-		headRefOid: `head-${number}`,
-		headRepository: {
-			isFork: false,
-			name: 'r',
-			owner: { login: 'o' },
-			sshUrl: 'git@github.com:o/r.git',
-			url: 'https://github.com/o/r',
+function prNode(number: number, overrides: GitHubPullRequestFixtureOverrides): GitHubPullRequestFixture {
+	return gitHubPullRequest(
+		number,
+		{
+			updatedAt: '2026-01-02T03:04:05Z',
+			headRefOid: `head-${number}`,
+			commits: { totalCount: 1, nodes: [{ commit: { statusCheckRollup: { state: 'SUCCESS' } } }] },
+			...overrides,
 		},
-		repository: {
-			isFork: false,
-			name: 'r',
-			owner: { login: 'o' },
-			sshUrl: 'git@github.com:o/r.git',
-			url: 'https://github.com/o/r',
-			viewerPermission: 'WRITE',
-		},
-		isCrossRepository: false,
-		isDraft: false,
-		additions: 1,
-		deletions: 1,
-		changedFiles: 1,
-		checksUrl: '',
-		mergeable: 'MERGEABLE',
-		mergedBy: null,
-		reviewDecision: 'APPROVED',
-		latestReviews: { nodes: [] },
-		viewerLatestReview: null,
-		reviewRequests: { nodes: [] },
-		assignees: { nodes: [] },
-		commits: { totalCount: 1, nodes: [{ commit: { statusCheckRollup: { state: 'SUCCESS' } } }] },
-		totalCommentsCount: 0,
-		viewerCanUpdate: true,
-		...overrides,
-	};
+		{ owner: 'o', name: 'r' },
+	);
 }
 
 /**
  * Exactly what `getPullRequestsEtagFieldsBatch` selects for `includes`, picked off the same node the full read is
  * served.
  */
-function cheapPrNode(node: Node, includes: readonly PullRequestEtagInclude[]): Node {
+function cheapPrNode(node: GitHubPullRequestFixture, includes: readonly PullRequestEtagInclude[]): Node {
 	const picked: Node = {
 		id: node.id,
 		number: node.number,
@@ -101,8 +62,7 @@ function cheapPrNode(node: Node, includes: readonly PullRequestEtagInclude[]): N
 		picked.reviewDecision = node.reviewDecision;
 	}
 	if (includes.includes('checks')) {
-		const commits = node.commits as { nodes: { commit: unknown }[] };
-		picked.commits = { nodes: commits.nodes.map(n => ({ commit: n.commit })) };
+		picked.commits = { nodes: node.commits.nodes.map(n => ({ commit: n.commit })) };
 	}
 	return picked;
 }
@@ -142,11 +102,11 @@ const ghostRequest = { asCodeOwner: false, id: 'rr3', requestedReviewer: null };
 const commentedReview = {
 	id: 'rv1',
 	author: { login: 'reviewer', avatarUrl: '', url: 'https://github.com/reviewer' },
-	state: 'COMMENTED',
+	state: 'COMMENTED' as const,
 	commit: { oid: 'head' },
 };
 
-const prCases: [string, Node][] = [
+const prCases: [string, GitHubPullRequestFixtureOverrides][] = [
 	['open', {}],
 	['closed', { state: 'CLOSED', closed: true, closedAt: '2026-01-03T00:00:00Z' }],
 	['merged', { state: 'MERGED', closed: true, mergedAt: '2026-01-03T00:00:00Z' }],
@@ -162,10 +122,12 @@ const prCases: [string, Node][] = [
 	['reviewDecision null, a ghost requested', { reviewDecision: null, reviewRequests: { nodes: [ghostRequest] } }],
 	['reviewDecision null, only commented', { reviewDecision: null, latestReviews: { nodes: [commentedReview] } }],
 	['reviewDecision APPROVED, a user requested', { reviewRequests: { nodes: [userRequest] } }],
-	...['SUCCESS', 'FAILURE', 'PENDING', 'EXPECTED', 'ERROR'].map((state): [string, Node] => [
-		`rollup ${state}`,
-		{ commits: { totalCount: 1, nodes: [{ commit: { statusCheckRollup: { state: state } } }] } },
-	]),
+	...(['SUCCESS', 'FAILURE', 'PENDING', 'EXPECTED', 'ERROR'] as const).map(
+		(state): [string, GitHubPullRequestFixtureOverrides] => [
+			`rollup ${state}`,
+			{ commits: { totalCount: 1, nodes: [{ commit: { statusCheckRollup: { state: state } } }] } },
+		],
+	),
 	['rollup null', { commits: { totalCount: 1, nodes: [{ commit: { statusCheckRollup: null } }] } }],
 	['no commits', { commits: { totalCount: 0, nodes: [] } }],
 ];
@@ -174,7 +136,7 @@ const prCases: [string, Node][] = [
  * Answers every GraphQL request from `byNumber`, keyed by each alias's `$k` variable, with what that request
  * selected: the whole node for a full read, only the etag fields for a cheap one.
  */
-function serveGraphQL(runtime: FakeRuntime, byNumber: Map<number, Node>, field: 'pullRequest' | 'issue'): string[] {
+function serveGraphQL(runtime: FakeRuntime, byNumber: Map<number, object>, field: 'pullRequest' | 'issue'): string[] {
 	const queries: string[] = [];
 	runtime.http.fetch = (_input, init) => {
 		const body = JSON.parse(typeof init?.body === 'string' ? init.body : '{}') as {
@@ -194,7 +156,11 @@ function serveGraphQL(runtime: FakeRuntime, byNumber: Map<number, Node>, field: 
 			const node = byNumber.get(value as number);
 			assert.ok(node != null);
 			data[`${prefix}${match[1]}`] = {
-				[field]: !cheap ? node : field === 'pullRequest' ? cheapPrNode(node, includes) : cheapIssueNode(node),
+				[field]: !cheap
+					? node
+					: field === 'pullRequest'
+						? cheapPrNode(node as GitHubPullRequestFixture, includes)
+						: cheapIssueNode(node as Node),
 			};
 		}
 		return Promise.resolve(

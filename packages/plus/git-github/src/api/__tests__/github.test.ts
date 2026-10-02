@@ -7,6 +7,7 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubApiConfig } from '../config.js';
 import { filterPullRequestsBySearchState, GitHubApi, toGitHubSearchStateQualifier } from '../github.js';
 import type { GitHubTokenInfo } from '../token.js';
+import { gitHubPullRequest } from './fixtures.js';
 
 /** Serves `data` to one GraphQL request and captures the query document it was asked for. */
 function captureQuery(data: unknown): { config: GitHubApiConfig; getQuery: () => string } {
@@ -105,53 +106,19 @@ suite('GitHubApi.searchPullRequests', () => {
 	};
 
 	function prNode(number: number, state: 'OPEN' | 'CLOSED' | 'MERGED') {
-		return {
-			id: `pr-${number}`,
-			number: number,
-			title: `PR ${number}`,
-			body: `Body ${number}`,
-			permalink: `https://github.com/octo/repo/pull/${number}`,
-			url: `https://github.com/octo/repo/pull/${number}`,
-			state: state,
-			createdAt: '2024-01-01T00:00:00Z',
-			updatedAt: '2024-01-02T00:00:00Z',
-			closed: state !== 'OPEN',
-			closedAt: state === 'OPEN' ? null : '2024-01-03T00:00:00Z',
-			mergedAt: state === 'MERGED' ? '2024-01-03T00:00:00Z' : null,
-			author: { login: 'octo', avatarUrl: '', url: 'https://github.com/octo' },
-			baseRefName: 'main',
-			baseRefOid: 'base',
-			headRefName: 'feature',
-			headRefOid: 'head',
-			headRepository: {
-				isFork: false,
-				name: 'repo',
-				owner: { login: 'octo' },
-				sshUrl: 'git@github.com:octo/repo.git',
-				url: 'https://github.com/octo/repo',
+		return gitHubPullRequest(
+			number,
+			{
+				id: `pr-${number}`,
+				state: state,
+				createdAt: '2024-01-01T00:00:00Z',
+				updatedAt: '2024-01-02T00:00:00Z',
+				closed: state !== 'OPEN',
+				closedAt: state === 'OPEN' ? null : '2024-01-03T00:00:00Z',
+				mergedAt: state === 'MERGED' ? '2024-01-03T00:00:00Z' : null,
 			},
-			repository: {
-				isFork: false,
-				name: 'repo',
-				owner: { login: 'octo' },
-				sshUrl: 'git@github.com:octo/repo.git',
-				url: 'https://github.com/octo/repo',
-				viewerPermission: 'WRITE',
-			},
-			isCrossRepository: false,
-			isDraft: false,
-			additions: 1,
-			deletions: 1,
-			checksUrl: '',
-			mergeable: 'MERGEABLE',
-			reviewDecision: 'APPROVED',
-			latestReviews: { nodes: [] },
-			reviewRequests: { nodes: [] },
-			assignees: { nodes: [] },
-			commits: { nodes: [] },
-			totalCommentsCount: 0,
-			viewerCanUpdate: true,
-		};
+			{ owner: 'octo', name: 'repo' },
+		);
 	}
 
 	test('aliases opened and merged searches so closed pull requests cannot consume their result slices', async () => {
@@ -579,52 +546,16 @@ suite('GitHubApi direct pull request lookups', () => {
 	};
 
 	function prNode(number: number, body: string | null = `Body ${number}`) {
-		return {
-			id: `pr-${number}`,
-			number: number,
-			title: `PR ${number}`,
-			body: body,
-			permalink: `https://github.com/octo/repo/pull/${number}`,
-			url: `https://github.com/octo/repo/pull/${number}`,
-			state: 'OPEN',
-			createdAt: '2024-01-01T00:00:00Z',
-			updatedAt: '2024-01-02T00:00:00Z',
-			closedAt: null,
-			mergedAt: null,
-			author: { login: 'octo', avatarUrl: '', url: 'https://github.com/octo' },
-			baseRefName: 'main',
-			baseRefOid: 'base',
-			headRefName: 'feature',
-			headRefOid: 'head',
-			headRepository: {
-				isFork: false,
-				name: 'repo',
-				owner: { login: 'octo' },
-				sshUrl: 'git@github.com:octo/repo.git',
-				url: 'https://github.com/octo/repo',
+		return gitHubPullRequest(
+			number,
+			{
+				id: `pr-${number}`,
+				body: body,
+				createdAt: '2024-01-01T00:00:00Z',
+				updatedAt: '2024-01-02T00:00:00Z',
 			},
-			repository: {
-				isFork: false,
-				name: 'repo',
-				owner: { login: 'octo' },
-				sshUrl: 'git@github.com:octo/repo.git',
-				url: 'https://github.com/octo/repo',
-				viewerPermission: 'WRITE',
-			},
-			isCrossRepository: false,
-			isDraft: false,
-			additions: 1,
-			deletions: 1,
-			checksUrl: '',
-			mergeable: 'MERGEABLE',
-			reviewDecision: 'APPROVED',
-			latestReviews: { nodes: [] },
-			reviewRequests: { nodes: [] },
-			assignees: { nodes: [] },
-			commits: { nodes: [] },
-			totalCommentsCount: 0,
-			viewerCanUpdate: true,
-		};
+			{ owner: 'octo', name: 'repo' },
+		);
 	}
 
 	test('getPullRequest requests and maps the body', async () => {

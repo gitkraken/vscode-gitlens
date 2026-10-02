@@ -5,6 +5,7 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubApiConfig } from '../config.js';
 import { GitHubApi } from '../github.js';
 import type { GitHubTokenInfo } from '../token.js';
+import { gitHubPullRequest } from './fixtures.js';
 
 /**
  * The batch pull request read: N `(owner, repo, number)` coordinates in one aliased document. The pull-request
@@ -52,63 +53,10 @@ suite('GitHubApi.getPullRequestsBatch', () => {
 		return { config: config, getQuery: () => query, getVariables: () => variables };
 	}
 
-	/** A node carrying the FULL pull request fragment's fields, matching `gqlPullRequestFragment`. */
-	function prNode(number: number): unknown {
-		return {
-			id: `node-${number}`,
-			number: number,
-			title: `PR ${number}`,
-			body: `Body ${number}`,
-			permalink: `https://github.com/o/a/pull/${number}`,
-			url: `https://github.com/o/a/pull/${number}`,
-			state: 'OPEN',
-			createdAt: '2026-01-01T00:00:00Z',
-			updatedAt: '2026-01-01T00:00:00Z',
-			closedAt: null,
-			mergedAt: null,
-			closed: false,
-			author: { login: 'octo', avatarUrl: '', url: 'https://github.com/octo' },
-			baseRefName: 'main',
-			baseRefOid: 'base',
-			headRefName: 'feature',
-			headRefOid: 'head',
-			headRepository: {
-				isFork: false,
-				name: 'a',
-				owner: { login: 'o' },
-				sshUrl: 'git@github.com:o/a.git',
-				url: 'https://github.com/o/a',
-			},
-			repository: {
-				isFork: false,
-				name: 'a',
-				owner: { login: 'o' },
-				sshUrl: 'git@github.com:o/a.git',
-				url: 'https://github.com/o/a',
-				viewerPermission: 'WRITE',
-			},
-			isCrossRepository: false,
-			isDraft: false,
-			additions: 1,
-			deletions: 1,
-			changedFiles: 1,
-			checksUrl: '',
-			mergeable: 'MERGEABLE',
-			reviewDecision: 'APPROVED',
-			latestReviews: { nodes: [] },
-			viewerLatestReview: null,
-			reviewRequests: { nodes: [] },
-			assignees: { nodes: [] },
-			commits: { totalCount: 0, nodes: [] },
-			totalCommentsCount: 0,
-			viewerCanUpdate: true,
-		};
-	}
-
 	test('resolves every coordinate in one request, positionally, with the full fragment', async () => {
 		const { config, getQuery, getVariables } = batchServe({
-			p0: { pullRequest: prNode(1) },
-			p1: { pullRequest: prNode(2) },
+			p0: { pullRequest: gitHubPullRequest(1) },
+			p1: { pullRequest: gitHubPullRequest(2) },
 		});
 		const api = new GitHubApi(config);
 
@@ -136,10 +84,13 @@ suite('GitHubApi.getPullRequestsBatch', () => {
 	test('a NOT_FOUND alongside real results yields absences, not a thrown batch', async () => {
 		// GitHub's actual shape for a partly-resolvable batch: 200, full `data`, one NOT_FOUND per missing
 		// coordinate. Throwing here would discard `p0` because `p1` and `p2` do not exist/are not visible.
-		const { config } = batchServe({ p0: { pullRequest: prNode(1) }, p1: { pullRequest: null }, p2: null }, [
-			{ type: 'NOT_FOUND', path: ['p1', 'pullRequest'] },
-			{ type: 'NOT_FOUND', path: ['p2'] },
-		]);
+		const { config } = batchServe(
+			{ p0: { pullRequest: gitHubPullRequest(1) }, p1: { pullRequest: null }, p2: null },
+			[
+				{ type: 'NOT_FOUND', path: ['p1', 'pullRequest'] },
+				{ type: 'NOT_FOUND', path: ['p2'] },
+			],
+		);
 		const api = new GitHubApi(config);
 
 		const out = await api.getPullRequestsBatch(provider, token, [
@@ -159,7 +110,7 @@ suite('GitHubApi.getPullRequestsBatch', () => {
 		// GitHub answers a SAML-enforcing org with HTTP 200: the other alias's data, plus a FORBIDDEN for the one
 		// the token isn't authorized for. The token still worked, so this must not throw the whole batch, and
 		// the rejection must NOT be an AuthenticationError (that would expire the session over a working token).
-		const { config } = batchServe({ p0: { pullRequest: prNode(1) }, p1: { pullRequest: null } }, [
+		const { config } = batchServe({ p0: { pullRequest: gitHubPullRequest(1) }, p1: { pullRequest: null } }, [
 			{
 				type: 'FORBIDDEN',
 				path: ['p1'],
@@ -222,7 +173,7 @@ suite('GitHubApi.getPullRequestsBatch', () => {
 	test('a present node with a nested-path NOT_FOUND rejects rather than being trusted', async () => {
 		// A NOT_FOUND nested under the alias — e.g. a sub-field GitHub couldn't resolve — is still an error ON
 		// that alias. The top-level node coming back non-null does not make it safe to use.
-		const { config } = batchServe({ p0: { pullRequest: prNode(1) } }, [
+		const { config } = batchServe({ p0: { pullRequest: gitHubPullRequest(1) } }, [
 			{ type: 'NOT_FOUND', path: ['p0', 'pullRequest', 'headRepository'], message: 'head repository not found' },
 		]);
 		const api = new GitHubApi(config);
@@ -233,7 +184,7 @@ suite('GitHubApi.getPullRequestsBatch', () => {
 	});
 
 	test('an error with no path still throws the whole call, typed as today', async () => {
-		const { config } = batchServe({ p0: { pullRequest: prNode(1) } }, [{ type: 'RATE_LIMITED' }]);
+		const { config } = batchServe({ p0: { pullRequest: gitHubPullRequest(1) } }, [{ type: 'RATE_LIMITED' }]);
 		const api = new GitHubApi(config);
 
 		await assert.rejects(
@@ -243,7 +194,7 @@ suite('GitHubApi.getPullRequestsBatch', () => {
 	});
 
 	test('FORBIDDEN with no path still throws AuthenticationError, as today', async () => {
-		const { config } = batchServe({ p0: { pullRequest: prNode(1) } }, [{ type: 'FORBIDDEN' }]);
+		const { config } = batchServe({ p0: { pullRequest: gitHubPullRequest(1) } }, [{ type: 'FORBIDDEN' }]);
 		const api = new GitHubApi(config);
 
 		await assert.rejects(
@@ -280,7 +231,7 @@ suite('GitHubApi.getPullRequestsBatch', () => {
 		// proven-not-found, and the consumer caches absences. Dropping `repository` makes `fromGitHubPullRequest`
 		// throw when it reads `pr.repository.owner.login`. Per-slot rejection is possible now that the return
 		// shape is settled results, so one bad node no longer has to take the whole call down.
-		const { repository: _repository, ...unmappable } = prNode(1) as Record<string, unknown>;
+		const { repository: _repository, ...unmappable } = gitHubPullRequest(1);
 		const { config } = batchServe({ p0: { pullRequest: unmappable } });
 		const api = new GitHubApi(config);
 

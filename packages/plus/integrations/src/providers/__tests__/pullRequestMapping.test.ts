@@ -18,6 +18,8 @@ import {
 	PullRequestStatusCheckRollupState,
 } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
+import type { GitHubPullRequestFixtureOverrides } from '../../__tests__/githubFixtures.js';
+import { gitHubPullRequest } from '../../__tests__/githubFixtures.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.js';
 import type { ProviderPullRequest } from '../models.js';
 import {
@@ -654,65 +656,48 @@ suite('pull request dismissed review projection', () => {
 });
 
 /** A full GitHub node as GitLens' own full and stack fragments select it, as `fromGitHubPullRequest` reads it. */
-function gitHubPullRequestNode(overrides?: Record<string, unknown>): GitHubPullRequest {
-	const repository = {
-		isFork: false,
-		name: 'repo',
-		owner: { login: 'base' },
-		sshUrl: 'git@github.com:base/repo.git',
-		url: 'https://github.com/base/repo',
-	};
+function gitHubPullRequestNode(overrides?: GitHubPullRequestFixtureOverrides): GitHubPullRequest {
 	const reviewer = { login: 'reviewer', avatarUrl: '', url: 'https://github.com/reviewer' };
-	return {
-		id: 'PR_1',
-		number: 1,
-		title: 'PR',
-		body: 'Body',
-		permalink: 'https://github.com/base/repo/pull/1',
-		url: 'https://github.com/base/repo/pull/1',
-		state: 'OPEN',
-		closed: false,
-		createdAt: '2026-01-01T00:00:00Z',
-		updatedAt: '2026-01-02T00:00:00Z',
-		closedAt: null,
-		mergedAt: null,
-		author: reviewer,
-		baseRefName: 'main',
-		baseRefOid: 'base-sha',
-		headRefName: 'feature',
-		headRefOid: 'head-sha',
-		headRepository: repository,
-		repository: { ...repository, viewerPermission: 'READ' },
-		isCrossRepository: false,
-		isDraft: false,
-		stack: { id: 'S_1', number: 7, size: 2, baseRefName: 'main' },
-		stackEntry: { position: 1 },
-		additions: 3,
-		deletions: 1,
-		changedFiles: 2,
-		checksUrl: '',
-		mergeable: 'MERGEABLE',
-		mergedBy: null,
-		reviewDecision: 'REVIEW_REQUIRED',
-		latestReviews: { nodes: [] },
-		viewerLatestReview: null,
-		reviewRequests: {
-			nodes: [
-				{ asCodeOwner: true, id: 'RR_1', requestedReviewer: reviewer },
-				{ asCodeOwner: false, id: 'RR_2', requestedReviewer: { ...reviewer, login: 'other' } },
-			],
+	return gitHubPullRequest(
+		1,
+		{
+			id: 'PR_1',
+			title: 'PR',
+			body: 'Body',
+			updatedAt: '2026-01-02T00:00:00Z',
+			author: reviewer,
+			baseRefOid: 'base-sha',
+			headRefOid: 'head-sha',
+			repository: {
+				isFork: false,
+				name: 'repo',
+				owner: { login: 'base' },
+				sshUrl: 'git@github.com:base/repo.git',
+				url: 'https://github.com/base/repo',
+				viewerPermission: 'READ',
+			},
+			stack: { id: 'S_1', number: 7, size: 2, baseRefName: 'main' },
+			stackEntry: { position: 1 },
+			additions: 3,
+			changedFiles: 2,
+			reviewDecision: 'REVIEW_REQUIRED',
+			reviewRequests: {
+				nodes: [
+					{ asCodeOwner: true, requestedReviewer: reviewer },
+					{ asCodeOwner: false, requestedReviewer: { ...reviewer, login: 'other' } },
+				],
+			},
+			commits: { totalCount: 1, nodes: [] },
+			viewerCanUpdate: false,
+			...overrides,
 		},
-		assignees: { nodes: [] },
-		commits: { totalCount: 1, nodes: [] },
-		totalCommentsCount: 0,
-		viewerCanUpdate: false,
-		...overrides,
-	} as unknown as GitHubPullRequest;
+		{ owner: 'base', name: 'repo' },
+	);
 }
 
 /** GitLens' own GitHub read, as the account-wide and batch reads return it: the native row, tagged for the read. */
 function nativeGitHub(
-	overrides?: Record<string, unknown>,
+	overrides?: GitHubPullRequestFixtureOverrides,
 	currentAccount?: { id: string; username?: string },
 ): PullRequest {
 	return stampNativePullRequest(fromGitHubPullRequest(gitHubPullRequestNode(overrides), fakeProvider), {
@@ -783,7 +768,7 @@ suite('the GitHub native row keeps what the read fetched, and invents nothing', 
 
 	test('a team review request keeps a blank reviewer id, which matches no one', () => {
 		const pr = nativeGitHub({
-			reviewRequests: { nodes: [{ asCodeOwner: true, id: 'RR_3', requestedReviewer: {} }] },
+			reviewRequests: { nodes: [{ asCodeOwner: true, requestedReviewer: {} }] },
 		});
 
 		assert.equal(pr.reviewRequests?.length, 1);
