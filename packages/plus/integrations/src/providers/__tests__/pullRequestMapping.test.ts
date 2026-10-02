@@ -196,6 +196,18 @@ suite('pull request ref mapping (#5435 clone URLs + fork)', () => {
 		);
 
 		assert.equal(pr.authoredByMe, true);
+		assert.deepEqual(
+			pr.viewer,
+			{ id: '641685', username: 'eamodio' },
+			'the identity authorship was matched against',
+		);
+	});
+
+	test('a row mapped without the current account has neither authorship nor a viewer', () => {
+		const pr = fromProviderPullRequest(createProviderPullRequest({}), fakeProvider);
+
+		assert.equal(pr.authoredByMe, undefined);
+		assert.equal(pr.viewer, undefined);
 	});
 
 	test('a GitHub row from our own client authored by someone else is not mine', () => {

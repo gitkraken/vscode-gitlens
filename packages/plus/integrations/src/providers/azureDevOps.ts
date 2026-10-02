@@ -300,6 +300,18 @@ export abstract class AzureDevOpsIntegrationBase<
 	}
 
 	/**
+	 * For one read, the current account as each organization's pull requests identify it, given the account itself
+	 * (`undefined` when it couldn't be read). Azure DevOps Services gives a person one id, so that is `account`; the
+	 * server override resolves each collection's own, once per read.
+	 */
+	protected getOrganizationViewers(
+		_session: ProviderAuthenticationSession,
+		account: { id: string; username?: string } | undefined,
+	): (org: string) => Promise<{ id: string; username?: string } | undefined> {
+		return () => Promise.resolve(account);
+	}
+
+	/**
 	 * What the discovery caches (account, organizations, projects, and their stored copies) are keyed by. Azure DevOps
 	 * Services has a single address, so the credential alone identifies what it discovers; the server override adds
 	 * the installation address.
@@ -927,6 +939,7 @@ export abstract class AzureDevOpsIntegrationBase<
 	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
 		const api = await this.getProvidersApi();
 		const { tokenWithInfo } = this.getApiOptions(session);
+		const viewerFor = this.getOrganizationViewers(session, options?.currentAccount);
 
 		return mapSettledBounded(coordinates, providerFanOutConcurrency, async c => {
 			const pr = await api.getPullRequestForRepo(
@@ -935,9 +948,9 @@ export abstract class AzureDevOpsIntegrationBase<
 				c.number,
 				{ ...this.getCollectionApiOptions(session, c.owner), includeRemoteInfo: true },
 			);
-			return pr != null
-				? fromProviderPullRequest(pr, this, { currentAccount: options?.currentAccount })
-				: undefined;
+			if (pr == null) return undefined;
+
+			return fromProviderPullRequest(pr, this, { currentAccount: await viewerFor(c.owner) });
 		});
 	}
 

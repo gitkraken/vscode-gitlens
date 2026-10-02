@@ -1660,6 +1660,21 @@ export abstract class GitHostIntegration<
 	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined>;
 
 	/**
+	 * The current account as each of `pullRequests` identifies its members, in order: what a raw row's
+	 * `authoredByMe` and `viewer` are resolved against when it's mapped. Most hosts give a person one id, so every
+	 * row gets the account itself; Azure DevOps Server answers per collection (see `AzureDevOpsServerIntegration`).
+	 * Throws only when the account itself can't be read.
+	 */
+	async getPullRequestViewers(
+		pullRequests: readonly ProviderPullRequest[],
+		connectionId?: string,
+	): Promise<({ id: string; username?: string } | undefined)[]> {
+		const account = await this.getCurrentAccount({ connectionId: connectionId });
+		const viewer = account != null ? { id: account.id, username: account.username } : undefined;
+		return pullRequests.map(() => viewer);
+	}
+
+	/**
 	 * Parses a Repo/Project paging cursor into its `cursors` bundle. Guards against valid JSON whose
 	 * `cursors` is a truthy non-array (e.g. `{ "cursors": "..." }`), which would otherwise bypass the
 	 * `?? []` fallback at call sites and flow into `.map()` downstream, throwing instead of degrading to

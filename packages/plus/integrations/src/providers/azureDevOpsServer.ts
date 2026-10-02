@@ -848,6 +848,52 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		);
 	}
 
+	/**
+	 * Resolved per collection, which a raw row names as its repository owner: a collection's pull requests carry the
+	 * id {@link getFilterUserId} resolves there, never the server-level account's. A row that names no collection or
+	 * has no author to match gets no viewer, nor does one in a collection whose id can't be read: its authorship
+	 * stays unknown.
+	 */
+	override async getPullRequestViewers(
+		pullRequests: readonly ProviderPullRequest[],
+		connectionId?: string,
+	): Promise<({ id: string; username?: string } | undefined)[]> {
+		const session = await this.resolveReadSession(connectionId, undefined);
+		if (session == null) return pullRequests.map(() => undefined);
+
+		const viewerFor = this.getOrganizationViewers(session, undefined);
+		return Promise.all(
+			pullRequests.map(pr => {
+				const collection = pr.repository?.owner?.login;
+				return collection && pr.author != null ? viewerFor(collection) : Promise.resolve(undefined);
+			}),
+		);
+	}
+
+	/**
+	 * Ignores `account`: it is the server-level one, which no collection's pull requests carry. A collection whose id
+	 * can't be read resolves `undefined`, since authorship is optional enrichment and one collection's failed lookup
+	 * must not fail the read or blank the others; it is asked once per read, as a miss isn't cached.
+	 */
+	protected override getOrganizationViewers(
+		session: ProviderAuthenticationSession,
+		_account: { id: string; username?: string } | undefined,
+	): (collection: string) => Promise<{ id: string } | undefined> {
+		const viewers = new Map<string, Promise<{ id: string } | undefined>>();
+		return collection => {
+			const key = collection.toLowerCase();
+			let viewer = viewers.get(key);
+			if (viewer == null) {
+				viewer = this.getFilterUserId(session, collection).then(
+					id => (id != null ? { id: id } : undefined),
+					() => undefined,
+				);
+				viewers.set(key, viewer);
+			}
+			return viewer;
+		};
+	}
+
 	/** Every collection the account can see, or a refusal when discovery itself failed. */
 	private async getSearchCollections(session: ProviderAuthenticationSession): Promise<AzureOrganizationDescriptor[]> {
 		const collections = await this.getProviderResourcesForUser(session);
