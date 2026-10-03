@@ -776,3 +776,18 @@ suite('Git.clearPendingCommands', () => {
 		);
 	});
 });
+
+suite('Git.stream stdin', () => {
+	test('rejects, rather than crashing on EPIPE, when git exits before reading its input', async () => {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+		// Far past any OS pipe buffer, so the write is still in flight when git refuses the option and exits
+		const stdin = Buffer.alloc(8 * 1024 * 1024, 'x');
+
+		await assert.rejects(async () => {
+			const out: string[] = [];
+			for await (const chunk of git.stream({ cwd: tmpdir(), stdin: stdin }, 'patch-id', '--no-such-option')) {
+				out.push(chunk);
+			}
+		});
+	});
+});

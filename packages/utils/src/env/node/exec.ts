@@ -5,6 +5,7 @@ import { access, constants } from 'fs';
 import { stat } from 'fs/promises';
 import { join as joinPaths } from 'path';
 import * as process from 'process';
+import type { Writable } from 'stream';
 import { getScopedLogger, maybeStartScopedLogger } from '../../logger.scoped.js';
 import { normalizePath } from '../../path.js';
 import { isWindows } from './platform.js';
@@ -324,11 +325,28 @@ export function run<T extends number | string>(
 		);
 
 		if (stdin != null) {
-			proc.stdin?.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
+			endStdin(proc.stdin, stdin, stdinEncoding);
 		}
 	});
 
 	return promise.finally(() => scope?.[Symbol.dispose]());
+}
+
+/**
+ * Writes a child's whole input and closes it. A child can exit, or be killed on cancellation, before reading all of
+ * it, and the pipe then errors (EPIPE, or EOF on Windows). Unlistened, that error is thrown as an uncaught exception
+ * and takes down the whole host process, so it is dropped: the child's exit status and stderr already report the
+ * failure, and a child that chose to stop reading answered from what it read.
+ */
+export function endStdin(stream: Writable | null, stdin: string | Buffer, stdinEncoding: string | undefined): void {
+	if (stream == null) return;
+
+	stream.on('error', () => {});
+	if (typeof stdin === 'string') {
+		stream.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
+	} else {
+		stream.end(stdin);
+	}
 }
 
 export interface RunExitResult {
@@ -472,11 +490,7 @@ export function runSpawn<T extends string | Buffer>(
 		});
 
 		if (stdin != null) {
-			if (typeof stdin === 'string') {
-				proc.stdin.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
-			} else if (stdin instanceof Buffer) {
-				proc.stdin.end(stdin);
-			}
+			endStdin(proc.stdin, stdin, stdinEncoding);
 		}
 	});
 
