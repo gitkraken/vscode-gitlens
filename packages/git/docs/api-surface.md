@@ -274,6 +274,8 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `searchCommits(repoPath, search, options?, cancellation?)`                         | `SearchCommitsResult`                     |
 | `getIncomingActivity?(repoPath, options?, cancellation?)`                          | `GitReflog \| undefined`                  |
 | `getInitialCommitSha?(repoPath, cancellation?)`                                    | `string \| undefined`                     |
+| `getCommitPatchIds?(repoPath, revs, options?, cancellation?)`                      | `Map<string, string> \| undefined`        |
+| `getDiffPatchId?(repoPath, from, to, options?, cancellation?)`                     | `string \| undefined`                     |
 | `createUnreachableCommitFromTree?(repoPath, tree, parent, message, cancellation?)` | `string`                                  |
 | `getCommitReachability?(repoPath, rev, cancellation?)`                             | `GitCommitReachability \| undefined`      |
 | `getCommitSignature?(repoPath, sha)`                                               | `CommitSignature \| undefined`            |

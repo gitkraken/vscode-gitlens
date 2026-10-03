@@ -133,6 +133,7 @@ interface Caches {
 	ignoreRevsFile: PromiseCache<string, boolean> | undefined;
 	leftRightCommitCount: RepoPromiseCacheMap<string, LeftRightCommitCountResult | undefined> | undefined;
 	mergeBase: RepoPromiseCacheMap<string, string | undefined> | undefined;
+	patchIds: RepoPromiseCacheMap<string, string | undefined> | undefined;
 	pausedOperationStatus: PromiseMap<RepoPath, GitPausedOperationStatus | undefined> | undefined;
 	reachability: RepoPromiseCacheMap<string, GitCommitReachability | undefined> | undefined;
 	resolvedRevisions: RepoPromiseCacheMap<string, ResolvedRevision> | undefined;
@@ -217,6 +218,7 @@ function createEmptyCaches(): AllCaches {
 		ignoreRevsFile: undefined,
 		leftRightCommitCount: undefined,
 		mergeBase: undefined,
+		patchIds: undefined,
 		configKeys: undefined,
 		configPatterns: undefined,
 		conflictDetection: undefined,
@@ -487,6 +489,20 @@ export class Cache implements Disposable {
 		return (this._caches.mergeBase ??= new RepoPromiseCacheMap<string, string | undefined>({
 			accessTTL: 1000 * 60 * 60, // 60 minutes
 			capacity: 50,
+		}));
+	}
+
+	/**
+	 * Patch IDs keyed by full commit sha (plus `paths` and `verbatim`). A commit's content is immutable, so no
+	 * ref or worktree event can make an entry stale and nothing clears it short of a full cache reset. A cached
+	 * `undefined` is a real answer (a merge commit, or a change that is empty after `paths`). Kept per worktree,
+	 * not per repository, since an ID depends on the attributes of the checkout it was read from. Sized above a range
+	 * read of a couple thousand commits, so one read doesn't evict its own ids before the next.
+	 */
+	get patchIds(): RepoPromiseCacheMap<string, string | undefined> {
+		return (this._caches.patchIds ??= new RepoPromiseCacheMap<string, string | undefined>({
+			accessTTL: 1000 * 60 * 60, // 60 minutes
+			capacity: 5000,
 		}));
 	}
 
