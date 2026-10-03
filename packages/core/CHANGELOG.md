@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-10-02
+
 ### Changed
 
 - **Breaking (git)** — `PullRequestRef.owner` and `repo` are typed `string | undefined`, which they already were at runtime for a pull request whose head repository was deleted: GitHub's rows leave both `undefined`, with `exists` `false`, so a consumer's type check now catches code that assumed a string. provider-apis' converters still fill `''` there, so test for a value rather than for `undefined`. Converting such a row to provider-apis' shape now gives no head repository instead of a blank one (git, plus/integrations)
@@ -515,7 +517,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.5...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.6...HEAD
+[0.9.6]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.5...gitkraken:releases/core/v0.9.6
 [0.9.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.4...gitkraken:releases/core/v0.9.5
 [0.9.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.3...gitkraken:releases/core/v0.9.4
 [0.9.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.2...gitkraken:releases/core/v0.9.3
