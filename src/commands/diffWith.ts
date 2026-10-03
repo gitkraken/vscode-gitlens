@@ -64,8 +64,18 @@ export class DiffWithCommand extends GlCommandBase {
 				args = {
 					repoPath: commit.repoPath,
 					// Don't need to worry about verifying the previous sha, as the DiffWith command will
-					lhs: { sha: commit.unresolvedPreviousSha, uri: commit.file.originalUri ?? commit.file.uri },
-					rhs: { sha: commit.sha, uri: commit.file.uri },
+					lhs: {
+						sha:
+							commit.file.status === 'A' || commit.file.status === '?'
+								? deletedOrMissing
+								: commit.unresolvedPreviousSha,
+						uri: commit.file.originalUri ?? commit.file.uri,
+					},
+					rhs: {
+						// Untracked files in a stash are stored in its third parent
+						sha: commit.file.status === '?' ? `${commit.sha}^3` : commit.sha,
+						uri: commit.file.uri,
+					},
 					range: range,
 					source: source,
 				};
@@ -121,12 +131,16 @@ export class DiffWithCommand extends GlCommandBase {
 				}
 			}
 
+			if (lhsResolved.status === 'D') {
+				lhsResolved = { ...lhsResolved, sha: deletedOrMissing };
+			}
+
 			if (rhsResolved.status === 'D') {
-				rhsResolved.sha = deletedOrMissing;
+				rhsResolved = { ...rhsResolved, sha: deletedOrMissing };
 			} else if (rhsResolved.status === 'R' || rhsResolved.status === 'C') {
 				rhsUri = svc.getAbsoluteUri(rhsResolved.path!, args.repoPath);
 			} else if (rhsResolved.status === 'A' && isShaWithParentSuffix(lhsResolved.sha)) {
-				lhsResolved.sha = deletedOrMissing;
+				lhsResolved = { ...lhsResolved, sha: deletedOrMissing };
 			}
 
 			const [lhsResult, rhsResult] = await Promise.allSettled([
