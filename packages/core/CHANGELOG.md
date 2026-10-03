@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.9.7] - 2026-10-03
+
 ### Added
 
 - Adds patch ID reads to the commits provider, so a consumer can tell whether a branch's commits already landed on a base after a rebase, cherry-pick or squash merge: `getCommitPatchIds` answers each non-merge commit's patch ID (git's hash of a change, the same wherever it was applied) and `getDiffPatchId` answers the change between two revisions, such as a branch's net change from its merge base (git, git-cli)
@@ -525,7 +527,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.6...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.7...HEAD
+[0.9.7]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.6...gitkraken:releases/core/v0.9.7
 [0.9.6]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.5...gitkraken:releases/core/v0.9.6
 [0.9.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.4...gitkraken:releases/core/v0.9.5
 [0.9.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.3...gitkraken:releases/core/v0.9.4
