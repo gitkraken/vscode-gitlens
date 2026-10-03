@@ -1,5 +1,6 @@
 export {
 	CancelledRunError,
+	endStdin,
 	findExecutable,
 	fsExists,
 	getWindowsShortPath,
