@@ -47,7 +47,7 @@ import { getChangesForCommand, leadingCommand } from './commandClassifier.js';
 import { EventLoopMonitor } from './eventLoopMonitor.js';
 import { CancelledRunError, RunError } from './exec.errors.js';
 import type { RunOptions, RunResult } from './exec.js';
-import { fsExists, runSpawn } from './exec.js';
+import { endStdin, fsExists, runSpawn } from './exec.js';
 import type { GitCommandPriority, GitResult, GitRunOptions, GitSpawnOptions } from './exec.types.js';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './features.js';
 import { gitFeaturesByVersion } from './features.js';
@@ -1293,7 +1293,7 @@ export class Git {
 		const proc = spawn(command, runArgs, spawnOpts);
 
 		if (stdin) {
-			proc.stdin?.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
+			endStdin(proc.stdin, stdin, stdinEncoding);
 		}
 
 		let exception: Error | undefined;

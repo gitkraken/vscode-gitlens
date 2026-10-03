@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds patch ID reads to the commits provider, so a consumer can tell whether a branch's commits already landed on a base after a rebase, cherry-pick or squash merge: `getCommitPatchIds` answers each non-merge commit's patch ID (git's hash of a change, the same wherever it was applied) and `getDiffPatchId` answers the change between two revisions, such as a branch's net change from its merge base (git, git-cli)
 
+### Fixed
+
+- Fixes an uncaught `write EPIPE` that took down the host process when a command exited, or was cancelled, before reading all of the input written to it. `run`, `runSpawn` and the streaming `Git.stream` now drop a write error on the child's stdin and report the command's exit status as before (utils, git-cli)
+
 ## [0.9.6] - 2026-10-02
 
 ### Changed
