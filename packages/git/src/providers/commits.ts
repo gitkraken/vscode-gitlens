@@ -122,6 +122,46 @@ export interface GitCommitsSubProvider {
 		rev: string,
 		cancellation?: AbortSignal,
 	): Promise<{ authorDate: Date; committerDate: Date } | undefined>;
+	/**
+	 * Each non-merge commit's patch ID, keyed by full SHA: git's hash of a change with line numbers and `index` lines
+	 * left out (`git patch-id`), so the same change gets the same ID wherever it was applied. It is what `git cherry`
+	 * and rebase use to skip commits already upstream, e.g. to tell whether a branch's commits already landed after a
+	 * rebase or cherry-pick. Merge commits, commits whose change is empty (after `paths`), and the boundary commits of
+	 * a shallow clone (their parents are missing, so their own change is unknowable) are absent.
+	 *
+	 * `revs` is either a list of revisions (an exclusion or a range in it is refused) or a range, which yields every
+	 * non-merge commit in it that touches `paths` (when given), including ones reached only through a merge's other
+	 * parent. In a list, abbreviated SHAs and refs are resolved first; entries that are all full SHAs are read as is,
+	 * and are trusted to be commits. Returns `undefined`, never a partial map, when more than `limit` commits match,
+	 * when git fails, when `verbatim` is requested on a git without it (< 2.39), or when `patch-id` can't hash a commit
+	 * whole (a binary change followed by other files, on git < 2.39).
+	 *
+	 * The diffs are plumbing output with every knob that could alter them pinned, so no user config changes an ID.
+	 * Attributes still apply, though: a file that `.gitattributes` (or `info/attributes`, `core.attributesFile`)
+	 * marks binary or `-diff` is hashed through its blob IDs, so its change matches only one with the same contents
+	 * before and after. Hashing is whitespace-insensitive (`--stable`) unless `verbatim` is set. `paths` are literal
+	 * paths relative to the repo root (never globs) and limit the diff too, so the ID covers only those files' changes.
+	 * IDs are cached per full SHA, `paths` and `verbatim`: commits are immutable.
+	 */
+	getCommitPatchIds?(
+		repoPath: string,
+		revs: readonly string[] | GitRevisionRange,
+		options?: { paths?: readonly string[]; verbatim?: boolean; limit?: number },
+		cancellation?: AbortSignal,
+	): Promise<Map<string, string> | undefined>;
+	/**
+	 * The patch ID (see {@link getCommitPatchIds}) of the change between two revisions, e.g. a branch's net change from
+	 * its merge base, to compare against a commit's (such as a squash commit's). `undefined` when there is no change,
+	 * when git fails, or when `verbatim` is requested on a git without it. `paths` and `verbatim` behave as in
+	 * {@link getCommitPatchIds}. Not cached: `from` and `to` may be moving refs.
+	 */
+	getDiffPatchId?(
+		repoPath: string,
+		from: string,
+		to: string,
+		options?: { paths?: readonly string[]; verbatim?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<string | undefined>;
 	getCommitFiles(repoPath: string, rev: string, cancellation?: AbortSignal): Promise<GitFileChange[]>;
 	getCommitForFile(
 		repoPath: string,

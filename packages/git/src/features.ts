@@ -16,6 +16,8 @@ export type GitFeatures =
 	| 'git:manyFiles'
 	| 'git:merge-tree:merge-base'
 	| 'git:merge-tree:write-tree'
+	| 'git:patch-id:binary-oids'
+	| 'git:patch-id:verbatim'
 	| 'git:push:force-if-includes'
 	| 'git:rebase:autosquash'
 	| 'git:rev-parse:end-of-options'
@@ -79,6 +81,10 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:merge-tree:merge-base', '2.40'],
 	// `merge-tree --write-tree` mode with `-z`/`--name-only`/`--no-messages`; the older trivial mode can't check conflicts
 	['git:merge-tree:write-tree', '2.38'],
+	// `patch-id` hashes a binary change through its blob ids; older ones hash the diff's text, so need `--binary` data
+	['git:patch-id:binary-oids', '2.39'],
+	// `patch-id --verbatim`: hashes whitespace and file-mode header lines instead of normalizing them away
+	['git:patch-id:verbatim', '2.39'],
 	['git:push:force-if-includes', '2.30.0'],
 	// `--autosquash` WITHOUT `-i` (folding `fixup!`/`squash!` commits into a plain/automatic rebase).
 	// Interactive rebases support autosquash on every git version GitLens supports, so this floor only

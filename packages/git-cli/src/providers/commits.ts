@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import { SigningError } from '@gitlens/git/errors.js';
@@ -73,6 +74,53 @@ const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> 
 const reflogCommands = ['merge', 'pull'];
 /** Keeps `filterUnpublishedShas` well inside Windows' ~32K command-line cap (40 hex chars + separator each). */
 const maxShasPerRevListSpawn = 500;
+const fullShaRegex = /^[0-9a-f]{40}$/;
+/** Bounds the diff text held in memory, and piped to `patch-id`, per `diff-tree` spawn. */
+const maxCommitsPerPatchIdSpawn = 250;
+
+/**
+ * Plumbing diff with every output knob pinned, so no user diff config can change what a patch id hashes.
+ * `--full-index` is load-bearing: a binary change is hashed through its blob oids, which must be unabbreviated.
+ * Plumbing still reads `diff.indentHeuristic`, which can slide a hunk, so the heuristic is named rather than defaulted.
+ */
+const patchIdDiffArgs = [
+	'diff-tree',
+	'-p',
+	'--full-index',
+	'--indent-heuristic',
+	'--no-color',
+	'--no-ext-diff',
+	'--no-textconv',
+	'--no-renames',
+] as const;
+
+/**
+ * The other diff setting plumbing reads: a blank context line printed without its leading space is counted by
+ * `patch-id` as neither side of the hunk, so the hunk never ends and the next file's header is hashed into it.
+ */
+const patchIdDiffConfigs = ['-c', 'diff.suppressBlankEmpty=false'] as const;
+
+/**
+ * `GIT_DIFF_OPTS` overrides even an explicit `-U<n>`, changing the context lines a patch id hashes, so it is
+ * unset. Literal pathspecs keep a caller's path from being read as a glob or pathspec magic.
+ */
+const patchIdEnv: Readonly<Record<string, string | undefined>> = {
+	GIT_DIFF_OPTS: undefined,
+	GIT_LITERAL_PATHSPECS: '1',
+};
+
+/**
+ * The part of a patch id's cache key after its sha. Order and duplicates in `paths` never change the diff, so they
+ * must not split the key, and the paths are hashed so a long list isn't held again by every cached commit.
+ */
+function getPatchIdCacheKeySuffix(paths: readonly string[] | undefined, verbatim: boolean | undefined): string {
+	const mode = verbatim ? 'v' : 's';
+	if (!paths?.length) return `\0${mode}`;
+
+	return `\0${mode}\0${createHash('sha256')
+		.update([...new Set(paths)].sort().join('\0'))
+		.digest('hex')}`;
+}
 
 const refExclusionNamespaces = [
 	['branches', 'refs/heads/', '--branches'],
@@ -411,6 +459,293 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			};
 		}
 		return undefined;
+	}
+
+	@debug({
+		args: (repoPath, revs, options) => ({
+			repoPath: repoPath,
+			revs: typeof revs === 'string' ? revs : `${revs.length} value(s)`,
+			options: options,
+		}),
+		exit: r => (r != null ? `${r.size} patch id(s)` : 'unavailable'),
+	})
+	async getCommitPatchIds(
+		repoPath: string,
+		revs: readonly string[] | GitRevisionRange,
+		options?: { paths?: readonly string[]; verbatim?: boolean; limit?: number },
+		cancellation?: AbortSignal,
+	): Promise<Map<string, string> | undefined> {
+		const scope = getScopedLogger();
+
+		if (options?.verbatim && !(await this.git.supports('git:patch-id:verbatim'))) return undefined;
+
+		try {
+			const shas = await this.resolvePatchIdCommitShas(repoPath, revs, options, cancellation);
+			if (shas == null) return undefined;
+
+			const keySuffix = getPatchIdCacheKeySuffix(options?.paths, options?.verbatim);
+			const ids = new Map<string, string>();
+			const uncached: string[] = [];
+			for (const sha of shas) {
+				const cached = this.cache.patchIds.get(repoPath, `${sha}${keySuffix}`);
+				if (cached == null) {
+					uncached.push(sha);
+					continue;
+				}
+
+				const id = await cached;
+				if (id != null) {
+					ids.set(sha, id);
+				}
+			}
+
+			// A shallow clone's boundary commits have parents that are merely not present, but `--root` would read them
+			// as parentless, so their "own change" would be the whole tree. It is unknowable, so they are left out
+			// and never cached, which also keeps a later deepening from finding a wrong ID cached.
+			const boundary = uncached.length ? await this.getShallowBoundary(repoPath, cancellation) : undefined;
+			const readable = boundary?.size ? uncached.filter(sha => !boundary.has(sha)) : uncached;
+
+			const diffArgs = await this.getPatchIdDiffArgs();
+			for (const batch of chunkArray(readable, maxCommitsPerPatchIdSpawn)) {
+				// `diff-tree --stdin` silently prints nothing for an abbreviated sha, which is why callers' revisions are
+				// resolved to full shas first. It prints nothing for a merge commit, or for a change that is empty after
+				// `paths`, and `patch-id` then has no entry for it — which is the answer, so it is cached as such.
+				// `--root` so a parentless commit's change is its whole tree rather than nothing.
+				const diff = await this.git.run<Buffer>(
+					{
+						cwd: repoPath,
+						cancellation: cancellation,
+						configs: patchIdDiffConfigs,
+						errors: 'throw',
+						encoding: 'buffer',
+						env: patchIdEnv,
+						stdin: `${batch.join('\n')}\n`,
+					},
+					...diffArgs,
+					'--root',
+					'--stdin',
+					...(options?.paths?.length ? ['--', ...options.paths] : []),
+				);
+				if (cancellation?.aborted) throw new CancellationError();
+
+				const batchIds =
+					diff.stdout.length > 0
+						? await this.computePatchIds(repoPath, diff.stdout, options?.verbatim, cancellation)
+						: undefined;
+				// Every patch in the input starts with its commit's sha, so an id under any other commit means
+				// `patch-id` split a patch, leaving some commit with an id for only part of its change
+				if (batchIds != null) {
+					const batchShas = new Set(batch);
+					if (some(batchIds.keys(), commitId => !batchShas.has(commitId))) {
+						throw new Error('patch-id answered for a commit it was not given');
+					}
+				}
+
+				for (const sha of batch) {
+					const id = batchIds?.get(sha);
+					// `getOrCreate` rather than `set`, since only it enforces the cache's capacity and expiry
+					void this.cache.patchIds.getOrCreate(repoPath, `${sha}${keySuffix}`, () => Promise.resolve(id));
+					if (id != null) {
+						ids.set(sha, id);
+					}
+				}
+			}
+
+			return ids;
+		} catch (ex) {
+			scope?.error(ex);
+			if (isCancellationError(ex)) throw ex;
+
+			return undefined;
+		}
+	}
+
+	/** The commits a shallow clone was cut at, read from the repository's common git directory so linked worktrees work. */
+	private async getShallowBoundary(repoPath: string, cancellation: AbortSignal | undefined): Promise<Set<string>> {
+		const result = await this.git.run(
+			{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
+			'rev-parse',
+			'--git-path',
+			'shallow',
+		);
+		const path = result.stdout.trim();
+		if (!path) return new Set();
+
+		const contents = await this.context.fs
+			.readFile(this.provider.getAbsoluteUri(path, repoPath))
+			.catch((ex: unknown) => {
+				const code = (ex as { code?: unknown }).code;
+				// No file is a repository that isn't shallow
+				if (code === 'ENOENT' || code === 'FileNotFound') return undefined;
+
+				throw ex;
+			});
+		if (cancellation?.aborted) throw new CancellationError();
+
+		return new Set(
+			contents == null
+				? []
+				: new TextDecoder()
+						.decode(contents)
+						.split(/\s+/)
+						.filter(s => s.length > 0),
+		);
+	}
+
+	/**
+	 * Lists the full shas of the commits {@link getCommitPatchIds} reads diffs of, since `diff-tree --stdin` does not
+	 * accept abbreviated ones. A list of revisions that are all full shas is taken as is, and a merge commit among them
+	 * is dropped later by `diff-tree`. Resolves to `undefined` when more than `options.limit` commits match, never a
+	 * truncated list.
+	 */
+	private async resolvePatchIdCommitShas(
+		repoPath: string,
+		revs: readonly string[] | GitRevisionRange,
+		options: { paths?: readonly string[]; limit?: number } | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<string[] | undefined> {
+		let result: GitResult;
+		if (typeof revs === 'string') {
+			// Only a range, since a single revision would walk its whole history; any revision syntax is fine on
+			// either side (`HEAD~3`, `@{u}`, a `#` or `+` in a branch name), so git, not a pattern, decides validity
+			if (!revs.includes('..') || revs.startsWith('-')) return undefined;
+
+			// `--full-history`: without it, history simplification can skip a side branch's commits that touch `paths`
+			result = await this.git.run(
+				{ cwd: repoPath, cancellation: cancellation, errors: 'throw', env: patchIdEnv },
+				'rev-list',
+				'--no-merges',
+				'--full-history',
+				// One past the limit, so exceeding it is detectable without walking the rest of a large history
+				options?.limit != null ? `--max-count=${options.limit + 1}` : undefined,
+				revs,
+				'--',
+				...(options?.paths ?? []),
+			);
+		} else {
+			if (!revs.length) return [];
+			// An option or a newline in a revision would be read by `--stdin` as another revision or a pseudo-option,
+			// and an exclusion or a range turns `--no-walk` off, walking history instead of naming commits
+			if (revs.some(r => !r || r.startsWith('-') || r.startsWith('^') || r.includes('..') || r.includes('\n'))) {
+				return undefined;
+			}
+
+			// Full shas need no resolution, so `diff-tree --stdin` can read them directly: it prints nothing for a
+			// merge commit (without `-m`/`-c`), so merges still drop out. Deduplicated since it would print a
+			// repeated sha's diff twice, which `patch-id` would answer twice.
+			if (revs.every(r => fullShaRegex.test(r))) {
+				const shas = [...new Set(revs)];
+				return options?.limit != null && shas.length > options.limit ? undefined : shas;
+			}
+
+			// `--no-walk` yields just these commits, peeling tags and resolving abbreviations; the trailing `--`
+			// keeps a revision that is also a file name from being ambiguous. No `--max-count` here: it makes git
+			// ignore `--no-walk` and list ancestors too, and the input already bounds the output.
+			result = await this.git.run(
+				{
+					cwd: repoPath,
+					cancellation: cancellation,
+					errors: 'throw',
+					env: patchIdEnv,
+					stdin: `${revs.join('\n')}\n--\n`,
+				},
+				'rev-list',
+				'--no-merges',
+				'--no-walk=unsorted',
+				'--stdin',
+			);
+		}
+		if (cancellation?.aborted) throw new CancellationError();
+
+		const shas = result.stdout
+			.split('\n')
+			.map(l => l.trim())
+			.filter(l => l.length > 0);
+		return options?.limit != null && shas.length > options.limit ? undefined : shas;
+	}
+
+	@debug({ exit: true })
+	async getDiffPatchId(
+		repoPath: string,
+		from: string,
+		to: string,
+		options?: { paths?: readonly string[]; verbatim?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<string | undefined> {
+		const scope = getScopedLogger();
+
+		if (!from || !to || from.startsWith('-') || to.startsWith('-')) return undefined;
+		if (options?.verbatim && !(await this.git.supports('git:patch-id:verbatim'))) return undefined;
+
+		try {
+			const diff = await this.git.run<Buffer>(
+				{
+					cwd: repoPath,
+					cancellation: cancellation,
+					configs: patchIdDiffConfigs,
+					errors: 'throw',
+					encoding: 'buffer',
+					env: patchIdEnv,
+				},
+				...(await this.getPatchIdDiffArgs()),
+				from,
+				to,
+				'--',
+				...(options?.paths ?? []),
+			);
+			if (cancellation?.aborted) throw new CancellationError();
+			// No change prints nothing, and `patch-id` has nothing to answer for it
+			if (!diff.stdout.length) return undefined;
+
+			return first((await this.computePatchIds(repoPath, diff.stdout, options?.verbatim, cancellation)).values());
+		} catch (ex) {
+			scope?.error(ex);
+			if (isCancellationError(ex)) throw ex;
+
+			return undefined;
+		}
+	}
+
+	/**
+	 * A `patch-id` older than 2.39 hashes a binary diff's text rather than its blob ids, so only there is the binary
+	 * data worth reading: it is all that tells two changes to one binary file apart. Elsewhere it is ignored, and
+	 * would only bloat the diff held in memory and piped to `patch-id`.
+	 */
+	private async getPatchIdDiffArgs(): Promise<readonly string[]> {
+		return (await this.git.supports('git:patch-id:binary-oids'))
+			? patchIdDiffArgs
+			: [...patchIdDiffArgs, '--binary'];
+	}
+
+	/**
+	 * Pipes `diff` through `patch-id`, answering patch id by the commit id on the diff's header line (all zeros when it
+	 * has none). Throws when a commit is answered twice: `patch-id` older than 2.39 splits a patch at a binary diff and
+	 * answers the rest separately, so neither id covers the whole change.
+	 */
+	private async computePatchIds(
+		repoPath: string,
+		diff: Buffer,
+		verbatim: boolean | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<Map<string, string>> {
+		// An explicit flag always wins over `patchid.stable`/`patchid.verbatim`, so neither config can change the result
+		const result = await this.git.run(
+			{ cwd: repoPath, cancellation: cancellation, errors: 'throw', stdin: diff },
+			'patch-id',
+			verbatim ? '--verbatim' : '--stable',
+		);
+		if (cancellation?.aborted) throw new CancellationError();
+
+		const ids = new Map<string, string>();
+		for (const line of result.stdout.split('\n')) {
+			const [patchId, commitId] = line.trim().split(' ');
+			if (!patchId || !commitId) continue;
+
+			if (ids.has(commitId)) throw new Error(`patch-id answered more than once for ${commitId}`);
+
+			ids.set(commitId, patchId);
+		}
+		return ids;
 	}
 
 	@debug()
