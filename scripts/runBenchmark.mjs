@@ -70,6 +70,10 @@ async function buildBenchmarks(benchmarks) {
 	console.log('Building benchmarks...\n');
 	await rm(outputDir, { recursive: true, force: true });
 	await esbuild.build({
+		// ESM output can't resolve `require` calls from bundled CommonJS dependencies
+		banner: {
+			js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
+		},
 		bundle: true,
 		define: { DEBUG: 'false' },
 		entryNames: '[dir]/[name]',
