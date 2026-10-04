@@ -7,12 +7,25 @@ import type { Uri } from '@gitlens/utils/uri.js';
 const aheadStatusV1Regex = /(?:ahead ([0-9]+))/;
 const behindStatusV1Regex = /(?:behind ([0-9]+))/;
 const quoteRegex = /"/g;
+const submoduleCharCode = 'S'.charCodeAt(0);
 
+/** Returns the index just after the `n`th space, or -1 if the line has fewer than `n` spaces. */
+function indexAfterNthSpace(line: string, n: number): number {
+	let index = -1;
+	for (let i = 0; i < n; i++) {
+		index = line.indexOf(' ', index + 1);
+		if (index === -1) return -1;
+	}
+
+	return index + 1;
+}
+
+/** Without `getUri`, each file builds its uri on first read rather than during the parse */
 export function parseGitStatus(
 	data: string,
 	repoPath: string,
 	porcelainVersion: number,
-	getUri: (path: string) => Uri,
+	getUri?: (path: string) => Uri,
 ): GitStatus | undefined {
 	using sw = maybeStopWatch(`Git.parseStatus(${repoPath}, v=${porcelainVersion})`, {
 		log: { onlyExit: true, level: 'debug' },
@@ -36,7 +49,7 @@ export function parseGitStatus(
 	return status;
 }
 
-function parseStatusV1(lines: string[], repoPath: string, getUri: (path: string) => Uri): GitStatus {
+function parseStatusV1(lines: string[], repoPath: string, getUri: ((path: string) => Uri) | undefined): GitStatus {
 	let branch: string | undefined;
 	const files = [];
 	const state = {
@@ -88,7 +101,7 @@ function parseStatusV1(lines: string[], repoPath: string, getUri: (path: string)
 	);
 }
 
-function parseStatusV2(lines: string[], repoPath: string, getUri: (path: string) => Uri): GitStatus {
+function parseStatusV2(lines: string[], repoPath: string, getUri: ((path: string) => Uri) | undefined): GitStatus {
 	let branch: string | undefined;
 	const files = [];
 	let sha: string | undefined;
@@ -122,19 +135,24 @@ function parseStatusV2(lines: string[], repoPath: string, getUri: (path: string)
 					break;
 			}
 		} else {
-			const lineParts = line.split(' ');
-			switch (lineParts[0][0]) {
+			switch (line[0]) {
 				case '1': {
 					// normal: 1 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>
+					const pathStart = indexAfterNthSpace(line, 8);
+					if (pathStart === -1) break;
+
 					// <sub> starts with 'S' if submodule, 'N' if not
-					const submodule = lineParts[2]?.startsWith('S')
-						? { oid: lineParts[7], previousOid: lineParts[6] }
-						: undefined;
+					let submodule;
+					if (line.charCodeAt(5) === submoduleCharCode) {
+						const parts = line.split(' ');
+						submodule = { oid: parts[7], previousOid: parts[6] };
+					}
+
 					files.push(
 						parseStatusFile(
 							repoPath,
-							lineParts[1],
-							lineParts.slice(8).join(' '),
+							line.substring(2, 4),
+							line.substring(pathStart),
 							getUri,
 							undefined,
 							submodule,
@@ -144,23 +162,44 @@ function parseStatusV2(lines: string[], repoPath: string, getUri: (path: string)
 				}
 				case '2': {
 					// rename: 2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <X><score> <path>\t<origPath>
-					const submodule = lineParts[2]?.startsWith('S')
-						? { oid: lineParts[7], previousOid: lineParts[6] }
-						: undefined;
-					const file = lineParts.slice(9).join(' ').split('\t');
-					files.push(parseStatusFile(repoPath, lineParts[1], file[0], getUri, file[1], submodule));
+					const pathStart = indexAfterNthSpace(line, 9);
+					if (pathStart === -1) break;
+
+					let submodule;
+					if (line.charCodeAt(5) === submoduleCharCode) {
+						const parts = line.split(' ');
+						submodule = { oid: parts[7], previousOid: parts[6] };
+					}
+
+					const tab = line.indexOf('\t', pathStart);
+					files.push(
+						parseStatusFile(
+							repoPath,
+							line.substring(2, 4),
+							tab === -1 ? line.substring(pathStart) : line.substring(pathStart, tab),
+							getUri,
+							tab === -1 ? undefined : line.substring(tab + 1),
+							submodule,
+						),
+					);
 					break;
 				}
 				case 'u': {
 					// unmerged: u <XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>
-					const submodule = lineParts[2]?.startsWith('S')
-						? { oid: lineParts[9], previousOid: lineParts[7] }
-						: undefined;
+					const pathStart = indexAfterNthSpace(line, 10);
+					if (pathStart === -1) break;
+
+					let submodule;
+					if (line.charCodeAt(5) === submoduleCharCode) {
+						const parts = line.split(' ');
+						submodule = { oid: parts[9], previousOid: parts[7] };
+					}
+
 					files.push(
 						parseStatusFile(
 							repoPath,
-							lineParts[1],
-							lineParts.slice(10).join(' '),
+							line.substring(2, 4),
+							line.substring(pathStart),
 							getUri,
 							undefined,
 							submodule,
@@ -169,7 +208,7 @@ function parseStatusV2(lines: string[], repoPath: string, getUri: (path: string)
 					break;
 				}
 				case '?': // untracked
-					files.push(parseStatusFile(repoPath, '??', lineParts.slice(1).join(' '), getUri));
+					files.push(parseStatusFile(repoPath, '??', line.substring(2), getUri));
 					break;
 			}
 		}
@@ -188,7 +227,7 @@ function parseStatusFile(
 	repoPath: string,
 	rawStatus: string,
 	fileName: string,
-	getUri: (path: string) => Uri,
+	getUri: ((path: string) => Uri) | undefined,
 	originalFileName?: string,
 	submodule?: { readonly oid: string; readonly previousOid?: string },
 ): GitStatusFile {
@@ -205,5 +244,5 @@ function parseStatusFile(
 		}
 	}
 
-	return new GitStatusFile(repoPath, x, y, fileName, getUri(fileName), originalFileName, submodule);
+	return new GitStatusFile(repoPath, x, y, fileName, getUri?.(fileName), originalFileName, submodule);
 }

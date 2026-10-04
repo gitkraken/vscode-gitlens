@@ -1,25 +1,19 @@
 import * as assert from 'assert';
 import { GitFileConflictStatus, GitFileIndexStatus, GitFileWorkingTreeStatus } from '@gitlens/git/models/fileStatus.js';
 import { formatDetachedHeadName } from '@gitlens/git/utils/branch.utils.js';
-import type { Uri } from '@gitlens/utils/uri.js';
+import { fileUri } from '@gitlens/utils/uri.js';
 import { parseGitStatus } from '../statusParser.js';
 
 const repoPath = '/repo';
 
-function getUri(path: string): Uri {
-	// Cast to satisfy the Uri interface for testing purposes;
-	// the parser only stores the result and doesn't call methods on it
-	return { scheme: 'file', authority: '', path: path, query: '', fragment: '' } as unknown as Uri;
-}
-
 suite('Status Parser Test Suite', () => {
 	test('returns undefined for empty data', () => {
-		const result = parseGitStatus('', repoPath, 1, getUri);
+		const result = parseGitStatus('', repoPath, 1);
 		assert.strictEqual(result, undefined, 'Should return undefined for empty string');
 	});
 
 	test('returns undefined for whitespace-only data', () => {
-		const result = parseGitStatus('\n\n', repoPath, 1, getUri);
+		const result = parseGitStatus('\n\n', repoPath, 1);
 		assert.strictEqual(result, undefined, 'Should return undefined when no meaningful lines');
 	});
 
@@ -28,7 +22,7 @@ suite('Status Parser Test Suite', () => {
 	test('V1: parses branch and upstream from header', () => {
 		const data = '## main...origin/main';
 
-		const result = parseGitStatus(data, repoPath, 1, getUri);
+		const result = parseGitStatus(data, repoPath, 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.branch, 'main', 'Should parse branch name');
@@ -39,7 +33,7 @@ suite('Status Parser Test Suite', () => {
 	test('V1: parses ahead and behind counts', () => {
 		const data = '## main...origin/main [ahead 2, behind 1]';
 
-		const result = parseGitStatus(data, repoPath, 1, getUri);
+		const result = parseGitStatus(data, repoPath, 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.upstream?.state.ahead, 2, 'Should parse ahead count');
@@ -49,7 +43,7 @@ suite('Status Parser Test Suite', () => {
 	test('V1: parses ahead only', () => {
 		const data = '## main...origin/main [ahead 3]';
 
-		const result = parseGitStatus(data, repoPath, 1, getUri);
+		const result = parseGitStatus(data, repoPath, 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.upstream?.state.ahead, 3, 'Should parse ahead count');
@@ -59,7 +53,7 @@ suite('Status Parser Test Suite', () => {
 	test('V1: parses behind only', () => {
 		const data = '## main...origin/main [behind 5]';
 
-		const result = parseGitStatus(data, repoPath, 1, getUri);
+		const result = parseGitStatus(data, repoPath, 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.upstream?.state.ahead, 0, 'Ahead should be 0');
@@ -69,7 +63,7 @@ suite('Status Parser Test Suite', () => {
 	test('V1: handles gone upstream', () => {
 		const data = '## main...origin/main [gone]';
 
-		const result = parseGitStatus(data, repoPath, 1, getUri);
+		const result = parseGitStatus(data, repoPath, 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.upstream?.missing, true, 'Should mark upstream as missing');
@@ -80,7 +74,7 @@ suite('Status Parser Test Suite', () => {
 	test('V1: without --branch (no ## line) still parses every file', () => {
 		const data = [' M src/foo.ts', '?? src/new.ts'].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 1, getUri);
+		const result = parseGitStatus(data, repoPath, 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.sha, '', 'v1 never carries a sha');
@@ -93,7 +87,7 @@ suite('Status Parser Test Suite', () => {
 	test('V1: parses modified file', () => {
 		const data = ['## main', ' M src/foo.ts'].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 1, getUri);
+		const result = parseGitStatus(data, repoPath, 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.files.length, 1, 'Should have 1 file');
@@ -108,7 +102,7 @@ suite('Status Parser Test Suite', () => {
 	test('V1: parses index-added file', () => {
 		const data = ['## main', 'A  src/new.ts'].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 1, getUri);
+		const result = parseGitStatus(data, repoPath, 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.files.length, 1, 'Should have 1 file');
@@ -119,7 +113,7 @@ suite('Status Parser Test Suite', () => {
 	test('V1: parses untracked file', () => {
 		const data = ['## main', '?? untracked.ts'].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 1, getUri);
+		const result = parseGitStatus(data, repoPath, 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.files.length, 1, 'Should have 1 file');
@@ -134,7 +128,7 @@ suite('Status Parser Test Suite', () => {
 	test('V1: parses renamed file', () => {
 		const data = ['## main', 'R  old.ts -> new.ts'].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 1, getUri);
+		const result = parseGitStatus(data, repoPath, 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.files.length, 1, 'Should have 1 file');
@@ -148,7 +142,7 @@ suite('Status Parser Test Suite', () => {
 		// The parser strips quotes via replace(quoteRegex, '') before splitting on ' -> '
 		const data = ['## main', 'R  "old path.ts" -> "new path.ts"'].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 1, getUri);
+		const result = parseGitStatus(data, repoPath, 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.files.length, 1, 'Should have 1 file');
@@ -160,7 +154,7 @@ suite('Status Parser Test Suite', () => {
 	test('V1: parses staged content change with a working-tree type change (MT)', () => {
 		const data = ['## main', 'MT typechanged.ts'].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 1, getUri);
+		const result = parseGitStatus(data, repoPath, 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.files.length, 1, 'Should have 1 file');
@@ -176,7 +170,7 @@ suite('Status Parser Test Suite', () => {
 	test('V1: parses deleted file', () => {
 		const data = ['## main', ' D removed.ts'].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 1, getUri);
+		const result = parseGitStatus(data, repoPath, 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.files.length, 1, 'Should have 1 file');
@@ -198,7 +192,7 @@ suite('Status Parser Test Suite', () => {
 			'# branch.ab +2 -1',
 		].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 2, getUri);
+		const result = parseGitStatus(data, repoPath, 2);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.branch, 'main', 'Should parse branch name');
@@ -216,7 +210,7 @@ suite('Status Parser Test Suite', () => {
 		// label — regression guard for the `isDetachedHead` narrowing that dropped this token.
 		const data = ['# branch.oid abc1234def5678', '# branch.head (detached)'].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 2, getUri);
+		const result = parseGitStatus(data, repoPath, 2);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.detached, true, 'Should be detached');
@@ -230,7 +224,7 @@ suite('Status Parser Test Suite', () => {
 	test('V2: missing upstream when no branch.ab header', () => {
 		const data = ['# branch.oid abc1234', '# branch.head main', '# branch.upstream origin/gone-branch'].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 2, getUri);
+		const result = parseGitStatus(data, repoPath, 2);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.upstream?.missing, true, 'Should be missing when no branch.ab header');
@@ -239,7 +233,7 @@ suite('Status Parser Test Suite', () => {
 	test('V2: without --branch (no # lines) still parses every file', () => {
 		const data = ['1 .M N... 100644 100644 100644 abc1234 def5678 src/foo.ts', '? src/new.ts'].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 2, getUri);
+		const result = parseGitStatus(data, repoPath, 2);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.sha, '', 'sha is empty without header lines');
@@ -256,7 +250,7 @@ suite('Status Parser Test Suite', () => {
 			'1 .M N... 100644 100644 100644 abc1234 def5678 src/foo.ts',
 		].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 2, getUri);
+		const result = parseGitStatus(data, repoPath, 2);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.files.length, 1, 'Should have 1 file');
@@ -275,7 +269,7 @@ suite('Status Parser Test Suite', () => {
 			'2 R. N... 100644 100644 100644 abc1234 def5678 R100 new.ts\told.ts',
 		].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 2, getUri);
+		const result = parseGitStatus(data, repoPath, 2);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.files.length, 1, 'Should have 1 file');
@@ -287,7 +281,7 @@ suite('Status Parser Test Suite', () => {
 	test('V2: parses untracked file', () => {
 		const data = ['# branch.oid abc1234', '# branch.head main', '? untracked.ts'].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 2, getUri);
+		const result = parseGitStatus(data, repoPath, 2);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.files.length, 1, 'Should have 1 file');
@@ -306,7 +300,7 @@ suite('Status Parser Test Suite', () => {
 			'u UU N... 100644 100644 100644 100644 abc1234 def5678 ghi9012 src/conflict.ts',
 		].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 2, getUri);
+		const result = parseGitStatus(data, repoPath, 2);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.files.length, 1, 'Should have 1 file');
@@ -328,7 +322,7 @@ suite('Status Parser Test Suite', () => {
 			'? new-file.ts',
 		].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 2, getUri);
+		const result = parseGitStatus(data, repoPath, 2);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.files.length, 3, 'Should have 3 files');
@@ -341,7 +335,7 @@ suite('Status Parser Test Suite', () => {
 			'1 .M S... 160000 160000 160000 abc1234 def5678 libs/submod',
 		].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 2, getUri);
+		const result = parseGitStatus(data, repoPath, 2);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.files.length, 1, 'Should have 1 file');
@@ -350,10 +344,125 @@ suite('Status Parser Test Suite', () => {
 		assert.strictEqual(result.files[0].submodule?.oid, 'def5678', 'Should have submodule oid');
 	});
 
+	test('V2: parses a type 1 path containing spaces', () => {
+		const data = '1 .M N... 100644 100644 100644 abc1234 def5678 src/my folder/a b.ts';
+
+		const result = parseGitStatus(data, repoPath, 2);
+
+		assert.strictEqual(result?.files.length, 1);
+		assert.strictEqual(result.files[0].path, 'src/my folder/a b.ts');
+	});
+
+	test('V2: parses a type 1 entry with 64-char hashes', () => {
+		const h1 = 'a'.repeat(64);
+		const h2 = 'b'.repeat(64);
+		const data = `1 M. N... 100644 100644 100644 ${h1} ${h2} src/a b.ts`;
+
+		const result = parseGitStatus(data, repoPath, 2);
+
+		assert.strictEqual(result?.files.length, 1);
+		assert.strictEqual(result.files[0].path, 'src/a b.ts');
+		assert.strictEqual(result.files[0].indexStatus, GitFileIndexStatus.Modified);
+	});
+
+	test('V2: parses a rename where both paths contain spaces', () => {
+		const data = '2 R. N... 100644 100644 100644 abc1234 def5678 R100 new dir/new name.ts\told dir/old name.ts';
+
+		const result = parseGitStatus(data, repoPath, 2);
+
+		assert.strictEqual(result?.files.length, 1);
+		assert.strictEqual(result.files[0].path, 'new dir/new name.ts');
+		assert.strictEqual(result.files[0].originalPath, 'old dir/old name.ts');
+		assert.strictEqual(result.files[0].indexStatus, GitFileIndexStatus.Renamed);
+	});
+
+	test('V2: a rename without a tab has no original path', () => {
+		const data = '2 R. N... 100644 100644 100644 abc1234 def5678 R100 new name.ts';
+
+		const result = parseGitStatus(data, repoPath, 2);
+
+		assert.strictEqual(result?.files[0].path, 'new name.ts');
+		assert.strictEqual(result.files[0].originalPath, undefined);
+	});
+
+	test('V2: parses an unmerged path containing spaces', () => {
+		const data = 'u UU N... 100644 100644 100644 100644 abc1234 def5678 ghi9012 src/con flict.ts';
+
+		const result = parseGitStatus(data, repoPath, 2);
+
+		assert.strictEqual(result?.files.length, 1);
+		assert.strictEqual(result.files[0].path, 'src/con flict.ts');
+		assert.strictEqual(result.files[0].submodule, undefined);
+	});
+
+	test('V2: parses an untracked path containing spaces', () => {
+		const data = '? some dir/new file.ts';
+
+		const result = parseGitStatus(data, repoPath, 2);
+
+		assert.strictEqual(result?.files.length, 1);
+		assert.strictEqual(result.files[0].path, 'some dir/new file.ts');
+		assert.strictEqual(result.files[0].workingTreeStatus, GitFileWorkingTreeStatus.Untracked);
+	});
+
+	test('V2: keeps the trailing slash on an untracked nested repository', () => {
+		const data = '? nested-repo/';
+
+		const result = parseGitStatus(data, repoPath, 2);
+
+		assert.strictEqual(result?.files[0].path, 'nested-repo/');
+	});
+
+	test('V2: reads submodule oids from a type 1 entry', () => {
+		const data = '1 .M S.M. 160000 160000 160000 prev1234 curr5678 libs/sub mod';
+
+		const result = parseGitStatus(data, repoPath, 2);
+
+		assert.strictEqual(result?.files[0].path, 'libs/sub mod');
+		assert.strictEqual(result.files[0].submodule?.oid, 'curr5678');
+		assert.strictEqual(result.files[0].submodule?.previousOid, 'prev1234');
+	});
+
+	test('V2: reads submodule oids from an unmerged entry', () => {
+		const data = 'u UU S... 160000 160000 160000 160000 base1111 ours2222 theirs3333 libs/sub';
+
+		const result = parseGitStatus(data, repoPath, 2);
+
+		assert.strictEqual(result?.files[0].path, 'libs/sub');
+		assert.strictEqual(result.files[0].submodule?.oid, 'theirs3333');
+		assert.strictEqual(result.files[0].submodule?.previousOid, 'base1111');
+	});
+
+	test('V2: skips ignored entries', () => {
+		const data = ['! ignored.ts', '? kept.ts'].join('\n');
+
+		const result = parseGitStatus(data, repoPath, 2);
+
+		assert.strictEqual(result?.files.length, 1);
+		assert.strictEqual(result.files[0].path, 'kept.ts');
+	});
+
+	test('builds each file uri from the repo path and file path', () => {
+		const data = ['? src/a b.ts', '? nested-repo/'].join('\n');
+
+		const result = parseGitStatus(data, repoPath, 2);
+
+		assert.strictEqual(result?.files[0].uri.toString(), 'file:///repo/src/a%20b.ts');
+		assert.strictEqual(result.files[1].uri.toString(), 'file:///repo/nested-repo');
+	});
+
+	test('uses getUri for file uris when given', () => {
+		const data = '? src/a.ts';
+
+		const result = parseGitStatus(data, repoPath, 2, p => fileUri(`/elsewhere/${p}`));
+
+		assert.strictEqual(result?.files[0].uri.toString(), 'file:///elsewhere/src/a.ts');
+	});
+
 	test('normalizes repoPath in result', () => {
 		const data = '## main';
 
-		const result = parseGitStatus(data, '/repo/path', 1, getUri);
+		const result = parseGitStatus(data, '/repo/path', 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.repoPath, '/repo/path', 'Should have normalized repoPath');
@@ -362,7 +471,7 @@ suite('Status Parser Test Suite', () => {
 	test('V1: handles branch with no upstream', () => {
 		const data = ['## feature-branch', 'M  src/foo.ts'].join('\n');
 
-		const result = parseGitStatus(data, repoPath, 1, getUri);
+		const result = parseGitStatus(data, repoPath, 1);
 
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.branch, 'feature-branch', 'Should parse branch name');

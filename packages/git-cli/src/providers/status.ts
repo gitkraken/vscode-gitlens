@@ -16,7 +16,7 @@ import { getSettledValue } from '@gitlens/utils/promise.js';
 import { PromiseMap } from '@gitlens/utils/promiseCache.js';
 import { iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
-import { fileUri, joinUriPath, toFsPath } from '@gitlens/utils/uri.js';
+import { toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { GitResult } from '../exec/exec.types.js';
 import type { Git } from '../exec/git.js';
@@ -175,10 +175,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			},
 			cancellation,
 		);
-		const repoUri = fileUri(normalizePath(repoPath));
-		const status = parseGitStatus(result.stdout, repoPath, porcelainVersion, p =>
-			joinUriPath(repoUri, normalizePath(p)),
-		);
+		const status = parseGitStatus(result.stdout, repoPath, porcelainVersion);
 
 		if (options?.branch === false) {
 			// Without `--branch` a clean tree prints nothing at all, which the parser reads as no status
@@ -283,10 +280,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			relativePath,
 		);
 
-		const repoUri = fileUri(normalizePath(repoPath));
-		const status = parseGitStatus(result.stdout, repoPath, porcelainVersion, p =>
-			joinUriPath(repoUri, normalizePath(p)),
-		);
+		const status = parseGitStatus(result.stdout, repoPath, porcelainVersion);
 		return status?.files;
 	}
 
