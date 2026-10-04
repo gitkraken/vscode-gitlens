@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.9.8] - 2026-10-03
+
 ### Changed
 
 - Speeds up reading status for a worktree with tens of thousands of changed or untracked files, which could block the event loop for long stretches: parsing no longer builds a URI for every entry or splits every line into fields. `GitStatusFile.uri` is now built on first read, and the `uri` constructor argument and `parseGitStatus`'s `getUri` parameter are optional (git, git-cli)
@@ -531,7 +533,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.7...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.8...HEAD
+[0.9.8]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.7...gitkraken:releases/core/v0.9.8
 [0.9.7]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.6...gitkraken:releases/core/v0.9.7
 [0.9.6]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.5...gitkraken:releases/core/v0.9.6
 [0.9.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.4...gitkraken:releases/core/v0.9.5
