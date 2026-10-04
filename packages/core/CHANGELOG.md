@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Speeds up reading status for a worktree with tens of thousands of changed or untracked files, which could block the event loop for long stretches: parsing no longer builds a URI for every entry or splits every line into fields. `GitStatusFile.uri` is now built on first read, and the `uri` constructor argument and `parseGitStatus`'s `getUri` parameter are optional (git, git-cli)
+
 ## [0.9.7] - 2026-10-03
 
 ### Added

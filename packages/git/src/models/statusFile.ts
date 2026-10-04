@@ -1,5 +1,7 @@
 import { loggable } from '@gitlens/utils/decorators/log.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import type { Uri } from '@gitlens/utils/uri.js';
+import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
 import type { GitFile } from './file.js';
 import type { GitFileStatus } from './fileStatus.js';
 import { GitFileConflictStatus, GitFileIndexStatus, GitFileWorkingTreeStatus } from './fileStatus.js';
@@ -9,14 +11,14 @@ export class GitStatusFile implements GitFile {
 	public readonly conflictStatus: GitFileConflictStatus | undefined;
 	public readonly indexStatus: GitFileIndexStatus | undefined;
 	public readonly workingTreeStatus: GitFileWorkingTreeStatus | undefined;
-	private readonly _uri: Uri;
+	private _uri: Uri | undefined;
 
 	constructor(
 		public readonly repoPath: string,
 		x: string | undefined,
 		y: string | undefined,
 		public readonly path: string,
-		uri: Uri,
+		uri?: Uri,
 		public readonly originalPath?: string,
 		public readonly submodule?: { readonly oid: string; readonly previousOid?: string } | undefined,
 	) {
@@ -117,8 +119,9 @@ export class GitStatusFile implements GitFile {
 		return (this.conflictStatus ?? this.indexStatus ?? this.workingTreeStatus)!;
 	}
 
+	/** Built on first read unless passed in, since a status can hold tens of thousands of files whose uri is never read */
 	get uri(): Uri {
-		return this._uri;
+		return (this._uri ??= joinUriPath(fileUri(normalizePath(this.repoPath)), normalizePath(this.path)));
 	}
 
 	get wip(): boolean {
