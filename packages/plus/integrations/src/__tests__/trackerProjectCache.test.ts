@@ -683,6 +683,8 @@ suite('Tracker project cache (#5907)', () => {
 
 	suite('DiscoveryCache', () => {
 		test('expires entries after the TTL, counted from storedAt', () => {
+			// Frozen, so a slow runner can't age the entry seeded 1ms short of the TTL before it is read.
+			advanceClock(0);
 			const cache = new DiscoveryCache<number>(1000);
 			cache.set('a', 1);
 			cache.set('b', 2, { storedAt: Date.now() - 999 });

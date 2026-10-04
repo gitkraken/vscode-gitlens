@@ -3,9 +3,11 @@ import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import { mapSettledBounded } from '@gitlens/utils/promise.js';
+import { mapBounded, mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import { failsEveryScope } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { providerFanOutConcurrency } from '../constants.js';
 import { toError } from '../errors.js';
@@ -19,7 +21,59 @@ import type {
 	IssueEtagInclude,
 } from './integration.js';
 import { IntegrationBase } from './integration.js';
-import type { IssuesForProjectOptions, ProjectIssuesDrain } from './issueReads.js';
+import type { IssuesForProjectOptions, ProjectIssuesDrain, ProjectIssuesRequest } from './issueReads.js';
+
+/**
+ * Groups requests into searches of at most `maxPerSearch` projects sharing `searchKey`. Undefined, reading
+ * every project on its own, when any request has no key, i.e. cannot be searched together with others.
+ */
+export function groupProjectIssuesSearches<P>(
+	requests: readonly ProjectIssuesRequest<P>[],
+	searchKey: (request: ProjectIssuesRequest<P>) => string | undefined,
+	maxPerSearch: number = Number.POSITIVE_INFINITY,
+): number[][] | undefined {
+	const searchesByKey = new Map<string, number[][]>();
+	for (let index = 0; index < requests.length; index++) {
+		const key = searchKey(requests[index]);
+		if (key == null) return undefined;
+
+		let searches = searchesByKey.get(key);
+		if (searches == null) {
+			searches = [];
+			searchesByKey.set(key, searches);
+		}
+
+		let search = searches.at(-1);
+		if (search == null || search.length >= maxPerSearch) {
+			search = [];
+			searches.push(search);
+		}
+		search.push(index);
+	}
+	return [...searchesByKey.values()].flat();
+}
+
+/**
+ * Splits one search's issues back to its projects, in the order of `projectKeys`. Undefined when an issue belongs to
+ * no requested project (or `projectKeyOf` can't tell), since the split then can't be trusted and the search's
+ * projects are read one by one instead.
+ */
+export function splitProjectIssuesSearch<I>(
+	projectKeys: readonly string[],
+	issues: readonly I[],
+	projectKeyOf: (issue: I) => string | undefined,
+): I[][] | undefined {
+	const indexByKey = new Map(projectKeys.map((key, index) => [key, index]));
+	const split = projectKeys.map((): I[] => []);
+	for (const issue of issues) {
+		const key = projectKeyOf(issue);
+		const index = key != null ? indexByKey.get(key) : undefined;
+		if (index == null) return undefined;
+
+		split[index].push(issue);
+	}
+	return split;
+}
 
 export function isIssuesIntegration(integration: Integration): integration is IssuesIntegration {
 	return integration.type === 'issues';
@@ -318,6 +372,111 @@ export abstract class IssuesIntegration<
 			this.handleProviderException('getIssuesForProject', ex, { connectionId: connectionId });
 			return { error: toError(ex) };
 		}
+	}
+
+	/**
+	 * Reads several projects' issues, one result per request in request order, each with the contract of
+	 * {@link getIssuesForProjectWithTruncationResult}, so one project failing leaves its siblings readable.
+	 *
+	 * A tracker that can read several projects in one query (Jira, Linear) groups them through
+	 * {@link getProjectIssuesSearches}, so a project with none of the user's issues costs no request of its own.
+	 * Every other request, and every project of a search that did not complete, is read on its own.
+	 *
+	 * A search's pages are global to its project set, so only a search that completes says something about each
+	 * of its projects: one that does not, or that fails for a reason that may be one project's
+	 * ({@link failsEveryScope}), is read again project by project, which reports completeness, failures and
+	 * retries per project. Only a failure every project would hit on its own read too fails them all at once.
+	 */
+	async getIssuesForProjectsWithTruncationResult(
+		requests: readonly ProjectIssuesRequest<T>[],
+		connectionId?: string,
+	): Promise<IntegrationResult<ProjectIssuesDrain | undefined>[]> {
+		const searches = this.getProjectIssuesSearches(requests);
+		if (searches == null) return this.readProjectsOneByOne(requests, connectionId);
+
+		const scope = getScopedLogger();
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return requests.map(() => undefined);
+
+		const results: IntegrationResult<ProjectIssuesDrain | undefined>[] = requests.map(() => undefined);
+		const unsearchedIndices: number[] = [];
+		await mapBounded(searches, providerFanOutConcurrency, async indices => {
+			try {
+				const values = await this.searchProviderProjectIssues(
+					session,
+					indices.map(index => requests[index]),
+				);
+				if (values == null) {
+					unsearchedIndices.push(...indices);
+					return;
+				}
+
+				this.resetRequestExceptionCount('getIssuesForProject');
+				indices.forEach((index, i) => {
+					results[index] = { value: { values: values[i], truncated: false } };
+				});
+			} catch (ex) {
+				if (!failsEveryScope(ex)) {
+					Logger.warn(scope, `Project search failed (${String(ex)}); reading its projects one by one`);
+					unsearchedIndices.push(...indices);
+					return;
+				}
+
+				this.handleProviderException('getIssuesForProject', ex, { connectionId: connectionId });
+				const error = toError(ex);
+				for (const index of indices) {
+					results[index] = { error: error };
+				}
+			}
+		});
+
+		// After every search rather than inside each, so the fallback reads share one concurrency bound.
+		if (unsearchedIndices.length > 0) {
+			const fallback = await this.readProjectsOneByOne(
+				unsearchedIndices.map(index => requests[index]),
+				connectionId,
+			);
+			unsearchedIndices.forEach((index, i) => {
+				results[index] = fallback[i];
+			});
+		}
+		return results;
+	}
+
+	/**
+	 * Groups requests into searches, as lists of request indices, that {@link searchProviderProjectIssues} can read
+	 * in one query each. Undefined reads every project on its own, which is the default.
+	 */
+	protected getProjectIssuesSearches(_requests: readonly ProjectIssuesRequest<T>[]): number[][] | undefined {
+		return undefined;
+	}
+
+	/**
+	 * Reads the projects of one search in one query: each project's issues in request order, or undefined when the
+	 * query did not complete, which reads them one by one instead. A throw is classified by {@link failsEveryScope}.
+	 */
+	protected searchProviderProjectIssues(
+		_session: ProviderAuthenticationSession,
+		_requests: readonly ProjectIssuesRequest<T>[],
+	): Promise<IssueShape[][] | undefined> {
+		return Promise.resolve(undefined);
+	}
+
+	private readProjectsOneByOne(
+		requests: readonly ProjectIssuesRequest<T>[],
+		connectionId: string | undefined,
+	): Promise<IntegrationResult<ProjectIssuesDrain | undefined>[]> {
+		return mapBounded(requests, providerFanOutConcurrency, async request => {
+			try {
+				return await this.getIssuesForProjectWithTruncationResult(
+					request.project,
+					request.options,
+					connectionId,
+				);
+			} catch (ex) {
+				return { error: toError(ex) };
+			}
+		});
 	}
 
 	protected abstract getProviderIssuesForProject(

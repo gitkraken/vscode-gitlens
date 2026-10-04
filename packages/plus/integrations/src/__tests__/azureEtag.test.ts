@@ -689,7 +689,7 @@ suite('Azure DevOps etag check: pull request requests and slots', () => {
 		await azure.getPullRequestsBatchResult([{ owner: 'org', repo: 'r', number: 7, project: 'proj' }]);
 
 		const [cheap, full] = sent.filter(r => r.kind === 'pr').map(r => r.url.toString());
-		assert.equal(cheap, 'https://dev.azure.com/org/proj/_apis/git/repositories/r/pullrequests/7?api-version=7.1');
+		assert.equal(cheap, 'https://dev.azure.com/org/proj/_apis/git/repositories/r/pullrequests/7?api-version=6.0');
 		assert.equal(cheap, full);
 
 		manager.dispose();

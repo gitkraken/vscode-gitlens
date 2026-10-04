@@ -105,6 +105,12 @@ export type IssuesForProjectOptions = {
 	state?: IssueStateFilter;
 };
 
+/** One project of a batched tracker read (`IssuesIntegration.getIssuesForProjectsWithTruncationResult`). */
+export type ProjectIssuesRequest<T> = {
+	project: T;
+	options: IssuesForProjectOptions;
+};
+
 export type ProjectIssuesDrain = {
 	values: IssueShape[];
 	metadata?: CollectionMetadata;
