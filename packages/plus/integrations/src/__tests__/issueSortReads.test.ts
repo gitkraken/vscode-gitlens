@@ -5,6 +5,7 @@ import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../cons
 import { IssueFilter } from '../providerFilters.js';
 import type { IntegrationManager } from './issueSortHelpers.js';
 import { issue, primarySession, stubAccountWideRead, stubRepoScopedRead, withManager } from './issueSortHelpers.js';
+import { readProjectsOneByOne } from './projectReads.js';
 
 /**
  * How the issue reads BEHAVE once a sort is asked for: which table each validates against, what it refuses, what
@@ -286,6 +287,7 @@ suite('issue-tracker read ordering', () => {
 		stub.getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
 
 		const calls: Record<string, unknown>[] = [];
+		readProjectsOneByOne(jira);
 		stub.getIssuesForProjectWithTruncationResult = (project: { id: string }, options: Record<string, unknown>) => {
 			calls.push(options);
 			return Promise.resolve({
