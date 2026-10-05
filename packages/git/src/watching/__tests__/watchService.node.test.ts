@@ -5,24 +5,34 @@ import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri, getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { GitDir } from '../../models/repository.js';
 import type { WatcherRepoChangeEvent } from '../changeEvent.js';
-import type { FileWatcher, FileWatchEvent, FileWatchingProvider } from '../provider.js';
-import { dotGitGlobCommon } from '../watcherPatterns.js';
+import type { GitIgnoreFilter } from '../gitIgnoreFilter.js';
+import type { FileWatcher, FileWatcherOptions, FileWatchEvent, FileWatchingProvider } from '../provider.js';
+import { dotGitGlobCommon, workingTreeExcludes } from '../watcherPatterns.js';
 import { RepositoryWatchService } from '../watchService.js';
 
 interface MockWatcher extends FileWatcher {
 	readonly basePath: string;
 	readonly pattern: string;
+	readonly options: FileWatcherOptions | undefined;
 	fire(event: FileWatchEvent): void;
 	disposed: boolean;
 }
 
-function createMockFactory(): { factory: FileWatchingProvider; watchers: MockWatcher[] } {
+function createMockFactory(supportsExcludes?: boolean): {
+	factory: FileWatchingProvider;
+	watchers: MockWatcher[];
+	/** `create:<n>` / `dispose:<n>` in the order they happened, `n` being the watcher's index in `watchers` */
+	log: string[];
+} {
 	const watchers: MockWatcher[] = [];
+	const log: string[] = [];
 	const factory: FileWatchingProvider = {
+		supportsExcludes: supportsExcludes,
 		createWatcher: function (
 			basePath: string,
 			pattern: string,
 			onEvent: (event: FileWatchEvent) => void,
+			options?: FileWatcherOptions,
 		): FileWatcher {
 			const w: MockWatcher = mixinDisposable(
 				{
@@ -30,18 +40,23 @@ function createMockFactory(): { factory: FileWatchingProvider; watchers: MockWat
 					// the assertions can name the POSIX paths the fixtures are written in.
 					basePath: normalizePath(basePath),
 					pattern: pattern,
+					options: options,
 					disposed: false,
 					fire: function (event: FileWatchEvent): void {
 						onEvent(event);
 					},
 				},
-				() => (w.disposed = true),
+				() => {
+					w.disposed = true;
+					log.push(`dispose:${watchers.indexOf(w)}`);
+				},
 			);
 			watchers.push(w);
+			log.push(`create:${watchers.length - 1}`);
 			return w;
 		},
 	};
-	return { factory: factory, watchers: watchers };
+	return { factory: factory, watchers: watchers, log: log };
 }
 
 function delay(ms: number): Promise<void> {
@@ -792,6 +807,415 @@ describe('RepositoryWatchService', () => {
 			}
 
 			assert.strictEqual(service.getSession('/repo'), undefined);
+		});
+	});
+
+	describe('working-tree watcher excludes', () => {
+		const wtPath = '/repo';
+		const ignoredReadDelayMs = 700; // past the service's 500ms refresh debounce
+
+		function workingTreeWatchers(watchers: MockWatcher[]): MockWatcher[] {
+			return watchers.filter(w => w.basePath === wtPath);
+		}
+
+		function startService(
+			supportsExcludes: boolean | undefined,
+			getIgnoredDirectories?: (repoPath: string) => Promise<readonly string[]>,
+			filter?: GitIgnoreFilter,
+		) {
+			const { factory, watchers, log } = createMockFactory(supportsExcludes);
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultWorkingTreeDelayMs: 30,
+				getIgnoredDirectories: getIgnoredDirectories,
+				getIgnoreFilter: filter != null ? () => filter : undefined,
+			});
+			const handle = service.watch(wtPath, standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			return { service: service, handle: handle, watchers: watchers, log: log };
+		}
+
+		it('creates the working-tree watcher with the static excludes', () => {
+			const { service, handle, watchers } = startService(undefined);
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 30 });
+
+			const [watcher, ...rest] = workingTreeWatchers(watchers);
+			assert.strictEqual(rest.length, 0);
+			assert.deepStrictEqual(watcher.options, { excludes: workingTreeExcludes });
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('never reads the ignored directories for a provider that cannot prune', async () => {
+			let reads = 0;
+			const { service, handle, watchers } = startService(undefined, async () => {
+				reads++;
+				return ['dist'];
+			});
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 30 });
+
+			workingTreeWatchers(watchers)[0].fire({ path: '/repo/packages/a/.gitignore', reason: 'change' });
+			await delay(ignoredReadDelayMs);
+
+			assert.strictEqual(reads, 0);
+			assert.strictEqual(workingTreeWatchers(watchers).length, 1);
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('re-creates the watcher with the static and ignored excludes, new before old', async () => {
+			const { service, handle, watchers, log } = startService(true, async () => ['dist', 'packages/app/out']);
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 30 });
+			const first = workingTreeWatchers(watchers)[0];
+			const firstIndex = watchers.indexOf(first);
+
+			await delay(20);
+
+			const created = workingTreeWatchers(watchers);
+			assert.strictEqual(created.length, 2);
+			assert.deepStrictEqual(created[1].options, {
+				excludes: [...workingTreeExcludes, 'dist', 'packages/app/out'],
+			});
+			assert.ok(first.disposed);
+			assert.ok(!created[1].disposed);
+
+			const secondIndex = watchers.indexOf(created[1]);
+			assert.ok(
+				log.indexOf(`create:${secondIndex}`) < log.indexOf(`dispose:${firstIndex}`),
+				'the new watcher is created before the old one is disposed',
+			);
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('keeps the static set when the read fails', async () => {
+			const { service, handle, watchers } = startService(true, () => Promise.reject(new Error('git failed')));
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 30 });
+
+			await delay(30);
+
+			const created = workingTreeWatchers(watchers);
+			assert.strictEqual(created.length, 1);
+			assert.ok(!created[0].disposed);
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('does not re-create the watcher when the set is unchanged', async () => {
+			let reads = 0;
+			const { service, handle, watchers } = startService(true, async () => {
+				reads++;
+				return ['dist'];
+			});
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 30 });
+			await delay(20);
+			assert.strictEqual(workingTreeWatchers(watchers).length, 2);
+
+			workingTreeWatchers(watchers)[1].fire({ path: '/repo/.gitignore', reason: 'change' });
+			await delay(ignoredReadDelayMs);
+
+			assert.strictEqual(reads, 2, 'the set was read again');
+			assert.strictEqual(workingTreeWatchers(watchers).length, 2, 'but nothing was re-created');
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('re-reads after the debounce on a nested .gitignore change and re-creates', async () => {
+			let sets: string[][] = [['dist']];
+			let reads = 0;
+			const { service, handle, watchers } = startService(true, async () => {
+				reads++;
+				return sets[Math.min(reads - 1, sets.length - 1)];
+			});
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 30 });
+			await delay(20);
+			sets = [['dist'], ['dist', 'packages/a/out']];
+
+			const live = workingTreeWatchers(watchers)[1];
+			live.fire({ path: '/repo/packages/a/.gitignore', reason: 'change' });
+			live.fire({ path: '/repo/packages/a/.gitignore', reason: 'change' });
+			await delay(100);
+			assert.strictEqual(reads, 1, 'the re-read waits for the debounce');
+
+			await delay(ignoredReadDelayMs);
+			assert.strictEqual(reads, 2, 'bursts coalesce into one read');
+
+			const created = workingTreeWatchers(watchers);
+			assert.strictEqual(created.length, 3);
+			assert.deepStrictEqual(created[2].options, {
+				excludes: [...workingTreeExcludes, 'dist', 'packages/a/out'],
+			});
+			assert.ok(live.disposed);
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('pushes an incomplete working-tree change when a directory is watched again, not when the set grows', async () => {
+			let reads = 0;
+			const sets = [['dist'], ['dist', 'out'], ['out']];
+			const { service, handle, watchers } = startService(true, async () => sets[Math.min(reads++, 2)]);
+
+			const received: string[] = [];
+			service.onDidChangeWorkingTree(p => received.push(p));
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 30 });
+
+			await delay(100);
+			assert.strictEqual(workingTreeWatchers(watchers).length, 2);
+			assert.deepStrictEqual(received, [], 'first read pushes nothing');
+
+			// Grows: ['dist'] -> ['dist', 'out']
+			workingTreeWatchers(watchers)[1].fire({ path: '/repo/.gitignore', reason: 'change' });
+			await delay(ignoredReadDelayMs + 100);
+			assert.strictEqual(workingTreeWatchers(watchers).length, 3);
+			assert.deepStrictEqual(received, [], 'a grown set pushes nothing');
+
+			// Shrinks: ['dist', 'out'] -> ['out']
+			workingTreeWatchers(watchers)[2].fire({ path: '/repo/.gitignore', reason: 'change' });
+			await delay(ignoredReadDelayMs + 100);
+			assert.strictEqual(workingTreeWatchers(watchers).length, 4);
+			assert.deepStrictEqual(received, ['/repo'], 'a directory watched again pushes an incomplete change');
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('refreshes on an info/exclude change', async () => {
+			let reads = 0;
+			const { service, handle, watchers } = startService(true, async () => (reads++ === 0 ? [] : ['dist']));
+			const repoSub = handle.session.subscribe({ delayMs: 30 });
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 30 });
+			await delay(20);
+			assert.strictEqual(workingTreeWatchers(watchers).length, 1);
+
+			const gitDirWatcher = watchers.find(w => w.basePath === '/repo/.git');
+			assert.ok(gitDirWatcher);
+			gitDirWatcher.fire({ path: '/repo/.git/info/exclude', reason: 'change' });
+			await delay(ignoredReadDelayMs);
+
+			assert.strictEqual(reads, 2);
+			assert.deepStrictEqual(workingTreeWatchers(watchers).at(-1)?.options, {
+				excludes: [...workingTreeExcludes, 'dist'],
+			});
+
+			repoSub.dispose();
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('creates nothing when stopped during an in-flight read', async () => {
+			let resolveRead: ((dirs: string[]) => void) | undefined;
+			const { service, handle, watchers } = startService(
+				true,
+				() => new Promise<string[]>(resolve => (resolveRead = resolve)),
+			);
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 30 });
+			assert.strictEqual(workingTreeWatchers(watchers).length, 1);
+
+			wtSub.dispose();
+			assert.ok(workingTreeWatchers(watchers)[0].disposed);
+
+			resolveRead?.(['dist']);
+			await delay(20);
+
+			assert.strictEqual(workingTreeWatchers(watchers).length, 1, 'no watcher after stop');
+
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('drops a pending refresh when stopped', async () => {
+			let reads = 0;
+			const { service, handle, watchers } = startService(true, async () => {
+				reads++;
+				return [];
+			});
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 30 });
+			await delay(20);
+
+			workingTreeWatchers(watchers)[0].fire({ path: '/repo/.gitignore', reason: 'change' });
+			wtSub.dispose();
+			await delay(ignoredReadDelayMs);
+
+			assert.strictEqual(reads, 1, 'the debounced re-read never ran');
+
+			handle.dispose();
+			service.dispose();
+		});
+
+		describe('ignored directories created after the watcher started', () => {
+			/** Ignores `dist/` and `out/` (with everything beneath them) and the root `.env` file */
+			function ignoringFilter(): GitIgnoreFilter {
+				return {
+					ready: () => Promise.resolve(),
+					isIgnored: (path: string) => path === '.env' || /^(dist|out)(\/|$)/.test(path),
+					refresh: () => Promise.resolve(),
+				} as unknown as GitIgnoreFilter;
+			}
+
+			async function startPruning(getIgnoredDirectories: () => Promise<readonly string[]>) {
+				const started = startService(true, getIgnoredDirectories, ignoringFilter());
+				const wtSub = started.handle.session.subscribeToWorkingTree({ delayMs: 30 });
+				const received: string[][] = [];
+				wtSub.onDidChangeWorkingTree(e => received.push([...e.paths]));
+				// Let the start-up read settle
+				await delay(20);
+				return { ...started, wtSub: wtSub, received: received };
+			}
+
+			it('re-reads once and re-creates the watcher excluding a newly ignored directory', async () => {
+				let reads = 0;
+				const { service, handle, watchers, wtSub, received } = await startPruning(async () =>
+					reads++ === 0 ? [] : ['dist'],
+				);
+				assert.strictEqual(reads, 1);
+				assert.strictEqual(workingTreeWatchers(watchers).length, 1, 'nothing to prune at start');
+
+				const live = workingTreeWatchers(watchers)[0];
+				live.fire({ path: '/repo/dist/main.js', reason: 'create' });
+				live.fire({ path: '/repo/dist/chunks/a.js', reason: 'create' });
+				await delay(ignoredReadDelayMs);
+
+				assert.strictEqual(reads, 2, 'exactly one re-read');
+				const created = workingTreeWatchers(watchers);
+				assert.strictEqual(created.length, 2);
+				assert.deepStrictEqual(created[1].options, { excludes: [...workingTreeExcludes, 'dist'] });
+				assert.ok(live.disposed);
+				assert.deepStrictEqual(received, [], 'the ignored events never reach subscribers');
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+
+			it('arms one timer for a burst of events under an unpruned directory', async () => {
+				let reads = 0;
+				const { service, handle, watchers, wtSub } = await startPruning(async () =>
+					reads++ === 0 ? [] : ['dist'],
+				);
+				const live = workingTreeWatchers(watchers)[0];
+
+				const realSetTimeout = globalThis.setTimeout;
+				let timers = 0;
+				globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>) => {
+					timers++;
+					return realSetTimeout(...args);
+				}) as typeof setTimeout;
+				try {
+					for (let i = 0; i < 1000; i++) {
+						live.fire({ path: `/repo/dist/file${i}.js`, reason: 'create' });
+					}
+				} finally {
+					globalThis.setTimeout = realSetTimeout;
+				}
+				assert.strictEqual(timers, 1, 'one timer for the whole burst');
+
+				await delay(ignoredReadDelayMs);
+				assert.strictEqual(reads, 2, 'and one re-read');
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+
+			it('triggers nothing for an ignored file in a watched directory', async () => {
+				let reads = 0;
+				const { service, handle, watchers, wtSub, received } = await startPruning(async () => {
+					reads++;
+					return [];
+				});
+
+				const live = workingTreeWatchers(watchers)[0];
+				live.fire({ path: '/repo/.env', reason: 'change' });
+				await delay(ignoredReadDelayMs);
+
+				assert.strictEqual(reads, 1, 'no re-read');
+				assert.strictEqual(workingTreeWatchers(watchers).length, 1);
+				assert.deepStrictEqual(received, []);
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+
+			it('re-reads once for a directory git will not prune, then not again until an ignore rule changes', async () => {
+				let reads = 0;
+				// `dist` holds tracked files, so git never lists it as ignored
+				const { service, handle, watchers, wtSub } = await startPruning(async () => {
+					reads++;
+					return [];
+				});
+
+				const live = workingTreeWatchers(watchers)[0];
+				live.fire({ path: '/repo/dist/main.js', reason: 'change' });
+				await delay(ignoredReadDelayMs);
+				assert.strictEqual(reads, 2, 'one re-read');
+
+				live.fire({ path: '/repo/dist/main.js', reason: 'change' });
+				live.fire({ path: '/repo/dist/other.js', reason: 'change' });
+				live.fire({ path: '/repo/dist/chunks/a/b.js', reason: 'create' });
+				await delay(ignoredReadDelayMs);
+				assert.strictEqual(reads, 2, 'never again for that directory, its subdirectories included');
+
+				// Another unpruned directory still triggers its own re-read
+				live.fire({ path: '/repo/out/a.js', reason: 'create' });
+				await delay(ignoredReadDelayMs);
+				assert.strictEqual(reads, 3);
+
+				// An ignore-rule change re-reads and forgets what wasn't prunable
+				live.fire({ path: '/repo/.gitignore', reason: 'change' });
+				await delay(ignoredReadDelayMs);
+				assert.strictEqual(reads, 4);
+
+				live.fire({ path: '/repo/dist/main.js', reason: 'change' });
+				await delay(ignoredReadDelayMs);
+				assert.strictEqual(reads, 5, 'the directory triggers again after the rule change');
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
+
+			it('queues one re-read for an unpruned directory seen while a read is in flight', async () => {
+				const pending: ((dirs: readonly string[]) => void)[] = [];
+				const { service, handle, watchers, wtSub } = await startPruning(
+					() => new Promise<readonly string[]>(resolve => pending.push(resolve)),
+				);
+				assert.strictEqual(pending.length, 1, 'the start-up read is in flight');
+
+				const live = workingTreeWatchers(watchers)[0];
+				live.fire({ path: '/repo/dist/main.js', reason: 'create' });
+				live.fire({ path: '/repo/dist/other.js', reason: 'create' });
+
+				// The start-up read began before `dist` existed
+				pending[0]([]);
+				await delay(20);
+				assert.strictEqual(pending.length, 2, 'one immediate re-read');
+
+				pending[1](['dist']);
+				await delay(20);
+				assert.strictEqual(pending.length, 2);
+				assert.deepStrictEqual(workingTreeWatchers(watchers).at(-1)?.options, {
+					excludes: [...workingTreeExcludes, 'dist'],
+				});
+
+				wtSub.dispose();
+				handle.dispose();
+				service.dispose();
+			});
 		});
 	});
 });

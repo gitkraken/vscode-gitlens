@@ -100,6 +100,8 @@ export class GitService implements UnifiedDisposable {
 				getIgnoreFilter: (repoPath, gitDirPath) => {
 					return this.getProvider(repoPath)?.provider.getIgnoreFilter?.(repoPath, gitDirPath);
 				},
+				getIgnoredDirectories: repoPath =>
+					this.getProvider(repoPath)?.provider.getIgnoredDirectories?.(repoPath) ?? Promise.resolve([]),
 			});
 		}
 
