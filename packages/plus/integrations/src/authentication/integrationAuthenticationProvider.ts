@@ -41,12 +41,18 @@ export interface IntegrationAuthenticationSessionDescriptor {
  * a previous read), which forces a cloud `/refresh` even when the token's expiry still claims it is valid —
  * the case a purely time-based refresh cannot see. The refresh token itself never reaches the client: the GK
  * cloud performs the exchange server-side.
+ *
+ * `refetch` (sync only) fetches a fresh token instead of serving the stored one, WITHOUT deleting the stored one
+ * first: it is replaced only once the fetch returns a session. A forced re-sync used to delete it up front, so a
+ * fetch that failed transiently (a GK API 429 or 5xx) left the connection with no token at all, and every read
+ * until the next good sync reported it as gone (gitkraken/kepler#3546).
  */
 export type GetSessionOptions =
 	| {
 			createIfNeeded?: boolean;
 			forceNewSession?: boolean;
 			sync?: never;
+			refetch?: never;
 			refreshRejectedToken?: boolean;
 			source?: Sources;
 	  }
@@ -54,6 +60,7 @@ export type GetSessionOptions =
 			createIfNeeded?: never;
 			forceNewSession?: never;
 			sync: boolean;
+			refetch?: boolean;
 			refreshRejectedToken?: boolean;
 			source?: Sources;
 	  };
@@ -158,6 +165,7 @@ abstract class IntegrationAuthenticationProviderBase<
 	): Promise<ProviderAuthenticationSession | undefined> {
 		let session;
 		let previousToken;
+		let refetched: ProviderAuthenticationSession | undefined;
 		if (options?.forceNewSession) {
 			// Cloud-only delete (see deleteSession): scope to cloud so the cloud variant's id is cleared even
 			// when a mixed local+cloud connection's local descriptor is primary.
@@ -167,11 +175,16 @@ abstract class IntegrationAuthenticationProviderBase<
 				true,
 			);
 		} else {
-			session = await this.configuredIntegrationService.getStoredSession(
+			const stored = await this.configuredIntegrationService.getStoredSession(
 				this.authProviderId,
 				options?.sync ? { ...descriptor, cloud: true } : descriptor,
 			);
-			previousToken = session?.accessToken;
+			previousToken = stored?.accessToken;
+			if (options?.sync && options.refetch) {
+				refetched = stored;
+			} else {
+				session = stored;
+			}
 		}
 
 		const isExpiredSession = session?.expiresAt != null && new Date(session.expiresAt).getTime() < Date.now();
@@ -188,6 +201,17 @@ abstract class IntegrationAuthenticationProviderBase<
 
 			if (session != null) {
 				await this.configuredIntegrationService.storeSession(this.authProviderId, session);
+				// The replacement belongs to a different connection (the cloud's primary moved to another
+				// account), so it was stored beside the one it replaces rather than over it. Drop the old token
+				// as the up-front delete used to, or an unscoped read would keep resolving it until the next sync.
+				if (refetched?.id != null && refetched.id !== session.id) {
+					await this.configuredIntegrationService.deleteStoredSessions(
+						this.authProviderId,
+						{ ...descriptor, connectionId: refetched.id, cloud: true },
+						true,
+						{ preserveConfigured: true },
+					);
+				}
 			}
 		}
 

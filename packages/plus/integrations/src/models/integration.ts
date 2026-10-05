@@ -92,6 +92,17 @@ export type IntegrationResult<T> =
 	| { error: Error; duration?: number; value?: never }
 	| undefined;
 
+/** A per-connection read's session that could not be resolved for a retryable reason (see `resolveReadSession`). */
+export class ReadSessionFailure {
+	constructor(readonly error: Error) {}
+}
+
+export function isReadSessionFailure(
+	session: ProviderAuthenticationSession | ReadSessionFailure | undefined,
+): session is ReadSessionFailure {
+	return session instanceof ReadSessionFailure;
+}
+
 /**
  * One target's answer in a batch read. A slot rejected by an authentication refusal carries the scope failure it was
  * recorded as (see `IntegrationBase.settleBatchRefusals`).
@@ -327,6 +338,12 @@ export abstract class IntegrationBase<
 	}
 
 	protected _session: ProviderAuthenticationSession | null | undefined;
+	/**
+	 * Bumped whenever a forced re-sync's refetch settles `_session`. A forced re-sync keeps the stored token while it
+	 * fetches the replacement, so a read that resolved that token concurrently must not publish it over whatever the
+	 * refetch settled on: a fresh token, or nothing after the cloud said the connection is gone.
+	 */
+	private _sessionGeneration = 0;
 	getSession(
 		source: Sources,
 	): ProviderAuthenticationSession | Promise<ProviderAuthenticationSession | undefined> | undefined {
@@ -347,14 +364,21 @@ export abstract class IntegrationBase<
 	 * omitted this is the integration's primary session, resolved exactly like the existing read flow
 	 * (ensure-connected + refresh-if-expired). When set, it resolves THAT connection's session directly
 	 * from the auth provider — refreshing it if expired — WITHOUT disturbing the cached primary
-	 * `_session`. Returns undefined when the requested session can't be resolved (e.g. the connection is
-	 * gone or the provider isn't connected), so callers degrade to "no results".
+	 * `_session`. Never throws: `undefined` when there is no session to read with (the connection is gone,
+	 * the provider isn't connected), `{ error }` when the connection's token could not be fetched.
+	 *
+	 * The two must not be conflated. A token fetch that THROWS is, by `getConnectionSession`'s contract, a
+	 * retryable failure (a rate-limited or failing GK API, a network error), not evidence that the connection is
+	 * gone (#5569). Answering "no session" for it made every connection read during a GK API 429 report
+	 * `no-connection`, which a consumer rightly treats as a credential to reconnect (gitkraken/kepler#3546).
+	 * Returned as the read's error instead, the read core surfaces it like any other failed request: a rate
+	 * limit as `rate-limit`, anything else as `other`.
 	 */
 	protected async resolveReadSession(
 		connectionId: string | undefined,
 		scope: ScopedLogger | undefined,
 		source?: Sources,
-	): Promise<ProviderAuthenticationSession | undefined> {
+	): Promise<ProviderAuthenticationSession | ReadSessionFailure | undefined> {
 		if (
 			this.ctx.config.isIntegrationsEnabled?.() === false ||
 			this.ctx.storage.getWorkspace(this.connectedKey) === false
@@ -370,8 +394,8 @@ export abstract class IntegrationBase<
 			// is this branch's equivalent of the primary path's `refreshSessionIfExpired`. Claimed here so
 			// the forced refresh runs at most once per rejection.
 			const refreshRejectedToken = this._rejectedTokens.claimRefresh(connectionId);
-			// Degrade to "no results" on failure, matching the primary path (whose ensureSession/
-			// refreshSessionIfExpired swallow errors) so read methods keep their never-throws contract.
+			// Never throws, matching the primary path (whose ensureSession/refreshSessionIfExpired swallow
+			// errors), so read methods keep their never-throws contract.
 			try {
 				const authProvider = await this.authenticationService.get(this.authProvider.id);
 				const session = await authProvider.getSession(
@@ -380,8 +404,10 @@ export abstract class IntegrationBase<
 				);
 				return session != null && this.isSessionForIntegrationHost(session) ? session : undefined;
 			} catch (ex) {
+				if (isCancellationError(ex)) return undefined;
+
 				scope?.error(ex);
-				return undefined;
+				return new ReadSessionFailure(toError(ex));
 			}
 		}
 
@@ -390,6 +416,22 @@ export abstract class IntegrationBase<
 
 		await this.refreshSessionIfExpired(scope);
 		return this._session != null && this.isSessionForIntegrationHost(this._session) ? this._session : undefined;
+	}
+
+	/**
+	 * {@link resolveReadSession} for a read that already rethrows its provider's failures (a repository or account
+	 * lookup), or whose callers treat any failure as "nothing to show": a token that could not be fetched is
+	 * thrown like those failures, so it is classified as the failed request it is rather than as a missing
+	 * connection.
+	 */
+	protected async resolveReadSessionOrThrow(
+		connectionId: string | undefined,
+		scope: ScopedLogger | undefined,
+	): Promise<ProviderAuthenticationSession | undefined> {
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (isReadSessionFailure(session)) throw session.error;
+
+		return session;
 	}
 
 	@debug()
@@ -596,11 +638,10 @@ export abstract class IntegrationBase<
 				const oldSession = this._session;
 				let resyncing = false;
 				if (forceSync) {
-					// Reset our stored session so that we get a new one from the cloud
-					const authProvider = await this.authenticationService.get(this.authProvider.id);
-					await authProvider.deleteSession(this.authProviderDescriptor);
-					// The stored token was just deleted. Not left to the token-changed check below, which needs
-					// an `oldSession` — see `onStoredTokensReplaced`.
+					// Get a new session from the cloud. The stored one is refetched rather than deleted first (see
+					// `GetSessionOptions.refetch`), so a fetch that fails transiently keeps the token it had.
+					// Not left to the token-changed check below, which needs an `oldSession` — see
+					// `onStoredTokensReplaced`.
 					this.onStoredTokensReplaced();
 					// Reset the session and clear our "stay disconnected" flag
 					this._session = undefined;
@@ -624,7 +665,7 @@ export abstract class IntegrationBase<
 				let newSession: ProviderAuthenticationSession | undefined;
 				let refetchFailed = false;
 				try {
-					newSession = await this.ensureSession({ sync: forceSync });
+					newSession = await this.ensureSession({ sync: forceSync, refetch: resyncing });
 				} catch (ex) {
 					// Not evidence the connection is gone (#5569). Also leaves `_session` as-is rather than
 					// latching null, so the next access can re-resolve it.
@@ -638,8 +679,8 @@ export abstract class IntegrationBase<
 					this.resetRequestExceptionCount('all');
 				}
 
-				// The forced re-sync above deleted the cloud secret but kept the descriptor to avoid UI churn.
-				// Drop it only when the replacement fetch came back definitively empty, so a connection whose
+				// The forced re-sync above kept the stored token and its descriptor until a replacement arrived.
+				// Drop both only when the replacement fetch came back definitively empty, so a connection whose
 				// token is really gone is cleanly disconnected (#5497) while a healthy one survives a blip (#5569).
 				if (resyncing && newSession == null && !refetchFailed) {
 					const authProvider = await this.authenticationService.get(this.authProvider.id);
@@ -985,19 +1026,23 @@ export abstract class IntegrationBase<
 					createIfNeeded?: boolean;
 					forceNewSession?: boolean;
 					sync?: never;
+					refetch?: never;
 					source?: Sources;
 			  }
 			| {
 					createIfNeeded?: never;
 					forceNewSession?: never;
 					sync: boolean;
+					refetch?: boolean;
 					source?: Sources;
 			  },
 	): Promise<ProviderAuthenticationSession | undefined> {
 		const scope = getScopedLogger();
 
-		const { createIfNeeded, forceNewSession, source, sync } = options;
-		if (this._session != null) {
+		const { createIfNeeded, forceNewSession, source, sync, refetch } = options;
+		// A forced re-sync keeps the stored token while it fetches the replacement, so a concurrent read can put that
+		// token back in `_session` before this call runs; serving it would skip the refetch the caller forced.
+		if (this._session != null && !refetch) {
 			if (this.isSessionForIntegrationHost(this._session)) return this._session;
 
 			this._session = null;
@@ -1010,13 +1055,14 @@ export abstract class IntegrationBase<
 			return undefined;
 		}
 
+		const generation = this._sessionGeneration;
 		let session: ProviderAuthenticationSession | undefined | null;
 		try {
 			const authProvider = await this.authenticationService.get(this.authProvider.id);
 			session = await authProvider.getSession(
 				this.authProviderDescriptor,
 				sync
-					? { sync: sync, source: source }
+					? { sync: sync, refetch: refetch, source: source }
 					: {
 							createIfNeeded: createIfNeeded,
 							forceNewSession: forceNewSession,
@@ -1047,6 +1093,12 @@ export abstract class IntegrationBase<
 			}
 
 			session = null;
+		}
+
+		if (refetch) {
+			this._sessionGeneration++;
+		} else if (generation !== this._sessionGeneration) {
+			return this._session ?? undefined;
 		}
 
 		if (session === undefined && !createIfNeeded && !sync) {
@@ -1116,7 +1168,7 @@ export abstract class IntegrationBase<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		try {
@@ -1168,7 +1220,7 @@ export abstract class IntegrationBase<
 	): Promise<IntegrationResult<AccountWideIssuesResult | undefined>> {
 		const scope = getScopedLogger();
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		try {
 			const result = await this.searchProviderMyIssuesWithTruncation(
@@ -1260,7 +1312,7 @@ export abstract class IntegrationBase<
 		const { connectionId: requestedConnectionId, expiryOverride } = options ?? {};
 		const connectionId = requestedConnectionId || undefined;
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		try {
 			const issue = await getCachedIssue({
@@ -1309,7 +1361,7 @@ export abstract class IntegrationBase<
 		const scope = getScopedLogger();
 		const { connectionId: requestedConnectionId, expiryOverride, ...opts } = options ?? {};
 		const connectionId = requestedConnectionId || undefined;
-		const session = await this.resolveReadSession(connectionId, scope);
+		const session = await this.resolveReadSessionOrThrow(connectionId, scope);
 		if (session == null) return undefined;
 
 		const sessionFingerprint = this.getSessionFingerprint(session);
