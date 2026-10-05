@@ -599,6 +599,74 @@ export class CliGitProvider implements GitProvider {
 		return filter;
 	}
 
+	async getIgnoredDirectories(repoPath: string, cancellation?: AbortSignal): Promise<string[]> {
+		// `--directory` collapses a directory to one entry when everything in it is ignored — which includes
+		// directories no rule matches whose current contents merely happen to be ignored (a `logs/` holding only
+		// `*.log` files under a `*.log` rule), so each candidate is confirmed against the rules below
+		const listed = await this._git.run(
+			{ cwd: repoPath, errors: 'throw', cancellation: cancellation },
+			'ls-files',
+			'-z',
+			'--others',
+			'--ignored',
+			'--exclude-standard',
+			'--directory',
+		);
+
+		const candidates: string[] = [];
+		for (const entry of iterateByDelimiter(listed.stdout, '\0')) {
+			if (entry.length > 1 && entry.endsWith('/')) {
+				candidates.push(entry);
+			}
+		}
+		if (!candidates.length) return [];
+
+		// Exits 1 when nothing matches, which is an answer
+		const confirmed = await this._git.run(
+			{
+				cwd: repoPath,
+				errors: 'throw',
+				cancellation: cancellation,
+				stdin: `${candidates.join('\0')}\0`,
+				expectedExitCodes: [1],
+			},
+			'check-ignore',
+			'-z',
+			'--stdin',
+		);
+
+		const directories: string[] = [];
+		for (const entry of iterateByDelimiter(confirmed.stdout, '\0')) {
+			// Never `.git` itself, and no name a watcher would read as a pattern
+			if (entry.length < 2 || !entry.endsWith('/') || /[*?[\]{}()!+@\\]/.test(entry)) continue;
+
+			const directory = entry.substring(0, entry.length - 1);
+			if (directory === '.git') continue;
+
+			directories.push(directory);
+		}
+
+		// A path sorts after every prefix of it, so an entry's ancestors have already been kept (or not) by the time it
+		// is checked — and the kept set comes out sorted
+		directories.sort();
+
+		const kept = new Set<string>();
+		for (const directory of directories) {
+			let beneathKept = false;
+			for (let i = directory.indexOf('/'); i !== -1; i = directory.indexOf('/', i + 1)) {
+				if (kept.has(directory.substring(0, i))) {
+					beneathKept = true;
+					break;
+				}
+			}
+			if (!beneathKept) {
+				kept.add(directory);
+			}
+		}
+
+		return [...kept];
+	}
+
 	/** Every `.gitignore` git reads in the working tree (tracked, or untracked and not itself ignored), root included */
 	private async getGitIgnorePaths(repoPath: string): Promise<string[]> {
 		const result = await this._git.run(

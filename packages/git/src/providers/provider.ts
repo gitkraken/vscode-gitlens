@@ -49,6 +49,12 @@ export interface GitProvider {
 	): Promise<string | undefined>;
 	excludeIgnoredUris?(repoPath: string, uris: Uri[]): Promise<Uri[]>;
 	getIgnoreFilter?(repoPath: string, gitDirPath: string): GitIgnoreFilter;
+	/**
+	 * The directories in the working tree that an ignore rule matches, as repo-relative `/`-separated paths — each
+	 * to be pruned from a file watcher along with its subtree. Nested entries are collapsed into their outermost
+	 * ancestor, and literal paths containing glob metacharacters are dropped (a watcher can't express them safely).
+	 */
+	getIgnoredDirectories?(repoPath: string, cancellation?: AbortSignal): Promise<string[]>;
 	getIgnoredUrisFilter?(repoPath: string): Promise<(uri: Uri) => boolean>;
 	getLastFetchedTimestamp?(repoPath: string): Promise<number | undefined>;
 	/** Creates a new repository at `path` (`git init`), creating `path` itself if it doesn't yet exist. */

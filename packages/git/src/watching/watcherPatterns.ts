@@ -26,6 +26,28 @@ export const dotGitGlobRoot = `{${dotGitFiles}}`;
 /** For worktree repos: common watcher (shared config, refs, info, etc.) */
 export const dotGitGlobCommon = `{${dotGitCommonFiles}}`;
 
+/**
+ * Directories to leave unwatched under the `.git` directory (relative to it), for a provider that prunes natively.
+ * Only directories nothing in the globs above reads: never anything under `refs`, `worktrees/*` itself, `gk`, `info`,
+ * or the rebase/sequencer directories.
+ */
+export const gitDirExcludes: readonly string[] = [
+	'objects',
+	'logs',
+	'hooks',
+	'lfs',
+	'modules',
+	'rr-cache',
+	'fsmonitor--daemon',
+	'worktrees/*/logs',
+];
+
+/**
+ * Directories to leave unwatched in the working tree (relative to it), for a provider that prunes natively —
+ * the same ones {@link shouldIgnoreWorkingTreePath} drops from events.
+ */
+export const workingTreeExcludes: readonly string[] = ['**/node_modules', '**/.git'];
+
 /** Glob for watching .gitignore files in the working tree */
 export const gitIgnoreGlob = '.gitignore';
 

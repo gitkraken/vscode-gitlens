@@ -5,14 +5,15 @@ import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import { Cache } from '../../cache.js';
 import type { GitDir } from '../../models/repository.js';
-import type { FileWatcher, FileWatchEvent, FileWatchingProvider } from '../provider.js';
-import { dotGitGlobCombined, dotGitGlobCommon, dotGitGlobRoot } from '../watcherPatterns.js';
+import type { FileWatcher, FileWatcherOptions, FileWatchEvent, FileWatchingProvider } from '../provider.js';
+import { dotGitGlobCombined, dotGitGlobCommon, dotGitGlobRoot, gitDirExcludes } from '../watcherPatterns.js';
 import type { WatchGroupHooks } from '../watchGroup.js';
 import { WatchGroup } from '../watchGroup.js';
 
 interface MockWatcher extends FileWatcher {
 	readonly basePath: string;
 	readonly pattern: string;
+	readonly options: FileWatcherOptions | undefined;
 	fire(event: FileWatchEvent): void;
 	disposed: boolean;
 }
@@ -24,6 +25,7 @@ function createMockFactory(): { factory: FileWatchingProvider; watchers: MockWat
 			basePath: string,
 			pattern: string,
 			onEvent: (event: FileWatchEvent) => void,
+			options?: FileWatcherOptions,
 		): FileWatcher {
 			const w: MockWatcher = mixinDisposable(
 				{
@@ -31,6 +33,7 @@ function createMockFactory(): { factory: FileWatchingProvider; watchers: MockWat
 					// the assertions can name the POSIX paths the fixtures are written in.
 					basePath: normalizePath(basePath),
 					pattern: pattern,
+					options: options,
 					disposed: false,
 					fire: function (event: FileWatchEvent): void {
 						onEvent(event);
@@ -138,6 +141,40 @@ describe('WatchGroup', () => {
 
 			assert.strictEqual(watchers.length, 1);
 			assert.strictEqual(group.sessions.size, 1);
+		});
+	});
+
+	describe('excludes', () => {
+		it('passes the .git excludes to the root watcher of a standard repo', () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+
+			group.addSession('/repo', standardGitDir('/repo/.git'), makeCallbacks());
+
+			assert.strictEqual(watchers.length, 1);
+			assert.deepStrictEqual(watchers[0].options, { excludes: gitDirExcludes });
+		});
+
+		it('passes the .git excludes to every root and the common watcher of worktree repos', () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+
+			group.addSession('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'), makeCallbacks());
+			group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), makeCallbacks());
+
+			assert.strictEqual(watchers.length, 3);
+			for (const w of watchers) {
+				assert.deepStrictEqual(w.options, { excludes: gitDirExcludes }, `watcher at ${w.basePath}`);
+			}
+		});
+
+		it('never excludes a directory the .git globs read', () => {
+			for (const exclude of gitDirExcludes) {
+				assert.ok(
+					!/^(?:refs|gk|info|rebase-apply|rebase-merge|sequencer|worktrees)(?:\/\*)?$/.test(exclude),
+					`${exclude} is read by a watch glob`,
+				);
+			}
 		});
 	});
 
