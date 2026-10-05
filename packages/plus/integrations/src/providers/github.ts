@@ -1167,8 +1167,8 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		repo: string,
 		cancellation?: AbortSignal,
 	): Promise<Map<number, PullRequestStackInfo> | undefined> {
-		// The shared read path — it refreshes an expired session before use, which a bare `getSession()`
-		// does not (it returns the cached session verbatim once one exists, expired or not).
+		// The shared read path: like `getSession()` it refreshes an expired session before use, but it throws a
+		// failed refresh as the failure rather than answering as if not connected.
 		const session = await this.resolveReadSessionOrThrow(undefined, undefined);
 		if (session == null) return undefined;
 
