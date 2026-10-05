@@ -12,6 +12,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - The _Commit Graph_'s check for whether any issue integration is connected now looks at every configured host of a self-hosted tracker, so disconnecting one host no longer turns off issue enrichment while another is still connected
   - Reads a branch's associated _Jira Data Center_ issues from the instance the association names, never from another configured host that happens to be primary ([#5872](https://github.com/gitkraken/vscode-gitlens/issues/5872))
 
+### Fixed
+
+- Fixes force-deleting a worktree skipping the uncommitted-changes warning when GitLens couldn't check the worktree for changes &mdash; it now asks before deleting a worktree it couldn't check
+- Fixes a repository or worktree with no commits yet showing no changes when it has staged or modified files
+- Fixes features treating a failed check for changes as "no changes": _Auto-Rebase_ could report a commit as skipped for being empty, applying a patch could skip offering to stash your changes, and _Copy Changes_ could leave out untracked files without saying so
+- Fixes diffs against a repository's first commit failing in a SHA-256 repository, including a stash's untracked files and, for a range starting at the first commit, the _Commit Graph_'s scope file list and _Compose_
+- Fixes cloning a large repository from a GitLens link failing once it runs past the Git timeout (`gitlens.advanced.git.timeout`) &mdash; the clone now runs as long as it needs, and its progress notification can cancel it
+- Fixes branch-associated issues from self-managed Git hosts resolving through the wrong server when an older association has no host. These associations remain usable with a single configured host, and new Bitbucket Server issue associations retain their host ([#5883](https://github.com/gitkraken/vscode-gitlens/issues/5883))
+- Fixes Azure DevOps requests escaping the configured installation path with specially encoded remote names, and preserves names and branches containing spaces or reserved characters ([#5878](https://github.com/gitkraken/vscode-gitlens/issues/5878))
+- Fixes self-managed integrations dropping the installation path from API requests, including Azure DevOps Server virtual directories, while keeping existing connections usable ([#5871](https://github.com/gitkraken/vscode-gitlens/issues/5871))
+- Fixes _Start Work_ and _Launchpad_ reads covering only one host per supported self-managed provider ([#5873](https://github.com/gitkraken/vscode-gitlens/issues/5873)) &mdash; connected hosts are read independently, with open repository scopes kept on their matching host
+- Fixes _Launchpad_ mixing pins, snoozes, selections, and tree items between self-managed hosts whose pull requests share an identifier ([#5873](https://github.com/gitkraken/vscode-gitlens/issues/5873))
+
 ## [19.3.0] - 2026-10-01
 
 ### Added
@@ -42,15 +55,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes force-deleting a worktree skipping the uncommitted-changes warning when GitLens couldn't check the worktree for changes &mdash; it now asks before deleting a worktree it couldn't check
-- Fixes a repository or worktree with no commits yet showing no changes when it has staged or modified files
-- Fixes features treating a failed check for changes as "no changes": _Auto-Rebase_ could report a commit as skipped for being empty, applying a patch could skip offering to stash your changes, and _Copy Changes_ could leave out untracked files without saying so
-- Fixes diffs against a repository's first commit failing in a SHA-256 repository, including a stash's untracked files and, for a range starting at the first commit, the _Commit Graph_'s scope file list and _Compose_
-- Fixes cloning a large repository from a GitLens link failing once it runs past the Git timeout (`gitlens.advanced.git.timeout`) &mdash; the clone now runs as long as it needs, and its progress notification can cancel it
-- Fixes branch-associated issues from self-managed Git hosts resolving through the wrong server when an older association has no host. These associations remain usable with a single configured host, and new Bitbucket Server issue associations retain their host ([#5883](https://github.com/gitkraken/vscode-gitlens/issues/5883))
-- Fixes Azure DevOps requests escaping the configured installation path with specially encoded remote names, and preserves names and branches containing spaces or reserved characters ([#5878](https://github.com/gitkraken/vscode-gitlens/issues/5878))
-- Fixes self-managed integrations dropping the installation path from API requests, including Azure DevOps Server virtual directories, while keeping existing connections usable ([#5871](https://github.com/gitkraken/vscode-gitlens/issues/5871))
-
 - Fixes GitKraken AI telling someone on a Pro trial to _Upgrade to GitLens Pro_ when a request is refused for lack of entitlement &mdash; it now names the trial and offers to upgrade to the trialed plan ([#5789](https://github.com/gitkraken/vscode-gitlens/issues/5789))
 - Fixes a comparison, or a file or folder history, opened in the _Commit Graph_ while signed out or before upgrading being discarded instead of opening once access is granted ([#5820](https://github.com/gitkraken/vscode-gitlens/issues/5820))
 - Fixes the _Commit Graph_'s sign-in and upgrade screens still describing the previous task when a second one arrives while they're open ([#5820](https://github.com/gitkraken/vscode-gitlens/issues/5820))
@@ -67,9 +71,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes Azure DevOps Server links dropping the collection when the server sits behind a virtual directory &mdash; `https://server/tfs/DefaultCollection/…` read `tfs` as the organization and lost everything after it ([#5840](https://github.com/gitkraken/vscode-gitlens/issues/5840))
 - Fixes an Azure DevOps pull request's repository links being able to point at another organization, or another server entirely, when the pull request payload said so &mdash; the links are built from the configured organization now, and a fork's link must belong to it ([#5842](https://github.com/gitkraken/vscode-gitlens/issues/5842))
 - Fixes malformed Azure DevOps pull request web URLs &mdash; the URL had a double slash after the host (both `dev.azure.com` and `*.visualstudio.com`) and left project and repository names unencoded, so a project or repository named with a space put a literal space in the link ([#5836](https://github.com/gitkraken/vscode-gitlens/issues/5836))
-- Fixes _Start Work_ and _Launchpad_ reads covering only one host per supported self-managed provider ([#5873](https://github.com/gitkraken/vscode-gitlens/issues/5873)) &mdash; connected hosts are read independently, with open repository scopes kept on their matching host
-- Fixes _Launchpad_ mixing pins, snoozes, selections, and tree items between self-managed hosts whose pull requests share an identifier ([#5873](https://github.com/gitkraken/vscode-gitlens/issues/5873))
-
 - Fixes autolinked pull requests and issues disappearing from _Inspect_, hovers, and views until the window is reloaded &mdash; a failed lookup (a rate limit, server error, or timeout) was remembered as "not found" for the rest of the session, and enrichment done before an integration finished connecting was kept for 30 minutes; failed lookups are now retried the next time they're needed
 - Fixes files you uncheck in the _Commit Graph_'s _Review_ and _Compose_ modes getting checked again &mdash; the details panel refreshing reset your exclusions (and, in _Compose_, your excluded commits), so an unchecked file could quietly end up back in the review or commit plan
 - Fixes the commit range appearing twice at the top of the _Commit Graph_'s _Review_ results for a commit selection

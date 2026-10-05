@@ -1225,9 +1225,9 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		pullRequestNumber: number,
 		cancellation?: AbortSignal,
 	): Promise<PullRequestStackLayers | undefined> {
-		// The shared read path — it refreshes an expired session before use, which a bare `getSession()`
-		// does not (it returns the cached session verbatim once one exists, expired or not).
-		const session = await this.resolveReadSession(undefined, undefined);
+		// The shared read path: like `getSession()` it refreshes an expired session before use, but it throws a
+		// failed refresh as the failure rather than answering as if not connected.
+		const session = await this.resolveReadSessionOrThrow(undefined, undefined);
 		if (session == null) return undefined;
 
 		const stacks = await (
@@ -1238,7 +1238,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			owner,
 			repo,
 			{
-				baseUrl: this.apiBaseUrl,
+				baseUrl: this.apiBaseUrlFor(session),
 			},
 			cancellation,
 		);

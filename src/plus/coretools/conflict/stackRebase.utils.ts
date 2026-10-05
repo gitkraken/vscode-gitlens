@@ -46,7 +46,7 @@ export async function resolveStackRebasePlan(
 
 	let pullRequestNumber = options?.pullRequestNumber;
 	if (pullRequestNumber == null) {
-		const branch = await svc.branches.getBranch(undefined, options?.cancellation);
+		const branch = await svc.branches.getBranch(undefined, undefined, options?.cancellation);
 		const pr = branch != null ? await getBranchAssociatedPullRequest(container, branch) : undefined;
 		// `id` is the pull request number as a string on every host with a stacks concept, but prefer
 		// the explicit `number` when the provider set it
