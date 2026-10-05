@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-10-05
+
 ### Fixed
 
 - Fixes reads that resolve the integration's own session rather than a pinned connection (a self-managed host read by `domain` alone, for one) reporting `no-connection` when the session had expired and the GitKraken API could not hand back its replacement (a `429` or `5xx` from `v1/provider-tokens`): the read now fails with the refresh's error, a `rate-limit` warning for a `429` and an `other` warning otherwise (a refresh cancelled by the host's timeout included). A forced re-sync no longer clears the cached session while it fetches the replacement, so a transient failure leaves it as it was and the integration stays connected; the next read refreshes it once the cloud answers again. The session-based lookups (`getAccountForEmail`, `getDefaultBranch`, `getPullRequestForBranch` and the like) answer nothing rather than reading with the expired token, and a pull request lookup asked to `throwOnError` throws the failure. Jira and Linear autolinks are not rebuilt with an expired session. `syncCloudConnection` now resolves its token fetch's failure instead of `undefined` (plus/integrations)
@@ -573,7 +575,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.2...HEAD
+[0.10.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.1...gitkraken:releases/core/v0.10.2
 [0.10.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.0...gitkraken:releases/core/v0.10.1
 [0.10.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.9...gitkraken:releases/core/v0.10.0
 [0.9.9]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.8...gitkraken:releases/core/v0.9.9
