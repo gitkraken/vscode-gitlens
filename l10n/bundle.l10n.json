@@ -4577,6 +4577,7 @@
 	"Unable to build a diff for the selected commit.": "Unable to build a diff for the selected commit.",
 	"Unable to build a search from your description — {0}": "Unable to build a search from your description — {0}",
 	"Unable to check for conflicts": "Unable to check for conflicts",
+	"Unable to check the worktree in '{0}' for uncommitted changes.\n\nIf it has any, deleting it will cause them to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nAre you sure you still want to delete it?": "Unable to check the worktree in '{0}' for uncommitted changes.\n\nIf it has any, deleting it will cause them to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nAre you sure you still want to delete it?",
 	"Unable to checkout": "Unable to checkout",
 	"Unable to checkout '{0}'": "Unable to checkout '{0}'",
 	"Unable to checkout '{0}' because the path or reference does not exist": "Unable to checkout '{0}' because the path or reference does not exist",

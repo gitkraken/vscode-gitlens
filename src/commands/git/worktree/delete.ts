@@ -22,6 +22,7 @@ import {
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { revealInFileExplorer } from '../../../system/-webview/vscode.js';
+import { exists } from '../../../system/-webview/vscode/uris.js';
 import { getWorkspaceFriendlyPath } from '../../../system/-webview/vscode/workspaces.js';
 import type {
 	PartialStepState,
@@ -60,6 +61,8 @@ export type WorktreeDeleteStepNames = StepNames;
 type Context = WorktreeContext<StepNames> & {
 	/** Whether the confirm step's pre-flight dirty check had settled (its notice had its chance to render) before the user accepted */
 	dirtyCheckSettledBeforeConfirm?: boolean;
+	/** Worktree URIs whose pre-flight dirty check failed, so the notice couldn't speak for them */
+	dirtyCheckFailedUris?: Set<string>;
 };
 
 type Flags = '--force' | '--delete-branches' | '--delete-upstreams';
@@ -213,21 +216,38 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 						// Force chosen at the confirm step already carries the notice's warning — but only if the
 						// pre-flight dirty check actually surfaced before the user accepted; on a fast accept (or
 						// reactive escalation below) verify here so uncommitted changes are never destroyed unwarned
-						if (force && (!forceConfirmed || !context.dirtyCheckSettledBeforeConfirm)) {
+						if (
+							force &&
+							(!forceConfirmed ||
+								!context.dirtyCheckSettledBeforeConfirm ||
+								context.dirtyCheckFailedUris?.has(uri.toString()))
+						) {
 							let hasChanges;
+							let unverified = false;
 							try {
 								hasChanges =
 									worktree != null ? await GitWorktree.hasWorkingChanges(worktree) : undefined;
-							} catch {}
+							} catch {
+								// A folder that's already gone has nothing to lose
+								unverified = await exists(uri);
+							}
 
-							if ((hasChanges ?? false) && !skipHasChangesPrompt) {
+							const warning = unverified
+								? l10n.t(
+										"Unable to check the worktree in '{0}' for uncommitted changes.\n\nIf it has any, deleting it will cause them to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nAre you sure you still want to delete it?",
+										uri.fsPath,
+									)
+								: hasChanges
+									? l10n.t(
+											"The worktree in '{0}' has uncommitted changes.\n\nDeleting it will cause those changes to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nAre you sure you still want to delete it?",
+											uri.fsPath,
+										)
+									: undefined;
+							if (warning != null && !skipHasChangesPrompt) {
 								const confirm: MessageItem = { title: l10n.t('Force Delete') };
 								const cancel: MessageItem = { title: l10n.t('Cancel'), isCloseAffordance: true };
 								const result = await window.showWarningMessage(
-									l10n.t(
-										"The worktree in '{0}' has uncommitted changes.\n\nDeleting it will cause those changes to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nAre you sure you still want to delete it?",
-										uri.fsPath,
-									),
+									warning,
 									{ modal: true },
 									confirm,
 									cancel,
@@ -612,6 +632,7 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 
 		const notices: DirectiveQuickPickItem[] = [];
 		let dirtyCheckSettled = false;
+		const dirtyCheckFailedUris = new Set<string>();
 
 		interface Toggles {
 			force?: ConfirmToggleQuickPickItem;
@@ -706,6 +727,7 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 					try {
 						return (await GitWorktree.hasWorkingChanges(worktree)) ? worktree : undefined;
 					} catch {
+						dirtyCheckFailedUris.add(uri.toString());
 						return undefined;
 					}
 				}),
@@ -730,8 +752,8 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 						}),
 					);
 				} else {
-					// Fail open on a check error too -- no evidence of dirty state means no notice, the
-					// execute-time checks still protect against data loss either way
+					// Fail open on a check error too -- no evidence of dirty state means no notice; a worktree
+					// whose check failed is re-checked at execute time before a force delete
 					notices.splice(0, notices.length);
 				}
 
@@ -763,6 +785,7 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 
 		const selection: StepSelection<typeof step> = yield step;
 		context.dirtyCheckSettledBeforeConfirm = dirtyCheckSettled;
+		context.dirtyCheckFailedUris = dirtyCheckFailedUris;
 
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
