@@ -65,6 +65,14 @@ function toSession(data: GKProviderToken): CloudIntegrationAuthenticationSession
 	};
 }
 
+async function getResponseError(response: Response): Promise<unknown> {
+	try {
+		return ((await response.json()) as { error?: unknown })?.error;
+	} catch {
+		return undefined;
+	}
+}
+
 export class CloudIntegrationService {
 	constructor(private readonly ctx: IntegrationServiceContext) {}
 
@@ -73,7 +81,7 @@ export class CloudIntegrationService {
 
 		const providersRsp = await this.ctx.account.fetchGkApi('v1/provider-tokens', { method: 'GET' });
 		if (!providersRsp.ok) {
-			const error = ((await providersRsp.json()) as { error?: unknown })?.error;
+			const error = await getResponseError(providersRsp);
 			const errorMessage =
 				typeof error === 'string'
 					? error
@@ -160,7 +168,7 @@ export class CloudIntegrationService {
 			: `v1/provider-tokens/${cloudIntegrationType}${refresh ? '/refresh' : ''}`;
 		const tokenRsp = await this.ctx.account.fetchGkApi(path, reqInitOptions);
 		if (!tokenRsp.ok) {
-			const error = ((await tokenRsp.json()) as { error?: unknown })?.error;
+			const error = await getResponseError(tokenRsp);
 			const errorMessage =
 				typeof error === 'string' ? error : ((error as { message?: string })?.message ?? tokenRsp.statusText);
 			if (error != null) {
@@ -221,7 +229,7 @@ export class CloudIntegrationService {
 			method: 'DELETE',
 		});
 		if (!tokenRsp.ok) {
-			const error = ((await tokenRsp.json()) as { error?: unknown })?.error;
+			const error = await getResponseError(tokenRsp);
 			const errorMessage =
 				typeof error === 'string' ? error : ((error as { message?: string })?.message ?? tokenRsp.statusText);
 			if (error != null) {
@@ -250,7 +258,7 @@ export class CloudIntegrationService {
 			{ method: 'DELETE' },
 		);
 		if (!tokenRsp.ok) {
-			const error = ((await tokenRsp.json()) as { error?: unknown })?.error;
+			const error = await getResponseError(tokenRsp);
 			const errorMessage =
 				typeof error === 'string' ? error : ((error as { message?: string })?.message ?? tokenRsp.statusText);
 			if (error != null) {
@@ -275,7 +283,7 @@ export class CloudIntegrationService {
 			{ method: 'POST' },
 		);
 		if (!tokenRsp.ok) {
-			const error = ((await tokenRsp.json()) as { error?: unknown })?.error;
+			const error = await getResponseError(tokenRsp);
 			const errorMessage =
 				typeof error === 'string' ? error : ((error as { message?: string })?.message ?? tokenRsp.statusText);
 			if (error != null) {
