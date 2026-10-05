@@ -28,7 +28,7 @@ import type {
 	WorktreeCreateErrorReason,
 	WorktreeDeleteErrorReason,
 } from '@gitlens/git/errors.js';
-import { GitWarnings, WorkspaceUntrustedError } from '@gitlens/git/errors.js';
+import { getGitWarning, GitWarnings, WorkspaceUntrustedError } from '@gitlens/git/errors.js';
 import type { GitHealthSlownessCategory } from '@gitlens/git/gitHealth.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import type { SigningFormat } from '@gitlens/git/models/signature.js';
@@ -1678,17 +1678,16 @@ export function defaultExceptionHandler(
 
 	const msg = ex.message || ex.toString();
 	if (msg) {
-		for (const [key, warning] of Object.entries(GitWarnings) as [GitWarningKey, RegExp][]) {
-			if (warning.test(msg)) {
-				const duration = start !== undefined ? ` [${getDurationMilliseconds(start)}ms]` : '';
-				Logger.warn(
-					`[${cwd}] Git ${msg
-						.trim()
-						.replace(/fatal:\s*/g, '')
-						.replace(/\r?\n|\r/g, ' \u00b7 ')}${duration}`,
-				);
-				return key;
-			}
+		const warning = getGitWarning(ex);
+		if (warning != null) {
+			const duration = start !== undefined ? ` [${getDurationMilliseconds(start)}ms]` : '';
+			Logger.warn(
+				`[${cwd}] Git ${msg
+					.trim()
+					.replace(/fatal:\s*/g, '')
+					.replace(/\r?\n|\r/g, ' \u00b7 ')}${duration}`,
+			);
+			return warning;
 		}
 
 		const match = GitErrors.badRevision.exec(msg);

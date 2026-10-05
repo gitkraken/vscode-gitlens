@@ -1,4 +1,5 @@
 import { l10n, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { undefinedOnGitWarning } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
@@ -38,6 +39,7 @@ export class PausedOperationStatusNode extends ViewNode<'paused-operation-status
 				this.view.container.git
 					.getRepositoryService(this.repoPath)
 					.status.getStatus()
+					.catch(undefinedOnGitWarning)
 					.then(s => (this._status = s)),
 		);
 	}

@@ -58,6 +58,26 @@ export const GitWarnings = {
 
 export type GitWarningKey = keyof typeof GitWarnings;
 
+/** The {@link GitWarnings} entry a failure's message matches, if any */
+export function getGitWarning(ex: unknown): GitWarningKey | undefined {
+	if (!(ex instanceof Error)) return undefined;
+
+	for (const [key, warning] of Object.entries(GitWarnings) as [GitWarningKey, RegExp][]) {
+		if (warning.test(ex.message)) return key;
+	}
+	return undefined;
+}
+
+/**
+ * For a read's `.catch`: answers `undefined` for a {@link GitWarnings} failure (a folder that is no longer a repository,
+ * a bare repository) and rethrows any other, including a cancellation or timeout
+ */
+export function undefinedOnGitWarning(ex: unknown): undefined {
+	if (getGitWarning(ex) != null) return undefined;
+
+	throw ex;
+}
+
 export interface GitCommandContext {
 	readonly repoPath: string;
 	readonly args: readonly (string | undefined)[];

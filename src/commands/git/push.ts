@@ -1,4 +1,5 @@
 import { l10n, ThemeIcon } from 'vscode';
+import { undefinedOnGitWarning } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitBranchReference, GitReference } from '@gitlens/git/models/reference.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
@@ -775,7 +776,7 @@ export class PushGitCommand extends QuickCommand<State> {
 					}
 				}
 			} else {
-				const status = await repo.git.status.getStatus();
+				const status = await repo.git.status.getStatus().catch(undefinedOnGitWarning);
 
 				const branch: GitBranchReference = {
 					refType: 'branch',

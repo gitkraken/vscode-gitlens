@@ -1,3 +1,4 @@
+import { undefinedOnGitWarning } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
@@ -208,7 +209,7 @@ export function groupWorktreesByBranch(
 
 export async function getWorktreeStatus(container: Container, worktree: GitWorktree): Promise<GitStatus | undefined> {
 	if (worktree.type === 'bare') return undefined;
-	return container.git.getRepositoryService(worktree.uri.fsPath).status.getStatus();
+	return container.git.getRepositoryService(worktree.uri.fsPath).status.getStatus().catch(undefinedOnGitWarning);
 }
 
 export async function getWorktreeHasWorkingChanges(

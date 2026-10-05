@@ -1,5 +1,6 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { l10n } from 'vscode';
+import { undefinedOnGitWarning } from '@gitlens/git/errors.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -66,7 +67,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 							getState: async () => {
 								const items: (CommandQuickPickItem | DirectiveQuickPickItem)[] = [];
 
-								const status = await svc.status.getStatus();
+								const status = await svc.status.getStatus().catch(undefinedOnGitWarning);
 								if (status != null) {
 									for (const f of status.files) {
 										if (f.workingTreeStatus === '?' || f.workingTreeStatus === '!') {

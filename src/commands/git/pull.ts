@@ -1,4 +1,5 @@
 import { l10n } from 'vscode';
+import { undefinedOnGitWarning } from '@gitlens/git/errors.js';
 import { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel, isBranchReference } from '@gitlens/git/utils/reference.utils.js';
@@ -219,7 +220,10 @@ export class PullGitCommand extends QuickCommand<State> {
 			}
 		} else {
 			const [repo] = state.repos;
-			const [status, lastFetched] = await Promise.all([repo.git.status.getStatus(), repo.getLastFetched()]);
+			const [status, lastFetched] = await Promise.all([
+				repo.git.status.getStatus().catch(undefinedOnGitWarning),
+				repo.getLastFetched(),
+			]);
 
 			// On 1.108+ the last-fetched note renders in the message slot between the input and the list;
 			// below that it stays a title suffix
