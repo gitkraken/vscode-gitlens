@@ -6,11 +6,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-05
+
 ### Fixed
 
 - Fixes cloud integration operations throwing a JSON parse error when the GitKraken API returns an empty or non-JSON error body, preserving failure notifications, token refresh fallback, and retryable status classification ([#5932](https://github.com/gitkraken/vscode-gitlens/issues/5932)) (plus/integrations)
-- Fixes per-connection reads reporting a connection whose token the GitKraken API could not hand back (a `429` or `5xx` from `v1/provider-tokens`) as a `no-connection` warning, the signal a consumer treats as an expired credential: the read now fails with the token fetch's error, a `rate-limit` warning for a `429` and an `other` warning otherwise. A repository or current-account lookup rejects with that error instead of resolving `undefined`. A terminal answer (`400`, `404`, `410`, `422`) still reads as `no-connection` (integrations)
-- Fixes a forced re-sync (`forceSync` on a read, or a forced `syncCloudConnection`) deleting the stored token before fetching its replacement, which left a connection with no token at all when that fetch failed transiently, so every read until the next good sync reported it gone. The stored token is now replaced only once a new one arrives, and dropped only when the cloud answers definitively that there is none (integrations)
+- Fixes per-connection reads reporting a connection whose token the GitKraken API could not hand back (a `429` or `5xx` from `v1/provider-tokens`) as a `no-connection` warning, the signal a consumer treats as an expired credential: the read now fails with the token fetch's error, a `rate-limit` warning for a `429` and an `other` warning otherwise. A repository or current-account lookup rejects with that error instead of resolving `undefined`. A terminal answer (`400`, `404`, `410`, `422`) still reads as `no-connection` (plus/integrations)
+- Fixes a forced re-sync (`forceSync` on a read, or a forced `syncCloudConnection`) deleting the stored token before fetching its replacement, which left a connection with no token at all when that fetch failed transiently, so every read until the next good sync reported it gone. The stored token is now replaced only once a new one arrives, and dropped only when the cloud answers definitively that there is none (plus/integrations)
 
 ## [0.10.0] - 2026-10-04
 
@@ -565,7 +567,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.1...HEAD
+[0.10.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.0...gitkraken:releases/core/v0.10.1
 [0.10.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.9...gitkraken:releases/core/v0.10.0
 [0.9.9]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.8...gitkraken:releases/core/v0.9.9
 [0.9.8]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.7...gitkraken:releases/core/v0.9.8
