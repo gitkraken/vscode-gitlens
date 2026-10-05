@@ -358,6 +358,7 @@ export abstract class IntegrationBase<
 		return run;
 	}
 
+	/** An expired session is refreshed first; when that fails, nothing is returned rather than a token the provider refuses. */
 	getSession(
 		source: Sources,
 	): ProviderAuthenticationSession | Promise<ProviderAuthenticationSession | undefined> | undefined {
@@ -366,7 +367,22 @@ export abstract class IntegrationBase<
 		if (this._session === undefined) {
 			return this.ensureSession({ createIfNeeded: false, source: source });
 		}
-		return this._session != null && this.isSessionForIntegrationHost(this._session) ? this._session : undefined;
+		if (this._session == null || !this.isSessionForIntegrationHost(this._session)) return undefined;
+		if (this.connectionExpired) return this.getRefreshedSession();
+
+		return this._session;
+	}
+
+	private async getRefreshedSession(): Promise<ProviderAuthenticationSession | undefined> {
+		const failure = await this.refreshSessionIfExpired();
+		if (failure != null) return undefined;
+
+		// The refresh may have been skipped (a non-cloud session) or overtaken by a disconnect or a switch.
+		return this._session != null &&
+			this.connectionExpired !== true &&
+			this.isSessionForIntegrationHost(this._session)
+			? this._session
+			: undefined;
 	}
 
 	private isSessionForIntegrationHost(session: ProviderAuthenticationSession): boolean {
@@ -1133,7 +1149,13 @@ export abstract class IntegrationBase<
 	@gate()
 	@trace({ exit: true })
 	async isConnected(): Promise<boolean> {
-		return (await this.getSession('integrations')) != null;
+		// Not `getSession()`: an expired session is still a connection, and refreshing it here would put a GK API round
+		// trip on every connection check and report a throttled refresh as no connection (gitkraken/kepler#3546).
+		const session =
+			this._session === undefined
+				? await this.ensureSession({ createIfNeeded: false, source: 'integrations' })
+				: this._session;
+		return session != null && this.isSessionForIntegrationHost(session);
 	}
 
 	@gate()
