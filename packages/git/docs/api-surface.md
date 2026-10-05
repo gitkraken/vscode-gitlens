@@ -82,6 +82,7 @@ provider.dispose();
 - `hasProviders: boolean`
 - `etag: number` — monotonic counter for structural changes
 - `watchService: RepositoryWatchService | undefined`
+- `summaries: WorktreeSummaryService | undefined`
 - Events: `onDidChangeProviders`
 - `dispose(): void`
 
@@ -669,6 +670,7 @@ All in `remotes/`:
 | `RepositoryWatchService` | `watching/watchService.js`    | Manages file watching sessions per repo |
 | `FileWatchingProvider`   | `watching/provider.js`        | Provider interface for file watching    |
 | `GitIgnoreFilter`        | `watching/gitIgnoreFilter.js` | Git ignore pattern filtering            |
+| `WorktreeSummaryService` | `watching/worktreeSummary.js` | Cached, change-notifying worktree state |
 
 ### Parsers (`parsers/`)
 
