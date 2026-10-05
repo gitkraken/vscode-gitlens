@@ -1,5 +1,6 @@
 import type { TextDocumentShowOptions, TextEditor } from 'vscode';
 import { l10n, Uri } from 'vscode';
+import { undefinedOnGitWarning } from '@gitlens/git/errors.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
@@ -160,7 +161,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 									getState: async () => {
 										const items: (CommandQuickPickItem | DirectiveQuickPickItem)[] = [];
 
-										const status = await svc.status.getStatus();
+										const status = await svc.status.getStatus().catch(undefinedOnGitWarning);
 										if (status != null) {
 											for (const f of status.files) {
 												if (f.workingTreeStatus === '?' || f.workingTreeStatus === '!') {

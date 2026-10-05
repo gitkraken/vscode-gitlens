@@ -1,5 +1,6 @@
 import type { Uri } from 'vscode';
 import { l10n, window } from 'vscode';
+import { undefinedOnGitWarning } from '@gitlens/git/errors.js';
 import type { ScmResource } from '../@types/vscode.git.resources.d.js';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums.js';
 import type { Container } from '../container.js';
@@ -58,7 +59,7 @@ export class StashSaveCommand extends GlCommandBase {
 					args = { ...args };
 					args.repoPath = repo.path;
 
-					const status = await repo.git.status.getStatus();
+					const status = await repo.git.status.getStatus().catch(undefinedOnGitWarning);
 					for (const file of status?.files ?? []) {
 						if (file.status === '?') {
 							args.includeUntracked = true;
@@ -153,7 +154,7 @@ export async function getStashSaveArgsForScmStates(
 	let hasWorking = false;
 	let hasUntracked = false;
 
-	const status = await repo?.git.status.getStatus();
+	const status = await repo?.git.status.getStatus().catch(undefinedOnGitWarning);
 	for (const file of status?.files ?? []) {
 		if (file.indexStatus) {
 			hasStaged++;
@@ -225,7 +226,7 @@ export async function getStashSaveArgsForStagedScmGroup(
 	let hasWorking = false;
 	let hasUntracked = false;
 
-	const status = await repo.git.status.getStatus();
+	const status = await repo.git.status.getStatus().catch(undefinedOnGitWarning);
 	for (const file of status?.files ?? []) {
 		if (file.indexStatus) {
 			hasStaged = true;
@@ -283,7 +284,7 @@ export async function getStashSaveArgsForUnstagedScmGroup(
 	let hasWorking = false;
 	let hasUntracked = false;
 
-	const status = await repo?.git.status.getStatus();
+	const status = await repo?.git.status.getStatus().catch(undefinedOnGitWarning);
 	for (const file of status?.files ?? []) {
 		if (file.indexStatus) {
 			hasStaged = true;

@@ -1,5 +1,6 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
 import { l10n, ThemeIcon } from 'vscode';
+import { undefinedOnGitWarning } from '@gitlens/git/errors.js';
 import { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitStashCommit } from '@gitlens/git/models/commit.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
@@ -391,7 +392,7 @@ export async function createRepositoryQuickPickItem(
 ): Promise<RepositoryQuickPickItem> {
 	let repoStatus;
 	if (options?.branch || options?.status) {
-		repoStatus = await repository.git.status.getStatus();
+		repoStatus = await repository.git.status.getStatus().catch(undefinedOnGitWarning);
 	}
 
 	let description = '';

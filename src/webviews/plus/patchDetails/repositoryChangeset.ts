@@ -1,4 +1,5 @@
 import { Disposable } from 'vscode';
+import { undefinedOnGitWarning } from '@gitlens/git/errors.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { PatchRevisionRange } from '@gitlens/git/models/patch.js';
 import type { Container } from '../../../container.js';
@@ -206,7 +207,10 @@ export class RepositoryWipChangeset implements RepositoryChangeset {
 	}
 
 	private async getFiles(): Promise<{ files: Change['files'] }> {
-		const status = await this.container.git.getRepositoryService(this.repository.path).status.getStatus();
+		const status = await this.container.git
+			.getRepositoryService(this.repository.path)
+			.status.getStatus()
+			.catch(undefinedOnGitWarning);
 
 		const files: GitFileChangeShape[] = [];
 		if (status != null) {
