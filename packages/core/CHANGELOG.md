@@ -6,7 +6,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `maxWaitMs` to `RepositoryWatchSession.subscribe` and `subscribeToWorkingTree`, and `defaultRepoMaxWaitMs` / `defaultWorkingTreeMaxWaitMs` to `RepositoryWatchService`'s options: a flush happens no later than that long after the first pending change, however long activity continues. Across subscribers the shortest delay and the shortest max-wait win; `Infinity` opts a subscriber out of the cap (git)
+
 ### Changed
+
+- Changes the watch debounce to flush during continuous activity: repository changes flush at least every 2 s and working-tree changes at least every 10 s by default, where a steady stream of events (a long rebase, a build writing into the working tree) used to defer every flush until it stopped. Recording an event no longer re-arms a timer or allocates an event object (git)
 
 - Changes the `worktrees` repository change to mean only that the worktree list, or what `git worktree list` reports per worktree (its HEAD, lock or location), changed. A linked worktree's own index, paused-operation and HEAD writes reach only that worktree's session, through its own gitdir watcher, instead of waking every worktree sharing the repository as `worktrees`; a sibling's HEAD change still reaches the others as `worktrees`. A main checkout no longer receives each shared `.git` change twice once a linked worktree is watched (git)
 

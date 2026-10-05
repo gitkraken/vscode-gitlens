@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Changes views and the _Commit Graph_ to keep updating during long-running activity, such as a long rebase or a build writing into the working tree, where they used to wait until it stopped
 - Improves performance when working across several worktrees of one repository &mdash; staging changes, or a merge, rebase or cherry-pick pausing, in one worktree no longer refreshes the views and _Commit Graph_ state of every other worktree
 
 ### Fixed
