@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `expectedExitCodes` to `Git.run`'s options: non-zero exit codes that are answers rather than failures, such as `1` from `git diff --quiet`, resolve as `exited` with that code in every `errors` mode, so a read can run with `errors: 'throw'` and still get its answer (git, git-cli)
+- Adds `reason` (`'aborted'`, `'timeout'` or `'unknown'`) to `CancellationError` and `CancelledRunError`, read from how the process ended rather than estimated from its duration, so a consumer can tell a git timeout from a caller abort. A timeout is still a `CancellationError`, and the `reason` on a cancelled `completion` is now exact as well (utils, git, git-cli)
+
 ## [0.9.9] - 2026-10-04
 
 ### Changed

@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { mkdtemp, rm } from 'fs/promises';
+import { mkdtemp, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { execPath } from 'process';
@@ -9,7 +9,7 @@ import { CacheController } from '@gitlens/utils/promiseCache.js';
 import { CancelledRunError, RunError } from '../exec.errors.js';
 import { run, runSpawn } from '../exec.js';
 import type { GitResultCache } from '../exec.types.js';
-import { defaultExceptionHandler, Git } from '../git.js';
+import { defaultExceptionHandler, Git, GitError } from '../git.js';
 
 function nodeArgs(script: string): string[] {
 	return ['-e', script];
@@ -465,6 +465,37 @@ suite('Shell Test Suite', () => {
 			const key = defaultExceptionHandler(new Error("fatal: bad revision 'stash@{0}^3'"), '/repo');
 
 			assert.strictEqual(key, undefined, 'unclassified swallow — callers must treat it as not-an-answer');
+		});
+	});
+
+	suite('Git.run() expectedExitCodes', () => {
+		let cwd: string;
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+
+		suiteSetup(async () => {
+			cwd = await mkdtemp(join(tmpdir(), 'gitlens-exec-test-'));
+			await git.run({ cwd: cwd, errors: 'throw' }, 'init');
+			await writeFile(join(cwd, 'file.txt'), 'staged\n');
+			await git.run({ cwd: cwd, errors: 'throw' }, 'add', 'file.txt');
+			await writeFile(join(cwd, 'file.txt'), 'modified\n');
+		});
+
+		suiteTeardown(async () => {
+			await rm(cwd, { recursive: true, force: true });
+		});
+
+		test('a listed exit code resolves as an exited answer even under errors: throw', async () => {
+			const result = await git.run({ cwd: cwd, errors: 'throw', expectedExitCodes: [1] }, 'diff', '--quiet');
+
+			assert.strictEqual(result.exitCode, 1);
+			assert.strictEqual(result.completion.status, 'exited');
+		});
+
+		test('an unlisted non-zero exit still rejects as a GitError', async () => {
+			await assert.rejects(
+				git.run({ cwd: cwd, errors: 'throw' }, 'diff', '--quiet'),
+				(ex: unknown) => ex instanceof GitError,
+			);
 		});
 	});
 });
