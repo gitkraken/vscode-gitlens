@@ -235,6 +235,10 @@ export class GitLensPage extends VSCodePage {
 		return this.sidebar.getTree(/GitLens/i);
 	}
 
+	async showRepositoriesView(): Promise<void> {
+		await this.executeCommand('gitlens.showRepositoriesView');
+	}
+
 	async showCommitsView(): Promise<void> {
 		await this.executeCommand('gitlens.showCommitsView');
 	}

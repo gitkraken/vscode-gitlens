@@ -229,6 +229,12 @@ const defaultUserSettings: Record<string, unknown> = {
 	// Use custom dialogs for consistent behavior
 	'files.simpleDialog.enable': true,
 	'window.dialogStyle': 'custom',
+	// Same reason, for menus: a spec can only read a menu the editor renders into the DOM, and this
+	// setting covers context menus too ("This also affects the context menu appearance"). Linux and
+	// Windows already draw them that way — measured, the menu specs pass there without it — so pinning
+	// it changes nothing on those and keeps macOS, where the OS draws them instead, from being a
+	// platform the suite silently cannot test.
+	'window.menuStyle': 'custom',
 
 	'gitlens.outputLevel': 'debug',
 	'gitlens.telemetry.enabled': false,
