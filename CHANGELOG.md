@@ -52,6 +52,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Changes the _Commit Graph_ to no longer require an account on public and local repos &mdash; signed-out users get the full graph with no prompts
   - On privately hosted repos, a preview starts automatically on first open, with a persistent notice above the graph showing the time left, a _Sign In_ action, and a reminder that public and local repos stay free; the sign-in screen now appears only after the preview ends (or for unverified accounts)
+  - _Start Work_ and _Start Review_ now ask you to sign in up front instead of implicitly signing you in when connecting an integration
   - Account surfaces get real signed-out states &mdash; the _GitLens Settings_ account panel shows a sign-in card and a _Sign in to use GitKraken AI_ line instead of blank cards, and its footer offers _Sign in_ instead of a _Manage subscription_ link that opened gk.dev signed out
 - Changes the _Commit Graph_ preview for privately hosted repos to one continuous 3-day window &mdash; previously three separate one-day sessions, each started manually with _Continue Preview_
 - Changes _Start Work_ and _Start PR Review_ to follow the `gitlens.ai.openInAgent` setting &mdash; after you pick an issue or pull request they now ask whether to open it in an agent or continue manually, unless you've set a default
