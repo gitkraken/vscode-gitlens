@@ -23,6 +23,7 @@ import {
 	isSelfMergeTarget,
 } from '../../git/utils/-webview/branch.utils.js';
 import { getContributorAvatarUri } from '../../git/utils/-webview/contributor.utils.js';
+import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import type { LaunchpadCategorizedResult } from '../../plus/launchpad/launchpadProvider.js';
 import { getLaunchpadItemGroups } from '../../plus/launchpad/launchpadProvider.js';
 import type {
@@ -124,13 +125,21 @@ export async function getBranchMergeTargetStatusInfo(
 	// only backfills scope anchors from this enrichment, never strips them.
 	if (targetBranch.sha === branch.sha && isSelfMergeTarget(target, branch.name)) return undefined;
 
+	// Conflict detection is Pro — same gate as its siblings (the merge/cherry-pick/rebase wizards and
+	// the pull conflict preview), which this chip's field must agree with. The rest of the chip
+	// (ahead/behind, merged status) stays ungated.
+	const subscription = await container.subscription.getSubscription();
+	const conflictsAllowed = isSubscriptionTrialOrPaidFromState(subscription?.state);
+
 	const [countsResult, conflictResult, mergedStatusResult] = await Promise.allSettled([
 		svc.commits.getLeftRightCommitCount(
 			createRevisionRange(targetBranch.name, branch.ref, '...'),
 			{ excludeMerges: true },
 			cancellation,
 		),
-		svc.branches.getPotentialMergeConflicts?.(branch.name, targetBranch.name, cancellation),
+		conflictsAllowed
+			? svc.branches.getPotentialMergeConflicts?.(branch.name, targetBranch.name, cancellation)
+			: undefined,
 		svc.branches.getBranchMergedStatus?.(branch, targetBranch, cancellation),
 	]);
 
