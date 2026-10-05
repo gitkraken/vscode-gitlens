@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes force-deleting a worktree skipping the uncommitted-changes warning when GitLens couldn't check the worktree for changes &mdash; it now asks before deleting a worktree it couldn't check
 - Fixes a repository or worktree with no commits yet showing no changes when it has staged or modified files
 - Fixes features treating a failed check for changes as "no changes": _Auto-Rebase_ could report a commit as skipped for being empty, applying a patch could skip offering to stash your changes, and _Copy Changes_ could leave out untracked files without saying so
 - Fixes diffs against a repository's first commit failing in a SHA-256 repository, including a stash's untracked files and, for a range starting at the first commit, the _Commit Graph_'s scope file list and _Compose_
