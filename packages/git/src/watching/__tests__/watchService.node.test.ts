@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { mixinDisposable } from '@gitlens/utils/disposable.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri, getRepositoryKey } from '@gitlens/utils/uri.js';
+import { Cache } from '../../cache.js';
 import type { GitDir } from '../../models/repository.js';
 import type { WatcherRepoChangeEvent } from '../changeEvent.js';
 import type { GitIgnoreFilter } from '../gitIgnoreFilter.js';
@@ -807,6 +808,132 @@ describe('RepositoryWatchService', () => {
 			}
 
 			assert.strictEqual(service.getSession('/repo'), undefined);
+		});
+	});
+
+	describe('overflow', () => {
+		it('pushes one incomplete working-tree change', async () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory, defaultWorkingTreeDelayMs: 20 });
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			const received: boolean[] = [];
+			wtSub.onDidChangeWorkingTree(e => received.push(e.incomplete));
+
+			watchers.find(w => w.basePath === '/repo')!.fire({ path: '/repo', reason: 'overflow' });
+			await delay(60);
+
+			assert.deepStrictEqual(received, [true]);
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('pushes it before the gitignore filter is ready', async () => {
+			const { factory, watchers } = createMockFactory();
+			const filter = {
+				ready: () => new Promise<void>(() => {}),
+				isIgnored: () => false,
+				refresh: () => Promise.resolve(),
+			} as unknown as GitIgnoreFilter;
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultWorkingTreeDelayMs: 20,
+				getIgnoreFilter: () => filter,
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			const received: boolean[] = [];
+			wtSub.onDidChangeWorkingTree(e => received.push(e.incomplete));
+
+			watchers.find(w => w.basePath === '/repo')!.fire({ path: '/repo/sub', reason: 'overflow' });
+			await delay(60);
+
+			assert.deepStrictEqual(received, [true]);
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('reloads the ignore rules, since a lost .gitignore edit would leave them stale', async () => {
+			const { factory, watchers } = createMockFactory();
+			let refreshes = 0;
+			const filter = {
+				ready: () => Promise.resolve(),
+				isIgnored: () => false,
+				refresh: () => {
+					refreshes++;
+					return Promise.resolve();
+				},
+			} as unknown as GitIgnoreFilter;
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 20,
+				defaultWorkingTreeDelayMs: 20,
+				getIgnoreFilter: () => filter,
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const sub = handle.session.subscribe({ delayMs: 20 });
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			const changes: string[][] = [];
+			sub.onDidChange(e => changes.push([...e.changes]));
+
+			watchers.find(w => w.basePath === '/repo')!.fire({ path: '/repo', reason: 'overflow' });
+			await delay(60);
+
+			assert.strictEqual(refreshes, 1);
+			assert.deepStrictEqual(changes, [['ignores']]);
+
+			wtSub.dispose();
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('a .git overflow clears the cache without unregistering the worktree', async () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory, defaultRepoDelayMs: 20 });
+			const cache = new Cache();
+			const gitDir = worktreeGitDir('/repo/.git/worktrees/wt', '/repo/.git');
+			cache.registerRepoPath(fileUri('/worktrees/wt'), gitDir);
+			assert.ok(cache.isRegistered('/worktrees/wt'));
+
+			const changes: string[][] = [];
+			service.onDidChangeRepository(e => {
+				changes.push([...e.changes]);
+				cache.onRepositoryChanged(e.repoPath, e.changes);
+			});
+
+			const handle = service.watch('/worktrees/wt', gitDir);
+			assertHandle(handle);
+			const sub = handle.session.subscribe({ delayMs: 20 });
+
+			watchers
+				.find(w => w.basePath === '/repo/.git/worktrees/wt')!
+				.fire({
+					path: '/repo/.git/worktrees/wt',
+					reason: 'overflow',
+				});
+			await delay(60);
+
+			assert.strictEqual(changes.length, 1);
+			assert.ok(changes[0].includes('heads'));
+			assert.ok(!changes[0].includes('unknown'));
+			assert.ok(cache.isRegistered('/worktrees/wt'), 'overflow must not unregister the path');
+			assert.strictEqual(cache.isWorktree('/worktrees/wt'), true);
+
+			// Control: 'unknown' is what would have unregistered it
+			cache.onRepositoryChanged('/worktrees/wt', ['unknown']);
+			assert.ok(!cache.isRegistered('/worktrees/wt'));
+
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
 		});
 	});
 

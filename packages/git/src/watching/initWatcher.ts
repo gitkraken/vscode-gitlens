@@ -6,7 +6,11 @@ import type { FileWatcher, FileWatchingProvider } from './provider.js';
 import { gitInitGlob } from './watcherPatterns.js';
 
 export interface RepositoryInitEvent {
-	/** Absolute path of the created .git directory */
+	/**
+	 * Absolute path of the created .git directory. After the watcher lost events (`overflow`), it is instead the base
+	 * path or the subtree whose events were dropped — a `.git` may have been created anywhere beneath it, so the host
+	 * rescans it for repositories.
+	 */
 	readonly path: string;
 	/** Absolute path of the base directory being watched */
 	readonly basePath: string;
@@ -60,7 +64,7 @@ export class RepositoryInitWatcher implements UnifiedDisposable {
 		}
 
 		const watcher = this.provider.createWatcher(basePath, gitInitGlob, event => {
-			if (event.reason !== 'create') return;
+			if (event.reason !== 'create' && event.reason !== 'overflow') return;
 
 			this.emitter.fire({ path: event.path, basePath: basePath });
 		});
