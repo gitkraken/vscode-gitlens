@@ -326,3 +326,138 @@ suite('CloudIntegrationService — transient vs terminal failure classification 
 		);
 	});
 });
+
+suite('CloudIntegrationService error bodies', () => {
+	function createService(body: string, status: number) {
+		const runtime = createFakeRuntime();
+		runtime.account.fetchGkApi = async () => new Response(body, { status: status });
+		return { service: new CloudIntegrationService(runtime), runtime: runtime };
+	}
+
+	const malformedBodies = [
+		{ label: 'empty 429', status: 429, body: '' },
+		{ label: 'HTML 502', status: 502, body: '<html><body>Bad Gateway</body></html>' },
+	];
+	for (const { label, status, body } of [
+		...malformedBodies,
+		{ label: 'JSON null', status: 429, body: 'null' },
+		{ label: 'missing error', status: 502, body: '{}' },
+		{ label: 'string error', status: 429, body: '{"error":"rate limited"}' },
+		{ label: 'object error', status: 502, body: '{"error":{"message":"unavailable"}}' },
+	]) {
+		test(`getConnections reports and returns undefined for ${label}`, async () => {
+			const { service, runtime } = createService(body, status);
+			assert.equal(await service.getConnections(), undefined);
+			assert.deepEqual(runtime.emittedEvents, [
+				{ event: 'integration.connections.fetch.failed', props: { code: status } },
+			]);
+		});
+
+		test(`getConnectionSession reports a retryable failure for ${label}`, async () => {
+			const { service, runtime } = createService(body, status);
+			await assert.rejects(service.getConnectionSession(GitCloudHostIntegrationId.GitHub), {
+				name: 'Error',
+				message: `Retryable failure (${status}) getting github token from cloud`,
+			});
+			assert.deepEqual(runtime.emittedEvents, [
+				{
+					event: 'integration.connection.fetch.failed',
+					props: { id: GitCloudHostIntegrationId.GitHub, code: status, refreshing: false },
+				},
+			]);
+		});
+
+		for (const method of ['disconnect', 'disconnectConnection', 'setPrimaryConnection'] as const) {
+			test(`${method} returns false for ${label}`, async () => {
+				const { service, runtime } = createService(body, status);
+				assert.equal(await service[method](GitCloudHostIntegrationId.GitHub, 'secondary-tok'), false);
+				assert.deepEqual(
+					runtime.emittedEvents,
+					method === 'setPrimaryConnection'
+						? []
+						: [
+								{
+									event: 'integration.connection.disconnect.failed',
+									props: { id: GitCloudHostIntegrationId.GitHub, code: status },
+								},
+							],
+				);
+			});
+		}
+	}
+
+	for (const { label, status, body } of malformedBodies) {
+		for (const connectionId of [undefined, 'secondary/tok']) {
+			for (const fallbackStatus of [200, 404, 503]) {
+				test(`refresh after ${label} uses fallback ${fallbackStatus} for ${connectionId ?? 'primary'}`, async () => {
+					const { service, runtime } = createService(body, status);
+					const calls: FetchCall[] = [];
+					runtime.account.fetchGkApi = async (path, init) => {
+						calls.push({ path: path, method: init?.method, body: init?.body as string | undefined });
+						return calls.length === 1
+							? new Response(body, { status: status })
+							: new Response(
+									fallbackStatus === 200
+										? JSON.stringify({
+												data: { tokenId: connectionId, accessToken: 'fresh', type: 'oauth' },
+											})
+										: '',
+									{ status: fallbackStatus },
+								);
+					};
+					const result = service.getConnectionSession(
+						GitCloudHostIntegrationId.GitHub,
+						'stale',
+						connectionId,
+					);
+					if (fallbackStatus === 503) {
+						await assert.rejects(result, {
+							name: 'Error',
+							message: 'Retryable failure (503) refreshing github token from cloud',
+						});
+					} else if (fallbackStatus === 404) {
+						assert.equal(await result, undefined);
+					} else {
+						const session = await result;
+						assert.equal(session?.accessToken, 'fresh');
+						assert.equal(session?.id, connectionId);
+					}
+
+					const path =
+						connectionId == null
+							? 'v1/provider-tokens/github'
+							: 'v1/provider-tokens/tokens/secondary%2Ftok';
+					assert.deepEqual(calls, [
+						{ path: `${path}/refresh`, method: 'POST', body: JSON.stringify({ access_token: 'stale' }) },
+						{ path: path, method: 'GET', body: undefined },
+					]);
+					assert.deepEqual(reportedFetchFailures(runtime), [
+						{ code: status, refreshing: true },
+						...(fallbackStatus === 200 ? [] : [{ code: fallbackStatus, refreshing: false }]),
+					]);
+				});
+			}
+		}
+	}
+
+	for (const status of [400, 404, 410, 422]) {
+		test(`empty terminal ${status} still reports and returns undefined`, async () => {
+			const runtime = createFakeRuntime();
+			runtime.account.fetchGkApi = async () => new Response('', { status: status });
+			const service = new CloudIntegrationService(runtime);
+			assert.equal(await service.getConnectionSession(GitCloudHostIntegrationId.GitHub), undefined);
+			assert.deepEqual(reportedFetchFailures(runtime), [{ code: status, refreshing: false }]);
+		});
+	}
+
+	test('network rejection propagates without being mistaken for an HTTP failure', async () => {
+		const runtime = createFakeRuntime();
+		const error = new TypeError('Network failure');
+		runtime.account.fetchGkApi = async () => {
+			throw error;
+		};
+		const service = new CloudIntegrationService(runtime);
+		await assert.rejects(service.getConnections(), e => e === error);
+		assert.deepEqual(runtime.emittedEvents, []);
+	});
+});

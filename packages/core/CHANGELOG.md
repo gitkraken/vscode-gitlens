@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes cloud integration operations throwing a JSON parse error when the GitKraken API returns an empty or non-JSON error body, preserving failure notifications, token refresh fallback, and retryable status classification ([#5932](https://github.com/gitkraken/vscode-gitlens/issues/5932)) (plus/integrations)
+
 ## [0.10.0] - 2026-10-04
 
 ### Added
