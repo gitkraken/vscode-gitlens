@@ -1,5 +1,6 @@
+import type { Event } from '@gitlens/utils/event.js';
 import type { Uri } from '@gitlens/utils/uri.js';
-import type { CachedGitTypes } from '../cache.js';
+import type { CachedGitTypes, MergeTargetsChangeEvent } from '../cache.js';
 import type { RepositoryChange } from '../models/repository.js';
 import type { GitIgnoreFilter } from '../watching/gitIgnoreFilter.js';
 import type { GitBlameSubProvider } from './blame.js';
@@ -57,6 +58,11 @@ export interface GitProvider {
 	getIgnoredDirectories?(repoPath: string, cancellation?: AbortSignal): Promise<string[]>;
 	getIgnoredUrisFilter?(repoPath: string): Promise<(uri: Uri) => boolean>;
 	getLastFetchedTimestamp?(repoPath: string): Promise<number | undefined>;
+	/**
+	 * Fires when an external write changed a branch's merge-relevant `.git/gk/config` keys — not for activity
+	 * timestamps, and not for the provider's own writes. See `Cache.onDidChangeMergeTargets`.
+	 */
+	readonly onDidChangeMergeTargets?: Event<MergeTargetsChangeEvent>;
 	/** Creates a new repository at `path` (`git init`), creating `path` itself if it doesn't yet exist. */
 	init?(path: string, options?: { defaultBranch?: string; bare?: boolean }): Promise<void>;
 	/**

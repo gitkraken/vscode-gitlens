@@ -5,6 +5,7 @@ import { Emitter } from '@gitlens/utils/event.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { getRepositoryKey } from '@gitlens/utils/uri.js';
+import type { MergeTargetsChangeEvent } from './cache.js';
 import type { GitProvider } from './providers/provider.js';
 import type { RepositoryService, SubProviderForRepo } from './repositoryService.js';
 import {
@@ -44,6 +45,11 @@ export type ValidateRepoResult =
 interface RegisteredProvider {
 	provider: GitProvider;
 	canHandle: (repoPath: string) => boolean;
+}
+
+interface MergeTargetsSource {
+	readonly subscription: UnifiedDisposable;
+	refCount: number;
 }
 
 /**
@@ -89,6 +95,19 @@ export class GitService implements UnifiedDisposable {
 		return this._onDidChangeProviders.event;
 	}
 
+	private readonly _onDidChangeMergeTargets = new Emitter<MergeTargetsChangeEvent>();
+	/**
+	 * Fires when an external write changed a branch's merge-relevant `.git/gk/config` keys, for any registered
+	 * provider that reports it — never for activity timestamps or core's own writes. Once per change per repository
+	 * (`repoPath` is its common path); see {@link MergeTargetsChangeEvent}.
+	 */
+	get onDidChangeMergeTargets(): Event<MergeTargetsChangeEvent> {
+		return this._onDidChangeMergeTargets.event;
+	}
+
+	/** Keyed by the provider's event, so providers sharing one cache are forwarded once */
+	private readonly _mergeTargetsSources = new Map<Event<MergeTargetsChangeEvent>, MergeTargetsSource>();
+
 	private _etag = 0;
 	private readonly _providers: RegisteredProvider[] = [];
 	private readonly _serviceCache = new Map<string, RepositoryService>();
@@ -128,7 +147,13 @@ export class GitService implements UnifiedDisposable {
 		// Don't dispose providers since they're owned by the caller, but do clear the array to release references
 		this._providers.length = 0;
 
+		for (const source of this._mergeTargetsSources.values()) {
+			source.subscription.dispose();
+		}
+		this._mergeTargetsSources.clear();
+
 		this._onDidChangeProviders.dispose();
+		this._onDidChangeMergeTargets.dispose();
 	}
 
 	/** Monotonically increasing counter incremented on structural changes. */
@@ -159,6 +184,7 @@ export class GitService implements UnifiedDisposable {
 		const entry: RegisteredProvider = { provider: provider, canHandle: canHandle };
 		this._providers.push(entry);
 		this._etag++;
+		this.addMergeTargetsSource(provider);
 
 		this._onDidChangeProviders.fire({
 			added: [provider],
@@ -174,6 +200,7 @@ export class GitService implements UnifiedDisposable {
 			if (idx !== -1) {
 				this._providers.splice(idx, 1);
 				this._etag++;
+				this.removeMergeTargetsSource(provider);
 				this._serviceCache.clear();
 
 				this._onDidChangeProviders.fire({
@@ -183,6 +210,33 @@ export class GitService implements UnifiedDisposable {
 				});
 			}
 		});
+	}
+
+	private addMergeTargetsSource(provider: GitProvider): void {
+		const event = provider.onDidChangeMergeTargets;
+		if (event == null) return;
+
+		const source = this._mergeTargetsSources.get(event);
+		if (source != null) {
+			source.refCount++;
+			return;
+		}
+
+		this._mergeTargetsSources.set(event, {
+			subscription: event(e => this._onDidChangeMergeTargets.fire(e)),
+			refCount: 1,
+		});
+	}
+
+	private removeMergeTargetsSource(provider: GitProvider): void {
+		const event = provider.onDidChangeMergeTargets;
+		if (event == null) return;
+
+		const source = this._mergeTargetsSources.get(event);
+		if (source == null || --source.refCount > 0) return;
+
+		source.subscription.dispose();
+		this._mergeTargetsSources.delete(event);
 	}
 
 	/** Returns the provider that can handle the given path, or undefined if none matches. */

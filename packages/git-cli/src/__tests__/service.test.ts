@@ -1,10 +1,12 @@
 import * as assert from 'assert';
+import type { MergeTargetsChangeEvent } from '@gitlens/git/cache.js';
 import { Cache } from '@gitlens/git/cache.js';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
 import type { GitService } from '@gitlens/git/service.js';
 import type { FileWatchEvent, FileWatchingProvider } from '@gitlens/git/watching/provider.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { fileUri } from '@gitlens/utils/uri.js';
+import { CliGitProvider } from '../cliGitProvider.js';
 import { createCliGitService } from '../service.js';
 
 suite('createCliGitService — watch bridging', () => {
@@ -55,5 +57,26 @@ suite('createCliGitService — watch bridging', () => {
 
 		sub.dispose();
 		handle.dispose();
+	});
+
+	test('forwards merge-target changes once, even from two providers sharing one cache', async () => {
+		const received: MergeTargetsChangeEvent[] = [];
+		service.onDidChangeMergeTargets(e => received.push(e));
+
+		const second = new CliGitProvider({
+			context: { fs: {} as unknown as FileSystemProvider },
+			locator: async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' }),
+			cache: cache,
+		});
+		const registration = service.register(second, () => false);
+
+		// No baseline was ever read, so whatever the reconcile finds, any branch may have changed
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		await new Promise(resolve => setTimeout(resolve, 50));
+
+		assert.deepStrictEqual(received, [{ repoPath: repoPath, refs: undefined }]);
+
+		registration.dispose();
+		second.dispose();
 	});
 });
