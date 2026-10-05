@@ -480,11 +480,13 @@ export class BranchNode
 		}
 	}
 
-	private _worktreeHasWorkingChanges: boolean | undefined;
+	/** `null` remembers a failed check (e.g. a deleted worktree folder) until the next reset, rather than re-running it on every redraw */
+	private _worktreeHasWorkingChanges: boolean | null | undefined;
 	private async getWorktreeHasWorkingChanges(): Promise<boolean | undefined> {
-		this._worktreeHasWorkingChanges ??=
-			this.worktree != null ? await GitWorktree.hasWorkingChanges(this.worktree) : undefined;
-		return this._worktreeHasWorkingChanges;
+		if (this._worktreeHasWorkingChanges === undefined && this.worktree != null) {
+			this._worktreeHasWorkingChanges = await GitWorktree.hasWorkingChanges(this.worktree).catch(() => null);
+		}
+		return this._worktreeHasWorkingChanges ?? undefined;
 	}
 
 	private async getAssociatedPullRequest(

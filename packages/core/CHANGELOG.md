@@ -11,6 +11,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `expectedExitCodes` to `Git.run`'s options: non-zero exit codes that are answers rather than failures, such as `1` from `git diff --quiet`, resolve as `exited` with that code in every `errors` mode, so a read can run with `errors: 'throw'` and still get its answer (git, git-cli)
 - Adds `reason` (`'aborted'`, `'timeout'` or `'unknown'`) to `CancellationError` and `CancelledRunError`, read from how the process ended rather than estimated from its duration, so a consumer can tell a git timeout from a caller abort. A timeout is still a `CancellationError`, and the `reason` on a cancelled `completion` is now exact as well (utils, git, git-cli)
 
+### Changed
+
+- **Breaking (git, git-cli)** — `status.getUntrackedFiles`, `getConflictingFiles`, `hasConflictingFiles`, `getWorkingChangesState` and `hasWorkingChanges` reject when git fails, with a `GitError` carrying git's `stderr`, where they used to answer empty or `false`; an empty or `false` answer now always means git ran and found nothing. Cancellation still rejects with `CancellationError`. `hasWorkingChanges`'s `throwOnError` option is removed (it could not surface a git failure anyway), so catch the rejection where a fallback is wanted. `diff.getDiffStatus` and `getChangedFilesCount` with `includeUntracked` still leave untracked files out when the listing fails, unless called with `errors: 'throw'`, which now rejects for it too
+
+### Fixed
+
+- Fixes `hasWorkingChanges` reporting a repository with no commits as clean when it has staged or modified files: before the first commit it compares against the empty tree (git-cli)
+
 ## [0.9.9] - 2026-10-04
 
 ### Changed

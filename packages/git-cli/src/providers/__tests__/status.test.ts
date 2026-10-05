@@ -3,7 +3,9 @@ import { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { CliGitProviderInternal } from '../../cliGitProvider.js';
+import { RunError } from '../../exec/exec.errors.js';
 import type { Git } from '../../exec/git.js';
+import { GitError } from '../../exec/git.js';
 import { computeDeadlockBackstopMs, StatusGitSubProvider } from '../status.js';
 
 const repoPath = '/test/repo';
@@ -288,7 +290,7 @@ suite('StatusGitSubProvider — generation-stamped dedup', () => {
 		const fake = createDeferredGit();
 		const provider = createProvider(cache, fake.git);
 
-		// Same options -> shared run; a throwOnError:true caller must NOT join a graceful run (different key).
+		// Same options -> shared run; a different priority must NOT join (it would inherit the other lane's scheduling).
 		void provider.hasWorkingChanges(repoPath, { staged: true, unstaged: true, untracked: false });
 		void provider.hasWorkingChanges(repoPath, { staged: true, unstaged: true, untracked: false });
 		await flush();
@@ -298,12 +300,30 @@ suite('StatusGitSubProvider — generation-stamped dedup', () => {
 			staged: true,
 			unstaged: true,
 			untracked: false,
-			throwOnError: true,
+			priority: 'background',
 		});
 		await flush();
 
 		assert.strictEqual(sharedRuns, 1, 'identical-option callers share one run');
-		assert.strictEqual(fake.runs, 2, 'a throwOnError:true caller must start its own run (not join a graceful one)');
+		assert.strictEqual(fake.runs, 2, 'a caller with a different priority must start its own run');
+	});
+
+	test('getUntrackedFiles rejects when git fails rather than answering empty', async () => {
+		const failure = new GitError(
+			new RunError(
+				{ message: 'Command failed with exit code 128', code: 128 },
+				'',
+				'fatal: not a git repository (or any of the parent directories): .git',
+			),
+		);
+		const git = {
+			options: { gitTimeout: 60000 },
+			supports: () => Promise.resolve(true),
+			run: () => Promise.reject(failure),
+		};
+		const provider = createProvider(cache, git as unknown as Git);
+
+		await assert.rejects(provider.getUntrackedFiles(repoPath), (ex: unknown) => ex === failure);
 	});
 
 	test('one caller cancelling does not reject or kill a co-joined caller', async () => {

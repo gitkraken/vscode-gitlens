@@ -42,17 +42,16 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 		const scope = getScopedLogger();
 
 		if (options?.stash) {
-			// Stash any changes first
-			const hasChanges = await this.provider.status?.hasWorkingChanges(repoPath);
-			if (hasChanges) {
-				try {
+			// Stash any changes first; a failed check for them fails the stash too
+			try {
+				if (await this.provider.status?.hasWorkingChanges(repoPath)) {
 					await this.provider.stash.saveStash(repoPath, undefined, undefined, {
 						includeUntracked: true,
 					});
-				} catch (ex) {
-					scope?.error(ex);
-					throw new ApplyPatchCommitError({ reason: 'stashFailed' }, ex as Error);
 				}
+			} catch (ex) {
+				scope?.error(ex);
+				throw new ApplyPatchCommitError({ reason: 'stashFailed' }, ex as Error);
 			}
 		}
 

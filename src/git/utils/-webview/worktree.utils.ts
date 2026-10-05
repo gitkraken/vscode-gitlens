@@ -218,7 +218,6 @@ export async function getWorktreeHasWorkingChanges(
 		staged?: boolean;
 		unstaged?: boolean;
 		untracked?: boolean;
-		throwOnError?: boolean;
 		priority?: GitCommandPriority;
 	},
 ): Promise<boolean | undefined> {

@@ -185,7 +185,17 @@ export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 				try {
 					if (state.changes.type !== 'index') {
 						// stage any untracked files to include them in the diff
-						untrackedPaths = (await sourceSvc.status?.getUntrackedFiles())?.map(f => f.path);
+						try {
+							untrackedPaths = (await sourceSvc.status?.getUntrackedFiles())?.map(f => f.path);
+						} catch (ex) {
+							if (isCancellationError(ex)) return;
+
+							void window.showErrorMessage(
+								l10n.t('Unable to copy changes: {0}', getPresentableErrorMessage(ex)),
+							);
+							return;
+						}
+
 						if (untrackedPaths?.length) {
 							try {
 								await sourceSvc.staging?.stageFiles(untrackedPaths);
