@@ -6,7 +6,7 @@ import type { GitConflictFile } from '@gitlens/git/models/staging.js';
 import { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitStatusFile } from '@gitlens/git/models/statusFile.js';
 import type { GitStatusSubProvider, GitWorkingChangesState } from '@gitlens/git/providers/status.js';
-import type { GitCommandPriority } from '@gitlens/git/run.types.js';
+import type { GitCommandPriority, GitErrorHandling } from '@gitlens/git/run.types.js';
 import { raceWithTimeout } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
@@ -20,7 +20,7 @@ import { toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { GitResult } from '../exec/exec.types.js';
 import type { Git } from '../exec/git.js';
-import { gitConfigsStatus, GitErrors } from '../exec/git.js';
+import { defaultExceptionHandler, gitConfigsStatus, GitErrors } from '../exec/git.js';
 import { parseGitConflictFiles } from '../parsers/indexParser.js';
 import { parseGitStatus } from '../parsers/statusParser.js';
 
@@ -172,6 +172,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 				correlationKey: options?.correlationKey,
 				untracked: options?.untracked,
 				branch: options?.branch,
+				errors: 'throw',
 			},
 			cancellation,
 		);
@@ -244,7 +245,11 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		// SAME full `git status` as `getStatus`. Delegate to it — sharing one process/dedup entry — and filter,
 		// rather than spawning a second identical `git status`.
 		if (options.renames !== false) {
-			const status = await this.getStatus(repoPath, undefined, cancellation);
+			// The rename path keeps the default handling the scoped read gets
+			const status = await this.getStatus(repoPath, undefined, cancellation).catch((ex: unknown) => {
+				defaultExceptionHandler(ex as Error, repoPath);
+				return undefined;
+			});
 			if (status == null) return undefined;
 
 			if (options.exact) {
@@ -293,6 +298,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			correlationKey?: string;
 			untracked?: 'no' | 'normal' | 'all';
 			branch?: false;
+			errors?: GitErrorHandling;
 		},
 		cancellation?: AbortSignal,
 		...pathspecs: string[]
@@ -315,6 +321,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 				configs: gitConfigsStatus,
 				env: { GIT_OPTIONAL_LOCKS: '0' },
 				correlationKey: options?.correlationKey,
+				...(options?.errors != null ? { errors: options.errors } : undefined),
 				...(options?.priority != null ? { priority: options.priority } : undefined),
 			},
 			...params,

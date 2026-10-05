@@ -12,6 +12,7 @@ export interface GitWorkingChangesState {
 }
 
 export interface GitStatusSubProvider {
+	/** Rejects when git fails; resolves `undefined` only for an undefined `repoPath` */
 	getStatus(
 		repoPath: string | undefined,
 		options?: {

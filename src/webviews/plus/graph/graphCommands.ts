@@ -2,6 +2,7 @@ import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import type { MessageItem, TextDocumentShowOptions, ViewColumn } from 'vscode';
 import { env, l10n, ProgressLocation, Uri, window } from 'vscode';
 import { getAcceptSequenceEditor, getSquashSequenceEditor } from '@env/git/squashEditor.js';
+import { undefinedOnGitWarning } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { GitContributor } from '@gitlens/git/models/contributor.js';
@@ -1608,7 +1609,7 @@ export class GraphCommands {
 		const repo = args?.repoPath != null ? this.container.git.getRepository(args.repoPath) : this.repository;
 		if (repo == null) return;
 
-		const status = await repo.git.status.getStatus();
+		const status = await repo.git.status.getStatus().catch(undefinedOnGitWarning);
 		if (status == null) {
 			void window.showErrorMessage(l10n.t('Unable to create cloud patch'));
 			return;

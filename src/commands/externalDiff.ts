@@ -3,6 +3,7 @@ import { env, l10n, Uri, window } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import { isUncommitted, isUncommittedStaged } from '@gitlens/git/utils/revision.utils.js';
 import { filterMap } from '@gitlens/utils/array.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { ScmResource } from '../@types/vscode.git.resources.d.js';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums.js';
@@ -110,7 +111,17 @@ export class ExternalDiffCommand extends GlCommandBase {
 				);
 				if (repository == null) return;
 
-				const status = await this.container.git.getRepositoryService(repository.uri).status.getStatus();
+				let status;
+				try {
+					status = await this.container.git.getRepositoryService(repository.uri).status.getStatus();
+				} catch (ex) {
+					if (isCancellationError(ex)) return;
+
+					Logger.error(ex, 'ExternalDiffCommand');
+					void showGenericErrorMessage(l10n.t('Unable to open changes in diff tool'));
+					return;
+				}
+
 				if (status == null) {
 					return void window.showInformationMessage(l10n.t("The repository doesn't have any changes"));
 				}

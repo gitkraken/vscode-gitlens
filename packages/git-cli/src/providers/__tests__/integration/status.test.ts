@@ -172,15 +172,36 @@ function createUnbornRepo(): string {
 suite('StatusSubProvider — reads reject when git fails', () => {
 	let repo: TestRepo;
 	let notARepoPath: string;
+	let bareRepoPath: string;
 
 	suiteSetup(() => {
 		repo = createTestRepo();
 		notARepoPath = mkdtempSync(join(tmpdir(), 'gitlens-not-a-repo-'));
+		bareRepoPath = mkdtempSync(join(tmpdir(), 'gitlens-bare-repo-'));
+		execFileSync('git', ['init', '--bare'], { cwd: bareRepoPath });
 	});
 
 	suiteTeardown(() => {
 		rmSync(notARepoPath, { recursive: true, force: true });
+		rmSync(bareRepoPath, { recursive: true, force: true });
 		repo.cleanup();
+	});
+
+	test('getStatus rejects outside a repository', async () => {
+		await assert.rejects(repo.provider.status.getStatus(notARepoPath), isNotARepositoryError);
+	});
+
+	test('getStatus rejects in a bare repository', async () => {
+		await assert.rejects(repo.provider.status.getStatus(bareRepoPath), (ex: unknown) => ex instanceof GitError);
+	});
+
+	test('getStatusForFile and getStatusForPath still resolve undefined outside a repository', async () => {
+		assert.strictEqual(await repo.provider.status.getStatusForFile?.(notARepoPath, 'a.txt'), undefined);
+		assert.strictEqual(await repo.provider.status.getStatusForPath?.(notARepoPath, 'a.txt'), undefined);
+		assert.strictEqual(
+			await repo.provider.status.getStatusForPath?.(notARepoPath, 'a.txt', { renames: false }),
+			undefined,
+		);
 	});
 
 	test('getUntrackedFiles rejects outside a repository', async () => {
