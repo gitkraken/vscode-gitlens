@@ -3,8 +3,8 @@ import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import type { RepositoryChange } from '../models/repository.js';
-import type { WorkingTreeChangeEvent } from './changeEvent.js';
-import { WatcherRepoChangeEvent } from './changeEvent.js';
+import type { RefChangeKind, WorkingTreeChangeEvent } from './changeEvent.js';
+import { findCoveringRefName, getRefChangeKind, isRefChangeKind, WatcherRepoChangeEvent } from './changeEvent.js';
 
 export interface RepositorySubscription extends UnifiedDisposable {
 	readonly onDidChange: Event<WatcherRepoChangeEvent>;
@@ -203,6 +203,12 @@ class DebounceClock {
 const maxWorkingTreePaths = 1000;
 
 /**
+ * Cap on retained ref names per flush, for the same reason (a fetch of many refs while suspended). Past it, a ref kind
+ * is recorded unnamed — any ref of that kind may have moved — which only makes `mayHaveChangedRef` more conservative.
+ */
+const maxPendingRefNames = 1000;
+
+/**
  * Per-repository session that owns the debounce/coalesce/suspend
  * pipeline for both repo (.git) and working-tree changes.
  *
@@ -216,6 +222,10 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	private readonly repoSubscribers = new Map<number, DebounceTiming>(); // subscriberId → timing
 	private repoNextId = 0;
 	private readonly pendingRepoChanges = new Set<RepositoryChange>();
+	/** Full ref names, ref directories and pseudo-refs whose files changed, flushed with {@link pendingRepoChanges} */
+	private readonly pendingRepoRefs = new Set<string>();
+	/** Ref kinds that changed without a name, flushed with {@link pendingRepoChanges} */
+	private readonly pendingRepoUnnamedRefKinds = new Set<RefChangeKind>();
 	private readonly repoClock: DebounceClock;
 	private effectiveRepoMs: number;
 	private effectiveRepoMaxWaitMs: number;
@@ -283,7 +293,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.repoClock.cancel();
 		this.workingTreeClock.cancel();
 
-		this.pendingRepoChanges.clear();
+		this.clearPendingRepoChanges();
 		this.pendingWorkingTreePaths.clear();
 		this.pendingWorkingTreeIncomplete = false;
 		this.repoSubscribers.clear();
@@ -334,8 +344,20 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	 * When multiple subscribers exist, the shortest debounce wins —
 	 * all subscribers fire on the same (fastest) cadence. `maxWaitMs` bounds how long continuous
 	 * activity can defer a flush (the shortest wins too); `Infinity` means no cap.
+	 *
+	 * `relevantRefs` narrows THIS subscription's events to the refs it cares about, given as full ref names
+	 * (`refs/heads/main`, `refs/remotes/origin/main`, `refs/tags/v1`, `refs/stash`). It is read at delivery, so it can
+	 * return the subscriber's current list. A `heads`/`remotes`/`tags`/`stash` change is delivered only when a listed
+	 * ref of that kind may have moved, when the change isn't attributable to a name (e.g. a `packed-refs` rewrite),
+	 * or, for `heads`, when a pseudo-ref (`HEAD`, `ORIG_HEAD`) moved — so `stash` and `tags` changes are dropped unless
+	 * a ref of that kind is listed. Other change kinds always pass, and an event left with no changes isn't delivered.
+	 * The filter never affects other subscribers, the debounce, or the global `onDidFireRepoChange` forwarding.
 	 */
-	subscribe(opts?: { delayMs?: number; maxWaitMs?: number }): RepositorySubscription {
+	subscribe(opts?: {
+		delayMs?: number;
+		maxWaitMs?: number;
+		relevantRefs?: () => Iterable<string>;
+	}): RepositorySubscription {
 		if (this._disposed) {
 			return Object.assign(
 				createDisposable(() => {}),
@@ -373,11 +395,16 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 				if (this.repoSubscribers.size === 0) {
 					this.repoClock.cancel();
-					this.pendingRepoChanges.clear();
+					this.clearPendingRepoChanges();
 					this.lifecycle?.onLastRepoSubscriber?.();
 				}
 			}),
-			{ onDidChange: this.repoEmitter.event },
+			{
+				onDidChange:
+					opts?.relevantRefs != null
+						? createRelevantRefsEvent(this.repoEmitter.event, opts.relevantRefs)
+						: this.repoEmitter.event,
+			},
 		);
 	}
 
@@ -448,14 +475,17 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.workingTreeClock.resume(delayMs);
 	}
 
-	/** Inject changes (e.g., after a git operation the caller performed). Goes through debounce + suspend. */
+	/**
+	 * Inject changes (e.g., after a git operation the caller performed). Goes through debounce + suspend. Ref kinds
+	 * among them are unnamed — any ref of that kind may have moved.
+	 */
 	fireChange(...changes: RepositoryChange[]): void {
 		if (this._disposed || changes.length === 0) return;
 
 		this.coalesceRepo(changes);
 	}
 
-	/** Immediate fire, bypassing debounce + suspend (for Closed/Opened). */
+	/** Immediate fire, bypassing debounce + suspend (for Closed/Opened). Ref kinds among them are unnamed. */
 	fireChangeImmediate(...changes: RepositoryChange[]): void {
 		if (this._disposed || changes.length === 0) return;
 
@@ -467,11 +497,14 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.repoEmitter.fire(event);
 	}
 
-	/** Push interpreted repo changes into the pipeline */
-	pushRepoChanges(changes: RepositoryChange[]): void {
+	/**
+	 * Push interpreted repo changes into the pipeline. `ref` is the full ref name (or ref directory, or pseudo-ref) whose
+	 * file changed; a ref kind in `changes` is attributed to it when the kinds match, and is otherwise unnamed.
+	 */
+	pushRepoChanges(changes: RepositoryChange[], ref?: string): void {
 		if (this._disposed) return;
 
-		this.coalesceRepo(changes);
+		this.coalesceRepo(changes, ref);
 	}
 
 	/** Push working tree file changes into the pipeline */
@@ -531,22 +564,43 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	private flushRepo(): void {
 		if (this.pendingRepoChanges.size === 0) return;
 
-		// The event is built only here — raw events just add to the pending set
-		const event = new WatcherRepoChangeEvent(this.repoPath, [...this.pendingRepoChanges]);
-		this.pendingRepoChanges.clear();
+		// The event is built only here — raw events just add to the pending sets (which the event copies)
+		const event = new WatcherRepoChangeEvent(this.repoPath, [...this.pendingRepoChanges], {
+			names: this.pendingRepoRefs,
+			unnamed: this.pendingRepoUnnamedRefKinds,
+		});
+		this.clearPendingRepoChanges();
 		// Advance any cache clock BEFORE notifying subscribers (same rationale as `flushWorkingTree`): a subscriber
 		// that synchronously reads status must see the post-change generation, not a joinable pre-change run.
 		this.onDidFireRepoChangeCallback?.(event);
 		this.repoEmitter.fire(event);
 	}
 
-	private coalesceRepo(changes: RepositoryChange[]): void {
+	private coalesceRepo(changes: RepositoryChange[], ref?: string): void {
 		if (changes.length === 0) return;
 
+		const refKind = ref != null ? getRefChangeKind(ref) : undefined;
 		for (const change of changes) {
 			this.pendingRepoChanges.add(change);
+			if (!isRefChangeKind(change)) continue;
+
+			if (
+				ref != null &&
+				refKind === change &&
+				(this.pendingRepoRefs.size < maxPendingRefNames || this.pendingRepoRefs.has(ref))
+			) {
+				this.pendingRepoRefs.add(ref);
+			} else {
+				this.pendingRepoUnnamedRefKinds.add(change);
+			}
 		}
 		this.repoClock.note();
+	}
+
+	private clearPendingRepoChanges(): void {
+		this.pendingRepoChanges.clear();
+		this.pendingRepoRefs.clear();
+		this.pendingRepoUnnamedRefKinds.clear();
 	}
 
 	private flushWorkingTree(): void {
@@ -578,4 +632,91 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 			this.workingTreeClock.note();
 		}
 	}
+}
+
+/** Wraps a session's repo event so each delivery is narrowed to the subscriber's relevant refs (see `subscribe`) */
+function createRelevantRefsEvent(
+	event: Event<WatcherRepoChangeEvent>,
+	relevantRefs: () => Iterable<string>,
+): Event<WatcherRepoChangeEvent> {
+	return (listener, thisArgs, disposables) =>
+		event(
+			e => {
+				const narrowed = narrowToRelevantRefs(e, relevantRefs);
+				if (narrowed != null) {
+					listener.call(thisArgs, narrowed);
+				}
+			},
+			undefined,
+			disposables,
+		);
+}
+
+/**
+ * Narrows an event to the refs a subscriber cares about. Returns the event itself when no change kind is removed (the
+ * kept names then stay a superset, which only makes `mayHaveChangedRef` more conservative), `undefined` when every kind
+ * is removed, and otherwise a new event with the kept kinds, names and unnamed kinds.
+ */
+function narrowToRelevantRefs(
+	e: WatcherRepoChangeEvent,
+	relevantRefs: () => Iterable<string>,
+): WatcherRepoChangeEvent | undefined {
+	// Ref kinds that pass only if a relevant ref of that kind may have moved
+	let unresolved: Set<RefChangeKind> | undefined;
+	for (const change of e.changes) {
+		if (!isRefChangeKind(change) || e.unnamedRefKinds.has(change)) continue;
+
+		(unresolved ??= new Set()).add(change);
+	}
+	if (unresolved == null) return e;
+
+	const pseudoRefs: string[] = [];
+	for (const name of e.refs) {
+		if (!name.startsWith('refs/')) {
+			pseudoRefs.push(name);
+		}
+	}
+	if (pseudoRefs.length !== 0) {
+		// A pseudo-ref (`HEAD`, `ORIG_HEAD`) moving is a `heads` change for every subscriber
+		unresolved.delete('heads');
+		if (unresolved.size === 0) return e;
+	}
+
+	// Names that equal or cover a relevant ref — collected as we go, since `relevantRefs` may be a one-shot iterable
+	const keptNames = new Set<string>(pseudoRefs);
+	for (const ref of relevantRefs()) {
+		const kind = getRefChangeKind(ref);
+		if (kind == null || !e.changes.has(kind)) continue;
+
+		// `HEAD` is usually a symref to the checked-out branch, so any `heads` change may have moved it
+		if (ref === 'HEAD') {
+			for (const name of e.refs) {
+				if (getRefChangeKind(name) === 'heads') {
+					keptNames.add(name);
+				}
+			}
+			unresolved.delete(kind);
+			continue;
+		}
+
+		const covering = findCoveringRefName(e.refs, ref);
+		if (covering == null) continue;
+
+		keptNames.add(covering);
+		unresolved.delete(kind);
+	}
+	if (unresolved.size === 0) return e;
+
+	const keptChanges: RepositoryChange[] = [];
+	for (const change of e.changes) {
+		if (!isRefChangeKind(change) || !unresolved.has(change)) {
+			keptChanges.push(change);
+		}
+	}
+	if (keptChanges.length === 0) return undefined;
+
+	return new WatcherRepoChangeEvent(e.repoPath, keptChanges, {
+		names: keptNames,
+		unnamed: e.unnamedRefKinds,
+	});
 }

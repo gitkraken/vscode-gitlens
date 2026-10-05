@@ -297,8 +297,8 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		const group = this.getOrCreateWatchGroup(commonGitDir);
 
 		const hooks: WatchGroupHooks = {
-			onRepoChanged: function (_repoPath: string, changes: RepositoryChange[]): void {
-				session.pushRepoChanges(changes);
+			onRepoChanged: function (_repoPath: string, changes: RepositoryChange[], ref?: string): void {
+				session.pushRepoChanges(changes, ref);
 			},
 			onFetchHeadChanged: function (repoPath: string): void {
 				// Iterate at fire time so callers that joined after the group was wired up

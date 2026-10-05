@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds `maxWaitMs` to `RepositoryWatchSession.subscribe` and `subscribeToWorkingTree`, and `defaultRepoMaxWaitMs` / `defaultWorkingTreeMaxWaitMs` to `RepositoryWatchService`'s options: a flush happens no later than that long after the first pending change, however long activity continues. Across subscribers the shortest delay and the shortest max-wait win; `Infinity` opts a subscriber out of the cap (git)
+- Adds which refs moved to `WatcherRepoChangeEvent`: `refs` holds the full ref names (or ref directories, or `HEAD`/`ORIG_HEAD`) whose files changed, and `mayHaveChangedRef(ref)` answers conservatively, treating a change with no name (a `packed-refs` rewrite, a `config` change, an injected change) as moving every ref of its kind. `RepositoryWatchSession.subscribe` takes `relevantRefs`, a list read at delivery, which narrows that subscription's events to changes that may move a listed ref, so a linked worktree's subscriber can skip sibling branches' commits; other subscribers and cache invalidation still see every change (git)
 
 ### Changed
 

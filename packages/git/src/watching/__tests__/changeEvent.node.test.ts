@@ -72,6 +72,90 @@ describe('WatcherRepoChangeEvent', () => {
 		});
 	});
 
+	describe('mayHaveChangedRef()', () => {
+		it('matches a named ref exactly', () => {
+			const e = new WatcherRepoChangeEvent('/repo', ['heads'], { names: ['refs/heads/main'] });
+			assert.ok(e.mayHaveChangedRef('refs/heads/main'));
+			assert.ok(!e.mayHaveChangedRef('refs/heads/other'));
+			assert.deepStrictEqual([...e.refs], ['refs/heads/main']);
+		});
+
+		it('treats a named ref directory as covering every ref beneath it, on a `/` boundary', () => {
+			const e = new WatcherRepoChangeEvent('/repo', ['heads'], { names: ['refs/heads/feature'] });
+			assert.ok(e.mayHaveChangedRef('refs/heads/feature'));
+			assert.ok(e.mayHaveChangedRef('refs/heads/feature/x'));
+			assert.ok(e.mayHaveChangedRef('refs/heads/feature/x/y'));
+			assert.ok(!e.mayHaveChangedRef('refs/heads/feature-x'));
+
+			const prefix = new WatcherRepoChangeEvent('/repo', ['heads'], { names: ['refs/heads/fe'] });
+			assert.ok(!prefix.mayHaveChangedRef('refs/heads/feature'));
+		});
+
+		it('matches any ref of an unnamed kind', () => {
+			const e = new WatcherRepoChangeEvent('/repo', ['heads', 'remotes'], {
+				names: ['refs/heads/main'],
+				unnamed: ['remotes'],
+			});
+			assert.ok(e.mayHaveChangedRef('refs/remotes/origin/anything'));
+			assert.ok(!e.mayHaveChangedRef('refs/heads/other'));
+		});
+
+		it("returns false when the ref's kind isn't among the changes, or the ref has no watched kind", () => {
+			const e = new WatcherRepoChangeEvent('/repo', ['head', 'heads'], {
+				names: ['refs/heads/main', 'refs/tags/v1'],
+				unnamed: ['tags'],
+			});
+			assert.ok(!e.mayHaveChangedRef('refs/tags/v1'));
+			assert.ok(!e.mayHaveChangedRef('refs/remotes/origin/main'));
+			assert.ok(!e.mayHaveChangedRef('refs/notes/commits'));
+		});
+
+		it('treats every ref kind as unnamed when constructed without refs', () => {
+			const e = new WatcherRepoChangeEvent('/repo', ['head', 'heads', 'stash']);
+			assert.strictEqual(e.refs.size, 0);
+			assert.deepStrictEqual([...e.unnamedRefKinds].sort(), ['heads', 'stash']);
+			assert.ok(e.mayHaveChangedRef('refs/heads/anything'));
+			assert.ok(e.mayHaveChangedRef('refs/stash'));
+			assert.ok(e.mayHaveChangedRef('HEAD'));
+			assert.ok(!e.mayHaveChangedRef('refs/tags/v1'));
+		});
+
+		it('gives pseudo-refs the heads kind', () => {
+			const e = new WatcherRepoChangeEvent('/repo', ['head', 'heads'], { names: ['HEAD'] });
+			assert.ok(e.mayHaveChangedRef('HEAD'));
+			assert.ok(!e.mayHaveChangedRef('ORIG_HEAD'));
+			assert.ok(!e.mayHaveChangedRef('refs/heads/main'));
+
+			const noHeads = new WatcherRepoChangeEvent('/repo', ['head'], { names: ['HEAD'] });
+			assert.ok(!noHeads.mayHaveChangedRef('HEAD'));
+		});
+
+		it('treats HEAD as moved by any heads change, since it is usually a symref to the checked-out branch', () => {
+			const e = new WatcherRepoChangeEvent('/repo', ['heads'], { names: ['refs/heads/main'] });
+			assert.ok(e.mayHaveChangedRef('HEAD'));
+			assert.ok(!e.mayHaveChangedRef('ORIG_HEAD'));
+
+			const tagsOnly = new WatcherRepoChangeEvent('/repo', ['tags'], { names: ['refs/tags/v1'] });
+			assert.ok(!tagsOnly.mayHaveChangedRef('HEAD'));
+		});
+
+		it('merges names and unnamed kinds in with()', () => {
+			const e1 = new WatcherRepoChangeEvent('/repo', ['heads'], { names: ['refs/heads/a'] });
+			const e2 = e1.with(['heads', 'remotes'], { names: ['refs/heads/b'], unnamed: ['remotes'] });
+			assert.deepStrictEqual([...e2.refs].sort(), ['refs/heads/a', 'refs/heads/b']);
+			assert.ok(e2.mayHaveChangedRef('refs/heads/a'));
+			assert.ok(e2.mayHaveChangedRef('refs/heads/b'));
+			assert.ok(!e2.mayHaveChangedRef('refs/heads/c'));
+			assert.ok(e2.mayHaveChangedRef('refs/remotes/origin/x'));
+
+			// Without refs, the added ref kinds are unnamed
+			const e3 = e1.with(['tags']);
+			assert.deepStrictEqual([...e3.refs], ['refs/heads/a']);
+			assert.ok(!e3.mayHaveChangedRef('refs/heads/c'));
+			assert.ok(e3.mayHaveChangedRef('refs/tags/v1'));
+		});
+	});
+
 	describe('toString()', () => {
 		it('includes repoPath and changes by default', () => {
 			const e = new WatcherRepoChangeEvent('/repo', ['head']);
