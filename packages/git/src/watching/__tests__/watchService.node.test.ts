@@ -512,6 +512,56 @@ describe('RepositoryWatchService', () => {
 			service.dispose();
 		});
 
+		it('treats a nested .gitignore change as an ignore change and a working-tree change', async () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 30,
+				defaultWorkingTreeDelayMs: 30,
+			});
+
+			const globalReceived: WatcherRepoChangeEvent[] = [];
+			service.onDidChangeRepository(e => globalReceived.push(e));
+
+			let gitIgnoreChanges = 0;
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'), {
+				onGitIgnoreChanged: () => gitIgnoreChanges++,
+			});
+			assertHandle(handle);
+
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 30 });
+			const repoSub = handle.session.subscribe({ delayMs: 30 });
+			const workingTreeReceived: string[][] = [];
+			wtSub.onDidChangeWorkingTree(e => workingTreeReceived.push([...e.paths]));
+
+			const wtWatcher = watchers.find(w => w.basePath === '/repo');
+			assert.ok(wtWatcher, 'working-tree watcher should exist');
+
+			wtWatcher.fire({ path: '/repo/packages/a/.gitignore', reason: 'change' });
+			await delay(60);
+
+			assert.strictEqual(gitIgnoreChanges, 1);
+			assert.strictEqual(globalReceived.filter(e => e.changed('ignores')).length, 1);
+			assert.deepStrictEqual(
+				workingTreeReceived,
+				[['/repo/packages/a/.gitignore']],
+				'a nested .gitignore is also a working-tree file (a tracked one shows as modified)',
+			);
+
+			// The root .gitignore stays an ignore change only
+			wtWatcher.fire({ path: '/repo/.gitignore', reason: 'change' });
+			await delay(60);
+
+			assert.strictEqual(gitIgnoreChanges, 2);
+			assert.strictEqual(globalReceived.filter(e => e.changed('ignores')).length, 2);
+			assert.strictEqual(workingTreeReceived.length, 1, 'the root .gitignore is not a working-tree change');
+
+			wtSub.dispose();
+			repoSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
 		it('routes a .gitignore change through the repo channel as an `ignores` change (fences closed worktrees)', async () => {
 			const { factory, watchers } = createMockFactory();
 			const service = new RepositoryWatchService({
