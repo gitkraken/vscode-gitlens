@@ -1,10 +1,19 @@
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 
-/** Event from a filesystem watcher */
+/**
+ * Event from a filesystem watcher.
+ *
+ * A reported directory path stands for everything beneath it: a watcher can miss the files of a just-created
+ * directory (it only sees the directory after its create event), but never the directory itself.
+ */
 export interface FileWatchEvent {
-	/** Absolute path of the changed file */
+	/** Absolute path of the changed file or directory; for `overflow`, the watcher's `basePath` or a subtree of it */
 	readonly path: string;
-	readonly reason: 'create' | 'change' | 'delete';
+	/**
+	 * `overflow`: events under `path` (the watcher's `basePath`, or a subtree of it) were dropped, so core rescans
+	 * rather than trusting what it was told. Providers that can't lose events never emit it.
+	 */
+	readonly reason: 'create' | 'change' | 'delete' | 'overflow';
 }
 
 /** Opaque token representing a filesystem watcher */

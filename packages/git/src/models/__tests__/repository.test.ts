@@ -233,6 +233,30 @@ suite('Repository.watch (caller-owned watch lifecycle)', () => {
 		}
 	});
 
+	test('a changed folder covers the files beneath it, without matching its siblings', async () => {
+		const { repo, fireSessionWorkingTreeChange } = createWatchedRepo();
+		try {
+			const events: RepositoryWorkingTreeChangeEvent[] = [];
+			repo.onDidChangeWorkingTree(e => events.push(e));
+
+			const lease = repo.watchWorkingTree();
+			// A watcher can miss the files of a just-created folder, but never the folder itself
+			fireSessionWorkingTreeChange(['/repo/newdir', '/repo/a.ts']);
+			await Promise.resolve();
+
+			assert.strictEqual(events.length, 1);
+			const e = events[0];
+			assert.ok(e.changed(fileUri('/repo/newdir/a.ts')));
+			assert.ok(e.changed(fileUri('/repo/newdir/deep/b.ts')));
+			assert.ok(!e.changed(fileUri('/repo/newdir2/a.ts')));
+			assert.ok(!e.changed(fileUri('/repo/b.ts')));
+
+			lease.dispose();
+		} finally {
+			repo.dispose();
+		}
+	});
+
 	test('an incomplete working-tree change matches everything, since a miss proves nothing', async () => {
 		const { repo, fireSessionWorkingTreeChange } = createWatchedRepo();
 		try {

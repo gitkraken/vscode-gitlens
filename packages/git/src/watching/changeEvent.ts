@@ -193,7 +193,10 @@ export function findCoveringRefName(names: ReadonlySet<string>, ref: string): st
  */
 export interface WorkingTreeChangeEvent {
 	readonly repoPath: string;
-	/** Absolute paths of changed files (post-gitignore filtering). Partial when {@link incomplete}. */
+	/**
+	 * Absolute paths of changed files or directories (post-gitignore filtering). A directory stands for everything
+	 * beneath it. Partial when {@link incomplete}.
+	 */
 	readonly paths: ReadonlySet<string>;
 	/**
 	 * `true` when more paths changed than the accumulator retains, so {@link paths} is a partial set and a

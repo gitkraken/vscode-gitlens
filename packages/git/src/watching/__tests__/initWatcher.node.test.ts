@@ -82,7 +82,7 @@ describe('RepositoryInitWatcher', () => {
 	});
 
 	describe('onDidCreate', () => {
-		it('fires for create events only', () => {
+		it('ignores change and delete events', () => {
 			const { factory, watchers } = createMockFactory();
 			const initWatcher = new RepositoryInitWatcher(factory);
 
@@ -97,6 +97,26 @@ describe('RepositoryInitWatcher', () => {
 
 			assert.strictEqual(events.length, 1);
 			assert.strictEqual(events[0].path, '/workspace/project/.git');
+
+			initWatcher.dispose();
+		});
+
+		it('fires for an overflow with the dropped path, so the host rescans it for a .git create it lost', () => {
+			const { factory, watchers } = createMockFactory();
+			const initWatcher = new RepositoryInitWatcher(factory);
+
+			initWatcher.watch('/workspace');
+
+			const events: RepositoryInitEvent[] = [];
+			initWatcher.onDidCreate(e => events.push(e));
+
+			watchers[0].fire({ path: '/workspace', reason: 'overflow' });
+			watchers[0].fire({ path: '/workspace/packages', reason: 'overflow' });
+
+			assert.deepStrictEqual(events, [
+				{ path: '/workspace', basePath: '/workspace' },
+				{ path: '/workspace/packages', basePath: '/workspace' },
+			]);
 
 			initWatcher.dispose();
 		});
