@@ -5,7 +5,9 @@ import type { BranchDisposition, BranchMetadata } from '@gitlens/git/models/bran
 import { GitBranch } from '@gitlens/git/models/branch.js';
 import type { ConflictDetectionErrorReason, ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
+import type { GitRevisionRange } from '@gitlens/git/models/revision.js';
 import type {
+	AheadOfBase,
 	BranchContributionsOverview,
 	GitBranchesSubProvider,
 	GitBranchMergedStatus,
@@ -1737,6 +1739,280 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return { branch: undefined, failed: false };
 	}
 
+	@debug({ exit: true })
+	async getAheadOfBase(repoPath: string, branch: string, cancellation?: AbortSignal): Promise<AheadOfBase> {
+		if (isDetachedHead(branch)) return { base: undefined, dependsOn: [] };
+
+		const dependsOn = new Set<string>([`refs/heads/${branch}`]);
+
+		let target: string | undefined;
+		for (const candidate of await this.getRecordedBaseCandidates(repoPath, branch)) {
+			target = await this.getNearestForkTarget(repoPath, branch, candidate, dependsOn, cancellation);
+			if (target != null) break;
+		}
+
+		if (target == null) {
+			const defaultBranch = await this.getLocalDefaultBranchName(repoPath, dependsOn, cancellation);
+			target = await this.getNearestForkTarget(repoPath, branch, defaultBranch, dependsOn, cancellation);
+		}
+
+		// The tolerant reads above answer a cancelled run as "nothing there"; that is no answer
+		if (cancellation?.aborted) throw new CancellationError();
+		if (target == null) return { base: undefined, dependsOn: [...dependsOn] };
+
+		// A base that is the branch itself, locally or as its copy on one of the repo's remotes, at HEAD's own commit has
+		// nothing to measure against: no base, not "0 ahead" (an up-to-date `main` targeting `origin/main`). At a different
+		// commit it stays the base, since the work ahead of it is work not yet pushed
+		if (await this.isSelfAtHead(repoPath, target, branch, cancellation)) {
+			return { base: undefined, dependsOn: [...dependsOn] };
+		}
+
+		// `...` counts from the merge base, so only the branch's own commits count, not what the base moved on with
+		const range = createRevisionRange(target, 'HEAD', '...');
+		let counts = await this.provider.commits.getLeftRightCommitCount(repoPath, range, undefined, cancellation);
+		if (counts == null) {
+			// The cached count keeps a failure, so re-run it uncached. Before HEAD's first commit there is nothing to
+			// count, so no base; any other failure rejects with git's error
+			try {
+				counts = await this.getLeftRightCountUncached(repoPath, range, cancellation);
+			} catch (ex) {
+				if (isCancellationError(ex)) throw ex;
+
+				if (await this.isUnbornHead(repoPath, cancellation)) {
+					return { base: undefined, dependsOn: [...dependsOn] };
+				}
+
+				throw ex;
+			}
+		}
+
+		return { base: { ref: target, ahead: counts.right }, dependsOn: [...dependsOn] };
+	}
+
+	/** Counts `range` with a fresh `rev-list`, bypassing the cached count. Rejects on any failure, with git's error */
+	private async getLeftRightCountUncached(
+		repoPath: string,
+		range: GitRevisionRange,
+		cancellation: AbortSignal | undefined,
+	): Promise<{ left: number; right: number }> {
+		const result = await this.git.run(
+			{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
+			'rev-list',
+			'--left-right',
+			'--count',
+			range,
+			'--',
+		);
+		if (result.completion.status === 'cancelled' || cancellation?.aborted) throw new CancellationError();
+
+		const parts = result.stdout.split('\t');
+		const left = parseInt(parts[0], 10);
+		const right = parseInt(parts[1], 10);
+		if (parts.length !== 2 || isNaN(left) || isNaN(right)) {
+			throw new Error(`Unexpected output counting the commits in '${range}': ${result.stdout}`);
+		}
+
+		return { left: left, right: right };
+	}
+
+	/** Whether HEAD names a branch with no commit yet. Rejects when that can't be read, so a failure isn't taken for an empty branch */
+	private async isUnbornHead(repoPath: string, cancellation: AbortSignal | undefined): Promise<boolean> {
+		const result = await this.git.run(
+			{ cwd: repoPath, cancellation: cancellation, errors: 'throw', expectedExitCodes: [1] },
+			'rev-parse',
+			'--verify',
+			'--quiet',
+			'HEAD',
+		);
+		return result.exitCode === 1;
+	}
+
+	/**
+	 * Whether `ref` names `branch` itself: the same name, or `<remote>/<branch>` for one of the repo's actual remotes.
+	 * Splitting at the first slash instead would call a local `release/main` the same branch as `main`.
+	 */
+	private async isSelfRef(
+		repoPath: string,
+		ref: string,
+		branch: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<boolean> {
+		if (ref === branch) return true;
+
+		const suffix = `/${branch}`;
+		if (!ref.endsWith(suffix)) return false;
+
+		const remoteName = ref.slice(0, -suffix.length);
+		if (!remoteName) return false;
+
+		try {
+			const remotes = await this.provider.remotes.getRemotes(repoPath, undefined, cancellation);
+			return remotes.some(r => r.name === remoteName);
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			return false;
+		}
+	}
+
+	/** Whether `ref` names `branch` itself (see {@link isSelfRef}) and sits at HEAD's commit; tips are read only after the name matched */
+	private async isSelfAtHead(
+		repoPath: string,
+		ref: string,
+		branch: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<boolean> {
+		if (!(await this.isSelfRef(repoPath, ref, branch, cancellation))) return false;
+
+		const [refSha, headSha] = await Promise.all([
+			this.provider.refs.validateReference(repoPath, ref, undefined, cancellation),
+			this.provider.refs.validateReference(repoPath, 'HEAD', undefined, cancellation),
+		]);
+		return refSha != null && refSha === headSha;
+	}
+
+	/**
+	 * The bases recorded against a branch, most trusted first: the user's merge target, the detected one, then the
+	 * base a launch recorded. Only the stored value of the latter — `getBaseBranchName` would fall back to a reflog
+	 * guess, which on a long-lived checkout names whatever branch was last checked out from. A failed read is absent.
+	 */
+	private async getRecordedBaseCandidates(repoPath: string, branch: string): Promise<string[]> {
+		const tolerate = async (read: () => Promise<string | undefined>): Promise<string | undefined> => {
+			try {
+				return (await read())?.trim() || undefined;
+			} catch (ex) {
+				if (isCancellationError(ex)) throw ex;
+
+				return undefined;
+			}
+		};
+
+		const reads = await Promise.all([
+			tolerate(() => this.getStoredUserMergeTargetBranchName(repoPath, branch)),
+			tolerate(() => this.getStoredDetectedMergeTargetBranchName(repoPath, branch)),
+			tolerate(() => this.provider.config.getGkConfig(repoPath, `branch.${branch}.gk-merge-base`)),
+		]);
+
+		const candidates: string[] = [];
+		for (const candidate of reads) {
+			if (candidate && !candidates.includes(candidate)) {
+				candidates.push(candidate);
+			}
+		}
+		return candidates;
+	}
+
+	/**
+	 * The repo's default branch from local refs only: the `origin/HEAD` symref as its local name, else
+	 * `init.defaultBranch`, else `main`, else `master` — each only if it names a commit.
+	 */
+	private async getLocalDefaultBranchName(
+		repoPath: string,
+		dependsOn: Set<string>,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		dependsOn.add('refs/remotes/origin/HEAD');
+
+		const symref = await this.getDefaultBranchName(repoPath, 'origin', { local: true }, cancellation);
+		if (symref) {
+			const slash = symref.indexOf('/');
+			const local = slash >= 0 ? symref.slice(slash + 1) : symref;
+			if (local) {
+				addRefDependencies(dependsOn, local);
+				if (await this.provider.refs.validateReference(repoPath, local, undefined, cancellation)) return local;
+			}
+		}
+
+		let fromConfig: string | undefined;
+		try {
+			fromConfig = (await this.provider.config.getConfig(repoPath, 'init.defaultBranch'))?.trim() || undefined;
+		} catch {}
+
+		for (const candidate of [fromConfig, 'main', 'master']) {
+			if (!candidate) continue;
+
+			addRefDependencies(dependsOn, candidate);
+			if (await this.provider.refs.validateReference(repoPath, candidate, undefined, cancellation)) {
+				return candidate;
+			}
+		}
+
+		return undefined;
+	}
+
+	/**
+	 * A candidate base as the ref HEAD is measured against: the candidate or its tracking ref, whichever forked
+	 * nearer HEAD, so a stale local base defers to its upstream while one carrying unpushed work wins over it. A
+	 * candidate neither forks from is used as-is if it names a commit. `undefined` when the candidate is unusable.
+	 */
+	private async getNearestForkTarget(
+		repoPath: string,
+		branch: string,
+		candidate: string | undefined,
+		dependsOn: Set<string>,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		// A ref starting with `-` would be parsed as a git flag
+		if (!candidate || candidate.startsWith('-')) return undefined;
+		// A branch measured against itself says nothing
+		if (candidate === branch) return undefined;
+
+		addRefDependencies(dependsOn, candidate);
+
+		const getUpstreamFork = async (): Promise<{ ref: string; mergeBase: string | undefined } | undefined> => {
+			const upstream = await this.provider.refs.getSymbolicReferenceName(
+				repoPath,
+				`${candidate}@{u}`,
+				undefined,
+				cancellation,
+			);
+			if (!upstream || upstream.startsWith('-')) return undefined;
+
+			addRefDependencies(dependsOn, upstream);
+			return { ref: upstream, mergeBase: await this.getForkPoint(repoPath, upstream, cancellation) };
+		};
+
+		const [candidateMergeBase, upstreamFork] = await Promise.all([
+			this.getForkPoint(repoPath, candidate, cancellation),
+			getUpstreamFork(),
+		]);
+
+		let nearest: { ref: string; mergeBase: string } | undefined;
+		for (const fork of [{ ref: candidate, mergeBase: candidateMergeBase }, upstreamFork]) {
+			if (fork?.mergeBase == null) continue;
+
+			// A later ref wins only when it forked at or past the nearest so far
+			if (
+				nearest == null ||
+				nearest.mergeBase === fork.mergeBase ||
+				(await this.provider.commits.isAncestorOf(repoPath, nearest.mergeBase, fork.mergeBase, cancellation))
+			) {
+				nearest = { ref: fork.ref, mergeBase: fork.mergeBase };
+			}
+		}
+		if (nearest != null) return nearest.ref;
+
+		return (await this.provider.refs.validateReference(repoPath, candidate, undefined, cancellation))
+			? candidate
+			: undefined;
+	}
+
+	/** The merge base of HEAD and `ref`, preferring git's fork-point reading of `ref`'s reflog when it has one */
+	private async getForkPoint(
+		repoPath: string,
+		ref: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		const forkPoint = await this.provider.refs.getMergeBase(
+			repoPath,
+			ref,
+			'HEAD',
+			{ forkPoint: true },
+			cancellation,
+		);
+		return forkPoint ?? this.provider.refs.getMergeBase(repoPath, 'HEAD', ref, undefined, cancellation);
+	}
+
 	/**
 	 * The stored merge target — the user's pick, else the one detected from its PR — skipping any whose branch git
 	 * confirms is gone so resolution falls through to the next source. A target that couldn't be checked is kept.
@@ -1994,4 +2270,18 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
 		this.context.hooks?.repository?.onChanged?.(repoPath, ['starred']);
 	}
+}
+
+/**
+ * Adds the full ref names a `.git/refs` watcher would report for `name`. A short name can't be told local from
+ * remote without a spawn, so it adds both forms; a spurious one only costs a recompute.
+ */
+function addRefDependencies(dependsOn: Set<string>, name: string): void {
+	if (name.startsWith('refs/')) {
+		dependsOn.add(name);
+		return;
+	}
+
+	dependsOn.add(`refs/heads/${name}`);
+	dependsOn.add(`refs/remotes/${name}`);
 }

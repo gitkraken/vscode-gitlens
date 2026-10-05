@@ -24,6 +24,20 @@ export interface BranchContributionsOverview extends GitCommitStats<number> {
 	readonly contributors: GitContributor[];
 }
 
+export interface AheadOfBase {
+	/** The base HEAD was measured against; `undefined` when there is none (see `getAheadOfBase`) */
+	readonly base:
+		| {
+				/** The ref the count was taken against: the chosen base or its tracking ref, whichever forked nearer HEAD */
+				readonly ref: string;
+				/** Commits on HEAD not on `ref` */
+				readonly ahead: number;
+		  }
+		| undefined;
+	/** Full ref names (`refs/heads/main`, `refs/remotes/origin/main`, `refs/remotes/origin/HEAD`) whose movement can change this answer, given with or without a base so a watcher also learns when one appears: the branch, every candidate compared up to the chosen one, their tracking refs, and the default-branch symref when the default was consulted. Lets a watcher recompute only when one of them moves. */
+	readonly dependsOn: readonly string[];
+}
+
 export type MergeDetectionConfidence = 'highest' | 'high' | 'medium';
 
 export type GitBranchMergedStatus =
@@ -114,6 +128,17 @@ export interface GitBranchesSubProvider {
 		ontoTreeOid: string,
 		cancellation?: AbortSignal,
 	): Promise<ConflictDetectionResult>;
+	/**
+	 * How far HEAD has moved past the base `branch` (the branch checked out at HEAD) was cut from. Candidates in trust
+	 * order: the user's merge target, the detected one, then the base recorded against the branch — only recorded bases
+	 * count, never a reflog guess. Each is measured as itself or its tracking ref, whichever forked nearer HEAD; a stale
+	 * target (one naming no ref, a flag-like one, or the branch itself) falls through to the next, and the local default
+	 * branch is used when none survives. The count is the right side of `<base>...HEAD`. `base` is `undefined` when no
+	 * base resolves, when the base is the branch itself (by name, or as its copy on one of the repo's remotes) at HEAD's
+	 * own commit, or when HEAD is detached or has no commit yet; `dependsOn` is given either way. Rejects when the count
+	 * can't be read.
+	 */
+	getAheadOfBase?(repoPath: string, branch: string, cancellation?: AbortSignal): Promise<AheadOfBase>;
 	getBaseBranchName?(
 		repoPath: string,
 		ref: string,
