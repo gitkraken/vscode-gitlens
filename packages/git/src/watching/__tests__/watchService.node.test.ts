@@ -6,6 +6,7 @@ import { fileUri, getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { GitDir } from '../../models/repository.js';
 import type { WatcherRepoChangeEvent } from '../changeEvent.js';
 import type { FileWatcher, FileWatchEvent, FileWatchingProvider } from '../provider.js';
+import { dotGitGlobCommon } from '../watcherPatterns.js';
 import { RepositoryWatchService } from '../watchService.js';
 
 interface MockWatcher extends FileWatcher {
@@ -421,6 +422,50 @@ describe('RepositoryWatchService', () => {
 			subB.dispose();
 			handleA.dispose();
 			handleB.dispose();
+			service.dispose();
+		});
+
+		it("filters a sibling branch's commit out of a subscription scoped to its own refs, but not out of the global event", async () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 30,
+			});
+
+			const globalReceived: WatcherRepoChangeEvent[] = [];
+			service.onDidChangeRepository(e => globalReceived.push(e));
+
+			const handleA = service.watch('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'));
+			assertHandle(handleA);
+
+			const receivedA: WatcherRepoChangeEvent[] = [];
+			const subA = handleA.session.subscribe({ delayMs: 30, relevantRefs: () => ['refs/heads/A'] });
+			subA.onDidChange(e => receivedA.push(e));
+
+			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
+			assert.ok(common);
+
+			// A commit on B, as git writes it: lock file, then rename over the ref
+			common.fire({ path: '/repo/.git/refs/heads/B.lock', reason: 'create' });
+			common.fire({ path: '/repo/.git/refs/heads/B', reason: 'create' });
+			common.fire({ path: '/repo/.git/refs/heads/B.lock', reason: 'delete' });
+
+			await delay(60);
+
+			assert.strictEqual(receivedA.length, 0);
+			assert.strictEqual(globalReceived.length, 1);
+			assert.strictEqual(globalReceived[0].repoPath, '/worktrees/A');
+			assert.ok(globalReceived[0].mayHaveChangedRef('refs/heads/B'));
+
+			// A commit on A itself still arrives
+			common.fire({ path: '/repo/.git/refs/heads/A', reason: 'change' });
+			await delay(60);
+
+			assert.strictEqual(receivedA.length, 1);
+			assert.ok(receivedA[0].mayHaveChangedRef('refs/heads/A'));
+
+			subA.dispose();
+			handleA.dispose();
 			service.dispose();
 		});
 	});

@@ -11,7 +11,11 @@ import { dotGitGlobCombined, dotGitGlobCommon, dotGitGlobRoot, shouldIgnoreRepoP
  * These are raw, un-debounced events — the session handles debouncing.
  */
 export interface WatchGroupHooks {
-	readonly onRepoChanged: (repoPath: string, changes: RepositoryChange[]) => void;
+	/**
+	 * `ref` is the full ref name (or ref directory) or pseudo-ref (`HEAD`, `ORIG_HEAD`) whose file changed, with a
+	 * trailing `.lock` stripped; `undefined` for any other `.git` file.
+	 */
+	readonly onRepoChanged: (repoPath: string, changes: RepositoryChange[], ref?: string) => void;
 	readonly onFetchHeadChanged?: (repoPath: string) => void;
 	readonly onIgnoresChanged?: (repoPath: string) => void;
 }
@@ -161,6 +165,8 @@ export class WatchGroup implements UnifiedDisposable {
 		const changes = isFetchHead ? undefined : classifyGitDirChange(relativePath);
 		if (changes == null && !isFetchHead && !isExclude) return;
 
+		const ref = changes != null ? getChangedRef(relativePath) : undefined;
+
 		// `worktrees/<n>/HEAD`: the owner hears its own HEAD from its root watcher. Its `locked` and `gitdir` aren't in
 		// the root glob, so the owner hears those only from here
 		let ownerId: string | undefined;
@@ -183,7 +189,7 @@ export class WatchGroup implements UnifiedDisposable {
 			}
 
 			if (changes != null && (ownerId == null || entry.worktreeId !== ownerId)) {
-				entry.hooks.onRepoChanged(entry.repoPath, changes);
+				entry.hooks.onRepoChanged(entry.repoPath, changes, ref);
 			}
 
 			if (isExclude) {
@@ -206,11 +212,20 @@ export class WatchGroup implements UnifiedDisposable {
 
 		const changes = classifyGitDirChange(relativePath);
 		if (changes != null) {
-			entry.hooks.onRepoChanged(entry.repoPath, changes);
+			entry.hooks.onRepoChanged(entry.repoPath, changes, getChangedRef(relativePath));
 		}
 
 		if (relativePath === 'info/exclude') {
 			entry.hooks.onIgnoresChanged?.(entry.repoPath);
 		}
 	}
+}
+
+/**
+ * The ref a `.git`-relative path names: a loose ref (or ref directory) under `refs/`, or the `HEAD`/`ORIG_HEAD`
+ * pseudo-refs. Git writes a ref as `<name>.lock` and renames it over `<name>`, so the lock file names the same ref.
+ */
+function getChangedRef(relativePath: string): string | undefined {
+	const ref = relativePath.endsWith('.lock') ? relativePath.substring(0, relativePath.length - 5) : relativePath;
+	return ref.startsWith('refs/') || ref === 'HEAD' || ref === 'ORIG_HEAD' ? ref : undefined;
 }
