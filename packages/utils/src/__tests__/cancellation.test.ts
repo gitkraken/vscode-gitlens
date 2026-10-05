@@ -7,6 +7,14 @@ suite('raceWithTimeout', () => {
 		await assert.rejects(raceWithTimeout(neverSettles, 10), (e: unknown) => isCancellationError(e));
 	});
 
+	test('marks the CancellationError it rejects with as a timeout', async () => {
+		const neverSettles = new Promise<number>(() => {});
+		await assert.rejects(
+			raceWithTimeout(neverSettles, 10),
+			(e: unknown) => isCancellationError(e) && e.reason === 'timeout',
+		);
+	});
+
 	test('resolves with the value when the promise settles in time', async () => {
 		assert.strictEqual(await raceWithTimeout(Promise.resolve(42), 10_000), 42);
 	});

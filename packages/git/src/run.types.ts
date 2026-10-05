@@ -1,3 +1,4 @@
+import type { CancellationReason } from '@gitlens/utils/cancellation.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { GitWarningKey } from './errors.js';
 import type { GitHealthSlownessCategory } from './gitHealth.js';
@@ -6,11 +7,10 @@ import type { RepositoryChange } from './models/repository.js';
 export type GitErrorHandling = 'throw' | 'ignore';
 
 /**
- * Why a run was aborted. DIAGNOSTIC ONLY — log it, never branch control flow on it. A timeout kill and a
- * caller abort both terminate the process with SIGTERM and surface as the same error, so this is derived
- * from a duration heuristic and can be wrong near the timeout boundary.
+ * Why a run was cancelled. Exact, read from how the process ended: a caller abort, the run's own `timeout`, or a
+ * SIGTERM from outside (`unknown`).
  */
-export type GitRunCancellation = 'aborted' | 'timeout' | 'unknown';
+export type GitRunCancellation = CancellationReason;
 
 /**
  * Why a run produced no answer. Every value is structurally distinguishable, so these are safe to branch on.
@@ -89,6 +89,11 @@ export interface GitRunOptions {
 	configs?: readonly string[];
 	readonly correlationKey?: string;
 	errors?: GitErrorHandling;
+	/**
+	 * Non-zero exit codes that are answers rather than failures (e.g. `1` from `diff --quiet`, "has differences");
+	 * a listed code resolves as `exited` with that `exitCode` in every `errors` mode.
+	 */
+	expectedExitCodes?: readonly number[];
 	/** Priority level for queue ordering. If not specified, will be inferred from the command type. */
 	priority?: GitCommandPriority;
 	/** Specifies that this command should always be executed locally if possible (for live share sessions) */
