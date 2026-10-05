@@ -65,3 +65,32 @@ describe('shallow boundary glob contract', () => {
 		assert.strictEqual(matchesGlob('shallow', dotGitGlobRoot), false);
 	});
 });
+
+describe('worktrees glob contract', () => {
+	const { matchesGlob } = path as typeof path & { matchesGlob(path: string, pattern: string): boolean };
+
+	it('watches only the worktree list and per-worktree HEAD/locked/gitdir in the common glob', () => {
+		for (const pattern of [dotGitGlobCombined, dotGitGlobCommon]) {
+			for (const p of [
+				'worktrees',
+				'worktrees/A',
+				'worktrees/A/HEAD',
+				'worktrees/A/locked',
+				'worktrees/A/gitdir',
+			]) {
+				assert.strictEqual(matchesGlob(p, pattern), true, p);
+			}
+
+			for (const p of [
+				'worktrees/A/index',
+				'worktrees/A/MERGE_HEAD',
+				'worktrees/A/rebase-merge/onto',
+				'worktrees/A/sequencer/todo',
+			]) {
+				assert.strictEqual(matchesGlob(p, pattern), false, p);
+			}
+		}
+
+		assert.ok(!dotGitGlobCommon.includes('worktrees/**'));
+	});
+});

@@ -402,6 +402,168 @@ describe('WatchGroup', () => {
 		});
 	});
 
+	describe('event routing — worktree state', () => {
+		function setup(): {
+			watchers: MockWatcher[];
+			rootA: MockWatcher;
+			common: MockWatcher;
+			cbA: WatchGroupHooks;
+			cbB: WatchGroupHooks;
+		} {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+			const cbA = makeCallbacks();
+			const cbB = makeCallbacks();
+			group.addSession('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'), cbA);
+			group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), cbB);
+			const rootA = watchers.find(w => w.basePath === '/repo/.git/worktrees/A');
+			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
+			assert.ok(rootA);
+			assert.ok(common);
+			return { watchers: watchers, rootA: rootA, common: common, cbA: cbA, cbB: cbB };
+		}
+
+		it("does not fan a worktree's index / MERGE_HEAD out from the common watcher", () => {
+			const { common, cbA, cbB } = setup();
+
+			common.fire({ path: '/repo/.git/worktrees/A/index', reason: 'change' });
+			common.fire({ path: '/repo/.git/worktrees/A/MERGE_HEAD', reason: 'create' });
+
+			assert.strictEqual(callCount(cbA.onRepoChanged), 0);
+			assert.strictEqual(callCount(cbB.onRepoChanged), 0);
+		});
+
+		it("delivers a worktree's own index / MERGE_HEAD only to it, via its root watcher", () => {
+			const { rootA, cbA, cbB } = setup();
+
+			rootA.fire({ path: '/repo/.git/worktrees/A/index', reason: 'change' });
+			rootA.fire({ path: '/repo/.git/worktrees/A/MERGE_HEAD', reason: 'create' });
+
+			assert.strictEqual(callCount(cbA.onRepoChanged), 2);
+			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 0), ['/worktrees/A', ['index']]);
+			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 1), ['/worktrees/A', ['merge', 'pausedOp']]);
+			assert.strictEqual(callCount(cbB.onRepoChanged), 0);
+		});
+
+		it("tells siblings, but not the owner, when a worktree's HEAD changes", () => {
+			const { common, cbA, cbB } = setup();
+
+			common.fire({ path: '/repo/.git/worktrees/A/HEAD', reason: 'change' });
+			assert.strictEqual(callCount(cbA.onRepoChanged), 0);
+			assert.strictEqual(callCount(cbB.onRepoChanged), 1);
+			assert.deepStrictEqual(callArgs(cbB.onRepoChanged, 0), ['/worktrees/B', ['worktrees']]);
+		});
+
+		it("tells every session, the owner included, when a worktree's locked / gitdir changes", () => {
+			const { common, cbA, cbB } = setup();
+
+			// The owner's root watcher doesn't watch these, so the common watcher is its only source
+			common.fire({ path: '/repo/.git/worktrees/A/locked', reason: 'create' });
+			common.fire({ path: '/repo/.git/worktrees/A/gitdir', reason: 'change' });
+			assert.strictEqual(callCount(cbA.onRepoChanged), 2);
+			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 0), ['/worktrees/A', ['worktrees']]);
+			assert.strictEqual(callCount(cbB.onRepoChanged), 2);
+		});
+
+		it('does not mistake a sibling whose id shares a prefix for the owner', () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+			const cbA = makeCallbacks();
+			const cbAB = makeCallbacks();
+			group.addSession('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'), cbA);
+			group.addSession('/worktrees/AB', worktreeGitDir('/repo/.git/worktrees/AB', '/repo/.git'), cbAB);
+
+			watchers
+				.find(w => w.pattern === dotGitGlobCommon)!
+				.fire({
+					path: '/repo/.git/worktrees/A/HEAD',
+					reason: 'change',
+				});
+
+			assert.strictEqual(callCount(cbA.onRepoChanged), 0);
+			assert.strictEqual(callCount(cbAB.onRepoChanged), 1);
+		});
+
+		it('tells every session, the owner included, when a worktree is removed', () => {
+			const { common, cbA, cbB } = setup();
+
+			common.fire({ path: '/repo/.git/worktrees/A', reason: 'delete' });
+
+			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 0), ['/worktrees/A', ['worktrees']]);
+			assert.deepStrictEqual(callArgs(cbB.onRepoChanged, 0), ['/worktrees/B', ['worktrees']]);
+			assert.strictEqual(callCount(cbA.onRepoChanged), 1);
+			assert.strictEqual(callCount(cbB.onRepoChanged), 1);
+		});
+	});
+
+	describe('event routing — main checkout alongside a linked worktree', () => {
+		it('delivers each common-dir event to the main checkout exactly once, hooks included', () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+			const mainChanged = mock.fn();
+			const mainFetch = mock.fn() as unknown as (repoPath: string) => void;
+			const mainIgnores = mock.fn() as unknown as (repoPath: string) => void;
+			const cbB = makeCallbacks({
+				onFetchHeadChanged: mock.fn() as unknown as (repoPath: string) => void,
+				onIgnoresChanged: mock.fn() as unknown as (repoPath: string) => void,
+			});
+			group.addSession(
+				'/repo',
+				standardGitDir('/repo/.git'),
+				makeCallbacks({
+					onRepoChanged: mainChanged,
+					onFetchHeadChanged: mainFetch,
+					onIgnoresChanged: mainIgnores,
+				}),
+			);
+			group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), cbB);
+
+			const mainRoot = watchers.find(w => w.pattern === dotGitGlobCombined);
+			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
+			assert.ok(mainRoot);
+			assert.ok(common);
+
+			// A recursive watcher reports the same file on both
+			for (const w of [mainRoot, common]) {
+				w.fire({ path: '/repo/.git/refs/heads/x', reason: 'change' });
+				w.fire({ path: '/repo/.git/FETCH_HEAD', reason: 'change' });
+				w.fire({ path: '/repo/.git/info/exclude', reason: 'change' });
+			}
+
+			// refs/heads/x + info/exclude
+			assert.strictEqual(callCount(mainChanged), 2);
+			assert.deepStrictEqual(callArgs(mainChanged, 0), ['/repo', ['heads']]);
+			assert.strictEqual(callCount(mainFetch), 1);
+			assert.strictEqual(callCount(mainIgnores), 1);
+
+			// The linked worktree still hears the common watcher
+			assert.strictEqual(callCount(cbB.onRepoChanged), 2);
+			assert.strictEqual(callCount(cbB.onFetchHeadChanged), 1);
+			assert.strictEqual(callCount(cbB.onIgnoresChanged), 1);
+		});
+
+		it("tells the main checkout a linked worktree's HEAD changed, once", () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+			const mainChanged = mock.fn();
+			group.addSession('/repo', standardGitDir('/repo/.git'), makeCallbacks({ onRepoChanged: mainChanged }));
+			group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), makeCallbacks());
+
+			const mainRoot = watchers.find(w => w.pattern === dotGitGlobCombined);
+			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
+			assert.ok(mainRoot);
+			assert.ok(common);
+
+			for (const w of [mainRoot, common]) {
+				w.fire({ path: '/repo/.git/worktrees/B/HEAD', reason: 'change' });
+				w.fire({ path: '/repo/.git/worktrees/B/index', reason: 'change' });
+			}
+
+			assert.strictEqual(callCount(mainChanged), 1);
+			assert.deepStrictEqual(callArgs(mainChanged, 0), ['/repo', ['worktrees']]);
+		});
+	});
+
 	describe('event routing — change interpretation', () => {
 		it('interprets HEAD changes correctly', () => {
 			const { factory, watchers } = createMockFactory();
@@ -488,6 +650,27 @@ describe('WatchGroup', () => {
 			group.removeSession('/worktrees/B');
 			assert.ok(common.disposed);
 			assert.strictEqual(group.sessions.size, 0);
+		});
+
+		it('disposes the common watcher when only a main checkout is left, and re-creates it for a new linked session', () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+
+			group.addSession('/repo', standardGitDir('/repo/.git'), makeCallbacks());
+			group.addSession('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'), makeCallbacks());
+
+			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
+			assert.ok(common);
+
+			// The main checkout hears every common file from its own root watcher, so nothing needs the common one
+			group.removeSession('/worktrees/A');
+			assert.ok(common.disposed);
+			assert.strictEqual(group.sessions.size, 1);
+
+			group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), makeCallbacks());
+			const commons = watchers.filter(w => w.pattern === dotGitGlobCommon);
+			assert.strictEqual(commons.length, 2);
+			assert.ok(!commons[1].disposed);
 		});
 
 		it('is a no-op for unknown repoPath', () => {

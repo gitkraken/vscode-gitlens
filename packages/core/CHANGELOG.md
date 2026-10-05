@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes the `worktrees` repository change to mean only that the worktree list, or what `git worktree list` reports per worktree (its HEAD, lock or location), changed. A linked worktree's own index, paused-operation and HEAD writes reach only that worktree's session, through its own gitdir watcher, instead of waking every worktree sharing the repository as `worktrees`; a sibling's HEAD change still reaches the others as `worktrees`. A main checkout no longer receives each shared `.git` change twice once a linked worktree is watched (git)
+
 ### Fixed
 
 - Fixes working-tree and repository change events advancing the wrong status clock when a host passed a path spelled differently from the cache's key (a Windows drive-letter case, backslashes or a trailing separator): `RepositoryWatchService.watch` and `getSession` key sessions by `getRepositoryKey`, so every session, event and hook carries the same key status reads fence on, and two spellings of one repository share a session (git)
