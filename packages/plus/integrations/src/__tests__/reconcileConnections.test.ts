@@ -1046,6 +1046,7 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		let switchedB = false;
 		gheB.switchConnection = () => {
 			switchedB = true;
+			return Promise.resolve();
 		};
 
 		runtime.fireSubscriptionCheckIn(false);
@@ -1382,6 +1383,7 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		let switched = false;
 		bitbucketServer.switchConnection = () => {
 			switched = true;
+			return Promise.resolve();
 		};
 
 		await manager.refreshConnections();
@@ -1450,6 +1452,7 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 			let switched = false;
 			integration.switchConnection = () => {
 				switched = true;
+				return Promise.resolve();
 			};
 
 			runtime.fireSubscriptionCheckIn(false);

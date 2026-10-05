@@ -1308,10 +1308,7 @@ export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegra
 		if (session == null && this.maybeConnected) {
 			void this.disconnect({ silent: true });
 		} else {
-			if (session?.accessToken !== this._session?.accessToken) {
-				this._session = undefined;
-			}
-			super.refresh();
+			void this.resyncSessionIfTokenChanged(session?.accessToken);
 		}
 	}
 }
