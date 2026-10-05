@@ -1,4 +1,5 @@
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
+import { some } from '@gitlens/utils/iterable.js';
 import { isDescendant, relative } from '@gitlens/utils/path.js';
 import type { GitDir, RepositoryChange } from '../models/repository.js';
 import { classifyGitDirChange } from './classifyChange.js';
@@ -23,6 +24,10 @@ interface SessionEntry {
 	readonly repoPath: string;
 	readonly gitDirPath: string;
 	readonly rootWatcher: FileWatcher;
+	/** True when the root watcher is on the common dir itself, so it already sees every common file */
+	readonly coversCommon: boolean;
+	/** For a linked session, its `<n>` in `<common>/worktrees/<n>`; otherwise `undefined` */
+	readonly worktreeId: string | undefined;
 	readonly hooks: WatchGroupHooks;
 }
 
@@ -31,7 +36,8 @@ interface SessionEntry {
  * shared across all worktrees that reference it.
  *
  * Structure:
- * - 1 common watcher: config, refs/**, info/exclude, etc.
+ * - 1 common watcher: config, refs/**, info/exclude, etc. Delivers to linked sessions only; a
+ *   session rooted at the common dir hears the same files from its own combined root watcher.
  * - N root watchers: one per worktree (index, HEAD, *_HEAD, etc.)
  *
  * For a standard (non-worktree) repo, the common and root directories
@@ -86,10 +92,13 @@ export class WatchGroup implements UnifiedDisposable {
 			}
 		});
 
+		const entryGitDirPath = gitDir.uri.fsPath;
 		const entry: SessionEntry = {
 			repoPath: repoPath,
-			gitDirPath: gitDir.uri.fsPath,
+			gitDirPath: entryGitDirPath,
 			rootWatcher: rootWatcher,
+			coversCommon: isStandard,
+			worktreeId: isStandard ? undefined : this.getWorktreeId(entryGitDirPath),
 			hooks: hooks,
 		};
 
@@ -111,11 +120,21 @@ export class WatchGroup implements UnifiedDisposable {
 		entry.rootWatcher.dispose();
 		this._sessions.delete(repoPath);
 
-		// If no more sessions, dispose the common watcher
-		if (this._sessions.size === 0 && this._commonWatcher != null) {
+		// Once no linked session is left, dispose the common watcher — it delivers to linked sessions only
+		if (this._commonWatcher != null && !some(this._sessions.values(), e => !e.coversCommon)) {
 			this._commonWatcher.dispose();
 			this._commonWatcher = undefined;
 		}
+	}
+
+	private getWorktreeId(gitDirPath: string): string | undefined {
+		if (!isDescendant(gitDirPath, this.commonGitDir)) return undefined;
+
+		const rel = relative(this.commonGitDir, gitDirPath);
+		if (!rel.startsWith('worktrees/')) return undefined;
+
+		const id = rel.substring(10);
+		return id.length > 0 && !id.includes('/') ? id : undefined;
 	}
 
 	private ensureCommonWatcher(): void {
@@ -137,25 +156,37 @@ export class WatchGroup implements UnifiedDisposable {
 		const relativePath = relative(this.commonGitDir, event.path);
 		if (shouldIgnoreRepoPath(relativePath)) return;
 
-		// FETCH_HEAD lives in the main .git dir, not in worktree subdirs.
-		// Dispatch to all sessions so each worktree can update its last-fetched state.
-		if (relativePath === 'FETCH_HEAD') {
-			for (const entry of this._sessions.values()) {
-				entry.hooks.onFetchHeadChanged?.(entry.repoPath);
+		const isFetchHead = relativePath === 'FETCH_HEAD';
+		const isExclude = relativePath === 'info/exclude';
+		const changes = isFetchHead ? undefined : classifyGitDirChange(relativePath);
+		if (changes == null && !isFetchHead && !isExclude) return;
+
+		// `worktrees/<n>/HEAD`: the owner hears its own HEAD from its root watcher. Its `locked` and `gitdir` aren't in
+		// the root glob, so the owner hears those only from here
+		let ownerId: string | undefined;
+		if (changes != null && relativePath.length > 10 && relativePath.startsWith('worktrees/')) {
+			const idEnd = relativePath.indexOf('/', 10);
+			if (idEnd !== -1 && relativePath.substring(idEnd + 1) === 'HEAD') {
+				ownerId = relativePath.substring(10, idEnd);
 			}
-			return;
 		}
 
-		const changes = classifyGitDirChange(relativePath);
-
-		// Dispatch to ALL sessions in the group
 		for (const entry of this._sessions.values()) {
-			if (changes != null) {
+			// A session rooted at the common dir sees every common file (hooks included) through its own
+			// combined root watcher, so delivering here too would duplicate it
+			if (entry.coversCommon) continue;
+
+			if (isFetchHead) {
+				// FETCH_HEAD lives in the main .git dir; each worktree updates its last-fetched state
+				entry.hooks.onFetchHeadChanged?.(entry.repoPath);
+				continue;
+			}
+
+			if (changes != null && (ownerId == null || entry.worktreeId !== ownerId)) {
 				entry.hooks.onRepoChanged(entry.repoPath, changes);
 			}
 
-			// Check for special cases
-			if (relativePath === 'info/exclude') {
+			if (isExclude) {
 				entry.hooks.onIgnoresChanged?.(entry.repoPath);
 			}
 		}

@@ -131,9 +131,29 @@ describe('classifyGitDirChange', () => {
 		assert.deepStrictEqual(classifyGitDirChange('worktrees'), ['worktrees']);
 	});
 
-	it('maps worktrees/foo/HEAD to worktrees (worktrees match first)', () => {
-		// The regex matches "worktrees" before HEAD
-		assert.deepStrictEqual(classifyGitDirChange('worktrees/foo/HEAD'), ['worktrees']);
+	it('maps the worktree entry and what `git worktree list` reports per worktree to worktrees', () => {
+		for (const p of ['worktrees/foo', 'worktrees/foo/HEAD', 'worktrees/foo/locked', 'worktrees/foo/gitdir']) {
+			assert.deepStrictEqual(classifyGitDirChange(p), ['worktrees'], p);
+		}
+	});
+
+	it('returns undefined for a worktree’s own state under worktrees/<n>/ (its root watcher classifies it)', () => {
+		for (const p of [
+			'worktrees/foo/index',
+			'worktrees/foo/ORIG_HEAD',
+			'worktrees/foo/MERGE_HEAD',
+			'worktrees/foo/CHERRY_PICK_HEAD',
+			'worktrees/foo/rebase-merge',
+			'worktrees/foo/rebase-merge/onto',
+			'worktrees/foo/rebase-apply/head-name',
+			'worktrees/foo/sequencer/todo',
+			'worktrees/foo/logs/HEAD',
+			'worktrees/foo/refs/heads/x',
+			'worktrees/foo/',
+			'worktrees/',
+		]) {
+			assert.strictEqual(classifyGitDirChange(p), undefined, p);
+		}
 	});
 
 	it('returns undefined for unrecognized paths', () => {

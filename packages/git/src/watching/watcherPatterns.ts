@@ -8,10 +8,12 @@ const dotGitFiles =
 // `worktrees` (the bare entry, no `/*` suffix) is its own pattern: `worktree remove` deletes the whole
 // `worktrees/<id>` subtree in one syscall, and some platforms/watcher backends coalesce a same-instant
 // subtree delete into a single event for the PARENT directory — `worktrees/*` alone never matches that.
-// `classifyGitDirChange`'s regex already classifies a bare `worktrees` path, so this is watch-coverage
-// only, not a classification change.
-const dotGitWorktreeFiles =
-	'worktrees,worktrees/*,worktrees/**/index,worktrees/**/HEAD,worktrees/**/*_HEAD,worktrees/**/MERGE_*,worktrees/**/rebase-merge,worktrees/**/rebase-merge/**,worktrees/**/rebase-apply,worktrees/**/rebase-apply/**,worktrees/**/sequencer,worktrees/**/sequencer/**';
+// `classifyGitDirChange` classifies a bare `worktrees` path, so this is watch-coverage only.
+//
+// Only what `git worktree list` reports per worktree is watched here (its HEAD, lock and location). A
+// linked worktree's own index, `*_HEAD`, `MERGE_*`, rebase and sequencer state is watched by that
+// worktree's root watcher (`dotGitGlobRoot`) instead, so it never wakes sibling worktrees.
+const dotGitWorktreeFiles = 'worktrees,worktrees/*,worktrees/*/HEAD,worktrees/*/locked,worktrees/*/gitdir';
 
 const dotGitCommonFiles = `config,gk/config,refs/**,packed-refs,shallow,info/exclude,FETCH_HEAD,${dotGitWorktreeFiles}`;
 

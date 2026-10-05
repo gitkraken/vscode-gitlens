@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes the _Commit Graph_ preview for privately hosted repos to one continuous 3-day window &mdash; previously three separate one-day sessions, each started manually with _Continue Preview_
 - Renames the `gitlens.views.publishRepository` command to `gitlens.publishRepository:views`; the old id still works but is deprecated
 
+### Changed
+
+- Improves performance when working across several worktrees of one repository &mdash; staging changes, or a merge, rebase or cherry-pick pausing, in one worktree no longer refreshes the views and _Commit Graph_ state of every other worktree
+
 ### Fixed
 
 - Fixes _Push_ from the _Git Command Palette_ on a branch with no upstream showing a plain push confirmation (which then failed) instead of the publish step
