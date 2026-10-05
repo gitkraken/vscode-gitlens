@@ -262,12 +262,13 @@ export class SubscriptionService implements Disposable {
 						const map = new Map<FeaturePreviews, FeaturePreview>();
 
 						// Status derives from the start + the preview duration, so simulate by shifting
-						// the start to leave `durationSeconds` remaining
-						const makeStartedUsages = (): StoredFeaturePreviewUsagePeriod[] => {
+						// the start to leave `remainingSeconds` (negative = already expired). Always a
+						// full-length window — a shorter one would read as a legacy record (= eligible).
+						const makeStartedUsages = (remainingSeconds: number): StoredFeaturePreviewUsagePeriod[] => {
 							const startedOn = new Date(
 								Date.now() -
 									proFeaturePreviewUsageDurationInDays * 24 * 3600000 +
-									durationSeconds * 1000,
+									remainingSeconds * 1000,
 							);
 							return [
 								{
@@ -288,13 +289,11 @@ export class SubscriptionService implements Disposable {
 										usages = [];
 										break;
 									case 'active':
-										usages = makeStartedUsages();
+										usages = makeStartedUsages(durationSeconds);
 										break;
-									case 'expired': {
-										const expired = new Date(0).toISOString();
-										usages = [{ startedOn: expired, expiresOn: expired }];
+									case 'expired':
+										usages = makeStartedUsages(-60);
 										break;
-									}
 								}
 
 								featurePreview = { feature: feature, usages: usages };
@@ -305,7 +304,7 @@ export class SubscriptionService implements Disposable {
 						};
 
 						this.storeFeaturePreview = (feature: FeaturePreviews) => {
-							map.set(feature, { feature: feature, usages: makeStartedUsages() });
+							map.set(feature, { feature: feature, usages: makeStartedUsages(durationSeconds) });
 							return Promise.resolve();
 						};
 

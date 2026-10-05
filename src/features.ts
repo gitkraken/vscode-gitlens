@@ -109,18 +109,25 @@ export interface FeaturePreview {
 
 const hoursInMs = 3600000;
 
-/** One continuous window anchored on the first start — deliberately ignores the stored `expiresOn`,
- *  so legacy multi-window usages reinterpret as "started at the first window". */
-export function getFeaturePreviewExpiry(preview: FeaturePreview): Date | undefined {
-	const startedOn = preview?.usages[0]?.startedOn;
-	if (startedOn == null) return undefined;
+/** The pre-continuous model wrote one-day windows (up to three, click-continued); those records don't
+ *  convert — their holders get a fresh full window instead, so a legacy record reads as `eligible` and
+ *  the next walled open overwrites it with a new one. Telling them apart needs no version field: only
+ *  legacy windows are shorter than two days. */
+function isLegacyPreviewUsage(usage: StoredFeaturePreviewUsagePeriod): boolean {
+	return new Date(usage.expiresOn).getTime() - new Date(usage.startedOn).getTime() < 48 * hoursInMs;
+}
 
-	return new Date(new Date(startedOn).getTime() + 24 * proFeaturePreviewUsageDurationInDays * hoursInMs);
+/** One continuous window anchored on the start — the stored `expiresOn` only distinguishes record shapes */
+export function getFeaturePreviewExpiry(preview: FeaturePreview): Date | undefined {
+	const usage = preview?.usages[0];
+	if (usage == null || isLegacyPreviewUsage(usage)) return undefined;
+
+	return new Date(new Date(usage.startedOn).getTime() + 24 * proFeaturePreviewUsageDurationInDays * hoursInMs);
 }
 
 export function getFeaturePreviewStatus(preview: FeaturePreview): FeaturePreviewStatus {
 	const usages = preview?.usages;
-	if (!usages?.length) return 'eligible';
+	if (!usages?.length || isLegacyPreviewUsage(usages[0])) return 'eligible';
 
 	const now = Date.now();
 	// A now before the start (clock rolled back past it) expires rather than extends the preview
