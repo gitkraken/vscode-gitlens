@@ -712,8 +712,11 @@ suite('Azure DevOps account-wide reads (#5438)', () => {
 				'getIssue',
 				refusedCredential(),
 			);
+			// The refused token stays expired, so the next read reads with its replacement (any transition queued by
+			// the refusal settles first, so it cannot mark the replacement).
+			await new Promise(resolve => setImmediate(resolve));
 			(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
-				...primarySession('t'),
+				...primarySession('t2'),
 				domain: 'dev.azure.com',
 			};
 

@@ -48,6 +48,16 @@ export interface ConfiguredIntegrationsChangeEvent {
 export class ConfiguredIntegrationService implements Disposable {
 	private readonly _onDidChange = new Emitter<ConfiguredIntegrationsChangeEvent>();
 	private storeConfiguredQueue: Promise<void> = Promise.resolve();
+	/**
+	 * One provider's secret and descriptor mutations run one at a time, so a sign-out never interleaves with a
+	 * token being stored: storing writes the secret and then registers its descriptor, and a delete in between would
+	 * miss a connection it cannot see yet, or be undone by the pending write (#5948).
+	 */
+	private readonly _locks = new Map<IntegrationIds, Promise<void>>();
+	/** Monotonic across providers; see {@link getSignOutMark}. */
+	private _signOutEpoch = 0;
+	/** The epoch of the latest sign-out per scope: a provider, a self-managed host, or a single connection. */
+	private readonly _signOuts = new Map<string, number>();
 	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
 		return this._onDidChange.event;
 	}
@@ -259,50 +269,128 @@ export class ConfiguredIntegrationService implements Disposable {
 		await this.storeConfigured();
 	}
 
-	async storeSession(id: IntegrationIds, session: ProviderAuthenticationSession): Promise<void> {
-		await this.writeSecret(id, session);
+	private withLock<T>(id: IntegrationIds, fn: () => Promise<T>): Promise<T> {
+		const run = (this._locks.get(id) ?? Promise.resolve()).then(fn);
+		const settled = run.then(
+			() => undefined,
+			() => undefined,
+		);
+		this._locks.set(id, settled);
+		void settled.then(() => {
+			if (this._locks.get(id) === settled) {
+				this._locks.delete(id);
+			}
+		});
+		return run;
 	}
 
-	async getStoredSession(
+	/**
+	 * Taken before a token is read or fetched, and handed to {@link storeSession}: a sign-out that lands after it
+	 * (a disconnect, a reauthentication, the connection being removed) refuses the store, so a token fetched across
+	 * it is not written back and reconnected on the next resolution (gitkraken/kepler#3546).
+	 */
+	getSignOutMark(): number {
+		return this._signOutEpoch;
+	}
+
+	private markSignOut(scope: string): void {
+		this._signOuts.set(scope, ++this._signOutEpoch);
+	}
+
+	private getHostScope(id: IntegrationIds, domain: string): string {
+		return `${id}|host:${hostFromDomain(domain) ?? domain}`;
+	}
+
+	private isSignedOutSince(id: IntegrationIds, session: ProviderAuthenticationSession, mark: number): boolean {
+		const since = (scope: string) => (this._signOuts.get(scope) ?? 0) > mark;
+		if (since(id)) return true;
+		if (isSelfManagedHostIntegrationId(id) && session.domain && since(this.getHostScope(id, session.domain))) {
+			return true;
+		}
+		return since(`${id}|connection:${session.id}`);
+	}
+
+	/**
+	 * Stores the session's secret and descriptor together. With a `signOutMark`, nothing is stored, and `false` is
+	 * returned, when a sign-out covering the session landed after the mark was taken.
+	 */
+	storeSession(
+		id: IntegrationIds,
+		session: ProviderAuthenticationSession,
+		options?: { signOutMark?: number },
+	): Promise<boolean> {
+		return this.withLock(id, async () => {
+			if (options?.signOutMark != null && this.isSignedOutSince(id, session, options.signOutMark)) return false;
+
+			await this.writeSecret(id, session);
+			return true;
+		});
+	}
+
+	getStoredSession(
 		id: IntegrationIds,
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 	): Promise<ProviderAuthenticationSession | undefined> {
-		const sessionId = this.resolveConnectionId(id, descriptor);
-		let session = descriptor.cloud === true ? undefined : await this.readSecret(id, sessionId, false);
+		// Under the lock too: reading can repair storage (a legacy local-key cloud session, a missing descriptor).
+		return this.withLock(id, async () => {
+			const sessionId = this.resolveConnectionId(id, descriptor);
+			let session = descriptor.cloud === true ? undefined : await this.readSecret(id, sessionId, false);
 
-		let cloudIfMissing = false;
-		if (session != null) {
-			// Check the `expiresAt` field
-			// If it has an expiresAt property and the key is the old type, then it's a cloud session,
-			// so delete it from the local key and
-			// store with the "cloud" type key, and then use that one.
-			// Otherwise it's a local session under the local key, so just return it.
-			if (session.expiresAt != null) {
-				cloudIfMissing = true;
-				await Promise.allSettled([this.deleteSecrets(id, session.id), this.writeSecret(id, session)]);
+			let cloudIfMissing = false;
+			if (session != null) {
+				// Check the `expiresAt` field
+				// If it has an expiresAt property and the key is the old type, then it's a cloud session,
+				// so delete it from the local key and
+				// store with the "cloud" type key, and then use that one.
+				// Otherwise it's a local session under the local key, so just return it.
+				if (session.expiresAt != null) {
+					cloudIfMissing = true;
+					try {
+						await this.deleteSecrets(id, session.id);
+						await this.writeSecret(id, session);
+					} catch {}
+				}
 			}
-		}
 
-		// If no local session we try to restore a session with the cloud key
-		if (session == null && descriptor.cloud !== false) {
-			cloudIfMissing = true;
-			session = await this.readSecret(id, sessionId, true);
-		}
+			// If no local session we try to restore a session with the cloud key
+			if (session == null && descriptor.cloud !== false) {
+				cloudIfMissing = true;
+				session = await this.readSecret(id, sessionId, true);
+			}
 
-		return convertStoredSessionToSession(session, descriptor, cloudIfMissing);
+			return convertStoredSessionToSession(session, descriptor, cloudIfMissing);
+		});
 	}
 
-	async deleteStoredSessions(
+	/**
+	 * Deletes one connection's stored session. `signOut` is for a delete that signs the integration out (a forced new
+	 * session): it also refuses the store of any token of the provider, or of the descriptor's self-managed host,
+	 * fetched before it (see {@link getSignOutMark}). A cleanup of a replaced token leaves it unset.
+	 */
+	deleteStoredSessions(
 		id: IntegrationIds,
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		cloud?: boolean,
-		options?: { preserveConfigured?: boolean },
+		options?: { preserveConfigured?: boolean; signOut?: boolean },
 	): Promise<void> {
-		await this.deleteSecrets(id, this.resolveConnectionId(id, descriptor), cloud, options);
+		return this.withLock(id, async () => {
+			if (options?.signOut) {
+				this.markSignOut(
+					isSelfManagedHostIntegrationId(id) && descriptor.domain
+						? this.getHostScope(id, descriptor.domain)
+						: id,
+				);
+			}
+			await this.deleteSecrets(id, this.resolveConnectionId(id, descriptor), cloud, options);
+		});
 	}
 
-	async deleteAllStoredSessions(id: IntegrationIds, cloud?: boolean, domain?: string): Promise<void> {
-		await this.deleteAllSecrets(id, cloud, domain);
+	/** Signs out of every stored session of the provider, or of one self-managed host when `domain` is given. */
+	deleteAllStoredSessions(id: IntegrationIds, cloud?: boolean, domain?: string): Promise<void> {
+		return this.withLock(id, async () => {
+			this.markSignOut(isSelfManagedHostIntegrationId(id) && domain != null ? this.getHostScope(id, domain) : id);
+			await this.deleteAllSecrets(id, cloud, domain);
+		});
 	}
 
 	/**
@@ -344,7 +432,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		await this.ctx.storage.store('integrations:configured', remaining as StoredIntegrationConfigurations);
 	}
 
-	async deleteSecrets(
+	private async deleteSecrets(
 		id: IntegrationIds,
 		connectionId: string,
 		cloud?: boolean,
@@ -363,7 +451,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		await this.removeConfigured(id, { connectionId: connectionId, cloud: cloud });
 	}
 
-	async deleteAllSecrets(id: IntegrationIds, cloud?: boolean, domain?: string): Promise<void> {
+	private async deleteAllSecrets(id: IntegrationIds, cloud?: boolean, domain?: string): Promise<void> {
 		// Delete every connection's secret (multi-account): secrets are keyed per connection id, so a
 		// single canonical-domain delete would orphan secondary tokens. When a domain is given (self-managed
 		// disconnect of one host), scope to that host so other hosts under the same provider id survive.
@@ -395,7 +483,10 @@ export class ConfiguredIntegrationService implements Disposable {
 		await this.deleteSecrets(id, providersMetadata[id]?.domain || id, cloud);
 	}
 
-	async writeSecret(id: IntegrationIds, session: ProviderAuthenticationSession | StoredSession): Promise<void> {
+	private async writeSecret(
+		id: IntegrationIds,
+		session: ProviderAuthenticationSession | StoredSession,
+	): Promise<void> {
 		await this.ctx.storage.storeSecret(
 			this.getSecretKey(id, session.id, session.cloud ?? false),
 			JSON.stringify(session),
@@ -414,7 +505,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		});
 	}
 
-	async readSecret(
+	private async readSecret(
 		id: IntegrationIds,
 		sessionId: string,
 		cloud: boolean = false,
@@ -606,7 +697,11 @@ export class ConfiguredIntegrationService implements Disposable {
 	 * Marks the given connection as the primary/default for the provider and clears the flag on its
 	 * siblings. Persists immediately instead of relying on a session re-store to carry the primary flag.
 	 */
-	async setPrimaryConnection(id: IntegrationIds, connectionId: string): Promise<void> {
+	setPrimaryConnection(id: IntegrationIds, connectionId: string): Promise<void> {
+		return this.withLock(id, () => this.setPrimaryConnectionCore(id, connectionId));
+	}
+
+	private async setPrimaryConnectionCore(id: IntegrationIds, connectionId: string): Promise<void> {
 		const descriptors = this.configured.get(id);
 		if (descriptors == null || descriptors.length === 0) return;
 		if (!descriptors.some(d => d.id === connectionId)) return;
@@ -646,8 +741,12 @@ export class ConfiguredIntegrationService implements Disposable {
 	 * {@link deleteAllStoredSessions}, this only affects the targeted connection. Pass `cloud` to scope
 	 * the removal to the cloud/local variant when a local PAT and a cloud session share a connection id.
 	 */
-	async deleteConnection(id: IntegrationIds, connectionId: string, cloud?: boolean): Promise<void> {
-		await this.deleteSecrets(id, connectionId, cloud);
+	deleteConnection(id: IntegrationIds, connectionId: string, cloud?: boolean): Promise<void> {
+		return this.withLock(id, async () => {
+			// The connection is gone, so a token of it fetched before must not be stored back.
+			this.markSignOut(`${id}|connection:${connectionId}`);
+			await this.deleteSecrets(id, connectionId, cloud);
+		});
 	}
 
 	private _addedIds = new Set<IntegrationIds>();

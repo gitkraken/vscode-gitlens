@@ -88,6 +88,9 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 		const session = this._session;
 		const cached = this._autolinks.get(session.accessToken);
+		// A session kept through a failed refresh is expired: building with it would send that token to the provider
+		// on every render, so serve whatever was built before (none after a forced re-sync) until a read refreshes it.
+		if (this.connectionExpired === true) return cached?.autolinks ?? [];
 		if (cached == null) return this.buildAutolinks(session);
 
 		if (Date.now() - cached.builtAt >= discoveryCacheTtl) {

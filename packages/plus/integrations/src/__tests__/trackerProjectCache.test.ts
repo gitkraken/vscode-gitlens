@@ -473,6 +473,28 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
+		test('autolinks are not rebuilt with a session kept through a failed refresh (kepler#3546)', async () => {
+			const { service, runtime, integration, state } = await jiraCloud();
+			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
+
+			// The session expired and the GK API throttles the refresh, so the re-sync keeps the expired session.
+			const cached = integration as unknown as { _session: ProviderAuthenticationSession };
+			cached._session = { ...cached._session, expiresAt: new Date(Date.now() - 1000) };
+			runtime.account.fetchGkApi = () => Promise.resolve(new Response(null, { status: 429 }));
+			await integration.syncCloudConnection('connected', true);
+			const reads = state.projectReads;
+
+			assert.deepEqual(
+				await prefixesOf(integration),
+				[],
+				'the forced re-sync dropped the built set; none is rebuilt',
+			);
+			await flush();
+			assert.equal(state.projectReads, reads, 'no provider request is made with the expired token');
+
+			service.dispose();
+		});
+
 		test('concurrent autolink reads share one rebuild', async () => {
 			const { service, integration, state } = await jiraCloud();
 			integration.invalidateDiscoveryCaches();
@@ -512,7 +534,7 @@ suite('Tracker project cache (#5907)', () => {
 
 	suite('Linear', () => {
 		async function linear() {
-			const { service } = createCloudService(IssuesCloudHostIntegrationId.Linear);
+			const { service, runtime } = createCloudService(IssuesCloudHostIntegrationId.Linear);
 			const integration = await service.get(IssuesCloudHostIntegrationId.Linear);
 			const state = { teams: [{ id: 't1', key: 'ALPHA', name: 'Alpha', iconUrl: null }], teamReads: 0 };
 			stubApi(integration, {
@@ -547,8 +569,27 @@ suite('Tracker project cache (#5907)', () => {
 					providerId: IssuesCloudHostIntegrationId.Linear,
 					includeAllAssignees: true,
 				});
-			return { service: service, integration: integration, state: state, read: read };
+			return { service: service, integration: integration, state: state, read: read, runtime: runtime };
 		}
+
+		test('autolinks are not rebuilt with a session kept through a failed refresh (kepler#3546)', async () => {
+			const { service, runtime, integration, state } = await linear();
+			const built = await prefixesOf(integration);
+			assert.ok(built.length > 0, 'the team autolinks are built');
+
+			// The session expired and the GK API throttles the refresh, so the re-sync keeps the expired session.
+			const cached = integration as unknown as { _session: ProviderAuthenticationSession };
+			cached._session = { ...cached._session, expiresAt: new Date(Date.now() - 1000) };
+			runtime.account.fetchGkApi = () => Promise.resolve(new Response(null, { status: 429 }));
+			await integration.syncCloudConnection('connected', true);
+			const reads = state.teamReads;
+
+			await prefixesOf(integration);
+			await flush();
+			assert.equal(state.teamReads, reads, 'no provider request is made with the expired token');
+
+			service.dispose();
+		});
 
 		test('a team created mid-session appears after refreshConnections', async () => {
 			const { service, state, read } = await linear();
