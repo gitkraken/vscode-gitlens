@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes a repository or worktree with no commits yet showing no changes when it has staged or modified files
+- Fixes features treating a failed check for changes as "no changes": _Auto-Rebase_ could report a commit as skipped for being empty, applying a patch could skip offering to stash your changes, and _Copy Changes_ could leave out untracked files without saying so
 - Fixes diffs against a repository's first commit failing in a SHA-256 repository, including a stash's untracked files and, for a range starting at the first commit, the _Commit Graph_'s scope file list and _Compose_
 - Fixes cloning a large repository from a GitLens link failing once it runs past the Git timeout (`gitlens.advanced.git.timeout`) &mdash; the clone now runs as long as it needs, and its progress notification can cancel it
 - Fixes branch-associated issues from self-managed Git hosts resolving through the wrong server when an older association has no host. These associations remain usable with a single configured host, and new Bitbucket Server issue associations retain their host ([#5883](https://github.com/gitkraken/vscode-gitlens/issues/5883))

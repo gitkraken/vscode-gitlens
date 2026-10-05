@@ -95,7 +95,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			// Skip when a pathspec filter is active — mixing a path-filtered diff count with an
 			// unfiltered untracked count would silently produce wrong totals.
 			if (options?.includeUntracked && !options.uris?.length && isWorkingTreeComparison(to, from)) {
-				const untracked = (await this.provider.status?.getUntrackedFiles?.(repoPath)) ?? [];
+				const untracked = await this.getUntrackedFilesForDiff(repoPath, options.errors);
 				if (untracked.length) {
 					return {
 						files: (stat?.files ?? 0) + untracked.length,
@@ -162,7 +162,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			);
 		} catch (ex) {
 			// Before its first commit HEAD names nothing, so a diff from it fails; the empty tree is what it is against
-			if (isHead(from) && (await this.isUnbornHeadFailure(repoPath, ex))) {
+			if (isHead(from) && (await isUnbornHeadFailure(this.provider, repoPath, ex))) {
 				const emptyTree = await this.provider.revision.getEmptyTreeSha(repoPath);
 				// With no `from`, a `to` of HEAD means the working tree against HEAD, so it is the empty tree alone
 				const retried = await this.getDiff(
@@ -183,14 +183,6 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 		const diff: GitDiff = { contents: result.stdout, from: from, to: to, notation: options?.notation };
 		return diff;
-	}
-
-	/** Whether `ex` is git failing to resolve `HEAD` because the repository has no commit yet */
-	private async isUnbornHeadFailure(repoPath: string, ex: unknown): Promise<boolean> {
-		const ref = GitErrors.badRevision.exec(String(ex))?.[1];
-		if (!isHead(ref)) return false;
-
-		return (await this.provider.refs.validateReference(repoPath, 'HEAD', { force: true })) == null;
 	}
 
 	@debug()
@@ -284,7 +276,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				filtersAllowUntracked(options.filters) &&
 				!isNonExactPathspec(options.path)
 			) {
-				const untracked = (await this.provider.status?.getUntrackedFiles?.(repoPath)) ?? [];
+				const untracked = await this.getUntrackedFilesForDiff(repoPath, options.errors);
 				if (untracked.length) {
 					const seen = new Set(files.map(f => f.path));
 					for (const file of untracked) {
@@ -301,6 +293,20 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			if (options?.errors === 'throw') throw ex;
 
 			return undefined;
+		}
+	}
+
+	/**
+	 * The untracked files a working-tree diff folds in; outside `errors: 'throw'`, a failed listing adds nothing. The diff
+	 * reads take no cancellation, so a `CancellationError` here is a timeout and degrades like any other failure.
+	 */
+	private async getUntrackedFilesForDiff(repoPath: string, errors: GitErrorHandling | undefined): Promise<GitFile[]> {
+		try {
+			return (await this.provider.status?.getUntrackedFiles?.(repoPath)) ?? [];
+		} catch (ex) {
+			if (errors === 'throw') throw ex;
+
+			return [];
 		}
 	}
 
@@ -1132,6 +1138,14 @@ function isWorkingTreeComparison(to: string | undefined, from: string | undefine
 
 function isHead(ref: string | undefined): boolean {
 	return ref?.toUpperCase() === 'HEAD';
+}
+
+/** Whether `ex` is git failing to resolve `HEAD` because the repository has no commit yet */
+async function isUnbornHeadFailure(provider: CliGitProviderInternal, repoPath: string, ex: unknown): Promise<boolean> {
+	const ref = GitErrors.badRevision.exec(String(ex))?.[1];
+	if (!isHead(ref)) return false;
+
+	return (await provider.refs.validateReference(repoPath, 'HEAD', { force: true })) == null;
 }
 
 function prepareToFromDiffArgs(
