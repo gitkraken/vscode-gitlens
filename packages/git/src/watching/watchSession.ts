@@ -36,6 +36,13 @@ export interface WatchSessionOptions {
 	readonly defaultRepoDelayMs?: number;
 	/** Default debounce for working tree changes. Default: 2500ms */
 	readonly defaultWorkingTreeDelayMs?: number;
+	/**
+	 * Default cap on how long repo changes can be held back by continuous activity — a flush happens at most this long
+	 * after the first pending change, however long the burst lasts. `Infinity` disables the cap. Default: 2000ms
+	 */
+	readonly defaultRepoMaxWaitMs?: number;
+	/** Default cap on how long working tree changes can be held back by continuous activity. `Infinity` disables the cap. Default: 10000ms */
+	readonly defaultWorkingTreeMaxWaitMs?: number;
 	readonly lifecycle?: WatchSessionLifecycle;
 	/** Initial suspended state — new sessions inherit the service-global suspend state. Default: false */
 	readonly suspended?: boolean;
@@ -55,6 +62,136 @@ export interface WatchSessionOptions {
 
 const defaultRepoDelay = 250;
 const defaultWorkingTreeDelay = 2500;
+const defaultRepoMaxWait = 2000;
+const defaultWorkingTreeMaxWait = 10000;
+
+/** Largest delay `setTimeout` honors (a signed 32-bit int); anything longer fires immediately */
+const maxTimerDelay = 0x7fffffff;
+
+interface DebounceTiming {
+	readonly delayMs: number;
+	readonly maxWaitMs: number;
+}
+
+/**
+ * Trailing-deadline debounce with a max-wait, shared by the repo and working-tree pipelines.
+ *
+ * Recording an event costs a `performance.now()` and, only when no timer is armed, one `setTimeout` — never a
+ * `clearTimeout`/`setTimeout` pair per event, which is what made a busy repo allocate (and starve) on every raw
+ * watcher event. The armed timer is a deadline, not a countdown: when it fires it recomputes the due time from the
+ * latest timestamps and either flushes or re-arms for the remainder. The due time is
+ * `min(lastEventAt + delay, firstPendingAt + maxWait)`, so continuous activity is flushed at the max-wait instead of
+ * never. Monotonic time, so a wall-clock change can't push a deadline out.
+ */
+class DebounceClock {
+	private active = false;
+	private paused = false;
+	private firstAt = 0;
+	private lastAt = 0;
+	private timer: ReturnType<typeof setTimeout> | undefined;
+	private timerDueAt = 0;
+	/** Absolute flush time set by {@link resume}; dropped by the next event, which returns to normal debounce */
+	private resumeDueAt: number | undefined;
+
+	constructor(
+		private readonly getDelayMs: () => number,
+		private readonly getMaxWaitMs: () => number,
+		private readonly onDue: () => void,
+	) {}
+
+	/** Records an event; arms the timer only if none is armed. Cheap enough to call per raw event. */
+	note(): void {
+		const now = performance.now();
+		if (!this.active) {
+			this.active = true;
+			this.firstAt = now;
+		}
+		this.lastAt = now;
+
+		if (this.paused) return;
+
+		if (this.resumeDueAt != null) {
+			// The first event after a resume goes back to normal debounce — which may be due sooner than the resume deadline
+			this.resumeDueAt = undefined;
+			this.rearmIfEarlier();
+		}
+
+		if (this.timer == null) {
+			this.arm(this.getDueAt(), now);
+		}
+	}
+
+	/** Moves the armed timer earlier when the due time shrank (a subscriber joined with a shorter delay or max-wait) */
+	rearmIfEarlier(): void {
+		if (!this.active || this.paused || this.timer == null) return;
+
+		const dueAt = this.getDueAt();
+		if (dueAt >= this.timerDueAt) return;
+
+		clearTimeout(this.timer);
+		this.arm(dueAt, performance.now());
+	}
+
+	/** Cancels the timer; events keep accumulating but nothing is due until {@link resume} */
+	suspend(): void {
+		this.paused = true;
+		this.clearTimer();
+	}
+
+	/**
+	 * Restarts the max-wait window from now and schedules the flush for `delayMs` from now (the effective delay when
+	 * omitted). Does nothing if no events are pending.
+	 */
+	resume(delayMs?: number): void {
+		this.paused = false;
+		if (!this.active) return;
+
+		const now = performance.now();
+		this.firstAt = now;
+		this.resumeDueAt = now + (delayMs ?? this.getDelayMs());
+		this.clearTimer();
+		this.arm(this.resumeDueAt, now);
+	}
+
+	/** Drops the pending window and the timer */
+	cancel(): void {
+		this.active = false;
+		this.resumeDueAt = undefined;
+		this.clearTimer();
+	}
+
+	private getDueAt(): number {
+		return this.resumeDueAt ?? Math.min(this.lastAt + this.getDelayMs(), this.firstAt + this.getMaxWaitMs());
+	}
+
+	private arm(dueAt: number, now: number): void {
+		this.timerDueAt = dueAt;
+		this.timer = setTimeout(() => this.onTimer(), Math.min(Math.max(0, dueAt - now), maxTimerDelay));
+	}
+
+	private onTimer(): void {
+		this.timer = undefined;
+		if (!this.active || this.paused) return;
+
+		const now = performance.now();
+		const dueAt = this.getDueAt();
+		if (dueAt > now) {
+			this.arm(dueAt, now);
+			return;
+		}
+
+		// Reset before firing so an event raised by a subscriber starts a fresh window
+		this.cancel();
+		this.onDue();
+	}
+
+	private clearTimer(): void {
+		if (this.timer != null) {
+			clearTimeout(this.timer);
+			this.timer = undefined;
+		}
+	}
+}
 
 /**
  * Cap on retained working-tree paths per flush. The set otherwise grows without bound — while the window
@@ -70,27 +207,31 @@ const maxWorkingTreePaths = 1000;
  * pipeline for both repo (.git) and working-tree changes.
  *
  * Multiple subscribers share the same pipeline — the shortest
- * requested debounce delay wins.
+ * requested debounce delay wins, and so does the shortest max-wait.
  */
 export class RepositoryWatchSession implements UnifiedDisposable {
 	readonly repoPath: string;
 
 	private readonly repoEmitter = new Emitter<WatcherRepoChangeEvent>();
-	private readonly repoDelays = new Map<number, number>(); // subscriberId → delayMs
+	private readonly repoSubscribers = new Map<number, DebounceTiming>(); // subscriberId → timing
 	private repoNextId = 0;
-	private pendingRepoEvent: WatcherRepoChangeEvent | undefined;
-	private repoTimer: ReturnType<typeof setTimeout> | undefined;
+	private readonly pendingRepoChanges = new Set<RepositoryChange>();
+	private readonly repoClock: DebounceClock;
 	private effectiveRepoMs: number;
+	private effectiveRepoMaxWaitMs: number;
 	private readonly defaultRepoMs: number;
+	private readonly defaultRepoMaxWaitMs: number;
 
 	private readonly workingTreeEmitter = new Emitter<WorkingTreeChangeEvent>();
-	private readonly workingTreeDelays = new Map<number, number>();
+	private readonly workingTreeSubscribers = new Map<number, DebounceTiming>();
 	private workingTreeNextId = 0;
 	private pendingWorkingTreePaths = new Set<string>();
 	private pendingWorkingTreeIncomplete = false;
-	private workingTreeTimer: ReturnType<typeof setTimeout> | undefined;
+	private readonly workingTreeClock: DebounceClock;
 	private effectiveWorkingTreeMs: number;
+	private effectiveWorkingTreeMaxWaitMs: number;
 	private readonly defaultWorkingTreeMs: number;
+	private readonly defaultWorkingTreeMaxWaitMs: number;
 
 	private _etagWorkingTree = 0;
 	private _suspended: boolean;
@@ -104,12 +245,30 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.repoPath = options.repoPath;
 		this.defaultRepoMs = options.defaultRepoDelayMs ?? defaultRepoDelay;
 		this.defaultWorkingTreeMs = options.defaultWorkingTreeDelayMs ?? defaultWorkingTreeDelay;
+		this.defaultRepoMaxWaitMs = options.defaultRepoMaxWaitMs ?? defaultRepoMaxWait;
+		this.defaultWorkingTreeMaxWaitMs = options.defaultWorkingTreeMaxWaitMs ?? defaultWorkingTreeMaxWait;
 		this.effectiveRepoMs = this.defaultRepoMs;
+		this.effectiveRepoMaxWaitMs = this.defaultRepoMaxWaitMs;
 		this.effectiveWorkingTreeMs = this.defaultWorkingTreeMs;
+		this.effectiveWorkingTreeMaxWaitMs = this.defaultWorkingTreeMaxWaitMs;
+		this.repoClock = new DebounceClock(
+			() => this.effectiveRepoMs,
+			() => this.effectiveRepoMaxWaitMs,
+			() => this.flushRepo(),
+		);
+		this.workingTreeClock = new DebounceClock(
+			() => this.effectiveWorkingTreeMs,
+			() => this.effectiveWorkingTreeMaxWaitMs,
+			() => this.flushWorkingTree(),
+		);
 		this.lifecycle = options.lifecycle;
 		this.onDidFireRepoChangeCallback = options.onDidFireRepoChange;
 		this.onDidFireWorkingTreeChangeCallback = options.onDidFireWorkingTreeChange;
 		this._suspended = options.suspended ?? false;
+		if (this._suspended) {
+			this.repoClock.suspend();
+			this.workingTreeClock.suspend();
+		}
 	}
 
 	[Symbol.dispose](): void {
@@ -121,14 +280,14 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 		this._disposed = true;
 
-		this.cancelRepoTimer();
-		this.cancelWorkingTreeTimer();
+		this.repoClock.cancel();
+		this.workingTreeClock.cancel();
 
-		this.pendingRepoEvent = undefined;
+		this.pendingRepoChanges.clear();
 		this.pendingWorkingTreePaths.clear();
 		this.pendingWorkingTreeIncomplete = false;
-		this.repoDelays.clear();
-		this.workingTreeDelays.clear();
+		this.repoSubscribers.clear();
+		this.workingTreeSubscribers.clear();
 
 		this.repoEmitter.dispose();
 		this.workingTreeEmitter.dispose();
@@ -139,7 +298,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	}
 
 	get hasPendingChanges(): boolean {
-		return this.pendingRepoEvent != null || this.hasPendingWorkingTreeChanges;
+		return this.pendingRepoChanges.size > 0 || this.hasPendingWorkingTreeChanges;
 	}
 
 	/**
@@ -151,11 +310,11 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	}
 
 	get repoSubscriberCount(): number {
-		return this.repoDelays.size;
+		return this.repoSubscribers.size;
 	}
 
 	get workingTreeSubscriberCount(): number {
-		return this.workingTreeDelays.size;
+		return this.workingTreeSubscribers.size;
 	}
 
 	/**
@@ -173,9 +332,10 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	 * fires `onLastRepoSubscriber`.
 	 *
 	 * When multiple subscribers exist, the shortest debounce wins —
-	 * all subscribers fire on the same (fastest) cadence.
+	 * all subscribers fire on the same (fastest) cadence. `maxWaitMs` bounds how long continuous
+	 * activity can defer a flush (the shortest wins too); `Infinity` means no cap.
 	 */
-	subscribe(opts?: { delayMs?: number }): RepositorySubscription {
+	subscribe(opts?: { delayMs?: number; maxWaitMs?: number }): RepositorySubscription {
 		if (this._disposed) {
 			return Object.assign(
 				createDisposable(() => {}),
@@ -186,21 +346,20 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		}
 
 		const id = this.repoNextId++;
-		const delay = opts?.delayMs ?? this.defaultRepoMs;
-		const wasEmpty = this.repoDelays.size === 0;
-		const prevDelay = this.effectiveRepoMs;
+		const wasEmpty = this.repoSubscribers.size === 0;
 
-		this.repoDelays.set(id, delay);
-		this.recalcRepoDelay();
+		this.repoSubscribers.set(id, {
+			delayMs: opts?.delayMs ?? this.defaultRepoMs,
+			maxWaitMs: opts?.maxWaitMs ?? this.defaultRepoMaxWaitMs,
+		});
+		this.recalcRepoTiming();
 
 		if (wasEmpty) {
 			this.lifecycle?.onFirstRepoSubscriber?.();
 		}
 
-		// If the effective delay got shorter while a timer is running, reschedule sooner
-		if (this.effectiveRepoMs < prevDelay && this.repoTimer != null) {
-			this.scheduleRepoFlush();
-		}
+		// If the effective delay or max-wait got shorter while a flush is pending, move it sooner
+		this.repoClock.rearmIfEarlier();
 
 		let subDisposed = false;
 		return Object.assign(
@@ -209,12 +368,12 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 				subDisposed = true;
 
-				this.repoDelays.delete(id);
-				this.recalcRepoDelay();
+				this.repoSubscribers.delete(id);
+				this.recalcRepoTiming();
 
-				if (this.repoDelays.size === 0) {
-					this.cancelRepoTimer();
-					this.pendingRepoEvent = undefined;
+				if (this.repoSubscribers.size === 0) {
+					this.repoClock.cancel();
+					this.pendingRepoChanges.clear();
 					this.lifecycle?.onLastRepoSubscriber?.();
 				}
 			}),
@@ -222,7 +381,8 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		);
 	}
 
-	subscribeToWorkingTree(opts?: { delayMs?: number }): WorkingTreeSubscription {
+	/** Subscribe to working tree changes; `delayMs` and `maxWaitMs` behave as in {@link subscribe}. */
+	subscribeToWorkingTree(opts?: { delayMs?: number; maxWaitMs?: number }): WorkingTreeSubscription {
 		if (this._disposed) {
 			return Object.assign(
 				createDisposable(() => {}),
@@ -233,21 +393,20 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		}
 
 		const id = this.workingTreeNextId++;
-		const delay = opts?.delayMs ?? this.defaultWorkingTreeMs;
-		const wasEmpty = this.workingTreeDelays.size === 0;
-		const prevDelay = this.effectiveWorkingTreeMs;
+		const wasEmpty = this.workingTreeSubscribers.size === 0;
 
-		this.workingTreeDelays.set(id, delay);
-		this.recalcWorkingTreeDelay();
+		this.workingTreeSubscribers.set(id, {
+			delayMs: opts?.delayMs ?? this.defaultWorkingTreeMs,
+			maxWaitMs: opts?.maxWaitMs ?? this.defaultWorkingTreeMaxWaitMs,
+		});
+		this.recalcWorkingTreeTiming();
 
 		if (wasEmpty) {
 			this.lifecycle?.onFirstWorkingTreeSubscriber?.();
 		}
 
-		// If the effective delay got shorter while a timer is running, reschedule sooner
-		if (this.effectiveWorkingTreeMs < prevDelay && this.workingTreeTimer != null) {
-			this.scheduleWorkingTreeFlush();
-		}
+		// If the effective delay or max-wait got shorter while a flush is pending, move it sooner
+		this.workingTreeClock.rearmIfEarlier();
 
 		let subDisposed = false;
 		return Object.assign(
@@ -256,11 +415,11 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 				subDisposed = true;
 
-				this.workingTreeDelays.delete(id);
-				this.recalcWorkingTreeDelay();
+				this.workingTreeSubscribers.delete(id);
+				this.recalcWorkingTreeTiming();
 
-				if (this.workingTreeDelays.size === 0) {
-					this.cancelWorkingTreeTimer();
+				if (this.workingTreeSubscribers.size === 0) {
+					this.workingTreeClock.cancel();
 					this.pendingWorkingTreePaths.clear();
 					// Dropped with the paths it describes — a stale flag would make the next subscriber's
 					// first ordinary flush claim a partial set and force needless full refreshes.
@@ -275,8 +434,8 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	suspend(): void {
 		this._suspended = true;
 		// Cancel active timers — events continue to coalesce but don't fire
-		this.cancelRepoTimer();
-		this.cancelWorkingTreeTimer();
+		this.repoClock.suspend();
+		this.workingTreeClock.suspend();
 	}
 
 	resume(delayMs?: number): void {
@@ -284,13 +443,9 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 		this._suspended = false;
 
-		// Flush accumulated changes
-		if (this.pendingRepoEvent != null) {
-			this.scheduleRepoFlush(delayMs);
-		}
-		if (this.hasPendingWorkingTreeChanges) {
-			this.scheduleWorkingTreeFlush(delayMs);
-		}
+		// Flush accumulated changes (a clock with nothing pending stays idle); the max-wait window restarts from now
+		this.repoClock.resume(delayMs);
+		this.workingTreeClock.resume(delayMs);
 	}
 
 	/** Inject changes (e.g., after a git operation the caller performed). Goes through debounce + suspend. */
@@ -331,63 +486,70 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.coalesceWorkingTrees(paths);
 	}
 
-	private static minDelay(delays: Map<number, number>, fallback: number): number {
-		if (delays.size === 0) return fallback;
-
+	private static minDelay(subscribers: Map<number, DebounceTiming>, fallback: number): number {
 		let min = fallback;
-		for (const d of delays.values()) {
-			if (d < min) {
-				min = d;
+		for (const { delayMs } of subscribers.values()) {
+			if (delayMs < min) {
+				min = delayMs;
 			}
 		}
 		return min;
 	}
 
-	private recalcRepoDelay(): void {
-		this.effectiveRepoMs = RepositoryWatchSession.minDelay(this.repoDelays, this.defaultRepoMs);
+	/** Unlike the delay, the default isn't a ceiling — a subscriber can opt out of the cap with `Infinity` */
+	private static minMaxWait(subscribers: Map<number, DebounceTiming>, fallback: number): number {
+		if (subscribers.size === 0) return fallback;
+
+		let min = Infinity;
+		for (const { maxWaitMs } of subscribers.values()) {
+			if (maxWaitMs < min) {
+				min = maxWaitMs;
+			}
+		}
+		return min;
 	}
 
-	private recalcWorkingTreeDelay(): void {
+	private recalcRepoTiming(): void {
+		this.effectiveRepoMs = RepositoryWatchSession.minDelay(this.repoSubscribers, this.defaultRepoMs);
+		this.effectiveRepoMaxWaitMs = RepositoryWatchSession.minMaxWait(
+			this.repoSubscribers,
+			this.defaultRepoMaxWaitMs,
+		);
+	}
+
+	private recalcWorkingTreeTiming(): void {
 		this.effectiveWorkingTreeMs = RepositoryWatchSession.minDelay(
-			this.workingTreeDelays,
+			this.workingTreeSubscribers,
 			this.defaultWorkingTreeMs,
+		);
+		this.effectiveWorkingTreeMaxWaitMs = RepositoryWatchSession.minMaxWait(
+			this.workingTreeSubscribers,
+			this.defaultWorkingTreeMaxWaitMs,
 		);
 	}
 
 	private flushRepo(): void {
-		this.repoTimer = undefined;
-		const event = this.pendingRepoEvent;
-		if (event == null) return;
+		if (this.pendingRepoChanges.size === 0) return;
 
-		this.pendingRepoEvent = undefined;
+		// The event is built only here — raw events just add to the pending set
+		const event = new WatcherRepoChangeEvent(this.repoPath, [...this.pendingRepoChanges]);
+		this.pendingRepoChanges.clear();
 		// Advance any cache clock BEFORE notifying subscribers (same rationale as `flushWorkingTree`): a subscriber
 		// that synchronously reads status must see the post-change generation, not a joinable pre-change run.
 		this.onDidFireRepoChangeCallback?.(event);
 		this.repoEmitter.fire(event);
 	}
 
-	private scheduleRepoFlush(delayOverride?: number): void {
-		if (this._suspended || this.pendingRepoEvent == null) return;
-
-		if (this.repoTimer != null) {
-			clearTimeout(this.repoTimer);
-		}
-		this.repoTimer = setTimeout(() => this.flushRepo(), delayOverride ?? this.effectiveRepoMs);
-	}
-
 	private coalesceRepo(changes: RepositoryChange[]): void {
 		if (changes.length === 0) return;
 
-		this.pendingRepoEvent =
-			this.pendingRepoEvent == null
-				? new WatcherRepoChangeEvent(this.repoPath, changes)
-				: this.pendingRepoEvent.with(changes);
-
-		this.scheduleRepoFlush();
+		for (const change of changes) {
+			this.pendingRepoChanges.add(change);
+		}
+		this.repoClock.note();
 	}
 
 	private flushWorkingTree(): void {
-		this.workingTreeTimer = undefined;
 		if (!this.hasPendingWorkingTreeChanges) return;
 
 		const paths = this.pendingWorkingTreePaths;
@@ -398,15 +560,6 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		// so a subscriber that synchronously reads status sees the post-change generation, not a joinable pre-change run.
 		this.onDidFireWorkingTreeChangeCallback?.(this.repoPath);
 		this.workingTreeEmitter.fire({ repoPath: this.repoPath, paths: paths, incomplete: incomplete });
-	}
-
-	private scheduleWorkingTreeFlush(delayOverride?: number): void {
-		if (this._suspended || !this.hasPendingWorkingTreeChanges) return;
-
-		if (this.workingTreeTimer != null) {
-			clearTimeout(this.workingTreeTimer);
-		}
-		this.workingTreeTimer = setTimeout(() => this.flushWorkingTree(), delayOverride ?? this.effectiveWorkingTreeMs);
 	}
 
 	private coalesceWorkingTrees(paths: Iterable<string>): void {
@@ -420,20 +573,9 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 			this.pendingWorkingTreePaths.add(p);
 		}
-		this.scheduleWorkingTreeFlush();
-	}
 
-	private cancelRepoTimer(): void {
-		if (this.repoTimer != null) {
-			clearTimeout(this.repoTimer);
-			this.repoTimer = undefined;
-		}
-	}
-
-	private cancelWorkingTreeTimer(): void {
-		if (this.workingTreeTimer != null) {
-			clearTimeout(this.workingTreeTimer);
-			this.workingTreeTimer = undefined;
+		if (this.hasPendingWorkingTreeChanges) {
+			this.workingTreeClock.note();
 		}
 	}
 }

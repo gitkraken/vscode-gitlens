@@ -26,6 +26,10 @@ export interface WatchServiceOptions {
 	readonly defaultRepoDelayMs?: number;
 	/** Default debounce for working tree changes when subscriber doesn't specify. Default: 2500ms */
 	readonly defaultWorkingTreeDelayMs?: number;
+	/** Default cap on how long continuous repo activity can defer a flush. `Infinity` disables it. Default: 2000ms */
+	readonly defaultRepoMaxWaitMs?: number;
+	/** Default cap on how long continuous working tree activity can defer a flush. `Infinity` disables it. Default: 10000ms */
+	readonly defaultWorkingTreeMaxWaitMs?: number;
 	/** Returns a GitIgnoreFilter for a given repo. When absent or returns undefined, gitignore filtering is skipped. */
 	readonly getIgnoreFilter?: (repoPath: string, gitDirPath: string) => GitIgnoreFilter | undefined;
 }
@@ -87,6 +91,8 @@ export class RepositoryWatchService implements UnifiedDisposable {
 
 	private readonly defaultRepoDelayMs?: number;
 	private readonly defaultWorkingTreeDelayMs?: number;
+	private readonly defaultRepoMaxWaitMs?: number;
+	private readonly defaultWorkingTreeMaxWaitMs?: number;
 	private readonly getIgnoreFilter?: (repoPath: string, gitDirPath: string) => GitIgnoreFilter | undefined;
 	private readonly provider: FileWatchingProvider;
 
@@ -101,6 +107,8 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		this.provider = options.watchingProvider;
 		this.defaultRepoDelayMs = options.defaultRepoDelayMs;
 		this.defaultWorkingTreeDelayMs = options.defaultWorkingTreeDelayMs;
+		this.defaultRepoMaxWaitMs = options.defaultRepoMaxWaitMs;
+		this.defaultWorkingTreeMaxWaitMs = options.defaultWorkingTreeMaxWaitMs;
 		this.getIgnoreFilter = options.getIgnoreFilter;
 	}
 
@@ -160,6 +168,8 @@ export class RepositoryWatchService implements UnifiedDisposable {
 				repoPath: repoPath,
 				defaultRepoDelayMs: this.defaultRepoDelayMs,
 				defaultWorkingTreeDelayMs: this.defaultWorkingTreeDelayMs,
+				defaultRepoMaxWaitMs: this.defaultRepoMaxWaitMs,
+				defaultWorkingTreeMaxWaitMs: this.defaultWorkingTreeMaxWaitMs,
 				suspended: this._suspended,
 				lifecycle: {
 					onFirstRepoSubscriber: (): void => {
