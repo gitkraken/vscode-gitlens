@@ -60,7 +60,10 @@ function split(locale, options) {
 
 function merge(locale, options) {
 	const dir = options.dir ?? join(defaultWorkRoot, locale);
-	let touched = false;
+	// Validate every chunk of every catalog before writing any, so a bad chunk never leaves a locale with one
+	// catalog merged and the other not.
+	const errors = [];
+	const merged = [];
 	for (const [name, sourcePath, localePath, prefix] of catalogs(locale)) {
 		const source = readJson(sourcePath);
 		const chunkPattern = new RegExp(`^${prefix}-\\d{2}\\.json$`);
@@ -74,24 +77,33 @@ function merge(locale, options) {
 		let count = 0;
 		for (const file of chunks) {
 			const entries = readJson(join(dir, file));
-			const errors = validateTranslations(source, entries, file);
-			if (errors.length) {
-				console.error(`${errors.join('\n')}\nFix the chunk and re-run merge; nothing was written.`);
-				process.exit(1);
-			}
+			errors.push(...validateTranslations(source, entries, file));
 
 			// Locale bundles hold plain strings: VS Code's extension host does not unwrap { message, comment } values.
 			for (const [key, value] of Object.entries(entries)) {
-				translated[key] = typeof value === 'string' ? value : value.message;
+				translated[key] = typeof value === 'string' ? value : value?.message;
 			}
 
 			count += Object.keys(entries).length;
 		}
-		writeJson(localePath, translated);
-		touched = true;
-		console.log(`${name}: merged ${count} entries from ${chunks.length} chunk(s) into ${localePath}`);
+		merged.push({
+			name: name,
+			localePath: localePath,
+			translated: translated,
+			count: count,
+			chunks: chunks.length,
+		});
 	}
-	if (touched) console.log('Now run "pnpm run check:l10n" to validate the updated catalogs.');
+	if (errors.length) {
+		console.error(`${errors.join('\n')}\nFix the chunks and re-run merge; nothing was written.`);
+		process.exit(1);
+	}
+
+	for (const { name, localePath, translated, count, chunks } of merged) {
+		writeJson(localePath, translated);
+		console.log(`${name}: merged ${count} entries from ${chunks} chunk(s) into ${localePath}`);
+	}
+	if (merged.length) console.log('Now run "pnpm run check:l10n" to validate the updated catalogs.');
 }
 
 function prune(locale) {
