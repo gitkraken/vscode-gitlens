@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { describe, it } from 'node:test';
 import { mixinDisposable } from '@gitlens/utils/disposable.js';
 import { normalizePath } from '@gitlens/utils/path.js';
-import { fileUri } from '@gitlens/utils/uri.js';
+import { fileUri, getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { GitDir } from '../../models/repository.js';
 import type { WatcherRepoChangeEvent } from '../changeEvent.js';
 import type { FileWatcher, FileWatchEvent, FileWatchingProvider } from '../provider.js';
@@ -498,6 +498,54 @@ describe('RepositoryWatchService', () => {
 
 			wtSub.dispose();
 			repoSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+	});
+
+	describe('repo keys', () => {
+		it('keys a Windows-shaped path the way status reads do, so every event lands on the cache key', async () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 30,
+				defaultWorkingTreeDelayMs: 30,
+			});
+
+			const raw = 'C:\\repo\\';
+			const key = getRepositoryKey(raw);
+			assert.notStrictEqual(key, raw);
+
+			const repoEvents: string[] = [];
+			const workingTreeEvents: string[] = [];
+			service.onDidChangeRepository(e => repoEvents.push(e.repoPath));
+			service.onDidChangeWorkingTree(p => workingTreeEvents.push(p));
+
+			const handle = service.watch(raw, standardGitDir('C:/repo/.git'));
+			assertHandle(handle);
+			assert.strictEqual(handle.session.repoPath, key);
+
+			// A host spelling the same repository differently joins the same session
+			const other = service.watch('C:/repo', standardGitDir('C:/repo/.git'));
+			assertHandle(other);
+			assert.strictEqual(other.session, handle.session);
+			assert.strictEqual(service.getSession('C:\\repo'), handle.session);
+
+			const repoSub = handle.session.subscribe();
+			const wtSub = handle.session.subscribeToWorkingTree();
+			const [gitDirWatcher, wtWatcher] = watchers;
+			assert.ok(gitDirWatcher != null && wtWatcher != null);
+
+			gitDirWatcher.fire({ path: `${gitDirWatcher.basePath}/HEAD`, reason: 'change' });
+			wtWatcher.fire({ path: `${wtWatcher.basePath}/src/a.ts`, reason: 'change' });
+			await delay(60);
+
+			assert.deepStrictEqual(repoEvents, [key]);
+			assert.deepStrictEqual(workingTreeEvents, [key]);
+
+			wtSub.dispose();
+			repoSub.dispose();
+			other.dispose();
 			handle.dispose();
 			service.dispose();
 		});
