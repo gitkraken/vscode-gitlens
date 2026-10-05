@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes clicking a file that was deleted and re-added failing to open its diff — the comparison now shows an empty previous version ([#5914](https://github.com/gitkraken/vscode-gitlens/issues/5914))
+
 ## [19.3.0] - 2026-10-01
 
 ### Added

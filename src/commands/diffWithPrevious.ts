@@ -59,7 +59,10 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				void (await executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
 					repoPath: args.commit.repoPath,
 					lhs: {
-						sha: `${args.commit.sha}^`,
+						sha:
+							args.commit.file.status === 'A' || args.commit.file.status === '?'
+								? deletedOrMissing
+								: `${args.commit.sha}^`,
 						uri: args.commit.file.originalUri ?? args.commit.file.uri,
 					},
 					rhs: {
