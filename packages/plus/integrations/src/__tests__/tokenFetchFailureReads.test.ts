@@ -1367,3 +1367,138 @@ suite('per-connection reads when the GK API cannot hand back the token (kepler#3
 		manager.dispose();
 	});
 });
+
+/** A connected GitHub integration whose cached session is the stored token, plus the token fetches it makes. */
+async function connectedGitHub(status: () => number) {
+	const { runtime, paths } = createRuntime(status);
+	await seedConnection(runtime, { expired: false });
+	const manager = createIntegrationManager(runtime);
+	const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+	assert.equal((await gh.getSession('test'))?.accessToken, 'token-stored');
+	paths.length = 0;
+	return { runtime: runtime, paths: paths, manager: manager, gh: gh };
+}
+
+/**
+ * `getSession()` for a consumer that sends the token itself (code suggestions, cloud patches): it used to hand an expired
+ * session's token back as is while the GK API could not replace it (#5943).
+ */
+suite('getSession() with an expired cached session (#5943)', () => {
+	test('a valid session is returned as is, with no request', async () => {
+		const { paths, manager, gh } = await connectedGitHub(() => 200);
+
+		const session = gh.getSession('code-suggest');
+
+		assert.ok(!(session instanceof Promise), 'a valid cached session is returned synchronously');
+		assert.equal(session?.accessToken, 'token-stored');
+		assert.deepEqual(paths, []);
+		manager.dispose();
+	});
+
+	test('an expired session is refreshed before it is returned', async () => {
+		const { paths, manager, gh } = await connectedGitHub(() => 200);
+		expireCachedSession(gh);
+
+		const session = await gh.getSession('code-suggest');
+
+		assert.equal(session?.accessToken, 'token-fresh');
+		assert.equal(paths.length, 1, 'one token fetch');
+		manager.dispose();
+	});
+
+	test('an expired session the GK API cannot refresh is not returned, and the integration stays connected', async () => {
+		let status = 200;
+		const { paths, manager, gh } = await connectedGitHub(() => status);
+		expireCachedSession(gh);
+		status = 429;
+
+		assert.equal(await gh.getSession('code-suggest'), undefined, 'the expired token is not handed out');
+		assert.equal(
+			(gh as unknown as { _session?: ProviderAuthenticationSession })._session?.accessToken,
+			'token-stored',
+			'the cached session is kept',
+		);
+		assert.equal(gh.maybeConnected, true);
+
+		paths.length = 0;
+		assert.equal(await gh.isConnected(), true, 'a throttled refresh is not a missing connection');
+		assert.deepEqual(paths, [], 'a connection check makes no request for an expired session');
+
+		status = 503;
+		assert.equal(await gh.getSession('cloud-patches'), undefined);
+
+		// Recovers once the cloud answers again.
+		status = 200;
+		assert.equal((await gh.getSession('code-suggest'))?.accessToken, 'token-fresh');
+		manager.dispose();
+	});
+
+	test('concurrent lookups of an expired session share one refresh', async () => {
+		const { paths, manager, gh } = await connectedGitHub(() => 200);
+		expireCachedSession(gh);
+
+		const sessions = await Promise.all([gh.getSession('code-suggest'), gh.getSession('cloud-patches')]);
+
+		assert.deepEqual(
+			sessions.map(s => s?.accessToken),
+			['token-fresh', 'token-fresh'],
+		);
+		assert.equal(paths.length, 1, 'one token fetch');
+		manager.dispose();
+	});
+
+	test('a lookup whose refresh is overtaken by a disconnect answers nothing', async () => {
+		let status = 200;
+		const { runtime, manager, gh } = await connectedGitHub(() => status);
+		expireCachedSession(gh);
+		status = 429;
+
+		// The user disconnects while the lookup's refresh is in flight; the disconnect queues behind it.
+		const deleteWorkspace = runtime.storage.deleteWorkspace.bind(runtime.storage);
+		let disconnected: Promise<void> | undefined;
+		runtime.storage.deleteWorkspace = async (key: string) => {
+			await deleteWorkspace(key);
+			disconnected ??= gh.disconnect({ silent: true });
+		};
+
+		assert.equal(await gh.getSession('code-suggest'), undefined, 'the throttled refresh hands out nothing');
+		runtime.storage.deleteWorkspace = deleteWorkspace;
+		assert.ok(disconnected != null, 'the disconnect ran during the refresh');
+		await disconnected;
+		assert.equal(gh.maybeConnected, false);
+		assert.equal(await gh.getSession('code-suggest'), undefined);
+		manager.dispose();
+	});
+
+	test('a disconnect queued behind a successful refresh stands, and no token is served after it', async () => {
+		const { runtime, manager, gh } = await connectedGitHub(() => 200);
+		expireCachedSession(gh);
+
+		// Hold the token fetch so the user disconnects while it is in flight; it then succeeds.
+		let releaseFetch: (() => void) | undefined;
+		const fetchHeld = new Promise<void>(resolve => (releaseFetch = resolve));
+		let fetchStarted: (() => void) | undefined;
+		const started = new Promise<void>(resolve => (fetchStarted = resolve));
+		const fetchGkApi = runtime.account.fetchGkApi.bind(runtime.account);
+		runtime.account.fetchGkApi = async (path: string, init?: RequestInit) => {
+			fetchStarted?.();
+			await fetchHeld;
+			return fetchGkApi(path, init);
+		};
+
+		const lookup = gh.getSession('code-suggest');
+		await started;
+		// Queued behind the refresh in flight, so it lands once the refresh settles.
+		const disconnected = gh.disconnect({ silent: true });
+		releaseFetch?.();
+
+		// The lookup settles before the queued disconnect commits, so it gets the refreshed token, never the expired one.
+		assert.equal((await lookup)?.accessToken, 'token-fresh');
+		await disconnected;
+		runtime.account.fetchGkApi = fetchGkApi;
+		assert.equal(gh.maybeConnected, false, 'the disconnect stands');
+		assert.equal(await gh.getSession('code-suggest'), undefined);
+		assert.equal(await gh.isConnected(), false);
+		manager.dispose();
+	});
+});
