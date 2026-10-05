@@ -870,7 +870,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		pullRequests: readonly (ProviderPullRequest | PullRequest)[],
 		connectionId?: string,
 	): Promise<({ id: string; username?: string } | undefined)[]> {
-		const session = await this.resolveReadSession(connectionId, undefined);
+		const session = await this.resolveReadSessionOrThrow(connectionId, undefined);
 		if (session == null) return pullRequests.map(() => undefined);
 
 		const viewerFor = this.getOrganizationViewers(session, undefined);

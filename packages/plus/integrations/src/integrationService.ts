@@ -1071,10 +1071,14 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 			if (connectionId != null) {
 				// Refresh the specific connection's session directly; the primary-only sync path below would not
 				// reach a secondary account. `cloud: true` is required for multi-account backend connections.
+				// Refetched rather than deleted first (see `GetSessionOptions.refetch`): a transient failure keeps the
+				// stored token, and only a definitive "no token" drops it.
 				const authProvider = await this.authenticationService.get(integration.authProvider.id);
 				const descriptor = { ...integration.authProviderDescriptor, connectionId: connectionId, cloud: true };
-				await authProvider?.deleteSession(descriptor);
-				await authProvider?.getSession(descriptor, { sync: true });
+				const session = await authProvider?.getSession(descriptor, { sync: true, refetch: true });
+				if (session == null) {
+					await authProvider?.deleteSession(descriptor);
+				}
 			} else {
 				await integration.syncCloudConnection('connected', true);
 			}

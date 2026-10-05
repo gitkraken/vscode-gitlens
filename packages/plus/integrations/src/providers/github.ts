@@ -506,7 +506,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	}): Promise<ProviderRepository | undefined> {
 		const api = await this.getProvidersApi();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
-		const session = await this.resolveReadSession(repo.connectionId, undefined);
+		const session = await this.resolveReadSessionOrThrow(repo.connectionId, undefined);
 		if (session == null) return undefined;
 
 		// `apiBaseUrlFor` is undefined for cloud (which is what selects the cloud endpoints) and the GHE instance base
@@ -1167,7 +1167,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	): Promise<Map<number, PullRequestStackInfo> | undefined> {
 		// The shared read path — it refreshes an expired session before use, which a bare `getSession()`
 		// does not (it returns the cached session verbatim once one exists, expired or not).
-		const session = await this.resolveReadSession(undefined, undefined);
+		const session = await this.resolveReadSessionOrThrow(undefined, undefined);
 		if (session == null) return undefined;
 
 		const stacks = await (

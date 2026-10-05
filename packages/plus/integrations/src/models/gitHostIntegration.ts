@@ -74,7 +74,7 @@ import type {
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
 } from './integration.js';
-import { IntegrationBase } from './integration.js';
+import { IntegrationBase, isReadSessionFailure } from './integration.js';
 import type { MyIssuesForReposOptions } from './issueReads.js';
 
 /**
@@ -320,7 +320,7 @@ export abstract class GitHostIntegration<
 		repo: { owner: string; name: string; project?: string; connectionId?: string },
 		refusal: unknown,
 	): Promise<ProviderScopeFailure | undefined> {
-		const session = await this.resolveReadSession(repo.connectionId, undefined);
+		const session = await this.resolveReadSessionOrThrow(repo.connectionId, undefined);
 		if (session == null) return undefined;
 
 		const [slot] = await this.settleBatchRefusals(
@@ -462,7 +462,7 @@ export abstract class GitHostIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		try {
@@ -513,7 +513,7 @@ export abstract class GitHostIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		if (this.getProviderProjectsForOrg == null) {
 			return undefined;
@@ -555,7 +555,7 @@ export abstract class GitHostIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(options?.connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		try {
@@ -593,7 +593,7 @@ export abstract class GitHostIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(options?.connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		if (this.getProviderRepositoriesForUser == null) {
 			return undefined;
@@ -836,7 +836,7 @@ export abstract class GitHostIntegration<
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary. The session
 		// is resolved here for connectivity/bail; the connection's token is applied per API call below.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		let customUrl: string | undefined;
@@ -1274,7 +1274,7 @@ export abstract class GitHostIntegration<
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary. The session
 		// is resolved here for connectivity/bail; the connection's token is applied per API call below.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		let customUrl: string | undefined;
@@ -1572,7 +1572,7 @@ export abstract class GitHostIntegration<
 		const { connectionId, ...searchOptions } = options ?? {};
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		try {
@@ -1620,7 +1620,7 @@ export abstract class GitHostIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		if (this.getProviderMyPullRequestsForUser == null) {
 			return undefined;
@@ -1725,7 +1725,7 @@ export abstract class GitHostIntegration<
 	): Promise<IntegrationResult<ProviderPullRequestSearchPage | undefined>> {
 		const scope = getScopedLogger();
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		try {
@@ -1766,7 +1766,7 @@ export abstract class GitHostIntegration<
 		const { connectionId, ...searchOptions } = options ?? {};
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return undefined;
 
 		try {
 			const prs = await this.searchProviderPullRequests?.(
@@ -1820,7 +1820,7 @@ export abstract class GitHostIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		try {
@@ -1867,7 +1867,7 @@ export abstract class GitHostIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		try {
@@ -1925,7 +1925,7 @@ export abstract class GitHostIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		let slots: PromiseSettledResult<IssueShape | undefined>[] | undefined;
@@ -1992,7 +1992,7 @@ export abstract class GitHostIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		let slots: PromiseSettledResult<PullRequestShape | undefined>[] | undefined;
@@ -2058,7 +2058,7 @@ export abstract class GitHostIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		try {
@@ -2108,7 +2108,7 @@ export abstract class GitHostIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		try {
@@ -2168,7 +2168,7 @@ export abstract class GitHostIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		let slots: PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined;
@@ -2226,7 +2226,7 @@ export abstract class GitHostIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const start = performance.now();
 		try {
