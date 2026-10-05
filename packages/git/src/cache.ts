@@ -2,6 +2,8 @@ import { exhaustiveArray } from '@gitlens/utils/array.js';
 import { raceWithSignal } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { invalidateMemoized } from '@gitlens/utils/decorators/memoize.js';
+import type { Event } from '@gitlens/utils/event.js';
+import { Emitter } from '@gitlens/utils/event.js';
 import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { normalizePath } from '@gitlens/utils/path.js';
@@ -70,6 +72,21 @@ export type CachedGitTypes =
  * the churn the key-aware reconcile replaced.
  */
 export type GkReconcileOutcome = 'reconciled' | 'deferred' | 'failed';
+
+/** Fired by {@link Cache.onDidChangeMergeTargets} */
+export interface MergeTargetsChangeEvent {
+	/**
+	 * The repository's common path (the main worktree's, once registered). Merge keys live in the shared
+	 * `.git/gk/config`, so this fires once per change for the whole repository, not once per worktree.
+	 */
+	readonly repoPath: string;
+	/**
+	 * Branches whose merge-relevant keys (`gk-merge-base`, `gk-merge-target`, `gk-merge-target-user`,
+	 * `gk-target-base`) changed. `undefined` when it can't be told, so any branch's may have: the coarse fallback
+	 * (no reconciler, or a failed reconcile), or a change with no earlier snapshot to diff against.
+	 */
+	readonly refs: ReadonlySet<string> | undefined;
+}
 
 export type ConflictDetectionCacheKey =
 	| `apply:${string}:${string}:${string}`
@@ -270,6 +287,17 @@ export class Cache implements Disposable {
 	 */
 	private _gkConfigMergeSnapshots = new Map<string, Map<string, string>>();
 
+	private readonly _onDidChangeMergeTargets = new Emitter<MergeTargetsChangeEvent>();
+	/**
+	 * Fires when an external `.git/gk/config` write changed a branch's merge-relevant keys — never for a write that
+	 * only touched other keys (activity timestamps), and never for core's own writes, which
+	 * {@link recordGkConfigWrite} folds into the snapshot before the watcher reports them. Fires after the derived
+	 * caches were cleared, so a listener's re-read sees the new values.
+	 */
+	get onDidChangeMergeTargets(): Event<MergeTargetsChangeEvent> {
+		return this._onDidChangeMergeTargets.event;
+	}
+
 	/**
 	 * Reconciler registered by the CLI config sub-provider (see {@link setGkConfigReconciler}),
 	 * invoked on a watcher-observed `'gkConfig'` change instead of the coarse `clearCaches(repoPath,
@@ -289,6 +317,7 @@ export class Cache implements Disposable {
 
 	dispose(): void {
 		this.reset();
+		this._onDidChangeMergeTargets.dispose();
 	}
 
 	/** Resource usage retained by instantiated sub-caches and their bookkeeping maps. */
@@ -1146,7 +1175,7 @@ export class Cache implements Disposable {
 		this._caches.gkConfigMap?.delete(commonPath);
 
 		if (this._gkConfigReconciler == null) {
-			this.clearCaches(repoPath, 'gkConfig');
+			this.clearGkConfigCoarsely(repoPath);
 			return;
 		}
 
@@ -1159,13 +1188,19 @@ export class Cache implements Disposable {
 		void Promise.resolve(this._gkConfigReconciler(repoPath, priorSnapshot)).then(
 			outcome => {
 				if (outcome === 'failed') {
-					this.clearCaches(repoPath, 'gkConfig');
+					this.clearGkConfigCoarsely(repoPath);
 				}
 			},
 			// An exception escaping the reconciler is a failure by definition — and one its own `catch`
 			// never saw, so nothing else will have cascaded.
-			() => this.clearCaches(repoPath, 'gkConfig'),
+			() => this.clearGkConfigCoarsely(repoPath),
 		);
+	}
+
+	/** The coarse fallback: every derived merge cache is cleared, so any branch's merge targets may have changed */
+	private clearGkConfigCoarsely(repoPath: string): void {
+		this.clearCaches(repoPath, 'gkConfig');
+		this._onDidChangeMergeTargets.fire({ repoPath: this.getCommonPath(repoPath), refs: undefined });
 	}
 
 	/** Hard-evicts the cached bulk `.git/gk/config` map so the next read hits disk. */
@@ -1365,6 +1400,31 @@ export class Cache implements Disposable {
 	}
 
 	/**
+	 * {@link recordGkConfigWrite} for a whole `branch.<ref>` section: our own `--remove-section` (a branch delete) or
+	 * `--rename-section` (a branch rename, to `renamedTo`), so the reconcile that follows doesn't report it as an
+	 * external merge-target change.
+	 */
+	recordGkConfigSectionWrite(repoPath: string, ref: string, renamedTo?: string): void {
+		const commonPath = this.getCommonPath(repoPath);
+		const snapshot = this._gkConfigMergeSnapshots.get(commonPath);
+		if (snapshot == null) return;
+
+		const prefixLength = `branch.${ref}.`.length;
+		// Copy-on-write, as in `recordGkConfigWrite`
+		const next = new Map<string, string>();
+		for (const [key, value] of snapshot) {
+			// Matched on the captured ref, not a `branch.<ref>.` prefix, which would also take a dotted sibling
+			// (`branch.feature.x.*` for `feature`) that `--remove-section`/`--rename-section` leaves in place
+			if (branchOverviewGkConfigKeysRegex.exec(key)?.[1] !== ref) {
+				next.set(key, value);
+			} else if (renamedTo != null) {
+				next.set(`branch.${renamedTo}.${key.substring(prefixLength)}`, value);
+			}
+		}
+		this._gkConfigMergeSnapshots.set(commonPath, next);
+	}
+
+	/**
 	 * Registers the reconciler invoked by {@link handleGkConfigChanged} on a watcher-observed
 	 * `'gkConfig'` change. Only one reconciler is kept — later registrations replace earlier ones,
 	 * which is harmless since every CLI config sub-provider sharing this `Cache` reconciles the same
@@ -1383,7 +1443,8 @@ export class Cache implements Disposable {
 	 * Diffs a freshly-read gk config map's merge-relevant subset against `priorSnapshot` (captured by
 	 * `handleGkConfigChanged` before the reconcile started, so it reflects the pre-change state even
 	 * though this call's own re-read already raced ahead and refreshed the live snapshot), cascading
-	 * `baseBranchName`/`branchOverviews` for every ref whose merge-relevant key actually changed.
+	 * `baseBranchName`/`branchOverviews` for every ref whose merge-relevant key actually changed, then firing
+	 * {@link onDidChangeMergeTargets} naming those refs.
 	 * `priorSnapshot` of `undefined` (never observed before this reconcile) is treated as "everything
 	 * may have changed" — a full coarse clear, same as the pre-existing watcher behavior. Returns
 	 * whether anything changed (i.e. whether a follow-up repository-changed event is warranted).
@@ -1400,17 +1461,25 @@ export class Cache implements Disposable {
 		if (priorSnapshot == null) {
 			this.evictShared('baseBranchName', repoPath);
 			this.evictShared('branchOverviews', repoPath);
+			this._onDidChangeMergeTargets.fire({ repoPath: commonPath, refs: undefined });
 			return true;
 		}
 
-		let changed = false;
+		let refs: Set<string> | undefined;
 		for (const key of new Set([...priorSnapshot.keys(), ...newSubset.keys()])) {
 			if (priorSnapshot.get(key) !== newSubset.get(key)) {
-				changed = true;
 				this.cascadeGkConfigKeyChange(commonPath, key);
+
+				const ref = branchOverviewGkConfigKeysRegex.exec(key)?.[1];
+				if (ref != null) {
+					(refs ??= new Set()).add(ref);
+				}
 			}
 		}
-		return changed;
+		if (refs == null) return false;
+
+		this._onDidChangeMergeTargets.fire({ repoPath: commonPath, refs: refs });
+		return true;
 	}
 
 	/**

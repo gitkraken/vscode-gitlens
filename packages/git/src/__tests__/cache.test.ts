@@ -3,6 +3,7 @@ import * as sinon from 'sinon';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { fileUri } from '@gitlens/utils/uri.js';
+import type { MergeTargetsChangeEvent } from '../cache.js';
 import { Cache, shouldEvictBlameCacheEntry } from '../cache.js';
 import type { GitBlame, ProgressiveGitBlame } from '../models/blame.js';
 import type { GitBranch } from '../models/branch.js';
@@ -841,6 +842,168 @@ suite('Cache — gkConfig watcher reconciliation', () => {
 			true,
 			'the baseline must still be the pre-change value, or the change diffs against itself',
 		);
+	});
+});
+
+suite('Cache.onDidChangeMergeTargets', () => {
+	const repoPath = '/test/repo';
+	let cache: Cache;
+	let events: MergeTargetsChangeEvent[];
+
+	setup(() => {
+		cache = new Cache();
+		events = [];
+		cache.onDidChangeMergeTargets(e => events.push(e));
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	/** Seeds the reconcile baseline, then registers a reconciler that re-reads `next` (see the suite above) */
+	async function seedThenReconcileTo(
+		initial: [string, string][],
+		next: [string, string][],
+	): Promise<() => Promise<void>> {
+		await cache.getGkConfigMap(repoPath, () => Promise.resolve(new Map(initial)));
+		let pending: Promise<unknown> = Promise.resolve();
+		cache.setGkConfigReconciler((rp, priorSnapshot) => {
+			pending = cache
+				.getGkConfigMap(rp, () => new Map(next))
+				.then(freshMap => cache.reconcileGkConfigMap(rp, priorSnapshot, freshMap));
+			return pending.then(() => 'reconciled' as const);
+		});
+		return async () => {
+			await pending;
+		};
+	}
+
+	test('stays silent for a rewrite that only touches activity timestamps', async () => {
+		const settled = await seedThenReconcileTo(
+			[
+				['branch.main.gk-merge-target', 'origin/main'],
+				['branch.main.gk-last-accessed', '2026-10-01T00:00:00.000Z'],
+			],
+			[
+				['branch.main.gk-merge-target', 'origin/main'],
+				['branch.main.gk-last-accessed', '2026-10-05T00:00:00.000Z'],
+			],
+		);
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		await settled();
+
+		assert.deepStrictEqual(events, []);
+	});
+
+	test('names the branches whose merge keys changed', async () => {
+		const settled = await seedThenReconcileTo(
+			[
+				['branch.main.gk-merge-target', 'origin/main'],
+				['branch.feature.gk-merge-base', 'main'],
+				['branch.other.gk-merge-base', 'main'],
+			],
+			[
+				['branch.main.gk-merge-target', 'origin/main'],
+				['branch.feature.gk-merge-base', 'develop'],
+				['branch.other.gk-merge-base', 'main'],
+				['branch.fresh.gk-merge-target-user', 'origin/release'],
+			],
+		);
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		await settled();
+
+		assert.strictEqual(events.length, 1);
+		assert.strictEqual(events[0].repoPath, repoPath);
+		assert.deepStrictEqual([...(events[0].refs ?? [])].sort(), ['feature', 'fresh']);
+	});
+
+	test("stays silent for core's own key write", async () => {
+		const settled = await seedThenReconcileTo(
+			[['branch.main.gk-merge-target', 'origin/main']],
+			[['branch.main.gk-merge-target', 'origin/develop']],
+		);
+		// What `setGkConfig` records right after writing, before the watcher reports the file change
+		cache.recordGkConfigWrite(repoPath, 'branch.main.gk-merge-target', 'origin/develop');
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		await settled();
+
+		assert.deepStrictEqual(events, []);
+	});
+
+	test("stays silent for core's own section remove and rename (a branch delete or rename)", async () => {
+		const settled = await seedThenReconcileTo(
+			[
+				['branch.gone.gk-merge-base', 'main'],
+				['branch.old.gk-merge-target', 'origin/main'],
+				['branch.old.gk-last-accessed', '2026-10-01T00:00:00.000Z'],
+			],
+			[
+				['branch.new.gk-merge-target', 'origin/main'],
+				['branch.new.gk-last-accessed', '2026-10-01T00:00:00.000Z'],
+			],
+		);
+		cache.recordGkConfigSectionWrite(repoPath, 'gone');
+		cache.recordGkConfigSectionWrite(repoPath, 'new');
+		cache.recordGkConfigSectionWrite(repoPath, 'old', 'new');
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		await settled();
+
+		assert.deepStrictEqual(events, []);
+	});
+
+	test('leaves a dotted sibling branch alone when recording a section remove or rename', async () => {
+		// `--remove-section branch.feature` and `--rename-section branch.old` leave `[branch "feature.x"]` and
+		// `[branch "old.y"]` in place, so the recorded snapshot must too
+		const settled = await seedThenReconcileTo(
+			[
+				['branch.feature.gk-merge-base', 'main'],
+				['branch.feature.x.gk-merge-base', 'main'],
+				['branch.old.gk-merge-target', 'origin/main'],
+				['branch.old.y.gk-merge-target', 'origin/develop'],
+			],
+			[
+				['branch.feature.x.gk-merge-base', 'main'],
+				['branch.new.gk-merge-target', 'origin/main'],
+				['branch.old.y.gk-merge-target', 'origin/develop'],
+			],
+		);
+		cache.recordGkConfigSectionWrite(repoPath, 'feature');
+		cache.recordGkConfigSectionWrite(repoPath, 'new');
+		cache.recordGkConfigSectionWrite(repoPath, 'old', 'new');
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		await settled();
+
+		assert.deepStrictEqual(events, []);
+	});
+
+	test('reports every branch as possibly changed when there is no reconciler (the coarse fallback)', () => {
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+
+		assert.deepStrictEqual(events, [{ repoPath: repoPath, refs: undefined }]);
+	});
+
+	test('reports every branch as possibly changed when the reconcile fails', async () => {
+		let outcome: Promise<'failed'> = Promise.resolve('failed');
+		cache.setGkConfigReconciler(() => (outcome = Promise.resolve('failed')));
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		await outcome;
+		await Promise.resolve();
+
+		assert.deepStrictEqual(events, [{ repoPath: repoPath, refs: undefined }]);
+	});
+
+	test('reports every branch as possibly changed with no earlier snapshot to diff against', async () => {
+		let pending: Promise<unknown> = Promise.resolve();
+		cache.setGkConfigReconciler((rp, priorSnapshot) => {
+			pending = cache
+				.getGkConfigMap(rp, () => new Map([['branch.main.gk-merge-target', 'origin/main']]))
+				.then(freshMap => cache.reconcileGkConfigMap(rp, priorSnapshot, freshMap));
+			return pending.then(() => 'reconciled' as const);
+		});
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		await pending;
+
+		assert.deepStrictEqual(events, [{ repoPath: repoPath, refs: undefined }]);
 	});
 });
 

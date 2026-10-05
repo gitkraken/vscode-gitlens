@@ -497,7 +497,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 	@debug()
 	async removeGkConfigBranchSection(repoPath: string, ref: string): Promise<void> {
-		await this.runGkConfigSectionCommand(repoPath, ref, '--remove-section', `branch.${ref}`);
+		if (await this.runGkConfigSectionCommand(repoPath, ref, '--remove-section', `branch.${ref}`)) {
+			this.cache.recordGkConfigSectionWrite(repoPath, ref);
+		}
 	}
 
 	@debug()
@@ -509,13 +511,17 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		// the source has no gk keys at all, where its pre-check would otherwise skip the whole call and
 		// leave the orphan in place for the renamed branch to inherit.
 		await this.removeGkConfigBranchSection(repoPath, newRef);
-		await this.runGkConfigSectionCommand(
-			repoPath,
-			oldRef,
-			'--rename-section',
-			`branch.${oldRef}`,
-			`branch.${newRef}`,
-		);
+		if (
+			await this.runGkConfigSectionCommand(
+				repoPath,
+				oldRef,
+				'--rename-section',
+				`branch.${oldRef}`,
+				`branch.${newRef}`,
+			)
+		) {
+			this.cache.recordGkConfigSectionWrite(repoPath, oldRef, newRef);
+		}
 	}
 
 	/**
@@ -526,8 +532,11 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	 * Never throws: callers invoke this as bookkeeping after a branch op has already succeeded, so a
 	 * failure here must not be reported as (or roll back) the branch/checkout/worktree operation itself.
 	 * The worst case is metadata that stays behind until the next op on that name.
+	 *
+	 * Returns whether `.git/gk/config` now reflects the command (it ran, or there was nothing to do), so the
+	 * caller can record its own write in the merge-key snapshot only when it actually landed.
 	 */
-	private async runGkConfigSectionCommand(repoPath: string, ref: string, ...args: string[]): Promise<void> {
+	private async runGkConfigSectionCommand(repoPath: string, ref: string, ...args: string[]): Promise<boolean> {
 		const scope = getScopedLogger();
 		try {
 			const prefix = `branch.${ref}.`;
@@ -537,14 +546,14 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			// read as authoritative would skip the removal entirely, leaving a deleted branch's base,
 			// disposition and issue links behind for the next branch reusing that name. When it's empty, run
 			// the command: worst case is a no-op on a section that isn't there.
-			if (map.size && !some(map.keys(), k => k.startsWith(prefix))) return;
+			if (map.size && !some(map.keys(), k => k.startsWith(prefix))) return true;
 
 			const gkConfigPath = await this.getGkConfigPath(repoPath);
-			if (!gkConfigPath) return;
+			if (!gkConfigPath) return false;
 			// `getGkConfigPath` only joins a path, so check the file: with no `.git/gk/config` there is
 			// genuinely nothing to remove, and running the command would fail with a fatal we'd then warn
 			// about on every branch delete in a repo that has never had gk metadata.
-			if (!(await fsExists(gkConfigPath))) return;
+			if (!(await fsExists(gkConfigPath))) return true;
 
 			const result = await this.git.run(
 				{ cwd: repoPath, runLocally: true, errors: 'ignore' },
@@ -557,7 +566,8 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			// also means the `catch` below never sees a failed write, so without this the metadata silently
 			// stays behind (or, on a rename, stays under the old name) with nothing recorded anywhere.
 			// Reported, not thrown: the branch op it follows has already succeeded.
-			if (result.completion.status !== 'exited' || result.exitCode !== 0) {
+			const succeeded = result.completion.status === 'exited' && result.exitCode === 0;
+			if (!succeeded) {
 				scope?.warn(
 					`Failed to update gk config section for '${ref}' in '${repoPath}': ${
 						result.completion.status === 'exited'
@@ -570,8 +580,10 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			// Drop the bulk map so the next read hits disk; the derived caches for the affected ref are
 			// evicted by the caller's own `deleteBaseBranchName` plus the `'branches'` cascade it fires.
 			this.cache.deleteGkConfigMap(repoPath);
+			return succeeded;
 		} catch (ex) {
 			scope?.error(ex, `Failed to update gk config section for '${ref}' in '${repoPath}'`);
+			return false;
 		}
 	}
 
