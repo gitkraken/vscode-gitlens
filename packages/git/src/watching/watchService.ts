@@ -3,6 +3,7 @@ import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { isDescendant, relative } from '@gitlens/utils/path.js';
 import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
+import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { GitDir, RepositoryChange } from '../models/repository.js';
 import type { WatcherRepoChangeEvent } from './changeEvent.js';
 import type { GitIgnoreFilter } from './gitIgnoreFilter.js';
@@ -138,9 +139,15 @@ export class RepositoryWatchService implements UnifiedDisposable {
 	 *
 	 * Returns a handle with the session and a dispose function.
 	 * Disposing the handle decrements the ref count.
+	 *
+	 * `repoPath` is keyed by {@link getRepositoryKey}, and every session, event and hook carries that key — the
+	 * same one the cache fences status reads on — so a host passing `C:\repo\` and one passing `c:/repo` share
+	 * a session and advance the same status clock.
 	 */
 	watch(repoPath: string, gitDir: GitDir, watchHooks?: WatchHooks): WatchHandle | undefined {
 		if (this._disposed) return undefined;
+
+		repoPath = getRepositoryKey(repoPath);
 
 		let record = this.sessionMap.get(repoPath);
 		if (record != null) {
@@ -226,7 +233,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 
 	/** Get an existing session by repo path */
 	getSession(repoPath: string): RepositoryWatchSession | undefined {
-		return this.sessionMap.get(repoPath)?.session;
+		return this.sessionMap.get(getRepositoryKey(repoPath))?.session;
 	}
 
 	/** Resource usage retained by repository watchers. */
