@@ -1013,6 +1013,7 @@ export class Git {
 			correlationKey,
 			errors: errorHandling,
 			encoding,
+			expectedExitCodes,
 			runLocally: _,
 			selfMaintenance,
 			slownessCategory,
@@ -1105,14 +1106,19 @@ export class Git {
 			// or absent stdout). Coercing that to `0` would report a killed command as a clean success, so
 			// classify it as the failure it is.
 			if (result.exitCode == null) {
-				// SIGTERM is how BOTH a timeout kill and a caller abort terminate, so it has to group with
-				// cancellations here exactly as it does on the reject path — `failed`/`signal` is for every
-				// OTHER signal. Only `exitCodeOnly` reaches this: a native spawn `timeout` fires
-				// `close(null, 'SIGTERM')` with no `error` event, so it resolves instead of rejecting.
-				// Throwing hands it to the catch below, which owns the timeout-vs-abort heuristic, the ABORTED
-				// log, and the `onAborted` hook — none of which a branch here would fire.
+				// SIGTERM groups with cancellations here exactly as it does on the reject path — `failed`/`signal`
+				// is for every OTHER signal. Only `exitCodeOnly` reaches this: a native spawn `timeout` fires
+				// `close(null, 'SIGTERM')` with no `error` event, so it resolves instead of rejecting (a caller
+				// abort never does — `'error'` rejects first). Throwing hands it to the catch below, which owns
+				// the ABORTED log and the `onAborted` hook — neither of which a branch here would fire.
 				if (result.signal === 'SIGTERM') {
-					throw new CancelledRunError(gitCommand, true, undefined, result.signal);
+					throw new CancelledRunError(
+						gitCommand,
+						true,
+						undefined,
+						result.signal,
+						result.killed ? 'timeout' : 'unknown',
+					);
 				}
 
 				return {
@@ -1135,19 +1141,25 @@ export class Git {
 				completion: { status: 'exited', code: result.exitCode },
 			};
 		} catch (ex) {
+			if (expectedExitCodes?.length && ex instanceof RunError && !(ex instanceof CancelledRunError)) {
+				const code = toExitCode(ex.code);
+				if (code != null && expectedExitCodes.includes(code)) {
+					return {
+						stdout: ex.stdout,
+						stderr: ex.stderr,
+						exitCode: code,
+						completion: { status: 'exited', code: code },
+					};
+				}
+			}
+
 			let cancellationReason: GitRunCancellation = 'unknown';
 			if (ex instanceof CancelledRunError) {
 				const duration = getDurationMilliseconds(start);
 				const timeout = runOpts.timeout ?? 0;
-				const reason =
-					timeout > 0 && duration >= timeout - 100
-						? 'timeout'
-						: cancellation?.aborted
-							? 'cancellation'
-							: 'unknown';
-				// Also surfaced on the result, but DIAGNOSTIC ONLY — a timeout kill and a caller abort are both
-				// SIGTERM, so this duration heuristic can be wrong near the boundary. Never gate behavior on it.
-				cancellationReason = reason === 'cancellation' ? 'aborted' : reason;
+				cancellationReason =
+					ex.reason !== 'unknown' ? ex.reason : cancellation?.aborted ? 'aborted' : 'unknown';
+				const reason = cancellationReason === 'aborted' ? 'cancellation' : cancellationReason;
 
 				// A stalled event loop can leave a command looking timed out when it merely never got its exit
 				// event delivered in time \u2014 surface the same signal here so it isn't misread as a real timeout.
@@ -1167,20 +1179,16 @@ export class Git {
 
 			if (errorHandling === 'ignore') {
 				if (ex instanceof RunError) {
-					// `code` is `string | number | undefined`: a numeric string is a real exit code, but an errno
-					// (`'ENOENT'`) means the spawn itself failed, and `undefined` means the process never exited
-					// normally. Only the numeric case is an exit; the rest previously became `0` or `NaN`.
-					const code = typeof ex.code === 'number' ? ex.code : ex.code != null ? parseInt(ex.code, 10) : NaN;
-					const exited = Number.isInteger(code);
+					const code = toExitCode(ex.code);
 
 					return {
 						stdout: ex.stdout,
 						stderr: ex.stderr,
-						...(exited ? { exitCode: code } : {}),
+						...(code != null ? { exitCode: code } : {}),
 						completion:
 							ex instanceof CancelledRunError
 								? { status: 'cancelled', reason: cancellationReason, error: ex }
-								: exited
+								: code != null
 									? { status: 'exited', code: code }
 									: {
 											status: 'failed',
@@ -1211,8 +1219,10 @@ export class Git {
 			// The queue refuses an already-aborted signal, or drops a command aborted while it waited, by
 			// rejecting with the signal's own reason; that never reached a spawn, so it isn't a `RunError`,
 			// and wrapping it as a `GitError` would make a cancellation read as the command failing.
-			if (ex instanceof CancelledRunError || (!(ex instanceof RunError) && cancellation?.aborted)) {
-				exception = new CancellationError(ex instanceof Error ? ex : undefined);
+			if (ex instanceof CancelledRunError) {
+				exception = new CancellationError(ex, cancellationReason);
+			} else if (!(ex instanceof RunError) && cancellation?.aborted) {
+				exception = new CancellationError(ex instanceof Error ? ex : undefined, 'aborted');
 			} else {
 				exception = new GitError(ex);
 			}
@@ -1229,10 +1239,8 @@ export class Git {
 			// (`notARepository`).
 			//
 			// The process DID exit though (a warning is only ever swallowed for a non-zero exit), so report the
-			// code. `GitError.exitCode` is `number | string | undefined` — same normalization as the
-			// `errors: 'ignore'` path above, since only the numeric case is a real exit.
-			const rawCode = swallowed instanceof GitError ? swallowed.exitCode : undefined;
-			const code = typeof rawCode === 'number' ? rawCode : rawCode != null ? parseInt(rawCode, 10) : NaN;
+			// code.
+			const code = toExitCode(swallowed instanceof GitError ? swallowed.exitCode : undefined);
 
 			// No `stderr`: it belongs to the error here. The top-level field is the channel for runs that
 			// completed WITHOUT one (`exited` carries no error, so a successful command's stderr has nowhere
@@ -1240,7 +1248,7 @@ export class Git {
 			// `result?.stderr` would be dead anyway: `result` is only assigned on the non-throwing path.
 			return {
 				stdout: '',
-				...(Number.isInteger(code) ? { exitCode: code } : {}),
+				...(code != null ? { exitCode: code } : {}),
 				completion: { status: 'warned', warning: warning, error: swallowed },
 			};
 		} finally {
@@ -1321,7 +1329,9 @@ export class Git {
 					if (cancellation?.aborted) {
 						resolve();
 					} else {
-						reject(new CancelledRunError(proc.spawnargs.join(' '), true, code ?? undefined, signal));
+						reject(
+							new CancelledRunError(proc.spawnargs.join(' '), true, code ?? undefined, signal, 'unknown'),
+						);
 					}
 					return;
 				}
@@ -1643,6 +1653,15 @@ export class Git {
 			this.options.logger?.info(`${logMessage} \u2022 completed`);
 		}
 	}
+}
+
+/**
+ * The exit code in a run error's `code`, or `undefined` when the process never exited normally: a numeric string
+ * is a real exit code, but an errno (`'ENOENT'`) means the spawn itself failed, and `undefined` means it was killed.
+ */
+function toExitCode(code: number | string | undefined): number | undefined {
+	const exitCode = typeof code === 'number' ? code : code != null ? parseInt(code, 10) : NaN;
+	return Number.isInteger(exitCode) ? exitCode : undefined;
 }
 
 /**

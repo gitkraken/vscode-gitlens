@@ -43,3 +43,21 @@ suite('Exec stdin Test Suite', () => {
 		await assert.rejects(promise, (ex: unknown) => ex instanceof RunError);
 	});
 });
+
+const runsLong = ['-e', 'setTimeout(() => {}, 10000)'];
+
+suite('Exec cancellation reason Test Suite', () => {
+	test('runSpawn reports a spawn timeout kill as a timeout', async () => {
+		await assert.rejects(
+			runSpawn(process.execPath, runsLong, 'utf8', { timeout: 200 }),
+			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'timeout',
+		);
+	});
+
+	test('runSpawn reports a caller abort as aborted', async () => {
+		const controller = new AbortController();
+		const promise = runSpawn(process.execPath, runsLong, 'utf8', { cancellation: controller.signal });
+		setTimeout(() => controller.abort(), 50);
+		await assert.rejects(promise, (ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'aborted');
+	});
+});
