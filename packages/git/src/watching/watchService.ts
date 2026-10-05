@@ -377,26 +377,36 @@ export class RepositoryWatchService implements UnifiedDisposable {
 				});
 		}
 
+		// An ignore rule changed (or may have): refresh the filter and notify the host
+		const onIgnoreRulesChanged = (): void => {
+			if (filter != null) {
+				void filter.refresh();
+			}
+			// See `connectToWatchGroup` for the iterate-at-fire-time rationale.
+			for (const h of watchHooks) {
+				h.onGitIgnoreChanged?.(repoPath);
+			}
+			// Route the ignore-rule change through the repo channel as an `ignores` change (like `info/exclude`),
+			// so it reaches EVERY session subscriber — including a closed secondary worktree's `watch()` `repoSub`,
+			// which has no `onGitIgnoreChanged` hook and would otherwise keep a stale untracked-file list. Coalesces
+			// with any hook-fired `ignores` above, so open repos don't double.
+			session.pushRepoChanges(['ignores']);
+		};
+
 		const watcher = this.provider.createWatcher(repoPath, '**', event => {
 			// Fast noise check (node_modules, .git, .watchman-cookie-)
 			if (shouldIgnoreWorkingTreePath(event.path)) return;
 
-			// Detect .gitignore changes — refresh the filter and notify the host
+			// Detect .gitignore changes (nested ones too, unless git skips them for sitting in an ignored directory).
+			// The root .gitignore is only an ignore change; a nested one is also an ordinary working-tree change.
 			const relativePath = isDescendant(event.path, repoPath) ? relative(repoPath, event.path) : undefined;
 			if (relativePath === '.gitignore') {
-				if (filter != null) {
-					void filter.refresh();
-				}
-				// See `connectToWatchGroup` for the iterate-at-fire-time rationale.
-				for (const h of watchHooks) {
-					h.onGitIgnoreChanged?.(repoPath);
-				}
-				// Route the ignore-rule change through the repo channel as an `ignores` change (like `info/exclude`),
-				// so it reaches EVERY session subscriber — including a closed secondary worktree's `watch()` `repoSub`,
-				// which has no `onGitIgnoreChanged` hook and would otherwise keep a stale untracked-file list. Coalesces
-				// with any hook-fired `ignores` above, so open repos don't double. (.gitignore itself is not a WT change.)
-				session.pushRepoChanges(['ignores']);
+				onIgnoreRulesChanged();
 				return;
+			}
+
+			if (relativePath?.endsWith('/.gitignore') && !(filterReady && filter?.isIgnored(relativePath))) {
+				onIgnoreRulesChanged();
 			}
 
 			if (!filterReady) {

@@ -8,6 +8,8 @@ export type GitCoreConfigKeys =
 	| 'core.excludesFile'
 	/** `core.hooksPath` — the directory git runs hooks from instead of `$GIT_DIR/hooks` */
 	| 'core.hooksPath'
+	/** `core.ignorecase` — whether git matches paths (including ignore patterns) case-insensitively */
+	| 'core.ignorecase'
 	| 'diff.guitool'
 	| 'diff.tool'
 	/** `fetch.prune` — whether `git fetch` removes remote-tracking branches that no longer exist on the remote */
