@@ -548,6 +548,32 @@ describe('RepositoryWatchService', () => {
 		});
 	});
 
+	describe('global onDidChangeFetchHead', () => {
+		it('fires with the repo key as FETCH_HEAD changes, before any hook', () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory });
+
+			const order: string[] = [];
+			service.onDidChangeFetchHead(p => order.push(`global:${p}`));
+
+			const handle = service.watch('/repo/', standardGitDir('/repo/.git'), {
+				onFetchHeadChanged: p => order.push(`hook:${p}`),
+			});
+			assertHandle(handle);
+			const sub = handle.session.subscribe();
+
+			const gitDirWatcher = watchers.find(w => w.basePath === '/repo/.git');
+			assert.ok(gitDirWatcher);
+			gitDirWatcher.fire({ path: '/repo/.git/FETCH_HEAD', reason: 'change' });
+
+			assert.deepStrictEqual(order, ['global:/repo', 'hook:/repo']);
+
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+	});
+
 	describe('repo keys', () => {
 		it('keys a Windows-shaped path the way status reads do, so every event lands on the cache key', async () => {
 			const { factory, watchers } = createMockFactory();

@@ -89,6 +89,16 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		return this._onDidChangeWorkingTree.event;
 	}
 
+	private readonly _onDidChangeFetchHead = new Emitter<string>();
+	/**
+	 * Global FETCH_HEAD change event (repo path) for ALL watched repos, fired as each change is seen (no debounce).
+	 * FETCH_HEAD maps to no {@link RepositoryChange} on the session, so this is how a host invalidates its cached
+	 * last-fetched time — the standalone service bridges it to the cache's `lastFetched`.
+	 */
+	get onDidChangeFetchHead(): Event<string> {
+		return this._onDidChangeFetchHead.event;
+	}
+
 	private readonly defaultRepoDelayMs?: number;
 	private readonly defaultWorkingTreeDelayMs?: number;
 	private readonly defaultRepoMaxWaitMs?: number;
@@ -138,6 +148,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 
 		this._onDidChangeRepository.dispose();
 		this._onDidChangeWorkingTree.dispose();
+		this._onDidChangeFetchHead.dispose();
 	}
 
 	/**
@@ -300,7 +311,9 @@ export class RepositoryWatchService implements UnifiedDisposable {
 			onRepoChanged: function (_repoPath: string, changes: RepositoryChange[], ref?: string): void {
 				session.pushRepoChanges(changes, ref);
 			},
-			onFetchHeadChanged: function (repoPath: string): void {
+			onFetchHeadChanged: (repoPath: string): void => {
+				// Global first, so a host's cache drops its last-fetched time before any hook re-reads it
+				this._onDidChangeFetchHead.fire(repoPath);
 				// Iterate at fire time so callers that joined after the group was wired up
 				// still receive events (e.g. a `Repository.watch()` whose hooks landed
 				// after a hookless `GitRepositoryService.watch` registered first).

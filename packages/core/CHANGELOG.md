@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes a standalone `createCliGitService` with a `watchingProvider` never re-reading the last-fetched time after a fetch: FETCH_HEAD reached only the per-watch `onFetchHeadChanged` hook. `RepositoryWatchService` now has a global `onDidChangeFetchHead` event, and the standalone service bridges it to the cache's `lastFetched` (git, git-cli)
 - Fixes working-tree and repository change events advancing the wrong status clock when a host passed a path spelled differently from the cache's key (a Windows drive-letter case, backslashes or a trailing separator): `RepositoryWatchService.watch` and `getSession` key sessions by `getRepositoryKey`, so every session, event and hook carries the same key status reads fence on, and two spellings of one repository share a session (git)
 
 ## [0.10.7] - 2026-10-15
