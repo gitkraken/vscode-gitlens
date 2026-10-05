@@ -978,4 +978,286 @@ describe('WatchSession', () => {
 			session.dispose();
 		});
 	});
+
+	describe('max-wait (starvation bound)', () => {
+		/** Calls `push` every ~20ms for `durationMs`, so the trailing debounce never sees a quiet gap. */
+		async function pushContinuously(push: () => void, durationMs: number): Promise<void> {
+			const end = Date.now() + durationMs;
+			while (Date.now() < end) {
+				push();
+				await delay(20);
+			}
+		}
+
+		it('flushes repeatedly while events continue (max-wait caps the trailing debounce)', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+
+			const received: WatcherRepoChangeEvent[] = [];
+			const sub = session.subscribe({ delayMs: 60, maxWaitMs: 150 });
+			sub.onDidChange(e => received.push(e));
+
+			await pushContinuously(() => session.pushRepoChanges(['head']), 600);
+
+			// Measured before the events stop being "recent" — a trailing-only debounce would still be at 0 here.
+			assert.ok(received.length >= 3, `expected >= 3 flushes during continuous events, got ${received.length}`);
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('starves until events stop when max-wait is Infinity (the regression max-wait fixes)', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+
+			const received: WatcherRepoChangeEvent[] = [];
+			const sub = session.subscribe({ delayMs: 60, maxWaitMs: Infinity });
+			sub.onDidChange(e => received.push(e));
+
+			await pushContinuously(() => session.pushRepoChanges(['head']), 600);
+			assert.strictEqual(received.length, 0, 'no cap: continuous events must keep deferring the flush');
+
+			await delay(120);
+			assert.strictEqual(received.length, 1);
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('bounds the working tree pipeline the same way', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+
+			const received: WorkingTreeChangeEvent[] = [];
+			const sub = session.subscribeToWorkingTree({ delayMs: 60, maxWaitMs: 150 });
+			sub.onDidChangeWorkingTree(e => received.push(e));
+
+			let i = 0;
+			await pushContinuously(() => session.pushWorkingTreeChanges([`/repo/${i++}.ts`]), 600);
+			assert.ok(received.length >= 3, `expected >= 3 flushes during continuous events, got ${received.length}`);
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('starves the working tree pipeline when max-wait is Infinity', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+
+			const received: WorkingTreeChangeEvent[] = [];
+			const sub = session.subscribeToWorkingTree({ delayMs: 60, maxWaitMs: Infinity });
+			sub.onDidChangeWorkingTree(e => received.push(e));
+
+			await pushContinuously(() => session.pushWorkingTreeChanges(['/repo/a.ts']), 600);
+			assert.strictEqual(received.length, 0);
+
+			await delay(120);
+			assert.strictEqual(received.length, 1);
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('falls back to the session default max-wait when a subscriber does not specify one', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo', defaultRepoMaxWaitMs: 150 });
+
+			const received: WatcherRepoChangeEvent[] = [];
+			const sub = session.subscribe({ delayMs: 60 });
+			sub.onDidChange(e => received.push(e));
+
+			await pushContinuously(() => session.pushRepoChanges(['head']), 600);
+			assert.ok(received.length >= 3, `expected >= 3 flushes, got ${received.length}`);
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('uses the shortest max-wait across subscribers', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+
+			const received: WatcherRepoChangeEvent[] = [];
+			const slow = session.subscribe({ delayMs: 60, maxWaitMs: 1000 });
+			const fast = session.subscribe({ delayMs: 60, maxWaitMs: 150 });
+			slow.onDidChange(e => received.push(e));
+
+			await pushContinuously(() => session.pushRepoChanges(['head']), 400);
+			// With only the 1000ms cap there could be no flush yet.
+			assert.ok(received.length >= 2, `expected >= 2 flushes at the 150ms cap, got ${received.length}`);
+
+			slow.dispose();
+			fast.dispose();
+			session.dispose();
+		});
+
+		it('moves a pending flush earlier when a later subscriber has a shorter max-wait', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+
+			const flushedAt: number[] = [];
+			const start = Date.now();
+			const first = session.subscribe({ delayMs: 60, maxWaitMs: 5000 });
+			first.onDidChange(() => flushedAt.push(Date.now() - start));
+
+			let second: ReturnType<typeof session.subscribe> | undefined;
+			const joinTimer = setTimeout(() => {
+				second = session.subscribe({ delayMs: 60, maxWaitMs: 150 });
+			}, 80);
+
+			await pushContinuously(() => session.pushRepoChanges(['head']), 400);
+			clearTimeout(joinTimer);
+
+			// Without the join the 5000ms cap and continuous events would defer the flush past the whole run.
+			assert.ok(flushedAt.length >= 1, 'expected a flush while events continued');
+			assert.ok(flushedAt[0] >= 80, `flush should come after the join, got ${flushedAt[0]}ms`);
+			assert.ok(flushedAt[0] < 260, `flush should be at the shorter cap, got ${flushedAt[0]}ms`);
+
+			first.dispose();
+			second?.dispose();
+			session.dispose();
+		});
+
+		it('flushes at max-wait when max-wait is shorter than the delay', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+
+			const received: WatcherRepoChangeEvent[] = [];
+			const sub = session.subscribe({ delayMs: 400, maxWaitMs: 50 });
+			sub.onDidChange(e => received.push(e));
+
+			session.pushRepoChanges(['head']);
+			await delay(120);
+			assert.strictEqual(received.length, 1);
+
+			sub.dispose();
+			session.dispose();
+		});
+	});
+
+	describe('timer churn', () => {
+		it('arms at most two timers for a burst of 1000 synchronous pushes', async () => {
+			const original = globalThis.setTimeout;
+			let armed = 0;
+			globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>) => {
+				armed++;
+				return original(...args);
+			}) as typeof setTimeout;
+
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+			try {
+				const repoSub = session.subscribe({ delayMs: 50 });
+				const wtSub = session.subscribeToWorkingTree({ delayMs: 50 });
+				const repoEvents: WatcherRepoChangeEvent[] = [];
+				repoSub.onDidChange(e => repoEvents.push(e));
+
+				armed = 0;
+				for (let i = 0; i < 1000; i++) {
+					session.pushRepoChanges(['head']);
+				}
+				const repoTimers = armed;
+
+				armed = 0;
+				for (let i = 0; i < 1000; i++) {
+					session.pushWorkingTreeChanges(['/repo/a.ts']);
+				}
+				const wtTimers = armed;
+
+				assert.ok(repoTimers <= 2, `repo pipeline armed ${repoTimers} timers for 1000 pushes`);
+				assert.ok(wtTimers <= 2, `working tree pipeline armed ${wtTimers} timers for 1000 pushes`);
+
+				await delay(100);
+				assert.strictEqual(repoEvents.length, 1, 'the burst still coalesces into one event');
+
+				repoSub.dispose();
+				wtSub.dispose();
+			} finally {
+				globalThis.setTimeout = original;
+				session.dispose();
+			}
+		});
+	});
+
+	describe('resume restarts the max-wait window', () => {
+		it('flushes after the delay (not immediately) even when suspended past the max-wait', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+
+			const received: WatcherRepoChangeEvent[] = [];
+			const sub = session.subscribe({ delayMs: 80, maxWaitMs: 100 });
+			sub.onDidChange(e => received.push(e));
+
+			session.suspend();
+			session.pushRepoChanges(['head']);
+			await delay(200);
+			assert.strictEqual(received.length, 0, 'events during suspension must not flush');
+
+			session.resume();
+			await delay(30);
+			// A window still anchored at the first (pre-resume) event would already be overdue here.
+			assert.strictEqual(received.length, 0, 'resume must restart the window, not flush as overdue');
+
+			await delay(120);
+			assert.strictEqual(received.length, 1);
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('flushes immediately on resume(0)', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+
+			const received: WatcherRepoChangeEvent[] = [];
+			const sub = session.subscribe({ delayMs: 200, maxWaitMs: 400 });
+			sub.onDidChange(e => received.push(e));
+
+			session.suspend();
+			session.pushRepoChanges(['head']);
+			session.resume(0);
+
+			await delay(40);
+			assert.strictEqual(received.length, 1);
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('returns to normal debounce when an event arrives before the resume flush', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+
+			const received: WatcherRepoChangeEvent[] = [];
+			const sub = session.subscribe({ delayMs: 50, maxWaitMs: 1000 });
+			sub.onDidChange(e => received.push(e));
+
+			session.suspend();
+			session.pushRepoChanges(['head']);
+			session.resume(400);
+
+			await delay(20);
+			session.pushRepoChanges(['tags']);
+
+			// Normal debounce from that event (50ms), not the 400ms resume stagger.
+			await delay(150);
+			assert.strictEqual(received.length, 1);
+			assert.ok(received[0].changes.has('head'));
+			assert.ok(received[0].changes.has('tags'));
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('restarts the working tree window on resume too', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+
+			const received: WorkingTreeChangeEvent[] = [];
+			const sub = session.subscribeToWorkingTree({ delayMs: 80, maxWaitMs: 100 });
+			sub.onDidChangeWorkingTree(e => received.push(e));
+
+			session.suspend();
+			session.pushWorkingTreeChanges(['/repo/a.ts']);
+			await delay(200);
+			assert.strictEqual(received.length, 0);
+
+			session.resume();
+			await delay(30);
+			assert.strictEqual(received.length, 0);
+
+			await delay(120);
+			assert.strictEqual(received.length, 1);
+
+			sub.dispose();
+			session.dispose();
+		});
+	});
 });
