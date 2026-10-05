@@ -4489,6 +4489,7 @@
 	"Unable to build a diff for the selected commit.": "無法為所選認可建置差異。",
 	"Unable to build a search from your description — {0}": "無法根據你的描述建置搜尋 —— {0}",
 	"Unable to check for conflicts": "無法檢查衝突",
+	"Unable to check the worktree in '{0}' for uncommitted changes.\n\nIf it has any, deleting it will cause them to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nAre you sure you still want to delete it?": "無法檢查「{0}」中的工作樹是否有未認可的變更。\n\n如果有，刪除它將導致這些變更永久丟失。\n此操作不可逆！\n\n是否仍要刪除它？",
 	"Unable to checkout": "無法簽出",
 	"Unable to checkout '{0}'": "無法簽出 '{0}'",
 	"Unable to checkout '{0}' because the path or reference does not exist": "無法簽出 '{0}'，因為路徑或引用不存在",

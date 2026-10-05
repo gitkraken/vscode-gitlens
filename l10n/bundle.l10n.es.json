@@ -4489,6 +4489,7 @@
 	"Unable to build a diff for the selected commit.": "No se pudo crear un diff para el commit seleccionado.",
 	"Unable to build a search from your description — {0}": "No se pudo crear una búsqueda a partir de su descripción — {0}",
 	"Unable to check for conflicts": "No se pudieron comprobar los conflictos",
+	"Unable to check the worktree in '{0}' for uncommitted changes.\n\nIf it has any, deleting it will cause them to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nAre you sure you still want to delete it?": "No se pudo comprobar si el árbol de trabajo en '{0}' tiene cambios sin commit.\n\nSi los tiene, al eliminarlo esos cambios se PERDERÁN PARA SIEMPRE.\n¡Esto es IRREVERSIBLE!\n\n¿Está seguro de que todavía desea eliminarlo?",
 	"Unable to checkout": "No se pudo hacer checkout",
 	"Unable to checkout '{0}'": "No se pudo hacer checkout de '{0}'",
 	"Unable to checkout '{0}' because the path or reference does not exist": "No se pudo hacer checkout de '{0}' porque la ruta o la referencia no existe",

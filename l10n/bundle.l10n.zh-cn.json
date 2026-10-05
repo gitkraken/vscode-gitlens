@@ -4489,6 +4489,7 @@
 	"Unable to build a diff for the selected commit.": "无法为所选提交构建差异。",
 	"Unable to build a search from your description — {0}": "无法根据你的描述构建搜索 —— {0}",
 	"Unable to check for conflicts": "无法检查冲突",
+	"Unable to check the worktree in '{0}' for uncommitted changes.\n\nIf it has any, deleting it will cause them to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nAre you sure you still want to delete it?": "无法检查“{0}”中的工作树是否有未提交的更改。\n\n如果有，删除它将导致这些更改永久丢失。\n此操作不可逆！\n\n是否仍要删除它？",
 	"Unable to checkout": "无法检出",
 	"Unable to checkout '{0}'": "无法检出 “{0}”",
 	"Unable to checkout '{0}' because the path or reference does not exist": "无法检出 “{0}”，因为路径或引用不存在",
