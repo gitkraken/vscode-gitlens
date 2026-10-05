@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-04
+
 ### Added
 
 - Adds `expectedExitCodes` to `Git.run`'s options: non-zero exit codes that are answers rather than failures, such as `1` from `git diff --quiet`, resolve as `exited` with that code in every `errors` mode, so a read can run with `errors: 'throw'` and still get its answer (git, git-cli)
@@ -557,7 +559,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.9...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.0...HEAD
+[0.10.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.9...gitkraken:releases/core/v0.10.0
 [0.9.9]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.8...gitkraken:releases/core/v0.9.9
 [0.9.8]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.7...gitkraken:releases/core/v0.9.8
 [0.9.7]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.6...gitkraken:releases/core/v0.9.7
