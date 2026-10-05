@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -253,12 +253,44 @@ function safeRealPath(target: string): string | undefined {
 }
 
 /**
- * Waits for the gk CLI proxy binary to appear on disk. GitLens auto-installs it on first activation.
+ * Whether the binary can actually be executed right now.
+ *
+ * Existence is not readiness: Linux refuses to exec a file that a writer still holds open, and the
+ * installer's handle outlives the last byte — a probe run against a fully written 23-byte script fails
+ * while its writer is open and succeeds the moment that handle closes. The size is therefore no signal
+ * either, and an exec attempt is the only one left.
+ *
+ * The exit code is deliberately ignored: the question is whether the kernel permitted exec at all, not
+ * what the CLI made of its arguments. `spawnSync` reports the refusal through `error` rather than
+ * throwing, but the async `spawn` the client uses throws it synchronously, which is the shape this is
+ * here to keep out of the specs (#5945).
+ *
+ * `EACCES` counts as not-ready for the same reason: an installer that writes first and sets the
+ * executable bit second leaves exactly that window. Every other outcome — including the probe timing
+ * out — reads as ready, since the question was permission to exec and anything else is the CLI's own
+ * business. Running the proxy is work the suite does moments later anyway.
+ *
+ * Returns which refusal was seen, so the caller can say what it waited on rather than guess: the two
+ * codes mean different things to whoever reads the failure. `timeoutMs` is the caller's remaining
+ * budget, not a constant — a probe that outlived the deadline would push `waitForMcpReady` past the
+ * budget it shares with the IPC wait and into the fixture's own timeout, which is the generic failure
+ * that budget exists to prevent.
+ */
+function execRefusedBy(gkPath: string, timeoutMs: number): 'ETXTBSY' | 'EACCES' | undefined {
+	const probe = spawnSync(gkPath, ['--version'], { stdio: 'ignore', timeout: timeoutMs });
+	if (probe.error == null || !('code' in probe.error)) return undefined;
+
+	return probe.error.code === 'ETXTBSY' || probe.error.code === 'EACCES' ? probe.error.code : undefined;
+}
+
+/**
+ * Waits for the gk CLI proxy binary to appear on disk AND to be executable. GitLens auto-installs it on
+ * first activation.
  * Timing is editor- and load-dependent: VS Code lands it in ~5–6s, but a heavy fork like Positron takes
  * ~26s launched alone and ~44s when several instances start at once (measured on Linux — the download +
  * extract slides later under launch contention). So the 30s default was too tight and produced transient
- * `mcp*` failures on Positron under parallel CI workers. Polls and returns the instant the binary appears,
- * so fast editors pay nothing; the generous cap only affects the slow/contended path.
+ * `mcp*` failures on Positron under parallel CI workers. Polls and returns the instant the binary both
+ * exists and runs, so fast editors pay nothing; the generous cap only affects the slow/contended path.
  *
  * Prefer {@link waitForMcpReady} over calling this directly: it shares one budget with the
  * IPC-discovery wait, so the two cannot add up past the per-test timeout.
@@ -267,10 +299,34 @@ export async function waitForCliInstall(gkPath: string, timeoutMs = 50_000): Pro
 	const started = Date.now();
 	const deadline = started + timeoutMs;
 
+	let appeared = false;
+	let refusal: 'ETXTBSY' | 'EACCES' | undefined;
+
 	for (let attempt = 0; ; attempt++) {
-		if (existsSync(gkPath)) return;
+		if (existsSync(gkPath)) {
+			appeared = true;
+
+			// Never outlive the caller's budget: 5s when there is room, whatever is left when there isn't.
+			const remaining = deadline - Date.now();
+			if (remaining > 0) {
+				refusal = execRefusedBy(gkPath, Math.min(5000, remaining));
+				if (refusal == null) return;
+			}
+		}
 
 		if ((await backoffDelay(attempt, deadline)) == null) {
+			if (appeared) {
+				const detail =
+					refusal === 'ETXTBSY'
+						? 'last refusal was ETXTBSY: a writer still held it open, which no install should take this long to finish'
+						: refusal === 'EACCES'
+							? 'last refusal was EACCES: the file was written but its executable bit never landed'
+							: 'the budget ran out before a probe could run';
+				throw new Error(
+					`GK CLI at "${gkPath}" appeared but never became executable — ${detail}. Gave up after ${attempt + 1} attempts over ${Date.now() - started}ms (budget ${timeoutMs}ms).`,
+				);
+			}
+
 			// Name what was checked and what is actually there, without claiming which cause it was:
 			// an absent binary is equally consistent with GitLens never reaching the installer and
 			// with the installer running and failing — `CliBinaryInstaller` catches its download and
