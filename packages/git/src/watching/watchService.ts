@@ -436,6 +436,14 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		};
 
 		const onEvent = (event: FileWatchEvent): void => {
+			// Dropped events: nothing to filter or buffer, the whole tree needs a re-read. A `.gitignore` edit may be
+			// among them, and a filter left on the old rules would keep dropping changes they used to ignore
+			if (event.reason === 'overflow') {
+				session.pushWorkingTreeChanges([], true);
+				onIgnoreRulesChanged();
+				return;
+			}
+
 			// Fast noise check (node_modules, .git, .watchman-cookie-)
 			if (shouldIgnoreWorkingTreePath(event.path)) return;
 

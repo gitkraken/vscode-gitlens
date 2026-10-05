@@ -5,6 +5,7 @@ import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import { Cache } from '../../cache.js';
 import type { GitDir } from '../../models/repository.js';
+import { allWatchedRepositoryChanges } from '../classifyChange.js';
 import type { FileWatcher, FileWatcherOptions, FileWatchEvent, FileWatchingProvider } from '../provider.js';
 import { dotGitGlobCombined, dotGitGlobCommon, dotGitGlobRoot, gitDirExcludes } from '../watcherPatterns.js';
 import type { WatchGroupHooks } from '../watchGroup.js';
@@ -542,6 +543,83 @@ describe('WatchGroup', () => {
 			assert.deepStrictEqual(callArgs(cbB.onRepoChanged, 0), ['/worktrees/B', ['worktrees'], undefined]);
 			assert.strictEqual(callCount(cbA.onRepoChanged), 1);
 			assert.strictEqual(callCount(cbB.onRepoChanged), 1);
+		});
+	});
+
+	describe('overflow', () => {
+		const fullKinds = [
+			'index',
+			'head',
+			'heads',
+			'tags',
+			'stash',
+			'remotes',
+			'worktrees',
+			'config',
+			'cherryPick',
+			'merge',
+			'rebase',
+			'revert',
+			'pausedOp',
+			'ignores',
+			'gkConfig',
+		];
+
+		function hooks() {
+			return makeCallbacks({
+				onFetchHeadChanged: mock.fn() as unknown as (repoPath: string) => void,
+				onIgnoresChanged: mock.fn() as unknown as (repoPath: string) => void,
+			});
+		}
+
+		it('exports every watcher-observable kind, never unknown', () => {
+			assert.deepStrictEqual([...allWatchedRepositoryChanges], fullKinds);
+		});
+
+		it('a root watcher overflow gives its session every kind with no ref, plus its hooks', () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+			const a = hooks();
+			const b = hooks();
+			group.addSession('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'), a);
+			group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), b);
+
+			watchers
+				.find(w => w.basePath === '/repo/.git/worktrees/A')!
+				.fire({
+					path: '/repo/.git/worktrees/A',
+					reason: 'overflow',
+				});
+
+			assert.strictEqual(callCount(a.onRepoChanged), 1);
+			assert.deepStrictEqual(callArgs(a.onRepoChanged, 0), ['/worktrees/A', fullKinds]);
+			assert.ok(!(callArgs(a.onRepoChanged, 0)[1] as string[]).includes('unknown'));
+			assert.strictEqual(callCount(a.onFetchHeadChanged), 1);
+			assert.strictEqual(callCount(a.onIgnoresChanged), 1);
+			assert.strictEqual(callCount(b.onRepoChanged), 0);
+		});
+
+		it('a common watcher overflow reaches linked sessions but not a main checkout it duplicates', () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+			const main = hooks();
+			const linked = hooks();
+			group.addSession('/repo', standardGitDir('/repo/.git'), main);
+			group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), linked);
+
+			watchers.find(w => w.pattern === dotGitGlobCommon)!.fire({ path: '/repo/.git', reason: 'overflow' });
+
+			assert.strictEqual(callCount(main.onRepoChanged), 0);
+			assert.strictEqual(callCount(main.onFetchHeadChanged), 0);
+			assert.strictEqual(callCount(linked.onRepoChanged), 1);
+			assert.deepStrictEqual(callArgs(linked.onRepoChanged, 0), ['/worktrees/B', fullKinds]);
+			assert.strictEqual(callCount(linked.onFetchHeadChanged), 1);
+			assert.strictEqual(callCount(linked.onIgnoresChanged), 1);
+
+			// The main checkout's own root watcher still reports it
+			watchers.find(w => w.pattern === dotGitGlobCombined)!.fire({ path: '/repo/.git', reason: 'overflow' });
+			assert.strictEqual(callCount(main.onRepoChanged), 1);
+			assert.deepStrictEqual(callArgs(main.onRepoChanged, 0), ['/repo', fullKinds]);
 		});
 	});
 

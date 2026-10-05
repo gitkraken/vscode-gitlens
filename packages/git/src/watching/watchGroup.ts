@@ -2,7 +2,7 @@ import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { some } from '@gitlens/utils/iterable.js';
 import { isDescendant, relative } from '@gitlens/utils/path.js';
 import type { GitDir, RepositoryChange } from '../models/repository.js';
-import { classifyGitDirChange } from './classifyChange.js';
+import { allWatchedRepositoryChanges, classifyGitDirChange } from './classifyChange.js';
 import type { FileWatcher, FileWatchEvent, FileWatchingProvider } from './provider.js';
 import {
 	dotGitGlobCombined,
@@ -166,6 +166,15 @@ export class WatchGroup implements UnifiedDisposable {
 	}
 
 	private onCommonEvent(event: FileWatchEvent): void {
+		if (event.reason === 'overflow') {
+			for (const entry of this._sessions.values()) {
+				if (entry.coversCommon) continue;
+
+				this.deliverOverflow(entry);
+			}
+			return;
+		}
+
 		// Compute relative path from common git dir
 		if (!isDescendant(event.path, this.commonGitDir)) return;
 
@@ -210,7 +219,19 @@ export class WatchGroup implements UnifiedDisposable {
 		}
 	}
 
+	private deliverOverflow(entry: SessionEntry): void {
+		// Every kind, no ref (ref kinds stay unnamed). Never `'unknown'` — the cache would unregister the path
+		entry.hooks.onRepoChanged(entry.repoPath, [...allWatchedRepositoryChanges]);
+		entry.hooks.onFetchHeadChanged?.(entry.repoPath);
+		entry.hooks.onIgnoresChanged?.(entry.repoPath);
+	}
+
 	private onRootEvent(event: FileWatchEvent, entry: SessionEntry): void {
+		if (event.reason === 'overflow') {
+			this.deliverOverflow(entry);
+			return;
+		}
+
 		if (!isDescendant(event.path, entry.gitDirPath)) return;
 
 		const relativePath = relative(entry.gitDirPath, event.path);
