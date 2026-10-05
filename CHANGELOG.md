@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Improves performance when working across several worktrees of one repository &mdash; staging changes, or a merge, rebase or cherry-pick pausing, in one worktree no longer refreshes the views and _Commit Graph_ state of every other worktree
+
 ### Fixed
 
 - Fixes opening the changes of a file that was deleted (or renamed away) and re-added failing with "file not found" &mdash; the comparison now shows an empty previous version ([#5914](https://github.com/gitkraken/vscode-gitlens/issues/5914)) &mdash; thanks to [PR #5930](https://github.com/gitkraken/vscode-gitlens/pull/5930) by Andrés Martínez ([@amartinez1224](https://github.com/amartinez1224))

@@ -1,7 +1,7 @@
 import type { RepositoryChange } from '../models/repository.js';
 
 const classifyRegex =
-	/(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|sequencer|REVERT_HEAD|config|gk\/config|info\/exclude|refs\/(?:heads|remotes|stash|tags|replace)|packed-refs|shallow)/;
+	/(index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|rebase-apply|sequencer|REVERT_HEAD|config|gk\/config|info\/exclude|refs\/(?:heads|remotes|stash|tags|replace)|packed-refs|shallow)/;
 
 /**
  * Maps a path relative to a `.git` directory to the corresponding
@@ -9,8 +9,13 @@ const classifyRegex =
  * regex and switch table encode which files in `.git/` correspond
  * to which logical repository changes.
  *
- * @param relativePath - Path relative to the `.git` directory
- *   (e.g., `refs/heads/main`, `HEAD`, `config`)
+ * `worktrees` means the worktree list, or what `git worktree list` reports per worktree, changed:
+ * `worktrees`, `worktrees/<n>` (add/remove/prune) and `worktrees/<n>/{HEAD,locked,gitdir}`. Any other
+ * path under `worktrees/<n>/` (index, `*_HEAD`, `MERGE_*`, rebase state, logs, …) is that worktree's
+ * own state, which its own gitdir watcher classifies, so it yields `undefined` here.
+ *
+ * @param relativePath - Path relative to the common `.git` directory or a worktree's gitdir
+ *   (e.g., `refs/heads/main`, `HEAD`, `config`, `worktrees/foo/HEAD`)
  * @returns An array of change types, or `undefined` if the path
  *   is noise or unrecognized. `undefined` for `FETCH_HEAD` which
  *   is intentionally not mapped to a change type (the extension
@@ -24,6 +29,18 @@ export function classifyGitDirChange(relativePath: string): RepositoryChange[] |
 	// in `rebase-merge/` and the directory itself.
 	if (relativePath.endsWith('/git-rebase-todo') || relativePath.endsWith('/git-rebase-todo.backup')) {
 		return undefined;
+	}
+
+	if (relativePath.startsWith('worktrees')) {
+		if (relativePath.length === 9) return ['worktrees'];
+
+		if (relativePath.charCodeAt(9) === 47 /* / */) {
+			const idEnd = relativePath.indexOf('/', 10);
+			if (idEnd === -1) return relativePath.length > 10 ? ['worktrees'] : undefined;
+
+			const file = relativePath.substring(idEnd + 1);
+			return file === 'HEAD' || file === 'locked' || file === 'gitdir' ? ['worktrees'] : undefined;
+		}
 	}
 
 	const match = classifyRegex.exec(relativePath);
@@ -100,9 +117,6 @@ export function classifyGitDirChange(relativePath: string): RepositoryChange[] |
 		// is deliberately broad: it can add, remove, or move refs of any of these types.
 		case 'packed-refs':
 			return ['heads', 'remotes', 'tags'];
-
-		case 'worktrees':
-			return ['worktrees'];
 
 		default:
 			return undefined;
