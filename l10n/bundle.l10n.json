@@ -1385,6 +1385,7 @@
 	"Connect an integration to verify registration": "Connect an integration to verify registration",
 	"Connect an integration with {0} to create cross-repository pull requests": "Connect an integration with {0} to create cross-repository pull requests",
 	"Connect hosting services like GitHub and issue trackers like Jira to track progress and take action on PRs and issues related to your branches": "Connect hosting services like GitHub and issue trackers like Jira to track progress and take action on PRs and issues related to your branches",
+	"Connect integrations like GitHub, GitLab, Azure DevOps, Jira, and more": "Connect integrations like GitHub, GitLab, Azure DevOps, Jira, and more",
 	"Connect integrations, choose an AI provider and model, set up agents": "Connect integrations, choose an AI provider and model, set up agents",
 	"Connect to Azure OpenAI Provider": "Connect to Azure OpenAI Provider",
 	"Connect to Ollama": "Connect to Ollama",
