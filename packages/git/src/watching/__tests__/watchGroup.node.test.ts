@@ -216,7 +216,7 @@ describe('WatchGroup', () => {
 				watchers[0].fire({ path: '/repo/.git/shallow', reason: reason });
 
 				assert.strictEqual(callCount(callbacks.onRepoChanged), 1);
-				assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 0), ['/repo', ['heads']]);
+				assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 0), ['/repo', ['heads'], undefined]);
 				group.dispose();
 			});
 		}
@@ -231,7 +231,11 @@ describe('WatchGroup', () => {
 				watchers[0].fire({ path: '/repo/.git/refs/replace/0123456789abcdef', reason: reason });
 
 				assert.strictEqual(callCount(callbacks.onRepoChanged), 1);
-				assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 0), ['/repo', ['heads']]);
+				assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 0), [
+					'/repo',
+					['heads'],
+					'refs/replace/0123456789abcdef',
+				]);
 				group.dispose();
 			});
 		}
@@ -336,8 +340,8 @@ describe('WatchGroup', () => {
 
 				assert.strictEqual(callCount(callbacksA.onRepoChanged), 1);
 				assert.strictEqual(callCount(callbacksB.onRepoChanged), 1);
-				assert.deepStrictEqual(callArgs(callbacksA.onRepoChanged, 0), ['/worktrees/A', ['heads']]);
-				assert.deepStrictEqual(callArgs(callbacksB.onRepoChanged, 0), ['/worktrees/B', ['heads']]);
+				assert.deepStrictEqual(callArgs(callbacksA.onRepoChanged, 0), ['/worktrees/A', ['heads'], undefined]);
+				assert.deepStrictEqual(callArgs(callbacksB.onRepoChanged, 0), ['/worktrees/B', ['heads'], undefined]);
 				group.dispose();
 			});
 		}
@@ -357,8 +361,16 @@ describe('WatchGroup', () => {
 
 				assert.strictEqual(callCount(callbacksA.onRepoChanged), 1);
 				assert.strictEqual(callCount(callbacksB.onRepoChanged), 1);
-				assert.deepStrictEqual(callArgs(callbacksA.onRepoChanged, 0), ['/worktrees/A', ['heads']]);
-				assert.deepStrictEqual(callArgs(callbacksB.onRepoChanged, 0), ['/worktrees/B', ['heads']]);
+				assert.deepStrictEqual(callArgs(callbacksA.onRepoChanged, 0), [
+					'/worktrees/A',
+					['heads'],
+					'refs/replace/0123456789abcdef',
+				]);
+				assert.deepStrictEqual(callArgs(callbacksB.onRepoChanged, 0), [
+					'/worktrees/B',
+					['heads'],
+					'refs/replace/0123456789abcdef',
+				]);
 				group.dispose();
 			});
 		}
@@ -440,8 +452,8 @@ describe('WatchGroup', () => {
 			rootA.fire({ path: '/repo/.git/worktrees/A/MERGE_HEAD', reason: 'create' });
 
 			assert.strictEqual(callCount(cbA.onRepoChanged), 2);
-			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 0), ['/worktrees/A', ['index']]);
-			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 1), ['/worktrees/A', ['merge', 'pausedOp']]);
+			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 0), ['/worktrees/A', ['index'], undefined]);
+			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 1), ['/worktrees/A', ['merge', 'pausedOp'], undefined]);
 			assert.strictEqual(callCount(cbB.onRepoChanged), 0);
 		});
 
@@ -451,7 +463,7 @@ describe('WatchGroup', () => {
 			common.fire({ path: '/repo/.git/worktrees/A/HEAD', reason: 'change' });
 			assert.strictEqual(callCount(cbA.onRepoChanged), 0);
 			assert.strictEqual(callCount(cbB.onRepoChanged), 1);
-			assert.deepStrictEqual(callArgs(cbB.onRepoChanged, 0), ['/worktrees/B', ['worktrees']]);
+			assert.deepStrictEqual(callArgs(cbB.onRepoChanged, 0), ['/worktrees/B', ['worktrees'], undefined]);
 		});
 
 		it("tells every session, the owner included, when a worktree's locked / gitdir changes", () => {
@@ -461,7 +473,7 @@ describe('WatchGroup', () => {
 			common.fire({ path: '/repo/.git/worktrees/A/locked', reason: 'create' });
 			common.fire({ path: '/repo/.git/worktrees/A/gitdir', reason: 'change' });
 			assert.strictEqual(callCount(cbA.onRepoChanged), 2);
-			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 0), ['/worktrees/A', ['worktrees']]);
+			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 0), ['/worktrees/A', ['worktrees'], undefined]);
 			assert.strictEqual(callCount(cbB.onRepoChanged), 2);
 		});
 
@@ -489,8 +501,8 @@ describe('WatchGroup', () => {
 
 			common.fire({ path: '/repo/.git/worktrees/A', reason: 'delete' });
 
-			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 0), ['/worktrees/A', ['worktrees']]);
-			assert.deepStrictEqual(callArgs(cbB.onRepoChanged, 0), ['/worktrees/B', ['worktrees']]);
+			assert.deepStrictEqual(callArgs(cbA.onRepoChanged, 0), ['/worktrees/A', ['worktrees'], undefined]);
+			assert.deepStrictEqual(callArgs(cbB.onRepoChanged, 0), ['/worktrees/B', ['worktrees'], undefined]);
 			assert.strictEqual(callCount(cbA.onRepoChanged), 1);
 			assert.strictEqual(callCount(cbB.onRepoChanged), 1);
 		});
@@ -532,7 +544,7 @@ describe('WatchGroup', () => {
 
 			// refs/heads/x + info/exclude
 			assert.strictEqual(callCount(mainChanged), 2);
-			assert.deepStrictEqual(callArgs(mainChanged, 0), ['/repo', ['heads']]);
+			assert.deepStrictEqual(callArgs(mainChanged, 0), ['/repo', ['heads'], 'refs/heads/x']);
 			assert.strictEqual(callCount(mainFetch), 1);
 			assert.strictEqual(callCount(mainIgnores), 1);
 
@@ -560,7 +572,7 @@ describe('WatchGroup', () => {
 			}
 
 			assert.strictEqual(callCount(mainChanged), 1);
-			assert.deepStrictEqual(callArgs(mainChanged, 0), ['/repo', ['worktrees']]);
+			assert.deepStrictEqual(callArgs(mainChanged, 0), ['/repo', ['worktrees'], undefined]);
 		});
 	});
 
@@ -611,6 +623,46 @@ describe('WatchGroup', () => {
 			watchers[0].fire({ path: '/repo/.git/objects/pack/something', reason: 'change' });
 
 			assert.strictEqual(onRepoChanged.mock.callCount(), 0);
+		});
+
+		it('names the ref a loose ref lock file stands for', () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+			const callbacks = makeCallbacks();
+			group.addSession('/repo', standardGitDir('/repo/.git'), callbacks);
+
+			watchers[0].fire({ path: '/repo/.git/refs/heads/main.lock', reason: 'create' });
+			watchers[0].fire({ path: '/repo/.git/refs/heads/main', reason: 'create' });
+
+			assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 0), ['/repo', ['heads'], 'refs/heads/main']);
+			assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 1), ['/repo', ['heads'], 'refs/heads/main']);
+			group.dispose();
+		});
+
+		it("names HEAD on a linked worktree's root watcher", () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+			const callbacks = makeCallbacks();
+			group.addSession('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'), callbacks);
+			const rootA = watchers.find(w => w.basePath === '/repo/.git/worktrees/A');
+			assert.ok(rootA);
+
+			rootA.fire({ path: '/repo/.git/worktrees/A/HEAD', reason: 'change' });
+
+			assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 0), ['/worktrees/A', ['head', 'heads'], 'HEAD']);
+			group.dispose();
+		});
+
+		it('names no ref for config', () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+			const callbacks = makeCallbacks();
+			group.addSession('/repo', standardGitDir('/repo/.git'), callbacks);
+
+			watchers[0].fire({ path: '/repo/.git/config', reason: 'change' });
+
+			assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 0), ['/repo', ['config', 'remotes'], undefined]);
+			group.dispose();
 		});
 	});
 

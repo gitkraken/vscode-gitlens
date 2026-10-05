@@ -646,6 +646,284 @@ describe('WatchSession', () => {
 		});
 	});
 
+	describe('ref names', () => {
+		async function flush(push: (session: RepositoryWatchSession) => void): Promise<WatcherRepoChangeEvent[]> {
+			const session = new RepositoryWatchSession({ repoPath: '/repo', defaultRepoDelayMs: 20 });
+			const received: WatcherRepoChangeEvent[] = [];
+			const sub = session.subscribe();
+			sub.onDidChange(e => received.push(e));
+
+			push(session);
+			await delay(50);
+
+			sub.dispose();
+			session.dispose();
+			return received;
+		}
+
+		it('accumulates names across pushes and starts afresh after a flush', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo', defaultRepoDelayMs: 20 });
+			const received: WatcherRepoChangeEvent[] = [];
+			const sub = session.subscribe();
+			sub.onDidChange(e => received.push(e));
+
+			session.pushRepoChanges(['heads'], 'refs/heads/a');
+			session.pushRepoChanges(['heads'], 'refs/heads/b');
+			session.pushRepoChanges(['head', 'heads'], 'HEAD');
+			await delay(50);
+
+			session.pushRepoChanges(['heads'], 'refs/heads/c');
+			await delay(50);
+
+			assert.strictEqual(received.length, 2);
+			assert.deepStrictEqual([...received[0].refs].sort(), ['HEAD', 'refs/heads/a', 'refs/heads/b']);
+			assert.strictEqual(received[0].unnamedRefKinds.size, 0);
+			assert.ok(received[0].mayHaveChangedRef('refs/heads/a'));
+			assert.ok(!received[0].mayHaveChangedRef('refs/heads/c'));
+			assert.deepStrictEqual([...received[1].refs], ['refs/heads/c']);
+			assert.ok(!received[1].mayHaveChangedRef('refs/heads/a'));
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('marks remotes unnamed for a config change', async () => {
+			const [e] = await flush(session => session.pushRepoChanges(['config', 'remotes']));
+			assert.deepStrictEqual([...e.unnamedRefKinds], ['remotes']);
+			assert.strictEqual(e.refs.size, 0);
+		});
+
+		it('marks heads, remotes and tags unnamed for a packed-refs rewrite', async () => {
+			const [e] = await flush(session => session.pushRepoChanges(['heads', 'remotes', 'tags']));
+			assert.deepStrictEqual([...e.unnamedRefKinds].sort(), ['heads', 'remotes', 'tags']);
+		});
+
+		it("marks a kind unnamed when the name's kind doesn't match (refs/replace, a bare ref namespace)", async () => {
+			const [e] = await flush(session => {
+				session.pushRepoChanges(['heads'], 'refs/replace/0123');
+				session.pushRepoChanges(['remotes'], 'refs/remotes');
+			});
+			assert.deepStrictEqual([...e.unnamedRefKinds].sort(), ['heads', 'remotes']);
+			assert.strictEqual(e.refs.size, 0);
+		});
+
+		it('marks a kind unnamed once the retained names reach the cap', async () => {
+			const [e] = await flush(session => {
+				for (let i = 0; i < 1000; i++) {
+					session.pushRepoChanges(['tags'], `refs/tags/v${i}`);
+				}
+				session.pushRepoChanges(['tags'], 'refs/tags/past-the-cap');
+			});
+			assert.strictEqual(e.refs.size, 1000);
+			assert.ok(!e.refs.has('refs/tags/past-the-cap'));
+			assert.deepStrictEqual([...e.unnamedRefKinds], ['tags']);
+			assert.ok(e.mayHaveChangedRef('refs/tags/past-the-cap'));
+		});
+
+		it('marks injected ref changes unnamed', async () => {
+			const [e] = await flush(session => {
+				session.pushRepoChanges(['heads'], 'refs/heads/a');
+				session.fireChange('heads', 'stash');
+			});
+			assert.deepStrictEqual([...e.refs], ['refs/heads/a']);
+			assert.deepStrictEqual([...e.unnamedRefKinds].sort(), ['heads', 'stash']);
+			assert.ok(e.mayHaveChangedRef('refs/heads/other'));
+		});
+
+		it('marks immediate ref changes unnamed', () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+			const received: WatcherRepoChangeEvent[] = [];
+			const sub = session.subscribe();
+			sub.onDidChange(e => received.push(e));
+
+			session.fireChangeImmediate('heads');
+
+			assert.deepStrictEqual([...received[0].unnamedRefKinds], ['heads']);
+
+			sub.dispose();
+			session.dispose();
+		});
+	});
+
+	describe('relevantRefs (per-subscription filter)', () => {
+		function setup(relevant: string[]): {
+			session: RepositoryWatchSession;
+			filtered: WatcherRepoChangeEvent[];
+			unfiltered: WatcherRepoChangeEvent[];
+			forwarded: WatcherRepoChangeEvent[];
+			relevant: string[];
+			dispose(): void;
+		} {
+			const forwarded: WatcherRepoChangeEvent[] = [];
+			const session = new RepositoryWatchSession({
+				repoPath: '/repo',
+				defaultRepoDelayMs: 20,
+				onDidFireRepoChange: e => forwarded.push(e),
+			});
+			const filtered: WatcherRepoChangeEvent[] = [];
+			const unfiltered: WatcherRepoChangeEvent[] = [];
+			const filteredSub = session.subscribe({ relevantRefs: () => relevant });
+			filteredSub.onDidChange(e => filtered.push(e));
+			const unfilteredSub = session.subscribe();
+			unfilteredSub.onDidChange(e => unfiltered.push(e));
+
+			return {
+				session: session,
+				filtered: filtered,
+				unfiltered: unfiltered,
+				forwarded: forwarded,
+				relevant: relevant,
+				dispose: () => {
+					filteredSub.dispose();
+					unfilteredSub.dispose();
+					session.dispose();
+				},
+			};
+		}
+
+		it('delivers nothing to a filtered subscriber when only irrelevant refs moved, while others get the full event', async () => {
+			const t = setup(['refs/heads/a']);
+
+			t.session.pushRepoChanges(['heads'], 'refs/heads/b');
+			t.session.pushRepoChanges(['tags'], 'refs/tags/v1');
+			t.session.pushRepoChanges(['stash'], 'refs/stash');
+			await delay(50);
+
+			assert.strictEqual(t.filtered.length, 0);
+			assert.strictEqual(t.unfiltered.length, 1);
+			assert.strictEqual(t.forwarded.length, 1);
+			assert.strictEqual(t.forwarded[0], t.unfiltered[0]);
+			assert.deepStrictEqual([...t.unfiltered[0].changes].sort(), ['heads', 'stash', 'tags']);
+			assert.deepStrictEqual([...t.unfiltered[0].refs].sort(), ['refs/heads/b', 'refs/stash', 'refs/tags/v1']);
+
+			t.dispose();
+		});
+
+		it('keeps heads changes for a subscriber listing HEAD, since HEAD follows the checked-out branch', async () => {
+			const t = setup(['HEAD']);
+
+			t.session.pushRepoChanges(['heads'], 'refs/heads/b');
+			t.session.pushRepoChanges(['tags'], 'refs/tags/v1');
+			await delay(50);
+
+			assert.strictEqual(t.filtered.length, 1);
+			assert.deepStrictEqual([...t.filtered[0].changes], ['heads']);
+			assert.ok(t.filtered[0].mayHaveChangedRef('HEAD'));
+
+			t.dispose();
+		});
+
+		it('delivers a narrowed event when some kinds are irrelevant', async () => {
+			const t = setup(['refs/heads/a']);
+
+			t.session.pushRepoChanges(['index']);
+			t.session.pushRepoChanges(['heads'], 'refs/heads/a');
+			t.session.pushRepoChanges(['heads'], 'refs/heads/b');
+			t.session.pushRepoChanges(['tags'], 'refs/tags/v1');
+			await delay(50);
+
+			assert.strictEqual(t.filtered.length, 1);
+			const e = t.filtered[0];
+			assert.notStrictEqual(e, t.unfiltered[0]);
+			assert.deepStrictEqual([...e.changes].sort(), ['heads', 'index']);
+			assert.deepStrictEqual([...e.refs], ['refs/heads/a']);
+			assert.ok(e.mayHaveChangedRef('refs/heads/a'));
+			assert.ok(!e.mayHaveChangedRef('refs/heads/b'));
+			assert.ok(!e.mayHaveChangedRef('refs/tags/v1'));
+
+			assert.deepStrictEqual([...t.unfiltered[0].changes].sort(), ['heads', 'index', 'tags']);
+			assert.deepStrictEqual([...t.forwarded[0].changes].sort(), ['heads', 'index', 'tags']);
+
+			t.dispose();
+		});
+
+		it('passes non-ref kinds even when every ref kind is dropped', async () => {
+			const t = setup([]);
+
+			t.session.pushRepoChanges(['index']);
+			t.session.pushRepoChanges(['heads'], 'refs/heads/b');
+			await delay(50);
+
+			assert.strictEqual(t.filtered.length, 1);
+			assert.deepStrictEqual([...t.filtered[0].changes], ['index']);
+
+			t.dispose();
+		});
+
+		it('delivers the original event object when nothing is removed', async () => {
+			const t = setup(['refs/heads/a']);
+
+			t.session.pushRepoChanges(['heads'], 'refs/heads/a');
+			t.session.pushRepoChanges(['index']);
+			await delay(50);
+
+			assert.strictEqual(t.filtered.length, 1);
+			assert.strictEqual(t.filtered[0], t.unfiltered[0]);
+
+			t.dispose();
+		});
+
+		it('reads the relevant refs at delivery', async () => {
+			const t = setup(['refs/heads/a']);
+
+			t.session.pushRepoChanges(['heads'], 'refs/heads/b');
+			t.relevant.push('refs/heads/b');
+			await delay(50);
+
+			assert.strictEqual(t.filtered.length, 1);
+			assert.strictEqual(t.filtered[0], t.unfiltered[0]);
+
+			t.dispose();
+		});
+
+		it('passes unnamed kinds', async () => {
+			const t = setup([]);
+
+			t.session.pushRepoChanges(['heads', 'remotes', 'tags']);
+			t.session.fireChange('stash');
+			await delay(50);
+
+			assert.strictEqual(t.filtered.length, 1);
+			assert.strictEqual(t.filtered[0], t.unfiltered[0]);
+
+			t.dispose();
+		});
+
+		it('passes heads when a pseudo-ref moved', async () => {
+			const t = setup([]);
+
+			t.session.pushRepoChanges(['head', 'heads'], 'HEAD');
+			t.session.pushRepoChanges(['heads'], 'refs/heads/b');
+			t.session.pushRepoChanges(['tags'], 'refs/tags/v1');
+			await delay(50);
+
+			assert.strictEqual(t.filtered.length, 1);
+			const e = t.filtered[0];
+			assert.deepStrictEqual([...e.changes].sort(), ['head', 'heads']);
+			assert.deepStrictEqual([...e.refs], ['HEAD']);
+			assert.ok(e.mayHaveChangedRef('HEAD'));
+			assert.ok(!e.mayHaveChangedRef('refs/heads/b'));
+
+			t.dispose();
+		});
+
+		it('lets a changed ref directory cover a relevant ref', async () => {
+			const t = setup(['refs/heads/feature/x', 'refs/remotes/origin/main']);
+
+			t.session.pushRepoChanges(['heads'], 'refs/heads/feature');
+			t.session.pushRepoChanges(['remotes'], 'refs/remotes/upstream/main');
+			await delay(50);
+
+			assert.strictEqual(t.filtered.length, 1);
+			const e = t.filtered[0];
+			assert.deepStrictEqual([...e.changes], ['heads']);
+			assert.deepStrictEqual([...e.refs], ['refs/heads/feature']);
+			assert.ok(e.mayHaveChangedRef('refs/heads/feature/x'));
+
+			t.dispose();
+		});
+	});
+
 	describe('working tree pipeline', () => {
 		it('debounces working tree changes', async () => {
 			const session = new RepositoryWatchSession({
