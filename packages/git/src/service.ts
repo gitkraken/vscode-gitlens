@@ -14,6 +14,7 @@ import {
 } from './repositoryService.js';
 import type { FileWatchingProvider } from './watching/provider.js';
 import { RepositoryWatchService } from './watching/watchService.js';
+import { WorktreeSummaryService } from './watching/worktreeSummary.js';
 
 export interface ProvidersChangeEvent {
 	readonly added: readonly GitProvider[];
@@ -92,6 +93,7 @@ export class GitService implements UnifiedDisposable {
 	private readonly _providers: RegisteredProvider[] = [];
 	private readonly _serviceCache = new Map<string, RepositoryService>();
 	private readonly _watchService: RepositoryWatchService | undefined;
+	private readonly _summaries: WorktreeSummaryService | undefined;
 
 	private constructor(watchingProvider?: FileWatchingProvider) {
 		if (watchingProvider != null) {
@@ -102,6 +104,10 @@ export class GitService implements UnifiedDisposable {
 				},
 				getIgnoredDirectories: repoPath =>
 					this.getProvider(repoPath)?.provider.getIgnoredDirectories?.(repoPath) ?? Promise.resolve([]),
+			});
+			this._summaries = new WorktreeSummaryService({
+				watchService: this._watchService,
+				getRepository: repoPath => this.forRepo(repoPath),
 			});
 		}
 
@@ -116,6 +122,7 @@ export class GitService implements UnifiedDisposable {
 		clearGlobalRepositoryServiceResolver();
 		GitService._instance = undefined;
 		this._serviceCache.clear();
+		this._summaries?.dispose();
 		this._watchService?.dispose();
 
 		// Don't dispose providers since they're owned by the caller, but do clear the array to release references
@@ -136,6 +143,11 @@ export class GitService implements UnifiedDisposable {
 
 	get watchService(): RepositoryWatchService | undefined {
 		return this._watchService;
+	}
+
+	/** Cached, change-notifying per-worktree summaries, kept current by {@link watchService}; present when it is */
+	get summaries(): WorktreeSummaryService | undefined {
+		return this._summaries;
 	}
 
 	/**
