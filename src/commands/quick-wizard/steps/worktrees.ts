@@ -9,6 +9,7 @@ import { sortWorktrees } from '../../../git/utils/-webview/sorting.js';
 import type { WorktreeQuickPickItem } from '../../../git/utils/-webview/worktree.quickpick.js';
 import { createWorktreeQuickPickItem } from '../../../git/utils/-webview/worktree.quickpick.js';
 import { createDirectiveQuickPickItem, Directive } from '../../../quickpicks/items/directive.js';
+import { exists } from '../../../system/-webview/vscode/uris.js';
 import { openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
 import type { PartialStepState, StepResultGenerator, StepsContext, StepSelection } from '../models/steps.js';
 import { StepResultBreak } from '../models/steps.js';
@@ -42,7 +43,7 @@ export async function getWorktrees(
 						hasChanges = await GitWorktree.hasWorkingChanges(wt);
 					} catch (ex) {
 						Logger.error(ex, `Worktree status failed: ${wt.uri.toString(true)}`);
-						missing = true;
+						missing = !(await exists(wt.uri));
 					}
 				}
 

@@ -559,13 +559,10 @@ export class GraphWipService {
 						// Per-iteration, so one worktree's failure can't kill this worker and silently strand
 						// the rest of its share of `targets` (the outer allSettled only covers the workers).
 						try {
-							// `throwOnError` so a git failure surfaces here instead of being swallowed into a
-							// `false`. Reporting "No changes" because the probe FAILED is worse than reporting
-							// nothing: an undefined entry leaves the row's previous state alone, a definite
-							// `false` paints a clean pill over a worktree that may well be dirty.
-							const hasChanges = await getWorktreeHasWorkingChanges(this.container, w, {
-								throwOnError: true,
-							});
+							// The probe rejects when git fails. Reporting "No changes" because it FAILED is worse
+							// than reporting nothing: an undefined entry leaves the row's previous state alone, a
+							// definite `false` paints a clean pill over a worktree that may well be dirty.
+							const hasChanges = await getWorktreeHasWorkingChanges(this.container, w);
 							entries.push([path, hasChanges == null ? undefined : { hasChanges: hasChanges }] as const);
 						} catch {
 							// Leave this worktree's row untouched rather than asserting a verdict we don't have.
@@ -999,10 +996,14 @@ export class GraphWipService {
 						if (cancellation?.isCancellationRequested) return;
 
 						const wt = targets[nextTarget++];
-						changesMap.set(
-							wt.path,
-							await getWorktreeHasWorkingChanges(this.container, wt, { priority: 'background' }),
-						);
+						// Per-iteration, so a failed probe leaves only its own worktree unknown (field omitted)
+						// instead of ending this worker and stranding its share of `targets`
+						try {
+							changesMap.set(
+								wt.path,
+								await getWorktreeHasWorkingChanges(this.container, wt, { priority: 'background' }),
+							);
+						} catch {}
 					}
 				}),
 			]);

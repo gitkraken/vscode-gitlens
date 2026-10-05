@@ -1334,23 +1334,29 @@ export class RebaseWebviewProvider implements Disposable {
 		const { entries, lastAction } = await this.getDoneEntries();
 		if (!entries.length) return { status: undefined, doneEntries: undefined, conflictFiles: undefined };
 
-		const files = await svc.status.getConflictingFiles();
-		const hasConflicts = files.length > 0;
-		if (!hasConflicts) {
-			this._conflictMarkerCache.clear();
-		}
+		const files = await svc.status.getConflictingFiles().catch(() => undefined);
 
-		// Fetch conflict file details when there are conflicts
+		let hasConflicts: boolean;
 		let conflictFiles: ConflictFileInfo[] | undefined;
-		if (hasConflicts) {
-			const counts = await Promise.allSettled(
-				files.map(f => this.countConflictMarkers(Uri.joinPath(Uri.file(this.repoPath), f.path))),
-			);
-			conflictFiles = files.map((f, i) => ({
-				path: f.path,
-				conflictStatus: f.conflictStatus,
-				conflictCount: getSettledValue(counts[i]),
-			}));
+		if (files == null) {
+			// A failed listing says nothing about the conflicts, so keep the ones last shown rather than reading as none
+			hasConflicts = this._lastSentState?.rebaseStatus?.hasConflicts ?? false;
+			conflictFiles = this._lastSentState?.conflictFiles;
+		} else {
+			hasConflicts = files.length > 0;
+			if (hasConflicts) {
+				// Fetch conflict file details when there are conflicts
+				const counts = await Promise.allSettled(
+					files.map(f => this.countConflictMarkers(Uri.joinPath(Uri.file(this.repoPath), f.path))),
+				);
+				conflictFiles = files.map((f, i) => ({
+					path: f.path,
+					conflictStatus: f.conflictStatus,
+					conflictCount: getSettledValue(counts[i]),
+				}));
+			} else {
+				this._conflictMarkerCache.clear();
+			}
 		}
 
 		// Determine pause reason based on last done entry and conflict status

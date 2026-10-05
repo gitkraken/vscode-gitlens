@@ -7,7 +7,7 @@ import { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitStatusFile } from '@gitlens/git/models/statusFile.js';
 import type { GitStatusSubProvider, GitWorkingChangesState } from '@gitlens/git/providers/status.js';
 import type { GitCommandPriority } from '@gitlens/git/run.types.js';
-import { isCancellationError, raceWithTimeout } from '@gitlens/utils/cancellation.js';
+import { raceWithTimeout } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
@@ -20,7 +20,7 @@ import { toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { GitResult } from '../exec/exec.types.js';
 import type { Git } from '../exec/git.js';
-import { gitConfigsStatus } from '../exec/git.js';
+import { gitConfigsStatus, GitErrors } from '../exec/git.js';
 import { parseGitConflictFiles } from '../parsers/indexParser.js';
 import { parseGitStatus } from '../parsers/statusParser.js';
 
@@ -330,7 +330,6 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			staged?: boolean;
 			unstaged?: boolean;
 			untracked?: boolean;
-			throwOnError?: boolean;
 			priority?: GitCommandPriority;
 		},
 		cancellation?: AbortSignal,
@@ -340,70 +339,76 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		const staged = options?.staged ?? true;
 		const unstaged = options?.unstaged ?? true;
 		const untracked = options?.untracked ?? true;
-		// `throwOnError` is in the key because it changes the RESULT on git failure (throw vs `false`) — a
-		// throwing caller must not join, and be silently satisfied by, a non-throwing caller's graceful run.
-		// `priority` is in the key for a different reason: it doesn't change the answer, but a joiner INHERITS
-		// the in-flight run's scheduling. `GitQueue` refuses to start background work while anything is
-		// waiting at normal/interactive, so letting a foreground caller (the overview's dirty pill, the
-		// Worktrees view) join a `background` probe would strand it for the whole graph load. Splitting the
-		// two lanes costs at most one extra spawn; joining costs unbounded foreground latency.
-		const throwOnError = options?.throwOnError ?? false;
+		// `priority` is in the key even though it doesn't change the answer: a joiner INHERITS the in-flight run's
+		// scheduling. `GitQueue` refuses to start background work while anything is waiting at normal/interactive,
+		// so letting a foreground caller (the overview's dirty pill, the Worktrees view) join a `background` probe
+		// would strand it for the whole graph load. Splitting the two lanes costs at most one extra spawn; joining
+		// costs unbounded foreground latency.
 		const priority = options?.priority ?? 'default';
 
 		return this.dedupeByStatusGeneration(
 			repoPath,
-			`hasWorkingChanges:${staged}:${unstaged}:${untracked}:${throwOnError}:${priority}`,
+			`hasWorkingChanges:${staged}:${unstaged}:${untracked}:${priority}`,
 			async (correlationKey, signal) => {
-				try {
-					if (staged || unstaged) {
-						const result = await this.git.run(
+				if (staged || unstaged) {
+					const diffQuiet = (revision: string | undefined) =>
+						this.git.run(
 							{
 								cwd: repoPath,
 								cancellation: signal,
-								errors: 'ignore',
+								errors: 'throw',
+								expectedExitCodes: [1],
 								correlationKey: correlationKey,
 								...(options?.priority != null ? { priority: options.priority } : undefined),
 							},
 							'diff',
 							'--quiet',
-							staged && unstaged ? 'HEAD' : staged ? '--staged' : undefined,
+							revision,
+							'--',
 						);
-						if (result.exitCode === 1) {
-							if (staged && unstaged) {
-								scope?.addExitInfo('has staged and unstaged changes');
-							} else if (staged) {
-								scope?.addExitInfo('has staged changes');
-							} else {
-								scope?.addExitInfo('has unstaged changes');
-							}
-							return true;
+
+					let result;
+					if (staged && unstaged) {
+						try {
+							result = await diffQuiet('HEAD');
+						} catch (ex) {
+							// Before the first commit HEAD names nothing; everything staged or modified is a change
+							// against the empty tree. `diff HEAD --` names only HEAD, so its "bad revision" is that case
+							// without re-validating HEAD (a corrupt HEAD then reads as dirty, the safe answer)
+							if (GitErrors.badRevision.exec(String(ex))?.[1]?.toUpperCase() !== 'HEAD') throw ex;
+
+							result = await diffQuiet(await this.provider.revision.getEmptyTreeSha(repoPath));
 						}
+					} else {
+						result = await diffQuiet(staged ? '--staged' : undefined);
 					}
 
-					// Check for untracked files. NOTE: this runs through `git.stream`, which spawns directly
-					// and never enters the queue — so `priority` above doesn't reach it. Only clean worktrees
-					// get this far (a dirty one already returned above), and callers fanning out across many
-					// worktrees are expected to bound their own concurrency.
-					if (untracked) {
-						const hasUntracked = await this.hasUntrackedFiles(repoPath, signal);
-						if (hasUntracked) {
-							scope?.addExitInfo('has untracked files');
-							return true;
+					if (result.exitCode === 1) {
+						if (staged && unstaged) {
+							scope?.addExitInfo('has staged and unstaged changes');
+						} else if (staged) {
+							scope?.addExitInfo('has staged changes');
+						} else {
+							scope?.addExitInfo('has unstaged changes');
 						}
+						return true;
 					}
-
-					scope?.addExitInfo('no working changes');
-					return false;
-				} catch (ex) {
-					// Re-throw cancellation errors
-					if (isCancellationError(ex)) throw ex;
-
-					// Log other errors and return false for graceful degradation
-					scope?.error(ex);
-					scope?.addExitInfo('error checking for changes');
-					if (throwOnError) throw ex;
-					return false;
 				}
+
+				// Check for untracked files. NOTE: this runs through `git.stream`, which spawns directly
+				// and never enters the queue — so `priority` above doesn't reach it. Only clean worktrees
+				// get this far (a dirty one already returned above), and callers fanning out across many
+				// worktrees are expected to bound their own concurrency.
+				if (untracked) {
+					const hasUntracked = await this.hasUntrackedFiles(repoPath, signal);
+					if (hasUntracked) {
+						scope?.addExitInfo('has untracked files');
+						return true;
+					}
+				}
+
+				scope?.addExitInfo('no working changes');
+				return false;
 			},
 			cancellation,
 		);
@@ -417,52 +422,55 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			repoPath,
 			'getWorkingChangesState',
 			async (correlationKey, signal) => {
-				try {
-					const [stagedResult, unstagedResult, untrackedResult] = await Promise.allSettled([
-						// Check for staged changes
-						this.git.run(
-							{ cwd: repoPath, cancellation: signal, errors: 'ignore', correlationKey: correlationKey },
-							'diff',
-							'--quiet',
-							'--staged',
-						),
-						// Check for unstaged changes
-						this.git.run(
-							{ cwd: repoPath, cancellation: signal, errors: 'ignore', correlationKey: correlationKey },
-							'diff',
-							'--quiet',
-						),
-						// Check for untracked files
-						this.hasUntrackedFiles(repoPath, signal),
-					]);
+				const [stagedResult, unstagedResult, untrackedResult] = await Promise.allSettled([
+					// Check for staged changes
+					this.git.run(
+						{
+							cwd: repoPath,
+							cancellation: signal,
+							errors: 'throw',
+							expectedExitCodes: [1],
+							correlationKey: correlationKey,
+						},
+						'diff',
+						'--quiet',
+						'--staged',
+					),
+					// Check for unstaged changes
+					this.git.run(
+						{
+							cwd: repoPath,
+							cancellation: signal,
+							errors: 'throw',
+							expectedExitCodes: [1],
+							correlationKey: correlationKey,
+						},
+						'diff',
+						'--quiet',
+					),
+					// Check for untracked files
+					this.hasUntrackedFiles(repoPath, signal),
+				]);
 
-					const result = {
-						staged: getSettledValue(stagedResult)?.exitCode === 1,
-						unstaged: getSettledValue(unstagedResult)?.exitCode === 1,
-						untracked: getSettledValue(untrackedResult) === true,
-					};
-
-					scope?.addExitInfo(
-						result.staged || result.unstaged || result.untracked
-							? `has ${result.staged ? 'staged' : ''}${result.unstaged ? (result.staged ? ', unstaged' : 'unstaged ') : ''}${
-									result.untracked
-										? result.staged || result.unstaged
-											? ', untracked'
-											: 'untracked'
-										: ''
-								} changes`
-							: 'no working changes',
-					);
-
-					return result;
-				} catch (ex) {
-					if (isCancellationError(ex)) throw ex;
-
-					scope?.error(ex);
-					scope?.addExitInfo('error checking for changes');
-					// Return all false on error for graceful degradation
-					return { staged: false, unstaged: false, untracked: false };
+				for (const settled of [stagedResult, unstagedResult, untrackedResult]) {
+					if (settled.status === 'rejected') throw settled.reason;
 				}
+
+				const result = {
+					staged: getSettledValue(stagedResult)?.exitCode === 1,
+					unstaged: getSettledValue(unstagedResult)?.exitCode === 1,
+					untracked: getSettledValue(untrackedResult) === true,
+				};
+
+				scope?.addExitInfo(
+					result.staged || result.unstaged || result.untracked
+						? `has ${result.staged ? 'staged' : ''}${result.unstaged ? (result.staged ? ', unstaged' : 'unstaged ') : ''}${
+								result.untracked ? (result.staged || result.unstaged ? ', untracked' : 'untracked') : ''
+							} changes`
+						: 'no working changes',
+				);
+
+				return result;
 			},
 			cancellation,
 		);
@@ -475,22 +483,15 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			repoPath,
 			'hasConflictingFiles',
 			async (_correlationKey, signal) => {
-				try {
-					const stream = this.git.stream({ cwd: repoPath, cancellation: signal }, 'ls-files', '--unmerged');
-					using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
+				const stream = this.git.stream({ cwd: repoPath, cancellation: signal }, 'ls-files', '--unmerged');
+				using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
 
-					// Early exit on first chunk - breaking causes SIGPIPE, killing git process
-					for await (const _chunk of stream) {
-						return true;
-					}
-
-					return false;
-				} catch (ex) {
-					// Re-throw cancellation errors
-					if (isCancellationError(ex)) throw ex;
-
-					return false;
+				// Early exit on first chunk - breaking causes SIGPIPE, killing git process
+				for await (const _chunk of stream) {
+					return true;
 				}
+
+				return false;
 			},
 			cancellation,
 		);
@@ -504,60 +505,42 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			repoPath,
 			'getConflictingFiles',
 			async (correlationKey, signal) => {
-				try {
-					const result = await this.git.run(
-						{ cwd: repoPath, cancellation: signal, errors: 'ignore', correlationKey: correlationKey },
-						'ls-files',
-						'-z',
-						'--unmerged',
-					);
+				const result = await this.git.run(
+					{ cwd: repoPath, cancellation: signal, errors: 'throw', correlationKey: correlationKey },
+					'ls-files',
+					'-z',
+					'--unmerged',
+				);
 
-					if (!result.stdout) {
-						scope?.addExitInfo('no conflicting files');
-						return [];
-					}
-
-					const files = parseGitConflictFiles(result.stdout, repoPath);
-					scope?.addExitInfo(`${String(files.length)} conflicting file(s)`);
-					return files;
-				} catch (ex) {
-					// Re-throw cancellation errors
-					if (isCancellationError(ex)) throw ex;
-
-					// Log other errors and return empty array for graceful degradation
-					scope?.error(ex);
-					scope?.addExitInfo('error getting conflicting files');
+				if (!result.stdout) {
+					scope?.addExitInfo('no conflicting files');
 					return [];
 				}
+
+				const files = parseGitConflictFiles(result.stdout, repoPath);
+				scope?.addExitInfo(`${String(files.length)} conflicting file(s)`);
+				return files;
 			},
 			cancellation,
 		);
 	}
 
 	private async hasUntrackedFiles(repoPath: string, cancellation?: AbortSignal): Promise<boolean> {
-		try {
-			const stream = this.git.stream(
-				{ cwd: repoPath, cancellation: cancellation },
-				'ls-files',
-				// '-z', // Unneeded since we are only looking for presence
-				'--others',
-				'--exclude-standard',
-			);
-			using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
+		const stream = this.git.stream(
+			{ cwd: repoPath, cancellation: cancellation },
+			'ls-files',
+			// '-z', // Unneeded since we are only looking for presence
+			'--others',
+			'--exclude-standard',
+		);
+		using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
 
-			// Early exit on first chunk - breaking causes SIGPIPE, killing git process
-			for await (const _chunk of stream) {
-				return true;
-			}
-
-			return false;
-		} catch (ex) {
-			// Re-throw cancellation errors
-			if (isCancellationError(ex)) throw ex;
-
-			// Treat other errors as "no untracked files" for graceful degradation
-			return false;
+		// Early exit on first chunk - breaking causes SIGPIPE, killing git process
+		for await (const _chunk of stream) {
+			return true;
 		}
+
+		return false;
 	}
 
 	@debug()
@@ -568,39 +551,29 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			repoPath,
 			'getUntrackedFiles',
 			async (correlationKey, signal) => {
-				try {
-					const result = await this.git.run(
-						{ cwd: repoPath, cancellation: signal, errors: 'ignore', correlationKey: correlationKey },
-						'ls-files',
-						'-z',
-						'--others',
-						'--exclude-standard',
-					);
+				const result = await this.git.run(
+					{ cwd: repoPath, cancellation: signal, errors: 'throw', correlationKey: correlationKey },
+					'ls-files',
+					'-z',
+					'--others',
+					'--exclude-standard',
+				);
 
-					if (!result.stdout) {
-						scope?.addExitInfo('no untracked files');
-						return [];
-					}
-
-					const files: GitFile[] = [];
-
-					for (const line of iterateByDelimiter(result.stdout, '\0')) {
-						if (!line.length) continue;
-
-						files.push({ path: line, repoPath: repoPath, status: GitFileWorkingTreeStatus.Untracked });
-					}
-
-					scope?.addExitInfo(`${String(files.length)} untracked file(s)`);
-					return files;
-				} catch (ex) {
-					// Re-throw cancellation errors
-					if (isCancellationError(ex)) throw ex;
-
-					// Log other errors and return empty array for graceful degradation
-					scope?.error(ex);
-					scope?.addExitInfo('error getting untracked files');
+				if (!result.stdout) {
+					scope?.addExitInfo('no untracked files');
 					return [];
 				}
+
+				const files: GitFile[] = [];
+
+				for (const line of iterateByDelimiter(result.stdout, '\0')) {
+					if (!line.length) continue;
+
+					files.push({ path: line, repoPath: repoPath, status: GitFileWorkingTreeStatus.Untracked });
+				}
+
+				scope?.addExitInfo(`${String(files.length)} untracked file(s)`);
+				return files;
 			},
 			cancellation,
 		);

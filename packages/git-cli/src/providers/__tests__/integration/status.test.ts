@@ -3,6 +3,8 @@ import { execFileSync, execSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { GitError } from '../../../exec/git.js';
 import type { TestRepo } from './helpers.js';
 import { createTestRepo } from './helpers.js';
 
@@ -154,5 +156,149 @@ suite('StatusSubProvider — untracked/branch options', () => {
 			'untracked files must still be present (default untracked mode)',
 		);
 		assert.strictEqual(status.upstream, undefined, 'no upstream state without --branch');
+	});
+});
+
+function isNotARepositoryError(ex: unknown): boolean {
+	return ex instanceof GitError && /not a git repository/i.test(ex.stderr ?? '');
+}
+
+function createUnbornRepo(): string {
+	const path = mkdtempSync(join(tmpdir(), 'gitlens-unborn-'));
+	execFileSync('git', ['init', '-b', 'main'], { cwd: path, stdio: 'pipe' });
+	return path;
+}
+
+suite('StatusSubProvider — reads reject when git fails', () => {
+	let repo: TestRepo;
+	let notARepoPath: string;
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+		notARepoPath = mkdtempSync(join(tmpdir(), 'gitlens-not-a-repo-'));
+	});
+
+	suiteTeardown(() => {
+		rmSync(notARepoPath, { recursive: true, force: true });
+		repo.cleanup();
+	});
+
+	test('getUntrackedFiles rejects outside a repository', async () => {
+		await assert.rejects(repo.provider.status.getUntrackedFiles(notARepoPath), isNotARepositoryError);
+	});
+
+	test('getConflictingFiles rejects outside a repository', async () => {
+		await assert.rejects(repo.provider.status.getConflictingFiles(notARepoPath), isNotARepositoryError);
+	});
+
+	test('hasConflictingFiles rejects outside a repository', async () => {
+		await assert.rejects(repo.provider.status.hasConflictingFiles(notARepoPath), isNotARepositoryError);
+	});
+
+	// Outside a repository `git diff` falls back to its `--no-index` usage, so its stderr names no repository
+	test('getWorkingChangesState rejects outside a repository', async () => {
+		await assert.rejects(
+			repo.provider.status.getWorkingChangesState(notARepoPath),
+			(ex: unknown) => ex instanceof GitError,
+		);
+	});
+
+	test('hasWorkingChanges rejects outside a repository', async () => {
+		await assert.rejects(
+			repo.provider.status.hasWorkingChanges(notARepoPath),
+			(ex: unknown) => ex instanceof GitError,
+		);
+	});
+
+	test('a cancelled read rejects as a cancellation', async () => {
+		await assert.rejects(repo.provider.status.getUntrackedFiles(repo.path, AbortSignal.abort()), (ex: unknown) =>
+			isCancellationError(ex),
+		);
+		await assert.rejects(
+			repo.provider.status.hasWorkingChanges(repo.path, undefined, AbortSignal.abort()),
+			(ex: unknown) => isCancellationError(ex),
+		);
+	});
+});
+
+suite('StatusSubProvider — working changes before the first commit', () => {
+	let repo: TestRepo;
+	const unbornPaths: string[] = [];
+
+	function unborn(): string {
+		const path = createUnbornRepo();
+		unbornPaths.push(path);
+		return path;
+	}
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+	});
+
+	suiteTeardown(() => {
+		for (const path of unbornPaths) {
+			rmSync(path, { recursive: true, force: true });
+		}
+		repo.cleanup();
+	});
+
+	test('a staged file is a working change', async () => {
+		const path = unborn();
+		writeFileSync(join(path, 'a.txt'), 'a\n');
+		execFileSync('git', ['add', 'a.txt'], { cwd: path, stdio: 'pipe' });
+
+		assert.strictEqual(await repo.provider.status.hasWorkingChanges(path), true);
+
+		const state = await repo.provider.status.getWorkingChangesState(path);
+		assert.deepStrictEqual(state, { staged: true, unstaged: false, untracked: false });
+	});
+
+	test('an empty repository has no working changes', async () => {
+		assert.strictEqual(await repo.provider.status.hasWorkingChanges(unborn()), false);
+	});
+
+	test('an untracked file alone is a working change', async () => {
+		const path = unborn();
+		writeFileSync(join(path, 'a.txt'), 'a\n');
+
+		assert.strictEqual(await repo.provider.status.hasWorkingChanges(path), true);
+	});
+});
+
+suite('StatusSubProvider — hasWorkingChanges', () => {
+	let repo: TestRepo;
+
+	setup(() => {
+		repo = createTestRepo();
+	});
+
+	teardown(() => {
+		repo.cleanup();
+	});
+
+	test('a modified tracked file is a working change', async () => {
+		writeFileSync(join(repo.path, 'README.md'), '# Updated\n');
+
+		assert.strictEqual(await repo.provider.status.hasWorkingChanges(repo.path), true);
+	});
+
+	test('a staged file is a staged change', async () => {
+		writeFileSync(join(repo.path, 'staged.txt'), 'staged\n');
+		execFileSync('git', ['add', 'staged.txt'], { cwd: repo.path, stdio: 'pipe' });
+
+		assert.strictEqual(
+			await repo.provider.status.hasWorkingChanges(repo.path, { unstaged: false, untracked: false }),
+			true,
+		);
+	});
+
+	test('an untracked file alone is a working change', async () => {
+		writeFileSync(join(repo.path, 'untracked.txt'), 'untracked\n');
+
+		assert.strictEqual(await repo.provider.status.hasWorkingChanges(repo.path), true);
+	});
+
+	test('a clean working tree has no working changes', async () => {
+		assert.strictEqual(await repo.provider.status.hasWorkingChanges(repo.path), false);
 	});
 });

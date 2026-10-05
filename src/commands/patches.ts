@@ -249,7 +249,14 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 		try {
 			if (args?.to === uncommitted) {
 				// stage any untracked files to include them in the diff
-				untrackedPaths = (await git.status?.getUntrackedFiles())?.map(f => f.path);
+				try {
+					untrackedPaths = (await git.status?.getUntrackedFiles())?.map(f => f.path);
+				} catch (ex) {
+					if (isCancellationError(ex)) throw ex;
+
+					Logger.error(ex, 'Failed to list untracked files for patch');
+				}
+
 				if (untrackedPaths?.length) {
 					try {
 						await git.staging?.stageFiles(untrackedPaths, { intentToAdd: true });

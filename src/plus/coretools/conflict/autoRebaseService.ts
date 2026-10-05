@@ -460,7 +460,20 @@ export class AutoRebaseService implements Disposable {
 						);
 					}
 				} else {
-					const conflicts = (await svc.status?.getConflictingFiles?.()) ?? [];
+					let conflicts;
+					try {
+						conflicts = (await svc.status?.getConflictingFiles?.()) ?? [];
+					} catch (ex) {
+						// Without a listing there's no telling a stop from a live replay, so a cancel can't safely
+						// abort here; failing the run stops the wait and leaves the rebase as it is
+						if (token.isCancellationRequested) throw ex;
+
+						// A failed read (a timeout included) says nothing about the stop; judge it on the next poll
+						await sleep();
+						wake = undefined;
+						continue;
+					}
+
 					const stopEntry = conflicts.length === 0 ? await this.getStepTodoEntry(svc) : undefined;
 					const stopAction = stopEntry?.action;
 
@@ -779,8 +792,11 @@ export class AutoRebaseService implements Disposable {
 			stageFiles: paths => svc.staging!.stageFiles(paths),
 			hasStagedChanges: async () => (await svc.status?.getStatus?.())?.files.some(f => f.staged) ?? false,
 			// `git diff --quiet --staged` — index against HEAD, which is what git itself commits.
+			// Only labels the step, so an unanswered check leaves it a normal step rather than failing the run
 			willCommitBeEmpty: async () =>
-				!(await svc.status.hasWorkingChanges({ staged: true, unstaged: false, untracked: false })),
+				!(await svc.status
+					.hasWorkingChanges({ staged: true, unstaged: false, untracked: false })
+					.catch(() => true)),
 			continueOperation: options =>
 				svc.pausedOps!.continuePausedOperation({
 					...options,
