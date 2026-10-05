@@ -1,5 +1,7 @@
 import { promises as fs } from 'node:fs';
+import { homedir } from 'node:os';
 import * as path from 'node:path';
+import { env } from 'node:process';
 import type { CachedGitTypes } from '@gitlens/git/cache.js';
 import { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
@@ -13,6 +15,7 @@ import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { GitIgnoreFilter } from '@gitlens/git/watching/gitIgnoreFilter.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { joinPaths, maybeUri, normalizePath, splitPath } from '@gitlens/utils/path.js';
+import { iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath, parseUri, toFsPath } from '@gitlens/utils/uri.js';
 import { fsExists } from './exec/exec.js';
@@ -23,7 +26,7 @@ import type { GitLocation } from './exec/locator.js';
 import { BlameGitSubProvider } from './providers/blame.js';
 import { BranchesGitSubProvider } from './providers/branches.js';
 import { CommitsGitSubProvider } from './providers/commits.js';
-import { ConfigGitSubProvider } from './providers/config.js';
+import { ConfigGitSubProvider, isGitBooleanFalse, parseGitBoolean } from './providers/config.js';
 import { ContributorsGitSubProvider } from './providers/contributors.js';
 import { DiffGitSubProvider } from './providers/diff.js';
 import { GraphGitSubProvider } from './providers/graph.js';
@@ -565,14 +568,57 @@ export class CliGitProvider implements GitProvider {
 				repoPath: repoPath,
 				gitDirPath: gitDirPath,
 				fs: this.context.fs,
+				// Resolved the way git resolves it; unset, git reads its default location instead
 				getGlobalExcludesPath:
 					this.config.getConfig != null
-						? async () => this.config.getConfig(repoPath, 'core.excludesFile')
+						? async () => {
+								const configured = await this.config.getConfig(repoPath, 'core.excludesFile');
+								return configured != null
+									? resolveGitPathConfig(configured, repoPath)
+									: getDefaultGlobalExcludesPath();
+							}
 						: undefined,
+				// `info/exclude` lives in the COMMON git dir — a linked worktree's own git dir has none
+				getInfoExcludePath: async () => {
+					const gitDir = await this.config.getGitDir?.(repoPath);
+					if (gitDir == null) return undefined;
+
+					return `${(gitDir.commonUri ?? gitDir.uri).fsPath}/info/exclude`;
+				},
+				getGitIgnorePaths: () => this.getGitIgnorePaths(repoPath),
+				getIgnoreCase: async () => {
+					const value = await this.config.getConfig?.(repoPath, 'core.ignorecase');
+					if (value == null) return undefined;
+					if (parseGitBoolean(value)) return true;
+
+					return isGitBooleanFalse(value) ? false : undefined;
+				},
 			});
 			this._cache.gitIgnore.set(repoPath, filter);
 		}
 		return filter;
+	}
+
+	/** Every `.gitignore` git reads in the working tree (tracked, or untracked and not itself ignored), root included */
+	private async getGitIgnorePaths(repoPath: string): Promise<string[]> {
+		const result = await this._git.run(
+			{ cwd: repoPath, errors: 'throw' },
+			'ls-files',
+			'-z',
+			'--cached',
+			'--others',
+			'--exclude-standard',
+			'--',
+			':(glob)**/.gitignore',
+		);
+
+		const paths: string[] = [];
+		for (const line of iterateByDelimiter(result.stdout, '\0')) {
+			if (!line.length) continue;
+
+			paths.push(line);
+		}
+		return paths;
 	}
 
 	private async isTrackedWithDetails(
@@ -613,4 +659,26 @@ export class CliGitProvider implements GitProvider {
 			this._cache.dispose();
 		}
 	}
+}
+
+/**
+ * Resolves a pathname config value the way git does: a leading `~/` (or a bare `~`) is the home directory, and a
+ * relative path is taken from the repository root. Done here rather than with `git config --type=path`, which needs
+ * git 2.18, newer than the minimum supported version.
+ */
+function resolveGitPathConfig(value: string, repoPath: string): string {
+	if (value === '~' || value.startsWith('~/')) {
+		return path.join(env.HOME || homedir(), value.substring(1));
+	}
+
+	return path.resolve(repoPath, value);
+}
+
+/** Where git reads global excludes when `core.excludesFile` is unset: `$XDG_CONFIG_HOME/git/ignore`, else `$HOME/.config/git/ignore` */
+function getDefaultGlobalExcludesPath(): string | undefined {
+	const xdgConfigHome = env.XDG_CONFIG_HOME;
+	if (xdgConfigHome) return path.join(xdgConfigHome, 'git', 'ignore');
+
+	const home = env.HOME || homedir();
+	return home ? path.join(home, '.config', 'git', 'ignore') : undefined;
 }
