@@ -1879,6 +1879,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		// session is not enough on its own: a warm integration holds its own `_session`, so it would keep
 		// addressing the old path until something unrelated made it re-resolve.
 		const repointedDomains = new Set<string | undefined>();
+		// Taken before the token fetches: a disconnect or a removed connection meanwhile refuses their store below.
+		const signOutMark = this.configuredIntegrationService.getSignOutMark();
 		const preparedConnections = await Promise.all(
 			identified.map(async connection => {
 				// The wire `domain` is usually a full URL, though cloud providers can return a bare host.
@@ -1968,8 +1970,14 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		for (const prepared of preparedConnections) {
 			if (prepared == null) continue;
 
-			if (prepared.kind === 'fetched') {
-				await this.configuredIntegrationService.storeSession(id, prepared.providerSession);
+			if (
+				prepared.kind === 'fetched' &&
+				!(await this.configuredIntegrationService.storeSession(id, prepared.providerSession, {
+					signOutMark: signOutMark,
+				}))
+			) {
+				// Signed out while it was fetched: neither synced (so nothing is pruned on its account) nor primary.
+				continue;
 			}
 
 			syncedIds.add(prepared.connection.id);
@@ -2028,7 +2036,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 
 			// Drops the in-memory session so the next read resolves the one just stored — which is what
 			// carries the new address — and fires the change events a consumer needs to re-read.
-			this.getCachedForDomain(id, domain)?.switchConnection();
+			void this.getCachedForDomain(id, domain)?.switchConnection();
 		}
 	}
 
@@ -2044,7 +2052,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		}
 
 		await this.configuredIntegrationService.setPrimaryConnection(id, connectionId);
-		this.getCachedForDomain(id, connection.domain)?.switchConnection();
+		void this.getCachedForDomain(id, connection.domain)?.switchConnection();
 	}
 
 	/**
@@ -2062,7 +2070,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		}
 
 		await this.configuredIntegrationService.deleteConnection(id, connectionId, true);
-		this.getCachedForDomain(id, connection.domain)?.switchConnection();
+		void this.getCachedForDomain(id, connection.domain)?.switchConnection();
 	}
 
 	/**

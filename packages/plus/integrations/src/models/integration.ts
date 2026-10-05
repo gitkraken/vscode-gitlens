@@ -339,14 +339,30 @@ export abstract class IntegrationBase<
 
 	protected _session: ProviderAuthenticationSession | null | undefined;
 	/**
-	 * Bumped whenever a forced re-sync's refetch settles `_session`. A forced re-sync keeps the stored token while it
-	 * fetches the replacement, so a read that resolved that token concurrently must not publish it over whatever the
-	 * refetch settled on: a fresh token, or nothing after the cloud said the connection is gone.
+	 * Every change to the session (a resolution, a forced re-sync, a disconnect, a reauthentication, a connection
+	 * switch, a refused token) runs here, one at a time. Each one reads storage and the cloud and then settles
+	 * `_session`, the stored tokens and the connected flag; run concurrently, one would publish what it read over
+	 * what another settled meanwhile (gitkraken/kepler#3546). Reads don't queue: they read `_session` as it is.
 	 */
-	private _sessionGeneration = 0;
+	private _sessionTransitions: Promise<void> = Promise.resolve();
+	/**
+	 * Runs `fn` after every transition queued before it. `fn` must not queue another transition and wait for it,
+	 * which would wait for itself: inside a transition, call the `*Locked` methods instead.
+	 */
+	protected runSessionTransition<T>(fn: () => Promise<T>): Promise<T> {
+		const run = this._sessionTransitions.then(fn);
+		this._sessionTransitions = run.then(
+			() => undefined,
+			() => undefined,
+		);
+		return run;
+	}
+
 	getSession(
 		source: Sources,
 	): ProviderAuthenticationSession | Promise<ProviderAuthenticationSession | undefined> | undefined {
+		// Served as is even while a transition runs: a forced re-sync keeps the session it is replacing, and a read
+		// meanwhile reads with it rather than waiting on the cloud.
 		if (this._session === undefined) {
 			return this.ensureSession({ createIfNeeded: false, source: source });
 		}
@@ -414,8 +430,27 @@ export abstract class IntegrationBase<
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		await this.refreshSessionIfExpired(scope);
+		// The primary path's equivalent of the per-connection failure above: an expired session the cloud could not
+		// replace right now is the refresh's failure, not a missing connection, and is never read with.
+		const refreshFailure = await this.refreshSessionIfExpired();
+		if (refreshFailure != null) return new ReadSessionFailure(refreshFailure);
+
 		return this._session != null && this.isSessionForIntegrationHost(this._session) ? this._session : undefined;
+	}
+
+	/**
+	 * The session lookups' prelude for a caller that can surface a failure (`throwOnError`): the refresh's failure to
+	 * report, or `'unconnected'`, so a throttled refresh is not mistaken for "no pull request" and kept.
+	 */
+	protected async prepareSessionLookup(): Promise<Error | 'unconnected' | undefined> {
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return 'unconnected';
+
+		const failure = await this.refreshSessionIfExpired();
+		if (failure != null) return failure;
+
+		// A disconnect, or a refetch the cloud answered for another host, can leave no session to read with.
+		return this._session != null ? undefined : 'unconnected';
 	}
 
 	/**
@@ -450,11 +485,10 @@ export abstract class IntegrationBase<
 	async disconnect(options?: { silent?: boolean; currentSessionOnly?: boolean }): Promise<void> {
 		if (options?.currentSessionOnly && this._session === null) return;
 
-		const connected = this._session != null;
-
 		let signOut = !options?.currentSessionOnly;
 
-		if (connected && !options?.currentSessionOnly && !options?.silent) {
+		// Asked before queueing: the user's answer can take any time, and the queue must not wait on it.
+		if (this._session != null && !options?.currentSessionOnly && !options?.silent) {
 			const decision = await this.ctx.hooks?.onConfirmDisconnect?.({
 				integrationName: this.name,
 				offerSignOut: this.authenticationService.supports(this.authProvider.id),
@@ -463,6 +497,18 @@ export abstract class IntegrationBase<
 
 			signOut = decision.signOut;
 		}
+
+		// Waits for a forced re-sync in flight, so the session it settles cannot land over the disconnect.
+		await this.runSessionTransition(() => this.disconnectLocked(options, signOut));
+	}
+
+	private async disconnectLocked(
+		options: { silent?: boolean; currentSessionOnly?: boolean } | undefined,
+		signOut: boolean,
+	): Promise<void> {
+		if (options?.currentSessionOnly && this._session === null) return;
+
+		const connected = this._session != null;
 
 		if (signOut) {
 			// Disconnecting a provider signs out of ALL its connected accounts (multi-account), not just the
@@ -508,14 +554,32 @@ export abstract class IntegrationBase<
 		// `onStoredTokensReplaced`.
 		this.onStoredTokensReplaced();
 
-		if (this._session === undefined) return;
+		const cleared = await this.runSessionTransition(() => {
+			if (this._session === undefined) return Promise.resolve(false);
 
-		this._session = undefined;
+			this._session = undefined;
+			return Promise.resolve(true);
+		});
+		if (!cleared) return;
+
 		void (await this.ensureSession({ createIfNeeded: true, forceNewSession: true }));
 	}
 
 	refresh(): void {
 		void this.ensureSession({ createIfNeeded: false });
+	}
+
+	/**
+	 * Drops the cached session when its token is no longer `accessToken` (a session replaced outside the
+	 * integration) and resolves it again, in one transition, so nothing in flight publishes the replaced one.
+	 */
+	protected resyncSessionIfTokenChanged(accessToken: string | undefined): Promise<void> {
+		return this.runSessionTransition(async () => {
+			if (this._session != null && this._session.accessToken !== accessToken) {
+				this._session = undefined;
+			}
+			await this.resolveSessionLocked({ createIfNeeded: false });
+		});
 	}
 
 	private _syncRequestsPerFailedUsecase = new Set<SyncReqUsecase>();
@@ -582,8 +646,10 @@ export abstract class IntegrationBase<
 	}
 
 	async reset(): Promise<void> {
-		await this.disconnect({ silent: true });
-		await this.ctx.storage.deleteWorkspace(this.connectedKey);
+		await this.runSessionTransition(async () => {
+			await this.disconnectLocked({ silent: true }, true);
+			await this.ctx.storage.deleteWorkspace(this.connectedKey);
+		});
 	}
 
 	/**
@@ -591,31 +657,42 @@ export abstract class IntegrationBase<
 	 * connection changed underneath a warm integration (e.g. after `setPrimaryConnection`/
 	 * `deleteConnection`). Unlike {@link reset}/{@link disconnect}, it deletes nothing from storage.
 	 */
-	switchConnection(): void {
+	switchConnection(): Promise<void> {
 		// A connection was deleted, or a different one became primary. Ahead of the guard — see
 		// `onStoredTokensReplaced`.
 		this.onStoredTokensReplaced();
 
-		if (this._session === undefined) return;
+		// Queued, so a resolution already running finishes with the former primary and this one then re-resolves.
+		return this.runSessionTransition(async () => {
+			if (this._session === undefined) return;
 
-		const wasConnected = this._session != null;
-		this._session = undefined;
-		this._onDidChange.fire();
-		void this.refreshAfterSwitch(wasConnected);
-	}
+			const wasConnected = this._session != null;
+			this._session = undefined;
+			this._onDidChange.fire();
 
-	private async refreshAfterSwitch(wasConnected: boolean): Promise<void> {
-		const session = await this.ensureSession({ createIfNeeded: false });
-		if (session != null || !wasConnected) return;
+			const session = await this.resolveSessionLocked({ createIfNeeded: false });
+			if (session != null || !wasConnected) return;
 
-		this._onDidChange.fire();
-		this.didChangeConnection?.fire({ integration: this, key: this.key, reason: 'disconnected' });
-		await this.providerOnDisconnect?.();
+			this._onDidChange.fire();
+			this.didChangeConnection?.fire({ integration: this, key: this.key, reason: 'disconnected' });
+			await this.providerOnDisconnect?.();
+		});
 	}
 
 	private skippedNonCloudReported = false;
+	/**
+	 * Resolves the re-sync's failure, when its token fetch threw (cancellations included), so a caller can report it.
+	 * Never rejects: the cloud sync fans this out over every integration and must not fail on one.
+	 */
 	@debug()
-	async syncCloudConnection(state: 'connected' | 'disconnected', forceSync: boolean): Promise<void> {
+	syncCloudConnection(state: 'connected' | 'disconnected', forceSync: boolean): Promise<Error | undefined> {
+		return this.runSessionTransition(() => this.syncCloudConnectionLocked(state, forceSync));
+	}
+
+	private async syncCloudConnectionLocked(
+		state: 'connected' | 'disconnected',
+		forceSync: boolean,
+	): Promise<Error | undefined> {
 		const scope = getScopedLogger();
 		// Initially the condition on `this._session.cloud` has been added here: https://github.com/gitkraken/vscode-gitlens/commit/e95e70c430bd162924cc3bd5c1e8ab90e6293449#diff-4213141a45cccaab7aa2e40028b155a87eb913b07388485831403e60ce5555e4R237
 		// I'm not sure about reasons, but it seems we want to replace it with the cloud session if it's connected.
@@ -630,9 +707,10 @@ export abstract class IntegrationBase<
 				});
 				this.skippedNonCloudReported = true;
 			}
-			return;
+			return undefined;
 		}
 
+		let failure: Error | undefined;
 		switch (state) {
 			case 'connected': {
 				const oldSession = this._session;
@@ -643,8 +721,10 @@ export abstract class IntegrationBase<
 					// Not left to the token-changed check below, which needs an `oldSession` — see
 					// `onStoredTokensReplaced`.
 					this.onStoredTokensReplaced();
-					// Reset the session and clear our "stay disconnected" flag
-					this._session = undefined;
+					// The cached session is kept while the replacement is fetched (the refetch does not read it): a
+					// transient failure then leaves it as it was, expiry included, and a read meanwhile does not have to
+					// resolve a session of its own, which during a GK API outage fails the same way and reports the
+					// integration as not connected (gitkraken/kepler#3546). Clear our "stay disconnected" flag.
 					await this.ctx.storage.deleteWorkspace(this.connectedKey);
 					resyncing = true;
 				} else {
@@ -654,7 +734,7 @@ export abstract class IntegrationBase<
 						this.requestExceptionCount > 0 ||
 						this.ctx.storage.getWorkspace(this.connectedKey) === false
 					) {
-						return;
+						return undefined;
 					}
 
 					forceSync = true;
@@ -665,14 +745,15 @@ export abstract class IntegrationBase<
 				let newSession: ProviderAuthenticationSession | undefined;
 				let refetchFailed = false;
 				try {
-					newSession = await this.ensureSession({ sync: forceSync, refetch: resyncing });
+					newSession = await this.resolveSessionLocked({ sync: forceSync, refetch: resyncing });
 				} catch (ex) {
-					// Not evidence the connection is gone (#5569). Also leaves `_session` as-is rather than
-					// latching null, so the next access can re-resolve it.
+					refetchFailed = true;
 					if (!isCancellationError(ex)) {
 						scope?.error(ex);
 					}
-					refetchFailed = true;
+					// Not evidence the connection is gone (#5569). A cancelled refetch is still reported: its caller must
+					// not read with the session it could not replace.
+					failure = toError(ex);
 				}
 
 				if (oldSession && newSession && newSession.accessToken !== oldSession.accessToken) {
@@ -690,9 +771,12 @@ export abstract class IntegrationBase<
 				break;
 			}
 			case 'disconnected':
-				await this.disconnect({ silent: true });
+				await this.disconnectLocked({ silent: true }, true);
 				break;
 		}
+		this._resyncs++;
+		this._lastResyncFailure = failure;
+		return failure;
 	}
 
 	/**
@@ -964,10 +1048,14 @@ export abstract class IntegrationBase<
 
 		if (ex instanceof AuthenticationError && this._session?.cloud && !this.hasSessionSyncRequests()) {
 			this.requestSessionSyncForUsecase(syncReqUsecase);
-			this._session = {
-				...this._session,
-				expiresAt: new Date(Date.now() - 1),
-			};
+			// Expired now, so a read in progress stops using it, and again once any transition in flight settles, in
+			// case it publishes the same token anew (compared by token: a re-read is a new object).
+			const refused = this._session.accessToken;
+			this.expireSessionIfToken(refused);
+			void this.runSessionTransition(() => {
+				this.expireSessionIfToken(refused);
+				return Promise.resolve();
+			});
 			return false;
 		}
 
@@ -977,16 +1065,44 @@ export abstract class IntegrationBase<
 		return true;
 	}
 
+	private expireSessionIfToken(accessToken: string): void {
+		if (this._session?.accessToken !== accessToken || this.connectionExpired === true) return;
+
+		this._session = { ...this._session, expiresAt: new Date(Date.now() - 1) };
+	}
+
+	/** Counts completed cloud re-syncs, so a refresh queued behind one reuses its outcome rather than running another. */
+	private _resyncs = 0;
+	private _lastResyncFailure: Error | undefined;
 	private missingExpirityReported = false;
+	/**
+	 * Resolves the refresh's failure while the session it could not replace is still unusable, so a read can report
+	 * that instead of reading with an expired token or as a missing connection.
+	 */
 	@gate()
-	protected async refreshSessionIfExpired(scope?: ScopedLogger): Promise<void> {
+	protected async refreshSessionIfExpired(): Promise<Error | undefined> {
 		if (this._session?.expiresAt != null && this._session.expiresAt < new Date()) {
-			// The current session is expired, so get the latest from the cloud and refresh if needed
-			try {
-				await this.syncCloudConnection('connected', true);
-			} catch (ex) {
-				scope?.error(ex);
-			}
+			// The current session is expired, so get the latest from the cloud and refresh if needed. Queued, so it
+			// sees what any transition in flight settles: a re-sync that already replaced the session, or ran meanwhile
+			// and could not, is not repeated, and a disconnect stands.
+			const resyncs = this._resyncs;
+			return this.runSessionTransition(async () => {
+				let failure: Error | undefined;
+				if (this._resyncs !== resyncs) {
+					failure = this._lastResyncFailure;
+				} else if (this._session != null && this.connectionExpired === true) {
+					try {
+						failure = await this.syncCloudConnectionLocked('connected', true);
+					} catch (ex) {
+						failure = toError(ex);
+					}
+				}
+				// Only a session still there and still expired is this read's failure, including one a provider
+				// refusal expired again after the re-sync replaced it.
+				if (this._session == null || this.connectionExpired !== true) return undefined;
+
+				return failure ?? new Error(`The ${this.name} session could not be refreshed`);
+			});
 		} else if (
 			this._session?.expiresAt == null &&
 			this.id !== GitCloudHostIntegrationId.GitHub &&
@@ -999,6 +1115,7 @@ export abstract class IntegrationBase<
 			});
 			this.missingExpirityReported = true;
 		}
+		return undefined;
 	}
 
 	@trace()
@@ -1037,11 +1154,49 @@ export abstract class IntegrationBase<
 					source?: Sources;
 			  },
 	): Promise<ProviderAuthenticationSession | undefined> {
+		if (options.createIfNeeded || options.forceNewSession) {
+			// The sign-in runs outside the queue: it waits on the user, and its cloud sync re-enters this integration
+			// (`syncCloudConnection`, `isConnected`), which would wait for it. What it stored is then resolved in a
+			// transition, so a disconnect during the sign-in still stands.
+			if (!(await this.signIn(options))) return this._session ?? undefined;
+
+			return this.runSessionTransition(() => this.resolveSessionLocked({ createIfNeeded: false }));
+		}
+
+		return this.runSessionTransition(() => this.resolveSessionLocked(options));
+	}
+
+	/**
+	 * Asks the auth provider for a session interactively, storing what it gets; whether one came back. A declined
+	 * consent or any other failure is not one, and never throws: it is resolved, like any read, from storage.
+	 */
+	private async signIn(options: {
+		createIfNeeded?: boolean;
+		forceNewSession?: boolean;
+		source?: Sources;
+	}): Promise<boolean> {
+		if (this.ctx.config.isIntegrationsEnabled?.() === false) return false;
+
+		await this.ctx.storage.deleteWorkspace(this.connectedKey);
+		try {
+			const authProvider = await this.authenticationService.get(this.authProvider.id);
+			return (await authProvider.getSession(this.authProviderDescriptor, options)) != null;
+		} catch {
+			return false;
+		}
+	}
+
+	/** Resolves and publishes the session. Only ever runs inside a transition (see {@link runSessionTransition}). */
+	private async resolveSessionLocked(options: {
+		createIfNeeded?: boolean;
+		sync?: boolean;
+		refetch?: boolean;
+		source?: Sources;
+	}): Promise<ProviderAuthenticationSession | undefined> {
 		const scope = getScopedLogger();
 
-		const { createIfNeeded, forceNewSession, source, sync, refetch } = options;
-		// A forced re-sync keeps the stored token while it fetches the replacement, so a concurrent read can put that
-		// token back in `_session` before this call runs; serving it would skip the refetch the caller forced.
+		const { createIfNeeded, source, sync, refetch } = options;
+		// A forced re-sync keeps the session it is replacing; serving it would skip the refetch the caller forced.
 		if (this._session != null && !refetch) {
 			if (this.isSessionForIntegrationHost(this._session)) return this._session;
 
@@ -1055,7 +1210,6 @@ export abstract class IntegrationBase<
 			return undefined;
 		}
 
-		const generation = this._sessionGeneration;
 		let session: ProviderAuthenticationSession | undefined | null;
 		try {
 			const authProvider = await this.authenticationService.get(this.authProvider.id);
@@ -1063,11 +1217,7 @@ export abstract class IntegrationBase<
 				this.authProviderDescriptor,
 				sync
 					? { sync: sync, refetch: refetch, source: source }
-					: {
-							createIfNeeded: createIfNeeded,
-							forceNewSession: forceNewSession,
-							source: source,
-						},
+					: { createIfNeeded: createIfNeeded, source: source },
 			);
 
 			if (session?.expiresAt != null && session.expiresAt < new Date()) {
@@ -1095,12 +1245,6 @@ export abstract class IntegrationBase<
 			session = null;
 		}
 
-		if (refetch) {
-			this._sessionGeneration++;
-		} else if (generation !== this._sessionGeneration) {
-			return this._session ?? undefined;
-		}
-
 		if (session === undefined && !createIfNeeded && !sync) {
 			await this.ctx.storage.deleteWorkspace(this.connectedKey);
 		}
@@ -1116,7 +1260,8 @@ export abstract class IntegrationBase<
 				this.didChangeConnection?.fire({ integration: this, key: this.key, reason: 'connected' });
 				// Fired detached, so there is no caller left to catch anything: every implementor is async, and
 				// a rejection would surface as a process-level unhandled rejection in the host. It is a
-				// best-effort warm-up, so swallow the failure with a warning instead.
+				// best-effort warm-up, so swallow the failure with a warning instead. Never awaited by the
+				// transition: its reads can disconnect, which queues a transition of their own.
 				void (async () => {
 					try {
 						await this.providerOnConnect?.();
@@ -1246,10 +1391,7 @@ export abstract class IntegrationBase<
 	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getScopedLogger();
 
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		if ((await this.prepareSessionLookup()) != null) return undefined;
 
 		const { throwOnError, ...cacheOptions } = options ?? {};
 
@@ -1439,10 +1581,12 @@ export abstract class IntegrationBase<
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		const refreshFailure = await this.prepareSessionLookup();
+		if (refreshFailure === 'unconnected') return undefined;
+		if (refreshFailure != null) {
+			if (options?.throwOnError) throw refreshFailure;
+			return undefined;
+		}
 
 		const pr = await this.ctx.cache.getPullRequest(
 			id,

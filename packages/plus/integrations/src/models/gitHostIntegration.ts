@@ -185,10 +185,7 @@ export abstract class GitHostIntegration<
 	async getAccountForEmail(repo: T, email: string, options?: { avatarSize?: number }): Promise<Account | undefined> {
 		const scope = getScopedLogger();
 
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		if ((await this.prepareSessionLookup()) != null) return undefined;
 
 		try {
 			const author = await this.getProviderAccountForEmail(this._session!, repo, email, options);
@@ -217,10 +214,7 @@ export abstract class GitHostIntegration<
 	async getSshSigningKeysForEmails(repo: T, emails: string[]): Promise<Map<string, string[]>> {
 		const scope = getScopedLogger();
 
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return new Map();
-
-		await this.refreshSessionIfExpired(scope);
+		if ((await this.prepareSessionLookup()) != null) return new Map();
 
 		try {
 			const keys = await this.getProviderSshSigningKeysForEmails(this._session!, repo, emails);
@@ -250,10 +244,7 @@ export abstract class GitHostIntegration<
 	): Promise<Account | UnidentifiedAuthor | undefined> {
 		const scope = getScopedLogger();
 
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		if ((await this.prepareSessionLookup()) != null) return undefined;
 
 		try {
 			const author = await this.getProviderAccountForCommit(this._session!, repo, rev, options);
@@ -279,10 +270,7 @@ export abstract class GitHostIntegration<
 	): Promise<DefaultBranch | undefined> {
 		const scope = getScopedLogger();
 
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		if ((await this.prepareSessionLookup()) != null) return undefined;
 
 		const defaultBranch = this.ctx.cache.getRepositoryDefaultBranch(
 			repo,
@@ -363,10 +351,7 @@ export abstract class GitHostIntegration<
 	): Promise<RepositoryMetadata | undefined> {
 		const scope = getScopedLogger();
 
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		if ((await this.prepareSessionLookup()) != null) return undefined;
 
 		const metadata = this.ctx.cache.getRepositoryMetadata(
 			repo,
@@ -637,10 +622,7 @@ export abstract class GitHostIntegration<
 	): Promise<boolean> {
 		const scope = getScopedLogger();
 
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return false;
-
-		await this.refreshSessionIfExpired(scope);
+		if ((await this.prepareSessionLookup()) != null) return false;
 
 		try {
 			const result = await this.mergeProviderPullRequest(this._session!, pr, options, cancellation);
@@ -682,12 +664,14 @@ export abstract class GitHostIntegration<
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		const refreshFailure = await this.prepareSessionLookup();
+		if (refreshFailure === 'unconnected') return undefined;
 
 		const { expiryOverride, throwOnError, ...opts } = options ?? {};
+		if (refreshFailure != null) {
+			if (throwOnError) throw refreshFailure;
+			return undefined;
+		}
 
 		const pr = this.ctx.cache.getPullRequestForBranch(
 			branch,
@@ -730,12 +714,14 @@ export abstract class GitHostIntegration<
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		const refreshFailure = await this.prepareSessionLookup();
+		if (refreshFailure === 'unconnected') return undefined;
 
 		const { throwOnError, ...cacheOptions } = options ?? {};
+		if (refreshFailure != null) {
+			if (throwOnError) throw refreshFailure;
+			return undefined;
+		}
 
 		const pr = this.ctx.cache.getPullRequestForSha(
 			rev,

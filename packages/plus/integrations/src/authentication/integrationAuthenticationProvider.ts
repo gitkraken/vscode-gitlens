@@ -166,15 +166,22 @@ abstract class IntegrationAuthenticationProviderBase<
 		let session;
 		let previousToken;
 		let refetched: ProviderAuthenticationSession | undefined;
+		let signOutMark: number;
 		if (options?.forceNewSession) {
 			// Cloud-only delete (see deleteSession): scope to cloud so the cloud variant's id is cleared even
-			// when a mixed local+cloud connection's local descriptor is primary.
+			// when a mixed local+cloud connection's local descriptor is primary. A sign-out, so a token fetched before
+			// it is not stored back; the mark is taken after it, so this session's own fetch is not refused.
 			await this.configuredIntegrationService.deleteStoredSessions(
 				this.authProviderId,
 				{ ...descriptor, cloud: true },
 				true,
+				{ signOut: true },
 			);
+			signOutMark = this.configuredIntegrationService.getSignOutMark();
 		} else {
+			// Taken before the stored-token read (a sign-out landing during the read is ordered after it by the storage
+			// lock, so it counts either way).
+			signOutMark = this.configuredIntegrationService.getSignOutMark();
 			const stored = await this.configuredIntegrationService.getStoredSession(
 				this.authProviderId,
 				options?.sync ? { ...descriptor, cloud: true } : descriptor,
@@ -198,9 +205,18 @@ abstract class IntegrationAuthenticationProviderBase<
 				refreshIfExpired: isExpiredSession,
 				refreshRejectedToken: refreshRejectedToken,
 			});
+			// Stored only when no sign-out landed since the mark (checked and written under the storage lock): a token
+			// read or fetched across a disconnect, a reauthentication or the connection's removal is not reconnected.
+			if (
+				session != null &&
+				!(await this.configuredIntegrationService.storeSession(this.authProviderId, session, {
+					signOutMark: signOutMark,
+				}))
+			) {
+				session = undefined;
+			}
 
 			if (session != null) {
-				await this.configuredIntegrationService.storeSession(this.authProviderId, session);
 				// The replacement belongs to a different connection (the cloud's primary moved to another
 				// account), so it was stored beside the one it replaces rather than over it. Drop the old token
 				// as the up-front delete used to, or an unscoped read would keep resolving it until the next sync.
