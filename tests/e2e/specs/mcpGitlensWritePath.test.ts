@@ -10,12 +10,17 @@
  * Where each failure is decided, read from source on both sides:
  * - **Missing `directory` / `issue_url` / `pr_url`** never leaves the CLI. `startWorkHandler` and
  *   `startReviewHandler` return `textResponse(..., true)`, which is the `{ data: { message, error } }`
- *   envelope with the protocol-level error flag left unset — the same shape `gitlens_open_graph` uses
- *   for its own validation refusals.
+ *   envelope — the same shape `gitlens_open_graph` uses for its own validation refusals.
  * - **A GitLens-side refusal** does leave the CLI: `runLaunchpadWorkflow` POSTs `{ cwd, args }` to the
  *   route (unlike `/graph`, these tools really do forward their arguments), and
- *   `parseGitlensCommandResponse` turns any `stderr` the extension returns into a JSON-RPC error
+ *   `parseGitlensCommandResponse` turns any `stderr` the extension returns into a handler error
  *   carrying that text verbatim.
+ * - **Both arrive on the same channel:** a result with `isError: true`. The CLI used to split them —
+ *   a validation refusal left the protocol flag unset while a relayed refusal became a JSON-RPC
+ *   `-32603` — until `a9585eb9` ("report every MCP tool failure on one channel with isError set"),
+ *   first shipped in CLI v3.1.76. What that cost each path differs: a validation refusal keeps its
+ *   `{ data }` envelope and merely gains the flag, while a relayed refusal, which used to arrive with
+ *   no result at all, now carries its text as the result's content.
  * - **Not hanging is the point.** The extension's handlers `await` a deferred the Start Work / Start
  *   Review wizard settles, and the wizard cancels it in a `finally`. A caller that never gets an
  *   answer means that path was escaped without settling — which from the agent's side is
@@ -45,9 +50,10 @@ const malformedUrl = 'not-a-url';
 /**
  * Asserts a CLI-side validation refusal and returns its payload.
  *
- * These arrive as a normal result: the CLI reports them through the `{ data }` envelope and leaves
- * `isError` unset, so a client that switches on the protocol flag would read them as success. That
- * is worth pinning precisely because it is the surprising half of the contract.
+ * These arrive as a result rather than a JSON-RPC error, and carry the refusal twice: once in the
+ * `{ data: { message, error } }` envelope the CLI has always written, and once in the protocol-level
+ * `isError` flag it started setting in v3.1.76. Both halves are pinned — a client may switch on
+ * either, so losing either one is a contract break.
  */
 function expectValidationRefusal(response: McpMessage): RefusalPayload {
 	expect(
@@ -56,7 +62,9 @@ function expectValidationRefusal(response: McpMessage): RefusalPayload {
 	).toBeUndefined();
 
 	const result = response.result as ToolResult | undefined;
-	expect(result?.isError, 'the CLI reports validation refusals in the payload, not via isError').toBeFalsy();
+	expect(result?.isError, `expected the tool result error flag to be set; text=${result?.content?.[0]?.text}`).toBe(
+		true,
+	);
 
 	const text = result?.content?.[0]?.text;
 	expect(text, 'refusal should carry text content').toBeTruthy();
@@ -65,6 +73,37 @@ function expectValidationRefusal(response: McpMessage): RefusalPayload {
 	expect(parsed).toHaveProperty('data');
 
 	return parsed.data ?? {};
+}
+
+/**
+ * Asserts a refusal the extension produced and the CLI relayed.
+ *
+ * Unlike a validation refusal this one carries no `{ data }` envelope: the relayed `stderr` becomes a
+ * handler error, and `toolFailureMiddleware` hands it to the caller as the plain text of an `isError`
+ * result. The wording belongs to whichever wizard step gave up and is not asserted — but the two
+ * answers that would make these tests vacuous are rejected by name, since both are `isError` results
+ * too: a `server not found` means the call never reached the extension (IPC registration or routing
+ * regressed, which is the failure #5679 guards against), and an enveloped body means the CLI refused
+ * on its own before forwarding.
+ */
+function expectRelayedRefusal(response: McpMessage): void {
+	expect(
+		response.error,
+		`expected a relayed refusal as an isError result, got a JSON-RPC error: ${JSON.stringify(response.error)}`,
+	).toBeUndefined();
+
+	const result = response.result as ToolResult | undefined;
+	expect(
+		result?.isError,
+		`expected the extension to answer with a refusal; response=${JSON.stringify(response)}`,
+	).toBe(true);
+
+	const text = result?.content?.[0]?.text;
+	expect(text, 'refusal should carry text content').toBeTruthy();
+	expect(text!, `expected the extension's refusal, not a missing GitLens connection: ${text}`).not.toContain(
+		'server not found',
+	);
+	expect(text!, `a relayed refusal is plain text, not an envelope: ${text}`).not.toMatch(/^\s*\{/);
 }
 
 /** Local branches in the worker's workspace repository — the invariant a failed call must not move. */
@@ -132,10 +171,7 @@ test.describe('MCP — GitLens write path (validation and failure)', () => {
 		// caller waiting. The text is the extension's (relayed verbatim by the proxy); only the fact
 		// that an answer arrived — and that it is a refusal — is asserted, since the wording belongs to
 		// whichever step gave up.
-		expect(
-			response.error,
-			`expected the extension to answer a malformed URL; response=${JSON.stringify(response)}`,
-		).toBeDefined();
+		expectRelayedRefusal(response);
 
 		// A wizard that escaped without settling its deferred would leave a picker on screen and the
 		// call unanswered; assert the UI is clear so a future regression names that rather than showing
@@ -154,10 +190,7 @@ test.describe('MCP — GitLens write path (validation and failure)', () => {
 			pr_url: malformedUrl,
 		});
 
-		expect(
-			response.error,
-			`expected the extension to answer a malformed URL; response=${JSON.stringify(response)}`,
-		).toBeDefined();
+		expectRelayedRefusal(response);
 
 		await expect(vscode.page.locator('.quick-input-widget')).toBeHidden({ timeout: MaxTimeout });
 		expect(

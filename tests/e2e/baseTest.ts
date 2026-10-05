@@ -238,8 +238,9 @@ const defaultUserSettings: Record<string, unknown> = {
 	// Load-bearing for the whole MCP suite, not a preference. GitLens registers its CLI/MCP IPC
 	// handlers — and publishes the discovery file the `mcpClient` fixture matches on — inside
 	// `gkCliService.startIpc`, which only runs while AI features are enabled. With this off the
-	// fixture finds no discovery file and every `gitlens_*` call answers `-32603 "server not found"`,
-	// so a change to the packaged default would read as an unrelated MCP outage. Pinned explicitly.
+	// fixture finds no discovery file and every `gitlens_*` call answers an `isError` result carrying
+	// `"GitLens '<tool>' server not found"` — like every other handler failure since CLI v3.1.76 — so a
+	// change to the packaged default would read as an unrelated MCP outage. Pinned explicitly.
 	'gitlens.ai.enabled': true,
 
 	// Pinned off for the same class of reason. `isInsidersCLIEnabled` falls back to

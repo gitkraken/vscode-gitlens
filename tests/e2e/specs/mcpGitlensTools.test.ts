@@ -10,7 +10,8 @@
  * gk proxy's `internal/mcp/internal/tools/gitlens.go`) plus a live JSON-RPC probe:
  * - The `gitlens_*` IPC handlers register only when GitLens' AI features are enabled
  *   (gkCliService `onReady` → `startIpc` → `CliCommandHandlers`). With AI off, every
- *   call returns `-32603 "GitLens '<tool>' server not found"` — and `publishCli` lives
+ *   call answers an `isError` result carrying `"GitLens '<tool>' server not found"`
+ *   — the same channel every other handler failure takes — and `publishCli` lives
  *   inside `startIpc`, so the IPC discovery file is never written either and the
  *   `mcpClient` fixture ends up unpinned. `tests/e2e/baseTest.ts` therefore sets
  *   `gitlens.ai.enabled` explicitly rather than leaning on the packaged default.
@@ -21,11 +22,14 @@
  *   listing cannot prove — the call actually reaching the live extension host.
  * - A successful call wraps its payload in `{ data: ... }` inside `result.content[0].text`
  *   (no `data.output` wrapper — unlike the git tools), optionally alongside a `summary`.
- * - A GitLens handler that *throws* comes back as a JSON-RPC `-32603` carrying the extension's own
- *   message rather than as a payload. `gitlens_launchpad` does exactly that when no integration is
- *   connected (`handleGetLaunchpadCore` throws before reaching Launchpad) — which is this harness's
- *   default state, since it runs signed out. That error is therefore a normal outcome here, and it
- *   evidences the round-trip just as well as a payload does: the wording is GitLens', not the proxy's.
+ * - A GitLens handler that *throws* comes back as a result with `isError: true` carrying the
+ *   extension's own message as plain text rather than as a payload — the CLI answered these with a
+ *   JSON-RPC `-32603` until `a9585eb9` ("report every MCP tool failure on one channel with isError
+ *   set"), first shipped in v3.1.76. `gitlens_launchpad` throws exactly that way when no integration
+ *   is connected (`handleGetLaunchpadCore` throws before reaching Launchpad) — which is this
+ *   harness's default state, since it runs signed out. That refusal is therefore a normal outcome
+ *   here, and it evidences the round-trip just as well as a payload does: the wording is GitLens',
+ *   not the proxy's.
  *
  * These tools act on the live instance, so the calls target the VS Code workspace
  * directory (the worker's temp repo), not a throwaway repo.
@@ -55,24 +59,24 @@ const launchpadDisconnected = 'No connected integrations.';
 const experimentalMode = { experimental: true } as const;
 
 /**
- * Parses the envelope out of a `gitlens_*` response.
+ * Parses the envelope out of a `gitlens_*` response, asserting the error flag either way.
  *
- * Fails loudly on a JSON-RPC error — in particular the `-32603 "server not found"` that
- * indicates the IPC handlers never registered (AI disabled) or the proxy didn't forward the
- * call — so a round-trip regression reads clearly.
+ * Fails loudly on a JSON-RPC error — nothing a handler decides arrives on that channel any more, so
+ * one here means the call never reached a handler at all (an unknown tool, or a transport fault).
  *
- * `isError` is asserted falsy for every caller, including the validation-failure case: the CLI
- * reports tool-level refusals through the payload (`{ error: true, message }`) and leaves the
- * protocol-level flag unset, so a response that *does* set it is an unmodelled failure.
+ * Only the refusals the CLI itself decides reach this helper: those keep the `{ data }` envelope a
+ * success uses and set `isError` alongside it, which is why callers say which of the two they expect.
+ * A refusal GitLens threw is relayed as plain text with no envelope, so the launchpad test reads that
+ * one directly instead of parsing it here.
  */
-function parseGitlensToolResponse(response: McpMessage): GitlensToolEnvelope {
+function parseGitlensEnvelope(response: McpMessage, errorFlag: boolean): GitlensToolEnvelope {
 	expect(response.error, `unexpected JSON-RPC error: ${JSON.stringify(response.error)}`).toBeUndefined();
 
 	const result = response.result as GitlensToolResult | undefined;
 	expect(
-		result?.isError,
-		`expected the tool result flag to be unset; text=${result?.content?.[0]?.text}`,
-	).toBeFalsy();
+		result?.isError ?? false,
+		`expected the tool result error flag to be ${String(errorFlag)}; text=${result?.content?.[0]?.text}`,
+	).toBe(errorFlag);
 
 	const text = result?.content?.[0]?.text;
 	expect(text, 'tool response should carry text content').toBeTruthy();
@@ -89,7 +93,17 @@ function parseGitlensToolResponse(response: McpMessage): GitlensToolEnvelope {
 	return parsed as GitlensToolEnvelope;
 }
 
-/** Unwraps just the `data` payload from a `gitlens_*` response. */
+/** Parses the envelope out of a successful `gitlens_*` response. */
+function parseGitlensToolResponse(response: McpMessage): GitlensToolEnvelope {
+	return parseGitlensEnvelope(response, false);
+}
+
+/** Parses the envelope out of a `gitlens_*` refusal — same shape, error flag set. */
+function parseGitlensRefusal(response: McpMessage): GitlensToolEnvelope {
+	return parseGitlensEnvelope(response, true);
+}
+
+/** Unwraps just the `data` payload from a successful `gitlens_*` response. */
 function gitlensToolData(response: McpMessage): unknown {
 	return parseGitlensToolResponse(response).data;
 }
@@ -116,12 +130,18 @@ test.describe('MCP — GitLens Tools', () => {
 		// Both outcomes evidence the round-trip; which one occurs depends on the account state the
 		// harness happens to have, so both are accepted — but each is pinned to its own exact shape so
 		// an unrelated failure still fails. Signed out with no integration connected (the default),
-		// GitLens' own handler throws and the proxy relays it verbatim as -32603; the assertion is on
-		// that specific message, so a "server not found" — the symptom of handlers never registering —
-		// is NOT accepted here.
-		if (response.error != null) {
-			expect(response.error.code).toBe(-32603);
-			expect(response.error.message).toContain(launchpadDisconnected);
+		// GitLens' own handler throws and the proxy relays it verbatim as an isError result; the
+		// assertion is on that specific message, so a "server not found" — the symptom of handlers
+		// never registering — is NOT accepted here.
+		expect(response.error, `unexpected JSON-RPC error: ${JSON.stringify(response.error)}`).toBeUndefined();
+
+		const result = response.result as GitlensToolResult | undefined;
+		if (result?.isError) {
+			const text = result.content?.[0]?.text ?? '';
+			expect(text).toContain(launchpadDisconnected);
+			// GitLens' own message is relayed as plain text; an enveloped body carrying the same words
+			// would mean the CLI answered for it, which is a different outcome than this branch claims.
+			expect(text, `GitLens' refusal is relayed as plain text, not an envelope: ${text}`).not.toMatch(/^\s*\{/);
 			return;
 		}
 
@@ -188,14 +208,14 @@ test.describe('MCP — GitLens Tools', () => {
 		await expect(vscode.gitlens.commitGraphViewSection).toBeHidden({ timeout: MaxTimeout });
 	});
 
-	test('gitlens_open_graph reports a missing directory in the payload, not as an error', async ({
+	test('gitlens_open_graph reports a missing directory in the payload, with the error flag set', async ({
 		mcpClient,
 		vscode,
 	}) => {
 		// The CLI validates `directory` before it resolves a server, and reports the refusal through
-		// the same `{ data }` envelope a success uses — the protocol-level error flag stays unset.
-		// Pinning that here documents the shape a client has to read to notice the refusal at all.
-		const envelope = parseGitlensToolResponse(await mcpClient.callTool(openGraph, {}, experimentalMode));
+		// the same `{ data }` envelope a success uses, with the protocol-level error flag set alongside
+		// it. Pinning both documents the two places a client may read the refusal from.
+		const envelope = parseGitlensRefusal(await mcpClient.callTool(openGraph, {}, experimentalMode));
 
 		expect(envelope.data).toEqual({ message: "missing 'directory' parameter", error: true });
 
