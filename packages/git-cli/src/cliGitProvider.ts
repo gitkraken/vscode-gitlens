@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { env } from 'node:process';
-import type { CachedGitTypes } from '@gitlens/git/cache.js';
+import type { CachedGitTypes, MergeTargetsChangeEvent } from '@gitlens/git/cache.js';
 import { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
@@ -13,6 +13,7 @@ import type { GitProvider, GitProviderDescriptor } from '@gitlens/git/providers/
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { GitIgnoreFilter } from '@gitlens/git/watching/gitIgnoreFilter.js';
+import type { Event } from '@gitlens/utils/event.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { joinPaths, maybeUri, normalizePath, splitPath } from '@gitlens/utils/path.js';
 import { iterateByDelimiter } from '@gitlens/utils/string.js';
@@ -144,6 +145,10 @@ export class CliGitProvider implements GitProvider {
 	/** The underlying cache instance (for repo path registration, etc.) */
 	get cache(): Cache {
 		return this._cache;
+	}
+
+	get onDidChangeMergeTargets(): Event<MergeTargetsChangeEvent> {
+		return this._cache.onDidChangeMergeTargets;
 	}
 
 	/** The underlying git execution instance (for sub-providers that need direct exec/stream access) */

@@ -83,6 +83,7 @@ provider.dispose();
 - `etag: number` — monotonic counter for structural changes
 - `watchService: RepositoryWatchService | undefined`
 - `summaries: WorktreeSummaryService | undefined`
+- `onDidChangeMergeTargets: Event<MergeTargetsChangeEvent>`
 - Events: `onDidChangeProviders`
 - `dispose(): void`
 
@@ -198,6 +199,7 @@ Also on `GitProvider`:
 - `descriptor: GitProviderDescriptor` (`id: 'git' | 'github' | 'vsls'`, `name`, `virtual`)
 - URI helpers: `getAbsoluteUri()`, `getRelativePath()`
 - Optional repo methods: `excludeIgnoredUris?`, `getIgnoreFilter?`, `getIgnoredDirectories?`, `getIgnoredUrisFilter?`, `getLastFetchedTimestamp?`
+- Optional events: `onDidChangeMergeTargets?`
 
 ---
 
