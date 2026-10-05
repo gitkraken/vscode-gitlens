@@ -4,7 +4,13 @@ import { isDescendant, relative } from '@gitlens/utils/path.js';
 import type { GitDir, RepositoryChange } from '../models/repository.js';
 import { classifyGitDirChange } from './classifyChange.js';
 import type { FileWatcher, FileWatchEvent, FileWatchingProvider } from './provider.js';
-import { dotGitGlobCombined, dotGitGlobCommon, dotGitGlobRoot, shouldIgnoreRepoPath } from './watcherPatterns.js';
+import {
+	dotGitGlobCombined,
+	dotGitGlobCommon,
+	dotGitGlobRoot,
+	gitDirExcludes,
+	shouldIgnoreRepoPath,
+} from './watcherPatterns.js';
 
 /**
  * Hooks that the WatchGroup fires when events are interpreted.
@@ -89,12 +95,17 @@ export class WatchGroup implements UnifiedDisposable {
 		const isStandard = gitDir.commonUri == null;
 		const rootPattern = isStandard ? dotGitGlobCombined : dotGitGlobRoot;
 
-		const rootWatcher = this.provider.createWatcher(gitDir.uri.fsPath, rootPattern, (event: FileWatchEvent) => {
-			const entry = this._sessions.get(repoPath);
-			if (entry != null) {
-				this.onRootEvent(event, entry);
-			}
-		});
+		const rootWatcher = this.provider.createWatcher(
+			gitDir.uri.fsPath,
+			rootPattern,
+			(event: FileWatchEvent) => {
+				const entry = this._sessions.get(repoPath);
+				if (entry != null) {
+					this.onRootEvent(event, entry);
+				}
+			},
+			{ excludes: gitDirExcludes },
+		);
 
 		const entryGitDirPath = gitDir.uri.fsPath;
 		const entry: SessionEntry = {
@@ -150,6 +161,7 @@ export class WatchGroup implements UnifiedDisposable {
 			(event: FileWatchEvent) => {
 				this.onCommonEvent(event);
 			},
+			{ excludes: gitDirExcludes },
 		);
 	}
 
