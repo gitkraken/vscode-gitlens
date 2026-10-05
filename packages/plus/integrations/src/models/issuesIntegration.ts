@@ -20,7 +20,7 @@ import type {
 	IssueEtagFields,
 	IssueEtagInclude,
 } from './integration.js';
-import { IntegrationBase } from './integration.js';
+import { IntegrationBase, isReadSessionFailure } from './integration.js';
 import type { IssuesForProjectOptions, ProjectIssuesDrain, ProjectIssuesRequest } from './issueReads.js';
 
 /**
@@ -121,7 +121,7 @@ export abstract class IssuesIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const getProviderIssue = this.getProviderIssueByResourceId;
 		if (getProviderIssue == null) return { value: undefined };
@@ -166,7 +166,7 @@ export abstract class IssuesIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		const getProviderEtagFields = this.getProviderIssuesEtagFieldsByResourceId;
 		if (getProviderEtagFields == null) return { value: undefined };
@@ -222,7 +222,7 @@ export abstract class IssuesIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		try {
 			const account = await this.getProviderAccountForResource(session, resource);
@@ -254,7 +254,7 @@ export abstract class IssuesIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		try {
 			const resources = await this.getProviderResourcesForUser(session);
@@ -282,7 +282,7 @@ export abstract class IssuesIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		try {
 			const projects = await this.getProviderProjectsForResourcesWithMetadata(session, resources);
@@ -336,7 +336,7 @@ export abstract class IssuesIntegration<
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		try {
 			const issues = await this.getProviderIssuesForProject(session, project, options);
@@ -361,7 +361,7 @@ export abstract class IssuesIntegration<
 	): Promise<IntegrationResult<ProjectIssuesDrain | undefined>> {
 		const scope = getScopedLogger();
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return undefined;
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		try {
 			const result = await this.getProviderIssuesForProjectWithTruncation(session, project, options);
@@ -396,7 +396,9 @@ export abstract class IssuesIntegration<
 
 		const scope = getScopedLogger();
 		const session = await this.resolveReadSession(connectionId, scope);
-		if (session == null) return requests.map(() => undefined);
+		if (session == null || isReadSessionFailure(session)) {
+			return requests.map(() => session && { error: session.error });
+		}
 
 		const results: IntegrationResult<ProjectIssuesDrain | undefined>[] = requests.map(() => undefined);
 		const unsearchedIndices: number[] = [];

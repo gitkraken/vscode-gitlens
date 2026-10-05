@@ -1,3 +1,4 @@
+import { RequestRateLimitError } from '@gitlens/git/errors.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { IntegrationIds } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
@@ -50,6 +51,16 @@ function isTerminalStatus(status: number): boolean {
 		default:
 			return false;
 	}
+}
+
+/**
+ * The error for a token fetch the backend refused for a reason a retry can fix. A 429 is typed as a rate limit so
+ * a read that needed the token reports a throttle rather than a broken connection (gitkraken/kepler#3546); every
+ * other status stays a plain error.
+ */
+function retryableTokenFetchError(status: number, message: string): Error {
+	const error = new Error(message);
+	return status === 429 ? new RequestRateLimitError(error, undefined, undefined) : error;
 }
 
 function toSession(data: GKProviderToken): CloudIntegrationAuthenticationSession {
@@ -204,12 +215,18 @@ export class CloudIntegrationService {
 
 				if (isTerminalStatus(newTokenRsp.status)) return undefined;
 
-				throw new Error(`Retryable failure (${newTokenRsp.status}) refreshing ${id} token from cloud`);
+				throw retryableTokenFetchError(
+					newTokenRsp.status,
+					`Retryable failure (${newTokenRsp.status}) refreshing ${id} token from cloud`,
+				);
 			}
 
 			if (isTerminalStatus(tokenRsp.status)) return undefined;
 
-			throw new Error(`Retryable failure (${tokenRsp.status}) getting ${id} token from cloud`);
+			throw retryableTokenFetchError(
+				tokenRsp.status,
+				`Retryable failure (${tokenRsp.status}) getting ${id} token from cloud`,
+			);
 		}
 
 		const data = ((await tokenRsp.json()) as { data?: GKProviderToken })?.data;

@@ -1199,7 +1199,7 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		const api = await this.getProvidersApi();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
-		const session = await this.resolveReadSession(repo.connectionId, undefined);
+		const session = await this.resolveReadSessionOrThrow(repo.connectionId, undefined);
 		if (session == null) return undefined;
 
 		const { tokenWithInfo, options } = this.getApiOptions(session);
