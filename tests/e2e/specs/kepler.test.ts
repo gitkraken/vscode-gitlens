@@ -1,5 +1,5 @@
 /**
- * Kepler — the install gate (#5760)
+ * Kepler — the install gate and the menu contribution (#5760)
  *
  * What this spec does NOT own as a contract: that the refusal carries exactly one action, which
  * telemetry reason it reports, and what choosing the action runs.
@@ -36,7 +36,9 @@
  */
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { basename, resolve } from 'node:path';
 import * as process from 'node:process';
+import type { Locator, Page } from '@playwright/test';
 import { getKeplerInstallPaths, getKeplerProductName } from '../../../src/plus/kepler/keplerProviders.js';
 import { expect, MaxTimeout, test } from '../baseTest.js';
 
@@ -48,6 +50,8 @@ const channel = 'production';
  * assert it. Named so the coupling is visible in code: reword the product strings and these move too.
  */
 const refusalMessage = "Kepler isn't installed";
+/** Menu title owned by `contributions.json`; a locator for the same reason the strings above are. */
+const newTaskMenuItem = 'Start Task in Kepler';
 const refusalAction = 'Get Kepler';
 
 /**
@@ -64,6 +68,28 @@ const installPaths = getKeplerInstallPaths(channel, process.platform, {
 	home: homedir(),
 	localAppData: process.env.LOCALAPPDATA,
 });
+
+/**
+ * Opens a tree row's context menu, reads its items and closes it again.
+ *
+ * Keyboard rather than a right click: `Shift+F10` targets the focused row, so the menu cannot land on
+ * a neighbour when the list scrolls between the click and the press. The menu is closed here rather
+ * than by the caller, because an assertion failing mid-test would otherwise leave it open for the next
+ * one.
+ */
+async function readRowMenu(page: Page, row: Locator): Promise<string[]> {
+	await row.click();
+	await page.keyboard.press('Shift+F10');
+
+	const items = page.locator('.context-view .action-item');
+	await expect(items.first()).toBeVisible({ timeout: MaxTimeout });
+	const texts = (await items.allInnerTexts()).map(t => t.trim()).filter(Boolean);
+
+	await page.keyboard.press('Escape');
+	await expect(items.first()).toBeHidden({ timeout: MaxTimeout });
+
+	return texts;
+}
 
 const installedAt = installPaths.filter(p => existsSync(p));
 const unreachable = `${getKeplerProductName(channel)} is installed on this machine (${installedAt.join(', ')}), so the not-installed gate is unreachable and this spec would pass without exercising it`;
@@ -98,5 +124,50 @@ test.describe('Kepler — install gate', () => {
 			.filter({ hasText: refusalMessage });
 		await expect(toast).toBeVisible({ timeout: MaxTimeout });
 		await expect(toast.locator('.monaco-button', { hasText: refusalAction })).toBeVisible();
+	});
+});
+
+/**
+ * The menu contribution, which is the half no unit can reach: `gitlens.kepler.newTask` is hidden from
+ * the command palette (`when: false`), so a context menu is the only way a user arrives at it, and
+ * whether it appears there is decided by a `when` clause in `contributions.json`
+ * (`viewItem =~ /gitlens:(repository|repo-folder)\b/`) that no TypeScript test evaluates.
+ *
+ * Both directions are asserted on purpose. Presence alone would still pass if the clause were widened
+ * to every node, and a stray "Start Task in Kepler" on a branch or a commit is exactly the regression a
+ * loosened regex produces — so a non-repository node is checked to NOT carry it.
+ *
+ * Install state does not matter here and is not guarded: the clause decides what the menu lists, while
+ * `installed` only decides what happens after the click, which the gate spec above owns.
+ */
+test.describe('Kepler — menu contribution', () => {
+	// `readRowMenu` closes what it opens, so this only covers the one path it cannot: an assertion
+	// inside the helper failing between the open and the close. A menu left standing there would
+	// swallow the first click of whatever runs next in this worker's editor.
+	test.afterEach(async ({ vscode }) => {
+		await vscode.page.keyboard.press('Escape');
+	});
+
+	test('the repository node offers Start Task in Kepler and a child node does not', async ({ vscode }) => {
+		await vscode.gitlens.showRepositoriesView();
+
+		// The SCM views are grouped under one tree, so it is named after the group rather than after the
+		// view the command just brought forward.
+		const items = vscode.gitlens.gitlensViewTreeView.getByRole('treeitem');
+
+		// The child goes first on purpose: selecting a row toggles its expansion, so reading the
+		// repository's menu collapses it and takes every child row off screen with it.
+		//
+		// `Commits` is a child of the repository node, so it carries a different `viewItem` and must not
+		// offer the command — the assertion that pins the clause rather than its presence.
+		const childRow = items.filter({ hasText: 'Commits' }).first();
+		await expect(childRow).toBeVisible({ timeout: MaxTimeout });
+
+		expect(await readRowMenu(vscode.page, childRow)).not.toContain(newTaskMenuItem);
+
+		const repoRow = items.filter({ hasText: basename(resolve(vscode.electron.workspacePath)) }).first();
+		await expect(repoRow).toBeVisible({ timeout: MaxTimeout });
+
+		expect(await readRowMenu(vscode.page, repoRow)).toContain(newTaskMenuItem);
 	});
 });
