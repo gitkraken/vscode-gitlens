@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes Azure DevOps Server current-user failures being swallowed as an absent account, which made an unreachable server read as `no-connection`. Provider transport failures (connection refusal, DNS, timeout and TLS errors) and server `5xx` responses now carry `cause.reason: 'unreachable'` on an `other` warning with `isAuth: false`, without changing `ProviderWarningKind`. Current-account reads preserve transport timeouts instead of treating them as an absent session; credential refusals still report `auth` ([#5949](https://github.com/gitkraken/vscode-gitlens/issues/5949)) (plus/integrations)
+
 ## [0.10.2] - 2026-10-05
 
 ### Fixed

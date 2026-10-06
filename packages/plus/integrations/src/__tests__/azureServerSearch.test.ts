@@ -2358,6 +2358,41 @@ suite('Azure DevOps Server current-account identity (#5916)', () => {
 		});
 	});
 
+	test('an unreachable collection identity preserves PRs from healthy collections', async () => {
+		const server = createServer({
+			installation: 'https://server.test/tfs',
+			collections: collections,
+			identities: identities,
+			failIdentityFor: ['Second'],
+		});
+		await withManager(server, async (manager, target) => {
+			const page = await manager.listPullRequestsPage({ ...target, states: ['all'] });
+			const sweep = await manager.sweepPullRequests({ targets: [target], states: ['all'] });
+			for (const result of [page, sweep]) {
+				assert.equal(result.fetchFailed, true);
+				assert.deepEqual(
+					rows(result.items),
+					[
+						{ pr: 'Default Collection/site#1', authoredByMe: true, viewer: 'me-a' },
+						{ pr: 'Default Collection/site#2', authoredByMe: false, viewer: 'me-a' },
+					],
+					JSON.stringify(result.warnings),
+				);
+				assert.deepEqual(
+					result.warnings.map(w => ({ kind: w.kind, isAuth: w.isAuth, cause: w.cause, scope: w.scope })),
+					[
+						{
+							kind: 'other',
+							isAuth: false,
+							cause: { reason: 'unreachable' },
+							scope: { resourceId: 'Second-id', projectId: 'Api' },
+						},
+					],
+				);
+			}
+		});
+	});
+
 	test("a collection whose identity can't be read leaves only its rows' authorship unknown", async () => {
 		const server = createServer({
 			installation: 'https://server.test/tfs',

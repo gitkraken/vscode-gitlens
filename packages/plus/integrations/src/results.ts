@@ -3,6 +3,7 @@ import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from
 import type { IssueSorting } from '@gitlens/git/models/issue.js';
 import type { PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
 import type { IntegrationIds } from './constants.js';
+import { isProviderUnreachableError } from './errors.js';
 
 export interface ConnectionStateChangeEvent {
 	key: string;
@@ -67,7 +68,9 @@ export interface ProviderWarningScope {
 }
 
 /**
- * Why a provider refused a credential it otherwise accepts, when the refusal itself says so:
+ * Why a provider request failed, when the failure itself says so:
+ * - `unreachable`: a transport failure or server-side error prevented the provider from answering. The connection
+ *   still exists; this accompanies `kind: 'other'`, never an authentication warning.
  * - `oauth-app-not-allowed`: the organization does not let third-party OAuth apps in. On Azure DevOps this is the
  *   organization policy "Third-party application access via OAuth", off by default for new organizations. An
  *   organization admin enables it, or the user connects with a personal access token instead, which the policy
@@ -79,7 +82,11 @@ export interface ProviderWarningScope {
  *
  * None of these is healed by reconnecting, which is the point of naming them.
  */
-export type ProviderWarningCauseReason = 'oauth-app-not-allowed' | 'access-denied' | 'conditional-access';
+export type ProviderWarningCauseReason =
+	| 'oauth-app-not-allowed'
+	| 'access-denied'
+	| 'conditional-access'
+	| 'unreachable';
 
 /** See {@link ProviderWarning.cause}. */
 export interface ProviderWarningCause {
@@ -172,11 +179,12 @@ export interface ProviderWarning {
 	 */
 	scope?: ProviderWarningScope;
 	/**
-	 * Why the provider refused, when the refusal itself says so: see {@link ProviderWarningCauseReason}. Switch on
+	 * Why the provider request failed, when the failure itself says so: see {@link ProviderWarningCauseReason}. Switch on
 	 * `reason` to recommend a fix instead of a reconnect; `message` then carries the same explanation as prose.
 	 *
-	 * Set only on a scoped `auth` warning whose credential was confirmed first (see {@link scope}), because the
-	 * refusals it names are indistinguishable from a dead credential until then: Azure DevOps answers a
+	 * `unreachable` accompanies a transport or server failure with `kind: 'other'`. Credential refusal causes are
+	 * set only on a scoped `auth` warning whose credential was confirmed first (see {@link scope}), because the
+	 * refusals they name are indistinguishable from a dead credential until then: Azure DevOps answers a
 	 * third-party OAuth app its organization disallows exactly as it answers an expired token. Only Azure DevOps
 	 * reports one today. Its absence proves nothing about the cause.
 	 */
@@ -438,6 +446,7 @@ export function toProviderWarning(
 		message: providerWarningMessage(ex),
 		kind: kind,
 		isAuth: kind === 'auth',
+		...(kind === 'other' && isProviderUnreachableError(ex) ? { cause: { reason: 'unreachable' as const } } : {}),
 	};
 }
 
