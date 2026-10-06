@@ -16,7 +16,7 @@ import {
 import type { TokenWithInfo } from './authentication/models.js';
 import type { IntegrationIds } from './constants.js';
 import type { ResponseHeaders } from './errors.js';
-import { getResponseHeader, isRateLimitResponse } from './errors.js';
+import { getResponseHeader, isProviderUnreachableError, isRateLimitResponse } from './errors.js';
 import { getProviderResponseBodyMessage } from './providers/providerErrors.js';
 import type {
 	ProviderWarning,
@@ -147,14 +147,16 @@ function decodeServiceError(value: unknown): string | undefined {
  * is the case this failure exists to tell apart, and that sentence says the opposite.
  */
 export function toCollectionScopeFailure(scope: CollectionScopeFailure['scope'], ex: unknown): ProviderScopeFailure {
+	const kind = toCollectionFailureKind(ex);
 	const refusal = toProviderRefusal(ex);
 	const message =
 		refusal != null ? (refusal.detail ?? providerWarningMessage((ex as AuthenticationError).original)) : undefined;
 	return {
 		scope: scope,
-		kind: toCollectionFailureKind(ex),
+		kind: kind,
 		...(message ? { message: message } : ex instanceof Error && ex.message ? { message: ex.message } : {}),
 		...(refusal != null ? { refusal: refusal } : {}),
+		...(kind === 'provider' && isProviderUnreachableError(ex) ? { cause: { reason: 'unreachable' as const } } : {}),
 	};
 }
 
@@ -202,9 +204,24 @@ function toCollectionFailureWarningKind(failure: CollectionScopeFailure): Provid
 	}
 }
 
-export function toCollectionFailureError(failure: CollectionScopeFailure, tokenWithInfo: TokenWithInfo): Error {
-	const error = new Error(failure.message ?? 'Provider request failed');
+function toCollectionFailureCause(
+	failure: ProviderScopeFailure,
+	kind: ProviderWarning['kind'],
+): ProviderWarningCause | undefined {
+	return (
+		failure.cause ??
+		(kind === 'other' &&
+		isProviderUnreachableError({ ...failure, status: getCollectionFailureStatus(failure.message) })
+			? { reason: 'unreachable' }
+			: undefined)
+	);
+}
+
+export function toCollectionFailureError(failure: ProviderScopeFailure, tokenWithInfo: TokenWithInfo): Error {
 	const kind = toCollectionFailureWarningKind(failure);
+	const error = new Error(failure.message ?? 'Provider request failed', {
+		cause: toCollectionFailureCause(failure, kind),
+	});
 	const { accessToken, ...tokenInfo } = tokenWithInfo;
 	if (kind === 'auth') return new AuthenticationError(tokenInfo, error.message, error);
 	if (kind === 'rate-limit') return new RequestRateLimitError(error, accessToken, undefined);
@@ -243,6 +260,8 @@ function causeText(cause: ProviderWarningCause): string {
 			return 'the account has no access to it';
 		case 'conditional-access':
 			return 'a Conditional Access policy blocked the request';
+		case 'unreachable':
+			return 'the provider server could not be reached';
 		default:
 			cause.reason satisfies never;
 			return 'the provider refused the request';
@@ -455,18 +474,23 @@ export function assessCollectionMetadata(
 	const failures: ProviderScopeFailure[] = metadata.failures ?? [];
 	for (const failure of failures) {
 		const kind = toCollectionFailureWarningKind(failure);
+		const cause = toCollectionFailureCause(failure, kind);
 		const scope = failure.credentialRefused ? undefined : toProviderWarningScope(failure.scope);
 		appendDedupedWarning(warnings, {
 			providerId: providerId,
 			domain: domain,
 			connectionId: connectionId,
 			// A credential-level refusal names no scope in prose either, so every scope's copy of it is one warning.
-			message: collectionFailureMessage(failure.credentialRefused ? { ...failure, scope: undefined } : failure),
+			message: collectionFailureMessage({
+				...failure,
+				cause: cause,
+				...(failure.credentialRefused ? { scope: undefined } : {}),
+			}),
 			kind: kind,
 			isAuth: kind === 'auth',
 			...(scope != null ? { scope: scope } : {}),
 			// Copied for the reason the scope is: the failure object is retained and re-merged across pages.
-			...(failure.cause != null ? { cause: { ...failure.cause } } : {}),
+			...(cause != null ? { cause: { ...cause } } : {}),
 		});
 	}
 

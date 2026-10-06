@@ -849,8 +849,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 					toTokenWithInfo(this.id, session),
 					`${baseUrl}/${encodeURIComponent(collection)}`,
 				);
-				// A miss is not cached: the lookup degrades to `undefined` on a transient failure, and caching that
-				// would refuse every relationship search in the collection until the connection is dropped.
+				// A response without an identity must not refuse later relationship searches from a cached miss.
 				if (user?.id == null) {
 					cacheable.invalidate();
 				}

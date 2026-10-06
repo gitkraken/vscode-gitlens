@@ -27,9 +27,10 @@ import type {
 } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import type { ProviderRefusal } from '../collectionMetadata.js';
-import { toCollectionScopeFailure } from '../collectionMetadata.js';
+import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
 import type { GitSelfManagedHostIntegrationId } from '../constants.js';
 import { GitCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
+import { AuthenticationError } from '../errors.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type {
@@ -368,8 +369,7 @@ export abstract class AzureDevOpsIntegrationBase<
 	}
 
 	/**
-	 * The profile request the account cache would otherwise answer; see `IntegrationBase.validateCredential`. No
-	 * account proves nothing, since Azure DevOps Server's request answers every failure but a refusal that way.
+	 * Bypasses the account cache so a previously accepted credential cannot vouch for one that is now refused.
 	 */
 	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
 		if ((await this._requestForCurrentUser(session)) == null) {
@@ -1384,8 +1384,16 @@ export abstract class AzureDevOpsIntegrationBase<
 			requested.has(PullRequestFilter.Assignee) ||
 			requested.has(PullRequestFilter.ReviewRequested);
 		const userIds = new Map<string, string | undefined>();
+		const identityFailures = new Map<string, unknown>();
 		for (const org of uniqueAzureNames(projects.values.map(p => p.resourceName))) {
-			userIds.set(org.toLowerCase(), await this.getFilterUserId(session, org));
+			try {
+				userIds.set(org.toLowerCase(), await this.getFilterUserId(session, org));
+			} catch (ex) {
+				throwIfCallerContractError(ex);
+				if (ex instanceof AuthenticationError) throw ex;
+
+				identityFailures.set(org.toLowerCase(), ex);
+			}
 		}
 		const groups = wantReviewed
 			? await this.getReviewerGroupsByOrganization(session, projects.values, userIds, failures)
@@ -1400,7 +1408,11 @@ export abstract class AzureDevOpsIntegrationBase<
 				const userId = userIds.get(p.resourceName.toLowerCase());
 				if (userId == null) {
 					failures.push(
-						toCollectionScopeFailure(scope, new Error('The current user could not be resolved here')),
+						toCollectionScopeFailure(
+							scope,
+							identityFailures.get(p.resourceName.toLowerCase()) ??
+								new Error('The current user could not be resolved here'),
+						),
 					);
 					truncated = true;
 					return [];
