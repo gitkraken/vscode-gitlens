@@ -8,6 +8,83 @@ export {
 } from '@gitlens/git/errors.js';
 
 import { RequestRateLimitError } from '@gitlens/git/errors.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
+
+const unreachableErrorCodes = new Set([
+	'ECONNREFUSED',
+	'ECONNRESET',
+	'ECONNABORTED',
+	'ENOTFOUND',
+	'EAI_AGAIN',
+	'ETIMEDOUT',
+	'EHOSTUNREACH',
+	'ENETUNREACH',
+	'EPIPE',
+	'ERR_NETWORK',
+	'UND_ERR_CONNECT_TIMEOUT',
+	'UND_ERR_HEADERS_TIMEOUT',
+	'UND_ERR_BODY_TIMEOUT',
+	'UND_ERR_SOCKET',
+	'CERT_HAS_EXPIRED',
+	'DEPTH_ZERO_SELF_SIGNED_CERT',
+	'SELF_SIGNED_CERT_IN_CHAIN',
+	'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+	'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
+	'ERR_TLS_CERT_ALTNAME_INVALID',
+]);
+
+/** Transport wrappers keep the network failure in `cause` or `original`; inspecting only the wrapper loses it. */
+export function isProviderUnreachableError(ex: unknown): boolean {
+	const pending = [ex];
+	const seen = new Set<unknown>();
+	while (pending.length > 0) {
+		const candidate = pending.pop();
+		if (candidate == null || typeof candidate !== 'object' || seen.has(candidate)) continue;
+
+		seen.add(candidate);
+		const error = candidate as {
+			name?: string;
+			kind?: string;
+			message?: string;
+			code?: string;
+			status?: number;
+			response?: { status?: number };
+			reason?: string;
+			original?: unknown;
+			cause?: unknown;
+			errors?: unknown[];
+		};
+		if (isCancellationError(candidate)) {
+			if (error.reason === 'aborted') return false;
+			if (error.reason === 'timeout') return true;
+		}
+
+		const status = error.status ?? error.response?.status;
+		if (typeof status === 'number' && status >= 400) return status >= 500 && status < 600;
+
+		if (
+			error.kind === 'network' ||
+			error.reason === 'unreachable' ||
+			error.name === 'TimeoutError' ||
+			error.name === 'AbortError' ||
+			error.name === 'NetworkError' ||
+			(typeof error.code === 'string' &&
+				(unreachableErrorCodes.has(error.code) || error.code.startsWith('ERR_SSL_'))) ||
+			(typeof error.message === 'string' &&
+				/^(?:fetch failed|failed to fetch|network request failed|load failed|NetworkError when attempting to fetch resource\.?)$/i.test(
+					error.message,
+				))
+		) {
+			return true;
+		}
+
+		pending.push(error.original, error.cause);
+		if (Array.isArray(error.errors)) {
+			pending.push(...error.errors);
+		}
+	}
+	return false;
+}
 
 /**
  * Thrown by a provider read when it can't produce a result for a reason that is NOT "the account is empty":

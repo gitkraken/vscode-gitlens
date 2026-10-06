@@ -689,11 +689,8 @@ export class AzureDevOpsApi implements Disposable {
 				username: username,
 			};
 		} catch (ex) {
-			// A rejected credential is the whole point of this read failing; reporting "no user" instead hides it.
-			if (ex instanceof AuthenticationError) throw ex;
-
 			scope?.error(ex, `Failed to get current user from ${baseUrl}`);
-			return undefined;
+			throw ex;
 		}
 	}
 
@@ -1319,7 +1316,6 @@ export class AzureDevOpsApi implements Disposable {
 			case 500: // Internal Server Error
 				scope?.error(ex);
 				if (ex.response != null) {
-					provider?.trackRequestException();
 					this.config.onRequestFailed?.(
 						provider == null || provider.id === 'azure'
 							? l10n.t(

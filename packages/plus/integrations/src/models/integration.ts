@@ -45,7 +45,13 @@ import {
 import type { IntegrationIds, IssuesCloudHostIntegrationId, IssuesHostIntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
-import { AuthenticationError, AuthenticationErrorReason, RequestClientError, toError } from '../errors.js';
+import {
+	AuthenticationError,
+	AuthenticationErrorReason,
+	isProviderUnreachableError,
+	RequestClientError,
+	toError,
+} from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import { providersMetadata } from '../providers/models.js';
 import { isAzureProviderId } from '../providers/providerErrors.js';
@@ -1546,7 +1552,7 @@ export abstract class IntegrationBase<
 						this.resetRequestExceptionCount('getCurrentAccount');
 						return account;
 					} catch (ex) {
-						if (isCancellationError(ex)) {
+						if (isCancellationError(ex) && !isProviderUnreachableError(ex)) {
 							cacheable.invalidate();
 							return undefined;
 						}
