@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-10-06
+
 ### Fixed
 
 - Fixes Azure DevOps Server current-user failures being swallowed as an absent account, which made an unreachable server read as `no-connection`. Provider transport failures (connection refusal, DNS, timeout and TLS errors) and server `5xx` responses now carry `cause.reason: 'unreachable'` on an `other` warning with `isAuth: false`, without changing `ProviderWarningKind`. Current-account reads preserve transport timeouts instead of treating them as an absent session; credential refusals still report `auth` ([#5949](https://github.com/gitkraken/vscode-gitlens/issues/5949)) (plus/integrations)
@@ -579,7 +581,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.2...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.3...HEAD
+[0.10.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.2...gitkraken:releases/core/v0.10.3
 [0.10.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.1...gitkraken:releases/core/v0.10.2
 [0.10.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.0...gitkraken:releases/core/v0.10.1
 [0.10.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.9.9...gitkraken:releases/core/v0.10.0
