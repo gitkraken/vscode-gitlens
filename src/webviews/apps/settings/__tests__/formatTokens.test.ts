@@ -9,6 +9,13 @@ import { getCommitFormatTokens, getFileFormatTokens, getFormatTokens } from '../
  * commit fields.
  */
 suite('format editor — token catalog', () => {
+	test('branch-name context offers only issue identity and title', () => {
+		assert.deepStrictEqual(
+			getFormatTokens('branch-name').map(t => t.token),
+			['id', 'title'],
+		);
+	});
+
 	const hoverOnly = ['avatar', 'commands', 'footnotes', 'link', 'signature'];
 
 	test('commit context excludes the hover/markdown-only tokens', () => {
@@ -40,7 +47,7 @@ suite('format editor — token catalog', () => {
 	});
 
 	test('getFormatTokens resolves each context to a non-empty, labeled set', () => {
-		for (const context of ['commit', 'hover', 'file'] as const) {
+		for (const context of ['commit', 'hover', 'file', 'branch-name'] as const) {
 			const tokens = getFormatTokens(context);
 			assert.ok(tokens.length > 0, `${context} context should be non-empty`);
 			assert.ok(

@@ -532,7 +532,7 @@ export class SettingsActions {
 	/** Renders a format template via the host's real `CommitFormatter`/`StatusFileFormatter`. */
 	generateFormatPreview(
 		key: string,
-		type: 'commit' | 'commit-uncommitted' | 'file',
+		type: 'commit' | 'commit-uncommitted' | 'file' | 'branch-name',
 		format: string,
 		markdown?: boolean,
 	): Promise<GenerateFormatPreviewResult> {

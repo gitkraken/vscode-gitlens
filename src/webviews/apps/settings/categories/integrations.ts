@@ -1,3 +1,4 @@
+/* oxlint-disable no-template-curly-in-string -- GitLens format editor templates are literal strings */
 import * as l10n from '@vscode/l10n';
 import type { SettingsCategory } from '../model.js';
 
@@ -216,6 +217,30 @@ export const integrationsCategories: SettingsCategory[] = [
 					{ value: 'inspect', label: l10n.t('the Inspect view') },
 					{ value: 'quickpick', label: l10n.t('a quick pick') },
 				],
+			},
+		],
+	},
+	{
+		id: 'start-work',
+		settingsSearch: 'gitlens.startWork',
+		name: l10n.t('Start Work'),
+		group: 'Integrations',
+		icon: 'git-branch',
+		hint: l10n.t('Customize branch names when starting work on an issue'),
+		controls: [
+			{
+				kind: 'text',
+				key: 'startWork.branchNameFormat',
+				label: l10n.t('Branch name format'),
+				hint: l10n.t(
+					'Use {0} for the issue ID and {1} for its title. Branch names are normalized for Git.',
+					'${id}',
+					'${title}',
+				),
+				placeholder: '${id}-${title}',
+				defaultValue: '${id}-${title}',
+				tokens: 'branch-name',
+				preview: { type: 'branch-name', default: '${id}-${title}' },
 			},
 		],
 	},

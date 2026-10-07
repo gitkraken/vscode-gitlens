@@ -54,6 +54,14 @@ suite('settings taxonomy — anchor coverage', () => {
 		});
 	});
 
+	test('Start Work and its branch format resolve to the Settings editor', () => {
+		assert.deepStrictEqual(anchorToCategory('start-work'), { id: 'start-work' });
+		assert.deepStrictEqual(anchorToCategory('gitlens.startWork.branchNameFormat'), {
+			id: 'start-work',
+			key: 'startWork.branchNameFormat',
+		});
+	});
+
 	test('the default landing resolves to a real category', () => {
 		assert.ok(
 			settingsCategories.some(c => c.id === defaultSettingsCategoryId),

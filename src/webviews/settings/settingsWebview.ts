@@ -12,6 +12,7 @@ import type { Container } from '../../container.js';
 import { getPresentableErrorMessage } from '../../errors.js';
 import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
+import { createBranchNameFromIssue } from '../../plus/startWork/utils/-webview/startWork.utils.js';
 import type { ConfigPath, CoreConfigPath } from '../../system/-webview/configuration.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { openSettingsEditor } from '../../system/-webview/vscode/editors.js';
@@ -211,6 +212,17 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 	}
 
 	private async generateFormatPreview(params: GenerateFormatPreviewParams): Promise<GenerateFormatPreviewResult> {
+		if (params.type === 'branch-name') {
+			try {
+				return {
+					preview: createBranchNameFromIssue({ id: 'ABC-123', title: 'Update login flow' }, params.format),
+					isError: false,
+				};
+			} catch (ex) {
+				return formatPreviewError(ex);
+			}
+		}
+
 		if (params.type === 'file') {
 			return this.generateFileFormatPreview(params.format);
 		}

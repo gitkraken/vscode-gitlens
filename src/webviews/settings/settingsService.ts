@@ -77,8 +77,9 @@ export interface GenerateFormatPreviewParams {
 	 * Which formatter renders the preview:
 	 * - 'commit' / 'commit-uncommitted' — `CommitFormatter` on the sample commit
 	 * - 'file' — `StatusFileFormatter` on the sample file change
+	 * - 'branch-name' — Start Work formatter/normalizer on the sample issue
 	 */
-	type: 'commit' | 'commit-uncommitted' | 'file';
+	type: 'commit' | 'commit-uncommitted' | 'file' | 'branch-name';
 	format: string;
 	/**
 	 * When true, renders the commit/commit-uncommitted preview with `outputFormat: 'markdown'`

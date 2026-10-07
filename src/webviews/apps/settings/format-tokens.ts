@@ -28,8 +28,9 @@ export interface FormatTokenInfo {
  * - `hover` — markdown hover/tooltip formats (commit tokens PLUS hover-only tokens)
  * - `file` — file-format strings (`StatusFileFormatter`)
  * - `date` — moment.js date-format strings
+ * - `branch-name` — Start Work issue ID/title tokens
  */
-export type FormatTokenContext = 'commit' | 'hover' | 'file' | 'date';
+export type FormatTokenContext = 'commit' | 'hover' | 'file' | 'branch-name' | 'date';
 
 interface CommitTokenMeta {
 	label: string;
@@ -172,6 +173,11 @@ export function getFileFormatTokens(): FormatTokenInfo[] {
 /** Resolves the token set for a given editor context. */
 export function getFormatTokens(context: Exclude<FormatTokenContext, 'date'>): FormatTokenInfo[] {
 	switch (context) {
+		case 'branch-name':
+			return [
+				{ token: 'id', label: l10n.t('Issue ID') },
+				{ token: 'title', label: l10n.t('Issue Title') },
+			];
 		case 'commit':
 			return getCommitFormatTokens(false);
 		case 'hover':

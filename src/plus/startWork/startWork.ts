@@ -20,6 +20,7 @@ import { createQuickPickItemOfT } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
 import { executeCoreCommand } from '../../system/-webview/command.js';
+import { configuration } from '../../system/-webview/configuration.js';
 import type { AgentRoute } from '../agents/agentDescriptor.js';
 import type { ResolveAgentFlowResult } from '../agents/agentPicker.js';
 import { buildAgentResolvedTelemetryData, getRequestedAgentRoute, resolveAgentFlow } from '../agents/agentPicker.js';
@@ -147,8 +148,6 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 			}
 		}
 
-		const branchName = issue ? createBranchNameFromIssue(issue) : undefined;
-
 		// When `showOpenInAgent` is set, run the manual-vs-agent flow (overriding the persisted
 		// route for this invocation). Otherwise, fall back to the legacy `openChatOnComplete`
 		// behavior — always hand off to the host IDE chat.
@@ -202,6 +201,29 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 			// flow.kind === 'manual' → leave chatAction undefined → no chat hand-off
 		} else if (state.openChatOnComplete && issue) {
 			chatAction = { type: 'startWork', issue: issue, instructions: state.instructions };
+		}
+
+		let branchName: string | undefined;
+		if (issue) {
+			try {
+				branchName = createBranchNameFromIssue(issue, configuration.get('startWork.branchNameFormat'));
+			} catch (ex) {
+				if (state.useDefaults) {
+					state.result?.cancel(ex);
+					if (this.source.source !== 'mcp') {
+						void window.showErrorMessage(getPresentableErrorMessage(ex));
+					}
+
+					return;
+				}
+
+				void window.showErrorMessage(
+					l10n.t(
+						'Unable to format the branch name: {0} Enter a branch name to continue.',
+						getPresentableErrorMessage(ex),
+					),
+				);
+			}
 		}
 
 		// When useDefaults is true, set repo directly to skip picker.
