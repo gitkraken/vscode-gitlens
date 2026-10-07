@@ -220,6 +220,9 @@ export function graphDetailsRegion(graphWebview: FrameLocator, context?: GraphDe
  * The graph can reconcile its header while its first rows are painting, replacing the toggle between
  * Playwright's visibility check and click. Retrying the idempotent action against the current toggle
  * avoids treating that transient host element as the product state.
+ *
+ * The click is bounded like the wait after it. Unbounded it inherits the 30s `actionTimeout`, so a click
+ * refused for an interception outlives this helper's whole budget and the retry above never runs.
  */
 export async function ensureGraphDetailsPanelOpen(graphWebview: FrameLocator, timeout = 10000): Promise<void> {
 	const detailsRegion = graphDetailsRegion(graphWebview);
@@ -228,7 +231,7 @@ export async function ensureGraphDetailsPanelOpen(graphWebview: FrameLocator, ti
 
 		const showButton = graphWebview.locator('gl-button[aria-label="Show Details Panel"]').first();
 		if (await showButton.isVisible()) {
-			await showButton.click();
+			await showButton.click({ timeout: 2000 });
 		}
 		await expect(detailsRegion).toBeVisible({ timeout: 2000 });
 	}).toPass({ timeout: timeout });
