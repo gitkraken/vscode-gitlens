@@ -47,6 +47,10 @@ interface SimulatedFeaturePreviews {
 	durationSeconds: number;
 }
 
+/** How long a simulated active preview lives — long enough to look around the graph (and hover the
+ *  banner) before the expiry timer flips it. */
+const simulatedPreviewDurationSeconds = 60;
+
 export type SimulationState =
 	| {
 			state: null;
@@ -245,7 +249,7 @@ class AccountDebug {
 					iconPath: new ThemeIcon('blank'),
 					item: {
 						state: SubscriptionState.Community,
-						featurePreviews: { status: 'eligible', durationSeconds: 30 },
+						featurePreviews: { status: 'eligible', durationSeconds: simulatedPreviewDurationSeconds },
 					},
 				},
 				{
@@ -254,7 +258,7 @@ class AccountDebug {
 					iconPath: new ThemeIcon('blank'),
 					item: {
 						state: SubscriptionState.Community,
-						featurePreviews: { status: 'active', durationSeconds: 30 },
+						featurePreviews: { status: 'active', durationSeconds: simulatedPreviewDurationSeconds },
 					},
 				},
 				{
@@ -263,7 +267,7 @@ class AccountDebug {
 					iconPath: new ThemeIcon('blank'),
 					item: {
 						state: SubscriptionState.Community,
-						featurePreviews: { status: 'expired', durationSeconds: 30 },
+						featurePreviews: { status: 'expired', durationSeconds: simulatedPreviewDurationSeconds },
 					},
 				},
 				// createQuickPickSeparator('Preview'),
@@ -439,7 +443,10 @@ class AccountDebug {
 								this.service.restoreFeaturePreviews();
 							} else {
 								this.previewOverriding = true;
-								this.service.overrideFeaturePreviews({ status: next, durationSeconds: 30 });
+								this.service.overrideFeaturePreviews({
+									status: next,
+									durationSeconds: simulatedPreviewDurationSeconds,
+								});
 							}
 						} else {
 							this.simulatedVisibility = nextSimulatedVisibility(this.simulatedVisibility);
@@ -480,7 +487,7 @@ class AccountDebug {
 		if (this.previewOverriding) {
 			this.service.overrideFeaturePreviews({
 				status: this.effectivePreviewStatus ?? 'eligible',
-				durationSeconds: 30,
+				durationSeconds: simulatedPreviewDurationSeconds,
 			});
 		} else if (itemFeaturePreviews != null) {
 			this.previewOverriding = true;

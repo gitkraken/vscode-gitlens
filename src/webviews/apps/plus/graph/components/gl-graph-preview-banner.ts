@@ -3,6 +3,7 @@ import { consume } from '@lit/context';
 import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { getFeaturePreviewExpiry, getFeaturePreviewStatus } from '../../../../../features.js';
 import type { SubscriptionLoginCommandArgs } from '../../../../../plus/gk/models/subscription.js';
@@ -138,6 +139,38 @@ export class GlGraphPreviewBanner extends SignalWatcher(LitElement) {
 		return formatPlural(l10n.t('{days, plural, one{{days} day left} other{{days} days left}}'), { days: days });
 	}
 
+	/** Hours-and-minutes precision for the under-a-day tail, where the visible label goes vague
+	 *  ("less than a day left") exactly when the user most wants the real number. */
+	private get remainingTooltip(): string | undefined {
+		if (this.daysLeft !== 0) return undefined;
+
+		const expiry = this.graphState.featurePreview && getFeaturePreviewExpiry(this.graphState.featurePreview);
+		if (expiry == null) return undefined;
+
+		const remaining = Math.max(0, expiry.getTime() - Date.now());
+		const hours = Math.floor(remaining / 3600000);
+		const minutes = Math.floor((remaining % 3600000) / 60000);
+		if (hours === 0) {
+			return formatPlural(l10n.t('{minutes, plural, one{{minutes} minute left} other{{minutes} minutes left}}'), {
+				minutes: minutes,
+			});
+		}
+
+		return formatPlural(
+			l10n.t(
+				'{hours, plural, one{{hours} hour} other{{hours} hours}} {minutes, plural, one{{minutes} minute} other{{minutes} minutes}} left',
+			),
+			{ hours: hours, minutes: minutes },
+		);
+	}
+
+	/** The title text is computed at render time — refresh on hover so its minutes are current rather
+	 *  than up to an hour stale (the periodic re-render is hourly). The native tooltip's show delay
+	 *  comfortably covers the async re-render. */
+	private readonly onHover = (): void => {
+		this.requestUpdate();
+	};
+
 	private readonly onSignIn = (): void => {
 		emitTelemetrySentEvent<'graph/previewBanner/signIn'>(this, {
 			name: 'graph/previewBanner/signIn',
@@ -159,9 +192,9 @@ export class GlGraphPreviewBanner extends SignalWatcher(LitElement) {
 	override render(): unknown {
 		if (!this.shouldShow) return nothing;
 
-		return html`<div class="strip" role="status">
+		return html`<div class="strip" role="status" @mouseenter=${this.onHover}>
 			<code-icon class="strip__icon" icon="clock"></code-icon>
-			<span class="strip__msg">
+			<span class="strip__msg" title=${ifDefined(this.remainingTooltip)}>
 				<strong
 					>${l10n.t('Previewing the Commit Graph on privately hosted repos — {remaining}.', {
 						remaining: this.remainingLabel,

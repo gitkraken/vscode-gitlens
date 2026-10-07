@@ -6937,6 +6937,7 @@
 	"{group} • {file} (pinned)": "{group} • {file} (pinned)",
 	"{heading} — Select Ahead or Behind to browse commits": "{heading} — Select Ahead or Behind to browse commits",
 	"{heading} — {body}": "{heading} — {body}",
+	"{hours, plural, one{{hours} hour} other{{hours} hours}} {minutes, plural, one{{minutes} minute} other{{minutes} minutes}} left": "{hours, plural, one{{hours} hour} other{{hours} hours}} {minutes, plural, one{{minutes} minute} other{{minutes} minutes}} left",
 	"{hours}h": "{hours}h",
 	"{hours}h {minutes}m": "{hours}h {minutes}m",
 	"{idle} / {inactive} — awaiting direction, or wound down/{idle} is the styled label “Idle”.{inactive} is the styled label “Inactive”.": {
@@ -6985,6 +6986,7 @@
 	"{link} — give 50% off and get up to $20": "{link} — give 50% off and get up to $20",
 	"{messageOperator} {dash} excludes commits whose message contains the term": "{messageOperator} {dash} excludes commits whose message contains the term",
 	"{message} or {messageOperator} or {messageAlias} {dash} use quotes to search for phrases": "{message} or {messageOperator} or {messageAlias} {dash} use quotes to search for phrases",
+	"{minutes, plural, one{{minutes} minute left} other{{minutes} minutes left}}": "{minutes, plural, one{{minutes} minute left} other{{minutes} minutes left}}",
 	"{minutes}m": "{minutes}m",
 	"{minutes}m {seconds}s": "{minutes}m {seconds}s",
 	"{n, plural, one{{count} commit} other{{count} commits}}": "{n, plural, one{{count} commit} other{{count} commits}}",
