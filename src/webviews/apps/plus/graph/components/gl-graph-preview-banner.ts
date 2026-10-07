@@ -58,14 +58,6 @@ export class GlGraphPreviewBanner extends SignalWatcher(LitElement) {
 			color: var(--vscode-descriptionForeground);
 		}
 
-		/* Only carries a title (the hours-and-minutes tooltip) in the under-a-day tail — the dotted
-		 * underline and help cursor signal there is more precision behind the vague label. */
-		.strip__remaining[title] {
-			cursor: help;
-			text-decoration: underline dotted;
-			text-underline-offset: 0.2em;
-		}
-
 		.strip__actions {
 			display: flex;
 			flex: none;
