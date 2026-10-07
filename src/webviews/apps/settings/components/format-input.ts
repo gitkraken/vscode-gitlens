@@ -8,6 +8,7 @@ import { focusOutline } from '@gitlens/components/components/styles/lit/a11y.css
 import { boxSizingBase, linkBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { debounce } from '@gitlens/utils/debounce.js';
+import type { GenerateFormatPreviewParams } from '../../../settings/settingsService.js';
 import type {
 	CompletionItem,
 	CompletionSelectEvent,
@@ -419,30 +420,27 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 		this.updateExample();
 	}
 
-	private readonly requestPreview = debounce(
-		(type: 'commit' | 'commit-uncommitted' | 'file' | 'branch-name', format: string) => {
-			const key = this.descriptor.key;
-			// Hover/tooltip formats render as markdown at runtime, so their preview must too
-			const markdown = this.tokenMode === 'hover';
-			void this.actions
-				?.generateFormatPreview(key, type, format, markdown)
-				.then(result => {
-					// The instance is reused across descriptors; ignore a late preview for a previous one
-					if (this.descriptor.key !== key) return;
+	private readonly requestPreview = debounce((type: GenerateFormatPreviewParams['type'], format: string) => {
+		const key = this.descriptor.key;
+		// Hover/tooltip formats render as markdown at runtime, so their preview must too
+		const markdown = this.tokenMode === 'hover';
+		void this.actions
+			?.generateFormatPreview(key, type, format, markdown)
+			.then(result => {
+				// The instance is reused across descriptors; ignore a late preview for a previous one
+				if (this.descriptor.key !== key) return;
 
-					this._example = result.preview;
-					this._exampleError = result.isError;
-				})
-				.catch(() => {
-					// Transport-level failure (IPC) — surface it instead of swallowing (concern 2)
-					if (this.descriptor.key !== key) return;
+				this._example = result.preview;
+				this._exampleError = result.isError;
+			})
+			.catch(() => {
+				// Transport-level failure (IPC) — surface it instead of swallowing (concern 2)
+				if (this.descriptor.key !== key) return;
 
-					this._example = l10n.t('Preview unavailable');
-					this._exampleError = true;
-				});
-		},
-		200,
-	);
+				this._example = l10n.t('Preview unavailable');
+				this._exampleError = true;
+			});
+	}, 200);
 
 	private updateExample(): void {
 		const d = this.descriptor;

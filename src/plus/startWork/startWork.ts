@@ -148,6 +148,34 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 			}
 		}
 
+		let branchName: string | undefined;
+		if (issue) {
+			try {
+				branchName = createBranchNameFromIssue(issue, configuration.get('startWork.branchNameFormat'));
+			} catch (ex) {
+				if (state.useDefaults) {
+					// Kept in English like the other `state.result` cancels; the localized `ex` is for the notification only
+					state.result?.cancel(
+						new Error('The Start Work branch name format setting produces an invalid branch name', {
+							cause: ex,
+						}),
+					);
+					if (this.source.source !== 'mcp') {
+						void window.showErrorMessage(getPresentableErrorMessage(ex));
+					}
+
+					return;
+				}
+
+				void window.showErrorMessage(
+					l10n.t(
+						'Unable to format the branch name: {0} Enter a branch name to continue.',
+						getPresentableErrorMessage(ex),
+					),
+				);
+			}
+		}
+
 		// When `showOpenInAgent` is set, run the manual-vs-agent flow (overriding the persisted
 		// route for this invocation). Otherwise, fall back to the legacy `openChatOnComplete`
 		// behavior — always hand off to the host IDE chat.
@@ -201,29 +229,6 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 			// flow.kind === 'manual' → leave chatAction undefined → no chat hand-off
 		} else if (state.openChatOnComplete && issue) {
 			chatAction = { type: 'startWork', issue: issue, instructions: state.instructions };
-		}
-
-		let branchName: string | undefined;
-		if (issue) {
-			try {
-				branchName = createBranchNameFromIssue(issue, configuration.get('startWork.branchNameFormat'));
-			} catch (ex) {
-				if (state.useDefaults) {
-					state.result?.cancel(ex);
-					if (this.source.source !== 'mcp') {
-						void window.showErrorMessage(getPresentableErrorMessage(ex));
-					}
-
-					return;
-				}
-
-				void window.showErrorMessage(
-					l10n.t(
-						'Unable to format the branch name: {0} Enter a branch name to continue.',
-						getPresentableErrorMessage(ex),
-					),
-				);
-			}
 		}
 
 		// When useDefaults is true, set repo directly to skip picker.

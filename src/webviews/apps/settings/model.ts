@@ -13,6 +13,7 @@
 import type { GlExtensionCommands } from '../../../constants.commands.js';
 import type { ConfigPath } from '../../../system/-webview/configuration.js';
 import type { CustomConfigPath } from '../../protocol.js';
+import type { GenerateFormatPreviewParams } from '../../settings/settingsService.js';
 
 export type SettingsKey = ConfigPath | CustomConfigPath;
 
@@ -108,7 +109,7 @@ export interface FormatPreviewDescriptor {
 	 * - 'date' — app-side `formatDate` against the fixed sample date
 	 * - 'date-locale' — value is a locale; format read from `defaultLookup`
 	 */
-	type: 'commit' | 'commit-uncommitted' | 'file' | 'branch-name' | 'date' | 'date-locale';
+	type: GenerateFormatPreviewParams['type'] | 'date' | 'date-locale';
 	/** Literal fallback format when the input is empty */
 	default?: string;
 	/** Config key to read the fallback format from when the input is empty */

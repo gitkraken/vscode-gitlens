@@ -3,6 +3,7 @@ import type { AutolinkConfig, Config, CustomRemoteType, RemotesUrlsConfig } from
 import { isCustomConfigKey } from '../../protocol.js';
 import type { ScopedAiModelInfo } from '../../rpc/services/types.js';
 import type {
+	GenerateFormatPreviewParams,
 	GenerateFormatPreviewResult,
 	SettingsServices,
 	SettingsUpdateParams,
@@ -532,7 +533,7 @@ export class SettingsActions {
 	/** Renders a format template via the host's real `CommitFormatter`/`StatusFileFormatter`. */
 	generateFormatPreview(
 		key: string,
-		type: 'commit' | 'commit-uncommitted' | 'file' | 'branch-name',
+		type: GenerateFormatPreviewParams['type'],
 		format: string,
 		markdown?: boolean,
 	): Promise<GenerateFormatPreviewResult> {

@@ -20,8 +20,15 @@ suite('Start Work branch name format', () => {
 
 	test('supports GitLens token prefix, suffix and width modifiers', () => {
 		assert.strictEqual(createBranchNameFromIssue(issue, "${'fix/'id'/work'}"), 'fix/ABC-123/work');
-		assert.strictEqual(createBranchNameFromIssue(issue, '${title|8}'), 'update-…');
+		assert.strictEqual(createBranchNameFromIssue(issue, '${title|8}'), 'update-l');
 		assert.strictEqual(createBranchNameFromIssue(issue, '${id|10-}'), 'ABC-123');
+		assert.strictEqual(createBranchNameFromIssue(issue, '${title|7}'), 'update');
+		assert.strictEqual(createBranchNameFromIssue(issue, '${id|10}-${title}'), 'ABC-123-update-login-flow');
+	});
+
+	test('renders each token with its own options', () => {
+		assert.strictEqual(createBranchNameFromIssue(issue, '${id|3}/${id}'), 'ABC/ABC-123');
+		assert.strictEqual(createBranchNameFromIssue(issue, "${'x-'id}/${id}"), 'x-ABC-123/ABC-123');
 	});
 
 	test('normalizes invalid Git ref patterns and reserved branch names', () => {

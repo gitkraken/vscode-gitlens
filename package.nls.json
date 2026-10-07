@@ -1731,7 +1731,7 @@
 	"config.sortWorktreesBy.enumDescriptions.2": "Sorts worktrees by name in ascending order",
 	"config.sortWorktreesBy.enumDescriptions.3": "Sorts worktrees by name in descending order",
 	"config.sortWorktreesBy.markdownDescription": "Specifies how worktrees are sorted in quick pick menus and views",
-	"config.startWork.branchNameFormat.markdownDescription": "Specifies the branch name format when starting work on an issue. Use `${id}` for the issue ID and `${title}` for its lowercase, slugged title. Supports GitLens token prefix, suffix, and width modifiers. Invalid Git ref characters are normalized, and `/` preserves branch hierarchy. Leave blank to use `${id}-${title}`. You can edit the suggested name before creating the branch.",
+	"config.startWork.branchNameFormat.markdownDescription": "Specifies the branch name format when starting work on an issue. Use `${id}` for the issue ID and `${title}` for its lowercase, slugged title. Supports GitLens token prefix, suffix, and width modifiers. Invalid Git ref characters are normalized, and `/` preserves branch hierarchy. Leave blank to use `${id}-${title}`. When prompted, you can edit the suggested name before creating the branch.",
 	"config.statusBar.alignment.enumDescriptions.0": "Aligns to the left",
 	"config.statusBar.alignment.enumDescriptions.1": "Aligns to the right",
 	"config.statusBar.alignment.markdownDescription": "Specifies the blame alignment in the status bar",

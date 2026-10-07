@@ -1721,7 +1721,7 @@
 	"config.sortWorktreesBy.enumDescriptions.2": "Ordena los árboles de trabajo por el nombre en orden ascendente",
 	"config.sortWorktreesBy.enumDescriptions.3": "Ordena los árboles de trabajo por el nombre en orden descendente",
 	"config.sortWorktreesBy.markdownDescription": "Especifica cómo se ordenan los árboles de trabajo en los menús de selección rápida y las vistas",
-	"config.startWork.branchNameFormat.markdownDescription": "Especifica el formato del nombre de la rama al empezar a trabajar en una incidencia. Usa `${id}` para el ID de la incidencia y `${title}` para su título en minúsculas convertido en slug. Admite los modificadores de prefijo, sufijo y ancho de los tokens de GitLens. Los caracteres no válidos en referencias de Git se normalizan y `/` conserva la jerarquía de ramas. Déjalo en blanco para usar `${id}-${title}`. Puedes editar el nombre sugerido antes de crear la rama.",
+	"config.startWork.branchNameFormat.markdownDescription": "Especifica el formato del nombre de la rama al empezar a trabajar en una incidencia. Usa `${id}` para el ID de la incidencia y `${title}` para su título en minúsculas convertido en slug. Admite los modificadores de prefijo, sufijo y ancho de los tokens de GitLens. Los caracteres no válidos en referencias de Git se normalizan y `/` conserva la jerarquía de ramas. Déjalo en blanco para usar `${id}-${title}`. Cuando se te solicite, puedes editar el nombre sugerido antes de crear la rama.",
 	"config.statusBar.alignment.enumDescriptions.0": "Se alinea a la izquierda",
 	"config.statusBar.alignment.enumDescriptions.1": "Se alinea a la derecha",
 	"config.statusBar.alignment.markdownDescription": "Especifica la alineación del blame en la barra de estado",

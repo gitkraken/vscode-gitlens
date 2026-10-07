@@ -2,6 +2,8 @@
 import * as l10n from '@vscode/l10n';
 import type { SettingsCategory } from '../model.js';
 
+const defaultBranchNameFormat = '${id}-${title}';
+
 export const integrationsCategories: SettingsCategory[] = [
 	{
 		id: 'ai',
@@ -237,10 +239,10 @@ export const integrationsCategories: SettingsCategory[] = [
 					'${id}',
 					'${title}',
 				),
-				placeholder: '${id}-${title}',
-				defaultValue: '${id}-${title}',
+				placeholder: defaultBranchNameFormat,
+				defaultValue: defaultBranchNameFormat,
 				tokens: 'branch-name',
-				preview: { type: 'branch-name', default: '${id}-${title}' },
+				preview: { type: 'branch-name', default: defaultBranchNameFormat },
 			},
 		],
 	},
