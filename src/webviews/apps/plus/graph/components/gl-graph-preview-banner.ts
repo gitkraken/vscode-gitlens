@@ -4,6 +4,7 @@ import * as l10n from '@vscode/l10n';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { localizedContent } from '@gitlens/components/localizedContent.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { getFeaturePreviewExpiry, getFeaturePreviewStatus } from '../../../../../features.js';
 import type { SubscriptionLoginCommandArgs } from '../../../../../plus/gk/models/subscription.js';
@@ -55,6 +56,14 @@ export class GlGraphPreviewBanner extends SignalWatcher(LitElement) {
 
 		.strip__free {
 			color: var(--vscode-descriptionForeground);
+		}
+
+		/* Only carries a title (the hours-and-minutes tooltip) in the under-a-day tail — the dotted
+		 * underline and help cursor signal there is more precision behind the vague label. */
+		.strip__remaining[title] {
+			cursor: help;
+			text-decoration: underline dotted;
+			text-underline-offset: 0.2em;
 		}
 
 		.strip__actions {
@@ -194,11 +203,16 @@ export class GlGraphPreviewBanner extends SignalWatcher(LitElement) {
 
 		return html`<div class="strip" role="status" @mouseenter=${this.onHover}>
 			<code-icon class="strip__icon" icon="clock"></code-icon>
-			<span class="strip__msg" title=${ifDefined(this.remainingTooltip)}>
+			<span class="strip__msg">
 				<strong
-					>${l10n.t('Previewing the Commit Graph on privately hosted repos — {remaining}.', {
-						remaining: this.remainingLabel,
-					})}</strong
+					>${localizedContent(
+						l10n.t('Previewing the Commit Graph on privately hosted repos — {remaining}.'),
+						{
+							remaining: html`<span class="strip__remaining" title=${ifDefined(this.remainingTooltip)}
+								>${this.remainingLabel}</span
+							>`,
+						},
+					)}</strong
 				>
 				<span class="strip__free">${l10n.t('Public and local repos stay free.')}</span>
 			</span>
