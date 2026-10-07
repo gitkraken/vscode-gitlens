@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes pressing <kbd>Space</kbd> on a _Git Command Palette_ confirmation step breaking the command &mdash; e.g. _Delete Worktree_ would stop responding and never delete the worktree
 - Fixes force-deleting a worktree skipping the uncommitted-changes warning when GitLens couldn't check the worktree for changes &mdash; it now asks before deleting a worktree it couldn't check
 - Fixes a repository or worktree with no commits yet showing no changes when it has staged or modified files
 - Fixes features treating a failed check for changes as "no changes": _Auto-Rebase_ could report a commit as skipped for being empty, applying a patch could skip offering to stash your changes, and _Copy Changes_ could leave out untracked files without saying so

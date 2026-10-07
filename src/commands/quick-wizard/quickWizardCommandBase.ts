@@ -1,5 +1,5 @@
 import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
-import { InputBoxValidationSeverity, l10n, QuickInputButtons, window } from 'vscode';
+import { InputBoxValidationSeverity, l10n, QuickInputButtons, QuickPickItemKind, window } from 'vscode';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { isPromise } from '@gitlens/utils/promise.js';
 import type { GlCommands } from '../../constants.commands.js';
@@ -629,8 +629,16 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 									rootStep.setCommand(command, this.startedFrom);
 								} else {
 									const cmd = quickpick.value.trim().toLowerCase();
+									// A lone space would otherwise match an unlabeled separator and accept it as a selection
+									if (!cmd) return;
+
+									// Separators and directives (Cancel, toggles, notices) aren't step selections -- passing one on
+									// leaves the step with an undefined result
 									const item = (await step.items).find(
-										i => i.label.replace(sanitizeLabel, '').toLowerCase() === cmd,
+										i =>
+											i.kind !== QuickPickItemKind.Separator &&
+											!isDirectiveQuickPickItem(i) &&
+											i.label.replace(sanitizeLabel, '').toLowerCase() === cmd,
 									);
 									if (item == null) return;
 
