@@ -11,7 +11,7 @@ import { Logger } from '@gitlens/utils/logger.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
-import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import type { ConnectionResource, ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { IssuesCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
@@ -158,31 +158,61 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return autolinks;
 	}
 
+	/** The workspace is the token's organization; kept only as a complete, trimmed pair. */
+	override async getProviderResourceForSession(
+		session: ProviderAuthenticationSession,
+	): Promise<ConnectionResource | undefined> {
+		const organization = await this.getOrganization(session, true);
+		const id = organization?.id.trim();
+		const name = organization?.name.trim();
+		return id && name ? { id: id, name: name } : undefined;
+	}
+
 	private _organizations: Map<string, LinearOrganizationDescriptor | undefined> | undefined;
+	/**
+	 * In flight by token. The request can't be aborted (provider-apis takes no signal), so a lookup that outlives its
+	 * caller's timeout is joined by the next one rather than piling another request on top of it.
+	 */
+	private readonly _organizationRequests = new Map<string, Promise<LinearOrganizationDescriptor | undefined>>();
 	private async getOrganization(
 		session: ProviderAuthenticationSession,
 		force: boolean = false,
 	): Promise<LinearOrganizationDescriptor | undefined> {
 		const { accessToken } = session;
-		this._organizations ??= new Map<string, LinearOrganizationDescriptor | undefined>();
+		// Held across the await: a re-sync drops `_organizations` meanwhile, and this read must still complete.
+		const organizations = (this._organizations ??= new Map<string, LinearOrganizationDescriptor | undefined>());
 
-		const cachedResources = this._organizations.get(accessToken);
+		const cachedResources = organizations.get(accessToken);
 
 		if (cachedResources == null || force) {
-			const api = await this.getProvidersApi();
-			const organization = await api.getLinearOrganization(toTokenWithInfo(this.id, session));
-			const descriptor: LinearOrganizationDescriptor | undefined = organization && {
+			let request = this._organizationRequests.get(accessToken);
+			if (request == null) {
+				request = this.fetchOrganization(session).finally(() => this._organizationRequests.delete(accessToken));
+				this._organizationRequests.set(accessToken, request);
+			}
+
+			const descriptor = await request;
+			if (descriptor) {
+				organizations.set(accessToken, descriptor);
+			}
+		}
+
+		return organizations.get(accessToken);
+	}
+
+	private async fetchOrganization(
+		session: ProviderAuthenticationSession,
+	): Promise<LinearOrganizationDescriptor | undefined> {
+		const api = await this.getProvidersApi();
+		const organization = await api.getLinearOrganization(toTokenWithInfo(this.id, session));
+		return (
+			organization && {
 				id: organization.id,
 				key: organization.key,
 				name: organization.name,
 				url: organization.url,
-			};
-			if (descriptor) {
-				this._organizations.set(accessToken, descriptor);
 			}
-		}
-
-		return this._organizations.get(accessToken);
+		);
 	}
 
 	/** Expires, and is dropped on a re-sync, so a team created or left mid-session is picked up (#5907). */

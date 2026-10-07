@@ -420,6 +420,29 @@ suite('ConfiguredIntegrationService — multi-account (#5430)', () => {
 		assert.equal(descriptor.accountName, 'octocat', 'accountName preserved across empty re-store');
 	});
 
+	test('persists workspaces independently and preserves them across session re-stores', async () => {
+		const runtime = createFakeRuntime();
+		const service = new ConfiguredIntegrationService(runtime);
+		for (const id of ['one', 'two']) {
+			await service.storeSession(IssuesCloudHostIntegrationId.Linear, cloudSession(id), {
+				resource: { id: `org-${id}`, name: `Workspace ${id}` },
+			});
+			await service.storeSession(IssuesCloudHostIntegrationId.Linear, cloudSession(id));
+		}
+
+		const reloaded = new ConfiguredIntegrationService(runtime);
+		const descriptors = reloaded.getConfigured(IssuesCloudHostIntegrationId.Linear);
+		assert.equal(descriptors.length, 2);
+		for (const descriptor of descriptors) {
+			assert.equal(descriptor.resourceName, `Workspace ${descriptor.id}`);
+			assert.equal(descriptor.resourceId, `org-${descriptor.id}`);
+			assert.equal(descriptor.accountName, descriptor.id);
+		}
+
+		service.dispose();
+		reloaded.dispose();
+	});
+
 	test('deleteConnection scoped to cloud leaves a local PAT sharing the same id intact', async () => {
 		const runtime = createFakeRuntime();
 		const service = new ConfiguredIntegrationService(runtime);
