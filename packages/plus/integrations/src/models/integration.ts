@@ -33,7 +33,7 @@ import type {
 	IntegrationAuthenticationSessionDescriptor,
 } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
-import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import type { ConnectionResource, ProviderAuthenticationSession } from '../authentication/models.js';
 import { RejectedTokenTracker } from '../authentication/rejectedTokenTracker.js';
 import type { ProviderRefusal, ProviderScopeFailure } from '../collectionMetadata.js';
 import {
@@ -1599,6 +1599,14 @@ export abstract class IntegrationBase<
 	 */
 	getProviderAccountForSession(session: ProviderAuthenticationSession): Promise<Account | undefined> {
 		return this.getProviderCurrentAccount?.(session) ?? Promise.resolve(undefined);
+	}
+
+	/**
+	 * Resolves the workspace a specific session's token was granted for, separate from the person, asking the
+	 * provider every time so a renamed workspace is picked up. Undefined when the provider has no such workspace.
+	 */
+	getProviderResourceForSession(_session: ProviderAuthenticationSession): Promise<ConnectionResource | undefined> {
+		return Promise.resolve(undefined);
 	}
 
 	@trace()

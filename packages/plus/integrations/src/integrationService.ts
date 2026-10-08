@@ -9,6 +9,7 @@ import type {
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { raceWithTimeout } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
@@ -25,6 +26,7 @@ import { IntegrationAuthenticationService } from './authentication/integrationAu
 import type {
 	CloudIntegrationConnection,
 	ConfiguredIntegrationDescriptor,
+	ConnectionResource,
 	ProviderAuthenticationSession,
 } from './authentication/models.js';
 import {
@@ -138,6 +140,7 @@ export interface IntegrationConnectionChangeEvent extends ConnectionStateChangeE
 }
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
+const resourceLookupTimeoutMs = 10 * 1000;
 
 export class IntegrationService implements Disposable, RepositoryResolutionContext {
 	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
@@ -1907,8 +1910,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 				// On a routine (non-forced) check-in, skip the token fetch + secret write for a connection we
 				// already have stored and that hasn't expired: nothing to refresh, so avoid the extra GK API
 				// traffic and secret churn. Still treat it as synced (so it doesn't trip the prune guard) and
-				// record its primary below. Forced syncs, new connections, and expired tokens fall through and
-				// fetch as before.
+				// record its primary below. Forced syncs, new connections, expired tokens and connections stored
+				// without their workspace fall through and fetch as before.
 				// A re-pointed connection is NOT unchanged, even though the token is still good: `host` is
 				// normalized, so a backend connection moved to a different context path on the same host looks
 				// identical by domain and would keep every read on the stale path until expiry. Compare the
@@ -1920,7 +1923,16 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 					isSelfManagedHostIntegrationId(id) &&
 					Boolean(connection.domain?.trim()) &&
 					!sameConfiguredBaseUrl(cached?.baseUrl, connection.domain);
-				if (!forceConnect && cached != null && !isDescriptorExpired(cached) && !baseUrlChanged) {
+				// Nor is one stored without its workspace: a token fetched outside this reconcile (the primary sync
+				// above on a cold integration, or a read) is stored without one, and would otherwise stay so.
+				const resourceMissing = carriesConnectionResource(id) && cached?.resourceId == null;
+				if (
+					!forceConnect &&
+					cached != null &&
+					!isDescriptorExpired(cached) &&
+					!baseUrlChanged &&
+					!resourceMissing
+				) {
 					return { kind: 'cached' as const, connection: connection, host: host };
 				}
 
@@ -1950,11 +1962,14 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 						};
 					}
 
+					const resource = await this.resolveResource(id, host, providerSession);
+
 					return {
 						kind: 'fetched' as const,
 						connection: connection,
 						host: host,
 						providerSession: providerSession,
+						resource: resource,
 					};
 				} catch (ex) {
 					scope?.warn(
@@ -1974,6 +1989,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 				prepared.kind === 'fetched' &&
 				!(await this.configuredIntegrationService.storeSession(id, prepared.providerSession, {
 					signOutMark: signOutMark,
+					resource: prepared.resource,
 				}))
 			) {
 				// Signed out while it was fetched: neither synced (so nothing is pruned on its account) nor primary.
@@ -2074,6 +2090,32 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	}
 
 	/**
+	 * Resolves the workspace a connection's token was granted for, asking the provider with that token every time the
+	 * reconcile fetches it, which includes every sync while the connection has no workspace stored. Best-effort:
+	 * undefined on any failure, in which case the stored pair is kept and the next fetch looks it up again.
+	 */
+	private async resolveResource(
+		id: IntegrationIds,
+		host: string | undefined,
+		session: ProviderAuthenticationSession,
+	): Promise<ConnectionResource | undefined> {
+		// Skipping the rest keeps their token fetches free of an integration lookup.
+		if (!carriesConnectionResource(id)) return undefined;
+
+		const scope = getScopedLogger();
+		try {
+			const integration = await this.get(id, host);
+			if (integration == null) return undefined;
+
+			// Bounded: the sync awaits every connection, so a hung lookup must not stall the whole refresh.
+			return await raceWithTimeout(integration.getProviderResourceForSession(session), resourceLookupTimeoutMs);
+		} catch (ex) {
+			scope?.warn(`Failed to resolve workspace for '${id}': ${ex instanceof Error ? ex.message : String(ex)}`);
+			return undefined;
+		}
+	}
+
+	/**
 	 * Resolves a human-readable account handle (e.g. the GitHub login) for a connection by asking the
 	 * provider API with that connection's token. The token backend doesn't expose it. Routes through the
 	 * integration model so the correct provider API base URL (incl. self-managed domains) and auth type
@@ -2153,6 +2195,11 @@ function protocolFromDomain(domain: string | undefined): string | undefined {
 function normalizeAccountName(accountName: string | undefined): string | undefined {
 	const value = accountName?.trim();
 	return value ? value : undefined;
+}
+
+/** Whether the provider's connections carry a workspace (Linear only). */
+function carriesConnectionResource(id: IntegrationIds): boolean {
+	return id === IssuesCloudHostIntegrationId.Linear;
 }
 
 /**
