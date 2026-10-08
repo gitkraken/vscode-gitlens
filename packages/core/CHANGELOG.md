@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-10-08
+
 ### Changed
 
 - Changes the Jira Cloud integration to request the `read:attachment:jira` scope, so a connection can download the images attached to an issue. A connection made before this change keeps its old scopes until it is reconnected (plus/integrations)
@@ -585,7 +587,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.3...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.4...HEAD
+[0.10.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.3...gitkraken:releases/core/v0.10.4
 [0.10.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.2...gitkraken:releases/core/v0.10.3
 [0.10.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.1...gitkraken:releases/core/v0.10.2
 [0.10.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.0...gitkraken:releases/core/v0.10.1
