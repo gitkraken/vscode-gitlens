@@ -127,10 +127,10 @@ export class GkMcpService implements GkMcpRegistrar {
 
 				this.onOrgAiEnabledChanged();
 			}),
-			// Register the host adapter (and start the 30s IPC-wait timer) only once the container is
-			// ready AND the user/admin has opted in — never at eager construction. This gates
-			// registration on `isRegistrationAllowed` (so a `gitkraken.mcp.autoEnabled=false` opt-out is
-			// honored) and keeps the IPC timer aligned with the old ready()-time start.
+			// Register the host adapter only once the container is ready — never at eager construction.
+			// The VS Code provider is registered whenever the host supports it (serving nothing while
+			// `isRegistrationAllowed` is false); Cursor registers only when allowed. The 30s IPC-wait
+			// timer starts only when allowed, aligned with the old ready()-time start.
 			container.onReady(() => this.ensureRegistration()),
 			...this.registerCommands(),
 		);
@@ -197,19 +197,30 @@ export class GkMcpService implements GkMcpRegistrar {
 	/**
 	 * Creates or tears down the host registration adapter to match `isRegistrationAllowed`.
 	 *
-	 * Called at ready() and whenever `ai.enabled` / `gitkraken.mcp.autoEnabled` change. Toggling the
-	 * opt-in off disposes the active provider (VS Code: unregisters the definition provider; Cursor:
-	 * unregisters the server), and toggling it back on re-registers — so the setting takes effect
-	 * without a window reload.
+	 * Called at ready() and whenever `ai.enabled` / `gitkraken.mcp.autoEnabled` change. On VS Code the
+	 * provider stays registered whenever the host supports it and serves no definitions while
+	 * disallowed: VS Code keeps a contributed provider's last definitions cached (shown in Configure
+	 * Tools) and only overwrites them while the provider is registered (#5961). On Cursor, toggling the
+	 * opt-in off disposes the provider (unregisters the server) and toggling it back on re-registers.
+	 * Either way the setting takes effect without a window reload.
 	 */
 	private ensureRegistration(): void {
+		if (supportsMcpExtensionRegistration()) {
+			this._activeProvider ??= new VSCodeMcpHostProvider(this.container, this);
+
+			if (this.isRegistrationAllowed) {
+				this.startIpcTimeout();
+			} else {
+				this.cancelIpcTimeout();
+			}
+			return;
+		}
+
 		if (this.isRegistrationAllowed) {
 			if (this._activeProvider != null) return;
 
-			// `isRegistrationAllowed` guarantees one of these host capabilities is present.
-			this._activeProvider = supportsMcpExtensionRegistration()
-				? new VSCodeMcpHostProvider(this.container, this)
-				: new CursorMcpHostProvider(this.container, this);
+			// `isRegistrationAllowed` on a non-VS Code host guarantees Cursor support.
+			this._activeProvider = new CursorMcpHostProvider(this.container, this);
 			this.startIpcTimeout();
 		} else {
 			this.disposeActiveProvider();
@@ -231,13 +242,17 @@ export class GkMcpService implements GkMcpRegistrar {
 		this._ipcTimeoutId = undefined;
 	}
 
-	private disposeActiveProvider(): void {
+	private cancelIpcTimeout(): void {
 		// Clear the timer handle without resetting `_waitingForIPC` — a later re-registration should
 		// resume waiting if IPC still hasn't started.
 		if (this._ipcTimeoutId != null) {
 			clearTimeout(this._ipcTimeoutId);
 			this._ipcTimeoutId = undefined;
 		}
+	}
+
+	private disposeActiveProvider(): void {
+		this.cancelIpcTimeout();
 		this._activeProvider?.dispose();
 		this._activeProvider = undefined;
 	}
@@ -383,12 +398,15 @@ export class GkMcpService implements GkMcpRegistrar {
 	/** Re-evaluates registration against the current `isRegistrationAllowed` state — shared by the
 	 *  `ai.enabled` / `gitkraken.mcp.autoEnabled` config-change handler and the
 	 *  `gitlens:gk:organization:ai:enabled` context-change subscription, since both flow into the
-	 *  same `container.ai.allowed` gate. Toggling either off disposes the active provider; toggling
-	 *  back on re-registers and re-runs setup so the change takes effect without a window reload. */
+	 *  same `container.ai.allowed` gate. Toggling either off disposes the active provider on Cursor and
+	 *  refreshes VS Code to an empty definition list (#5961); toggling back on re-registers and re-runs
+	 *  setup so the change takes effect without a window reload. */
 	private onOrgAiEnabledChanged(): void {
 		this.ensureRegistration();
 		if (this.isRegistrationAllowed) {
 			void this.setupCore('settings', false, true).catch(() => undefined);
+		} else {
+			this.fireRefresh(true);
 		}
 	}
 

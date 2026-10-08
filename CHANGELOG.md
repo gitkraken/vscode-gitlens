@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Start Work_ and _Launchpad_ reads covering only one host per supported self-managed provider ([#5873](https://github.com/gitkraken/vscode-gitlens/issues/5873)) &mdash; connected hosts are read independently, with open repository scopes kept on their matching host
 - Fixes _Launchpad_ mixing pins, snoozes, selections, and tree items between self-managed hosts whose pull requests share an identifier ([#5873](https://github.com/gitkraken/vscode-gitlens/issues/5873))
 - Fixes _Start Work_ and _Launchpad_ showing a raw `GraphqlResponseError` when GitHub's API rate limit is exhausted &mdash; they now report that the rate limit was reached and when to try again
+- Fixes the GitKraken MCP server staying in VS Code's _Configure Tools_ after turning off `gitlens.gitkraken.mcp.autoEnabled` or AI features ([#5961](https://github.com/gitkraken/vscode-gitlens/issues/5961))
 
 ## [19.3.0] - 2026-10-01
 

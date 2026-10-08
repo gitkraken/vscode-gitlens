@@ -38,6 +38,13 @@ export class VSCodeMcpHostProvider implements McpHostRegistrationProvider, McpSe
 
 	@debug({ exit: true })
 	async provideMcpServerDefinitions(): Promise<McpServerDefinition[]> {
+		// Return nothing (rather than unregistering) so VS Code replaces its cached definitions (#5961).
+		// This provider outlives an opt-out, so re-arm the timeout refresh for a later re-enable.
+		if (!this.service.isRegistrationAllowed) {
+			this._hasProvidedDefinition = false;
+			return [];
+		}
+
 		const config = await this.service.resolveMcpConfig();
 		if (config == null) return [];
 
