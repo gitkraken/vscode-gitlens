@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.10.5] - 2026-10-08
+
 ### Added
 
 - Adds optional `resourceName` and `resourceId` to configured integration connections, carrying the Linear workspace separately from `accountName`. Each connection resolves its workspace with its own token on every forced refresh, and on a routine sync while it has none stored, and keeps it by connection id ([#5956](https://github.com/gitkraken/vscode-gitlens/issues/5956)) (plus/integrations)
@@ -591,7 +593,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.4...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.5...HEAD
+[0.10.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.4...gitkraken:releases/core/v0.10.5
 [0.10.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.3...gitkraken:releases/core/v0.10.4
 [0.10.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.2...gitkraken:releases/core/v0.10.3
 [0.10.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.1...gitkraken:releases/core/v0.10.2
