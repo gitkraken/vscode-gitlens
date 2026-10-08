@@ -26,6 +26,8 @@
  *   --workspace <path>       Path to open as workspace (default: extension root)
  *   --vscode-path <path>     Path to VS Code Electron binary (auto-detected)
  *   --download-vscode        Download a portable VS Code binary (for WSL/SSH/CI)
+ *   --user-data-dir <path>   Persistent user-data dir (survives the run; lets state seeded
+ *                            between launches — e.g. globalState records — be tested)
  *   --flavor <stable|insiders>  VS Code variant to use (default: stable)
  *
  * Actions (executed in order, repeatable):
@@ -85,6 +87,7 @@ function parseArgs(argv) {
 		workspace: extensionRoot,
 		vscodePath: undefined,
 		flavor: 'stable',
+		userDataDir: undefined,
 		actions: [],
 	};
 	function requireArg(argv, i, flag) {
@@ -134,6 +137,9 @@ function parseArgs(argv) {
 				break;
 			case '--vscode-path':
 				opts.vscodePath = requireArg(argv, ++i, '--vscode-path');
+				break;
+			case '--user-data-dir':
+				opts.userDataDir = requireArg(argv, ++i, '--user-data-dir');
 				break;
 			case '--flavor': {
 				const val = requireArg(argv, ++i, '--flavor');
@@ -529,7 +535,8 @@ async function main() {
 
 	// Temp directories
 	const tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), 'gl-inspect-')));
-	const userDataDir = path.join(tempDir, 'user-data');
+	// An explicit user-data dir lives outside tempDir, so it survives cleanup for the next launch
+	const userDataDir = opts.userDataDir ? path.resolve(opts.userDataDir) : path.join(tempDir, 'user-data');
 	const settingsDir = path.join(userDataDir, 'User');
 	await mkdir(settingsDir, { recursive: true });
 
