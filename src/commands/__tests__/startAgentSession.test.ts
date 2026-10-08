@@ -11,6 +11,7 @@ import { window } from 'vscode';
 import type { GkAgent } from '../../agents/agentService.js';
 import type { Container } from '../../container.js';
 import type { AgentDescriptor } from '../../plus/agents/agentDescriptor.js';
+import { configuration } from '../../system/-webview/configuration.js';
 import type { StartAgentSessionCommandArgs } from '../startAgentSession.js';
 import { StartAgentSessionCommand } from '../startAgentSession.js';
 
@@ -132,5 +133,30 @@ suite('StartAgentSessionCommand.resolveAgent', () => {
 
 		assert.strictEqual(descriptor, undefined);
 		assert.strictEqual(showWarningMessage.called, false);
+	});
+
+	test('a persisted default that detection cannot verify says so, then opens the picker', async () => {
+		const get = sandbox.stub(configuration, 'get') as sinon.SinonStub;
+		get.callThrough();
+		get.withArgs('ai.defaultAgent').returns('cli:codex');
+		const createQuickPick = sandbox.stub(window, 'createQuickPick').returns(makeCancelledQuickPick());
+		const showInformationMessage = sandbox.stub(window, 'showInformationMessage').resolves(undefined);
+		const container = {
+			agents: {
+				getDetectedCliAgents: () => Promise.reject(new Error("Agent detection didn't finish")),
+				onDidChangeAgents: () => ({ dispose: () => {} }),
+			},
+		} as unknown as Container;
+		const instance = makeCommandInstance(container);
+
+		const descriptor = await callResolveAgent(instance);
+
+		assert.strictEqual(descriptor, undefined);
+		assert.strictEqual(showInformationMessage.callCount, 1);
+		assert.strictEqual(
+			showInformationMessage.firstCall.args[0],
+			'Unable to detect agents to verify the default agent. Choose an agent.',
+		);
+		assert.strictEqual(createQuickPick.calledOnce, true);
 	});
 });

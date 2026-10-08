@@ -1,9 +1,11 @@
 import { l10n, window } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../container.js';
+import { getPresentableErrorMessage } from '../errors.js';
 import type { AgentDescriptor } from '../plus/agents/agentDescriptor.js';
 import { runAgent } from '../plus/agents/agentDispatch.js';
-import { pickAgentStandalone } from '../plus/agents/agentPicker.js';
-import { resolveDefaultAgent } from '../plus/agents/agentRegistry.js';
+import { pickAgentStandalone, resolveDefaultAgentOrNotify } from '../plus/agents/agentPicker.js';
+import { describeAgentId, resolveDefaultAgent } from '../plus/agents/agentRegistry.js';
 import { command } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { GlCommandBase } from './commandBase.js';
@@ -55,7 +57,17 @@ export class StartAgentSessionCommand extends GlCommandBase {
 	private async resolveAgent(args?: StartAgentSessionCommandArgs): Promise<AgentDescriptor | undefined> {
 		const agentId = args?.agentId;
 		if (agentId != null) {
-			const descriptor = await resolveDefaultAgent(this.container, agentId);
+			let descriptor: AgentDescriptor | undefined;
+			try {
+				descriptor = await resolveDefaultAgent(this.container, agentId);
+			} catch (ex) {
+				Logger.error(ex, 'StartAgentSession', `Unable to resolve agent ${agentId}`);
+				void window.showWarningMessage(
+					l10n.t("Couldn't start {0}: {1}", describeAgentId(agentId), getPresentableErrorMessage(ex)),
+				);
+				return undefined;
+			}
+
 			if (descriptor == null) {
 				void window.showWarningMessage(l10n.t("Couldn't start {0}.", describeAgentId(agentId)));
 			}
@@ -66,19 +78,11 @@ export class StartAgentSessionCommand extends GlCommandBase {
 		if (!(args?.pick ?? false)) {
 			const persistedId = configuration.get('ai.defaultAgent') ?? undefined;
 			if (persistedId != null) {
-				const descriptor = await resolveDefaultAgent(this.container, persistedId);
+				const descriptor = await resolveDefaultAgentOrNotify(this.container, persistedId);
 				if (descriptor != null) return descriptor;
 			}
 		}
 
 		return pickAgentStandalone(this.container);
 	}
-}
-
-/** Best-effort readable name for an `agentId` that failed to resolve to a descriptor — there is no
- *  `AgentDescriptor.label` to fall back on at that point, so this strips the `cli:` id prefix the
- *  same way `agentStatusService.ts`'s `handleHooksOperationForAgentCommand` does for its own
- *  "agent is no longer available" warning. */
-function describeAgentId(agentId: string): string {
-	return agentId.startsWith('cli:') ? agentId.slice(4) : agentId;
 }

@@ -30,7 +30,7 @@ import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.uti
 import { getConflictFileInfos } from '../../../git/utils/-webview/conflictKind.utils.js';
 import { getChangesForChangelog } from '../../../git/utils/-webview/log.utils.js';
 import { showGenericErrorMessage } from '../../../messages.js';
-import { getSupportedAgents } from '../../../plus/agents/agentRegistry.js';
+import { loadSupportedAgentsInStages } from '../../../plus/agents/agentRegistry.js';
 import type { AIGenerateChangelogChanges } from '../../../plus/ai/actions/generateChangelog.js';
 import { shouldUseSinglePass } from '../../../plus/ai/actions/reviewChanges.js';
 import { prepareCompareDataForAIRequest } from '../../../plus/ai/utils/-webview/ai.utils.js';
@@ -1396,14 +1396,24 @@ export class GraphInspectServices {
 
 	private async addressReviewFindingsInChat(args: AddressReviewFindingsArgs): Promise<AddressReviewFindingsResult> {
 		try {
-			if ((await getSupportedAgents(this.container)).length === 0) {
-				void window.showWarningMessage(
-					l10n.t(
-						'No supported AI agent is available in this editor. The review has been copied to your clipboard so you can paste it elsewhere.',
-					),
-				);
-				await env.clipboard.writeText(args.reviewMarkdown);
-				return { ok: false, reason: 'no-agents' };
+			// Any agent will do, so a non-CLI one spares waiting on CLI detection, which can stall
+			const load = loadSupportedAgentsInStages(this.container);
+			if ((await load.nonCli).length === 0) {
+				const { agents, cliDetectionFailed } = await load.all;
+				if (agents.length === 0) {
+					// A failed CLI detection leaves the CLI agents unknown, not absent, so don't claim there are none
+					void window.showWarningMessage(
+						cliDetectionFailed
+							? l10n.t(
+									'Unable to detect agents. The review has been copied to your clipboard so you can paste it elsewhere.',
+								)
+							: l10n.t(
+									'No supported AI agent is available in this editor. The review has been copied to your clipboard so you can paste it elsewhere.',
+								),
+					);
+					await env.clipboard.writeText(args.reviewMarkdown);
+					return { ok: false, reason: 'no-agents' };
+				}
 			}
 
 			// `{ silent: true }` avoids prompting from the RPC. The webview gates the

@@ -1,5 +1,7 @@
 import { Disposable, env } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { GkAgent } from '../../../agents/agentService.js';
+import { isCliAgent } from '../../../agents/agentService.js';
 import type {
 	AgentSessionState,
 	PastAgentSessionDetail,
@@ -8,7 +10,7 @@ import type {
 import { areHooksOfferedForAgent, getManualActivationHint } from '../../../agents/utils/agentHooks.js';
 import type { Container } from '../../../container.js';
 import type { AgentDescriptor } from '../../../plus/agents/agentDescriptor.js';
-import { getSupportedAgents } from '../../../plus/agents/agentRegistry.js';
+import { getNonCliAgents } from '../../../plus/agents/agentRegistry.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context.js';
 import { getHostAppName, toMcpInstallProvider } from '../../../system/-webview/vscode.js';
@@ -221,7 +223,15 @@ export class AgentsService {
 		// chat row when it has one (folded in below), otherwise a standalone "Editors" row.
 		const host = await getHostAppName();
 		const hostAgentName = host != null ? toMcpInstallProvider(host) : undefined;
-		const all = await this.container.agents.getAll();
+		// Read the agent list once; every CLI-derived field below comes from it. A detection failure still
+		// returns the non-CLI rows, which never depend on the CLI, so they load alongside it
+		const [all, descriptors] = await Promise.all([
+			this.container.agents.getAll().catch((ex: unknown): readonly GkAgent[] => {
+				Logger.error(ex, 'AgentsService', 'Unable to detect agents; listing only non-CLI agents');
+				return [];
+			}),
+			getNonCliAgents(),
+		]);
 		const hostGkAgent = hostAgentName != null ? all.find(a => a.name === hostAgentName) : undefined;
 		const hostHooks =
 			hostGkAgent?.hooksSupported === true && areHooksOfferedForAgent(hostGkAgent.name)
@@ -240,37 +250,36 @@ export class AgentsService {
 
 		// Non-CLI rows (IDE chat, Claude extension) from the shared picker registry. The IDE-chat row IS
 		// the current host, so fold the host's bundled MCP (rendered from AIState.mcp) and hooks onto it.
-		const descriptors = await getSupportedAgents(this.container);
 		let hasChatHost = false;
-		const nonCli = descriptors
-			.filter(d => d.kind !== 'cli')
-			.map((d): AgentInfo => {
-				const info = toAgentInfo(d);
-				if (d.kind === 'ide-chat') {
-					hasChatHost = true;
-					return { ...info, hooks: hostHooks, hooksAgentId: hostHooks != null ? hostAgentName : undefined };
-				}
+		const nonCli = descriptors.map((d): AgentInfo => {
+			const info = toAgentInfo(d);
+			if (d.kind === 'ide-chat') {
+				hasChatHost = true;
+				return { ...info, hooks: hostHooks, hooksAgentId: hostHooks != null ? hostAgentName : undefined };
+			}
 
-				if (d.kind === 'claude-extension' && claudeCliInstalled && claudeCli != null) {
-					return {
-						...info,
-						mcp: { supported: claudeCli.mcpSupported, installed: claudeCli.mcpInstalled },
-						hooks: {
-							supported: claudeCli.hooksSupported,
-							installed: claudeCli.hooksInstalled,
-							// Mirrors whatever the claude-cli descriptor carries (undefined today) — this row
-							// is read-only and must not fabricate its own activation state.
-							manualActivation: getManualActivationHint(claudeCli.name),
-						},
-					};
-				}
+			if (d.kind === 'claude-extension' && claudeCliInstalled && claudeCli != null) {
+				return {
+					...info,
+					mcp: { supported: claudeCli.mcpSupported, installed: claudeCli.mcpInstalled },
+					hooks: {
+						supported: claudeCli.hooksSupported,
+						installed: claudeCli.hooksInstalled,
+						// Mirrors whatever the claude-cli descriptor carries (undefined today) — this row
+						// is read-only and must not fabricate its own activation state.
+						manualActivation: getManualActivationHint(claudeCli.name),
+					},
+				};
+			}
 
-				return info;
-			});
+			return info;
+		});
 
 		// CLI rows: every known CLI, detected or not — the table dims undetected ones.
-		const cliAgents = await this.container.agents.getCliAgents();
-		const cli = cliAgents.map(toCliAgentInfo).sort((a, b) => a.label.localeCompare(b.label));
+		const cli = all
+			.filter(isCliAgent)
+			.map(toCliAgentInfo)
+			.sort((a, b) => a.label.localeCompare(b.label));
 
 		// Editors: surface the current IDE host as its own row ONLY when it has no chat row to fold into.
 		let editor: AgentInfo | undefined;

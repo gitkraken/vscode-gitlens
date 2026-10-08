@@ -19,6 +19,7 @@ import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { compare } from '@gitlens/utils/version.js';
 import type { GkAgent } from '../../../../agents/agentService.js';
+import { getAgentsOrShowError } from '../../../../agents/agentService.js';
 import { urls } from '../../../../constants.js';
 import type { Source, Sources } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
@@ -865,7 +866,9 @@ export class GkMcpService implements GkMcpRegistrar {
 				await openUrl(result.url);
 			}
 
-			await this.handleInstallForAllAgentsCommand(commandSource);
+			// A detection failure was already reported; the hooks step would only wait on detection and report it again
+			const agentsDetected = await this.handleInstallForAllAgentsCommand(commandSource);
+			if (!agentsDetected) return;
 
 			if (getContext('gitlens:agents:enabled', false)) {
 				await executeCommand('gitlens.agents.installHooks', { source: commandSource });
@@ -886,16 +889,18 @@ export class GkMcpService implements GkMcpRegistrar {
 	 * agent (excluding IDE agents — those are set up via the current-host extension registration path,
 	 * not the per-agent CLI install). Used by both the `gitlens.ai.mcp.installForAllAgents` command and
 	 * the `connectAgents` chain.
+	 *
+	 * @returns `false` only when agent detection failed (already reported to the user); `true` for every other outcome
 	 */
 	@gate()
 	@debug({ exit: true })
-	private async handleInstallForAllAgentsCommand(source?: Sources): Promise<void> {
+	private async handleInstallForAllAgentsCommand(source?: Sources): Promise<boolean> {
 		const scope = getScopedLogger();
 		const commandSource = source ?? 'commandPalette';
 
 		if (!this.container.ai.allowed) {
 			void window.showWarningMessage(l10n.t('GitKraken MCP setup requires AI features to be enabled.'));
-			return;
+			return true;
 		}
 
 		try {
@@ -907,14 +912,15 @@ export class GkMcpService implements GkMcpRegistrar {
 						'GitKraken MCP requires the CLI to be installed first. Please run "Install GitKraken MCP Server" first.',
 					),
 				);
-				return;
+				return true;
 			}
 
-			await this.installMcpForAllAgents(cliPath, commandSource);
+			return await this.installMcpForAllAgents(cliPath, commandSource);
 		} catch (ex) {
 			scope?.error(ex, 'Error installing MCP for all agents');
 			const normalized = this.normalizeAndTrackSetupError(ex, commandSource);
 			this.showSetupError(normalized);
+			return true;
 		}
 	}
 
@@ -944,7 +950,10 @@ export class GkMcpService implements GkMcpRegistrar {
 				return;
 			}
 
-			const agent = (await this.container.agents.getAll()).find(a => a.name === name);
+			const all = await getAgentsOrShowError(this.container.agents);
+			if (all == null) return;
+
+			const agent = all.find(a => a.name === name);
 			if (agent == null) {
 				void window.showWarningMessage(l10n.t("Agent '{0}' is no longer available.", name));
 				return;
@@ -1002,7 +1011,10 @@ export class GkMcpService implements GkMcpRegistrar {
 				return;
 			}
 
-			const agent = (await this.container.agents.getAll()).find(a => a.name === name);
+			const all = await getAgentsOrShowError(this.container.agents);
+			if (all == null) return;
+
+			const agent = all.find(a => a.name === name);
 			if (agent == null) {
 				void window.showWarningMessage(l10n.t("Agent '{0}' is no longer available.", name));
 				return;
@@ -1041,14 +1053,17 @@ export class GkMcpService implements GkMcpRegistrar {
 	}
 
 	/** Shared core: computes the install-all target list, installs, refreshes the agent cache, and
-	 *  reports results. Called with a CLI path already confirmed installed by the caller. */
-	private async installMcpForAllAgents(cliPath: string, source: Sources): Promise<void> {
-		const all = await this.container.agents.getAll();
+	 *  reports results. Called with a CLI path already confirmed installed by the caller.
+	 *  @returns `false` when agent detection failed (already reported to the user), otherwise `true` */
+	private async installMcpForAllAgents(cliPath: string, source: Sources): Promise<boolean> {
+		const all = await getAgentsOrShowError(this.container.agents);
+		if (all == null) return false;
+
 		const agents = all.filter(a => a.detected && a.mcpSupported && !a.mcpInstalled && !ideAgentIds.has(a.name));
 
 		if (agents.length === 0) {
 			void window.showInformationMessage(l10n.t('All detected agents already have the GitKraken MCP installed.'));
-			return;
+			return true;
 		}
 
 		const results = await window.withProgress(
@@ -1093,6 +1108,7 @@ export class GkMcpService implements GkMcpRegistrar {
 		}
 
 		this.showAgentInstallResults(results);
+		return true;
 	}
 
 	private async installMcpForAgent(

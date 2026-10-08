@@ -7,9 +7,11 @@
  */
 
 import { Disposable } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
+import type { GkAgent } from '../../../agents/agentService.js';
 import { areHooksOfferedForAgent } from '../../../agents/utils/agentHooks.js';
 import type { Container } from '../../../container.js';
-import { resolveDefaultAgent } from '../../../plus/agents/agentRegistry.js';
+import { describeAgentId, resolveDefaultAgent } from '../../../plus/agents/agentRegistry.js';
 import type { AIModelScope } from '../../../plus/ai/aiProviderService.js';
 import { aiModelScopes } from '../../../plus/ai/aiProviderService.js';
 import { configuration } from '../../../system/-webview/configuration.js';
@@ -154,14 +156,34 @@ export class AIService {
 
 	async #getAIState(): Promise<AIState> {
 		const agentsEnabled = getContext('gitlens:agents:enabled', false);
-		const all = agentsEnabled ? await this.#container.agents.getAll() : [];
+		let all: readonly GkAgent[] = [];
+		if (agentsEnabled) {
+			try {
+				all = await this.#container.agents.getAll();
+			} catch (ex) {
+				Logger.error(ex, 'AIService', 'Unable to detect agents; reporting no hook agents');
+			}
+		}
 		const hookAgents = all
 			.filter(a => a.detected && a.hooksSupported && areHooksOfferedForAgent(a.name))
 			.map(a => ({ id: a.name, displayName: a.displayName, installed: a.hooksInstalled }));
 
 		const defaultAgentId = configuration.get('ai.defaultAgent') ?? undefined;
-		const defaultAgentDescriptor =
-			defaultAgentId != null ? await resolveDefaultAgent(this.#container, defaultAgentId) : undefined;
+		let defaultAgent: AIState['defaultAgent'];
+		if (defaultAgentId != null) {
+			try {
+				const descriptor = await resolveDefaultAgent(this.#container, defaultAgentId);
+				defaultAgent = descriptor != null ? { id: descriptor.id, label: descriptor.label } : undefined;
+			} catch (ex) {
+				// Detection failed, so the default is unverified, not gone — keep it rather than show "No default
+				// agent chosen". No descriptor means no display name; the id minus its `cli:` prefix stands in
+				Logger.error(ex, 'AIService', 'Unable to resolve the default agent');
+				defaultAgent = {
+					id: defaultAgentId,
+					label: describeAgentId(defaultAgentId),
+				};
+			}
+		}
 
 		return {
 			enabled: this.#container.ai.enabled,
@@ -177,10 +199,7 @@ export class AIService {
 				canInstallHooks: hookAgents.some(a => !a.installed),
 				anyInstalled: hookAgents.some(a => a.installed),
 			},
-			defaultAgent:
-				defaultAgentDescriptor != null
-					? { id: defaultAgentDescriptor.id, label: defaultAgentDescriptor.label }
-					: undefined,
+			defaultAgent: defaultAgent,
 		};
 	}
 

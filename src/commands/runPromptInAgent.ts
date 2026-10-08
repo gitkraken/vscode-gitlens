@@ -4,8 +4,7 @@ import type { Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import type { AgentDescriptor } from '../plus/agents/agentDescriptor.js';
 import { runAgent } from '../plus/agents/agentDispatch.js';
-import { pickAgentStandalone } from '../plus/agents/agentPicker.js';
-import { resolveDefaultAgent } from '../plus/agents/agentRegistry.js';
+import { pickAgentStandalone, resolveDefaultAgentOrNotify } from '../plus/agents/agentPicker.js';
 import type { ChatMode } from '../plus/chat/utils/-webview/chat.utils.js';
 import { command } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
@@ -51,11 +50,11 @@ export class RunPromptInAgentCommand extends GlCommandBase {
 	private async resolveAgent(preselected: AgentDescriptor | undefined): Promise<AgentDescriptor | undefined> {
 		if (preselected != null) return preselected;
 
-		// `resolveDefaultAgent` returns only descriptors that pass the supported-agents filter,
+		// `resolveDefaultAgentOrNotify` returns only descriptors that pass the supported-agents filter,
 		// so no extra availability check is needed here — `runAgent` re-validates at dispatch time.
 		const persistedId = configuration.get('ai.defaultAgent') ?? undefined;
 		if (persistedId != null) {
-			const descriptor = await resolveDefaultAgent(this.container, persistedId);
+			const descriptor = await resolveDefaultAgentOrNotify(this.container, persistedId);
 			if (descriptor != null) return descriptor;
 		}
 

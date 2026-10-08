@@ -208,7 +208,8 @@ export interface AIState {
 	};
 	/**
 	 * Currently-selected default coding agent (resolved from `gitlens.ai.defaultAgent`).
-	 * Undefined when no default is set or the persisted agent is not currently available.
+	 * Undefined when no default is set or the persisted agent is not currently available. When agent
+	 * detection fails, the persisted id is kept unverified, labelled by the id itself.
 	 */
 	readonly defaultAgent: { readonly id: string; readonly label: string } | undefined;
 }

@@ -772,13 +772,108 @@ suite('AgentStatusService runHooksOperation start-session action', () => {
 				1,
 				'no action should be passed alongside the message',
 			);
-			assert.strictEqual(executeCommand.called, false);
+			assert.deepStrictEqual(dispatchedCommands(executeCommand), []);
 		} finally {
 			dispose();
 			sandbox.restore();
 		}
 	});
 });
+
+suite('AgentStatusService hooks commands when agent detection fails', () => {
+	/** Both hooks command handlers are private and registered as commands, so the tests drive them directly */
+	type HooksCommandHandlers = {
+		handleHooksOperationCommand: (op: 'install' | 'uninstall') => Promise<void>;
+		handleHooksOperationForAgentCommand: (
+			op: 'install' | 'uninstall',
+			args?: { agentId?: string },
+		) => Promise<void>;
+	};
+
+	function setupFailingDetection() {
+		const getAll = sinon.stub().rejects(new Error("Agent detection didn't finish"));
+		const hooksInstaller = {
+			installAgentHook: sinon.stub().resolves(),
+			uninstallAgentHook: sinon.stub().resolves(),
+		};
+		const container = {
+			...(makeContainer() as unknown as Record<string, unknown>),
+			agents: {
+				getAll: getAll,
+				invalidateCache: () => {},
+			},
+		} as unknown as Container;
+		const service = new AgentStatusService(container, [new TestProvider()], {
+			registerCommands: false,
+			hooksInstaller: hooksInstaller,
+		});
+		return {
+			handlers: service as unknown as HooksCommandHandlers,
+			hooksInstaller: hooksInstaller,
+			getAll: getAll,
+			dispose: () => service.dispose(),
+		};
+	}
+
+	test('install-all reports the detection failure, not a failed install', async () => {
+		const sandbox = sinon.createSandbox();
+		const showErrorMessage = sandbox.stub(window, 'showErrorMessage').resolves(undefined);
+		const { handlers, hooksInstaller, dispose } = setupFailingDetection();
+		try {
+			await handlers.handleHooksOperationCommand('install');
+
+			assert.strictEqual(showErrorMessage.callCount, 1);
+			assert.strictEqual(
+				showErrorMessage.firstCall.args[0],
+				"Unable to detect agents: Agent detection didn't finish",
+			);
+			assert.strictEqual(hooksInstaller.installAgentHook.called, false);
+		} finally {
+			dispose();
+			sandbox.restore();
+		}
+	});
+
+	test('per-agent uninstall reports the detection failure, not a failed uninstall', async () => {
+		const sandbox = sinon.createSandbox();
+		const showErrorMessage = sandbox.stub(window, 'showErrorMessage').resolves(undefined);
+		const { handlers, hooksInstaller, dispose } = setupFailingDetection();
+		try {
+			await handlers.handleHooksOperationForAgentCommand('uninstall', { agentId: 'cli:codex' });
+
+			assert.strictEqual(showErrorMessage.callCount, 1);
+			assert.strictEqual(
+				showErrorMessage.firstCall.args[0],
+				"Unable to detect agents: Agent detection didn't finish",
+			);
+			assert.strictEqual(hooksInstaller.uninstallAgentHook.called, false);
+		} finally {
+			dispose();
+			sandbox.restore();
+		}
+	});
+
+	test('both hooks commands act only on a fresh agent list, never an expired one', async () => {
+		const sandbox = sinon.createSandbox();
+		sandbox.stub(window, 'showErrorMessage').resolves(undefined);
+		const { handlers, getAll, dispose } = setupFailingDetection();
+		try {
+			await handlers.handleHooksOperationCommand('install');
+			await handlers.handleHooksOperationForAgentCommand('uninstall', { agentId: 'cli:codex' });
+
+			assert.deepStrictEqual(getAll.args, [[{ fresh: true }], [{ fresh: true }]]);
+		} finally {
+			dispose();
+			sandbox.restore();
+		}
+	});
+});
+
+/** The commands a test dispatched, minus `setContext` — the real extension activating in the test host
+ *  sets context keys asynchronously, and those calls can land inside any test's stub window. */
+function dispatchedCommands(executeCommand: sinon.SinonStub): unknown[][] {
+	return executeCommand.args.filter(args => args[0] !== 'setContext');
+}
 
 /** Stubs the three vscode surfaces the dispatcher can reach, and returns them alongside a restore.
  *  Mocha's tdd `setup` hook is shadowed by this file's own `setup()` helper, so each dispatch test
@@ -835,7 +930,11 @@ suite('AgentStatusService session dispatch', () => {
 				extensionProbesBeforeDispatch,
 				'dispatching a non-Claude session must not probe the Claude extension',
 			);
-			assert.strictEqual(stubs.executeCommand.called, false, 'no Claude open command may be dispatched');
+			assert.deepStrictEqual(
+				dispatchedCommands(stubs.executeCommand),
+				[],
+				'no Claude open command may be dispatched',
+			);
 			assert.deepStrictEqual(
 				stubs.showWarningMessage.args,
 				[['Unable to open agent session.']],
@@ -865,7 +964,7 @@ suite('AgentStatusService session dispatch', () => {
 			assert.deepStrictEqual(stubs.showWarningMessage.args, [
 				['This agent session has ended. Resume it in a terminal?', 'Resume in Terminal'],
 			]);
-			assert.strictEqual(stubs.executeCommand.called, false);
+			assert.deepStrictEqual(dispatchedCommands(stubs.executeCommand), []);
 		} finally {
 			dispose();
 			stubs.restore();
@@ -1010,8 +1109,9 @@ suite('AgentStatusService session dispatch', () => {
 			await dispatchSessionAction(service, session);
 
 			assert.strictEqual(stubs.showWarningMessage.called, false, 'a delivered relay needs no warning');
-			assert.strictEqual(stubs.executeCommand.calledOnce, true);
-			const [command, uri, options] = stubs.executeCommand.firstCall.args;
+			const dispatched = dispatchedCommands(stubs.executeCommand);
+			assert.strictEqual(dispatched.length, 1);
+			const [command, uri, options] = dispatched[0];
 			assert.strictEqual(command, 'vscode.openFolder');
 			// `path`, not `fsPath`: `fsPath` uses the platform separator, so a POSIX literal never matches on Windows
 			assert.strictEqual((uri as { path: string }).path, '/repo/worktree');
@@ -1036,7 +1136,11 @@ suite('AgentStatusService session dispatch', () => {
 		try {
 			await dispatchSessionAction(service, session);
 
-			assert.strictEqual(stubs.executeCommand.called, false, 'openFolder must not run without a delivered relay');
+			assert.deepStrictEqual(
+				dispatchedCommands(stubs.executeCommand),
+				[],
+				'openFolder must not run without a delivered relay',
+			);
 			assert.deepStrictEqual(stubs.showWarningMessage.args, [
 				['Unable to open agent session. Resume it in a terminal?', 'Resume in Terminal'],
 			]);
@@ -1063,8 +1167,9 @@ suite('AgentStatusService session dispatch', () => {
 			await dispatchSessionAction(service, session);
 
 			assert.strictEqual(stubs.showWarningMessage.called, false, 'a delivered relay needs no warning');
-			assert.strictEqual(stubs.executeCommand.calledOnce, true);
-			const [command, uri, options] = stubs.executeCommand.firstCall.args;
+			const dispatched = dispatchedCommands(stubs.executeCommand);
+			assert.strictEqual(dispatched.length, 1);
+			const [command, uri, options] = dispatched[0];
 			assert.strictEqual(command, 'vscode.openFolder');
 			// `path`, not `fsPath`: `fsPath` uses the platform separator, so a POSIX literal never matches on Windows
 			assert.strictEqual((uri as { path: string }).path, '/repo/other-worktree');

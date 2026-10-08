@@ -18,6 +18,6 @@ export function isCliExecutableAvailable(_executable: string | undefined): boole
 	return false;
 }
 
-export function fetchAgents(): Promise<GkAgent[]> {
+export function fetchAgents(_timeoutMs?: number): Promise<GkAgent[]> {
 	return Promise.resolve([]);
 }

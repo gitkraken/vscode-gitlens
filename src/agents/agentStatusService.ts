@@ -24,6 +24,7 @@ import { configuration } from '../system/-webview/configuration.js';
 import { openWorkspace } from '../system/-webview/vscode/workspaces.js';
 import { isWebviewItemContext } from '../system/webview.js';
 import type { GkAgent } from './agentService.js';
+import { getAgentsOrShowError } from './agentService.js';
 import type {
 	AgentSessionState,
 	AgentSessionWorktreeMetadata,
@@ -354,8 +355,10 @@ export class AgentStatusService implements Disposable {
 	 *  hooks-supported agent that doesn't already match the target state (no IDE-agent exclusion;
 	 *  `hooksSupported` alone decides eligibility, since cursor/antigravity are valid hook clients). */
 	private async handleHooksOperationCommand(op: 'install' | 'uninstall', source?: Sources): Promise<void> {
+		const all = await getAgentsOrShowError(this.container.agents);
+		if (all == null) return;
+
 		try {
-			const all = await this.container.agents.getAll();
 			const agents = all.filter(
 				a => a.detected && a.hooksSupported && (op === 'install' ? !a.hooksInstalled : a.hooksInstalled),
 			);
@@ -382,8 +385,11 @@ export class AgentStatusService implements Disposable {
 
 		const name = agentId.startsWith('cli:') ? agentId.slice(4) : agentId;
 
+		const all = await getAgentsOrShowError(this.container.agents);
+		if (all == null) return;
+
 		try {
-			const agent = (await this.container.agents.getAll()).find(a => a.name === name);
+			const agent = all.find(a => a.name === name);
 			if (agent == null) {
 				void window.showWarningMessage(l10n.t("Agent '{0}' is no longer available.", name));
 				return;

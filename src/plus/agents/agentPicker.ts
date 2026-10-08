@@ -1,5 +1,9 @@
-import type { QuickInputButton, QuickPickItem } from 'vscode';
+import type { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { ConfigurationTarget, l10n, QuickInputButtons, QuickPickItemKind, ThemeIcon, window } from 'vscode';
+import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
+import { createDisposable } from '@gitlens/utils/disposable.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { defer } from '@gitlens/utils/promise.js';
 import type { AsyncStepResultGenerator, StepSelection } from '../../commands/quick-wizard/models/steps.js';
 import { StepResultBreak } from '../../commands/quick-wizard/models/steps.js';
 import type { QuickPickStep } from '../../commands/quick-wizard/models/steps.quickpick.js';
@@ -11,13 +15,13 @@ import {
 } from '../../commands/quick-wizard/utils/steps.utils.js';
 import type { Container } from '../../container.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
-import type { ConfirmToggleQuickPickItem } from '../../quickpicks/items/directive.js';
+import type { ConfirmToggleQuickPickItem, DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
 import { createConfirmToggleQuickPickItem } from '../../quickpicks/items/directive.js';
 import { executeCoreCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getKeplerProviderId, isKeplerSupportedProvider } from '../kepler/keplerProviders.js';
 import type { AgentDescriptor, AgentRoute } from './agentDescriptor.js';
-import { getSupportedAgents, resolveDefaultAgent } from './agentRegistry.js';
+import { loadSupportedAgentsInStages, resolveDefaultAgent } from './agentRegistry.js';
 
 const settingsButton: QuickInputButton = {
 	iconPath: new ThemeIcon('gear'),
@@ -38,13 +42,13 @@ const routeSettingsButton: QuickInputButton = {
 function createAlwaysUseToggle(
 	label: string,
 	settingButton: QuickInputButton,
-	onDidChange: () => void,
+	onDidChange: (quickpick: QuickPick<QuickPickItem>) => void,
 ): ConfirmToggleQuickPickItem {
 	const toggle = createConfirmToggleQuickPickItem({
 		label: label,
 		detail: l10n.t('Skip this step from now on — change anytime in settings'),
 		checked: false,
-		onDidChange: onDidChange,
+		onDidChange: (_item, quickpick) => onDidChange(quickpick),
 	});
 	// The detail promises "change anytime in settings" — the row button honors it
 	toggle.buttons = [settingButton];
@@ -253,37 +257,39 @@ export async function* pickAgentStep(
 	container: Container,
 	options?: AgentPickerOptions & { showBackButton?: boolean },
 ): AsyncStepResultGenerator<PickAgentResult> {
-	const available = await getSupportedAgents(container);
 	const currentDefault: string | null = configuration.get('ai.defaultAgent') ?? null;
+	let loaded: SupportedAgentsLoadState | undefined;
 
 	let step: QuickPickStep<AgentItem>;
 	const toggle = createAlwaysUseToggle(l10n.t('Always use this agent'), settingsButton, () =>
 		rerenderConfirmStepItems(step),
 	);
 
-	let items: AgentItem[];
-	if (available.length === 0) {
-		items = [
-			{
-				label: l10n.t('$(warning) No agents available'),
-				description: l10n.t('No supported IDE chat host, no Claude extension, no detected CLIs'),
-				kind: QuickPickItemKind.Separator,
-			},
-			{
-				label: l10n.t('$(arrow-right) Continue Manually'),
-				description: l10n.t('Skip the agent and proceed with manual flow'),
-				action: 'manual',
-			},
-			{
-				label: l10n.t('$(close) Close'),
-				description: l10n.t('Cancel the wizard'),
-				action: 'cancel',
-			},
-		];
-	} else {
-		// No toggle on the empty state — there is no agent to make the default
-		items = appendAlwaysUseToggle(buildAgentItems(available, currentDefault), toggle);
-	}
+	const getPlaceholder = (): string =>
+		loaded?.agents.length === 0
+			? getEmptyPlaceholder(loaded.detectionFailed)
+			: (options?.placeholder ?? l10n.t('Select where to proceed'));
+
+	// The rows the step's quickpick last showed, and whether they were only the non-CLI rows of a first load. The
+	// wizard only hands the step its quickpick once the first load has rendered, so a reload landing before that is
+	// applied when the step activates
+	let rendered: readonly QuickPickItem[] | undefined;
+	let renderedPartial = false;
+	// Whether `step.items` are only the non-CLI rows of a first load
+	let itemsPartial = false;
+	const renderReload = (qp: QuickPick<DirectiveQuickPickItem | AgentItem>): void => {
+		// The wizard clears `busy` once it renders the first load, which may be only the non-CLI rows
+		qp.busy = loaded?.loading ?? true;
+		if (!Array.isArray(step.items) || step.items === rendered) return;
+
+		qp.placeholder = getPlaceholder();
+		replaceShownItems(qp, step.items, items => items.filter(i => i.picked), renderedPartial);
+		rendered = step.items;
+		renderedPartial = itemsPartial;
+	};
+
+	// Yield the step before loading agents, so a slow agent list shows "Loading..." in this step instead of freezing the previous one
+	const initialItems = defer<AgentItem[]>();
 
 	const titleButtons: QuickInputButton[] = [settingsButton];
 	if (options?.showBackButton) {
@@ -292,12 +298,10 @@ export async function* pickAgentStep(
 
 	step = createPickStep<AgentItem>({
 		title: options?.title ?? l10n.t('Choose an Agent'),
-		placeholder:
-			available.length === 0
-				? l10n.t('No agents available')
-				: (options?.placeholder ?? l10n.t('Select where to proceed')),
-		items: items,
+		placeholder: getPlaceholder,
+		items: initialItems.promise,
 		buttons: titleButtons,
+		onDidActivate: qp => renderReload(qp),
 		onDidClickButton: (_qp, button) => {
 			if (button === settingsButton) {
 				void executeCoreCommand('workbench.action.openSettings', 'gitlens.ai.defaultAgent');
@@ -311,7 +315,48 @@ export async function* pickAgentStep(
 		},
 	});
 
-	const selection: StepSelection<typeof step> = yield step;
+	const watcher = watchSupportedAgents(container, {
+		apply: state => {
+			loaded = state;
+			const items = buildAgentPickerItems(state.agents, {
+				currentDefault: currentDefault,
+				toggle: toggle,
+				inWizard: true,
+				detectionFailed: state.detectionFailed,
+			});
+			// Swap in the resolved array so `rerenderConfirmStepItems` (which bails on a Promise) keeps working, and
+			// the wizard (which restores `step.items` when the filter text changes) never reverts a reload
+			step.items = items;
+			itemsPartial = state.loading;
+
+			if (initialItems.pending) {
+				rendered = items;
+				renderedPartial = itemsPartial;
+				initialItems.fulfill(items);
+			} else if (step.quickpick != null) {
+				renderReload(step.quickpick);
+			}
+		},
+		onDidStartReload: () => {
+			if (loaded == null) return;
+
+			// Keeps the shown rows, but reads as busy until the reload applies
+			loaded = { ...loaded, loading: true };
+			if (step.quickpick != null) {
+				renderReload(step.quickpick);
+			}
+		},
+	});
+
+	let selection: StepSelection<typeof step>;
+	try {
+		selection = yield step;
+	} finally {
+		// Left before the first load landed (dismissed, or Back): the initial items deliberately stay pending. The
+		// wizard has already stopped waiting on them — leaving resolves the step without them — and settling them
+		// now would resume its suspended first render against the quickpick it has since disposed
+		watcher.dispose();
+	}
 	if (!canPickStepContinue(step, {}, selection)) return StepResultBreak;
 
 	const [item] = selection;
@@ -324,6 +369,166 @@ export async function* pickAgentStep(
 	if (item.action === 'manual') return { kind: 'manual' };
 	// 'cancel' or anything else → break
 	return StepResultBreak;
+}
+
+type SupportedAgentsLoadState = {
+	readonly agents: AgentDescriptor[];
+	/** CLI detection is still running, so `agents` holds only the non-CLI rows so far (or, in the wizard step's own
+	 *  copy, a reload is running, so `agents` are the rows it will replace) */
+	readonly loading: boolean;
+	/** CLI detection failed, so `agents` lacks the CLI rows because they're unknown, not absent */
+	readonly detectionFailed: boolean;
+};
+
+/**
+ * Loads the supported agents for an open picker now, and again whenever agent detection changes — a
+ * detection that timed out (so the picker loaded without its CLI rows) can still succeed later. Hands
+ * each result to `apply`, except one a newer load has superseded, or any once disposed.
+ *
+ * The first load also hands over the non-CLI rows as soon as they're ready (as `loading`), since CLI
+ * detection can stall up to its deadline. Reloads don't, as that would briefly drop shown CLI rows;
+ * instead `onDidStartReload` says one is running, so the picker can read as busy over its current rows.
+ */
+function watchSupportedAgents(
+	container: Container,
+	handlers: { apply: (state: SupportedAgentsLoadState) => void; onDidStartReload: () => void },
+): UnifiedDisposable {
+	const { apply, onDidStartReload } = handlers;
+	let latest = 0;
+	let disposed = false;
+	let applied = false;
+
+	const load = async (): Promise<void> => {
+		const id = ++latest;
+		const isCurrent = () => !disposed && id === latest;
+		let settled = false;
+
+		const { nonCli, all } = loadSupportedAgentsInStages(container);
+		if (applied) {
+			onDidStartReload();
+		} else {
+			// Neither stage rejects: a failed CLI detection or non-CLI check only drops its own rows
+			void nonCli.then(agents => {
+				// With no rows yet, keep showing "Loading..." rather than an empty state CLI detection may yet fill
+				if (settled || applied || agents.length === 0 || !isCurrent()) return;
+
+				applied = true;
+				apply({ agents: agents, loading: true, detectionFailed: false });
+			});
+		}
+
+		const result = await all;
+		settled = true;
+		if (!isCurrent()) return;
+
+		applied = true;
+		apply({ agents: result.agents, loading: false, detectionFailed: result.cliDetectionFailed });
+	};
+
+	const subscription = container.agents.onDidChangeAgents(() => void load());
+	void load();
+
+	return createDisposable(() => {
+		disposed = true;
+		subscription.dispose();
+	});
+}
+
+/**
+ * Swaps a shown picker's rows for `items`, keeping the active row where it survived (the toggle keeps
+ * its identity across reloads; an agent row is matched by its descriptor id), else activating
+ * `getDefaultActive`'s rows, when it returns any.
+ *
+ * When the shown rows were only the partial first load (`shownPartial`), the default row may have only
+ * now arrived — so the quickpick focused its first row itself. Unless the user has since moved off that
+ * row or typed filter text, the default is activated instead.
+ */
+function replaceShownItems<T extends DirectiveQuickPickItem | AgentItem>(
+	qp: QuickPick<T>,
+	items: T[],
+	getDefaultActive: (items: T[]) => T[] | undefined,
+	shownPartial: boolean,
+): void {
+	const [active] = qp.activeItems;
+	// Compares against the first selectable row the quickpick focuses on its own, as an assignment of ours is
+	// echoed back through `onDidChangeActive` asynchronously, indistinguishable from a user's move
+	// Typed filter text means the user is choosing among the filtered rows, so the default must not take the focus
+	const untouched =
+		shownPartial &&
+		qp.value === '' &&
+		(active == null || active === qp.items.find(i => i.kind !== QuickPickItemKind.Separator));
+	qp.items = items;
+
+	if (untouched) {
+		const defaultActive = getDefaultActive(items);
+		if (defaultActive != null && defaultActive.length !== 0) {
+			qp.activeItems = defaultActive;
+			return;
+		}
+	}
+
+	const activeId = active != null ? getDescriptorId(active) : undefined;
+	const match =
+		active != null
+			? items.find(i => i === active || (activeId != null && getDescriptorId(i) === activeId))
+			: undefined;
+	const nextActive = match != null ? [match] : getDefaultActive(items);
+	if (nextActive != null) {
+		qp.activeItems = nextActive;
+	}
+}
+
+function getDescriptorId(item: DirectiveQuickPickItem | AgentItem): string | undefined {
+	return 'descriptor' in item ? item.descriptor?.id : undefined;
+}
+
+/**
+ * The rows the agent pickers show for `agents`: the agents grouped by kind, then the "Always use this
+ * agent" toggle when one is given. With no agents, the empty state instead — no toggle, as there is no
+ * agent to make the default — whose "Continue Manually" row only the wizard offers.
+ */
+export function buildAgentPickerItems(
+	agents: readonly AgentDescriptor[],
+	options: {
+		currentDefault: string | null;
+		toggle?: ConfirmToggleQuickPickItem;
+		inWizard?: boolean;
+		/** CLI detection failed, so the empty state must not claim there are no CLIs */
+		detectionFailed?: boolean;
+	},
+): AgentItem[] {
+	if (agents.length === 0) {
+		const header: AgentItem = {
+			label: l10n.t('$(warning) No agents available'),
+			description: options.detectionFailed
+				? l10n.t('No supported IDE chat host, no Claude extension; unable to detect CLIs')
+				: l10n.t('No supported IDE chat host, no Claude extension, no detected CLIs'),
+			kind: QuickPickItemKind.Separator,
+		};
+		if (!options.inWizard) return [header, { label: l10n.t('$(close) Close') }];
+
+		return [
+			header,
+			{
+				label: l10n.t('$(arrow-right) Continue Manually'),
+				description: l10n.t('Skip the agent and proceed with manual flow'),
+				action: 'manual',
+			},
+			{
+				label: l10n.t('$(close) Close'),
+				description: l10n.t('Cancel the wizard'),
+				action: 'cancel',
+			},
+		];
+	}
+
+	const items = buildAgentItems(agents, options.currentDefault);
+	return options.toggle != null ? appendAlwaysUseToggle(items, options.toggle) : items;
+}
+
+/** The placeholder of an agent picker with no agents to offer. */
+function getEmptyPlaceholder(detectionFailed: boolean): string {
+	return detectionFailed ? l10n.t('Unable to detect agents') : l10n.t('No agents available');
 }
 
 /** The agent rows (grouped under per-kind separators) the agent pickers share. */
@@ -349,51 +554,36 @@ function buildAgentItems(available: readonly AgentDescriptor[], currentDefault: 
 }
 
 /**
- * Standalone version of the agent picker for non-wizard contexts (e.g., the "Pick another agent"
- * toast action that fires AFTER the wizard has completed). Safe to call when no wizard is active.
- * DO NOT use from inside a wizard's continuation — use {@link pickAgentStep} instead.
- *
- * Offers the same "Always use this agent" toggle as {@link pickAgentStep}; outside the wizard nothing
- * dispatches a directive row's `onDidSelect`, so the accept handler below does it by hand.
+ * Shows a non-wizard agent picker at once and fills it in as agents load, so a slow agent list reads
+ * as loading instead of a freeze — and reloads its rows while it stays open whenever agent detection
+ * changes. Resolves with the accepted row's descriptor, or `undefined` when dismissed or a row without
+ * one is accepted.
  */
-export async function pickAgentStandalone(
+async function showAgentQuickPick(
 	container: Container,
-	options?: AgentPickerOptions,
+	options: {
+		title: string;
+		/** The placeholder once agents have loaded, unless there are none */
+		placeholder: string;
+		buildItems: (agents: readonly AgentDescriptor[], detectionFailed: boolean) => AgentItem[];
+		/** The rows to activate on the first load (or once CLI detection completes it, unless the user moved), or
+		 *  when a reload drops the active row */
+		getDefaultActive: (items: AgentItem[]) => AgentItem[] | undefined;
+		/** Runs before the picker resolves with an accepted row; returns `true` to keep the picker open instead */
+		onDidAccept: (qp: QuickPick<AgentItem>, item: AgentItem | undefined) => Promise<boolean>;
+	},
 ): Promise<AgentDescriptor | undefined> {
-	const available = await getSupportedAgents(container);
-	const currentDefault: string | null = configuration.get('ai.defaultAgent') ?? null;
-
 	const qp = window.createQuickPick<AgentItem>();
 	const disposables: { dispose: () => void }[] = [qp];
-
-	const toggle = createAlwaysUseToggle(l10n.t('Always use this agent'), settingsButton, () => {
-		// A shown row mutated in place needs an items reassignment for the quickpick to notice
-		const active = qp.activeItems;
-		qp.items = [...qp.items];
-		qp.activeItems = active;
-	});
+	let loaded = false;
+	// Whether the shown rows are only the non-CLI rows of a first load
+	let shownPartial = false;
 
 	try {
-		qp.title = options?.title ?? l10n.t('Choose an Agent');
-		qp.placeholder =
-			available.length === 0
-				? l10n.t('No agents available')
-				: (options?.placeholder ?? l10n.t('Select where to proceed'));
+		qp.title = options.title;
+		qp.placeholder = l10n.t('Loading...');
+		qp.busy = true;
 		qp.buttons = [settingsButton];
-		qp.items =
-			available.length === 0
-				? [
-						{
-							label: l10n.t('$(warning) No agents available'),
-							description: l10n.t('No supported IDE chat host, no Claude extension, no detected CLIs'),
-							kind: QuickPickItemKind.Separator,
-						},
-						{
-							label: l10n.t('$(close) Close'),
-						},
-					]
-				: appendAlwaysUseToggle(buildAgentItems(available, currentDefault), toggle);
-		qp.activeItems = qp.items.filter(i => i.picked);
 
 		return await new Promise<AgentDescriptor | undefined>(resolve => {
 			disposables.push(
@@ -408,27 +598,94 @@ export async function pickAgentStandalone(
 					}
 				}),
 				qp.onDidAccept(async () => {
-					const item = qp.selectedItems[0];
-					if (item === toggle) {
-						// Keeps the picker open, as `Directive.Noop` does inside the wizard
-						await toggle.onDidSelect?.(qp);
-						return;
-					}
+					// Nothing to pick while loading — keep the picker open
+					if (!loaded) return;
 
-					if (item?.descriptor != null && toggle.checked) {
-						await configuration.update('ai.defaultAgent', item.descriptor.id, ConfigurationTarget.Global);
-					}
+					const item = qp.selectedItems[0];
+					if (await options.onDidAccept(qp, item)) return;
+
 					resolve(item?.descriptor);
 				}),
 				qp.onDidHide(() => resolve(undefined)),
 			);
 			qp.show();
+
+			// Disposed with the picker, so a load finishing after it closes never touches it
+			disposables.push(
+				watchSupportedAgents(container, {
+					apply: state => {
+						qp.placeholder =
+							state.agents.length === 0
+								? getEmptyPlaceholder(state.detectionFailed)
+								: options.placeholder;
+						replaceShownItems(
+							qp,
+							options.buildItems(state.agents, state.detectionFailed),
+							options.getDefaultActive,
+							shownPartial,
+						);
+						shownPartial = state.loading;
+						loaded = true;
+						// Stays busy while only the non-CLI rows are shown, as CLI detection is still running
+						qp.busy = state.loading;
+					},
+					// Keeps the shown rows, still pickable, but reads as busy until the reload applies
+					onDidStartReload: () => {
+						qp.busy = true;
+					},
+				}),
+			);
 		});
 	} finally {
 		for (const d of disposables) {
 			d.dispose();
 		}
 	}
+}
+
+/**
+ * Standalone version of the agent picker for non-wizard contexts (e.g., the "Pick another agent"
+ * toast action that fires AFTER the wizard has completed). Safe to call when no wizard is active.
+ * DO NOT use from inside a wizard's continuation — use {@link pickAgentStep} instead.
+ *
+ * Offers the same "Always use this agent" toggle as {@link pickAgentStep}; outside the wizard nothing
+ * dispatches a directive row's `onDidSelect`, so the accept handler below does it by hand.
+ */
+export async function pickAgentStandalone(
+	container: Container,
+	options?: AgentPickerOptions,
+): Promise<AgentDescriptor | undefined> {
+	const currentDefault: string | null = configuration.get('ai.defaultAgent') ?? null;
+	const toggle = createAlwaysUseToggle(l10n.t('Always use this agent'), settingsButton, qp => {
+		// A shown row mutated in place needs an items reassignment for the quickpick to notice
+		const active = qp.activeItems;
+		qp.items = [...qp.items];
+		qp.activeItems = active;
+	});
+
+	return showAgentQuickPick(container, {
+		title: options?.title ?? l10n.t('Choose an Agent'),
+		placeholder: options?.placeholder ?? l10n.t('Select where to proceed'),
+		buildItems: (agents, detectionFailed) =>
+			buildAgentPickerItems(agents, {
+				currentDefault: currentDefault,
+				toggle: toggle,
+				detectionFailed: detectionFailed,
+			}),
+		getDefaultActive: items => items.filter(i => i.picked),
+		onDidAccept: async (qp, item) => {
+			if (item === toggle) {
+				// Keeps the picker open, as `Directive.Noop` does inside the wizard
+				await toggle.onDidSelect?.(qp);
+				return true;
+			}
+
+			if (item?.descriptor != null && toggle.checked) {
+				await configuration.update('ai.defaultAgent', item.descriptor.id, ConfigurationTarget.Global);
+			}
+			return false;
+		},
+	});
 }
 
 /**
@@ -442,81 +699,52 @@ export async function pickAndSetDefaultAgent(
 	container: Container,
 	options?: AgentPickerOptions,
 ): Promise<AgentDescriptor | undefined> {
-	const available = await getSupportedAgents(container);
 	const currentDefault: string | null = configuration.get('ai.defaultAgent') ?? null;
 
-	const qp = window.createQuickPick<AgentItem>();
-	const disposables: { dispose: () => void }[] = [qp];
-
-	const buildItems = (): AgentItem[] => {
-		if (available.length === 0) {
-			return [
-				{
-					label: l10n.t('$(warning) No agents available'),
-					description: l10n.t('No supported IDE chat host, no Claude extension, no detected CLIs'),
-					kind: QuickPickItemKind.Separator,
-				},
-				{
-					label: l10n.t('$(close) Close'),
-				},
-			];
-		}
-
-		const items: AgentItem[] = [];
-		let lastKind: AgentDescriptor['kind'] | undefined;
-		for (const d of available) {
-			if (d.kind !== lastKind) {
-				const sep = sectionLabelFor(d.kind);
-				if (sep != null) {
-					items.push({ label: sep, kind: QuickPickItemKind.Separator });
-				}
-				lastKind = d.kind;
+	return showAgentQuickPick(container, {
+		title: options?.title ?? l10n.t('Switch Default Agent'),
+		placeholder: options?.placeholder ?? l10n.t('Select the default agent'),
+		// The default is marked by making it the active row, not by `picked`
+		buildItems: (agents, detectionFailed) =>
+			buildAgentPickerItems(agents, { currentDefault: null, detectionFailed: detectionFailed }),
+		getDefaultActive: items => {
+			const active = items.find(i => i.descriptor?.id === currentDefault);
+			return active != null ? [active] : undefined;
+		},
+		onDidAccept: async (_qp, item) => {
+			if (item?.descriptor != null) {
+				await configuration.update('ai.defaultAgent', item.descriptor.id, ConfigurationTarget.Global);
 			}
-			items.push({
-				descriptor: d,
-				label: `$(${(iconFor(d.kind) as { id?: string }).id ?? 'circle-outline'}) ${d.label}`,
-				description: descriptionFor(d),
-			});
-		}
-		return items;
-	};
+			return false;
+		},
+	});
+}
 
+/**
+ * Resolves the persisted default agent for an interactive caller that otherwise shows an agent picker: the
+ * default's descriptor, or `undefined` for the caller to show the picker instead. When agent detection fails,
+ * says the default couldn't be verified (it's unknown, not gone); with `notifyUnavailable`, also says when it's gone.
+ */
+export async function resolveDefaultAgentOrNotify(
+	container: Container,
+	agentId: string,
+	options?: { notifyUnavailable?: boolean },
+): Promise<AgentDescriptor | undefined> {
+	let descriptor: AgentDescriptor | undefined;
 	try {
-		qp.title = options?.title ?? l10n.t('Switch Default Agent');
-		qp.placeholder =
-			available.length === 0
-				? l10n.t('No agents available')
-				: (options?.placeholder ?? l10n.t('Select the default agent'));
-		qp.buttons = [settingsButton];
-		qp.items = buildItems();
-		const active = qp.items.find((i): i is AgentItem => 'descriptor' in i && i.descriptor?.id === currentDefault);
-		if (active != null) {
-			qp.activeItems = [active];
-		}
-
-		return await new Promise<AgentDescriptor | undefined>(resolve => {
-			disposables.push(
-				qp.onDidTriggerButton(button => {
-					if (button === settingsButton) {
-						void executeCoreCommand('workbench.action.openSettings', 'gitlens.ai.defaultAgent');
-					}
-				}),
-				qp.onDidAccept(async () => {
-					const item = qp.selectedItems[0];
-					if (item?.descriptor != null) {
-						await configuration.update('ai.defaultAgent', item.descriptor.id, ConfigurationTarget.Global);
-					}
-					resolve(item?.descriptor);
-				}),
-				qp.onDidHide(() => resolve(undefined)),
-			);
-			qp.show();
-		});
-	} finally {
-		for (const d of disposables) {
-			d.dispose();
-		}
+		descriptor = await resolveDefaultAgent(container, agentId);
+	} catch (ex) {
+		Logger.error(ex, 'Unable to resolve the default agent');
+		void window.showInformationMessage(
+			l10n.t('Unable to detect agents to verify the default agent. Choose an agent.'),
+		);
+		return undefined;
 	}
+
+	if (descriptor == null && options?.notifyUnavailable) {
+		void window.showInformationMessage(l10n.t('Default agent is no longer available. Choose another.'));
+	}
+	return descriptor;
 }
 
 export type ResolveAgentFlowResult =
@@ -582,7 +810,17 @@ export async function* resolveAgentFlow(
 
 		// resolveDefaultAgent only returns descriptors that pass the supported-agents filter,
 		// so no extra availability check is needed — runAgent re-validates at dispatch time.
-		const descriptor = container != null ? await resolveDefaultAgent(container, persistedAgentId) : undefined;
+		let descriptor: AgentDescriptor | undefined;
+		try {
+			descriptor = container != null ? await resolveDefaultAgent(container, persistedAgentId) : undefined;
+		} catch (ex) {
+			// Detection failed, so the default can't be verified (not known to be unavailable, so this isn't a
+			// fallback) — continue manually rather than prompt. The notice is never awaited: these callers must not
+			// wait on UI
+			Logger.warn('Unable to detect agents to resolve the default agent; continuing manually', ex);
+			void window.showWarningMessage(l10n.t('Unable to detect agents. Continued without the default agent.'));
+			return { kind: 'manual' };
+		}
 		if (descriptor == null) {
 			void container?.usage.track('action:gitlens.ai.openInAgent.useDefaultsFallback:happened');
 			return { kind: 'manual' };
@@ -590,7 +828,9 @@ export async function* resolveAgentFlow(
 		return { kind: 'agent', descriptor: descriptor };
 	}
 
-	// Interactive flow — yield steps to the wizard machinery.
+	// Interactive flow — yield steps to the wizard machinery. The persisted default is resolved (and any failure
+	// notified) on the first pass only, so going back to the pre-picker and on again doesn't repeat the notice
+	let defaultResolved = false;
 	while (true) {
 		let chosenRoute: PickableRoute;
 		if (route !== 'ask') {
@@ -609,13 +849,14 @@ export async function* resolveAgentFlow(
 		if (chosenRoute === 'kepler') return { kind: 'kepler' };
 
 		// Agent route: try persisted default first.
-		if (persistedAgentId != null) {
-			const descriptor = container != null ? await resolveDefaultAgent(container, persistedAgentId) : undefined;
+		if (!defaultResolved && persistedAgentId != null && container != null) {
+			defaultResolved = true;
+			const descriptor = await resolveDefaultAgentOrNotify(container, persistedAgentId, {
+				notifyUnavailable: true,
+			});
 			if (descriptor != null) {
 				return { kind: 'agent', descriptor: descriptor };
 			}
-
-			void window.showInformationMessage(l10n.t('Default agent is no longer available. Choose another.'));
 		}
 
 		// Need to pick an agent. Show back button only when we got here via the pre-picker.

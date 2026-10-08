@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { RunError } from '@gitlens/utils/env/node/exec.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { runCLICommand } from './cli/utils.js';
 
@@ -18,13 +19,19 @@ export function isCliExecutableAvailable(executable: string | undefined): boolea
 	return typeof executable === 'string' && executable.length > 0 && existsSync(executable);
 }
 
-export async function fetchAgents(): Promise<GkAgent[]> {
+/** Rejects when the CLI process is killed (e.g. for running past `timeoutMs`); any other failure yields `[]`. */
+export async function fetchAgents(timeoutMs?: number): Promise<GkAgent[]> {
 	try {
 		// cwd doesn't matter for `agents list` (verified) — runCLICommand's default is fine
-		const output = await runCLICommand(['agents', 'list', '--json']);
+		const output = await runCLICommand(['agents', 'list', '--json'], { timeout: timeoutMs });
 		return parseAgents(output);
 	} catch (ex) {
 		Logger.error(ex, 'Failed to get agent list from CLI');
+		// A killed process means detection never finished, not that there are no agents — `[]` would be cached as
+		// such. `killed` covers a process that exits by signal (a `CancelledRunError`) and one that traps the
+		// SIGTERM and exits with a code instead (a plain `RunError`)
+		if (ex instanceof RunError && ex.killed === true) throw ex;
+
 		return [];
 	}
 }

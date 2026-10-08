@@ -1,5 +1,6 @@
 import { l10n } from 'vscode';
 import { isCliExecutableAvailable } from '@env/gk/agentFetcher.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import {
 	claudeExtensionId,
 	claudeExtensionOpenCommand,
@@ -22,8 +23,18 @@ const ideChatLabels: Record<string, string> = {
 	trae: 'Trae Chat',
 };
 
+/** The supported agents, loaded in two stages for a picker that shows rows as soon as they're ready. */
+export type SupportedAgentsLoad = {
+	/** The IDE-chat and Claude-extension rows, which are ready before CLI detection (that can stall) settles. Never
+	 *  rejects: a failed host-name or Claude-extension check yields no rows */
+	readonly nonCli: Promise<AgentDescriptor[]>;
+	/** Every supported agent once CLI detection settles. Never rejects: on a CLI detection failure, the CLI rows
+	 *  are dropped and `cliDetectionFailed` says so, since "no CLIs" and "CLIs unknown" read differently */
+	readonly all: Promise<{ agents: AgentDescriptor[]; cliDetectionFailed: boolean }>;
+};
+
 /**
- * Returns the list of agent descriptors available to the picker, in fixed kind-grouped order:
+ * Loads the agent descriptors available to the picker, in fixed kind-grouped order:
  *   IDE chat (≤ 1) → Claude extension (0..1) → CLIs (alphabetical by displayName).
  *
  * Filters applied:
@@ -31,9 +42,43 @@ const ideChatLabels: Record<string, string> = {
  *   - Claude extension: extension installed AND its open-prompt command registered
  *   - CLI: gkcli reports `detected: true` AND emits a non-empty `executable` that exists on disk
  *
+ * Loads in two stages, for a picker that shows rows as soon as they're ready. Callers that only check for agents
+ * must read `cliDetectionFailed` too: an empty list after a failed detection means "unknown", not "none".
+ *
  * Returns descriptors as plain data only — safe to serialize through the deep-link bridge.
  */
-export async function getSupportedAgents(container: Container): Promise<AgentDescriptor[]> {
+export function loadSupportedAgentsInStages(container: Container): SupportedAgentsLoad {
+	// CLIs — filtered to detected + executable-on-disk, sorted by displayName. Started first, so CLI detection
+	// runs alongside the IDE-chat and Claude-extension checks instead of after them
+	const cliPromise = getDetectedCliDescriptors(container).then(
+		(descriptors): AgentDescriptor[] | undefined => descriptors,
+		(ex: unknown) => {
+			Logger.warn('Unable to detect CLI agents; offering only non-CLI agents', ex);
+			return undefined;
+		},
+	);
+	// Caught on its own, so a failed non-CLI check never discards the CLI rows
+	const nonCli = getNonCliAgents().catch((ex: unknown): AgentDescriptor[] => {
+		Logger.error(ex, 'Unable to load the non-CLI agents; offering only CLI agents');
+		return [];
+	});
+
+	const all = (async () => {
+		const result = [...(await nonCli)];
+
+		const cliDescriptors = await cliPromise;
+		if (cliDescriptors == null) return { agents: result, cliDetectionFailed: true };
+
+		cliDescriptors.sort((a, b) => a.label.localeCompare(b.label));
+		result.push(...cliDescriptors);
+		return { agents: result, cliDetectionFailed: false };
+	})();
+
+	return { nonCli: nonCli, all: all };
+}
+
+/** The IDE-chat and Claude-extension rows, which never depend on CLI detection. */
+export async function getNonCliAgents(): Promise<AgentDescriptor[]> {
 	const result: AgentDescriptor[] = [];
 
 	// 1) IDE chat — at most one entry, host-determined.
@@ -52,14 +97,10 @@ export async function getSupportedAgents(container: Container): Promise<AgentDes
 		result.push({ id: 'claude-extension', kind: 'claude-extension', label: 'Claude Code Extension' });
 	}
 
-	// 3) CLIs — filtered to detected + executable-on-disk, sorted by displayName.
-	const cliDescriptors = await getDetectedCliDescriptors(container);
-	cliDescriptors.sort((a, b) => a.label.localeCompare(b.label));
-	result.push(...cliDescriptors);
-
 	return result;
 }
 
+/** Rejects when agent detection times out. */
 async function getDetectedCliDescriptors(container: Container): Promise<AgentDescriptor[]> {
 	const agents = await container.agents.getDetectedCliAgents();
 	return agents.map(agent => ({
@@ -85,10 +126,18 @@ export async function isAgentAvailable(descriptor: AgentDescriptor): Promise<boo
 	}
 }
 
-/** Resolves a persisted `defaultAgent` id back to a live descriptor, or `undefined` if unavailable. */
+/** Resolves a persisted `defaultAgent` id back to a live descriptor, or `undefined` if unavailable.
+ *  Rejects for a `cli:` id when agent detection fails — an undetectable CLI is unknown, not gone.
+ *  Other ids never wait on CLI detection. */
 export async function resolveDefaultAgent(container: Container, id: string): Promise<AgentDescriptor | undefined> {
-	const available = await getSupportedAgents(container);
+	const available = id.startsWith('cli:') ? await getDetectedCliDescriptors(container) : await getNonCliAgents();
 	return available.find(d => d.id === id);
+}
+
+/** Best-effort readable name for an agent id that has no descriptor to take a label from (it failed to resolve,
+ *  or detection is unavailable): the id minus its `cli:` prefix. */
+export function describeAgentId(agentId: string): string {
+	return agentId.startsWith('cli:') ? agentId.slice(4) : agentId;
 }
 
 export {

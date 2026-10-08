@@ -116,7 +116,7 @@ export function isInsidersCLIEnabled(): boolean {
 	return configuration.get('gitkraken.cli.insiders.enabled') ?? Container.instance.prereleaseOrDebugging;
 }
 
-export async function runCLICommand(args: string[], options?: { cwd?: string }): Promise<string> {
+export async function runCLICommand(args: string[], options?: { cwd?: string; timeout?: number }): Promise<string> {
 	const cwd = options?.cwd ?? Container.instance.context.globalStorageUri.fsPath;
 
 	// Centrally inject --insiders for all CLI commands when insiders is enabled
@@ -137,7 +137,7 @@ export async function runCLICommand(args: string[], options?: { cwd?: string }):
 	}
 
 	// await is needed for the scope to be properly disposed
-	return await run(command, args, 'utf8', { cwd: cwd });
+	return await run(command, args, 'utf8', { cwd: cwd, timeout: options?.timeout });
 }
 
 const CLIVersionOutputs = {
