@@ -125,6 +125,10 @@ export interface StoredConfiguredIntegrationDescriptor {
 	type?: CloudIntegrationAuthType;
 	/** Human-readable account handle for this connection (e.g. the GitHub login), when resolved. */
 	accountName?: string;
+	/** Workspace the token was granted for (Linear), separate from the person; set with {@link resourceId}. */
+	resourceName?: string;
+	/** Id of that workspace; set with {@link resourceName}, or neither is. */
+	resourceId?: string;
 	cloud: boolean;
 	integrationId: IntegrationIds;
 	domain?: string;
