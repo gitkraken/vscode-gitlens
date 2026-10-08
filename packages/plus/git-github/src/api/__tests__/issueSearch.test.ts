@@ -1519,7 +1519,13 @@ suite('GitHubApi.searchIssuesPage ceiling slide, end to end (#5805)', () => {
 suite('GitHubApi.getIssuesBatch (#5802)', () => {
 	function batchServe(
 		byAlias: Record<string, unknown>,
-		errors?: { type: string; path?: string[]; message?: string; extensions?: Record<string, unknown> }[],
+		errors?: {
+			type: string;
+			code?: string;
+			path?: string[];
+			message?: string;
+			extensions?: Record<string, unknown>;
+		}[],
 	): { config: GitHubApiConfig; getVariables: () => Record<string, unknown> } {
 		let variables: Record<string, unknown> = {};
 		const config = {
@@ -1678,6 +1684,22 @@ suite('GitHubApi.getIssuesBatch (#5802)', () => {
 
 	test('an error with no path still throws the whole call, typed as today', async () => {
 		const { config } = batchServe({ i0: { issue: issueNode(1) } }, [{ type: 'RATE_LIMITED' }]);
+		const api = new GitHubApi(config);
+
+		await assert.rejects(
+			() => api.getIssuesBatch(provider, token, [{ owner: 'o', repo: 'a', number: 1 }]),
+			(ex: unknown) => ex instanceof RequestRateLimitError,
+		);
+	});
+
+	test('a RATE_LIMIT (primary limit) response throws RequestRateLimitError', async () => {
+		const { config } = batchServe({ i0: { issue: issueNode(1) } }, [
+			{
+				type: 'RATE_LIMIT',
+				code: 'graphql_rate_limit',
+				message: 'API rate limit already exceeded for user ID 1.',
+			},
+		]);
 		const api = new GitHubApi(config);
 
 		await assert.rejects(

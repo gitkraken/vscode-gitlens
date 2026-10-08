@@ -3594,6 +3594,8 @@ export class GitHubApi {
 							throw new RequestNotFoundError(ex);
 						case 'FORBIDDEN':
 							throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, ex);
+						// GitHub answers 200 + `RATE_LIMIT` (code `graphql_rate_limit`) when the primary limit is exhausted
+						case 'RATE_LIMIT':
 						case 'RATE_LIMITED': {
 							let resetAt: number | undefined;
 

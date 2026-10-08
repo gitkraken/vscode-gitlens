@@ -1,6 +1,7 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
 import { l10n } from 'vscode';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
+import { fromNow } from '@gitlens/utils/date.js';
 import {
 	ConnectIntegrationButton,
 	OpenLogsQuickInputButton,
@@ -9,7 +10,7 @@ import {
 	OpenOnGitHubQuickInputButton,
 	OpenOnGitLabQuickInputButton,
 } from '../commands/quick-wizard/quickButtons.js';
-import { AuthenticationError, getPresentableErrorMessage } from '../errors.js';
+import { AuthenticationError, getPresentableErrorMessage, RequestRateLimitError } from '../errors.js';
 import type { DirectiveQuickPickItem } from './items/directive.js';
 import { createDirectiveQuickPickItem, Directive } from './items/directive.js';
 
@@ -34,21 +35,39 @@ export function isManageIntegrationsItem(item: unknown): item is ManageIntegrati
 /** Surfaces a failed integration read as a picker item, so it can't be mistaken for an empty result */
 export function createIntegrationErrorQuickPickItem(error: Error, noun: string): DirectiveQuickPickItem {
 	if (error instanceof AggregateError) {
-		const firstAuthError = error.errors.find(e => e instanceof AuthenticationError);
-		error = firstAuthError ?? error.errors[0] ?? error;
+		error =
+			error.errors.find(e => e instanceof AuthenticationError) ??
+			error.errors.find(e => e instanceof RequestRateLimitError) ??
+			error.errors[0] ??
+			error;
+	}
+
+	if (error instanceof RequestRateLimitError) {
+		const resetMs = error.resetAt != null ? error.resetAt * 1000 : undefined;
+		return createDirectiveQuickPickItem(Directive.Noop, false, {
+			label: `$(warning) ${l10n.t('Rate limit reached')}`,
+			detail:
+				resetMs != null && resetMs > Date.now()
+					? l10n.t('Unable to fully load {0} — try again {1}', noun, fromNow(new Date(resetMs)))
+					: l10n.t('Unable to fully load {0} — try again in a few minutes', noun),
+			buttons: [OpenLogsQuickInputButton],
+		});
 	}
 
 	const isAuthError = error instanceof AuthenticationError;
+
+	// Presentable message, collapsed to one line — a QuickPick `detail` is single-line
+	const message = getPresentableErrorMessage(error).replace(/\s+/g, ' ').trim();
 
 	return createDirectiveQuickPickItem(Directive.Noop, false, {
 		label: isAuthError
 			? `$(warning) ${l10n.t('Authentication Required')}`
 			: `$(warning) ${l10n.t('Unable to fully load {0}', noun)}`,
 		detail: isAuthError
-			? l10n.t('{0} — Reconnect your integration', getPresentableErrorMessage(error))
+			? l10n.t('{0} — Reconnect your integration', message)
 			: error.name === 'HttpError' && 'status' in error && typeof error.status === 'number'
-				? `${error.status}: ${String(error)}`
-				: String(error),
+				? `${error.status}: ${message}`
+				: message,
 		buttons: isAuthError ? [ConnectIntegrationButton, OpenLogsQuickInputButton] : [OpenLogsQuickInputButton],
 	});
 }
