@@ -1281,6 +1281,7 @@ export const providersMetadata: ProvidersMetadata = {
 		scopes: [
 			'read:status:jira',
 			'read:application-role:jira',
+			'read:attachment:jira',
 			'write:attachment:jira',
 			'read:comment:jira',
 			'read:project-category:jira',
