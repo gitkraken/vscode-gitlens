@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes the Jira Cloud integration to request the `read:attachment:jira` scope, so a connection can download the images attached to an issue. A connection made before this change keeps its old scopes until it is reconnected (plus/integrations)
+
 ## [0.10.3] - 2026-10-06
 
 ### Fixed
