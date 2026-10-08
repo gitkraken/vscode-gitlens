@@ -78,7 +78,7 @@ type InternalGraphWebviewViewCommands = 'gitlens.views.graph.openTimelineInTab';
 
 type InternalTimelineWebviewViewCommands = 'gitlens.views.timeline.openInTab';
 
-type InternalViewCommands = 'gitlens.views.loadMoreChildren';
+type InternalViewCommands = 'gitlens.views.loadMoreChildren' | 'gitlens.views.openWorkingFileAtFirstChange';
 
 type InternalWalkthroughCommands = 'gitlens.walkthrough.openWelcome';
 

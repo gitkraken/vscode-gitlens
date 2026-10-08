@@ -1065,7 +1065,7 @@ export interface RepositoriesViewConfig {
 
 export interface SearchAndCompareViewConfig {
 	readonly avatars: boolean;
-	readonly files: ViewsFilesConfig;
+	readonly files: ViewsFilesConfig & { readonly openDiffOnClick: boolean };
 	readonly pullRequests: {
 		readonly enabled: boolean;
 		readonly showForCommits: boolean;

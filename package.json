@@ -3703,6 +3703,13 @@
 						"scope": "window",
 						"order": 22
 					},
+					"gitlens.views.searchAndCompare.files.openDiffOnClick": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "%config.views.searchAndCompare.files.openDiffOnClick.markdownDescription%",
+						"scope": "window",
+						"order": 23
+					},
 					"gitlens.views.searchAndCompare.files.icon": {
 						"type": "string",
 						"default": "type",

@@ -2008,6 +2008,7 @@
 	"config.views.searchAndCompare.files.layout.enumDescriptions.1": "Displays files as a list",
 	"config.views.searchAndCompare.files.layout.enumDescriptions.2": "Displays files as a tree",
 	"config.views.searchAndCompare.files.layout.markdownDescription": "Specifies how the _Search & Compare_ view will display files",
+	"config.views.searchAndCompare.files.openDiffOnClick.markdownDescription": "Specifies whether to open the changes (diff) or the working file when clicking a file in the _Search & Compare_ view",
 	"config.views.searchAndCompare.files.threshold.markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Search & Compare_ view. Only applies when `#gitlens.views.searchAndCompare.files.layout#` is set to `auto`",
 	"config.views.searchAndCompare.pullRequests.enabled.markdownDescription": "Specifies whether to query for pull requests associated with commits in the _Search & Compare_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 	"config.views.searchAndCompare.pullRequests.showForCommits.markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Search & Compare_ view. Requires a connection to a supported remote service (e.g. GitHub)",

@@ -18,6 +18,7 @@ import { debug } from '@gitlens/utils/decorators/log.js';
 import { runSequentially } from '@gitlens/utils/function.js';
 import { join, map } from '@gitlens/utils/iterable.js';
 import { lazy } from '@gitlens/utils/lazy.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { basename } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens.d.js';
@@ -29,6 +30,7 @@ import type { GenerateChangelogCommandArgs } from '../commands/generateChangelog
 import { generateChangelogAndOpenMarkdownDocument } from '../commands/generateChangelog.js';
 import type { OpenFileAtRevisionCommandArgs } from '../commands/openFileAtRevision.js';
 import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote.js';
+import type { OpenWorkingFileCommandArgs } from '../commands/openWorkingFile.js';
 import type { RecomposeFromCommitCommandArgs } from '../commands/recomposeFromCommit.js';
 import type { RunTaskOnWorktreeCommandArgs } from '../commands/runTaskOnWorktree.js';
 import type { StartAgentSessionCommandArgs } from '../commands/startAgentSession.js';
@@ -1796,6 +1798,61 @@ export class ViewCommands implements Disposable {
 		}
 
 		return CommitActions.openFile(node.uri, { preserveFocus: true, preview: false, ...options });
+	}
+
+	@command('gitlens.views.openWorkingFileAtFirstChange')
+	@debug()
+	private async openWorkingFileAtFirstChange(
+		node: CommitFileNode | ResultsFileNode,
+		options?: { line?: number; showOptions?: TextDocumentShowOptions },
+	) {
+		if (!node.isAny('commit-file', 'results-file')) return;
+
+		const scope = getScopedLogger();
+
+		let uri: GitUri;
+		let ref1: string | undefined;
+		let ref2: string | undefined;
+		if (node.is('commit-file')) {
+			uri = GitUri.fromFile(node.file, node.commit.repoPath, node.commit.sha);
+			ref2 = node.commit.sha;
+		} else {
+			// Same uri the node's own working-file command uses, so the open command can follow renames
+			uri = GitUri.fromFile(node.file, node.uri.repoPath!, node.ref2 || node.ref1);
+			ref1 = node.ref1 || undefined;
+			// An empty ref2 means the working tree
+			ref2 = node.ref2 || undefined;
+		}
+
+		// Always resolve to a number, otherwise the open command falls back to the active editor's cursor line
+		let line = options?.line;
+		if (line == null) {
+			line = 0;
+			try {
+				if (node.is('commit-file')) {
+					ref1 = await GitCommit.getPreviousSha(node.commit);
+				}
+
+				// A missing previous ref means there is nothing to diff against (e.g. a root commit)
+				if (ref1 != null) {
+					const diff = await this.container.git.getDiffForFile(uri, ref1, ref2);
+					const start = diff?.hunks[0]?.current.position.start;
+					if (start != null) {
+						// Hunk positions are 1-based; editor lines are 0-based
+						line = Math.max(start - 1, 0);
+					}
+				}
+			} catch (ex) {
+				// Failing to find the first change must never prevent the file from opening
+				scope?.error(ex);
+			}
+		}
+
+		void (await executeEditorCommand<OpenWorkingFileCommandArgs>('gitlens.openWorkingFile:command', undefined, {
+			uri: uri,
+			line: line,
+			showOptions: { preserveFocus: true, preview: true, ...options?.showOptions },
+		}));
 	}
 
 	@command('gitlens.openFileHistoryInGraph:views')

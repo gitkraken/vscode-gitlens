@@ -1,4 +1,4 @@
-import type { Command, Selection } from 'vscode';
+import type { Command, Selection, TextDocumentShowOptions } from 'vscode';
 import { l10n, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
@@ -15,7 +15,7 @@ import { GitUri } from '../../git/gitUri.js';
 import { getCommitForFile } from '../../git/utils/-webview/commit.utils.js';
 import { createCommand } from '../../system/-webview/command.js';
 import { relativeDir } from '../../system/-webview/path.js';
-import { selectionToDiffRange } from '../../system/-webview/vscode/range.js';
+import { diffRangeToEditorLine, selectionToDiffRange } from '../../system/-webview/vscode/range.js';
 import type { ViewsWithCommits, ViewsWithStashes } from '../viewBase.js';
 import { createViewDecorationUri } from '../viewDecorationProvider.js';
 import { getFileTooltipMarkdown } from './abstract/viewFileNode.js';
@@ -170,6 +170,19 @@ export abstract class CommitFileNodeBase<
 		} else {
 			const selection = this.options?.selection;
 			range = this.commit.file?.range ?? (selection != null ? selectionToDiffRange(selection) : null);
+		}
+
+		if (this.view.type === 'searchAndCompare' && !this.view.config.files.openDiffOnClick) {
+			return createCommand<[this, { line?: number; showOptions?: TextDocumentShowOptions }]>(
+				'gitlens.views.openWorkingFileAtFirstChange',
+				l10n.t('Open File'),
+				this,
+				{
+					// Search results often have no range; omitting the line lets the command jump to the first changed line
+					line: range != null ? diffRangeToEditorLine(range) : undefined,
+					showOptions: { preserveFocus: true, preview: true },
+				},
+			);
 		}
 
 		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(

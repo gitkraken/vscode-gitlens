@@ -1,4 +1,4 @@
-import type { Command } from 'vscode';
+import type { Command, TextDocumentShowOptions } from 'vscode';
 import { l10n, TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { GitFile } from '@gitlens/git/models/file.js';
 import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
@@ -115,6 +115,15 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 	}
 
 	override getCommand(): Command | undefined {
+		if (this.view.type === 'searchAndCompare' && !this.view.config.files.openDiffOnClick) {
+			return createCommand<[this, { line?: number; showOptions?: TextDocumentShowOptions }]>(
+				'gitlens.views.openWorkingFileAtFirstChange',
+				l10n.t('Open File'),
+				this,
+				{ showOptions: { preserveFocus: true, preview: true } },
+			);
+		}
+
 		let lhsUri;
 		let rhsUri;
 		if (this.file.status === 'R' || this.file.status === 'C') {
