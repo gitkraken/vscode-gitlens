@@ -116,6 +116,12 @@ export interface ConfiguredIntegrationDescriptor {
 	 * provider API (the token backend doesn't expose it); absent until resolved or if the lookup fails.
 	 */
 	readonly accountName?: string;
+	/**
+	 * Workspace the connection's token was granted for (Linear), separate from the person. Resolved with the
+	 * connection's own token and kept by connection id; both are set together, or neither is.
+	 */
+	readonly resourceName?: string;
+	readonly resourceId?: string;
 	readonly cloud: boolean;
 	readonly integrationId: IntegrationIds;
 	readonly scopes: string;
@@ -146,6 +152,12 @@ export interface CloudIntegrationAuthenticationSession {
 
 export interface CloudIntegrationAuthorization {
 	url: string;
+}
+
+/** Workspace a connection's token was granted for; only ever a complete pair. */
+export interface ConnectionResource {
+	readonly id: string;
+	readonly name: string;
 }
 
 export interface CloudIntegrationConnection {

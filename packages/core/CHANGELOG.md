@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds optional `resourceName` and `resourceId` to configured integration connections, carrying the Linear workspace separately from `accountName`. Each connection resolves its workspace with its own token on every forced refresh, and on a routine sync while it has none stored, and keeps it by connection id ([#5956](https://github.com/gitkraken/vscode-gitlens/issues/5956)) (plus/integrations)
+
 ## [0.10.4] - 2026-10-08
 
 ### Changed

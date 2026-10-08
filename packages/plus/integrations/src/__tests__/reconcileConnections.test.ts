@@ -1,9 +1,12 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { Account } from '@gitlens/git/models/author.js';
+import type { ProviderAuthenticationSession, TokenWithInfo } from '../authentication/models.js';
+import type { StoredIntegrationConfigurations } from '../constants.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
 	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
@@ -1473,5 +1476,329 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		assert.equal(moved.refetched, true, 'a re-pointed connection falls through to the fetch');
 		assert.equal(moved.baseUrl, 'https://jira.example.com/jira-dc', 'and the new address is persisted');
 		assert.equal(moved.switched, true, 'and the warm integration is told to re-resolve its session');
+	});
+});
+
+suite('Linear workspace connection metadata (#5956)', () => {
+	const connection = (id: string) => ({
+		tokenId: id,
+		provider: 'linear',
+		type: 'oauth',
+		domain: 'linear.app',
+		accountName: 'same-person',
+	});
+	const token = (path: string) => ({
+		tokenId: path.split('/').pop(),
+		accessToken: `token-${path.split('/').pop()}`,
+		expiresIn: 3600,
+		scopes: 'read',
+		type: 'oauth',
+	});
+	const mockLinearOrganization = (
+		manager: ReturnType<typeof createManager>['manager'],
+		lookup: (info: TokenWithInfo) => Promise<unknown>,
+	) => {
+		(manager as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = async () => ({
+			getLinearOrganization: lookup,
+		});
+	};
+
+	test('resolves each workspace with its own token on every token fetch and keeps it by connection id', async () => {
+		const { runtime, manager } = createManager({
+			connections: [{ ...connection('one'), secondaries: [connection('two')] }],
+			token: token,
+		});
+		const lookups: string[] = [];
+		mockLinearOrganization(manager, async info => {
+			lookups.push(info.accessToken);
+			return info.accessToken === 'token-one'
+				? { id: 'org-one', name: 'First' }
+				: { id: 'org-two', name: 'Second' };
+		});
+
+		try {
+			await manager.refreshConnections();
+			const byId = new Map(manager.getConfigured(IssuesCloudHostIntegrationId.Linear).map(c => [c.id, c]));
+			assert.equal(byId.get('one')?.resourceName, 'First');
+			assert.equal(byId.get('one')?.resourceId, 'org-one');
+			assert.equal(byId.get('two')?.resourceName, 'Second');
+			assert.equal(byId.get('two')?.resourceId, 'org-two');
+			assert.equal(byId.get('two')?.accountName, 'same-person', 'the workspace does not replace the person');
+			assert.deepEqual(lookups.sort(), ['token-one', 'token-two']);
+
+			lookups.length = 0;
+			await manager.refreshConnections();
+			assert.deepEqual(lookups.sort(), ['token-one', 'token-two'], 'a forced refresh looks every workspace up');
+			const stored = runtime.storage.get<StoredIntegrationConfigurations>('integrations:configured');
+			assert.equal(stored?.linear?.find(c => c.id === 'two')?.resourceId, 'org-two');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('the lookup traverses the real provider API with the secondary connection token', async () => {
+		const { runtime, manager } = createManager({
+			connections: [{ ...connection('one'), secondaries: [connection('two')] }],
+			token: token,
+		});
+		const requests: Array<{ url: string; authorization: string | null; body: string | undefined }> = [];
+		runtime.http.fetch = async (url, init) => {
+			const authorization = new Headers(init?.headers).get('authorization');
+			requests.push({
+				url: typeof url === 'string' ? url : url.href,
+				authorization: authorization,
+				body: typeof init?.body === 'string' ? init.body : undefined,
+			});
+			const organization =
+				authorization === 'token-two'
+					? { id: 'org-two', name: 'Second', urlKey: 'second' }
+					: { id: 'org-one', name: 'First', urlKey: 'first' };
+			return new Response(JSON.stringify({ data: { organization: organization } }), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' },
+			});
+		};
+		try {
+			await manager.refreshConnections();
+			const secondary = manager.getConfigured(IssuesCloudHostIntegrationId.Linear).find(c => c.id === 'two');
+			assert.equal(secondary?.resourceName, 'Second');
+			assert.equal(secondary?.resourceId, 'org-two');
+			assert.equal(requests.length, 2);
+			assert.ok(requests.every(r => r.url === 'https://api.linear.app/graphql'));
+			assert.ok(requests.every(r => (r.body ?? '').includes('GetOrganization')));
+			assert.deepEqual(requests.map(r => r.authorization).sort(), ['token-one', 'token-two']);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('a lookup still in flight is joined by the next one for the same token, not repeated', async () => {
+		const { manager } = createManager({ connections: [connection('one')], token: token });
+		let requests = 0;
+		let answer: ((organization: unknown) => void) | undefined;
+		mockLinearOrganization(manager, () => {
+			requests++;
+			return new Promise(resolve => {
+				answer = resolve;
+			});
+		});
+		try {
+			const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
+			const session = { accessToken: 'token-one' } as unknown as ProviderAuthenticationSession;
+			// The first caller has given up (its sync timed out), yet its request is still pending.
+			const abandoned = linear.getProviderResourceForSession(session);
+			await flush();
+			const next = linear.getProviderResourceForSession(session);
+			await flush();
+			assert.equal(requests, 1, 'the second lookup joins the pending request');
+
+			answer?.({ id: 'org-one', name: 'First' });
+			assert.deepEqual(await next, { id: 'org-one', name: 'First' });
+			assert.deepEqual(await abandoned, { id: 'org-one', name: 'First' });
+
+			const later = linear.getProviderResourceForSession(session);
+			await flush();
+			answer?.({ id: 'org-one', name: 'Renamed' });
+			assert.deepEqual(await later, { id: 'org-one', name: 'Renamed' });
+			assert.equal(requests, 2, 'a settled request is not reused');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('a joined lookup that fails fails every caller, and the next one asks again', async () => {
+		const { manager } = createManager({ connections: [connection('one')], token: token });
+		let requests = 0;
+		let fail: ((reason: Error) => void) | undefined;
+		mockLinearOrganization(manager, () => {
+			requests++;
+			return requests === 1
+				? new Promise((_, reject) => {
+						fail = reject;
+					})
+				: Promise.resolve({ id: 'org-one', name: 'First' });
+		});
+		try {
+			const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
+			const session = { accessToken: 'token-one' } as unknown as ProviderAuthenticationSession;
+			const first = linear.getProviderResourceForSession(session);
+			await flush();
+			const joined = linear.getProviderResourceForSession(session);
+			await flush();
+			fail?.(new Error('offline'));
+			await assert.rejects(first, /offline/);
+			await assert.rejects(joined, /offline/);
+
+			assert.deepEqual(await linear.getProviderResourceForSession(session), { id: 'org-one', name: 'First' });
+			assert.equal(requests, 2, 'the failed request is not kept');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('a re-sync dropping the organization cache mid-lookup still stores the workspace', async () => {
+		const { manager } = createManager({ connections: [connection('one')], token: token });
+		mockLinearOrganization(manager, async () => {
+			(await manager.get(IssuesCloudHostIntegrationId.Linear)).invalidateDiscoveryCaches();
+			return { id: 'org-one', name: 'First' };
+		});
+		try {
+			await manager.refreshConnections();
+			const [descriptor] = manager.getConfigured(IssuesCloudHostIntegrationId.Linear);
+			assert.equal(descriptor.resourceId, 'org-one');
+			assert.equal(descriptor.resourceName, 'First');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	for (const [label, outcome] of [
+		['fails', () => Promise.reject(new Error('offline'))],
+		['returns a blank name', () => Promise.resolve({ id: 'org-one', name: ' ' })],
+		['returns a blank id', () => Promise.resolve({ id: ' ', name: 'First' })],
+	] as const) {
+		test(`a lookup that ${label} stores no workspace and is retried on the next refresh`, async () => {
+			const { manager } = createManager({ connections: [connection('one')], token: token });
+			let attempts = 0;
+			mockLinearOrganization(manager, () =>
+				++attempts === 1 ? outcome() : Promise.resolve({ id: 'org-one', name: 'First' }),
+			);
+			try {
+				await manager.refreshConnections();
+				const [unresolved] = manager.getConfigured(IssuesCloudHostIntegrationId.Linear);
+				assert.equal(unresolved.id, 'one', 'the connection is still stored');
+				assert.equal(unresolved.accountName, 'same-person');
+				assert.equal(unresolved.resourceName, undefined);
+				assert.equal(unresolved.resourceId, undefined);
+
+				await manager.refreshConnections();
+				const [resolved] = manager.getConfigured(IssuesCloudHostIntegrationId.Linear);
+				assert.equal(resolved.resourceName, 'First');
+				assert.equal(resolved.resourceId, 'org-one');
+				assert.equal(attempts, 2);
+			} finally {
+				manager.dispose();
+			}
+		});
+	}
+
+	const storeLinearDescriptor = (
+		runtime: ReturnType<typeof createManager>['runtime'],
+		resource?: { resourceId: string; resourceName: string },
+	) =>
+		runtime.storage.store('integrations:configured', {
+			linear: [
+				{
+					id: 'one',
+					integrationId: 'linear',
+					cloud: true,
+					primary: true,
+					scopes: 'read',
+					expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+					accountName: 'same-person',
+					...resource,
+				},
+			],
+		});
+
+	test('a forced refresh replaces a stored workspace with the one its token reports now', async () => {
+		const { runtime, manager } = createManager({ connections: [connection('one')], token: token });
+		await storeLinearDescriptor(runtime, { resourceId: 'org-one', resourceName: 'Old name' });
+		mockLinearOrganization(manager, async () => ({ id: 'org-one', name: 'New name' }));
+		try {
+			await manager.refreshConnections();
+			assert.equal(manager.getConfigured(IssuesCloudHostIntegrationId.Linear)[0].resourceName, 'New name');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('a failed lookup keeps the stored workspace', async () => {
+		const { runtime, manager } = createManager({ connections: [connection('one')], token: token });
+		await storeLinearDescriptor(runtime, { resourceId: 'org-one', resourceName: 'First' });
+		mockLinearOrganization(manager, () => Promise.reject(new Error('offline')));
+		try {
+			await manager.refreshConnections();
+			const [descriptor] = manager.getConfigured(IssuesCloudHostIntegrationId.Linear);
+			assert.equal(descriptor.resourceId, 'org-one');
+			assert.equal(descriptor.resourceName, 'First');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('a routine check-in makes no token fetch or lookup for a connection with its workspace stored', async () => {
+		const { runtime, manager, paths } = createManager({ connections: [connection('one')], token: token });
+		await storeLinearDescriptor(runtime, { resourceId: 'org-one', resourceName: 'First' });
+		let lookups = 0;
+		mockLinearOrganization(manager, async () => {
+			lookups++;
+			return { id: 'org-one', name: 'First' };
+		});
+		try {
+			runtime.fireSubscriptionCheckIn(false);
+			await flush();
+			assert.ok(paths.includes('v1/provider-tokens'), 'the sync actually ran');
+			assert.equal(lookups, 0);
+			assert.ok(
+				!paths.some(p => p.startsWith('v1/provider-tokens/tokens/')),
+				'no token fetch on routine check-ins',
+			);
+			assert.equal(manager.getConfigured(IssuesCloudHostIntegrationId.Linear)[0].resourceName, 'First');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('a routine check-in resolves the workspace of a connection stored without one', async () => {
+		const { runtime, manager } = createManager({ connections: [connection('one')], token: token });
+		await storeLinearDescriptor(runtime);
+		const lookups: string[] = [];
+		mockLinearOrganization(manager, async info => {
+			lookups.push(info.accessToken);
+			return { id: 'org-one', name: 'First' };
+		});
+		try {
+			runtime.fireSubscriptionCheckIn(false);
+			await flush();
+			assert.deepEqual(lookups, ['token-one'], 'looked up with the connection token');
+			const [descriptor] = manager.getConfigured(IssuesCloudHostIntegrationId.Linear);
+			assert.equal(descriptor.resourceId, 'org-one');
+			assert.equal(descriptor.resourceName, 'First');
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('a routine check-in on a cold integration resolves the workspace of the primary it fetched', async () => {
+		const { runtime, manager, paths } = createManager({
+			connections: [{ ...connection('one'), secondaries: [connection('two')] }],
+			// The provider-scoped path the model sync fetches answers with the primary's own connection id.
+			token: path => token(path === 'v1/provider-tokens/linear' ? 'v1/provider-tokens/tokens/one' : path),
+		});
+		const lookups: string[] = [];
+		mockLinearOrganization(manager, async info => {
+			lookups.push(info.accessToken);
+			return info.accessToken === 'token-one'
+				? { id: 'org-one', name: 'First' }
+				: { id: 'org-two', name: 'Second' };
+		});
+		try {
+			runtime.fireSubscriptionCheckIn(false);
+			await flush();
+			assert.ok(paths.includes('v1/provider-tokens/linear'), 'the model sync fetched the primary first');
+			const byId = new Map(manager.getConfigured(IssuesCloudHostIntegrationId.Linear).map(c => [c.id, c]));
+			assert.equal(byId.get('one')?.primary, true);
+			assert.equal(
+				byId.get('one')?.resourceId,
+				'org-one',
+				'the primary stored by the model sync gets its workspace',
+			);
+			assert.equal(byId.get('one')?.resourceName, 'First');
+			assert.equal(byId.get('two')?.resourceId, 'org-two');
+			assert.deepEqual(lookups.sort(), ['token-one', 'token-two']);
+		} finally {
+			manager.dispose();
+		}
 	});
 });
