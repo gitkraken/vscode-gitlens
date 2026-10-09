@@ -54,10 +54,12 @@ const display = ensureXvfb();
 export default defineConfig([
 	{
 		label: 'Unit Tests',
-		// Run only node-target tests; exclude stale webworker output under out/tests/browser/
-		files: globSync('out/tests/**/*.test.js').filter(
-			f => !f.replaceAll('\\', '/').startsWith('out/tests/browser/'),
-		),
+		// Run only node-target tests; exclude stale webworker output under out/tests/browser/.
+		// Paths are normalized to `/` because @vscode/test-cli feeds relative entries back into `glob()`, where
+		// the `\` separators `globSync()` returns on Windows are escapes — which matched nothing and ran 0 tests.
+		files: globSync('out/tests/**/*.test.js')
+			.map(f => f.replaceAll('\\', '/'))
+			.filter(f => !f.startsWith('out/tests/browser/')),
 		version: 'stable',
 		launchArgs: ['--disable-extensions', '--disable-gpu'],
 		env: display ? { DISPLAY: display } : {},
