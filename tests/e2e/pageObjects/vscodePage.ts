@@ -87,16 +87,21 @@ export class VSCodePage {
 	async getActiveEditorState(): Promise<{ kind: 'diff' | 'text' | 'other' | 'none'; file?: string; line?: number }> {
 		return this.evaluate(vscode => {
 			const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input as
-				| { original?: unknown; modified?: unknown; uri?: { path: string } }
+				| { original?: unknown; modified?: unknown; uri?: Uri }
 				| undefined;
 			if (input == null) return { kind: 'none' as const };
 			if (input.original != null && input.modified != null) return { kind: 'diff' as const };
-			if (input.uri == null) return { kind: 'other' as const };
+
+			// Custom and notebook tabs carry a `uri` too — only a matching text editor makes the tab a text one
+			const editor = vscode.window.activeTextEditor;
+			if (input.uri == null || editor?.document.uri.toString() !== input.uri.toString()) {
+				return { kind: 'other' as const };
+			}
 
 			return {
 				kind: 'text' as const,
 				file: input.uri.path.split('/').pop(),
-				line: vscode.window.activeTextEditor?.selection.active.line,
+				line: editor.selection.active.line,
 			};
 		});
 	}
