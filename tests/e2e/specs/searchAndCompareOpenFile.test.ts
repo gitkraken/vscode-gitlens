@@ -105,8 +105,8 @@ test.describe('Search & Compare — open file on click', () => {
 		await clickFile(vscode, /^file1\.txt/);
 
 		await expect
-			.poll(async () => (await vscode.gitlens.getActiveEditorState()).kind, { timeout: MaxTimeout })
-			.toBe('diff');
+			.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout })
+			.toEqual({ kind: 'diff', file: 'file1.txt' });
 	});
 
 	test('with the setting off, the same row opens the working file at its first change without a refresh', async ({
