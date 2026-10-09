@@ -120,6 +120,7 @@ import { getRemoteProviderUrl, remoteSupportsIntegration } from '../../../git/ut
 import { sortRepositories } from '../../../git/utils/-webview/sorting.js';
 import { getSiblingWorktreeBranches, getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import { getFeedbackIssueUrl } from '../../../plus/gk/feedbackService.js';
+import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import {
 	isAccountAccessRequired,
@@ -510,10 +511,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** Mirrors the webview's `displayMode` (session-only); Visualizations mode needs row stats. */
 	private _displayMode: GraphDisplayMode = 'graph';
 	private _hoverCache = new Map<string, Promise<string>>();
-	// True while the webview shows only the account-access screen (signed out or unverified). In that
-	// state `getState` skips the entire graph data pipeline, so the graph must be reloaded once the
-	// account becomes usable — see `onSubscriptionChanged`.
-	private _accountAccessRequired = false;
+	// True while the webview shows only the account-access screen (unverified account, or signed out
+	// past the private-repo preview). A `getState` OUTPUT, not derivable from the subscription alone —
+	// the decision also weighs repo visibility and the preview. While up, `getState` skips the entire
+	// graph data pipeline, so the graph must be reloaded once access becomes usable — see
+	// `onSubscriptionChanged` and `onFeaturePreviewChanged`.
+	private _accountWallUp = false;
+	/** True while `getState` itself is auto-starting the preview — its `onFeaturePreviewChanged` echo
+	 *  must not force a second full rebuild for state the in-flight build ships. */
+	private _autoStartingPreview = false;
 	/** True while the last rows walk's failure still stands — mirrors what the webview holds, so the
 	 *  `save-last` slot can never replay a stale wedge over a graph that has since loaded. */
 	private _rowsFailed = false;
@@ -1837,7 +1843,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// While account-gated the app can only park the action for its sign-in messaging (the
 				// graph DOM doesn't exist) — retain it here too, so gated rebuilds and the un-gating
 				// full build re-deliver the LATEST task instead of a stale earlier one
-				if (this._accountAccessRequired) {
+				if (this._accountWallUp) {
 					this._pendingAction = {
 						action: arg.action,
 						target: arg.target,
@@ -1914,10 +1920,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const branch = await repo.git.branches.getBranch();
 			if (!branch?.detached) return;
 
-			if (
-				options?.skipAccessCheck !== true &&
-				isAccountAccessRequired(await this.container.subscription.getSubscription())
-			) {
+			// Suppressed while the account wall is up — the user can't act on the graph behind it
+			if (options?.skipAccessCheck !== true && this._accountWallUp) {
 				return;
 			}
 
@@ -2813,8 +2817,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@trace({ args: false })
-	private onFeaturePreviewChanged(e: FeaturePreviewChangeEvent) {
+	private async onFeaturePreviewChanged(e: FeaturePreviewChangeEvent) {
 		if (e.feature !== 'graph') return;
+		// The in-flight auto-starting build ships the resulting state itself
+		if (this._autoStartingPreview) return;
+
+		// While signed out the preview decides which side of the account wall the graph is on — a
+		// status flip swaps whole screens, which must ship as an atomic full rebuild (same rationale
+		// as `onSubscriptionChanged`), not an access push into a webview missing the graph subtree
+		if (this.host.ready) {
+			const subscription = await this.container.subscription.getSubscription(true);
+			if (subscription.account == null && (getFeaturePreviewStatus(e) === 'active') === this._accountWallUp) {
+				this._data.updateState(true);
+				return;
+			}
+		}
 
 		void this.fireAccessChanged(e);
 	}
@@ -2833,7 +2850,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// While only the account-access screen is shown, the graph data is neither loaded nor displayed —
 		// skip all repo-driven WIP/branch/state work (mirrors the guard in `onRepositoryWorkingTreeChanged`).
-		if (this._accountAccessRequired) return;
+		if (this._accountWallUp) return;
 
 		// A `worktrees` change reaches every session sharing the physical `.git` directory, including the
 		// session for a worktree deleted out from under it — so an EXTERNAL `git worktree remove` of the
@@ -2976,7 +2993,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private onRepositoryWorkingTreeChanged(e: RepositoryWorkingTreeChangeEvent) {
 		if (e.repository.id !== this.repository?.id) return;
 		// Skip WIP git-status work while only the account-access screen is shown.
-		if (this._accountAccessRequired) return;
+		if (this._accountWallUp) return;
 
 		void this._wip.notifyDidChangeWorkingTree();
 	}
@@ -2987,20 +3004,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		this._etagSubscription = e.etag;
 
-		const wasAccountAccessRequired = this._accountAccessRequired;
-		this._accountAccessRequired = isAccountAccessRequired(e.current);
-
-		// When the account-access state flips in either direction, reload the full state rather than
-		// sending a subscription-only push. The full `getState` push carries subscription + repositories
-		// (+ rows) atomically and clears the working-tree badge on the access path, which:
+		// When the wall's account input flips in either direction, reload the full state rather than
+		// sending a subscription-only push — the wall itself is decided inside `getState` (it also
+		// weighs repo visibility and the preview), and the full push carries subscription +
+		// repositories (+ rows) atomically and clears the working-tree badge on the access path, which:
 		//  - keeps the access screen up until the graph data is ready when entering a usable account (a
 		//    subscription-only push would un-gate the screen while `repositories` is still `[]`, flashing
 		//    the "no repository" empty state), and
 		//  - on entering the access screen, cancels any in-flight full-path `getState` (whose stale
 		//    signed-in state would otherwise overwrite the signed-out one) and clears a stale badge.
-		if (wasAccountAccessRequired !== this._accountAccessRequired && this.host.ready) {
+		if (isAccountAccessRequired(e.previous) !== isAccountAccessRequired(e.current) && this.host.ready) {
 			if (
-				!this._accountAccessRequired &&
+				!isAccountAccessRequired(e.current) &&
 				this._pendingAction?.action === 'scope-to-branch' &&
 				this._pendingAction.target == null
 			) {
@@ -5352,7 +5367,93 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		access: Awaited<ReturnType<GraphWebviewProvider['getGraphAccess']>>[0] | undefined,
 		featurePreview: FeaturePreview,
 	) {
-		return (access?.allowed ?? false) !== false || getFeaturePreviewStatus(featurePreview) === 'active';
+		if ((access?.allowed ?? false) !== false) return true;
+
+		// The preview only grants access while SIGNED OUT — it's a no-account concept, and its stored
+		// usage record is global (not per-account) and outlives a sign-in. Without this guard, a signed-in
+		// no-pro user who had started the preview while signed out would keep full access instead of the
+		// plan gate the matrix requires for that cell.
+		return (
+			access != null &&
+			access.subscription.current.account == null &&
+			getFeaturePreviewStatus(featurePreview) === 'active'
+		);
+	}
+
+	/** The account wall (sign-in / verify screen) state: skips the entire graph data pipeline (git walk,
+	 *  WIP, branch/PR/remote/worktree lookups). A full reload is forced from `onSubscriptionChanged` (or
+	 *  `onFeaturePreviewChanged`) once access becomes usable. */
+	private async buildAccountWallState(
+		subscription: Subscription,
+		options?: { previewExpired?: boolean },
+	): Promise<State> {
+		// Raise the wall flags here, not before the wall is decided: clearing them optimistically on
+		// every build would blind the warm-show park guards for the whole span between this point and
+		// where `allowed` is finally known, near the end of a long full build — and that span is exactly
+		// when a plan-gated warm show lands. Only ever set from a KNOWN wall state, so a stale value
+		// biases to parking (safe: the build in flight delivers it) rather than to firing an event into
+		// a webview that has no graph subtree (#5820).
+		this._accountWallUp = true;
+		this._accessWallUp = true;
+		this._wip.updateWorkingTreeBadge(undefined);
+
+		// Unverified accounts render the VERIFY screen, not the gate — don't label them with an arm
+		if (signInGateVariant == null && subscription.account == null) {
+			// The await sits on the bootstrap path and holds the whole panel blank, so pay it
+			// (bounded) only on a genuine first run — later activations resolve synchronously from
+			// the previous session's cache (ConfigCat targets the stable machineId, so the cohort
+			// is stable too). A cache predating this key resolves that session as `unassigned`.
+			if (!this.container.featureFlags.hasEverFetched) {
+				await Promise.race([this.container.featureFlags.whenReady, wait(3000)]);
+			}
+
+			// Re-check after the await: a concurrent bootstrap (editor panel + sidebar view) may
+			// have latched meanwhile — reuse its value so one window stays on one arm
+			if (signInGateVariant == null) {
+				// Key PRESENCE separates an assigned cohort from cohort-less — `getFlag`'s default would
+				// fold the cohort-less into the control arm and bias the experiment (they convert differently)
+				const value = this.container.featureFlags.getAllFlags()[FeatureFlagKey.GraphGateIntroVideo];
+				signInGateVariant = value == null ? 'unassigned' : value === true ? 'intro-video' : 'default';
+
+				// Persist the SEEN variant and re-stamp the `featureFlags` telemetry attribute; an
+				// unassigned render isn't in the experiment and never overwrites a previously seen arm
+				if (value != null) {
+					const introVideo = signInGateVariant === 'intro-video';
+					if (this.container.storage.get('graph:signInGate:introVideoShown') !== introVideo) {
+						await this.container.storage.store('graph:signInGate:introVideoShown', introVideo);
+						setFeatureFlagTelemetryGlobalAttributes(this.container);
+					}
+				}
+			}
+		}
+
+		// `accountGate`/`previewExpired` are explicit booleans on EVERY state build (here and the
+		// non-wall returns): the app applies pushes key-by-key and serialization drops `undefined`,
+		// so an omitted key would leave the previous build's value standing — a stale `true` would
+		// hold the wall up over a loaded graph.
+		return {
+			...this.host.baseWebviewState,
+			// The account-access screen loads the intro-video thumbnail from here
+			webroot: this.host.getWebRoot(),
+			allowed: false,
+			accountGate: true,
+			previewExpired: options?.previewExpired === true,
+			featurePreview: this.getFeaturePreview(),
+			// `mixed` visibility means the workspace has public repos too — the preview-ended wall can
+			// offer switching to one (same affordance as the plan gate)
+			allowRepoSwitch:
+				options?.previewExpired === true ? (await this.container.git.visibility()) === 'mixed' : false,
+			trusted: true,
+			repositories: [],
+			isWeb: isWeb,
+			subscription: subscription,
+			signInGateVariant: signInGateVariant,
+			// Sent but NOT cleared (unlike the full build): the app can't act on them while the
+			// account screen is up, but uses them to pick task-specific sign-in messaging (#5534,
+			// #5820); the un-gating full rebuild re-delivers them for actual consumption.
+			pendingAction: this._pendingAction,
+			pendingIntent: this._pendingIntent,
+		};
 	}
 
 	private getGraphItemContext(context: unknown): unknown | undefined {
@@ -5399,6 +5500,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return {
 				...this.host.baseWebviewState,
 				allowed: true,
+				accountGate: false,
+				previewExpired: false,
 				trusted: false,
 				repositories: [],
 				isWeb: isWeb,
@@ -5406,69 +5509,45 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		const subscription = await this.container.subscription.getSubscription();
-		this._accountAccessRequired = isAccountAccessRequired(subscription);
-		if (this._accountAccessRequired) {
-			// Raise the wall flag here, not before this branch: clearing it optimistically on every build
-			// would blind the warm-show park guards (see `_accessWallUp`) for the whole span between this
-			// point and where `allowed` is finally known, near the end of a long full build — and that
-			// span is exactly when a plan-gated warm show lands. Only ever set from a KNOWN wall state,
-			// so the stale value biases to parking (safe: the build in flight delivers it) rather than
-			// to firing an event into a webview that has no graph subtree (#5820).
-			this._accessWallUp = true;
-			// Signed out or unverified: the webview renders only the account-access screen, so skip the
-			// entire graph data pipeline (git walk, WIP, branch/PR/remote/worktree lookups). A full reload
-			// is forced from `onSubscriptionChanged` once the account becomes usable.
-			this._wip.updateWorkingTreeBadge(undefined);
 
-			// Unverified accounts render the VERIFY screen, not the gate — don't label them with an arm
-			if (signInGateVariant == null && subscription.account == null) {
-				// The await sits on the bootstrap path and holds the whole panel blank, so pay it
-				// (bounded) only on a genuine first run — later activations resolve synchronously from
-				// the previous session's cache (ConfigCat targets the stable machineId, so the cohort
-				// is stable too). A cache predating this key resolves that session as `unassigned`.
-				if (!this.container.featureFlags.hasEverFetched) {
-					await Promise.race([this.container.featureFlags.whenReady, wait(3000)]);
-				}
+		// Unverified accounts always render the VERIFY screen — no repo/visibility input to that decision
+		if (subscription.account?.verified === false) {
+			return this.buildAccountWallState(subscription);
+		}
 
-				// Re-check after the await: a concurrent bootstrap (editor panel + sidebar view) may
-				// have latched meanwhile — reuse its value so one window stays on one arm
-				if (signInGateVariant == null) {
-					// Key PRESENCE separates an assigned cohort from cohort-less — `getFlag`'s default would
-					// fold the cohort-less into the control arm and bias the experiment (they convert differently)
-					const value = this.container.featureFlags.getAllFlags()[FeatureFlagKey.GraphGateIntroVideo];
-					signInGateVariant = value == null ? 'unassigned' : value === true ? 'intro-video' : 'default';
-
-					// Persist the SEEN variant and re-stamp the `featureFlags` telemetry attribute; an
-					// unassigned render isn't in the experiment and never overwrites a previously seen arm
-					if (value != null) {
-						const introVideo = signInGateVariant === 'intro-video';
-						if (this.container.storage.get('graph:signInGate:introVideoShown') !== introVideo) {
-							await this.container.storage.store('graph:signInGate:introVideoShown', introVideo);
-							setFeatureFlagTelemetryGlobalAttributes(this.container);
+		// Signed out: the graph is free on public/local repos; a private repo runs on the auto-started
+		// 3-day preview and walls only once it ends. Decided per-repo, so the repo resolves early (the
+		// same choice the resolution below makes), and BEFORE `searchRequest` is consumed — the wall
+		// returns must leave it parked (#5820).
+		if (subscription.account == null && this.container.git.repositoryCount > 0) {
+			this.repository ??= this.container.git.getBestRepositoryOrFirst();
+			if (this.repository != null) {
+				const [access] = await this.getGraphAccess();
+				if (access?.allowed === false) {
+					if (getFeaturePreviewStatus(this.getFeaturePreview()) === 'eligible') {
+						// Auto-start the preview on the first walled open. The guard keeps
+						// `onFeaturePreviewChanged` from forcing a second full rebuild for a change this
+						// in-flight build ships itself.
+						this._autoStartingPreview = true;
+						try {
+							await this.container.subscription.startFeaturePreview('graph');
+						} finally {
+							this._autoStartingPreview = false;
 						}
+					}
+
+					if (getFeaturePreviewStatus(this.getFeaturePreview()) !== 'active') {
+						return this.buildAccountWallState(subscription, { previewExpired: true });
 					}
 				}
 			}
-
-			return {
-				...this.host.baseWebviewState,
-				// The account-access screen loads the intro-video thumbnail from here
-				webroot: this.host.getWebRoot(),
-				allowed: false,
-				trusted: true,
-				repositories: [],
-				isWeb: isWeb,
-				subscription: subscription,
-				signInGateVariant: signInGateVariant,
-				// Sent but NOT cleared (unlike the full build below): the app can't act on them while the
-				// account screen is up, but uses them to pick task-specific sign-in messaging (#5534,
-				// #5820); the un-gating full rebuild re-delivers them for actual consumption.
-				pendingAction: this._pendingAction,
-				pendingIntent: this._pendingIntent,
-			};
 		}
 
-		// Read AFTER the account-gated early return: that path returns without emitting
+		// Both walls decided down for account reasons — see `buildAccountWallState` for why the flag
+		// only ever moves at a KNOWN wall state
+		this._accountWallUp = false;
+
+		// Read AFTER the account-gated early returns: those paths return without emitting
 		// `searchRequest`, so consuming it above would destroy a file-history request made while
 		// signed out (#5820). Held on the host instead and delivered by the un-gating rebuild.
 		const searchRequest = this._searchRequest;
@@ -5482,6 +5561,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return {
 				...this.host.baseWebviewState,
 				allowed: true,
+				accountGate: false,
+				previewExpired: false,
 				trusted: true,
 				hasUnsafeRepositories: this.container.git.hasUnsafeRepositories(),
 				repositories: [],
@@ -5497,6 +5578,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				return {
 					...this.host.baseWebviewState,
 					allowed: true,
+					accountGate: false,
+					previewExpired: false,
 					trusted: true,
 					hasUnsafeRepositories: this.container.git.hasUnsafeRepositories(),
 					repositories: [],
@@ -6022,6 +6105,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			selectedRows: convertSelectedRows(this._selectedRows),
 			subscription: access?.subscription.current,
 			allowed: allowed,
+			accountGate: false,
+			previewExpired: false,
 			trusted: true,
 			allowRepoSwitch: allowRepoSwitch,
 			// Rows-plane fields are owned by the `graph:rows` channel now — they never travel on this State.

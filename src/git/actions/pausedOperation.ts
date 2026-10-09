@@ -6,9 +6,9 @@ import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
+import { getFeaturePreviewStatus } from '../../features.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { arePlusFeaturesEnabled } from '../../plus/gk/utils/-webview/plus.utils.js';
-import { isAccountAccessRequired } from '../../plus/gk/utils/subscription.utils.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { isDescendant } from '../../system/-webview/path.js';
 import type { GitRepositoryService } from '../gitRepositoryService.js';
@@ -325,11 +325,18 @@ export async function showPausedOperationStatus(
 async function isGraphAccessible(container: Container, repoPath: string): Promise<boolean> {
 	if (!arePlusFeaturesEnabled()) return false;
 
-	// Signed out or unverified, the Graph replaces its whole content with the account screen, so it can't
-	// surface a conflict at all — regardless of plan or repo visibility. Keep the rebase editor instead.
-	if (isAccountAccessRequired(await container.subscription.getSubscription())) return false;
+	// An unverified account walls the Graph with the account screen regardless of plan or repo
+	// visibility, so it can't surface a conflict at all — keep the rebase editor instead
+	const subscription = await container.subscription.getSubscription();
+	if (subscription.account?.verified === false) return false;
 
-	return (await container.git.access('graph', repoPath)).allowed !== false;
+	if ((await container.git.access('graph', repoPath)).allowed !== false) return true;
+
+	// Signed out on a private repo the Graph runs on the preview — an eligible one auto-starts on open
+	return (
+		subscription.account == null &&
+		getFeaturePreviewStatus(container.subscription.getFeaturePreview('graph')) !== 'expired'
+	);
 }
 
 function revealPausedOperationInGraph(repoPath: string, source?: Source): void {

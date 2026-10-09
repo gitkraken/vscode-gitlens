@@ -1,9 +1,7 @@
-import * as l10n from '@vscode/l10n';
 import type { GitFeatures } from '@gitlens/git/features.js';
 import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
-import { capitalize } from '@gitlens/utils/string.js';
 import type { StoredFeaturePreviewUsagePeriod } from './constants.storage.js';
-import { proFeaturePreviewUsageDurationInDays, proFeaturePreviewUsages } from './constants.subscription.js';
+import { proFeaturePreviewUsageDurationInDays } from './constants.subscription.js';
 import type { RequiredSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
 
 // Re-export Git feature types and constants from @gitlens/git
@@ -109,28 +107,31 @@ export interface FeaturePreview {
 	usages: StoredFeaturePreviewUsagePeriod[];
 }
 
-export function getFeaturePreviewLabel(feature: FeaturePreviews): string {
-	switch (feature) {
-		case 'graph':
-			return l10n.t('Commit Graph');
-		default:
-			return capitalize(feature);
-	}
+const hoursInMs = 3600000;
+
+/** The pre-continuous model wrote one-day windows (up to three, click-continued); those records don't
+ *  convert — their holders get a fresh full window instead, so a legacy record reads as `eligible` and
+ *  the next walled open overwrites it with a new one. Telling them apart needs no version field: only
+ *  legacy windows are shorter than two days. */
+function isLegacyPreviewUsage(usage: StoredFeaturePreviewUsagePeriod): boolean {
+	return new Date(usage.expiresOn).getTime() - new Date(usage.startedOn).getTime() < 48 * hoursInMs;
 }
 
-const hoursInMs = 3600000;
+/** One continuous window anchored on the start — the stored `expiresOn` only distinguishes record shapes */
+export function getFeaturePreviewExpiry(preview: FeaturePreview): Date | undefined {
+	const usage = preview?.usages[0];
+	if (usage == null || isLegacyPreviewUsage(usage)) return undefined;
+
+	return new Date(new Date(usage.startedOn).getTime() + 24 * proFeaturePreviewUsageDurationInDays * hoursInMs);
+}
 
 export function getFeaturePreviewStatus(preview: FeaturePreview): FeaturePreviewStatus {
 	const usages = preview?.usages;
-	if (!usages?.length) return 'eligible';
+	if (!usages?.length || isLegacyPreviewUsage(usages[0])) return 'eligible';
 
-	const remainingHours = (new Date(usages.at(-1)!.expiresOn).getTime() - Date.now()) / hoursInMs;
-
-	if (
-		usages.length <= proFeaturePreviewUsages &&
-		remainingHours > 0 &&
-		remainingHours < 24 * proFeaturePreviewUsageDurationInDays
-	) {
+	const now = Date.now();
+	// A now before the start (clock rolled back past it) expires rather than extends the preview
+	if (now >= new Date(usages[0].startedOn).getTime() && now < getFeaturePreviewExpiry(preview)!.getTime()) {
 		return 'active';
 	}
 

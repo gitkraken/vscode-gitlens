@@ -3,10 +3,8 @@ import { consume } from '@lit/context';
 import * as l10n from '@vscode/l10n';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
 import type { Source } from '../../../../constants.telemetry.js';
-import { createCommandLink } from '../../../../system/commands.js';
 import type { GraphIntent } from '../../../plus/graph/protocol.js';
 import { notifyService } from '../../shared/actions/rpc.js';
 import { featureGateContentStyles } from '../../shared/components/feature-gate.css.js';
@@ -70,14 +68,6 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 
 		return html`<gl-feature-gate
 			variant="sheet"
-			.featurePreview=${this.graphState.featurePreview}
-			featurePreviewCommandLink=${ifDefined(
-				this.graphState.featurePreview
-					? createCommandLink('gitlens.plus.continueFeaturePreview', {
-							feature: this.graphState.featurePreview.feature,
-						})
-					: undefined,
-			)}
 			appearance="alert"
 			featureRestriction="private-repos"
 			featureWithArticleIfNeeded=${l10n.t('the Commit Graph')}
@@ -85,7 +75,6 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 			?allowOrgSwitch=${orgCount > 1}
 			.source=${source}
 			.state=${this.graphState.subscription?.state}
-			.webroot=${this.graphState.webroot}
 			@gl-switch-repos=${this.onSwitchRepos}
 			@gl-switch-orgs=${this.onSwitchOrgs}
 		>

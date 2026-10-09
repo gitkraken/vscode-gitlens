@@ -137,6 +137,7 @@ import '../../shared/components/overlays/drag-shift-overlay.js';
 import './components/gl-graph-details-panel.js';
 import './components/gl-graph-feedback-dialog.js';
 import './components/gl-graph-health-banner.js';
+import './components/gl-graph-preview-banner.js';
 import './components/gl-graph-jump-toast.js';
 import './components/gl-graph-kanban.js';
 import './components/gl-graph-keyboard-shortcuts.js';
@@ -1098,11 +1099,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _postSignInPending = false;
 	private _wasAccountGated = false;
 
-	/** Mirrors the host's `isAccountAccessRequired` — the predicate for the render swap to the
-	 *  account screen, and one of the two walls `isAccessGated` parks behind. */
+	/** Mirrors the host's account-wall decision (`State.accountGate`) — the predicate for the render
+	 *  swap to the account screen, and one of the two walls `isAccessGated` parks behind. Host-decided
+	 *  because a missing account alone no longer implies it: signed-out users get the graph on
+	 *  public/local repos and during the private-repo preview. */
 	private get isAccountGated(): boolean {
-		const sub = this.graphState.subscription;
-		return sub != null && (sub.account == null || sub.account.verified === false);
+		return this.graphState.accountGate === true;
 	}
 
 	/** Any wall that blocks the graph — the account screen, or the plan gate (`!allowed`, the very
@@ -1119,6 +1121,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private get shouldShowWelcome(): boolean {
 		return (
 			!this.isAccountGated &&
+			// The graph:intro interstitial is a post-sign-in first-run surface — never shown to
+			// signed-out users, who get the graph with no prompt on public/local repos (and the
+			// preview banner on private). Without this, `gl-graph-access-account`'s `screen` getter
+			// falls to 'signin' for a null account and the welcome renders as the sign-in wall.
+			this.graphState.subscription?.account != null &&
 			(this.graphState.allowed ?? false) &&
 			// Client-read onboarding flag: `undefined` until known (don't flash), `false` = not yet
 			// dismissed, `true` = dismissed.
@@ -1906,6 +1913,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				.liveSignIn=${this._postSignInPending}
 				.showLayoutOptions=${this.layoutPromptNeeded}
 				.upgradedFromPreV19=${this.graphState.upgradedFromPreV19 ?? false}
+				.previewExpired=${this.graphState.previewExpired ?? false}
 				@gl-continue=${this.onWelcomeContinue}
 			></gl-graph-access-account>`;
 		}
@@ -2779,6 +2787,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							`
 						: nothing
 				}
+				<gl-graph-preview-banner></gl-graph-preview-banner>
 				<gl-graph-health-banner @gl-graph-show-git-health=${this.handleShowGitHealth}></gl-graph-health-banner>
 				<gl-graph-wrapper
 					.anchorShas=${this.activeAnchorShas}

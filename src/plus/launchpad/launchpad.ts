@@ -273,6 +273,24 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			context.title = this.title;
 			context.updateItemsDebouncer.cancel();
 
+			// Signed out, the access gate comes BEFORE the connect step: connecting implicitly signs
+			// the user in (the OAuth callback lands in `loginWithCode`), so the account ask must be an
+			// explicit choice up front, not a side effect discovered after the browser round-trip.
+			// (Non-interactive/MCP callers keep the gate at its post-connect spot below.)
+			if (
+				this.source.source !== 'mcp' &&
+				steps.isAtStepOrUnset(Steps.EnsureAccess) &&
+				(await this.container.subscription.getSubscription()).account == null
+			) {
+				using step = steps.enterStep(Steps.EnsureAccess);
+
+				const result = yield* ensureAccessStep(this.container, 'launchpad', state, context, step);
+				if (result === StepResultBreak) {
+					if (step.goBack() == null) break;
+					continue;
+				}
+			}
+
 			let newlyConnected = false;
 			const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
 			if (!hasConnectedIntegrations) {

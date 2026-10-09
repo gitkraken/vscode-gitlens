@@ -194,11 +194,37 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 
 		using steps = new StepsController<StepNames>(context, this);
 
+		let plusFeature: PlusFeatures | undefined;
+		if (this.key === 'startWork') {
+			plusFeature = 'startWork';
+		} else if (this.key === 'associateIssueWithBranch') {
+			plusFeature = 'associateIssueWithBranch';
+		}
+
 		let opened = false;
 		try {
 			while (!steps.isComplete) {
 				context.title = this.title;
 				const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
+
+				// Signed out, the access gate comes BEFORE the connect step: connecting implicitly signs
+				// the user in (the OAuth callback lands in `loginWithCode`), so the account ask must be an
+				// explicit choice up front, not a side effect discovered after the browser round-trip.
+				// (Non-interactive/MCP callers are settled by the guards below instead.)
+				if (
+					plusFeature != null &&
+					this.source.source !== 'mcp' &&
+					steps.isAtStepOrUnset(Steps.EnsureAccess) &&
+					(await this.container.subscription.getSubscription()).account == null
+				) {
+					using step = steps.enterStep(Steps.EnsureAccess);
+
+					const result = yield* ensureAccessStep(this.container, plusFeature, state, context, step);
+					if (result === StepResultBreak) {
+						if (step.goBack() == null) break;
+						continue;
+					}
+				}
 
 				if (steps.isAtStep(Steps.ConnectIntegrations) || !hasConnectedIntegrations) {
 					// A programmatic (MCP/agent) caller has no way to answer the interactive "Connect an
@@ -239,13 +265,6 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 
 					const connected = result.connected;
 					if (!connected) continue;
-				}
-
-				let plusFeature: PlusFeatures | undefined;
-				if (this.key === 'startWork') {
-					plusFeature = 'startWork';
-				} else if (this.key === 'associateIssueWithBranch') {
-					plusFeature = 'associateIssueWithBranch';
 				}
 
 				if (plusFeature != null && steps.isAtStepOrUnset(Steps.EnsureAccess)) {
