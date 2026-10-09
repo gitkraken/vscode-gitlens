@@ -11,7 +11,7 @@
  */
 import * as process from 'node:process';
 import type { VSCodeInstance } from '../baseTest.js';
-import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
+import { test as base, createTmpDir, DefaultTimeout, expect, GitFixture, MaxTimeout } from '../baseTest.js';
 
 /** `count` lines, `line N`, with ` changed` appended to `changedLine` (1-based) */
 function lines(count: number, changedLine?: number): string {
@@ -113,16 +113,15 @@ test.describe('Search & Compare — open file on click', () => {
 		vscode,
 	}) => {
 		// The comparison from the previous test stays as is: nothing refreshes the view but the setting change itself.
-		// The view rebuilds its items asynchronously on that change, so a click in the same instant can still hit the
-		// old item — the click is retried until the rebuilt row answers, and fails if it never does.
+		// The view rebuilds its items asynchronously on that change and nothing on screen marks the rebuild (the rows
+		// keep their DOM), so the click waits out the rebuild — measured under 100ms — and then has exactly one try
 		await vscode.gitlens.updateSetting(openDiffOnClick, false);
+		await vscode.page.waitForTimeout(DefaultTimeout);
+		await clickFile(vscode, /^file1\.txt/);
 
-		await expect(async () => {
-			await clickFile(vscode, /^file1\.txt/);
-			await expect
-				.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout / 5 })
-				.toEqual({ kind: 'text', file: 'file1.txt', line: 7 });
-		}).toPass({ timeout: MaxTimeout });
+		await expect
+			.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout })
+			.toEqual({ kind: 'text', file: 'file1.txt', line: 7 });
 	});
 
 	test('with the setting off, the comparison in the other direction lands on the same line', async ({ vscode }) => {
