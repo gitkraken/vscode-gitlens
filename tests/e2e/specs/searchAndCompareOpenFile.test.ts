@@ -25,6 +25,9 @@ const test = base.extend({
 	vscodeOptions: [
 		{
 			vscodeVersion: process.env.VSCODE_VERSION ?? 'stable',
+			// A reopened file would otherwise get back the cursor an earlier test left, so a click that sets no line
+			// could still land on the expected one
+			userSettings: { 'workbench.editor.restoreViewState': false },
 			setup: async () => {
 				const repoDir = await createTmpDir();
 				const git = new GitFixture(repoDir);
