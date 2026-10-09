@@ -79,6 +79,28 @@ export class VSCodePage {
 		);
 	}
 
+	/**
+	 * What the active editor tab shows: a diff, a text file (with its name and the cursor's 0-based line), or
+	 * something else. Tab inputs are told apart by shape — a diff has `original`/`modified`, a text file a `uri` —
+	 * since classes from the API don't survive the evaluator's serialized boundary either.
+	 */
+	async getActiveEditorState(): Promise<{ kind: 'diff' | 'text' | 'other' | 'none'; file?: string; line?: number }> {
+		return this.evaluate(vscode => {
+			const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input as
+				| { original?: unknown; modified?: unknown; uri?: { path: string } }
+				| undefined;
+			if (input == null) return { kind: 'none' as const };
+			if (input.original != null && input.modified != null) return { kind: 'diff' as const };
+			if (input.uri == null) return { kind: 'other' as const };
+
+			return {
+				kind: 'text' as const,
+				file: input.uri.path.split('/').pop(),
+				line: vscode.window.activeTextEditor?.selection.active.line,
+			};
+		});
+	}
+
 	/** The host editor's URI scheme (e.g. `vscode`, `cursor`, `windsurf`, `kiro`) */
 	async getUriScheme(): Promise<string> {
 		return this.evaluate(vscode => vscode.env.uriScheme);
