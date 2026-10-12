@@ -11,6 +11,7 @@ import {
 	agentPhaseToCategory,
 	canResolvePermission,
 	createAgentSessionArchiveHref,
+	createAgentSessionKeplerHref,
 	createAgentSessionOpenHrefs,
 	createStickyDetailResolver,
 	describeAgentSession,
@@ -358,6 +359,7 @@ with overflow: hidden. */
 			.hover-actions__row {
 				display: flex;
 				flex-direction: row;
+				flex-wrap: wrap;
 				gap: var(--gl-space-4);
 			}
 
@@ -370,8 +372,13 @@ with overflow: hidden. */
 				min-width: max-content;
 			}
 
-			.hover-actions__row > gl-popover {
+			.hover-actions__row > gl-popover,
+			.hover-actions__row > gl-button.hover-actions__icon {
 				flex: 0 0 auto;
+			}
+
+			.hover-actions__row > gl-button.hover-actions__icon {
+				min-width: auto;
 			}
 
 			.hover-actions__hint {
@@ -747,12 +754,22 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 
 		const openActions = createAgentSessionOpenHrefs(session);
 		const archiveHref = createAgentSessionArchiveHref(session);
+		const keplerHref = createAgentSessionKeplerHref(session);
 
 		return html`<action-nav class="hover-summary-row__actions" @mousedown=${this.onActionMouseDown}>
 			${openActions.map(
 				action =>
 					html`<action-item label=${action.label} icon=${action.icon} href=${action.href}></action-item>`,
 			)}
+			${
+				keplerHref != null
+					? html`<action-item
+							label=${l10n.t('Open Session in Kepler')}
+							icon="gl-kepler"
+							href=${keplerHref}
+						></action-item>`
+					: nothing
+			}
 			${
 				archiveHref != null
 					? html`<action-item
@@ -847,12 +864,13 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 				<action-nav class="pill__actions" @mousedown=${this.onActionMouseDown}>
 					<action-item label=${allowLabel} icon="check" href=${allowHref}></action-item>
 					<action-item label=${denyLabel} icon="x" href=${denyHref}></action-item>
-					${this.renderMoreActionsMenu(openHref, alwaysAllowHref)}
+					${this.renderMoreActionsMenu(openHref, alwaysAllowHref, createAgentSessionKeplerHref(session))}
 				</action-nav>
 			`;
 		}
 
 		const archiveHref = category === 'ended' ? createAgentSessionArchiveHref(session) : undefined;
+		const keplerHref = createAgentSessionKeplerHref(session);
 		const openActions = createAgentSessionOpenHrefs(session);
 
 		return html`
@@ -861,6 +879,15 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 					action =>
 						html`<action-item label=${action.label} icon=${action.icon} href=${action.href}></action-item>`,
 				)}
+				${
+					keplerHref != null
+						? html`<action-item
+								label=${l10n.t('Open Session in Kepler')}
+								icon="gl-kepler"
+								href=${keplerHref}
+							></action-item>`
+						: nothing
+				}
 				${
 					archiveHref != null
 						? html`<action-item
@@ -918,14 +945,33 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 					? nothing
 					: html`
 							<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
-								<gl-button appearance="secondary" full density="compact" href=${openHref}>
-									<code-icon icon="link-external" slot="prefix"></code-icon>
-									${l10n.t('Open Session')}
-								</gl-button>
+								<div class="hover-actions__row">
+									<gl-button appearance="secondary" full density="compact" href=${openHref}>
+										<code-icon icon="link-external" slot="prefix"></code-icon>
+										${l10n.t('Open Session')}
+									</gl-button>
+									${this.renderKeplerHoverButton(session)}
+								</div>
 							</div>
 						`
 			}
 		`;
+	}
+
+	private renderKeplerHoverButton(session: AgentSessionState): unknown {
+		const keplerHref = createAgentSessionKeplerHref(session);
+		if (keplerHref == null) return nothing;
+
+		return html`<gl-button
+			class="hover-actions__icon"
+			appearance="secondary"
+			density="compact"
+			tooltip=${l10n.t('Open Session in Kepler')}
+			aria-label=${l10n.t('Open Session in Kepler')}
+			href=${keplerHref}
+		>
+			<code-icon icon="gl-kepler"></code-icon>
+		</gl-button>`;
 	}
 
 	private renderNeedsInputHover(session: AgentSessionState, omitActions: boolean): unknown {
@@ -1015,16 +1061,19 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 											<code-icon icon="x" slot="prefix"></code-icon>
 											${denyLabel}
 										</gl-button>
-										${this.renderMoreActionsMenu(openHref, alwaysAllowHref)}
+										${this.renderMoreActionsMenu(openHref, alwaysAllowHref, createAgentSessionKeplerHref(session))}
 									</div>
 								</div>
 							`
 						: html`
 								<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
-									<gl-button appearance="secondary" full density="compact" href=${openHref}>
-										<code-icon icon="link-external" slot="prefix"></code-icon>
-										${l10n.t('Open Session')}
-									</gl-button>
+									<div class="hover-actions__row">
+										<gl-button appearance="secondary" full density="compact" href=${openHref}>
+											<code-icon icon="link-external" slot="prefix"></code-icon>
+											${l10n.t('Open Session')}
+										</gl-button>
+										${this.renderKeplerHoverButton(session)}
+									</div>
 									${
 										permission != null
 											? html`<span class="hover-actions__hint"
@@ -1041,7 +1090,11 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 	/** Overflow menu anchored off the "…" action in the needs-input row. Always Allow only renders
 	 *  when the agent supports it; Open Session is always available. The inner popover uses a click
 	 *  trigger — the parent hover popover stays open while focus is on this anchor. */
-	private renderMoreActionsMenu(openHref: string, alwaysAllowHref: string | undefined): unknown {
+	private renderMoreActionsMenu(
+		openHref: string,
+		alwaysAllowHref: string | undefined,
+		keplerHref: string | undefined,
+	): unknown {
 		return html`
 			<gl-popover placement="bottom-end" trigger="click">
 				<action-item slot="anchor" label=${l10n.t('More actions')} icon="ellipsis"></action-item>
@@ -1058,6 +1111,14 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 						<code-icon icon="link-external"></code-icon>
 						<span>${l10n.t('Open Session')}</span>
 					</a>
+					${
+						keplerHref != null
+							? html`<a class="more-menu__item" role="menuitem" href=${keplerHref}>
+									<code-icon icon="gl-kepler"></code-icon>
+									<span>${l10n.t('Open Session in Kepler')}</span>
+								</a>`
+							: nothing
+					}
 				</div>
 			</gl-popover>
 		`;
@@ -1103,16 +1164,18 @@ second grid cell — visual styling lives in the shared agentToolStyles. */
 											${action.label}
 										</gl-button>`,
 									)}
+									${this.renderKeplerHoverButton(session)}
 									${
 										archiveHref != null
 											? html`<gl-button
+													class="hover-actions__icon"
 													appearance="secondary"
-													full
 													density="compact"
+													tooltip=${l10n.t('Archive')}
+													aria-label=${l10n.t('Archive')}
 													href=${archiveHref}
 												>
-													<code-icon icon="archive" slot="prefix"></code-icon>
-													${l10n.t('Archive')}
+													<code-icon icon="archive"></code-icon>
 												</gl-button>`
 											: nothing
 									}

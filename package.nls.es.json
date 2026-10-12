@@ -93,6 +93,7 @@
 	"command.gitlens.agents.installHooksForAgent.title": "Instalar GitKraken Hooks para el agente",
 	"command.gitlens.agents.openPlanFile.title": "Ver plan",
 	"command.gitlens.agents.openSession.title": "Abrir sesión de agente",
+	"command.gitlens.agents.openSessionInKepler.title": "Abrir sesión en Kepler",
 	"command.gitlens.agents.openSessionWorktreeInNewWindow.title": "Abrir en nueva ventana",
 	"command.gitlens.agents.openWorktree.title": "Abrir árbol de trabajo",
 	"command.gitlens.agents.openWorktreeInNewWindow.title": "Abrir árbol de trabajo en nueva ventana",

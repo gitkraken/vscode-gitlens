@@ -83,6 +83,15 @@ export function resolveKeplerTaskRequest(request: KeplerTaskRequest): KeplerTask
 	};
 }
 
+/** Tells the user Kepler isn't installed and offers to open its product page. Shared by every Kepler deep-link entry point. */
+export async function promptKeplerNotInstalled(source?: Source): Promise<void> {
+	const getKeplerItem = l10n.t('Get Kepler');
+	const chosen = await window.showWarningMessage(l10n.t("Kepler isn't installed"), getKeplerItem);
+	if (chosen === getKeplerItem) {
+		void executeCommand('gitlens.kepler.openProductPage', source);
+	}
+}
+
 /**
  * Deep links into an installed Kepler's Task Composer. Shared by every entry point (tree/Graph
  * commands, and the Start Work/Review wizard route), so the gate, link and telemetry stay in one
@@ -119,12 +128,7 @@ export async function startKeplerTask(
 			source,
 		);
 
-		const getKeplerItem = l10n.t('Get Kepler');
-		const chosen = await window.showWarningMessage(l10n.t("Kepler isn't installed"), getKeplerItem);
-		if (chosen === getKeplerItem) {
-			void executeCommand('gitlens.kepler.openProductPage', source);
-		}
-
+		await promptKeplerNotInstalled(source);
 		return false;
 	}
 

@@ -238,6 +238,42 @@ export function createAgentSessionArchiveHref(session: ArchivableAgentSession): 
 	return createCommandLink(action.command, action.args[0]);
 }
 
+export interface AgentSessionKeplerAction {
+	label: string;
+	icon: 'gl-kepler';
+	command: 'gitlens.agents.openSessionInKepler';
+	args: [{ sessionId: string; providerId: string }];
+}
+
+/** The minimal shape {@link getAgentSessionKeplerAction} needs — satisfied by {@link AgentSessionState}. */
+interface KeplerOpenableAgentSession {
+	id: string;
+	providerId: string;
+	keplerAgent?: string;
+}
+
+/** "Open Session in Kepler" affordance for a session row (live or ended), or `undefined` when the host didn't
+ *  mark the session Kepler-capable (`keplerAgent` is set host-side only when Kepler is available and
+ *  the provider maps to a Kepler adapter). */
+export function getAgentSessionKeplerAction(session: KeplerOpenableAgentSession): AgentSessionKeplerAction | undefined {
+	if (session.keplerAgent == null) return undefined;
+
+	return {
+		label: l10n.t('Open Session in Kepler'),
+		icon: 'gl-kepler',
+		command: 'gitlens.agents.openSessionInKepler',
+		args: [{ sessionId: session.id, providerId: session.providerId }],
+	};
+}
+
+/** `createCommandLink` form of {@link getAgentSessionKeplerAction}, for `href=` surfaces. */
+export function createAgentSessionKeplerHref(session: KeplerOpenableAgentSession): string | undefined {
+	const action = getAgentSessionKeplerAction(session);
+	if (action == null) return undefined;
+
+	return createCommandLink(action.command, action.args[0]);
+}
+
 /** Value carried by a `gitlens:agent-session…` webview-item context — see {@link buildAgentSessionContext}
  *  and {@link buildPastAgentSessionContext}. Kept intentionally small: the host resolves the rest of a
  *  LIVE session by `sessionId` where it needs to; `cwd`/`lastPrompt`/`planFilePath` ride along only for
@@ -272,6 +308,7 @@ export interface AgentSessionContextValue {
  *  - `+resumableInExtension` — additionally, that action's `targets` includes `'extension'`.
  *  - `+worktree` — the session has a `worktreePath`.
  *  - `+prompt` — the session has a `lastPrompt`.
+ *  - `+kepler` — the host marked the session Kepler-capable (`session.keplerAgent`).
  */
 export function buildAgentSessionContext(
 	session: AgentSessionState,
@@ -314,6 +351,9 @@ export function buildAgentSessionContext(
 	}
 	if (session.actions?.archive === true) {
 		webviewItem += '+archivable';
+	}
+	if (session.keplerAgent != null) {
+		webviewItem += '+kepler';
 	}
 
 	return {
