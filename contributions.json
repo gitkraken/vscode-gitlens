@@ -216,6 +216,19 @@
 				]
 			}
 		},
+		"gitlens.agents.openSessionInKepler": {
+			"label": "Open Session in Kepler",
+			"icon": "$(gitlens-kepler)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:agent-session\\b(?=.*?\\b\\+kepler\\b)/ && !listMultiSelection && gitlens:agents:enabled && !isWeb && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "3_open",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.agents.openSessionWorktreeInNewWindow": {
 			"label": "Open in New Window",
 			"icon": "$(empty-window)",

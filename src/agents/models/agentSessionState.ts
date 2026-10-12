@@ -58,6 +58,10 @@ export type AgentSessionState = Omit<
 	/** Host-validated management capabilities. Provider methods, not phase inference, decide which
 	 *  actions webview contexts and inline controls may expose. */
 	readonly actions?: Pick<AgentSessionHistoryActions, 'archive' | 'resume'>;
+	/** The Kepler adapter id for this session's agent — set host-side only when Kepler is detected as
+	 *  installed (never on the web or a remote host, where it can't be detected) and the provider maps
+	 *  to a Kepler adapter. Its presence gates the "Open Session in Kepler" affordances. */
+	readonly keplerAgent?: string;
 	readonly subagentCount: number;
 	readonly worktree?: AgentSessionWorktreeState;
 	/** Distinct worktree roots this session has been observed in — see
@@ -212,6 +216,7 @@ export function serializeAgentSession(
 	session: AgentSession,
 	worktree: AgentSessionWorktreeMetadata | undefined,
 	actions?: Pick<AgentSessionHistoryActions, 'archive' | 'resume'>,
+	keplerAgent?: string,
 ): AgentSessionState {
 	const { subagents, ...rest } = session;
 	return {
@@ -227,6 +232,7 @@ export function serializeAgentSession(
 		commonPath: session.commonPath ?? worktree?.repoPath,
 		displayName: getSessionDisplayName(session, worktree?.name),
 		actions: actions,
+		keplerAgent: keplerAgent,
 		subagentCount: subagents?.length ?? 0,
 		worktree:
 			session.worktreePath != null

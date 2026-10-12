@@ -153,7 +153,11 @@ class RaceTestProvider implements AgentSessionProvider {
 }
 
 /** Container fake covering only the surfaces the service reaches for (git/telemetry/agents/onReady). */
-function makeContainer(options?: { worktrees?: unknown[]; onGetWorktrees?: () => Promise<unknown[]> }): Container {
+function makeContainer(options?: {
+	worktrees?: unknown[];
+	onGetWorktrees?: () => Promise<unknown[]>;
+	keplerInstalled?: boolean;
+}): Container {
 	const noopDisposable = { dispose: () => {} };
 	return {
 		git: {
@@ -167,6 +171,7 @@ function makeContainer(options?: { worktrees?: unknown[]; onGetWorktrees?: () =>
 			onDidChangeRepositories: () => noopDisposable,
 		},
 		telemetry: { sendEvent: () => {} },
+		kepler: { installed: options?.keplerInstalled },
 		agents: { getAll: () => Promise.resolve([]), invalidateCache: () => {} },
 		onReady: () => noopDisposable,
 	} as unknown as Container;
@@ -332,6 +337,28 @@ suite('AgentStatusService session snapshot publishing', () => {
 			);
 		} finally {
 			dispose();
+		}
+	});
+
+	test('marks a session Kepler-capable only when Kepler is detected as installed and the provider has an adapter', () => {
+		for (const keplerInstalled of [true, false, undefined]) {
+			const { provider, service, dispose } = setup({ keplerInstalled: keplerInstalled });
+			try {
+				provider.sessions = [
+					makeSession({ id: 'mapped', providerId: 'claudeCode' }),
+					makeSession({ id: 'unmapped', providerId: 'unknownAgent' }),
+				];
+				provider.fire();
+
+				const states = service.getSerializedSessions();
+				assert.strictEqual(
+					states.find(s => s.id === 'mapped')?.keplerAgent,
+					keplerInstalled === true ? 'claude-code' : undefined,
+				);
+				assert.strictEqual(states.find(s => s.id === 'unmapped')?.keplerAgent, undefined);
+			} finally {
+				dispose();
+			}
 		}
 	});
 
