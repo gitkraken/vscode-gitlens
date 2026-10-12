@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions } from 'vscode';
-import { Disposable, env, l10n, ProgressLocation, Uri, window, workspace } from 'vscode';
+import { Disposable, env, l10n, ProgressLocation, Range, Uri, window, workspace } from 'vscode';
 import { getTempFile } from '@env/platform.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
@@ -1833,9 +1833,12 @@ export class ViewCommands implements Disposable {
 					ref1 = await GitCommit.getPreviousSha(node.commit);
 				}
 
-				// A missing previous ref means there is nothing to diff against (e.g. a root commit)
-				if (ref1 != null) {
-					const diff = await this.container.git.getDiffForFile(uri, ref1, ref2);
+				// A missing previous ref means there is nothing to diff against (e.g. a root commit or an added file)
+				if (ref1 != null && ref1 !== deletedOrMissing) {
+					// For renames/copies the old path must be in the pathspec too, otherwise git can't pair them and reports an add
+					const diff = await this.container.git.getDiffForFile(uri, ref1, ref2, {
+						originalPath: node.file.originalPath,
+					});
 					const start = diff?.hunks[0]?.current.position.start;
 					if (start != null) {
 						// Hunk positions are 1-based; editor lines are 0-based
@@ -1848,11 +1851,40 @@ export class ViewCommands implements Disposable {
 			}
 		}
 
-		void (await executeEditorCommand<OpenWorkingFileCommandArgs>('gitlens.openWorkingFile:command', undefined, {
-			uri: uri,
-			line: line,
-			showOptions: { preserveFocus: true, preview: true, ...options?.showOptions },
-		}));
+		// Always set the selection (even for line 0) so an already-open editor's cursor moves to the change
+		const showOptions: TextDocumentShowOptions = {
+			preserveFocus: true,
+			preview: true,
+			...options?.showOptions,
+			selection: new Range(line, 0, line, 0),
+		};
+
+		let workingUri: Uri | undefined;
+		try {
+			workingUri = await this.container.git.getRepositoryService(uri.repoPath!).getWorkingUri(uri);
+		} catch (ex) {
+			scope?.error(ex);
+		}
+
+		if (workingUri != null) {
+			void (await executeEditorCommand<OpenWorkingFileCommandArgs>('gitlens.openWorkingFile:command', undefined, {
+				uri: workingUri,
+				line: line,
+				showOptions: showOptions,
+			}));
+			return;
+		}
+
+		// The file isn't in the working tree (e.g. it only exists on the compared ref), so open the revision that has it
+		if (node.is('commit-file')) {
+			await CommitActions.openFileAtRevision(node.file, node.commit, { ...showOptions, line: line });
+			return;
+		}
+
+		const revisionUri = this.container.git
+			.getRepositoryService(uri.repoPath!)
+			.getRevisionUri(node.file.status === 'D' ? node.ref1 : node.ref2 || node.ref1, node.file);
+		await CommitActions.openFileAtRevision(revisionUri, { ...showOptions, line: line });
 	}
 
 	@command('gitlens.openFileHistoryInGraph:views')

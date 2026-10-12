@@ -822,6 +822,8 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			encoding?: string;
 			filters?: GitDiffFilter[];
 			linesOfContext?: number;
+			/** Path of the file on the ref1 side (when renamed/copied); added to the pathspec so git can pair the rename */
+			originalPath?: string;
 			renames?: boolean;
 			similarityThreshold?: number | null;
 		},
@@ -857,6 +859,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				...params,
 				'--',
 				fileName,
+				...(options?.originalPath && options.originalPath !== fileName ? [options.originalPath] : []),
 			);
 		} catch (ex) {
 			const match = GitErrors.badRevision.exec(ex.message);
@@ -948,9 +951,11 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		fileName: string,
 		ref1: string | undefined,
 		ref2?: string,
-		options?: { encoding?: string },
+		options?: { encoding?: string; originalPath?: string },
 	): Promise<ParsedGitDiffHunks | undefined> {
-		const cacheKey = `${normalizePath(fileName)}:${ref1 ?? ''}:${ref2 ?? ''}`;
+		const cacheKey = `${normalizePath(fileName)}${
+			options?.originalPath ? `<${normalizePath(options.originalPath)}` : ''
+		}:${ref1 ?? ''}:${ref2 ?? ''}`;
 		return this.cache.diff.getOrCreate(
 			repoPath,
 			cacheKey,
@@ -964,7 +969,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		fileName: string,
 		ref1: string | undefined,
 		ref2: string | undefined,
-		options: { encoding?: string } | undefined,
+		options: { encoding?: string; originalPath?: string } | undefined,
 	): Promise<ParsedGitDiffHunks | undefined> {
 		// Include renames (R) and copies (C) so content diffs on renamed files still surface;
 		// --diff-filter runs after `-M` rename detection, so 'M' alone would drop valid rename diffs.
@@ -972,6 +977,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			encoding: options?.encoding,
 			filters: ['M', 'R', 'C'],
 			linesOfContext: 0,
+			originalPath: options?.originalPath,
 			renames: true,
 			similarityThreshold: this.context.config?.commits.similarityThreshold,
 		});

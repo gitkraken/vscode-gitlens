@@ -129,7 +129,7 @@ export interface GitDiffSubProvider {
 		path: string,
 		ref1: string | undefined,
 		ref2?: string,
-		options?: { encoding?: string },
+		options?: { encoding?: string; originalPath?: string },
 	): Promise<ParsedGitDiffHunks | undefined>;
 	getDiffForFileContents?(
 		repoPath: string,

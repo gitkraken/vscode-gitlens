@@ -6,8 +6,9 @@
  * fixture puts each change on a known line, so the cursor position is an exact assertion rather than "some
  * file opened".
  *
- * Not covered here, deliberately: renamed files and files missing from the working tree — both are wrong
- * today (#5967) and their rows belong with that fix.
+ * Also covers the two cases that used to go wrong (#5967): a file renamed and modified on the checked-out branch
+ * opens the working file at its first change, and a file that isn't in the working tree at all opens at the
+ * compared revision instead of only warning.
  */
 import * as process from 'node:process';
 import type { VSCodeInstance } from '../baseTest.js';
@@ -34,11 +35,19 @@ const test = base.extend({
 				await git.init();
 				await git.commit('Add file1', 'file1.txt', lines(10));
 				await git.commit('Add file2', 'file2.txt', lines(40));
+				await git.commit('Add file3', 'file3.txt', lines(20));
+
+				// `only-other.txt` exists only on `other`, so it is never in the working tree
+				await git.checkout('other', true);
+				await git.commit('Add only-other', 'only-other.txt', lines(5));
+				await git.checkout('main');
 
 				// The working tree stays on `feature`, so the working files carry the changes being opened
 				await git.checkout('feature', true);
 				await git.commit('Change file1 line 8', 'file1.txt', lines(10, 8));
 				await git.commit('Change file2 line 30', 'file2.txt', lines(40, 30));
+				await git.move('file3.txt', 'file3-renamed.txt');
+				await git.commit('Rename file3 and change line 12', 'file3-renamed.txt', lines(20, 12));
 
 				repoPath = repoDir;
 				return repoDir;
@@ -136,12 +145,57 @@ test.describe('Search & Compare — open file on click', () => {
 	});
 
 	test("with the setting off, a file in a commit's file list opens at its first change", async ({ vscode }) => {
-		await expandItem(vscode, /^(Ahead|Behind) 2 commits/);
+		await expandItem(vscode, /^(Ahead|Behind) 3 commits/);
 		await expandItem(vscode, /Change file2 line 30/);
 		await clickFile(vscode, /^file2\.txt/);
 
 		await expect
 			.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout })
 			.toEqual({ kind: 'text', file: 'file2.txt', line: 29 });
+	});
+
+	test("with the setting off, a renamed and modified file in a commit's file list opens at its first change", async ({
+		vscode,
+	}) => {
+		await expandItem(vscode, /Rename file3 and change line 12/);
+		await clickFile(vscode, /^file3-renamed\.txt/);
+
+		await expect
+			.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout })
+			.toEqual({ kind: 'text', file: 'file3-renamed.txt', line: 11 });
+	});
+
+	// A comparison labels a renamed file by the path on the side the diff runs to, so the row's name depends on the
+	// direction — the working file it opens is the same either way
+	for (const [ref1, ref2] of [
+		['main', 'feature'],
+		['feature', 'main'],
+	]) {
+		test(`with the setting off, a renamed and modified file compared ${ref1} with ${ref2} opens the working file at its first change`, async ({
+			vscode,
+		}) => {
+			await vscode.gitlens.executeCommand('gitlens.views.searchAndCompare.clear');
+			await showComparison(vscode, ref1, ref2);
+			await expandItem(vscode, /files changed/);
+			await clickFile(vscode, /^file3(-renamed)?\.txt/);
+
+			await expect
+				.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout })
+				.toEqual({ kind: 'text', file: 'file3-renamed.txt', line: 11 });
+		});
+	}
+
+	test('with the setting off, a file missing from the working tree opens at the compared revision', async ({
+		vscode,
+	}) => {
+		await vscode.gitlens.executeCommand('gitlens.views.searchAndCompare.clear');
+		await showComparison(vscode, 'feature', 'other');
+		await expandItem(vscode, /files changed/);
+		await clickFile(vscode, /^only-other\.txt/);
+
+		// The revision document's path ends in the bare file name, so `file` is comparable to a working file's
+		await expect
+			.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout })
+			.toEqual({ kind: 'text', file: 'only-other.txt', line: 0 });
 	});
 });

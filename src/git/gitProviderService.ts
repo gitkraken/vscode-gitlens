@@ -2086,19 +2086,21 @@ export class GitProviderService implements UnifiedDisposable {
 	 * @param uri Uri of the file to diff
 	 * @param ref1 Commit to diff from
 	 * @param ref2 Commit to diff to
+	 * @param options.originalPath Repo-relative path of the file on the `ref1` side, when it was renamed/copied — lets git pair the rename
 	 */
 	@debug()
 	async getDiffForFile(
 		uri: GitUri,
 		ref1: string | undefined,
 		ref2?: string,
+		options?: { originalPath?: string },
 	): Promise<ParsedGitDiffHunks | undefined> {
 		const [path, root] = splitPath(uri.fsPath, uri.repoPath);
 		const diff = this._gitService.forRepo(root)?.diff;
 		if (diff?.getDiffForFile == null) return undefined;
 
 		const encoding = getEncoding(uri);
-		return diff.getDiffForFile(path, ref1, ref2, { encoding: encoding });
+		return diff.getDiffForFile(path, ref1, ref2, { encoding: encoding, originalPath: options?.originalPath });
 	}
 
 	/**

@@ -92,6 +92,31 @@ suite('DiffSubProvider.getParsedDiff', () => {
 		}
 	});
 
+	test('getDiffForFile finds the hunk for a renamed and modified file only when given originalPath', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'old.txt', 'one\ntwo\nthree\nfour\nfive\n', 'Add old.txt');
+			execFileSync('git', ['mv', 'old.txt', 'new.txt'], { cwd: r.path, stdio: 'pipe' });
+			writeFileSync(join(r.path, 'new.txt'), 'one\ntwo\nthree\nfour modified\nfive\n');
+			execFileSync('git', ['add', 'new.txt'], { cwd: r.path, stdio: 'pipe' });
+			execFileSync('git', ['commit', '-m', 'Rename and modify'], { cwd: r.path, stdio: 'pipe' });
+
+			const without = await r.provider.diff.getDiffForFile?.(r.path, 'new.txt', 'HEAD~1', 'HEAD');
+			assert.strictEqual(
+				without,
+				undefined,
+				'Without the original path git reports an add, which is filtered out',
+			);
+
+			const withOriginal = await r.provider.diff.getDiffForFile?.(r.path, 'new.txt', 'HEAD~1', 'HEAD', {
+				originalPath: 'old.txt',
+			});
+			assert.strictEqual(withOriginal?.hunks[0]?.current.position.start, 4);
+		} finally {
+			r.cleanup();
+		}
+	});
+
 	test('multi-file commit produces one entry per file', async () => {
 		const r = createTestRepo();
 		try {

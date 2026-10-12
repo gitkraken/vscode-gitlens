@@ -225,6 +225,16 @@ export class GitFixture {
 	}
 
 	/**
+	 * Rename a tracked file, staging the rename. A later {@link commit} of the new name carries any content change
+	 * along, so the rename and the edit land in one commit.
+	 * @param from Current file name relative to repo root
+	 * @param to New file name relative to repo root
+	 */
+	async move(from: string, to: string): Promise<void> {
+		await this.git('mv', undefined, from, to);
+	}
+
+	/**
 	 * Merge a branch into the current branch
 	 * @param branch The branch to merge
 	 * @param message Optional commit message for the merge
