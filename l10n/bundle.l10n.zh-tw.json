@@ -1716,6 +1716,7 @@
 	"Enter a commit message to commit to {branch}": "輸入認可資訊以認可到 {branch}",
 	"Enter a name for the new branch": "輸入新分支的名稱",
 	"Enter a name for the remote": "輸入遠端的名稱",
+	"Enter a new name, or clear it to restore the default name": "輸入新名稱，或清除以還原預設名稱",
 	"Enter a reference or commit SHA": "輸入引用或認可 SHA",
 	"Enter a remote file url to open": "輸入要開啟的遠端檔案 URL",
 	"Enter a search value": "輸入搜尋值",

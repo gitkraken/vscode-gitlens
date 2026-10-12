@@ -1774,6 +1774,7 @@
 	"Enter a commit message to commit to {branch}": "Enter a commit message to commit to {branch}",
 	"Enter a name for the new branch": "Enter a name for the new branch",
 	"Enter a name for the remote": "Enter a name for the remote",
+	"Enter a new name, or clear it to restore the default name": "Enter a new name, or clear it to restore the default name",
 	"Enter a reference or commit SHA": "Enter a reference or commit SHA",
 	"Enter a remote file url to open": "Enter a remote file url to open",
 	"Enter a search value": "Enter a search value",

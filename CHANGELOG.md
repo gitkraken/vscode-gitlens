@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - The _Commit Graph_'s check for whether any issue integration is connected now looks at every configured host of a self-hosted tracker, so disconnecting one host no longer turns off issue enrichment while another is still connected
   - Reads a branch's associated _Jira Data Center_ issues from the instance the association names, never from another configured host that happens to be primary ([#5872](https://github.com/gitkraken/vscode-gitlens/issues/5872))
 - Adds a `gitlens.views.searchAndCompare.files.openDiffOnClick` setting to specify whether to open the changes or the working file when clicking a file in the _Search & Compare_ view ([#1651](https://github.com/gitkraken/vscode-gitlens/issues/1651)) &mdash; thanks to [PR #2845](https://github.com/gitkraken/vscode-gitlens/pull/2845) by Steven Vaught ([@Svaught598](https://github.com/Svaught598)) and [PR #3583](https://github.com/gitkraken/vscode-gitlens/pull/3583) by Ehab Younes ([@EhabY](https://github.com/EhabY))
+- Adds a _Rename..._ command to comparisons and searches in the _Search & Compare_ view to give them a custom name, or clear the name to restore the default label &mdash; thanks to Andy Everitt ([@AndyEveritt](https://github.com/AndyEveritt))
 
 ### Fixed
 

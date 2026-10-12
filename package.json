@@ -12143,6 +12143,10 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "gitlens.views.searchAndCompare.rename",
+				"title": "%command.gitlens.views.searchAndCompare.rename.title%"
+			},
+			{
 				"command": "gitlens.views.searchAndCompare.searchCommits",
 				"title": "%command.gitlens.views.searchAndCompare.searchCommits.title%",
 				"icon": "$(search)"
@@ -17561,6 +17565,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.searchAndCompare.rename",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.searchAndCompare.searchCommits",
 					"when": "false"
 				},
@@ -22182,6 +22190,11 @@
 				{
 					"command": "gitlens.views.clearReviewed",
 					"when": "viewItem =~ /gitlens:compare:results(?!:)/ && !listMultiSelection",
+					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.rename",
+					"when": "viewItem =~ /gitlens:(compare|search):results(?!:)\\b/ && !listMultiSelection",
 					"group": "1_gitlens_actions@3"
 				},
 				{

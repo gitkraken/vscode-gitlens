@@ -536,6 +536,8 @@ export interface StoredComparison {
 	type: 'comparison';
 	timestamp: number;
 	path: string;
+	/** User-provided name, replacing the default label */
+	name?: string;
 	ref1: StoredNamedRef;
 	ref2: StoredNamedRef;
 	notation?: GitRevisionRangeNotation;
@@ -547,6 +549,8 @@ export interface StoredSearch {
 	type: 'search';
 	timestamp: number;
 	path: string;
+	/** User-provided name, replacing the default label */
+	name?: string;
 	search: StoredSearchQuery;
 }
 

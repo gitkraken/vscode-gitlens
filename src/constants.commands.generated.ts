@@ -858,6 +858,7 @@ export type ContributedCommands =
 	| 'gitlens.views.searchAndCompare.attach'
 	| 'gitlens.views.searchAndCompare.clear'
 	| 'gitlens.views.searchAndCompare.refresh'
+	| 'gitlens.views.searchAndCompare.rename'
 	| 'gitlens.views.searchAndCompare.searchCommits'
 	| 'gitlens.views.searchAndCompare.selectForCompare'
 	| 'gitlens.views.searchAndCompare.setFilesLayoutToAuto'
