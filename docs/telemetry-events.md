@@ -1827,7 +1827,7 @@ or
 
 ```typescript
 {
-  'action': 'openPlanFile' | 'openSession' | 'openTerminal' | 'resumeSession',
+  'action': 'openInKepler' | 'openPlanFile' | 'openSession' | 'openTerminal' | 'resumeSession',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
@@ -2408,7 +2408,7 @@ or
 
 ```typescript
 {
-  'action': 'openPlanFile' | 'openSession' | 'resumeSession',
+  'action': 'openInKepler' | 'openPlanFile' | 'openSession' | 'resumeSession',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
@@ -5705,6 +5705,38 @@ or
 
 ```typescript
 void
+```
+
+### kepler/session/open
+
+> Sent when the user opens an agent session in Kepler — a deep link into an installed Kepler was handed off. Records what was sent, not whether Kepler handled it
+
+```typescript
+{
+  // The Kepler adapter id of the session's agent
+  'agent': 'claude-code' | 'codex' | 'copilot' | 'opencode',
+  // The Kepler channel the deep link targets
+  'channel': 'dev' | 'production' | 'source' | 'staging',
+  // Whether the session's working directory was sent as the `cwd=` hint
+  'cwd.resolved': boolean
+}
+```
+
+### kepler/session/open/failed
+
+> Sent when opening an agent session in Kepler fails — Kepler is not installed, or the deep link could not be handed off
+
+```typescript
+{
+  // The Kepler adapter id of the session's agent
+  'agent': 'claude-code' | 'codex' | 'copilot' | 'opencode',
+  // The Kepler channel the deep link targets
+  'channel': 'dev' | 'production' | 'source' | 'staging',
+  // Whether the session's working directory was sent as the `cwd=` hint
+  'cwd.resolved': boolean,
+  // Why the session was not opened. `not-installed` = Kepler is not installed, so no link was sent; `open-failed` = the deep link could not be handed off
+  'failure.reason': 'not-installed' | 'open-failed'
+}
 ```
 
 ### kepler/task/start

@@ -93,6 +93,7 @@
 	"command.gitlens.agents.installHooksForAgent.title": "为代理安装 GitKraken Hooks",
 	"command.gitlens.agents.openPlanFile.title": "查看计划",
 	"command.gitlens.agents.openSession.title": "打开代理会话",
+	"command.gitlens.agents.openSessionInKepler.title": "在 Kepler 中打开会话",
 	"command.gitlens.agents.openSessionWorktreeInNewWindow.title": "在新窗口中打开",
 	"command.gitlens.agents.openWorktree.title": "打开工作树",
 	"command.gitlens.agents.openWorktreeInNewWindow.title": "在新窗口中打开工作树",
