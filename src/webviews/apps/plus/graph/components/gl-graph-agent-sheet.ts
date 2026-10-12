@@ -23,6 +23,7 @@ import {
 	agentProviderIcon,
 	canResolvePermission,
 	createAgentSessionArchiveHref,
+	createAgentSessionKeplerHref,
 	createAgentSessionOpenHrefs,
 	createStickyDetailResolver,
 	describeAgentSession,
@@ -819,16 +820,32 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 	 *  archive icon. */
 	private renderToolbarActions(session: AgentSessionState, category: AgentSessionCategory) {
 		const actions = createAgentSessionOpenHrefs(session);
+		const keplerHref = createAgentSessionKeplerHref(session);
 		if (category !== 'ended') {
 			const open = actions[0];
 			return html`<span class="subtitle__actions">
 				<gl-button density="compact" href=${open.href}>
 					<code-icon icon=${open.icon} slot="prefix"></code-icon>${open.label}
 				</gl-button>
+				${this.renderKeplerButton(keplerHref)}
 			</span>`;
 		}
 
-		return this.renderResumeButtons(actions, createAgentSessionArchiveHref(session));
+		return this.renderResumeButtons(actions, createAgentSessionArchiveHref(session), false, keplerHref);
+	}
+
+	private renderKeplerButton(keplerHref: string | undefined) {
+		if (keplerHref == null) return nothing;
+
+		return html`<gl-button
+			density="compact"
+			appearance="secondary"
+			tooltip=${l10n.t('Open Session in Kepler')}
+			aria-label=${l10n.t('Open Session in Kepler')}
+			href=${keplerHref}
+		>
+			<code-icon icon="gl-kepler"></code-icon>
+		</gl-button>`;
 	}
 
 	private renderPastToolbarActions(pastSession: PastAgentSessionState) {
@@ -845,6 +862,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 		actions: { label: string; icon: string; href: string }[],
 		archiveHref: string | undefined,
 		disabledResume = false,
+		keplerHref?: string,
 	) {
 		const [primary, ...rest] = actions;
 
@@ -877,6 +895,7 @@ export class GlGraphAgentSheet extends SheetWrapper(LitElement) {
 					<code-icon icon=${a.icon}></code-icon>
 				</gl-button>`,
 			)}
+			${this.renderKeplerButton(keplerHref)}
 			${
 				archiveHref != null
 					? html`<gl-button

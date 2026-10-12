@@ -1,3 +1,4 @@
+import type { AgentHookClientId } from '@gitlens/agents/agentCapabilities.js';
 import type { AIProviders } from '@gitlens/ai/constants.js';
 import type { AIActionType } from '@gitlens/ai/models/model.js';
 import type { GitHealthDurationBucket, GitOptimizationTier } from '@gitlens/git/gitHealth.js';
@@ -652,6 +653,10 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'kepler/task/start': KeplerTaskStartEvent;
 	/** Sent when starting a Kepler task fails — the item's provider is one Kepler cannot serve, or the deep link could not be handed off */
 	'kepler/task/start/failed': KeplerTaskStartFailedEvent;
+	/** Sent when the user opens an agent session in Kepler — a deep link into an installed Kepler was handed off. Records what was sent, not whether Kepler handled it */
+	'kepler/session/open': KeplerSessionOpenEvent;
+	/** Sent when opening an agent session in Kepler fails — Kepler is not installed, or the deep link could not be handed off */
+	'kepler/session/open/failed': KeplerSessionOpenFailedEvent;
 
 	/** Sent when the user takes an action on the Launchpad title bar */
 	'launchpad/title/action': LaunchpadTitleActionEvent;
@@ -2298,7 +2303,7 @@ interface GraphSidebarAgentsPermissionResolvedEvent extends GraphContextEventDat
 }
 
 interface GraphSidebarAgentsSessionActionEvent extends GraphContextEventData {
-	action: 'openSession' | 'resumeSession' | 'openPlanFile' | 'openTerminal';
+	action: 'openSession' | 'resumeSession' | 'openPlanFile' | 'openTerminal' | 'openInKepler';
 }
 
 interface GraphSidebarAgentsHeaderActionEvent extends GraphContextEventData {
@@ -2729,7 +2734,7 @@ interface GraphKanbanSessionSelectedEvent extends GraphContextEventData {
 }
 
 interface GraphKanbanSessionActionEvent extends GraphContextEventData {
-	action: 'openSession' | 'resumeSession' | 'openPlanFile';
+	action: 'openSession' | 'resumeSession' | 'openPlanFile' | 'openInKepler';
 }
 
 interface GraphKanbanPermissionResolvedEvent extends GraphContextEventData {
@@ -2757,6 +2762,20 @@ interface KeplerTaskStartEvent {
 interface KeplerTaskStartFailedEvent extends KeplerTaskStartEvent {
 	/** Why the task was not started. `not-installed` = Kepler is not installed, so no link was sent; `unsupported-provider` = Kepler cannot serve the item's provider for its kind, so no link was sent; `open-failed` = the deep link could not be handed off */
 	'failure.reason': 'not-installed' | 'open-failed' | 'unsupported-provider';
+}
+
+interface KeplerSessionOpenEvent {
+	/** The Kepler adapter id of the session's agent */
+	agent: AgentHookClientId;
+	/** Whether the session's working directory was sent as the `cwd=` hint */
+	'cwd.resolved': boolean;
+	/** The Kepler channel the deep link targets */
+	channel: KeplerChannel;
+}
+
+interface KeplerSessionOpenFailedEvent extends KeplerSessionOpenEvent {
+	/** Why the session was not opened. `not-installed` = Kepler is not installed, so no link was sent; `open-failed` = the deep link could not be handed off */
+	'failure.reason': 'not-installed' | 'open-failed';
 }
 
 type InspectCommitContextEventData = {

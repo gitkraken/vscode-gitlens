@@ -52,6 +52,7 @@ import {
 	describeAgentSession,
 	filterAgentSessionsForFamily,
 	getAgentSessionArchiveAction,
+	getAgentSessionKeplerAction,
 	getAgentSessionOpenActions,
 } from '../../../shared/agentUtils.js';
 import { shouldShowKeplerBanner } from '../../../shared/components/keplerBanner.utils.js';
@@ -2296,6 +2297,15 @@ would expose the graph through fade or at the gap left by the translate). */
 				arguments: openAction.args,
 			});
 		}
+		const keplerAction = getAgentSessionKeplerAction(session);
+		if (keplerAction != null) {
+			actions.push({
+				icon: keplerAction.icon,
+				label: keplerAction.label,
+				action: keplerAction.command,
+				arguments: keplerAction.args,
+			});
+		}
 		// Archive is offered only on terminal (ended) sessions — a live one would have to be
 		// killed first, so it stays out of the action row for anything still running.
 		if (category === 'ended') {
@@ -3416,9 +3426,11 @@ would expose the graph through fade or at the gap left by the translate). */
 			return;
 		}
 
-		let action: 'openSession' | 'resumeSession' | 'openPlanFile' | 'openTerminal' | undefined;
+		let action: 'openSession' | 'resumeSession' | 'openPlanFile' | 'openTerminal' | 'openInKepler' | undefined;
 		if (command === 'gitlens.agents.openSession') {
 			action = 'openSession';
+		} else if (command === 'gitlens.agents.openSessionInKepler') {
+			action = 'openInKepler';
 		} else if (command === 'gitlens.agents.resumeSession') {
 			action = 'resumeSession';
 		} else if (command === 'gitlens.agents.openPlanFile') {

@@ -1,5 +1,5 @@
 import * as assert from 'node:assert';
-import { createKeplerTaskLink } from '../keplerLink.js';
+import { createKeplerSessionLink, createKeplerTaskLink } from '../keplerLink.js';
 
 suite('createKeplerTaskLink', () => {
 	test('with no params, builds the bare canonical route', () => {
@@ -40,6 +40,46 @@ suite('createKeplerTaskLink', () => {
 		assert.strictEqual(
 			createKeplerTaskLink('kepler-staging://', { kind: 'pr' }),
 			'kepler-staging://task/new?kind=pr',
+		);
+	});
+});
+
+suite('createKeplerSessionLink', () => {
+	test('with every param, builds the canonical parameter-form route', () => {
+		assert.strictEqual(
+			createKeplerSessionLink('kepler://', {
+				agent: 'claude-code',
+				id: 'abc-123',
+				cwd: '/Users/keith/code/vscode-gitlens',
+			}),
+			'kepler://session?agent=claude-code&id=abc-123&cwd=%2FUsers%2Fkeith%2Fcode%2Fvscode-gitlens',
+		);
+	});
+
+	test('omits cwd entirely when absent', () => {
+		const link = createKeplerSessionLink('kepler://', { agent: 'codex', id: 'abc' });
+
+		assert.strictEqual(link, 'kepler://session?agent=codex&id=abc');
+		assert.ok(!link.includes('cwd='));
+	});
+
+	test('URL-encodes ids and paths containing reserved characters', () => {
+		const link = createKeplerSessionLink('kepler://', {
+			agent: 'opencode',
+			id: 'ses_a&b=c',
+			cwd: '/Users/keith/my project',
+		});
+
+		assert.strictEqual(
+			link,
+			'kepler://session?agent=opencode&id=ses_a%26b%3Dc&cwd=%2FUsers%2Fkeith%2Fmy%20project',
+		);
+	});
+
+	test('respects the scheme passed in for non-production channels', () => {
+		assert.strictEqual(
+			createKeplerSessionLink('kepler-staging://', { agent: 'copilot', id: 'x' }),
+			'kepler-staging://session?agent=copilot&id=x',
 		);
 	});
 });
