@@ -1,4 +1,4 @@
-import { l10n, window } from 'vscode';
+import { env, l10n, window, workspace } from 'vscode';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import { getRepositoryIdentityForPullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -6,6 +6,7 @@ import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
+import { getKeplerHost } from './keplerHost.js';
 import type { KeplerTaskLinkOptions } from './keplerLink.js';
 import { createKeplerTaskLink } from './keplerLink.js';
 import type { KeplerProviderId } from './keplerProviders.js';
@@ -145,7 +146,8 @@ export async function startKeplerTask(
 
 	let opened: boolean;
 	try {
-		opened = await openUrl(createKeplerTaskLink(container.kepler.scheme, resolution.options));
+		const host = getKeplerHost(env.remoteName, workspace.workspaceFolders?.map(f => f.uri) ?? []);
+		opened = await openUrl(createKeplerTaskLink(container.kepler.scheme, { ...resolution.options, host: host }));
 	} catch {
 		opened = false;
 	}

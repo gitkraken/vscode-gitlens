@@ -13,11 +13,12 @@ suite('createKeplerTaskLink', () => {
 			provider: 'github',
 			repo: '/Users/keith/code/vscode-gitlens',
 			action: 'default-review',
+			host: 'ssh-remote+devbox',
 		});
 
 		assert.strictEqual(
 			link,
-			'kepler://task/new?url=https%3A%2F%2Fgithub.com%2Fgitkraken%2Fvscode-gitlens%2Fpull%2F1&kind=pr&provider=github&repo=%2FUsers%2Fkeith%2Fcode%2Fvscode-gitlens&action=default-review',
+			'kepler://task/new?url=https%3A%2F%2Fgithub.com%2Fgitkraken%2Fvscode-gitlens%2Fpull%2F1&kind=pr&provider=github&repo=%2FUsers%2Fkeith%2Fcode%2Fvscode-gitlens&action=default-review&host=ssh-remote%2Bdevbox',
 		);
 	});
 
