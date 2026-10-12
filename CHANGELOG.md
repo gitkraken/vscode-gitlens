@@ -116,6 +116,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds _Start Task in Kepler_ to repositories, and _Start Review in Kepler_ to pull requests in GitLens views, _Launchpad_, and the _Commit Graph_ &mdash; each opens Kepler with the repository or pull request ready to go
   - Adds _Open in Kepler_ to _Start Work_ and _Start PR Review_ for items Kepler supports, alongside opening in an agent or continuing manually &mdash; or choose `kepler` for `gitlens.ai.openInAgent` to go straight there
   - Offers to get the Kepler application when it isn't installed, and stops showing the _Try Kepler_ banner once it is
+  - Opens Kepler on the machine you're working on when using Remote - SSH or WSL, so the task lands in the Kepler window connected to that machine
 - Adds rebasing an entire stacked pull request chain in one action ([#5838](https://github.com/gitkraken/vscode-gitlens/issues/5838))
   - _Rebase Stack..._ cascades bottom to top, replaying each layer onto the one below it and the bottom layer onto the stack's trunk &mdash; and creates a local branch for any layer you haven't checked out, so no link in the chain is skipped
   - _Auto-Rebase Stack..._ resolves conflicts with AI the whole way up, pausing instead of unwinding when it needs your help &mdash; _Continue with Auto-Rebase_ then picks up the rest of the stack, not just the branch you fixed
