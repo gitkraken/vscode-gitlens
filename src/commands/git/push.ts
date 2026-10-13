@@ -800,7 +800,10 @@ export class PushGitCommand extends QuickCommand<State> {
 					repoPath: repo.path,
 				};
 
-				if (status?.upstream?.state.ahead === 0) {
+				if (
+					status != null &&
+					(status.upstream == null || status.upstream.missing || status.upstream.state.ahead === 0)
+				) {
 					if (!isBranchReference(state.reference) && (status.upstream == null || status.upstream.missing)) {
 						const referenceName =
 							state.reference != null ? getReferenceLabel(state.reference, { label: false }) : undefined;
