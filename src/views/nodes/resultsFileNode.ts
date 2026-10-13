@@ -135,16 +135,10 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 		let lhsUri;
 		let rhsUri;
 		if (this.file.status === 'R' || this.file.status === 'C') {
-			if (this.direction === 'behind') {
-				lhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true);
-				rhsUri = this.uri;
-			} else if (this.direction == null) {
-				lhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref1, true);
-				rhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, false);
-			} else {
-				lhsUri = this.uri;
-				rhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true);
-			}
+			// `originalPath` is the name on the `ref1` side and `path` (this node's uri) the name on the `ref2` side,
+			// whichever direction the files node runs
+			lhsUri = GitUri.fromFile(this.file, this.uri.repoPath!, this.ref1, true);
+			rhsUri = this.uri;
 		} else {
 			lhsUri = this.uri;
 			rhsUri = this.uri;

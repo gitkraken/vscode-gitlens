@@ -87,12 +87,18 @@ async function showComparison(vscode: VSCodeInstance, ref1: string, ref2: string
 	}
 }
 
-function treeItem(vscode: VSCodeInstance, name: RegExp) {
-	return vscode.gitlens.searchCompareViewTreeView.getByRole('treeitem', { name: name }).first();
+/** A row by accessible name, or — with `level` — by depth and visible text, to tell the files node under Ahead/Behind from the comparison's own */
+function treeItem(vscode: VSCodeInstance, name: RegExp, level?: number) {
+	const tree = vscode.gitlens.searchCompareViewTreeView;
+	return (
+		level == null
+			? tree.getByRole('treeitem', { name: name })
+			: tree.locator(`[role="treeitem"][aria-level="${level}"]`).filter({ hasText: name })
+	).first();
 }
 
-async function expandItem(vscode: VSCodeInstance, name: RegExp): Promise<void> {
-	const item = treeItem(vscode, name);
+async function expandItem(vscode: VSCodeInstance, name: RegExp, level?: number): Promise<void> {
+	const item = treeItem(vscode, name, level);
 	await expect(item).toBeVisible({ timeout: MaxTimeout });
 	if ((await item.getAttribute('aria-expanded')) !== 'true') {
 		await item.click();
@@ -101,9 +107,9 @@ async function expandItem(vscode: VSCodeInstance, name: RegExp): Promise<void> {
 	}
 }
 
-async function clickFile(vscode: VSCodeInstance, name: RegExp): Promise<void> {
+async function clickFile(vscode: VSCodeInstance, name: RegExp, level?: number): Promise<void> {
 	await vscode.gitlens.closeAllEditors();
-	const item = treeItem(vscode, name);
+	const item = treeItem(vscode, name, level);
 	await expect(item).toBeVisible({ timeout: MaxTimeout });
 	await item.click();
 }
@@ -122,7 +128,7 @@ test.describe('Search & Compare — open file on click', () => {
 
 		await expect
 			.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout })
-			.toEqual({ kind: 'diff', file: 'file1.txt' });
+			.toEqual({ kind: 'diff', file: 'file1.txt', original: 'file1.txt' });
 	});
 
 	test('with the setting off, the same row opens the working file at its first change without a refresh', async ({
@@ -261,6 +267,31 @@ test.describe('Search & Compare — open file on click', () => {
 			await expect
 				.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout })
 				.toEqual({ kind: 'text', file: file, line: 0 });
+		});
+	}
+
+	// Back on the default: a rename row under the Ahead or Behind files node opens the rename diff, old name on the
+	// left, whichever way that node's diff runs
+	for (const [ref1, ref2, direction] of [
+		['feature', 'main', 'Ahead'],
+		['main', 'feature', 'Behind'],
+	]) {
+		test(`by default a renamed file under the ${direction} files node opens its rename diff`, async ({
+			vscode,
+		}) => {
+			// Explicitly `true`: an `undefined` doesn't survive the evaluator's serialized boundary, so it wouldn't reset.
+			// The view picks the change up asynchronously; rows built before that still open the working file
+			await vscode.gitlens.updateSetting(openDiffOnClick, true);
+			await vscode.page.waitForTimeout(DefaultTimeout);
+			await vscode.gitlens.executeCommand('gitlens.views.searchAndCompare.clear');
+			await showComparison(vscode, ref1, ref2);
+			await expandItem(vscode, new RegExp(`^${direction} 3 commits`));
+			await expandItem(vscode, /files changed/, 3);
+			await clickFile(vscode, /^file3-renamed\.txt/, 4);
+
+			await expect
+				.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout })
+				.toEqual({ kind: 'diff', file: 'file3-renamed.txt', original: 'file3.txt' });
 		});
 	}
 });

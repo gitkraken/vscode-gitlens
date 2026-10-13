@@ -84,14 +84,23 @@ export class VSCodePage {
 	 * the cursor's 0-based line), or something else. Tab inputs are told apart by shape — a diff has `original`/`modified`, a text file a `uri` —
 	 * since classes from the API don't survive the evaluator's serialized boundary either.
 	 */
-	async getActiveEditorState(): Promise<{ kind: 'diff' | 'text' | 'other' | 'none'; file?: string; line?: number }> {
+	async getActiveEditorState(): Promise<{
+		kind: 'diff' | 'text' | 'other' | 'none';
+		file?: string;
+		original?: string;
+		line?: number;
+	}> {
 		return this.evaluate(vscode => {
 			const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input as
 				| { original?: Uri; modified?: Uri; uri?: Uri }
 				| undefined;
 			if (input == null) return { kind: 'none' as const };
 			if (input.original != null && input.modified != null) {
-				return { kind: 'diff' as const, file: input.modified.path.split('/').pop() };
+				return {
+					kind: 'diff' as const,
+					file: input.modified.path.split('/').pop(),
+					original: input.original.path.split('/').pop(),
+				};
 			}
 
 			// Custom and notebook tabs carry a `uri` too — only a matching text editor makes the tab a text one
