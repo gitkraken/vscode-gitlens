@@ -764,6 +764,14 @@ export class GraphStateProvider implements Disposable {
 	@signalState()
 	accessor upgradedFromPreV19: AppState['upgradedFromPreV19'];
 
+	/** The host's account-wall decision and its preview-ended variant. Deliberate accessors, for the
+	 *  same reason as `upgradedFromPreV19`: a push that flips only one of these must still re-render. */
+	@signalState()
+	accessor accountGate: AppState['accountGate'];
+
+	@signalState()
+	accessor previewExpired: AppState['previewExpired'];
+
 	@signalState()
 	accessor mcpCanAutoRegister: AppState['mcpCanAutoRegister'];
 
