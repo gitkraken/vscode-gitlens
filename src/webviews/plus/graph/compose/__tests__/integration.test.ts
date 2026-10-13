@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import { execFileSync, spawn } from 'child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
+import { rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import type { Container } from '../../../../../container.js';
@@ -523,8 +524,10 @@ suite('graph/compose/integration applyPlanForGraphDetails exclusions (temp repo)
 		git(repo, 'commit', '-q', '-m', 'base');
 	});
 
-	teardown(() => {
-		rmSync(repo, { recursive: true, force: true });
+	teardown(async () => {
+		// Async: under the VS Code test host's Electron runtime on Windows, `rmSync` fails with `EPERM` on git's
+		// read-only object files, which aborts the rest of the suite.
+		await rm(repo, { recursive: true, force: true, maxRetries: 3 });
 	});
 
 	const modifyA = (): void => writeFileSync(join(repo, 'a.txt'), 'a1\na2 changed\na3\n');
