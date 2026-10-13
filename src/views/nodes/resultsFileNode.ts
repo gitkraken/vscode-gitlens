@@ -32,7 +32,15 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 		public readonly ref2: string,
 		private readonly direction: 'ahead' | 'behind' | undefined,
 	) {
-		super('results-file', GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent, file);
+		// The diff runs from `ref1` to `ref2`, so `file.path` is the name on the `ref2` side (or on `ref1` for a deletion);
+		// pair the uri with that ref, otherwise a renamed or added file points at a revision that doesn't have it
+		super(
+			'results-file',
+			GitUri.fromFile(file, repoPath, file.status === 'D' ? ref1 : ref2 || ref1),
+			view,
+			parent,
+			file,
+		);
 
 		this.updateContext({ file: file });
 		if (this.context.storedComparisonId != null) {

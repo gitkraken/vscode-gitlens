@@ -9,7 +9,8 @@
  * Also covers the two cases that used to go wrong (#5967): a file renamed and modified on the checked-out branch
  * opens the working file at its first change, and a file that isn't in the working tree at all opens at the
  * compared revision instead of only warning. A renamed file that isn't in the working tree under either name
- * opens at the compared revision by its name there (#5975), rather than a picker for the other side's name.
+ * opens at the compared revision by its name there (#5975), rather than a picker for the other side's name —
+ * and so does a comparison row's inline "Open File at Revision", which shares the row's uri.
  */
 import * as process from 'node:process';
 import type { VSCodeInstance } from '../baseTest.js';
@@ -237,4 +238,29 @@ test.describe('Search & Compare — open file on click', () => {
 			.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout })
 			.toEqual({ kind: 'text', file: 'only-other-renamed.txt', line: 2 });
 	});
+
+	// The row names the file by the side the diff runs to, and its inline action must open that side — the other side
+	// has the file under its old name. Hover rather than click: a click is the open-on-click flow under test above
+	for (const [ref1, ref2, file] of [
+		['other', 'renamed', 'only-other.txt'],
+		['renamed', 'other', 'only-other-renamed.txt'],
+	]) {
+		test(`Open File at Revision on a renamed file compared ${ref1} with ${ref2} opens the revision that has it`, async ({
+			vscode,
+		}) => {
+			await vscode.gitlens.executeCommand('gitlens.views.searchAndCompare.clear');
+			await showComparison(vscode, ref1, ref2);
+			await expandItem(vscode, /^1 file changed/);
+			await vscode.gitlens.closeAllEditors();
+
+			const row = treeItem(vscode, /^only-other(-renamed)?\.txt/);
+			await expect(row).toBeVisible({ timeout: MaxTimeout });
+			await row.hover();
+			await row.getByRole('button', { name: /^Open File at Revision/ }).click();
+
+			await expect
+				.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout })
+				.toEqual({ kind: 'text', file: file, line: 0 });
+		});
+	}
 });
