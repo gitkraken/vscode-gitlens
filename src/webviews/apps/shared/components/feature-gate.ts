@@ -6,7 +6,6 @@ import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a
 import { boxSizingBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import type { SubscriptionState } from '../../../../constants.subscription.js';
 import type { Source } from '../../../../constants.telemetry.js';
-import type { FeaturePreview } from '../../../../features.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../plus/gk/utils/subscription.utils.js';
 import { linkStyles } from '../../plus/shared/components/vscode.css.js';
 import { featureGateBaseStyles } from './feature-gate.css.js';
@@ -43,12 +42,6 @@ export class GlFeatureGate extends LitElement {
 	@property({ reflect: true })
 	variant: 'dialog' | 'sheet' = 'dialog';
 
-	@property({ type: Object })
-	featurePreview?: FeaturePreview;
-
-	@property({ type: String })
-	featurePreviewCommandLink?: string;
-
 	@property()
 	featureRestriction?: 'all' | 'private-repos';
 
@@ -60,9 +53,6 @@ export class GlFeatureGate extends LitElement {
 
 	@property({ attribute: false, type: Number })
 	state?: SubscriptionState;
-
-	@property({ type: String })
-	webroot?: string;
 
 	override disconnectedCallback(): void {
 		// Defensively tear down the modal so an unmounted gate can never leave a stuck top-layer backdrop.
@@ -99,13 +89,10 @@ export class GlFeatureGate extends LitElement {
 				<slot></slot>
 				<gl-feature-gate-plus-state
 					appearance=${appearance}
-					.featurePreview=${this.featurePreview}
-					.featurePreviewCommandLink=${this.featurePreviewCommandLink}
 					.featureRestriction=${this.featureRestriction}
 					.featureWithArticleIfNeeded=${this.featureWithArticleIfNeeded}
 					.source=${this.source}
 					.state=${this.state}
-					.webroot=${this.webroot}
 				>
 					<slot name="feature" slot="feature"></slot>
 				</gl-feature-gate-plus-state>

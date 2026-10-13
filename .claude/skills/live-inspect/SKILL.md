@@ -370,13 +370,13 @@ launch { session: "dev", account: "pro" }
 | `"verification-required"`                                        | Account created but email not verified                         |
 | `"none"`                                                         | Ends simulation, restoring the session's real subscription     |
 
-Modifiers: `reactivated: true` (trial plans only — reactivated rather than fresh); `feature_preview_day` / `feature_preview_seconds` (`community` only — the Pro Preview window; day 0 = day 1, 1 = day 2, 2 = day 3, 3 = expired). Both are rejected with a clear error if paired with a plan they don't apply to.
+Modifiers: `reactivated: true` (trial plans only — reactivated rather than fresh); `feature_preview_status` / `feature_preview_seconds` (`community` only — the signed-out Commit Graph preview: `eligible`, `active` or `expired`, and the seconds an active one has left). Both are rejected with a clear error if paired with a plan they don't apply to.
 
 ### Common recipes
 
 **Community gate (paywall UX):** `set_account { plan: "community" }`
 
-**Feature-preview countdown:** `set_account { plan: "community", feature_preview_day: 0 }`
+**Feature-preview countdown:** `set_account { plan: "community", feature_preview_status: "active" }`
 
 **Plan-tier differences:** `set_account { plan: "business" }` (note: "Business" is `teams` on the wire — the tool handles that mapping)
 

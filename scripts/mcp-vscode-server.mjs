@@ -1336,18 +1336,17 @@ server.tool(
 			.boolean()
 			.optional()
 			.describe('For the trial plans: simulate a reactivated trial rather than a fresh one.'),
-		feature_preview_day: z
-			.number()
-			.int()
+		feature_preview_status: z
+			.enum(['eligible', 'active', 'expired'])
 			.optional()
 			.describe(
-				'For plan "community": which day of the Pro feature-preview window to start on (0 = day 1, 1 = day 2, 2 = day 3, 3 = expired).',
+				'For plan "community": the signed-out Commit Graph preview state — "eligible" (not started; auto-starts on a private repo), "active", or "expired" (default: "active").',
 			),
 		feature_preview_seconds: z
 			.number()
 			.int()
 			.optional()
-			.describe('For plan "community": how long the feature-preview window lasts (default: 30).'),
+			.describe('For plan "community": how long an active preview has left (default: 60).'),
 		dismiss_onboarding: z
 			.boolean()
 			.optional()
@@ -1363,7 +1362,7 @@ server.tool(
 			return errorResult(`"reactivated" only applies to ${reactivatablePlans.join(', ')} — not "${args.plan}".`);
 		}
 
-		const previewing = args.feature_preview_day != null || args.feature_preview_seconds != null;
+		const previewing = args.feature_preview_status != null || args.feature_preview_seconds != null;
 		if (previewing && args.plan !== 'community') {
 			return errorResult(`"feature_preview_*" only applies to plan "community" — not "${args.plan}".`);
 		}
@@ -1374,8 +1373,8 @@ server.tool(
 			if (args.reactivated) payload.reactivatedTrial = true;
 			if (previewing) {
 				payload.featurePreviews = {
-					day: args.feature_preview_day ?? 0,
-					durationSeconds: args.feature_preview_seconds ?? 30,
+					status: args.feature_preview_status ?? 'active',
+					durationSeconds: args.feature_preview_seconds ?? 60,
 				};
 			}
 		}
