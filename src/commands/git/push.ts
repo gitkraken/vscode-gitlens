@@ -38,6 +38,7 @@ import {
 	pickRepositoryStep,
 } from '../quick-wizard/steps/repositories.js';
 import { StepsController } from '../quick-wizard/stepsController.js';
+import { getSteps } from '../quick-wizard/utils/quickWizard.utils.js';
 import {
 	appendReposToTitle,
 	assertStepState,
@@ -48,6 +49,7 @@ import {
 const Steps = {
 	PickRepos: 'push-pick-repos',
 	Confirm: 'push-confirm',
+	AddRemote: 'push-add-remote',
 } as const;
 type StepNames = (typeof Steps)[keyof typeof Steps];
 
@@ -620,6 +622,30 @@ export class PushGitCommand extends QuickCommand<State> {
 				state.flags = result;
 			}
 
+			if (state.flags.includes('--add-remote')) {
+				using addStep = steps.enterStep(Steps.AddRemote);
+
+				const addResult = yield* getSteps(
+					this.container,
+					{ command: 'remote', state: { subcommand: 'add', repo: state.repos[0], reveal: false } },
+					context,
+					this.startedFrom,
+				);
+				if (addResult === StepResultBreak) {
+					state.flags = state.flags.filter(f => f !== '--add-remote');
+					if (addStep.goBack() == null) break;
+					continue;
+				}
+
+				// The add wizard marks the shared navigation complete, but the remote is only the means to
+				// publish — clear that so the confirm re-runs and offers publishing to the new remote
+				steps.clearStepsComplete();
+				// Back from that confirm must not re-open the add wizard for a remote that now exists
+				addStep.skip();
+				state.flags = [];
+				continue;
+			}
+
 			steps.markStepsComplete();
 			void this.execute(state);
 		}
@@ -707,6 +733,13 @@ export class PushGitCommand extends QuickCommand<State> {
 											getReferenceLabel(branch),
 										),
 										picked: true,
+									}),
+									createFlagsQuickPickItem<Flags>(state.flags, ['--add-remote'], {
+										label: l10n.t('Add Remote…'),
+										detail: l10n.t(
+											'Will add a remote, then publish {0} to it',
+											getReferenceLabel(branch),
+										),
 									}),
 								],
 								l10n.t('Cannot publish; No remotes found'),
@@ -837,6 +870,13 @@ export class PushGitCommand extends QuickCommand<State> {
 										getReferenceLabel(branch),
 									),
 									picked: true,
+								}),
+								createFlagsQuickPickItem<Flags>(state.flags, ['--add-remote'], {
+									label: l10n.t('Add Remote…'),
+									detail: l10n.t(
+										'Will add a remote, then publish {0} to it',
+										getReferenceLabel(branch),
+									),
 								}),
 							],
 							l10n.t('Cannot publish; No remotes found'),
