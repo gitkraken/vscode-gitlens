@@ -1,5 +1,4 @@
-export const proFeaturePreviewUsages = 3;
-export const proFeaturePreviewUsageDurationInDays = 1;
+export const proFeaturePreviewUsageDurationInDays = 3;
 export const proTrialLengthInDays = 14;
 
 // NOTE: Pay attention to gitlens:plus:state in the `package.json` when modifying this enum
