@@ -645,6 +645,13 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 				flex: 1;
 			}
 
+			.ai__signin {
+				margin-block: var(--gl-space-10) 0;
+				font-size: var(--gl-font-md);
+				line-height: 1.5;
+				color: var(--vscode-descriptionForeground);
+			}
+
 			/* ── Organization ── */
 
 			.org {
@@ -844,7 +851,29 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 	 */
 	private renderIdentityCard(sub: Subscription) {
 		const account = sub.account;
-		if (account == null) return nothing;
+		if (account == null) {
+			// Signed out: a real sign-in card in the identity card's own shape, not a blank panel
+			return html`<div class="card">
+				<div class="identity__main">
+					<span class="identity__media" data-entitlement=${this.entitlement ?? 'loading'}>
+						<code-icon icon="gl-gitlens" aria-hidden="true"></code-icon>
+					</span>
+					<div class="identity__text">
+						<h3 class="identity__name">${l10n.t('Not signed in')}</h3>
+						<p class="identity__email">${l10n.t('Sign in to access your GitKraken account')}</p>
+					</div>
+					<div class="identity__actions">
+						<gl-button
+							href=${createCommandLink<Source>('gitlens.plus.login', {
+								source: 'account',
+								detail: { location: 'settings-account:identity' },
+							})}
+							>${l10n.t('Sign In')}</gl-button
+						>
+					</div>
+				</div>
+			</div>`;
+		}
 
 		const avatar = this._subscription.avatar.get();
 
@@ -1018,8 +1047,24 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 
 	private renderAiUsageCard(sub: Subscription) {
 		// The signal outlives the account it describes — a sign-out's refresh has to round-trip before it
-		// clears, so without this gate the previous account's usage card renders on a signed-out panel.
-		if (sub.account == null) return nothing;
+		// clears, so this branch must not read `aiUsage`: the previous account's usage would render on a
+		// signed-out panel. It still holds the section's place with a sign-in path instead of vanishing.
+		if (sub.account == null) {
+			return html`<div class="card ai">
+				${this.renderAiUsageHead()}
+				<p class="ai__signin">
+					${localizedContent(l10n.t('{signIn} to use GitKraken AI.'), {
+						signIn: html`<a
+							href=${createCommandLink<Source>('gitlens.plus.login', {
+								source: 'account',
+								detail: { location: 'settings-account:ai-usage' },
+							})}
+							>${l10n.t('Sign in')}</a
+						>`,
+					})}
+				</p>
+			</div>`;
+		}
 
 		const usage: AiUsageInfo | null | undefined = this._subscription.aiUsage.get();
 
@@ -1267,13 +1312,25 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 
 	private renderFooter(sub: Subscription) {
 		return html`<div class="footer">
-			<a
-				href=${createCommandLink<Source>('gitlens.plus.manage', {
-					source: 'account',
-					detail: { location: 'settings-account:footer' },
-				})}
-				>${l10n.t('Manage subscription')}</a
-			>
+			${
+				// Signed out, "Manage subscription" is a dead end — `gitlens.plus.manage`'s exchange-token
+				// fetch fails and it falls back to opening gk.dev with no token
+				sub.account == null
+					? html`<a
+							href=${createCommandLink<Source>('gitlens.plus.login', {
+								source: 'account',
+								detail: { location: 'settings-account:footer' },
+							})}
+							>${l10n.t('Sign in')}</a
+						>`
+					: html`<a
+							href=${createCommandLink<Source>('gitlens.plus.manage', {
+								source: 'account',
+								detail: { location: 'settings-account:footer' },
+							})}
+							>${l10n.t('Manage subscription')}</a
+						>`
+			}
 			<a
 				href=${createCommandLink<Source>('gitlens.plus.showPlans', {
 					source: 'account',
