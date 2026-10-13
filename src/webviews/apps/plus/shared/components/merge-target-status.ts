@@ -611,10 +611,12 @@ export class GlMergeTargetStatus extends LitElement {
 								? html`<p class="status--merge-unknown">
 										<code-icon icon="error"></code-icon> ${l10n.t('Unable to detect conflicts.')}
 									</p>`
-								: html`<p class="status--merge-clean">
-										<code-icon icon="check"></code-icon>
-										${l10n.t('Merging will not cause conflicts.')}
-									</p>`
+								: this.conflictResult?.status === 'clean'
+									? html`<p class="status--merge-clean">
+											<code-icon icon="check"></code-icon>
+											${l10n.t('Merging will not cause conflicts.')}
+										</p>`
+									: nothing
 						}
 					</div>`;
 			}
