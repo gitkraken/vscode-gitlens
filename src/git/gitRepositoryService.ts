@@ -257,7 +257,9 @@ export class GitRepositoryService {
 
 	@debug()
 	getRevisionUri(rev: string, pathOrFile: string | GitFile, options?: RevisionUriOptions): Uri {
-		const path = typeof pathOrFile === 'string' ? pathOrFile : (pathOrFile?.originalPath ?? pathOrFile?.path ?? '');
+		// A file's `path` is its name at the revision that lists it; `originalPath` only exists at the revision before a
+		// rename/copy, so resolving by it would point at a path that `rev` no longer has
+		const path = typeof pathOrFile === 'string' ? pathOrFile : (pathOrFile?.path ?? '');
 		return this._provider.getRevisionUri(this.path, rev, this._provider.getRelativePath(path, this.path), options);
 	}
 

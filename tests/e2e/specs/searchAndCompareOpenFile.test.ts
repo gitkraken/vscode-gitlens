@@ -8,7 +8,8 @@
  *
  * Also covers the two cases that used to go wrong (#5967): a file renamed and modified on the checked-out branch
  * opens the working file at its first change, and a file that isn't in the working tree at all opens at the
- * compared revision instead of only warning.
+ * compared revision instead of only warning. A renamed file that isn't in the working tree under either name
+ * opens at the compared revision by its name there (#5975), rather than a picker for the other side's name.
  */
 import * as process from 'node:process';
 import type { VSCodeInstance } from '../baseTest.js';
@@ -40,6 +41,11 @@ const test = base.extend({
 				// `only-other.txt` exists only on `other`, so it is never in the working tree
 				await git.checkout('other', true);
 				await git.commit('Add only-other', 'only-other.txt', lines(5));
+				// `renamed` carries it on under a new name, so comparing the two shows a rename whose names are both
+				// absent from the working tree
+				await git.checkout('renamed', true);
+				await git.move('only-other.txt', 'only-other-renamed.txt');
+				await git.commit('Rename only-other and change line 3', 'only-other-renamed.txt', lines(5, 3));
 				await git.checkout('main');
 
 				// The working tree stays on `feature`, so the working files carry the changes being opened
@@ -197,5 +203,38 @@ test.describe('Search & Compare — open file on click', () => {
 		await expect
 			.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout })
 			.toEqual({ kind: 'text', file: 'only-other.txt', line: 0 });
+	});
+
+	// Neither name is in the working tree, so the click opens the compared revision — under the name the file has
+	// there, which is the side the diff runs to
+	for (const [ref1, ref2, file] of [
+		['other', 'renamed', 'only-other.txt'],
+		['renamed', 'other', 'only-other-renamed.txt'],
+	]) {
+		test(`with the setting off, a renamed file missing from the working tree compared ${ref1} with ${ref2} opens at the compared revision`, async ({
+			vscode,
+		}) => {
+			await vscode.gitlens.executeCommand('gitlens.views.searchAndCompare.clear');
+			await showComparison(vscode, ref1, ref2);
+			await expandItem(vscode, /^1 file changed/);
+			await clickFile(vscode, /^only-other(-renamed)?\.txt/);
+
+			await expect
+				.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout })
+				.toEqual({ kind: 'text', file: file, line: 2 });
+		});
+	}
+
+	test("with the setting off, a renamed file missing from the working tree in a commit's file list opens at that commit", async ({
+		vscode,
+	}) => {
+		// The comparison of `renamed` with `other` from the previous test stays up; the rename commit is its one behind
+		await expandItem(vscode, /^(Ahead|Behind) 1 commit/);
+		await expandItem(vscode, /Rename only-other and change line 3/);
+		await clickFile(vscode, /^only-other-renamed\.txt/);
+
+		await expect
+			.poll(() => vscode.gitlens.getActiveEditorState(), { timeout: MaxTimeout })
+			.toEqual({ kind: 'text', file: 'only-other-renamed.txt', line: 2 });
 	});
 });
