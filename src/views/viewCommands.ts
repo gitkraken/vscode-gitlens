@@ -35,7 +35,7 @@ import type { RecomposeFromCommitCommandArgs } from '../commands/recomposeFromCo
 import type { RunTaskOnWorktreeCommandArgs } from '../commands/runTaskOnWorktree.js';
 import type { StartAgentSessionCommandArgs } from '../commands/startAgentSession.js';
 import type { ViewShowBranchComparison } from '../config.js';
-import type { GlCommands } from '../constants.commands.js';
+import type { GlCommands, GlCommandsDeprecated } from '../constants.commands.js';
 import { GlyphChars } from '../constants.js';
 import type { Container } from '../container.js';
 import { browseAtRevision, executeGitCommand } from '../git/actions.js';
@@ -127,7 +127,7 @@ import type { WorktreeNode } from './nodes/worktreeNode.js';
 import type { WorktreesNode } from './nodes/worktreesNode.js';
 
 const { command, getCommands } = createCommandDecorator<
-	GlCommands,
+	GlCommands | GlCommandsDeprecated,
 	(...args: any[]) => unknown,
 	{
 		multiselect?: boolean | 'sequential';
@@ -942,6 +942,7 @@ export class ViewCommands implements Disposable {
 	}
 
 	@command('gitlens.views.publishRepository')
+	@command('gitlens.publishRepository:views')
 	@debug()
 	private publishRepository(node: BranchNode | BranchTrackingStatusNode) {
 		if (node.isAny('branch', 'tracking-status')) {
@@ -2142,7 +2143,7 @@ export class ViewCommands implements Disposable {
 }
 
 export function registerViewCommand(
-	command: GlCommands,
+	command: GlCommands | GlCommandsDeprecated,
 	callback: (...args: any[]) => unknown,
 	thisArg?: any,
 	options?: {

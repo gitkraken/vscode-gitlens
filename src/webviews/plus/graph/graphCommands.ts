@@ -100,7 +100,12 @@ import { showPatchesView } from '../../../plus/drafts/actions.js';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider.js';
 import { setupPullRequestBranch } from '../../../plus/launchpad/utils/-webview/startReview.utils.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/associateIssueWithBranch.js';
-import { executeActionCommand, executeCommand, executeCoreCommand } from '../../../system/-webview/command.js';
+import {
+	executeActionCommand,
+	executeCommand,
+	executeCoreCommand,
+	executeCoreGitCommand,
+} from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, setContext } from '../../../system/-webview/context.js';
 import { openTerminal } from '../../../system/-webview/terminal.js';
@@ -642,6 +647,18 @@ export class GraphCommands {
 		if (ref == null) return;
 
 		await RepoActions.push(ref.repoPath, undefined, ref);
+	}
+
+	@command('gitlens.publishRepository:graph')
+	@debug()
+	private async publishRepository(item?: GraphItemContext | BranchRef) {
+		// Header publish button passes no branch context — fall back to the graph's repository
+		const repoPath = (await this.resolveBranchRef(item))?.repoPath ?? this.repository?.path;
+		if (repoPath == null) return;
+
+		// With no remotes, VS Code's `git.publish` hands off to the GitHub extension's remote-source publisher
+		// (creates the hosted repo, adds `origin`, and pushes with upstream)
+		await executeCoreGitCommand('git.publish', Uri.file(repoPath));
 	}
 
 	@command('gitlens.graph.rebaseOntoBranch')

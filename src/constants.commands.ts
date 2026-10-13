@@ -38,7 +38,9 @@ export type GlCommandsDeprecated =
 	| 'gitlens.openFileInRemote'
 	| 'gitlens.openInRemote'
 	| 'gitlens.openRepoInRemote'
-	| 'gitlens.showFileHistoryInView';
+	| 'gitlens.showFileHistoryInView'
+	/** @deprecated use `gitlens.publishRepository:views` */
+	| 'gitlens.views.publishRepository';
 
 type InternalGraphWebviewCommands =
 	| 'gitlens.deleteBranchOrWorktree:graph'
