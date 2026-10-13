@@ -265,6 +265,27 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 				context.title = this.title;
 				const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
 
+				if (
+					this.source.source !== 'mcp' &&
+					steps.isAtStepOrUnset(Steps.EnsureAccess) &&
+					(await this.container.subscription.getSubscription()).account == null
+				) {
+					using step = steps.enterStep(Steps.EnsureAccess);
+
+					const result = yield* ensureAccessStep(this.container, 'startReview', state, context, step);
+					if (result === StepResultBreak) {
+						// Signing in retries this step with a no-op that reads as a break — carry on instead of ending
+						if ((await this.container.subscription.getSubscription()).account != null) {
+							// The account may already have integrations connected
+							context.connectedIntegrations = await this.container.launchpad.getConnectedIntegrations();
+							step.skip();
+							continue;
+						}
+						if (step.goBack() == null) break;
+						continue;
+					}
+				}
+
 				if (steps.isAtStep(Steps.ConnectIntegrations) || !hasConnectedIntegrations) {
 					// A programmatic (MCP/agent) caller has no way to answer the interactive "Connect an
 					// Integration" quick pick, so entering it would leave the picker open and the caller's
