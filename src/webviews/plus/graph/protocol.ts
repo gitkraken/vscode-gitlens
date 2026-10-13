@@ -690,6 +690,9 @@ export interface BranchState extends GitTrackingState {
 	};
 	pr?: PullRequestShape;
 	worktree?: boolean;
+	/** Whether the repo has any remotes. `false` is what turns the header's Publish Branch into Publish Repository
+	 *  (which creates the hosted repo via VS Code's `git.publish`). Absent when not probed. */
+	hasRemotes?: boolean;
 }
 
 /**

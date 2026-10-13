@@ -949,17 +949,25 @@ export class GraphProducersService {
 
 		const revision = this.nextBranchStateRevision();
 
-		// getBranch + getWorktreesByBranch are independent — allSettled so a non-critical worktree failure
-		// doesn't drop the branch state; branch.id is only read after both resolve.
-		const [branchResult, worktreesByBranchResult] = await Promise.allSettled([
+		// getBranch + getWorktreesByBranch + getRemotes are independent — allSettled so a non-critical
+		// worktree/remotes failure doesn't drop the branch state; branch.id is only read after all resolve.
+		const [branchResult, worktreesByBranchResult, remotesResult] = await Promise.allSettled([
 			this.repository.git.branches.getBranch(undefined, undefined, signal),
 			getWorktreesByBranch(this.repository, undefined, signal),
+			this.repository.git.remotes.getRemotes(undefined, signal),
 		]);
 		const branch: GitBranch | undefined = getSettledValue(branchResult);
 		if (cancellation.token.isCancellationRequested || branch == null) return;
 
 		const branchState: BranchState = { ...(branch.upstream?.state ?? { ahead: 0, behind: 0 }) };
 		branchState.worktree = getSettledValue(worktreesByBranchResult)?.has(branch.id) ?? false;
+		// Repo-level fact (not per-branch), so on a failed read carrying the last-known value forward is safe
+		// across branch switches and keeps the header's Publish Branch/Repository swap from flickering
+		const remotes = getSettledValue(remotesResult);
+		const hasRemotes = remotes != null ? remotes.length > 0 : this._lastSentBranchState?.hasRemotes;
+		if (hasRemotes != null) {
+			branchState.hasRemotes = hasRemotes;
+		}
 
 		if (branch.upstream != null) {
 			branchState.upstream = branch.upstream.name;

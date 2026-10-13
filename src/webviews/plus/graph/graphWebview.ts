@@ -5804,18 +5804,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// fast-path read and pass the strip check below. Unstamped instead: no false ranking, no commit to
 		// the gate, and the next build supplies a stamped value.
 		let branchStateRevision: number | undefined;
-		try {
-			const reread = await this.repository.git.branches.getBranch(
-				undefined,
-				undefined,
-				toAbortSignal(cancellation.token),
-			);
-			if (reread != null) {
-				branch = reread;
-				branchStateRevision = this._producers.nextBranchStateRevision();
-			}
-		} catch {
-			/* swallow — keep the pre-walk read; cancellation is caught by the check below */
+		// Remotes presence is read beside the re-read (not in the pre-walk bundle) for the same reason: it ships
+		// under this read's stamp, and a `git.publish` mid-walk adds `origin`. Cache-backed, so ~free when warm.
+		const [rereadResult, remotesResult] = await Promise.allSettled([
+			this.repository.git.branches.getBranch(undefined, undefined, toAbortSignal(cancellation.token)),
+			this.repository.git.remotes.getRemotes(undefined, toAbortSignal(cancellation.token)),
+		]);
+		// A failed re-read keeps the pre-walk read; cancellation is caught by the check below
+		const reread = getSettledValue(rereadResult);
+		if (reread != null) {
+			branch = reread;
+			branchStateRevision = this._producers.nextBranchStateRevision();
 		}
 		if (cancellation.token.isCancellationRequested) throw new CancellationError();
 
@@ -5826,6 +5825,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				data?.worktreesByBranch ??
 				(await getWorktreesByBranch(this.repository, undefined, toAbortSignal(cancellation.token)));
 			branchState.worktree = worktreesByBranch?.has(branch.id) ?? false;
+
+			const remotes = getSettledValue(remotesResult);
+			if (remotes != null) {
+				branchState.hasRemotes = remotes.length > 0;
+			}
 
 			if (branch.upstream != null) {
 				// A gone upstream reads as "no upstream" so the header offers Publish instead of nothing
