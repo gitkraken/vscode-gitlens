@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import { execFileSync } from 'child_process';
 import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
+import { rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { Uri } from 'vscode';
@@ -225,8 +226,10 @@ suite('discard.utils — discardOneWith (temp repo)', function () {
 		git(repo, 'init', '-q', '-b', 'main');
 	});
 
-	teardown(() => {
-		rmSync(repo, { recursive: true, force: true });
+	teardown(async () => {
+		// Async: under the VS Code test host's Electron runtime on Windows, `rmSync` fails with `EPERM` on git's
+		// read-only object files, which aborts the rest of the suite.
+		await rm(repo, { recursive: true, force: true, maxRetries: 3 });
 	});
 
 	const commit = (msg: string): void => {

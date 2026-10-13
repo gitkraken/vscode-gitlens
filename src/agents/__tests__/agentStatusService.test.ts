@@ -1013,7 +1013,8 @@ suite('AgentStatusService session dispatch', () => {
 			assert.strictEqual(stubs.executeCommand.calledOnce, true);
 			const [command, uri, options] = stubs.executeCommand.firstCall.args;
 			assert.strictEqual(command, 'vscode.openFolder');
-			assert.strictEqual((uri as { fsPath: string }).fsPath, '/repo/worktree');
+			// `path`, not `fsPath`: `fsPath` uses the platform separator, so a POSIX literal never matches on Windows
+			assert.strictEqual((uri as { path: string }).path, '/repo/worktree');
 			assert.deepStrictEqual(options, { forceNewWindow: false });
 		} finally {
 			dispose();
@@ -1065,7 +1066,8 @@ suite('AgentStatusService session dispatch', () => {
 			assert.strictEqual(stubs.executeCommand.calledOnce, true);
 			const [command, uri, options] = stubs.executeCommand.firstCall.args;
 			assert.strictEqual(command, 'vscode.openFolder');
-			assert.strictEqual((uri as { fsPath: string }).fsPath, '/repo/other-worktree');
+			// `path`, not `fsPath`: `fsPath` uses the platform separator, so a POSIX literal never matches on Windows
+			assert.strictEqual((uri as { path: string }).path, '/repo/other-worktree');
 			assert.deepStrictEqual(options, { forceNewWindow: false });
 		} finally {
 			dispose();
