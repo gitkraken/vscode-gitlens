@@ -1,6 +1,7 @@
 // @ts-check
 import postcssLit from 'postcss-lit';
 import postcssScss from 'postcss-scss';
+import recessOrder from 'stylelint-config-recess-order';
 
 /**
  * Stylelint configuration for GitLens webview styles.
@@ -67,6 +68,13 @@ const deferredToWarning = {
 	'no-duplicate-selectors': [true, { severity: 'warning' }],
 	// One non-combinable grid-template in rebase.css.ts
 	'declaration-block-no-redundant-longhand-properties': [true, { severity: 'warning' }],
+	// Cosmetic ordering, inherited from stylelint-config-recess-order rather than chosen here — and the
+	// only hazard real ordering carries, a shorthand silently resetting a longhand, is caught separately
+	// by `declaration-block-no-shorthand-property-overrides`. Kept reported but non-blocking because its
+	// --fix can't be used on the Lit surface (same postcss-lit write-back that disables `value-keyword-case`
+	// below, plus it re-indents `css` templates), so violations can't be cleared in one command.
+	// Re-specifies recess-order's own property list because stylelint has no severity-only override.
+	'order/properties-order': [recessOrder.rules['order/properties-order'], { severity: 'warning' }],
 };
 
 export default {
