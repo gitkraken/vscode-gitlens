@@ -1,20 +1,20 @@
 {
 	"schemaVersion": 2,
 	"producer": "webpack --mode production --config-name webviews:common --config-name webviews --env analyzeBundle --env quick",
-	"sourceCommit": "cd6ebd4a3b87912b3580fb39338412ba7ccfa003",
+	"sourceCommit": "9c632cf08901d227472fff08da4a490a7311aa9b",
 	"entrypoint": "graph",
 	"enforcedMetrics": ["entrypoint", "graph.css", "shared.js"],
-	"budgetRationale": "Re-baselined for the Graph access walls: +14.5 KiB on the entrypoint since the localization baseline, of which +10.7 KiB is graph.js and +3.9 KiB is shared.js. Most of it accumulated within headroom (the graph rollup rework, plural blocks for count messages); the access walls pushed it over, adding a show-intent derivation and task-specific wall copy (intentCopy.ts, access-account.ts, feature-gate styles) with their localized messages. Growth is feature code, not a new dependency or a module moving between chunks. Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint for host-neutral extension seams, 4 KiB on shared.js (loaded by every webview) so unrelated shared-code changes don't trip a graph check while real bloat still does, and graph.css's accounted allowance for the gl-commit-graph element rename and the VS Code theme-token table.",
+	"budgetRationale": "Re-baselined for the Publish Repository flow: +12.2 KiB on the entrypoint since the access-walls baseline, of which +10.3 KiB is graph.js, +1.2 KiB shared.js and +0.7 KiB graph.css. About 9.4 KiB had accumulated within headroom from earlier work; the publish flow added about 2.9 KiB (the Publish Repository / Add Remote swap on the header, WIP header, empty pane, overview card and branch sheet, with their localized messages) and pushed the entrypoint 197 bytes over. Growth is feature code, not a new dependency or a module moving between chunks. Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
 	"baselineBytes": {
-		"entrypoint": 3102842,
-		"graph.js": 1964248,
-		"graph.css": 160766,
-		"shared.js": 977828
+		"entrypoint": 3115313,
+		"graph.js": 1974836,
+		"graph.css": 161447,
+		"shared.js": 979030
 	},
 	"maximumBytes": {
-		"entrypoint": 3115130,
-		"graph.js": 1964248,
-		"graph.css": 167647,
-		"shared.js": 981924
+		"entrypoint": 3127601,
+		"graph.js": 1974836,
+		"graph.css": 168328,
+		"shared.js": 983126
 	}
 }
