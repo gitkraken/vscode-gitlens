@@ -95,17 +95,26 @@ pnpm run benchmark:graph:engine:compare \
 
 The browser summary is a comparison-ready CI artifact, not an absolute cross-machine budget. Its current
 five-run open-to-visible measurement is too noisy for a defensible 3% gate, so compare candidate and baseline
-runs from the same controlled runner; do not pin a local workstation result as a universal threshold. Production
-bundle bytes are independently enforced against `scripts/performance/graph-bundle-baseline.json`
-(`pnpm run benchmark:graph:bundle:check`). Three metrics carry a standing growth allowance above their
+runs from the same controlled runner; do not pin a local workstation result as a universal threshold.
+
+### Graph bundle budget
+
+Production bundle bytes are independently enforced against `scripts/performance/graph-bundle-baseline.json`
+(`pnpm run benchmark:graph:bundle:check`). **CI runs this after `bundle:stats`; `pnpm run build` and
+`pnpm run check` do not**, so a branch that is locally clean can still fail CI here. Run
+`pnpm run benchmark:graph:bundle` (bundles, then checks) before pushing any change under
+`src/webviews/apps/` or `packages/components`. Three metrics carry a standing growth allowance above their
 pinned baseline rather than a zero-growth ceiling: the `entrypoint` total gets 12 KiB for host-neutral
 extension seams, `shared.js` gets 4 KiB so unrelated shared-code changes don't trip the graph check,
 and `graph.css` carries a one-off allowance documented in the baseline's `budgetRationale`. When a
 bundle byte budget rejects an expected, reviewed growth, re-pin the baseline with
 `pnpm run benchmark:graph:bundle:update`, which rebuilds the production webviews bundle, re-measures,
 and rewrites `baselineBytes`, `maximumBytes` (deriving each metric's new maximum as baseline + its
-current allowance, so all three survive the update), and `sourceCommit` in place — commit the
-resulting baseline file alongside the change that grew the bundle.
+current allowance, so all three survive the update), and `sourceCommit` (from the local `main` ref) in
+place. It does not touch `budgetRationale`: rewrite that by hand to say what grew, by how much, and why it
+is feature code rather than a new dependency or a chunk move. Local and CI byte counts differ by a few
+bytes of platform noise, well inside the allowances. Commit the resulting baseline file alongside the
+change that grew the bundle.
 
 ### Opt-in specs: the GK CLI insiders channel (`@cli-insiders`)
 
