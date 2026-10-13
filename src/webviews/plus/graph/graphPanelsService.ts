@@ -25,6 +25,7 @@ import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlen
 import { Logger } from '@gitlens/utils/logger.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
+import type { ConnectCloudIntegrationsCommandArgs } from '../../../commands/cloudIntegrations.js';
 import type { GlCommands } from '../../../constants.commands.js';
 import type { StoredGraphExcludedRef } from '../../../constants.storage.js';
 import type { Container } from '../../../container.js';
@@ -1831,12 +1832,11 @@ export class GraphPanelsService {
 				return;
 			}
 
-			// Never skip an already-connected provider: the empty state is only offered when nothing is
-			// connected, so a "connected" read here is stale and skipping would leave the panel empty.
-			void this.container.integrations.connectCloudIntegrations(
-				{ integrationIds: [integrationId], skipIfConnected: false },
-				{ source: 'graph-sidebar', detail: 'pullRequests' },
-			);
+			// Through the command, not the service, so a signed-out user gets its up-front account check
+			void executeCommand<ConnectCloudIntegrationsCommandArgs>('gitlens.plus.cloudIntegrations.connect', {
+				integrationIds: [integrationId],
+				source: { source: 'graph-sidebar', detail: 'pullRequests' },
+			});
 			return;
 		}
 

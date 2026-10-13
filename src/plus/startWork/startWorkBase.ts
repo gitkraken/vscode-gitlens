@@ -194,11 +194,40 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 
 		using steps = new StepsController<StepNames>(context, this);
 
+		let plusFeature: PlusFeatures | undefined;
+		if (this.key === 'startWork') {
+			plusFeature = 'startWork';
+		} else if (this.key === 'associateIssueWithBranch') {
+			plusFeature = 'associateIssueWithBranch';
+		}
+
 		let opened = false;
 		try {
 			while (!steps.isComplete) {
 				context.title = this.title;
 				const hasConnectedIntegrations = [...context.connectedIntegrations.values()].some(c => c);
+
+				if (
+					plusFeature != null &&
+					this.source.source !== 'mcp' &&
+					steps.isAtStepOrUnset(Steps.EnsureAccess) &&
+					(await this.container.subscription.getSubscription()).account == null
+				) {
+					using step = steps.enterStep(Steps.EnsureAccess);
+
+					const result = yield* ensureAccessStep(this.container, plusFeature, state, context, step);
+					if (result === StepResultBreak) {
+						// Signing in retries this step with a no-op that reads as a break — carry on instead of ending
+						if ((await this.container.subscription.getSubscription()).account != null) {
+							// The account may already have integrations connected
+							context.connectedIntegrations = await getConnectedIntegrations(this.container);
+							step.skip();
+							continue;
+						}
+						if (step.goBack() == null) break;
+						continue;
+					}
+				}
 
 				if (steps.isAtStep(Steps.ConnectIntegrations) || !hasConnectedIntegrations) {
 					// A programmatic (MCP/agent) caller has no way to answer the interactive "Connect an
@@ -239,13 +268,6 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 
 					const connected = result.connected;
 					if (!connected) continue;
-				}
-
-				let plusFeature: PlusFeatures | undefined;
-				if (this.key === 'startWork') {
-					plusFeature = 'startWork';
-				} else if (this.key === 'associateIssueWithBranch') {
-					plusFeature = 'associateIssueWithBranch';
 				}
 
 				if (plusFeature != null && steps.isAtStepOrUnset(Steps.EnsureAccess)) {
