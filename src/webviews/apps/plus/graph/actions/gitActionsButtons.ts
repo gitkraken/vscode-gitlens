@@ -1546,6 +1546,30 @@ export class GlPublishButton extends LitElement {
 		// Only when the current branch has no upstream (unpublished)
 		if (this.branchState == null || this.branchState.upstream != null) return nothing;
 
+		if (this.branchState.hasRemotes === false) {
+			return html`
+				<gl-tooltip placement="bottom">
+					<a
+						href=${this._webview.createCommandLink('gitlens.publishRepository:')}
+						class="action-button"
+						aria-label=${l10n.t('Publish Repository')}
+					>
+						<code-icon class="action-button__icon" icon="cloud-upload"></code-icon>
+						<span class="publish-button__text">${l10n.t('Publish Repository')}</span>
+					</a>
+					<span slot="content">
+						${
+							this.branchName
+								? localizedContent(l10n.t('Create a remote repository and publish {branch} to it'), {
+										branch: html`<strong>${this.branchName}</strong>`,
+									})
+								: l10n.t('Create a remote repository and publish this branch to it')
+						}
+					</span>
+				</gl-tooltip>
+			`;
+		}
+
 		return html`
 			<gl-tooltip placement="bottom">
 				<a

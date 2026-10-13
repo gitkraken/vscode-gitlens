@@ -73,6 +73,8 @@ export function commandToOverviewActionName(href: string): GraphSidebarOverviewA
 			return 'fetch';
 		case 'gitlens.publishBranch':
 			return 'publishBranch';
+		case 'gitlens.publishRepository':
+			return 'publishRepository';
 		case 'gitlens.switchToBranch':
 			return 'switch';
 		case 'gitlens.openWorktree':

@@ -1554,6 +1554,8 @@
 	"Create a Merge Commit...": "Create a Merge Commit...",
 	"Create a Pull Request": "Create a Pull Request",
 	"Create a folder and initialize a repository": "Create a folder and initialize a repository",
+	"Create a remote repository and publish this branch to it": "Create a remote repository and publish this branch to it",
+	"Create a remote repository and publish {branch} to it": "Create a remote repository and publish {branch} to it",
 	"Create directly in an exact folder instead of under the root": "Create directly in an exact folder instead of under the root",
 	"Create pull request (optional)": "Create pull request (optional)",
 	"Create {product}/Cloud Patch is a product feature name and must not be translated.": {
@@ -3375,6 +3377,7 @@
 	"Publish (push) {branch} to a remote": "Publish (push) {branch} to a remote",
 	"Publish (push) {branch} to {remote}": "Publish (push) {branch} to {remote}",
 	"Publish Branch": "Publish Branch",
+	"Publish Repository": "Publish Repository",
 	"Publish {0} to {1}": "Publish {0} to {1}",
 	"Publish {branch} to a remote": "Publish {branch} to a remote",
 	"Publish {branch} to {provider}": "Publish {branch} to {provider}",

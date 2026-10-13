@@ -2524,7 +2524,7 @@ or
   'context.webview.type': string,
   // Where on the card the action was invoked
   'location': 'hover' | 'inline',
-  'name': 'compareWithHead' | 'compareWithPr' | 'compareWithWorking' | 'fetch' | 'openChanges' | 'openPrChanges' | 'openWorktree' | 'other' | 'publishBranch' | 'pull' | 'push' | 'switch',
+  'name': 'compareWithHead' | 'compareWithPr' | 'compareWithWorking' | 'fetch' | 'openChanges' | 'openPrChanges' | 'openWorktree' | 'other' | 'publishBranch' | 'publishRepository' | 'pull' | 'push' | 'switch',
   // Which surface the hover was anchored on (always `overview` for `location: 'inline'`)
   'surface': 'overview' | 'wip-bar'
 }
@@ -3716,7 +3716,7 @@ or
 ```typescript
 {
   // Which action was triggered
-  'action': 'applyStash' | 'copyPatch' | 'createBranch' | 'createPullRequest' | 'createPullRequestWithAI' | 'createWorktree' | 'fetch' | 'forcePush' | 'mergeMergeTarget' | 'publishBranch' | 'pull' | 'push' | 'rebaseOntoMergeTarget' | 'shareAsCloudPatch' | 'startReview' | 'startWork' | 'stashSave' | 'stashSaveFiles' | 'stashSaveStaged' | 'switchBranch',
+  'action': 'applyStash' | 'copyPatch' | 'createBranch' | 'createPullRequest' | 'createPullRequestWithAI' | 'createWorktree' | 'fetch' | 'forcePush' | 'mergeMergeTarget' | 'publishBranch' | 'publishRepository' | 'pull' | 'push' | 'rebaseOntoMergeTarget' | 'shareAsCloudPatch' | 'startReview' | 'startWork' | 'stashSave' | 'stashSaveFiles' | 'stashSaveStaged' | 'switchBranch',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,

@@ -366,6 +366,11 @@ export class GlGraphOverviewCard extends LitElement {
 	@property({ type: Array })
 	agentSessions?: AgentSessionState[];
 
+	/** `false` when this card's repo has no remotes (`undefined` = not probed, treated as having some).
+	 *  The parent only passes it for cards in the graph's repo. */
+	@property({ attribute: false })
+	hasRemotes?: boolean;
+
 	@property({ type: Boolean, reflect: true })
 	scoped = false;
 
@@ -734,6 +739,16 @@ export class GlGraphOverviewCard extends LitElement {
 						></action-item>`,
 					);
 				}
+			} else if (this.hasRemotes === false && (this.branch.worktree == null || this.branch.worktree.isDefault)) {
+				// `git.publish` publishes the repo's HEAD, so only the repo's own current branch (not one
+				// opened in another worktree) can be offered
+				actions.push(
+					html`<action-item
+						label=${l10n.t('Publish Repository')}
+						icon="cloud-upload"
+						href=${this.createCommandLink('gitlens.publishRepository:')}
+					></action-item>`,
+				);
 			} else {
 				actions.push(
 					html`<action-item

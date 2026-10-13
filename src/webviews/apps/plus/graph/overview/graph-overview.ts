@@ -10,6 +10,7 @@ import { RovingTabindexController } from '@gitlens/components/controllers/roving
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { arePathsEqual } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type {
@@ -24,6 +25,7 @@ import { matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
+import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import './graph-overview-card.js';
 import '../../../shared/components/button.js';
 import '@gitlens/components/components/codeIcon.js';
@@ -963,6 +965,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		const sessionsByRepoAndWorktree = this._state.agentSessionIndex;
 		const containsByRepo = this._selectionContainsByRepo;
 		const scopedBranchId = this._state.scope?.branchRef;
+		const graphRepoPath = getSelectedRepoPath(this._state);
 		const roving = group === 'active' ? this._rovingActive : this._rovingRecent;
 
 		return html`
@@ -1004,6 +1007,11 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 								.agentSessions=${agentSessions}
 								.containsSelection=${containsByRepo.get(b.repoPath)?.has(b.name) ?? false}
 								.scoped=${scopedBranchId != null && b.id === scopedBranchId}
+								.hasRemotes=${
+									graphRepoPath != null && arePathsEqual(b.repoPath, graphRepoPath)
+										? this._state.branchState?.hasRemotes
+										: undefined
+								}
 							></gl-graph-overview-card>
 						`;
 					},

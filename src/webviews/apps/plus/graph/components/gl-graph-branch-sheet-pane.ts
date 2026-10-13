@@ -974,6 +974,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		const behind = upstream?.state.behind ?? 0;
 		const branchRef = this.toBranchRef(branch);
 		const checkoutPath = this.checkoutPath(branch);
+		const publish = this.publishAction(branch, branchRef);
 		// Starts as `cloud` and swaps in place once the remote leg settles — never a shimmer.
 		const kindIcon = this.renderKindIcon(providerIconName(this._remote?.provider?.icon), l10n.t('Upstream'));
 
@@ -992,11 +993,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				</div>
 				<div class="relationship-card__foot">
 					<div class="relationship-card__actions">
-						<gl-button
-							appearance="secondary"
-							href=${this._webview.createCommandLink<BranchRef>('gitlens.publishBranch:', branchRef)}
-							>${l10n.t('Publish')}</gl-button
-						>
+						<gl-button appearance="secondary" href=${publish.href}>${publish.label}</gl-button>
 					</div>
 				</div>
 			</div>`;
@@ -1012,11 +1009,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 					appearance="secondary"
 					href=${this._webview.createCommandLink<BranchRef>('gitlens.deleteBranchOrWorktree:', branchRef)}
 					>${l10n.t('Delete Local Branch')}</gl-button
-				><gl-button
-					appearance="secondary"
-					href=${this._webview.createCommandLink<BranchRef>('gitlens.publishBranch:', branchRef)}
-					>${l10n.t('Publish')}</gl-button
-				>`;
+				><gl-button appearance="secondary" href=${publish.href}>${publish.label}</gl-button>`;
 		} else {
 			// The pill owns the counts, so the words never repeat them.
 			const fetch = html`<gl-button
@@ -1652,6 +1645,26 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	 *  worktree is non-default yet still the current window, so `isDefault` would misclassify it. */
 	private isOtherWorktree(worktree: BranchSnapshot['worktree']): boolean {
 		return worktree != null && !arePathsEqual(worktree.path, this.repoPath ?? '');
+	}
+
+	/** Publish Repository (creates the hosted repo, then publishes HEAD via `git.publish`) replaces Publish
+	 *  only for a repo with no remotes AND when this sheet's branch is the window's current branch. */
+	private publishAction(branch: BranchSnapshot, branchRef: BranchRef): { href: string; label: string } {
+		if (
+			this.graphState?.branchState?.hasRemotes === false &&
+			branch.opened &&
+			!this.isOtherWorktree(branch.worktree)
+		) {
+			return {
+				href: this._webview.createCommandLink<BranchRef>('gitlens.publishRepository:', branchRef),
+				label: l10n.t('Publish Repository'),
+			};
+		}
+
+		return {
+			href: this._webview.createCommandLink<BranchRef>('gitlens.publishBranch:', branchRef),
+			label: l10n.t('Publish'),
+		};
 	}
 
 	private pull(checkoutPath: string): void {

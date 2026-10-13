@@ -3142,6 +3142,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			(preferences?.aiEnabled ?? false) &&
 			(this._state.orgSettings.get()?.ai ?? false) &&
 			(wip.repo?.provider?.supportedFeatures?.createPullRequestWithDetails ?? false);
+		// `git.publish` publishes the main repo's HEAD, so a secondary worktree's WIP never offers Publish Repository
+		const graphRepoPath = this.graphRepoPath();
+		const isSecondaryWorktreeWip =
+			wip.repo?.path != null && graphRepoPath != null && wip.repo.path !== graphRepoPath;
+		const primaryHasRemotes = isSecondaryWorktreeWip ? undefined : this._graphState?.branchState?.hasRemotes;
 		// Read the worktree-matched sessions from the cycle snapshot captured in `willUpdate` so
 		// the auto-partial trigger and the rendered card list agree on the same data within a
 		// single update. See `_cycleAgentSessions` for why this matters.
@@ -3272,6 +3277,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 							: html`
 									<gl-details-wip-empty-pane
 										.wip=${wip}
+										.hasRemotes=${primaryHasRemotes}
 										.aiCreatePrEnabled=${aiCreatePrEnabled}
 										.pullRequest=${this._state.wipPullRequest.get()}
 										.pullRequestLoading=${this._state.wipPullRequestLoading.get()}
@@ -3289,6 +3295,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										@apply-stash=${this.handleApplyStash}
 										@new-worktree=${this.handleNewWorktree}
 										@publish-branch=${this.handlePublishBranch}
+										@publish-repository=${this.handlePublishRepository}
 										@pull=${this.handlePull}
 										@push=${this.handlePush}
 										@force-push=${this.handleForcePush}
@@ -3304,6 +3311,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			<gl-details-wip-header
 				.wip=${wip}
 				.currentRepoPath=${this.graphRepoPath()}
+				.hasRemotes=${this._graphState?.branchState?.hasRemotes}
 				?sheets-open=${this._sheetStack.length > 0}
 				?graph-ready=${this.graphReady}
 				?show-maximize=${this.showMaximize}
@@ -3331,6 +3339,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				@switch-branch=${this.handleSwitchBranch}
 				@compare-with-merge-target=${this.handleCompareWithMergeTarget}
 				@publish-branch=${this.handlePublishBranch}
+				@publish-repository=${this.handlePublishRepository}
 				@pull=${this.handlePull}
 				@push=${this.handlePush}
 				@force-push=${this.handleForcePush}
@@ -4380,6 +4389,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handlePublishBranch = () => {
 		this.trackWipAction('publishBranch');
 		void this._actions.services.repository.publishBranch(this.effectiveRepoPath!);
+	};
+
+	private handlePublishRepository = () => {
+		this.trackWipAction('publishRepository');
+		void this._actions.services.repository.publishRepository(this.effectiveRepoPath!);
 	};
 
 	private handlePull = () => {

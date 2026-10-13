@@ -44,6 +44,9 @@ export class GlDetailsWipHeader extends LitElement {
 	 *  is for a secondary worktree (`wip.repo.path !== currentRepoPath`) so we can surface the
 	 *  Open Worktree action. */
 	@property() currentRepoPath?: string;
+	/** `false` when the graph's repo has no remotes (`undefined` = not probed, treated as having some).
+	 *  Swaps Publish Branch for Publish Repository on the primary (non-secondary-worktree) WIP. */
+	@property({ attribute: false }) hasRemotes?: boolean;
 	@property() activeMode?: 'review' | 'compose' | 'resolve' | null;
 	/** Pre-computed snippet shown on the right of the identity row while in mode (e.g. "7 files",
 	 *  "Generating…", "3 commits · 7 files", "Error"). Computed by the host panel from scope +
@@ -439,6 +442,20 @@ export class GlDetailsWipHeader extends LitElement {
 		if (!branch) return nothing;
 
 		if (branch.upstream == null || branch.upstream.missing === true) {
+			// `git.publish` publishes the main repo's HEAD, so only offer it for the primary worktree's WIP
+			const isSecondaryWorktree =
+				this.wip?.repo?.path != null &&
+				this.currentRepoPath != null &&
+				this.wip.repo.path !== this.currentRepoPath;
+			if (this.hasRemotes === false && !isSecondaryWorktree) {
+				return html`<gl-action-chip
+					icon="cloud-upload"
+					label=${l10n.t('Publish Repository')}
+					overlay="tooltip"
+					@click=${() => this.emit('publish-repository')}
+				></gl-action-chip>`;
+			}
+
 			return html`<gl-action-chip
 				icon="cloud-upload"
 				label=${l10n.t('Publish Branch')}

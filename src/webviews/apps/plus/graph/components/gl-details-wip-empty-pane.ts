@@ -45,6 +45,8 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	 *  stable "Checking for pull request…" row that anchors the layout until enrichment lands. */
 	@property({ type: Boolean }) pullRequestLoading = false;
 	@property({ type: Boolean }) hasIntegrationsConnected = false;
+	/** `false` when the repo has no remotes (`undefined` = not probed). The parent only passes it for the primary worktree's WIP. */
+	@property({ attribute: false }) hasRemotes?: boolean;
 	@property({ type: Object }) launchpadSummary?: LaunchpadSummaryResult | { error: LaunchpadSummaryError };
 	@property({ type: Boolean }) launchpadSummaryLoading = false;
 	/** When true, render the Launchpad section between Next steps and Start New. Off by default
@@ -181,7 +183,14 @@ export class GlDetailsWipEmptyPane extends LitElement {
 
 		const steps: NextStep[] = [];
 
-		if (upstreamMissing) {
+		if (upstreamMissing && this.hasRemotes === false) {
+			steps.push({
+				icon: 'cloud-upload',
+				label: l10n.t('Create a remote repository and publish {branch} to it', { branch: branch.name }),
+				actionLabel: l10n.t('Publish Repository'),
+				onClick: () => this.emit('publish-repository'),
+			});
+		} else if (upstreamMissing) {
 			steps.push({
 				icon: 'cloud-upload',
 				label: l10n.t('Publish {branch} to {remote}', { branch: branch.name, remote: remoteName }),
