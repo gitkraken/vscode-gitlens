@@ -3296,6 +3296,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										@new-worktree=${this.handleNewWorktree}
 										@publish-branch=${this.handlePublishBranch}
 										@publish-repository=${this.handlePublishRepository}
+										@add-remote=${this.handleAddRemote}
 										@pull=${this.handlePull}
 										@push=${this.handlePush}
 										@force-push=${this.handleForcePush}
@@ -4394,6 +4395,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handlePublishRepository = () => {
 		this.trackWipAction('publishRepository');
 		void this._actions.services.repository.publishRepository(this.effectiveRepoPath!);
+	};
+
+	private handleAddRemote = () => {
+		this.trackWipAction('addRemote');
+		void this._actions.services.repository.addRemote(this.effectiveRepoPath!);
 	};
 
 	private handlePull = () => {

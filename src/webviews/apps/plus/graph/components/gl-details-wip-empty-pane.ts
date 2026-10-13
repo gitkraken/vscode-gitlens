@@ -190,6 +190,12 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				actionLabel: l10n.t('Publish Repository'),
 				onClick: () => this.emit('publish-repository'),
 			});
+			steps.push({
+				icon: 'add',
+				label: l10n.t('Add a remote and publish {branch} to it', { branch: branch.name }),
+				actionLabel: l10n.t('Add Remote'),
+				onClick: () => this.emit('add-remote'),
+			});
 		} else if (upstreamMissing) {
 			steps.push({
 				icon: 'cloud-upload',

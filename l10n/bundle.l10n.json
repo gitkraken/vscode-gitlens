@@ -252,6 +252,7 @@
 	"Add a heatmap (age) indicator to show how recently lines were changed": "Add a heatmap (age) indicator to show how recently lines were changed",
 	"Add a prefix to match, e.g. TICKET-": "Add a prefix to match, e.g. TICKET-",
 	"Add a regex to match remotes — until then this entry is ignored.": "Add a regex to match remotes — until then this entry is ignored.",
+	"Add a remote and publish {branch} to it": "Add a remote and publish {branch} to it",
 	"Add an Add Co-authors command": "Add an Add Co-authors command",
 	"Add an Open Changes submenu": "Add an Open Changes submenu",
 	"Add an Open Changes with submenu": "Add an Open Changes with submenu",

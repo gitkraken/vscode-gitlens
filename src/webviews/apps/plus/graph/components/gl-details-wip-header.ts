@@ -504,7 +504,7 @@ export class GlDetailsWipHeader extends LitElement {
 	}
 
 	private renderFetchAction() {
-		if (!this.wip?.branch) return nothing;
+		if (!this.wip?.branch || this.hasRemotes === false) return nothing;
 
 		return html`<gl-action-chip
 			icon="repo-fetch"

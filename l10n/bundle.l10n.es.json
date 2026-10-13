@@ -244,6 +244,7 @@
 	"Add a heatmap (age) indicator to show how recently lines were changed": "Añade un indicador de mapa de calor (edad) para mostrar la antigüedad de los últimos cambios en las líneas",
 	"Add a prefix to match, e.g. TICKET-": "Añada un prefijo para que coincida, p. ej. TICKET-",
 	"Add a regex to match remotes — until then this entry is ignored.": "Añada una expresión regular para que coincida con los remotos — hasta entonces, esta entrada se ignora.",
+	"Add a remote and publish {branch} to it": "Añadir un remoto y publicar {branch} en él",
 	"Add an Add Co-authors command": "Añadir un comando Add Co-authors",
 	"Add an Open Changes submenu": "Añadir un submenú Abrir cambios",
 	"Add an Open Changes with submenu": "Añadir un submenú Abrir cambios con",

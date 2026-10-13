@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds _Publish Repository_ to the _Commit Graph_ for a repository with no remotes &mdash; the header, _Working Changes_ panel, overview, and branch details now offer to create a hosted repository (through VS Code's publish flow) instead of a _Publish Branch_ that could only report "No remotes found"; the _Git Command Palette_'s _Push_ offers the same escape when there are no remotes
+  - Offers _Add Remote…_ beside _Publish Repository…_ in the push wizard and the _Working Changes_ next steps, for hosts VS Code can't publish to, and hides _Fetch_ while the repository has no remotes
 - Adds configurable branch names for _Start Work_ with `gitlens.startWork.branchNameFormat`, using `${id}` and `${title}` tokens, plus a format editor and live preview in GitLens Settings ([#5925](https://github.com/gitkraken/vscode-gitlens/issues/5925))
 
 - Adds _Jira Data Center_ to the integrations in _GitLens Settings_, so a self-hosted Jira Server or Data Center instance can be connected alongside Jira Cloud ([#5864](https://github.com/gitkraken/vscode-gitlens/issues/5864)). It connects through your GitKraken account like the other self-hosted integrations, and each configured host is its own connection. The rest of the wiring &mdash; the _Commit Graph_'s issue tracker picker, autolinks &mdash; is not there yet, so apart from branch associations a connected instance is not yet read anywhere else in GitLens

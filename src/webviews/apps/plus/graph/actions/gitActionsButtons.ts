@@ -196,14 +196,18 @@ export class GitActionsButtons extends SignalWatcher(LitElement) {
 						></gl-publish-button>`
 					: nothing
 			}
-			<gl-fetch-button
-				.branchState=${this.branchState}
-				.fetchedText=${this.fetchedText}
-				.fetchedTextShort=${this.fetchedTextShort}
-				.state=${this.state}
-				.autoFetchMode=${this.state.config?.autoFetchMode ?? 'off'}
-				.autoFetchIntervalSeconds=${this.state.config?.autoFetchIntervalSeconds ?? 180}
-			></gl-fetch-button>
+			${
+				this.branchState?.hasRemotes === false
+					? nothing
+					: html`<gl-fetch-button
+							.branchState=${this.branchState}
+							.fetchedText=${this.fetchedText}
+							.fetchedTextShort=${this.fetchedTextShort}
+							.state=${this.state}
+							.autoFetchMode=${this.state.config?.autoFetchMode ?? 'off'}
+							.autoFetchIntervalSeconds=${this.state.config?.autoFetchIntervalSeconds ?? 180}
+						></gl-fetch-button>`
+			}
 			<gl-tooltip placement="bottom">
 				<a class="action-button wip-button" @click=${this.onJumpToWip}>
 					<code-icon class="action-button__icon" icon="gl-wip"></code-icon>

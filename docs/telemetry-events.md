@@ -3716,7 +3716,7 @@ or
 ```typescript
 {
   // Which action was triggered
-  'action': 'applyStash' | 'copyPatch' | 'createBranch' | 'createPullRequest' | 'createPullRequestWithAI' | 'createWorktree' | 'fetch' | 'forcePush' | 'mergeMergeTarget' | 'publishBranch' | 'publishRepository' | 'pull' | 'push' | 'rebaseOntoMergeTarget' | 'shareAsCloudPatch' | 'startReview' | 'startWork' | 'stashSave' | 'stashSaveFiles' | 'stashSaveStaged' | 'switchBranch',
+  'action': 'addRemote' | 'applyStash' | 'copyPatch' | 'createBranch' | 'createPullRequest' | 'createPullRequestWithAI' | 'createWorktree' | 'fetch' | 'forcePush' | 'mergeMergeTarget' | 'publishBranch' | 'publishRepository' | 'pull' | 'push' | 'rebaseOntoMergeTarget' | 'shareAsCloudPatch' | 'startReview' | 'startWork' | 'stashSave' | 'stashSaveFiles' | 'stashSaveStaged' | 'switchBranch',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,

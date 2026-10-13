@@ -244,6 +244,7 @@
 	"Add a heatmap (age) indicator to show how recently lines were changed": "新增熱力圖（時效）指示器，以顯示行的最近變更時間",
 	"Add a prefix to match, e.g. TICKET-": "新增要匹配的字首，例如 TICKET-",
 	"Add a regex to match remotes — until then this entry is ignored.": "新增用於匹配遠端的正規表示式 — 在此之前，此條目將被忽略。",
+	"Add a remote and publish {branch} to it": "新增遠端並將 {branch} 發佈到其中",
 	"Add an Add Co-authors command": "新增「新增合作作者」命令",
 	"Add an Open Changes submenu": "新增「開啟變更」子選單",
 	"Add an Open Changes with submenu": "新增「使用...開啟變更」子選單",

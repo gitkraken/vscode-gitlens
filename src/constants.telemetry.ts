@@ -2032,6 +2032,7 @@ export type GraphWipAction =
 	| 'fetch'
 	| 'publishBranch'
 	| 'publishRepository'
+	| 'addRemote'
 	| 'switchBranch'
 	| 'createBranch'
 	| 'createPullRequest'
