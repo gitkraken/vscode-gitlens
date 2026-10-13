@@ -44,6 +44,18 @@ async function openGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
 	// The Start New action only renders once the graph is allowed + a repo is selected — good
 	// readiness signal that the header is up.
 	await expect.poll(() => headerButton(webview!, 'Start New').count(), { timeout: 30000 }).toBeGreaterThan(0);
+	// Start every test with the Launchpad popover closed. The tests share one editor, the Launchpad test ends
+	// with the pointer on the rocket, and `widenSideBarForGraph` leaves it there once the side bar is wide —
+	// so the rocket's hover popover stays open over the details toggle and swallows clicks on it. The pointer
+	// has to leave INSIDE the webview: moved out of it, the popover never sees a mouseout (measured). The
+	// header's top-left corner is the unhover point `dismissCommitHover` uses.
+	await webview!
+		.locator('gl-graph-header')
+		.first()
+		.hover({ force: true, position: { x: 4, y: 4 } });
+	await expect(webview!.locator('gl-graph-launchpad-indicator gl-popover[open]')).toHaveCount(0, {
+		timeout: MaxTimeout,
+	});
 	return webview!;
 }
 
@@ -173,11 +185,18 @@ test.describe('Graph — Header menus', () => {
 		await expect(launchpadButton).toBeVisible({ timeout: MaxTimeout });
 		await expect(launchpadButton).toHaveAttribute('aria-label', /connect an integration/i);
 
-		// Hover opens the popover (trigger is hover/focus) exposing the Open Launchpad action.
+		// Hover opens the popover (trigger is hover/focus) exposing the Open Launchpad action. Look for the
+		// action inside the popover's content: the rocket anchor carries the same `command:` link and comes
+		// first, so an unscoped `commandLink` resolves to the rocket and passes whether the popover opened or not.
 		await launchpadButton.hover();
-		await expect(commandLink(webview, 'gitlens.showLaunchpad')).toBeVisible({
+		await expect(webview.locator('gl-graph-launchpad-indicator gl-popover[open]')).toHaveCount(1, {
 			timeout: MaxTimeout,
 		});
+		await expect(
+			webview
+				.locator('gl-graph-launchpad-indicator [slot="content"] [href*="command:gitlens.showLaunchpad"]')
+				.first(),
+		).toBeVisible({ timeout: MaxTimeout });
 	});
 
 	test('Pro feature badge is not shown in the header, even for a non-paid (trial) subscription', async ({
