@@ -7,12 +7,15 @@ import { keyed } from 'lit/directives/keyed.js';
 import { focusOutlineButton } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase, scrollableBase } from '@gitlens/components/components/styles/lit/base.css.js';
 import { localizedContent } from '@gitlens/components/localizedContent.js';
+import { proFeaturePreviewUsageDurationInDays } from '../../../../constants.subscription.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { SubscriptionLoginCommandArgs } from '../../../../plus/gk/models/subscription.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { GraphIntent } from '../../../plus/graph/protocol.js';
+import { notifyService } from '../../shared/actions/rpc.js';
+import { waitForFocusSettled } from '../../shared/focus.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
-import { graphStateContext } from './context.js';
+import { graphServicesContext, graphStateContext } from './context.js';
 import type { GraphIntentCopy } from './intentCopy.js';
 import { getIntentCopy, getIntentSourceDetail, getIntentTelemetryDetail } from './intentCopy.js';
 import '../../shared/components/button.js';
@@ -1104,6 +1107,9 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 	@consume({ context: graphStateContext, subscribe: false })
 	graphState!: typeof graphStateContext.__context__;
 
+	@consume({ context: graphServicesContext, subscribe: true })
+	private readonly _services?: typeof graphServicesContext.__context__;
+
 	/** Why the user is here (parked by the app while gated) — selects the sign-in copy;
 	 *  arrivals without task copy fall back to the generic pitch. */
 	@property({ attribute: false })
@@ -1129,6 +1135,15 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 	 *  the sign-in screen so returning users understand why the Graph now asks for an account. */
 	@property({ type: Boolean })
 	upgradedFromPreV19 = false;
+
+	/** The signed-out private-repo preview has ended (host-decided) — swaps the sign-in copy to say so.
+	 *  Task-specific intent copy still takes precedence; the preview note then rides below it. */
+	@property({ type: Boolean })
+	previewExpired = false;
+
+	/** The workspace also has public or local repos — the preview-ended wall offers switching to one */
+	@property({ type: Boolean })
+	allowRepoSwitch = false;
 
 	@state()
 	private _selectedLayout?: 'sidebar' | 'panel';
@@ -1304,22 +1319,58 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				}
 				<div class="content">
 					<gitlens-logo-circle class="logo"></gitlens-logo-circle>
-					<h1 class="heading">${copy?.heading ?? l10n.t('Sign In to GitLens')}</h1>
+					<h1 class="heading">
+						${
+							copy?.heading ??
+							(this.previewExpired ? l10n.t('Commit Graph Preview Ended') : l10n.t('Sign In to GitLens'))
+						}
+					</h1>
 					<p class="body">
 						${
 							copy?.body ??
-							localizedContent(
-								l10n.t({
-									message:
-										'Supercharge Git and stay in control of {aiAssisted} development by connecting coding agents, worktrees, commits, and reviews directly into the Git workflow.',
-									comment: ['{aiAssisted} is the styled phrase “AI-assisted”, kept on one line.'],
-								}),
-								{ aiAssisted: html`<span class="nowrap">${l10n.t('AI-assisted')}</span>` },
-							)
+							(this.previewExpired
+								? l10n.t(
+										'Your {0}-day Commit Graph preview for privately hosted repos has ended — sign in or start a free Pro trial to keep using it here. Public and local repos stay free.',
+										proFeaturePreviewUsageDurationInDays,
+									)
+								: localizedContent(
+										l10n.t({
+											message:
+												'Supercharge Git and stay in control of {aiAssisted} development by connecting coding agents, worktrees, commits, and reviews directly into the Git workflow.',
+											comment: [
+												'{aiAssisted} is the styled phrase “AI-assisted”, kept on one line.',
+											],
+										}),
+										{ aiAssisted: html`<span class="nowrap">${l10n.t('AI-assisted')}</span>` },
+									))
 						}
 					</p>
+					${
+						// Task copy took the heading/body — the preview note still explains why the wall is up
+						this.previewExpired && copy != null
+							? html`<p class="body" role="note">
+									${l10n.t(
+										'Your {0}-day Commit Graph preview for privately hosted repos has ended — public and local repos stay free.',
+										proFeaturePreviewUsageDurationInDays,
+									)}
+								</p>`
+							: nothing
+					}
 					${copy?.promise ? this.renderPromise(copy.promise) : nothing}
 					${this.waiting ? this.renderWaiting() : this.renderSignInActions()}
+					${
+						this.previewExpired && this.allowRepoSwitch
+							? html`<gl-button
+									class="learn-more"
+									appearance="link"
+									tooltip=${l10n.t('Switch to a different repository')}
+									@click=${this.onSwitchRepos}
+								>
+									<code-icon slot="prefix" icon="gl-switch"></code-icon>
+									${l10n.t('Switch Repos')}
+								</gl-button>`
+							: nothing
+					}
 					${
 						this.introVideo
 							? this.renderIntroVideo()
@@ -1426,6 +1477,14 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			name: 'graph/signin/introVideo/clicked',
 			data: {},
 		});
+	}
+
+	private async onSwitchRepos(): Promise<void> {
+		const services = this._services;
+		if (services == null) return;
+
+		await waitForFocusSettled();
+		notifyService(services.pickers, 'pickers/chooseRepository', svc => svc.chooseRepository());
 	}
 
 	private renderSignInActions(): unknown {
