@@ -199,21 +199,12 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		return toAccount(user, this);
 	}
 
-	private _currentAccounts: Map<string, Account | undefined> | undefined;
+	/** Atlassian's account id is the same on every site, so the first site answers for all of them. */
 	protected override async getProviderCurrentAccount(
 		session: ProviderAuthenticationSession,
 	): Promise<Account | undefined> {
-		const { accessToken } = session;
-		this._currentAccounts ??= new Map<string, Account | undefined>();
-
-		if (!this._currentAccounts.has(accessToken)) {
-			const resources = await this.getProviderResourcesForUser(session);
-			const resource = resources?.[0];
-			const account = resource != null ? await this.getProviderAccountForResource(session, resource) : undefined;
-			this._currentAccounts.set(accessToken, account);
-		}
-
-		return this._currentAccounts.get(accessToken);
+		const resource = (await this.getProviderResourcesForUser(session))?.[0];
+		return resource != null ? this.getProviderAccountForResource(session, resource) : undefined;
 	}
 
 	/** The site-list request the resource cache would otherwise answer; see `IntegrationBase.validateCredential`. */

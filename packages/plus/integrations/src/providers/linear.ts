@@ -298,22 +298,29 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return this.fetchCurrentAccount(session);
 	}
 
-	/** Linear's viewer query is account-wide, not resource-scoped — every caller resolves the same account. */
-	private async fetchCurrentAccount(session: ProviderAuthenticationSession): Promise<Account | undefined> {
-		const api = await this.getProvidersApi();
-		// Linear's viewer isn't a ProviderAccount (no username/avatar), so build the Account manually
-		// (Trello-style) from the fields the viewer query returns.
-		const user = await api.getLinearCurrentUser(toTokenWithInfo(this.id, session));
-		if (user == null) return undefined;
+	/** Linear's viewer query is account-wide, so a tracker read's warmup and its per-resource lookup share one request. */
+	private readonly _accounts = new PromiseCache<string, Account | undefined>({ capacity: 10 });
+	private fetchCurrentAccount(session: ProviderAuthenticationSession): Promise<Account | undefined> {
+		return this._accounts.getOrCreate(
+			session.accessToken,
+			async () => {
+				const api = await this.getProvidersApi();
+				// Linear's viewer isn't a ProviderAccount (no username/avatar), so build the Account manually
+				// (Trello-style) from the fields the viewer query returns.
+				const user = await api.getLinearCurrentUser(toTokenWithInfo(this.id, session));
+				if (user == null) return undefined;
 
-		return {
-			provider: this,
-			id: user.id,
-			name: user.name ?? user.displayName ?? undefined,
-			username: user.displayName ?? undefined,
-			email: user.email ?? undefined,
-			avatarUrl: undefined,
-		};
+				return {
+					provider: this,
+					id: user.id,
+					name: user.name ?? user.displayName ?? undefined,
+					username: user.displayName ?? undefined,
+					email: user.email ?? undefined,
+					avatarUrl: undefined,
+				};
+			},
+			{ evictWhen: account => account == null },
+		);
 	}
 
 	protected override async getProviderIssuesForProject(

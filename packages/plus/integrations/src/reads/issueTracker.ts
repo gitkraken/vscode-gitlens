@@ -233,7 +233,6 @@ export async function listIssueTrackerIssuesPage(
 
 	await ctx.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
 
-	// Awaited: the mapper below reads this same cache synchronously, so firing it and forgetting left the first page mapped before it resolved.
 	await integration.getCurrentAccount({ connectionId: options.connectionId }).catch(() => undefined);
 
 	const { value: resources, warning: resourcesWarning } = await runCaptured(

@@ -3,6 +3,7 @@ import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { IssueResourceDescriptor, ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { isIssueResourceDescriptor } from '@gitlens/git/utils/resourceDescriptor.utils.js';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
@@ -64,22 +65,29 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return this.fetchCurrentAccount(session);
 	}
 
-	/** Trello's viewer lookup is account-wide, not board-scoped — every caller resolves the same account. */
-	private async fetchCurrentAccount(session: ProviderAuthenticationSession): Promise<Account | undefined> {
+	/** Trello's viewer lookup is account-wide, so a tracker read's warmup and its per-board lookup share one request. */
+	private readonly _accounts = new PromiseCache<string, Account | undefined>({ capacity: 10 });
+	private fetchCurrentAccount(session: ProviderAuthenticationSession): Promise<Account | undefined> {
 		const appKey = this.requireAppKey(session);
 
-		const api = await this.getProvidersApi();
-		const user = await api.getTrelloCurrentUser(toTokenWithInfo(this.id, session), appKey);
-		if (user == null) return undefined;
+		return this._accounts.getOrCreate(
+			session.accessToken,
+			async () => {
+				const api = await this.getProvidersApi();
+				const user = await api.getTrelloCurrentUser(toTokenWithInfo(this.id, session), appKey);
+				if (user == null) return undefined;
 
-		return {
-			provider: this,
-			id: user.id,
-			name: user.name,
-			username: user.username,
-			email: user.email,
-			avatarUrl: user.avatarUrl ?? undefined,
-		};
+				return {
+					provider: this,
+					id: user.id,
+					name: user.name,
+					username: user.username,
+					email: user.email,
+					avatarUrl: user.avatarUrl ?? undefined,
+				};
+			},
+			{ evictWhen: account => account == null },
+		);
 	}
 
 	protected override async getProviderResourcesForUser(

@@ -23,8 +23,8 @@ import { connectedGitHub, primarySession } from './sweepHelpers.js';
  * tracker alike, going through the same host-supplied cache as {@link IntegrationBase.getCurrentAccount}.
  *
  * What these pin: an absent account is NEVER reported without a warning — unlike a list/batch read, there is no
- * benign empty answer here — and a provider that can't answer at all (Jira, Linear, Trello have no
- * current-account lookup) is told apart from one that simply has no session.
+ * benign empty answer here — and a provider that can't answer at all (Jira Data Center has no current-account
+ * lookup) is told apart from one that simply has no session.
  */
 
 type Manager = ReturnType<typeof createIntegrationManager>;
@@ -59,6 +59,10 @@ async function connectedJira(runtime: FakeRuntime): Promise<{ manager: Manager; 
 	return { manager: manager, jira: jira };
 }
 
+function stubApi(integration: unknown, api: Record<string, unknown>): void {
+	(integration as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () => Promise.resolve(api);
+}
+
 function stubProviderAccount(
 	integration: unknown,
 	fn: (session: ProviderAuthenticationSession) => Promise<Account>,
@@ -80,18 +84,39 @@ suite('IntegrationManager.getCurrentAccount', () => {
 		manager.dispose();
 	});
 
-	test('an issue tracker with no current-account lookup is reported unsupported, not no-connection', async () => {
-		// Real Jira/Linear/Trello never implement `getProviderCurrentAccount` — a resource-less "who am I" has
-		// no meaning on a per-site tracker. A connected-but-unsupported provider must not read as "not connected".
-		const { manager } = await connectedJira(createFakeRuntime());
+	test('Jira resolves the account through its first site', async () => {
+		const { manager, jira } = await connectedJira(createFakeRuntime());
+		const userReads: string[] = [];
+		stubApi(jira, {
+			getJiraResourcesForCurrentUser: () =>
+				Promise.resolve([
+					{ id: 'site-a', name: 'site-a', url: '', avatarUrl: '' },
+					{ id: 'site-b', name: 'site-b', url: '', avatarUrl: '' },
+				]),
+			getCurrentUserForResource: (_token: unknown, resourceId: string) => {
+				userReads.push(resourceId);
+				return Promise.resolve({ id: 'me', name: 'Me', username: 'me' });
+			},
+		});
+
+		const result = await manager.getCurrentAccount({ providerId: IssuesCloudHostIntegrationId.Jira });
+
+		assert.equal(result.account?.id, 'me');
+		assert.deepEqual(result.warnings, []);
+		assert.deepEqual(userReads, ['site-a']);
+
+		manager.dispose();
+	});
+
+	test('Jira with no accessible site reports no account, with a warning', async () => {
+		const { manager, jira } = await connectedJira(createFakeRuntime());
+		stubApi(jira, { getJiraResourcesForCurrentUser: () => Promise.resolve([]) });
 
 		const result = await manager.getCurrentAccount({ providerId: IssuesCloudHostIntegrationId.Jira });
 
 		assert.equal(result.account, undefined);
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
-		assert.equal(result.warnings[0].kind, 'unsupported');
-		assert.match(result.warnings[0].message, /not supported/i);
 
 		manager.dispose();
 	});
