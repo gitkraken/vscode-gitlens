@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes self-managed integrations dropping the installation path from API requests, including Azure DevOps Server virtual directories, while keeping existing connections usable ([#5871](https://github.com/gitkraken/vscode-gitlens/issues/5871))
 - Fixes _Start Work_ and _Launchpad_ reads covering only one host per supported self-managed provider ([#5873](https://github.com/gitkraken/vscode-gitlens/issues/5873)) &mdash; connected hosts are read independently, with open repository scopes kept on their matching host
 - Fixes _Launchpad_ mixing pins, snoozes, selections, and tree items between self-managed hosts whose pull requests share an identifier ([#5873](https://github.com/gitkraken/vscode-gitlens/issues/5873))
+- Fixes a branch's merge target staying stuck on a deleted branch, such as a stacked pull request's base after it merges and is pruned &mdash; a saved, detected, or pull request merge target whose branch no longer exists locally is now skipped in favor of the next available one
 
 ## [19.3.0] - 2026-10-01
 

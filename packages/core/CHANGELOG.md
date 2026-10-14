@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds optional `getSymbolicReferenceNameOrMissing` to the refs sub-provider: `getSymbolicReferenceName`'s answer plus `missing`, which is true only when git confirmed the ref doesn't exist (`rev-parse --verify` exit 1), never for a read that didn't complete (git, git-cli)
+
+### Changed
+
+- Changes `getStoredMergeTargetBranchName` to skip a stored merge target whose branch git confirms is gone: it checks the user's pick, then the detected target, returns the first that exists (resolved to its symbolic name), and keeps one it couldn't check. It takes optional `options` (`detectedOnly`, `priority`) and `cancellation`. `getStoredUserMergeTargetBranchName` and `getStoredDetectedMergeTargetBranchName` still return the raw stored values (git, git-cli)
+
+### Fixed
+
+- Fixes `getBranchContributionsOverview` measuring against a merge target whose branch no longer exists: a confirmed-gone stored target or pull request base now falls through to the base and default branch, and a gone base is never stored. `storeMergeTargetBranchName` also no longer rewrites an unchanged value (git-cli)
+
 ## [0.10.5] - 2026-10-08
 
 ### Added

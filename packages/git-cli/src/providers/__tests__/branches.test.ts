@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitResult } from '@gitlens/git/run.types.js';
 import type { CliGitProviderInternal } from '../../cliGitProvider.js';
 import type { Git } from '../../exec/git.js';
@@ -235,5 +236,270 @@ suite('BranchesGitSubProvider Test Suite', () => {
 		if (result.status === 'error') {
 			assert.strictEqual(result.reason, 'unsupported');
 		}
+	});
+});
+
+suite('BranchesGitSubProvider stored merge target Test Suite', () => {
+	let sandbox: sinon.SinonSandbox;
+	let branchesProvider: BranchesGitSubProvider;
+	let gkConfig: Record<string, string | undefined>;
+	let getGkConfig: sinon.SinonStub;
+	let setGkConfig: sinon.SinonStub;
+	let checkRef: sinon.SinonStub;
+	let getBranchOverview: sinon.SinonStub;
+
+	const repoPath = '/repo';
+
+	setup(() => {
+		sandbox = sinon.createSandbox();
+
+		gkConfig = {};
+		getGkConfig = sandbox.stub().callsFake((_repoPath: string, key: string) => Promise.resolve(gkConfig[key]));
+		setGkConfig = sandbox.stub().resolves();
+		// Default: every ref exists with its own name as the symbolic name
+		checkRef = sandbox
+			.stub()
+			.callsFake((_repoPath: string, ref: string) => Promise.resolve({ name: ref, missing: false }));
+		getBranchOverview = sandbox.stub().resolves('overview');
+
+		const provider = {
+			config: { getGkConfig: getGkConfig, setGkConfig: setGkConfig },
+			refs: { getSymbolicReferenceNameOrMissing: checkRef },
+		} as unknown as CliGitProviderInternal;
+		const cache = { getBranchOverview: getBranchOverview } as unknown as Cache;
+
+		branchesProvider = new BranchesGitSubProvider(
+			{} as unknown as GitServiceContext,
+			{} as unknown as Git,
+			cache,
+			provider,
+		);
+	});
+
+	teardown(() => {
+		sandbox.restore();
+	});
+
+	function gone(...refs: string[]): void {
+		checkRef.callsFake((_repoPath: string, ref: string) =>
+			Promise.resolve(refs.includes(ref) ? { name: undefined, missing: true } : { name: ref, missing: false }),
+		);
+	}
+
+	suite('getStoredMergeTargetBranchName', () => {
+		test('returns the resolved user pick with a single check', async () => {
+			gkConfig['branch.feature.gk-merge-target-user'] = 'origin/user';
+			gkConfig['branch.feature.gk-merge-target'] = 'origin/detected';
+			checkRef.resolves({ name: 'origin/user', missing: false });
+
+			assert.strictEqual(
+				await branchesProvider.getStoredMergeTargetBranchName(repoPath, 'feature'),
+				'origin/user',
+			);
+			assert.strictEqual(checkRef.callCount, 1);
+			assert.strictEqual(checkRef.firstCall.args[1], 'origin/user');
+			assert.strictEqual(setGkConfig.callCount, 0);
+		});
+
+		test('falls back to the detected target when the user pick is gone', async () => {
+			gkConfig['branch.feature.gk-merge-target-user'] = 'origin/user';
+			gkConfig['branch.feature.gk-merge-target'] = 'origin/detected';
+			gone('origin/user');
+
+			assert.strictEqual(
+				await branchesProvider.getStoredMergeTargetBranchName(repoPath, 'feature'),
+				'origin/detected',
+			);
+			assert.strictEqual(setGkConfig.callCount, 0);
+		});
+
+		test('falls back to the legacy detected key', async () => {
+			gkConfig['branch.feature.gk-merge-target-user'] = 'origin/user';
+			gkConfig['branch.feature.gk-target-base'] = 'origin/legacy';
+			gone('origin/user');
+
+			assert.strictEqual(
+				await branchesProvider.getStoredMergeTargetBranchName(repoPath, 'feature'),
+				'origin/legacy',
+			);
+		});
+
+		test('returns undefined when both are gone', async () => {
+			gkConfig['branch.feature.gk-merge-target-user'] = 'origin/user';
+			gkConfig['branch.feature.gk-merge-target'] = 'origin/detected';
+			gone('origin/user', 'origin/detected');
+
+			assert.strictEqual(await branchesProvider.getStoredMergeTargetBranchName(repoPath, 'feature'), undefined);
+			assert.strictEqual(setGkConfig.callCount, 0);
+		});
+
+		test('keeps the stored name when the check could not complete', async () => {
+			gkConfig['branch.feature.gk-merge-target-user'] = 'origin/user';
+			gkConfig['branch.feature.gk-merge-target'] = 'origin/detected';
+			checkRef.resolves({ name: undefined, missing: false });
+
+			assert.strictEqual(
+				await branchesProvider.getStoredMergeTargetBranchName(repoPath, 'feature'),
+				'origin/user',
+			);
+			assert.strictEqual(checkRef.callCount, 1);
+		});
+
+		test('keeps the raw stored name when it exists without a symbolic name', async () => {
+			gkConfig['branch.feature.gk-merge-target'] = 'abc1234';
+			checkRef.resolves({ name: undefined, missing: false });
+
+			assert.strictEqual(await branchesProvider.getStoredMergeTargetBranchName(repoPath, 'feature'), 'abc1234');
+		});
+
+		test('checks a name shared by the user pick and the detected target only once', async () => {
+			gkConfig['branch.feature.gk-merge-target-user'] = 'origin/same';
+			gkConfig['branch.feature.gk-merge-target'] = 'origin/same';
+			gone('origin/same');
+
+			assert.strictEqual(await branchesProvider.getStoredMergeTargetBranchName(repoPath, 'feature'), undefined);
+			assert.strictEqual(checkRef.callCount, 1);
+		});
+
+		test('returns undefined when nothing is stored, without checking', async () => {
+			assert.strictEqual(await branchesProvider.getStoredMergeTargetBranchName(repoPath, 'feature'), undefined);
+			assert.strictEqual(checkRef.callCount, 0);
+		});
+
+		test('detectedOnly never reads the user pick', async () => {
+			gkConfig['branch.feature.gk-merge-target-user'] = 'origin/user';
+			gkConfig['branch.feature.gk-merge-target'] = 'origin/detected';
+
+			assert.strictEqual(
+				await branchesProvider.getStoredMergeTargetBranchName(repoPath, 'feature', { detectedOnly: true }),
+				'origin/detected',
+			);
+			assert.ok(!getGkConfig.getCalls().some(c => c.args[1] === 'branch.feature.gk-merge-target-user'));
+			assert.strictEqual(checkRef.callCount, 1);
+		});
+
+		test('forwards the priority and cancellation to the check', async () => {
+			gkConfig['branch.feature.gk-merge-target-user'] = 'origin/user';
+			const cancellation = new AbortController().signal;
+
+			await branchesProvider.getStoredMergeTargetBranchName(
+				repoPath,
+				'feature',
+				{ priority: 'interactive' },
+				cancellation,
+			);
+
+			assert.deepStrictEqual(checkRef.firstCall.args[2], { priority: 'interactive' });
+			assert.strictEqual(checkRef.firstCall.args[3], cancellation);
+		});
+	});
+
+	suite('getBranchContributionsOverview Tier 1', () => {
+		function stubFallbacks(): void {
+			sandbox.stub(branchesProvider, 'getBaseBranchName').resolves('origin/base');
+			sandbox.stub(branchesProvider, 'getDefaultBranchName').resolves('origin/default');
+		}
+
+		test('skips a stored target whose branch is gone and falls through to the base branch', async () => {
+			gkConfig['branch.feature.gk-merge-target'] = 'origin/gone';
+			gone('origin/gone');
+			stubFallbacks();
+
+			await branchesProvider.getBranchContributionsOverview(repoPath, 'feature');
+
+			assert.strictEqual(getBranchOverview.callCount, 1);
+			assert.strictEqual(getBranchOverview.firstCall.args[1], 'feature|origin/base');
+			assert.strictEqual(setGkConfig.callCount, 0);
+		});
+
+		test('uses the stored target when its branch exists', async () => {
+			gkConfig['branch.feature.gk-merge-target'] = 'origin/parent';
+			stubFallbacks();
+
+			await branchesProvider.getBranchContributionsOverview(repoPath, 'feature');
+
+			assert.strictEqual(getBranchOverview.firstCall.args[1], 'feature|origin/parent');
+		});
+
+		test('keeps the stored target when it could not be checked', async () => {
+			gkConfig['branch.feature.gk-merge-target'] = 'origin/parent';
+			checkRef.resolves({ name: undefined, missing: false });
+			stubFallbacks();
+
+			await branchesProvider.getBranchContributionsOverview(repoPath, 'feature');
+
+			assert.strictEqual(getBranchOverview.firstCall.args[1], 'feature|origin/parent');
+		});
+
+		test('falls through to the base branch when the pull request names the same gone target', async () => {
+			gkConfig['branch.feature.gk-merge-target'] = 'origin/main';
+			gone('origin/main');
+			stubFallbacks();
+			sandbox.stub(branchesProvider, 'getBranch').resolves({ remoteName: 'origin' } as unknown as GitBranch);
+
+			await branchesProvider.getBranchContributionsOverview(repoPath, 'feature', {
+				associatedPullRequest: Promise.resolve({ refs: { base: { branch: 'main' } } }),
+			});
+
+			assert.strictEqual(getBranchOverview.firstCall.args[1], 'feature|origin/base');
+			assert.strictEqual(setGkConfig.callCount, 0);
+		});
+
+		test('skips a pull request base whose branch is gone and falls through to the base branch', async () => {
+			gone('origin/parent');
+			stubFallbacks();
+			sandbox.stub(branchesProvider, 'getBranch').resolves({ remoteName: 'origin' } as unknown as GitBranch);
+
+			await branchesProvider.getBranchContributionsOverview(repoPath, 'feature', {
+				associatedPullRequest: Promise.resolve({ refs: { base: { branch: 'parent' } } }),
+			});
+
+			assert.strictEqual(getBranchOverview.firstCall.args[1], 'feature|origin/base');
+			assert.strictEqual(setGkConfig.callCount, 0);
+		});
+
+		test('keeps and stores the pull request base when it could not be checked', async () => {
+			checkRef.resolves({ name: undefined, missing: false });
+			stubFallbacks();
+			sandbox.stub(branchesProvider, 'getBranch').resolves({ remoteName: 'origin' } as unknown as GitBranch);
+
+			await branchesProvider.getBranchContributionsOverview(repoPath, 'feature', {
+				associatedPullRequest: Promise.resolve({ refs: { base: { branch: 'main' } } }),
+			});
+			// The store is fire-and-forget
+			await new Promise(resolve => setImmediate(resolve));
+
+			assert.strictEqual(getBranchOverview.firstCall.args[1], 'feature|origin/main');
+			assert.strictEqual(setGkConfig.callCount, 1);
+			assert.deepStrictEqual(setGkConfig.firstCall.args.slice(1, 3), [
+				'branch.feature.gk-merge-target',
+				'origin/main',
+			]);
+		});
+	});
+
+	suite('storeMergeTargetBranchName', () => {
+		test('skips the write when the stored target is unchanged', async () => {
+			gkConfig['branch.feature.gk-merge-target'] = 'origin/main';
+
+			await branchesProvider.storeMergeTargetBranchName(repoPath, 'feature', 'origin/main');
+
+			assert.strictEqual(setGkConfig.callCount, 0);
+		});
+
+		test('writes a changed target', async () => {
+			gkConfig['branch.feature.gk-merge-target'] = 'origin/gone';
+
+			await branchesProvider.storeMergeTargetBranchName(repoPath, 'feature', 'origin/main', {
+				skipInvalidation: ['branchOverviews'],
+			});
+
+			assert.deepStrictEqual(setGkConfig.firstCall.args, [
+				repoPath,
+				'branch.feature.gk-merge-target',
+				'origin/main',
+				{ skipInvalidation: ['branchOverviews'] },
+			]);
+		});
 	});
 });
