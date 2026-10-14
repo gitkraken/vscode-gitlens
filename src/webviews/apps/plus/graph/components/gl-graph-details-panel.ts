@@ -31,6 +31,7 @@ import type {
 	AutoRebaseSummary,
 	ConflictSide,
 	GraphServices,
+	ReviewThreadsArgs,
 	ReviewWalkAction,
 	StackRebasePushableBranch,
 	UndoAutoRebaseResult,
@@ -127,7 +128,7 @@ import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 import type { RebaseSummaryViewDiffDetail } from './gl-rebase-summary-sheet.js';
 import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
 import type { ReviewFindingCounts, ReviewProgress } from './reviewSession.js';
-import { countReviewFindingStates, getReviewProgress } from './reviewSession.js';
+import { countReviewFindingStates, getReviewProgress, getReviewThreadItems } from './reviewSession.js';
 import type {
 	PullRequestSheetPayload,
 	PullRequestSheetTarget,
@@ -2383,7 +2384,59 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 	}
 
+	/** {@link DetailsWorkflowHost.sendReviewFindingToAgent} */
+	sendReviewFindingToAgent(findingId: string): void {
+		this.findReviewModePanel()?.sendFindingToAgent(findingId);
+	}
+
+	/** What the editor currently mirrors as review threads — identity of the inputs it was built from. */
+	private _reviewThreadsSynced?: { result: unknown; findingStates: unknown; scope: unknown; repoPath: unknown };
+
+	/** Mirrors the engaged review's findings into the diff editors as comment threads, re-sending only
+	 *  when one of the inputs changed and clearing once the review is gone. */
+	private syncReviewThreads(): void {
+		if (this._actions == null) return;
+
+		const entry =
+			this._state.activeMode.get() === 'review' && this.engagedRunningOperation?.kind === 'review'
+				? this.engagedRunningOperation
+				: undefined;
+		const value = entry?.result ?? (entry != null ? this._actions.resources.review.value.get() : undefined);
+		const result = value != null && 'result' in value ? value.result : undefined;
+		const findingStates = entry?.session?.findingStates;
+		const scope = this._state.scope.get();
+		const repoPath = this.effectiveRepoPath;
+		const synced = this._reviewThreadsSynced;
+		if (
+			synced != null &&
+			synced.result === result &&
+			synced.findingStates === findingStates &&
+			synced.scope === scope &&
+			synced.repoPath === repoPath
+		) {
+			return;
+		}
+
+		const endpoints = getReviewDiffEndpoints(scope);
+		if (result == null || repoPath == null || endpoints == null) {
+			if (synced != null) {
+				this._reviewThreadsSynced = undefined;
+				this._actions.setReviewThreads(undefined);
+			}
+			return;
+		}
+
+		this._reviewThreadsSynced = { result: result, findingStates: findingStates, scope: scope, repoPath: repoPath };
+		const args: ReviewThreadsArgs = {
+			repoPath: repoPath,
+			rhs: endpoints.rhs,
+			items: getReviewThreadItems(result, entry?.session),
+		};
+		this._actions.setReviewThreads(args);
+	}
+
 	override updated(changedProperties: Map<string, unknown>): void {
+		this.syncReviewThreads();
 		// Reads `wip`/`activeMode`/`sha` signals (also read in render), so this re-runs on every
 		// working-tree push and selection change — the lazy fetch is gated + deduped inside.
 		this.updateWipFileStats();
@@ -2827,6 +2880,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// the repo-change subscription without an extra call here.
 		this._workflow = new DetailsWorkflowController(this, this._actions);
 		this._actions.reviewWalkHandler = state => this._workflow.review.applyWalkState(state);
+		this._actions.reviewThreadActionsHandler = state => this._workflow.review.applyThreadActions(state);
 
 		if (this._pendingCompare != null) {
 			const { params, onReady, options } = this._pendingCompare;

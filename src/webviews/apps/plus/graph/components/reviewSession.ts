@@ -1,5 +1,5 @@
 import type { AIReviewResult } from '@gitlens/ai/models/results.js';
-import type { ScopeFile } from '../../../../plus/graph/graphService.js';
+import type { ReviewThreadItem, ScopeFile } from '../../../../plus/graph/graphService.js';
 
 export type ReviewFindingState = 'resolved' | 'dismissed';
 
@@ -63,6 +63,33 @@ export function getReviewProgress(
 		}
 	}
 	return progress;
+}
+
+/** The findings that can sit in a diff — those with a file and a line — as the editor's threads. */
+export function getReviewThreadItems(
+	result: AIReviewResult | undefined,
+	session: ReviewSession | undefined,
+): ReviewThreadItem[] {
+	const items: ReviewThreadItem[] = [];
+	if (result == null) return items;
+
+	for (const area of result.focusAreas) {
+		for (const finding of area.findings ?? []) {
+			if (finding.filePath == null || finding.lineRange == null) continue;
+
+			items.push({
+				id: finding.id,
+				path: finding.filePath,
+				line: finding.lineRange.start,
+				lineEnd: finding.lineRange.end,
+				severity: finding.severity,
+				title: finding.title,
+				description: finding.description,
+				state: session?.findingStates.get(finding.id) ?? 'open',
+			});
+		}
+	}
+	return items;
 }
 
 /** The stops of a walk, in reading order — tree order (path-sorted), set-aside files left out. */

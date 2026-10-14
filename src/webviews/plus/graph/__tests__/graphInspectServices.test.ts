@@ -458,6 +458,8 @@ function createReviewFake(
 		_composeProgressEvent: noopEvent,
 		_resolveProgressEvent: noopEvent,
 		_reviewWalkEvent: noopEvent,
+		_reviewThreadActionsEvent: noopEvent,
+		_reviewThreadActions: { actions: [] },
 	});
 
 	const { graphInspect } = (GraphInspectServices.prototype.createServices as unknown as CreateServices).call(
@@ -857,6 +859,8 @@ function createResolveProgressFake() {
 		_resolveConversationIds: new Map(),
 		_composeProgressEvent: { subscribe: () => () => {} },
 		_reviewWalkEvent: { subscribe: () => () => {} },
+		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_reviewThreadActions: { actions: [] },
 		_resolveProgressEvent: {
 			subscribe: () => () => {},
 			fire: (update: ResolveProgressUpdate | undefined) => void fired.push(update),
@@ -935,6 +939,8 @@ function createResolveMetricsFake(metrics: ({ stepCount?: number; toolCallCount?
 		_composeProgressEvent: { subscribe: () => () => {} },
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 		_reviewWalkEvent: { subscribe: () => () => {} },
+		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_reviewThreadActions: { actions: [] },
 		getOrCreateConflictToolsForGraph: () => Promise.resolve(integration),
 	});
 
@@ -1070,6 +1076,8 @@ function createComposeConversationFake(options?: { failGenerate?: boolean }) {
 		_composeProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 		_reviewWalkEvent: { subscribe: () => () => {} },
+		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_reviewThreadActions: { actions: [] },
 		getOrCreateComposeToolsForGraph: () => Promise.resolve(integration),
 		// Turning a library plan into display commits needs the virtual-FS session machinery, which has
 		// nothing to do with the conversation lifecycle under test. Doubles as the seam for a

@@ -15,6 +15,7 @@ import type {
 	ResolvedFileSummary,
 	ResolveResult,
 	ReviewResult,
+	ReviewThreadActionsState,
 	ReviewWalkState,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
@@ -135,6 +136,8 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
 	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined;
 	/** Unsubmitted review/compose instructions; undefined unless the idle input is mounted. */
 	readEngagedIdleDraft(): string | undefined;
+	/** Routes a finding to the review panel's Send-to-Agent — the panel renders the prompt's markdown. */
+	sendReviewFindingToAgent?(findingId: string): void;
 	readEngagedExclusions(): { files: ReadonlySet<string>; commits?: ReadonlySet<string> } | undefined;
 }
 
@@ -1101,6 +1104,41 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.actions.startReviewWalk({ repoPath: repoPath, ...endpoints, paths: paths, current: current });
 		},
 		stopWalk: (): void => this.stopReviewWalkIfActive(),
+		/** Folds editor-made thread actions into the session — only the ones past the last applied sequence. */
+		applyThreadActions: (state: ReviewThreadActionsState | undefined): void => {
+			if (state == null) return;
+
+			const anchor = this.currentAnchor();
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
+			if (entry == null) return;
+
+			const applied = entry.threadActionsApplied ?? 0;
+			const fresh = state.actions.filter(a => a.seq > applied);
+			if (fresh.length === 0) return;
+
+			let session = entry.session ?? emptyReviewSession;
+			for (const { findingId, action } of fresh) {
+				switch (action) {
+					case 'resolve':
+						session = withFindingState(session, findingId, 'resolved');
+						break;
+					case 'dismiss':
+						session = withFindingState(session, findingId, 'dismissed');
+						break;
+					case 'reopen':
+						session = withFindingState(session, findingId, undefined);
+						break;
+					case 'sendToAgent':
+						this.host.sendReviewFindingToAgent?.(findingId);
+						break;
+				}
+			}
+			this.registerRunningOperation({
+				...entry,
+				session: session,
+				threadActionsApplied: fresh.at(-1)!.seq,
+			});
+		},
 		/** Folds a host walk update into the entry: the cursor, and any viewed marks made from the editor. */
 		applyWalkState: (state: ReviewWalkState | undefined): void => {
 			const anchor = this.currentAnchor();
@@ -3150,7 +3188,9 @@ export class DetailsWorkflowController implements ReactiveController {
 			(existing as { focusAreaRuns?: unknown }).focusAreaRuns ===
 				(op as { focusAreaRuns?: unknown }).focusAreaRuns &&
 			(existing as { session?: unknown }).session === (op as { session?: unknown }).session &&
-			(existing as { walk?: unknown }).walk === (op as { walk?: unknown }).walk
+			(existing as { walk?: unknown }).walk === (op as { walk?: unknown }).walk &&
+			(existing as { threadActionsApplied?: number }).threadActionsApplied ===
+				(op as { threadActionsApplied?: number }).threadActionsApplied
 		) {
 			return;
 		}
