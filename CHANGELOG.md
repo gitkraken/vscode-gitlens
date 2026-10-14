@@ -19,6 +19,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Changes the _Commit Graph_ to no longer require an account on public and local repos &mdash; signed-out users get the full graph with no prompts
+  - On privately hosted repos, a preview starts automatically on first open, with a persistent notice above the graph showing the time left, a _Sign In_ action, and a reminder that public and local repos stay free; the sign-in screen now appears only after the preview ends (or for unverified accounts)
+  - _Start Work_ and _Start Review_ now ask you to sign in up front instead of implicitly signing you in when connecting an integration
+  - Account surfaces get real signed-out states &mdash; the _GitLens Settings_ account panel shows a sign-in card and a _Sign in to use GitKraken AI_ line instead of blank cards, and its footer offers _Sign in_ instead of a _Manage subscription_ link that opened gk.dev signed out
+  - The merge-target status chip's potential-conflicts check now requires a trial or Pro subscription, like every other conflict check; ahead/behind counts and merged status stay available to everyone
+- Changes the _Commit Graph_ preview for privately hosted repos to one continuous 3-day window &mdash; previously three separate one-day sessions, each started manually with _Continue Preview_
 - Renames the `gitlens.views.publishRepository` command to `gitlens.publishRepository:views`; the old id still works but is deprecated
 
 ### Fixed
@@ -38,6 +44,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Start Work_ and _Launchpad_ showing a raw `GraphqlResponseError` when GitHub's API rate limit is exhausted &mdash; they now report that the rate limit was reached and when to try again
 - Fixes the GitKraken MCP server staying in VS Code's _Configure Tools_ after turning off `gitlens.gitkraken.mcp.autoEnabled` or AI features ([#5961](https://github.com/gitkraken/vscode-gitlens/issues/5961))
 - Fixes _Start Work_, _Start Review_, and _Launchpad_ freezing after choosing _Open in an agent_ when agent detection stalls &mdash; the agent picker now opens right away while agents load, and agent detection gives up after 10 seconds instead of hanging, still offering the editor's chat and the _Claude Code_ extension
+- Fixes opening a renamed or added file from a comparison or a commit's file list &mdash; _Open File at Revision_, _Open File_, and file history now use the file's path at that revision, and the _Ahead_ files node no longer shows a rename as an added file ([#5975](https://github.com/gitkraken/vscode-gitlens/issues/5975))
+- Fixes the _Commit Graph_'s auto-fetch replacing `FETCH_HEAD` while a `git pull` you started is between its fetch and merge, which could make the pull merge the wrong changes
 
 ## [19.3.0] - 2026-10-01
 
@@ -63,11 +71,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Changes the _Commit Graph_ to no longer require an account on public and local repos &mdash; signed-out users get the full graph with no prompts
-  - On privately hosted repos, a preview starts automatically on first open, with a persistent notice above the graph showing the time left, a _Sign In_ action, and a reminder that public and local repos stay free; the sign-in screen now appears only after the preview ends (or for unverified accounts)
-  - _Start Work_ and _Start Review_ now ask you to sign in up front instead of implicitly signing you in when connecting an integration
-  - Account surfaces get real signed-out states &mdash; the _GitLens Settings_ account panel shows a sign-in card and a _Sign in to use GitKraken AI_ line instead of blank cards, and its footer offers _Sign in_ instead of a _Manage subscription_ link that opened gk.dev signed out
-- Changes the _Commit Graph_ preview for privately hosted repos to one continuous 3-day window &mdash; previously three separate one-day sessions, each started manually with _Continue Preview_
 - Changes _Start Work_ and _Start PR Review_ to follow the `gitlens.ai.openInAgent` setting &mdash; after you pick an issue or pull request they now ask whether to open it in an agent or continue manually, unless you've set a default
 - Changes the agent pickers to remember your choice with a single _Always use this choice_ / _Always use this agent_ option, instead of a checkbox on every row
 - Changes section headers in GitLens views, such as _Files Changed_ in _Inspect_ and the _Commit Graph_'s sidebar panels, to match VS Code's Modern UI headers &mdash; with Modern UI on they use its 12px semibold header text in title case (or all caps when `workbench.experimental.modernUIUppercaseViewHeaders` is enabled), and they're unchanged when it's off
