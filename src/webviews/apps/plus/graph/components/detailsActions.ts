@@ -63,6 +63,8 @@ import type {
 	ReresolveFileResult,
 	ResolveResult,
 	ReviewResult,
+	ReviewThreadActionsState,
+	ReviewThreadsArgs,
 	ReviewWalkAction,
 	ReviewWalkArgs,
 	ReviewWalkState,
@@ -630,6 +632,7 @@ export class DetailsActions {
 				}),
 			// The walk's cursor is host-owned; the workflow controller folds its updates into the session.
 			() => this.services.graphInspect.onReviewWalk(state => this.reviewWalkHandler?.(state)),
+			() => this.services.graphInspect.onReviewThreadActions(state => this.reviewThreadActionsHandler?.(state)),
 			() =>
 				this.services.graphInspect.onResolveProgress(event => {
 					this.state.resolveProgressMessage.set(event?.message);
@@ -2904,6 +2907,12 @@ export class DetailsActions {
 
 	/** Set by the panel once its workflow controller exists — `onReviewWalk` updates land here. */
 	reviewWalkHandler?: (state: ReviewWalkState | undefined) => void;
+	/** Likewise for thread actions taken in the editor. */
+	reviewThreadActionsHandler?: (state: ReviewThreadActionsState | undefined) => void;
+
+	setReviewThreads(args: ReviewThreadsArgs | undefined): void {
+		void this.services.graphInspect.setReviewThreads(args);
+	}
 
 	startReviewWalk(args: ReviewWalkArgs): void {
 		void this.services.graphInspect.setReviewWalk(args);

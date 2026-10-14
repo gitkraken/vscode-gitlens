@@ -1,4 +1,4 @@
-import type { TextEditor, Uri } from 'vscode';
+import type { CommentThread, TextEditor, Uri } from 'vscode';
 import { Disposable, l10n, ViewColumn, window, workspace } from 'vscode';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
@@ -36,6 +36,7 @@ import type {
 	State,
 	VisualizationMode,
 } from './protocol.js';
+import { disposeReviewThreads, runReviewThreadAction } from './reviewThreads.js';
 import { stepReviewWalk } from './reviewWalk.js';
 
 export type GraphWebviewShowingArgs = [
@@ -273,6 +274,19 @@ export function registerGraphWebviewCommands<T>(
 		registerCommand('gitlens.review.markViewedAndNext:editor/title', () => stepReviewWalk('markViewed')),
 		registerCommand('gitlens.review.markViewedAndNext:key', () => stepReviewWalk('markViewed')),
 		registerCommand('gitlens.review.stopWalk', () => stepReviewWalk('stop')),
+		registerCommand('gitlens.review.resolveFinding', (thread?: CommentThread) =>
+			runReviewThreadAction(thread, 'resolve'),
+		),
+		registerCommand('gitlens.review.dismissFinding', (thread?: CommentThread) =>
+			runReviewThreadAction(thread, 'dismiss'),
+		),
+		registerCommand('gitlens.review.reopenFinding', (thread?: CommentThread) =>
+			runReviewThreadAction(thread, 'reopen'),
+		),
+		registerCommand('gitlens.review.sendFindingToAgent', (thread?: CommentThread) =>
+			runReviewThreadAction(thread, 'sendToAgent'),
+		),
+		{ dispose: () => disposeReviewThreads() },
 		registerCommand('gitlens.showGitHealth', async (...args: unknown[]) => {
 			// Canonical entry point for the Health surface — the palette, the Phase 3 banner CTA, and any
 			// future link all route through here, so the surface can move without breaking its callers.

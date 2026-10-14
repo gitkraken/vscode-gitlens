@@ -229,7 +229,16 @@ when the reader marks files before any run. The session is carried across `dispa
 dropped with the entry (Discard, repo switch). The AI run's exclusion list is the session's
 set-aside files plus the AI-ignore rules (`panel.excludedFiles`). Two-pass focus-area detail runs
 are tracked on the entry too (`entry.focusAreaRuns`, abortable with everything else via
-`abortRunningOperation`). `back()`/`forward()` snapshot/restore a successfully-resolved result without re-running
+`abortRunningOperation`).
+
+The review's findings are mirrored into the diff editors as **comment threads** (`reviewThreads.ts`,
+one `CommentController` for the extension): `gl-graph-details-panel.syncReviewThreads()` projects
+the engaged result plus the session's finding states (`getReviewThreadItems`) and sends it over
+`graphInspect.setReviewThreads` whenever one of its inputs changes, clearing it once the review is
+gone. The thread's title-bar commands (`gitlens.review.resolveFinding` …) hand the finding back to
+the owning graph instance, which logs them with a sequence and fires `onReviewThreadActions`; the
+workflow controller applies only the actions past `entry.threadActionsApplied`, so a panel hidden
+behind the diff catches up on all of them when it next renders. `back()`/`forward()` snapshot/restore a successfully-resolved result without re-running
 the AI (`_reviewBackSnapshot` is the engaged projection). Before hiding, the anchor's registry
 entry captures Resume eligibility, unsubmitted instructions, selected scope and file/commit exclusions, and prior-result error
 recovery. Re-entry restores that projection; typing or changing scope invalidates Resume, and

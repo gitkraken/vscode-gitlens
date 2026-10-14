@@ -154,6 +154,8 @@ export type RunningOperation =
 			/** The host-driven walk this anchor is reading in, while one is running. `marksApplied` is
 			 *  how many of the host's editor-made marks the session has already taken. */
 			walk?: { current: string; marksApplied: number };
+			/** Sequence of the last editor-made thread action folded into the session. */
+			threadActionsApplied?: number;
 	  })
 	| (RunningOperationBase & {
 			kind: 'compose';

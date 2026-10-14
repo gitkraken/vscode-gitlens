@@ -6,6 +6,7 @@ import {
 	getClosedFindingIds,
 	getReviewFileProgress,
 	getReviewProgress,
+	getReviewThreadItems,
 	isReviewComplete,
 	withFileExcluded,
 	withFilesViewed,
@@ -92,5 +93,67 @@ suite('reviewSession — finding states', () => {
 
 		session = withFindingState(session, 'f1', undefined);
 		assert.deepStrictEqual(countReviewFindingStates(result, session), { open: 2, resolved: 0, dismissed: 1 });
+	});
+});
+
+suite('reviewSession — thread projection', () => {
+	test('only findings with a file and a line become threads, carrying their session state', () => {
+		const result = {
+			overview: '',
+			mode: 'single-pass',
+			focusAreas: [
+				{
+					id: 'area',
+					label: 'Area',
+					rationale: '',
+					severity: 'warning',
+					files: [],
+					findings: [
+						{
+							id: 'f1',
+							severity: 'critical',
+							title: 'one',
+							description: 'd1',
+							filePath: 'a.ts',
+							lineRange: { start: 3, end: 5 },
+						},
+						{ id: 'f2', severity: 'warning', title: 'two', description: 'd2', filePath: 'a.ts' },
+						{
+							id: 'f3',
+							severity: 'suggestion',
+							title: 'three',
+							description: 'd3',
+							filePath: 'b.ts',
+							lineRange: { start: 9, end: 9 },
+						},
+					],
+				},
+			],
+		} as unknown as AIReviewResult;
+		const session = withFindingState(emptyReviewSession, 'f3', 'dismissed');
+
+		assert.deepStrictEqual(getReviewThreadItems(result, session), [
+			{
+				id: 'f1',
+				path: 'a.ts',
+				line: 3,
+				lineEnd: 5,
+				severity: 'critical',
+				title: 'one',
+				description: 'd1',
+				state: 'open',
+			},
+			{
+				id: 'f3',
+				path: 'b.ts',
+				line: 9,
+				lineEnd: 9,
+				severity: 'suggestion',
+				title: 'three',
+				description: 'd3',
+				state: 'dismissed',
+			},
+		]);
+		assert.deepStrictEqual(getReviewThreadItems(undefined, session), []);
 	});
 });

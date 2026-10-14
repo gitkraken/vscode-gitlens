@@ -7312,6 +7312,20 @@
 				]
 			}
 		},
+		"gitlens.review.dismissFinding": {
+			"label": "Dismiss Finding",
+			"icon": "$(close)",
+			"commandPalette": true,
+			"menus": {
+				"comments/commentThread/title": [
+					{
+						"when": "commentController == gitlens.review && commentThread == open",
+						"group": "inline",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.review.markViewedAndNext": {
 			"label": "Mark File as Viewed and Go to Next",
 			"icon": "$(check)",
@@ -7347,6 +7361,48 @@
 					"mac": "cmd+alt+g v"
 				}
 			]
+		},
+		"gitlens.review.reopenFinding": {
+			"label": "Reopen Finding",
+			"icon": "$(issue-reopened)",
+			"commandPalette": true,
+			"menus": {
+				"comments/commentThread/title": [
+					{
+						"when": "commentController == gitlens.review && commentThread =~ /^(resolved|dismissed)$/",
+						"group": "inline",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.review.resolveFinding": {
+			"label": "Resolve Finding",
+			"icon": "$(check)",
+			"commandPalette": true,
+			"menus": {
+				"comments/commentThread/title": [
+					{
+						"when": "commentController == gitlens.review && commentThread == open",
+						"group": "inline",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.review.sendFindingToAgent": {
+			"label": "Send Finding to Agent",
+			"icon": "$(comment-discussion-sparkle)",
+			"commandPalette": true,
+			"menus": {
+				"comments/commentThread/title": [
+					{
+						"when": "commentController == gitlens.review && commentThread == open && gitlens:ai:allowed",
+						"group": "inline",
+						"order": 3
+					}
+				]
+			}
 		},
 		"gitlens.review.stopWalk": {
 			"label": "Stop Reading Review Files",
