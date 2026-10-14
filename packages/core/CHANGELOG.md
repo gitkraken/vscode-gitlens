@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.10.6] - 2026-10-13
+
 ### Added
 
 - Adds optional `getSymbolicReferenceNameOrMissing` to the refs sub-provider: `getSymbolicReferenceName`'s answer plus `missing`, which is true only when git confirmed the ref doesn't exist (`rev-parse --verify` exit 1), never for a read that didn't complete (git, git-cli)
@@ -605,7 +607,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.5...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.6...HEAD
+[0.10.6]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.5...gitkraken:releases/core/v0.10.6
 [0.10.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.4...gitkraken:releases/core/v0.10.5
 [0.10.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.3...gitkraken:releases/core/v0.10.4
 [0.10.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.2...gitkraken:releases/core/v0.10.3
