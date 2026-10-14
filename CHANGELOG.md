@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds review sessions to the _Commit Graph_'s _Review Changes_ mode &mdash; the changeset is the thing being reviewed and AI is one lens on it
+  - The file checkbox now marks a file as _Viewed_ (it used to include the file in the AI review); progress shows in the panel header as _N/M viewed_, and a file that changes after you viewed it is re-queued on its own instead of the whole review being flagged as stale
+  - Files can be excluded from a review from their row action, which keeps them out of the AI review too; files hidden from AI by ignore rules stay in the list, marked, so you can still read them
+  - Findings can be _Resolved_, _Dismissed_ and _Reopened_, and a review ends: once every file is viewed, a _Review complete_ summary offers _Copy Summary_ and _Send Remaining to Agent_
+  - Review mode no longer requires AI features to be enabled &mdash; only _Start Review_ does
+
 - Adds _Publish Repository_ to the _Commit Graph_ for a repository with no remotes &mdash; the header, _Working Changes_ panel, overview, and branch details now offer to create a hosted repository (through VS Code's publish flow) instead of a _Publish Branch_ that could only report "No remotes found"; the _Git Command Palette_'s _Push_ offers the same escape when there are no remotes
   - Offers _Add Remote…_ beside _Publish Repository…_ in the push wizard and the _Working Changes_ next steps, for hosts VS Code can't publish to, and hides _Fetch_ while the repository has no remotes
 - Adds configurable branch names for _Start Work_ with `gitlens.startWork.branchNameFormat`, using `${id}` and `${title}` tokens, plus a format editor and live preview in GitLens Settings ([#5925](https://github.com/gitkraken/vscode-gitlens/issues/5925))
@@ -29,6 +35,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes a focus-area review in the _Commit Graph_'s _Review Changes_ mode ignoring the instructions given for the review, not stopping when the review is discarded or cancelled, and opening a finding's file without its line range
 - Fixes _Push_ from the _Git Command Palette_ on a branch with no upstream showing a plain push confirmation (which then failed) instead of the publish step
 - Fixes pressing <kbd>Space</kbd> on a _Git Command Palette_ confirmation step breaking the command &mdash; e.g. _Delete Worktree_ would stop responding and never delete the worktree
 - Fixes force-deleting a worktree skipping the uncommitted-changes warning when GitLens couldn't check the worktree for changes &mdash; it now asks before deleting a worktree it couldn't check

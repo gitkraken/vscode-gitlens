@@ -26,10 +26,14 @@ import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type { ScopeFile, ScopeSelection } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { GlAiInput } from '../../../shared/components/ai-input.js';
-import type { TreeItemAction, TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
+import type {
+	TreeItemAction,
+	TreeItemCheckedDetail,
+	TreeItemDecoration,
+} from '../../../shared/components/tree/base.js';
 import { renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
-import { countIncludedFiles, prunePathsToFiles, syncAiExcluded } from './aiExclusion.js';
+import { countIncludedFiles } from './aiExclusion.js';
 import type { GlCommitsScopePane, ScopeItem } from './gl-commits-scope-pane.js';
 import {
 	panelActionInputStyles,
@@ -38,8 +42,6 @@ import {
 	panelLoadingStageStyles,
 	panelLoadingStyles,
 	panelScopeSplitStyles,
-	panelStaleBannerStyles,
-	resumeBarStyles,
 	reviewModePanelStyles,
 } from './gl-details-review-mode-panel.css.js';
 import {
@@ -49,12 +51,22 @@ import {
 	getReviewFindingTitle,
 	getReviewFocusAreaLabel,
 } from './reviewFormat.js';
+import type {
+	ReviewFileIdentity,
+	ReviewFindingCounts,
+	ReviewFindingState,
+	ReviewProgress,
+	ReviewSession,
+} from './reviewSession.js';
 import {
-	checkAllExclusion,
-	fileCheckedExclusion,
-	scopeSplitSnap,
-	wipScopeSelectionIds,
-} from './shared-panel-helpers.js';
+	countReviewFindingStates,
+	emptyReviewSession,
+	getClosedFindingIds,
+	getReviewFileProgress,
+	getReviewProgress,
+	isReviewComplete,
+} from './reviewSession.js';
+import { scopeSplitSnap, wipScopeSelectionIds } from './shared-panel-helpers.js';
 import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
@@ -74,6 +86,22 @@ import './gl-commits-scope-pane.js';
 export interface ReviewOpenFileDetail {
 	filePath: string;
 	line?: number;
+	lineEnd?: number;
+}
+
+export interface ReviewFilesViewedDetail {
+	files: ReviewFileIdentity[];
+	viewed: boolean;
+}
+
+export interface ReviewFileExcludedDetail {
+	path: string;
+	excluded: boolean;
+}
+
+export interface ReviewFindingStateDetail {
+	findingId: string;
+	state: ReviewFindingState | undefined;
 }
 
 export interface ReviewAnalyzeAreaDetail {
@@ -116,9 +144,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		panelLoadingStyles,
 		panelLoadingStageStyles,
 		panelErrorStyles,
-		panelStaleBannerStyles,
 		panelScopeSplitStyles,
-		resumeBarStyles,
 		reviewModePanelStyles,
 	];
 
@@ -157,8 +183,14 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@property({ type: Array })
 	aiExcludedFiles?: readonly string[];
 
-	@property({ type: Boolean })
-	stale = false;
+	/** The anchor's review session — viewed marks, set-aside files, finding states. Pushed from the
+	 *  registry entry; every edit goes back up as an event, so the panel never owns a copy. */
+	@property({ attribute: false })
+	session?: ReviewSession;
+
+	/** Whether AI review is on at all. The walk and its checklist don't need it. */
+	@property({ type: Boolean, attribute: 'ai-enabled' })
+	aiEnabled = false;
 
 	@property()
 	fileLayout: ViewFilesLayout = 'auto';
@@ -215,38 +247,26 @@ export class GlDetailsReviewModePanel extends LitElement {
 			: '';
 	}
 
-	/** Live file exclusions, seeded by the host from the engaged entry. Lit re-commits object
-	 *  bindings on every parent render, so a re-push of the same seed is ignored — otherwise any
-	 *  unrelated host render would restore the seed (usually the shared empty set) and re-check
-	 *  every file the user just unchecked. Local edits write `_excludedFiles` directly. */
+	/** Files the AI run leaves out: the session's set-aside files plus the AI-ignore rules. Rebuilt in
+	 *  `willUpdate` rather than per read, so the orchestrator's capture sees a stable identity. */
 	get excludedFiles(): ReadonlySet<string> {
-		return this._excludedFiles;
+		return this._runExclusions;
 	}
-	set excludedFiles(value: ReadonlySet<string>) {
-		if (value === this._excludedFilesSeed) return;
-
-		this._excludedFilesSeed = value;
-		this._excludedFiles = value;
-	}
-	private _excludedFilesSeed?: ReadonlySet<string>;
-	@state() private _excludedFiles: ReadonlySet<string> = new Set();
+	@state() private _runExclusions: ReadonlySet<string> = emptyReviewSession.excluded;
+	/** Bumped with the session so the file tree re-reads its callbacks (decorations, row actions). */
+	@state() private _sessionRevision = 0;
 
 	/** Mirrors the pane's multi-selection so the "Open Changes" chip can swap to "Open Selected". */
 	@state() private _selectedFiles: readonly { path: string }[] = [];
 
 	/**
 	 * Pushed by the orchestrator from `state.reviewForwardAvailable`. True after the user clicked
-	 * Back on a successfully-resolved review — the orchestrator owns a snapshot of that result so
-	 * the bar's click can RESTORE the previous findings (no AI re-run). The panel only renders
-	 * the bar; the orchestrator handles `review-forward` and `review-forward-invalidate`.
+	 * Back on a successfully-resolved review — the orchestrator holds a snapshot of that result
+	 * behind the header's Resume snippet. The panel's only job is to emit
+	 * `review-forward-invalidate` when the user edits the idle inputs.
 	 */
 	@property({ type: Boolean, attribute: 'forward-available', reflect: true })
 	forwardAvailable = false;
-
-	/** Preview metadata pushed from `state.reviewBackPreview` — drives the count display on the
-	 * resume bar. Cleared by the orchestrator in lockstep with `forwardAvailable`. */
-	@property({ type: Object, attribute: false })
-	backPreview?: { findingCount: number; fileCount: number };
 
 	/**
 	 * Returns the scope picker's currently-selected IDs (within this panel's shadow root).
@@ -260,7 +280,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 	}
 
 	@state() private _expandedAreas = new Set<string>();
-	@state() private _dismissedFindings = new Set<string>();
+	@state() private _showClosedFindings = false;
 	@state() private _loadingAreas = new Set<string>();
 	@state() private _errorAreas = new Set<string>();
 	@state() private _aiExcludedSet: ReadonlySet<string> | undefined;
@@ -270,20 +290,16 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	override willUpdate(changedProperties: Map<string, unknown>): void {
 		if (changedProperties.has('aiExcludedFiles')) {
-			const result = syncAiExcluded(this.aiExcludedFiles, this._aiExcludedSet, this.excludedFiles);
-			if (result != null) {
-				this._aiExcludedSet = result.aiExcludedSet;
-				if (result.excludedFiles != null) {
-					this._excludedFiles = result.excludedFiles;
-				}
-			}
+			this._aiExcludedSet = this.aiExcludedFiles?.length ? new Set(this.aiExcludedFiles) : undefined;
+		}
+
+		if (changedProperties.has('aiExcludedFiles') || changedProperties.has('session')) {
+			const excluded = this.session?.excluded ?? emptyReviewSession.excluded;
+			this._runExclusions = this._aiExcludedSet?.size ? new Set([...excluded, ...this._aiExcludedSet]) : excluded;
+			this._sessionRevision++;
 		}
 
 		if (changedProperties.has('files')) {
-			const pruned = prunePathsToFiles(this.excludedFiles, this.files);
-			if (pruned != null) {
-				this._excludedFiles = pruned;
-			}
 			this._selectedFiles = [];
 		}
 
@@ -304,7 +320,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 			if (!isSameRunDelta) {
 				this._expandedAreas = new Set();
-				this._dismissedFindings = new Set();
+				this._showClosedFindings = false;
 				this._loadingAreas = new Set();
 				this._errorAreas = new Set();
 				// Drop any explicit follow-up toggle; a fresh result falls back to the default
@@ -362,7 +378,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		// The Copy + Send-to-chat actions live in an always-visible footer beneath the
 		// scrollable results so they stay reachable regardless of scroll position.
 		return html`<div class="review-results scrollable">
-				${this.stale ? this.renderStaleBanner() : nothing} ${this.renderOverview()} ${this.renderFocusAreas()}
+				${this.renderDoneCard()} ${this.renderOverview()} ${this.renderFocusAreas()}
 			</div>
 			${this.renderReadyFooter()}${this.renderRefineInput()}`;
 	}
@@ -457,7 +473,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 	}
 
 	private formatOptions(): { scopeLabel: string; dismissed: ReadonlySet<string> } {
-		return { scopeLabel: this.scopeContextLabel(), dismissed: this._dismissedFindings };
+		return { scopeLabel: this.scopeContextLabel(), dismissed: getClosedFindingIds(this.session) };
 	}
 
 	private buildReviewMarkdown(
@@ -468,7 +484,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 			return this.result ? formatReviewAsMarkdown(this.result, this.formatOptions()) : '';
 		}
 		if (granularity === 'focusArea' && opts.area) {
-			return formatFocusAreaAsMarkdown(opts.area, this._dismissedFindings);
+			return formatFocusAreaAsMarkdown(opts.area, getClosedFindingIds(this.session));
 		}
 		if (granularity === 'finding' && opts.finding) {
 			const enclosing = opts.area
@@ -624,13 +640,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 				});
 	}
 
-	private renderStaleBanner() {
-		return html`<div class="stale-banner" role="status">
-			<code-icon icon="warning"></code-icon>
-			<span>${l10n.t('Working changes have changed since this review was generated.')}</span>
-		</div>`;
-	}
-
 	private renderIdleState() {
 		// Fallback: compute scope from files if not provided
 		const scope = this.scope ?? (this.files?.length ? { type: 'commit' as const, sha: '' } : undefined);
@@ -641,6 +650,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const hasSelectedFiles = this.getEffectiveFileCount() > 0;
 
 		return html`
+			${this.renderDoneCard()}
 			${
 				scope.type === 'wip'
 					? html`<gl-split-panel
@@ -664,27 +674,111 @@ export class GlDetailsReviewModePanel extends LitElement {
 						</gl-split-panel>`
 					: html`<div class="scope-files">${this.renderFileCuration()}</div>`
 			}
-			<div class="review-input-row">
-				${keyed(
-					this.idleDraft ?? this.lastPrompt,
-					html`<gl-ai-input
-						class="review-action-input"
-						multiline
-						active
-						rows="2"
-						button-label=${l10n.t('Start Review')}
-						busy-label=${l10n.t('Reviewing changes…')}
-						event-name="review-run"
-						placeholder=${l10n.t('Instructions — e.g. "Focus on security and error handling"')}
-						.value=${this.idleDraft ?? this.lastPrompt}
-						?disabled=${!hasSelectedFiles}
-						@input=${this.onAiInputType}
-					>
-						<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
-					</gl-ai-input>`,
-				)}
-			</div>
+			${
+				this.aiEnabled
+					? html`<div class="review-input-row">
+							${keyed(
+								this.idleDraft ?? this.lastPrompt,
+								html`<gl-ai-input
+									class="review-action-input"
+									multiline
+									active
+									rows="2"
+									button-label=${l10n.t('Start Review')}
+									busy-label=${l10n.t('Reviewing changes…')}
+									event-name="review-run"
+									placeholder=${l10n.t('Instructions — e.g. "Focus on security and error handling"')}
+									.value=${this.idleDraft ?? this.lastPrompt}
+									?disabled=${!hasSelectedFiles}
+									@input=${this.onAiInputType}
+								>
+									<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+								</gl-ai-input>`,
+							)}
+						</div>`
+					: nothing
+			}
 		`;
+	}
+
+	/** The review's ending — shown once every file in the walk is viewed, with a summary to take away. */
+	private renderDoneCard() {
+		const progress = getReviewProgress(this.session, this.files);
+		if (!isReviewComplete(progress)) return nothing;
+
+		const counts = countReviewFindingStates(this.result, this.session);
+		const parts = [
+			formatPlural(l10n.t('{count, plural, one{{count} file viewed} other{{count} files viewed}}'), {
+				count: progress.viewed,
+			}),
+		];
+		if (this.result != null) {
+			parts.push(
+				formatPlural(l10n.t('{count, plural, one{{count} finding open} other{{count} findings open}}'), {
+					count: counts.open,
+				}),
+			);
+			if (counts.resolved > 0) {
+				parts.push(l10n.t('{count} resolved', { count: counts.resolved }));
+			}
+			if (counts.dismissed > 0) {
+				parts.push(l10n.t('{count} dismissed', { count: counts.dismissed }));
+			}
+		}
+
+		return html`<div class="review-done" role="status">
+			<code-icon class="review-done__icon" icon="pass-filled"></code-icon>
+			<div class="review-done__body">
+				<div class="review-done__title">${l10n.t('Review complete')}</div>
+				<div class="review-done__counts">${parts.join(' · ')}</div>
+			</div>
+			<div class="review-done__actions">
+				<gl-copy-container
+					.content=${this.formatSummaryMarkdown(progress, counts)}
+					copyLabel=${l10n.t('Copy Summary')}
+					copiedLabel=${l10n.t('Copied!')}
+					placement="top"
+					timeout=${2500}
+				>
+					<gl-button appearance="secondary" density="compact">
+						<code-icon icon="copy" slot="prefix"></code-icon>${l10n.t('Copy Summary')}
+					</gl-button>
+				</gl-copy-container>
+				${
+					counts.open > 0
+						? html`<gl-button
+								appearance="secondary"
+								density="compact"
+								@click=${() => this.handleSendToChat('review')}
+							>
+								<code-icon icon="comment-discussion-sparkle" slot="prefix"></code-icon>
+								${l10n.t('Send Remaining to Agent')}
+							</gl-button>`
+						: nothing
+				}
+			</div>
+		</div>`;
+	}
+
+	private formatSummaryMarkdown(progress: ReviewProgress, counts: ReviewFindingCounts): string {
+		const lines = [
+			`## ${l10n.t('Review of {scope}', { scope: this.scopeContextLabel() })}`,
+			'',
+			`- ${l10n.t('Files viewed: {count}', { count: progress.viewed })}`,
+		];
+		if (this.result != null) {
+			lines.push(
+				`- ${l10n.t('Findings: {open} open, {resolved} resolved, {dismissed} dismissed', {
+					open: counts.open,
+					resolved: counts.resolved,
+					dismissed: counts.dismissed,
+				})}`,
+			);
+			if (counts.open > 0) {
+				lines.push('', formatReviewAsMarkdown(this.result, this.formatOptions()));
+			}
+		}
+		return lines.join('\n');
 	}
 
 	private handleCancel = (): void => {
@@ -693,12 +787,6 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	private handleDiscard = (): void => {
 		this.dispatchEvent(new CustomEvent('review-discard', { bubbles: true, composed: true }));
-	};
-
-	private handleForward = (): void => {
-		// Orchestrator owns the snapshot — it'll mutate the resource back to the prior value
-		// without firing a new AI request.
-		this.dispatchEvent(new CustomEvent('review-forward', { bubbles: true, composed: true }));
 	};
 
 	private onAiInputType = (): void => {
@@ -742,21 +830,16 @@ export class GlDetailsReviewModePanel extends LitElement {
 		// visible (consistent with the compare empty-state pattern).
 		const renderFiles = files ?? this.files ?? [];
 
-		const aiExcluded = this._aiExcludedSet;
-
-		// Build checkableStates from exclusion/disabled sets. AI-excluded files are forced to
-		// the unchecked + disabled visual: willUpdate adds them to `_excludedFiles` so `checked`
-		// resolves false, leaving `state: undefined` and `disabled: true` (the file-tree-pane
-		// then renders the checkbox as unchecked + non-interactive).
+		// The checkbox is the reader's Viewed mark. Set-aside files keep their row (so they can be
+		// brought back) but leave the walk; AI-ignore only annotates — a human may still want to skim
+		// what the AI shouldn't read.
+		const session = this.session;
 		const checkableStates = new Map<string, { state?: 'checked'; disabled?: boolean; disabledReason?: string }>();
 		for (const file of renderFiles) {
-			const aiDisabled = aiExcluded?.has(file.path) ?? false;
-			const checked = !this.excludedFiles.has(file.path);
-			if (checked || aiDisabled) {
-				checkableStates.set(file.path, {
-					...(checked ? { state: 'checked' as const } : {}),
-					...(aiDisabled ? { disabled: true, disabledReason: l10n.t('Excluded by AI ignore rules') } : {}),
-				});
+			if (session?.excluded.has(file.path)) {
+				checkableStates.set(file.path, { disabled: true, disabledReason: l10n.t('Excluded from this review') });
+			} else if (getReviewFileProgress(session, file) === 'viewed') {
+				checkableStates.set(file.path, { state: 'checked' });
 			}
 		}
 
@@ -771,8 +854,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 					.filesLayout=${this.paneFilesLayout}
 					.checkableStates=${checkableStates}
 					.fileActions=${this.fileActionsForFile}
+					.fileDecorations=${this.decorationsForFile}
 					.fileContext=${this.getFileContext}
-					.contextRevision=${this.contextRevision}
+					.contextRevision=${`${this.contextRevision}:${this._sessionRevision}`}
 					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
 					selection-action="file-compare-range"
 					@file-compare-range=${(e: CustomEvent<FileChangeListItemDetail>) =>
@@ -780,10 +864,14 @@ export class GlDetailsReviewModePanel extends LitElement {
 					.searchContext=${this.searchContext}
 					.showSearchBox=${this.showSearchBox}
 					.searchBoxFilter=${this.searchBoxFilter}
-					check-action="include"
+					check-action="viewed"
 					empty-text=${l10n.t('No files changed')}
 					@file-checked=${this.onFileChecked}
 					@gl-check-all=${this.onToggleCheckAll}
+					@review-file-exclude=${(e: CustomEvent<FileChangeListItemDetail>) =>
+						this.dispatchFileExcluded(e.detail.path, true)}
+					@review-file-include=${(e: CustomEvent<FileChangeListItemDetail>) =>
+						this.dispatchFileExcluded(e.detail.path, false)}
 					@file-open=${this.redispatch}
 					@file-stage=${this.redispatch}
 					@file-unstage=${this.redispatch}
@@ -813,8 +901,59 @@ export class GlDetailsReviewModePanel extends LitElement {
 		</div>`;
 	}
 
-	private fileActionsForFile = (_file: GitFileChangeShape): TreeItemAction[] => {
-		return [{ icon: 'go-to-file', label: l10n.t('Open File'), action: 'file-open' }];
+	private fileActionsForFile = (file: GitFileChangeShape): TreeItemAction[] => {
+		const excluded = this.session?.excluded.has(file.path) ?? false;
+		return [
+			{ icon: 'go-to-file', label: l10n.t('Open File'), action: 'file-open' },
+			excluded
+				? {
+						icon: 'eye',
+						label: l10n.t('Include in Review'),
+						action: 'review-file-include',
+						multiBehavior: 'single',
+					}
+				: {
+						icon: 'eye-closed',
+						label: l10n.t('Exclude from Review'),
+						action: 'review-file-exclude',
+						multiBehavior: 'single',
+					},
+		];
+	};
+
+	private decorationsForFile = (file: ScopeFile): TreeItemDecoration[] | undefined => {
+		if (this.session?.excluded.has(file.path)) {
+			return [
+				{
+					type: 'text',
+					label: l10n.t('excluded'),
+					tooltip: l10n.t('Excluded from this review'),
+					kind: 'muted',
+					position: 'before',
+				},
+			];
+		}
+
+		const decorations: TreeItemDecoration[] = [];
+		if (getReviewFileProgress(this.session, file) === 'changed') {
+			decorations.push({
+				type: 'text',
+				label: l10n.t('changed since viewed'),
+				tooltip: l10n.t('This file changed after you marked it as viewed'),
+				kind: 'modified',
+				position: 'before',
+			});
+		}
+		if (this._aiExcludedSet?.has(file.path)) {
+			decorations.push({
+				type: 'icon',
+				icon: 'sparkle',
+				muted: true,
+				label: l10n.t('Excluded from AI review by ignore rules'),
+				position: 'before',
+			});
+		}
+		return decorations.length ? decorations : undefined;
 	};
 
 	private getFileContext = (file: ScopeFile): string | undefined => {
@@ -901,19 +1040,38 @@ export class GlDetailsReviewModePanel extends LitElement {
 	private redispatch = redispatch.bind(this);
 
 	private onFileChecked(e: CustomEvent<TreeItemCheckedDetail>): void {
-		const next = fileCheckedExclusion(e, this.excludedFiles);
-		if (next == null) return;
+		const [file] = (e.detail.context ?? []) as unknown as ScopeFile[];
+		if (file == null) return;
 
-		this._excludedFiles = next;
-		this.invalidateForward();
+		this.dispatchFilesViewed([file], e.detail.checked);
 	}
 
 	private onToggleCheckAll(e: CustomEvent<{ checked: boolean; paths: readonly string[] }>): void {
-		const next = checkAllExclusion(e, this.excludedFiles);
-		if (next == null) return;
+		const paths = new Set(e.detail.paths);
+		const files = (this.files ?? []).filter(f => paths.has(f.path) && !this.session?.excluded.has(f.path));
+		this.dispatchFilesViewed(files, e.detail.checked);
+	}
 
-		this._excludedFiles = next;
-		this.invalidateForward();
+	private dispatchFilesViewed(files: readonly ScopeFile[], viewed: boolean): void {
+		if (!files.length) return;
+
+		this.dispatchEvent(
+			new CustomEvent<ReviewFilesViewedDetail>('review-files-viewed', {
+				detail: { files: files.map(f => ({ path: f.path, contentId: f.contentId })), viewed: viewed },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private dispatchFileExcluded(path: string, excluded: boolean): void {
+		this.dispatchEvent(
+			new CustomEvent<ReviewFileExcludedDetail>('review-file-excluded', {
+				detail: { path: path, excluded: excluded },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	private invalidateForward(): void {
@@ -1070,12 +1228,15 @@ export class GlDetailsReviewModePanel extends LitElement {
 								${area.files.map(f => {
 									// Split off a trailing `:line` or `:start-end` so the line range gets a
 									// muted color (it's a locator, not part of the path).
-									const match = f.match(/^(.+?)(:\d+(?:-\d+)?)?$/);
+									const match = f.match(/^(.+?)(?::(\d+)(?:-(\d+))?)?$/);
 									const path = match?.[1] ?? f;
-									const lineRange = match?.[2] ?? '';
+									const start = match?.[2] != null ? Number(match[2]) : undefined;
+									const end = match?.[3] != null ? Number(match[3]) : start;
+									const lineRange =
+										start == null ? '' : end !== start ? `:${start}-${end}` : `:${start}`;
 									return html`<button
 										class="review-area__file-link"
-										@click=${() => this.handleOpenFile(f)}
+										@click=${() => this.handleOpenFile(path, start, end)}
 									>
 										<code-icon class="review-area__file-link-icon" icon="go-to-file"></code-icon>
 										<span class="review-area__file-link-text">${path}</span>
@@ -1137,7 +1298,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 	}
 
 	private renderFocusAreaActions(area: AIReviewFocusArea, state: { isAnalyzed: boolean }) {
-		const areaMarkdown = state.isAnalyzed ? formatFocusAreaAsMarkdown(area, this._dismissedFindings) : '';
+		const areaMarkdown = state.isAnalyzed ? formatFocusAreaAsMarkdown(area, getClosedFindingIds(this.session)) : '';
 		const disabled = !state.isAnalyzed;
 
 		// The inner `?disabled` on the buttons applies `pointer-events: none`, which suppresses
@@ -1172,20 +1333,27 @@ export class GlDetailsReviewModePanel extends LitElement {
 	}
 
 	private renderFindings(findings: readonly AIReviewFinding[], area?: AIReviewFocusArea) {
-		const visible = findings.filter(f => !this._dismissedFindings.has(f.id));
-		const dismissedCount = findings.length - visible.length;
-		const dismissedLabel = formatPlural(
-			l10n.t('{count, plural, one{{count} dismissed finding} other{{count} dismissed findings}}'),
-			{ count: dismissedCount },
+		const states = this.session?.findingStates;
+		const open = findings.filter(f => states?.get(f.id) == null);
+		const closed = findings.filter(f => states?.get(f.id) != null);
+		const closedLabel = formatPlural(
+			l10n.t('{count, plural, one{{count} closed finding} other{{count} closed findings}}'),
+			{ count: closed.length },
 		);
 
 		return html`<div class="review-findings">
-			${visible.map(f => this.renderFinding(f, area))}
+			${open.map(f => this.renderFinding(f, area))}
 			${
-				dismissedCount > 0
-					? html`<button class="review-findings__dismissed" @click=${this.handleShowDismissed}>
-							${dismissedLabel}
-						</button>`
+				closed.length > 0
+					? html`<button
+								class="review-findings__dismissed"
+								aria-expanded=${this._showClosedFindings ? 'true' : 'false'}
+								@click=${this.handleToggleClosedFindings}
+							>
+								${closedLabel}
+								<code-icon icon=${this._showClosedFindings ? 'chevron-up' : 'chevron-down'}></code-icon>
+							</button>
+							${this._showClosedFindings ? closed.map(f => this.renderFinding(f, area)) : nothing}`
 					: nothing
 			}
 		</div>`;
@@ -1203,12 +1371,24 @@ export class GlDetailsReviewModePanel extends LitElement {
 					? l10n.t('WARNING')
 					: l10n.t('SUGGESTION');
 
-		return html`<div class="review-finding" data-severity=${finding.severity}>
+		const state = this.session?.findingStates.get(finding.id);
+
+		return html`<div
+			class="review-finding ${state != null ? 'review-finding--closed' : ''}"
+			data-severity=${finding.severity}
+		>
 			<div class="review-finding__header">
 				<span class="review-finding__severity review-finding__severity--${finding.severity}">
 					${severityLabel}
 				</span>
 				<span class="review-finding__title">${getReviewFindingTitle(finding)}</span>
+				${
+					state != null
+						? html`<span class="review-finding__state"
+								>${state === 'resolved' ? l10n.t('Resolved') : l10n.t('Dismissed')}</span
+							>`
+						: nothing
+				}
 				<span class="review-finding__actions">
 					<gl-copy-container
 						appearance="toolbar"
@@ -1229,14 +1409,33 @@ export class GlDetailsReviewModePanel extends LitElement {
 					>
 						<code-icon icon="comment-discussion-sparkle"></code-icon>
 					</gl-button>
-					<gl-button
-						appearance="toolbar"
-						density="compact"
-						tooltip=${l10n.t('Dismiss')}
-						@click=${() => this.handleDismissFinding(finding.id)}
-					>
-						<code-icon icon="close"></code-icon>
-					</gl-button>
+					${
+						state == null
+							? html`<gl-button
+										appearance="toolbar"
+										density="compact"
+										tooltip=${l10n.t('Resolve')}
+										@click=${() => this.handleFindingState(finding.id, 'resolved')}
+									>
+										<code-icon icon="check"></code-icon>
+									</gl-button>
+									<gl-button
+										appearance="toolbar"
+										density="compact"
+										tooltip=${l10n.t('Dismiss')}
+										@click=${() => this.handleFindingState(finding.id, 'dismissed')}
+									>
+										<code-icon icon="close"></code-icon>
+									</gl-button>`
+							: html`<gl-button
+									appearance="toolbar"
+									density="compact"
+									tooltip=${l10n.t('Reopen')}
+									@click=${() => this.handleFindingState(finding.id, undefined)}
+								>
+									<code-icon icon="issue-reopened"></code-icon>
+								</gl-button>`
+					}
 				</span>
 			</div>
 			<div class="review-finding__description">${finding.description}</div>
@@ -1244,7 +1443,12 @@ export class GlDetailsReviewModePanel extends LitElement {
 				finding.filePath
 					? html`<button
 							class="review-finding__location"
-							@click=${() => this.handleOpenFile(finding.filePath!, finding.lineRange?.start)}
+							@click=${() =>
+								this.handleOpenFile(
+									finding.filePath!,
+									finding.lineRange?.start,
+									finding.lineRange?.end,
+								)}
 						>
 							<code-icon class="review-finding__location-icon" icon="go-to-file"></code-icon>
 							<span class="review-finding__location-text">${finding.filePath}</span>
@@ -1320,21 +1524,27 @@ export class GlDetailsReviewModePanel extends LitElement {
 		);
 	}
 
-	private handleOpenFile(filePath: string, line?: number): void {
+	private handleOpenFile(filePath: string, line?: number, lineEnd?: number): void {
 		this.dispatchEvent(
 			new CustomEvent<ReviewOpenFileDetail>('review-open-file', {
-				detail: { filePath: filePath, line: line },
+				detail: { filePath: filePath, line: line, lineEnd: lineEnd },
 				bubbles: true,
 				composed: true,
 			}),
 		);
 	}
 
-	private handleDismissFinding(findingId: string): void {
-		this._dismissedFindings = new Set([...this._dismissedFindings, findingId]);
+	private handleFindingState(findingId: string, state: ReviewFindingState | undefined): void {
+		this.dispatchEvent(
+			new CustomEvent<ReviewFindingStateDetail>('review-finding-state', {
+				detail: { findingId: findingId, state: state },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
-	private handleShowDismissed(): void {
-		this._dismissedFindings = new Set();
-	}
+	private handleToggleClosedFindings = (): void => {
+		this._showClosedFindings = !this._showClosedFindings;
+	};
 }
