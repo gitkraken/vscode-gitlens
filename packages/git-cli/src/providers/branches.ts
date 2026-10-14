@@ -477,17 +477,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// to bypass the cache entirely.
 			let mergeTarget: string | undefined;
 
-			// Tier 1: Stored merge target (user-set or previously detected from PR).
-			const storedTarget = await this.getStoredMergeTargetBranchName(repoPath, ref);
-			if (storedTarget) {
-				const validated = await this.provider.refs.getSymbolicReferenceName(
-					repoPath,
-					storedTarget,
-					priorityOpts,
-					cancellation,
-				);
-				mergeTarget = validated || storedTarget;
-			}
+			// Tier 1: Stored merge target (user-set or previously detected from PR). A target whose
+			// branch is gone is skipped, so resolution falls through to the next tier.
+			mergeTarget = await this.getStoredMergeTargetBranchName(repoPath, ref, priorityOpts, cancellation);
 
 			// Tier 2: PR-based lookup. The branch object is only needed here (for `remoteName`),
 			// so lazy-load it on the cold path instead of paying for it on every call.
@@ -497,20 +489,32 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					const branch = await this.getBranch(repoPath, ref, undefined, cancellation);
 					if (branch == null) return undefined;
 
-					mergeTarget = `${branch.remoteName}/${pr.refs.base.branch}`;
-					// A stacked PR's base is the layer below it, which is deleted when the stack merges.
-					// Storing it would leave a stored target naming a branch that no longer exists — and
-					// a stored target beats every other tier, so it would keep winning until cleared by
-					// hand. Use it for this lookup, but don't persist it.
-					if (pr.stack == null) {
-						// Store for future reuse — turns the next call into a Tier 1 path. Skip the
-						// `branchOverviews` invalidation that the write would otherwise trigger: we're
-						// about to populate `${ref}|${mergeTarget}` with this exact target, so evicting
-						// it would just force the next caller to redo the body. (gk-merge-target writes
-						// do not affect `baseBranchName`, so no need to skip that target.)
-						void this.storeMergeTargetBranchName(repoPath, ref, mergeTarget, {
-							skipInvalidation: ['branchOverviews'],
-						});
+					const prTarget = `${branch.remoteName}/${pr.refs.base.branch}`;
+					// A PR's base can be gone too (e.g. a stale PR read still naming a merged stack layer),
+					// so a confirmed-gone base is skipped like a stored target.
+					const { missing } = await this.provider.refs.getSymbolicReferenceNameOrMissing(
+						repoPath,
+						prTarget,
+						priorityOpts,
+						cancellation,
+					);
+					if (!missing) {
+						mergeTarget = prTarget;
+
+						// A stacked PR's base is the layer below it, which is deleted when the stack merges.
+						// A stored target beats every other tier for as long as its branch exists, and a merged
+						// layer's branch can linger (an unpruned remote-tracking ref, or a repo that keeps merged
+						// branches). Use it for this lookup, but don't persist it.
+						if (pr.stack == null) {
+							// Store for future reuse — turns the next call into a Tier 1 path. Skip the
+							// `branchOverviews` invalidation that the write would otherwise trigger: we're
+							// about to populate `${ref}|${mergeTarget}` with this exact target, so evicting
+							// it would just force the next caller to redo the body. (gk-merge-target writes
+							// do not affect `baseBranchName`, so no need to skip that target.)
+							void this.storeMergeTargetBranchName(repoPath, ref, prTarget, {
+								skipInvalidation: ['branchOverviews'],
+							});
+						}
 					}
 				}
 			}
@@ -1733,12 +1737,50 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return { branch: undefined, failed: false };
 	}
 
+	/**
+	 * The stored merge target — the user's pick, else the one detected from its PR — skipping any whose branch git
+	 * confirms is gone so resolution falls through to the next source. A target that couldn't be checked is kept.
+	 * The stored keys are never rewritten here: the user pick is the user's, and Kepler shares the file.
+	 */
 	@debug({ exit: true })
-	async getStoredMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
-		const target =
-			(await this.getStoredUserMergeTargetBranchName?.(repoPath, ref)) ??
-			(await this.getStoredDetectedMergeTargetBranchName?.(repoPath, ref));
-		return target?.trim() || undefined;
+	async getStoredMergeTargetBranchName(
+		repoPath: string,
+		ref: string,
+		options?: { detectedOnly?: boolean; priority?: GitCommandPriority },
+		cancellation?: AbortSignal,
+	): Promise<string | undefined> {
+		const priority = options?.priority;
+
+		let goneUserTarget: string | undefined;
+		if (!options?.detectedOnly) {
+			const userTarget = await this.getStoredUserMergeTargetBranchName(repoPath, ref);
+			if (userTarget) {
+				const resolved = await this.resolveStoredMergeTarget(repoPath, userTarget, priority, cancellation);
+				if (resolved) return resolved;
+
+				goneUserTarget = userTarget;
+			}
+		}
+
+		const detectedTarget = await this.getStoredDetectedMergeTargetBranchName(repoPath, ref);
+		if (!detectedTarget || detectedTarget === goneUserTarget) return undefined;
+
+		return this.resolveStoredMergeTarget(repoPath, detectedTarget, priority, cancellation);
+	}
+
+	private async resolveStoredMergeTarget(
+		repoPath: string,
+		target: string,
+		priority: GitCommandPriority | undefined,
+		cancellation?: AbortSignal,
+	): Promise<string | undefined> {
+		const { name, missing } = await this.provider.refs.getSymbolicReferenceNameOrMissing(
+			repoPath,
+			target,
+			priority != null ? { priority: priority } : undefined,
+			cancellation,
+		);
+		return missing ? undefined : name || target;
 	}
 
 	@debug({ exit: true })
@@ -1862,6 +1904,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		target: string,
 		options?: { skipInvalidation?: readonly GkConfigInvalidationTarget[] },
 	): Promise<void> {
+		// An unchanged value isn't rewritten: the write would churn the file Kepler shares and drop the cached gk config
+		if ((await this.provider.config.getGkConfig(repoPath, `branch.${ref}.gk-merge-target`)) === target) return;
+
 		await this.provider.config.setGkConfig(repoPath, `branch.${ref}.gk-merge-target`, target, options);
 	}
 

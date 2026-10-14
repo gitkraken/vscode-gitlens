@@ -243,7 +243,7 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `getPotentialApplyConflicts?(repoPath, targetBranch, shas, options?, cancellation?)` | `ConflictDetectionResult`                  |
 | `getPotentialMergeConflicts?(repoPath, branch, targetBranch, cancellation?)`         | `ConflictDetectionResult`                  |
 | `getBaseBranchName?(repoPath, ref, cancellation?)`                                   | `string \| undefined`                      |
-| `getStoredMergeTargetBranchName?(repoPath, ref)`                                     | `string \| undefined`                      |
+| `getStoredMergeTargetBranchName?(repoPath, ref, options?, cancellation?)`            | `string \| undefined`                      |
 | `getStoredDetectedMergeTargetBranchName?(repoPath, ref)`                             | `string \| undefined`                      |
 | `getStoredUserMergeTargetBranchName?(repoPath, ref)`                                 | `string \| undefined`                      |
 | `onCurrentBranchAccessed?(repoPath)`                                                 | `void`                                     |
@@ -379,16 +379,17 @@ Each sub-provider interface is defined in its own file under `providers/`:
 
 ### GitRefsSubProvider
 
-| Method                                                              | Returns                     |
-| ------------------------------------------------------------------- | --------------------------- |
-| `checkIfCouldBeValidBranchOrTagName(repoPath, ref)`                 | `boolean`                   |
-| `getMergeBase(repoPath, ref1, ref2, options?, cancellation?)`       | `string \| undefined`       |
-| `getReference(repoPath, ref, cancellation?)`                        | `GitReference \| undefined` |
-| `getSymbolicReferenceName?(repoPath, ref, options?, cancellation?)` | `string \| undefined`       |
-| `hasBranchOrTag(repoPath, options?, cancellation?)`                 | `boolean`                   |
-| `isValidReference(repoPath, ref, pathOrUri?, cancellation?)`        | `boolean`                   |
-| `validateReference(repoPath, ref, relativePath?, cancellation?)`    | `string \| undefined`       |
-| `updateReference(repoPath, ref, newRef, cancellation?)`             | `void`                      |
+| Method                                                                       | Returns                                           |
+| ---------------------------------------------------------------------------- | ------------------------------------------------- |
+| `checkIfCouldBeValidBranchOrTagName(repoPath, ref)`                          | `boolean`                                         |
+| `getMergeBase(repoPath, ref1, ref2, options?, cancellation?)`                | `string \| undefined`                             |
+| `getReference(repoPath, ref, cancellation?)`                                 | `GitReference \| undefined`                       |
+| `getSymbolicReferenceName?(repoPath, ref, options?, cancellation?)`          | `string \| undefined`                             |
+| `getSymbolicReferenceNameOrMissing?(repoPath, ref, options?, cancellation?)` | `{ name: string \| undefined; missing: boolean }` |
+| `hasBranchOrTag(repoPath, options?, cancellation?)`                          | `boolean`                                         |
+| `isValidReference(repoPath, ref, pathOrUri?, cancellation?)`                 | `boolean`                                         |
+| `validateReference(repoPath, ref, relativePath?, cancellation?)`             | `string \| undefined`                             |
+| `updateReference(repoPath, ref, newRef, cancellation?)`                      | `void`                                            |
 
 ### GitRemotesSubProvider
 

@@ -88,6 +88,24 @@ suite('RefsSubProvider', () => {
 		assert.strictEqual(ref.name, 'main');
 		assert.strictEqual(ref.refType, 'branch');
 	});
+
+	test('getSymbolicReferenceNameOrMissing reports only a ref git confirms is gone as missing', async () => {
+		const refs = repo.provider.refs;
+
+		assert.deepStrictEqual(await refs.getSymbolicReferenceNameOrMissing(repo.path, 'feature/refs-test'), {
+			name: 'feature/refs-test',
+			missing: false,
+		});
+		assert.deepStrictEqual(await refs.getSymbolicReferenceNameOrMissing(repo.path, 'feature/deleted'), {
+			name: undefined,
+			missing: true,
+		});
+		// A SHA exists but has no symbolic name
+		assert.deepStrictEqual(await refs.getSymbolicReferenceNameOrMissing(repo.path, getHeadSha(repo.path)), {
+			name: undefined,
+			missing: false,
+		});
+	});
 });
 
 suite('RefsSubProvider ref updates', () => {
