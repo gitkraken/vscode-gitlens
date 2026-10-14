@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
+import type { AIReviewFinding } from '@gitlens/ai/models/results.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import type { Container } from '../../../../container.js';
@@ -375,10 +376,13 @@ const diffWithNestedRepoGitlink = [
 
 type CreateServices = () => { graphInspect: GraphInspectService };
 
-function createReviewFake(diff: string = diffWithNestedRepoGitlink) {
+function createReviewFake(
+	diff: string = diffWithNestedRepoGitlink,
+	options?: { stagedDiff?: string; stagedFiles?: Record<string, string>; findings?: AIReviewFinding[] },
+) {
 	const getDiff = sinon.stub();
 	getDiff.withArgs(uncommitted).resolves({ contents: diff });
-	getDiff.withArgs(uncommittedStaged).resolves(undefined);
+	getDiff.withArgs(uncommittedStaged).resolves(options?.stagedDiff ? { contents: options.stagedDiff } : undefined);
 
 	// Mirrors the scratch-index staging the review performs (#5604/#5605) so these tests run the same
 	// path production does; without `createTemporaryIndex` the staging step fails and is skipped, which
@@ -395,10 +399,35 @@ function createReviewFake(diff: string = diffWithNestedRepoGitlink) {
 			unstageFiles: async () => {},
 		},
 		branches: { getBranch: async () => undefined },
+		revision: {
+			getRevisionContent: async (path: string, rev: string) => {
+				const content = rev === uncommittedStaged ? options?.stagedFiles?.[path] : undefined;
+				return content != null ? new TextEncoder().encode(content) : undefined;
+			},
+		},
 	};
 
-	const reviewChanges = sinon.stub().returns({ promise: Promise.resolve({ result: { mode: 'single-pass' } }) });
-	const reviewFocusArea = sinon.stub().returns({ promise: Promise.resolve({ result: {} }) });
+	const reviewChanges = sinon.stub().returns({
+		promise: Promise.resolve({
+			result: {
+				mode: 'single-pass',
+				overview: '',
+				focusAreas: options?.findings
+					? [
+							{
+								id: 'a',
+								label: 'a',
+								rationale: '',
+								severity: 'warning',
+								files: [],
+								findings: options.findings,
+							},
+						]
+					: [],
+			},
+		}),
+	});
+	const reviewFocusArea = sinon.stub().returns({ promise: Promise.resolve({ result: { findings: [] } }) });
 	const reviewOverview = sinon
 		.stub()
 		.returns({ promise: Promise.resolve({ result: { mode: 'two-pass', focusAreas: [] } }) });
@@ -428,6 +457,7 @@ function createReviewFake(diff: string = diffWithNestedRepoGitlink) {
 		_reviewHistoryCache: new LruMap(4),
 		_composeProgressEvent: noopEvent,
 		_resolveProgressEvent: noopEvent,
+		_reviewWalkEvent: noopEvent,
 	});
 
 	const { graphInspect } = (GraphInspectServices.prototype.createServices as unknown as CreateServices).call(
@@ -447,6 +477,45 @@ function reviewedDiff(stub: sinon.SinonStub): string {
 	assert.ok(stub.called, 'the AI review action should have been invoked');
 	return (stub.firstCall.args[0] as { diff: string }).diff;
 }
+
+suite('graphInspectServices — review finding lines', () => {
+	test('re-points finding lines at the file the reader opens, by their quoted text', async () => {
+		const stagedDiff = [
+			'diff --git a/src/a.ts b/src/a.ts',
+			'index 1111111..2222222 100644',
+			'--- a/src/a.ts',
+			'+++ b/src/a.ts',
+			'@@ -1,2 +1,3 @@',
+			' const a = 1;',
+			'+const b = 2;',
+			' const c = 3;',
+			'',
+		].join('\n');
+		const finding = (id: string, lineRange?: { start: number; end: number }): AIReviewFinding => ({
+			id: id,
+			severity: 'warning',
+			title: id,
+			description: '',
+			filePath: 'src/a.ts',
+			lineRange: lineRange,
+		});
+		const m = createReviewFake('', {
+			stagedDiff: stagedDiff,
+			// The file as the diff opens it has two more lines above, and line 3's text no longer appears
+			stagedFiles: { 'src/a.ts': '// one\n// two\nconst a = 1;\nconst b = 2;\nconst c = 30;\n' },
+			findings: [finding('moved', { start: 2, end: 2 }), finding('gone', { start: 3, end: 3 }), finding('none')],
+		});
+
+		const result = await m.graphInspect.reviewChanges('/repo', wipScope({ includeStaged: true }));
+
+		assert.ok('result' in result, `review should not have errored: ${JSON.stringify(result)}`);
+		const findings = result.result.focusAreas[0].findings ?? [];
+		assert.deepStrictEqual(findings[0].lineRange, { start: 4, end: 4 });
+		assert.strictEqual(findings[1].lineRange, undefined, 'a line whose text is gone loses its range');
+		assert.strictEqual(findings[1].filePath, 'src/a.ts', 'but keeps its file');
+		assert.strictEqual(findings[2].lineRange, undefined, 'a finding without lines is left alone');
+	});
+});
 
 suite('graphInspectServices — review exclusions across path shapes (#5603)', () => {
 	test('excluding an untracked nested repository drops its gitlink entry from the reviewed diff', async () => {
@@ -787,6 +856,7 @@ function createResolveProgressFake() {
 		_activeResolveSessions: new Map(),
 		_resolveConversationIds: new Map(),
 		_composeProgressEvent: { subscribe: () => () => {} },
+		_reviewWalkEvent: { subscribe: () => () => {} },
 		_resolveProgressEvent: {
 			subscribe: () => () => {},
 			fire: (update: ResolveProgressUpdate | undefined) => void fired.push(update),
@@ -864,6 +934,7 @@ function createResolveMetricsFake(metrics: ({ stepCount?: number; toolCallCount?
 		_resolveConversationIds: new Map(),
 		_composeProgressEvent: { subscribe: () => () => {} },
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
+		_reviewWalkEvent: { subscribe: () => () => {} },
 		getOrCreateConflictToolsForGraph: () => Promise.resolve(integration),
 	});
 
@@ -998,6 +1069,7 @@ function createComposeConversationFake(options?: { failGenerate?: boolean }) {
 		_autoRebaseOwnedConversations: new Set<string>(),
 		_composeProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
+		_reviewWalkEvent: { subscribe: () => () => {} },
 		getOrCreateComposeToolsForGraph: () => Promise.resolve(integration),
 		// Turning a library plan into display commits needs the virtual-FS session machinery, which has
 		// nothing to do with the conversation lifecycle under test. Doubles as the seam for a

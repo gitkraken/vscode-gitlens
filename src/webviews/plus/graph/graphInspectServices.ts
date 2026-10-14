@@ -1,17 +1,22 @@
 import type { CancellationTokenSource, Disposable, TextDocumentShowOptions } from 'vscode';
-import { env, l10n, ProgressLocation, Uri, window } from 'vscode';
-import type { AIReviewResult } from '@gitlens/ai/models/results.js';
+import { env, l10n, ProgressLocation, Uri, window, workspace } from 'vscode';
+import type { AIReviewFinding, AIReviewResult } from '@gitlens/ai/models/results.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { DisposableTemporaryGitIndex } from '@gitlens/git/providers/staging.js';
 import { classifyConflictAction, getConflictKindLabel } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
-import { createRevisionRange, isUncommitted, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import {
+	createRevisionRange,
+	isUncommitted,
+	isUncommittedStaged,
+	shortenRevision,
+} from '@gitlens/git/utils/revision.utils.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { uuid } from '@gitlens/utils/crypto.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
-import { annotateDiffWithNewLineNumbers } from '@gitlens/utils/diff.js';
+import { annotateDiffWithNewLineNumbers, getAnnotatedNewLines, reanchorLineRange } from '@gitlens/utils/diff.js';
 import { lazy } from '@gitlens/utils/lazy.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
@@ -138,6 +143,7 @@ import type {
 	UndoAutoRebaseResult,
 	VirtualRefShape,
 } from './graphService.js';
+import { getReviewDiffEndpoints } from './reviewDiffEndpoints.js';
 import { claimReviewWalk, releaseReviewWalk } from './reviewWalk.js';
 
 /** Collaborators the inspect/compose/review/timeline/treemap cluster reaches for on the host provider,
@@ -1275,7 +1281,7 @@ export class GraphInspectServices {
 				}
 
 				this.recordReviewExchange(diffCacheKey, prompt, response.result, followUp != null);
-				return { result: response.result };
+				return { result: await this.anchorReviewResultLines(repoPath, scope, data.diff, response.result) };
 			}
 
 			// Two-pass: build file manifest from the (already filtered) diff
@@ -1490,12 +1496,87 @@ export class GraphInspectServices {
 				return { error: { message: l10n.t('Review was cancelled.') } };
 			}
 
-			return { result: response.result };
+			return {
+				result: {
+					...response.result,
+					findings: await this.anchorFindingLines(repoPath, scope, filteredDiff, response.result.findings),
+				},
+			};
 		} catch (ex) {
 			return { error: { message: getPresentableErrorMessage(ex) } };
 		} finally {
 			disposeCancellation();
 		}
+	}
+
+	private async anchorReviewResultLines(
+		repoPath: string,
+		scope: ScopeSelection,
+		diff: string,
+		result: AIReviewResult,
+	): Promise<AIReviewResult> {
+		const findings = result.focusAreas.flatMap(a => a.findings ?? []);
+		if (!findings.length) return result;
+
+		const anchored = await this.anchorFindingLines(repoPath, scope, diff, findings);
+		let index = 0;
+		return {
+			...result,
+			focusAreas: result.focusAreas.map(a =>
+				a.findings == null ? a : { ...a, findings: a.findings.map(() => anchored[index++]) },
+			),
+		};
+	}
+
+	/** The AI's diff numbers each of its parts (unstaged, staged, each commit) on that part's own new side,
+	 *  which only the last part shares with the file the reader opens — so finding lines are re-pointed at
+	 *  that file by their quoted text, and dropped when the text isn't there. */
+	private async anchorFindingLines(
+		repoPath: string,
+		scope: ScopeSelection,
+		diff: string,
+		findings: readonly AIReviewFinding[],
+	): Promise<AIReviewFinding[]> {
+		const rhs = getReviewDiffEndpoints(scope)?.rhs;
+		const quoted = getAnnotatedNewLines(diff);
+		const paths = new Set<string>();
+		for (const f of findings) {
+			if (f.filePath != null && f.lineRange != null && quoted.has(f.filePath)) {
+				paths.add(f.filePath);
+			}
+		}
+		if (rhs == null || !paths.size) return [...findings];
+
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const targets = new Map<string, string[]>();
+		await Promise.all(
+			Array.from(paths, async path => {
+				try {
+					const bytes =
+						isUncommitted(rhs) && !isUncommittedStaged(rhs)
+							? await workspace.fs.readFile(svc.getAbsoluteUri(path, repoPath))
+							: await svc.revision.getRevisionContent(path, rhs);
+					if (bytes != null) {
+						targets.set(path, new TextDecoder().decode(bytes).split('\n'));
+					}
+				} catch (ex) {
+					Logger.error(ex, `Failed to read ${path} to anchor review findings`);
+				}
+			}),
+		);
+
+		return findings.map(f => {
+			if (f.filePath == null || f.lineRange == null) return f;
+
+			const target = targets.get(f.filePath);
+			const lines = quoted.get(f.filePath);
+			if (target == null || lines == null) return f;
+
+			const range = reanchorLineRange(f.lineRange, lines, target);
+			if (range?.start === f.lineRange.start && range.end === f.lineRange.end) return f;
+
+			return { ...f, lineRange: range };
+		});
 	}
 
 	private async addressReviewFindingsInChat(args: AddressReviewFindingsArgs): Promise<AddressReviewFindingsResult> {
