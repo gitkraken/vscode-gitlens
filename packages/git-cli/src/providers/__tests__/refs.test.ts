@@ -118,6 +118,76 @@ suite('RefsGitSubProvider Test Suite', () => {
 		sandbox.restore();
 	});
 
+	suite('getSymbolicReferenceNameOrMissing', () => {
+		function runResult(stdout: string, completion: GitResult['completion']): GitResult {
+			return { stdout: stdout, stderr: undefined, completion: completion };
+		}
+
+		test('reports the symbolic name of an existing branch as not missing', async () => {
+			gitStub.run.resolves(runResult('origin/main\n', { status: 'exited', code: 0 }));
+
+			assert.deepStrictEqual(await refsProvider.getSymbolicReferenceNameOrMissing('/repo', 'origin/main'), {
+				name: 'origin/main',
+				missing: false,
+			});
+			assert.strictEqual(await refsProvider.getSymbolicReferenceName('/repo', 'origin/main'), 'origin/main');
+		});
+
+		test('reports a ref that exists without a symbolic name (a SHA) as not missing', async () => {
+			gitStub.run.resolves(runResult('', { status: 'exited', code: 0 }));
+
+			assert.deepStrictEqual(await refsProvider.getSymbolicReferenceNameOrMissing('/repo', 'abc1234'), {
+				name: undefined,
+				missing: false,
+			});
+			assert.strictEqual(await refsProvider.getSymbolicReferenceName('/repo', 'abc1234'), undefined);
+		});
+
+		test('reports a ref git confirmed does not exist (exit 1) as missing', async () => {
+			gitStub.run.resolves(runResult('', { status: 'exited', code: 1 }));
+
+			assert.deepStrictEqual(await refsProvider.getSymbolicReferenceNameOrMissing('/repo', 'gone'), {
+				name: undefined,
+				missing: true,
+			});
+			assert.strictEqual(await refsProvider.getSymbolicReferenceName('/repo', 'gone'), undefined);
+		});
+
+		test('does not report missing when git could not check (fatal exit 128)', async () => {
+			gitStub.run.resolves(runResult('', { status: 'exited', code: 128 }));
+
+			assert.deepStrictEqual(await refsProvider.getSymbolicReferenceNameOrMissing('/repo', 'main'), {
+				name: undefined,
+				missing: false,
+			});
+			assert.strictEqual(await refsProvider.getSymbolicReferenceName('/repo', 'main'), undefined);
+		});
+
+		test('does not report missing when the read was cancelled', async () => {
+			gitStub.run.resolves(
+				runResult('', { status: 'cancelled', reason: 'timeout', error: new Error('timed out') }),
+			);
+
+			assert.deepStrictEqual(await refsProvider.getSymbolicReferenceNameOrMissing('/repo', 'main'), {
+				name: undefined,
+				missing: false,
+			});
+			assert.strictEqual(await refsProvider.getSymbolicReferenceName('/repo', 'main'), undefined);
+		});
+
+		test('does not report missing when the read failed to start', async () => {
+			gitStub.run.resolves(
+				runResult('', { status: 'failed', reason: 'unstarted', error: new Error('spawn failed') }),
+			);
+
+			assert.deepStrictEqual(await refsProvider.getSymbolicReferenceNameOrMissing('/repo', 'main'), {
+				name: undefined,
+				missing: false,
+			});
+			assert.strictEqual(await refsProvider.getSymbolicReferenceName('/repo', 'main'), undefined);
+		});
+	});
+
 	suite('getReflogEntries', () => {
 		test('formats only the fields it reads, and maps them to sha and message', async () => {
 			gitStub.run.resolves(

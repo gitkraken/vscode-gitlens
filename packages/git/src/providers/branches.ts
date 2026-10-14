@@ -120,7 +120,12 @@ export interface GitBranchesSubProvider {
 		options?: { priority?: GitCommandPriority },
 		cancellation?: AbortSignal,
 	): Promise<string | undefined>;
-	getStoredMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
+	getStoredMergeTargetBranchName?(
+		repoPath: string,
+		ref: string,
+		options?: { detectedOnly?: boolean; priority?: GitCommandPriority },
+		cancellation?: AbortSignal,
+	): Promise<string | undefined>;
 	getStoredDetectedMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
 	getStoredUserMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
 	onCurrentBranchAccessed?(repoPath: string): Promise<void>;

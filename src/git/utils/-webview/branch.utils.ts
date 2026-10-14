@@ -154,26 +154,34 @@ async function getBranchMergeTargetNameWithoutFallback(
 	},
 ): Promise<MaybePausedResult<string | undefined>> {
 	const svc = container.git.getRepositoryService(branch.repoPath);
-	const targetBranch = options?.detectedOnly
-		? await svc.branches.getStoredDetectedMergeTargetBranchName?.(branch.name)
-		: await svc.branches.getStoredMergeTargetBranchName?.(branch.name);
-	if (targetBranch) {
-		const validated = await svc.refs.getSymbolicReferenceName?.(targetBranch, undefined, options?.cancellation);
-		return { value: validated || targetBranch, paused: false };
-	}
+	const targetBranch = await svc.branches.getStoredMergeTargetBranchName?.(
+		branch.name,
+		options?.detectedOnly ? { detectedOnly: true } : undefined,
+		options?.cancellation,
+	);
+	if (targetBranch) return { value: targetBranch, paused: false };
 
 	if (options?.cancellation?.aborted) return { value: undefined, paused: false };
 
 	return pauseOnCancelOrTimeout(
-		(options?.associatedPullRequest ?? getBranchAssociatedPullRequest(container, branch))?.then(pr => {
+		(options?.associatedPullRequest ?? getBranchAssociatedPullRequest(container, branch))?.then(async pr => {
 			if (pr?.refs?.base == null) return undefined;
 
 			const name = `${branch.remoteName}/${pr.refs.base.branch}`;
 
+			// A PR's base can be gone too (e.g. a stale PR read still naming a merged stack layer), so a
+			// confirmed-gone base is skipped like a stored target. A check that can't complete keeps the base, as
+			// before — including a cancelled one, whose rejection would otherwise reject a timed-out lookup's continuation.
+			const check = await svc.refs
+				.getSymbolicReferenceNameOrMissing?.(name, undefined, options?.cancellation)
+				.catch(() => undefined);
+			if (check?.missing) return undefined;
+
 			// A stacked PR's base is the layer below it — an ephemeral branch that is deleted when the
-			// stack merges. Persisting it would outlive the branch it names, and because a stored target
-			// wins over every other source it would keep winning, silently, until cleared by hand. Return
-			// it for display (per-layer diffs are what makes a stack reviewable) but never write it.
+			// stack merges. A stored target wins over every other source for as long as its branch exists,
+			// and a merged layer's branch can linger (an unpruned remote-tracking ref, or a repo that keeps
+			// merged branches). Return it for display (per-layer diffs are what makes a stack reviewable)
+			// but never write it.
 			if (pr.stack != null) return name;
 
 			// Same self-write semantics as `getBranchContributionsOverview`'s Tier 2: the value

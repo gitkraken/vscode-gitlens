@@ -21,6 +21,7 @@ import { iterateAsyncByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
+import type { GitResult } from '../exec/exec.types.js';
 import type { Git, GitError } from '../exec/git.js';
 import { getGitCommandError, gitConfigsBranch, gitConfigsLog } from '../exec/git.js';
 import { getReflogEntryParser } from '../parsers/reflogParser.js';
@@ -431,16 +432,45 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		options?: { priority?: GitCommandPriority },
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
+		const result = await this.runSymbolicReferenceName(repoPath, ref, options, cancellation);
+		return result.stdout.trim() || undefined;
+	}
+
+	/**
+	 * Like {@link getSymbolicReferenceName}, but tells a ref git confirmed doesn't exist (`rev-parse --verify` exit 1)
+	 * apart from a read that didn't complete (timeout, error, cancellation), which never reports `missing`.
+	 * Shares the same cached `rev-parse`, though only a found ref is cached: a missing one re-runs on every call.
+	 */
+	@debug()
+	async getSymbolicReferenceNameOrMissing(
+		repoPath: string,
+		ref: string,
+		options?: { priority?: GitCommandPriority },
+		cancellation?: AbortSignal,
+	): Promise<{ name: string | undefined; missing: boolean }> {
+		const result = await this.runSymbolicReferenceName(repoPath, ref, options, cancellation);
+		return {
+			name: result.stdout.trim() || undefined,
+			missing: result.completion.status === 'exited' && result.completion.code === 1,
+		};
+	}
+
+	private async runSymbolicReferenceName(
+		repoPath: string,
+		ref: string,
+		options?: { priority?: GitCommandPriority },
+		cancellation?: AbortSignal,
+	): Promise<GitResult> {
 		const supportsEndOfOptions = await this.git.supports('git:rev-parse:end-of-options');
 
-		const result = await this.git.run(
+		return this.git.run(
 			{
 				cwd: repoPath,
 				cancellation: cancellation,
 				errors: 'ignore',
-				// Why: a fixed ref name's symbolic name is itself stable; only HEAD is mutable, and the
-				// gitResults cache is cleared on 'head' events. 60s TTL is the failsafe for watcher
-				// latency / web — matches the other "resolve symbolic state" calls in commits.ts.
+				// Why: a fixed ref name's symbolic name is itself stable; only HEAD's, or whether the ref exists
+				// at all, changes — and the gitResults cache is cleared on those ref events. 60s TTL is the failsafe
+				// for watcher latency / web — matches the other "resolve symbolic state" calls in commits.ts.
 				caching: { cache: this.cache.gitResults, options: { accessTTL: 60 * 1000 } },
 				...(options?.priority != null ? { priority: options.priority } : undefined),
 			},
@@ -452,7 +482,6 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 			supportsEndOfOptions ? '--end-of-options' : undefined,
 			ref,
 		);
-		return result.stdout.trim() || undefined;
 	}
 
 	@debug({ args: repoPath => ({ repoPath: repoPath }) })
