@@ -1,4 +1,5 @@
 import * as l10n from '@vscode/l10n';
+import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
@@ -362,7 +363,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		}
 
 		if (this.status === 'loading') {
-			return this.renderLoadingWithCancel();
+			return this.renderWithChecklist(this.renderLoadingWithCancel());
 		}
 
 		if (this.status === 'error') {
@@ -376,16 +377,24 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 		if (this.status !== 'ready' || !this.result) return nothing;
 
-		// The dedicated `renderReadyHeader()` used to live here — back arrow, title, counts,
-		// Copy + Send-to-chat actions. Title and counts duplicated the main details header's
-		// new verb-led title + mode-status snippet; the back arrow is now the main header's
-		// close button when in this results sub-state (see `gl-details-header.inResultsView`).
-		// The Copy + Send-to-chat actions live in an always-visible footer beneath the
-		// scrollable results so they stay reachable regardless of scroll position.
-		return html`<div class="review-results scrollable">
-				${this.renderDoneCard()} ${this.renderOverview()} ${this.renderFocusAreas()}
-			</div>
-			${this.renderReadyFooter()}${this.renderRefineInput()}`;
+		// The back arrow is the main header's close button in this sub-state (see
+		// `gl-details-header.inResultsView`). The Copy + Send-to-chat actions live in an always-visible
+		// footer beneath the scrollable results so they stay reachable regardless of scroll position.
+		return html`${this.renderWithChecklist(
+			html`<div class="review-results scrollable">${this.renderOverview()} ${this.renderFocusAreas()}</div>`,
+		)}${this.renderReadyFooter()}${this.renderRefineInput()}`;
+	}
+
+	/** The reader's checklist stays up while the AI runs and after it answers — the findings are one
+	 *  lens on the changeset, not a screen that replaces it. */
+	private renderWithChecklist(aiContent: TemplateResult) {
+		return html`${this.renderDoneCard()}
+			<gl-split-panel orientation="vertical" class="review-split" position="40">
+				<div slot="start" class="review-split__files">
+					<div class="scope-files">${this.renderFileCuration()}</div>
+				</div>
+				<div slot="end" class="review-split__ai">${aiContent}</div>
+			</gl-split-panel>`;
 	}
 
 	/** Disclosure state for the follow-up input: `undefined` follows the default (open once a
@@ -456,7 +465,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 				${l10n.t('Follow-Up')}
 				<code-icon class="review-footer__followup-chevron" icon="chevron-down" slot="suffix"></code-icon>
 			</gl-button>
-			<gl-button appearance="secondary" @click=${this.handleDiscard}>${l10n.t('Discard')}</gl-button>
+			<gl-button appearance="secondary" @click=${this.handleDiscard}>${l10n.t('Discard Findings')}</gl-button>
 		</div>`;
 	}
 
