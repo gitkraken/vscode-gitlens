@@ -1077,7 +1077,8 @@ test.describe('Quick Wizard — Fetch/Pull/Push Commands', () => {
 				gitlens: { quickPick },
 			},
 		}) => {
-			await selectCommandAndWaitForStepWithOptionalRepo(vscode, 'push', { title: /Confirm Push/i }, true);
+			// The fixture repo has no remotes and its branch no upstream, so Push confirms a publish, not a push
+			await selectCommandAndWaitForStepWithOptionalRepo(vscode, 'push', { title: /Confirm Publish/i }, true);
 
 			// === REVERSE NAVIGATION ===
 
