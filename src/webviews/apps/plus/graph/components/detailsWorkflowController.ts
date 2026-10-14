@@ -1188,12 +1188,24 @@ export class DetailsWorkflowController implements ReactiveController {
 			}
 			this.actions.resources.review.mutate(enriched);
 		},
-		// Destructive discard from the ready state — throw away the findings and exit to the plain
-		// view. Review produces read-only findings with no host session (unlike resolve), so
-		// `destroyEngagedOperation` is the complete teardown: abort + remove entry + reset + hide.
+		// Throws away the AI's findings, not the review: viewed marks, set-aside files and a running
+		// walk stay, and the panel lands back on the checklist.
 		discard: (): void => {
 			this.actions.sendTelemetryEvent('graphDetails/review/discarded');
-			this.destroyEngagedOperation('review');
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+			if (entry == null) return;
+
+			abortRunningOperation(entry);
+			this.registerRunningOperation({
+				...entry,
+				focusAreaRuns: undefined,
+				session:
+					entry.session != null
+						? { ...entry.session, findingStates: emptyReviewSession.findingStates }
+						: undefined,
+			});
+			this.enterBackedNoResult('review');
+			this.actions.state.reviewPreErrorValue.set(undefined);
 		},
 	};
 

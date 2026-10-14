@@ -77,6 +77,26 @@ export const reviewModePanelStyles = css`
 
 	/* Review results */
 
+	/* Checklist (top) over the AI run or its findings (bottom), while a run is in flight or answered */
+	.review-split {
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+		--gl-split-panel-divider-width: 4px;
+	}
+
+	.review-split__files,
+	.review-split__ai {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		overflow: hidden;
+	}
+
+	.review-split__ai {
+		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+	}
+
 	.review-results {
 		flex: 1;
 		min-height: 0;

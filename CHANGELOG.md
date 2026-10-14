@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Files can be excluded from a review from their row action, which keeps them out of the AI review too; files hidden from AI by ignore rules stay in the list, marked, so you can still read them
   - _Start Reading_ walks the review file by file: each file's diff opens in turn, and _Mark Viewed & Next_, _Next_ and _Previous_ are available from the panel, the diff editor's title bar and keyboard shortcuts (<kbd>Alt+V</kbd>, <kbd>Alt+]</kbd>, <kbd>Alt+[</kbd> with the alternate keymap; <kbd>Ctrl+Shift+G</kbd> (<kbd>Cmd+Alt+G</kbd> on macOS) then <kbd>V</kbd>, <kbd>]</kbd>, <kbd>[</kbd> with the chorded keymap)
   - Findings can be _Resolved_, _Dismissed_ and _Reopened_, and a review ends: once every file is viewed, a _Review complete_ summary offers _Copy Summary_ and _Send Remaining to Agent_
+  - The file list stays in place while an AI review runs and alongside its findings, and _Discard Findings_ drops only the AI's findings &mdash; your viewed progress and the review stay
   - Review mode no longer requires AI features to be enabled &mdash; only _Start Review_ does
 
 - Adds _Publish Repository_ to the _Commit Graph_ for a repository with no remotes &mdash; the header, _Working Changes_ panel, overview, and branch details now offer to create a hosted repository (through VS Code's publish flow) instead of a _Publish Branch_ that could only report "No remotes found"; the _Git Command Palette_'s _Push_ offers the same escape when there are no remotes

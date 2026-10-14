@@ -577,10 +577,12 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(entry?.focusAreaRuns?.has('area-1'), false);
 		assert.strictEqual(entry?.focusAreaRuns?.size, 1);
 
-		// Discard tears the entry down together with every run still riding on it.
+		// Discard drops the findings along with every run still riding on them.
 		controller.review.discard();
 		assert.strictEqual(other.signal.aborted, true, 'discard aborts the in-flight detail run');
-		assert.strictEqual(host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review, undefined);
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.focusAreaRuns, undefined);
+		assert.strictEqual(entry?.result, undefined);
 	});
 
 	test('review session lives on the entry before any run and survives a run being dispatched', async () => {
@@ -629,6 +631,18 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		controller.review.setFindingState('f1', 'resolved');
 		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		assert.strictEqual(entry?.session?.findingStates.get('f1'), 'resolved');
+
+		// Discarding the findings keeps the reader's progress and the mode.
+		controller.review.discard();
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.execState, 'backed');
+		assert.strictEqual(entry?.result, undefined);
+		assert.strictEqual(actions.resources.review.value.get(), undefined);
+		assert.strictEqual(entry?.session?.viewed.get('src/a.ts')?.contentId, 'a1', 'viewed marks survive discard');
+		assert.strictEqual(entry?.session?.excluded.has('src/b.ts'), true);
+		assert.strictEqual(entry?.session?.findingStates.size, 0, 'finding states go with the findings');
+		assert.strictEqual(state.activeMode.get(), 'review');
+		assert.strictEqual(state.reviewForwardAvailable.get(), false, 'nothing to resume');
 	});
 
 	test('walk updates from the host land on the entry: cursor, and editor-made marks applied once', () => {
