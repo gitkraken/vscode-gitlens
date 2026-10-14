@@ -1,9 +1,11 @@
 import * as assert from 'assert';
+import { resolve } from 'node:path';
 import * as sinon from 'sinon';
 import type { CachedGitTypes } from '@gitlens/git/cache.js';
 import { Cache } from '@gitlens/git/cache.js';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../cliGitProvider.js';
 import { Git } from '../exec/git.js';
@@ -11,9 +13,11 @@ import { Git } from '../exec/git.js';
 type PendingCommand = { cwd: string | undefined; promise: Promise<unknown> };
 
 suite('CliGitProvider — what an announced change resets', () => {
-	const repoPath = '/test/repo';
-	const worktreePath = '/test/repo-wt';
-	const otherPath = '/test/other';
+	// Absolute on this platform (a drive is added on Windows), as real repository paths are: a `-C` path is
+	// resolved against the working directory, which would otherwise give it a drive the bare paths lack.
+	const repoPath = normalizePath(resolve('/test/repo'));
+	const worktreePath = normalizePath(resolve('/test/repo-wt'));
+	const otherPath = normalizePath(resolve('/test/other'));
 	const locator = async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' });
 
 	let cache: Cache;

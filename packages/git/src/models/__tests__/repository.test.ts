@@ -212,7 +212,8 @@ suite('Repository.watch (caller-owned watch lifecycle)', () => {
 			repo.onDidChangeWorkingTree(e => events.push(e));
 
 			const lease = repo.watchWorkingTree();
-			fireSessionWorkingTreeChange(['/repo/a.ts', '/repo/nested/b.ts']);
+			// The watch service reports OS paths (`fsPath`), which are backslashed on Windows.
+			fireSessionWorkingTreeChange([fileUri('/repo/a.ts').fsPath, fileUri('/repo/nested/b.ts').fsPath]);
 			// The repository coalesces bridge calls onto a microtask before firing.
 			await Promise.resolve();
 

@@ -30924,7 +30924,7 @@
 		"rebuild": "pnpm run reset && pnpm run build",
 		"reset": "pnpm run clean && pnpm install --force",
 		"test": "pnpm -r test && vscode-test",
-		"test:packages": "pnpm -r --filter './packages/**' run test",
+		"test:packages": "pnpm -r --filter \"./packages/**\" run test",
 		"test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
 		"test:e2e:insiders": "set VSCODE_VERSION=insiders && playwright test -c tests/e2e/playwright.config.ts",
 		"verify:graph-packages": "pnpm --filter @gitkraken/commit-graph run verify:package && pnpm --filter @gitkraken/commit-graph-ui run verify:package",
