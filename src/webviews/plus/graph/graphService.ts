@@ -287,6 +287,26 @@ export type ScopeFile = GitFileChangeShape & {
 
 export type ReviewResult = { result: AIReviewResult } | { error: { message: string } };
 
+export type ReviewWalkAction = 'next' | 'previous' | 'markViewed' | 'stop';
+
+export interface ReviewWalkArgs {
+	repoPath: string;
+	/** Refs the walk's diffs open with — the same endpoints the panel's own file links use. */
+	lhs: string;
+	rhs: string;
+	/** The walk's stops, in reading order. */
+	paths: string[];
+	/** Stop to start from; the first one when absent. */
+	current?: string;
+}
+
+/** Where the walk is and what the editor marked along the way. `marked` is append-only across one
+ *  walk, so a panel that was hidden for a while applies only the marks it hasn't seen. */
+export interface ReviewWalkState {
+	current: string;
+	marked: string[];
+}
+
 /**
  * Continuation knobs for {@link GraphInspectService.reviewChanges}. `mode: 'refine'` means
  * "follow up on the host-cached review conversation" — the prompt becomes a refine turn layered
@@ -591,6 +611,13 @@ export interface GraphInspectService {
 		excludedFiles?: string[],
 		signal?: AbortSignal,
 	): Promise<ReviewDetailResult>;
+	/** Starts (or reshapes) the review walk: the host opens each stop's diff and lights up the editor
+	 *  keybindings and diff title buttons on them. `undefined` ends the walk. */
+	setReviewWalk(args: ReviewWalkArgs | undefined): Promise<void>;
+	/** Steps the walk — what the editor keybindings and title buttons call too. */
+	reviewWalk(action: ReviewWalkAction): Promise<void>;
+	/** The walk's position and editor-made viewed marks; `undefined` once it ends. */
+	readonly onReviewWalk: RpcEventSubscription<ReviewWalkState | undefined>;
 	/**
 	 * Sends the review findings (entire review, a focus area, or a single finding) to the user's
 	 * AI agent chat. The webview pre-renders the markdown so Copy and Send-to-agent produce

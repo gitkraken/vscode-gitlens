@@ -1,4 +1,4 @@
-import type { CancellationTokenSource, Disposable } from 'vscode';
+import type { CancellationTokenSource, Disposable, TextDocumentShowOptions } from 'vscode';
 import { env, l10n, ProgressLocation, Uri, window } from 'vscode';
 import type { AIReviewResult } from '@gitlens/ai/models/results.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
@@ -7,9 +7,10 @@ import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { DisposableTemporaryGitIndex } from '@gitlens/git/providers/staging.js';
 import { classifyConflictAction, getConflictKindLabel } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
-import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { createRevisionRange, isUncommitted, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { uuid } from '@gitlens/utils/crypto.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
 import { annotateDiffWithNewLineNumbers } from '@gitlens/utils/diff.js';
 import { lazy } from '@gitlens/utils/lazy.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -19,12 +20,14 @@ import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { getAvatarUri } from '../../../avatars.js';
 import type { ContinueRebaseWithAiCommandArgs } from '../../../commands/autoRebase.js';
+import type { DiffWithCommandArgs } from '../../../commands/diffWith.js';
 import { openExplainDocument } from '../../../commands/explainBase.js';
 import type { ExplainCommitCommandArgs } from '../../../commands/explainCommit.js';
 import { generateChangelogAndOpenMarkdownDocument } from '../../../commands/generateChangelog.js';
 import type { RunPromptInAgentCommandArgs } from '../../../commands/runPromptInAgent.js';
 import type { Container } from '../../../container.js';
 import { getPresentableErrorMessage } from '../../../errors.js';
+import { GitUri } from '../../../git/gitUri.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.utils.js';
 import { getConflictFileInfos } from '../../../git/utils/-webview/conflictKind.utils.js';
@@ -126,12 +129,16 @@ import type {
 	ReviewChangesOptions,
 	ReviewDetailResult,
 	ReviewResult,
+	ReviewWalkAction,
+	ReviewWalkArgs,
+	ReviewWalkState,
 	ScopeSelection,
 	StackRebasePushableBranch,
 	TakeConflictSideResult,
 	UndoAutoRebaseResult,
 	VirtualRefShape,
 } from './graphService.js';
+import { claimReviewWalk, releaseReviewWalk } from './reviewWalk.js';
 
 /** Collaborators the inspect/compose/review/timeline/treemap cluster reaches for on the host provider,
  *  assembled by `GraphWebviewProvider.createGraphInspectContext()`. `getSession` reads live provider
@@ -141,6 +148,8 @@ export type GraphInspectServicesContext = {
 	container: Container;
 	host: WebviewHost<'gitlens.views.graph' | 'gitlens.graph'>;
 	getSession: () => GitGraphSession | undefined;
+	/** Where an editor opened from the graph goes (beside an editor-hosted graph) — the review walk opens its stops there. */
+	getOpenEditorShowOptions: () => TextDocumentShowOptions | undefined;
 	getWipForRepoAndStats: (
 		repo: GlRepository,
 		signal?: AbortSignal,
@@ -319,8 +328,13 @@ export class GraphInspectServices {
 		'resolveProgress',
 		'save-last',
 	);
+	private readonly _reviewWalkEvent = createRpcEvent<ReviewWalkState | undefined>('reviewWalk', 'save-last');
+	/** The review walk this instance drives — the host owns the cursor so editor keybindings keep
+	 *  working while the graph webview is hidden behind the diff it opened. */
+	private _reviewWalk?: ReviewWalkArgs & { index: number; marked: string[] };
 
 	dispose(): void {
+		releaseReviewWalk(this);
 		// AI runs (generate/review/compose) are driven by the webview's AbortController, which can't
 		// fire once the webview is gone — cancel host-side so the AI call doesn't run for a discarded result.
 		cancelAndDispose(this._aiCancellations);
@@ -517,6 +531,9 @@ export class GraphInspectServices {
 						excludedFiles,
 						signal,
 					),
+				setReviewWalk: args => this.setReviewWalk(args),
+				reviewWalk: action => this.reviewWalk(action),
+				onReviewWalk: this._reviewWalkEvent.subscribe(buffer, tracker, () => this.getReviewWalkState()),
 				trackReviewAction: args => {
 					if (args.action === 'copy') {
 						void this.container.usage.track('action:gitlens.ai.review.copied:happened');
@@ -1310,6 +1327,93 @@ export class GraphInspectServices {
 		} finally {
 			disposeCancellation();
 		}
+	}
+
+	private getReviewWalkState(): ReviewWalkState | undefined {
+		const walk = this._reviewWalk;
+		if (walk == null) return undefined;
+
+		return { current: walk.paths[walk.index], marked: [...walk.marked] };
+	}
+
+	@debug()
+	async setReviewWalk(args: ReviewWalkArgs | undefined): Promise<void> {
+		if (args == null || args.paths.length === 0) {
+			this._reviewWalk = undefined;
+			releaseReviewWalk(this);
+			this._reviewWalkEvent.fire(undefined);
+			return;
+		}
+
+		const index = Math.max(0, args.current != null ? args.paths.indexOf(args.current) : 0);
+		// Reshaping a running walk (the file list moved under it) keeps its marks; a fresh walk starts clean.
+		const marked = this._reviewWalk?.repoPath === args.repoPath ? this._reviewWalk.marked : [];
+		this._reviewWalk = { ...args, index: index, marked: marked };
+
+		const svc = this.container.git.getRepositoryService(args.repoPath);
+		const files: Uri[] = [];
+		for (const path of args.paths) {
+			const uri = svc.getAbsoluteUri(path, args.repoPath);
+			files.push(uri);
+			// A committed rhs opens as a revision document, which is what the title buttons must match on
+			if (!isUncommitted(args.rhs)) {
+				files.push(this.container.git.getRevisionUriFromGitUri(GitUri.fromFile(path, args.repoPath, args.rhs)));
+			}
+		}
+		claimReviewWalk(this, files);
+
+		this.openReviewWalkStop();
+		this._reviewWalkEvent.fire(this.getReviewWalkState());
+		return Promise.resolve();
+	}
+
+	@debug()
+	async reviewWalk(action: ReviewWalkAction): Promise<void> {
+		const walk = this._reviewWalk;
+		if (walk == null) return;
+
+		switch (action) {
+			case 'stop':
+				await this.setReviewWalk(undefined);
+				return;
+			case 'markViewed':
+				walk.marked.push(walk.paths[walk.index]);
+				if (walk.index < walk.paths.length - 1) {
+					walk.index++;
+					this.openReviewWalkStop();
+				}
+				break;
+			case 'next':
+				if (walk.index >= walk.paths.length - 1) break;
+
+				walk.index++;
+				this.openReviewWalkStop();
+				break;
+			case 'previous':
+				if (walk.index <= 0) break;
+
+				walk.index--;
+				this.openReviewWalkStop();
+				break;
+		}
+
+		this._reviewWalkEvent.fire(this.getReviewWalkState());
+	}
+
+	/** One preview tab, reused stop after stop, beside an editor-hosted graph. */
+	private openReviewWalkStop(): void {
+		const walk = this._reviewWalk;
+		if (walk == null) return;
+
+		const path = walk.paths[walk.index];
+		const svc = this.container.git.getRepositoryService(walk.repoPath);
+		const fileUri = svc.getAbsoluteUri(path, walk.repoPath);
+		void executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
+			repoPath: walk.repoPath,
+			lhs: { sha: walk.lhs, uri: fileUri },
+			rhs: { sha: walk.rhs, uri: fileUri },
+			showOptions: { preview: true, preserveFocus: false, ...this.context.getOpenEditorShowOptions() },
+		});
 	}
 
 	private async reviewFocusArea(

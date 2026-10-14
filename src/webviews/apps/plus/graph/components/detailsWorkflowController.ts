@@ -15,6 +15,7 @@ import type {
 	ResolvedFileSummary,
 	ResolveResult,
 	ReviewResult,
+	ReviewWalkState,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
@@ -23,6 +24,7 @@ import { abortRunningOperations } from '../graphCrossPaneState.js';
 import type { AnchorKey, AnchorSelection } from './anchorKey.js';
 import { anchorKey } from './anchorKey.js';
 import type { DetailsActions } from './detailsActions.js';
+import { getReviewDiffEndpoints } from './detailsActions.js';
 import type {
 	GenerateMessageResult,
 	RunningOperation,
@@ -33,7 +35,16 @@ import type {
 import { abortRunningOperation, compareSides } from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
 import type { ReviewFileIdentity, ReviewFindingState, ReviewSession } from './reviewSession.js';
-import { emptyReviewSession, withFileExcluded, withFilesViewed, withFindingState } from './reviewSession.js';
+import {
+	emptyReviewSession,
+	getReviewFileProgress,
+	getReviewProgress,
+	getReviewWalkPaths,
+	isReviewComplete,
+	withFileExcluded,
+	withFilesViewed,
+	withFindingState,
+} from './reviewSession.js';
 
 /** Modes are panel lenses on the current selection — compose/review only. Compare is no
  *  longer a mode; it has its own lifecycle via {@link DetailsWorkflowController.openCompare}
@@ -786,6 +797,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		// recovery on a hide that only ends one of them would silently erase the other's state.
 		const exitingMode = this.actions.state.activeMode.get();
 		if (!options?.discard && (exitingMode === 'review' || exitingMode === 'compose')) {
+			if (exitingMode === 'review') {
+				this.stopReviewWalkIfActive();
+			}
 			this.captureEngagedModeState(exitingMode);
 		}
 
@@ -928,6 +942,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		const key = anchorKey(anchor);
 		const entry = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
 		abortRunningOperation(entry);
+		if (kind === 'review') {
+			this.stopReviewWalkIfActive();
+		}
 		// Destroying a compose drops the webview's only handle on its plan, so tell the host to let go
 		// of it and close the session rather than leaving both until the next compose on this anchor or
 		// panel teardown. Read the key before the entry goes.
@@ -1065,6 +1082,65 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.updateReviewSession(session => withFileExcluded(session, path, excluded)),
 		setFindingState: (findingId: string, state: ReviewFindingState | undefined): void =>
 			this.updateReviewSession(session => withFindingState(session, findingId, state)),
+		/** Hands the walk to the host: the stops in reading order, starting at the first unviewed one. */
+		startWalk: (repoPath: string | undefined): void => {
+			const scope = this.actions.state.scope.get();
+			const endpoints = getReviewDiffEndpoints(scope);
+			if (!repoPath || endpoints == null) return;
+
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+			const files = this.actions.resources.scopeFiles.value.get();
+			const paths = getReviewWalkPaths(entry?.session, files);
+			if (paths.length === 0) return;
+
+			const byPath = new Map(files?.map(f => [f.path, f]));
+			const current = paths.find(p => {
+				const file = byPath.get(p);
+				return file != null && getReviewFileProgress(entry?.session, file) !== 'viewed';
+			});
+			this.actions.startReviewWalk({ repoPath: repoPath, ...endpoints, paths: paths, current: current });
+		},
+		stopWalk: (): void => this.stopReviewWalkIfActive(),
+		/** Folds a host walk update into the entry: the cursor, and any viewed marks made from the editor. */
+		applyWalkState: (state: ReviewWalkState | undefined): void => {
+			const anchor = this.currentAnchor();
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
+			if (state == null) {
+				if (entry?.walk == null) return;
+
+				this.registerRunningOperation({ ...entry, walk: undefined });
+				return;
+			}
+
+			const applied = entry?.walk?.marksApplied ?? 0;
+			const fresh = state.marked.slice(applied);
+			let session = entry?.session ?? emptyReviewSession;
+			if (fresh.length > 0) {
+				const files = this.actions.resources.scopeFiles.value.get();
+				const byPath = new Map(files?.map(f => [f.path, f]));
+				session = withFilesViewed(
+					session,
+					fresh.map(path => byPath.get(path) ?? { path: path }),
+					true,
+				);
+				// The last mark ends the walk, so the panel can show the review's ending instead of the last stop
+				if (isReviewComplete(getReviewProgress(session, files))) {
+					this.registerRunningOperation({
+						...(entry ?? { kind: 'review', anchor: anchor, execState: 'backed' }),
+						session: session,
+						walk: undefined,
+					});
+					this.actions.stopReviewWalk();
+					return;
+				}
+			}
+
+			this.registerRunningOperation({
+				...(entry ?? { kind: 'review', anchor: anchor, execState: 'backed' }),
+				session: session,
+				walk: { current: state.current, marksApplied: state.marked.length },
+			});
+		},
 		// A focus-area detail run is tracked on the review entry so every teardown path that aborts
 		// the entry aborts it too. Re-running an area supersedes its earlier run.
 		startFocusAreaRun: (focusAreaId: string): { signal: AbortSignal; prompt: string | undefined } | undefined => {
@@ -1120,6 +1196,15 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.destroyEngagedOperation('review');
 		},
 	};
+
+	/** Ends the host walk when this anchor's review is walking — leaving the mode, discarding it or
+	 *  switching repos all take the editor keybindings with them. */
+	private stopReviewWalkIfActive(): void {
+		const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+		if (entry?.walk == null) return;
+
+		this.actions.stopReviewWalk();
+	}
 
 	/** Applies a session edit to the engaged anchor's review entry, creating the entry when the reader
 	 *  starts marking files before any run — the same backed-no-result shape an unsubmitted draft gets. */
@@ -3052,7 +3137,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			(existing as { cacheKey?: string }).cacheKey === (op as { cacheKey?: string }).cacheKey &&
 			(existing as { focusAreaRuns?: unknown }).focusAreaRuns ===
 				(op as { focusAreaRuns?: unknown }).focusAreaRuns &&
-			(existing as { session?: unknown }).session === (op as { session?: unknown }).session
+			(existing as { session?: unknown }).session === (op as { session?: unknown }).session &&
+			(existing as { walk?: unknown }).walk === (op as { walk?: unknown }).walk
 		) {
 			return;
 		}
@@ -3104,6 +3190,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		const composes = Array.from(this.host.crossPaneState.runningOperations.get().values(), b => b.compose).filter(
 			c => c != null,
 		);
+		if ([...this.host.crossPaneState.runningOperations.get().values()].some(b => b.review?.walk != null)) {
+			this.actions.stopReviewWalk();
+		}
 		abortRunningOperations(this.host.crossPaneState);
 
 		// The clear above dropped every anchor's entry, so any compose the host still holds a plan for is

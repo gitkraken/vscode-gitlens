@@ -23,7 +23,7 @@ import type { ViewFilesLayout } from '../../../../../config.js';
 import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
-import type { ScopeFile, ScopeSelection } from '../../../../plus/graph/graphService.js';
+import type { ReviewWalkAction, ScopeFile, ScopeSelection } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { GlAiInput } from '../../../shared/components/ai-input.js';
 import type {
@@ -64,6 +64,7 @@ import {
 	getClosedFindingIds,
 	getReviewFileProgress,
 	getReviewProgress,
+	getReviewWalkPaths,
 	isReviewComplete,
 } from './reviewSession.js';
 import { scopeSplitSnap, wipScopeSelectionIds } from './shared-panel-helpers.js';
@@ -187,6 +188,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 	 *  registry entry; every edit goes back up as an event, so the panel never owns a copy. */
 	@property({ attribute: false })
 	session?: ReviewSession;
+
+	/** The host-driven walk, while the reader is in one — its current stop is the HUD's headline. */
+	@property({ attribute: false })
+	walk?: { current: string };
 
 	/** Whether AI review is on at all. The walk and its checklist don't need it. */
 	@property({ type: Boolean, attribute: 'ai-enabled' })
@@ -701,10 +706,24 @@ export class GlDetailsReviewModePanel extends LitElement {
 		`;
 	}
 
-	/** The review's ending — shown once every file in the walk is viewed, with a summary to take away. */
+	/** The strip above the checklist: the walk's HUD while reading, the Start Reading verb before it,
+	 *  and the review's ending — with a summary to take away — once every file is viewed. */
 	private renderDoneCard() {
+		if (this.walk != null) return this.renderWalkHud();
+
 		const progress = getReviewProgress(this.session, this.files);
-		if (!isReviewComplete(progress)) return nothing;
+		if (!isReviewComplete(progress)) {
+			if (progress.total === 0) return nothing;
+
+			return html`<div class="review-walk">
+				<gl-button class="review-walk__start" @click=${this.handleStartWalk}>
+					<code-icon icon="play" slot="prefix"></code-icon>${l10n.t('Start Reading')}
+				</gl-button>
+				<span class="review-walk__hint"
+					>${l10n.t('Opens each change in turn; mark files viewed as you go')}</span
+				>
+			</div>`;
+		}
 
 		const counts = countReviewFindingStates(this.result, this.session);
 		const parts = [
@@ -758,6 +777,70 @@ export class GlDetailsReviewModePanel extends LitElement {
 				}
 			</div>
 		</div>`;
+	}
+
+	private renderWalkHud() {
+		const paths = getReviewWalkPaths(this.session, this.files);
+		const current = this.walk?.current ?? '';
+		const index = paths.indexOf(current);
+
+		return html`<div class="review-walk review-walk--reading" role="status">
+			<div class="review-walk__body">
+				<div class="review-walk__title">
+					${l10n.t('Reading {index} of {total}', { index: index < 0 ? 0 : index + 1, total: paths.length })}
+				</div>
+				<div class="review-walk__file">${current}</div>
+			</div>
+			<div class="review-walk__actions">
+				<gl-button
+					appearance="secondary"
+					density="compact"
+					tooltip=${l10n.t('Previous File in Review')}
+					?disabled=${index <= 0}
+					@click=${() => this.handleWalkStep('previous')}
+				>
+					<code-icon icon="arrow-left"></code-icon>
+				</gl-button>
+				<gl-button density="compact" @click=${() => this.handleWalkStep('markViewed')}>
+					<code-icon icon="check" slot="prefix"></code-icon>${l10n.t('Mark Viewed & Next')}
+				</gl-button>
+				<gl-button
+					appearance="secondary"
+					density="compact"
+					tooltip=${l10n.t('Next File in Review')}
+					?disabled=${index >= paths.length - 1}
+					@click=${() => this.handleWalkStep('next')}
+				>
+					<code-icon icon="arrow-right"></code-icon>
+				</gl-button>
+				<gl-button
+					appearance="toolbar"
+					density="compact"
+					tooltip=${l10n.t('Stop Reading')}
+					@click=${this.handleStopWalk}
+				>
+					<code-icon icon="close"></code-icon>
+				</gl-button>
+			</div>
+		</div>`;
+	}
+
+	private handleStartWalk = (): void => {
+		this.dispatchEvent(new CustomEvent('review-walk-start', { bubbles: true, composed: true }));
+	};
+
+	private handleStopWalk = (): void => {
+		this.dispatchEvent(new CustomEvent('review-walk-stop', { bubbles: true, composed: true }));
+	};
+
+	private handleWalkStep(action: ReviewWalkAction): void {
+		this.dispatchEvent(
+			new CustomEvent<{ action: ReviewWalkAction }>('review-walk-step', {
+				detail: { action: action },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	private formatSummaryMarkdown(progress: ReviewProgress, counts: ReviewFindingCounts): string {
