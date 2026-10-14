@@ -18,13 +18,13 @@ import type {
 	ReviewWalkState,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
+import { getReviewDiffEndpoints } from '../../../../plus/graph/reviewDiffEndpoints.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { abortRunningOperations } from '../graphCrossPaneState.js';
 import type { AnchorKey, AnchorSelection } from './anchorKey.js';
 import { anchorKey } from './anchorKey.js';
 import type { DetailsActions } from './detailsActions.js';
-import { getReviewDiffEndpoints } from './detailsActions.js';
 import type {
 	GenerateMessageResult,
 	RunningOperation,
