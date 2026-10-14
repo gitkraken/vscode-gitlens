@@ -10,7 +10,7 @@
 // the named exports correctly. Bundling the tests reproduces the production
 // resolution so the tests exercise the same code paths consumers will.
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -50,20 +50,21 @@ execFileSync(process.execPath, [mocha, '--ui', 'tdd', '--timeout', '30000', `${o
 // `tsc -b` is this package's type-check gate (it has no `check` script of its own). Run it before
 // exercising the external-consumer boundary below, so a type error here fails loudly rather than
 // surfacing as a confusing resolution error inside the fixture.
-const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-execFileSync(pnpm, ['build'], {
+// Run through the shell as whole command strings: on Windows `pnpm` is a `.cmd`, which Node refuses to spawn without
+// one (EINVAL), and an argument array combined with `shell` is deprecated (DEP0190).
+execSync('pnpm build', {
 	stdio: 'inherit',
 	cwd: packageRoot,
 });
 
 // Generate Core's flattened exports before running the workspace fixture. CI additionally installs the packed
 // tarball via packages/core/scripts/verify-package.mjs, which catches pack-time manifest/export regressions.
-execFileSync(pnpm, ['--filter', '@gitkraken/core-gitlens', 'build'], {
+execSync('pnpm --filter @gitkraken/core-gitlens build', {
 	stdio: 'inherit',
 	cwd: workspaceRoot,
 });
 
-execFileSync(pnpm, ['--filter', '@gitlens/integrations-consumer-fixture', 'test'], {
+execSync('pnpm --filter @gitlens/integrations-consumer-fixture test', {
 	stdio: 'inherit',
 	cwd: workspaceRoot,
 });

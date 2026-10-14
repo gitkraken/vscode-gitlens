@@ -40,7 +40,7 @@
 		"check": "tsc -p tsconfig.json && oxlint --type-aware --type-check -c ../../.oxlintrc.json .",
 		"clean": "pnpx rimraf --glob *.tgz",
 		"lint:css": "stylelint \"src/**/*.{css,ts}\"",
-		"test": "mocha --require ../../scripts/tsxTsconfig.cjs --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'"
+		"test": "mocha --require ../../scripts/tsxTsconfig.cjs --require tsx --ui tdd --timeout 30000 \"src/**/__tests__/**/*.test.ts\""
 	},
 	"dependencies": {
 		"@awesome.me/webawesome": "catalog:",

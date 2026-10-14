@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { describe, it, mock } from 'node:test';
 import { mixinDisposable } from '@gitlens/utils/disposable.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import { Cache } from '../../cache.js';
 import type { GitDir } from '../../models/repository.js';
@@ -26,7 +27,9 @@ function createMockFactory(): { factory: FileWatchingProvider; watchers: MockWat
 		): FileWatcher {
 			const w: MockWatcher = mixinDisposable(
 				{
-					basePath: basePath,
+					// Watchers get the git dir's OS path (`fsPath`), which is backslashed on Windows; normalize it so
+					// the assertions can name the POSIX paths the fixtures are written in.
+					basePath: normalizePath(basePath),
 					pattern: pattern,
 					disposed: false,
 					fire: function (event: FileWatchEvent): void {
