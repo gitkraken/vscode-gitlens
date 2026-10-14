@@ -7312,6 +7312,120 @@
 				]
 			}
 		},
+		"gitlens.review.markViewedAndNext": {
+			"label": "Mark File as Viewed and Go to Next",
+			"icon": "$(check)",
+			"enablement": "gitlens:review:walking",
+			"commandPalette": "gitlens:review:walking"
+		},
+		"gitlens.review.markViewedAndNext:editor/title": {
+			"label": "Mark File as Viewed and Go to Next",
+			"icon": "$(check)",
+			"enablement": "gitlens:review:walking",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resource in gitlens:review:files && gitlens:review:walking",
+						"group": "navigation",
+						"order": -97
+					}
+				]
+			}
+		},
+		"gitlens.review.markViewedAndNext:key": {
+			"label": "Mark File as Viewed and Go to Next",
+			"icon": "$(check)",
+			"enablement": "gitlens:review:walking",
+			"keybindings": [
+				{
+					"key": "alt+v",
+					"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:walking"
+				},
+				{
+					"key": "ctrl+shift+g v",
+					"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:walking",
+					"mac": "cmd+alt+g v"
+				}
+			]
+		},
+		"gitlens.review.stopWalk": {
+			"label": "Stop Reading Review Files",
+			"icon": "$(close)",
+			"enablement": "gitlens:review:walking",
+			"commandPalette": "gitlens:review:walking"
+		},
+		"gitlens.review.walkNext": {
+			"label": "Next File in Review",
+			"icon": "$(arrow-right)",
+			"enablement": "gitlens:review:walking",
+			"commandPalette": "gitlens:review:walking"
+		},
+		"gitlens.review.walkNext:editor/title": {
+			"label": "Next File in Review",
+			"icon": "$(arrow-right)",
+			"enablement": "gitlens:review:walking",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resource in gitlens:review:files && gitlens:review:walking",
+						"group": "navigation",
+						"order": -96
+					}
+				]
+			}
+		},
+		"gitlens.review.walkNext:key": {
+			"label": "Next File in Review",
+			"icon": "$(arrow-right)",
+			"enablement": "gitlens:review:walking",
+			"keybindings": [
+				{
+					"key": "alt+]",
+					"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:walking"
+				},
+				{
+					"key": "ctrl+shift+g ]",
+					"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:walking",
+					"mac": "cmd+alt+g ]"
+				}
+			]
+		},
+		"gitlens.review.walkPrevious": {
+			"label": "Previous File in Review",
+			"icon": "$(arrow-left)",
+			"enablement": "gitlens:review:walking",
+			"commandPalette": "gitlens:review:walking"
+		},
+		"gitlens.review.walkPrevious:editor/title": {
+			"label": "Previous File in Review",
+			"icon": "$(arrow-left)",
+			"enablement": "gitlens:review:walking",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "resource in gitlens:review:files && gitlens:review:walking",
+						"group": "navigation",
+						"order": -98
+					}
+				]
+			}
+		},
+		"gitlens.review.walkPrevious:key": {
+			"label": "Previous File in Review",
+			"icon": "$(arrow-left)",
+			"enablement": "gitlens:review:walking",
+			"keybindings": [
+				{
+					"key": "alt+[",
+					"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:walking"
+				},
+				{
+					"key": "ctrl+shift+g [",
+					"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:walking",
+					"mac": "cmd+alt+g ["
+				}
+			]
+		},
 		"gitlens.reviewChanges:graph": {
 			"label": "Review Changes...",
 			"icon": "$(checklist)",

@@ -151,6 +151,9 @@ export type RunningOperation =
 			focusAreaRuns?: ReadonlyMap<string, AbortController>;
 			/** The reader's progress through the changeset; carried across runs, dropped with the entry. */
 			session?: ReviewSession;
+			/** The host-driven walk this anchor is reading in, while one is running. `marksApplied` is
+			 *  how many of the host's editor-made marks the session has already taken. */
+			walk?: { current: string; marksApplied: number };
 	  })
 	| (RunningOperationBase & {
 			kind: 'compose';

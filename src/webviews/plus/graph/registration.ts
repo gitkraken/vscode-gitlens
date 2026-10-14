@@ -36,6 +36,7 @@ import type {
 	State,
 	VisualizationMode,
 } from './protocol.js';
+import { stepReviewWalk } from './reviewWalk.js';
 
 export type GraphWebviewShowingArgs = [
 	| GlRepository
@@ -262,6 +263,16 @@ export function registerGraphWebviewCommands<T>(
 	}
 
 	return Disposable.from(
+		registerCommand('gitlens.review.walkNext', () => stepReviewWalk('next')),
+		registerCommand('gitlens.review.walkNext:editor/title', () => stepReviewWalk('next')),
+		registerCommand('gitlens.review.walkNext:key', () => stepReviewWalk('next')),
+		registerCommand('gitlens.review.walkPrevious', () => stepReviewWalk('previous')),
+		registerCommand('gitlens.review.walkPrevious:editor/title', () => stepReviewWalk('previous')),
+		registerCommand('gitlens.review.walkPrevious:key', () => stepReviewWalk('previous')),
+		registerCommand('gitlens.review.markViewedAndNext', () => stepReviewWalk('markViewed')),
+		registerCommand('gitlens.review.markViewedAndNext:editor/title', () => stepReviewWalk('markViewed')),
+		registerCommand('gitlens.review.markViewedAndNext:key', () => stepReviewWalk('markViewed')),
+		registerCommand('gitlens.review.stopWalk', () => stepReviewWalk('stop')),
 		registerCommand('gitlens.showGitHealth', async (...args: unknown[]) => {
 			// Canonical entry point for the Health surface — the palette, the Phase 3 banner CTA, and any
 			// future link all route through here, so the surface can move without breaking its callers.

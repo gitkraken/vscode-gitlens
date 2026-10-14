@@ -65,6 +65,17 @@ export function getReviewProgress(
 	return progress;
 }
 
+/** The stops of a walk, in reading order — tree order (path-sorted), set-aside files left out. */
+export function getReviewWalkPaths(
+	session: ReviewSession | undefined,
+	files: readonly ReviewFileIdentity[] | undefined,
+): string[] {
+	return (files ?? [])
+		.filter(f => !session?.excluded.has(f.path))
+		.map(f => f.path)
+		.sort((a, b) => a.localeCompare(b));
+}
+
 export function isReviewComplete(progress: ReviewProgress): boolean {
 	return progress.total > 0 && progress.viewed === progress.total;
 }

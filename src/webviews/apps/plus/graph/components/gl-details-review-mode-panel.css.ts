@@ -159,6 +159,51 @@ export const reviewModePanelStyles = css`
 		gap: var(--gl-space-4);
 	}
 
+	/* The walk strip — Start Reading before a walk, the HUD during one */
+	.review-walk {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--gl-space-4) var(--gl-space-8);
+		align-items: center;
+		padding: var(--gl-space-6) var(--gl-space-10);
+		margin: var(--gl-space-6) var(--gl-space-6) 0;
+	}
+
+	.review-walk--reading {
+		border: var(--gl-border-width) solid var(--vscode-focusBorder);
+		border-radius: var(--gl-radius-sm);
+	}
+
+	.review-walk__hint {
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+	}
+
+	.review-walk__body {
+		flex: 1 1 12rem;
+		min-width: 0;
+	}
+
+	.review-walk__title {
+		font-weight: 500;
+	}
+
+	.review-walk__file {
+		overflow: hidden;
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		direction: rtl;
+		text-align: left;
+	}
+
+	.review-walk__actions {
+		display: flex;
+		gap: var(--gl-space-4);
+		align-items: center;
+	}
+
 	.review-finding--closed {
 		opacity: 0.7;
 	}

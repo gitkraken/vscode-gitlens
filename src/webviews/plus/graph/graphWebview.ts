@@ -952,6 +952,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			container: this.container,
 			host: this.host,
 			getSession: () => this._data.session,
+			getOpenEditorShowOptions: () => this.getOpenEditorShowOptions(),
 			getWipForRepoAndStats: async (repo, signal, options) => {
 				const result = await this._wip.getWipForRepoAndStats(repo, signal, options);
 				// This response goes straight to the client, bypassing the push channel — so the push dedup's

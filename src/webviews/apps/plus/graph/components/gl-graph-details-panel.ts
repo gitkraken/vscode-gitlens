@@ -31,6 +31,7 @@ import type {
 	AutoRebaseSummary,
 	ConflictSide,
 	GraphServices,
+	ReviewWalkAction,
 	StackRebasePushableBranch,
 	UndoAutoRebaseResult,
 	VirtualRefShape,
@@ -2824,6 +2825,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// fires `hostConnected` immediately (since we're already connected), which sets up
 		// the repo-change subscription without an extra call here.
 		this._workflow = new DetailsWorkflowController(this, this._actions);
+		this._actions.reviewWalkHandler = state => this._workflow.review.applyWalkState(state);
 
 		if (this._pendingCompare != null) {
 			const { params, onReady, options } = this._pendingCompare;
@@ -3934,6 +3936,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.status=${mappedReviewStatus}
 			.errorMessage=${reviewError}
 			.session=${reviewEntry?.session}
+			.walk=${reviewEntry?.walk}
 			?ai-enabled=${this._state.preferences.get()?.aiEnabled ?? false}
 			.scopeItems=${scopeItems}
 			.scopeLoading=${this._state.branchCommitsFetching.get()}
@@ -3975,6 +3978,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._workflow.review.setFileExcluded(e.detail.path, e.detail.excluded)}
 			@review-finding-state=${(e: CustomEvent<ReviewFindingStateDetail>) =>
 				this._workflow.review.setFindingState(e.detail.findingId, e.detail.state)}
+			@review-walk-start=${() => this._workflow.review.startWalk(this.effectiveRepoPath)}
+			@review-walk-step=${(e: CustomEvent<{ action: ReviewWalkAction }>) =>
+				this._actions.stepReviewWalk(e.detail.action)}
+			@review-walk-stop=${() => this._workflow.review.stopWalk()}
 			@review-open-file=${(e: CustomEvent<ReviewOpenFileDetail>) => {
 				const endpoints = getReviewDiffEndpoints(this._state.scope.get());
 				if (!endpoints) return;

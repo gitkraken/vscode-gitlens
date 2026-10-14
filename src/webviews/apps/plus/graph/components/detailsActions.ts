@@ -64,6 +64,9 @@ import type {
 	ReresolveFileResult,
 	ResolveResult,
 	ReviewResult,
+	ReviewWalkAction,
+	ReviewWalkArgs,
+	ReviewWalkState,
 	ScopeFile,
 	ScopeSelection,
 	StackRebasePushableBranch,
@@ -653,6 +656,8 @@ export class DetailsActions {
 				this.services.graphInspect.onComposeProgress(event => {
 					this.state.composeProgressMessage.set(event?.message);
 				}),
+			// The walk's cursor is host-owned; the workflow controller folds its updates into the session.
+			() => this.services.graphInspect.onReviewWalk(state => this.reviewWalkHandler?.(state)),
 			() =>
 				this.services.graphInspect.onResolveProgress(event => {
 					this.state.resolveProgressMessage.set(event?.message);
@@ -2923,6 +2928,21 @@ export class DetailsActions {
 			};
 		}
 		return current;
+	}
+
+	/** Set by the panel once its workflow controller exists — `onReviewWalk` updates land here. */
+	reviewWalkHandler?: (state: ReviewWalkState | undefined) => void;
+
+	startReviewWalk(args: ReviewWalkArgs): void {
+		void this.services.graphInspect.setReviewWalk(args);
+	}
+
+	stepReviewWalk(action: ReviewWalkAction): void {
+		void this.services.graphInspect.reviewWalk(action);
+	}
+
+	stopReviewWalk(): void {
+		void this.services.graphInspect.setReviewWalk(undefined);
 	}
 
 	openFileByPath(
