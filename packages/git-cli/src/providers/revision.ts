@@ -78,6 +78,52 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		});
 	}
 
+	@debug()
+	async getBlobIds(
+		repoPath: string,
+		paths: readonly string[],
+		source: 'index' | 'working',
+		cancellation?: AbortSignal,
+	): Promise<Map<string, string>> {
+		const ids = new Map<string, string>();
+		if (paths.length === 0) return ids;
+
+		if (source === 'index') {
+			const result = await this.git.run(
+				{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
+				'ls-files',
+				'-z',
+				'--stage',
+				'--',
+				...paths,
+			);
+			for (const entry of parseGitLsFilesStaged(result.stdout, false)) {
+				// A conflicted path lists one entry per stage; the first is as good an identity as any
+				if (!ids.has(entry.path)) {
+					ids.set(entry.path, entry.oid);
+				}
+			}
+			return ids;
+		}
+
+		// `hash-object` without `-w` computes ids without storing anything; `--stdin-paths` hashes them
+		// all in one process. One unreadable path fails the whole run, so callers pass only paths that
+		// exist on disk. Output lines come back in input order.
+		const result = await this.git.run(
+			{ cwd: repoPath, cancellation: cancellation, errors: 'ignore', stdin: `${paths.join('\n')}\n` },
+			'hash-object',
+			'--stdin-paths',
+		);
+		const lines = result.stdout.split('\n');
+		for (let i = 0; i < paths.length; i++) {
+			const oid = lines[i]?.trim();
+			if (oid) {
+				ids.set(paths[i], oid);
+			}
+		}
+		return ids;
+	}
+
 	/** `hash-object` without `-w` computes the id in the repository's format without storing anything */
 	@debug()
 	getEmptyTreeSha(repoPath: string): Promise<string> {

@@ -115,12 +115,17 @@ import type { GlDetailsResolveModePanel } from './gl-details-resolve-mode-panel.
 import type {
 	ReviewAnalyzeAreaDetail,
 	ReviewCopiedDetail,
+	ReviewFileExcludedDetail,
+	ReviewFilesViewedDetail,
+	ReviewFindingStateDetail,
 	ReviewOpenFileDetail,
 	ReviewSendToChatDetail,
 } from './gl-details-review-mode-panel.js';
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 import type { RebaseSummaryViewDiffDetail } from './gl-rebase-summary-sheet.js';
 import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
+import type { ReviewFindingCounts, ReviewProgress } from './reviewSession.js';
+import { countReviewFindingStates, getReviewProgress } from './reviewSession.js';
 import type {
 	PullRequestSheetPayload,
 	PullRequestSheetTarget,
@@ -218,6 +223,20 @@ function formatModeCounts(primary: number, files: number, primaryLabel: 'commits
 		${counts}
 		<code-icon class="mode-status__resume-arrow" icon="arrow-right"></code-icon>
 	</button>`;
+}
+
+/** "5/12 viewed · 3 findings open" — a review session's progress for the mode-status row. */
+function formatReviewProgress(progress: ReviewProgress, counts: ReviewFindingCounts, hasResult: boolean) {
+	const viewedText = l10n.t('{viewed}/{total} viewed', { viewed: progress.viewed, total: progress.total });
+	const findingsText = formatPlural(
+		l10n.t('{count, plural, one{{count} finding open} other{{count} findings open}}'),
+		{ count: counts.open },
+	);
+	return html`<span class="mode-status__group"><code-icon icon="checklist"></code-icon>${viewedText}</span> ${
+			hasResult
+				? html`<span class="mode-status__group"><code-icon icon="search"></code-icon>${findingsText}</span>`
+				: nothing
+		}`;
 }
 
 /** "<verb> with <model>..." generating snippet for the mode-status row. The model name carries the
@@ -2683,6 +2702,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			}
 
 			const value = this._actions?.resources?.review.value.get();
+			// Once the reader has a session, progress is the headline — the findings count rides along.
+			const session =
+				this.engagedRunningOperation?.kind === 'review' ? this.engagedRunningOperation.session : undefined;
+			const progress = getReviewProgress(session, this._actions?.resources?.scopeFiles.value.get());
+			if (progress.total > 0) {
+				const result = value != null && 'result' in value ? value.result : undefined;
+				return formatReviewProgress(progress, countReviewFindingStates(result, session), result != null);
+			}
+
 			if (value != null && 'result' in value && value.result?.focusAreas) {
 				const areas = value.result.focusAreas;
 				const findingCount = areas.reduce((sum, a) => sum + (a.findings?.length ?? 0), 0);
@@ -3476,7 +3504,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.progressMessage=${this._state.composeProgressMessage.get()}
 			?applying=${this._state.composeApplying.get()}
 			?forward-available=${this._state.composeForwardAvailable.get()}
-			.backPreview=${this._state.composeBackPreview.get()}
 			.excludedCommitIds=${this._state.composeRefineExcludedCommitIds.get()}
 			.regeneratingCommitId=${this._state.composeRegeneratingCommitId.get()}
 			@compose-generate=${handleCompose}
@@ -3487,7 +3514,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				void this._workflow.compose.reorderCommits(e.detail.orderedCommitIds)}
 			@compose-move-file=${(e: CustomEvent<{ paths: string[]; fromCommitId: string; toCommitId: string }>) =>
 				void this._workflow.compose.moveFile(e.detail.fromCommitId, e.detail.toCommitId, e.detail.paths)}
-			@compose-forward=${() => this._workflow.compose.forward()}
 			@compose-forward-invalidate=${() => this._workflow.compose.invalidateSnapshot()}
 			@compose-error-back=${() => this._workflow.compose.backFromError()}
 			@compose-error-retry=${() => {
@@ -3907,7 +3933,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.result=${reviewResult}
 			.status=${mappedReviewStatus}
 			.errorMessage=${reviewError}
-			.stale=${this._state.wipStale.get()}
+			.session=${reviewEntry?.session}
+			?ai-enabled=${this._state.preferences.get()?.aiEnabled ?? false}
 			.scopeItems=${scopeItems}
 			.scopeLoading=${this._state.branchCommitsFetching.get()}
 			.files=${reviewFiles}
@@ -3919,12 +3946,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.branchName=${reviewBranchName}
 			.aiModel=${this._state.aiModel.get()}
 			.lastPrompt=${reviewEntry?.prompt}
-			.excludedFiles=${reviewEntry?.excludedFiles ?? emptyModeExclusions}
 			.idleDraft=${reviewEntry?.idleDraft}
 			.refineMode=${reviewEntry?.refineMode}
 			.refineDraft=${reviewEntry?.refineDraft}
 			?forward-available=${this._state.reviewForwardAvailable.get()}
-			.backPreview=${this._state.reviewBackPreview.get()}
 			@review-run=${(e: CustomEvent<{ prompt?: string }>) => {
 				// Same model gate as compose — open the picker first when no model is set.
 				if (this._state.aiModel.get() == null) {
@@ -3944,6 +3969,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				);
 			}}
 			@review-analyze-area=${(e: CustomEvent<ReviewAnalyzeAreaDetail>) => this.handleReviewAnalyzeArea(e)}
+			@review-files-viewed=${(e: CustomEvent<ReviewFilesViewedDetail>) =>
+				this._workflow.review.setFilesViewed(e.detail.files, e.detail.viewed)}
+			@review-file-excluded=${(e: CustomEvent<ReviewFileExcludedDetail>) =>
+				this._workflow.review.setFileExcluded(e.detail.path, e.detail.excluded)}
+			@review-finding-state=${(e: CustomEvent<ReviewFindingStateDetail>) =>
+				this._workflow.review.setFindingState(e.detail.findingId, e.detail.state)}
 			@review-open-file=${(e: CustomEvent<ReviewOpenFileDetail>) => {
 				const endpoints = getReviewDiffEndpoints(this._state.scope.get());
 				if (!endpoints) return;
@@ -3952,9 +3983,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					lhs: endpoints.lhs,
 					rhs: endpoints.rhs,
 					line: e.detail.line,
+					lineEnd: e.detail.lineEnd,
 				});
 			}}
-			@review-forward=${() => this._workflow.review.forward()}
 			@review-forward-invalidate=${() => this._workflow.review.invalidateSnapshot()}
 			@review-error-back=${() => this._workflow.review.backFromError()}
 			@review-error-retry=${() => {
@@ -4277,6 +4308,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (!repoPath || !scope || !reviewResult) return;
 
 		const { focusAreaId, files } = e.detail;
+		const run = this._workflow.review.startFocusAreaRun(focusAreaId);
+		if (run == null) return;
+
 		const panel = this.findReviewModePanel();
 		panel?.setFocusAreaLoading(focusAreaId);
 
@@ -4292,9 +4326,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				focusAreaId,
 				files,
 				reviewResult.overview,
-				undefined,
+				run.prompt,
 				excludedFiles,
+				run.signal,
 			);
+			// Superseded or torn down — the host answers a cancelled run with an error result, which
+			// is neither a failure to report nor a state to paint.
+			if (run.signal.aborted) return;
 
 			const duration = performance.now() - startedAt;
 			if ('error' in result && result.error) {
@@ -4318,12 +4356,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				});
 			}
 		} catch (ex) {
+			if (run.signal.aborted) return;
+
 			panel?.setFocusAreaError(focusAreaId);
 			this._actions.sendTelemetryEvent('graphDetails/review/generateFocusArea/failed', {
 				...aiContext,
 				duration: performance.now() - startedAt,
 				'failure.error.message': runFailureMessage(ex),
 			});
+		} finally {
+			this._workflow.review.settleFocusAreaRun(focusAreaId, run.signal);
 		}
 	}
 

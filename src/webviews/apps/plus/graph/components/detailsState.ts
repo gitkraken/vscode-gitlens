@@ -49,6 +49,7 @@ import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
 import { createSignalGroup } from '../../../shared/state/signals.js';
+import type { ReviewSession } from './reviewSession.js';
 
 /** Selection-shape vocabulary. Identifies which kind of selection the details panel is showing. */
 export type DetailsContext = 'wip' | 'commit' | 'multicommit';
@@ -140,7 +141,17 @@ export interface GenerateMessageResult {
  *  `generateMessage` is tracking-only: lives only as `'generating'`, removed on settle, carries no `result`/
  *  `prompt`/`'backed'`/`'orphaned'`. `kind` matches the bucket slot so `bucket[op.kind]` indexing holds. */
 export type RunningOperation =
-	| (RunningOperationBase & { kind: 'review'; result?: ReviewResult; preErrorValue?: ReviewResult })
+	| (RunningOperationBase & {
+			kind: 'review';
+			result?: ReviewResult;
+			preErrorValue?: ReviewResult;
+			/** In-flight two-pass focus-area detail runs, keyed by focus-area id. They ride on the
+			 *  entry (not on `abortController`, which is gone once the overview run settles) so
+			 *  discard, cancel, repo-switch and orphaning stop them along with everything else. */
+			focusAreaRuns?: ReadonlyMap<string, AbortController>;
+			/** The reader's progress through the changeset; carried across runs, dropped with the entry. */
+			session?: ReviewSession;
+	  })
 	| (RunningOperationBase & {
 			kind: 'compose';
 			result?: ComposeResult;
@@ -163,6 +174,18 @@ export type RunningOperation =
 			startedAt?: number;
 			telemetryContext?: { amend: boolean; hasExistingMessage: boolean };
 	  });
+
+/** Aborts an entry's live run — and, for review, every focus-area detail run riding on it. */
+export function abortRunningOperation(op: RunningOperation | undefined): void {
+	if (op == null) return;
+
+	op.abortController?.abort();
+	if (op.kind === 'review' && op.focusAreaRuns != null) {
+		for (const controller of op.focusAreaRuns.values()) {
+			controller.abort();
+		}
+	}
+}
 
 /** Per-anchor running-operation slot. An anchor may hold one of each kind concurrently. */
 export interface RunningOperationBucket {

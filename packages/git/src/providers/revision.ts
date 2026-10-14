@@ -22,6 +22,14 @@ export interface GitRevisionSubProvider {
 		path: string,
 		revOrOptions?: string | { untracked?: 'only' | 'include' },
 	): Promise<boolean>;
+	/** Blob ids the given repo-relative paths have right now in one layer — the index, or the working
+	 *  tree hashed as git would store it (nothing is written). Paths absent from that layer are left out. */
+	getBlobIds?(
+		repoPath: string,
+		paths: readonly string[],
+		source: 'index' | 'working',
+		cancellation?: AbortSignal,
+	): Promise<Map<string, string>>;
 	/** The empty tree's id in this repository's object format (SHA-1 or SHA-256). */
 	getEmptyTreeSha(repoPath: string): Promise<string>;
 	getRevisionContent(repoPath: string, path: string, rev: string): Promise<Uint8Array | undefined>;

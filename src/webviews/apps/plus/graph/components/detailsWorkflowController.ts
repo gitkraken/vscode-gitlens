@@ -30,8 +30,10 @@ import type {
 	RunningOperationBucket,
 	RunningOperationExecState,
 } from './detailsState.js';
-import { compareSides } from './detailsState.js';
+import { abortRunningOperation, compareSides } from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
+import type { ReviewFileIdentity, ReviewFindingState, ReviewSession } from './reviewSession.js';
+import { emptyReviewSession, withFileExcluded, withFilesViewed, withFindingState } from './reviewSession.js';
 
 /** Modes are panel lenses on the current selection — compose/review only. Compare is no
  *  longer a mode; it has its own lifecycle via {@link DetailsWorkflowController.openCompare}
@@ -925,7 +927,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		const anchor = this.currentAnchor();
 		const key = anchorKey(anchor);
 		const entry = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
-		entry?.abortController?.abort();
+		abortRunningOperation(entry);
 		// Destroying a compose drops the webview's only handle on its plan, so tell the host to let go
 		// of it and close the session rather than leaving both until the next compose on this anchor or
 		// panel teardown. Read the key before the entry goes.
@@ -1057,6 +1059,34 @@ export class DetailsWorkflowController implements ReactiveController {
 			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
 			this.runReview(repoPath, entry?.prompt, excludedFiles, effectiveFilesCount, selectedIds, scopeItems);
 		},
+		setFilesViewed: (files: readonly ReviewFileIdentity[], viewed: boolean): void =>
+			this.updateReviewSession(session => withFilesViewed(session, files, viewed)),
+		setFileExcluded: (path: string, excluded: boolean): void =>
+			this.updateReviewSession(session => withFileExcluded(session, path, excluded)),
+		setFindingState: (findingId: string, state: ReviewFindingState | undefined): void =>
+			this.updateReviewSession(session => withFindingState(session, findingId, state)),
+		// A focus-area detail run is tracked on the review entry so every teardown path that aborts
+		// the entry aborts it too. Re-running an area supersedes its earlier run.
+		startFocusAreaRun: (focusAreaId: string): { signal: AbortSignal; prompt: string | undefined } | undefined => {
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+			if (entry == null) return undefined;
+
+			entry.focusAreaRuns?.get(focusAreaId)?.abort();
+			const controller = new AbortController();
+			const runs = new Map(entry.focusAreaRuns);
+			runs.set(focusAreaId, controller);
+			this.registerRunningOperation({ ...entry, focusAreaRuns: runs });
+			return { signal: controller.signal, prompt: entry.prompt };
+		},
+		settleFocusAreaRun: (focusAreaId: string, signal: AbortSignal): void => {
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+			const current = entry?.focusAreaRuns?.get(focusAreaId);
+			if (entry == null || current == null || current.signal !== signal) return;
+
+			const runs = new Map(entry.focusAreaRuns);
+			runs.delete(focusAreaId);
+			this.registerRunningOperation({ ...entry, focusAreaRuns: runs.size ? runs : undefined });
+		},
 		// Two-pass detail enrichment lands here. The render projection at the panel reads
 		// `entry.result ?? resource.value` — entry first — so mutating only the resource leaves
 		// a stale entry result that masks the new findings on the next render. Update both, entry
@@ -1090,6 +1120,21 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.destroyEngagedOperation('review');
 		},
 	};
+
+	/** Applies a session edit to the engaged anchor's review entry, creating the entry when the reader
+	 *  starts marking files before any run — the same backed-no-result shape an unsubmitted draft gets. */
+	private updateReviewSession(update: (session: ReviewSession) => ReviewSession): void {
+		const anchor = this.currentAnchor();
+		const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
+		const current = entry?.session ?? emptyReviewSession;
+		const next = update(current);
+		if (next === current) return;
+
+		this.registerRunningOperation({
+			...(entry ?? { kind: 'review', anchor: anchor, execState: 'backed' }),
+			session: next,
+		});
+	}
 
 	runReview(
 		repoPath: string | undefined,
@@ -2098,7 +2143,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Abort any prior run on THIS (anchor, kind). Other anchors / the other kind on the same
 		// anchor are untouched.
 		const prior = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
-		prior?.abortController?.abort();
+		abortRunningOperation(prior);
 
 		const controller = new AbortController();
 		const exclusions = this.host.readEngagedExclusions();
@@ -2139,6 +2184,8 @@ export class DetailsWorkflowController implements ReactiveController {
 				...operation,
 				kind: kind,
 				preErrorValue: this.actions.state.reviewPreErrorValue.get(),
+				// The reader's progress belongs to the changeset, not to the run that just started.
+				session: prior?.kind === 'review' ? prior.session : undefined,
 			});
 		} else {
 			this.registerRunningOperation({ ...operation, kind: kind });
@@ -3002,7 +3049,10 @@ export class DetailsWorkflowController implements ReactiveController {
 			existing.refineMode === op.refineMode &&
 			existing.refineDraft === op.refineDraft &&
 			// And the compose plan handle, so an update that only re-points it is never deduped away.
-			(existing as { cacheKey?: string }).cacheKey === (op as { cacheKey?: string }).cacheKey
+			(existing as { cacheKey?: string }).cacheKey === (op as { cacheKey?: string }).cacheKey &&
+			(existing as { focusAreaRuns?: unknown }).focusAreaRuns ===
+				(op as { focusAreaRuns?: unknown }).focusAreaRuns &&
+			(existing as { session?: unknown }).session === (op as { session?: unknown }).session
 		) {
 			return;
 		}
@@ -3125,7 +3175,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		const anchor = this.currentAnchor();
 		const key = anchorKey(anchor);
 		const entry = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
-		entry?.abortController?.abort();
+		abortRunningOperation(entry);
 		if (kind === 'resolve') {
 			// Resolve has no Back/Resume — cancelling returns to idle (the conflicted-file list).
 			this.removeRunningOperation(key, 'resolve');
@@ -3149,13 +3199,14 @@ export class DetailsWorkflowController implements ReactiveController {
 			let nextBucket: RunningOperationBucket | undefined;
 			const review = bucket.review;
 			if (review != null && review.execState !== 'orphaned' && removedRepoPaths.has(review.anchor.repoPath)) {
-				review.abortController?.abort();
+				abortRunningOperation(review);
 				nextBucket ??= { ...bucket };
 				nextBucket.review = {
 					...review,
 					execState: 'orphaned',
 					abortController: undefined,
 					promise: undefined,
+					focusAreaRuns: undefined,
 				};
 				touched = true;
 			}

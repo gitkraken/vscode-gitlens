@@ -218,7 +218,18 @@ A scope-picker change re-fetches `resources.scopeFiles` for the new `ScopeSelect
 `state.review` itself is not a signal — `resources.review` (a `Resource`) plus the running-operation
 registry entry are the source of truth; `RunningOperationExecState` (`'generating' | 'complete' |
 'backed' | 'error' | 'orphaned'`) drives which of idle/loading/results/error the review panel
-renders. `back()`/`forward()` snapshot/restore a successfully-resolved result without re-running
+renders. The entry also carries the **review session** (`entry.session`, `reviewSession.ts`): the
+reader's viewed marks (each remembering the `ScopeFile.contentId` it was made against — a blob id
+for working-tree/index files, the anchor sha for committed ones — so a file that changes underneath
+reads as re-queued rather than still viewed), files set aside from the review, and finding states
+(`resolved` / `dismissed`). The panel never owns a copy: the file checkbox is the Viewed mark, and
+every edit is an event (`review-files-viewed`, `review-file-excluded`, `review-finding-state`) that
+`DetailsWorkflowController.review.set*` applies to the entry — creating a backed-no-result entry
+when the reader marks files before any run. The session is carried across `dispatchOperation` and
+dropped with the entry (Discard, repo switch). The AI run's exclusion list is the session's
+set-aside files plus the AI-ignore rules (`panel.excludedFiles`). Two-pass focus-area detail runs
+are tracked on the entry too (`entry.focusAreaRuns`, abortable with everything else via
+`abortRunningOperation`). `back()`/`forward()` snapshot/restore a successfully-resolved result without re-running
 the AI (`_reviewBackSnapshot` is the engaged projection). Before hiding, the anchor's registry
 entry captures Resume eligibility, unsubmitted instructions, selected scope and file/commit exclusions, and prior-result error
 recovery. Re-entry restores that projection; typing or changing scope invalidates Resume, and
@@ -228,7 +239,8 @@ result or an in-flight run. Discard explicitly destroys it via `destroyEngagedOp
 ### What's different from WIP normal
 
 - `state.scope`, `state.aiExcludedFiles`, `state.branchCommits*`, `state.reviewForwardAvailable`,
-  `state.reviewBackPreview`, `state.reviewPreErrorValue` are populated/relevant.
+  `state.reviewBackPreview`, `state.reviewPreErrorValue` are populated/relevant. `state.wipStale`
+  is not consulted — staleness is per file, from the session's content ids.
 - Files render from `resources.scopeFiles.value`, re-fetched on every scope-picker change.
 - Selection is locked to entry-time WIP: `willUpdate` skips `fetchDetails` while `activeMode !=
 null`; a different-anchor click hides (not destroys) the mode's registry entry and re-attaches
