@@ -46,6 +46,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Start Work_, _Start Review_, and _Launchpad_ freezing after choosing _Open in an agent_ when agent detection stalls &mdash; the agent picker now opens right away while agents load, and agent detection gives up after 10 seconds instead of hanging, still offering the editor's chat and the _Claude Code_ extension
 - Fixes opening a renamed or added file from a comparison or a commit's file list &mdash; _Open File at Revision_, _Open File_, and file history now use the file's path at that revision, and the _Ahead_ files node no longer shows a rename as an added file ([#5975](https://github.com/gitkraken/vscode-gitlens/issues/5975))
 - Fixes the _Commit Graph_'s auto-fetch replacing `FETCH_HEAD` while a `git pull` you started is between its fetch and merge, which could make the pull merge the wrong changes
+- Fixes a branch's merge target staying stuck on a deleted branch, such as a stacked pull request's base after it merges and is pruned &mdash; a saved, detected, or pull request merge target whose branch no longer exists locally is now skipped in favor of the next available one
 
 ## [19.3.0] - 2026-10-01
 
