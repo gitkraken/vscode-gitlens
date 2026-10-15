@@ -35,6 +35,7 @@ import {
 	drainJiraIssues,
 	readUserScopedJiraIssues,
 	searchJiraProjectIssues,
+	summarizePageMetadata,
 	toUniqueJiraIssueShapes,
 } from './utils/jiraIssueDrains.js';
 import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
@@ -500,12 +501,22 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		resources?: JiraOrganizationDescriptor[],
 		cancellation?: AbortSignal,
 	): Promise<IssueShape[] | undefined> {
-		return (await this.searchProviderMyIssuesWithTruncation(session, resources, cancellation))?.values;
+		const result = await this.searchProviderMyIssuesWithTruncation(session, resources, cancellation);
+		// This read can only return values, so what the account-wide read reports as missing is at least logged.
+		for (const failure of result?.metadata?.failures ?? []) {
+			Logger.warn(
+				`searchProviderMyIssues: Jira site '${failure.scope?.resourceId ?? '?'}' was not fully read: ${failure.message ?? failure.kind}`,
+			);
+		}
+		return result?.values;
 	}
 
 	/**
-	 * Overridden so `state` reaches the per-site read, which the default drops. Still reports `truncated: false`,
-	 * as the default did: the per-site loop has no way to say it stopped early.
+	 * Overridden so `state` reaches the per-site read, which the default drops. Each site is drained on its own, so a
+	 * site that fails keeps what it read and is recorded as that site's failure instead of discarding the sites that
+	 * answered; so is an issue a page dropped because it could not be read. A page backstop or a stalled continuation
+	 * makes the read `truncated`. A refused site therefore goes through `confirmScopedAuthFailures`, which publishes it
+	 * as that site's auth warning or, if the credential itself is refused, as the connection's.
 	 */
 	protected override async searchProviderMyIssuesWithTruncation(
 		session: ProviderAuthenticationSession,
@@ -518,44 +529,51 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		if (!myResources) return undefined;
 
 		const api = await this.getProvidersApi();
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
 
 		const results: IssueShape[] = [];
+		let truncated = false;
+		let metadata: CollectionMetadata | undefined;
+		// What each page reported failing, summarized at the end so a site whose many pages dropped issues reports
+		// it once (see `summarizePageMetadata`); the pages keep the rest of their metadata, so `truncated` holds.
+		const pages: CollectionMetadata[] = [];
+		const readPage = async (resourceId: string, cursor: string | undefined) => {
+			const page = await api.getIssuesForResourceForCurrentUser(tokenWithInfo, resourceId, {
+				cursor: cursor,
+				states: states,
+			});
+			if (!page.metadata?.failures?.length) return page;
+
+			const { failures: _failures, ...rest } = page.metadata;
+			pages.push(page.metadata);
+			return { ...page, metadata: rest };
+		};
 		for (const resource of myResources) {
 			if (cancellation?.aborted) break;
 
-			try {
-				let cursor = undefined;
-				let hasMore = false;
-				let requestCount = 0;
-				do {
-					if (cancellation?.aborted) break;
-
-					const resourceIssues = await api.getIssuesForResourceForCurrentUser(
-						toTokenWithInfo(this.id, session),
-						resource.id,
-						{
-							cursor: cursor,
-							states: states,
-						},
-					);
-					requestCount += 1;
-					hasMore = resourceIssues.paging?.more ?? false;
-					cursor = resourceIssues.paging?.cursor;
-					const formattedIssues = resourceIssues.values
-						.map(issue => toIssueShape(issue, this, { projection: 'account' }))
-						.filter((result): result is IssueShape => result != null);
-					if (formattedIssues.length > 0) {
-						results.push(...formattedIssues);
-					}
-				} while (requestCount < maxPagesPerRequest && hasMore);
-			} catch (ex) {
-				// TODO: We need a better way to message the failure to the user here.
-				// This is a stopgap to prevent one bag org from throwing and preventing any issues from being returned.
-				Logger.error(ex, 'searchProviderMyIssues');
-			}
+			const site = await collectProviderPagedResult(
+				cursor =>
+					// Cancellation is not truncation: the caller asked for the stop, so the site ends where it is.
+					cancellation?.aborted
+						? Promise.resolve({ values: [], paging: { cursor: '{}', more: false } })
+						: readPage(resource.id, cursor),
+				maxPagesPerRequest,
+				{ providerId: this.id, resourceId: resource.id },
+			);
+			results.push(
+				...site.values
+					.map(issue => toIssueShape(issue, this, { projection: 'account' }))
+					.filter((result): result is IssueShape => result != null),
+			);
+			truncated ||= site.truncated === true;
+			metadata = mergeCollectionMetadata(metadata, site.metadata);
 		}
 
-		return { values: results, truncated: false };
+		return {
+			values: results,
+			truncated: truncated,
+			metadata: mergeCollectionMetadata(summarizePageMetadata(pages), metadata),
+		};
 	}
 
 	protected override async getProviderLinkedIssueOrPullRequest(
