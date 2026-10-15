@@ -20,6 +20,7 @@ export type ContributedCommands =
 	| 'gitlens.agents.focusSessionWorktreeInGraph'
 	| 'gitlens.agents.openPlanFile'
 	| 'gitlens.agents.openSession'
+	| 'gitlens.agents.openSessionInKepler'
 	| 'gitlens.agents.openSessionWorktreeInNewWindow'
 	| 'gitlens.agents.openWorktree'
 	| 'gitlens.agents.openWorktreeInNewWindow'
