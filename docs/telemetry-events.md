@@ -311,7 +311,7 @@ void
   'model.provider.name': string,
   'sentiment': 'helpful' | 'unhelpful',
   // The AI feature that feedback was submitted for
-  'type': 'conflict-resolution' | 'explain-changes' | 'generate-changelog' | 'generate-commitMessage' | 'generate-commits' | 'generate-create-cloudPatch' | 'generate-create-pullRequest' | 'generate-searchQuery' | 'generate-stashMessage' | 'review-changes',
+  'type': 'conflict-resolution' | 'explain-changes' | 'generate-changelog' | 'generate-commitMessage' | 'generate-commits' | 'generate-create-cloudPatch' | 'generate-create-pullRequest' | 'generate-searchQuery' | 'generate-stashMessage' | 'review-changes' | 'review-orient',
   // Custom feedback provided (if any)
   'unhelpful.custom': string,
   // Unhelpful reasons selected (if any) - comma-separated list of AIFeedbackUnhelpfulReasons values
@@ -714,7 +714,7 @@ or
   'model.provider.name': string,
   'output.length': number,
   'retry.count': number,
-  'reviewMode': 'single-pass' | 'two-pass',
+  'reviewMode': 'orient' | 'single-pass' | 'two-pass',
   'reviewType': 'commit' | 'compare' | 'wip',
   'type': 'review',
   'usage.completionTokens': number,
@@ -5467,6 +5467,58 @@ or
 ### graphDetails/review/generateFocusArea/failed
 
 > Sent when a per-focus-area review (two-pass) generation fails
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'panel' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'duration': number,
+  // Error message text describing why the focus-area generation failed
+  'failure.error.message': string
+}
+```
+
+### graphDetails/review/generateOrient/completed
+
+> Sent when an orient pass (reading plan for the review's files) completes successfully
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'panel' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'duration': number,
+  // Files the plan placed
+  'result.files.count': number,
+  // Reading groups the plan produced
+  'result.groups.count': number
+}
+```
+
+### graphDetails/review/generateOrient/failed
+
+> Sent when an orient pass fails
 
 ```typescript
 {

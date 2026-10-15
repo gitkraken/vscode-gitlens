@@ -33,3 +33,26 @@ export interface AIReviewResult {
 export interface AIReviewDetailResult {
 	readonly findings: readonly AIReviewFinding[];
 }
+
+/** One stop of an orient pass: a file and the one line that says why it is in the change. */
+export interface AIReviewOrientFile {
+	readonly path: string;
+	readonly note: string;
+}
+
+export type AIReviewOrientGroupKind = 'core' | 'supporting' | 'mechanical';
+
+export interface AIReviewOrientGroup {
+	readonly id: string;
+	readonly label: string;
+	readonly labelIsFallback?: boolean;
+	/** `core` = read first, `supporting` = follows from the core, `mechanical` = skim (lockfiles, generated, renames) */
+	readonly kind: AIReviewOrientGroupKind;
+	readonly files: readonly AIReviewOrientFile[];
+}
+
+/** The orient pass's output: not a verdict, a reading order — groups in the order to read them. */
+export interface AIReviewOrientResult {
+	readonly overview: string;
+	readonly groups: readonly AIReviewOrientGroup[];
+}

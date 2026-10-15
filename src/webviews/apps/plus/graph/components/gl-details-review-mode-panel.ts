@@ -7,6 +7,7 @@ import type {
 	AIReviewDetailResult,
 	AIReviewFinding,
 	AIReviewFocusArea,
+	AIReviewOrientResult,
 	AIReviewResult,
 } from '@gitlens/ai/models/results.js';
 import { redispatch } from '@gitlens/components/components/element.js';
@@ -84,6 +85,9 @@ import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';
 import './gl-categorizing-loading-animation.js';
 import './gl-commits-scope-pane.js';
+
+/** A plan's group is already an ordering — its pane lists files flat, in that order. */
+const orientPaneLayout = { layout: 'list' as const };
 
 export interface ReviewOpenFileDetail {
 	filePath: string;
@@ -194,6 +198,19 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@property({ attribute: false })
 	walk?: { current: string };
 
+	/** The orient depth's reading plan: groups the checklist by concern with a line of context per file. */
+	@property({ attribute: false })
+	orient?: AIReviewOrientResult;
+
+	@property({ type: Boolean, attribute: 'orient-running' })
+	orientRunning = false;
+
+	@property()
+	orientError?: string;
+
+	/** Notes from the reading plan by path, for the file rows' decorations. */
+	private _orientNotes?: ReadonlyMap<string, string>;
+
 	/** Whether AI review is on at all. The walk and its checklist don't need it. */
 	@property({ type: Boolean, attribute: 'ai-enabled' })
 	aiEnabled = false;
@@ -297,6 +314,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 	override willUpdate(changedProperties: Map<string, unknown>): void {
 		if (changedProperties.has('aiExcludedFiles')) {
 			this._aiExcludedSet = this.aiExcludedFiles?.length ? new Set(this.aiExcludedFiles) : undefined;
+		}
+
+		if (changedProperties.has('orient')) {
+			this._orientNotes = this.orient
+				? new Map(this.orient.groups.flatMap(g => g.files.map(f => [f.path, f.note] as const)))
+				: undefined;
+			this._sessionRevision++;
 		}
 
 		if (changedProperties.has('aiExcludedFiles') || changedProperties.has('session')) {
@@ -718,8 +742,26 @@ export class GlDetailsReviewModePanel extends LitElement {
 									@input=${this.onAiInputType}
 								>
 									<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+									<gl-button
+										slot="footer"
+										class="review-orient__button"
+										appearance="toolbar"
+										density="compact"
+										tooltip=${l10n.t(
+											'Orient: group and order the files with one line of context each — a map for your own read, not findings',
+										)}
+										?disabled=${this.orientRunning || !hasSelectedFiles}
+										@click=${this.handleOrient}
+									>
+										<code-icon
+											icon=${this.orientRunning ? 'loading' : 'zap'}
+											slot="prefix"
+										></code-icon>
+										${this.orientRunning ? l10n.t('Orienting…') : l10n.t('Orient')}
+									</gl-button>
 								</gl-ai-input>`,
 							)}
+							${this.orientError ? html`<div class="review-orient__error">${this.orientError}</div>` : nothing}
 						</div>`
 					: nothing
 			}
@@ -946,6 +988,8 @@ export class GlDetailsReviewModePanel extends LitElement {
 			}
 		}
 
+		if (this.orient != null) return this.renderOrientPlan(renderFiles, checkableStates);
+
 		return html`<div class="scope-files__tree">
 			<webview-pane-group flexible>
 				<gl-file-tree-pane
@@ -1004,6 +1048,110 @@ export class GlDetailsReviewModePanel extends LitElement {
 		</div>`;
 	}
 
+	/** The checklist reshaped by the reading plan: one pane per group, in reading order, each file with
+	 *  its line of context; files the plan didn't place come last. */
+	private renderOrientPlan(
+		renderFiles: readonly ScopeFile[],
+		checkableStates: Map<string, { state?: 'checked'; disabled?: boolean; disabledReason?: string }>,
+	) {
+		const orient = this.orient!;
+		const byPath = new Map(renderFiles.map(f => [f.path, f]));
+		const placed = new Set<string>();
+		const panes: { label: string; files: ScopeFile[] }[] = [];
+		for (const group of orient.groups) {
+			const files: ScopeFile[] = [];
+			for (const { path } of group.files) {
+				const file = byPath.get(path);
+				if (file == null || placed.has(path)) continue;
+
+				placed.add(path);
+				files.push(file);
+			}
+			if (files.length === 0) continue;
+
+			const kind =
+				group.kind === 'core'
+					? l10n.t('read first')
+					: group.kind === 'mechanical'
+						? l10n.t('skim')
+						: l10n.t('supporting');
+			panes.push({ label: `${getReviewFocusAreaLabel(group)} · ${kind}`, files: files });
+		}
+		const rest = renderFiles.filter(f => !placed.has(f.path));
+		if (rest.length > 0) {
+			panes.push({ label: l10n.t('Not in the plan'), files: rest });
+		}
+
+		return html`<div class="scope-files__tree">
+			<div class="review-orient">
+				<code-icon class="review-orient__icon" icon="zap"></code-icon>
+				<div class="review-orient__body">
+					<div class="review-orient__title">${l10n.t('Reading plan')}</div>
+					<div class="review-orient__overview">${orient.overview}</div>
+				</div>
+				<div class="review-orient__actions">
+					<gl-button density="compact" @click=${this.handleOrientApply}>
+						<code-icon icon="play" slot="prefix"></code-icon>${l10n.t('Read in This Order')}
+					</gl-button>
+					<gl-button appearance="secondary" density="compact" @click=${this.handleOrientClear}>
+						${l10n.t('Keep Tree Order')}
+					</gl-button>
+				</div>
+			</div>
+			<webview-pane-group flexible>
+				${panes.map(
+					pane => html`<gl-file-tree-pane
+						header=${pane.label}
+						.files=${pane.files}
+						?checkable=${true}
+						?multi-selectable=${true}
+						?show-file-icons=${true}
+						.filesLayout=${orientPaneLayout}
+						.checkableStates=${checkableStates}
+						.fileActions=${this.fileActionsForFile}
+						.fileDecorations=${this.decorationsForFile}
+						.fileContext=${this.getFileContext}
+						.contextRevision=${`${this.contextRevision}:${this._sessionRevision}`}
+						.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
+						selection-action="file-compare-range"
+						@file-compare-range=${(e: CustomEvent<FileChangeListItemDetail>) =>
+							this.handleOpenFile(e.detail.path)}
+						check-action="viewed"
+						@file-checked=${this.onFileChecked}
+						@gl-check-all=${this.onToggleCheckAll}
+						@review-file-exclude=${(e: CustomEvent<FileChangeListItemDetail>) =>
+							this.dispatchFileExcluded(e.detail.path, true)}
+						@review-file-include=${(e: CustomEvent<FileChangeListItemDetail>) =>
+							this.dispatchFileExcluded(e.detail.path, false)}
+						@file-open=${this.redispatch}
+						@file-stage=${this.redispatch}
+						@file-unstage=${this.redispatch}
+						@file-compare-working=${this.redispatch}
+						@file-open-on-remote=${this.redispatch}
+					></gl-file-tree-pane>`,
+				)}
+			</webview-pane-group>
+		</div>`;
+	}
+
+	private handleOrient = (): void => {
+		this.dispatchEvent(
+			new CustomEvent<{ prompt?: string }>('review-orient', {
+				detail: { prompt: this.idleDraftLive || undefined },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
+
+	private handleOrientApply = (): void => {
+		this.dispatchEvent(new CustomEvent('review-orient-apply', { bubbles: true, composed: true }));
+	};
+
+	private handleOrientClear = (): void => {
+		this.dispatchEvent(new CustomEvent('review-orient-clear', { bubbles: true, composed: true }));
+	};
+
 	private fileActionsForFile = (file: GitFileChangeShape): TreeItemAction[] => {
 		const excluded = this.session?.excluded.has(file.path) ?? false;
 		return [
@@ -1055,6 +1203,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 				label: l10n.t('Excluded from AI review by ignore rules'),
 				position: 'before',
 			});
+		}
+		const note = this._orientNotes?.get(file.path);
+		if (note) {
+			decorations.push({ type: 'text', label: note, tooltip: note, kind: 'muted', position: 'after' });
 		}
 		return decorations.length ? decorations : undefined;
 	};

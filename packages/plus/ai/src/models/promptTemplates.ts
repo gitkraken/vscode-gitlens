@@ -92,6 +92,13 @@ interface ReviewOverviewPromptTemplateContext {
 	instructions?: string;
 }
 
+interface ReviewOrientPromptTemplateContext {
+	files: string;
+	message: string;
+	context?: string;
+	instructions?: string;
+}
+
 interface ReviewDetailPromptTemplateContext {
 	diff: string;
 	overview: string;
@@ -127,6 +134,7 @@ export type PromptTemplateType =
 	| 'explain-changes'
 	| 'review-changes'
 	| 'review-overview'
+	| 'review-orient'
 	| 'review-detail'
 	| 'review-refine'
 	| 'address-review-findings'
@@ -158,6 +166,8 @@ export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'gen
 	? ReviewChangesPromptTemplateContext
 	: T extends 'review-overview'
 	? ReviewOverviewPromptTemplateContext
+	: T extends 'review-orient'
+	? ReviewOrientPromptTemplateContext
 	: T extends 'review-detail'
 	? ReviewDetailPromptTemplateContext
 	: T extends 'review-refine'

@@ -738,6 +738,66 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(entry?.threadActionsApplied, 3);
 	});
 
+	test('a reading plan is kept across runs, gives the walk its order when applied, and clears back to tree order', async () => {
+		const host = new FakeHost({
+			repoPath: '/A',
+			graphRepoPath: '/A',
+			selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
+		});
+		const state = createDetailsState();
+		const actions = new DetailsActions(
+			state,
+			createServices({ reviewChanges: async () => makeReviewResult('run') }),
+			createResources(),
+		);
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+
+		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		const orient = {
+			overview: 'plan',
+			groups: [
+				{
+					id: 'g1',
+					label: 'Core',
+					kind: 'core',
+					files: [
+						{ path: 'src/b.ts', note: '' },
+						{ path: 'src/a.ts', note: '' },
+					],
+				},
+			],
+		} as const;
+		host.crossPaneState.runningOperations.set(
+			new Map([
+				[
+					wipKey('/A'),
+					{ review: { ...makeReviewBucket('/A', makeReviewResult('x')).review!, orient: orient } },
+				],
+			]),
+		);
+
+		controller.review.applyOrientOrder();
+		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.deepStrictEqual(entry?.session?.order, ['src/b.ts', 'src/a.ts']);
+
+		controller.runReview('/A', undefined, undefined, 0);
+		await flush();
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.orient, orient, 'the plan outlives the run');
+
+		controller.review.clearOrient();
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.orient, undefined);
+		assert.strictEqual(entry?.session?.order, undefined, 'clearing the plan drops its order too');
+	});
+
 	test('abortRunningOperations aborts focus-area runs along with the overview run', () => {
 		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 		host.crossPaneState.runningOperations.set(

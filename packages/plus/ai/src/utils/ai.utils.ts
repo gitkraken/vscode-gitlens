@@ -12,6 +12,8 @@ export function getActionName(action: AIActionType): string {
 			return 'Explain Changes';
 		case 'review-changes':
 			return 'Review Changes';
+		case 'review-orient':
+			return 'Orient Changes';
 		case 'generate-commitMessage':
 			return 'Generate Commit Message';
 		case 'generate-stashMessage':

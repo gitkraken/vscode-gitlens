@@ -616,6 +616,10 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graphDetails/review/generateFocusArea/completed': GraphDetailsReviewGenerateFocusAreaCompletedEvent;
 	/** Sent when a per-focus-area review (two-pass) generation fails */
 	'graphDetails/review/generateFocusArea/failed': GraphDetailsReviewGenerateFocusAreaFailedEvent;
+	/** Sent when an orient pass (reading plan for the review's files) completes successfully */
+	'graphDetails/review/generateOrient/completed': GraphDetailsReviewGenerateOrientCompletedEvent;
+	/** Sent when an orient pass fails */
+	'graphDetails/review/generateOrient/failed': GraphDetailsReviewGenerateFocusAreaFailedEvent;
 	/** Sent when the user copies all or part of a review to clipboard */
 	'graphDetails/review/copied': GraphDetailsReviewActionEvent;
 	/** Sent when the user sends all or part of a review to an AI agent */
@@ -1035,7 +1039,7 @@ interface AIExplainEvent extends AIEventDataSendBase {
 interface AIReviewEvent extends AIEventDataSendBase {
 	type: 'review';
 	reviewType: 'commit' | 'wip' | 'compare';
-	reviewMode: 'single-pass' | 'two-pass';
+	reviewMode: 'single-pass' | 'two-pass' | 'orient';
 }
 
 export interface AIGenerateChangelogEventData extends AIEventDataSendBase {
@@ -1624,6 +1628,14 @@ interface GraphDetailsReviewGenerateFocusAreaCompletedEvent
 	'findings.severity.critical.count': number;
 	'findings.severity.warning.count': number;
 	'findings.severity.suggestion.count': number;
+}
+
+interface GraphDetailsReviewGenerateOrientCompletedEvent extends GraphContextEventData, GraphDetailsAIModelEventData {
+	duration: number;
+	/** Reading groups the plan produced */
+	'result.groups.count': number;
+	/** Files the plan placed */
+	'result.files.count': number;
 }
 
 interface GraphDetailsReviewGenerateFocusAreaFailedEvent extends GraphContextEventData, GraphDetailsAIModelEventData {

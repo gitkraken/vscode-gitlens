@@ -7,10 +7,12 @@ import {
 	getReviewFileProgress,
 	getReviewProgress,
 	getReviewThreadItems,
+	getReviewWalkPaths,
 	isReviewComplete,
 	withFileExcluded,
 	withFilesViewed,
 	withFindingState,
+	withReadingOrder,
 } from '../reviewSession.js';
 
 const a = { path: 'src/a.ts', contentId: 'a1' };
@@ -155,5 +157,28 @@ suite('reviewSession — thread projection', () => {
 			},
 		]);
 		assert.deepStrictEqual(getReviewThreadItems(undefined, session), []);
+	});
+});
+
+suite('reviewSession — walk order', () => {
+	test('tree order by default; a reading order goes first, with the rest after it and set-aside files out', () => {
+		const files = [{ path: 'src/z.ts' }, { path: 'src/a.ts' }, { path: 'src/m.ts' }, { path: 'test/t.ts' }];
+		assert.deepStrictEqual(getReviewWalkPaths(emptyReviewSession, files), [
+			'src/a.ts',
+			'src/m.ts',
+			'src/z.ts',
+			'test/t.ts',
+		]);
+
+		let session = withReadingOrder(emptyReviewSession, ['src/m.ts', 'gone.ts', 'src/z.ts']);
+		session = withFileExcluded(session, 'test/t.ts', true);
+		assert.deepStrictEqual(getReviewWalkPaths(session, files), ['src/m.ts', 'src/z.ts', 'src/a.ts']);
+
+		assert.strictEqual(
+			withReadingOrder(session, ['src/m.ts', 'gone.ts', 'src/z.ts']),
+			session,
+			'an equal order is a no-op',
+		);
+		assert.strictEqual(withReadingOrder(emptyReviewSession, undefined), emptyReviewSession);
 	});
 });

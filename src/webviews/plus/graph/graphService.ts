@@ -1,5 +1,10 @@
 import type { ColumnMode } from '@gitkraken/commit-graph/zones.js';
-import type { AIReviewDetailResult, AIReviewResult, AIReviewSeverity } from '@gitlens/ai/models/results.js';
+import type {
+	AIReviewDetailResult,
+	AIReviewOrientResult,
+	AIReviewResult,
+	AIReviewSeverity,
+} from '@gitlens/ai/models/results.js';
 import type { GitHealthBannerState, GitHealthLever, GitHealthReport } from '@gitlens/git/gitHealth.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
@@ -286,6 +291,8 @@ export type ScopeFile = GitFileChangeShape & {
 };
 
 export type ReviewResult = { result: AIReviewResult } | { error: { message: string } };
+
+export type ReviewOrientResult = { result: AIReviewOrientResult } | { error: { message: string } };
 
 export type ReviewWalkAction = 'next' | 'previous' | 'markViewed' | 'stop';
 
@@ -640,6 +647,15 @@ export interface GraphInspectService {
 		excludedFiles?: string[],
 		signal?: AbortSignal,
 	): Promise<ReviewDetailResult>;
+	/** The orient depth: groups and orders the scope's files from their manifest, one line of context
+	 *  each — a reading order for the panel's checklist, no findings. */
+	orientChanges(
+		repoPath: string,
+		scope: ScopeSelection,
+		prompt?: string,
+		excludedFiles?: string[],
+		signal?: AbortSignal,
+	): Promise<ReviewOrientResult>;
 	/** Starts (or reshapes) the review walk: the host opens each stop's diff and lights up the editor
 	 *  keybindings and diff title buttons on them. `undefined` ends the walk. */
 	setReviewWalk(args: ReviewWalkArgs | undefined): Promise<void>;

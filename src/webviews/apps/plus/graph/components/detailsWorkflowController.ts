@@ -45,6 +45,7 @@ import {
 	withFileExcluded,
 	withFilesViewed,
 	withFindingState,
+	withReadingOrder,
 } from './reviewSession.js';
 
 /** Modes are panel lenses on the current selection — compose/review only. Compare is no
@@ -1104,6 +1105,100 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.actions.startReviewWalk({ repoPath: repoPath, ...endpoints, paths: paths, current: current });
 		},
 		stopWalk: (): void => this.stopReviewWalkIfActive(),
+		/** The orient depth: a reading plan for the checklist, tracked on the entry like a focus-area run. */
+		runOrient: (
+			repoPath: string | undefined,
+			prompt: string | undefined,
+			excludedFiles: string[] | undefined,
+		): void => {
+			const scope = this.actions.state.scope.get();
+			if (!repoPath || scope == null) return;
+
+			const anchor = this.currentAnchor();
+			const key = anchorKey(anchor);
+			const prior = this.host.crossPaneState.runningOperations.get().get(key)?.review;
+			prior?.orientRun?.abort();
+
+			const controller = new AbortController();
+			this.registerRunningOperation({
+				...(prior ?? { kind: 'review', anchor: anchor, execState: 'backed' }),
+				orientRun: controller,
+				orientError: undefined,
+			});
+
+			const startedAt = performance.now();
+			const aiContext = this.actions.buildAIModelTelemetryContext();
+			this.actions.orientChanges(repoPath, scope, prompt, excludedFiles, controller.signal).then(
+				result => {
+					if (controller.signal.aborted) return;
+
+					const entry = this.host.crossPaneState.runningOperations.get().get(key)?.review;
+					if (entry?.orientRun !== controller) return;
+
+					const duration = performance.now() - startedAt;
+					if ('error' in result) {
+						this.registerRunningOperation({
+							...entry,
+							orientRun: undefined,
+							orientError: result.error.message,
+						});
+						this.actions.sendTelemetryEvent('graphDetails/review/generateOrient/failed', {
+							...aiContext,
+							duration: duration,
+							'failure.error.message': result.error.message,
+						});
+						return;
+					}
+
+					this.registerRunningOperation({ ...entry, orientRun: undefined, orient: result.result });
+					this.actions.sendTelemetryEvent('graphDetails/review/generateOrient/completed', {
+						...aiContext,
+						duration: duration,
+						'result.groups.count': result.result.groups.length,
+						'result.files.count': result.result.groups.reduce((sum, g) => sum + g.files.length, 0),
+					});
+				},
+				(ex: unknown) => {
+					if (controller.signal.aborted) return;
+
+					const entry = this.host.crossPaneState.runningOperations.get().get(key)?.review;
+					if (entry?.orientRun !== controller) return;
+
+					this.registerRunningOperation({
+						...entry,
+						orientRun: undefined,
+						orientError: runFailureMessage(ex),
+					});
+					this.actions.sendTelemetryEvent('graphDetails/review/generateOrient/failed', {
+						...aiContext,
+						duration: performance.now() - startedAt,
+						'failure.error.message': runFailureMessage(ex),
+					});
+				},
+			);
+		},
+		/** Drops the reading plan — and the order it gave the walk — back to tree order. */
+		clearOrient: (): void => {
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+			if (entry == null) return;
+
+			entry.orientRun?.abort();
+			this.registerRunningOperation({
+				...entry,
+				orient: undefined,
+				orientRun: undefined,
+				orientError: undefined,
+				session: entry.session != null ? withReadingOrder(entry.session, undefined) : undefined,
+			});
+		},
+		/** Takes the reading plan's order into the session, so the walk follows it. */
+		applyOrientOrder: (): void => {
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
+			if (entry?.orient == null) return;
+
+			const order = entry.orient.groups.flatMap(g => g.files.map(f => f.path));
+			this.updateReviewSession(session => withReadingOrder(session, order));
+		},
 		/** Folds editor-made thread actions into the session — only the ones past the last applied sequence. */
 		applyThreadActions: (state: ReviewThreadActionsState | undefined): void => {
 			if (state == null) return;
@@ -2319,8 +2414,9 @@ export class DetailsWorkflowController implements ReactiveController {
 				...operation,
 				kind: kind,
 				preErrorValue: this.actions.state.reviewPreErrorValue.get(),
-				// The reader's progress belongs to the changeset, not to the run that just started.
+				// The reader's progress and reading plan belong to the changeset, not to the run that just started.
 				session: prior?.kind === 'review' ? prior.session : undefined,
+				orient: prior?.kind === 'review' ? prior.orient : undefined,
 			});
 		} else {
 			this.registerRunningOperation({ ...operation, kind: kind });
@@ -3190,7 +3286,10 @@ export class DetailsWorkflowController implements ReactiveController {
 			(existing as { session?: unknown }).session === (op as { session?: unknown }).session &&
 			(existing as { walk?: unknown }).walk === (op as { walk?: unknown }).walk &&
 			(existing as { threadActionsApplied?: number }).threadActionsApplied ===
-				(op as { threadActionsApplied?: number }).threadActionsApplied
+				(op as { threadActionsApplied?: number }).threadActionsApplied &&
+			(existing as { orient?: unknown }).orient === (op as { orient?: unknown }).orient &&
+			(existing as { orientRun?: unknown }).orientRun === (op as { orientRun?: unknown }).orientRun &&
+			(existing as { orientError?: unknown }).orientError === (op as { orientError?: unknown }).orientError
 		) {
 			return;
 		}
@@ -3348,6 +3447,7 @@ export class DetailsWorkflowController implements ReactiveController {
 					abortController: undefined,
 					promise: undefined,
 					focusAreaRuns: undefined,
+					orientRun: undefined,
 				};
 				touched = true;
 			}

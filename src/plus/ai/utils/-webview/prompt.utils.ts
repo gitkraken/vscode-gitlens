@@ -17,6 +17,7 @@ import {
 	generateStashMessage,
 	reviewChanges,
 	reviewDetail,
+	reviewOrient,
 	reviewOverview,
 	reviewPullRequest,
 	reviewRefine,
@@ -75,6 +76,8 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 			return reviewChanges as PromptTemplate<T>;
 		case 'review-overview':
 			return reviewOverview as PromptTemplate<T>;
+		case 'review-orient':
+			return reviewOrient as PromptTemplate<T>;
 		case 'review-detail':
 			return reviewDetail as PromptTemplate<T>;
 		case 'review-refine':

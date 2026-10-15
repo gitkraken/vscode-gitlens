@@ -20,6 +20,7 @@
  * methods (`resetDurable`, `resetTransient`) and the comments below.
  */
 import { Signal } from '@lit-labs/signals';
+import type { AIReviewOrientResult } from '@gitlens/ai/models/results.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -156,6 +157,11 @@ export type RunningOperation =
 			walk?: { current: string; marksApplied: number };
 			/** Sequence of the last editor-made thread action folded into the session. */
 			threadActionsApplied?: number;
+			/** The orient pass's reading plan, while the reader keeps it; carried across runs like the session. */
+			orient?: AIReviewOrientResult;
+			/** The in-flight orient run; aborted with everything else on the entry. */
+			orientRun?: AbortController;
+			orientError?: string;
 	  })
 	| (RunningOperationBase & {
 			kind: 'compose';
@@ -185,8 +191,9 @@ export function abortRunningOperation(op: RunningOperation | undefined): void {
 	if (op == null) return;
 
 	op.abortController?.abort();
-	if (op.kind === 'review' && op.focusAreaRuns != null) {
-		for (const controller of op.focusAreaRuns.values()) {
+	if (op.kind === 'review') {
+		op.orientRun?.abort();
+		for (const controller of op.focusAreaRuns?.values() ?? []) {
 			controller.abort();
 		}
 	}
