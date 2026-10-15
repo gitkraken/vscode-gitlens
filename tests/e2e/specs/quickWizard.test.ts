@@ -1077,7 +1077,8 @@ test.describe('Quick Wizard — Fetch/Pull/Push Commands', () => {
 				gitlens: { quickPick },
 			},
 		}) => {
-			await selectCommandAndWaitForStepWithOptionalRepo(vscode, 'push', { title: /Confirm Push/i }, true);
+			// The fixture's `main` has no upstream (only `origin` exists), so Push confirms publishing it, not a push
+			await selectCommandAndWaitForStepWithOptionalRepo(vscode, 'push', { title: /Confirm Publish/i }, true);
 
 			// === REVERSE NAVIGATION ===
 
