@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.10.7] - 2026-10-15
+
 ### Changed
 
 - Changes `getCurrentAccount` to answer for Jira Cloud, Linear and Trello, and resolves it before an issue tracker read so a host's current-account cache knows the viewer while mapping that read's issues; only Jira Data Center still refuses (plus/integrations)
@@ -611,7 +613,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.6...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.7...HEAD
+[0.10.7]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.6...gitkraken:releases/core/v0.10.7
 [0.10.6]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.5...gitkraken:releases/core/v0.10.6
 [0.10.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.4...gitkraken:releases/core/v0.10.5
 [0.10.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.3...gitkraken:releases/core/v0.10.4
