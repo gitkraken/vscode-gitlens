@@ -234,3 +234,58 @@ suite('IntegrationManager.getCurrentAccount', () => {
 		manager.dispose();
 	});
 });
+
+type ViewerLookups = {
+	getProviderCurrentAccount(session: ProviderAuthenticationSession): Promise<Account | undefined>;
+	getProviderAccountForResource(
+		session: ProviderAuthenticationSession,
+		resource: unknown,
+	): Promise<Account | undefined>;
+	invalidateDiscoveryCaches(): void;
+};
+
+suite('Tracker viewer lookups', () => {
+	const trackers = [
+		{
+			id: IssuesCloudHostIntegrationId.Linear,
+			session: trackerSession('linear.app'),
+			userRead: 'getLinearCurrentUser',
+		},
+		{
+			id: IssuesCloudHostIntegrationId.Trello,
+			session: { ...trackerSession('trello.com'), appKey: 'key' },
+			userRead: 'getTrelloCurrentUser',
+		},
+	] as const;
+
+	for (const tracker of trackers) {
+		test(`${tracker.id} refetches on the host path and after invalidation, lending the viewer in between`, async () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			const integration = await manager.get(tracker.id);
+			const lookups = integration as unknown as ViewerLookups;
+			let profileName = 'Old';
+			let reads = 0;
+			stubApi(integration, {
+				[tracker.userRead]: () => {
+					reads++;
+					return Promise.resolve({ id: 'me', name: profileName, displayName: profileName, username: 'me' });
+				},
+			});
+
+			assert.equal((await lookups.getProviderCurrentAccount(tracker.session))?.name, 'Old');
+			assert.equal((await lookups.getProviderAccountForResource(tracker.session, {}))?.name, 'Old');
+			assert.equal(reads, 1, 'the per-resource lookup borrows the host-path answer');
+
+			profileName = 'New';
+			assert.equal((await lookups.getProviderCurrentAccount(tracker.session))?.name, 'New');
+			assert.equal(reads, 2, 'the host path always asks the provider');
+
+			profileName = 'Newer';
+			lookups.invalidateDiscoveryCaches();
+			assert.equal((await lookups.getProviderAccountForResource(tracker.session, {}))?.name, 'Newer');
+			assert.equal(reads, 3);
+
+			manager.dispose();
+		});
+	}
+});

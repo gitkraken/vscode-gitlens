@@ -15,6 +15,8 @@ import { fromProviderIssue, providersMetadata, toIssueShape } from './models.js'
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Trello];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
+/** Long enough to span one tracker read, short enough that a profile change shows on the next. */
+const recentAccountTTL = 60 * 1000;
 
 /** A Trello board, surfaced as both a "resource" (org analogue) and a "project" for issue reads. */
 export interface TrelloBoardDescriptor extends IssueResourceDescriptor {}
@@ -52,42 +54,55 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return appKey;
 	}
 
+	/**
+	 * Always asks Trello: the host's current-account cache decides when this runs. The member lookup is
+	 * account-wide, so the answer is lent briefly to the per-board lookup a tracker read makes right after it.
+	 */
 	protected override async getProviderCurrentAccount(
 		session: ProviderAuthenticationSession,
 	): Promise<Account | undefined> {
-		return this.fetchCurrentAccount(session);
+		const account = await this.fetchAccount(session);
+		if (account != null) {
+			this._recentAccounts.set(session.accessToken, Promise.resolve(account));
+		}
+		return account;
 	}
 
 	protected override async getProviderAccountForResource(
 		session: ProviderAuthenticationSession,
 		_resource: ResourceDescriptor,
 	): Promise<Account | undefined> {
-		return this.fetchCurrentAccount(session);
+		const appKey = this.requireAppKey(session);
+		return this._recentAccounts.getOrCreate(session.accessToken, () => this.fetchAccount(session, appKey), {
+			evictWhen: account => account == null,
+		});
 	}
 
-	/** Trello's viewer lookup is account-wide, so a tracker read's warmup and its per-board lookup share one request. */
-	private readonly _accounts = new PromiseCache<string, Account | undefined>({ capacity: 10 });
-	private fetchCurrentAccount(session: ProviderAuthenticationSession): Promise<Account | undefined> {
-		const appKey = this.requireAppKey(session);
+	override invalidateDiscoveryCaches(): void {
+		this._recentAccounts.clear();
+	}
 
-		return this._accounts.getOrCreate(
-			session.accessToken,
-			async () => {
-				const api = await this.getProvidersApi();
-				const user = await api.getTrelloCurrentUser(toTokenWithInfo(this.id, session), appKey);
-				if (user == null) return undefined;
+	private readonly _recentAccounts = new PromiseCache<string, Account | undefined>({
+		capacity: 10,
+		createTTL: recentAccountTTL,
+	});
 
-				return {
-					provider: this,
-					id: user.id,
-					name: user.name,
-					username: user.username,
-					email: user.email,
-					avatarUrl: user.avatarUrl ?? undefined,
-				};
-			},
-			{ evictWhen: account => account == null },
-		);
+	private async fetchAccount(
+		session: ProviderAuthenticationSession,
+		appKey: string = this.requireAppKey(session),
+	): Promise<Account | undefined> {
+		const api = await this.getProvidersApi();
+		const user = await api.getTrelloCurrentUser(toTokenWithInfo(this.id, session), appKey);
+		if (user == null) return undefined;
+
+		return {
+			provider: this,
+			id: user.id,
+			name: user.name,
+			username: user.username,
+			email: user.email,
+			avatarUrl: user.avatarUrl ?? undefined,
+		};
 	}
 
 	protected override async getProviderResourcesForUser(
