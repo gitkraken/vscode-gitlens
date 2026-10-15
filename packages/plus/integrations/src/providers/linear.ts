@@ -55,6 +55,8 @@ const maxPagesPerRequest = 10;
  */
 const maxAccountWidePagesPerRequest = 50;
 const linearImplicitTeamsPageSize = 50;
+/** Long enough to span one tracker read, short enough that a profile change shows on the next. */
+const recentAccountTTL = 60 * 1000;
 /** A team key and issue number, as Linear writes an issue's identifier (`ENG-123`). */
 const linearIdentifier = /^([A-Za-z0-9]+)-(\d+)$/;
 
@@ -282,13 +284,39 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		this._organizations = undefined;
 		this._teams.clear();
 		this._autolinks.clear();
+		this._recentAccounts.clear();
 	}
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
+
+	/**
+	 * Always asks Linear: the host's current-account cache decides when this runs. The viewer query is account-wide,
+	 * so the answer is lent briefly to the per-resource lookup a tracker read makes right after it.
+	 */
+	protected override async getProviderCurrentAccount(
+		session: ProviderAuthenticationSession,
+	): Promise<Account | undefined> {
+		const account = await this.fetchAccount(session);
+		if (account != null) {
+			this._recentAccounts.set(session.accessToken, Promise.resolve(account));
+		}
+		return account;
+	}
 
 	protected override async getProviderAccountForResource(
 		session: ProviderAuthenticationSession,
 		_resource: ResourceDescriptor,
 	): Promise<Account | undefined> {
+		return this._recentAccounts.getOrCreate(session.accessToken, () => this.fetchAccount(session), {
+			evictWhen: account => account == null,
+		});
+	}
+
+	private readonly _recentAccounts = new PromiseCache<string, Account | undefined>({
+		capacity: 10,
+		createTTL: recentAccountTTL,
+	});
+
+	private async fetchAccount(session: ProviderAuthenticationSession): Promise<Account | undefined> {
 		const api = await this.getProvidersApi();
 		// Linear's viewer isn't a ProviderAccount (no username/avatar), so build the Account manually
 		// (Trello-style) from the fields the viewer query returns.

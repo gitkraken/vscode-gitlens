@@ -1587,7 +1587,7 @@ export abstract class IntegrationBase<
 		options?: { avatarSize?: number },
 	): Promise<Account | undefined>;
 
-	/** Whether this integration can answer {@link getCurrentAccount} at all — Jira, Linear and Trello cannot. */
+	/** Whether this integration can answer {@link getCurrentAccount} at all — Jira Data Center cannot. */
 	get supportsCurrentAccount(): boolean {
 		return this.getProviderCurrentAccount != null;
 	}
