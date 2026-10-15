@@ -139,6 +139,8 @@ interface GlobalStorageCore {
 
 type GlobalStorageDynamic = Record<`plus:preview:${FeaturePreviews}:usages`, StoredFeaturePreviewUsagePeriod[]> &
 	Record<`plus:trialReset:${string}:attempted`, boolean> &
+	/** The opt-in window the server refused (409) to reactivate the account's Pro trial for */
+	Record<`plus:trialReactivation:${string}:refused`, { nextTrialOptInDate: string }> &
 	Record<
 		`plus:organization:${string}:settings`,
 		Stored<(OrganizationSettings & { lastValidatedAt: number }) | undefined>

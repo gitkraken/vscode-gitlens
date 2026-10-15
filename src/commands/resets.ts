@@ -351,6 +351,7 @@ export class ResetCommand extends GlCommandBase {
 						case 'subscription':
 							await this.container.storage.delete('premium:subscription');
 							await this.container.storage.deleteWithPrefix('plus:trialReset');
+							await this.container.storage.deleteWithPrefix('plus:trialReactivation');
 							clearTrialResetSessionAttempts();
 							break;
 						case 'previews':

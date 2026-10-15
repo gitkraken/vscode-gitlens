@@ -107,6 +107,22 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 	}
 }
 
+/**
+ * Drops the effective plan's opt-in date when it is the one the server refused to reactivate the trial for
+ * (409), so the state computes to trial-expired instead of offering the reactivation again
+ */
+export function omitRefusedTrialReactivation<T extends Optional<Subscription, 'state'>>(
+	subscription: T,
+	refusedFor: string | undefined,
+): T {
+	const { nextTrialOptInDate, ...effective } = subscription.plan.effective;
+	if (effective.id !== 'community-with-account' || nextTrialOptInDate == null || nextTrialOptInDate !== refusedFor) {
+		return subscription;
+	}
+
+	return { ...subscription, plan: { ...subscription.plan, effective: effective } };
+}
+
 export function getSubscriptionNextPaidPlanId(subscription: Optional<Subscription, 'state'>): PaidSubscriptionPlanIds {
 	let next = orderedPaidPlans.indexOf(subscription.plan.actual.id as PaidSubscriptionPlanIds) + 1;
 	// Skip the student plan since we cannot determine if the user is student-eligible or not

@@ -1,12 +1,17 @@
 /* oxlint-disable no-template-curly-in-string -- fixture bullets contain the literal `${aiCredits}` placeholder token */
 
 import * as assert from 'assert';
+import { SubscriptionState } from '../../../../constants.subscription.js';
 import type { PlansContent } from '../../models/plans.js';
 import { defaultPlansContent } from '../../models/plans.js';
+import type { Subscription, SubscriptionPlanIds } from '../../models/subscription.js';
 import {
+	computeSubscriptionState,
+	getSubscriptionPlan,
 	getSubscriptionPlanAiCredits,
 	getSubscriptionPlanFeatures,
 	getSubscriptionPlanUpgradeFeatures,
+	omitRefusedTrialReactivation,
 } from '../subscription.utils.js';
 
 suite('Subscription Utils Test Suite', () => {
@@ -107,6 +112,70 @@ suite('Subscription Utils Test Suite', () => {
 			assert.deepStrictEqual(getSubscriptionPlanUpgradeFeatures(plans, 'advanced'), [
 				'Advanced pitch — 2M credits/week',
 			]);
+		});
+	});
+
+	suite('omitRefusedTrialReactivation', () => {
+		const optInDate = '2026-01-01T00:00:00.000Z';
+
+		function createSubscription(effectiveId: SubscriptionPlanIds): Omit<Subscription, 'state'> {
+			const actual = getSubscriptionPlan('community-with-account', false, 0, undefined);
+			return {
+				account: { id: 'acct', name: 'Test', email: undefined, verified: true, createdOn: optInDate },
+				plan: {
+					actual: actual,
+					effective:
+						effectiveId === 'community-with-account'
+							? getSubscriptionPlan(
+									effectiveId,
+									false,
+									0,
+									undefined,
+									undefined,
+									undefined,
+									false,
+									optInDate,
+								)
+							: getSubscriptionPlan(
+									effectiveId,
+									false,
+									0,
+									undefined,
+									new Date(),
+									new Date(Date.now() + 86_400_000),
+									false,
+									optInDate,
+								),
+				},
+			};
+		}
+
+		test('drops the refused opt-in date so the state computes to trial-expired', () => {
+			const subscription = createSubscription('community-with-account');
+			assert.strictEqual(computeSubscriptionState(subscription), SubscriptionState.TrialReactivationEligible);
+
+			const result = omitRefusedTrialReactivation(subscription, optInDate);
+			assert.strictEqual(result.plan.effective.nextTrialOptInDate, undefined);
+			assert.strictEqual(computeSubscriptionState(result), SubscriptionState.TrialExpired);
+		});
+
+		test('keeps the offer when the refusal was for another opt-in window', () => {
+			const subscription = createSubscription('community-with-account');
+			const result = omitRefusedTrialReactivation(subscription, '2025-01-01T00:00:00.000Z');
+			assert.strictEqual(result, subscription);
+			assert.strictEqual(computeSubscriptionState(result), SubscriptionState.TrialReactivationEligible);
+		});
+
+		test('keeps the offer when nothing was refused', () => {
+			const subscription = createSubscription('community-with-account');
+			assert.strictEqual(omitRefusedTrialReactivation(subscription, undefined), subscription);
+		});
+
+		test('leaves a trial plan alone even when it carries the refused date', () => {
+			const subscription = createSubscription('pro');
+			const result = omitRefusedTrialReactivation(subscription, optInDate);
+			assert.strictEqual(result, subscription);
+			assert.strictEqual(computeSubscriptionState(result), SubscriptionState.Trial);
 		});
 	});
 });
