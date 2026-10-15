@@ -193,6 +193,7 @@ Contributions to the documentation are greatly appreciated. If you find any area
 
 A big thanks to the people that have contributed to this project 🙏❤️:
 
+- yuezichong ([@qianxunslimg](https://github.com/qianxunslimg)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=qianxunslimg)
 - Zeeshan Adnan ([@zeeshanadnan](https://github.com/zeeshanadnan)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=zeeshanadnan)
 - Alex ([@deadmeu](https://github.com/deadmeu)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=deadmeu)
 - Abdulrahman (Abdu) Assabri ([@abdusabri](https://github.com/abdusabri)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=abdusabri)

@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes terminal commit and reference links in multi-repository workspaces by resolving the terminal's working directory, including nested repositories ([#5986](https://github.com/gitkraken/vscode-gitlens/issues/5986)) &mdash; thanks to [PR #5196](https://github.com/gitkraken/vscode-gitlens/pull/5196) by yuezichong ([@qianxunslimg](https://github.com/qianxunslimg))
 - Fixes Pro feature gates and account surfaces still offering _Reactivate Pro Trial_ after the server refused the reactivation &mdash; once refused, they show the _Upgrade to Pro_ messaging instead ([#5987](https://github.com/gitkraken/vscode-gitlens/issues/5987))
 - Fixes _Push_ from the _Git Command Palette_ on a branch with no upstream showing a plain push confirmation (which then failed) instead of the publish step
 - Fixes pressing <kbd>Space</kbd> on a _Git Command Palette_ confirmation step breaking the command &mdash; e.g. _Delete Worktree_ would stop responding and never delete the worktree
