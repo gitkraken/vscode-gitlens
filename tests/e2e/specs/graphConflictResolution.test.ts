@@ -31,6 +31,7 @@ import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, DefaultTimeout, expect, GitFixture, MaxTimeout } from '../baseTest.js';
 import {
+	dismissCommitHover,
 	ensureGraphRowsRendered,
 	graphDetailsRegion,
 	scrollDetailsToFileTree,
@@ -103,10 +104,10 @@ async function setDetailsPanel(webview: FrameLocator, open: boolean): Promise<vo
 
 	await expect(async () => {
 		if (await toggle.isVisible().catch(() => false)) {
-			// A row's hover tooltip, left open where the previous click parked the pointer, can cover the toolbar on a
-			// narrow side bar (Windsurf in CI) and intercept the click; the toggle's handler sits on the button itself,
-			// so a dispatched click still drives it, and `inert` below proves the outcome either way.
-			await toggle.click({ timeout: DefaultTimeout }).catch(() => toggle.dispatchEvent('click').catch(() => {}));
+			// A row's hover card, left open where the previous click parked the pointer, can cover the toolbar on a
+			// narrow side bar (Windsurf in CI) and intercept the click — dismiss it first, then click for real.
+			await dismissCommitHover(webview);
+			await toggle.click({ timeout: DefaultTimeout }).catch(() => {});
 		}
 
 		if (open) {
