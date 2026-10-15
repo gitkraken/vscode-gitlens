@@ -99,6 +99,7 @@ import {
 	isSubscriptionExpired,
 	isSubscriptionPaid,
 	isSubscriptionTrial,
+	omitRefusedTrialReactivation,
 	SubscriptionUpdatedUriPathPrefix,
 } from './utils/subscription.utils.js';
 
@@ -720,6 +721,42 @@ export class SubscriptionService implements Disposable {
 
 			if (!rsp.ok) {
 				if (rsp.status === 409) {
+					// The server refuses for reasons the client can't see (students, members of paid orgs, …).
+					// Refresh first — the 409 may only mean a trial started elsewhere that the client hasn't
+					// seen — and if the reactivation is still on offer, remember the refusal for this opt-in
+					// window so the trial-expired state is shown instead. A failed refresh leaves the plan as
+					// is, and the refusal is still worth remembering: it is keyed to this opt-in date, so a
+					// later check-in that changes the plan or the date makes it moot on its own
+					try {
+						// Pinned to the organization the user is looking at — the server's opt-in date is per org,
+						// and the default header is derived from a subscription a reset may have emptied
+						await this.checkInAndValidate(session, source, {
+							force: true,
+							organizationId:
+								this._subscription.activeOrganization?.id ?? getConfiguredActiveOrganizationId(),
+						});
+					} catch (ex) {
+						scope?.error(ex);
+					}
+
+					const refusedFor = this._subscription.plan.effective.nextTrialOptInDate;
+					if (
+						refusedFor != null &&
+						this._subscription.state === SubscriptionState.TrialReactivationEligible
+					) {
+						await this.container.storage
+							.store(`plus:trialReactivation:${session.account.id}:refused`, {
+								nextTrialOptInDate: refusedFor,
+							})
+							.catch((ex: unknown) =>
+								Logger.error(ex, 'Unable to remember the refused Pro trial reactivation'),
+							);
+						this.changeSubscription(this._subscription, source);
+					}
+
+					// The check-in revealed a trial or paid plan — the UI just unlocked, so an error would contradict it
+					if (isSubscriptionTrial(this._subscription) || isSubscriptionPaid(this._subscription)) return;
+
 					void window.showErrorMessage(
 						l10n.t(
 							'You are not eligible to reactivate your Pro trial. If you feel that is an error, please contact support.',
@@ -1403,6 +1440,14 @@ export class SubscriptionService implements Disposable {
 				},
 			};
 		}
+
+		subscription = omitRefusedTrialReactivation(
+			subscription,
+			subscription.account != null
+				? this.container.storage.get(`plus:trialReactivation:${subscription.account.id}:refused`)
+						?.nextTrialOptInDate
+				: undefined,
+		);
 
 		subscription.state = computeSubscriptionState(subscription);
 		assertSubscriptionState(subscription);

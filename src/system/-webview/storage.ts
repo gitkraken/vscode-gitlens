@@ -109,7 +109,10 @@ export class Storage implements Disposable {
 
 	@trace({ onlyExit: { after: 250 } })
 	async reset(): Promise<void> {
-		return this.deleteWithPrefixCore(undefined, /^(premium:subscription|plus:preview:.*|plus:trialReset:.*)$/);
+		return this.deleteWithPrefixCore(
+			undefined,
+			/^(premium:subscription|plus:preview:.*|plus:trialReset:.*|plus:trialReactivation:.*)$/,
+		);
 	}
 
 	@trace({ args: (key: keyof GlobalStorage) => ({ key: key }), onlyExit: { after: 250 } })
