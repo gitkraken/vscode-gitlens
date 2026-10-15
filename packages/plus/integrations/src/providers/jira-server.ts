@@ -305,6 +305,9 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		// Every request of a search shares its user scope (see `getProjectIssuesSearches`).
 		const { options } = requests[0];
 		if (options.user == null) return undefined;
+		// One project's search is its own read, by the same numeric id, so it costs no more to read it as one. And it
+		// reports what the search can't: a dropped issue's failure, which a search can only answer by being read again.
+		if (requests.length === 1) return undefined;
 
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 		const api = await this.getProvidersApi();
