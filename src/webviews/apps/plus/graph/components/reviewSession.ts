@@ -88,6 +88,7 @@ export function getReviewThreadItems(
 				title: finding.title,
 				description: finding.description,
 				state: session?.findingStates.get(finding.id) ?? 'open',
+				...(finding.source != null ? { source: finding.source } : {}),
 			});
 		}
 	}

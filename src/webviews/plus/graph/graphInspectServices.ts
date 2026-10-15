@@ -85,6 +85,7 @@ import {
 	isComposeInputError,
 	libraryPlanToProposedCommits,
 } from './compose/utils.js';
+import { DeepReviewChannel, deepReviewRoute, getDeepReviewDiffCommand } from './deepReview.js';
 import type { CommitDetails, CompareDiff, Wip } from './detailsProtocol.js';
 import {
 	GraphComposeVirtualContentProvider,
@@ -121,6 +122,9 @@ import type {
 	ComposeSessionKey,
 	ConflictFallbackInfo,
 	ConflictSide,
+	DeepReviewArgs,
+	DeepReviewStartResult,
+	DeepReviewState,
 	GraphServices,
 	ProposedCommit,
 	QueuedTakeSide,
@@ -345,6 +349,9 @@ export class GraphInspectServices {
 	);
 	/** Thread actions taken from the editor, kept append-only so a hidden panel catches up on all of them. */
 	private readonly _reviewThreadActions: ReviewThreadActionsState = { actions: [] };
+	private readonly _deepReviewEvent = createRpcEvent<DeepReviewState | undefined>('deepReview', 'save-last');
+	/** The deep review's report channel — what the agent reported stays readable after it closes. */
+	private _deepReview?: DeepReviewChannel;
 	/** The review walk this instance drives — the host owns the cursor so editor keybindings keep
 	 *  working while the graph webview is hidden behind the diff it opened. */
 	private _reviewWalk?: ReviewWalkArgs & { index: number; marked: string[] };
@@ -352,6 +359,8 @@ export class GraphInspectServices {
 	dispose(): void {
 		releaseReviewWalk(this);
 		releaseReviewThreads(this);
+		this._deepReview?.close();
+		this._deepReview = undefined;
 		// AI runs (generate/review/compose) are driven by the webview's AbortController, which can't
 		// fire once the webview is gone — cancel host-side so the AI call doesn't run for a discarded result.
 		cancelAndDispose(this._aiCancellations);
@@ -550,6 +559,12 @@ export class GraphInspectServices {
 					),
 				orientChanges: (repoPath, scope, prompt, excludedFiles, signal) =>
 					this.orientChanges(repoPath, scope, prompt, excludedFiles, signal),
+				startDeepReview: args => this.startDeepReview(args),
+				stopDeepReview: () => {
+					this.stopDeepReview();
+					return Promise.resolve();
+				},
+				onDeepReview: this._deepReviewEvent.subscribe(buffer, tracker, () => this._deepReview?.state),
 				setReviewWalk: args => this.setReviewWalk(args),
 				reviewWalk: action => this.reviewWalk(action),
 				onReviewWalk: this._reviewWalkEvent.subscribe(buffer, tracker, () => this.getReviewWalkState()),
@@ -1421,6 +1436,68 @@ export class GraphInspectServices {
 		} finally {
 			disposeCancellation();
 		}
+	}
+
+	/** Opens a report channel on the IPC server and hands the scope to an agent whose prompt carries the
+	 *  channel's address and token — findings come back through {@link _deepReviewEvent} as they are
+	 *  POSTed. One channel per instance; starting again replaces it. */
+	@debug()
+	private async startDeepReview(args: DeepReviewArgs): Promise<DeepReviewStartResult> {
+		try {
+			const endpoint = this.container.ipc.address;
+			const token = this.container.ipc.token;
+			if (endpoint == null || token == null) {
+				void window.showWarningMessage(
+					l10n.t('Deep Review needs the GitLens local channel, which is not available in this environment.'),
+				);
+				return { ok: false, reason: 'no-channel' };
+			}
+
+			const load = loadSupportedAgentsInStages(this.container);
+			if ((await load.nonCli).length === 0 && (await load.all).agents.length === 0) {
+				void window.showWarningMessage(l10n.t('No supported AI agent is available in this editor.'));
+				return { ok: false, reason: 'no-agents' };
+			}
+
+			this.stopDeepReview();
+			const channel = new DeepReviewChannel(this.container.ipc, state => {
+				if (this._deepReview === channel) {
+					this._deepReviewEvent.fire(state);
+				}
+			});
+			this._deepReview = channel;
+			this._deepReviewEvent.fire(channel.state);
+
+			const endpoints = getReviewDiffEndpoints(args.scope);
+			const { prompt } = await this.container.ai.getPrompt('deep-review', undefined, {
+				scopeLabel: args.scopeLabel,
+				diffCommand:
+					endpoints != null ? getDeepReviewDiffCommand(args.scope, endpoints.lhs, endpoints.rhs) : 'git diff',
+				files: args.files.join('\n'),
+				endpoint: `${endpoint}/${deepReviewRoute}`,
+				token: token,
+				instructions: args.prompt,
+			});
+			void this.container.usage.track('action:gitlens.ai.openInAgent:happened');
+			await executeCommand('gitlens.runPromptInAgent', {
+				prompt: prompt,
+				cwd: args.repoPath,
+				mode: 'agent',
+				autoExecute: true,
+				source: 'graph',
+			} as RunPromptInAgentCommandArgs);
+			return { ok: true };
+		} catch (ex) {
+			this.stopDeepReview();
+			const message = getPresentableErrorMessage(ex);
+			void window.showWarningMessage(l10n.t('Unable to start a deep review: {0}', message));
+			return { ok: false, reason: 'error', message: message };
+		}
+	}
+
+	/** Closes the channel; what the agent reported stays with the review. */
+	private stopDeepReview(): void {
+		this._deepReview?.close();
 	}
 
 	private getReviewWalkState(): ReviewWalkState | undefined {

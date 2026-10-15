@@ -798,6 +798,59 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(entry?.session?.order, undefined, 'clearing the plan drops its order too');
 	});
 
+	test('what a deep review reports joins the result as the agent area, once per sequence, even before any run', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		const f1 = {
+			id: 'agent-1',
+			severity: 'warning',
+			title: 'one',
+			description: '',
+			filePath: 'a.ts',
+			source: 'agent',
+		} as const;
+		const f2 = {
+			id: 'agent-2',
+			severity: 'critical',
+			title: 'two',
+			description: '',
+			filePath: 'b.ts',
+			source: 'agent',
+		} as const;
+		controller.review.applyDeepReviewState({ active: true, done: false, findings: [{ seq: 1, finding: f1 }] });
+		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.execState, 'complete', 'a result exists now, so the panel shows it');
+		assert.deepStrictEqual(entry?.deepReview, { active: true, done: false, count: 1, seqApplied: 1 });
+		let result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
+		assert.deepStrictEqual(
+			result?.focusAreas.map(a => [a.id, a.findings?.map(f => f.id)]),
+			[['agent', ['agent-1']]],
+		);
+
+		controller.review.applyDeepReviewState({
+			active: false,
+			done: true,
+			findings: [
+				{ seq: 1, finding: f1 },
+				{ seq: 2, finding: f2 },
+			],
+		});
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
+		const area = result?.focusAreas.find(a => a.id === 'agent');
+		assert.deepStrictEqual(
+			area?.findings?.map(f => f.id),
+			['agent-1', 'agent-2'],
+			'a replayed finding is not added twice',
+		);
+		assert.strictEqual(area?.severity, 'critical');
+		assert.deepStrictEqual(entry?.deepReview, { active: false, done: true, count: 2, seqApplied: 2 });
+	});
+
 	test('abortRunningOperations aborts focus-area runs along with the overview run', () => {
 		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 		host.crossPaneState.runningOperations.set(

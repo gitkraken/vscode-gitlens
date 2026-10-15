@@ -1,6 +1,7 @@
 import type { ColumnMode } from '@gitkraken/commit-graph/zones.js';
 import type {
 	AIReviewDetailResult,
+	AIReviewFinding,
 	AIReviewOrientResult,
 	AIReviewResult,
 	AIReviewSeverity,
@@ -294,6 +295,28 @@ export type ReviewResult = { result: AIReviewResult } | { error: { message: stri
 
 export type ReviewOrientResult = { result: AIReviewOrientResult } | { error: { message: string } };
 
+export interface DeepReviewArgs {
+	repoPath: string;
+	scope: ScopeSelection;
+	/** How the panel describes the scope — what the agent is told it is reviewing */
+	scopeLabel: string;
+	/** The checklist's files, so the agent knows the whole changeset even if the diff is large */
+	files: string[];
+	prompt?: string;
+}
+
+export type DeepReviewStartResult =
+	| { ok: true }
+	| { ok: false; reason: 'no-agents' | 'no-channel' | 'error'; message?: string };
+
+/** What a delegated deep review has reported so far: findings append-only with a sequence (a panel
+ *  hidden for a while applies the ones it hasn't), and whether the agent said it was done. */
+export interface DeepReviewState {
+	active: boolean;
+	done: boolean;
+	findings: { seq: number; finding: AIReviewFinding }[];
+}
+
 export type ReviewWalkAction = 'next' | 'previous' | 'markViewed' | 'stop';
 
 export interface ReviewWalkArgs {
@@ -319,6 +342,7 @@ export interface ReviewThreadItem {
 	title: string;
 	description: string;
 	state: ReviewThreadState;
+	source?: 'agent';
 }
 
 export interface ReviewThreadsArgs {
@@ -647,6 +671,12 @@ export interface GraphInspectService {
 		excludedFiles?: string[],
 		signal?: AbortSignal,
 	): Promise<ReviewDetailResult>;
+	/** The deep depth: hands the scope to an agent that can build, test and read beyond the diff, with a
+	 *  channel to report findings back into this review. Findings arrive on {@link onDeepReview}. */
+	startDeepReview(args: DeepReviewArgs): Promise<DeepReviewStartResult>;
+	/** Closes the report channel; what was reported stays. */
+	stopDeepReview(): Promise<void>;
+	readonly onDeepReview: RpcEventSubscription<DeepReviewState | undefined>;
 	/** The orient depth: groups and orders the scope's files from their manifest, one line of context
 	 *  each — a reading order for the panel's checklist, no findings. */
 	orientChanges(

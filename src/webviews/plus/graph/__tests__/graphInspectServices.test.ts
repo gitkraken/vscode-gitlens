@@ -459,6 +459,7 @@ function createReviewFake(
 		_resolveProgressEvent: noopEvent,
 		_reviewWalkEvent: noopEvent,
 		_reviewThreadActionsEvent: noopEvent,
+		_deepReviewEvent: noopEvent,
 		_reviewThreadActions: { actions: [] },
 	});
 
@@ -860,6 +861,7 @@ function createResolveProgressFake() {
 		_composeProgressEvent: { subscribe: () => () => {} },
 		_reviewWalkEvent: { subscribe: () => () => {} },
 		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_deepReviewEvent: { subscribe: () => () => {} },
 		_reviewThreadActions: { actions: [] },
 		_resolveProgressEvent: {
 			subscribe: () => () => {},
@@ -940,6 +942,7 @@ function createResolveMetricsFake(metrics: ({ stepCount?: number; toolCallCount?
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 		_reviewWalkEvent: { subscribe: () => () => {} },
 		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_deepReviewEvent: { subscribe: () => () => {} },
 		_reviewThreadActions: { actions: [] },
 		getOrCreateConflictToolsForGraph: () => Promise.resolve(integration),
 	});
@@ -1077,6 +1080,7 @@ function createComposeConversationFake(options?: { failGenerate?: boolean }) {
 		_resolveProgressEvent: { subscribe: () => () => {}, fire: () => {} },
 		_reviewWalkEvent: { subscribe: () => () => {} },
 		_reviewThreadActionsEvent: { subscribe: () => () => {} },
+		_deepReviewEvent: { subscribe: () => () => {} },
 		_reviewThreadActions: { actions: [] },
 		getOrCreateComposeToolsForGraph: () => Promise.resolve(integration),
 		// Turning a library plan into display commits needs the virtual-FS session machinery, which has

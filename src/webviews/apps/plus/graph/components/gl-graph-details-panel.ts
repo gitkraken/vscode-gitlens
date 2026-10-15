@@ -2881,6 +2881,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._workflow = new DetailsWorkflowController(this, this._actions);
 		this._actions.reviewWalkHandler = state => this._workflow.review.applyWalkState(state);
 		this._actions.reviewThreadActionsHandler = state => this._workflow.review.applyThreadActions(state);
+		this._actions.deepReviewHandler = state => this._workflow.review.applyDeepReviewState(state);
 
 		if (this._pendingCompare != null) {
 			const { params, onReady, options } = this._pendingCompare;
@@ -3995,6 +3996,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.orient=${reviewEntry?.orient}
 			?orient-running=${reviewEntry?.orientRun != null}
 			.orientError=${reviewEntry?.orientError}
+			.deepReview=${reviewEntry?.deepReview}
 			?ai-enabled=${this._state.preferences.get()?.aiEnabled ?? false}
 			.scopeItems=${scopeItems}
 			.scopeLoading=${this._state.branchCommitsFetching.get()}
@@ -4051,6 +4053,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._workflow.review.startWalk(this.effectiveRepoPath);
 			}}
 			@review-orient-clear=${() => this._workflow.review.clearOrient()}
+			@review-deep-review=${(e: CustomEvent<{ prompt?: string; scopeLabel: string; files: string[] }>) =>
+				void this._workflow.review.startDeepReview(
+					this.effectiveRepoPath,
+					e.detail.prompt,
+					e.detail.scopeLabel,
+					e.detail.files,
+				)}
+			@review-deep-review-stop=${() => this._workflow.review.stopDeepReview()}
 			@review-walk-start=${() => this._workflow.review.startWalk(this.effectiveRepoPath)}
 			@review-walk-step=${(e: CustomEvent<{ action: ReviewWalkAction }>) =>
 				this._actions.stepReviewWalk(e.detail.action)}

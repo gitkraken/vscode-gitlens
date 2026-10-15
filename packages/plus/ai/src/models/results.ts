@@ -11,6 +11,9 @@ export interface AIReviewFinding {
 	readonly description: string;
 	readonly filePath?: string;
 	readonly lineRange?: { readonly start: number; readonly end: number };
+	/** Who produced the finding; absent = the model's own review run. `agent` = reported back by a
+	 *  delegated deep review, which could build, test and read beyond the diff. */
+	readonly source?: 'agent';
 }
 
 export interface AIReviewFocusArea {

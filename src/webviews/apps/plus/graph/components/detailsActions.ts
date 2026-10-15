@@ -59,6 +59,9 @@ import type {
 	ComposeResult,
 	ComposeSessionKey,
 	ConflictSide,
+	DeepReviewArgs,
+	DeepReviewStartResult,
+	DeepReviewState,
 	GraphServices,
 	ReresolveFileResult,
 	ResolveResult,
@@ -634,6 +637,7 @@ export class DetailsActions {
 			// The walk's cursor is host-owned; the workflow controller folds its updates into the session.
 			() => this.services.graphInspect.onReviewWalk(state => this.reviewWalkHandler?.(state)),
 			() => this.services.graphInspect.onReviewThreadActions(state => this.reviewThreadActionsHandler?.(state)),
+			() => this.services.graphInspect.onDeepReview(state => this.deepReviewHandler?.(state)),
 			() =>
 				this.services.graphInspect.onResolveProgress(event => {
 					this.state.resolveProgressMessage.set(event?.message);
@@ -2910,6 +2914,16 @@ export class DetailsActions {
 	reviewWalkHandler?: (state: ReviewWalkState | undefined) => void;
 	/** Likewise for thread actions taken in the editor. */
 	reviewThreadActionsHandler?: (state: ReviewThreadActionsState | undefined) => void;
+	/** And for what a delegated deep review reports. */
+	deepReviewHandler?: (state: DeepReviewState | undefined) => void;
+
+	startDeepReview(args: DeepReviewArgs): Promise<DeepReviewStartResult> {
+		return this.services.graphInspect.startDeepReview(args);
+	}
+
+	stopDeepReview(): void {
+		void this.services.graphInspect.stopDeepReview();
+	}
 
 	orientChanges(
 		repoPath: string,

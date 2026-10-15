@@ -266,6 +266,29 @@ export const reviewModePanelStyles = css`
 		color: var(--vscode-errorForeground);
 	}
 
+	/* The deep review's status strip */
+	.review-deep {
+		display: flex;
+		gap: var(--gl-space-6);
+		align-items: center;
+		padding: var(--gl-space-4) var(--gl-space-10);
+		margin: var(--gl-space-6) var(--gl-space-6) 0;
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+	}
+
+	.review-deep__text {
+		flex: 1 1 auto;
+	}
+
+	.review-finding__source {
+		padding: 0 var(--gl-space-3);
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+		border: var(--gl-border-width) solid var(--vscode-descriptionForeground);
+		border-radius: var(--gl-radius-sm);
+	}
+
 	.review-finding--closed {
 		opacity: 0.7;
 	}

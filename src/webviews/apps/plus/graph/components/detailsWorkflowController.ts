@@ -1,5 +1,11 @@
+import * as l10n from '@vscode/l10n';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
-import type { AIReviewDetailResult } from '@gitlens/ai/models/results.js';
+import type {
+	AIReviewDetailResult,
+	AIReviewFinding,
+	AIReviewFocusArea,
+	AIReviewResult,
+} from '@gitlens/ai/models/results.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual } from '@gitlens/utils/array.js';
@@ -10,6 +16,7 @@ import type {
 	ComposeResult,
 	ComposeSessionKey,
 	ConflictSide,
+	DeepReviewState,
 	ProposedCommit,
 	QueuedTakeSide,
 	ResolvedFileSummary,
@@ -66,6 +73,37 @@ function composeSessionKey(anchor: AnchorSelection): ComposeSessionKey {
  *  drift in FORMAT. It does not make them agree on visibility: `fireRunTelemetry` runs
  *  unconditionally while `onRunSettled` bails on a superseded entry / aborted signal / disconnect,
  *  so a reported message may belong to a failure whose error pane was never rendered. */
+/** The agent's findings join the result as their own focus area — the provenance the doc asks for sits on
+ *  each finding (`source`), and the area keeps them apart from the model's own in the index. */
+export const agentFocusAreaId = 'agent';
+
+export function withAgentFindings(
+	result: AIReviewResult | undefined,
+	fresh: readonly AIReviewFinding[],
+): AIReviewResult {
+	const areas = result?.focusAreas ?? [];
+	const existing = areas.find(a => a.id === agentFocusAreaId);
+	const findings = [...(existing?.findings ?? []), ...fresh];
+	const severity = findings.some(f => f.severity === 'critical')
+		? 'critical'
+		: findings.some(f => f.severity === 'warning')
+			? 'warning'
+			: 'suggestion';
+	const area: AIReviewFocusArea = {
+		id: agentFocusAreaId,
+		label: l10n.t('Deep review'),
+		rationale: l10n.t('Reported by your agent, which could build, test and read beyond the diff.'),
+		severity: severity,
+		files: [...new Set(findings.map(f => f.filePath).filter((p): p is string => p != null))],
+		findings: findings,
+	};
+	return {
+		overview: result?.overview ?? l10n.t('A deep review by your agent.'),
+		mode: result?.mode ?? 'single-pass',
+		focusAreas: existing != null ? areas.map(a => (a.id === agentFocusAreaId ? area : a)) : [...areas, area],
+	};
+}
+
 export function runFailureMessage(ex: unknown): string {
 	return ex instanceof Error ? ex.message : typeof ex === 'string' ? ex : 'Run failed';
 }
@@ -1176,6 +1214,76 @@ export class DetailsWorkflowController implements ReactiveController {
 					});
 				},
 			);
+		},
+		/** Hands the scope to an agent with a channel back into this review. */
+		startDeepReview: async (
+			repoPath: string | undefined,
+			prompt: string | undefined,
+			scopeLabel: string,
+			files: readonly string[],
+		): Promise<void> => {
+			const scope = this.actions.state.scope.get();
+			if (!repoPath || scope == null) return;
+
+			this.actions.sendTelemetryEvent('graphDetails/review/deepReview/started');
+			const result = await this.actions.startDeepReview({
+				repoPath: repoPath,
+				scope: scope,
+				scopeLabel: scopeLabel,
+				files: [...files],
+				prompt: prompt,
+			});
+			if (!result.ok) {
+				this.actions.sendTelemetryEvent('graphDetails/review/deepReview/failed', { reason: result.reason });
+			}
+		},
+		stopDeepReview: (): void => this.actions.stopDeepReview(),
+		/** Folds what the agent reported into the review's result — as its own focus area, so the panel,
+		 *  the threads and the counts take the findings like any other — applying only the ones past the
+		 *  last sequence this anchor saw. */
+		applyDeepReviewState: (state: DeepReviewState | undefined): void => {
+			const anchor = this.currentAnchor();
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
+			if (state == null) {
+				if (entry?.deepReview == null || !entry.deepReview.active) return;
+
+				this.registerRunningOperation({ ...entry, deepReview: { ...entry.deepReview, active: false } });
+				return;
+			}
+
+			const applied = entry?.deepReview?.seqApplied ?? 0;
+			const fresh = state.findings.filter(f => f.seq > applied).map(f => f.finding);
+			const current = entry?.result ?? this.actions.resources.review.value.get();
+			let result: ReviewResult | undefined = current != null && 'result' in current ? current : undefined;
+			if (fresh.length > 0) {
+				result = { result: withAgentFindings(result?.result, fresh) };
+			}
+			const deepReview = {
+				active: state.active,
+				done: state.done,
+				count: state.findings.length,
+				seqApplied: state.findings.at(-1)?.seq ?? applied,
+			};
+			if (state.done && entry?.deepReview?.done !== true) {
+				this.actions.sendTelemetryEvent('graphDetails/review/deepReview/finished', {
+					'findings.count': state.findings.length,
+				});
+			}
+
+			const base = entry ?? { kind: 'review' as const, anchor: anchor, execState: 'backed' as const };
+			if (result != null && fresh.length > 0) {
+				// The merged result is the entry's result now — and a run that never happened reads as
+				// complete, the way a resumed one does, so the panel shows the findings.
+				this.registerRunningOperation({
+					...base,
+					execState: base.execState === 'generating' ? 'generating' : 'complete',
+					result: result,
+					deepReview: deepReview,
+				});
+				this.actions.resources.review.mutate(result);
+			} else {
+				this.registerRunningOperation({ ...base, deepReview: deepReview });
+			}
 		},
 		/** Drops the reading plan — and the order it gave the walk — back to tree order. */
 		clearOrient: (): void => {
@@ -3289,7 +3397,8 @@ export class DetailsWorkflowController implements ReactiveController {
 				(op as { threadActionsApplied?: number }).threadActionsApplied &&
 			(existing as { orient?: unknown }).orient === (op as { orient?: unknown }).orient &&
 			(existing as { orientRun?: unknown }).orientRun === (op as { orientRun?: unknown }).orientRun &&
-			(existing as { orientError?: unknown }).orientError === (op as { orientError?: unknown }).orientError
+			(existing as { orientError?: unknown }).orientError === (op as { orientError?: unknown }).orientError &&
+			(existing as { deepReview?: unknown }).deepReview === (op as { deepReview?: unknown }).deepReview
 		) {
 			return;
 		}
