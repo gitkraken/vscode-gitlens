@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [19.4.0] - 2026-10-15
+
 ### Added
 
 - Adds _Publish Repository_ to the _Commit Graph_ for a repository with no remotes &mdash; the header, _Working Changes_ panel, overview, and branch details now offer to create a hosted repository (through VS Code's publish flow) instead of a _Publish Branch_ that could only report "No remotes found"; the _Git Command Palette_'s _Push_ offers the same escape when there are no remotes
@@ -7498,7 +7500,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.3.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.4.0...HEAD
+[19.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.3.0...gitkraken:v19.4.0
 [19.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.2.0...gitkraken:v19.3.0
 [19.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.1.0...gitkraken:v19.2.0
 [19.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.0.1...gitkraken:v19.1.0
