@@ -237,6 +237,14 @@ manifest the two-pass overview reads) lands on the entry as `entry.orient`, trac
 `review.applyOrientOrder` writes the plan's order into `session.order`, which `getReviewWalkPaths`
 puts ahead of tree order. Like the session, the plan is carried across AI runs.
 
+The **deep** depth (`graphInspect.startDeepReview`) opens a report channel on the IPC server
+(`review/findings`, `deepReview.ts` parses the agent's POSTs) and dispatches the `deep-review` prompt
+— which carries the channel's address and token — through `gitlens.runPromptInAgent`. Reported
+findings fire `onDeepReview` as an append-only, sequenced list; `review.applyDeepReviewState` folds
+the new ones into the result as the `agent` focus area (`withAgentFindings`), creating a complete
+entry when no run ever happened, so the panel, the threads and the counts take them like any other.
+`entry.deepReview` carries the channel's status for the panel's strip.
+
 The review's findings are mirrored into the diff editors as **comment threads** (`reviewThreads.ts`,
 one `CommentController` for the extension): `gl-graph-details-panel.syncReviewThreads()` projects
 the engaged result plus the session's finding states (`getReviewThreadItems`) and sends it over

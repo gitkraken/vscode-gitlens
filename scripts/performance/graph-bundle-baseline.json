@@ -4,17 +4,17 @@
 	"sourceCommit": "4b28a1b57af4c761fddbb0c24465904867aacb8f",
 	"entrypoint": "graph",
 	"enforcedMetrics": ["entrypoint", "graph.css", "shared.js"],
-	"budgetRationale": "Re-baselined for Review mode sessions and the review walk: +14.4 KiB on the entrypoint since the Publish Repository baseline, of which +17.2 KiB is graph.js, offset by -2.8 KiB on shared.js; graph.css is unchanged. Part of it had accumulated within headroom from earlier work; review sessions (viewed marks with per-file staleness, progress, finding states, the Review complete card) and the walk (the Reading strip and its host bridge, with their localized messages) pushed the entrypoint 2.4 KiB over. Growth is feature code, not a new dependency or a module moving between chunks. Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
+	"budgetRationale": "Re-baselined for the review depths: +15.0 KiB on the entrypoint since the review-sessions-and-walk baseline, all of it graph.js (+15.1 KiB; shared.js and graph.css unchanged within noise). The growth is feature code in the Commit Graph's review mode — findings mirrored as diff comment threads with their editor actions, the Orient depth (reading plan, grouped checklist, plan order for the walk), and the Deep Review depth (agent report channel, status strip, provenance on findings) with their localized messages — not a new dependency or a module moving between chunks. Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
 	"baselineBytes": {
-		"entrypoint": 3130012,
-		"graph.js": 1992439,
+		"entrypoint": 3145418,
+		"graph.js": 2007880,
 		"graph.css": 161447,
-		"shared.js": 976126
+		"shared.js": 976091
 	},
 	"maximumBytes": {
-		"entrypoint": 3142300,
-		"graph.js": 1992439,
+		"entrypoint": 3157706,
+		"graph.js": 2007880,
 		"graph.css": 168328,
-		"shared.js": 980222
+		"shared.js": 980187
 	}
 }

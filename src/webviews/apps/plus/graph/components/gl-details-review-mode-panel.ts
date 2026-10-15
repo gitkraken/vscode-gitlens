@@ -208,6 +208,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@property()
 	orientError?: string;
 
+	/** The delegated deep review on this anchor, while one is open or once it reported done. */
+	@property({ attribute: false })
+	deepReview?: { active: boolean; done: boolean; count: number };
+
 	/** Notes from the reading plan by path, for the file rows' decorations. */
 	private _orientNotes?: ReadonlyMap<string, string>;
 
@@ -759,6 +763,23 @@ export class GlDetailsReviewModePanel extends LitElement {
 										></code-icon>
 										${this.orientRunning ? l10n.t('Orienting…') : l10n.t('Orient')}
 									</gl-button>
+									<gl-button
+										slot="footer"
+										class="review-deep__button"
+										appearance="toolbar"
+										density="compact"
+										tooltip=${l10n.t(
+											'Deep Review: hand the changes to your agent — it can build, test and trace call paths, and its findings stream back into this review',
+										)}
+										?disabled=${this.deepReview?.active || !hasSelectedFiles}
+										@click=${this.handleDeepReview}
+									>
+										<code-icon
+											icon=${this.deepReview?.active ? 'loading' : 'robot'}
+											slot="prefix"
+										></code-icon>
+										${this.deepReview?.active ? l10n.t('Deep Review running…') : l10n.t('Deep Review')}
+									</gl-button>
 								</gl-ai-input>`,
 							)}
 							${this.orientError ? html`<div class="review-orient__error">${this.orientError}</div>` : nothing}
@@ -771,6 +792,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 	/** The strip above the checklist: the walk's HUD while reading, the Start Reading verb before it,
 	 *  and the review's ending — with a summary to take away — once every file is viewed. */
 	private renderDoneCard() {
+		return html`${this.renderDeepReviewStrip()}${this.renderWalkOrEnding()}`;
+	}
+
+	private renderWalkOrEnding() {
 		if (this.walk != null) return this.renderWalkHud();
 
 		const progress = getReviewProgress(this.session, this.files);
@@ -1143,6 +1168,53 @@ export class GlDetailsReviewModePanel extends LitElement {
 			}),
 		);
 	};
+
+	private handleDeepReview = (): void => {
+		this.dispatchEvent(
+			new CustomEvent<{ prompt?: string; scopeLabel: string; files: string[] }>('review-deep-review', {
+				detail: {
+					prompt: this.idleDraftLive || undefined,
+					scopeLabel: this.scopeContextLabel(),
+					files: getReviewWalkPaths(this.session, this.files),
+				},
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
+
+	private handleDeepReviewStop = (): void => {
+		this.dispatchEvent(new CustomEvent('review-deep-review-stop', { bubbles: true, composed: true }));
+	};
+
+	/** The deep review's status strip — while the agent works and once it reported done. */
+	private renderDeepReviewStrip() {
+		const deep = this.deepReview;
+		if (deep == null || (!deep.active && !deep.done)) return nothing;
+
+		const count = formatPlural(
+			l10n.t('{count, plural, one{{count} finding so far} other{{count} findings so far}}'),
+			{ count: deep.count },
+		);
+		return html`<div class="review-deep" role="status">
+			<code-icon class="review-deep__icon" icon=${deep.active ? 'loading' : 'robot'}></code-icon>
+			<span class="review-deep__text"
+				>${deep.active ? l10n.t('Deep Review running') : l10n.t('Deep Review finished')} · ${count}</span
+			>
+			${
+				deep.active
+					? html`<gl-button
+							appearance="toolbar"
+							density="compact"
+							tooltip=${l10n.t('Stop')}
+							@click=${this.handleDeepReviewStop}
+						>
+							<code-icon icon="close"></code-icon>
+						</gl-button>`
+					: nothing
+			}
+		</div>`;
+	}
 
 	private handleOrientApply = (): void => {
 		this.dispatchEvent(new CustomEvent('review-orient-apply', { bubbles: true, composed: true }));
@@ -1637,6 +1709,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 					${severityLabel}
 				</span>
 				<span class="review-finding__title">${getReviewFindingTitle(finding)}</span>
+				${
+					finding.source === 'agent'
+						? html`<span class="review-finding__source" title=${l10n.t('Reported by your agent')}
+								>${l10n.t('AGENT')}</span
+							>`
+						: nothing
+				}
 				${
 					state != null
 						? html`<span class="review-finding__state"

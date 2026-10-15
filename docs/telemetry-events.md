@@ -5418,6 +5418,63 @@ or
 }
 ```
 
+### graphDetails/review/deepReview/failed
+
+> Sent when a deep review could not be handed to an agent
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'panel' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'reason': 'error' | 'no-agents' | 'no-channel'
+}
+```
+
+### graphDetails/review/deepReview/finished
+
+> Sent when the agent reports the deep review done
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'panel' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Findings the agent reported over the whole review
+  'findings.count': number
+}
+```
+
+### graphDetails/review/deepReview/started
+
+> Sent when the user hands the review to an agent (deep review)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'panel' | 'view',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### graphDetails/review/discarded
 
 > Sent when the user discards a completed review from the ready-state footer

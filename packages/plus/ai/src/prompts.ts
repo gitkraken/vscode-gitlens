@@ -876,6 +876,35 @@ Guidelines:
 \${instructions}`,
 };
 
+export const deepReview: PromptTemplate<'deep-review'> = {
+	id: 'deep-review',
+	variables: ['scopeLabel', 'diffCommand', 'files', 'endpoint', 'token', 'instructions'],
+	template: `You are an AI coding agent performing a deep code review. Unlike a model that only sees a diff, you can read the whole repository, follow call paths, build the project and run its tests — use that.
+
+The changes under review: \${scopeLabel}
+Show them with: \${diffCommand}
+
+Changed files:
+<~~files~~>
+\${files}
+</~~files~~>
+
+Review these changes for real defects — logic errors, unhandled failure paths, broken contracts with callers, missing or misleading tests, security problems. For each file, read the callers and callees the diff touches, not just the diff. If the project builds or has tests, build it and run the relevant tests; a failure is a finding.
+
+Report each finding as soon as you are sure of it, by POSTing JSON to GitLens — do not wait until the end, and do not write a report instead:
+
+curl -s -X POST '\${endpoint}' -H 'Authorization: Bearer \${token}' -H 'Content-Type: application/json' -d '{"findings":[{"file":"path/relative/to/repo.ts","lines":{"start":12,"end":14},"severity":"critical","title":"Short title","description":"What is wrong, why it matters, and how to address it."}]}'
+
+- "severity" is one of "critical" (will break at runtime, data loss, security), "warning" (likely bug or contract drift), "suggestion" (worth doing, not urgent)
+- "lines" are 1-based line numbers in the file as it is now (the right side of the diff); omit "lines" when the finding is about the file as a whole
+- Report only findings you have verified by reading the code or running it; never speculate about code you did not open
+- Do not change any files — this is a review, not a fix
+
+When you have finished, POST {"done":true} to the same endpoint, then stop.
+
+\${instructions}`,
+};
+
 export const reviewDetail: PromptTemplate<'review-detail'> = {
 	id: 'review-detail_v2',
 	variables: ['diff', 'overview', 'message', 'focusArea', 'context', 'instructions'],

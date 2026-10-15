@@ -162,6 +162,9 @@ export type RunningOperation =
 			/** The in-flight orient run; aborted with everything else on the entry. */
 			orientRun?: AbortController;
 			orientError?: string;
+			/** The delegated deep review on this anchor: whether its channel is open, what it reported, and
+			 *  the sequence of the last finding folded into the result. */
+			deepReview?: { active: boolean; done: boolean; count: number; seqApplied: number };
 	  })
 	| (RunningOperationBase & {
 			kind: 'compose';
