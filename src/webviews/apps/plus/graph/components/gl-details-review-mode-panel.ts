@@ -3,6 +3,7 @@ import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
+import { isMac } from '@env/platform.js';
 import type {
 	AIReviewDetailResult,
 	AIReviewFinding,
@@ -21,11 +22,16 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
-import type { ViewFilesLayout } from '../../../../../config.js';
+import type { KeyMap, ViewFilesLayout } from '../../../../../config.js';
 import { getWipFileWebviewItem, serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
-import type { ReviewWalkAction, ScopeFile, ScopeSelection } from '../../../../plus/graph/graphService.js';
+import type {
+	DeepReviewAvailability,
+	ReviewWalkAction,
+	ScopeFile,
+	ScopeSelection,
+} from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { GlAiInput } from '../../../shared/components/ai-input.js';
 import type {
@@ -67,6 +73,7 @@ import {
 	getReviewFileProgress,
 	getReviewProgress,
 	getReviewWalkPaths,
+	getReviewWalkShortcut,
 	isReviewComplete,
 } from './reviewSession.js';
 import { scopeSplitSnap, wipScopeSelectionIds } from './shared-panel-helpers.js';
@@ -211,6 +218,14 @@ export class GlDetailsReviewModePanel extends LitElement {
 	/** The delegated deep review on this anchor, while one is open or once it reported done. */
 	@property({ attribute: false })
 	deepReview?: { active: boolean; done: boolean; count: number };
+
+	/** Whether a deep review can start here at all; unknown (`undefined`) keeps the depth offered. */
+	@property({ attribute: false })
+	deepReviewAvailability?: DeepReviewAvailability;
+
+	/** `gitlens.keymap`, for naming the walk's shortcuts in its hints. */
+	@property()
+	keymap?: KeyMap;
 
 	/** Notes from the reading plan by path, for the file rows' decorations. */
 	private _orientNotes?: ReadonlyMap<string, string>;
@@ -787,10 +802,17 @@ export class GlDetailsReviewModePanel extends LitElement {
 										class="review-deep__button"
 										appearance="toolbar"
 										density="compact"
-										tooltip=${l10n.t(
-											'Deep Review: hand the changes to your agent — it can build, test and trace call paths, and its findings stream back into this review',
-										)}
-										?disabled=${this.deepReview?.active || !hasSelectedFiles}
+										tooltip=${
+											this.deepReviewUnavailableReason ??
+											l10n.t(
+												'Deep Review: hand the changes to your agent — it can build, test and trace call paths, and its findings stream back into this review',
+											)
+										}
+										?disabled=${
+											this.deepReview?.active ||
+											!hasSelectedFiles ||
+											this.deepReviewUnavailableReason != null
+										}
 										@click=${this.handleDeepReview}
 									>
 										<code-icon
@@ -806,6 +828,25 @@ export class GlDetailsReviewModePanel extends LitElement {
 					: nothing
 			}
 		`;
+	}
+
+	/** Why the deep depth is off here, when the host has said it can't start — the button's tooltip. */
+	private get deepReviewUnavailableReason(): string | undefined {
+		const availability = this.deepReviewAvailability;
+		if (availability == null || availability.available) return undefined;
+		return availability.reason === 'no-channel'
+			? l10n.t('Deep Review needs the GitLens local channel, which is not available in this environment')
+			: l10n.t('Deep Review needs an AI agent, and none is available in this editor');
+	}
+
+	private walkShortcut(key: 'next' | 'previous' | 'markViewed'): string | undefined {
+		return getReviewWalkShortcut(this.keymap, key, isMac);
+	}
+
+	/** A control's label with its shortcut after it, when the keymap has one. */
+	private withWalkShortcut(label: string, key: 'next' | 'previous' | 'markViewed'): string {
+		const shortcut = this.walkShortcut(key);
+		return shortcut == null ? label : l10n.t('{label} ({shortcut})', { label: label, shortcut: shortcut });
 	}
 
 	/** The strip above the checklist: the walk's HUD while reading, the Start Reading verb before it,
@@ -825,9 +866,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 				<gl-button class="review-walk__start" @click=${this.handleStartWalk}>
 					<code-icon icon="play" slot="prefix"></code-icon>${l10n.t('Start Reading')}
 				</gl-button>
-				<span class="review-walk__hint"
-					>${l10n.t('Opens each change in turn; mark files viewed as you go')}</span
-				>
+				<span class="review-walk__hint">${this.renderStartReadingHint()}</span>
 			</div>`;
 		}
 
@@ -885,6 +924,15 @@ export class GlDetailsReviewModePanel extends LitElement {
 		</div>`;
 	}
 
+	private renderStartReadingHint() {
+		const shortcut = this.walkShortcut('markViewed');
+		return shortcut == null
+			? l10n.t('Opens each change in turn; mark files viewed as you go')
+			: l10n.t('Opens each change in turn; {shortcut} in the diff marks a file viewed and opens the next', {
+					shortcut: shortcut,
+				});
+	}
+
 	private renderWalkHud() {
 		const paths = getReviewWalkPaths(this.session, this.files);
 		const current = this.walk?.current ?? '';
@@ -901,19 +949,23 @@ export class GlDetailsReviewModePanel extends LitElement {
 				<gl-button
 					appearance="secondary"
 					density="compact"
-					tooltip=${l10n.t('Previous File in Review')}
+					tooltip=${this.withWalkShortcut(l10n.t('Previous File in Review'), 'previous')}
 					?disabled=${index <= 0}
 					@click=${() => this.handleWalkStep('previous')}
 				>
 					<code-icon icon="arrow-left"></code-icon>
 				</gl-button>
-				<gl-button density="compact" @click=${() => this.handleWalkStep('markViewed')}>
+				<gl-button
+					density="compact"
+					tooltip=${this.withWalkShortcut(l10n.t('Mark Viewed & Next'), 'markViewed')}
+					@click=${() => this.handleWalkStep('markViewed')}
+				>
 					<code-icon icon="check" slot="prefix"></code-icon>${l10n.t('Mark Viewed & Next')}
 				</gl-button>
 				<gl-button
 					appearance="secondary"
 					density="compact"
-					tooltip=${l10n.t('Next File in Review')}
+					tooltip=${this.withWalkShortcut(l10n.t('Next File in Review'), 'next')}
 					?disabled=${index >= paths.length - 1}
 					@click=${() => this.handleWalkStep('next')}
 				>

@@ -309,6 +309,10 @@ export type DeepReviewStartResult =
 	| { ok: true }
 	| { ok: false; reason: 'no-agents' | 'no-channel' | 'error'; message?: string };
 
+/** Whether a deep review can start here at all: the report channel needs the local server (absent on
+ *  the web) and an agent must be available to hand the changes to. */
+export type DeepReviewAvailability = { available: true } | { available: false; reason: 'no-agents' | 'no-channel' };
+
 /** What a delegated deep review has reported so far: findings append-only with a sequence (a panel
  *  hidden for a while applies the ones it hasn't), and whether the agent said it was done. */
 export interface DeepReviewState {
@@ -676,6 +680,9 @@ export interface GraphInspectService {
 	startDeepReview(args: DeepReviewArgs): Promise<DeepReviewStartResult>;
 	/** Closes the report channel; what was reported stays. */
 	stopDeepReview(): Promise<void>;
+	/** Whether {@link startDeepReview} could succeed here — the panel disables the depth with the reason
+	 *  rather than letting a click find out. */
+	getDeepReviewAvailability(): Promise<DeepReviewAvailability>;
 	readonly onDeepReview: RpcEventSubscription<DeepReviewState | undefined>;
 	/** The orient depth: groups and orders the scope's files from their manifest, one line of context
 	 *  each — a reading order for the panel's checklist, no findings. */
