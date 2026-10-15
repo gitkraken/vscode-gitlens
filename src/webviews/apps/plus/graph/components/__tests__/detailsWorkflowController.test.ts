@@ -851,6 +851,57 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.deepStrictEqual(entry?.deepReview, { active: false, done: true, count: 2, seqApplied: 2 });
 	});
 
+	test('a mark that cannot advance carries the walk on from the first file still unviewed', () => {
+		const { host, state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		const started: unknown[] = [];
+		actions.startReviewWalk = args => {
+			started.push(args);
+		};
+		actions.resources.scopeFiles.mutate([
+			{ path: 'src/a.ts' },
+			{ path: 'src/b.ts' },
+			{ path: 'src/c.ts' },
+		] as never);
+		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		// The reader skipped a.ts and b.ts, then marked c.ts — the last stop — viewed.
+		controller.review.applyWalkState({ current: 'src/c.ts', marked: [] });
+		controller.review.applyWalkState({ current: 'src/c.ts', marked: ['src/c.ts'] });
+
+		assert.strictEqual(started.length, 1, 'the walk restarts once');
+		assert.deepStrictEqual((started[0] as { paths: string[]; current?: string }).paths, [
+			'src/a.ts',
+			'src/b.ts',
+			'src/c.ts',
+		]);
+		assert.strictEqual((started[0] as { current?: string }).current, 'src/a.ts', 'from the first unviewed file');
+	});
+
+	test('finishing the checklist by hand ends a running walk', () => {
+		const { host, state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		let stopped = 0;
+		actions.stopReviewWalk = () => {
+			stopped++;
+		};
+		actions.resources.scopeFiles.mutate([{ path: 'src/a.ts' }, { path: 'src/b.ts' }] as never);
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		controller.review.applyWalkState({ current: 'src/a.ts', marked: ['src/a.ts'] });
+		assert.strictEqual(stopped, 0);
+		controller.review.setFilesViewed([{ path: 'src/b.ts' }], true);
+		assert.strictEqual(stopped, 1, 'the last checkbox ends the walk');
+		assert.ok(
+			host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review?.session?.viewed.has('src/b.ts'),
+		);
+	});
+
 	test('abortRunningOperations aborts focus-area runs along with the overview run', () => {
 		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 		host.crossPaneState.runningOperations.set(

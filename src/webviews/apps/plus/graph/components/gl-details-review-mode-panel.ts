@@ -378,7 +378,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this.setAttribute('role', 'region');
-		this.setAttribute('aria-label', l10n.t('AI Code Review'));
+		this.setAttribute('aria-label', l10n.t('Review Changes'));
 	}
 
 	override render() {
@@ -395,11 +395,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 		}
 
 		if (this.status === 'error') {
-			return renderErrorState(
-				this.errorMessage,
-				l10n.t('An error occurred during review.'),
-				'review-error-retry',
-				'review-error-back',
+			return this.renderWithChecklist(
+				renderErrorState(
+					this.errorMessage,
+					l10n.t('An error occurred during review.'),
+					'review-error-retry',
+					'review-error-back',
+				),
 			);
 		}
 
@@ -492,6 +494,23 @@ export class GlDetailsReviewModePanel extends LitElement {
 				<code-icon icon="sparkle" slot="prefix"></code-icon>
 				${l10n.t('Follow-Up')}
 				<code-icon class="review-footer__followup-chevron" icon="chevron-down" slot="suffix"></code-icon>
+			</gl-button>
+			<gl-button
+				appearance="secondary"
+				tooltip=${l10n.t('Orient: group and order the files with one line of context each — a map for your own read, not findings')}
+				?disabled=${this.orientRunning || this.getEffectiveFileCount() === 0}
+				@click=${this.handleOrient}
+			>
+				<code-icon icon=${this.orientRunning ? 'loading' : 'zap'} slot="prefix"></code-icon>${l10n.t('Orient')}
+			</gl-button>
+			<gl-button
+				appearance="secondary"
+				tooltip=${l10n.t('Deep Review: hand the changes to your agent — it can build, test and trace call paths, and its findings stream back into this review')}
+				?disabled=${this.deepReview?.active || this.getEffectiveFileCount() === 0}
+				@click=${this.handleDeepReview}
+			>
+				<code-icon icon=${this.deepReview?.active ? 'loading' : 'robot'} slot="prefix"></code-icon
+				>${l10n.t('Deep Review')}
 			</gl-button>
 			<gl-button appearance="secondary" @click=${this.handleDiscard}>${l10n.t('Discard Findings')}</gl-button>
 		</div>`;

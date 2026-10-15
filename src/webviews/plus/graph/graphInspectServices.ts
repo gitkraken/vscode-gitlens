@@ -1526,8 +1526,9 @@ export class GraphInspectServices {
 		for (const path of args.paths) {
 			const uri = svc.getAbsoluteUri(path, args.repoPath);
 			files.push(uri);
-			// A committed rhs opens as a revision document, which is what the title buttons must match on
-			if (!isUncommitted(args.rhs)) {
+			// Anything but the working tree opens as a revision document (a staged side included), which is
+			// what the title buttons must match on
+			if (!isUncommitted(args.rhs) || isUncommittedStaged(args.rhs)) {
 				files.push(this.container.git.getRevisionUriFromGitUri(GitUri.fromFile(path, args.repoPath, args.rhs)));
 			}
 		}
