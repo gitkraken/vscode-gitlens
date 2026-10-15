@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes `getCurrentAccount` to answer for Jira Cloud, Linear and Trello, and resolves it before an issue tracker read so a host's current-account cache knows the viewer while mapping that read's issues; only Jira Data Center still refuses (plus/integrations)
+
 ## [0.10.6] - 2026-10-13
 
 ### Added

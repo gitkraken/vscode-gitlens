@@ -199,6 +199,14 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		return toAccount(user, this);
 	}
 
+	/** Atlassian's account id is the same on every site, so the first site answers for all of them. */
+	protected override async getProviderCurrentAccount(
+		session: ProviderAuthenticationSession,
+	): Promise<Account | undefined> {
+		const resource = (await this.getProviderResourcesForUser(session))?.[0];
+		return resource != null ? this.getProviderAccountForResource(session, resource) : undefined;
+	}
+
 	/** The site-list request the resource cache would otherwise answer; see `IntegrationBase.validateCredential`. */
 	protected override async validateCredential(session: ProviderAuthenticationSession): Promise<void> {
 		const api = await this.getProvidersApi();

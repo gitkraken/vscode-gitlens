@@ -132,7 +132,7 @@ it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side fai
 | `sweepClosedPullRequests`    | `ProviderSweepResult`     | Same, pinned to `['closed','merged']`.                                                       |
 | `broadenIssues`              | `ProviderBroadenResult`   | Per-org fan-out for every visible issue, unfiltered by assignee.                             |
 | `resolveRepository`          | `ResolveRepositoryResult` | Remote URL → canonical provider identity (the `gk repo resolve` equivalent).                 |
-| `getCurrentAccount`          | `CurrentAccountResult`    | Who a git host connection is signed in as; trackers refuse.                                  |
+| `getCurrentAccount`          | `CurrentAccountResult`    | Who a connection is signed in as; Jira Data Center refuses.                                  |
 | `getSupportedFilters`        | filter capability table   | Static, connection-free. See §7.                                                             |
 
 A provider that cannot serve a surface says so explicitly — a `kind: 'unsupported'` warning (§6) plus
@@ -263,9 +263,9 @@ fields on GitHub/GHE and Bitbucket DC and the by-id read's on Bitbucket Cloud. B
 `headOwner` naming another owner, since neither can find a fork by its owner. It is uncached and bypasses
 `IntegrationCacheProvider.getPullRequestForBranch`.
 
-`getCurrentAccount` answers who a git host connection is signed in as. It returns a single `account?` rather
-than `items`, and `account` is never absent without a warning: no session, a failed request, or an issue tracker,
-which has only a per-resource account and refuses (see §8). It goes through the host-supplied
+`getCurrentAccount` answers who a connection is signed in as. It returns a single `account?` rather than
+`items`, and `account` is never absent without a warning: no session, a failed request, or a provider that refuses
+(see §8). Jira Cloud answers with the first site's account, since an Atlassian account id is the same on every site. It goes through the host-supplied
 `IntegrationManagerCacheProvider.getCurrentAccount` cache rather than adding a second one.
 
 That account is not always how a pull request names the same person. Azure DevOps Server gives one person a
@@ -1101,7 +1101,7 @@ footnote says otherwise.
 | `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |      ✓      |   ✓    |   ✓    |
 | `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✗      |   ✗    |   ✗    |
 | `resolveRepository`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
-| `getCurrentAccount`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |
+| `getCurrentAccount`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✓      |   ✓    |   ✓    |
 
 Bitbucket Data Center exposes its projects through `listOrgs`: both `id` and `name` are the project key.
 Pass that key as `org` to `listRepos` to select a project, or omit `org` to enumerate all accessible repositories,
@@ -1112,7 +1112,7 @@ Both reads deduplicate results across pages and retain the configured installati
 A link the server returns is kept only when it names that entry on the configured installation; otherwise the web and
 HTTPS links are rebuilt from the configured URL and an SSH link, whose host and port cannot be derived, is omitted.
 
-Jira Data Center inherits Jira Cloud's row. Its reads are addressed per host, so `domain` selects the instance and
+Jira Data Center inherits Jira Cloud's row, except that it refuses `getCurrentAccount`. Its reads are addressed per host, so `domain` selects the instance and
 every read below is scoped to that one connection; a paged read that omits it gets the primary configured host,
 while `getIssuesBatch` refuses instead (see §4). `listOrgs` returns exactly one resource — the
 instance itself, synthesized from the configured host rather than fetched — and its projects carry the display name

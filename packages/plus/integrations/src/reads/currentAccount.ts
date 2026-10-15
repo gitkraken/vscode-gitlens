@@ -24,7 +24,7 @@ export interface CurrentAccountResult {
 }
 
 /**
- * Resolves the viewer's own account for a git host connection. Issue trackers refuse: they only have a per-resource account.
+ * Resolves the viewer's own account for a connection. Jira Data Center refuses: it has no account-wide lookup.
  *
  * Goes THROUGH `Integration.getCurrentAccount`'s own cache (the hook a host supplies as
  * `IntegrationManagerCacheProvider.getCurrentAccount`) rather than adding a second one, so this read and

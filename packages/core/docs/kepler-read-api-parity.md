@@ -266,11 +266,11 @@ deleted fork, so on such a branch one the first request didn't return can be mis
 same whichever read found it. Bitbucket DC and Azure DevOps serve base-repository branches only and refuse a
 `headOwner` naming another owner.
 
-**Current account resolution.** `getCurrentAccount` answers who a git host connection is signed in as, on
+**Current account resolution.** `getCurrentAccount` answers who a connection is signed in as, on
 demand. Before it, Kepler learned the viewer's account only when its `IntegrationManagerCacheProvider`
 `getCurrentAccount` hook fired during some other read, so "is this pull request mine" could stay unanswered until
 something else resolved the account. The read goes through that same hook, so there is still one cache. `account`
-is never absent without a warning. Jira, Linear and Trello refuse: they have only a per-resource account.
+is never absent without a warning. Jira Data Center refuses.
 
 **Kepler-side follow-up:** `ProviderScopeFilter` carries a single `repo?: string` today and needs the criteria
 set; the `provider-data` adapter then routes "All visible" to `searchIssuesPage` + `countIssues`.

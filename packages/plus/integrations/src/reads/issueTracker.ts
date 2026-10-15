@@ -233,6 +233,8 @@ export async function listIssueTrackerIssuesPage(
 
 	await ctx.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
 
+	await integration.getCurrentAccount({ connectionId: options.connectionId }).catch(() => undefined);
+
 	const { value: resources, warning: resourcesWarning } = await runCaptured(
 		options.providerId,
 		domain,
