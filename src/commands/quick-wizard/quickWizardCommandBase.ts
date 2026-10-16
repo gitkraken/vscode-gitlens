@@ -3,6 +3,7 @@ import { InputBoxValidationSeverity, l10n, QuickInputButtons, QuickPickItemKind,
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { isPromise } from '@gitlens/utils/promise.js';
 import type { GlCommands } from '../../constants.commands.js';
+import type { Source } from '../../constants.telemetry.js';
 import { Container } from '../../container.js';
 import { Directive, isDirective, isDirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
 import { configuration } from '../../system/-webview/configuration.js';
@@ -791,38 +792,27 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 									case Directive.Noop:
 										return;
 
-									case Directive.SignIn: {
-										const result = await Container.instance.subscription.loginOrSignUp(false, {
-											source: 'quick-wizard',
-											detail: {
-												action: rootStep.command?.key,
-												'step.title': step.title,
-											},
-										});
-										resolve(result ? await rootStep.command?.retry() : undefined);
-										return;
-									}
-
+									case Directive.SignIn:
+									case Directive.StartProTrial:
 									case Directive.RequiresVerification: {
-										const result = await Container.instance.subscription.resendVerification({
+										const source: Source = {
 											source: 'quick-wizard',
 											detail: {
 												action: rootStep.command?.key,
 												'step.title': step.title,
 											},
-										});
-										resolve(result ? await rootStep.command?.retry() : undefined);
-										return;
-									}
-
-									case Directive.StartProTrial: {
-										const result = await Container.instance.subscription.loginOrSignUp(true, {
-											source: 'quick-wizard',
-											detail: {
-												action: rootStep.command?.key,
-												'step.title': step.title,
-											},
-										});
+										};
+										// Signing in shows its own input box, which hides this quick pick; frozen, that hide
+										// doesn't end the wizard, so the retry below can carry it on
+										using _frozen = step.freeze?.();
+										const result =
+											item.directive === Directive.RequiresVerification
+												? await Container.instance.subscription.resendVerification(source)
+												: await Container.instance.subscription.loginOrSignUp(
+														item.directive === Directive.StartProTrial,
+														source,
+														{ openAccountView: false },
+													);
 										resolve(result ? await rootStep.command?.retry() : undefined);
 										return;
 									}
