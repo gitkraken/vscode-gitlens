@@ -1,11 +1,14 @@
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { PullRequest, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import { defaultPullRequestSort } from '@gitlens/git/models/pullRequest.js';
+import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { supportedOrderedCloudIntegrationIds } from '../constants.js';
 import type { ProviderSweepTarget, PullRequestSweepOptions } from '../manager.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
+import type { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { PullRequestFilter } from '../providerFilters.js';
 import type { ProviderPullRequest, ProviderReposInput, ProviderRepository } from '../providers/models.js';
 import { getProviderPullRequestIdentity } from '../providers/models.js';
@@ -61,6 +64,34 @@ export async function runCaptured<T>(
 	} catch (ex) {
 		return { warning: toProviderWarning(id, domain, connectionId, ex) };
 	}
+}
+
+/**
+ * {@link runCaptured} over an issue tracker's resource (site, organization, board) discovery. A read that resolved a
+ * session yet answered with no data and no error carries `completeness: 'unknown'` metadata, so it reads as an
+ * incomplete discovery rather than as an account with no resources, which `runCaptured` alone can't tell apart from
+ * an untargeted read with no session.
+ */
+export async function discoverResources(
+	integration: IssuesIntegration,
+	id: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	options?: { warnOnMissingSession?: boolean },
+): Promise<{ value?: ResourceDescriptor[]; warning?: ProviderWarning; metadata?: CollectionMetadata }> {
+	let noData = false;
+	const captured = await runCaptured(
+		id,
+		domain,
+		connectionId,
+		async () => {
+			const result = await integration.getResourcesForUserResult(connectionId);
+			noData = result != null && result.error == null && result.value == null;
+			return result;
+		},
+		options,
+	);
+	return noData ? { ...captured, metadata: { completeness: 'unknown' } } : captured;
 }
 
 /**
