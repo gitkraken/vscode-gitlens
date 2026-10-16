@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict';
 import { GitIssueState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
+import { isTerminalIssueStateCategory } from '@gitlens/git/utils/issue.utils.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId, IssuesSelfManagedHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
@@ -161,7 +162,7 @@ const mixedTeam: LinearNode[] = [
 	{ identifier: 'TEAM-5', type: 'started', assigneeId: viewer.id },
 	{ identifier: 'TEAM-6', type: 'backlog', assigneeId: viewer.id },
 	{ identifier: 'TEAM-7', type: 'triage', assigneeId: 'someone-else' },
-	// Closed as a duplicate: Linear gives it a state type of its own, which counts as closed (provider-apis 0.63.0).
+	// Closed as a duplicate: Linear gives it a state type of its own, which counts as abandoned (provider-apis 0.65.0).
 	{ identifier: 'TEAM-8', type: 'duplicate', assigneeId: viewer.id },
 ];
 
@@ -229,7 +230,9 @@ suite('Issue tracker state selector (#5911)', () => {
 					const result = await drainTeam(linear, { state: state, user: 'viewer' });
 
 					assert.deepEqual(ids(result.values), ['TEAM-5', 'TEAM-6'], `state=${state ?? 'omitted'}`);
-					assert.ok(result.values.every(v => v.providerState?.category !== 'DONE' && !v.closed));
+					assert.ok(
+						result.values.every(v => !isTerminalIssueStateCategory(v.providerState?.category) && !v.closed),
+					);
 					assert.equal(result.truncated, false);
 					// Three open issues at two a page: two pages. Unnarrowed, the four done ones ahead of them would make it
 					// four, which is the budget a team full of done work used to spend before reaching open work.
@@ -249,7 +252,18 @@ suite('Issue tracker state selector (#5911)', () => {
 
 				const closed = await drainTeam(linear, { state: 'closed' });
 				assert.deepEqual(ids(closed.values), ['TEAM-1', 'TEAM-2', 'TEAM-3', 'TEAM-4', 'TEAM-8']);
-				assert.ok(closed.values.every(v => v.providerState?.category === 'DONE' && v.closed));
+				assert.ok(closed.values.every(v => v.closed));
+				// Completed work is done; canceled and duplicate work is abandoned, kept apart from it.
+				assert.deepEqual(
+					closed.values.map(v => [v.id, v.providerState?.category]),
+					[
+						['TEAM-1', 'DONE'],
+						['TEAM-2', 'CANCELED'],
+						['TEAM-3', 'DONE'],
+						['TEAM-4', 'CANCELED'],
+						['TEAM-8', 'CANCELED'],
+					],
+				);
 				assert.match(queries.at(-1)!, /state: \{ type: \{ in: \["completed", "canceled", "duplicate"\] \} \}/);
 
 				const all = await drainTeam(linear, { state: 'all' });
@@ -280,7 +294,7 @@ suite('Issue tracker state selector (#5911)', () => {
 
 				const open = await drainAccount(linear);
 				assert.deepEqual(ids(open.values), ['TEAM-5', 'TEAM-6', 'TEAM-7']);
-				assert.ok(open.values.every(v => v.providerState?.category !== 'DONE'));
+				assert.ok(open.values.every(v => !isTerminalIssueStateCategory(v.providerState?.category)));
 				assert.match(queries[0], /\{ and: \[/);
 				assert.match(queries[0], /assignee: \{ id: \{ eq: \$viewerId \} \}/);
 

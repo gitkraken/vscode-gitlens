@@ -729,15 +729,6 @@ export type GetBitbucketServerPullRequestsForCurrentUserFn = (
 	data: GitPullRequest[];
 }>;
 /**
- * A Jira issue search as the SDK's `PagedResult` contract declares it, with `metadata`: a page that dropped an issue
- * it could not read reports it there (GKDEV-3652). The client methods' inferred return types only name `metadata`
- * from the release that ships that change, so the paged wrappers would otherwise not see it on an older pin.
- */
-type JiraIssueSearchFn<F extends (...args: never[]) => Promise<object>> = (
-	...args: Parameters<F>
-) => Promise<Awaited<ReturnType<F>> & { metadata?: CollectionMetadata }>;
-
-/**
  * One page of a Jira issue search; `nextCursor` is the raw provider cursor, fed back verbatim. `metadata` is the
  * SDK's: a page that dropped an issue it could not read reports it there as `partial` with a `provider` failure
  * (GKDEV-3652).
@@ -746,17 +737,17 @@ export type JiraIssuePage =
 	| { data: ProviderIssue[]; hasMore: boolean; nextCursor: string | undefined; metadata?: CollectionMetadata }
 	| undefined;
 
-export type GetIssuesForProjectFn = JiraIssueSearchFn<Jira['getIssuesForProject']>;
+export type GetIssuesForProjectFn = Jira['getIssuesForProject'];
 // Jira Server's own reads, derived from its client rather than shared with Cloud's: every one of them is
 // addressed by the instance's `baseUrl`/`resourceUrl` instead of Cloud's `resourceId`, and its project read is
 // a single unpaged call, so the shapes genuinely differ.
 export type GetJiraServerCurrentUserFn = JiraServer['getCurrentUser'];
 export type GetJiraServerProjectsFn = (options?: EnterpriseOptions) => Promise<{ data: JiraServerProject[] }>;
-export type GetJiraServerIssuesForProjectFn = JiraIssueSearchFn<JiraServer['getIssuesForProject']>;
-export type GetJiraServerIssuesForProjectsFn = JiraIssueSearchFn<JiraServer['getIssuesForProjects']>;
+export type GetJiraServerIssuesForProjectFn = JiraServer['getIssuesForProject'];
+export type GetJiraServerIssuesForProjectsFn = JiraServer['getIssuesForProjects'];
 export type GetJiraServerIssueFn = JiraServer['getIssue'];
-export type GetJiraServerIssuesForCurrentUserFn = JiraIssueSearchFn<JiraServer['getIssuesForResourceForCurrentUser']>;
-export type GetIssuesForProjectsFn = JiraIssueSearchFn<Jira['getIssuesForProjects']>;
+export type GetJiraServerIssuesForCurrentUserFn = JiraServer['getIssuesForResourceForCurrentUser'];
+export type GetIssuesForProjectsFn = Jira['getIssuesForProjects'];
 // Derived from the client method rather than hand-declared, as its project-scoped sibling above already is: the
 // hand-written shape named only `resourceId`, so every other field the SDK accepts (the cursor, the sort, the
 // transitions switch) was invisible to the type system and had to be smuggled through `getPagedResult`'s `any`.
@@ -1373,7 +1364,7 @@ export const providersMetadata: ProvidersMetadata = {
 		// `sort` argument, so there is no account-wide narrowing to declare.
 		supportedIssueSorts: linearIssueSorts,
 		// A workflow-state type clause on both reads (`completed`/`canceled`/`duplicate` are closed), the same types
-		// the SDK normalizes to the `DONE` category.
+		// the SDK normalizes to a terminal category (`DONE`, or `CANCELED` for the last two).
 		supportsIssueStates: true,
 	},
 	[IssuesCloudHostIntegrationId.Trello]: {

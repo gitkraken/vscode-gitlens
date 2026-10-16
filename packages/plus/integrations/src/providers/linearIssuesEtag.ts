@@ -87,11 +87,11 @@ export async function requestLinearIssuesEtagFields(
 
 /**
  * A cheap-checked issue's change state, as the fields the full row's etag reads. The full read's row is provider-apis'
- * Linear issue normalizer (0.63.0) then `fromProviderIssue`, so this mirrors both:
+ * Linear issue normalizer (0.65.0) then `fromProviderIssue`, so this mirrors both:
  *
- * - provider-apis maps `state.type` to a category — `completed`, `canceled` and `duplicate` to `DONE`, `started` to
- *   `IN_PROGRESS`, anything else (`backlog`, `unstarted`, `triage`) to `TO_DO`, and no state to none — and sets
- *   `closedDate` from `archivedAt` (a falsy value reads as none);
+ * - provider-apis maps `state.type` to a category — `completed` to `DONE`, `canceled` and `duplicate` to `CANCELED`,
+ *   `started` to `IN_PROGRESS`, anything else (`backlog`, `unstarted`, `triage`) to `TO_DO`, and no state to none —
+ *   and sets `closedDate` from `archivedAt` (a falsy value reads as none);
  * - `fromProviderIssue` closes an issue that has a `closedDate` or a terminal category, so an archived issue is closed
  *   whatever its state.
  *
