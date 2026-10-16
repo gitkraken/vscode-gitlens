@@ -9,9 +9,10 @@ import { chunk } from '@gitlens/utils/array.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
+import type { ProviderScopeFailure } from '../../collectionMetadata.js';
 import { throwIfCallerContractError, toCollectionScopeFailure } from '../../collectionMetadata.js';
 import { providerFanOutConcurrency } from '../../constants.js';
-import { collectionScopeKey } from '../../results.js';
+import { collectionScopeKey, mergeUnreadableItems } from '../../results.js';
 import type { ProviderApiPagedResult, ProviderHierarchyResult } from '../models.js';
 
 /**
@@ -234,9 +235,19 @@ export function mergeCollectionMetadata(
 			? next.completeness
 			: base.completeness;
 
-	// First occurrence wins: a repeated failure carries no new information, since the message is part of its key.
+	// First occurrence wins: a repeated failure carries no new information, since the message is part of its key. Except
+	// for the items it says it left out, which two reads reporting the same text can differ in.
 	const failures = [
-		...uniqueBy([...(base.failures ?? []), ...(next.failures ?? [])], collectionFailureKey, original => original),
+		...uniqueBy<string, ProviderScopeFailure>(
+			[...(base.failures ?? []), ...(next.failures ?? [])],
+			collectionFailureKey,
+			(original, current) => {
+				const unreadableItems = mergeUnreadableItems(original.unreadableItems, current.unreadableItems);
+				return unreadableItems === original.unreadableItems
+					? original
+					: { ...original, unreadableItems: unreadableItems };
+			},
+		),
 	];
 	// Highest total wins, so re-measuring one cap across pages collapses to a single omission holding the
 	// largest figure reported for it — the same rule the SDK applies in `createCollectionMetadata`.

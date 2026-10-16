@@ -141,7 +141,7 @@ suite('Tracker project truncation recovery', () => {
 		manager.dispose();
 	});
 
-	test('deduplicates the recovery warning across oversized Jira projects', async () => {
+	test('reports the recovery warning once per oversized Jira project, scoped to it', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
 		(jira as unknown as { _session: ProviderAuthenticationSession })._session = trackerSession('atlassian.net');
@@ -162,7 +162,16 @@ suite('Tracker project truncation recovery', () => {
 			includeAllAssignees: true,
 		});
 
-		assert.equal(result.warnings.filter(warning => warning.omission?.recovery === 'narrow-scope').length, 1);
+		// One per project rather than one for the read (#6011): each names the project a narrower read would target.
+		assert.deepEqual(
+			result.warnings
+				.filter(warning => warning.omission?.recovery === 'narrow-scope')
+				.map(warning => [warning.omission?.scope?.projectId, warning.scope]),
+			[
+				['p1', undefined],
+				['p2', undefined],
+			],
+		);
 		assert.equal(result.fetchFailed, undefined);
 
 		manager.dispose();
@@ -248,9 +257,16 @@ suite('Tracker project truncation recovery', () => {
 		});
 
 		assert.equal(result.fetchFailed, true);
+		assert.equal(result.page.truncated, true);
 		assert.equal(
 			result.warnings.every(warning => warning.omission == null),
 			true,
+		);
+		// The failure doesn't hide the other project's cut (#6011).
+		assert.equal(
+			result.warnings.filter(warning => warning.message.includes("Project 'Project One' holds more issues"))
+				.length,
+			1,
 		);
 
 		manager.dispose();
