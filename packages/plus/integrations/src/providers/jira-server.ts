@@ -10,7 +10,7 @@ import type { IntegrationAuthenticationProviderDescriptor } from '../authenticat
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
-import { toCollectionScopeFailure } from '../collectionMetadata.js';
+import { isIncompleteCollection, toCollectionScopeFailure } from '../collectionMetadata.js';
 import { IssuesSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
@@ -33,7 +33,9 @@ import {
 	drainJiraIssues,
 	readUserScopedJiraIssues,
 	searchJiraProjectIssues,
+	summarizePageMetadata,
 	toUniqueJiraIssueShapes,
+	withFailureScope,
 } from './utils/jiraIssueDrains.js';
 import { mergeCollectionMetadata } from './utils/providerPaging.js';
 
@@ -305,6 +307,9 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		// Every request of a search shares its user scope (see `getProjectIssuesSearches`).
 		const { options } = requests[0];
 		if (options.user == null) return undefined;
+		// One project's search is its own read, by the same numeric id, so it costs no more to read it as one. And it
+		// reports what the search can't: a dropped issue's failure, which a search can only answer by being read again.
+		if (requests.length === 1) return undefined;
 
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 		const api = await this.getProvidersApi();
@@ -369,6 +374,7 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		let cursor: string | undefined;
 		let truncated = false;
 		let metadata: CollectionMetadata | undefined;
+		const pages: CollectionMetadata[] = [];
 
 		const stopIncomplete = (reason: string) => {
 			truncated = true;
@@ -399,6 +405,13 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 					.map(issue => toIssueShape(issue, this, { projection: 'account' }))
 					.filter((r): r is IssueShape => r != null),
 			);
+			// An issue the page dropped because it could not be read arrives here, not as a missing row; recorded under
+			// the same scope as this read's other failures.
+			if (page.metadata != null) {
+				// Truncated too, as Jira Cloud's read is through `getPagedResult`: the account is missing that issue.
+				truncated ||= isIncompleteCollection(page.metadata);
+				pages.push(withFailureScope(page.metadata, accountScope));
+			}
 
 			if (!page.hasMore) break;
 
@@ -418,7 +431,11 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 			}
 		}
 
-		return { values: results, truncated: truncated, metadata: metadata };
+		return {
+			values: results,
+			truncated: truncated,
+			metadata: mergeCollectionMetadata(summarizePageMetadata(pages), metadata),
+		};
 	}
 
 	protected override async getProviderLinkedIssueOrPullRequest(

@@ -1331,6 +1331,9 @@ Markdown by this package.
 - **Jira (Cloud + Data Center) / Linear / Trello** — paged by **project**, not by issue: `itemsPerPage` counts projects (default
   20), each drained in full. Passing none of `page`/`cursor`/`itemsPerPage` aggregates every matched project
   in one page. A single project exceeding its internal drain backstop shows up as `page.truncated`.
+  A Jira issue `@gitkraken/provider-apis` can't read is dropped from its page and reported instead: its siblings are
+  served, with `fetchFailed`, a warning scoped to its project and `page.truncated` (never `narrow-scope`); a project
+  that dropped one is not retried.
   Trello's issue `id` is the card's `idShort` — unique per board only, so correlate across boards by
   `nodeId`. For Trello, boards are both the resource and the project, so `listOrgs` and `listProjects`
   return the same set; Linear's resource is the organization and its projects are teams.

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { IssuesSelfManagedHostIntegrationId } from '../constants.js';
@@ -54,7 +55,7 @@ function providerIssue(projectId: string, number: string) {
 }
 
 type SearchCall = { projectKeys: string[]; baseUrl: string; assigneeLogins?: string[] };
-type SearchPage = { data: unknown[]; hasMore: boolean; nextCursor: string | undefined };
+type SearchPage = { data: unknown[]; hasMore: boolean; nextCursor: string | undefined; metadata?: CollectionMetadata };
 
 async function connectedJiraServer(
 	search: (call: SearchCall) => Promise<SearchPage>,
@@ -133,6 +134,99 @@ suite('Jira Server multi-project issue searches', () => {
 		assert.deepEqual(projectReads.sort(), ['10000', '10001']);
 		assert.deepEqual(result.items.map(i => i.id).sort(), ['10000-1', '10001-1']);
 		assert.equal(result.fetchFailed, undefined);
+
+		manager.dispose();
+	});
+
+	test('keeps the siblings of an issue a page dropped, and warns on the project it belongs to', async () => {
+		// provider-apis scopes a Data Center page failure to the instance alone (GKDEV-3652), which would publish it as
+		// a failure of the whole connection; the project's own read names the project instead (#5992).
+		const dropped = (): CollectionMetadata => ({
+			completeness: 'partial',
+			failures: [
+				{
+					scope: { providerId: 'jiraServer' },
+					kind: 'provider',
+					message:
+						'Skipped Jira issues that could not be read: ALPHA-2 (Cannot read properties of undefined).',
+				},
+			],
+		});
+		const { manager, projectReads } = await connectedJiraServer(
+			() =>
+				Promise.resolve({
+					data: [providerIssue('10000', 'ALPHA-1'), providerIssue('10001', 'BETA-1')],
+					hasMore: false,
+					nextCursor: undefined,
+					metadata: dropped(),
+				}),
+			projectKey =>
+				Promise.resolve(
+					projectKey === '10000'
+						? {
+								data: [providerIssue('10000', 'ALPHA-1')],
+								hasMore: false,
+								nextCursor: undefined,
+								metadata: dropped(),
+							}
+						: { data: [providerIssue('10001', 'BETA-1')], hasMore: false, nextCursor: undefined },
+				),
+		);
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			domain: domain,
+			itemsPerPage: 20,
+		});
+
+		assert.deepEqual(projectReads.sort(), ['10000', '10001']);
+		assert.deepEqual(result.items.map(i => i.id).sort(), ['ALPHA-1', 'BETA-1']);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings.length, 1);
+		assert.match(result.warnings[0].message, /ALPHA-2/);
+		assert.equal(result.warnings[0].scope?.projectId, '10000');
+
+		manager.dispose();
+	});
+
+	test('reads a lone project on its own, so an issue it drops costs no second read', async () => {
+		// A search naming one project is that project's read; searching it first would read it twice whenever a page
+		// dropped an issue, since a search can't report the drop and is read again project by project.
+		const { manager, searches, projectReads } = await connectedJiraServer(
+			() => Promise.reject(new Error('the search must not run')),
+			projectKey =>
+				Promise.resolve({
+					data: [providerIssue(projectKey, 'ALPHA-1')],
+					hasMore: false,
+					nextCursor: undefined,
+					metadata: {
+						completeness: 'partial',
+						failures: [
+							{
+								scope: { providerId: 'jiraServer' },
+								kind: 'provider',
+								message: 'Skipped Jira issues that could not be read: ALPHA-2 (boom).',
+							},
+						],
+					},
+				}),
+		);
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			domain: domain,
+			project: '10000',
+			itemsPerPage: 20,
+		});
+
+		assert.deepEqual(searches, []);
+		assert.deepEqual(projectReads, ['10000']);
+		assert.deepEqual(
+			result.items.map(i => i.id),
+			['ALPHA-1'],
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings[0]?.scope?.projectId, '10000');
 
 		manager.dispose();
 	});
