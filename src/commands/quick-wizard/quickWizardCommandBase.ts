@@ -791,32 +791,30 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 									case Directive.Noop:
 										return;
 
-									case Directive.SignIn: {
-										const result = await Container.instance.subscription.loginOrSignUp(false, {
-											source: 'quick-wizard',
-											detail: {
-												action: rootStep.command?.key,
-												'step.title': step.title,
+									case Directive.SignIn:
+									case Directive.StartProTrial: {
+										// Signing in shows its own input box, which hides this quick pick; frozen, that hide
+										// doesn't end the wizard, so the retry below can carry it on. Its keys stay bound
+										// though, so Left in that input box would otherwise go back on the hidden step
+										using _frozen = step.freeze?.();
+										await scope.pause();
+										const result = await Container.instance.subscription.loginOrSignUp(
+											item.directive === Directive.StartProTrial,
+											{
+												source: 'quick-wizard',
+												detail: {
+													action: rootStep.command?.key,
+													'step.title': step.title,
+												},
 											},
-										});
+											{ openAccountView: false },
+										);
 										resolve(result ? await rootStep.command?.retry() : undefined);
 										return;
 									}
 
 									case Directive.RequiresVerification: {
 										const result = await Container.instance.subscription.resendVerification({
-											source: 'quick-wizard',
-											detail: {
-												action: rootStep.command?.key,
-												'step.title': step.title,
-											},
-										});
-										resolve(result ? await rootStep.command?.retry() : undefined);
-										return;
-									}
-
-									case Directive.StartProTrial: {
-										const result = await Container.instance.subscription.loginOrSignUp(true, {
 											source: 'quick-wizard',
 											detail: {
 												action: rootStep.command?.key,
