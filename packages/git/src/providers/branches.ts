@@ -32,6 +32,8 @@ export interface AheadOfBase {
 				readonly ref: string;
 				/** Commits on HEAD not on `ref` */
 				readonly ahead: number;
+				/** The commit `ref` pointed at, from the cached ref list; `undefined` when no listed ref matches it */
+				readonly sha: string | undefined;
 		  }
 		| undefined;
 	/** Full ref names (`refs/heads/main`, `refs/remotes/origin/main`, `refs/remotes/origin/HEAD`) whose movement can change this answer, given with or without a base so a watcher also learns when one appears: the branch, every candidate compared up to the chosen one, their tracking refs, and the default-branch symref when the default was consulted. Lets a watcher recompute only when one of them moves. */
@@ -135,8 +137,8 @@ export interface GitBranchesSubProvider {
 	 * target (one naming no ref, a flag-like one, or the branch itself) falls through to the next, and the local default
 	 * branch is used when none survives. The count is the right side of `<base>...HEAD`. `base` is `undefined` when no
 	 * base resolves, when the base is the branch itself (by name, or as its copy on one of the repo's remotes) at HEAD's
-	 * own commit, or when HEAD is detached or has no commit yet; `dependsOn` is given either way. Rejects when the count
-	 * can't be read.
+	 * own commit, or when HEAD is detached or has no commit yet; `dependsOn` is given either way. `base.sha` is the tip of
+	 * `ref`, read from the cached ref list. Rejects when the count can't be read.
 	 */
 	getAheadOfBase?(repoPath: string, branch: string, cancellation?: AbortSignal): Promise<AheadOfBase>;
 	getBaseBranchName?(
