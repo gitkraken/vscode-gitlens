@@ -281,6 +281,12 @@ export async function resolveRepository(
 	}
 }
 
+/** Whether `path` is `{x}/_git/{repo}`, the Azure repository path the remote parser reads without a project segment. */
+function isProjectlessAzurePath(path: string | undefined): boolean {
+	const segments = path?.split('/');
+	return segments?.length === 3 && decodePathSegment(segments[1]).toLowerCase() === '_git';
+}
+
 /**
  * Narrows a web remote on a self-managed host to the configured installation it lives under: the pinned
  * connection's or, unpinned, the one whose installation path is the longest prefix of the remote's, so two
@@ -394,8 +400,10 @@ function matchInstallation(
 	}
 
 	// An Azure DevOps Server address may name the collection as well as the virtual directory; the parser expects
-	// the collection in the path, so re-base on the address's parent when no project was found.
-	if (basePath && provider?.providerDesc?.repoDomain == null) {
+	// the collection in the path, so re-base on the address's parent when no project was found. A relative
+	// `{x}/_git/{repo}` re-bases too: `x` is a collection only if the address is the installation rather than a
+	// collection, which the path can't tell, so the integration settles it against the collections it discovers.
+	if (basePath && (provider?.providerDesc?.repoDomain == null || isProjectlessAzurePath(relativeTo(basePath)))) {
 		basePath = basePath.slice(0, basePath.lastIndexOf('/'));
 		provider = rematch(basePath);
 	}

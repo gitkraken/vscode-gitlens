@@ -317,6 +317,34 @@ suite('facade contract regressions', () => {
 		manager.dispose();
 	});
 
+	test('an Azure remote without the project segment addresses the project named after its repository', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = primarySession(
+			't',
+			'dev.azure.com',
+		);
+		const calls: unknown[][] = [];
+		stubApi(azure, {
+			getRepo: (_token: unknown, owner: string, name: string, project: string) => {
+				calls.push([owner, name, project]);
+				return Promise.resolve({ id: 'r1', namespace: owner, name: name, project: project });
+			},
+		});
+
+		const result = await manager.resolveRepository({
+			providerId: GitCloudHostIntegrationId.AzureDevOps,
+			remoteUrl: 'https://dev.azure.com/org/_git/repo',
+		});
+
+		assert.deepEqual(calls, [['org', 'repo', 'repo']]);
+		assert.equal(result.resolution.status, 'resolved');
+		assert.equal(result.resolution.identity?.project, 'repo');
+
+		manager.dispose();
+	});
+
 	test('a numbered host with no declared paging mode is advanced by page number', async () => {
 		const runtime = createFakeRuntime();
 		await runtime.storage.store('integrations:configured', {

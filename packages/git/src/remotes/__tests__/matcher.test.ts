@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { parseGitRemoteUrl } from '../../utils/remote.utils.js';
 import type { RemoteProviderConfig } from '../matcher.js';
 import { createRemoteProviderMatcher } from '../matcher.js';
 
@@ -252,8 +253,7 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 			// dev.azure.com always names the organization in the path
 			'https://dev.azure.com/_git/Repo',
 			'https://dev.azure.com/myorg/Other/Project/_git/Repo',
-			// Without a project, a server's virtual directory and collection can't be told apart
-			'https://server.test/Collection/_git/Repo',
+			// A server path always names its collection (`{collection}/_git/{repo}` resolves, see below)
 			'https://server.test/_git/Repo',
 		]) {
 			test(`does not resolve ${url}`, () => {
@@ -313,6 +313,48 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 				repoName: 'Project/_git/Repo',
 				repoOwnerDomain: 'DefaultCollection',
 			});
+		});
+
+		suite('Azure repositories named after their project (no project segment)', () => {
+			const matcher = createRemoteProviderMatcher([{ domain: 'azure.example.com', type: 'azure-devops' }]);
+			const match = (url: string) => {
+				const [scheme, domain, path] = parseGitRemoteUrl(url);
+				return matcher(url, domain, path, scheme);
+			};
+
+			for (const url of [
+				'https://azure.example.com/DefaultCollection/_git/Repo',
+				'ssh://azure.example.com:22/DefaultCollection/_git/Repo',
+			]) {
+				test(`reads the collection at the host root for ${url}`, () => {
+					const provider = match(url);
+					assert.ok(provider);
+					assert.deepEqual(provider.repoDesc, { owner: 'DefaultCollection', name: 'Repo/_git/Repo' });
+					assert.deepEqual(provider.providerDesc, {
+						id: 'azureDevops',
+						repoDomain: 'Repo',
+						repoName: 'Repo/_git/Repo',
+						repoOwnerDomain: 'DefaultCollection',
+					});
+				});
+			}
+
+			test('decodes the repository name once', () => {
+				const provider = match('https://azure.example.com/DefaultCollection/_git/My%20Repo');
+				assert.deepEqual(provider?.repoDesc, { owner: 'DefaultCollection', name: 'My Repo/_git/My Repo' });
+			});
+
+			// Behind a path the URL can't tell a virtual directory from a collection; the integration settles it.
+			for (const url of [
+				'https://azure.example.com/tfs/DefaultCollection/_git/Repo',
+				'ssh://azure.example.com:22/tfs/DefaultCollection/_git/Repo',
+			]) {
+				test(`keeps reading the segment before _git as the project for ${url}`, () => {
+					const provider = match(url);
+					assert.deepEqual(provider?.repoDesc, { owner: 'tfs', name: 'DefaultCollection/_git/Repo' });
+					assert.strictEqual(provider?.providerDesc?.repoDomain, 'DefaultCollection');
+				});
+			}
 		});
 
 		test("a config's protocol override wins over the URL scheme", () => {
