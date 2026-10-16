@@ -215,8 +215,7 @@ suite('Jira Server multi-project issue searches', () => {
 		const result = await manager.listIssueTrackerIssuesPage({
 			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
 			domain: domain,
-			// Selected by its key, which on Data Center is the display name until provider-apis reports the key.
-			project: 'Alpha',
+			project: 'ALPHA',
 			itemsPerPage: 20,
 		});
 

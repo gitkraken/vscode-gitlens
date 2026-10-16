@@ -148,7 +148,7 @@ suite('Jira Server/Data Center (#5864)', () => {
 			},
 			getJiraServerProjects: (_t: unknown, baseUrl: string) => {
 				baseUrls.push(baseUrl);
-				return Promise.resolve([{ id: 'p1', name: 'PROJ' }]);
+				return Promise.resolve([{ id: 'p1', key: 'PROJ', name: 'Project' }]);
 			},
 			getJiraServerIssuesForProjectPaged: (_t: unknown, baseUrl: string) => {
 				baseUrls.push(baseUrl);
@@ -194,13 +194,13 @@ suite('Jira Server/Data Center (#5864)', () => {
 
 		assert.notEqual(first, second, 'each host gets its own integration instance');
 
-		// Same project id on both hosts, different names: a cache keyed only by token (both sessions could
+		// Same project id on both hosts, different keys: a cache keyed only by token (both sessions could
 		// legitimately carry one) would serve host A's projects for host B.
 		stubApi(first, {
-			getJiraServerProjects: () => Promise.resolve([{ id: 'p1', name: 'ALPHA' }]),
+			getJiraServerProjects: () => Promise.resolve([{ id: 'p1', key: 'ALPHA', name: 'Alpha' }]),
 		});
 		stubApi(second, {
-			getJiraServerProjects: () => Promise.resolve([{ id: 'p1', name: 'BETA' }]),
+			getJiraServerProjects: () => Promise.resolve([{ id: 'p1', key: 'BETA', name: 'Beta' }]),
 		});
 
 		const firstProjects = (
@@ -232,7 +232,7 @@ suite('Jira Server/Data Center (#5864)', () => {
 
 		const cursors: (string | undefined)[] = [];
 		stubApi(jiraServer, {
-			getJiraServerProjects: () => Promise.resolve([{ id: 'p1', name: 'PROJ' }]),
+			getJiraServerProjects: () => Promise.resolve([{ id: 'p1', key: 'PROJ', name: 'Project' }]),
 			getJiraServerIssuesForProjectPaged: (
 				_t: unknown,
 				baseUrl: string,
@@ -269,7 +269,7 @@ suite('Jira Server/Data Center (#5864)', () => {
 
 		const captured: { assigneeLogins?: string[] }[] = [];
 		stubApi(jiraServer, {
-			getJiraServerProjects: () => Promise.resolve([{ id: 'p1', name: 'PROJ' }]),
+			getJiraServerProjects: () => Promise.resolve([{ id: 'p1', key: 'PROJ', name: 'Project' }]),
 			getJiraServerIssuesForProjectPaged: (
 				_t: unknown,
 				_baseUrl: string,
@@ -357,7 +357,7 @@ suite('Jira Server/Data Center (#5864)', () => {
 			},
 			getJiraServerProjects: (_t: unknown, baseUrl: string) => {
 				baseUrls.push(baseUrl);
-				return Promise.resolve([{ id: 'p1', name: 'PROJ' }]);
+				return Promise.resolve([{ id: 'p1', key: 'PROJ', name: 'Project' }]);
 			},
 			getJiraServerIssue: (_t: unknown, baseUrl: string) => {
 				baseUrls.push(baseUrl);
@@ -485,7 +485,7 @@ suite('Jira Server/Data Center (#5864)', () => {
 		// with another project's key would read the wrong project's issues. The id cannot collide.
 		const addressedBy: string[] = [];
 		stubApi(jiraServer, {
-			getJiraServerProjects: () => Promise.resolve([{ id: '10001', name: 'ALPHA' }]),
+			getJiraServerProjects: () => Promise.resolve([{ id: '10001', key: 'ALPHA', name: 'Alpha' }]),
 			getJiraServerIssuesForProjectPaged: (_t: unknown, _baseUrl: string, projectKey: string) => {
 				addressedBy.push(projectKey);
 				return Promise.resolve({ data: [], hasMore: false, nextCursor: undefined });
@@ -495,7 +495,7 @@ suite('Jira Server/Data Center (#5864)', () => {
 		const projects = (
 			await jiraServer.getProjectsForResourcesWithMetadataResult((await jiraServer.getResourcesForUser())!)
 		)?.value?.values;
-		assert.equal(projects?.[0].name, 'ALPHA', 'the display name is still what the project is called');
+		assert.equal(projects?.[0].name, 'Alpha', 'the display name is still what the project is called');
 
 		await jiraServer.getIssuesForProject(projects[0]);
 

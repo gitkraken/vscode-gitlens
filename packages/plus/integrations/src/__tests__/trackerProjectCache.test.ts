@@ -118,7 +118,7 @@ async function jiraServer() {
 	const { service } = createCloudService(IssuesSelfManagedHostIntegrationId.JiraServer, jiraServerDomain);
 	const integration = (await service.get(IssuesSelfManagedHostIntegrationId.JiraServer, jiraServerDomain))!;
 	const state = {
-		projects: [{ id: '10001', name: 'ALPHA' }],
+		projects: [{ id: '10001', key: 'ALPHA', name: 'Alpha' }],
 		deleted: new Set<string>(),
 		projectReads: 0,
 		searches: [] as string[],
@@ -140,7 +140,7 @@ async function jiraServer() {
 
 			const project = state.projects.find(p => p.id === projectId)!;
 			return Promise.resolve({
-				data: [providerIssue(`${project.name}-1`, { ...project, resourceId: jiraServerDomain })],
+				data: [providerIssue(`${project.key}-1`, { ...project, resourceId: jiraServerDomain })],
 				hasMore: false,
 				nextCursor: undefined,
 			});
@@ -165,7 +165,7 @@ suite('Tracker project cache (#5907)', () => {
 			const { service, state, read } = await jiraServer();
 
 			assert.deepEqual(titles(await read()), ['Issue ALPHA-1']);
-			state.projects.push({ id: '10002', name: 'BETA' });
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
 			assert.deepEqual(titles(await read()), ['Issue ALPHA-1'], 'still inside the TTL, with no refresh');
 			assert.equal(state.projectReads, 1);
 
@@ -176,7 +176,7 @@ suite('Tracker project cache (#5907)', () => {
 			const { service, state, read } = await jiraServer();
 
 			await read();
-			state.projects.push({ id: '10002', name: 'BETA' });
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
 			await service.refreshConnections();
 			await flush();
 
@@ -192,7 +192,7 @@ suite('Tracker project cache (#5907)', () => {
 			const { service, state, read } = await jiraServer();
 
 			await read();
-			state.projects.push({ id: '10002', name: 'BETA' });
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
 			advanceClock(discoveryCacheTtl / 2);
 			assert.deepEqual(titles(await read()), ['Issue ALPHA-1']);
 
@@ -208,7 +208,7 @@ suite('Tracker project cache (#5907)', () => {
 			const { service, state, read } = await jiraServer();
 
 			await read();
-			state.projects.push({ id: '10002', name: 'BETA' });
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
 
 			assert.deepEqual(titles(await read({ forceSync: true })), ['Issue ALPHA-1', 'Issue BETA-1']);
 			assert.equal(state.projectReads, 2);
@@ -218,7 +218,7 @@ suite('Tracker project cache (#5907)', () => {
 
 		test('a deleted project reads as empty instead of failing the provider, and drops the stale list', async () => {
 			const { service, state, read } = await jiraServer();
-			state.projects.push({ id: '10002', name: 'BETA' });
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
 
 			await read();
 			// Deleted after the list was cached: the cached list still names it.
@@ -266,7 +266,7 @@ suite('Tracker project cache (#5907)', () => {
 			await flush();
 			// The refresh lands while the first list read is still waiting on the server.
 			await service.refreshConnections();
-			state.projects.push({ id: '10002', name: 'BETA' });
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
 			state.projectsGate = undefined;
 			release();
 
@@ -286,7 +286,7 @@ suite('Tracker project cache (#5907)', () => {
 
 			await read();
 			await integration.disconnect({ silent: true, currentSessionOnly: true });
-			state.projects.push({ id: '10002', name: 'BETA' });
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
 			await service.refreshConnections();
 			await flush();
 

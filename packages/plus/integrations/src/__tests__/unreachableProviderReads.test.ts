@@ -209,7 +209,9 @@ suite('self-managed provider failures with a healthy cloud connection', () => {
 		test(`Jira Data Center: issue ${failure.name} is unreachable`, async () => {
 			const providerId = IssuesSelfManagedHostIntegrationId.JiraServer;
 			const { manager, providerRequests } = await createConnectedProvider(providerId, async input => {
-				if (String(input).endsWith('/rest/api/2/project')) return json([{ id: 'project', name: 'PROJ' }]);
+				if (String(input).endsWith('/rest/api/2/project')) {
+					return json([{ id: 'project', key: 'PROJ', name: 'Project' }]);
+				}
 
 				if ('error' in failure) throw failure.error();
 				return json({ message: 'Server unavailable' }, failure.status);
