@@ -1372,8 +1372,8 @@ export const providersMetadata: ProvidersMetadata = {
 		// Both directions, and one table for both reads: they are the same root `issues` query taking the same
 		// `sort` argument, so there is no account-wide narrowing to declare.
 		supportedIssueSorts: linearIssueSorts,
-		// A workflow-state type clause on both reads (`completed`/`canceled` are closed), the same types the SDK
-		// normalizes to the `DONE` category.
+		// A workflow-state type clause on both reads (`completed`/`canceled`/`duplicate` are closed), the same types
+		// the SDK normalizes to the `DONE` category.
 		supportsIssueStates: true,
 	},
 	[IssuesCloudHostIntegrationId.Trello]: {
