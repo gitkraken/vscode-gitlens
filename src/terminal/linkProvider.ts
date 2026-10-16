@@ -149,14 +149,14 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 	async provideTerminalLinks(context: TerminalLinkContext, token: CancellationToken): Promise<GitTerminalLink[]> {
 		if (context.line.trim().length === 0 || token.isCancellationRequested) return [];
 
-		// Prefer the terminal cwd so a known parent repository doesn't hide a nested repository.
+		// Prefer the known repository containing the terminal cwd (when shell integration reports one), so
+		// multi-repository workspaces get links. Lookup only — hovering a terminal must not discover or open
+		// repositories. Falls back to the single repository when the cwd is outside every known repository.
 		const cwd = context.terminal.shellIntegration?.cwd;
-		const repo =
-			cwd != null
-				? await this.container.git.getOrAddRepository(cwd, { detectNested: true })
-				: this.container.git.highlander;
-		const repoPath = repo?.path;
-		if (!repoPath || token.isCancellationRequested) return [];
+		const repoPath = (
+			(cwd != null ? this.container.git.getRepository(cwd) : undefined) ?? this.container.git.highlander
+		)?.path;
+		if (!repoPath) return [];
 
 		const showIn = configuration.get('terminalLinks.showIn');
 
