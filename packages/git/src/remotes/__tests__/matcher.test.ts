@@ -165,6 +165,105 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 		}
 	});
 
+	suite('Azure legacy and short repository paths (#5999)', () => {
+		const matcher = createRemoteProviderMatcher([{ domain: 'server.test', type: 'azure-devops' }]);
+		function parse(url: string) {
+			// Not `new URL`: git hands the matcher the host as written, and `URL` would lowercase it
+			const [, host, path] = /^https:\/\/([^/]+)\/(.*)$/.exec(url) ?? [];
+			return matcher(url, host, path, 'https');
+		}
+
+		for (const { url, owner, project, repo } of [
+			{
+				url: 'https://myorg.visualstudio.com/DefaultCollection/Project/_git/Repo',
+				owner: 'myorg',
+				project: 'Project',
+				repo: 'Repo',
+			},
+			{
+				url: 'https://myorg.visualstudio.com/defaultcollection/Project/_git/Repo',
+				owner: 'myorg',
+				project: 'Project',
+				repo: 'Repo',
+			},
+			{
+				url: 'https://myorg.visualstudio.com/DefaultCollection/My%20Project/_git/My%20Repo',
+				owner: 'myorg',
+				project: 'My Project',
+				repo: 'My Repo',
+			},
+			{
+				url: 'https://myorg.visualstudio.com/DefaultCollection/_git/Repo',
+				owner: 'myorg',
+				project: 'Repo',
+				repo: 'Repo',
+			},
+			{ url: 'https://myorg.visualstudio.com/_git/Repo', owner: 'myorg', project: 'Repo', repo: 'Repo' },
+			{
+				url: 'https://MyOrg.VisualStudio.com/DefaultCollection/Project/_git/Repo',
+				owner: 'MyOrg',
+				project: 'Project',
+				repo: 'Repo',
+			},
+			{ url: 'https://dev.azure.com/myorg/_git/Repo', owner: 'myorg', project: 'Repo', repo: 'Repo' },
+			// Regressions: the shapes that already resolved keep resolving the same way
+			{
+				url: 'https://myorg.visualstudio.com/Project/_git/Repo',
+				owner: 'myorg',
+				project: 'Project',
+				repo: 'Repo',
+			},
+			{ url: 'https://dev.azure.com/myorg/Project/_git/Repo', owner: 'myorg', project: 'Project', repo: 'Repo' },
+			{
+				url: 'https://server.test/DefaultCollection/Project/_git/Repo',
+				owner: 'DefaultCollection',
+				project: 'Project',
+				repo: 'Repo',
+			},
+		]) {
+			test(`resolves ${url}`, () => {
+				const provider = parse(url);
+				assert.ok(provider);
+				assert.strictEqual(provider.id, 'azure-devops');
+				assert.deepEqual(provider.repoDesc, { owner: owner, name: `${project}/_git/${repo}` });
+				assert.deepEqual(provider.providerDesc, {
+					id: 'azureDevops',
+					repoDomain: project,
+					repoName: `${project}/_git/${repo}`,
+					repoOwnerDomain: owner,
+				});
+			});
+		}
+
+		test('maps an SSH remote of a VSTS organization to the same repository', () => {
+			const provider = matcher(
+				'myorg@vs-ssh.visualstudio.com:v3/myorg/Project/Repo',
+				'vs-ssh.visualstudio.com',
+				'v3/myorg/Project/Repo',
+				'ssh',
+			);
+			assert.deepEqual(provider?.repoDesc, { owner: 'myorg', name: 'Project/_git/Repo' });
+		});
+
+		for (const url of [
+			// More than a project after the collection is not a VSTS repository
+			'https://myorg.visualstudio.com/DefaultCollection/Other/Project/_git/Repo',
+			'https://myorg.visualstudio.com/Other/Project/_git/Repo',
+			// dev.azure.com always names the organization in the path
+			'https://dev.azure.com/_git/Repo',
+			'https://dev.azure.com/myorg/Other/Project/_git/Repo',
+			// Without a project, a server's virtual directory and collection can't be told apart
+			'https://server.test/Collection/_git/Repo',
+			'https://server.test/_git/Repo',
+		]) {
+			test(`does not resolve ${url}`, () => {
+				const provider = parse(url);
+				assert.ok(provider);
+				assert.strictEqual(provider.providerDesc, undefined);
+			});
+		}
+	});
+
 	suite('custom provider configs', () => {
 		test('matches custom domain config for GitHub type', () => {
 			const configs: RemoteProviderConfig[] = [{ domain: 'git.mycorp.com', type: 'github' }];

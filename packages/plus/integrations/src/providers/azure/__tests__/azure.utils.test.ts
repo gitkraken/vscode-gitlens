@@ -37,6 +37,58 @@ suite('Test Azure PR URL parsing to identity: getAzurePullRequestIdentityFromMay
 		);
 	});
 
+	test('a legacy visualstudio.com url may still name the DefaultCollection segment (#5999)', () => {
+		t(
+			'{org}.visualstudio.com/DefaultCollection/{project}/_git/{repo}/pullrequest/{id}',
+			'https://myorg.visualstudio.com/DefaultCollection/Project/_git/Repo/pullrequest/9',
+			{ ownerAndRepo: 'myorg/Project', prNumber: '9' },
+		);
+		t(
+			'{org}.visualstudio.com/defaultcollection/_git/{repo}/pullrequest/{id}',
+			'https://myorg.visualstudio.com/defaultcollection/_git/Repo/pullrequest/9',
+			{ ownerAndRepo: 'myorg/Repo', prNumber: '9' },
+		);
+	});
+
+	test('a visualstudio.com url with no project segment names the project after the repo', () => {
+		t(
+			'{org}.visualstudio.com/_git/{repo}/pullrequest/{id}',
+			'https://myorg.visualstudio.com/_git/Repo/pullrequest/9',
+			{
+				ownerAndRepo: 'myorg/Repo',
+				prNumber: '9',
+			},
+		);
+	});
+
+	test('a visualstudio.com url follows the remote parser for anything else before _git', () => {
+		t(
+			'{Org}.VisualStudio.com/DefaultCollection/{project}/_git/{repo}/pullrequest/{id}',
+			'https://MyOrg.VisualStudio.com/DefaultCollection/My%20Project/_git/Repo/pullrequest/9',
+			{ ownerAndRepo: 'myorg/My Project', prNumber: '9' },
+		);
+		t(
+			'{org}.visualstudio.com/{a}/{b}/_git/{repo}',
+			'https://myorg.visualstudio.com/a/b/_git/Repo/pullrequest/9',
+			undefined,
+		);
+	});
+
+	test('a cloud url is read the same with any scheme or `_git` casing', () => {
+		t('_GIT', 'https://dev.azure.com/myorg/Project/_GIT/Repo/pullrequest/42', {
+			ownerAndRepo: 'myorg/Project',
+			prNumber: '42',
+		});
+		t('non-special scheme', 'vstfs://myorg.visualstudio.com/Project/_git/Repo/pullrequest/9', {
+			ownerAndRepo: 'myorg/Project',
+			prNumber: '9',
+		});
+	});
+
+	test('dev.azure.com still needs the org before _git', () => {
+		t('_git/{repo}/pullrequest/{id}', 'https://dev.azure.com/_git/Repo/pullrequest/3', undefined);
+	});
+
 	test('the short {org}/_git/{repo} form names the project after the repo', () => {
 		t('{org}/_git/{repo}/pullrequest/{id}', 'https://dev.azure.com/myorg/_git/Repo/pullrequest/3', {
 			ownerAndRepo: 'myorg/Repo',
