@@ -1,16 +1,18 @@
 import * as assert from 'node:assert/strict';
 import { suite, teardown, test } from 'mocha';
+import { RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toCloudIntegrationType } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
 import { IssuesCloudHostIntegrationId, IssuesSelfManagedHostIntegrationId } from '../constants.js';
-import { RequestClientError } from '../errors.js';
+import { AuthenticationError, AuthenticationErrorReason, RequestClientError } from '../errors.js';
 import type { IntegrationService } from '../integrationService.js';
 import { createIntegrationService } from '../integrationService.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
-import { isJiraMissingProjectError } from '../providers/providerErrors.js';
+import { isJiraMissingProjectError, isJiraServerMissingProjectError } from '../providers/providerErrors.js';
 import { DiscoveryCache, discoveryCacheTtl } from '../providers/utils/discoveryCache.js';
+import { toSelectionAction } from '../reads/selectionConfirmation.js';
 import type { ProviderPagedResult } from '../results.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
@@ -90,16 +92,43 @@ function providerIssue(key: string, project: { id: string; name: string; resourc
 	};
 }
 
-/** Jira's `400` for a search scoped to a project it cannot find, as `providersApi` rethrows it. */
-function missingProjectError(value: string): RequestClientError {
+/**
+ * Jira's `400` for a search scoped to a project it cannot find, as `providersApi` rethrows it. `user` is the
+ * `X-AUSERNAME` Jira Data Center names the request's user in; Jira Cloud sends no such header.
+ */
+function missingProjectError(value: string, user?: string): RequestClientError {
 	const error = new Error('(400) Bad Request.');
 	Object.assign(error, {
 		response: {
 			status: 400,
 			body: { errorMessages: [`The value '${value}' does not exist for the field 'project'.`], errors: {} },
+			headers: user != null ? { 'x-ausername': user } : {},
 		},
 	});
 	return new RequestClientError(error);
+}
+
+function forbiddenError(): RequestClientError {
+	const error = new Error('(403) Forbidden.');
+	Object.assign(error, { response: { status: 403, body: { errorMessages: ['Forbidden'], errors: {} } } });
+	return new RequestClientError(error);
+}
+
+/** The selector-miss warning alone, on an empty, unfailed page with no cursor. */
+function assertProjectSelectorMiss(page: ProviderPagedResult<IssueShape>, project: string): void {
+	assert.deepEqual(page.items, []);
+	assert.equal(page.fetchFailed, undefined);
+	assert.equal(page.hasMore, false);
+	assert.equal(page.cursor, undefined);
+	assert.deepEqual(
+		page.warnings.map(w => ({ kind: w.kind, isAuth: w.isAuth, selector: w.selector, scope: w.scope })),
+		[{ kind: 'not-found', isAuth: false, selector: { kind: 'project', value: project }, scope: undefined }],
+	);
+}
+
+/** Moves on every clear of the integration's project cache, so a test can tell a read that cleared it. */
+function projectsCacheGeneration(integration: IssuesIntegration): number {
+	return (integration as unknown as { _projects: DiscoveryCache<unknown> })._projects.generation;
 }
 
 async function prefixesOf(integration: IssuesIntegration): Promise<(string | undefined)[]> {
@@ -124,19 +153,29 @@ async function jiraServer() {
 		searches: [] as string[],
 		/** When set, the project list waits on it, so a test can act while the read is in flight. */
 		projectsGate: undefined as Promise<void> | undefined,
+		projectsError: undefined as Error | undefined,
 		searchError: undefined as Error | undefined,
+		noProjectData: false,
+		/** The user a refusal names in `X-AUSERNAME`: `anonymous`, or none, for a token Jira rejected. */
+		user: 'julian' as string | undefined,
 	};
 	stubApi(integration, {
+		getJiraServerCurrentUser: () =>
+			state.user == null || state.user.toLowerCase() === 'anonymous'
+				? Promise.reject(new Error('(401) Unauthorized.'))
+				: Promise.resolve({ id: state.user, name: state.user, username: state.user }),
 		getJiraServerProjects: async () => {
 			state.projectReads++;
+			if (state.projectsError != null) throw state.projectsError;
+
 			const snapshot = state.projects.map(p => ({ ...p }));
 			await state.projectsGate;
-			return snapshot;
+			return state.noProjectData ? undefined : snapshot;
 		},
 		getJiraServerIssuesForProjectPaged: (_t: unknown, _baseUrl: string, projectId: string) => {
 			state.searches.push(projectId);
 			if (state.searchError != null) return Promise.reject(state.searchError);
-			if (state.deleted.has(projectId)) return Promise.reject(missingProjectError(projectId));
+			if (state.deleted.has(projectId)) return Promise.reject(missingProjectError(projectId, state.user));
 
 			const project = state.projects.find(p => p.id === projectId)!;
 			return Promise.resolve({
@@ -149,7 +188,7 @@ async function jiraServer() {
 	await service.refreshConnections();
 	await flush();
 
-	const read = (options?: { forceSync?: boolean }) =>
+	const read = (options?: { forceSync?: boolean; project?: string }) =>
 		service.listIssueTrackerIssuesPage({
 			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
 			domain: jiraServerDomain,
@@ -240,6 +279,202 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
+		test('a selected project deleted while the list is cached reads as empty, then misses the selector', async () => {
+			const { service, state, read } = await jiraServer();
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
+
+			assert.deepEqual(titles(await read({ project: 'BETA' })), ['Issue BETA-1']);
+			state.deleted.add('10002');
+			state.projects = state.projects.filter(p => p.id !== '10002');
+			state.searches.length = 0;
+
+			const refused = await read({ project: 'BETA' });
+			assert.deepEqual(refused.items, []);
+			assert.equal(refused.fetchFailed, undefined);
+			assert.deepEqual(refused.warnings, [], 'searched from the cached list that still names it, and dropped it');
+			assert.deepEqual(state.searches, ['10002']);
+
+			assertProjectSelectorMiss(await read({ project: 'BETA' }), 'BETA');
+
+			service.dispose();
+		});
+
+		test('a selected project recreated under its key while the list is cached is read on the next read', async () => {
+			const { service, state, read } = await jiraServer();
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
+
+			assert.deepEqual(titles(await read({ project: 'BETA' })), ['Issue BETA-1']);
+			state.deleted.add('10002');
+			state.projects = [
+				...state.projects.filter(p => p.id !== '10002'),
+				{ id: '10003', key: 'BETA', name: 'Beta' },
+			];
+			state.searches.length = 0;
+
+			assert.deepEqual((await read({ project: 'BETA' })).items, [], 'the cached id, refused');
+			const result = await read({ project: 'BETA' });
+			assert.deepEqual(titles(result), ['Issue BETA-1']);
+			assert.equal(result.fetchFailed, undefined);
+			assert.deepEqual(result.warnings, []);
+			assert.deepEqual(
+				state.searches,
+				['10002', '10003'],
+				'the cached id, then the one the list read again names',
+			);
+
+			service.dispose();
+		});
+
+		test('a selected project created while the list is cached is read, with no selector', async () => {
+			const { service, state, read } = await jiraServer();
+
+			await read();
+			state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
+
+			const result = await read({ project: 'BETA' });
+			assert.deepEqual(titles(result), ['Issue BETA-1']);
+			assert.equal(result.fetchFailed, undefined);
+			assert.deepEqual(result.warnings, []);
+			assert.equal(state.projectReads, 3, 'the cached list, the list read again, then the list it refreshed');
+
+			service.dispose();
+		});
+
+		test('a selected project missing from the cached list and its re-read misses the selector', async () => {
+			const { service, integration, state, read } = await jiraServer();
+
+			await read();
+			const generation = projectsCacheGeneration(integration);
+			assertProjectSelectorMiss(await read({ project: 'BETA' }), 'BETA');
+			assert.equal(state.projectReads, 2, 'one re-read, not one per miss');
+			assert.deepEqual(state.searches, ['10001']);
+			assert.equal(
+				projectsCacheGeneration(integration),
+				generation,
+				'read past the cache, without clearing it for every other read and connection',
+			);
+
+			service.dispose();
+		});
+
+		test('a selected project missing from the cached list fails the read when its re-read fails', async () => {
+			const { service, state, read } = await jiraServer();
+
+			await read();
+			state.projectsError = new Error('connect ECONNRESET');
+
+			const result = await read({ project: 'BETA' });
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.notEqual(result.cursor, undefined, 'the read can be retried');
+			assert.equal(result.warnings.length, 1);
+			assert.equal(result.warnings[0].selector, undefined);
+			assert.equal(state.projectReads, 2);
+
+			service.dispose();
+		});
+
+		test('a forced read missing the selected project confirms it once, past the cache', async () => {
+			const { service, state, read } = await jiraServer();
+
+			await read();
+			assertProjectSelectorMiss(await read({ project: 'BETA', forceSync: true }), 'BETA');
+			assert.equal(state.projectReads, 3, 'the refreshed list, then the confirmation, which joins no read');
+
+			service.dispose();
+		});
+
+		for (const [label, user] of [
+			['as the anonymous user', 'anonymous'],
+			['as the anonymous user, capitalized', 'Anonymous'],
+			['naming no user', undefined],
+		] as const) {
+			test(`a refusal ${label}, as for a rejected token, fails the read and keeps the list`, async () => {
+				const { service, state, read } = await jiraServer();
+				state.projects.push({ id: '10002', key: 'BETA', name: 'Beta' });
+
+				assert.deepEqual(titles(await read({ project: 'BETA' })), ['Issue BETA-1']);
+				// The project still exists: the token was revoked, so Jira reads as nobody, who sees no project.
+				state.deleted.add('10002');
+				state.user = user;
+
+				const selected = await read({ project: 'BETA' });
+				assert.deepEqual(selected.items, []);
+				assert.equal(selected.fetchFailed, true);
+				assert.notEqual(selected.cursor, undefined, 'the read can be retried');
+				assert.equal(selected.warnings.length, 1);
+				assert.equal(selected.warnings[0].selector, undefined);
+
+				const all = await read();
+				assert.deepEqual(titles(all), ['Issue ALPHA-1']);
+				assert.equal(all.fetchFailed, true, 'not read as a project with no issues');
+				assert.equal(state.projectReads, 1, 'the cached list is kept');
+
+				service.dispose();
+			});
+		}
+
+		test('a rejected token whose answers name no user does not miss the selector', async () => {
+			const { service, state, read } = await jiraServer();
+			// Behind a proxy that strips `X-AUSERNAME`, a rejected token's project list reads as no projects at all, and
+			// only its account lookup is refused.
+			state.projects = [];
+			state.user = undefined;
+
+			const result = await read({ project: 'ALPHA' });
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, true);
+			assert.notEqual(result.cursor, undefined, 'the read can be retried');
+			assert.equal(
+				result.warnings.some(w => w.selector != null),
+				false,
+			);
+			assert.equal(state.projectReads, 2, 'the list was read again before the miss was weighed');
+
+			// The same answers with a credential the account lookup accepts prove the project gone.
+			state.user = 'julian';
+			assertProjectSelectorMiss(await read({ project: 'ALPHA' }), 'ALPHA');
+
+			service.dispose();
+		});
+
+		test('a 403 on the selected project fails the read, with no selector', async () => {
+			const { service, state, read } = await jiraServer();
+			await read({ project: 'ALPHA' });
+			state.searchError = forbiddenError();
+
+			const result = await read({ project: 'ALPHA' });
+			assert.equal(result.fetchFailed, true);
+			assert.equal(result.warnings.length, 1);
+			assert.equal(result.warnings[0].selector, undefined);
+
+			service.dispose();
+		});
+
+		test('a project read that returns no data is incomplete, not a removed project', async () => {
+			const { service, state, read } = await jiraServer();
+			state.noProjectData = true;
+
+			const result = await read({ project: 'ALPHA', forceSync: true });
+			assert.deepEqual(result.items, []);
+			assert.equal(result.page.truncated, true);
+			assert.notEqual(result.cursor, undefined, 'the read can be retried');
+			assert.equal(
+				result.warnings.some(w => w.selector != null),
+				false,
+			);
+			assert.deepEqual(state.searches, []);
+
+			const listed = await service.listProjects({
+				providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+				domain: jiraServerDomain,
+			});
+			assert.deepEqual(listed.items, []);
+			assert.equal(listed.fetchFailed, true, 'an unconfirmed list is not an instance with no projects');
+
+			service.dispose();
+		});
+
 		test('any other 400 still fails the read', async () => {
 			const { service, state, read } = await jiraServer();
 			const error = new Error('(400) Bad Request.');
@@ -303,27 +538,46 @@ suite('Tracker project cache (#5907)', () => {
 			const { service, runtime } = createCloudService(IssuesCloudHostIntegrationId.Jira);
 			const integration = await service.get(IssuesCloudHostIntegrationId.Jira);
 			const state = {
+				sites: [site],
+				siteReads: 0,
+				/** When set, the site list waits on it, answering with the sites listed when it was asked. */
+				sitesGate: undefined as Promise<void> | undefined,
 				projects: [{ id: 'p1', key: 'ALPHA', name: 'Alpha' }],
 				deleted: new Set<string>(),
+				/** `site:key` pairs deleted on that site alone: unlisted there, and its searches refused. */
+				deletedOnSite: new Set<string>(),
 				projectReads: 0,
 				/** When set, the project list waits on it, so a test can act while the read is in flight. */
 				projectsGate: undefined as Promise<void> | undefined,
+				searchError: undefined as Error | undefined,
 			};
 			stubApi(integration, {
-				getJiraResourcesForCurrentUser: () => Promise.resolve([site]),
-				getJiraProjectsForResource: async () => {
+				getCurrentUserForResource: () => Promise.resolve({ id: 'me', name: 'Me', username: 'me' }),
+				getJiraResourcesForCurrentUser: async () => {
+					state.siteReads++;
+					const snapshot = state.sites.map(s => ({ ...s }));
+					await state.sitesGate;
+					return snapshot;
+				},
+				// Every site lists the same projects.
+				getJiraProjectsForResource: async (_t: unknown, resourceId: string) => {
 					state.projectReads++;
-					const values = state.projects.map(p => ({ ...p, resourceId: site.id, resourceName: site.name }));
+					const values = state.projects
+						.filter(p => !state.deletedOnSite.has(`${resourceId}:${p.key}`))
+						.map(p => ({ ...p, resourceId: resourceId, resourceName: site.name }));
 					await state.projectsGate;
 					return { values: values, paging: undefined };
 				},
 				// Addressed by key; the names differ from the keys so a read by name finds nothing.
-				getIssuesForProjectPaged: (_t: unknown, projectKey: string) => {
-					if (state.deleted.has(projectKey)) return Promise.reject(missingProjectError(projectKey));
+				getIssuesForProjectPaged: (_t: unknown, projectKey: string, resourceId: string) => {
+					if (state.searchError != null) return Promise.reject(state.searchError);
+					if (state.deleted.has(projectKey) || state.deletedOnSite.has(`${resourceId}:${projectKey}`)) {
+						return Promise.reject(missingProjectError(projectKey));
+					}
 
 					const project = state.projects.find(p => p.key === projectKey)!;
 					return Promise.resolve({
-						data: [providerIssue(`${project.key}-1`, { ...project, resourceId: site.id })],
+						data: [providerIssue(`${project.key}-1`, { ...project, resourceId: resourceId })],
 						hasMore: false,
 						nextCursor: undefined,
 					});
@@ -332,10 +586,11 @@ suite('Tracker project cache (#5907)', () => {
 			await service.refreshConnections();
 			await flush();
 
-			const read = () =>
+			const read = (options?: { org?: string; project?: string }) =>
 				service.listIssueTrackerIssuesPage({
 					providerId: IssuesCloudHostIntegrationId.Jira,
 					includeAllAssignees: true,
+					...options,
 				});
 			return { service: service, runtime: runtime, integration: integration, state: state, read: read };
 		}
@@ -496,6 +751,57 @@ suite('Tracker project cache (#5907)', () => {
 			service.dispose();
 		});
 
+		test('a project read served wholly from the cache returns it, even when the cache is cleared right after', async () => {
+			const { service, integration } = await jiraCloud();
+			const internals = integration as unknown as {
+				_session: ProviderAuthenticationSession;
+				getProviderProjectsForResourcesWithMetadata: (
+					session: ProviderAuthenticationSession,
+					resources: unknown[],
+				) => Promise<{ values: { key: string }[] }>;
+			};
+			const [cached] = (await integration.getResourcesForUserResult())?.value ?? [];
+			await integration.getProjectsForResourcesWithMetadataResult([cached]);
+
+			const pending = internals.getProviderProjectsForResourcesWithMetadata(internals._session, [cached]);
+			integration.invalidateDiscoveryCaches();
+			assert.deepEqual(
+				(await pending).values.map(p => p.key),
+				['ALPHA'],
+			);
+
+			service.dispose();
+		});
+
+		test('a project read keeps a cached site when the cache is cleared while it reads another', async () => {
+			const { service, integration, state } = await jiraCloud();
+			const internals = integration as unknown as {
+				_session: ProviderAuthenticationSession;
+				getProviderProjectsForResourcesWithMetadata: (
+					session: ProviderAuthenticationSession,
+					resources: unknown[],
+				) => Promise<{ values: { key: string; resourceId: string }[] }>;
+			};
+			const [cached] = (await integration.getResourcesForUserResult())?.value ?? [];
+			await integration.getProjectsForResourcesWithMetadataResult([cached]);
+
+			let release!: () => void;
+			state.projectsGate = new Promise<void>(resolve => (release = resolve));
+			const pending = internals.getProviderProjectsForResourcesWithMetadata(internals._session, [
+				cached,
+				{ ...cached, id: 'site-2', key: 'site-2', name: 'Site 2' },
+			]);
+			await flush();
+			integration.invalidateDiscoveryCaches();
+			release();
+			assert.deepEqual((await pending).values.map(p => `${p.resourceId}:${p.key}`).sort(), [
+				'site-1:ALPHA',
+				'site-2:ALPHA',
+			]);
+
+			service.dispose();
+		});
+
 		test('concurrent autolink reads share one rebuild', async () => {
 			const { service, integration, state } = await jiraCloud();
 			integration.invalidateDiscoveryCaches();
@@ -531,19 +837,361 @@ suite('Tracker project cache (#5907)', () => {
 
 			service.dispose();
 		});
+
+		test('a selected project deleted while the list is cached reads as empty, then misses the selector', async () => {
+			const { service, state, read } = await jiraCloud();
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			await service.refreshConnections();
+			await flush();
+			assert.deepEqual(titles(await read({ project: 'BETA' })), ['Issue BETA-1']);
+
+			state.deleted.add('BETA');
+			state.projects = state.projects.filter(p => p.key !== 'BETA');
+			const refused = await read({ project: 'BETA' });
+			assert.deepEqual(refused.items, []);
+			assert.deepEqual(refused.warnings, [], 'searched from the cached list that still names it, and dropped it');
+			assertProjectSelectorMiss(await read({ project: 'BETA' }), 'BETA');
+
+			service.dispose();
+		});
+
+		/**
+		 * Every page of `reads` paged `project: 'BETA'` reads (one by default), `itemsPerPage` projects at a time, on
+		 * sites that all listed BETA. Each read starts again from the first page.
+		 */
+		async function readBetaPaged(
+			edit: (state: Awaited<ReturnType<typeof jiraCloud>>['state']) => void,
+			options?: { sites?: number; itemsPerPage?: number; reads?: number },
+		) {
+			const { service, state, read } = await jiraCloud();
+			state.sites = Array.from({ length: options?.sites ?? 2 }, (_, i) =>
+				i === 0 ? site : { ...site, id: `site-${i + 1}`, name: `Site ${i + 1}` },
+			);
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			await service.refreshConnections();
+			await flush();
+			assert.equal(
+				titles(await read({ project: 'BETA' })).length,
+				state.sites.length,
+				'BETA is cached on every site',
+			);
+
+			edit(state);
+			const items: IssueShape[] = [];
+			const warnings: ProviderPagedResult<IssueShape>['warnings'] = [];
+			for (let read = 0; read < (options?.reads ?? 1); read++) {
+				let cursor: string | undefined;
+				let pages = 0;
+				do {
+					const result = await service.listIssueTrackerIssuesPage({
+						providerId: IssuesCloudHostIntegrationId.Jira,
+						includeAllAssignees: true,
+						project: 'BETA',
+						itemsPerPage: options?.itemsPerPage ?? 1,
+						cursor: cursor,
+					});
+					items.push(...result.items);
+					warnings.push(...result.warnings);
+					cursor = result.cursor;
+				} while (cursor != null && ++pages < 5);
+			}
+			service.dispose();
+			return { items: items, warnings: warnings };
+		}
+
+		test('a selected project deleted on every site misses the selector once each refused list is read again', async () => {
+			// A refusal drops its site's list, and a paged read's later windows move with it, so each read refuses one
+			// site here; the read after the last refusal lists BETA nowhere.
+			const { items, warnings } = await readBetaPaged(
+				state => {
+					state.deleted.add('BETA');
+					state.projects = state.projects.filter(p => p.key !== 'BETA');
+				},
+				{ reads: 3 },
+			);
+			assert.deepEqual(items, []);
+			assert.deepEqual(
+				warnings.map(w => w.selector),
+				[{ kind: 'project', value: 'BETA' }],
+			);
+		});
+
+		test('a selection confirmed past the cache neither joins nor overwrites a discovery read in flight', async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			await read();
+			advanceClock(discoveryCacheTtl);
+			let release!: () => void;
+			state.sitesGate = new Promise<void>(resolve => (release = resolve));
+			// An ordinary read, started before site-2 exists, waits on the site list.
+			const earlier = integration.getResourcesForUserResult();
+			await flush();
+			state.sitesGate = undefined;
+			state.sites = [...state.sites, { ...site, id: 'site-2', name: 'Site 2' }];
+			// Meanwhile another read cached the list from before site-2, so the selection misses it there.
+			(integration as unknown as { _organizations: DiscoveryCache<unknown[]> })._organizations.set('tok-1', [
+				{ ...site, key: site.id },
+			]);
+
+			const result = await read({ org: 'site-2' });
+			assert.deepEqual(
+				titles(result),
+				['Issue ALPHA-1'],
+				'the confirmation saw site-2, and the refreshed read read it',
+			);
+
+			release();
+			assert.deepEqual(
+				(await earlier)?.value?.map(s => s.id),
+				['site-1'],
+				'the earlier read answers what it read, and is refused by the refresh',
+			);
+			const siteReads = state.siteReads;
+			assert.deepEqual(
+				(await integration.getResourcesForUserResult())?.value?.map(s => s.id),
+				['site-1', 'site-2'],
+				'the earlier read did not put its older list back',
+			);
+			assert.equal(state.siteReads, siteReads, 'served from the cache');
+
+			service.dispose();
+		});
+
+		test('a read refreshed after a stale confirmation that joins an older site read misses no selector', async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			await read();
+			// The cache lists site-1 alone; site-2 exists, and the confirmation, which joins no read, lists it.
+			state.sites = [...state.sites, { ...site, id: 'site-2', name: 'Site 2' }];
+			// An ordinary site read that answers as from before site-2 holds the shared lookup the read refreshed
+			// after the confirmation joins, as a read started before the caches were dropped would.
+			const shared = integration as unknown as {
+				getResourcesForUserResult: (connectionId?: string) => Promise<{ value?: unknown[] }>;
+			};
+			const uncachedShared = shared.getResourcesForUserResult.bind(integration);
+			let joins = 0;
+			shared.getResourcesForUserResult = connectionId => {
+				joins++;
+				return joins === 1
+					? uncachedShared(connectionId)
+					: Promise.resolve({ value: [{ ...site, key: site.id }] });
+			};
+
+			const result = await read({ org: 'site-2' });
+			assert.equal(joins, 2, 'the read, then the one refreshed after the confirmation found site-2');
+			assert.equal(
+				result.warnings.some(w => w.selector != null),
+				false,
+				'site-2 is listed now, whatever the joined read answered',
+			);
+			assert.equal(result.fetchFailed, true);
+			assert.notEqual(result.cursor, undefined, 'retried on the next read');
+
+			service.dispose();
+		});
+
+		test('a selected site removed while the list is cached misses the site, not its project', async () => {
+			const { service, state, read } = await jiraCloud();
+			// The cache still lists site-1, which no longer lists NOPE; the lists now name site-1 no longer.
+			await read();
+			state.sites = [{ ...site, id: 'site-2', name: 'Site 2' }];
+
+			const result = await read({ org: site.id, project: 'NOPE' });
+			assert.deepEqual(
+				result.warnings.map(w => w.selector),
+				[{ kind: 'org', value: site.id }],
+			);
+
+			service.dispose();
+		});
+
+		test('a selected site created while the list is cached, with a project it lacks, misses the project', async () => {
+			const { service, state, read } = await jiraCloud();
+			await read();
+			state.sites = [...state.sites, { ...site, id: 'site-2', name: 'Site 2' }];
+
+			// site-2 is listed now: the miss is the project's, found once the read is made over the fresh lists.
+			assertProjectSelectorMiss(await read({ org: 'site-2', project: 'NOPE' }), 'NOPE');
+
+			service.dispose();
+		});
+
+		test('a selected project created while the list is cached is read, with no selector', async () => {
+			const { service, state, read } = await jiraCloud();
+			await read();
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
+			const reads = state.projectReads;
+
+			const result = await read({ project: 'BETA' });
+			assert.deepEqual(titles(result), ['Issue BETA-1']);
+			assert.equal(result.fetchFailed, undefined);
+			assert.deepEqual(result.warnings, []);
+			assert.equal(state.projectReads, reads + 2, 'the list read again, then the list it refreshed');
+
+			service.dispose();
+		});
+
+		test('a selected site created while the list is cached is read, with no selector', async () => {
+			const { service, state, read } = await jiraCloud();
+			await read();
+			state.sites = [...state.sites, { ...site, id: 'site-2', name: 'Site 2' }];
+			const siteReads = state.siteReads;
+
+			const result = await read({ org: 'site-2' });
+			assert.deepEqual(titles(result), ['Issue ALPHA-1']);
+			assert.equal(result.fetchFailed, undefined);
+			assert.deepEqual(result.warnings, []);
+			assert.equal(state.siteReads, siteReads + 2, 'the list read again, then the list it refreshed');
+
+			service.dispose();
+		});
+
+		test('a selected site missing from the cached list and its re-read misses the selector', async () => {
+			const { service, integration, state, read } = await jiraCloud();
+			await read();
+			const siteReads = state.siteReads;
+			const generation = projectsCacheGeneration(integration);
+
+			const result = await read({ org: 'site-2' });
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, undefined);
+			assert.equal(result.cursor, undefined);
+			assert.deepEqual(
+				result.warnings.map(w => ({ kind: w.kind, selector: w.selector })),
+				[{ kind: 'not-found', selector: { kind: 'org', value: 'site-2' } }],
+			);
+			assert.equal(state.siteReads, siteReads + 1, 'one re-read, not one per miss');
+			assert.equal(
+				projectsCacheGeneration(integration),
+				generation,
+				'read past the cache, without clearing it for every other read and connection',
+			);
+
+			service.dispose();
+		});
+
+		test('a confirmation refused for the credential reports that refusal, not a generic one', async () => {
+			const { service, integration, read } = await jiraCloud();
+			await read();
+			(
+				integration as unknown as { getUncachedDiscoveryResult: () => Promise<unknown> }
+			).getUncachedDiscoveryResult = () =>
+				Promise.resolve({
+					error: new AuthenticationError(
+						{
+							providerId: IssuesCloudHostIntegrationId.Jira,
+							microHash: undefined,
+							cloud: true,
+							type: 'oauth',
+							scopes: [],
+						},
+						AuthenticationErrorReason.Unauthorized,
+					),
+				});
+
+			const result = await read({ org: 'site-2' });
+			assert.equal(result.fetchFailed, true);
+			assert.notEqual(result.cursor, undefined);
+			assert.deepEqual(
+				result.warnings.map(w => ({ kind: w.kind, selector: w.selector })),
+				[{ kind: 'auth', selector: undefined }],
+				'consumers can still tell to reconnect',
+			);
+
+			service.dispose();
+		});
+
+		test('a confirmation that hit a rate limit reports it, not a generic failure', async () => {
+			const { service, integration, read } = await jiraCloud();
+			await read();
+			(
+				integration as unknown as { getUncachedDiscoveryResult: () => Promise<unknown> }
+			).getUncachedDiscoveryResult = () =>
+				Promise.resolve({ error: new RequestRateLimitError(new Error('rate limited'), undefined, undefined) });
+
+			const result = await read({ org: 'site-2' });
+			assert.equal(result.fetchFailed, true);
+			assert.notEqual(result.cursor, undefined);
+			assert.deepEqual(
+				result.warnings.map(w => ({ kind: w.kind, selector: w.selector })),
+				[{ kind: 'rate-limit', selector: undefined }],
+				'consumers can still back off',
+			);
+
+			service.dispose();
+		});
+
+		test('a confirmation whose project list a site refused reports that refusal', async () => {
+			const { service, integration, read } = await jiraCloud();
+			await read();
+			(
+				integration as unknown as { getUncachedDiscoveryResult: () => Promise<unknown> }
+			).getUncachedDiscoveryResult = () =>
+				Promise.resolve({
+					value: {
+						resources: [{ ...site, key: site.id }],
+						projects: {
+							values: [],
+							metadata: {
+								completeness: 'partial',
+								failures: [{ kind: 'authentication', scope: { resourceId: site.id } }],
+							},
+						},
+					},
+				});
+
+			const result = await read({ project: 'NOPE' });
+			assert.equal(result.fetchFailed, true);
+			assert.ok(
+				result.warnings.some(w => w.kind === 'auth' && w.scope?.resourceId === site.id),
+				'the site refusal is reported, not a generic one',
+			);
+			assert.equal(
+				result.warnings.some(w => w.selector != null),
+				false,
+			);
+
+			service.dispose();
+		});
+
+		test('a 403 on the selected project fails the read, with no selector', async () => {
+			const { service, state, read } = await jiraCloud();
+			await read({ project: 'ALPHA' });
+			state.searchError = forbiddenError();
+
+			const result = await read({ project: 'ALPHA' });
+			assert.equal(result.fetchFailed, true);
+			assert.equal(result.warnings.length, 1);
+			assert.equal(result.warnings[0].selector, undefined);
+
+			service.dispose();
+		});
 	});
 
 	suite('Linear', () => {
 		async function linear() {
 			const { service, runtime } = createCloudService(IssuesCloudHostIntegrationId.Linear);
 			const integration = await service.get(IssuesCloudHostIntegrationId.Linear);
-			const state = { teams: [{ id: 't1', key: 'ALPHA', name: 'Alpha', iconUrl: null }], teamReads: 0 };
+			const state = {
+				teams: [{ id: 't1', key: 'ALPHA', name: 'Alpha', iconUrl: null }],
+				teamReads: 0,
+				noTeamData: false,
+				noOrganizationData: false,
+				/** When set, the team list waits on it, answering with the teams listed when it was asked. */
+				teamsGate: undefined as Promise<void> | undefined,
+			};
 			stubApi(integration, {
 				getLinearOrganization: () =>
-					Promise.resolve({ id: 'org-1', key: 'acme', name: 'Acme', url: 'https://linear.app/acme' }),
-				getLinearTeamsForCurrentUser: () => {
+					Promise.resolve(
+						state.noOrganizationData
+							? undefined
+							: { id: 'org-1', key: 'acme', name: 'Acme', url: 'https://linear.app/acme' },
+					),
+				getLinearCurrentUser: () =>
+					Promise.resolve({ id: 'me', name: 'Me', displayName: 'me', email: undefined }),
+				getLinearTeamsForCurrentUser: async () => {
 					state.teamReads++;
-					return Promise.resolve(state.teams.map(t => ({ ...t })));
+					const snapshot = state.noTeamData ? undefined : state.teams.map(t => ({ ...t }));
+					await state.teamsGate;
+					return snapshot;
 				},
 				getLinearIssues: (_t: unknown, input: { teams?: string[] }) => {
 					const team = state.teams.find(t => t.id === input.teams?.[0])!;
@@ -588,6 +1236,63 @@ suite('Tracker project cache (#5907)', () => {
 			await prefixesOf(integration);
 			await flush();
 			assert.equal(state.teamReads, reads, 'no provider request is made with the expired token');
+
+			service.dispose();
+		});
+
+		test('a team read that returns no data is incomplete, not a removed team', async () => {
+			const { service, state } = await linear();
+			state.noTeamData = true;
+
+			const result = await service.listIssueTrackerIssuesPage({
+				providerId: IssuesCloudHostIntegrationId.Linear,
+				project: 'ALPHA',
+				includeAllAssignees: true,
+				forceSync: true,
+			});
+			assert.deepEqual(result.items, []);
+			assert.equal(result.page.truncated, true);
+			assert.equal(
+				result.warnings.some(w => w.selector != null),
+				false,
+			);
+
+			service.dispose();
+		});
+
+		test('a selected team missing from the cache and its re-read misses the selector', async () => {
+			const { service, read } = await linear();
+			await read();
+
+			const result = await service.listIssueTrackerIssuesPage({
+				providerId: IssuesCloudHostIntegrationId.Linear,
+				project: 'BETA',
+				includeAllAssignees: true,
+			});
+			assertProjectSelectorMiss(result, 'BETA');
+
+			service.dispose();
+		});
+
+		test('a selected team missing from the cache is no selector miss when its re-read finds no organization', async () => {
+			const { service, state, read } = await linear();
+			await read();
+			// The confirmation re-reads the organization, which now answers with no data while the cache holds it.
+			state.noOrganizationData = true;
+
+			const result = await service.listIssueTrackerIssuesPage({
+				providerId: IssuesCloudHostIntegrationId.Linear,
+				project: 'BETA',
+				includeAllAssignees: true,
+			});
+			assert.deepEqual(result.items, []);
+			assert.equal(
+				result.warnings.some(w => w.selector != null),
+				false,
+				'an unconfirmed discovery is not a removed team',
+			);
+			assert.equal(result.fetchFailed, true);
+			assert.notEqual(result.cursor, undefined, 'retried on the next read');
 
 			service.dispose();
 		});
@@ -720,6 +1425,91 @@ suite('Tracker project cache (#5907)', () => {
 				false,
 				'another field is not a missing project',
 			);
+		});
+
+		test('on Jira Data Center, only a refusal that names the user it authenticated', () => {
+			const refusal = (headers: Record<string, string> | Headers | undefined): Error =>
+				Object.assign(new Error('(400)'), {
+					response: {
+						status: 400,
+						body: { errorMessages: ["The value 'OPS' does not exist for the field 'project'."] },
+						headers: headers,
+					},
+				});
+			const authenticated = refusal({ 'x-ausername': 'julian' });
+			assert.equal(isJiraServerMissingProjectError(authenticated), true);
+			assert.equal(isJiraServerMissingProjectError(new RequestClientError(authenticated)), true);
+			assert.equal(isJiraServerMissingProjectError(refusal(new Headers({ 'X-AUSERNAME': 'julian' }))), true);
+
+			assert.equal(isJiraServerMissingProjectError(refusal({ 'x-ausername': 'anonymous' })), false);
+			assert.equal(isJiraServerMissingProjectError(refusal({ 'x-ausername': 'Anonymous' })), false);
+			assert.equal(isJiraServerMissingProjectError(refusal({ 'x-ausername': '' })), false);
+			assert.equal(isJiraServerMissingProjectError(refusal({})), false);
+			assert.equal(isJiraServerMissingProjectError(refusal(undefined)), false);
+			assert.equal(isJiraMissingProjectError(refusal(undefined)), true, 'Jira Cloud sends no such header');
+			assert.equal(
+				isJiraServerMissingProjectError(
+					Object.assign(new Error('(400)'), {
+						response: {
+							status: 400,
+							body: { errorMessages: ["Field 'sprint' does not exist."] },
+							headers: { 'x-ausername': 'julian' },
+						},
+					}),
+				),
+				false,
+				'an authenticated user does not make another refusal a missing project',
+			);
+		});
+	});
+
+	suite('uncached confirmation reads', () => {
+		async function jiraCloudForReset() {
+			const { service } = createCloudService(IssuesCloudHostIntegrationId.Jira);
+			const integration = await service.get(IssuesCloudHostIntegrationId.Jira);
+			stubApi(integration, {
+				getCurrentUserForResource: () => Promise.resolve({ id: 'me', name: 'Me', username: 'me' }),
+				getJiraResourcesForCurrentUser: () =>
+					Promise.resolve([{ id: 'site-1', name: 'Site', url: 'https://site.atlassian.net', avatarUrl: '' }]),
+				getJiraProjectsForResource: () => Promise.resolve({ values: [], paging: undefined }),
+			});
+			await service.refreshConnections();
+			await flush();
+			return { service: service, integration: integration };
+		}
+
+		test('a success clears the failure they recorded, as the cached reads do', async () => {
+			const { service, integration } = await jiraCloudForReset();
+			const marks = integration as unknown as {
+				requestSessionSyncForUsecase: (usecase: string) => void;
+				hasSessionSyncRequests: () => boolean;
+			};
+
+			// A refusal marked the discovery for a re-sync; the re-sync healed it, and the next confirmation succeeds.
+			marks.requestSessionSyncForUsecase('getProjectsForResources');
+			await integration.getUncachedDiscoveryResult(() => true);
+			assert.equal(marks.hasSessionSyncRequests(), false, 'a later refusal can re-sync again');
+
+			marks.requestSessionSyncForUsecase('getAccountForResource');
+			await integration.getUncachedAccountForResourceResult({ key: 'site-1', id: 'site-1', name: 'Site' });
+			assert.equal(marks.hasSessionSyncRequests(), false, 'a later refusal can re-sync again');
+
+			service.dispose();
+		});
+	});
+
+	suite('toSelectionAction', () => {
+		test('reports a miss, refreshes a stale cache once, and leaves the unknown unconfirmed', () => {
+			const missing = { verdict: 'missing', missed: 'project', resource: undefined } as const;
+			assert.deepEqual(toSelectionAction(missing, false), {
+				action: 'report-missing',
+				missed: 'project',
+				resource: undefined,
+			});
+			assert.equal(toSelectionAction(missing, true).action, 'report-missing');
+			assert.equal(toSelectionAction({ verdict: 'stale' }, false).action, 'refresh');
+			assert.equal(toSelectionAction({ verdict: 'stale' }, true).action, 'unconfirmed', 'not made again');
+			assert.equal(toSelectionAction({ verdict: 'unknown', warnings: [] }, false).action, 'unconfirmed');
 		});
 	});
 

@@ -236,6 +236,19 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		if (cachedResources != null && !force) return { values: cachedResources };
 
 		const generation = this._teams.generation;
+		const read = await this.readTeams(session);
+		if (read?.metadata != null) return read;
+
+		if (read != null && this._teams.set(accessToken, read.values, { generation: generation })) {
+			// Built from the teams; a new set means new prefixes.
+			this._autolinks.delete(accessToken);
+		}
+		return read;
+	}
+
+	private async readTeams(
+		session: ProviderAuthenticationSession,
+	): Promise<ProviderApiCollectionResult<LinearTeamDescriptor> | undefined> {
 		const api = await this.getProvidersApi();
 		const teams = await api.getLinearTeamsForCurrentUser(toTokenWithInfo(this.id, session));
 		const descriptors: LinearTeamDescriptor[] | undefined = teams?.map(t => ({
@@ -254,10 +267,6 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			return { values: descriptors, metadata: { completeness: 'unknown' } };
 		}
 
-		if (this._teams.set(accessToken, descriptors, { generation: generation })) {
-			// Built from the teams; a new set means new prefixes.
-			this._autolinks.delete(accessToken);
-		}
 		return { values: descriptors };
 	}
 
@@ -265,6 +274,13 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		session: ProviderAuthenticationSession,
 	): Promise<ResourceDescriptor[] | undefined> {
 		const organization = await this.getOrganization(session);
+		return organization != null ? [organization] : undefined;
+	}
+	protected override async getProviderUncachedResourcesForUser(
+		session: ProviderAuthenticationSession,
+	): Promise<ResourceDescriptor[] | undefined> {
+		// Joins none in flight, unlike `getOrganization`: one may have started before what the caller needs to see.
+		const organization = await this.fetchOrganization(session);
 		return organization != null ? [organization] : undefined;
 	}
 	protected override getProviderProjectsForResources(
@@ -277,7 +293,13 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		session: ProviderAuthenticationSession,
 		_resources: ResourceDescriptor[],
 	): Promise<ProviderApiCollectionResult<ResourceDescriptor>> {
-		return (await this.getTeamsWithMetadata(session)) ?? { values: [] };
+		return (await this.getTeamsWithMetadata(session)) ?? { values: [], metadata: { completeness: 'unknown' } };
+	}
+	protected override async getProviderUncachedProjectsForResourcesWithMetadata(
+		session: ProviderAuthenticationSession,
+		_resources: ResourceDescriptor[],
+	): Promise<ProviderApiCollectionResult<ResourceDescriptor>> {
+		return (await this.readTeams(session)) ?? { values: [], metadata: { completeness: 'unknown' } };
 	}
 
 	override invalidateDiscoveryCaches(): void {
@@ -300,6 +322,13 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			this._recentAccounts.set(session.accessToken, Promise.resolve(account));
 		}
 		return account;
+	}
+
+	protected override getProviderUncachedAccountForResource(
+		session: ProviderAuthenticationSession,
+		_resource: ResourceDescriptor,
+	): Promise<Account | undefined> {
+		return this.fetchAccount(session);
 	}
 
 	protected override async getProviderAccountForResource(

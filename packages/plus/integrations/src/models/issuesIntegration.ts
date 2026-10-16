@@ -297,22 +297,108 @@ export abstract class IssuesIntegration<
 
 	/**
 	 * Metadata-aware provider project discovery. The default wraps the array-returning
-	 * {@link getProviderProjectsForResources} in `{ values }` with no metadata, so providers without a
-	 * fan-out completeness signal (Linear, Trello) need no change; Jira overrides it to preserve the SDK's
-	 * per-resource completeness/failures.
+	 * {@link getProviderProjectsForResources} in `{ values }`, so providers without a fan-out completeness signal
+	 * (Jira Data Center, Trello) need no change; a read that returned no data is `unknown`, not an empty project list.
+	 * Jira Cloud and Linear override it to preserve their completeness/failures.
 	 */
 	protected async getProviderProjectsForResourcesWithMetadata(
 		session: ProviderAuthenticationSession,
 		resources: T[],
 	): Promise<ProviderApiCollectionResult<T>> {
-		const projects = await this.getProviderProjectsForResources(session, resources);
-		return { values: projects ?? [] };
+		return toProjectsCollection(await this.getProviderProjectsForResources(session, resources));
 	}
 
 	protected abstract getProviderProjectsForResources(
 		session: ProviderAuthenticationSession,
 		resources: T[],
 	): Promise<T[] | undefined>;
+
+	/**
+	 * The resources, and the projects of those `projectsOf` keeps, as the provider lists them now. For a read that must
+	 * not take a cached list for the current one: what it decides from this snapshot (that a selection is gone) would
+	 * be wrong for as long as the cache is stale. Shares nothing with the cached discovery: joins no read in flight,
+	 * reads and writes no cache, so it can neither be answered by a read started before what it needs to see, nor put
+	 * its answer into a cache a concurrent read relies on. `projects` is omitted when no resource list came back.
+	 */
+	@trace()
+	async getUncachedDiscoveryResult(
+		projectsOf: (resource: T) => boolean,
+		connectionId?: string,
+	): Promise<
+		IntegrationResult<{ resources: T[] | undefined; projects?: ProviderApiCollectionResult<T> } | undefined>
+	> {
+		const scope = getScopedLogger();
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
+
+		try {
+			// Reset on success as the cached reads are, so a refusal a re-sync healed doesn't count toward a disconnect.
+			const resources = await this.getProviderUncachedResourcesForUser(session);
+			this.resetRequestExceptionCount('getResourcesForUser');
+			if (resources == null) return { value: { resources: undefined } };
+
+			const projects = await this.getProviderUncachedProjectsForResourcesWithMetadata(
+				session,
+				resources.filter(projectsOf),
+			);
+			await this.confirmScopedAuthFailures(session, projects.metadata);
+			this.resetRequestExceptionCount('getProjectsForResources');
+			return { value: { resources: resources, projects: projects } };
+		} catch (ex) {
+			this.handleProviderException('getProjectsForResources', ex, { connectionId: connectionId });
+			return { error: toError(ex) };
+		}
+	}
+
+	/**
+	 * {@link getAccountForResourceResult} asked of the provider now, joining no lookup in flight and served from no
+	 * account it lends: a lookup started before the credential was revoked would vouch for it.
+	 */
+	@trace()
+	async getUncachedAccountForResourceResult(
+		resource: T,
+		connectionId?: string,
+	): Promise<IntegrationResult<Account | undefined>> {
+		const scope = getScopedLogger();
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
+
+		try {
+			const account = await this.getProviderUncachedAccountForResource(session, resource);
+			this.resetRequestExceptionCount('getAccountForResource');
+			return { value: account };
+		} catch (ex) {
+			this.handleProviderException('getAccountForResource', ex, { connectionId: connectionId });
+			return { error: toError(ex) };
+		}
+	}
+
+	/** The account, asked of the provider; the default is {@link getProviderAccountForResource}, which lends none. */
+	protected getProviderUncachedAccountForResource(
+		session: ProviderAuthenticationSession,
+		resource: T,
+	): Promise<Account | undefined> {
+		return this.getProviderAccountForResource(session, resource);
+	}
+
+	/**
+	 * The provider's resources, read past any cache it keeps and without storing into it. The default is
+	 * {@link getProviderResourcesForUser}, right for a provider that keeps none.
+	 */
+	protected getProviderUncachedResourcesForUser(session: ProviderAuthenticationSession): Promise<T[] | undefined> {
+		return this.getProviderResourcesForUser(session);
+	}
+
+	/**
+	 * The projects of `resources`, read past any cache the provider keeps and without storing into it. The default is
+	 * {@link getProviderProjectsForResourcesWithMetadata}, right for a provider that keeps none.
+	 */
+	protected getProviderUncachedProjectsForResourcesWithMetadata(
+		session: ProviderAuthenticationSession,
+		resources: T[],
+	): Promise<ProviderApiCollectionResult<T>> {
+		return this.getProviderProjectsForResourcesWithMetadata(session, resources);
+	}
 
 	@trace()
 	async getIssuesForProject(
@@ -502,4 +588,11 @@ export abstract class IssuesIntegration<
 		if (values == null) return undefined;
 		return { values: values, truncated: false };
 	}
+}
+
+/** A project list as a collection: no data is no list, `unknown`, never an empty complete one. */
+export function toProjectsCollection<T extends ResourceDescriptor>(
+	projects: T[] | undefined,
+): ProviderApiCollectionResult<T> {
+	return projects != null ? { values: projects } : { values: [], metadata: { completeness: 'unknown' } };
 }

@@ -9,7 +9,12 @@ import type {
 	PullRequestSorting,
 } from '../providerFilters.js';
 import { providersMetadata } from '../providers/models.js';
-import type { ProviderWarning, ProviderWarningOmissionRecovery, ProviderWarningOmissionScope } from '../results.js';
+import type {
+	ProviderWarning,
+	ProviderWarningOmissionRecovery,
+	ProviderWarningOmissionScope,
+	ProviderWarningSelector,
+} from '../results.js';
 import type { IssueSearchCriteriaRejection, PullRequestSearchCriteriaRejection } from './filters.js';
 import type { UnmergeableIssueSort, UnsupportedIssueSortRejection } from './ordering.js';
 
@@ -32,8 +37,8 @@ import type { UnmergeableIssueSort, UnsupportedIssueSortRejection } from './orde
  * `collectionMetadata.ts` builds those from the structured failure/omission it is given.
  *
  * The kinds that carry a programmatic remedy — `auth`, `rate-limit`, `not-found`, `no-connection` — are derived
- * from the caught error's type instead and never come from here; see `ProviderWarningKind` and
- * {@link noConnectionWarning}.
+ * from the caught error's type or built by their own builders ({@link noConnectionWarning},
+ * {@link unmatchedSelectorWarning}), never by this one; see `ProviderWarningKind`.
  */
 export function otherWarning(
 	id: IntegrationIds,
@@ -98,6 +103,32 @@ export function noConnectionWarning(
 				: `No active connection for '${id}' could be resolved.`,
 		kind: 'no-connection',
 		isAuth: false,
+	};
+}
+
+/**
+ * Builds the `not-found` warning for an issue-tracker project read whose `org` or `project` selector matched
+ * nothing a complete discovery returned; see {@link ProviderWarning.selector}. A `project` miss under an `org` names
+ * the project, since the org matched.
+ */
+export function unmatchedSelectorWarning(
+	id: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	selector: ProviderWarningSelector,
+	org?: string,
+): ProviderWarning {
+	return {
+		providerId: id,
+		domain: domain,
+		connectionId: connectionId,
+		message:
+			selector.kind === 'org'
+				? `No organization matches '${selector.value}' for '${id}'; it was removed or this connection can no longer see it.`
+				: `No project matches '${selector.value}'${org != null ? ` in '${org}'` : ''} for '${id}'; it was removed, renamed or this connection can no longer see it.`,
+		kind: 'not-found',
+		isAuth: false,
+		selector: selector,
 	};
 }
 

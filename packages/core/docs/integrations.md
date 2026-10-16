@@ -750,7 +750,7 @@ prove from structured errors:
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `auth`             | Token rejected (401/403 that isn't a throttle).                                                                                                                                        | Prompt to reconnect that connection. A scoped one is narrower: see `scope` below.                             |
 | `rate-limit`       | Throttled (429, or a 403 whose body says so).                                                                                                                                          | Back off and retry; keep the last snapshot.                                                                   |
-| `not-found`        | 404/410/422 on the requested scope.                                                                                                                                                    | Drop that scope; don't reconnect.                                                                             |
+| `not-found`        | 404/410/422 on the requested scope, or an issue-tracker `org`/`project` selector that matches nothing (with `selector`, see below).                                                    | Drop that scope; don't reconnect.                                                                             |
 | `no-connection`    | The requested `connectionId`/`domain` doesn't resolve.                                                                                                                                 | Re-resolve the target or re-authenticate.                                                                     |
 | `unsupported`      | The provider can't serve this capability: a surface, filter, sort, state, search criterion or option combination it can't express.                                                     | Hide or disable the feature for that provider; don't retry or reconnect.                                      |
 | `unreadable-items` | Items the provider returned that couldn't be read were left out (a Jira issue `@gitkraken/provider-apis` can't parse); the rest of its `scope` was read. `unreadableItems` names them. | Show the read as incomplete; retrying returns the same gap. A cut read always adds a warning of another kind. |
@@ -824,10 +824,56 @@ one extra check a minute, and a revocation can take up to a minute to surface as
 `scope.resourceId` is the resource as the read addressed it: its id on most reads, its name on the few that
 address it by name (Azure DevOps' repo-scoped reads, Bitbucket's workspace reads). Match it against both
 `ProviderOrganization.id` and `name`, and against a project's `orgId` where it has one. A Jira project read's
-`scope.projectId` is the project as the read addressed it: the key on Jira Cloud (a project's `name` in
-`listProjects`), the numeric id on Jira Data Center.
+`scope.projectId` is the project key, on Jira Cloud and Jira Data Center alike (a project's `name` in
+`listProjects`); Data Center still reads the project by its numeric id.
 
 Warnings also dedup on `scope` and `cause`, so failures of two scopes stay two warnings.
+
+### `selector` — a selection that no longer exists
+
+`listIssueTrackerIssuesPage` reports an `org` or `project` that matches nothing the connection discovered as one
+`kind: 'not-found'` warning carrying `selector: { kind: 'org' | 'project', value }` (`ProviderWarningSelector`),
+`value` being the selector exactly as passed. The page is empty, not `fetchFailed`, with `hasMore: false` and no
+cursor: the site or project was removed, renamed, or this connection can no longer see it, and a retry finds the
+same. A project miss under a given `org` is `kind: 'project'`, since the org matched. It carries no `scope`.
+
+It is reported only when discovery was complete. When listing the resources or their projects failed or was
+truncated, a missing selection cannot be told apart from one the read did not reach, so the read reports that
+failure as before, with no `selector` warning. A `not-found` without `selector` is a request that failed with a
+404, 410 or 422; test `selector != null` to tell them apart. Discovery can be served from the connection's
+discovery cache (see `scope` above), which predates a site or project created since, so a selection that matches
+nothing is checked once more against this connection's lists as the provider holds them now before the read reports
+it. That check reads the lists directly, sharing nothing with the cache: it joins no discovery read in flight and
+stores nothing. The miss is reported only from it, never from cached lists, `forceSync: true` included, since a read
+right after the caches are dropped can still join one started before. When it still matches nothing, the read
+reports the miss. When it matches, the cache was stale: the connection's discovery caches are dropped, as `forceSync`
+drops them, and the read is made once more over fresh lists, so the site or project created since reads as usual.
+That read checks a miss the same way and is not made again: still finding the cache stale, it reports a failure with
+a retry cursor. So a read makes at most two such checks and one more read. No verdict is kept: a read that keeps
+selecting what is gone checks again each time, so that a selection recreated since is read on the next one. A check that cannot list the selection
+completely reports a failure with a retry cursor rather than the miss. It also confirms the connection's credential with an account
+lookup on a resource those lists name, made past any lookup in flight, before it reports the miss, since a rejected Jira
+Data Center token can read as an account with no projects; when that lookup fails, the read reports the failure,
+with a retry cursor, instead. An account whose discovery lists no resource at all has none to look the account up
+on, and reports the miss on the lists alone.
+
+A cached list can also still name a selected project deleted since. Jira refuses a search scoped to it ("The value
+'…' does not exist for the field 'project'"); the project reads as empty, as any refused project does, and the
+refusal drops that site's cached project list, so the next read lists it again and reports the miss when the project
+is gone, or reads it under the new id it was recreated with. A paged read whose later windows are taken over the
+shorter list can end before a match left on another site, which the next read then reaches. Jira Data Center lists a
+project to an administrator who cannot browse it and refuses their search the same way, so such a project keeps
+reading as empty, with no warning. Any other refusal of the project read
+(401, 403, 5xx, a timeout) stays a failure with no `selector`. So does Jira Data Center's refusal when it names no
+authenticated user: only a refusal whose `X-AUSERNAME` names a user other than `anonymous` proves the project gone.
+
+Jira Data Center serves a token it rejects as the anonymous user rather than refusing it: its project list answers
+`200 []` and a project search the same refusal a deleted project gets. Any response to a request sent with a
+credential that names `anonymous` in `X-AUSERNAME`, in any casing, is therefore read as the credential's rejection on
+every Jira Data Center read: an `auth` warning on a `fetchFailed` result (an issue page also keeps its cursor), never
+an account with no projects, so a rejected token never reports a `selector`. A 401 already is that rejection, and
+keeps its own error and body; a 429 or a 5xx keeps its own error too, since neither proves anything about the
+credential.
 
 ### `cause` — why a sound credential was refused
 
@@ -1392,14 +1438,16 @@ Markdown by this package.
   Thread the returned cursor verbatim: it can combine the next untouched project window with discovery/project
   retries, preserve a caller's aggregate-all mode, and suppress projects already emitted before discovery
   recovered. `hasMore` reports only untouched forward progress. A cursor can therefore remain with
-  `hasMore: false`; reusing it is an explicit manual retry of failed work, not a normal paging loop.
+  `hasMore: false`; reusing it is an explicit manual retry of failed work, not a normal paging loop. It tracks
+  projects by resource and id, so a project whose key is renamed between pages is neither read again nor dropped.
   A resource discovery (Jira Cloud sites, the Linear organization, Trello boards) that answers with no data and no
   error is incomplete, not an empty account: the page is `page.truncated` with a retry cursor and a "completeness
   could not be confirmed" warning, and `listOrgs` / `listProjects` report the provider `fetchFailed`. A discovery
   answering `[]` means no resources, and an unconnected tracker reads as empty.
   `org` and `project` select by identifier. Linear and Trello match any of a resource's or project's id, name or
   key. Jira (Cloud and Data Center) matches only the canonical key, so a selection whose site or project was removed
-  selects nothing instead of resolving to another one that carries the old value as a name or id: `org` is the site's
+  selects nothing instead of resolving to another one that carries the old value as a name or id. A selector that
+  matches nothing returns an empty page with a `selector` warning (see `selector` above). For Jira, `org` is the site's
   id (`listOrgs`' `id`, or `listProjects`' `orgId`), never its label, and `project` is the project key, which is
   `listProjects`' `name` for Jira. `listProjects({ org })` itself still matches any identifier, since it only lists
   what a caller can then select.
