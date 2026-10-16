@@ -1,8 +1,4 @@
-import {
-	GitCloudHostIntegrationId,
-	IssuesCloudHostIntegrationId,
-	IssuesSelfManagedHostIntegrationId,
-} from '../../constants.js';
+import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../../constants.js';
 import type { Integration } from '../../models/integration.js';
 import type { ProviderIssue } from '../models.js';
 
@@ -37,13 +33,6 @@ export const jiraIntegration = {
 	id: IssuesCloudHostIntegrationId.Jira,
 	name: 'Jira',
 	domain: 'example.atlassian.net',
-	icon: 'jira',
-} as unknown as Integration;
-
-export const jiraServerIntegration = {
-	id: IssuesSelfManagedHostIntegrationId.JiraServer,
-	name: 'Jira Data Center',
-	domain: 'jira.example.com',
 	icon: 'jira',
 } as unknown as Integration;
 

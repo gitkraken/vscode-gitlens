@@ -13,8 +13,8 @@ catalogs:
       specifier: 3.12.0
       version: 3.12.0
     '@gitkraken/provider-apis':
-      specifier: 0.65.0
-      version: 0.65.0
+      specifier: 0.65.1
+      version: 0.65.1
     '@lit-labs/virtualizer':
       specifier: 2.1.1
       version: 2.1.1
@@ -136,7 +136,7 @@ importers:
         version: 0.2.3
       '@gitkraken/provider-apis':
         specifier: 'catalog:'
-        version: 0.65.0
+        version: 0.65.1
       '@gitkraken/shared-tools':
         specifier: 0.2.0
         version: 0.2.0
@@ -489,7 +489,7 @@ importers:
     dependencies:
       '@gitkraken/provider-apis':
         specifier: 'catalog:'
-        version: 0.65.0
+        version: 0.65.1
       '@octokit/graphql':
         specifier: 'catalog:'
         version: 9.0.4
@@ -783,7 +783,7 @@ importers:
     dependencies:
       '@gitkraken/provider-apis':
         specifier: 'catalog:'
-        version: 0.65.0
+        version: 0.65.1
       '@gitlens/git':
         specifier: workspace:*
         version: link:../../git
@@ -1310,8 +1310,8 @@ packages:
     resolution: {integrity: sha512-Up/vFkYsYPE8uJYpTcoSbrs9Tdv49z44lsb+LVTDjqozoQ5vd5jbcXR6Pi0L1u451RKk4cS/fhrfG9s9ZpRULg==}
     engines: {node: '>= 22'}
 
-  '@gitkraken/provider-apis@0.65.0':
-    resolution: {integrity: sha512-AFMr7xGkS/3z5pE/WvN7v8nM0UfcQ8nUOq9ewYCCBXKgpwu66mI9Ab7VwoptWRjLR/mSoOGsHe4c5T+7CWHU/g==}
+  '@gitkraken/provider-apis@0.65.1':
+    resolution: {integrity: sha512-01GyyvaJEU4WZwGnnHvTjhv33680pPFjLfSSbpmxQPQsRVhgNwY66krxiBviA2knDphtVifZwfqd4BHvdqaEOQ==}
     engines: {node: '>= 20'}
 
   '@gitkraken/shared-tools@0.2.0':
@@ -8722,7 +8722,7 @@ snapshots:
       '@gitkraken/shared-tools': 0.2.0
       picomatch: 4.0.7
 
-  '@gitkraken/provider-apis@0.65.0':
+  '@gitkraken/provider-apis@0.65.1':
     dependencies:
       diff: 8.0.4
       js-base64: 3.7.5

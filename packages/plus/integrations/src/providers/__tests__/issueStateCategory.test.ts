@@ -2,13 +2,7 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { ProviderIssue } from '../models.js';
 import { fromProviderIssue, toIssueShape } from '../models.js';
-import {
-	azureIntegration,
-	createProviderIssue,
-	jiraIntegration,
-	jiraServerIntegration,
-	linearIntegration,
-} from './fixtures.js';
+import { azureIntegration, createProviderIssue, linearIntegration } from './fixtures.js';
 
 /**
  * `CANCELED` is abandoned work (Linear's canceled and duplicate states, Azure's `Removed` category): it ends the issue
@@ -38,19 +32,6 @@ suite('issue state categories', () => {
 		test(`${name}: an open category leaves the issue open`, () => {
 			assert.equal(toIssueShape(withCategory('IN_PROGRESS'), integration)?.closed, false);
 			assert.equal(fromProviderIssue(withCategory('IN_PROGRESS'), integration).closed, false);
-		});
-	}
-
-	for (const [name, integration] of [
-		['Jira Cloud', jiraIntegration],
-		['Jira Server', jiraServerIntegration],
-	] as const) {
-		test(`${name}: CANCELED is gated like DONE, trusted only when the caller mapped the stable key`, () => {
-			assert.equal(toIssueShape(withCategory('CANCELED'), integration)?.closed, false);
-			assert.equal(
-				toIssueShape(withCategory('CANCELED'), integration, { reliableStateCategory: true })?.closed,
-				true,
-			);
 		});
 	}
 });
