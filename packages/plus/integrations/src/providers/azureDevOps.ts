@@ -43,6 +43,7 @@ import type {
 } from '../models/integration.js';
 import type { ProviderWarningCause, ProviderWarningScope } from '../results.js';
 import { decodePathSegment } from '../utils/domain.utils.js';
+import type { AzureDevOpsApi } from './azure/azure.js';
 import { getAzurePullRequestIdentityFromMaybeUrl } from './azure/azure.utils.js';
 import type {
 	AzureOrganizationDescriptor,
@@ -129,6 +130,25 @@ export function getAzureRepositoryApiBaseUrl(
 	throw new Error('Azure repository virtual directory does not match the configured installation');
 }
 
+/**
+ * Whether `repo`'s path could be the project-less form of a repository named after its project, as read below the
+ * connection `baseUrl` addresses: that reading moves the parsed owner into the virtual directory, so the address must
+ * be that directory, or its parent when the address names a collection (see
+ * {@link resolveAzureProjectlessRepository}). A connection at the host root serves no virtual directory, so never.
+ */
+export function isAzureProjectlessCandidate(
+	baseUrl: string,
+	repo: Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'virtualDirectory'>,
+): boolean {
+	if (getAzureRepositoryIdentity({ owner: repo.owner, name: repo.name }).projectName == null) return false;
+
+	const configured = new URL(baseUrl).pathname.split('/').filter(Boolean);
+	const directory = [...(repo.virtualDirectory?.split('/') ?? []), repo.owner];
+	const addresses = (path: string[]) =>
+		path.length === directory.length && path.every((s, i) => sameAzurePathSegment(s, directory[i]));
+	return addresses(configured) || addresses(configured.slice(0, -1));
+}
+
 function sameAzurePathSegment(encoded: string, value: string): boolean {
 	return decodePathSegment(encoded).toLowerCase() === value.toLowerCase();
 }
@@ -150,6 +170,40 @@ export function uniqueAzureNames(names: readonly string[]): string[] {
 		}
 	}
 	return unique;
+}
+
+/** The repository a remote-derived descriptor names, and the base its requests append it to. */
+export interface AzureRepositoryTarget<
+	T extends Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project' | 'virtualDirectory'>,
+> {
+	repo: T;
+	baseUrl: string;
+	/** The path may name its collection where the repository was read, which couldn't be told apart. */
+	unsettled?: boolean;
+}
+
+/**
+ * Re-reads a remote's `{owner}/{project}/_git/{repo}` as the project-less form of a repository named after its
+ * project: behind a path, `{vdir}/{collection}/_git/{repo}` parses as collection `{vdir}` and project `{collection}`.
+ * When `collections` lists the parsed project but not the parsed owner, the owner joins the virtual directory, the
+ * parsed project is the collection, and the project is the repository's own name. Otherwise returns `repo`.
+ */
+export function resolveAzureProjectlessRepository<
+	T extends Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project' | 'virtualDirectory'>,
+>(repo: T, collections: readonly string[]): T {
+	const { projectName, repositoryName } = getAzureRepositoryIdentity({ owner: repo.owner, name: repo.name });
+	if (projectName == null) return repo;
+
+	const collection = collections.find(c => sameAzureName(c, projectName));
+	if (collection == null || collections.some(c => sameAzureName(c, repo.owner))) return repo;
+
+	return {
+		...repo,
+		owner: collection,
+		name: `${repositoryName}/_git/${repositoryName}`,
+		project: repositoryName,
+		virtualDirectory: repo.virtualDirectory ? `${repo.virtualDirectory}/${repo.owner}` : repo.owner,
+	};
 }
 
 /**
@@ -249,6 +303,48 @@ export abstract class AzureDevOpsIntegrationBase<
 	/** The base a request or link below `collection` appends the collection to; see {@link getCollectionApiOptions}. */
 	protected collectionApiBaseUrl(session: ProviderAuthenticationSession, _collection: string): string {
 		return this.apiBaseUrlFor(session);
+	}
+
+	/**
+	 * The repository a remote-derived descriptor names, and the base its requests append it to. Azure DevOps Services
+	 * reads the descriptor as parsed; the server override first settles a path the parser can't (see
+	 * {@link resolveAzureProjectlessRepository}).
+	 */
+	protected getRepositoryTarget<
+		T extends Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project' | 'virtualDirectory'>,
+	>(session: ProviderAuthenticationSession, repo: T, _cancellation?: AbortSignal): Promise<AzureRepositoryTarget<T>> {
+		return Promise.resolve({
+			repo: repo,
+			baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo),
+		});
+	}
+
+	/**
+	 * Reads `repo` with GitLens' Azure client at its target (see {@link getRepositoryTarget}). A read that finds nothing
+	 * for a target whose path couldn't be settled may have addressed the wrong collection, so it throws instead, which
+	 * keeps that miss out of the host's caches until the path can be settled.
+	 */
+	protected async readRepository<R>(
+		session: ProviderAuthenticationSession,
+		repo: AzureRepositoryDescriptor,
+		read: (
+			azure: AzureDevOpsApi,
+			target: AzureRepositoryTarget<AzureRepositoryDescriptor>,
+		) => Promise<R | undefined>,
+		cancellation?: AbortSignal,
+	): Promise<R | undefined> {
+		const azure = await this.authenticationService.apis.azure;
+		if (azure == null) return undefined;
+
+		const target = await this.getRepositoryTarget(session, repo, cancellation);
+		const result = await read(azure, target);
+		if (result == null && target.unsettled) {
+			throw new Error(
+				`${this.name}: nothing read for '${target.repo.owner}/${target.repo.name}', whose collection couldn't be settled`,
+			);
+		}
+
+		return result;
 	}
 
 	/** Reads the organizations (Azure DevOps Server: the collections) the account can see. */
@@ -787,14 +883,16 @@ export abstract class AzureDevOpsIntegrationBase<
 			avatarSize?: number;
 		},
 	): Promise<UnidentifiedAuthor | undefined> {
-		return (await this.authenticationService.apis.azure)?.getAccountForCommit(
-			this,
-			toTokenWithInfo(this.id, session),
-			repo.owner,
-			repo.name,
-			rev,
-			getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo),
-			options,
+		return this.readRepository(session, repo, (azure, target) =>
+			azure.getAccountForCommit(
+				this,
+				toTokenWithInfo(this.id, session),
+				target.repo.owner,
+				target.repo.name,
+				rev,
+				target.baseUrl,
+				options,
+			),
 		);
 	}
 
@@ -814,12 +912,18 @@ export abstract class AzureDevOpsIntegrationBase<
 		repo: AzureRepositoryDescriptor,
 		cancellation?: AbortSignal,
 	): Promise<DefaultBranch | undefined> {
-		return (await this.authenticationService.apis.azure)?.getDefaultBranch(
-			this,
-			toTokenWithInfo(this.id, session),
-			repo.owner,
-			repo.name,
-			{ baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo) },
+		return this.readRepository(
+			session,
+			repo,
+			(azure, target) =>
+				azure.getDefaultBranch(
+					this,
+					toTokenWithInfo(this.id, session),
+					target.repo.owner,
+					target.repo.name,
+					{ baseUrl: target.baseUrl },
+					cancellation,
+				),
 			cancellation,
 		);
 	}
@@ -830,16 +934,18 @@ export abstract class AzureDevOpsIntegrationBase<
 		{ id }: { id: string; key: string },
 		type: undefined | IssueOrPullRequestType,
 	): Promise<IssueOrPullRequest | undefined> {
-		return (await this.authenticationService.apis.azure)?.getIssueOrPullRequest(
-			this,
-			toTokenWithInfo(this.id, session),
-			repo.owner,
-			repo.name,
-			id,
-			{
-				baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo),
-				type: type,
-			},
+		return this.readRepository(session, repo, (azure, target) =>
+			azure.getIssueOrPullRequest(
+				this,
+				toTokenWithInfo(this.id, session),
+				target.repo.owner,
+				target.repo.name,
+				id,
+				{
+					baseUrl: target.baseUrl,
+					type: type,
+				},
+			),
 		);
 	}
 
@@ -880,15 +986,15 @@ export abstract class AzureDevOpsIntegrationBase<
 			include?: PullRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
-		return (await this.authenticationService.apis.azure)?.getPullRequestForBranch(
-			this,
-			toTokenWithInfo(this.id, session),
-			repo.owner,
-			repo.name,
-			branch,
-			{
-				baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo),
-			},
+		return this.readRepository(session, repo, (azure, target) =>
+			azure.getPullRequestForBranch(
+				this,
+				toTokenWithInfo(this.id, session),
+				target.repo.owner,
+				target.repo.name,
+				branch,
+				{ baseUrl: target.baseUrl },
+			),
 		);
 	}
 
@@ -897,13 +1003,15 @@ export abstract class AzureDevOpsIntegrationBase<
 		repo: AzureRepositoryDescriptor,
 		rev: string,
 	): Promise<PullRequest | undefined> {
-		return (await this.authenticationService.apis.azure)?.getPullRequestForCommit(
-			this,
-			toTokenWithInfo(this.id, session),
-			repo.owner,
-			repo.name,
-			rev,
-			getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo),
+		return this.readRepository(session, repo, (azure, target) =>
+			azure.getPullRequestForCommit(
+				this,
+				toTokenWithInfo(this.id, session),
+				target.repo.owner,
+				target.repo.name,
+				rev,
+				target.baseUrl,
+			),
 		);
 	}
 
@@ -1176,13 +1284,15 @@ export abstract class AzureDevOpsIntegrationBase<
 		resource: AzureRepositoryDescriptor,
 		id: string,
 	): Promise<PullRequest | undefined> {
-		return (await this.authenticationService.apis.azure)?.getPullRequest(
-			this,
-			toTokenWithInfo(this.id, session),
-			resource.owner,
-			resource.project ?? resource.name,
-			id,
-			{ baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), resource) },
+		return this.readRepository(session, resource, (azure, target) =>
+			azure.getPullRequest(
+				this,
+				toTokenWithInfo(this.id, session),
+				target.repo.owner,
+				target.repo.project ?? target.repo.name,
+				id,
+				{ baseUrl: target.baseUrl },
+			),
 		);
 	}
 
@@ -1197,18 +1307,21 @@ export abstract class AzureDevOpsIntegrationBase<
 		virtualDirectory?: string;
 		connectionId?: string;
 	}): Promise<ProviderRepository | undefined> {
-		const identity = getAzureRepositoryIdentity(repo);
-		if (identity.projectName == null) return undefined;
+		if (getAzureRepositoryIdentity(repo).projectName == null) return undefined;
 
 		const api = await this.getProvidersApi();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSessionOrThrow(repo.connectionId, undefined);
 		if (session == null) return undefined;
 
+		const target = await this.getRepositoryTarget(session, repo);
+		const identity = getAzureRepositoryIdentity(target.repo);
+		if (identity.projectName == null) return undefined;
+
 		const { tokenWithInfo, options } = this.getApiOptions(session);
 		return api.getRepo(tokenWithInfo, identity.resourceName, identity.repositoryName, identity.projectName, {
 			...options,
-			baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo),
+			baseUrl: target.baseUrl,
 		});
 	}
 
@@ -1217,12 +1330,18 @@ export abstract class AzureDevOpsIntegrationBase<
 		repo: AzureRepositoryDescriptor,
 		cancellation?: AbortSignal,
 	): Promise<RepositoryMetadata | undefined> {
-		return (await this.authenticationService.apis.azure)?.getRepositoryMetadata(
-			this,
-			toTokenWithInfo(this.id, session),
-			repo.owner,
-			repo.name,
-			{ baseUrl: getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), repo) },
+		return this.readRepository(
+			session,
+			repo,
+			(azure, target) =>
+				azure.getRepositoryMetadata(
+					this,
+					toTokenWithInfo(this.id, session),
+					target.repo.owner,
+					target.repo.name,
+					{ baseUrl: target.baseUrl },
+					cancellation,
+				),
 			cancellation,
 		);
 	}
