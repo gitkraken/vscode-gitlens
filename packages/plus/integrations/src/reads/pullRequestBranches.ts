@@ -161,22 +161,23 @@ export async function getPullRequestsForBranches(
 		// otherwise reads it as "not connected" and says nothing.
 		{ warnOnMissingSession: true },
 	);
+	const allKeys = targets.map(t => t.key);
 	if (warning != null) {
-		appendDedupedWarning(warnings, warning);
+		appendDedupedWarning(warnings, { ...warning, targetKeys: allKeys });
 	}
 
 	if (slots == null) {
 		// Dropped, never reported as "none": "unknown" and "proven none" must stay distinguishable.
 		if (warning == null) {
-			appendDedupedWarning(
-				warnings,
-				unsupportedWarning(
+			appendDedupedWarning(warnings, {
+				...unsupportedWarning(
 					options.providerId,
 					domain,
 					options.connectionId,
 					`${surface} is not supported by '${options.providerId}'.`,
 				),
-			);
+				targetKeys: allKeys,
+			});
 		}
 		return { items: [], warnings: warnings, fetchFailed: true };
 	}
@@ -186,7 +187,7 @@ export async function getPullRequestsForBranches(
 		const slot = slots[i];
 		if (slot.status === 'rejected') {
 			// Dropped, never reported as "none", like a whole-call failure.
-			appendBatchSlotWarning(warnings, options.providerId, domain, options.connectionId, slot);
+			appendBatchSlotWarning(warnings, options.providerId, domain, options.connectionId, slot, targets[i].key);
 			fetchFailed = true;
 			continue;
 		}

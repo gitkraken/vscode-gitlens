@@ -212,6 +212,19 @@ export interface ProviderWarning {
 	 * out, so treat a bare `kind: 'other'` warning as unclassified rather than as a proven failure.
 	 */
 	omission?: ProviderWarningOmission;
+	/**
+	 * The keys of the batch targets this warning concerns: the target a per-target failure was refused or failed
+	 * for, or every target of an integration call that failed as a whole. So a caller that sends several callers'
+	 * targets in one call can hand a failure only to the targets it belongs to.
+	 *
+	 * Its ABSENCE means the whole call. It is absent on every read that is not a batch read, and on a batch read's
+	 * refusal of the whole call before any target is read (a duplicate key, an invalid target, an unknown etag
+	 * include, no resolvable connection, the wrong surface), which concerns every target alike.
+	 *
+	 * It is not part of a warning's identity: two warnings that differ only here are one warning, for the union of
+	 * their targets (see {@link appendDedupedWarning}).
+	 */
+	targetKeys?: string[];
 }
 
 export interface ProviderPageInfo {
@@ -542,11 +555,31 @@ function providerWarningKey(warning: ProviderWarning): string {
 
 /**
  * Appends `warning` to `into` only when an equal warning (by provider/connection/domain/kind/message, plus the
- * structured scope, cause and omission when present) is absent.
+ * structured scope, cause and omission when present) is absent. An equal warning already there merges its
+ * {@link ProviderWarning.targetKeys} with the new one's instead: the union of both, or none when either concerns
+ * the whole call. The existing warning is replaced, never mutated, since it may be shared.
  */
 export function appendDedupedWarning(into: ProviderWarning[], warning: ProviderWarning): void {
 	const key = providerWarningKey(warning);
-	if (into.some(existing => providerWarningKey(existing) === key)) return;
+	const index = into.findIndex(existing => providerWarningKey(existing) === key);
+	if (index === -1) {
+		into.push(warning);
+		return;
+	}
 
-	into.push(warning);
+	const existing = into[index];
+	const existingKeys = existing.targetKeys;
+	// Already covers the whole call.
+	if (existingKeys == null) return;
+
+	if (warning.targetKeys == null) {
+		const { targetKeys: _, ...wholeCall } = existing;
+		into[index] = wholeCall;
+		return;
+	}
+
+	const added = warning.targetKeys.filter(k => !existingKeys.includes(k));
+	if (!added.length) return;
+
+	into[index] = { ...existing, targetKeys: [...existingKeys, ...new Set(added)] };
 }

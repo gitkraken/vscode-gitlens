@@ -423,6 +423,29 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 		]);
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
+		assert.deepEqual(result.warnings[0].targetKeys, ['c']);
+
+		manager.dispose();
+	});
+
+	test('a host that answers with neither slots nor an error drops every target, naming each', async () => {
+		const { manager, gl } = await connectedGitLab(createFakeRuntime());
+		stubCurrentAccount(gl, 'me');
+		stubBranchesResult(gl, () => Promise.resolve({ value: undefined }));
+
+		const result = await manager.getPullRequestsForBranches({
+			providerId: GitCloudHostIntegrationId.GitLab,
+			targets: [
+				{ key: 'a', owner: 'o', repo: 'r', branch: 'one' },
+				{ key: 'b', owner: 'o', repo: 'r', branch: 'two' },
+			],
+		});
+
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings.length, 1);
+		assert.equal(result.warnings[0].kind, 'unsupported');
+		assert.deepEqual(result.warnings[0].targetKeys, ['a', 'b']);
 
 		manager.dispose();
 	});
@@ -481,6 +504,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 		assert.deepEqual(result.items, []);
 		assert.equal(result.fetchFailed, true);
 		assert.match(result.warnings[0].message, /Duplicate pull request branch target key 'same'/);
+		assert.equal(result.warnings[0].targetKeys, undefined, 'a whole-call refusal names no targets');
 
 		manager.dispose();
 	});
@@ -646,6 +670,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 		assert.deepEqual(result.items, [], 'no target is reported as having no pull requests');
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings[0]?.kind, 'no-connection', 'reported as a connection problem, not "unsupported"');
+		assert.deepEqual(result.warnings[0]?.targetKeys, ['a'], 'the failed integration call names every target');
 
 		manager.dispose();
 	});
@@ -776,6 +801,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			assert.equal(result.fetchFailed, true);
 			assert.equal(result.warnings[0]?.kind, 'other');
 			assert.match(result.warnings[0]?.message ?? '', /SAML enforcement/);
+			assert.deepEqual(result.warnings[0]?.targetKeys, ['saml']);
 			assert.equal(getRequestExceptionCount(gh), 0, 'a working token must not spend a strike');
 			assert.deepEqual((gh as unknown as { _session: ProviderAuthenticationSession })._session, sessionBefore);
 
@@ -813,6 +839,7 @@ suite('IntegrationManager.getPullRequestsForBranches', () => {
 			);
 			assert.equal(result.fetchFailed, true);
 			assert.equal(result.warnings.length, 1);
+			assert.deepEqual(result.warnings[0].targetKeys, ['k26']);
 
 			manager.dispose();
 		});

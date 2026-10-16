@@ -780,6 +780,15 @@ suite('Bitbucket Cloud etag check: requests and slots', () => {
 				JSON.stringify(result.warnings),
 			);
 			assert.deepEqual(
+				[...new Set(result.warnings.flatMap(w => w.targetKeys ?? []))].sort(),
+				['k1', 'k2'],
+				'every target the failed check carried is named',
+			);
+			assert.ok(
+				result.warnings.every(w => w.targetKeys != null),
+				'no warning claims the whole call',
+			);
+			assert.deepEqual(
 				sent.map(r => r.kind),
 				['list'],
 				'the full read would only hit the same failure',
