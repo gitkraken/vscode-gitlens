@@ -190,6 +190,66 @@ suite('Jira multi-project issue searches', () => {
 		manager.dispose();
 	});
 
+	test("reads a one-project site as that project's own read, by its key, instead of searching it", async () => {
+		const { manager, searches, projectReads } = await connectedJira([{ id: 'org-1', projects: 1 }], undefined, () =>
+			Promise.resolve({ data: [providerIssue('org-1-p0', 'A-1')], hasMore: false, nextCursor: undefined }),
+		);
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			itemsPerPage: 20,
+		});
+
+		assert.deepEqual(searches, [], 'no search is issued for a single project');
+		assert.deepEqual(projectReads, ['org-1-K0']);
+		assert.deepEqual(
+			result.items.map(i => i.id),
+			['A-1'],
+		);
+
+		manager.dispose();
+	});
+
+	test('attributes a failure mid-drain of a one-project site to the project, by its key', async () => {
+		// A search scopes its failure to the site only; the project's own read names the project.
+		let pages = 0;
+		const { manager, searches } = await connectedJira([{ id: 'org-1', projects: 1 }], undefined, () =>
+			pages++ === 0
+				? Promise.resolve({ data: [providerIssue('org-1-p0', 'A-1')], hasMore: true, nextCursor: 'next' })
+				: Promise.reject(new Error('upstream exploded')),
+		);
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			itemsPerPage: 20,
+		});
+
+		assert.deepEqual(searches, []);
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(
+			result.warnings.map(w => w.scope),
+			[{ resourceId: 'org-1', projectId: 'org-1-K0' }],
+		);
+
+		manager.dispose();
+	});
+
+	test('reads the one project left over past the key bound on its own', async () => {
+		const { manager, searches, projectReads } = await connectedJira([
+			{ id: 'org-1', projects: JIRA_MAX_PROJECT_KEYS_PER_REQUEST + 1 },
+		]);
+
+		await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Jira, itemsPerPage: 100 });
+
+		assert.deepEqual(
+			searches.map(s => s.projectKeys.length),
+			[JIRA_MAX_PROJECT_KEYS_PER_REQUEST],
+		);
+		assert.deepEqual(projectReads, [`org-1-K${JIRA_MAX_PROJECT_KEYS_PER_REQUEST}`]);
+
+		manager.dispose();
+	});
+
 	test('reads a rejected search project by project, so one bad project fails alone', async () => {
 		// One project the site no longer accepts in JQL (deleted, moved, no longer browsable) rejects the whole
 		// OR'd search; read alone, only that project fails.

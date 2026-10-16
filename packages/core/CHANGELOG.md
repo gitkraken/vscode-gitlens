@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes `listProjects` to publish a Jira project's key as its `name`, where it published the display name, so the item names what the project reads take; the display name is no longer on the item (plus/integrations)
 - Changes `listIssueTrackerIssuesPage`'s `org` and `project` to select Jira sites and projects only by their canonical key (a site's id, a project's key), no longer also by a site's label or a project's name or id: a remembered selection whose site or project was removed selected another one that carried the old value as a name or id. Linear and Trello still match any identifier. On Jira Data Center a project's key is still its display name, since the pinned provider-apis reports no key (plus/integrations)
 - Changes `IssueProviderState.category` to also be `CANCELED`, for abandoned work (canceled, duplicate, removed): `toIssueShape` and `fromProviderIssue` close it as they close `DONE`, keeping Jira's gate on an untrusted category. The pinned provider-apis emits no `CANCELED` yet (git, plus/integrations)
+- Changes a user-scoped Jira Cloud read of a single project to read that project on its own instead of through the multi-project search, at the same cost, so a failure partway through its pages is attributed to the project rather than only to the site, and its truncation is reported per project (plus/integrations)
 
 ### Fixed
 

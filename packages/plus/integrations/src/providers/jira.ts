@@ -470,6 +470,9 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		// Every request of a search shares its site and user scope (see `getProjectIssuesSearches`).
 		const { project, options } = requests[0];
 		if (options.user == null) return undefined;
+		// One project's search is its own read, by the same key and user clauses, so it costs no more to read it as one;
+		// and that read attributes a failure to the project and drops a project list that no longer has it.
+		if (requests.length === 1) return undefined;
 
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 		const api = await this.getProvidersApi();
