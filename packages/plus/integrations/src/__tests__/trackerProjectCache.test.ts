@@ -303,7 +303,7 @@ suite('Tracker project cache (#5907)', () => {
 			const { service, runtime } = createCloudService(IssuesCloudHostIntegrationId.Jira);
 			const integration = await service.get(IssuesCloudHostIntegrationId.Jira);
 			const state = {
-				projects: [{ id: 'p1', key: 'ALPHA', name: 'ALPHA' }],
+				projects: [{ id: 'p1', key: 'ALPHA', name: 'Alpha' }],
 				deleted: new Set<string>(),
 				projectReads: 0,
 				/** When set, the project list waits on it, so a test can act while the read is in flight. */
@@ -317,10 +317,11 @@ suite('Tracker project cache (#5907)', () => {
 					await state.projectsGate;
 					return { values: values, paging: undefined };
 				},
-				getIssuesForProjectPaged: (_t: unknown, projectName: string) => {
-					if (state.deleted.has(projectName)) return Promise.reject(missingProjectError(projectName));
+				// Addressed by key; the names differ from the keys so a read by name finds nothing.
+				getIssuesForProjectPaged: (_t: unknown, projectKey: string) => {
+					if (state.deleted.has(projectKey)) return Promise.reject(missingProjectError(projectKey));
 
-					const project = state.projects.find(p => p.name === projectName)!;
+					const project = state.projects.find(p => p.key === projectKey)!;
 					return Promise.resolve({
 						data: [providerIssue(`${project.key}-1`, { ...project, resourceId: site.id })],
 						hasMore: false,
@@ -346,7 +347,7 @@ suite('Tracker project cache (#5907)', () => {
 			assert.ok(runtime.storage.get('jira:tok-1:projects') != null);
 			assert.deepEqual(titles(await read()), ['Issue ALPHA-1']);
 
-			state.projects.push({ id: 'p2', key: 'BETA', name: 'BETA' });
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
 			await service.refreshConnections();
 			await flush();
 
@@ -434,7 +435,7 @@ suite('Tracker project cache (#5907)', () => {
 		test('a disconnect makes the next unforced connect re-read the persisted projects', async () => {
 			const { service, integration, state, read } = await jiraCloud();
 			await read();
-			state.projects.push({ id: 'p2', key: 'BETA', name: 'BETA' });
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
 
 			await integration.disconnect({ silent: true, currentSessionOnly: true });
 			// Reconnected with the same token and no forced re-sync, so only the disconnect can have made the list
@@ -461,7 +462,7 @@ suite('Tracker project cache (#5907)', () => {
 			const { service, integration, state } = await jiraCloud();
 
 			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_']);
-			state.projects.push({ id: 'p2', key: 'BETA', name: 'BETA' });
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
 			assert.deepEqual(await prefixesOf(integration), ['ALPHA-', 'ALPHA_'], 'cached inside the TTL');
 
 			// Past the TTL of both the autolinks and the projects they were built from, with no issue read since.
@@ -513,7 +514,7 @@ suite('Tracker project cache (#5907)', () => {
 
 		test('a deleted project reads as empty instead of failing the provider', async () => {
 			const { service, state, read } = await jiraCloud();
-			state.projects.push({ id: 'p2', key: 'BETA', name: 'BETA' });
+			state.projects.push({ id: 'p2', key: 'BETA', name: 'Beta' });
 			await service.refreshConnections();
 			await flush();
 			await read();
@@ -524,7 +525,7 @@ suite('Tracker project cache (#5907)', () => {
 			assert.equal(result.fetchFailed, undefined);
 
 			const reads = state.projectReads;
-			state.projects = state.projects.filter(p => p.name !== 'BETA');
+			state.projects = state.projects.filter(p => p.key !== 'BETA');
 			assert.deepEqual(titles(await read()), ['Issue ALPHA-1']);
 			assert.equal(state.projectReads, reads + 1, "the site's stale list was dropped and re-read");
 

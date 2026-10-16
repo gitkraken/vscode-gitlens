@@ -17,7 +17,7 @@ import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from './cursors.js';
 import { runCaptured } from './drains.js';
-import { projectKey, resourceIdForProject, resourceLabel, resourceMatchesOrg } from './hierarchy.utils.js';
+import { projectKey, resourceIdForProject, resourceLabel, selectorMatches } from './hierarchy.utils.js';
 import { resolveIssueSort, toIssueOrdering } from './ordering.js';
 import {
 	incompleteReadWarning,
@@ -250,7 +250,7 @@ export async function listIssueTrackerIssuesPage(
 	}
 
 	const scopedResources =
-		options.org != null ? resources.filter(r => resourceMatchesOrg(r, options.org!)) : resources;
+		options.org != null ? resources.filter(r => selectorMatches(options.providerId, r, options.org!)) : resources;
 	if (scopedResources.length === 0) {
 		return emptyPage();
 	}
@@ -289,7 +289,9 @@ export async function listIssueTrackerIssuesPage(
 	}
 
 	const matchedProjects =
-		options.project != null ? projects.filter(p => resourceMatchesOrg(p, options.project!)) : projects;
+		options.project != null
+			? projects.filter(p => selectorMatches(options.providerId, p, options.project!))
+			: projects;
 
 	// Validate the requested filters against what this provider supports (e.g. Linear/Trello support only
 	// Assignee). An unsupported filter must not silently degrade — Linear/Trello ignore the requested type

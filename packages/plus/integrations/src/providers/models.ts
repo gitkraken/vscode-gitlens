@@ -105,6 +105,7 @@ export type {
 	PullRequestSorting,
 } from '../providerFilters.js';
 import type { ProviderRepositoryShape } from '../results.js';
+import { isJiraIntegrationId } from '../utils/integration.utils.js';
 
 export type { ProviderOrganization, ProviderRepositoryShape } from '../results.js';
 import { fromProviderAccount, toProviderAccount } from './accounts.js';
@@ -1446,9 +1447,7 @@ export function toIssueShape(
 	// Jira family shares that mapper (`jiraHelpers` serves Cloud and Server alike), so the gate is keyed on the
 	// family rather than the cloud id — a self-hosted instance in any non-English locale would otherwise report
 	// every open issue as closed.
-	const isJira =
-		provider.id === IssuesCloudHostIntegrationId.Jira ||
-		provider.id === IssuesSelfManagedHostIntegrationId.JiraServer;
+	const isJira = isJiraIntegrationId(provider.id);
 	const reliableStateCategory = !isJira || options?.reliableStateCategory === true;
 	const closed = issue.closedDate != null || (issue.state?.category === 'DONE' && reliableStateCategory);
 

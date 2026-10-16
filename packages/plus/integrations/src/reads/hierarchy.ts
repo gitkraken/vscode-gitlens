@@ -30,7 +30,7 @@ import { runCaptured } from './drains.js';
 import {
 	assertHierarchyReadTarget,
 	mergeHierarchyResults,
-	orgForProject,
+	projectToOrg,
 	resourceMatchesOrg,
 	resourceToOrg,
 	withProviderContext,
@@ -247,6 +247,8 @@ export async function listProjects(
 			}
 		}
 
+		// By any identifier, unlike the issue reads' `selectorMatches`: this lists what the caller can then select, so a
+		// match through a name shows the user those projects rather than silently reading another backlog.
 		const scopedResources =
 			org != null ? resources?.filter(resource => resourceMatchesOrg(resource, org)) : resources;
 		if (scopedResources != null && scopedResources.length !== 0) {
@@ -260,11 +262,7 @@ export async function listProjects(
 				}
 			}
 			if (projects != null) {
-				items.push(
-					...projects.values.map(project =>
-						resourceToOrg(id, project, orgForProject(id, project, scopedResources)),
-					),
-				);
+				items.push(...projects.values.map(project => projectToOrg(id, project, scopedResources)));
 			}
 			const assessment = mergeAssessmentInto(warnings, id, domain, connectionId, projects?.metadata);
 			if (assessment.fetchFailed || assessment.truncated) {

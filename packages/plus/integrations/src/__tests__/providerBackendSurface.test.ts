@@ -2650,7 +2650,8 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			{
 				id: 'p1',
 				providerId: IssuesCloudHostIntegrationId.Jira,
-				name: 'Project One',
+				// The key, which is what a Jira project read takes; no `orgId`, since this descriptor names no parent.
+				name: 'proj',
 				org: 'Org Two',
 				url: '',
 			},
@@ -2691,8 +2692,9 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			{
 				id: 'proj-1',
 				providerId: IssuesCloudHostIntegrationId.Jira,
-				name: 'Project One',
+				name: 'proj-1',
 				org: 'Beta Site',
+				orgId: 'site-2',
 				url: '',
 			},
 		]);
@@ -2805,7 +2807,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			projects.items.some(
 				item =>
 					item.providerId === IssuesCloudHostIntegrationId.Jira &&
-					item.name === 'Platform' &&
+					item.name === 'proj' &&
 					item.org === 'Jira Site',
 			),
 			'aggregated Jira project items retain the parent org',

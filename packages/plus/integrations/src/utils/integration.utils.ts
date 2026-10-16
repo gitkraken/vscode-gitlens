@@ -187,6 +187,16 @@ export function isSelfManagedHostIntegrationId(id: IntegrationIds): id is SelfMa
 }
 
 /**
+ * Whether this id is Jira, Cloud or Data Center: the two share their project and site identity rules and the SDK's
+ * status mapper. Takes any string, as a provider reference's `id` is one.
+ */
+export function isJiraIntegrationId(
+	id: string,
+): id is IssuesCloudHostIntegrationId.Jira | IssuesSelfManagedHostIntegrationId.JiraServer {
+	return id === IssuesCloudHostIntegrationId.Jira || id === IssuesSelfManagedHostIntegrationId.JiraServer;
+}
+
+/**
  * Whether this id belongs to a dedicated issue tracker (resource → project) rather than a git host.
  *
  * Decided from the id alone, so a read can refuse a mismatched surface — a repo/PR read asked of Jira, or an

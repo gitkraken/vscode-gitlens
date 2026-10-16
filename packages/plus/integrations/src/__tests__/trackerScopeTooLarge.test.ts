@@ -234,8 +234,8 @@ suite('Tracker project truncation recovery', () => {
 			getJiraResourcesForCurrentUser: () => Promise.resolve([jiraResource]),
 			getJiraProjectsForResource: () =>
 				Promise.resolve({ values: [jiraProject, failedProject], paging: undefined }),
-			getIssuesForProjectPaged: (_token: unknown, name: string) => {
-				if (name === failedProject.name) return Promise.reject(new Error('upstream exploded'));
+			getIssuesForProjectPaged: (_token: unknown, key: string) => {
+				if (key === failedProject.key) return Promise.reject(new Error('upstream exploded'));
 
 				page++;
 				return Promise.resolve({ data: [], hasMore: true, nextCursor: `c${page}` });
