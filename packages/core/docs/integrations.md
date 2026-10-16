@@ -1193,20 +1193,18 @@ present where the provider supplies it:
 | Provider     | `name`              | `color` | `category`                               |
 | ------------ | ------------------- | ------- | ---------------------------------------- |
 | Jira Cloud   | Status name         | Yes     | Yes, from the stable status-category key |
-| Jira DC      | Status name         | Yes     | No — see below                           |
+| Jira DC      | Status name         | Yes     | Yes, from the stable status-category key |
 | Linear       | Workflow state name | Yes     | Yes, mapped from the Linear state type   |
 | Trello       | Card list name      | No      | No                                       |
 | Azure DevOps | Work-item state     | No      | Yes, from the work item type's states    |
 | GitHub       | `open` / `closed`   | No      | No                                       |
 | GitLab       | `opened` / `closed` | No      | No                                       |
 
-For Jira, legacy reads may omit `category` when `provider-apis` only has a localized status name to classify; the
-direct issue-by-key read supplies the stable category. `name` and `color` are preserved in both cases. Jira Data
-Center has no read that supplies the stable key — every one of its issue reads goes through the SDK's
-localized-name classification, which defaults an unrecognized name to `DONE` — so its `category` is always omitted
-and `closed` is decided by `closedDate` alone. A done issue with no resolution date therefore reads as open; that
-direction is deliberate, since trusting a name-matched `DONE` would report every open issue on a non-English
-instance as closed.
+For Jira, every read maps the category from the status category's `key` (`new`, `indeterminate`, `done`), which Jira
+does not localize, never from its translated `name`, so a Spanish `Listo` closes an issue and `Por hacer` doesn't.
+Jira's fourth category, "No Category" (`undefined`), and an unknown key read as `TO_DO`: an issue in one is open, as
+the open-state JQL (`statusCategory != Done`) lists it. Jira never reports `closedDate`, so `closed` is decided by the
+category alone.
 
 `category` is `TO_DO`, `IN_PROGRESS`, `DONE` or `CANCELED`. `CANCELED` is abandoned work (canceled, duplicate,
 removed): it closes an issue as `DONE` does, and stays its own value so a consumer can tell the two outcomes apart.

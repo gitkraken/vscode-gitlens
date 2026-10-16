@@ -1409,24 +1409,21 @@ function toIssueIdentifier(value: string | number): string {
 	return String(value);
 }
 
-function toIssueProviderState(
-	state: ProviderIssue['state'],
-	reliableStateCategory = true,
-): IssueProviderState | undefined {
+function toIssueProviderState(state: ProviderIssue['state']): IssueProviderState | undefined {
 	return state == null
 		? undefined
 		: {
 				id: state.id,
 				name: state.name,
 				color: state.color ?? undefined,
-				category: reliableStateCategory ? state.category : undefined,
+				category: state.category,
 			};
 }
 
 export function toIssueShape(
 	issue: ProviderIssue,
 	provider: ProviderReference,
-	options?: { reliableStateCategory?: boolean; projection?: IssueProjection },
+	options?: { projection?: IssueProjection },
 ): IssueShape | undefined {
 	// TODO: Add some protections/baselines rather than killing the transformation here
 	// `author` is intentionally not required: some providers have no per-item creator (e.g. Trello cards,
@@ -1434,15 +1431,7 @@ export function toIssueShape(
 	// Fall back to an empty author instead so these issues still surface.
 	if (issue.updatedDate == null || issue.url == null) return undefined;
 
-	// Jira SDK results derive this category from a localized display name and default unknown names to DONE.
-	// Only the direct point read opts in because it maps Jira's stable status-category key itself. The whole
-	// Jira family shares that mapper (`jiraHelpers` serves Cloud and Server alike), so the gate is keyed on the
-	// family rather than the cloud id — a self-hosted instance in any non-English locale would otherwise report
-	// every open issue as closed.
-	const isJira = isJiraIntegrationId(provider.id);
-	const reliableStateCategory = !isJira || options?.reliableStateCategory === true;
-	const closed =
-		issue.closedDate != null || (reliableStateCategory && isTerminalIssueStateCategory(issue.state?.category));
+	const closed = issue.closedDate != null || isTerminalIssueStateCategory(issue.state?.category);
 
 	return {
 		type: 'issue',
@@ -1464,7 +1453,7 @@ export function toIssueShape(
 		closedDate: issue.closedDate ?? undefined,
 		closed: closed,
 		state: closed ? 'closed' : 'opened',
-		providerState: toIssueProviderState(issue.state, reliableStateCategory),
+		providerState: toIssueProviderState(issue.state),
 		author: {
 			id: issue.author?.id ?? '',
 			// An absent name stays absent, matching {@link fromProviderAccount}; see `IssueMember.name`.
@@ -1502,7 +1491,7 @@ export function toIssueShape(
 		thumbsUpCount: issue.upvoteCount ?? undefined,
 		body: issue.description ?? undefined,
 		// Both Jira flavors return `/rest/api/2` wiki markup for the description.
-		bodyFormat: isJira ? 'jira-wiki' : undefined,
+		bodyFormat: isJiraIntegrationId(provider.id) ? 'jira-wiki' : undefined,
 		issueType: issue.type ?? undefined,
 		iterations: toIssueIterations(issue),
 		// Only when tagged, so an untagged row keeps exactly the keys it always had.
@@ -2043,7 +2032,7 @@ export function fromProviderIssue(
 				: undefined,
 		identifier,
 		issue.type ?? undefined,
-		toIssueProviderState(issue.state, integration.id !== IssuesCloudHostIntegrationId.Jira),
+		toIssueProviderState(issue.state),
 		integration.id === IssuesCloudHostIntegrationId.Jira ? 'jira-wiki' : undefined,
 		toIssueIterations(issue),
 		options?.projection,
