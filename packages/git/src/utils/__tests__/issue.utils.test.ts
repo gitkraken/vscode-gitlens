@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import type { IssueShape, IssueSorting } from '../../models/issue.js';
-import { getIssueComparator } from '../issue.utils.js';
+import { getIssueComparator, isTerminalIssueStateCategory } from '../issue.utils.js';
 
 /**
  * The comparator behind every MERGED issue read — GitHub's aliased searches, GitLab across repositories, Azure and
@@ -99,5 +99,15 @@ suite('getIssueComparator', () => {
 		] as IssueSorting[]) {
 			assert.ok(getIssueComparator(sort) != null, `'${sort}' is derivable and must be orderable`);
 		}
+	});
+});
+
+suite('isTerminalIssueStateCategory', () => {
+	test('done and abandoned work end the issue; open categories and none do not', () => {
+		assert.equal(isTerminalIssueStateCategory('DONE'), true);
+		assert.equal(isTerminalIssueStateCategory('CANCELED'), true);
+		assert.equal(isTerminalIssueStateCategory('TO_DO'), false);
+		assert.equal(isTerminalIssueStateCategory('IN_PROGRESS'), false);
+		assert.equal(isTerminalIssueStateCategory(undefined), false);
 	});
 });

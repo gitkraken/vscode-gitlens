@@ -40,7 +40,7 @@ async function connectedJira(mode: 'endless' | 'stall') {
 	(jira as unknown as { _session: ProviderAuthenticationSession })._session = trackerSession('atlassian.net');
 	let page = 0;
 	// The per-project and the multi-project search answer alike, so the result doesn't depend on which one a read
-	// takes: a user-scoped read searches its projects together, an unscoped one reads them one by one.
+	// takes: a user-scoped read of several projects searches them together, any other read reads them one by one.
 	const issuesPage = () => {
 		page++;
 		return Promise.resolve({
@@ -234,8 +234,8 @@ suite('Tracker project truncation recovery', () => {
 			getJiraResourcesForCurrentUser: () => Promise.resolve([jiraResource]),
 			getJiraProjectsForResource: () =>
 				Promise.resolve({ values: [jiraProject, failedProject], paging: undefined }),
-			getIssuesForProjectPaged: (_token: unknown, name: string) => {
-				if (name === failedProject.name) return Promise.reject(new Error('upstream exploded'));
+			getIssuesForProjectPaged: (_token: unknown, key: string) => {
+				if (key === failedProject.key) return Promise.reject(new Error('upstream exploded'));
 
 				page++;
 				return Promise.resolve({ data: [], hasMore: true, nextCursor: `c${page}` });

@@ -87,12 +87,12 @@ export async function requestLinearIssuesEtagFields(
 
 /**
  * A cheap-checked issue's change state, as the fields the full row's etag reads. The full read's row is provider-apis'
- * Linear issue normalizer (0.61.0) then `fromProviderIssue`, so this mirrors both:
+ * Linear issue normalizer (0.63.0) then `fromProviderIssue`, so this mirrors both:
  *
- * - provider-apis maps `state.type` to a category — `completed` and `canceled` to `DONE`, `started` to `IN_PROGRESS`,
- *   anything else (`backlog`, `unstarted`, `triage`) to `TO_DO`, and no state to none — and sets `closedDate` from
- *   `archivedAt` (a falsy value reads as none);
- * - `fromProviderIssue` closes an issue that has a `closedDate` or a `DONE` category, so an archived issue is closed
+ * - provider-apis maps `state.type` to a category — `completed`, `canceled` and `duplicate` to `DONE`, `started` to
+ *   `IN_PROGRESS`, anything else (`backlog`, `unstarted`, `triage`) to `TO_DO`, and no state to none — and sets
+ *   `closedDate` from `archivedAt` (a falsy value reads as none);
+ * - `fromProviderIssue` closes an issue that has a `closedDate` or a terminal category, so an archived issue is closed
  *   whatever its state.
  *
  * Throws on a missing or unparseable `updatedAt`, so the target falls through to the full read rather than matching an
@@ -106,6 +106,6 @@ export function toLinearIssueEtagFields(issue: LinearIssueEtagNode): IssueEtagFi
 	}
 
 	const type = issue.state?.type;
-	const closed = Boolean(issue.archivedAt) || type === 'completed' || type === 'canceled';
+	const closed = Boolean(issue.archivedAt) || type === 'completed' || type === 'canceled' || type === 'duplicate';
 	return { state: closed ? 'closed' : 'opened', updatedDate: updatedDate };
 }

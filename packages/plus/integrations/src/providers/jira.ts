@@ -382,8 +382,10 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		const api = await this.getProvidersApi();
 
 		const states = toProviderIssueStates(options?.state);
+		// By key, not name, as the multi-project search: JQL's `project = "<value>"` also accepts a name or id, so a
+		// display name equal to another project's key would address that project. The key is the only unambiguous one.
 		const fetchPage: JiraIssuePageFetcher = (scope, cursor) =>
-			api.getIssuesForProjectPaged(tokenWithInfo, project.name, project.resourceId, {
+			api.getIssuesForProjectPaged(tokenWithInfo, project.key, project.resourceId, {
 				...scope,
 				cursor: cursor,
 				states: states,
@@ -391,7 +393,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			});
 		const drainOptions: JiraDrainOptions = {
 			maxPages: maxPagesPerRequest,
-			failureScope: { providerId: this.id, resourceId: project.resourceId, projectId: project.name },
+			failureScope: { providerId: this.id, resourceId: project.resourceId, projectId: project.key },
 			providerName: 'Jira',
 			// A project this token can no longer see (deleted, or its browse permission removed) holds no issues
 			// for it, and the site's project list that named it is stale: drop that list so the next read
@@ -468,6 +470,9 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		// Every request of a search shares its site and user scope (see `getProjectIssuesSearches`).
 		const { project, options } = requests[0];
 		if (options.user == null) return undefined;
+		// One project's search is its own read, by the same key and user clauses, so it costs no more to read it as one;
+		// and that read attributes a failure to the project and drops a project list that no longer has it.
+		if (requests.length === 1) return undefined;
 
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 		const api = await this.getProvidersApi();

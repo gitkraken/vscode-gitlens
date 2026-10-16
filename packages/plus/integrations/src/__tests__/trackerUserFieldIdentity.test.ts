@@ -68,7 +68,12 @@ async function connectedJira(account: { id?: string; username?: string; name?: s
 	stubApi(jira, {
 		getJiraResourcesForCurrentUser: () => Promise.resolve([jiraResource]),
 		getCurrentUserForResource: () => Promise.resolve(account),
-		getJiraProjectsForResource: () => Promise.resolve({ values: [jiraProject], paging: undefined }),
+		// Two projects, so the facade reads them through one search: a single project is read on its own instead.
+		getJiraProjectsForResource: () =>
+			Promise.resolve({
+				values: [jiraProject, { ...jiraProject, key: 'p2', id: 'p2', name: 'Project Two' }],
+				paging: undefined,
+			}),
 		getIssuesForProjectPaged: (...args: Parameters<typeof issuesPage>) => {
 			projectReads.count++;
 			return issuesPage(...args);
@@ -170,8 +175,8 @@ suite('tracker user-field identity', () => {
 		);
 	});
 
-	// The facade reads one project through the search above; a single project's own read is what a search falls
-	// back to, and it builds its clauses separately, so it is pinned on its own.
+	// The facade reads the site's projects through the search above; a single project's own read is what a search falls
+	// back to, and what a one-project site reads, and it builds its clauses separately, so it is pinned on its own.
 	test("a project's own read scopes user fields by account id and keeps the display name for a mention", async () => {
 		const { manager, jira, queries, projectReads } = await connectedJira({
 			id: ACCOUNT_ID,

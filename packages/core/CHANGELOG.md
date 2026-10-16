@@ -6,9 +6,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `orgId` to `ProviderOrganization`: the parent's stable id where `org` is only its label. `listProjects` sets it on Jira projects (the site's id, or the Data Center instance's domain), which is what `listIssueTrackerIssuesPage` takes as `org` for Jira (plus/integrations)
+- Adds `isTerminalIssueStateCategory`, whether an issue state category ends the issue: `DONE` or `CANCELED` (git)
+
+### Changed
+
+- Changes `listProjects` to publish a Jira project's key as its `name`, where it published the display name, so the item names what the project reads take; the display name is no longer on the item (plus/integrations)
+- Changes `listIssueTrackerIssuesPage`'s `org` and `project` to select Jira sites and projects only by their canonical key (a site's id, a project's key), no longer also by a site's label or a project's name or id: a remembered selection whose site or project was removed selected another one that carried the old value as a name or id. Linear and Trello still match any identifier. On Jira Data Center a project's key is still its display name, since the pinned provider-apis reports no key (plus/integrations)
+- Changes `IssueProviderState.category` to also be `CANCELED`, for abandoned work (canceled, duplicate, removed): `toIssueShape` and `fromProviderIssue` close it as they close `DONE`, keeping Jira's gate on an untrusted category. The pinned provider-apis emits no `CANCELED` yet (git, plus/integrations)
+- Changes a user-scoped Jira Cloud read of a single project to read that project on its own instead of through the multi-project search, at the same cost, so a failure partway through its pages is attributed to the project rather than only to the site, and its truncation is reported per project (plus/integrations)
+
 ### Fixed
 
 - Fixes Jira and Jira Data Center issue reads discarding the collection metadata of each search page, so an issue `@gitkraken/provider-apis` drops because it can't read it (GKDEV-3652, e.g. one whose type hides a field the normalizer needed) vanished with no warning. Project reads (`listIssueTrackerIssuesPage`, `IssuesIntegration.getIssuesForProject*`) keep its siblings and now report the drop as a `provider` failure scoped to its project: `fetchFailed`, a warning, and the project `truncated` with recovery `none`. A user-scoped search across projects that hits one is read project by project; on Jira Data Center a search that names a single project is read as that project from the start, so a dropped issue costs no second read. A run of pages that dropped issues is reported once per scope, naming the first page's keys and how many more pages dropped issues, rather than once per page. A page whose every issue was unreadable no longer loses its failure to a later page error, and a project read the page backstop stopped after such a page also reports the backstop. `searchMyIssuesWithTruncationResult` (account-wide, which no facade read reaches for these trackers) carries the same metadata on both hosts; on Jira Cloud each site is drained on its own, so a site whose read failed keeps what it read and is reported as that site's failure (a refused one going through the scoped auth check) instead of being only logged, and a site the page backstop stopped makes the read `truncated`. Works with the current `@gitkraken/provider-apis` pin; the metadata appears once the SDK emits it ([#5992](https://github.com/gitkraken/vscode-gitlens/issues/5992)) (plus/integrations)
+- Fixes Jira Cloud's per-project issue read addressing the project by its display name, which JQL resolves against project keys first, so a project named like another project's key read that project's issues; it now reads by key, as the multi-project search does, and attributes its failures to the key (plus/integrations)
+- Fixes the Linear cheap etag check treating a `duplicate` issue as open while the full read closes it, which made the two compute different etags (plus/integrations)
 
 ## [0.11.1] - 2026-10-16
 

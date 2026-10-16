@@ -1,5 +1,6 @@
 import type {
 	Issue,
+	IssueProviderState,
 	IssueRepositoryIdentityDescriptor,
 	IssueShape,
 	IssueSortField,
@@ -198,4 +199,9 @@ export function serializeIssue(value: IssueShape): IssueShape {
 					})),
 	};
 	return serialized;
+}
+
+/** Whether a provider's workflow category ends the issue: done or abandoned (see {@link IssueProviderState.category}). */
+export function isTerminalIssueStateCategory(category: IssueProviderState['category']): boolean {
+	return category === 'DONE' || category === 'CANCELED';
 }

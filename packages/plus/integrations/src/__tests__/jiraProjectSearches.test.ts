@@ -89,7 +89,7 @@ const emptyPage = (): Promise<SearchPage> => Promise.resolve({ data: [], hasMore
 async function connectedJira(
 	sites: Site[],
 	search: (call: SearchCall) => Promise<SearchPage> = emptyPage,
-	/** The per-project read, by the project name it is called with. */
+	/** The per-project read, by the project key it is called with. */
 	projectRead: (project: string) => Promise<SearchPage> = emptyPage,
 ) {
 	const manager = createIntegrationManager(createFakeRuntime());
@@ -190,6 +190,66 @@ suite('Jira multi-project issue searches', () => {
 		manager.dispose();
 	});
 
+	test("reads a one-project site as that project's own read, by its key, instead of searching it", async () => {
+		const { manager, searches, projectReads } = await connectedJira([{ id: 'org-1', projects: 1 }], undefined, () =>
+			Promise.resolve({ data: [providerIssue('org-1-p0', 'A-1')], hasMore: false, nextCursor: undefined }),
+		);
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			itemsPerPage: 20,
+		});
+
+		assert.deepEqual(searches, [], 'no search is issued for a single project');
+		assert.deepEqual(projectReads, ['org-1-K0']);
+		assert.deepEqual(
+			result.items.map(i => i.id),
+			['A-1'],
+		);
+
+		manager.dispose();
+	});
+
+	test('attributes a failure mid-drain of a one-project site to the project, by its key', async () => {
+		// A search scopes its failure to the site only; the project's own read names the project.
+		let pages = 0;
+		const { manager, searches } = await connectedJira([{ id: 'org-1', projects: 1 }], undefined, () =>
+			pages++ === 0
+				? Promise.resolve({ data: [providerIssue('org-1-p0', 'A-1')], hasMore: true, nextCursor: 'next' })
+				: Promise.reject(new Error('upstream exploded')),
+		);
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			itemsPerPage: 20,
+		});
+
+		assert.deepEqual(searches, []);
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(
+			result.warnings.map(w => w.scope),
+			[{ resourceId: 'org-1', projectId: 'org-1-K0' }],
+		);
+
+		manager.dispose();
+	});
+
+	test('reads the one project left over past the key bound on its own', async () => {
+		const { manager, searches, projectReads } = await connectedJira([
+			{ id: 'org-1', projects: JIRA_MAX_PROJECT_KEYS_PER_REQUEST + 1 },
+		]);
+
+		await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Jira, itemsPerPage: 100 });
+
+		assert.deepEqual(
+			searches.map(s => s.projectKeys.length),
+			[JIRA_MAX_PROJECT_KEYS_PER_REQUEST],
+		);
+		assert.deepEqual(projectReads, [`org-1-K${JIRA_MAX_PROJECT_KEYS_PER_REQUEST}`]);
+
+		manager.dispose();
+	});
+
 	test('reads a rejected search project by project, so one bad project fails alone', async () => {
 		// One project the site no longer accepts in JQL (deleted, moved, no longer browsable) rejects the whole
 		// OR'd search; read alone, only that project fails.
@@ -197,7 +257,7 @@ suite('Jira multi-project issue searches', () => {
 			[{ id: 'org-1', projects: 2 }],
 			() => Promise.reject(new Error('400: The value does not exist for the field project')),
 			project =>
-				project === 'org-1 Project 0'
+				project === 'org-1-K0'
 					? Promise.reject(new Error('400: The value does not exist for the field project'))
 					: Promise.resolve({
 							data: [providerIssue('org-1-p1', 'B-1')],
@@ -211,7 +271,7 @@ suite('Jira multi-project issue searches', () => {
 			itemsPerPage: 20,
 		});
 
-		assert.deepEqual(projectReads.sort(), ['org-1 Project 0', 'org-1 Project 1']);
+		assert.deepEqual(projectReads.sort(), ['org-1-K0', 'org-1-K1']);
 		assert.deepEqual(
 			result.items.map(i => i.id),
 			['B-1'],
@@ -273,7 +333,7 @@ suite('Jira multi-project issue searches', () => {
 			},
 			project =>
 				Promise.resolve({
-					data: [providerIssue(project === 'org-1 Project 0' ? 'org-1-p0' : 'org-1-p1', `${project}-1`)],
+					data: [providerIssue(project === 'org-1-K0' ? 'org-1-p0' : 'org-1-p1', `${project}-1`)],
 					hasMore: false,
 					nextCursor: undefined,
 				}),
@@ -286,8 +346,8 @@ suite('Jira multi-project issue searches', () => {
 
 		assert.equal(page, 2);
 		assert.equal(searches.length, 2);
-		assert.deepEqual(projectReads.sort(), ['org-1 Project 0', 'org-1 Project 1']);
-		assert.deepEqual(result.items.map(i => i.id).sort(), ['org-1 Project 0-1', 'org-1 Project 1-1']);
+		assert.deepEqual(projectReads.sort(), ['org-1-K0', 'org-1-K1']);
+		assert.deepEqual(result.items.map(i => i.id).sort(), ['org-1-K0-1', 'org-1-K1-1']);
 		assert.equal(result.fetchFailed, undefined);
 		assert.equal(result.page.truncated, undefined);
 
@@ -308,7 +368,7 @@ suite('Jira multi-project issue searches', () => {
 
 		// A single project's page budget, not one per project spent on one sequential cursor chain.
 		assert.equal(searches.length, 10);
-		assert.deepEqual(projectReads.sort(), ['org-1 Project 0', 'org-1 Project 1']);
+		assert.deepEqual(projectReads.sort(), ['org-1-K0', 'org-1-K1']);
 		assert.equal(result.page.truncated, undefined);
 		assert.equal(result.fetchFailed, undefined);
 
@@ -322,7 +382,7 @@ suite('Jira multi-project issue searches', () => {
 
 		await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Jira, itemsPerPage: 20 });
 
-		assert.deepEqual(projectReads.sort(), ['org-1 Project 0', 'org-1 Project 1']);
+		assert.deepEqual(projectReads.sort(), ['org-1-K0', 'org-1-K1']);
 
 		manager.dispose();
 	});
@@ -339,7 +399,7 @@ suite('Jira multi-project issue searches', () => {
 				}),
 			);
 		const { manager, projectReads } = await connectedJira([{ id: 'org-1', projects: 2 }], missing, project =>
-			project === 'org-1 Project 0'
+			project === 'org-1-K0'
 				? missing()
 				: Promise.resolve({ data: [providerIssue('org-1-p1', 'B-1')], hasMore: false, nextCursor: undefined }),
 		);
@@ -349,7 +409,7 @@ suite('Jira multi-project issue searches', () => {
 			itemsPerPage: 20,
 		});
 
-		assert.deepEqual(projectReads.sort(), ['org-1 Project 0', 'org-1 Project 1']);
+		assert.deepEqual(projectReads.sort(), ['org-1-K0', 'org-1-K1']);
 		assert.deepEqual(
 			result.items.map(i => i.id),
 			['B-1'],
@@ -389,7 +449,7 @@ suite('Jira multi-project issue searches', () => {
 
 		// An unscoped drain reports its backstop as `narrow-scope` per project, which one search cannot attribute.
 		assert.deepEqual(searches, []);
-		assert.deepEqual(projectReads.sort(), ['org-1 Project 0', 'org-1 Project 1']);
+		assert.deepEqual(projectReads.sort(), ['org-1-K0', 'org-1-K1']);
 
 		manager.dispose();
 	});
@@ -408,7 +468,7 @@ suite('Jira multi-project issue searches', () => {
 				}),
 			project =>
 				Promise.resolve(
-					project === 'org-1 Project 0'
+					project === 'org-1-K0'
 						? {
 								data: [providerIssue('org-1-p0', 'A-1')],
 								hasMore: false,
@@ -425,12 +485,12 @@ suite('Jira multi-project issue searches', () => {
 		});
 
 		assert.equal(searches.length, 1);
-		assert.deepEqual(projectReads.sort(), ['org-1 Project 0', 'org-1 Project 1']);
+		assert.deepEqual(projectReads.sort(), ['org-1-K0', 'org-1-K1']);
 		assert.deepEqual(result.items.map(i => i.id).sort(), ['A-1', 'B-1'], 'the siblings are served');
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
 		assert.match(result.warnings[0].message, /A-2/);
-		assert.deepEqual(result.warnings[0].scope, { resourceId: 'org-1', projectId: 'org-1 Project 0' });
+		assert.deepEqual(result.warnings[0].scope, { resourceId: 'org-1', projectId: 'org-1-K0' });
 		const cursor = parseIssueTrackerPageCursor(result.cursor);
 		assert.equal(cursor?.retryProjects, undefined, 'a project read that dropped an issue is not retried');
 
@@ -458,7 +518,7 @@ suite('Jira multi-project issue searches', () => {
 		);
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
-		assert.deepEqual(result.warnings[0].scope, { resourceId: 'org-1', projectId: 'org-1 Project 0' });
+		assert.deepEqual(result.warnings[0].scope, { resourceId: 'org-1', projectId: 'org-1-K0' });
 
 		manager.dispose();
 	});
