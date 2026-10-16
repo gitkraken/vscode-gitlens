@@ -228,6 +228,7 @@ suite('Linear cheap etag check', () => {
 			{ name: 'started', type: 'started', updatedAt: '2026-03-04T05:06:07.890Z', closed: false },
 			{ name: 'completed', type: 'completed', updatedAt: '2026-05-06T07:08:09.000Z', closed: true },
 			{ name: 'canceled', type: 'canceled', updatedAt: '2026-10-01T12:34:56.789Z', closed: true },
+			{ name: 'duplicate', type: 'duplicate', updatedAt: '2026-10-02T12:34:56.789Z', closed: true },
 			{ name: 'triage', type: 'triage', updatedAt: '2026-10-01T23:59:59.999Z', closed: false },
 			// provider-apis maps an archived issue's `archivedAt` to `closedDate`, which closes it whatever its state.
 			{

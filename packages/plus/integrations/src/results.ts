@@ -60,9 +60,13 @@ export interface ProviderWarningScope {
 	/**
 	 * The resource as the read addressed it: its id on most reads, its name on the few that address it by name
 	 * (Azure DevOps' repo-scoped reads, Bitbucket's workspace reads). Match it against both
-	 * `ProviderOrganization.id` and `name`.
+	 * `ProviderOrganization.id` and `name`, and a project's `orgId` where it has one.
 	 */
 	resourceId?: string;
+	/**
+	 * The project as the read addressed it. For a Jira project read, the key on Jira Cloud (the project's `name` in
+	 * `listProjects`) and the numeric id on Jira Data Center.
+	 */
 	projectId?: string;
 	repositoryId?: string;
 }
@@ -401,13 +405,19 @@ export function providerWarningMessage(ex: unknown): string {
 
 /**
  * Normalized org/workspace/group shape returned by the provider facade.
- * `name` is the provider identifier to pass to follow-up reads, while `org` is an optional display label.
+ * `name` is the provider identifier to pass to follow-up reads (a Jira project's key), while `org` is an optional
+ * display label of the parent. Where that label can't address the parent, `orgId` is the parent's stable id to pass
+ * as `org` instead (a Jira site's id, or a Data Center instance's domain).
+ *
+ * Jira site rows (`listOrgs`) are the exception: their `name` is the site's label, and a Jira read selects a site only
+ * by its `id` (or a project row's `orgId`).
  */
 export interface ProviderOrganization {
 	id: string;
 	providerId: IntegrationIds;
 	name: string;
 	org?: string;
+	orgId?: string;
 	url: string;
 }
 

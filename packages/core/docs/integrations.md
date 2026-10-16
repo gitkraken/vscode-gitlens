@@ -813,7 +813,9 @@ one extra check a minute, and a revocation can take up to a minute to surface as
 
 `scope.resourceId` is the resource as the read addressed it: its id on most reads, its name on the few that
 address it by name (Azure DevOps' repo-scoped reads, Bitbucket's workspace reads). Match it against both
-`ProviderOrganization.id` and `name`.
+`ProviderOrganization.id` and `name`, and against a project's `orgId` where it has one. A Jira project read's
+`scope.projectId` is the project as the read addressed it: the key on Jira Cloud (a project's `name` in
+`listProjects`), the numeric id on Jira Data Center.
 
 Warnings also dedup on `scope` and `cause`, so failures of two scopes stay two warnings.
 
@@ -1203,7 +1205,12 @@ and `closed` is decided by `closedDate` alone. A done issue with no resolution d
 direction is deliberate, since trusting a name-matched `DONE` would report every open issue on a non-English
 instance as closed.
 
-The normalized `state` and `closed` fields keep their existing derivation; `providerState` is additive.
+`category` is `TO_DO`, `IN_PROGRESS`, `DONE` or `CANCELED`. `CANCELED` is abandoned work (canceled, duplicate,
+removed): it closes an issue as `DONE` does, and stays its own value so a consumer can tell the two outcomes apart.
+The provider-apis this release pins emits no `CANCELED` yet, so until then a canceled Linear issue reads as `DONE`.
+
+The normalized `state` and `closed` fields keep their existing derivation, with `CANCELED` closing like `DONE`;
+`providerState` is additive.
 
 ### Sprints and iterations
 
@@ -1341,6 +1348,12 @@ Markdown by this package.
   retries, preserve a caller's aggregate-all mode, and suppress projects already emitted before discovery
   recovered. `hasMore` reports only untouched forward progress. A cursor can therefore remain with
   `hasMore: false`; reusing it is an explicit manual retry of failed work, not a normal paging loop.
+  `org` and `project` select by identifier. Linear and Trello match any of a resource's or project's id, name or
+  key. Jira (Cloud and Data Center) matches only the canonical key, so a selection whose site or project was removed
+  selects nothing instead of resolving to another one that carries the old value as a name or id: `org` is the site's
+  id (`listOrgs`' `id`, or `listProjects`' `orgId`), never its label, and `project` is the project key, which is
+  `listProjects`' `name` for Jira. `listProjects({ org })` itself still matches any identifier, since it only lists
+  what a caller can then select.
 
 Self-managed descriptors keep `domain` as the normalized host and expose the configured installation address
 in `baseUrl`. Provider requests use the selected connection's address, including during account discovery.
