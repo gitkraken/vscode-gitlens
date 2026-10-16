@@ -14,11 +14,8 @@ import {
  * `CANCELED` is abandoned work (Linear's canceled and duplicate states, Azure's `Removed` category): it ends the issue
  * as `DONE` does, and is kept as its own category so a consumer can tell the two outcomes apart.
  */
-function withCategory(category: string): ProviderIssue {
-	// Cast: provider-apis only declares `CANCELED` from the release that emits it.
-	return createProviderIssue({
-		state: { id: '1', name: 'Canceled', color: null, category: category } as unknown as ProviderIssue['state'],
-	});
+function withCategory(category: NonNullable<ProviderIssue['state']>['category']): ProviderIssue {
+	return createProviderIssue({ state: { id: '1', name: 'Canceled', color: null, category: category } });
 }
 
 suite('issue state categories', () => {

@@ -1,0 +1,131 @@
+import assert from 'node:assert/strict';
+import { suite, test } from 'mocha';
+import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import { IssuesSelfManagedHostIntegrationId } from '../constants.js';
+import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
+import type { FakeRuntime } from './fakeRuntime.js';
+import { createFakeRuntime } from './fakeRuntime.js';
+
+/**
+ * Jira Data Center reads run for real through provider-apis against a server answering Jira's own responses, for what
+ * depends on the SDK's own parsing: search pages holding issues it can or can't read.
+ */
+
+const domain = 'jira.example.com';
+const baseUrl = `https://${domain}`;
+
+function jsonResponse(body: unknown): Response {
+	return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+}
+
+type SearchPage = { startAt: number; maxResults: number; total: number; issues: unknown[] };
+const emptySearch = (): SearchPage => ({ startAt: 0, maxResults: 100, total: 0, issues: [] });
+
+function serve(
+	runtime: FakeRuntime,
+	projects: unknown[],
+	search: (startAt: number) => SearchPage = emptySearch,
+): URL[] {
+	const requests: URL[] = [];
+	runtime.http.fetch = input => {
+		const url = new URL(input.toString());
+		requests.push(url);
+		switch (url.pathname) {
+			case '/rest/api/2/myself':
+				return Promise.resolve(jsonResponse({ key: 'JIRAUSER1', name: 'me', displayName: 'Me' }));
+			case '/rest/api/2/field':
+				return Promise.resolve(jsonResponse([]));
+			case '/rest/api/2/project':
+				return Promise.resolve(jsonResponse(projects));
+			case '/rest/api/2/search':
+				return Promise.resolve(jsonResponse(search(Number(url.searchParams.get('startAt') ?? 0))));
+			default:
+				return Promise.resolve(new Response('{}', { status: 404 }));
+		}
+	};
+	return requests;
+}
+
+async function connected(projects: unknown[], search?: (startAt: number) => SearchPage) {
+	const runtime = createFakeRuntime();
+	const requests = serve(runtime, projects, search);
+	const manager = createIntegrationManager(runtime);
+	const jira = (await manager.get(IssuesSelfManagedHostIntegrationId.JiraServer, domain))!;
+	(jira as unknown as { _session: ProviderAuthenticationSession })._session = {
+		id: 'primary',
+		accessToken: 'tok',
+		account: { id: 'primary', label: 'primary' },
+		scopes: [],
+		cloud: true,
+		type: 'pat',
+		domain: domain,
+	};
+	return { manager: manager, requests: requests };
+}
+
+/** A Story whose field configuration hides Fix versions, so Jira leaves `fixVersions` out of the payload. */
+function story(key: string) {
+	const user = {
+		key: 'JIRAUSER1',
+		name: 'me',
+		displayName: 'Me',
+		emailAddress: 'me@example.com',
+		avatarUrls: { '48x48': 'https://avatars.example/me' },
+	};
+	const id = key.replace(/\D/g, '');
+	return {
+		id: id,
+		key: key,
+		self: `${baseUrl}/rest/api/2/issue/${id}`,
+		fields: {
+			assignee: user,
+			comment: { total: 0, comments: [] },
+			components: [],
+			created: '2026-01-01T00:00:00.000+0000',
+			creator: user,
+			description: null,
+			issuetype: { name: 'Story' },
+			labels: [],
+			project: { id: '101', key: 'OPS', name: 'Operations' },
+			status: { id: '1', name: 'To Do', statusCategory: { colorName: 'blue-gray', key: 'new', name: 'To Do' } },
+			summary: key,
+			updated: '2026-01-02T00:00:00.000+0000',
+			votes: { votes: 0 },
+		},
+	};
+}
+
+suite('Jira Data Center search pages', () => {
+	test('reads an issue whose type hides a field, and drains past a page whose every issue is unreadable', async () => {
+		// Two pages of two: the first holds only issues provider-apis can't read, the second a hidden-field Story.
+		const { manager, requests } = await connected([{ id: '101', key: 'OPS', name: 'OPS' }], startAt =>
+			startAt === 0
+				? { startAt: 0, maxResults: 2, total: 3, issues: [{ key: 'OPS-1', fields: null }, { key: 'OPS-2' }] }
+				: { startAt: startAt, maxResults: 2, total: 3, issues: [story('OPS-3')] },
+		);
+
+		const page = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			domain: domain,
+			org: domain,
+			project: 'OPS',
+			includeAllAssignees: true,
+		});
+
+		assert.deepEqual(
+			page.items.map(issue => issue.id),
+			['OPS-3'],
+		);
+		assert.deepEqual(
+			requests.filter(r => r.pathname === '/rest/api/2/search').map(r => r.searchParams.get('startAt')),
+			[null, '2'],
+			'the drain reads on past the unreadable page',
+		);
+		assert.equal(page.fetchFailed, true, 'the skipped issues are reported, not hidden');
+		assert.equal(page.warnings.length, 1);
+		assert.match(page.warnings[0].message, /OPS-1.*OPS-2/);
+		assert.deepEqual(page.warnings[0].scope, { resourceId: domain, projectId: '101' });
+
+		manager.dispose();
+	});
+});
