@@ -50,7 +50,7 @@ import type {
 	AzureProjectInputDescriptor,
 	AzureRemoteRepositoryDescriptor,
 	AzureRepositoryDescriptor,
-	AzureWorkItemResponse,
+	AzureWorkItemEtagRead,
 } from './azure/models.js';
 import {
 	azureWorkItemsEtagFieldsMaxIds,
@@ -1049,19 +1049,22 @@ export abstract class AzureDevOpsIntegrationBase<
 			}
 
 			// By id, never by position: Azure leaves out the ids it can't return.
-			const workItems = new Map<unknown, AzureWorkItemResponse>();
-			for (const workItem of answer.value) {
-				workItems.set(workItem.id, workItem);
+			const workItems = new Map<unknown, AzureWorkItemEtagRead>();
+			for (const read of answer.value) {
+				workItems.set(read.workItem.id, read);
 			}
 
 			for (const [id, indices] of entries) {
-				const workItem = workItems.get(id);
+				const read = workItems.get(id);
 				let slot: PromiseSettledResult<IssueEtagFields | undefined>;
-				if (workItem == null) {
+				if (read == null) {
 					slot = { status: 'rejected', reason: new Error(`Azure DevOps did not return work item ${id}`) };
 				} else {
 					try {
-						slot = { status: 'fulfilled', value: toAzureWorkItemEtagFields(workItem, project) };
+						slot = {
+							status: 'fulfilled',
+							value: toAzureWorkItemEtagFields(read.workItem, project, read.category),
+						};
 						answered = true;
 					} catch (ex) {
 						slot = { status: 'rejected', reason: ex };

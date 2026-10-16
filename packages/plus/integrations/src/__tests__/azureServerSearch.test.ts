@@ -260,6 +260,8 @@ function createServer(options: {
 			});
 		}
 		if (/^[^/]+\/_apis\/wit\/workItemTypes\/[^/]+\/states$/.test(route)) {
+			// Azure DevOps Server 2020 serves the states endpoint only as a preview.
+			assert.equal(url.searchParams.get('api-version'), '6.0-preview.1');
 			return json({
 				value: [{ name: 'Active', color: '', category: collection.stateCategory ?? 'InProgress' }],
 				count: 1,

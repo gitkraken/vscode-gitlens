@@ -1,4 +1,4 @@
-import type { IssueIteration, IssueMember, IssueProjection } from '@gitlens/git/models/issue.js';
+import type { IssueIteration, IssueMember, IssueProjection, IssueProviderState } from '@gitlens/git/models/issue.js';
 import { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestMember, PullRequestProjection, PullRequestReviewer } from '@gitlens/git/models/pullRequest.js';
@@ -10,6 +10,7 @@ import {
 } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { isTerminalIssueStateCategory } from '@gitlens/git/utils/issue.utils.js';
 import type { IssueEtagFields, PullRequestEtagFields, PullRequestEtagInclude } from '../../models/integration.js';
 import { pullRequestRevision } from '../../models/integration.js';
 import type { ProviderAccount, ProviderIssue } from '../models.js';
@@ -67,23 +68,37 @@ export interface AzureProjectInputDescriptor extends ResourceDescriptor {
 
 export type AzureWorkItemStateCategory = 'Proposed' | 'InProgress' | 'Resolved' | 'Completed' | 'Removed';
 
+/**
+ * The workflow category of an Azure DevOps state category, as a work item type's states endpoint reports it:
+ * `Removed` is abandoned work, so `CANCELED`, kept apart from the `DONE` of `Completed` and `Resolved`.
+ * `undefined` for a category Azure doesn't document, which then neither opens nor closes the work item.
+ */
+export function azureIssueStateCategory(
+	category: AzureWorkItemStateCategory | undefined,
+): IssueProviderState['category'] {
+	switch (category) {
+		case 'Removed':
+			return 'CANCELED';
+		case 'Completed':
+		case 'Resolved':
+			return 'DONE';
+		case 'InProgress':
+			return 'IN_PROGRESS';
+		case 'Proposed':
+			return 'TO_DO';
+		default:
+			return undefined;
+	}
+}
+
 export function isClosedAzureWorkItemStateCategory(category: AzureWorkItemStateCategory | undefined): boolean {
-	return category === 'Completed' || category === 'Resolved' || category === 'Removed';
+	return isTerminalIssueStateCategory(azureIssueStateCategory(category));
 }
 
 export function azureWorkItemsStateCategoryToState(
 	category: AzureWorkItemStateCategory | undefined,
 ): IssueOrPullRequestState {
-	switch (category) {
-		case 'Resolved':
-		case 'Completed':
-		case 'Removed':
-			return 'closed';
-		case 'Proposed':
-		case 'InProgress':
-		default:
-			return 'opened';
-	}
+	return isClosedAzureWorkItemStateCategory(category) ? 'closed' : 'opened';
 }
 
 export interface AzureLink {
@@ -732,6 +747,7 @@ export function fromAzureWorkItem(
 	stateCategory?: AzureWorkItemStateCategory,
 	projection?: IssueProjection,
 ): Issue {
+	const state = workItem.fields['System.State'];
 	return new Issue(
 		provider,
 		workItem.id.toString(),
@@ -756,8 +772,10 @@ export function fromAzureWorkItem(
 		workItem.fields['System.Description'],
 		project,
 		undefined,
-		undefined,
-		undefined,
+		workItem.fields['System.WorkItemType'],
+		typeof state === 'string' && state
+			? { name: state, category: azureIssueStateCategory(stateCategory) }
+			: undefined,
 		undefined,
 		toWorkItemIterations(workItem.fields['System.IterationPath']),
 		projection,
@@ -794,13 +812,24 @@ export interface AzureWorkItemResponse {
 }
 
 /**
- * Converts a work item exactly as provider-apis' `getIssuesForAzureProject` converts each row it reads, so a work
- * item read by id reaches `toIssueShape` identical to the list read's row for it. provider-apis exports neither
- * that converter nor a single work item read, so this mirrors it field for field; the batch issue tests compare
- * the two, so a provider-apis change that this misses fails there.
+ * A cheap read's work item with the workflow category its state classifies to (see
+ * {@link toAzureWorkItemEtagFields}). Beside the work item rather than on it, so the wire type stays what Azure sends.
+ */
+export interface AzureWorkItemEtagRead {
+	readonly workItem: AzureWorkItemResponse;
+	readonly category: IssueProviderState['category'];
+}
+
+/**
+ * Converts a work item as provider-apis' `getIssuesForAzureProject` converts each row it reads, so a work item read
+ * by id reaches `toIssueShape` identical to the list read's row for it. provider-apis exports neither that converter
+ * nor a single work item read, so this mirrors it field for field; the batch issue tests compare the two, so a
+ * provider-apis change that this misses fails there.
  *
  * `undefined` for a work item the SDK would skip: no positive integer id, no title, or no valid created date.
- * `state.name` is the raw `System.State`, as on every list read here, which passes the SDK no state-name map.
+ * `state.name` is the raw `System.State`, as on every list read here, which passes the SDK no state-name map. Like
+ * the SDK's row, the state carries no workflow category: `ProvidersApi` classifies both reads' rows the same way
+ * afterwards, from the work item type's states.
  */
 export function fromAzureWorkItemToProviderIssue(
 	workItem: AzureWorkItemResponse,
@@ -909,22 +938,29 @@ export const azureWorkItemsEtagFieldsMaxIds = 200;
 
 /**
  * The fields the cheap work item read selects: only the ones a full row's etag reads, and the project the full read
- * checks the work item against. Not `System.State`: {@link fromAzureWorkItemToProviderIssue} gives the state no
- * category, so `toIssueShape` closes a work item by its closed date alone.
+ * checks the work item against. The state and type let the cheap read resolve the same workflow category as the full
+ * read, from the same work item type states.
  */
 export const azureWorkItemEtagFieldNames: readonly string[] = [
 	'System.TeamProject',
+	'System.State',
+	'System.WorkItemType',
 	'System.ChangedDate',
 	'Microsoft.VSTS.Common.ClosedDate',
 ];
 
 /**
  * A cheap read's work item, as the fields its full batch row's etag reads: `toIssueShape` closes the row the full
- * read builds (see {@link fromAzureWorkItemToProviderIssue}) exactly when it has a closed date, parsed by the same rule.
+ * read builds (see {@link fromAzureWorkItemToProviderIssue}) when it has a closed date, parsed by the same rule, or a
+ * terminal workflow `category`, which the caller classifies from the work item's state as the full read does.
  * Throws where the full read fails the work item: on one in another project than `project` (compared as Azure
  * compares names), and on a missing or unparseable change date, so the target falls through to the full read.
  */
-export function toAzureWorkItemEtagFields(workItem: AzureWorkItemResponse, project: string): IssueEtagFields {
+export function toAzureWorkItemEtagFields(
+	workItem: AzureWorkItemResponse,
+	project: string,
+	category: IssueProviderState['category'],
+): IssueEtagFields {
 	const fields = workItem.fields;
 	const teamProject = fields?.['System.TeamProject'];
 	if (typeof teamProject === 'string' && teamProject.toLowerCase() !== project.toLowerCase()) {
@@ -939,7 +975,11 @@ export function toAzureWorkItemEtagFields(workItem: AzureWorkItemResponse, proje
 	}
 
 	return {
-		state: parseAzureWorkItemDate(fields?.['Microsoft.VSTS.Common.ClosedDate']) != null ? 'closed' : 'opened',
+		state:
+			parseAzureWorkItemDate(fields?.['Microsoft.VSTS.Common.ClosedDate']) != null ||
+			isTerminalIssueStateCategory(category)
+				? 'closed'
+				: 'opened',
 		updatedDate: updatedDate,
 	};
 }
