@@ -217,6 +217,29 @@ suite('per-connection reads when the GK API cannot hand back the token (kepler#3
 		manager.dispose();
 	});
 
+	// The list settles its scopes before reading them (see `GitHostIntegration.resolveRepositoryScopes`), which resolves
+	// the session the read would: its failure is the read's, reported once and not retried by the read.
+	test('a repo-scoped issue list whose token fetch hits a 429 reports it without fetching the token again', async () => {
+		const azure: Target = { integrationId: GitCloudHostIntegrationId.AzureDevOps, domain: 'dev.azure.com' };
+		const { runtime, paths } = createRuntime(() => 429, false, azure);
+		await seedConnection(runtime, { expired: true }, azure);
+		const manager = createIntegrationManager(runtime);
+
+		const result = await manager.listIssuesPage({
+			providerId: azure.integrationId,
+			connectionId: tokenId,
+			repos: [{ namespace: 'org', project: 'proj', name: 'repo' }],
+		});
+
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(
+			result.warnings.map(w => w.kind),
+			['rate-limit'],
+		);
+		assert.equal(paths.filter(p => p.includes(tokenId)).length, 1, paths.join(', '));
+		manager.dispose();
+	});
+
 	test('a host read with no connection pinned is rate limited when its expired token cannot be refreshed', async () => {
 		// A read by domain alone resolves the integration's own session rather than a connection's.
 		let status = 200;

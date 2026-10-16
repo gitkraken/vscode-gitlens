@@ -40,8 +40,10 @@ import {
 import type { AzureRepositoryTarget, AzureReviewerRead } from './azureDevOps.js';
 import {
 	AzureDevOpsIntegrationBase,
+	findAzureRepositoryApiBaseUrl,
 	getAzureRepositoryApiBaseUrl,
 	getAzureRepositoryIdentity,
+	getAzureScopeVirtualDirectory,
 	isAzureProjectlessCandidate,
 	markMyGroupReviews,
 	resolveAzureProjectlessRepository,
@@ -273,6 +275,26 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	protected override async getRepositoryTarget<
 		T extends Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project' | 'virtualDirectory'>,
 	>(session: ProviderAuthenticationSession, repo: T, cancellation?: AbortSignal): Promise<AzureRepositoryTarget<T>> {
+		const { repo: settled, baseUrl, unsettled } = await this.settleRepository(session, repo, cancellation);
+		// Throws for a virtual directory the connection doesn't serve, or an invalid one.
+		return {
+			repo: settled,
+			baseUrl: baseUrl ?? getAzureRepositoryApiBaseUrl(this.apiBaseUrlFor(session), settled),
+			unsettled: unsettled,
+		};
+	}
+
+	/**
+	 * The repository {@link getRepositoryTarget} reads `repo` as, and the base it reads it below: `undefined` when the
+	 * connection doesn't serve its virtual directory (another installation's) or that directory isn't a valid one.
+	 */
+	private async settleRepository<
+		T extends Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project' | 'virtualDirectory'>,
+	>(
+		session: ProviderAuthenticationSession,
+		repo: T,
+		cancellation?: AbortSignal,
+	): Promise<{ repo: T; baseUrl: string | undefined; unsettled: boolean }> {
 		const baseUrl = this.apiBaseUrlFor(session);
 		let unsettled = false;
 		if (isAzureProjectlessCandidate(baseUrl, repo)) {
@@ -289,7 +311,64 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 			}
 		}
 
-		return { repo: repo, baseUrl: getAzureRepositoryApiBaseUrl(baseUrl, repo), unsettled: unsettled };
+		return { repo: repo, baseUrl: findAzureRepositoryApiBaseUrl(baseUrl, repo), unsettled: unsettled };
+	}
+
+	/**
+	 * Settles each coordinate as {@link getRepositoryTarget} settles a remote's descriptor: a consumer that parses a
+	 * remote itself splits a project-less path behind a virtual directory the same way. Its owner is placed in the path
+	 * the connection addresses ({@link getAzureScopeVirtualDirectory}), since a coordinate carries no virtual directory.
+	 * Only the coordinate is settled, and only to a repository the connection serves: each read places it below the
+	 * connection itself, so one settling elsewhere reads as given and fails its own read rather than every coordinate's.
+	 */
+	protected override async resolveRepositoryCoordinates<T extends { owner: string; repo: string; project?: string }>(
+		session: ProviderAuthenticationSession,
+		coordinates: readonly T[],
+		cancellation?: AbortSignal,
+	): Promise<{ coordinates: readonly T[]; unsettled?: readonly boolean[] }> {
+		const baseUrl = this.apiBaseUrlFor(session);
+		const targets = await Promise.all(
+			coordinates.map(async c => {
+				const virtualDirectory =
+					c.project != null ? getAzureScopeVirtualDirectory(baseUrl, c.owner) : undefined;
+				if (virtualDirectory == null) return { coordinate: c, unsettled: false };
+
+				const {
+					repo,
+					baseUrl: repoBaseUrl,
+					unsettled,
+				} = await this.settleRepository(
+					session,
+					{
+						owner: c.owner,
+						name: `${c.project}/_git/${c.repo}`,
+						project: c.project,
+						virtualDirectory: virtualDirectory || undefined,
+					},
+					cancellation,
+				);
+				// A repository this connection doesn't serve is another installation's: read the scope as given.
+				const settled = repo.owner !== c.owner && repoBaseUrl != null;
+				return {
+					coordinate: settled ? { ...c, owner: repo.owner, project: repo.project } : c,
+					unsettled: unsettled,
+				};
+			}),
+		);
+		return { coordinates: targets.map(t => t.coordinate), unsettled: targets.map(t => t.unsettled) };
+	}
+
+	protected override async resolveRepositoryInputs(
+		session: ProviderAuthenticationSession,
+		repos: readonly ProviderRepoInput[],
+		cancellation?: AbortSignal,
+	): Promise<ProviderRepoInput[]> {
+		const { coordinates } = await this.resolveRepositoryCoordinates(
+			session,
+			repos.map(r => ({ ...r, owner: r.namespace, repo: r.name })),
+			cancellation,
+		);
+		return coordinates.map(({ owner, repo, ...r }) => ({ ...r, namespace: owner, name: repo }));
 	}
 
 	/**
@@ -361,12 +440,13 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		if (azure == null) return undefined;
 
 		this.assertSearchDates(options.criteria);
+		const repos = options.repos && (await this.resolveRepositoryInputs(session, options.repos, cancellation));
 		// A first page re-reads the collection's projects, so a project created since discovery is known before its
 		// work items can turn up in a collection-wide query; a continuation keeps the set its first page resolved.
 		// The facade's page-1 marker (`broadenIssues` retries a failed first page with it) is a first page too.
 		const scope = await this.resolveWorkItemSearchScope(
 			session,
-			options.repos,
+			repos,
 			options.org,
 			isAzureWorkItemSearchFirstPage(options.cursor),
 		);
@@ -406,7 +486,8 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 				this.assertSearchDates(s.criteria);
 				// Re-reads the projects like a first search page does, so a count and the page it previews resolve
 				// the same project set — a newer project can't be counted by one and refused or missed by the other.
-				const scope = await this.resolveWorkItemSearchScope(session, s.repos, s.org, true);
+				const repos = s.repos && (await this.resolveRepositoryInputs(session, s.repos, cancellation));
+				const scope = await this.resolveWorkItemSearchScope(session, repos, s.org, true);
 				return azure.countWorkItems(
 					this,
 					tokenWithInfo,
@@ -668,7 +749,9 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 
 		// A drain runs for a first page (or once its predecessor expired), so it re-reads the projects it fans out
 		// over: an org search trusting the connection-long discovery cache would silently skip a newer project.
-		const facets = await this.resolvePullRequestSearchFacets(session, options.repos, options.org);
+		// Settled here rather than before the query is keyed, so a cursor stays the caller's whatever discovery answers.
+		const repos = options.repos && (await this.resolveRepositoryInputs(session, options.repos, cancellation));
+		const facets = await this.resolvePullRequestSearchFacets(session, repos, options.org);
 
 		// The current user's id is resolved PER COLLECTION: Azure DevOps Server gives one person a different
 		// identity id in each collection than at the server level, and a creator/reviewer filter only matches the

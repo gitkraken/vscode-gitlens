@@ -452,10 +452,25 @@ async function readRepoScopedIssuesPage({
 	}
 
 	const issuesPagingMode = metadata?.issuesPagingMode;
-	const ordering = toIssueOrdering(
-		resolvedRepoScopedSort.sort,
-		mergesProviderQueries(issuesPagingMode, options.repos),
-	);
+	// Counted, and read, as the host settles them: a scope can name another project than the one it was parsed with
+	// (see `GitHostIntegration.resolveRepositoryScopes`), which changes how many queries a per-project read makes.
+	let repos = options.repos ?? [];
+	if (issuesPagingMode === PagingMode.Project && repos.length) {
+		const settled = await runCaptured(
+			options.providerId,
+			domain,
+			options.connectionId,
+			() => integration.resolveRepositoryScopes(repos, options.connectionId),
+			{ warnOnMissingSession: warnOnMissingSession },
+		);
+		// No session to read with, or the read's own failure resolving it: answered as that read would, without it.
+		if (settled.value == null) {
+			return refusedPage(page, settled.warning != null ? [settled.warning] : [], settled.warning != null);
+		}
+
+		repos = settled.value;
+	}
+	const ordering = toIssueOrdering(resolvedRepoScopedSort.sort, mergesProviderQueries(issuesPagingMode, repos));
 	// Refused rather than served as concatenated per-scope runs, which would look ordered without being so — and
 	// only where it actually merges, since the same key against the same provider is perfectly answerable for a
 	// single repository or project.
@@ -484,7 +499,7 @@ async function readRepoScopedIssuesPage({
 			// The shapes seam returns normalized IssueShape, and is overridable by a provider whose only issue
 			// client already yields shapes (serving this path without a raw ProviderIssue round-trip).
 			integration.getMyIssuesForReposAsShapesResult(
-				options.repos ?? [],
+				repos,
 				// Forward `page`/`pageSize` alongside the cursor so PagingMode.Repo/Project hosts honor the
 				// requested page and page size rather than ignoring a synthesized page-number cursor.
 				{
@@ -531,7 +546,7 @@ async function readRepoScopedIssuesPage({
 						options.connectionId,
 						() =>
 							integration.getMyIssuesForReposAsShapesResult(
-								options.repos ?? [],
+								repos,
 								{
 									filters: options.filters,
 									includeAllAssignees: options.includeAllAssignees,
