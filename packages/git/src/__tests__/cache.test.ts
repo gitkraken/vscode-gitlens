@@ -631,6 +631,33 @@ suite('Cache — tag-scoped invalidation', () => {
 		await cache.logShas.getOrCreate(repoPath, 'feat', factory);
 		assert.strictEqual(factoryCount, 2, 'a list excluding tags must not survive a tag create or delete');
 	});
+
+	test('leftRightCommitCount and mergeBase are cleared when tags change', async () => {
+		let countReads = 0;
+		let mergeBaseReads = 0;
+		const countFactory = () => {
+			countReads++;
+			return Promise.resolve({ left: 0, right: 1 });
+		};
+		const mergeBaseFactory = () => {
+			mergeBaseReads++;
+			return Promise.resolve('abc123');
+		};
+
+		await cache.leftRightCommitCount.getOrCreate(repoPath, 'v1.0.0...HEAD', countFactory);
+		await cache.mergeBase.getOrCreate(repoPath, 'v1.0.0:HEAD', mergeBaseFactory);
+		await cache.leftRightCommitCount.getOrCreate(repoPath, 'v1.0.0...HEAD', countFactory);
+		await cache.mergeBase.getOrCreate(repoPath, 'v1.0.0:HEAD', mergeBaseFactory);
+		assert.strictEqual(countReads, 1);
+		assert.strictEqual(mergeBaseReads, 1);
+
+		cache.clearCaches(repoPath, 'tags');
+
+		await cache.leftRightCommitCount.getOrCreate(repoPath, 'v1.0.0...HEAD', countFactory);
+		await cache.mergeBase.getOrCreate(repoPath, 'v1.0.0:HEAD', mergeBaseFactory);
+		assert.strictEqual(countReads, 2, 'a force-moved tag must not serve the count taken against its old commit');
+		assert.strictEqual(mergeBaseReads, 2, 'a force-moved tag must not serve its old fork point');
+	});
 });
 
 suite('Cache — gkConfig watcher reconciliation', () => {

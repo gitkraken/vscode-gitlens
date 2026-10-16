@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds tip commits to `WorktreeSummary`: `sha` is HEAD's commit (`undefined` before the first commit) and `base.sha` is the base ref's tip, so a host can key on commits rather than counts. A commit and a fast-forward of the base that leave every count the same now change the summary and fire. `getAheadOfBase` answers the tip as `base.sha`, resolved from the cached ref list in git's own order (a tag before a same-named branch), and its `dependsOn` now names that tag too, so the tag moving recomputes the base. Both come from reads the summary already does, except that a recompute of only the base re-reads the shared ref list when the ref move that triggered it cleared that list (git, git-cli)
 - Adds `targetKeys` to `ProviderWarning`: a batch read's warning (`getPullRequestsBatch`, `getIssuesBatch`, `getPullRequestsForBranches`) names the keys of the targets it concerns — the target that was refused or failed, or every target of an integration call that failed as a whole — so a caller that merges several callers' targets into one call can hand each failure only to its own targets. A warning without it refused the whole call before any target was read. Equal warnings merge their keys rather than one being dropped (plus/integrations)
 
+### Fixed
+
+- Fixes `getAheadOfBase` answering a stale count against a tag-named base after the tag moved: a tag change now clears the cached commit counts and merge bases, which are keyed by ref name, as a branch move already did (git)
+
 ## [0.11.0] - 2026-10-15
 
 ### Added
