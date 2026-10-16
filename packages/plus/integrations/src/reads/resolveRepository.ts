@@ -237,7 +237,9 @@ export async function resolveRepository(
 			domain: domain,
 			owner: canonicalOwner,
 			name: canonicalName,
-			project: project,
+			// Azure's own project for the repository: an Azure DevOps Server remote's path may name the collection where
+			// the parser read the project (see `AzureDevOpsServerIntegration.getRepositoryTarget`).
+			project: project != null ? repo.project || project : undefined,
 			remoteUrl: options.remoteUrl,
 			renamed: renamed,
 		};

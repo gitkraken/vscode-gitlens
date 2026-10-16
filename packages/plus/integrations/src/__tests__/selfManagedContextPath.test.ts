@@ -42,10 +42,13 @@ function providerResponse(id: IntegrationIds, url: URL): Response {
 		}
 		if (url.pathname.endsWith('/repositories/repo') || url.pathname.endsWith('/repositories/%252e')) {
 			const name = url.pathname.endsWith('/repositories/%252e') ? '%2e' : 'repo';
+			// Answer with the project the request addressed, as the server does.
+			const segments = url.pathname.split('/');
+			const project = decodeURIComponent(segments[segments.indexOf('_apis') - 1]);
 			return json({
 				id: '1',
 				name: name,
-				project: { id: 'project', name: 'project' },
+				project: { id: project, name: project },
 				remoteUrl: `${url.origin}/repo`,
 				_links: { web: { href: `${url.origin}/repo` } },
 			});
