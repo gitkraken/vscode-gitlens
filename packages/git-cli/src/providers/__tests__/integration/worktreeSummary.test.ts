@@ -105,6 +105,36 @@ suite('WorktreeSummaryService against real git', () => {
 		sub.dispose();
 	});
 
+	test('reports the refs the base depends on, as getAheadOfBase does, with or without a base', async () => {
+		const summaries = service.summaries;
+		assert.ok(summaries != null);
+
+		const sub = summaries.subscribe(repo.path, { delayMs: 10, workingTreeDelayMs: 10 });
+		const initial = await summaries.getSummary(repo.path);
+		assert.strictEqual(initial.base, undefined);
+		assert.ok(initial.baseDependsOn.length > 0);
+		assert.deepStrictEqual(
+			initial.baseDependsOn,
+			(await repo.provider.branches.getAheadOfBase(repo.path, 'main'))?.dependsOn,
+		);
+
+		const switched = nextChange(sub);
+		git('checkout', '-q', '-b', 'feature');
+		git('commit', '-q', '--allow-empty', '-m', 'Feature');
+		const gitDir = watchers.find(w => w.basePath.endsWith('.git'))?.basePath;
+		assert.ok(gitDir != null);
+		fire(gitDir, 'HEAD');
+		const after = await switched;
+
+		assert.ok(after.base != null);
+		assert.deepStrictEqual(
+			after.baseDependsOn,
+			(await repo.provider.branches.getAheadOfBase(repo.path, 'feature'))?.dependsOn,
+		);
+
+		sub.dispose();
+	});
+
 	test('fires for a commit and a fast-forward of the base that leave every count the same', async () => {
 		const summaries = service.summaries;
 		assert.ok(summaries != null);
