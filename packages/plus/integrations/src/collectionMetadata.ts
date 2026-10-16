@@ -23,6 +23,7 @@ import type {
 	ProviderWarningCause,
 	ProviderWarningOmission,
 	ProviderWarningScope,
+	ProviderWarningUnreadableItems,
 } from './results.js';
 import { appendDedupedWarning, providerWarningMessage } from './results.js';
 
@@ -95,6 +96,11 @@ export interface ProviderScopeFailure extends CollectionScopeFailure {
 	cause?: ProviderWarningCause;
 	/** The provider pinned the refusal on the credential itself, so it is published for the connection, unscoped. */
 	credentialRefused?: true;
+	/**
+	 * The failure is items a page left out because they could not be read, the rest of its scope having been read. It
+	 * is published as an `'unreadable-items'` warning naming them, see `ProviderWarning.unreadableItems`.
+	 */
+	unreadableItems?: ProviderWarningUnreadableItems;
 }
 
 /**
@@ -180,7 +186,10 @@ function getCollectionFailureStatus(message: string | undefined): number | undef
 	return match != null ? Number(match[1]) : undefined;
 }
 
-function toCollectionFailureWarningKind(failure: CollectionScopeFailure): ProviderWarning['kind'] {
+function toCollectionFailureWarningKind(failure: ProviderScopeFailure): ProviderWarning['kind'] {
+	// First: the skipped items' own error text is embedded in the message and may well carry a status.
+	if (failure.unreadableItems != null) return 'unreadable-items';
+
 	const mapped = collectionFailureKindToWarningKind(failure.kind);
 	if (mapped !== 'other' || (failure.kind !== 'provider' && failure.kind !== 'unknown')) return mapped;
 
@@ -461,14 +470,19 @@ export function isIncompleteCollection(metadata: CollectionMetadata | undefined)
 	return metadata.completeness !== 'complete' || (metadata.omissions?.length ?? 0) > 0;
 }
 
-/** Converts internal SDK collection metadata into neutral provider facade signals. */
+/**
+ * Converts internal SDK collection metadata into neutral provider facade signals.
+ *
+ * `requestFailed` is `fetchFailed` without the failures that only report items a read left unread: those fail the read,
+ * since the items are missing, but every request answered, so the omissions the read reported still hold.
+ */
 export function assessCollectionMetadata(
 	providerId: IntegrationIds,
 	domain: string | undefined,
 	connectionId: string | undefined,
 	metadata: CollectionMetadata | undefined,
-): { warnings: ProviderWarning[]; fetchFailed: boolean; truncated: boolean } {
-	if (metadata == null) return { warnings: [], fetchFailed: false, truncated: false };
+): { warnings: ProviderWarning[]; fetchFailed: boolean; requestFailed: boolean; truncated: boolean } {
+	if (metadata == null) return { warnings: [], fetchFailed: false, requestFailed: false, truncated: false };
 
 	const warnings: ProviderWarning[] = [];
 	const failures: ProviderScopeFailure[] = metadata.failures ?? [];
@@ -491,6 +505,14 @@ export function assessCollectionMetadata(
 			...(scope != null ? { scope: scope } : {}),
 			// Copied for the reason the scope is: the failure object is retained and re-merged across pages.
 			...(cause != null ? { cause: { ...cause } } : {}),
+			...(failure.unreadableItems != null
+				? {
+						unreadableItems: {
+							keys: [...failure.unreadableItems.keys],
+							complete: failure.unreadableItems.complete,
+						},
+					}
+				: {}),
 		});
 	}
 
@@ -532,7 +554,12 @@ export function assessCollectionMetadata(
 		});
 	}
 
-	return { warnings: warnings, fetchFailed: failures.length > 0, truncated: incomplete };
+	return {
+		warnings: warnings,
+		fetchFailed: failures.length > 0,
+		requestFailed: failures.some(failure => failure.unreadableItems == null),
+		truncated: incomplete,
+	};
 }
 
 /**

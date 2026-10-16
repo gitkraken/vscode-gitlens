@@ -255,25 +255,20 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 				drainOptions,
 			);
 			const values = toUniqueJiraIssueShapes(read.issues, this);
+			const drain = { values: values, metadata: read.metadata, scope: drainOptions.failureScope };
 			// `recovery: 'none'` for the whole set: the filter branches merge here, so even a pure backstop in one
 			// branch is not fixable by narrowing this read's scope.
-			return read.truncated
-				? { values: values, truncated: true, recovery: 'none', metadata: read.metadata }
-				: { values: values, truncated: false, metadata: read.metadata };
+			return read.truncated ? { ...drain, truncated: true, recovery: 'none' } : { ...drain, truncated: false };
 		}
 
 		const unscoped = await drainJiraIssues(fetchPage, {}, drainOptions);
 		const values = unscoped.issues
 			.map(issue => toIssueShape(issue, this, { projection: 'project' }))
 			.filter((result): result is IssueShape => result !== undefined);
+		const drain = { values: values, metadata: unscoped.metadata, scope: drainOptions.failureScope };
 		return unscoped.status !== 'complete'
-			? {
-					values: values,
-					truncated: true,
-					recovery: unscoped.status === 'backstop' ? 'narrow-scope' : 'none',
-					metadata: unscoped.metadata,
-				}
-			: { values: values, truncated: false, metadata: unscoped.metadata };
+			? { ...drain, truncated: true, recovery: unscoped.status === 'backstop' ? 'narrow-scope' : 'none' }
+			: { ...drain, truncated: false };
 	}
 
 	/**

@@ -1,4 +1,4 @@
-import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import type { CollectionMetadata, CollectionScope } from '@gitkraken/provider-apis';
 import type { IssueShape, IssueSorting, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type { IssueFilter } from '../providerFilters.js';
 
@@ -111,9 +111,23 @@ export type ProjectIssuesRequest<T> = {
 	options: IssuesForProjectOptions;
 };
 
+/** How a truncated project read could be recovered: see {@link ProjectIssuesDrain}. */
+export type ProjectIssuesRecovery = 'narrow-scope' | 'none';
+
+/**
+ * One project's issues as a tracker read them. A truncated result whose `metadata` reports a failure or an omission is
+ * explained by it; one whose metadata reports neither is a cut the facade reports for the project when it names its
+ * `scope` (Jira, whose drains record every other cut in their metadata), and for the read as a whole otherwise, where
+ * `narrow-scope` is not offered.
+ */
 export type ProjectIssuesDrain = {
 	values: IssueShape[];
 	metadata?: CollectionMetadata;
+	/**
+	 * The scope the provider records this project's failures under, so a cut the facade reports names the project
+	 * the same way: a Jira Cloud project by its key, a Jira Data Center one by its id. Omitted names no scope.
+	 */
+	scope?: CollectionScope;
 } & (
 	| { truncated: false }
 	| {
@@ -122,7 +136,7 @@ export type ProjectIssuesDrain = {
 			 * `narrow-scope` means a smaller server-side scope avoids this truncation. `none` covers incomplete
 			 * results without that guarantee, including Linear's client-side assignee filtering.
 			 */
-			recovery: 'narrow-scope' | 'none';
+			recovery: ProjectIssuesRecovery;
 	  }
 );
 

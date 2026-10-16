@@ -1,11 +1,13 @@
 import * as assert from 'node:assert/strict';
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
+import type { ProviderScopeFailure } from '../../collectionMetadata.js';
 import { IssueFilter } from '../../providerFilters.js';
 import type { JiraIssuePage } from '../models.js';
 import type { JiraDrainOptions, JiraIssuePageFetcher } from '../utils/jiraIssueDrains.js';
 import {
 	drainJiraIssues,
+	parseSkippedJiraIssues,
 	readUserScopedJiraIssues,
 	searchJiraProjectIssues,
 	summarizePageMetadata,
@@ -81,6 +83,7 @@ suite('drainJiraIssues page metadata', () => {
 					scope: { providerId: 'jira', resourceId: 'site-1', projectId: 'PROJ' },
 					kind: 'provider',
 					message: 'Skipped Jira issues that could not be read: P-2 (boom).',
+					unreadableItems: { keys: ['P-2'], complete: true },
 				},
 			],
 		});
@@ -218,10 +221,11 @@ suite('drainJiraIssues page metadata', () => {
 		assert.equal(drain.status, 'incomplete');
 		assert.deepEqual(
 			drain.metadata?.failures?.map(f => f.message),
-			[
-				'Skipped Jira issues that could not be read: P-4 (boom).',
-				'Jira issue drain stopped at the 3-page backstop',
-			],
+			['Skipped Jira issues that could not be read: P-4 (boom).'],
+		);
+		assert.deepEqual(
+			drain.metadata?.omissions,
+			[{ kind: 'pagination-incomplete', scope: options.failureScope }],
 			'the pages past the backstop are reported too, not only the dropped issue',
 		);
 	});
@@ -252,9 +256,19 @@ suite('summarizePageMetadata', () => {
 					kind: 'provider',
 					message:
 						'Skipped Jira issues that could not be read: P-1 (boom). Issues on 2 more pages could not be read either.',
+					unreadableItems: { keys: ['P-1', 'P-2', 'P-3'], complete: true },
 				},
 			],
 		});
+	});
+
+	test("names every page's keys, complete only when every page named all of its own", () => {
+		const summary = summarizePageMetadata([dropped('P-1 (boom), P-2 (boom)'), dropped('P-3 (boom) and 4 more')]);
+
+		assert.deepEqual(
+			summary?.failures?.map(f => (f as ProviderScopeFailure).unreadableItems),
+			[{ keys: ['P-1', 'P-2', 'P-3'], complete: false }],
+		);
 	});
 
 	test('keeps a single page and separate scopes as they are', () => {
@@ -263,10 +277,34 @@ suite('summarizePageMetadata', () => {
 			failures: [{ scope: { providerId: 'jira', resourceId: 'site-2' }, kind: 'provider', message: 'Other.' }],
 		};
 
-		assert.deepEqual(summarizePageMetadata([dropped('P-1 (boom)')]), dropped('P-1 (boom)'));
+		assert.deepEqual(summarizePageMetadata([dropped('P-1 (boom)')]), {
+			completeness: 'partial',
+			failures: [{ ...dropped('P-1 (boom)').failures![0], unreadableItems: { keys: ['P-1'], complete: true } }],
+		});
+		// A page failure that names no dropped issues is not passed off as one, nor grouped with one of the same scope.
+		const sameScope: CollectionMetadata = {
+			completeness: 'partial',
+			failures: [{ scope: { providerId: 'jira', resourceId: 'site-1' }, kind: 'provider', message: 'Other.' }],
+		};
 		assert.deepEqual(
-			summarizePageMetadata([dropped('P-1 (boom)'), other])?.failures?.map(f => f.message),
-			['Skipped Jira issues that could not be read: P-1 (boom).', 'Other.'],
+			summarizePageMetadata([dropped('P-1 (boom)'), sameScope])?.failures?.map(f => [
+				f.message,
+				(f as ProviderScopeFailure).unreadableItems,
+			]),
+			[
+				['Skipped Jira issues that could not be read: P-1 (boom).', { keys: ['P-1'], complete: true }],
+				['Other.', undefined],
+			],
+		);
+		assert.deepEqual(
+			summarizePageMetadata([dropped('P-1 (boom)'), other])?.failures?.map(f => [
+				f.message,
+				(f as ProviderScopeFailure).unreadableItems,
+			]),
+			[
+				['Skipped Jira issues that could not be read: P-1 (boom).', { keys: ['P-1'], complete: true }],
+				['Other.', undefined],
+			],
 		);
 		assert.equal(summarizePageMetadata([]), undefined);
 		assert.deepEqual(summarizePageMetadata([{ completeness: 'partial' }]), { completeness: 'partial' });
@@ -341,5 +379,111 @@ suite('searchJiraProjectIssues page metadata', () => {
 		);
 
 		assert.equal(split, undefined);
+	});
+});
+
+suite('parseSkippedJiraIssues', () => {
+	const prefix = 'Skipped Jira issues that could not be read: ';
+	const cases: [string, string | undefined, { keys: string[]; complete: boolean } | undefined][] = [
+		['one key', `${prefix}P-1 (boom).`, { keys: ['P-1'], complete: true }],
+		[
+			'reasons holding parentheses and commas of their own',
+			`${prefix}P-1 (Cannot read properties of null (reading 'assignee')), P-2 (a, b (c, d)).`,
+			// `b (` inside a reason opens an entry as far as the list can tell: named too, which is harmless.
+			{ keys: ['P-1', 'P-2', 'b'], complete: true },
+		],
+		['a list cut at ten', `${prefix}P-1 (boom), P-2 (boom) and 3 more.`, { keys: ['P-1', 'P-2'], complete: false }],
+		['an issue named by its position', `${prefix}result 4 (boom), P-2 (boom).`, { keys: ['P-2'], complete: false }],
+		['a repeated key', `${prefix}P-1 (boom), P-1 (bang).`, { keys: ['P-1'], complete: true }],
+		['a key of a custom pattern', `${prefix}ab_1-22 (boom).`, { keys: ['ab_1-22'], complete: true }],
+		// A reason can hold anything, its parentheses unbalanced included: each place an entry can open counts as one,
+		// so a skipped issue is never lost inside an earlier reason, at worst a key that only a reason named is added.
+		[
+			'reasons whose parentheses do not balance',
+			`${prefix}A-1 (Unexpected '(' in field), A-2 (bad value)).`,
+			{ keys: ['A-1', 'A-2'], complete: true },
+		],
+		['a reason naming a key', `${prefix}P-1 (see, P-9 (x)).`, { keys: ['P-1', 'P-9'], complete: true }],
+		['no entry at the start', `${prefix}oops, P-2 (bang).`, { keys: ['P-2'], complete: false }],
+		['a separator at the start', `${prefix}, P-1 (boom).`, { keys: ['P-1'], complete: false }],
+		['an unnamed entry', `${prefix}P-1 (boom),  (bang).`, { keys: ['P-1'], complete: false }],
+		// Accepted: another separator reads as part of a reason, as a reason can hold anything. The real-SDK read in
+		// jiraServerSdkReads.test.ts is what catches provider-apis changing its form.
+		['another separator', `${prefix}P-1 (boom); P-2 (bang).`, { keys: ['P-1'], complete: true }],
+		['no final period', `${prefix}P-1 (boom)`, { keys: ['P-1'], complete: false }],
+		['an empty list', `${prefix}.`, { keys: [], complete: false }],
+		['a reason ending like the count', `${prefix}P-1 (boom and 2 more).`, { keys: ['P-1'], complete: true }],
+		['another message', 'Request failed (500)', undefined],
+		['no message', undefined, undefined],
+	];
+	for (const [name, message, expected] of cases) {
+		test(name, () => {
+			assert.deepEqual(parseSkippedJiraIssues(message), expected);
+		});
+	}
+});
+
+suite('readUserScopedJiraIssues cut beside a skipped issue (#6011)', () => {
+	test('a relationship stopped at the backstop records its cut beside a sibling that skipped an issue', async () => {
+		let page = 0;
+		const fetchPage: JiraIssuePageFetcher = scope =>
+			Promise.resolve(
+				scope.assigneeLogins != null
+					? { data: [issue(`P-${++page}`)], hasMore: true, nextCursor: `c${page}` }
+					: { data: [], hasMore: false, nextCursor: undefined, metadata: dropped('P-9 (boom)') },
+			);
+
+		const read = await readUserScopedJiraIssues(
+			fetchPage,
+			[IssueFilter.Assignee, IssueFilter.Mention],
+			{ userField: 'acct-1', mention: 'Me' },
+			options,
+		);
+
+		assert.equal(read.truncated, true);
+		assert.deepEqual(read.metadata?.omissions, [{ kind: 'pagination-incomplete', scope: options.failureScope }]);
+		assert.deepEqual(
+			read.metadata?.failures?.map(f => (f as ProviderScopeFailure).unreadableItems),
+			[{ keys: ['P-9'], complete: true }],
+		);
+	});
+
+	test('a relationship stopped at the backstop alone is reported as that cut, not as a failure', async () => {
+		let page = 0;
+		const fetchPage: JiraIssuePageFetcher = () =>
+			Promise.resolve({ data: [issue(`P-${++page}`)], hasMore: true, nextCursor: `c${page}` });
+
+		const read = await readUserScopedJiraIssues(
+			fetchPage,
+			[IssueFilter.Assignee],
+			{ userField: 'acct-1', mention: 'Me' },
+			options,
+		);
+
+		assert.equal(read.truncated, true);
+		assert.deepEqual(read.metadata, {
+			completeness: 'partial',
+			omissions: [{ kind: 'pagination-incomplete', scope: options.failureScope }],
+		});
+	});
+
+	test('a skip and a backstop in one drain stay apart: only the skip is unreadable', async () => {
+		let page = 0;
+		const fetchPage: JiraIssuePageFetcher = () =>
+			Promise.resolve({
+				data: [issue(`P-${++page}`)],
+				hasMore: true,
+				nextCursor: `c${page}`,
+				...(page === 1 ? { metadata: dropped('P-9 (boom)') } : {}),
+			});
+
+		const drain = await drainJiraIssues(fetchPage, {}, options);
+
+		assert.equal(drain.status, 'incomplete');
+		assert.deepEqual(
+			drain.metadata?.failures?.map(f => [f.message, (f as ProviderScopeFailure).unreadableItems]),
+			[['Skipped Jira issues that could not be read: P-9 (boom).', { keys: ['P-9'], complete: true }]],
+		);
+		assert.deepEqual(drain.metadata?.omissions, [{ kind: 'pagination-incomplete', scope: options.failureScope }]);
 	});
 });

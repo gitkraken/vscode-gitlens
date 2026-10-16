@@ -25,7 +25,7 @@ const emptySearch = (): SearchPage => ({ startAt: 0, maxResults: 100, total: 0, 
 function serve(
 	runtime: FakeRuntime,
 	projects: unknown[],
-	search: (startAt: number) => SearchPage = emptySearch,
+	search: (startAt: number, jql: string) => SearchPage = emptySearch,
 ): URL[] {
 	const requests: URL[] = [];
 	runtime.http.fetch = input => {
@@ -39,7 +39,11 @@ function serve(
 			case '/rest/api/2/project':
 				return Promise.resolve(jsonResponse(projects));
 			case '/rest/api/2/search':
-				return Promise.resolve(jsonResponse(search(Number(url.searchParams.get('startAt') ?? 0))));
+				return Promise.resolve(
+					jsonResponse(
+						search(Number(url.searchParams.get('startAt') ?? 0), url.searchParams.get('jql') ?? ''),
+					),
+				);
 			default:
 				return Promise.resolve(new Response('{}', { status: 404 }));
 		}
@@ -47,7 +51,7 @@ function serve(
 	return requests;
 }
 
-async function connected(projects: unknown[], search?: (startAt: number) => SearchPage) {
+async function connected(projects: unknown[], search?: (startAt: number, jql: string) => SearchPage) {
 	const runtime = createFakeRuntime();
 	const requests = serve(runtime, projects, search);
 	const manager = createIntegrationManager(runtime);
@@ -182,6 +186,91 @@ suite('Jira Data Center search pages', () => {
 		assert.equal(page.warnings.length, 1);
 		assert.match(page.warnings[0].message, /OPS-1.*OPS-2/);
 		assert.deepEqual(page.warnings[0].scope, { resourceId: domain, projectId: '101' });
+		// By its kind and keys, not its text (#6011), read from the wording of the SDK this runs.
+		assert.equal(page.warnings[0].kind, 'unreadable-items');
+		assert.deepEqual(page.warnings[0].unreadableItems, { keys: ['OPS-1', 'OPS-2'], complete: true });
+
+		manager.dispose();
+	});
+
+	test('names the skipped issues the SDK names, and says when it named only some', async () => {
+		// Twelve unreadable issues, the first without a key: provider-apis names ten and counts the rest.
+		const issues = [
+			{ fields: null },
+			...Array.from({ length: 11 }, (_, i) => ({ key: `OPS-${i + 1}`, fields: null })),
+		];
+		const { manager } = await connected([{ id: '101', key: 'OPS', name: 'OPS' }], () => ({
+			startAt: 0,
+			maxResults: 100,
+			total: issues.length,
+			issues: issues,
+		}));
+
+		const page = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			domain: domain,
+			org: domain,
+			project: 'OPS',
+			includeAllAssignees: true,
+		});
+
+		assert.deepEqual(
+			page.warnings.map(warning => [warning.kind, warning.unreadableItems]),
+			[
+				[
+					'unreadable-items',
+					{
+						keys: ['OPS-1', 'OPS-2', 'OPS-3', 'OPS-4', 'OPS-5', 'OPS-6', 'OPS-7', 'OPS-8', 'OPS-9'],
+						complete: false,
+					},
+				],
+			],
+		);
+
+		manager.dispose();
+	});
+
+	test('reports a project cut at the page backstop beside another that skipped an issue (#6011)', async () => {
+		// OPS never ends, one issue a page; WEB holds one issue provider-apis can't read.
+		const { manager } = await connected(
+			[
+				{ id: '101', key: 'OPS', name: 'Operations' },
+				{ id: '102', key: 'WEB', name: 'Website' },
+			],
+			(startAt, jql) =>
+				jql.includes('project = "101"')
+					? { startAt: startAt, maxResults: 1, total: 1000, issues: [story(`OPS-${startAt + 1}`)] }
+					: { startAt: 0, maxResults: 100, total: 1, issues: [{ key: 'WEB-7', fields: null }] },
+		);
+
+		const page = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			domain: domain,
+			includeAllAssignees: true,
+		});
+
+		assert.equal(page.fetchFailed, true);
+		assert.equal(page.items.length, 10);
+		assert.deepEqual(
+			page.warnings.map(warning => [
+				warning.kind,
+				warning.scope,
+				warning.unreadableItems,
+				warning.omission?.recovery,
+				warning.omission?.scope?.projectId,
+			]),
+			[
+				[
+					'unreadable-items',
+					{ resourceId: domain, projectId: '102' },
+					{ keys: ['WEB-7'], complete: true },
+					undefined,
+					undefined,
+				],
+				['other', undefined, undefined, 'narrow-scope', '101'],
+			],
+		);
+		assert.match(page.warnings[1].message, /Project 'Operations' holds more issues than one read can return/);
 
 		manager.dispose();
 	});
