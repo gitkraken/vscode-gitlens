@@ -85,6 +85,8 @@ function workItem(collectionUrl: string, project: string): Node {
 	};
 }
 
+const workItemTypes = { count: 1, value: [{ name: 'Task' }] };
+
 interface ServerOptions {
 	/** Where the installation is served: `/tfs`, or `''` at the host root. */
 	installation: string;
@@ -104,6 +106,15 @@ interface ServerOptions {
 	projectlessNotFound?: boolean;
 	/** Refuses the credential for every request below this project. */
 	refuseProject?: string;
+	/** A project every collection holds, with repository `repo` and no pull requests or work items. */
+	emptyProject?: string;
+	/**
+	 * Answers a list or query below a collection that names no project rather than refusing it: with nothing, as
+	 * Azure DevOps Server 2020 answers a work item query without a project context, or with project `repo`'s rows.
+	 */
+	projectless?: 'empty' | 'rows';
+	/** Serves a request below the installation that names no collection as its first collection, the default one. */
+	defaultCollectionAtServer?: boolean;
 }
 
 function createServer(options: ServerOptions) {
@@ -168,6 +179,9 @@ function createServer(options: ServerOptions) {
 			return json({ value: collections.map(c => ({ id: `${c}-id`, name: c, url: '' })) });
 		}
 
+		if (atServer && options.defaultCollectionAtServer) {
+			segments.unshift(collections[0]);
+		}
 		const collection = collections.find(c => c === segments[0]);
 		if (collection == null) return json({ message: 'unknown collection' }, 404);
 		if (isAzureWorkItemTypeStatesUrl(url)) return azureWorkItemTypeStatesResponse(url)!;
@@ -176,10 +190,50 @@ function createServer(options: ServerOptions) {
 		const [projectSegment, ...rest] = segments.slice(1);
 		// Follow-up reads address the project and repository by the ids a pull request carries.
 		const project = projectSegment.replace(/-id$/, '');
+		if (projectSegment === '_apis' && rest.join('/').toLowerCase() === 'projects') {
+			const names = [...Object.keys(projects), ...(options.emptyProject != null ? [options.emptyProject] : [])];
+			return json({ count: names.length, value: names.map(n => ({ id: `${n}-id`, name: n })) });
+		}
+		if (options.projectless != null && projectSegment === '_apis') {
+			const rows = options.projectless === 'rows';
+			const path = rest.join('/').toLowerCase();
+			if (path.endsWith('/pullrequests')) {
+				return json({ value: rows ? [pullRequest(collectionUrl, 'repo', 'repo')] : [] });
+			}
+			if (path === 'wit/workitems' || path === 'wit/workitemsbatch') {
+				return json({ value: rows ? [workItem(collectionUrl, 'repo')] : [] });
+			}
+			if (path === 'wit/wiql') return json({ workItems: rows ? [{ id: 9 }] : [] });
+			if (path === 'wit/workitemtypes') return json(workItemTypes);
+		}
 		if (projectSegment === '_apis' && rest[0] === 'git' && rest[1] === 'repositories' && rest.length >= 3) {
 			return options.projectlessNotFound
 				? json({ typeKey: 'GitRepositoryNotFoundException', message: 'not found' }, 404)
 				: json({ message: 'A project name is required in order to reference a Git repository by name.' }, 400);
+		}
+
+		if (project === options.emptyProject) {
+			const path = rest.join('/').toLowerCase();
+			switch (true) {
+				case path === '_apis/git/repositories/repo':
+					return json({
+						id: `${project}-repo-id`,
+						name: 'repo',
+						project: { id: `${project}-id`, name: project },
+						defaultBranch: 'refs/heads/main',
+						remoteUrl: `${collectionUrl}/${project}/_git/repo`,
+						webUrl: `${collectionUrl}/${project}/_git/repo`,
+					});
+				case path.endsWith('/pullrequests'):
+				case path === '_apis/wit/workitems':
+					return json({ count: 0, value: [] });
+				case path === '_apis/wit/wiql':
+					return json({ workItems: [] });
+				case path === '_apis/wit/workitemtypes':
+					return json(workItemTypes);
+				default:
+					return json({ message: `unhandled ${url.pathname}` }, 404);
+			}
 		}
 
 		const repository = projects[project];
@@ -212,6 +266,8 @@ function createServer(options: ServerOptions) {
 				return json(workItem(collectionUrl, project));
 			case path === '_apis/wit/workitems':
 				return json({ value: [workItem(collectionUrl, project)] });
+			case path === '_apis/wit/workitemtypes':
+				return json(workItemTypes);
 			case path === `${repo}/commits/${sha}`:
 				return json({ commitId: sha, author: { name: 'Author', email: 'author@example.com' } });
 			default:
@@ -506,6 +562,128 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 				]);
 				const [slot] = full?.value ?? [];
 				assert.equal(slot?.status === 'fulfilled' ? slot.value?.id : slot, '7', String(full?.error));
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("reports what a caller's scope listed nothing for while its collection can't be settled", async () => {
+			// The same scope against the same answers, once with the collections failing and once listing them. A read
+			// of the scope reaches the default collection without a project, which answers a work item query with
+			// nothing (as Azure DevOps Server 2020 does); here a pull request list too. Only the miss of a scope that
+			// couldn't be settled proves nothing. The searches and counts re-read the collections themselves, and
+			// once those list `tfs` the scope reads as settling would read it, so their empty answer is complete.
+			for (const failing of [true, false]) {
+				const server = createServer({
+					installation: '/tfs',
+					collections: ['DefaultCollection', 'tfs'],
+					...(failing ? { failCollections: 500, failCollectionsTimes: 2 } : {}),
+					emptyProject: 'DefaultCollection',
+					projectless: 'empty',
+					defaultCollectionAtServer: true,
+				});
+				const { manager } = await connect(server);
+				try {
+					const [connection] = manager.getConfigured(id);
+					const target = { providerId: id, connectionId: connection.id, domain: connection.domain };
+					const repos = [{ namespace: 'tfs', project: 'DefaultCollection', name: 'repo' }];
+
+					const lists = {
+						listPullRequests: await manager.listPullRequestsPage({ ...target, repos: [...repos] }),
+						listIssues: await manager.listIssuesPage({ ...target, repos: [...repos] }),
+					};
+					const searches = {
+						searchPullRequests: await manager.searchPullRequestsPage({ ...target, repos: [...repos] }),
+						searchIssues: await manager.searchIssuesPage({ ...target, repos: [...repos] }),
+					};
+					for (const [read, result] of Object.entries({ ...lists, ...searches })) {
+						const flagged = failing && read in lists;
+						const label = `failing=${failing} ${read}: ${JSON.stringify(result.warnings)}`;
+						assert.deepEqual(result.items, [], label);
+						assert.equal(Boolean(result.fetchFailed || result.page.truncated), flagged, label);
+						const scope =
+							read === 'listIssues' ? 'resource tfs, project DefaultCollection' : 'repository tfs/repo';
+						assert.deepEqual(
+							result.warnings.map(w => w.message),
+							flagged
+								? [
+										`Failed to read provider scope (${scope}): Nothing read for a repository that couldn't be settled`,
+									]
+								: [],
+							label,
+						);
+					}
+
+					const counts = {
+						countIssues: await manager.countIssues({
+							...target,
+							scopes: [{ key: 's', repos: [...repos] }],
+						}),
+						countPullRequests: await manager.countPullRequests({
+							...target,
+							scopes: [{ key: 's', repos: [...repos] }],
+						}),
+					};
+					for (const [read, result] of Object.entries(counts)) {
+						const label = `failing=${failing} ${read}: ${JSON.stringify(result)}`;
+						assert.equal(result.items[0]?.count, 0, label);
+						assert.deepEqual(result.warnings, [], label);
+					}
+				} finally {
+					manager.dispose();
+				}
+			}
+		});
+
+		test("doesn't report a caller's scope that can't be settled once it lists something", async () => {
+			const server = createServer({ installation: '/tfs', failCollections: 500, projectless: 'rows' });
+			const { manager } = await connect(server);
+			try {
+				const [connection] = manager.getConfigured(id);
+				const target = { providerId: id, connectionId: connection.id, domain: connection.domain };
+				const repos = [{ namespace: 'tfs', project: 'DefaultCollection', name: 'repo' }];
+				const reads = {
+					listPullRequests: await manager.listPullRequestsPage({ ...target, repos: [...repos] }),
+					listIssues: await manager.listIssuesPage({ ...target, repos: [...repos] }),
+				};
+				for (const [read, result] of Object.entries(reads)) {
+					const label = `${read}: ${JSON.stringify(result.warnings)}`;
+					assert.equal(result.items.length, 1, label);
+					assert.ok(!result.fetchFailed && !result.page.truncated, label);
+					assert.deepEqual(result.warnings, [], label);
+				}
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("keeps what the other scopes listed beside a caller's scope that can't be settled", async () => {
+			const server = createServer({ installation: '/tfs', failCollections: 500, projectless: 'empty' });
+			const { manager } = await connect(server);
+			try {
+				const [connection] = manager.getConfigured(id);
+				const listed = await manager.listPullRequestsPage({
+					providerId: id,
+					connectionId: connection.id,
+					domain: connection.domain,
+					repos: [
+						{ namespace: 'tfs', project: 'DefaultCollection', name: 'repo' },
+						{ namespace: 'DefaultCollection', project: 'proj', name: 'r' },
+					],
+				});
+				const label = JSON.stringify(listed.warnings);
+				assert.deepEqual(
+					listed.items.map(pr => pr.title),
+					['PR in proj'],
+					label,
+				);
+				assert.ok(listed.fetchFailed || listed.page.truncated, label);
+				assert.deepEqual(
+					listed.warnings.map(w => w.message),
+					[
+						"Failed to read provider scope (repository tfs/repo): Nothing read for a repository that couldn't be settled",
+					],
+				);
 			} finally {
 				manager.dispose();
 			}

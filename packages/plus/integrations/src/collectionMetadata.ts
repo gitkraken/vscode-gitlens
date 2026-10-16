@@ -166,6 +166,17 @@ export function toCollectionScopeFailure(scope: CollectionScopeFailure['scope'],
 	};
 }
 
+export const unsettledMissMessage = "Nothing read for a repository that couldn't be settled";
+
+/**
+ * The failure a read records for a scope that read nothing while its repository couldn't be settled (see
+ * `GitHostIntegration.resolveRepositoryCoordinates`): it may have addressed another repository, so its miss is not a
+ * proven absence the read may publish as complete.
+ */
+export function toUnsettledScopeFailure(scope: CollectionScopeFailure['scope']): ProviderScopeFailure {
+	return toCollectionScopeFailure(scope, new Error(unsettledMissMessage));
+}
+
 function collectionFailureKindToWarningKind(kind: CollectionScopeFailure['kind']): ProviderWarning['kind'] {
 	switch (kind) {
 		case 'authentication':
