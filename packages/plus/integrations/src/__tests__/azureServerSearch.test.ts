@@ -2467,4 +2467,106 @@ suite('Azure DevOps Server current-account identity (#5916)', () => {
 			);
 		});
 	});
+
+	// A consumer parsing `{vdir}/{collection}/_git/{repo}` itself, as a remote does, names collection `{vdir}` and
+	// project `{collection}` for a repository named after its project; the search settles it as a remote's reads do.
+	suite('project-less repository scope behind a virtual directory', () => {
+		const projectless: FakeCollection = {
+			name: 'DefaultCollection',
+			projects: ['Web', 'Payments'],
+			workItems: [
+				{ id: 1, project: 'Web', title: 'In Web' },
+				{ id: 2, project: 'Payments', title: 'Elsewhere' },
+			],
+			pullRequests: [
+				{ id: 1, project: 'Web', repository: 'Web', title: 'In Web', created: '2026-01-01T00:00:00Z' },
+				{
+					id: 2,
+					project: 'Payments',
+					repository: 'ledger',
+					title: 'Elsewhere',
+					created: '2026-01-02T00:00:00Z',
+				},
+			],
+		};
+		const cases = [
+			{
+				connectionUrl: 'https://server.test/tfs',
+				scope: { namespace: 'tfs', name: 'Web', project: 'DefaultCollection' },
+			},
+			{
+				connectionUrl: 'https://server.test/tfs/DefaultCollection',
+				scope: { namespace: 'tfs', name: 'Web', project: 'DefaultCollection' },
+			},
+			// Already settled, as a consumer that knows the connection's collection names it: read as given.
+			{
+				connectionUrl: 'https://server.test/tfs/DefaultCollection',
+				scope: { namespace: 'DefaultCollection', name: 'Web', project: 'Web' },
+			},
+		];
+		for (const { connectionUrl, scope } of cases) {
+			test(`searches and counts ${scope.namespace}/${scope.project}/_git/${scope.name} in its own project below ${connectionUrl}`, async () => {
+				const server = createServer({
+					installation: 'https://server.test/tfs',
+					connectionUrl: connectionUrl,
+					collections: [projectless],
+				});
+				await withManager(server, async (manager, target) => {
+					const issues = await manager.searchIssuesPage({ ...target, repos: [scope] });
+					assert.ok(!issues.fetchFailed, JSON.stringify(issues.warnings));
+					assert.deepEqual(
+						issues.items.map(i => i.id),
+						['1'],
+					);
+					const wiql = server.requests.find(r => r.url.pathname.endsWith('/wiql'))!;
+					assert.equal(wiql.url.pathname, '/tfs/DefaultCollection/_apis/wit/wiql');
+					assert.match(wiql.body!, /\[System\.TeamProject\] IN \('Web'\)/);
+
+					const pulls = await manager.searchPullRequestsPage({ ...target, repos: [scope] });
+					assert.ok(!pulls.fetchFailed, JSON.stringify(pulls.warnings));
+					assert.deepEqual(
+						pulls.items.map(p => p.title),
+						['In Web'],
+					);
+
+					const counts = { key: 'k', repos: [scope] };
+					const issueCount = await manager.countIssues({ ...target, scopes: [counts] });
+					assert.equal(issueCount.items[0]?.count, 1, JSON.stringify(issueCount.warnings));
+					const pullCount = await manager.countPullRequests({ ...target, scopes: [counts] });
+					assert.equal(pullCount.items[0]?.count, 1, JSON.stringify(pullCount.warnings));
+
+					for (const request of server.requests) {
+						assert.ok(!request.url.pathname.startsWith('/tfs/tfs/'), request.url.href);
+					}
+				});
+			});
+		}
+
+		// Both parse as project `DefaultCollection`, so only their settled projects show the list merges two queries.
+		test('orders a list of project-less scopes by the projects they settle to', async () => {
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [projectless] });
+			await withManager(server, async (manager, target) => {
+				const web = { namespace: 'tfs', name: 'Web', project: 'DefaultCollection' };
+				const payments = { namespace: 'tfs', name: 'Payments', project: 'DefaultCollection' };
+
+				const merged = await manager.listIssuesPage({
+					...target,
+					repos: [web, payments],
+					sort: 'priority:desc',
+				});
+				assert.ok(
+					merged.warnings?.some(w =>
+						w.message.includes("Cannot order by 'priority:desc' across several projects"),
+					),
+					JSON.stringify(merged.warnings),
+				);
+
+				const single = await manager.listIssuesPage({ ...target, repos: [web], sort: 'priority:desc' });
+				assert.ok(
+					!single.warnings?.some(w => w.message.includes('Cannot order by')),
+					JSON.stringify(single.warnings),
+				);
+			});
+		});
+	});
 });

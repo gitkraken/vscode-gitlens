@@ -9,7 +9,15 @@ import { toCloudIntegrationType } from '../authentication/models.js';
 import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import { createIntegrationService } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import { isAzureProjectlessCandidate, resolveAzureProjectlessRepository } from '../providers/azureDevOps.js';
+import {
+	azureWorkItemTypeStatesResponse,
+	isAzureWorkItemTypeStatesUrl,
+} from '../providers/azure/__tests__/fixtures.js';
+import {
+	getAzureScopeVirtualDirectory,
+	isAzureProjectlessCandidate,
+	resolveAzureProjectlessRepository,
+} from '../providers/azureDevOps.js';
 import { discoveryCacheTtl } from '../providers/utils/discoveryCache.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { watchRequestFailures } from './sweepHelpers.js';
@@ -60,6 +68,23 @@ function pullRequest(collectionUrl: string, project: string, repository: string)
 	};
 }
 
+function workItem(collectionUrl: string, project: string): Node {
+	return {
+		id: 9,
+		rev: 1,
+		fields: {
+			'System.TeamProject': project,
+			'System.WorkItemType': 'Task',
+			'System.State': 'To Do',
+			'System.CreatedDate': '2026-01-01T00:00:00Z',
+			'System.ChangedDate': '2026-01-02T00:00:00Z',
+			'System.Title': `Work item in ${project}`,
+		},
+		_links: { html: { href: `${collectionUrl}/${project}/_workitems/edit/9` } },
+		url: `${collectionUrl}/${project}-id/_apis/wit/workItems/9`,
+	};
+}
+
 interface ServerOptions {
 	/** Where the installation is served: `/tfs`, or `''` at the host root. */
 	installation: string;
@@ -75,6 +100,10 @@ interface ServerOptions {
 	holdCollections?: Promise<void>;
 	/** Answers the server-level `connectionData` with this status. */
 	failServerIdentity?: number;
+	/** Answers a repository addressed by name without its project as missing rather than refused. */
+	projectlessNotFound?: boolean;
+	/** Refuses the credential for every request below this project. */
+	refuseProject?: string;
 }
 
 function createServer(options: ServerOptions) {
@@ -141,17 +170,21 @@ function createServer(options: ServerOptions) {
 
 		const collection = collections.find(c => c === segments[0]);
 		if (collection == null) return json({ message: 'unknown collection' }, 404);
+		if (isAzureWorkItemTypeStatesUrl(url)) return azureWorkItemTypeStatesResponse(url)!;
 
 		const collectionUrl = `https://server.test${options.installation}/${collection}`;
 		const [projectSegment, ...rest] = segments.slice(1);
 		// Follow-up reads address the project and repository by the ids a pull request carries.
 		const project = projectSegment.replace(/-id$/, '');
 		if (projectSegment === '_apis' && rest[0] === 'git' && rest[1] === 'repositories' && rest.length >= 3) {
-			return json({ message: 'A project name is required in order to reference a Git repository by name.' }, 400);
+			return options.projectlessNotFound
+				? json({ typeKey: 'GitRepositoryNotFoundException', message: 'not found' }, 404)
+				: json({ message: 'A project name is required in order to reference a Git repository by name.' }, 400);
 		}
 
 		const repository = projects[project];
 		if (repository == null) return json({ message: 'unknown project' }, 404);
+		if (project === options.refuseProject) return json({ message: 'Access denied.' }, 403);
 
 		const path = rest
 			.join('/')
@@ -175,6 +208,10 @@ function createServer(options: ServerOptions) {
 			case path === `${repo}/pullrequests/7`:
 			case path === '_apis/git/pullrequests/7':
 				return json(pullRequest(collectionUrl, project, repository));
+			case path === '_apis/wit/workitems/9':
+				return json(workItem(collectionUrl, project));
+			case path === '_apis/wit/workitems':
+				return json({ value: [workItem(collectionUrl, project)] });
 			case path === `${repo}/commits/${sha}`:
 				return json({ commitId: sha, author: { name: 'Author', email: 'author@example.com' } });
 			default:
@@ -334,6 +371,25 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 		}
 	});
 
+	suite('getAzureScopeVirtualDirectory', () => {
+		for (const [address, owner, expected] of [
+			['https://h', 'tfs', undefined],
+			['https://h/', 'tfs', undefined],
+			['https://h/tfs', 'tfs', ''],
+			['https://h/TFS/', 'tfs', ''],
+			['https://h/%74fs', 'tfs', ''],
+			['https://h/tfs/DefaultCollection', 'DefaultCollection', 'tfs'],
+			['https://h/tfs/DefaultCollection', 'tfs', ''],
+			['https://h/a%20b/tfs', 'tfs', 'a b'],
+			['https://h/x/x', 'x', 'x'],
+			['https://h/tfs', 'other', undefined],
+		] as const) {
+			test(`places ${owner} below ${address}`, () => {
+				assert.equal(getAzureScopeVirtualDirectory(address, owner), expected);
+			});
+		}
+	});
+
 	suite('reads', () => {
 		for (const connection of ['/tfs', '/tfs/DefaultCollection']) {
 			for (const remoteUrl of [
@@ -373,6 +429,169 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 				}
 			});
 		}
+
+		// A consumer that parses the remote itself names the scope as the remote parser does: collection `tfs`, project
+		// `DefaultCollection`.
+		for (const connection of ['/tfs', '/tfs/DefaultCollection']) {
+			test(`reach the project for a caller's project-less scope behind a virtual directory (connection ${connection})`, async () => {
+				const server = createServer({ installation: '/tfs', connection: connection });
+				const { manager, azure } = await connect(server);
+				try {
+					const repo = { namespace: 'tfs', project: 'DefaultCollection', name: 'repo' };
+					const target = { owner: 'tfs', project: 'DefaultCollection', repo: 'repo' };
+					const count = server.requests.length;
+
+					const listed = await azure.getMyPullRequestsForReposResult([repo]);
+					assert.deepEqual(
+						listed?.value?.values.map(pr => pr.id),
+						['7'],
+						String(listed?.error),
+					);
+					const batch = await azure.getPullRequestsBatchResult([{ ...target, number: 7 }]);
+					const [slot] = batch?.value ?? [];
+					assert.equal(slot?.status === 'fulfilled' ? slot.value?.id : slot, '7');
+					const etags = await azure.getPullRequestsEtagFieldsResult([{ ...target, number: 7 }], {});
+					const [etag] = etags?.value ?? [];
+					assert.equal(etag?.status, 'fulfilled', String(etags?.error));
+					const issues = await azure.getIssuesBatchResult([{ ...target, number: 9 }]);
+					const [issue] = issues?.value ?? [];
+					assert.equal(issue?.status === 'fulfilled' ? issue.value?.id : issue, '9', String(issues?.error));
+					const issueEtags = await azure.getIssuesEtagFieldsResult([{ ...target, number: 9 }], {});
+					const [issueEtag] = issueEtags?.value ?? [];
+					assert.equal(issueEtag?.status, 'fulfilled', String(issueEtags?.error));
+					const forBranches = await azure.getPullRequestsForBranchesResult(
+						[{ ...target, branch: 'feature' }],
+						{
+							limit: 5,
+						},
+					);
+					const [branch] = forBranches?.value ?? [];
+					assert.deepEqual(
+						branch?.status === 'fulfilled' ? branch.value.pullRequests.map(pr => pr.id) : branch,
+						['7'],
+					);
+
+					const paths = server.requests.slice(count);
+					assert.ok(
+						paths.some(p => p.startsWith('/tfs/DefaultCollection/repo/_apis/git/repositories/repo/')),
+						paths.join(', '),
+					);
+					// The clone URLs a list asks for address the repository by its id, which needs no project.
+					assert.deepEqual(
+						server.projectlessRequests(paths).filter(p => !p.endsWith('-id')),
+						[],
+					);
+				} finally {
+					manager.dispose();
+				}
+			});
+		}
+
+		test("rejects what a caller's scope read nothing for while its collection can't be settled", async () => {
+			const server = createServer({ installation: '/tfs', failCollections: 500, projectlessNotFound: true });
+			const { manager, azure } = await connect(server);
+			try {
+				const target = { owner: 'tfs', project: 'DefaultCollection', repo: 'repo' };
+				const batch = await azure.getPullRequestsBatchResult([{ ...target, number: 7 }]);
+				// Every slot failed, so the call fails: neither is a proven absence.
+				assert.ok(batch?.error != null && batch.value == null, 'not a proven absence');
+				const forBranches = await azure.getPullRequestsForBranchesResult([{ ...target, branch: 'feature' }], {
+					limit: 5,
+				});
+				assert.ok(forBranches?.error != null && forBranches.value == null, 'not a proven absence');
+
+				// A scope that names its collection reads as given, without the collections.
+				const full = await azure.getPullRequestsBatchResult([
+					{ owner: 'DefaultCollection', project: 'proj', repo: 'r', number: 7 },
+				]);
+				const [slot] = full?.value ?? [];
+				assert.equal(slot?.status === 'fulfilled' ? slot.value?.id : slot, '7', String(full?.error));
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("records a refusal of a caller's scope against the repository it settles to", async () => {
+			const server = createServer({ installation: '/tfs', refuseProject: 'repo' });
+			const { manager, azure } = await connect(server);
+			try {
+				const settledScope = { providerId: id, resourceId: 'DefaultCollection', projectId: 'repo' };
+				const batch = await azure.getPullRequestsBatchResult([
+					{ owner: 'DefaultCollection', project: 'proj', repo: 'r', number: 7 },
+					{ owner: 'tfs', project: 'DefaultCollection', repo: 'repo', number: 7 },
+				]);
+				const [, refused] = batch?.value ?? [];
+				assert.deepEqual(
+					refused?.status === 'rejected' ? refused.failure?.scope : refused,
+					settledScope,
+					String(batch?.error),
+				);
+
+				const [configured] = manager.getConfigured(id);
+				const resolved = await manager.resolveRepository({
+					providerId: id,
+					connectionId: configured.id,
+					domain: configured.domain,
+					remoteUrl: 'https://server.test/tfs/DefaultCollection/_git/repo',
+				});
+				assert.equal(resolved.resolution.status, 'unauthorized', JSON.stringify(resolved));
+				const { resourceId, projectId } = resolved.resolution.warning?.scope ?? {};
+				assert.deepEqual(
+					{ resourceId: resourceId, projectId: projectId },
+					{ resourceId: 'DefaultCollection', projectId: 'repo' },
+					JSON.stringify(resolved.resolution.warning),
+				);
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("reads a caller's scope as given when it settles to a repository the connection doesn't serve", async () => {
+			// `x/DefaultCollection/_git/repo` would be collection `DefaultCollection` of an installation at `/x`, not of
+			// this one at `/x/tfs`: settling it here would read this installation's unrelated `DefaultCollection/repo`.
+			const server = createServer({ installation: '/x/tfs' });
+			const { manager, azure } = await connect(server);
+			try {
+				const count = server.requests.length;
+				const batch = await azure.getPullRequestsBatchResult([
+					{ owner: 'DefaultCollection', project: 'proj', repo: 'r', number: 7 },
+					{ owner: 'x', project: 'DefaultCollection', repo: 'repo', number: 7 },
+				]);
+				assert.equal(batch?.error, undefined, String(batch?.error));
+				const [, slot] = batch?.value ?? [];
+				assert.equal(slot?.status, 'rejected', 'read as given, below a collection this installation lacks');
+				const paths = server.requests.slice(count);
+				assert.ok(!paths.some(p => p.startsWith('/x/tfs/DefaultCollection/repo/')), paths.join(', '));
+				assert.ok(
+					paths.some(p => p.startsWith('/x/tfs/x/DefaultCollection/')),
+					paths.join(', '),
+				);
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("reads a caller's scope as given when its owner can't address the connection's installation", async () => {
+			// The owner matches a segment ahead of the addressed collection, so it reads as a candidate whose virtual
+			// directory the connection can't serve; settling it must leave it as given rather than fail the read.
+			const server = createServer({
+				installation: '/x/tfs',
+				connection: '/x/tfs/DefaultCollection',
+				collections: ['DefaultCollection', 'tfs'],
+			});
+			const { manager, azure } = await connect(server);
+			try {
+				const batch = await azure.getPullRequestsBatchResult([
+					{ owner: 'DefaultCollection', project: 'proj', repo: 'r', number: 7 },
+					{ owner: 'tfs', project: 'proj', repo: 'r', number: 7 },
+				]);
+				assert.equal(batch?.error, undefined, String(batch?.error));
+				const [slot] = batch?.value ?? [];
+				assert.equal(slot?.status === 'fulfilled' ? slot.value?.id : slot, '7');
+			} finally {
+				manager.dispose();
+			}
+		});
 
 		for (const collections of [['DefaultCollection'], ['DefaultCollection', 'proj']]) {
 			test(`keep a full path as parsed (collections ${collections.join(', ')})`, async () => {
