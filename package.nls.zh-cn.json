@@ -1116,6 +1116,7 @@
 	"command.gitlens.views.searchAndCompare.clear.title": "清除结果",
 	"command.gitlens.views.searchAndCompare.copy.title": "复制",
 	"command.gitlens.views.searchAndCompare.refresh.title": "刷新",
+	"command.gitlens.views.searchAndCompare.rename.title": "重命名...",
 	"command.gitlens.views.searchAndCompare.searchCommits.title": "搜索提交...",
 	"command.gitlens.views.searchAndCompare.selectForCompare.title": "比较引用...",
 	"command.gitlens.views.searchAndCompare.setFilesLayoutToAuto.title": "以自动方式查看文件",

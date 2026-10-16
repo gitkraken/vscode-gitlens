@@ -1721,6 +1721,7 @@
 	"Enter a commit message to commit to {branch}": "输入提交信息以提交到 {branch}",
 	"Enter a name for the new branch": "输入新分支的名称",
 	"Enter a name for the remote": "输入远程的名称",
+	"Enter a new name, or clear it to restore the default name": "输入新名称，或清空以恢复默认名称",
 	"Enter a reference or commit SHA": "输入引用或提交 SHA",
 	"Enter a remote file url to open": "输入要打开的远程文件 URL",
 	"Enter a search value": "输入搜索值",

@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
-import { l10n, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { l10n, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
@@ -175,6 +175,7 @@ export class SearchAndCompareView extends ViewBase<
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 
+			registerViewCommand(this.getQualifiedCommand('rename'), this.renameNode, this),
 			registerViewCommand(this.getQualifiedCommand('swapComparison'), this.swapComparison, this),
 			registerViewCommand(this.getQualifiedCommand('selectForCompare'), () => this.selectForCompare()),
 		];
@@ -284,10 +285,19 @@ export class SearchAndCompareView extends ViewBase<
 						{ label: p.ref1.label, ref: p.ref1.ref ?? (p.ref1 as any).name ?? (p.ref1 as any).sha },
 						{ label: p.ref2.label, ref: p.ref2.ref ?? (p.ref2 as any).name ?? (p.ref2 as any).sha },
 						p.timestamp,
+						p.name,
 					);
 				}
 
-				return new SearchResultsNode(this, root, p.path, getSearchQuery(p.search), undefined, p.timestamp);
+				return new SearchResultsNode(
+					this,
+					root,
+					p.path,
+					getSearchQuery(p.search),
+					undefined,
+					p.timestamp,
+					p.name,
+				);
 			});
 
 		return nodes;
@@ -350,6 +360,22 @@ export class SearchAndCompareView extends ViewBase<
 
 	private setShowAvatars(enabled: boolean) {
 		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
+	}
+
+	private async renameNode(node: CompareResultsNode | SearchResultsNode) {
+		if (!node.isAny('compare-results', 'search-results')) return;
+
+		const defaultLabel = node.getDefaultLabel();
+		const name = await window.showInputBox({
+			prompt: l10n.t('Enter a new name, or clear it to restore the default name'),
+			placeHolder: defaultLabel,
+			value: node.name ?? defaultLabel,
+			ignoreFocusOut: true,
+		});
+		if (name == null) return;
+
+		const trimmed = name.trim();
+		await node.rename(trimmed && trimmed !== defaultLabel ? trimmed : undefined);
 	}
 
 	private swapComparison(node: CompareResultsNode) {
