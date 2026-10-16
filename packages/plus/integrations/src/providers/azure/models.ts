@@ -416,7 +416,7 @@ export function getAzureDevOpsOwner(url: URL): string {
 	return url.pathname.split('/')[1];
 }
 export function isVsts(domain: string): boolean {
-	return domain.endsWith(vstsHostnameSuffix);
+	return domain.toLowerCase().endsWith(vstsHostnameSuffix);
 }
 
 /**

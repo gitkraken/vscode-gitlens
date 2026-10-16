@@ -1,7 +1,7 @@
+import { isVsts, parseAzureHttpsUrl } from '@gitlens/git/remotes/azure-devops.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.js';
 import { decodePathSegment } from '../../utils/domain.utils.js';
-import { vstsHostnameSuffix } from './models.js';
 
 export type AzureDevOpsIntegrationIds =
 	| GitCloudHostIntegrationId.AzureDevOps
@@ -16,10 +16,10 @@ export function getAzurePullRequestIdentityFromMaybeUrl(
 ): (PullRequestUrlIdentity & { provider: AzureDevOpsIntegrationIds }) | undefined;
 /**
  * Parses a pasted Azure DevOps pull request URL (`…/_git/{repo}/pullrequest/{id}`) into `{org}/{project}`:
- * - `{org}/{project}/_git/…` on dev.azure.com or Server, where a leading virtual directory such as `tfs/` is dropped:
- *   the identity has no field for it, so the read relies on the connection's configured URL including it
- * - `{org}.visualstudio.com/{project}/_git/…`, where the org is the host subdomain
- * - `{org}/_git/…`, where the project is named after the repo
+ * - dev.azure.com and `{org}.visualstudio.com`, read by the remote's own parser (`parseAzureHttpsUrl`)
+ * - `{collection}/{project}/_git/…` on Server, where a leading virtual directory such as `tfs/` is dropped: the
+ *   identity has no field for it, so the read relies on the connection's configured URL including it
+ * - `{collection}/_git/…` on Server, where the project is named after the repo
  */
 export function getAzurePullRequestIdentityFromMaybeUrl(
 	search: string,
@@ -32,27 +32,33 @@ export function getAzurePullRequestIdentityFromMaybeUrl(
 		return undefined;
 	}
 
-	const segments = url.pathname.split('/').filter(Boolean).map(decodePathSegment);
-	const gitIndex = segments.indexOf('_git');
-	if (gitIndex < 1) return undefined;
+	const rawSegments = url.pathname.split('/').filter(Boolean);
+	const segments = rawSegments.map(decodePathSegment);
+	const gitIndex = segments.findIndex(s => s.toLowerCase() === '_git');
+	if (gitIndex < 0) return undefined;
 
 	const repo = segments[gitIndex + 1];
 	const prNumber = segments[gitIndex + 3];
 	if (repo == null || segments[gitIndex + 2] !== 'pullrequest' || prNumber == null) return undefined;
 
-	const segmentBeforeGit = segments[gitIndex - 1];
-
 	let org: string;
 	let project: string;
-	if (url.hostname.toLowerCase().endsWith(vstsHostnameSuffix)) {
-		org = url.hostname.slice(0, -vstsHostnameSuffix.length);
-		project = segmentBeforeGit;
-	} else if (gitIndex === 1) {
-		org = segmentBeforeGit;
-		project = repo;
+	if (isVsts(url.hostname) || url.hostname.toLowerCase() === 'dev.azure.com') {
+		// A cloud repository URL reads exactly as its remote does (org from the host or the path, the legacy
+		// `DefaultCollection` segment, a project named after its repo), so hand the remote's parser the URL cut after
+		// the repository
+		const repoUrl = new URL(url.href);
+		repoUrl.pathname = rawSegments.slice(0, gitIndex + 2).join('/');
+		try {
+			[org, project] = parseAzureHttpsUrl(repoUrl);
+		} catch {
+			return undefined;
+		}
 	} else {
-		org = segments[gitIndex - 2];
-		project = segmentBeforeGit;
+		if (gitIndex < 1) return undefined;
+
+		org = gitIndex === 1 ? segments[0] : segments[gitIndex - 2];
+		project = gitIndex === 1 ? repo : segments[gitIndex - 1];
 	}
 
 	return { ownerAndRepo: `${org}/${project}`, prNumber: prNumber, provider: id };

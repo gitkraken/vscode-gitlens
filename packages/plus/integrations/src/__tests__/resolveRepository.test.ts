@@ -339,6 +339,42 @@ suite('resolveRepository (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('resolves legacy visualstudio.com remotes that still name DefaultCollection (#5999)', async () => {
+		for (const { remoteUrl, project, name } of [
+			{
+				remoteUrl: 'https://myorg.visualstudio.com/DefaultCollection/myproject/_git/myrepo',
+				project: 'myproject',
+				name: 'myrepo',
+			},
+			{
+				remoteUrl: 'https://myorg.visualstudio.com/defaultcollection/myproject/_git/myrepo',
+				project: 'myproject',
+				name: 'myrepo',
+			},
+			{
+				remoteUrl: 'https://myorg.visualstudio.com/DefaultCollection/_git/myrepo',
+				project: 'myrepo',
+				name: 'myrepo',
+			},
+			{ remoteUrl: 'https://myorg.visualstudio.com/_git/myrepo', project: 'myrepo', name: 'myrepo' },
+			{ remoteUrl: 'https://dev.azure.com/myorg/_git/myrepo', project: 'myrepo', name: 'myrepo' },
+		]) {
+			const manager = createIntegrationManager(createFakeRuntime());
+			const az = await connect(manager, GitCloudHostIntegrationId.AzureDevOps, 'dev.azure.com');
+			let captured: { owner: string; name: string; project: string | undefined } | undefined;
+			stubGetRepo(az, (owner, repoName, repoProject) => {
+				captured = { owner: owner, name: repoName, project: repoProject };
+				return Promise.resolve(repoResult);
+			});
+
+			const result = await manager.resolveRepository({ remoteUrl: remoteUrl });
+			assert.equal(result.resolution.status, 'resolved', remoteUrl);
+			assert.deepEqual(captured, { owner: 'myorg', name: name, project: project }, remoteUrl);
+
+			manager.dispose();
+		}
+	});
+
 	test('matches a custom GitHub Enterprise domain via getRemoteConfigs (id inferred, not unsupported)', async () => {
 		const runtime = createFakeRuntime();
 		runtime.config.getRemoteConfigs = () => [{ type: 'github', domain: 'ghe.example.com' }];

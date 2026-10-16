@@ -13,6 +13,8 @@ import type { GitRevisionRangeNotation } from '../models/revision.js';
 
 const gitRegex = /\/_git\/?/i;
 const gitTailRegex = /\/_git(?:\/.*)?$/i;
+const edgeSlashesRegex = /^\/+|\/+$/g;
+const leadingGitRegex = /^_git\//i;
 const legacyDefaultCollectionRegex = /^DefaultCollection\//i;
 const orgAndProjectRegex = /^(.*?)\/(.*?)\/(.*)/;
 const sshDomainRegex = /^(ssh|vs-ssh)\./i;
@@ -23,29 +25,13 @@ const azureSshUrlRegex = /^(?:[^@]+@)?([^:]+):v\d\//;
 const vstsHostnameSuffix = '.visualstudio.com';
 
 export function isVsts(domain: string): boolean {
-	return domain.endsWith(vstsHostnameSuffix);
+	return domain.toLowerCase().endsWith(vstsHostnameSuffix);
 }
-
-function getVSTSOwner(url: URL): string {
-	return url.hostname.split('.')[0];
-}
-
-const azureProjectRepoRegex = /([^/]+)\/_git\/([^/]+)/;
-
-function parseVstsHttpsUrl(url: URL): [string, string, string] {
-	const owner = getVSTSOwner(url);
-	const match = azureProjectRepoRegex.exec(url.pathname);
-	if (match == null) throw new Error(`Invalid VSTS URL: ${url.toString()}`);
-
-	const [, project, repo] = match;
-	return [owner, project, repo];
-}
-
-const azureHttpsUrlRegex2 = /([^/]+)\/([^/]+)\/_git\/([^/]+)/;
 
 type AzureRepositoryPath = {
 	collection: string | undefined;
 	project: string;
+	repository: string;
 	repositoryPath: string;
 	virtualDirectory: string | undefined;
 };
@@ -59,55 +45,76 @@ export type AzureDevOpsRepositoryDescriptor = ResourceDescriptor & {
 function parseAzureRepositoryPath(path: string, legacyVsts: boolean, cloud: boolean): AzureRepositoryPath | undefined {
 	const segments = path.split('/').map(segment => decodeURIComponent(segment));
 	const gitIndex = segments.length - 2;
-	const projectIndex = gitIndex - 1;
 	if (
-		gitIndex < 1 ||
+		gitIndex < 0 ||
 		segments[gitIndex]?.toLowerCase() !== '_git' ||
 		segments.some(segment => !segment || segment === '.' || segment === '..' || /[/\\]/.test(segment))
 	) {
 		return undefined;
 	}
 
-	const project = segments[projectIndex];
 	const repository = segments[gitIndex + 1];
-	if (!project || !repository) return undefined;
+	const prefix = segments.slice(0, gitIndex);
 
-	const collectionPath = segments.slice(0, projectIndex);
+	let collection: string | undefined;
+	let projectSegment: string | undefined;
+	let virtualDirectory: string | undefined;
 	if (legacyVsts) {
-		if (collectionPath.length !== 0) return undefined;
+		// A VSTS-era clone URL may still name the service's only collection, which is the organization the host
+		// already carries, so it never selects a project
+		if (prefix[0]?.toLowerCase() === 'defaultcollection') {
+			prefix.shift();
+		}
+		if (prefix.length > 1) return undefined;
 
-		return {
-			collection: undefined,
-			project: project,
-			repositoryPath: `${project}/_git/${repository}`,
-			virtualDirectory: undefined,
-		};
+		[projectSegment] = prefix;
+	} else if (cloud) {
+		if (prefix.length === 0 || prefix.length > 2) return undefined;
+
+		[collection, projectSegment] = prefix;
+	} else {
+		// A server URL needs both segments: without a project, a virtual directory and a collection can't be told apart
+		if (prefix.length < 2) return undefined;
+
+		[collection, projectSegment] = prefix.slice(-2);
+		if (prefix.length > 2) {
+			virtualDirectory = prefix.slice(0, -2).join('/');
+		}
 	}
 
-	if (collectionPath.length === 0 || (cloud && collectionPath.length !== 1)) return undefined;
-
+	// With no project segment (`{org}/_git/{repo}`), Azure names the repository after its project
+	const project = projectSegment ?? repository;
 	return {
-		collection: collectionPath.at(-1),
+		collection: collection,
 		project: project,
+		repository: repository,
 		repositoryPath: `${project}/_git/${repository}`,
-		virtualDirectory: collectionPath.length > 1 ? collectionPath.slice(0, -1).join('/') : undefined,
+		virtualDirectory: virtualDirectory,
 	};
 }
 
-function parseAzureNewStyleUrl(url: URL): [string, string, string] {
-	const match = azureHttpsUrlRegex2.exec(url.pathname);
-	if (match == null) throw new Error(`Invalid Azure URL: ${url.toString()}`);
+function parseAzureHttpsRepository(url: URL): { owner: string; project: string; repo: string } | undefined {
+	const vsts = isVsts(url.hostname);
+	const parsed = parseAzureRepositoryPath(
+		url.pathname.replace(edgeSlashesRegex, ''),
+		vsts,
+		url.hostname.toLowerCase() === 'dev.azure.com',
+	);
+	// VSTS carries the organization in the host rather than in the path
+	const owner = vsts ? url.hostname.split('.')[0] : parsed?.collection;
+	if (parsed == null || owner == null) return undefined;
 
-	const [, owner, project, repo] = match;
-	return [owner, project, repo];
+	return { owner: owner, project: parsed.project, repo: parsed.repository };
 }
 
 export function parseAzureHttpsUrl(url: string): [owner: string, project: string, repo: string];
 export function parseAzureHttpsUrl(urlObj: URL): [owner: string, project: string, repo: string];
 export function parseAzureHttpsUrl(arg: URL | string): [owner: string, project: string, repo: string] {
 	const url = typeof arg === 'string' ? new URL(arg) : arg;
-	if (url.hostname.endsWith(vstsHostnameSuffix)) return parseVstsHttpsUrl(url);
-	return parseAzureNewStyleUrl(url);
+	const parsed = parseAzureHttpsRepository(url);
+	if (parsed == null) throw new Error(`Invalid Azure URL: ${url.toString()}`);
+
+	return [parsed.owner, parsed.project, parsed.repo];
 }
 
 export class AzureDevOpsRemoteProvider extends RemoteProvider<AzureDevOpsRepositoryDescriptor> {
@@ -156,8 +163,16 @@ export class AzureDevOpsRemoteProvider extends RemoteProvider<AzureDevOpsReposit
 	}
 
 	protected override get issueLinkPattern(): string {
-		const projectUrl = this.baseUrl.replace(gitTailRegex, '');
-		const orgUrl = projectUrl.substring(0, projectUrl.lastIndexOf('/'));
+		let orgUrl;
+		if (this.repositoryPath != null) {
+			// Work items live at the organization (collection) root: the host itself on VSTS, which is why a legacy
+			// `DefaultCollection` segment and a project-less repository path need no special casing here
+			const orgPath = [this.virtualDirectory, this.collection].filter(Boolean).join('/');
+			orgUrl = `${this.protocol}://${this.domain}${orgPath ? `/${orgPath}` : ''}`;
+		} else {
+			const projectUrl = this.baseUrl.replace(gitTailRegex, '');
+			orgUrl = projectUrl.substring(0, projectUrl.lastIndexOf('/'));
+		}
 		return `${orgUrl}/_workitems/edit/<num>`;
 	}
 
@@ -218,10 +233,7 @@ export class AzureDevOpsRemoteProvider extends RemoteProvider<AzureDevOpsReposit
 	}
 
 	override get repoName(): string | undefined {
-		if (isVsts(this.domain)) {
-			return this.path;
-		}
-		return this.repositoryPath ?? super.repoName;
+		return this.repositoryPath ?? (isVsts(this.domain) ? this.path : super.repoName);
 	}
 
 	override get repoDesc(): AzureDevOpsRepositoryDescriptor {
@@ -251,7 +263,10 @@ export class AzureDevOpsRemoteProvider extends RemoteProvider<AzureDevOpsReposit
 
 	private _displayPath: string | undefined;
 	override get displayPath(): string {
-		this._displayPath ??= this.path.replace(gitRegex, '/').replace(legacyDefaultCollectionRegex, '');
+		this._displayPath ??= this.path
+			.replace(leadingGitRegex, '')
+			.replace(gitRegex, '/')
+			.replace(legacyDefaultCollectionRegex, '');
 		return this._displayPath;
 	}
 
@@ -358,8 +373,13 @@ function parseAzureUrl(url: string): { org: string; project: string; repo: strin
 			return { org: org, project: project, repo: rest };
 		}
 	} else {
-		const [org, project, rest] = parseAzureHttpsUrl(url);
-		return { org: org, project: project, repo: rest };
+		let parsed;
+		try {
+			parsed = parseAzureHttpsRepository(new URL(url));
+		} catch {
+			return undefined;
+		}
+		return parsed != null ? { org: parsed.owner, project: parsed.project, repo: parsed.repo } : undefined;
 	}
 	return undefined;
 }
