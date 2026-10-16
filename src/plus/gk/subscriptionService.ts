@@ -82,7 +82,11 @@ import type {
 import type { ServerConnection } from './serverConnection.js';
 import { autoResetTrialIfEligible } from './trialAutoReset.js';
 import { arePlusFeaturesEnabled, ensurePlusFeaturesEnabled } from './utils/-webview/plus.utils.js';
-import { getConfiguredActiveOrganizationId, updateActiveOrganizationId } from './utils/-webview/subscription.utils.js';
+import {
+	getConfiguredActiveOrganizationId,
+	storeRefusedTrialReactivation,
+	updateActiveOrganizationId,
+} from './utils/-webview/subscription.utils.js';
 import { getSubscriptionFromCheckIn } from './utils/checkin.utils.js';
 import {
 	AiAllAccessOptInPathPrefix,
@@ -744,13 +748,13 @@ export class SubscriptionService implements Disposable {
 						refusedFor != null &&
 						this._subscription.state === SubscriptionState.TrialReactivationEligible
 					) {
-						await this.container.storage
-							.store(`plus:trialReactivation:${session.account.id}:refused`, {
-								nextTrialOptInDate: refusedFor,
-							})
-							.catch((ex: unknown) =>
-								Logger.error(ex, 'Unable to remember the refused Pro trial reactivation'),
-							);
+						await storeRefusedTrialReactivation(
+							this.container.storage,
+							session.account.id,
+							refusedFor,
+						).catch((ex: unknown) =>
+							Logger.error(ex, 'Unable to remember the refused Pro trial reactivation'),
+						);
 						this.changeSubscription(this._subscription, source);
 					}
 
