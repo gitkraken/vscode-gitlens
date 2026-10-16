@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes Azure DevOps remotes in the legacy `{org}.visualstudio.com/DefaultCollection/{project}/_git/{repo}` form (any casing of `DefaultCollection`) having no `providerDesc` and a `repoDesc.name` that kept the collection segment, so every pull request, work item and commit author read threw `Invalid Azure repository descriptor`. The provider now maps them to `owner: '{org}'` and `name: '{project}/_git/{repo}'`. Remotes with no project segment (`{org}.visualstudio.com/DefaultCollection/_git/{repo}`, `{org}.visualstudio.com/_git/{repo}` and `dev.azure.com/{org}/_git/{repo}`) resolve with the project named after the repository, and their `#` work item autolink points at the organization rather than a malformed URL. `parseAzureHttpsUrl` follows the same rules and returns percent-decoded names; it now also throws for a URL with segments after the repository name (a pull request page, for one), which its unanchored match used to accept; `getAzurePullRequestIdentityFromMaybeUrl` now reads a pasted dev.azure.com or visualstudio.com pull request URL with that same parser (so the legacy and project-less forms resolve, `_git` matches in any casing, and a dev.azure.com URL with more than an organization and a project before `_git` no longer resolves); Server URLs keep their own rules ([#5999](https://github.com/gitkraken/vscode-gitlens/issues/5999)) (git, plus/integrations)
+
 ## [0.12.0] - 2026-10-16
 
 ### Added

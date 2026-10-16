@@ -304,14 +304,15 @@ suite('facade contract regressions', () => {
 		);
 		stubApi(azure, {});
 
-		// Azure's repo lookup is project-scoped; a remote carrying no project can't address a repo at all, so
-		// reporting it as `unauthorized` would drive a pointless reconnect.
+		// Azure's repo lookup is project-scoped; a remote whose project can't be told (here, more segments than an
+		// org and a project before `_git`) can't address a repo at all, so reporting it as `unauthorized` would
+		// drive a pointless reconnect. (`dev.azure.com/{org}/_git/{repo}` does carry one: the repo's own name.)
 		const result = await manager.resolveRepository({
 			providerId: GitCloudHostIntegrationId.AzureDevOps,
-			remoteUrl: 'https://dev.azure.com/org/_git/repo',
+			remoteUrl: 'https://dev.azure.com/org/group/project/_git/repo',
 		});
 
-		assert.notEqual(result.resolution.status, 'unauthorized');
+		assert.equal(result.resolution.status, 'invalid-remote-url');
 
 		manager.dispose();
 	});
