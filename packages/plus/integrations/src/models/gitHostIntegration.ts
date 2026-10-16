@@ -995,6 +995,11 @@ export abstract class GitHostIntegration<
 
 					const { projectInput: _projectInput, results } = outcome.value;
 					data.push(...results.values);
+					// A project read can answer with rows and still be incomplete (a failed states read, say).
+					if (results.paging?.truncated) {
+						truncated = true;
+					}
+					metadata = mergeCollectionMetadata(metadata, results.metadata);
 					if (results.paging?.more) {
 						hasMore = true;
 						cursor.cursors.push({

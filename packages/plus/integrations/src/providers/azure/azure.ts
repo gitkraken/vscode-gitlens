@@ -67,6 +67,7 @@ import {
 	toAzureWorkItemSearchCursorKey,
 	toAzureWorkItemSearchWiql,
 } from './search.js';
+import { getAzureWorkItemTypeStatesPath } from './workItemStateCategories.js';
 
 const forkRepositoryUrlCacheTtl = 5 * 60 * 1000;
 /** How long a work-item search's id snapshot outlives the last page read from it, and the most it lives at all. */
@@ -734,7 +735,7 @@ export class AzureDevOpsApi implements Disposable {
 				provider,
 				token,
 				options?.baseUrl,
-				`${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(projectName)}/_apis/wit/workItemTypes/${encodeAzurePathSegment(workItemType)}/states`,
+				getAzureWorkItemTypeStatesPath(owner, projectName, workItemType),
 				{
 					method: 'GET',
 				},

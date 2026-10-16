@@ -11,6 +11,7 @@ import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError }
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult, IssueEtagFields, IssueEtagInclude } from '../models/integration.js';
+import { azureWorkItemTypeStatesResponse } from '../providers/azure/__tests__/fixtures.js';
 import { issueEtag } from '../reads/etag.js';
 import { noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import type { FakeRuntime } from './fakeRuntime.js';
@@ -883,10 +884,14 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 			};
 		}
 
+		/** Answers the work item type states read itself, which `urls` leaves out, and every other read by `respond`. */
 		function azureRespond(runtime: FakeRuntime, respond: (url: string) => Response): { urls: string[] } {
 			const urls: string[] = [];
 			runtime.http.fetch = input => {
 				const url = input.toString();
+				const states = azureWorkItemTypeStatesResponse(url);
+				if (states != null) return Promise.resolve(states);
+
 				urls.push(url);
 				return Promise.resolve(respond(url));
 			};

@@ -204,8 +204,10 @@ The hosts with a cheap check select only the change state:
   full read, more often than the merge request itself does.
 
 - **Azure DevOps and Azure DevOps Server:** work items in one batch request per project per 200 ids; an id the batch
-  leaves out falls through to its own full read. Pull requests can't be batched by id, so the check is one request
-  per pull request instead of the full read's two. Azure DevOps keeps no update time on a pull request, so its etag
+  leaves out falls through to its own full read. Both reads classify the states they read through the same cached
+  work item type states (see [Tracker issue state](#tracker-issue-state)), so a check after a full read reads them
+  again only once that cache expires. Pull requests can't be batched by id, so the check is one request per pull
+  request instead of the full read's two. Azure DevOps keeps no update time on a pull request, so its etag
   also carries a revision: a 64-bit hash of the title, description, target branch and every reviewer with their vote,
   read off the same response at no extra cost. It sees state, draft, closing, new pushes and those edits, including
   a reviewer added or removed and an optional reviewer's vote (plus mergeability when included). It can't see a
@@ -1184,8 +1186,9 @@ DevOps Services could express most of it, so the gap is unimplemented rather tha
 carry the provider's own workflow state in the optional `providerState` field; it is display data and is not added to
 `IssueOrPullRequest`, because pull requests' normalized `'opened' | 'closed' | 'merged'` state is complete.
 
-The field mirrors what `provider-apis` provides. `name` is the provider's untranslated display name, `color` is
-omitted when the provider returns `null`, and `category` is only present where the provider supplies it:
+The field mirrors what `provider-apis` provides, except for Azure DevOps' `category` (below). `name` is the
+provider's untranslated display name, `color` is omitted when the provider returns `null`, and `category` is only
+present where the provider supplies it:
 
 | Provider     | `name`              | `color` | `category`                               |
 | ------------ | ------------------- | ------- | ---------------------------------------- |
@@ -1193,7 +1196,7 @@ omitted when the provider returns `null`, and `category` is only present where t
 | Jira DC      | Status name         | Yes     | No — see below                           |
 | Linear       | Workflow state name | Yes     | Yes, mapped from the Linear state type   |
 | Trello       | Card list name      | No      | No                                       |
-| Azure DevOps | Work-item state     | No      | No                                       |
+| Azure DevOps | Work-item state     | No      | Yes, from the work item type's states    |
 | GitHub       | `open` / `closed`   | No      | No                                       |
 | GitLab       | `opened` / `closed` | No      | No                                       |
 
@@ -1209,8 +1212,21 @@ instance as closed.
 removed): it closes an issue as `DONE` does, and stays its own value so a consumer can tell the two outcomes apart.
 Linear reports its canceled and duplicate states as `CANCELED`.
 
+Azure DevOps reports a state in its `Removed` category as `CANCELED`, `Completed` and `Resolved` as `DONE`,
+`InProgress` as `IN_PROGRESS` and `Proposed` as `TO_DO`. No work item read carries the category, so every one (by id,
+the cheap etag check and the project list, on Azure DevOps Server too) classifies its rows from their type's states
+(`GET …/_apis/wit/workItemTypes/{type}/states?api-version=6.0-preview.1`, the preview version Azure DevOps Server 2020
+requires), keyed on the raw `System.State`, and caches each read for five minutes per host, project, type and
+credential. The category, never the name, decides: a state named `Canceled` in the `Completed` category is `DONE`, and
+a state its type doesn't list has no category. When a states read fails, a project list keeps its rows (the failed
+type's without a category) and reports the project as a partial collection with a failure scoped to it; a read by id
+and the cheap etag check fail instead. A project list keeps only the work items in the states it asked for: provider-apis
+selects open ones by their closed and resolved dates, so a `Removed` work item with neither date is left out of an open
+list rather than listed closed, and a closed-only list does not select it either. Snapshots cached before categories
+existed are not reclassified until the provider is read again.
+
 The normalized `state` and `closed` fields keep their existing derivation, with `CANCELED` closing like `DONE`;
-`providerState` is additive.
+`providerState` is additive. An Azure DevOps work item therefore closes on its category as well as its closed date.
 
 ### Sprints and iterations
 

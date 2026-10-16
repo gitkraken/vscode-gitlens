@@ -18,6 +18,10 @@ import type {
 	PullRequestEtagInclude,
 } from '../models/integration.js';
 import { pullRequestEtagIncludes, pullRequestRevision } from '../models/integration.js';
+import {
+	azureWorkItemTypeStatesResponse,
+	isAzureWorkItemTypeStatesUrl,
+} from '../providers/azure/__tests__/fixtures.js';
 import { issueEtag, issueEtagFieldsFromShape, pullRequestEtag, pullRequestEtagFieldsFromShape } from '../reads/etag.js';
 import type { FakeRuntime } from './fakeRuntime.js';
 import { createFakeRuntime } from './fakeRuntime.js';
@@ -25,13 +29,14 @@ import { connectedAzure, primarySession } from './sweepHelpers.js';
 
 /**
  * The Azure DevOps cheap etag check. Work items: one `GET …/_apis/wit/workitems?ids=…` per project and 200 ids, where
- * the full read sends one `GET …/_apis/wit/workitems/{id}` per target. Pull requests: still one request per target, as
+ * the full read sends one `GET …/_apis/wit/workitems/{id}` per target; both classify the states they read from one
+ * `GET …/_apis/wit/workItemTypes/{type}/states` per project and type, shared between them. Pull requests: still one request per target, as
  * Azure DevOps has no read of several by id, but only the pull request GET — not the repository GET provider-apis adds
  * to each for clone URLs.
  *
  * The correctness core is agreement: the full row's etag is computed after provider-apis' Azure DevOps mapping and
  * `fromProviderPullRequest` (or this package's work item conversion and `toIssueShape`), none of which is the identity
- * everywhere — a `notSet` pull request reads as merged, a work item's state comes from its closed date. So each case
+ * everywhere — a `notSet` pull request reads as merged, a work item closes on its closed date or its state's workflow category. So each case
  * feeds ONE raw Azure DevOps payload through the integration's real full read and its real cheap read, answering each
  * request at the HTTP level, and compares the etags. The rest pins the matching rules that keep the work item check
  * from ever answering a false `unchanged` or a false absence: Azure silently leaves out ids it can't return, and the
@@ -156,14 +161,17 @@ interface Fixture {
 	reversed?: boolean;
 }
 
-type RequestKind = 'pr' | 'repository' | 'workItem' | 'workItems';
+type RequestKind = 'pr' | 'repository' | 'workItem' | 'workItems' | 'states';
 
 interface SentRequest {
 	kind: RequestKind;
 	url: URL;
 }
 
-function kindOf(path: string): RequestKind | undefined {
+function kindOf(url: URL): RequestKind | undefined {
+	if (isAzureWorkItemTypeStatesUrl(url)) return 'states';
+
+	const path = url.pathname;
 	if (/\/_apis\/git\/repositories\/[^/]+\/pullrequests\/\d+$/.test(path)) return 'pr';
 	if (/\/_apis\/git\/repositories\/[^/]+$/.test(path)) return 'repository';
 	if (/\/_apis\/wit\/workitems\/\d+$/.test(path)) return 'workItem';
@@ -172,8 +180,9 @@ function kindOf(path: string): RequestKind | undefined {
 }
 
 /**
- * Answers every Azure DevOps request — provider-apis' pull request and repository GETs, the direct work item GET, and
- * the cheap reads — from `fixture`. `override` may answer a request first.
+ * Answers every Azure DevOps request — provider-apis' pull request and repository GETs, the direct work item GET, the
+ * cheap reads, and the work item type states both work item reads classify their states with — from `fixture`.
+ * `override` may answer a request first.
  */
 function serveAzure(
 	runtime: FakeRuntime,
@@ -183,7 +192,7 @@ function serveAzure(
 	const sent: SentRequest[] = [];
 	runtime.http.fetch = input => {
 		const url = new URL(input.toString());
-		const kind = kindOf(url.pathname);
+		const kind = kindOf(url);
 		if (kind == null) return Promise.reject(new Error(`unexpected request: ${url.toString()}`));
 
 		const request = { kind: kind, url: url };
@@ -225,6 +234,8 @@ function serveAzure(
 							}),
 				);
 			}
+			case 'states':
+				return Promise.resolve(azureWorkItemTypeStatesResponse(url)!);
 			case 'workItems': {
 				const fieldNames = url.searchParams.get('fields')?.split(',') ?? [];
 				const value = (url.searchParams.get('ids')?.split(',') ?? [])
@@ -728,8 +739,17 @@ const workItemCases: [string, Node][] = [
 	['To Do', {}],
 	['Doing', { 'System.State': 'Doing' }],
 	['Done', { 'System.State': 'Done', 'Microsoft.VSTS.Common.ClosedDate': '2026-10-02T06:31:00.12Z' }],
-	// `toIssueShape` reads the closed date, never the state's name: both paths must agree this one reads open.
+	// Closed by its state's `Completed` category alone, on both paths.
 	['Done without a closed date', { 'System.State': 'Done' }],
+	['Resolved without a closed date', { 'System.State': 'Resolved' }],
+	// `Removed` is canceled, which closes like done.
+	['a Removed category without a closed date', { 'System.State': 'Descartado' }],
+	// The category comes from the type's states, never from the name: "Canceled" is `Completed` here, and "Removed"
+	// `InProgress`.
+	['a state named Canceled whose category is Completed', { 'System.State': 'Canceled' }],
+	['a state named Removed whose category is InProgress', { 'System.State': 'Removed' }],
+	// A state the type doesn't list has no category, so only its closed date could close it.
+	['a state the type does not list', { 'System.State': 'Mystery' }],
 	['a closed date Azure would never send', { 'Microsoft.VSTS.Common.ClosedDate': '2026-02-30T00:00:00Z' }],
 	['a later ChangedDate', { 'System.ChangedDate': '2026-10-03T07:08:09.1234567Z' }],
 	// Azure compares project names case-insensitively, and so does the full read.
@@ -773,7 +793,37 @@ suite('Azure DevOps work item etag agreement', () => {
 		});
 		assert.deepEqual(
 			cheapRows.map(f => f?.state),
-			['opened', 'opened', 'closed', 'opened', 'opened', 'opened', 'opened'],
+			[
+				'opened',
+				'opened',
+				'closed',
+				'closed',
+				'closed',
+				'closed',
+				'closed',
+				'opened',
+				'opened',
+				'opened',
+				'opened',
+				'opened',
+			],
+		);
+		assert.deepEqual(
+			fullRows.map(shape => shape?.providerState?.category),
+			[
+				'TO_DO',
+				'IN_PROGRESS',
+				'DONE',
+				'DONE',
+				'DONE',
+				'CANCELED',
+				'DONE',
+				'IN_PROGRESS',
+				undefined,
+				'TO_DO',
+				'TO_DO',
+				'TO_DO',
+			],
 		);
 
 		manager.dispose();
@@ -838,10 +888,13 @@ suite('Azure DevOps etag check: work item requests and matching', () => {
 			{},
 		);
 
-		assert.equal(sent.length, 1);
-		assert.equal(
-			sent[0].url.toString(),
-			'https://dev.azure.com/org/proj/_apis/wit/workitems?ids=1,3&fields=System.TeamProject,System.ChangedDate,Microsoft.VSTS.Common.ClosedDate&errorPolicy=omit&api-version=6.0',
+		// Then the one work item type's states, which classify the states it read.
+		assert.deepEqual(
+			sent.map(r => r.url.toString()),
+			[
+				'https://dev.azure.com/org/proj/_apis/wit/workitems?ids=1,3&fields=System.TeamProject,System.State,System.WorkItemType,System.ChangedDate,Microsoft.VSTS.Common.ClosedDate&errorPolicy=omit&api-version=6.0',
+				'https://dev.azure.com/org/proj/_apis/wit/workItemTypes/Task/states?api-version=6.0-preview.1',
+			],
 		);
 
 		manager.dispose();
@@ -933,9 +986,10 @@ suite('Azure DevOps etag check: work item requests and matching', () => {
 			targets: targets.map(t => ({ ...t, etag: 'is1:stale' })),
 		});
 
+		// The cheap reads returned no work item to classify; the full reads share one states read.
 		assert.deepEqual(
 			sent.map(r => r.kind),
-			['workItems', 'workItems', 'workItem', 'workItem'],
+			['workItems', 'workItems', 'workItem', 'workItem', 'states'],
 		);
 		assert.deepEqual(
 			result.items.map(i => [i.key, i.issue?.id]),
@@ -987,9 +1041,10 @@ suite('Azure DevOps etag check: work item requests and matching', () => {
 		);
 
 		assert.deepEqual(
-			sent.map(r => r.url.searchParams.get('ids')?.split(',').length),
+			sent.filter(r => r.kind === 'workItems').map(r => r.url.searchParams.get('ids')?.split(',').length),
 			[200, 50],
 		);
+		assert.equal(count(sent, 'states'), 1, 'both requests share one states read');
 		assert.equal(fulfilled(result?.value).filter(f => f?.state === 'opened').length, 250);
 
 		manager.dispose();
@@ -1011,11 +1066,20 @@ suite('Azure DevOps etag check: work item requests and matching', () => {
 		);
 
 		assert.deepEqual(
-			sent.map(r => [r.url.pathname, r.url.searchParams.get('ids')]),
+			sent.filter(r => r.kind === 'workItems').map(r => [r.url.pathname, r.url.searchParams.get('ids')]),
 			[
 				['/org/proj/_apis/wit/workitems', '1'],
 				['/org/other/_apis/wit/workitems', '2'],
 				['/org2/proj/_apis/wit/workitems', '3'],
+			],
+		);
+		// A work item type's states belong to its project, so each project reads its own.
+		assert.deepEqual(
+			sent.filter(r => r.kind === 'states').map(r => r.url.pathname),
+			[
+				'/org/proj/_apis/wit/workItemTypes/Task/states',
+				'/org/other/_apis/wit/workItemTypes/Task/states',
+				'/org2/proj/_apis/wit/workItemTypes/Task/states',
 			],
 		);
 		assert.deepEqual(
@@ -1280,6 +1344,7 @@ suite('Azure DevOps Server etag check', () => {
 			[
 				'https://ado.example.com/DefaultCollection/proj/_apis/git/repositories/r/pullrequests/1',
 				'https://ado.example.com/DefaultCollection/proj/_apis/wit/workitems',
+				'https://ado.example.com/DefaultCollection/proj/_apis/wit/workItemTypes/Task/states',
 			],
 		);
 

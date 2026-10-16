@@ -1,7 +1,7 @@
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { TokenWithInfo } from '../../../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../../../constants.js';
-import type { AzureProjectDescriptor, AzurePullRequest, WorkItem } from '../models.js';
+import type { AzureProjectDescriptor, AzurePullRequest, AzureWorkItemStateCategory, WorkItem } from '../models.js';
 
 export const azureProvider: Provider = {
 	id: GitCloudHostIntegrationId.AzureDevOps,
@@ -127,4 +127,44 @@ export function createWorkItem(iterationPath?: string): WorkItem {
 			'Microsoft.VSTS.Common.ClosedDate': '',
 		},
 	};
+}
+
+/**
+ * The workflow {@link azureWorkItemTypeStatesResponse} answers for every work item type: each Azure category once,
+ * and names that say the opposite of their category, so a test can tell a category read from metadata from one
+ * guessed from the name.
+ */
+export const azureWorkItemTypeStates: readonly { name: string; category: AzureWorkItemStateCategory }[] = [
+	{ name: 'To Do', category: 'Proposed' },
+	{ name: 'New', category: 'Proposed' },
+	{ name: 'Doing', category: 'InProgress' },
+	{ name: 'Active', category: 'InProgress' },
+	{ name: 'Resolved', category: 'Resolved' },
+	{ name: 'Done', category: 'Completed' },
+	{ name: 'Closed', category: 'Completed' },
+	{ name: 'Descartado', category: 'Removed' },
+	{ name: 'Canceled', category: 'Completed' },
+	{ name: 'Removed', category: 'InProgress' },
+];
+
+/** Whether `url` is a work item type's states read (`GET …/_apis/wit/workItemTypes/{type}/states`). */
+export function isAzureWorkItemTypeStatesUrl(url: string | URL): boolean {
+	return /\/_apis\/wit\/workItemTypes\/[^/]+\/states$/i.test(new URL(url.toString()).pathname);
+}
+
+/**
+ * Azure's answer to a work item type's states read, as `GET …/_apis/wit/workItemTypes/{type}/states` returns it;
+ * `undefined` for any other URL, so a fake server answers this route first and serves the rest itself.
+ */
+export function azureWorkItemTypeStatesResponse(
+	url: string | URL,
+	states: readonly { name: string; category: AzureWorkItemStateCategory }[] = azureWorkItemTypeStates,
+): Response | undefined {
+	if (!isAzureWorkItemTypeStatesUrl(url)) return undefined;
+
+	const value = states.map(s => ({ ...s, color: '007acc' }));
+	return new Response(JSON.stringify({ count: value.length, value: value }), {
+		status: 200,
+		headers: { 'content-type': 'application/json' },
+	});
 }
