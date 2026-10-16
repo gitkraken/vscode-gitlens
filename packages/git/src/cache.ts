@@ -782,6 +782,9 @@ export class Cache implements Disposable {
 				keysToClear.add('logShas');
 				// Keyed by the revision as given, so a tag name resolves to wherever the tag pointed when first read
 				keysToClear.add('resolvedRevisions');
+				// Keyed by ref names too, so a count or fork point taken against a tag-named base would outlive its move
+				keysToClear.add('leftRightCommitCount');
+				keysToClear.add('mergeBase');
 			}
 
 			if (types.includes('tracking')) {

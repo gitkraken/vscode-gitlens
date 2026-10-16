@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
 import type { GitService } from '@gitlens/git/service.js';
@@ -163,6 +163,33 @@ suite('WorktreeSummaryService against real git', () => {
 
 		assert.strictEqual(after.sha, initial.sha);
 		assert.deepStrictEqual(after.base, { ref: 'main', ahead: 1, sha: mainTip });
+
+		sub.dispose();
+	});
+
+	test('re-counts a tag-named base when the tag moves', async () => {
+		const summaries = service.summaries;
+		assert.ok(summaries != null);
+
+		git('tag', 'base');
+		git('checkout', '-q', '-b', 'feature');
+		git('commit', '-q', '--allow-empty', '-m', 'Feature');
+		mkdirSync(join(repo.path, '.git', 'gk'), { recursive: true });
+		git('config', '--file', join(repo.path, '.git', 'gk', 'config'), 'branch.feature.gk-merge-target-user', 'base');
+
+		const sub = summaries.subscribe(repo.path, { delayMs: 10, workingTreeDelayMs: 10 });
+		const initial = await summaries.getSummary(repo.path);
+		assert.deepStrictEqual(initial.base, { ref: 'base', ahead: 1, sha: revParse('main') });
+
+		// The count and fork point are cached by the tag's name, so they must not outlive the tag's move
+		const changed = nextChange(sub);
+		git('tag', '-f', 'base', 'HEAD');
+		const gitDir = watchers.find(w => w.basePath.endsWith('.git'))?.basePath;
+		assert.ok(gitDir != null);
+		fire(gitDir, 'refs/tags/base');
+		const after = await changed;
+
+		assert.deepStrictEqual(after.base, { ref: 'base', ahead: 0, sha: revParse('HEAD') });
 
 		sub.dispose();
 	});
