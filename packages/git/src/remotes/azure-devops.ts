@@ -72,9 +72,15 @@ function parseAzureRepositoryPath(path: string, legacyVsts: boolean, cloud: bool
 		if (prefix.length === 0 || prefix.length > 2) return undefined;
 
 		[collection, projectSegment] = prefix;
+	} else if (prefix.length === 1) {
+		// A server path always names its collection, so a lone segment before `_git` is the collection, and the project
+		// segment was left out (TFS 2018 reports that form as the clone URL of a repository named after its project)
+		[collection] = prefix;
 	} else {
-		// A server URL needs both segments: without a project, a virtual directory and a collection can't be told apart
-		if (prefix.length < 2) return undefined;
+		// With more segments the last two read as collection and project. A project-less path behind a virtual directory
+		// (`{vdir}/{collection}/_git/{repo}`) reads the same way, which the URL can't tell apart; the Azure DevOps Server
+		// integration settles it against the collections it discovers
+		if (prefix.length === 0) return undefined;
 
 		[collection, projectSegment] = prefix.slice(-2);
 		if (prefix.length > 2) {

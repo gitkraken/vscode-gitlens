@@ -1302,14 +1302,21 @@ Markdown by this package.
 - **Azure DevOps** — org + project scoped. Repo-scoped reads accept one org per call. Account-wide reads
   drain every project of every org and return one aggregate page; a failed project becomes a scoped warning
   while its siblings survive. Only Azure can narrow an account-wide issue read by `org`/`project`.
-  `resolveRepository` needs a project in the remote URL. Azure DevOps Server uses the trusted connection's
+  `resolveRepository` needs a project in the remote URL; a repository named after its project is also served without
+  it (`{collection}/_git/{repo}`, the clone URL TFS 2018 reports), which reads as that project. Azure DevOps Server uses the trusted connection's
   `baseUrl`, including its installation path. A repository's virtual directory must match that path and is
   applied once; a connection addressed at the host root takes the repository's own virtual directory. An address
   that also names a collection (`https://server/tfs/DefaultCollection`) reads that collection without repeating it:
   discovery reports it as the one collection visible there, since Azure only lists collections at the server level,
   and another collection's repositories need an address without the collection. Installation paths match case-insensitively, as IIS serves them. An SSH remote
   that names no virtual directory is read against the whole address, since it can't tell a virtual directory from
-  another collection named there.
+  another collection named there. Behind a virtual directory the project-less form, `{vdir}/{collection}/_git/{repo}`,
+  is equally a full path whose collection is `{vdir}` and project `{collection}`. When the connection's address is that
+  virtual directory (or its parent, for an address naming the collection), the integration settles it against the
+  collections discovery reports, over HTTPS and SSH alike, reading it as the project-less form only when the segment
+  before `_git` is a listed collection and the one before it isn't; any other path reads as parsed, without discovery.
+  When the collections can't be read the path is read as parsed, and a read that finds nothing then fails rather than
+  answer, so the miss isn't cached.
 
   Azure DevOps Server also has the filtered searches and their counts, with the collection applied exactly once
   whichever way the address is written. Scope names are encoded as URL segments (collections, projects,
@@ -1417,7 +1424,8 @@ const metadata = await api.getRepositoryMetadata('gitkraken', 'vscode-gitlens');
 Supports `getRepositoryMetadata` + `getDefaultBranch` for GitHub/GHE, GitLab/self-hosted, Bitbucket Cloud,
 and Azure DevOps (+ Server). **Not** Bitbucket Data Center. A self-managed id requires `token.domain`
 (it throws otherwise, rather than building a malformed base URL). Azure encodes the repo as
-`"{project}/_git/{repoName}"`.
+`"{project}/_git/{repoName}"`; a repository named after its project and addressed without the project is
+`"{repoName}/_git/{repoName}"`.
 
 ## 11. Checklist for a new consumer
 

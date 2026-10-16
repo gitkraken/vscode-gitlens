@@ -3,9 +3,10 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { IssueSearchCriteria } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestSearchCriteria, PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
 import { defaultPullRequestSort } from '@gitlens/git/models/pullRequest.js';
-import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, raceWithSignal } from '@gitlens/utils/cancellation.js';
 import { uuid } from '@gitlens/utils/crypto.js';
 import type { Emitter } from '@gitlens/utils/event.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { mapBounded } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
@@ -15,7 +16,7 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
-import { IntegrationReadUnavailableError, RequestNotFoundError } from '../errors.js';
+import { AuthenticationError, IntegrationReadUnavailableError, RequestNotFoundError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type {
 	IntegrationKey,
@@ -24,7 +25,7 @@ import type {
 	ProviderPullRequestSearchPage,
 	ProviderSearchCount,
 } from '../models/integration.js';
-import type { AzureOrganizationDescriptor, AzureProjectDescriptor } from './azure/models.js';
+import type { AzureOrganizationDescriptor, AzureProjectDescriptor, AzureRepositoryDescriptor } from './azure/models.js';
 import type { AzurePullRequestSearchPosition } from './azure/search.js';
 import {
 	compareAzurePullRequestSearchPositions,
@@ -36,12 +37,14 @@ import {
 	toAzurePullRequestSearchPosition,
 	toAzureSearchPageSize,
 } from './azure/search.js';
-import type { AzureReviewerRead } from './azureDevOps.js';
+import type { AzureRepositoryTarget, AzureReviewerRead } from './azureDevOps.js';
 import {
 	AzureDevOpsIntegrationBase,
 	getAzureRepositoryApiBaseUrl,
 	getAzureRepositoryIdentity,
+	isAzureProjectlessCandidate,
 	markMyGroupReviews,
+	resolveAzureProjectlessRepository,
 	sameAzureName,
 	toAzureReviewerReads,
 	uniqueAzureNames,
@@ -62,6 +65,7 @@ import {
 	toProviderPullRequestStates,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
+import { discoveryCacheTtl } from './utils/discoveryCache.js';
 
 /**
  * Whether `value` can stand as one route segment. Encoding keeps `.` and `..` as they are, and a URL resolves them
@@ -246,6 +250,70 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 			owner: collection,
 			virtualDirectory: undefined,
 		});
+	}
+
+	/**
+	 * The collection names per credential and installation, `undefined` when they couldn't be read. Only a
+	 * tie-breaker for {@link getRepositoryTarget}, so a failed read is kept (for {@link discoveryCacheTtl}) rather than
+	 * retried on every repository read; a successful one comes from the organizations, which are kept for the session.
+	 */
+	private readonly _collectionNames = new PromiseCache<string, string[] | undefined>({
+		capacity: 10,
+		createTTL: discoveryCacheTtl,
+	});
+
+	/**
+	 * Settles which segment of a remote's path is the collection before reading the repository. Behind a virtual
+	 * directory a repository named after its project is also served as `{vdir}/{collection}/_git/{repo}`, which the
+	 * remote parser reads as collection `{vdir}` and project `{collection}`; the discovered collections tell the two
+	 * apart (see {@link resolveAzureProjectlessRepository}). Only a path that reading could address below the connection
+	 * is settled ({@link isAzureProjectlessCandidate}); any other reads as parsed, without discovery. A connection
+	 * addressed at a collection discovers only that collection.
+	 */
+	protected override async getRepositoryTarget<
+		T extends Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project' | 'virtualDirectory'>,
+	>(session: ProviderAuthenticationSession, repo: T, cancellation?: AbortSignal): Promise<AzureRepositoryTarget<T>> {
+		const baseUrl = this.apiBaseUrlFor(session);
+		let unsettled = false;
+		if (isAzureProjectlessCandidate(baseUrl, repo)) {
+			// The discovery is shared, so it takes no signal: one caller's abort must neither cancel it for the others
+			// nor be kept as its result.
+			const names = this._collectionNames.getOrCreate(this.discoveryKey(session), () =>
+				this.getCollectionNames(session),
+			);
+			const collections = await (cancellation != null ? raceWithSignal(names, cancellation) : names);
+			if (collections != null) {
+				repo = resolveAzureProjectlessRepository(repo, collections);
+			} else {
+				unsettled = true;
+			}
+		}
+
+		return { repo: repo, baseUrl: getAzureRepositoryApiBaseUrl(baseUrl, repo), unsettled: unsettled };
+	}
+
+	/**
+	 * Never rejects. A credential refused the list leaves every path as parsed, as before discovery was asked; any other
+	 * failure is `undefined`, so a read of a path it could have settled keeps a miss out of the caches (see
+	 * `readRepository`).
+	 */
+	private async getCollectionNames(session: ProviderAuthenticationSession): Promise<string[] | undefined> {
+		try {
+			return (await this.getProviderResourcesForUser(session))?.map(r => r.name);
+		} catch (ex) {
+			if (ex instanceof AuthenticationError) return [];
+
+			Logger.debug(
+				`${this.name}: collections at ${this.apiBaseUrlFor(session)} couldn't be read to place a repository path`,
+				ex,
+			);
+			return undefined;
+		}
+	}
+
+	override invalidateDiscoveryCaches(): void {
+		super.invalidateDiscoveryCaches();
+		this._collectionNames.clear();
 	}
 
 	/**
@@ -978,6 +1046,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		this._pullRequestSearches.clear();
 		this._latestPullRequestSearches.clear();
 		this._collectionUserIds.clear();
+		this._collectionNames.clear();
 	}
 
 	protected override async _requestForCurrentUser(

@@ -33,7 +33,7 @@ import {
 } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
-import { toError } from '../errors.js';
+import { RequestNotFoundError, toError } from '../errors.js';
 import type {
 	GetIssuesOptions,
 	GetPullRequestsOptions,
@@ -275,13 +275,23 @@ export abstract class GitHostIntegration<
 		const defaultBranch = this.ctx.cache.getRepositoryDefaultBranch(
 			repo,
 			this,
-			() => ({
+			cacheable => ({
 				value: (async () => {
 					try {
 						const result = await this.getProviderDefaultBranch(this._session!, repo, options?.cancellation);
+						// A canceled read may come back with nothing, which isn't an answer to keep
+						if (result == null && options?.cancellation?.aborted) {
+							cacheable.invalidate();
+							return undefined;
+						}
+
 						this.resetRequestExceptionCount('getDefaultBranch');
 						return result;
 					} catch (ex) {
+						// A failed lookup is not an answer, and this bucket never expires one; a missing repository is.
+						if (!(ex instanceof RequestNotFoundError)) {
+							cacheable.invalidate();
+						}
 						this.handleProviderException('getDefaultBranch', ex, { scope: scope });
 						return undefined;
 					}
@@ -356,7 +366,7 @@ export abstract class GitHostIntegration<
 		const metadata = this.ctx.cache.getRepositoryMetadata(
 			repo,
 			this,
-			() => ({
+			cacheable => ({
 				value: (async () => {
 					try {
 						const result = await this.getProviderRepositoryMetadata(
@@ -364,9 +374,19 @@ export abstract class GitHostIntegration<
 							repo,
 							options?.cancellation,
 						);
+						// A canceled read may come back with nothing, which isn't an answer to keep
+						if (result == null && options?.cancellation?.aborted) {
+							cacheable.invalidate();
+							return undefined;
+						}
+
 						this.resetRequestExceptionCount('getRepositoryMetadata');
 						return result;
 					} catch (ex) {
+						// A failed lookup is not an answer, and this bucket never expires one; a missing repository is.
+						if (!(ex instanceof RequestNotFoundError)) {
+							cacheable.invalidate();
+						}
 						this.handleProviderException('getRepositoryMetadata', ex, { scope: scope });
 						return undefined;
 					}
