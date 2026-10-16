@@ -4,7 +4,7 @@ import { BranchError } from '@gitlens/git/errors.js';
 import type { BranchDisposition, BranchMetadata } from '@gitlens/git/models/branch.js';
 import { GitBranch } from '@gitlens/git/models/branch.js';
 import type { ConflictDetectionErrorReason, ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
-import type { GitBranchReference } from '@gitlens/git/models/reference.js';
+import type { GitBranchReference, RefRecord } from '@gitlens/git/models/reference.js';
 import type { GitRevisionRange } from '@gitlens/git/models/revision.js';
 import type {
 	AheadOfBase,
@@ -1769,7 +1769,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		// `...` counts from the merge base, so only the branch's own commits count, not what the base moved on with
 		const range = createRevisionRange(target, 'HEAD', '...');
-		let counts = await this.provider.commits.getLeftRightCommitCount(repoPath, range, undefined, cancellation);
+		const [countsResult, refsResult] = await Promise.allSettled([
+			this.provider.commits.getLeftRightCommitCount(repoPath, range, undefined, cancellation),
+			// The same cached `for-each-ref` the branch list reads, so the tip usually costs nothing
+			this.provider.refs.getRefs(repoPath, cancellation),
+		]);
+		if (cancellation?.aborted) throw new CancellationError();
+
+		let counts = getSettledValue(countsResult);
 		if (counts == null) {
 			// The cached count keeps a failure, so re-run it uncached. Before HEAD's first commit there is nothing to
 			// count, so no base; any other failure rejects with git's error
@@ -1786,7 +1793,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			}
 		}
 
-		return { base: { ref: target, ahead: counts.right }, dependsOn: [...dependsOn] };
+		return {
+			base: { ref: target, ahead: counts.right, sha: findRefTip(getSettledValue(refsResult, []), target) },
+			dependsOn: [...dependsOn],
+		};
 	}
 
 	/** Counts `range` with a fresh `rev-list`, bypassing the cached count. Rejects on any failure, with git's error */
@@ -2273,8 +2283,29 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 }
 
 /**
- * Adds the full ref names a `.git/refs` watcher would report for `name`. A short name can't be told local from
- * remote without a spawn, so it adds both forms; a spurious one only costs a recompute.
+ * The commit `name` resolves to among `records`, tried in git's own order for a short name (`refs/tags/` before
+ * `refs/heads/` before `refs/remotes/`); annotated tags peel to their commit. `undefined` when no listed ref matches.
+ */
+function findRefTip(records: readonly RefRecord[], name: string): string | undefined {
+	for (const candidate of [
+		name,
+		`refs/${name}`,
+		`refs/tags/${name}`,
+		`refs/heads/${name}`,
+		`refs/remotes/${name}`,
+		`refs/remotes/${name}/HEAD`,
+	]) {
+		const record = records.find(r => r.name === candidate);
+		if (record != null) return record.peeledObjectname || record.objectname;
+	}
+
+	return undefined;
+}
+
+/**
+ * Adds the full ref names a `.git/refs` watcher would report for `name`. A short name can't be told tag from local
+ * from remote without a spawn, so it adds every form, including the tag git resolves it to first; a spurious one
+ * only costs a recompute.
  */
 function addRefDependencies(dependsOn: Set<string>, name: string): void {
 	if (name.startsWith('refs/')) {
@@ -2282,6 +2313,7 @@ function addRefDependencies(dependsOn: Set<string>, name: string): void {
 		return;
 	}
 
+	dependsOn.add(`refs/tags/${name}`);
 	dependsOn.add(`refs/heads/${name}`);
 	dependsOn.add(`refs/remotes/${name}`);
 }
