@@ -73,6 +73,7 @@ import {
 } from '@gitlens/git/models/pullRequest.js';
 import type { Provider, ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import type { ProviderScope } from '@gitlens/git/models/resourceDescriptor.js';
+import { isTerminalIssueStateCategory } from '@gitlens/git/utils/issue.utils.js';
 import { gitSuffixRegex } from '@gitlens/git/utils/remote.utils.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
@@ -1449,7 +1450,8 @@ export function toIssueShape(
 	// every open issue as closed.
 	const isJira = isJiraIntegrationId(provider.id);
 	const reliableStateCategory = !isJira || options?.reliableStateCategory === true;
-	const closed = issue.closedDate != null || (issue.state?.category === 'DONE' && reliableStateCategory);
+	const closed =
+		issue.closedDate != null || (reliableStateCategory && isTerminalIssueStateCategory(issue.state?.category));
 
 	return {
 		type: 'issue',
@@ -2007,7 +2009,7 @@ export function fromProviderIssue(
 	options?: { project?: IssueProject; projection?: IssueProjection },
 ): Issue {
 	const identifier = toIssueIdentifier(issue.number);
-	const closed = issue.closedDate != null || issue.state?.category === 'DONE';
+	const closed = issue.closedDate != null || isTerminalIssueStateCategory(issue.state?.category);
 	return new Issue(
 		integration,
 		identifier,

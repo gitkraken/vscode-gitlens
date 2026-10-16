@@ -1205,7 +1205,12 @@ and `closed` is decided by `closedDate` alone. A done issue with no resolution d
 direction is deliberate, since trusting a name-matched `DONE` would report every open issue on a non-English
 instance as closed.
 
-The normalized `state` and `closed` fields keep their existing derivation; `providerState` is additive.
+`category` is `TO_DO`, `IN_PROGRESS`, `DONE` or `CANCELED`. `CANCELED` is abandoned work (canceled, duplicate,
+removed): it closes an issue as `DONE` does, and stays its own value so a consumer can tell the two outcomes apart.
+The provider-apis this release pins emits no `CANCELED` yet, so until then a canceled Linear issue reads as `DONE`.
+
+The normalized `state` and `closed` fields keep their existing derivation, with `CANCELED` closing like `DONE`;
+`providerState` is additive.
 
 ### Sprints and iterations
 

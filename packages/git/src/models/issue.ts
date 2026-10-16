@@ -291,7 +291,9 @@ export type IssueProviderState = {
 	id?: string;
 	name: string;
 	color?: string;
-	category?: 'TO_DO' | 'IN_PROGRESS' | 'DONE';
+	/** The provider's workflow category. `CANCELED` is abandoned work (Linear's canceled and duplicate states, Azure's
+	 *  `Removed` category): closed like `DONE`, kept apart so a consumer can tell the two outcomes apart. */
+	category?: 'TO_DO' | 'IN_PROGRESS' | 'DONE' | 'CANCELED';
 };
 
 export interface IssueProject {
