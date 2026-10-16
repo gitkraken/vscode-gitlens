@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-16
+
 ### Added
 
 - Adds `orgId` to `ProviderOrganization`: the parent's stable id where `org` is only its label. `listProjects` sets it on Jira projects (the site's id, or the Data Center instance's domain), which is what `listIssueTrackerIssuesPage` takes as `org` for Jira (plus/integrations)
@@ -673,7 +675,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.11.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.12.0...HEAD
+[0.12.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.11.1...gitkraken:releases/core/v0.12.0
 [0.11.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.11.0...gitkraken:releases/core/v0.11.1
 [0.11.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.7...gitkraken:releases/core/v0.11.0
 [0.10.7]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.6...gitkraken:releases/core/v0.10.7
