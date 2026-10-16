@@ -892,8 +892,7 @@ export interface ProviderMetadata {
 	 */
 	supportedAccountWideIssueSorts?: IssueSorting[];
 	/**
-	 * Whether an issue tracker's reads (the project-scoped read, which is `listIssueTrackerIssuesPage`, and its
-	 * account-wide read) can be asked for a `state` other than open, and honor it server-side.
+	 * Whether issue list reads (including Azure project/repository and account-wide reads) can be asked for a `state` other than open, and honor it server-side.
 	 *
 	 * A tracker read is open-only unless asked otherwise, so absent does not mean the read returns every state: it
 	 * means only `'open'` is expressible, and `'closed'`/`'all'` are refused rather than served as the open list.
@@ -1218,6 +1217,7 @@ export const providersMetadata: ProvidersMetadata = {
 		scopes: ['Project (Read)', 'Repository (Write)'],
 	},
 	[GitCloudHostIntegrationId.AzureDevOps]: {
+		supportsIssueStates: true,
 		domain: 'dev.azure.com',
 		id: GitCloudHostIntegrationId.AzureDevOps,
 		name: 'Azure DevOps',
@@ -1249,6 +1249,7 @@ export const providersMetadata: ProvidersMetadata = {
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
 	},
 	[GitSelfManagedHostIntegrationId.AzureDevOpsServer]: {
+		supportsIssueStates: true,
 		domain: '',
 		id: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 		name: 'Azure DevOps Server',
@@ -1420,6 +1421,19 @@ function toIssueProviderState(state: ProviderIssue['state']): IssueProviderState
 			};
 }
 
+function isProviderIssueClosed(issue: ProviderIssue, providerId: ProviderReference['id']): boolean {
+	const category = issue.state?.category;
+	if (
+		(providerId === GitCloudHostIntegrationId.AzureDevOps ||
+			providerId === GitSelfManagedHostIntegrationId.AzureDevOpsServer) &&
+		category != null
+	) {
+		return isTerminalIssueStateCategory(category);
+	}
+
+	return issue.closedDate != null || isTerminalIssueStateCategory(category);
+}
+
 export function toIssueShape(
 	issue: ProviderIssue,
 	provider: ProviderReference,
@@ -1431,7 +1445,7 @@ export function toIssueShape(
 	// Fall back to an empty author instead so these issues still surface.
 	if (issue.updatedDate == null || issue.url == null) return undefined;
 
-	const closed = issue.closedDate != null || isTerminalIssueStateCategory(issue.state?.category);
+	const closed = isProviderIssueClosed(issue, provider.id);
 
 	return {
 		type: 'issue',
@@ -1989,7 +2003,7 @@ export function fromProviderIssue(
 	options?: { project?: IssueProject; projection?: IssueProjection },
 ): Issue {
 	const identifier = toIssueIdentifier(issue.number);
-	const closed = issue.closedDate != null || isTerminalIssueStateCategory(issue.state?.category);
+	const closed = isProviderIssueClosed(issue, integration.id);
 	return new Issue(
 		integration,
 		identifier,

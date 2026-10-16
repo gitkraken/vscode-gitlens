@@ -42,7 +42,6 @@ import type {
 	AzureRepositoryReference,
 	AzureRepositoryUrls,
 	AzureRepositoryWithMetadata,
-	AzureWorkItemState,
 	AzureWorkItemStateCategory,
 	WorkItem,
 } from './models.js';
@@ -67,7 +66,7 @@ import {
 	toAzureWorkItemSearchCursorKey,
 	toAzureWorkItemSearchWiql,
 } from './search.js';
-import { getAzureWorkItemTypeStatesPath } from './workItemStateCategories.js';
+import { AzureWorkItemStatesCache, getAzureWorkItemTypeStatesPath } from './workItemStateCategories.js';
 
 const forkRepositoryUrlCacheTtl = 5 * 60 * 1000;
 /** How long a work-item search's id snapshot outlives the last page read from it, and the most it lives at all. */
@@ -89,58 +88,10 @@ function parseAzureRepositoryDescriptor(repo: string): { projectName: string; re
 	return { projectName: projectName, repoName: repoName };
 }
 
-class WorkItemStates {
-	private readonly _categories = new Map<string, AzureWorkItemStateCategory>();
-	private readonly _types = new Map<string, AzureWorkItemState[]>();
-
-	// TODO@sergeibbb: we might need some logic for invalidating
-	public getStateCategory(
-		project: string,
-		workItemType: string,
-		stateName: string,
-	): AzureWorkItemStateCategory | undefined {
-		return this._categories.get(this.getStateKey(project, workItemType, stateName));
-	}
-
-	public clear(): void {
-		this._categories.clear();
-		this._types.clear();
-	}
-
-	public saveTypeStates(project: string, workItemType: string, states: AzureWorkItemState[]): void {
-		this.clearTypeStates(project, workItemType);
-		this._types.set(this.getTypeKey(project, workItemType), states);
-		for (const state of states) {
-			this._categories.set(this.getStateKey(project, workItemType, state.name), state.category);
-		}
-	}
-
-	public hasTypeStates(project: string, workItemType: string): boolean {
-		return this._types.has(this.getTypeKey(project, workItemType));
-	}
-
-	private clearTypeStates(project: string, workItemType: string): void {
-		const states = this._types.get(this.getTypeKey(project, workItemType));
-		if (states == null) return;
-
-		for (const state of states) {
-			this._categories.delete(this.getStateKey(project, workItemType, state.name));
-		}
-	}
-
-	private getStateKey(project: string, workItemType: string, stateName: string): string {
-		// By stringifying the pair as JSON we make sure that all possible special characters are escaped
-		return JSON.stringify([project, workItemType, stateName]);
-	}
-
-	private getTypeKey(project: string, workItemType: string): string {
-		return JSON.stringify([project, workItemType]);
-	}
-}
-
 export class AzureDevOpsApi implements Disposable {
 	private readonly _disposable: Disposable | undefined;
-	private _workItemStates: WorkItemStates = new WorkItemStates();
+	private readonly _workItemStates: AzureWorkItemStatesCache;
+	private readonly ownsWorkItemStates: boolean;
 	private readonly _forkRepositoryUrls = new PromiseCache<string, AzureForkRepositoryUrls | undefined>({
 		capacity: 100,
 		createTTL: forkRepositoryUrlCacheTtl,
@@ -156,7 +107,12 @@ export class AzureDevOpsApi implements Disposable {
 		createTTL: workItemSearchSnapshotMaxTtl,
 	});
 
-	constructor(private readonly config: ProviderApiConfig) {
+	constructor(
+		private readonly config: ProviderApiConfig,
+		workItemStates?: AzureWorkItemStatesCache,
+	) {
+		this._workItemStates = workItemStates ?? new AzureWorkItemStatesCache();
+		this.ownsWorkItemStates = workItemStates == null;
 		this._disposable = config.onConfigChanged?.(() => this.resetCaches());
 	}
 
@@ -165,7 +121,9 @@ export class AzureDevOpsApi implements Disposable {
 	}
 
 	private resetCaches(): void {
-		this._workItemStates.clear();
+		if (this.ownsWorkItemStates) {
+			this._workItemStates.clear();
+		}
 		this._forkRepositoryUrls.clear();
 		this._workItemSearches.clear();
 	}
@@ -377,9 +335,10 @@ export class AzureDevOpsApi implements Disposable {
 		const { projectName, repoName } = parseAzureRepositoryDescriptor(repo);
 
 		if (options?.type === undefined || options?.type === 'issue') {
+			let issueResult: WorkItem | undefined;
 			try {
 				// Try to get the Work item (wit) first with specific fields
-				const issueResult = await this.request<WorkItem>(
+				issueResult = await this.request<WorkItem>(
 					provider,
 					token,
 					options?.baseUrl,
@@ -389,33 +348,6 @@ export class AzureDevOpsApi implements Disposable {
 					},
 					scope,
 				);
-
-				if (issueResult != null) {
-					const issueType = issueResult.fields['System.WorkItemType'];
-					const state = issueResult.fields['System.State'];
-					const stateCategory = await this.getWorkItemStateCategory(
-						issueType,
-						state,
-						provider,
-						token,
-						owner,
-						projectName,
-						options,
-					);
-
-					return {
-						id: issueResult.id.toString(),
-						type: 'issue',
-						nodeId: issueResult.id.toString(),
-						provider: provider,
-						createdDate: new Date(issueResult.fields['System.CreatedDate']),
-						updatedDate: new Date(issueResult.fields['System.ChangedDate']),
-						state: azureWorkItemsStateCategoryToState(stateCategory),
-						closed: isClosedAzureWorkItemStateCategory(stateCategory),
-						title: issueResult.fields['System.Title'],
-						url: issueResult._links.html.href,
-					};
-				}
 			} catch (ex) {
 				// A rejected credential is actionable and must not be reported as an absent issue; every other
 				// non-404 keeps the existing degrade-to-undefined behavior.
@@ -425,6 +357,33 @@ export class AzureDevOpsApi implements Disposable {
 					scope?.error(ex);
 					return undefined;
 				}
+			}
+
+			if (issueResult != null) {
+				const issueType = issueResult.fields['System.WorkItemType'];
+				const state = issueResult.fields['System.State'];
+				const stateCategory = await this.getWorkItemStateCategory(
+					issueType,
+					state,
+					provider,
+					token,
+					owner,
+					projectName,
+					options,
+				);
+
+				return {
+					id: issueResult.id.toString(),
+					type: 'issue',
+					nodeId: issueResult.id.toString(),
+					provider: provider,
+					createdDate: new Date(issueResult.fields['System.CreatedDate']),
+					updatedDate: new Date(issueResult.fields['System.ChangedDate']),
+					state: azureWorkItemsStateCategoryToState(stateCategory),
+					closed: isClosedAzureWorkItemStateCategory(stateCategory),
+					title: issueResult.fields['System.Title'],
+					url: issueResult._links.html.href,
+				};
 			}
 		}
 
@@ -490,9 +449,10 @@ export class AzureDevOpsApi implements Disposable {
 	): Promise<Issue | undefined> {
 		const scope = getScopedLogger();
 
+		let issueResult: WorkItem | undefined;
 		try {
 			// Try to get the Work item (wit) first with specific fields
-			const issueResult = await this.request<WorkItem>(
+			issueResult = await this.request<WorkItem>(
 				provider,
 				token,
 				options?.baseUrl,
@@ -502,21 +462,6 @@ export class AzureDevOpsApi implements Disposable {
 				},
 				scope,
 			);
-
-			if (issueResult != null) {
-				const issueType = issueResult.fields['System.WorkItemType'];
-				const state = issueResult.fields['System.State'];
-				const stateCategory = await this.getWorkItemStateCategory(
-					issueType,
-					state,
-					provider,
-					token,
-					project.resourceName,
-					project.name,
-					options,
-				);
-				return fromAzureWorkItem(issueResult, provider, project, stateCategory, 'point');
-			}
 		} catch (ex) {
 			// A rejected credential is actionable and must not be reported as an absent work item; every other
 			// non-404 keeps the existing degrade-to-undefined behavior.
@@ -526,6 +471,21 @@ export class AzureDevOpsApi implements Disposable {
 				scope?.error(ex);
 				return undefined;
 			}
+		}
+
+		if (issueResult != null) {
+			const issueType = issueResult.fields['System.WorkItemType'];
+			const state = issueResult.fields['System.State'];
+			const stateCategory = await this.getWorkItemStateCategory(
+				issueType,
+				state,
+				provider,
+				token,
+				project.resourceName,
+				project.name,
+				options,
+			);
+			return fromAzureWorkItem(issueResult, provider, project, stateCategory, 'point');
 		}
 
 		return undefined;
@@ -706,52 +666,20 @@ export class AzureDevOpsApi implements Disposable {
 			baseUrl: string;
 		},
 	): Promise<AzureWorkItemStateCategory | undefined> {
-		// By installation too: this API is shared by every connection, and two installations can each have a
-		// collection and project of the same name whose process maps a state to a different category.
-		const project = JSON.stringify([options.baseUrl, owner, projectName]);
-		const category = this._workItemStates.getStateCategory(project, issueType, state);
-		if (category != null) return category;
-
-		const states = await this.retrieveWorkItemTypeStates(issueType, provider, token, owner, projectName, options);
-		this._workItemStates.saveTypeStates(project, issueType, states);
-
-		return this._workItemStates.getStateCategory(project, issueType, state);
-	}
-
-	private async retrieveWorkItemTypeStates(
-		workItemType: string,
-		provider: Provider,
-		token: TokenWithInfo,
-		owner: string,
-		projectName: string,
-		options: {
-			baseUrl: string;
-		},
-	): Promise<AzureWorkItemState[]> {
-		const scope = getScopedLogger();
-
-		try {
-			const issueResult = await this.request<{ value: AzureWorkItemState[]; count: number }>(
-				provider,
-				token,
-				options?.baseUrl,
-				getAzureWorkItemTypeStatesPath(owner, projectName, workItemType),
-				{
-					method: 'GET',
-				},
-				scope,
-			);
-
-			return issueResult?.value ?? [];
-		} catch (ex) {
-			// A rejected credential must not be degraded to an empty state list: the caller caches whatever this
-			// returns, so an empty list would pin every work item of this type to an unknown state until the
-			// cache is dropped — long after the session recovery this error is supposed to trigger.
-			if (ex instanceof AuthenticationError) throw ex;
-
-			scope?.error(ex);
-			return [];
-		}
+		const states = await this._workItemStates.getStates(
+			{ baseUrl: options.baseUrl, namespace: owner, project: projectName, token: token.accessToken, isPAT: true },
+			issueType,
+			() =>
+				this.request(
+					provider,
+					token,
+					options.baseUrl,
+					getAzureWorkItemTypeStatesPath(owner, projectName, issueType),
+					{ method: 'GET' },
+					undefined,
+				),
+		);
+		return states.find(s => s.name === state)?.category as AzureWorkItemStateCategory | undefined;
 	}
 
 	@trace({
@@ -1351,6 +1279,9 @@ export class AzureDevOpsApi implements Disposable {
 }
 
 /** Wires an {@link AzureDevOpsApi} from the full runtime context, mapping `ctx` down to the narrow config. */
-export function createAzureDevOpsApi(ctx: IntegrationServiceContext): AzureDevOpsApi {
-	return new AzureDevOpsApi(baseProviderApiConfig(ctx));
+export function createAzureDevOpsApi(
+	ctx: IntegrationServiceContext,
+	workItemStates?: AzureWorkItemStatesCache,
+): AzureDevOpsApi {
+	return new AzureDevOpsApi(baseProviderApiConfig(ctx), workItemStates);
 }

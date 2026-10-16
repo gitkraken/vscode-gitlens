@@ -26,9 +26,14 @@ async function readRoutes(
 		baseUrl: baseUrl,
 	});
 	await api.getAccountForCommit(azureProvider, azureToken, owner, repo, value, baseUrl);
-	await api.getWorkItemStateCategory(value, 'Active', azureProvider, azureToken, owner, project, {
+	const states = api.getWorkItemStateCategory(value, 'Active', azureProvider, azureToken, owner, project, {
 		baseUrl: baseUrl,
 	});
+	if ([owner, project].some(segment => segment === '.' || segment === '..')) {
+		await assert.rejects(states, /Invalid Azure path segment/);
+	} else {
+		await states;
+	}
 	await api.getRepositoryMetadata(azureProvider, azureToken, owner, repo, { baseUrl: baseUrl });
 	await api.getDefaultBranch(azureProvider, azureToken, owner, repo, { baseUrl: baseUrl });
 }
@@ -41,7 +46,13 @@ suite('Azure REST route encoding', () => {
 				const api = new AzureDevOpsApi({
 					fetch: (input, init) => {
 						requests.push({ url: new URL(input.toString()), init: init });
-						return Promise.resolve(Response.json(null));
+						return Promise.resolve(
+							Response.json(
+								new URL(input.toString()).pathname.endsWith('/states')
+									? { value: [{ name: 'Active', category: 'InProgress' }] }
+									: null,
+							),
+						);
 					},
 					wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()),
 				});
@@ -91,7 +102,13 @@ suite('Azure REST route encoding', () => {
 				const api = new AzureDevOpsApi({
 					fetch: input => {
 						requests.push(input.toString());
-						return Promise.resolve(Response.json(null));
+						return Promise.resolve(
+							Response.json(
+								new URL(input.toString()).pathname.endsWith('/states')
+									? { value: [{ name: 'Active', category: 'InProgress' }] }
+									: null,
+							),
+						);
 					},
 					wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()),
 				});

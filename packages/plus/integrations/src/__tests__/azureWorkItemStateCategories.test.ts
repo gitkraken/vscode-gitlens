@@ -4,7 +4,8 @@ import { suite, teardown, test } from 'mocha';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { TokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
-import { RequestNotFoundError } from '../errors.js';
+import { AuthenticationError, AuthenticationErrorReason, RequestNotFoundError } from '../errors.js';
+import { createIntegrationService } from '../integrationService.js';
 import {
 	azureProject,
 	azureProvider,
@@ -13,10 +14,12 @@ import {
 	createWorkItem,
 	isAzureWorkItemTypeStatesUrl,
 } from '../providers/azure/__tests__/fixtures.js';
+import { AzureDevOpsApi } from '../providers/azure/azure.js';
 import type { AzureWorkItemStateCategory } from '../providers/azure/models.js';
 import { azureIssueStateCategory, fromAzureWorkItem, toAzureWorkItemEtagFields } from '../providers/azure/models.js';
+import { AzureWorkItemStatesCache } from '../providers/azure/workItemStateCategories.js';
 import type { ProviderIssue } from '../providers/models.js';
-import { toIssueShape } from '../providers/models.js';
+import { fromProviderIssue, toIssueShape } from '../providers/models.js';
 import { ProvidersApi } from '../providers/providersApi.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { connectedAzure } from './sweepHelpers.js';
@@ -67,7 +70,12 @@ function json(status: number, body: unknown): Response {
 function azureHarness() {
 	const fixture = {
 		types: ['Task'],
+		discoveredTypes: undefined as string[] | undefined,
+		onQuery: undefined as (() => void) | undefined,
 		state: 'Descartado',
+		failDiscovery: false,
+		closedDate: undefined as string | undefined,
+		categoriesByType: undefined as Record<string, AzureWorkItemStateCategory> | undefined,
 		/** Fails every states read so. */
 		failStates: undefined as StatesFailure | undefined,
 		/** Fails only this type's states read, with a 503. */
@@ -75,12 +83,22 @@ function azureHarness() {
 	};
 	const states: { url: URL; authorization: string | undefined }[] = [];
 	const workItemReads: URL[] = [];
+	const discoveryReads: URL[] = [];
 	let active = 0;
 	let maxActive = 0;
 
 	const fetch = async (input: string | URL, init?: RequestInit): Promise<Response> => {
 		const url = new URL(input.toString());
 		const path = url.pathname;
+		if (/\/_apis\/wit\/workItemTypes$/i.test(path)) {
+			discoveryReads.push(url);
+			return fixture.failDiscovery
+				? json(503, {})
+				: json(200, {
+						value: Array.from(new Set(fixture.discoveredTypes ?? fixture.types), name => ({ name: name })),
+					});
+		}
+
 		if (isAzureWorkItemTypeStatesUrl(url)) {
 			states.push({ url: url, authorization: (init?.headers as Record<string, string>)?.Authorization });
 			active++;
@@ -98,7 +116,14 @@ function azureHarness() {
 
 			switch (fixture.failStates) {
 				case undefined:
-					return azureWorkItemTypeStatesResponse(url)!;
+					return fixture.categoriesByType == null
+						? azureWorkItemTypeStatesResponse(url)!
+						: azureWorkItemTypeStatesResponse(url, [
+								{
+									name: fixture.state,
+									category: fixture.categoriesByType[decodeURIComponent(path.split('/').at(-2)!)],
+								},
+							])!;
 				case 'html':
 					return new Response('<html>Sign in</html>', { headers: { 'content-type': 'text/html' } });
 				case 'malformed':
@@ -108,8 +133,34 @@ function azureHarness() {
 			}
 		}
 
-		const items = fixture.types.map((type, i) => azureItem(i + 1, type, fixture.state));
-		if (path.endsWith('/_apis/wit/wiql')) return json(200, { workItems: items.map(w => ({ id: w.id })) });
+		const items = fixture.types.map((type, i) => {
+			const item = azureItem(i + 1, type, fixture.state);
+			if (fixture.closedDate != null) {
+				(item.fields as Record<string, unknown>)['Microsoft.VSTS.Common.ClosedDate'] = fixture.closedDate;
+			}
+			return item;
+		});
+		if (path.endsWith('/_apis/wit/wiql')) {
+			const query = (JSON.parse(init?.body as string) as { query: string }).query;
+			const predicates = [
+				...query.matchAll(/\[System.WorkItemType\] = '((?:''|[^'])*)' AND \[System.State\] IN \(([^)]*)\)/g),
+			];
+			const selected = query.includes('[System.Id] = 0')
+				? []
+				: items.filter(item => {
+						if (!query.includes('[System.State]')) return true;
+						return predicates.some(
+							([, type, states]) =>
+								type.replaceAll("''", "'") ===
+									(item.fields as Record<string, unknown>)['System.WorkItemType'] &&
+								[...states.matchAll(/'((?:''|[^'])*)'/g)].some(
+									([, state]) => state.replaceAll("''", "'") === fixture.state,
+								),
+						);
+					});
+			fixture.onQuery?.();
+			return json(200, { workItems: selected.map(w => ({ id: w.id })) });
+		}
 
 		if (path.endsWith('/_apis/wit/workitemsbatch')) {
 			const ids = (JSON.parse(init?.body as string) as { ids: number[] }).ids;
@@ -132,7 +183,7 @@ function azureHarness() {
 			});
 		}
 
-		const point = /\/_apis\/wit\/workitems\/(\d+)$/.exec(path);
+		const point = /\/_apis\/wit\/workitems\/(\d+)$/i.exec(path);
 		if (point != null) {
 			workItemReads.push(url);
 			const item = items[Number(point[1]) - 1];
@@ -151,6 +202,7 @@ function azureHarness() {
 		fixture: fixture,
 		states: states,
 		workItemReads: workItemReads,
+		discoveryReads: discoveryReads,
 		maxActive: () => maxActive,
 	};
 }
@@ -208,8 +260,7 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 		assert.equal(fromAzureWorkItem(stateless, azureProvider, azureProject, 'Removed').providerState, undefined);
 	});
 
-	test('a list keeps only the work items in the states it asked for, now that a category can close one', async () => {
-		// provider-apis selects open work items by their dates, which a Removed or a dateless Completed one doesn't have.
+	test('the SDK selects work items by workflow category before paging', async () => {
 		const h = azureHarness();
 		h.fixture.types = ['Task', 'Bug', 'Epic'];
 		const read = (states?: GitIssueState[]) =>
@@ -223,8 +274,7 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 			h.fixture.state = state;
 			assert.deepEqual((await read()).values.length, terminal ? 0 : 3, `${state}: an open read by default`);
 			assert.deepEqual((await read([GitIssueState.Open])).values.length, terminal ? 0 : 3, `${state}: open`);
-			// A closed read keeps what the query selected, as closed by its dates: this fake selects every state.
-			assert.deepEqual((await read([GitIssueState.Closed])).values.length, 3, `${state}: closed`);
+			assert.deepEqual((await read([GitIssueState.Closed])).values.length, terminal ? 3 : 0, `${state}: closed`);
 			assert.deepEqual(
 				(await read([GitIssueState.Open, GitIssueState.Closed])).values.length,
 				3,
@@ -326,12 +376,17 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 		assert.equal(h.states.length, 4, 'each is cached for its own host and credential');
 	});
 
-	test('a failed states read is not kept: the next read retries it', async () => {
+	test('a failed states read is shared briefly, then retries and recovers', async () => {
 		const h = azureHarness();
+		const start = realNow();
+		Date.now = () => start;
 		h.fixture.failStates = 503;
 		await assert.rejects(h.api.getAzureWorkItem(azureToken, scope, 1, {}));
 
 		h.fixture.failStates = undefined;
+		await assert.rejects(h.api.getAzureWorkItem(azureToken, scope, 1, {}));
+		assert.equal(h.states.length, 1);
+		Date.now = () => start + 30 * 1000;
 		const issue = await h.api.getAzureWorkItem(azureToken, scope, 1, {});
 
 		assert.equal(issue?.state?.category, 'CANCELED');
@@ -393,11 +448,371 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 
 			// Never `undefined`: a states read that 404s says nothing about whether the work item exists.
 			await assert.rejects(h.api.getAzureWorkItem(azureToken, scope, 1, {}), (ex: unknown) =>
-				failure === 404 ? ex instanceof RequestNotFoundError : ex instanceof Error,
+				kind === 'authentication'
+					? ex instanceof AuthenticationError &&
+						ex.reason ===
+							(failure === 403
+								? AuthenticationErrorReason.Forbidden
+								: AuthenticationErrorReason.Unauthorized)
+					: failure === 404
+						? ex instanceof RequestNotFoundError
+						: ex instanceof Error,
 			);
-			await assert.rejects(h.api.getAzureWorkItemsEtagFields(azureToken, scope, [1], {}));
+			await assert.rejects(
+				h.api.getAzureWorkItemsEtagFields(azureToken, scope, [1], {}),
+				ex => kind !== 'authentication' || ex instanceof AuthenticationError,
+			);
+			assert.equal(h.states.length, 1, 'list, point and etag share the cached failure');
 		});
 	}
+
+	for (const failure of [401, 403, 'html'] as const) {
+		test(`native presentation preserves a cached ${failure} authentication failure`, async () => {
+			const h = azureHarness();
+			h.fixture.failStates = failure;
+			const runtime = createFakeRuntime();
+			runtime.http.fetch = h.fetch;
+			const manager = createIntegrationService(runtime);
+			try {
+				const api = await (
+					manager as unknown as { getProvidersApi(): Promise<ProvidersApi> }
+				).getProvidersApi();
+				await api.getIssuesForAzureProject(azureToken, 'org', 'project', { states: allStates, isPAT: true });
+				const native = await manager.apis.azure;
+				assert.ok(native != null);
+				await assert.rejects(
+					native.getWorkItemStateCategory('Task', 'Descartado', azureProvider, azureToken, 'org', 'project', {
+						baseUrl: 'https://dev.azure.com',
+					}),
+					ex =>
+						ex instanceof AuthenticationError &&
+						ex.reason ===
+							(failure === 403
+								? AuthenticationErrorReason.Forbidden
+								: AuthenticationErrorReason.Unauthorized),
+				);
+				assert.equal(h.states.length, 1);
+			} finally {
+				manager.dispose();
+			}
+		});
+	}
+
+	test('an in-flight failure cannot repopulate invalidated metadata', async () => {
+		const cache = new AzureWorkItemStatesCache();
+		let reject!: (error: Error) => void;
+		const coordinate = {
+			baseUrl: 'https://dev.azure.com',
+			namespace: 'org',
+			project: 'project',
+			token: 'token',
+			isPAT: true,
+		};
+		const pending = cache.getStates(
+			coordinate,
+			'Task',
+			() =>
+				new Promise((_resolve, fail) => {
+					reject = fail;
+				}),
+		);
+		cache.clear();
+		reject(new Error('old request'));
+		await assert.rejects(pending);
+		const states = await cache.getStates(coordinate, 'Task', async () => ({
+			value: [{ name: 'New', category: 'Proposed' }],
+		}));
+		assert.equal(states[0].category, 'Proposed');
+	});
+
+	test('manager list, point, etag and native presentation share one states read and invalidation', async () => {
+		const h = azureHarness();
+		const runtime = createFakeRuntime();
+		runtime.http.fetch = h.fetch;
+		const manager = createIntegrationService(runtime);
+		try {
+			const api = await (manager as unknown as { getProvidersApi(): Promise<ProvidersApi> }).getProvidersApi();
+			const native = await manager.apis.azure;
+			assert.ok(native != null);
+			const options = { isPAT: true, baseUrl: 'https://dev.azure.com' };
+			const [point, etag, list, category] = await Promise.all([
+				api.getAzureWorkItem(azureToken, scope, 1, options),
+				api.getAzureWorkItemsEtagFields(azureToken, scope, [1], options),
+				api.getIssuesForAzureProject(azureToken, 'org', 'project', { ...options, states: allStates }),
+				native.getWorkItemStateCategory(
+					'Task',
+					'Descartado',
+					azureProvider,
+					azureToken,
+					'org',
+					'project',
+					options,
+				),
+			]);
+			assert.equal(point?.state?.category, 'CANCELED');
+			assert.equal(etag[0].category, 'CANCELED');
+			assert.equal(list.values[0].state?.category, 'CANCELED');
+			assert.equal(category, 'Removed');
+			assert.equal(h.states.length, 1);
+			h.fixture.categoriesByType = { Task: 'InProgress' };
+			runtime.fireConfigChange({ httpProxy: true, remotes: false, integrationsEnabled: false, launchpad: false });
+			assert.equal((await api.getAzureWorkItem(azureToken, scope, 1, options))?.state?.category, 'IN_PROGRESS');
+			assert.equal(
+				await native.getWorkItemStateCategory(
+					'Task',
+					'Descartado',
+					azureProvider,
+					azureToken,
+					'org',
+					'project',
+					options,
+				),
+				'InProgress',
+			);
+			assert.equal(h.states.length, 2);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('shared metadata invalidates before the lazy native client is loaded', async () => {
+		const h = azureHarness();
+		const runtime = createFakeRuntime();
+		runtime.http.fetch = h.fetch;
+		const manager = createIntegrationService(runtime);
+		try {
+			const api = await (manager as unknown as { getProvidersApi(): Promise<ProvidersApi> }).getProvidersApi();
+			await api.getAzureWorkItem(azureToken, scope, 1, { isPAT: true });
+			runtime.fireConfigChange({ httpProxy: true, remotes: false, integrationsEnabled: false, launchpad: false });
+			const native = await manager.apis.azure;
+			await native?.getWorkItemStateCategory('Task', 'Descartado', azureProvider, azureToken, 'org', 'project', {
+				baseUrl: 'https://dev.azure.com',
+			});
+			assert.equal(h.states.length, 2);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('full pages and continuation are selected by type and category', async () => {
+		const h = azureHarness();
+		h.fixture.types = ['Bug', 'Task', 'Task', 'Bug', 'Task', 'Bug'];
+		h.fixture.state = 'Resolved';
+		h.fixture.categoriesByType = { Bug: 'Resolved', Task: 'InProgress' };
+		const read = (states?: GitIssueState[], page = 1) =>
+			h.api.getIssuesForAzureProject(azureToken, 'org', 'project', { states: states, pageSize: 2, page: page });
+		assert.deepEqual(
+			(await read()).values.map(i => i.id),
+			['2', '3'],
+		);
+		assert.deepEqual(
+			(await read(undefined, 2)).values.map(i => i.id),
+			['5'],
+		);
+		const closed = await read([GitIssueState.Closed]);
+		assert.deepEqual(
+			closed.values.map(i => i.id),
+			['1', '4'],
+		);
+		assert.equal(closed.paging?.more, true);
+		assert.deepEqual(
+			(await read([GitIssueState.Closed], 2)).values.map(i => i.id),
+			['6'],
+		);
+		assert.equal(h.states.length, 2);
+	});
+
+	test('all states reads only workflows present on the page without discovering unrelated types', async () => {
+		const h = azureHarness();
+		h.fixture.discoveredTypes = ['Task', 'Unavailable'];
+		h.fixture.failType = 'Unavailable';
+		const page = await h.api.getIssuesForAzureProject(azureToken, 'org', 'project', { states: allStates });
+		assert.equal(page.values.length, 1);
+		assert.deepEqual(categories(page.values), ['CANCELED']);
+		assert.equal(page.metadata, undefined);
+		assert.equal(h.discoveryReads.length, 0);
+		assert.equal(h.states.length, 1);
+	});
+
+	for (const failure of [false, true]) {
+		test(`a filtered page uses its selection snapshot when metadata expires during WIQL (refresh failure: ${failure})`, async () => {
+			const h = azureHarness();
+			const start = realNow();
+			Date.now = () => start;
+			h.fixture.onQuery = () => {
+				Date.now = () => start + 5 * 60 * 1000;
+				h.fixture.categoriesByType = { Task: 'InProgress' };
+				h.fixture.failStates = failure ? 503 : undefined;
+			};
+			const page = await h.api.getIssuesForAzureProject(azureToken, 'org', 'project', {
+				states: [GitIssueState.Closed],
+			});
+			assert.equal(page.values.length, 1);
+			assert.deepEqual(categories(page.values), ['CANCELED']);
+			assert.equal(page.metadata, undefined);
+			assert.equal(h.states.length, 1);
+		});
+	}
+
+	for (const [read, failure] of [
+		['point', 503],
+		['point', 404],
+		['point', 'malformed'],
+		['linked', 503],
+		['linked', 404],
+		['linked', 'malformed'],
+	] as const) {
+		test(`native ${read} metadata failure ${failure} rejects and recovers instead of becoming a missing issue`, async () => {
+			const h = azureHarness();
+			const native = new AzureDevOpsApi({
+				fetch: h.fetch,
+				wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()),
+			});
+			const start = realNow();
+			Date.now = () => start;
+			h.fixture.failStates = failure;
+			const get = () =>
+				read === 'point'
+					? native.getIssue(
+							azureProvider,
+							azureToken,
+							{ ...azureProject, resourceName: 'org', name: 'project' },
+							'1',
+							{ baseUrl: 'https://dev.azure.com' },
+						)
+					: native.getIssueOrPullRequest(azureProvider, azureToken, 'org', 'project/_git/repo', '1', {
+							baseUrl: 'https://dev.azure.com',
+						});
+			await assert.rejects(get);
+			await assert.rejects(get);
+			assert.equal(h.states.length, 1);
+			h.fixture.failStates = undefined;
+			Date.now = () => start + 30 * 1000;
+			assert.equal((await get())?.closed, true);
+			assert.equal(h.states.length, 2);
+		});
+	}
+
+	test('a failed snapshot type is not retried after its failure expires during the page read', async () => {
+		const h = azureHarness();
+		const start = realNow();
+		Date.now = () => start;
+		h.fixture.failStates = 503;
+		h.fixture.onQuery = () => {
+			Date.now = () => start + 30 * 1000;
+			h.fixture.failStates = undefined;
+		};
+		const page = await h.api.getIssuesForAzureProject(azureToken, 'org', 'project', {
+			states: [GitIssueState.Closed],
+		});
+		assert.equal(page.values.length, 1);
+		assert.deepEqual(categories(page.values), [undefined]);
+		assert.equal(page.metadata?.completeness, 'partial');
+		assert.equal(h.states.length, 1);
+	});
+
+	test('a type absent from failed discovery is classified while the collection remains partial', async () => {
+		const h = azureHarness();
+		h.fixture.failDiscovery = true;
+		const page = await h.api.getIssuesForAzureProject(azureToken, 'org', 'project', {
+			states: [GitIssueState.Closed],
+		});
+		assert.equal(page.values.length, 1);
+		assert.deepEqual(categories(page.values), ['CANCELED']);
+		assert.equal(page.metadata?.completeness, 'partial');
+		assert.equal(h.states.length, 1);
+	});
+
+	test('failed type discovery stays partial even on an empty list and recovers', async () => {
+		const h = azureHarness();
+		h.fixture.types = [];
+		h.fixture.failDiscovery = true;
+		const start = realNow();
+		Date.now = () => start;
+		for (const states of [undefined, [GitIssueState.Closed]]) {
+			const page = await h.api.getIssuesForAzureProject(azureToken, 'org', 'project', { states: states });
+			assert.deepEqual(page.values, []);
+			assert.equal(page.metadata?.completeness, 'partial');
+		}
+		const all = await h.api.getIssuesForAzureProject(azureToken, 'org', 'project', { states: allStates });
+		assert.deepEqual(all.values, []);
+		assert.equal(all.metadata, undefined);
+		h.fixture.failDiscovery = false;
+		Date.now = () => start + 30 * 1000;
+		const complete = await h.api.getIssuesForAzureProject(azureToken, 'org', 'project');
+		assert.deepEqual(complete.values, []);
+		assert.equal(complete.metadata, undefined);
+	});
+
+	for (const [id, token, baseUrl] of [
+		[GitCloudHostIntegrationId.AzureDevOps, azureToken, 'https://dev.azure.com'],
+		[GitSelfManagedHostIntegrationId.AzureDevOpsServer, serverToken, 'https://server.test'],
+	] as const) {
+		test(`${id}: an open category remains open with a historical close date`, async () => {
+			const h = azureHarness();
+			h.fixture.state = 'Removed';
+			h.fixture.closedDate = date;
+			const runtime = createFakeRuntime();
+			runtime.http.fetch = h.fetch;
+			const manager = createIntegrationService(runtime);
+			try {
+				const integration = await manager.get(
+					id,
+					id === GitSelfManagedHostIntegrationId.AzureDevOpsServer ? 'server.test' : undefined,
+				);
+				assert.ok(integration != null);
+				const options = { baseUrl: baseUrl, isPAT: true };
+				const list = await h.api.getIssuesForAzureProject(token, 'org', 'project', {
+					...options,
+					states: [GitIssueState.Open],
+				});
+				assert.equal(list.values.length, 1);
+				const point = await h.api.getAzureWorkItem(token, scope, 1, options);
+				assert.ok(point != null);
+				const shapes = [
+					toIssueShape(list.values[0], integration),
+					toIssueShape(point, integration),
+					fromProviderIssue(list.values[0], integration),
+				];
+				for (const shape of shapes) {
+					assert.equal(shape?.state, 'opened');
+					assert.equal(shape?.closed, false);
+					assert.equal(shape?.closedDate?.toISOString(), date);
+				}
+				const etag = await h.api.getAzureWorkItemsEtagFields(token, scope, [1], options);
+				assert.equal(toAzureWorkItemEtagFields(etag[0].workItem, 'project', etag[0].category).state, 'opened');
+				const native = createWorkItem();
+				native.fields['System.State'] = 'Removed';
+				native.fields['Microsoft.VSTS.Common.ClosedDate'] = date;
+				assert.equal(fromAzureWorkItem(native, azureProvider, azureProject, 'InProgress').state, 'opened');
+				assert.equal(
+					toIssueShape(point, { ...azureProvider, id: GitCloudHostIntegrationId.GitHub })?.state,
+					'closed',
+					'other providers keep date semantics',
+				);
+				h.fixture.state = 'Mystery';
+				const unknown = await h.api.getAzureWorkItem(token, scope, 1, options);
+				assert.ok(unknown != null);
+				assert.equal(
+					toIssueShape(unknown, integration)?.state,
+					'closed',
+					'unknown category keeps date fallback',
+				);
+			} finally {
+				manager.dispose();
+			}
+		});
+	}
+
+	test('an unknown category is partial even when every state is requested', async () => {
+		const h = azureHarness();
+		h.fixture.categoriesByType = { Task: 'unknown' as AzureWorkItemStateCategory };
+		const page = await h.api.getIssuesForAzureProject(azureToken, 'org', 'project', { states: allStates });
+		assert.equal(page.values.length, 1);
+		assert.equal(page.metadata?.completeness, 'partial');
+		await assert.rejects(h.api.getAzureWorkItem(azureToken, scope, 1, {}));
+		assert.equal(h.states.length, 1);
+	});
 
 	test('a states read is reused for five minutes, then read again', async () => {
 		const h = azureHarness();

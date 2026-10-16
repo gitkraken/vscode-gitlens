@@ -1,7 +1,7 @@
-import ProviderApis from '@gitkraken/provider-apis';
+import ProviderApis, { GitIssueState } from '@gitkraken/provider-apis';
 import type {
+	AzureWorkItemTypeStates,
 	CollectionMetadata,
-	GitIssueState,
 	GitPullRequestState,
 	GraphQLError,
 	GraphQLErrors,
@@ -10,11 +10,9 @@ import type {
 } from '@gitkraken/provider-apis';
 import type { IssueProviderState } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
-import { isTerminalIssueStateCategory } from '@gitlens/git/utils/issue.utils.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
-import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
@@ -29,14 +27,24 @@ import {
 } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
-import type { AzurePullRequest, AzureWorkItemEtagRead, AzureWorkItemResponse } from './azure/models.js';
+import type {
+	AzurePullRequest,
+	AzureWorkItemEtagRead,
+	AzureWorkItemResponse,
+	AzureWorkItemStateCategory,
+} from './azure/models.js';
 import {
+	azureIssueStateCategory,
 	azureWorkItemEtagFieldNames,
 	encodeAzurePathSegment,
 	fromAzureWorkItemToProviderIssue,
 } from './azure/models.js';
-import type { AzureWorkItemTypeStateCategories } from './azure/workItemStateCategories.js';
-import { getAzureWorkItemTypeStatesUrl, parseAzureWorkItemTypeStates } from './azure/workItemStateCategories.js';
+import type { AzureWorkItemStatesScope } from './azure/workItemStateCategories.js';
+import {
+	AzureWorkItemStatesCache,
+	getAzureWorkItemTypeStatesUrl,
+	getAzureWorkItemTypesUrl,
+} from './azure/workItemStateCategories.js';
 import { requestBitbucketServerProjects, requestBitbucketServerRepositories } from './bitbucket-server/discovery.js';
 import {
 	countBitbucketServerPullRequests,
@@ -88,8 +96,7 @@ import type {
 	Providers,
 	PullRequestFilter,
 } from './models.js';
-// The SDK enum's runtime value comes from `./models.js` (see its `GitIssueState`); here the name is the SDK's type.
-import { GitIssueState as gitIssueStates, isRepoIdsInput, providersMetadata } from './models.js';
+import { isRepoIdsInput, providersMetadata } from './models.js';
 import {
 	getProviderResponseBodyMessage,
 	isAzureProviderId,
@@ -195,25 +202,6 @@ function azureAuthorization(token: string, isPAT: boolean | undefined): string {
 
 const azureDevOpsBaseUrl = 'https://dev.azure.com';
 
-/**
- * The work items of an Azure list read that are in the states it asked for. provider-apis selects them by their closed
- * and resolved dates (no state asks for open ones), while a row now also closes on its workflow category: a Removed work
- * item has neither date, so an open read would otherwise list it, closed. A read of closed work items is left as the
- * query selected it, since a resolved date alone selects one that carries no closed date or, when its type's states
- * could not be read, no category; and it can't be completed either, as the query never selects a dateless one.
- */
-function withRequestedAzureIssueStates(issues: ProviderIssue[], states: GitIssueState[] | undefined): ProviderIssue[] {
-	const openOnly =
-		!states?.length || (states.includes(gitIssueStates.Open) && !states.includes(gitIssueStates.Closed));
-	if (!openOnly) return issues;
-
-	return issues.filter(i => i.closedDate == null && !isTerminalIssueStateCategory(i.state?.category));
-}
-
-/** How long a work item type's states classify its work items before they are read again. */
-const azureWorkItemTypeStatesTTL = 5 * 60 * 1000;
-/** The most work item type state reads kept, across hosts, projects, types and credentials. */
-const azureWorkItemTypeStatesCapacity = 256;
 /** The most group descriptors one identity batch read resolves. */
 const azureIdentityBatchSize = 100;
 /** Azure DevOps Services serves the identity APIs from its own host, below the organization like the main one. */
@@ -338,17 +326,10 @@ interface AzureClassifiableIssue {
 export class ProvidersApi {
 	private readonly providers: Providers;
 	private readonly request: ProviderRequestFunction;
-	/**
-	 * Each work item type's states, by URL (host, organization, project and type) and credential: coalesces the reads
-	 * of the same type, and never answers one credential with what another one read. A failed read is not kept, so the
-	 * next read retries it.
-	 */
-	private readonly azureWorkItemTypeStates = new PromiseCache<string, AzureWorkItemTypeStateCategories>({
-		createTTL: azureWorkItemTypeStatesTTL,
-		capacity: azureWorkItemTypeStatesCapacity,
-	});
-
-	constructor(private readonly authenticationService: IntegrationAuthenticationService) {
+	constructor(
+		private readonly authenticationService: IntegrationAuthenticationService,
+		private readonly azureWorkItemTypeStates = new AzureWorkItemStatesCache(),
+	) {
 		const http = authenticationService.ctx.http;
 		const userAgent = http.userAgent;
 		const customFetch: ProviderRequestFunction = async <T>({
@@ -2119,8 +2100,13 @@ export class ProvidersApi {
 			'getIssuesForAzureProjectFn',
 		);
 
-		const result = await this.getPagedResult<ProviderIssue>(
-			{ namespace: namespace, project: project, ...options },
+		const allStates =
+			options?.states?.includes(GitIssueState.Open) && options.states.includes(GitIssueState.Closed);
+		const workItemTypeStates = allStates
+			? undefined
+			: await this.getAzureProjectWorkItemStates(tokenWithInfo, namespace, project, options);
+		const page = await this.getPagedResult<ProviderIssue>(
+			{ namespace: namespace, project: project, ...options, workItemTypeStates: workItemTypeStates },
 			provider.getIssuesForAzureProjectFn,
 			tokenWithInfo,
 			options?.cursor,
@@ -2128,14 +2114,30 @@ export class ProvidersApi {
 			options?.baseUrl,
 		);
 
+		const result =
+			workItemTypeStates?.metadata == null
+				? page
+				: {
+						...page,
+						metadata: mergeCollectionMetadata(page.metadata, workItemTypeStates.metadata),
+						paging: { ...(page.paging ?? { cursor: '{}', more: false }), truncated: true },
+					};
+
 		try {
-			await this.classifyAzureIssueStates(result.values, tokenWithInfo, namespace, project, options);
+			await this.classifyAzureIssueStates(
+				result.values,
+				tokenWithInfo,
+				namespace,
+				project,
+				options,
+				workItemTypeStates,
+			);
 		} catch (ex) {
 			// The rows are read; only some lack the category a failed states read would have given them. Keep them, as
 			// a partial collection that names the project, rather than failing the page.
 			return {
 				...result,
-				values: withRequestedAzureIssueStates(result.values, options?.states),
+				values: result.values,
 				paging: { ...(result.paging ?? { cursor: '{}', more: false }), truncated: true },
 				metadata: mergeCollectionMetadata(result.metadata, {
 					completeness: 'partial',
@@ -2149,77 +2151,118 @@ export class ProvidersApi {
 			};
 		}
 
-		return { ...result, values: withRequestedAzureIssueStates(result.values, options?.states) };
+		return result;
 	}
 
-	/**
-	 * Gives each of `issues` with both a type and a state the workflow category of that state, from its type's states
-	 * (see {@link azureWorkItemTypeStates}): `undefined` for a state the type doesn't list. Keyed on the raw
-	 * `System.State`, which is the state name on every Azure read here because core passes the SDK no state-name map;
-	 * passing one would break the lookup.
-	 *
-	 * Reads each distinct type once, a bounded number at a time. A type whose read fails leaves its issues untouched,
-	 * after the other types' issues are classified, and the first failure then rejects, classified by
-	 * {@link handleProviderError}.
-	 */
+	private azureStatesScope(
+		token: TokenWithInfo,
+		namespace: string,
+		project: string,
+		options?: { baseUrl?: string; isPAT?: boolean },
+	): AzureWorkItemStatesScope {
+		return {
+			baseUrl: options?.baseUrl ?? azureDevOpsBaseUrl,
+			namespace: namespace,
+			project: project,
+			token: token.accessToken,
+			isPAT: options?.isPAT === true,
+		};
+	}
+
+	private async readAzureStatesMetadata(token: TokenWithInfo, url: string, isPAT: boolean): Promise<unknown> {
+		try {
+			return (
+				await this.request<unknown>({
+					url: url,
+					headers: { Authorization: azureAuthorization(token.accessToken, isPAT) },
+				})
+			).body;
+		} catch (ex) {
+			return this.handleProviderError(token, ex);
+		}
+	}
+
+	private getAzureTypeStates(token: TokenWithInfo, scope: AzureWorkItemStatesScope, type: string) {
+		return this.azureWorkItemTypeStates.getStates(scope, type, () =>
+			this.readAzureStatesMetadata(
+				token,
+				getAzureWorkItemTypeStatesUrl(scope.baseUrl, scope.namespace, scope.project, type),
+				scope.isPAT,
+			),
+		);
+	}
+
+	private async getAzureProjectWorkItemStates(
+		token: TokenWithInfo,
+		namespace: string,
+		project: string,
+		options?: { baseUrl?: string; isPAT?: boolean },
+	): Promise<AzureWorkItemTypeStates> {
+		const scope = this.azureStatesScope(token, namespace, project, options);
+		const failureScope = { providerId: token.providerId, resourceId: namespace, projectId: project };
+		let types: string[];
+		try {
+			types = await this.azureWorkItemTypeStates.getTypes(scope, () =>
+				this.readAzureStatesMetadata(
+					token,
+					getAzureWorkItemTypesUrl(scope.baseUrl, namespace, project),
+					scope.isPAT,
+				),
+			);
+		} catch (ex) {
+			return {
+				types: [],
+				metadata: { completeness: 'partial', failures: [toCollectionScopeFailure(failureScope, ex)] },
+			};
+		}
+		const results = await mapSettledBounded(types, providerFanOutConcurrency, async type => ({
+			name: type,
+			states: await this.getAzureTypeStates(token, scope, type),
+		}));
+		const failures = results.flatMap(r =>
+			r.status === 'rejected' ? [toCollectionScopeFailure(failureScope, r.reason)] : [],
+		);
+		return {
+			types: results.map((r, i) => (r.status === 'fulfilled' ? r.value : { name: types[i] })),
+			...(failures.length ? { metadata: { completeness: 'partial', failures: failures } } : {}),
+		};
+	}
+
 	private async classifyAzureIssueStates(
 		issues: readonly AzureClassifiableIssue[],
 		tokenWithInfo: TokenWithInfo,
 		namespace: string,
 		project: string,
 		options: { isPAT?: boolean; baseUrl?: string } | undefined,
+		snapshot?: AzureWorkItemTypeStates,
 	): Promise<void> {
-		const baseUrl = options?.baseUrl ?? azureDevOpsBaseUrl;
-		const types = [...new Set(issues.flatMap(i => (i.state?.name && i.type ? [i.type] : [])))];
-		if (!types.length) return;
-
-		const token = tokenWithInfo.accessToken;
-		const results = await mapSettledBounded(types, providerFanOutConcurrency, async type => {
-			const url = getAzureWorkItemTypeStatesUrl(baseUrl, namespace, project, type);
-			const states = await this.azureWorkItemTypeStates.getOrCreate(
-				// Organization, project and type as Azure compares them, case-insensitively, so two callers spelling them
-				// differently share one read; the URL keeps the caller's spelling.
-				JSON.stringify([
-					baseUrl.replace(/\/$/, ''),
-					namespace.toLowerCase(),
-					project.toLowerCase(),
-					type.toLowerCase(),
-					token,
-					options?.isPAT === true,
-				]),
-				async () => {
-					try {
-						const response = await this.request<unknown>({
-							url: url,
-							headers: { Authorization: azureAuthorization(token, options?.isPAT) },
-						});
-						return parseAzureWorkItemTypeStates(response.body);
-					} catch (ex) {
-						return this.handleProviderError<AzureWorkItemTypeStateCategories>(tokenWithInfo, ex);
-					}
-				},
-			);
-			return [type, states] as const;
-		});
-
-		const statesByType = new Map<string, AzureWorkItemTypeStateCategories>();
-		let failure: PromiseRejectedResult | undefined;
-		for (const result of results) {
-			if (result.status === 'fulfilled') {
-				statesByType.set(result.value[0], result.value[1]);
-			} else {
-				failure ??= result;
-			}
-		}
-
+		const scope = this.azureStatesScope(tokenWithInfo, namespace, project, options);
+		const snapshotTypes = new Map(snapshot?.types.map(type => [type.name, type.states]));
+		const types = [
+			...new Set(issues.flatMap(i => (i.state?.name && i.type && !snapshotTypes.has(i.type) ? [i.type] : []))),
+		];
+		const results = await mapSettledBounded(
+			types,
+			providerFanOutConcurrency,
+			async type => [type, await this.getAzureTypeStates(tokenWithInfo, scope, type)] as const,
+		);
+		const statesByType = new Map([
+			...snapshotTypes,
+			...results.flatMap(r => (r.status === 'fulfilled' ? [r.value] : [])),
+		]);
 		for (const issue of issues) {
 			const states = issue.type ? statesByType.get(issue.type) : undefined;
 			if (states == null || issue.state == null) continue;
 
-			issue.state = { ...issue.state, category: states.get(issue.state.name) };
+			issue.state = {
+				...issue.state,
+				category: azureIssueStateCategory(
+					states.find(s => s.name === issue.state?.name)?.category as AzureWorkItemStateCategory | undefined,
+				),
+			};
 		}
-
-		if (failure != null) throw failure.reason;
+		const failure = results.find(r => r.status === 'rejected');
+		if (failure?.status === 'rejected') throw failure.reason;
 	}
 
 	async getIssuesForProject(

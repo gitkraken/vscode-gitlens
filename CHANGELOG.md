@@ -34,6 +34,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes Azure DevOps issue lists misclassifying Removed work items without closure dates ([#6013](https://github.com/gitkraken/vscode-gitlens/issues/6013))
+
 - Fixes Azure DevOps repositories cloned with a legacy `https://{org}.visualstudio.com/DefaultCollection/…` remote never showing pull requests, work items or commit authors, and filling the log with `Invalid Azure repository descriptor` errors ([#5999](https://github.com/gitkraken/vscode-gitlens/issues/5999)) &mdash; also fixes remotes that name no project (`…/DefaultCollection/_git/{repo}`, `{org}.visualstudio.com/_git/{repo}` and `dev.azure.com/{org}/_git/{repo}`), whose project is named after the repository
 - Fixes _Push_ from the _Git Command Palette_ on a branch with no upstream showing a plain push confirmation (which then failed) instead of the publish step
 - Fixes pressing <kbd>Space</kbd> on a _Git Command Palette_ confirmation step breaking the command &mdash; e.g. _Delete Worktree_ would stop responding and never delete the worktree

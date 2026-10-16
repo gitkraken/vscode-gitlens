@@ -1200,6 +1200,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	}
 
 	async listIssuesPage(options: {
+		state?: IssueStateFilter;
 		providerId: IntegrationIds;
 		repos?: ProviderReposInput;
 		/** Narrows the account-wide read to one org/account. Requires a host with a project layer (Azure). */
@@ -1616,7 +1617,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 			async function load() {
 				return new (
 					await import(/* webpackChunkName: "integrations" */ './providers/providersApi.js')
-				).ProvidersApi(authenticationService);
+				).ProvidersApi(authenticationService, authenticationService.apis.azureWorkItemStates);
 			}
 
 			// Never keep a rejected promise cached: a single failure (a module-resolution error, a transient
