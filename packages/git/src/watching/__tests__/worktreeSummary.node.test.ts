@@ -267,6 +267,7 @@ const expectedInitial: WorktreeSummary = {
 	behind: 2,
 	dirty: false,
 	base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd111' },
+	baseDependsOn: ['refs/heads/develop'],
 	stale: false,
 };
 
@@ -372,6 +373,7 @@ describe('WorktreeSummaryService', () => {
 			assert.strictEqual(summary.sha, 'aaa111', "HEAD's commit is still reported when detached");
 			assert.strictEqual(summary.upstream, undefined);
 			assert.strictEqual(summary.base, undefined);
+			assert.deepStrictEqual(summary.baseDependsOn, []);
 			assert.strictEqual(h.repo.counts.base, 0, 'no base read for a detached HEAD');
 			assert.strictEqual(h.repo.counts.remotes, 0, 'no remotes read without an upstream');
 		});
@@ -563,7 +565,9 @@ describe('WorktreeSummaryService', () => {
 			h.repo.state.base = undefined;
 			h.repo.state.baseDependsOn = ['refs/remotes/origin/main'];
 			h.service.subscribe(repoPath);
-			assert.strictEqual((await h.service.getSummary(repoPath)).base, undefined);
+			const first = await h.service.getSummary(repoPath);
+			assert.strictEqual(first.base, undefined);
+			assert.deepStrictEqual(first.baseDependsOn, ['refs/remotes/origin/main']);
 
 			h.repo.state.base = { ref: 'origin/main', ahead: 0, sha: 'eee111' };
 			assert.deepStrictEqual(
@@ -741,6 +745,29 @@ describe('WorktreeSummaryService', () => {
 			assert.strictEqual(fired[0].sha, 'aaa111');
 		});
 
+		it('fires when only the refs the base depends on change', async () => {
+			const h = createHarness();
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			const fired: WorktreeSummary[] = [];
+			sub.onDidChange(e => fired.push(e));
+
+			h.repo.state.baseDependsOn = ['refs/heads/develop', 'refs/remotes/origin/develop'];
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop')), onlyBase);
+
+			assert.strictEqual(fired.length, 1);
+			assert.deepStrictEqual(fired[0], {
+				...expectedInitial,
+				baseDependsOn: ['refs/heads/develop', 'refs/remotes/origin/develop'],
+			});
+
+			assert.deepStrictEqual(
+				await readsAfter(h, () => h.push(['remotes'], 'refs/remotes/origin/develop')),
+				onlyBase,
+				'the new list is what is watched now',
+			);
+		});
+
 		it('keeps the tips through a dirty-only recompute', async () => {
 			const h = createHarness();
 			const sub = h.service.subscribe(repoPath);
@@ -809,6 +836,20 @@ describe('WorktreeSummaryService', () => {
 			assert.deepStrictEqual(fired[1], { ...expectedInitial, behind: 5 });
 		});
 
+		it('keeps the refs the base depends on when only the base read fails', async () => {
+			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.baseFail = new Error('rev-list failed');
+			h.repo.state.baseDependsOn = ['refs/heads/other'];
+			await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop'));
+
+			const summary = await h.service.getSummary(repoPath);
+			assert.strictEqual(summary.stale, true);
+			assert.deepStrictEqual(summary.baseDependsOn, ['refs/heads/develop']);
+		});
+
 		it('retries the base when a ref it depends on moves after the base read failed', async () => {
 			const h = createHarness();
 			h.service.subscribe(repoPath);
@@ -834,6 +875,7 @@ describe('WorktreeSummaryService', () => {
 			assert.deepStrictEqual(await h.service.getSummary(repoPath), {
 				...expectedInitial,
 				base: undefined,
+				baseDependsOn: [],
 				stale: true,
 			});
 		});
@@ -845,6 +887,7 @@ describe('WorktreeSummaryService', () => {
 			assert.deepStrictEqual(await h.service.getSummary(repoPath), {
 				...expectedInitial,
 				base: undefined,
+				baseDependsOn: [],
 				stale: true,
 			});
 		});
