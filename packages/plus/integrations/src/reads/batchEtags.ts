@@ -26,6 +26,9 @@ import { appendDedupedWarning, toProviderWarning } from '../results.js';
  * Failure budget: the cheap check spends no strike toward disconnecting, and shows no notice, unless the credential
  * is refused. Only the full reads spend, each at most one, so a call spends at most two: in a total outage of a batch
  * whose every target carries an etag, one, for the full read every target falls through to.
+ *
+ * Every warning names the targets it concerns (see `ProviderWarning.targetKeys`): the one target a rejected slot
+ * belongs to, or every target of an integration call that failed as a whole.
  */
 
 /** One integration call's slots, as `runCaptured` captures them. */
@@ -67,15 +70,17 @@ export async function readEtaggedBatch<Target extends { key: string; etag?: stri
 	const rows = new Map<number, EtaggedBatchRow<Item>>();
 	let fetchFailed = false;
 
+	const keysOf = (indices: readonly number[]): string[] => indices.map(i => targets[i].key);
+
 	const settleFull = (indices: readonly number[], { value: slots, warning }: CapturedBatch<Item>): void => {
 		if (warning != null) {
-			appendDedupedWarning(warnings, warning);
+			appendDedupedWarning(warnings, { ...warning, targetKeys: keysOf(indices) });
 		}
 
 		if (slots == null) {
 			// Dropped, never reported absent: "unknown" and "proven absent" must stay distinguishable.
 			if (warning == null) {
-				appendDedupedWarning(warnings, options.unsupportedWarning());
+				appendDedupedWarning(warnings, { ...options.unsupportedWarning(), targetKeys: keysOf(indices) });
 			}
 			fetchFailed = true;
 			return;
@@ -85,7 +90,7 @@ export async function readEtaggedBatch<Target extends { key: string; etag?: stri
 			const slot = slots[i];
 			if (slot.status === 'rejected') {
 				// Dropped, never reported absent, like a whole-call failure: only THIS target failed.
-				appendBatchSlotWarning(warnings, providerId, domain, connectionId, slot);
+				appendBatchSlotWarning(warnings, providerId, domain, connectionId, slot, targets[indices[i]].key);
 				fetchFailed = true;
 				continue;
 			}
@@ -113,7 +118,7 @@ export async function readEtaggedBatch<Target extends { key: string; etag?: stri
 		const changed: number[] = [];
 		const { value: slots, warning } = await options.readEtagFields(select(cheap));
 		if (warning != null && noRetryKinds.includes(warning.kind)) {
-			appendDedupedWarning(warnings, warning);
+			appendDedupedWarning(warnings, { ...warning, targetKeys: keysOf(cheap) });
 			fetchFailed = true;
 		} else if (slots == null) {
 			// The check failed some other way, or the provider declined it; the full read decides instead.
@@ -126,14 +131,14 @@ export async function readEtaggedBatch<Target extends { key: string; etag?: stri
 					// A scoped refusal (`failure`) is the credential refused for that target's scope, which a full read
 					// would hit as well.
 					if (slot.failure != null) {
-						appendBatchSlotWarning(warnings, providerId, domain, connectionId, slot);
+						appendBatchSlotWarning(warnings, providerId, domain, connectionId, slot, targets[index].key);
 						fetchFailed = true;
 						continue;
 					}
 
 					const slotWarning = toProviderWarning(providerId, domain, connectionId, slot.reason);
 					if (noRetryKinds.includes(slotWarning.kind)) {
-						appendDedupedWarning(warnings, slotWarning);
+						appendDedupedWarning(warnings, { ...slotWarning, targetKeys: [targets[index].key] });
 						fetchFailed = true;
 					} else {
 						changed.push(index);
@@ -179,7 +184,7 @@ export async function readEtaggedBatch<Target extends { key: string; etag?: stri
 /**
  * Appends the warning for a batch target that could not be checked, shared by every batch read: for a refusal, the
  * scope failure it was recorded as (see `IntegrationBase.settleBatchRefusals`), published as an account-wide read
- * publishes one, scoped and with its cause; otherwise, the reason itself.
+ * publishes one, scoped and with its cause; otherwise, the reason itself. The warning names the target's key.
  */
 export function appendBatchSlotWarning(
 	warnings: ProviderWarning[],
@@ -187,14 +192,22 @@ export function appendBatchSlotWarning(
 	domain: string | undefined,
 	connectionId: string | undefined,
 	slot: Extract<BatchSlot<unknown>, { status: 'rejected' }>,
+	targetKey: string,
 ): void {
 	if (slot.failure != null) {
-		mergeAssessmentInto(warnings, providerId, domain, connectionId, {
+		const produced: ProviderWarning[] = [];
+		mergeAssessmentInto(produced, providerId, domain, connectionId, {
 			completeness: 'partial',
 			failures: [slot.failure],
 		});
+		for (const warning of produced) {
+			appendDedupedWarning(warnings, { ...warning, targetKeys: [targetKey] });
+		}
 		return;
 	}
 
-	appendDedupedWarning(warnings, toProviderWarning(providerId, domain, connectionId, slot.reason));
+	appendDedupedWarning(warnings, {
+		...toProviderWarning(providerId, domain, connectionId, slot.reason),
+		targetKeys: [targetKey],
+	});
 }

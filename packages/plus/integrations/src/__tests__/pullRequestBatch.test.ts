@@ -276,6 +276,7 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 			'other',
 			'caller input the caller fixes is not an unsupported capability',
 		);
+		assert.equal(result.warnings[0].targetKeys, undefined, 'a whole-call refusal names no targets');
 
 		manager.dispose();
 	});
@@ -293,6 +294,28 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 		assert.equal(result.warnings[0].kind, 'unsupported');
 		assert.equal(result.warnings[0].isAuth, false);
 		assert.match(result.warnings[0].message, /not supported/i);
+		assert.equal(result.warnings[0].targetKeys, undefined, 'a wrong-surface refusal names no targets');
+
+		manager.dispose();
+	});
+
+	test('a host that answers a full read with neither slots nor an error drops every target, naming each', async () => {
+		const { manager, gh } = await connectedGitHub(createFakeRuntime());
+		stubBatchResult(gh, () => Promise.resolve({ value: undefined }));
+
+		const result = await manager.getPullRequestsBatch({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			targets: [
+				{ key: 'a', owner: 'o', repo: 'r', number: 1 },
+				{ key: 'b', owner: 'o', repo: 'r', number: 2 },
+			],
+		});
+
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings.length, 1);
+		assert.equal(result.warnings[0].kind, 'unsupported');
+		assert.deepEqual(result.warnings[0].targetKeys, ['a', 'b']);
 
 		manager.dispose();
 	});
@@ -428,6 +451,7 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 		assert.deepEqual(result.items, [], 'no target is reported as proven absent');
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings[0]?.kind, 'no-connection', 'reported as a connection problem, not "unsupported"');
+		assert.deepEqual(result.warnings[0]?.targetKeys, ['a'], 'the failed integration call names every target');
 
 		manager.dispose();
 	});
@@ -580,6 +604,7 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 		);
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
+		assert.deepEqual(result.warnings[0].targetKeys, ['k26'], "only the failed chunk's target is named");
 
 		manager.dispose();
 	});
@@ -615,6 +640,7 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings[0]?.kind, 'other', 'a target failing on its own is not an auth warning');
 		assert.match(result.warnings[0]?.message ?? '', /SAML enforcement/);
+		assert.deepEqual(result.warnings[0]?.targetKeys, ['saml']);
 		assert.equal(getRequestExceptionCount(gh), 0, 'a working token must not spend a strike');
 		assert.deepEqual(
 			(gh as unknown as { _session: ProviderAuthenticationSession })._session,
@@ -696,6 +722,11 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 			assert.deepEqual(
 				result.warnings.filter(w => w.kind === 'auth').map(w => w.scope),
 				[{ repositoryId: 'o/r' }, { repositoryId: 'o/s' }],
+			);
+			assert.deepEqual(
+				result.warnings.filter(w => w.kind === 'auth').map(w => w.targetKeys),
+				[['a'], ['b']],
+				'each scoped refusal names its own target',
 			);
 			assert.equal(checks.probes, 1);
 			assert.equal(getRequestExceptionCount(gh), 0, 'a confirmed credential spends no strike');
@@ -1834,6 +1865,7 @@ suite('IntegrationManager.getPullRequestsBatch etags', () => {
 			result.warnings.map(w => w.message),
 			['full read exploded'],
 		);
+		assert.deepEqual(result.warnings[0].targetKeys, ['failed']);
 
 		manager.dispose();
 	});
@@ -1877,6 +1909,11 @@ suite('IntegrationManager.getPullRequestsBatch etags', () => {
 				result.warnings.map(w => w.kind),
 				[kind],
 			);
+			assert.deepEqual(
+				result.warnings.map(w => w.targetKeys),
+				[['failed']],
+				'only the target whose check was refused is named',
+			);
 
 			manager.dispose();
 		});
@@ -1908,6 +1945,11 @@ suite('IntegrationManager.getPullRequestsBatch etags', () => {
 		assert.deepEqual(
 			result.warnings.map(w => w.kind),
 			['rate-limit'],
+		);
+		assert.deepEqual(
+			result.warnings[0].targetKeys,
+			['held1', 'held2'],
+			'every target the failed check held is named, not the ones read in full',
 		);
 
 		manager.dispose();

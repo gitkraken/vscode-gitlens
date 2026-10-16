@@ -190,6 +190,11 @@ and an `unchanged` pull request's always can. A row is in one of four states:
 - `{ key }` — proven absent, as before.
 - no row, with `fetchFailed` and a warning — unknown, as before.
 
+A dropped target's warning names its key in `targetKeys` (a failed integration call names every target it carried), so
+a caller that merges several callers' targets into one call can attribute each failure to the targets it concerns.
+Equal warnings merge their keys instead of one being dropped. A warning with no `targetKeys` refused the whole call
+before any target was read.
+
 The hosts with a cheap check select only the change state:
 
 - **GitHub/GHE:** one aliased document per 25 targets, like the full read.
