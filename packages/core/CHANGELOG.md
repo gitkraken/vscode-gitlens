@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-10-16
+
 ### Added
 
 - Adds tip commits to `WorktreeSummary`: `sha` is HEAD's commit (`undefined` before the first commit) and `base.sha` is the base ref's tip, so a host can key on commits rather than counts. A commit and a fast-forward of the base that leave every count the same now change the summary and fire. `getAheadOfBase` answers the tip as `base.sha`, resolved from the cached ref list in git's own order (a tag before a same-named branch), and its `dependsOn` now names that tag too, so the tag moving recomputes the base. Both come from reads the summary already does, except that a recompute of only the base re-reads the shared ref list when the ref move that triggered it cleared that list (git, git-cli)
@@ -647,7 +649,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.11.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.11.1...HEAD
+[0.11.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.11.0...gitkraken:releases/core/v0.11.1
 [0.11.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.7...gitkraken:releases/core/v0.11.0
 [0.10.7]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.6...gitkraken:releases/core/v0.10.7
 [0.10.6]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.5...gitkraken:releases/core/v0.10.6
