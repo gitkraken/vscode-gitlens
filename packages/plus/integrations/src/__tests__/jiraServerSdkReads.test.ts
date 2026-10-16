@@ -185,7 +185,7 @@ suite('Jira Data Center search pages', () => {
 		assert.equal(page.fetchFailed, true, 'the skipped issues are reported, not hidden');
 		assert.equal(page.warnings.length, 1);
 		assert.match(page.warnings[0].message, /OPS-1.*OPS-2/);
-		assert.deepEqual(page.warnings[0].scope, { resourceId: domain, projectId: '101' });
+		assert.deepEqual(page.warnings[0].scope, { resourceId: domain, projectId: 'OPS' });
 		// By its kind and keys, not its text (#6011), read from the wording of the SDK this runs.
 		assert.equal(page.warnings[0].kind, 'unreadable-items');
 		assert.deepEqual(page.warnings[0].unreadableItems, { keys: ['OPS-1', 'OPS-2'], complete: true });
@@ -262,12 +262,12 @@ suite('Jira Data Center search pages', () => {
 			[
 				[
 					'unreadable-items',
-					{ resourceId: domain, projectId: '102' },
+					{ resourceId: domain, projectId: 'WEB' },
 					{ keys: ['WEB-7'], complete: true },
 					undefined,
 					undefined,
 				],
-				['other', undefined, undefined, 'narrow-scope', '101'],
+				['other', undefined, undefined, 'narrow-scope', 'OPS'],
 			],
 		);
 		assert.match(page.warnings[1].message, /Project 'Operations' holds more issues than one read can return/);

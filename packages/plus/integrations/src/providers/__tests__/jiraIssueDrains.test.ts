@@ -195,11 +195,20 @@ suite('drainJiraIssues page metadata', () => {
 
 		assert.equal(emptyFailures, 1, 'the empty-failure hook still runs, so its stale caches are dropped');
 		assert.equal(drain.status, 'incomplete');
+		assert.equal(drain.missing, undefined, 'a project that answered a page is not missing');
 		assert.deepEqual(
 			drain.metadata?.failures?.map(f => f.message),
 			['Skipped Jira issues that could not be read: P-1 (boom).'],
 			'the gone project is not reported as a failure of its own',
 		);
+	});
+
+	test('an empty-failure on the first page serves the drain complete, empty and missing', async () => {
+		const { fetchPage } = pages(new Error('project gone'));
+
+		const drain = await drainJiraIssues(fetchPage, {}, { ...options, isEmptyFailure: () => true });
+
+		assert.deepEqual(drain, { issues: [], status: 'complete', missing: true });
 	});
 
 	test('still throws a first-page failure', async () => {
@@ -333,6 +342,29 @@ suite('readUserScopedJiraIssues page metadata', () => {
 		assert.deepEqual(
 			read.metadata?.failures?.map(f => f.message),
 			['Skipped Jira issues that could not be read: P-9 (boom).'],
+		);
+	});
+
+	test('is missing only when every relationship found the project missing', async () => {
+		const gone = new Error('project gone');
+		const read = (fetchPage: JiraIssuePageFetcher) =>
+			readUserScopedJiraIssues(
+				fetchPage,
+				[IssueFilter.Author, IssueFilter.Assignee],
+				{ userField: 'acct-1', mention: 'Me' },
+				{ ...options, isEmptyFailure: ex => ex === gone },
+			);
+
+		assert.equal((await read(() => Promise.reject(gone))).missing, true);
+		const mixed = await read(scope =>
+			scope.authorLogin != null
+				? Promise.reject(gone)
+				: Promise.resolve({ data: [issue('P-1')], hasMore: false, nextCursor: undefined }),
+		);
+		assert.equal(mixed.missing, undefined);
+		assert.deepEqual(
+			mixed.issues.map(i => i.number),
+			['P-1'],
 		);
 	});
 });

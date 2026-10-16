@@ -25,7 +25,7 @@ import type {
 import { groupProjectIssuesSearches, IssuesIntegration } from '../models/issuesIntegration.js';
 import { areDomainsOnSameHost, baseUrlFromDomain } from '../utils/domain.utils.js';
 import { providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
-import { isJiraMissingProjectError } from './providerErrors.js';
+import { isJiraServerMissingProjectError } from './providerErrors.js';
 import type { ProvidersApi } from './providersApi.js';
 import { DiscoveryCache } from './utils/discoveryCache.js';
 import type { JiraDrainOptions, JiraIssuePageFetcher } from './utils/jiraIssueDrains.js';
@@ -233,13 +233,14 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 			});
 		const drainOptions: JiraDrainOptions = {
 			maxPages: maxPagesPerRequest,
-			failureScope: { providerId: this.id, resourceId: project.resourceId, projectId: project.id },
+			// Scoped by key, as on Jira Cloud: the id addresses the read, the key is how a consumer names the project.
+			failureScope: { providerId: this.id, resourceId: project.resourceId, projectId: project.key },
 			providerName: 'Jira Server',
 			// A project this connection can no longer see (deleted, or its browse permission removed) holds
 			// no issues for it, and the project list that named it is stale: drop that list so the next read
 			// re-reads it, instead of failing the whole provider on every read until a restart (#5907).
 			isEmptyFailure: ex => {
-				if (!isJiraMissingProjectError(ex)) return false;
+				if (!isJiraServerMissingProjectError(ex)) return false;
 
 				Logger.warn(`Jira Server project '${project.name}' (${project.id}) no longer exists or is not visible`);
 				this._projects.delete(this.projectsCacheKey(session));
@@ -258,7 +259,9 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 			const drain = { values: values, metadata: read.metadata, scope: drainOptions.failureScope };
 			// `recovery: 'none'` for the whole set: the filter branches merge here, so even a pure backstop in one
 			// branch is not fixable by narrowing this read's scope.
-			return read.truncated ? { ...drain, truncated: true, recovery: 'none' } : { ...drain, truncated: false };
+			return read.truncated
+				? { ...drain, truncated: true, recovery: 'none' }
+				: { ...drain, truncated: false, missing: read.missing };
 		}
 
 		const unscoped = await drainJiraIssues(fetchPage, {}, drainOptions);
@@ -268,7 +271,7 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		const drain = { values: values, metadata: unscoped.metadata, scope: drainOptions.failureScope };
 		return unscoped.status !== 'complete'
 			? { ...drain, truncated: true, recovery: unscoped.status === 'backstop' ? 'narrow-scope' : 'none' }
-			: { ...drain, truncated: false };
+			: { ...drain, truncated: false, missing: unscoped.missing };
 	}
 
 	/**

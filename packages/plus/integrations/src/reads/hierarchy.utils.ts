@@ -54,12 +54,13 @@ export function resourceIdForProject(project: ResourceDescriptor): string | unde
 
 /**
  * A stable identity for one project across facade pages, for the retry/completed bookkeeping an issue-tracker
- * cursor carries. All three identifiers are included rather than one preferred value: two trackers can reuse the
- * same project id, so keying on a single field would collapse them into one entry.
+ * cursor carries. The resource is included because two resources can reuse the same project id. The key is left
+ * out because it can be renamed between pages (a Jira project key), which would re-read a completed project and
+ * drop a retrying one; it stands in only for a descriptor with no id.
  */
 export function projectKey(project: ResourceDescriptor): string {
 	const typed = project as IssueResourceDescriptor & { resourceId?: string };
-	return JSON.stringify([typed.resourceId ?? '', typed.id ?? '', project.key]);
+	return JSON.stringify([typed.resourceId ?? '', typed.id || project.key]);
 }
 
 /**

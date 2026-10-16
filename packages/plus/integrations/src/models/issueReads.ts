@@ -125,9 +125,14 @@ export type ProjectIssuesDrain = {
 	metadata?: CollectionMetadata;
 	/**
 	 * The scope the provider records this project's failures under, so a cut the facade reports names the project
-	 * the same way: a Jira Cloud project by its key, a Jira Data Center one by its id. Omitted names no scope.
+	 * the same way: a Jira project by its key, on Cloud and Data Center alike. Omitted names no scope.
 	 */
 	scope?: CollectionScope;
+	/**
+	 * The tracker refused the read because the project no longer exists or this connection can no longer see it
+	 * (Jira's "does not exist for the field 'project'"), so `values` is empty because the project is gone.
+	 */
+	missing?: true;
 } & (
 	| { truncated: false }
 	| {

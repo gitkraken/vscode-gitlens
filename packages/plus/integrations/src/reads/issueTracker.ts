@@ -11,7 +11,7 @@ import type { ProjectIssuesDrain, ProjectIssuesRecovery } from '../models/issueR
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { IssueFilter, providersMetadata } from '../providers/models.js';
 import { mergeCollectionMetadata, parsePageCursor } from '../providers/utils/providerPaging.js';
-import type { ProviderPagedResult, ProviderWarning } from '../results.js';
+import type { ProviderPagedResult, ProviderWarning, ProviderWarningSelector } from '../results.js';
 import { appendDedupedWarning, reconcileOmissionsWithFailure } from '../results.js';
 import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
@@ -24,6 +24,7 @@ import {
 	issueTrackerOnlySurfaceWarning,
 	otherWarning,
 	projectCutWarning,
+	unmatchedSelectorWarning,
 	unmergeableIssueSortWarning,
 	unsupportedIssueSortWarning,
 	unsupportedWarning,
@@ -77,6 +78,8 @@ export async function listIssueTrackerIssuesPage(
 		 */
 		domain?: string;
 	},
+	/** Internal: set on the one retry whose discovery lists were just read again uncached. */
+	discoveryReread?: boolean,
 ): Promise<ProviderPagedResult<IssueShape>> {
 	// Pagination is opt-in: only window the projects when the caller actually asked to page. A caller that
 	// passes none of page/cursor/itemsPerPage keeps the "aggregate every matched project" contract, so an
@@ -236,63 +239,133 @@ export async function listIssueTrackerIssuesPage(
 
 	await integration.getCurrentAccount({ connectionId: options.connectionId }).catch(() => undefined);
 
-	const { value: resources, warning: resourcesWarning } = await runCaptured(
-		options.providerId,
-		domain,
-		options.connectionId,
-		() => integration.getResourcesForUserResult(options.connectionId),
-	);
-	if (resourcesWarning != null) {
-		warnings.push(resourcesWarning);
-	}
-	if (resources == null || resources.length === 0) {
-		const fetchFailed = resourcesWarning != null && resources == null;
-		return emptyPage(fetchFailed, false, fetchFailed ? discoveryFailureRetry() : undefined);
-	}
+	// A complete discovery that matches no selected site or project comes back as a `miss` for the caller to decide on.
+	const discoverSelection = async (): Promise<
+		| { miss: ProviderWarningSelector }
+		| { page: ProviderPagedResult<IssueShape> }
+		| {
+				scopedResources: ResourceDescriptor[];
+				matchedProjects: ResourceDescriptor[];
+				projectDiscoveryFailed: boolean;
+				projectDiscoveryTruncated: boolean;
+				projectDiscoveryComplete: boolean;
+		  }
+	> => {
+		const { value: resources, warning: resourcesWarning } = await runCaptured(
+			options.providerId,
+			domain,
+			options.connectionId,
+			() => integration.getResourcesForUserResult(options.connectionId),
+		);
+		if (resourcesWarning != null) {
+			warnings.push(resourcesWarning);
+		}
+		const scopedResources =
+			options.org != null
+				? (resources ?? []).filter(r => selectorMatches(options.providerId, r, options.org!))
+				: (resources ?? []);
+		// Only a complete discovery proves a selection gone: a failed one may just not have reached it, and no
+		// resource list without a warning is no session.
+		const resourceDiscoveryComplete = resources != null && resourcesWarning == null;
+		// Checked before the empty return, since an account with no resources left misses the selection too.
+		if (options.org != null && resourceDiscoveryComplete && scopedResources.length === 0) {
+			return { miss: { kind: 'org', value: options.org } };
+		}
+		if (resources == null || resources.length === 0) {
+			if (options.project != null && resourceDiscoveryComplete) {
+				return { miss: { kind: 'project', value: options.project } };
+			}
 
-	const scopedResources =
-		options.org != null ? resources.filter(r => selectorMatches(options.providerId, r, options.org!)) : resources;
-	if (scopedResources.length === 0) {
+			const fetchFailed = resourcesWarning != null && resources == null;
+			return { page: emptyPage(fetchFailed, false, fetchFailed ? discoveryFailureRetry() : undefined) };
+		}
+		// Only a partial discovery, reported by its warning, reaches here without the selected resource.
+		if (scopedResources.length === 0) {
+			return { page: emptyPage() };
+		}
+
+		const { value: projectsResult, warning: projectsWarning } = await runCaptured(
+			options.providerId,
+			domain,
+			options.connectionId,
+			() => integration.getProjectsForResourcesWithMetadataResult(scopedResources, options.connectionId),
+		);
+		if (projectsWarning != null) {
+			warnings.push(projectsWarning);
+		}
+		// Partial project discovery: continue with the resources that succeeded, but surface per-resource
+		// failures as warnings and remember to mark the page fetchFailed so the caller knows some issues may be
+		// missing. `projectDiscoveryFailed`/`projectDiscoveryTruncated` are OR-ed into the page's
+		// fetchFailed/truncated at every return below (a truncated-but-not-failed discovery, e.g. a paging
+		// backstop, still means the project set is incomplete).
+		const projectDiscoveryAssessment = mergeAssessmentInto(
+			warnings,
+			options.providerId,
+			domain,
+			options.connectionId,
+			projectsResult?.metadata,
+		);
+		const projectDiscoveryFailed = projectDiscoveryAssessment.fetchFailed;
+		const projectDiscoveryTruncated = projectDiscoveryAssessment.truncated;
+		const projects = projectsResult?.values;
+		const matchedProjects =
+			options.project != null
+				? (projects ?? []).filter(p => selectorMatches(options.providerId, p, options.project!))
+				: (projects ?? []);
+		const projectDiscoveryComplete =
+			resourceDiscoveryComplete &&
+			projectsWarning == null &&
+			!projectDiscoveryFailed &&
+			!projectDiscoveryTruncated;
+		if (options.project != null && projects != null && projectDiscoveryComplete && matchedProjects.length === 0) {
+			return { miss: { kind: 'project', value: options.project } };
+		}
+		if (projects == null || projects.length === 0) {
+			const fetchFailed = (projectsWarning != null && projectsResult == null) || projectDiscoveryFailed;
+			return {
+				page: emptyPage(
+					fetchFailed,
+					projectDiscoveryTruncated,
+					fetchFailed || projectDiscoveryTruncated ? discoveryFailureRetry() : undefined,
+				),
+			};
+		}
+
+		return {
+			scopedResources: scopedResources,
+			matchedProjects: matchedProjects,
+			projectDiscoveryFailed: projectDiscoveryFailed,
+			projectDiscoveryTruncated: projectDiscoveryTruncated,
+			projectDiscoveryComplete: projectDiscoveryComplete,
+		};
+	};
+
+	const warningsBeforeDiscovery = warnings.length;
+	let discovery = await discoverSelection();
+	// The lists may come from the discovery cache, which predates a site or project created since and would call it
+	// removed. Read them once more uncached before saying so, unless `forceSync` or a retry already did.
+	let discoveryUncached = options.forceSync === true || discoveryReread === true;
+	if ('miss' in discovery && !discoveryUncached) {
+		warnings.length = warningsBeforeDiscovery;
+		integration.invalidateDiscoveryCaches();
+		discovery = await discoverSelection();
+		discoveryUncached = true;
+	}
+	if ('miss' in discovery) {
+		warnings.push(
+			unmatchedSelectorWarning(options.providerId, domain, options.connectionId, discovery.miss, options.org),
+		);
 		return emptyPage();
 	}
+	if ('page' in discovery) return discovery.page;
 
-	const { value: projectsResult, warning: projectsWarning } = await runCaptured(
-		options.providerId,
-		domain,
-		options.connectionId,
-		() => integration.getProjectsForResourcesWithMetadataResult(scopedResources, options.connectionId),
-	);
-	if (projectsWarning != null) {
-		warnings.push(projectsWarning);
-	}
-	// Partial project discovery: continue with the resources that succeeded, but surface per-resource
-	// failures as warnings and remember to mark the page fetchFailed so the caller knows some issues may be
-	// missing. `projectDiscoveryFailed`/`projectDiscoveryTruncated` are OR-ed into the page's
-	// fetchFailed/truncated at every return below (a truncated-but-not-failed discovery, e.g. a paging
-	// backstop, still means the project set is incomplete).
-	const projectDiscoveryAssessment = mergeAssessmentInto(
-		warnings,
-		options.providerId,
-		domain,
-		options.connectionId,
-		projectsResult?.metadata,
-	);
-	const projectDiscoveryFailed = projectDiscoveryAssessment.fetchFailed;
-	const projectDiscoveryTruncated = projectDiscoveryAssessment.truncated;
-	const projects = projectsResult?.values;
-	if (projects == null || projects.length === 0) {
-		const fetchFailed = (projectsWarning != null && projectsResult == null) || projectDiscoveryFailed;
-		return emptyPage(
-			fetchFailed,
-			projectDiscoveryTruncated,
-			fetchFailed || projectDiscoveryTruncated ? discoveryFailureRetry() : undefined,
-		);
-	}
-
-	const matchedProjects =
-		options.project != null
-			? projects.filter(p => selectorMatches(options.providerId, p, options.project!))
-			: projects;
+	const {
+		scopedResources,
+		matchedProjects,
+		projectDiscoveryFailed,
+		projectDiscoveryTruncated,
+		projectDiscoveryComplete,
+	} = discovery;
 
 	// Validate the requested filters against what this provider supports (e.g. Linear/Trello support only
 	// Assignee). An unsupported filter must not silently degrade — Linear/Trello ignore the requested type
@@ -554,6 +627,32 @@ export async function listIssueTrackerIssuesPage(
 			)),
 		})),
 	);
+	// A cached project list can still name a selected project deleted since; the tracker refusing every project the
+	// selector matched proves it gone as a complete discovery would.
+	if (
+		options.project != null &&
+		projectDiscoveryComplete &&
+		!accountLookupFailed &&
+		scopedProjects.length === matchedProjects.length &&
+		perProject.every(({ value, warning }) => warning == null && value?.missing === true)
+	) {
+		// The refusal names the cached project's id, which a project recreated under the same key no longer has.
+		if (!discoveryUncached) {
+			integration.invalidateDiscoveryCaches();
+			return listIssueTrackerIssuesPage(ctx, options, true);
+		}
+
+		warnings.push(
+			unmatchedSelectorWarning(
+				options.providerId,
+				domain,
+				options.connectionId,
+				{ kind: 'project', value: options.project },
+				options.org,
+			),
+		);
+		return emptyPage();
+	}
 
 	// Partial project discovery means some projects' issues are missing from this page; propagate it so the
 	// page reports fetchFailed even when every discovered project's own read succeeded.
