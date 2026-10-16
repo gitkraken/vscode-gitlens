@@ -266,6 +266,29 @@ suite('provider warning dedup', () => {
 		assert.deepEqual(into[0].omission, { kind: 'pagination-incomplete', recovery: 'page-budget' });
 	});
 
+	test('two equal warnings naming different unreadable items merge them (#6011)', () => {
+		const unreadable = (keys: string[], complete: boolean): ProviderWarning => ({
+			...warning(
+				'Skipped Jira issues that could not be read: P-1 (boom). Issues on 1 more page could not be read either.',
+			),
+			kind: 'unreadable-items',
+			unreadableItems: { keys: keys, complete: complete },
+		});
+		const into: ProviderWarning[] = [];
+		appendDedupedWarning(into, unreadable(['P-1', 'P-2'], true));
+		appendDedupedWarning(into, unreadable(['P-1', 'P-3'], true));
+		assert.deepEqual(
+			into.map(w => w.unreadableItems),
+			[{ keys: ['P-1', 'P-2', 'P-3'], complete: true }],
+		);
+
+		appendDedupedWarning(into, unreadable(['P-1'], false));
+		assert.deepEqual(
+			into.map(w => w.unreadableItems),
+			[{ keys: ['P-1', 'P-2', 'P-3'], complete: false }],
+		);
+	});
+
 	test('omissions differing only by scope stay separate', () => {
 		const into: ProviderWarning[] = [];
 		appendDedupedWarning(

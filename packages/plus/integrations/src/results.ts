@@ -25,8 +25,37 @@ export interface ConnectionStateChangeEvent {
  * provider, scope or request may. NOT unsupported (these stay `'other'`): malformed or contradictory caller
  * input the caller fixes in the request itself (a duplicate batch key, invalid target numbers, an empty owner,
  * an unusable scope), incompleteness or omission warnings, and unclassified errors.
+ *
+ * `'unreadable-items'`: the provider returned items this read could not read (a Jira issue whose fields the SDK cannot
+ * parse), so it left them out and read everything else in the warning's {@link ProviderWarning.scope}. It still fails
+ * the read (`fetchFailed`), since those items are missing, but retrying returns the same gap. On the reads that publish
+ * it (an issue tracker's project reads) it never hides a read that was cut short: a cut always comes with a warning of
+ * another kind. {@link ProviderWarning.unreadableItems} names the items left out.
  */
-export type ProviderWarningKind = 'auth' | 'rate-limit' | 'not-found' | 'no-connection' | 'unsupported' | 'other';
+export type ProviderWarningKind =
+	| 'auth'
+	| 'rate-limit'
+	| 'not-found'
+	| 'no-connection'
+	| 'unsupported'
+	| 'unreadable-items'
+	| 'other';
+
+/** The items an `'unreadable-items'` warning left out: see {@link ProviderWarning.unreadableItems}. */
+export interface ProviderWarningUnreadableItems {
+	/**
+	 * The provider's identifiers of the items left out (a Jira issue's key), without duplicates, in reported order. Read
+	 * from the provider's prose, it may also hold an identifier that only appeared in an item's error text, never lack
+	 * one it named: rely on an identifier's absence, not on its presence.
+	 */
+	keys: string[];
+	/**
+	 * Whether {@link keys} names every item left out. `false` when the provider named only some of them (Jira names at
+	 * most ten per page), named one by position rather than by key, or reported them in a form this layer could not
+	 * read, so an identifier absent from `keys` may still be one of them.
+	 */
+	complete: boolean;
+}
 
 /**
  * Why a read that SUCCEEDED still withheld results:
@@ -216,6 +245,12 @@ export interface ProviderWarning {
 	 * out, so treat a bare `kind: 'other'` warning as unclassified rather than as a proven failure.
 	 */
 	omission?: ProviderWarningOmission;
+	/**
+	 * Present exactly when {@link kind} is `'unreadable-items'`: which items the read left out because it could not read
+	 * them. A consumer deciding whether an identifier is absent from the provider, rather than merely unread, must find
+	 * it in no warning's `keys` and see `complete` on every one.
+	 */
+	unreadableItems?: ProviderWarningUnreadableItems;
 	/**
 	 * The keys of the batch targets this warning concerns: the target a per-target failure was refused or failed
 	 * for, or every target of an integration call that failed as a whole. So a caller that sends several callers'
@@ -567,7 +602,9 @@ function providerWarningKey(warning: ProviderWarning): string {
  * Appends `warning` to `into` only when an equal warning (by provider/connection/domain/kind/message, plus the
  * structured scope, cause and omission when present) is absent. An equal warning already there merges its
  * {@link ProviderWarning.targetKeys} with the new one's instead: the union of both, or none when either concerns
- * the whole call. The existing warning is replaced, never mutated, since it may be shared.
+ * the whole call. Its {@link ProviderWarning.unreadableItems} merge too (see {@link mergeUnreadableItems}): two reads
+ * can report the same text for different items. The existing warning is replaced, never mutated, since it may be
+ * shared.
  */
 export function appendDedupedWarning(into: ProviderWarning[], warning: ProviderWarning): void {
 	const key = providerWarningKey(warning);
@@ -578,18 +615,43 @@ export function appendDedupedWarning(into: ProviderWarning[], warning: ProviderW
 	}
 
 	const existing = into[index];
-	const existingKeys = existing.targetKeys;
-	// Already covers the whole call.
-	if (existingKeys == null) return;
+	const targetKeys = mergeTargetKeys(existing.targetKeys, warning.targetKeys);
+	const unreadableItems = mergeUnreadableItems(existing.unreadableItems, warning.unreadableItems);
+	if (targetKeys === existing.targetKeys && unreadableItems === existing.unreadableItems) return;
 
-	if (warning.targetKeys == null) {
-		const { targetKeys: _, ...wholeCall } = existing;
-		into[index] = wholeCall;
-		return;
-	}
+	const { targetKeys: _, ...rest } = existing;
+	into[index] = {
+		...rest,
+		...(targetKeys != null ? { targetKeys: targetKeys } : {}),
+		...(unreadableItems != null ? { unreadableItems: unreadableItems } : {}),
+	};
+}
 
-	const added = warning.targetKeys.filter(k => !existingKeys.includes(k));
-	if (!added.length) return;
+/** The union of two warnings' target keys, or none when either concerns the whole call. `existing` when unchanged. */
+function mergeTargetKeys(existing: string[] | undefined, next: string[] | undefined): string[] | undefined {
+	// Either concerns the whole call.
+	if (existing == null || next == null) return undefined;
 
-	into[index] = { ...existing, targetKeys: [...existingKeys, ...new Set(added)] };
+	const added = next.filter(k => !existing.includes(k));
+	if (!added.length) return existing;
+
+	return [...existing, ...new Set(added)];
+}
+
+/**
+ * The items two reports of unreadable items left out together: the union of their keys, complete only when both are.
+ * `existing` when `next` adds nothing to it.
+ */
+export function mergeUnreadableItems(
+	existing: ProviderWarningUnreadableItems | undefined,
+	next: ProviderWarningUnreadableItems | undefined,
+): ProviderWarningUnreadableItems | undefined {
+	if (existing == null) return next;
+	if (next == null) return existing;
+
+	const added = next.keys.filter(k => !existing.keys.includes(k));
+	const complete = existing.complete && next.complete;
+	if (!added.length && complete === existing.complete) return existing;
+
+	return { keys: [...existing.keys, ...new Set(added)], complete: complete };
 }

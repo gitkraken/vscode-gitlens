@@ -1,4 +1,5 @@
 import * as assert from 'node:assert/strict';
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import {
 	AuthenticationError,
@@ -7,8 +8,14 @@ import {
 	RequestRateLimitError,
 } from '@gitlens/git/errors.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
-import { assessCollectionMetadata, toCollectionFailureError, toCollectionScopeFailure } from '../collectionMetadata.js';
-import { GitSelfManagedHostIntegrationId } from '../constants.js';
+import type { ProviderScopeFailure } from '../collectionMetadata.js';
+import {
+	assessCollectionMetadata,
+	hasOnlyScopedAuthFailures,
+	toCollectionFailureError,
+	toCollectionScopeFailure,
+} from '../collectionMetadata.js';
+import { GitSelfManagedHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
 import { isProviderUnreachableError, ProviderFetchError } from '../errors.js';
 import { toProviderWarning } from '../results.js';
 
@@ -174,6 +181,41 @@ suite('provider unreachable classification', () => {
 			assert.equal(warning.kind, kind);
 			assert.equal(warning.isAuth, kind === 'auth');
 			assert.equal(warning.cause, undefined);
+		}
+	});
+});
+
+suite('unreadable items carrying a status in their reason (#6011)', () => {
+	test('a skipped issue whose own error names a status is neither a refused credential nor an unreachable server', () => {
+		for (const status of ['401', '503']) {
+			const failure: ProviderScopeFailure = {
+				scope: { providerId: 'jira', resourceId: 'site-1', projectId: 'P' },
+				kind: 'provider',
+				message: `Skipped Jira issues that could not be read: P-1 (Request failed (${status})).`,
+				unreadableItems: { keys: ['P-1'], complete: true },
+			};
+			const metadata: CollectionMetadata = {
+				completeness: 'partial',
+				failures: [failure],
+			};
+
+			const result = assessCollectionMetadata(IssuesCloudHostIntegrationId.Jira, undefined, undefined, metadata);
+
+			assert.deepEqual(
+				result.warnings.map(w => [w.kind, w.isAuth, w.cause, w.unreadableItems]),
+				[['unreadable-items', false, undefined, { keys: ['P-1'], complete: true }]],
+				status,
+			);
+			assert.equal(result.fetchFailed, true);
+			// The read failed, since the issue is missing, but no request did.
+			assert.equal(result.requestFailed, false);
+			assert.equal(hasOnlyScopedAuthFailures(metadata), false, status);
+
+			const withRefusal = assessCollectionMetadata(IssuesCloudHostIntegrationId.Jira, undefined, undefined, {
+				completeness: 'partial',
+				failures: [failure, { scope: failure.scope, kind: 'provider', message: 'Request failed (500)' }],
+			});
+			assert.equal(withRefusal.requestFailed, true);
 		}
 	});
 });

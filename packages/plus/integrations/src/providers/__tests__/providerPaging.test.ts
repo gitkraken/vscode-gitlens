@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict';
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { UnsupportedSortError } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
+import type { ProviderScopeFailure } from '../../collectionMetadata.js';
 import type { ProviderApiPagedResult } from '../models.js';
 import { collectProviderPagedResult, flatSettledOrThrow, mergeCollectionMetadata } from '../utils/providerPaging.js';
 
@@ -325,6 +326,28 @@ suite('mergeCollectionMetadata', () => {
 			mergeCollectionMetadata({ completeness: 'partial', omissions: [omission] }, { completeness: 'complete' })
 				?.omissions,
 			[omission],
+		);
+	});
+});
+
+suite('mergeCollectionMetadata unreadable items (#6011)', () => {
+	test('two equal failures naming different unreadable items merge them rather than keeping the first', () => {
+		const failure = (keys: string[], complete: boolean): ProviderScopeFailure => ({
+			scope: { providerId: 'jira', resourceId: 'site-1', projectId: 'P' },
+			kind: 'provider',
+			message:
+				'Skipped Jira issues that could not be read: P-1 (boom). Issues on 1 more page could not be read either.',
+			unreadableItems: { keys: keys, complete: complete },
+		});
+
+		const merged = mergeCollectionMetadata(
+			{ completeness: 'partial', failures: [failure(['P-1', 'P-2'], true)] },
+			{ completeness: 'partial', failures: [failure(['P-1', 'P-3'], false)] },
+		);
+
+		assert.deepEqual(
+			merged?.failures?.map(f => (f as ProviderScopeFailure).unreadableItems),
+			[{ keys: ['P-1', 'P-2', 'P-3'], complete: false }],
 		);
 	});
 });

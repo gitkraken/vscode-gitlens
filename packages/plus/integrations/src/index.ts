@@ -213,6 +213,7 @@ export type {
 	ProviderWarningOmissionRecovery,
 	ProviderWarningOmissionScope,
 	ProviderWarningScope,
+	ProviderWarningUnreadableItems,
 	ProviderOrganization,
 	ProviderRepositoryShape,
 	RepositoryIdentity,

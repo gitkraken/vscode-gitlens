@@ -1,4 +1,5 @@
 import type { IntegrationIds } from '../constants.js';
+import type { ProjectIssuesRecovery } from '../models/issueReads.js';
 import type {
 	IssueFilter,
 	IssueSearchCapabilities,
@@ -8,7 +9,7 @@ import type {
 	PullRequestSorting,
 } from '../providerFilters.js';
 import { providersMetadata } from '../providers/models.js';
-import type { ProviderWarning, ProviderWarningOmissionRecovery } from '../results.js';
+import type { ProviderWarning, ProviderWarningOmissionRecovery, ProviderWarningOmissionScope } from '../results.js';
 import type { IssueSearchCriteriaRejection, PullRequestSearchCriteriaRejection } from './filters.js';
 import type { UnmergeableIssueSort, UnsupportedIssueSortRejection } from './ordering.js';
 
@@ -156,8 +157,8 @@ function recoveryForIncompleteReadCause(cause: IncompleteReadCause): ProviderWar
  * is the same shape `assessCollectionMetadata` derives from SDK metadata, so a consumer never has to care
  * which layer noticed the gap.
  *
- * No `scope`: this applies to the whole read, not to one repository or project the way an SDK-attributed
- * omission can, so a consumer acting on `recovery` re-runs the read itself.
+ * `scope` names the one project (or repository) the gap is confined to, as an SDK-attributed omission does; without it
+ * the warning applies to the whole read, so a consumer acting on `recovery` re-runs the read itself.
  */
 export function incompleteReadWarning(
 	id: IntegrationIds,
@@ -165,6 +166,7 @@ export function incompleteReadWarning(
 	connectionId: string | undefined,
 	message: string,
 	cause: IncompleteReadCause,
+	scope?: ProviderWarningOmissionScope,
 ): ProviderWarning {
 	const warning = otherWarning(id, domain, connectionId, message);
 	if (cause === 'interrupted') return warning;
@@ -174,8 +176,35 @@ export function incompleteReadWarning(
 		omission: {
 			kind: 'pagination-incomplete',
 			recovery: recoveryForIncompleteReadCause(cause),
+			...(scope != null ? { scope: { ...scope } } : {}),
 		},
 	};
+}
+
+/**
+ * {@link incompleteReadWarning} for one project of a tracker read that stopped short with nothing in its metadata to say
+ * why: a drain cut by its page backstop (`narrow-scope`) or otherwise left incomplete (`none`). Confined to `scope`,
+ * which names the project the way the provider's own failures do.
+ */
+export function projectCutWarning(
+	id: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	project: string,
+	recovery: ProjectIssuesRecovery,
+	scope: ProviderWarningOmissionScope,
+): ProviderWarning {
+	const [message, cause]: [string, IncompleteReadCause] =
+		recovery === 'narrow-scope'
+			? [
+					`Project '${project}' holds more issues than one read can return; narrow the scope to read the rest.`,
+					'scope-too-large',
+				]
+			: [
+					`Some issues of project '${project}' were omitted; the provider returned an incomplete result.`,
+					'exhausted',
+				];
+	return incompleteReadWarning(id, domain, connectionId, message, cause, scope);
 }
 
 /**

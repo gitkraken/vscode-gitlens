@@ -746,14 +746,22 @@ result** instead of rejecting the call. One provider's expired token never blank
 `ProviderWarning.kind` (also exported as `ProviderWarningKind`) carries the classifications the facade can
 prove from structured errors:
 
-| `kind`          | Meaning                                                                                                                                                        | Reasonable response                                                                         |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `auth`          | Token rejected (401/403 that isn't a throttle).                                                                                                                | Prompt to reconnect that connection. A scoped one is narrower: see `scope` below.           |
-| `rate-limit`    | Throttled (429, or a 403 whose body says so).                                                                                                                  | Back off and retry; keep the last snapshot.                                                 |
-| `not-found`     | 404/410/422 on the requested scope.                                                                                                                            | Drop that scope; don't reconnect.                                                           |
-| `no-connection` | The requested `connectionId`/`domain` doesn't resolve.                                                                                                         | Re-resolve the target or re-authenticate.                                                   |
-| `unsupported`   | The provider can't serve this capability: a surface, filter, sort, state, search criterion or option combination it can't express.                             | Hide or disable the feature for that provider; don't retry or reconnect.                    |
-| `other`         | Catch-all: malformed or contradictory input, truncation, upstream/network failure, or an unclassified error. Read `omission` before treating one as a failure. | Preserve the warning and use the result flags; do not assume it is benign or non-retryable. |
+| `kind`             | Meaning                                                                                                                                                                                | Reasonable response                                                                                           |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `auth`             | Token rejected (401/403 that isn't a throttle).                                                                                                                                        | Prompt to reconnect that connection. A scoped one is narrower: see `scope` below.                             |
+| `rate-limit`       | Throttled (429, or a 403 whose body says so).                                                                                                                                          | Back off and retry; keep the last snapshot.                                                                   |
+| `not-found`        | 404/410/422 on the requested scope.                                                                                                                                                    | Drop that scope; don't reconnect.                                                                             |
+| `no-connection`    | The requested `connectionId`/`domain` doesn't resolve.                                                                                                                                 | Re-resolve the target or re-authenticate.                                                                     |
+| `unsupported`      | The provider can't serve this capability: a surface, filter, sort, state, search criterion or option combination it can't express.                                                     | Hide or disable the feature for that provider; don't retry or reconnect.                                      |
+| `unreadable-items` | Items the provider returned that couldn't be read were left out (a Jira issue `@gitkraken/provider-apis` can't parse); the rest of its `scope` was read. `unreadableItems` names them. | Show the read as incomplete; retrying returns the same gap. A cut read always adds a warning of another kind. |
+| `other`            | Catch-all: malformed or contradictory input, truncation, upstream/network failure, or an unclassified error. Read `omission` before treating one as a failure.                         | Preserve the warning and use the result flags; do not assume it is benign or non-retryable.                   |
+
+An `unreadable-items` warning carries `unreadableItems: { keys, complete }`: the identifiers of the items left out (Jira
+issue keys), and whether `keys` names all of them. `complete` is `false` when the provider named only some (Jira names
+at most ten per page) or named one by its position, so an identifier absent from `keys` is proven read only when every
+such warning is `complete`. The read still sets `fetchFailed`, but it retracts no omission: no request failed. On an
+issue tracker's project reads it never stands for a read that was also cut short: a project or relationship stopped
+by the page backstop, a stalled continuation or a failed page always adds a warning of another kind for it.
 
 `isAuth` is a convenience mirror of `kind === 'auth'`. **Collapsing `kind` into that boolean loses the
 rate-limit and not-found distinctions**, which then have to be re-derived from raw provider prose.
@@ -1364,10 +1372,13 @@ Markdown by this package.
 
 - **Jira (Cloud + Data Center) / Linear / Trello** — paged by **project**, not by issue: `itemsPerPage` counts projects (default
   20), each drained in full. Passing none of `page`/`cursor`/`itemsPerPage` aggregates every matched project
-  in one page. A single project exceeding its internal drain backstop shows up as `page.truncated`.
+  in one page. A single project exceeding its internal drain backstop shows up as `page.truncated`. On Jira it gets a
+  warning of its own, naming it in its message and its `omission.scope`, published even when another project failed
+  (when a request of the read failed, the omission is retracted as on every read, and only the message names it);
+  Linear and Trello report one warning for the page, only when nothing failed.
   A Jira issue `@gitkraken/provider-apis` can't read is dropped from its page and reported instead: its siblings are
-  served, with `fetchFailed`, a warning scoped to its project and `page.truncated` (never `narrow-scope`); a project
-  that dropped one is not retried.
+  served, with `fetchFailed`, an `unreadable-items` warning scoped to its project and naming its key, and
+  `page.truncated` (never `narrow-scope`); a project that dropped one is not retried.
   Trello's issue `id` is the card's `idShort` — unique per board only, so correlate across boards by
   `nodeId`. For Trello, boards are both the resource and the project, so `listOrgs` and `listProjects`
   return the same set; Linear's resource is the organization and its projects are teams.

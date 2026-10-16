@@ -592,12 +592,12 @@ suite('assessCollectionMetadata (#5438)', () => {
 
 	test('metadata absent → no warnings, no failure, no truncation', () => {
 		const result = assessCollectionMetadata(providerId, 'github.com', 'c1', undefined);
-		assert.deepEqual(result, { warnings: [], fetchFailed: false, truncated: false });
+		assert.deepEqual(result, { warnings: [], fetchFailed: false, requestFailed: false, truncated: false });
 	});
 
 	test('complete metadata → no warnings, no failure, no truncation', () => {
 		const result = assessCollectionMetadata(providerId, 'github.com', 'c1', { completeness: 'complete' });
-		assert.deepEqual(result, { warnings: [], fetchFailed: false, truncated: false });
+		assert.deepEqual(result, { warnings: [], fetchFailed: false, requestFailed: false, truncated: false });
 	});
 
 	test('partial with no failures → generic incomplete warning, truncation, but no fetchFailed', () => {

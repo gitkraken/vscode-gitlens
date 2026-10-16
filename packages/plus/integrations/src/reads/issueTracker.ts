@@ -1,4 +1,4 @@
-import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import type { CollectionMetadata, CollectionScope } from '@gitkraken/provider-apis';
 import type { IssueShape, IssueSorting, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { mapBounded } from '@gitlens/utils/promise.js';
@@ -7,7 +7,7 @@ import type { IntegrationIds } from '../constants.js';
 import { providerFanOutConcurrency } from '../constants.js';
 import { toError } from '../errors.js';
 import type { IntegrationResult } from '../models/integration.js';
-import type { ProjectIssuesDrain } from '../models/issueReads.js';
+import type { ProjectIssuesDrain, ProjectIssuesRecovery } from '../models/issueReads.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { IssueFilter, providersMetadata } from '../providers/models.js';
 import { mergeCollectionMetadata, parsePageCursor } from '../providers/utils/providerPaging.js';
@@ -23,6 +23,7 @@ import {
 	incompleteReadWarning,
 	issueTrackerOnlySurfaceWarning,
 	otherWarning,
+	projectCutWarning,
 	unmergeableIssueSortWarning,
 	unsupportedIssueSortWarning,
 	unsupportedWarning,
@@ -557,7 +558,13 @@ export async function listIssueTrackerIssuesPage(
 	// Partial project discovery means some projects' issues are missing from this page; propagate it so the
 	// page reports fetchFailed even when every discovered project's own read succeeded.
 	let fetchFailed = projectDiscoveryFailed || accountLookupFailed;
-	let truncationRecovery: 'narrow-scope' | 'none' | undefined = projectDiscoveryTruncated ? 'none' : undefined;
+	// Whether a request failed, which `fetchFailed` alone doesn't say: see `assessCollectionMetadata`'s `requestFailed`.
+	let requestFailed = fetchFailed;
+	let truncated = projectDiscoveryTruncated;
+	// The projects whose read stopped short with nothing in its metadata to say why. One whose provider names its scope
+	// is reported on its own, even when the read also failed: a project's cut must not hide behind another's failure,
+	// which may be no more than an issue it skipped (#6011), nor its recovery behind another project's.
+	const cuts: { project: ResourceDescriptor; recovery: ProjectIssuesRecovery; scope: CollectionScope }[] = [];
 	let drainMetadata: CollectionMetadata | undefined;
 	for (const { project, value: result, warning } of perProject) {
 		const key = projectKey(project);
@@ -567,18 +574,22 @@ export async function listIssueTrackerIssuesPage(
 			// single failing token repeats verbatim once per project in the window.
 			appendDedupedWarning(warnings, warning);
 			fetchFailed = true;
-			truncationRecovery = 'none';
+			requestFailed = true;
+			truncated = true;
 		}
 		// A thrown/unsupported read (e.g. Linear not-implemented) surfaces as a warning with no value;
 		// mark the aggregate as fetchFailed so an empty result isn't mistaken for "no issues".
 		if (result == null) {
 			fetchFailed = true;
+			requestFailed = true;
 		}
 		if (result != null) {
 			items.push(...result.values);
 			if (result.truncated) {
-				const recovery = result.recovery;
-				truncationRecovery = truncationRecovery == null || truncationRecovery === recovery ? recovery : 'none';
+				truncated = true;
+				if (result.scope != null && !result.metadata?.failures?.length && !result.metadata?.omissions?.length) {
+					cuts.push({ project: project, recovery: result.recovery, scope: result.scope });
+				}
 			}
 			if (result.metadata != null) {
 				drainMetadata = mergeCollectionMetadata(drainMetadata, result.metadata);
@@ -600,38 +611,50 @@ export async function listIssueTrackerIssuesPage(
 	// publishes. A no-op when nothing merged, since the tracker already ordered that single run.
 	const orderedItems = ordering.order(items);
 
-	const projectReadReportedTruncation = truncationRecovery != null;
 	const drainAssessment = assessCollectionMetadata(options.providerId, domain, options.connectionId, drainMetadata);
 	for (const warning of drainAssessment.warnings) {
-		// A project result already supplies the recovery semantics. Replace metadata's unstructured fallback with
-		// the structured warning below, while retaining specific failures and omissions.
-		if (projectReadReportedTruncation && !drainAssessment.fetchFailed && warning.omission == null) continue;
+		// The truncation the projects reported already gets a structured warning below. Replace metadata's unstructured
+		// fallback, the only warning it raises when nothing failed and nothing was omitted, while retaining failures and
+		// omissions.
+		if (truncated && !drainAssessment.fetchFailed && warning.omission == null) continue;
 
 		appendDedupedWarning(warnings, warning);
 	}
 	fetchFailed = fetchFailed || drainAssessment.fetchFailed;
-	if (drainAssessment.truncated) {
-		truncationRecovery = 'none';
-	}
+	requestFailed = requestFailed || drainAssessment.requestFailed;
+	truncated = truncated || drainAssessment.truncated;
 
-	const projectTruncated = truncationRecovery != null;
-	const scopeTooLarge = !fetchFailed && truncationRecovery === 'narrow-scope';
-	if (scopeTooLarge || (!fetchFailed && projectTruncated && !warnings.some(warning => warning.omission != null))) {
+	for (const { project, recovery, scope } of cuts) {
+		appendDedupedWarning(
+			warnings,
+			projectCutWarning(
+				options.providerId,
+				domain,
+				options.connectionId,
+				resourceLabel(project),
+				recovery,
+				scope,
+			),
+		);
+	}
+	// A truncation no project's own warning accounts for (a project list read short, or a cut from a provider that names
+	// no scope for its projects) is reported for the read as a whole, unless a failure or an omission explains it. On
+	// `fetchFailed`, not `requestFailed`: an issue left unread truncates the read too, and its own warning explains that.
+	// A project list read short publishes its own warning, so it is never left to an unreadable issue's alone.
+	if (!fetchFailed && truncated && !warnings.some(warning => warning.omission != null)) {
 		appendDedupedWarning(
 			warnings,
 			incompleteReadWarning(
 				options.providerId,
 				domain,
 				options.connectionId,
-				scopeTooLarge
-					? 'Some projects hold more issues than one read can return; narrow the scope to read the rest.'
-					: 'Some issues were omitted; the provider returned an incomplete result.',
-				scopeTooLarge ? 'scope-too-large' : 'exhausted',
+				'Some issues were omitted; the provider returned an incomplete result.',
+				'exhausted',
 			),
 		);
 	}
 	// A metadata omission from an earlier project asserts the read succeeded; a later one may since have failed.
-	reconcileOmissionsWithFailure(warnings, fetchFailed);
+	reconcileOmissionsWithFailure(warnings, requestFailed);
 
 	const retryPages = retryWindowPages();
 	const cursor = toIssueTrackerPageCursor({
@@ -653,7 +676,7 @@ export async function listIssueTrackerIssuesPage(
 	return {
 		items: orderedItems,
 		warnings: warnings,
-		page: { currentPage: page, itemsPerPage: orderedItems.length, truncated: projectTruncated || undefined },
+		page: { currentPage: page, itemsPerPage: orderedItems.length, truncated: truncated || undefined },
 		// Failed-project retries alone are manual. Only an untouched project window is automatic progress.
 		hasMore: nextPage != null && cursor != null,
 		cursor: cursor,
