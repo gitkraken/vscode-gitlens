@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds tip commits to `WorktreeSummary`: `sha` is HEAD's commit (`undefined` before the first commit) and `base.sha` is the base ref's tip, so a host can key on commits rather than counts. A commit and a fast-forward of the base that leave every count the same now change the summary and fire. `getAheadOfBase` answers the tip as `base.sha`, resolved from the cached ref list in git's own order (a tag before a same-named branch), and its `dependsOn` now names that tag too, so the tag moving recomputes the base. Both come from reads the summary already does, except that a recompute of only the base re-reads the shared ref list when the ref move that triggered it cleared that list (git, git-cli)
+
 ## [0.11.0] - 2026-10-15
 
 ### Added

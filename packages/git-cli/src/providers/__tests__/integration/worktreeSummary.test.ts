@@ -43,6 +43,10 @@ suite('WorktreeSummaryService against real git', () => {
 		execFileSync('git', args, { cwd: repo.path, stdio: 'pipe' });
 	}
 
+	function revParse(ref: string): string {
+		return execFileSync('git', ['rev-parse', ref], { cwd: repo.path, encoding: 'utf-8' }).trim();
+	}
+
 	function fire(basePath: string, relativePath: string): void {
 		const watcher = watchers.find(w => w.basePath === basePath);
 		assert.ok(watcher != null, `no watcher on ${basePath}`);
@@ -95,7 +99,70 @@ suite('WorktreeSummaryService against real git', () => {
 		const after = await switched;
 		assert.strictEqual(after.branch, 'feature');
 		assert.strictEqual(after.dirty, false);
-		assert.deepStrictEqual(after.base, { ref: 'main', ahead: 1 });
+		assert.strictEqual(after.sha, revParse('HEAD'));
+		assert.deepStrictEqual(after.base, { ref: 'main', ahead: 1, sha: revParse('main') });
+
+		sub.dispose();
+	});
+
+	test('fires for a commit and a fast-forward of the base that leave every count the same', async () => {
+		const summaries = service.summaries;
+		assert.ok(summaries != null);
+
+		git('checkout', '-q', '-b', 'feature');
+		git('commit', '-q', '--allow-empty', '-m', 'First');
+
+		const sub = summaries.subscribe(repo.path, { delayMs: 10, workingTreeDelayMs: 10 });
+		const initial = await summaries.getSummary(repo.path);
+		assert.strictEqual(initial.sha, revParse('HEAD'));
+		assert.deepStrictEqual(initial.base, { ref: 'main', ahead: 1, sha: revParse('main') });
+
+		// A commit, then `main` fast-forwarded onto the first one, inside one refresh window: still 1 ahead of `main`
+		const changed = nextChange(sub);
+		git('commit', '-q', '--allow-empty', '-m', 'Second');
+		git('branch', '-f', 'main', 'HEAD~1');
+		const gitDir = watchers.find(w => w.basePath.endsWith('.git'))?.basePath;
+		assert.ok(gitDir != null);
+		fire(gitDir, 'refs/heads/feature');
+		fire(gitDir, 'refs/heads/main');
+		const after = await changed;
+
+		assert.strictEqual(after.ahead, initial.ahead);
+		assert.strictEqual(after.behind, initial.behind);
+		assert.strictEqual(after.base?.ahead, 1);
+		assert.strictEqual(after.sha, revParse('HEAD'));
+		assert.notStrictEqual(after.sha, initial.sha);
+		assert.strictEqual(after.base?.sha, revParse('main'));
+		assert.notStrictEqual(after.base?.sha, initial.base?.sha);
+
+		sub.dispose();
+	});
+
+	test('fires when only the base moves on, re-reading its tip after the move cleared the ref list', async () => {
+		const summaries = service.summaries;
+		assert.ok(summaries != null);
+
+		git('checkout', '-q', '-b', 'feature');
+		git('commit', '-q', '--allow-empty', '-m', 'Feature');
+
+		const sub = summaries.subscribe(repo.path, { delayMs: 10, workingTreeDelayMs: 10 });
+		const initial = await summaries.getSummary(repo.path);
+		assert.deepStrictEqual(initial.base, { ref: 'main', ahead: 1, sha: revParse('main') });
+
+		// `main` gains a commit `feature` doesn't have, so `feature` is still 1 ahead of it and HEAD doesn't move
+		const changed = nextChange(sub);
+		const mainTip = execFileSync('git', ['commit-tree', 'main^{tree}', '-p', 'main', '-m', 'Main'], {
+			cwd: repo.path,
+			encoding: 'utf-8',
+		}).trim();
+		git('update-ref', 'refs/heads/main', mainTip);
+		const gitDir = watchers.find(w => w.basePath.endsWith('.git'))?.basePath;
+		assert.ok(gitDir != null);
+		fire(gitDir, 'refs/heads/main');
+		const after = await changed;
+
+		assert.strictEqual(after.sha, initial.sha);
+		assert.deepStrictEqual(after.base, { ref: 'main', ahead: 1, sha: mainTip });
 
 		sub.dispose();
 	});

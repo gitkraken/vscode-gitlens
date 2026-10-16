@@ -30,6 +30,8 @@ export interface WorktreeSummaryBase {
 	/** The ref the count was taken against (see `AheadOfBase.base`) */
 	readonly ref: string;
 	readonly ahead: number;
+	/** The commit {@link ref} pointed at when the count was read; `undefined` when it couldn't be resolved */
+	readonly sha: string | undefined;
 }
 
 export interface WorktreeSummary {
@@ -38,6 +40,8 @@ export interface WorktreeSummary {
 	/** The checked-out branch; `undefined` when detached (or unborn with no name) */
 	readonly branch: string | undefined;
 	readonly detached: boolean;
+	/** HEAD's commit; `undefined` when HEAD has no commit yet */
+	readonly sha: string | undefined;
 	readonly upstream: WorktreeSummaryUpstream | undefined;
 	/** Commits ahead of the upstream; 0 without one */
 	readonly ahead: number;
@@ -185,12 +189,12 @@ class SummarySubscription implements WorktreeSummarySubscription {
  * the service's own listening subscriptions never constrain it.
  *
  * **Field-scoped recompute.** The summary is read in three groups — `dirty` (working changes), `branch` (branch,
- * upstream, ahead/behind) and `base` (ahead of base) — and an event recomputes only the groups it can affect: a
- * working-tree edit, an index or ignore-rule change reads only `dirty`; the upstream moving reads only `branch`; a
- * ref the base depends on reads only `base`; a `gk` config change (mostly bookkeeping writes to the shared
- * `.git/gk/config`) re-reads the branch's stored merge targets and recorded base, and reads `base` only when one of
- * them changed; the checked-out branch moving, or a HEAD change, reads all of them. Tags, stash, unrelated branches
- * and the like read nothing. One run is in flight per worktree at a
+ * HEAD's commit, upstream, ahead/behind) and `base` (ahead of base, and the base's tip) — and an event recomputes only
+ * the groups it can affect: a working-tree edit, an index or ignore-rule change reads only `dirty`; the upstream moving
+ * reads only `branch`; a ref the base depends on reads only `base`; a `gk` config change (mostly bookkeeping writes to
+ * the shared `.git/gk/config`) re-reads the branch's stored merge targets and recorded base, and reads `base` only when
+ * one of them changed; the checked-out branch moving, or a HEAD change, reads all of them. Stash, unrelated tags and
+ * branches, and the like read nothing. One run is in flight per worktree at a
  * time; events during a run are merged into a single follow-up run.
  *
  * **Value-change-only notification.** {@link WorktreeSummarySubscription.onDidChange} and {@link onDidChangeSummary}
@@ -527,6 +531,7 @@ async function readSummary(
 
 	let branch = previous?.branch;
 	let detached = previous?.detached ?? false;
+	let sha = previous?.sha;
 	let upstream = previous?.upstream;
 	let ahead = previous?.ahead ?? 0;
 	let behind = previous?.behind ?? 0;
@@ -534,6 +539,7 @@ async function readSummary(
 		const current = await repo.branches.getBranch(undefined, undefined, signal);
 		detached = current?.detached ?? false;
 		branch = detached ? undefined : current?.name || undefined;
+		sha = current?.sha;
 		upstream = current?.upstream != null ? await toSummaryUpstream(repo, current.upstream, signal) : undefined;
 		ahead = current?.upstream?.state.ahead ?? 0;
 		behind = current?.upstream?.state.behind ?? 0;
@@ -593,6 +599,7 @@ async function readSummary(
 			repoPath: key,
 			branch: branch,
 			detached: detached,
+			sha: sha,
 			upstream: upstream,
 			ahead: ahead,
 			behind: behind,
@@ -667,6 +674,7 @@ function summariesEqual(a: WorktreeSummary, b: WorktreeSummary): boolean {
 		a.repoPath === b.repoPath &&
 		a.branch === b.branch &&
 		a.detached === b.detached &&
+		a.sha === b.sha &&
 		a.ahead === b.ahead &&
 		a.behind === b.behind &&
 		a.dirty === b.dirty &&
@@ -679,6 +687,10 @@ function summariesEqual(a: WorktreeSummary, b: WorktreeSummary): boolean {
 				a.upstream.branch === b.upstream.branch &&
 				a.upstream.missing === b.upstream.missing)) &&
 		(a.base === b.base ||
-			(a.base != null && b.base != null && a.base.ref === b.base.ref && a.base.ahead === b.base.ahead))
+			(a.base != null &&
+				b.base != null &&
+				a.base.ref === b.base.ref &&
+				a.base.ahead === b.base.ahead &&
+				a.base.sha === b.base.sha))
 	);
 }

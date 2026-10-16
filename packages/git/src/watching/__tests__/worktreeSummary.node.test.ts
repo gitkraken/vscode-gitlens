@@ -48,6 +48,7 @@ interface FakeUpstream {
 interface FakeBase {
 	ref: string;
 	ahead: number;
+	sha: string;
 }
 
 interface ReadCounts {
@@ -62,6 +63,8 @@ class FakeRepository {
 	state: {
 		branch: string | undefined;
 		detached: boolean;
+		/** HEAD's commit */
+		sha: string | undefined;
 		upstream: FakeUpstream | undefined;
 		dirty: boolean;
 		base: FakeBase | undefined;
@@ -78,9 +81,10 @@ class FakeRepository {
 	} = {
 		branch: 'main',
 		detached: false,
+		sha: 'aaa111',
 		upstream: { name: 'origin/main', missing: false, ahead: 1, behind: 2 },
 		dirty: false,
-		base: { ref: 'refs/heads/develop', ahead: 3 },
+		base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd111' },
 		baseDependsOn: ['refs/heads/develop'],
 		remotes: ['origin'],
 		userMergeTarget: undefined,
@@ -114,6 +118,7 @@ class FakeRepository {
 					return {
 						name: this.state.detached ? '(abc1234...)' : this.state.branch,
 						detached: this.state.detached,
+						sha: this.state.sha,
 						upstream:
 							upstream != null
 								? {
@@ -130,7 +135,7 @@ class FakeRepository {
 
 					const base = this.state.base;
 					return {
-						base: base != null ? { ref: base.ref, ahead: base.ahead } : undefined,
+						base: base != null ? { ref: base.ref, ahead: base.ahead, sha: base.sha } : undefined,
 						dependsOn: this.state.baseDependsOn,
 					};
 				},
@@ -256,11 +261,12 @@ const expectedInitial: WorktreeSummary = {
 	repoPath: key,
 	branch: 'main',
 	detached: false,
+	sha: 'aaa111',
 	upstream: { name: 'origin/main', remote: 'origin', branch: 'main', missing: false },
 	ahead: 1,
 	behind: 2,
 	dirty: false,
-	base: { ref: 'refs/heads/develop', ahead: 3 },
+	base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd111' },
 	stale: false,
 };
 
@@ -363,10 +369,21 @@ describe('WorktreeSummaryService', () => {
 
 			assert.strictEqual(summary.branch, undefined);
 			assert.strictEqual(summary.detached, true);
+			assert.strictEqual(summary.sha, 'aaa111', "HEAD's commit is still reported when detached");
 			assert.strictEqual(summary.upstream, undefined);
 			assert.strictEqual(summary.base, undefined);
 			assert.strictEqual(h.repo.counts.base, 0, 'no base read for a detached HEAD');
 			assert.strictEqual(h.repo.counts.remotes, 0, 'no remotes read without an upstream');
+		});
+
+		it('reports no HEAD commit before the first commit', async () => {
+			const h = createHarness();
+			h.repo.state.sha = undefined;
+			h.service.subscribe(repoPath);
+
+			const summary = await h.service.getSummary(repoPath);
+
+			assert.strictEqual(summary.sha, undefined);
 		});
 
 		it('shares one entry and one set of reads across subscribers', async () => {
@@ -548,12 +565,16 @@ describe('WorktreeSummaryService', () => {
 			h.service.subscribe(repoPath);
 			assert.strictEqual((await h.service.getSummary(repoPath)).base, undefined);
 
-			h.repo.state.base = { ref: 'origin/main', ahead: 0 };
+			h.repo.state.base = { ref: 'origin/main', ahead: 0, sha: 'eee111' };
 			assert.deepStrictEqual(
 				await readsAfter(h, () => h.push(['remotes'], 'refs/remotes/origin/main')),
 				onlyBase,
 			);
-			assert.deepStrictEqual((await h.service.getSummary(repoPath)).base, { ref: 'origin/main', ahead: 0 });
+			assert.deepStrictEqual((await h.service.getSummary(repoPath)).base, {
+				ref: 'origin/main',
+				ahead: 0,
+				sha: 'eee111',
+			});
 		});
 
 		it('re-reads only the stored base values for a gk config change that leaves them unchanged', async () => {
@@ -678,6 +699,65 @@ describe('WorktreeSummaryService', () => {
 			assert.strictEqual(fired[0], global[0]);
 			assert.deepStrictEqual(fired[0], { ...expectedInitial, behind: 5 });
 			assert.strictEqual(sub.current, fired[0]);
+		});
+
+		it('fires for a commit and a fast-forward of the base that leave every count the same', async () => {
+			const h = createHarness();
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			const fired: WorktreeSummary[] = [];
+			const global: WorktreeSummary[] = [];
+			sub.onDidChange(e => fired.push(e));
+			h.service.onDidChangeSummary(e => global.push(e));
+
+			h.repo.state.sha = 'aaa222';
+			h.repo.state.base = { ...h.repo.state.base!, sha: 'ddd222' };
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/main')), all);
+
+			assert.strictEqual(fired.length, 1);
+			assert.strictEqual(global.length, 1);
+			assert.deepStrictEqual(fired[0], {
+				...expectedInitial,
+				sha: 'aaa222',
+				base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd222' },
+			});
+		});
+
+		it('fires when only the base tip moves, reading only the base', async () => {
+			const h = createHarness();
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			const fired: WorktreeSummary[] = [];
+			sub.onDidChange(e => fired.push(e));
+
+			h.repo.state.base = { ...h.repo.state.base!, sha: 'ddd222' };
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop')), onlyBase);
+
+			assert.strictEqual(fired.length, 1);
+			assert.deepStrictEqual(fired[0], {
+				...expectedInitial,
+				base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd222' },
+			});
+			assert.strictEqual(fired[0].sha, 'aaa111');
+		});
+
+		it('keeps the tips through a dirty-only recompute', async () => {
+			const h = createHarness();
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			const fired: WorktreeSummary[] = [];
+			sub.onDidChange(e => fired.push(e));
+
+			// Values the dirty probe must not re-read
+			h.repo.state.dirty = true;
+			h.repo.state.sha = 'aaa222';
+			h.repo.state.base = { ...h.repo.state.base!, sha: 'ddd222' };
+			assert.deepStrictEqual(await readsAfter(h, () => h.pushWorkingTree()), onlyDirty);
+
+			assert.strictEqual(fired.length, 1);
+			assert.strictEqual(fired[0].dirty, true);
+			assert.strictEqual(fired[0].sha, 'aaa111');
+			assert.strictEqual(fired[0].base?.sha, 'ddd111');
 		});
 
 		it('marks the value stale once on failure and clears it on recovery', async () => {

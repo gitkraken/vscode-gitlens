@@ -29,6 +29,10 @@ function git(repoPath: string, ...args: string[]): void {
 	execFileSync('git', args, { cwd: repoPath, stdio: 'pipe' });
 }
 
+function revParse(repoPath: string, ref: string): string {
+	return execFileSync('git', ['rev-parse', ref], { cwd: repoPath, encoding: 'utf-8' }).trim();
+}
+
 function storeGk(repoPath: string, key: string, value: string): void {
 	mkdirSync(join(repoPath, '.git', 'gk'), { recursive: true });
 	git(repoPath, 'config', '--file', join(repoPath, '.git', 'gk', 'config'), key, value);
@@ -107,10 +111,37 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				const result = await getAheadOfBase(repo, 'feature');
 				assert.strictEqual(result.base?.ref, 'develop');
 				assert.strictEqual(result.base?.ahead, 3);
+				assert.strictEqual(result.base?.sha, revParse(repo.path, 'develop'));
 				assertDependsOn(result, ['refs/heads/feature', 'refs/heads/develop']);
 				assert.ok(
 					!result.dependsOn.includes('refs/heads/release'),
 					'A candidate past the chosen one is not read',
+				);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('reports the commit a tag resolves to when a tag and a branch share the base name', async () => {
+			const repo = createCandidateRepo();
+			try {
+				// Git resolves the short name to the tag, so the count and the sha are the tag's, not the branch's
+				git(repo.path, 'tag', '-a', 'develop', '-m', 'tag', revParse(repo.path, 'develop^'));
+				storeTargets(repo.path, 'feature', { user: 'develop' });
+
+				const result = await getAheadOfBase(repo, 'feature');
+				assert.strictEqual(result.base?.ref, 'develop');
+				assert.strictEqual(result.base?.sha, revParse(repo.path, 'refs/tags/develop^{commit}'));
+				assert.notStrictEqual(result.base?.sha, revParse(repo.path, 'refs/heads/develop'));
+				assertDependsOn(result, ['refs/tags/develop']);
+				assert.strictEqual(
+					result.base?.ahead,
+					Number(
+						execFileSync('git', ['rev-list', '--count', 'refs/tags/develop..HEAD'], {
+							cwd: repo.path,
+							encoding: 'utf-8',
+						}).trim(),
+					),
 				);
 			} finally {
 				repo.cleanup();
@@ -229,7 +260,11 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				storeTargets(clone.path, 'main', { user: 'origin/main' });
 
 				const result = await getAheadOfBase(clone, 'main');
-				assert.deepStrictEqual(result.base, { ref: 'origin/main', ahead: 0 });
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 0,
+					sha: revParse(clone.path, 'origin/main'),
+				});
 			} finally {
 				cleanup();
 			}
@@ -263,6 +298,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				const result = await getAheadOfBase(clone, 'feature');
 				assert.strictEqual(result.base?.ref, 'origin/main');
 				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.sha, revParse(clone.path, 'origin/main'));
 				assertDependsOn(result, [
 					'refs/heads/feature',
 					'refs/heads/main',
@@ -536,7 +572,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 			storeTargets(repo.path, 'feature', { recorded: 'develop' });
 
 			const result = await getAheadOfBase(repo, 'feature');
-			assert.deepStrictEqual(result.base, { ref: 'develop', ahead: 3 });
+			assert.deepStrictEqual(result.base, { ref: 'develop', ahead: 3, sha: revParse(repo.path, 'develop') });
 		} finally {
 			repo.cleanup();
 		}
