@@ -1,0 +1,306 @@
+// Color design tokens. Applied at :root so custom properties inherit across shadow boundaries,
+// mirroring tokens.scss (which carries the dimensionless scales — space, radius, font, z, shadow).
+
+// `@use` this ONLY from an app root whose styles actually consume these tokens — unlike tokens.scss,
+// which every root imports. The import is the record of what has been migrated: adding it to an app
+// that still reads --color-* / raw --vscode-* ships dead custom properties in that bundle and makes
+// the migration look further along than it is. Today: settings only.
+
+// Governing rules this file is built on:
+//  1. Mint a token only where GitLens has a concept VS Code has no token for. A passthrough that
+//     decides nothing is forbidden — use the --vscode-* token directly instead.
+//  2. The name is the altitude. An unqualified VS Code name (`foreground`, `focusBorder`,
+//     `contrastBorder`) is general-purpose; a qualified one (`editorWidget.border`,
+//     `textSeparator.foreground`) is usable only when our thing genuinely IS that thing.
+//  3. Prefer opaque over transparency — in values we DERIVE. Theme tokens that carry alpha pass
+//     through as-is: CSS cannot composite a translucent custom property over an opaque one
+//     (there is no way to read `alpha` outside the color function that produced it), so the only
+//     alternative is re-deriving from the source color, which discards the theme's own override.
+//     Rule 3 says don't contort to avoid alpha, so we don't.
+//  4. Stay consistent with VS Code. Where a theme collapses a distinction, let it collapse.
+//  5. Derive perceptually — oklab/oklch, never srgb. srgb interpolation drags colors through grey.
+//  6. Hover escalates toward the more assertive neighbour the theme already provides, rather than
+//     lightening/darkening with a direction that has to flip per theme kind.
+
+// Full reference: docs/webview-styling.md
+
+:root {
+	// ─── surface ────────────────────────────────────────────────────────────────────────────────
+	// Three levels. `card` is NOT one of them — it belongs to the semantic layer.
+	// No verify-and-repair machinery and no HC special-casing: where a theme collapses the ladder it
+	// collapses, and the elevation helper already swaps shadow for border in high contrast.
+
+	// Placement-aware — overridden per host below. editor tab / sidebar view / bottom panel.
+	--gl-color-surface-base: var(--vscode-editor-background);
+
+	// Always the sidebar, regardless of where this webview is hosted.
+	--gl-color-surface-aside: var(--vscode-sideBar-background, var(--gl-color-surface-base));
+
+	// Floating surfaces — dialogs, popovers, tooltips. `editorHoverWidget.background` registers AS
+	// `editorWidget.background`, so these are the same value unless a theme overrides one.
+	--gl-color-surface-overlay: var(--vscode-editorHoverWidget-background, var(--gl-color-surface-base));
+
+	// No `raised` level. GitLens has no in-flow lift that is not a card, and `card` belongs to the
+	// semantic layer — it is already its own theme-kind-forked token. Measured before dropping it:
+	// base -> overlay is Δ4 in dark and Δ0 in hc-light against the Δ20 a card actually uses, so the
+	// mechanism inherits the theme's magnitude as well as its direction, and that magnitude is far
+	// too small to carry card hierarchy. Revisit with the semantic `card` domain, not here.
+
+	// No current-surface pointer either. It existed to resolve translucent values against their
+	// backdrop, but CSS cannot composite a translucent custom property over an opaque one — `alpha`
+	// is readable only inside the function that produced it. Rule 3 therefore passes theme alpha
+	// through, which leaves the pointer with nothing to point for.
+
+	// ─── border ─────────────────────────────────────────────────────────────────────────────────
+	// The edge OF A THING. Pairs 1:1 with `surface`, staying inside one VS Code family per level.
+	// `base` has no border — a canvas has no edge.
+	// All four are `contrastBorder` in high contrast by registration, so HC needs nothing here.
+
+	// `sideBar.border` is null in dark and light and `contrastBorder` in both HC variants — so this
+	// is unset in normal themes BY DESIGN (the fallback-switch idiom, for free). A consumer writing
+	// `border: … solid var(--gl-color-border-aside)` gets no border at all in normal themes, which is
+	// the intent; do not give it a `transparent` fallback, which would reserve a 1px gutter instead.
+	--gl-color-border-aside: var(--vscode-sideBar-border);
+
+	// Translucent in dark/light (`editorWidget.foreground` @ 20%) — passed through per rule 3.
+	--gl-color-border-raised: var(--vscode-editorWidget-border);
+
+	// `editorHoverWidget` for BOTH surface and border so a theme can never split the family.
+	--gl-color-border-overlay: var(--vscode-editorHoverWidget-border, var(--gl-color-border-raised));
+	--gl-color-border-focus: var(--vscode-focusBorder);
+
+	// An edge that exists ONLY in high contrast. `widget.border` is null in dark and light and
+	// `contrastBorder` in both HC variants, so this self-collapses with no media query. Minting it is
+	// rule 1's meaningful case: `widget.border` is qualified ("widgets such as find/replace"), so
+	// using it generically breaks rule 2, while "an HC-only edge" is a GitLens concept VS Code names
+	// only per component. ~30 sites currently hand-roll it.
+	// Consumers that need the 1px reserved in every theme must add their own `, transparent`
+	// fallback; without one the whole `border` shorthand goes invalid outside HC and the gutter
+	// collapses, which is usually what you want.
+	--gl-color-border-contrast: var(--vscode-widget-border);
+
+	// ─── divider ────────────────────────────────────────────────────────────────────────────────
+	// Its own domain, NOT part of `border`. A border is the edge of a thing and belongs to the surface
+	// it outlines; a divider separates two things and belongs to the layout, not to either one.
+	// That is also why VS Code has no general divider token — every candidate (`panel.border`,
+	// `editorGroup.border`, `sideBarSectionHeader.border`) is the edge of a chrome region.
+	// `textSeparator.foreground` IS correct here by rule 2: a divider genuinely is a separator.
+
+	// Taken at FULL strength, not at the 33% VS Code uses. Their single use of this token
+	// (`chat.css` — the only one in the whole product) styles `.rendered-markdown hr`, a hairline rule
+	// inside prose. That is not a region separator, so the weight does not carry over: 33% of an
+	// already-translucent token (`#ffffff2e`, 18%) lands at ~6%, four times fainter than what GitLens
+	// actually shipped. Full strength is 18% against that 25% — within a hair.
+
+	// HC switch (idiom 2): `textSeparator.foreground` is `Color.black` in hc-dark, whose canvas is also
+	// black, so the source is unusable there. `contrastBorder` is set in BOTH high-contrast variants
+	// and unset everywhere else, so an unresolved `var()` makes this guaranteed-invalid in normal
+	// themes and the fallback takes over. Measured: identical to the raw token in dark/light, and
+	// identical in HC to the `var(--vscode-widget-border, …)` these dividers replaced.
+	--_gl-divider-hc: var(--vscode-contrastBorder);
+	--gl-color-divider-base: var(--_gl-divider-hc, var(--vscode-textSeparator-foreground));
+
+	// ─── feedback ───────────────────────────────────────────────────────────────────────────────
+	// info / warning / danger map to `inputValidation.*` — the only COMPLETE callout triad in the
+	// registry (background, border and foreground for all three), already opaque, and flattening to
+	// black/white in HC so the border carries it there. A GitLens banner conveying an error genuinely
+	// is that kind of message, which is what makes the qualified name legitimate under rule 2.
+
+	// Each variant supplies TWO foregrounds and they are not interchangeable:
+	//   -fg       text INSIDE a callout — correct when the fill is that callout background.
+	//   -quiet-fg the on-surface hue for a colored glyph or label with NO fill behind it.
+	// `quiet` is shared vocabulary with `actions` and means the same thing in both: no fill behind it.
+
+	// No -border-hover (the border holds steady; only the fill moves) and no -quiet-fg-hover (a quiet
+	// action's hover comes from `actions`' quiet-bg-hover while its foreground stays put).
+
+	// -fg: `inputValidation.{v}Foreground` is NULL in dark, light AND hcDark, and set only in hcLight
+	// — to plain `foreground`. Null means "inherit the surrounding foreground", so the fallback is not
+	// decoration, it is the value that actually ships in every normal theme.
+
+	// -bg-hover: interpolates -bg toward -border. The border is the assertive version of the wash, so
+	// hover escalates muted-fill → saturated-border rather than merely shading (rule 6) — no
+	// lighten/darken direction to flip per theme kind.
+	// UNSETTLED: 25% is a starting value to be settled by eye across the four theme kinds.
+
+	// -quiet-border: the self-collapsing HC idiom. `editor{V}.border` is null in both normal themes
+	// and set only in HC, so a quiet action picks up an outline in HC for free — no media query, no
+	// theme selector, nothing to cross the shadow boundary.
+
+	// -quiet-fg sources `editor{V}.foreground` rather than the unqualified `errorForeground` for
+	// family symmetry across the variants and better per-theme-kind tuning (`editorError.foreground`
+	// is #F14C4C dark → #F48771 hcDark, where `errorForeground` is #F48771 in both).
+
+	--gl-color-feedback-info-bg: var(--vscode-inputValidation-infoBackground);
+	--gl-color-feedback-info-border: var(--vscode-inputValidation-infoBorder);
+	--gl-color-feedback-info-fg: var(--vscode-inputValidation-infoForeground, var(--vscode-foreground));
+	--gl-color-feedback-info-bg-hover: color-mix(
+		in oklab,
+		var(--gl-color-feedback-info-border) 25%,
+		var(--gl-color-feedback-info-bg)
+	);
+	--gl-color-feedback-info-quiet-fg: var(--vscode-editorInfo-foreground);
+	--gl-color-feedback-info-quiet-border: var(--vscode-editorInfo-border);
+
+	--gl-color-feedback-warning-bg: var(--vscode-inputValidation-warningBackground);
+	--gl-color-feedback-warning-border: var(--vscode-inputValidation-warningBorder);
+	--gl-color-feedback-warning-fg: var(--vscode-inputValidation-warningForeground, var(--vscode-foreground));
+	--gl-color-feedback-warning-bg-hover: color-mix(
+		in oklab,
+		var(--gl-color-feedback-warning-border) 25%,
+		var(--gl-color-feedback-warning-bg)
+	);
+	--gl-color-feedback-warning-quiet-fg: var(--vscode-editorWarning-foreground);
+	--gl-color-feedback-warning-quiet-border: var(--vscode-editorWarning-border);
+
+	--gl-color-feedback-danger-bg: var(--vscode-inputValidation-errorBackground);
+	--gl-color-feedback-danger-border: var(--vscode-inputValidation-errorBorder);
+	--gl-color-feedback-danger-fg: var(--vscode-inputValidation-errorForeground, var(--vscode-foreground));
+	--gl-color-feedback-danger-bg-hover: color-mix(
+		in oklab,
+		var(--gl-color-feedback-danger-border) 25%,
+		var(--gl-color-feedback-danger-bg)
+	);
+	--gl-color-feedback-danger-quiet-fg: var(--vscode-editorError-foreground);
+	--gl-color-feedback-danger-quiet-border: var(--vscode-editorError-border);
+
+	// `success` has no VS Code triad at all, so it is derived — from `charts.green`, NOT from
+	// `testing.iconPassed`. `charts.*` is not a chart palette; it is the theme's semantic hue palette
+	// wearing a historical name (red/blue/yellow are pure re-exports of the editor diagnostics, and
+	// green is one of only two entries with its own value — precisely because there was no existing
+	// semantic green to alias). `testing.iconPassed` IS genuinely scoped to test results, so sourcing
+	// a generic success from it is the cross-domain failure rule 2 exists to prevent.
+
+	// Since VS Code ships no success triad, there is no theme decision to honour and we are free to be
+	// systematic where their own set is hand-tuned: -bg pulls the hue 83% toward the canvas, which is
+	// the factor the three LIGHT triads already agree on (84/83/84 — the dark ones are hand-tuned and
+	// have no rule to inherit). That makes `success` the only variant whose triad is systematic in
+	// dark as well: better-behaved than its siblings rather than inconsistent with them.
+
+	// Recorded asymmetry: -border TRACKS the theme (`charts.green` is #89D185 dark / #388A34 light)
+	// where the other three borders are theme-independent (#BE1100 / #B89500 / #007acc in both).
+	--gl-color-feedback-success-bg: color-mix(in oklab, var(--vscode-charts-green) 17%, var(--gl-color-surface-base));
+	--gl-color-feedback-success-border: var(--vscode-charts-green);
+
+	// On-fill derivation, not a token lookup: VS Code has no general "text on a colored fill" color,
+	// and no single global value can satisfy amber, green and red at once. Picks black or white from the
+	// fill's own lightness, flipping hard at the threshold (x1000 then clamped to 0..1).
+
+	// 0.57 is chosen to MATCH THE PLATFORM, not to win an argument about contrast models.
+	// `contrast-color()` uses WCAG 2.x relative luminance (established empirically — it switches between
+	// 8-bit grey 117 and 118, straddling the theoretical crossover of 0.17913 by one quantization step).
+	// Of the thresholds expressible in OKLab, 0.57 disagrees with it least — 2.9%, against 3.3% for 0.58
+	// and 9.5% for the 0.62 an earlier pass specified. So where `contrast-color()` IS available this is
+	// simply REPLACED by it with no visual change (see the @supports block at the end of this file).
+
+	// `oklab` rather than `oklch` is a free defensive choice, not a support requirement — both clear the
+	// Chromium 134 floor, and the two were verified pixel-identical on 20/20 fills for this achromatic
+	// use (`a: 0, b: 0` is achromatic exactly as `c: 0, h: 0` is), while `oklch(from …)` needs Safari 18
+	// against `oklab(from …)`'s 16.4 on the web surface.
+
+	// UNSETTLED: worth settling by eye on real chips rather than by formula.
+	--gl-color-feedback-success-fg: oklab(from var(--gl-color-feedback-success-bg) clamp(0, (0.57 - l) * 1000, 1) 0 0);
+	--gl-color-feedback-success-bg-hover: color-mix(
+		in oklab,
+		var(--gl-color-feedback-success-border) 25%,
+		var(--gl-color-feedback-success-bg)
+	);
+	--gl-color-feedback-success-quiet-fg: var(--vscode-charts-green);
+
+	// Hue-preserving HC switch (idiom 3): `contrastBorder` is weighted 0% so it contributes NO color,
+	// only its PRESENCE. In HC it resolves, the mix is valid, and the result is exactly -quiet-fg's
+	// value; in normal themes it is unset, the whole expression is guaranteed-invalid, and the var()
+	// fallback below takes over. The indirection through a private property means call sites don't
+	// each have to carry the fallback.
+	// This lands legible on both HC grounds for free because `charts.green` is already tuned per theme
+	// kind (#89D185 hc-dark, #374e06 hc-light).
+	--_gl-feedback-success-quiet-border-hc: color-mix(
+		in oklab,
+		var(--vscode-contrastBorder) 0%,
+		var(--gl-color-feedback-success-quiet-fg)
+	);
+	--gl-color-feedback-success-quiet-border: var(--_gl-feedback-success-quiet-border-hc, transparent);
+
+	// ─── actions ────────────────────────────────────────────────────────────────────────────────
+	// AFFORDANCE ONLY — how a clickable thing looks at a given emphasis. Variants mint nothing here:
+	// a FILLED tier takes `feedback`'s -bg / -border / -fg, a NO-FILL tier takes its -quiet-fg. That
+	// is already the rule in button.ts, and it dissolves the `alert` appearance — alert is quiet+info,
+	// not a fifth tier.
+
+	// Six appearances collapse to four color tiers: `input` and `toolbar` are color-identical today
+	// (both transparent / foreground / toolbar.hoverBackground), differing only in padding and height.
+
+	// Rule 1 holds because the GitLens name adds a CONCEPT: `action-primary` is a GitLens tier, not a
+	// VS Code button. Naming it decides "GitLens primary actions use VS Code's button color" in one
+	// place instead of at 40 call sites. (Contrast the rejected `surface-sunken` → `input.background`,
+	// where the consumer literally IS an input and the name decided nothing.)
+
+	// Deliberately NOT minted:
+	//   quiet-bg      — literally `transparent`; not a color decision.
+	//   link-fg-hover — `textLink.activeForeground` is byte-identical to `textLink.foreground` in all
+	//                   four theme kinds, so no color change ships. Hover is the underline.
+	//   *-bg-active for the filled tiers — VS Code provides none and nothing uses one.
+
+	--gl-color-action-primary-bg: var(--vscode-button-background);
+	--gl-color-action-primary-fg: var(--vscode-button-foreground);
+	--gl-color-action-primary-bg-hover: var(--vscode-button-hoverBackground, var(--gl-color-action-primary-bg));
+
+	// `button.border` IS `contrastBorder` — unset in normal themes, set in HC. Self-collapsing.
+	--gl-color-action-primary-border: var(--vscode-button-border);
+
+	--gl-color-action-secondary-bg: var(--vscode-button-secondaryBackground);
+	--gl-color-action-secondary-fg: var(--vscode-button-secondaryForeground);
+	--gl-color-action-secondary-bg-hover: var(
+		--vscode-button-secondaryHoverBackground,
+		var(--gl-color-action-secondary-bg)
+	);
+
+	// Translucent in dark/light (`foreground` @ 15%) — passed through per rule 3.
+	--gl-color-action-secondary-border: var(--vscode-button-secondaryBorder);
+
+	// `foreground`, not `icon.foreground`: quiet serves icon-only actions AND toolbar buttons with
+	// text labels, so an icon-qualified source would be wrong for half its consumers while the
+	// unqualified one covers both. Migration note — this is a real if slight visible change for
+	// `action-item`, which moves #C5C5C5 → #CCCCCC in dark. Not a no-op.
+	--gl-color-action-quiet-fg: var(--vscode-foreground);
+
+	// Translucent by design in dark/light and null in BOTH HC variants, where hover is conveyed by the
+	// outline below instead of a fill. Passed through per rule 3.
+	--gl-color-action-quiet-bg-hover: var(--vscode-toolbar-hoverBackground);
+	--gl-color-action-quiet-bg-active: var(--vscode-toolbar-activeBackground);
+
+	// `toolbar.hoverOutline` is `activeContrastBorder` — HC only. Self-collapsing.
+	--gl-color-action-quiet-outline-hover: var(--vscode-toolbar-hoverOutline);
+
+	--gl-color-action-link-fg: var(--vscode-textLink-foreground);
+}
+
+// Placement-aware `base`. Declared through `:root:has(…)` rather than on `body` so that anything
+// deriving from `--gl-color-surface-base` at `:root` picks the placement value up: a custom property
+// is substituted in the element that DECLARES it, so a `body`-level override would never reach a
+// `:root`-level derivation. Same `:root:has(` pattern the theme mixins in utils.scss already use.
+:root:has(body[data-placement='view']) {
+	--gl-color-surface-base: var(--vscode-sideBar-background, var(--vscode-editor-background));
+}
+
+:root:has(body[data-placement='panel']) {
+	--gl-color-surface-base: var(--vscode-panel-background, var(--vscode-editor-background));
+}
+
+// `contrast-color()` computes the same WCAG 2.x crossover the 0.57 approximation above is tuned to
+// match, so this tier is a REPLACEMENT with no visual change, not an enhancement — and the
+// approximation is the real rule on every desktop install today, not a transitional band.
+
+// It has shipped in all three engines (Chrome 147 / Firefox 146 / Safari 26), which puts it inside
+// `last 2 firefox` and `last 2 safari` but ABOVE the Electron floor (Chromium 134, from
+// engines.vscode ^1.101.0). So it splits the target: live on VS Code for the Web today, on desktop
+// once the floor reaches an Electron carrying Chromium 147+.
+
+// Nothing in the build processes our CSS — the esbuild target sits on a `/\.ts$/` loader, and SCSS
+// goes through sass-loader → css-loader → MiniCssExtractPlugin with no autoprefixing, lowering or
+// polyfilling. @supports is therefore the ENTIRE degradation mechanism available here.
+@supports (color: contrast-color(red)) {
+	:root {
+		--gl-color-feedback-success-fg: contrast-color(var(--gl-color-feedback-success-bg));
+	}
+}
