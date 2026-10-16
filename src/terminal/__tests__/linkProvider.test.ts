@@ -18,7 +18,7 @@ suite('GitTerminalLinkProvider', () => {
 	let provider: GitTerminalLinkProvider;
 	let cancellation: CancellationTokenSource;
 	let singleRepository: GlRepository | undefined;
-	let resolveRepository: sinon.SinonStub;
+	let getRepository: sinon.SinonStub;
 	let getRepositoryService: sinon.SinonStub;
 	let getBranches: sinon.SinonStub;
 	let getTags: sinon.SinonStub;
@@ -29,7 +29,7 @@ suite('GitTerminalLinkProvider', () => {
 		sandbox = sinon.createSandbox();
 		cancellation = new CancellationTokenSource();
 		singleRepository = undefined;
-		resolveRepository = sandbox.stub().resolves(repoB);
+		getRepository = sandbox.stub().returns(repoB);
 		getBranches = sandbox.stub().resolves({ values: [] });
 		getTags = sandbox.stub().resolves({ values: [] });
 		isValidReference = sandbox.stub().resolves(true);
@@ -45,9 +45,8 @@ suite('GitTerminalLinkProvider', () => {
 				get highlander() {
 					return singleRepository;
 				},
-				getOrAddRepository: resolveRepository,
+				getRepository: getRepository,
 				getRepositoryService: getRepositoryService,
-				getRepository: sandbox.stub().returns(repoB),
 				onDidChangeRepository: () => new Disposable(() => {}),
 				onDidChangeRepositories: () => new Disposable(() => {}),
 			},
@@ -70,12 +69,10 @@ suite('GitTerminalLinkProvider', () => {
 
 		assert.equal(links.length, 1);
 		assert.deepEqual(links[0].command.args, { repoPath: repoB.path, sha: 'abc1234' });
-		sinon.assert.calledOnceWithExactly(resolveRepository, input.terminal.shellIntegration!.cwd, {
-			detectNested: true,
-		});
+		sinon.assert.calledOnceWithExactly(getRepository, input.terminal.shellIntegration!.cwd);
 	});
 
-	test('prefers the terminal cwd over a known parent repository', async () => {
+	test('prefers the terminal cwd repository over the single repository', async () => {
 		singleRepository = repoA;
 		const links = await provider.provideTerminalLinks(context(), cancellation.token);
 
@@ -90,7 +87,7 @@ suite('GitTerminalLinkProvider', () => {
 
 		assert.equal(links.length, 1);
 		assert.deepEqual(links[0].command.args, { repoPath: repoA.path, sha: 'abc1234' });
-		sinon.assert.notCalled(resolveRepository);
+		sinon.assert.notCalled(getRepository);
 	});
 
 	test('does not guess a repository when multiple repositories have no terminal cwd', async () => {
@@ -99,9 +96,17 @@ suite('GitTerminalLinkProvider', () => {
 		sinon.assert.notCalled(getRepositoryService);
 	});
 
-	test('does not fall back to another repository when the cwd is outside a repository', async () => {
+	test('falls back to the single repository when the cwd is outside every known repository', async () => {
 		singleRepository = repoA;
-		resolveRepository.resolves(undefined);
+		getRepository.returns(undefined);
+		const links = await provider.provideTerminalLinks(context(), cancellation.token);
+
+		assert.equal(links.length, 1);
+		assert.deepEqual(links[0].command.args, { repoPath: repoA.path, sha: 'abc1234' });
+	});
+
+	test('does not guess a repository when the cwd is outside every known repository of several', async () => {
+		getRepository.returns(undefined);
 
 		assert.deepEqual(await provider.provideTerminalLinks(context(), cancellation.token), []);
 		sinon.assert.notCalled(getRepositoryService);
@@ -111,11 +116,11 @@ suite('GitTerminalLinkProvider', () => {
 		cancellation.cancel();
 
 		assert.deepEqual(await provider.provideTerminalLinks(context(), cancellation.token), []);
-		sinon.assert.notCalled(resolveRepository);
+		sinon.assert.notCalled(getRepository);
 	});
 
 	test('keeps cached links scoped to the repository as the terminal changes directories', async () => {
-		resolveRepository.onFirstCall().resolves(repoA);
+		getRepository.onFirstCall().returns(repoA);
 		const first = await provider.provideTerminalLinks(context('abc1234', Uri.file(repoA.path)), cancellation.token);
 		const second = await provider.provideTerminalLinks(context(), cancellation.token);
 
@@ -128,16 +133,6 @@ suite('GitTerminalLinkProvider', () => {
 
 		assert.deepEqual(await provider.provideTerminalLinks(context('1234567'), cancellation.token), []);
 		sinon.assert.calledOnce(isValidReference);
-	});
-
-	test('stops when cancelled while resolving the terminal repository', async () => {
-		resolveRepository.callsFake(async () => {
-			cancellation.cancel();
-			return repoB;
-		});
-
-		assert.deepEqual(await provider.provideTerminalLinks(context(), cancellation.token), []);
-		sinon.assert.notCalled(getRepositoryService);
 	});
 
 	[
@@ -162,6 +157,8 @@ suite('GitTerminalLinkProvider', () => {
 		['abc1234..def5678', 'gitlens.gitCommands'],
 	].forEach(([line, command]) => {
 		test(`preserves ${line} links in the terminal repository`, async () => {
+			// A single repository also exists, so the link must come from the cwd lookup, not the fallback
+			singleRepository = repoA;
 			getBranches.resolves({
 				values: [{ name: 'main', ref: 'main', repoPath: repoB.path } as unknown as GitBranch],
 			});
@@ -170,6 +167,10 @@ suite('GitTerminalLinkProvider', () => {
 
 			assert.equal(links.length, 1);
 			assert.equal(links[0].command.command, command);
+
+			const args = links[0].command.args as { repoPath?: string; state?: { repo?: string } };
+			assert.equal(args.repoPath ?? args.state?.repo, repoB.path);
+			sinon.assert.calledOnceWithMatch(getRepositoryService, repoB.path);
 		});
 	});
 });
