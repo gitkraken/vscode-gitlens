@@ -256,7 +256,12 @@ export async function resolveRepository(
 			let warning = toProviderWarning(id, domain, connectionId, ex);
 			try {
 				const failure = await integration.settleRepositoryRefusal(
-					{ owner: owner, name: name, project: project, connectionId: connectionId },
+					{
+						owner: owner,
+						name: project != null ? getAzureRepositoryName(name) : name,
+						project: project,
+						connectionId: connectionId,
+					},
 					ex,
 				);
 				if (failure != null) {
@@ -281,6 +286,11 @@ export async function resolveRepository(
 		}
 		return { resolution: resolution };
 	}
+}
+
+/** The repository an Azure remote's `{project}/_git/{repo}` name addresses, as a batch target names it. */
+function getAzureRepositoryName(name: string): string {
+	return /\/_git\/([^/]+)$/i.exec(name)?.[1] ?? name;
 }
 
 /** Whether `path` is `{x}/_git/{repo}`, the Azure repository path the remote parser reads without a project segment. */

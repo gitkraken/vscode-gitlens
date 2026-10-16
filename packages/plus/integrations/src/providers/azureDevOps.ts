@@ -105,10 +105,27 @@ export function getAzureRepositoryApiBaseUrl(
 	baseUrl: string,
 	repo: Pick<AzureRepositoryDescriptor, 'owner' | 'virtualDirectory'>,
 ): string {
-	const directory = repo.virtualDirectory?.split('/');
-	if (directory?.some(segment => !segment || segment === '.' || segment === '..')) {
+	if (!isValidAzureVirtualDirectory(repo.virtualDirectory)) {
 		throw new Error(`Invalid Azure virtual directory '${repo.virtualDirectory}'.`);
 	}
+
+	const url = findAzureRepositoryApiBaseUrl(baseUrl, repo);
+	if (url == null) throw new Error('Azure repository virtual directory does not match the configured installation');
+
+	return url;
+}
+
+/**
+ * {@link getAzureRepositoryApiBaseUrl}, `undefined` when the connection doesn't serve `repo`'s virtual directory or it
+ * isn't a valid one.
+ */
+export function findAzureRepositoryApiBaseUrl(
+	baseUrl: string,
+	repo: Pick<AzureRepositoryDescriptor, 'owner' | 'virtualDirectory'>,
+): string | undefined {
+	if (!isValidAzureVirtualDirectory(repo.virtualDirectory)) return undefined;
+
+	const directory = repo.virtualDirectory?.split('/');
 
 	const url = new URL(baseUrl);
 	const toUrl = (segments: string[]) => `${url.protocol}//${url.host}${segments.map(s => `/${s}`).join('')}`;
@@ -127,14 +144,27 @@ export function getAzureRepositoryApiBaseUrl(
 			return toUrl(candidate);
 		}
 	}
-	throw new Error('Azure repository virtual directory does not match the configured installation');
+	return undefined;
+}
+
+function isValidAzureVirtualDirectory(virtualDirectory: string | undefined): boolean {
+	return !virtualDirectory?.split('/').some(segment => !segment || segment === '.' || segment === '..');
+}
+
+/**
+ * The paths a project-less reading's `{vdir}/{owner}` can be below the connection `baseUrl` addresses: the address
+ * itself, or its parent when the address names a collection (see {@link resolveAzureProjectlessRepository}). A
+ * connection at the host root serves no virtual directory, so none.
+ */
+function getAzureProjectlessDirectories(baseUrl: string): string[][] {
+	const configured = new URL(baseUrl).pathname.split('/').filter(Boolean);
+	return [configured, configured.slice(0, -1)].filter(path => path.length > 0);
 }
 
 /**
  * Whether `repo`'s path could be the project-less form of a repository named after its project, as read below the
- * connection `baseUrl` addresses: that reading moves the parsed owner into the virtual directory, so the address must
- * be that directory, or its parent when the address names a collection (see
- * {@link resolveAzureProjectlessRepository}). A connection at the host root serves no virtual directory, so never.
+ * connection `baseUrl` addresses: that reading moves the parsed owner into the virtual directory, so its directory and
+ * owner must be one of {@link getAzureProjectlessDirectories}.
  */
 export function isAzureProjectlessCandidate(
 	baseUrl: string,
@@ -142,11 +172,20 @@ export function isAzureProjectlessCandidate(
 ): boolean {
 	if (getAzureRepositoryIdentity({ owner: repo.owner, name: repo.name }).projectName == null) return false;
 
-	const configured = new URL(baseUrl).pathname.split('/').filter(Boolean);
 	const directory = [...(repo.virtualDirectory?.split('/') ?? []), repo.owner];
-	const addresses = (path: string[]) =>
-		path.length === directory.length && path.every((s, i) => sameAzurePathSegment(s, directory[i]));
-	return addresses(configured) || addresses(configured.slice(0, -1));
+	return getAzureProjectlessDirectories(baseUrl).some(
+		path => path.length === directory.length && path.every((s, i) => sameAzurePathSegment(s, directory[i])),
+	);
+}
+
+/**
+ * The virtual directory ahead of `owner` (empty when nothing is) in whichever of {@link getAzureProjectlessDirectories}
+ * ends with it, `undefined` when none does. A caller-supplied repository scope carries only its owner, so this places
+ * it where {@link isAzureProjectlessCandidate} expects it.
+ */
+export function getAzureScopeVirtualDirectory(baseUrl: string, owner: string): string | undefined {
+	const path = getAzureProjectlessDirectories(baseUrl).find(p => sameAzurePathSegment(p.at(-1)!, owner));
+	return path?.slice(0, -1).map(decodePathSegment).join('/');
 }
 
 function sameAzurePathSegment(encoded: string, value: string): boolean {

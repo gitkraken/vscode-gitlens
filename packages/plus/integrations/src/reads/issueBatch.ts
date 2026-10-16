@@ -71,7 +71,8 @@ export type IssueBatchTarget =
 			owner: string;
 			/**
 			 * Repository name. Required, but ignored on Azure DevOps, whose work items belong to the project rather
-			 * than to a repository.
+			 * than to a repository; there it only names the project of a project-less Azure DevOps Server path read
+			 * behind a virtual directory (`{vdir}/{collection}/_git/{repo}` as owner `{vdir}`, project `{collection}`).
 			 */
 			repo: string;
 			/** Issue number, GitLab issue iid, or Azure DevOps work item id. */

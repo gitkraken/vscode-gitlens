@@ -1317,6 +1317,12 @@ Markdown by this package.
   before `_git` is a listed collection and the one before it isn't; any other path reads as parsed, without discovery.
   When the collections can't be read the path is read as parsed, and a read that finds nothing then fails rather than
   answer, so the miss isn't cached.
+  A repository scope a consumer passes (`repos` on the repo-scoped, search and count reads, and the `owner`/`project`/`repo`
+  of the batch and branch reads) is settled against the same collections when it splits the path as the remote parser
+  does: collection `{vdir}` and project `{collection}`, with the connection addressed at `{vdir}` (or at
+  `{vdir}/{collection}`). The repository name is required for it, since it names the project. A scope that names its
+  collection and project is read as given. So is one whose collections can't be read, and a batch or branch read that
+  then finds nothing for it fails that target rather than report it absent.
 
   Azure DevOps Server also has the filtered searches and their counts, with the collection applied exactly once
   whichever way the address is written. Scope names are encoded as URL segments (collections, projects,
