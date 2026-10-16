@@ -1223,6 +1223,11 @@ suite('Azure DevOps etag check: work item requests and matching', () => {
 			result.warnings.length > 0 && result.warnings.every(w => w.kind === 'auth' && w.scope != null),
 			JSON.stringify(result.warnings),
 		);
+		assert.deepEqual(
+			result.warnings.map(w => w.targetKeys),
+			[['k1'], ['k2']],
+			'each scoped refusal names the one target the cheap check refused',
+		);
 		assert.equal(probes.count, 1, 'the credential is confirmed once, as before');
 		assert.equal(count(sent, 'workItem'), 0, 'a full read would be refused again');
 		assert.equal(getRequestExceptionCount(azure), 0);

@@ -158,6 +158,34 @@ suite('provider warning dedup', () => {
 		assert.equal(into.length, 2);
 	});
 
+	test('equal warnings merge their target keys, and one that concerns the whole call stays whole', () => {
+		const keyed = (...targetKeys: string[]): ProviderWarning => ({ ...warning('same'), targetKeys: targetKeys });
+
+		const a = keyed('a');
+		const b = keyed('b', 'a');
+		const into: ProviderWarning[] = [];
+		appendDedupedWarning(into, a);
+		appendDedupedWarning(into, b);
+
+		assert.equal(into.length, 1);
+		assert.deepEqual(into[0].targetKeys, ['a', 'b'], 'existing order kept, no duplicates');
+		assert.deepEqual(a.targetKeys, ['a'], 'the appended warning is not mutated');
+		assert.deepEqual(b.targetKeys, ['b', 'a']);
+
+		const merged = into[0];
+		appendDedupedWarning(into, keyed('b'));
+		assert.equal(into[0], merged, 'nothing new leaves the entry as it was');
+
+		appendDedupedWarning(into, warning('same'));
+		assert.equal(into.length, 1);
+		assert.equal('targetKeys' in into[0], false, 'an equal warning for the whole call makes the entry whole');
+		assert.deepEqual(merged.targetKeys, ['a', 'b'], 'the replaced warning is not mutated');
+
+		appendDedupedWarning(into, keyed('c'));
+		assert.equal(into.length, 1);
+		assert.equal(into[0].targetKeys, undefined, 'a whole-call entry stays whole when a keyed one is appended');
+	});
+
 	test('two omissions that differ only structurally stay two warnings', () => {
 		// The premise of `omission` is that consumers must not depend on prose carrying the distinguishing
 		// fact — so neither may the dedup key. Same message on purpose: today's messages happen to differ per
