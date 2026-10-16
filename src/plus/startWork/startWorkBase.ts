@@ -219,7 +219,13 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 					if (result === StepResultBreak) {
 						// Signing in retries this step with a no-op that reads as a break — carry on instead of ending
 						if ((await this.container.subscription.getSubscription()).account != null) {
-							// The account may already have integrations connected
+							// The check-in that signed us in started the cloud-integration sync without waiting for it;
+							// read before it lands and the account's connections look like none
+							try {
+								await this.container.integrations.refreshConnections();
+							} catch (ex) {
+								Logger.error(ex, 'Unable to refresh the connected integrations after signing in');
+							}
 							context.connectedIntegrations = await getConnectedIntegrations(this.container);
 							step.skip();
 							continue;
