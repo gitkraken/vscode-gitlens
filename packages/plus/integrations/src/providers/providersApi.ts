@@ -50,6 +50,7 @@ import type {
 	GetReposOptions,
 	IssueFilter,
 	IssueSorting,
+	JiraIssuePage,
 	PageInfo,
 	PagingInput,
 	PagingMode,
@@ -271,6 +272,29 @@ function fromTrelloCard(
 			id: label.id,
 			name: label.name,
 		})),
+	};
+}
+
+/**
+ * One Jira search page as the drains read it: `nextCursor` is the raw provider cursor (Jira offset / nextPageToken)
+ * fed back verbatim as `options.cursor`, and `metadata` is the SDK's, kept only when it reported something.
+ */
+function toJiraIssuePage(
+	result:
+		| {
+				data: ProviderIssue[];
+				pageInfo?: { hasNextPage: boolean; endCursor?: string | null };
+				metadata?: CollectionMetadata;
+		  }
+		| undefined,
+): JiraIssuePage {
+	if (result == null) return undefined;
+
+	return {
+		data: result.data,
+		hasMore: result.pageInfo?.hasNextPage ?? false,
+		nextCursor: result.pageInfo?.endCursor ?? undefined,
+		...(result.metadata != null ? { metadata: result.metadata } : {}),
 	};
 }
 
@@ -2083,7 +2107,7 @@ export class ProvidersApi {
 		project: string,
 		resourceId: string,
 		options?: GetIssuesOptions,
-	): Promise<{ data: ProviderIssue[]; hasMore: boolean; nextCursor: string | undefined } | undefined> {
+	): Promise<JiraIssuePage> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getIssuesForProjectFn',
@@ -2100,12 +2124,7 @@ export class ProvidersApi {
 				},
 				{ token: token },
 			);
-			if (result == null) return undefined;
-			return {
-				data: result.data,
-				hasMore: result.pageInfo?.hasNextPage ?? false,
-				nextCursor: result.pageInfo?.endCursor ?? undefined,
-			};
+			return toJiraIssuePage(result);
 		} catch (e) {
 			return this.handleProviderError(tokenWithInfo, e);
 		}
@@ -2167,7 +2186,7 @@ export class ProvidersApi {
 		baseUrl: string,
 		projectKey: string,
 		options?: GetIssuesOptions,
-	): Promise<{ data: ProviderIssue[]; hasMore: boolean; nextCursor: string | undefined } | undefined> {
+	): Promise<JiraIssuePage> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getJiraServerIssuesForProjectFn',
@@ -2178,13 +2197,7 @@ export class ProvidersApi {
 				{ projectKey: projectKey, ...options, includeTransitions: jiraListIncludeTransitions },
 				{ token: tokenWithInfo.accessToken, baseUrl: baseUrl },
 			);
-			if (result == null) return undefined;
-
-			return {
-				data: result.data,
-				hasMore: result.pageInfo?.hasNextPage ?? false,
-				nextCursor: result.pageInfo?.endCursor ?? undefined,
-			};
+			return toJiraIssuePage(result);
 		} catch (e) {
 			return this.handleProviderError(tokenWithInfo, e);
 		}
@@ -2200,7 +2213,7 @@ export class ProvidersApi {
 		baseUrl: string,
 		projectKeys: string[],
 		options?: GetIssuesOptions,
-	): Promise<{ data: ProviderIssue[]; hasMore: boolean; nextCursor: string | undefined } | undefined> {
+	): Promise<JiraIssuePage> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getJiraServerIssuesForProjectsFn',
@@ -2211,13 +2224,7 @@ export class ProvidersApi {
 				{ projectKeys: projectKeys, ...options, includeTransitions: jiraListIncludeTransitions },
 				{ token: tokenWithInfo.accessToken, baseUrl: baseUrl },
 			);
-			if (result == null) return undefined;
-
-			return {
-				data: result.data,
-				hasMore: result.pageInfo?.hasNextPage ?? false,
-				nextCursor: result.pageInfo?.endCursor ?? undefined,
-			};
+			return toJiraIssuePage(result);
 		} catch (e) {
 			return this.handleProviderError(tokenWithInfo, e);
 		}
@@ -2255,7 +2262,7 @@ export class ProvidersApi {
 		tokenOptInfo: TokenWithInfo<IssuesSelfManagedHostIntegrationId.JiraServer>,
 		baseUrl: string,
 		options?: { cursor?: string; states?: GitIssueState[]; sort?: IssueSorting },
-	): Promise<{ data: ProviderIssue[]; hasMore: boolean; nextCursor: string | undefined } | undefined> {
+	): Promise<JiraIssuePage> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getJiraServerIssuesForCurrentUserFn',
@@ -2271,13 +2278,7 @@ export class ProvidersApi {
 				},
 				{ token: tokenWithInfo.accessToken, baseUrl: baseUrl },
 			);
-			if (result == null) return undefined;
-
-			return {
-				data: result.data,
-				hasMore: result.pageInfo?.hasNextPage ?? false,
-				nextCursor: result.pageInfo?.endCursor ?? undefined,
-			};
+			return toJiraIssuePage(result);
 		} catch (e) {
 			return this.handleProviderError(tokenWithInfo, e);
 		}
@@ -2293,7 +2294,7 @@ export class ProvidersApi {
 		projectKeys: string[],
 		resourceId: string,
 		options?: GetIssuesOptions,
-	): Promise<{ data: ProviderIssue[]; hasMore: boolean; nextCursor: string | undefined } | undefined> {
+	): Promise<JiraIssuePage> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getIssuesForProjectsFn',
@@ -2310,12 +2311,7 @@ export class ProvidersApi {
 				},
 				{ token: token },
 			);
-			if (result == null) return undefined;
-			return {
-				data: result.data,
-				hasMore: result.pageInfo?.hasNextPage ?? false,
-				nextCursor: result.pageInfo?.endCursor ?? undefined,
-			};
+			return toJiraIssuePage(result);
 		} catch (e) {
 			return this.handleProviderError(tokenWithInfo, e);
 		}
@@ -2453,7 +2449,7 @@ export class ProvidersApi {
 			isPAT?: boolean;
 			baseUrl?: string;
 		},
-	): Promise<PagedResult<ProviderIssue>> {
+	): Promise<ProviderApiPagedResult<ProviderIssue>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getIssuesForResourceForCurrentUserFn',

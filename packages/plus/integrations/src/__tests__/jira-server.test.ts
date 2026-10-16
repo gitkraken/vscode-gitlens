@@ -584,6 +584,96 @@ suite('Jira Server/Data Center (#5864)', () => {
 		manager.dispose();
 	});
 
+	test('an account-wide read keeps the siblings of an issue a page dropped, and reports the drop', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jiraServer = withSession(
+			(await manager.get(IssuesSelfManagedHostIntegrationId.JiraServer, 'jira.example.com'))!,
+			'jira.example.com',
+		);
+
+		// provider-apis drops an issue it can't read and reports it in the page's metadata (GKDEV-3652, #5992).
+		stubApi(jiraServer, {
+			getJiraServerIssuesForCurrentUser: (_t: unknown, baseUrl: string, options: { cursor?: string }) =>
+				Promise.resolve(
+					options.cursor == null
+						? {
+								data: [providerIssue('1', baseUrl)],
+								hasMore: true,
+								nextCursor: 'c1',
+								metadata: {
+									completeness: 'partial',
+									failures: [
+										{
+											scope: { providerId: 'jiraServer' },
+											kind: 'provider',
+											message: 'Skipped Jira issues that could not be read: PROJ-2 (boom).',
+										},
+									],
+								},
+							}
+						: { data: [providerIssue('3', baseUrl)], hasMore: false, nextCursor: undefined },
+				),
+		});
+
+		const result = (await jiraServer.searchMyIssuesWithTruncationResult())?.value;
+		assert.equal(result?.values.length, 2, 'the drain reads past the page that dropped an issue');
+		assert.equal(result?.truncated, true, 'the account is missing the dropped issue');
+		assert.equal(result?.metadata?.completeness, 'partial');
+		// Under this read's own scope, as its other failures are: the SDK's provider id is not this integration's.
+		assert.deepEqual(
+			result?.metadata?.failures?.map(f => [f.scope, f.message]),
+			[
+				[
+					{ providerId: IssuesSelfManagedHostIntegrationId.JiraServer },
+					'Skipped Jira issues that could not be read: PROJ-2 (boom).',
+				],
+			],
+		);
+
+		manager.dispose();
+	});
+
+	test('an account-wide read whose every page dropped issues reports them once', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jiraServer = withSession(
+			(await manager.get(IssuesSelfManagedHostIntegrationId.JiraServer, 'jira.example.com'))!,
+			'jira.example.com',
+		);
+
+		// GKDEV-3653: each unreadable page comes back empty and partial, naming its own keys.
+		stubApi(jiraServer, {
+			getJiraServerIssuesForCurrentUser: (_t: unknown, _baseUrl: string, options: { cursor?: string }) => {
+				const page = Number(options.cursor ?? 0);
+				return Promise.resolve({
+					data: [],
+					hasMore: page < 2,
+					nextCursor: page < 2 ? String(page + 1) : undefined,
+					metadata: {
+						completeness: 'partial',
+						failures: [
+							{
+								scope: { providerId: 'jiraServer' },
+								kind: 'provider',
+								message: `Skipped Jira issues that could not be read: PROJ-${page} (boom).`,
+							},
+						],
+					},
+				});
+			},
+		});
+
+		const result = (await jiraServer.searchMyIssuesWithTruncationResult())?.value;
+		assert.equal(result?.truncated, true);
+		assert.deepEqual(
+			result?.metadata?.failures?.map(f => f.message),
+			[
+				'Skipped Jira issues that could not be read: PROJ-0 (boom). Issues on 2 more pages could not be read either.',
+			],
+		);
+
+		manager.dispose();
+	});
+
 	test('listIssueTrackerIssuesPage routes by domain, and never touches the other host', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const hostA = withSession(

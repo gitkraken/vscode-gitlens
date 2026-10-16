@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { GitIssueState, JIRA_MAX_PROJECT_KEYS_PER_REQUEST } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import { AuthenticationError } from '@gitlens/git/errors.js';
@@ -65,7 +66,23 @@ function providerIssue(projectId: string, number: string) {
 }
 
 type SearchCall = { projectKeys: string[]; resourceId: string; cursor?: string; assigneeLogins?: string[] };
-type SearchPage = { data: unknown[]; hasMore: boolean; nextCursor: string | undefined } | undefined;
+type SearchPage =
+	| { data: unknown[]; hasMore: boolean; nextCursor: string | undefined; metadata?: CollectionMetadata }
+	| undefined;
+
+/** What provider-apis reports for a page that dropped an issue it could not read (GKDEV-3652). */
+function droppedIssue(resourceId: string, key: string): CollectionMetadata {
+	return {
+		completeness: 'partial',
+		failures: [
+			{
+				scope: { providerId: 'jira', resourceId: resourceId },
+				kind: 'provider',
+				message: `Skipped Jira issues that could not be read: ${key} (Cannot read properties of undefined).`,
+			},
+		],
+	};
+}
 
 const emptyPage = (): Promise<SearchPage> => Promise.resolve({ data: [], hasMore: false, nextCursor: undefined });
 
@@ -373,6 +390,75 @@ suite('Jira multi-project issue searches', () => {
 		// An unscoped drain reports its backstop as `narrow-scope` per project, which one search cannot attribute.
 		assert.deepEqual(searches, []);
 		assert.deepEqual(projectReads.sort(), ['org-1 Project 0', 'org-1 Project 1']);
+
+		manager.dispose();
+	});
+
+	test('keeps the siblings of an issue a page dropped, and warns on the project it belongs to', async () => {
+		// The search can't say which project lost the issue, so its projects are read one by one; the project's own
+		// read then names it in the warning (gitkraken/vscode-gitlens#5992).
+		const { manager, searches, projectReads } = await connectedJira(
+			[{ id: 'org-1', projects: 2 }],
+			() =>
+				Promise.resolve({
+					data: [providerIssue('org-1-p0', 'A-1'), providerIssue('org-1-p1', 'B-1')],
+					hasMore: false,
+					nextCursor: undefined,
+					metadata: droppedIssue('org-1', 'A-2'),
+				}),
+			project =>
+				Promise.resolve(
+					project === 'org-1 Project 0'
+						? {
+								data: [providerIssue('org-1-p0', 'A-1')],
+								hasMore: false,
+								nextCursor: undefined,
+								metadata: droppedIssue('org-1', 'A-2'),
+							}
+						: { data: [providerIssue('org-1-p1', 'B-1')], hasMore: false, nextCursor: undefined },
+				),
+		);
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			itemsPerPage: 20,
+		});
+
+		assert.equal(searches.length, 1);
+		assert.deepEqual(projectReads.sort(), ['org-1 Project 0', 'org-1 Project 1']);
+		assert.deepEqual(result.items.map(i => i.id).sort(), ['A-1', 'B-1'], 'the siblings are served');
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings.length, 1);
+		assert.match(result.warnings[0].message, /A-2/);
+		assert.deepEqual(result.warnings[0].scope, { resourceId: 'org-1', projectId: 'org-1 Project 0' });
+		const cursor = parseIssueTrackerPageCursor(result.cursor);
+		assert.equal(cursor?.retryProjects, undefined, 'a project read that dropped an issue is not retried');
+
+		manager.dispose();
+	});
+
+	test('an every-assignee project read keeps the siblings of an issue a page dropped, and warns on its project', async () => {
+		const { manager } = await connectedJira([{ id: 'org-1', projects: 1 }], undefined, () =>
+			Promise.resolve({
+				data: [providerIssue('org-1-p0', 'A-1')],
+				hasMore: false,
+				nextCursor: undefined,
+				metadata: droppedIssue('org-1', 'A-2'),
+			}),
+		);
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+		});
+
+		assert.deepEqual(
+			result.items.map(i => i.id),
+			['A-1'],
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings.length, 1);
+		assert.deepEqual(result.warnings[0].scope, { resourceId: 'org-1', projectId: 'org-1 Project 0' });
 
 		manager.dispose();
 	});
