@@ -620,10 +620,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 		const api = await this.getProvidersApi();
 		const apiResult = await api.getJiraIssueByKey(toTokenWithInfo(this.id, session), resourceId, resourceUrl, id);
-		const issue =
-			apiResult != null
-				? toIssueShape(apiResult, this, { reliableStateCategory: true, projection: 'batch' })
-				: undefined;
+		const issue = apiResult != null ? toIssueShape(apiResult, this, { projection: 'batch' }) : undefined;
 		return issue != null ? { ...issue, type: 'issue' } : undefined;
 	}
 

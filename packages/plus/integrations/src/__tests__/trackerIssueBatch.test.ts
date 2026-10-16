@@ -964,25 +964,21 @@ suite('IssuesIntegration.getIssue (cached single-issue read)', () => {
 	const jiraResource = { id: 'org-1', key: 'org-1', name: 'Example', url: jiraResourceUrl };
 	const linearResource = { id: 'workspace-1', key: 'workspace-1', name: 'Workspace' };
 
-	test('does not trust the SDK category for a localized Jira status', async () => {
+	test("keeps the SDK's DONE category for a Jira issue and closes it", async () => {
+		// provider-apis maps the category from Jira's stable key, not the localized name (GKDEV-3656).
 		const { manager, jira } = await connectedJira(createFakeRuntime(), {
 			getIssue: () =>
 				Promise.resolve({
 					...providerIssue('ABC-126'),
-					state: { id: 'todo', name: 'Por hacer', color: 'blue-gray', category: 'DONE' },
+					state: { id: 'done', name: 'Listo', color: 'green', category: 'DONE' },
 				}),
 		});
 
 		const issue = await jira.getIssue(jiraResource, 'ABC-126');
 
-		assert.equal(issue?.closed, false);
-		assert.equal(issue?.state, 'opened');
-		assert.deepEqual(issue?.providerState, {
-			id: 'todo',
-			name: 'Por hacer',
-			color: 'blue-gray',
-			category: undefined,
-		});
+		assert.equal(issue?.closed, true);
+		assert.equal(issue?.state, 'closed');
+		assert.deepEqual(issue?.providerState, { id: 'done', name: 'Listo', color: 'green', category: 'DONE' });
 
 		manager.dispose();
 	});
