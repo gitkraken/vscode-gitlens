@@ -1122,9 +1122,9 @@ HTTPS links are rebuilt from the configured URL and an SSH link, whose host and 
 Jira Data Center inherits Jira Cloud's row, except that it refuses `getCurrentAccount`. Its reads are addressed per host, so `domain` selects the instance and
 every read below is scoped to that one connection; a paged read that omits it gets the primary configured host,
 while `getIssuesBatch` refuses instead (see §4). `listOrgs` returns exactly one resource — the
-instance itself, synthesized from the configured host rather than fetched — and its projects carry the display name
-as `key`, because `/rest/api/2/project` reports no project key; reads address the project by id regardless. No
-autolinks are registered for the same reason: an autolink prefix has to be the project key.
+instance itself, synthesized from the configured host rather than fetched — and its projects carry the project key
+as `key` (the numeric id when the server reports none), which is what `listProjects` publishes as `name` and what
+`project` selects; reads address the project by id regardless. No autolinks are registered yet.
 
 ¹ Branches in the base repository only: a target whose `headOwner` names another owner is refused, since Bitbucket DC
 finds a branch's pull requests only through the repository the branch lives in, and an Azure DevOps fork shares its

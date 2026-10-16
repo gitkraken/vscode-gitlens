@@ -8,7 +8,8 @@ import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
  * Jira Data Center reads run for real through provider-apis against a server answering Jira's own responses, for what
- * depends on the SDK's own parsing: search pages holding issues it can or can't read.
+ * depends on the SDK's own parsing: the project key it reads from `/rest/api/2/project`, and search pages holding
+ * issues it can or can't read.
  */
 
 const domain = 'jira.example.com';
@@ -62,6 +63,62 @@ async function connected(projects: unknown[], search?: (startAt: number) => Sear
 	};
 	return { manager: manager, requests: requests };
 }
+
+suite('Jira Data Center project keys', () => {
+	test('lists each project by its trimmed key, falling back to its id when the server reports none', async () => {
+		const { manager } = await connected([
+			{ id: '101', key: 'OPS', name: 'Operations' },
+			{ id: '102', key: '', name: 'Legacy' },
+			{ id: '103', key: '  ', name: 'Blank' },
+			{ id: '104', key: ' WEB ', name: 'Website' },
+		]);
+
+		const catalog = await manager.listProjects({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			domain: domain,
+		});
+
+		assert.deepEqual(
+			catalog.items.map(({ id, name, orgId }) => ({ id: id, name: name, orgId: orgId })),
+			[
+				{ id: '101', name: 'OPS', orgId: domain },
+				{ id: '102', name: '102', orgId: domain },
+				{ id: '103', name: '103', orgId: domain },
+				{ id: '104', name: 'WEB', orgId: domain },
+			],
+		);
+
+		manager.dispose();
+	});
+
+	test('a listed project selects exactly that project, which is still read by its numeric id', async () => {
+		// The display name is another project's key: a read by name would read OTHER.
+		const { manager, requests } = await connected([
+			{ id: '101', key: 'OPS', name: 'OTHER' },
+			{ id: '102', key: 'OTHER', name: 'Other' },
+		]);
+		const catalog = await manager.listProjects({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			domain: domain,
+		});
+		const ops = catalog.items.find(item => item.id === '101')!;
+
+		const page = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			domain: domain,
+			org: ops.orgId,
+			project: ops.name,
+			includeAllAssignees: true,
+		});
+
+		assert.notEqual(page.fetchFailed, true);
+		const jqls = requests.filter(r => r.pathname === '/rest/api/2/search').map(r => r.searchParams.get('jql'));
+		assert.equal(jqls.length, 1);
+		assert.match(jqls[0]!, /project = "101"/);
+
+		manager.dispose();
+	});
+});
 
 /** A Story whose field configuration hides Fix versions, so Jira leaves `fixVersions` out of the payload. */
 function story(key: string) {

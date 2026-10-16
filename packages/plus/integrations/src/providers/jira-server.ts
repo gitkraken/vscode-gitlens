@@ -138,12 +138,9 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		return { id: this.domain, key: this.domain, name: this.domain, url: this.apiBaseUrlFor(session) };
 	}
 
-	// No `autolinks()` override, unlike Jira Cloud: an autolink prefix has to be the Jira project KEY, which
-	// is what a commit message or branch name carries (`PROJ-123`). `/rest/api/2/project` reports no key — see
-	// `getProviderProjectsForResources`, which falls back to the name because JQL accepts it — so the only
-	// prefix this class could build is the display name, which matches nothing and yields a `/browse/` URL that
-	// is not an issue. Registering that would be worse than registering none. Restore the override once the SDK
-	// surfaces the project key (GKDEV-3629's sibling gap).
+	// No `autolinks()` override yet, unlike Jira Cloud: an autolink prefix has to be the Jira project KEY, which
+	// is what a commit message or branch name carries (`PROJ-123`). The project descriptors carry it now (see
+	// `getProviderProjectsForResources`), so the override can follow Cloud's; until then none is registered.
 
 	protected override async getProviderAccountForResource(
 		session: ProviderAuthenticationSession,
@@ -190,12 +187,11 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		const resourceId = this.resourceFor(session).id;
 		const descriptors = projects.map<JiraServerProjectDescriptor>(p => ({
 			id: p.id,
-			// The display name, NOT what the reads address the project by. `/rest/api/2/project` reports no
-			// project key (GKDEV-3629's sibling gap) and the SDK's `JiraServerProject` carries only `id` and
-			// `name`, so there is no key to put here; the reads below use `id` instead, because JQL resolves a
-			// `project = "<value>"` clause against key before name, and a display name that collides with
-			// ANOTHER project's key would silently return that project's issues.
-			key: p.name,
+			// The project key, which selects the project (`listProjects`' `name`) and is what an issue key starts
+			// with. The SDK does not validate it, so a missing or blank one falls back to the numeric id, never to the
+			// display name, which can equal another project's key. The reads below still address the project by
+			// `id`, which no other project can share.
+			key: p.key?.trim() || p.id,
 			name: p.name,
 			resourceId: resourceId,
 		}));
