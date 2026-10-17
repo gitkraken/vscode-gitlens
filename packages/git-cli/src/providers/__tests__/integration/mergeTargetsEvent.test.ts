@@ -10,8 +10,8 @@ import type { TestRepo } from './helpers.js';
 import { createTestRepo } from './helpers.js';
 
 /**
- * `onDidChangeMergeTargets` through the CLI provider's real gk config reconcile: what a watcher-reported
- * `.git/gk/config` change turns into, for external writes and for core's own.
+ * `onDidChangeMergeTargets` through the CLI provider's real gk config writes and reconcile: what core's own write and
+ * a watcher-reported `.git/gk/config` change turn into.
  */
 suite('CliGitProvider onDidChangeMergeTargets', () => {
 	let repo: TestRepo;
@@ -27,8 +27,8 @@ suite('CliGitProvider onDidChangeMergeTargets', () => {
 	}
 
 	/** Reports the file change the way the watcher would, then waits out the async reconcile */
-	async function reportGkConfigChange(): Promise<void> {
-		repo.provider.cache.onRepositoryChanged(normalizePath(repo.path), ['gkConfig']);
+	async function reportGkConfigChange(target: TestRepo = repo): Promise<void> {
+		target.provider.cache.onRepositoryChanged(normalizePath(target.path), ['gkConfig']);
 		await new Promise(resolve => setTimeout(resolve, 300));
 	}
 
@@ -98,8 +98,53 @@ suite('CliGitProvider onDidChangeMergeTargets', () => {
 		assert.strictEqual(gkConfigReads(), 1, 'the reconciled map still serves reads');
 	});
 
-	test("stays silent for core's own merge-target write", async () => {
-		await repo.provider.config.setGkConfig(repo.path, 'branch.main.gk-merge-target', 'origin/develop');
+	test("names the branch once for core's own merge-target write, by the time the store returns", async () => {
+		await repo.provider.branches.storeMergeTargetBranchName(repo.path, 'main', 'origin/develop');
+
+		assert.strictEqual(events.length, 1);
+		assert.strictEqual(events[0].repoPath, normalizePath(repo.path));
+		assert.deepStrictEqual([...(events[0].refs ?? [])], ['main']);
+
+		await reportGkConfigChange();
+		assert.strictEqual(events.length, 1, "the watcher's report of the same write fires nothing more");
+	});
+
+	test("stays silent for core's internal self-write of a merge target, and for the watcher's report of it", async () => {
+		await repo.provider.config.setGkConfig(repo.path, 'branch.main.gk-merge-target', 'origin/develop', {
+			skipInvalidation: ['branchOverviews'],
+		});
+		assert.deepStrictEqual(events, []);
+
+		await reportGkConfigChange();
+		assert.deepStrictEqual(events, []);
+	});
+
+	test("fires once for core's first write to a gk config never read before", async () => {
+		const fresh = createTestRepo();
+		try {
+			const freshEvents: MergeTargetsChangeEvent[] = [];
+			fresh.provider.onDidChangeMergeTargets(e => freshEvents.push(e));
+
+			await fresh.provider.branches.storeUserMergeTargetBranchName(fresh.path, 'main', 'develop');
+			assert.strictEqual(freshEvents.length, 1);
+			assert.deepStrictEqual([...(freshEvents[0].refs ?? [])], ['main']);
+
+			await reportGkConfigChange(fresh);
+			assert.strictEqual(freshEvents.length, 1, "the watcher's report of the same write fires nothing more");
+		} finally {
+			fresh.cleanup();
+		}
+	});
+
+	test("stays silent for core's own rewrite of an unchanged merge target", async () => {
+		await repo.provider.config.setGkConfig(repo.path, 'branch.main.gk-merge-target', 'origin/main');
+		await reportGkConfigChange();
+
+		assert.deepStrictEqual(events, []);
+	});
+
+	test("stays silent for core's own activity timestamp write", async () => {
+		await repo.provider.config.setGkConfig(repo.path, 'branch.main.gk-last-accessed', '2026-10-05T00:00:00.000Z');
 		await reportGkConfigChange();
 
 		assert.deepStrictEqual(events, []);
