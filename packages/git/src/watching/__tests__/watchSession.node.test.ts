@@ -746,6 +746,39 @@ describe('WatchSession', () => {
 		});
 	});
 
+	describe('getRelevantRefs', () => {
+		it("unions every repo subscriber's current relevant refs, and drops a subscriber's as it leaves", () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo' });
+			let mainRefs = ['refs/heads/main', 'refs/remotes/origin/main'];
+			const sameRefs = (): string[] => ['refs/heads/feature'];
+			const a = session.subscribe({ relevantRefs: () => mainRefs });
+			const b = session.subscribe({ relevantRefs: sameRefs });
+			const c = session.subscribe({ relevantRefs: sameRefs });
+			const unfiltered = session.subscribe();
+
+			assert.deepStrictEqual([...session.getRelevantRefs()].sort(), [
+				'refs/heads/feature',
+				'refs/heads/main',
+				'refs/remotes/origin/main',
+			]);
+
+			mainRefs = ['refs/heads/next'];
+			b.dispose();
+			assert.deepStrictEqual(
+				[...session.getRelevantRefs()].sort(),
+				['refs/heads/feature', 'refs/heads/next'],
+				'read at call time; a subscriber sharing the function keeps its refs',
+			);
+
+			a.dispose();
+			c.dispose();
+			assert.deepStrictEqual([...session.getRelevantRefs()], []);
+
+			unfiltered.dispose();
+			session.dispose();
+		});
+	});
+
 	describe('relevantRefs (per-subscription filter)', () => {
 		function setup(relevant: string[]): {
 			session: RepositoryWatchSession;

@@ -222,6 +222,8 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	private readonly repoEmitter = new Emitter<WatcherRepoChangeEvent>();
 	private readonly repoSubscribers = new Map<number, DebounceTiming>(); // subscriberId → timing
 	private repoNextId = 0;
+	/** Each repo subscriber's `relevantRefs`, for {@link getRelevantRefs} */
+	private readonly relevantRefsSources = new Map<number, () => Iterable<string>>(); // subscriberId → relevantRefs
 	private readonly pendingRepoChanges = new Set<RepositoryChange>();
 	/** Full ref names, ref directories and pseudo-refs whose files changed, flushed with {@link pendingRepoChanges} */
 	private readonly pendingRepoRefs = new Set<string>();
@@ -305,6 +307,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.pendingWorkingTreePaths.clear();
 		this.pendingWorkingTreeIncomplete = false;
 		this.repoSubscribers.clear();
+		this.relevantRefsSources.clear();
 		this.workingTreeSubscribers.clear();
 
 		this.repoEmitter.dispose();
@@ -384,6 +387,11 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		});
 		this.recalcRepoTiming();
 
+		const relevantRefs = opts?.relevantRefs;
+		if (relevantRefs != null) {
+			this.relevantRefsSources.set(id, relevantRefs);
+		}
+
 		if (wasEmpty) {
 			this.lifecycle?.onFirstRepoSubscriber?.();
 		}
@@ -399,6 +407,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 				subDisposed = true;
 
 				this.repoSubscribers.delete(id);
+				this.relevantRefsSources.delete(id);
 				this.recalcRepoTiming();
 
 				if (this.repoSubscribers.size === 0) {
@@ -409,11 +418,22 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 			}),
 			{
 				onDidChange:
-					opts?.relevantRefs != null
-						? createRelevantRefsEvent(this.repoEmitter.event, opts.relevantRefs)
+					relevantRefs != null
+						? createRelevantRefsEvent(this.repoEmitter.event, relevantRefs)
 						: this.repoEmitter.event,
 			},
 		);
+	}
+
+	/** Every repo subscriber's current `relevantRefs` (see {@link subscribe}), unioned */
+	getRelevantRefs(): Set<string> {
+		const refs = new Set<string>();
+		for (const relevantRefs of this.relevantRefsSources.values()) {
+			for (const ref of relevantRefs()) {
+				refs.add(ref);
+			}
+		}
+		return refs;
 	}
 
 	/** Subscribe to working tree changes; `delayMs` and `maxWaitMs` behave as in {@link subscribe}. */

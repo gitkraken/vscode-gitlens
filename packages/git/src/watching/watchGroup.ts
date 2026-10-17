@@ -3,12 +3,24 @@ import { some } from '@gitlens/utils/iterable.js';
 import { isDescendant, relative } from '@gitlens/utils/path.js';
 import type { GitDir, RepositoryChange } from '../models/repository.js';
 import { allWatchedRepositoryChanges, classifyGitDirChange } from './classifyChange.js';
-import type { FileWatcher, FileWatchEvent, FileWatchingProvider } from './provider.js';
+import type { GitDirPoller, GitDirProbe } from './gitDirPoller.js';
+import { GitDirProbeTarget } from './gitDirPoller.js';
+import type {
+	FileWatcher,
+	FileWatcherOptions,
+	FileWatcherReliability,
+	FileWatchEvent,
+	FileWatchingProvider,
+} from './provider.js';
 import {
 	dotGitGlobCombined,
 	dotGitGlobCommon,
 	dotGitGlobRoot,
+	getGitDirRefProbes,
+	gitDirCommonProbes,
 	gitDirExcludes,
+	gitDirProbesByEmittedPath,
+	gitDirRootProbes,
 	shouldIgnoreRepoPath,
 } from './watcherPatterns.js';
 
@@ -25,6 +37,10 @@ export interface WatchGroupHooks {
 	readonly onRepoChanged: (repoPath: string, changes: RepositoryChange[], ref?: string, overflow?: boolean) => void;
 	readonly onFetchHeadChanged?: (repoPath: string) => void;
 	readonly onIgnoresChanged?: (repoPath: string) => void;
+	/** The refs whose loose files a poll stats for this session, read at each poll */
+	readonly getProbeRefs?: () => Iterable<string>;
+	/** A watcher this session hears through went `unwatchable`, or stopped being it (see {@link WatchGroup.isUnwatchable}) */
+	readonly onUnwatchableChanged?: (repoPath: string) => void;
 }
 
 /**
@@ -40,6 +56,9 @@ interface SessionEntry {
 	/** For a linked session, its `<n>` in `<common>/worktrees/<n>`; otherwise `undefined` */
 	readonly worktreeId: string | undefined;
 	readonly hooks: WatchGroupHooks;
+	reliability: FileWatcherReliability;
+	/** Polls in place of (or beside) the root watcher while it isn't `reliable` */
+	target?: GitDirProbeTarget;
 }
 
 /**
@@ -57,11 +76,15 @@ interface SessionEntry {
 export class WatchGroup implements UnifiedDisposable {
 	private readonly _sessions = new Map<string, SessionEntry>();
 	private _commonWatcher: FileWatcher | undefined;
+	private _commonReliability: FileWatcherReliability = 'reliable';
+	private _commonTarget: GitDirProbeTarget | undefined;
 	private _disposed = false;
 
 	constructor(
 		readonly commonGitDir: string,
 		private readonly provider: FileWatchingProvider,
+		/** When given, a watcher that reports it can't be trusted is polled; otherwise none is asked */
+		private readonly poller?: GitDirPoller,
 	) {}
 
 	[Symbol.dispose](): void {
@@ -76,15 +99,25 @@ export class WatchGroup implements UnifiedDisposable {
 
 		for (const entry of this._sessions.values()) {
 			entry.rootWatcher.dispose();
+			this.stopPolling(entry);
 		}
 		this._sessions.clear();
 
-		this._commonWatcher?.dispose();
-		this._commonWatcher = undefined;
+		this.disposeCommonWatcher();
 	}
 
 	get sessions(): ReadonlyMap<string, SessionEntry> {
 		return this._sessions;
+	}
+
+	/** True when a watcher the session hears through — its root watcher, or a linked session's common one — can't watch */
+	isUnwatchable(repoPath: string): boolean {
+		const entry = this._sessions.get(repoPath);
+		if (entry == null) return false;
+
+		return (
+			entry.reliability === 'unwatchable' || (!entry.coversCommon && this._commonReliability === 'unwatchable')
+		);
 	}
 
 	/** Add a session to this group. Creates the root watcher for the session's gitDir. */
@@ -96,29 +129,46 @@ export class WatchGroup implements UnifiedDisposable {
 		const isStandard = gitDir.commonUri == null;
 		const rootPattern = isStandard ? dotGitGlobCombined : dotGitGlobRoot;
 
+		// The watcher can report its reliability before `createWatcher` returns, so before the entry exists
+		let entry: SessionEntry | undefined;
+		let initialReliability: FileWatcherReliability = 'reliable';
+
 		const rootWatcher = this.provider.createWatcher(
 			gitDir.uri.fsPath,
 			rootPattern,
 			(event: FileWatchEvent) => {
-				const entry = this._sessions.get(repoPath);
-				if (entry != null) {
-					this.onRootEvent(event, entry);
+				const e = this._sessions.get(repoPath);
+				if (e != null) {
+					if (event.reason !== 'overflow') {
+						e.target?.forget(event.path);
+					}
+					this.onRootEvent(event, e);
 				}
 			},
-			{ excludes: gitDirExcludes },
+			this.getWatcherOptions(state => {
+				if (entry == null) {
+					initialReliability = state;
+				} else if (this._sessions.get(repoPath) === entry) {
+					this.setRootReliability(entry, state);
+				}
+			}),
 		);
 
 		const entryGitDirPath = gitDir.uri.fsPath;
-		const entry: SessionEntry = {
+		entry = {
 			repoPath: repoPath,
 			gitDirPath: entryGitDirPath,
 			rootWatcher: rootWatcher,
 			coversCommon: isStandard,
 			worktreeId: isStandard ? undefined : this.getWorktreeId(entryGitDirPath),
 			hooks: hooks,
+			reliability: 'reliable',
 		};
 
 		this._sessions.set(repoPath, entry);
+		if (initialReliability !== 'reliable') {
+			this.setRootReliability(entry, initialReliability, true);
+		}
 
 		// Start the common watcher if this is a worktree repo and we haven't yet.
 		// Standard repos don't need a separate common watcher because their root
@@ -134,12 +184,12 @@ export class WatchGroup implements UnifiedDisposable {
 		if (entry == null) return;
 
 		entry.rootWatcher.dispose();
+		this.stopPolling(entry);
 		this._sessions.delete(repoPath);
 
 		// Once no linked session is left, dispose the common watcher — it delivers to linked sessions only
 		if (this._commonWatcher != null && !some(this._sessions.values(), e => !e.coversCommon)) {
-			this._commonWatcher.dispose();
-			this._commonWatcher = undefined;
+			this.disposeCommonWatcher();
 		}
 	}
 
@@ -156,14 +206,171 @@ export class WatchGroup implements UnifiedDisposable {
 	private ensureCommonWatcher(): void {
 		if (this._commonWatcher != null || this._disposed) return;
 
-		this._commonWatcher = this.provider.createWatcher(
+		// The watcher can report its reliability before `createWatcher` returns
+		let watcher: FileWatcher | undefined;
+		let initialReliability: FileWatcherReliability = 'reliable';
+		const options = this.getWatcherOptions(state => {
+			if (watcher == null) {
+				initialReliability = state;
+			} else if (this._commonWatcher === watcher) {
+				this.setCommonReliability(state);
+			}
+		});
+
+		watcher = this.provider.createWatcher(
 			this.commonGitDir,
 			dotGitGlobCommon,
 			(event: FileWatchEvent) => {
+				if (event.reason !== 'overflow') {
+					this._commonTarget?.forget(event.path);
+				}
 				this.onCommonEvent(event);
 			},
-			{ excludes: gitDirExcludes },
+			options,
 		);
+		this._commonWatcher = watcher;
+		if (initialReliability !== 'reliable') {
+			this.setCommonReliability(initialReliability, true);
+		}
+	}
+
+	private disposeCommonWatcher(): void {
+		this._commonWatcher?.dispose();
+		this._commonWatcher = undefined;
+		this._commonReliability = 'reliable';
+		if (this._commonTarget != null) {
+			this.poller?.delete(this._commonTarget);
+			this._commonTarget = undefined;
+		}
+	}
+
+	/** Hosts that didn't opt into polling get exactly the options they always had */
+	private getWatcherOptions(onDidChangeReliability: (state: FileWatcherReliability) => void): FileWatcherOptions {
+		return this.poller != null
+			? { excludes: gitDirExcludes, onDidChangeReliability: onDidChangeReliability }
+			: { excludes: gitDirExcludes };
+	}
+
+	private setRootReliability(entry: SessionEntry, state: FileWatcherReliability, initial?: boolean): void {
+		const previous = entry.reliability;
+		if (previous === state || this.poller == null) return;
+
+		entry.reliability = state;
+		if (state === 'reliable') {
+			this.stopPolling(entry);
+		} else if (entry.target == null) {
+			const target = new GitDirProbeTarget(
+				entry.gitDirPath,
+				this.poller,
+				() => this.getRootProbes(entry),
+				gitDirProbesByEmittedPath,
+				(event, probe) => {
+					if (entry.target !== target) return;
+
+					this.onRootEvent(event, entry);
+					if (probe.path === 'logs/HEAD' && !entry.coversCommon) {
+						this.onLinkedHeadMoved();
+					}
+				},
+			);
+			entry.target = target;
+			this.poller.add(target);
+		}
+
+		if ((state === 'unwatchable') === (previous === 'unwatchable')) return;
+
+		// The watch went down or came back: whatever changed meanwhile went unseen
+		if (!initial) {
+			this.deliverOverflow(entry);
+		}
+		entry.hooks.onUnwatchableChanged?.(entry.repoPath);
+	}
+
+	private setCommonReliability(state: FileWatcherReliability, initial?: boolean): void {
+		const previous = this._commonReliability;
+		if (previous === state || this.poller == null) return;
+
+		this._commonReliability = state;
+		if (state === 'reliable') {
+			if (this._commonTarget != null) {
+				this.poller.delete(this._commonTarget);
+				this._commonTarget = undefined;
+			}
+		} else if (this._commonTarget == null) {
+			const target = new GitDirProbeTarget(
+				this.commonGitDir,
+				this.poller,
+				() => this.getCommonProbes(),
+				gitDirProbesByEmittedPath,
+				event => {
+					if (this._commonTarget === target) {
+						this.onCommonEvent(event);
+					}
+				},
+			);
+			this._commonTarget = target;
+			this.poller.add(target);
+		}
+
+		if ((state === 'unwatchable') === (previous === 'unwatchable')) return;
+
+		for (const entry of this._sessions.values()) {
+			if (entry.coversCommon) continue;
+
+			if (!initial) {
+				this.deliverOverflow(entry);
+			}
+			entry.hooks.onUnwatchableChanged?.(entry.repoPath);
+		}
+	}
+
+	private stopPolling(entry: SessionEntry): void {
+		if (entry.target == null) return;
+
+		this.poller?.delete(entry.target);
+		entry.target = undefined;
+	}
+
+	/**
+	 * A session rooted at the common dir polls the common files too, with the refs of every session in the group: its
+	 * combined watcher would hear them all. While the common dir is polled too, the poller stats each shared file once
+	 * for both, and each keeps its own readings, so what one watcher reported is held back from its own sessions only
+	 */
+	private getRootProbes(entry: SessionEntry): readonly GitDirProbe[] {
+		if (!entry.coversCommon) return gitDirRootProbes;
+
+		const refs = new Set<string>();
+		for (const e of this._sessions.values()) {
+			for (const ref of e.hooks.getProbeRefs?.() ?? []) {
+				refs.add(ref);
+			}
+		}
+		return [...gitDirRootProbes, ...gitDirCommonProbes, ...getGitDirRefProbes(refs)];
+	}
+
+	/**
+	 * A linked worktree's `logs/HEAD` moved — a commit or reset there, on a branch a polled session rooted at the common
+	 * dir may not probe — so each such session hears a `heads` change its combined watcher would have heard
+	 */
+	private onLinkedHeadMoved(): void {
+		for (const entry of this._sessions.values()) {
+			if (!entry.coversCommon || entry.target == null) continue;
+
+			entry.hooks.onRepoChanged(entry.repoPath, ['heads']);
+		}
+	}
+
+	/** The common files, with the refs of every linked session (the only ones the common watcher delivers to) */
+	private getCommonProbes(): GitDirProbe[] {
+		const refs = new Set<string>();
+		for (const entry of this._sessions.values()) {
+			if (entry.coversCommon) continue;
+
+			for (const ref of entry.hooks.getProbeRefs?.() ?? []) {
+				refs.add(ref);
+			}
+		}
+		return [...gitDirCommonProbes, ...getGitDirRefProbes(refs)];
 	}
 
 	private onCommonEvent(event: FileWatchEvent): void {

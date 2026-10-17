@@ -1,5 +1,6 @@
 import { GitService } from '@gitlens/git/service.js';
 import type { FileWatchingProvider } from '@gitlens/git/watching/provider.js';
+import type { WatchPollingOptions } from '@gitlens/git/watching/watchService.js';
 import type { CliGitProviderOptions } from './cliGitProvider.js';
 import { CliGitProvider } from './cliGitProvider.js';
 import type { GitLocation } from './exec/locator.js';
@@ -36,6 +37,12 @@ export interface CliGitServiceOptions {
 	 * will watch repositories for changes (file creates, edits, deletes).
 	 */
 	watchingProvider?: FileWatchingProvider;
+
+	/**
+	 * Polls in place of (or beside) the watchers {@link watchingProvider} reports it can't trust. When omitted, no
+	 * watcher is asked.
+	 */
+	watchPolling?: WatchPollingOptions;
 }
 
 /**
@@ -58,7 +65,7 @@ export interface CliGitServiceOptions {
  * ```
  */
 export function createCliGitService(options: CliGitServiceOptions): GitService {
-	const service = GitService.createSingleton(options.watchingProvider);
+	const service = GitService.createSingleton(options.watchingProvider, { watchPolling: options.watchPolling });
 
 	const locator = options.locator ?? (() => findGitPath(options.gitPath ?? null));
 	const provider = new CliGitProvider({

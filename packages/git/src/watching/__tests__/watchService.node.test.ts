@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { describe, it } from 'node:test';
+import { describe, it, mock } from 'node:test';
 import { mixinDisposable } from '@gitlens/utils/disposable.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri, getRepositoryKey } from '@gitlens/utils/uri.js';
@@ -7,7 +7,13 @@ import { Cache } from '../../cache.js';
 import type { GitDir } from '../../models/repository.js';
 import type { WatcherRepoChangeEvent } from '../changeEvent.js';
 import type { GitIgnoreFilter } from '../gitIgnoreFilter.js';
-import type { FileWatcher, FileWatcherOptions, FileWatchEvent, FileWatchingProvider } from '../provider.js';
+import type {
+	FileWatcher,
+	FileWatcherOptions,
+	FileWatcherReliability,
+	FileWatchEvent,
+	FileWatchingProvider,
+} from '../provider.js';
 import { dotGitGlobCommon, workingTreeExcludes } from '../watcherPatterns.js';
 import { RepositoryWatchService } from '../watchService.js';
 
@@ -16,10 +22,16 @@ interface MockWatcher extends FileWatcher {
 	readonly pattern: string;
 	readonly options: FileWatcherOptions | undefined;
 	fire(event: FileWatchEvent): void;
+	/** Reports a reliability the way a provider would, after `createWatcher` returned */
+	report(state: FileWatcherReliability): void;
 	disposed: boolean;
 }
 
-function createMockFactory(supportsExcludes?: boolean): {
+/** `initialReliability` is reported synchronously inside `createWatcher`, for the watchers it returns one for */
+function createMockFactory(
+	supportsExcludes?: boolean,
+	initialReliability?: (basePath: string, index: number) => FileWatcherReliability | undefined,
+): {
 	factory: FileWatchingProvider;
 	watchers: MockWatcher[];
 	/** `create:<n>` / `dispose:<n>` in the order they happened, `n` being the watcher's index in `watchers` */
@@ -46,6 +58,9 @@ function createMockFactory(supportsExcludes?: boolean): {
 					fire: function (event: FileWatchEvent): void {
 						onEvent(event);
 					},
+					report: function (state: FileWatcherReliability): void {
+						options?.onDidChangeReliability?.(state);
+					},
 				},
 				() => {
 					w.disposed = true;
@@ -54,6 +69,10 @@ function createMockFactory(supportsExcludes?: boolean): {
 			);
 			watchers.push(w);
 			log.push(`create:${watchers.length - 1}`);
+			const initial = initialReliability?.(w.basePath, watchers.length - 1);
+			if (initial != null) {
+				options?.onDidChangeReliability?.(initial);
+			}
 			return w;
 		},
 	};
@@ -1430,6 +1449,371 @@ describe('RepositoryWatchService', () => {
 			assert.ok(received[0].changes.has('index'));
 			assert.deepStrictEqual([...received[0].announced], [], 'the rescan reports every kind itself');
 			dispose();
+		});
+	});
+	describe('polling', () => {
+		/** Files keyed by POSIX path; `touch` moves one's mtime */
+		function createFs(paths: readonly string[]): {
+			stat: (path: string) => Promise<{ mtime: number; size: number } | undefined>;
+			touch: (path: string) => void;
+		} {
+			const files = new Map<string, { mtime: number; size: number }>(paths.map(p => [p, { mtime: 1, size: 1 }]));
+			return {
+				stat: function (path: string): Promise<{ mtime: number; size: number } | undefined> {
+					return Promise.resolve(files.get(normalizePath(path)));
+				},
+				touch: function (path: string): void {
+					const file = files.get(path);
+					files.set(path, { mtime: (file?.mtime ?? 0) + 1, size: file?.size ?? 1 });
+				},
+			};
+		}
+
+		function noFiles(): Promise<undefined> {
+			return Promise.resolve(undefined);
+		}
+
+		/** Lets a nudged pass (stat reads, then the session's debounce) finish */
+		function settle(): Promise<void> {
+			return delay(60);
+		}
+
+		it('creates watchers without a reliability callback when polling is off', () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory });
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const sub = handle.session.subscribe();
+			const wtSub = handle.session.subscribeToWorkingTree();
+
+			for (const w of watchers) {
+				assert.ok(!('onDidChangeReliability' in (w.options ?? {})), `watcher at ${w.basePath}`);
+			}
+			assert.ok(!('watch.pollTargets.count' in service.getResourceUsage()));
+
+			wtSub.dispose();
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('reports the watch mode, and announces each change of it while the repository is watched', () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory, polling: { stat: noFiles } });
+			const modes: string[] = [];
+			service.onDidChangeWatchMode(e => modes.push(`${e.repoPath} ${e.mode}`));
+
+			assert.strictEqual(service.getWatchMode('/repo'), undefined);
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			assert.strictEqual(service.getWatchMode('/repo'), undefined, 'nothing watches it before a subscriber');
+
+			const sub = handle.session.subscribe();
+			assert.strictEqual(service.getWatchMode('/repo'), 'events');
+
+			const root = watchers.find(w => w.basePath === '/repo/.git')!;
+			root.report('unreliable');
+			assert.strictEqual(service.getWatchMode('/repo'), 'events', 'polled beside a watcher that still works');
+			root.report('unwatchable');
+			assert.strictEqual(service.getWatchMode('/repo'), 'poll');
+			assert.strictEqual(service.getResourceUsage()['watch.pollTargets.count'], 1);
+			root.report('reliable');
+			assert.strictEqual(service.getWatchMode('/repo'), 'events');
+			root.report('unwatchable');
+
+			sub.dispose();
+			assert.strictEqual(service.getWatchMode('/repo'), undefined);
+			assert.deepStrictEqual(
+				modes,
+				['/repo poll', '/repo events', '/repo poll'],
+				'no longer watched is not announced',
+			);
+
+			// Watched again, it starts over from 'events'
+			const resub = handle.session.subscribe();
+			assert.strictEqual(service.getWatchMode('/repo'), 'events');
+			watchers.findLast(w => w.basePath === '/repo/.git')!.report('unwatchable');
+			assert.strictEqual(service.getWatchMode('/repo'), 'poll');
+			assert.deepStrictEqual(modes, ['/repo poll', '/repo events', '/repo poll', '/repo poll']);
+
+			resub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('announces no mode change as a polled repository with a working-tree watcher goes away', () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory, polling: { stat: noFiles } });
+			const modes: string[] = [];
+			service.onDidChangeWatchMode(e => modes.push(e.mode));
+
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			handle.session.subscribe();
+			handle.session.subscribeToWorkingTree();
+			watchers.find(w => w.basePath === '/repo/.git')!.report('unwatchable');
+			assert.deepStrictEqual(modes, ['poll']);
+
+			handle.dispose();
+
+			assert.strictEqual(service.getWatchMode('/repo'), undefined);
+			assert.deepStrictEqual(modes, ['poll'], 'no longer watched is not announced');
+			service.dispose();
+		});
+
+		it('counts an unwatchable working tree as polled, and re-reads it on a .git index change', async () => {
+			const { factory, watchers } = createMockFactory(undefined, basePath =>
+				basePath === '/repo' ? 'unwatchable' : undefined,
+			);
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultWorkingTreeDelayMs: 20,
+				polling: { stat: noFiles },
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const sub = handle.session.subscribe({ delayMs: 20 });
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			const received: boolean[] = [];
+			wtSub.onDidChangeWorkingTree(e => received.push(e.incomplete));
+
+			assert.strictEqual(service.getWatchMode('/repo'), 'poll');
+			await settle();
+			assert.deepStrictEqual(received, [], 'no rescan for a watcher that never worked');
+
+			watchers.find(w => w.basePath === '/repo/.git')!.fire({ path: '/repo/.git/index', reason: 'change' });
+			await settle();
+			assert.deepStrictEqual(received, [true]);
+
+			wtSub.dispose();
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('leaves a watched working tree alone on a .git index change', async () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultWorkingTreeDelayMs: 20,
+				polling: { stat: noFiles },
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const sub = handle.session.subscribe({ delayMs: 20 });
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			const received: boolean[] = [];
+			wtSub.onDidChangeWorkingTree(e => received.push(e.incomplete));
+
+			watchers.find(w => w.basePath === '/repo/.git')!.fire({ path: '/repo/.git/index', reason: 'change' });
+			await settle();
+			assert.deepStrictEqual(received, []);
+
+			wtSub.dispose();
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('polls an unwatchable repository on resumeAll, mid-interval, through its subscribers', async () => {
+			const fs = createFs(['/repo/.git/HEAD', '/repo/.git/index', '/repo/.git/refs/heads/main']);
+			const { factory } = createMockFactory(undefined, () => 'unwatchable');
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 20,
+				defaultWorkingTreeDelayMs: 20,
+				polling: { stat: fs.stat, intervalMs: 60_000, activeCheckMs: 60_000 },
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const repoEvents: WatcherRepoChangeEvent[] = [];
+			const sub = handle.session.subscribe({ delayMs: 20, relevantRefs: () => ['refs/heads/main'] });
+			sub.onDidChange(e => repoEvents.push(e));
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			const wtEvents: boolean[] = [];
+			wtSub.onDidChangeWorkingTree(e => wtEvents.push(e.incomplete));
+
+			service.resumeAll();
+			await settle();
+			assert.strictEqual(repoEvents.length, 0, 'the first pass only records');
+
+			fs.touch('/repo/.git/index');
+			fs.touch('/repo/.git/refs/heads/main');
+			service.resumeAll();
+			await settle();
+
+			assert.strictEqual(repoEvents.length, 1);
+			assert.deepStrictEqual([...repoEvents[0].changes].sort(), ['heads', 'index']);
+			assert.ok(repoEvents[0].mayHaveChangedRef('refs/heads/main'));
+			assert.deepStrictEqual(wtEvents, [true]);
+
+			wtSub.dispose();
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it("reports the working tree changed when the host's fingerprint of it moves", async () => {
+			let fingerprint = 'a';
+			const { factory } = createMockFactory(undefined, basePath =>
+				basePath === '/repo' ? 'unreliable' : undefined,
+			);
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultWorkingTreeDelayMs: 20,
+				polling: {
+					stat: noFiles,
+					intervalMs: 60_000,
+					getWorkingTreeFingerprint: () => Promise.resolve(fingerprint),
+				},
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			const received: boolean[] = [];
+			wtSub.onDidChangeWorkingTree(e => received.push(e.incomplete));
+			assert.strictEqual(service.getResourceUsage()['watch.pollTargets.count'], 1);
+
+			service.resumeAll();
+			await settle();
+			service.resumeAll();
+			await settle();
+			assert.deepStrictEqual(received, [], 'an unchanged fingerprint is quiet');
+
+			fingerprint = 'b';
+			service.resumeAll();
+			await settle();
+			assert.deepStrictEqual(received, [true]);
+
+			wtSub.dispose();
+			assert.strictEqual(service.getResourceUsage()['watch.pollTargets.count'], 0);
+			handle.dispose();
+			service.dispose();
+		});
+
+		it("takes the working tree's reliability from its live watcher only, across a re-creation", async () => {
+			const { factory, watchers } = createMockFactory(true, (_basePath, index) =>
+				index === 0 ? 'unwatchable' : undefined,
+			);
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultWorkingTreeDelayMs: 20,
+				getIgnoredDirectories: () => Promise.resolve(['dist']),
+				polling: { stat: noFiles },
+			});
+			const modes: string[] = [];
+			service.onDidChangeWatchMode(e => modes.push(e.mode));
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			const received: boolean[] = [];
+			wtSub.onDidChangeWorkingTree(e => received.push(e.incomplete));
+			assert.strictEqual(service.getWatchMode('/repo'), 'poll');
+
+			// The ignored-directory read re-creates the watcher; the new one reports nothing, so it is reliable
+			await settle();
+			assert.strictEqual(watchers.length, 2);
+			assert.ok(watchers[0].disposed);
+			assert.strictEqual(service.getWatchMode('/repo'), 'events');
+			assert.deepStrictEqual(received, [true], 'coming back rescans the working tree');
+
+			watchers[0].report('reliable');
+			watchers[0].report('unwatchable');
+			assert.strictEqual(service.getWatchMode('/repo'), 'events', 'the replaced watcher is not heard');
+
+			watchers[1].report('unwatchable');
+			assert.strictEqual(service.getWatchMode('/repo'), 'poll');
+			assert.deepStrictEqual(modes, ['poll', 'events', 'poll']);
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		/** The poller's timer under the default gate: the one timeout set for the default 60000ms interval */
+		function spyPollTimer(): { readonly timers: unknown[]; readonly cleared: unknown[]; restore(): void } {
+			const timers: unknown[] = [];
+			const cleared: unknown[] = [];
+			const originalSetTimeout = globalThis.setTimeout;
+			const originalClearTimeout = globalThis.clearTimeout;
+			const set = mock.method(globalThis, 'setTimeout', (callback: () => void, ms?: number) => {
+				const timer = originalSetTimeout(callback, ms);
+				if (ms === 60_000) {
+					timers.push(timer);
+				}
+				return timer;
+			});
+			const clear = mock.method(globalThis, 'clearTimeout', (timer: unknown) => {
+				cleared.push(timer);
+				originalClearTimeout(timer as ReturnType<typeof setTimeout>);
+			});
+			return {
+				timers: timers,
+				cleared: cleared,
+				restore: () => {
+					set.mock.restore();
+					clear.mock.restore();
+				},
+			};
+		}
+
+		it('clears its timer on dispose', () => {
+			const spy = spyPollTimer();
+			try {
+				const { factory } = createMockFactory(undefined, () => 'unwatchable');
+				const service = new RepositoryWatchService({ watchingProvider: factory, polling: { stat: noFiles } });
+				const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+				assertHandle(handle);
+				handle.session.subscribe();
+				assert.strictEqual(service.getResourceUsage()['watch.pollTargets.count'], 1);
+				assert.strictEqual(spy.timers.length, 1);
+
+				service.dispose();
+
+				assert.ok(spy.cleared.includes(spy.timers[0]));
+				assert.strictEqual(service.getWatchMode('/repo'), undefined);
+			} finally {
+				spy.restore();
+			}
+		});
+
+		it('stops polling on suspendAll and polls at once on resumeAll', async () => {
+			const fs = createFs(['/repo/.git/HEAD', '/repo/.git/index']);
+			let stats = 0;
+			const spy = spyPollTimer();
+			try {
+				const { factory } = createMockFactory(undefined, () => 'unwatchable');
+				const service = new RepositoryWatchService({
+					watchingProvider: factory,
+					polling: {
+						stat: path => {
+							stats++;
+							return fs.stat(path);
+						},
+					},
+				});
+				const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+				assertHandle(handle);
+				const sub = handle.session.subscribe();
+				await settle();
+				assert.ok(stats > 0, 'the first reading');
+				assert.strictEqual(spy.timers.length, 1);
+
+				service.suspendAll();
+				assert.ok(spy.cleared.includes(spy.timers[0]), 'no wakeup while suspended');
+
+				const before = stats;
+				service.resumeAll();
+				await settle();
+				assert.ok(stats > before, 'the resumed pass');
+				assert.strictEqual(spy.timers.length, 2, 'the timer runs again from the resumed pass');
+
+				sub.dispose();
+				handle.dispose();
+				service.dispose();
+			} finally {
+				spy.restore();
+			}
 		});
 	});
 });

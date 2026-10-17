@@ -14,6 +14,7 @@ import {
 	setGlobalRepositoryServiceResolver,
 } from './repositoryService.js';
 import type { FileWatchingProvider } from './watching/provider.js';
+import type { WatchPollingOptions } from './watching/watchService.js';
 import { RepositoryWatchService } from './watching/watchService.js';
 import { WorktreeSummaryService } from './watching/worktreeSummary.js';
 
@@ -82,12 +83,16 @@ interface MergeTargetsSource {
 export class GitService implements UnifiedDisposable {
 	private static _instance: GitService | undefined;
 
-	static createSingleton(watchingProvider?: FileWatchingProvider): GitService {
+	/** `options.watchPolling` opts the watch service into polling what `watchingProvider` reports it can't watch */
+	static createSingleton(
+		watchingProvider?: FileWatchingProvider,
+		options?: { watchPolling?: WatchPollingOptions },
+	): GitService {
 		if (GitService._instance != null) {
 			throw new Error('GitService already exists — only one instance is allowed');
 		}
 
-		const instance = new GitService(watchingProvider);
+		const instance = new GitService(watchingProvider, options?.watchPolling);
 		GitService._instance = instance;
 		return instance;
 	}
@@ -116,10 +121,11 @@ export class GitService implements UnifiedDisposable {
 	private readonly _watchService: RepositoryWatchService | undefined;
 	private readonly _summaries: WorktreeSummaryService | undefined;
 
-	private constructor(watchingProvider?: FileWatchingProvider) {
+	private constructor(watchingProvider?: FileWatchingProvider, watchPolling?: WatchPollingOptions) {
 		if (watchingProvider != null) {
 			this._watchService = new RepositoryWatchService({
 				watchingProvider: watchingProvider,
+				polling: watchPolling,
 				getIgnoreFilter: (repoPath, gitDirPath) => {
 					return this.getProvider(repoPath)?.provider.getIgnoreFilter?.(repoPath, gitDirPath);
 				},
