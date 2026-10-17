@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CachedGitTypes } from '@gitlens/git/cache.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
@@ -127,5 +127,21 @@ suite('StagingSubProvider', () => {
 
 		assert.ok(existsSync(keepPath), 'a file outside paths should survive');
 		assert.ok(!existsSync(removePath), 'a file inside paths should be removed');
+	});
+
+	test('stageFile waits out an index.lock another process releases shortly after', async () => {
+		writeUntracked('locked.txt');
+		const lockPath = join(repo.path, '.git', 'index.lock');
+		writeFileSync(lockPath, '');
+		const release = setTimeout(rmSync, 150, lockPath, { force: true });
+
+		try {
+			await repo.provider.staging.stageFile(repo.path, 'locked.txt');
+		} finally {
+			clearTimeout(release);
+			rmSync(lockPath, { force: true });
+		}
+
+		assert.ok(stagedNames().includes('locked.txt'), 'the file should be staged once the lock is released');
 	});
 });

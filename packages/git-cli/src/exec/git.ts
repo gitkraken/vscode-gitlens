@@ -53,6 +53,7 @@ import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './fea
 import { gitFeaturesByVersion } from './features.js';
 import type { GitQueueConfig } from './gitQueue.js';
 import { getPrimaryGitCommand, GitQueue, inferGitCommandPriority } from './gitQueue.js';
+import { isIndexWriteCommand, KeyedSequencer, retryWhileIndexLocked } from './indexLock.js';
 import type { GitLocation } from './locator.js';
 
 export const slowCallWarningThreshold = 2000;
@@ -694,6 +695,10 @@ export class Git {
 	>();
 	/** Queue for throttling background git operations */
 	private readonly _queue: GitQueue;
+	/** Orders the index-writing runs of each checkout, so they don't race for its `index.lock` */
+	private readonly _indexWrites = new KeyedSequencer();
+	/** The spawn behind every non-streaming run — a field only so tests can substitute it */
+	private readonly _runSpawn: typeof runSpawn = runSpawn;
 	/** Detects event-loop stalls while at least one git command is in flight */
 	private readonly _eventLoopMonitor = new EventLoopMonitor();
 	/** Count of git commands currently in flight, across both the exec and streaming paths */
@@ -1051,6 +1056,15 @@ export class Git {
 			promise = deferred.promise;
 			this.pendingCommands.set(cacheKey, { cwd: options.cwd, promise: promise });
 
+			// A write to the index takes `index.lock` and fails at once if another process holds it, so these
+			// runs queue behind one another per checkout and retry briefly when something outside still beats
+			// them to it. A temporary index (`GIT_INDEX_FILE`) has a lock of its own, so it never joins the order.
+			const writesIndex = isIndexWriteCommand(args);
+			const checkoutKey =
+				writesIndex && options.cwd != null && runOpts.env?.GIT_INDEX_FILE == null
+					? this.resolveNotifyPath(options.cwd, leadingCommand(args).pathOverride)
+					: undefined;
+
 			// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 			// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
 			args.unshift('-c', 'core.quotepath=false', '-c', 'color.ui=false', ...(configs ?? emptyArray));
@@ -1071,15 +1085,24 @@ export class Git {
 
 			// Execute through the queue (interactive/normal run immediately, background is throttled)
 			const gitPath = await this.path();
-			void this._queue
-				.run(
+			const spawnQueued = () =>
+				this._queue.run(
 					priority,
 					() => {
 						execStart = hrtime();
-						return runSpawn<T>(gitPath, args, encoding ?? 'utf8', runOpts);
+						return this._runSpawn<T>(gitPath, args, encoding ?? 'utf8', runOpts);
 					},
 					cancellation,
-				)
+				);
+			// The retry wraps the spawn itself, before any `errors` mode turns a failure into a result or a
+			// throw, because only the raw `RunError` carries the stderr that says the lock was held. It re-queues
+			// each attempt, so waiting between them doesn't hold a queue slot.
+			const spawnWithRetry = writesIndex ? () => retryWhileIndexLocked(spawnQueued, cancellation) : spawnQueued;
+			void (
+				checkoutKey != null
+					? this._indexWrites.run(checkoutKey, cancellation, spawnWithRetry)
+					: spawnWithRetry()
+			)
 				.then(deferred.fulfill, (e: unknown) => deferred.cancel(e instanceof Error ? e : new Error(String(e))))
 				.finally(() => {
 					// A clear may have dropped this run and a later identical call registered its own under the key
