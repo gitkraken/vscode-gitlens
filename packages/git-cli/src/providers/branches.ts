@@ -28,8 +28,7 @@ import type { BranchSortOptions } from '@gitlens/git/utils/sorting.js';
 import { sortBranches, sortContributors } from '@gitlens/git/utils/sorting.js';
 import { ensureArray, filterMap } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
-import { debounce } from '@gitlens/utils/decorators/debounce.js';
-import { debug } from '@gitlens/utils/decorators/log.js';
+import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { getBranchId } from '@gitlens/utils/gitRefs.js';
 import { sum } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -54,15 +53,26 @@ import {
 	GitWarnings,
 	maxGitCliLength,
 } from '../exec/git.js';
+import { KeyedSequencer } from '../exec/indexLock.js';
 import type { GitMergeConflict } from '../parsers/mergeTreeParser.js';
 import { parseMergeTreeConflict } from '../parsers/mergeTreeParser.js';
 
 /** Minimum time between writes to the config for last accessed/modified dates */
 const dateMetadataStaleThresholdMs = 5 * 60 * 1000; // 5 minutes
 
+const branchActivityKeys = ['gk-last-accessed', 'gk-last-modified', 'gk-agent-last-activity'] as const;
+type BranchActivityKey = (typeof branchActivityKeys)[number];
+
 export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	/** Ahead/behind counts by `<baseSha>...<tipSha>` range, from the per-tip fallback; a pair of commits always counts the same */
 	private readonly aheadBehindBySha = new LruMap<string, { ahead: number; behind: number }>(4096);
+	/**
+	 * When each `commonPath\0branch\0key` was last stamped by this process. Bounded: a dropped entry only costs a
+	 * read of the stored stamp, which still holds off a write under 5 minutes old
+	 */
+	private readonly _branchActivityStamps = new LruMap<string, number>(1024);
+	/** One call per `commonPath\0branch` at a time, so a call held off by another's write in flight settles after it */
+	private readonly _branchActivityCalls = new KeyedSequencer();
 
 	constructor(
 		private readonly context: GitServiceContext,
@@ -994,6 +1004,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	async forgetDeletedBranch(repoPath: string, name: string): Promise<void> {
 		this.cache.deleteBaseBranchName(repoPath, name);
 		await this.provider.config.removeGkConfigBranchSection(repoPath, name);
+		this.clearBranchActivityStamps(repoPath, name);
 	}
 
 	/**
@@ -2276,36 +2287,81 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return target?.trim() || undefined;
 	}
 
-	/** Updates the last accessed timestamp for the current branch */
-	@debounce(2.5 * 60 * 1000)
-	@debug()
-	async onCurrentBranchAccessed(repoPath: string): Promise<void> {
-		const branch = await this.getBranch(repoPath);
-		if (branch == null || branch.remote || branch.detached) return;
-
-		await this.storeBranchMetadata(repoPath, 'gk-last-accessed', branch.name, new Date());
+	@trace()
+	onCurrentBranchAccessed(repoPath: string): Promise<void> {
+		return this.recordBranchActivity(repoPath, ['gk-last-accessed']);
 	}
 
-	/** Updates the last accessed and modified timestamp for the current branch */
-	@debounce(2.5 * 60 * 1000)
-	@debug()
-	async onCurrentBranchModified(repoPath: string): Promise<void> {
-		const branch = await this.getBranch(repoPath);
-		if (branch == null || branch.remote || branch.detached) return;
-
-		const now = new Date();
-		await this.storeBranchMetadata(repoPath, 'gk-last-accessed', branch.name, now);
-		await this.storeBranchMetadata(repoPath, 'gk-last-modified', branch.name, now);
+	// Called on every working-tree change, and writes at most once per 5 minutes per stamp
+	@trace()
+	onCurrentBranchModified(repoPath: string): Promise<void> {
+		return this.recordBranchActivity(repoPath, ['gk-last-accessed', 'gk-last-modified']);
 	}
 
-	/** Updates the agent last activity timestamp for the current branch */
-	@debounce(2.5 * 60 * 1000)
-	@debug()
-	async onCurrentBranchAgentActivity(repoPath: string): Promise<void> {
-		const branch = await this.getBranch(repoPath);
-		if (branch == null || branch.remote || branch.detached) return;
+	@trace()
+	onCurrentBranchAgentActivity(repoPath: string): Promise<void> {
+		return this.recordBranchActivity(repoPath, ['gk-agent-last-activity']);
+	}
 
-		await this.storeBranchMetadata(repoPath, 'gk-agent-last-activity', branch.name, new Date());
+	private getBranchActivityKey(repoPath: string, name: string): string {
+		return `${this.cache.getCommonPath(repoPath)}\0${name}`;
+	}
+
+	/** Forgets this process's throttle marks for `name`, so its next activity re-reads the stored stamps */
+	private clearBranchActivityStamps(repoPath: string, name: string): void {
+		const branchKey = this.getBranchActivityKey(repoPath, name);
+		for (const key of branchActivityKeys) {
+			this._branchActivityStamps.delete(`${branchKey}\0${key}`);
+		}
+	}
+
+	/** Never rejects — activity stamps are bookkeeping and callers fire them without a catch */
+	private async recordBranchActivity(repoPath: string, keys: readonly BranchActivityKey[]): Promise<void> {
+		const scope = getScopedLogger();
+
+		try {
+			const branch = await this.getBranch(repoPath);
+			if (branch == null || branch.remote || branch.detached) return;
+
+			const branchKey = this.getBranchActivityKey(repoPath, branch.name);
+			await this._branchActivityCalls.run(branchKey, undefined, async () => {
+				const now = Date.now();
+
+				// Kept if the write fails, so a failing write is retried after 5 minutes rather than on every call
+				const due: BranchActivityKey[] = [];
+				for (const key of keys) {
+					const stampKey = `${branchKey}\0${key}`;
+					const last = this._branchActivityStamps.get(stampKey);
+					if (last != null && now - last < dateMetadataStaleThresholdMs) continue;
+
+					this._branchActivityStamps.set(stampKey, now);
+					due.push(key);
+				}
+				if (!due.length) return;
+
+				// Every due key is read before any is written: a write drops the cached gk config, so a read after it
+				// would re-read the whole file
+				const stored = await Promise.allSettled(
+					due.map(key => this.provider.config.getGkConfig(repoPath, `branch.${branch.name}.${key}`)),
+				);
+
+				const value = new Date(now).toISOString();
+				for (const [i, key] of due.entries()) {
+					// Another process sharing the file stamped it under 5 minutes ago: hold off until that stamp goes
+					// stale, not for 5 minutes from now
+					const stamp = getSettledValue(stored[i]);
+					const last = stamp != null ? new Date(stamp).getTime() : NaN;
+					if (now - last < dateMetadataStaleThresholdMs) {
+						this._branchActivityStamps.set(`${branchKey}\0${key}`, last);
+						continue;
+					}
+
+					await this.provider.config.setGkConfig(repoPath, `branch.${branch.name}.${key}`, value);
+				}
+			});
+		} catch (ex) {
+			scope?.error(ex, `Failed to record branch activity (${keys.join(', ')})`);
+		}
 	}
 
 	@debug()
@@ -2320,6 +2376,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// Old name's entry is now orphaned; the new name must not inherit a predecessor's base
 			this.cache.deleteBaseBranchName(repoPath, oldName);
 			this.cache.deleteBaseBranchName(repoPath, newName);
+			this.clearBranchActivityStamps(repoPath, oldName);
+			this.clearBranchActivityStamps(repoPath, newName);
 		} catch (ex) {
 			throw getGitCommandError(
 				'branch',
@@ -2450,21 +2508,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 			return metadataMap;
 		});
-	}
-
-	private async storeBranchMetadata(
-		repoPath: string,
-		key: 'gk-last-accessed' | 'gk-last-modified' | 'gk-agent-last-activity',
-		ref: string,
-		date: Date,
-	): Promise<void> {
-		const value = await this.provider.config.getGkConfig(repoPath, `branch.${ref}.${key}`);
-		// Skip if incoming date is not at least 5 minutes newer than stored date
-		if (value != null && date.getTime() - new Date(value).getTime() < dateMetadataStaleThresholdMs) {
-			return;
-		}
-
-		return this.provider.config.setGkConfig(repoPath, `branch.${ref}.${key}`, date.toISOString());
 	}
 
 	async setBranchDisposition(

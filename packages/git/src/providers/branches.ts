@@ -183,8 +183,20 @@ export interface GitBranchesSubProvider {
 	): Promise<string | undefined>;
 	getStoredDetectedMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
 	getStoredUserMergeTargetBranchName?(repoPath: string, ref: string): Promise<string | undefined>;
+	/**
+	 * Stamps `branch.<name>.gk-last-accessed` in `.git/gk/config` for the branch checked out at `repoPath`, when the
+	 * host checks it out or opens it. A no-op for a detached HEAD or no branch. Each key's write is attempted at most
+	 * once per 5 minutes per branch, failed or not, and not when its stored value, from any process, is under 5 minutes
+	 * old. Calls for different repositories never drop each other, and the promise settles once the write is done and
+	 * never rejects.
+	 */
 	onCurrentBranchAccessed?(repoPath: string): Promise<void>;
+	/**
+	 * Stamps `gk-last-modified` and `gk-last-accessed`: the checkout's working tree or index changed while on the
+	 * branch — file edits and staging, not only commits. Otherwise as {@link onCurrentBranchAccessed}.
+	 */
 	onCurrentBranchModified?(repoPath: string): Promise<void>;
+	/** Stamps `gk-agent-last-activity`: an AI agent worked in the checkout. Otherwise as {@link onCurrentBranchAccessed} */
 	onCurrentBranchAgentActivity?(repoPath: string): Promise<void>;
 	renameBranch?(repoPath: string, oldName: string, newName: string): Promise<void>;
 	setUpstreamBranch?(repoPath: string, name: string, upstream: string | undefined): Promise<void>;
