@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AheadOfBase } from '@gitlens/git/providers/branches.js';
 import { formatDetachedHeadName } from '@gitlens/git/utils/branch.utils.js';
@@ -31,6 +32,10 @@ function git(repoPath: string, ...args: string[]): void {
 
 function revParse(repoPath: string, ref: string): string {
 	return execFileSync('git', ['rev-parse', ref], { cwd: repoPath, encoding: 'utf-8' }).trim();
+}
+
+function mergeBase(repoPath: string, ref: string): string {
+	return execFileSync('git', ['merge-base', 'HEAD', ref], { cwd: repoPath, encoding: 'utf-8' }).trim();
 }
 
 function storeGk(repoPath: string, key: string, value: string): void {
@@ -112,6 +117,8 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				assert.strictEqual(result.base?.ref, 'develop');
 				assert.strictEqual(result.base?.ahead, 3);
 				assert.strictEqual(result.base?.sha, revParse(repo.path, 'develop'));
+				assert.strictEqual(result.base?.tier, 'user');
+				assert.strictEqual(result.base?.forkPoint, mergeBase(repo.path, 'develop'));
 				assertDependsOn(result, ['refs/heads/feature', 'refs/heads/develop']);
 				assert.ok(
 					!result.dependsOn.includes('refs/heads/release'),
@@ -156,6 +163,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				const result = await getAheadOfBase(repo, 'feature');
 				assert.strictEqual(result.base?.ref, 'release');
 				assert.strictEqual(result.base?.ahead, 2);
+				assert.strictEqual(result.base?.tier, 'detected');
 			} finally {
 				repo.cleanup();
 			}
@@ -169,6 +177,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				const result = await getAheadOfBase(repo, 'feature');
 				assert.strictEqual(result.base?.ref, 'staging');
 				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'recorded');
 			} finally {
 				repo.cleanup();
 			}
@@ -186,6 +195,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				const result = await getAheadOfBase(repo, 'feature');
 				assert.strictEqual(result.base?.ref, 'staging');
 				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'recorded');
 				// The missing ref was compared, so its creation can change the answer; the flag never was
 				assertDependsOn(result, ['refs/heads/origin/gone', 'refs/remotes/origin/gone', 'refs/heads/staging']);
 				assert.ok(!result.dependsOn.some(ref => ref.includes('--output')));
@@ -202,6 +212,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				const result = await getAheadOfBase(repo, 'feature');
 				assert.strictEqual(result.base?.ref, 'develop');
 				assert.strictEqual(result.base?.ahead, 3);
+				assert.strictEqual(result.base?.tier, 'detected');
 			} finally {
 				repo.cleanup();
 			}
@@ -217,6 +228,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				// "Up to date with its own upstream" is no signal, not "0 ahead"
 				const result = await getAheadOfBase(clone, 'main');
 				assert.strictEqual(result.base, undefined);
+				assert.strictEqual(result.reason, 'self');
 				assertDependsOn(result, ['refs/heads/main', 'refs/remotes/origin/main']);
 			} finally {
 				cleanup();
@@ -232,6 +244,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 
 				const result = await getAheadOfBase(repo, 'main');
 				assert.strictEqual(result.base, undefined);
+				assert.strictEqual(result.reason, 'self');
 				assertDependsOn(result, ['refs/remotes/origin/main']);
 			} finally {
 				repo.cleanup();
@@ -264,6 +277,8 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 					ref: 'origin/main',
 					ahead: 0,
 					sha: revParse(clone.path, 'origin/main'),
+					forkPoint: mergeBase(clone.path, 'origin/main'),
+					tier: 'user',
 				});
 			} finally {
 				cleanup();
@@ -382,6 +397,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				// `develop` and its upstream fork at the same commit, so the tracking ref takes it
 				assert.strictEqual(result.base?.ref, 'origin/develop');
 				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'default');
 				assertDependsOn(result, [
 					'refs/remotes/origin/HEAD',
 					'refs/heads/develop',
@@ -403,6 +419,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				const result = await getAheadOfBase(repo, 'feature');
 				assert.strictEqual(result.base?.ref, 'trunk');
 				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'default');
 				assertDependsOn(result, ['refs/remotes/origin/HEAD', 'refs/heads/trunk']);
 			} finally {
 				repo.cleanup();
@@ -424,6 +441,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				const mainResult = await getAheadOfBase(onMain, 'feature');
 				assert.strictEqual(mainResult.base?.ref, 'main');
 				assert.strictEqual(mainResult.base?.ahead, 1);
+				assert.strictEqual(mainResult.base?.tier, 'default');
 
 				const masterResult = await getAheadOfBase(onMaster, 'feature');
 				assert.strictEqual(masterResult.base?.ref, 'master');
@@ -449,6 +467,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				// `develop`'s own work belongs to develop, not to the branch taken off it
 				assert.strictEqual(result.base?.ref, 'develop');
 				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'recorded');
 			} finally {
 				repo.cleanup();
 			}
@@ -468,6 +487,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				// Measured against the default, so `develop`'s commit counts too
 				assert.strictEqual(result.base?.ref, 'main');
 				assert.strictEqual(result.base?.ahead, 2);
+				assert.strictEqual(result.base?.tier, 'default');
 				assert.ok(!result.dependsOn.includes('refs/heads/develop'));
 				// Nor is the reflog's guess written back as the recorded base
 				assert.strictEqual(gkConfig(repo.path, 'branch.feature.gk-merge-base'), undefined);
@@ -483,6 +503,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 
 				const result = await getAheadOfBase(repo, 'main');
 				assert.strictEqual(result.base, undefined);
+				assert.strictEqual(result.reason, 'none');
 				assertDependsOn(result, ['refs/heads/main', 'refs/remotes/origin/HEAD']);
 			} finally {
 				repo.cleanup();
@@ -498,6 +519,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 
 				const result = await getAheadOfBase(repo, 'solo');
 				assert.strictEqual(result.base, undefined);
+				assert.strictEqual(result.reason, 'none');
 				assertDependsOn(result, [
 					'refs/heads/solo',
 					'refs/heads/gone',
@@ -518,8 +540,24 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 
 				const result = await getAheadOfBase(repo, 'fresh');
 				assert.strictEqual(result.base, undefined);
+				assert.strictEqual(result.reason, 'unborn');
 				assertDependsOn(result, ['refs/heads/fresh', 'refs/heads/main']);
 			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('answers no base in a repository with no commit yet', async () => {
+			const repo = createTestRepo();
+			const dir = mkdtempSync(join(tmpdir(), 'gitlens-test-'));
+			try {
+				git(dir, 'init', '-b', 'main');
+
+				const result = await repo.provider.branches.getAheadOfBase(dir, 'main');
+				assert.strictEqual(result.base, undefined);
+				assert.strictEqual(result.reason, 'unborn');
+			} finally {
+				rmSync(dir, { recursive: true, force: true });
 				repo.cleanup();
 			}
 		});
@@ -533,9 +571,14 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 
 				assert.deepStrictEqual(await getAheadOfBase(repo, formatDetachedHeadName(sha)), {
 					base: undefined,
+					reason: 'none',
 					dependsOn: [],
 				});
-				assert.deepStrictEqual(await getAheadOfBase(repo, ''), { base: undefined, dependsOn: [] });
+				assert.deepStrictEqual(await getAheadOfBase(repo, ''), {
+					base: undefined,
+					reason: 'none',
+					dependsOn: [],
+				});
 			} finally {
 				repo.cleanup();
 			}
@@ -572,7 +615,13 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 			storeTargets(repo.path, 'feature', { recorded: 'develop' });
 
 			const result = await getAheadOfBase(repo, 'feature');
-			assert.deepStrictEqual(result.base, { ref: 'develop', ahead: 3, sha: revParse(repo.path, 'develop') });
+			assert.deepStrictEqual(result.base, {
+				ref: 'develop',
+				ahead: 3,
+				sha: revParse(repo.path, 'develop'),
+				forkPoint: mergeBase(repo.path, 'develop'),
+				tier: 'recorded',
+			});
 		} finally {
 			repo.cleanup();
 		}

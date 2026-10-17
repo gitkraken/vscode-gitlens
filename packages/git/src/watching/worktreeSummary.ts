@@ -8,6 +8,7 @@ import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
 import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { GitTrackingUpstream } from '../models/branch.js';
 import type { GitDir } from '../models/repository.js';
+import type { AheadOfBaseTier } from '../providers/branches.js';
 import type { RepositoryService } from '../repositoryService.js';
 import type { WatcherRepoChangeEvent } from './changeEvent.js';
 import type { RepositoryWatchService, WatchHandle } from './watchService.js';
@@ -33,6 +34,10 @@ export interface WorktreeSummaryBase {
 	readonly ahead: number;
 	/** The commit {@link ref} pointed at when the count was read; `undefined` when it couldn't be resolved */
 	readonly sha: string | undefined;
+	/** Where HEAD forked from {@link ref} (see `AheadOfBase.base`) */
+	readonly forkPoint: string | undefined;
+	/** The source the base came from (see `AheadOfBase.base`) */
+	readonly tier: AheadOfBaseTier;
 }
 
 export interface WorktreeSummary {
@@ -687,6 +692,8 @@ function summariesEqual(a: WorktreeSummary, b: WorktreeSummary): boolean {
 				b.base != null &&
 				a.base.ref === b.base.ref &&
 				a.base.ahead === b.base.ahead &&
-				a.base.sha === b.base.sha))
+				a.base.sha === b.base.sha &&
+				a.base.forkPoint === b.base.forkPoint &&
+				a.base.tier === b.base.tier))
 	);
 }

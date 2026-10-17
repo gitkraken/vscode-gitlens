@@ -47,6 +47,10 @@ suite('WorktreeSummaryService against real git', () => {
 		return execFileSync('git', ['rev-parse', ref], { cwd: repo.path, encoding: 'utf-8' }).trim();
 	}
 
+	function mergeBase(ref: string): string {
+		return execFileSync('git', ['merge-base', 'HEAD', ref], { cwd: repo.path, encoding: 'utf-8' }).trim();
+	}
+
 	function fire(basePath: string, relativePath: string): void {
 		const watcher = watchers.find(w => w.basePath === basePath);
 		assert.ok(watcher != null, `no watcher on ${basePath}`);
@@ -100,7 +104,13 @@ suite('WorktreeSummaryService against real git', () => {
 		assert.strictEqual(after.branch, 'feature');
 		assert.strictEqual(after.dirty, false);
 		assert.strictEqual(after.sha, revParse('HEAD'));
-		assert.deepStrictEqual(after.base, { ref: 'main', ahead: 1, sha: revParse('main') });
+		assert.deepStrictEqual(after.base, {
+			ref: 'main',
+			ahead: 1,
+			sha: revParse('main'),
+			forkPoint: mergeBase('main'),
+			tier: 'default',
+		});
 
 		sub.dispose();
 	});
@@ -145,7 +155,13 @@ suite('WorktreeSummaryService against real git', () => {
 		const sub = summaries.subscribe(repo.path, { delayMs: 10, workingTreeDelayMs: 10 });
 		const initial = await summaries.getSummary(repo.path);
 		assert.strictEqual(initial.sha, revParse('HEAD'));
-		assert.deepStrictEqual(initial.base, { ref: 'main', ahead: 1, sha: revParse('main') });
+		assert.deepStrictEqual(initial.base, {
+			ref: 'main',
+			ahead: 1,
+			sha: revParse('main'),
+			forkPoint: mergeBase('main'),
+			tier: 'default',
+		});
 
 		// A commit, then `main` fast-forwarded onto the first one, inside one refresh window: still 1 ahead of `main`
 		const changed = nextChange(sub);
@@ -177,7 +193,13 @@ suite('WorktreeSummaryService against real git', () => {
 
 		const sub = summaries.subscribe(repo.path, { delayMs: 10, workingTreeDelayMs: 10 });
 		const initial = await summaries.getSummary(repo.path);
-		assert.deepStrictEqual(initial.base, { ref: 'main', ahead: 1, sha: revParse('main') });
+		assert.deepStrictEqual(initial.base, {
+			ref: 'main',
+			ahead: 1,
+			sha: revParse('main'),
+			forkPoint: mergeBase('main'),
+			tier: 'default',
+		});
 
 		// `main` gains a commit `feature` doesn't have, so `feature` is still 1 ahead of it and HEAD doesn't move
 		const changed = nextChange(sub);
@@ -192,7 +214,13 @@ suite('WorktreeSummaryService against real git', () => {
 		const after = await changed;
 
 		assert.strictEqual(after.sha, initial.sha);
-		assert.deepStrictEqual(after.base, { ref: 'main', ahead: 1, sha: mainTip });
+		assert.deepStrictEqual(after.base, {
+			ref: 'main',
+			ahead: 1,
+			sha: mainTip,
+			forkPoint: mergeBase('main'),
+			tier: 'default',
+		});
 
 		sub.dispose();
 	});
@@ -209,7 +237,13 @@ suite('WorktreeSummaryService against real git', () => {
 
 		const sub = summaries.subscribe(repo.path, { delayMs: 10, workingTreeDelayMs: 10 });
 		const initial = await summaries.getSummary(repo.path);
-		assert.deepStrictEqual(initial.base, { ref: 'base', ahead: 1, sha: revParse('main') });
+		assert.deepStrictEqual(initial.base, {
+			ref: 'base',
+			ahead: 1,
+			sha: revParse('main'),
+			forkPoint: mergeBase('base'),
+			tier: 'user',
+		});
 
 		// The count and fork point are cached by the tag's name, so they must not outlive the tag's move
 		const changed = nextChange(sub);
@@ -219,7 +253,13 @@ suite('WorktreeSummaryService against real git', () => {
 		fire(gitDir, 'refs/tags/base');
 		const after = await changed;
 
-		assert.deepStrictEqual(after.base, { ref: 'base', ahead: 0, sha: revParse('HEAD') });
+		assert.deepStrictEqual(after.base, {
+			ref: 'base',
+			ahead: 0,
+			sha: revParse('HEAD'),
+			forkPoint: mergeBase('base'),
+			tier: 'user',
+		});
 
 		sub.dispose();
 	});
