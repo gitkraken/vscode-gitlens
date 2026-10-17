@@ -350,7 +350,14 @@ export class GitProviderService implements UnifiedDisposable {
 			// Forced changes (`forcedRepositoryChanges`) bypass the session, so the provider's own repo handler
 			// advances those instead — `fireChange` accepts `force` only for those, so the two sets are disjoint.
 			this._watchService.onDidChangeWorkingTree(repoPath => this._cache.onWorkingTreeChanged(repoPath)),
-			this._watchService.onDidChangeRepository(e => this._cache.onRepositoryChanged(e.repoPath, e.changes)),
+			// Announced kinds were evicted when core announced its write; evicting them again would discard what was
+			// re-read since
+			this._watchService.onDidChangeRepository(e => {
+				const changes = e.getUnannouncedChanges();
+				if (changes.length) {
+					this._cache.onRepositoryChanged(e.repoPath, changes);
+				}
+			}),
 			this._repositoryInitWatcher,
 			this._repositoryInitWatcher.onDidCreate(e => {
 				const f = workspace.getWorkspaceFolder(Uri.file(e.path));

@@ -156,6 +156,25 @@ describe('WatcherRepoChangeEvent', () => {
 		});
 	});
 
+	describe('announced', () => {
+		it('is empty unless given', () => {
+			const e = new WatcherRepoChangeEvent('/repo', ['head', 'heads']);
+			assert.strictEqual(e.announced.size, 0);
+		});
+
+		it('keeps only the announced kinds that are among the changes', () => {
+			const e = new WatcherRepoChangeEvent('/repo', ['head', 'index'], undefined, ['index', 'tags']);
+			assert.deepStrictEqual([...e.announced], ['index']);
+		});
+
+		it('drops a kind with() reports again, and keeps the rest', () => {
+			const e = new WatcherRepoChangeEvent('/repo', ['heads', 'index'], undefined, ['heads', 'index']);
+			const e2 = e.with(['heads', 'tags']);
+			assert.deepStrictEqual([...e2.announced], ['index']);
+			assert.deepStrictEqual([...e.announced], ['heads', 'index']);
+		});
+	});
+
 	describe('toString()', () => {
 		it('includes repoPath and changes by default', () => {
 			const e = new WatcherRepoChangeEvent('/repo', ['head']);

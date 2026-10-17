@@ -576,7 +576,7 @@ describe('WatchGroup', () => {
 			assert.deepStrictEqual([...allWatchedRepositoryChanges], fullKinds);
 		});
 
-		it('a root watcher overflow gives its session every kind with no ref, plus its hooks', () => {
+		it('a root watcher overflow gives its session every kind with no ref, marked as overflow, plus its hooks', () => {
 			const { factory, watchers } = createMockFactory();
 			const group = new WatchGroup('/repo/.git', factory);
 			const a = hooks();
@@ -592,7 +592,7 @@ describe('WatchGroup', () => {
 				});
 
 			assert.strictEqual(callCount(a.onRepoChanged), 1);
-			assert.deepStrictEqual(callArgs(a.onRepoChanged, 0), ['/worktrees/A', fullKinds]);
+			assert.deepStrictEqual(callArgs(a.onRepoChanged, 0), ['/worktrees/A', fullKinds, undefined, true]);
 			assert.ok(!(callArgs(a.onRepoChanged, 0)[1] as string[]).includes('unknown'));
 			assert.strictEqual(callCount(a.onFetchHeadChanged), 1);
 			assert.strictEqual(callCount(a.onIgnoresChanged), 1);
@@ -612,14 +612,14 @@ describe('WatchGroup', () => {
 			assert.strictEqual(callCount(main.onRepoChanged), 0);
 			assert.strictEqual(callCount(main.onFetchHeadChanged), 0);
 			assert.strictEqual(callCount(linked.onRepoChanged), 1);
-			assert.deepStrictEqual(callArgs(linked.onRepoChanged, 0), ['/worktrees/B', fullKinds]);
+			assert.deepStrictEqual(callArgs(linked.onRepoChanged, 0), ['/worktrees/B', fullKinds, undefined, true]);
 			assert.strictEqual(callCount(linked.onFetchHeadChanged), 1);
 			assert.strictEqual(callCount(linked.onIgnoresChanged), 1);
 
 			// The main checkout's own root watcher still reports it
 			watchers.find(w => w.pattern === dotGitGlobCombined)!.fire({ path: '/repo/.git', reason: 'overflow' });
 			assert.strictEqual(callCount(main.onRepoChanged), 1);
-			assert.deepStrictEqual(callArgs(main.onRepoChanged, 0), ['/repo', fullKinds]);
+			assert.deepStrictEqual(callArgs(main.onRepoChanged, 0), ['/repo', fullKinds, undefined, true]);
 		});
 	});
 

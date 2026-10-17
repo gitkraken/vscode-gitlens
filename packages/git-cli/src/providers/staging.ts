@@ -108,8 +108,12 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 
 	@debug()
 	async stageFile(repoPath: string, pathOrUri: string | Uri): Promise<void> {
-		await this.git.run({ cwd: repoPath }, 'add', '-A', '--', toFsPath(pathOrUri));
-		this.announceIndexChanged(repoPath);
+		const path = toFsPath(pathOrUri);
+		try {
+			await this.git.run({ cwd: repoPath }, 'add', '-A', '--', path);
+		} finally {
+			this.announceIndexChanged(repoPath);
+		}
 	}
 
 	@debug()
@@ -150,14 +154,22 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 
 	@debug()
 	async stageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void> {
-		await this.git.run({ cwd: repoPath }, 'add', '-A', '--', toFsPath(directoryOrUri));
-		this.announceIndexChanged(repoPath);
+		const path = toFsPath(directoryOrUri);
+		try {
+			await this.git.run({ cwd: repoPath }, 'add', '-A', '--', path);
+		} finally {
+			this.announceIndexChanged(repoPath);
+		}
 	}
 
 	@debug()
 	async unstageFile(repoPath: string, pathOrUri: string | Uri): Promise<void> {
-		await this.git.run({ cwd: repoPath }, 'reset', '-q', '--', toFsPath(pathOrUri));
-		this.announceIndexChanged(repoPath);
+		const path = toFsPath(pathOrUri);
+		try {
+			await this.git.run({ cwd: repoPath }, 'reset', '-q', '--', path);
+		} finally {
+			this.announceIndexChanged(repoPath);
+		}
 	}
 
 	@debug()
@@ -183,8 +195,12 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 
 	@debug()
 	async unstageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void> {
-		await this.git.run({ cwd: repoPath }, 'reset', '-q', '--', toFsPath(directoryOrUri));
-		this.announceIndexChanged(repoPath);
+		const path = toFsPath(directoryOrUri);
+		try {
+			await this.git.run({ cwd: repoPath }, 'reset', '-q', '--', path);
+		} finally {
+			this.announceIndexChanged(repoPath);
+		}
 	}
 
 	@debug()
@@ -194,8 +210,11 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 			args.push('-f');
 		}
 		args.push('--', toFsPath(pathOrUri));
-		await this.git.run({ cwd: repoPath }, ...args);
-		this.announceIndexChanged(repoPath);
+		try {
+			await this.git.run({ cwd: repoPath }, ...args);
+		} finally {
+			this.announceIndexChanged(repoPath);
+		}
 	}
 
 	@debug()
@@ -227,14 +246,20 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 
 	@debug()
 	async stageAll(repoPath: string): Promise<void> {
-		await this.git.run({ cwd: repoPath }, 'add', '-A');
-		this.announceIndexChanged(repoPath);
+		try {
+			await this.git.run({ cwd: repoPath }, 'add', '-A');
+		} finally {
+			this.announceIndexChanged(repoPath);
+		}
 	}
 
 	@debug()
 	async unstageAll(repoPath: string): Promise<void> {
-		await this.git.run({ cwd: repoPath }, 'reset', '-q');
-		this.announceIndexChanged(repoPath);
+		try {
+			await this.git.run({ cwd: repoPath }, 'reset', '-q');
+		} finally {
+			this.announceIndexChanged(repoPath);
+		}
 	}
 
 	@debug()

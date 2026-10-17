@@ -32,6 +32,7 @@ import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { normalizePath, splitPath } from '@gitlens/utils/path.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
+import { mayWriteTracking } from '../exec/commandClassifier.js';
 import type { Git, PushForceOptions } from '../exec/git.js';
 import {
 	classifySigningError,
@@ -76,8 +77,6 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				// Evict the cached base only — see `createBranch` on why the persisted keys stay.
 				this.cache.deleteBaseBranchName(repoPath, options.createBranch);
 			}
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
 		} catch (ex) {
 			scope?.error(ex);
 			throw getGitCommandError(
@@ -88,6 +87,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 						{ reason: reason ?? 'other', ref: ref, gitCommand: { repoPath: repoPath, args: params } },
 						ex,
 					),
+			);
+		} finally {
+			this.announceHeadChanged(
+				repoPath,
+				Boolean(options?.createBranch) && mayWriteTracking(ref, options?.noTracking),
 			);
 		}
 	}
@@ -133,9 +137,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		args.push(...revs);
 
 		try {
-			await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...args);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
+			try {
+				await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...args);
+			} finally {
+				this.announceHeadChanged(repoPath);
+			}
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
@@ -204,12 +210,15 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		params.push('-F', '-');
 
 		try {
-			await this.git.run(
-				{ cwd: repoPath, stdin: message, stdinEncoding: 'utf8', errors: 'throw', ...runOptions },
-				...params,
-			);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
+			try {
+				await this.git.run(
+					{ cwd: repoPath, stdin: message, stdinEncoding: 'utf8', errors: 'throw', ...runOptions },
+					...params,
+				);
+			} finally {
+				// A commit refused by a hook can still have restaged files
+				this.announceHeadChanged(repoPath);
+			}
 			if (sign) {
 				// `-S` was passed and the commit succeeded, so signing is confirmed — fire the
 				// explicit-sign hook (same contract as the patch provider's `commit-tree -S` path).
@@ -450,14 +459,15 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		args.push(ref);
 
 		try {
-			await this.git.run(
-				// Avoid a timeout since merges can take a long time (set to 0 to disable)
-				{ cwd: repoPath, errors: 'throw', timeout: 0, ...runOptions },
-				...args,
-			);
-
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
+			try {
+				await this.git.run(
+					// Avoid a timeout since merges can take a long time (set to 0 to disable)
+					{ cwd: repoPath, errors: 'throw', timeout: 0, ...runOptions },
+					...args,
+				);
+			} finally {
+				this.announceHeadChanged(repoPath);
+			}
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
@@ -653,6 +663,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		let branchName: string;
 		let remoteName: string | undefined;
 		let upstreamName: string | undefined;
+		// Whether the push itself writes `branch.<n>.remote/merge` (`-u`): only when it establishes tracking,
+		// never to rewrite what a branch with a live upstream already has
+		let trackUpstream = options?.publish != null;
 		let setUpstream:
 			| {
 					branch: string;
@@ -669,6 +682,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				[branchName, remoteName] = getBranchNameAndRemote(options.reference);
 			}
 			upstreamName = getBranchTrackingWithoutRemote(options.reference);
+			trackUpstream ||= options.reference.upstream?.missing === true;
 		} else {
 			const branch = await this.provider.branches.getBranch(repoPath);
 			if (branch == null) return;
@@ -719,7 +733,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					remote: remoteName,
 					upstream: upstreamName,
 					force: forceOpts,
-					publish: options?.publish != null,
+					setUpstream: trackUpstream,
 				},
 				runOptions,
 			);
@@ -746,10 +760,15 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		} finally {
 			// A rejected push may have updated some of its remote-tracking refs before it failed
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(
-				repoPath,
-				options?.publish != null ? ['config', 'heads', 'remotes'] : ['remotes'],
-			);
+			const changes: RepositoryChange[] = [];
+			if (trackUpstream || setUpstream != null) {
+				changes.push('config');
+			}
+			if (options?.publish != null) {
+				changes.push('heads');
+			}
+			changes.push('remotes');
+			this.context.hooks?.repository?.onChanged?.(repoPath, changes);
 		}
 	}
 
@@ -758,7 +777,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		options: {
 			branch?: string;
 			force?: PushForceOptions;
-			publish?: boolean;
+			setUpstream?: boolean;
 			remote?: string;
 			upstream?: string;
 			delete?: { remote: string; branch: string };
@@ -782,8 +801,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		if (options.branch && options.remote) {
 			if (options.upstream) {
-				params.push('-u', options.remote, `${options.branch}:${options.upstream}`);
-			} else if (options.publish) {
+				if (options.setUpstream) {
+					params.push('-u');
+				}
+				params.push(options.remote, `${options.branch}:${options.upstream}`);
+			} else if (options.setUpstream) {
 				params.push('--set-upstream', options.remote, options.branch);
 			} else {
 				params.push(options.remote, options.branch);
@@ -937,13 +959,15 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		// so the result can't be used to detect that a rebase started
 		this.context.hooks?.operations?.onRebaseCapableOperation?.(repoPath, 'rebase', 'started');
 		try {
-			await this.git.run(
-				// Avoid a timeout since rebases can take a long time (set to 0 to disable)
-				{ cwd: repoPath, errors: 'throw', configs: configs, timeout: 0, ...runOptions, env: env },
-				...args,
-			);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
+			try {
+				await this.git.run(
+					// Avoid a timeout since rebases can take a long time (set to 0 to disable)
+					{ cwd: repoPath, errors: 'throw', configs: configs, timeout: 0, ...runOptions, env: env },
+					...args,
+				);
+			} finally {
+				this.announceHeadChanged(repoPath);
+			}
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
@@ -982,11 +1006,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		try {
 			await this.resetCore(repoPath, rev, options?.mode, runOptions);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
 		} catch (ex) {
 			scope?.error(ex);
 			throw ex;
+		} finally {
+			this.announceHeadChanged(repoPath);
 		}
 	}
 
@@ -1037,6 +1061,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		const selector = options?.side != null ? `--${options.side}` : options?.ref || undefined;
 		const prefix = selector != null ? ['checkout', selector, '--'] : ['checkout', '--'];
 
+		let ran = false;
 		try {
 			if (await this.git.supports('git:checkout:pathspec-from-file')) {
 				// Git ≥ 2.26: stream all pathspecs via stdin (NUL-separated) in a single invocation —
@@ -1047,6 +1072,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					args.push(selector);
 				}
 				args.push('--pathspec-from-file=-', '--pathspec-file-nul');
+				ran = true;
 				await this.git.run(
 					{ cwd: repoPath, errors: 'throw', ...runOptions, stdin: normalized.join('\0') },
 					...args,
@@ -1059,11 +1085,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				const perArgOverhead = 3;
 				const prefixLength = prefix.reduce((sum, arg) => sum + arg.length + perArgOverhead, 0);
 				for (const batch of chunkByStringLength(normalized, maxGitCliLength - prefixLength, perArgOverhead)) {
+					ran = true;
 					await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...prefix, ...batch);
 				}
 			}
-			this.context.hooks?.cache?.onReset?.(repoPath, 'status');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['index']);
 		} catch (ex) {
 			scope?.error(ex);
 			throw getGitCommandError(
@@ -1079,6 +1104,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 						ex,
 					),
 			);
+		} finally {
+			if (ran) {
+				this.context.hooks?.cache?.onReset?.(repoPath, 'status');
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['index']);
+			}
 		}
 	}
 
@@ -1103,14 +1133,15 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		args.push(...refs);
 
 		try {
-			await this.git.run(
-				// Avoid a timeout since reverts can take a long time (set to 0 to disable)
-				{ cwd: repoPath, errors: 'throw', timeout: 0, ...runOptions },
-				...args,
-			);
-
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
+			try {
+				await this.git.run(
+					// Avoid a timeout since reverts can take a long time (set to 0 to disable)
+					{ cwd: repoPath, errors: 'throw', timeout: 0, ...runOptions },
+					...args,
+				);
+			} finally {
+				this.announceHeadChanged(repoPath);
+			}
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
@@ -1166,6 +1197,16 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		);
 	}
 
+	/** Called once git has run, success or not — a rejected write can still have moved HEAD or left state behind */
+	private announceHeadChanged(repoPath: string, wroteTracking?: boolean): void {
+		this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
+		this.context.hooks?.repository?.onChanged?.(
+			repoPath,
+			wroteTracking ? ['config', 'head', 'heads', 'index'] : ['head', 'heads', 'index'],
+		);
+	}
+
+	/** The caller has already announced the change — the conflict is what the failed run left behind */
 	private async createConflictResult(repoPath: string, command: GitConflictCommand): Promise<GitOperationResult> {
 		let conflicts: GitConflictFile[] | undefined;
 		try {
@@ -1174,10 +1215,6 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			// Don't let a secondary status-read failure mask the original conflict signal
 			Logger.warn(`Unable to read conflicting files after ${command}: ${ex}`);
 		}
-		// A conflicted op mutates the working tree, index, and paused-op state — invalidate caches
-		// and fire repository-change the same way the success path does, so downstream views refresh.
-		this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
-		this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
 		this.context.hooks?.operations?.onConflicted?.(command, conflicts);
 		return { conflicted: true, conflicts: conflicts };
 	}

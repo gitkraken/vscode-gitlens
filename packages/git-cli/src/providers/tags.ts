@@ -151,8 +151,6 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 		try {
 			await this.git.run({ cwd: repoPath }, ...args);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'tags');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['tags']);
 		} catch (ex) {
 			throw getGitCommandError(
 				'tag',
@@ -163,6 +161,9 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 						ex as GitError,
 					),
 			);
+		} finally {
+			this.context.hooks?.cache?.onReset?.(repoPath, 'tags');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['tags']);
 		}
 	}
 
@@ -172,8 +173,6 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 		try {
 			await this.git.run({ cwd: repoPath }, ...args);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'tags');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['tags']);
 		} catch (ex) {
 			throw getGitCommandError(
 				'tag',
@@ -184,6 +183,9 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 						ex as GitError,
 					),
 			);
+		} finally {
+			this.context.hooks?.cache?.onReset?.(repoPath, 'tags');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['tags']);
 		}
 	}
 

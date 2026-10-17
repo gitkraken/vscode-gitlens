@@ -3,8 +3,10 @@ import type { MergeTargetsChangeEvent } from '@gitlens/git/cache.js';
 import { Cache } from '@gitlens/git/cache.js';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
 import type { GitService } from '@gitlens/git/service.js';
+import type { WatcherRepoChangeEvent } from '@gitlens/git/watching/changeEvent.js';
 import type { FileWatchEvent, FileWatchingProvider } from '@gitlens/git/watching/provider.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
+import { first } from '@gitlens/utils/iterable.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../cliGitProvider.js';
 import { createCliGitService } from '../service.js';
@@ -54,6 +56,75 @@ suite('createCliGitService — watch bridging', () => {
 		gitDirWatcher.fire({ path: `${gitDirWatcher.basePath}/FETCH_HEAD`, reason: 'change' });
 
 		assert.strictEqual(await read(), 2);
+
+		sub.dispose();
+		handle.dispose();
+	});
+
+	test('an announced kind is not evicted again when its event fires; a raw kind beside it is', async () => {
+		const provider = first(service.getProviders());
+		assert.ok(provider instanceof CliGitProvider);
+
+		const handle = service.watchService!.watch(repoPath, { uri: fileUri(`${repoPath}/.git`) });
+		assert.ok(handle != null);
+		const sub = handle.session.subscribe();
+		const fired = new Promise<WatcherRepoChangeEvent>(resolve => {
+			const listener = service.watchService!.onDidChangeRepository(e => {
+				listener.dispose();
+				resolve(e);
+			});
+		});
+
+		let reads = 0;
+		const read = () => cache.getLastFetchedTimestamp(repoPath, () => ++reads);
+		assert.strictEqual(await read(), 1);
+
+		provider.notifyChanged(repoPath, ['lastFetched']);
+		// The host's re-read after the announcement, inside the debounce window
+		assert.strictEqual(await read(), 2);
+
+		const gitDirWatcher = watchers.find(w => w.basePath === fileUri(`${repoPath}/.git`).fsPath);
+		assert.ok(gitDirWatcher != null);
+		gitDirWatcher.fire({ path: `${gitDirWatcher.basePath}/refs/heads/main`, reason: 'change' });
+		const generation = cache.getStatusGeneration(repoPath);
+
+		const e = await fired;
+		assert.deepStrictEqual([...e.announced], ['lastFetched']);
+		assert.ok(e.changed('heads'));
+
+		assert.strictEqual(await read(), 2, 'the re-read survives the announced-only kind');
+		assert.strictEqual(cache.getStatusGeneration(repoPath), generation + 1, 'the raw heads change still applies');
+
+		sub.dispose();
+		handle.dispose();
+	});
+
+	test('an announced-only event evicts nothing', async () => {
+		const provider = first(service.getProviders());
+		assert.ok(provider instanceof CliGitProvider);
+
+		const handle = service.watchService!.watch(repoPath, { uri: fileUri(`${repoPath}/.git`) });
+		assert.ok(handle != null);
+		const sub = handle.session.subscribe();
+		const fired = new Promise<WatcherRepoChangeEvent>(resolve => {
+			const listener = service.watchService!.onDidChangeRepository(e => {
+				listener.dispose();
+				resolve(e);
+			});
+		});
+
+		let reads = 0;
+		const read = () => cache.getLastFetchedTimestamp(repoPath, () => ++reads);
+
+		provider.notifyChanged(repoPath, ['heads', 'lastFetched']);
+		assert.strictEqual(await read(), 1);
+		const generation = cache.getStatusGeneration(repoPath);
+
+		const e = await fired;
+		assert.deepStrictEqual(new Set(e.announced), new Set(['heads', 'lastFetched']));
+
+		assert.strictEqual(await read(), 1, 'the re-read after the announcement is kept');
+		assert.strictEqual(cache.getStatusGeneration(repoPath), generation, 'the status clock does not advance again');
 
 		sub.dispose();
 		handle.dispose();

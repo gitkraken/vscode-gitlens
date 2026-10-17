@@ -3,8 +3,9 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import * as sinon from 'sinon';
 import type { SigningErrorReason } from '@gitlens/git/errors.js';
-import { CommitError, FetchError, MergeError, PullError, SigningError } from '@gitlens/git/errors.js';
+import { CommitError, FetchError, MergeError, PullError, PushError, SigningError } from '@gitlens/git/errors.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
@@ -406,6 +407,120 @@ suite('OperationsGitSubProvider.push', () => {
 		} finally {
 			r.cleanup();
 		}
+	});
+
+	suite('upstream tracking writes', () => {
+		function watch() {
+			const changes: string[][] = [];
+			return {
+				changes: changes,
+				hooks: { repository: { onChanged: (_rp: string, c: readonly string[]) => changes.push([...c]) } },
+			};
+		}
+
+		function setup(hooks?: ReturnType<typeof watch>['hooks']) {
+			const origin = createTestRepo();
+			const bare = createBareRemoteFrom(origin.path);
+			const local = cloneTestRepo(bare.path, { hooks: hooks });
+			return {
+				origin: origin,
+				bare: bare,
+				local: local,
+				cleanup: () => {
+					local.cleanup();
+					bare.cleanup();
+					origin.cleanup();
+				},
+			};
+		}
+
+		function branchRef(repoPath: string, name: string, upstream?: { name: string; missing: boolean }) {
+			return createReference(name, repoPath, {
+				refType: 'branch',
+				name: name,
+				remote: false,
+				upstream: upstream,
+			});
+		}
+
+		function config(repoPath: string, key: string): string {
+			try {
+				return execFileSync('git', ['config', '--get-all', key], { cwd: repoPath, encoding: 'utf-8' }).trim();
+			} catch {
+				return '';
+			}
+		}
+
+		test('a branch tracking a live upstream pushes without -u', async () => {
+			const watched = watch();
+			const r = setup(watched.hooks);
+			try {
+				addCommit(r.local.path, 'a.txt', 'a', 'Local commit');
+				const localSha = getHeadSha(r.local.path);
+				const configPath = join(r.local.path, '.git', 'config');
+				const before = readFileSync(configPath, 'utf-8');
+
+				await r.local.provider.ops.push(r.local.path, {
+					reference: branchRef(r.local.path, 'main', { name: 'origin/main', missing: false }),
+				});
+
+				assert.strictEqual(readFileSync(configPath, 'utf-8'), before, '.git/config must not be rewritten');
+				assert.strictEqual(
+					execFileSync('git', ['ls-remote', r.bare.path, 'refs/heads/main'], { encoding: 'utf-8' }).split(
+						'\t',
+					)[0],
+					localSha,
+				);
+				assert.ok(watched.changes.every(c => !c.includes('config')));
+			} finally {
+				r.cleanup();
+			}
+		});
+
+		test('a reference whose upstream is missing sets tracking and announces config', async () => {
+			const watched = watch();
+			const r = setup(watched.hooks);
+			try {
+				createBranch(r.local.path, 'topic', { checkout: true });
+				addCommit(r.local.path, 'topic.txt', 't', 'Topic commit');
+				assert.strictEqual(config(r.local.path, 'branch.topic.remote'), '', 'sanity');
+
+				await r.local.provider.ops.push(r.local.path, {
+					reference: branchRef(r.local.path, 'topic', { name: 'origin/topic', missing: true }),
+				});
+
+				assert.strictEqual(config(r.local.path, 'branch.topic.remote'), 'origin');
+				assert.strictEqual(config(r.local.path, 'branch.topic.merge'), 'refs/heads/topic');
+				assert.ok(watched.changes.some(c => c.includes('config')));
+			} finally {
+				r.cleanup();
+			}
+		});
+
+		test('a force push whose lease is stale rejects with rejectedWithLease', async () => {
+			const r = setup();
+			try {
+				// Another clone advances the remote after this one last fetched
+				const other = cloneTestRepo(r.bare.path);
+				try {
+					addCommit(other.path, 'other.txt', 'o', 'Other advances');
+					execFileSync('git', ['push', 'origin', 'main'], { cwd: other.path, stdio: 'pipe' });
+				} finally {
+					other.cleanup();
+				}
+				addCommit(r.local.path, 'mine.txt', 'm', 'Mine diverges');
+
+				await assert.rejects(
+					r.local.provider.ops.push(r.local.path, {
+						reference: branchRef(r.local.path, 'main', { name: 'origin/main', missing: false }),
+						force: true,
+					}),
+					(ex: unknown) => PushError.is(ex, 'rejectedWithLease'),
+				);
+			} finally {
+				r.cleanup();
+			}
+		});
 	});
 });
 
@@ -896,6 +1011,33 @@ suite('OperationsGitSubProvider — announcing a write that failed', () => {
 			worktree?.cleanup();
 			local?.cleanup();
 			origin.cleanup();
+		}
+	});
+});
+
+suite('OperationsGitSubProvider — failed writes still announce', () => {
+	test('commit refused by a pre-commit hook announces head, heads and index', async () => {
+		const onChanged = sinon.spy();
+		const r = createTestRepo({ hooks: { repository: { onChanged: onChanged } } });
+		try {
+			const hook = join(r.path, '.git', 'hooks', 'pre-commit');
+			writeFileSync(hook, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+
+			writeFileSync(join(r.path, 'new.txt'), 'x\n');
+			execFileSync('git', ['add', 'new.txt'], { cwd: r.path, stdio: 'pipe' });
+			onChanged.resetHistory();
+
+			// An ambient `core.hooksPath` injected through `GIT_CONFIG_*` would otherwise bypass the repo's own hooks
+			const runOptions = { env: { GIT_CONFIG_COUNT: '0' } };
+			await assert.rejects(
+				r.provider.ops.commit(r.path, 'Refused', undefined, runOptions),
+				(ex: unknown) => ex instanceof CommitError,
+			);
+
+			assert.strictEqual(onChanged.callCount, 1);
+			assert.deepStrictEqual(onChanged.lastCall.args, [r.path, ['head', 'heads', 'index']]);
+		} finally {
+			r.cleanup();
 		}
 	});
 });

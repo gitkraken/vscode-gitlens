@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { join } from 'node:path';
-import { getChangesForCommand, leadingCommand } from '../commandClassifier.js';
+import { getChangesForCommand, leadingCommand, mayWriteTracking } from '../commandClassifier.js';
 
 suite('commandClassifier', () => {
 	suite('leadingCommand — readOnly', () => {
@@ -172,8 +172,37 @@ suite('commandClassifier', () => {
 
 		test("'branch -d x' changes only what every worktree sees", () => {
 			const result = getChangesForCommand(['branch', '-d', 'x']);
-			assert.deepStrictEqual(result?.changes, ['heads', 'remotes', 'tags']);
-			assert.deepStrictEqual(result?.sharedChanges, ['heads', 'remotes', 'tags']);
+			assert.deepStrictEqual(result?.changes, ['config', 'heads', 'remotes', 'tags']);
+			assert.deepStrictEqual(result?.sharedChanges, ['config', 'heads', 'remotes', 'tags']);
+		});
+
+		test("'branch' announces config only for a form that writes it", () => {
+			for (const args of [
+				['branch', '-m', 'a', 'b'],
+				['branch', '-C', 'a', 'b'],
+				['branch', '--delete', 'x'],
+				['branch', '-u', 'origin/x'],
+				['branch', '--set-upstream-to=origin/x'],
+				['branch', '--unset-upstream'],
+				['branch', '--track', 'x', 'origin/x'],
+				['branch', '--track=inherit', 'x', 'y'],
+				['branch', '--edit-description'],
+			]) {
+				assert.ok(getChangesForCommand(args)?.changes.includes('config'), `${args.join(' ')} writes config`);
+			}
+			for (const args of [
+				['branch', 'x'],
+				['branch', 'x', 'main'],
+				['branch', '-f', 'x', 'main'],
+				['branch', '--no-track', 'x', 'origin/x'],
+				['-c', 'k=v', 'branch', 'x'],
+			]) {
+				assert.deepStrictEqual(
+					getChangesForCommand(args)?.changes,
+					['heads', 'remotes', 'tags'],
+					args.join(' '),
+				);
+			}
 		});
 
 		test('HEAD-moving writes announce head, as their typed mutators do', () => {
@@ -219,6 +248,22 @@ suite('commandClassifier', () => {
 		test("'update-ref refs/stash' can announce stash", () => {
 			const result = getChangesForCommand(['update-ref', 'refs/stash', 'abc123']);
 			assert.ok(result?.changes.includes('stash'));
+		});
+	});
+
+	suite('mayWriteTracking', () => {
+		test('a remote-tracking start point may write tracking', () => {
+			assert.strictEqual(mayWriteTracking('origin/main', undefined), true);
+			assert.strictEqual(mayWriteTracking('refs/remotes/origin/main', false), true);
+		});
+
+		test('a local start point, HEAD, a sha or noTracking writes none', () => {
+			assert.strictEqual(mayWriteTracking(undefined, undefined), false);
+			assert.strictEqual(mayWriteTracking('main', undefined), false);
+			assert.strictEqual(mayWriteTracking('HEAD', undefined), false);
+			assert.strictEqual(mayWriteTracking('0123456789abcdef0123456789abcdef01234567', undefined), false);
+			assert.strictEqual(mayWriteTracking('refs/heads/feature/x', undefined), false);
+			assert.strictEqual(mayWriteTracking('origin/main', true), false);
 		});
 	});
 });

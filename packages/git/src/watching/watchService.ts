@@ -287,6 +287,17 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		};
 	}
 
+	/**
+	 * Core announced one of its own writes for `repoPath`; the session watching it fires the announcement in place of
+	 * the write's own `.git` events (see {@link RepositoryWatchSession.noteSelfWrite}). A path no session watches is
+	 * ignored.
+	 */
+	noteSelfWrite(repoPath: string, changes: readonly RepositoryChange[]): void {
+		if (this._disposed) return;
+
+		this.sessionMap.get(getRepositoryKey(repoPath))?.session.noteSelfWrite(changes);
+	}
+
 	/** Get an existing session by repo path */
 	getSession(repoPath: string): RepositoryWatchSession | undefined {
 		return this.sessionMap.get(getRepositoryKey(repoPath))?.session;
@@ -343,8 +354,17 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		const group = this.getOrCreateWatchGroup(commonGitDir);
 
 		const hooks: WatchGroupHooks = {
-			onRepoChanged: function (_repoPath: string, changes: RepositoryChange[], ref?: string): void {
-				session.pushRepoChanges(changes, ref);
+			onRepoChanged: function (
+				_repoPath: string,
+				changes: RepositoryChange[],
+				ref?: string,
+				overflow?: boolean,
+			): void {
+				if (overflow) {
+					session.pushUnfencedRepoChanges(changes);
+				} else {
+					session.pushRepoChanges(changes, ref);
+				}
 			},
 			onFetchHeadChanged: (repoPath: string): void => {
 				// Global first, so a host's cache drops its last-fetched time before any hook re-reads it
@@ -431,8 +451,9 @@ export class RepositoryWatchService implements UnifiedDisposable {
 			// Route the ignore-rule change through the repo channel as an `ignores` change (like `info/exclude`),
 			// so it reaches EVERY session subscriber — including a closed secondary worktree's `watch()` `repoSub`,
 			// which has no `onGitIgnoreChanged` hook and would otherwise keep a stale untracked-file list. Coalesces
-			// with any hook-fired `ignores` above, so open repos don't double.
-			session.pushRepoChanges(['ignores']);
+			// with any hook-fired `ignores` above, so open repos don't double. Unfenced: it comes from the working tree,
+			// which a self-write never holds back.
+			session.pushUnfencedRepoChanges(['ignores']);
 		};
 
 		const onEvent = (event: FileWatchEvent): void => {

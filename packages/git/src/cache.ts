@@ -616,7 +616,7 @@ export class Cache implements Disposable {
 
 	@debug({ onlyExit: true })
 	clearCaches(repoPath: string | undefined, ...types: CachedGitTypes[]): void {
-		this.clearCachesCore('share', repoPath, ...types);
+		this.clearCachesCore('share', repoPath, types);
 	}
 
 	/**
@@ -627,13 +627,15 @@ export class Cache implements Disposable {
 	 * letting an in-flight read complete and share its answer with new callers is fine.
 	 */
 	evictCaches(repoPath: string, ...types: CachedGitTypes[]): void {
-		this.clearCachesCore('evict', repoPath, ...types);
+		this.clearCachesCore('evict', repoPath, types);
 	}
 
+	/** `worktreeOnly` leaves the shared (commonPath-keyed) entries alone (see {@link applyRepositoryChanges}) */
 	private clearCachesCore(
 		inFlight: 'share' | 'evict',
 		repoPath: string | undefined,
-		...types: CachedGitTypes[]
+		types: readonly CachedGitTypes[],
+		worktreeOnly: boolean = false,
 	): void {
 		const keysToClear = new Set<keyof AllCaches>();
 
@@ -809,7 +811,9 @@ export class Cache implements Disposable {
 			if (repoPath == null) {
 				cache.clear();
 			} else if (sharedCacheKeys.has(key)) {
-				this.evictShared(key, repoPath, inFlight);
+				if (!worktreeOnly) {
+					this.evictShared(key, repoPath, inFlight);
+				}
 			} else {
 				cache.delete(repoPath);
 			}
@@ -1067,13 +1071,19 @@ export class Cache implements Disposable {
 	 * `'gkConfig'` change, returning the cache types it cleared. `inFlight` is as {@link clearCaches}
 	 * (`'share'`) vs {@link evictCaches} (`'evict'`). `'unknown'` and `'closed'` map to nothing here: the
 	 * watcher unregisters the path on them, and an announced write resets everything instead.
+	 *
+	 * `options.worktreeOnly` clears only `repoPath`'s own entries and status clock, leaving the shared
+	 * (commonPath-keyed) ones alone — for a sibling worktree once the change was applied to the worktree it ran in,
+	 * which already cleared them for every worktree of the repository.
 	 */
 	@debug({ onlyExit: true })
 	applyRepositoryChanges(
 		repoPath: string,
 		changes: Iterable<RepositoryChange>,
 		inFlight: 'share' | 'evict',
+		options?: { worktreeOnly?: boolean },
 	): CachedGitTypes[] {
+		const worktreeOnly = options?.worktreeOnly ?? false;
 		const changesSet = new Set(changes);
 
 		const hasAny = (...c: RepositoryChange[]) => c.some(ch => changesSet.has(ch));
@@ -1123,7 +1133,7 @@ export class Cache implements Disposable {
 			types.add('gitignore');
 		}
 
-		if (hasAny('gkConfig')) {
+		if (hasAny('gkConfig') && !worktreeOnly) {
 			// Handled separately (not folded into `types`/`clearCaches` below) — a gk write is usually a
 			// bookkeeping timestamp that can't affect `baseBranchName`/`branchOverviews`, so this reconciles
 			// down to only the keys that actually changed instead of coarsely clearing both on every write.
@@ -1156,7 +1166,7 @@ export class Cache implements Disposable {
 		}
 
 		if (types.size) {
-			this.clearCachesCore(inFlight, repoPath, ...types);
+			this.clearCachesCore(inFlight, repoPath, [...types], worktreeOnly);
 		}
 		return [...types];
 	}

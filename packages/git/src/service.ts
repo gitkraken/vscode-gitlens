@@ -45,6 +45,8 @@ export type ValidateRepoResult =
 interface RegisteredProvider {
 	provider: GitProvider;
 	canHandle: (repoPath: string) => boolean;
+	/** Forwards the provider's write announcements to {@link GitService.watchService}, when there is one */
+	announcements?: UnifiedDisposable;
 }
 
 interface MergeTargetsSource {
@@ -145,6 +147,9 @@ export class GitService implements UnifiedDisposable {
 		this._watchService?.dispose();
 
 		// Don't dispose providers since they're owned by the caller, but do clear the array to release references
+		for (const entry of this._providers) {
+			entry.announcements?.dispose();
+		}
 		this._providers.length = 0;
 
 		for (const source of this._mergeTargetsSources.values()) {
@@ -181,7 +186,15 @@ export class GitService implements UnifiedDisposable {
 	 * @returns A disposable that unregisters the provider.
 	 */
 	register(provider: GitProvider, canHandle: (repoPath: string) => boolean): UnifiedDisposable {
-		const entry: RegisteredProvider = { provider: provider, canHandle: canHandle };
+		const watchService = this._watchService;
+		const entry: RegisteredProvider = {
+			provider: provider,
+			canHandle: canHandle,
+			announcements:
+				watchService != null
+					? provider.onDidAnnounceChanges?.(e => watchService.noteSelfWrite(e.repoPath, e.changes))
+					: undefined,
+		};
 		this._providers.push(entry);
 		this._etag++;
 		this.addMergeTargetsSource(provider);
@@ -199,6 +212,7 @@ export class GitService implements UnifiedDisposable {
 			const idx = this._providers.indexOf(entry);
 			if (idx !== -1) {
 				this._providers.splice(idx, 1);
+				entry.announcements?.dispose();
 				this._etag++;
 				this.removeMergeTargetsSource(provider);
 				this._serviceCache.clear();

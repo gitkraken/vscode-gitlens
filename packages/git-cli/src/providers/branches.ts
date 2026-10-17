@@ -42,6 +42,7 @@ import { getSettledValue, mapBounded } from '@gitlens/utils/promise.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
+import { mayWriteTracking } from '../exec/commandClassifier.js';
 import type { GitResult } from '../exec/exec.types.js';
 import type { Git } from '../exec/git.js';
 import {
@@ -907,8 +908,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// nothing can establish — so the trade is that a branch reusing a name deleted outside GitLens
 			// inherits the orphaned section.
 			this.cache.deleteBaseBranchName(repoPath, name);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['heads']);
 		} catch (ex) {
 			throw getGitCommandError(
 				'branch',
@@ -924,6 +923,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						ex,
 					),
 			);
+		} finally {
+			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
+			this.context.hooks?.repository?.onChanged?.(
+				repoPath,
+				mayWriteTracking(ref, options?.noTracking) ? ['config', 'heads'] : ['heads'],
+			);
 		}
 	}
 
@@ -937,7 +942,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				await this.forgetDeletedBranch(repoPath, branch);
 			}
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['heads']);
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'heads']);
 		} catch (ex) {
 			// A multi-name delete partially succeeds: `git branch -d a bad c` removes `a` and `c`, refuses
 			// `bad`, and still exits non-zero — so the loop above never ran for the branches that did go.
@@ -950,7 +955,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// for a packed ref).
 			if (anyDeleted) {
 				this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-				this.context.hooks?.repository?.onChanged?.(repoPath, ['heads']);
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'heads']);
 			}
 
 			if (ex instanceof BranchError) {
@@ -1052,8 +1057,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const args = ['push', '-d', remote, ...branches];
 		try {
 			await this.git.run({ cwd: repoPath }, ...args);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['remotes']);
 		} catch (ex) {
 			if (ex instanceof BranchError) {
 				throw ex.update({
@@ -1079,6 +1082,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						ex,
 					),
 			);
+		} finally {
+			// A rejected push may have deleted some of its refs
+			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['remotes']);
 		}
 	}
 
@@ -2313,8 +2320,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// Old name's entry is now orphaned; the new name must not inherit a predecessor's base
 			this.cache.deleteBaseBranchName(repoPath, oldName);
 			this.cache.deleteBaseBranchName(repoPath, newName);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['heads']);
 		} catch (ex) {
 			throw getGitCommandError(
 				'branch',
@@ -2330,6 +2335,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						ex,
 					),
 			);
+		} finally {
+			// `git branch -m` can rename the ref and still fail on its config
+			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'heads']);
 		}
 	}
 
@@ -2339,8 +2348,6 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			upstream == null ? ['branch', '--unset-upstream', name] : ['branch', '--set-upstream-to', upstream, name];
 		try {
 			await this.git.run({ cwd: repoPath }, ...args);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['heads']);
 		} catch (ex) {
 			throw getGitCommandError(
 				'branch',
@@ -2356,6 +2363,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						ex,
 					),
 			);
+		} finally {
+			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'heads']);
 		}
 	}
 
