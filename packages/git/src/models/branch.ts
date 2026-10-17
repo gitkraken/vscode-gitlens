@@ -110,6 +110,7 @@ export class GitBranch implements GitBranchReference {
 		return this.metadata?.lastAccessedAt ? new Date(this.metadata.lastAccessedAt) : undefined;
 	}
 
+	/** When a checkout's working tree or index last changed while on this branch (`gk-last-modified`), not only commits */
 	@memoize()
 	get lastModifiedDate(): Date | undefined {
 		return this.metadata?.lastModifiedAt ? new Date(this.metadata.lastModifiedAt) : undefined;
