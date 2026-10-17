@@ -1810,24 +1810,33 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@debug({ exit: true })
-	async getAheadOfBase(repoPath: string, branch: string, cancellation?: AbortSignal): Promise<AheadOfBase> {
-		if (isDetachedHead(branch)) return { base: undefined, reason: 'none', dependsOn: [] };
+	async getAheadOfBase(
+		repoPath: string,
+		branch: string | undefined,
+		cancellation?: AbortSignal,
+	): Promise<AheadOfBase> {
+		// `undefined`, or a name that stands for a detached HEAD, has no branch to be recorded against or to be its own base
+		if (branch != null && isDetachedHead(branch)) {
+			branch = undefined;
+		}
 
-		const dependsOn = new Set<string>([`refs/heads/${branch}`]);
+		const dependsOn = new Set<string>(branch != null ? [`refs/heads/${branch}`] : []);
 
 		let target: { ref: string; forkPoint: string | undefined } | undefined;
 		let tier: AheadOfBaseTier = 'default';
-		for (const candidate of await this.getRecordedBaseCandidates(repoPath, branch)) {
-			target = await this.getNearestForkTarget(repoPath, branch, candidate.ref, dependsOn, cancellation);
-			if (target != null) {
-				tier = candidate.tier;
-				break;
+		if (branch != null) {
+			for (const candidate of await this.getRecordedBaseCandidates(repoPath, branch)) {
+				target = await this.getNearestForkTarget(repoPath, branch, candidate.ref, dependsOn, cancellation);
+				if (target != null) {
+					tier = candidate.tier;
+					break;
+				}
 			}
 		}
 
 		if (target == null) {
 			const defaultBranch = await this.getLocalDefaultBranchName(repoPath, dependsOn, cancellation);
-			if (defaultBranch === branch) {
+			if (branch != null && defaultBranch === branch) {
 				return this.measureAheadOfSelfUpstream(repoPath, branch, dependsOn, cancellation);
 			}
 
@@ -1856,7 +1865,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		// A base that is the branch itself, locally or as its copy on one of the repo's remotes, at HEAD's own commit has
 		// nothing to measure against: no base, not "0 ahead" (an up-to-date `main` targeting `origin/main`). At a different
 		// commit it stays the base, since the work ahead of it is work not yet pushed
-		if (await this.isSelfAtHead(repoPath, target.ref, branch, cancellation)) {
+		if (branch != null && (await this.isSelfAtHead(repoPath, target.ref, branch, cancellation))) {
 			return { base: undefined, reason: 'self', dependsOn: [...dependsOn] };
 		}
 
@@ -2327,7 +2336,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	 */
 	private async getNearestForkTarget(
 		repoPath: string,
-		branch: string,
+		branch: string | undefined,
 		candidate: string | undefined,
 		dependsOn: Set<string>,
 		cancellation: AbortSignal | undefined,

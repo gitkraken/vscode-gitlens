@@ -101,6 +101,8 @@ class FakeRepository {
 	/** Reads of the stored base values (kept out of {@link counts}: they're shared, cached gk config reads) */
 	baseKeyReads = 0;
 	readonly signals: (AbortSignal | undefined)[] = [];
+	/** The branch each base read was asked about, in order (`undefined` for a detached HEAD) */
+	readonly baseBranches: (string | undefined)[] = [];
 	/** Every read, in the order it started */
 	readonly order: (keyof ReadCounts)[] = [];
 	/** While set, every read waits for it before answering */
@@ -132,7 +134,8 @@ class FakeRepository {
 								: undefined,
 					};
 				},
-				getAheadOfBase: async (_branch: string, signal?: AbortSignal) => {
+				getAheadOfBase: async (branch: string | undefined, signal?: AbortSignal) => {
+					this.baseBranches.push(branch);
 					await this.enter('base', signal);
 					if (this.state.baseFail != null) throw this.state.baseFail;
 
@@ -374,10 +377,12 @@ describe('WorktreeSummaryService', () => {
 			});
 		});
 
-		it('reports no branch, base or upstream when detached', async () => {
+		it('reports no branch or upstream, and the base measured for a detached HEAD', async () => {
 			const h = createHarness();
 			h.repo.state.detached = true;
 			h.repo.state.upstream = undefined;
+			h.repo.state.base = { ref: 'main', ahead: 2, sha: 'ddd111', forkPoint: 'fff111', tier: 'default' };
+			h.repo.state.baseDependsOn = ['refs/heads/main'];
 			h.service.subscribe(repoPath);
 
 			const summary = await h.service.getSummary(repoPath);
@@ -386,10 +391,29 @@ describe('WorktreeSummaryService', () => {
 			assert.strictEqual(summary.detached, true);
 			assert.strictEqual(summary.sha, 'aaa111', "HEAD's commit is still reported when detached");
 			assert.strictEqual(summary.upstream, undefined);
-			assert.strictEqual(summary.base, undefined);
-			assert.deepStrictEqual(summary.baseDependsOn, []);
-			assert.strictEqual(h.repo.counts.base, 0, 'no base read for a detached HEAD');
+			assert.deepStrictEqual(summary.base, {
+				ref: 'main',
+				ahead: 2,
+				sha: 'ddd111',
+				forkPoint: 'fff111',
+				tier: 'default',
+			});
+			assert.deepStrictEqual(summary.baseDependsOn, ['refs/heads/main']);
+			assert.deepStrictEqual(h.repo.baseBranches, [undefined], 'the base is read once, with no branch name');
 			assert.strictEqual(h.repo.counts.remotes, 0, 'no remotes read without an upstream');
+		});
+
+		it('reads no base for an unborn HEAD with no name', async () => {
+			const h = createHarness();
+			h.repo.state.branch = undefined;
+			h.repo.state.sha = undefined;
+			h.repo.state.upstream = undefined;
+			h.service.subscribe(repoPath);
+
+			const summary = await h.service.getSummary(repoPath);
+
+			assert.strictEqual(summary.base, undefined);
+			assert.strictEqual(h.repo.counts.base, 0);
 		});
 
 		it('reports no HEAD commit before the first commit', async () => {
@@ -658,6 +682,81 @@ describe('WorktreeSummaryService', () => {
 				await readsAfter(h, () => h.watchService.noteSelfWrite(repoPath, ['index'])),
 				onlyDirty,
 			);
+		});
+
+		it('recomputes the base when switching between a branch and a detached HEAD', async () => {
+			const h = createHarness();
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			assert.deepStrictEqual(h.repo.baseBranches, ['main']);
+
+			h.repo.state.detached = true;
+			h.repo.state.upstream = undefined;
+			h.repo.state.base = { ref: 'main', ahead: 4, sha: 'ddd111', forkPoint: 'fff111', tier: 'default' };
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['head'], 'HEAD')), {
+				dirty: 1,
+				branch: 1,
+				base: 1,
+				remotes: 0,
+			});
+			assert.strictEqual(sub.current?.detached, true);
+			assert.strictEqual(sub.current?.base?.ahead, 4);
+			assert.deepStrictEqual(h.repo.baseBranches, ['main', undefined]);
+
+			h.repo.state.detached = false;
+			h.repo.state.base = {
+				ref: 'refs/heads/develop',
+				ahead: 3,
+				sha: 'ddd111',
+				forkPoint: 'fff111',
+				tier: 'user',
+			};
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['head'], 'HEAD')), {
+				dirty: 1,
+				branch: 1,
+				base: 1,
+				remotes: 0,
+			});
+			assert.strictEqual(sub.current?.branch, 'main');
+			assert.strictEqual(sub.current?.base?.tier, 'user');
+			assert.deepStrictEqual(h.repo.baseBranches, ['main', undefined, 'main']);
+		});
+
+		it('recomputes the base when HEAD moves, or a ref the base depends on moves, while detached', async () => {
+			const h = createHarness();
+			h.repo.state.detached = true;
+			h.repo.state.upstream = undefined;
+			h.repo.state.base = { ref: 'main', ahead: 1, sha: 'ddd111', forkPoint: 'fff111', tier: 'default' };
+			h.repo.state.baseDependsOn = ['refs/heads/main', 'refs/remotes/origin/HEAD'];
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.sha = 'bbb222';
+			h.repo.state.base = { ref: 'main', ahead: 2, sha: 'ddd111', forkPoint: 'fff111', tier: 'default' };
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['head'], 'HEAD')), {
+				dirty: 1,
+				branch: 1,
+				base: 1,
+				remotes: 0,
+			});
+			assert.strictEqual(sub.current?.base?.ahead, 2);
+
+			h.repo.state.base = { ref: 'main', ahead: 2, sha: 'eee222', forkPoint: 'fff111', tier: 'default' };
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/main')), onlyBase);
+			assert.strictEqual(sub.current?.base?.sha, 'eee222');
+			assert.deepStrictEqual(h.repo.baseBranches, [undefined, undefined, undefined]);
+		});
+
+		it('re-reads no stored base values for a detached HEAD, and the base only when it has none', async () => {
+			const h = createHarness();
+			h.repo.state.detached = true;
+			h.repo.state.upstream = undefined;
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			assert.strictEqual(h.repo.baseKeyReads, 0, 'a detached HEAD has no stored values to read');
+
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['gkConfig'])), none);
+			assert.strictEqual(h.repo.baseKeyReads, 0);
 		});
 
 		it('also reads base and dirty when a branch read finds a different branch', async () => {
