@@ -34,9 +34,17 @@ export type JiraIssuesDrain = {
 	issues: ProviderIssue[];
 	status: 'complete' | 'backstop' | 'incomplete';
 	metadata?: CollectionMetadata;
+	/** Served empty by `isEmptyFailure` before anything was read: the project is gone or no longer visible. */
+	missing?: true;
 };
 
-export type JiraUserScopedRead = { issues: ProviderIssue[]; truncated: boolean; metadata?: CollectionMetadata };
+export type JiraUserScopedRead = {
+	issues: ProviderIssue[];
+	truncated: boolean;
+	metadata?: CollectionMetadata;
+	/** Every relationship's drain was {@link JiraIssuesDrain.missing}. */
+	missing?: true;
+};
 
 export type JiraDrainOptions = {
 	maxPages: number;
@@ -46,7 +54,7 @@ export type JiraDrainOptions = {
 	providerName: string;
 	/**
 	 * A failure before anything was read that means "no issues here" rather than a failed read, e.g. a project this
-	 * connection can no longer see (#5907). Returning true serves the drain as complete and empty.
+	 * connection can no longer see (#5907). Returning true serves the drain as complete, empty and `missing`.
 	 */
 	isEmptyFailure?: (ex: unknown) => boolean;
 };
@@ -206,7 +214,7 @@ export async function drainJiraIssues(
 			// "nothing fetched": its failure is kept rather than lost to the throw or to an empty success.
 			const nothingRead = issues.length === 0 && pages.length === 0;
 			if (nothingRead) {
-				if (options.isEmptyFailure?.(ex)) return { issues: [], status: 'complete' };
+				if (options.isEmptyFailure?.(ex)) return { issues: [], status: 'complete', missing: true };
 
 				throw ex;
 			}
@@ -346,7 +354,8 @@ export async function readUserScopedJiraIssues(
 		}
 		issues.push(...outcome.value.issues);
 	}
-	return { issues: issues, truncated: truncated, metadata: metadata };
+	const missing = settled.every(outcome => outcome.status === 'fulfilled' && outcome.value.missing === true);
+	return { issues: issues, truncated: truncated, metadata: metadata, missing: missing || undefined };
 }
 
 /**

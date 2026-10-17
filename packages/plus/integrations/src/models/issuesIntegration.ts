@@ -297,16 +297,16 @@ export abstract class IssuesIntegration<
 
 	/**
 	 * Metadata-aware provider project discovery. The default wraps the array-returning
-	 * {@link getProviderProjectsForResources} in `{ values }` with no metadata, so providers without a
-	 * fan-out completeness signal (Linear, Trello) need no change; Jira overrides it to preserve the SDK's
-	 * per-resource completeness/failures.
+	 * {@link getProviderProjectsForResources} in `{ values }`, so providers without a fan-out completeness signal
+	 * (Jira Data Center, Trello) need no change; a read that returned no data is `unknown`, not an empty project list.
+	 * Jira Cloud and Linear override it to preserve their completeness/failures.
 	 */
 	protected async getProviderProjectsForResourcesWithMetadata(
 		session: ProviderAuthenticationSession,
 		resources: T[],
 	): Promise<ProviderApiCollectionResult<T>> {
 		const projects = await this.getProviderProjectsForResources(session, resources);
-		return { values: projects ?? [] };
+		return projects != null ? { values: projects } : { values: [], metadata: { completeness: 'unknown' } };
 	}
 
 	protected abstract getProviderProjectsForResources(

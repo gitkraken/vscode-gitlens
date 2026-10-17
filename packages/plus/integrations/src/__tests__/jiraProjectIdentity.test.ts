@@ -30,6 +30,7 @@ function trackerContext(providerId: IntegrationIds, resources: ResourceDescripto
 		id: providerId,
 		type: 'issues',
 		getCurrentAccount: () => Promise.resolve(undefined),
+		invalidateDiscoveryCaches: () => {},
 		getResourcesForUserResult: () => Promise.resolve({ value: resources }),
 		getProjectsForResourcesWithMetadataResult: (scoped: ResourceDescriptor[]) =>
 			Promise.resolve({ value: { values: projects.filter(p => scoped.some(r => r.key === p.resourceId)) } }),
@@ -46,7 +47,29 @@ function trackerContext(providerId: IntegrationIds, resources: ResourceDescripto
 		domainForRead: () => undefined,
 		forceRefreshIfRequested: () => Promise.resolve(),
 	} as unknown as ProviderReadContext;
-	return { ctx: ctx, reads: reads };
+	return { ctx: ctx, reads: reads, integration: integration as Record<string, unknown> };
+}
+
+/** The one warning a selection that a complete discovery no longer contains reports, on an empty, unfailed page. */
+function assertSelectorMiss(
+	page: Awaited<ReturnType<typeof listIssueTrackerIssuesPage>>,
+	selector: { kind: 'org' | 'project'; value: string },
+): void {
+	assert.deepEqual(page.items, []);
+	assert.equal(page.fetchFailed, undefined);
+	assert.equal(page.hasMore, false);
+	assert.equal(page.cursor, undefined);
+	assert.deepEqual(
+		page.warnings.map(w => ({ kind: w.kind, isAuth: w.isAuth, selector: w.selector, scope: w.scope })),
+		[{ kind: 'not-found', isAuth: false, selector: selector, scope: undefined }],
+	);
+}
+
+function assertNoSelectorMiss(page: Awaited<ReturnType<typeof listIssueTrackerIssuesPage>>): void {
+	assert.equal(
+		page.warnings.some(w => w.selector != null || w.kind === 'not-found'),
+		false,
+	);
 }
 
 function jiraSession(): ProviderAuthenticationSession {
@@ -203,7 +226,7 @@ suite('Jira project identity', () => {
 					project: 'OPS',
 					includeAllAssignees: true,
 				});
-				assert.deepEqual(byLabel.items, []);
+				assertSelectorMiss(byLabel, { kind: 'org', value: 'Production' });
 			});
 
 			test('a removed project or site selects nothing rather than one that carries its key as a name or id', async () => {
@@ -220,14 +243,238 @@ suite('Jira project identity', () => {
 				// OPS is gone; OTHER is still named "OPS" and THIRD still has the id "OPS".
 				currentProjects.shift();
 				const missingProject = await listIssueTrackerIssuesPage(ctx, selection);
-				assert.deepEqual(missingProject.items, []);
+				assertSelectorMiss(missingProject, { kind: 'project', value: 'OPS' });
+				assert.match(missingProject.warnings[0].message, /'OPS' in 'site-a'/);
 
 				// site-a is gone; site-b is still named "site-a".
 				currentSites.shift();
 				const missingSite = await listIssueTrackerIssuesPage(ctx, selection);
-				assert.deepEqual(missingSite.items, []);
+				assertSelectorMiss(missingSite, { kind: 'org', value: 'site-a' });
 
 				assert.deepEqual(reads, [], 'no project is read for a selection that matches nothing');
+			});
+
+			test('a removed project selected without a site misses the project', async () => {
+				const { ctx } = trackerContext(providerId, sites(), projects());
+
+				const page = await listIssueTrackerIssuesPage(ctx, {
+					providerId: providerId,
+					project: 'GONE',
+					includeAllAssignees: true,
+				});
+				assertSelectorMiss(page, { kind: 'project', value: 'GONE' });
+				assert.doesNotMatch(page.warnings[0].message, / in '/);
+			});
+
+			test('a selected site with no projects left misses the project', async () => {
+				const { ctx } = trackerContext(providerId, sites(), []);
+
+				const page = await listIssueTrackerIssuesPage(ctx, {
+					providerId: providerId,
+					org: 'site-a',
+					project: 'OPS',
+					includeAllAssignees: true,
+				});
+				assertSelectorMiss(page, { kind: 'project', value: 'OPS' });
+			});
+
+			test('an account with no sites left misses the site', async () => {
+				const { ctx } = trackerContext(providerId, [], projects());
+
+				const page = await listIssueTrackerIssuesPage(ctx, {
+					providerId: providerId,
+					org: 'site-a',
+					project: 'OPS',
+					includeAllAssignees: true,
+				});
+				assertSelectorMiss(page, { kind: 'org', value: 'site-a' });
+			});
+
+			test('an account with no sites left misses a project selected without a site', async () => {
+				const { ctx, reads } = trackerContext(providerId, [], projects());
+
+				const page = await listIssueTrackerIssuesPage(ctx, {
+					providerId: providerId,
+					project: 'OPS',
+					includeAllAssignees: true,
+				});
+				assertSelectorMiss(page, { kind: 'project', value: 'OPS' });
+				assert.deepEqual(reads, []);
+			});
+
+			test('an incomplete project discovery reports its failure, not a missing project', async () => {
+				const { ctx, integration } = trackerContext(providerId, sites(), projects());
+				integration.getProjectsForResourcesWithMetadataResult = () =>
+					Promise.resolve({
+						value: {
+							values: [],
+							metadata: {
+								completeness: 'partial',
+								failures: [{ kind: 'authentication', scope: { resourceId: 'site-a' } }],
+							},
+						},
+					});
+
+				const page = await listIssueTrackerIssuesPage(ctx, {
+					providerId: providerId,
+					org: 'site-a',
+					project: 'OPS',
+					includeAllAssignees: true,
+				});
+				assert.deepEqual(page.items, []);
+				assert.equal(page.fetchFailed, true);
+				assert.ok(
+					page.warnings.some(w => w.kind === 'auth' && w.scope?.resourceId === 'site-a'),
+					'the failure is reported',
+				);
+				assertNoSelectorMiss(page);
+			});
+
+			test('a project discovery that answered with an error reports it, not a missing project', async () => {
+				const { ctx, integration } = trackerContext(providerId, sites(), projects());
+				integration.getProjectsForResourcesWithMetadataResult = () =>
+					Promise.resolve({ value: { values: projects() }, error: new Error('some projects unavailable') });
+
+				const page = await listIssueTrackerIssuesPage(ctx, {
+					providerId: providerId,
+					org: 'site-a',
+					project: 'GONE',
+					includeAllAssignees: true,
+				});
+				assert.deepEqual(page.items, []);
+				assert.ok(page.warnings.some(w => w.message.includes('some projects unavailable')));
+				assertNoSelectorMiss(page);
+			});
+
+			test('a truncated project discovery reports the truncation, not a missing project', async () => {
+				const { ctx, integration } = trackerContext(providerId, sites(), projects());
+				integration.getProjectsForResourcesWithMetadataResult = () =>
+					Promise.resolve({ value: { values: projects(), metadata: { completeness: 'unknown' } } });
+
+				const page = await listIssueTrackerIssuesPage(ctx, {
+					providerId: providerId,
+					org: 'site-a',
+					project: 'GONE',
+					includeAllAssignees: true,
+				});
+				assert.deepEqual(page.items, []);
+				assert.equal(page.page.truncated, true);
+				assertNoSelectorMiss(page);
+			});
+
+			test('a site discovery that answered with an error reports it, not a missing site', async () => {
+				const { ctx, integration } = trackerContext(providerId, sites(), projects());
+				integration.getResourcesForUserResult = () =>
+					Promise.resolve({ value: sites(), error: new Error('some sites unavailable') });
+
+				const page = await listIssueTrackerIssuesPage(ctx, {
+					providerId: providerId,
+					org: 'site-gone',
+					project: 'OPS',
+					includeAllAssignees: true,
+				});
+				assert.deepEqual(page.items, []);
+				assert.ok(page.warnings.some(w => w.message.includes('some sites unavailable')));
+				assertNoSelectorMiss(page);
+			});
+
+			test('a site discovery that answered with an error reports it, not a missing project', async () => {
+				const { ctx, integration } = trackerContext(providerId, sites(), projects());
+				integration.getResourcesForUserResult = () =>
+					Promise.resolve({ value: sites(), error: new Error('some sites unavailable') });
+
+				const page = await listIssueTrackerIssuesPage(ctx, {
+					providerId: providerId,
+					org: 'site-a',
+					project: 'GONE',
+					includeAllAssignees: true,
+				});
+				assert.deepEqual(page.items, []);
+				assert.ok(page.warnings.some(w => w.message.includes('some sites unavailable')));
+				assertNoSelectorMiss(page);
+			});
+
+			test('a failed site discovery reports its failure, not a missing site', async () => {
+				const { ctx, integration } = trackerContext(providerId, sites(), projects());
+				integration.getResourcesForUserResult = () =>
+					Promise.resolve({ error: new Error('discovery unavailable') });
+
+				const page = await listIssueTrackerIssuesPage(ctx, {
+					providerId: providerId,
+					org: 'site-a',
+					project: 'OPS',
+					includeAllAssignees: true,
+				});
+				assert.deepEqual(page.items, []);
+				assert.equal(page.fetchFailed, true);
+				assert.ok(page.warnings.some(w => w.message.includes('discovery unavailable')));
+				assertNoSelectorMiss(page);
+			});
+
+			/** Answers each project read, serving the `missing` ones empty as the provider serves a refused project. */
+			function refusingReads(integration: Record<string, unknown>, missing: string[]): void {
+				integration.getIssuesForProjectsWithTruncationResult = (requests: { project: Project }[]) =>
+					Promise.resolve(
+						requests.map(({ project }) => {
+							const id = `${project.resourceId}:${project.key}`;
+							return missing.includes(id)
+								? { value: { values: [], truncated: false, missing: true } }
+								: { value: { values: [{ id: id }], truncated: false } };
+						}),
+					);
+			}
+
+			test('a listed project the tracker refuses as missing misses the project', async () => {
+				const { ctx, integration } = trackerContext(providerId, sites(), projects());
+				refusingReads(integration, ['site-a:OPS']);
+
+				const page = await listIssueTrackerIssuesPage(ctx, {
+					providerId: providerId,
+					org: 'site-a',
+					project: 'OPS',
+					includeAllAssignees: true,
+				});
+				assertSelectorMiss(page, { kind: 'project', value: 'OPS' });
+				assert.match(page.warnings[0].message, /'OPS' in 'site-a'/);
+			});
+
+			test('a selection still matching a project the tracker reads is not a missing project', async () => {
+				const { ctx, integration } = trackerContext(providerId, sites(), projects());
+				refusingReads(integration, ['site-a:OPS']);
+
+				const page = await listIssueTrackerIssuesPage(ctx, {
+					providerId: providerId,
+					project: 'OPS',
+					includeAllAssignees: true,
+				});
+				assert.deepEqual(
+					page.items.map(issue => issue.id),
+					['site-b:OPS'],
+				);
+				assert.equal(page.fetchFailed, undefined);
+				assertNoSelectorMiss(page);
+			});
+
+			test('a refused project under a truncated discovery is not a missing project', async () => {
+				const { ctx, integration } = trackerContext(providerId, sites(), projects());
+				integration.getProjectsForResourcesWithMetadataResult = (scoped: ResourceDescriptor[]) =>
+					Promise.resolve({
+						value: {
+							values: projects().filter(p => scoped.some(r => r.key === p.resourceId)),
+							metadata: { completeness: 'unknown' },
+						},
+					});
+				refusingReads(integration, ['site-a:OPS']);
+
+				const page = await listIssueTrackerIssuesPage(ctx, {
+					providerId: providerId,
+					org: 'site-a',
+					project: 'OPS',
+					includeAllAssignees: true,
+				});
+				assert.deepEqual(page.items, []);
+				assert.equal(page.page.truncated, true);
+				assertNoSelectorMiss(page);
 			});
 		});
 	}
@@ -254,5 +501,13 @@ suite('Jira project identity', () => {
 			page.items.map(issue => issue.id),
 			['workspace-id:ENG'],
 		);
+
+		const missing = await listIssueTrackerIssuesPage(ctx, {
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			org: 'Workspace',
+			project: 'Design',
+			includeAllAssignees: true,
+		});
+		assertSelectorMiss(missing, { kind: 'project', value: 'Design' });
 	});
 });

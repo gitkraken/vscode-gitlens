@@ -5,9 +5,11 @@ import {
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
+import type { ResponseHeaders } from '../errors.js';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
+	getResponseHeader,
 	isRateLimitResponse,
 	RequestClientError,
 	RequestNotFoundError,
@@ -169,17 +171,36 @@ const jiraMissingProjectMessage = /^The value '.*' does not exist for the field 
  * `throwProviderError` wraps it in, whose `original` keeps the response.
  */
 export function isJiraMissingProjectError(ex: unknown): boolean {
+	return getJiraMissingProjectResponse(ex) != null;
+}
+
+/**
+ * {@link isJiraMissingProjectError} for Jira Data Center, which serves a credential it rejects as the anonymous user:
+ * the search then names a project the anonymous user cannot see and is refused with the very same `400`, measured
+ * against Jira Data Center 10.7.3 with a revoked token. Only the user it names in `X-AUSERNAME` tells the two apart,
+ * so a refusal that names no user, or `anonymous`, is a failure rather than a project that is gone.
+ */
+export function isJiraServerMissingProjectError(ex: unknown): boolean {
+	const user = getResponseHeader(getJiraMissingProjectResponse(ex)?.headers, 'x-ausername');
+	return typeof user === 'string' && user !== '' && user !== 'anonymous';
+}
+
+function getJiraMissingProjectResponse(ex: unknown): { headers?: ResponseHeaders } | undefined {
 	for (const candidate of [ex, (ex as { original?: unknown } | undefined)?.original]) {
-		const response = (candidate as { response?: { status?: unknown; body?: unknown } } | undefined)?.response;
+		const response = (
+			candidate as { response?: { status?: unknown; body?: unknown; headers?: ResponseHeaders } } | undefined
+		)?.response;
 		if (response?.status !== 400) continue;
 
 		const messages = (response.body as { errorMessages?: unknown } | null | undefined)?.errorMessages;
 		if (!Array.isArray(messages) || messages.length === 0) continue;
 
-		return messages.every(m => typeof m === 'string' && jiraMissingProjectMessage.test(m.trim()));
+		return messages.every(m => typeof m === 'string' && jiraMissingProjectMessage.test(m.trim()))
+			? response
+			: undefined;
 	}
 
-	return false;
+	return undefined;
 }
 
 export function throwProviderError(tokenWithInfo: TokenWithInfo, error: unknown): never {

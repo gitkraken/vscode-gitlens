@@ -277,7 +277,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		session: ProviderAuthenticationSession,
 		_resources: ResourceDescriptor[],
 	): Promise<ProviderApiCollectionResult<ResourceDescriptor>> {
-		return (await this.getTeamsWithMetadata(session)) ?? { values: [] };
+		return (await this.getTeamsWithMetadata(session)) ?? { values: [], metadata: { completeness: 'unknown' } };
 	}
 
 	override invalidateDiscoveryCaches(): void {

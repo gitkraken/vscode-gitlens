@@ -417,7 +417,9 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			);
 			const values = toUniqueJiraIssueShapes(read.issues, this);
 			const drain = { values: values, metadata: read.metadata, scope: drainOptions.failureScope };
-			return read.truncated ? { ...drain, truncated: true, recovery: 'none' } : { ...drain, truncated: false };
+			return read.truncated
+				? { ...drain, truncated: true, recovery: 'none' }
+				: { ...drain, truncated: false, missing: read.missing };
 		}
 
 		const unscoped = await drainJiraIssues(fetchPage, {}, drainOptions);
@@ -427,7 +429,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		const drain = { values: values, metadata: unscoped.metadata, scope: drainOptions.failureScope };
 		return unscoped.status !== 'complete'
 			? { ...drain, truncated: true, recovery: unscoped.status === 'backstop' ? 'narrow-scope' : 'none' }
-			: { ...drain, truncated: false };
+			: { ...drain, truncated: false, missing: unscoped.missing };
 	}
 
 	/**
