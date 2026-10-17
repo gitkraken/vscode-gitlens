@@ -6,8 +6,21 @@ import { fileUri } from '@gitlens/utils/uri.js';
 import { Cache } from '../../cache.js';
 import type { GitDir } from '../../models/repository.js';
 import { allWatchedRepositoryChanges } from '../classifyChange.js';
-import type { FileWatcher, FileWatcherOptions, FileWatchEvent, FileWatchingProvider } from '../provider.js';
-import { dotGitGlobCombined, dotGitGlobCommon, dotGitGlobRoot, gitDirExcludes } from '../watcherPatterns.js';
+import { GitDirPoller } from '../gitDirPoller.js';
+import type {
+	FileWatcher,
+	FileWatcherOptions,
+	FileWatcherReliability,
+	FileWatchEvent,
+	FileWatchingProvider,
+} from '../provider.js';
+import {
+	dotGitGlobCombined,
+	dotGitGlobCommon,
+	dotGitGlobRoot,
+	gitDirCommonProbes,
+	gitDirExcludes,
+} from '../watcherPatterns.js';
 import type { WatchGroupHooks } from '../watchGroup.js';
 import { WatchGroup } from '../watchGroup.js';
 
@@ -16,10 +29,16 @@ interface MockWatcher extends FileWatcher {
 	readonly pattern: string;
 	readonly options: FileWatcherOptions | undefined;
 	fire(event: FileWatchEvent): void;
+	/** Reports a reliability the way a provider would, after `createWatcher` returned */
+	report(state: FileWatcherReliability): void;
 	disposed: boolean;
 }
 
-function createMockFactory(): { factory: FileWatchingProvider; watchers: MockWatcher[] } {
+/** `initialReliability` is reported synchronously inside `createWatcher`, for the watchers it returns one for */
+function createMockFactory(initialReliability?: (basePath: string) => FileWatcherReliability | undefined): {
+	factory: FileWatchingProvider;
+	watchers: MockWatcher[];
+} {
 	const watchers: MockWatcher[] = [];
 	const factory: FileWatchingProvider = {
 		createWatcher: function (
@@ -39,10 +58,17 @@ function createMockFactory(): { factory: FileWatchingProvider; watchers: MockWat
 					fire: function (event: FileWatchEvent): void {
 						onEvent(event);
 					},
+					report: function (state: FileWatcherReliability): void {
+						options?.onDidChangeReliability?.(state);
+					},
 				},
 				() => (w.disposed = true),
 			);
 			watchers.push(w);
+			const initial = initialReliability?.(w.basePath);
+			if (initial != null) {
+				options?.onDidChangeReliability?.(initial);
+			}
 			return w;
 		},
 	};
@@ -916,6 +942,485 @@ describe('WatchGroup', () => {
 
 			assert.strictEqual(group.sessions.size, 0);
 			assert.strictEqual(watchers.length, 0);
+		});
+	});
+
+	describe('polling', () => {
+		/** Files keyed by POSIX path; `touch` moves one's mtime */
+		function createFs(paths: readonly string[]): {
+			stat: (path: string) => Promise<{ mtime: number; size: number } | undefined>;
+			touch: (path: string) => void;
+			reads: Set<string>;
+			/** How many times each path was statted */
+			stats: Map<string, number>;
+		} {
+			const files = new Map<string, { mtime: number; size: number }>(paths.map(p => [p, { mtime: 1, size: 1 }]));
+			const reads = new Set<string>();
+			const stats = new Map<string, number>();
+			return {
+				reads: reads,
+				stats: stats,
+				stat: function (path: string): Promise<{ mtime: number; size: number } | undefined> {
+					const p = normalizePath(path);
+					reads.add(p);
+					stats.set(p, (stats.get(p) ?? 0) + 1);
+					return Promise.resolve(files.get(p));
+				},
+				touch: function (path: string): void {
+					const file = files.get(path);
+					files.set(path, { mtime: (file?.mtime ?? 0) + 1, size: file?.size ?? 1 });
+				},
+			};
+		}
+
+		/** Hooks that log what reached them, in order */
+		function recordingHooks(log: string[], refs: readonly string[] = []): WatchGroupHooks {
+			return {
+				onRepoChanged: (repoPath, changes, ref, overflow) =>
+					log.push(`${repoPath} ${changes.join(',')} ${ref ?? '-'}${overflow ? ' overflow' : ''}`),
+				onFetchHeadChanged: repoPath => log.push(`${repoPath} fetch`),
+				onIgnoresChanged: repoPath => log.push(`${repoPath} ignores`),
+				getProbeRefs: () => refs,
+				onUnwatchableChanged: repoPath => log.push(`${repoPath} mode`),
+			};
+		}
+
+		const repoFiles = [
+			'HEAD',
+			'index',
+			'ORIG_HEAD',
+			'MERGE_HEAD',
+			'CHERRY_PICK_HEAD',
+			'REVERT_HEAD',
+			'REBASE_HEAD',
+			'rebase-merge',
+			'rebase-apply',
+			'sequencer',
+			'logs/HEAD',
+			'packed-refs',
+			'config',
+			'gk/config',
+			'info/exclude',
+			'refs/heads',
+			'refs/heads/main',
+			'refs/heads/feature',
+			'refs/heads/feature/x',
+			'refs/remotes/origin',
+			'refs/remotes/origin/main',
+			'refs/tags',
+			'refs/stash',
+			'worktrees',
+			'shallow',
+			'FETCH_HEAD',
+		];
+		const repoRefs = ['refs/heads/main', 'refs/heads/feature/x', 'refs/remotes/origin/main', 'HEAD'];
+
+		function createPolledStandardRepo(initial: FileWatcherReliability | undefined): {
+			group: WatchGroup;
+			watchers: MockWatcher[];
+			poller: GitDirPoller;
+			fs: ReturnType<typeof createFs>;
+			log: string[];
+		} {
+			const fs = createFs(repoFiles.map(f => `/repo/.git/${f}`));
+			const poller = new GitDirPoller({
+				stat: fs.stat,
+				intervalMs: 0,
+				activeCheckMs: 60_000,
+				isActive: () => true,
+			});
+			const { factory, watchers } = createMockFactory(() => initial);
+			const group = new WatchGroup('/repo/.git', factory, poller);
+			const log: string[] = [];
+			group.addSession('/repo', standardGitDir('/repo/.git'), recordingHooks(log, repoRefs));
+			return { group: group, watchers: watchers, poller: poller, fs: fs, log: log };
+		}
+
+		it('asks no watcher about its reliability without a poller', () => {
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory);
+			group.addSession('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'), makeCallbacks());
+
+			assert.strictEqual(watchers.length, 2);
+			for (const w of watchers) {
+				assert.deepStrictEqual(w.options, { excludes: gitDirExcludes });
+			}
+			group.dispose();
+		});
+
+		it('asks every .git watcher about its reliability with a poller', () => {
+			const poller = new GitDirPoller({ stat: () => Promise.resolve(undefined), isActive: () => true });
+			const { factory, watchers } = createMockFactory();
+			const group = new WatchGroup('/repo/.git', factory, poller);
+			group.addSession('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'), makeCallbacks());
+
+			assert.strictEqual(watchers.length, 2);
+			for (const w of watchers) {
+				assert.deepStrictEqual(w.options?.excludes, gitDirExcludes);
+				assert.strictEqual(typeof w.options?.onDidChangeReliability, 'function');
+			}
+			group.dispose();
+			poller.dispose();
+		});
+
+		for (const file of repoFiles.filter(f => f !== 'logs/HEAD' && f !== 'FETCH_HEAD')) {
+			it(`interprets a polled ${file} exactly as the watcher's event for it`, async () => {
+				const { factory, watchers } = createMockFactory();
+				const nativeGroup = new WatchGroup('/repo/.git', factory);
+				const nativeLog: string[] = [];
+				nativeGroup.addSession('/repo', standardGitDir('/repo/.git'), recordingHooks(nativeLog));
+				watchers[0].fire({ path: `/repo/.git/${file}`, reason: 'change' });
+				nativeGroup.dispose();
+
+				const { group, poller, fs, log } = createPolledStandardRepo('unwatchable');
+				await poller.tick();
+				log.length = 0;
+				fs.touch(`/repo/.git/${file}`);
+				await poller.tick();
+
+				assert.ok(nativeLog.length > 0, `the watcher reports ${file}`);
+				assert.deepStrictEqual(log, nativeLog);
+				group.dispose();
+				poller.dispose();
+			});
+		}
+
+		it('reports a moved logs/HEAD as HEAD, naming it', async () => {
+			const { group, poller, fs, log } = createPolledStandardRepo('unwatchable');
+			await poller.tick();
+			log.length = 0;
+
+			fs.touch('/repo/.git/logs/HEAD');
+			await poller.tick();
+
+			assert.deepStrictEqual(log, ['/repo head,heads HEAD']);
+			group.dispose();
+			poller.dispose();
+		});
+
+		it('reports a moved FETCH_HEAD to the fetch hook and as a remotes change', async () => {
+			const { group, poller, fs, log } = createPolledStandardRepo('unwatchable');
+			await poller.tick();
+			log.length = 0;
+
+			fs.touch('/repo/.git/FETCH_HEAD');
+			await poller.tick();
+
+			assert.deepStrictEqual(log, ['/repo fetch', '/repo remotes refs/remotes']);
+			group.dispose();
+			poller.dispose();
+		});
+
+		it("stats the session's refs and the directories between them and their namespace", async () => {
+			const { group, poller, fs } = createPolledStandardRepo('unwatchable');
+			await poller.tick();
+
+			for (const path of [
+				'/repo/.git/refs/heads/main',
+				'/repo/.git/refs/heads/feature/x',
+				'/repo/.git/refs/heads/feature',
+				'/repo/.git/refs/remotes/origin/main',
+				'/repo/.git/refs/remotes/origin',
+			]) {
+				assert.ok(fs.reads.has(path), path);
+			}
+			assert.ok(!fs.reads.has('/repo/.git/refs/remotes'), 'FETCH_HEAD stands for refs/remotes');
+			group.dispose();
+			poller.dispose();
+		});
+
+		it('polls a watcher that is unwatchable from the start without a rescan', async () => {
+			const { group, poller, log } = createPolledStandardRepo('unwatchable');
+
+			assert.deepStrictEqual(log, ['/repo mode']);
+			assert.strictEqual(poller.size, 1);
+			assert.ok(group.isUnwatchable('/repo'));
+
+			await poller.tick();
+			assert.deepStrictEqual(log, ['/repo mode'], 'the first poll only records');
+			group.dispose();
+			poller.dispose();
+		});
+
+		it('rescans when the watch goes down and when it comes back, polling only meanwhile', () => {
+			const { group, watchers, poller, log } = createPolledStandardRepo(undefined);
+			assert.strictEqual(poller.size, 0);
+			assert.ok(!group.isUnwatchable('/repo'));
+
+			const overflow = `/repo ${allWatchedRepositoryChanges.join(',')} - overflow`;
+			watchers[0].report('unwatchable');
+			assert.deepStrictEqual(log, [overflow, '/repo fetch', '/repo ignores', '/repo mode']);
+			assert.strictEqual(poller.size, 1);
+			assert.ok(group.isUnwatchable('/repo'));
+
+			log.length = 0;
+			watchers[0].report('reliable');
+			assert.deepStrictEqual(log, [overflow, '/repo fetch', '/repo ignores', '/repo mode']);
+			assert.strictEqual(poller.size, 0);
+			assert.ok(!group.isUnwatchable('/repo'));
+			group.dispose();
+			poller.dispose();
+		});
+
+		it('polls beside an unreliable watcher, without reporting again what the watcher reported', async () => {
+			const { group, watchers, poller, fs, log } = createPolledStandardRepo('unreliable');
+			assert.deepStrictEqual(log, []);
+			assert.strictEqual(poller.size, 1);
+			assert.ok(!group.isUnwatchable('/repo'));
+
+			await poller.tick();
+			fs.touch('/repo/.git/HEAD');
+			fs.touch('/repo/.git/index');
+			watchers[0].fire({ path: '/repo/.git/HEAD', reason: 'change' });
+			await poller.tick();
+
+			assert.deepStrictEqual(log, ['/repo head,heads HEAD', '/repo index -']);
+			group.dispose();
+			poller.dispose();
+		});
+
+		it('ignores a report from a removed session, and stops polling it', () => {
+			const { group, watchers, poller, log } = createPolledStandardRepo('unwatchable');
+			log.length = 0;
+
+			group.removeSession('/repo');
+			assert.strictEqual(poller.size, 0);
+
+			watchers[0].report('reliable');
+			assert.deepStrictEqual(log, []);
+			group.dispose();
+			poller.dispose();
+		});
+
+		describe('linked worktrees', () => {
+			function createPolledLinkedRepo(): {
+				group: WatchGroup;
+				watchers: MockWatcher[];
+				poller: GitDirPoller;
+				fs: ReturnType<typeof createFs>;
+				log: string[];
+			} {
+				const fs = createFs([
+					...repoFiles.map(f => `/repo/.git/${f}`),
+					'/repo/.git/refs/heads/a',
+					'/repo/.git/refs/heads/b',
+					'/repo/.git/worktrees/A/HEAD',
+					'/repo/.git/worktrees/B/HEAD',
+				]);
+				const poller = new GitDirPoller({
+					stat: fs.stat,
+					intervalMs: 0,
+					activeCheckMs: 60_000,
+					isActive: () => true,
+				});
+				const { factory, watchers } = createMockFactory(() => 'unwatchable');
+				const group = new WatchGroup('/repo/.git', factory, poller);
+				const log: string[] = [];
+				group.addSession(
+					'/worktrees/A',
+					worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'),
+					recordingHooks(log, ['refs/heads/a']),
+				);
+				group.addSession(
+					'/worktrees/B',
+					worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'),
+					recordingHooks(log, ['refs/heads/b']),
+				);
+				return { group: group, watchers: watchers, poller: poller, fs: fs, log: log };
+			}
+
+			it('polls the common files once for every linked session, with all of their refs', async () => {
+				const { group, poller, fs, log } = createPolledLinkedRepo();
+				// Each root, and the common dir
+				assert.strictEqual(poller.size, 3);
+				assert.ok(group.isUnwatchable('/worktrees/A'));
+
+				await poller.tick();
+				assert.ok(fs.reads.has('/repo/.git/refs/heads/a'));
+				assert.ok(fs.reads.has('/repo/.git/refs/heads/b'));
+
+				log.length = 0;
+				fs.touch('/repo/.git/refs/heads/b');
+				await poller.tick();
+
+				assert.deepStrictEqual(log, ['/worktrees/A heads refs/heads/b', '/worktrees/B heads refs/heads/b']);
+				group.dispose();
+				poller.dispose();
+			});
+
+			it("delivers a worktree's own polled HEAD to it alone", async () => {
+				const { group, poller, fs, log } = createPolledLinkedRepo();
+				await poller.tick();
+				log.length = 0;
+
+				fs.touch('/repo/.git/worktrees/A/HEAD');
+				await poller.tick();
+
+				assert.deepStrictEqual(log, ['/worktrees/A head,heads HEAD']);
+				group.dispose();
+				poller.dispose();
+			});
+
+			it('rescans every linked session when the common watch comes back', () => {
+				const { group, watchers, poller, log } = createPolledLinkedRepo();
+				const common = watchers.find(w => w.pattern === dotGitGlobCommon);
+				assert.ok(common);
+				log.length = 0;
+
+				common.report('reliable');
+
+				const overflow = allWatchedRepositoryChanges.join(',');
+				assert.deepStrictEqual(log, [
+					`/worktrees/A ${overflow} - overflow`,
+					'/worktrees/A fetch',
+					'/worktrees/A ignores',
+					'/worktrees/A mode',
+					`/worktrees/B ${overflow} - overflow`,
+					'/worktrees/B fetch',
+					'/worktrees/B ignores',
+					'/worktrees/B mode',
+				]);
+				assert.strictEqual(poller.size, 2);
+				assert.ok(group.isUnwatchable('/worktrees/A'), 'its root watcher is still down');
+				group.dispose();
+				poller.dispose();
+			});
+
+			describe('beside the main checkout', () => {
+				function createPolledMainAndLinkedRepo(): {
+					group: WatchGroup;
+					poller: GitDirPoller;
+					fs: ReturnType<typeof createFs>;
+					log: string[];
+				} {
+					const fs = createFs([
+						...repoFiles.map(f => `/repo/.git/${f}`),
+						'/repo/.git/refs/heads/feature/a',
+						'/repo/.git/worktrees/A/HEAD',
+						'/repo/.git/worktrees/A/index',
+						'/repo/.git/worktrees/A/logs/HEAD',
+					]);
+					const poller = new GitDirPoller({
+						stat: fs.stat,
+						intervalMs: 0,
+						activeCheckMs: 60_000,
+						isActive: () => true,
+					});
+					const { factory } = createMockFactory(() => 'unwatchable');
+					const group = new WatchGroup('/repo/.git', factory, poller);
+					const log: string[] = [];
+					group.addSession('/repo', standardGitDir('/repo/.git'), recordingHooks(log, ['refs/heads/main']));
+					group.addSession(
+						'/worktrees/A',
+						worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'),
+						recordingHooks(log, ['refs/heads/feature/a']),
+					);
+					return { group: group, poller: poller, fs: fs, log: log };
+				}
+
+				it("polls a linked session's refs for the main checkout too", async () => {
+					const { group, poller, fs, log } = createPolledMainAndLinkedRepo();
+					await poller.tick();
+					log.length = 0;
+
+					fs.touch('/repo/.git/refs/heads/feature/a');
+					await poller.tick();
+
+					assert.deepStrictEqual(log.sort(), [
+						'/repo heads refs/heads/feature/a',
+						'/worktrees/A heads refs/heads/feature/a',
+					]);
+					group.dispose();
+					poller.dispose();
+				});
+
+				it("reports a linked worktree's moved logs/HEAD to the main checkout as an unnamed heads change", async () => {
+					const { group, poller, fs, log } = createPolledMainAndLinkedRepo();
+					await poller.tick();
+					log.length = 0;
+
+					fs.touch('/repo/.git/worktrees/A/logs/HEAD');
+					await poller.tick();
+
+					assert.deepStrictEqual(log, ['/worktrees/A head,heads HEAD', '/repo heads -']);
+					group.dispose();
+					poller.dispose();
+				});
+
+				it('stats each common file once per pass for the main checkout and the common dir', async () => {
+					const { group, poller, fs } = createPolledMainAndLinkedRepo();
+					// Each root, and the common dir
+					assert.strictEqual(poller.size, 3);
+					await poller.tick();
+
+					fs.stats.clear();
+					await poller.tick();
+
+					for (const path of [
+						...gitDirCommonProbes.map(p => `/repo/.git/${p.path}`),
+						'/repo/.git/refs/heads/main',
+						'/repo/.git/refs/heads/feature/a',
+						'/repo/.git/refs/heads/feature',
+						'/repo/.git/HEAD',
+					]) {
+						assert.strictEqual(fs.stats.get(path), 1, path);
+					}
+					assert.ok(
+						[...fs.stats.values()].every(n => n === 1),
+						'no path is statted twice',
+					);
+					group.dispose();
+					poller.dispose();
+				});
+
+				it('reports the common files to both sessions, and a ref only the main checkout names to it', async () => {
+					const { group, poller, fs, log } = createPolledMainAndLinkedRepo();
+					await poller.tick();
+
+					for (const [file, expected] of [
+						['packed-refs', ['/repo heads,remotes,tags -', '/worktrees/A heads,remotes,tags -']],
+						['config', ['/repo config,remotes -', '/worktrees/A config,remotes -']],
+						['refs/heads/main', ['/repo heads refs/heads/main']],
+					] as const) {
+						log.length = 0;
+						fs.touch(`/repo/.git/${file}`);
+						await poller.tick();
+						assert.deepStrictEqual(log.sort(), expected, file);
+					}
+					group.dispose();
+					poller.dispose();
+				});
+
+				it('keeps polling the common files for the main checkout once the last linked session goes', async () => {
+					const { group, poller, fs, log } = createPolledMainAndLinkedRepo();
+					await poller.tick();
+
+					group.removeSession('/worktrees/A');
+					assert.strictEqual(poller.size, 1, 'only the main checkout');
+
+					fs.stats.clear();
+					log.length = 0;
+					fs.touch('/repo/.git/packed-refs');
+					fs.touch('/repo/.git/refs/heads/main');
+					await poller.tick();
+
+					assert.deepStrictEqual(log.sort(), ['/repo heads refs/heads/main', '/repo heads,remotes,tags -']);
+					assert.ok([...fs.stats.values()].every(n => n === 1));
+					group.dispose();
+					poller.dispose();
+				});
+			});
+
+			it('stops polling the common dir with the last linked session', () => {
+				const { group, poller } = createPolledLinkedRepo();
+
+				group.removeSession('/worktrees/A');
+				assert.strictEqual(poller.size, 2);
+				group.removeSession('/worktrees/B');
+				assert.strictEqual(poller.size, 0);
+				group.dispose();
+				poller.dispose();
+			});
 		});
 	});
 
