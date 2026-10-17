@@ -25,7 +25,7 @@ export interface BranchContributionsOverview extends GitCommitStats<number> {
 }
 
 /** Which source decided a base (see `getAheadOfBase`) */
-export type AheadOfBaseTier = 'user' | 'detected' | 'recorded' | 'default';
+export type AheadOfBaseTier = 'user' | 'detected' | 'recorded' | 'default' | 'upstream';
 
 export interface AheadOfBase {
 	/** The base HEAD was measured against; `undefined` when there is none (see `getAheadOfBase`) */
@@ -39,13 +39,13 @@ export interface AheadOfBase {
 				readonly sha: string | undefined;
 				/** Where HEAD forked from `ref`: git's `--fork-point` reading of `ref`'s reflog, else the merge base; `undefined` when they share no history */
 				readonly forkPoint: string | undefined;
-				/** The source the base came from: the user's merge target, the detected one, the base recorded against the branch, or the default branch */
+				/** The source the base came from: the user's merge target, the detected one, the base recorded against the branch, the default branch, or — when the branch is the default branch — the branch's own upstream */
 				readonly tier: AheadOfBaseTier;
 		  }
 		| undefined;
-	/** Why there is no base; set exactly when `base` is `undefined`: `'none'` when nothing resolved (or HEAD is detached), `'self'` when the base is the branch itself at HEAD's commit, `'unborn'` when HEAD has no commit yet */
+	/** Why there is no base; set exactly when `base` is `undefined`: `'none'` when nothing resolved (or HEAD is detached), `'self'` when the base is the branch itself at HEAD's commit (or the default branch has no upstream to measure against), `'unborn'` when HEAD has no commit yet */
 	readonly reason?: 'none' | 'self' | 'unborn';
-	/** Full ref names (`refs/heads/main`, `refs/remotes/origin/main`, `refs/remotes/origin/HEAD`) whose movement can change this answer, given with or without a base so a watcher also learns when one appears: the branch, every candidate compared up to the chosen one, their tracking refs, and the default-branch symref when the default was consulted. Lets a watcher recompute only when one of them moves. */
+	/** Full ref names (`refs/heads/main`, `refs/remotes/origin/main`, `refs/remotes/origin/HEAD`) whose movement can change this answer, given with or without a base so a watcher also learns when one appears: the branch, every candidate compared up to the chosen one, their tracking refs, the default-branch symrefs and the `<remote>/main`/`<remote>/master` refs when the default was consulted, and the branch's upstream when it is the default branch. Lets a watcher recompute only when one of them moves. */
 	readonly dependsOn: readonly string[];
 }
 
@@ -143,13 +143,17 @@ export interface GitBranchesSubProvider {
 	 * How far HEAD has moved past the base `branch` (the branch checked out at HEAD) was cut from. Candidates in trust
 	 * order: the user's merge target, the detected one, then the base recorded against the branch — only recorded bases
 	 * count, never a reflog guess. Each is measured as itself or its tracking ref, whichever forked nearer HEAD; a stale
-	 * target (one naming no ref, a flag-like one, or the branch itself) falls through to the next, and the local default
-	 * branch is used when none survives. The count is the right side of `<base>...HEAD`. `base` is `undefined` when no
-	 * base resolves, when the base is the branch itself (by name, or as its copy on one of the repo's remotes) at HEAD's
-	 * own commit, or when HEAD is detached or has no commit yet; `reason` then says which (`'none'`, `'self'` or
-	 * `'unborn'`) and `dependsOn` is given either way. `base.sha` is the tip of `ref`, read from the cached ref list;
-	 * `base.forkPoint` is where HEAD forked from `ref` and `base.tier` the source that decided the base. Rejects when the
-	 * count can't be read.
+	 * target (one naming no ref, a flag-like one, or the branch itself) falls through to the next, and the default branch
+	 * is used when none survives: the `HEAD` symref of the `upstream` remote, else `origin`, else the first remote, as its
+	 * local branch or else the remote ref; then, in the same remote order, `<remote>/main` or `<remote>/master`, again as
+	 * the local branch or else the remote ref; then `init.defaultBranch`, `main`, `master` — from local refs only, never
+	 * the network. On the default branch itself the base is its upstream (`upstream/<branch>` when an `upstream` remote has
+	 * it, else `<branch>@{u}`), tier `'upstream'`. The count is the right side of `<base>...HEAD`. `base` is `undefined`
+	 * when no base resolves, when the base is the branch itself (by name, or as its copy on one of the repo's remotes) at
+	 * HEAD's own commit — or the default branch has no upstream — or when HEAD is detached or has no commit yet; `reason`
+	 * then says which (`'none'`, `'self'` or `'unborn'`) and `dependsOn` is given either way. `base.sha` is the tip of
+	 * `ref`, read from the cached ref list; `base.forkPoint` is where HEAD forked from `ref` and `base.tier` the source
+	 * that decided the base. Rejects when the count can't be read.
 	 */
 	getAheadOfBase?(repoPath: string, branch: string, cancellation?: AbortSignal): Promise<AheadOfBase>;
 	/**

@@ -42,8 +42,15 @@ import {
 	inferSigningFormatFromError,
 	maxGitCliLength,
 } from '../exec/git.js';
+import { parseGitBoolean } from './config.js';
+
+/** The remotes a fetch read with their configured refspecs: one named remote, all of them, or a bare fetch's default */
+type FetchedRemotes = { remote: string } | 'all' | 'default';
 
 export class OperationsGitSubProvider implements GitOperationsSubProvider {
+	/** The `commonPath\0remote` pairs {@link followRemoteHeads} has handled */
+	private readonly followedRemoteHeads = new Set<string>();
+
 	constructor(
 		private readonly context: GitServiceContext,
 		private readonly git: Git,
@@ -272,6 +279,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		const { branch, ...opts } = options ?? {};
 		let ran = false;
+		let fetched: FetchedRemotes | undefined;
 		try {
 			if (isBranchReference(branch)) {
 				const [branchName, remoteName] = getBranchNameAndRemote(branch);
@@ -292,6 +300,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			} else {
 				ran = true;
 				await this.fetchCore(repoPath, opts, runOptions);
+				if (!opts.refspecs?.length) {
+					fetched = opts.remote != null ? { remote: opts.remote } : opts.all ? 'all' : 'default';
+				}
 			}
 		} catch (ex) {
 			scope?.error(ex);
@@ -302,7 +313,78 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'tags');
 				this.context.hooks?.repository?.onChanged?.(repoPath, this.getFetchChanges(branch, options));
 			}
+			if (fetched != null) {
+				void this.followRemoteHeads(repoPath, fetched);
+			}
 		}
+	}
+
+	/**
+	 * Writes the missing `refs/remotes/<remote>/HEAD` (the default branch the base reads) of each remote a fetch just
+	 * read with its configured refspecs, once per remote, on git < 2.48 — newer git's fetch creates it itself. A bare
+	 * fetch/pull reads every remote when `fetch.all` is set (git 2.44+), else its default remote. Right after the
+	 * fetch, so the credentials it used are still cached. Never awaited; never rejects, failures not retried.
+	 */
+	private async followRemoteHeads(repoPath: string, fetched: FetchedRemotes): Promise<void> {
+		try {
+			if (await this.git.supports('git:fetch:follow-remote-head')) return;
+
+			const commonPath = this.cache.getCommonPath(repoPath);
+			const pending = (names: string[]): string[] =>
+				names.filter(r => !this.followedRemoteHeads.has(`${commonPath}\0${r}`));
+
+			// One cached read for everything that picks the remotes
+			const config = await this.provider.config.getConfigRegex(
+				repoPath,
+				'^(fetch\\.all|remote\\..+\\.skipfetchall|branch\\..+\\.remote)$',
+			);
+
+			if (
+				fetched === 'default' &&
+				parseGitBoolean(config.get('fetch.all')) &&
+				(await this.git.supports('git:fetch:all-config'))
+			) {
+				fetched = 'all';
+			}
+
+			let remotes: string[];
+			if (fetched === 'all') {
+				// `fetch --all` skips the remotes marked `skipFetchAll`
+				remotes = pending(
+					(await this.provider.remotes.getRemotes(repoPath))
+						.map(r => r.name)
+						.filter(r => !parseGitBoolean(config.get(`remote.${r}.skipfetchall`))),
+				);
+			} else if (fetched === 'default') {
+				const remote = await this.getDefaultFetchRemote(repoPath, config);
+				remotes = pending(remote != null ? [remote] : []);
+			} else {
+				remotes = pending([fetched.remote]);
+			}
+			if (!remotes.length) return;
+
+			for (const remote of remotes) {
+				this.followedRemoteHeads.add(`${commonPath}\0${remote}`);
+			}
+			for (const remote of remotes) {
+				try {
+					await this.provider.branches.setRemoteHeadIfMissing(repoPath, remote);
+				} catch {}
+			}
+		} catch {}
+	}
+
+	/**
+	 * The remote a bare `fetch`/`pull` reads: the current branch's `branch.<name>.remote` (none for `.`, the local
+	 * repository), else the sole remote, else `origin`
+	 */
+	private async getDefaultFetchRemote(repoPath: string, config: Map<string, string>): Promise<string | undefined> {
+		const current = await this.provider.branches.getBranch(repoPath);
+		const configured = current != null ? config.get(`branch.${current.name}.remote`) : undefined;
+		if (configured) return configured === '.' ? undefined : configured;
+
+		const remotes = await this.provider.remotes.getRemotes(repoPath);
+		return remotes.length === 1 ? remotes[0].name : 'origin';
 	}
 
 	/** `remotes`, plus `heads`/`tags` for any local branch or tag the fetch writes — a `pull` fetch writes `<upstream>:<branch>` */
@@ -506,6 +588,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		// Set once a git command is about to run, so a pull that fails partway (a merge or rebase stopping on a
 		// conflict, a fetch that stored some refs) announces what it changed the way a finished one does
 		let announce: (() => void) | undefined;
+		// A `pull` with no arguments fetches the branch's remote with its configured refspecs
+		let fetched: { repoPath: string; remotes: FetchedRemotes } | undefined;
 		try {
 			if (isBranchReference(options?.branch)) {
 				const branch = options.branch;
@@ -537,6 +621,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 							},
 							runOptions,
 						);
+						fetched = { repoPath: worktreePath, remotes: 'default' };
 					} finally {
 						this.context.hooks?.operations?.onRebaseCapableOperation?.(worktreePath, 'pull', 'ended');
 					}
@@ -603,6 +688,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					},
 					runOptions,
 				);
+				fetched = { repoPath: repoPath, remotes: 'default' };
 			} finally {
 				this.context.hooks?.operations?.onRebaseCapableOperation?.(repoPath, 'pull', 'ended');
 			}
@@ -611,6 +697,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			throw ex;
 		} finally {
 			announce?.();
+			if (fetched != null) {
+				void this.followRemoteHeads(fetched.repoPath, fetched.remotes);
+			}
 		}
 	}
 
