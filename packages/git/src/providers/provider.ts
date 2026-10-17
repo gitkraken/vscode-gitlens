@@ -26,6 +26,12 @@ import type { GitWorktreesSubProvider } from './worktrees.js';
 
 export type { GitProviderDescriptor } from './types.js';
 
+/** One path a provider announced its own write for, with the changes it announced there */
+export interface AnnouncedRepositoryChanges {
+	readonly repoPath: string;
+	readonly changes: readonly RepositoryChange[];
+}
+
 /**
  * Common interface for all git providers (CLI, GitHub, etc.).
  * Consumers can register multiple providers and route operations transparently.
@@ -77,6 +83,12 @@ export interface GitProvider {
 	 * timestamps, and not for the provider's own writes. See `Cache.onDidChangeMergeTargets`.
 	 */
 	readonly onDidChangeMergeTargets?: Event<MergeTargetsChangeEvent>;
+	/**
+	 * Fires as the provider announces one of its own writes to the host (`hooks.repository.onChanged`), once for each
+	 * path it announces it for, sibling worktrees included — after the write finished and its caches were evicted.
+	 * `GitService` forwards it to its watch service, so the write's own file events aren't announced a second time.
+	 */
+	readonly onDidAnnounceChanges?: Event<AnnouncedRepositoryChanges>;
 	/** Creates a new repository at `path` (`git init`), creating `path` itself if it doesn't yet exist. */
 	init?(path: string, options?: { defaultBranch?: string; bare?: boolean }): Promise<void>;
 	/**

@@ -150,6 +150,10 @@ const configReadOptions = new Set([
 function hasWriteOption(verb: string, rest: readonly string[]): boolean {
 	const options = writeOptions[verb];
 	if (options == null) return false;
+	return hasOption(rest, options);
+}
+
+function hasOption(rest: readonly string[], options: readonly string[]): boolean {
 	return rest.some(arg => options.some(opt => arg === opt || arg.startsWith(`${opt}=`)));
 }
 
@@ -242,7 +246,7 @@ export function leadingCommand(args: readonly string[]): LeadingCommand {
  * classified verb announces — HEAD, the index, a paused operation, FETCH_HEAD — belong to the one tree the
  * command ran in, so a `-C`-scoped write tells the caller's own `cwd` only this subset of what it changed.
  */
-const worktreeSharedChanges: ReadonlySet<RepositoryChange> = new Set([
+export const worktreeSharedChanges: ReadonlySet<RepositoryChange> = new Set([
 	'heads',
 	'tags',
 	'stash',
@@ -311,6 +315,43 @@ const changesByVerb: Readonly<Record<string, readonly RepositoryChange[]>> = {
 	notes: ['heads'],
 };
 
+/**
+ * `branch` options that write `.git/config`: a rename, copy or delete moves or drops the branch's section, and the
+ * rest set or clear its upstream or description. A plain create (or `-f`) writes tracking only from a remote-tracking
+ * start point, which the `.git/config` watcher reports.
+ */
+const branchConfigOptions: readonly string[] = [
+	'-d',
+	'-D',
+	'--delete',
+	'-m',
+	'-M',
+	'--move',
+	'-c',
+	'-C',
+	'--copy',
+	'-t',
+	'--track',
+	'-u',
+	'--set-upstream-to',
+	'--unset-upstream',
+	'--edit-description',
+];
+const branchConfigChanges: readonly RepositoryChange[] = ['config', 'heads', 'remotes', 'tags'];
+
+/**
+ * Whether creating a branch from `startPoint` may write its tracking to `.git/config`, as git's default
+ * `branch.autoSetupMerge=true` does from a remote-tracking start point. Only a name holding a `/` can be one, so a
+ * local name with a `/` counts too. The `.git/config` watcher reports what this misses, such as
+ * `branch.autoSetupMerge=always`.
+ */
+export function mayWriteTracking(startPoint: string | undefined, noTracking: boolean | undefined): boolean {
+	if (noTracking || !startPoint) return false;
+	if (startPoint.startsWith('refs/')) return startPoint.startsWith('refs/remotes/');
+
+	return startPoint.includes('/');
+}
+
 const worktreeChanges: readonly RepositoryChange[] = ['worktrees', 'heads'];
 const emptyChanges: readonly RepositoryChange[] = [];
 
@@ -334,7 +375,14 @@ export function getChangesForCommand(args: readonly string[]): CommandChanges | 
 
 	// `worktree list` is read-only (filtered out above); every other subcommand adds, removes or
 	// relocks a checkout, which is both a worktree-list change and, for `add`, a brand-new HEAD.
-	const changes = command.verb === 'worktree' ? worktreeChanges : (changesByVerb[command.verb] ?? emptyChanges);
+	let changes: readonly RepositoryChange[];
+	if (command.verb === 'worktree') {
+		changes = worktreeChanges;
+	} else if (command.verb === 'branch' && hasOption(command.rest, branchConfigOptions)) {
+		changes = branchConfigChanges;
+	} else {
+		changes = changesByVerb[command.verb] ?? emptyChanges;
+	}
 	return {
 		changes: changes,
 		pathOverride: command.pathOverride,

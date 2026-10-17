@@ -5,6 +5,7 @@ import * as l10n from '@vscode/l10n';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import { WorktreeCreateError, WorktreeDeleteError } from '@gitlens/git/errors.js';
+import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import type { WorkspaceFolderResolver } from '@gitlens/git/models/worktree.js';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { GitOperationRunOptions } from '@gitlens/git/providers/operations.js';
@@ -18,6 +19,7 @@ import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
+import { mayWriteTracking } from '../exec/commandClassifier.js';
 import type { Git, GitError } from '../exec/git.js';
 import { getGitCommandError, GitErrors } from '../exec/git.js';
 import { parseGitWorktrees } from '../parsers/worktreeParser.js';
@@ -79,15 +81,6 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 				// Evict the cached base only — see `checkout -b` for why the persisted keys are left alone.
 				this.cache.deleteBaseBranchName(repoPath, options.createBranch);
 			}
-
-			this.context.hooks?.cache?.onReset?.(
-				repoPath,
-				...(options?.createBranch ? (['branches', 'worktrees'] as const) : (['worktrees'] as const)),
-			);
-			this.context.hooks?.repository?.onChanged?.(
-				repoPath,
-				options?.createBranch ? ['worktrees', 'heads'] : ['worktrees'],
-			);
 		} catch (ex) {
 			scope?.error(ex);
 			// A cancelled or timed-out checkout is not git refusing the worktree
@@ -102,6 +95,18 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 						ex as GitError,
 					),
 			);
+		} finally {
+			// A failed or cancelled add may already have created the branch (and its tracking in `.git/config`) or
+			// the worktree directory
+			this.context.hooks?.cache?.onReset?.(
+				repoPath,
+				...(options?.createBranch ? (['branches', 'worktrees'] as const) : (['worktrees'] as const)),
+			);
+			const changes: RepositoryChange[] = options?.createBranch ? ['worktrees', 'heads'] : ['worktrees'];
+			if (options?.createBranch && mayWriteTracking(options.commitish, options.noTracking)) {
+				changes.unshift('config');
+			}
+			this.context.hooks?.repository?.onChanged?.(repoPath, changes);
 		}
 	}
 
@@ -330,9 +335,10 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 				// Order matters: unregister before emitting the repo-level change so any listener
 				// that re-queries worktree-aware state sees the registry already updated.
 				this.cache.unregisterRepoPath(pathStr);
-				this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
-				this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
 			}
+			// A failed or cancelled removal may already have taken the worktree's files or admin entry
+			this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
 		}
 	}
 
@@ -353,22 +359,24 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			args.push('--expire', options.expire);
 		}
 
-		await this.git.run({ cwd: repoPath, errors: 'throw' }, ...args);
+		try {
+			await this.git.run({ cwd: repoPath, errors: 'throw' }, ...args);
 
-		const after = await this.listWorktreePaths(repoPath);
+			const after = await this.listWorktreePaths(repoPath);
 
-		// Order matters (see `deleteWorktree`): unregister before emitting the repo-level change so any
-		// listener that re-queries worktree-aware state sees the registry already updated.
-		if (before != null && after != null) {
-			for (const path of before) {
-				if (!after.has(path)) {
-					this.cache.unregisterRepoPath(path);
+			// Order matters (see `deleteWorktree`): unregister before emitting the repo-level change so any
+			// listener that re-queries worktree-aware state sees the registry already updated.
+			if (before != null && after != null) {
+				for (const path of before) {
+					if (!after.has(path)) {
+						this.cache.unregisterRepoPath(path);
+					}
 				}
 			}
+		} finally {
+			this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
 		}
-
-		this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
-		this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
 	}
 
 	/**
@@ -407,10 +415,12 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		}
 		args.push(normalizePath(toFsPath(path)));
 
-		await this.git.run({ cwd: repoPath, errors: 'throw' }, ...args);
-
-		this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
-		this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
+		try {
+			await this.git.run({ cwd: repoPath, errors: 'throw' }, ...args);
+		} finally {
+			this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
+		}
 	}
 
 	@debug()
@@ -423,9 +433,12 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			),
 		);
 
-		await this.git.run({ cwd: repoPath, errors: 'throw' }, 'worktree', 'unlock', normalizePath(toFsPath(path)));
-
-		this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
-		this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
+		const pathStr = normalizePath(toFsPath(path));
+		try {
+			await this.git.run({ cwd: repoPath, errors: 'throw' }, 'worktree', 'unlock', pathStr);
+		} finally {
+			this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
+		}
 	}
 }

@@ -79,14 +79,18 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 	@gate()
 	@debug()
 	async addRemote(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void> {
-		await this.git.run({ cwd: repoPath }, 'remote', 'add', options?.fetch ? '-f' : undefined, name, url);
-		// A fetch creates the remote's tracking branches, which the branch, ref and history caches hold
-		if (options?.fetch) {
-			this.context.hooks?.cache?.onReset?.(repoPath, 'remotes', 'branches');
-		} else {
-			this.context.hooks?.cache?.onReset?.(repoPath, 'remotes');
+		try {
+			await this.git.run({ cwd: repoPath }, 'remote', 'add', options?.fetch ? '-f' : undefined, name, url);
+		} finally {
+			// A fetch creates the remote's tracking branches, which the branch, ref and history caches hold. The
+			// remote is added before the fetch runs, so a failed `-f` still leaves it behind.
+			if (options?.fetch) {
+				this.context.hooks?.cache?.onReset?.(repoPath, 'remotes', 'branches');
+			} else {
+				this.context.hooks?.cache?.onReset?.(repoPath, 'remotes');
+			}
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'remotes']);
 		}
-		this.context.hooks?.repository?.onChanged?.(repoPath, ['remotes']);
 	}
 
 	@gate()
@@ -105,17 +109,23 @@ export class RemotesGitSubProvider extends RemotesGitProviderBase implements Git
 	@gate()
 	@debug()
 	async pruneRemote(repoPath: string, name: string): Promise<void> {
-		await this.git.run({ cwd: repoPath }, 'remote', 'prune', name);
-		this.context.hooks?.cache?.onReset?.(repoPath, 'remotes', 'branches');
-		this.context.hooks?.repository?.onChanged?.(repoPath, ['remotes']);
+		try {
+			await this.git.run({ cwd: repoPath }, 'remote', 'prune', name);
+		} finally {
+			this.context.hooks?.cache?.onReset?.(repoPath, 'remotes', 'branches');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['remotes']);
+		}
 	}
 
 	@gate()
 	@debug()
 	async removeRemote(repoPath: string, name: string): Promise<void> {
-		await this.git.run({ cwd: repoPath }, 'remote', 'remove', name);
-		// Removing a remote deletes its tracking branches too
-		this.context.hooks?.cache?.onReset?.(repoPath, 'remotes', 'branches');
-		this.context.hooks?.repository?.onChanged?.(repoPath, ['remotes']);
+		try {
+			await this.git.run({ cwd: repoPath }, 'remote', 'remove', name);
+		} finally {
+			// Removing a remote deletes its tracking branches too
+			this.context.hooks?.cache?.onReset?.(repoPath, 'remotes', 'branches');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'remotes']);
+		}
 	}
 }

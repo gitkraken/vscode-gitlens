@@ -40,6 +40,7 @@ export class WatcherRepoChangeEvent {
 	protected readonly _changes: Set<RepositoryChange>;
 	private readonly _refs: Set<string>;
 	private readonly _unnamedRefKinds: Set<RefChangeKind>;
+	private readonly _announced: Set<RepositoryChange>;
 
 	constructor(
 		/** The repository path this event is for */
@@ -47,6 +48,8 @@ export class WatcherRepoChangeEvent {
 		changes: RepositoryChange[],
 		/** Which refs changed; when omitted, every ref kind in `changes` is unnamed (any ref of that kind may have moved) */
 		refs?: WatcherRefChanges,
+		/** The kinds of `changes` that come only from core's own announced writes (see {@link announced}) */
+		announced?: Iterable<RepositoryChange>,
 	) {
 		this._changes = new Set(changes);
 		if (refs == null) {
@@ -56,10 +59,25 @@ export class WatcherRepoChangeEvent {
 			this._refs = new Set(refs.names);
 			this._unnamedRefKinds = new Set(refs.unnamed);
 		}
+		this._announced = announced != null ? new Set(filter(announced, c => this._changes.has(c))) : new Set();
 	}
 
 	get changes(): ReadonlySet<RepositoryChange> {
 		return this._changes;
+	}
+
+	/**
+	 * The kinds in {@link changes} that come only from core's own writes, which core already announced through
+	 * `hooks.repository.onChanged` after evicting their caches. A host that handled that announcement can skip them;
+	 * a kind the watcher or an injected change also reported is not among them.
+	 */
+	get announced(): ReadonlySet<RepositoryChange> {
+		return this._announced;
+	}
+
+	/** The kinds in {@link changes} that aren't {@link announced}: what a cache that core already evicted for its write still has to clear */
+	getUnannouncedChanges(): RepositoryChange[] {
+		return this._announced.size ? [...filter(this._changes, c => !this._announced.has(c))] : [...this._changes];
 	}
 
 	/** Full ref names (or ref directories, or pseudo-refs) known to have changed. See {@link WatcherRefChanges.names}. */
@@ -145,7 +163,7 @@ export class WatcherRepoChangeEvent {
 
 	/**
 	 * Coalesce: return a new event with all changes and refs from both this and the given set. When `refs` is omitted,
-	 * every ref kind in `changes` counts as unnamed.
+	 * every ref kind in `changes` counts as unnamed. A kind in `changes` is no longer {@link announced}.
 	 */
 	with(changes: RepositoryChange[], refs?: WatcherRefChanges): WatcherRepoChangeEvent {
 		const names = [...this._refs];
@@ -161,10 +179,12 @@ export class WatcherRepoChangeEvent {
 			}
 		}
 
-		return new WatcherRepoChangeEvent(this.repoPath, [...this._changes, ...changes], {
-			names: names,
-			unnamed: unnamed,
-		});
+		return new WatcherRepoChangeEvent(
+			this.repoPath,
+			[...this._changes, ...changes],
+			{ names: names, unnamed: unnamed },
+			filter(this._announced, c => !changes.includes(c)),
+		);
 	}
 }
 

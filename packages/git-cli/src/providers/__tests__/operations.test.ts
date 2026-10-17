@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
-import { CheckoutError, FetchError, PullError, PushError, ResetError } from '@gitlens/git/errors.js';
+import { CheckoutError, FetchError, MergeError, PullError, PushError, ResetError } from '@gitlens/git/errors.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
 import type { CliGitProviderInternal } from '../../cliGitProvider.js';
@@ -421,5 +421,95 @@ suite('OperationsGitSubProvider Test Suite', () => {
 		await assert.rejects(operations.restore(repoPath, 'file.ts', { ref: 'badref' }), (ex: unknown) =>
 			CheckoutError.is(ex, 'pathspecNotFound'),
 		);
+	});
+
+	suite('a write git ran announces even when it fails', () => {
+		let onReset: sinon.SinonSpy;
+		let onChanged: sinon.SinonSpy;
+
+		setup(() => {
+			onReset = sandbox.spy();
+			onChanged = sandbox.spy();
+			const context = {
+				hooks: { cache: { onReset: onReset }, repository: { onChanged: onChanged } },
+			} as unknown as GitServiceContext;
+			const cache = { deleteBaseBranchName: () => {} } as unknown as Cache;
+			const provider = {
+				status: { getConflictingFiles: () => Promise.resolve([]) },
+			} as unknown as CliGitProviderInternal;
+
+			operations = new OperationsGitSubProvider(context, gitStub, cache, provider);
+		});
+
+		test('reset announces head, heads and index when git rejects', async () => {
+			stubRunFailure("fatal: ambiguous argument 'badref': unknown revision or path not in the working tree.");
+
+			await assert.rejects(operations.reset(repoPath, 'badref'), (ex: unknown) => ResetError.is(ex));
+
+			assert.deepStrictEqual(onReset.lastCall.args, [repoPath, 'branches', 'status']);
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'heads', 'index']]);
+			assert.strictEqual(onChanged.callCount, 1);
+		});
+
+		test('checkout announces head, heads and index when git rejects', async () => {
+			stubRunFailure("fatal: ambiguous argument 'badref': unknown revision or path not in the working tree.");
+
+			await assert.rejects(operations.checkout(repoPath, 'badref'), (ex: unknown) => CheckoutError.is(ex));
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'heads', 'index']]);
+			assert.strictEqual(onChanged.callCount, 1);
+		});
+
+		test('checkout -b from a remote-tracking ref announces config, for the tracking git writes', async () => {
+			await operations.checkout(repoPath, 'origin/main', { createBranch: 'feature' });
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['config', 'head', 'heads', 'index']]);
+		});
+
+		test('checkout -b from a local ref, or with noTracking, announces no config', async () => {
+			await operations.checkout(repoPath, 'main', { createBranch: 'feature' });
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'heads', 'index']]);
+
+			await operations.checkout(repoPath, 'origin/main', { createBranch: 'other', noTracking: true });
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'heads', 'index']]);
+		});
+
+		test('merge announces once when it fails for a non-conflict reason', async () => {
+			stubRunFailure('fatal: refusing to merge unrelated histories');
+
+			await assert.rejects(operations.merge(repoPath, 'feature'), (ex: unknown) => MergeError.is(ex));
+
+			assert.strictEqual(onChanged.callCount, 1);
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['head', 'heads', 'index']]);
+		});
+
+		test('merge announces once when it stops on conflicts', async () => {
+			stubRunFailure('Auto-merging a.txt\nCONFLICT (content): Merge conflict in a.txt');
+
+			const result = await operations.merge(repoPath, 'feature');
+
+			assert.strictEqual(result.conflicted, true);
+			assert.strictEqual(onChanged.callCount, 1);
+			assert.strictEqual(onReset.callCount, 1);
+		});
+
+		test('restore announces index when git rejects', async () => {
+			stubRunFailure("fatal: ambiguous argument 'badref': unknown revision or path not in the working tree.");
+
+			await assert.rejects(operations.restore(repoPath, 'file.ts', { ref: 'badref' }), (ex: unknown) =>
+				CheckoutError.is(ex),
+			);
+
+			assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['index']]);
+			assert.strictEqual(onChanged.callCount, 1);
+		});
+
+		test('restore with nothing to restore never runs git and announces nothing', async () => {
+			await operations.restore(repoPath, []);
+
+			assert.ok((gitStub.run as sinon.SinonStub).notCalled);
+			assert.ok(onChanged.notCalled);
+			assert.ok(onReset.notCalled);
+		});
 	});
 });

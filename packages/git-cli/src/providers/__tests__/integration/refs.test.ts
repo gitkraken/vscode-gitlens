@@ -326,7 +326,7 @@ suite('RefsSubProvider ref updates', () => {
 				expected: sha,
 			});
 
-			assert.ok(onChanged.calledWith(hookedRepo.path, ['heads']));
+			assert.ok(onChanged.calledWith(hookedRepo.path, ['config', 'heads']));
 			assert.ok(onReset.calledWith(hookedRepo.path, 'branches'));
 		} finally {
 			hookedRepo.cleanup();

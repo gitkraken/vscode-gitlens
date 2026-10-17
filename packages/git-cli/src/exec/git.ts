@@ -712,7 +712,13 @@ export class Git {
 	private _lastDynamicEnv: Record<string, string | undefined> | undefined | null;
 
 	/** Bound via {@link bindChangeNotifier}; announces a `notify`-flagged run's changes. No-op until bound. */
-	private _changeNotifier: ((repoPaths: readonly string[], changes: readonly RepositoryChange[]) => void) | undefined;
+	private _changeNotifier:
+		| ((
+				repoPaths: readonly string[],
+				changes: readonly RepositoryChange[],
+				sharedPaths?: readonly string[],
+		  ) => void)
+		| undefined;
 
 	constructor(
 		private readonly _locator: () => Promise<GitLocation>,
@@ -726,9 +732,17 @@ export class Git {
 	 * to its own `notifyChanged` from its constructor — including when it's handed a pre-built `Git` via
 	 * `options.git`, so a host-supplied instance gets bound too. With nothing bound, `notify` is a no-op.
 	 * `repoPaths` holds more than one path only for a `-C`-scoped shared-state verb: the `-C` target, then the
-	 * caller's own `cwd`.
+	 * caller's own `cwd`. `sharedPaths` names the paths that were not run in but share the repository, which
+	 * hear only the part of `changes` every worktree sees (the caller's `cwd`, when the verb also changed
+	 * something local to the `-C` target).
 	 */
-	bindChangeNotifier(fn: (repoPaths: readonly string[], changes: readonly RepositoryChange[]) => void): void {
+	bindChangeNotifier(
+		fn: (
+			repoPaths: readonly string[],
+			changes: readonly RepositoryChange[],
+			sharedPaths?: readonly string[],
+		) => void,
+	): void {
 		this._changeNotifier = fn;
 	}
 
@@ -990,8 +1004,7 @@ export class Git {
 			if (command.sharedChanges.length === command.changes.length) {
 				this._changeNotifier([ranIn, cwd], command.changes);
 			} else {
-				this._changeNotifier([ranIn], command.changes);
-				this._changeNotifier([cwd], command.sharedChanges);
+				this._changeNotifier([ranIn], command.changes, [cwd]);
 			}
 			return;
 		}

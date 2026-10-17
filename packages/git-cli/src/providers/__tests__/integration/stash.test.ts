@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import type { TestRepo } from './helpers.js';
 import { addCommit, createStash, createTestRepo, getHeadSha } from './helpers.js';
 
@@ -388,6 +389,49 @@ suite('StashSubProvider.deleteStash', () => {
 				1,
 				'Exactly one stash should remain after dropping the other',
 			);
+		} finally {
+			r.cleanup();
+		}
+	});
+});
+
+suite('StashSubProvider.renameStash', () => {
+	function setupRepo(): { r: TestRepo; announced: RepositoryChange[][] } {
+		const announced: RepositoryChange[][] = [];
+		const r = createTestRepo({
+			hooks: { repository: { onChanged: (_repoPath, changes) => announced.push(changes) } },
+		});
+		createStash(r.path, 'original');
+		return { r: r, announced: announced };
+	}
+
+	function stashList(repoPath: string): string {
+		return execFileSync('git', ['stash', 'list'], { cwd: repoPath, encoding: 'utf-8' }).trim();
+	}
+
+	test('renames the entry and announces the stash change once', async () => {
+		const { r, announced } = setupRepo();
+		try {
+			const sha = execFileSync('git', ['rev-parse', 'stash@{0}'], { cwd: r.path, encoding: 'utf-8' }).trim();
+
+			await r.provider.stash?.renameStash(r.path, 'stash@{0}', sha, 'renamed', 'main');
+
+			assert.match(stashList(r.path), /On main: renamed/);
+			assert.strictEqual(announced.filter(c => c.includes('stash')).length, 1);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('announces nothing when the sha does not match the stash', async () => {
+		const { r, announced } = setupRepo();
+		try {
+			await assert.rejects(
+				r.provider.stash?.renameStash(r.path, 'stash@{0}', getHeadSha(r.path), 'renamed'),
+				/mismatch/,
+			);
+			assert.match(stashList(r.path), /original/);
+			assert.deepStrictEqual(announced, []);
 		} finally {
 			r.cleanup();
 		}

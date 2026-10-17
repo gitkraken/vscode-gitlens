@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
+import { rmSync } from 'node:fs';
 import * as sinon from 'sinon';
 import { BranchError } from '@gitlens/git/errors.js';
 import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
@@ -295,7 +296,7 @@ suite('BranchesSubProvider — partial batch delete', () => {
 			await assert.rejects(hookedRepo.provider.branches.deleteLocalBranch(hookedRepo.path, ['gone', 'kept']));
 
 			assert.ok(
-				onChanged.calledWith(hookedRepo.path, ['heads']),
+				onChanged.calledWith(hookedRepo.path, ['config', 'heads']),
 				'a partial delete that removed a branch must fire the heads change',
 			);
 			assert.ok(onReset.calledWith(hookedRepo.path, 'branches'), 'and reset the branches cache');
@@ -322,6 +323,73 @@ suite('BranchesSubProvider — partial batch delete', () => {
 			assert.strictEqual(onReset.called, false, 'and no cache reset');
 		} finally {
 			hookedRepo.cleanup();
+		}
+	});
+});
+
+suite('BranchesSubProvider — config-writing writes announce config', () => {
+	test('setUpstreamBranch and setConfig announce config', async () => {
+		const onChanged = sinon.spy();
+		const hookedRepo = createTestRepo({ hooks: { repository: { onChanged: onChanged } } });
+		try {
+			addCommit(hookedRepo.path, 'f.txt', 'x', 'seed');
+			execFileSync('git', ['config', 'branch.main.remote', '.'], { cwd: hookedRepo.path, stdio: 'pipe' });
+			execFileSync('git', ['config', 'branch.main.merge', 'refs/heads/main'], {
+				cwd: hookedRepo.path,
+				stdio: 'pipe',
+			});
+			onChanged.resetHistory();
+
+			await hookedRepo.provider.branches.setUpstreamBranch(hookedRepo.path, 'main', undefined);
+			assert.ok(onChanged.calledWith(hookedRepo.path, ['config', 'heads']));
+
+			onChanged.resetHistory();
+			await hookedRepo.provider.config.setConfig(hookedRepo.path, 'user.name', 'Someone');
+			assert.ok(onChanged.calledWith(hookedRepo.path, ['config']));
+		} finally {
+			hookedRepo.cleanup();
+		}
+	});
+
+	test('createBranch and createWorktree announce config only from a remote-tracking start point', async () => {
+		const onChanged = sinon.spy();
+		const hookedRepo = createTestRepo({ hooks: { repository: { onChanged: onChanged } } });
+		const worktrees: string[] = [];
+		try {
+			execFileSync('git', ['update-ref', 'refs/remotes/origin/main', 'HEAD'], {
+				cwd: hookedRepo.path,
+				stdio: 'pipe',
+			});
+			const { branches } = hookedRepo.provider;
+
+			await branches.createBranch(hookedRepo.path, 'from-remote', 'origin/main');
+			assert.deepStrictEqual(onChanged.lastCall.args, [hookedRepo.path, ['config', 'heads']]);
+
+			await branches.createBranch(hookedRepo.path, 'from-remote-untracked', 'origin/main', { noTracking: true });
+			assert.deepStrictEqual(onChanged.lastCall.args, [hookedRepo.path, ['heads']]);
+
+			await branches.createBranch(hookedRepo.path, 'from-local', 'main');
+			assert.deepStrictEqual(onChanged.lastCall.args, [hookedRepo.path, ['heads']]);
+
+			const remoteWorktree = `${hookedRepo.path}-wt-remote`;
+			worktrees.push(remoteWorktree);
+			await hookedRepo.provider.worktrees.createWorktree(hookedRepo.path, remoteWorktree, {
+				createBranch: 'wt-remote',
+				commitish: 'refs/remotes/origin/main',
+			});
+			assert.deepStrictEqual(onChanged.lastCall.args, [hookedRepo.path, ['config', 'worktrees', 'heads']]);
+
+			const localWorktree = `${hookedRepo.path}-wt-local`;
+			worktrees.push(localWorktree);
+			await hookedRepo.provider.worktrees.createWorktree(hookedRepo.path, localWorktree, {
+				createBranch: 'wt-local',
+			});
+			assert.deepStrictEqual(onChanged.lastCall.args, [hookedRepo.path, ['worktrees', 'heads']]);
+		} finally {
+			hookedRepo.cleanup();
+			for (const path of worktrees) {
+				rmSync(path, { recursive: true, force: true });
+			}
 		}
 	});
 });

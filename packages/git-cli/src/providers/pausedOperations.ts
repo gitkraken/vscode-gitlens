@@ -563,8 +563,6 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 			// Unbounded like the operations it undoes — an abort of a large rebase can outrun the default
 			// command timeout, and being SIGTERM'd partway through would leave the repo mid-abort.
 			await this.git.run({ cwd: repoPath, errors: 'throw', timeout: 0 }, ...args);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
 		} catch (ex) {
 			scope?.error(ex);
 			throw getGitCommandError(
@@ -580,6 +578,10 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						ex,
 					),
 			);
+		} finally {
+			// An abort that fails or is cancelled partway can still have moved HEAD or reset the working tree
+			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
 		}
 	}
 

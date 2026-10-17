@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { describe, it, mock } from 'node:test';
 import type { WatcherRepoChangeEvent, WorkingTreeChangeEvent } from '../changeEvent.js';
+import { allWatchedRepositoryChanges } from '../classifyChange.js';
 import type { WatchSessionLifecycle } from '../watchSession.js';
 import { RepositoryWatchSession } from '../watchSession.js';
 
@@ -1535,6 +1536,266 @@ describe('WatchSession', () => {
 			assert.strictEqual(received.length, 1);
 
 			sub.dispose();
+			session.dispose();
+		});
+	});
+
+	describe('noteSelfWrite', () => {
+		function createSession(): { session: RepositoryWatchSession; received: WatcherRepoChangeEvent[] } {
+			const session = new RepositoryWatchSession({ repoPath: '/repo', defaultRepoDelayMs: 20 });
+			const received: WatcherRepoChangeEvent[] = [];
+			session.subscribe().onDidChange(e => received.push(e));
+			return { session: session, received: received };
+		}
+
+		function sorted(values: Iterable<string>): string[] {
+			return [...values].sort();
+		}
+
+		it('drops pending raw changes of the announced kinds and fires the announcement once in their place', async () => {
+			const { session, received } = createSession();
+
+			session.pushRepoChanges(['heads'], 'refs/heads/main');
+			session.pushRepoChanges(['index']);
+			session.noteSelfWrite(['head', 'heads', 'index']);
+			assert.strictEqual(received.length, 0, 'the announcement goes through the debounce');
+			await delay(60);
+
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual(sorted(received[0].changes), ['head', 'heads', 'index']);
+			assert.deepStrictEqual(sorted(received[0].announced), ['head', 'heads', 'index']);
+			assert.deepStrictEqual([...received[0].refs], [], 'announcements carry no ref names');
+			assert.deepStrictEqual([...received[0].unnamedRefKinds], ['heads']);
+			session.dispose();
+		});
+
+		it('keeps pending raw changes of kinds it did not announce, without the announced refs', async () => {
+			const { session, received } = createSession();
+
+			session.pushRepoChanges(['heads'], 'refs/heads/main');
+			session.pushRepoChanges(['tags'], 'refs/tags/v1');
+			session.noteSelfWrite(['heads']);
+			await delay(60);
+
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual(sorted(received[0].changes), ['heads', 'tags']);
+			assert.deepStrictEqual([...received[0].announced], ['heads']);
+			assert.deepStrictEqual([...received[0].refs], ['refs/tags/v1']);
+			assert.deepStrictEqual([...received[0].unnamedRefKinds], ['heads']);
+			session.dispose();
+		});
+
+		it('holds the announcement while suspended and fires it, without the dropped raw changes, on resume', async () => {
+			const { session, received } = createSession();
+			session.suspend();
+
+			session.pushRepoChanges(['heads'], 'refs/heads/main');
+			session.noteSelfWrite(['heads']);
+			await delay(60);
+			assert.strictEqual(received.length, 0);
+
+			session.resume(0);
+			await delay(60);
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual([...received[0].changes], ['heads']);
+			assert.deepStrictEqual([...received[0].announced], ['heads']);
+			assert.deepStrictEqual([...received[0].refs], []);
+			session.dispose();
+		});
+
+		it('merges a raw change of an announced kind within the debounce delay, keeping it announced', async () => {
+			const { session, received } = createSession();
+
+			session.noteSelfWrite(['heads']);
+			session.pushRepoChanges(['heads'], 'refs/heads/main');
+			await delay(60);
+
+			assert.strictEqual(received.length, 1, 'the late echo merges into the announcement');
+			assert.deepStrictEqual([...received[0].changes], ['heads']);
+			assert.deepStrictEqual([...received[0].announced], ['heads']);
+			assert.ok(received[0].mayHaveChangedRef('refs/heads/other'), 'the announced heads stays unnamed');
+			session.dispose();
+		});
+
+		it('fires an unannounced event for a raw change of an announced kind after the announcement fired', async () => {
+			const { session, received } = createSession();
+
+			// A fetch announces its remotes, then an outside push moves a remote ref right after the announcement fired
+			session.noteSelfWrite(['remotes']);
+			await delay(60);
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual([...received[0].announced], ['remotes']);
+
+			session.pushRepoChanges(['remotes'], 'refs/remotes/origin/main');
+			await delay(60);
+			assert.strictEqual(received.length, 2, 'the outside change is not lost');
+			assert.deepStrictEqual([...received[1].changes], ['remotes']);
+			assert.deepStrictEqual([...received[1].announced], []);
+			assert.deepStrictEqual([...received[1].refs], ['refs/remotes/origin/main']);
+			session.dispose();
+		});
+
+		it('clears the mark for a raw change of the kind after the debounce delay but before the announcement fires', async () => {
+			const { session, received } = createSession();
+			session.suspend();
+
+			session.noteSelfWrite(['heads', 'index']);
+			await delay(40);
+			session.pushRepoChanges(['heads'], 'refs/heads/main');
+			session.resume(0);
+			await delay(60);
+
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual(sorted(received[0].changes), ['heads', 'index']);
+			assert.deepStrictEqual([...received[0].announced], ['index']);
+			assert.ok(received[0].mayHaveChangedRef('refs/heads/other'), 'the announced heads stays unnamed');
+			session.dispose();
+		});
+
+		it('clears the mark for an injected or unfenced change of the kind', async () => {
+			const { session, received } = createSession();
+
+			session.noteSelfWrite(['heads', 'index', 'tags']);
+			session.fireChange('heads');
+			session.pushUnfencedRepoChanges(['index']);
+			await delay(60);
+
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual(sorted(received[0].changes), ['heads', 'index', 'tags']);
+			assert.deepStrictEqual([...received[0].announced], ['tags']);
+			session.dispose();
+		});
+
+		it('passes a raw change of a kind it did not announce', async () => {
+			const { session, received } = createSession();
+
+			session.noteSelfWrite(['heads']);
+			session.pushRepoChanges(['tags'], 'refs/tags/v1');
+			await delay(60);
+
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual(sorted(received[0].changes), ['heads', 'tags']);
+			assert.deepStrictEqual([...received[0].announced], ['heads']);
+			assert.deepStrictEqual([...received[0].refs], ['refs/tags/v1']);
+			session.dispose();
+		});
+
+		it('keeps the unannounced kinds of a raw change mixing both, marking only the announced ones', async () => {
+			const { session, received } = createSession();
+
+			session.noteSelfWrite(['heads']);
+			session.pushRepoChanges(['head', 'heads'], 'HEAD');
+			await delay(60);
+
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual(sorted(received[0].changes), ['head', 'heads']);
+			assert.deepStrictEqual([...received[0].announced], ['heads']);
+			assert.deepStrictEqual([...received[0].refs], ['HEAD']);
+			session.dispose();
+		});
+
+		it('never holds back an injected change, pending or fired after it', async () => {
+			const { session, received } = createSession();
+
+			session.fireChange('heads');
+			session.noteSelfWrite(['heads']);
+			await delay(60);
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual([...received[0].changes], ['heads']);
+			assert.deepStrictEqual([...received[0].announced], [], 'the injected change reported it first');
+
+			session.fireChange('heads');
+			await delay(60);
+			assert.strictEqual(received.length, 2);
+			assert.deepStrictEqual([...received[1].changes], ['heads']);
+			assert.deepStrictEqual([...received[1].announced], []);
+
+			session.fireChangeImmediate('heads');
+			assert.strictEqual(received.length, 3);
+			assert.deepStrictEqual([...received[2].announced], []);
+			session.dispose();
+		});
+
+		it('never holds back an unfenced push, pending or pushed after it', async () => {
+			const { session, received } = createSession();
+
+			session.pushUnfencedRepoChanges(['index', 'heads']);
+			session.noteSelfWrite([]);
+			await delay(60);
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual(sorted(received[0].changes), sorted(allWatchedRepositoryChanges));
+			assert.deepStrictEqual(
+				sorted(received[0].announced),
+				sorted(allWatchedRepositoryChanges.filter(c => c !== 'index' && c !== 'heads')),
+			);
+
+			session.pushUnfencedRepoChanges(['ignores']);
+			await delay(60);
+			assert.strictEqual(received.length, 2);
+			assert.deepStrictEqual([...received[1].changes], ['ignores']);
+			assert.deepStrictEqual([...received[1].announced], []);
+			session.dispose();
+		});
+
+		it('leaves working-tree changes alone', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo', defaultWorkingTreeDelayMs: 20 });
+			const received: string[][] = [];
+			session.subscribeToWorkingTree().onDidChangeWorkingTree(e => received.push([...e.paths]));
+
+			session.pushWorkingTreeChanges(['/repo/a.txt']);
+			session.noteSelfWrite([]);
+			session.pushWorkingTreeChanges(['/repo/b.txt']);
+			await delay(60);
+
+			assert.deepStrictEqual(received, [['/repo/a.txt', '/repo/b.txt']]);
+			session.dispose();
+		});
+
+		it('announces every watched kind, never unknown, for an empty announcement or one naming unknown', async () => {
+			for (const announced of [[], ['unknown', 'heads']] as const) {
+				const { session, received } = createSession();
+
+				session.pushRepoChanges(['config', 'remotes']);
+				session.noteSelfWrite(announced);
+				session.pushRepoChanges(['tags'], 'refs/tags/v1');
+				session.pushRepoChanges(['index']);
+				await delay(60);
+
+				const label = `announced: ${announced.join(', ')}`;
+				assert.strictEqual(received.length, 1, label);
+				assert.deepStrictEqual(sorted(received[0].changes), sorted(allWatchedRepositoryChanges), label);
+				assert.deepStrictEqual(sorted(received[0].announced), sorted(allWatchedRepositoryChanges), label);
+				assert.deepStrictEqual([...received[0].refs], ['refs/tags/v1'], label);
+				session.dispose();
+			}
+		});
+
+		it('neither replaces nor announces closed or opened', async () => {
+			const { session, received } = createSession();
+
+			session.noteSelfWrite(['closed', 'opened']);
+			assert.strictEqual(session.hasPendingChanges, false);
+			session.pushRepoChanges(['heads'], 'refs/heads/main');
+			await delay(60);
+
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual([...received[0].changes], ['heads']);
+			assert.deepStrictEqual([...received[0].announced], []);
+			session.dispose();
+		});
+
+		it('keeps the announced kinds through a relevant-refs narrowing', async () => {
+			const session = new RepositoryWatchSession({ repoPath: '/repo', defaultRepoDelayMs: 20 });
+			const received: WatcherRepoChangeEvent[] = [];
+			session.subscribe({ relevantRefs: () => ['refs/heads/main'] }).onDidChange(e => received.push(e));
+
+			session.noteSelfWrite(['index', 'stash']);
+			session.pushRepoChanges(['tags'], 'refs/tags/v1');
+			await delay(60);
+
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual(sorted(received[0].changes), ['index', 'stash']);
+			assert.deepStrictEqual(sorted(received[0].announced), ['index', 'stash']);
 			session.dispose();
 		});
 	});

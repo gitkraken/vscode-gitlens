@@ -19,9 +19,10 @@ import {
 export interface WatchGroupHooks {
 	/**
 	 * `ref` is the full ref name (or ref directory) or pseudo-ref (`HEAD`, `ORIG_HEAD`) whose file changed, with a
-	 * trailing `.lock` stripped; `undefined` for any other `.git` file.
+	 * trailing `.lock` stripped; `undefined` for any other `.git` file. `overflow` marks the every-kind rescan of a
+	 * watcher that dropped events, which no single write can account for.
 	 */
-	readonly onRepoChanged: (repoPath: string, changes: RepositoryChange[], ref?: string) => void;
+	readonly onRepoChanged: (repoPath: string, changes: RepositoryChange[], ref?: string, overflow?: boolean) => void;
 	readonly onFetchHeadChanged?: (repoPath: string) => void;
 	readonly onIgnoresChanged?: (repoPath: string) => void;
 }
@@ -221,7 +222,7 @@ export class WatchGroup implements UnifiedDisposable {
 
 	private deliverOverflow(entry: SessionEntry): void {
 		// Every kind, no ref (ref kinds stay unnamed). Never `'unknown'` — the cache would unregister the path
-		entry.hooks.onRepoChanged(entry.repoPath, [...allWatchedRepositoryChanges]);
+		entry.hooks.onRepoChanged(entry.repoPath, [...allWatchedRepositoryChanges], undefined, true);
 		entry.hooks.onFetchHeadChanged?.(entry.repoPath);
 		entry.hooks.onIgnoresChanged?.(entry.repoPath);
 	}

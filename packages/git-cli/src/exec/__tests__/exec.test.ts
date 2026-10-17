@@ -653,7 +653,7 @@ suite('Git base environment', () => {
 });
 
 suite('Git.run notify', () => {
-	type Notified = { repoPaths: readonly string[]; changes: readonly string[] };
+	type Notified = { repoPaths: readonly string[]; changes: readonly string[]; sharedPaths?: readonly string[] };
 
 	function newGitWithBinder(): { git: Git; notified: Notified[] } {
 		// A nonexistent binary makes every run fail fast (ENOENT) without ever spawning a real process —
@@ -661,7 +661,13 @@ suite('Git.run notify', () => {
 		// like a success would, and much faster than a real git invocation.
 		const git = new Git(async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' }));
 		const notified: Notified[] = [];
-		git.bindChangeNotifier((repoPaths, changes) => notified.push({ repoPaths: repoPaths, changes: changes }));
+		git.bindChangeNotifier((repoPaths, changes, sharedPaths) =>
+			notified.push(
+				sharedPaths == null
+					? { repoPaths: repoPaths, changes: changes }
+					: { repoPaths: repoPaths, changes: changes, sharedPaths: sharedPaths },
+			),
+		);
 		return { git: git, notified: notified };
 	}
 
@@ -687,7 +693,10 @@ suite('Git.run notify', () => {
 		await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'branch', '-d', 'x');
 
 		assert.deepStrictEqual(notified, [
-			{ repoPaths: [normalizePath(resolve('/repo', '/other')), '/repo'], changes: ['heads', 'remotes', 'tags'] },
+			{
+				repoPaths: [normalizePath(resolve('/repo', '/other')), '/repo'],
+				changes: ['config', 'heads', 'remotes', 'tags'],
+			},
 		]);
 	});
 
@@ -697,8 +706,11 @@ suite('Git.run notify', () => {
 		await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'commit', '-m', 'msg');
 
 		assert.deepStrictEqual(notified, [
-			{ repoPaths: [normalizePath(resolve('/repo', '/other'))], changes: ['head', 'heads', 'index', 'pausedOp'] },
-			{ repoPaths: ['/repo'], changes: ['heads'] },
+			{
+				repoPaths: [normalizePath(resolve('/repo', '/other'))],
+				changes: ['head', 'heads', 'index', 'pausedOp'],
+				sharedPaths: ['/repo'],
+			},
 		]);
 	});
 
@@ -707,9 +719,9 @@ suite('Git.run notify', () => {
 
 		await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'pull');
 
-		assert.strictEqual(notified.length, 2);
+		assert.strictEqual(notified.length, 1);
 		assert.deepStrictEqual(notified[0].repoPaths, [normalizePath(resolve('/repo', '/other'))]);
-		assert.deepStrictEqual(notified[1], { repoPaths: ['/repo'], changes: ['heads', 'remotes', 'tags'] });
+		assert.deepStrictEqual(notified[0].sharedPaths, ['/repo']);
 	});
 
 	test("notify: 'infer' on a -C stash push announces only the stash to cwd", async () => {
@@ -718,8 +730,11 @@ suite('Git.run notify', () => {
 		await git.run({ cwd: '/repo', errors: 'ignore', notify: 'infer' }, '-C', '/other', 'stash', 'push');
 
 		assert.deepStrictEqual(notified, [
-			{ repoPaths: [normalizePath(resolve('/repo', '/other'))], changes: ['stash', 'index'] },
-			{ repoPaths: ['/repo'], changes: ['stash'] },
+			{
+				repoPaths: [normalizePath(resolve('/repo', '/other'))],
+				changes: ['stash', 'index'],
+				sharedPaths: ['/repo'],
+			},
 		]);
 	});
 

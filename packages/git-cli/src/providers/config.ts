@@ -210,6 +210,11 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		if (repoPath != null && !options?.file && /^branch\..+\.(?:remote|merge)$/i.test(key)) {
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
 		}
+
+		// A `--global` or custom-`file` write isn't this repository's `.git/config`
+		if (repoPath != null && !options?.file && !options?.global) {
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['config']);
+		}
 	}
 
 	private async setConfigCore(
@@ -666,9 +671,10 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 				if (this.cache.reconcileGkConfigMap(readPath, snapshot, freshMap)) {
 					// Fire a follow-up change: a consumer that re-read on the original event may have done so
 					// before this async cascade landed, so it would otherwise hold a stale derived value with
-					// nothing left to prompt another re-read.
+					// nothing left to prompt another re-read. Only the host hears it: it is not a write of
+					// core's, and announcing it as one would evict the map just reconciled.
 					for (const path of entry.paths.keys()) {
-						this.context.hooks?.repository?.onChanged?.(path, ['gkConfig']);
+						this.provider.notifyHost(path, ['gkConfig']);
 					}
 				}
 
@@ -740,28 +746,40 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	): Promise<void> {
 		const scope = getScopedLogger();
 
+		const entries: [GitConfigKeys, string][] = [];
+		if (config.enabled != null) {
+			entries.push(['commit.gpgsign', config.enabled ? 'true' : 'false']);
+		}
+		if (config.format != null) {
+			entries.push(['gpg.format', config.format]);
+		}
+		if (config.signingKey != null) {
+			entries.push(['user.signingkey', config.signingKey]);
+		}
+		if (config.gpgProgram != null) {
+			entries.push(['gpg.program', config.gpgProgram]);
+		}
+		if (config.sshProgram != null) {
+			entries.push(['gpg.ssh.program', config.sshProgram]);
+		}
+		if (config.allowedSignersFile != null) {
+			entries.push(['gpg.ssh.allowedSignersFile', config.allowedSignersFile]);
+		}
+
+		let wrote = false;
 		try {
-			if (config.enabled != null) {
-				await this.setConfig(repoPath, 'commit.gpgsign', config.enabled ? 'true' : 'false', options);
-			}
-			if (config.format != null) {
-				await this.setConfig(repoPath, 'gpg.format', config.format, options);
-			}
-			if (config.signingKey != null) {
-				await this.setConfig(repoPath, 'user.signingkey', config.signingKey, options);
-			}
-			if (config.gpgProgram != null) {
-				await this.setConfig(repoPath, 'gpg.program', config.gpgProgram, options);
-			}
-			if (config.sshProgram != null) {
-				await this.setConfig(repoPath, 'gpg.ssh.program', config.sshProgram, options);
-			}
-			if (config.allowedSignersFile != null) {
-				await this.setConfig(repoPath, 'gpg.ssh.allowedSignersFile', config.allowedSignersFile, options);
+			for (const [key, value] of entries) {
+				await this.setConfigCore(repoPath, key, value, options);
+				wrote = true;
 			}
 		} catch (ex) {
 			scope?.error(ex);
 			throw ex;
+		} finally {
+			// One `config` announcement for the keys written, rather than one (each fanned out to every worktree) per key
+			if (wrote && !options?.global) {
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['config']);
+			}
 		}
 	}
 
