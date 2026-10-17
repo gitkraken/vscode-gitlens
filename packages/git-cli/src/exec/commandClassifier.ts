@@ -180,6 +180,8 @@ export interface LeadingCommand {
 	readOnly: boolean;
 	/** The first token after the verb, unresolved — used for subcommand-shaped decisions (`worktree add`). */
 	subcommand?: string;
+	/** Every token after the verb */
+	rest: readonly string[];
 	/** The `-C <path>` target when the caller re-scopes the command to another working tree. */
 	pathOverride?: string;
 }
@@ -232,7 +234,7 @@ export function leadingCommand(args: readonly string[]): LeadingCommand {
 				!rest.includes('--delete') &&
 				rest.filter(a => !a.startsWith('-')).length < 2));
 
-	return { verb: verb, readOnly: readOnly, subcommand: rest[0], pathOverride: pathOverride };
+	return { verb: verb, readOnly: readOnly, subcommand: rest[0], rest: rest, pathOverride: pathOverride };
 }
 
 /**
