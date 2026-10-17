@@ -3,8 +3,9 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
+import { fileUri } from '@gitlens/utils/uri.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, createBranch, createTestRepo, gkConfig } from './helpers.js';
+import { addCommit, createBranch, createTestRepo, createWorktree, gkConfig } from './helpers.js';
 
 function currentBranch(repoPath: string): string {
 	return execFileSync('git', ['branch', '--show-current'], { cwd: repoPath, encoding: 'utf-8' }).trim();
@@ -115,6 +116,34 @@ suite('BranchesSubProvider.onCurrentBranchModified', () => {
 			assert.strictEqual(writes.length, 0);
 		} finally {
 			rmSync(lockPath, { force: true });
+		}
+	});
+
+	test('a stamp reaches branches already read, in sibling worktrees too', async () => {
+		const repo = newRepo();
+		const name = currentBranch(repo.path);
+		createBranch(repo.path, 'sibling');
+		const worktree = createWorktree(repo.path, 'sibling');
+		try {
+			for (const path of [repo.path, worktree.path]) {
+				repo.provider.cache.registerRepoPath(fileUri(path), await repo.provider.config.getGitDir(path));
+			}
+
+			const branches = repo.provider.branches;
+			const readFromSibling = async () =>
+				(await branches.getBranches(worktree.path)).values.find(b => b.name === name);
+
+			assert.strictEqual((await branches.getBranch(repo.path))?.lastModifiedDate, undefined);
+			assert.strictEqual((await readFromSibling())?.lastModifiedDate, undefined);
+
+			await branches.onCurrentBranchModified(repo.path);
+
+			const stored = gkConfig(repo.path, `branch.${name}.gk-last-modified`);
+			assert.ok(stored);
+			assert.strictEqual((await branches.getBranch(repo.path))?.lastModifiedDate?.toISOString(), stored);
+			assert.strictEqual((await readFromSibling())?.lastModifiedDate?.toISOString(), stored);
+		} finally {
+			worktree.cleanup();
 		}
 	});
 });

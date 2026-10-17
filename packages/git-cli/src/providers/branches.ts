@@ -2346,17 +2346,26 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				);
 
 				const value = new Date(now).toISOString();
-				for (const [i, key] of due.entries()) {
-					// Another process sharing the file stamped it under 5 minutes ago: hold off until that stamp goes
-					// stale, not for 5 minutes from now
-					const stamp = getSettledValue(stored[i]);
-					const last = stamp != null ? new Date(stamp).getTime() : NaN;
-					if (now - last < dateMetadataStaleThresholdMs) {
-						this._branchActivityStamps.set(`${branchKey}\0${key}`, last);
-						continue;
-					}
+				let written = false;
+				try {
+					for (const [i, key] of due.entries()) {
+						// Another process sharing the file stamped it under 5 minutes ago: hold off until that stamp
+						// goes stale, not for 5 minutes from now
+						const stamp = getSettledValue(stored[i]);
+						const last = stamp != null ? new Date(stamp).getTime() : NaN;
+						if (now - last < dateMetadataStaleThresholdMs) {
+							this._branchActivityStamps.set(`${branchKey}\0${key}`, last);
+							continue;
+						}
 
-					await this.provider.config.setGkConfig(repoPath, `branch.${branch.name}.${key}`, value);
+						await this.provider.config.setGkConfig(repoPath, `branch.${branch.name}.${key}`, value);
+						written = true;
+					}
+				} finally {
+					// Each branch carries its stamps, so the cached branches are stale — cleared once per call
+					if (written) {
+						this.cache.deleteBranchMetadata(repoPath);
+					}
 				}
 			});
 		} catch (ex) {
