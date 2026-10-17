@@ -1813,6 +1813,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	async getAheadOfBase(
 		repoPath: string,
 		branch: string | undefined,
+		options?: { skipUserTarget?: boolean; preferredTarget?: string },
 		cancellation?: AbortSignal,
 	): Promise<AheadOfBase> {
 		// `undefined`, or a name that stands for a detached HEAD, has no branch to be recorded against or to be its own base
@@ -1822,10 +1823,38 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const dependsOn = new Set<string>(branch != null ? [`refs/heads/${branch}`] : []);
 
+		const preferredTarget = options?.preferredTarget?.trim() || undefined;
+		if (preferredTarget == null) {
+			return this.getAheadOfBaseInOrder(repoPath, branch, options?.skipUserTarget, dependsOn, cancellation);
+		}
+
+		let target = await this.getNearestForkTarget(repoPath, branch, preferredTarget, dependsOn, cancellation);
+		if (target != null && branch != null && (await this.isSelfAtHead(repoPath, target.ref, branch, cancellation))) {
+			target = undefined;
+		}
+
+		// The tolerant reads above answer a cancelled run as "nothing there"; that is no answer
+		if (cancellation?.aborted) throw new CancellationError();
+
+		if (target != null) {
+			return this.measureAheadOfBase(repoPath, target, 'preferred', dependsOn, cancellation);
+		}
+
+		return this.getAheadOfBaseInOrder(repoPath, branch, options?.skipUserTarget, dependsOn, cancellation);
+	}
+
+	/** Resolves the base from the recorded candidates, then the default branch, for {@link getAheadOfBase} */
+	private async getAheadOfBaseInOrder(
+		repoPath: string,
+		branch: string | undefined,
+		skipUserTarget: boolean | undefined,
+		dependsOn: Set<string>,
+		cancellation: AbortSignal | undefined,
+	): Promise<AheadOfBase> {
 		let target: { ref: string; forkPoint: string | undefined } | undefined;
 		let tier: AheadOfBaseTier = 'default';
 		if (branch != null) {
-			for (const candidate of await this.getRecordedBaseCandidates(repoPath, branch)) {
+			for (const candidate of await this.getRecordedBaseCandidates(repoPath, branch, skipUserTarget)) {
 				target = await this.getNearestForkTarget(repoPath, branch, candidate.ref, dependsOn, cancellation);
 				if (target != null) {
 					tier = candidate.tier;
@@ -2176,8 +2205,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/**
-	 * Whether `ref` names `branch` itself: the same name, or `<remote>/<branch>` for one of the repo's actual remotes.
-	 * Splitting at the first slash instead would call a local `release/main` the same branch as `main`.
+	 * Whether `ref` names `branch` itself: the same name, or `<remote>/<branch>` for one of the repo's actual remotes,
+	 * short or as a full ref. Splitting at the first slash instead would call a local `release/main` the same branch
+	 * as `main`.
 	 */
 	private async isSelfRef(
 		repoPath: string,
@@ -2185,6 +2215,13 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		branch: string,
 		cancellation: AbortSignal | undefined,
 	): Promise<boolean> {
+		// A full local ref is never a remote copy, even one named like `origin/<branch>`
+		if (ref.startsWith('refs/heads/')) return ref.slice('refs/heads/'.length) === branch;
+
+		if (ref.startsWith('refs/remotes/')) {
+			ref = ref.slice('refs/remotes/'.length);
+		}
+
 		if (ref === branch) return true;
 
 		const suffix = `/${branch}`;
@@ -2232,6 +2269,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	private async getRecordedBaseCandidates(
 		repoPath: string,
 		branch: string,
+		skipUserTarget: boolean | undefined,
 	): Promise<{ ref: string; tier: AheadOfBaseTier }[]> {
 		const tolerate = async (read: () => Promise<string | undefined>): Promise<string | undefined> => {
 			try {
@@ -2244,7 +2282,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		};
 
 		const reads = await Promise.all([
-			tolerate(() => this.getStoredUserMergeTargetBranchName(repoPath, branch)),
+			skipUserTarget ? undefined : tolerate(() => this.getStoredUserMergeTargetBranchName(repoPath, branch)),
 			tolerate(() => this.getStoredDetectedMergeTargetBranchName(repoPath, branch)),
 			tolerate(() => this.provider.config.getGkConfig(repoPath, `branch.${branch}.gk-merge-base`)),
 		]);
@@ -2344,7 +2382,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		// A ref starting with `-` would be parsed as a git flag
 		if (!candidate || candidate.startsWith('-')) return undefined;
 		// A branch measured against itself says nothing
-		if (candidate === branch) return undefined;
+		if (candidate === branch || candidate === `refs/heads/${branch}`) return undefined;
 
 		addRefDependencies(dependsOn, candidate);
 

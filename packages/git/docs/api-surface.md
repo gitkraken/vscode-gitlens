@@ -245,7 +245,7 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `getLocalBranchByUpstream?(repoPath, remoteBranchName, cancellation?)`               | `GitBranch \| undefined`                   |
 | `getPotentialApplyConflicts?(repoPath, targetBranch, shas, options?, cancellation?)` | `ConflictDetectionResult`                  |
 | `getPotentialMergeConflicts?(repoPath, branch, targetBranch, cancellation?)`         | `ConflictDetectionResult`                  |
-| `getAheadOfBase?(repoPath, branch, cancellation?)`                                   | `AheadOfBase`                              |
+| `getAheadOfBase?(repoPath, branch, options?, cancellation?)`                         | `AheadOfBase`                              |
 | `getBaseBranchName?(repoPath, ref, cancellation?)`                                   | `string \| undefined`                      |
 | `getStoredMergeTargetBranchName?(repoPath, ref, options?, cancellation?)`            | `string \| undefined`                      |
 | `getStoredDetectedMergeTargetBranchName?(repoPath, ref)`                             | `string \| undefined`                      |

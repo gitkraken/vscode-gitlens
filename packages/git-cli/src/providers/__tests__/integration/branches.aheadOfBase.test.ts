@@ -60,8 +60,13 @@ function storeTargets(
 	}
 }
 
-function getAheadOfBase(repo: TestRepo, branch: string | undefined, cancellation?: AbortSignal): Promise<AheadOfBase> {
-	return repo.provider.branches.getAheadOfBase(repo.path, branch, cancellation);
+function getAheadOfBase(
+	repo: TestRepo,
+	branch: string | undefined,
+	options?: { skipUserTarget?: boolean; preferredTarget?: string },
+	cancellation?: AbortSignal,
+): Promise<AheadOfBase> {
+	return repo.provider.branches.getAheadOfBase(repo.path, branch, options, cancellation);
 }
 
 function assertDependsOn(result: AheadOfBase, refs: string[]): void {
@@ -919,6 +924,140 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 		});
 	});
 
+	suite('options', () => {
+		test('leaves the user target out and measures the detected one with skipUserTarget', async () => {
+			const repo = createCandidateRepo();
+			try {
+				storeTargets(repo.path, 'feature', { user: 'develop', detected: 'release', recorded: 'staging' });
+
+				const result = await getAheadOfBase(repo, 'feature', { skipUserTarget: true });
+				assert.strictEqual(result.base?.ref, 'release');
+				assert.strictEqual(result.base?.ahead, 2);
+				assert.strictEqual(result.base?.tier, 'detected');
+				assert.ok(!result.dependsOn.includes('refs/heads/develop'), 'The user target is not read');
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('tries a preferred target before the user target', async () => {
+			const repo = createCandidateRepo();
+			try {
+				storeTargets(repo.path, 'feature', { user: 'develop', detected: 'release' });
+
+				const result = await getAheadOfBase(repo, 'feature', { preferredTarget: ' staging ' });
+				assert.strictEqual(result.base?.ref, 'staging');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'preferred');
+				assert.strictEqual(result.base?.forkPoint, mergeBase(repo.path, 'staging'));
+				assertDependsOn(result, ['refs/heads/feature', 'refs/heads/staging']);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('falls back to the usual order when the preferred target names no ref', async () => {
+			const repo = createCandidateRepo();
+			try {
+				storeTargets(repo.path, 'feature', { user: 'develop', detected: 'release' });
+
+				const result = await getAheadOfBase(repo, 'feature', { preferredTarget: 'origin/gone' });
+				assert.strictEqual(result.base?.ref, 'develop');
+				assert.strictEqual(result.base?.tier, 'user');
+				assertDependsOn(result, ['refs/heads/origin/gone', 'refs/remotes/origin/gone', 'refs/heads/develop']);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('falls back to the usual order when the preferred target is the branch itself', async () => {
+			const repo = createCandidateRepo();
+			try {
+				storeTargets(repo.path, 'feature', { user: 'develop' });
+
+				const result = await getAheadOfBase(repo, 'feature', { preferredTarget: 'feature' });
+				assert.strictEqual(result.base?.ref, 'develop');
+				assert.strictEqual(result.base?.tier, 'user');
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('falls back to the usual order when the preferred target is the branch itself as a full ref', async () => {
+			const repo = createCandidateRepo();
+			try {
+				storeTargets(repo.path, 'feature', { user: 'develop' });
+				git(repo.path, 'remote', 'add', 'origin', 'https://example.test/repo.git');
+				git(repo.path, 'update-ref', 'refs/remotes/origin/feature', 'HEAD');
+
+				for (const preferredTarget of ['refs/heads/feature', 'refs/remotes/origin/feature']) {
+					const result = await getAheadOfBase(repo, 'feature', { preferredTarget: preferredTarget });
+					assert.strictEqual(result.base?.ref, 'develop', preferredTarget);
+					assert.strictEqual(result.base?.tier, 'user', preferredTarget);
+				}
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('uses a full ref to a different branch as the preferred target', async () => {
+			const repo = createCandidateRepo();
+			try {
+				storeTargets(repo.path, 'feature', { user: 'develop' });
+
+				const result = await getAheadOfBase(repo, 'feature', { preferredTarget: 'refs/heads/staging' });
+				assert.strictEqual(result.base?.ref, 'refs/heads/staging');
+				assert.strictEqual(result.base?.tier, 'preferred');
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('answers no base when the preferred target is unusable and nothing else resolves', async () => {
+			const repo = createTestRepo();
+			try {
+				git(repo.path, 'branch', '-m', 'main', 'solo');
+				setConfig(repo.path, 'init.defaultBranch', 'nope');
+
+				const result = await getAheadOfBase(repo, 'solo', { preferredTarget: 'gone' });
+				assert.strictEqual(result.base, undefined);
+				assert.strictEqual(result.reason, 'none');
+				assertDependsOn(result, ['refs/heads/solo', 'refs/heads/gone']);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('applies a preferred target on a detached head', async () => {
+			const repo = createCandidateRepo();
+			try {
+				checkout(repo.path, getHeadSha(repo.path));
+
+				const result = await getAheadOfBase(repo, undefined, { preferredTarget: 'develop' });
+				assert.strictEqual(result.base?.ref, 'develop');
+				assert.strictEqual(result.base?.ahead, 3);
+				assert.strictEqual(result.base?.tier, 'preferred');
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('treats a blank preferred target as none', async () => {
+			const repo = createCandidateRepo();
+			try {
+				storeTargets(repo.path, 'feature', { user: 'develop' });
+
+				assert.strictEqual((await getAheadOfBase(repo, 'feature')).base?.tier, 'user');
+				assert.strictEqual(
+					(await getAheadOfBase(repo, 'feature', { preferredTarget: '  ' })).base?.tier,
+					'user',
+				);
+			} finally {
+				repo.cleanup();
+			}
+		});
+	});
+
 	test('rejects when the count against a resolved base fails, rather than answering no base', async () => {
 		const repo = createCandidateRepo();
 		try {
@@ -968,7 +1107,9 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 			const aborted = new AbortController();
 			aborted.abort();
 
-			await assert.rejects(getAheadOfBase(repo, 'feature', aborted.signal), ex => isCancellationError(ex));
+			await assert.rejects(getAheadOfBase(repo, 'feature', undefined, aborted.signal), ex =>
+				isCancellationError(ex),
+			);
 		} finally {
 			repo.cleanup();
 		}

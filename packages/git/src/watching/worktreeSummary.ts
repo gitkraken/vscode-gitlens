@@ -584,7 +584,7 @@ async function readSummary(
 				baseKeys = await readBaseKeys(repo, branch);
 			}
 			try {
-				const aheadOfBase = await repo.branches.getAheadOfBase?.(branch, signal);
+				const aheadOfBase = await repo.branches.getAheadOfBase?.(branch, undefined, signal);
 				base = aheadOfBase?.base;
 				dependsOn = aheadOfBase?.dependsOn ?? emptyRefs;
 			} catch (ex) {
