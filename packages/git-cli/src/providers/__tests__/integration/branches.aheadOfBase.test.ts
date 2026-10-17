@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import * as sinon from 'sinon';
 import type { AheadOfBase } from '@gitlens/git/providers/branches.js';
 import { formatDetachedHeadName } from '@gitlens/git/utils/branch.utils.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
@@ -298,6 +299,157 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				repo.cleanup();
 			}
 		});
+
+		test('measures the default branch against its own upstream: the unpushed work', async () => {
+			const { clone, cleanup } = createClone();
+			try {
+				addCommit(clone.path, 'unpushed-1.txt', 'unpushed', 'unpushed on main');
+				addCommit(clone.path, 'unpushed-2.txt', 'unpushed', 'more unpushed on main');
+
+				const result = await getAheadOfBase(clone, 'main');
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 2,
+					sha: revParse(clone.path, 'origin/main'),
+					forkPoint: mergeBase(clone.path, 'origin/main'),
+					tier: 'upstream',
+				});
+				assertDependsOn(result, ['refs/heads/main', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main']);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test("prefers an upstream remote's copy of the default branch over its own upstream", async () => {
+			const { origin, clone, cleanup } = createClone();
+			try {
+				addCommit(origin.path, 'origin-only.txt', 'origin', 'origin only');
+				git(clone.path, 'remote', 'add', 'upstream', origin.path);
+				// `origin/main` stays at the clone's commit; `upstream/main` has moved on
+				fetch(clone.path, 'upstream');
+				setRemoteHead(clone.path, 'upstream', 'main');
+				addCommit(clone.path, 'unpushed.txt', 'unpushed', 'unpushed on main');
+
+				const result = await getAheadOfBase(clone, 'main');
+				assert.strictEqual(result.base?.ref, 'upstream/main');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.sha, revParse(clone.path, 'upstream/main'));
+				assert.notStrictEqual(result.base?.sha, revParse(clone.path, 'origin/main'));
+				assert.strictEqual(result.base?.tier, 'upstream');
+				assertDependsOn(result, ['refs/remotes/upstream/HEAD', 'refs/remotes/upstream/main']);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test("answers no base on the default branch at its own upstream's commit", async () => {
+			const { clone, cleanup } = createClone();
+			try {
+				const result = await getAheadOfBase(clone, 'main');
+				assert.strictEqual(result.base, undefined);
+				assert.strictEqual(result.reason, 'self');
+				// Either moving brings the base back
+				assertDependsOn(result, ['refs/heads/main', 'refs/remotes/origin/main']);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('measures the default branch only ahead of its upstream with the count alone, its tip the fork point', async () => {
+			const { clone, cleanup } = createClone();
+			try {
+				addCommit(clone.path, 'unpushed-1.txt', 'unpushed', 'unpushed on main');
+				await getAheadOfBase(clone, 'main');
+
+				// A commit clears the cached results, as the heads watcher does
+				addCommit(clone.path, 'unpushed-2.txt', 'unpushed', 'more unpushed on main');
+				clone.provider.cache.clearCaches(clone.path, 'branch', 'branches');
+
+				const spy = sinon.spy(clone.provider.git, 'run');
+				let result: AheadOfBase;
+				try {
+					result = await getAheadOfBase(clone, 'main');
+				} finally {
+					spy.restore();
+				}
+
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 2,
+					sha: revParse(clone.path, 'origin/main'),
+					forkPoint: revParse(clone.path, 'origin/main'),
+					tier: 'upstream',
+				});
+
+				const calls = spy.getCalls().map(c => c.args.slice(1).filter(a => typeof a === 'string'));
+				assert.strictEqual(calls.filter(args => args[0] === 'merge-base').length, 0, 'spawned a merge-base');
+				assert.strictEqual(calls.filter(args => args[0] === 'rev-list').length, 1, 'expected one count');
+				const upstreamReads = calls.filter(
+					args =>
+						args[0] === 'rev-parse' &&
+						args.some(a => a.startsWith('HEAD') || a.includes('@{u}') || a.includes('origin/main')),
+				);
+				assert.deepStrictEqual(upstreamReads, [], 'read the upstream or HEAD with rev-parse');
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('measures the default branch behind its upstream from their fork point', async () => {
+			const { origin, clone, cleanup } = createClone();
+			try {
+				addCommit(origin.path, 'origin-only.txt', 'origin', 'origin only');
+				fetch(clone.path);
+				addCommit(clone.path, 'unpushed.txt', 'unpushed', 'unpushed on main');
+
+				const result = await getAheadOfBase(clone, 'main');
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 1,
+					sha: revParse(clone.path, 'origin/main'),
+					forkPoint: mergeBase(clone.path, 'origin/main'),
+					tier: 'upstream',
+				});
+				assert.notStrictEqual(result.base?.forkPoint, result.base?.sha);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('answers no base on the default branch when its upstream ref is gone', async () => {
+			const { clone, cleanup } = createClone();
+			try {
+				addCommit(clone.path, 'unpushed.txt', 'unpushed', 'unpushed on main');
+				setConfig(clone.path, 'branch.main.merge', 'refs/heads/gone');
+
+				const result = await getAheadOfBase(clone, 'main');
+				assert.strictEqual(result.base, undefined);
+				assert.strictEqual(result.reason, 'self');
+				// The fetch or push that recreates it brings the base back
+				assertDependsOn(result, ['refs/remotes/origin/gone']);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('reads the upstream of a default branch that is not checked out', async () => {
+			const { clone, cleanup } = createClone();
+			try {
+				createBranch(clone.path, 'feature', { checkout: true });
+				addCommit(clone.path, 'feature.txt', 'feature', 'feature work');
+
+				const result = await getAheadOfBase(clone, 'main');
+				assert.deepStrictEqual(result.base, {
+					ref: 'origin/main',
+					ahead: 1,
+					sha: revParse(clone.path, 'origin/main'),
+					forkPoint: revParse(clone.path, 'origin/main'),
+					tier: 'upstream',
+				});
+			} finally {
+				cleanup();
+			}
+		});
 	});
 
 	suite('base vs its tracking ref', () => {
@@ -408,6 +560,166 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 			}
 		});
 
+		test("prefers the upstream remote's symref over origin's", async () => {
+			const { origin, clone, cleanup } = createClone();
+			try {
+				createBranch(origin.path, 'develop', { checkout: true });
+				addCommit(origin.path, 'develop-only.txt', 'develop', 'develop only');
+				git(clone.path, 'remote', 'add', 'upstream', origin.path);
+				fetch(clone.path, 'upstream');
+				// `origin/HEAD` still names `main`
+				setRemoteHead(clone.path, 'upstream', 'develop');
+				createTrackingBranch(clone.path, 'develop', 'upstream/develop');
+				createBranchAt(clone.path, 'feature', 'develop', { checkout: true });
+				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.ref, 'upstream/develop');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'default');
+				assertDependsOn(result, ['refs/remotes/upstream/HEAD', 'refs/heads/develop']);
+				assert.ok(!result.dependsOn.includes('refs/remotes/origin/HEAD'), 'Only the chosen remote is read');
+			} finally {
+				cleanup();
+			}
+		});
+
+		test("falls back to origin's symref when the upstream remote has none", async () => {
+			const { origin, clone, cleanup } = createClone();
+			try {
+				createBranch(origin.path, 'develop', { checkout: true });
+				addCommit(origin.path, 'develop-only.txt', 'develop', 'develop only');
+				fetch(clone.path);
+				setRemoteHead(clone.path, 'origin', 'develop');
+				git(clone.path, 'remote', 'add', 'upstream', origin.path);
+				fetch(clone.path, 'upstream');
+				// Git before 2.48 never writes a remote's `HEAD` symref on fetch, so a remote added after the clone has none
+				git(clone.path, 'remote', 'set-head', 'upstream', '-d');
+				createBranchAt(clone.path, 'feature', 'origin/develop', { checkout: true });
+				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.ref, 'origin/develop');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'default');
+				// `upstream`'s symref appearing changes the answer
+				assertDependsOn(result, ['refs/remotes/upstream/HEAD', 'refs/remotes/origin/HEAD']);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('uses the remote ref the symref names when there is no local branch of that name', async () => {
+			const { origin, clone, cleanup } = createClone();
+			try {
+				createBranch(origin.path, 'develop', { checkout: true });
+				addCommit(origin.path, 'develop-only.txt', 'develop', 'develop only');
+				fetch(clone.path);
+				setRemoteHead(clone.path, 'origin', 'develop');
+				createBranchAt(clone.path, 'feature', 'origin/develop', { checkout: true });
+				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.ref, 'origin/develop');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'default');
+				// A local `develop` appearing changes the answer
+				assertDependsOn(result, [
+					'refs/remotes/origin/HEAD',
+					'refs/heads/develop',
+					'refs/remotes/origin/develop',
+				]);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('reads the first remote when there is neither an upstream nor an origin remote', async () => {
+			const { origin, clone, cleanup } = createClone();
+			try {
+				createBranch(origin.path, 'develop', { checkout: true });
+				addCommit(origin.path, 'develop-only.txt', 'develop', 'develop only');
+				git(clone.path, 'remote', 'rename', 'origin', 'fork');
+				fetch(clone.path, 'fork');
+				setRemoteHead(clone.path, 'fork', 'develop');
+				createBranchAt(clone.path, 'feature', 'fork/develop', { checkout: true });
+				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.ref, 'fork/develop');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'default');
+				assertDependsOn(result, ['refs/remotes/fork/HEAD']);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test("guesses origin/main without a symref, a remote's usual default name", async () => {
+			const { clone, cleanup } = createClone();
+			try {
+				git(clone.path, 'remote', 'set-head', 'origin', '-d');
+				createBranchAt(clone.path, 'feature', 'origin/main', { checkout: true });
+				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+				git(clone.path, 'branch', '-D', 'main');
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.ref, 'origin/main');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'default');
+				// The symref appearing changes the answer, as does a local `main`
+				assertDependsOn(result, ['refs/remotes/origin/HEAD', 'refs/remotes/origin/main', 'refs/heads/main']);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('guesses origin/master without a symref when origin has no main', async () => {
+			const origin = createTestRepo();
+			let clone: TestRepo | undefined;
+			try {
+				git(origin.path, 'branch', '-m', 'main', 'master');
+				clone = cloneTestRepo(origin.path);
+				git(clone.path, 'remote', 'set-head', 'origin', '-d');
+				createBranchAt(clone.path, 'feature', 'origin/master', { checkout: true });
+				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+				git(clone.path, 'branch', '-D', 'master');
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.ref, 'origin/master');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'default');
+				// `origin/main` was looked for first, so its creation can change the answer
+				assertDependsOn(result, [
+					'refs/remotes/origin/HEAD',
+					'refs/remotes/origin/main',
+					'refs/remotes/origin/master',
+				]);
+			} finally {
+				clone?.cleanup();
+				origin.cleanup();
+			}
+		});
+
+		test('takes the guessed origin/main as its local branch when there is one', async () => {
+			const { clone, cleanup } = createClone();
+			try {
+				git(clone.path, 'remote', 'set-head', 'origin', '-d');
+				// Unpushed work on `main`, so measuring against `origin/main` instead would count it too
+				addCommit(clone.path, 'main-only.txt', 'main', 'main only');
+				createBranch(clone.path, 'feature', { checkout: true });
+				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+
+				const result = await getAheadOfBase(clone, 'feature');
+				assert.strictEqual(result.base?.ref, 'main');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'default');
+				assertDependsOn(result, ['refs/remotes/origin/HEAD', 'refs/remotes/origin/main', 'refs/heads/main']);
+			} finally {
+				cleanup();
+			}
+		});
+
 		test('falls back to init.defaultBranch without a symref', async () => {
 			const repo = createTestRepo();
 			try {
@@ -420,7 +732,9 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				assert.strictEqual(result.base?.ref, 'trunk');
 				assert.strictEqual(result.base?.ahead, 1);
 				assert.strictEqual(result.base?.tier, 'default');
-				assertDependsOn(result, ['refs/remotes/origin/HEAD', 'refs/heads/trunk']);
+				assertDependsOn(result, ['refs/heads/trunk']);
+				// With no remote there is no symref to read
+				assert.ok(!result.dependsOn.some(ref => ref.startsWith('refs/remotes/') && ref.endsWith('/HEAD')));
 			} finally {
 				repo.cleanup();
 			}
@@ -496,15 +810,15 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 			}
 		});
 
-		test('answers no base on the default branch itself', async () => {
+		test('answers no base on the default branch itself when it has no upstream', async () => {
 			const repo = createTestRepo();
 			try {
 				addCommit(repo.path, 'more.txt', 'more', 'more');
 
 				const result = await getAheadOfBase(repo, 'main');
 				assert.strictEqual(result.base, undefined);
-				assert.strictEqual(result.reason, 'none');
-				assertDependsOn(result, ['refs/heads/main', 'refs/remotes/origin/HEAD']);
+				assert.strictEqual(result.reason, 'self');
+				assertDependsOn(result, ['refs/heads/main']);
 			} finally {
 				repo.cleanup();
 			}
@@ -526,7 +840,6 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 					'refs/heads/nope',
 					'refs/heads/main',
 					'refs/heads/master',
-					'refs/remotes/origin/HEAD',
 				]);
 			} finally {
 				repo.cleanup();
