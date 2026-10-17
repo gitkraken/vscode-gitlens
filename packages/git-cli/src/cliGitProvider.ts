@@ -9,16 +9,22 @@ import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import { deletedOrMissing } from '@gitlens/git/models/revision.js';
 import type { GitOperationRunOptions } from '@gitlens/git/providers/operations.js';
-import type { GitProvider, GitProviderDescriptor } from '@gitlens/git/providers/provider.js';
+import type {
+	AnnouncedRepositoryChanges,
+	GitProvider,
+	GitProviderDescriptor,
+} from '@gitlens/git/providers/provider.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { GitIgnoreFilter } from '@gitlens/git/watching/gitIgnoreFilter.js';
 import type { Event } from '@gitlens/utils/event.js';
+import { Emitter } from '@gitlens/utils/event.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { joinPaths, maybeUri, normalizePath, splitPath } from '@gitlens/utils/path.js';
 import { iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath, parseUri, toFsPath } from '@gitlens/utils/uri.js';
+import { worktreeSharedChanges } from './exec/commandClassifier.js';
 import { fsExists } from './exec/exec.js';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './exec/features.js';
 import type { GitFeatureUnsupportedMessage, GitOptions } from './exec/git.js';
@@ -122,6 +128,27 @@ export class CliGitProvider implements GitProvider {
 						hostHooks?.cache?.onReset?.(repoPath, ...types);
 					},
 				},
+				repository: {
+					...hostHooks?.repository,
+					onChanged: (repoPath, changes) => {
+						// Everything the watcher would have cleared for the write, since its own file events are
+						// dropped once it is announced (the typed write's `onReset` names only what it must evict)
+						this.resetForChanges(repoPath, changes, undefined);
+						// Worktrees share refs, tags, stash, remotes and config, so a typed write in one changes what
+						// its siblings show; the host hears the shared part of it for each, and they read fresh.
+						// Every path is reset before any is announced, so a read the host starts on hearing one path
+						// isn't evicted by the next path's reset
+						const siblings = this.getSiblingChanges(repoPath, changes);
+						for (const [path, shared] of siblings) {
+							this.resetForChanges(path, shared, undefined, true);
+						}
+
+						this.announceChanged(repoPath, changes);
+						for (const [path, shared] of siblings) {
+							this.announceChanged(path, shared);
+						}
+					},
+				},
 			},
 		};
 		this._localRepositories = options.localRepositories ?? true;
@@ -139,7 +166,9 @@ export class CliGitProvider implements GitProvider {
 
 		// Wires a raw `git.run({ notify })` call back to this provider's own cache/host announcement —
 		// unconditionally, so a host-supplied `options.git` gets bound exactly like one we construct here.
-		this._git.bindChangeNotifier((repoPaths, changes) => this.notifyChangedCore(repoPaths, changes));
+		this._git.bindChangeNotifier((repoPaths, changes, sharedPaths) =>
+			this.notifyChangedCore(repoPaths, changes, undefined, sharedPaths),
+		);
 	}
 
 	/** The underlying cache instance (for repo path registration, etc.) */
@@ -149,6 +178,11 @@ export class CliGitProvider implements GitProvider {
 
 	get onDidChangeMergeTargets(): Event<MergeTargetsChangeEvent> {
 		return this._cache.onDidChangeMergeTargets;
+	}
+
+	private readonly _onDidAnnounceChanges = new Emitter<AnnouncedRepositoryChanges>();
+	get onDidAnnounceChanges(): Event<AnnouncedRepositoryChanges> {
+		return this._onDidAnnounceChanges.event;
 	}
 
 	/** The underlying git execution instance (for sub-providers that need direct exec/stream access) */
@@ -259,19 +293,38 @@ export class CliGitProvider implements GitProvider {
 	 * for both its target and the caller's `cwd`. Each path's caches are reset and the host's `onReset` fires
 	 * for each, since a host may keep per-worktree state, but a repository's pending commands are dropped once
 	 * however many of its worktrees are named.
+	 *
+	 * Each path hears the announcement once: `repoPaths` hear all of `changes`, `sharedPaths` (reset and
+	 * `onReset`-ed like `repoPaths`) and then the other registered worktrees sharing a repository with any of
+	 * them (reset like a typed write's, with no `onReset`) hear the shared part of it, see
+	 * {@link getSiblingChanges}.
 	 */
 	private notifyChangedCore(
 		repoPaths: readonly string[],
 		changes: readonly RepositoryChange[],
 		options?: { cache?: readonly CachedGitTypes[] | 'all' },
+		sharedPaths?: readonly string[],
 	): void {
+		const announcements = new Map<string, readonly RepositoryChange[]>();
+		for (const repoPath of repoPaths) {
+			announcements.set(repoPath, [...changes]);
+		}
+		const shared = sharedPaths?.length ? this.getSharedChanges(changes) : undefined;
+		if (shared != null) {
+			for (const path of sharedPaths!) {
+				if (!announcements.has(path)) {
+					announcements.set(path, shared);
+				}
+			}
+		}
+
 		const resets: { repoPath: string; types: CachedGitTypes[] }[] = [];
 		const pendingPaths = new Set<string>();
-		for (const repoPath of repoPaths) {
-			const types = this.resetForChanges(repoPath, changes, options?.cache);
+		for (const [repoPath, announced] of announcements) {
+			const types = this.resetForChanges(repoPath, announced, options?.cache);
 			if (types == null) {
 				// A gk config change is reconciled outside the cache types, but its re-read must not join a pre-write run
-				if (options?.cache == null && changes.includes('gkConfig')) {
+				if (options?.cache == null && announced.includes('gkConfig')) {
 					for (const path of this.getRepositoryPaths(repoPath)) {
 						pendingPaths.add(path);
 					}
@@ -285,22 +338,85 @@ export class CliGitProvider implements GitProvider {
 			}
 		}
 
+		// The worktrees no one named: their shared refs, tags, stash, remotes and config just changed too
+		const named = [...announcements.keys()];
+		for (const repoPath of named) {
+			for (const [path, siblingChanges] of this.getSiblingChanges(repoPath, changes)) {
+				if (announcements.has(path)) continue;
+
+				announcements.set(path, siblingChanges);
+				this.resetForChanges(path, siblingChanges, options?.cache, true);
+			}
+		}
+
 		if (pendingPaths.size) {
 			this._git.clearPendingCommands([...pendingPaths]);
 		}
 		for (const { repoPath, types } of resets) {
 			this._hostHooks?.cache?.onReset?.(repoPath, ...types);
 		}
-		for (const repoPath of repoPaths) {
-			this.context.hooks?.repository?.onChanged?.(repoPath, [...changes]);
+		// The host's own hook: `context.hooks.repository.onChanged` also fans out to siblings, which would
+		// announce a path a second time
+		for (const [path, announced] of announcements) {
+			this.announceChanged(path, [...announced]);
 		}
 	}
 
-	/** Evicts what a notified change reset for `repoPath`: the types reset (`[]` = all), or `undefined` for none. */
+	/**
+	 * Tells only the host's own `repository.onChanged` about `changes` — for a follow-up that is not a write of
+	 * core's, such as re-announcing an outside change once it was reconciled. Nothing is evicted, no sibling hears
+	 * it, and the watch layer doesn't take it for a write's announcement.
+	 */
+	notifyHost(repoPath: string, changes: RepositoryChange[]): void {
+		this._hostHooks?.repository?.onChanged?.(repoPath, changes);
+	}
+
+	/** Tells the host about a write for one path, after its caches were reset — the watch layer hears of it first */
+	private announceChanged(repoPath: string, changes: RepositoryChange[]): void {
+		this._onDidAnnounceChanges.fire({ repoPath: repoPath, changes: changes });
+		this._hostHooks?.repository?.onChanged?.(repoPath, changes);
+	}
+
+	/**
+	 * What the worktrees sharing a repository hear of `changes` that ran in one of them: the part worktrees
+	 * share (see {@link worktreeSharedChanges}), or `undefined` when `changes` has none. An empty `changes` or
+	 * `'unknown'` means everything may have changed, so it reaches them as every shared kind — never as
+	 * `'unknown'` itself, which a host treats as the end of a watch session; `'closed'` concerns the one path
+	 * alone and reaches none.
+	 */
+	private getSharedChanges(changes: readonly RepositoryChange[]): RepositoryChange[] | undefined {
+		if (changes.includes('closed')) return undefined;
+		if (!changes.length || changes.includes('unknown')) return [...worktreeSharedChanges];
+
+		const shared = changes.filter(c => worktreeSharedChanges.has(c));
+		return shared.length ? shared : undefined;
+	}
+
+	/** What each registered worktree sharing `repoPath`'s repository, other than `repoPath`, hears of `changes`. */
+	private getSiblingChanges(repoPath: string, changes: readonly RepositoryChange[]): Map<string, RepositoryChange[]> {
+		const siblings = new Map<string, RepositoryChange[]>();
+		const shared = this.getSharedChanges(changes);
+		if (shared == null) return siblings;
+
+		const self = normalizePath(repoPath);
+		for (const path of this._cache.getWorktreePaths(this._cache.getCommonPath(repoPath))) {
+			if (path !== self) {
+				siblings.set(path, [...shared]);
+			}
+		}
+		return siblings;
+	}
+
+	/**
+	 * Evicts what a notified change reset for `repoPath`: the types reset (`[]` = all), or `undefined` for none.
+	 * A `sibling` shares its repository with a path already reset for the same change, which evicted the shared
+	 * entries for every worktree, so the changes evict only its own entries and advance its status clock.
+	 */
 	private resetForChanges(
 		repoPath: string,
 		changes: readonly RepositoryChange[],
 		cache: readonly CachedGitTypes[] | 'all' | undefined,
+		sibling: boolean = false,
 	): CachedGitTypes[] | undefined {
 		if (cache != null && cache !== 'all') {
 			if (!cache.length) return undefined;
@@ -314,7 +430,12 @@ export class CliGitProvider implements GitProvider {
 			return [];
 		}
 
-		const types = this._cache.applyRepositoryChanges(repoPath, changes, 'evict');
+		const types = this._cache.applyRepositoryChanges(
+			repoPath,
+			changes,
+			'evict',
+			sibling ? { worktreeOnly: true } : undefined,
+		);
 		return types.length ? types : undefined;
 	}
 
@@ -766,6 +887,7 @@ export class CliGitProvider implements GitProvider {
 	}
 
 	dispose(): void {
+		this._onDidAnnounceChanges.dispose();
 		this._git.dispose();
 		if (this._cacheOwned) {
 			this._cache.dispose();

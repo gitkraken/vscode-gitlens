@@ -5,6 +5,7 @@ import { Emitter } from '@gitlens/utils/event.js';
 import type { RepositoryChange } from '../models/repository.js';
 import type { RefChangeKind, WorkingTreeChangeEvent } from './changeEvent.js';
 import { findCoveringRefName, getRefChangeKind, isRefChangeKind, WatcherRepoChangeEvent } from './changeEvent.js';
+import { allWatchedRepositoryChanges } from './classifyChange.js';
 
 export interface RepositorySubscription extends UnifiedDisposable {
 	readonly onDidChange: Event<WatcherRepoChangeEvent>;
@@ -226,6 +227,13 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	private readonly pendingRepoRefs = new Set<string>();
 	/** Ref kinds that changed without a name, flushed with {@link pendingRepoChanges} */
 	private readonly pendingRepoUnnamedRefKinds = new Set<RefChangeKind>();
+	/** Kinds among {@link pendingRepoChanges} injected or pushed unfenced, which an announcement never replaces */
+	private readonly pendingRepoUnfencedChanges = new Set<RepositoryChange>();
+	/**
+	 * Kinds among {@link pendingRepoChanges} that only core's announced writes reported, with when each was announced
+	 * (see {@link noteSelfWrite})
+	 */
+	private readonly pendingRepoAnnouncedAt = new Map<RepositoryChange, number>();
 	private readonly repoClock: DebounceClock;
 	private effectiveRepoMs: number;
 	private effectiveRepoMaxWaitMs: number;
@@ -482,7 +490,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	fireChange(...changes: RepositoryChange[]): void {
 		if (this._disposed || changes.length === 0) return;
 
-		this.coalesceRepo(changes);
+		this.coalesceRepo(changes, undefined, 'unfenced');
 	}
 
 	/** Immediate fire, bypassing debounce + suspend (for Closed/Opened). Ref kinds among them are unnamed. */
@@ -504,7 +512,70 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	pushRepoChanges(changes: RepositoryChange[], ref?: string): void {
 		if (this._disposed) return;
 
-		this.coalesceRepo(changes, ref);
+		this.coalesceRepo(changes, ref, 'raw');
+	}
+
+	/**
+	 * Push watcher-observed repo changes that no write of core's can account for — an overflow's rescan, or an ignore
+	 * rule changed in the working tree — so {@link noteSelfWrite} never replaces them or takes them for its echo. Ref
+	 * kinds are unnamed.
+	 */
+	pushUnfencedRepoChanges(changes: RepositoryChange[]): void {
+		if (this._disposed) return;
+
+		this.coalesceRepo(changes, undefined, 'unfenced');
+	}
+
+	/**
+	 * Core announced one of its own writes for this repository: its caches were evicted and its host notified, both
+	 * after the write finished. The announcement becomes this session's one event for the write:
+	 *
+	 * - raw changes of an announced kind still pending are replaced by it — they happened before the announcement,
+	 *   which already covers them, whether they came from the write or from an outside change;
+	 * - the announced kinds are pushed through the debounce and suspend like {@link fireChange}, ref kinds unnamed,
+	 *   and the event carries them in `announced`;
+	 * - raw changes of an announced kind that arrive later are never dropped. One arriving within the repo debounce
+	 *   delay of the announcement, before its event fires, is taken for the write's own late echo and keeps the kind
+	 *   announced; any other report of the kind before the event fires clears the mark. Once it fires, nothing is
+	 *   special.
+	 *
+	 * The trade-off: an echo the watcher delivers after the announced event fired causes one extra, unannounced event
+	 * (a duplicate refresh), rather than risk losing an outside change of the same kind.
+	 *
+	 * Empty `changes`, or `'unknown'`, announces every kind a watcher can report (never `'unknown'` itself, which a
+	 * cache reads as a close); `'closed'` and `'opened'` are ignored. Only raw `.git` changes are replaced or kept
+	 * announced: {@link fireChange}, {@link fireChangeImmediate}, {@link pushUnfencedRepoChanges} and working-tree
+	 * changes always pass.
+	 */
+	noteSelfWrite(changes: readonly RepositoryChange[]): void {
+		if (this._disposed) return;
+
+		const all = changes.length === 0 || changes.includes('unknown');
+		const announced = all ? allWatchedRepositoryChanges : changes.filter(c => isAnnounceable(c));
+
+		for (const change of this.pendingRepoChanges) {
+			if (this.pendingRepoUnfencedChanges.has(change) || !isAnnounceable(change)) continue;
+			if (!all && !changes.includes(change)) continue;
+
+			this.pendingRepoChanges.delete(change);
+			this.pendingRepoAnnouncedAt.delete(change);
+			if (!isRefChangeKind(change)) continue;
+
+			// Announcements carry no ref names, so the replaced kind takes its named refs with it
+			this.pendingRepoUnnamedRefKinds.delete(change);
+			for (const ref of this.pendingRepoRefs) {
+				if (getRefChangeKind(ref) === change) {
+					this.pendingRepoRefs.delete(ref);
+				}
+			}
+		}
+
+		if (announced.length !== 0) {
+			this.coalesceRepo(announced, undefined, 'announced');
+		} else if (this.pendingRepoChanges.size === 0) {
+			// Nothing left to flush: idle the clock rather than let it fire an empty window
+			this.repoClock.cancel();
+		}
 	}
 
 	/** Push working tree file changes into the pipeline */
@@ -565,10 +636,12 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		if (this.pendingRepoChanges.size === 0) return;
 
 		// The event is built only here — raw events just add to the pending sets (which the event copies)
-		const event = new WatcherRepoChangeEvent(this.repoPath, [...this.pendingRepoChanges], {
-			names: this.pendingRepoRefs,
-			unnamed: this.pendingRepoUnnamedRefKinds,
-		});
+		const event = new WatcherRepoChangeEvent(
+			this.repoPath,
+			[...this.pendingRepoChanges],
+			{ names: this.pendingRepoRefs, unnamed: this.pendingRepoUnnamedRefKinds },
+			this.pendingRepoAnnouncedAt.keys(),
+		);
 		this.clearPendingRepoChanges();
 		// Advance any cache clock BEFORE notifying subscribers (same rationale as `flushWorkingTree`): a subscriber
 		// that synchronously reads status must see the post-change generation, not a joinable pre-change run.
@@ -576,11 +649,34 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.repoEmitter.fire(event);
 	}
 
-	private coalesceRepo(changes: RepositoryChange[], ref?: string): void {
+	/**
+	 * `origin` is a raw `.git` event, a push no announcement replaces ({@link fireChange},
+	 * {@link pushUnfencedRepoChanges}), or core's announced write. A kind stays announced only while nothing else
+	 * reports it in the pending window, save the write's own late echo (see {@link noteSelfWrite}).
+	 */
+	private coalesceRepo(
+		changes: readonly RepositoryChange[],
+		ref: string | undefined,
+		origin: 'raw' | 'unfenced' | 'announced',
+	): void {
 		if (changes.length === 0) return;
 
+		const now = performance.now();
 		const refKind = ref != null ? getRefChangeKind(ref) : undefined;
 		for (const change of changes) {
+			if (origin === 'announced') {
+				if (!this.pendingRepoChanges.has(change)) {
+					this.pendingRepoAnnouncedAt.set(change, now);
+				}
+			} else {
+				const announcedAt = origin === 'raw' ? this.pendingRepoAnnouncedAt.get(change) : undefined;
+				if (announcedAt == null || now - announcedAt > this.effectiveRepoMs) {
+					this.pendingRepoAnnouncedAt.delete(change);
+				}
+				if (origin === 'unfenced') {
+					this.pendingRepoUnfencedChanges.add(change);
+				}
+			}
 			this.pendingRepoChanges.add(change);
 			if (!isRefChangeKind(change)) continue;
 
@@ -601,6 +697,8 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.pendingRepoChanges.clear();
 		this.pendingRepoRefs.clear();
 		this.pendingRepoUnnamedRefKinds.clear();
+		this.pendingRepoUnfencedChanges.clear();
+		this.pendingRepoAnnouncedAt.clear();
 	}
 
 	private flushWorkingTree(): void {
@@ -632,6 +730,11 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 			this.workingTreeClock.note();
 		}
 	}
+}
+
+/** `'closed'` and `'opened'` are lifecycle, not a write's effect, so an announcement never replaces or names them */
+function isAnnounceable(change: RepositoryChange): boolean {
+	return change !== 'closed' && change !== 'opened';
 }
 
 /** Wraps a session's repo event so each delivery is narrowed to the subscriber's relevant refs (see `subscribe`) */
@@ -715,8 +818,10 @@ function narrowToRelevantRefs(
 	}
 	if (keptChanges.length === 0) return undefined;
 
-	return new WatcherRepoChangeEvent(e.repoPath, keptChanges, {
-		names: keptNames,
-		unnamed: e.unnamedRefKinds,
-	});
+	return new WatcherRepoChangeEvent(
+		e.repoPath,
+		keptChanges,
+		{ names: keptNames, unnamed: e.unnamedRefKinds },
+		e.announced,
+	);
 }

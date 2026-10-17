@@ -1345,4 +1345,91 @@ describe('RepositoryWatchService', () => {
 			});
 		});
 	});
+
+	describe('noteSelfWrite', () => {
+		function watchRepo(): {
+			service: RepositoryWatchService;
+			watchers: MockWatcher[];
+			received: WatcherRepoChangeEvent[];
+			dispose: () => void;
+		} {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory, defaultRepoDelayMs: 20 });
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const sub = handle.session.subscribe();
+			const received: WatcherRepoChangeEvent[] = [];
+			sub.onDidChange(e => received.push(e));
+			return {
+				service: service,
+				watchers: watchers,
+				received: received,
+				dispose: () => {
+					sub.dispose();
+					handle.dispose();
+					service.dispose();
+				},
+			};
+		}
+
+		it('routes to the session watching the path, however the path is spelled', async () => {
+			const { service, watchers, received, dispose } = watchRepo();
+			const gitDirWatcher = watchers.find(w => w.basePath === '/repo/.git')!;
+
+			gitDirWatcher.fire({ path: '/repo/.git/index', reason: 'change' });
+			service.noteSelfWrite('/repo/', ['index']);
+			gitDirWatcher.fire({ path: '/repo/.git/index', reason: 'change' });
+			await delay(60);
+
+			assert.strictEqual(received.length, 1, 'the announcement fires once in place of the echo');
+			assert.deepStrictEqual([...received[0].changes], ['index']);
+			assert.deepStrictEqual([...received[0].announced], ['index']);
+			dispose();
+		});
+
+		it('reports a .git change of an announced kind after the announcement fired, unannounced', async () => {
+			const { service, watchers, received, dispose } = watchRepo();
+
+			service.noteSelfWrite('/repo', ['remotes']);
+			await delay(60);
+			watchers
+				.find(w => w.basePath === '/repo/.git')!
+				.fire({ path: '/repo/.git/refs/remotes/origin/main', reason: 'change' });
+			await delay(60);
+
+			assert.strictEqual(received.length, 2);
+			assert.deepStrictEqual([...received[0].announced], ['remotes']);
+			assert.deepStrictEqual([...received[1].changes], ['remotes']);
+			assert.deepStrictEqual([...received[1].announced], []);
+			assert.ok(received[1].mayHaveChangedRef('refs/remotes/origin/main'));
+			dispose();
+		});
+
+		it('is a no-op for a path no session watches', async () => {
+			const { service, watchers, received, dispose } = watchRepo();
+
+			service.noteSelfWrite('/other', []);
+			watchers.find(w => w.basePath === '/repo/.git')!.fire({ path: '/repo/.git/index', reason: 'change' });
+			await delay(60);
+
+			assert.strictEqual(received.length, 1);
+			assert.deepStrictEqual([...received[0].changes], ['index']);
+			assert.deepStrictEqual([...received[0].announced], []);
+			dispose();
+		});
+
+		it('never holds back an overflow rescan', async () => {
+			const { service, watchers, received, dispose } = watchRepo();
+
+			service.noteSelfWrite('/repo', []);
+			watchers.find(w => w.basePath === '/repo/.git')!.fire({ path: '/repo/.git', reason: 'overflow' });
+			await delay(60);
+
+			assert.strictEqual(received.length, 1);
+			assert.ok(received[0].changes.has('heads'));
+			assert.ok(received[0].changes.has('index'));
+			assert.deepStrictEqual([...received[0].announced], [], 'the rescan reports every kind itself');
+			dispose();
+		});
+	});
 });

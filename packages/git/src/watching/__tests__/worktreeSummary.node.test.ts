@@ -629,6 +629,21 @@ describe('WorktreeSummaryService', () => {
 			assert.deepStrictEqual(await readsAfter(h, () => h.push(['unknown'])), all);
 		});
 
+		it("re-reads for core's own announced write, which raises no raw events", async () => {
+			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			assert.deepStrictEqual(
+				await readsAfter(h, () => h.watchService.noteSelfWrite(repoPath, ['head', 'heads', 'index'])),
+				all,
+			);
+			assert.deepStrictEqual(
+				await readsAfter(h, () => h.watchService.noteSelfWrite(repoPath, ['index'])),
+				onlyDirty,
+			);
+		});
+
 		it('also reads base and dirty when a branch read finds a different branch', async () => {
 			const h = createHarness();
 			const sub = h.service.subscribe(repoPath);

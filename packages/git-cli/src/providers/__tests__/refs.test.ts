@@ -621,7 +621,7 @@ suite('RefsGitSubProvider Test Suite', () => {
 
 				sinon.assert.calledWith(onReset, repoPath, 'branches', 'config');
 				sinon.assert.calledOnce(onReset);
-				sinon.assert.calledWith(onChanged, repoPath, ['heads']);
+				sinon.assert.calledWith(onChanged, repoPath, ['config', 'heads']);
 			});
 
 			test('a refused mutation announces nothing', async () => {

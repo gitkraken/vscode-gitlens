@@ -632,13 +632,22 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		}
 
 		if (branch != null) {
-			// What `git branch -d` removes itself (the upstream and other per-branch settings), then GitLens's own
-			await this.git.run({ cwd: repoPath, errors: 'ignore' }, 'config', '--remove-section', `branch.${branch}`);
-			await this.provider.branches.forgetDeletedBranch(repoPath, branch);
-			// A single combined reset/announce rather than this plus `fireReferenceChanged`'s own
-			// `'branches'`/`['heads']` — a branch delete only needs one of each.
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'config');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['heads']);
+			try {
+				// What `git branch -d` removes itself (the upstream and other per-branch settings), then GitLens's own
+				await this.git.run(
+					{ cwd: repoPath, errors: 'ignore' },
+					'config',
+					'--remove-section',
+					`branch.${branch}`,
+				);
+				await this.provider.branches.forgetDeletedBranch(repoPath, branch);
+			} finally {
+				// The ref is already gone, so announce even if the cleanup above fails. A single combined
+				// reset/announce rather than this plus `fireReferenceChanged`'s own `'branches'`/`['heads']` —
+				// a branch delete only needs one of each.
+				this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'config');
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'heads']);
+			}
 			return;
 		}
 
