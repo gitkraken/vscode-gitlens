@@ -109,9 +109,9 @@ class FakeRepository {
 
 	readonly service: RepositoryService;
 
-	constructor() {
+	constructor(path: string = repoPath, gitDir: GitDir = { uri: fileUri(`${repoPath}/.git`) }) {
 		this.service = {
-			path: key,
+			path: getRepositoryKey(path),
 			branches: {
 				getBranch: async (_name?: string, _options?: unknown, signal?: AbortSignal) => {
 					await this.enter('branch', signal);
@@ -164,7 +164,7 @@ class FakeRepository {
 				},
 			},
 			config: {
-				getGitDir: (): Promise<GitDir> => Promise.resolve({ uri: fileUri(`${repoPath}/.git`) }),
+				getGitDir: (): Promise<GitDir> => Promise.resolve(gitDir),
 				getGkConfig: async (key: string) => {
 					this.baseKeyReads++;
 					return key === 'branch.main.gk-merge-base' ? this.state.recordedBase : undefined;
@@ -200,6 +200,8 @@ class FakeRepository {
 
 interface Harness {
 	readonly repo: FakeRepository;
+	/** Adds a linked worktree of the same repository at `path`, sharing its common git directory */
+	addWorktree(path: string): FakeRepository;
 	readonly watchService: RepositoryWatchService;
 	readonly service: WorktreeSummaryService;
 	session(): RepositoryWatchSession;
@@ -211,6 +213,7 @@ let harnesses: Harness[] = [];
 
 function createHarness(options?: { defaultWorkingTreeDelayMs?: number }): Harness {
 	const repo = new FakeRepository();
+	const repos = new Map<string, FakeRepository>([[key, repo]]);
 	const watchService = new RepositoryWatchService({
 		watchingProvider: createMockFactory(),
 		defaultRepoDelayMs: 10,
@@ -218,7 +221,7 @@ function createHarness(options?: { defaultWorkingTreeDelayMs?: number }): Harnes
 	});
 	const service = new WorktreeSummaryService({
 		watchService: watchService,
-		getRepository: path => (getRepositoryKey(path) === key ? repo.service : undefined),
+		getRepository: path => repos.get(getRepositoryKey(path))?.service,
 	});
 
 	const session = (): RepositoryWatchSession => {
@@ -229,6 +232,14 @@ function createHarness(options?: { defaultWorkingTreeDelayMs?: number }): Harnes
 
 	const harness: Harness = {
 		repo: repo,
+		addWorktree: path => {
+			const worktree = new FakeRepository(path, {
+				uri: fileUri(`${repoPath}/.git/worktrees/${path.slice(path.lastIndexOf('/') + 1)}`),
+				commonUri: fileUri(`${repoPath}/.git`),
+			});
+			repos.set(getRepositoryKey(path), worktree);
+			return worktree;
+		},
 		watchService: watchService,
 		service: service,
 		session: session,
@@ -965,6 +976,27 @@ describe('WorktreeSummaryService', () => {
 
 			assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
 			assert.strictEqual(fired.length, 1);
+		});
+	});
+
+	describe('remote HEAD symref', () => {
+		it('reads the base again once the symref is written', async () => {
+			const h = createHarness();
+			const remoteHead = 'refs/remotes/origin/HEAD';
+			h.repo.state.baseDependsOn = ['refs/heads/develop', remoteHead];
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			// What a fetch or `git remote set-head -a` writing the symref looks like to the watcher
+			h.repo.state.base = { ref: 'origin/main', ahead: 4, sha: 'eee111', forkPoint: 'fff222', tier: 'default' };
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['remotes'], remoteHead)), onlyBase);
+			assert.deepStrictEqual((await h.service.getSummary(repoPath)).base, {
+				ref: 'origin/main',
+				ahead: 4,
+				sha: 'eee111',
+				forkPoint: 'fff222',
+				tier: 'default',
+			});
 		});
 	});
 

@@ -9,11 +9,13 @@ import { CommitError, FetchError, MergeError, PullError, PushError, SigningError
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import type { TestRepo } from './helpers.js';
 import {
 	addCommit,
 	checkout,
 	cloneTestRepo,
 	createBranch,
+	createBranchAt,
 	createTestRepo,
 	createTrackingBranch,
 	createWorktree,
@@ -779,6 +781,313 @@ suite('OperationsGitSubProvider.fetch — explicit refspecs', () => {
 			bare?.cleanup();
 			source.cleanup();
 		}
+	});
+});
+
+suite('OperationsGitSubProvider.fetch — remote HEAD symref', () => {
+	let origin: TestRepo;
+	let clone: TestRepo;
+
+	function readRemoteHead(repoPath: string): string | undefined {
+		try {
+			return execFileSync('git', ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], {
+				cwd: repoPath,
+				encoding: 'utf-8',
+				stdio: 'pipe',
+			}).trim();
+		} catch {
+			return undefined;
+		}
+	}
+
+	function deleteRemoteHead(repoPath: string): void {
+		execFileSync('git', ['remote', 'set-head', 'origin', '-d'], { cwd: repoPath, stdio: 'pipe' });
+	}
+
+	/** Takes the git < 2.48 path, and keeps the installed git's own fetch from creating the symref */
+	function simulateOldGit(repo: TestRepo): void {
+		execFileSync('git', ['config', 'remote.origin.followRemoteHEAD', 'never'], { cwd: repo.path, stdio: 'pipe' });
+		// A user's global `fetch.all` would turn every bare fetch into a fetch of all remotes
+		execFileSync('git', ['config', 'fetch.all', 'false'], { cwd: repo.path, stdio: 'pipe' });
+		const git = repo.provider.git;
+		const supports = git.supports;
+		git.supports = feature => (feature === 'git:fetch:follow-remote-head' ? false : supports.call(git, feature));
+	}
+
+	/** The `setRemoteHeadIfMissing` calls the fetch started, once they settle; the fetch doesn't await them */
+	async function settledSetHeads(spy: sinon.SinonSpy, count: number): Promise<void> {
+		const deadline = Date.now() + 5000;
+		while (spy.callCount < count && Date.now() < deadline) {
+			await new Promise(resolve => setTimeout(resolve, 10));
+		}
+		await Promise.allSettled(spy.returnValues);
+	}
+
+	function setHeadRuns(spy: sinon.SinonSpy): number {
+		return spy.getCalls().filter(c => c.args.includes('set-head')).length;
+	}
+
+	setup(() => {
+		origin = createTestRepo();
+		createBranch(origin.path, 'develop', { checkout: true });
+		addCommit(origin.path, 'develop-only.txt', 'develop', 'develop only');
+		// The clone's `origin/HEAD`, and what `remote set-head -a` reads back
+		clone = cloneTestRepo(origin.path);
+		deleteRemoteHead(clone.path);
+	});
+
+	teardown(() => {
+		sinon.restore();
+		clone.cleanup();
+		origin.cleanup();
+	});
+
+	test('git 2.48+: the fetch writes the missing symref itself; core runs no set-head', async function () {
+		if (!(await clone.provider.git.supports('git:fetch:follow-remote-head'))) {
+			this.skip();
+		}
+
+		const runs = sinon.spy(clone.provider.git, 'run');
+		const setHeads = sinon.spy(clone.provider.branches, 'setRemoteHeadIfMissing');
+
+		await clone.provider.ops.fetch(clone.path, { remote: 'origin' });
+		await new Promise(resolve => setTimeout(resolve, 100));
+
+		assert.strictEqual(readRemoteHead(clone.path), 'origin/develop');
+		assert.strictEqual(setHeads.callCount, 0);
+		assert.strictEqual(setHeadRuns(runs), 0);
+	});
+
+	test('git < 2.48: writes the missing symref after a fetch, so the base reads it', async () => {
+		simulateOldGit(clone);
+		createBranchAt(clone.path, 'feature', 'origin/develop', { checkout: true });
+		addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
+
+		const before = await clone.provider.branches.getAheadOfBase(clone.path, 'feature');
+		// Without the symref the base is a guess at the remote's usual default
+		assert.strictEqual(before.base?.ref, 'origin/main');
+
+		const runs = sinon.spy(clone.provider.git, 'run');
+		const setHeads = sinon.spy(clone.provider.branches, 'setRemoteHeadIfMissing');
+
+		await clone.provider.ops.fetch(clone.path, { remote: 'origin' });
+		await settledSetHeads(setHeads, 1);
+
+		assert.strictEqual(readRemoteHead(clone.path), 'origin/develop');
+		assert.strictEqual(setHeadRuns(runs), 1);
+
+		const after = await clone.provider.branches.getAheadOfBase(clone.path, 'feature');
+		assert.strictEqual(after.base?.ref, 'origin/develop');
+		assert.strictEqual(after.base?.ahead, 1);
+		assert.strictEqual(after.base?.tier, 'default');
+	});
+
+	test('git < 2.48: runs set-head once per remote, not on every fetch', async () => {
+		simulateOldGit(clone);
+		const runs = sinon.spy(clone.provider.git, 'run');
+		const setHeads = sinon.spy(clone.provider.branches, 'setRemoteHeadIfMissing');
+
+		await clone.provider.ops.fetch(clone.path, { remote: 'origin' });
+		await settledSetHeads(setHeads, 1);
+		assert.strictEqual(setHeadRuns(runs), 1);
+
+		deleteRemoteHead(clone.path);
+		await clone.provider.ops.fetch(clone.path, { all: true });
+		await clone.provider.ops.fetch(clone.path);
+		await new Promise(resolve => setTimeout(resolve, 100));
+
+		assert.strictEqual(setHeads.callCount, 1);
+		assert.strictEqual(setHeadRuns(runs), 1);
+		assert.strictEqual(readRemoteHead(clone.path), undefined);
+	});
+
+	test('git < 2.48: runs no set-head when the symref exists', async () => {
+		simulateOldGit(clone);
+		execFileSync('git', ['remote', 'set-head', 'origin', 'main'], { cwd: clone.path, stdio: 'pipe' });
+		const runs = sinon.spy(clone.provider.git, 'run');
+		const setHeads = sinon.spy(clone.provider.branches, 'setRemoteHeadIfMissing');
+
+		await clone.provider.ops.fetch(clone.path, { remote: 'origin' });
+		await settledSetHeads(setHeads, 1);
+
+		assert.strictEqual(setHeadRuns(runs), 0);
+		assert.strictEqual(readRemoteHead(clone.path), 'origin/main');
+	});
+
+	test("git < 2.48: a pull writes the symref of the branch's remote", async () => {
+		simulateOldGit(clone);
+		const setHeads = sinon.spy(clone.provider.branches, 'setRemoteHeadIfMissing');
+
+		await clone.provider.ops.pull(clone.path);
+		await settledSetHeads(setHeads, 1);
+
+		assert.deepStrictEqual(
+			setHeads.getCalls().map(c => c.args[1]),
+			['origin'],
+		);
+		assert.strictEqual(readRemoteHead(clone.path), 'origin/develop');
+	});
+
+	/** Adds a remote that points at the origin repo, with `config` set on the clone */
+	function addSecondRemote(name: string, config: Record<string, string> = {}): void {
+		execFileSync('git', ['remote', 'add', name, origin.path], { cwd: clone.path, stdio: 'pipe' });
+		execFileSync('git', ['config', `remote.${name}.followRemoteHEAD`, 'never'], { cwd: clone.path, stdio: 'pipe' });
+		for (const [key, value] of Object.entries(config)) {
+			execFileSync('git', ['config', key, value], { cwd: clone.path, stdio: 'pipe' });
+		}
+	}
+
+	function setHeadRemotes(spy: sinon.SinonSpy): string[] {
+		return spy
+			.getCalls()
+			.map(c => c.args[1] as string)
+			.sort();
+	}
+
+	test('git < 2.48: fetch --all skips a remote marked skipFetchAll', async () => {
+		simulateOldGit(clone);
+		addSecondRemote('skipped', { 'remote.skipped.skipFetchAll': 'true' });
+		const setHeads = sinon.spy(clone.provider.branches, 'setRemoteHeadIfMissing');
+
+		await clone.provider.ops.fetch(clone.path, { all: true });
+		await settledSetHeads(setHeads, 1);
+		await new Promise(resolve => setTimeout(resolve, 100));
+
+		assert.deepStrictEqual(setHeadRemotes(setHeads), ['origin']);
+	});
+
+	test("git < 2.48: a bare fetch uses the branch's remote, even when its name contains a slash", async () => {
+		simulateOldGit(clone);
+		addSecondRemote('team/fork');
+		execFileSync('git', ['fetch', 'team/fork'], { cwd: clone.path, stdio: 'pipe' });
+		execFileSync('git', ['config', 'branch.main.remote', 'team/fork'], { cwd: clone.path, stdio: 'pipe' });
+		execFileSync('git', ['config', 'branch.main.merge', 'refs/heads/main'], { cwd: clone.path, stdio: 'pipe' });
+		execFileSync('git', ['checkout', '-B', 'main'], { cwd: clone.path, stdio: 'pipe' });
+		const setHeads = sinon.spy(clone.provider.branches, 'setRemoteHeadIfMissing');
+
+		await clone.provider.ops.fetch(clone.path);
+		await settledSetHeads(setHeads, 1);
+		await new Promise(resolve => setTimeout(resolve, 100));
+
+		assert.deepStrictEqual(setHeadRemotes(setHeads), ['team/fork']);
+	});
+
+	test('git < 2.48: a bare fetch with fetch.all handles every remote but skipFetchAll ones', async () => {
+		simulateOldGit(clone);
+		addSecondRemote('other');
+		addSecondRemote('skipped', { 'remote.skipped.skipFetchAll': 'true' });
+		execFileSync('git', ['config', 'fetch.all', 'true'], { cwd: clone.path, stdio: 'pipe' });
+		const setHeads = sinon.spy(clone.provider.branches, 'setRemoteHeadIfMissing');
+
+		await clone.provider.ops.fetch(clone.path);
+		await settledSetHeads(setHeads, 2);
+		await new Promise(resolve => setTimeout(resolve, 100));
+
+		assert.deepStrictEqual(setHeadRemotes(setHeads), ['origin', 'other']);
+	});
+
+	test('git < 2.48: a bare fetch of the only remote handles it even when it is not origin', async () => {
+		simulateOldGit(clone);
+		execFileSync('git', ['remote', 'rename', 'origin', 'upstream'], { cwd: clone.path, stdio: 'pipe' });
+		execFileSync('git', ['config', 'remote.upstream.followRemoteHEAD', 'never'], {
+			cwd: clone.path,
+			stdio: 'pipe',
+		});
+		const current = execFileSync('git', ['branch', '--show-current'], {
+			cwd: clone.path,
+			encoding: 'utf-8',
+		}).trim();
+		execFileSync('git', ['config', '--remove-section', `branch.${current}`], { cwd: clone.path, stdio: 'pipe' });
+		const setHeads = sinon.spy(clone.provider.branches, 'setRemoteHeadIfMissing');
+
+		await clone.provider.ops.fetch(clone.path);
+		await settledSetHeads(setHeads, 1);
+
+		assert.deepStrictEqual(setHeadRemotes(setHeads), ['upstream']);
+	});
+
+	test('git < 2.48: a bare fetch of a branch whose remote is the local repository runs no set-head', async () => {
+		simulateOldGit(clone);
+		const current = execFileSync('git', ['branch', '--show-current'], {
+			cwd: clone.path,
+			encoding: 'utf-8',
+		}).trim();
+		execFileSync('git', ['config', `branch.${current}.remote`, '.'], { cwd: clone.path, stdio: 'pipe' });
+		execFileSync('git', ['config', `branch.${current}.merge`, `refs/heads/${current}`], {
+			cwd: clone.path,
+			stdio: 'pipe',
+		});
+		const setHeads = sinon.spy(clone.provider.branches, 'setRemoteHeadIfMissing');
+
+		await clone.provider.ops.fetch(clone.path);
+		await new Promise(resolve => setTimeout(resolve, 100));
+
+		assert.strictEqual(setHeads.callCount, 0);
+	});
+
+	test('git < 2.48: a bare fetch ignores fetch.all when git has no fetch.all config', async () => {
+		simulateOldGit(clone);
+		addSecondRemote('other');
+		execFileSync('git', ['config', 'fetch.all', 'true'], { cwd: clone.path, stdio: 'pipe' });
+		const git = clone.provider.git;
+		const supports = git.supports;
+		git.supports = feature => (feature === 'git:fetch:all-config' ? false : supports.call(git, feature));
+		const setHeads = sinon.spy(clone.provider.branches, 'setRemoteHeadIfMissing');
+
+		await clone.provider.ops.fetch(clone.path);
+		await settledSetHeads(setHeads, 1);
+		await new Promise(resolve => setTimeout(resolve, 100));
+
+		assert.deepStrictEqual(setHeadRemotes(setHeads), ['origin']);
+	});
+
+	test('git < 2.48: a pull in a worktree honors fetch.all', async function () {
+		if (!(await clone.provider.git.supports('git:fetch:all-config'))) {
+			this.skip();
+		}
+
+		simulateOldGit(clone);
+		addSecondRemote('other');
+		execFileSync('git', ['config', 'fetch.all', 'true'], { cwd: clone.path, stdio: 'pipe' });
+		execFileSync('git', ['branch', 'wt', 'origin/develop'], { cwd: clone.path, stdio: 'pipe' });
+		execFileSync('git', ['config', 'branch.wt.remote', 'origin'], { cwd: clone.path, stdio: 'pipe' });
+		execFileSync('git', ['config', 'branch.wt.merge', 'refs/heads/develop'], { cwd: clone.path, stdio: 'pipe' });
+		const wtPath = `${clone.path}-wt`;
+		execFileSync('git', ['worktree', 'add', wtPath, 'wt'], { cwd: clone.path, stdio: 'pipe' });
+		try {
+			const setHeads = sinon.spy(clone.provider.branches, 'setRemoteHeadIfMissing');
+
+			await clone.provider.ops.pull(clone.path, {
+				branch: createReference('wt', clone.path, {
+					refType: 'branch',
+					name: 'wt',
+					remote: false,
+					upstream: { name: 'origin/develop', missing: false },
+				}),
+			});
+			await settledSetHeads(setHeads, 2);
+			await new Promise(resolve => setTimeout(resolve, 100));
+
+			assert.deepStrictEqual(setHeadRemotes(setHeads), ['origin', 'other']);
+			// Run for the worktree the pull ran in, not the path it was asked for
+			assert.ok(setHeads.getCalls().every(c => c.args[0] !== clone.path));
+		} finally {
+			execFileSync('git', ['worktree', 'remove', '--force', wtPath], { cwd: clone.path, stdio: 'pipe' });
+		}
+	});
+
+	test('git < 2.48: a fetch of explicit refspecs writes no symref', async () => {
+		simulateOldGit(clone);
+		const setHeads = sinon.spy(clone.provider.branches, 'setRemoteHeadIfMissing');
+
+		await clone.provider.ops.fetch(clone.path, {
+			remote: 'origin',
+			refspecs: ['+refs/heads/develop:refs/remotes/origin/develop'],
+		});
+		await new Promise(resolve => setTimeout(resolve, 100));
+
+		assert.strictEqual(setHeads.callCount, 0);
+		assert.strictEqual(readRemoteHead(clone.path), undefined);
 	});
 });
 

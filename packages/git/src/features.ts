@@ -3,6 +3,8 @@ export type GitFeatures =
 	| 'git:checkout:pathspec-from-file'
 	| 'git:commit-graph'
 	| 'git:commit-graph:changed-paths'
+	| 'git:fetch:all-config'
+	| 'git:fetch:follow-remote-head'
 	| 'git:fetch:no-write-fetch-head'
 	| 'git:for-each-ref:ahead-behind'
 	| 'git:for-each-ref:worktreePath'
@@ -54,6 +56,11 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	// Changed-path Bloom filters (`--changed-paths`), the v2 filter format — pre-2.31 shipped Bloom filters
 	// with real correctness bugs (bad results for merge commits), so 2.31 is the safe floor to write them.
 	['git:commit-graph:changed-paths', '2.31'],
+	// A bare `fetch` reads every remote when `fetch.all` is set
+	['git:fetch:all-config', '2.44'],
+	// A fetch using a remote's configured refspecs creates its missing `refs/remotes/<remote>/HEAD`
+	// (`remote.<name>.followRemoteHEAD`, default `create`)
+	['git:fetch:follow-remote-head', '2.48'],
 	['git:fetch:no-write-fetch-head', '2.29'],
 	// `%(ahead-behind:<commit>)` in for-each-ref formats
 	['git:for-each-ref:ahead-behind', '2.41'],

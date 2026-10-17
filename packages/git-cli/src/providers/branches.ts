@@ -13,7 +13,7 @@ import type {
 	GitBranchesSubProvider,
 	GitBranchMergedStatus,
 } from '@gitlens/git/providers/branches.js';
-import type { GitCommandPriority } from '@gitlens/git/run.types.js';
+import type { GitCommandPriority, GitRunOptions } from '@gitlens/git/run.types.js';
 import {
 	formatDetachedHeadName,
 	getLocalBranchByUpstream,
@@ -60,6 +60,22 @@ import { parseMergeTreeConflict } from '../parsers/mergeTreeParser.js';
 
 /** Minimum time between writes to the config for last accessed/modified dates */
 const dateMetadataStaleThresholdMs = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Run options that keep an unrequested remote read from prompting for credentials or hanging on a dead host.
+ * An empty `GIT_ASKPASS` also stops git consulting `core.askPass` and `SSH_ASKPASS` itself.
+ */
+const nonInteractiveNetworkOptions = {
+	configs: ['-c', 'credential.interactive=false'],
+	env: {
+		GIT_TERMINAL_PROMPT: '0',
+		GIT_ASKPASS: '',
+		SSH_ASKPASS: '',
+		SSH_ASKPASS_REQUIRE: 'never',
+		GCM_INTERACTIVE: 'never',
+	},
+	timeout: 10_000,
+} as const satisfies GitRunOptions;
 
 const branchActivityKeys = ['gk-last-accessed', 'gk-last-modified', 'gk-agent-last-activity'] as const;
 type BranchActivityKey = (typeof branchActivityKeys)[number];
@@ -903,6 +919,28 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			},
 			cancellation,
 		);
+	}
+
+	/**
+	 * Writes the missing `refs/remotes/<remote>/HEAD` symref from the remote (`remote set-head -a`) in the background,
+	 * never prompting for credentials; nothing runs past the cached local check when the symref exists. Rejects when
+	 * the remote can't be read.
+	 */
+	@debug()
+	async setRemoteHeadIfMissing(repoPath: string, remote: string): Promise<void> {
+		if ((await this.getDefaultBranchName(repoPath, remote, { priority: 'background', local: true })) != null) {
+			return;
+		}
+
+		await this.git.run(
+			{ cwd: repoPath, priority: 'background', ...nonInteractiveNetworkOptions },
+			'remote',
+			'set-head',
+			'-a',
+			remote,
+		);
+		// The `local` lookup above cached the miss; a host without a ref watcher would otherwise keep it
+		this.cache.deleteDefaultBranchName(repoPath, `${remote}:local`);
 	}
 
 	@debug()
@@ -1789,6 +1827,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		if (target == null) {
 			const defaultBranch = await this.getLocalDefaultBranchName(repoPath, dependsOn, cancellation);
+			if (defaultBranch === branch) {
+				return this.measureAheadOfSelfUpstream(repoPath, branch, dependsOn, cancellation);
+			}
+
 			target = await this.getNearestForkTarget(repoPath, branch, defaultBranch, dependsOn, cancellation);
 		}
 
@@ -1818,31 +1860,27 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			return { base: undefined, reason: 'self', dependsOn: [...dependsOn] };
 		}
 
-		// `...` counts from the merge base, so only the branch's own commits count, not what the base moved on with
-		const range = createRevisionRange(target.ref, 'HEAD', '...');
+		return this.measureAheadOfBase(repoPath, target, tier, dependsOn, cancellation);
+	}
+
+	/** Counts HEAD's commits past `target` for {@link getAheadOfBase} */
+	private async measureAheadOfBase(
+		repoPath: string,
+		target: { ref: string; forkPoint: string | undefined },
+		tier: AheadOfBaseTier,
+		dependsOn: Set<string>,
+		cancellation: AbortSignal | undefined,
+	): Promise<AheadOfBase> {
 		const [countsResult, refsResult] = await Promise.allSettled([
-			this.provider.commits.getLeftRightCommitCount(repoPath, range, undefined, cancellation),
+			this.countAgainstBase(repoPath, target.ref, cancellation),
 			// The same cached `for-each-ref` the branch list reads, so the tip usually costs nothing
 			this.provider.refs.getRefs(repoPath, cancellation),
 		]);
 		if (cancellation?.aborted) throw new CancellationError();
+		if (countsResult.status === 'rejected') throw countsResult.reason;
 
-		let counts = getSettledValue(countsResult);
-		if (counts == null) {
-			// The cached count keeps a failure, so re-run it uncached. Before HEAD's first commit there is nothing to
-			// count, so no base; any other failure rejects with git's error
-			try {
-				counts = await this.getLeftRightCountUncached(repoPath, range, cancellation);
-			} catch (ex) {
-				if (isCancellationError(ex)) throw ex;
-
-				if (await this.isUnbornHead(repoPath, cancellation)) {
-					return { base: undefined, reason: 'unborn', dependsOn: [...dependsOn] };
-				}
-
-				throw ex;
-			}
-		}
+		const counts = countsResult.value;
+		if (counts == null) return { base: undefined, reason: 'unborn', dependsOn: [...dependsOn] };
 
 		return {
 			base: {
@@ -1854,6 +1892,67 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			},
 			dependsOn: [...dependsOn],
 		};
+	}
+
+	/** Counts the default branch's own commits past its upstream (see {@link getSelfUpstreamTarget}) for {@link getAheadOfBase} */
+	private async measureAheadOfSelfUpstream(
+		repoPath: string,
+		branch: string,
+		dependsOn: Set<string>,
+		cancellation: AbortSignal | undefined,
+	): Promise<AheadOfBase> {
+		const upstream = await this.getSelfUpstreamTarget(repoPath, branch, dependsOn, cancellation);
+		if (cancellation?.aborted) throw new CancellationError();
+		if (upstream == null) return { base: undefined, reason: 'self', dependsOn: [...dependsOn] };
+
+		const counts = await this.countAgainstBase(repoPath, upstream.ref, cancellation);
+		if (counts == null) return { base: undefined, reason: 'unborn', dependsOn: [...dependsOn] };
+		// Only the same commit leaves neither side a commit the other lacks
+		if (counts.left === 0 && counts.right === 0) {
+			return { base: undefined, reason: 'self', dependsOn: [...dependsOn] };
+		}
+
+		// An upstream with nothing HEAD lacks is an ancestor of HEAD, so its tip is where HEAD forked from it
+		const forkPoint =
+			counts.left === 0 ? upstream.sha : await this.getForkPoint(repoPath, upstream.ref, cancellation);
+		if (cancellation?.aborted) throw new CancellationError();
+
+		return {
+			base: { ref: upstream.ref, ahead: counts.right, sha: upstream.sha, forkPoint: forkPoint, tier: 'upstream' },
+			dependsOn: [...dependsOn],
+		};
+	}
+
+	/**
+	 * HEAD's count against `ref` from their merge base: `left` only `ref` has, `right` only HEAD has. `undefined`
+	 * before HEAD's first commit, when there is nothing to count; any other failure rejects with git's error.
+	 */
+	private async countAgainstBase(
+		repoPath: string,
+		ref: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<{ left: number; right: number } | undefined> {
+		// `...` counts from the merge base, so only the branch's own commits count, not what the base moved on with
+		const range = createRevisionRange(ref, 'HEAD', '...');
+
+		let counts: { left: number; right: number } | undefined;
+		try {
+			counts = await this.provider.commits.getLeftRightCommitCount(repoPath, range, undefined, cancellation);
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+		}
+		if (cancellation?.aborted) throw new CancellationError();
+		if (counts != null) return counts;
+
+		// The cached count keeps a failure, so re-run it uncached
+		try {
+			return await this.getLeftRightCountUncached(repoPath, range, cancellation);
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+			if (await this.isUnbornHead(repoPath, cancellation)) return undefined;
+
+			throw ex;
+		}
 	}
 
 	@debug({ exit: true })
@@ -2085,13 +2184,18 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const remoteName = ref.slice(0, -suffix.length);
 		if (!remoteName) return false;
 
+		return (await this.getRemoteNames(repoPath, cancellation)).includes(remoteName);
+	}
+
+	/** The repo's remote names from the cached remote list; empty when it can't be read */
+	private async getRemoteNames(repoPath: string, cancellation: AbortSignal | undefined): Promise<string[]> {
 		try {
 			const remotes = await this.provider.remotes.getRemotes(repoPath, undefined, cancellation);
-			return remotes.some(r => r.name === remoteName);
+			return remotes.map(r => r.name);
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
 
-			return false;
+			return [];
 		}
 	}
 
@@ -2148,23 +2252,56 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/**
-	 * The repo's default branch from local refs only: the `origin/HEAD` symref as its local name, else
-	 * `init.defaultBranch`, else `main`, else `master` — each only if it names a commit.
+	 * The repo's default branch from local refs only, never the network: the `HEAD` symref of the `upstream` remote,
+	 * else of `origin`, else of the first remote, as its local branch or else as the remote ref; then, in the same
+	 * remote order, `<remote>/main` or `<remote>/master`, again as the local branch of that name or else the remote
+	 * ref; then `init.defaultBranch`, `main`, `master` — each only if it names a commit.
 	 */
 	private async getLocalDefaultBranchName(
 		repoPath: string,
 		dependsOn: Set<string>,
 		cancellation: AbortSignal | undefined,
 	): Promise<string | undefined> {
-		dependsOn.add('refs/remotes/origin/HEAD');
+		// From the cached ref list the base reads anyway, so naming a branch spawns nothing
+		let records: readonly RefRecord[] | undefined;
+		const exists = async (ref: string): Promise<boolean> => {
+			records ??= await this.provider.refs.getRefs(repoPath, cancellation);
+			return (await this.getRefTip(repoPath, records, ref, cancellation)) != null;
+		};
 
-		const symref = await this.getDefaultBranchName(repoPath, 'origin', { local: true }, cancellation);
-		if (symref) {
-			const slash = symref.indexOf('/');
-			const local = slash >= 0 ? symref.slice(slash + 1) : symref;
-			if (local) {
-				addRefDependencies(dependsOn, local);
-				if (await this.provider.refs.validateReference(repoPath, local, undefined, cancellation)) return local;
+		const remotes = await this.getRemoteNames(repoPath, cancellation);
+		// Each in turn: a remote added after the clone (`upstream`, typically) has no `HEAD` symref until
+		// `remote set-head` writes one, and must not hide `origin`'s
+		const preferred = new Set(
+			[remotes.find(r => r === 'upstream'), remotes.find(r => r === 'origin'), remotes.at(0)].filter(
+				r => r != null,
+			),
+		);
+		for (const remote of preferred) {
+			dependsOn.add(`refs/remotes/${remote}/HEAD`);
+
+			const symref = await this.getDefaultBranchName(repoPath, remote, { local: true }, cancellation);
+			// A remote name can hold a slash, so strip exactly the remote's own prefix
+			const local = symref?.startsWith(`${remote}/`) ? symref.slice(remote.length + 1) : undefined;
+			if (!symref || !local) continue;
+
+			addRefDependencies(dependsOn, local);
+			if (await exists(local)) return local;
+
+			addRefDependencies(dependsOn, symref);
+			if (await exists(symref)) return symref;
+		}
+
+		// A missing symref is common (git < 2.48 fetches don't create it, nor do fetches of explicit refspecs), so
+		// guess from the remote's usual default names
+		for (const remote of preferred) {
+			for (const name of ['main', 'master']) {
+				const remoteRef = `refs/remotes/${remote}/${name}`;
+				dependsOn.add(remoteRef);
+				if (!(await exists(remoteRef))) continue;
+
+				addRefDependencies(dependsOn, name);
+				return (await exists(name)) ? name : `${remote}/${name}`;
 			}
 		}
 
@@ -2177,9 +2314,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			if (!candidate) continue;
 
 			addRefDependencies(dependsOn, candidate);
-			if (await this.provider.refs.validateReference(repoPath, candidate, undefined, cancellation)) {
-				return candidate;
-			}
+			if (await exists(candidate)) return candidate;
 		}
 
 		return undefined;
@@ -2240,6 +2375,71 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return (await this.provider.refs.validateReference(repoPath, candidate, undefined, cancellation))
 			? { ref: candidate, forkPoint: undefined }
 			: undefined;
+	}
+
+	/**
+	 * The base for a branch that is itself the default branch, with its tip: its own upstream, `upstream/<branch>`
+	 * when an `upstream` remote has it, else `<branch>@{u}`. Read from the cached ref and branch lists; only a
+	 * `<branch>` that isn't checked out spawns, for its `@{u}`. `undefined` when there is neither, or its ref is gone.
+	 */
+	private async getSelfUpstreamTarget(
+		repoPath: string,
+		branch: string,
+		dependsOn: Set<string>,
+		cancellation: AbortSignal | undefined,
+	): Promise<{ ref: string; sha: string } | undefined> {
+		const records = await this.provider.refs.getRefs(repoPath, cancellation);
+
+		let upstream: string | undefined;
+		if ((await this.getRemoteNames(repoPath, cancellation)).includes('upstream')) {
+			const remoteRef = `refs/remotes/upstream/${branch}`;
+			dependsOn.add(remoteRef);
+			if ((await this.getRefTip(repoPath, records, remoteRef, cancellation)) != null) {
+				upstream = `upstream/${branch}`;
+			}
+		}
+
+		if (upstream == null) {
+			let tracking: string | undefined;
+			const current = await this.getBranch(repoPath, undefined, undefined, cancellation);
+			if (current?.name === branch && !current.detached && !current.remote) {
+				tracking = current.upstream?.name;
+				// A gone upstream is still depended on, so the fetch or push that recreates it brings the base back
+				if (tracking && current.upstream?.missing) {
+					addRefDependencies(dependsOn, tracking);
+					return undefined;
+				}
+			} else {
+				tracking = await this.provider.refs.getSymbolicReferenceName(
+					repoPath,
+					`${branch}@{u}`,
+					undefined,
+					cancellation,
+				);
+			}
+			if (!tracking || tracking.startsWith('-')) return undefined;
+
+			addRefDependencies(dependsOn, tracking);
+			upstream = tracking;
+		}
+
+		const sha = await this.getRefTip(repoPath, records, upstream, cancellation);
+		return sha != null ? { ref: upstream, sha: sha } : undefined;
+	}
+
+	/**
+	 * {@link findRefTip} in `records`, the cached ref list. `getRefs` answers a failed enumeration with an empty list,
+	 * so an empty one is asked of git instead, rather than read as every ref being absent.
+	 */
+	private async getRefTip(
+		repoPath: string,
+		records: readonly RefRecord[],
+		name: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		if (records.length) return findRefTip(records, name);
+
+		return this.provider.refs.validateReference(repoPath, name, undefined, cancellation);
 	}
 
 	/** The merge base of HEAD and `ref`, preferring git's fork-point reading of `ref`'s reflog when it has one */
@@ -2561,11 +2761,25 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 }
 
+/** Each ref list {@link findRefTip} searched, by full name: one base read looks up many names in the same cached list */
+const refRecordsByName = new WeakMap<readonly RefRecord[], Map<string, RefRecord>>();
+
 /**
  * The commit `name` resolves to among `records`, tried in git's own order for a short name (`refs/tags/` before
  * `refs/heads/` before `refs/remotes/`); annotated tags peel to their commit. `undefined` when no listed ref matches.
  */
 function findRefTip(records: readonly RefRecord[], name: string): string | undefined {
+	let byName = refRecordsByName.get(records);
+	if (byName == null) {
+		byName = new Map();
+		for (const record of records) {
+			if (!byName.has(record.name)) {
+				byName.set(record.name, record);
+			}
+		}
+		refRecordsByName.set(records, byName);
+	}
+
 	for (const candidate of [
 		name,
 		`refs/${name}`,
@@ -2574,7 +2788,7 @@ function findRefTip(records: readonly RefRecord[], name: string): string | undef
 		`refs/remotes/${name}`,
 		`refs/remotes/${name}/HEAD`,
 	]) {
-		const record = records.find(r => r.name === candidate);
+		const record = byName.get(candidate);
 		if (record != null) return record.peeledObjectname || record.objectname;
 	}
 
