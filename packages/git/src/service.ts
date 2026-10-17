@@ -104,9 +104,9 @@ export class GitService implements UnifiedDisposable {
 
 	private readonly _onDidChangeMergeTargets = new Emitter<MergeTargetsChangeEvent>();
 	/**
-	 * Fires when an external write changed a branch's merge-relevant `.git/gk/config` keys, for any registered
-	 * provider that reports it — never for activity timestamps or core's own writes. Once per change per repository
-	 * (`repoPath` is its common path); see {@link MergeTargetsChangeEvent}.
+	 * Fires when a write changed a branch's merge-relevant `.git/gk/config` keys, for any registered provider that
+	 * reports it — never for activity timestamps. Core's own key write fires it once, as the write completes, naming
+	 * the branch. Once per change per repository (`repoPath` is its common path); see {@link MergeTargetsChangeEvent}.
 	 */
 	get onDidChangeMergeTargets(): Event<MergeTargetsChangeEvent> {
 		return this._onDidChangeMergeTargets.event;
@@ -135,6 +135,8 @@ export class GitService implements UnifiedDisposable {
 			this._summaries = new WorktreeSummaryService({
 				watchService: this._watchService,
 				getRepository: repoPath => this.forRepo(repoPath),
+				onDidChangeMergeTargets: this.onDidChangeMergeTargets,
+				getCommonPath: repoPath => this.getProvider(repoPath)?.provider.getCommonPath?.(repoPath),
 			});
 		}
 

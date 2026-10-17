@@ -304,6 +304,33 @@ suite('WorktreeSummaryService against real git', () => {
 		sub.dispose();
 	});
 
+	test("returns the new base right after core's awaited merge-target store, with no watcher event", async () => {
+		const summaries = service.summaries;
+		assert.ok(summaries != null);
+
+		git('checkout', '-q', '-b', 'feature');
+		git('commit', '-q', '--allow-empty', '-m', 'Feature');
+		git('branch', 'release', 'HEAD');
+
+		const sub = summaries.subscribe(repo.path, { delayMs: 10, workingTreeDelayMs: 10 });
+		const initial = await summaries.getSummary(repo.path);
+		assert.strictEqual(initial.base?.ref, 'main');
+		assert.strictEqual(initial.base?.tier, 'default');
+
+		await service.forRepo(repo.path)!.branches.storeUserMergeTargetBranchName!('feature', 'release');
+		const after = await summaries.getSummary(repo.path);
+
+		assert.deepStrictEqual(after.base, {
+			ref: 'release',
+			ahead: 0,
+			sha: revParse('HEAD'),
+			forkPoint: revParse('HEAD'),
+			tier: 'user',
+		});
+
+		sub.dispose();
+	});
+
 	test('re-counts a tag-named base when the tag moves', async () => {
 		const summaries = service.summaries;
 		assert.ok(summaries != null);

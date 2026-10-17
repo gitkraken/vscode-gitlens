@@ -6,6 +6,7 @@ import { Emitter } from '@gitlens/utils/event.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
 import { getRepositoryKey } from '@gitlens/utils/uri.js';
+import type { MergeTargetsChangeEvent } from '../cache.js';
 import type { GitTrackingUpstream } from '../models/branch.js';
 import type { GitDir } from '../models/repository.js';
 import type { AheadOfBaseTier } from '../providers/branches.js';
@@ -96,6 +97,16 @@ export interface WorktreeSummarySubscription extends UnifiedDisposable {
 export interface WorktreeSummaryServiceOptions {
 	readonly watchService: RepositoryWatchService;
 	readonly getRepository: (repoPath: string) => RepositoryService | undefined;
+	/**
+	 * Fires as core writes a branch's merge target or base, before the store's promise resolves; the summary re-reads
+	 * that branch's stored values then, so a `getSummary` right after an awaited store sees the new base
+	 */
+	readonly onDidChangeMergeTargets?: Event<MergeTargetsChangeEvent>;
+	/**
+	 * Maps a worktree path to the repository common path that {@link onDidChangeMergeTargets} events carry; only that
+	 * repository's summaries react. Without it, or when it returns `undefined`, every summary reacts.
+	 */
+	readonly getCommonPath?: (repoPath: string) => string | undefined;
 }
 
 /** Read groups, as bit flags so a pending set is a number rather than an allocation per event */
@@ -212,10 +223,11 @@ class SummarySubscription implements WorktreeSummarySubscription {
  * HEAD's commit, upstream, ahead/behind) and `base` (ahead of base, the base's tip, and the refs it depends on) — and
  * an event recomputes only the groups it can affect: a working-tree edit, an index or ignore-rule change reads only
  * `dirty`; the upstream moving reads only `branch`; a ref the base depends on reads only `base`; a `gk` config change
- * (mostly bookkeeping writes to the shared `.git/gk/config`) re-reads the branch's stored merge targets and recorded
- * base, and reads `base` only when one of them changed; the checked-out branch moving, or a HEAD change, reads all of
- * them. Stash, unrelated tags and branches, and the like read nothing. One run is in flight per worktree at a time;
- * events during a run are merged into a single follow-up run.
+ * (mostly bookkeeping writes to the shared `.git/gk/config`), or core's own write of the branch's merge target or
+ * base, re-reads the branch's stored merge targets and recorded base, and reads `base` only when one of them changed;
+ * the checked-out branch moving, or a HEAD change, reads all of them. Stash, unrelated tags and branches, and the like
+ * read nothing. One run is in flight per worktree at a time; events during a run are merged into a single follow-up
+ * run.
  *
  * **Value-change-only notification.** {@link WorktreeSummarySubscription.onDidChange} and {@link onDidChangeSummary}
  * fire only when some field's value differs from the previous summary — a recompute that reads the same answer is
@@ -232,11 +244,15 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 	private readonly entries = new Map<string, SummaryEntry>();
 	private readonly watchService: RepositoryWatchService;
 	private readonly getRepository: (repoPath: string) => RepositoryService | undefined;
+	private readonly getCommonPath: ((repoPath: string) => string | undefined) | undefined;
+	private readonly mergeTargetsListener: UnifiedDisposable | undefined;
 	private _disposed = false;
 
 	constructor(options: WorktreeSummaryServiceOptions) {
 		this.watchService = options.watchService;
 		this.getRepository = options.getRepository;
+		this.getCommonPath = options.getCommonPath;
+		this.mergeTargetsListener = options.onDidChangeMergeTargets?.(e => this.onMergeTargetsChanged(e));
 	}
 
 	[Symbol.dispose](): void {
@@ -247,6 +263,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		if (this._disposed) return;
 
 		this._disposed = true;
+		this.mergeTargetsListener?.dispose();
 		for (const entry of [...this.entries.values()]) {
 			for (const subscription of [...entry.subscribers]) {
 				subscription.dispose();
@@ -398,6 +415,27 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		}
 
 		this.queue(entry, fields);
+	}
+
+	/**
+	 * Queued synchronously, so a store awaited before `getSummary` finds the run in flight. The watcher's later
+	 * `gkConfig` event for the same write then finds the keys unchanged and leaves the base alone.
+	 */
+	private onMergeTargetsChanged(e: MergeTargetsChangeEvent): void {
+		for (const entry of this.entries.values()) {
+			// Before the watch starts there's nothing to refresh: the start's own read comes after the write
+			if (entry.handle == null) continue;
+
+			// With no value yet, the first read may have read the stored values before the write, so `queue` reads
+			// everything again
+			const value = entry.value;
+			if (value != null && (value.branch == null || (e.refs != null && !e.refs.has(value.branch)))) continue;
+
+			const commonPath = this.getCommonPath?.(entry.key);
+			if (commonPath != null && commonPath !== e.repoPath) continue;
+
+			this.queue(entry, baseKeysField);
+		}
 	}
 
 	private queue(entry: SummaryEntry, fields: number): void {

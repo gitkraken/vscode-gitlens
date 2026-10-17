@@ -504,16 +504,25 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 		if (!(await this.ensureGkConfigFolder(gkConfigFolder, scope))) return;
 
+		// Seed the merge-key snapshot from the pre-write file, so the write below can tell whether it changed the
+		// value (first merge-key write per repository only; the bulk read is cached for everything else)
+		if (this.cache.needsGkConfigSnapshot(repoPath, key)) {
+			await this.getGkConfigMap(repoPath);
+		}
+
 		await this._gkConfigWrites.run(gkConfigPath, undefined, () =>
 			this.setConfigCore(repoPath, key, value, { file: gkConfigPath }),
 		);
 
 		// Invalidate the bulk map (so the next read re-fetches) and the derived caches for this key's
-		// ref. The `.git/gk/config` file-watcher also fires `'gkConfig'` shortly after, which reconciles
+		// ref, then record the write, which fires `onDidChangeMergeTargets` when it changed a merge key —
+		// except for a self-write (`skipInvalidation` given: an internal save while answering a read), which
+		// nobody awaits; only another process's watcher reports that one.
+		// The `.git/gk/config` file-watcher also fires `'gkConfig'` shortly after, which reconciles
 		// the same change (see `reconcileGkConfig`) — recording our own write here keeps that later
 		// reconcile from re-diffing this key as an external change.
 		this.cache.deleteGkConfig(repoPath, key, options);
-		this.cache.recordGkConfigWrite(repoPath, key, value);
+		this.cache.recordGkConfigWrite(repoPath, key, value, { announce: options?.skipInvalidation == null });
 	}
 
 	@debug()
