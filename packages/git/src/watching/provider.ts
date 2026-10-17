@@ -19,6 +19,16 @@ export interface FileWatchEvent {
 /** Opaque token representing a filesystem watcher */
 export interface FileWatcher extends UnifiedDisposable {}
 
+/**
+ * How much of what changes under a watcher's `basePath` it reports:
+ * - `reliable`: everything (the state of a watcher that never reports one);
+ * - `unreliable`: what changes on this machine, but maybe not another's edits (a network volume), so core polls
+ *   beside it;
+ * - `unwatchable`: nothing (a filesystem without change notifications, or a watch that went down), so core polls
+ *   instead.
+ */
+export type FileWatcherReliability = 'reliable' | 'unreliable' | 'unwatchable';
+
 export interface FileWatcherOptions {
 	/**
 	 * Directories to leave unwatched, each with everything beneath it. Entries are `/`-separated and relative to
@@ -28,6 +38,13 @@ export interface FileWatcherOptions {
 	 * (Map each entry to your backend's syntax — e.g. picomatch-based watchers need both `X` and `X/**`.)
 	 */
 	readonly excludes?: readonly string[];
+	/**
+	 * Reports this watcher's {@link FileWatcherReliability} whenever it changes; passed only when the host opted into
+	 * polling (`WatchServiceOptions.polling`). May be called synchronously inside `createWatcher`, and again later
+	 * (a watch going down, or coming back). Each watcher reports its own state, so one created on a path that is
+	 * already down reports `unwatchable` itself. Going from `unwatchable` to anything else makes core rescan.
+	 */
+	readonly onDidChangeReliability?: (state: FileWatcherReliability) => void;
 }
 
 /**
