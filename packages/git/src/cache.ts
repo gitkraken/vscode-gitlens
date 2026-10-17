@@ -1661,6 +1661,17 @@ export class Cache implements Disposable {
 		this._caches.baseBranchName?.delete(this.getCommonPath(repoPath), ref);
 	}
 
+	/**
+	 * Drops the cached branches for `repoPath` and its sibling worktrees after a branch-activity stamp
+	 * (`gk-last-accessed`, `gk-last-modified`, `gk-agent-last-activity`) was written, since each branch carries its
+	 * stamps. Hard-evicts, so a read that started before the write isn't joined.
+	 */
+	deleteBranchMetadata(repoPath: string): void {
+		for (const key of ['branchMetadataMap', 'sharedBranches', 'branches', 'branch'] as const) {
+			this.evictShared(key, repoPath, 'evict');
+		}
+	}
+
 	getBranchMergedStatus(
 		repoPath: string,
 		cacheKey: string,
