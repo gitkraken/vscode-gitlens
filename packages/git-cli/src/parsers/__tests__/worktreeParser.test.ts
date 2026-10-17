@@ -65,5 +65,27 @@ suite('Worktree Parser Test Suite', () => {
 
 			assert.strictEqual(worktrees[1].prunable, 'gitdir file points to non-existent location');
 		});
+
+		test('unquotes a C-quoted lock reason, including newlines and octal UTF-8 bytes', () => {
+			const data = buildPorcelain(
+				mainWorktree,
+				'worktree /repo/wt\nHEAD 2222222222222222222222222222222222222222\nbranch refs/heads/wt\nlocked "line one\\nline \\"two\\"\\tcaf\\303\\251 \\\\ \\342\\234\\223"',
+			);
+
+			const worktrees = parseGitWorktrees(data, '/repo', []);
+
+			assert.strictEqual(worktrees[1].locked, 'line one\nline "two"\tcafé \\ ✓');
+		});
+
+		test('unquotes a C-quoted prunable reason', () => {
+			const data = buildPorcelain(
+				mainWorktree,
+				'worktree /repo/wt\nHEAD 2222222222222222222222222222222222222222\ndetached\nprunable "gitdir\\nmissing \\303\\251"',
+			);
+
+			const worktrees = parseGitWorktrees(data, '/repo', []);
+
+			assert.strictEqual(worktrees[1].prunable, 'gitdir\nmissing é');
+		});
 	});
 });

@@ -4,6 +4,7 @@ export type GitFeatures =
 	| 'git:commit-graph'
 	| 'git:commit-graph:changed-paths'
 	| 'git:fetch:no-write-fetch-head'
+	| 'git:for-each-ref:ahead-behind'
 	| 'git:for-each-ref:worktreePath'
 	| 'git:fsmonitor'
 	| 'git:fsmonitor:linux'
@@ -30,6 +31,7 @@ export type GitFeatures =
 	| 'git:status:find-renames'
 	| 'git:status:porcelain-v2'
 	| 'git:untrackedCache'
+	| 'git:worktree:list:lock-reason'
 	| 'git:worktrees';
 
 type ExtractPrefix<T> = T extends `${infer Prefix}:${infer Rest}`
@@ -53,6 +55,8 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	// with real correctness bugs (bad results for merge commits), so 2.31 is the safe floor to write them.
 	['git:commit-graph:changed-paths', '2.31'],
 	['git:fetch:no-write-fetch-head', '2.29'],
+	// `%(ahead-behind:<commit>)` in for-each-ref formats
+	['git:for-each-ref:ahead-behind', '2.41'],
 	['git:for-each-ref:worktreePath', '2.23'],
 	// `core.fsmonitor=true` selects the built-in FSMonitor daemon (accepting a bool rather than only a
 	// hook path). This 2.37 floor is the Windows + macOS one.
@@ -103,5 +107,7 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:status:porcelain-v2', '2.11'],
 	// `core.untrackedCache=true` (repo-local cache of untracked-file scans — the auto-tier config lever).
 	['git:untrackedCache', '2.8'],
+	// `worktree list --porcelain` prints a lock's reason (`locked <reason>`); older ones print a bare `locked`
+	['git:worktree:list:lock-reason', '2.31'],
 	['git:worktrees', '2.17.0'],
 ]);

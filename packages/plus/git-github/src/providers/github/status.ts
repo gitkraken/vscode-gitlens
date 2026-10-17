@@ -62,7 +62,11 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		return Promise.resolve([]);
 	}
 
-	getUntrackedFiles(_repoPath: string, _cancellation?: AbortSignal): Promise<GitFile[]> {
+	getUntrackedFiles(
+		_repoPath: string,
+		_options?: { paths?: readonly string[] },
+		_cancellation?: AbortSignal,
+	): Promise<GitFile[]> {
 		return Promise.resolve([]);
 	}
 }

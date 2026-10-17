@@ -56,6 +56,20 @@ export interface GitProvider {
 	 * ancestor, and literal paths containing glob metacharacters are dropped (a watcher can't express them safely).
 	 */
 	getIgnoredDirectories?(repoPath: string, cancellation?: AbortSignal): Promise<string[]>;
+	/**
+	 * The working tree's ignored entries as repo-relative `/`-separated paths, the way `git status --ignored` lists
+	 * them: an ignored file is one entry, and a directory whose entire contents are ignored is one entry with a
+	 * trailing `/` (its contents aren't listed). Empty directories and `.git/` aren't listed. Sorted, and not capped —
+	 * the caller limits what it shows. Unlike `getIgnoredDirectories` this is a listing, not a watcher-pruning set, so
+	 * nothing is dropped or re-confirmed against the rules.
+	 */
+	getIgnoredEntries?(repoPath: string, cancellation?: AbortSignal): Promise<string[]>;
+	/**
+	 * An exact check of which of `paths` (repo-relative) git's ignore rules match — the subset that is ignored, as
+	 * given. A tracked file isn't reported as ignored, even when a rule matches it. This is git's answer, where the
+	 * in-memory `GitIgnoreFilter` errs toward not-ignored.
+	 */
+	getIgnoredPaths?(repoPath: string, paths: readonly string[], cancellation?: AbortSignal): Promise<Set<string>>;
 	getIgnoredUrisFilter?(repoPath: string): Promise<(uri: Uri) => boolean>;
 	getLastFetchedTimestamp?(repoPath: string): Promise<number | undefined>;
 	/**

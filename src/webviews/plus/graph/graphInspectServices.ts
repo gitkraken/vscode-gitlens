@@ -3286,7 +3286,7 @@ export class GraphInspectServices {
 				if (svc.staging != null) {
 					let untrackedPaths: string[] | undefined;
 					try {
-						untrackedPaths = (await svc.status.getUntrackedFiles(signal)).map(f => f.path);
+						untrackedPaths = (await svc.status.getUntrackedFiles(undefined, signal)).map(f => f.path);
 						// Drop excluded paths before staging rather than after diffing: the contents of a file
 						// the user explicitly excluded should never be read into memory at all — that's what
 						// the control means — and staging + diffing content guaranteed to be filtered out is

@@ -626,22 +626,10 @@ export class CliGitProvider implements GitProvider {
 		}
 		if (!candidates.length) return [];
 
-		// Exits 1 when nothing matches, which is an answer
-		const confirmed = await this._git.run(
-			{
-				cwd: repoPath,
-				errors: 'throw',
-				cancellation: cancellation,
-				stdin: `${candidates.join('\0')}\0`,
-				expectedExitCodes: [1],
-			},
-			'check-ignore',
-			'-z',
-			'--stdin',
-		);
+		const confirmed = await this.getIgnoredPaths(repoPath, candidates, cancellation);
 
 		const directories: string[] = [];
-		for (const entry of iterateByDelimiter(confirmed.stdout, '\0')) {
+		for (const entry of confirmed) {
 			// Never `.git` itself, and no name a watcher would read as a pattern
 			if (entry.length < 2 || !entry.endsWith('/') || /[*?[\]{}()!+@\\]/.test(entry)) continue;
 
@@ -670,6 +658,57 @@ export class CliGitProvider implements GitProvider {
 		}
 
 		return [...kept];
+	}
+
+	async getIgnoredEntries(repoPath: string, cancellation?: AbortSignal): Promise<string[]> {
+		const listed = await this._git.run(
+			{ cwd: repoPath, errors: 'throw', cancellation: cancellation },
+			'ls-files',
+			'-z',
+			'--others',
+			'--ignored',
+			'--exclude-standard',
+			'--directory',
+			'--no-empty-directory',
+		);
+
+		const entries: string[] = [];
+		for (const entry of iterateByDelimiter(listed.stdout, '\0')) {
+			if (!entry.length || entry === '.git/') continue;
+
+			entries.push(entry);
+		}
+		return entries.sort();
+	}
+
+	async getIgnoredPaths(
+		repoPath: string,
+		paths: readonly string[],
+		cancellation?: AbortSignal,
+	): Promise<Set<string>> {
+		if (!paths.length) return new Set();
+
+		// Exits 1 when nothing matches, which is an answer
+		const result = await this._git.run(
+			{
+				cwd: repoPath,
+				errors: 'throw',
+				cancellation: cancellation,
+				stdin: `${paths.join('\0')}\0`,
+				expectedExitCodes: [1],
+			},
+			'check-ignore',
+			'-z',
+			'--stdin',
+		);
+
+		const ignored = new Set<string>();
+		for (const entry of iterateByDelimiter(result.stdout, '\0')) {
+			if (!entry.length) continue;
+
+			ignored.add(entry);
+		}
+		return ignored;
 	}
 
 	/** Every `.gitignore` git reads in the working tree (tracked, or untracked and not itself ignored), root included */
