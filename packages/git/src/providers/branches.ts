@@ -43,7 +43,7 @@ export interface AheadOfBase {
 				readonly tier: AheadOfBaseTier;
 		  }
 		| undefined;
-	/** Why there is no base; set exactly when `base` is `undefined`: `'none'` when nothing resolved (or HEAD is detached), `'self'` when the base is the branch itself at HEAD's commit (or the default branch has no upstream to measure against), `'unborn'` when HEAD has no commit yet */
+	/** Why there is no base; set exactly when `base` is `undefined`: `'none'` when nothing resolved, `'self'` when the base is the branch itself at HEAD's commit (or the default branch has no upstream to measure against), `'unborn'` when HEAD has no commit yet */
 	readonly reason?: 'none' | 'self' | 'unborn';
 	/** Full ref names (`refs/heads/main`, `refs/remotes/origin/main`, `refs/remotes/origin/HEAD`) whose movement can change this answer, given with or without a base so a watcher also learns when one appears: the branch, every candidate compared up to the chosen one, their tracking refs, the default-branch symrefs and the `<remote>/main`/`<remote>/master` refs when the default was consulted, and the branch's upstream when it is the default branch. Lets a watcher recompute only when one of them moves. */
 	readonly dependsOn: readonly string[];
@@ -140,7 +140,8 @@ export interface GitBranchesSubProvider {
 		cancellation?: AbortSignal,
 	): Promise<ConflictDetectionResult>;
 	/**
-	 * How far HEAD has moved past the base `branch` (the branch checked out at HEAD) was cut from. Candidates in trust
+	 * How far HEAD has moved past the base `branch` (the branch checked out at HEAD, or `undefined` when HEAD is
+	 * detached) was cut from. Candidates in trust
 	 * order: the user's merge target, the detected one, then the base recorded against the branch — only recorded bases
 	 * count, never a reflog guess. Each is measured as itself or its tracking ref, whichever forked nearer HEAD; a stale
 	 * target (one naming no ref, a flag-like one, or the branch itself) falls through to the next, and the default branch
@@ -150,12 +151,13 @@ export interface GitBranchesSubProvider {
 	 * the network. On the default branch itself the base is its upstream (`upstream/<branch>` when an `upstream` remote has
 	 * it, else `<branch>@{u}`), tier `'upstream'`. The count is the right side of `<base>...HEAD`. `base` is `undefined`
 	 * when no base resolves, when the base is the branch itself (by name, or as its copy on one of the repo's remotes) at
-	 * HEAD's own commit — or the default branch has no upstream — or when HEAD is detached or has no commit yet; `reason`
+	 * HEAD's own commit — or the default branch has no upstream — or when HEAD has no commit yet; `reason`
 	 * then says which (`'none'`, `'self'` or `'unborn'`) and `dependsOn` is given either way. `base.sha` is the tip of
 	 * `ref`, read from the cached ref list; `base.forkPoint` is where HEAD forked from `ref` and `base.tier` the source
-	 * that decided the base. Rejects when the count can't be read.
+	 * that decided the base. On a detached HEAD (`undefined`, or a name `isDetachedHead` recognizes) only the default branch
+	 * is tried, as tier `'default'` and with no self check. Rejects when the count can't be read.
 	 */
-	getAheadOfBase?(repoPath: string, branch: string, cancellation?: AbortSignal): Promise<AheadOfBase>;
+	getAheadOfBase?(repoPath: string, branch: string | undefined, cancellation?: AbortSignal): Promise<AheadOfBase>;
 	/**
 	 * How far each branch has diverged from `base`, keyed by full ref name (`refs/heads/x`, plus `refs/remotes/<remote>/x`
 	 * when `options.remotes` is set) so a local and a remote name can't collide. Symbolic refs such as

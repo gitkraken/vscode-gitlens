@@ -115,6 +115,85 @@ suite('WorktreeSummaryService against real git', () => {
 		sub.dispose();
 	});
 
+	test('measures a detached HEAD against the default branch and follows commits made on it', async () => {
+		const summaries = service.summaries;
+		assert.ok(summaries != null);
+
+		git('checkout', '-q', '-b', 'feature');
+		git('commit', '-q', '--allow-empty', '-m', 'Feature');
+
+		const sub = summaries.subscribe(repo.path, { delayMs: 10, workingTreeDelayMs: 10 });
+		const initial = await summaries.getSummary(repo.path);
+		assert.strictEqual(initial.branch, 'feature');
+		assert.strictEqual(initial.base?.ahead, 1);
+
+		const gitDir = watchers.find(w => w.basePath.endsWith('.git'))?.basePath;
+		assert.ok(gitDir != null);
+
+		const detached = nextChange(sub);
+		git('checkout', '-q', '--detach');
+		fire(gitDir, 'HEAD');
+		const afterDetach = await detached;
+
+		assert.strictEqual(afterDetach.detached, true);
+		assert.strictEqual(afterDetach.branch, undefined);
+		assert.deepStrictEqual(afterDetach.base, {
+			ref: 'main',
+			ahead: 1,
+			sha: revParse('main'),
+			forkPoint: mergeBase('main'),
+			tier: 'default',
+		});
+
+		const committed = nextChange(sub);
+		git('commit', '-q', '--allow-empty', '-m', 'Detached');
+		fire(gitDir, 'HEAD');
+		const afterCommit = await committed;
+
+		assert.strictEqual(afterCommit.sha, revParse('HEAD'));
+		assert.strictEqual(afterCommit.base?.ref, 'main');
+		assert.strictEqual(afterCommit.base?.ahead, 2);
+		assert.strictEqual(afterCommit.base?.tier, 'default');
+
+		const switched = nextChange(sub);
+		git('checkout', '-q', 'main');
+		fire(gitDir, 'HEAD');
+		const onMain = await switched;
+
+		assert.strictEqual(onMain.branch, 'main');
+		assert.strictEqual(onMain.detached, false);
+		assert.strictEqual(onMain.base, undefined, 'main is its own default branch');
+
+		sub.dispose();
+	});
+
+	test('reports the base of a worktree that starts out detached', async () => {
+		const summaries = service.summaries;
+		assert.ok(summaries != null);
+
+		git('checkout', '-q', '-b', 'feature');
+		git('commit', '-q', '--allow-empty', '-m', 'Feature');
+		git('checkout', '-q', '--detach');
+
+		const sub = summaries.subscribe(repo.path, { delayMs: 10, workingTreeDelayMs: 10 });
+		const initial = await summaries.getSummary(repo.path);
+
+		assert.strictEqual(initial.detached, true);
+		assert.deepStrictEqual(initial.base, {
+			ref: 'main',
+			ahead: 1,
+			sha: revParse('main'),
+			forkPoint: mergeBase('main'),
+			tier: 'default',
+		});
+		assert.deepStrictEqual(
+			initial.baseDependsOn,
+			(await repo.provider.branches.getAheadOfBase(repo.path, undefined))?.dependsOn,
+		);
+
+		sub.dispose();
+	});
+
 	test('reports the refs the base depends on, as getAheadOfBase does, with or without a base', async () => {
 		const summaries = service.summaries;
 		assert.ok(summaries != null);

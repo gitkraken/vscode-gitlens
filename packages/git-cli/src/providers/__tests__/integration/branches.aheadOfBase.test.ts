@@ -60,7 +60,7 @@ function storeTargets(
 	}
 }
 
-function getAheadOfBase(repo: TestRepo, branch: string, cancellation?: AbortSignal): Promise<AheadOfBase> {
+function getAheadOfBase(repo: TestRepo, branch: string | undefined, cancellation?: AbortSignal): Promise<AheadOfBase> {
 	return repo.provider.branches.getAheadOfBase(repo.path, branch, cancellation);
 }
 
@@ -875,23 +875,44 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 			}
 		});
 
-		test('answers no base on a detached head', async () => {
+		test('measures a detached head against the default branch, with no self check', async () => {
 			const repo = createCandidateRepo();
 			try {
-				storeTargets(repo.path, 'feature', { recorded: 'develop' });
+				storeTargets(repo.path, 'feature', { user: 'develop', recorded: 'staging' });
 				const sha = getHeadSha(repo.path);
 				checkout(repo.path, sha);
 
-				assert.deepStrictEqual(await getAheadOfBase(repo, formatDetachedHeadName(sha)), {
-					base: undefined,
-					reason: 'none',
-					dependsOn: [],
-				});
-				assert.deepStrictEqual(await getAheadOfBase(repo, ''), {
-					base: undefined,
-					reason: 'none',
-					dependsOn: [],
-				});
+				for (const branch of [undefined, formatDetachedHeadName(sha), '']) {
+					const result = await getAheadOfBase(repo, branch);
+					assert.strictEqual(result.base?.ref, 'main');
+					assert.strictEqual(result.base?.tier, 'default');
+					assert.strictEqual(result.base?.ahead, 4);
+					assert.strictEqual(result.base?.sha, revParse(repo.path, 'main'));
+					assert.strictEqual(result.base?.forkPoint, mergeBase(repo.path, 'main'));
+					assertDependsOn(result, ['refs/heads/main']);
+					assert.ok(
+						!result.dependsOn.some(ref => ref.startsWith('refs/heads/') && ref !== 'refs/heads/main'),
+						`Only the default branch is consulted: ${result.dependsOn.join(', ')}`,
+					);
+				}
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('answers no base on a detached head when no default branch resolves', async () => {
+			const repo = createTestRepo();
+			try {
+				git(repo.path, 'branch', '-m', 'main', 'solo');
+				setConfig(repo.path, 'init.defaultBranch', 'nope');
+				const sha = getHeadSha(repo.path);
+				checkout(repo.path, sha);
+
+				const result = await getAheadOfBase(repo, undefined);
+				assert.strictEqual(result.base, undefined);
+				assert.strictEqual(result.reason, 'none');
+				assertDependsOn(result, ['refs/heads/nope', 'refs/heads/main', 'refs/heads/master']);
+				assert.ok(!result.dependsOn.includes('refs/heads/solo'));
 			} finally {
 				repo.cleanup();
 			}
