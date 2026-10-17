@@ -5,7 +5,7 @@ import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { CliGitProviderInternal } from '../../cliGitProvider.js';
 import { RunError } from '../../exec/exec.errors.js';
 import type { Git } from '../../exec/git.js';
-import { GitError } from '../../exec/git.js';
+import { GitError, maxGitCliLength } from '../../exec/git.js';
 import { computeDeadlockBackstopMs, StatusGitSubProvider } from '../status.js';
 
 const repoPath = '/test/repo';
@@ -324,6 +324,26 @@ suite('StatusGitSubProvider — generation-stamped dedup', () => {
 		const provider = createProvider(cache, git as unknown as Git);
 
 		await assert.rejects(provider.getUntrackedFiles(repoPath), (ex: unknown) => ex === failure);
+	});
+
+	test('getUntrackedFiles keeps every batch of paths under the command-line limit', async () => {
+		const { git, calls } = createArgvRecordingGit('');
+		const provider = createProvider(cache, git);
+		// Mostly short paths, then a run of long ones: a batch sized by the average length would overflow on them
+		const paths = [
+			...Array.from({ length: 2000 }, (_, i) => `s${i}`),
+			...Array.from({ length: 200 }, (_, i) => `${'deep/'.repeat(80)}${i}`),
+		];
+
+		await provider.getUntrackedFiles(repoPath, { paths: paths });
+
+		assert.ok(calls.length > 1, 'the paths are split across runs');
+		for (const { args } of calls) {
+			const length = args.reduce((sum, arg) => sum + arg.length + 1, 0);
+			assert.ok(length <= maxGitCliLength, `a run's command line is ${length} chars`);
+		}
+		const passed = calls.flatMap(({ args }) => args.slice(args.indexOf('--') + 1));
+		assert.strictEqual(passed.length, paths.length, 'every path is passed once');
 	});
 
 	test('one caller cancelling does not reject or kill a co-joined caller', async () => {

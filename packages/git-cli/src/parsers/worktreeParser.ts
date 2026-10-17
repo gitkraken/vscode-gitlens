@@ -94,13 +94,14 @@ export function parseGitWorktrees(
 			case 'detached':
 				entry.detached = true;
 				break;
-			// `value` is the whole reason, which is only present when the locker/Git provides one.
-			// Reasons with unusual characters (e.g. newlines) come through C-quoted, per `core.quotePath`
+			// `value` is the whole reason, which is only present when the locker/Git provides one (Git < 2.31
+			// prints a bare `locked` regardless). Without `-z`, a reason with unusual characters (e.g. newlines)
+			// comes through C-quoted, with UTF-8 bytes as octal escapes unless `core.quotePath` is off (as core runs it)
 			case 'locked':
-				entry.locked = value.trim() || true;
+				entry.locked = unquoteCString(value.trim()) || true;
 				break;
 			case 'prunable':
-				entry.prunable = value.trim() || true;
+				entry.prunable = unquoteCString(value.trim()) || true;
 				break;
 		}
 	}
@@ -108,4 +109,48 @@ export function parseGitWorktrees(
 	sw?.stop({ suffix: ` parsed ${worktrees.length} worktrees` });
 
 	return worktrees;
+}
+
+const cEscapes: Record<string, number> = { a: 7, b: 8, f: 12, n: 10, r: 13, t: 9, v: 11, '\\': 92, '"': 34 };
+
+/** Reverses Git's C-style quoting (`"a\nb"`, `\303\251` octal UTF-8 bytes); returns unquoted values as-is */
+function unquoteCString(value: string): string {
+	if (!value.startsWith('"')) return value;
+
+	const end = value.length > 1 && value.endsWith('"') ? value.length - 1 : value.length;
+	const encoder = new TextEncoder();
+	const bytes: number[] = [];
+
+	let i = 1;
+	while (i < end) {
+		const ch = value[i];
+		if (ch !== '\\' || i + 1 >= end) {
+			// A whole code point, so surrogate pairs encode correctly
+			const cp = String.fromCodePoint(value.codePointAt(i)!);
+			bytes.push(...encoder.encode(cp));
+			i += cp.length;
+			continue;
+		}
+
+		const next = value[i + 1];
+		if (next >= '0' && next <= '7') {
+			let j = i + 1;
+			while (j < i + 4 && j < end && value[j] >= '0' && value[j] <= '7') {
+				j++;
+			}
+			bytes.push(Number.parseInt(value.substring(i + 1, j), 8) & 0xff);
+			i = j;
+			continue;
+		}
+
+		const code = cEscapes[next];
+		if (code != null) {
+			bytes.push(code);
+		} else {
+			bytes.push(...encoder.encode(next));
+		}
+		i += 2;
+	}
+
+	return new TextDecoder().decode(new Uint8Array(bytes));
 }

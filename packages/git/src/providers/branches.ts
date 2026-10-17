@@ -141,6 +141,34 @@ export interface GitBranchesSubProvider {
 	 * `ref`, read from the cached ref list. Rejects when the count can't be read.
 	 */
 	getAheadOfBase?(repoPath: string, branch: string, cancellation?: AbortSignal): Promise<AheadOfBase>;
+	/**
+	 * How far each branch has diverged from `base`, keyed by full ref name (`refs/heads/x`, plus `refs/remotes/<remote>/x`
+	 * when `options.remotes` is set) so a local and a remote name can't collide. Symbolic refs such as
+	 * `refs/remotes/origin/HEAD` are left out. `ahead` is the commits on the branch that `base` lacks and `behind` the
+	 * commits on `base` that the branch lacks, i.e. the right and left sides of `base...branch`. `options.refs` limits it to
+	 * those full ref names (in place of `remotes`), so a host counts only the branches it shows; an empty list answers
+	 * empty without running git. One git run on git 2.41+, a bounded count per distinct tip before that. Rejects when
+	 * `base` can't be resolved or the counts can't be read.
+	 */
+	getAheadBehindCounts?(
+		repoPath: string,
+		base: string,
+		options?: { remotes?: boolean; refs?: readonly string[] },
+		cancellation?: AbortSignal,
+	): Promise<Map<string, { ahead: number; behind: number }>>;
+	/**
+	 * The branches whose tips are reachable from `into`, as full ref names (`refs/heads/x`, plus `refs/remotes/<remote>/x`
+	 * when `options.remotes` is set). Ancestry only: a branch squash-merged or cherry-picked into `into` is not included,
+	 * so use `getBranchMergedStatus` for that heuristic per-branch answer. A branch whose tip equals `into`'s tip (never
+	 * diverged) is included, as git reports it. Symbolic refs such as `refs/remotes/origin/HEAD` are left out. One git
+	 * run. Not cached. Rejects when `into` can't be resolved or the branches can't be read.
+	 */
+	getMergedBranches?(
+		repoPath: string,
+		into: string,
+		options?: { remotes?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<Set<string>>;
 	getBaseBranchName?(
 		repoPath: string,
 		ref: string,

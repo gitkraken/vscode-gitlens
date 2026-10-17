@@ -6,6 +6,12 @@ export interface GitPausedOperationsSubProvider {
 		options?: { force?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<GitPausedOperationStatus | undefined>;
+	/**
+	 * Whether git's dir holds a sentinel of any in-progress operation (merge, cherry-pick, revert, rebase,
+	 * `git am`, or a sequencer run with a todo) — presence only, so it is `true` even for states
+	 * `getPausedOperationStatus` can't describe. Rejects when git's dir can't be read, rather than answering `false`
+	 */
+	hasPausedOperation?(repoPath: string, cancellation?: AbortSignal): Promise<boolean>;
 	abortPausedOperation(repoPath: string, options?: { quit?: boolean }): Promise<void>;
 	continuePausedOperation(
 		repoPath: string,

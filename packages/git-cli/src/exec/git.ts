@@ -1448,8 +1448,22 @@ export class Git {
 		return void cleanup();
 	}
 
+	/**
+	 * Resolves the git dir (and common dir, for a linked worktree) of `cwd`.
+	 *
+	 * Resolves `undefined` when `cwd` is not in a repository: git reported so, or `cwd` doesn't exist. Any
+	 * other failure (unsafe ownership, a timeout or cancellation, a missing git binary) rejects.
+	 */
 	async rev_parse__git_dir(cwd: string): Promise<{ path: string; commonPath?: string } | undefined> {
-		const result = await this.run({ cwd: cwd, errors: 'ignore' }, 'rev-parse', '--git-dir', '--git-common-dir');
+		let result;
+		try {
+			result = await this.run({ cwd: cwd, errors: 'throw' }, 'rev-parse', '--git-dir', '--git-common-dir');
+		} catch (ex) {
+			if (ex instanceof GitError && GitWarnings.notARepository.test(ex.stderr ?? '')) return undefined;
+			// A missing `cwd` fails the spawn itself (ENOENT) before git can say anything about it
+			if (!(await fsExists(cwd))) return undefined;
+			throw ex;
+		}
 		if (!result.stdout) return undefined;
 
 		// Keep trailing spaces which are part of the directory name
@@ -1522,7 +1536,7 @@ export class Git {
 			if (inDotGit && this.options.isTrusted?.() !== false) {
 				result = await this.run({ cwd: cwd, errors: 'ignore' }, 'rev-parse', '--is-bare-repository');
 				if (result.stdout.trim() === 'true') {
-					const result = await this.rev_parse__git_dir(cwd);
+					const result = await this.rev_parse__git_dir(cwd).catch(() => undefined);
 					const repoPath = result?.commonPath ?? result?.path;
 					if (repoPath?.length) return [true, repoPath];
 				}

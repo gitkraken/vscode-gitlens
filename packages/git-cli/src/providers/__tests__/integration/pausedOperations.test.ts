@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PausedOperationContinueError } from '@gitlens/git/errors.js';
 import type { TestRepo } from './helpers.js';
@@ -310,6 +310,91 @@ suite('PausedOperationsGitSubProvider.getPausedOperationStatus', () => {
 			const status = await r.provider.pausedOps.getPausedOperationStatus(r.path, { force: true });
 			assert.ok(status?.type === 'cherry-pick');
 			assert.strictEqual(status.incoming.message, 'Feature commit one');
+		} finally {
+			r.cleanup();
+		}
+	});
+});
+
+suite('PausedOperationsGitSubProvider.hasPausedOperation', () => {
+	test('is false on a clean repo', async () => {
+		const r = createTestRepo();
+		try {
+			assert.strictEqual(await r.provider.pausedOps.hasPausedOperation(r.path), false);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('is true during a conflicted merge', async () => {
+		const r = createTestRepo();
+		try {
+			setupDivergedBranches(r);
+			try {
+				execFileSync('git', ['merge', '--no-ff', 'feature'], { cwd: r.path, stdio: 'pipe' });
+				assert.fail('Expected the merge to pause on a conflict');
+			} catch {
+				// Expected: the merge pauses on the README.md conflict
+			}
+
+			assert.strictEqual(await r.provider.pausedOps.hasPausedOperation(r.path), true);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	// `git am` stops with `rebase-apply` but no `head-name`, which the status read can't describe
+	test('is true during a stopped git am, where the status is undefined', async () => {
+		const r = createTestRepo();
+		try {
+			execFileSync('git', ['checkout', '-b', 'feature'], { cwd: r.path, stdio: 'pipe' });
+			addCommit(r.path, 'README.md', '# Test Repository\nfeature edit\n', 'Feature edit README');
+			const patch = execFileSync('git', ['format-patch', '-1', '--stdout'], { cwd: r.path, encoding: 'utf-8' });
+			execFileSync('git', ['checkout', 'main'], { cwd: r.path, stdio: 'pipe' });
+			addCommit(r.path, 'README.md', '# Test Repository\nmain edit\n', 'Main edit README');
+
+			try {
+				execFileSync('git', ['am'], { cwd: r.path, input: patch, stdio: 'pipe' });
+				assert.fail('Expected git am to stop on a conflict');
+			} catch {
+				// Expected: the patch conflicts
+			}
+
+			assert.strictEqual(await r.provider.pausedOps.getPausedOperationStatus(r.path, { force: true }), undefined);
+			assert.strictEqual(await r.provider.pausedOps.hasPausedOperation(r.path), true);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('is true during a conflicted multi-commit cherry-pick', async () => {
+		const r = createTestRepo();
+		try {
+			execFileSync('git', ['checkout', '-b', 'feature'], { cwd: r.path, stdio: 'pipe' });
+			addCommit(r.path, 'README.md', '# Test Repository\nfeature one\n', 'Feature commit one');
+			addCommit(r.path, 'README.md', '# Test Repository\nfeature two\n', 'Feature commit two');
+			execFileSync('git', ['checkout', 'main'], { cwd: r.path, stdio: 'pipe' });
+			addCommit(r.path, 'README.md', '# Test Repository\nmain edit\n', 'Main edit README');
+
+			try {
+				execFileSync('git', ['cherry-pick', 'feature~1', 'feature'], { cwd: r.path, stdio: 'pipe' });
+				assert.fail('Expected the cherry-pick to pause on a conflict');
+			} catch {
+				// Expected: the first pick conflicts
+			}
+
+			assert.strictEqual(await r.provider.pausedOps.hasPausedOperation(r.path), true);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('is false for a stray sequencer dir without a todo', async () => {
+		const r = createTestRepo();
+		try {
+			mkdirSync(join(r.path, '.git', 'sequencer'));
+
+			assert.strictEqual(await r.provider.pausedOps.hasPausedOperation(r.path), false);
 		} finally {
 			r.cleanup();
 		}

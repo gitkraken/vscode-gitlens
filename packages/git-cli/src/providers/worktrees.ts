@@ -1,10 +1,12 @@
 import { exec } from 'child_process';
 import { promises as fs } from 'fs';
+import { join, resolve } from 'path';
 import * as l10n from '@vscode/l10n';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import { WorktreeCreateError, WorktreeDeleteError } from '@gitlens/git/errors.js';
-import type { GitWorktree, WorkspaceFolderResolver } from '@gitlens/git/models/worktree.js';
+import type { WorkspaceFolderResolver } from '@gitlens/git/models/worktree.js';
+import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { GitOperationRunOptions } from '@gitlens/git/providers/operations.js';
 import type { GitWorktreesSubProvider } from '@gitlens/git/providers/worktrees.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
@@ -162,15 +164,48 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 						}
 					: undefined;
 
-				return parseGitWorktrees(
+				const worktrees = parseGitWorktrees(
 					getSettledValue(dataResult)?.stdout,
 					commonPath,
 					getSettledValue(branchesResult)?.values ?? [],
 					getWorkspaceFolder,
 				);
+
+				// Older git prints a bare `locked` even when a reason exists; recover it from the admin dir
+				if (await this.git.supports('git:worktree:list:lock-reason')) return worktrees;
+
+				return Promise.all(worktrees.map(w => this.withLockReason(w)));
 			},
 			cancellation,
 		);
+	}
+
+	private async withLockReason(worktree: GitWorktree): Promise<GitWorktree> {
+		if (worktree.locked !== true || worktree.isDefault || worktree.type === 'bare') return worktree;
+
+		try {
+			// A linked worktree's `.git` is a file: `gitdir: <admin dir>`, relative to the worktree when not absolute
+			const dotGit = join(worktree.uri.fsPath, '.git');
+			const match = /^gitdir:\s*(.+?)\s*$/m.exec(await fs.readFile(dotGit, 'utf8'));
+			if (match == null) return worktree;
+
+			const reason = (await fs.readFile(join(resolve(worktree.uri.fsPath, match[1]), 'locked'), 'utf8')).trim();
+			if (!reason) return worktree;
+
+			return new GitWorktree(
+				worktree.isDefault,
+				worktree.type,
+				worktree.repoPath,
+				worktree.uri,
+				reason,
+				worktree.prunable,
+				worktree.sha,
+				worktree.branch,
+				worktree.workspaceFolder,
+			);
+		} catch {
+			return worktree;
+		}
 	}
 
 	@debug()

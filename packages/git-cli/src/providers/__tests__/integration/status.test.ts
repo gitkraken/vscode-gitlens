@@ -232,8 +232,9 @@ suite('StatusSubProvider — reads reject when git fails', () => {
 	});
 
 	test('a cancelled read rejects as a cancellation', async () => {
-		await assert.rejects(repo.provider.status.getUntrackedFiles(repo.path, AbortSignal.abort()), (ex: unknown) =>
-			isCancellationError(ex),
+		await assert.rejects(
+			repo.provider.status.getUntrackedFiles(repo.path, undefined, AbortSignal.abort()),
+			(ex: unknown) => isCancellationError(ex),
 		);
 		await assert.rejects(
 			repo.provider.status.hasWorkingChanges(repo.path, undefined, AbortSignal.abort()),
@@ -321,5 +322,65 @@ suite('StatusSubProvider — hasWorkingChanges', () => {
 
 	test('a clean working tree has no working changes', async () => {
 		assert.strictEqual(await repo.provider.status.hasWorkingChanges(repo.path), false);
+	});
+});
+
+suite('StatusSubProvider getUntrackedFiles paths', () => {
+	let repo: TestRepo;
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+		for (const dir of ['a', 'b', '[id]', 'x']) {
+			mkdirSync(join(repo.path, dir), { recursive: true });
+		}
+		writeFileSync(join(repo.path, 'root.txt'), 'root\n');
+		writeFileSync(join(repo.path, 'a', 'one.txt'), 'one\n');
+		writeFileSync(join(repo.path, 'b', 'two.txt'), 'two\n');
+		writeFileSync(join(repo.path, '[id]', 'page.txt'), 'page\n');
+		writeFileSync(join(repo.path, 'x', 'sibling.txt'), 'sibling\n');
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+	});
+
+	async function read(paths?: readonly string[]): Promise<string[]> {
+		return (await repo.provider.status.getUntrackedFiles(repo.path, paths != null ? { paths: paths } : undefined))
+			.map(f => f.path)
+			.sort();
+	}
+
+	test('reads the whole tree without paths', async () => {
+		assert.deepStrictEqual(await read(), ['[id]/page.txt', 'a/one.txt', 'b/two.txt', 'root.txt', 'x/sibling.txt']);
+	});
+
+	test('limits the read to the given folders and files', async () => {
+		assert.deepStrictEqual(await read(['a']), ['a/one.txt']);
+		assert.deepStrictEqual(await read(['a', 'b']), ['a/one.txt', 'b/two.txt']);
+		assert.deepStrictEqual(await read(['a', 'root.txt']), ['a/one.txt', 'root.txt']);
+	});
+
+	test('dedupes overlapping paths', async () => {
+		assert.deepStrictEqual(await read(['a', 'a/one.txt']), ['a/one.txt']);
+	});
+
+	test('matches a glob-like folder name literally', async () => {
+		assert.deepStrictEqual(await read(['[id]']), ['[id]/page.txt']);
+		// `[id]` as a glob would match a sibling named `i` or `d`; the literal form must not
+		mkdirSync(join(repo.path, 'i'), { recursive: true });
+		writeFileSync(join(repo.path, 'i', 'glob-sibling.txt'), 'g\n');
+		assert.deepStrictEqual(await read(['[id]']), ['[id]/page.txt']);
+	});
+
+	test('an empty paths array answers empty', async () => {
+		assert.deepStrictEqual(await read([]), []);
+	});
+
+	test('batches paths that exceed the command-line limit', async () => {
+		const many = Array.from(
+			{ length: 4000 },
+			(_, i) => `missing-folder-with-a-long-name-${String(i).padStart(5, '0')}`,
+		);
+		assert.deepStrictEqual(await read([...many, 'a', 'b']), ['a/one.txt', 'b/two.txt']);
 	});
 });

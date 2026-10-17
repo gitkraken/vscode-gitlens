@@ -31,18 +31,28 @@ import { CancellationError, isCancellationError } from '@gitlens/utils/cancellat
 import { debounce } from '@gitlens/utils/decorators/debounce.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { getBranchId } from '@gitlens/utils/gitRefs.js';
+import { sum } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { LruMap } from '@gitlens/utils/lruMap.js';
 import type { PagedResult, PagingOptions } from '@gitlens/utils/paging.js';
 import { emptyPagedResult, PageableResult } from '@gitlens/utils/paging.js';
 import { normalizePath } from '@gitlens/utils/path.js';
-import { getSettledValue } from '@gitlens/utils/promise.js';
+import { getSettledValue, mapBounded } from '@gitlens/utils/promise.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { GitResult } from '../exec/exec.types.js';
 import type { Git } from '../exec/git.js';
-import { getGitCommandError, gitConfigsBranch, gitConfigsLog, GitError, GitErrors, GitWarnings } from '../exec/git.js';
+import {
+	getGitCommandError,
+	gitConfigsBranch,
+	gitConfigsLog,
+	GitError,
+	GitErrors,
+	GitWarnings,
+	maxGitCliLength,
+} from '../exec/git.js';
 import type { GitMergeConflict } from '../parsers/mergeTreeParser.js';
 import { parseMergeTreeConflict } from '../parsers/mergeTreeParser.js';
 
@@ -50,6 +60,9 @@ import { parseMergeTreeConflict } from '../parsers/mergeTreeParser.js';
 const dateMetadataStaleThresholdMs = 5 * 60 * 1000; // 5 minutes
 
 export class BranchesGitSubProvider implements GitBranchesSubProvider {
+	/** Ahead/behind counts by `<baseSha>...<tipSha>` range, from the per-tip fallback; a pair of commits always counts the same */
+	private readonly aheadBehindBySha = new LruMap<string, { ahead: number; behind: number }>(4096);
+
 	constructor(
 		private readonly context: GitServiceContext,
 		private readonly git: Git,
@@ -1799,14 +1812,187 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		};
 	}
 
+	@debug({ exit: true })
+	async getAheadBehindCounts(
+		repoPath: string,
+		base: string,
+		options?: { remotes?: boolean; refs?: readonly string[] },
+		cancellation?: AbortSignal,
+	): Promise<Map<string, { ahead: number; behind: number }>> {
+		const counts = new Map<string, { ahead: number; behind: number }>();
+
+		const refs = options?.refs != null ? new Set(options.refs) : undefined;
+		if (refs?.size === 0) return counts;
+
+		// for-each-ref also matches below a pattern (`refs/heads/a` matches `refs/heads/a/b`), so named refs are kept
+		// to the exact set; a list too long for the command line is read whole and filtered
+		let patterns: string[];
+		if (refs == null) {
+			patterns = options?.remotes ? ['refs/heads', 'refs/remotes'] : ['refs/heads'];
+		} else if (sum(refs, r => r.length + 1) < maxGitCliLength / 2) {
+			patterns = [...refs];
+		} else {
+			patterns = ['refs/heads', 'refs/remotes'];
+		}
+
+		// The format atom ends at the first `)`, which a ref name may contain, so such a base is counted per branch
+		if (!base.includes(')') && (await this.git.supports('git:for-each-ref:ahead-behind'))) {
+			// Tab-separated: ref names can't contain control characters, so no field or line can hold one
+			const result = await this.git.run(
+				{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
+				'for-each-ref',
+				`--format=%(refname)%09%(symref)%09%(ahead-behind:${base})`,
+				...patterns,
+			);
+			if (result.completion.status === 'cancelled' || cancellation?.aborted) throw new CancellationError();
+
+			for (const line of result.stdout.split('\n')) {
+				if (!line) continue;
+
+				const [ref, symref, counted] = line.split('\t');
+				if (symref || (refs != null && !refs.has(ref))) continue;
+
+				const [ahead, behind] = (counted ?? '').split(' ').map(n => parseInt(n, 10));
+				if (isNaN(ahead) || isNaN(behind)) {
+					throw new Error(`Unexpected output counting the commits ahead of and behind '${base}': ${line}`);
+				}
+
+				counts.set(ref, { ahead: ahead, behind: behind });
+			}
+
+			return counts;
+		}
+
+		// A leading dash would be read as an option by the `rev-parse` and `rev-list` below
+		if (base.startsWith('-')) throw new Error(`Invalid base '${base}'`);
+
+		const [refsResult, baseResult] = await Promise.allSettled([
+			this.git.run(
+				{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
+				'for-each-ref',
+				'--format=%(refname)%09%(symref)%09%(objectname)',
+				...patterns,
+			),
+			this.git.run(
+				{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
+				'rev-parse',
+				'--is-shallow-repository',
+				'--verify',
+				`${base}^{commit}`,
+			),
+		]);
+		if (refsResult.status === 'rejected') throw refsResult.reason;
+
+		const result = refsResult.value;
+		if (result.completion.status === 'cancelled' || cancellation?.aborted) throw new CancellationError();
+
+		// Refs grouped by the commit they point at, so each tip is counted once
+		const refsByTip = new Map<string, string[]>();
+		for (const line of result.stdout.split('\n')) {
+			const [ref, symref, sha] = line.split('\t');
+			if (!ref || symref || !sha || (refs != null && !refs.has(ref))) continue;
+
+			const tipRefs = refsByTip.get(sha);
+			if (tipRefs == null) {
+				refsByTip.set(sha, [ref]);
+			} else {
+				tipRefs.push(ref);
+			}
+		}
+		if (!refsByTip.size) return counts;
+
+		if (baseResult.status === 'rejected') throw baseResult.reason;
+		if (baseResult.value.completion.status === 'cancelled' || cancellation?.aborted) {
+			throw new CancellationError();
+		}
+
+		const [shallow, baseSha] = baseResult.value.stdout.trim().split('\n');
+		// Deepening a shallow clone changes what a pair of commits counts; git before 2.15 echoes the unknown option
+		const cacheable = shallow === 'false';
+		const countsByTip = new Map<string, { ahead: number; behind: number }>();
+		const uncounted: string[] = [];
+		for (const sha of refsByTip.keys()) {
+			if (sha === baseSha) {
+				countsByTip.set(sha, { ahead: 0, behind: 0 });
+				continue;
+			}
+
+			const range = createRevisionRange(baseSha, sha, '...');
+			const cached = cacheable ? this.aheadBehindBySha.get(range) : undefined;
+			if (cached != null) {
+				this.aheadBehindBySha.touch(range);
+				countsByTip.set(sha, cached);
+			} else {
+				uncounted.push(sha);
+			}
+		}
+
+		const results = await mapBounded(uncounted, 8, async sha => {
+			const range = createRevisionRange(baseSha, sha, '...');
+			// The base is the left side of the range, so `left` is what the branch lacks and `right` what it adds
+			const lr = await this.getLeftRightCountUncached(repoPath, range, cancellation, 'background');
+			const tipCounts = { ahead: lr.right, behind: lr.left };
+			// Remembered as each lands, so a tip that fails doesn't cost the next call the counts that didn't
+			if (cacheable) {
+				this.aheadBehindBySha.set(range, tipCounts);
+			}
+			return { sha: sha, counts: tipCounts };
+		});
+		for (const { sha, counts: tipCounts } of results) {
+			countsByTip.set(sha, tipCounts);
+		}
+
+		for (const [sha, tipRefs] of refsByTip) {
+			const tipCounts = countsByTip.get(sha)!;
+			for (const ref of tipRefs) {
+				counts.set(ref, { ...tipCounts });
+			}
+		}
+
+		return counts;
+	}
+
+	@debug({ exit: true })
+	async getMergedBranches(
+		repoPath: string,
+		into: string,
+		options?: { remotes?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<Set<string>> {
+		const patterns = options?.remotes ? ['refs/heads', 'refs/remotes'] : ['refs/heads'];
+
+		// Tab-separated: ref names can't contain control characters, so no field or line can hold one
+		const result = await this.git.run(
+			{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
+			'for-each-ref',
+			`--merged=${into}`,
+			'--format=%(refname)%09%(symref)',
+			...patterns,
+		);
+		if (result.completion.status === 'cancelled' || cancellation?.aborted) throw new CancellationError();
+
+		const merged = new Set<string>();
+		for (const line of result.stdout.split('\n')) {
+			if (!line) continue;
+
+			const [ref, symref] = line.split('\t');
+			if (symref) continue;
+
+			merged.add(ref);
+		}
+
+		return merged;
+	}
+
 	/** Counts `range` with a fresh `rev-list`, bypassing the cached count. Rejects on any failure, with git's error */
 	private async getLeftRightCountUncached(
 		repoPath: string,
 		range: GitRevisionRange,
 		cancellation: AbortSignal | undefined,
+		priority?: GitCommandPriority,
 	): Promise<{ left: number; right: number }> {
 		const result = await this.git.run(
-			{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
+			{ cwd: repoPath, cancellation: cancellation, errors: 'throw', priority: priority },
 			'rev-list',
 			'--left-right',
 			'--count',

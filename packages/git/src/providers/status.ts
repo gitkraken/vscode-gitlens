@@ -55,6 +55,14 @@ export interface GitStatusSubProvider {
 	hasConflictingFiles(repoPath: string, cancellation?: AbortSignal): Promise<boolean>;
 	/** Rejects when git fails, rather than answering empty */
 	getConflictingFiles(repoPath: string, cancellation?: AbortSignal): Promise<GitConflictFile[]>;
-	/** Rejects when git fails, rather than answering empty */
-	getUntrackedFiles(repoPath: string, cancellation?: AbortSignal): Promise<GitFile[]>;
+	/**
+	 * Rejects when git fails, rather than answering empty.
+	 * `paths` limits the read to repo-relative files or folders (matched literally, never as globs); an empty
+	 * array answers empty without running git, and omitting it reads the whole working tree.
+	 */
+	getUntrackedFiles(
+		repoPath: string,
+		options?: { paths?: readonly string[] },
+		cancellation?: AbortSignal,
+	): Promise<GitFile[]>;
 }

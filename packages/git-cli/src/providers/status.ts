@@ -10,6 +10,7 @@ import type { GitCommandPriority, GitErrorHandling } from '@gitlens/git/run.type
 import { raceWithTimeout } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
+import { chunkByStringLength } from '@gitlens/utils/iterable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { normalizePath, splitPath, stripFolderGlob } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -20,7 +21,7 @@ import { toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { GitResult } from '../exec/exec.types.js';
 import type { Git } from '../exec/git.js';
-import { defaultExceptionHandler, gitConfigsStatus, GitErrors } from '../exec/git.js';
+import { defaultExceptionHandler, gitConfigsStatus, GitErrors, maxGitCliLength } from '../exec/git.js';
 import { parseGitConflictFiles } from '../parsers/indexParser.js';
 import { parseGitStatus } from '../parsers/statusParser.js';
 
@@ -551,35 +552,60 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	}
 
 	@debug()
-	getUntrackedFiles(repoPath: string, cancellation?: AbortSignal): Promise<GitFile[]> {
+	getUntrackedFiles(
+		repoPath: string,
+		options?: { paths?: readonly string[] },
+		cancellation?: AbortSignal,
+	): Promise<GitFile[]> {
 		const scope = getScopedLogger();
+
+		const paths = options?.paths;
+		// No pathspec means "everything" to git, which is not what an empty list asks for
+		if (paths != null && !paths.length) return Promise.resolve([]);
+
+		// Literal pathspecs so a folder named like a glob (`[id]/`) doesn't match its siblings
+		const pathspecs = paths?.map(p => `:(literal)${p}`);
+
+		// Path-scoped reads join only an identical path set; `\0` can't appear in a path
+		const read = pathspecs != null ? `getUntrackedFiles\0${pathspecs.join('\0')}` : 'getUntrackedFiles';
 
 		return this.dedupeByStatusGeneration(
 			repoPath,
-			'getUntrackedFiles',
+			read,
 			async (correlationKey, signal) => {
-				const result = await this.git.run(
-					{ cwd: repoPath, cancellation: signal, errors: 'throw', correlationKey: correlationKey },
-					'ls-files',
-					'-z',
-					'--others',
-					'--exclude-standard',
-				);
+				const prefix = ['ls-files', '-z', '--others', '--exclude-standard'];
 
-				if (!result.stdout) {
-					scope?.addExitInfo('no untracked files');
-					return [];
+				// Batch the pathspecs to stay under the command-line length limit (a single batch when unscoped).
+				// Reserve the prefix and a per-arg overhead (separator + possible quoting), so neither a run of
+				// long paths nor many short ones can push a batch past the OS limit.
+				let batches: Iterable<readonly string[]> = [[]];
+				if (pathspecs != null) {
+					const perArgOverhead = 3;
+					const prefixLength = [...prefix, '--'].reduce((sum, arg) => sum + arg.length + perArgOverhead, 0);
+					batches = chunkByStringLength(pathspecs, maxGitCliLength - prefixLength, perArgOverhead);
 				}
 
+				const seen = new Set<string>();
 				const files: GitFile[] = [];
 
-				for (const line of iterateByDelimiter(result.stdout, '\0')) {
-					if (!line.length) continue;
+				for (const batch of batches) {
+					const result = await this.git.run(
+						{ cwd: repoPath, cancellation: signal, errors: 'throw', correlationKey: correlationKey },
+						...prefix,
+						...(pathspecs != null ? ['--', ...batch] : []),
+					);
 
-					files.push({ path: line, repoPath: repoPath, status: GitFileWorkingTreeStatus.Untracked });
+					if (!result.stdout) continue;
+
+					for (const line of iterateByDelimiter(result.stdout, '\0')) {
+						if (!line.length || seen.has(line)) continue;
+
+						seen.add(line);
+						files.push({ path: line, repoPath: repoPath, status: GitFileWorkingTreeStatus.Untracked });
+					}
 				}
 
-				scope?.addExitInfo(`${String(files.length)} untracked file(s)`);
+				scope?.addExitInfo(files.length ? `${String(files.length)} untracked file(s)` : 'no untracked files');
 				return files;
 			},
 			cancellation,

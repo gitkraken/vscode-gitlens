@@ -41,6 +41,77 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		private readonly provider: CliGitProviderInternal,
 	) {}
 
+	/**
+	 * Whether git's dir holds a sentinel of an in-progress operation (presence only — no content is parsed,
+	 * so it also answers `true` for states `getPausedOperationStatus` can't describe, e.g. a stopped `git am`).
+	 * Rejects when git's dir can't be resolved or read
+	 */
+	@debug()
+	async hasPausedOperation(repoPath: string, cancellation?: AbortSignal): Promise<boolean> {
+		const gitDir = await this.provider.config.getGitDir(repoPath);
+		const operations = await this.scanGitDir(gitDir);
+		if (cancellation?.aborted) throw new CancellationError();
+
+		for (const operation of operations) {
+			// A bare leftover `sequencer` dir isn't in progress; git itself checks for `sequencer/todo`
+			if (operation !== 'sequencer') return true;
+		}
+		if (!operations.has('sequencer')) return false;
+
+		try {
+			await stat(joinPaths(gitDir.uri.fsPath, 'sequencer', 'todo'));
+			return true;
+		} catch (ex) {
+			if ((ex as NodeJS.ErrnoException).code === 'ENOENT') return false;
+			throw ex;
+		}
+	}
+
+	/** Lists the operation sentinels in git's dir; rejects if the dir can't be read */
+	private scanGitDir(gitDir: GitDir): Promise<Set<Operation>> {
+		return new Promise<Set<Operation>>((resolve, reject) => {
+			readdir(gitDir.uri.fsPath, { withFileTypes: true }, (err, entries) => {
+				if (err != null) {
+					reject(err);
+					return;
+				}
+
+				const operations = new Set<Operation>();
+				for (const entry of entries) {
+					if (entry.isFile()) {
+						switch (entry.name) {
+							case 'CHERRY_PICK_HEAD':
+								operations.add('cherry-pick');
+								break;
+							case 'MERGE_HEAD':
+								operations.add('merge');
+								break;
+							case 'REVERT_HEAD':
+								operations.add('revert');
+								break;
+						}
+					} else if (entry.isDirectory()) {
+						switch (entry.name) {
+							case 'rebase-apply':
+								operations.add('rebase-apply');
+								break;
+							case 'rebase-merge':
+								operations.add('rebase-merge');
+								break;
+							case 'sequencer':
+								// The sequencer directory is used for multi-commit cherry-picks/reverts
+								// We'll determine the type by reading the todo file later
+								operations.add('sequencer');
+								break;
+						}
+					}
+				}
+
+				resolve(operations);
+			});
+		});
+	}
+
 	@debug()
 	getPausedOperationStatus(
 		repoPath: string,
@@ -59,53 +130,8 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		const status = this.cache.pausedOperationStatus.getOrCreate(repoPath, async _cancellable => {
 			const gitDir = await this.provider.config.getGitDir(repoPath);
 
-			const operations = await new Promise<Set<Operation>>((resolve, _) => {
-				readdir(gitDir.uri.fsPath, { withFileTypes: true }, (err, entries) => {
-					const operations = new Set<Operation>();
-					if (err != null) {
-						resolve(operations);
-						return;
-					}
-
-					if (entries.length === 0) {
-						resolve(operations);
-						return;
-					}
-
-					let entry;
-					for (entry of entries) {
-						if (entry.isFile()) {
-							switch (entry.name) {
-								case 'CHERRY_PICK_HEAD':
-									operations.add('cherry-pick');
-									break;
-								case 'MERGE_HEAD':
-									operations.add('merge');
-									break;
-								case 'REVERT_HEAD':
-									operations.add('revert');
-									break;
-							}
-						} else if (entry.isDirectory()) {
-							switch (entry.name) {
-								case 'rebase-apply':
-									operations.add('rebase-apply');
-									break;
-								case 'rebase-merge':
-									operations.add('rebase-merge');
-									break;
-								case 'sequencer':
-									// The sequencer directory is used for multi-commit cherry-picks/reverts
-									// We'll determine the type by reading the todo file later
-									operations.add('sequencer');
-									break;
-							}
-						}
-					}
-
-					resolve(operations);
-				});
-			});
+			// An unreadable git dir reads as "nothing paused" here — the status is best-effort and self-heals
+			const operations = await this.scanGitDir(gitDir).catch(() => new Set<Operation>());
 
 			if (!operations.size) return undefined;
 			if (cancellation?.aborted) throw new CancellationError();
