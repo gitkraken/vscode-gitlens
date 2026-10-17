@@ -55,13 +55,16 @@ export interface WorktreeSummary {
 	readonly behind: number;
 	/** Whether there is any staged, unstaged or untracked (non-ignored) change */
 	readonly dirty: boolean;
-	/** How far the branch is past its base; `undefined` when detached, unsupported, or there is no base */
+	/**
+	 * How far the branch — or a detached HEAD, measured against the default branch — is past its base; `undefined` when
+	 * unsupported or there is no base
+	 */
 	readonly base: WorktreeSummaryBase | undefined;
 	/**
 	 * Full ref names whose movement can change {@link base}, as `getAheadOfBase` reports them (see
 	 * `AheadOfBase.dependsOn`) — given with or without a base, so a watcher also learns when one appears. Empty when
-	 * the base isn't read (detached, or a provider without `getAheadOfBase`), and when the base read failed with no
-	 * earlier list for this branch (the first read, or the one after a checkout).
+	 * the base isn't read (an unborn HEAD with no name, or a provider without `getAheadOfBase`), and when the base read
+	 * failed with no earlier list for this HEAD (the first read, or the one after a checkout).
 	 */
 	readonly baseDependsOn: readonly string[];
 	/**
@@ -106,8 +109,13 @@ const allFields = dirtyField | branchField | baseField;
 
 const emptyRefs: readonly string[] = Object.freeze([]);
 
-/** The current branch's stored merge targets (user, detected) and recorded base, as `getAheadOfBase` consults them */
+/**
+ * The current branch's stored merge targets (user, detected) and recorded base, as `getAheadOfBase` consults them.
+ * A detached HEAD has no stored values, so it holds {@link noBaseKeys}.
+ */
 type BaseKeys = readonly [string | undefined, string | undefined, string | undefined];
+
+const noBaseKeys: BaseKeys = [undefined, undefined, undefined];
 
 interface ReadResult {
 	readonly summary: WorktreeSummary;
@@ -556,26 +564,27 @@ async function readSummary(
 	let baseKeysRead = false;
 	let baseFailed = false;
 	let baseError: unknown;
-	const baseBranch = !detached && repo.branches.getAheadOfBase != null ? branch : undefined;
-	if (fields & baseKeysField && !(fields & baseField) && baseBranch != null) {
-		baseKeys = await readBaseKeys(repo, baseBranch);
+	// A detached HEAD is measured as `undefined`; an unborn HEAD with no name has nothing to measure
+	const baseReadable = repo.branches.getAheadOfBase != null && (detached || branch != null);
+	if (fields & baseKeysField && !(fields & baseField) && baseReadable) {
+		baseKeys = await readBaseKeys(repo, branch);
 		baseKeysRead = true;
 		if (baseKeys == null || previousBaseKeys == null || !baseKeysEqual(baseKeys, previousBaseKeys)) {
 			fields |= baseField;
 		}
 	}
 	if (fields & baseField) {
-		if (baseBranch == null) {
+		if (!baseReadable) {
 			base = undefined;
 			dependsOn = emptyRefs;
 			baseKeys = undefined;
 		} else {
 			// Snapshot before the base read, so a write it misses is one the next `gk` config event sees as a change
 			if (!baseKeysRead) {
-				baseKeys = await readBaseKeys(repo, baseBranch);
+				baseKeys = await readBaseKeys(repo, branch);
 			}
 			try {
-				const aheadOfBase = await repo.branches.getAheadOfBase?.(baseBranch, signal);
+				const aheadOfBase = await repo.branches.getAheadOfBase?.(branch, signal);
 				base = aheadOfBase?.base;
 				dependsOn = aheadOfBase?.dependsOn ?? emptyRefs;
 			} catch (ex) {
@@ -615,9 +624,12 @@ async function readSummary(
 
 /**
  * Reads {@link BaseKeys} for `branch`, normalized the way `getAheadOfBase` reads them. `undefined` when any read
- * failed — an unknown snapshot, so the next `gk` config change reads the base rather than trusting it.
+ * failed — an unknown snapshot, so the next `gk` config change reads the base rather than trusting it. A detached
+ * HEAD (`branch` undefined) has no stored values to read.
  */
-async function readBaseKeys(repo: RepositoryService, branch: string): Promise<BaseKeys | undefined> {
+async function readBaseKeys(repo: RepositoryService, branch: string | undefined): Promise<BaseKeys | undefined> {
+	if (branch == null) return noBaseKeys;
+
 	try {
 		const [user, detected, recorded] = await Promise.all([
 			repo.branches.getStoredUserMergeTargetBranchName?.(branch),
