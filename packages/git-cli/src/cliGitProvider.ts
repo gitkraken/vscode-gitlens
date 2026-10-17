@@ -180,6 +180,11 @@ export class CliGitProvider implements GitProvider {
 		return this._cache.onDidChangeMergeTargets;
 	}
 
+	getCommonPath(repoPath: string): string | undefined {
+		// An unregistered path is its own common path in the cache, which would hide a sibling worktree's writes
+		return this._cache.isRegistered(repoPath) ? this._cache.getCommonPath(repoPath) : undefined;
+	}
+
 	private readonly _onDidAnnounceChanges = new Emitter<AnnouncedRepositoryChanges>();
 	get onDidAnnounceChanges(): Event<AnnouncedRepositoryChanges> {
 		return this._onDidAnnounceChanges.event;

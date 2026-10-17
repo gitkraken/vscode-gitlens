@@ -1,7 +1,9 @@
 import assert from 'node:assert';
 import { afterEach, describe, it } from 'node:test';
 import { mixinDisposable } from '@gitlens/utils/disposable.js';
+import { Emitter } from '@gitlens/utils/event.js';
 import { fileUri, getRepositoryKey } from '@gitlens/utils/uri.js';
+import type { MergeTargetsChangeEvent } from '../../cache.js';
 import type { GitDir, RepositoryChange } from '../../models/repository.js';
 import type { AheadOfBaseTier } from '../../providers/branches.js';
 import type { RepositoryService } from '../../repositoryService.js';
@@ -210,11 +212,16 @@ interface Harness {
 	session(): RepositoryWatchSession;
 	push(changes: RepositoryChange[], ref?: string): void;
 	pushWorkingTree(): void;
+	/** Fires the merge-targets event core raises as it writes a branch's merge target or base */
+	fireMergeTargets(refs: string[] | undefined, commonPath?: string): void;
 }
 
 let harnesses: Harness[] = [];
 
-function createHarness(options?: { defaultWorkingTreeDelayMs?: number }): Harness {
+function createHarness(options?: {
+	defaultWorkingTreeDelayMs?: number;
+	getCommonPath?: (repoPath: string) => string | undefined;
+}): Harness {
 	const repo = new FakeRepository();
 	const repos = new Map<string, FakeRepository>([[key, repo]]);
 	const watchService = new RepositoryWatchService({
@@ -222,9 +229,12 @@ function createHarness(options?: { defaultWorkingTreeDelayMs?: number }): Harnes
 		defaultRepoDelayMs: 10,
 		defaultWorkingTreeDelayMs: options?.defaultWorkingTreeDelayMs ?? 10,
 	});
+	const mergeTargets = new Emitter<MergeTargetsChangeEvent>();
 	const service = new WorktreeSummaryService({
 		watchService: watchService,
 		getRepository: path => repos.get(getRepositoryKey(path))?.service,
+		onDidChangeMergeTargets: mergeTargets.event,
+		getCommonPath: options?.getCommonPath,
 	});
 
 	const session = (): RepositoryWatchSession => {
@@ -248,6 +258,8 @@ function createHarness(options?: { defaultWorkingTreeDelayMs?: number }): Harnes
 		session: session,
 		push: (changes, ref) => session().pushRepoChanges(changes, ref),
 		pushWorkingTree: () => session().pushWorkingTreeChanges([`${repoPath}/src/a.ts`]),
+		fireMergeTargets: (refs, commonPath) =>
+			mergeTargets.fire({ repoPath: commonPath ?? key, refs: refs != null ? new Set(refs) : undefined }),
 	};
 	harnesses.push(harness);
 	return harness;
@@ -647,6 +659,102 @@ describe('WorktreeSummaryService', () => {
 			assert.deepStrictEqual(await readsAfter(h, () => h.push(['gkConfig'])), onlyBase);
 		});
 
+		it("re-reads the stored base values, and the base when they changed, once for core's own write", async () => {
+			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.userMergeTarget = 'release';
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireMergeTargets(['main'])), onlyBase);
+			assert.strictEqual(h.repo.baseKeyReads, 6, 'the three stored values were read once');
+
+			// The watcher's later report of the same write
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['gkConfig'])), none);
+			assert.strictEqual(h.repo.baseKeyReads, 9);
+
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireMergeTargets(['main'])), none);
+			assert.strictEqual(h.repo.baseKeyReads, 12);
+		});
+
+		it("resolves getSummary to the new base when called as core's write completes", async () => {
+			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			const base: FakeBase = { ref: 'release', ahead: 5, sha: 'rrr111', forkPoint: 'fff222', tier: 'user' };
+			h.repo.state.userMergeTarget = 'release';
+			h.repo.state.base = base;
+			h.fireMergeTargets(['main']);
+			const summary = await h.service.getSummary(repoPath);
+
+			assert.deepStrictEqual(summary.base, base);
+		});
+
+		it('reads nothing for a write to another branch', async () => {
+			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.userMergeTarget = 'release';
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireMergeTargets(['feature'])), none);
+			assert.strictEqual(h.repo.baseKeyReads, 3);
+		});
+
+		it('re-reads the stored base values when the changed branches are unknown', async () => {
+			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireMergeTargets(undefined)), none);
+			assert.strictEqual(h.repo.baseKeyReads, 6);
+		});
+
+		it("ignores another repository's merge-target write, named or coarse", async () => {
+			const h = createHarness({ getCommonPath: p => p });
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.userMergeTarget = 'release';
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireMergeTargets(['main'], '/other')), none);
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireMergeTargets(undefined, '/other')), none);
+			assert.strictEqual(h.repo.baseKeyReads, 3);
+		});
+
+		it("re-reads for its own repository's write, from the common path or a sibling worktree", async () => {
+			const h = createHarness({ getCommonPath: p => (p === repoPath || p.startsWith('/wt') ? repoPath : p) });
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.userMergeTarget = 'release';
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireMergeTargets(['main'], repoPath)), onlyBase);
+
+			h.addWorktree('/wt-one');
+			h.service.subscribe('/wt-one');
+			await h.service.getSummary('/wt-one');
+			const before = h.repo.baseKeyReads;
+			h.fireMergeTargets(undefined, repoPath);
+			await delay(60);
+			assert.ok(h.repo.baseKeyReads > before);
+		});
+
+		it('reacts to every repository without a getCommonPath', async () => {
+			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.userMergeTarget = 'release';
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireMergeTargets(['main'], '/other')), onlyBase);
+		});
+
+		it('reacts to every repository when getCommonPath has no answer', async () => {
+			const h = createHarness({ getCommonPath: () => undefined });
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.userMergeTarget = 'release';
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireMergeTargets(['main'], '/other')), onlyBase);
+		});
+
 		it('runs branch and base for a config change', async () => {
 			const h = createHarness();
 			h.service.subscribe(repoPath);
@@ -756,6 +864,7 @@ describe('WorktreeSummaryService', () => {
 			assert.strictEqual(h.repo.baseKeyReads, 0, 'a detached HEAD has no stored values to read');
 
 			assert.deepStrictEqual(await readsAfter(h, () => h.push(['gkConfig'])), none);
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireMergeTargets(['main'])), none);
 			assert.strictEqual(h.repo.baseKeyReads, 0);
 		});
 

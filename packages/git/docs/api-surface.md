@@ -198,7 +198,7 @@ Also on `GitProvider`:
 
 - `descriptor: GitProviderDescriptor` (`id: 'git' | 'github' | 'vsls'`, `name`, `virtual`)
 - URI helpers: `getAbsoluteUri()`, `getRelativePath()`
-- Optional repo methods: `excludeIgnoredUris?`, `getIgnoreFilter?`, `getIgnoredDirectories?`, `getIgnoredUrisFilter?`, `getLastFetchedTimestamp?`
+- Optional repo methods: `excludeIgnoredUris?`, `getIgnoreFilter?`, `getIgnoredDirectories?`, `getIgnoredUrisFilter?`, `getLastFetchedTimestamp?`, `getCommonPath?`
 - Optional events: `onDidChangeMergeTargets?`
 
 ---

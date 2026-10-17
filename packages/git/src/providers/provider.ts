@@ -79,10 +79,17 @@ export interface GitProvider {
 	getIgnoredUrisFilter?(repoPath: string): Promise<(uri: Uri) => boolean>;
 	getLastFetchedTimestamp?(repoPath: string): Promise<number | undefined>;
 	/**
-	 * Fires when an external write changed a branch's merge-relevant `.git/gk/config` keys — not for activity
-	 * timestamps, and not for the provider's own writes. See `Cache.onDidChangeMergeTargets`.
+	 * Fires when a write changed a branch's merge-relevant `.git/gk/config` keys — not for activity timestamps. The
+	 * provider's own key store fires it once, naming the branch, as the write completes; its section remove and
+	 * rename don't, nor do its internal saves while answering a read (only another process's watcher reports those).
+	 * See `Cache.onDidChangeMergeTargets`.
 	 */
 	readonly onDidChangeMergeTargets?: Event<MergeTargetsChangeEvent>;
+	/**
+	 * The repository's common path, as it appears in {@link onDidChangeMergeTargets} events; `undefined` when the
+	 * provider can't tell, because `repoPath` was never registered with it
+	 */
+	getCommonPath?(repoPath: string): string | undefined;
 	/**
 	 * Fires as the provider announces one of its own writes to the host (`hooks.repository.onChanged`), once for each
 	 * path it announces it for, sibling worktrees included — after the write finished and its caches were evicted.

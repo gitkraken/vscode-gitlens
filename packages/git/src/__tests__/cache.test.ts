@@ -944,13 +944,120 @@ suite('Cache.onDidChangeMergeTargets', () => {
 		assert.deepStrictEqual([...(events[0].refs ?? [])].sort(), ['feature', 'fresh']);
 	});
 
-	test("stays silent for core's own key write", async () => {
+	test("fires once, naming the branch, for core's own key write, and not again for the watcher's report", async () => {
 		const settled = await seedThenReconcileTo(
 			[['branch.main.gk-merge-target', 'origin/main']],
 			[['branch.main.gk-merge-target', 'origin/develop']],
 		);
 		// What `setGkConfig` records right after writing, before the watcher reports the file change
 		cache.recordGkConfigWrite(repoPath, 'branch.main.gk-merge-target', 'origin/develop');
+		assert.strictEqual(events.length, 1);
+		assert.deepStrictEqual([...(events[0].refs ?? [])], ['main']);
+
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		await settled();
+
+		assert.strictEqual(events.length, 1);
+	});
+
+	suite("a reconcile overlapping core's own key write", () => {
+		const written: [string, string] = ['branch.main.gk-merge-target', 'origin/develop'];
+		let file: Map<string, string>;
+		let release: () => void;
+		let gate: Promise<void>;
+
+		/** Registers a reconciler whose re-read waits for `gate`, reading the file through `read` */
+		function registerGatedReconciler(read: () => Promise<Map<string, string>>): () => Promise<void> {
+			let pending: Promise<unknown> = Promise.resolve();
+			cache.setGkConfigReconciler((rp, priorSnapshot) => {
+				pending = cache
+					.getGkConfigMap(rp, read)
+					.then(freshMap => cache.reconcileGkConfigMap(rp, priorSnapshot, freshMap));
+				return pending.then(() => 'reconciled' as const);
+			});
+			return async () => {
+				await pending;
+			};
+		}
+
+		/** Core writes and records a merge key while the reconcile is reading */
+		function writeOwnKey(): void {
+			file = new Map([...file, written]);
+			cache.recordGkConfigWrite(repoPath, ...written);
+			assert.strictEqual(events.length, 1);
+			assert.deepStrictEqual([...(events[0].refs ?? [])], ['main']);
+		}
+
+		setup(async () => {
+			file = new Map([
+				['branch.main.gk-merge-target', 'origin/main'],
+				['branch.feature.gk-merge-base', 'main'],
+			]);
+			await cache.getGkConfigMap(repoPath, () => Promise.resolve(new Map(file)));
+			gate = new Promise<void>(resolve => (release = resolve));
+		});
+
+		test('a read that predates the write fires nothing for it, nor does the watcher report of it', async () => {
+			const settled = registerGatedReconciler(() => {
+				const content = file;
+				return gate.then(() => new Map(content));
+			});
+			// Another process's change starts a reconcile whose read sees the file as it was before core's write
+			cache.onRepositoryChanged(repoPath, ['gkConfig']);
+			writeOwnKey();
+			release();
+			await settled();
+			assert.strictEqual(events.length, 1);
+			assert.strictEqual(cache.getGkConfigMergeSnapshot(repoPath)?.get(written[0]), written[1], 'the write is kept');
+
+			cache.onRepositoryChanged(repoPath, ['gkConfig']);
+			await settled();
+			assert.strictEqual(events.length, 1);
+		});
+
+		test('a read that follows the write fires nothing for it', async () => {
+			const settled = registerGatedReconciler(() => gate.then(() => new Map(file)));
+			cache.onRepositoryChanged(repoPath, ['gkConfig']);
+			writeOwnKey();
+			release();
+			await settled();
+
+			assert.strictEqual(events.length, 1);
+		});
+
+		test("still reports another process's change to a different merge key", async () => {
+			const settled = registerGatedReconciler(() => gate.then(() => new Map(file)));
+			cache.onRepositoryChanged(repoPath, ['gkConfig']);
+			file = new Map([...file, ['branch.feature.gk-merge-base', 'develop']]);
+			writeOwnKey();
+			release();
+			await settled();
+
+			assert.strictEqual(events.length, 2);
+			assert.deepStrictEqual([...(events[1].refs ?? [])], ['feature']);
+		});
+	});
+
+	test("records core's internal self-write in the snapshot without firing", async () => {
+		const settled = await seedThenReconcileTo(
+			[['branch.main.gk-merge-target', 'origin/main']],
+			[['branch.main.gk-merge-target', 'origin/develop']],
+		);
+		cache.recordGkConfigWrite(repoPath, 'branch.main.gk-merge-target', 'origin/develop', { announce: false });
+		assert.deepStrictEqual(events, []);
+
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		await settled();
+
+		assert.deepStrictEqual(events, [], "the watcher's reconcile of the recorded value fires nothing");
+	});
+
+	test("stays silent for core's own write of an unchanged value", async () => {
+		const settled = await seedThenReconcileTo(
+			[['branch.main.gk-merge-target', 'origin/main']],
+			[['branch.main.gk-merge-target', 'origin/main']],
+		);
+		cache.recordGkConfigWrite(repoPath, 'branch.main.gk-merge-target', 'origin/main');
 		cache.onRepositoryChanged(repoPath, ['gkConfig']);
 		await settled();
 
