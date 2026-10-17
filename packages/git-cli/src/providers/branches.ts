@@ -8,6 +8,7 @@ import type { GitBranchReference, RefRecord } from '@gitlens/git/models/referenc
 import type { GitRevisionRange } from '@gitlens/git/models/revision.js';
 import type {
 	AheadOfBase,
+	AheadOfBaseTier,
 	BranchContributionsOverview,
 	GitBranchesSubProvider,
 	GitBranchMergedStatus,
@@ -1772,14 +1773,18 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	@debug({ exit: true })
 	async getAheadOfBase(repoPath: string, branch: string, cancellation?: AbortSignal): Promise<AheadOfBase> {
-		if (isDetachedHead(branch)) return { base: undefined, dependsOn: [] };
+		if (isDetachedHead(branch)) return { base: undefined, reason: 'none', dependsOn: [] };
 
 		const dependsOn = new Set<string>([`refs/heads/${branch}`]);
 
-		let target: string | undefined;
+		let target: { ref: string; forkPoint: string | undefined } | undefined;
+		let tier: AheadOfBaseTier = 'default';
 		for (const candidate of await this.getRecordedBaseCandidates(repoPath, branch)) {
-			target = await this.getNearestForkTarget(repoPath, branch, candidate, dependsOn, cancellation);
-			if (target != null) break;
+			target = await this.getNearestForkTarget(repoPath, branch, candidate.ref, dependsOn, cancellation);
+			if (target != null) {
+				tier = candidate.tier;
+				break;
+			}
 		}
 
 		if (target == null) {
@@ -1789,17 +1794,32 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		// The tolerant reads above answer a cancelled run as "nothing there"; that is no answer
 		if (cancellation?.aborted) throw new CancellationError();
-		if (target == null) return { base: undefined, dependsOn: [...dependsOn] };
+		if (target == null) {
+			let unborn = false;
+			// A detached HEAD always has a commit, and so does a branch the cached refs list
+			if (branch != null) {
+				try {
+					const records = await this.provider.refs.getRefs(repoPath, cancellation);
+					unborn =
+						findRefTip(records, `refs/heads/${branch}`) == null &&
+						(await this.isUnbornHead(repoPath, cancellation));
+				} catch (ex) {
+					if (isCancellationError(ex)) throw ex;
+				}
+			}
+
+			return { base: undefined, reason: unborn ? 'unborn' : 'none', dependsOn: [...dependsOn] };
+		}
 
 		// A base that is the branch itself, locally or as its copy on one of the repo's remotes, at HEAD's own commit has
 		// nothing to measure against: no base, not "0 ahead" (an up-to-date `main` targeting `origin/main`). At a different
 		// commit it stays the base, since the work ahead of it is work not yet pushed
-		if (await this.isSelfAtHead(repoPath, target, branch, cancellation)) {
-			return { base: undefined, dependsOn: [...dependsOn] };
+		if (await this.isSelfAtHead(repoPath, target.ref, branch, cancellation)) {
+			return { base: undefined, reason: 'self', dependsOn: [...dependsOn] };
 		}
 
 		// `...` counts from the merge base, so only the branch's own commits count, not what the base moved on with
-		const range = createRevisionRange(target, 'HEAD', '...');
+		const range = createRevisionRange(target.ref, 'HEAD', '...');
 		const [countsResult, refsResult] = await Promise.allSettled([
 			this.provider.commits.getLeftRightCommitCount(repoPath, range, undefined, cancellation),
 			// The same cached `for-each-ref` the branch list reads, so the tip usually costs nothing
@@ -1817,7 +1837,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				if (isCancellationError(ex)) throw ex;
 
 				if (await this.isUnbornHead(repoPath, cancellation)) {
-					return { base: undefined, dependsOn: [...dependsOn] };
+					return { base: undefined, reason: 'unborn', dependsOn: [...dependsOn] };
 				}
 
 				throw ex;
@@ -1825,7 +1845,13 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 
 		return {
-			base: { ref: target, ahead: counts.right, sha: findRefTip(getSettledValue(refsResult, []), target) },
+			base: {
+				ref: target.ref,
+				ahead: counts.right,
+				sha: findRefTip(getSettledValue(refsResult, []), target.ref),
+				forkPoint: target.forkPoint,
+				tier: tier,
+			},
 			dependsOn: [...dependsOn],
 		};
 	}
@@ -2090,7 +2116,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	 * base a launch recorded. Only the stored value of the latter — `getBaseBranchName` would fall back to a reflog
 	 * guess, which on a long-lived checkout names whatever branch was last checked out from. A failed read is absent.
 	 */
-	private async getRecordedBaseCandidates(repoPath: string, branch: string): Promise<string[]> {
+	private async getRecordedBaseCandidates(
+		repoPath: string,
+		branch: string,
+	): Promise<{ ref: string; tier: AheadOfBaseTier }[]> {
 		const tolerate = async (read: () => Promise<string | undefined>): Promise<string | undefined> => {
 			try {
 				return (await read())?.trim() || undefined;
@@ -2107,10 +2136,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			tolerate(() => this.provider.config.getGkConfig(repoPath, `branch.${branch}.gk-merge-base`)),
 		]);
 
-		const candidates: string[] = [];
-		for (const candidate of reads) {
-			if (candidate && !candidates.includes(candidate)) {
-				candidates.push(candidate);
+		const tiers: AheadOfBaseTier[] = ['user', 'detected', 'recorded'];
+
+		const candidates: { ref: string; tier: AheadOfBaseTier }[] = [];
+		for (const [i, ref] of reads.entries()) {
+			if (ref && !candidates.some(c => c.ref === ref)) {
+				candidates.push({ ref: ref, tier: tiers[i] });
 			}
 		}
 		return candidates;
@@ -2165,7 +2196,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		candidate: string | undefined,
 		dependsOn: Set<string>,
 		cancellation: AbortSignal | undefined,
-	): Promise<string | undefined> {
+	): Promise<{ ref: string; forkPoint: string | undefined } | undefined> {
 		// A ref starting with `-` would be parsed as a git flag
 		if (!candidate || candidate.startsWith('-')) return undefined;
 		// A branch measured against itself says nothing
@@ -2204,10 +2235,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				nearest = { ref: fork.ref, mergeBase: fork.mergeBase };
 			}
 		}
-		if (nearest != null) return nearest.ref;
+		if (nearest != null) return { ref: nearest.ref, forkPoint: nearest.mergeBase };
 
 		return (await this.provider.refs.validateReference(repoPath, candidate, undefined, cancellation))
-			? candidate
+			? { ref: candidate, forkPoint: undefined }
 			: undefined;
 	}
 

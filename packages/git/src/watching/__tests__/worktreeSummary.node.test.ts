@@ -3,6 +3,7 @@ import { afterEach, describe, it } from 'node:test';
 import { mixinDisposable } from '@gitlens/utils/disposable.js';
 import { fileUri, getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { GitDir, RepositoryChange } from '../../models/repository.js';
+import type { AheadOfBaseTier } from '../../providers/branches.js';
 import type { RepositoryService } from '../../repositoryService.js';
 import type { FileWatcher, FileWatchEvent, FileWatchingProvider } from '../provider.js';
 import { RepositoryWatchService } from '../watchService.js';
@@ -49,6 +50,8 @@ interface FakeBase {
 	ref: string;
 	ahead: number;
 	sha: string;
+	forkPoint: string | undefined;
+	tier: AheadOfBaseTier;
 }
 
 interface ReadCounts {
@@ -84,7 +87,7 @@ class FakeRepository {
 		sha: 'aaa111',
 		upstream: { name: 'origin/main', missing: false, ahead: 1, behind: 2 },
 		dirty: false,
-		base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd111' },
+		base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd111', forkPoint: 'fff111', tier: 'user' },
 		baseDependsOn: ['refs/heads/develop'],
 		remotes: ['origin'],
 		userMergeTarget: undefined,
@@ -135,7 +138,7 @@ class FakeRepository {
 
 					const base = this.state.base;
 					return {
-						base: base != null ? { ref: base.ref, ahead: base.ahead, sha: base.sha } : undefined,
+						base: base != null ? { ...base } : undefined,
 						dependsOn: this.state.baseDependsOn,
 					};
 				},
@@ -266,7 +269,7 @@ const expectedInitial: WorktreeSummary = {
 	ahead: 1,
 	behind: 2,
 	dirty: false,
-	base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd111' },
+	base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd111', forkPoint: 'fff111', tier: 'user' },
 	baseDependsOn: ['refs/heads/develop'],
 	stale: false,
 };
@@ -569,7 +572,7 @@ describe('WorktreeSummaryService', () => {
 			assert.strictEqual(first.base, undefined);
 			assert.deepStrictEqual(first.baseDependsOn, ['refs/remotes/origin/main']);
 
-			h.repo.state.base = { ref: 'origin/main', ahead: 0, sha: 'eee111' };
+			h.repo.state.base = { ref: 'origin/main', ahead: 0, sha: 'eee111', forkPoint: undefined, tier: 'default' };
 			assert.deepStrictEqual(
 				await readsAfter(h, () => h.push(['remotes'], 'refs/remotes/origin/main')),
 				onlyBase,
@@ -578,6 +581,8 @@ describe('WorktreeSummaryService', () => {
 				ref: 'origin/main',
 				ahead: 0,
 				sha: 'eee111',
+				forkPoint: undefined,
+				tier: 'default',
 			});
 		});
 
@@ -738,8 +743,26 @@ describe('WorktreeSummaryService', () => {
 			assert.deepStrictEqual(fired[0], {
 				...expectedInitial,
 				sha: 'aaa222',
-				base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd222' },
+				base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd222', forkPoint: 'fff111', tier: 'user' },
 			});
+		});
+
+		it('fires when only the base fork point or tier changes', async () => {
+			const h = createHarness();
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			const fired: WorktreeSummary[] = [];
+			sub.onDidChange(e => fired.push(e));
+
+			h.repo.state.base = { ...h.repo.state.base!, forkPoint: 'fff222' };
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop')), onlyBase);
+			assert.strictEqual(fired.length, 1);
+			assert.strictEqual(fired[0].base?.forkPoint, 'fff222');
+
+			h.repo.state.base = { ...h.repo.state.base, tier: 'default' };
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop')), onlyBase);
+			assert.strictEqual(fired.length, 2);
+			assert.strictEqual(fired[1].base?.tier, 'default');
 		});
 
 		it('fires when only the base tip moves, reading only the base', async () => {
@@ -755,7 +778,7 @@ describe('WorktreeSummaryService', () => {
 			assert.strictEqual(fired.length, 1);
 			assert.deepStrictEqual(fired[0], {
 				...expectedInitial,
-				base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd222' },
+				base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd222', forkPoint: 'fff111', tier: 'user' },
 			});
 			assert.strictEqual(fired[0].sha, 'aaa111');
 		});
