@@ -134,7 +134,7 @@ class FakeRepository {
 								: undefined,
 					};
 				},
-				getAheadOfBase: async (branch: string | undefined, signal?: AbortSignal) => {
+				getAheadOfBase: async (branch: string | undefined, _options?: unknown, signal?: AbortSignal) => {
 					this.baseBranches.push(branch);
 					await this.enter('base', signal);
 					if (this.state.baseFail != null) throw this.state.baseFail;

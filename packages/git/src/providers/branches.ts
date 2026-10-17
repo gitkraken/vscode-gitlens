@@ -25,7 +25,7 @@ export interface BranchContributionsOverview extends GitCommitStats<number> {
 }
 
 /** Which source decided a base (see `getAheadOfBase`) */
-export type AheadOfBaseTier = 'user' | 'detected' | 'recorded' | 'default' | 'upstream';
+export type AheadOfBaseTier = 'preferred' | 'user' | 'detected' | 'recorded' | 'default' | 'upstream';
 
 export interface AheadOfBase {
 	/** The base HEAD was measured against; `undefined` when there is none (see `getAheadOfBase`) */
@@ -39,7 +39,7 @@ export interface AheadOfBase {
 				readonly sha: string | undefined;
 				/** Where HEAD forked from `ref`: git's `--fork-point` reading of `ref`'s reflog, else the merge base; `undefined` when they share no history */
 				readonly forkPoint: string | undefined;
-				/** The source the base came from: the user's merge target, the detected one, the base recorded against the branch, the default branch, or — when the branch is the default branch — the branch's own upstream */
+				/** The source the base came from: the `preferredTarget` option, the user's merge target, the detected one, the base recorded against the branch, the default branch, or — when the branch is the default branch — the branch's own upstream */
 				readonly tier: AheadOfBaseTier;
 		  }
 		| undefined;
@@ -156,8 +156,24 @@ export interface GitBranchesSubProvider {
 	 * `ref`, read from the cached ref list; `base.forkPoint` is where HEAD forked from `ref` and `base.tier` the source
 	 * that decided the base. On a detached HEAD (`undefined`, or a name `isDetachedHead` recognizes) only the default branch
 	 * is tried, as tier `'default'` and with no self check. Rejects when the count can't be read.
+	 *
+	 * `options.skipUserTarget` leaves the user's merge target out, giving the order a merge-target picker shows as
+	 * "automatic". `options.preferredTarget` is tried before every other source, also on a detached HEAD, and measured
+	 * like a recorded candidate (tier `'preferred'`); one that is unusable — naming no ref, flag-like, the branch itself,
+	 * or the branch's copy on one of the repo's remotes at HEAD's own commit — falls through to the usual order.
+	 * Tier `'preferred'` means the preferred target is the base; any other tier, or no base, means it fell through.
 	 */
-	getAheadOfBase?(repoPath: string, branch: string | undefined, cancellation?: AbortSignal): Promise<AheadOfBase>;
+	getAheadOfBase?(
+		repoPath: string,
+		branch: string | undefined,
+		options?: {
+			/** Leaves the user's merge target out: the order a merge-target picker shows as "automatic" */
+			skipUserTarget?: boolean;
+			/** A target to try before every other source */
+			preferredTarget?: string;
+		},
+		cancellation?: AbortSignal,
+	): Promise<AheadOfBase>;
 	/**
 	 * How far each branch has diverged from `base`, keyed by full ref name (`refs/heads/x`, plus `refs/remotes/<remote>/x`
 	 * when `options.remotes` is set) so a local and a remote name can't collide. Symbolic refs such as
