@@ -1,0 +1,270 @@
+import * as assert from 'assert';
+import { resolve } from 'path';
+import { RunError } from '../exec.errors.js';
+import type { RunResult } from '../exec.js';
+import { Git } from '../git.js';
+import { indexLockRetryDelays, isIndexWriteCommand } from '../indexLock.js';
+
+type FakeSpawn = (
+	args: readonly string[],
+	cwd: string | undefined,
+	env: Record<string, string | undefined>,
+) => Promise<RunResult<string>>;
+
+const lockMessage =
+	"fatal: Unable to create '/repo/.git/index.lock': File exists.\n\nAnother git process seems to be running";
+
+function lockHeld(): RunError {
+	return new RunError({ message: 'Command failed', code: 128 }, '', lockMessage);
+}
+
+function ok(): Promise<RunResult<string>> {
+	return Promise.resolve({ exitCode: 0, stdout: '', stderr: '' });
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise(r => setTimeout(r, ms));
+}
+
+suite('Git index.lock handling', () => {
+	const repoA = resolve('/test/repo-a');
+	const repoB = resolve('/test/repo-b');
+
+	let git: Git;
+	let spawned: { args: readonly string[]; cwd: string | undefined }[];
+
+	function fake(impl: FakeSpawn): void {
+		spawned = [];
+		(git as unknown as { _runSpawn: unknown })._runSpawn = (
+			_cmd: string,
+			args: readonly string[],
+			_encoding: string,
+			options: { cwd?: string; env?: Record<string, string | undefined> },
+		) => {
+			spawned.push({ args: args, cwd: options.cwd });
+			return impl(args, options.cwd, options.env ?? {});
+		};
+	}
+
+	setup(() => {
+		git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+	});
+
+	suite('isIndexWriteCommand', () => {
+		test('matches index-writing verbs, skipping leading global options', () => {
+			for (const verb of [
+				'add',
+				'rm',
+				'mv',
+				'reset',
+				'restore',
+				'checkout',
+				'switch',
+				'commit',
+				'update-index',
+				'read-tree',
+			]) {
+				assert.ok(isIndexWriteCommand([verb, 'x']), verb);
+			}
+			assert.ok(isIndexWriteCommand(['-c', 'a.b=c', '-C', '/other', 'add', 'x']));
+		});
+
+		test('apply only counts with --index, --cached or --3way', () => {
+			assert.ok(!isIndexWriteCommand(['apply', 'p.patch']));
+			assert.ok(isIndexWriteCommand(['apply', '--cached', 'p.patch']));
+			assert.ok(isIndexWriteCommand(['apply', '--index', 'p.patch']));
+			assert.ok(isIndexWriteCommand(['apply', '--whitespace=warn', '--3way']), '--3way implies --index');
+			assert.ok(isIndexWriteCommand(['apply', '-3', 'p.patch']), '-3 implies --index');
+			assert.ok(!isIndexWriteCommand(['apply', '--check', '--index', 'p.patch']), '--check writes nothing');
+			assert.ok(!isIndexWriteCommand(['apply', '--cached', '--check', 'p.patch']), '--check writes nothing');
+		});
+
+		test('leaves multi-step, long-running and read verbs alone', () => {
+			for (const verb of ['stash', 'merge', 'rebase', 'cherry-pick', 'revert', 'am', 'pull', 'status', 'log']) {
+				assert.ok(!isIndexWriteCommand([verb]), verb);
+			}
+		});
+	});
+
+	suite('retry', () => {
+		test('retries a run that finds the lock held, then resolves', async () => {
+			let calls = 0;
+			fake(() => (++calls === 1 ? Promise.reject(lockHeld()) : ok()));
+
+			const result = await git.run({ cwd: repoA }, 'add', 'file.ts');
+
+			assert.strictEqual(result.exitCode, 0);
+			assert.strictEqual(spawned.length, 2);
+			assert.deepStrictEqual(spawned[0].args, spawned[1].args);
+		});
+
+		test('gives up after the last delay and rethrows the lock error', async () => {
+			fake(() => Promise.reject(lockHeld()));
+
+			await assert.rejects(git.run({ cwd: repoA }, 'add', 'file.ts'), (ex: unknown) => {
+				assert.ok(ex instanceof Error);
+				assert.match(ex.message, /index\.lock/);
+				return true;
+			});
+			assert.strictEqual(spawned.length, indexLockRetryDelays.length + 1);
+		});
+
+		test("retries before 'ignore' resolves the failed completion", async () => {
+			let calls = 0;
+			fake(() => (++calls < 3 ? Promise.reject(lockHeld()) : ok()));
+
+			const result = await git.run({ cwd: repoA, errors: 'ignore' }, 'add', 'file.ts');
+
+			assert.strictEqual(result.completion.status, 'exited');
+			assert.strictEqual(spawned.length, 3);
+		});
+
+		test('does not retry a different failure', async () => {
+			fake(() =>
+				Promise.reject(
+					new RunError({ message: 'Command failed', code: 128 }, '', 'fatal: pathspec x did not match'),
+				),
+			);
+
+			await assert.rejects(git.run({ cwd: repoA }, 'add', 'x'));
+			assert.strictEqual(spawned.length, 1);
+		});
+
+		test('does not retry a verb outside the set', async () => {
+			fake(() => Promise.reject(lockHeld()));
+
+			await assert.rejects(git.run({ cwd: repoA }, 'merge', 'topic'));
+			assert.strictEqual(spawned.length, 1);
+		});
+
+		test('a cancellation during the wait rejects without another spawn', async () => {
+			fake(() => Promise.reject(lockHeld()));
+			const controller = new AbortController();
+
+			const run = git.run({ cwd: repoA, cancellation: controller.signal }, 'add', 'file.ts');
+			await sleep(30);
+			controller.abort();
+
+			await assert.rejects(run, (ex: unknown) => ex instanceof Error && ex.name === 'CancellationError');
+			assert.strictEqual(spawned.length, 1);
+		});
+	});
+
+	suite('ordering', () => {
+		/** Fakes a 40ms spawn and records how many were in flight at once, overall and per working directory. */
+		function recordOverlap(): { overall: () => number; forCwd: (cwd: string) => number } {
+			const active = new Map<string, number>();
+			const peakByCwd = new Map<string, number>();
+			let running = 0;
+			let peak = 0;
+			fake(async (_args, cwd) => {
+				const key = cwd!;
+				const now = (active.get(key) ?? 0) + 1;
+				active.set(key, now);
+				peakByCwd.set(key, Math.max(peakByCwd.get(key) ?? 0, now));
+				peak = Math.max(peak, ++running);
+				await sleep(40);
+				running--;
+				active.set(key, now - 1);
+				return ok();
+			});
+			return { overall: () => peak, forCwd: cwd => peakByCwd.get(cwd) ?? 0 };
+		}
+
+		test('index writes on one cwd run one at a time, even across verbs', async () => {
+			const peaks = recordOverlap();
+
+			await Promise.all([
+				git.run({ cwd: repoA }, 'add', 'a.ts'),
+				git.run({ cwd: repoA }, 'commit', '-m', 'x'),
+				git.run({ cwd: repoA }, 'add', 'b.ts'),
+			]);
+
+			assert.strictEqual(peaks.forCwd(repoA), 1);
+		});
+
+		test('index writes on different cwds overlap', async () => {
+			const peaks = recordOverlap();
+
+			await Promise.all([git.run({ cwd: repoA }, 'add', 'a.ts'), git.run({ cwd: repoB }, 'add', 'a.ts')]);
+
+			assert.strictEqual(peaks.overall(), 2);
+			assert.strictEqual(peaks.forCwd(repoA), 1);
+		});
+
+		test('a -C path decides the checkout a run belongs to', async () => {
+			const peaks = recordOverlap();
+
+			await Promise.all([
+				git.run({ cwd: repoA }, 'add', 'a.ts'),
+				git.run({ cwd: repoA }, '-C', repoB, 'add', 'a.ts'),
+			]);
+
+			assert.strictEqual(peaks.overall(), 2);
+		});
+
+		test('a run queued behind a slow one rejects promptly when aborted, without spawning', async () => {
+			let release!: () => void;
+			const gate = new Promise<void>(r => (release = r));
+			fake(async () => {
+				await gate;
+				return ok();
+			});
+
+			const first = git.run({ cwd: repoA }, 'add', 'a.ts');
+			await sleep(20);
+			const controller = new AbortController();
+			const queued = git.run({ cwd: repoA, cancellation: controller.signal }, 'add', 'b.ts');
+			await sleep(20);
+			controller.abort();
+
+			await assert.rejects(queued, (ex: unknown) => ex instanceof Error && ex.name === 'CancellationError');
+			assert.strictEqual(spawned.length, 1, 'the aborted run never spawned');
+
+			// The aborted run must not release the checkout early: a later run still waits for the first
+			const third = git.run({ cwd: repoA }, 'add', 'c.ts');
+			await sleep(20);
+			assert.strictEqual(spawned.length, 1);
+
+			release();
+			await Promise.all([first, third]);
+			assert.strictEqual(spawned.length, 2);
+		});
+
+		test('a failing run does not wedge the checkout', async () => {
+			let calls = 0;
+			fake(() =>
+				++calls === 1 ? Promise.reject(new RunError({ message: 'Command failed', code: 1 }, '', 'boom')) : ok(),
+			);
+
+			const first = git.run({ cwd: repoA }, 'add', 'a.ts');
+			const second = git.run({ cwd: repoA }, 'add', 'b.ts');
+
+			await assert.rejects(first);
+			assert.strictEqual((await second).exitCode, 0);
+		});
+
+		test('a run with its own GIT_INDEX_FILE is not queued', async () => {
+			const peaks = recordOverlap();
+
+			await Promise.all([
+				git.run({ cwd: repoA, env: { GIT_INDEX_FILE: '/tmp/idx-1' } }, 'add', 'a.ts'),
+				git.run({ cwd: repoA, env: { GIT_INDEX_FILE: '/tmp/idx-2' } }, 'add', 'b.ts'),
+			]);
+
+			assert.strictEqual(peaks.forCwd(repoA), 2);
+		});
+
+		test('other verbs on the same cwd are not queued behind a write', async () => {
+			const peaks = recordOverlap();
+
+			await Promise.all([
+				git.run({ cwd: repoA }, 'add', 'a.ts'),
+				git.run({ cwd: repoA }, 'status'),
+				git.run({ cwd: repoA }, 'merge', 'x'),
+			]);
+
+			assert.strictEqual(peaks.forCwd(repoA), 3);
+		});
+	});
+});

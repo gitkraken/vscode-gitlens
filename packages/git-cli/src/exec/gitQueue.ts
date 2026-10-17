@@ -16,7 +16,8 @@ const priorities: GitCommandPriority[] = ['interactive', 'normal', 'background']
 /** How many extra slots interactive commands can use when at capacity */
 const interactiveBurstCapacity = 2;
 
-function abortReason(signal: AbortSignal): Error {
+/** What a queued run rejects with for an aborted signal; other waits on a run reject the same way */
+export function abortReason(signal: AbortSignal): Error {
 	return signal.reason instanceof Error ? signal.reason : new Error('Aborted');
 }
 
