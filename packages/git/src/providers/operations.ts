@@ -10,7 +10,8 @@ export interface GitOperationResult {
 
 /**
  * Spawn-layer overrides callers can pass to user-initiated git operations to inject per-call
- * environment variables, an `AbortSignal` for cancellation, or a custom `timeout`. Forwarded
+ * environment variables, an `AbortSignal` for cancellation, a custom `timeout`, or a `beforeIndexLockRetry`
+ * hook to re-verify state before an index write is retried. Forwarded
  * verbatim to the underlying `git.run(...)` invocation; cannot override op-owned fields like
  * `cwd`, `configs`, `errors`, or `stdin`.
  *
@@ -18,7 +19,7 @@ export interface GitOperationResult {
  * intentionally disable the timeout (set it to 0) because those operations can take a long
  * time; a caller-supplied `timeout` will replace that "no timeout" setting, so use with care.
  */
-export type GitOperationRunOptions = Pick<GitRunOptions, 'env' | 'cancellation' | 'timeout'>;
+export type GitOperationRunOptions = Pick<GitRunOptions, 'env' | 'cancellation' | 'timeout' | 'beforeIndexLockRetry'>;
 
 export interface GitOperationsSubProvider {
 	/**
