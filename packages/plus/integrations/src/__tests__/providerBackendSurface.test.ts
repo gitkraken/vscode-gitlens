@@ -3632,6 +3632,114 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	for (const providerId of [
+		IssuesCloudHostIntegrationId.Jira,
+		IssuesCloudHostIntegrationId.Linear,
+		IssuesCloudHostIntegrationId.Trello,
+	]) {
+		test(`a ${providerId} resource discovery with no data is incomplete, not an empty account`, async () => {
+			const runtime = createFakeRuntime();
+			const manager = createIntegrationManager(runtime);
+			const tracker = await manager.get(providerId);
+			(tracker as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+			let calls = 0;
+			(
+				tracker as unknown as { getProviderResourcesForUser: () => Promise<undefined> }
+			).getProviderResourcesForUser = () => {
+				calls += 1;
+				return Promise.resolve(undefined);
+			};
+
+			const page = await manager.listIssueTrackerIssuesPage({ providerId: providerId, itemsPerPage: 2 });
+			assert.deepEqual(page.items, []);
+			assert.equal(page.page.truncated, true);
+			assert.equal(page.fetchFailed, undefined, 'the read answered; it only could not confirm completeness');
+			assert.equal(page.hasMore, false, 'retry-only state cannot drive an automatic loop');
+			assert.ok(page.cursor?.includes('retryPages'), 'the page carries a retry cursor');
+			assert.equal(page.warnings.length, 1);
+			assert.equal(page.warnings[0].kind, 'other');
+			assert.match(page.warnings[0].message, /completeness could not be confirmed/i);
+
+			const callsBeforeRetry = calls;
+			const retried = await manager.listIssueTrackerIssuesPage({
+				providerId: providerId,
+				itemsPerPage: 2,
+				cursor: page.cursor,
+			});
+			assert.equal(retried.page.truncated, true);
+			assert.ok(calls > callsBeforeRetry, 'reusing the cursor repeats the discovery');
+
+			const orgs = await manager.listOrgs({ providerId: providerId });
+			assert.deepEqual(orgs.items, []);
+			assert.equal(orgs.fetchFailed, true);
+			assert.match(orgs.warnings[0]?.message ?? '', /completeness could not be confirmed/i);
+
+			const projects = await manager.listProjects({ providerId: providerId });
+			assert.deepEqual(projects.items, []);
+			assert.equal(projects.fetchFailed, true);
+			assert.match(projects.warnings[0]?.message ?? '', /completeness could not be confirmed/i);
+
+			manager.dispose();
+		});
+
+		test(`a ${providerId} resource discovery answering [] still means no resources`, async () => {
+			const runtime = createFakeRuntime();
+			const manager = createIntegrationManager(runtime);
+			const tracker = await manager.get(providerId);
+			(tracker as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+			(
+				tracker as unknown as { getProviderResourcesForUser: () => Promise<ResourceDescriptor[]> }
+			).getProviderResourcesForUser = () => Promise.resolve([]);
+
+			const page = await manager.listIssueTrackerIssuesPage({ providerId: providerId, itemsPerPage: 2 });
+			assert.deepEqual(page.items, []);
+			assert.deepEqual(page.warnings, []);
+			assert.equal(page.page.truncated, undefined);
+			assert.equal(page.fetchFailed, undefined);
+			assert.equal(page.cursor, undefined);
+
+			const orgs = await manager.listOrgs({ providerId: providerId });
+			assert.deepEqual(orgs.warnings, []);
+			assert.equal(orgs.fetchFailed, undefined);
+
+			const projects = await manager.listProjects({ providerId: providerId });
+			assert.deepEqual(projects.warnings, []);
+			assert.equal(projects.fetchFailed, undefined);
+
+			manager.dispose();
+		});
+
+		test(`an unconnected ${providerId} still reads as empty`, async () => {
+			const runtime = createFakeRuntime();
+			const manager = createIntegrationManager(runtime);
+			const tracker = await manager.get(providerId);
+			let calls = 0;
+			(
+				tracker as unknown as { getProviderResourcesForUser: () => Promise<undefined> }
+			).getProviderResourcesForUser = () => {
+				calls += 1;
+				return Promise.resolve(undefined);
+			};
+
+			const page = await manager.listIssueTrackerIssuesPage({ providerId: providerId, itemsPerPage: 2 });
+			assert.deepEqual(page.warnings, []);
+			assert.equal(page.page.truncated, undefined);
+			assert.equal(page.fetchFailed, undefined);
+			assert.equal(page.cursor, undefined);
+
+			const orgs = await manager.listOrgs({ providerId: providerId });
+			assert.deepEqual(orgs.warnings, []);
+			assert.equal(orgs.fetchFailed, undefined);
+
+			const projects = await manager.listProjects({ providerId: providerId });
+			assert.deepEqual(projects.warnings, []);
+			assert.equal(projects.fetchFailed, undefined);
+			assert.equal(calls, 0, 'no session resolves, so the provider is never asked');
+
+			manager.dispose();
+		});
+	}
+
 	test('listIssueTrackerIssuesPage rejects git-host providers explicitly', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 

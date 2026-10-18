@@ -1386,6 +1386,10 @@ Markdown by this package.
   retries, preserve a caller's aggregate-all mode, and suppress projects already emitted before discovery
   recovered. `hasMore` reports only untouched forward progress. A cursor can therefore remain with
   `hasMore: false`; reusing it is an explicit manual retry of failed work, not a normal paging loop.
+  A resource discovery (Jira Cloud sites, the Linear organization, Trello boards) that answers with no data and no
+  error is incomplete, not an empty account: the page is `page.truncated` with a retry cursor and a "completeness
+  could not be confirmed" warning, and `listOrgs` / `listProjects` report the provider `fetchFailed`. A discovery
+  answering `[]` means no resources, and an unconnected tracker reads as empty.
   `org` and `project` select by identifier. Linear and Trello match any of a resource's or project's id, name or
   key. Jira (Cloud and Data Center) matches only the canonical key, so a selection whose site or project was removed
   selects nothing instead of resolving to another one that carries the old value as a name or id: `org` is the site's
