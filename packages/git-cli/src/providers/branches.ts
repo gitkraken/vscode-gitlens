@@ -92,6 +92,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	private readonly _branchActivityStamps = new LruMap<string, number>(1024);
 	/** One call per `commonPath\0branch` at a time, so a call held off by another's write in flight settles after it */
 	private readonly _branchActivityCalls = new KeyedSequencer();
+	/**
+	 * What each `commonPath\0branch`'s reflog says it was created from, as git wrote it; `undefined` when it says
+	 * nothing. A branch's creation never changes, so the base read, which reruns on every commit and ref move, reads
+	 * it once
+	 */
+	private readonly _branchCreatedFrom = new LruMap<string, string | undefined>(1024);
+	/** Bumped each time a key's created-from is forgotten, so a reflog read in flight across that doesn't store it */
+	private readonly _branchCreatedFromGenerations = new LruMap<string, number>(1024);
 
 	constructor(
 		private readonly context: GitServiceContext,
@@ -959,6 +967,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// nothing can establish — so the trade is that a branch reusing a name deleted outside GitLens
 			// inherits the orphaned section.
 			this.cache.deleteBaseBranchName(repoPath, name);
+			// Unlike the gk keys, the reflog is the new branch's own: a name deleted outside GitLens left its
+			// predecessor's start point cached
+			this.forgetBranchCreatedFrom(repoPath, name);
 		} catch (ex) {
 			throw getGitCommandError(
 				'branch',
@@ -1046,6 +1057,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		this.cache.deleteBaseBranchName(repoPath, name);
 		await this.provider.config.removeGkConfigBranchSection(repoPath, name);
 		this.clearBranchActivityStamps(repoPath, name);
+		this.forgetBranchCreatedFrom(repoPath, name);
 	}
 
 	/**
@@ -1739,35 +1751,26 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const priorityOpts = priority != null ? { priority: priority } : undefined;
 
 		try {
-			let entries = await this.provider.refs.getReflogEntries(
-				repoPath,
-				ref,
-				{ grep: 'branch: Created from *.', priority: priority },
-				cancellation,
-			);
-			if (entries.length !== 1) return { branch: undefined, failed: false };
+			const createdFrom = await this.getReflogCreatedFrom(repoPath, ref, priority, cancellation);
+			if (createdFrom == null) return { branch: undefined, failed: false };
 
 			// Check if branch created from an explicit branch
-			let match = entries[0].message.match(/branch: Created from (.*)$/);
-			if (match?.length === 2) {
-				let name: string | undefined = match[1];
-				if (name !== 'HEAD') {
-					if (options?.upstream) {
-						const upstream = await this.provider.refs.getSymbolicReferenceName(
-							repoPath,
-							`${name}@{u}`,
-							priorityOpts,
-						);
-						if (upstream) return { branch: upstream, failed: false };
-					}
-
-					name = await this.provider.refs.getSymbolicReferenceName(repoPath, name, priorityOpts);
-					if (name) return { branch: name, failed: false };
+			if (createdFrom !== 'HEAD') {
+				if (options?.upstream) {
+					const upstream = await this.provider.refs.getSymbolicReferenceName(
+						repoPath,
+						`${createdFrom}@{u}`,
+						priorityOpts,
+					);
+					if (upstream) return { branch: upstream, failed: false };
 				}
+
+				const name = await this.provider.refs.getSymbolicReferenceName(repoPath, createdFrom, priorityOpts);
+				if (name) return { branch: name, failed: false };
 			}
 
 			// Check if branch was created from HEAD
-			entries = await this.provider.refs.getReflogEntries(
+			const entries = await this.provider.refs.getReflogEntries(
 				repoPath,
 				'HEAD',
 				{ grep: `checkout: moving from .* to ${ref.replace('refs/heads/', '')}`, priority: priority },
@@ -1775,7 +1778,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			);
 			if (!entries.length) return { branch: undefined, failed: false };
 
-			match = entries.at(-1)!.message.match(/checkout: moving from ([^\s]+)\s/);
+			const match = entries.at(-1)!.message.match(/checkout: moving from ([^\s]+)\s/);
 			if (match?.length === 2) {
 				let name: string | undefined = match[1];
 				if (options?.upstream) {
@@ -1809,6 +1812,85 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 
 		return { branch: undefined, failed: false };
+	}
+
+	/**
+	 * The start point `ref`'s own reflog says it was created from (`branch: Created from <name>`), as git wrote it:
+	 * a branch, `HEAD`, a sha, a tag or any other revision. `undefined` unless exactly one entry says so. Rejects
+	 * when the reflog can't be read, including for a ref that doesn't exist.
+	 */
+	private async getReflogCreatedFrom(
+		repoPath: string,
+		ref: string,
+		priority: GitCommandPriority | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		const entries = await this.provider.refs.getReflogEntries(
+			repoPath,
+			ref,
+			{ grep: 'branch: Created from *.', priority: priority },
+			cancellation,
+		);
+		if (entries.length !== 1) return undefined;
+
+		return entries[0].message.match(/branch: Created from (.*)$/)?.[1];
+	}
+
+	/**
+	 * The branch `branch` was created from, as a base for {@link getAheadOfBaseInOrder}: the name its own reflog
+	 * gives, when that is a local or remote-tracking branch in the cached ref list and not `branch` itself or its
+	 * copy on a remote (`git switch <branch>` creates it from `<remote>/<branch>`). Never the checkout history in
+	 * HEAD's reflog, which on a long-lived checkout names whatever was checked out last.
+	 */
+	private async getCreatedFromTarget(
+		repoPath: string,
+		branch: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		const key = this.getBranchActivityKey(repoPath, branch);
+
+		let name: string | undefined;
+		if (this._branchCreatedFrom.has(key)) {
+			name = this._branchCreatedFrom.get(key);
+		} else {
+			const generation = this._branchCreatedFromGenerations.get(key);
+			try {
+				name = await this.getReflogCreatedFrom(repoPath, `refs/heads/${branch}`, undefined, cancellation);
+			} catch (ex) {
+				if (isCancellationError(ex)) throw ex;
+
+				// Not remembered: a failed read is no answer, and a branch with no ref yet has no creation to read
+				return undefined;
+			}
+			if (cancellation?.aborted) throw new CancellationError();
+
+			if (this._branchCreatedFromGenerations.get(key) === generation) {
+				this._branchCreatedFrom.set(key, name);
+			}
+		}
+
+		// A ref starting with `-` would be parsed as a git flag
+		if (!name || name === 'HEAD' || name.startsWith('-')) return undefined;
+
+		// Only a listed branch: a sha, a tag or a revision expression (`main~2`) names no `refs/heads/` or
+		// `refs/remotes/` ref
+		const records = await this.provider.refs.getRefs(repoPath, cancellation);
+		const fullNames =
+			name.startsWith('refs/heads/') || name.startsWith('refs/remotes/')
+				? [name]
+				: [`refs/heads/${name}`, `refs/remotes/${name}`];
+		let listed = false;
+		for (const fullName of fullNames) {
+			if ((await this.getRefTip(repoPath, records, fullName, cancellation)) != null) {
+				listed = true;
+				break;
+			}
+		}
+		if (!listed) return undefined;
+
+		if (await this.isSelfRef(repoPath, name, branch, cancellation)) return undefined;
+
+		return name;
 	}
 
 	@debug({ exit: true })
@@ -1845,7 +1927,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return this.getAheadOfBaseInOrder(repoPath, branch, options?.skipUserTarget, dependsOn, cancellation);
 	}
 
-	/** Resolves the base from the recorded candidates, then the default branch, for {@link getAheadOfBase} */
+	/**
+	 * Resolves the base from the recorded candidates, then the branch it was created from or the default branch, for
+	 * {@link getAheadOfBase}
+	 */
 	private async getAheadOfBaseInOrder(
 		repoPath: string,
 		branch: string | undefined,
@@ -1867,11 +1952,35 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		if (target == null) {
 			const defaultBranch = await this.getLocalDefaultBranchName(repoPath, dependsOn, cancellation);
+			// Before the reflog read: the default branch measures against its own upstream, even a gitflow `develop`
+			// created from `main`
 			if (branch != null && defaultBranch === branch) {
 				return this.measureAheadOfSelfUpstream(repoPath, branch, dependsOn, cancellation);
 			}
 
-			target = await this.getNearestForkTarget(repoPath, branch, defaultBranch, dependsOn, cancellation);
+			const createdFrom =
+				branch != null ? await this.getCreatedFromTarget(repoPath, branch, cancellation) : undefined;
+			if (createdFrom != null) {
+				const created = await this.getCreatedFromForkTarget(
+					repoPath,
+					branch,
+					createdFrom,
+					defaultBranch,
+					dependsOn,
+					cancellation,
+				);
+				if (created != null) {
+					({ target, tier } = created);
+				}
+			} else {
+				target = await this.getUpstreamNearestForkTarget(
+					repoPath,
+					branch,
+					defaultBranch,
+					dependsOn,
+					cancellation,
+				);
+			}
 		}
 
 		// The tolerant reads above answer a cancelled run as "nothing there"; that is no answer
@@ -1901,6 +2010,43 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 
 		return this.measureAheadOfBase(repoPath, target, tier, dependsOn, cancellation);
+	}
+
+	/**
+	 * The base for a branch created from `createdFrom`: that branch, unless the default branch forked strictly nearer
+	 * HEAD, as it does once `createdFrom` merged into it and the branch was rebased onto it. A stacked branch's
+	 * unmerged parent forked nearer, and stays its base. `undefined` when neither is usable.
+	 */
+	private async getCreatedFromForkTarget(
+		repoPath: string,
+		branch: string | undefined,
+		createdFrom: string,
+		defaultBranch: string | undefined,
+		dependsOn: Set<string>,
+		cancellation: AbortSignal | undefined,
+	): Promise<{ target: { ref: string; forkPoint: string | undefined }; tier: AheadOfBaseTier } | undefined> {
+		const skipDefault =
+			defaultBranch == null ||
+			createdFrom === defaultBranch ||
+			createdFrom === `refs/heads/${defaultBranch}` ||
+			createdFrom === `refs/remotes/${defaultBranch}`;
+		const [created, fallback] = await Promise.all([
+			this.getUpstreamNearestForkTarget(repoPath, branch, createdFrom, dependsOn, cancellation),
+			skipDefault
+				? undefined
+				: this.getUpstreamNearestForkTarget(repoPath, branch, defaultBranch, dependsOn, cancellation),
+		]);
+		if (created == null) return fallback != null ? { target: fallback, tier: 'default' } : undefined;
+
+		if (
+			created.forkPoint != null &&
+			fallback?.forkPoint != null &&
+			created.forkPoint !== fallback.forkPoint &&
+			(await this.provider.commits.isAncestorOf(repoPath, created.forkPoint, fallback.forkPoint, cancellation))
+		) {
+			return { target: fallback, tier: 'default' };
+		}
+		return { target: created, tier: 'created' };
 	}
 
 	/** Counts HEAD's commits past `target` for {@link getAheadOfBase} */
@@ -2370,9 +2516,71 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/**
+	 * `upstream/<name>` for a created-from or default base `<name>` (or `<remote>/<name>`), as another ref that base
+	 * is measured against: in a fork whose `main` tracks `origin/main`, a branch taken off (or since rebased onto) a
+	 * newer `upstream/main` would otherwise count the commits `origin` hasn't caught up on. Read from the cached
+	 * remote and ref lists; `undefined` when there is no `upstream` remote, it lacks the branch, or the base is that
+	 * ref itself.
+	 */
+	private async getUpstreamContender(
+		repoPath: string,
+		base: string | undefined,
+		dependsOn: Set<string>,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		if (!base) return undefined;
+
+		const remotes = await this.getRemoteNames(repoPath, cancellation);
+		if (!remotes.includes('upstream')) return undefined;
+
+		const records = await this.provider.refs.getRefs(repoPath, cancellation);
+
+		// The reflog keeps a start point as typed, so a created-from base can be a full ref
+		let name = base;
+		if (name.startsWith('refs/heads/')) {
+			name = name.slice('refs/heads/'.length);
+		} else {
+			const isRemoteRef = name.startsWith('refs/remotes/');
+			if (isRemoteRef) {
+				name = name.slice('refs/remotes/'.length);
+			}
+
+			if (isRemoteRef || findRefTip(records, `refs/heads/${name}`) == null) {
+				// A remote name can hold a slash, so strip exactly a remote's own prefix
+				const remote = remotes.find(r => name.startsWith(`${r}/`));
+				if (remote != null) {
+					name = name.slice(remote.length + 1);
+				}
+			}
+		}
+
+		const contender = `upstream/${name}`;
+		const remoteRef = `refs/remotes/${contender}`;
+		if (contender === base || remoteRef === base || findRefTip(records, remoteRef) == null) return undefined;
+
+		dependsOn.add(remoteRef);
+		return contender;
+	}
+
+	/** {@link getNearestForkTarget} with the `upstream` remote's copy of `candidate` as its contender */
+	private async getUpstreamNearestForkTarget(
+		repoPath: string,
+		branch: string | undefined,
+		candidate: string | undefined,
+		dependsOn: Set<string>,
+		cancellation: AbortSignal | undefined,
+	): Promise<{ ref: string; forkPoint: string | undefined } | undefined> {
+		return this.getNearestForkTarget(repoPath, branch, candidate, dependsOn, cancellation, {
+			contender: await this.getUpstreamContender(repoPath, candidate, dependsOn, cancellation),
+		});
+	}
+
+	/**
 	 * A candidate base as the ref HEAD is measured against: the candidate or its tracking ref, whichever forked
 	 * nearer HEAD, so a stale local base defers to its upstream while one carrying unpushed work wins over it. A
-	 * candidate neither forks from is used as-is if it names a commit. `undefined` when the candidate is unusable.
+	 * `contender` other than the tracking ref is taken only when it forked strictly nearer than both, so a tie keeps
+	 * the candidate's own pick. A candidate none forks from is used as-is if it names a commit. `undefined` when the
+	 * candidate is unusable.
 	 */
 	private async getNearestForkTarget(
 		repoPath: string,
@@ -2380,6 +2588,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		candidate: string | undefined,
 		dependsOn: Set<string>,
 		cancellation: AbortSignal | undefined,
+		options?: { contender?: string },
 	): Promise<{ ref: string; forkPoint: string | undefined } | undefined> {
 		// A ref starting with `-` would be parsed as a git flag
 		if (!candidate || candidate.startsWith('-')) return undefined;
@@ -2388,22 +2597,40 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		addRefDependencies(dependsOn, candidate);
 
+		const upstreamName = this.provider.refs.getSymbolicReferenceName(
+			repoPath,
+			`${candidate}@{u}`,
+			undefined,
+			cancellation,
+		);
 		const getUpstreamFork = async (): Promise<{ ref: string; mergeBase: string | undefined } | undefined> => {
-			const upstream = await this.provider.refs.getSymbolicReferenceName(
-				repoPath,
-				`${candidate}@{u}`,
-				undefined,
-				cancellation,
-			);
+			const upstream = await upstreamName;
 			if (!upstream || upstream.startsWith('-')) return undefined;
 
 			addRefDependencies(dependsOn, upstream);
 			return { ref: upstream, mergeBase: await this.getForkPoint(repoPath, upstream, cancellation) };
 		};
 
-		const [candidateMergeBase, upstreamFork] = await Promise.all([
+		const contender = options?.contender;
+		const getContenderMergeBase = async (): Promise<string | undefined> => {
+			if (contender == null) return undefined;
+
+			// At the candidate's or its tracking ref's tip it can only tie, and a tie isn't the contender's
+			const records = await this.provider.refs.getRefs(repoPath, cancellation);
+			const tip = findRefTip(records, contender);
+			if (tip != null) {
+				if (tip === findRefTip(records, candidate)) return undefined;
+
+				const upstream = await upstreamName;
+				if (upstream && tip === findRefTip(records, upstream)) return undefined;
+			}
+			return this.getForkPoint(repoPath, contender, cancellation);
+		};
+
+		const [candidateMergeBase, upstreamFork, contenderMergeBase] = await Promise.all([
 			this.getForkPoint(repoPath, candidate, cancellation),
 			getUpstreamFork(),
+			getContenderMergeBase(),
 		]);
 
 		let nearest: { ref: string; mergeBase: string } | undefined;
@@ -2418,6 +2645,17 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			) {
 				nearest = { ref: fork.ref, mergeBase: fork.mergeBase };
 			}
+		}
+
+		if (
+			contender != null &&
+			contender !== upstreamFork?.ref &&
+			contenderMergeBase != null &&
+			nearest != null &&
+			nearest.mergeBase !== contenderMergeBase &&
+			(await this.provider.commits.isAncestorOf(repoPath, nearest.mergeBase, contenderMergeBase, cancellation))
+		) {
+			nearest = { ref: contender, mergeBase: contenderMergeBase };
 		}
 		if (nearest != null) return { ref: nearest.ref, forkPoint: nearest.mergeBase };
 
@@ -2587,6 +2825,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return `${this.cache.getCommonPath(repoPath)}\0${name}`;
 	}
 
+	private forgetBranchCreatedFrom(repoPath: string, name: string): void {
+		const key = this.getBranchActivityKey(repoPath, name);
+		this._branchCreatedFrom.delete(key);
+		this._branchCreatedFromGenerations.set(key, (this._branchCreatedFromGenerations.get(key) ?? 0) + 1);
+	}
+
 	/** Forgets this process's throttle marks for `name`, so its next activity re-reads the stored stamps */
 	private clearBranchActivityStamps(repoPath: string, name: string): void {
 		const branchKey = this.getBranchActivityKey(repoPath, name);
@@ -2658,6 +2902,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			this.cache.deleteBaseBranchName(repoPath, newName);
 			this.clearBranchActivityStamps(repoPath, oldName);
 			this.clearBranchActivityStamps(repoPath, newName);
+			this.forgetBranchCreatedFrom(repoPath, oldName);
+			this.forgetBranchCreatedFrom(repoPath, newName);
 		} catch (ex) {
 			throw getGitCommandError(
 				'branch',

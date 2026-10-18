@@ -15,7 +15,6 @@ import {
 	checkout,
 	cloneTestRepo,
 	createBranch,
-	createBranchAt,
 	createTestRepo,
 	createTrackingBranch,
 	createWorktree,
@@ -860,7 +859,9 @@ suite('OperationsGitSubProvider.fetch — remote HEAD symref', () => {
 
 	test('git < 2.48: writes the missing symref after a fetch, so the base reads it', async () => {
 		simulateOldGit(clone);
-		createBranchAt(clone.path, 'feature', 'origin/develop', { checkout: true });
+		// From a detached HEAD, so the branch's reflog names no branch it was created from and the base is the default
+		checkout(clone.path, 'origin/develop');
+		createBranch(clone.path, 'feature', { checkout: true });
 		addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
 
 		const before = await clone.provider.branches.getAheadOfBase(clone.path, 'feature');

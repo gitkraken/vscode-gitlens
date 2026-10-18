@@ -60,6 +60,15 @@ function storeTargets(
 	}
 }
 
+/**
+ * Creates and checks out `name` at `startPoint` from a detached HEAD, so its reflog names no branch it was created
+ * from ("Created from HEAD") and the base falls through to the default branch
+ */
+function createBranchFromDetachedHead(repoPath: string, name: string, startPoint: string): void {
+	git(repoPath, 'checkout', '--detach', startPoint);
+	git(repoPath, 'checkout', '-b', name);
+}
+
 function getAheadOfBase(
 	repo: TestRepo,
 	branch: string | undefined,
@@ -110,6 +119,23 @@ function createClone(): { origin: TestRepo; clone: TestRepo; cleanup: () => void
 			origin.cleanup();
 		},
 	};
+}
+
+/** A fork's clone: local `main` tracks `origin/main`, and an `upstream` remote's `main` is one commit past it unless `synced` */
+function createFork(options?: { synced?: boolean }): { origin: TestRepo; clone: TestRepo; cleanup: () => void } {
+	const fork = createClone();
+	try {
+		if (!options?.synced) {
+			addCommit(fork.origin.path, 'upstream-only.txt', 'upstream', 'upstream only');
+		}
+		// `origin/main` stays at the clone's commit
+		git(fork.clone.path, 'remote', 'add', 'upstream', fork.origin.path);
+		fetch(fork.clone.path, 'upstream');
+	} catch (ex) {
+		fork.cleanup();
+		throw ex;
+	}
+	return fork;
 }
 
 suite('BranchesSubProvider.getAheadOfBase', () => {
@@ -464,7 +490,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				addCommit(origin.path, 'origin-only.txt', 'origin', 'origin only');
 				fetch(clone.path);
 				// Taken off the fetched remote tip; local `main` stays behind at the clone's commit
-				createBranchAt(clone.path, 'feature', 'origin/main', { checkout: true });
+				createBranchFromDetachedHead(clone.path, 'feature', 'origin/main');
 				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
 
 				const result = await getAheadOfBase(clone, 'feature');
@@ -523,7 +549,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 			try {
 				addCommit(origin.path, 'origin-first.txt', 'first', 'origin first');
 				fetch(clone.path);
-				createBranchAt(clone.path, 'feature', 'origin/main', { checkout: true });
+				createBranchFromDetachedHead(clone.path, 'feature', 'origin/main');
 				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
 				addCommit(origin.path, 'origin-second.txt', 'second', 'origin second');
 				fetch(clone.path);
@@ -547,7 +573,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				fetch(clone.path);
 				setRemoteHead(clone.path, 'origin', 'develop');
 				createTrackingBranch(clone.path, 'develop', 'origin/develop');
-				createBranchAt(clone.path, 'feature', 'develop', { checkout: true });
+				createBranchFromDetachedHead(clone.path, 'feature', 'develop');
 				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
 
 				const result = await getAheadOfBase(clone, 'feature');
@@ -575,7 +601,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				// `origin/HEAD` still names `main`
 				setRemoteHead(clone.path, 'upstream', 'develop');
 				createTrackingBranch(clone.path, 'develop', 'upstream/develop');
-				createBranchAt(clone.path, 'feature', 'develop', { checkout: true });
+				createBranchFromDetachedHead(clone.path, 'feature', 'develop');
 				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
 
 				const result = await getAheadOfBase(clone, 'feature');
@@ -600,7 +626,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				fetch(clone.path, 'upstream');
 				// Git before 2.48 never writes a remote's `HEAD` symref on fetch, so a remote added after the clone has none
 				git(clone.path, 'remote', 'set-head', 'upstream', '-d');
-				createBranchAt(clone.path, 'feature', 'origin/develop', { checkout: true });
+				createBranchFromDetachedHead(clone.path, 'feature', 'origin/develop');
 				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
 
 				const result = await getAheadOfBase(clone, 'feature');
@@ -621,7 +647,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				addCommit(origin.path, 'develop-only.txt', 'develop', 'develop only');
 				fetch(clone.path);
 				setRemoteHead(clone.path, 'origin', 'develop');
-				createBranchAt(clone.path, 'feature', 'origin/develop', { checkout: true });
+				createBranchFromDetachedHead(clone.path, 'feature', 'origin/develop');
 				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
 
 				const result = await getAheadOfBase(clone, 'feature');
@@ -647,7 +673,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				git(clone.path, 'remote', 'rename', 'origin', 'fork');
 				fetch(clone.path, 'fork');
 				setRemoteHead(clone.path, 'fork', 'develop');
-				createBranchAt(clone.path, 'feature', 'fork/develop', { checkout: true });
+				createBranchFromDetachedHead(clone.path, 'feature', 'fork/develop');
 				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
 
 				const result = await getAheadOfBase(clone, 'feature');
@@ -664,7 +690,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 			const { clone, cleanup } = createClone();
 			try {
 				git(clone.path, 'remote', 'set-head', 'origin', '-d');
-				createBranchAt(clone.path, 'feature', 'origin/main', { checkout: true });
+				createBranchFromDetachedHead(clone.path, 'feature', 'origin/main');
 				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
 				git(clone.path, 'branch', '-D', 'main');
 
@@ -686,7 +712,7 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 				git(origin.path, 'branch', '-m', 'main', 'master');
 				clone = cloneTestRepo(origin.path);
 				git(clone.path, 'remote', 'set-head', 'origin', '-d');
-				createBranchAt(clone.path, 'feature', 'origin/master', { checkout: true });
+				createBranchFromDetachedHead(clone.path, 'feature', 'origin/master');
 				addCommit(clone.path, 'branch-only.txt', 'feature', 'branch only');
 				git(clone.path, 'branch', '-D', 'master');
 
@@ -793,8 +819,262 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 		});
 	});
 
+	suite('created from', () => {
+		test("measures against the branch the reflog says it was created from, before the fork's default", async () => {
+			const { clone, cleanup } = createFork();
+			try {
+				git(clone.path, 'switch', '-c', 'feat', 'upstream/main');
+				addCommit(clone.path, 'feat.txt', 'feat', 'feat work');
+
+				const result = await getAheadOfBase(clone, 'feat');
+				assert.strictEqual(result.base?.ref, 'upstream/main');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'created');
+				assert.strictEqual(result.base?.sha, revParse(clone.path, 'upstream/main'));
+				// The default was consulted too: the branch becoming the default changes the answer
+				assertDependsOn(result, [
+					'refs/heads/feat',
+					'refs/remotes/upstream/main',
+					'refs/remotes/upstream/HEAD',
+				]);
+				// Nor is the reflog's answer written back as the recorded base
+				assert.strictEqual(gkConfig(clone.path, 'branch.feat.gk-merge-base'), undefined);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test("measures a branch created from a fork's stale main against upstream's once rebased onto it", async () => {
+			const { clone, cleanup } = createFork();
+			try {
+				git(clone.path, 'switch', '-c', 'feat', 'main');
+				addCommit(clone.path, 'feat.txt', 'feat', 'feat work');
+				git(clone.path, 'rebase', 'upstream/main');
+
+				const result = await getAheadOfBase(clone, 'feat');
+				// Against `main` or `origin/main`, upstream's commit would count too
+				assert.strictEqual(result.base?.ref, 'upstream/main');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'created');
+				assertDependsOn(result, ['refs/heads/main', 'refs/remotes/origin/main', 'refs/remotes/upstream/main']);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test("measures a fork's branch against upstream's default when it forked nearer than origin's", async () => {
+			const { clone, cleanup } = createFork();
+			try {
+				createBranchFromDetachedHead(clone.path, 'feat', 'upstream/main');
+				addCommit(clone.path, 'feat.txt', 'feat', 'feat work');
+
+				const result = await getAheadOfBase(clone, 'feat');
+				// Against `main` or `origin/main`, upstream's commit would count too
+				assert.strictEqual(result.base?.ref, 'upstream/main');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'default');
+				assert.strictEqual(result.base?.forkPoint, revParse(clone.path, 'upstream/main'));
+				assertDependsOn(result, ['refs/heads/main', 'refs/remotes/origin/main', 'refs/remotes/upstream/main']);
+			} finally {
+				cleanup();
+			}
+		});
+
+		test("keeps a synced fork's own default over upstream's", async () => {
+			const { clone, cleanup } = createFork({ synced: true });
+			try {
+				createBranch(clone.path, 'feat', { checkout: true });
+				addCommit(clone.path, 'feat.txt', 'feat', 'feat work');
+
+				const result = await getAheadOfBase(clone, 'feat');
+				assert.strictEqual(result.base?.ref, 'origin/main');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'default');
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('does not measure a branch git created from its own remote copy against that copy', async () => {
+			const { origin, clone, cleanup } = createClone();
+			try {
+				createBranch(origin.path, 'feat', { checkout: true });
+				addCommit(origin.path, 'feat-pushed.txt', 'feat', 'pushed feat work');
+				fetch(clone.path);
+				// Creates `feat` from `origin/feat`
+				git(clone.path, 'switch', 'feat');
+				addCommit(clone.path, 'feat-local.txt', 'feat', 'local feat work');
+
+				const result = await getAheadOfBase(clone, 'feat');
+				assert.strictEqual(result.base?.ref, 'origin/main');
+				assert.strictEqual(result.base?.ahead, 2);
+				assert.strictEqual(result.base?.tier, 'default');
+			} finally {
+				cleanup();
+			}
+		});
+
+		test('ignores a branch created from a tag, a sha or a revision expression', async () => {
+			for (const startPoint of ['v1', 'sha', 'develop~0']) {
+				const repo = createTestRepo();
+				try {
+					createBranch(repo.path, 'develop', { checkout: true });
+					addCommit(repo.path, 'develop-only.txt', 'develop', 'develop only');
+					git(repo.path, 'tag', 'v1');
+					git(repo.path, 'checkout', '-b', 'feat', startPoint === 'sha' ? getHeadSha(repo.path) : startPoint);
+					addCommit(repo.path, 'feat.txt', 'feat', 'feat work');
+
+					const result = await getAheadOfBase(repo, 'feat');
+					assert.strictEqual(result.base?.ref, 'main', startPoint);
+					assert.strictEqual(result.base?.ahead, 2, startPoint);
+					assert.strictEqual(result.base?.tier, 'default', startPoint);
+				} finally {
+					repo.cleanup();
+				}
+			}
+		});
+
+		test('measures a recorded base over the branch it was created from, without reading the reflog', async () => {
+			const repo = createTestRepo();
+			try {
+				createBranch(repo.path, 'develop', { checkout: true });
+				addCommit(repo.path, 'develop-only.txt', 'develop', 'develop only');
+				git(repo.path, 'checkout', '-b', 'feat', 'develop');
+				addCommit(repo.path, 'feat.txt', 'feat', 'feat work');
+				storeTargets(repo.path, 'feat', { recorded: 'main' });
+
+				const spy = sinon.spy(repo.provider.refs, 'getReflogEntries');
+				let result: AheadOfBase;
+				try {
+					result = await getAheadOfBase(repo, 'feat');
+				} finally {
+					spy.restore();
+				}
+
+				assert.strictEqual(result.base?.ref, 'main');
+				assert.strictEqual(result.base?.ahead, 2);
+				assert.strictEqual(result.base?.tier, 'recorded');
+				assert.strictEqual(spy.callCount, 0, 'read the reflog');
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('reads the reflog once per branch, again after the provider deletes and recreates it', async () => {
+			const repo = createTestRepo();
+			try {
+				createBranch(repo.path, 'develop', { checkout: true });
+				addCommit(repo.path, 'develop-only.txt', 'develop', 'develop only');
+				git(repo.path, 'checkout', '-b', 'feat', 'develop');
+				addCommit(repo.path, 'feat.txt', 'feat', 'feat work');
+
+				const first = await getAheadOfBase(repo, 'feat');
+				assert.strictEqual(first.base?.ref, 'develop');
+				assert.strictEqual(first.base?.ahead, 1);
+				assert.strictEqual(first.base?.tier, 'created');
+
+				const spy = sinon.spy(repo.provider.refs, 'getReflogEntries');
+				try {
+					// A commit clears the cached results, as the heads watcher does
+					addCommit(repo.path, 'feat-2.txt', 'feat', 'more feat work');
+					repo.provider.cache.clearCaches(repo.path);
+
+					const second = await getAheadOfBase(repo, 'feat');
+					assert.strictEqual(second.base?.ref, 'develop');
+					assert.strictEqual(second.base?.ahead, 2);
+					assert.strictEqual(second.base?.tier, 'created');
+					assert.strictEqual(spy.callCount, 0, 'read the reflog again');
+
+					checkout(repo.path, 'main');
+					await repo.provider.branches.deleteLocalBranch(repo.path, 'feat', { force: true });
+					git(repo.path, 'checkout', '-b', 'feat', 'main');
+					addCommit(repo.path, 'feat-3.txt', 'feat', 'new feat work');
+					repo.provider.cache.clearCaches(repo.path);
+
+					const recreated = await getAheadOfBase(repo, 'feat');
+					assert.strictEqual(recreated.base?.ref, 'main');
+					assert.strictEqual(recreated.base?.ahead, 1);
+					assert.strictEqual(recreated.base?.tier, 'created');
+					assert.strictEqual(spy.callCount, 1, 'expected one reflog read for the recreated branch');
+				} finally {
+					spy.restore();
+				}
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('measures against the default once the branch it was created from merged and it was rebased', async () => {
+			const repo = createTestRepo();
+			try {
+				createBranch(repo.path, 'feat-a', { checkout: true });
+				addCommit(repo.path, 'feat-a.txt', 'feat-a', 'feat-a work');
+				git(repo.path, 'checkout', '-b', 'feat', 'feat-a');
+				addCommit(repo.path, 'feat.txt', 'feat', 'feat work');
+				checkout(repo.path, 'main');
+				mergeBranch(repo.path, 'feat-a', 'merge feat-a');
+				checkout(repo.path, 'feat');
+				git(repo.path, 'rebase', 'main');
+
+				const result = await getAheadOfBase(repo, 'feat');
+				// Against the kept `feat-a`, the merge commit would count too
+				assert.strictEqual(result.base?.ref, 'main');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'default');
+				assert.strictEqual(result.base?.forkPoint, revParse(repo.path, 'main'));
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test("keeps a stacked branch's unmerged parent over the default", async () => {
+			const repo = createTestRepo();
+			try {
+				createBranch(repo.path, 'feat-a', { checkout: true });
+				addCommit(repo.path, 'feat-a.txt', 'feat-a', 'feat-a work');
+				git(repo.path, 'checkout', '-b', 'feat', 'feat-a');
+				addCommit(repo.path, 'feat.txt', 'feat', 'feat work');
+				checkout(repo.path, 'main');
+				addCommit(repo.path, 'main-only.txt', 'main', 'main only');
+				checkout(repo.path, 'feat');
+
+				const result = await getAheadOfBase(repo, 'feat');
+				assert.strictEqual(result.base?.ref, 'feat-a');
+				assert.strictEqual(result.base?.ahead, 1);
+				assert.strictEqual(result.base?.tier, 'created');
+				assertDependsOn(result, ['refs/heads/feat-a', 'refs/heads/main']);
+			} finally {
+				repo.cleanup();
+			}
+		});
+
+		test('never reads the reflog for the default branch, created from another', async () => {
+			const repo = createTestRepo();
+			try {
+				git(repo.path, 'checkout', '-b', 'develop', 'main');
+				addCommit(repo.path, 'develop-only.txt', 'develop', 'develop only');
+				setConfig(repo.path, 'init.defaultBranch', 'develop');
+
+				const spy = sinon.spy(repo.provider.refs, 'getReflogEntries');
+				let result: AheadOfBase;
+				try {
+					result = await getAheadOfBase(repo, 'develop');
+				} finally {
+					spy.restore();
+				}
+
+				// Measured against its own upstream, of which it has none, not against `main`
+				assert.strictEqual(result.base, undefined);
+				assert.strictEqual(result.reason, 'self');
+				assert.strictEqual(spy.callCount, 0, 'read the reflog');
+			} finally {
+				repo.cleanup();
+			}
+		});
+	});
+
 	suite('no base', () => {
-		test('never uses a base only the reflog knows', async () => {
+		test("never uses a base only HEAD's checkout history knows", async () => {
 			const repo = createTestRepo();
 			try {
 				createBranch(repo.path, 'develop', { checkout: true });
