@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
+import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import type { TestRepo } from './helpers.js';
 import { addCommit, createBranch, createTestRepo, createWorktree, gkConfig } from './helpers.js';
@@ -145,5 +146,69 @@ suite('BranchesSubProvider.onCurrentBranchModified', () => {
 		} finally {
 			worktree.cleanup();
 		}
+	});
+});
+
+/** A branch-activity stamp another process (Kepler, or another window) writes to the shared `.git/gk/config` */
+suite('BranchesSubProvider — branch activity stamped by another process', () => {
+	let repo: TestRepo;
+
+	/** Writes `key` from outside the provider, as another process would */
+	function writeExternally(key: string, value: string): void {
+		const gkConfigPath = join(repo.path, '.git', 'gk', 'config');
+		mkdirSync(join(gkConfigPath, '..'), { recursive: true });
+		execFileSync('git', ['config', '-f', gkConfigPath, key, value], { cwd: repo.path, stdio: 'pipe' });
+	}
+
+	/** Reports the file change the way the watcher would, then waits out the async reconcile */
+	async function reportGkConfigChange(): Promise<void> {
+		repo.provider.cache.onRepositoryChanged(normalizePath(repo.path), ['gkConfig']);
+		await new Promise(resolve => setTimeout(resolve, 300));
+	}
+
+	setup(() => {
+		repo = createTestRepo();
+	});
+
+	teardown(() => {
+		sinon.restore();
+		repo.cleanup();
+	});
+
+	test('reaches branches already read once the watcher reports it', async () => {
+		const branches = repo.provider.branches;
+		const name = currentBranch(repo.path);
+		assert.strictEqual((await branches.getBranch(repo.path))?.lastAccessedDate, undefined);
+		assert.strictEqual(
+			(await branches.getBranches(repo.path)).values.find(b => b.name === name)?.lastAccessedDate,
+			undefined,
+		);
+
+		const stamp = '2026-10-05T00:00:00.000Z';
+		writeExternally(`branch.${name}.gk-last-accessed`, stamp);
+		await reportGkConfigChange();
+
+		assert.strictEqual((await branches.getBranch(repo.path))?.lastAccessedDate?.toISOString(), stamp);
+		assert.strictEqual(
+			(await branches.getBranches(repo.path)).values.find(b => b.name === name)?.lastAccessedDate?.toISOString(),
+			stamp,
+		);
+	});
+
+	test("core's own stamp evicts the branches once, not again for the watcher's report of it", async () => {
+		const branches = repo.provider.branches;
+		const name = currentBranch(repo.path);
+		await branches.getBranch(repo.path);
+
+		const deleteBranchMetadata = sinon.spy(repo.provider.cache, 'deleteBranchMetadata');
+		await branches.onCurrentBranchAccessed(repo.path);
+		assert.strictEqual(deleteBranchMetadata.callCount, 1);
+
+		await reportGkConfigChange();
+		assert.strictEqual(deleteBranchMetadata.callCount, 1, "the watcher's report of core's own stamp is not new");
+		assert.strictEqual(
+			(await branches.getBranch(repo.path))?.lastAccessedDate?.toISOString(),
+			gkConfig(repo.path, `branch.${name}.gk-last-accessed`),
+		);
 	});
 });
