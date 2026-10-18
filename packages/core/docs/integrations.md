@@ -1226,13 +1226,20 @@ requires), keyed on the raw `System.State`, and caches each read for five minute
 credential. The category, never the name, decides: a state named `Canceled` in the `Completed` category is `DONE`, and
 a state its type doesn't list has no category. When a states read fails, a project list keeps its rows (the failed
 type's without a category) and reports the project as a partial collection with a failure scoped to it; a read by id
-and the cheap etag check fail instead. A project list keeps only the work items in the states it asked for: provider-apis
-selects open ones by their closed and resolved dates, so a `Removed` work item with neither date is left out of an open
-list rather than listed closed, and a closed-only list does not select it either. Snapshots cached before categories
-existed are not reclassified until the provider is read again.
+and the cheap etag check fail instead. List selection uses the same metadata before pagination, matching both
+work item type and state name. A closed read includes Removed, Completed and Resolved categories even without closed
+or resolved dates. Failed workflows fall back to dates with partial metadata; failures are cached for 30 seconds
+before retrying. List, identity and native presentation reads share one cache, including workflow expiry and HTTP
+proxy invalidation.
 
-The normalized `state` and `closed` fields keep their existing derivation, with `CANCELED` closing like `DONE`;
-`providerState` is additive. An Azure DevOps work item therefore closes on its category as well as its closed date.
+`listIssuesPage` accepts `state: 'open' | 'closed' | 'all'` for Azure DevOps Services and Server, on repository,
+project and account-wide reads. Omitted means open only. `getSupportedFilters(providerId).issueStates` declares this
+capability. Other git hosts retain their open-only list default and refuse non-open state requests on this facade.
+
+A known Azure workflow category determines normalized `state` and `closed`, with `CANCELED` closing like `DONE`.
+A historical closed date remains available as data but does not close an issue whose category is now open.
+Identity and list reads fall back to the closed date only when the category is unknown. Other providers keep their
+existing derivation.
 
 ### Sprints and iterations
 

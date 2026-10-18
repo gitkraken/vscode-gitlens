@@ -473,6 +473,7 @@ export interface IntegrationManager {
 		summary?: boolean;
 	}): Promise<ProviderPagedResult<PullRequestShape>>;
 	listIssuesPage(options: {
+		state?: IssueStateFilter;
 		providerId: IntegrationIds;
 		repos?: ProviderRepositoriesInput;
 		/**

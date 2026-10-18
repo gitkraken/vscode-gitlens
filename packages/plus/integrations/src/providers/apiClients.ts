@@ -2,6 +2,7 @@ import type { Disposable } from '@gitlens/utils/disposable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { AzureDevOpsApi } from './azure/azure.js';
+import { AzureWorkItemStatesCache } from './azure/workItemStateCategories.js';
 import type { BitbucketApi } from './bitbucket/bitbucket.js';
 import type { GitHubApi } from './github/github.js';
 import type { GitLabApi } from './gitlab/gitlab.js';
@@ -13,6 +14,7 @@ import type { GitLabApi } from './gitlab/gitlab.js';
  * offline/limited runtimes.
  */
 export interface ApiClients {
+	readonly azureWorkItemStates: AzureWorkItemStatesCache;
 	readonly github: Promise<GitHubApi | undefined>;
 	readonly gitlab: Promise<GitLabApi | undefined>;
 	readonly bitbucket: Promise<BitbucketApi | undefined>;
@@ -25,6 +27,15 @@ export interface ApiClients {
  * ownership (the host used to build these and inject them back through the context — a pure round-trip).
  */
 export function createApiClients(ctx: IntegrationServiceContext, disposables: Disposable[]): ApiClients {
+	const azureWorkItemStates = new AzureWorkItemStatesCache();
+	disposables.push(
+		ctx.config.onDidChange(e => {
+			if (e.httpProxy) {
+				azureWorkItemStates.clear();
+			}
+		}),
+		{ dispose: () => azureWorkItemStates.clear() },
+	);
 	let github: Promise<GitHubApi | undefined> | undefined;
 	let gitlab: Promise<GitLabApi | undefined> | undefined;
 	let bitbucket: Promise<BitbucketApi | undefined> | undefined;
@@ -43,6 +54,7 @@ export function createApiClients(ctx: IntegrationServiceContext, disposables: Di
 	};
 
 	return {
+		azureWorkItemStates: azureWorkItemStates,
 		get github() {
 			return (github ??= build(async () =>
 				(await import(/* webpackChunkName: "integrations" */ './github/github.js')).createGitHubApi(ctx),
@@ -62,7 +74,10 @@ export function createApiClients(ctx: IntegrationServiceContext, disposables: Di
 		},
 		get azure() {
 			return (azure ??= build(async () =>
-				(await import(/* webpackChunkName: "integrations" */ './azure/azure.js')).createAzureDevOpsApi(ctx),
+				(await import(/* webpackChunkName: "integrations" */ './azure/azure.js')).createAzureDevOpsApi(
+					ctx,
+					azureWorkItemStates,
+				),
 			));
 		},
 	};
