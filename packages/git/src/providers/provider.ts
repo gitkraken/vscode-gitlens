@@ -2,6 +2,7 @@ import type { Event } from '@gitlens/utils/event.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import type { CachedGitTypes, MergeTargetsChangeEvent } from '../cache.js';
 import type { RepositoryChange } from '../models/repository.js';
+import type { GitCommandPriority } from '../run.types.js';
 import type { GitIgnoreFilter } from '../watching/gitIgnoreFilter.js';
 import type { GitBlameSubProvider } from './blame.js';
 import type { GitBranchesSubProvider } from './branches.js';
@@ -73,9 +74,16 @@ export interface GitProvider {
 	/**
 	 * An exact check of which of `paths` (repo-relative) git's ignore rules match — the subset that is ignored, as
 	 * given. A tracked file isn't reported as ignored, even when a rule matches it. This is git's answer, where the
-	 * in-memory `GitIgnoreFilter` errs toward not-ignored.
+	 * in-memory `GitIgnoreFilter` errs toward not-ignored. Each path is checked as that exact file, never as pathspec
+	 * magic (a file named `:secret` is not `secret`), and comes back in the caller's spelling. Pass
+	 * `options.priority` (e.g. `'interactive'` when opening a file) for a caller waiting on the answer.
 	 */
-	getIgnoredPaths?(repoPath: string, paths: readonly string[], cancellation?: AbortSignal): Promise<Set<string>>;
+	getIgnoredPaths?(
+		repoPath: string,
+		paths: readonly string[],
+		options?: { priority?: GitCommandPriority },
+		cancellation?: AbortSignal,
+	): Promise<Set<string>>;
 	getIgnoredUrisFilter?(repoPath: string): Promise<(uri: Uri) => boolean>;
 	getLastFetchedTimestamp?(repoPath: string): Promise<number | undefined>;
 	/**

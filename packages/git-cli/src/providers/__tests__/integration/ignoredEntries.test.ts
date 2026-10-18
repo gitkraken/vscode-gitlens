@@ -150,4 +150,18 @@ suite('CliGitProvider getIgnoredEntries / getIgnoredPaths', () => {
 		assert.ok(!result.includes('newpkg/'), 'newpkg/');
 		assert.ok(!result.includes('newpkg/index.ts'), 'newpkg/index.ts');
 	});
+
+	test('getIgnoredPaths checks a path as that exact file, never as pathspec magic', async () => {
+		// Last: it adds files and a rule to the shared fixture
+		write('.gitignore', '/root.tmp\n*.log\nbuild/\n*.tmp\nnode_modules/\nsecret\n');
+		write('secret');
+		write(':secret');
+		write(':ign.log');
+
+		const result = await repo.provider.getIgnoredPaths(repo.path, ['secret', ':secret']);
+		assert.deepStrictEqual([...result], ['secret']);
+
+		const spelled = await repo.provider.getIgnoredPaths(repo.path, [':ign.log', ':other.txt', './a.log']);
+		assert.deepStrictEqual([...spelled].sort(), ['./a.log', ':ign.log']);
+	});
 });
