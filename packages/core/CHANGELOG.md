@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a `beforeIndexLockRetry(lockError)` run option, also on `GitOperationRunOptions` (so `commit`, `reset`, `restore`, `checkout` and the other typed writes that take run options accept it), called before core retries an index write that found `index.lock` held by another process, after the wait and right before the next attempt. The index may have changed while the other process held the lock, so a host can re-check what the retry will act on, such as the staged set a `commit` records; rejecting gives up with that rejection as the run's failure in every `errors` mode, and throwing `lockError` back opts out of the retry. It must not write the index through core, and a run carrying it is never shared with an identical concurrent run (git, git-cli)
+
 ### Fixed
 
 - Fixes an index-writing run being retried when the held `index.lock` was reported by something the run started rather than by git itself, such as a commit hook whose own `git add` lost the race, which re-ran the whole commit, hooks included: a run is now retried only when git's failure to take the lock is the first thing it printed (git-cli)

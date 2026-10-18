@@ -97,24 +97,34 @@ async function retryWhileHeld<T>(
 	attempt: () => Promise<T>,
 	signal: AbortSignal | undefined,
 	isHeldError: (ex: unknown) => boolean,
+	beforeRetry?: (lockError: Error) => void | Promise<void>,
 ): Promise<T> {
 	for (let retry = 0; ; retry++) {
+		let lockError: Error;
 		try {
 			return await attempt();
 		} catch (ex) {
 			if (retry >= indexLockRetryDelays.length || !isHeldError(ex)) throw ex;
+
+			lockError = ex as Error;
 		}
 
 		await delay(indexLockRetryDelays[retry], signal);
+		await beforeRetry?.(lockError);
 	}
 }
 
 /**
  * Runs `attempt`, and runs it again after each of {@link indexLockRetryDelays} while it fails on a held
- * `index.lock`. Any other failure, or the last lock failure, is rethrown as is.
+ * `index.lock`. Any other failure, or the last lock failure, is rethrown as is. `beforeRetry` runs after each
+ * wait, right before the next attempt; whatever it throws ends the retrying and is rethrown.
  */
-export function retryWhileIndexLocked<T>(attempt: () => Promise<T>, signal: AbortSignal | undefined): Promise<T> {
-	return retryWhileHeld(attempt, signal, isIndexLockHeldError);
+export function retryWhileIndexLocked<T>(
+	attempt: () => Promise<T>,
+	signal: AbortSignal | undefined,
+	beforeRetry?: (lockError: Error) => void | Promise<void>,
+): Promise<T> {
+	return retryWhileHeld(attempt, signal, isIndexLockHeldError, beforeRetry);
 }
 
 /**

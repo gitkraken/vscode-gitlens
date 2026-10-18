@@ -1032,6 +1032,7 @@ export class Git {
 
 		gitCommand = `[${options.cwd}] ${gitCommand}`;
 		const {
+			beforeIndexLockRetry,
 			cancellation,
 			configs,
 			correlationKey,
@@ -1056,8 +1057,12 @@ export class Git {
 		};
 
 		// A run fed its own stdin or per-call env is never shared: the same argv can answer differently for
-		// each (a temporary index through `GIT_INDEX_FILE`, config injected through `GIT_CONFIG_*`).
-		const unshared = options?.stdin != null || (options?.env != null && Object.keys(options.env).length > 0);
+		// each (a temporary index through `GIT_INDEX_FILE`, config injected through `GIT_CONFIG_*`). Nor is one
+		// carrying a retry hook, since the check it makes is that caller's own.
+		const unshared =
+			options?.stdin != null ||
+			(options?.env != null && Object.keys(options.env).length > 0) ||
+			beforeIndexLockRetry != null;
 		const cacheKey = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${
 			unshared ? `${unsharedRunCounter.next()}:` : ''
 		}${cancellation != null ? `${getAbortSignalId(cancellation)}:` : ''}${gitCommand}`;
@@ -1065,6 +1070,9 @@ export class Git {
 		// When the subprocess actually started — `start` includes GitQueue wait, which is congestion rather
 		// than anything the repository did. Stays undefined for a dedup rider or a command aborted while queued.
 		let execStart: ReturnType<typeof hrtime> | undefined;
+		// What the caller's retry hook threw. It is the caller's own failure, so it must reach them as thrown
+		// rather than be classified like a git failure below.
+		let hookFailure: { error: unknown } | undefined;
 		let waiting;
 		let promise = this.pendingCommands.get(cacheKey)?.promise;
 		if (promise == null) {
@@ -1119,8 +1127,22 @@ export class Git {
 			// each attempt, so waiting between them doesn't hold a queue slot.
 			// A config write likewise fails at once on a held `<file>.lock`. Reads never produce that failure, so
 			// the retry costs them nothing, and one wrap covers both `errors` modes.
+			const beforeRetry =
+				beforeIndexLockRetry != null
+					? async (lockError: Error) => {
+							try {
+								await beforeIndexLockRetry(lockError);
+							} catch (ex) {
+								// The lock error thrown back only declines the retry, leaving the lock failure as the result
+								if (ex !== lockError) {
+									hookFailure = { error: ex };
+								}
+								throw ex;
+							}
+						}
+					: undefined;
 			const spawnWithRetry = writesIndex
-				? () => retryWhileIndexLocked(spawnQueued, cancellation)
+				? () => retryWhileIndexLocked(spawnQueued, cancellation, beforeRetry)
 				: isConfigCommand(args)
 					? () => retryWhileConfigLocked(spawnQueued, cancellation)
 					: spawnQueued;
@@ -1190,6 +1212,12 @@ export class Git {
 				completion: { status: 'exited', code: result.exitCode },
 			};
 		} catch (ex) {
+			if (hookFailure != null) {
+				exception =
+					hookFailure.error instanceof Error ? hookFailure.error : new Error(String(hookFailure.error));
+				throw hookFailure.error;
+			}
+
 			if (expectedExitCodes?.length && ex instanceof RunError && !(ex instanceof CancelledRunError)) {
 				const code = toExitCode(ex.code);
 				if (code != null && expectedExitCodes.includes(code)) {

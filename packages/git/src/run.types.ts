@@ -90,6 +90,18 @@ export interface GitRunOptions {
 	readonly correlationKey?: string;
 	errors?: GitErrorHandling;
 	/**
+	 * Called before core retries a write that found `index.lock` held by another process — after the wait, right
+	 * before the next attempt. The index may have changed while the other process held the lock, so this lets the
+	 * caller re-check what the retry will act on (e.g. the staged set a `commit` records). Rejecting gives up: the
+	 * rejection becomes the run's failure, in every `errors` mode. Throwing `lockError` back opts out of the retry,
+	 * leaving the lock failure as the result.
+	 *
+	 * It runs while this checkout's index writes are held in order, so it must not write the index through core
+	 * (it would wait on itself). A run given this hook is never shared with an identical concurrent run. Only the
+	 * index-lock retry calls it, not the config-lock retry.
+	 */
+	beforeIndexLockRetry?: (lockError: Error) => void | Promise<void>;
+	/**
 	 * Non-zero exit codes that are answers rather than failures (e.g. `1` from `diff --quiet`, "has differences");
 	 * a listed code resolves as `exited` with that `exitCode` in every `errors` mode.
 	 */
