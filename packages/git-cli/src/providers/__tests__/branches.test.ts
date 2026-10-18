@@ -435,7 +435,11 @@ suite('BranchesGitSubProvider stored merge target Test Suite', () => {
 			gkConfig['branch.feature.gk-merge-target'] = 'origin/main';
 			gone('origin/main');
 			stubFallbacks();
-			sandbox.stub(branchesProvider, 'getBranch').resolves({ remoteName: 'origin' } as unknown as GitBranch);
+			sandbox.stub(branchesProvider, 'getBranch').resolves({
+				name: 'feature',
+				remote: false,
+				upstream: { name: 'origin/feature', missing: false },
+			} as unknown as GitBranch);
 
 			await branchesProvider.getBranchContributionsOverview(repoPath, 'feature', {
 				associatedPullRequest: Promise.resolve({ refs: { base: { branch: 'main' } } }),
@@ -448,7 +452,11 @@ suite('BranchesGitSubProvider stored merge target Test Suite', () => {
 		test('skips a pull request base whose branch is gone and falls through to the base branch', async () => {
 			gone('origin/parent');
 			stubFallbacks();
-			sandbox.stub(branchesProvider, 'getBranch').resolves({ remoteName: 'origin' } as unknown as GitBranch);
+			sandbox.stub(branchesProvider, 'getBranch').resolves({
+				name: 'feature',
+				remote: false,
+				upstream: { name: 'origin/feature', missing: false },
+			} as unknown as GitBranch);
 
 			await branchesProvider.getBranchContributionsOverview(repoPath, 'feature', {
 				associatedPullRequest: Promise.resolve({ refs: { base: { branch: 'parent' } } }),
@@ -461,7 +469,11 @@ suite('BranchesGitSubProvider stored merge target Test Suite', () => {
 		test('keeps and stores the pull request base when it could not be checked', async () => {
 			checkRef.resolves({ name: undefined, missing: false });
 			stubFallbacks();
-			sandbox.stub(branchesProvider, 'getBranch').resolves({ remoteName: 'origin' } as unknown as GitBranch);
+			sandbox.stub(branchesProvider, 'getBranch').resolves({
+				name: 'feature',
+				remote: false,
+				upstream: { name: 'origin/feature', missing: false },
+			} as unknown as GitBranch);
 
 			await branchesProvider.getBranchContributionsOverview(repoPath, 'feature', {
 				associatedPullRequest: Promise.resolve({ refs: { base: { branch: 'main' } } }),

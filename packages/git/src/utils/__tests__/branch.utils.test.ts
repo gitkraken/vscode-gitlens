@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { getRemoteNameSlashIndex } from '@gitlens/utils/gitRefs.js';
-import { isDetachedHead, parseRefName, parseUpstream } from '../branch.utils.js';
+import { isDetachedHead, parseRefName, parseUpstream, splitRemoteBranchName } from '../branch.utils.js';
 
 suite('Branch Utils Test Suite', () => {
 	suite('parseUpstream', () => {
@@ -156,6 +156,53 @@ suite('Branch Utils Test Suite', () => {
 		test('returns -1 when remotes/ has no second slash', () => {
 			const result = getRemoteNameSlashIndex('remotes/origin');
 			assert.strictEqual(result, -1);
+		});
+	});
+
+	suite('splitRemoteBranchName', () => {
+		test('splits at a plain remote name', () => {
+			assert.deepStrictEqual(splitRemoteBranchName('origin/main', ['origin']), ['origin', 'main']);
+		});
+
+		test('keeps the slashes of the branch name', () => {
+			assert.deepStrictEqual(splitRemoteBranchName('origin/feature/x', ['origin']), ['origin', 'feature/x']);
+		});
+
+		test('matches a remote whose own name contains a slash', () => {
+			assert.deepStrictEqual(splitRemoteBranchName('team/fork/feature', ['team/fork']), ['team/fork', 'feature']);
+		});
+
+		test('prefers the longest matching remote', () => {
+			assert.deepStrictEqual(splitRemoteBranchName('team/fork/feature', ['team', 'team/fork']), [
+				'team/fork',
+				'feature',
+			]);
+			assert.deepStrictEqual(splitRemoteBranchName('team/fork/feature', new Set(['team/fork', 'team'])), [
+				'team/fork',
+				'feature',
+			]);
+		});
+
+		test('falls back to the shorter remote when the longer does not prefix the name', () => {
+			assert.deepStrictEqual(splitRemoteBranchName('team/forked', ['team', 'team/fork']), ['team', 'forked']);
+		});
+
+		test('strips a leading remotes/', () => {
+			assert.deepStrictEqual(splitRemoteBranchName('remotes/team/fork/feature', ['team/fork']), [
+				'team/fork',
+				'feature',
+			]);
+		});
+
+		test('requires a whole path segment and a non-empty branch', () => {
+			assert.strictEqual(splitRemoteBranchName('origin2/main', ['origin']), undefined);
+			assert.strictEqual(splitRemoteBranchName('origin/', ['origin']), undefined);
+			assert.strictEqual(splitRemoteBranchName('origin', ['origin']), undefined);
+		});
+
+		test('returns undefined when no remote matches', () => {
+			assert.strictEqual(splitRemoteBranchName('feature/x', ['origin']), undefined);
+			assert.strictEqual(splitRemoteBranchName('origin/main', []), undefined);
 		});
 	});
 
