@@ -13,7 +13,7 @@ import { PromiseCache, PromiseMap, RepoPromiseCacheMap } from '@gitlens/utils/pr
 import type { ResourceUsage } from '@gitlens/utils/resourceUsage.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import type { ProgressiveGitBlame } from './models/blame.js';
-import type { BranchMetadata, GitBranch } from './models/branch.js';
+import type { BranchMetadata, BranchMetadataGkConfigKey, GitBranch } from './models/branch.js';
 import type { GitCommit, GitStashCommit } from './models/commit.js';
 import type { GitContributor, GitContributorsStats } from './models/contributor.js';
 import type { ParsedGitDiffHunks } from './models/diff.js';
@@ -33,6 +33,7 @@ import type { GitCommitReachability, LeftRightCommitCountResult } from './provid
 import type { GitContributorsResult } from './providers/contributors.js';
 import type { ResolvedRevision } from './providers/revision.js';
 import type { GitResult } from './run.types.js';
+import { parseBranchMetadataGkConfigKey, setBranchMetadataValue } from './utils/branch.utils.js';
 import { createReference } from './utils/reference.utils.js';
 import { getCommonRepositoryPath, getRepositoryOrWorktreePath } from './utils/repository.utils.js';
 import type { GitIgnoreFilter } from './watching/gitIgnoreFilter.js';
@@ -125,13 +126,19 @@ export async function shouldEvictBlameCacheEntry(progressive: ProgressiveGitBlam
  */
 const branchOverviewGkConfigKeysRegex = /^branch\.(.+)\.(?:gk-merge-(?:base|target(?:-user)?)|gk-target-base)$/;
 
-/** gkConfig keys the cached branches carry (see `getBranchMetadataMap`). Capture group 1 is the ref name. */
-const branchMetadataGkConfigKeysRegex =
-	/^branch\.(.+)\.gk-(?:last-(?:accessed|modified)|agent-last-activity|disposition)$/;
-
 /** The ref of a gkConfig key the reconcile baseline tracks, or `undefined` for any other key */
 function getReconciledGkConfigRef(key: string): string | undefined {
-	return (branchOverviewGkConfigKeysRegex.exec(key) ?? branchMetadataGkConfigKeysRegex.exec(key))?.[1];
+	return branchOverviewGkConfigKeysRegex.exec(key)?.[1] ?? parseBranchMetadataGkConfigKey(key)?.branch;
+}
+
+/** The value `cache` holds for `key`, `'pending'` while it is still being read, or `undefined` when nothing is cached */
+function getSettledOrPending<T>(
+	cache: PromiseMap<string, T> | undefined,
+	key: string,
+): { value: T } | 'pending' | undefined {
+	if (!cache?.has(key)) return undefined;
+
+	return cache.getSettled(key) ?? 'pending';
 }
 
 /**
@@ -141,6 +148,13 @@ function getReconciledGkConfigRef(key: string): string | undefined {
  * naming the targets to skip via `skipInvalidation`.
  */
 export type GkConfigInvalidationTarget = 'branchOverviews' | 'baseBranchName';
+
+/** A changed `branch.<branch>.<key>` gk config value for {@link Cache.patchBranchMetadata}; `undefined` is a removal */
+export interface BranchMetadataChange {
+	readonly branch: string;
+	readonly key: BranchMetadataGkConfigKey;
+	readonly value: string | undefined;
+}
 
 /** Per-worktree caches — cleared by repoPath directly */
 interface Caches {
@@ -291,7 +305,7 @@ export class Cache implements Disposable {
 
 	/**
 	 * Per-commonPath snapshot of the subset of `.git/gk/config` that derived caches depend on — merge-relevant keys
-	 * ({@link branchOverviewGkConfigKeysRegex}) and branch metadata keys ({@link branchMetadataGkConfigKeysRegex}) —
+	 * ({@link branchOverviewGkConfigKeysRegex}) and branch metadata keys ({@link parseBranchMetadataGkConfigKey}) —
 	 * used by {@link reconcileGkConfigMap} to diff a watcher `'gkConfig'` event down to only the keys that actually
 	 * changed, instead of coarsely re-deriving `baseBranchName`/`branchOverviews` and the branches on every gk write.
 	 * Absent means "never observed".
@@ -1495,8 +1509,8 @@ export class Cache implements Disposable {
 	 * Diffs a freshly-read gk config map's tracked subset against `priorSnapshot` (captured by
 	 * `handleGkConfigChanged` before the reconcile started, so it reflects the pre-change state), cascading
 	 * `baseBranchName`/`branchOverviews` for every ref whose merge-relevant key actually changed, then firing
-	 * {@link onDidChangeMergeTargets} naming those refs. A changed branch metadata key (another process's
-	 * activity stamp or disposition) evicts the branches once, and never fires the event.
+	 * {@link onDidChangeMergeTargets} naming those refs. Changed branch metadata keys (another process's
+	 * activity stamps or disposition) are patched into the cached branches in one call, and never fire the event.
 	 * A key core itself wrote since `priorSnapshot` was captured (recorded in the live snapshot) is neither diffed nor
 	 * overwritten by this read, which may predate the write: its writer already cascaded and announced it.
 	 * `priorSnapshot` of `undefined` (never observed before this reconcile) is treated as "everything
@@ -1540,22 +1554,29 @@ export class Cache implements Disposable {
 		this._gkConfigSnapshots.set(commonPath, newSubset);
 
 		let refs: Set<string> | undefined;
-		let metadataChanged = false;
+		const metadataChanges: BranchMetadataChange[] = [];
 		for (const key of new Set([...priorSnapshot.keys(), ...newSubset.keys()])) {
 			if (ownWrites.has(key)) continue;
-			if (priorSnapshot.get(key) === newSubset.get(key)) continue;
+
+			const value = newSubset.get(key);
+			if (priorSnapshot.get(key) === value) continue;
 
 			const ref = branchOverviewGkConfigKeysRegex.exec(key)?.[1];
 			if (ref != null) {
 				this.cascadeGkConfigKeyChange(commonPath, key);
 				(refs ??= new Set()).add(ref);
-			} else {
-				metadataChanged = true;
+				continue;
+			}
+
+			const metadataKey = parseBranchMetadataGkConfigKey(key);
+			if (metadataKey != null) {
+				metadataChanges.push({ branch: metadataKey.branch, key: metadataKey.key, value: value });
 			}
 		}
 
+		const metadataChanged = metadataChanges.length > 0;
 		if (metadataChanged) {
-			this.deleteBranchMetadata(repoPath);
+			this.patchBranchMetadata(repoPath, metadataChanges);
 		}
 
 		if (refs == null) return metadataChanged;
@@ -1731,12 +1752,87 @@ export class Cache implements Disposable {
 	}
 
 	/**
-	 * Drops the cached branches for `repoPath` and its sibling worktrees after a branch-activity stamp
-	 * (`gk-last-accessed`, `gk-last-modified`, `gk-agent-last-activity`) was written here or reconciled from another
-	 * process, since each branch carries its stamps. Hard-evicts, so a read that started before the write isn't joined.
+	 * Applies changed branch metadata keys (written here or reconciled from another process) to the cached branches
+	 * without re-reading them, by updating {@link BranchMetadata} objects in place — the one exception to cached values
+	 * never changing, since rebuilding every branch list, current branch and worktree list on every activity stamp
+	 * costs far more. Patches every object a cached branch of the repository's worktrees holds for a changed branch:
+	 * the cached map's, and any older map's that a cached branch list, current branch or worktree list still holds.
+	 *
+	 * Falls back to {@link deleteBranchMetadata} when one of them is still being read (it may have read the file
+	 * before the change), or the cached map or a cached branch of a changed name has no object to patch.
+	 */
+	patchBranchMetadata(repoPath: string, changes: readonly BranchMetadataChange[]): void {
+		const targets = new Map<string, Set<BranchMetadata>>();
+		for (const change of changes) {
+			targets.set(change.branch, new Set());
+		}
+
+		if (!this.collectBranchMetadata(this.getCommonPath(repoPath), targets)) {
+			this.deleteBranchMetadata(repoPath);
+			return;
+		}
+
+		for (const change of changes) {
+			for (const metadata of targets.get(change.branch)!) {
+				setBranchMetadataValue(metadata, change.key, change.value);
+			}
+		}
+	}
+
+	/**
+	 * Adds to `targets` every metadata object a cached holder has for each named branch (see
+	 * {@link patchBranchMetadata}); `false` when the holders must be evicted instead.
+	 */
+	private collectBranchMetadata(commonPath: string, targets: Map<string, Set<BranchMetadata>>): boolean {
+		const metadataMap = getSettledOrPending(this._caches.branchMetadataMap, commonPath);
+		if (metadataMap === 'pending') return false;
+
+		if (metadataMap != null) {
+			for (const [name, objects] of targets) {
+				const metadata = metadataMap.value.get(name);
+				// The branch's first metadata: the cached branches built from this map hold none
+				if (metadata == null) return false;
+
+				objects.add(metadata);
+			}
+		}
+
+		const add = (branch: GitBranch | undefined): boolean => {
+			if (branch == null || branch.remote || branch.detached) return true;
+
+			const objects = targets.get(branch.name);
+			if (objects == null) return true;
+			if (branch.metadata == null) return false;
+
+			objects.add(branch.metadata);
+			return true;
+		};
+
+		for (const path of new Set([commonPath, ...this.getWorktreePaths(commonPath)])) {
+			for (const cache of [this._caches.sharedBranches, this._caches.branches]) {
+				const branches = getSettledOrPending(cache, path);
+				if (branches === 'pending' || (branches != null && !branches.value.values.every(add))) return false;
+			}
+
+			const current = getSettledOrPending(this._caches.branch, path);
+			if (current === 'pending' || (current != null && !add(current.value))) return false;
+
+			const worktrees = getSettledOrPending(this._caches.worktrees, path);
+			if (worktrees === 'pending' || (worktrees != null && !worktrees.value.every(w => add(w.branch)))) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Drops the cached branches and worktrees for `repoPath` and its sibling worktrees when their metadata changed in
+	 * a way {@link patchBranchMetadata} can't apply in place. Hard-evicts, so a read that started before the change
+	 * isn't joined.
 	 */
 	deleteBranchMetadata(repoPath: string): void {
-		for (const key of ['branchMetadataMap', 'sharedBranches', 'branches', 'branch'] as const) {
+		for (const key of ['branchMetadataMap', 'sharedBranches', 'branches', 'branch', 'worktrees'] as const) {
 			this.evictShared(key, repoPath, 'evict');
 		}
 	}

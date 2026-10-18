@@ -408,6 +408,8 @@ export class PromiseMap<K, V> {
 	private readonly cache = new Map<K, Promise<V>>();
 	private readonly aborts = new Map<K, AbortAggregate>();
 	private readonly controllers = new Map<K, CacheController>();
+	/** Each cached promise's value once it fulfills, for {@link getSettled} */
+	private readonly settled = new WeakMap<Promise<V>, { value: V }>();
 
 	get [Symbol.toStringTag](): string {
 		return 'PromiseMap';
@@ -454,9 +456,7 @@ export class PromiseMap<K, V> {
 		this.controllers.set(key, cacheable);
 
 		const promise = factory(cacheable, aborts.signal);
-
-		// Automatically remove failed promises from the cache (ownership-guarded — see `deleteIfOwned`).
-		promise.catch(() => deleteIfOwned(this.cache, key, promise));
+		this.track(key, promise);
 		void promise
 			.finally(() => {
 				if (cacheable.invalidated) {
@@ -520,11 +520,28 @@ export class PromiseMap<K, V> {
 	 */
 	set(key: K, promise: Promise<V>): this {
 		this.cache.set(key, promise);
-
-		// Automatically remove failed promises from the cache (ownership-guarded — see `deleteIfOwned`).
-		promise.catch(() => deleteIfOwned(this.cache, key, promise));
+		this.track(key, promise);
 
 		return this;
+	}
+
+	/**
+	 * The value `key`'s cached promise fulfilled with, or `undefined` while it is pending (or nothing is cached), so a
+	 * caller can tell a settled entry from a read still in flight without joining it.
+	 */
+	getSettled(key: K): { value: V } | undefined {
+		const promise = this.cache.get(key);
+		return promise != null ? this.settled.get(promise) : undefined;
+	}
+
+	private track(key: K, promise: Promise<V>): void {
+		promise.then(
+			value => {
+				this.settled.set(promise, { value: value });
+			},
+			// Automatically remove failed promises from the cache (ownership-guarded — see `deleteIfOwned`).
+			() => deleteIfOwned(this.cache, key, promise),
+		);
 	}
 
 	/**

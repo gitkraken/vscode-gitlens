@@ -19,8 +19,10 @@ import {
 	getLocalBranchByUpstream,
 	isDetachedHead,
 	isRemoteHEAD,
+	parseBranchMetadataGkConfigKey,
 	parseRefName,
 	parseUpstream,
+	setBranchMetadataValue,
 } from '@gitlens/git/utils/branch.utils.js';
 import { createConflictDetectionError } from '@gitlens/git/utils/mergeConflicts.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
@@ -2624,26 +2626,17 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				);
 
 				const value = new Date(now).toISOString();
-				let written = false;
-				try {
-					for (const [i, key] of due.entries()) {
-						// Another process sharing the file stamped it under 5 minutes ago: hold off until that stamp
-						// goes stale, not for 5 minutes from now
-						const stamp = getSettledValue(stored[i]);
-						const last = stamp != null ? new Date(stamp).getTime() : NaN;
-						if (now - last < dateMetadataStaleThresholdMs) {
-							this._branchActivityStamps.set(`${branchKey}\0${key}`, last);
-							continue;
-						}
+				for (const [i, key] of due.entries()) {
+					// Another process sharing the file stamped it under 5 minutes ago: hold off until that stamp goes
+					// stale, not for 5 minutes from now
+					const stamp = getSettledValue(stored[i]);
+					const last = stamp != null ? new Date(stamp).getTime() : NaN;
+					if (now - last < dateMetadataStaleThresholdMs) {
+						this._branchActivityStamps.set(`${branchKey}\0${key}`, last);
+						continue;
+					}
 
-						await this.provider.config.setGkConfig(repoPath, `branch.${branch.name}.${key}`, value);
-						written = true;
-					}
-				} finally {
-					// Each branch carries its stamps, so the cached branches are stale — cleared once per call
-					if (written) {
-						this.cache.deleteBranchMetadata(repoPath);
-					}
+					await this.provider.config.setGkConfig(repoPath, `branch.${branch.name}.${key}`, value);
 				}
 			});
 		} catch (ex) {
@@ -2760,33 +2753,17 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				if (!configMap.size) return metadataMap;
 
 				for (const [key, value] of configMap) {
-					// Extract branch name and metadata key from "branch.{name}.gk-{key}"
-					if (!key.startsWith('branch.')) continue;
+					const parsed = parseBranchMetadataGkConfigKey(key);
+					if (parsed == null) continue;
 
-					const keyParts = key.split('.');
-					if (keyParts.length < 3) continue;
-
-					// Branch name is everything between "branch." and the last ".gk-*"
-					const metaKey = keyParts.at(-1);
-					const branchName = keyParts.slice(1, -1).join('.');
-
-					let metadata = metadataMap.get(branchName);
+					let metadata = metadataMap.get(parsed.branch);
 					if (metadata == null) {
 						metadata = {};
-						metadataMap.set(branchName, metadata);
+						metadataMap.set(parsed.branch, metadata);
 					}
 
-					if (metaKey === 'gk-last-accessed') {
-						metadata.lastAccessedAt = value;
-					} else if (metaKey === 'gk-last-modified') {
-						metadata.lastModifiedAt = value;
-					} else if (metaKey === 'gk-agent-last-activity') {
-						metadata.agentLastActivityAt = value;
-					} else if (metaKey === 'gk-disposition') {
-						if (value === 'starred' || value === 'archived') {
-							metadata.disposition = value;
-						}
-					}
+					// Shared with `Cache.patchBranchMetadata`, so a patched object matches a freshly read one
+					setBranchMetadataValue(metadata, parsed.key, value);
 				}
 			} catch (ex) {
 				debugger;
