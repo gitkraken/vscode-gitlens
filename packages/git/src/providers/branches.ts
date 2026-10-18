@@ -25,7 +25,7 @@ export interface BranchContributionsOverview extends GitCommitStats<number> {
 }
 
 /** Which source decided a base (see `getAheadOfBase`) */
-export type AheadOfBaseTier = 'preferred' | 'user' | 'detected' | 'recorded' | 'default' | 'upstream';
+export type AheadOfBaseTier = 'preferred' | 'user' | 'detected' | 'recorded' | 'created' | 'default' | 'upstream';
 
 export interface AheadOfBase {
 	/** The base HEAD was measured against; `undefined` when there is none (see `getAheadOfBase`) */
@@ -39,13 +39,13 @@ export interface AheadOfBase {
 				readonly sha: string | undefined;
 				/** Where HEAD forked from `ref`: git's `--fork-point` reading of `ref`'s reflog, else the merge base; `undefined` when they share no history */
 				readonly forkPoint: string | undefined;
-				/** The source the base came from: the `preferredTarget` option, the user's merge target, the detected one, the base recorded against the branch, the default branch, or — when the branch is the default branch — the branch's own upstream */
+				/** The source the base came from: the `preferredTarget` option, the user's merge target, the detected one, the base recorded against the branch, the branch git's reflog says this branch was created from (unless the default branch forked strictly nearer HEAD), the default branch, or — when the branch is the default branch — the branch's own upstream */
 				readonly tier: AheadOfBaseTier;
 		  }
 		| undefined;
 	/** Why there is no base; set exactly when `base` is `undefined`: `'none'` when nothing resolved, `'self'` when the base is the branch itself at HEAD's commit (or the default branch has no upstream to measure against), `'unborn'` when HEAD has no commit yet */
 	readonly reason?: 'none' | 'self' | 'unborn';
-	/** Full ref names (`refs/heads/main`, `refs/remotes/origin/main`, `refs/remotes/origin/HEAD`) whose movement can change this answer, given with or without a base so a watcher also learns when one appears: the branch, every candidate compared up to the chosen one, their tracking refs, the default-branch symrefs and the `<remote>/main`/`<remote>/master` refs when the default was consulted, and the branch's upstream when it is the default branch. Lets a watcher recompute only when one of them moves. */
+	/** Full ref names (`refs/heads/main`, `refs/remotes/origin/main`, `refs/remotes/origin/HEAD`) whose movement can change this answer, given with or without a base so a watcher also learns when one appears: the branch, every candidate compared up to the chosen one, their tracking refs, the default-branch symrefs and the `<remote>/main`/`<remote>/master` refs when the default was consulted, the `upstream` remote's copy of the created-from or default branch when it was compared, and the branch's upstream when it is the default branch. Lets a watcher recompute only when one of them moves. */
 	readonly dependsOn: readonly string[];
 }
 
