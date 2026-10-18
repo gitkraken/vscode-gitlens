@@ -23,7 +23,6 @@ import type {
 	GitOperationRunOptions,
 	GitOperationsSubProvider,
 } from '@gitlens/git/providers/operations.js';
-import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
 import { isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { sequentialize } from '@gitlens/utils/decorators/sequentialize.js';
@@ -42,6 +41,7 @@ import {
 	inferSigningFormatFromError,
 	maxGitCliLength,
 } from '../exec/git.js';
+import { resolveBranchRemote } from './branchRemote.js';
 import { parseGitBoolean } from './config.js';
 
 /** The remotes a fetch read with their configured refspecs: one named remote, all of them, or a bare fetch's default */
@@ -282,16 +282,16 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		let fetched: FetchedRemotes | undefined;
 		try {
 			if (isBranchReference(branch)) {
-				const [branchName, remoteName] = getBranchNameAndRemote(branch);
-				if (remoteName == null) return;
+				const resolved = await resolveBranchRemote(this.provider, repoPath, branch, runOptions?.cancellation);
+				if (resolved.remote == null) return;
 
 				ran = true;
 				await this.fetchCore(
 					repoPath,
 					{
-						branch: branchName,
-						remote: remoteName,
-						upstream: getBranchTrackingWithoutRemote(branch)!,
+						branch: resolved.name,
+						remote: resolved.remote,
+						upstream: resolved.upstream!,
 						pull: options?.pull,
 						preserveFetchHead: options?.preserveFetchHead,
 					},
@@ -632,8 +632,11 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					// and report success.
 					// Fetched without `-u`: the worktree lookup above is cached and can miss a worktree added
 					// outside core, and then git's own refusal is what keeps a checked-out branch from moving.
-					const [branchName, remoteName] = getBranchNameAndRemote(branch);
-					const upstream = getBranchTrackingWithoutRemote(branch);
+					const {
+						name: branchName,
+						remote: remoteName,
+						upstream,
+					} = await resolveBranchRemote(this.provider, repoPath, branch, runOptions?.cancellation);
 					if (remoteName == null || upstream == null) {
 						throw new PullError({
 							reason: 'noUpstream',
@@ -764,38 +767,42 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			| undefined;
 
 		if (isBranchReference(options?.reference)) {
+			const resolved = await resolveBranchRemote(
+				this.provider,
+				repoPath,
+				options.reference,
+				runOptions?.cancellation,
+			);
 			if (options.publish != null) {
 				branchName = options.reference.name;
 				remoteName = options.publish.remote;
 			} else {
-				[branchName, remoteName] = getBranchNameAndRemote(options.reference);
+				branchName = resolved.name;
+				remoteName = resolved.remote;
 			}
-			upstreamName = getBranchTrackingWithoutRemote(options.reference);
+			upstreamName = resolved.upstream;
 			trackUpstream ||= options.reference.upstream?.missing === true;
 		} else {
 			const branch = await this.provider.branches.getBranch(repoPath);
 			if (branch == null) return;
 
+			const resolved = await resolveBranchRemote(this.provider, repoPath, branch, runOptions?.cancellation);
 			if (options?.reference != null) {
-				branchName = `${options.reference.ref}:${
-					options?.publish != null ? 'refs/heads/' : ''
-				}${branch.nameWithoutRemote}`;
+				branchName = `${options.reference.ref}:${options?.publish != null ? 'refs/heads/' : ''}${resolved.name}`;
 			} else {
-				const tracking = options?.publish == null ? branch.trackingWithoutRemote : undefined;
+				const tracking = options?.publish == null ? resolved.upstream : undefined;
 				branchName =
-					tracking != null && tracking !== branch.nameWithoutRemote
-						? `${branch.name}:${tracking}`
-						: branch.name;
+					tracking != null && tracking !== resolved.name ? `${branch.name}:${tracking}` : branch.name;
 			}
-			remoteName = branch.remoteName ?? options?.publish?.remote;
+			remoteName = resolved.remote ?? options?.publish?.remote;
 			upstreamName = options?.reference == null && options?.publish != null ? branch.name : undefined;
 
 			// Git can't setup upstream tracking when publishing a new branch to a specific commit, so we'll need to do it after the push
 			if (options?.publish?.remote != null && options?.reference != null) {
 				setUpstream = {
-					branch: branch.nameWithoutRemote,
+					branch: resolved.name,
 					remote: remoteName!,
-					remoteBranch: branch.nameWithoutRemote,
+					remoteBranch: resolved.name,
 				};
 			}
 		}

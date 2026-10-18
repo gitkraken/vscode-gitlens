@@ -59,6 +59,7 @@ import {
 import { KeyedSequencer } from '../exec/indexLock.js';
 import type { GitMergeConflict } from '../parsers/mergeTreeParser.js';
 import { parseMergeTreeConflict } from '../parsers/mergeTreeParser.js';
+import { resolveBranchRemote } from './branchRemote.js';
 
 /** Minimum time between writes to the config for last accessed/modified dates */
 const dateMetadataStaleThresholdMs = 5 * 60 * 1000; // 5 minutes
@@ -542,7 +543,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					const branch = await this.getBranch(repoPath, ref, undefined, cancellation);
 					if (branch == null) return undefined;
 
-					const prTarget = `${branch.remoteName}/${pr.refs.base.branch}`;
+					const { remote: remoteName } = await resolveBranchRemote(
+						this.provider,
+						repoPath,
+						branch,
+						cancellation,
+					);
+
+					const prTarget = `${remoteName}/${pr.refs.base.branch}`;
 					// A PR's base can be gone too (e.g. a stale PR read still naming a merged stack layer),
 					// so a confirmed-gone base is skipped like a stored target.
 					const { missing } = await this.provider.refs.getSymbolicReferenceNameOrMissing(

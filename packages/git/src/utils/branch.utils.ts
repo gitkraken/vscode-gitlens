@@ -43,6 +43,30 @@ export function getBranchTrackingWithoutRemote(ref: GitBranchReference): string 
 	return ref.upstream?.name.substring(getRemoteNameSlashIndex(ref.upstream.name) + 1);
 }
 
+/** Splits `name` at the longest of `remoteNames` that prefixes it, so a remote whose own name contains a `/` resolves whole */
+export function splitRemoteBranchName(
+	name: string,
+	remoteNames: Iterable<string>,
+): [remote: string, branch: string] | undefined {
+	if (name.startsWith('remotes/')) {
+		name = name.substring(8);
+	}
+
+	let match: string | undefined;
+	for (const remote of remoteNames) {
+		if (
+			name.length > remote.length + 1 &&
+			name.charCodeAt(remote.length) === 47 /* '/' */ &&
+			name.startsWith(remote) &&
+			(match == null || remote.length > match.length)
+		) {
+			match = remote;
+		}
+	}
+
+	return match != null ? [match, name.substring(match.length + 1)] : undefined;
+}
+
 export function isDetachedHead(name: string): boolean {
 	// If there is whitespace in the name assume this is not a valid branch name
 	// Deals with detached HEAD states
