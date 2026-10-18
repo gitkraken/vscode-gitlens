@@ -185,6 +185,208 @@ suite('Git index.lock handling', () => {
 		});
 	});
 
+	suite('beforeIndexLockRetry', () => {
+		test('runs once per retry, with the lock error, after the wait', async () => {
+			let calls = 0;
+			fake(() => (++calls < 3 ? Promise.reject(lockHeld()) : ok()));
+			const seen: { error: Error; spawns: number; at: number }[] = [];
+			const start = Date.now();
+
+			const result = await git.run(
+				{
+					cwd: repoA,
+					beforeIndexLockRetry: error => {
+						seen.push({ error: error, spawns: spawned.length, at: Date.now() - start });
+					},
+				},
+				'commit',
+				'-m',
+				'x',
+			);
+
+			assert.strictEqual(result.exitCode, 0);
+			assert.strictEqual(spawned.length, 3);
+			assert.strictEqual(seen.length, 2);
+			assert.deepStrictEqual(
+				seen.map(s => s.spawns),
+				[1, 2],
+				'each call sits between the failed attempt and the next',
+			);
+			assert.ok(seen.every(s => s.error instanceof RunError && s.error.stderr.includes('index.lock')));
+			assert.ok(seen[0].at >= indexLockRetryDelays[0] - 10, 'after the first delay');
+			assert.ok(seen[1].at >= indexLockRetryDelays[0] + indexLockRetryDelays[1] - 10, 'after the second delay');
+		});
+
+		test('is not called when the first attempt succeeds', async () => {
+			fake(() => ok());
+			let calls = 0;
+
+			await git.run({ cwd: repoA, beforeIndexLockRetry: () => void calls++ }, 'add', 'file.ts');
+
+			assert.strictEqual(calls, 0);
+		});
+
+		test('waits for an async hook before the next attempt', async () => {
+			let calls = 0;
+			fake(() => (++calls === 1 ? Promise.reject(lockHeld()) : ok()));
+			let hookDone = false;
+			let hookDoneBeforeRetry = false;
+			const inner = (git as unknown as { _runSpawn: (...a: unknown[]) => Promise<RunResult<string>> })._runSpawn;
+			(git as unknown as { _runSpawn: unknown })._runSpawn = (...a: unknown[]) => {
+				hookDoneBeforeRetry = hookDone;
+				return inner(...a);
+			};
+
+			await git.run(
+				{
+					cwd: repoA,
+					beforeIndexLockRetry: async () => {
+						await sleep(30);
+						hookDone = true;
+					},
+				},
+				'add',
+				'file.ts',
+			);
+
+			assert.strictEqual(spawned.length, 2);
+			assert.ok(hookDoneBeforeRetry);
+		});
+
+		test('a rejecting hook stops the retrying and rejects with its error', async () => {
+			fake(() => Promise.reject(lockHeld()));
+			const failure = new Error('staged set changed');
+
+			await assert.rejects(
+				git.run(
+					{
+						cwd: repoA,
+						beforeIndexLockRetry: () => {
+							throw failure;
+						},
+					},
+					'commit',
+					'-m',
+					'x',
+				),
+				(ex: unknown) => ex === failure,
+			);
+			assert.strictEqual(spawned.length, 1);
+		});
+
+		test("a rejecting hook rejects under errors: 'ignore' and 'throw' too", async () => {
+			const failure = new Error('staged set changed');
+
+			for (const errors of ['ignore', 'throw'] as const) {
+				fake(() => Promise.reject(lockHeld()));
+
+				await assert.rejects(
+					git.run(
+						{
+							cwd: repoA,
+							errors: errors,
+							beforeIndexLockRetry: () => Promise.reject(failure),
+						},
+						'commit',
+						'-m',
+						'x',
+					),
+					(ex: unknown) => ex === failure,
+					errors,
+				);
+				assert.strictEqual(spawned.length, 1, errors);
+			}
+		});
+
+		test('throwing the lock error back opts out of the retry', async () => {
+			fake(() => Promise.reject(lockHeld()));
+
+			await assert.rejects(
+				git.run(
+					{
+						cwd: repoA,
+						beforeIndexLockRetry: error => {
+							throw error;
+						},
+					},
+					'commit',
+					'-m',
+					'x',
+				),
+				/index\.lock/,
+			);
+			assert.strictEqual(spawned.length, 1);
+		});
+
+		test('does not wedge the checkout when the hook rejects', async () => {
+			let calls = 0;
+			fake(() => (++calls === 1 ? Promise.reject(lockHeld()) : ok()));
+
+			const first = git.run(
+				{ cwd: repoA, beforeIndexLockRetry: () => Promise.reject(new Error('stop')) },
+				'commit',
+				'-m',
+				'x',
+			);
+			const second = git.run({ cwd: repoA }, 'add', 'b.ts');
+
+			await assert.rejects(first);
+			assert.strictEqual((await second).exitCode, 0);
+		});
+
+		test('a run with the hook is not shared with an identical run without it', async () => {
+			let release!: () => void;
+			const gate = new Promise<void>(r => (release = r));
+			fake(async () => {
+				await gate;
+				return ok();
+			});
+
+			const withHook = git.run({ cwd: repoA, beforeIndexLockRetry: () => {} }, 'commit', '-m', 'x');
+			const without = git.run({ cwd: repoA }, 'commit', '-m', 'x');
+			await sleep(20);
+			release();
+			await Promise.all([withHook, without]);
+
+			assert.strictEqual(spawned.length, 2);
+		});
+
+		test('is not called for the config-lock retry', async () => {
+			let calls = 0;
+			fake(() =>
+				++calls === 1
+					? Promise.reject(
+							new RunError(
+								{ message: 'Command failed', code: 255 },
+								'',
+								'error: could not lock config file /repo/.git/config: File exists',
+							),
+						)
+					: ok(),
+			);
+			let hookCalls = 0;
+
+			await git.run({ cwd: repoA, beforeIndexLockRetry: () => void hookCalls++ }, 'config', 'a.b', 'c');
+
+			assert.strictEqual(spawned.length, 2);
+			assert.strictEqual(hookCalls, 0);
+		});
+
+		test('is not called for a failure that is not a lock failure', async () => {
+			fake(() =>
+				Promise.reject(
+					new RunError({ message: 'Command failed', code: 128 }, '', 'fatal: pathspec x did not match'),
+				),
+			);
+			let hookCalls = 0;
+
+			await assert.rejects(git.run({ cwd: repoA, beforeIndexLockRetry: () => void hookCalls++ }, 'add', 'x'));
+
+			assert.strictEqual(spawned.length, 1);
+			assert.strictEqual(hookCalls, 0);
+		});
+	});
+
 	suite('ordering', () => {
 		/** Fakes a 40ms spawn and records how many were in flight at once, overall and per working directory. */
 		function recordOverlap(): { overall: () => number; forCwd: (cwd: string) => number } {
