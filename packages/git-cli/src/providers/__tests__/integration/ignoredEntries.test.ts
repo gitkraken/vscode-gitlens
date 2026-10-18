@@ -105,4 +105,49 @@ suite('CliGitProvider getIgnoredEntries / getIgnoredPaths', () => {
 		assert.strictEqual((await repo.provider.getIgnoredPaths(repo.path, [])).size, 0);
 		assert.strictEqual((await repo.provider.getIgnoredPaths(repo.path, ['untracked.txt'])).size, 0);
 	});
+
+	test('getIgnoredEntries lists ignored entries inside a new untracked folder', async () => {
+		// Last: it commits a new rule and adds files to the shared fixture
+		write('newpkg/index.ts');
+		write('newpkg/debug.log');
+		write('newpkg/node_modules/b/y');
+		write('newpkg/sub/z.log');
+		write('newpkg/inner/keep.ts');
+		write('newpkg/inner/inner.log');
+		write('[id]/page.ts');
+		write('[id]/x.log');
+		write('i/y.ts');
+		write('i/z.log');
+		write('.gitignore', '/root.tmp\n*.log\nbuild/\n*.tmp\nnode_modules/\n');
+		git('add', '-f', '.gitignore');
+		git('commit', '-m', 'Ignore node_modules');
+
+		const status = git(
+			'-c',
+			'status.renames=false',
+			'status',
+			'--porcelain=v1',
+			'-z',
+			'--ignored',
+			'--untracked-files=normal',
+			'--ignore-submodules=all',
+		);
+		const expected = status
+			.split('\0')
+			.filter(r => r.startsWith('!! '))
+			.map(r => r.substring(3))
+			.sort();
+
+		const result = await repo.provider.getIgnoredEntries(repo.path);
+
+		assert.deepStrictEqual(result, expected);
+		for (const entry of ['newpkg/debug.log', 'newpkg/node_modules/', 'newpkg/sub/']) {
+			assert.ok(result.includes(entry), entry);
+		}
+		for (const entry of ['newpkg/inner/inner.log', '[id]/x.log', 'i/z.log']) {
+			assert.strictEqual(result.filter(e => e === entry).length, 1, entry);
+		}
+		assert.ok(!result.includes('newpkg/'), 'newpkg/');
+		assert.ok(!result.includes('newpkg/index.ts'), 'newpkg/index.ts');
+	});
 });
