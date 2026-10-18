@@ -14,6 +14,7 @@ import type {
 	GitProvider,
 	GitProviderDescriptor,
 } from '@gitlens/git/providers/provider.js';
+import type { GitCommandPriority } from '@gitlens/git/run.types.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { GitIgnoreFilter } from '@gitlens/git/watching/gitIgnoreFilter.js';
@@ -753,7 +754,7 @@ export class CliGitProvider implements GitProvider {
 		}
 		if (!candidates.length) return [];
 
-		const confirmed = await this.getIgnoredPaths(repoPath, candidates, cancellation);
+		const confirmed = await this.getIgnoredPaths(repoPath, candidates, undefined, cancellation);
 
 		const directories: string[] = [];
 		for (const entry of confirmed) {
@@ -853,9 +854,20 @@ export class CliGitProvider implements GitProvider {
 	async getIgnoredPaths(
 		repoPath: string,
 		paths: readonly string[],
+		options?: { priority?: GitCommandPriority },
 		cancellation?: AbortSignal,
 	): Promise<Set<string>> {
 		if (!paths.length) return new Set();
+
+		// check-ignore reads each line as a pathspec, so a leading `:` would be parsed as magic; `./` makes it a literal path
+		let prefixed: Map<string, string> | undefined;
+		const lines = paths.map(p => {
+			if (!p.startsWith(':')) return p;
+
+			const sent = `./${p}`;
+			(prefixed ??= new Map()).set(sent, p);
+			return sent;
+		});
 
 		// Exits 1 when nothing matches, which is an answer
 		const result = await this._git.run(
@@ -863,7 +875,8 @@ export class CliGitProvider implements GitProvider {
 				cwd: repoPath,
 				errors: 'throw',
 				cancellation: cancellation,
-				stdin: `${paths.join('\0')}\0`,
+				priority: options?.priority,
+				stdin: `${lines.join('\0')}\0`,
 				expectedExitCodes: [1],
 			},
 			'check-ignore',
@@ -872,8 +885,16 @@ export class CliGitProvider implements GitProvider {
 		);
 
 		const ignored = new Set<string>();
+		let given: Set<string> | undefined;
 		for (const entry of iterateByDelimiter(result.stdout, '\0')) {
 			if (!entry.length) continue;
+
+			const original = prefixed?.get(entry);
+			if (original != null) {
+				ignored.add(original);
+				// The caller may have spelled the same file as `./:…` too, and gets that spelling back as well
+				if (!(given ??= new Set(paths)).has(entry)) continue;
+			}
 
 			ignored.add(entry);
 		}

@@ -10,11 +10,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds a `beforeIndexLockRetry(lockError)` run option, also on `GitOperationRunOptions` (so `commit`, `reset`, `restore`, `checkout` and the other typed writes that take run options accept it), called before core retries an index write that found `index.lock` held by another process, after the wait and right before the next attempt. The index may have changed while the other process held the lock, so a host can re-check what the retry will act on, such as the staged set a `commit` records; rejecting gives up with that rejection as the run's failure in every `errors` mode, and throwing `lockError` back opts out of the retry. It must not write the index through core, and a run carrying it is never shared with an identical concurrent run (git, git-cli)
 
+### Changed
+
+- Changes `getIgnoredPaths` to take `options?: { priority?: GitCommandPriority }` before `cancellation`, so a caller waiting on the answer (opening a file) can run it as `'interactive'`. A host passing `cancellation` as the third argument must move it to the fourth (git, git-cli)
+
 ### Fixed
 
 - Fixes an index-writing run being retried when the held `index.lock` was reported by something the run started rather than by git itself, such as a commit hook whose own `git add` lost the race, which re-ran the whole commit, hooks included: a run is now retried only when git's failure to take the lock is the first thing it printed (git-cli)
 - Fixes `getIgnoredEntries` leaving out the ignored entries inside a new untracked folder (a `newpkg/node_modules/` or `newpkg/debug.log` beside an untracked `newpkg/index.ts`), which `git status --ignored` lists. It still lists with `ls-files`, and asks `git status --ignored` only about new untracked folders, without taking `index.lock`, so it walks only the ignored trees inside those folders rather than every ignored tree (`node_modules/` and the like) the way a whole-repository `git status --ignored` does (git-cli)
 - Fixes `push`, `fetch` with a branch, and a `fastForward: 'only'` `pull` of a branch checked out nowhere splitting an upstream such as `team/fork/feature` at its first `/`, so a remote whose own name contains a `/` was pushed to or fetched from as remote `team` and branch `fork/feature`: the remote is now the longest of the repository's remotes that prefixes the name, read only when the name leaves that ambiguous. The same applies to a branch's PR-base merge target and to remote branch tips in the graph. Adds `splitRemoteBranchName(name, remoteNames)` (git, git-cli)
+- Fixes `getIgnoredPaths` reading each path as a pathspec, so a file named `:secret` was answered as `secret` (and reported ignored when `secret` is): a path starting with `:` is now checked as that exact file and comes back in the caller's spelling (git-cli)
 
 ## [0.13.0] - 2026-10-18
 
