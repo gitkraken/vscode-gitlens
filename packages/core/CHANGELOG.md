@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes an index-writing run being retried when the held `index.lock` was reported by something the run started rather than by git itself, such as a commit hook whose own `git add` lost the race, which re-ran the whole commit, hooks included: a run is now retried only when git's failure to take the lock is the first thing it printed (git-cli)
+
 ## [0.13.0] - 2026-10-18
 
 ### Added

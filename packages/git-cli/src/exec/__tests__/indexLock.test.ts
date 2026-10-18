@@ -130,6 +130,41 @@ suite('Git index.lock handling', () => {
 			assert.strictEqual(spawned.length, 1);
 		});
 
+		test('does not retry when the lock line follows other output, as from a hook', async () => {
+			fake(() =>
+				Promise.reject(
+					new RunError(
+						{ message: 'Command failed', code: 1 },
+						'',
+						`running pre-commit checks\n${lockMessage}`,
+					),
+				),
+			);
+
+			await assert.rejects(git.run({ cwd: repoA, stdin: 'msg' }, 'commit', '-F', '-'));
+			assert.strictEqual(spawned.length, 1);
+		});
+
+		test("retries when the lock line follows git's own warning", async () => {
+			let calls = 0;
+			fake(() =>
+				++calls === 1
+					? Promise.reject(
+							new RunError(
+								{ message: 'Command failed', code: 128 },
+								'',
+								`warning: refname 'other' is ambiguous.\n${lockMessage}`,
+							),
+						)
+					: ok(),
+			);
+
+			const result = await git.run({ cwd: repoA }, 'checkout', 'other');
+
+			assert.strictEqual(result.exitCode, 0);
+			assert.strictEqual(spawned.length, 2);
+		});
+
 		test('does not retry a verb outside the set', async () => {
 			fake(() => Promise.reject(lockHeld()));
 

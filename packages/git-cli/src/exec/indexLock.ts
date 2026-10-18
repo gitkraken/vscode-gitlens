@@ -24,8 +24,15 @@ const indexWritingVerbs: ReadonlySet<string> = new Set([
 
 const applyIndexOptions: ReadonlySet<string> = new Set(['--index', '--cached', '--3way', '-3']);
 
-/** Matches git's `Unable to create '<path>/index.lock': File exists.` — the wording varies a little by version. */
-const indexLockHeldRegex = /index\.lock': File exists/i;
+/**
+ * Matches git's `fatal: Unable to create '<path>/index.lock': File exists.` — the wording varies a little by version.
+ * Anchored to the start of stderr: git takes the lock before doing anything else, so its own failure is the first
+ * thing it prints past any `warning:`/`hint:` lines from parsing its arguments (`checkout` warns of an ambiguous
+ * refname first). The same line after other output came from something the run started, such as a hook running its
+ * own git command, after the run had already done its work — retrying would run it all again.
+ */
+const indexLockHeldRegex =
+	/^(?:\s*(?:warning|hint): [^\r\n]*\r?\n)*\s*(?:fatal|error): Unable to create '[^\r\n]*index\.lock': File exists/i;
 
 /** How long to wait before each retry of a run that found `index.lock` held; its length is the retry count. */
 export const indexLockRetryDelays: readonly number[] = [100, 200, 400];
