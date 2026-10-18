@@ -29,6 +29,8 @@ export function getBranchNameAndRemote(ref: GitBranchReference): [name: string, 
 		return [ref.name.substring(index + 1), ref.name.substring(0, index)];
 	}
 
+	if (ref.upstream?.remote) return [ref.name, ref.upstream.remote];
+
 	if (ref.upstream?.name != null) {
 		const index = getRemoteNameSlashIndex(ref.upstream.name);
 		if (index === -1) return [ref.name, undefined];
@@ -40,7 +42,12 @@ export function getBranchNameAndRemote(ref: GitBranchReference): [name: string, 
 }
 
 export function getBranchTrackingWithoutRemote(ref: GitBranchReference): string | undefined {
-	return ref.upstream?.name.substring(getRemoteNameSlashIndex(ref.upstream.name) + 1);
+	if (ref.upstream == null) return undefined;
+
+	const { name, remote } = ref.upstream;
+	if (remote && name.startsWith(`${remote}/`)) return name.substring(remote.length + 1);
+
+	return name.substring(getRemoteNameSlashIndex(name) + 1);
 }
 
 /** Splits `name` at the longest of `remoteNames` that prefixes it, so a remote whose own name contains a `/` resolves whole */
@@ -153,14 +160,16 @@ export async function getLocalBranchUpstreamNames(branches: PageableResult<GitBr
 
 const trackingStateRegex = /(?:\[(?:ahead ([0-9]+))?[,\s]*(?:behind ([0-9]+))?]|\[(gone)])/;
 
-export function parseUpstream(upstream: string, tracking: string): GitTrackingUpstream | undefined {
+/** @param remote - `%(upstream:remotename)`; empty or `.` (a local upstream) is not a remote */
+export function parseUpstream(upstream: string, tracking: string, remote?: string): GitTrackingUpstream | undefined {
 	if (!upstream) return undefined;
 
 	const { name } = parseRefName(upstream);
+	const remoteProp = remote && remote !== '.' ? { remote: remote } : undefined;
 
 	const match = trackingStateRegex.exec(tracking);
 	if (match == null) {
-		return { name: name, missing: false, state: { ahead: 0, behind: 0 } };
+		return { name: name, missing: false, state: { ahead: 0, behind: 0 }, ...remoteProp };
 	}
 
 	const ahead = match[1] == null ? 0 : Number(match[1]);
@@ -170,6 +179,7 @@ export function parseUpstream(upstream: string, tracking: string): GitTrackingUp
 		name: name,
 		missing: match[3] != null,
 		state: { ahead: isNaN(ahead) ? 0 : ahead, behind: isNaN(behind) ? 0 : behind },
+		...remoteProp,
 	};
 }
 

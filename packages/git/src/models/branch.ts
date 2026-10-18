@@ -165,7 +165,7 @@ export class GitBranch implements GitBranchReference {
 	@memoize()
 	get remoteName(): string | undefined {
 		if (this.remote) return getRemoteNameFromBranchName(this.name);
-		if (this.upstream != null) return getRemoteNameFromBranchName(this.upstream.name);
+		if (this.upstream != null) return this.upstream.remote ?? getRemoteNameFromBranchName(this.upstream.name);
 
 		return undefined;
 	}
@@ -252,6 +252,11 @@ export interface GitTrackingState {
 
 export interface GitTrackingUpstream {
 	readonly name: string;
+	/**
+	 * The remote the upstream is on (`branch.<name>.remote`) as git reports it, so a remote whose own name contains a
+	 * `/` stays whole. `undefined` when git is too old to report it (before 2.23 here) or the upstream is a local branch
+	 */
+	readonly remote?: string;
 	readonly missing: boolean;
 	readonly state: GitTrackingState;
 }

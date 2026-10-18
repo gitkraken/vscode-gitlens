@@ -15,7 +15,7 @@ interface GitBranchReferenceOptions {
 	name: string;
 	remote: boolean;
 	sha?: string;
-	upstream?: { name: string; missing: boolean };
+	upstream?: { name: string; missing: boolean; remote?: string };
 	worktree?: { path: string; isDefault: boolean } | boolean;
 }
 
