@@ -504,8 +504,8 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 		if (!(await this.ensureGkConfigFolder(gkConfigFolder, scope))) return;
 
-		// Seed the merge-key snapshot from the pre-write file, so the write below can tell whether it changed the
-		// value (first merge-key write per repository only; the bulk read is cached for everything else)
+		// Seed the reconcile snapshot from the pre-write file, so the write below can tell whether it changed the
+		// value (first tracked-key write per repository only; the bulk read is cached for everything else)
 		if (this.cache.needsGkConfigSnapshot(repoPath, key)) {
 			await this.getGkConfigMap(repoPath);
 		}
@@ -564,7 +564,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	 * The worst case is metadata that stays behind until the next op on that name.
 	 *
 	 * Returns whether `.git/gk/config` now reflects the command (it ran, or there was nothing to do), so the
-	 * caller can record its own write in the merge-key snapshot only when it actually landed.
+	 * caller can record its own write in the reconcile snapshot only when it actually landed.
 	 */
 	private async runGkConfigSectionCommand(repoPath: string, ref: string, ...args: string[]): Promise<boolean> {
 		const scope = getScopedLogger();
@@ -623,7 +623,8 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	 * Reconciles a watcher-observed `'gkConfig'` change — registered with the shared `Cache` as its
 	 * gk-config reconciler (see the constructor). Re-reads the bulk map (hard-evicted by
 	 * `Cache.handleGkConfigChanged`, so this hits disk) and diffs it against `priorSnapshot` to cascade
-	 * `baseBranchName`/`branchOverviews` only for refs whose merge-relevant keys actually changed.
+	 * `baseBranchName`/`branchOverviews` only for refs whose merge-relevant keys actually changed, and to evict the
+	 * branches only when a branch metadata key (another process's activity stamp) changed.
 	 *
 	 * Serialized per commonPath: a reconcile is a read-then-diff against a single shared baseline, so
 	 * two overlapping passes would both diff against the same snapshot and the later change could fall
@@ -707,7 +708,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 				// `reconcileGkConfigMap` advanced the stored baseline to what we just read; a trailing pass
 				// diffs its own read against that.
-				snapshot = this.cache.getGkConfigMergeSnapshot(readPath);
+				snapshot = this.cache.getGkConfigSnapshot(readPath);
 			} while (entry.pending);
 
 			return 'reconciled';

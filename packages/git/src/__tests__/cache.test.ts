@@ -717,7 +717,7 @@ suite('Cache — gkConfig watcher reconciliation', () => {
 				]),
 		);
 		cache.onRepositoryChanged(repoPath, ['gkConfig']);
-		assert.strictEqual(await result(), false, 'no merge-relevant key changed');
+		assert.strictEqual(await result(), true, 'the activity stamp changed the branches, not a merge-relevant key');
 
 		await cache.getBaseBranchName(repoPath, 'main', baseFactory);
 		assert.strictEqual(baseFactoryCount, 1, 'a gk-last-accessed-only change must not re-derive the base branch');
@@ -870,6 +870,158 @@ suite('Cache — gkConfig watcher reconciliation', () => {
 			'the baseline must still be the pre-change value, or the change diffs against itself',
 		);
 	});
+
+	suite('branch metadata', () => {
+		let metadataFactoryCount: number;
+		let events: MergeTargetsChangeEvent[];
+		let deleteBranchMetadata: sinon.SinonSpy<[repoPath: string], void>;
+
+		const initial: [string, string][] = [
+			['branch.main.gk-merge-target', 'origin/main'],
+			['branch.main.gk-last-accessed', '2026-10-01T00:00:00.000Z'],
+		];
+
+		/** Seeds the reconcile baseline and a cached branch metadata map, as a warm branch read leaves them */
+		async function seedBranchMetadata(): Promise<void> {
+			await cache.getGkConfigMap(repoPath, () => Promise.resolve(new Map(initial)));
+			await readBranchMetadata();
+			assert.strictEqual(metadataFactoryCount, 1);
+		}
+
+		function readBranchMetadata(): Promise<unknown> {
+			return cache.getBranchMetadataMap(repoPath, () => {
+				metadataFactoryCount++;
+				return new Map();
+			});
+		}
+
+		setup(() => {
+			metadataFactoryCount = 0;
+			events = [];
+			cache.onDidChangeMergeTargets(e => events.push(e));
+			deleteBranchMetadata = sinon.spy(cache, 'deleteBranchMetadata');
+		});
+
+		teardown(() => {
+			sinon.restore();
+		});
+
+		test("another process's activity stamp evicts the branches once, without a merge-targets event", async () => {
+			await seedBranchMetadata();
+
+			const result = registerTestReconciler(
+				() =>
+					new Map([
+						['branch.main.gk-merge-target', 'origin/main'],
+						['branch.main.gk-last-accessed', '2026-10-05T00:00:00.000Z'],
+						['branch.feature.gk-agent-last-activity', '2026-10-05T00:00:00.000Z'],
+					]),
+			);
+			cache.onRepositoryChanged(repoPath, ['gkConfig']);
+			assert.strictEqual(await result(), true, 'a follow-up event lets consumers re-read the branches');
+
+			assert.strictEqual(deleteBranchMetadata.callCount, 1, 'two changed stamps still evict only once');
+			assert.deepStrictEqual(events, [], 'activity stamps are not merge targets');
+			await readBranchMetadata();
+			assert.strictEqual(metadataFactoryCount, 2, 'the branches re-read the new stamps');
+		});
+
+		test("another process's disposition change evicts the branches", async () => {
+			await seedBranchMetadata();
+
+			const result = registerTestReconciler(
+				() => new Map([...initial, ['branch.main.gk-disposition', 'starred']]),
+			);
+			cache.onRepositoryChanged(repoPath, ['gkConfig']);
+			assert.strictEqual(await result(), true);
+
+			assert.strictEqual(deleteBranchMetadata.callCount, 1);
+			assert.deepStrictEqual(events, []);
+		});
+
+		test('a merge-key-only change leaves the branches cached', async () => {
+			await seedBranchMetadata();
+
+			const result = registerTestReconciler(
+				() =>
+					new Map([
+						['branch.main.gk-merge-target', 'origin/develop'],
+						['branch.main.gk-last-accessed', '2026-10-01T00:00:00.000Z'],
+					]),
+			);
+			cache.onRepositoryChanged(repoPath, ['gkConfig']);
+			assert.strictEqual(await result(), true);
+
+			assert.strictEqual(deleteBranchMetadata.callCount, 0);
+			assert.strictEqual(events.length, 1);
+			await readBranchMetadata();
+			assert.strictEqual(metadataFactoryCount, 1, 'branch metadata does not depend on merge keys');
+		});
+
+		test("core's own recorded stamp is not evicted again by the watcher's report of it", async () => {
+			await seedBranchMetadata();
+
+			// What `recordBranchActivity` does: write (recorded by `setGkConfig`), then evict the branches itself
+			cache.recordGkConfigWrite(repoPath, 'branch.main.gk-last-accessed', '2026-10-05T00:00:00.000Z');
+			assert.deepStrictEqual(events, [], 'recording an activity stamp never fires the merge-targets event');
+			cache.deleteBranchMetadata(repoPath);
+			await readBranchMetadata();
+			assert.strictEqual(metadataFactoryCount, 2);
+
+			const result = registerTestReconciler(
+				() =>
+					new Map([
+						['branch.main.gk-merge-target', 'origin/main'],
+						['branch.main.gk-last-accessed', '2026-10-05T00:00:00.000Z'],
+					]),
+			);
+			cache.onRepositoryChanged(repoPath, ['gkConfig']);
+			assert.strictEqual(await result(), false, 'the write is already reflected in the snapshot');
+
+			assert.strictEqual(deleteBranchMetadata.callCount, 1, "only core's own eviction");
+			await readBranchMetadata();
+			assert.strictEqual(metadataFactoryCount, 2);
+		});
+
+		test("core's own section rename is not evicted again by the watcher's report of it", async () => {
+			await seedBranchMetadata();
+
+			cache.recordGkConfigSectionWrite(repoPath, 'main', 'renamed');
+			const result = registerTestReconciler(
+				() =>
+					new Map([
+						['branch.renamed.gk-merge-target', 'origin/main'],
+						['branch.renamed.gk-last-accessed', '2026-10-01T00:00:00.000Z'],
+					]),
+			);
+			cache.onRepositoryChanged(repoPath, ['gkConfig']);
+			assert.strictEqual(await result(), false);
+
+			assert.strictEqual(deleteBranchMetadata.callCount, 0);
+		});
+
+		test('the coarse fallback evicts the branches (no reconciler)', async () => {
+			await seedBranchMetadata();
+
+			cache.onRepositoryChanged(repoPath, ['gkConfig']);
+
+			assert.strictEqual(deleteBranchMetadata.callCount, 1);
+			await readBranchMetadata();
+			assert.strictEqual(metadataFactoryCount, 2);
+		});
+
+		test('the coarse fallback evicts the branches (a failed reconcile)', async () => {
+			await seedBranchMetadata();
+
+			let outcome: Promise<'failed'> = Promise.resolve('failed');
+			cache.setGkConfigReconciler(() => (outcome = Promise.resolve('failed')));
+			cache.onRepositoryChanged(repoPath, ['gkConfig']);
+			await outcome;
+			await Promise.resolve();
+
+			assert.strictEqual(deleteBranchMetadata.callCount, 1);
+		});
+	});
 });
 
 suite('Cache.onDidChangeMergeTargets', () => {
@@ -1008,7 +1160,7 @@ suite('Cache.onDidChangeMergeTargets', () => {
 			release();
 			await settled();
 			assert.strictEqual(events.length, 1);
-			assert.strictEqual(cache.getGkConfigMergeSnapshot(repoPath)?.get(written[0]), written[1], 'the write is kept');
+			assert.strictEqual(cache.getGkConfigSnapshot(repoPath)?.get(written[0]), written[1], 'the write is kept');
 
 			cache.onRepositoryChanged(repoPath, ['gkConfig']);
 			await settled();
