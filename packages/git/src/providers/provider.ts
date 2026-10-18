@@ -68,9 +68,16 @@ export interface GitProvider {
 	 * them: an ignored file is one entry, and a directory whose entire contents are ignored is one entry with a
 	 * trailing `/` (its contents aren't listed). Empty directories and `.git/` aren't listed. Sorted, and not capped —
 	 * the caller limits what it shows. Unlike `getIgnoredDirectories` this is a listing, not a watcher-pruning set, so
-	 * nothing is dropped or re-confirmed against the rules.
+	 * nothing is dropped or re-confirmed against the rules. `options.paths` limits the listing to those repo-relative
+	 * folders (or files), matched literally rather than as globs, so only they are walked — an empty array answers
+	 * empty without running git, and omitting it lists the whole working tree. `options.priority` (e.g.
+	 * `'interactive'`) is for a caller waiting on the answer.
 	 */
-	getIgnoredEntries?(repoPath: string, cancellation?: AbortSignal): Promise<string[]>;
+	getIgnoredEntries?(
+		repoPath: string,
+		options?: { paths?: readonly string[]; priority?: GitCommandPriority },
+		cancellation?: AbortSignal,
+	): Promise<string[]>;
 	/**
 	 * An exact check of which of `paths` (repo-relative) git's ignore rules match — the subset that is ignored, as
 	 * given. A tracked file isn't reported as ignored, even when a rule matches it. This is git's answer, where the

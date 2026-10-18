@@ -20,7 +20,6 @@ import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { GitIgnoreFilter } from '@gitlens/git/watching/gitIgnoreFilter.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
-import { chunkByStringLength } from '@gitlens/utils/iterable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { joinPaths, maybeUri, normalizePath, splitPath } from '@gitlens/utils/path.js';
 import { iterateByDelimiter } from '@gitlens/utils/string.js';
@@ -30,7 +29,7 @@ import { worktreeSharedChanges } from './exec/commandClassifier.js';
 import { fsExists } from './exec/exec.js';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './exec/features.js';
 import type { GitFeatureUnsupportedMessage, GitOptions } from './exec/git.js';
-import { Git, gitConfigsStatus, maxGitCliLength } from './exec/git.js';
+import { batchLiteralPathspecs, Git, gitConfigsStatus } from './exec/git.js';
 import type { GitLocation } from './exec/locator.js';
 import { BlameGitSubProvider } from './providers/blame.js';
 import { BranchesGitSubProvider } from './providers/branches.js';
@@ -788,33 +787,60 @@ export class CliGitProvider implements GitProvider {
 		return [...kept];
 	}
 
-	async getIgnoredEntries(repoPath: string, cancellation?: AbortSignal): Promise<string[]> {
+	async getIgnoredEntries(
+		repoPath: string,
+		options?: { paths?: readonly string[]; priority?: GitCommandPriority },
+		cancellation?: AbortSignal,
+	): Promise<string[]> {
+		const paths = options?.paths;
+		// No pathspec means "everything" to git, which is not what an empty list asks for
+		if (paths != null && !paths.length) return [];
+
 		// `status --ignored` walks every ignored tree, and `ls-files --directory` drops the ignored entries inside a
 		// new untracked folder, so status is asked only about those folders
 		const args = ['ls-files', '-z', '--others', '--exclude-standard', '--directory', '--no-empty-directory'];
-		const options = { cwd: repoPath, errors: 'throw', cancellation: cancellation } as const;
+		const runOptions = {
+			cwd: repoPath,
+			errors: 'throw',
+			cancellation: cancellation,
+			priority: options?.priority,
+		} as const;
+
+		const readListing = async (extra: readonly string[]): Promise<Set<string>> => {
+			const listed = new Set<string>();
+			const prefix = [...args, ...extra];
+			for (const batch of paths != null ? batchLiteralPathspecs(paths, prefix) : [undefined]) {
+				const result = await this._git.run(runOptions, ...prefix, ...(batch != null ? ['--', ...batch] : []));
+				for (const entry of iterateByDelimiter(result.stdout, '\0')) {
+					if (entry !== '') {
+						listed.add(entry);
+					}
+				}
+			}
+			return listed;
+		};
 
 		const [ignoredResult, untrackedResult] = await Promise.allSettled([
-			this._git.run(options, ...args, '--ignored'),
-			this._git.run(options, ...args),
+			readListing(['--ignored']),
+			readListing([]),
 		]);
 		if (ignoredResult.status === 'rejected') throw ignoredResult.reason;
 		if (untrackedResult.status === 'rejected') throw untrackedResult.reason;
 
-		const entries: string[] = [];
-		for (const entry of iterateByDelimiter(ignoredResult.value.stdout, '\0')) {
-			if (entry === '' || entry === '.git/') continue;
-
-			entries.push(entry);
+		const entries = new Set<string>();
+		for (const entry of ignoredResult.value) {
+			if (entry !== '.git/') {
+				entries.add(entry);
+			}
 		}
 
 		const folders: string[] = [];
-		for (const entry of iterateByDelimiter(untrackedResult.value.stdout, '\0')) {
+		for (const entry of untrackedResult.value) {
 			if (entry.endsWith('/')) {
-				folders.push(`:(literal)${entry}`);
+				folders.push(entry);
 			}
 		}
-		if (!folders.length) return entries.sort();
+		if (!folders.length) return [...entries].sort();
 
 		const prefix = [
 			'status',
@@ -824,15 +850,11 @@ export class CliGitProvider implements GitProvider {
 			'--untracked-files=normal',
 			'--ignore-submodules=all',
 		];
-		const perArgOverhead = 3;
-		const prefixLength = [...prefix, '--'].reduce((sum, arg) => sum + arg.length + perArgOverhead, 0);
 
-		for (const batch of chunkByStringLength(folders, maxGitCliLength - prefixLength, perArgOverhead)) {
+		for (const batch of batchLiteralPathspecs(folders, prefix)) {
 			const listed = await this._git.run(
 				{
-					cwd: repoPath,
-					errors: 'throw',
-					cancellation: cancellation,
+					...runOptions,
 					configs: [...gitConfigsStatus, '-c', 'status.renames=false'],
 					env: { GIT_OPTIONAL_LOCKS: '0' },
 				},
@@ -844,11 +866,11 @@ export class CliGitProvider implements GitProvider {
 			// Only untracked folders are in scope, so there are no tracked entries, and no rename pairs, to step over
 			for (const record of iterateByDelimiter(listed.stdout, '\0')) {
 				if (record.startsWith('!! ')) {
-					entries.push(record.substring(3));
+					entries.add(record.substring(3));
 				}
 			}
 		}
-		return entries.sort();
+		return [...entries].sort();
 	}
 
 	async getIgnoredPaths(

@@ -1,8 +1,8 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { TestRepo } from './helpers.js';
 import { addCommit, createTestRepo, getHeadSha } from './helpers.js';
 
@@ -132,5 +132,135 @@ suite('RevisionSubProvider.getEmptyTreeSha', () => {
 		} finally {
 			rmSync(parent, { recursive: true, force: true });
 		}
+	});
+});
+
+suite('RevisionSubProvider scoped listings', () => {
+	let repo: TestRepo;
+	let headSha: string;
+
+	function write(relativePath: string): void {
+		const path = join(repo.path, relativePath);
+		mkdirSync(dirname(path), { recursive: true });
+		writeFileSync(path, 'x\n');
+	}
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+		for (const file of ['src/a.ts', 'src/sub/b.ts', '[id]/page.ts', '[id]/in/z.ts', 'i/y.ts', 'top.ts']) {
+			write(file);
+		}
+		execFileSync('git', ['add', '-A'], { cwd: repo.path });
+		execFileSync('git', ['commit', '-m', 'Add files'], { cwd: repo.path });
+		headSha = getHeadSha(repo.path);
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+	});
+
+	suite('getTrackedFiles', () => {
+		test('unscoped lists the whole index', async () => {
+			const files = await repo.provider.revision.getTrackedFiles(repo.path);
+
+			assert.deepStrictEqual(
+				[...files].sort(),
+				['README.md', '[id]/in/z.ts', '[id]/page.ts', 'i/y.ts', 'src/a.ts', 'src/sub/b.ts', 'top.ts'].sort(),
+			);
+		});
+
+		test('scoped to a folder', async () => {
+			const files = await repo.provider.revision.getTrackedFiles(repo.path, { paths: ['src'] });
+
+			assert.deepStrictEqual([...files].sort(), ['src/a.ts', 'src/sub/b.ts']);
+		});
+
+		test('scoped to two folders', async () => {
+			const files = await repo.provider.revision.getTrackedFiles(repo.path, { paths: ['src/sub', 'i'] });
+
+			assert.deepStrictEqual([...files].sort(), ['i/y.ts', 'src/sub/b.ts']);
+		});
+
+		test('scoped to overlapping folders lists each file once', async () => {
+			const files = await repo.provider.revision.getTrackedFiles(repo.path, { paths: ['src', 'src/sub'] });
+
+			assert.deepStrictEqual([...files].sort(), ['src/a.ts', 'src/sub/b.ts']);
+		});
+
+		test('scoped to a glob-named folder leaves its sibling out', async () => {
+			const files = await repo.provider.revision.getTrackedFiles(repo.path, { paths: ['[id]'] });
+
+			assert.deepStrictEqual([...files].sort(), ['[id]/in/z.ts', '[id]/page.ts']);
+		});
+
+		test('an empty paths array answers empty', async () => {
+			assert.deepStrictEqual(await repo.provider.revision.getTrackedFiles(repo.path, { paths: [] }), []);
+		});
+	});
+
+	suite('getTreeForRevision', () => {
+		async function paths(options?: { paths?: readonly string[] }): Promise<string[]> {
+			const entries = await repo.provider.revision.getTreeForRevision(repo.path, headSha, options);
+			return entries.map(e => e.path).sort();
+		}
+
+		test('unscoped lists the whole tree', async () => {
+			assert.deepStrictEqual(await paths(), [
+				'README.md',
+				'[id]',
+				'[id]/in',
+				'[id]/in/z.ts',
+				'[id]/page.ts',
+				'i',
+				'i/y.ts',
+				'src',
+				'src/a.ts',
+				'src/sub',
+				'src/sub/b.ts',
+				'top.ts',
+			]);
+		});
+
+		test('scoped to a folder', async () => {
+			assert.deepStrictEqual(await paths({ paths: ['src'] }), ['src', 'src/a.ts', 'src/sub', 'src/sub/b.ts']);
+		});
+
+		test('scoped to a nested folder also lists its ancestor', async () => {
+			assert.deepStrictEqual(await paths({ paths: ['src/sub'] }), ['src', 'src/sub', 'src/sub/b.ts']);
+		});
+
+		test('scoped to two folders lists each entry once', async () => {
+			assert.deepStrictEqual(await paths({ paths: ['src/sub', 'i', 'src'] }), [
+				'i',
+				'i/y.ts',
+				'src',
+				'src/a.ts',
+				'src/sub',
+				'src/sub/b.ts',
+			]);
+		});
+
+		test('scoped to a glob-named folder leaves its sibling out', async () => {
+			assert.deepStrictEqual(await paths({ paths: ['[id]'] }), [
+				'[id]',
+				'[id]/in',
+				'[id]/in/z.ts',
+				'[id]/page.ts',
+			]);
+		});
+
+		test('an empty paths array answers empty', async () => {
+			assert.deepStrictEqual(await paths({ paths: [] }), []);
+		});
+
+		test('a single-entry read still works alongside scoped reads', async () => {
+			const [entry, scoped] = await Promise.all([
+				repo.provider.revision.getTreeEntryForRevision(repo.path, 'src/a.ts', headSha),
+				paths({ paths: ['src'] }),
+			]);
+
+			assert.strictEqual(entry?.path, 'src/a.ts');
+			assert.strictEqual(scoped.length, 4);
+		});
 	});
 });
