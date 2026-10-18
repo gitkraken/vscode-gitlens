@@ -583,7 +583,7 @@ export interface GitOptions {
 	env?: Record<string, string | undefined>;
 	/** Dynamic environment provider called for each command (e.g., host-discovered SCM credentials) */
 	getEnvironment?: () => Record<string, string | undefined> | undefined;
-	/** Git command timeout in milliseconds. Defaults to 60000. Set to 0 to disable. */
+	/** Git command timeout in milliseconds, for runs that don't set their own. Defaults to 60000. Set to 0 to disable. */
 	gitTimeout?: number;
 	/** Returns whether the workspace is currently trusted. Defaults to true when not provided. Called on every exec/stream. */
 	isTrusted?: () => boolean;
@@ -1038,10 +1038,11 @@ export class Git {
 			...opts
 		} = options;
 
-		const defaultTimeout = this.options.gitTimeout ?? 60000;
+		// A run's own timeout holds even when the default is disabled (0), so an unrequested background run stays capped
+		const runTimeout = opts.timeout ?? this.options.gitTimeout ?? 60000;
 		const runOpts: Mutable<RunOptions> = {
 			...opts,
-			timeout: opts.timeout === 0 || defaultTimeout === 0 ? undefined : (opts.timeout ?? defaultTimeout),
+			timeout: runTimeout === 0 ? undefined : runTimeout,
 			encoding: (encoding ?? 'utf8') === 'utf8' ? 'utf8' : 'buffer',
 			decode: this.options.decode,
 			env: this.buildEnv(options.env),
