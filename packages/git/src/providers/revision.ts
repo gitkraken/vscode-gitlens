@@ -26,10 +26,24 @@ export interface GitRevisionSubProvider {
 	getEmptyTreeSha(repoPath: string): Promise<string>;
 	getRevisionContent(repoPath: string, path: string, rev: string): Promise<Uint8Array | undefined>;
 	getSubmoduleHead?(repoPath: string, submodulePath: string): Promise<string | undefined>;
-	/** Gets tracked file paths from the index (reflects working tree state, even during rebase) */
-	getTrackedFiles(repoPath: string): Promise<string[]>;
+	/**
+	 * Gets tracked file paths from the index (reflects working tree state, even during rebase).
+	 * `paths` limits the read to those repo-relative folders (or files), matched literally rather than as globs;
+	 * an empty array answers empty without running git, and omitting it reads the whole index.
+	 */
+	getTrackedFiles(
+		repoPath: string,
+		options?: { paths?: readonly string[] },
+		cancellation?: AbortSignal,
+	): Promise<string[]>;
 	getTreeEntryForRevision(repoPath: string, path: string, rev: string): Promise<GitTreeEntry | undefined>;
-	getTreeForRevision(repoPath: string, rev: string): Promise<GitTreeEntry[]>;
+	/**
+	 * Lists every entry (files and folders) of the tree at `rev`, recursively.
+	 * `paths` limits the listing to those repo-relative folders (or files), matched literally rather than as globs;
+	 * each scope's ancestor folders are listed too, an empty array answers empty without running git, and omitting
+	 * it lists the whole tree.
+	 */
+	getTreeForRevision(repoPath: string, rev: string, options?: { paths?: readonly string[] }): Promise<GitTreeEntry[]>;
 	resolveRevision(
 		repoPath: string,
 		ref: string,

@@ -12,16 +12,24 @@ import {
 	isUncommittedStaged,
 	isUncommittedWithParentSuffix,
 } from '@gitlens/git/utils/revision.utils.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { first } from '@gitlens/utils/iterable.js';
 import { splitPath } from '@gitlens/utils/path.js';
+import { iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { GitErrorHandling, GitRunOptions } from '../exec/exec.types.js';
 import type { Git } from '../exec/git.js';
-import { defaultExceptionHandler, getGitCommandError, gitConfigsLog, GitErrors } from '../exec/git.js';
+import {
+	batchLiteralPathspecs,
+	defaultExceptionHandler,
+	getGitCommandError,
+	gitConfigsLog,
+	GitErrors,
+} from '../exec/git.js';
 import { parseGitLsFilesStaged } from '../parsers/indexParser.js';
 import { getShaAndFileSummaryLogParser } from '../parsers/logParser.js';
 import { parseGitTree } from '../parsers/treeParser.js';
@@ -138,25 +146,79 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	}
 
 	@debug()
-	async getTrackedFiles(repoPath: string): Promise<string[]> {
+	async getTrackedFiles(
+		repoPath: string,
+		options?: { paths?: readonly string[] },
+		cancellation?: AbortSignal,
+	): Promise<string[]> {
 		if (!repoPath) return [];
 
-		const result = await this.git.run({ cwd: repoPath, errors: 'ignore' }, 'ls-files', '-z');
-		const data = result.stdout;
-		if (!data) return [];
+		const paths = options?.paths;
+		// No pathspec means "everything" to git, which is not what an empty list asks for
+		if (paths != null && !paths.length) return [];
 
-		return [...new Set(data.split('\0').filter(Boolean))];
+		const prefix = ['ls-files', '-z'];
+		// A single run when unscoped, otherwise batched to stay under the command-line length limit
+		const batches = paths != null ? batchLiteralPathspecs(paths, prefix) : [undefined];
+
+		// Unmerged entries are listed once per stage, and a path can sit under more than one scope
+		const files = new Set<string>();
+		for (const batch of batches) {
+			const result = await this.git.run(
+				{ cwd: repoPath, errors: 'ignore', cancellation: cancellation },
+				...prefix,
+				...(batch != null ? ['--', ...batch] : []),
+			);
+			// `errors: 'ignore'` resolves an abort as an empty listing, which would read as a folder with no files
+			if (result.completion.status === 'cancelled' || cancellation?.aborted) throw new CancellationError();
+
+			for (const file of iterateByDelimiter(result.stdout, '\0')) {
+				if (file) {
+					files.add(file);
+				}
+			}
+		}
+		return [...files];
 	}
 
 	@debug()
-	async getTreeForRevision(repoPath: string, rev: string): Promise<GitTreeEntry[]> {
-		return repoPath ? this.getTreeForRevisionCore(repoPath, rev) : [];
+	async getTreeForRevision(
+		repoPath: string,
+		rev: string,
+		options?: { paths?: readonly string[] },
+	): Promise<GitTreeEntry[]> {
+		if (!repoPath) return [];
+
+		const paths = options?.paths;
+		if (paths == null) return this.getTreeForRevisionCore(repoPath, rev);
+		// No pathspec means "everything" to git, which is not what an empty list asks for
+		if (!paths.length) return [];
+
+		// A scope's ancestor folders are listed with it, and a path can sit under more than one scope
+		const seen = new Set<string>();
+		const entries: GitTreeEntry[] = [];
+		for (const batch of batchLiteralPathspecs(paths, ['ls-tree', '-lrt', rev])) {
+			for (const entry of await this.getTreeForRevisionCore(repoPath, rev, undefined, batch)) {
+				if (!seen.has(entry.path)) {
+					seen.add(entry.path);
+					entries.push(entry);
+				}
+			}
+		}
+		return entries;
 	}
 
 	@gate()
-	private async getTreeForRevisionCore(repoPath: string, rev: string, path?: string): Promise<GitTreeEntry[]> {
+	private async getTreeForRevisionCore(
+		repoPath: string,
+		rev: string,
+		path?: string,
+		pathspecs?: readonly string[],
+	): Promise<GitTreeEntry[]> {
 		const hasPath = Boolean(path);
-		const args = hasPath ? ['ls-tree', '-l', rev, '--', path] : ['ls-tree', '-lrt', rev, '--'];
+		const args = hasPath
+			? ['ls-tree', '-l', rev, '--', path]
+			: ['ls-tree', '-lrt', rev, '--', ...(pathspecs ?? [])];
 		const result = await this.git.run({ cwd: repoPath, errors: 'ignore' }, ...args);
 		const data = result.stdout.trim();
 		if (!data) return emptyArray as GitTreeEntry[];

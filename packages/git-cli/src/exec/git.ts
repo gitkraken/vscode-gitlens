@@ -36,6 +36,7 @@ import type { GitRunCancellation } from '@gitlens/git/run.types.js';
 import { CancellationError, getAbortSignalId, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { getDurationMilliseconds, hrtime } from '@gitlens/utils/hrtime.js';
+import { chunkByStringLength } from '@gitlens/utils/iterable.js';
 import type { LogChannel } from '@gitlens/utils/logger.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { formatLoggableScopeBlock } from '@gitlens/utils/logger.scoped.js';
@@ -69,6 +70,25 @@ const queueWaitAnnotationThreshold = 100;
 /** Below this, a measured event-loop stall isn't worth annotating — see {@link EventLoopMonitor}. */
 const eventLoopDelayAnnotationThreshold = 500;
 export const maxGitCliLength = 30000;
+
+/**
+ * Splits `paths` into `:(literal)` pathspec batches that each fit the command-line length limit after `prefix`, so a
+ * folder named like a glob (`[id]/`) doesn't match its siblings.
+ */
+export function batchLiteralPathspecs(
+	paths: readonly string[],
+	prefix: readonly string[],
+): Iterable<readonly string[]> {
+	// Reserve the prefix and a per-arg overhead (separator + possible quoting), so neither a run of long paths nor
+	// many short ones can push a batch past the OS limit
+	const perArgOverhead = 3;
+	const prefixLength = [...prefix, '--'].reduce((sum, arg) => sum + arg.length + perArgOverhead, 0);
+	return chunkByStringLength(
+		paths.map(p => `:(literal)${p}`),
+		maxGitCliLength - prefixLength,
+		perArgOverhead,
+	);
+}
 
 export const gitConfigsBranch = ['-c', 'color.branch=false'] as const;
 export const gitConfigsDiff = ['-c', 'color.diff=false', '-c', 'diff.mnemonicPrefix=false'] as const;
