@@ -58,19 +58,64 @@ async function delay(ms: number, signal: AbortSignal | undefined): Promise<void>
 }
 
 /**
- * Runs `attempt`, and runs it again after each of {@link indexLockRetryDelays} while it fails on a held
- * `index.lock`. Any other failure, or the last lock failure, is rethrown as is.
+ * Captures the rest of git's `error: could not lock config file <path>[: <reason>]` line. A held lock reads
+ * `: File exists`, except `--remove-section`/`--rename-section` print no reason (for any failure); permanent
+ * failures (`Permission denied`, `No such file or directory`, ...) must not be retried.
  */
-export async function retryWhileIndexLocked<T>(attempt: () => Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+const configLockFailureRegex = /could not lock config file ([^\r\n]*)/i;
+
+/**
+ * Whether the argv is `git config`. Only that verb: others that write config (`branch -m`, `remote add`) can
+ * fail after a partial change, so a blind retry isn't safe.
+ */
+export function isConfigCommand(args: readonly string[]): boolean {
+	return leadingCommand(args).verb === 'config';
+}
+
+/** Whether a run failed because another process may hold the config file's `.lock`: the reason is `File exists` or absent. */
+export function isConfigLockHeldError(ex: unknown): boolean {
+	if (!(ex instanceof RunError) || ex instanceof CancelledRunError) return false;
+
+	const rest = configLockFailureRegex.exec(ex.stderr)?.[1];
+	if (rest == null) return false;
+
+	return /: File exists\s*$/i.test(rest) || !rest.includes(': ');
+}
+
+/**
+ * Runs `attempt`, and runs it again after each of {@link indexLockRetryDelays} while it fails with an error
+ * `isHeldError` accepts. Any other failure, or the last lock failure, is rethrown as is.
+ */
+async function retryWhileHeld<T>(
+	attempt: () => Promise<T>,
+	signal: AbortSignal | undefined,
+	isHeldError: (ex: unknown) => boolean,
+): Promise<T> {
 	for (let retry = 0; ; retry++) {
 		try {
 			return await attempt();
 		} catch (ex) {
-			if (retry >= indexLockRetryDelays.length || !isIndexLockHeldError(ex)) throw ex;
+			if (retry >= indexLockRetryDelays.length || !isHeldError(ex)) throw ex;
 		}
 
 		await delay(indexLockRetryDelays[retry], signal);
 	}
+}
+
+/**
+ * Runs `attempt`, and runs it again after each of {@link indexLockRetryDelays} while it fails on a held
+ * `index.lock`. Any other failure, or the last lock failure, is rethrown as is.
+ */
+export function retryWhileIndexLocked<T>(attempt: () => Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+	return retryWhileHeld(attempt, signal, isIndexLockHeldError);
+}
+
+/**
+ * Like {@link retryWhileIndexLocked}, for a config write that loses the race for the file's `.lock` to another
+ * process — git fails at once rather than waiting.
+ */
+export function retryWhileConfigLocked<T>(attempt: () => Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+	return retryWhileHeld(attempt, signal, isConfigLockHeldError);
 }
 
 /**

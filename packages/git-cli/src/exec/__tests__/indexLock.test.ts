@@ -2,8 +2,8 @@ import * as assert from 'assert';
 import { resolve } from 'path';
 import { RunError } from '../exec.errors.js';
 import type { RunResult } from '../exec.js';
-import { Git } from '../git.js';
-import { indexLockRetryDelays, isIndexWriteCommand } from '../indexLock.js';
+import { Git, GitError } from '../git.js';
+import { indexLockRetryDelays, isConfigCommand, isConfigLockHeldError, isIndexWriteCommand } from '../indexLock.js';
 
 type FakeSpawn = (
 	args: readonly string[],
@@ -265,6 +265,153 @@ suite('Git index.lock handling', () => {
 			]);
 
 			assert.strictEqual(peaks.forCwd(repoA), 3);
+		});
+	});
+
+	suite('config lock handling', () => {
+		const configLockMessage = 'error: could not lock config file /repo/.git/gk/config: File exists';
+
+		function configLockHeld(): RunError {
+			return new RunError({ message: 'Command failed', code: 255 }, '', configLockMessage);
+		}
+
+		test('isConfigCommand finds the config verb past global options, and only that verb', () => {
+			assert.ok(isConfigCommand(['config', '--local', 'a.b', 'c']));
+			assert.ok(isConfigCommand(['-c', 'a.b=c', '-C', '/other', 'config', '--get', 'a.b']));
+			for (const verb of ['branch', 'remote', 'add', 'status', 'worktree']) {
+				assert.ok(!isConfigCommand([verb, 'config']), verb);
+			}
+			assert.ok(!isConfigCommand(['-c', 'config=x', 'branch', '-m', 'a', 'b']));
+			assert.ok(!isConfigCommand([]));
+		});
+
+		test('isConfigLockHeldError matches git’s config lock failure', () => {
+			assert.strictEqual(isConfigLockHeldError(configLockHeld()), true);
+		});
+
+		test('isConfigLockHeldError matches a reasonless failure and rejects permanent ones', () => {
+			const failure = (stderr: string): RunError =>
+				new RunError({ message: 'Command failed', code: 255 }, '', stderr);
+
+			assert.strictEqual(
+				isConfigLockHeldError(failure('error: could not lock config file C:/x/.git/config')),
+				true,
+			);
+			assert.strictEqual(
+				isConfigLockHeldError(failure('error: could not lock config file /x/.git/config: File exists\r\n')),
+				true,
+			);
+			for (const reason of ['Permission denied', 'No such file or directory', 'Not a directory']) {
+				assert.strictEqual(
+					isConfigLockHeldError(failure(`error: could not lock config file /x/.git/config: ${reason}`)),
+					false,
+					reason,
+				);
+			}
+		});
+
+		test('a config run that fails permanently is not retried', async () => {
+			for (const reason of ['Permission denied', 'No such file or directory']) {
+				spawned.length = 0;
+				fake(() =>
+					Promise.reject(
+						new RunError(
+							{ message: 'Command failed', code: 255 },
+							'',
+							`error: could not lock config file /repo/.git/config: ${reason}`,
+						),
+					),
+				);
+
+				await assert.rejects(git.run({ cwd: repoA }, 'config', 'a.b', 'c'), /could not lock config file/);
+				assert.strictEqual(spawned.length, 1, reason);
+			}
+		});
+
+		test('a config run whose lock message has no reason is retried', async () => {
+			let calls = 0;
+			fake(() =>
+				++calls === 1
+					? Promise.reject(
+							new RunError(
+								{ message: 'Command failed', code: 255 },
+								'',
+								'error: could not lock config file /repo/.git/config',
+							),
+						)
+					: ok(),
+			);
+
+			const result = await git.run({ cwd: repoA }, 'config', '--remove-section', 'a');
+
+			assert.strictEqual(result.exitCode, 0);
+			assert.strictEqual(spawned.length, 2);
+		});
+
+		test('isConfigLockHeldError ignores unrelated failures', () => {
+			assert.strictEqual(isConfigLockHeldError(lockHeld()), false);
+			assert.strictEqual(
+				isConfigLockHeldError(
+					new RunError({ message: 'Command failed', code: 5 }, '', 'error: key does not contain a section'),
+				),
+				false,
+			);
+			assert.strictEqual(isConfigLockHeldError(new Error(configLockMessage)), false);
+			assert.strictEqual(isConfigLockHeldError(new GitError(configLockHeld())), false);
+			assert.strictEqual(isConfigLockHeldError(undefined), false);
+		});
+
+		test('a config run that finds the lock held is retried, then resolves', async () => {
+			let calls = 0;
+			fake(() => (++calls === 1 ? Promise.reject(configLockHeld()) : ok()));
+
+			const result = await git.run({ cwd: repoA }, 'config', 'a.b', 'c');
+
+			assert.strictEqual(result.exitCode, 0);
+			assert.strictEqual(spawned.length, 2);
+		});
+
+		test("retries before 'ignore' resolves the failed completion", async () => {
+			let calls = 0;
+			fake(() => (++calls < 3 ? Promise.reject(configLockHeld()) : ok()));
+
+			const result = await git.run({ cwd: repoA, errors: 'ignore' }, 'config', '-f', '/x/config', 'a.b', 'c');
+
+			assert.strictEqual(result.completion.status, 'exited');
+			assert.strictEqual(spawned.length, 3);
+		});
+
+		test('gives up after the last delay: throws, or resolves the failure under ignore', async () => {
+			fake(() => Promise.reject(configLockHeld()));
+
+			await assert.rejects(git.run({ cwd: repoA }, 'config', 'a.b', 'c'), /could not lock config file/);
+			assert.strictEqual(spawned.length, indexLockRetryDelays.length + 1);
+
+			const result = await git.run({ cwd: repoA, errors: 'ignore' }, 'config', 'a.b', 'c');
+			assert.match(result.stderr ?? '', /could not lock config file/);
+			assert.strictEqual(spawned.length, (indexLockRetryDelays.length + 1) * 2);
+		});
+
+		test('does not retry other verbs that write config, or a different config failure', async () => {
+			fake(() => Promise.reject(configLockHeld()));
+			await assert.rejects(git.run({ cwd: repoA }, 'branch', '-m', 'a', 'b'));
+			await assert.rejects(git.run({ cwd: repoA }, 'remote', 'add', 'o', 'url'));
+			assert.strictEqual(spawned.length, 2);
+
+			fake(() =>
+				Promise.reject(
+					new RunError({ message: 'Command failed', code: 5 }, '', 'error: key does not contain a section'),
+				),
+			);
+			await assert.rejects(git.run({ cwd: repoA }, 'config', 'x', 'y'));
+			assert.strictEqual(spawned.length, 1);
+		});
+
+		test('a config read that succeeds spawns once', async () => {
+			fake(() => ok());
+
+			await git.run({ cwd: repoA }, 'config', '--get', 'a.b');
+			assert.strictEqual(spawned.length, 1);
 		});
 	});
 });
