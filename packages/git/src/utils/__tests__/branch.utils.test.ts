@@ -1,6 +1,14 @@
 import * as assert from 'assert';
 import { getRemoteNameSlashIndex } from '@gitlens/utils/gitRefs.js';
-import { isDetachedHead, parseRefName, parseUpstream, splitRemoteBranchName } from '../branch.utils.js';
+import { GitBranch } from '../../models/branch.js';
+import {
+	getBranchNameAndRemote,
+	getBranchTrackingWithoutRemote,
+	isDetachedHead,
+	parseRefName,
+	parseUpstream,
+	splitRemoteBranchName,
+} from '../branch.utils.js';
 
 suite('Branch Utils Test Suite', () => {
 	suite('parseUpstream', () => {
@@ -90,6 +98,17 @@ suite('Branch Utils Test Suite', () => {
 		test('strips refs/heads/ prefix from upstream name', () => {
 			const result = parseUpstream('refs/heads/main', '');
 			assert.strictEqual(result?.name, 'main');
+		});
+
+		test('keeps the remote git reports', () => {
+			assert.strictEqual(parseUpstream('refs/remotes/team/fork/x', '', 'team/fork')?.remote, 'team/fork');
+			assert.strictEqual(parseUpstream('refs/remotes/team/fork/x', '[gone]', 'team/fork')?.remote, 'team/fork');
+		});
+
+		test('ignores an empty or local (.) remote', () => {
+			assert.strictEqual(parseUpstream('refs/heads/main', '', '.')?.remote, undefined);
+			assert.strictEqual(parseUpstream('refs/remotes/origin/main', '[ahead 1]', '')?.remote, undefined);
+			assert.strictEqual(parseUpstream('refs/remotes/origin/main', '', undefined)?.remote, undefined);
 		});
 
 		test('treats non-numeric ahead/behind as 0', () => {
@@ -257,6 +276,65 @@ suite('Branch Utils Test Suite', () => {
 			assert.strictEqual(isDetachedHead('(release)'), false);
 			assert.strictEqual(isDetachedHead('v1.0(rc)'), false);
 			assert.strictEqual(isDetachedHead('feat/(wip)'), false);
+		});
+	});
+	suite('upstream remote', () => {
+		const upstream = { name: 'team/fork/feature', missing: false, remote: 'team/fork' };
+
+		test('getBranchNameAndRemote prefers upstream.remote', () => {
+			const ref = {
+				refType: 'branch',
+				name: 'feature',
+				ref: 'feature',
+				remote: false,
+				upstream: upstream,
+				repoPath: '/r',
+			} as const;
+			assert.deepStrictEqual(getBranchNameAndRemote(ref), ['feature', 'team/fork']);
+			assert.deepStrictEqual(
+				getBranchNameAndRemote({ ...ref, upstream: { name: 'team/fork/feature', missing: false } }),
+				['feature', 'team'],
+			);
+		});
+
+		test('getBranchTrackingWithoutRemote strips upstream.remote', () => {
+			const ref = {
+				refType: 'branch',
+				name: 'feature',
+				ref: 'feature',
+				remote: false,
+				upstream: upstream,
+				repoPath: '/r',
+			} as const;
+			assert.strictEqual(getBranchTrackingWithoutRemote(ref), 'feature');
+			assert.strictEqual(
+				getBranchTrackingWithoutRemote({ ...ref, upstream: { name: 'team/fork/feature', missing: false } }),
+				'fork/feature',
+			);
+			assert.strictEqual(
+				getBranchTrackingWithoutRemote({
+					...ref,
+					upstream: { name: 'main', missing: false, remote: 'origin' },
+				}),
+				'main',
+			);
+		});
+
+		test('GitBranch getters prefer upstream.remote', () => {
+			const withRemote = new GitBranch('/r', 'refs/heads/feature', false, undefined, undefined, undefined, {
+				...upstream,
+				state: { ahead: 0, behind: 0 },
+			});
+			assert.strictEqual(withRemote.remoteName, 'team/fork');
+			assert.strictEqual(withRemote.trackingWithoutRemote, 'feature');
+
+			const without = new GitBranch('/r', 'refs/heads/feature', false, undefined, undefined, undefined, {
+				name: 'origin/feature',
+				missing: false,
+				state: { ahead: 0, behind: 0 },
+			});
+			assert.strictEqual(without.remoteName, 'origin');
+			assert.strictEqual(without.trackingWithoutRemote, 'feature');
 		});
 	});
 });

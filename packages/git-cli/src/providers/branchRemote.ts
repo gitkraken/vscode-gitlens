@@ -19,7 +19,9 @@ export async function resolveBranchRemote(
 	let [name, remote] = getBranchNameAndRemote(ref);
 	let upstream = getBranchTrackingWithoutRemote(ref);
 
-	if (!(ref.remote ? name : upstream)?.includes('/')) return { name: name, remote: remote, upstream: upstream };
+	if (ref.upstream?.remote || !(ref.remote ? name : upstream)?.includes('/')) {
+		return { name: name, remote: remote, upstream: upstream };
+	}
 
 	const remoteNames = (await provider.remotes.getRemotes(repoPath, undefined, cancellation)).map(r => r.name);
 
