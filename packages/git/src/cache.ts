@@ -125,6 +125,15 @@ export async function shouldEvictBlameCacheEntry(progressive: ProgressiveGitBlam
  */
 const branchOverviewGkConfigKeysRegex = /^branch\.(.+)\.(?:gk-merge-(?:base|target(?:-user)?)|gk-target-base)$/;
 
+/** gkConfig keys the cached branches carry (see `getBranchMetadataMap`). Capture group 1 is the ref name. */
+const branchMetadataGkConfigKeysRegex =
+	/^branch\.(.+)\.gk-(?:last-(?:accessed|modified)|agent-last-activity|disposition)$/;
+
+/** The ref of a gkConfig key the reconcile baseline tracks, or `undefined` for any other key */
+function getReconciledGkConfigRef(key: string): string | undefined {
+	return (branchOverviewGkConfigKeysRegex.exec(key) ?? branchMetadataGkConfigKeysRegex.exec(key))?.[1];
+}
+
 /**
  * Downstream caches that `deleteGkConfig` may invalidate when a `branch.<ref>.gk-...` key changes.
  * Callers performing a "self-write" (where the value being written matches what they just resolved,
@@ -281,12 +290,13 @@ export class Cache implements Disposable {
 	private _closeGenerations = new Map<RepoPath, number>();
 
 	/**
-	 * Per-commonPath snapshot of the merge-relevant subset of `.git/gk/config` (keys matching
-	 * {@link branchOverviewGkConfigKeysRegex}), used by {@link reconcileGkConfigMap} to diff a watcher
-	 * `'gkConfig'` event down to only the keys that actually changed, instead of coarsely re-deriving
-	 * `baseBranchName`/`branchOverviews` on every gk write. Absent means "never observed".
+	 * Per-commonPath snapshot of the subset of `.git/gk/config` that derived caches depend on — merge-relevant keys
+	 * ({@link branchOverviewGkConfigKeysRegex}) and branch metadata keys ({@link branchMetadataGkConfigKeysRegex}) —
+	 * used by {@link reconcileGkConfigMap} to diff a watcher `'gkConfig'` event down to only the keys that actually
+	 * changed, instead of coarsely re-deriving `baseBranchName`/`branchOverviews` and the branches on every gk write.
+	 * Absent means "never observed".
 	 */
-	private _gkConfigMergeSnapshots = new Map<string, Map<string, string>>();
+	private _gkConfigSnapshots = new Map<string, Map<string, string>>();
 
 	private readonly _onDidChangeMergeTargets = new Emitter<MergeTargetsChangeEvent>();
 	/**
@@ -337,7 +347,7 @@ export class Cache implements Disposable {
 		usage['cache.worktreesByCommonPath.entries.count'] = this._worktreesByCommonPath.size;
 		usage['cache.statusGenerations.entries.count'] = this._statusGenerations.size;
 		usage['cache.closeGenerations.entries.count'] = this._closeGenerations.size;
-		usage['cache.gkConfigMergeSnapshots.entries.count'] = this._gkConfigMergeSnapshots.size;
+		usage['cache.gkConfigSnapshots.entries.count'] = this._gkConfigSnapshots.size;
 		return usage;
 	}
 
@@ -1026,7 +1036,7 @@ export class Cache implements Disposable {
 
 		// Shared, commonPath-keyed like `gkConfigMap` — only evict once no worktree still depends on it.
 		if (isLastWorktree) {
-			this._gkConfigMergeSnapshots.delete(commonPath);
+			this._gkConfigSnapshots.delete(commonPath);
 		}
 
 		this._commonPathRegistry.delete(repoPath);
@@ -1053,7 +1063,7 @@ export class Cache implements Disposable {
 		this._commonPathRegistry.clear();
 		this._worktreesByCommonPath.clear();
 		this._statusGenerations.clear();
-		this._gkConfigMergeSnapshots.clear();
+		this._gkConfigSnapshots.clear();
 		this._gkConfigReconciler = undefined;
 		this._caches = createEmptyCaches();
 	}
@@ -1196,7 +1206,7 @@ export class Cache implements Disposable {
 			return;
 		}
 
-		const priorSnapshot = this._gkConfigMergeSnapshots.get(commonPath);
+		const priorSnapshot = this._gkConfigSnapshots.get(commonPath);
 		// Fire-and-forget, but the outcome still decides whether the coarse clear is owed: a reconcile that
 		// FAILED leaves every derived cache holding pre-change values with nothing else to correct them, so
 		// it falls back to the blunt behavior that registering a reconciler replaced. Kept here rather than
@@ -1214,9 +1224,13 @@ export class Cache implements Disposable {
 		);
 	}
 
-	/** The coarse fallback: every derived merge cache is cleared, so any branch's merge targets may have changed */
+	/**
+	 * The coarse fallback: every derived merge cache and the branches are cleared, so any branch's merge targets or
+	 * metadata may have changed. Evicting the branches even when only merge keys changed is the price of not knowing.
+	 */
 	private clearGkConfigCoarsely(repoPath: string): void {
 		this.clearCaches(repoPath, 'gkConfig');
+		this.deleteBranchMetadata(repoPath);
 		this._onDidChangeMergeTargets.fire({ repoPath: this.getCommonPath(repoPath), refs: undefined });
 	}
 
@@ -1226,19 +1240,17 @@ export class Cache implements Disposable {
 	}
 
 	/**
-	 * Whether a write of `key` must first read the gk config to seed the merge-relevant snapshot: without one,
+	 * Whether a write of `key` must first read the gk config to seed the reconcile snapshot: without one,
 	 * {@link recordGkConfigWrite} can't tell whether the write changed anything, and the watcher's reconcile of it
 	 * would report every branch as changed.
 	 */
 	needsGkConfigSnapshot(repoPath: string, key: string): boolean {
-		return (
-			branchOverviewGkConfigKeysRegex.test(key) && !this._gkConfigMergeSnapshots.has(this.getCommonPath(repoPath))
-		);
+		return getReconciledGkConfigRef(key) != null && !this._gkConfigSnapshots.has(this.getCommonPath(repoPath));
 	}
 
-	/** The merge-relevant gk config snapshot currently serving as the reconcile baseline. */
-	getGkConfigMergeSnapshot(repoPath: string): ReadonlyMap<string, string> | undefined {
-		return this._gkConfigMergeSnapshots.get(this.getCommonPath(repoPath));
+	/** The gk config snapshot currently serving as the reconcile baseline. */
+	getGkConfigSnapshot(repoPath: string): ReadonlyMap<string, string> | undefined {
+		return this._gkConfigSnapshots.get(this.getCommonPath(repoPath));
 	}
 
 	getBranches(
@@ -1349,7 +1361,7 @@ export class Cache implements Disposable {
 	 * per-namespace gk lookups are served from it in-memory (see `getGkConfigMap` in the CLI config
 	 * sub-provider). Invalidated by `deleteGkConfig` (write) and, on a watcher `'gkConfig'` event, by
 	 * `handleGkConfigChanged` (reconciled precisely when a reconciler is registered, or the coarse
-	 * clear otherwise). The first fresh read seeds the merge-relevant snapshot used by
+	 * clear otherwise). The first fresh read seeds the snapshot used by
 	 * `reconcileGkConfigMap`; later refreshes of that snapshot are owned by the reconcile itself.
 	 */
 	getGkConfigMap(
@@ -1363,18 +1375,18 @@ export class Cache implements Disposable {
 			// an incidental read that happens to land between an external write and the watcher event
 			// would otherwise advance the baseline to the post-change value, so the reconcile would diff
 			// that value against itself and silently drop the change.
-			if (!this._gkConfigMergeSnapshots.has(commonPath)) {
-				this._gkConfigMergeSnapshots.set(commonPath, this.extractMergeRelevantGkConfig(map));
+			if (!this._gkConfigSnapshots.has(commonPath)) {
+				this._gkConfigSnapshots.set(commonPath, this.extractReconciledGkConfig(map));
 			}
 			return map;
 		});
 	}
 
-	/** Extracts the subset of a gk config map whose keys participate in the `branchOverviews`/`baseBranchName` lineage. */
-	private extractMergeRelevantGkConfig(map: ReadonlyMap<string, string>): Map<string, string> {
+	/** Extracts the subset of a gk config map that the reconcile baseline tracks (see {@link _gkConfigSnapshots}). */
+	private extractReconciledGkConfig(map: ReadonlyMap<string, string>): Map<string, string> {
 		const subset = new Map<string, string>();
 		for (const [key, value] of map) {
-			if (branchOverviewGkConfigKeysRegex.test(key)) {
+			if (getReconciledGkConfigRef(key) != null) {
 				subset.set(key, value);
 			}
 		}
@@ -1403,13 +1415,13 @@ export class Cache implements Disposable {
 	}
 
 	/**
-	 * Keeps the merge-relevant gk config snapshot in sync with OUR OWN writes, so the next
-	 * watcher-triggered `reconcileGkConfigMap` diffs a self-write as unchanged rather than as an
-	 * external change (which would otherwise defeat `skipInvalidation`), and fires
-	 * {@link onDidChangeMergeTargets} naming the key's branch when the value differs from the snapshot's,
-	 * unless `announce` is `false` (an internal save while answering a read, which nobody awaits; only
-	 * another process's watcher reports it). No-ops for keys outside the merge-relevant subset, and if no
-	 * snapshot exists yet for this repo (the writer seeds one first; see {@link needsGkConfigSnapshot}).
+	 * Keeps the gk config snapshot in sync with OUR OWN writes, so the next watcher-triggered
+	 * `reconcileGkConfigMap` diffs a self-write as unchanged rather than as an external change (which would
+	 * otherwise defeat `skipInvalidation`, or evict the branches a second time after a branch-activity stamp),
+	 * and fires {@link onDidChangeMergeTargets} naming the key's branch when a merge-relevant value differs from
+	 * the snapshot's, unless `announce` is `false` (an internal save while answering a read, which nobody awaits;
+	 * only another process's watcher reports it). No-ops for keys the snapshot doesn't track, and if no snapshot exists yet for this repo
+	 * (the writer seeds one first; see {@link needsGkConfigSnapshot}).
 	 */
 	recordGkConfigWrite(
 		repoPath: string,
@@ -1417,11 +1429,11 @@ export class Cache implements Disposable {
 		value: string | undefined,
 		options?: { announce?: boolean },
 	): void {
-		const ref = branchOverviewGkConfigKeysRegex.exec(key)?.[1];
+		const ref = getReconciledGkConfigRef(key);
 		if (ref == null) return;
 
 		const commonPath = this.getCommonPath(repoPath);
-		const snapshot = this._gkConfigMergeSnapshots.get(commonPath);
+		const snapshot = this._gkConfigSnapshots.get(commonPath);
 		if (snapshot == null || snapshot.get(key) === value) return;
 
 		// Copy-on-write: a reconcile in flight is holding this map as its `priorSnapshot` baseline, so
@@ -1432,9 +1444,9 @@ export class Cache implements Disposable {
 		} else {
 			next.set(key, value);
 		}
-		this._gkConfigMergeSnapshots.set(commonPath, next);
+		this._gkConfigSnapshots.set(commonPath, next);
 
-		if (options?.announce === false) return;
+		if (options?.announce === false || !branchOverviewGkConfigKeysRegex.test(key)) return;
 
 		this._onDidChangeMergeTargets.fire({ repoPath: commonPath, refs: new Set([ref]) });
 	}
@@ -1442,11 +1454,11 @@ export class Cache implements Disposable {
 	/**
 	 * {@link recordGkConfigWrite} for a whole `branch.<ref>` section: our own `--remove-section` (a branch delete) or
 	 * `--rename-section` (a branch rename, to `renamedTo`), so the reconcile that follows doesn't report it as an
-	 * external merge-target change.
+	 * external merge-target or metadata change — the branch op's own ref change already evicts the branches.
 	 */
 	recordGkConfigSectionWrite(repoPath: string, ref: string, renamedTo?: string): void {
 		const commonPath = this.getCommonPath(repoPath);
-		const snapshot = this._gkConfigMergeSnapshots.get(commonPath);
+		const snapshot = this._gkConfigSnapshots.get(commonPath);
 		if (snapshot == null) return;
 
 		const prefixLength = `branch.${ref}.`.length;
@@ -1455,13 +1467,13 @@ export class Cache implements Disposable {
 		for (const [key, value] of snapshot) {
 			// Matched on the captured ref, not a `branch.<ref>.` prefix, which would also take a dotted sibling
 			// (`branch.feature.x.*` for `feature`) that `--remove-section`/`--rename-section` leaves in place
-			if (branchOverviewGkConfigKeysRegex.exec(key)?.[1] !== ref) {
+			if (getReconciledGkConfigRef(key) !== ref) {
 				next.set(key, value);
 			} else if (renamedTo != null) {
 				next.set(`branch.${renamedTo}.${key.substring(prefixLength)}`, value);
 			}
 		}
-		this._gkConfigMergeSnapshots.set(commonPath, next);
+		this._gkConfigSnapshots.set(commonPath, next);
 	}
 
 	/**
@@ -1480,10 +1492,11 @@ export class Cache implements Disposable {
 	}
 
 	/**
-	 * Diffs a freshly-read gk config map's merge-relevant subset against `priorSnapshot` (captured by
+	 * Diffs a freshly-read gk config map's tracked subset against `priorSnapshot` (captured by
 	 * `handleGkConfigChanged` before the reconcile started, so it reflects the pre-change state), cascading
 	 * `baseBranchName`/`branchOverviews` for every ref whose merge-relevant key actually changed, then firing
-	 * {@link onDidChangeMergeTargets} naming those refs.
+	 * {@link onDidChangeMergeTargets} naming those refs. A changed branch metadata key (another process's
+	 * activity stamp or disposition) evicts the branches once, and never fires the event.
 	 * A key core itself wrote since `priorSnapshot` was captured (recorded in the live snapshot) is neither diffed nor
 	 * overwritten by this read, which may predate the write: its writer already cascaded and announced it.
 	 * `priorSnapshot` of `undefined` (never observed before this reconcile) is treated as "everything
@@ -1496,19 +1509,20 @@ export class Cache implements Disposable {
 		freshMap: ReadonlyMap<string, string>,
 	): boolean {
 		const commonPath = this.getCommonPath(repoPath);
-		const newSubset = this.extractMergeRelevantGkConfig(freshMap);
+		const newSubset = this.extractReconciledGkConfig(freshMap);
 
 		if (priorSnapshot == null) {
-			this._gkConfigMergeSnapshots.set(commonPath, newSubset);
+			this._gkConfigSnapshots.set(commonPath, newSubset);
 			this.evictShared('baseBranchName', repoPath);
 			this.evictShared('branchOverviews', repoPath);
+			this.deleteBranchMetadata(repoPath);
 			this._onDidChangeMergeTargets.fire({ repoPath: commonPath, refs: undefined });
 			return true;
 		}
 
 		// Only core's own writes move the live snapshot off `priorSnapshot` before this point
 		const ownWrites = new Set<string>();
-		const live = this._gkConfigMergeSnapshots.get(commonPath);
+		const live = this._gkConfigSnapshots.get(commonPath);
 		if (live != null && live !== priorSnapshot) {
 			for (const key of new Set([...priorSnapshot.keys(), ...live.keys()])) {
 				const value = live.get(key);
@@ -1523,22 +1537,28 @@ export class Cache implements Disposable {
 			}
 		}
 
-		this._gkConfigMergeSnapshots.set(commonPath, newSubset);
+		this._gkConfigSnapshots.set(commonPath, newSubset);
 
 		let refs: Set<string> | undefined;
+		let metadataChanged = false;
 		for (const key of new Set([...priorSnapshot.keys(), ...newSubset.keys()])) {
 			if (ownWrites.has(key)) continue;
+			if (priorSnapshot.get(key) === newSubset.get(key)) continue;
 
-			if (priorSnapshot.get(key) !== newSubset.get(key)) {
+			const ref = branchOverviewGkConfigKeysRegex.exec(key)?.[1];
+			if (ref != null) {
 				this.cascadeGkConfigKeyChange(commonPath, key);
-
-				const ref = branchOverviewGkConfigKeysRegex.exec(key)?.[1];
-				if (ref != null) {
-					(refs ??= new Set()).add(ref);
-				}
+				(refs ??= new Set()).add(ref);
+			} else {
+				metadataChanged = true;
 			}
 		}
-		if (refs == null) return false;
+
+		if (metadataChanged) {
+			this.deleteBranchMetadata(repoPath);
+		}
+
+		if (refs == null) return metadataChanged;
 
 		this._onDidChangeMergeTargets.fire({ repoPath: commonPath, refs: refs });
 		return true;
@@ -1712,8 +1732,8 @@ export class Cache implements Disposable {
 
 	/**
 	 * Drops the cached branches for `repoPath` and its sibling worktrees after a branch-activity stamp
-	 * (`gk-last-accessed`, `gk-last-modified`, `gk-agent-last-activity`) was written, since each branch carries its
-	 * stamps. Hard-evicts, so a read that started before the write isn't joined.
+	 * (`gk-last-accessed`, `gk-last-modified`, `gk-agent-last-activity`) was written here or reconciled from another
+	 * process, since each branch carries its stamps. Hard-evicts, so a read that started before the write isn't joined.
 	 */
 	deleteBranchMetadata(repoPath: string): void {
 		for (const key of ['branchMetadataMap', 'sharedBranches', 'branches', 'branch'] as const) {
