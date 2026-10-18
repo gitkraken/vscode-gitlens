@@ -19,6 +19,7 @@ import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { GitIgnoreFilter } from '@gitlens/git/watching/gitIgnoreFilter.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
+import { chunkByStringLength } from '@gitlens/utils/iterable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { joinPaths, maybeUri, normalizePath, splitPath } from '@gitlens/utils/path.js';
 import { iterateByDelimiter } from '@gitlens/utils/string.js';
@@ -28,7 +29,7 @@ import { worktreeSharedChanges } from './exec/commandClassifier.js';
 import { fsExists } from './exec/exec.js';
 import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './exec/features.js';
 import type { GitFeatureUnsupportedMessage, GitOptions } from './exec/git.js';
-import { Git } from './exec/git.js';
+import { Git, gitConfigsStatus, maxGitCliLength } from './exec/git.js';
 import type { GitLocation } from './exec/locator.js';
 import { BlameGitSubProvider } from './providers/blame.js';
 import { BranchesGitSubProvider } from './providers/branches.js';
@@ -787,22 +788,64 @@ export class CliGitProvider implements GitProvider {
 	}
 
 	async getIgnoredEntries(repoPath: string, cancellation?: AbortSignal): Promise<string[]> {
-		const listed = await this._git.run(
-			{ cwd: repoPath, errors: 'throw', cancellation: cancellation },
-			'ls-files',
-			'-z',
-			'--others',
-			'--ignored',
-			'--exclude-standard',
-			'--directory',
-			'--no-empty-directory',
-		);
+		// `status --ignored` walks every ignored tree, and `ls-files --directory` drops the ignored entries inside a
+		// new untracked folder, so status is asked only about those folders
+		const args = ['ls-files', '-z', '--others', '--exclude-standard', '--directory', '--no-empty-directory'];
+		const options = { cwd: repoPath, errors: 'throw', cancellation: cancellation } as const;
+
+		const [ignoredResult, untrackedResult] = await Promise.allSettled([
+			this._git.run(options, ...args, '--ignored'),
+			this._git.run(options, ...args),
+		]);
+		if (ignoredResult.status === 'rejected') throw ignoredResult.reason;
+		if (untrackedResult.status === 'rejected') throw untrackedResult.reason;
 
 		const entries: string[] = [];
-		for (const entry of iterateByDelimiter(listed.stdout, '\0')) {
-			if (!entry.length || entry === '.git/') continue;
+		for (const entry of iterateByDelimiter(ignoredResult.value.stdout, '\0')) {
+			if (entry === '' || entry === '.git/') continue;
 
 			entries.push(entry);
+		}
+
+		const folders: string[] = [];
+		for (const entry of iterateByDelimiter(untrackedResult.value.stdout, '\0')) {
+			if (entry.endsWith('/')) {
+				folders.push(`:(literal)${entry}`);
+			}
+		}
+		if (!folders.length) return entries.sort();
+
+		const prefix = [
+			'status',
+			'--porcelain',
+			'-z',
+			'--ignored',
+			'--untracked-files=normal',
+			'--ignore-submodules=all',
+		];
+		const perArgOverhead = 3;
+		const prefixLength = [...prefix, '--'].reduce((sum, arg) => sum + arg.length + perArgOverhead, 0);
+
+		for (const batch of chunkByStringLength(folders, maxGitCliLength - prefixLength, perArgOverhead)) {
+			const listed = await this._git.run(
+				{
+					cwd: repoPath,
+					errors: 'throw',
+					cancellation: cancellation,
+					configs: [...gitConfigsStatus, '-c', 'status.renames=false'],
+					env: { GIT_OPTIONAL_LOCKS: '0' },
+				},
+				...prefix,
+				'--',
+				...batch,
+			);
+
+			// Only untracked folders are in scope, so there are no tracked entries, and no rename pairs, to step over
+			for (const record of iterateByDelimiter(listed.stdout, '\0')) {
+				if (record.startsWith('!! ')) {
+					entries.push(record.substring(3));
+				}
+			}
 		}
 		return entries.sort();
 	}
