@@ -48,6 +48,38 @@ async function recordUnhandledRejections(fn: () => Promise<void>): Promise<unkno
 }
 
 suite('PromiseMap Test Suite', () => {
+	suite('getSettled', () => {
+		test('is undefined until the cached promise fulfills, then holds its value', async () => {
+			const map = new PromiseMap<string, number>();
+			assert.strictEqual(map.getSettled('k'), undefined, 'nothing cached');
+
+			const d = deferred<number>();
+			void map.getOrCreate('k', () => d.promise);
+			assert.strictEqual(map.getSettled('k'), undefined, 'still pending');
+
+			d.resolve(42);
+			await flush();
+			assert.deepStrictEqual(map.getSettled('k'), { value: 42 });
+		});
+
+		test('reflects the entry now cached, not one it replaced', async () => {
+			const map = new PromiseMap<string, number>();
+			void map.getOrCreate('k', () => Promise.resolve(1));
+			await flush();
+
+			const d = deferred<number>();
+			map.set('k', d.promise);
+			assert.strictEqual(map.getSettled('k'), undefined, 'the replacement is still pending');
+
+			d.resolve(2);
+			await flush();
+			assert.deepStrictEqual(map.getSettled('k'), { value: 2 });
+
+			map.delete('k');
+			assert.strictEqual(map.getSettled('k'), undefined);
+		});
+	});
+
 	suite('getOrCreate — aggregate signal plumbing', () => {
 		test('factory receives aggregate signal when first caller passes no signal', async () => {
 			const map = new PromiseMap<string, number>();

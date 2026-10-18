@@ -1,6 +1,6 @@
 import { getRemoteNameSlashIndex } from '@gitlens/utils/gitRefs.js';
 import type { PageableResult } from '@gitlens/utils/paging.js';
-import type { GitBranch, GitTrackingUpstream } from '../models/branch.js';
+import type { BranchMetadata, BranchMetadataGkConfigKey, GitBranch, GitTrackingUpstream } from '../models/branch.js';
 import type { GitBranchReference, GitReference } from '../models/reference.js';
 import { shortenRevision } from './revision.utils.js';
 
@@ -147,4 +147,55 @@ export function parseUpstream(upstream: string, tracking: string): GitTrackingUp
 		missing: match[3] != null,
 		state: { ahead: isNaN(ahead) ? 0 : ahead, behind: isNaN(behind) ? 0 : behind },
 	};
+}
+
+const branchMetadataGkConfigKeyRegex =
+	/^branch\.(.+)\.(gk-(?:last-accessed|last-modified|agent-last-activity|disposition))$/;
+
+/** Splits a `branch.<name>.<key>` gk config key that a branch's {@link BranchMetadata} is read from, or `undefined` for any other key */
+export function parseBranchMetadataGkConfigKey(
+	key: string,
+): { branch: string; key: BranchMetadataGkConfigKey } | undefined {
+	const match = branchMetadataGkConfigKeyRegex.exec(key);
+	if (match == null) return undefined;
+
+	return { branch: match[1], key: match[2] as BranchMetadataGkConfigKey };
+}
+
+/** Sets the field `key` is read into to `value`, or removes it for `undefined`, exactly as a fresh read of the key would */
+export function setBranchMetadataValue(
+	metadata: BranchMetadata,
+	key: BranchMetadataGkConfigKey,
+	value: string | undefined,
+): void {
+	switch (key) {
+		case 'gk-last-accessed':
+			if (value != null) {
+				metadata.lastAccessedAt = value;
+			} else {
+				delete metadata.lastAccessedAt;
+			}
+			break;
+		case 'gk-last-modified':
+			if (value != null) {
+				metadata.lastModifiedAt = value;
+			} else {
+				delete metadata.lastModifiedAt;
+			}
+			break;
+		case 'gk-agent-last-activity':
+			if (value != null) {
+				metadata.agentLastActivityAt = value;
+			} else {
+				delete metadata.agentLastActivityAt;
+			}
+			break;
+		case 'gk-disposition':
+			if (value === 'starred' || value === 'archived') {
+				metadata.disposition = value;
+			} else {
+				delete metadata.disposition;
+			}
+			break;
+	}
 }

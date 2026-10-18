@@ -35,8 +35,10 @@ export class GitWorktree {
 		return this.branch?.date;
 	}
 
-	/** @returns The most recent date among lastModifiedDate, lastAccessedDate, and branch.date */
-	@memoize()
+	/**
+	 * @returns The most recent date among lastModifiedDate, lastAccessedDate, and branch.date. Not memoized: the stamps
+	 * change in place (see `BranchMetadata`)
+	 */
 	get effectiveDate(): Date | undefined {
 		let maxTime: number | undefined;
 

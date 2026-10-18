@@ -14,6 +14,7 @@ import type {
 	GitConfigType,
 	GkConfigKeys,
 } from '@gitlens/git/providers/config.js';
+import { parseBranchMetadataGkConfigKey } from '@gitlens/git/utils/branch.utils.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { first, some } from '@gitlens/utils/iterable.js';
@@ -128,6 +129,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		string,
 		{ value: string | undefined; skipKey: string; promise: Promise<void> }
 	>();
+
+	/** Maps from failed bulk reads, which a reconcile must not diff as the file's content */
+	private readonly _failedGkConfigMaps = new WeakSet<Map<string, string>>();
 
 	/** Writes each `.git/gk/config` one at a time — concurrent `git config` writes fail on its lock */
 	private readonly _gkConfigWrites = new KeyedSequencer();
@@ -423,6 +427,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			// and would make the section-cleanup pre-checks skip real work. Only cache a read that happened.
 			if (failed) {
 				cacheable.invalidate();
+				this._failedGkConfigMaps.add(map);
 			}
 			return map;
 		});
@@ -523,6 +528,14 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		// reconcile from re-diffing this key as an external change.
 		this.cache.deleteGkConfig(repoPath, key, options);
 		this.cache.recordGkConfigWrite(repoPath, key, value, { announce: options?.skipInvalidation == null });
+
+		// The watcher's report of this write can't reach the cached branches: the snapshot already holds the value
+		const metadataKey = parseBranchMetadataGkConfigKey(key);
+		if (metadataKey != null) {
+			this.cache.patchBranchMetadata(repoPath, [
+				{ branch: metadataKey.branch, key: metadataKey.key, value: value },
+			]);
+		}
 	}
 
 	@debug()
@@ -692,6 +705,11 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 				// A trailing pass must not reuse the entry the pass before it installed.
 				this.cache.deleteGkConfigMap(readPath);
 				const freshMap = await this.getGkConfigMap(readPath);
+				// A failed read diffed as the file's content would remove every key it missed
+				if (this._failedGkConfigMaps.has(freshMap)) {
+					throw new Error(`Failed to read the gk config through '${readPath}'`);
+				}
+
 				// Paths may have closed while the re-read was in flight; if every one did, there's nothing
 				// left to reconcile against.
 				if (!this.pruneClosedReconcilePaths(entry.paths).size) return 'reconciled';
