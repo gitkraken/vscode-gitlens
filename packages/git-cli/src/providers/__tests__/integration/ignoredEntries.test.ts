@@ -165,3 +165,129 @@ suite('CliGitProvider getIgnoredEntries / getIgnoredPaths', () => {
 		assert.deepStrictEqual([...spelled].sort(), ['./a.log', ':ign.log']);
 	});
 });
+
+suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
+	let repo: TestRepo;
+
+	function write(relativePath: string, content = 'x\n'): void {
+		const path = join(repo.path, relativePath);
+		mkdirSync(dirname(path), { recursive: true });
+		writeFileSync(path, content);
+	}
+
+	function git(...args: string[]): string {
+		return execFileSync('git', args, { cwd: repo.path, stdio: 'pipe', encoding: 'utf8' });
+	}
+
+	/** The `!! ` records of a status scoped to `scope` — what git itself says is ignored there */
+	function oracle(scope: string): string[] {
+		return git(
+			'-c',
+			'status.renames=false',
+			'status',
+			'--porcelain=v1',
+			'-z',
+			'--ignored',
+			'--untracked-files=normal',
+			'--ignore-submodules=all',
+			'--',
+			`:(literal)${scope}`,
+		)
+			.split('\0')
+			.filter(r => r.startsWith('!! '))
+			.map(r => r.substring(3))
+			.sort();
+	}
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+
+		const excludesFile = join(repo.path, '.git', 'test-excludes');
+		writeFileSync(excludesFile, '');
+		git('config', 'core.excludesFile', excludesFile);
+
+		write('.gitignore', '*.log\n*.tmp\nnode_modules/\n');
+		write('src/index.ts');
+		git('add', '-f', '.gitignore', 'src/index.ts');
+		git('commit', '-m', 'Add files');
+
+		write('src/cache.tmp');
+		write('src/keep.log');
+		write('src/dist/a.tmp');
+		write('src/dist/b.ts');
+		write('newpkg/index.ts');
+		write('newpkg/debug.log');
+		write('newpkg/node_modules/b/y');
+		write('newpkg/sub/z.log');
+		write('newpkg/sub/k.ts');
+		write('node_modules/a/x');
+		write('node_modules/a/deep/y');
+		write('[id]/page.ts');
+		write('[id]/x.log');
+		write('i/y.ts');
+		write('i/z.log');
+		write('other/q.log');
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+	});
+
+	async function assertMatchesStatus(scope: string): Promise<void> {
+		const result = await repo.provider.getIgnoredEntries(repo.path, { paths: [scope] });
+
+		assert.deepStrictEqual(result, oracle(scope));
+		assert.ok(result.length > 0, 'the scope should hold ignored entries');
+	}
+
+	test('matches status scoped to a tracked folder holding ignored files and an ignored folder', () =>
+		assertMatchesStatus('src'));
+	test('matches status scoped to a new untracked folder', () => assertMatchesStatus('newpkg'));
+	test('matches status scoped to a folder inside a new untracked folder', () => assertMatchesStatus('newpkg/sub'));
+	test('matches status scoped to a folder inside a wholly ignored folder', () =>
+		assertMatchesStatus('node_modules/a'));
+	test('matches status scoped to a glob-named folder', () => assertMatchesStatus('[id]'));
+	test('matches status scoped to the sibling of a glob-named folder', () => assertMatchesStatus('i'));
+
+	test('lists the ignored entries of a tracked folder only', async () => {
+		const result = await repo.provider.getIgnoredEntries(repo.path, { paths: ['src'] });
+
+		assert.deepStrictEqual(result, ['src/cache.tmp', 'src/dist/a.tmp', 'src/keep.log']);
+	});
+
+	test('literal matching keeps a glob-named folder apart from its sibling', async () => {
+		assert.deepStrictEqual(await repo.provider.getIgnoredEntries(repo.path, { paths: ['[id]'] }), ['[id]/x.log']);
+		assert.deepStrictEqual(await repo.provider.getIgnoredEntries(repo.path, { paths: ['i'] }), ['i/z.log']);
+	});
+
+	test('two scopes list both, sorted and without duplicates', async () => {
+		const result = await repo.provider.getIgnoredEntries(repo.path, { paths: ['src', 'newpkg', 'src/dist'] });
+
+		assert.deepStrictEqual(result, [...new Set([...oracle('src'), ...oracle('newpkg')])].sort());
+	});
+
+	test('an empty paths array answers empty', async () => {
+		assert.deepStrictEqual(await repo.provider.getIgnoredEntries(repo.path, { paths: [] }), []);
+	});
+
+	test('unscoped still lists the whole working tree', async () => {
+		const status = git(
+			'-c',
+			'status.renames=false',
+			'status',
+			'--porcelain=v1',
+			'-z',
+			'--ignored',
+			'--untracked-files=normal',
+			'--ignore-submodules=all',
+		);
+		const expected = status
+			.split('\0')
+			.filter(r => r.startsWith('!! '))
+			.map(r => r.substring(3))
+			.sort();
+
+		assert.deepStrictEqual(await repo.provider.getIgnoredEntries(repo.path), expected);
+		assert.deepStrictEqual(await repo.provider.getIgnoredEntries(repo.path, { priority: 'interactive' }), expected);
+	});
+});
