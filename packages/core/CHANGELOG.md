@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Changes branch reads to report a local branch's upstream remote exactly, as `GitTrackingUpstream.remote` (and `remote` on a branch reference's `upstream`), from git's `%(upstream:remotename)` on Git 2.23+ at no extra cost. `GitBranch.remoteName`, `trackingWithoutRemote`, `getBranchNameAndRemote` and `getBranchTrackingWithoutRemote` prefer it, so a host renaming or deleting a branch's remote counterpart no longer parses the upstream itself; it is `undefined` for a local upstream and on older Git, where the first-`/` split remains. Remote-tracking branches (`refs/remotes/...`) are still split at the first `/`, since git has no remote to report for them (git, git-cli)
 - Changes `getIgnoredPaths` to take `options?: { priority?: GitCommandPriority }` before `cancellation`, so a caller waiting on the answer (opening a file) can run it as `'interactive'`. A host passing `cancellation` as the third argument must move it to the fourth (git, git-cli)
 
 ### Fixed

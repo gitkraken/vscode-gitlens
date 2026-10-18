@@ -554,6 +554,47 @@ suite('OperationsGitSubProvider.push', () => {
 				}
 			});
 
+			test('a branch read from the repository reports its upstream remote exactly', async () => {
+				const r = setupSlashRemote();
+				try {
+					execFileSync('git', ['branch', '--track', 'tracks-local', 'main'], {
+						cwd: r.local.path,
+						stdio: 'pipe',
+					});
+
+					const feature = await r.local.provider.branches.getBranch(r.local.path, 'feature');
+					assert.strictEqual(feature?.upstream?.remote, 'team/fork');
+					assert.strictEqual(feature.remoteName, 'team/fork');
+					assert.strictEqual(feature.trackingWithoutRemote, 'feature');
+
+					const all = await r.local.provider.branches.getBranches(r.local.path);
+					const listedFeature = all.values.find(b => b.name === 'feature');
+					assert.strictEqual(listedFeature?.upstream?.remote, 'team/fork');
+
+					const local = all.values.find(b => b.name === 'tracks-local');
+					assert.strictEqual(local?.upstream?.name, 'main');
+					assert.strictEqual(local.upstream.remote, undefined);
+				} finally {
+					r.cleanup();
+				}
+			});
+
+			test('a push of a branch read from the repository lands on that remote', async () => {
+				const r = setupSlashRemote();
+				try {
+					addCommit(r.local.path, 'feature.txt', 'f', 'Feature commit');
+					const localSha = getHeadSha(r.local.path);
+
+					const branch = await r.local.provider.branches.getBranch(r.local.path, 'feature');
+					assert.ok(branch != null);
+					await r.local.provider.ops.push(r.local.path, { reference: branch });
+
+					assert.strictEqual(forkFeature(r.fork.path), localSha);
+				} finally {
+					r.cleanup();
+				}
+			});
+
 			test('a fetch of a branch reference updates the remote-tracking branch', async () => {
 				const r = setupSlashRemote();
 				try {
@@ -571,6 +612,29 @@ suite('OperationsGitSubProvider.push', () => {
 					await r.local.provider.ops.fetch(r.local.path, { branch: r.ref });
 
 					assert.strictEqual(revParse(r.local.path, 'refs/remotes/team/fork/feature'), advanced);
+				} finally {
+					r.cleanup();
+				}
+			});
+
+			test('a fast-forward-only pull of a branch reference advances it from that remote', async () => {
+				const r = setupSlashRemote();
+				try {
+					checkout(r.local.path, 'main');
+					const other = cloneTestRepo(r.fork.path);
+					let advanced: string;
+					try {
+						checkout(other.path, 'feature');
+						addCommit(other.path, 'other.txt', 'o', 'Other advances');
+						advanced = getHeadSha(other.path);
+						execFileSync('git', ['push', 'origin', 'feature'], { cwd: other.path, stdio: 'pipe' });
+					} finally {
+						other.cleanup();
+					}
+
+					await r.local.provider.ops.pull(r.local.path, { branch: r.ref, fastForward: 'only' });
+
+					assert.strictEqual(revParse(r.local.path, 'refs/heads/feature'), advanced);
 				} finally {
 					r.cleanup();
 				}
