@@ -358,17 +358,25 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		return { coordinates: targets.map(t => t.coordinate), unsettled: targets.map(t => t.unsettled) };
 	}
 
+	/**
+	 * The searches and counts take only `repos`: they re-read the collections and refuse a scope whose collection
+	 * isn't one of them ({@link getSearchCollections}), and a scope read as parsed below a listed collection is what
+	 * settling it would read ({@link resolveAzureProjectlessRepository}), so a miss there is not `unsettled`.
+	 */
 	protected override async resolveRepositoryInputs(
 		session: ProviderAuthenticationSession,
 		repos: readonly ProviderRepoInput[],
 		cancellation?: AbortSignal,
-	): Promise<ProviderRepoInput[]> {
-		const { coordinates } = await this.resolveRepositoryCoordinates(
+	): Promise<{ repos: ProviderRepoInput[]; unsettled?: readonly boolean[] }> {
+		const { coordinates, unsettled } = await this.resolveRepositoryCoordinates(
 			session,
 			repos.map(r => ({ ...r, owner: r.namespace, repo: r.name })),
 			cancellation,
 		);
-		return coordinates.map(({ owner, repo, ...r }) => ({ ...r, namespace: owner, name: repo }));
+		return {
+			repos: coordinates.map(({ owner, repo, ...r }) => ({ ...r, namespace: owner, name: repo })),
+			unsettled: unsettled,
+		};
 	}
 
 	/**
@@ -440,7 +448,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		if (azure == null) return undefined;
 
 		this.assertSearchDates(options.criteria);
-		const repos = options.repos && (await this.resolveRepositoryInputs(session, options.repos, cancellation));
+		const repos = options.repos && (await this.resolveRepositoryInputs(session, options.repos, cancellation)).repos;
 		// A first page re-reads the collection's projects, so a project created since discovery is known before its
 		// work items can turn up in a collection-wide query; a continuation keeps the set its first page resolved.
 		// The facade's page-1 marker (`broadenIssues` retries a failed first page with it) is a first page too.
@@ -486,7 +494,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 				this.assertSearchDates(s.criteria);
 				// Re-reads the projects like a first search page does, so a count and the page it previews resolve
 				// the same project set — a newer project can't be counted by one and refused or missed by the other.
-				const repos = s.repos && (await this.resolveRepositoryInputs(session, s.repos, cancellation));
+				const repos = s.repos && (await this.resolveRepositoryInputs(session, s.repos, cancellation)).repos;
 				const scope = await this.resolveWorkItemSearchScope(session, repos, s.org, true);
 				return azure.countWorkItems(
 					this,
@@ -750,7 +758,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		// A drain runs for a first page (or once its predecessor expired), so it re-reads the projects it fans out
 		// over: an org search trusting the connection-long discovery cache would silently skip a newer project.
 		// Settled here rather than before the query is keyed, so a cursor stays the caller's whatever discovery answers.
-		const repos = options.repos && (await this.resolveRepositoryInputs(session, options.repos, cancellation));
+		const repos = options.repos && (await this.resolveRepositoryInputs(session, options.repos, cancellation)).repos;
 		const facets = await this.resolvePullRequestSearchFacets(session, repos, options.org);
 
 		// The current user's id is resolved PER COLLECTION: Azure DevOps Server gives one person a different
