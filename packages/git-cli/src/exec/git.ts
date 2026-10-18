@@ -53,7 +53,13 @@ import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './fea
 import { gitFeaturesByVersion } from './features.js';
 import type { GitQueueConfig } from './gitQueue.js';
 import { getPrimaryGitCommand, GitQueue, inferGitCommandPriority } from './gitQueue.js';
-import { isIndexWriteCommand, KeyedSequencer, retryWhileIndexLocked } from './indexLock.js';
+import {
+	isConfigCommand,
+	isIndexWriteCommand,
+	KeyedSequencer,
+	retryWhileConfigLocked,
+	retryWhileIndexLocked,
+} from './indexLock.js';
 import type { GitLocation } from './locator.js';
 
 export const slowCallWarningThreshold = 2000;
@@ -1111,7 +1117,13 @@ export class Git {
 			// The retry wraps the spawn itself, before any `errors` mode turns a failure into a result or a
 			// throw, because only the raw `RunError` carries the stderr that says the lock was held. It re-queues
 			// each attempt, so waiting between them doesn't hold a queue slot.
-			const spawnWithRetry = writesIndex ? () => retryWhileIndexLocked(spawnQueued, cancellation) : spawnQueued;
+			// A config write likewise fails at once on a held `<file>.lock`. Reads never produce that failure, so
+			// the retry costs them nothing, and one wrap covers both `errors` modes.
+			const spawnWithRetry = writesIndex
+				? () => retryWhileIndexLocked(spawnQueued, cancellation)
+				: isConfigCommand(args)
+					? () => retryWhileConfigLocked(spawnQueued, cancellation)
+					: spawnQueued;
 			void (
 				checkoutKey != null
 					? this._indexWrites.run(checkoutKey, cancellation, spawnWithRetry)
