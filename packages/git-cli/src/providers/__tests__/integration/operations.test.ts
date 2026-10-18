@@ -498,6 +498,85 @@ suite('OperationsGitSubProvider.push', () => {
 			}
 		});
 
+		suite('a remote whose own name contains a slash', () => {
+			function setupSlashRemote() {
+				const r = setup();
+				const fork = createBareRemoteFrom(r.origin.path);
+				execFileSync('git', ['remote', 'add', 'team/fork', fork.path], { cwd: r.local.path, stdio: 'pipe' });
+				execFileSync('git', ['push', 'team/fork', 'main:feature'], { cwd: r.local.path, stdio: 'pipe' });
+				execFileSync('git', ['fetch', 'team/fork'], { cwd: r.local.path, stdio: 'pipe' });
+				createTrackingBranch(r.local.path, 'feature', 'team/fork/feature');
+				checkout(r.local.path, 'feature');
+				const ref = branchRef(r.local.path, 'feature', { name: 'team/fork/feature', missing: false });
+				return {
+					...r,
+					fork: fork,
+					ref: ref,
+					cleanup: () => {
+						fork.cleanup();
+						r.cleanup();
+					},
+				};
+			}
+
+			function forkFeature(path: string): string {
+				return execFileSync('git', ['rev-parse', 'refs/heads/feature'], {
+					cwd: path,
+					encoding: 'utf-8',
+				}).trim();
+			}
+
+			test('a force push of a branch reference lands on that remote, not on its first segment', async () => {
+				const r = setupSlashRemote();
+				try {
+					addCommit(r.local.path, 'feature.txt', 'f', 'Feature commit');
+					const localSha = getHeadSha(r.local.path);
+
+					await r.local.provider.ops.push(r.local.path, { reference: r.ref, force: true });
+
+					assert.strictEqual(forkFeature(r.fork.path), localSha);
+				} finally {
+					r.cleanup();
+				}
+			});
+
+			test('a push of the current branch lands on that remote', async () => {
+				const r = setupSlashRemote();
+				try {
+					addCommit(r.local.path, 'feature.txt', 'f', 'Feature commit');
+					const localSha = getHeadSha(r.local.path);
+
+					await r.local.provider.ops.push(r.local.path);
+
+					assert.strictEqual(forkFeature(r.fork.path), localSha);
+				} finally {
+					r.cleanup();
+				}
+			});
+
+			test('a fetch of a branch reference updates the remote-tracking branch', async () => {
+				const r = setupSlashRemote();
+				try {
+					const other = cloneTestRepo(r.fork.path);
+					let advanced: string;
+					try {
+						checkout(other.path, 'feature');
+						addCommit(other.path, 'other.txt', 'o', 'Other advances');
+						advanced = getHeadSha(other.path);
+						execFileSync('git', ['push', 'origin', 'feature'], { cwd: other.path, stdio: 'pipe' });
+					} finally {
+						other.cleanup();
+					}
+
+					await r.local.provider.ops.fetch(r.local.path, { branch: r.ref });
+
+					assert.strictEqual(revParse(r.local.path, 'refs/remotes/team/fork/feature'), advanced);
+				} finally {
+					r.cleanup();
+				}
+			});
+		});
+
 		test('a force push whose lease is stale rejects with rejectedWithLease', async () => {
 			const r = setup();
 			try {

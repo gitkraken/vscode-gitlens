@@ -38,6 +38,7 @@ import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { GitGraphSubProvider } from '@gitlens/git/providers/graph.js';
+import { splitRemoteBranchName } from '@gitlens/git/utils/branch.utils.js';
 import { appendRowsAtCursor, mergeAvatarsForward, restampGraphRowIds } from '@gitlens/git/utils/graph.utils.js';
 import { computeGraphRowContextFlags, createReachabilityTableBuilder } from '@gitlens/git/utils/reachability.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
@@ -524,10 +525,20 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		const headRefUpstreamName = headBranch?.upstream?.name;
 		const [worktrees, worktreesByBranch] = getSettledValue(worktreesResult) ?? [[], new Map<string, GitWorktree>()];
 
+		const remotes = getSettledValue(remotesResult);
+		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map<string, GitRemote>();
+		// A remote whose own name contains a `/` can't be found by splitting a tip at its first `/`
+		const slashRemoteNames = [...remoteMap.keys()].filter(n => n.includes('/'));
+
 		// The repo's default branch (e.g. `origin/main`) reduced to its local branch name (`main`) so it
 		// can be matched against each local head's `tip` to flag the default-branch head additively.
 		const defaultBranchName = getSettledValue(defaultBranchResult);
-		const defaultLocalName = defaultBranchName != null ? getBranchNameWithoutRemote(defaultBranchName) : undefined;
+		const defaultLocalName =
+			defaultBranchName != null
+				? ((slashRemoteNames.length
+						? splitRemoteBranchName(defaultBranchName, slashRemoteNames)?.[1]
+						: undefined) ?? getBranchNameWithoutRemote(defaultBranchName))
+				: undefined;
 
 		let branchIdOfMainWorktree: string | undefined;
 		let mainWorktree: GitWorktree | undefined;
@@ -543,9 +554,6 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		}
 
 		const currentUser = getSettledValue(currentUserResult);
-
-		const remotes = getSettledValue(remotesResult);
-		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map<string, GitRemote>();
 
 		// Decoration side inputs, fingerprinted for the NEXT rebuild's metadata gate (and compared against
 		// the seed's by this call's fast path). Computed from the prelude's fresh queries — the same values
@@ -787,11 +795,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						}
 					}
 
-					const remoteName = getRemoteNameFromBranchName(tip);
+					const slashRemote = slashRemoteNames.length
+						? splitRemoteBranchName(tip, slashRemoteNames)
+						: undefined;
+					const remoteName = slashRemote?.[0] ?? getRemoteNameFromBranchName(tip);
 					if (remoteName) {
 						const remote = remoteMap.get(remoteName);
 						if (remote != null) {
-							const branchName = getBranchNameWithoutRemote(tip);
+							const branchName = slashRemote?.[1] ?? getBranchNameWithoutRemote(tip);
 							if (branchName === 'HEAD') continue;
 
 							refRemoteHeads.push({
