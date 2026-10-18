@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes an index-writing run being retried when the held `index.lock` was reported by something the run started rather than by git itself, such as a commit hook whose own `git add` lost the race, which re-ran the whole commit, hooks included: a run is now retried only when git's failure to take the lock is the first thing it printed (git-cli)
+- Fixes `getIgnoredEntries` leaving out the ignored entries inside a new untracked folder (a `newpkg/node_modules/` or `newpkg/debug.log` beside an untracked `newpkg/index.ts`), which `git status --ignored` lists. It still lists with `ls-files`, and asks `git status --ignored` only about new untracked folders, without taking `index.lock`, so it walks only the ignored trees inside those folders rather than every ignored tree (`node_modules/` and the like) the way a whole-repository `git status --ignored` does (git-cli)
 
 ## [0.13.0] - 2026-10-18
 
