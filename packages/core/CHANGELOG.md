@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-18
+
 ### Added
 
 - Adds `GitPausedOperationsSubProvider.hasPausedOperation(repoPath, cancellation?)`, which answers whether git's dir holds a sentinel of any in-progress operation (merge, cherry-pick, revert, rebase, `git am`, or a sequencer run with a `todo`) from presence alone. Unlike `getPausedOperationStatus`, it is also `true` for states that can't be described, such as a stopped `git am`, a rebase between steps, or a sequencer it can't parse, and it rejects when git's dir can't be read rather than answering `false` (git, git-cli)
@@ -728,7 +730,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.12.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.13.0...HEAD
+[0.13.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.12.0...gitkraken:releases/core/v0.13.0
 [0.12.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.11.1...gitkraken:releases/core/v0.12.0
 [0.11.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.11.0...gitkraken:releases/core/v0.11.1
 [0.11.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.10.7...gitkraken:releases/core/v0.11.0
