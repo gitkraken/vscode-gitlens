@@ -1,12 +1,12 @@
 import * as assert from 'assert';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
 import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { TestRepo } from './helpers.js';
-import { createTestRepo } from './helpers.js';
+import { createTestRepo, gkConfig } from './helpers.js';
 
 suite('ConfigSubProvider', () => {
 	let repo: TestRepo;
@@ -160,5 +160,133 @@ suite('ConfigSubProvider — gk branch sections', () => {
 		} finally {
 			stub.restore();
 		}
+	});
+});
+
+suite('ConfigSubProvider — held config lock', () => {
+	let repo: TestRepo;
+	let lockPath: string;
+
+	setup(() => {
+		repo = createTestRepo();
+		mkdirSync(join(repo.path, '.git', 'gk'), { recursive: true });
+		lockPath = join(repo.path, '.git', 'gk', 'config.lock');
+	});
+
+	teardown(() => {
+		repo.cleanup();
+	});
+
+	test('setGkConfig waits out a lock another process releases', async () => {
+		writeFileSync(lockPath, '');
+		const timer = setTimeout(rmSync, 150, lockPath, { force: true });
+
+		try {
+			await repo.provider.config.setGkConfig(repo.path, 'branch.main.gk-merge-base', 'origin/main');
+		} finally {
+			clearTimeout(timer);
+		}
+
+		assert.strictEqual(
+			await repo.provider.config.getGkConfig(repo.path, 'branch.main.gk-merge-base'),
+			'origin/main',
+		);
+	});
+
+	test('setGkConfig rejects once the retries run out on a lock that never clears', async () => {
+		writeFileSync(lockPath, '');
+
+		await assert.rejects(repo.provider.config.setGkConfig(repo.path, 'branch.main.gk-merge-base', 'origin/main'));
+		assert.ok(existsSync(lockPath), 'the foreign lock must be left alone');
+	});
+
+	test('removeGkConfigBranchSection waits out a lock another process releases', async () => {
+		await repo.provider.config.setGkConfig(repo.path, 'branch.doomed.gk-merge-base', 'origin/doomed');
+		writeFileSync(lockPath, '');
+		const timer = setTimeout(rmSync, 150, lockPath, { force: true });
+
+		try {
+			await repo.provider.config.removeGkConfigBranchSection(repo.path, 'doomed');
+		} finally {
+			clearTimeout(timer);
+		}
+
+		assert.strictEqual(await repo.provider.config.getGkConfig(repo.path, 'branch.doomed.gk-merge-base'), undefined);
+	});
+
+	test('a config write outside ConfigSubProvider waits out a lock too', async () => {
+		const gitLockPath = join(repo.path, '.git', 'config.lock');
+		writeFileSync(gitLockPath, '');
+		const timer = setTimeout(rmSync, 150, gitLockPath, { force: true });
+
+		try {
+			await repo.provider.git.run({ cwd: repo.path }, 'config', '--local', 'gitlens.test.key', 'value');
+		} finally {
+			clearTimeout(timer);
+		}
+
+		assert.strictEqual(await repo.provider.config.getConfig(repo.path, 'gitlens.test.key' as any), 'value');
+	});
+
+	test('removeGkConfigBranchSection reports failure without throwing when the lock never clears', async () => {
+		await repo.provider.config.setGkConfig(repo.path, 'branch.doomed.gk-merge-base', 'origin/doomed');
+		writeFileSync(lockPath, '');
+
+		await repo.provider.config.removeGkConfigBranchSection(repo.path, 'doomed');
+		rmSync(lockPath, { force: true });
+
+		assert.strictEqual(
+			await repo.provider.config.getGkConfig(repo.path, 'branch.doomed.gk-merge-base'),
+			'origin/doomed',
+		);
+	});
+});
+
+suite('ConfigSubProvider — concurrent gk config writes', () => {
+	const key = 'branch.main.gk-merge-target-user';
+	let repo: TestRepo;
+
+	setup(() => {
+		repo = createTestRepo();
+	});
+
+	teardown(() => {
+		sinon.restore();
+		repo.cleanup();
+	});
+
+	function countWrites(run: sinon.SinonSpy): number {
+		return run.getCalls().filter(call => call.args[1] === 'config' && call.args.includes(key)).length;
+	}
+
+	test('lands writes of one key in call order, even when a later one repeats a pending value', async () => {
+		const config = repo.provider.config;
+		const writes = [
+			config.setGkConfig(repo.path, key, 'X'),
+			config.setGkConfig(repo.path, key, 'Y'),
+			config.setGkConfig(repo.path, key, 'X'),
+		];
+
+		const results = await Promise.allSettled(writes);
+		assert.deepStrictEqual(
+			results.map(r => r.status),
+			['fulfilled', 'fulfilled', 'fulfilled'],
+		);
+		assert.strictEqual(gkConfig(repo.path, key), 'X');
+		assert.strictEqual(await config.getGkConfig(repo.path, key), 'X');
+
+		// An unset with no write pending
+		await config.setGkConfig(repo.path, key, undefined);
+		assert.strictEqual(gkConfig(repo.path, key), undefined);
+	});
+
+	test('shares one write between identical concurrent writes', async () => {
+		const run = sinon.spy(repo.provider.git, 'run');
+		const config = repo.provider.config;
+
+		await Promise.all([config.setGkConfig(repo.path, key, 'X'), config.setGkConfig(repo.path, key, 'X')]);
+
+		assert.strictEqual(countWrites(run), 1);
+		assert.strictEqual(gkConfig(repo.path, key), 'X');
 	});
 });

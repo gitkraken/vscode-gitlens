@@ -24,6 +24,7 @@ import { fileUri } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { fsExists } from '../exec/exec.js';
 import type { Git } from '../exec/git.js';
+import { KeyedSequencer } from '../exec/indexLock.js';
 
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
 const emptyArray: readonly never[] = Object.freeze([]);
@@ -120,11 +121,16 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	private readonly _gkConfigReconciles = new Map<string, { pending: boolean; paths: Map<string, number> }>();
 
 	/**
-	 * Pending `setGkConfig` writes keyed by `(commonPath, key, value, skip-option)`. Concurrent
-	 * callers writing the same `(key, value)` pair share the in-flight Promise so only one
-	 * `git config --set` subprocess actually runs. Cleared on settle.
+	 * The latest pending `setGkConfig` write of each `commonPath\0key`. A call writing the same value with the same
+	 * skip option joins it; any other call chains after it, so one key's writes land in call order. Cleared on settle.
 	 */
-	private readonly _pendingGkConfigWrites = new Map<string, Promise<void>>();
+	private readonly _pendingGkConfigWrites = new Map<
+		string,
+		{ value: string | undefined; skipKey: string; promise: Promise<void> }
+	>();
+
+	/** Writes each `.git/gk/config` one at a time — concurrent `git config` writes fail on its lock */
+	private readonly _gkConfigWrites = new KeyedSequencer();
 
 	@trace()
 	getConfig(
@@ -455,23 +461,31 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		value: string | undefined,
 		options?: { skipInvalidation?: readonly GkConfigInvalidationTarget[] },
 	): Promise<void> {
-		// Encode the skip-invalidation option in the dedup key: a self-write (with skip targets)
-		// and a user-driven write of the same `(key, value)` (no skip targets) have different
-		// cache-invalidation semantics, so sharing their Promise would silently let the user-driven
-		// write skip invalidation. Sort the array so callers passing the same targets in different
-		// orders share a single in-flight write.
+		// A self-write (with skip targets) and a user-driven write of the same value have different invalidation
+		// semantics, so only a matching skip option may join: otherwise the user-driven write would skip invalidation.
+		// Sorted, so the same targets in any order match.
 		const commonPath = this.cache.getCommonPath(repoPath);
 		const skipKey = options?.skipInvalidation?.length ? options.skipInvalidation.toSorted().join(',') : '';
-		const dedupKey = `${commonPath}\0${key}\0${value ?? ''}\0${skipKey}`;
+		const pendingKey = `${commonPath}\0${key}`;
 
-		const pending = this._pendingGkConfigWrites.get(dedupKey);
-		if (pending != null) return pending;
+		const previous = this._pendingGkConfigWrites.get(pendingKey);
+		if (previous != null && previous.value === value && previous.skipKey === skipKey) return previous.promise;
 
-		const promise = this.setGkConfigCore(repoPath, key, value, options);
-		this._pendingGkConfigWrites.set(dedupKey, promise);
+		const promise =
+			previous != null
+				? previous.promise.catch(() => {}).then(() => this.setGkConfigCore(repoPath, key, value, options))
+				: this.setGkConfigCore(repoPath, key, value, options);
+		const pending = { value: value, skipKey: skipKey, promise: promise };
+		this._pendingGkConfigWrites.set(pendingKey, pending);
 		// Swallow the cleanup chain's rejection so a failed write doesn't surface as an unhandled
 		// rejection separate from the caller's own handling of the returned promise.
-		void promise.finally(() => this._pendingGkConfigWrites.delete(dedupKey)).catch(() => {});
+		void promise
+			.finally(() => {
+				if (this._pendingGkConfigWrites.get(pendingKey) === pending) {
+					this._pendingGkConfigWrites.delete(pendingKey);
+				}
+			})
+			.catch(() => {});
 		return promise;
 	}
 
@@ -490,7 +504,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 		if (!(await this.ensureGkConfigFolder(gkConfigFolder, scope))) return;
 
-		await this.setConfigCore(repoPath, key, value, { file: gkConfigPath });
+		await this._gkConfigWrites.run(gkConfigPath, undefined, () =>
+			this.setConfigCore(repoPath, key, value, { file: gkConfigPath }),
+		);
 
 		// Invalidate the bulk map (so the next read re-fetches) and the derived caches for this key's
 		// ref. The `.git/gk/config` file-watcher also fires `'gkConfig'` shortly after, which reconciles
@@ -560,12 +576,14 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			// about on every branch delete in a repo that has never had gk metadata.
 			if (!(await fsExists(gkConfigPath))) return true;
 
-			const result = await this.git.run(
-				{ cwd: repoPath, runLocally: true, errors: 'ignore' },
-				'config',
-				'-f',
-				gkConfigPath,
-				...args,
+			const result = await this._gkConfigWrites.run(gkConfigPath, undefined, () =>
+				this.git.run(
+					{ cwd: repoPath, runLocally: true, errors: 'ignore' },
+					'config',
+					'-f',
+					gkConfigPath,
+					...args,
+				),
 			);
 			// `errors: 'ignore'` is deliberate — see the note above on why this must never throw — but that
 			// also means the `catch` below never sees a failed write, so without this the metadata silently
@@ -1030,7 +1048,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		// Copy legacy entries to .git/gk/config
 		for (const [key, value] of [...migrateConfig]) {
 			try {
-				await this.setConfigCore(repoPath, key, value, { file: gkConfigPath });
+				await this._gkConfigWrites.run(gkConfigPath, undefined, () =>
+					this.setConfigCore(repoPath, key, value, { file: gkConfigPath }),
+				);
 			} catch (ex) {
 				scope?.error(ex, `Failed to migrate key '${key}' to GK config`);
 				// If we failed to migrate, delete it from the list so we won't try to remove it from git config later
