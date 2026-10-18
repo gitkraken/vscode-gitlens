@@ -545,11 +545,11 @@ export type SupportedFilters = {
 	 */
 	issueSortsAccountWide: IssueSorting[];
 	/**
-	 * Whether an issue tracker's reads can be asked for a `state` other than open (`closed`, `all`). False means
+	 * Whether issue list reads can be asked for a `state` other than open (`closed`, `all`). False means
 	 * only open issues are readable, and the read refuses the other two rather than serving the open list.
 	 *
-	 * Tracker-only, like `issues`: the git hosts' state support belongs to the filtered search, under
-	 * `issueSearch.states`.
+	 * Includes Azure DevOps Services and Server list reads. Filtered search reports its independent state
+	 * capability under `issueSearch.states`.
 	 */
 	issueStates: boolean;
 };

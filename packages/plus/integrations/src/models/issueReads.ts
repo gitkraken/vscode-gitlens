@@ -206,8 +206,8 @@ export type SearchMyIssuesOptions = {
 	/**
 	 * Which issue states to read. Omitted reads open issues only.
 	 *
-	 * Honored by the issue trackers that declare `ProviderMetadata.supportsIssueStates` (Jira, Jira Data Center,
-	 * Linear). The git hosts' account-wide reads ignore it and keep their own open-only default.
+	 * Honored by providers declaring `ProviderMetadata.supportsIssueStates`, including Azure DevOps Services and
+	 * Server. Other git hosts keep their own open-only account-wide default.
 	 */
 	state?: IssueStateFilter;
 	/**

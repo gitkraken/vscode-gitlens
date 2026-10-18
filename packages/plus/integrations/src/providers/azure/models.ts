@@ -951,8 +951,8 @@ export const azureWorkItemEtagFieldNames: readonly string[] = [
 
 /**
  * A cheap read's work item, as the fields its full batch row's etag reads: `toIssueShape` closes the row the full
- * read builds (see {@link fromAzureWorkItemToProviderIssue}) when it has a closed date, parsed by the same rule, or a
- * terminal workflow `category`, which the caller classifies from the work item's state as the full read does.
+ * read builds (see {@link fromAzureWorkItemToProviderIssue}) from its known workflow category, falling back to a
+ * closed date only when the category is unavailable. A historical date must not close a reopened work item.
  * Throws where the full read fails the work item: on one in another project than `project` (compared as Azure
  * compares names), and on a missing or unparseable change date, so the target falls through to the full read.
  */
@@ -974,12 +974,12 @@ export function toAzureWorkItemEtagFields(
 		throw new Error(`Azure DevOps returned work item ${String(workItem.id)} without a change date`);
 	}
 
+	const closed =
+		category != null
+			? isTerminalIssueStateCategory(category)
+			: parseAzureWorkItemDate(fields?.['Microsoft.VSTS.Common.ClosedDate']) != null;
 	return {
-		state:
-			parseAzureWorkItemDate(fields?.['Microsoft.VSTS.Common.ClosedDate']) != null ||
-			isTerminalIssueStateCategory(category)
-				? 'closed'
-				: 'opened',
+		state: closed ? 'closed' : 'opened',
 		updatedDate: updatedDate,
 	};
 }

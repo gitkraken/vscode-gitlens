@@ -1,5 +1,7 @@
 import * as assert from 'node:assert/strict';
+import { GitIssueState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
+import type { IssueStateFilter } from '@gitlens/git/models/issue.js';
 import { createFakeRuntime } from '../../__tests__/fakeRuntime.js';
 import type { ProviderAuthenticationSession } from '../../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../../constants.js';
@@ -36,6 +38,7 @@ suite('Azure project-scoped issue reads', () => {
 	 */
 	async function setup(orgs: OrgDescriptor[], projects: ProjectDescriptor[]) {
 		const runtime = createFakeRuntime();
+		runtime.http.fetch = async () => Response.json({ value: [] });
 		const manager = createIntegrationManager(runtime);
 		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
 		assert.ok(azure != null, 'the Azure integration resolves');
@@ -69,15 +72,18 @@ suite('Azure project-scoped issue reads', () => {
 
 		const api = await internals.getProvidersApi();
 		const drained: string[] = [];
+		const drainedStates: (GitIssueState[] | undefined)[] = [];
 		(
 			api.providers[GitCloudHostIntegrationId.AzureDevOps] as {
 				getIssuesForAzureProjectFn: (input: {
 					namespace: string;
 					project: string;
+					states?: GitIssueState[];
 				}) => Promise<{ data: unknown[]; pageInfo: { hasNextPage: boolean; nextPage: number | null } }>;
 			}
 		).getIssuesForAzureProjectFn = input => {
 			drained.push(`${input.namespace}/${input.project}`);
+			drainedStates.push(input.states);
 			return Promise.resolve({
 				data: [
 					{
@@ -90,7 +96,38 @@ suite('Azure project-scoped issue reads', () => {
 			});
 		};
 
-		return { manager: manager, drained: drained, discoveryRequests: discoveryRequests };
+		return {
+			manager: manager,
+			drained: drained,
+			drainedStates: drainedStates,
+			discoveryRequests: discoveryRequests,
+		};
+	}
+
+	for (const state of [undefined, 'open', 'closed', 'all'] as const) {
+		test(`forwards ${state ?? 'default'} state through the typed facade and Azure project drain`, async () => {
+			const contoso = org('contoso');
+			const { manager, drainedStates } = await setup([contoso], [project(contoso, 'Alpha')]);
+			try {
+				await manager.listIssuesPage({
+					providerId: GitCloudHostIntegrationId.AzureDevOps,
+					project: 'Alpha',
+					state: state satisfies IssueStateFilter | undefined,
+				});
+				const expected =
+					state === 'all'
+						? [GitIssueState.Open, GitIssueState.Closed]
+						: state === 'closed'
+							? [GitIssueState.Closed]
+							: state === 'open'
+								? [GitIssueState.Open]
+								: undefined;
+				assert.deepEqual(drainedStates, [expected, expected]);
+				assert.equal(manager.getSupportedFilters(GitCloudHostIntegrationId.AzureDevOps).issueStates, true);
+			} finally {
+				manager.dispose();
+			}
+		});
 	}
 
 	test('drains only the requested project', async () => {

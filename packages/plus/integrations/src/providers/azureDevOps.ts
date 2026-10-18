@@ -77,6 +77,7 @@ import {
 	providersMetadata,
 	PullRequestFilter,
 	toIssueShape,
+	toProviderIssueStates,
 	toProviderPullRequestStates,
 } from './models.js';
 import { discoveryCacheTtl } from './utils/discoveryCache.js';
@@ -1843,6 +1844,7 @@ export abstract class AzureDevOpsIntegrationBase<
 						...filter,
 						cursor: cursor,
 						sort: searchOptions?.sort,
+						states: toProviderIssueStates(searchOptions?.state),
 					}),
 				20,
 				{ providerId: this.id, resourceId: p.resourceId, projectId: p.name },
