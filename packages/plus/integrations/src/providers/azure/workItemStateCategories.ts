@@ -78,6 +78,11 @@ function scopeKey(scope: AzureWorkItemStatesScope, type?: string): string {
 	]);
 }
 
+/**
+ * Workflow metadata per project, work item type and token, kept for 5 minutes. A failed read is kept for 30 seconds,
+ * so the pages and per-type reads of a listing fail fast with the same error instead of each asking a failing server
+ * again; the first read after that retries.
+ */
 export class AzureWorkItemStatesCache {
 	private readonly types = new PromiseCache<string, PromiseSettledResult<string[]>>({
 		createTTL: 5 * 60 * 1000,
