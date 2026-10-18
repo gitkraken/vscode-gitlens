@@ -18,6 +18,7 @@ import {
 	createIntegrationManager,
 	type ConfigChangeEvent,
 	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
 	hostFromDomain,
 	IssuesCloudHostIntegrationId,
 	type IntegrationsRemoteConfig,
@@ -154,7 +155,19 @@ async function main(): Promise<void> {
 		assert.equal(typeof manager.listPullRequestsPage, 'function');
 		assert.equal(typeof manager.resolveRepository, 'function');
 		assert.equal(typeof manager.dispose, 'function');
+		assert.equal(manager.getSupportedFilters(GitCloudHostIntegrationId.AzureDevOps).issueStates, true);
+		assert.equal(manager.getSupportedFilters(GitSelfManagedHostIntegrationId.AzureDevOpsServer).issueStates, true);
 		if (false) {
+			void manager.listIssuesPage({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				project: 'Project',
+				state: 'closed',
+			});
+			void manager.listIssuesPage({
+				providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+				domain: 'server.test',
+				state: 'all',
+			});
 			// @ts-expect-error A scoped hierarchy selector is ambiguous without its provider.
 			void manager.listOrgs({ connectionId: 'secondary' });
 			// @ts-expect-error A self-managed hierarchy selector is ambiguous without its provider.

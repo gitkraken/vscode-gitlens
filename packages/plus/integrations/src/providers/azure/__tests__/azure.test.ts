@@ -10,6 +10,7 @@ import type { ApiClients } from '../../apiClients.js';
 import type { ProviderApiConfig } from '../../apiConfig.js';
 import { AzureDevOpsApi } from '../azure.js';
 import type { AzurePullRequest, AzureRepositoryUrls } from '../models.js';
+import { AzureWorkItemStatesCache } from '../workItemStateCategories.js';
 import { azureProvider, azureToken, createAzureForkSource, createAzurePullRequest } from './fixtures.js';
 
 function pullRequest(): AzurePullRequest {
@@ -542,6 +543,7 @@ suite('AzureDevOpsIntegration.getPullRequest', () => {
 			wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()),
 		});
 		const apis: ApiClients = {
+			azureWorkItemStates: new AzureWorkItemStatesCache(),
 			github: Promise.resolve(undefined),
 			gitlab: Promise.resolve(undefined),
 			bitbucket: Promise.resolve(undefined),

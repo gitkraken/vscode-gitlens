@@ -1,20 +1,27 @@
-import type { IssueProviderState } from '@gitlens/git/models/issue.js';
+import type { AzureWorkItemTypeStates } from '@gitkraken/provider-apis';
+import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { AzureWorkItemStateCategory } from './models.js';
 import { azureIssueStateCategory, encodeAzurePathSegment } from './models.js';
 
-/** A work item type's workflow, as the category each of its state names classifies to. */
-export type AzureWorkItemTypeStateCategories = ReadonlyMap<string, IssueProviderState['category']>;
+type WorkItemTypeStates = NonNullable<AzureWorkItemTypeStates['types'][number]['states']>;
 
-/**
- * The states of work item type `type` in `project`, relative to the organization's or collection's base URL: the one
- * address both readers of this endpoint use. `api-version=6.0-preview.1` because Azure DevOps Server 2020 serves it
- * only as a preview; Azure DevOps Services accepts it too.
- */
+export type AzureWorkItemStatesScope = {
+	baseUrl: string;
+	namespace: string;
+	project: string;
+	token: string;
+	isPAT: boolean;
+};
+
+export function getAzureWorkItemTypesUrl(baseUrl: string, namespace: string, project: string): string {
+	return `${baseUrl.replace(/\/$/, '')}/${encodeAzurePathSegment(namespace)}/${encodeAzurePathSegment(project)}/_apis/wit/workItemTypes?api-version=6.0`;
+}
+
+// Server 2020 serves this endpoint only as a preview; Services accepts the same version.
 export function getAzureWorkItemTypeStatesPath(namespace: string, project: string, type: string): string {
 	return `${encodeAzurePathSegment(namespace)}/${encodeAzurePathSegment(project)}/_apis/wit/workItemTypes/${encodeAzurePathSegment(type)}/states?api-version=6.0-preview.1`;
 }
 
-/** {@link getAzureWorkItemTypeStatesPath} on `baseUrl`. */
 export function getAzureWorkItemTypeStatesUrl(
 	baseUrl: string,
 	namespace: string,
@@ -24,19 +31,94 @@ export function getAzureWorkItemTypeStatesUrl(
 	return `${baseUrl.replace(/\/$/, '')}/${getAzureWorkItemTypeStatesPath(namespace, project, type)}`;
 }
 
-/**
- * The states response, keyed by state name. Throws on a response with no `value` list, so the read fails rather than
- * leaving every state of the type without a category; a state with no string name is skipped.
- */
-export function parseAzureWorkItemTypeStates(body: unknown): AzureWorkItemTypeStateCategories {
-	const states = (body as { value?: unknown } | null | undefined)?.value;
-	if (!Array.isArray(states)) throw new Error('Azure DevOps returned no work item states');
+function parseWorkItemTypes(body: unknown): string[] {
+	const types = (body as { value?: unknown } | null)?.value;
+	if (!Array.isArray(types)) throw new Error('Azure DevOps returned no work item types');
 
-	const categories = new Map<string, IssueProviderState['category']>();
-	for (const state of states as ({ name?: unknown; category?: unknown } | null | undefined)[]) {
-		if (typeof state?.name !== 'string') continue;
+	const names: string[] = [];
+	for (const type of types as { name?: unknown }[]) {
+		if (typeof type?.name !== 'string' || !type.name.trim()) {
+			throw new Error('Azure DevOps returned an invalid work item type');
+		}
 
-		categories.set(state.name, azureIssueStateCategory(state.category as AzureWorkItemStateCategory | undefined));
+		names.push(type.name);
 	}
-	return categories;
+	return [...new Set(names)];
+}
+
+function parseWorkItemStates(body: unknown): WorkItemTypeStates {
+	const states = (body as { value?: unknown } | null)?.value;
+	if (!Array.isArray(states) || states.length === 0) throw new Error('Azure DevOps returned no work item states');
+
+	const parsed: { name: string; category: string }[] = [];
+	for (const state of states as { name?: unknown; category?: unknown }[]) {
+		if (
+			typeof state?.name !== 'string' ||
+			!state.name.trim() ||
+			typeof state.category !== 'string' ||
+			azureIssueStateCategory(state.category as AzureWorkItemStateCategory) == null ||
+			parsed.some(s => s.name === state.name && s.category !== state.category)
+		) {
+			throw new Error('Azure DevOps returned an invalid work item state');
+		}
+
+		parsed.push({ name: state.name, category: state.category });
+	}
+	return parsed;
+}
+
+function scopeKey(scope: AzureWorkItemStatesScope, type?: string): string {
+	return JSON.stringify([
+		scope.baseUrl.replace(/\/$/, ''),
+		scope.namespace.toLowerCase(),
+		scope.project.toLowerCase(),
+		type?.toLowerCase(),
+		scope.token,
+		scope.isPAT,
+	]);
+}
+
+export class AzureWorkItemStatesCache {
+	private readonly types = new PromiseCache<string, PromiseSettledResult<string[]>>({
+		createTTL: 5 * 60 * 1000,
+		capacity: 256,
+	});
+	private readonly states = new PromiseCache<string, PromiseSettledResult<WorkItemTypeStates>>({
+		createTTL: 5 * 60 * 1000,
+		capacity: 256,
+	});
+
+	clear(): void {
+		this.types.clear();
+		this.states.clear();
+	}
+
+	getTypes(scope: AzureWorkItemStatesScope, read: () => Promise<unknown>): Promise<string[]> {
+		return this.read(this.types, scopeKey(scope), async () => parseWorkItemTypes(await read()));
+	}
+
+	getStates(
+		scope: AzureWorkItemStatesScope,
+		type: string,
+		read: () => Promise<unknown>,
+	): Promise<WorkItemTypeStates> {
+		return this.read(this.states, scopeKey(scope, type), async () => parseWorkItemStates(await read()));
+	}
+
+	private async read<T>(
+		cache: PromiseCache<string, PromiseSettledResult<T>>,
+		key: string,
+		load: () => Promise<T>,
+	): Promise<T> {
+		const result = await cache.getOrCreate(key, async () => ({ status: 'fulfilled', value: await load() }), {
+			// Every caller must still see the failure; caching undefined would turn later pages into successes.
+			onError: error =>
+				cache.get(key) == null
+					? undefined
+					: { value: { status: 'rejected', reason: error }, createTTL: 30 * 1000, suppress: true },
+		});
+		if (result.status === 'rejected') throw result.reason;
+
+		return result.value;
+	}
 }
