@@ -237,6 +237,93 @@ suite('BranchesGitSubProvider Test Suite', () => {
 			assert.strictEqual(result.reason, 'unsupported');
 		}
 	});
+
+	suite('getBranches upstream remote on git without %(upstream:remotename)', () => {
+		function createBranchRecord(name: string, upstream: string): Record<string, unknown> {
+			return {
+				name: `refs/heads/${name}`,
+				objectname: 'a'.repeat(40),
+				upstream: upstream,
+				upstreamTracking: '',
+			};
+		}
+
+		function createProvider(records: unknown[]) {
+			const getRemotes = sandbox.stub().resolves([{ name: 'origin' }, { name: 'team/fork' }]);
+			const invalidate = sandbox.stub();
+			const provider = {
+				refs: { getRefs: sandbox.stub().resolves(records) },
+				config: {
+					getDefaultWorktreePath: sandbox.stub().resolves(undefined),
+					getGkConfigRegex: sandbox.stub().resolves(new Map()),
+				},
+				remotes: { getRemotes: getRemotes },
+			} as unknown as CliGitProviderInternal;
+			const cache = {
+				getBranchMetadataMap: (_repoPath: string, factory: (commonPath: string) => Promise<unknown>) =>
+					factory('/repo'),
+				getBranches: (
+					repoPath: string,
+					factory: (commonPath: string, cacheable?: unknown, signal?: AbortSignal) => Promise<unknown>,
+				) => factory(repoPath, { invalidate: invalidate }),
+			} as unknown as Cache;
+			Object.assign(gitStub, { supported: sandbox.stub().resolves([]) });
+
+			return {
+				getRemotes: getRemotes,
+				invalidate: invalidate,
+				branches: new BranchesGitSubProvider({} as unknown as GitServiceContext, gitStub, cache, provider),
+			};
+		}
+
+		test('resolves a slash-named remote from the remote names', async () => {
+			const { branches, getRemotes } = createProvider([
+				createBranchRecord('local', 'refs/remotes/team/fork/feature'),
+			]);
+
+			const result = await branches.getBranches('/repo');
+
+			assert.strictEqual(result.values[0].remoteName, 'team/fork');
+			assert.strictEqual(result.values[0].trackingWithoutRemote, 'feature');
+			assert.strictEqual(getRemotes.callCount, 1);
+		});
+
+		test('does not read the remotes when no upstream is ambiguous', async () => {
+			const { branches, getRemotes } = createProvider([
+				createBranchRecord('a', 'refs/remotes/origin/a'),
+				createBranchRecord('b', 'refs/heads/main'),
+			]);
+
+			const result = await branches.getBranches('/repo');
+
+			assert.strictEqual(result.values.length, 2);
+			assert.strictEqual(getRemotes.callCount, 0);
+		});
+
+		test('falls back to the first segment when the remotes cannot be read', async () => {
+			const { branches, getRemotes } = createProvider([
+				createBranchRecord('local', 'refs/remotes/team/fork/feature'),
+			]);
+			getRemotes.rejects(new Error('boom'));
+
+			const result = await branches.getBranches('/repo');
+
+			assert.strictEqual(result.values[0].remoteName, 'team');
+		});
+
+		test('does not cache the first-segment fallback when the remotes read comes back empty', async () => {
+			const { branches, getRemotes, invalidate } = createProvider([
+				createBranchRecord('local', 'refs/remotes/team/fork/feature'),
+			]);
+			// `getRemotes` resolves a failed `git remote -v` as no remotes rather than rejecting
+			getRemotes.resolves([]);
+
+			const result = await branches.getBranches('/repo');
+
+			assert.strictEqual(result.values[0].remoteName, 'team');
+			assert.strictEqual(invalidate.callCount, 1);
+		});
+	});
 });
 
 suite('BranchesGitSubProvider stored merge target Test Suite', () => {
