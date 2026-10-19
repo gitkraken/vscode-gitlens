@@ -105,6 +105,28 @@ suite('Branch Utils Test Suite', () => {
 			assert.strictEqual(parseUpstream('refs/remotes/team/fork/x', '[gone]', 'team/fork')?.remote, 'team/fork');
 		});
 
+		test('marks an upstream under refs/heads/ as local', () => {
+			const local = parseUpstream('refs/heads/main', '');
+			assert.strictEqual(local?.local, true);
+			assert.strictEqual(local?.remote, undefined);
+			assert.strictEqual(parseUpstream('refs/heads/main', '[gone]')?.local, true);
+			assert.strictEqual('local' in parseUpstream('refs/remotes/origin/main', '', 'origin')!, false);
+		});
+
+		test('a reported remote wins over a custom refspec that fetches into refs/heads/', () => {
+			const result = parseUpstream('refs/heads/fetched/x', '', 'origin', 'refs/heads/x');
+			assert.strictEqual(result?.remote, 'origin');
+			assert.strictEqual(result?.remoteBranch, 'x');
+			assert.strictEqual('local' in result, false);
+		});
+
+		test('a local (.) remote is local; with none reported, only the refs/heads/ prefix decides', () => {
+			assert.strictEqual(parseUpstream('refs/heads/main', '', '.')?.local, true);
+			assert.strictEqual(parseUpstream('refs/heads/main', '', undefined)?.local, true);
+			assert.strictEqual(parseUpstream('refs/heads/main', '', '')?.local, true);
+			assert.strictEqual('local' in parseUpstream('refs/remotes/origin/x', '', undefined)!, false);
+		});
+
 		test('ignores an empty or local (.) remote', () => {
 			assert.strictEqual(parseUpstream('refs/heads/main', '', '.')?.remote, undefined);
 			assert.strictEqual(parseUpstream('refs/remotes/origin/main', '[ahead 1]', '')?.remote, undefined);
@@ -313,6 +335,27 @@ suite('Branch Utils Test Suite', () => {
 	});
 	suite('upstream remote', () => {
 		const upstream = { name: 'team/fork/feature', missing: false, remote: 'team/fork' };
+
+		test('a local upstream has no remote and keeps its full name', () => {
+			const upstream = { name: 'release/2.0', missing: false, local: true };
+			const ref = {
+				refType: 'branch',
+				name: 'feature',
+				ref: 'feature',
+				remote: false,
+				upstream: upstream,
+				repoPath: '/r',
+			} as const;
+			assert.deepStrictEqual(getBranchNameAndRemote(ref), ['feature', undefined]);
+			assert.strictEqual(getBranchTrackingWithoutRemote(ref), 'release/2.0');
+			assert.strictEqual(
+				new GitBranch('/r', 'refs/heads/feature', false, undefined, undefined, undefined, {
+					...upstream,
+					state: { ahead: 0, behind: 0 },
+				}).remoteName,
+				undefined,
+			);
+		});
 
 		test('getBranchNameAndRemote prefers upstream.remote', () => {
 			const ref = {

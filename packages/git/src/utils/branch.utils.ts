@@ -29,6 +29,7 @@ export function getBranchNameAndRemote(ref: GitBranchReference): [name: string, 
 		return [ref.name.substring(index + 1), ref.name.substring(0, index)];
 	}
 
+	if (ref.upstream?.local) return [ref.name, undefined];
 	if (ref.upstream?.remote) return [ref.name, ref.upstream.remote];
 
 	if (ref.upstream?.name != null) {
@@ -48,7 +49,8 @@ export function getBranchNameAndRemote(ref: GitBranchReference): [name: string, 
 export function getBranchTrackingWithoutRemote(ref: GitBranchReference): string | undefined {
 	if (ref.upstream == null) return undefined;
 
-	const { name, remote, remoteBranch } = ref.upstream;
+	const { name, remote, remoteBranch, local } = ref.upstream;
+	if (local) return name;
 	if (remoteBranch) return remoteBranch;
 	if (remote && name.startsWith(`${remote}/`)) return name.substring(remote.length + 1);
 
@@ -177,7 +179,9 @@ export async function getLocalBranchUpstreamNames(branches: PageableResult<GitBr
 const trackingStateRegex = /(?:\[(?:ahead ([0-9]+))?[,\s]*(?:behind ([0-9]+))?]|\[(gone)])/;
 
 /**
- * @param remote - `%(upstream:remotename)`; empty or `.` (a local upstream) is not a remote
+ * @param remote - `%(upstream:remotename)`; `.` is a local upstream, and empty means git reported none. A reported
+ * remote always wins, even when a custom fetch refspec puts its branches under `refs/heads/`; only when none was
+ * reported (git < 2.23) is an upstream under `refs/heads/` taken as local
  * @param remoteRef - `%(upstream:remoteref)`; the upstream's ref on `remote`, read as its branch name
  */
 export function parseUpstream(
@@ -189,6 +193,8 @@ export function parseUpstream(
 	if (!upstream) return undefined;
 
 	const { name } = parseRefName(upstream);
+	const local = remote ? remote === '.' : upstream.startsWith('refs/heads/');
+	const localProp = local ? { local: true } : undefined;
 	const remoteProp =
 		remote && remote !== '.'
 			? { remote: remote, ...(remoteRef ? { remoteBranch: remoteRef.replace(/^refs\/heads\//, '') } : undefined) }
@@ -196,7 +202,7 @@ export function parseUpstream(
 
 	const match = trackingStateRegex.exec(tracking);
 	if (match == null) {
-		return { name: name, missing: false, state: { ahead: 0, behind: 0 }, ...remoteProp };
+		return { name: name, missing: false, state: { ahead: 0, behind: 0 }, ...remoteProp, ...localProp };
 	}
 
 	const ahead = match[1] == null ? 0 : Number(match[1]);
@@ -207,6 +213,7 @@ export function parseUpstream(
 		missing: match[3] != null,
 		state: { ahead: isNaN(ahead) ? 0 : ahead, behind: isNaN(behind) ? 0 : behind },
 		...remoteProp,
+		...localProp,
 	};
 }
 

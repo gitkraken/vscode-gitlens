@@ -89,6 +89,10 @@ suite('OperationsGitSubProvider Test Suite', () => {
 		const cache = { deleteBaseBranchName: () => {} } as unknown as Cache;
 		const provider = {
 			config: { removeGkConfigBranchSection: () => Promise.resolve() },
+			// A remote git didn't report is checked against the repository's remotes
+			remotes: { getRemotes: () => Promise.resolve([{ name: 'origin' }]) },
+			// A reference carrying neither `local` nor `remote` is looked up; the branch is gone here
+			branches: { getBranch: () => Promise.resolve(undefined) },
 		} as unknown as CliGitProviderInternal;
 
 		operations = new OperationsGitSubProvider(context, gitStub, cache, provider);
@@ -364,6 +368,8 @@ suite('OperationsGitSubProvider Test Suite', () => {
 				worktrees: {
 					getWorktree: () => Promise.resolve({ uri: { fsPath: '/repo/wt' } }),
 				},
+				remotes: { getRemotes: () => Promise.resolve([{ name: 'origin' }]) },
+				branches: { getBranch: () => Promise.resolve(undefined) },
 			} as unknown as CliGitProviderInternal;
 
 			operations = new OperationsGitSubProvider(context, gitStub, cache, provider);

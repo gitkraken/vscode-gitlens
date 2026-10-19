@@ -300,6 +300,16 @@ suite('BranchesGitSubProvider Test Suite', () => {
 			assert.strictEqual(getRemotes.callCount, 0);
 		});
 
+		test('treats a local upstream as having no remote without reading the remotes', async () => {
+			const { branches, getRemotes } = createProvider([createBranchRecord('local', 'refs/heads/release/2.0')]);
+
+			const result = await branches.getBranches('/repo');
+
+			assert.strictEqual(result.values[0].remoteName, undefined);
+			assert.strictEqual(result.values[0].trackingWithoutRemote, 'release/2.0');
+			assert.strictEqual(getRemotes.callCount, 0);
+		});
+
 		test('falls back to the first segment when the remotes cannot be read', async () => {
 			const { branches, getRemotes } = createProvider([
 				createBranchRecord('local', 'refs/remotes/team/fork/feature'),
@@ -352,6 +362,8 @@ suite('BranchesGitSubProvider stored merge target Test Suite', () => {
 		const provider = {
 			config: { getGkConfig: getGkConfig, setGkConfig: setGkConfig },
 			refs: { getSymbolicReferenceNameOrMissing: checkRef },
+			remotes: { getRemotes: () => Promise.resolve([{ name: 'origin' }]) },
+			branches: { getBranch: () => Promise.resolve(undefined) },
 		} as unknown as CliGitProviderInternal;
 		const cache = { getBranchOverview: getBranchOverview } as unknown as Cache;
 

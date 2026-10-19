@@ -353,6 +353,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 										missing: branch.upstream.missing,
 										remote: branch.upstream.remote,
 										remoteBranch: branch.upstream.remoteBranch,
+										local: branch.upstream.local,
 									}
 								: undefined,
 							sha: branch.sha,
@@ -590,31 +591,34 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						cancellation,
 					);
 
-					const prTarget = `${remoteName}/${pr.refs.base.branch}`;
-					// A PR's base can be gone too (e.g. a stale PR read still naming a merged stack layer),
-					// so a confirmed-gone base is skipped like a stored target.
-					const { missing } = await this.provider.refs.getSymbolicReferenceNameOrMissing(
-						repoPath,
-						prTarget,
-						priorityOpts,
-						cancellation,
-					);
-					if (!missing) {
-						mergeTarget = prTarget;
+					// A branch with no remote upstream has no remote to find the PR's base on
+					if (remoteName != null) {
+						const prTarget = `${remoteName}/${pr.refs.base.branch}`;
+						// A PR's base can be gone too (e.g. a stale PR read still naming a merged stack layer),
+						// so a confirmed-gone base is skipped like a stored target.
+						const { missing } = await this.provider.refs.getSymbolicReferenceNameOrMissing(
+							repoPath,
+							prTarget,
+							priorityOpts,
+							cancellation,
+						);
+						if (!missing) {
+							mergeTarget = prTarget;
 
-						// A stacked PR's base is the layer below it, which is deleted when the stack merges.
-						// A stored target beats every other tier for as long as its branch exists, and a merged
-						// layer's branch can linger (an unpruned remote-tracking ref, or a repo that keeps merged
-						// branches). Use it for this lookup, but don't persist it.
-						if (pr.stack == null) {
-							// Store for future reuse — turns the next call into a Tier 1 path. Skip the
-							// `branchOverviews` invalidation that the write would otherwise trigger: we're
-							// about to populate `${ref}|${mergeTarget}` with this exact target, so evicting
-							// it would just force the next caller to redo the body. (gk-merge-target writes
-							// do not affect `baseBranchName`, so no need to skip that target.)
-							void this.storeMergeTargetBranchName(repoPath, ref, prTarget, {
-								skipInvalidation: ['branchOverviews'],
-							});
+							// A stacked PR's base is the layer below it, which is deleted when the stack merges.
+							// A stored target beats every other tier for as long as its branch exists, and a merged
+							// layer's branch can linger (an unpruned remote-tracking ref, or a repo that keeps merged
+							// branches). Use it for this lookup, but don't persist it.
+							if (pr.stack == null) {
+								// Store for future reuse — turns the next call into a Tier 1 path. Skip the
+								// `branchOverviews` invalidation that the write would otherwise trigger: we're
+								// about to populate `${ref}|${mergeTarget}` with this exact target, so evicting
+								// it would just force the next caller to redo the body. (gk-merge-target writes
+								// do not affect `baseBranchName`, so no need to skip that target.)
+								void this.storeMergeTargetBranchName(repoPath, ref, prTarget, {
+									skipInvalidation: ['branchOverviews'],
+								});
+							}
 						}
 					}
 				}
@@ -736,26 +740,29 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			async (_cacheable, signal) => {
 				const commitOrdering = ordering;
 
-				let data: [string, string | undefined] | undefined;
+				// `upstream` is the full ref (`refs/heads/…` or `refs/remotes/…`) so a local upstream
+				// can't be mistaken for a remote's branch of the same short name
+				let data:
+					| { name: string; upstream?: string; remote?: string; remoteRef?: string; sha?: string }
+					| undefined;
 				let result;
 				try {
 					result = await this.git.run(
 						{ cwd: repoPath, cancellation: signal, errors: 'throw' },
 						'rev-parse',
-						'--abbrev-ref',
 						'--symbolic-full-name',
 						'@',
 						'@{u}',
 						'--',
 					);
-					data = [result.stdout, undefined];
+					data = parseSymbolicFullNames(result.stdout);
 				} catch (ex) {
 					if (isCancellationError(ex)) throw ex;
 
 					const msg: string = ex?.toString() ?? '';
 					if (GitErrors.badRevision.test(msg) || GitWarnings.noUpstream.test(msg)) {
 						if (ex.stdout != null && ex.stdout.length !== 0) {
-							data = [ex.stdout, undefined];
+							data = parseSymbolicFullNames(ex.stdout);
 						} else {
 							try {
 								result = await this.git.run(
@@ -765,7 +772,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 									'HEAD',
 								);
 								if (result.stdout) {
-									data = [result.stdout.trim(), undefined];
+									data = { name: result.stdout.trim() };
 								}
 							} catch {
 								if (isCancellationError(ex)) throw ex;
@@ -779,12 +786,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 									signal,
 								);
 								if (symbolicRef != null) {
-									data = [
-										symbolicRef.startsWith('origin/')
+									data = {
+										name: symbolicRef.startsWith('origin/')
 											? symbolicRef.substring('origin/'.length)
 											: symbolicRef,
-										undefined,
-									];
+									};
 								}
 							}
 
@@ -803,10 +809,15 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 									? merge.substring('refs/heads/'.length)
 									: undefined;
 
-								data = [
-									`${defaultBranch}${remote && remoteBranch ? `\n${remote}/${remoteBranch}` : ''}`,
-									undefined,
-								];
+								data = { name: defaultBranch };
+								if (remote && remoteBranch) {
+									data.upstream =
+										remote === '.'
+											? `refs/heads/${remoteBranch}`
+											: `refs/remotes/${remote}/${remoteBranch}`;
+									data.remote = remote;
+									data.remoteRef = merge;
+								}
 							}
 						}
 					} else if (GitWarnings.headNotABranch.test(msg)) {
@@ -830,7 +841,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 						const sha = result.stdout.trim();
 						if (sha) {
-							data = [`(HEAD detached at ${shortenRevision(sha)})`, sha];
+							data = { name: `(HEAD detached at ${shortenRevision(sha)})`, sha: sha };
 						}
 					} else {
 						Logger.warn(`[${repoPath}] Unable to get current branch: ${ex}`);
@@ -839,15 +850,25 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 				if (data == null) return undefined;
 
-				const [name, upstream] = data[0].split('\n');
+				const { name } = data;
+
+				let { remote, remoteRef } = data;
+				if (data.upstream?.startsWith('refs/heads/') && remote == null) {
+					// Git reports no remote here, but a custom fetch refspec can put a remote's branches under
+					// `refs/heads/`, so ask the config whether this upstream is really a remote's
+					[remote, remoteRef] = await Promise.all([
+						this.provider.config.getConfig(repoPath, `branch.${name}.remote`),
+						this.provider.config.getConfig(repoPath, `branch.${name}.merge`),
+					]);
+				}
 
 				return createReference(name, repoPath, {
 					refType: 'branch',
 					name: name,
 					id: getBranchId(repoPath, false, name),
 					remote: false,
-					upstream: upstream ? { name: upstream, missing: false } : undefined,
-					sha: data[1],
+					upstream: data.upstream ? parseUpstream(data.upstream, '', remote, remoteRef) : undefined,
+					sha: data.sha,
 				});
 			},
 			{ cancellation: cancellation },
@@ -3077,6 +3098,13 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
 		this.context.hooks?.repository?.onChanged?.(repoPath, ['starred']);
 	}
+}
+
+/** Reads `rev-parse --symbolic-full-name @ @{u}` output: the current branch, then its upstream when it has one */
+function parseSymbolicFullNames(stdout: string): { name: string; upstream?: string } {
+	const [head, upstream] = stdout.trim().split('\n');
+
+	return { name: parseRefName(head).name, upstream: upstream || undefined };
 }
 
 /** Each ref list {@link findRefTip} searched, by full name: one base read looks up many names in the same cached list */
