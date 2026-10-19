@@ -22,10 +22,11 @@ import type {
 	ProjectIssuesRequest,
 	SearchMyIssuesOptions,
 } from '../models/issueReads.js';
-import { groupProjectIssuesSearches, IssuesIntegration } from '../models/issuesIntegration.js';
+import { groupProjectIssuesSearches, IssuesIntegration, toProjectsCollection } from '../models/issuesIntegration.js';
 import { areDomainsOnSameHost, baseUrlFromDomain } from '../utils/domain.utils.js';
+import type { ProviderApiCollectionResult } from './models.js';
 import { providersMetadata, toAccount, toIssueShape, toProviderIssueStates } from './models.js';
-import { isJiraMissingProjectError } from './providerErrors.js';
+import { isJiraServerMissingProjectError } from './providerErrors.js';
 import type { ProvidersApi } from './providersApi.js';
 import { DiscoveryCache } from './utils/discoveryCache.js';
 import type { JiraDrainOptions, JiraIssuePageFetcher } from './utils/jiraIssueDrains.js';
@@ -177,6 +178,26 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		if (cached != null && !force) return cached;
 
 		const generation = this._projects.generation;
+		const descriptors = await this.readProjects(session);
+		if (descriptors == null) return undefined;
+
+		this._projects.set(cacheKey, descriptors, { generation: generation });
+
+		return descriptors;
+	}
+
+	protected override async getProviderUncachedProjectsForResourcesWithMetadata(
+		session: ProviderAuthenticationSession,
+		resources: JiraServerResourceDescriptor[],
+	): Promise<ProviderApiCollectionResult<JiraServerProjectDescriptor>> {
+		if (resources.length === 0) return { values: [] };
+
+		return toProjectsCollection(await this.readProjects(session));
+	}
+
+	private async readProjects(
+		session: ProviderAuthenticationSession,
+	): Promise<JiraServerProjectDescriptor[] | undefined> {
 		const api = await this.getProvidersApi();
 		const projects = await api.getJiraServerProjects(
 			toTokenWithInfo(this.id, session),
@@ -185,7 +206,7 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 		if (projects == null) return undefined;
 
 		const resourceId = this.resourceFor(session).id;
-		const descriptors = projects.map<JiraServerProjectDescriptor>(p => ({
+		return projects.map<JiraServerProjectDescriptor>(p => ({
 			id: p.id,
 			// The project key, which selects the project (`listProjects`' `name`) and is what an issue key starts
 			// with. The SDK does not validate it, so a missing or blank one falls back to the numeric id, never to the
@@ -195,10 +216,6 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 			name: p.name,
 			resourceId: resourceId,
 		}));
-
-		this._projects.set(cacheKey, descriptors, { generation: generation });
-
-		return descriptors;
 	}
 
 	protected override async getProviderIssuesForProject(
@@ -233,13 +250,14 @@ export class JiraServerIntegration extends IssuesIntegration<IssuesSelfManagedHo
 			});
 		const drainOptions: JiraDrainOptions = {
 			maxPages: maxPagesPerRequest,
-			failureScope: { providerId: this.id, resourceId: project.resourceId, projectId: project.id },
+			// Scoped by key, as on Jira Cloud: the id addresses the read, the key is how a consumer names the project.
+			failureScope: { providerId: this.id, resourceId: project.resourceId, projectId: project.key },
 			providerName: 'Jira Server',
 			// A project this connection can no longer see (deleted, or its browse permission removed) holds
 			// no issues for it, and the project list that named it is stale: drop that list so the next read
 			// re-reads it, instead of failing the whole provider on every read until a restart (#5907).
 			isEmptyFailure: ex => {
-				if (!isJiraMissingProjectError(ex)) return false;
+				if (!isJiraServerMissingProjectError(ex)) return false;
 
 				Logger.warn(`Jira Server project '${project.name}' (${project.id}) no longer exists or is not visible`);
 				this._projects.delete(this.projectsCacheKey(session));

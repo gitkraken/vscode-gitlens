@@ -234,6 +234,17 @@ export function getResponseHeader(headers: ResponseHeaders | undefined, name: st
 }
 
 /**
+ * The user a Jira or Bitbucket Data Center response names in `X-AUSERNAME`: the user the request authenticated as,
+ * `anonymous` when its credential did not authenticate, or none (`undefined`) when the response carries no name.
+ */
+export function getAuthenticatedUser(headers: ResponseHeaders | undefined): string | 'anonymous' | undefined {
+	const user = getResponseHeader(headers, 'x-ausername');
+	if (typeof user !== 'string' || user === '') return undefined;
+
+	return user.toLowerCase() === 'anonymous' ? 'anonymous' : user;
+}
+
+/**
  * Builds a {@link RequestRateLimitError} from a provider error response, reading the reset epoch from the
  * standard `x-ratelimit-reset` header when present. Accepts both header shapes in use: the `fetch` `Headers`
  * instance the direct clients get, and the plain object the SDK attaches to its errors.

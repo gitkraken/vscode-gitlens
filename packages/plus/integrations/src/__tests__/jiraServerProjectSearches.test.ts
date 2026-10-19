@@ -184,7 +184,7 @@ suite('Jira Server multi-project issue searches', () => {
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
 		assert.match(result.warnings[0].message, /ALPHA-2/);
-		assert.equal(result.warnings[0].scope?.projectId, '10000');
+		assert.equal(result.warnings[0].scope?.projectId, 'ALPHA', 'scoped by key, though read by id');
 
 		manager.dispose();
 	});
@@ -226,7 +226,7 @@ suite('Jira Server multi-project issue searches', () => {
 			['ALPHA-1'],
 		);
 		assert.equal(result.fetchFailed, true);
-		assert.equal(result.warnings[0]?.scope?.projectId, '10000');
+		assert.equal(result.warnings[0]?.scope?.projectId, 'ALPHA');
 
 		manager.dispose();
 	});

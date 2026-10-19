@@ -185,7 +185,7 @@ suite('Jira Data Center search pages', () => {
 		assert.equal(page.fetchFailed, true, 'the skipped issues are reported, not hidden');
 		assert.equal(page.warnings.length, 1);
 		assert.match(page.warnings[0].message, /OPS-1.*OPS-2/);
-		assert.deepEqual(page.warnings[0].scope, { resourceId: domain, projectId: '101' });
+		assert.deepEqual(page.warnings[0].scope, { resourceId: domain, projectId: 'OPS' });
 		// By its kind and keys, not its text (#6011), read from the wording of the SDK this runs.
 		assert.equal(page.warnings[0].kind, 'unreadable-items');
 		assert.deepEqual(page.warnings[0].unreadableItems, { keys: ['OPS-1', 'OPS-2'], complete: true });
@@ -262,15 +262,106 @@ suite('Jira Data Center search pages', () => {
 			[
 				[
 					'unreadable-items',
-					{ resourceId: domain, projectId: '102' },
+					{ resourceId: domain, projectId: 'WEB' },
 					{ keys: ['WEB-7'], complete: true },
 					undefined,
 					undefined,
 				],
-				['other', undefined, undefined, 'narrow-scope', '101'],
+				['other', undefined, undefined, 'narrow-scope', 'OPS'],
 			],
 		);
 		assert.match(page.warnings[1].message, /Project 'Operations' holds more issues than one read can return/);
+
+		manager.dispose();
+	});
+});
+
+/**
+ * Jira Data Center serves a token it rejects as the anonymous user, measured against Jira Data Center 10.7.3 with a
+ * revoked token: `/rest/api/2/project` answers `200 []` and `/rest/api/2/myself` `401`, each naming `anonymous` in
+ * `X-AUSERNAME`. Read as data, the empty project list made a selected project look deleted.
+ */
+suite('Jira Data Center rejected token', () => {
+	function anonymous(body: unknown, status = 200): Response {
+		return new Response(JSON.stringify(body), {
+			status: status,
+			headers: { 'content-type': 'application/json', 'x-ausername': 'anonymous' },
+		});
+	}
+
+	/** A server rejecting the token: every answer, the project list's `200 []` included, names `anonymous`. */
+	async function rejectingToken() {
+		const runtime = createFakeRuntime();
+		const requests: URL[] = [];
+		runtime.http.fetch = input => {
+			const url = new URL(input.toString());
+			requests.push(url);
+			switch (url.pathname) {
+				case '/rest/api/2/myself':
+					return Promise.resolve(anonymous({ errorMessages: ['Unauthorized'] }, 401));
+				case '/rest/api/2/project':
+					return Promise.resolve(anonymous([]));
+				default:
+					return Promise.resolve(anonymous(emptySearch()));
+			}
+		};
+		const manager = createIntegrationManager(runtime);
+		const jira = (await manager.get(IssuesSelfManagedHostIntegrationId.JiraServer, domain))!;
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = {
+			id: 'primary',
+			accessToken: 'revoked',
+			account: { id: 'primary', label: 'primary' },
+			scopes: [],
+			cloud: true,
+			type: 'pat',
+			domain: domain,
+		};
+		return { manager: manager, requests: requests };
+	}
+
+	test('a project selector reads as an authentication failure, not as a project that is gone', async () => {
+		const { manager, requests } = await rejectingToken();
+
+		const page = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			domain: domain,
+			org: domain,
+			project: 'OPS',
+			includeAllAssignees: true,
+		});
+
+		assert.ok(
+			requests.some(r => r.pathname === '/rest/api/2/project'),
+			'the read must reach the project list',
+		);
+		assert.deepEqual(page.items, []);
+		assert.equal(page.fetchFailed, true);
+		assert.ok(
+			page.warnings.every(w => w.selector == null),
+			`no selector warning: ${JSON.stringify(page.warnings)}`,
+		);
+		assert.ok(
+			page.warnings.some(w => w.kind === 'auth' && w.isAuth),
+			`an authentication warning: ${JSON.stringify(page.warnings)}`,
+		);
+
+		manager.dispose();
+	});
+
+	test('the project list fails as an authentication failure instead of answering no projects', async () => {
+		const { manager } = await rejectingToken();
+
+		const catalog = await manager.listProjects({
+			providerId: IssuesSelfManagedHostIntegrationId.JiraServer,
+			domain: domain,
+		});
+
+		assert.deepEqual(catalog.items, []);
+		assert.equal(catalog.fetchFailed, true);
+		assert.ok(
+			catalog.warnings.some(w => w.kind === 'auth' && w.isAuth),
+			`an authentication warning: ${JSON.stringify(catalog.warnings)}`,
+		);
 
 		manager.dispose();
 	});

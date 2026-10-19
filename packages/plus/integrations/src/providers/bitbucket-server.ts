@@ -28,7 +28,7 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import { GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { ResponseHeaders } from '../errors.js';
-import { AuthenticationError, getResponseHeader } from '../errors.js';
+import { AuthenticationError, getAuthenticatedUser } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
@@ -344,11 +344,12 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 
 				// Bitbucket Data Center names the user it authenticated in `X-AUSERNAME`, and answers a dead token
 				// exactly as it answers no credential: the same 401 and body, without that header. So a refusal that
-				// names a user, or says the user holds no license, came from a credential that authenticated, and
-				// proves nothing about the scopes' refusals.
+				// names a user other than `anonymous`, or says the user holds no license, came from a credential that
+				// authenticated, and proves nothing about the scopes' refusals.
 				const response = (ex.original as { response?: { headers?: ResponseHeaders } } | undefined)?.response;
+				const user = getAuthenticatedUser(response?.headers);
 				if (
-					getResponseHeader(response?.headers, 'x-ausername') ||
+					(user != null && user !== 'anonymous') ||
 					/not (?:a|currently) licensed/i.test(ex.original?.message ?? '')
 				) {
 					throw new Error('Bitbucket Data Center could not confirm the credential', { cause: ex });

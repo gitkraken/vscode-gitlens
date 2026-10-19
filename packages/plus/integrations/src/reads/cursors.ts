@@ -48,12 +48,34 @@ function positiveIntegers(values: unknown): number[] | undefined {
 	return valid.length > 0 ? [...new Set(valid)] : undefined;
 }
 
-/** Non-empty strings only, deduped; `undefined` when nothing survives (so the field is omitted). */
-function nonEmptyStrings(values: unknown): string[] | undefined {
+/**
+ * Non-empty project keys only, upgraded then deduped, so a legacy and a current key for one project merge;
+ * `undefined` when nothing survives (so the field is omitted).
+ */
+function projectKeys(values: unknown): string[] | undefined {
 	if (!Array.isArray(values)) return undefined;
 
-	const valid = values.filter((value): value is string => typeof value === 'string' && value.length > 0);
+	const valid = values
+		.filter((value): value is string => typeof value === 'string' && value.length > 0)
+		.map(upgradeProjectKey);
 	return valid.length > 0 ? [...new Set(valid)] : undefined;
+}
+
+/**
+ * Reads a `projectKey` (`[resourceId, id || key]`) from a cursor, converting one minted when it also carried the
+ * project key (`[resourceId, id, key]`) so that cursor still resumes its retrying and completed projects.
+ */
+function upgradeProjectKey(key: string): string {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(key);
+	} catch {
+		return key;
+	}
+	if (!Array.isArray(parsed) || parsed.length !== 3 || !parsed.every(part => typeof part === 'string')) return key;
+
+	const [resourceId, id, legacyKey] = parsed as [string, string, string];
+	return JSON.stringify([resourceId, id || legacyKey]);
 }
 
 export function parseIssueTrackerPageCursor(cursor: string | undefined): IssueTrackerPageCursor | undefined {
@@ -71,8 +93,8 @@ export function parseIssueTrackerPageCursor(cursor: string | undefined): IssueTr
 		}
 
 		const retryPages = positiveIntegers(parsed.retryPages);
-		const retryProjects = nonEmptyStrings(parsed.retryProjects);
-		const completedProjects = nonEmptyStrings(parsed.completedProjects);
+		const retryProjects = projectKeys(parsed.retryProjects);
+		const completedProjects = projectKeys(parsed.completedProjects);
 		return {
 			type: 'issue-tracker-page',
 			currentPage: parsed.currentPage,
