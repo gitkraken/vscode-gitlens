@@ -71,6 +71,13 @@ const queueWaitAnnotationThreshold = 100;
 const eventLoopDelayAnnotationThreshold = 500;
 export const maxGitCliLength = 30000;
 
+/** Rejections from a host's `beforeIndexLockRetry` — typed writes rethrow these as thrown instead of mapping them to their own error. */
+const runHookFailures = new WeakSet<object>();
+
+export function isRunHookFailure(ex: unknown): boolean {
+	return typeof ex === 'object' && ex != null && runHookFailures.has(ex);
+}
+
 /**
  * Splits `paths` into `:(literal)` pathspec batches that each fit the command-line length limit after `prefix`, so a
  * folder named like a glob (`[id]/`) doesn't match its siblings.
@@ -1235,6 +1242,10 @@ export class Git {
 			if (hookFailure != null) {
 				exception =
 					hookFailure.error instanceof Error ? hookFailure.error : new Error(String(hookFailure.error));
+				if (typeof hookFailure.error === 'object' && hookFailure.error != null) {
+					runHookFailures.add(hookFailure.error);
+				}
+
 				throw hookFailure.error;
 			}
 

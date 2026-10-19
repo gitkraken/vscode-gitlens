@@ -93,8 +93,9 @@ export interface GitRunOptions {
 	 * Called before core retries a write that found `index.lock` held by another process — after the wait, right
 	 * before the next attempt. The index may have changed while the other process held the lock, so this lets the
 	 * caller re-check what the retry will act on (e.g. the staged set a `commit` records). Rejecting gives up: the
-	 * rejection becomes the run's failure, in every `errors` mode. Throwing `lockError` back opts out of the retry,
-	 * leaving the lock failure as the result.
+	 * rejection reaches the caller as thrown — from `run` and from every typed write that takes run options — in every
+	 * `errors` mode. Reject with an `Error` (an object), as only an object can be told apart from git's own failure.
+	 * Throwing `lockError` back opts out of the retry, leaving the lock failure as the result.
 	 *
 	 * It runs while this checkout's index writes are held in order, so it must not write the index through core
 	 * (it would wait on itself). A run given this hook is never shared with an identical concurrent run. Only the
