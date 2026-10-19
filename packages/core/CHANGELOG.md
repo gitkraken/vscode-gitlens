@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-18
+
 ### Added
 
 - Adds a `paths` option to `getTrackedFiles` and `getTreeForRevision`, and to `getIgnoredEntries` (see Changed), that limits the read to repo-relative folders or files, matched literally, so a host showing a file tree can load one folder at a time and git walks only that folder. An empty `paths` answers empty without running git; without `paths` each read is unchanged. `getTrackedFiles` also takes `cancellation`, and `getTreeForRevision` lists a scope's ancestor folders with it. The GitHub provider still lists only a tree's root, so there `paths` only filters that root listing (git, git-cli, plus/git-github)
@@ -748,7 +750,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.13.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.14.0...HEAD
+[0.14.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.13.0...gitkraken:releases/core/v0.14.0
 [0.13.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.12.0...gitkraken:releases/core/v0.13.0
 [0.12.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.11.1...gitkraken:releases/core/v0.12.0
 [0.11.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.11.0...gitkraken:releases/core/v0.11.1
