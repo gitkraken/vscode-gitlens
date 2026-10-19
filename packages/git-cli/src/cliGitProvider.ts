@@ -18,6 +18,7 @@ import type { GitCommandPriority } from '@gitlens/git/run.types.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { GitIgnoreFilter } from '@gitlens/git/watching/gitIgnoreFilter.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
@@ -793,9 +794,42 @@ export class CliGitProvider implements GitProvider {
 		options?: { paths?: readonly string[]; priority?: GitCommandPriority },
 		cancellation?: AbortSignal,
 	): Promise<string[]> {
-		const paths = options?.paths;
+		let paths = options?.paths;
 		// No pathspec means "everything" to git, which is not what an empty list asks for
 		if (paths != null && !paths.length) return [];
+
+		// A scope inside an ignored folder makes git list the folder itself, or fail outright, so a scope that is
+		// itself ignored is answered here, as one entry, and left out of the listing
+		const scopedEntries = new Set<string>();
+		if (paths != null) {
+			const scopes = [...new Set(paths.map(p => (p.length > 1 ? p.replace(/\/+$/, '') : p)))];
+			const ignoredScopes = await this.getIgnoredScopes(
+				repoPath,
+				scopes.filter(p => p !== ''),
+				options?.priority,
+				cancellation,
+			);
+
+			const ignored = [...ignoredScopes];
+			// `lstat`, as git lists a symlink as a file even when it points at a folder
+			const listed = await Promise.allSettled(
+				ignored.map(async scope => {
+					const fullPath = path.join(repoPath, scope);
+					if (!(await fs.lstat(fullPath)).isDirectory()) return scope;
+
+					return (await hasNonDirectoryEntry(fullPath)) ? `${scope}/` : undefined;
+				}),
+			);
+			for (const result of listed) {
+				// Not on disk, so nothing is ignored there
+				if (result.status === 'fulfilled' && result.value != null) {
+					scopedEntries.add(result.value);
+				}
+			}
+
+			paths = scopes.filter(p => !ignoredScopes.has(p));
+			if (!paths.length) return [...scopedEntries].sort();
+		}
 
 		// `status --ignored` walks every ignored tree, and `ls-files --directory` drops the ignored entries inside a
 		// new untracked folder, so status is asked only about those folders
@@ -828,7 +862,7 @@ export class CliGitProvider implements GitProvider {
 		if (ignoredResult.status === 'rejected') throw ignoredResult.reason;
 		if (untrackedResult.status === 'rejected') throw untrackedResult.reason;
 
-		const entries = new Set<string>();
+		const entries = new Set<string>(scopedEntries);
 		for (const entry of ignoredResult.value) {
 			if (entry !== '.git/') {
 				entries.add(entry);
@@ -884,6 +918,32 @@ export class CliGitProvider implements GitProvider {
 			}
 		}
 		return [...entries].sort();
+	}
+
+	/**
+	 * Which of `scopes` are ignored. `check-ignore` dies on a path inside a submodule or beyond a symlink, where this
+	 * repository ignores nothing, so a failed batch is bisected, one half at a time, and a scope that fails alone is
+	 * not ignored. That costs about 2·k·log2(N) runs for k bad scopes, rather than a burst of N at once.
+	 */
+	private async getIgnoredScopes(
+		repoPath: string,
+		scopes: readonly string[],
+		priority: GitCommandPriority | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<Set<string>> {
+		try {
+			return await this.getIgnoredPaths(repoPath, scopes, { priority: priority }, cancellation);
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+			if (scopes.length < 2) return new Set();
+		}
+
+		const middle = scopes.length >> 1;
+		const ignored = await this.getIgnoredScopes(repoPath, scopes.slice(0, middle), priority, cancellation);
+		for (const scope of await this.getIgnoredScopes(repoPath, scopes.slice(middle), priority, cancellation)) {
+			ignored.add(scope);
+		}
+		return ignored;
 	}
 
 	async getIgnoredPaths(
@@ -1019,4 +1079,20 @@ function getDefaultGlobalExcludesPath(): string | undefined {
 
 	const home = env.HOME || homedir();
 	return home ? path.join(home, '.config', 'git', 'ignore') : undefined;
+}
+
+/** Whether a folder holds a file or symlink anywhere below it, as git lists no folder without one; an unreadable folder holds none */
+async function hasNonDirectoryEntry(folder: string): Promise<boolean> {
+	const pending = [folder];
+	while (pending.length) {
+		const current = pending.pop()!;
+		try {
+			for (const entry of await fs.readdir(current, { withFileTypes: true })) {
+				if (!entry.isDirectory()) return true;
+
+				pending.push(path.join(current, entry.name));
+			}
+		} catch {}
+	}
+	return false;
 }
