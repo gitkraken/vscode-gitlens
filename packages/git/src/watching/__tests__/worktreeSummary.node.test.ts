@@ -43,6 +43,10 @@ async function waitFor(predicate: () => boolean, timeoutMs: number = 1000): Prom
 
 interface FakeUpstream {
 	name: string;
+	/** What git reported about the upstream's remote */
+	remote?: string;
+	remoteBranch?: string;
+	local?: boolean;
 	missing: boolean;
 	ahead: number;
 	behind: number;
@@ -130,6 +134,9 @@ class FakeRepository {
 							upstream != null
 								? {
 										name: upstream.name,
+										remote: upstream.remote,
+										remoteBranch: upstream.remoteBranch,
+										local: upstream.local,
 										missing: upstream.missing,
 										state: { ahead: upstream.ahead, behind: upstream.behind },
 									}
@@ -371,6 +378,68 @@ describe('WorktreeSummaryService', () => {
 				branch: undefined,
 				missing: false,
 			});
+		});
+
+		it('reads a local upstream as having no remote, even when a remote shares its first segment', async () => {
+			const h = createHarness();
+			h.repo.state.remotes = ['origin', 'release'];
+			h.repo.state.upstream = { name: 'release/2.0', local: true, missing: false, ahead: 0, behind: 0 };
+			h.service.subscribe(repoPath);
+
+			const summary = await h.service.getSummary(repoPath);
+
+			assert.deepStrictEqual(summary.upstream, {
+				name: 'release/2.0',
+				remote: undefined,
+				branch: undefined,
+				missing: false,
+			});
+		});
+
+		it('uses the remote git reported when its name contains a slash', async () => {
+			const h = createHarness();
+			h.repo.state.remotes = ['team'];
+			h.repo.state.upstream = {
+				name: 'team/fork/feature',
+				remote: 'team/fork',
+				remoteBranch: 'feature',
+				missing: false,
+				ahead: 0,
+				behind: 0,
+			};
+			h.service.subscribe(repoPath);
+
+			const summary = await h.service.getSummary(repoPath);
+
+			assert.deepStrictEqual(summary.upstream, {
+				name: 'team/fork/feature',
+				remote: 'team/fork',
+				branch: 'feature',
+				missing: false,
+			});
+		});
+
+		it('uses the branch git reported over the name when a custom refspec renames it', async () => {
+			const h = createHarness();
+			h.repo.state.upstream = {
+				name: 'mirror/pfx/x',
+				remote: 'origin',
+				remoteBranch: 'x',
+				missing: false,
+				ahead: 0,
+				behind: 0,
+			};
+			h.service.subscribe(repoPath);
+
+			const summary = await h.service.getSummary(repoPath);
+
+			assert.deepStrictEqual(summary.upstream, {
+				name: 'mirror/pfx/x',
+				remote: 'origin',
+				branch: 'x',
+				missing: false,
+			});
+			assert.strictEqual(h.repo.counts.remotes, 0, 'no remotes read when git reported the remote');
 		});
 
 		it('does not split an upstream with nothing after its remote name', async () => {

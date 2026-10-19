@@ -19,12 +19,15 @@ export interface WorktreeSummaryUpstream {
 	/** The upstream's short name (`origin/main`) */
 	readonly name: string;
 	/**
-	 * The remote it tracks: the longest of the repository's remote names that {@link name} starts with, followed by
-	 * `/` (a remote name can hold a slash). `undefined`, with {@link branch}, when it names no known remote (a branch
-	 * tracking another local branch, or a remote since removed)
+	 * The remote it tracks, as git reported it; on git too old to report it, the longest of the repository's remote
+	 * names that {@link name} starts with, followed by `/` (a remote name can hold a slash). `undefined`, with
+	 * {@link branch}, when it names no known remote (a branch tracking another local branch, or a remote since removed)
 	 */
 	readonly remote: string | undefined;
-	/** The branch on {@link remote}; `undefined` whenever {@link remote} is */
+	/**
+	 * The branch on {@link remote} — git's name for it there, which a custom fetch refspec can make differ from the end
+	 * of {@link name}; `undefined` whenever {@link remote} is
+	 */
 	readonly branch: string | undefined;
 	readonly missing: boolean;
 }
@@ -695,13 +698,25 @@ function readDirty(repo: RepositoryService, signal: AbortSignal | undefined): Pr
 
 function noop(): void {}
 
-/** Splits the upstream at the longest remote name it starts with; no split when none matches or nothing follows it */
+/**
+ * Uses the remote and branch git reported for the upstream; only when it reported neither does this split the name
+ * at the longest remote name it starts with (no split when none matches or nothing follows it)
+ */
 async function toSummaryUpstream(
 	repo: RepositoryService,
 	upstream: GitTrackingUpstream,
 	signal: AbortSignal | undefined,
 ): Promise<WorktreeSummaryUpstream> {
-	const name = upstream.name;
+	const { name, missing } = upstream;
+
+	if (upstream.local) return { name: name, remote: undefined, branch: undefined, missing: missing };
+
+	if (upstream.remote) {
+		const { remote } = upstream;
+		const branch =
+			upstream.remoteBranch || (name.startsWith(`${remote}/`) ? name.substring(remote.length + 1) : undefined);
+		return { name: name, remote: branch ? remote : undefined, branch: branch || undefined, missing: missing };
+	}
 
 	let remote: string | undefined;
 	for (const r of await repo.remotes.getRemotes(undefined, signal)) {
@@ -715,7 +730,7 @@ async function toSummaryUpstream(
 		name: name,
 		remote: branch ? remote : undefined,
 		branch: branch || undefined,
-		missing: upstream.missing,
+		missing: missing,
 	};
 }
 
