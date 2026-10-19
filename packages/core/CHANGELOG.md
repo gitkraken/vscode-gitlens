@@ -10,9 +10,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds `cancellation` to `getTreeForRevision`, as its fourth argument after `options`, so a host lazy-loading a folder tree can abort the read for a folder the user collapsed; an aborted read rejects with a `CancellationError` rather than answering empty, and a read only joins an identical concurrent one with the same signal. The GitHub provider ignores it (git, git-cli)
 
+### Changed
+
+- Changes `push` of a commit `reference` (not a branch) onto the current branch, without `publish`, to push to the branch's upstream on the remote rather than to a remote branch named like the local one. The two differ when local `foo` tracks `origin/bar`: the commit now goes to `bar`, where it used to create or move `foo`. This changes GitLens's own push of a single commit too (git-cli)
+
 ### Fixed
 
 - Fixes a `beforeIndexLockRetry` rejection reaching the host wrapped in the typed write's own error, such as a generic `CommitError` "Unable to commit" with the host's error only as its `original`: `commit`, `reset`, `restore`, `checkout` and every other typed write that takes run options now rethrow the host's rejection unchanged. Reject with an `Error` (an object), since only an object can be told apart from git's own failure (git-cli)
+- Fixes `push`, `fetch` with a branch, and a `fastForward: 'only'` `pull` of a branch checked out nowhere targeting the wrong branch on the remote, and `GitBranch.trackingWithoutRemote` naming it wrong, when a custom fetch refspec stores it under another name (remote `origin` fetching into `refs/remotes/mirror/*`): they now use the upstream's name on the remote, which branch reads report as `GitTrackingUpstream.remoteBranch` (and `remoteBranch` on a branch reference's `upstream`) from git's `%(upstream:remoteref)` on Git 2.23+; older Git keeps stripping the remote from the upstream's name. (git, git-cli)
 
 ## [0.15.0] - 2026-10-19
 

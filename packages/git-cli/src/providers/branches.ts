@@ -276,7 +276,12 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					// Skip HEAD refs in remote branches
 					if (isRemoteHEAD(fullName)) continue;
 
-					const upstream = parseUpstream(record.upstream, record.upstreamTracking, record.upstreamRemote);
+					const upstream = parseUpstream(
+						record.upstream,
+						record.upstreamTracking,
+						record.upstreamRemote,
+						record.upstreamRemoteRef,
+					);
 
 					const metadata = metadataMap.get(parseRefName(fullName).name);
 					const worktreePath = record.worktreePath ? normalizePath(record.worktreePath) : undefined;
@@ -317,6 +322,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 										name: branch.upstream.name,
 										missing: branch.upstream.missing,
 										remote: branch.upstream.remote,
+										remoteBranch: branch.upstream.remoteBranch,
 									}
 								: undefined,
 							sha: branch.sha,

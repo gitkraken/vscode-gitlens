@@ -257,6 +257,11 @@ export interface GitTrackingUpstream {
 	 * `/` stays whole. `undefined` when git is too old to report it (before 2.23 here) or the upstream is a local branch
 	 */
 	readonly remote?: string;
+	/**
+	 * The branch's name on its {@link remote} (`branch.<name>.merge` without `refs/heads/`), so a custom fetch refspec
+	 * can't misname it. `undefined` when git is too old to report it or the upstream is a local branch
+	 */
+	readonly remoteBranch?: string;
 	readonly missing: boolean;
 	readonly state: GitTrackingState;
 }

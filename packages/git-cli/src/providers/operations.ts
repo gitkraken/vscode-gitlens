@@ -801,7 +801,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 			const resolved = await resolveBranchRemote(this.provider, repoPath, branch, runOptions?.cancellation);
 			if (options?.reference != null) {
-				branchName = `${options.reference.ref}:${options?.publish != null ? 'refs/heads/' : ''}${resolved.name}`;
+				// Onto the upstream's remote-side name, which a custom fetch refspec or a renamed upstream can make differ
+				branchName = `${options.reference.ref}:${
+					options?.publish != null ? `refs/heads/${resolved.name}` : (resolved.upstream ?? resolved.name)
+				}`;
 			} else {
 				const tracking = options?.publish == null ? resolved.upstream : undefined;
 				branchName =
