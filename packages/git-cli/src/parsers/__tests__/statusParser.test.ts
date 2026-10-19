@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import { GitFileConflictStatus, GitFileIndexStatus, GitFileWorkingTreeStatus } from '@gitlens/git/models/fileStatus.js';
 import { formatDetachedHeadName } from '@gitlens/git/utils/branch.utils.js';
 import { fileUri } from '@gitlens/utils/uri.js';
-import { parseGitStatus } from '../statusParser.js';
+import { foldMatchingIgnored, parseGitStatus } from '../statusParser.js';
 
 const repoPath = '/repo';
 
@@ -476,5 +476,52 @@ suite('Status Parser Test Suite', () => {
 		assert.ok(result, 'Should return a status');
 		assert.strictEqual(result.branch, 'feature-branch', 'Should parse branch name');
 		assert.strictEqual(result.upstream, undefined, 'Should have no upstream');
+	});
+});
+
+suite('foldMatchingIgnored Test Suite', () => {
+	test('collapses a folder whose files all match a file rule', () => {
+		const result = foldMatchingIgnored(['?? newpkg/index.ts', '!! newpkg/logs/1.log', '!! newpkg/logs/2.log']);
+		assert.deepStrictEqual(result, ['newpkg/logs/']);
+	});
+
+	test('keeps a folder an ignore rule matches as one entry', () => {
+		const result = foldMatchingIgnored(['?? newpkg/index.ts', '!! newpkg/node_modules/']);
+		assert.deepStrictEqual(result, ['newpkg/node_modules/']);
+	});
+
+	test('does not collapse a folder that also holds untracked files', () => {
+		const result = foldMatchingIgnored([
+			'?? newpkg/mixed/keep.ts',
+			'!! newpkg/mixed/m.log',
+			'!! newpkg/mixed/node_modules/',
+		]);
+		assert.deepStrictEqual(result, ['newpkg/mixed/m.log', 'newpkg/mixed/node_modules/']);
+	});
+
+	test('collapses to the shallowest wholly ignored folder', () => {
+		const result = foldMatchingIgnored([
+			'?? newpkg/nested/inner/keep.ts',
+			'!! newpkg/nested/inner/logs/x.log',
+			'!! newpkg/nested/inner/logs/deep/y.log',
+			'!! other/sub/a/b.log',
+			'?? other/keep.ts',
+		]);
+		assert.deepStrictEqual(result, ['newpkg/nested/inner/logs/', 'other/sub/']);
+	});
+
+	test('keeps the parent of a nested repository dirty', () => {
+		const result = foldMatchingIgnored(['?? newpkg/repo/', '!! newpkg/a.log', '!! newpkg/repo/x.log']);
+		assert.deepStrictEqual(result, ['newpkg/a.log', 'newpkg/repo/x.log']);
+	});
+
+	test('keeps an ignored file directly in the scope folder', () => {
+		const result = foldMatchingIgnored(['?? newpkg/index.ts', '!! newpkg/a.log']);
+		assert.deepStrictEqual(result, ['newpkg/a.log']);
+	});
+
+	test('skips records too short to hold a path and de-duplicates', () => {
+		const result = foldMatchingIgnored(['', '!! ', '?? a/b.ts', '!! a/c/1.log', '!! a/c/2.log']);
+		assert.deepStrictEqual(result, ['a/c/']);
 	});
 });
