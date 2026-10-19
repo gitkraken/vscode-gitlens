@@ -15,6 +15,18 @@
  */
 import type { Context } from 'mocha';
 
+// A host app can inject git config through the environment (`core.hooksPath`, ...), which every spawned git
+// would inherit and override the repos these tests set up
+for (const name of Object.keys(process.env)) {
+	if (
+		name === 'GIT_CONFIG_COUNT' ||
+		name === 'GIT_CONFIG_PARAMETERS' ||
+		/^GIT_CONFIG_(?:KEY|VALUE)_\d+$/.test(name)
+	) {
+		Reflect.deleteProperty(process.env, name);
+	}
+}
+
 let running: string | undefined;
 let previous: string | undefined;
 
