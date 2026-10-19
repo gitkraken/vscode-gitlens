@@ -31,6 +31,7 @@ export type GitFeatures =
 	| 'git:stash:push:staged'
 	| 'git:stash:push:stdin'
 	| 'git:status:find-renames'
+	| 'git:status:ignored-matching'
 	| 'git:status:porcelain-v2'
 	| 'git:untrackedCache'
 	| 'git:worktree:list:lock-reason'
@@ -111,6 +112,8 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:stash:push:staged', '2.35.0'],
 	['git:stash:push:stdin', '2.30.0'],
 	['git:status:find-renames', '2.18'],
+	// `status --ignored=matching`: an ignored folder is one entry, without a walk of what is inside it
+	['git:status:ignored-matching', '2.16'],
 	['git:status:porcelain-v2', '2.11'],
 	// `core.untrackedCache=true` (repo-local cache of untracked-file scans — the auto-tier config lever).
 	['git:untrackedCache', '2.8'],

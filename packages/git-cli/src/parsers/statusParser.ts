@@ -246,3 +246,40 @@ function parseStatusFile(
 
 	return new GitStatusFile(repoPath, x, y, fileName, getUri?.(fileName), originalFileName, submodule);
 }
+
+/**
+ * Folds `status --ignored=matching --untracked-files=all` records of new untracked folders into the entries that
+ * `--ignored=traditional --untracked-files=normal` reports. Inside a new untracked folder nothing is tracked, so a
+ * folder holding no untracked content is wholly ignored, and is reported in place of the ignored paths beneath it.
+ */
+export function foldMatchingIgnored(records: Iterable<string>): string[] {
+	const dirty = new Set<string>();
+	const ignored: string[] = [];
+
+	for (const record of records) {
+		if (record.length < 4) continue;
+
+		if (record.startsWith('!! ')) {
+			ignored.push(record.substring(3));
+		} else if (record.startsWith('?? ')) {
+			const path = record.substring(3);
+			for (let i = path.indexOf('/'); i !== -1; i = path.indexOf('/', i + 1)) {
+				dirty.add(path.substring(0, i + 1));
+			}
+		}
+	}
+
+	const entries = new Set<string>();
+	for (const path of ignored) {
+		let entry = path;
+		for (let i = path.indexOf('/'); i !== -1 && i + 1 < path.length; i = path.indexOf('/', i + 1)) {
+			const folder = path.substring(0, i + 1);
+			if (!dirty.has(folder)) {
+				entry = folder;
+				break;
+			}
+		}
+		entries.add(entry);
+	}
+	return [...entries];
+}
