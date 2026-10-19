@@ -3,7 +3,7 @@ import { l10n, Uri } from 'vscode';
 import { undefinedOnGitWarning } from '@gitlens/git/errors.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
-import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { isResolvedRevisionMissing, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { pad } from '@gitlens/utils/string.js';
 import type { FileAnnotationType } from '../config.js';
@@ -13,7 +13,11 @@ import type { Container } from '../container.js';
 import { openFileAtRevision } from '../git/actions/commit.js';
 import { GitUri } from '../git/gitUri.js';
 import { getCommitGitUri, getCommitPreviousComparisonUrisForRange } from '../git/utils/-webview/commit.utils.js';
-import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages.js';
+import {
+	showCommitHasNoPreviousCommitWarningMessage,
+	showFileHasNoPreviousRevisionWarningMessage,
+	showGenericErrorMessage,
+} from '../messages.js';
 import { showCommitPicker } from '../quickpicks/commitPicker.js';
 import { CommandQuickPickItem } from '../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive.js';
@@ -128,6 +132,22 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 		const svc = this.container.git.getRepositoryService(gitUri.repoPath!);
 		try {
+			// Blaming the revision before a change that added the file has nothing to show; without this a re-added file
+			// falls into the revision file picker and a first add opens an empty document
+			const blameRevision =
+				args.revisionUri != null && args.annotationType === 'blame'
+					? await GitUri.fromUri(args.revisionUri)
+					: undefined;
+			if (blameRevision?.sha && blameRevision.repoPath) {
+				const resolved = await this.container.git
+					.getRepositoryService(blameRevision.repoPath)
+					.revision.resolveRevision(blameRevision.sha, blameRevision);
+				if (isResolvedRevisionMissing(resolved, blameRevision.relativePath)) {
+					void showFileHasNoPreviousRevisionWarningMessage(blameRevision.fileName);
+					return;
+				}
+			}
+
 			if (args.revisionUri == null) {
 				const log = svc.commits
 					.getLogForPath(gitUri.fsPath, undefined, { isFolder: false })

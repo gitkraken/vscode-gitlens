@@ -35,6 +35,7 @@ suite('DiffWithPreviousCommand committed files', () => {
 					},
 					getRevisionUri: (sha: string, path: string) => Uri.file(path).with({ scheme: 'test', query: sha }),
 					getAbsoluteUri: (path: string) => Uri.file(`${repoPath}/${path}`),
+					getRelativePath: (uri: Uri) => uri.path.slice(repoPath.length + 1),
 				}),
 			},
 		} as unknown as Container;

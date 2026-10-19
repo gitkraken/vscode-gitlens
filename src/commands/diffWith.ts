@@ -3,7 +3,7 @@ import { l10n, ViewColumn } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import { deletedOrMissing } from '@gitlens/git/models/revision.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
-import { isUncommitted, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { isResolvedRevisionMissing, isUncommitted, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { basename } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -131,13 +131,8 @@ export class DiffWithCommand extends GlCommandBase {
 				}
 			}
 
-			// The file doesn't exist on the left if its last change there deleted it or renamed it away
-			if (
-				lhsResolved.status === 'D' ||
-				(lhsResolved.status === 'R' &&
-					lhsResolved.path != null &&
-					lhsResolved.path !== svc.getRelativePath(lhsUri, args.repoPath))
-			) {
+			// Show an empty left side when the file doesn't exist there, e.g. it was deleted or moved away before being re-added
+			if (isResolvedRevisionMissing(lhsResolved, svc.getRelativePath(lhsUri, args.repoPath))) {
 				lhsResolved = { ...lhsResolved, sha: deletedOrMissing };
 			}
 

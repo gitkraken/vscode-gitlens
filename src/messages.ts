@@ -40,6 +40,10 @@ export function showBlameInvalidIgnoreRevsFileWarningMessage(
 	);
 }
 
+export function showFileHasNoPreviousRevisionWarningMessage(fileName: string): Promise<MessageItem | undefined> {
+	return showMessage('info', l10n.t("{0} didn't exist before this change", fileName), undefined, null);
+}
+
 export function showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<MessageItem | undefined> {
 	if (commit == null) {
 		return showMessage('info', l10n.t('There is no previous commit.'), 'suppressCommitHasNoPreviousCommitWarning');

@@ -6204,6 +6204,7 @@
 	"{0} commits{1}": "{0} commits{1}",
 	"{0} deleted": "{0} eliminados",
 	"{0} deleted, {1} renamed": "{0} eliminados, {1} renombrados",
+	"{0} didn't exist before this change": "{0} no existía antes de este cambio",
 	"{0} failed to respond and might be experiencing issues.": "{0} no respondió y es posible que esté experimentando problemas.",
 	"{0} failed to respond and might be experiencing issues. Please visit the [AzureDevOps status page](https://status.dev.azure.com) for more information.": "{0} no respondió y podría estar experimentando problemas. Visite la [página de estado de AzureDevOps](https://status.dev.azure.com) para obtener más información.",
 	"{0} failed to respond and might be experiencing issues. Please visit the [Bitbucket status page](https://bitbucket.status.atlassian.com/) for more information.": "{0} no respondió y es posible que esté experimentando problemas. Visite la [página de estado de Bitbucket](https://bitbucket.status.atlassian.com/) para más información.",

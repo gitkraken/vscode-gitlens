@@ -1,5 +1,6 @@
 import type { GitRevisionRange, GitRevisionRangeNotation } from '../models/revision.js';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from '../models/revision.js';
+import type { ResolvedRevision } from '../providers/revision.js';
 
 const rangeRegex = /^([\w\-/]+(?:\.[\w\-/]+)*)?(\.\.\.?)([\w\-/]+(?:\.[\w\-/]+)*)?$/;
 const qualifiedRangeRegex = /^([\w\-/]+(?:\.[\w\-/]+)*)(\.\.\.?)([\w\-/]+(?:\.[\w\-/]+)*)$/;
@@ -146,4 +147,15 @@ export function isRevisionRange(
 //** Strips `origin/` from a reference or range, because we "fake" origin as the default remote */
 export function stripOrigin<T extends string | GitRevisionRange | undefined>(ref: T): T {
 	return ref?.replace(/(?:^|(?<=..))origin\//, '') as T;
+}
+
+/** Whether the file at `relativePath` doesn't exist at a resolved revision — nothing touched it yet, or its last change there deleted it or moved it away (a copy is reported instead of a rename when `diff.renames=copies`) */
+export function isResolvedRevisionMissing(resolved: ResolvedRevision, relativePath: string): boolean {
+	return (
+		resolved.sha === deletedOrMissing ||
+		resolved.status === 'D' ||
+		((resolved.status === 'R' || resolved.status === 'C') &&
+			resolved.path != null &&
+			resolved.path !== relativePath)
+	);
 }

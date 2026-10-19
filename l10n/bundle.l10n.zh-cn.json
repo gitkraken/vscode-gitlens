@@ -6204,6 +6204,7 @@
 	"{0} commits{1}": "{0} 个提交{1}",
 	"{0} deleted": "已删除 {0}",
 	"{0} deleted, {1} renamed": "已删除 {0}，已重命名 {1}",
+	"{0} didn't exist before this change": "{0} 在此更改之前不存在",
 	"{0} failed to respond and might be experiencing issues.": "{0} 未能响应，可能遇到了问题。",
 	"{0} failed to respond and might be experiencing issues. Please visit the [AzureDevOps status page](https://status.dev.azure.com) for more information.": "{0} 未能响应，可能遇到了问题。有关更多信息，请访问 [AzureDevOps 状态页](https://status.dev.azure.com)。",
 	"{0} failed to respond and might be experiencing issues. Please visit the [Bitbucket status page](https://bitbucket.status.atlassian.com/) for more information.": "{0} 未能响应，可能遇到了问题。有关更多信息，请访问 [Bitbucket 状态页](https://bitbucket.status.atlassian.com/)。",

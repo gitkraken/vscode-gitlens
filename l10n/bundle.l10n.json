@@ -6422,6 +6422,7 @@
 	"{0} commits{1}": "{0} commits{1}",
 	"{0} deleted": "{0} deleted",
 	"{0} deleted, {1} renamed": "{0} deleted, {1} renamed",
+	"{0} didn't exist before this change": "{0} didn't exist before this change",
 	"{0} failed to respond and might be experiencing issues.": "{0} failed to respond and might be experiencing issues.",
 	"{0} failed to respond and might be experiencing issues. Please visit the [AzureDevOps status page](https://status.dev.azure.com) for more information.": "{0} failed to respond and might be experiencing issues. Please visit the [AzureDevOps status page](https://status.dev.azure.com) for more information.",
 	"{0} failed to respond and might be experiencing issues. Please visit the [Bitbucket status page](https://bitbucket.status.atlassian.com/) for more information.": "{0} failed to respond and might be experiencing issues. Please visit the [Bitbucket status page](https://bitbucket.status.atlassian.com/) for more information.",
