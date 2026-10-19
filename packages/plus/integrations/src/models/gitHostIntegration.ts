@@ -30,6 +30,8 @@ import {
 	throwIfCallerContractError,
 	toCollectionFailureError,
 	toCollectionScopeFailure,
+	toUnsettledScopeFailure,
+	unsettledMissMessage,
 } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
@@ -137,9 +139,21 @@ function rejectUnsettledMisses<T>(
 
 	return slots.map((slot, i) =>
 		unsettled[i] && slot.status === 'fulfilled' && isMiss(slot.value)
-			? { status: 'rejected', reason: new Error("Nothing read for a repository that couldn't be settled") }
+			? { status: 'rejected', reason: new Error(unsettledMissMessage) }
 			: slot,
 	);
+}
+
+/**
+ * The keys of the scopes {@link GitHostIntegration.resolveRepositoryInputs} couldn't settle, for a list read to record
+ * a miss for one as a failure ({@link toUnsettledScopeFailure}) rather than as an empty scope.
+ */
+function toUnsettledScopeKeys(
+	repos: readonly ProviderRepoInput[],
+	unsettled: readonly boolean[] | undefined,
+	key: (repo: ProviderRepoInput) => string,
+): ReadonlySet<string> {
+	return new Set(unsettled?.some(Boolean) ? repos.filter((_, i) => unsettled[i]).map(key) : []);
 }
 
 /**
@@ -214,14 +228,15 @@ export abstract class GitHostIntegration<
 
 	/**
 	 * {@link resolveRepositoryCoordinates} for the repository descriptors the list and search reads take: those, unless
-	 * the host overrides both.
+	 * the host overrides both. A scope flagged `unsettled` that then reads nothing is reported as a failure of the read
+	 * ({@link toUnsettledScopeFailure}) rather than as an empty scope.
 	 */
 	protected resolveRepositoryInputs(
 		_session: ProviderAuthenticationSession,
 		repos: readonly ProviderRepoInput[],
 		_cancellation?: AbortSignal,
-	): Promise<ProviderRepoInput[]> {
-		return Promise.resolve([...repos]);
+	): Promise<{ repos: ProviderRepoInput[]; unsettled?: readonly boolean[] }> {
+		return Promise.resolve({ repos: [...repos] });
 	}
 
 	/**
@@ -241,7 +256,7 @@ export abstract class GitHostIntegration<
 		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
 
 		try {
-			return { value: await this.resolveRepositoryInputs(session, repos) };
+			return { value: (await this.resolveRepositoryInputs(session, repos)).repos };
 		} catch {
 			return { value: repos };
 		}
@@ -950,10 +965,15 @@ export abstract class GitHostIntegration<
 
 		const start = performance.now();
 		let resolvedRepos: ProviderReposInput;
+		let unsettled: readonly boolean[] | undefined;
 		let customUrl: string | undefined;
 		let api: ProvidersApi;
 		try {
-			resolvedRepos = isRepoIdsInput(repos) ? repos : await this.resolveRepositoryInputs(session, repos);
+			if (isRepoIdsInput(repos)) {
+				resolvedRepos = repos;
+			} else {
+				({ repos: resolvedRepos, unsettled } = await this.resolveRepositoryInputs(session, repos));
+			}
 			customUrl =
 				options?.customUrl ??
 				(isGitSelfManagedHostIntegrationId(providerId)
@@ -1041,6 +1061,11 @@ export abstract class GitHostIntegration<
 				};
 			}
 
+			const unsettledProjects = toUnsettledScopeKeys(
+				reposOrRepoIds as ProviderRepoInput[],
+				unsettled,
+				r => `${r.namespace}\0${r.project}`,
+			);
 			const cursorInfo = this.parseCursorInfo<PagedProjectInput>(options?.cursor);
 			const cursors: PagedProjectInput[] = cursorInfo.cursors ?? [];
 			let projectInputs: PagedProjectInput[] = Array.from(projects.values(), project => ({
@@ -1117,6 +1142,25 @@ export abstract class GitHostIntegration<
 						truncated = true;
 					}
 					metadata = mergeCollectionMetadata(metadata, results.metadata);
+					// A project that couldn't be settled may have been read in another collection, so reading
+					// nothing there doesn't prove it empty. A continuation already read rows from it.
+					if (
+						projectInput.cursor == null &&
+						results.values.length === 0 &&
+						unsettledProjects.has(`${projectInput.namespace}\0${projectInput.project}`)
+					) {
+						truncated = true;
+						metadata = mergeCollectionMetadata(metadata, {
+							completeness: 'partial',
+							failures: [
+								toUnsettledScopeFailure({
+									providerId: providerId,
+									resourceId: projectInput.namespace,
+									projectId: projectInput.project,
+								}),
+							],
+						});
+					}
 					if (results.paging?.more) {
 						hasMore = true;
 						cursor.cursors.push({
@@ -1397,10 +1441,15 @@ export abstract class GitHostIntegration<
 
 		const start = performance.now();
 		let resolvedRepos: ProviderReposInput;
+		let unsettled: readonly boolean[] | undefined;
 		let customUrl: string | undefined;
 		let api: ProvidersApi;
 		try {
-			resolvedRepos = isRepoIdsInput(repos) ? repos : await this.resolveRepositoryInputs(session, repos);
+			if (isRepoIdsInput(repos)) {
+				resolvedRepos = repos;
+			} else {
+				({ repos: resolvedRepos, unsettled } = await this.resolveRepositoryInputs(session, repos));
+			}
 			customUrl =
 				options?.customUrl ??
 				(isGitSelfManagedHostIntegrationId(providerId)
@@ -1546,6 +1595,8 @@ export abstract class GitHostIntegration<
 			api.getProviderPullRequestsPagingMode(providerId) === PagingMode.Repo &&
 			!api.isRepoIdsInput(reposOrRepoIds)
 		) {
+			const toRepoInputKey = (r: ProviderRepoInput) => `${r.namespace}\0${r.project ?? ''}\0${r.name}`;
+			const unsettledRepos = toUnsettledScopeKeys(reposOrRepoIds, unsettled, toRepoInputKey);
 			const cursorInfo = this.parseCursorInfo<PagedRepoInput>(options?.cursor);
 			const cursors: PagedRepoInput[] = cursorInfo.cursors ?? [];
 			let repoInputs: PagedRepoInput[] = reposOrRepoIds.map(repo => ({ repo: repo, cursor: undefined }));
@@ -1611,6 +1662,19 @@ export abstract class GitHostIntegration<
 					// Fan-out across repos: preserve each repo's SDK completeness/failures and its terminal
 					// truncation so a single failed/incomplete repo isn't lost when merged with its siblings.
 					metadata = mergeCollectionMetadata(metadata, results.metadata);
+					// See the project fan-out in `getMyIssuesForReposResult`.
+					if (
+						repoInput.cursor == null &&
+						results.values.length === 0 &&
+						unsettledRepos.has(toRepoInputKey(repoInput.repo))
+					) {
+						failures.push(
+							toUnsettledScopeFailure({
+								providerId: providerId,
+								repositoryId: `${repoInput.repo.namespace}/${repoInput.repo.name}`,
+							}),
+						);
+					}
 					if (results.paging?.truncated) {
 						truncated = true;
 					}
