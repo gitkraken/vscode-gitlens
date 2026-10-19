@@ -793,8 +793,14 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				branchName = resolved.name;
 				remoteName = resolved.remote;
 			}
-			upstreamName = resolved.upstream;
+			// A local upstream names a branch in this repository, never a branch on the remote being published to
+			upstreamName = options.publish != null && resolved.local ? undefined : resolved.upstream;
 			trackUpstream ||= options.reference.upstream?.missing === true;
+
+			// Without a remote, a bare `git push` would follow `push.default` somewhere the caller didn't pick
+			if (options.publish == null && remoteName == null) {
+				throw new PushError({ reason: 'noUpstream', branch: options.reference.name });
+			}
 		} else {
 			const branch = await this.provider.branches.getBranch(repoPath);
 			if (branch == null) return;
@@ -811,6 +817,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					tracking != null && tracking !== resolved.name ? `${branch.name}:${tracking}` : branch.name;
 			}
 			remoteName = resolved.remote ?? options?.publish?.remote;
+			if (options?.publish == null && remoteName == null) {
+				throw new PushError({ reason: 'noUpstream', branch: branch.name });
+			}
+
 			upstreamName = options?.reference == null && options?.publish != null ? branch.name : undefined;
 
 			// Git can't setup upstream tracking when publishing a new branch to a specific commit, so we'll need to do it after the push
@@ -821,10 +831,6 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					remoteBranch: resolved.name,
 				};
 			}
-		}
-
-		if (options?.publish == null && remoteName == null && upstreamName == null) {
-			throw new PushError({ reason: 'other' });
 		}
 
 		let forceOpts: PushForceOptions | undefined;
@@ -911,6 +917,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			}
 		}
 
+		// `push` refuses a branch without a remote before reaching here, as this would drop the branch
 		if (options.branch && options.remote) {
 			if (options.upstream) {
 				if (options.setUpstream) {

@@ -19,6 +19,7 @@ import {
 	createTrackingBranch,
 	createWorktree,
 	getHeadSha,
+	getRefTips,
 	revParse,
 } from './helpers.js';
 
@@ -579,6 +580,161 @@ suite('OperationsGitSubProvider.push', () => {
 						before.split('\n').map(l => l.split(' ')[0]),
 						'no branch named after the local branch is created',
 					);
+				} finally {
+					r.cleanup();
+				}
+			});
+		});
+
+		suite('a reference push without a remote to push to', () => {
+			test('a branch tracking a local branch rejects with noUpstream and pushes nothing', async () => {
+				const r = setup();
+				try {
+					createBranch(r.local.path, 'feature', { checkout: true });
+					execFileSync('git', ['branch', '--set-upstream-to=main', 'feature'], {
+						cwd: r.local.path,
+						stdio: 'pipe',
+					});
+					addCommit(r.local.path, 'f.txt', 'f', 'Feature commit');
+					const before = getRefTips(r.bare.path);
+
+					const branch = await r.local.provider.branches.getBranch(r.local.path, 'feature');
+					assert.ok(branch?.upstream != null);
+					await assert.rejects(
+						r.local.provider.ops.push(r.local.path, { reference: branch, force: true }),
+						(ex: unknown) => PushError.is(ex, 'noUpstream'),
+					);
+
+					assert.deepStrictEqual(getRefTips(r.bare.path), before);
+				} finally {
+					r.cleanup();
+				}
+			});
+
+			test("publishing a branch tracking a local branch creates it on the remote, leaving the local upstream's name alone", async () => {
+				const r = setup();
+				try {
+					createBranch(r.local.path, 'feature', { checkout: true });
+					execFileSync('git', ['branch', '--set-upstream-to=main', 'feature'], {
+						cwd: r.local.path,
+						stdio: 'pipe',
+					});
+					addCommit(r.local.path, 'f.txt', 'f', 'Feature commit');
+					const localSha = getHeadSha(r.local.path);
+					const mainBefore = revParse(r.bare.path, 'refs/heads/main');
+
+					const branch = await r.local.provider.branches.getBranch(r.local.path, 'feature');
+					assert.ok(branch?.upstream?.local);
+					await r.local.provider.ops.push(r.local.path, { reference: branch, publish: { remote: 'origin' } });
+
+					assert.strictEqual(revParse(r.bare.path, 'refs/heads/feature'), localSha);
+					assert.strictEqual(revParse(r.bare.path, 'refs/heads/main'), mainBefore);
+				} finally {
+					r.cleanup();
+				}
+			});
+
+			test('a branch tracking a local branch with a slash in its name rejects with noUpstream', async () => {
+				const r = setup();
+				try {
+					createBranch(r.local.path, 'release/2.0');
+					createBranch(r.local.path, 'feature', { checkout: true });
+					execFileSync('git', ['branch', '--set-upstream-to=release/2.0', 'feature'], {
+						cwd: r.local.path,
+						stdio: 'pipe',
+					});
+					addCommit(r.local.path, 'f.txt', 'f', 'Feature commit');
+					const before = getRefTips(r.bare.path);
+
+					const branch = await r.local.provider.branches.getBranch(r.local.path, 'feature');
+					assert.strictEqual(branch?.upstream?.name, 'release/2.0');
+					await assert.rejects(
+						r.local.provider.ops.push(r.local.path, { reference: branch, force: true }),
+						(ex: unknown) => PushError.is(ex, 'noUpstream'),
+					);
+
+					assert.deepStrictEqual(getRefTips(r.bare.path), before);
+				} finally {
+					r.cleanup();
+				}
+			});
+
+			suite('a branch tracking a local branch with a slash in its name', () => {
+				function setupUnchecked() {
+					const r = setup();
+					createBranch(r.local.path, 'release/2.0');
+					createBranch(r.local.path, 'feature');
+					execFileSync('git', ['branch', '--set-upstream-to=release/2.0', 'feature'], {
+						cwd: r.local.path,
+						stdio: 'pipe',
+					});
+					return r;
+				}
+
+				test('fetch of the branch runs no fetch and changes no refs', async () => {
+					const r = setupUnchecked();
+					try {
+						const before = getRefTips(r.local.path);
+
+						const branch = await r.local.provider.branches.getBranch(r.local.path, 'feature');
+						assert.strictEqual(branch?.upstream?.name, 'release/2.0');
+						await r.local.provider.ops.fetch(r.local.path, { branch: branch });
+
+						assert.deepStrictEqual(getRefTips(r.local.path), before);
+					} finally {
+						r.cleanup();
+					}
+				});
+
+				test('a fast-forward-only pull rejects with noUpstream', async () => {
+					const r = setupUnchecked();
+					try {
+						const branch = await r.local.provider.branches.getBranch(r.local.path, 'feature');
+						assert.strictEqual(branch?.upstream?.name, 'release/2.0');
+						await assert.rejects(
+							r.local.provider.ops.pull(r.local.path, { branch: branch, fastForward: 'only' }),
+							(ex: unknown) => PullError.is(ex, 'noUpstream'),
+						);
+					} finally {
+						r.cleanup();
+					}
+				});
+			});
+
+			test('pushing the current branch with no upstream rejects with noUpstream', async () => {
+				const r = setup();
+				try {
+					createBranch(r.local.path, 'feature', { checkout: true });
+					const before = getRefTips(r.bare.path);
+
+					await assert.rejects(r.local.provider.ops.push(r.local.path), (ex: unknown) =>
+						PushError.is(ex, 'noUpstream'),
+					);
+
+					assert.deepStrictEqual(getRefTips(r.bare.path), before);
+				} finally {
+					r.cleanup();
+				}
+			});
+
+			test('a commit reference with no remote for the current branch rejects with noUpstream', async () => {
+				const r = setup();
+				try {
+					createBranch(r.local.path, 'feature', { checkout: true });
+					execFileSync('git', ['branch', '--set-upstream-to=main', 'feature'], {
+						cwd: r.local.path,
+						stdio: 'pipe',
+					});
+					const before = getRefTips(r.bare.path);
+
+					await assert.rejects(
+						r.local.provider.ops.push(r.local.path, {
+							reference: createReference(getHeadSha(r.local.path), r.local.path, { refType: 'revision' }),
+						}),
+						(ex: unknown) => PushError.is(ex, 'noUpstream'),
+					);
+
+					assert.deepStrictEqual(getRefTips(r.bare.path), before);
 				} finally {
 					r.cleanup();
 				}

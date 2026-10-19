@@ -165,6 +165,7 @@ export class GitBranch implements GitBranchReference {
 	@memoize()
 	get remoteName(): string | undefined {
 		if (this.remote) return getRemoteNameFromBranchName(this.name);
+		if (this.upstream?.local) return undefined;
 		if (this.upstream != null) return this.upstream.remote ?? getRemoteNameFromBranchName(this.upstream.name);
 
 		return undefined;
@@ -262,6 +263,8 @@ export interface GitTrackingUpstream {
 	 * can't misname it. `undefined` when git is too old to report it or the upstream is a local branch
 	 */
 	readonly remoteBranch?: string;
+	/** The upstream is a branch in this repository (`branch.<name>.remote = .`), so it has no remote */
+	readonly local?: boolean;
 	readonly missing: boolean;
 	readonly state: GitTrackingState;
 }
