@@ -11,11 +11,14 @@ import type { ElectronApplication, Page } from '@playwright/test';
 import { _electron, test as base } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron/out/download';
 import { GitFixture } from './fixtures/git.js';
+import type { SignInOptions } from './fixtures/gkSignIn.js';
+import { gkEnvironmentUserSettings, signInToGitKraken } from './fixtures/gkSignIn.js';
 import { VSCodeEvaluator } from './fixtures/vscodeEvaluator.js';
 import { GitLensPage } from './pageObjects/gitLensPage.js';
 
 export { expect } from '@playwright/test';
 export { GitFixture } from './fixtures/git.js';
+export { canSignIn, requiredIntegrations } from './fixtures/gkSignIn.js';
 export type { VSCode } from './fixtures/vscodeEvaluator.js';
 
 export const MaxTimeout = 10000;
@@ -306,6 +309,13 @@ export interface LaunchOptions {
 	 * runtime (`l10n.t`) and manifest (`package.nls.<id>.json`) catalogs resolve.
 	 */
 	locale?: string;
+	/**
+	 * Sign this worker in to the GitKraken test account before its tests run (#5682) — unattended, with the
+	 * `GK_E2E_ACCESS_TOKEN_COOKIE` secret; see `fixtures/gkSignIn.ts`. `true` requires the default providers.
+	 * Gate the spec with `test.skip(!canSignIn(), …)`: without the secret the worker would fail to start.
+	 * Every sign-in mints a non-expiring account token, so opt in only where an account is needed.
+	 */
+	signIn?: boolean | SignInOptions;
 }
 
 /** Where the offline fixture language packs backing {@link LaunchOptions.locale} live, one dir per locale. */
@@ -408,7 +418,12 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 			// Write user settings before launching VS Code
 			const settingsDir = path.join(userDataDir, 'User');
 			await mkdir(settingsDir, { recursive: true });
-			const mergedSettings = { ...defaultUserSettings, ...vscodeOptions.userSettings };
+			const mergedSettings = {
+				...defaultUserSettings,
+				// A signed-in worker points GitLens at the same backend as its cookie (GK_E2E_ENV)
+				...(vscodeOptions.signIn ? gkEnvironmentUserSettings() : undefined),
+				...vscodeOptions.userSettings,
+			};
 			await writeFile(path.join(settingsDir, 'settings.json'), JSON.stringify(mergedSettings, null, '\t'));
 
 			// Run setup callback if provided, otherwise open extension folder
@@ -579,6 +594,14 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 					(await page.locator('[id="workbench.parts.activitybar"]').count()) > 0
 				) {
 					await gitlens.waitForActivation();
+				}
+
+				if (vscodeOptions.signIn) {
+					await signInToGitKraken(
+						evaluate,
+						gitlens,
+						vscodeOptions.signIn === true ? undefined : vscodeOptions.signIn,
+					);
 				}
 
 				await use({
