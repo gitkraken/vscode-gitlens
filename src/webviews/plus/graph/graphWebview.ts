@@ -5983,13 +5983,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// scope-anchor pipeline). Absent for detached / local-only / missing upstream.
 			const upstreamName = branch.upstream != null && !branch.upstream.missing ? branch.upstream.name : undefined;
 			if (upstreamName != null) {
+				// Matched by remote-ness too: a local `origin/x` and the remote `origin/x` share a name
+				const upstreamRemote = !branch.upstream!.local;
+				const mapped = this._data.session?.current.branches.get(upstreamName);
 				branchState.upstreamSha =
-					this._data.session?.current.branches.get(upstreamName)?.sha ??
+					(mapped?.remote === upstreamRemote ? mapped.sha : undefined) ??
 					(
 						await this.container.git
 							.getRepositoryService(branch.repoPath)
-							.branches.getBranch(upstreamName, undefined, toAbortSignal(cancellation.token))
-					)?.sha;
+							.branches.getBranches(
+								{ filter: b => b.name === upstreamName && b.remote === upstreamRemote },
+								toAbortSignal(cancellation.token),
+							)
+					).values[0]?.sha;
 			}
 		}
 
@@ -7017,6 +7023,10 @@ function convertBranchToIncludeOnlyRef(branch: GitBranch, remote?: boolean): Gra
 
 function convertBranchUpstreamToIncludeOnlyRef(branch: GitBranch): GraphIncludeOnlyRef | undefined {
 	if (branch.upstream == null || branch.upstream.missing) return undefined;
+	if (branch.upstream.local) {
+		const { name } = branch.upstream;
+		return { id: getBranchId(branch.repoPath, false, name), type: 'head', name: name };
+	}
 
 	const id = getBranchId(branch.repoPath, true, branch.upstream.name);
 	return {
