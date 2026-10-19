@@ -81,13 +81,23 @@ let _graphParser: GraphLogParser | undefined;
 type GraphWithStatsLogParser = LogParserWithStats<typeof graphMapping>;
 let _graphWithStatsParser: GraphWithStatsLogParser | undefined;
 
+/**
+ * Prints `tips` as full refnames (`HEAD -> refs/heads/main`, `refs/remotes/origin/main`, `tag: refs/tags/v1`), whatever
+ * `log.decorate` says, since short names can't tell a local branch from a remote-tracking ref of the same name
+ */
 export function getGraphParser(stats?: boolean): GraphLogParser | GraphWithStatsLogParser {
 	if (stats) {
-		_graphWithStatsParser ??= createLogParserWithStats(graphMapping);
+		if (_graphWithStatsParser == null) {
+			_graphWithStatsParser = createLogParserWithStats(graphMapping);
+			_graphWithStatsParser.arguments.push('--decorate=full');
+		}
 		return _graphWithStatsParser;
 	}
 
-	_graphParser ??= createLogParser(graphMapping);
+	if (_graphParser == null) {
+		_graphParser = createLogParser(graphMapping);
+		_graphParser.arguments.push('--decorate=full');
+	}
 	return _graphParser;
 }
 

@@ -49,7 +49,7 @@ import { getWorktreeId, groupWorktreesByBranch } from '@gitlens/git/utils/worktr
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
-import { getBranchId, getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
+import { getBranchId, getBranchNameWithoutRemote } from '@gitlens/utils/gitRefs.js';
 import { fnv1aHash64 } from '@gitlens/utils/hash.js';
 import { find, first, join, last } from '@gitlens/utils/iterable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
@@ -98,17 +98,19 @@ function computeDecorationFingerprint(
 	defaultBranchName: string | undefined,
 	defaultLocalName: string | undefined,
 	headRefUpstreamName: string | undefined,
+	headRefUpstreamLocal: boolean,
 	branches: readonly GitBranch[] | undefined,
 	remotes: readonly GitRemote[] | undefined,
 	worktrees: readonly GitWorktree[],
 	currentUser: { name: string | undefined; email: string | undefined } | undefined,
 ): string {
-	// Remote-head default markers read `!branchMap.has(defaultLocalName)` — a local branch appearing at (or
+	// Remote-head default markers read `!localBranchMap.has(defaultLocalName)` — a local branch appearing at (or
 	// vanishing from) the default's local name flips them even though the DEFAULT ref itself didn't move.
-	const localShadowsDefault = defaultLocalName != null && (branches?.some(b => b.name === defaultLocalName) ?? false);
+	const localShadowsDefault =
+		defaultLocalName != null && (branches?.some(b => !b.remote && b.name === defaultLocalName) ?? false);
 	const parts: string[] = [
 		`d:${defaultBranchName ?? ''}|${localShadowsDefault ? 's' : ''}`,
-		`h:${headRefUpstreamName ?? ''}`,
+		`h:${headRefUpstreamLocal ? 'l:' : ''}${headRefUpstreamName ?? ''}`,
 		`u:${currentUser?.name ?? ''}|${currentUser?.email ?? ''}`,
 	];
 	if (branches != null) {
@@ -117,7 +119,7 @@ function computeDecorationFingerprint(
 			// disposition change moves no ref tip, so it must bust the fingerprint. Star/unstar is rare —
 			// one full walk per transition is fine.
 			if (b.starred) {
-				parts.push(`s:${b.name}`);
+				parts.push(`s:${b.remote ? 'r:' : ''}${b.name}`);
 			}
 		}
 	}
@@ -520,9 +522,30 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		]);
 
 		const branches = getSettledValue(branchesResult)?.values;
-		const branchMap = branches != null ? new Map(branches.map(r => [r.name, r])) : new Map<string, GitBranch>();
+		// `branchMap` is keyed by short name, so a local branch and a remote-tracking ref of the same name share a key;
+		// row building and every other local-only or remote-only lookup goes through the split maps. The local branch
+		// wins the shared key, as the host looks up each row's local heads (and the current branch) in it
+		const branchMap = new Map<string, GitBranch>();
+		const localBranchMap = new Map<string, GitBranch>();
+		const remoteBranchMap = new Map<string, GitBranch>();
+		if (branches != null) {
+			for (const b of branches) {
+				if (b.remote) {
+					remoteBranchMap.set(b.name, b);
+					if (!localBranchMap.has(b.name)) {
+						branchMap.set(b.name, b);
+					}
+				} else {
+					localBranchMap.set(b.name, b);
+					branchMap.set(b.name, b);
+				}
+			}
+		}
 		const headBranch = branches?.find(b => b.current);
 		const headRefUpstreamName = headBranch?.upstream?.name;
+		// A local upstream has no remote-tracking ref to mark as HEAD's
+		const headRefUpstreamLocal = headBranch?.upstream?.local === true;
+		const headRemoteUpstreamName = headRefUpstreamLocal ? undefined : headRefUpstreamName;
 		const [worktrees, worktreesByBranch] = getSettledValue(worktreesResult) ?? [[], new Map<string, GitWorktree>()];
 
 		const remotes = getSettledValue(remotesResult);
@@ -563,6 +586,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			defaultBranchName,
 			defaultLocalName,
 			headRefUpstreamName,
+			headRefUpstreamLocal,
 			branches,
 			remotes,
 			worktrees,
@@ -616,14 +640,13 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			}
 		};
 
-		// Seeds `downstreamMap` from every local branch in `branchMap` with a configured upstream, so a
-		// branch is known to be tracked even when its tip falls outside the walked row window. `branchMap`
-		// contains both local and remote branches, so the `!branch.remote` check matters. Safe to call more
-		// than once (e.g. again after the incremental-walk fallback clears the map) since `addDownstream`
-		// dedupes.
+		// Seeds `downstreamMap` from every local branch with a remote upstream, so a branch is known to be
+		// tracked even when its tip falls outside the walked row window. Safe to call more than once (e.g. again
+		// after the incremental-walk fallback clears the map) since `addDownstream` dedupes. Its keys are read as
+		// remote refs (`owner/name`), so a local upstream, which can share that name, is left out.
 		const seedDownstreamMapFromBranches = (): void => {
-			for (const branch of branchMap.values()) {
-				if (!branch.remote && branch.upstream?.name != null) {
+			for (const branch of localBranchMap.values()) {
+				if (branch.upstream?.name != null && !branch.upstream.local) {
 					addDownstream(branch.upstream.name, branch.name);
 				}
 			}
@@ -735,7 +758,8 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						tipShasWithChildren: tipShasWithChildren,
 						// `undefined` when HEAD has no upstream, so the processor flags nothing as
 						// unpublished; otherwise the live set (mutated during the walk, read by ref).
-						reachableFromHeadUpstream: headRefUpstreamName != null ? reachableFromHeadUpstream : undefined,
+						reachableFromHeadUpstream:
+							headRemoteUpstreamName != null ? reachableFromHeadUpstream : undefined,
 						avatars: avatars,
 					}
 				: undefined;
@@ -774,10 +798,8 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			if (commit.tips) {
 				for (let tip of commit.tips.split(', ')) {
 					head = false;
-					if (tip === 'refs/stash') continue;
-
 					if (tip.startsWith('tag: ')) {
-						const tagName = tip.substring(5);
+						const tagName = tip.substring(15 /* `tag: refs/tags/` */);
 						refTags.push({
 							id: getTagId(repoPath, tagName),
 							name: tagName,
@@ -795,35 +817,52 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						}
 					}
 
-					const slashRemote = slashRemoteNames.length
-						? splitRemoteBranchName(tip, slashRemoteNames)
-						: undefined;
-					const remoteName = slashRemote?.[0] ?? getRemoteNameFromBranchName(tip);
-					if (remoteName) {
-						const remote = remoteMap.get(remoteName);
+					// Tips are full refnames (see `getGraphParser`), so a local branch and a remote-tracking ref that
+					// share a short name (`team/fork/work` beside remote `team/fork`'s `work`) stay distinct
+					let name: string;
+					let branch: GitBranch | undefined;
+					if (tip.startsWith('refs/heads/')) {
+						name = tip.substring(11);
+						branch = localBranchMap.get(name);
+					} else if (tip.startsWith('refs/remotes/')) {
+						name = tip.substring(13);
+						branch = remoteBranchMap.get(name);
+
+						const slashRemote = slashRemoteNames.length
+							? splitRemoteBranchName(name, slashRemoteNames)
+							: undefined;
+						// `name` is already past `refs/remotes/`, so its first segment is the remote — the `gitRefs`
+						// helpers skip a leading `remotes/` and would miss a remote named `remotes`
+						const slash = name.indexOf('/');
+						const remoteName = slashRemote?.[0] ?? (slash > 0 ? name.substring(0, slash) : undefined);
+						const remote = remoteName ? remoteMap.get(remoteName) : undefined;
 						if (remote != null) {
-							const branchName = slashRemote?.[1] ?? getBranchNameWithoutRemote(tip);
+							const branchName = slashRemote?.[1] ?? name.substring(slash + 1);
 							if (branchName === 'HEAD') continue;
 
 							refRemoteHeads.push({
-								id: getBranchId(repoPath, true, tip),
+								id: getBranchId(repoPath, true, name),
 								name: branchName,
 								owner: remote.name,
 								url: remote.url,
-								current: tip === headRefUpstreamName,
-								// `defaultLocalName!` is non-null here because `tip === defaultBranchName` short-circuits when `defaultBranchName` is null.
-								isDefault: tip === defaultBranchName && !branchMap.has(defaultLocalName!),
+								current: name === headRemoteUpstreamName,
+								// `defaultLocalName!` is non-null here because `name === defaultBranchName` short-circuits when `defaultBranchName` is null.
+								isDefault: name === defaultBranchName && !localBranchMap.has(defaultLocalName!),
 								hostingServiceType: remote.provider?.gkProviderId,
-								// `branchMap` is keyed by full name, so the remote ref resolves here — the same
-								// lookup the host does today to bake `+starred` into the context string.
-								starred: branchMap.get(tip)?.starred || undefined,
+								starred: branch?.starred || undefined,
 							});
 							continue;
 						}
+						// A remote-tracking ref of a remote that no longer exists falls through to a local head
+					} else if (tip === 'HEAD') {
+						// Detached
+						name = tip;
+					} else {
+						// `refs/stash`, or a namespace git was configured to decorate (`log.initialDecorationSet`)
+						continue;
 					}
 
-					const branch = branchMap.get(tip);
-					const branchId = branch?.id ?? getBranchId(repoPath, false, tip);
+					const branchId = branch?.id ?? getBranchId(repoPath, false, name);
 					// `worktreesByBranch` has the main/default worktree removed, so recover it here.
 					const worktree =
 						worktreesByBranch?.get(branchId) ??
@@ -838,13 +877,13 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							: undefined;
 					refHeads.push({
 						id: branchId,
-						name: tip,
+						name: name,
 						isCurrentHead: head,
 						upstream:
 							branch?.upstream != null
 								? {
 										name: branch.upstream.name,
-										id: getBranchId(repoPath, true, branch.upstream.name),
+										id: getBranchId(repoPath, !branch.upstream.local, branch.upstream.name),
 										missing: branch.upstream.missing,
 										state: {
 											ahead: branch.upstream.state.ahead,
@@ -853,7 +892,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 									}
 								: undefined,
 						worktree: worktreeRef,
-						isDefault: defaultLocalName != null && tip === defaultLocalName,
+						isDefault: defaultLocalName != null && name === defaultLocalName,
 						starred: branch?.starred || undefined,
 					});
 				}
@@ -1020,7 +1059,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			// Downstreams: each branch tip → its upstream name. Fallback for when `getBranches` failed and
 			// `branchMap` (and so the seed above) is empty; `addDownstream` dedupes against the seed.
 			for (const h of refHeads) {
-				if (h.upstream?.name != null) {
+				if (h.upstream?.name != null && localBranchMap.get(h.name)?.upstream?.local !== true) {
 					addDownstream(h.upstream.name, h.name);
 				}
 			}
@@ -1460,6 +1499,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							defaultBranchName,
 							defaultLocalName,
 							seed.headRefUpstreamName,
+							seed.headRefUpstreamLocal === true,
 							branches,
 							remotes,
 							worktrees,
@@ -1496,10 +1536,18 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				if (r.heads == null) continue;
 
 				for (const h of r.heads) {
-					const currentBranch = branchMap.get(h.name);
+					const currentBranch = localBranchMap.get(h.name);
 					if (currentBranch == null) continue;
 
-					if (h.upstream?.name !== currentBranch.upstream?.name) {
+					// By id, not name: a local `origin/x` and the remote `origin/x` share a short name. Ids carry
+					// the seed's repoPath, which a rebind hasn't restamped yet.
+					const currentUpstream = currentBranch.upstream;
+					if (
+						h.upstream?.id !==
+						(currentUpstream != null
+							? getBranchId(rebindFromRepoPath ?? repoPath, !currentUpstream.local, currentUpstream.name)
+							: undefined)
+					) {
 						fallback('metadata-changed');
 						return undefined;
 					}
@@ -1648,7 +1696,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				// flags from this.
 				if (rebindFromRepoPath != null && !fresh && row.remotes != null) {
 					for (const remoteHead of row.remotes) {
-						remoteHead.current = `${remoteHead.owner}/${remoteHead.name}` === headRefUpstreamName;
+						remoteHead.current = `${remoteHead.owner}/${remoteHead.name}` === headRemoteUpstreamName;
 					}
 				}
 				const refs = accumulateRowState(
@@ -2335,6 +2383,7 @@ class GraphSession implements GitGraphSession {
 		// so the cached rows can't be reused). Mirrors the host's former `incrementalSeed` construction and
 		// `_graphBuildShape` gate — the session owns the shape, so it can't be handed a lying seed. The provider
 		// still re-validates ordering/first-parent internally and falls back on any structural change.
+		const priorHead = find(prior.branches.values(), b => b.current);
 		const incrementalSeed: GraphIncrementalSeed | undefined =
 			options?.rebuild !== true && prior.refTips != null && this._buildShape === buildShape
 				? {
@@ -2349,7 +2398,8 @@ class GraphSession implements GitGraphSession {
 						decorationFingerprint: prior.decorationFingerprint,
 						// Recovered from the prior graph's own `branches` map, the same way the walk itself
 						// derives it, rather than adding a new `GitGraph` field to keep in sync.
-						headRefUpstreamName: find(prior.branches.values(), b => b.current)?.upstream?.name,
+						headRefUpstreamName: priorHead?.upstream?.name,
+						headRefUpstreamLocal: priorHead?.upstream?.local === true,
 					}
 				: undefined;
 
