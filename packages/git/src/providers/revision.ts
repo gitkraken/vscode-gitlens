@@ -42,8 +42,14 @@ export interface GitRevisionSubProvider {
 	 * `paths` limits the listing to those repo-relative folders (or files), matched literally rather than as globs;
 	 * each scope's ancestor folders are listed too, an empty array answers empty without running git, and omitting
 	 * it lists the whole tree.
+	 * An aborted `cancellation` rejects with a `CancellationError` rather than answering empty.
 	 */
-	getTreeForRevision(repoPath: string, rev: string, options?: { paths?: readonly string[] }): Promise<GitTreeEntry[]>;
+	getTreeForRevision(
+		repoPath: string,
+		rev: string,
+		options?: { paths?: readonly string[] },
+		cancellation?: AbortSignal,
+	): Promise<GitTreeEntry[]>;
 	resolveRevision(
 		repoPath: string,
 		ref: string,

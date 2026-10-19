@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { TestRepo } from './helpers.js';
 import { addCommit, createTestRepo, getHeadSha } from './helpers.js';
 
@@ -251,6 +252,38 @@ suite('RevisionSubProvider scoped listings', () => {
 
 		test('an empty paths array answers empty', async () => {
 			assert.deepStrictEqual(await paths({ paths: [] }), []);
+		});
+
+		test('an aborted signal rejects with a cancellation error', async () => {
+			const controller = new AbortController();
+			controller.abort();
+
+			await assert.rejects(
+				repo.provider.revision.getTreeForRevision(repo.path, headSha, { paths: ['src'] }, controller.signal),
+				ex => isCancellationError(ex),
+			);
+			await assert.rejects(
+				repo.provider.revision.getTreeForRevision(repo.path, headSha, undefined, controller.signal),
+				ex => isCancellationError(ex),
+			);
+		});
+
+		test('aborting one of two concurrent reads leaves the other intact', async () => {
+			const controller = new AbortController();
+			controller.abort();
+
+			const [aborted, intact] = await Promise.allSettled([
+				repo.provider.revision.getTreeForRevision(repo.path, headSha, { paths: ['src'] }, controller.signal),
+				repo.provider.revision.getTreeForRevision(repo.path, headSha, { paths: ['src'] }),
+			]);
+
+			assert.strictEqual(aborted.status, 'rejected');
+			assert.ok(isCancellationError(aborted.reason));
+			assert.strictEqual(intact.status, 'fulfilled');
+			assert.deepStrictEqual(
+				(intact as PromiseFulfilledResult<{ path: string }[]>).value.map(e => e.path).sort(),
+				['src', 'src/a.ts', 'src/sub', 'src/sub/b.ts'],
+			);
 		});
 
 		test('a single-entry read still works alongside scoped reads', async () => {
