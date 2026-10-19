@@ -291,3 +291,91 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 		assert.deepStrictEqual(await repo.provider.getIgnoredEntries(repo.path, { priority: 'interactive' }), expected);
 	});
 });
+
+suite('CliGitProvider getIgnoredEntries inside new untracked folders', () => {
+	let repo: TestRepo;
+
+	function write(relativePath: string, content = 'x\n'): void {
+		const path = join(repo.path, relativePath);
+		mkdirSync(dirname(path), { recursive: true });
+		writeFileSync(path, content);
+	}
+
+	function git(cwd: string, ...args: string[]): string {
+		return execFileSync('git', args, { cwd: cwd, stdio: 'pipe', encoding: 'utf8' });
+	}
+
+	suiteSetup(() => {
+		repo = createTestRepo();
+
+		const excludesFile = join(repo.path, '.git', 'test-excludes');
+		writeFileSync(excludesFile, '');
+		git(repo.path, 'config', 'core.excludesFile', excludesFile);
+
+		write('.gitignore', 'node_modules/\n*.log\nbuild/\n/top.tmp\n');
+		git(repo.path, 'add', '-f', '.gitignore');
+		git(repo.path, 'commit', '-m', 'Add files');
+
+		write('newpkg/index.ts');
+		write('newpkg/a.log');
+		write('newpkg/node_modules/x/y.js');
+		write('newpkg/logs/1.log');
+		write('newpkg/logs/2.log');
+		write('newpkg/logs/deep/3.log');
+		write('newpkg/mixed/keep.ts');
+		write('newpkg/mixed/m.log');
+		write('newpkg/mixed/node_modules/z');
+		write('newpkg/onlymods/node_modules/q');
+		write('newpkg/emptyish/e.log');
+		mkdirSync(join(repo.path, 'newpkg/emptyish/void'), { recursive: true });
+		write('newpkg/nested/inner/keep2.ts');
+		write('newpkg/nested/inner/logs/x.log');
+		write('newpkg/build/out.js');
+		write('newpkg/top.tmp');
+		write('other/keep3.ts');
+		write('other/sub/only.log');
+		write('newpkg/repo/file');
+		git(join(repo.path, 'newpkg/repo'), 'init');
+		write('newpkg/[id]/g.log');
+		write('newpkg/i/h.ts');
+	});
+
+	suiteTeardown(() => {
+		repo.cleanup();
+	});
+
+	test('lists the same entries as a traditional status --ignored', async () => {
+		const expected = git(
+			repo.path,
+			'-c',
+			'status.renames=false',
+			'status',
+			'--porcelain',
+			'-z',
+			'--ignored',
+			'--untracked-files=normal',
+			'--ignore-submodules=all',
+		)
+			.split('\0')
+			.filter(r => r.startsWith('!! '))
+			.map(r => r.substring(3))
+			.sort();
+
+		const result = await repo.provider.getIgnoredEntries(repo.path);
+
+		assert.deepStrictEqual(result, expected);
+		assert.deepStrictEqual(result, [
+			'newpkg/[id]/',
+			'newpkg/a.log',
+			'newpkg/build/',
+			'newpkg/emptyish/',
+			'newpkg/logs/',
+			'newpkg/mixed/m.log',
+			'newpkg/mixed/node_modules/',
+			'newpkg/nested/inner/logs/',
+			'newpkg/node_modules/',
+			'newpkg/onlymods/',
+			'other/sub/',
+		]);
+	});
+});

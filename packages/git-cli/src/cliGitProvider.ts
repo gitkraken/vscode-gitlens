@@ -31,6 +31,7 @@ import type { FilteredGitFeatures, GitFeatureOrPrefix, GitFeatures } from './exe
 import type { GitFeatureUnsupportedMessage, GitOptions } from './exec/git.js';
 import { batchLiteralPathspecs, Git, gitConfigsStatus } from './exec/git.js';
 import type { GitLocation } from './exec/locator.js';
+import { foldMatchingIgnored } from './parsers/statusParser.js';
 import { BlameGitSubProvider } from './providers/blame.js';
 import { BranchesGitSubProvider } from './providers/branches.js';
 import { CommitsGitSubProvider } from './providers/commits.js';
@@ -842,15 +843,19 @@ export class CliGitProvider implements GitProvider {
 		}
 		if (!folders.length) return [...entries].sort();
 
+		// `matching` reports a folder an ignore rule matches without walking it, but lists each file of a folder that is
+		// ignored only because all of its files are, so `all` untracked files are needed to fold those back
+		const matching = await this._git.supports('git:status:ignored-matching');
 		const prefix = [
 			'status',
 			'--porcelain',
 			'-z',
-			'--ignored',
-			'--untracked-files=normal',
+			matching ? '--ignored=matching' : '--ignored',
+			matching ? '--untracked-files=all' : '--untracked-files=normal',
 			'--ignore-submodules=all',
 		];
 
+		const records: string[] = [];
 		for (const batch of batchLiteralPathspecs(folders, prefix)) {
 			const listed = await this._git.run(
 				{
@@ -865,9 +870,17 @@ export class CliGitProvider implements GitProvider {
 
 			// Only untracked folders are in scope, so there are no tracked entries, and no rename pairs, to step over
 			for (const record of iterateByDelimiter(listed.stdout, '\0')) {
-				if (record.startsWith('!! ')) {
+				if (matching) {
+					records.push(record);
+				} else if (record.startsWith('!! ')) {
 					entries.add(record.substring(3));
 				}
+			}
+		}
+
+		if (matching) {
+			for (const entry of foldMatchingIgnored(records)) {
+				entries.add(entry);
 			}
 		}
 		return [...entries].sort();
