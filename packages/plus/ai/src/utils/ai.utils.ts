@@ -33,6 +33,13 @@ export function getActionName(action: AIActionType): string {
 	}
 }
 
+/** The action name the GitKraken backend validates and bills requests under. Orient is a depth of the
+ *  review feature, so it travels as `review-changes` — the backend knows no finer-grained action, and
+ *  Start Review already sends one action for its overview and detail templates. */
+export function getBackendActionType(action: AIActionType): AIActionType {
+	return action === 'review-orient' ? 'review-changes' : action;
+}
+
 export const estimatedCharactersPerToken = 2.8;
 
 export function getValidatedTemperature(
