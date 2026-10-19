@@ -1337,7 +1337,8 @@ Markdown by this package.
   does: collection `{vdir}` and project `{collection}`, with the connection addressed at `{vdir}` (or at
   `{vdir}/{collection}`). The repository name is required for it, since it names the project. A scope that names its
   collection and project is read as given. So is one whose collections can't be read, and a batch or branch read that
-  then finds nothing for it fails that target rather than report it absent.
+  then finds nothing for it fails that target rather than report it absent. A pull request or issue list that finds
+  nothing for it keeps the other scopes' items but reports that scope in a warning and marks the page incomplete.
 
   Azure DevOps Server also has the filtered searches and their counts, with the collection applied exactly once
   whichever way the address is written. Scope names are encoded as URL segments (collections, projects,
