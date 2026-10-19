@@ -16,7 +16,7 @@ import { appendDedupedWarning, reconcileOmissionsWithFailure } from '../results.
 import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from './cursors.js';
-import { runCaptured } from './drains.js';
+import { discoverResources, runCaptured } from './drains.js';
 import { projectKey, resourceIdForProject, resourceLabel, selectorMatches } from './hierarchy.utils.js';
 import { resolveIssueSort, toIssueOrdering } from './ordering.js';
 import {
@@ -236,18 +236,24 @@ export async function listIssueTrackerIssuesPage(
 
 	await integration.getCurrentAccount({ connectionId: options.connectionId }).catch(() => undefined);
 
-	const { value: resources, warning: resourcesWarning } = await runCaptured(
-		options.providerId,
-		domain,
-		options.connectionId,
-		() => integration.getResourcesForUserResult(options.connectionId),
-	);
+	const {
+		value: resources,
+		warning: resourcesWarning,
+		metadata: resourcesMetadata,
+	} = await discoverResources(integration, options.providerId, domain, options.connectionId);
 	if (resourcesWarning != null) {
 		warnings.push(resourcesWarning);
 	}
 	if (resources == null || resources.length === 0) {
 		const fetchFailed = resourcesWarning != null && resources == null;
-		return emptyPage(fetchFailed, false, fetchFailed ? discoveryFailureRetry() : undefined);
+		const { truncated } = mergeAssessmentInto(
+			warnings,
+			options.providerId,
+			domain,
+			options.connectionId,
+			resourcesMetadata,
+		);
+		return emptyPage(fetchFailed, truncated, fetchFailed || truncated ? discoveryFailureRetry() : undefined);
 	}
 
 	const scopedResources =

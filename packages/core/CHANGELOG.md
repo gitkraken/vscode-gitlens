@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes a Jira Cloud site, Linear organization or Trello board discovery that answered with no data and no error reading as an account with nothing to read: `listIssueTrackerIssuesPage` returned an empty page with no warning, not `truncated` and without a retry cursor, and `listOrgs` / `listProjects` returned an empty list as complete. The discovery is now reported as incomplete, with a "Result completeness could not be confirmed" warning: the issues page is `truncated` and carries a retry cursor, and `listOrgs` / `listProjects` mark the provider `fetchFailed`. A discovery answering `[]` still means no resources, and an unconnected tracker still reads as empty ([#6024](https://github.com/gitkraken/vscode-gitlens/issues/6024)) (plus/integrations)
+
 ## [0.14.0] - 2026-10-18
 
 ### Added
