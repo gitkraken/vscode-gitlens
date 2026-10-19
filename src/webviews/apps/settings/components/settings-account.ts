@@ -71,6 +71,8 @@ interface PlanCardContent {
 	cta?: { label: string; href: string; promo?: PromoPlans };
 	/** The "Already have a GitKraken account?" line — only when there's no account to sign in to. */
 	showSignInLine?: boolean;
+	/** The "Or upgrade to Pro" line — when the CTA offers a trial reactivation, so buying stays reachable. */
+	showUpgradeLine?: boolean;
 	featuresHeading: string;
 	/** Pro isn't active, so the bullets are an offer rather than an inventory (lock icons, not checks). */
 	locked: boolean;
@@ -985,6 +987,17 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 						</p>`
 					: nothing
 			}
+			${
+				content.showUpgradeLine
+					? html`<p class="plan__secondary">
+							${localizedContent(l10n.t('Or {upgrade} to unlock all Pro features.'), {
+								upgrade: html`<a href=${this.createUpgradeLink('pro', sub.activeOrganization?.id)}
+									>${l10n.t('upgrade to Pro')}</a
+								>`,
+							})}
+						</p>`
+					: nothing
+			}
 			<div class="plan__features ${content.locked ? 'plan__features--locked' : ''}">
 				<h4 class="plan__features-title" id="plan-features-title">${content.featuresHeading}</h4>
 				<ul class="plan__feature-list" aria-labelledby="plan-features-title">
@@ -1443,6 +1456,7 @@ export class GlSettingsAccount extends SignalWatcher(LitElement) {
 							detail: { location: 'settings-account:plan-card' },
 						}),
 					},
+					showUpgradeLine: true,
 					featuresHeading: l10n.t('What GitLens Pro unlocks'),
 					locked: true,
 				};

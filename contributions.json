@@ -22036,7 +22036,7 @@
 					"when": "gitlens:launchpad:connected && gitlens:plus:state == 4"
 				},
 				{
-					"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 14 days!",
+					"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 14 days! Or [upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22launchpad-view%22%7D).",
 					"when": "gitlens:launchpad:connected && gitlens:plus:state == 5"
 				}
 			]
@@ -22147,7 +22147,7 @@
 					"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:view == launchpad && gitlens:launchpad:connected && gitlens:plus:state == 4"
 				},
 				{
-					"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 14 days!",
+					"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22launchpad-view%22%7D)\n\nReactivate your Pro trial and experience Launchpad and all the new Pro features — free for another 14 days! Or [upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22launchpad-view%22%7D).",
 					"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:view == launchpad && gitlens:launchpad:connected && gitlens:plus:state == 5"
 				},
 				{
@@ -22199,7 +22199,7 @@
 					"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:view == worktrees && !gitlens:hasVirtualFolders && gitlens:plus:required && gitlens:plus:state == 4"
 				},
 				{
-					"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 14 days!",
+					"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 14 days! Or [upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22worktrees%22%7D).",
 					"when": "!gitlens:views:scm:grouped:loading && gitlens:views:scm:grouped:view == worktrees && !gitlens:hasVirtualFolders && gitlens:plus:required && gitlens:plus:state == 5"
 				},
 				{
@@ -22348,7 +22348,7 @@
 					"when": "gitlens:plus:required && gitlens:plus:state == 4"
 				},
 				{
-					"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 14 days!",
+					"contents": "[Continue](command:gitlens.plus.reactivateProTrial?%7B%22source%22%3A%22worktrees%22%7D)\n\nReactivate your Pro trial and experience Worktrees and all the new Pro features — free for another 14 days! Or [upgrade to Pro](command:gitlens.plus.upgrade?%7B%22source%22%3A%22worktrees%22%7D).",
 					"when": "gitlens:plus:required && gitlens:plus:state == 5"
 				},
 				{
