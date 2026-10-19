@@ -251,6 +251,18 @@ export class GlFeatureGatePlusState extends LitElement {
 							>${l10n.t('Continue')}</gl-button
 						>
 					</p>
+					<p class="centered">
+						${localizedContent(l10n.t('or {upgrade}'), {
+							upgrade: html`<a
+								href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
+									plan: 'pro',
+									...(this.source ?? { source: 'feature-gate' }),
+								})}"
+								title=${l10n.t('Upgrade to Pro')}
+								>${l10n.t('upgrade to Pro')}</a
+							>`,
+						})}
+					</p>
 					<hr />
 					<p class="centered">
 						${this.featureWithArticleIfNeeded ? l10n.t('Reactivate your Pro trial to experience {feature} and all the new Pro features — free for another {days} days.', { feature: this.featureWithArticleIfNeeded, days: getNumericFormat()(proTrialLengthInDays) }) : l10n.t('Reactivate your Pro trial to experience all the new Pro features — free for another {0} days.', getNumericFormat()(proTrialLengthInDays))}

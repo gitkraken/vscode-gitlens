@@ -292,12 +292,22 @@ export class GlFeatureBadge extends LitElement {
 						${l10n.t('Reactivate your Pro trial and experience all the new Pro features — free for another {0} days!', getNumericFormat()(proTrialLengthInDays))}
 					</p>
 					<div class="actions center">
-						<gl-button
-							density="tight"
-							href="${createCommandLink<Source>('gitlens.plus.reactivateProTrial', this.source)}"
-							tooltip=${l10n.t('Reactivate your Pro trial for another {0} days', getNumericFormat()(proTrialLengthInDays))}
-							>${l10n.t('Reactivate Pro Trial')}</gl-button
-						>
+						${localizedContent(l10n.t('{reactivate} or {upgrade}'), {
+							reactivate: html`<gl-button
+								density="tight"
+								href="${createCommandLink<Source>('gitlens.plus.reactivateProTrial', this.source)}"
+								tooltip=${l10n.t('Reactivate your Pro trial for another {0} days', getNumericFormat()(proTrialLengthInDays))}
+								>${l10n.t('Reactivate Pro Trial')}</gl-button
+							>`,
+							upgrade: html`<a
+								href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
+									plan: 'pro',
+									...(this.source ?? { source: 'feature-badge' }),
+								})}"
+								title=${l10n.t('Upgrade to Pro')}
+								>${l10n.t('upgrade to Pro')}</a
+							>`,
+						})}
 					</div>`;
 				break;
 
