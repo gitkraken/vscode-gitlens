@@ -33,6 +33,7 @@ suite('DiffWithCommand', () => {
 					getBestRevisionUri: getBestRevisionUri,
 					getRevisionUri: (sha: string, path: string) => Uri.file(path).with({ scheme: 'test', query: sha }),
 					getAbsoluteUri: (path: string) => Uri.file(`${repoPath}/${path}`),
+					getRelativePath: (uri: Uri) => uri.path.slice(repoPath.length + 1),
 				}),
 			},
 		} as unknown as Container;
@@ -146,17 +147,21 @@ suite('DiffWithCommand', () => {
 		assertDiff('original', 'readded');
 	});
 
-	test('an unresolved parent of an added file opens empty without changing its cached resolution', async () => {
-		const parentRef = `${'b'.repeat(40)}^`;
-		const lhs = Object.freeze({ sha: parentRef, revision: parentRef });
-		const rhs = Object.freeze({ sha: 'added', revision: 'added', status: 'A' } satisfies ResolvedRevision);
+	test('a left revision that renamed the file away opens an empty side without changing the cached resolution', async () => {
+		const lhs = Object.freeze({
+			sha: 'renamedAway',
+			revision: 'renamedAway',
+			status: 'R',
+			path: 'moved.txt',
+		} satisfies ResolvedRevision);
+		const rhs = Object.freeze({ sha: 'readded', revision: 'readded', status: 'A' } satisfies ResolvedRevision);
 		resolveRevision.onFirstCall().resolves(lhs);
 		resolveRevision.onSecondCall().resolves(rhs);
 
-		await command.execute(args(parentRef, 'added'));
+		await command.execute(args('renamedAway', 'readded'));
 
-		assertDiff(deletedOrMissing, 'added');
-		assert.strictEqual(lhs.sha, parentRef);
+		assertDiff(deletedOrMissing, 'readded');
+		assert.strictEqual(lhs.sha, 'renamedAway');
 	});
 
 	test('a rename comparison uses the destination path and retains the original left side', async () => {

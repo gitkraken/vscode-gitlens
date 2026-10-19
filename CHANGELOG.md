@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes clicking a file that was deleted and re-added failing to open its diff — the comparison now shows an empty previous version ([#5914](https://github.com/gitkraken/vscode-gitlens/issues/5914))
+- Fixes opening the changes of a file that was deleted (or renamed away) and re-added failing with "file not found" &mdash; the comparison now shows an empty previous version ([#5914](https://github.com/gitkraken/vscode-gitlens/issues/5914)) &mdash; thanks to [PR #5930](https://github.com/gitkraken/vscode-gitlens/pull/5930) by Andrés Martínez ([@amartinez1224](https://github.com/amartinez1224))
 
 ## [19.4.0] - 2026-10-15
 

@@ -3,7 +3,7 @@ import { l10n, ViewColumn } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import { deletedOrMissing } from '@gitlens/git/models/revision.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
-import { isShaWithParentSuffix, isUncommitted, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { isUncommitted, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { basename } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -63,7 +63,7 @@ export class DiffWithCommand extends GlCommandBase {
 			} else {
 				args = {
 					repoPath: commit.repoPath,
-					// Don't need to worry about verifying the previous sha, as the DiffWith command will
+					// Added and untracked files have no previous revision; any other previous sha is verified by DiffWith
 					lhs: {
 						sha:
 							commit.file.status === 'A' || commit.file.status === '?'
@@ -131,7 +131,13 @@ export class DiffWithCommand extends GlCommandBase {
 				}
 			}
 
-			if (lhsResolved.status === 'D') {
+			// The file doesn't exist on the left if its last change there deleted it or renamed it away
+			if (
+				lhsResolved.status === 'D' ||
+				(lhsResolved.status === 'R' &&
+					lhsResolved.path != null &&
+					lhsResolved.path !== svc.getRelativePath(lhsUri, args.repoPath))
+			) {
 				lhsResolved = { ...lhsResolved, sha: deletedOrMissing };
 			}
 
@@ -139,8 +145,6 @@ export class DiffWithCommand extends GlCommandBase {
 				rhsResolved = { ...rhsResolved, sha: deletedOrMissing };
 			} else if (rhsResolved.status === 'R' || rhsResolved.status === 'C') {
 				rhsUri = svc.getAbsoluteUri(rhsResolved.path!, args.repoPath);
-			} else if (rhsResolved.status === 'A' && isShaWithParentSuffix(lhsResolved.sha)) {
-				lhsResolved = { ...lhsResolved, sha: deletedOrMissing };
 			}
 
 			const [lhsResult, rhsResult] = await Promise.allSettled([
