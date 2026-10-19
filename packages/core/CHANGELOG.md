@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-10-19
+
 ### Added
 
 - Adds `cancellation` to `getTreeForRevision`, as its fourth argument after `options`, so a host lazy-loading a folder tree can abort the read for a folder the user collapsed; an aborted read rejects with a `CancellationError` rather than answering empty, and a read only joins an identical concurrent one with the same signal. The GitHub provider ignores it (git, git-cli)
@@ -790,7 +792,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.1...HEAD
+[0.15.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.0...gitkraken:releases/core/v0.15.1
 [0.15.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.14.0...gitkraken:releases/core/v0.15.0
 [0.14.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.13.0...gitkraken:releases/core/v0.14.0
 [0.13.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.12.0...gitkraken:releases/core/v0.13.0
