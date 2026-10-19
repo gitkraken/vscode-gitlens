@@ -1,7 +1,8 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import * as sinon from 'sinon';
 import type { TestRepo } from './helpers.js';
 import { createTestRepo } from './helpers.js';
 
@@ -244,8 +245,6 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 		assertMatchesStatus('src'));
 	test('matches status scoped to a new untracked folder', () => assertMatchesStatus('newpkg'));
 	test('matches status scoped to a folder inside a new untracked folder', () => assertMatchesStatus('newpkg/sub'));
-	test('matches status scoped to a folder inside a wholly ignored folder', () =>
-		assertMatchesStatus('node_modules/a'));
 	test('matches status scoped to a glob-named folder', () => assertMatchesStatus('[id]'));
 	test('matches status scoped to the sibling of a glob-named folder', () => assertMatchesStatus('i'));
 
@@ -264,6 +263,134 @@ suite('CliGitProvider getIgnoredEntries scoped to paths', () => {
 		const result = await repo.provider.getIgnoredEntries(repo.path, { paths: ['src', 'newpkg', 'src/dist'] });
 
 		assert.deepStrictEqual(result, [...new Set([...oracle('src'), ...oracle('newpkg')])].sort());
+	});
+
+	test('a scope inside a wholly ignored folder is answered as that scope, never an ancestor', async () => {
+		const get = (...paths: string[]) => repo.provider.getIgnoredEntries(repo.path, { paths: paths });
+
+		assert.deepStrictEqual(await get('node_modules/a'), ['node_modules/a/']);
+		assert.deepStrictEqual(await get('node_modules/a/'), ['node_modules/a/']);
+		assert.deepStrictEqual(await get('node_modules/a/x'), ['node_modules/a/x']);
+		assert.deepStrictEqual(await get('node_modules/a/deep/'), ['node_modules/a/deep/']);
+		assert.deepStrictEqual(await get('node_modules'), ['node_modules/']);
+		assert.deepStrictEqual(await get('node_modules/a/missing'), []);
+		assert.deepStrictEqual(await get('node_modules/a/', 'src'), [
+			'node_modules/a/',
+			'src/cache.tmp',
+			'src/dist/a.tmp',
+			'src/keep.log',
+		]);
+	});
+
+	test('a scope beyond a symlink, which check-ignore refuses, lists nothing instead of failing the call', async function () {
+		const link = join(repo.path, 'linked');
+		try {
+			symlinkSync(join(repo.path, 'src'), link, 'dir');
+		} catch {
+			this.skip();
+		}
+
+		try {
+			const get = (...paths: string[]) => repo.provider.getIgnoredEntries(repo.path, { paths: paths });
+
+			assert.deepStrictEqual(await get('linked/dist'), []);
+			assert.deepStrictEqual(await get('linked/dist', 'node_modules/a'), ['node_modules/a/']);
+		} finally {
+			rmSync(link, { force: true });
+		}
+	});
+
+	test('many scopes with one beyond a symlink are answered by bisecting the failed batch, not one run each', async function () {
+		const link = join(repo.path, 'linked');
+		try {
+			symlinkSync(join(repo.path, 'src'), link, 'dir');
+		} catch {
+			this.skip();
+		}
+
+		const spy = sinon.spy(repo.provider, 'getIgnoredPaths');
+		try {
+			const ignored = [
+				'src/cache.tmp',
+				'src/keep.log',
+				'src/dist/a.tmp',
+				'newpkg/debug.log',
+				'newpkg/sub/z.log',
+				'[id]/x.log',
+				'i/z.log',
+				'other/q.log',
+			];
+			const scopes = [
+				...ignored.slice(0, 5),
+				'linked/dist',
+				...ignored.slice(5),
+				'src/index.ts',
+				...Array.from({ length: 14 }, (_, i) => `src/missing${i}`),
+			];
+
+			const entries = await repo.provider.getIgnoredEntries(repo.path, { paths: scopes });
+
+			assert.deepStrictEqual(entries, ignored.sort());
+			assert.ok(
+				spy.callCount < scopes.length / 2,
+				`Expected well under ${scopes.length} runs, got ${spy.callCount}`,
+			);
+		} finally {
+			spy.restore();
+			rmSync(link, { force: true });
+		}
+	});
+
+	test('an ignored symlink to a folder is answered as a file, as git lists it', async function () {
+		const link = join(repo.path, 'vendor-link');
+		try {
+			symlinkSync(join(repo.path, 'src'), link, 'dir');
+		} catch {
+			this.skip();
+		}
+
+		const exclude = join(repo.path, '.git', 'info', 'exclude');
+		mkdirSync(dirname(exclude), { recursive: true });
+		writeFileSync(exclude, 'vendor-link\n');
+		try {
+			assert.deepStrictEqual(await repo.provider.getIgnoredEntries(repo.path, { paths: ['vendor-link'] }), [
+				'vendor-link',
+			]);
+		} finally {
+			writeFileSync(exclude, '');
+			rmSync(link, { force: true });
+		}
+	});
+
+	test('an ignored folder is listed only when a file lies somewhere below it', async () => {
+		const exclude = join(repo.path, '.git', 'info', 'exclude');
+		mkdirSync(dirname(exclude), { recursive: true });
+		writeFileSync(exclude, 'cachedir/\n');
+		mkdirSync(join(repo.path, 'holder/cachedir'), { recursive: true });
+		mkdirSync(join(repo.path, 'nested/cachedir/a/b'), { recursive: true });
+		write('deep/cachedir/a/b/f.txt');
+		try {
+			const get = (...paths: string[]) => repo.provider.getIgnoredEntries(repo.path, { paths: paths });
+
+			assert.deepStrictEqual(await get('holder/cachedir'), []);
+			assert.deepStrictEqual(await get('nested/cachedir'), []);
+			assert.deepStrictEqual(await get('deep/cachedir'), ['deep/cachedir/']);
+			assert.deepStrictEqual(await get('holder/cachedir', 'nested/cachedir', 'deep/cachedir'), [
+				'deep/cachedir/',
+			]);
+
+			const unscoped = await repo.provider.getIgnoredEntries(repo.path);
+			assert.ok(
+				unscoped.some(e => e.startsWith('deep/')),
+				'deep/',
+			);
+			assert.ok(!unscoped.some(e => e.startsWith('holder/') || e.startsWith('nested/')), 'empty folders');
+		} finally {
+			writeFileSync(exclude, '');
+			for (const dir of ['holder', 'nested', 'deep']) {
+				rmSync(join(repo.path, dir), { recursive: true, force: true });
+			}
+		}
 	});
 
 	test('an empty paths array answers empty', async () => {
