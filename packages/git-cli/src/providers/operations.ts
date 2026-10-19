@@ -39,6 +39,7 @@ import {
 	gitConfigsPull,
 	GitErrors,
 	inferSigningFormatFromError,
+	isRunHookFailure,
 	maxGitCliLength,
 } from '../exec/git.js';
 import { resolveBranchRemote } from './branchRemote.js';
@@ -86,6 +87,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			}
 		} catch (ex) {
 			scope?.error(ex);
+			if (isRunHookFailure(ex)) throw ex;
+
 			throw getGitCommandError(
 				'checkout',
 				ex,
@@ -152,6 +155,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
+			if (isRunHookFailure(ex)) throw ex;
+
 			await this.throwIfSigningError(repoPath, args, ex, options?.source);
 			const mapped = getGitCommandError(
 				'cherry-pick',
@@ -237,6 +242,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			}
 		} catch (ex) {
 			scope?.error(ex);
+			if (isRunHookFailure(ex)) throw ex;
+
 			await this.throwIfSigningError(repoPath, params, ex, options?.source);
 			throw getGitCommandError(
 				'commit',
@@ -495,6 +502,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		try {
 			await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...params);
 		} catch (ex) {
+			if (isRunHookFailure(ex)) throw ex;
+
 			throw getGitCommandError(
 				'fetch',
 				ex,
@@ -553,6 +562,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
+			if (isRunHookFailure(ex)) throw ex;
+
 			await this.throwIfSigningError(repoPath, args, ex, options?.source);
 			const mapped = getGitCommandError(
 				'merge',
@@ -733,6 +744,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		try {
 			await this.git.run({ cwd: repoPath, configs: gitConfigsPull, errors: 'throw', ...runOptions }, ...params);
 		} catch (ex) {
+			if (isRunHookFailure(ex)) throw ex;
+
 			await this.throwIfSigningError(repoPath, params, ex, options.source);
 			throw getGitCommandError(
 				'pull',
@@ -915,6 +928,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		try {
 			await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...params);
 		} catch (ex) {
+			if (isRunHookFailure(ex)) throw ex;
+
 			const error = getGitCommandError(
 				'push',
 				ex,
@@ -1067,6 +1082,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
+			if (isRunHookFailure(ex)) throw ex;
+
 			await this.throwIfSigningError(repoPath, args, ex, options?.source);
 			const mapped = getGitCommandError(
 				'rebase',
@@ -1125,6 +1142,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		try {
 			await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...params);
 		} catch (ex) {
+			if (isRunHookFailure(ex)) throw ex;
+
 			throw getGitCommandError(
 				'reset',
 				ex,
@@ -1187,6 +1206,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			}
 		} catch (ex) {
 			scope?.error(ex);
+			if (isRunHookFailure(ex)) throw ex;
+
 			throw getGitCommandError(
 				'checkout',
 				ex,
@@ -1241,6 +1262,8 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			return { conflicted: false };
 		} catch (ex) {
 			scope?.error(ex);
+			if (isRunHookFailure(ex)) throw ex;
+
 			await this.throwIfSigningError(repoPath, args, ex, options?.source);
 
 			const mapped = getGitCommandError(

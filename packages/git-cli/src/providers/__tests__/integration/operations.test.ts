@@ -1494,3 +1494,97 @@ suite('OperationsGitSubProvider — failed writes still announce', () => {
 		}
 	});
 });
+
+suite('OperationsGitSubProvider — beforeIndexLockRetry rejection', () => {
+	test('commit rethrows the hook rejection instead of mapping it to a CommitError', async () => {
+		const r = createTestRepo();
+		const lock = join(r.path, '.git', 'index.lock');
+		try {
+			writeFileSync(join(r.path, 'new.txt'), 'x\n');
+			execFileSync('git', ['add', 'new.txt'], { cwd: r.path, stdio: 'pipe' });
+			writeFileSync(lock, '');
+
+			const hostError = new Error('host refused');
+			let hookCalls = 0;
+			let caught: unknown;
+			try {
+				await r.provider.ops.commit(r.path, 'msg', undefined, {
+					beforeIndexLockRetry: () => {
+						hookCalls++;
+						return Promise.reject(hostError);
+					},
+				});
+			} catch (ex) {
+				caught = ex;
+			}
+
+			assert.strictEqual(caught, hostError);
+			assert.strictEqual(hookCalls, 1);
+		} finally {
+			rmSync(lock, { force: true });
+			r.cleanup();
+		}
+	});
+
+	test('reset rethrows the hook rejection instead of mapping it to a ResetError', async () => {
+		const r = createTestRepo();
+		const lock = join(r.path, '.git', 'index.lock');
+		try {
+			writeFileSync(lock, '');
+
+			const hostError = new Error('host refused');
+			let hookCalls = 0;
+			let caught: unknown;
+			try {
+				await r.provider.ops.reset(
+					r.path,
+					'HEAD',
+					{ mode: 'mixed' },
+					{
+						beforeIndexLockRetry: () => {
+							hookCalls++;
+							return Promise.reject(hostError);
+						},
+					},
+				);
+			} catch (ex) {
+				caught = ex;
+			}
+
+			assert.strictEqual(caught, hostError);
+			assert.strictEqual(hookCalls, 1);
+		} finally {
+			rmSync(lock, { force: true });
+			r.cleanup();
+		}
+	});
+
+	test('restore rethrows the hook rejection instead of mapping it to a CheckoutError', async () => {
+		const r = createTestRepo();
+		const lock = join(r.path, '.git', 'index.lock');
+		try {
+			writeFileSync(join(r.path, 'README.md'), 'changed\n');
+			writeFileSync(lock, '');
+
+			const hostError = new Error('host refused');
+			let hookCalls = 0;
+			let caught: unknown;
+			try {
+				await r.provider.ops.restore(r.path, 'README.md', undefined, {
+					beforeIndexLockRetry: () => {
+						hookCalls++;
+						return Promise.reject(hostError);
+					},
+				});
+			} catch (ex) {
+				caught = ex;
+			}
+
+			assert.strictEqual(caught, hostError);
+			assert.strictEqual(hookCalls, 1);
+		} finally {
+			rmSync(lock, { force: true });
+			r.cleanup();
+		}
+	});
+});
