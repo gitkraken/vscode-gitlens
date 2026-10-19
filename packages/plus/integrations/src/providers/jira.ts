@@ -244,9 +244,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		if (cachedResources != null && !force) return cachedResources;
 
 		const generation = this._organizations.generation;
-		const api = await this.getProvidersApi();
-		const resources = await api.getJiraResourcesForCurrentUser(toTokenWithInfo(this.id, session));
-		const organizations = resources?.map(r => ({ ...r, key: r.id }));
+		const organizations = await this.readOrganizations(session);
 		if (organizations == null) {
 			this._organizations.delete(accessToken);
 			return undefined;
@@ -254,6 +252,20 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 		this._organizations.set(accessToken, organizations, { generation: generation });
 		return organizations;
+	}
+
+	protected override getProviderUncachedResourcesForUser(
+		session: ProviderAuthenticationSession,
+	): Promise<JiraOrganizationDescriptor[] | undefined> {
+		return this.readOrganizations(session);
+	}
+
+	private async readOrganizations(
+		session: ProviderAuthenticationSession,
+	): Promise<JiraOrganizationDescriptor[] | undefined> {
+		const api = await this.getProvidersApi();
+		const resources = await api.getJiraResourcesForCurrentUser(toTokenWithInfo(this.id, session));
+		return resources?.map(r => ({ ...r, key: r.id }));
 	}
 
 	protected override async getProviderProjectsForResources(
@@ -273,95 +285,113 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		const projectsCache = this._projects;
 		const generation = projectsCache.generation;
 
-		let resourcesWithoutProjects = [];
-		if (force) {
-			resourcesWithoutProjects = resources;
-		} else {
-			for (const resource of resources) {
-				const resourceKey = `${accessToken}:${resource.id}`;
-				const cachedProjects = projectsCache.get(resourceKey);
-				if (cachedProjects == null) {
-					resourcesWithoutProjects.push(resource);
-				}
+		// Taken before the read, so a clear while it is in flight can't empty what was cached when it started. A forced
+		// read reads every resource, and still keeps a cached list for one it can't read completely.
+		const cachedProjects = new Map<string, JiraProjectDescriptor[]>();
+		for (const resource of resources) {
+			const projects = projectsCache.get(`${accessToken}:${resource.id}`);
+			if (projects != null) {
+				cachedProjects.set(resource.id, projects);
 			}
 		}
+		const resourcesWithoutProjects = force
+			? resources
+			: resources.filter(resource => !cachedProjects.has(resource.id));
 
-		let metadata: CollectionMetadata | undefined;
-		const partialProjects: JiraProjectDescriptor[] = [];
-		if (resourcesWithoutProjects.length > 0) {
-			const api = await this.getProvidersApi();
-			const tokenWithInfo = toTokenWithInfo(this.id, session);
-			const drains = await Promise.allSettled(
-				resourcesWithoutProjects.map(async resource => ({
-					resource: resource,
-					result: await collectProviderPagedResult(
-						cursor => api.getJiraProjectsForResource(tokenWithInfo, resource.id, { cursor: cursor }),
-						maxPagesPerRequest,
-						{ providerId: this.id, resourceId: resource.id },
-					),
-				})),
-			);
-
-			drains.forEach((drain, index) => {
-				if (drain.status === 'rejected') {
-					const resource = resourcesWithoutProjects[index];
-					if (resource == null) return;
-
-					metadata = mergeCollectionMetadata(metadata, {
-						completeness: 'partial',
-						failures: [
-							toCollectionScopeFailure({ providerId: this.id, resourceId: resource.id }, drain.reason),
-						],
-					});
-					return;
-				}
-
-				const { resource, result } = drain.value;
-				metadata = mergeCollectionMetadata(metadata, result.metadata);
-				const projects = result.values
-					.filter(project => project.resourceId === resource.id)
-					.map(project => ({ ...project }));
-				const incomplete =
-					result.truncated === true ||
-					(result.metadata != null && result.metadata.completeness !== 'complete');
-				if (incomplete) {
-					partialProjects.push(...projects);
-					if (
-						result.truncated === true &&
-						(result.metadata == null || result.metadata.completeness === 'complete')
-					) {
-						metadata = mergeCollectionMetadata(metadata, { completeness: 'partial' });
-					}
-					return;
-				}
-
-				// Not stored when the cache was dropped while this read was in flight, but still returned below: it
-				// is what this read found, only no longer trusted for the next one.
-				if (!projectsCache.set(`${accessToken}:${resource.id}`, projects, { generation: generation })) {
-					partialProjects.push(...projects);
-					return;
-				}
-
+		const read = await this.readProjects(session, resourcesWithoutProjects);
+		const values = [...read.partial];
+		for (const [resourceId, projects] of read.complete) {
+			// Returned either way; not stored when the cache was dropped while this read was in flight: it is what this
+			// read found, only no longer trusted for the next one.
+			if (projectsCache.set(`${accessToken}:${resourceId}`, projects, { generation: generation })) {
 				this._autolinks.delete(accessToken);
-			});
+			}
 		}
-
-		const values = resources.reduce<JiraProjectDescriptor[]>((projects, resource) => {
-			const resourceProjects = projectsCache.get(`${accessToken}:${resource.id}`);
+		for (const resource of resources) {
+			const resourceProjects = read.complete.get(resource.id) ?? cachedProjects.get(resource.id);
 			if (resourceProjects != null) {
-				projects.push(...resourceProjects);
-			}
-			return projects;
-		}, partialProjects);
-
-		const projectsByIdentity = new Map<string, JiraProjectDescriptor>();
-		for (const project of values) {
-			const identity = `${project.resourceId}:${project.id}`;
-			if (!projectsByIdentity.has(identity)) {
-				projectsByIdentity.set(identity, project);
+				values.push(...resourceProjects);
 			}
 		}
-		return { values: [...projectsByIdentity.values()], metadata: metadata };
+		return { values: uniqueProjects(values), metadata: read.metadata };
+	}
+
+	protected override async getProviderUncachedProjectsForResourcesWithMetadata(
+		session: ProviderAuthenticationSession,
+		resources: JiraOrganizationDescriptor[],
+	): Promise<ProviderApiCollectionResult<JiraProjectDescriptor>> {
+		const read = await this.readProjects(session, resources);
+		return {
+			values: uniqueProjects([...read.partial, ...[...read.complete.values()].flat()]),
+			metadata: read.metadata,
+		};
+	}
+
+	/**
+	 * Reads the projects of each resource from the provider, apart by whether a resource's list came back complete:
+	 * only a complete one may be cached as the resource's project set.
+	 */
+	private async readProjects(
+		session: ProviderAuthenticationSession,
+		resources: JiraOrganizationDescriptor[],
+	): Promise<{
+		complete: Map<string, JiraProjectDescriptor[]>;
+		partial: JiraProjectDescriptor[];
+		metadata: CollectionMetadata | undefined;
+	}> {
+		const complete = new Map<string, JiraProjectDescriptor[]>();
+		const partial: JiraProjectDescriptor[] = [];
+		let metadata: CollectionMetadata | undefined;
+		if (resources.length === 0) return { complete: complete, partial: partial, metadata: metadata };
+
+		const api = await this.getProvidersApi();
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+		const drains = await Promise.allSettled(
+			resources.map(async resource => ({
+				resource: resource,
+				result: await collectProviderPagedResult(
+					cursor => api.getJiraProjectsForResource(tokenWithInfo, resource.id, { cursor: cursor }),
+					maxPagesPerRequest,
+					{ providerId: this.id, resourceId: resource.id },
+				),
+			})),
+		);
+
+		drains.forEach((drain, index) => {
+			if (drain.status === 'rejected') {
+				const resource = resources[index];
+				if (resource == null) return;
+
+				metadata = mergeCollectionMetadata(metadata, {
+					completeness: 'partial',
+					failures: [
+						toCollectionScopeFailure({ providerId: this.id, resourceId: resource.id }, drain.reason),
+					],
+				});
+				return;
+			}
+
+			const { resource, result } = drain.value;
+			metadata = mergeCollectionMetadata(metadata, result.metadata);
+			const projects = result.values
+				.filter(project => project.resourceId === resource.id)
+				.map(project => ({ ...project }));
+			const incomplete =
+				result.truncated === true || (result.metadata != null && result.metadata.completeness !== 'complete');
+			if (incomplete) {
+				partial.push(...projects);
+				if (
+					result.truncated === true &&
+					(result.metadata == null || result.metadata.completeness === 'complete')
+				) {
+					metadata = mergeCollectionMetadata(metadata, { completeness: 'partial' });
+				}
+				return;
+			}
+
+			complete.set(resource.id, projects);
+		});
+		return { complete: complete, partial: partial, metadata: metadata };
 	}
 
 	protected override async getProviderIssuesForProject(
@@ -823,4 +853,16 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		this._projects.clear();
 		this._autolinks.clear();
 	}
+}
+
+/** The projects once each, by site and id. */
+function uniqueProjects(projects: JiraProjectDescriptor[]): JiraProjectDescriptor[] {
+	const projectsByIdentity = new Map<string, JiraProjectDescriptor>();
+	for (const project of projects) {
+		const identity = `${project.resourceId}:${project.id}`;
+		if (!projectsByIdentity.has(identity)) {
+			projectsByIdentity.set(identity, project);
+		}
+	}
+	return [...projectsByIdentity.values()];
 }

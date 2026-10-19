@@ -93,11 +93,20 @@ export interface ProviderWarningScope {
 	 */
 	resourceId?: string;
 	/**
-	 * The project as the read addressed it. For a Jira project read, the key on Jira Cloud (the project's `name` in
-	 * `listProjects`) and the numeric id on Jira Data Center.
+	 * The project as the read addressed it. For a Jira project read, the key, on Jira Cloud and Jira Data Center alike
+	 * (the project's `name` in `listProjects`).
 	 */
 	projectId?: string;
 	repositoryId?: string;
+}
+
+/**
+ * The selector of an issue-tracker project read that matched nothing: see {@link ProviderWarning.selector}. `kind`
+ * names which one missed, and `value` is that selector exactly as the caller passed it.
+ */
+export interface ProviderWarningSelector {
+	kind: 'org' | 'project';
+	value: string;
 }
 
 /**
@@ -251,6 +260,25 @@ export interface ProviderWarning {
 	 * it in no warning's `keys` and see `complete` on every one.
 	 */
 	unreadableItems?: ProviderWarningUnreadableItems;
+	/**
+	 * Present when an issue-tracker project read's `org` or `project` selector matched nothing the connection
+	 * discovered: the selection was removed, renamed, or is no longer visible to this connection. `kind` is
+	 * `'not-found'`, the page is empty and not `fetchFailed`, and it carries no cursor, since a retry finds the same.
+	 *
+	 * Set only when discovery was complete. A read whose discovery failed or was truncated cannot tell a missing
+	 * selection from one it did not reach, so it keeps reporting that failure instead, without this field. A miss is
+	 * confirmed against the connection's lists as the provider holds them now, read without the cache, since a cached
+	 * one predates what was created since. A cached project list can still name a project deleted since: the tracker
+	 * refuses it (Jira's "does not exist for the field 'project'"), it reads as empty, and the refusal drops that list,
+	 * so the next read reports the miss. Jira Data Center's refusal counts only when it names the user it
+	 * authenticated: it answers a rejected token the same way, as the anonymous user. The miss waits on an account
+	 * lookup on a resource those lists name, which confirms the
+	 * connection's credential, and a failed lookup is reported as the read's failure instead; an account that lists no
+	 * resource at all has none to look up, and is judged on its lists alone.
+	 *
+	 * It is the discriminant: a `not-found` without it is a request that failed with a 404, 410 or 422.
+	 */
+	selector?: ProviderWarningSelector;
 	/**
 	 * The keys of the batch targets this warning concerns: the target a per-target failure was refused or failed
 	 * for, or every target of an integration call that failed as a whole. So a caller that sends several callers'
@@ -594,13 +622,14 @@ function providerWarningKey(warning: ProviderWarning): string {
 		collectionScopeKey(warning.scope),
 		warning.cause?.reason ?? '',
 		providerWarningOmissionKey(warning.omission),
+		warning.selector != null ? JSON.stringify([warning.selector.kind, warning.selector.value]) : '',
 		warning.message,
 	].join(' ');
 }
 
 /**
  * Appends `warning` to `into` only when an equal warning (by provider/connection/domain/kind/message, plus the
- * structured scope, cause and omission when present) is absent. An equal warning already there merges its
+ * structured scope, cause, omission and selector when present) is absent. An equal warning already there merges its
  * {@link ProviderWarning.targetKeys} with the new one's instead: the union of both, or none when either concerns
  * the whole call. Its {@link ProviderWarning.unreadableItems} merge too (see {@link mergeUnreadableItems}): two reads
  * can report the same text for different items. The existing warning is replaced, never mutated, since it may be

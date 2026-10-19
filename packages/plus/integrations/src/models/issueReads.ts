@@ -125,7 +125,7 @@ export type ProjectIssuesDrain = {
 	metadata?: CollectionMetadata;
 	/**
 	 * The scope the provider records this project's failures under, so a cut the facade reports names the project
-	 * the same way: a Jira Cloud project by its key, a Jira Data Center one by its id. Omitted names no scope.
+	 * the same way: a Jira project by its key, on Cloud and Data Center alike. Omitted names no scope.
 	 */
 	scope?: CollectionScope;
 } & (

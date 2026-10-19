@@ -11,7 +11,7 @@ import type { ProjectIssuesDrain, ProjectIssuesRecovery } from '../models/issueR
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { IssueFilter, providersMetadata } from '../providers/models.js';
 import { mergeCollectionMetadata, parsePageCursor } from '../providers/utils/providerPaging.js';
-import type { ProviderPagedResult, ProviderWarning } from '../results.js';
+import type { ProviderPagedResult, ProviderWarning, ProviderWarningSelector } from '../results.js';
 import { appendDedupedWarning, reconcileOmissionsWithFailure } from '../results.js';
 import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
@@ -19,11 +19,14 @@ import { parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from './cursors
 import { discoverResources, runCaptured } from './drains.js';
 import { projectKey, resourceIdForProject, resourceLabel, selectorMatches } from './hierarchy.utils.js';
 import { resolveIssueSort, toIssueOrdering } from './ordering.js';
+import type { SelectionTarget } from './selectionConfirmation.js';
+import { confirmCredential, confirmSelection, toSelectionAction } from './selectionConfirmation.js';
 import {
 	incompleteReadWarning,
 	issueTrackerOnlySurfaceWarning,
 	otherWarning,
 	projectCutWarning,
+	unmatchedSelectorWarning,
 	unmergeableIssueSortWarning,
 	unsupportedIssueSortWarning,
 	unsupportedWarning,
@@ -31,7 +34,7 @@ import {
 
 const issueStateFilters: readonly IssueStateFilter[] = ['open', 'closed', 'all'];
 
-export async function listIssueTrackerIssuesPage(
+export function listIssueTrackerIssuesPage(
 	ctx: ProviderReadContext,
 	options: {
 		providerId: IntegrationIds;
@@ -77,6 +80,18 @@ export async function listIssueTrackerIssuesPage(
 		 */
 		domain?: string;
 	},
+): Promise<ProviderPagedResult<IssueShape>> {
+	return readIssueTrackerIssuesPage(ctx, options, false);
+}
+
+/**
+ * {@link listIssueTrackerIssuesPage}. `refreshed` marks the one read made again after a selection's confirmation
+ * found the cached discovery stale and dropped it, so this read's discovery is fresh and no further one is made.
+ */
+async function readIssueTrackerIssuesPage(
+	ctx: ProviderReadContext,
+	options: Parameters<typeof listIssueTrackerIssuesPage>[1],
+	refreshed: boolean,
 ): Promise<ProviderPagedResult<IssueShape>> {
 	// Pagination is opt-in: only window the projects when the caller actually asked to page. A caller that
 	// passes none of page/cursor/itemsPerPage keeps the "aggregate every matched project" contract, so an
@@ -244,7 +259,77 @@ export async function listIssueTrackerIssuesPage(
 	if (resourcesWarning != null) {
 		warnings.push(resourcesWarning);
 	}
+	const scopedResources =
+		options.org != null
+			? (resources ?? []).filter(r => selectorMatches(options.providerId, r, options.org!))
+			: (resources ?? []);
+	// Only a complete discovery proves a selection gone: a failed one may just not have reached it, and no resource
+	// list without a warning is no session.
+	const resourceDiscoveryComplete = resources != null && resourcesWarning == null;
+	const selectionTarget: SelectionTarget = {
+		integration: integration,
+		providerId: options.providerId,
+		domain: domain,
+		connectionId: options.connectionId,
+		org: options.org,
+		project: options.project,
+	};
+	const unconfirmed = (reasons: readonly ProviderWarning[]): ProviderPagedResult<IssueShape> => {
+		if (reasons.length === 0) {
+			warnings.push(
+				otherWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					`Could not confirm '${options.project ?? options.org}' is gone, so it is not reported as removed.`,
+				),
+			);
+		}
+		for (const warning of reasons) {
+			appendDedupedWarning(warnings, warning);
+		}
+		return emptyPage(true, false, discoveryFailureRetry());
+	};
+	/**
+	 * Settles a selection the cached discovery matches nothing for from the provider's lists as they are now (see
+	 * {@link confirmSelection} and {@link toSelectionAction}). The cached lists can predate what was created since, so
+	 * a stale one is dropped and the read made once more over fresh lists; that read confirms the same way, since its
+	 * own discovery can still be joined to one started before the drop.
+	 */
+	const missSelection = async (selector: ProviderWarningSelector): Promise<ProviderPagedResult<IssueShape>> => {
+		const next = toSelectionAction(await confirmSelection(selectionTarget, selector.kind), refreshed);
+		switch (next.action) {
+			case 'unconfirmed':
+				return unconfirmed(next.warnings);
+			case 'refresh':
+				integration.invalidateDiscoveryCaches();
+				// The caches are dropped already: the refreshed read needs no second session sync.
+				return readIssueTrackerIssuesPage(ctx, { ...options, forceSync: false }, true);
+			case 'report-missing': {
+				const credential = await confirmCredential(selectionTarget, next.resource);
+				if (!credential.confirmed) {
+					return unconfirmed(credential.warning != null ? [credential.warning] : []);
+				}
+
+				// What the lists miss now: a selected org that is gone misses the org, whichever the cache missed.
+				const missed: ProviderWarningSelector =
+					next.missed === 'org' && options.org != null ? { kind: 'org', value: options.org } : selector;
+				warnings.push(
+					unmatchedSelectorWarning(options.providerId, domain, options.connectionId, missed, options.org),
+				);
+				return emptyPage();
+			}
+		}
+	};
+	// Checked before the empty return, since an account with no resources left misses the selection too.
+	if (options.org != null && resourceDiscoveryComplete && scopedResources.length === 0) {
+		return missSelection({ kind: 'org', value: options.org });
+	}
 	if (resources == null || resources.length === 0) {
+		if (options.project != null && resourceDiscoveryComplete) {
+			return missSelection({ kind: 'project', value: options.project });
+		}
+
 		const fetchFailed = resourcesWarning != null && resources == null;
 		const { truncated } = mergeAssessmentInto(
 			warnings,
@@ -255,9 +340,7 @@ export async function listIssueTrackerIssuesPage(
 		);
 		return emptyPage(fetchFailed, truncated, fetchFailed || truncated ? discoveryFailureRetry() : undefined);
 	}
-
-	const scopedResources =
-		options.org != null ? resources.filter(r => selectorMatches(options.providerId, r, options.org!)) : resources;
+	// Only a partial discovery, reported by its warning, reaches here without the selected resource.
 	if (scopedResources.length === 0) {
 		return emptyPage();
 	}
@@ -286,6 +369,15 @@ export async function listIssueTrackerIssuesPage(
 	const projectDiscoveryFailed = projectDiscoveryAssessment.fetchFailed;
 	const projectDiscoveryTruncated = projectDiscoveryAssessment.truncated;
 	const projects = projectsResult?.values;
+	const matchedProjects =
+		options.project != null
+			? (projects ?? []).filter(p => selectorMatches(options.providerId, p, options.project!))
+			: (projects ?? []);
+	const projectDiscoveryComplete =
+		resourceDiscoveryComplete && projectsWarning == null && !projectDiscoveryFailed && !projectDiscoveryTruncated;
+	if (options.project != null && projects != null && projectDiscoveryComplete && matchedProjects.length === 0) {
+		return missSelection({ kind: 'project', value: options.project });
+	}
 	if (projects == null || projects.length === 0) {
 		const fetchFailed = (projectsWarning != null && projectsResult == null) || projectDiscoveryFailed;
 		return emptyPage(
@@ -294,11 +386,6 @@ export async function listIssueTrackerIssuesPage(
 			fetchFailed || projectDiscoveryTruncated ? discoveryFailureRetry() : undefined,
 		);
 	}
-
-	const matchedProjects =
-		options.project != null
-			? projects.filter(p => selectorMatches(options.providerId, p, options.project!))
-			: projects;
 
 	// Validate the requested filters against what this provider supports (e.g. Linear/Trello support only
 	// Assignee). An unsupported filter must not silently degrade — Linear/Trello ignore the requested type
@@ -560,7 +647,6 @@ export async function listIssueTrackerIssuesPage(
 			)),
 		})),
 	);
-
 	// Partial project discovery means some projects' issues are missing from this page; propagate it so the
 	// page reports fetchFailed even when every discovered project's own read succeeded.
 	let fetchFailed = projectDiscoveryFailed || accountLookupFailed;

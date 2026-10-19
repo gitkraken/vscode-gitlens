@@ -300,6 +300,14 @@ suite('scoped auth confirmation (#5890)', () => {
 			});
 		}
 
+		test('a refusal naming the anonymous user is a dead token too', async () => {
+			const { result } = await readTwice(() => Promise.reject(usersRefusal({ username: 'anonymous' })));
+
+			const auth = result.warnings.filter(w => w.kind === 'auth');
+			assert.equal(auth.length, 1);
+			assert.equal('scope' in auth[0], false, 'the refused credential is reported for the connection');
+		});
+
 		test('a sound token keeps each repository its own refusal', async () => {
 			const { result, probes } = await readTwice(() => Promise.resolve({ id: 'u1' }));
 

@@ -68,6 +68,13 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return account;
 	}
 
+	protected override getProviderUncachedAccountForResource(
+		session: ProviderAuthenticationSession,
+		_resource: ResourceDescriptor,
+	): Promise<Account | undefined> {
+		return this.fetchAccount(session, this.requireAppKey(session));
+	}
+
 	protected override async getProviderAccountForResource(
 		session: ProviderAuthenticationSession,
 		_resource: ResourceDescriptor,

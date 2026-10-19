@@ -25,7 +25,7 @@ import {
 	IssuesSelfManagedHostIntegrationId,
 	providerFanOutConcurrency,
 } from '../constants.js';
-import { RequestNotFoundError, toError } from '../errors.js';
+import { getAuthenticatedUser, RequestNotFoundError, toError } from '../errors.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
 import type {
 	AzurePullRequest,
@@ -98,6 +98,7 @@ import type {
 } from './models.js';
 import { isRepoIdsInput, providersMetadata } from './models.js';
 import {
+	AnonymousResponseError,
 	getProviderResponseBodyMessage,
 	isAzureProviderId,
 	isProviderIssueNotFoundError,
@@ -344,7 +345,7 @@ export class ProvidersApi {
 				},
 			});
 
-			return parseFetchResponseForApi<T>(response);
+			return parseFetchResponseForApi<T>(response, () => hasAuthorization(options.headers));
 		};
 		this.request = customFetch;
 		const providerApis = createProviderApis({ request: customFetch });
@@ -2730,10 +2731,33 @@ export class ProvidersApi {
 // This is copied over from the shared provider library because the current version is not respecting the "forceIsFetch: true"
 // option in the config and our custom fetch function isn't being wrapped by the necessary fetch wrapper. Remove this once the library
 // properly wraps our custom fetch and use `forceIsFetch: true` in the config.
-export async function parseFetchResponseForApi<T>(response: Response): Promise<ProviderRequestResponse<T>> {
+export async function parseFetchResponseForApi<T>(
+	response: Response,
+	sentCredential?: () => boolean,
+): Promise<ProviderRequestResponse<T>> {
 	// Media types are case-insensitive (RFC 9110 §8.3.1) and `fetch` hands the header back exactly as the server
 	// wrote it, so match on a lowercased copy rather than the raw value.
 	const contentType = (response.headers.get('content-type') || '').toLowerCase();
+
+	// A credential the server served as the anonymous user was rejected, whatever the body says; reading it as data
+	// reports an account with nothing in it (see `AnonymousResponseError`). Checked before the body is parsed, which
+	// may itself fail. A 401 already fails as the credential's rejection, with its body, and a throttle or a server
+	// failure keeps its own error: neither proves anything about the credential.
+	if (
+		response.status !== 401 &&
+		response.status !== 429 &&
+		response.status < 500 &&
+		getAuthenticatedUser(response.headers) === 'anonymous' &&
+		sentCredential?.() === true
+	) {
+		// Released rather than left for the collector: an unread body holds its connection.
+		void response.body?.cancel().catch(() => undefined);
+		throw new AnonymousResponseError(response.status, {
+			headers: Object.fromEntries(response.headers.entries()),
+			status: response.status,
+		});
+	}
+
 	let body;
 	let servedHtml = false;
 
@@ -2782,4 +2806,10 @@ export async function parseFetchResponseForApi<T>(response: Response): Promise<P
 	}
 
 	return result;
+}
+
+function hasAuthorization(headers: ProviderRequestOptions['headers']): boolean {
+	if (headers == null) return false;
+
+	return Object.entries(headers).some(([name, value]) => name.toLowerCase() === 'authorization' && Boolean(value));
 }

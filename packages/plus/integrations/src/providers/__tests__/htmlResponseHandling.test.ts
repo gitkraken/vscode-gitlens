@@ -5,9 +5,15 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
+	IssuesSelfManagedHostIntegrationId,
 } from '../../constants.js';
 import { AuthenticationError, RequestClientError } from '../../errors.js';
-import { throwProviderError, UnexpectedHtmlResponseError } from '../providerErrors.js';
+import {
+	AnonymousResponseError,
+	isProviderIssueNotFoundError,
+	throwProviderError,
+	UnexpectedHtmlResponseError,
+} from '../providerErrors.js';
 import { parseFetchResponseForApi } from '../providersApi.js';
 
 const signInPage = '<!DOCTYPE html><html><body>Sign in to Azure DevOps</body></html>';
@@ -135,6 +141,105 @@ suite('HTML responses on a 2xx (GKDEV-3617)', () => {
 					),
 				(ex: unknown) => ex instanceof RequestClientError && !(ex instanceof AuthenticationError),
 				`${providerId} must not be reported as an auth failure`,
+			);
+		}
+	});
+});
+
+// Jira Data Center serves a token it rejects as the anonymous user, answering `200 []` for its project list rather
+// than refusing the credential, so an account looked like it had no projects (#6014).
+suite('responses served as the anonymous user', () => {
+	const sentCredential = () => true;
+	const anonymousProjects = () =>
+		new Response('[]', {
+			status: 200,
+			headers: { 'content-type': 'application/json', 'x-ausername': 'anonymous' },
+		});
+
+	test('a request sent with a credential is rejected instead of being returned as data', async () => {
+		await assert.rejects(
+			() => parseFetchResponseForApi(anonymousProjects(), sentCredential),
+			AnonymousResponseError,
+		);
+	});
+
+	test('a refusal naming the anonymous user is the credential rejected too, in any casing', async () => {
+		const response = new Response(JSON.stringify({ errorMessages: ['Forbidden'] }), {
+			status: 403,
+			headers: { 'content-type': 'application/json', 'x-ausername': 'Anonymous' },
+		});
+
+		await assert.rejects(() => parseFetchResponseForApi(response, sentCredential), AnonymousResponseError);
+	});
+
+	test('a throttle or a server failure keeps its own error', async () => {
+		for (const status of [429, 503]) {
+			const response = new Response('{}', {
+				status: status,
+				headers: { 'content-type': 'application/json', 'x-ausername': 'anonymous' },
+			});
+
+			await assert.rejects(
+				() => parseFetchResponseForApi(response, sentCredential),
+				(ex: unknown) => ex instanceof Error && !(ex instanceof AnonymousResponseError),
+				String(status),
+			);
+		}
+	});
+
+	test('a 401 keeps its own error and its body, which already refuses the credential', async () => {
+		const response = new Response(JSON.stringify({ message: 'The user is not currently licensed' }), {
+			status: 401,
+			statusText: 'Unauthorized',
+			headers: { 'content-type': 'application/json', 'x-ausername': 'anonymous' },
+		});
+
+		await assert.rejects(
+			() => parseFetchResponseForApi(response, sentCredential),
+			(ex: unknown) =>
+				ex instanceof Error &&
+				!(ex instanceof AnonymousResponseError) &&
+				ex.message === '(401) Unauthorized. The user is not currently licensed',
+		);
+	});
+
+	test('it is never a missing issue, whatever its status', () => {
+		assert.equal(
+			isProviderIssueNotFoundError(
+				IssuesSelfManagedHostIntegrationId.JiraServer,
+				new AnonymousResponseError(404, undefined),
+			),
+			false,
+		);
+	});
+
+	test('a request sent without a credential keeps its answer, which is the anonymous user', async () => {
+		const result = await parseFetchResponseForApi<unknown[]>(anonymousProjects());
+		assert.deepEqual(result.body, []);
+	});
+
+	test('a response naming the authenticated user is untouched', async () => {
+		const response = new Response('[]', {
+			status: 200,
+			headers: { 'content-type': 'application/json', 'x-ausername': 'julian' },
+		});
+
+		const result = await parseFetchResponseForApi<unknown[]>(response, sentCredential);
+		assert.deepEqual(result.body, []);
+	});
+
+	test('it is classified as an authentication failure on every provider', () => {
+		for (const providerId of [
+			IssuesSelfManagedHostIntegrationId.JiraServer,
+			GitSelfManagedHostIntegrationId.BitbucketServer,
+		]) {
+			assert.throws(
+				() =>
+					throwProviderError(
+						{ ...tokenWithInfo, providerId: providerId },
+						new AnonymousResponseError(200, undefined),
+					),
+				AuthenticationError,
 			);
 		}
 	});
