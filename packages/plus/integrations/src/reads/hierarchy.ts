@@ -26,7 +26,7 @@ import {
 	warnOnMissingSessionForDomain,
 } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
-import { runCaptured } from './drains.js';
+import { discoverResources, runCaptured } from './drains.js';
 import {
 	assertHierarchyReadTarget,
 	mergeHierarchyResults,
@@ -108,13 +108,13 @@ export async function listOrgs(
 		const warnOnMissingSession = warnOnMissingSessionForDomain(id, requestedDomain);
 		if (isIssuesIntegration(integration)) {
 			// Issue trackers expose "resources" (Jira sites, Linear orgs, …) as their org analogue.
-			const { value: resources, warning } = await runCaptured(
-				id,
-				domain,
-				connectionId,
-				() => integration.getResourcesForUserResult(connectionId),
-				{ warnOnMissingSession: warnOnMissingSession },
-			);
+			const {
+				value: resources,
+				warning,
+				metadata,
+			} = await discoverResources(integration, id, domain, connectionId, {
+				warnOnMissingSession: warnOnMissingSession,
+			});
 			if (resources != null) {
 				items.push(...resources.map(r => resourceToOrg(id, r)));
 			}
@@ -124,6 +124,9 @@ export async function listOrgs(
 				if (resources == null) {
 					fetchFailed = true;
 				}
+			}
+			if (mergeAssessmentInto(warnings, id, domain, connectionId, metadata).truncated) {
+				fetchFailed = true;
 			}
 		} else if (!integration.supportsOrganizationDiscovery) {
 			// The provider registers no org-discovery hook. Report it as
@@ -233,18 +236,21 @@ export async function listProjects(
 			return { items: items, warnings: warnings, fetchFailed: fetchFailed };
 		}
 
-		const { value: resources, warning: resourcesWarning } = await runCaptured(
-			id,
-			domain,
-			connectionId,
-			() => integration.getResourcesForUserResult(connectionId),
-			{ warnOnMissingSession: warnOnMissingSession },
-		);
+		const {
+			value: resources,
+			warning: resourcesWarning,
+			metadata: resourcesMetadata,
+		} = await discoverResources(integration, id, domain, connectionId, {
+			warnOnMissingSession: warnOnMissingSession,
+		});
 		if (resourcesWarning != null) {
 			warnings.push(resourcesWarning);
 			if (resources == null) {
 				fetchFailed = true;
 			}
+		}
+		if (mergeAssessmentInto(warnings, id, domain, connectionId, resourcesMetadata).truncated) {
+			fetchFailed = true;
 		}
 
 		// By any identifier, unlike the issue reads' `selectorMatches`: this lists what the caller can then select, so a
