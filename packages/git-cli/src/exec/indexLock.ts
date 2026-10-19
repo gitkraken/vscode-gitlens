@@ -25,14 +25,27 @@ const indexWritingVerbs: ReadonlySet<string> = new Set([
 const applyIndexOptions: ReadonlySet<string> = new Set(['--index', '--cached', '--3way', '-3']);
 
 /**
- * Matches git's `fatal: Unable to create '<path>/index.lock': File exists.` — the wording varies a little by version.
+ * Matches git's `fatal: Unable to create '<path>/index.lock': File exists.` — the wording varies a little by version,
+ * but git always `die()`s (`fatal:`) on it.
  * Anchored to the start of stderr: git takes the lock before doing anything else, so its own failure is the first
  * thing it prints past any `warning:`/`hint:` lines from parsing its arguments (`checkout` warns of an ambiguous
  * refname first). The same line after other output came from something the run started, such as a hook running its
  * own git command, after the run had already done its work — retrying would run it all again.
  */
 const indexLockHeldRegex =
-	/^(?:\s*(?:warning|hint): [^\r\n]*\r?\n)*\s*(?:fatal|error): Unable to create '[^\r\n]*index\.lock': File exists/i;
+	/^(?:\s*(?:warning|hint): [^\r\n]*\r?\n)*\s*fatal: Unable to create '[^\r\n]*index\.lock': File exists/i;
+
+/**
+ * The exit code in a run error's `code`, or `undefined` when the process never exited normally: a numeric string
+ * is a real exit code, but an errno (`'ENOENT'`) means the spawn itself failed, and `undefined` means it was killed.
+ */
+export function toExitCode(code: number | string | undefined): number | undefined {
+	const exitCode = typeof code === 'number' ? code : code != null ? parseInt(code, 10) : NaN;
+	return Number.isInteger(exitCode) ? exitCode : undefined;
+}
+
+/** Git's exit code when it `die()`s, as it does on a held `index.lock`. */
+const gitFatalExitCode = 128;
 
 /** How long to wait before each retry of a run that found `index.lock` held; its length is the retry count. */
 export const indexLockRetryDelays: readonly number[] = [100, 200, 400];
@@ -48,9 +61,17 @@ export function isIndexWriteCommand(args: readonly string[]): boolean {
 	return indexWritingVerbs.has(verb);
 }
 
-/** Whether a run failed because another process held `index.lock`. */
+/**
+ * Whether a run failed because another process held `index.lock`. The exit code must be 128 too: a hook that
+ * prints the same line from its own git command and fails makes the run exit 1, after the hook's work is done.
+ */
 export function isIndexLockHeldError(ex: unknown): boolean {
-	return ex instanceof RunError && !(ex instanceof CancelledRunError) && indexLockHeldRegex.test(ex.stderr);
+	return (
+		ex instanceof RunError &&
+		!(ex instanceof CancelledRunError) &&
+		toExitCode(ex.code) === gitFatalExitCode &&
+		indexLockHeldRegex.test(ex.stderr)
+	);
 }
 
 /** Resolves after `ms`, or rejects as soon as `signal` aborts. */

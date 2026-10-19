@@ -145,6 +145,13 @@ suite('Git index.lock handling', () => {
 			assert.strictEqual(spawned.length, 1);
 		});
 
+		test('does not retry the leading lock line when the run exited 1, as from a failing hook', async () => {
+			fake(() => Promise.reject(new RunError({ message: 'Command failed', code: 1 }, '', lockMessage)));
+
+			await assert.rejects(git.run({ cwd: repoA, stdin: 'msg' }, 'commit', '-F', '-'));
+			assert.strictEqual(spawned.length, 1);
+		});
+
 		test("retries when the lock line follows git's own warning", async () => {
 			let calls = 0;
 			fake(() =>
