@@ -94,7 +94,7 @@ interface ServerOptions {
 	connection?: string;
 	/** The installation's collections. */
 	collections?: string[];
-	/** Answers the server-level `projectCollections` with this status... */
+	/** Answers `projectCollections` with this status... */
 	failCollections?: number;
 	/** ...for its first this many requests (every one when omitted). */
 	failCollectionsTimes?: number;
@@ -165,8 +165,6 @@ function createServer(options: ServerOptions) {
 			});
 		}
 		if (route === '_apis/projectcollections') {
-			if (!atServer) return json({ message: 'Page not found.' }, 404);
-
 			collectionReads++;
 			if (
 				options.failCollections != null &&
@@ -174,6 +172,8 @@ function createServer(options: ServerOptions) {
 			) {
 				return json({ message: 'refused' }, options.failCollections);
 			}
+
+			if (!atServer) return json({ message: 'Page not found.' }, 404);
 
 			await options.holdCollections;
 			return json({ value: collections.map(c => ({ id: `${c}-id`, name: c, url: '' })) });
@@ -265,7 +265,10 @@ function createServer(options: ServerOptions) {
 			case path === '_apis/wit/workitems/9':
 				return json(workItem(collectionUrl, project));
 			case path === '_apis/wit/workitems':
+			case path === '_apis/wit/workitemsbatch':
 				return json({ value: [workItem(collectionUrl, project)] });
+			case path === '_apis/wit/wiql':
+				return json({ workItems: [{ id: 9 }] });
 			case path === '_apis/wit/workitemtypes':
 				return json(workItemTypes);
 			case path === `${repo}/commits/${sha}`:
@@ -688,6 +691,102 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 				manager.dispose();
 			}
 		});
+
+		test("keeps an unsettled project's empty list incomplete beside a project with issues", async () => {
+			const server = createServer({
+				installation: '/tfs',
+				connection: '/tfs/tfs',
+				collections: ['DefaultCollection', 'tfs'],
+				failCollections: 500,
+				emptyProject: 'DefaultCollection',
+			});
+			const { manager } = await connect(server);
+			try {
+				const [connection] = manager.getConfigured(id);
+				const listed = await manager.listIssuesPage({
+					providerId: id,
+					connectionId: connection.id,
+					domain: connection.domain,
+					repos: [
+						{ namespace: 'tfs', project: 'DefaultCollection', name: 'repo' },
+						{ namespace: 'tfs', project: 'proj', name: 'r' },
+					],
+				});
+				assert.deepEqual(
+					listed.items.map(issue => issue.title),
+					['Work item in proj'],
+					JSON.stringify(listed.warnings),
+				);
+				assert.equal(listed.fetchFailed, true);
+				assert.equal(listed.page.truncated, true);
+				assert.equal(listed.hasMore, false);
+				assert.deepEqual(
+					listed.warnings.map(w => w.message),
+					[
+						"Failed to read provider scope (resource tfs, project DefaultCollection): Nothing read for a repository that couldn't be settled",
+					],
+				);
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		for (const recoverDiscovery of [false, true]) {
+			test(`refuses mixed search scopes after collection discovery ${recoverDiscovery ? 'recovers' : 'keeps failing'}`, async () => {
+				const server = createServer({
+					installation: '/tfs',
+					collections: ['tfs'],
+					failCollections: 500,
+					...(recoverDiscovery ? { failCollectionsTimes: 2 } : {}),
+					defaultCollectionAtServer: true,
+					projectless: 'rows',
+				});
+				const { manager } = await connect(server);
+				try {
+					const [connection] = manager.getConfigured(id);
+					const target = { providerId: id, connectionId: connection.id, domain: connection.domain };
+					const repos = [
+						{ namespace: 'tfs', project: 'DefaultCollection', name: 'repo' },
+						{ namespace: 'tfs', project: 'proj', name: 'r' },
+					];
+					const searches = {
+						issues: await manager.searchIssuesPage({ ...target, repos: repos }),
+						pullRequests: await manager.searchPullRequestsPage({ ...target, repos: repos }),
+					};
+					for (const [read, result] of Object.entries(searches)) {
+						assert.deepEqual(result.items, [], read);
+						assert.equal(result.fetchFailed, true, read);
+						assert.ok(result.warnings.length > 0, read);
+						if (recoverDiscovery) {
+							assert.match(
+								result.warnings[0].message,
+								/project 'DefaultCollection' is not visible in 'tfs'/,
+								read,
+							);
+						}
+					}
+
+					const counts = {
+						issues: await manager.countIssues({ ...target, scopes: [{ key: 'mixed', repos: repos }] }),
+						pullRequests: await manager.countPullRequests({
+							...target,
+							scopes: [{ key: 'mixed', repos: repos }],
+						}),
+					};
+					for (const [read, result] of Object.entries(counts)) {
+						assert.deepEqual(result.items, [], read);
+						assert.equal(result.fetchFailed, true, read);
+						assert.ok(result.warnings.length > 0, read);
+					}
+					assert.ok(
+						!server.requests.some(p => /\/(?:wiql|pullrequests)$/i.test(p)),
+						server.requests.join(', '),
+					);
+				} finally {
+					manager.dispose();
+				}
+			});
+		}
 
 		test("records a refusal of a caller's scope against the repository it settles to", async () => {
 			const server = createServer({ installation: '/tfs', refuseProject: 'repo' });
