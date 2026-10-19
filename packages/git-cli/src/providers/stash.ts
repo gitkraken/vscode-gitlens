@@ -23,7 +23,7 @@ import { fileUri, joinUriPath, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { gitFeaturesByVersion } from '../exec/features.js';
 import type { Git } from '../exec/git.js';
-import { getGitCommandError, GitError, GitErrors, maxGitCliLength } from '../exec/git.js';
+import { getGitCommandError, GitError, GitErrors, isRunHookFailure, maxGitCliLength } from '../exec/git.js';
 import type { ParsedStash, ParsedStashWithFiles } from '../parsers/logParser.js';
 import { getStashFilesOnlyLogParser, getStashLogParser } from '../parsers/logParser.js';
 import { createCommitFileset } from './commitFilesetUtils.js';
@@ -64,7 +64,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			await this.git.run({ cwd: repoPath, ...runOptions }, ...args);
 			return { conflicted: false };
 		} catch (ex) {
-			if (isCancellationError(ex)) throw ex;
+			if (isCancellationError(ex) || isRunHookFailure(ex)) throw ex;
 
 			if (ex instanceof Error) {
 				const msg: string = ex.message ?? '';
@@ -492,7 +492,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 				});
 			}
 		} catch (ex) {
-			if (ex instanceof StashPushError || isCancellationError(ex)) throw ex;
+			if (ex instanceof StashPushError || isCancellationError(ex) || isRunHookFailure(ex)) throw ex;
 
 			throw getGitCommandError(
 				'stash-push',

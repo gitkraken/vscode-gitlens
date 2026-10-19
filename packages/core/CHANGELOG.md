@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes a `beforeIndexLockRetry` rejection reaching the host wrapped in the typed write's own error, such as a generic `CommitError` "Unable to commit" with the host's error only as its `original`: `commit`, `reset`, `restore`, `checkout` and every other typed write that takes run options now rethrow the host's rejection unchanged. Reject with an `Error` (an object), since only an object can be told apart from git's own failure (git-cli)
+
 ## [0.15.0] - 2026-10-19
 
 ### Added

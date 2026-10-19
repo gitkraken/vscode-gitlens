@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import { resolve } from 'path';
 import { RunError } from '../exec.errors.js';
 import type { RunResult } from '../exec.js';
-import { Git, GitError } from '../git.js';
+import { Git, GitError, isRunHookFailure } from '../git.js';
 import { indexLockRetryDelays, isConfigCommand, isConfigLockHeldError, isIndexWriteCommand } from '../indexLock.js';
 
 type FakeSpawn = (
@@ -272,6 +272,9 @@ suite('Git index.lock handling', () => {
 				(ex: unknown) => ex === failure,
 			);
 			assert.strictEqual(spawned.length, 1);
+			assert.ok(isRunHookFailure(failure));
+			assert.ok(!isRunHookFailure(new Error('staged set changed')));
+			assert.ok(!isRunHookFailure('staged set changed'));
 		});
 
 		test("a rejecting hook rejects under errors: 'ignore' and 'throw' too", async () => {

@@ -21,7 +21,7 @@ import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import { mayWriteTracking } from '../exec/commandClassifier.js';
 import type { Git, GitError } from '../exec/git.js';
-import { getGitCommandError, GitErrors } from '../exec/git.js';
+import { getGitCommandError, GitErrors, isRunHookFailure } from '../exec/git.js';
 import { parseGitWorktrees } from '../parsers/worktreeParser.js';
 
 /** Extracts the lock reason from Git's `cannot remove a locked working tree` output, when it provides one */
@@ -83,8 +83,8 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			}
 		} catch (ex) {
 			scope?.error(ex);
-			// A cancelled or timed-out checkout is not git refusing the worktree
-			if (isCancellationError(ex)) throw ex;
+			// A cancelled or timed-out checkout, or a host-rejected index-lock retry, is not git refusing the worktree
+			if (isCancellationError(ex) || isRunHookFailure(ex)) throw ex;
 
 			throw getGitCommandError(
 				'worktree-create',
@@ -264,9 +264,10 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			deleted = true;
 		} catch (ex) {
 			scope?.error(ex);
-			// A cancelled or timed-out removal (`runOptions.cancellation`/`timeout`) is not git refusing it, and
-			// wrapping it would hand the caller a `WorktreeDeleteError` whose `original` is no `GitError` at all
-			if (isCancellationError(ex)) throw ex;
+			// A cancelled or timed-out removal (`runOptions.cancellation`/`timeout`), or a host-rejected index-lock
+			// retry, is not git refusing it, and wrapping it would hand the caller a `WorktreeDeleteError` whose
+			// `original` is no `GitError` at all
+			if (isCancellationError(ex) || isRunHookFailure(ex)) throw ex;
 
 			const gitError = getGitCommandError(
 				'worktree-delete',
