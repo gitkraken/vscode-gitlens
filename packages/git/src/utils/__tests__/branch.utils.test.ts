@@ -111,6 +111,26 @@ suite('Branch Utils Test Suite', () => {
 			assert.strictEqual(parseUpstream('refs/remotes/origin/main', '', undefined)?.remote, undefined);
 		});
 
+		test('reads the remote-side branch from remoteRef, stripping refs/heads/', () => {
+			assert.strictEqual(parseUpstream('refs/remotes/mirror/x', '', 'origin', 'refs/heads/x')?.remoteBranch, 'x');
+			assert.strictEqual(
+				parseUpstream('refs/remotes/mirror/x', '[gone]', 'origin', 'refs/heads/feat/x')?.remoteBranch,
+				'feat/x',
+			);
+			assert.strictEqual(
+				parseUpstream('refs/remotes/origin/x', '', 'origin', 'refs/tags/x')?.remoteBranch,
+				'refs/tags/x',
+			);
+		});
+
+		test('leaves remoteBranch unset for an empty or local (.) remote, or an empty remoteRef', () => {
+			assert.strictEqual(parseUpstream('refs/heads/main', '', '.', 'refs/heads/main')?.remoteBranch, undefined);
+			assert.strictEqual(parseUpstream('refs/heads/main', '', '', 'refs/heads/main')?.remoteBranch, undefined);
+			assert.strictEqual(parseUpstream('refs/remotes/origin/x', '', 'origin', '')?.remoteBranch, undefined);
+			assert.strictEqual(parseUpstream('refs/remotes/origin/x', '', 'origin')?.remoteBranch, undefined);
+			assert.strictEqual('remoteBranch' in parseUpstream('refs/remotes/origin/x', '', 'origin', '')!, false);
+		});
+
 		test('treats non-numeric ahead/behind as 0', () => {
 			// The regex only captures digits, so non-numeric values won't match
 			// and the capture group will be undefined, resulting in 0
@@ -317,6 +337,25 @@ suite('Branch Utils Test Suite', () => {
 					upstream: { name: 'main', missing: false, remote: 'origin' },
 				}),
 				'main',
+			);
+		});
+
+		test('getBranchTrackingWithoutRemote prefers upstream.remoteBranch over the local tracking name', () => {
+			const ref = {
+				refType: 'branch',
+				name: 'x',
+				ref: 'x',
+				remote: false,
+				upstream: { name: 'mirror/pfx/x', missing: false, remote: 'origin', remoteBranch: 'x' },
+				repoPath: '/r',
+			} as const;
+			assert.strictEqual(getBranchTrackingWithoutRemote(ref), 'x');
+			assert.strictEqual(
+				new GitBranch('/r', 'refs/heads/x', false, undefined, undefined, undefined, {
+					...ref.upstream,
+					state: { ahead: 0, behind: 0 },
+				}).trackingWithoutRemote,
+				'x',
 			);
 		});
 

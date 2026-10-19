@@ -5,7 +5,7 @@ export interface GitBranchReference {
 	ref: string;
 	sha?: string;
 	readonly remote: boolean;
-	readonly upstream?: { name: string; missing: boolean; remote?: string };
+	readonly upstream?: { name: string; missing: boolean; remote?: string; remoteBranch?: string };
 	readonly worktree?: { path: string; isDefault: boolean } | boolean;
 	repoPath: string;
 }
@@ -79,4 +79,6 @@ export interface RefRecord {
 	worktreePath?: string;
 	/** `%(upstream:remotename)` — the remote a local branch tracks on (`.` for a local upstream); only read where git supports it */
 	upstreamRemote?: string;
+	/** `%(upstream:remoteref)` — the ref a local branch tracks on its remote (`branch.<name>.merge`); only read where git supports it */
+	upstreamRemoteRef?: string;
 }

@@ -498,6 +498,93 @@ suite('OperationsGitSubProvider.push', () => {
 			}
 		});
 
+		suite('a remote whose fetch refspec stores its branches under another name', () => {
+			function setupMirror() {
+				const r = setup();
+				execFileSync('git', ['config', 'remote.origin.fetch', '+refs/heads/*:refs/remotes/mirror/pfx/*'], {
+					cwd: r.local.path,
+					stdio: 'pipe',
+				});
+				execFileSync('git', ['fetch', 'origin'], { cwd: r.local.path, stdio: 'pipe' });
+				execFileSync('git', ['push', 'origin', 'main:x'], { cwd: r.local.path, stdio: 'pipe' });
+				execFileSync('git', ['fetch', 'origin'], { cwd: r.local.path, stdio: 'pipe' });
+				createTrackingBranch(r.local.path, 'x', 'mirror/pfx/x');
+				checkout(r.local.path, 'x');
+				return r;
+			}
+
+			function bareRefs(bare: string): string {
+				return execFileSync('git', ['for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads'], {
+					cwd: bare,
+					encoding: 'utf-8',
+				});
+			}
+
+			test('a branch read from the repository reports its branch on the remote', async () => {
+				const r = setupMirror();
+				try {
+					const x = await r.local.provider.branches.getBranch(r.local.path, 'x');
+					assert.strictEqual(x?.upstream?.name, 'mirror/pfx/x');
+					assert.strictEqual(x.upstream.remote, 'origin');
+					assert.strictEqual(x.upstream.remoteBranch, 'x');
+
+					const all = await r.local.provider.branches.getBranches(r.local.path);
+					assert.strictEqual(all.values.find(b => b.name === 'x')?.upstream?.remoteBranch, 'x');
+				} finally {
+					r.cleanup();
+				}
+			});
+
+			test('a force push of a branch reference lands on the upstream name on the remote', async () => {
+				const r = setupMirror();
+				try {
+					addCommit(r.local.path, 'x.txt', 'x', 'X commit');
+					const localSha = getHeadSha(r.local.path);
+					const before = bareRefs(r.bare.path);
+
+					const branch = await r.local.provider.branches.getBranch(r.local.path, 'x');
+					assert.ok(branch != null);
+					await r.local.provider.ops.push(r.local.path, { reference: branch, force: true });
+
+					const after = bareRefs(r.bare.path);
+					assert.notStrictEqual(after, before);
+					assert.strictEqual(revParse(r.bare.path, 'refs/heads/x'), localSha);
+					assert.deepStrictEqual(
+						after.split('\n').map(l => l.split(' ')[0]),
+						before.split('\n').map(l => l.split(' ')[0]),
+						'no other branch is created',
+					);
+				} finally {
+					r.cleanup();
+				}
+			});
+
+			test('a commit pushed onto the current branch lands on its upstream name on the remote', async () => {
+				const r = setupMirror();
+				try {
+					createTrackingBranch(r.local.path, 'lx', 'mirror/pfx/x');
+					checkout(r.local.path, 'lx');
+					addCommit(r.local.path, 'lx.txt', 'lx', 'LX commit');
+					const localSha = getHeadSha(r.local.path);
+					const before = bareRefs(r.bare.path);
+
+					await r.local.provider.ops.push(r.local.path, {
+						reference: createReference(localSha, r.local.path, { refType: 'revision' }),
+					});
+
+					const after = bareRefs(r.bare.path);
+					assert.strictEqual(revParse(r.bare.path, 'refs/heads/x'), localSha);
+					assert.deepStrictEqual(
+						after.split('\n').map(l => l.split(' ')[0]),
+						before.split('\n').map(l => l.split(' ')[0]),
+						'no branch named after the local branch is created',
+					);
+				} finally {
+					r.cleanup();
+				}
+			});
+		});
+
 		suite('a remote whose own name contains a slash', () => {
 			function setupSlashRemote() {
 				const r = setup();

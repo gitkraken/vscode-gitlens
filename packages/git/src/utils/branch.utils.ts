@@ -41,10 +41,15 @@ export function getBranchNameAndRemote(ref: GitBranchReference): [name: string, 
 	return [ref.name, undefined];
 }
 
+/**
+ * The upstream's branch name on its remote. The name git reports (`branch.<name>.merge`) wins over stripping the local
+ * remote-tracking name, which a custom fetch refspec makes differ (`origin` fetching into `refs/remotes/mirror/*`)
+ */
 export function getBranchTrackingWithoutRemote(ref: GitBranchReference): string | undefined {
 	if (ref.upstream == null) return undefined;
 
-	const { name, remote } = ref.upstream;
+	const { name, remote, remoteBranch } = ref.upstream;
+	if (remoteBranch) return remoteBranch;
 	if (remote && name.startsWith(`${remote}/`)) return name.substring(remote.length + 1);
 
 	return name.substring(getRemoteNameSlashIndex(name) + 1);
@@ -160,12 +165,23 @@ export async function getLocalBranchUpstreamNames(branches: PageableResult<GitBr
 
 const trackingStateRegex = /(?:\[(?:ahead ([0-9]+))?[,\s]*(?:behind ([0-9]+))?]|\[(gone)])/;
 
-/** @param remote - `%(upstream:remotename)`; empty or `.` (a local upstream) is not a remote */
-export function parseUpstream(upstream: string, tracking: string, remote?: string): GitTrackingUpstream | undefined {
+/**
+ * @param remote - `%(upstream:remotename)`; empty or `.` (a local upstream) is not a remote
+ * @param remoteRef - `%(upstream:remoteref)`; the upstream's ref on `remote`, read as its branch name
+ */
+export function parseUpstream(
+	upstream: string,
+	tracking: string,
+	remote?: string,
+	remoteRef?: string,
+): GitTrackingUpstream | undefined {
 	if (!upstream) return undefined;
 
 	const { name } = parseRefName(upstream);
-	const remoteProp = remote && remote !== '.' ? { remote: remote } : undefined;
+	const remoteProp =
+		remote && remote !== '.'
+			? { remote: remote, ...(remoteRef ? { remoteBranch: remoteRef.replace(/^refs\/heads\//, '') } : undefined) }
+			: undefined;
 
 	const match = trackingStateRegex.exec(tracking);
 	if (match == null) {
