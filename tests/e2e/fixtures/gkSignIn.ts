@@ -22,7 +22,6 @@
 import { randomUUID } from 'node:crypto';
 import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
-import { expect } from '@playwright/test';
 import type { GitLensPage } from '../pageObjects/gitLensPage.js';
 import type { VSCodeEvaluator } from './vscodeEvaluator.js';
 
@@ -141,17 +140,21 @@ export async function signInToGitKraken(
 	try {
 		if (settings == null) throw new Error('GitLens Settings did not open after the sign-in deep link');
 
-		await expect(settings.getByText('Sign Out', { exact: true }).first(), 'signed in').toBeVisible({
-			timeout: 60_000,
-		});
+		// `locator.waitFor`, not `expect`: a failed matcher puts an ARIA snapshot of its target into Playwright's
+		// error-context — here the Account page, with the account's name and e-mail
+		await settings.getByText('Sign Out', { exact: true }).first().waitFor({ state: 'visible', timeout: 60_000 });
 		log(`signed in after ${Date.now() - delivered} ms; plan: ${JSON.stringify(await accountPlanLabels(settings))}`);
 
 		await settings.getByText('Cloud Integrations', { exact: true }).first().click();
 		for (const name of required) {
-			await expect(
-				settings.getByText(`Manage ${name}`, { exact: true }).first(),
-				`${name} connected`,
-			).toBeAttached({ timeout: 30_000 });
+			try {
+				await settings
+					.getByText(`Manage ${name}`, { exact: true })
+					.first()
+					.waitFor({ state: 'attached', timeout: 30_000 });
+			} catch {
+				throw new Error(`${name} is not connected on the test account`);
+			}
 		}
 		log(`integrations connected after ${Date.now() - delivered} ms: ${required.join(', ')}`);
 	} catch (ex) {
@@ -288,20 +291,21 @@ async function getSignInCode(env: GkEnvironment, cookie: string, state: string):
 }
 
 /**
- * What a page answer (no redirect) looks like, without its content: type, size, `<title>`, and whether it carries a
- * sign-in form or a client-side redirect — tells "the session was not recognized" from "the flow is client-side".
+ * What a page answer (no redirect) looks like, in fixed trait labels only — nothing the response controls is copied
+ * out: tells "the session was not recognized" (the site's login page) from "the flow is client-side".
  */
 async function describePage(rsp: Response): Promise<string> {
 	try {
 		const body = await rsp.text();
-		const title = /<title[^>]*>([^<]{0,80})<\/title>/i.exec(body)?.[1]?.trim();
 		const traits = [
+			rsp.headers.get('content-type')?.startsWith('text/html') && 'html',
+			/<title[^>]*>\s*Log ?in\b/i.test(body) && 'login page title',
 			/type=["']?password/i.test(body) && 'password field',
 			/sign[ -]?in|log[ -]?in/i.test(body) && 'sign-in words',
 			/window\.location|location\.(href|replace)|http-equiv=["']?refresh/i.test(body) && 'client-side redirect',
 			/__NEXT_DATA__|id=["']root["']|id=["']app["']/i.test(body) && 'SPA shell',
 		].filter(Boolean);
-		return `body: ${rsp.headers.get('content-type') ?? '?'}, ${body.length} chars, title ${JSON.stringify(title ?? '')}, ${traits.join(', ') || 'no traits'}`;
+		return `body: ${body.length} chars, ${traits.join(', ') || 'no known traits'}`;
 	} catch {
 		return 'body: unreadable';
 	}

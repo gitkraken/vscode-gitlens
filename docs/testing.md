@@ -199,9 +199,11 @@ Two side effects to know about:
 - After signing in, GitLens logs the GK CLI in with the account's token (`gk auth login`). The harness gives every
   signed-in worker its own `XDG_DATA_HOME`, so that login lands in the worker's temp dir instead of replacing your
   machine-wide CLI login — each signed-in worker therefore downloads the CLI core once.
-- On a failed assertion Playwright still writes `error-context.md` with an ARIA snapshot of the page, whatever the
-  `trace` / `screenshot` options say — so a failure on the Account page may put the account's name or e-mail into
-  test results. Keep signed-in output out of shared artifacts unless it is scanned first.
+- On any test error Playwright writes `error-context.md` with an ARIA snapshot — of a failed `expect` matcher's
+  target, else of the page — and no option turns it off; `trace` / `screenshot` don't affect it. The fixture waits
+  with `locator.waitFor` instead of `expect` so a failed sign-in doesn't snapshot the Account page, but an assertion
+  in a spec can still put the account's name or e-mail into test results: keep signed-in output out of shared
+  artifacts unless it is scanned first.
 
 ### Login-walled forks (Cursor, Kiro)
 
