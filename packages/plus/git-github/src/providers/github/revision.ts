@@ -136,13 +136,28 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 		const { metadata, github, session } = context;
 
-		const sha = await github.resolveReference(
-			toTokenInfo(this.provider.authenticationProviderId, session),
-			metadata.repo.owner,
-			metadata.repo.name,
-			stripOrigin(ref),
-			relativePath,
-		);
+		const token = toTokenInfo(this.provider.authenticationProviderId, session);
+		const stripped = stripOrigin(ref);
+
+		let sha: string | undefined;
+		if (relativePath) {
+			const result = await github.resolveReferenceForPath(
+				token,
+				metadata.repo.owner,
+				metadata.repo.name,
+				stripped,
+				relativePath,
+			);
+
+			if (result != null && !result.exists) {
+				// Like the CLI provider, report a file missing at this ref as deleted; GitHub doesn't tell a rename away apart
+				return { sha: result.sha, revision: isRevisionWithSuffix(ref) ? result.sha : ref, status: 'D' };
+			}
+
+			sha = result?.sha;
+		} else {
+			sha = await github.resolveReference(token, metadata.repo.owner, metadata.repo.name, stripped);
+		}
 
 		if (sha == null) {
 			return { sha: relativePath ? deletedOrMissing : ref, revision: ref };

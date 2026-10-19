@@ -3166,13 +3166,15 @@ export class GitHubApi {
 	): Promise<string | undefined> {
 		const scope = getScopedLogger();
 
-		try {
-			if (!path) {
-				interface QueryResult {
-					repository: { object: GitHubCommitRef } | null | undefined;
-				}
+		// `path` stays for API compatibility; `resolveReferenceForPath` also reports whether the file exists at `ref`
+		if (path) return (await this.resolveReferenceForPath(token, owner, repo, ref, path))?.sha;
 
-				const query = `query resolveReference(
+		try {
+			interface QueryResult {
+				repository: { object: GitHubCommitRef } | null | undefined;
+			}
+
+			const query = `query resolveReference(
 	$owner: String!
 	$repo: String!
 	$ref: String!
@@ -3184,20 +3186,44 @@ export class GitHubApi {
 	}
 }`;
 
-				const rsp = await this.graphql<QueryResult>(
-					undefined,
-					token,
-					query,
-					{
-						owner: owner,
-						repo: repo,
-						ref: ref,
-					},
-					scope,
-				);
-				return rsp?.repository?.object?.oid ?? undefined;
-			}
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+					ref: ref,
+				},
+				scope,
+			);
+			return rsp?.repository?.object?.oid ?? undefined;
+		} catch (ex) {
+			if (ex instanceof RequestNotFoundError) return undefined;
 
+			throw this.handleException(ex, undefined, scope);
+		}
+	}
+
+	@trace({
+		args: (token, owner, repo, ref, path) => ({
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			ref: ref,
+			path: path,
+		}),
+	})
+	async resolveReferenceForPath(
+		token: GitHubTokenInfo,
+		owner: string,
+		repo: string,
+		ref: string,
+		path: string,
+	): Promise<{ sha: string; exists: boolean } | undefined> {
+		const scope = getScopedLogger();
+
+		try {
 			interface QueryResult {
 				repository:
 					| {
@@ -3206,16 +3232,18 @@ export class GitHubApi {
 									nodes: GitHubCommitRef[];
 								};
 							};
+							file: { oid: string } | null | undefined;
 					  }
 					| null
 					| undefined;
 			}
 
-			const query = `query resolveReference(
+			const query = `query resolveReferenceForPath(
 	$owner: String!
 	$repo: String!
 	$ref: String!
 	$path: String!
+	$refPath: String!
 ) {
 	repository(owner: $owner, name: $repo) {
 		object(expression: $ref) {
@@ -3224,6 +3252,9 @@ export class GitHubApi {
 					nodes { oid }
 				}
 			}
+		}
+		file: object(expression: $refPath) {
+			oid
 		}
 	}
 }`;
@@ -3237,10 +3268,15 @@ export class GitHubApi {
 					repo: repo,
 					ref: ref,
 					path: path,
+					refPath: `${ref}:${path}`,
 				},
 				scope,
 			);
-			return rsp?.repository?.object?.history.nodes?.[0]?.oid ?? undefined;
+
+			const sha = rsp?.repository?.object?.history.nodes?.[0]?.oid;
+			if (sha == null) return undefined;
+
+			return { sha: sha, exists: rsp?.repository?.file != null };
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 

@@ -173,6 +173,14 @@ export interface GitHubApiClient {
 		path?: string,
 	): Promise<string | undefined>;
 
+	resolveReferenceForPath(
+		token: GitHubTokenInfo,
+		owner: string,
+		repo: string,
+		ref: string,
+		path: string,
+	): Promise<{ sha: string; exists: boolean } | undefined>;
+
 	searchCommits(
 		token: GitHubTokenInfo,
 		query: string,
