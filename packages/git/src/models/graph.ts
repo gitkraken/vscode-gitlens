@@ -361,6 +361,8 @@ export interface GraphIncrementalSeed {
 	 * compares unequal ⇒ safe full fallback.
 	 */
 	readonly headRefUpstreamName?: string;
+	/** Whether {@link headRefUpstreamName} is a local branch rather than a remote-tracking one. */
+	readonly headRefUpstreamLocal?: boolean;
 }
 
 /**

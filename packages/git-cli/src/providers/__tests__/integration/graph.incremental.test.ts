@@ -244,6 +244,33 @@ suite('graph incremental head-walk equivalence (R6b)', () => {
 		}
 	});
 
+	test('upstream retarget from a local branch to the remote of the same short name rebuilds decorations (full fallback)', async () => {
+		const origin = createTestRepo();
+		seedBaseHistory(origin.path);
+		const clone = cloneTestRepo(origin.path);
+		try {
+			// A local `origin/feature` shares its short name with the remote-tracking ref. Re-pointing the
+			// upstream between them changes only the upstream's identity: no tip moves and the name is equal.
+			createBranchAt(clone.path, 'origin/feature', 'refs/remotes/origin/feature');
+			createTrackingBranch(clone.path, 'other', 'refs/heads/origin/feature');
+			setUpstream(clone.path, 'main', 'refs/heads/origin/feature');
+			clone.provider.cache.clearCaches(clone.path);
+			// A non-current branch's retained row is gated only by its embedded pill upstream...
+			await assertGraphEquivalence(clone, p => setUpstream(p, 'other', 'refs/remotes/origin/feature'), {
+				path: 'fallback',
+				reason: 'metadata-changed',
+			});
+			// ...and the current branch's also moves the HEAD-upstream fingerprint.
+			await assertGraphEquivalence(clone, p => setUpstream(p, 'main', 'refs/remotes/origin/feature'), {
+				path: 'fallback',
+				reason: 'metadata-changed',
+			});
+		} finally {
+			clone.cleanup();
+			origin.cleanup();
+		}
+	});
+
 	test('checkout to a branch with a DIFFERENT upstream rebuilds decorations (full fallback)', async () => {
 		const origin = createTestRepo();
 		seedBaseHistory(origin.path);
