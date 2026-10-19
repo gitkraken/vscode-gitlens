@@ -194,6 +194,15 @@ neither expires nor revokes those tokens. Sign in only where an account is neede
 Treat the cookie as a password: keep it out of shell history and logs, and never print it — the fixture's
 diagnostics use fixed vocabularies, and the only account detail they log is its plan labels.
 
+Two side effects to know about:
+
+- After signing in, GitLens logs the GK CLI in with the account's token (`gk auth login`). The harness gives every
+  signed-in worker its own `XDG_DATA_HOME`, so that login lands in the worker's temp dir instead of replacing your
+  machine-wide CLI login — each signed-in worker therefore downloads the CLI core once.
+- On a failed assertion Playwright still writes `error-context.md` with an ARIA snapshot of the page, whatever the
+  `trace` / `screenshot` options say — so a failure on the Account page may put the account's name or e-mail into
+  test results. Keep signed-in output out of shared artifacts unless it is scanned first.
+
 ### Login-walled forks (Cursor, Kiro)
 
 Some forks hard-gate their entire workbench behind a sign-in wall on a fresh (unauthenticated) profile —

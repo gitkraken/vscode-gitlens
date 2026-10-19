@@ -12,8 +12,9 @@
  *    provider (a disconnected provider shows "Connect").
  *
  * The backend is chosen by `GK_E2E_ENV` (production, staging or dev); the cookie must come from that backend's site.
- * Secrets come from the environment only and are never logged, traced or attached — nor is the code, the state or
- * any account text: diagnostics use fixed vocabularies.
+ * Secrets come from the environment only, and this fixture never logs the cookie, the code, the state or any account
+ * text — its diagnostics use fixed vocabularies. GitLens' own log does record the deep link (with its single-use code,
+ * exchanged moments later) inside the worker's temp profile, which the harness deletes at teardown.
  *
  * Every sign-in mints a new GitLens token for the test account, and the backend neither expires nor revokes those
  * tokens. Sign in only in the specs that need an account, and never sign out (it is local-only anyway).

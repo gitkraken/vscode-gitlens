@@ -446,6 +446,16 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				await chmod(runtimeDir, 0o700);
 			}
 
+			// A signed-in worker gets its own XDG_DATA_HOME: after signing in GitLens runs `gk auth login` with the
+			// account's token, and the GK CLI keeps its install and sessions under XDG_DATA_HOME (read first on every
+			// platform). Without this a local run would replace the machine-wide CLI login with the test account and
+			// leave its non-expiring token behind; the worker's temp dir is deleted at teardown.
+			let dataDir: string | undefined;
+			if (vscodeOptions.signIn) {
+				dataDir = path.join(tempDir, 'xdg-data');
+				await mkdir(dataDir, { recursive: true });
+			}
+
 			const launchEnv = {
 				...process.env,
 				// Allows Claude Code and other CLI agents run the tests from within VS Code
@@ -454,6 +464,8 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				...(display ? { DISPLAY: display } : {}),
 				// Per-worker writable runtime dir for the editor's IPC socket (see note above)
 				...(runtimeDir ? { XDG_RUNTIME_DIR: runtimeDir } : {}),
+				// Per-worker GK CLI data for signed-in workers (see note above)
+				...(dataDir ? { XDG_DATA_HOME: dataDir } : {}),
 			};
 
 			// A requested non-English `locale` needs two files seeded BEFORE launch — no Marketplace
