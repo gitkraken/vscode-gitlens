@@ -55,15 +55,26 @@ export function getBranchTrackingWithoutRemote(ref: GitBranchReference): string 
 	return name.substring(getRemoteNameSlashIndex(name) + 1);
 }
 
-/** Splits `name` at the longest of `remoteNames` that prefixes it, so a remote whose own name contains a `/` resolves whole */
+/**
+ * Splits `name` at the longest of `remoteNames` that prefixes it, so a remote whose own name contains a `/` resolves
+ * whole. A leading `remotes/` is stripped only when no remote matches the name as given
+ */
 export function splitRemoteBranchName(
 	name: string,
 	remoteNames: Iterable<string>,
 ): [remote: string, branch: string] | undefined {
-	if (name.startsWith('remotes/')) {
-		name = name.substring(8);
-	}
+	const names = Array.isArray(remoteNames) ? remoteNames : [...remoteNames];
 
+	const split = splitAtLongestRemote(name, names);
+	if (split != null || !name.startsWith('remotes/')) return split;
+
+	return splitAtLongestRemote(name.substring(8), names);
+}
+
+function splitAtLongestRemote(
+	name: string,
+	remoteNames: Iterable<string>,
+): [remote: string, branch: string] | undefined {
 	let match: string | undefined;
 	for (const remote of remoteNames) {
 		if (
