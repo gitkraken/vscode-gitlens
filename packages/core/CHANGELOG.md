@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes `GitBranch.remoteName`, `trackingWithoutRemote` and the push, fetch and pull resolution splitting an upstream such as `team/fork/feature` at its first `/` on Git older than 2.23, which can't report the upstream's remote: branch reads there now resolve it against the repository's remotes, read once and only when an upstream's name leaves the remote ambiguous (git-cli)
 - Fixes `splitRemoteBranchName` dropping a leading `remotes/` from every name, so a remote named `remotes` (or `remotes/x`) never matched: the name is now matched as given first, and the `remotes/` prefix is stripped only when no remote matches (git)
 - Fixes a `commit` being retried, re-running its hooks, when a commit hook's own git command lost `index.lock` to another process and printed git's lock failure as the run's first output: a run is now retried only when git itself exited on the held lock (exit code 128), since a failed hook makes `commit` exit 1 (git-cli)
+- Fixes `getIgnoredEntries` with `paths` scoped inside an ignored folder answering with the enclosing folder (`node_modules/` for `node_modules/pkg`), or throwing for a scope with a trailing `/` or a file inside it, which made git fail: a scope that is itself ignored is now answered as one entry in the caller's scope (`node_modules/pkg/`, or the file's path), at the cost of one `check-ignore` run per scoped call (git-cli)
 
 ## [0.15.0] - 2026-10-19
 

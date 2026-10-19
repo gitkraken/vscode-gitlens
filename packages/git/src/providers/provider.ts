@@ -70,7 +70,9 @@ export interface GitProvider {
 	 * the caller limits what it shows. Unlike `getIgnoredDirectories` this is a listing, not a watcher-pruning set, so
 	 * nothing is dropped or re-confirmed against the rules. `options.paths` limits the listing to those repo-relative
 	 * folders (or files), matched literally rather than as globs, so only they are walked — an empty array answers
-	 * empty without running git, and omitting it lists the whole working tree. `options.priority` (e.g.
+	 * empty without running git, and omitting it lists the whole working tree. A scope that is itself ignored, or lies
+	 * inside an ignored folder, is answered as one entry in the caller's scope (`dir/` for a folder, the path for a
+	 * file), never an ancestor outside it. `options.priority` (e.g.
 	 * `'interactive'`) is for a caller waiting on the answer.
 	 */
 	getIgnoredEntries?(
