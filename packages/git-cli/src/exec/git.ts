@@ -60,6 +60,7 @@ import {
 	KeyedSequencer,
 	retryWhileConfigLocked,
 	retryWhileIndexLocked,
+	toExitCode,
 } from './indexLock.js';
 import type { GitLocation } from './locator.js';
 
@@ -1775,15 +1776,6 @@ export class Git {
 			this.options.logger?.info(`${logMessage} \u2022 completed`);
 		}
 	}
-}
-
-/**
- * The exit code in a run error's `code`, or `undefined` when the process never exited normally: a numeric string
- * is a real exit code, but an errno (`'ENOENT'`) means the spawn itself failed, and `undefined` means it was killed.
- */
-function toExitCode(code: number | string | undefined): number | undefined {
-	const exitCode = typeof code === 'number' ? code : code != null ? parseInt(code, 10) : NaN;
-	return Number.isInteger(exitCode) ? exitCode : undefined;
 }
 
 /**
