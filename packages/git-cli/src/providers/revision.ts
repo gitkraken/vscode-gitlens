@@ -186,11 +186,12 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		repoPath: string,
 		rev: string,
 		options?: { paths?: readonly string[] },
+		cancellation?: AbortSignal,
 	): Promise<GitTreeEntry[]> {
 		if (!repoPath) return [];
 
 		const paths = options?.paths;
-		if (paths == null) return this.getTreeForRevisionCore(repoPath, rev);
+		if (paths == null) return this.getTreeForRevisionCore(repoPath, rev, undefined, undefined, cancellation);
 		// No pathspec means "everything" to git, which is not what an empty list asks for
 		if (!paths.length) return [];
 
@@ -198,7 +199,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		const seen = new Set<string>();
 		const entries: GitTreeEntry[] = [];
 		for (const batch of batchLiteralPathspecs(paths, ['ls-tree', '-lrt', rev])) {
-			for (const entry of await this.getTreeForRevisionCore(repoPath, rev, undefined, batch)) {
+			for (const entry of await this.getTreeForRevisionCore(repoPath, rev, undefined, batch, cancellation)) {
 				if (!seen.has(entry.path)) {
 					seen.add(entry.path);
 					entries.push(entry);
@@ -208,18 +209,48 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		return entries;
 	}
 
+	/**
+	 * A read with a signal skips the gate, whose default key can't tell signals apart (one caller's abort would cancel
+	 * another's read) and which keeps an instance property per key for good (a key per signal would grow without end).
+	 * `git.run` still joins such a read to an identical one with the same signal
+	 */
+	private getTreeForRevisionCore(
+		repoPath: string,
+		rev: string,
+		path?: string,
+		pathspecs?: readonly string[],
+		cancellation?: AbortSignal,
+	): Promise<GitTreeEntry[]> {
+		return cancellation != null
+			? this.lsTree(repoPath, rev, path, pathspecs, cancellation)
+			: this.getTreeForRevisionGated(repoPath, rev, path, pathspecs);
+	}
+
 	@gate()
-	private async getTreeForRevisionCore(
+	private getTreeForRevisionGated(
 		repoPath: string,
 		rev: string,
 		path?: string,
 		pathspecs?: readonly string[],
 	): Promise<GitTreeEntry[]> {
+		return this.lsTree(repoPath, rev, path, pathspecs);
+	}
+
+	private async lsTree(
+		repoPath: string,
+		rev: string,
+		path?: string,
+		pathspecs?: readonly string[],
+		cancellation?: AbortSignal,
+	): Promise<GitTreeEntry[]> {
 		const hasPath = Boolean(path);
 		const args = hasPath
 			? ['ls-tree', '-l', rev, '--', path]
 			: ['ls-tree', '-lrt', rev, '--', ...(pathspecs ?? [])];
-		const result = await this.git.run({ cwd: repoPath, errors: 'ignore' }, ...args);
+		const result = await this.git.run({ cwd: repoPath, errors: 'ignore', cancellation: cancellation }, ...args);
+		// `errors: 'ignore'` resolves an abort as an empty tree, which would read as a folder with no entries
+		if (result.completion.status === 'cancelled' || cancellation?.aborted) throw new CancellationError();
+
 		const data = result.stdout.trim();
 		if (!data) return emptyArray as GitTreeEntry[];
 
