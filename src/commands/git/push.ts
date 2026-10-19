@@ -721,6 +721,8 @@ export class PushGitCommand extends QuickCommand<State> {
 										appendReposToTitle(l10n.t('Confirm Publish'), state, context),
 										items,
 										l10n.t('Confirm Publish'),
+										undefined,
+										{ skipConfirmToggle: false },
 									);
 						} else {
 							step = this.createConfirmStep(
@@ -743,6 +745,8 @@ export class PushGitCommand extends QuickCommand<State> {
 									}),
 								],
 								l10n.t('Cannot publish; No remotes found'),
+								undefined,
+								{ skipConfirmToggle: false },
 							);
 						}
 					} else if (branch?.upstream?.state.behind) {
@@ -858,6 +862,8 @@ export class PushGitCommand extends QuickCommand<State> {
 									appendReposToTitle(l10n.t('Confirm Publish'), state, context),
 									items,
 									l10n.t('Confirm Publish'),
+									undefined,
+									{ skipConfirmToggle: false },
 								);
 					} else if (status.upstream == null || status.upstream.missing) {
 						step = this.createConfirmStep(
@@ -880,6 +886,8 @@ export class PushGitCommand extends QuickCommand<State> {
 								}),
 							],
 							l10n.t('Cannot publish; No remotes found'),
+							undefined,
+							{ skipConfirmToggle: false },
 						);
 					} else {
 						step = this.createConfirmStep(

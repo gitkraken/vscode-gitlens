@@ -166,10 +166,27 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 		confirmations: T[],
 		placeholder: string,
 		cancel?: DirectiveQuickPickItem,
-		options: Omit<Partial<QuickPickStep<T>>, 'placeholder'> = {},
+		{
+			skipConfirmToggle,
+			...options
+		}: Omit<Partial<QuickPickStep<T>>, 'placeholder'> & {
+			/** Pass `false` to opt this step out of the Don't Ask Again toggle (e.g. a decision step) */
+			skipConfirmToggle?: false;
+		} = {},
 	): QuickPickStep<T> {
+		// A saved "yes" can only stand in for a plain yes/no on a repeatable action. Decision steps
+		// (no single yes) and guard steps (Cancel is the pre-selected row, so skipping would bypass
+		// the guard) have nothing for it to stand in for.
+		const isGuard = cancel?.picked === true || (cancel != null && options.selectedItems?.includes(cancel) === true);
+
 		// A notice-only step (no confirmation rows) has nothing to skip
-		if (!this.canSkipConfirm || !this.supportsSkipConfirmToggle || confirmations.length === 0) {
+		if (
+			!this.canSkipConfirm ||
+			!this.supportsSkipConfirmToggle ||
+			confirmations.length === 0 ||
+			skipConfirmToggle === false ||
+			isGuard
+		) {
 			return createConfirmStep(title, confirmations, placeholder, cancel, options);
 		}
 
