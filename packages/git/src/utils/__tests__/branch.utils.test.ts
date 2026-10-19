@@ -233,6 +233,19 @@ suite('Branch Utils Test Suite', () => {
 			]);
 		});
 
+		test('keeps a leading remotes/ that belongs to the remote name', () => {
+			assert.deepStrictEqual(splitRemoteBranchName('remotes/origin/x', ['origin']), ['origin', 'x']);
+			assert.deepStrictEqual(splitRemoteBranchName('remotes/x/y', ['remotes']), ['remotes', 'x/y']);
+			assert.deepStrictEqual(splitRemoteBranchName('remotes/x/y', ['remotes/x']), ['remotes/x', 'y']);
+		});
+
+		test('prefers the name as given over stripping remotes/', () => {
+			assert.deepStrictEqual(splitRemoteBranchName('remotes/origin/x', ['remotes', 'origin']), [
+				'remotes',
+				'origin/x',
+			]);
+		});
+
 		test('requires a whole path segment and a non-empty branch', () => {
 			assert.strictEqual(splitRemoteBranchName('origin2/main', ['origin']), undefined);
 			assert.strictEqual(splitRemoteBranchName('origin/', ['origin']), undefined);

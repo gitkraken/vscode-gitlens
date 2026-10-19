@@ -23,6 +23,7 @@ import {
 	parseRefName,
 	parseUpstream,
 	setBranchMetadataValue,
+	splitRemoteBranchName,
 } from '@gitlens/git/utils/branch.utils.js';
 import { createConflictDetectionError } from '@gitlens/git/utils/mergeConflicts.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
@@ -269,6 +270,34 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 				const branches: GitBranch[] = [];
 
+				// Without `%(upstream:remotename)` (git < 2.23) a remote whose own name contains a `/` can't be
+				// told from the upstream's short name alone, so read the remote names once, only if needed
+				let remoteNames: Promise<string[]> | undefined;
+				const resolveUpstreamRemote = async (upstream: string): Promise<string | undefined> => {
+					if (!upstream.startsWith('refs/remotes/')) return undefined;
+
+					const { name } = parseRefName(upstream);
+					if (!name.includes('/', name.indexOf('/') + 1)) return undefined;
+
+					remoteNames ??= this.provider.remotes.getRemotes(commonPath, undefined, signal).then(
+						remotes => {
+							// `getRemotes` answers a failed read as no remotes, which leaves only the first-segment split
+							if (!remotes.length) {
+								cacheable?.invalidate();
+							}
+							return remotes.map(r => r.name);
+						},
+						(ex: unknown) => {
+							if (isCancellationError(ex)) throw ex;
+
+							// Fall back to the first-segment split, but don't cache a list read without the remotes
+							cacheable?.invalidate();
+							return [];
+						},
+					);
+					return splitRemoteBranchName(name, await remoteNames)?.[0];
+				};
+
 				for (const record of records) {
 					const fullName = record.name;
 					// Filter to branches and remote-tracking branches; skip tags from the unified records.
@@ -279,7 +308,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					const upstream = parseUpstream(
 						record.upstream,
 						record.upstreamTracking,
-						record.upstreamRemote,
+						record.upstreamRemote ??
+							(!worktreePathSupported ? await resolveUpstreamRemote(record.upstream) : undefined),
 						record.upstreamRemoteRef,
 					);
 
