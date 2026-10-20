@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-10-20
+
 ### Changed
 
 - Changes the `'unreadable-items'` warning for a Jira or Jira Data Center issue that `@gitkraken/provider-apis` can't read to take its `unreadableItems` from the structured `skippedItems` of the failure instead of parsing its message, so a page that skipped more than ten issues now names every one of them and reports `complete: true`, where it named ten and reported `complete: false`, and a key-looking token in an error reason no longer adds a key. `complete` is `false` when a skipped issue had no key, when the SDK's report was malformed (no list of keys, or more than keys in it), or when it said issues were skipped and named none. `keys` holds the spelling Jira returned, which is also how a published issue's id spells its key, and doesn't answer a lookup by another case or by a key the issue had before it moved, so compare case-normalized on both sides. The raw `CollectionMetadata` a drained read returns (`getIssuesForProjectWithTruncationResult`, `searchMyIssuesWithTruncationResult`) now merges `skippedItems` across the pages of a drain (keys in order, totals added) and across the reads of a user's relationships, which are merged into one failure per scope however they word it or split the skipped issues over their pages (keys in order; `total` is the larger of their totals, at least the keys named), so a user's relationships publish one warning for a project's skipped issues, with the message of the report that names more keys. The `total` of a drain is the sum of its pages' totals, so a key repeated across pages that shifted counts once per page. Before, the pages of a drain were folded into the first page's failure. A failure that carries `skippedItems` is never classified by its message, so a skipped issue whose own error names a status (`401`) is not an authentication failure, and a failure that doesn't carry it is no longer taken for a skip, whatever its message says. Failures no longer carry the `unreadableItems` property #6011 added to them; the warning still does ([#6035](https://github.com/gitkraken/vscode-gitlens/issues/6035)) (plus/integrations)
@@ -796,7 +798,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.2...HEAD
+[0.15.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.1...gitkraken:releases/core/v0.15.2
 [0.15.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.0...gitkraken:releases/core/v0.15.1
 [0.15.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.14.0...gitkraken:releases/core/v0.15.0
 [0.14.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.13.0...gitkraken:releases/core/v0.14.0
