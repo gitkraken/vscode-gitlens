@@ -188,6 +188,12 @@ git checkout -- package.json README.md
 | `E2E_REQUIRED_INTEGRATIONS`                                         | providers that must show as connected (default: GitHub, GitLab, Bitbucket, Azure DevOps; `none` checks the sign-in only) |
 | `E2E_REQUIRE_SIGNIN`                                                | fail instead of skip when the cookie is missing — for CI jobs that must sign in                                          |
 
+The MCP Start Work / Start Review spec (`mcpGitlensWritePathSignedIn.test.ts`) also needs `E2E_GITHUB_REPO_URL`,
+`E2E_GITHUB_ISSUE_URL` and `E2E_GITHUB_PR_URL`: the GitHub test repository, an open issue that belongs to the GitHub
+account bound to the test account (Start Work matches the account's own issues, it doesn't fetch the URL), and an open
+PR whose branch lives in that repository rather than a fork. Give canonical URLs without a trailing slash. They are
+public values — set them as repository variables; the spec skips without them, and fails under `E2E_REQUIRE_SIGNIN`.
+
 Mind what a sign-in costs: every worker sign-in mints a new GitLens token for the test account, and the backend
 neither expires nor revokes those tokens. Sign in only where an account is needed, don't retry signed-in specs
 (a retry starts a new worker), never sign out in a test (it is local-only), and never sign CI in to production.
