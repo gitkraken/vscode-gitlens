@@ -3,6 +3,7 @@ import type {
 	CollectionMetadata,
 	CollectionOmission,
 	CollectionScopeFailure,
+	CollectionSkippedItems,
 } from '@gitkraken/provider-apis';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { chunk } from '@gitlens/utils/array.js';
@@ -10,7 +11,11 @@ import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { ProviderScopeFailure } from '../../collectionMetadata.js';
-import { throwIfCallerContractError, toCollectionScopeFailure } from '../../collectionMetadata.js';
+import {
+	normalizeSkippedItems,
+	throwIfCallerContractError,
+	toCollectionScopeFailure,
+} from '../../collectionMetadata.js';
 import { providerFanOutConcurrency } from '../../constants.js';
 import { collectionScopeKey, mergeUnreadableItems } from '../../results.js';
 import type { ProviderApiPagedResult, ProviderHierarchyResult } from '../models.js';
@@ -197,9 +202,40 @@ export async function flatSettledOrThrow<T>(promises: Promise<T[]>[]): Promise<T
  * (`unknown`), and only an all-`complete` set of pages stays `complete`. */
 const completenessRank: Record<CollectionCompleteness, number> = { partial: 2, unknown: 1, complete: 0 };
 
-/** A stable key for deduplicating structurally-identical scope failures accumulated across drained pages. */
+/**
+ * A stable key for deduplicating structurally-identical scope failures accumulated across drained pages: kind, scope IDs
+ * and message. A failure that reports skipped items is keyed by kind and scope alone, never by message: it is one
+ * account of what a scope skipped, however the reads that reported it worded it or split the issues over their pages
+ * (the message is display prose, and names a different handful of issues and pages in each). And it never shares a key
+ * with one that doesn't: that one says nothing of which items were read, however alike their messages.
+ */
 function collectionFailureKey(failure: CollectionScopeFailure): string {
-	return [failure.kind, collectionScopeKey(failure.scope), failure.message ?? ''].join(' ');
+	return failure.skippedItems != null
+		? ['skipped', failure.kind, collectionScopeKey(failure.scope)].join(' ')
+		: [failure.kind, collectionScopeKey(failure.scope), failure.message ?? ''].join(' ');
+}
+
+/**
+ * The items two reports of skipped items left out together: the union of their keys in reported order, complete only
+ * when both are, and a total that depends on whether the reads can overlap. Reads of the same scope that each search for
+ * something else (an issue the assignee and the author relationships both reach) are `'overlapping'`: which issues they
+ * share isn't known, so the total is the larger of the two and never less than the keys named, a lower bound. The pages
+ * of one drain are `'disjoint'`, so their totals add (a key repeated across pages that shifted counts once per page).
+ * Both are normalized first ({@link normalizeSkippedItems}).
+ */
+export function mergeSkippedItems(
+	existing: CollectionSkippedItems,
+	next: CollectionSkippedItems,
+	reads: 'disjoint' | 'overlapping',
+): CollectionSkippedItems {
+	const a = normalizeSkippedItems(existing);
+	const b = normalizeSkippedItems(next);
+	const { keys, complete } = mergeUnreadableItems(a, b);
+	return {
+		keys: keys,
+		total: reads === 'disjoint' ? a.total + b.total : Math.max(a.total, b.total, keys.length),
+		complete: complete,
+	};
 }
 
 /**
@@ -218,14 +254,20 @@ function collectionOmissionKey(omission: CollectionOmission): string {
 
 /**
  * Merges SDK collection metadata across drained pages. Completeness follows {@link completenessRank};
- * failures are deduplicated by kind, scope IDs, and message, and omissions are collapsed per kind and scope
- * keeping the highest reported total ({@link collectionOmissionKey}). Both preserve first-reported order.
- * Returns `undefined` when no page supplied metadata, so metadata-free providers and test doubles keep
- * behaving as before.
+ * failures are deduplicated by kind and scope IDs for those that report `skippedItems` ({@link collectionFailureKey}),
+ * and by kind, scope IDs and message for the rest, and omissions are collapsed per kind and scope
+ * keeping the highest reported total ({@link collectionOmissionKey}). Both preserve first-reported order. Two failures
+ * that report skipped items merge them instead of the first winning ({@link mergeSkippedItems}), and the merged failure
+ * keeps the message of the one that names more keys (the first when they name as many), so the text covers at least
+ * what the larger report does, whichever came first. `reads` says how the items add up: `'overlapping'`, the default,
+ * suits any reads that may reach the same item (a user's relationships), and a caller merging the successive pages of
+ * one drain says `'disjoint'`. Returns `undefined` when no page supplied metadata, so metadata-free providers and test
+ * doubles keep behaving as before.
  */
 export function mergeCollectionMetadata(
 	base: CollectionMetadata | undefined,
 	next: CollectionMetadata | undefined,
+	reads: 'disjoint' | 'overlapping' = 'overlapping',
 ): CollectionMetadata | undefined {
 	if (base == null) return next;
 	if (next == null) return base;
@@ -235,17 +277,24 @@ export function mergeCollectionMetadata(
 			? next.completeness
 			: base.completeness;
 
-	// First occurrence wins: a repeated failure carries no new information, since the message is part of its key. Except
-	// for the items it says it left out, which two reads reporting the same text can differ in.
+	// First occurrence wins: a repeated failure carries no new information, since what identifies it is what it says.
+	// Except for one that reports skipped items, which is keyed without its message and so merges what each report
+	// skipped; the key guarantees `current` reports skipped items too.
 	const failures = [
 		...uniqueBy<string, ProviderScopeFailure>(
 			[...(base.failures ?? []), ...(next.failures ?? [])],
 			collectionFailureKey,
 			(original, current) => {
-				const unreadableItems = mergeUnreadableItems(original.unreadableItems, current.unreadableItems);
-				return unreadableItems === original.unreadableItems
-					? original
-					: { ...original, unreadableItems: unreadableItems };
+				if (original.skippedItems == null) return undefined;
+
+				const reported = current.skippedItems ?? original.skippedItems;
+				const named = (skipped: CollectionSkippedItems) => normalizeSkippedItems(skipped).keys.length;
+				const fuller = named(reported) > named(original.skippedItems) ? current : original;
+				return {
+					...original,
+					...(fuller.message != null ? { message: fuller.message } : {}),
+					skippedItems: mergeSkippedItems(original.skippedItems, reported, reads),
+				};
 			},
 		),
 	];
@@ -343,7 +392,7 @@ export async function collectProviderPagedResult<T>(
 		}
 
 		values.push(...result.values);
-		metadata = mergeCollectionMetadata(metadata, result.metadata);
+		metadata = mergeCollectionMetadata(metadata, result.metadata, 'disjoint');
 		truncated ||= result.paging?.truncated === true;
 
 		if (!result.paging?.more) return build();

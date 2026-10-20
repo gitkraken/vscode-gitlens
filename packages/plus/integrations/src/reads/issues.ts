@@ -359,7 +359,7 @@ async function readAccountWideIssuesPage({
 		warnings: warnings,
 		readPage: readAccountWidePage,
 		fold: p => {
-			allMetadata = mergeCollectionMetadata(allMetadata, p.metadata);
+			allMetadata = mergeCollectionMetadata(allMetadata, p.metadata, 'disjoint');
 		},
 	});
 	const { value, currentPage, requestedPageMissing } = drained;

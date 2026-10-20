@@ -607,6 +607,7 @@ suite('Jira Server/Data Center (#5864)', () => {
 											scope: { providerId: 'jiraServer' },
 											kind: 'provider',
 											message: 'Skipped Jira issues that could not be read: PROJ-2 (boom).',
+											skippedItems: { keys: ['PROJ-2'], total: 1, complete: true },
 										},
 									],
 								},
@@ -621,13 +622,15 @@ suite('Jira Server/Data Center (#5864)', () => {
 		assert.equal(result?.metadata?.completeness, 'partial');
 		// Under this read's own scope, as its other failures are: the SDK's provider id is not this integration's.
 		assert.deepEqual(
-			result?.metadata?.failures?.map(f => [f.scope, f.message]),
+			result?.metadata?.failures?.map(f => [f.scope, f.message, f.skippedItems]),
 			[
 				[
 					{ providerId: IssuesSelfManagedHostIntegrationId.JiraServer },
 					'Skipped Jira issues that could not be read: PROJ-2 (boom).',
+					{ keys: ['PROJ-2'], total: 1, complete: true },
 				],
 			],
+			'the raw metadata keeps what the SDK reported as skipped',
 		);
 
 		manager.dispose();
@@ -655,6 +658,7 @@ suite('Jira Server/Data Center (#5864)', () => {
 								scope: { providerId: 'jiraServer' },
 								kind: 'provider',
 								message: `Skipped Jira issues that could not be read: PROJ-${page} (boom).`,
+								skippedItems: { keys: [`PROJ-${page}`], total: 1, complete: true },
 							},
 						],
 					},
