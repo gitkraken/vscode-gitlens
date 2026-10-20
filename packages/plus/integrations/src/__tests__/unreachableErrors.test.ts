@@ -8,7 +8,6 @@ import {
 	RequestRateLimitError,
 } from '@gitlens/git/errors.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
-import type { ProviderScopeFailure } from '../collectionMetadata.js';
 import {
 	assessCollectionMetadata,
 	hasOnlyScopedAuthFailures,
@@ -17,6 +16,7 @@ import {
 } from '../collectionMetadata.js';
 import { GitSelfManagedHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
 import { isProviderUnreachableError, ProviderFetchError } from '../errors.js';
+import { summarizePageMetadata } from '../providers/utils/jiraIssueDrains.js';
 import { toProviderWarning } from '../results.js';
 
 const providerId = GitSelfManagedHostIntegrationId.AzureDevOpsServer;
@@ -188,16 +188,20 @@ suite('provider unreachable classification', () => {
 suite('unreadable items carrying a status in their reason (#6011)', () => {
 	test('a skipped issue whose own error names a status is neither a refused credential nor an unreachable server', () => {
 		for (const status of ['401', '503']) {
-			const failure: ProviderScopeFailure = {
-				scope: { providerId: 'jira', resourceId: 'site-1', projectId: 'P' },
-				kind: 'provider',
-				message: `Skipped Jira issues that could not be read: P-1 (Request failed (${status})).`,
-				unreadableItems: { keys: ['P-1'], complete: true },
-			};
-			const metadata: CollectionMetadata = {
+			// As provider-apis reports it, and as a drain summarizes it before anything classifies it.
+			const page: CollectionMetadata = {
 				completeness: 'partial',
-				failures: [failure],
+				failures: [
+					{
+						scope: { providerId: 'jira', resourceId: 'site-1', projectId: 'P' },
+						kind: 'provider',
+						message: `Skipped Jira issues that could not be read: P-1 (Request failed (${status})).`,
+						skippedItems: { keys: ['P-1'], total: 1, complete: true },
+					},
+				],
 			};
+			const metadata = summarizePageMetadata([page])!;
+			const failure = metadata.failures![0];
 
 			const result = assessCollectionMetadata(IssuesCloudHostIntegrationId.Jira, undefined, undefined, metadata);
 
@@ -217,5 +221,26 @@ suite('unreadable items carrying a status in their reason (#6011)', () => {
 			});
 			assert.equal(withRefusal.requestFailed, true);
 		}
+	});
+
+	test('a provider failure without skippedItems is classified as any other, by its message', () => {
+		const metadata: CollectionMetadata = {
+			completeness: 'partial',
+			failures: [
+				{
+					scope: { providerId: 'jira', resourceId: 'site-1', projectId: 'P' },
+					kind: 'provider',
+					message: 'Request failed (401)',
+				},
+			],
+		};
+
+		const result = assessCollectionMetadata(IssuesCloudHostIntegrationId.Jira, undefined, undefined, metadata);
+
+		assert.deepEqual(
+			result.warnings.map(w => [w.kind, w.unreadableItems]),
+			[['auth', undefined]],
+		);
+		assert.equal(result.requestFailed, true);
 	});
 });

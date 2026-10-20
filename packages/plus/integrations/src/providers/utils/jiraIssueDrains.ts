@@ -1,8 +1,7 @@
-import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
+import type { CollectionMetadata, CollectionScopeFailure, CollectionSkippedItems } from '@gitkraken/provider-apis';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import { Logger } from '@gitlens/utils/logger.js';
-import type { ProviderScopeFailure } from '../../collectionMetadata.js';
 import {
 	isIncompleteCollection,
 	throwIfCallerContractError,
@@ -10,11 +9,10 @@ import {
 } from '../../collectionMetadata.js';
 import { splitProjectIssuesSearch } from '../../models/issuesIntegration.js';
 import { IssueFilter } from '../../providerFilters.js';
-import type { ProviderWarningUnreadableItems } from '../../results.js';
-import { collectionScopeKey, mergeUnreadableItems } from '../../results.js';
+import { collectionScopeKey } from '../../results.js';
 import type { JiraIssuePage, ProviderIssue } from '../models.js';
 import { toIssueShape } from '../models.js';
-import { mergeCollectionMetadata } from './providerPaging.js';
+import { mergeCollectionMetadata, mergeSkippedItems } from './providerPaging.js';
 
 /**
  * The issue drains Jira Cloud and Jira Server share. Their reads differ only in how a page is addressed (a site's
@@ -71,28 +69,33 @@ export function withFailureScope(
  * of a drain over many unreadable pages never dedupe and would publish one warning per page. The first page's
  * failure is kept, naming its keys, and says how many more pages dropped issues too.
  *
- * A failure that names the issues a page dropped because it could not read them (GKDEV-3652) is marked as such, with
- * the keys every page of its group named (see {@link parseSkippedJiraIssues}), and is published as an
- * `'unreadable-items'` warning rather than a failed read. `pages` holds only what the SDK's search pages reported, never
- * a failure synthesized here: only those can carry that form.
+ * A failure that reports the issues a page dropped because it could not read them (GKDEV-3652) carries
+ * `skippedItems`, which the summary keeps for the whole group (the keys of every page of it, their totals added), and
+ * is published as an `'unreadable-items'` warning rather than a failed read. `pages` holds only what the SDK's search
+ * pages reported, never a failure synthesized here: only those can carry that field.
  */
 export function summarizePageMetadata(pages: readonly CollectionMetadata[]): CollectionMetadata | undefined {
 	let summary: CollectionMetadata | undefined;
 	const failures = new Map<
 		string,
-		{ failure: CollectionScopeFailure; pages: number; unreadableItems: ProviderWarningUnreadableItems | undefined }
+		{ failure: CollectionScopeFailure; pages: number; skippedItems: CollectionSkippedItems | undefined }
 	>();
 	for (const { failures: pageFailures, ...page } of pages) {
 		summary = mergeCollectionMetadata(summary, page);
 		for (const failure of pageFailures ?? []) {
-			const unreadableItems = parseSkippedJiraIssues(failure.message);
-			const key = `${collectionScopeKey(failure.scope)}\0${failure.kind}\0${unreadableItems != null}`;
+			const key = `${collectionScopeKey(failure.scope)}\0${failure.kind}\0${failure.skippedItems != null}`;
 			const group = failures.get(key);
 			if (group == null) {
-				failures.set(key, { failure: failure, pages: 1, unreadableItems: unreadableItems });
+				failures.set(key, {
+					failure: failure,
+					pages: 1,
+					skippedItems: failure.skippedItems,
+				});
 			} else {
 				group.pages++;
-				group.unreadableItems = mergeUnreadableItems(group.unreadableItems, unreadableItems);
+				if (failure.skippedItems != null && group.skippedItems != null) {
+					group.skippedItems = mergeSkippedItems(group.skippedItems, failure.skippedItems, 'disjoint');
+				}
 			}
 		}
 	}
@@ -100,60 +103,16 @@ export function summarizePageMetadata(pages: readonly CollectionMetadata[]): Col
 
 	return mergeCollectionMetadata(summary, {
 		completeness: 'partial',
-		failures: Array.from(failures.values(), ({ failure, pages: count, unreadableItems }): ProviderScopeFailure => ({
+		failures: Array.from(failures.values(), ({ failure, pages: count, skippedItems }): CollectionScopeFailure => ({
 			...failure,
 			...(count === 1
 				? {}
 				: {
 						message: `${failure.message != null ? `${failure.message} ` : ''}Issues on ${count - 1} more ${count === 2 ? 'page' : 'pages'} could not be read either.`,
 					}),
-			...(unreadableItems != null ? { unreadableItems: unreadableItems } : {}),
+			...(skippedItems != null ? { skippedItems: skippedItems } : {}),
 		})),
 	});
-}
-
-const skippedJiraIssuesPrefix = 'Skipped Jira issues that could not be read: ';
-/** Where provider-apis names a skipped issue: its key, or its position, opening its entry at the start or after `, `. */
-const skippedJiraIssueEntry = /(?:^|, )(result \d+|[^\s(),]+) \(/g;
-const moreSkippedJiraIssues = / and \d+ more\.$/;
-/** An entry with no name: provider-apis names one by its key or position, so this one can't be accounted for. */
-const unnamedSkippedJiraIssue = /(?:^|, ) \(/;
-
-/**
- * The keys of the issues a Jira search page dropped, read from the message of the failure that reports them, since
- * provider-apis names them nowhere else: `Skipped Jira issues that could not be read: KEY-1 (reason), KEY-2 (reason)
- * and N more.`, with at most ten named and a position (`result 3`) in place of a key the issue lacked.
- *
- * A reason is the error's own text, so the entries can't be told apart by their parentheses: every place an entry can
- * open is taken as one instead. That can name a key that only appeared in a reason, never miss a skipped one, which is
- * the safe side: a consumer relies only on an issue being absent from `keys`.
- *
- * Undefined for a message that doesn't open that way, which is then no report of dropped issues: a failure of another
- * kind must not pass for one, since a consumer takes the rest of its scope as read. Never throws. A list that names
- * only some of its issues, doesn't open with a named entry, holds an unnamed one or lacks its closing period is
- * reported incomplete. A change of separator can't be told from a reason that holds one, so the test reading a page
- * through the real SDK is what pins the form.
- */
-export function parseSkippedJiraIssues(message: string | undefined): ProviderWarningUnreadableItems | undefined {
-	if (!message?.startsWith(skippedJiraIssuesPrefix)) return undefined;
-
-	const list = message.slice(skippedJiraIssuesPrefix.length);
-	const entries = [...list.matchAll(skippedJiraIssueEntry)];
-	let complete =
-		entries[0]?.index === 0 &&
-		!list.startsWith(', ') &&
-		!unnamedSkippedJiraIssue.test(list) &&
-		list.endsWith('.') &&
-		!moreSkippedJiraIssues.test(list);
-	const keys: string[] = [];
-	for (const [, name] of entries) {
-		if (name.startsWith('result ')) {
-			complete = false;
-		} else if (!keys.includes(name)) {
-			keys.push(name);
-		}
-	}
-	return { keys: keys, complete: complete };
 }
 
 /**
@@ -342,7 +301,8 @@ export async function readUserScopedJiraIssues(
 			metadata = mergeCollectionMetadata(metadata, backstopOmission(options.failureScope));
 		}
 		if (outcome.value.metadata != null) {
-			metadata = mergeCollectionMetadata(metadata, outcome.value.metadata);
+			// The relationships' searches overlap: an issue one reaches, another may too.
+			metadata = mergeCollectionMetadata(metadata, outcome.value.metadata, 'overlapping');
 		}
 		issues.push(...outcome.value.issues);
 	}

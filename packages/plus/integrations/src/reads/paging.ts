@@ -344,7 +344,7 @@ export async function drainToRequestedPage<T>(
 		}
 
 		items = value.values;
-		metadata = mergeCollectionMetadata(metadata, value.metadata);
+		metadata = mergeCollectionMetadata(metadata, value.metadata, 'disjoint');
 		const next = toProviderPageInfo(options.itemsPerPage ?? value.values.length, value.paging);
 		currentPage++;
 		currentTruncated ||= next.truncated;
