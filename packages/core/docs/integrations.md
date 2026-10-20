@@ -757,11 +757,15 @@ prove from structured errors:
 | `other`            | Catch-all: malformed or contradictory input, truncation, upstream/network failure, or an unclassified error. Read `omission` before treating one as a failure.                         | Preserve the warning and use the result flags; do not assume it is benign or non-retryable.                   |
 
 An `unreadable-items` warning carries `unreadableItems: { keys, complete }`: the identifiers of the items left out (Jira
-issue keys), and whether `keys` names all of them. `complete` is `false` when the provider named only some (Jira names
-at most ten per page) or named one by its position, so an identifier absent from `keys` is proven read only when every
-such warning is `complete`. The read still sets `fetchFailed`, but it retracts no omission: no request failed. On an
-issue tracker's project reads it never stands for a read that was also cut short: a project or relationship stopped
-by the page backstop, a stalled continuation or a failed page always adds a warning of another kind for it.
+issue keys), and whether `keys` names all of them. `complete` is `false` when an item left out had no key to report,
+when the provider's report of them was malformed (no list of keys, or more than keys in it), or when it said items were
+left out and named none, so an identifier absent from `keys` is proven read only when every such warning is `complete`;
+one present in `keys` was reported as skipped. Both hold for the spelling the provider returned only, which is also how
+a published issue's id spells its key: `keys` doesn't answer a lookup by another case or by a key the issue had before
+it moved, so a consumer comparing a key from elsewhere (one parsed from a branch name, say) normalizes the case of both
+sides. The read still sets `fetchFailed`, but it retracts no omission: no request failed. On an issue tracker's project
+reads it never stands for a read that was also cut short: a project or relationship stopped by the page backstop, a
+stalled continuation or a failed page always adds a warning of another kind for it.
 
 `isAuth` is a convenience mirror of `kind === 'auth'`. **Collapsing `kind` into that boolean loses the
 rate-limit and not-found distinctions**, which then have to be re-derived from raw provider prose.

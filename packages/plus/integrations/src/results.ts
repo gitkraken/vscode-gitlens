@@ -44,15 +44,20 @@ export type ProviderWarningKind =
 /** The items an `'unreadable-items'` warning left out: see {@link ProviderWarning.unreadableItems}. */
 export interface ProviderWarningUnreadableItems {
 	/**
-	 * The provider's identifiers of the items left out (a Jira issue's key), without duplicates, in reported order. Read
-	 * from the provider's prose, it may also hold an identifier that only appeared in an item's error text, never lack
-	 * one it named: rely on an identifier's absence, not on its presence.
+	 * The provider's identifiers of the items left out (a Jira issue's key), without duplicates, in reported order. Each
+	 * one is an item the provider reported as skipped, so an identifier present is one that was left out, and one absent
+	 * was read when {@link complete}.
+	 *
+	 * Both hold only for the spelling the provider returned, which is also how a published issue's id spells its key: `keys`
+	 * doesn't answer a lookup by another spelling, such as a different case or the key an issue had before it moved. A
+	 * consumer comparing a key from elsewhere (one parsed from a branch name, say) must normalize the case of both sides,
+	 * and can't take an issue under a key it once had as read.
 	 */
 	keys: string[];
 	/**
-	 * Whether {@link keys} names every item left out. `false` when the provider named only some of them (Jira names at
-	 * most ten per page), named one by position rather than by key, or reported them in a form this layer could not
-	 * read, so an identifier absent from `keys` may still be one of them.
+	 * Whether {@link keys} names every item left out. `false` when an item left out had no key to report, when the
+	 * provider's report of them was malformed (no list of keys, or more than keys in it), or when it said items were left
+	 * out and named none, so an identifier absent from `keys` may still be one of them.
 	 */
 	complete: boolean;
 }
@@ -645,7 +650,10 @@ export function appendDedupedWarning(into: ProviderWarning[], warning: ProviderW
 
 	const existing = into[index];
 	const targetKeys = mergeTargetKeys(existing.targetKeys, warning.targetKeys);
-	const unreadableItems = mergeUnreadableItems(existing.unreadableItems, warning.unreadableItems);
+	const unreadableItems =
+		existing.unreadableItems != null && warning.unreadableItems != null
+			? mergeUnreadableItems(existing.unreadableItems, warning.unreadableItems)
+			: (existing.unreadableItems ?? warning.unreadableItems);
 	if (targetKeys === existing.targetKeys && unreadableItems === existing.unreadableItems) return;
 
 	const { targetKeys: _, ...rest } = existing;
@@ -672,13 +680,11 @@ function mergeTargetKeys(existing: string[] | undefined, next: string[] | undefi
  * `existing` when `next` adds nothing to it.
  */
 export function mergeUnreadableItems(
-	existing: ProviderWarningUnreadableItems | undefined,
-	next: ProviderWarningUnreadableItems | undefined,
-): ProviderWarningUnreadableItems | undefined {
-	if (existing == null) return next;
-	if (next == null) return existing;
-
-	const added = next.keys.filter(k => !existing.keys.includes(k));
+	existing: ProviderWarningUnreadableItems,
+	next: ProviderWarningUnreadableItems,
+): ProviderWarningUnreadableItems {
+	const known = new Set(existing.keys);
+	const added = next.keys.filter(k => !known.has(k));
 	const complete = existing.complete && next.complete;
 	if (!added.length && complete === existing.complete) return existing;
 

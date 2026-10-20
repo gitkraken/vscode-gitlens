@@ -16,7 +16,7 @@ import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
-import { isIncompleteCollection, toCollectionScopeFailure } from '../collectionMetadata.js';
+import { isIncompleteCollection, toCollectionScopeFailure, withValidSkippedItems } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import {
 	GitCloudHostIntegrationId,
@@ -294,7 +294,8 @@ function fromTrelloCard(
 
 /**
  * One Jira search page as the drains read it: `nextCursor` is the raw provider cursor (Jira offset / nextPageToken)
- * fed back verbatim as `options.cursor`, and `metadata` is the SDK's, kept only when it reported something.
+ * fed back verbatim as `options.cursor`, and `metadata` is the SDK's, kept only when it reported something and with its `skippedItems` checked, since the
+ * drains read nothing else of a page's failures.
  */
 function toJiraIssuePage(
 	result:
@@ -311,7 +312,7 @@ function toJiraIssuePage(
 		data: result.data,
 		hasMore: result.pageInfo?.hasNextPage ?? false,
 		nextCursor: result.pageInfo?.endCursor ?? undefined,
-		...(result.metadata != null ? { metadata: result.metadata } : {}),
+		...(result.metadata != null ? { metadata: withValidSkippedItems(result.metadata) } : {}),
 	};
 }
 
@@ -773,7 +774,7 @@ export class ProvidersApi {
 			}
 			const continuationBroken = hasMore && (nextCursor === '{}' || nextCursor === cursor);
 			const normalizedMetadata = mergeCollectionMetadata(
-				result.metadata,
+				withValidSkippedItems(result.metadata),
 				continuationBroken ? { completeness: 'partial' } : undefined,
 			);
 
