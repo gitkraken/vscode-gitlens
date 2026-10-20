@@ -34,6 +34,20 @@ export function stubApi(gh: GitHostIntegration, api: Record<string, unknown>): v
 	(gh as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () => Promise.resolve(api);
 }
 
+/**
+ * Answers provider-apis' connection data read with `id`: the current user's identity in every Azure DevOps
+ * organization, which Azure resolves its filters and pull request viewers from. Swapped on the SDK surface, so the
+ * integration's own read and cache of it stay under test.
+ */
+export async function stubAzureOrganizationUser(azure: GitHostIntegration, id: string): Promise<void> {
+	const api = await (
+		azure as unknown as {
+			getProvidersApi(): Promise<{ providers: Record<string, { getCurrentUserForInstanceFn?: unknown }> }>;
+		}
+	).getProvidersApi();
+	api.providers[azure.id].getCurrentUserForInstanceFn = () => Promise.resolve({ data: { id: id } });
+}
+
 export function providerPr(id: string, overrides?: Partial<ProviderPullRequest>): ProviderPullRequest {
 	return {
 		id: id,

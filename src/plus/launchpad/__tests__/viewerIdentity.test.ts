@@ -118,6 +118,24 @@ suite('Launchpad viewer identity matching', () => {
 		assert.strictEqual(item.suggestedActionCategory, 'needsMyReview');
 	});
 
+	test("resolves the viewer by the pull request's own viewer where its organization knows the account by another id", () => {
+		// Azure DevOps (#6032): the account carries the profile id, while the organization's people, and the
+		// `viewer` the read resolved there, carry the organization's own identity.
+		const viewer: PullRequestMember = { id: 'org-id', name: 'Eric Amodio', username: 'eamodio@example.com' };
+		const other: PullRequestMember = { id: 'guid-other', name: 'Someone', username: 'someone@example.com' };
+		const pr = Object.assign(createPullRequest(other, viewer), { viewer: { id: 'org-id' } });
+		const account = createAccount('profile-id', 'Eric Amodio');
+
+		const canonicalized = canonicalizeViewerIdentity(toProviderPullRequestWithUniqueId(pr), pr, account);
+		assert.strictEqual(canonicalized.author?.id, 'guid-other');
+		assert.strictEqual(canonicalized.reviews?.[0].reviewer.id, 'profile-id');
+
+		const item = categorize(pr, account, true);
+		assert.strictEqual(item.viewer.isReviewer, true);
+		assert.strictEqual(item.suggestedActionCategory, 'needsMyReview');
+		assert.strictEqual(categorize(pr, account, false).viewer.isReviewer, false);
+	});
+
 	test('rewrites only the viewer, never anyone else', () => {
 		const viewer: PullRequestMember = { id: 'eamodio', name: 'eamodio', username: 'eamodio' };
 		const other: PullRequestMember = { id: 'someone', name: 'someone', username: 'someone' };
