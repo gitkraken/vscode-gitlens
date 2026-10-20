@@ -141,6 +141,10 @@ function answerCollection(base: string, segments: string[], url: URL, body: stri
 	}));
 
 	switch (true) {
+		case route === '_apis/connectiondata': {
+			const user = { id: me, providerDisplayName: me, properties: { Account: { $value: `${me}@example.com` } } };
+			return json({ authenticatedUser: user, authorizedUser: user });
+		}
 		case route === '_apis/projects':
 			return json({ value: [{ id: projectId, name: projectName }] });
 		case route === '{project}/_apis/git/repositories':

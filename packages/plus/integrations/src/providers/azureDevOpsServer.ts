@@ -1,7 +1,7 @@
 import type { CollectionScopeFailure } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { IssueSearchCriteria } from '@gitlens/git/models/issue.js';
-import type { PullRequest, PullRequestSearchCriteria, PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestSearchCriteria, PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
 import { defaultPullRequestSort } from '@gitlens/git/models/pullRequest.js';
 import { CancellationError, raceWithSignal } from '@gitlens/utils/cancellation.js';
 import { uuid } from '@gitlens/utils/crypto.js';
@@ -61,7 +61,6 @@ import type {
 import {
 	fromProviderPullRequest,
 	getProviderPullRequestIdentity,
-	isNativePullRequest,
 	providersMetadata,
 	PullRequestFilter,
 	toProviderPullRequestStates,
@@ -987,82 +986,18 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		return projects.flat().map(p => ({ collection: p.resourceName, project: p }));
 	}
 
-	private readonly _collectionUserIds = new PromiseCache<string, string | undefined>({ capacity: 50 });
-
-	/**
-	 * The current user's identity id in `collection`, read from the collection's own connection data, which is
-	 * what Azure's creator and reviewer filters compare against. Cached per credential and collection, since it
-	 * can't change for either.
-	 */
-	protected override getFilterUserId(
+	/** Reads the collection's own connection data, at the installation's address. */
+	protected override async requestOrganizationUserId(
 		session: ProviderAuthenticationSession,
 		collection: string,
 	): Promise<string | undefined> {
-		const baseUrl = this.collectionApiBaseUrl(session, collection);
-		return this._collectionUserIds.getOrCreate(
-			JSON.stringify([session.accessToken, baseUrl, collection.toLowerCase()]),
-			async cacheable => {
-				const azure = await this.authenticationService.apis.azure;
-				const user = await azure?.getCurrentUserOnServer(
-					this,
-					toTokenWithInfo(this.id, session),
-					`${baseUrl}/${encodeURIComponent(collection)}`,
-				);
-				// A response without an identity must not refuse later relationship searches from a cached miss.
-				if (user?.id == null) {
-					cacheable.invalidate();
-				}
-
-				return user?.id;
-			},
+		const azure = await this.authenticationService.apis.azure;
+		const user = await azure?.getCurrentUserOnServer(
+			this,
+			toTokenWithInfo(this.id, session),
+			`${this.collectionApiBaseUrl(session, collection)}/${encodeURIComponent(collection)}`,
 		);
-	}
-
-	/**
-	 * Resolved per collection, which a raw row names as its repository owner: a collection's pull requests carry the
-	 * id {@link getFilterUserId} resolves there, never the server-level account's. A row that names no collection or
-	 * has no author to match gets no viewer, nor does one in a collection whose id can't be read: its authorship
-	 * stays unknown.
-	 */
-	override async getPullRequestViewers(
-		pullRequests: readonly (ProviderPullRequest | PullRequest)[],
-		connectionId?: string,
-	): Promise<({ id: string; username?: string } | undefined)[]> {
-		const session = await this.resolveReadSessionOrThrow(connectionId, undefined);
-		if (session == null) return pullRequests.map(() => undefined);
-
-		const viewerFor = this.getOrganizationViewers(session, undefined);
-		return Promise.all(
-			pullRequests.map(pr => {
-				// Azure DevOps Server's rows are provider-apis' own; only GitHub's are native.
-				const collection = isNativePullRequest(pr) ? undefined : pr.repository?.owner?.login;
-				return collection && pr.author != null ? viewerFor(collection) : Promise.resolve(undefined);
-			}),
-		);
-	}
-
-	/**
-	 * Ignores `account`: it is the server-level one, which no collection's pull requests carry. A collection whose id
-	 * can't be read resolves `undefined`, since authorship is optional enrichment and one collection's failed lookup
-	 * must not fail the read or blank the others; it is asked once per read, as a miss isn't cached.
-	 */
-	protected override getOrganizationViewers(
-		session: ProviderAuthenticationSession,
-		_account: { id: string; username?: string } | undefined,
-	): (collection: string) => Promise<{ id: string } | undefined> {
-		const viewers = new Map<string, Promise<{ id: string } | undefined>>();
-		return collection => {
-			const key = collection.toLowerCase();
-			let viewer = viewers.get(key);
-			if (viewer == null) {
-				viewer = this.getFilterUserId(session, collection).then(
-					id => (id != null ? { id: id } : undefined),
-					() => undefined,
-				);
-				viewers.set(key, viewer);
-			}
-			return viewer;
-		};
+		return user?.id;
 	}
 
 	/** Every collection the account can see, or a refusal when discovery itself failed. */
@@ -1136,7 +1071,6 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		super.providerOnDisconnect();
 		this._pullRequestSearches.clear();
 		this._latestPullRequestSearches.clear();
-		this._collectionUserIds.clear();
 		this._collectionNames.clear();
 	}
 
