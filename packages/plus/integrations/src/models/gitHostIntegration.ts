@@ -1858,8 +1858,9 @@ export abstract class GitHostIntegration<
 	/**
 	 * The current account as each of `pullRequests` identifies its members, in order: what a raw row's
 	 * `authoredByMe` and `viewer` are resolved against when it's mapped. Most hosts give a person one id, so every
-	 * row gets the account itself; Azure DevOps Server answers per collection (see `AzureDevOpsServerIntegration`).
-	 * Throws only when the account itself can't be read.
+	 * row gets the account itself; Azure DevOps answers per organization (see `AzureDevOpsIntegrationBase`).
+	 * Throws only when the account itself can't be read. Azure DevOps never throws: a session it can't resolve leaves
+	 * the rows it hadn't already resolved unknown.
 	 */
 	async getPullRequestViewers(
 		pullRequests: readonly (ProviderPullRequest | PullRequest)[],
