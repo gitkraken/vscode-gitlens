@@ -317,6 +317,8 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 					void scope.pause(['left', 'ctrl+left', 'right', 'ctrl+right']);
 				}
 
+				let accepting = false;
+
 				disposables.push(
 					scope,
 					input.onDidHide(() => {
@@ -377,7 +379,43 @@ export abstract class QuickWizardCommandBase extends GlCommandBase {
 						input.validationMessage = message;
 					}),
 					input.onDidAccept(async () => {
-						resolve(await this.nextStep(rootStep.command!, input.value, input));
+						if (accepting) return;
+
+						accepting = true;
+						try {
+							// Validate before advancing — the step re-validates on continue and breaks (going back a
+							// step and losing the typed value) when invalid, so an invalid value must keep the input open
+							if (step.validate != null) {
+								const value = input.value;
+								const validation = step.validate(value);
+								if (isPromise(validation)) {
+									input.busy = true;
+								}
+
+								let valid;
+								let message;
+								try {
+									[valid, message] = await validation;
+								} finally {
+									input.busy = false;
+								}
+
+								// Edited while validating — `onDidChangeValue` owns the message for the new value
+								if (input.value !== value) return;
+
+								if (!valid) {
+									input.validationMessage =
+										message != null
+											? { severity: InputBoxValidationSeverity.Error, message: message }
+											: undefined;
+									return;
+								}
+							}
+
+							resolve(await this.nextStep(rootStep.command!, input.value, input));
+						} finally {
+							accepting = false;
+						}
 					}),
 				);
 
