@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.15.3] - 2026-10-21
+
 ### Fixed
 
 - Fixes Azure DevOps work items reporting an open state when their workflow category is unavailable and no closed date is known, including cheap etag reads. Filtered work item searches and counts now select by workflow category, so Removed work items without closed dates appear under Closed ([#6041](https://github.com/gitkraken/vscode-gitlens/issues/6041)).
@@ -802,7 +804,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.2...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.3...HEAD
+[0.15.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.2...gitkraken:releases/core/v0.15.3
 [0.15.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.1...gitkraken:releases/core/v0.15.2
 [0.15.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.0...gitkraken:releases/core/v0.15.1
 [0.15.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.14.0...gitkraken:releases/core/v0.15.0
