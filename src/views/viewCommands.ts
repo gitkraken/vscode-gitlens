@@ -65,7 +65,6 @@ import {
 	executeActionCommand,
 	executeCommand,
 	executeCoreCommand,
-	executeCoreGitCommand,
 	executeEditorCommand,
 	registerCommand,
 } from '../system/-webview/command.js';
@@ -944,11 +943,11 @@ export class ViewCommands implements Disposable {
 	@command('gitlens.views.publishRepository')
 	@command('gitlens.publishRepository:views')
 	@debug()
-	private publishRepository(node: BranchNode | BranchTrackingStatusNode) {
-		if (node.isAny('branch', 'tracking-status')) {
-			return executeCoreGitCommand('git.publish', Uri.file(node.repoPath));
-		}
-		return Promise.resolve();
+	private publishRepository(node: BranchNode | BranchTrackingStatusNode | WorktreeNode) {
+		// Opens the push wizard's no-remotes chooser (Publish Repository… / Add Remote…) with Publish Repository pre-selected
+		if (node.branch == null) return Promise.resolve();
+
+		return RepoActions.push(node.repoPath, undefined, node.branch, { flags: ['--publish-repository'] });
 	}
 
 	@command('gitlens.views.pull')

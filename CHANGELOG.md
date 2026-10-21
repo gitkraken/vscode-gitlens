@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Changes _Publish Repository_ in the _Commit Graph_ and views to open the push wizard's chooser (_Publish Repository…_ or _Add Remote…_) with the clicked action pre-selected, rather than handing straight to VS Code's publish flow &mdash; _Add Remote…_ continues into the publish confirm without a fetch step, and a multi-repository push now skips (and names) repositories without remotes instead of failing
 - Changes views and the _Commit Graph_ to keep updating during long-running activity, such as a long rebase or a build writing into the working tree, where they used to wait until it stopped
 - Improves performance when working across several worktrees of one repository &mdash; staging changes, or a merge, rebase or cherry-pick pausing, in one worktree no longer refreshes the views and _Commit Graph_ state of every other worktree
 
