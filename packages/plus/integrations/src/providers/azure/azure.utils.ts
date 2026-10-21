@@ -2,10 +2,33 @@ import { isVsts, parseAzureHttpsUrl } from '@gitlens/git/remotes/azure-devops.js
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.js';
 import { decodePathSegment } from '../../utils/domain.utils.js';
+import type { AzureRepositoryDescriptor } from './models.js';
 
 export type AzureDevOpsIntegrationIds =
 	| GitCloudHostIntegrationId.AzureDevOps
 	| GitSelfManagedHostIntegrationId.AzureDevOpsServer;
+
+/** The project and repository an Azure repository descriptor names, its `{project}/_git/{repo}` name parsed. */
+export function getAzureRepositoryIdentity(repo: Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project'>): {
+	resourceName: string;
+	projectName?: string;
+	repositoryName: string;
+} {
+	const match = /^([^/]+)\/_git\/([^/]+)$/i.exec(repo.name);
+	return {
+		resourceName: repo.owner,
+		projectName: repo.project ?? match?.[1],
+		repositoryName: match?.[2] ?? repo.name,
+	};
+}
+
+/**
+ * Decodes one segment of an address path as a virtual directory names it: an encoded `/` stays encoded, so the segment
+ * stays one segment of the `/`-joined directory.
+ */
+export function decodeAzurePathSegment(segment: string): string {
+	return decodePathSegment(segment.replace(/%2F/gi, '%252F'));
+}
 
 export function getAzurePullRequestIdentityFromMaybeUrl(
 	search: string,

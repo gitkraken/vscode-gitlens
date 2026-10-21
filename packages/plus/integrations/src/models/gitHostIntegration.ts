@@ -261,7 +261,8 @@ export abstract class GitHostIntegration<
 	 * shapes the read by them before making it, and then hands them to that read so it doesn't settle them again.
 	 * Resolves the session as that read does, and fails as it would: a session that can't be resolved is the read's own
 	 * failure (refreshing a refused token is claimed here), so the caller reports it rather than making the read.
-	 * Settling that fails is the read's failure too, as it would be had the read settled them.
+	 * Settling that fails is the read's failure too, handled as the issue read handles it. Only the issue list hands its
+	 * read settled scopes today.
 	 */
 	async resolveRepositoryScopes(
 		repos: ProviderReposInput,
@@ -275,6 +276,7 @@ export abstract class GitHostIntegration<
 		try {
 			return { value: await this.resolveRepositoryInputs(session, repos) };
 		} catch (ex) {
+			this.handleProviderException('getIssuesForRepos', ex, { connectionId: connectionId });
 			return { error: toError(ex) };
 		}
 	}
@@ -1451,7 +1453,7 @@ export abstract class GitHostIntegration<
 	 * rather than swallowing them to `undefined`.
 	 */
 	async getMyPullRequestsForReposResult(
-		repos: ProviderReposInput | SettledRepositoryScopes,
+		repos: ProviderReposInput,
 		options?: MyPullRequestsForReposOptions,
 		connectionId?: string,
 	): Promise<IntegrationResult<ProviderApiPagedResult<ProviderPullRequest> | undefined>> {

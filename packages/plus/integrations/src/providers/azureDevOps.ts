@@ -41,9 +41,12 @@ import type {
 	SearchMyIssuesOptions,
 } from '../models/integration.js';
 import type { ProviderWarningCause, ProviderWarningScope } from '../results.js';
-import { decodePathSegment } from '../utils/domain.utils.js';
 import type { AzureDevOpsApi } from './azure/azure.js';
-import { getAzurePullRequestIdentityFromMaybeUrl } from './azure/azure.utils.js';
+import {
+	decodeAzurePathSegment,
+	getAzurePullRequestIdentityFromMaybeUrl,
+	getAzureRepositoryIdentity,
+} from './azure/azure.utils.js';
 import type {
 	AzureOrganizationDescriptor,
 	AzureProjectDescriptor,
@@ -90,19 +93,6 @@ import {
 	resolveBranchPullRequests,
 	selectBranchPullRequests,
 } from './utils/providerPaging.js';
-
-export function getAzureRepositoryIdentity(repo: Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project'>): {
-	resourceName: string;
-	projectName?: string;
-	repositoryName: string;
-} {
-	const match = /^([^/]+)\/_git\/([^/]+)$/i.exec(repo.name);
-	return {
-		resourceName: repo.owner,
-		projectName: repo.project ?? match?.[1],
-		repositoryName: match?.[2] ?? repo.name,
-	};
-}
 
 export function getAzureRepositoryApiBaseUrl(
 	baseUrl: string,
@@ -199,14 +189,6 @@ export function getAzureScopeVirtualDirectory(
 		sameAzurePathSegment(p.at(-1)!, owner),
 	);
 	return path?.slice(0, -1).map(decodeAzurePathSegment).join('/');
-}
-
-/**
- * Decodes one segment of an address path as a virtual directory names it: an encoded `/` stays encoded, so the segment
- * stays one segment of the `/`-joined directory.
- */
-export function decodeAzurePathSegment(segment: string): string {
-	return decodePathSegment(segment.replace(/%2F/gi, '%252F'));
 }
 
 function sameAzurePathSegment(encoded: string, value: string): boolean {

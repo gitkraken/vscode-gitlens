@@ -26,6 +26,7 @@ import type {
 	ProviderPullRequestSearchPage,
 	ProviderSearchCount,
 } from '../models/integration.js';
+import { getAzureRepositoryIdentity } from './azure/azure.utils.js';
 import type { AzureOrganizationDescriptor, AzureProjectDescriptor, AzureRepositoryDescriptor } from './azure/models.js';
 import type { AzurePullRequestSearchPosition } from './azure/search.js';
 import {
@@ -43,7 +44,6 @@ import {
 	AzureDevOpsIntegrationBase,
 	findAzureRepositoryApiBaseUrl,
 	getAzureRepositoryApiBaseUrl,
-	getAzureRepositoryIdentity,
 	getAzureScopeVirtualDirectory,
 	isAzureProjectlessCandidate,
 	markMyGroupReviews,
@@ -255,21 +255,21 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	}
 
 	/**
-	 * The collection names per credential and installation, `undefined` when they couldn't be read. Only a
+	 * The collection names per credential and installation, `undefined` when they couldn't be read, and whether the
+	 * address is then presumed to name a collection ({@link requestResourcesForUser}). Only a
 	 * tie-breaker for {@link getRepositoryTarget}, so a failed read is kept (for {@link discoveryCacheTtl}) rather than
 	 * retried on every repository read; a successful one comes from the organizations, which are kept for the session.
 	 */
-	private readonly _collectionNames = new PromiseCache<string, string[] | undefined>({
+	private readonly _collectionNames = new PromiseCache<
+		string,
+		{ names: string[] | undefined; addressesCollection?: boolean }
+	>({
 		capacity: 10,
 		createTTL: discoveryCacheTtl,
 	});
 
-	/**
-	 * The {@link discoveryKey}s whose address answered the collection list with a 404, so it addresses a collection
-	 * rather than the installation (see {@link requestResourcesForUser}). Kept even when the discovery fails later on,
-	 * for {@link settleRepository} to read a path that can only be project-less below an installation as given.
-	 */
-	private readonly _collectionAddresses = new Set<string>();
+	/** The failures to read the collection an address names after its collection list answered with a 404. */
+	private readonly _collectionListRefusals = new WeakSet<object>();
 
 	/**
 	 * Settles which segment of a remote's path is the collection before reading the repository. Behind a virtual
@@ -312,15 +312,18 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		if (candidate(false)) {
 			// The discovery is shared, so it takes no signal: one caller's abort must neither cancel it for the others
 			// nor be kept as its result.
-			const key = this.discoveryKey(session);
-			const names = this._collectionNames.getOrCreate(key, () => this.getCollectionNames(session));
-			const collections = await (cancellation != null ? raceWithSignal(names, cancellation) : names);
-			if (collections != null) {
-				repo = resolveAzureProjectlessRepository(repo, collections);
+			const discovery = this._collectionNames.getOrCreate(this.discoveryKey(session), () =>
+				this.getCollectionNames(session),
+			);
+			const { names, addressesCollection } = await (cancellation != null
+				? raceWithSignal(discovery, cancellation)
+				: discovery);
+			if (names != null) {
+				repo = resolveAzureProjectlessRepository(repo, names);
 			} else {
 				// A path that is a candidate only below an installation the address itself is reads as given once the
 				// address is known to name a collection: it names that collection.
-				unsettled = candidate(this._collectionAddresses.has(key));
+				unsettled = candidate(addressesCollection === true);
 			}
 		}
 
@@ -378,30 +381,33 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	 * failure is `undefined`, so a read of a path it could have settled keeps a miss out of the caches (see
 	 * `readRepository`).
 	 */
-	private async getCollectionNames(session: ProviderAuthenticationSession): Promise<string[] | undefined> {
+	private async getCollectionNames(
+		session: ProviderAuthenticationSession,
+	): Promise<{ names: string[] | undefined; addressesCollection?: boolean }> {
 		try {
-			return (await this.getProviderResourcesForUser(session))?.map(r => r.name);
+			return { names: (await this.getProviderResourcesForUser(session))?.map(r => r.name) };
 		} catch (ex) {
-			if (ex instanceof AuthenticationError) return [];
+			if (ex instanceof AuthenticationError) return { names: [] };
 
 			Logger.debug(
 				`${this.name}: collections at ${this.apiBaseUrlFor(session)} couldn't be read to place a repository path`,
 				ex,
 			);
-			return undefined;
+			return { names: undefined, addressesCollection: this._collectionListRefusals.has(ex as object) };
 		}
 	}
 
 	override invalidateDiscoveryCaches(): void {
 		super.invalidateDiscoveryCaches();
 		this._collectionNames.clear();
-		this._collectionAddresses.clear();
 	}
 
 	/**
 	 * Only the server level lists the collections: below one, Azure DevOps Server answers `projectCollections` with a
 	 * 404 page. On that 404 an address that names a collection reads the collection's own connection data, whose
-	 * `webApplicationRelativeDirectory` spells it, and reports it as the one collection visible there.
+	 * `webApplicationRelativeDirectory` spells it, and reports it as the one collection visible there. When that read
+	 * fails, the address is presumed to name a collection, which the failure carries (see {@link getCollectionNames}) for
+	 * as long as the failed discovery is kept; connection data that answers for the server says it doesn't.
 	 */
 	protected override async requestResourcesForUser(
 		session: ProviderAuthenticationSession,
@@ -412,13 +418,20 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		} catch (ex) {
 			if (!(ex instanceof RequestNotFoundError)) throw ex;
 
-			this._collectionAddresses.add(this.discoveryKey(session));
 			const azure = await this.authenticationService.apis.azure;
-			const addressed = await azure?.getAddressedCollection(
-				this,
-				toTokenWithInfo(this.id, session),
-				this.apiBaseUrlFor(session),
-			);
+			let addressed;
+			try {
+				addressed = await azure?.getAddressedCollection(
+					this,
+					toTokenWithInfo(this.id, session),
+					this.apiBaseUrlFor(session),
+				);
+			} catch (collectionError) {
+				if (typeof collectionError === 'object' && collectionError != null) {
+					this._collectionListRefusals.add(collectionError);
+				}
+				throw collectionError;
+			}
 			if (addressed == null) throw ex;
 
 			return [addressed];
@@ -1069,7 +1082,6 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		this._pullRequestSearches.clear();
 		this._latestPullRequestSearches.clear();
 		this._collectionNames.clear();
-		this._collectionAddresses.clear();
 	}
 
 	protected override async _requestForCurrentUser(
