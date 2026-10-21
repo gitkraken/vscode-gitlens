@@ -102,6 +102,8 @@ interface ServerOptions {
 	holdCollections?: Promise<void>;
 	/** Answers the server-level `connectionData` with this status. */
 	failServerIdentity?: number;
+	/** Answers a collection's `connectionData` without the directory that names it, so it can't be discovered there. */
+	anonymousCollections?: boolean;
 	/** Answers a repository addressed by name without its project as missing rather than refused. */
 	projectlessNotFound?: boolean;
 	/** Refuses the credential for every request below this project. */
@@ -161,7 +163,8 @@ function createServer(options: ServerOptions) {
 				authenticatedUser: user,
 				authorizedUser: user,
 				instanceId: atServer ? 'server-id' : `${segments[0]}-id`,
-				webApplicationRelativeDirectory: atServer ? null : `${options.installation}/${segments[0]}/`,
+				webApplicationRelativeDirectory:
+					atServer || options.anonymousCollections ? null : `${options.installation}/${segments[0]}/`,
 			});
 		}
 		if (route === '_apis/projectcollections') {
@@ -403,29 +406,42 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 
 	suite('isAzureProjectlessCandidate', () => {
 		const shortBehindTfs = { owner: 'tfs', name: 'DefaultCollection/_git/R' };
-		const cases: { address: string; repo: Parameters<typeof isAzureProjectlessCandidate>[1]; expected: boolean }[] =
-			[
-				{ address: 'https://h/tfs', repo: shortBehindTfs, expected: true },
-				{ address: 'https://h/TFS/', repo: shortBehindTfs, expected: true },
-				{ address: 'https://h/tfs/DefaultCollection', repo: shortBehindTfs, expected: true },
-				{ address: 'https://h/%74fs', repo: shortBehindTfs, expected: true },
-				{ address: 'https://h', repo: shortBehindTfs, expected: false },
-				{ address: 'https://h/other', repo: shortBehindTfs, expected: false },
-				{
-					address: 'https://h/tfs/team',
-					repo: { owner: 'team', name: 'DefaultCollection/_git/R', virtualDirectory: 'tfs' },
-					expected: true,
-				},
-				{
-					address: 'https://h/tfs',
-					repo: { owner: 'DefaultCollection', name: 'proj/_git/r', virtualDirectory: 'tfs' },
-					expected: false,
-				},
-				{ address: 'https://h/tfs', repo: { owner: 'tfs', name: 'DefaultCollection' }, expected: false },
-			];
-		for (const { address, repo, expected } of cases) {
-			test(`${expected ? 'settles' : 'reads as parsed'} ${repo.virtualDirectory ?? ''}/${repo.owner}/${repo.name} below ${address}`, () => {
-				assert.equal(isAzureProjectlessCandidate(address, repo), expected);
+		const cases: {
+			address: string;
+			repo: Parameters<typeof isAzureProjectlessCandidate>[1];
+			belowCollection?: boolean;
+			expected: boolean;
+		}[] = [
+			{ address: 'https://h/tfs', repo: shortBehindTfs, expected: true },
+			{ address: 'https://h/TFS/', repo: shortBehindTfs, expected: true },
+			{ address: 'https://h/tfs/DefaultCollection', repo: shortBehindTfs, expected: true },
+			{ address: 'https://h/%74fs', repo: shortBehindTfs, expected: true },
+			{ address: 'https://h', repo: shortBehindTfs, expected: false },
+			{ address: 'https://h/other', repo: shortBehindTfs, expected: false },
+			{
+				address: 'https://h/tfs/team',
+				repo: { owner: 'team', name: 'DefaultCollection/_git/R', virtualDirectory: 'tfs' },
+				expected: true,
+			},
+			{
+				address: 'https://h/tfs',
+				repo: { owner: 'DefaultCollection', name: 'proj/_git/r', virtualDirectory: 'tfs' },
+				expected: false,
+			},
+			{ address: 'https://h/tfs', repo: { owner: 'tfs', name: 'DefaultCollection' }, expected: false },
+			// An address known to name a collection isn't the installation, so nothing reads as project-less
+			// below the address itself.
+			{
+				address: 'https://h/tfs/DefaultCollection',
+				repo: { owner: 'DefaultCollection', name: 'proj/_git/r', virtualDirectory: 'tfs' },
+				belowCollection: true,
+				expected: false,
+			},
+			{ address: 'https://h/tfs/DefaultCollection', repo: shortBehindTfs, belowCollection: true, expected: true },
+		];
+		for (const { address, repo, belowCollection, expected } of cases) {
+			test(`${expected ? 'settles' : 'reads as parsed'} ${repo.virtualDirectory ?? ''}/${repo.owner}/${repo.name} below ${address}${belowCollection ? ' (a collection)' : ''}`, () => {
+				assert.equal(isAzureProjectlessCandidate(address, repo, belowCollection), expected);
 			});
 		}
 	});
@@ -442,9 +458,21 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 			['https://h/a%20b/tfs', 'tfs', 'a b'],
 			['https://h/x/x', 'x', 'x'],
 			['https://h/tfs', 'other', undefined],
+			// An encoded `/` stays inside its segment, so the directory still matches the address.
+			['https://h/a%2Fb/tfs', 'tfs', 'a%2Fb'],
+			['https://h/a%2fb/tfs/DefaultCollection', 'DefaultCollection', 'a%2Fb/tfs'],
 		] as const) {
 			test(`places ${owner} below ${address}`, () => {
 				assert.equal(getAzureScopeVirtualDirectory(address, owner), expected);
+			});
+		}
+
+		for (const [owner, expected] of [
+			['DefaultCollection', undefined],
+			['tfs', ''],
+		] as const) {
+			test(`places ${owner} below an address known to name a collection`, () => {
+				assert.equal(getAzureScopeVirtualDirectory('https://h/tfs/DefaultCollection', owner, true), expected);
 			});
 		}
 	});
@@ -865,6 +893,93 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 				assert.equal(batch?.error, undefined, String(batch?.error));
 				const [slot] = batch?.value ?? [];
 				assert.equal(slot?.status === 'fulfilled' ? slot.value?.id : slot, '7');
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("flags a caller's scope that settles to a repository the connection doesn't serve", async () => {
+			// Read as given, `x/DefaultCollection/repo` may not be the repository the caller named either, so its miss
+			// proves nothing.
+			const server = createServer({ installation: '/x/tfs' });
+			const { manager, azure } = await connect(server);
+			try {
+				const repos = [
+					{ namespace: 'DefaultCollection', project: 'proj', name: 'r' },
+					{ namespace: 'x', project: 'DefaultCollection', name: 'repo' },
+				];
+				const settled = await azure.resolveRepositoryScopes(repos);
+				assert.deepEqual(settled?.value, { repos: repos, unsettled: [false, true] }, String(settled?.error));
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("settles a caller's scope once per issue list", async () => {
+			const server = createServer({ installation: '/tfs' });
+			const { manager, azure } = await connect(server);
+			try {
+				const hooks = azure as unknown as { resolveRepositoryCoordinates: (...args: unknown[]) => unknown };
+				const resolve = hooks.resolveRepositoryCoordinates.bind(azure);
+				let settles = 0;
+				hooks.resolveRepositoryCoordinates = (...args) => {
+					settles++;
+					return resolve(...args);
+				};
+
+				const [connection] = manager.getConfigured(id);
+				const listed = await manager.listIssuesPage({
+					providerId: id,
+					connectionId: connection.id,
+					domain: connection.domain,
+					repos: [{ namespace: 'tfs', project: 'DefaultCollection', name: 'repo' }],
+				});
+				assert.deepEqual(
+					listed.items.map(issue => issue.title),
+					['Work item in repo'],
+					JSON.stringify(listed.warnings),
+				);
+				assert.equal(settles, 1);
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("reads a caller's scope that names the addressed collection as given while discovery fails", async () => {
+			// The address answers the collection list with a 404, so it names a collection, though which one can't be
+			// read: `DefaultCollection/proj` is that collection's project, while `tfs/DefaultCollection` still may be
+			// the project-less form of `DefaultCollection/repo`.
+			const server = createServer({
+				installation: '/tfs',
+				connection: '/tfs/DefaultCollection',
+				anonymousCollections: true,
+			});
+			const { manager, azure } = await connect(server);
+			try {
+				const repos = [
+					{ namespace: 'DefaultCollection', project: 'proj', name: 'r' },
+					{ namespace: 'tfs', project: 'DefaultCollection', name: 'repo' },
+				];
+				const settled = await azure.resolveRepositoryScopes(repos);
+				assert.deepEqual(settled?.value, { repos: repos, unsettled: [false, true] }, String(settled?.error));
+				assert.ok(server.collectionReads() > 0, 'the collection list was asked for');
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("keeps a caller's scope that names the addressed collection unsettled while nothing tells it apart", async () => {
+			// A failed collection list doesn't say whether the address names a collection.
+			const server = createServer({
+				installation: '/tfs',
+				connection: '/tfs/DefaultCollection',
+				failCollections: 500,
+			});
+			const { manager, azure } = await connect(server);
+			try {
+				const repos = [{ namespace: 'DefaultCollection', project: 'proj', name: 'r' }];
+				const settled = await azure.resolveRepositoryScopes(repos);
+				assert.deepEqual(settled?.value, { repos: repos, unsettled: [true] }, String(settled?.error));
 			} finally {
 				manager.dispose();
 			}
