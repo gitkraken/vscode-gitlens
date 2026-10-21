@@ -9631,19 +9631,19 @@
 				"title": "%command.gitlens.review.markViewedAndNext.title%",
 				"category": "%command.category%",
 				"icon": "$(check)",
-				"enablement": "gitlens:review:walking"
+				"enablement": "gitlens:review:reading"
 			},
 			{
 				"command": "gitlens.review.markViewedAndNext:editor/title",
 				"title": "%command.gitlens.review.markViewedAndNext:editor/title.title%",
 				"icon": "$(check)",
-				"enablement": "gitlens:review:walking"
+				"enablement": "gitlens:review:reading"
 			},
 			{
 				"command": "gitlens.review.markViewedAndNext:key",
 				"title": "%command.gitlens.review.markViewedAndNext:key.title%",
 				"icon": "$(check)",
-				"enablement": "gitlens:review:walking"
+				"enablement": "gitlens:review:reading"
 			},
 			{
 				"command": "gitlens.review.reopenFinding",
@@ -9664,49 +9664,42 @@
 				"icon": "$(comment-discussion-sparkle)"
 			},
 			{
-				"command": "gitlens.review.stopWalk",
-				"title": "%command.gitlens.review.stopWalk.title%",
-				"category": "%command.category%",
-				"icon": "$(close)",
-				"enablement": "gitlens:review:walking"
-			},
-			{
 				"command": "gitlens.review.walkNext",
 				"title": "%command.gitlens.review.walkNext.title%",
 				"category": "%command.category%",
 				"icon": "$(arrow-right)",
-				"enablement": "gitlens:review:walking"
+				"enablement": "gitlens:review:reading"
 			},
 			{
 				"command": "gitlens.review.walkNext:editor/title",
 				"title": "%command.gitlens.review.walkNext:editor/title.title%",
 				"icon": "$(arrow-right)",
-				"enablement": "gitlens:review:walking"
+				"enablement": "gitlens:review:reading"
 			},
 			{
 				"command": "gitlens.review.walkNext:key",
 				"title": "%command.gitlens.review.walkNext:key.title%",
 				"icon": "$(arrow-right)",
-				"enablement": "gitlens:review:walking"
+				"enablement": "gitlens:review:reading"
 			},
 			{
 				"command": "gitlens.review.walkPrevious",
 				"title": "%command.gitlens.review.walkPrevious.title%",
 				"category": "%command.category%",
 				"icon": "$(arrow-left)",
-				"enablement": "gitlens:review:walking"
+				"enablement": "gitlens:review:reading"
 			},
 			{
 				"command": "gitlens.review.walkPrevious:editor/title",
 				"title": "%command.gitlens.review.walkPrevious:editor/title.title%",
 				"icon": "$(arrow-left)",
-				"enablement": "gitlens:review:walking"
+				"enablement": "gitlens:review:reading"
 			},
 			{
 				"command": "gitlens.review.walkPrevious:key",
 				"title": "%command.gitlens.review.walkPrevious:key.title%",
 				"icon": "$(arrow-left)",
-				"enablement": "gitlens:review:walking"
+				"enablement": "gitlens:review:reading"
 			},
 			{
 				"command": "gitlens.reviewChanges:graph",
@@ -15632,7 +15625,7 @@
 				},
 				{
 					"command": "gitlens.review.markViewedAndNext",
-					"when": "gitlens:review:walking"
+					"when": "gitlens:review:reading"
 				},
 				{
 					"command": "gitlens.review.markViewedAndNext:editor/title",
@@ -15643,12 +15636,8 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.review.stopWalk",
-					"when": "gitlens:review:walking"
-				},
-				{
 					"command": "gitlens.review.walkNext",
-					"when": "gitlens:review:walking"
+					"when": "gitlens:review:reading"
 				},
 				{
 					"command": "gitlens.review.walkNext:editor/title",
@@ -15660,7 +15649,7 @@
 				},
 				{
 					"command": "gitlens.review.walkPrevious",
-					"when": "gitlens:review:walking"
+					"when": "gitlens:review:reading"
 				},
 				{
 					"command": "gitlens.review.walkPrevious:editor/title",
@@ -18351,17 +18340,17 @@
 				},
 				{
 					"command": "gitlens.review.walkPrevious:editor/title",
-					"when": "resource in gitlens:review:files && gitlens:review:walking",
+					"when": "resource in gitlens:review:files",
 					"group": "navigation@-98"
 				},
 				{
 					"command": "gitlens.review.markViewedAndNext:editor/title",
-					"when": "resource in gitlens:review:files && gitlens:review:walking",
+					"when": "resource in gitlens:review:files",
 					"group": "navigation@-97"
 				},
 				{
 					"command": "gitlens.review.walkNext:editor/title",
-					"when": "resource in gitlens:review:files && gitlens:review:walking",
+					"when": "resource in gitlens:review:files",
 					"group": "navigation@-96"
 				},
 				{
@@ -30236,34 +30225,34 @@
 			{
 				"command": "gitlens.review.markViewedAndNext:key",
 				"key": "alt+v",
-				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:walking"
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files"
 			},
 			{
 				"command": "gitlens.review.markViewedAndNext:key",
 				"key": "ctrl+shift+g v",
-				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:walking",
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files",
 				"mac": "cmd+alt+g v"
 			},
 			{
 				"command": "gitlens.review.walkNext:key",
 				"key": "alt+]",
-				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:walking"
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files"
 			},
 			{
 				"command": "gitlens.review.walkNext:key",
 				"key": "ctrl+shift+g ]",
-				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:walking",
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files",
 				"mac": "cmd+alt+g ]"
 			},
 			{
 				"command": "gitlens.review.walkPrevious:key",
 				"key": "alt+[",
-				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:walking"
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files"
 			},
 			{
 				"command": "gitlens.review.walkPrevious:key",
 				"key": "ctrl+shift+g [",
-				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:walking",
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:review:reading && resource in gitlens:review:files",
 				"mac": "cmd+alt+g ["
 			},
 			{

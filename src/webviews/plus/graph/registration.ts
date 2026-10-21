@@ -36,8 +36,8 @@ import type {
 	State,
 	VisualizationMode,
 } from './protocol.js';
+import { stepReviewReading } from './reviewReading.js';
 import { disposeReviewThreads, runReviewThreadAction } from './reviewThreads.js';
-import { stepReviewWalk } from './reviewWalk.js';
 
 export type GraphWebviewShowingArgs = [
 	| GlRepository
@@ -264,16 +264,19 @@ export function registerGraphWebviewCommands<T>(
 	}
 
 	return Disposable.from(
-		registerCommand('gitlens.review.walkNext', () => stepReviewWalk('next')),
-		registerCommand('gitlens.review.walkNext:editor/title', () => stepReviewWalk('next')),
-		registerCommand('gitlens.review.walkNext:key', () => stepReviewWalk('next')),
-		registerCommand('gitlens.review.walkPrevious', () => stepReviewWalk('previous')),
-		registerCommand('gitlens.review.walkPrevious:editor/title', () => stepReviewWalk('previous')),
-		registerCommand('gitlens.review.walkPrevious:key', () => stepReviewWalk('previous')),
-		registerCommand('gitlens.review.markViewedAndNext', () => stepReviewWalk('markViewed')),
-		registerCommand('gitlens.review.markViewedAndNext:editor/title', () => stepReviewWalk('markViewed')),
-		registerCommand('gitlens.review.markViewedAndNext:key', () => stepReviewWalk('markViewed')),
-		registerCommand('gitlens.review.stopWalk', () => stepReviewWalk('stop')),
+		// The title-bar variants receive the editor's resource; the keybinding and palette ones take the
+		// active editor's
+		registerCommand('gitlens.review.walkNext', () => stepReviewReading('next')),
+		registerCommand('gitlens.review.walkNext:editor/title', (uri?: Uri) => stepReviewReading('next', uri)),
+		registerCommand('gitlens.review.walkNext:key', () => stepReviewReading('next')),
+		registerCommand('gitlens.review.walkPrevious', () => stepReviewReading('previous')),
+		registerCommand('gitlens.review.walkPrevious:editor/title', (uri?: Uri) => stepReviewReading('previous', uri)),
+		registerCommand('gitlens.review.walkPrevious:key', () => stepReviewReading('previous')),
+		registerCommand('gitlens.review.markViewedAndNext', () => stepReviewReading('markViewed')),
+		registerCommand('gitlens.review.markViewedAndNext:editor/title', (uri?: Uri) =>
+			stepReviewReading('markViewed', uri),
+		),
+		registerCommand('gitlens.review.markViewedAndNext:key', () => stepReviewReading('markViewed')),
 		registerCommand('gitlens.review.resolveFinding', (thread?: CommentThread) =>
 			runReviewThreadAction(thread, 'resolve'),
 		),

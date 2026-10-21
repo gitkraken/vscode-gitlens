@@ -1156,7 +1156,6 @@ export type ContributedPaletteCommands =
 	| 'gitlens.review.reopenFinding'
 	| 'gitlens.review.resolveFinding'
 	| 'gitlens.review.sendFindingToAgent'
-	| 'gitlens.review.stopWalk'
 	| 'gitlens.review.walkNext'
 	| 'gitlens.review.walkPrevious'
 	| 'gitlens.shareAsCloudPatch'

@@ -231,11 +231,24 @@ set-aside files plus the AI-ignore rules (`panel.excludedFiles`). Two-pass focus
 are tracked on the entry too (`entry.focusAreaRuns`, abortable with everything else via
 `abortRunningOperation`).
 
+**Reading** is host-driven but editor-anchored: `gl-graph-details-panel.syncReviewFiles()` sends the
+review's files in reading order (`getReviewReadingOrder`: the plan's order first, then the checklist
+top to bottom as its `gl-file-tree-pane`s render it — each pane announces its order with
+`tree-order-changed`, the panel folds them into `review-reading-order` — minus set-aside files) over `graphInspect.setReviewFiles` whenever an input changes, and clears them
+on leaving the mode. The host (`reviewReading.ts` owner registry, `gitlens:review:reading` /
+`gitlens:review:files` context keys) lights the diff title buttons and keybindings on those documents,
+follows the active tab to name the file being read, and steps from the file a command was invoked on —
+so several open diffs each step from their own. Its `onReviewReading` event carries the active file
+and an append-only list of editor-made viewed marks; `review.applyReadingState` folds the marks past
+`entry.reading.marksApplied` into the session and keeps the active file on the entry for the panel's
+strip and for the checklist, which selects and scrolls to its row (`gl-file-tree-pane.revealPath` →
+`gl-tree-view.focusedPath`, opening collapsed folders above it). There is no cursor: the panel's own buttons pass the active file explicitly.
+
 The **orient** depth (`graphInspect.orientChanges`, the `review-orient` template over the same file
 manifest the two-pass overview reads) lands on the entry as `entry.orient`, tracked while running by
 `entry.orientRun` like a focus-area run; the panel regroups the checklist by its groups and
-`review.applyOrientOrder` writes the plan's order into `session.order`, which `getReviewWalkPaths`
-puts ahead of tree order. Like the session, the plan is carried across AI runs.
+`review.applyOrientOrder` writes the plan's order into `session.order`, which `getReviewReadingOrder`
+puts ahead of tree order, and names the first unread file of it for the panel to open. Like the session, the plan is carried across AI runs.
 
 The **deep** depth (`graphInspect.startDeepReview`) opens a report channel on the IPC server
 (`review/findings`, `deepReview.ts` parses the agent's POSTs) and dispatches the `deep-review` prompt

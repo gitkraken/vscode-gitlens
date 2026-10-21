@@ -645,100 +645,53 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(state.reviewForwardAvailable.get(), false, 'nothing to resume');
 	});
 
-	test('walk updates from the host land on the entry: cursor, and editor-made marks applied once', () => {
+	test('reading updates from the host land on the entry: the active file, and editor-made marks applied once', () => {
 		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 		state.activeMode.set('review');
 		state.activeModeContext.set('wip');
 		state.activeModeRepoPath.set('/A');
 		state.activeModeSha.set(uncommitted);
 
-		controller.review.applyWalkState({ current: 'src/a.ts', marked: [] });
+		controller.review.applyReadingState({ active: 'src/a.ts', marked: [] });
 		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
-		assert.strictEqual(entry?.execState, 'backed', 'a walk before any run creates the idle entry');
-		assert.deepStrictEqual(entry?.walk, { current: 'src/a.ts', marksApplied: 0 });
+		assert.strictEqual(entry?.execState, 'backed', 'reading before any run creates the idle entry');
+		assert.deepStrictEqual(entry?.reading, { active: 'src/a.ts', marksApplied: 0 });
 
-		controller.review.applyWalkState({ current: 'src/b.ts', marked: ['src/a.ts'] });
+		controller.review.applyReadingState({ active: 'src/b.ts', marked: ['src/a.ts'] });
 		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		assert.strictEqual(entry?.session?.viewed.has('src/a.ts'), true, 'the editor mark reaches the session');
-		assert.deepStrictEqual(entry?.walk, { current: 'src/b.ts', marksApplied: 1 });
+		assert.deepStrictEqual(entry?.reading, { active: 'src/b.ts', marksApplied: 1 });
 
 		// The panel un-marks a file; the host's append-only list still names it, but it was applied already.
 		controller.review.setFilesViewed([{ path: 'src/a.ts' }], false);
-		controller.review.applyWalkState({ current: 'src/c.ts', marked: ['src/a.ts', 'src/b.ts'] });
+		controller.review.applyReadingState({ active: undefined, marked: ['src/a.ts', 'src/b.ts'] });
 		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		assert.strictEqual(entry?.session?.viewed.has('src/a.ts'), false, 'an already-applied mark is not re-applied');
 		assert.strictEqual(entry?.session?.viewed.has('src/b.ts'), true);
+		assert.deepStrictEqual(entry?.reading, { active: undefined, marksApplied: 2 }, 'no review diff is active');
 
-		controller.review.applyWalkState(undefined);
+		controller.review.applyReadingState(undefined);
 		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
-		assert.strictEqual(entry?.walk, undefined, 'the walk ends; the session stays');
+		assert.strictEqual(entry?.reading, undefined, 'the review is left; the session stays');
 		assert.strictEqual(entry?.session?.viewed.has('src/b.ts'), true);
 	});
 
-	test('the editor mark that views the last file ends the walk', () => {
-		const { host, state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
-		state.activeMode.set('review');
-		state.activeModeContext.set('wip');
-		state.activeModeRepoPath.set('/A');
-		state.activeModeSha.set(uncommitted);
-		actions.resources.scopeFiles.mutate([{ path: 'src/a.ts' }, { path: 'src/b.ts' }] as ScopeFile[]);
-		let stops = 0;
-		actions.stopReviewWalk = () => {
-			stops++;
-		};
-
-		controller.review.applyWalkState({ current: 'src/b.ts', marked: ['src/a.ts'] });
-		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
-		assert.deepStrictEqual(entry?.walk, { current: 'src/b.ts', marksApplied: 1 });
-		assert.strictEqual(stops, 0);
-
-		controller.review.applyWalkState({ current: 'src/b.ts', marked: ['src/a.ts', 'src/b.ts'] });
-		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
-		assert.strictEqual(entry?.walk, undefined, 'the panel leaves the last stop');
-		assert.strictEqual(entry?.session?.viewed.size, 2);
-		assert.strictEqual(stops, 1, 'the host is told to end the walk');
-	});
-
-	test('editor thread actions are applied once each, by sequence, and route send-to-agent to the host', () => {
-		const sent: string[] = [];
+	test('reading state survives a run being dispatched', async () => {
 		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
-		(host as unknown as { sendReviewFindingToAgent?: (id: string) => void }).sendReviewFindingToAgent = id =>
-			sent.push(id);
-		host.crossPaneState.runningOperations.set(
-			new Map([[wipKey('/A'), makeReviewBucket('/A', makeReviewResult('run'))]]),
-		);
+		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
 		state.activeMode.set('review');
 		state.activeModeContext.set('wip');
 		state.activeModeRepoPath.set('/A');
 		state.activeModeSha.set(uncommitted);
 
-		controller.review.applyThreadActions({
-			actions: [
-				{ seq: 1, findingId: 'f1', action: 'resolve' },
-				{ seq: 2, findingId: 'f2', action: 'dismiss' },
-			],
-		});
-		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
-		assert.strictEqual(entry?.session?.findingStates.get('f1'), 'resolved');
-		assert.strictEqual(entry?.session?.findingStates.get('f2'), 'dismissed');
-		assert.strictEqual(entry?.threadActionsApplied, 2);
-
-		// The panel reopens f1 itself; a replay of the same log must not resolve it again.
-		controller.review.setFindingState('f1', undefined);
-		controller.review.applyThreadActions({
-			actions: [
-				{ seq: 1, findingId: 'f1', action: 'resolve' },
-				{ seq: 2, findingId: 'f2', action: 'dismiss' },
-				{ seq: 3, findingId: 'f2', action: 'sendToAgent' },
-			],
-		});
-		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
-		assert.strictEqual(entry?.session?.findingStates.get('f1'), undefined, 'an applied action is not replayed');
-		assert.deepStrictEqual(sent, ['f2']);
-		assert.strictEqual(entry?.threadActionsApplied, 3);
+		controller.review.applyReadingState({ active: 'src/a.ts', marked: ['src/a.ts'] });
+		controller.runReview('/A', undefined, undefined, 0);
+		await flush();
+		const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.deepStrictEqual(entry?.reading, { active: 'src/a.ts', marksApplied: 1 });
 	});
 
-	test('a reading plan is kept across runs, gives the walk its order when applied, and clears back to tree order', async () => {
+	test('a reading plan is kept across runs, gives the files their order when applied, and clears back to tree order', async () => {
 		const host = new FakeHost({
 			repoPath: '/A',
 			graphRepoPath: '/A',
@@ -783,7 +736,12 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			]),
 		);
 
-		controller.review.applyOrientOrder();
+		actions.resources.scopeFiles.mutate([{ path: 'src/a.ts' }, { path: 'src/b.ts' }] as never);
+		assert.strictEqual(
+			controller.review.applyOrientOrder(),
+			'src/b.ts',
+			'the first file of the plan is where to start',
+		);
 		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		assert.deepStrictEqual(entry?.session?.order, ['src/b.ts', 'src/a.ts']);
 
@@ -849,57 +807,6 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		);
 		assert.strictEqual(area?.severity, 'critical');
 		assert.deepStrictEqual(entry?.deepReview, { active: false, done: true, count: 2, seqApplied: 2 });
-	});
-
-	test('a mark that cannot advance carries the walk on from the first file still unviewed', () => {
-		const { host, state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
-		const started: unknown[] = [];
-		actions.startReviewWalk = args => {
-			started.push(args);
-		};
-		actions.resources.scopeFiles.mutate([
-			{ path: 'src/a.ts' },
-			{ path: 'src/b.ts' },
-			{ path: 'src/c.ts' },
-		] as never);
-		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
-		state.activeMode.set('review');
-		state.activeModeContext.set('wip');
-		state.activeModeRepoPath.set('/A');
-		state.activeModeSha.set(uncommitted);
-
-		// The reader skipped a.ts and b.ts, then marked c.ts — the last stop — viewed.
-		controller.review.applyWalkState({ current: 'src/c.ts', marked: [] });
-		controller.review.applyWalkState({ current: 'src/c.ts', marked: ['src/c.ts'] });
-
-		assert.strictEqual(started.length, 1, 'the walk restarts once');
-		assert.deepStrictEqual((started[0] as { paths: string[]; current?: string }).paths, [
-			'src/a.ts',
-			'src/b.ts',
-			'src/c.ts',
-		]);
-		assert.strictEqual((started[0] as { current?: string }).current, 'src/a.ts', 'from the first unviewed file');
-	});
-
-	test('finishing the checklist by hand ends a running walk', () => {
-		const { host, state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
-		let stopped = 0;
-		actions.stopReviewWalk = () => {
-			stopped++;
-		};
-		actions.resources.scopeFiles.mutate([{ path: 'src/a.ts' }, { path: 'src/b.ts' }] as never);
-		state.activeMode.set('review');
-		state.activeModeContext.set('wip');
-		state.activeModeRepoPath.set('/A');
-		state.activeModeSha.set(uncommitted);
-
-		controller.review.applyWalkState({ current: 'src/a.ts', marked: ['src/a.ts'] });
-		assert.strictEqual(stopped, 0);
-		controller.review.setFilesViewed([{ path: 'src/b.ts' }], true);
-		assert.strictEqual(stopped, 1, 'the last checkbox ends the walk');
-		assert.ok(
-			host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review?.session?.viewed.has('src/b.ts'),
-		);
 	});
 
 	test('abortRunningOperations aborts focus-area runs along with the overview run', () => {

@@ -693,11 +693,21 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 		// setter, because Lit sets bindings in template order — the model setter may run before
 		// the focused-path attribute is updated, leaving focusedPath stale.
 		if (this.focusedPath && (changedProperties.has('focusedPath') || changedProperties.has('model'))) {
+			// A row hidden under a collapsed folder can't be focused or shown — open the way to it first
+			this.expandAncestorsOf(this.focusedPath);
 			const index = this._index.indexOf(this.focusedPath);
 			if (index !== -1) {
 				this._focusedItemPath = this.focusedPath;
 				this._focusedItemIndex = index;
 				this._lastSelectedPath = this.focusedPath;
+				// Multi-select keeps its set on focus moves, but a focus hint names the one row to show, so
+				// the selection collapses to it (and the consumer hears about it) like a plain click would
+				if (
+					this.multiSelectable &&
+					!(this._selection.selectedIds.size === 1 && this._selection.has(this.focusedPath))
+				) {
+					this._selection.setSingle(this.focusedPath);
+				}
 				// Scroll the focused item into view after the render completes
 				this._pendingScrollToIndex = index;
 			}
@@ -1198,6 +1208,39 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 	 */
 	private findTreeNode(path: string): TreeModel | undefined {
 		return this._nodeMap.get(path);
+	}
+
+	/** Expands the collapsed folders above the file at `path` so its row is in the flattened list —
+	 *  `_nodeMap` only holds rows of expanded folders, so this walks the model itself. Says whether any
+	 *  folder was opened; each one is announced like a chevron click so consumers forget its collapse. */
+	private expandAncestorsOf(path: string): boolean {
+		if (this._model == null) return false;
+
+		const chain: TreeModel[] = [];
+		const find = (nodes: TreeModel[]): boolean => {
+			for (const node of nodes) {
+				if (!node.branch && node.path === path) return true;
+
+				if (node.branch && node.children != null) {
+					chain.push(node);
+					if (find(node.children)) return true;
+
+					chain.pop();
+				}
+			}
+			return false;
+		};
+		if (!find(this._model)) return false;
+
+		const collapsed = chain.filter(node => node.expanded === false);
+		if (collapsed.length === 0) return false;
+
+		for (const node of collapsed) {
+			node.expanded = true;
+			this.emit('gl-tree-expansion-changed', { path: node.path, key: nodeId(node), expanded: true });
+		}
+		this.rebuildFlattenedTree();
+		return true;
 	}
 
 	/**

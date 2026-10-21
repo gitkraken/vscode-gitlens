@@ -121,11 +121,11 @@ export const graphCoachMarks: Record<GraphCoachMarkType, GraphCoachMarkContent> 
 										<div class="step__body">
 											${localizedContent(
 												l10n.t(
-													'{startReading} opens each change in turn — mark files viewed as you go',
+													'Open any file to read it — {markViewedAndNext} in the diff keeps you moving',
 												),
 												{
-													startReading: html`<span class="chip"
-														>${l10n.t('Start Reading')}</span
+													markViewedAndNext: html`<span class="chip"
+														>${l10n.t('Mark Viewed & Next')}</span
 													>`,
 												},
 											)}

@@ -180,6 +180,8 @@ export const reviewModePanelStyles = css`
 	}
 
 	/* The walk strip — Start Reading before a walk, the HUD during one */
+	/* Both states — a file being read, plain progress — keep one box: the same border (only its color
+	   changes) and a two-line body, so switching files doesn't shift everything below the strip */
 	.review-walk {
 		display: flex;
 		flex-wrap: wrap;
@@ -187,16 +189,20 @@ export const reviewModePanelStyles = css`
 		align-items: center;
 		padding: var(--gl-space-6) var(--gl-space-10);
 		margin: var(--gl-space-6) var(--gl-space-6) 0;
-	}
-
-	.review-walk--reading {
-		border: var(--gl-border-width) solid var(--vscode-focusBorder);
+		border: var(--gl-border-width) solid transparent;
 		border-radius: var(--gl-radius-sm);
 	}
 
+	.review-walk--reading {
+		border-color: var(--vscode-focusBorder);
+	}
+
 	.review-walk__hint {
+		overflow: hidden;
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.review-walk__body {

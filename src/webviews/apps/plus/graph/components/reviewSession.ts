@@ -97,18 +97,28 @@ export function getReviewThreadItems(
 }
 
 /** The stops of a walk, in reading order — the session's order first, then tree order (path-sorted);
- *  set-aside files left out. */
-export function getReviewWalkPaths(
+ *  set-aside files left out; the tree's own rendered order, when given, orders what the plan doesn't. */
+export function getReviewReadingOrder(
 	session: ReviewSession | undefined,
 	files: readonly ReviewFileIdentity[] | undefined,
+	treeOrder?: readonly string[],
 ): string[] {
 	const present = new Set((files ?? []).map(f => f.path));
 	const ordered = (session?.order ?? []).filter(p => present.has(p) && !session?.excluded.has(p));
 	const placed = new Set(ordered);
+	// The rest reads top to bottom as the checklist shows it; by path until the tree has said its order
+	const rank = new Map((treeOrder ?? []).map((p, i) => [p, i]));
 	const rest = (files ?? [])
 		.filter(f => !placed.has(f.path) && !session?.excluded.has(f.path))
 		.map(f => f.path)
-		.sort((a, b) => a.localeCompare(b));
+		.sort((a, b) => {
+			const ra = rank.get(a);
+			const rb = rank.get(b);
+			if (ra != null && rb != null) return ra - rb;
+			if (ra != null) return -1;
+			if (rb != null) return 1;
+			return a.localeCompare(b);
+		});
 	return [...ordered, ...rest];
 }
 
@@ -216,20 +226,20 @@ export function withFindingState(
 	return { ...session, findingStates: next };
 }
 
-export type ReviewWalkKey = 'next' | 'previous' | 'markViewed';
+export type ReviewReadingKey = 'next' | 'previous' | 'markViewed';
 
-const reviewWalkKeys: Record<ReviewWalkKey, string> = { next: ']', previous: '[', markViewed: 'V' };
+const reviewReadingKeys: Record<ReviewReadingKey, string> = { next: ']', previous: '[', markViewed: 'V' };
 
-/** The keyboard shortcut for a walk step under `keymap`, the way the HUD names it — `⌥]` / `Alt+]` on the
+/** The keyboard shortcut for a reading step under `keymap`, the way the panel names it — `⌥]` / `Alt+]` on the
  *  alternate keymap, `⌘⌥G ]` / `Ctrl+Shift+G ]` chorded, nothing when shortcuts are off. Mirrors the
  *  `gitlens.review.*:key` keybindings, which live on separate command ids and so never show in the
  *  editor's own hovers. */
-export function getReviewWalkShortcut(
+export function getReviewReadingShortcut(
 	keymap: KeyMap | undefined,
-	key: ReviewWalkKey,
+	key: ReviewReadingKey,
 	isMac: boolean,
 ): string | undefined {
-	const k = reviewWalkKeys[key];
+	const k = reviewReadingKeys[key];
 	switch (keymap) {
 		case 'alternate':
 			return isMac ? `⌥${k}` : `Alt+${k}`;

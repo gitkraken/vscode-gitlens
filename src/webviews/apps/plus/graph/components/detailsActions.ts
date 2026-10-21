@@ -65,13 +65,14 @@ import type {
 	GraphServices,
 	ReresolveFileResult,
 	ResolveResult,
+	ReviewFilesArgs,
+	ReviewOpenFileArgs,
 	ReviewOrientResult,
+	ReviewReadingAction,
+	ReviewReadingState,
 	ReviewResult,
 	ReviewThreadActionsState,
 	ReviewThreadsArgs,
-	ReviewWalkAction,
-	ReviewWalkArgs,
-	ReviewWalkState,
 	ScopeFile,
 	ScopeSelection,
 	StackRebasePushableBranch,
@@ -657,8 +658,8 @@ export class DetailsActions {
 				this.services.graphInspect.onComposeProgress(event => {
 					this.state.composeProgressMessage.set(event?.message);
 				}),
-			// The walk's cursor is host-owned; the workflow controller folds its updates into the session.
-			() => this.services.graphInspect.onReviewWalk(state => this.reviewWalkHandler?.(state)),
+			// The active review file and editor-made marks are host-owned; the workflow controller folds them into the session.
+			() => this.services.graphInspect.onReviewReading(state => this.reviewReadingHandler?.(state)),
 			() => this.services.graphInspect.onReviewThreadActions(state => this.reviewThreadActionsHandler?.(state)),
 			() => this.services.graphInspect.onDeepReview(state => this.deepReviewHandler?.(state)),
 			() =>
@@ -2933,8 +2934,8 @@ export class DetailsActions {
 		return current;
 	}
 
-	/** Set by the panel once its workflow controller exists — `onReviewWalk` updates land here. */
-	reviewWalkHandler?: (state: ReviewWalkState | undefined) => void;
+	/** Set by the panel once its workflow controller exists — `onReviewReading` updates land here. */
+	reviewReadingHandler?: (state: ReviewReadingState | undefined) => void;
 	/** Likewise for thread actions taken in the editor. */
 	reviewThreadActionsHandler?: (state: ReviewThreadActionsState | undefined) => void;
 	/** And for what a delegated deep review reports. */
@@ -2962,16 +2963,16 @@ export class DetailsActions {
 		void this.services.graphInspect.setReviewThreads(args);
 	}
 
-	startReviewWalk(args: ReviewWalkArgs): void {
-		void this.services.graphInspect.setReviewWalk(args);
+	setReviewFiles(args: ReviewFilesArgs | undefined): void {
+		void this.services.graphInspect.setReviewFiles(args);
 	}
 
-	stepReviewWalk(action: ReviewWalkAction): void {
-		void this.services.graphInspect.reviewWalk(action);
+	stepReviewReading(action: ReviewReadingAction, path?: string): void {
+		void this.services.graphInspect.reviewStep(action, path);
 	}
 
-	stopReviewWalk(): void {
-		void this.services.graphInspect.setReviewWalk(undefined);
+	openReviewFile(args: ReviewOpenFileArgs): void {
+		void this.services.graphInspect.openReviewFile(args);
 	}
 
 	openFileByPath(

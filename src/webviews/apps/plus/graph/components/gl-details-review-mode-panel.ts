@@ -28,7 +28,7 @@ import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProt
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type {
 	DeepReviewAvailability,
-	ReviewWalkAction,
+	ReviewReadingAction,
 	ScopeFile,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
@@ -72,8 +72,8 @@ import {
 	getClosedFindingIds,
 	getReviewFileProgress,
 	getReviewProgress,
-	getReviewWalkPaths,
-	getReviewWalkShortcut,
+	getReviewReadingOrder,
+	getReviewReadingShortcut,
 	isReviewComplete,
 } from './reviewSession.js';
 import { scopeSplitSnap, wipScopeSelectionIds } from './shared-panel-helpers.js';
@@ -95,6 +95,11 @@ import './gl-commits-scope-pane.js';
 
 /** A plan's group is already an ordering — its pane lists files flat, in that order. */
 const orientPaneLayout = { layout: 'list' as const };
+
+export interface ReviewReadingStepDetail {
+	action: ReviewReadingAction;
+	path: string;
+}
 
 export interface ReviewOpenFileDetail {
 	filePath: string;
@@ -201,9 +206,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@property({ attribute: false })
 	session?: ReviewSession;
 
-	/** The host-driven walk, while the reader is in one — its current stop is the HUD's headline. */
+	/** What the host reports about the editor: the review file whose diff is active, when one is. */
 	@property({ attribute: false })
-	walk?: { current: string };
+	reading?: { active?: string };
 
 	/** The orient depth's reading plan: groups the checklist by concern with a line of context per file. */
 	@property({ attribute: false })
@@ -223,14 +228,14 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@property({ attribute: false })
 	deepReviewAvailability?: DeepReviewAvailability;
 
-	/** `gitlens.keymap`, for naming the walk's shortcuts in its hints. */
+	/** `gitlens.keymap`, for naming the reading shortcuts in the panel's hints. */
 	@property()
 	keymap?: KeyMap;
 
 	/** Notes from the reading plan by path, for the file rows' decorations. */
 	private _orientNotes?: ReadonlyMap<string, string>;
 
-	/** Whether AI review is on at all. The walk and its checklist don't need it. */
+	/** Whether AI review is on at all. Reading the files and the checklist don't need it. */
 	@property({ type: Boolean, attribute: 'ai-enabled' })
 	aiEnabled = false;
 
@@ -295,6 +300,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 		return this._runExclusions;
 	}
 	@state() private _runExclusions: ReadonlySet<string> = emptyReviewSession.excluded;
+
+	/** Each checklist pane's files in the order it renders them, by pane key — the reading order's source. */
+	@state() private _treeOrders: ReadonlyMap<string, readonly string[]> = new Map();
+	/** The orient plan's pane keys in pane order, from the last render of the plan. */
+	private _orientPaneKeys: string[] = [];
+	/** The reading order last announced to the host-facing side, to announce only changes. */
+	private _announcedOrder?: readonly string[];
 	/** Bumped with the session so the file tree re-reads its callbacks (decorations, row actions). */
 	@state() private _sessionRevision = 0;
 
@@ -839,35 +851,64 @@ export class GlDetailsReviewModePanel extends LitElement {
 			: l10n.t('Deep Review needs an AI agent, and none is available in this editor');
 	}
 
-	private walkShortcut(key: 'next' | 'previous' | 'markViewed'): string | undefined {
-		return getReviewWalkShortcut(this.keymap, key, isMac);
+	private readingShortcut(key: ReviewReadingAction): string | undefined {
+		return getReviewReadingShortcut(this.keymap, key, isMac);
 	}
 
 	/** A control's label with its shortcut after it, when the keymap has one. */
-	private withWalkShortcut(label: string, key: 'next' | 'previous' | 'markViewed'): string {
-		const shortcut = this.walkShortcut(key);
+	private withReadingShortcut(label: string, key: ReviewReadingAction): string {
+		const shortcut = this.readingShortcut(key);
 		return shortcut == null ? label : l10n.t('{label} ({shortcut})', { label: label, shortcut: shortcut });
 	}
 
-	/** The strip above the checklist: the walk's HUD while reading, the Start Reading verb before it,
-	 *  and the review's ending — with a summary to take away — once every file is viewed. */
-	private renderDoneCard() {
-		return html`${this.renderDeepReviewStrip()}${this.renderWalkOrEnding()}`;
+	private onTreeOrderChanged(key: string, e: CustomEvent<{ paths: string[] }>): void {
+		e.stopPropagation();
+		const next = new Map(this._treeOrders);
+		next.set(key, e.detail.paths);
+		this._treeOrders = next;
 	}
 
-	private renderWalkOrEnding() {
-		if (this.walk != null) return this.renderWalkHud();
+	/** The checklist's files top to bottom: the plan's panes in turn, or the one tree. */
+	private get treeOrder(): string[] | undefined {
+		const keys = this.orient != null ? this._orientPaneKeys : ['tree'];
+		const paths = keys.flatMap(key => this._treeOrders.get(key) ?? []);
+		return paths.length > 0 ? paths : undefined;
+	}
 
+	/** The files to read in order — the plan's order first, then the checklist top to bottom. */
+	get readingOrder(): string[] {
+		return getReviewReadingOrder(this.session, this.files, this.treeOrder);
+	}
+
+	override updated(): void {
+		const order = this.readingOrder;
+		const announced = this._announcedOrder;
+		if (announced != null && announced.length === order.length && announced.every((p, i) => p === order[i])) {
+			return;
+		}
+
+		this._announcedOrder = order;
+		this.dispatchEvent(
+			new CustomEvent<{ paths: string[] }>('review-reading-order', {
+				detail: { paths: order },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	/** The strip above the checklist: the file being read and its steps while a review diff is active, the
+	 *  progress otherwise, and the review's ending — with a summary to take away — once every file is viewed. */
+	private renderDoneCard() {
+		return html`${this.renderDeepReviewStrip()}${this.renderReadingOrEnding()}`;
+	}
+
+	private renderReadingOrEnding() {
 		const progress = getReviewProgress(this.session, this.files);
 		if (!isReviewComplete(progress)) {
 			if (progress.total === 0) return nothing;
 
-			return html`<div class="review-walk">
-				<gl-button class="review-walk__start" @click=${this.handleStartWalk}>
-					<code-icon icon="play" slot="prefix"></code-icon>${l10n.t('Start Reading')}
-				</gl-button>
-				<span class="review-walk__hint">${this.renderStartReadingHint()}</span>
-			</div>`;
+			return this.renderReadingStrip(progress);
 		}
 
 		const counts = countReviewFindingStates(this.result, this.session);
@@ -924,77 +965,71 @@ export class GlDetailsReviewModePanel extends LitElement {
 		</div>`;
 	}
 
-	private renderStartReadingHint() {
-		const shortcut = this.walkShortcut('markViewed');
+	private renderReadingHint() {
+		const shortcut = this.readingShortcut('markViewed');
 		return shortcut == null
-			? l10n.t('Opens each change in turn; mark files viewed as you go')
-			: l10n.t('Opens each change in turn; {shortcut} in the diff marks a file viewed and opens the next', {
+			? l10n.t('Open a file to read it; mark files viewed as you go')
+			: l10n.t('Open a file to read it; {shortcut} in the diff marks it viewed and opens the next', {
 					shortcut: shortcut,
 				});
 	}
 
-	private renderWalkHud() {
-		const paths = getReviewWalkPaths(this.session, this.files);
-		const current = this.walk?.current ?? '';
-		const index = paths.indexOf(current);
+	/** Follows the editor: the review file whose diff is active gets its place in the order and the steps
+	 *  from there; with no review diff active the strip reads as plain progress. */
+	private renderReadingStrip(progress: ReviewProgress) {
+		const paths = this.readingOrder;
+		const index = this.reading?.active != null ? paths.indexOf(this.reading.active) : -1;
+		const active = paths[index];
+		if (active == null) {
+			return html`<div class="review-walk" role="status">
+				<div class="review-walk__body">
+					<div class="review-walk__title">
+						${l10n.t('{viewed} of {total} viewed', { viewed: progress.viewed, total: progress.total })}
+					</div>
+					<div class="review-walk__hint">${this.renderReadingHint()}</div>
+				</div>
+			</div>`;
+		}
 
 		return html`<div class="review-walk review-walk--reading" role="status">
 			<div class="review-walk__body">
 				<div class="review-walk__title">
-					${l10n.t('Reading {index} of {total}', { index: index < 0 ? 0 : index + 1, total: paths.length })}
+					${l10n.t('Reading {index} of {total}', { index: index + 1, total: paths.length })}
 				</div>
-				<div class="review-walk__file">${current}</div>
+				<div class="review-walk__file">${active}</div>
 			</div>
 			<div class="review-walk__actions">
 				<gl-button
 					appearance="secondary"
 					density="compact"
-					tooltip=${this.withWalkShortcut(l10n.t('Previous File in Review'), 'previous')}
-					?disabled=${index <= 0}
-					@click=${() => this.handleWalkStep('previous')}
+					tooltip=${this.withReadingShortcut(l10n.t('Previous File in Review'), 'previous')}
+					@click=${() => this.handleReadingStep('previous', active)}
 				>
 					<code-icon icon="arrow-left"></code-icon>
 				</gl-button>
 				<gl-button
 					density="compact"
-					tooltip=${this.withWalkShortcut(l10n.t('Mark Viewed & Next'), 'markViewed')}
-					@click=${() => this.handleWalkStep('markViewed')}
+					tooltip=${this.withReadingShortcut(l10n.t('Mark Viewed & Next'), 'markViewed')}
+					@click=${() => this.handleReadingStep('markViewed', active)}
 				>
 					<code-icon icon="check" slot="prefix"></code-icon>${l10n.t('Mark Viewed & Next')}
 				</gl-button>
 				<gl-button
 					appearance="secondary"
 					density="compact"
-					tooltip=${this.withWalkShortcut(l10n.t('Next File in Review'), 'next')}
-					?disabled=${index >= paths.length - 1}
-					@click=${() => this.handleWalkStep('next')}
+					tooltip=${this.withReadingShortcut(l10n.t('Next File in Review'), 'next')}
+					@click=${() => this.handleReadingStep('next', active)}
 				>
 					<code-icon icon="arrow-right"></code-icon>
-				</gl-button>
-				<gl-button
-					appearance="toolbar"
-					density="compact"
-					tooltip=${l10n.t('Stop Reading')}
-					@click=${this.handleStopWalk}
-				>
-					<code-icon icon="close"></code-icon>
 				</gl-button>
 			</div>
 		</div>`;
 	}
 
-	private handleStartWalk = (): void => {
-		this.dispatchEvent(new CustomEvent('review-walk-start', { bubbles: true, composed: true }));
-	};
-
-	private handleStopWalk = (): void => {
-		this.dispatchEvent(new CustomEvent('review-walk-stop', { bubbles: true, composed: true }));
-	};
-
-	private handleWalkStep(action: ReviewWalkAction): void {
+	private handleReadingStep(action: ReviewReadingAction, path: string): void {
 		this.dispatchEvent(
-			new CustomEvent<{ action: ReviewWalkAction }>('review-walk-step', {
-				detail: { action: action },
+			new CustomEvent<ReviewReadingStepDetail>('review-reading-step', {
+				detail: { action: action, path: path },
 				bubbles: true,
 				composed: true,
 			}),
@@ -1072,7 +1107,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const renderFiles = files ?? this.files ?? [];
 
 		// The checkbox is the reader's Viewed mark. Set-aside files keep their row (so they can be
-		// brought back) but leave the walk; AI-ignore only annotates — a human may still want to skim
+		// brought back) but leave the reading order; AI-ignore only annotates — a human may still want to skim
 		// what the AI shouldn't read.
 		const session = this.session;
 		const checkableStates = new Map<string, { state?: 'checked'; disabled?: boolean; disabledReason?: string }>();
@@ -1094,6 +1129,8 @@ export class GlDetailsReviewModePanel extends LitElement {
 					?multi-selectable=${true}
 					?show-file-icons=${true}
 					.collapsable=${false}
+					.revealPath=${this.reading?.active}
+					@tree-order-changed=${(e: CustomEvent<{ paths: string[] }>) => this.onTreeOrderChanged('tree', e)}
 					.filesLayout=${this.paneFilesLayout}
 					.checkableStates=${checkableStates}
 					.fileActions=${this.fileActionsForFile}
@@ -1178,6 +1215,8 @@ export class GlDetailsReviewModePanel extends LitElement {
 			panes.push({ label: l10n.t('Not in the plan'), files: rest });
 		}
 
+		this._orientPaneKeys = panes.map(pane => pane.label);
+
 		return html`<div class="scope-files__tree">
 			<div class="review-orient">
 				<code-icon class="review-orient__icon" icon="zap"></code-icon>
@@ -1199,6 +1238,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 					pane => html`<gl-file-tree-pane
 						header=${pane.label}
 						.files=${pane.files}
+						.revealPath=${this.reading?.active}
+						@tree-order-changed=${(e: CustomEvent<{ paths: string[] }>) =>
+							this.onTreeOrderChanged(pane.label, e)}
 						?checkable=${true}
 						?multi-selectable=${true}
 						?show-file-icons=${true}
@@ -1246,7 +1288,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 				detail: {
 					prompt: this.idleDraftLive || undefined,
 					scopeLabel: this.scopeContextLabel(),
-					files: getReviewWalkPaths(this.session, this.files),
+					files: this.readingOrder,
 				},
 				bubbles: true,
 				composed: true,

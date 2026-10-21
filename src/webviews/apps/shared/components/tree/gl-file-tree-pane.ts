@@ -39,6 +39,7 @@ import {
 	buildGroupedTree,
 	getLayoutInfo,
 	getStatusDecoration,
+	getTreeFilePaths,
 	isTreeLayout,
 	nextContextMatchVisibility,
 	renderContextMatchVisibilityAction,
@@ -183,6 +184,12 @@ export class GlFileTreePane extends LitElement {
 	 */
 	@property({ type: Boolean, attribute: 'multi-selectable' })
 	multiSelectable = false;
+
+	/** The file row to focus, select and scroll into view — applied whenever it changes or the model
+	 *  is rebuilt, opening collapsed folders above it. For consumers that follow something outside the
+	 *  pane, like the review following the active diff editor. */
+	@property({ attribute: 'reveal-path' })
+	revealPath?: string;
 
 	/** Opt-in: makes file rows draggable (native drag carrying the file `path`). Off by default;
 	 *  set by consumers that support dropping files elsewhere (e.g. compose file→commit move). */
@@ -471,8 +478,12 @@ export class GlFileTreePane extends LitElement {
 				mixedPaths: this.mixedPaths,
 			});
 			this.applyCollapsedState(this._cachedTreeModel);
+			this._treeOrderChanged = true;
 		}
 	}
+
+	/** Set when the model was rebuilt this cycle; `updated` then announces the new rendered order. */
+	private _treeOrderChanged = false;
 
 	/** Re-applies remembered folder collapse state onto a freshly-built (default-expanded) model. */
 	private applyCollapsedState(nodes: TreeModel[]): void {
@@ -497,6 +508,18 @@ export class GlFileTreePane extends LitElement {
 	};
 
 	override updated(): void {
+		if (this._treeOrderChanged) {
+			this._treeOrderChanged = false;
+			// Consumers that read the files in the order shown (the review's reading order) follow this
+			this.dispatchEvent(
+				new CustomEvent<{ paths: string[] }>('tree-order-changed', {
+					detail: { paths: getTreeFilePaths(this._cachedTreeModel ?? []) },
+					bubbles: true,
+					composed: true,
+				}),
+			);
+		}
+
 		if (this._pendingScrollRestore != null) {
 			const scrollable = this.getTreeScrollContainer();
 			if (scrollable != null) {
@@ -1045,6 +1068,7 @@ export class GlFileTreePane extends LitElement {
 		const dimUnmatched = this.searchContext != null && this._contextMatchVisibility === 'mixed';
 		return html`<gl-tree-view
 			.model=${treeModel}
+			.focusedPath=${this.revealPath}
 			.guides=${this.indentGuides}
 			.filtered=${this.searchContext != null && this._contextMatchVisibility !== 'off'}
 			.searchBoxFilter=${this.effectiveSearchBoxFilter}

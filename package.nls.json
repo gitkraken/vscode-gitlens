@@ -616,7 +616,6 @@
 	"command.gitlens.review.reopenFinding.title": "Reopen Finding",
 	"command.gitlens.review.resolveFinding.title": "Resolve Finding",
 	"command.gitlens.review.sendFindingToAgent.title": "Send Finding to Agent",
-	"command.gitlens.review.stopWalk.title": "Stop Reading Review Files",
 	"command.gitlens.review.walkNext.title": "Next File in Review",
 	"command.gitlens.review.walkNext:editor/title.title": "Next File in Review",
 	"command.gitlens.review.walkNext:key.title": "Next File in Review",

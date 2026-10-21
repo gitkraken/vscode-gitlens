@@ -153,9 +153,9 @@ export type RunningOperation =
 			focusAreaRuns?: ReadonlyMap<string, AbortController>;
 			/** The reader's progress through the changeset; carried across runs, dropped with the entry. */
 			session?: ReviewSession;
-			/** The host-driven walk this anchor is reading in, while one is running. `marksApplied` is
-			 *  how many of the host's editor-made marks the session has already taken. */
-			walk?: { current: string; marksApplied: number };
+			/** What the host reports about the editor: which review file is the active diff, and how many
+			 *  of its editor-made viewed marks the session has already taken. */
+			reading?: { active?: string; marksApplied: number };
 			/** Sequence of the last editor-made thread action folded into the session. */
 			threadActionsApplied?: number;
 			/** The orient pass's reading plan, while the reader keeps it; carried across runs like the session. */

@@ -609,7 +609,6 @@
 	"command.gitlens.review.reopenFinding.title": "重新開啟發現",
 	"command.gitlens.review.resolveFinding.title": "解決發現",
 	"command.gitlens.review.sendFindingToAgent.title": "將發現傳送給代理",
-	"command.gitlens.review.stopWalk.title": "停止閱讀審查檔案",
 	"command.gitlens.review.walkNext.title": "審查中的下一個檔案",
 	"command.gitlens.review.walkNext:editor/title.title": "審查中的下一個檔案",
 	"command.gitlens.review.walkNext:key.title": "審查中的下一個檔案",

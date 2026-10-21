@@ -609,7 +609,6 @@
 	"command.gitlens.review.reopenFinding.title": "Reabrir hallazgo",
 	"command.gitlens.review.resolveFinding.title": "Resolver hallazgo",
 	"command.gitlens.review.sendFindingToAgent.title": "Enviar hallazgo al agente",
-	"command.gitlens.review.stopWalk.title": "Dejar de leer los archivos de la revisión",
 	"command.gitlens.review.walkNext.title": "Siguiente archivo de la revisión",
 	"command.gitlens.review.walkNext:editor/title.title": "Siguiente archivo de la revisión",
 	"command.gitlens.review.walkNext:key.title": "Siguiente archivo de la revisión",

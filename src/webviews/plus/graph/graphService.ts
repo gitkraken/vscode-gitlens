@@ -321,17 +321,27 @@ export interface DeepReviewState {
 	findings: { seq: number; finding: AIReviewFinding }[];
 }
 
-export type ReviewWalkAction = 'next' | 'previous' | 'markViewed' | 'stop';
+export type ReviewReadingAction = 'next' | 'previous' | 'markViewed';
 
-export interface ReviewWalkArgs {
+/** A review file to open in its diff — placed beside an editor-hosted graph, the way the reading steps place theirs. */
+export interface ReviewOpenFileArgs {
 	repoPath: string;
-	/** Refs the walk's diffs open with — the same endpoints the panel's own file links use. */
 	lhs: string;
 	rhs: string;
-	/** The walk's stops, in reading order. */
+	path: string;
+	line?: number;
+	lineEnd?: number;
+}
+
+/** The files a review is reading: any of their diffs gets the reading commands (title buttons and
+ *  keybindings), which step through them in this order. */
+export interface ReviewFilesArgs {
+	repoPath: string;
+	/** Refs the diffs open with — the same endpoints the panel's own file links use. */
+	lhs: string;
+	rhs: string;
+	/** The files, in reading order. */
 	paths: string[];
-	/** Stop to start from; the first one when absent. */
-	current?: string;
 }
 
 export type ReviewThreadState = 'open' | 'resolved' | 'dismissed';
@@ -364,10 +374,11 @@ export interface ReviewThreadActionsState {
 	actions: { seq: number; findingId: string; action: ReviewThreadAction }[];
 }
 
-/** Where the walk is and what the editor marked along the way. `marked` is append-only across one
- *  walk, so a panel that was hidden for a while applies only the marks it hasn't seen. */
-export interface ReviewWalkState {
-	current: string;
+/** Which review file the editor is on and what it marked viewed along the way. `marked` is append-only
+ *  for one set of files, so a panel that was hidden for a while applies only the marks it hasn't seen. */
+export interface ReviewReadingState {
+	/** The review file whose diff is the active editor, when one is. */
+	active?: string;
 	marked: string[];
 }
 
@@ -693,13 +704,16 @@ export interface GraphInspectService {
 		excludedFiles?: string[],
 		signal?: AbortSignal,
 	): Promise<ReviewOrientResult>;
-	/** Starts (or reshapes) the review walk: the host opens each stop's diff and lights up the editor
-	 *  keybindings and diff title buttons on them. `undefined` ends the walk. */
-	setReviewWalk(args: ReviewWalkArgs | undefined): Promise<void>;
-	/** Steps the walk — what the editor keybindings and title buttons call too. */
-	reviewWalk(action: ReviewWalkAction): Promise<void>;
-	/** The walk's position and editor-made viewed marks; `undefined` once it ends. */
-	readonly onReviewWalk: RpcEventSubscription<ReviewWalkState | undefined>;
+	/** Tells the host which files the review is reading, in order: their diffs get the editor keybindings
+	 *  and title buttons, and the host reports which one is active. `undefined` once the review is left. */
+	setReviewFiles(args: ReviewFilesArgs | undefined): Promise<void>;
+	/** Steps from `path` — or from the active editor's file when absent, which is what the editor
+	 *  keybindings and title buttons do. */
+	reviewStep(action: ReviewReadingAction, path?: string): Promise<void>;
+	/** Opens a review file's diff where the reading steps open theirs — beside an editor-hosted graph. */
+	openReviewFile(args: ReviewOpenFileArgs): Promise<void>;
+	/** The active review file and the editor-made viewed marks; `undefined` once the review is left. */
+	readonly onReviewReading: RpcEventSubscription<ReviewReadingState | undefined>;
 	/** Mirrors the review's findings as inline comment threads in their diffs; `undefined` clears them. */
 	setReviewThreads(args: ReviewThreadsArgs | undefined): Promise<void>;
 	/** Thread actions taken from the editor (resolve, dismiss, reopen, send to agent). */

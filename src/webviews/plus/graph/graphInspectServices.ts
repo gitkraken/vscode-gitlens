@@ -1,10 +1,11 @@
-import type { CancellationTokenSource, Disposable, TextDocumentShowOptions } from 'vscode';
-import { env, l10n, ProgressLocation, Uri, window, workspace } from 'vscode';
+import type { CancellationTokenSource, TextDocumentShowOptions } from 'vscode';
+import { Disposable, env, l10n, ProgressLocation, Uri, window, workspace } from 'vscode';
 import type { AIReviewFinding, AIReviewResult } from '@gitlens/ai/models/results.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { DisposableTemporaryGitIndex } from '@gitlens/git/providers/staging.js';
+import type { DiffRange } from '@gitlens/git/providers/types.js';
 import { classifyConflictAction, getConflictKindLabel } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import {
@@ -20,7 +21,7 @@ import { annotateDiffWithNewLineNumbers, getAnnotatedNewLines, reanchorLineRange
 import { lazy } from '@gitlens/utils/lazy.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
-import { normalizePath } from '@gitlens/utils/path.js';
+import { arePathsEqual, normalizePath } from '@gitlens/utils/path.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { getAvatarUri } from '../../../avatars.js';
@@ -67,6 +68,7 @@ import { cancelAndDispose, fromAbortSignal, toAbortSignal } from '../../../syste
 import { executeCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { loadChunk } from '../../../system/-webview/loadChunk.js';
+import { getTabUris } from '../../../system/-webview/vscode/tabs.js';
 import { getOpenVirtualSessionIds } from '../../../virtual/virtualFileSystemProvider.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import { getCoreCommitDetails } from '../../commitDetails/commitDetailsWebview.utils.js';
@@ -138,13 +140,14 @@ import type {
 	ResolveSkippedFile,
 	ReviewChangesOptions,
 	ReviewDetailResult,
+	ReviewFilesArgs,
+	ReviewOpenFileArgs,
 	ReviewOrientResult,
+	ReviewReadingAction,
+	ReviewReadingState,
 	ReviewResult,
 	ReviewThreadAction,
 	ReviewThreadActionsState,
-	ReviewWalkAction,
-	ReviewWalkArgs,
-	ReviewWalkState,
 	ScopeSelection,
 	StackRebasePushableBranch,
 	TakeConflictSideResult,
@@ -152,8 +155,8 @@ import type {
 	VirtualRefShape,
 } from './graphService.js';
 import { getReviewDiffEndpoints } from './reviewDiffEndpoints.js';
+import { claimReviewFiles, releaseReviewFiles } from './reviewReading.js';
 import { releaseReviewThreads, setReviewThreads } from './reviewThreads.js';
-import { claimReviewWalk, releaseReviewWalk } from './reviewWalk.js';
 
 /** Collaborators the inspect/compose/review/timeline/treemap cluster reaches for on the host provider,
  *  assembled by `GraphWebviewProvider.createGraphInspectContext()`. `getSession` reads live provider
@@ -343,7 +346,7 @@ export class GraphInspectServices {
 		'resolveProgress',
 		'save-last',
 	);
-	private readonly _reviewWalkEvent = createRpcEvent<ReviewWalkState | undefined>('reviewWalk', 'save-last');
+	private readonly _reviewReadingEvent = createRpcEvent<ReviewReadingState | undefined>('reviewReading', 'save-last');
 	private readonly _reviewThreadActionsEvent = createRpcEvent<ReviewThreadActionsState | undefined>(
 		'reviewThreadActions',
 		'save-last',
@@ -353,12 +356,20 @@ export class GraphInspectServices {
 	private readonly _deepReviewEvent = createRpcEvent<DeepReviewState | undefined>('deepReview', 'save-last');
 	/** The deep review's report channel — what the agent reported stays readable after it closes. */
 	private _deepReview?: DeepReviewChannel;
-	/** The review walk this instance drives — the host owns the cursor so editor keybindings keep
-	 *  working while the graph webview is hidden behind the diff it opened. */
-	private _reviewWalk?: ReviewWalkArgs & { index: number; marked: string[] };
+	/** The review's files, the working-tree paths their diffs open under, which one the editor is on, and
+	 *  what the editor marked viewed — host-owned so the keybindings keep working and the panel can follow
+	 *  the reader while the graph webview is hidden behind the diff. */
+	private _reviewFiles?: ReviewFilesArgs & {
+		byPath: Map<string, string>;
+		marked: string[];
+		active?: string;
+		/** Pending confirmation that no review diff is active — see `updateActiveReviewFile` */
+		activeSettling?: ReturnType<typeof setTimeout>;
+		tracking: Disposable;
+	};
 
 	dispose(): void {
-		releaseReviewWalk(this);
+		this.clearReviewFiles();
 		releaseReviewThreads(this);
 		this._deepReview?.close();
 		this._deepReview = undefined;
@@ -567,9 +578,15 @@ export class GraphInspectServices {
 				},
 				getDeepReviewAvailability: () => this.getDeepReviewAvailability(),
 				onDeepReview: this._deepReviewEvent.subscribe(buffer, tracker, () => this._deepReview?.state),
-				setReviewWalk: args => this.setReviewWalk(args),
-				reviewWalk: action => this.reviewWalk(action),
-				onReviewWalk: this._reviewWalkEvent.subscribe(buffer, tracker, () => this.getReviewWalkState()),
+				setReviewFiles: args => this.setReviewFiles(args),
+				reviewStep: (action, path) => this.reviewStep(action, path),
+				openReviewFile: args => {
+					this.openReviewFile(args);
+					return Promise.resolve();
+				},
+				onReviewReading: this._reviewReadingEvent.subscribe(buffer, tracker, () =>
+					this.getReviewReadingState(),
+				),
 				setReviewThreads: args => {
 					setReviewThreads(this.container, this, args);
 					return Promise.resolve();
@@ -1517,90 +1534,176 @@ export class GraphInspectServices {
 		this._deepReview?.close();
 	}
 
-	private getReviewWalkState(): ReviewWalkState | undefined {
-		const walk = this._reviewWalk;
-		if (walk == null) return undefined;
+	private getReviewReadingState(): ReviewReadingState | undefined {
+		const files = this._reviewFiles;
+		if (files == null) return undefined;
 
-		return { current: walk.paths[walk.index], marked: [...walk.marked] };
+		return { active: files.active, marked: [...files.marked] };
 	}
 
 	@debug()
-	async setReviewWalk(args: ReviewWalkArgs | undefined): Promise<void> {
+	async setReviewFiles(args: ReviewFilesArgs | undefined): Promise<void> {
 		if (args == null || args.paths.length === 0) {
-			this._reviewWalk = undefined;
-			releaseReviewWalk(this);
-			this._reviewWalkEvent.fire(undefined);
+			this.clearReviewFiles();
+			this._reviewReadingEvent.fire(undefined);
 			return;
 		}
 
-		const index = Math.max(0, args.current != null ? args.paths.indexOf(args.current) : 0);
-		// Reshaping a running walk (the file list moved under it) keeps its marks; a fresh walk starts clean.
-		const marked = this._reviewWalk?.repoPath === args.repoPath ? this._reviewWalk.marked : [];
-		this._reviewWalk = { ...args, index: index, marked: marked };
+		// Reshaping the set (the list moved, a plan was applied) keeps the marks; another review starts clean
+		const prior = this._reviewFiles;
+		const marked = prior?.repoPath === args.repoPath ? prior.marked : [];
+		prior?.tracking.dispose();
 
 		const svc = this.container.git.getRepositoryService(args.repoPath);
-		const files: Uri[] = [];
+		const uris: Uri[] = [];
+		const byPath = new Map<string, string>();
 		for (const path of args.paths) {
 			const uri = svc.getAbsoluteUri(path, args.repoPath);
-			files.push(uri);
+			uris.push(uri);
+			byPath.set(uri.path, path);
 			// Anything but the working tree opens as a revision document (a staged side included), which is
 			// what the title buttons must match on
 			if (!isUncommitted(args.rhs) || isUncommittedStaged(args.rhs)) {
-				files.push(this.container.git.getRevisionUriFromGitUri(GitUri.fromFile(path, args.repoPath, args.rhs)));
+				uris.push(this.container.git.getRevisionUriFromGitUri(GitUri.fromFile(path, args.repoPath, args.rhs)));
 			}
 		}
-		claimReviewWalk(this, files);
 
-		this.openReviewWalkStop();
-		this._reviewWalkEvent.fire(this.getReviewWalkState());
+		const tracking = Disposable.from(
+			window.tabGroups.onDidChangeTabs(() => this.updateActiveReviewFile()),
+			window.tabGroups.onDidChangeTabGroups(() => this.updateActiveReviewFile()),
+		);
+		this._reviewFiles = { ...args, byPath: byPath, marked: marked, tracking: tracking };
+		this._reviewFiles.active = this.findActiveReviewFile();
+		claimReviewFiles(this, uris);
+		this._reviewReadingEvent.fire(this.getReviewReadingState());
 		return Promise.resolve();
 	}
 
-	@debug()
-	async reviewWalk(action: ReviewWalkAction): Promise<void> {
-		const walk = this._reviewWalk;
-		if (walk == null) return;
+	private clearReviewFiles(): void {
+		if (this._reviewFiles?.activeSettling != null) {
+			clearTimeout(this._reviewFiles.activeSettling);
+		}
+		this._reviewFiles?.tracking.dispose();
+		this._reviewFiles = undefined;
+		releaseReviewFiles(this);
+	}
 
+	/** The review file under the active editor: the active group's tab first, then any other group's —
+	 *  a diff open beside the graph counts as being read even while the graph has focus. */
+	private findActiveReviewFile(): string | undefined {
+		if (this._reviewFiles == null) return undefined;
+
+		const active = window.tabGroups.activeTabGroup;
+		for (const group of [active, ...window.tabGroups.all.filter(g => g !== active)]) {
+			const path = this.getReviewFilePath(getTabUris(group.activeTab).modified);
+			if (path != null) return path;
+		}
+		return undefined;
+	}
+
+	/** Matches by path, so either side of a diff — revision document or working file — names its review file. */
+	private getReviewFilePath(uri: Uri | undefined): string | undefined {
+		const files = this._reviewFiles;
+		if (uri == null || files == null) return undefined;
+
+		for (const [absolute, path] of files.byPath) {
+			if (arePathsEqual(absolute, uri.path)) return path;
+		}
+		return undefined;
+	}
+
+	private updateActiveReviewFile(): void {
+		const files = this._reviewFiles;
+		if (files == null) return;
+
+		const active = this.findActiveReviewFile();
+		if (files.activeSettling != null) {
+			clearTimeout(files.activeSettling);
+			files.activeSettling = undefined;
+		}
+		if (active === files.active) return;
+
+		// Replacing a preview tab passes through a moment with no review diff active; waiting it out
+		// keeps the panel from flashing its progress state between two files
+		if (active == null) {
+			files.activeSettling = setTimeout(() => {
+				files.activeSettling = undefined;
+				const settled = this.findActiveReviewFile();
+				if (settled === files.active) return;
+
+				files.active = settled;
+				this._reviewReadingEvent.fire(this.getReviewReadingState());
+			}, 250);
+			return;
+		}
+
+		files.active = active;
+		this._reviewReadingEvent.fire(this.getReviewReadingState());
+	}
+
+	/** Steps from a path (the panel's buttons), from an editor's resource (the diff title buttons), or from
+	 *  the active editor (the keybindings) — so several open diffs each step from their own file. */
+	@debug()
+	async reviewStep(action: ReviewReadingAction, from?: string | Uri): Promise<void> {
+		const files = this._reviewFiles;
+		if (files == null) return;
+
+		const path =
+			typeof from === 'string'
+				? from
+				: (this.getReviewFilePath(from ?? window.activeTextEditor?.document.uri) ??
+					this.findActiveReviewFile());
+		const index = path != null ? files.paths.indexOf(path) : -1;
+		if (index < 0) return;
+
+		const open = (path: string) =>
+			this.openReviewFile({ repoPath: files.repoPath, lhs: files.lhs, rhs: files.rhs, path: path });
+		// The order loops: after the last file comes the first, before the first the last
+		const count = files.paths.length;
 		switch (action) {
-			case 'stop':
-				await this.setReviewWalk(undefined);
-				return;
 			case 'markViewed':
-				walk.marked.push(walk.paths[walk.index]);
-				if (walk.index < walk.paths.length - 1) {
-					walk.index++;
-					this.openReviewWalkStop();
+				files.marked.push(files.paths[index]);
+				if (count > 1) {
+					open(files.paths[(index + 1) % count]);
 				}
 				break;
 			case 'next':
-				if (walk.index >= walk.paths.length - 1) break;
-
-				walk.index++;
-				this.openReviewWalkStop();
+				if (count > 1) {
+					open(files.paths[(index + 1) % count]);
+				}
 				break;
 			case 'previous':
-				if (walk.index <= 0) break;
-
-				walk.index--;
-				this.openReviewWalkStop();
+				if (count > 1) {
+					open(files.paths[(index - 1 + count) % count]);
+				}
 				break;
 		}
 
-		this._reviewWalkEvent.fire(this.getReviewWalkState());
+		this._reviewReadingEvent.fire(this.getReviewReadingState());
+		return Promise.resolve();
 	}
 
-	/** One preview tab, reused stop after stop, beside an editor-hosted graph. */
-	private openReviewWalkStop(): void {
-		const walk = this._reviewWalk;
-		if (walk == null) return;
-
-		const path = walk.paths[walk.index];
-		const svc = this.container.git.getRepositoryService(walk.repoPath);
-		const fileUri = svc.getAbsoluteUri(path, walk.repoPath);
+	/** One preview tab, reused file after file, beside an editor-hosted graph — so the panel stays in
+	 *  view to follow along. The checklist, a finding and a plan open through here too, so the first
+	 *  file lands where the steps will keep it. */
+	private openReviewFile(args: ReviewOpenFileArgs): void {
+		const svc = this.container.git.getRepositoryService(args.repoPath);
+		const fileUri = svc.getAbsoluteUri(args.path, args.repoPath);
+		const range: DiffRange | undefined =
+			args.line != null && args.line > 0
+				? {
+						startLine: args.line,
+						startCharacter: 1,
+						endLine: args.lineEnd ?? args.line,
+						endCharacter: 1,
+						active: 'start',
+					}
+				: undefined;
 		void executeCommand<DiffWithCommandArgs>('gitlens.diffWith', {
-			repoPath: walk.repoPath,
-			lhs: { sha: walk.lhs, uri: fileUri },
-			rhs: { sha: walk.rhs, uri: fileUri },
+			repoPath: args.repoPath,
+			lhs: { sha: args.lhs, uri: fileUri },
+			rhs: { sha: args.rhs, uri: fileUri },
+			range: range,
 			showOptions: { preview: true, preserveFocus: false, ...this.context.getOpenEditorShowOptions() },
 		});
 	}

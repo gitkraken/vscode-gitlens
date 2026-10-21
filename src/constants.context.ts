@@ -57,9 +57,9 @@ export type ContextKeys = {
 	'gitlens:prerelease': boolean;
 	'gitlens:promo': PromoKeys;
 	'gitlens:readonly': boolean;
-	/** A review walk is in progress — the editor keybindings and diff title buttons that step it are live. */
-	'gitlens:review:walking': boolean;
-	/** Documents the walk's stops open as; `resource in gitlens:review:files` scopes the title buttons to them. */
+	/** A review has files to read — the editor keybindings and diff title buttons that step through them are live. */
+	'gitlens:review:reading': boolean;
+	/** Documents the review's files open as; `resource in gitlens:review:files` scopes the title buttons and keybindings to them. */
 	'gitlens:review:files': Uri[];
 	'gitlens:rebase:editor:enabled': boolean;
 	'gitlens:repos:withRemotes': string[];
