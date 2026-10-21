@@ -407,6 +407,7 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `getBestRemotesWithProviders(repoPath, cancellation?)`       | `GitRemote<RemoteProvider>[]`            |
 | `addRemote?(repoPath, name, url, options?)`                  | `void`                                   |
 | `addRemoteWithResult?(repoPath, name, url, options?)`        | `GitRemote \| undefined`                 |
+| `probeRemote?(repoPath, url, cancellation?)`                 | `GitRemoteProbeResult`                   |
 | `pruneRemote?(repoPath, name)`                               | `void`                                   |
 | `removeRemote?(repoPath, name)`                              | `void`                                   |
 | `setRemoteAsDefault(repoPath, name, value?)`                 | `void`                                   |

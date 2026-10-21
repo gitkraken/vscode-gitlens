@@ -9,7 +9,14 @@ export function add(
 	repo?: string | GlRepository,
 	name?: string,
 	url?: string,
-	options?: { confirm?: boolean; fetch?: boolean; reveal?: boolean },
+	options?: {
+		confirm?: boolean;
+		/** Pre-fills the name step when no `name` is given */
+		defaultName?: string;
+		/** `true` pre-selects fetching; `false` never fetches and doesn't offer to */
+		fetch?: boolean;
+		reveal?: boolean;
+	},
 ): Promise<void> {
 	return executeGitCommand({
 		command: 'remote',
@@ -20,6 +27,8 @@ export function add(
 			name: name,
 			url: url,
 			flags: options?.fetch ? ['-f'] : undefined,
+			defaultName: options?.defaultName,
+			fetch: options?.fetch,
 			reveal: options?.reveal,
 		},
 	});

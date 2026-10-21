@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a reachability check to _Add Remote_ &mdash; the confirm step probes the URL and, when it can't be reached, says why and offers _Add Remote Anyway_, _Change URL_, or a retry; the name defaults to `origin` on a repository with no remotes
+
 ### Changed
 
 - Changes views and the _Commit Graph_ to keep updating during long-running activity, such as a long rebase or a build writing into the working tree, where they used to wait until it stopped
@@ -13,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes _Add Remote and Fetch_ hanging (or closing silently) when the fetch failed, leaving the remote behind &mdash; it now warns and offers _Remove Remote_
 - Fixes pressing Enter on an invalid value in a wizard input (a remote URL, a branch name) navigating away &mdash; the field now stays open with the message until the value is valid
 - Fixes _Don't Ask Again_ appearing on push confirmations it cannot skip &mdash; the no-remotes chooser, the publish step, and the behind-upstream guard
 - Fixes opening the changes of a file that was deleted (or renamed away) and re-added failing with "file not found" &mdash; the comparison now shows an empty previous version ([#5914](https://github.com/gitkraken/vscode-gitlens/issues/5914)) &mdash; thanks to [PR #5930](https://github.com/gitkraken/vscode-gitlens/pull/5930) by Andrés Martínez ([@amartinez1224](https://github.com/amartinez1224))
