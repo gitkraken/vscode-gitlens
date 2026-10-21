@@ -9,7 +9,7 @@ import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { AuthenticationError, RequestNotFoundError } from '../errors.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
-import { getAzureRepositoryIdentity } from '../providers/azureDevOps.js';
+import { getAzureRepositoryIdentity } from '../providers/azure/azure.utils.js';
 import { isAzureCloudDomain, isBitbucketCloudDomain, isGitHubDotCom, isGitLabDotCom } from '../providers/models.js';
 import type { ProviderWarning, RepositoryIdentity, RepositoryResolution, ResolveRepositoryResult } from '../results.js';
 import { toProviderWarning } from '../results.js';

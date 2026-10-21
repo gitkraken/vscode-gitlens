@@ -102,8 +102,8 @@ interface ServerOptions {
 	holdCollections?: Promise<void>;
 	/** Answers the server-level `connectionData` with this status. */
 	failServerIdentity?: number;
-	/** Answers a collection's `connectionData` without the directory that names it, so it can't be discovered there. */
-	anonymousCollections?: boolean;
+	/** Answers a collection's `connectionData` with this status once the collections were asked for. */
+	failCollectionIdentity?: number;
 	/** Answers a repository addressed by name without its project as missing rather than refused. */
 	projectlessNotFound?: boolean;
 	/** Refuses the credential for every request below this project. */
@@ -157,14 +157,16 @@ function createServer(options: ServerOptions) {
 			if (atServer && options.failServerIdentity != null) {
 				return json({ message: 'boom' }, options.failServerIdentity);
 			}
+			if (!atServer && options.failCollectionIdentity != null && collectionReads > 0) {
+				return json({ message: 'boom' }, options.failCollectionIdentity);
+			}
 
 			const user = { id: 'me', providerDisplayName: 'me', properties: { Account: { $value: 'me@example.com' } } };
 			return json({
 				authenticatedUser: user,
 				authorizedUser: user,
 				instanceId: atServer ? 'server-id' : `${segments[0]}-id`,
-				webApplicationRelativeDirectory:
-					atServer || options.anonymousCollections ? null : `${options.installation}/${segments[0]}/`,
+				webApplicationRelativeDirectory: atServer ? null : `${options.installation}/${segments[0]}/`,
 			});
 		}
 		if (route === '_apis/projectcollections') {
@@ -952,7 +954,7 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 			const server = createServer({
 				installation: '/tfs',
 				connection: '/tfs/DefaultCollection',
-				anonymousCollections: true,
+				failCollectionIdentity: 500,
 			});
 			const { manager, azure } = await connect(server);
 			try {
@@ -981,6 +983,48 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 				const settled = await azure.resolveRepositoryScopes(repos);
 				assert.deepEqual(settled?.value, { repos: repos, unsettled: [true] }, String(settled?.error));
 			} finally {
+				manager.dispose();
+			}
+		});
+
+		test("keeps a caller's scope unsettled when the installation answers the collection list with a 404", async () => {
+			// Connection data that answers for the server says the address is the installation, whatever the 404 was.
+			const server = createServer({ installation: '/tfs', failCollections: 404 });
+			const { manager, azure } = await connect(server);
+			try {
+				const repos = [{ namespace: 'tfs', project: 'DefaultCollection', name: 'repo' }];
+				const settled = await azure.resolveRepositoryScopes(repos);
+				assert.deepEqual(settled?.value, { repos: repos, unsettled: [true] }, String(settled?.error));
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test('forgets that the address names a collection once the failed discovery expires', async () => {
+			const realNow = Date.now;
+			let now = realNow();
+			Date.now = () => now;
+			// Read when each request is answered, so the collection list's answer can change between discoveries.
+			const options: ServerOptions = {
+				installation: '/tfs',
+				connection: '/tfs/DefaultCollection',
+				failCollections: 404,
+				failCollectionIdentity: 500,
+			};
+			const server = createServer(options);
+			const { manager, azure } = await connect(server);
+			try {
+				const repos = [{ namespace: 'DefaultCollection', project: 'proj', name: 'r' }];
+				const first = await azure.resolveRepositoryScopes(repos);
+				assert.deepEqual(first?.value, { repos: repos, unsettled: [false] }, String(first?.error));
+
+				// A later failure says nothing about the address, so the scope is ambiguous again.
+				options.failCollections = 500;
+				now += discoveryCacheTtl + 1;
+				const second = await azure.resolveRepositoryScopes(repos);
+				assert.deepEqual(second?.value, { repos: repos, unsettled: [true] }, String(second?.error));
+			} finally {
+				Date.now = realNow;
 				manager.dispose();
 			}
 		});
