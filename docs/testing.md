@@ -180,13 +180,13 @@ GK_E2E_ENV=staging pnpm exec playwright test -c tests/e2e/playwright.config.ts -
 git checkout -- package.json README.md
 ```
 
-| Variable                                                            | Meaning                                                                                                                  |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `GK_E2E_ACCESS_TOKEN_COOKIE`                                        | the backend site's session cookie value (secret)                                                                         |
-| `GK_E2E_ENV`                                                        | `production` (default), `staging` or `dev`; picks the site, the cookie name and GitLens' `gitkraken.env`                 |
-| `GK_E2E_CF_ACCESS_CLIENT_ID` / `_SECRET`, `GK_E2E_CF_AUTHORIZATION` | Cloudflare Access credential, off production only (secret)                                                               |
-| `E2E_REQUIRED_INTEGRATIONS`                                         | providers that must show as connected (default: GitHub, GitLab, Bitbucket, Azure DevOps; `none` checks the sign-in only) |
-| `E2E_REQUIRE_SIGNIN`                                                | fail instead of skip when the cookie is missing — for CI jobs that must sign in                                          |
+| Variable                                                            | Meaning                                                                                                                                                |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GK_E2E_ACCESS_TOKEN_COOKIE`                                        | the backend site's session cookie value (secret)                                                                                                       |
+| `GK_E2E_ENV`                                                        | required: `staging` or `dev` — or `production` together with `GK_E2E_ALLOW_PRODUCTION=1`; picks the site, the cookie name and GitLens' `gitkraken.env` |
+| `GK_E2E_CF_ACCESS_CLIENT_ID` / `_SECRET`, `GK_E2E_CF_AUTHORIZATION` | Cloudflare Access credential, off production only (secret)                                                                                             |
+| `E2E_REQUIRED_INTEGRATIONS`                                         | providers that must show as connected (default: GitHub, GitLab, Bitbucket, Azure DevOps; `none` checks the sign-in only)                               |
+| `E2E_REQUIRE_SIGNIN`                                                | fail instead of skip when the cookie is missing — for CI jobs that must sign in                                                                        |
 
 The MCP Start Work / Start Review spec (`mcpGitlensWritePathSignedIn.test.ts`) also needs `E2E_GITHUB_REPO_URL`,
 `E2E_GITHUB_ISSUE_URL` and `E2E_GITHUB_PR_URL`: the GitHub test repository, an open issue that belongs to the GitHub
@@ -197,8 +197,9 @@ public values — set them as repository variables; the spec skips without them,
 Mind what a sign-in costs: every worker sign-in mints a new GitLens token for the test account, and the backend
 neither expires nor revokes those tokens. Sign in only where an account is needed, don't retry signed-in specs
 (a retry starts a new worker), never sign out in a test (it is local-only), and never sign CI in to production.
-Treat the cookie as a password: keep it out of shell history and logs, and never print it — the fixture's
-diagnostics use fixed vocabularies, and the only account detail they log is its plan labels.
+The credentials stay in the Playwright process: the harness strips `GK_E2E_*` from the editor's environment, so
+nothing the editor spawns sees them. Treat the cookie as a password: keep it out of shell history and logs, and never
+print it — the fixture's diagnostics use fixed vocabularies, and the only account detail they log is its plan labels.
 
 Two side effects to know about:
 

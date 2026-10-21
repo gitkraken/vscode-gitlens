@@ -11,7 +11,8 @@
  * 3. Ready = "Sign Out" on GitLens Settings -> Account, plus "Manage <name>" in Cloud Integrations for every required
  *    provider (a disconnected provider shows "Connect").
  *
- * The backend is chosen by `GK_E2E_ENV` (production, staging or dev); the cookie must come from that backend's site.
+ * The backend is chosen by `GK_E2E_ENV` (staging or dev; production only with `GK_E2E_ALLOW_PRODUCTION=1`); the
+ * cookie must come from that backend's site.
  * Secrets come from the environment only, and this fixture never logs the cookie, the code, the state or any account
  * text — its diagnostics use fixed vocabularies. GitLens' own log does record the deep link (with its single-use code,
  * exchanged moments later) inside the worker's temp profile, which the harness deletes at teardown.
@@ -55,15 +56,25 @@ export interface SignInOptions {
 }
 
 /**
- * The backend this run signs in against: `GK_E2E_ENV` (default `production`). A code issued by one backend does not
- * exchange on another's API, so the cookie, the code request and GitLens must all point at the same one.
+ * The backend this run signs in against: `GK_E2E_ENV` — `staging` or `dev`, or `production` only together with
+ * `GK_E2E_ALLOW_PRODUCTION=1`. There is no default: a production sign-in mints a token the backend never expires or
+ * revokes, so it has to be asked for explicitly. A code issued by one backend does not exchange on another's API, so
+ * the cookie, the code request and GitLens must all point at the same one.
  */
 export function gkEnvironment(): GkEnvironment {
 	const value = (process.env.GK_E2E_ENV ?? '').trim().toLowerCase();
-	if (value === '' || value === 'production' || value === 'prod') return 'production';
 	if (value === 'staging' || value === 'dev') return value;
+	if (value === 'production' || value === 'prod') {
+		if (process.env.GK_E2E_ALLOW_PRODUCTION === '1') return 'production';
 
-	throw new Error(`GK_E2E_ENV must be production, staging or dev (got "${value}")`);
+		throw new Error(
+			'GK_E2E_ENV=production also needs GK_E2E_ALLOW_PRODUCTION=1 — a production sign-in mints a token the backend never expires or revokes',
+		);
+	}
+
+	throw new Error(
+		`GK_E2E_ENV must be staging or dev, or production with GK_E2E_ALLOW_PRODUCTION=1 (got "${value || '<unset>'}")`,
+	);
 }
 
 /** User settings a signed-in worker needs for {@link gkEnvironment} (none for production). */
