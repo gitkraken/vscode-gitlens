@@ -156,12 +156,15 @@ function isValidAzureVirtualDirectory(virtualDirectory: string | undefined): boo
 
 /**
  * The paths a project-less reading's `{vdir}/{owner}` can be below the connection `baseUrl` addresses: the address
- * itself, or its parent when the address names a collection (see {@link resolveAzureProjectlessRepository}). A
+ * itself, or its parent when the address names a collection (see {@link resolveAzureProjectlessRepository}). Only the
+ * parent once the address is known to name a collection (`belowCollection`), since it then isn't the installation. A
  * connection at the host root serves no virtual directory, so none.
  */
-function getAzureProjectlessDirectories(baseUrl: string): string[][] {
+function getAzureProjectlessDirectories(baseUrl: string, belowCollection: boolean): string[][] {
 	const configured = new URL(baseUrl).pathname.split('/').filter(Boolean);
-	return [configured, configured.slice(0, -1)].filter(path => path.length > 0);
+	return (belowCollection ? [configured.slice(0, -1)] : [configured, configured.slice(0, -1)]).filter(
+		path => path.length > 0,
+	);
 }
 
 /**
@@ -172,11 +175,12 @@ function getAzureProjectlessDirectories(baseUrl: string): string[][] {
 export function isAzureProjectlessCandidate(
 	baseUrl: string,
 	repo: Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'virtualDirectory'>,
+	belowCollection: boolean = false,
 ): boolean {
 	if (getAzureRepositoryIdentity({ owner: repo.owner, name: repo.name }).projectName == null) return false;
 
 	const directory = [...(repo.virtualDirectory?.split('/') ?? []), repo.owner];
-	return getAzureProjectlessDirectories(baseUrl).some(
+	return getAzureProjectlessDirectories(baseUrl, belowCollection).some(
 		path => path.length === directory.length && path.every((s, i) => sameAzurePathSegment(s, directory[i])),
 	);
 }
@@ -186,13 +190,27 @@ export function isAzureProjectlessCandidate(
  * ends with it, `undefined` when none does. A caller-supplied repository scope carries only its owner, so this places
  * it where {@link isAzureProjectlessCandidate} expects it.
  */
-export function getAzureScopeVirtualDirectory(baseUrl: string, owner: string): string | undefined {
-	const path = getAzureProjectlessDirectories(baseUrl).find(p => sameAzurePathSegment(p.at(-1)!, owner));
-	return path?.slice(0, -1).map(decodePathSegment).join('/');
+export function getAzureScopeVirtualDirectory(
+	baseUrl: string,
+	owner: string,
+	belowCollection: boolean = false,
+): string | undefined {
+	const path = getAzureProjectlessDirectories(baseUrl, belowCollection).find(p =>
+		sameAzurePathSegment(p.at(-1)!, owner),
+	);
+	return path?.slice(0, -1).map(decodeAzurePathSegment).join('/');
+}
+
+/**
+ * Decodes one segment of an address path as a virtual directory names it: an encoded `/` stays encoded, so the segment
+ * stays one segment of the `/`-joined directory.
+ */
+export function decodeAzurePathSegment(segment: string): string {
+	return decodePathSegment(segment.replace(/%2F/gi, '%252F'));
 }
 
 function sameAzurePathSegment(encoded: string, value: string): boolean {
-	return decodePathSegment(encoded).toLowerCase() === value.toLowerCase();
+	return decodeAzurePathSegment(encoded).toLowerCase() === value.toLowerCase();
 }
 
 /**
