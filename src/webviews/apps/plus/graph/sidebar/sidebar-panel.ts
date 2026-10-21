@@ -1200,16 +1200,13 @@ would expose the graph through fade or at the gap left by the translate). */
 	/** Stands in for the pull-requests tree when the panel is empty for a reason the host can name — an
 	 *  empty list otherwise reads as "no open pull requests", which is the one thing it doesn't mean here. */
 	private renderPullRequestsEmptyState(emptyState: GraphSidebarPullRequestsEmptyState): unknown {
-		// One shape across the three connect reasons: lead with the connect action and the value it unlocks —
-		// for an unrecognized host, connecting a self-managed integration (with its domain) is what makes it
-		// recognized; with no remotes the tail names that publishing comes first.
+		// With no remotes there's nothing an integration could match yet, so publishing is the action to pitch.
 		if (emptyState.reason === 'no-remotes') {
-			return this.renderConnectPitch(
-				'Connect an integration to see and act on pull requests here once this repository is published to GitHub, GitLab, Azure DevOps, or Bitbucket.',
-				'Connect an Integration...',
-			);
+			return this.renderPublishPitch();
 		}
 
+		// One shape across the connect reasons: lead with the connect action and the value it unlocks — for an
+		// unrecognized host, connecting a self-managed integration (with its domain) is what makes it recognized.
 		if (emptyState.reason === 'no-supported-remote') {
 			return this.renderConnectPitch(
 				"Connect an integration — including self-managed hosts — to see this repository's pull requests and act on them without leaving the graph.",
@@ -1244,6 +1241,25 @@ would expose the graph through fade or at the gap left by the translate). */
 			>
 		</div>`;
 	}
+
+	private renderPublishPitch() {
+		return html`<div class="empty empty--connect">
+			<span
+				>${l10n.t(
+					'Publish this repository to GitHub, GitLab, Azure DevOps, or Bitbucket to see and act on its pull requests here.',
+				)}</span
+			>
+			<gl-button appearance="secondary" density="compact" @click=${this.handlePublishRepository}
+				><code-icon icon="cloud-upload" slot="prefix"></code-icon> ${l10n.t('Publish Repository…')}</gl-button
+			>
+		</div>`;
+	}
+
+	private readonly handlePublishRepository = () => {
+		// No args or context: the host's sidebar dispatch hands the command the graph's repo, and the command
+		// falls back to that repo's current branch.
+		this._actions?.executeAction('gitlens.publishRepository:graph');
+	};
 
 	private handleConnectIntegration(integrationId?: SupportedCloudIntegrationIds) {
 		// Not a row action, so it goes straight out rather than through `handleAction`'s per-panel action

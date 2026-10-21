@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a reachability check to _Add Remote_ &mdash; the confirm step probes the URL and, when it can't be reached, says why and offers _Add Remote Anyway_, _Change URL_, or a retry; the name defaults to `origin` on a repository with no remotes
 - Adds _Publish Repository_ to branch and worktree rows in the views when their repository has no remotes
 - Adds _Remove Remote_ to the error shown when a push can't reach a remote that has never been fetched from (e.g. one just added with a mistyped URL)
+- Adds a _Publish Repository…_ call to action to the _Commit Graph_'s _Pull Requests_ panel when the repository has no remotes
 
 ### Changed
 
