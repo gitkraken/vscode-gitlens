@@ -211,6 +211,30 @@ Two side effects to know about:
   in a spec can still put the account's name or e-mail into test results: keep signed-in output out of shared
   artifacts unless it is scanned first.
 
+In CI, `@signed-in` specs run only in the `e2e-signed-in` job of `ci.yml`; the regular e2e legs run with
+`--grep-invert @signed-in` and hold no credentials. The job:
+
+- starts only on a manual dispatch from `main`, and only once the repository variable `E2E_SIGNED_IN` is `true`;
+- takes its secrets from the `e2e-signed-in` Environment: `GK_E2E_ACCESS_TOKEN_COOKIE` — the staging test
+  account's `stagingAccessToken` — and a Cloudflare Access service token, `GK_E2E_CF_ACCESS_CLIENT_ID` /
+  `GK_E2E_CF_ACCESS_CLIENT_SECRET`. The Environment's deployment-branch rule (`main` only) is the actual gate — the
+  job's `if` lives in a workflow file any branch can change — so set the rule **before** adding the secrets, and
+  keep them Environment secrets, never repository secrets of the same name;
+- reads `E2E_REQUIRED_INTEGRATIONS` and the `E2E_GITHUB_*` URLs from repository variables; a missing cookie or
+  GitHub URL fails the run instead of skipping it (`E2E_REQUIRE_SIGNIN`), while an unset `E2E_REQUIRED_INTEGRATIONS`
+  falls back to its default list;
+- builds a pre-release bundle (so GitLens honors `gitkraken.env`) and signs in to staging, and before uploading
+  results runs `scripts/e2eScanForSecrets.mjs`: any output file holding a secret value (verbatim, base64, base64url
+  or URL-encoded, inside trace zips too), or one it can't read, is deleted and the job fails; e-mail addresses and
+  JWT-shaped tokens in text files are masked.
+
+The job log itself is not scanned: a failed assertion on account UI prints the received text there, so keep
+signed-in assertions off the account's name and e-mail.
+
+The session cookie expires after a while without use. When the sign-in step reports the site's login page, sign in
+to the staging site as the test account in a browser and replace the secret with the new `stagingAccessToken`
+value — set it through `gh secret set … --env e2e-signed-in` reading from a prompt, never as an argument.
+
 ### Login-walled forks (Cursor, Kiro)
 
 Some forks hard-gate their entire workbench behind a sign-in wall on a fresh (unauthenticated) profile —
