@@ -174,6 +174,8 @@ function answerCollection(base: string, segments: string[], url: URL, body: stri
 		}
 		case /^\{project\}\/_apis\/wit\/workitems\/\d+$/.test(route):
 			return json(azureWorkItem(base, Number(segments.at(-1))));
+		case route === '{project}/_apis/wit/workitemtypes':
+			return json({ value: [{ name: 'Task' }] });
 		case /^\{project\}\/_apis\/wit\/workitemtypes\/[^/]+\/states$/.test(route):
 			return json({ value: [{ name: 'Active', color: '', category: 'InProgress' }], count: 1 });
 		default:

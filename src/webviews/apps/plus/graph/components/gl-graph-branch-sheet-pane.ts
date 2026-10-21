@@ -816,7 +816,6 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	private renderIssueChip(i: OverviewBranchIssue, associated: boolean): TemplateResult {
 		const hasNumericId = !isNaN(parseInt(i.id, 10));
 		const identifier = hasNumericId ? `#${i.id}` : i.id;
-		const status = i.state === 'closed' ? 'closed' : 'opened';
 		const type: 'issue' | 'autolink' = associated ? 'issue' : 'autolink';
 
 		return html`<gl-autolink-chip
@@ -824,7 +823,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 			name=${i.title}
 			url=${i.url}
 			identifier=${identifier}
-			status=${status}
+			.status=${i.state}
 			openOnRemote
 		></gl-autolink-chip>`;
 	}

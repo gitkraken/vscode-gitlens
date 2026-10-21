@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes Azure DevOps work items reporting an open state when their workflow category is unavailable and no closed date is known, including cheap etag reads. Filtered work item searches and counts now select by workflow category, so Removed work items without closed dates appear under Closed ([#6041](https://github.com/gitkraken/vscode-gitlens/issues/6041)).
+
 ## [0.15.2] - 2026-10-20
 
 ### Changed

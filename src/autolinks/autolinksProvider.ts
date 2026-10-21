@@ -72,6 +72,8 @@ function getIssueStatusDescription(issue: IssueOrPullRequest, link?: string): st
 			return link == null ? l10n.t('Closed, {0}', date) : l10n.t('{0} closed {1}', link, date);
 		case 'merged':
 			return link == null ? l10n.t('Merged, {0}', date) : l10n.t('{0} merged {1}', link, date);
+		default:
+			return link ?? l10n.t('Unknown');
 	}
 }
 

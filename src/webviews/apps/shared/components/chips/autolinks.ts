@@ -79,7 +79,7 @@ export function renderAutolinkChips(
 									? (getPullRequestNumberFromUrl(item.url) ?? item.id)
 									: item.id
 							}"
-							status=${item.state}
+							.status=${item.state}
 							.date=${item.closed ? item.closedDate : item.createdDate}
 							.dateFormat=${preferences?.dateFormat}
 							.dateStyle=${preferences?.dateStyle}

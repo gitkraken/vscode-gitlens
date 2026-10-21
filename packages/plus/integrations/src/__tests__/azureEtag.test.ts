@@ -802,7 +802,7 @@ suite('Azure DevOps work item etag agreement', () => {
 				'closed',
 				'closed',
 				'opened',
-				'opened',
+				undefined,
 				'opened',
 				'opened',
 				'opened',

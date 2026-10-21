@@ -64,11 +64,7 @@ export class IssueIcon extends LitElement {
 
 	override render(): unknown {
 		if (!this.state) {
-			return html`<code-icon
-				class=${this.classes}
-				icon=${this.icon}
-				aria-label=${ifDefined(this.state)}
-			></code-icon>`;
+			return html`<code-icon class=${this.classes} icon=${this.icon} aria-label=${this.label}></code-icon>`;
 		}
 
 		return html`<gl-tooltip>

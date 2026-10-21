@@ -643,11 +643,14 @@ export class GlGraphOverviewCard extends LitElement {
 
 		// `<issue-icon>` has its own `<gl-tooltip>` when state is set — wrap-only via
 		// `branch-item__count` to keep icon + count visually paired without nesting tooltips.
-		const openCount = issues.filter(i => i.state === 'opened').length;
-		const state = openCount > 0 ? 'opened' : 'closed';
+		const state = issues.some(i => i.state === 'opened')
+			? 'opened'
+			: issues.every(i => i.state === 'closed')
+				? 'closed'
+				: undefined;
 
 		return html`<span class="branch-item__count"
-			><issue-icon state=${state}></issue-icon>${when(
+			><issue-icon state=${ifDefined(state)}></issue-icon>${when(
 				issues.length > 1,
 				() => html`<span>${issues.length}</span>`,
 			)}</span

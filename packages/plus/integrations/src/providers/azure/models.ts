@@ -97,8 +97,13 @@ export function isClosedAzureWorkItemStateCategory(category: AzureWorkItemStateC
 
 export function azureWorkItemsStateCategoryToState(
 	category: AzureWorkItemStateCategory | undefined,
-): IssueOrPullRequestState {
-	return isClosedAzureWorkItemStateCategory(category) ? 'closed' : 'opened';
+	closedDate?: Date,
+): IssueOrPullRequestState | undefined {
+	if (azureIssueStateCategory(category) != null) {
+		return isClosedAzureWorkItemStateCategory(category) ? 'closed' : 'opened';
+	}
+
+	return closedDate != null ? 'closed' : undefined;
 }
 
 export interface AzureLink {
@@ -748,6 +753,8 @@ export function fromAzureWorkItem(
 	projection?: IssueProjection,
 ): Issue {
 	const state = workItem.fields['System.State'];
+	const closedDate = parseAzureWorkItemDate(workItem.fields['Microsoft.VSTS.Common.ClosedDate']) ?? undefined;
+	const normalizedState = azureWorkItemsStateCategoryToState(stateCategory, closedDate);
 	return new Issue(
 		provider,
 		workItem.id.toString(),
@@ -756,16 +763,14 @@ export function fromAzureWorkItem(
 		workItem._links.html.href,
 		new Date(workItem.fields['System.CreatedDate']),
 		new Date(workItem.fields['System.ChangedDate']),
-		isClosedAzureWorkItemStateCategory(stateCategory),
-		azureWorkItemsStateCategoryToState(stateCategory),
+		normalizedState === 'closed',
+		normalizedState,
 		fromAzureUserToMember(workItem.fields['System.CreatedBy'], 'issue'),
 		workItem.fields['System.AssignedTo'] != null
 			? [fromAzureUserToMember(workItem.fields['System.AssignedTo'], 'issue')]
 			: [],
 		undefined,
-		workItem.fields['Microsoft.VSTS.Common.ClosedDate']
-			? new Date(workItem.fields['Microsoft.VSTS.Common.ClosedDate'])
-			: undefined,
+		closedDate,
 		undefined,
 		workItem.fields['System.CommentCount'],
 		undefined,
@@ -907,7 +912,7 @@ function fromAzureWorkItemIdentity(value: unknown): ProviderAccount | null {
 }
 
 /** Only a UTC ISO timestamp naming a real calendar date and time, as provider-apis accepts; anything else is `null`. */
-function parseAzureWorkItemDate(value: unknown): Date | null {
+export function parseAzureWorkItemDate(value: unknown): Date | null {
 	if (typeof value !== 'string') return null;
 
 	const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,7})?Z$/.exec(value);
@@ -974,12 +979,16 @@ export function toAzureWorkItemEtagFields(
 		throw new Error(`Azure DevOps returned work item ${String(workItem.id)} without a change date`);
 	}
 
-	const closed =
+	const state =
 		category != null
 			? isTerminalIssueStateCategory(category)
-			: parseAzureWorkItemDate(fields?.['Microsoft.VSTS.Common.ClosedDate']) != null;
+				? 'closed'
+				: 'opened'
+			: parseAzureWorkItemDate(fields?.['Microsoft.VSTS.Common.ClosedDate']) != null
+				? 'closed'
+				: undefined;
 	return {
-		state: closed ? 'closed' : 'opened',
+		state: state,
 		updatedDate: updatedDate,
 	};
 }

@@ -11,7 +11,8 @@ export interface IssueOrPullRequest {
 	readonly updatedDate: Date;
 	readonly closedDate?: Date;
 	readonly closed: boolean;
-	readonly state: IssueOrPullRequestState;
+	/** Unset when the provider cannot classify the workflow state and supplies no closed date. */
+	readonly state: IssueOrPullRequestState | undefined;
 	readonly commentsCount?: number;
 	readonly thumbsUpCount?: number;
 }
