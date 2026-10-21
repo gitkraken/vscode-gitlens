@@ -18,6 +18,7 @@ import { GitSelfManagedHostIntegrationId, providerFanOutConcurrency } from '../c
 import type { IntegrationServiceContext } from '../context.js';
 import { AuthenticationError, IntegrationReadUnavailableError, RequestNotFoundError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import type { RepositoryCoordinate } from '../models/gitHostIntegration.js';
 import type {
 	IntegrationKey,
 	ProviderIssueSearchPage,
@@ -264,6 +265,13 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	});
 
 	/**
+	 * The {@link discoveryKey}s whose address answered the collection list with a 404, so it addresses a collection
+	 * rather than the installation (see {@link requestResourcesForUser}). Kept even when the discovery fails later on,
+	 * for {@link settleRepository} to read a path that can only be project-less below an installation as given.
+	 */
+	private readonly _collectionAddresses = new Set<string>();
+
+	/**
 	 * Settles which segment of a remote's path is the collection before reading the repository. Behind a virtual
 	 * directory a repository named after its project is also served as `{vdir}/{collection}/_git/{repo}`, which the
 	 * remote parser reads as collection `{vdir}` and project `{collection}`; the discovered collections tell the two
@@ -286,6 +294,8 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	/**
 	 * The repository {@link getRepositoryTarget} reads `repo` as, and the base it reads it below: `undefined` when the
 	 * connection doesn't serve its virtual directory (another installation's) or that directory isn't a valid one.
+	 * `isCandidate` is whether `repo` can be project-less below the connection ({@link isAzureProjectlessCandidate} by
+	 * default), given whether the connection is known to address a collection rather than the installation.
 	 */
 	private async settleRepository<
 		T extends Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project' | 'virtualDirectory'>,
@@ -293,20 +303,24 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		session: ProviderAuthenticationSession,
 		repo: T,
 		cancellation?: AbortSignal,
+		isCandidate?: (belowCollection: boolean) => boolean,
 	): Promise<{ repo: T; baseUrl: string | undefined; unsettled: boolean }> {
 		const baseUrl = this.apiBaseUrlFor(session);
+		const candidate =
+			isCandidate ?? (belowCollection => isAzureProjectlessCandidate(baseUrl, repo, belowCollection));
 		let unsettled = false;
-		if (isAzureProjectlessCandidate(baseUrl, repo)) {
+		if (candidate(false)) {
 			// The discovery is shared, so it takes no signal: one caller's abort must neither cancel it for the others
 			// nor be kept as its result.
-			const names = this._collectionNames.getOrCreate(this.discoveryKey(session), () =>
-				this.getCollectionNames(session),
-			);
+			const key = this.discoveryKey(session);
+			const names = this._collectionNames.getOrCreate(key, () => this.getCollectionNames(session));
 			const collections = await (cancellation != null ? raceWithSignal(names, cancellation) : names);
 			if (collections != null) {
 				repo = resolveAzureProjectlessRepository(repo, collections);
 			} else {
-				unsettled = true;
+				// A path that is a candidate only below an installation the address itself is reads as given once the
+				// address is known to name a collection: it names that collection.
+				unsettled = candidate(this._collectionAddresses.has(key));
 			}
 		}
 
@@ -320,7 +334,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	 * Only the coordinate is settled, and only to a repository the connection serves: each read places it below the
 	 * connection itself, so one settling elsewhere reads as given and fails its own read rather than every coordinate's.
 	 */
-	protected override async resolveRepositoryCoordinates<T extends { owner: string; repo: string; project?: string }>(
+	protected override async resolveRepositoryCoordinates<T extends RepositoryCoordinate>(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly T[],
 		cancellation?: AbortSignal,
@@ -345,37 +359,18 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 						virtualDirectory: virtualDirectory || undefined,
 					},
 					cancellation,
+					belowCollection => getAzureScopeVirtualDirectory(baseUrl, c.owner, belowCollection) != null,
 				);
-				// A repository this connection doesn't serve is another installation's: read the scope as given.
-				const settled = repo.owner !== c.owner && repoBaseUrl != null;
-				return {
-					coordinate: settled ? { ...c, owner: repo.owner, project: repo.project } : c,
-					unsettled: unsettled,
-				};
+				if (repo.owner === c.owner) return { coordinate: c, unsettled: unsettled };
+
+				// A repository this connection doesn't serve is another installation's: read the scope as given, which
+				// may not be the repository the caller named either, so its miss proves nothing.
+				return repoBaseUrl != null
+					? { coordinate: { ...c, owner: repo.owner, project: repo.project }, unsettled: unsettled }
+					: { coordinate: c, unsettled: true };
 			}),
 		);
 		return { coordinates: targets.map(t => t.coordinate), unsettled: targets.map(t => t.unsettled) };
-	}
-
-	/**
-	 * The searches and counts take only `repos`: they re-read the collections and refuse a scope whose collection
-	 * isn't one of them ({@link getSearchCollections}), and a scope read as parsed below a listed collection is what
-	 * settling it would read ({@link resolveAzureProjectlessRepository}), so a miss there is not `unsettled`.
-	 */
-	protected override async resolveRepositoryInputs(
-		session: ProviderAuthenticationSession,
-		repos: readonly ProviderRepoInput[],
-		cancellation?: AbortSignal,
-	): Promise<{ repos: ProviderRepoInput[]; unsettled?: readonly boolean[] }> {
-		const { coordinates, unsettled } = await this.resolveRepositoryCoordinates(
-			session,
-			repos.map(r => ({ ...r, owner: r.namespace, repo: r.name })),
-			cancellation,
-		);
-		return {
-			repos: coordinates.map(({ owner, repo, ...r }) => ({ ...r, namespace: owner, name: repo })),
-			unsettled: unsettled,
-		};
 	}
 
 	/**
@@ -400,6 +395,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	override invalidateDiscoveryCaches(): void {
 		super.invalidateDiscoveryCaches();
 		this._collectionNames.clear();
+		this._collectionAddresses.clear();
 	}
 
 	/**
@@ -416,6 +412,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		} catch (ex) {
 			if (!(ex instanceof RequestNotFoundError)) throw ex;
 
+			this._collectionAddresses.add(this.discoveryKey(session));
 			const azure = await this.authenticationService.apis.azure;
 			const addressed = await azure?.getAddressedCollection(
 				this,
@@ -1072,6 +1069,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		this._pullRequestSearches.clear();
 		this._latestPullRequestSearches.clear();
 		this._collectionNames.clear();
+		this._collectionAddresses.clear();
 	}
 
 	protected override async _requestForCurrentUser(
