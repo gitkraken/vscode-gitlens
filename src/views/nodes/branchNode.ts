@@ -611,6 +611,13 @@ export async function getBranchNodeParts(
 	if (branch.remote) {
 		contextValue += '+remote';
 	}
+	// Per-repo (not workspace-wide) so the publish branch/repository menus pick the right action in a
+	// multi-repo workspace; a remote branch implies a remote, so only local branches need the (cached) read
+	const hasRemotes =
+		branch.remote || (await container.git.getRepositoryService(branch.repoPath).remotes.getRemotes()).length > 0;
+	if (hasRemotes) {
+		contextValue += '+remotes';
+	}
 	if (branch.starred) {
 		contextValue += '+starred';
 	}
@@ -749,14 +756,8 @@ export async function getBranchNodeParts(
 		label = branch.rebasing ? l10n.t('{0} (Rebasing)', displayName) : displayName;
 	}
 
-	let localUnpublished = false;
-	if (status === 'local') {
-		// If there are any remotes then say this is unpublished, otherwise local
-		const remotes = await container.git.getRepositoryService(branch.repoPath).remotes.getRemotes();
-		if (remotes.length) {
-			localUnpublished = true;
-		}
-	}
+	// If there are any remotes then say this is unpublished, otherwise local
+	const localUnpublished = status === 'local' && hasRemotes;
 
 	let iconPath: IconPath;
 	if (options?.pendingPullRequest != null) {
