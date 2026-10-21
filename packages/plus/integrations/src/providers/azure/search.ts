@@ -1,3 +1,4 @@
+import type { AzureWorkItemTypeStates } from '@gitkraken/provider-apis';
 import { escapeWiqlString } from '@gitkraken/provider-apis';
 import type { IssueSearchCriteria, IssueSearchRelationship, IssueSorting } from '@gitlens/git/models/issue.js';
 import type { PullRequestSearchCriteria, PullRequestSorting } from '@gitlens/git/models/pullRequest.js';
@@ -52,7 +53,7 @@ export const azureWorkItemSearchRelationships = Object.keys(relationshipClauses)
  * process-template fields. On an on-premises collection running the XML process model, a field its process never
  * declared fails the whole query with `TF51005` rather than ordering nothing, so declaring them would turn a
  * working search into a refused one on exactly the installations this search exists for. Every key kept orders a
- * system field, except `closed`, whose column the open/closed filter below already depends on.
+ * system field, except `closed`, which explicitly requests the process-template close-date field.
  */
 const sortColumns: Partial<Record<IssueSorting, string>> = {
 	'updated:desc': '[System.ChangedDate] Desc',
@@ -78,9 +79,10 @@ export const azureWorkItemSearchSorts = Object.keys(sortColumns) as IssueSorting
  * The projects bound the query by name through `[System.TeamProject]`, so a repository scope reaches the work items
  * of its project; with no project the collection itself is the scope.
  *
- * The open/closed split mirrors the SDK's WIQL, so this search and the ordinary project read agree on which work
- * items are open. Free text is a `Contains` substring match on the title, and each label a `Contains` over the
- * tags, which Azure matches against whole tags — AND-ed, like the criteria model's labels.
+ * Workflow metadata selects state names per project and work item type: a name can belong to different categories
+ * in different workflows, and Removed work items need not have a closed date. Free text is a `Contains` substring
+ * match on the title, and each label a `Contains` over the tags, which Azure matches against whole tags, AND-ed like
+ * the criteria model's labels.
  *
  * Throws for a relationship or sort key it cannot express. The facade validates both against the declared
  * capability first, so reaching here with one means the declaration and this translation disagree.
@@ -89,21 +91,45 @@ export function toAzureWorkItemSearchWiql(
 	criteria: IssueSearchCriteria | undefined,
 	sort: IssueSorting,
 	projects: readonly string[] | undefined,
+	workflows?: ReadonlyMap<string, AzureWorkItemTypeStates>,
 ): string {
 	const clauses: string[] = [];
 	if (projects?.length) {
 		clauses.push(`[System.TeamProject] IN (${projects.map(p => `'${escapeWiqlString(p)}'`).join(', ')})`);
 	}
 
-	switch (criteria?.state ?? 'open') {
-		case 'open':
-			clauses.push("[Microsoft.VSTS.Common.ClosedDate] = ''", "[Microsoft.VSTS.Common.ResolvedDate] = ''");
-			break;
-		case 'closed':
-			clauses.push("([Microsoft.VSTS.Common.ClosedDate] <> '' OR [Microsoft.VSTS.Common.ResolvedDate] <> '')");
-			break;
-		case 'all':
-			break;
+	const state = criteria?.state ?? 'open';
+	if (state !== 'all') {
+		if (workflows == null) throw new Error('Azure DevOps state-filtered search requires workflow metadata');
+
+		const states: string[] = [];
+		for (const [project, workflow] of workflows) {
+			if (workflow.metadata != null) throw new Error('Azure DevOps returned incomplete workflow metadata');
+
+			for (const type of workflow.types) {
+				if (type.states == null) throw new Error('Azure DevOps returned no work item states');
+
+				const names = type.states.filter(s => {
+					switch (s.category) {
+						case 'Completed':
+						case 'Resolved':
+						case 'Removed':
+							return state === 'closed';
+						case 'Proposed':
+						case 'InProgress':
+							return state === 'open';
+						default:
+							throw new Error('Azure DevOps returned an unknown work item state category');
+					}
+				});
+				if (!names.length) continue;
+
+				states.push(
+					`([System.TeamProject] = '${escapeWiqlString(project)}' AND [System.WorkItemType] = '${escapeWiqlString(type.name)}' AND [System.State] IN (${names.map(s => `'${escapeWiqlString(s.name)}'`).join(', ')}))`,
+				);
+			}
+		}
+		clauses.push(states.length ? `(${states.join(' OR ')})` : '[System.Id] = 0');
 	}
 
 	const relationships = [...new Set(criteria?.relationships ?? [])];

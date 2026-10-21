@@ -209,7 +209,7 @@ export interface OverviewBranchIssue {
 	id: string;
 	title: string;
 	url: string;
-	state: IssueOrPullRequestState;
+	state: IssueOrPullRequestState | undefined;
 	/** PR-only: draft state. */
 	draft?: boolean;
 	/** Stable identifier used to unassociate from a branch; populated only for manually-associated issues. */

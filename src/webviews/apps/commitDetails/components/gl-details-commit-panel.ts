@@ -1116,7 +1116,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 							name="${issue.title}"
 							url="${issue.url}"
 							identifier="#${issue.id}"
-							status="${issue.state}"
+							.status=${issue.state}
 							.date=${issue.closed ? issue.closedDate : issue.createdDate}
 							.dateFormat="${this.preferences?.dateFormat}"
 							.dateStyle="${this.preferences?.dateStyle}"

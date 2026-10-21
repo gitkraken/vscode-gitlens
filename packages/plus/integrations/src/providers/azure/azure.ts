@@ -1,3 +1,4 @@
+import type { AzureWorkItemTypeStates } from '@gitkraken/provider-apis';
 import * as l10n from '@vscode/l10n';
 import type { UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
@@ -15,6 +16,7 @@ import type { Disposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { mapBounded } from '@gitlens/utils/promise.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
@@ -53,8 +55,8 @@ import {
 	fromAzureWorkItem,
 	getAzurePullRequestWebUrl,
 	isClosedAzurePullRequestStatus,
-	isClosedAzureWorkItemStateCategory,
 	normalizeAzureBranchName,
+	parseAzureWorkItemDate,
 	sanitizeAzureRepositoryUrl,
 } from './models.js';
 import type { AzureWorkItemSearchCursor } from './search.js';
@@ -66,9 +68,14 @@ import {
 	toAzureWorkItemSearchCursorKey,
 	toAzureWorkItemSearchWiql,
 } from './search.js';
-import { AzureWorkItemStatesCache, getAzureWorkItemTypeStatesPath } from './workItemStateCategories.js';
+import {
+	AzureWorkItemStatesCache,
+	getAzureWorkItemTypeStatesPath,
+	getAzureWorkItemTypesUrl,
+} from './workItemStateCategories.js';
 
 const forkRepositoryUrlCacheTtl = 5 * 60 * 1000;
+const workItemMetadataConcurrency = 6;
 /** How long a work-item search's id snapshot outlives the last page read from it, and the most it lives at all. */
 const workItemSearchSnapshotTtl = 5 * 60 * 1000;
 const workItemSearchSnapshotMaxTtl = 30 * 60 * 1000;
@@ -372,6 +379,11 @@ export class AzureDevOpsApi implements Disposable {
 					options,
 				);
 
+				const normalizedState = azureWorkItemsStateCategoryToState(
+					stateCategory,
+					parseAzureWorkItemDate(issueResult.fields['Microsoft.VSTS.Common.ClosedDate']) ?? undefined,
+				);
+
 				return {
 					id: issueResult.id.toString(),
 					type: 'issue',
@@ -379,8 +391,8 @@ export class AzureDevOpsApi implements Disposable {
 					provider: provider,
 					createdDate: new Date(issueResult.fields['System.CreatedDate']),
 					updatedDate: new Date(issueResult.fields['System.ChangedDate']),
-					state: azureWorkItemsStateCategoryToState(stateCategory),
-					closed: isClosedAzureWorkItemStateCategory(stateCategory),
+					state: normalizedState,
+					closed: normalizedState === 'closed',
 					title: issueResult.fields['System.Title'],
 					url: issueResult._links.html.href,
 				};
@@ -823,7 +835,7 @@ export class AzureDevOpsApi implements Disposable {
 		options: {
 			baseUrl: string;
 			criteria?: IssueSearchCriteria;
-			projectNames?: readonly string[];
+			projectNames: readonly string[];
 			resolveProject: (name: string) => AzureProjectDescriptor | undefined;
 			cursor?: string;
 			pageSize?: number;
@@ -831,11 +843,7 @@ export class AzureDevOpsApi implements Disposable {
 		cancellation?: AbortSignal,
 	): Promise<ProviderIssueSearchPage> {
 		const scope = getScopedLogger();
-		const wiql = toAzureWorkItemSearchWiql(
-			options.criteria,
-			effectiveIssueSort(options.criteria?.sort),
-			options.projectNames,
-		);
+		const wiql = await this.getWorkItemSearchWiql(provider, token, collection, options);
 		const key = toAzureWorkItemSearchCursorKey(collection, wiql);
 		const pageSize = toAzureSearchPageSize(options.pageSize, 100, azureWorkItemBatchLimit);
 		const cursor = parseAzureWorkItemSearchCursor(options.cursor, key, pageSize);
@@ -960,15 +968,11 @@ export class AzureDevOpsApi implements Disposable {
 		provider: Provider,
 		token: TokenWithInfo,
 		collection: string,
-		options: { baseUrl: string; criteria?: IssueSearchCriteria; projectNames?: readonly string[] },
+		options: { baseUrl: string; criteria?: IssueSearchCriteria; projectNames: readonly string[] },
 		cancellation?: AbortSignal,
 	): Promise<number | 'exceeds-limit'> {
 		const scope = getScopedLogger();
-		const wiql = toAzureWorkItemSearchWiql(
-			options.criteria,
-			effectiveIssueSort(options.criteria?.sort),
-			options.projectNames,
-		);
+		const wiql = await this.getWorkItemSearchWiql(provider, token, collection, options);
 		try {
 			const ids = await this.queryWorkItemIds(
 				provider,
@@ -986,6 +990,66 @@ export class AzureDevOpsApi implements Disposable {
 
 			throw ex;
 		}
+	}
+
+	private async getWorkItemSearchWiql(
+		provider: Provider,
+		token: TokenWithInfo,
+		collection: string,
+		options: { baseUrl: string; criteria?: IssueSearchCriteria; projectNames: readonly string[] },
+	): Promise<string> {
+		let workflows: Map<string, AzureWorkItemTypeStates> | undefined;
+		if (options.criteria?.state !== 'all') {
+			const types = (
+				await mapBounded(options.projectNames, workItemMetadataConcurrency, async project => {
+					const scope = {
+						baseUrl: options.baseUrl,
+						namespace: collection,
+						project: project,
+						token: token.accessToken,
+						isPAT: true,
+					};
+					const names = await this._workItemStates.getTypes(scope, () =>
+						this.request(
+							provider,
+							token,
+							undefined,
+							getAzureWorkItemTypesUrl(options.baseUrl, collection, project),
+							{ method: 'GET' },
+							undefined,
+						),
+					);
+					return names.map(name => ({ project: project, name: name, scope: scope }));
+				})
+			).flat();
+			const states = await mapBounded(types, workItemMetadataConcurrency, async type => ({
+				name: type.name,
+				project: type.project,
+				states: await this._workItemStates.getStates(type.scope, type.name, () =>
+					this.request(
+						provider,
+						token,
+						options.baseUrl,
+						getAzureWorkItemTypeStatesPath(collection, type.project, type.name),
+						{ method: 'GET' },
+						undefined,
+					),
+				),
+			}));
+			workflows = new Map(
+				options.projectNames.map(project => [
+					project,
+					{ types: states.filter(type => type.project === project) },
+				]),
+			);
+		}
+
+		return toAzureWorkItemSearchWiql(
+			options.criteria,
+			effectiveIssueSort(options.criteria?.sort),
+			options.projectNames,
+			workflows,
+		);
 	}
 
 	/**

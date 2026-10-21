@@ -196,7 +196,7 @@ export const issueEtagIncludes: readonly IssueEtagInclude[] = ['reactions'];
 
 /** The issue twin of {@link PullRequestEtagFields}, in {@link IssueShape}'s normalized vocabulary. */
 export interface IssueEtagFields {
-	state: IssueOrPullRequestState;
+	state: IssueOrPullRequestState | undefined;
 	updatedDate: Date;
 	/** Counts only when `'reactions'` is requested, and only from a row whose read fetched reactions. */
 	thumbsUpCount?: number;

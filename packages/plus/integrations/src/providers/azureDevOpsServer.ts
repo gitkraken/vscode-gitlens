@@ -465,7 +465,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 			{
 				baseUrl: this.collectionApiBaseUrl(session, scope.collection),
 				criteria: options.criteria,
-				projectNames: scope.projectNames,
+				projectNames: scope.projectNames ?? scope.projects.map(p => p.name),
 				resolveProject: name => scope.projects.find(p => sameAzureName(p.name, name)),
 				cursor: options.cursor,
 				pageSize: options.pageSize,
@@ -503,7 +503,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 					{
 						baseUrl: this.collectionApiBaseUrl(session, scope.collection),
 						criteria: s.criteria,
-						projectNames: scope.projectNames,
+						projectNames: scope.projectNames ?? scope.projects.map(p => p.name),
 					},
 					cancellation,
 				);

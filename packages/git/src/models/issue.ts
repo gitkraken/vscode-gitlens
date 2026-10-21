@@ -214,7 +214,7 @@ export class Issue implements IssueShape {
 		public readonly createdDate: Date,
 		public readonly updatedDate: Date,
 		public readonly closed: boolean,
-		public readonly state: IssueOrPullRequestState,
+		public readonly state: IssueOrPullRequestState | undefined,
 		public readonly author: IssueMember | undefined,
 		public readonly assignees: IssueMember[],
 		public readonly repository?: IssueRepository,

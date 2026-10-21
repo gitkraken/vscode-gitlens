@@ -619,7 +619,6 @@ export class GlDetailsWipHeader extends LitElement {
 	private renderIssueChip(i: OverviewBranchIssue, associated: boolean) {
 		const hasNumericId = !isNaN(parseInt(i.id, 10));
 		const identifier = hasNumericId ? `#${i.id}` : i.id;
-		const status = i.state === 'closed' ? 'closed' : 'opened';
 		const type: 'issue' | 'autolink' = associated ? 'issue' : 'autolink';
 
 		const chip = html`<gl-autolink-chip
@@ -627,7 +626,7 @@ export class GlDetailsWipHeader extends LitElement {
 			name=${i.title}
 			url=${i.url}
 			identifier=${identifier}
-			status=${status}
+			.status=${i.state}
 			openOnRemote
 		></gl-autolink-chip>`;
 

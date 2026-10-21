@@ -230,7 +230,7 @@ export class IssuePullRequest extends GlElement {
 	dateStyle?: string;
 
 	@property()
-	status: 'opened' | 'closed' | 'merged' = 'merged';
+	status: 'opened' | 'closed' | 'merged' | undefined = 'merged';
 
 	@property()
 	type: 'autolink' | 'issue' | 'pr' = 'autolink';

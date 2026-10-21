@@ -1421,17 +1421,18 @@ function toIssueProviderState(state: ProviderIssue['state']): IssueProviderState
 			};
 }
 
-function isProviderIssueClosed(issue: ProviderIssue, providerId: ProviderReference['id']): boolean {
+function getProviderIssueState(issue: ProviderIssue, providerId: ProviderReference['id']): IssueShape['state'] {
 	const category = issue.state?.category;
 	if (
-		(providerId === GitCloudHostIntegrationId.AzureDevOps ||
-			providerId === GitSelfManagedHostIntegrationId.AzureDevOpsServer) &&
-		category != null
+		providerId === GitCloudHostIntegrationId.AzureDevOps ||
+		providerId === GitSelfManagedHostIntegrationId.AzureDevOpsServer
 	) {
-		return isTerminalIssueStateCategory(category);
+		if (category != null) return isTerminalIssueStateCategory(category) ? 'closed' : 'opened';
+
+		return issue.closedDate != null ? 'closed' : undefined;
 	}
 
-	return issue.closedDate != null || isTerminalIssueStateCategory(category);
+	return issue.closedDate != null || isTerminalIssueStateCategory(category) ? 'closed' : 'opened';
 }
 
 export function toIssueShape(
@@ -1445,7 +1446,7 @@ export function toIssueShape(
 	// Fall back to an empty author instead so these issues still surface.
 	if (issue.updatedDate == null || issue.url == null) return undefined;
 
-	const closed = isProviderIssueClosed(issue, provider.id);
+	const state = getProviderIssueState(issue, provider.id);
 
 	return {
 		type: 'issue',
@@ -1465,8 +1466,8 @@ export function toIssueShape(
 		createdDate: issue.createdDate,
 		updatedDate: issue.updatedDate,
 		closedDate: issue.closedDate ?? undefined,
-		closed: closed,
-		state: closed ? 'closed' : 'opened',
+		closed: state === 'closed',
+		state: state,
 		providerState: toIssueProviderState(issue.state),
 		author: {
 			id: issue.author?.id ?? '',
@@ -2003,7 +2004,7 @@ export function fromProviderIssue(
 	options?: { project?: IssueProject; projection?: IssueProjection },
 ): Issue {
 	const identifier = toIssueIdentifier(issue.number);
-	const closed = isProviderIssueClosed(issue, integration.id);
+	const state = getProviderIssueState(issue, integration.id);
 	return new Issue(
 		integration,
 		identifier,
@@ -2012,8 +2013,8 @@ export function fromProviderIssue(
 		issue.url ?? '',
 		issue.createdDate,
 		issue.updatedDate ?? issue.closedDate ?? issue.createdDate,
-		closed,
-		closed ? 'closed' : 'opened',
+		state === 'closed',
+		state,
 		fromProviderAccount(issue.author),
 		issue.assignees?.map(fromProviderAccount) ?? undefined,
 		issue.repository != null
