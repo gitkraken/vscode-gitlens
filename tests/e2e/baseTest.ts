@@ -457,7 +457,9 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 			}
 
 			const launchEnv = {
-				...process.env,
+				// The sign-in credentials (`GK_E2E_*`) stay in this process: the sign-in fixture reads them here, and
+				// nothing the editor spawns — GitLens, git, the GK CLI, the MCP server — needs them
+				...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GK_E2E_'))),
 				// Allows Claude Code and other CLI agents run the tests from within VS Code
 				ELECTRON_RUN_AS_NODE: undefined!,
 				// Set DISPLAY for headless Linux (Xvfb)
