@@ -266,10 +266,15 @@ test.describe('MCP — GitLens write path (signed in, integration-backed)', { ta
 		const prHead = git(clonePath!, 'ls-remote', 'origin', `refs/pull/${prNumber}/head`).split(/\s+/)[0];
 		expect(prHead, 'the host publishes the PR head').toMatch(/^[0-9a-f]{40}$/);
 		expect(git(started.worktreePath!, 'rev-parse', 'HEAD'), 'the worktree is at the PR head').toBe(prHead);
-		expect(
+		// The PR branch is the origin branch whose tip is the PR head (the PR is from the repository itself, not a fork)
+		const prBranches = git(clonePath!, 'ls-remote', '--heads', 'origin')
+			.split('\n')
+			.filter(l => l.startsWith(prHead))
+			.map(l => `origin/${l.split(/\s+/)[1].slice('refs/heads/'.length)}`);
+		expect(prBranches, 'the PR branch lives in the test repository').not.toHaveLength(0);
+		expect(prBranches, 'the review branch tracks the PR branch on origin').toContain(
 			git(started.worktreePath!, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'),
-			'the review branch tracks the PR branch on origin',
-		).toMatch(/^origin\//);
+		);
 
 		await expect(vscode.page.locator('.quick-input-widget')).toBeHidden({ timeout: MaxTimeout });
 	});
