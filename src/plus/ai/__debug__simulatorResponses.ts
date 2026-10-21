@@ -28,6 +28,7 @@ const reviewOrientDefault = JSON.stringify({
 		{
 			label: 'Simulated core',
 			kind: 'core',
+			summary: 'Simulated summary — what this group changes and why its files belong together.',
 			files: [{ path: 'src/example.ts', note: 'Simulated note — read this first.' }],
 		},
 	],

@@ -4126,12 +4126,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
 				this._workflow.review.runOrient(this.effectiveRepoPath, e.detail?.prompt, excludedFiles);
 			}}
-			@review-orient-apply=${() => {
-				const first = this._workflow.review.applyOrientOrder();
-				if (first != null) {
-					this.openReviewFile(first);
-				}
-			}}
 			@review-orient-clear=${() => this._workflow.review.clearOrient()}
 			@review-deep-review=${(e: CustomEvent<{ prompt?: string; scopeLabel: string; files: string[] }>) =>
 				void this._workflow.review.startDeepReview(

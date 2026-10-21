@@ -68,6 +68,31 @@ reliable for click-focus, which doesn't surface as a focusin on this host. */
 				--gl-tree-focus-within: 1;
 			}
 
+			/* Document flow: the tree is as tall as its rows and the nearest scrolling ancestor scrolls it
+   (the virtualizer then virtualizes against that ancestor instead of being the scroller) */
+			:host([flow]) {
+				height: auto;
+				overflow: visible;
+			}
+
+			:host([flow]) .scrollable {
+				flex: none;
+				overflow: visible;
+			}
+
+			/* lit-virtualizer sets an inline min-height from its item-size estimate. As the scroller, that
+   can exceed the scrollable container in small viewports and push scrolling onto the outer
+   .scrollable div instead of the virtualizer's own scroller — and height: 100% already sizes it
+   from the flex layout, so the min-height is redundant there. In document flow it is the other
+   way round: the inline min-height is what gives the tree its height, so it must stand. */
+			:host(:not([flow])) lit-virtualizer {
+				min-height: 0 !important;
+			}
+
+			:host([flow]) lit-virtualizer {
+				height: auto;
+			}
+
 			.scrollable {
 				flex: 1;
 				width: 100%;
@@ -84,13 +109,6 @@ reliable for click-focus, which doesn't surface as a focusin on this host. */
 				display: block;
 				width: 100%;
 				height: 100%;
-
-				/* lit-virtualizer sets an inline min-height based on its initial item-size
- estimate, which can exceed the scrollable container in small viewports and
- push scrolling onto the outer .scrollable div instead of the virtualizer's
- own scroller. Since height: 100% already provides correct sizing from the
- flex layout, the min-height is always redundant. */
-				min-height: 0 !important;
 
 				/* Use layout containment instead of strict to avoid rendering issues */
 
@@ -440,6 +458,12 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 	@property({ type: String, attribute: 'focused-path' })
 	focusedPath?: string;
 
+	/** The focused path is the only row to show selected: a hint naming a path this tree doesn't hold
+	 *  clears the selection, so several trees fed the same hint (a reading plan's groups) highlight one
+	 *  row between them rather than each keeping its last. */
+	@property({ type: Boolean, attribute: 'focused-path-only' })
+	focusedPathOnly = false;
+
 	// Single-select highlight is owned by `_selection` (via its anchor). The setter only mutates in
 	// single mode, so multi-mode focus moves never collapse the set (multi reads `_selection.has`,
 	// not this accessor) — keeping multi-mode behavior identical to before this delegation.
@@ -493,6 +517,9 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 		focusStrategy: 'activedescendant',
 		getVirtualizer: () => this.virtualizerRef.value,
 		getContainer: () => this.scrollableRef.value,
+		isScroller: () => !this.flow,
+		getScrollParent: () => findScrollParent(this),
+		getRowHeight: () => this.virtualizerRef.value?.querySelector<HTMLElement>('gl-tree-item')?.offsetHeight || 22,
 		onSelectionChange: () => {
 			this.requestUpdate();
 			// The selection-changed event is multi-select-specific; single mode keeps its prior
@@ -562,6 +589,11 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 	/** Opt-in: makes file (non-branch) rows draggable, forwarded to each `gl-tree-item`. */
 	@property({ type: Boolean, attribute: 'draggable-files' })
 	draggableFiles = false;
+
+	/** Document flow: the tree takes the height of its rows and leaves scrolling to the nearest scrolling
+	 *  ancestor — for several trees stacked as one document. Off, the tree fills its box and scrolls itself. */
+	@property({ type: Boolean, reflect: true })
+	flow = false;
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
@@ -710,6 +742,17 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 				}
 				// Scroll the focused item into view after the render completes
 				this._pendingScrollToIndex = index;
+			} else if (this.focusedPathOnly) {
+				// The row being shown lives in another tree — this one shows none
+				this._focusedItemPath = undefined;
+				this._focusedItemIndex = -1;
+				if (this.multiSelectable) {
+					if (this._selection.selectedIds.size > 0) {
+						this._selection.clear();
+					}
+				} else {
+					this._lastSelectedPath = undefined;
+				}
 			}
 		}
 		// When the model changes without a focused-path hint, trust the setter's path-based
@@ -1156,7 +1199,7 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 								.keyFunction=${(item: TreeModelFlat) => nodeId(item)}
 								.layout=${flow({ direction: 'vertical' })}
 								.renderItem=${(node: TreeModelFlat) => this.renderTreeItem(node)}
-								scroller
+								?scroller=${!this.flow}
 							></lit-virtualizer>
 						</div>`
 					: showNoResults
@@ -2092,6 +2135,23 @@ tree-item publishes per row state as --gl-tree-row-bg. */
  */
 function nodeId(node: { path: string; key?: string }): string {
 	return node.key ?? node.path;
+}
+
+/** The nearest ancestor that scrolls vertically, through slots and shadow roots — what a tree in document
+ *  flow scrolls with. */
+function findScrollParent(el: Element): HTMLElement | undefined {
+	let current: Element | null = el;
+	while (current != null) {
+		const next: Element | null =
+			current.assignedSlot ?? current.parentElement ?? (current.parentNode as ShadowRoot | null)?.host ?? null;
+		if (next == null) return undefined;
+
+		const overflow = getComputedStyle(next).overflowY;
+		if (overflow === 'auto' || overflow === 'scroll') return next as HTMLElement;
+
+		current = next;
+	}
+	return undefined;
 }
 
 /**

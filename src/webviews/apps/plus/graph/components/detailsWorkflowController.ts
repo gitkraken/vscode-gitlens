@@ -44,7 +44,6 @@ import type { ScopeItem } from './gl-commits-scope-pane.js';
 import type { ReviewFileIdentity, ReviewFindingState, ReviewSession } from './reviewSession.js';
 import {
 	emptyReviewSession,
-	getReviewFileProgress,
 	withFileExcluded,
 	withFilesViewed,
 	withFindingState,
@@ -1159,7 +1158,15 @@ export class DetailsWorkflowController implements ReactiveController {
 						return;
 					}
 
-					this.registerRunningOperation({ ...entry, orientRun: undefined, orient: result.result });
+					// The plan is the reading order: it applies as it lands, so the steps follow the groups
+					// top to bottom from here on (and the host has the order before the panes render)
+					const order = result.result.groups.flatMap(g => g.files.map(f => f.path));
+					this.registerRunningOperation({
+						...entry,
+						orientRun: undefined,
+						orient: result.result,
+						session: withReadingOrder(entry.session ?? emptyReviewSession, order),
+					});
 					this.actions.sendTelemetryEvent('graphDetails/review/generateOrient/completed', {
 						...aiContext,
 						duration: duration,
@@ -1268,23 +1275,6 @@ export class DetailsWorkflowController implements ReactiveController {
 				orientRun: undefined,
 				orientError: undefined,
 				session: entry.session != null ? withReadingOrder(entry.session, undefined) : undefined,
-			});
-		},
-		/** Applies the plan's order to the session and names the first file of it still to read, so the
-		 *  panel can open it — "Read in This Order" starts reading there. */
-		applyOrientOrder: (): string | undefined => {
-			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
-			if (entry?.orient == null) return undefined;
-
-			const order = entry.orient.groups.flatMap(g => g.files.map(f => f.path));
-			const session = withReadingOrder(entry.session ?? emptyReviewSession, order);
-			this.updateReviewSession(() => session);
-
-			const files = this.actions.resources.scopeFiles.value.get();
-			const byPath = new Map(files?.map(f => [f.path, f]));
-			return order.find(path => {
-				const file = byPath.get(path);
-				return file != null && getReviewFileProgress(session, file) !== 'viewed';
 			});
 		},
 		/** Folds editor-made thread actions into the session — only the ones past the last applied sequence. */

@@ -767,10 +767,11 @@ export const reviewOrientSchema: AIResponseFormat = {
 				items: {
 					type: 'object',
 					additionalProperties: false,
-					required: ['label', 'kind', 'files'],
+					required: ['label', 'kind', 'summary', 'files'],
 					properties: {
 						label: { type: 'string' },
 						kind: { type: 'string', enum: ['core', 'supporting', 'mechanical'] },
+						summary: { type: 'string' },
 						files: {
 							type: 'array',
 							items: {
@@ -814,8 +815,9 @@ Produce a reading plan as a single JSON object with this exact structure:
   "overview": "One or two sentences: what this change is, in the reader's terms.",
   "groups": [
     {
-      "label": "Short name for this group of files (under 40 chars)",
+      "label": "Short name for what this group of files is (under 40 chars)",
       "kind": "core|supporting|mechanical",
+      "summary": "One or two sentences: what this group changes and why these files belong together",
       "files": [
         { "path": "path/to/file.ts", "note": "One line: why this file is in the change and what to look for" }
       ]
@@ -829,6 +831,7 @@ Guidelines:
 - "mechanical" holds files a reader only skims: lockfiles, generated output, pure renames, formatting
 - Every file in the manifest appears exactly once, in exactly one group
 - Order groups and the files inside them in the order they should be read
+- The reader sees the label and the summary, not the kind: name the group for what it is ("Refusal state and persistence", "Tests and changelog"), never for how to read it ("Read first", "Skim"), and let the summary make its weight clear
 - Notes are one line each, concrete, and say what to look for — never restate the path or the status
 
 \${instructions}

@@ -535,7 +535,7 @@ suite('parseReviewOrientJson', () => {
 	test('keeps groups and files in order, drops a repeated file, and defaults an unknown kind', () => {
 		const result = parseReviewOrientJson(`\`\`\`json
 {"overview":" The retry engine. ","groups":[
- {"label":"Core","kind":"core","files":[{"path":"src/retry.ts","note":"new backoff engine"},{"path":"src/service.ts","note":"adopts it"}]},
+ {"label":"Core","kind":"core","summary":" The engine itself. ","files":[{"path":"src/retry.ts","note":"new backoff engine"},{"path":"src/service.ts","note":"adopts it"}]},
  {"label":"","kind":"odd","files":[{"path":"src/service.ts","note":"again"},{"path":"test/retry.test.ts","note":"timing only"}]},
  {"label":"Empty","kind":"mechanical","files":[]}
 ]}
@@ -547,6 +547,7 @@ suite('parseReviewOrientJson', () => {
 				id: g.id,
 				label: g.label,
 				kind: g.kind,
+				summary: g.summary,
 				fallback: g.labelIsFallback ?? false,
 				files: g.files.map(f => f.path),
 			})),
@@ -555,6 +556,7 @@ suite('parseReviewOrientJson', () => {
 					id: 'group-1',
 					label: 'Core',
 					kind: 'core',
+					summary: 'The engine itself.',
 					fallback: false,
 					files: ['src/retry.ts', 'src/service.ts'],
 				},
@@ -562,6 +564,7 @@ suite('parseReviewOrientJson', () => {
 					id: 'group-2',
 					label: 'Untitled group',
 					kind: 'supporting',
+					summary: '',
 					fallback: true,
 					files: ['test/retry.test.ts'],
 				},

@@ -49,8 +49,11 @@ export interface AIReviewOrientGroup {
 	readonly id: string;
 	readonly label: string;
 	readonly labelIsFallback?: boolean;
-	/** `core` = read first, `supporting` = follows from the core, `mechanical` = skim (lockfiles, generated, renames) */
+	/** `core` = read first, `supporting` = follows from the core, `mechanical` = skim (lockfiles, generated, renames) —
+	 *  orders the groups; the reader sees the label and summary, not the kind */
 	readonly kind: AIReviewOrientGroupKind;
+	/** A sentence or two on what this group changes and why its files belong together */
+	readonly summary: string;
 	readonly files: readonly AIReviewOrientFile[];
 }
 

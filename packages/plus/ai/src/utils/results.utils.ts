@@ -379,6 +379,7 @@ export function parseReviewOrientJson(result: string): AIReviewOrientResult {
 			label: label || 'Untitled group',
 			...(!label ? { labelIsFallback: true } : {}),
 			kind: parseOrientGroupKind(trimmedString(group.kind)),
+			summary: trimmedString((group as { summary?: unknown }).summary) ?? '',
 			files: files,
 		});
 	}

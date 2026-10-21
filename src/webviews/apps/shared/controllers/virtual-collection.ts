@@ -21,6 +21,11 @@ export interface VirtualCollectionOptions<T> {
 	focusStrategy?: FocusStrategy;
 	getVirtualizer: () => Virtualizer | undefined;
 	getContainer?: () => HTMLElement | undefined;
+	/** See {@link VirtualScrollOptions.isScroller}. */
+	isScroller?: () => boolean;
+	/** See {@link VirtualScrollOptions.getScrollParent} / {@link VirtualScrollOptions.getRowHeight}. */
+	getScrollParent?: () => HTMLElement | undefined;
+	getRowHeight?: () => number;
 	pageSize?: () => number;
 	selectionFollowsFocus?: () => boolean;
 	onSelectionChange?: () => void;
@@ -59,6 +64,9 @@ export class VirtualCollectionController<T> implements ReactiveController {
 			getVirtualizer: options.getVirtualizer,
 			getContainer: options.getContainer,
 			getCount: () => this.index.size,
+			isScroller: options.isScroller,
+			getScrollParent: options.getScrollParent,
+			getRowHeight: options.getRowHeight,
 		});
 
 		this.selection = new SelectionController(host, {

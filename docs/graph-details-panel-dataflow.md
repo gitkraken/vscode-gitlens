@@ -246,9 +246,9 @@ strip and for the checklist, which selects and scrolls to its row (`gl-file-tree
 
 The **orient** depth (`graphInspect.orientChanges`, the `review-orient` template over the same file
 manifest the two-pass overview reads) lands on the entry as `entry.orient`, tracked while running by
-`entry.orientRun` like a focus-area run; the panel regroups the checklist by its groups and
-`review.applyOrientOrder` writes the plan's order into `session.order`, which `getReviewReadingOrder`
-puts ahead of tree order, and names the first unread file of it for the panel to open. Like the session, the plan is carried across AI runs.
+`entry.orientRun` like a focus-area run; as it lands, its order is written into `session.order`, which
+`getReviewReadingOrder` puts ahead of tree order, and the panel regroups the checklist by its groups —
+the plan _is_ the reading order, with one button to dismiss it. Like the session, the plan is carried across AI runs.
 
 The **deep** depth (`graphInspect.startDeepReview`) opens a report channel on the IPC server
 (`review/findings`, `deepReview.ts` parses the agent's POSTs) and dispatches the `deep-review` prompt
