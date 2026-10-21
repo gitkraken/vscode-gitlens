@@ -8,6 +8,7 @@ import {
 	getReviewProgress,
 	getReviewThreadItems,
 	getReviewWalkPaths,
+	getReviewWalkShortcut,
 	isReviewComplete,
 	withFileExcluded,
 	withFilesViewed,
@@ -180,5 +181,14 @@ suite('reviewSession — walk order', () => {
 			'an equal order is a no-op',
 		);
 		assert.strictEqual(withReadingOrder(emptyReviewSession, undefined), emptyReviewSession);
+	});
+
+	test("getReviewWalkShortcut names the keymap's chord for each step, and nothing when shortcuts are off", () => {
+		assert.strictEqual(getReviewWalkShortcut('alternate', 'next', true), '⌥]');
+		assert.strictEqual(getReviewWalkShortcut('alternate', 'previous', false), 'Alt+[');
+		assert.strictEqual(getReviewWalkShortcut('chorded', 'markViewed', true), '⌘⌥G V');
+		assert.strictEqual(getReviewWalkShortcut('chorded', 'next', false), 'Ctrl+Shift+G ]');
+		assert.strictEqual(getReviewWalkShortcut('none', 'next', true), undefined);
+		assert.strictEqual(getReviewWalkShortcut(undefined, 'next', true), undefined);
 	});
 });

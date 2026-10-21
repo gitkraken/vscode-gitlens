@@ -632,7 +632,9 @@ export class GlFileTreePane extends LitElement {
 			}
 		}
 
-		const totalFiles = seen.size;
+		// For a viewed checklist a disabled row is a file set aside from the walk, so it leaves the
+		// total as well — the badge and the header checkbox then agree with the walk's own count.
+		const totalFiles = this.checkAction === 'viewed' ? enabledPaths.length : seen.size;
 		const allChecked = totalFiles > 0 && checkedCount === totalFiles && mixedCount === 0;
 		const noneChecked = checkedCount === 0 && mixedCount === 0;
 		const indeterminate = !allChecked && !noneChecked;

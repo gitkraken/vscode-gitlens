@@ -557,9 +557,22 @@ export class DetailsActions {
 		this.state.hasAccount.set(getSettledValue(hasAccountRes) ?? false);
 		this.state.orgSettings.set(getSettledValue(orgSettingsRes) ?? { ai: false, drafts: false });
 		this.state.aiModel.set(getSettledValue(aiModelRes));
+		// Waits on agent detection, so it settles on its own rather than holding the capabilities up
+		void this.fetchDeepReviewAvailability();
 
 		// Subscribe to AI model + config changes so the chips and preferences stay in sync.
 		void this.subscribeEvents();
+	}
+
+	private async fetchDeepReviewAvailability(): Promise<void> {
+		try {
+			const availability = await this.services.graphInspect.getDeepReviewAvailability();
+			if (this._disposed) return;
+
+			this.state.deepReviewAvailability.set(availability);
+		} catch {
+			// Unknown stays unknown — the depth remains offered and a click reports the reason
+		}
 	}
 
 	/** Publishes the fast, config/storage-derived {@link Preferences}. Run up front by
@@ -580,6 +593,7 @@ export class DetailsActions {
 				'views.commitDetails.files',
 				'signing.showSignatureBadges',
 				'sortWorkingChangesBy',
+				'keymap',
 			),
 			s.config.getManyCore(
 				'workbench.tree.renderIndentGuides',
@@ -594,8 +608,16 @@ export class DetailsActions {
 		if (this._preferencesGeneration !== generation) return;
 
 		const pullRequestExpanded = getSettledValue(pullRequestExpandedRes);
-		const [avatars, currentUserNameStyle, dateFormat, dateStyle, files, showSignatureBadges, workingChangesSortBy] =
-			getSettledValue(filesPrefsRes) ?? [];
+		const [
+			avatars,
+			currentUserNameStyle,
+			dateFormat,
+			dateStyle,
+			files,
+			showSignatureBadges,
+			workingChangesSortBy,
+			keymap,
+		] = getSettledValue(filesPrefsRes) ?? [];
 		const [indentGuides, indent, enableSmartCommit, workingFilesOrderBy] = getSettledValue(treePrefsRes) ?? [];
 		const aiEnabled = getSettledValue(aiEnabledRes);
 
@@ -611,6 +633,7 @@ export class DetailsActions {
 			workingFilesOrderBy: workingFilesOrderBy ?? 'path',
 			workingChangesSortBy: workingChangesSortBy ?? 'stage',
 			aiEnabled: aiEnabled ?? false,
+			keymap: keymap ?? 'chorded',
 			enableSmartCommit: enableSmartCommit ?? false,
 			showSignatureBadges: showSignatureBadges ?? true,
 			// Graph reads its own per-view `details.showSearchBox` / `details.searchBoxFilter`

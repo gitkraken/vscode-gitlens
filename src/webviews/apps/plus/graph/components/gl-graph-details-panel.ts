@@ -2784,17 +2784,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return undefined;
 	}
 
-	/** True when the active mode has reached its "results" sub-state — review showing
-	 *  findings or compose showing a plan. In that state the main header's close button is
-	 *  rendered as a back arrow so the user can pop back to the scope picker (the old
-	 *  sub-headers in the mode panels are gone; the main header carries this affordance). */
+	/** True when compose has reached its "results" sub-state — a plan showing. In that state the
+	 *  main header gains a Restart chip to pop back to the scope picker (the old sub-headers in
+	 *  the mode panels are gone; the main header carries this affordance). Review has no such
+	 *  state: its checklist stays up beside the findings, and Discard Findings is the way back,
+	 *  so a Restart there would only hide the findings while their threads stay in the diffs. */
 	private get inModeResultsView(): boolean {
-		const mode = this._state.activeMode.get();
-		if (mode !== 'compose' && mode !== 'review') return false;
+		if (this._state.activeMode.get() !== 'compose') return false;
 		// Only `'complete'` renders the results body. `'backed'` reverts to the scope picker
 		// with a Resume bar on top — same chrome as idle (Refresh + Close), not results
 		// chrome (Restart + Close), so Restart correctly disappears after the user clicks it.
-		return this.engagedModeStatus?.[mode]?.execState === 'complete';
+		return this.engagedModeStatus?.compose?.execState === 'complete';
 	}
 
 	private handleModeBack = (e: CustomEvent<{ mode: 'compose' | 'review' }>): void => {
@@ -3997,6 +3997,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			?orient-running=${reviewEntry?.orientRun != null}
 			.orientError=${reviewEntry?.orientError}
 			.deepReview=${reviewEntry?.deepReview}
+			.deepReviewAvailability=${this._state.deepReviewAvailability.get()}
+			.keymap=${this._state.preferences.get()?.keymap}
 			?ai-enabled=${this._state.preferences.get()?.aiEnabled ?? false}
 			.scopeItems=${scopeItems}
 			.scopeLoading=${this._state.branchCommitsFetching.get()}

@@ -1376,11 +1376,17 @@ export class DetailsWorkflowController implements ReactiveController {
 				}
 			}
 
+			// A mark that could not advance (the last stop, files skipped earlier) would leave the reader
+			// stranded — the walk carries on from the first file still unviewed instead.
+			const stalled = fresh.length > 0 && entry?.walk?.current === state.current;
 			this.registerRunningOperation({
 				...(entry ?? { kind: 'review', anchor: anchor, execState: 'backed' }),
 				session: session,
 				walk: { current: state.current, marksApplied: state.marked.length },
 			});
+			if (stalled) {
+				this.review.startWalk(anchor.repoPath);
+			}
 		},
 		// A focus-area detail run is tracked on the review entry so every teardown path that aborts
 		// the entry aborts it too. Re-running an area supersedes its earlier run.
@@ -1440,6 +1446,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.registerRunningOperation({
 				...entry,
 				focusAreaRuns: undefined,
+				deepReview: entry.deepReview?.active ? entry.deepReview : undefined,
 				session:
 					entry.session != null
 						? { ...entry.session, findingStates: emptyReviewSession.findingStates }
@@ -1472,6 +1479,13 @@ export class DetailsWorkflowController implements ReactiveController {
 			...(entry ?? { kind: 'review', anchor: anchor, execState: 'backed' }),
 			session: next,
 		});
+		// Finishing the checklist by hand ends a running walk, the way the last editor mark does
+		if (
+			entry?.walk != null &&
+			isReviewComplete(getReviewProgress(next, this.actions.resources.scopeFiles.value.get()))
+		) {
+			this.actions.stopReviewWalk();
+		}
 	}
 
 	runReview(

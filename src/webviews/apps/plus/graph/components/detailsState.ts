@@ -37,6 +37,7 @@ import type {
 	BranchComparisonContributorsScope,
 	BranchComparisonFile,
 	ComposeResult,
+	DeepReviewAvailability,
 	ResolveResult,
 	ReviewResult,
 	ScopeSelection,
@@ -342,6 +343,8 @@ function createDurableState() {
 	const hasIntegrationsConnected = capability(false);
 	const hasRemotes = repoScoped(false);
 	const aiModel = capability<AiModelInfo | undefined>(undefined);
+	/** Whether a deep review can start here — `undefined` until the host's agent detection answers. */
+	const deepReviewAvailability = capability<DeepReviewAvailability | undefined>(undefined);
 
 	return {
 		commit: commit,
@@ -410,6 +413,7 @@ function createDurableState() {
 		hasAccount: hasAccount,
 		hasIntegrationsConnected: hasIntegrationsConnected,
 		hasRemotes: hasRemotes,
+		deepReviewAvailability: deepReviewAvailability,
 		aiModel: aiModel,
 
 		resetRepoScoped: resetRepoScoped,

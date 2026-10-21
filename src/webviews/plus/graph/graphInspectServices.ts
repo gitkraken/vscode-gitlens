@@ -123,6 +123,7 @@ import type {
 	ConflictFallbackInfo,
 	ConflictSide,
 	DeepReviewArgs,
+	DeepReviewAvailability,
 	DeepReviewStartResult,
 	DeepReviewState,
 	GraphServices,
@@ -564,6 +565,7 @@ export class GraphInspectServices {
 					this.stopDeepReview();
 					return Promise.resolve();
 				},
+				getDeepReviewAvailability: () => this.getDeepReviewAvailability(),
 				onDeepReview: this._deepReviewEvent.subscribe(buffer, tracker, () => this._deepReview?.state),
 				setReviewWalk: args => this.setReviewWalk(args),
 				reviewWalk: action => this.reviewWalk(action),
@@ -1441,6 +1443,21 @@ export class GraphInspectServices {
 	/** Opens a report channel on the IPC server and hands the scope to an agent whose prompt carries the
 	 *  channel's address and token — findings come back through {@link _deepReviewEvent} as they are
 	 *  POSTed. One channel per instance; starting again replaces it. */
+	/** The channel is known up front; the agents take a detection pass, so the result is a snapshot. A failed CLI
+	 *  detection leaves the CLI agents unknown rather than absent, so it doesn't count as "no agents". */
+	private async getDeepReviewAvailability(): Promise<DeepReviewAvailability> {
+		if (this.container.ipc.address == null || this.container.ipc.token == null) {
+			return { available: false, reason: 'no-channel' };
+		}
+
+		const load = loadSupportedAgentsInStages(this.container);
+		if ((await load.nonCli).length > 0) return { available: true };
+
+		const { agents, cliDetectionFailed } = await load.all;
+		if (agents.length === 0 && !cliDetectionFailed) return { available: false, reason: 'no-agents' };
+		return { available: true };
+	}
+
 	@debug()
 	private async startDeepReview(args: DeepReviewArgs): Promise<DeepReviewStartResult> {
 		try {
@@ -1453,10 +1470,10 @@ export class GraphInspectServices {
 				return { ok: false, reason: 'no-channel' };
 			}
 
-			const load = loadSupportedAgentsInStages(this.container);
-			if ((await load.nonCli).length === 0 && (await load.all).agents.length === 0) {
+			const availability = await this.getDeepReviewAvailability();
+			if (!availability.available) {
 				void window.showWarningMessage(l10n.t('No supported AI agent is available in this editor.'));
-				return { ok: false, reason: 'no-agents' };
+				return { ok: false, reason: availability.reason };
 			}
 
 			this.stopDeepReview();
@@ -1526,8 +1543,9 @@ export class GraphInspectServices {
 		for (const path of args.paths) {
 			const uri = svc.getAbsoluteUri(path, args.repoPath);
 			files.push(uri);
-			// A committed rhs opens as a revision document, which is what the title buttons must match on
-			if (!isUncommitted(args.rhs)) {
+			// Anything but the working tree opens as a revision document (a staged side included), which is
+			// what the title buttons must match on
+			if (!isUncommitted(args.rhs) || isUncommittedStaged(args.rhs)) {
 				files.push(this.container.git.getRevisionUriFromGitUri(GitUri.fromFile(path, args.repoPath, args.rhs)));
 			}
 		}

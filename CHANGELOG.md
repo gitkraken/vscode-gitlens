@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds review sessions to the _Commit Graph_'s _Review Changes_ mode &mdash; the changeset is the thing being reviewed and AI is one lens on it
+  - The file checkbox now marks a file as _Viewed_ (it used to include the file in the AI review); progress shows in the panel header as _N/M viewed_, and a file that changes after you viewed it is re-queued on its own instead of the whole review being flagged as stale
+  - Files can be excluded from a review from their row action, which keeps them out of the AI review too; files hidden from AI by ignore rules stay in the list, marked, so you can still read them
+  - _Start Reading_ walks the review file by file: each file's diff opens in turn, and _Mark Viewed & Next_, _Next_ and _Previous_ are available from the panel, the diff editor's title bar and keyboard shortcuts (<kbd>Alt+V</kbd>, <kbd>Alt+]</kbd>, <kbd>Alt+[</kbd> with the alternate keymap; <kbd>Ctrl+Shift+G</kbd> (<kbd>Cmd+Alt+G</kbd> on macOS) then <kbd>V</kbd>, <kbd>]</kbd>, <kbd>[</kbd> with the chorded keymap)
+  - _Orient_ (beside _Start Review_) asks the AI for a reading plan instead of findings: the file list regroups by concern &mdash; core first, then supporting, then files to skim &mdash; with one line of context per file, and _Read in This Order_ starts the walk in that order
+  - _Deep Review_ hands the changes to your agent with a channel back into the review: the agent can build, test and trace call paths, and the findings it reports stream into the panel and the diff as they arrive, marked _AGENT_
+  - Findings also appear in the diff editor as comment threads at their lines, with _Resolve_, _Dismiss_, _Reopen_ and _Send Finding to Agent_ on the thread, and the thread follows the finding's state in the panel
+  - Findings can be _Resolved_, _Dismissed_ and _Reopened_, and a review ends: once every file is viewed, a _Review complete_ summary offers _Copy Summary_ and _Send Remaining to Agent_
+  - The file list stays in place while an AI review runs and alongside its findings, and _Discard Findings_ drops only the AI's findings &mdash; your viewed progress and the review stay
+  - Review mode no longer requires AI features to be enabled &mdash; only _Start Review_ does
+
 ### Changed
 
 - Changes views and the _Commit Graph_ to keep updating during long-running activity, such as a long rebase or a build writing into the working tree, where they used to wait until it stopped
@@ -19,21 +32,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes Azure DevOps repositories cloned with a legacy `https://{org}.visualstudio.com/DefaultCollection/…` remote never showing pull requests, work items or commit authors, and filling the log with `Invalid Azure repository descriptor` errors ([#5999](https://github.com/gitkraken/vscode-gitlens/issues/5999)) &mdash; also fixes remotes that name no project (`…/DefaultCollection/_git/{repo}`, `{org}.visualstudio.com/_git/{repo}` and `dev.azure.com/{org}/_git/{repo}`), whose project is named after the repository
 - Fixes Azure DevOps repositories named after their project and cloned without the project segment (`…/{collection}/_git/{repo}`, as TFS 2018 offers them) never showing pull requests or commit authors ([#6000](https://github.com/gitkraken/vscode-gitlens/issues/6000))
 - Fixes a branch's merge target staying stuck on a deleted branch, such as a stacked pull request's base after it merges and is pruned &mdash; a saved, detected, or pull request merge target whose branch no longer exists locally is now skipped in favor of the next available one
+- Fixes a focus-area review in the _Commit Graph_'s _Review Changes_ mode ignoring the instructions given for the review, not stopping when the review is discarded or cancelled, and opening a finding's file without its line range
+- Fixes review findings in the _Commit Graph_'s _Review Changes_ mode pointing at the wrong lines when a review spans staged changes or several commits &mdash; a finding now opens on the line it quotes, or on the file alone when that line is no longer there
 
 ## [19.4.0] - 2026-10-15
 
 ### Added
-
-- Adds review sessions to the _Commit Graph_'s _Review Changes_ mode &mdash; the changeset is the thing being reviewed and AI is one lens on it
-  - The file checkbox now marks a file as _Viewed_ (it used to include the file in the AI review); progress shows in the panel header as _N/M viewed_, and a file that changes after you viewed it is re-queued on its own instead of the whole review being flagged as stale
-  - Files can be excluded from a review from their row action, which keeps them out of the AI review too; files hidden from AI by ignore rules stay in the list, marked, so you can still read them
-  - _Start Reading_ walks the review file by file: each file's diff opens in turn, and _Mark Viewed & Next_, _Next_ and _Previous_ are available from the panel, the diff editor's title bar and keyboard shortcuts (<kbd>Alt+V</kbd>, <kbd>Alt+]</kbd>, <kbd>Alt+[</kbd> with the alternate keymap; <kbd>Ctrl+Shift+G</kbd> (<kbd>Cmd+Alt+G</kbd> on macOS) then <kbd>V</kbd>, <kbd>]</kbd>, <kbd>[</kbd> with the chorded keymap)
-  - _Orient_ (beside _Start Review_) asks the AI for a reading plan instead of findings: the file list regroups by concern &mdash; core first, then supporting, then files to skim &mdash; with one line of context per file, and _Read in This Order_ starts the walk in that order
-  - _Deep Review_ hands the changes to your agent with a channel back into the review: the agent can build, test and trace call paths, and the findings it reports stream into the panel and the diff as they arrive, marked _AGENT_
-  - Findings also appear in the diff editor as comment threads at their lines, with _Resolve_, _Dismiss_, _Reopen_ and _Send Finding to Agent_ on the thread, and the thread follows the finding's state in the panel
-  - Findings can be _Resolved_, _Dismissed_ and _Reopened_, and a review ends: once every file is viewed, a _Review complete_ summary offers _Copy Summary_ and _Send Remaining to Agent_
-  - The file list stays in place while an AI review runs and alongside its findings, and _Discard Findings_ drops only the AI's findings &mdash; your viewed progress and the review stay
-  - Review mode no longer requires AI features to be enabled &mdash; only _Start Review_ does
 
 - Adds _Publish Repository_ to the _Commit Graph_ for a repository with no remotes &mdash; the header, _Working Changes_ panel, overview, and branch details now offer to create a hosted repository (through VS Code's publish flow) instead of a _Publish Branch_ that could only report "No remotes found"; the _Git Command Palette_'s _Push_ offers the same escape when there are no remotes
   - Offers _Add Remote…_ beside _Publish Repository…_ in the push wizard and the _Working Changes_ next steps, for hosts VS Code can't publish to, and hides _Fetch_ while the repository has no remotes
@@ -58,8 +62,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes GitLens terminal links (commits, branches, tags, ranges, and git commands) not working in multi-repository workspaces &mdash; links now use the repository containing the terminal's working directory, when shell integration reports it ([#5986](https://github.com/gitkraken/vscode-gitlens/issues/5986)) &mdash; thanks to [PR #5196](https://github.com/gitkraken/vscode-gitlens/pull/5196) by yuezichong ([@qianxunslimg](https://github.com/qianxunslimg))
 - Fixes Pro feature gates and account surfaces still offering _Reactivate Pro Trial_ after the server refused the reactivation &mdash; once refused, they show the _Upgrade to Pro_ messaging instead ([#5987](https://github.com/gitkraken/vscode-gitlens/issues/5987))
-- Fixes a focus-area review in the _Commit Graph_'s _Review Changes_ mode ignoring the instructions given for the review, not stopping when the review is discarded or cancelled, and opening a finding's file without its line range
-- Fixes review findings in the _Commit Graph_'s _Review Changes_ mode pointing at the wrong lines when a review spans staged changes or several commits &mdash; a finding now opens on the line it quotes, or on the file alone when that line is no longer there
 - Fixes _Push_ from the _Git Command Palette_ on a branch with no upstream showing a plain push confirmation (which then failed) instead of the publish step
 - Fixes pressing <kbd>Space</kbd> on a _Git Command Palette_ confirmation step breaking the command &mdash; e.g. _Delete Worktree_ would stop responding and never delete the worktree
 - Fixes force-deleting a worktree skipping the uncommitted-changes warning when GitLens couldn't check the worktree for changes &mdash; it now asks before deleting a worktree it couldn't check

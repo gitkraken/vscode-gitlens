@@ -1,4 +1,5 @@
 import type { AIReviewResult } from '@gitlens/ai/models/results.js';
+import type { KeyMap } from '../../../../../config.js';
 import type { ReviewThreadItem, ScopeFile } from '../../../../plus/graph/graphService.js';
 
 export type ReviewFindingState = 'resolved' | 'dismissed';
@@ -213,4 +214,28 @@ export function withFindingState(
 		next.set(findingId, state);
 	}
 	return { ...session, findingStates: next };
+}
+
+export type ReviewWalkKey = 'next' | 'previous' | 'markViewed';
+
+const reviewWalkKeys: Record<ReviewWalkKey, string> = { next: ']', previous: '[', markViewed: 'V' };
+
+/** The keyboard shortcut for a walk step under `keymap`, the way the HUD names it — `⌥]` / `Alt+]` on the
+ *  alternate keymap, `⌘⌥G ]` / `Ctrl+Shift+G ]` chorded, nothing when shortcuts are off. Mirrors the
+ *  `gitlens.review.*:key` keybindings, which live on separate command ids and so never show in the
+ *  editor's own hovers. */
+export function getReviewWalkShortcut(
+	keymap: KeyMap | undefined,
+	key: ReviewWalkKey,
+	isMac: boolean,
+): string | undefined {
+	const k = reviewWalkKeys[key];
+	switch (keymap) {
+		case 'alternate':
+			return isMac ? `⌥${k}` : `Alt+${k}`;
+		case 'chorded':
+			return isMac ? `⌘⌥G ${k}` : `Ctrl+Shift+G ${k}`;
+		default:
+			return undefined;
+	}
 }

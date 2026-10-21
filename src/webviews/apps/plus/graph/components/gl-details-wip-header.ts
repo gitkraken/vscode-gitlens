@@ -353,6 +353,7 @@ export class GlDetailsWipHeader extends LitElement {
 				mark="review"
 				placement="bottom"
 				.anchor=${this.queryHeaderTitle}
+				.bodyContext=${{ aiEnabled: this.aiEnabled }}
 				?auto-show=${eligible && context === 'review'}
 			></gl-graph-coachmark>
 			<gl-graph-coachmark
