@@ -62,6 +62,7 @@ import type {
 	GraphServices,
 	ReresolveFileResult,
 	ResolveResult,
+	ReviewOrientResult,
 	ReviewResult,
 	ReviewThreadActionsState,
 	ReviewThreadsArgs,
@@ -2909,6 +2910,16 @@ export class DetailsActions {
 	reviewWalkHandler?: (state: ReviewWalkState | undefined) => void;
 	/** Likewise for thread actions taken in the editor. */
 	reviewThreadActionsHandler?: (state: ReviewThreadActionsState | undefined) => void;
+
+	orientChanges(
+		repoPath: string,
+		scope: ScopeSelection,
+		prompt: string | undefined,
+		excludedFiles: string[] | undefined,
+		signal: AbortSignal,
+	): Promise<ReviewOrientResult> {
+		return this.services.graphInspect.orientChanges(repoPath, scope, prompt, excludedFiles, signal);
+	}
 
 	setReviewThreads(args: ReviewThreadsArgs | undefined): void {
 		void this.services.graphInspect.setReviewThreads(args);

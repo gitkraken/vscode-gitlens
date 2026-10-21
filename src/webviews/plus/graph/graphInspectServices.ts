@@ -133,6 +133,7 @@ import type {
 	ResolveSkippedFile,
 	ReviewChangesOptions,
 	ReviewDetailResult,
+	ReviewOrientResult,
 	ReviewResult,
 	ReviewThreadAction,
 	ReviewThreadActionsState,
@@ -547,6 +548,8 @@ export class GraphInspectServices {
 						excludedFiles,
 						signal,
 					),
+				orientChanges: (repoPath, scope, prompt, excludedFiles, signal) =>
+					this.orientChanges(repoPath, scope, prompt, excludedFiles, signal),
 				setReviewWalk: args => this.setReviewWalk(args),
 				reviewWalk: action => this.reviewWalk(action),
 				onReviewWalk: this._reviewWalkEvent.subscribe(buffer, tracker, () => this.getReviewWalkState()),
@@ -1302,26 +1305,8 @@ export class GraphInspectServices {
 			}
 
 			// Two-pass: build file manifest from the (already filtered) diff
-			const { parseGitDiff, countDiffInsertionsAndDeletions } = await loadChunk(
-				() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
-			);
+			const fileManifest = await this.buildFileManifest(data.diff);
 			signal?.throwIfAborted();
-			// Pass 1 has nothing but this manifest to rank focus areas from — no diff content — so
-			// every field has to be what git would report: the parsed status per file (not a blanket
-			// "modified", which reads an added file as having a previous version to compare against),
-			// and changed-line counts that exclude unchanged context (see
-			// `countDiffInsertionsAndDeletions`).
-			const parsed = parseGitDiff(data.diff);
-			const parsedFiles = parsed.files.map(f => {
-				const { insertions, deletions } = countDiffInsertionsAndDeletions(f);
-				return {
-					path: f.path,
-					status: f.status,
-					additions: insertions,
-					deletions: deletions,
-				};
-			});
-			const fileManifest = JSON.stringify(parsedFiles);
 
 			const overviewResult = await this.container.ai.actions.reviewOverview(
 				{
@@ -1357,6 +1342,85 @@ export class GraphInspectServices {
 		const actions = this._reviewThreadActions.actions;
 		actions.push({ seq: (actions.at(-1)?.seq ?? 0) + 1, findingId: findingId, action: action });
 		this._reviewThreadActionsEvent.fire({ actions: [...actions] });
+	}
+
+	/** The manifest a diff-less pass (two-pass overview, orient) reads instead of the diff: every
+	 *  field is what git would report — the parsed status per file (not a blanket "modified", which
+	 *  reads an added file as having a previous version), and changed-line counts that exclude
+	 *  unchanged context (see `countDiffInsertionsAndDeletions`). */
+	private async buildFileManifest(diff: string): Promise<string> {
+		const { parseGitDiff, countDiffInsertionsAndDeletions } = await loadChunk(
+			() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
+		);
+		const parsed = parseGitDiff(diff);
+		return JSON.stringify(
+			parsed.files.map(f => {
+				const { insertions, deletions } = countDiffInsertionsAndDeletions(f);
+				return { path: f.path, status: f.status, additions: insertions, deletions: deletions };
+			}),
+		);
+	}
+
+	@debug()
+	private async orientChanges(
+		repoPath: string,
+		scope: ScopeSelection,
+		prompt?: string,
+		excludedFiles?: string[],
+		signal?: AbortSignal,
+	): Promise<ReviewOrientResult> {
+		const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
+		try {
+			signal?.throwIfAborted();
+
+			const reviewType = this.getReviewTypeForScope(scope);
+			const excluded = this.getNormalizedExclusions(excludedFiles);
+			// The diff cache is shared with the review runs under the same key — an orient that lands
+			// first leaves a filtered diff for the review to reuse, and the other way round.
+			const diffCacheKey = this.getDiffCacheKey(repoPath, scope, excludedFiles);
+			const cachedData = this._graphDetailsDiffCache.get(diffCacheKey);
+			const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, excluded, signal));
+			if (!data) return { error: { message: l10n.t('No changes found.') } };
+
+			if (cachedData == null) {
+				data.diff = await this.filterExcludedFromDiff(data.diff, excluded, signal);
+				if (!data.diff?.trim()) return { error: { message: l10n.t('No changes found.') } };
+
+				this._graphDetailsDiffCache.set(diffCacheKey, {
+					diff: data.diff,
+					message: data.message,
+					context: data.context,
+				});
+			}
+
+			const fileManifest = await this.buildFileManifest(data.diff);
+			signal?.throwIfAborted();
+
+			const result = await this.container.ai.actions.reviewOrient(
+				{
+					files: fileManifest,
+					message: data.message,
+					context: data.context,
+					instructions: prompt || undefined,
+				},
+				{ source: 'graph', context: { type: reviewType, mode: 'orient' } },
+				{ cancellation: cancellation },
+			);
+			if (result === 'cancelled' || result == null) {
+				return { error: { message: l10n.t('Orient was cancelled.') } };
+			}
+
+			const response = await result.promise;
+			if (response === 'cancelled' || response == null) {
+				return { error: { message: l10n.t('Orient was cancelled.') } };
+			}
+
+			return { result: response.result };
+		} catch (ex) {
+			return { error: { message: getPresentableErrorMessage(ex) } };
+		} finally {
+			disposeCancellation();
+		}
 	}
 
 	private getReviewWalkState(): ReviewWalkState | undefined {

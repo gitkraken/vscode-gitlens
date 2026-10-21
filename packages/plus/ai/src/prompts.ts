@@ -753,6 +753,89 @@ Guidelines:
 Assess the changes and return only the JSON object above — no other text, no code fences.`,
 };
 
+/** Schema counterpart of the {@link reviewOrient} template's output shape */
+export const reviewOrientSchema: AIResponseFormat = {
+	name: 'review_orient',
+	schema: {
+		type: 'object',
+		additionalProperties: false,
+		required: ['overview', 'groups'],
+		properties: {
+			overview: { type: 'string' },
+			groups: {
+				type: 'array',
+				items: {
+					type: 'object',
+					additionalProperties: false,
+					required: ['label', 'kind', 'files'],
+					properties: {
+						label: { type: 'string' },
+						kind: { type: 'string', enum: ['core', 'supporting', 'mechanical'] },
+						files: {
+							type: 'array',
+							items: {
+								type: 'object',
+								additionalProperties: false,
+								required: ['path', 'note'],
+								properties: {
+									path: { type: 'string' },
+									note: { type: 'string' },
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+};
+
+export const reviewOrient: PromptTemplate<'review-orient'> = {
+	id: 'review-orient',
+	variables: ['files', 'message', 'context', 'instructions'],
+	template: `You are an expert code reviewer preparing to read a set of code changes. You are given a file manifest (not full diffs). Your job is not to find problems — it is to lay out the best order to read the files in, so a reader meets the core of the change first and its consequences after.
+
+File manifest (JSON array of changed files):
+<~~files~~>
+\${files}
+</~~files~~>
+
+Author's description of the changes:
+<~~message~~>
+\${message}
+</~~message~~>
+
+Related work items (known pull requests and issues for this change set). Use these for *intent* — what the change is trying to accomplish. May be empty.
+\${context}
+
+Produce a reading plan as a single JSON object with this exact structure:
+
+{
+  "overview": "One or two sentences: what this change is, in the reader's terms.",
+  "groups": [
+    {
+      "label": "Short name for this group of files (under 40 chars)",
+      "kind": "core|supporting|mechanical",
+      "files": [
+        { "path": "path/to/file.ts", "note": "One line: why this file is in the change and what to look for" }
+      ]
+    }
+  ]
+}
+
+Guidelines:
+- "core" holds the files everything else follows from — new logic, the engine of the change. Put the core group first, and within it the file to read first
+- "supporting" holds the files that adopt or wire up the core: call sites, configuration, tests
+- "mechanical" holds files a reader only skims: lockfiles, generated output, pure renames, formatting
+- Every file in the manifest appears exactly once, in exactly one group
+- Order groups and the files inside them in the order they should be read
+- Notes are one line each, concrete, and say what to look for — never restate the path or the status
+
+\${instructions}
+
+Return only the JSON object above — no other text, no code fences.`,
+};
+
 export const reviewRefine: PromptTemplate<'review-refine'> = {
 	id: 'review-refine_v2',
 	variables: ['instructions'],

@@ -34,6 +34,8 @@ function getRequestErrorMessage(action: AIActionType, providerName: string, mess
 			return l10n.t('Unable to Explain Changes: ({provider}) {message}', args);
 		case 'review-changes':
 			return l10n.t('Unable to Review Changes: ({provider}) {message}', args);
+		case 'review-orient':
+			return l10n.t('Unable to Orient Changes: ({provider}) {message}', args);
 		case 'generate-commitMessage':
 			return l10n.t('Unable to Generate Commit Message: ({provider}) {message}', args);
 		case 'generate-stashMessage':

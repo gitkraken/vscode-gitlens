@@ -194,6 +194,7 @@ export function scopeForAction(action: AIActionType): AIModelScope | undefined {
 		case 'generate-commits':
 			return 'compose';
 		case 'review-changes':
+		case 'review-orient':
 			return 'review';
 		case 'conflict-resolution':
 			return 'resolve';

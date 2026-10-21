@@ -224,6 +224,48 @@ export const reviewModePanelStyles = css`
 		align-items: center;
 	}
 
+	/* The reading plan above the grouped checklist */
+	.review-orient {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--gl-space-4) var(--gl-space-8);
+		align-items: center;
+		padding: var(--gl-space-6) var(--gl-space-10);
+		margin: var(--gl-space-6) var(--gl-space-6) 0;
+		border: var(--gl-border-width) solid var(--vscode-button-border);
+		border-radius: var(--gl-radius-sm);
+	}
+
+	.review-orient__icon {
+		font-size: var(--gl-font-lg);
+	}
+
+	.review-orient__body {
+		flex: 1 1 12rem;
+		min-width: 0;
+	}
+
+	.review-orient__title {
+		font-weight: 500;
+	}
+
+	.review-orient__overview {
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+	}
+
+	.review-orient__actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--gl-space-4);
+	}
+
+	.review-orient__error {
+		padding: var(--gl-space-4) var(--gl-space-8);
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-errorForeground);
+	}
+
 	.review-finding--closed {
 		opacity: 0.7;
 	}

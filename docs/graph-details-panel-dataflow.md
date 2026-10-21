@@ -231,6 +231,12 @@ set-aside files plus the AI-ignore rules (`panel.excludedFiles`). Two-pass focus
 are tracked on the entry too (`entry.focusAreaRuns`, abortable with everything else via
 `abortRunningOperation`).
 
+The **orient** depth (`graphInspect.orientChanges`, the `review-orient` template over the same file
+manifest the two-pass overview reads) lands on the entry as `entry.orient`, tracked while running by
+`entry.orientRun` like a focus-area run; the panel regroups the checklist by its groups and
+`review.applyOrientOrder` writes the plan's order into `session.order`, which `getReviewWalkPaths`
+puts ahead of tree order. Like the session, the plan is carried across AI runs.
+
 The review's findings are mirrored into the diff editors as **comment threads** (`reviewThreads.ts`,
 one `CommentController` for the extension): `gl-graph-details-panel.syncReviewThreads()` projects
 the engaged result plus the session's finding states (`getReviewThreadItems`) and sends it over

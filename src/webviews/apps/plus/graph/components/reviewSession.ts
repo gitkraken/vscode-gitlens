@@ -14,6 +14,8 @@ export interface ReviewSession {
 	readonly excluded: ReadonlySet<string>;
 	/** Findings no longer open; absent = open. */
 	readonly findingStates: ReadonlyMap<string, ReviewFindingState>;
+	/** A reading order the reader took from an orient pass; files not in it follow in tree order. */
+	readonly order?: readonly string[];
 }
 
 export const emptyReviewSession: ReviewSession = Object.freeze({
@@ -92,15 +94,35 @@ export function getReviewThreadItems(
 	return items;
 }
 
-/** The stops of a walk, in reading order — tree order (path-sorted), set-aside files left out. */
+/** The stops of a walk, in reading order — the session's order first, then tree order (path-sorted);
+ *  set-aside files left out. */
 export function getReviewWalkPaths(
 	session: ReviewSession | undefined,
 	files: readonly ReviewFileIdentity[] | undefined,
 ): string[] {
-	return (files ?? [])
-		.filter(f => !session?.excluded.has(f.path))
+	const present = new Set((files ?? []).map(f => f.path));
+	const ordered = (session?.order ?? []).filter(p => present.has(p) && !session?.excluded.has(p));
+	const placed = new Set(ordered);
+	const rest = (files ?? [])
+		.filter(f => !placed.has(f.path) && !session?.excluded.has(f.path))
 		.map(f => f.path)
 		.sort((a, b) => a.localeCompare(b));
+	return [...ordered, ...rest];
+}
+
+export function withReadingOrder(session: ReviewSession, order: readonly string[] | undefined): ReviewSession {
+	const current = session.order;
+	if (current === order) return session;
+	if (
+		current != null &&
+		order != null &&
+		current.length === order.length &&
+		current.every((p, i) => p === order[i])
+	) {
+		return session;
+	}
+
+	return { ...session, order: order };
 }
 
 export function isReviewComplete(progress: ReviewProgress): boolean {
