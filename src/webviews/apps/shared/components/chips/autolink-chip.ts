@@ -85,7 +85,7 @@ export class GlAutolinkChip extends LitElement {
 	dateStyle?: string;
 
 	@property()
-	status: 'opened' | 'closed' | 'merged' = 'merged';
+	status: 'opened' | 'closed' | 'merged' | undefined = 'merged';
 
 	@property()
 	type: 'autolink' | 'issue' | 'pr' = 'autolink';
@@ -157,7 +157,7 @@ export class GlAutolinkChip extends LitElement {
 					name=${this.name}
 					url="${this.url}"
 					identifier=${this.identifier}
-					status=${this.status}
+					.status=${this.status}
 					.dateLabel=${this.dateLabel}
 					.date=${this.date}
 					.dateFormat=${this.dateFormat}

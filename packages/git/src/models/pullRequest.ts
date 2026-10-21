@@ -34,6 +34,7 @@ export type PullRequestProjection =
 	| 'batch';
 
 export interface PullRequestShape extends IssueOrPullRequest {
+	readonly state: PullRequestState;
 	readonly author: PullRequestMember;
 	/**
 	 * Canonical base-repository identity returned by the provider. Some providers

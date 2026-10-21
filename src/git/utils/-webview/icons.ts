@@ -75,6 +75,8 @@ export function getIssueOrPullRequestHtmlIcon(issue?: IssueOrPullRequest): strin
 				return `<span class="codicon codicon-git-pull-request"></span>`;
 		}
 	} else {
+		if (issue.state == null) return '<span class="codicon codicon-issues"></span>';
+
 		if (issue.closed) {
 			return `<span class="codicon codicon-pass" style="color:${
 				window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
@@ -111,6 +113,8 @@ export function getIssueOrPullRequestMarkdownIcon(issue?: IssueOrPullRequest): s
 				return `$(git-pull-request)`;
 		}
 	} else {
+		if (issue.state == null) return '$(issues)';
+
 		if (issue.closed) {
 			return `<span style="color:${
 				window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
@@ -148,6 +152,8 @@ export function getIssueOrPullRequestThemeIcon(issue?: IssueOrPullRequest): Them
 				return new ThemeIcon('git-pull-request');
 		}
 	} else {
+		if (issue.state == null) return new ThemeIcon('issues');
+
 		if (issue.closed) {
 			return new ThemeIcon('pass', new ThemeColor('gitlens.closedAutolinkedIssueIconColor' satisfies Colors));
 		}

@@ -45,6 +45,8 @@ interface FakeCollection {
 	groups?: { id: string; members: string[] }[];
 	/** The category its process maps every work item state to; `InProgress` when omitted. */
 	stateCategory?: string;
+	stateCategoryByProject?: Record<string, string>;
+	failStates?: boolean;
 }
 
 interface Request {
@@ -259,11 +261,25 @@ function createServer(options: {
 				}),
 			});
 		}
+		if (/^[^/]+\/_apis\/wit\/workItemTypes$/.test(route)) {
+			return json({ value: [{ name: 'Task' }] });
+		}
 		if (/^[^/]+\/_apis\/wit\/workItemTypes\/[^/]+\/states$/.test(route)) {
+			if (collection.failStates) return json({ message: 'Unavailable' }, 503);
+
 			// Azure DevOps Server 2020 serves the states endpoint only as a preview.
 			assert.equal(url.searchParams.get('api-version'), '6.0-preview.1');
 			return json({
-				value: [{ name: 'Active', color: '', category: collection.stateCategory ?? 'InProgress' }],
+				value: [
+					{
+						name: 'Active',
+						color: '',
+						category:
+							collection.stateCategoryByProject?.[segments[1]] ??
+							collection.stateCategory ??
+							'InProgress',
+					},
+				],
 				count: 1,
 			});
 		}
@@ -331,6 +347,26 @@ function matchesWiql(w: FakeWorkItem, query: string, me: string): boolean {
 	if (projects != null) {
 		const names = Array.from(projects.matchAll(/'((?:[^']|'')*)'/g), m => m[1].replace(/''/g, "'"));
 		if (!names.includes(w.project)) return false;
+	}
+
+	if (query.includes('[System.Id] = 0')) return false;
+	if (query.includes("[Microsoft.VSTS.Common.ClosedDate] <> ''")) return false;
+
+	const stateClauses = [
+		...query.matchAll(
+			/\[System.TeamProject\] = '((?:''|[^'])*)' AND \[System.WorkItemType\] = '((?:''|[^'])*)' AND \[System.State\] IN \(([^)]*)\)/g,
+		),
+	];
+	if (
+		stateClauses.length &&
+		!stateClauses.some(
+			([, project, type, states]) =>
+				project.replaceAll("''", "'") === w.project &&
+				type.replaceAll("''", "'") === 'Task' &&
+				[...states.matchAll(/'((?:''|[^'])*)'/g)].some(([, state]) => state.replaceAll("''", "'") === 'Active'),
+		)
+	) {
+		return false;
 	}
 
 	const relationships = /AND \((\[System\.(?:CreatedBy|AssignedTo)\][^)]*)\)/.exec(query)?.[1];
@@ -682,6 +718,91 @@ suite('Azure DevOps Server filtered search', () => {
 				});
 			});
 		}
+
+		for (const [category, terminal] of [
+			['Proposed', false],
+			['InProgress', false],
+			['Resolved', true],
+			['Completed', true],
+			['Removed', true],
+		] as const) {
+			test(`${category} work items without dates appear in the matching search and count only`, async () => {
+				const server = createServer({
+					installation: 'https://server.test/tfs',
+					collections: [{ ...collection, stateCategory: category }],
+				});
+				await withManager(server, async (manager, target) => {
+					for (const state of ['open', 'closed'] as const) {
+						const result = await manager.searchIssuesPage({
+							...target,
+							org: collection.name,
+							criteria: { state: state },
+						});
+						assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+						const matches = terminal === (state === 'closed');
+						assert.equal(result.items.length, matches ? collection.workItems.length : 0);
+						for (const item of result.items) {
+							assert.equal(item.closedDate, undefined);
+							assert.equal(item.state, terminal ? 'closed' : 'opened');
+						}
+						const count = await manager.countIssues({
+							...target,
+							scopes: [{ key: state, org: collection.name, criteria: { state: state } }],
+						});
+						assert.equal(count.fetchFailed, undefined, JSON.stringify(count.warnings));
+						assert.equal(count.items[0].count, result.items.length);
+					}
+					assert.equal(
+						server.requests.filter(r => r.url.pathname.endsWith('/states')).length,
+						collection.projects.length,
+					);
+				});
+			});
+		}
+
+		test('the same state name in different projects follows each project workflow', async () => {
+			const server = createServer({
+				installation: 'https://server.test/tfs',
+				collections: [
+					{ ...collection, stateCategoryByProject: { Web: 'Removed', 'Payments & Billing': 'InProgress' } },
+				],
+			});
+			await withManager(server, async (manager, target) => {
+				for (const state of ['open', 'closed'] as const) {
+					const result = await manager.searchIssuesPage({
+						...target,
+						org: collection.name,
+						criteria: { state: state },
+					});
+					assert.ok(!result.fetchFailed, JSON.stringify(result.warnings));
+					assert.ok(result.items.length > 0);
+					assert.ok(result.items.every(item => (item.project?.name === 'Web') === (state === 'closed')));
+				}
+			});
+		});
+
+		test('failed workflow metadata fails filtered search and count instead of guessing from dates', async () => {
+			const server = createServer({
+				installation: 'https://server.test/tfs',
+				collections: [{ ...collection, failStates: true }],
+			});
+			await withManager(server, async (manager, target) => {
+				const result = await manager.searchIssuesPage({
+					...target,
+					org: collection.name,
+					criteria: { state: 'closed' },
+				});
+				assert.equal(result.fetchFailed, true);
+				assert.deepEqual(result.items, []);
+				const count = await manager.countIssues({
+					...target,
+					scopes: [{ key: 'closed', org: collection.name, criteria: { state: 'closed' } }],
+				});
+				assert.equal(count.fetchFailed, true);
+				assert.deepEqual(count.items, []);
+				assert.ok(!server.requests.some(r => r.url.pathname.endsWith('/wiql')));
+			});
+		});
 
 		test('bounds a repository scope by its project, with an encoded project name', async () => {
 			const server = createServer({ installation: 'https://server.test/tfs', collections: [collection] });
