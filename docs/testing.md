@@ -218,19 +218,25 @@ In CI, `@signed-in` specs run only in the `e2e-signed-in` job of `ci.yml`; the r
 - starts only on a manual dispatch from `main`, and only once the repository variable `E2E_SIGNED_IN` is `true`;
 - takes its secrets from the `e2e-signed-in` Environment: `GK_E2E_ACCESS_TOKEN_COOKIE` — the staging test
   account's `stagingAccessToken` — and a Cloudflare Access service token, `GK_E2E_CF_ACCESS_CLIENT_ID` /
-  `GK_E2E_CF_ACCESS_CLIENT_SECRET`. The Environment's deployment-branch rule (`main` only) is the actual gate — the
-  job's `if` lives in a workflow file any branch can change — so set the rule **before** adding the secrets, and
-  keep them Environment secrets, never repository secrets of the same name;
+  `GK_E2E_CF_ACCESS_CLIENT_SECRET`. The job's `if` lives in a workflow file any branch can change, so the
+  Environment is the gate: restrict its deployment branches to `main` **before** adding the secrets, require a
+  reviewer for its deployments (the job is manual anyway), and keep the secrets Environment-scoped, never repository
+  secrets of the same name. The branch rule checks the ref a run is on, not who put the code there — anything that
+  can land a workflow change on `main` can reach these secrets;
 - reads `E2E_REQUIRED_INTEGRATIONS` and the `E2E_GITHUB_*` URLs from repository variables; a missing cookie or
   GitHub URL fails the run instead of skipping it (`E2E_REQUIRE_SIGNIN`), while an unset `E2E_REQUIRED_INTEGRATIONS`
   falls back to its default list;
+- runs with `--retries=0` whatever the config's CI default — a retry starts a new worker, and every worker sign-in
+  mints a token the backend never expires;
 - builds a pre-release bundle (so GitLens honors `gitkraken.env`) and signs in to staging, and before uploading
   results runs `scripts/e2eScanForSecrets.mjs`: any output file holding a secret value (verbatim, base64, base64url
   or URL-encoded, inside trace zips too), or one it can't read or mask, is deleted and the job fails; e-mail
-  addresses and JWT-shaped tokens in text files are masked. Results are uploaded only after a complete scan.
+  addresses and JWT-shaped strings in text files are masked. Results are uploaded only after a complete scan, and
+  kept for a day. The scan is best-effort: it can't recognize values it wasn't given, such as the tokens a sign-in
+  mints.
 
-The job log itself is not scanned: a failed assertion on account UI prints the received text there, so keep
-signed-in assertions off the account's name and e-mail.
+The repository is public, so the job's log and artifacts are too. The log itself is not scanned: a failed assertion
+on account UI prints the received text there, so keep signed-in assertions off the account's name and e-mail.
 
 The session cookie expires after a while without use. When the sign-in step reports the site's login page, sign in
 to the staging site as the test account in a browser and replace the secret with the new `stagingAccessToken`

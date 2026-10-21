@@ -1,13 +1,15 @@
 /**
  * Clears e2e output before a job that held sign-in credentials uploads it as artifacts (#5682):
  * - any file holding a secret value is deleted, and the run fails;
- * - e-mail addresses and JWT-shaped tokens in text files are masked in place, so neither the test account's address
- *   nor a token minted by its sign-in is published.
+ * - e-mail addresses and JWT-shaped strings in text files are masked in place, so the test account's address isn't
+ *   published.
  *
  * Usage: SCAN_SECRET_NAMES="NAME_A,NAME_B" node scripts/e2eScanForSecrets.mjs <dir> [<dir> …]
  *
  * Each named environment variable's value is searched for verbatim and in the encodings a test could plausibly
- * write it in: base64, base64url and URL-encoding. Playwright traces are zips, so `.zip` files are scanned through
+ * write it in: URL-encoding, and base64 / base64url at each of the three byte offsets it can sit at inside a larger
+ * encoded blob. This is best-effort: it can't know values it wasn't given — the account tokens a sign-in mints among
+ * them — or encodings beyond these. Playwright traces are zips, so `.zip` files are scanned through
  * `unzip -p`. Anything that can't be read or masked — an archive, a file, a directory — is deleted too and counts as
  * a hit, so nothing is uploaded unscanned. Only after a complete pass does it write `complete=true` to
  * `GITHUB_OUTPUT`, so the upload step can require it: a scan that crashes midway publishes nothing. Values shorter than
@@ -38,10 +40,18 @@ export function secretNeedles(env, names) {
 
 		const forms = new Map([
 			['verbatim', value],
-			['base64', Buffer.from(value).toString('base64')],
-			['base64url', Buffer.from(value).toString('base64url')],
 			['url-encoded', encodeURIComponent(value)],
 		]);
+		// Inside a larger encoded blob (e.g. a whole `Cookie:` header) the value can start at any of the 3 byte
+		// offsets of a base64 group, and each encodes it differently. Keep, per offset, only the characters whose
+		// bits all come from the value — those don't depend on the bytes around it.
+		for (let offset = 0; offset < 3; offset++) {
+			const bytes = Buffer.concat([Buffer.alloc(offset), Buffer.from(value)]);
+			const start = Math.ceil((offset * 8) / 6);
+			const end = Math.floor((bytes.length * 8) / 6);
+			forms.set(`base64 (offset ${offset})`, bytes.toString('base64').slice(start, end));
+			forms.set(`base64url (offset ${offset})`, bytes.toString('base64url').slice(start, end));
+		}
 		const seen = new Set();
 		for (const [encoding, form] of forms) {
 			if (seen.has(form)) continue;

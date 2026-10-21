@@ -398,7 +398,8 @@ jobs:
 
             # The credentials exist in this step and the scan below only. E2E_REQUIRE_SIGNIN turns a missing cookie or
             # GitHub URL into a failure instead of a silent skip; no --pass-with-no-tests, so a job that matches no
-            # spec fails instead of going green.
+            # spec fails instead of going green. --retries=0 regardless of the config's CI default: a retry starts a
+            # new worker, and every worker sign-in mints a token the backend never expires.
             - name: Run signed-in E2E tests (staging)
               env:
                   GK_E2E_ENV: staging
@@ -417,7 +418,7 @@ jobs:
                   xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x16"
                   pnpm exec playwright test -c tests/e2e/playwright.config.ts
                   --project=vscode --workers=4
-                  --grep @signed-in --output out/test-results-signed-in
+                  --grep @signed-in --output out/test-results-signed-in --retries=0
 
             # Artifacts are uploaded as usual, so make sure no credential rides along: a file holding a secret value
             # (verbatim, base64, base64url, URL-encoded; inside trace zips too) — or that can't be read — is deleted
@@ -439,5 +440,6 @@ jobs:
               with:
                   name: playwright-results-vscode-signed-in
                   path: out/test-results-signed-in/
-                  retention-days: 7
+                  # The repository is public: keep results from an account-holding run only as long as a triage needs
+                  retention-days: 1
                   if-no-files-found: ignore

@@ -48,6 +48,18 @@ test('deletes a file holding a secret verbatim and in each encoding', async () =
 	});
 });
 
+test('finds a secret base64-encoded inside a larger blob at every byte offset', async () => {
+	const blobs = {};
+	for (const prefix of ['', 'x', 'xy', 'Cookie: stagingAccessToken=']) {
+		blobs[`b64-${prefix.length}.txt`] = Buffer.from(`${prefix}${secret}; Path=/`).toString('base64');
+		blobs[`b64url-${prefix.length}.txt`] = Buffer.from(`${prefix}${secret}; Path=/`).toString('base64url');
+	}
+	await withOutput(blobs, async dir => {
+		const result = scan(dir);
+		assert.equal(result.removed.length, Object.keys(blobs).length);
+	});
+});
+
 test('masks e-mail addresses in text files but leaves other files alone', async () => {
 	await withOutput(
 		{
