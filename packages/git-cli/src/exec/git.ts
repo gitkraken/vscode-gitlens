@@ -171,7 +171,11 @@ export const GitErrors = {
 	refUnableToResolve: /cannot lock ref '.*?': unable to resolve reference/i,
 	refValueMismatch: /cannot lock ref '.*?': is at [0-9a-f]+ but expected/i,
 	remoteAhead: /rejected because the remote contains work/i,
-	remoteConnectionFailed: /Could not read from remote repository/i,
+	// SSH/git transports report "Could not read from remote repository"; HTTP(S) reports the curl failure after
+	// "unable to access '<url>':", so only the connection-level curl reasons are matched (an HTTP status like
+	// 403/404 reaches the host fine and is a different problem)
+	remoteConnectionFailed:
+		/Could not read from remote repository|unable to access '[^']+': (?:Could not resolve host|Failed to connect|Couldn't connect|Connection (?:refused|timed out|reset)|Operation timed out|Recv failure|Empty reply)/i,
 	remoteRejected: /rejected because the remote contains work/i,
 	signingKeyNotAvailable: /secret key not available|no secret key|no signing key/i,
 	sshNotFound: /ssh-keygen[^\n]*(?:not found|No such file or directory|is not recognized)/i,

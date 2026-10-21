@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds a reachability check to _Add Remote_ &mdash; the confirm step probes the URL and, when it can't be reached, says why and offers _Add Remote Anyway_, _Change URL_, or a retry; the name defaults to `origin` on a repository with no remotes
 - Adds _Publish Repository_ to branch and worktree rows in the views when their repository has no remotes
+- Adds _Remove Remote_ to the error shown when a push can't reach a remote that has never been fetched from (e.g. one just added with a mistyped URL)
 
 ### Changed
 
@@ -19,6 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes a push to an unreachable HTTPS remote (e.g. a mistyped host) reporting a generic error rather than that the remote could not be reached
 - Fixes the views choosing between _Publish Branch_ and _Publish Repository_ by whether any repository in the workspace has remotes &mdash; each row now follows its own repository, and a remote without a recognized host no longer counts as no remote
 - Fixes _Add Remote and Fetch_ hanging (or closing silently) when the fetch failed, leaving the remote behind &mdash; it now warns and offers _Remove Remote_
 - Fixes pressing Enter on an invalid value in a wizard input (a remote URL, a branch name) navigating away &mdash; the field now stays open with the message until the value is valid

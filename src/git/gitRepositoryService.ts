@@ -1,4 +1,4 @@
-import type { Uri } from 'vscode';
+import type { MessageItem, Uri } from 'vscode';
 import { l10n, ProgressLocation, window } from 'vscode';
 import { CheckoutError, FetchError, PullError, PushError, SigningError } from '@gitlens/git/errors.js';
 import type { GitFile } from '@gitlens/git/models/file.js';
@@ -517,10 +517,48 @@ export class GitRepositoryService {
 			Logger.error(ex);
 
 			if (PushError.is(ex)) {
-				void showGitErrorMessage(ex);
+				const remote = ex.details.remote;
+				// Only offer removal when the remote has no tracking branches — i.e. nothing was ever fetched
+				// from it, so removing it loses nothing and it is most likely wrong (e.g. a typo'd URL). An
+				// established remote failing is usually the network, and removing it would delete its tracking
+				// refs on an unconfirmed overreaction.
+				if (
+					remote &&
+					PushError.is(ex, 'remoteConnectionFailed') &&
+					this.remotes.removeRemote != null &&
+					!(await this.hasRemoteTrackingBranches(remote))
+				) {
+					void this.showPushErrorWithRemoveRemote(ex, remote);
+				} else {
+					void showGitErrorMessage(ex);
+				}
 			} else {
 				void showGitErrorMessage(ex, 'Unable to push');
 			}
+		}
+	}
+
+	private async hasRemoteTrackingBranches(remote: string): Promise<boolean> {
+		try {
+			const result = await this.branches.getBranches({ filter: b => b.remote && b.remoteName === remote });
+			return result.values.length > 0;
+		} catch (ex) {
+			Logger.error(ex);
+			// Unknown means not safe to offer removal
+			return true;
+		}
+	}
+
+	private async showPushErrorWithRemoveRemote(ex: PushError, remote: string): Promise<void> {
+		const removeRemote: MessageItem = { title: l10n.t('Remove Remote') };
+		const result = await showGitErrorMessage(ex, undefined, [removeRemote]);
+		if (result !== removeRemote) return;
+
+		try {
+			await this.remotes.removeRemote?.(remote);
+		} catch (removeEx) {
+			Logger.error(removeEx);
+			void showGitErrorMessage(removeEx, l10n.t('Unable to remove remote'));
 		}
 	}
 
