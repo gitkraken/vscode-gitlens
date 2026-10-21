@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { test } from 'node:test';
@@ -82,6 +82,37 @@ test('deletes an archive it cannot read', async () => {
 		const result = scan(dir);
 		assert.deepEqual(result.removed, [join(dir, 'trace.zip')]);
 		assert.equal(existsSync(join(dir, 'trace.zip')), false);
+	});
+});
+
+test('deletes a file it cannot mask instead of aborting the scan', async () => {
+	await withOutput(
+		{ 'a-readonly.log': 'user qa.account@example.com', 'b-later.txt': 'qa.account@example.com' },
+		async dir => {
+			await chmod(join(dir, 'a-readonly.log'), 0o444);
+			const result = scan(dir);
+			assert.deepEqual(result.removed, [join(dir, 'a-readonly.log')]);
+			assert.equal(existsSync(join(dir, 'a-readonly.log')), false);
+			// The scan went on past the failure
+			assert.equal(await readFile(join(dir, 'b-later.txt'), 'utf8'), '<email>');
+		},
+	);
+});
+
+test('the CLI reports a complete pass to GITHUB_OUTPUT', async () => {
+	await withOutput({ 'clean.txt': 'nothing here' }, async dir => {
+		// Outside the scanned directory, so the scan doesn't read its own output file
+		const output = `${dir}-output`;
+		try {
+			const result = spawnSync(process.execPath, [resolve('scripts/e2eScanForSecrets.mjs'), dir], {
+				encoding: 'utf8',
+				env: { ...process.env, SCAN_SECRET_NAMES: '', GITHUB_OUTPUT: output },
+			});
+			assert.equal(result.status, 0);
+			assert.equal(await readFile(output, 'utf8'), 'complete=true\n');
+		} finally {
+			await rm(output, { force: true });
+		}
 	});
 });
 

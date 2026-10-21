@@ -8,14 +8,15 @@
  *
  * Each named environment variable's value is searched for verbatim and in the encodings a test could plausibly
  * write it in: base64, base64url and URL-encoding. Playwright traces are zips, so `.zip` files are scanned through
- * `unzip -p`. Anything that can't be read — an archive, a file, a directory — is deleted too and counts as a hit, so
- * nothing is uploaded unscanned. Values shorter than
+ * `unzip -p`. Anything that can't be read or masked — an archive, a file, a directory — is deleted too and counts as
+ * a hit, so nothing is uploaded unscanned. Only after a complete pass does it write `complete=true` to
+ * `GITHUB_OUTPUT`, so the upload step can require it: a scan that crashes midway publishes nothing. Values shorter than
  * 8 characters are ignored (too likely to collide). Nothing secret is printed: only the file, the variable name and
  * which encoding matched. Masking covers text files only (by extension, and never a file holding NUL bytes) —
  * signed-in specs keep traces off, so no zip should carry account details in the first place.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -91,6 +92,39 @@ function contentOf(file) {
 }
 
 /**
+ * @param {string} file
+ * @param {{ name: string; encoding: string; bytes: Buffer }[]} needles
+ * @param {(line: string) => void} log
+ * @returns {'removed' | 'masked' | undefined}
+ */
+function clearFile(file, needles, log) {
+	const content = contentOf(file);
+	const matched =
+		content == null
+			? [{ name: '<unreadable file>', encoding: '-' }]
+			: needles.filter(n => content.indexOf(n.bytes) !== -1);
+	if (matched.length) {
+		for (const m of matched) {
+			log(`[secret-scan] ${file}: contains ${m.name} (${m.encoding}) — deleted`);
+		}
+		rmSync(file, { force: true });
+		return 'removed';
+	}
+
+	if (content == null || !textExtensions.has(path.extname(file).toLowerCase()) || content.includes(0)) {
+		return undefined;
+	}
+
+	const text = content.toString('utf8');
+	const redacted = text.replace(emailPattern, '<email>').replace(jwtPattern, '<token>');
+	if (redacted === text) return undefined;
+
+	writeFileSync(file, redacted);
+	log(`[secret-scan] ${file}: e-mail addresses / tokens masked`);
+	return 'masked';
+}
+
+/**
  * @param {string[]} dirs
  * @param {{ name: string; encoding: string; bytes: Buffer }[]} needles
  * @param {(line: string) => void} [log]
@@ -110,31 +144,20 @@ export function scanOutput(dirs, needles, log = console.log) {
 		};
 		for (const file of files(dir, onUnreadable)) {
 			scanned++;
-			const content = contentOf(file);
-			const matched =
-				content == null
-					? [{ name: '<unreadable file>', encoding: '-' }]
-					: needles.filter(n => content.indexOf(n.bytes) !== -1);
-			if (matched.length) {
-				removed.push(file);
-				for (const m of matched) {
-					log(`[secret-scan] ${file}: contains ${m.name} (${m.encoding}) — deleted`);
-				}
+			let outcome;
+			try {
+				outcome = clearFile(file, needles, log);
+			} catch {
+				// Couldn't mask it (e.g. read-only) — then it doesn't get uploaded either
+				outcome = 'removed';
+				log(`[secret-scan] ${file}: could not be cleared — deleted`);
 				rmSync(file, { force: true });
-				continue;
 			}
-
-			if (content == null || !textExtensions.has(path.extname(file).toLowerCase()) || content.includes(0)) {
-				continue;
+			if (outcome === 'removed') {
+				removed.push(file);
+			} else if (outcome === 'masked') {
+				masked.push(file);
 			}
-
-			const text = content.toString('utf8');
-			const redacted = text.replace(emailPattern, '<email>').replace(jwtPattern, '<token>');
-			if (redacted === text) continue;
-
-			writeFileSync(file, redacted);
-			masked.push(file);
-			log(`[secret-scan] ${file}: e-mail addresses / tokens masked`);
 		}
 	}
 	return { scanned: scanned, removed: removed, masked: masked };
@@ -155,8 +178,14 @@ if (process.argv[1] != null && import.meta.url === pathToFileURL(process.argv[1]
 	console.log(
 		`[secret-scan] ${scanned} files scanned for ${names.length} secret(s), ${removed.length} removed, ${masked.length} masked`,
 	);
+	// Every file left is now scanned (and masked) — the upload step requires this
+	if (process.env.GITHUB_OUTPUT) {
+		appendFileSync(process.env.GITHUB_OUTPUT, 'complete=true\n');
+	}
 	if (removed.length) {
-		console.log('::error::E2E output contained secret values; the files were deleted before upload');
+		console.log(
+			'::error::E2E output contained secret values or files that could not be cleared; they were deleted before upload',
+		);
 		process.exit(1);
 	}
 }

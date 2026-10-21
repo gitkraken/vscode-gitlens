@@ -424,6 +424,7 @@ jobs:
             # and the job fails, and e-mail addresses and JWT-shaped tokens in text files are masked. Prints only the
             # file, the secret's name and the encoding.
             - name: Scan e2e output for secrets
+              id: scan
               if: ${{ !cancelled() }}
               env:
                   SCAN_SECRET_NAMES: GK_E2E_ACCESS_TOKEN_COOKIE,GK_E2E_CF_ACCESS_CLIENT_SECRET
@@ -431,8 +432,9 @@ jobs:
                   GK_E2E_CF_ACCESS_CLIENT_SECRET: ${{ secrets.GK_E2E_CF_ACCESS_CLIENT_SECRET }}
               run: node scripts/e2eScanForSecrets.mjs out/test-results-signed-in playwright-report
 
+            # Only after a complete scan — one that crashed midway leaves files unscanned, so nothing is uploaded
             - name: Upload test results
-              if: ${{ !cancelled() }}
+              if: ${{ !cancelled() && steps.scan.outputs.complete == 'true' }}
               uses: actions/upload-artifact@v7
               with:
                   name: playwright-results-vscode-signed-in

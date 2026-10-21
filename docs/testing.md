@@ -225,8 +225,8 @@ In CI, `@signed-in` specs run only in the `e2e-signed-in` job of `ci.yml`; the r
   falls back to its default list;
 - builds a pre-release bundle (so GitLens honors `gitkraken.env`) and signs in to staging, and before uploading
   results runs `scripts/e2eScanForSecrets.mjs`: any output file holding a secret value (verbatim, base64, base64url
-  or URL-encoded, inside trace zips too), or one it can't read, is deleted and the job fails; e-mail addresses and
-  JWT-shaped tokens in text files are masked.
+  or URL-encoded, inside trace zips too), or one it can't read or mask, is deleted and the job fails; e-mail
+  addresses and JWT-shaped tokens in text files are masked. Results are uploaded only after a complete scan.
 
 The job log itself is not scanned: a failed assertion on account UI prints the received text there, so keep
 signed-in assertions off the account's name and e-mail.
