@@ -93,7 +93,7 @@ export function withAgentFindings(
 		findings: findings,
 	};
 	return {
-		overview: result?.overview ?? l10n.t('A deep review by your agent.'),
+		overview: result?.overview ?? l10n.t('A review in the repository by your agent.'),
 		mode: result?.mode ?? 'single-pass',
 		focusAreas: existing != null ? areas.map(a => (a.id === agentFocusAreaId ? area : a)) : [...areas, area],
 	};

@@ -530,12 +530,12 @@ export class GlDetailsReviewModePanel extends LitElement {
 			</gl-button>
 			<gl-button
 				appearance="secondary"
-				tooltip=${l10n.t('Deep Review: hand the changes to your agent — it can build, test and trace call paths, and its findings stream back into this review')}
+				tooltip=${l10n.t('Review in Repo: hand the changes to your agent — it can build, test and trace call paths in the repository, and its findings stream back into this review')}
 				?disabled=${this.deepReview?.active || this.getEffectiveFileCount() === 0}
 				@click=${this.handleDeepReview}
 			>
 				<code-icon icon=${this.deepReview?.active ? 'loading' : 'robot'} slot="prefix"></code-icon
-				>${l10n.t('Deep Review')}
+				>${l10n.t('Review in Repo')}
 			</gl-button>
 			<gl-button appearance="secondary" @click=${this.handleDiscard}>${l10n.t('Discard Findings')}</gl-button>
 		</div>`;
@@ -742,7 +742,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const scope = this.scope ?? (this.files?.length ? { type: 'commit' as const, sha: '' } : undefined);
 		if (!scope) return nothing;
 
-		// Disable Start Review when there are no effectively-included files (after both user
+		// Disable Review Diff when there are no effectively-included files (after both user
 		// exclusions and AI-ignored exclusions). Stale exclusions are pruned in willUpdate.
 		const hasSelectedFiles = this.getEffectiveFileCount() > 0;
 
@@ -781,8 +781,8 @@ export class GlDetailsReviewModePanel extends LitElement {
 									multiline
 									active
 									rows="2"
-									button-label=${l10n.t('Start Review')}
-									busy-label=${l10n.t('Reviewing changes…')}
+									button-label=${l10n.t('Review Diff')}
+									busy-label=${l10n.t('Reviewing the diff…')}
 									event-name="review-run"
 									placeholder=${l10n.t('Instructions — e.g. "Focus on security and error handling"')}
 									.value=${this.idleDraft ?? this.lastPrompt}
@@ -815,7 +815,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 										tooltip=${
 											this.deepReviewUnavailableReason ??
 											l10n.t(
-												'Deep Review: hand the changes to your agent — it can build, test and trace call paths, and its findings stream back into this review',
+												'Review in Repo: hand the changes to your agent — it can build, test and trace call paths in the repository, and its findings stream back into this review',
 											)
 										}
 										?disabled=${
@@ -829,7 +829,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 											icon=${this.deepReview?.active ? 'loading' : 'robot'}
 											slot="prefix"
 										></code-icon>
-										${this.deepReview?.active ? l10n.t('Deep Review running…') : l10n.t('Deep Review')}
+										${this.deepReview?.active ? l10n.t('Reviewing in repo…') : l10n.t('Review in Repo')}
 									</gl-button>
 								</gl-ai-input>`,
 							)}
@@ -845,8 +845,8 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const availability = this.deepReviewAvailability;
 		if (availability == null || availability.available) return undefined;
 		return availability.reason === 'no-channel'
-			? l10n.t('Deep Review needs the GitLens local channel, which is not available in this environment')
-			: l10n.t('Deep Review needs an AI agent, and none is available in this editor');
+			? l10n.t('Review in Repo needs the GitLens local channel, which is not available in this environment')
+			: l10n.t('Review in Repo needs an AI agent, and none is available in this editor');
 	}
 
 	private readingShortcut(key: ReviewReadingAction): string | undefined {
@@ -1362,7 +1362,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		return html`<div class="review-deep" role="status">
 			<code-icon class="review-deep__icon" icon=${deep.active ? 'loading' : 'robot'}></code-icon>
 			<span class="review-deep__text"
-				>${deep.active ? l10n.t('Deep Review running') : l10n.t('Deep Review finished')} · ${count}</span
+				>${deep.active ? l10n.t('Review in Repo running') : l10n.t('Review in Repo finished')} · ${count}</span
 			>
 			${
 				deep.active

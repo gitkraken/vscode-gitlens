@@ -1482,7 +1482,9 @@ export class GraphInspectServices {
 			const token = this.container.ipc.token;
 			if (endpoint == null || token == null) {
 				void window.showWarningMessage(
-					l10n.t('Deep Review needs the GitLens local channel, which is not available in this environment.'),
+					l10n.t(
+						'Review in Repo needs the GitLens local channel, which is not available in this environment.',
+					),
 				);
 				return { ok: false, reason: 'no-channel' };
 			}
@@ -1524,7 +1526,7 @@ export class GraphInspectServices {
 		} catch (ex) {
 			this.stopDeepReview();
 			const message = getPresentableErrorMessage(ex);
-			void window.showWarningMessage(l10n.t('Unable to start a deep review: {0}', message));
+			void window.showWarningMessage(l10n.t('Unable to start a review in the repository: {0}', message));
 			return { ok: false, reason: 'error', message: message };
 		}
 	}

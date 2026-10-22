@@ -142,7 +142,7 @@ export const graphCoachMarks: Record<GraphCoachMarkType, GraphCoachMarkContent> 
 							: html`<div class="step">
 										<span class="step__num">2</span>
 										<div class="step__body">
-											${localizedContent(l10n.t('{startReview} for a second pair of eyes — findings come back ranked:'), { startReview: html`<span class="chip">${l10n.t('Start Review')}</span>` })}
+											${localizedContent(l10n.t('{startReview} for a second pair of eyes — findings come back ranked:'), { startReview: html`<span class="chip">${l10n.t('Review Diff')}</span>` })}
 											<div class="rows">
 												<div class="row">
 													<span class="dot dot--critical"></span>

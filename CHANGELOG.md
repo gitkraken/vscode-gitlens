@@ -12,12 +12,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - The file checkbox now marks a file as _Viewed_ (it used to include the file in the AI review); progress shows in the panel header as _N/M viewed_, and a file that changes after you viewed it is re-queued on its own instead of the whole review being flagged as stale
   - Files can be excluded from a review from their row action, which keeps them out of the AI review too; files hidden from AI by ignore rules stay in the list, marked, so you can still read them
   - Any review file's diff carries the reading controls: _Mark Viewed & Next_, _Next_ and _Previous_ step through the files in order from the one you are on, from the diff editor's title bar, from the panel &mdash; which follows the active diff, selecting and scrolling to its row in the checklist &mdash; and from keyboard shortcuts (<kbd>Alt+V</kbd>, <kbd>Alt+]</kbd>, <kbd>Alt+[</kbd> with the alternate keymap; <kbd>Ctrl+Shift+G</kbd> (<kbd>Cmd+Alt+G</kbd> on macOS) then <kbd>V</kbd>, <kbd>]</kbd>, <kbd>[</kbd> with the chorded keymap)
-  - _Orient_ (beside _Start Review_) asks the AI for a reading plan instead of findings: the file list regroups by concern &mdash; what the change is built on first, then what adopts it, then what only needs a glance &mdash; with a short summary per group and one line of context per file, and reading follows that order until the plan is dismissed
-  - _Deep Review_ hands the changes to your agent with a channel back into the review: the agent can build, test and trace call paths, and the findings it reports stream into the panel and the diff as they arrive, marked _AGENT_
+  - _Orient_ (beside _Review Diff_) asks the AI for a reading plan instead of findings: the file list regroups by concern &mdash; what the change is built on first, then what adopts it, then what only needs a glance &mdash; with a short summary per group and one line of context per file, and reading follows that order until the plan is dismissed
+  - _Review in Repo_ hands the changes to your agent with a channel back into the review: the agent can build, test and trace call paths, and the findings it reports stream into the panel and the diff as they arrive, marked _AGENT_
   - Findings also appear in the diff editor as comment threads at their lines, with _Resolve_, _Dismiss_, _Reopen_ and _Send Finding to Agent_ on the thread, and the thread follows the finding's state in the panel
   - Findings can be _Resolved_, _Dismissed_ and _Reopened_, and a review ends: once every file is viewed, a _Review complete_ summary offers _Copy Summary_ and _Send Remaining to Agent_
   - The file list stays in place while an AI review runs and alongside its findings, and _Discard Findings_ drops only the AI's findings &mdash; your viewed progress and the review stay
-  - Review mode no longer requires AI features to be enabled &mdash; only _Start Review_ does
+  - Review mode no longer requires AI features to be enabled &mdash; only _Review Diff_ does
 
 ### Changed
 
