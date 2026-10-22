@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.15.6] - 2026-10-22
+
 ### Fixed
 
 - Fixes integration warnings carrying internal JavaScript error text (`response.body.map is not a function`, `Cannot read properties of undefined (reading 'id')`) when a provider answers a read with a 2xx whose JSON is not the shape the read expects, such as a gateway's JSON error on Jira Cloud's site list, Trello's boards or Linear's organization. The warning now reads "Expected data but the provider returned an unexpected response" and carries the new `cause.reason: 'unexpected-response'` on an `other` warning with `isAuth: false`; a scope failure of a fan-out core runs itself, such as Jira's per-site project reads, names the same cause. The read still fails as before, with the same `fetchFailed` and retry cursor, and the original error is logged. HTML pages, Linear GraphQL errors, transport failures and authentication, rate-limit and not-found failures keep their warnings ([#6046](https://github.com/gitkraken/vscode-gitlens/issues/6046)) (plus/integrations)
@@ -850,7 +852,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.5...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.6...HEAD
+[0.15.6]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.5...gitkraken:releases/core/v0.15.6
 [0.15.5]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.4...gitkraken:releases/core/v0.15.5
 [0.15.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.3...gitkraken:releases/core/v0.15.4
 [0.15.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.2...gitkraken:releases/core/v0.15.3
