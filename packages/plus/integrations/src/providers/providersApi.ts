@@ -14,6 +14,7 @@ import type {
 import type { IssueProviderState } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
+import type { Disposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
@@ -308,6 +309,32 @@ function toJiraIssuePage(
 	};
 }
 
+function createAzureProviderInfo(
+	id: GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+	azure: ReturnType<typeof createProviderApis>['azureDevOps'],
+): ProviderInfo {
+	return {
+		...providersMetadata[id],
+		provider: azure,
+		getRepoOfProjectFn: azure.getRepo.bind(azure),
+		getCurrentUserFn: azure.getCurrentUser.bind(azure),
+		getCurrentUserForInstanceFn: azure.getCurrentUserForInstance.bind(azure),
+		getAzureResourcesForUserFn:
+			id === GitCloudHostIntegrationId.AzureDevOps
+				? azure.getOrgsForUser.bind(azure)
+				: azure.getCollectionsForUser.bind(azure),
+		getAzureProjectsForResourceFn: azure.getAzureProjects.bind(azure),
+		getPullRequestsForReposFn: azure.getPullRequestsForRepos.bind(azure) as GetPullRequestsForReposFn,
+		getPullRequestsForRepoFn: azure.getPullRequestsForRepo.bind(azure),
+		getPullRequestForRepoFn: azure.getPullRequestForRepo.bind(azure),
+		getPullRequestsForAzureProjectsFn: azure.getPullRequestsForProjects.bind(azure),
+		getPullRequestsForAzureProjectFn: azure.getPullRequestsForProject.bind(azure),
+		getIssuesForAzureProjectFn: azure.getIssuesForAzureProject.bind(azure),
+		getReposForAzureProjectFn: azure.getReposForAzureProject.bind(azure),
+		mergePullRequestFn: azure.mergePullRequest.bind(azure),
+	};
+}
+
 /**
  * An Azure DevOps work item as {@link ProvidersApi.classifyAzureIssueStates} reads and classifies it: its type and
  * its state, whose `category` the classification replaces.
@@ -322,10 +349,11 @@ type AzureWorkItemStatesSnapshot = {
 	types: ReadonlyMap<string, Awaited<ReturnType<AzureWorkItemStatesCache['getStates']>> | undefined>;
 };
 
-export class ProvidersApi {
+export class ProvidersApi implements Disposable {
 	private readonly providers: Providers;
 	private readonly request: ProviderRequestFunction;
-	private readonly azureRestApi: ReturnType<typeof createProviderApis>['azureDevOps'];
+	private azureRestApi: ReturnType<typeof createProviderApis>['azureDevOps'];
+	private readonly disposable: Disposable | undefined;
 	constructor(
 		private readonly authenticationService: IntegrationAuthenticationService,
 		private readonly azureWorkItemTypeStates = new AzureWorkItemStatesCache(),
@@ -456,70 +484,14 @@ export class ProvidersApi {
 				),
 				mergePullRequestFn: providerApis.bitbucketServer.mergePullRequest.bind(providerApis.bitbucketServer),
 			},
-			[GitCloudHostIntegrationId.AzureDevOps]: {
-				...providersMetadata[GitCloudHostIntegrationId.AzureDevOps],
-				provider: providerApis.azureDevOps,
-				getRepoOfProjectFn: providerApis.azureDevOps.getRepo.bind(providerApis.azureDevOps),
-				getCurrentUserFn: providerApis.azureDevOps.getCurrentUser.bind(providerApis.azureDevOps),
-				getCurrentUserForInstanceFn: providerApis.azureDevOps.getCurrentUserForInstance.bind(
-					providerApis.azureDevOps,
-				),
-				getAzureResourcesForUserFn: providerApis.azureDevOps.getOrgsForUser.bind(providerApis.azureDevOps),
-				getAzureProjectsForResourceFn: providerApis.azureDevOps.getAzureProjects.bind(providerApis.azureDevOps),
-				getPullRequestsForReposFn: providerApis.azureDevOps.getPullRequestsForRepos.bind(
-					providerApis.azureDevOps,
-				) as GetPullRequestsForReposFn,
-				getPullRequestsForRepoFn: providerApis.azureDevOps.getPullRequestsForRepo.bind(
-					providerApis.azureDevOps,
-				),
-				getPullRequestForRepoFn: providerApis.azureDevOps.getPullRequestForRepo.bind(providerApis.azureDevOps),
-				getPullRequestsForAzureProjectsFn: providerApis.azureDevOps.getPullRequestsForProjects.bind(
-					providerApis.azureDevOps,
-				),
-				getPullRequestsForAzureProjectFn: providerApis.azureDevOps.getPullRequestsForProject.bind(
-					providerApis.azureDevOps,
-				),
-				getIssuesForAzureProjectFn: providerApis.azureDevOps.getIssuesForAzureProject.bind(
-					providerApis.azureDevOps,
-				),
-				getReposForAzureProjectFn: providerApis.azureDevOps.getReposForAzureProject.bind(
-					providerApis.azureDevOps,
-				),
-				mergePullRequestFn: providerApis.azureDevOps.mergePullRequest.bind(providerApis.azureDevOps),
-			},
-			[GitSelfManagedHostIntegrationId.AzureDevOpsServer]: {
-				...providersMetadata[GitSelfManagedHostIntegrationId.AzureDevOpsServer],
-				provider: providerApis.azureDevOps,
-				getRepoOfProjectFn: providerApis.azureDevOps.getRepo.bind(providerApis.azureDevOps),
-				getCurrentUserFn: providerApis.azureDevOps.getCurrentUser.bind(providerApis.azureDevOps),
-				getCurrentUserForInstanceFn: providerApis.azureDevOps.getCurrentUserForInstance.bind(
-					providerApis.azureDevOps,
-				),
-				getAzureResourcesForUserFn: providerApis.azureDevOps.getCollectionsForUser.bind(
-					providerApis.azureDevOps,
-				),
-				getAzureProjectsForResourceFn: providerApis.azureDevOps.getAzureProjects.bind(providerApis.azureDevOps),
-				getPullRequestsForReposFn: providerApis.azureDevOps.getPullRequestsForRepos.bind(
-					providerApis.azureDevOps,
-				) as GetPullRequestsForReposFn,
-				getPullRequestsForRepoFn: providerApis.azureDevOps.getPullRequestsForRepo.bind(
-					providerApis.azureDevOps,
-				),
-				getPullRequestForRepoFn: providerApis.azureDevOps.getPullRequestForRepo.bind(providerApis.azureDevOps),
-				getPullRequestsForAzureProjectsFn: providerApis.azureDevOps.getPullRequestsForProjects.bind(
-					providerApis.azureDevOps,
-				),
-				getPullRequestsForAzureProjectFn: providerApis.azureDevOps.getPullRequestsForProject.bind(
-					providerApis.azureDevOps,
-				),
-				getIssuesForAzureProjectFn: providerApis.azureDevOps.getIssuesForAzureProject.bind(
-					providerApis.azureDevOps,
-				),
-				getReposForAzureProjectFn: providerApis.azureDevOps.getReposForAzureProject.bind(
-					providerApis.azureDevOps,
-				),
-				mergePullRequestFn: providerApis.azureDevOps.mergePullRequest.bind(providerApis.azureDevOps),
-			},
+			[GitCloudHostIntegrationId.AzureDevOps]: createAzureProviderInfo(
+				GitCloudHostIntegrationId.AzureDevOps,
+				providerApis.azureDevOps,
+			),
+			[GitSelfManagedHostIntegrationId.AzureDevOpsServer]: createAzureProviderInfo(
+				GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+				providerApis.azureDevOps,
+			),
 			[IssuesCloudHostIntegrationId.Jira]: {
 				...providersMetadata[IssuesCloudHostIntegrationId.Jira],
 				provider: providerApis.jira,
@@ -573,6 +545,25 @@ export class ProvidersApi {
 				getTrelloLabelsForBoardFn: providerApis.trello.getLabelsForBoard.bind(providerApis.trello),
 			},
 		};
+		this.disposable = authenticationService.ctx.config?.onDidChange(e => {
+			if (!e.httpProxy) return;
+
+			this.azureWorkItemTypeStates.clear();
+			this.azureWorkItemDescriptions.clear();
+			this.azureRestApi = createProviderApis({ request: this.request }).azureDevOps;
+			this.providers[GitCloudHostIntegrationId.AzureDevOps] = createAzureProviderInfo(
+				GitCloudHostIntegrationId.AzureDevOps,
+				this.azureRestApi,
+			);
+			this.providers[GitSelfManagedHostIntegrationId.AzureDevOpsServer] = createAzureProviderInfo(
+				GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+				this.azureRestApi,
+			);
+		});
+	}
+
+	dispose(): void {
+		this.disposable?.dispose();
 	}
 
 	getScopesForProvider(providerId: IntegrationIds): string[] | undefined {

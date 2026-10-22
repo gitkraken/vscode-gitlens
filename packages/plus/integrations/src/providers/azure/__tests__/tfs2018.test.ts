@@ -1,9 +1,11 @@
 import * as assert from 'node:assert/strict';
 import { GitIssueState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
+import { Emitter } from '@gitlens/utils/event.js';
 import type { IntegrationAuthenticationService } from '../../../authentication/integrationAuthenticationService.js';
 import type { TokenWithInfo } from '../../../authentication/models.js';
 import { GitSelfManagedHostIntegrationId } from '../../../constants.js';
+import type { ConfigChangeEvent } from '../../../context.js';
 import { AuthenticationError } from '../../../errors.js';
 import { ProvidersApi } from '../../providersApi.js';
 import { AzureDevOpsApi } from '../azure.js';
@@ -77,6 +79,8 @@ const legacyMappings = {
 
 function harness() {
 	const descriptions = new AzureWorkItemDescriptionsCache();
+	const changes = new Emitter<ConfigChangeEvent>();
+	let legacy = true;
 	const requests: { url: URL; method: string }[] = [];
 	let state = 'New';
 	let itemProject = project;
@@ -111,14 +115,26 @@ function harness() {
 		if (method === 'OPTIONS') {
 			const area = route.split('/').at(-1) as keyof typeof resources;
 			assert.ok(resources[area], route);
-			return Response.json({ value: resources[area] }, { status: discoveryStatus });
+			const value = resources[area].map(resource => ({
+				...resource,
+				maxVersion: legacy ? '4.0' : '6.0',
+				releasedVersion: resource.releasedVersion === '0.0' ? '0.0' : legacy ? '4.0' : '6.0',
+				routeTemplate:
+					!legacy && resource.id === '72c7ddf8-2cdc-4f60-90cd-ab71c14a399b'
+						? '{project}/_apis/wit/workItems/{id}'
+						: resource.routeTemplate,
+			}));
+			return Response.json({ value: value }, { status: discoveryStatus });
 		}
 
 		if (route === `_apis/projects/${projectId}` || route === `_apis/projects/${project}`) {
 			return Response.json({ id: projectId, name: project });
 		}
 
-		assert.match(url.searchParams.get('api-version') ?? '', /^4\.0(?:-preview\.1)?$/);
+		assert.match(
+			url.searchParams.get('api-version') ?? '',
+			legacy ? /^4\.0(?:-preview\.1)?$/ : /^6\.0(?:-preview\.1)?$/,
+		);
 		if ([project, projectId].some(name => route === `${name}/_apis/wit/workItemTypes/Task/states`)) {
 			return Response.json(legacyStates);
 		}
@@ -128,15 +144,23 @@ function harness() {
 		}
 		if (route === '_apis/wit/fields') {
 			return Response.json(
-				{ value: [{ referenceName: 'Custom.Notes', name: 'Notes', type: 'html' }] },
+				{
+					value: [
+						{ referenceName: legacy ? 'Custom.Notes' : 'Custom.NewNotes', name: 'Notes', type: 'html' },
+					],
+				},
 				{ status: catalogStatus },
 			);
 		}
-		if (route === '_apis/wit/workitems/42') return Response.json(item());
+		if (route === '_apis/wit/workitems/42' || route === `${project}/_apis/wit/workitems/42`) {
+			return Response.json(item());
+		}
 		if (route === '_apis/wit/workitems/999') {
 			return Response.json({ typeKey: 'WorkItemUnauthorizedAccessException' }, { status: 404 });
 		}
-		if (route === '_apis/wit/workitems') return Response.json({ value: [item(), null] });
+		if (route === '_apis/wit/workitems' || route === `${project}/_apis/wit/workitems`) {
+			return Response.json({ value: [item(), null] });
+		}
 		if (route === '_apis/identities') return Response.json({ value: [{ memberOf: ['group-descriptor'] }] });
 		if (route === '_apis/identitybatch') return Response.json({ value: [{ id: 'group-id' }] });
 		if (route === '_apis/wit/wiql' || route === `${project}/_apis/wit/wiql`) {
@@ -149,7 +173,9 @@ function harness() {
 	};
 	return {
 		api: new ProvidersApi(
-			{ ctx: { http: { fetch: fetch } } } as unknown as IntegrationAuthenticationService,
+			{
+				ctx: { http: { fetch: fetch }, config: { onDidChange: changes.event } },
+			} as unknown as IntegrationAuthenticationService,
 			undefined,
 			descriptions,
 		),
@@ -178,10 +204,48 @@ function harness() {
 		denyDiscovery: () => {
 			discoveryStatus = 401;
 		},
+		changeProxy: () => {
+			legacy = false;
+			changes.fire({ httpProxy: true, remotes: false, integrationsEnabled: false, launchpad: false });
+		},
 	};
 }
 
 suite('TFS 2018 core REST compatibility', () => {
+	test('proxy changes retire facade discovery and bound SDK catalog caches together', async () => {
+		const h = harness();
+		h.setDescription({ 'Custom.Notes': '<p>Old catalog</p>', 'Custom.NewNotes': '<p>New catalog</p>' });
+		const options = { baseUrl: baseUrl, isPAT: true };
+		assert.equal(
+			(await h.api.getAzureWorkItem(token, { namespace: collection, project: project }, 42, options))
+				?.description,
+			'<p>Old catalog</p>',
+		);
+		assert.equal(
+			(
+				await h.api.getIssuesForAzureProject(token, collection, project, {
+					...options,
+					states: [GitIssueState.Open, GitIssueState.Closed],
+				})
+			).values[0]?.description,
+			'<p>Old catalog</p>',
+		);
+		h.changeProxy();
+		assert.equal(
+			(await h.api.getAzureWorkItem(token, { namespace: collection, project: project }, 42, options))
+				?.description,
+			'<p>New catalog</p>',
+		);
+		assert.equal(
+			(
+				await h.api.getIssuesForAzureProject(token, collection, project, {
+					...options,
+					states: [GitIssueState.Open, GitIssueState.Closed],
+				})
+			).values[0]?.description,
+			'<p>New catalog</p>',
+		);
+	});
 	test('point and etag reads use the advertised collection route and legacy categories', async () => {
 		const h = harness();
 		const coordinate = { namespace: collection, project: project };
