@@ -317,6 +317,7 @@ A big thanks to the people that have contributed to this project 🙏❤️:
 - Noritaka Kobayashi ([@noritaka1166](https://github.com/noritaka1166)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=noritaka1166)
 - Daniel Asher ([@danielasher115](https://github.com/danielasher115)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=danielasher115)
 - Zain Qureshi ([@ZainnQureshii](https://github.com/ZainnQureshii)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=ZainnQureshii)
+- Alexey Kotlyarov ([@koterpillar](https://github.com/koterpillar)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=koterpillar)
 
 Also special thanks to the people that have provided support, testing, brainstorming, etc:
 
