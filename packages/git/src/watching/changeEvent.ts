@@ -7,7 +7,7 @@ export type RefChangeKind = 'heads' | 'remotes' | 'tags' | 'stash';
 export interface WatcherRefChanges {
 	/** Full ref names whose files changed (`refs/heads/main`), plus per-worktree pseudo-refs (`HEAD`, `ORIG_HEAD`). A name may be a ref directory and then covers every ref beneath it. */
 	readonly names?: Iterable<string>;
-	/** Ref kinds that changed without a name (packed-refs rewrite, config, shallow/replace, an injected change): any ref of that kind may have moved. */
+	/** Ref kinds that changed without a name (packed-refs rewrite, a ref namespace directory like `refs/remotes`, shallow/replace, an injected change): any ref of that kind may have moved. */
 	readonly unnamed?: Iterable<RefChangeKind>;
 }
 
@@ -17,7 +17,9 @@ export function isRefChangeKind(change: RepositoryChange): change is RefChangeKi
 
 /**
  * The kind of ref a full ref name (or ref directory) belongs to. A pseudo-ref (no `refs/` prefix, e.g. `HEAD`,
- * `ORIG_HEAD`) counts as `heads`; a ref outside the watched namespaces (e.g. `refs/notes/x`) has no kind.
+ * `ORIG_HEAD`) counts as `heads`; a ref outside the watched namespaces (e.g. `refs/notes/x`) has no kind, and neither
+ * has a namespace directory itself (`refs/remotes`), so a change reported for one names no ref: any ref of the kind it
+ * holds may have moved.
  */
 export function getRefChangeKind(ref: string): RefChangeKind | undefined {
 	if (!ref.startsWith('refs/')) return 'heads';

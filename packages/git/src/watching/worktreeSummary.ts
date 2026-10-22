@@ -118,6 +118,8 @@ const branchField = 2;
 const baseField = 4;
 /** Re-reads only the stored values the base read consults, and the base itself only when they changed */
 const baseKeysField = 8;
+/** Re-reads the provider's Git config inputs before deciding whether the base needs a refresh */
+const baseConfigField = 16;
 /** Every group a full read covers — a base read refreshes the {@link BaseKeys} snapshot itself */
 const allFields = dirtyField | branchField | baseField;
 
@@ -134,6 +136,7 @@ const noBaseKeys: BaseKeys = [undefined, undefined, undefined];
 interface ReadResult {
 	readonly summary: WorktreeSummary;
 	readonly baseKeys: BaseKeys | undefined;
+	readonly baseConfigKey: string | undefined;
 	/** Why the base read failed when the rest of the summary was read; the summary is then stale */
 	readonly baseError: unknown;
 }
@@ -149,6 +152,7 @@ interface SummaryEntry {
 	value: WorktreeSummary | undefined;
 	/** The stored base values as of the last base read; a `gk` config change re-reads the base only when they differ */
 	baseKeys: BaseKeys | undefined;
+	baseConfigKey: string | undefined;
 	/** Why the latest read failed while there was no value to keep */
 	error: Error | undefined;
 	/** Read groups due on the next run */
@@ -228,9 +232,11 @@ class SummarySubscription implements WorktreeSummarySubscription {
  * `dirty`; the upstream moving reads only `branch`; a ref the base depends on reads only `base`; a `gk` config change
  * (mostly bookkeeping writes to the shared `.git/gk/config`), or core's own write of the branch's merge target or
  * base, re-reads the branch's stored merge targets and recorded base, and reads `base` only when one of them changed;
- * the checked-out branch moving, or a HEAD change, reads all of them. Stash, unrelated tags and branches, and the like
- * read nothing. One run is in flight per worktree at a time; events during a run are merged into a single follow-up
- * run.
+ * a `.git/config` change reads `branch` and the provider's config inputs to the base (one read per repository), and
+ * reads `base` only when they, the stored values, HEAD's commit or the upstream changed; the checked-out branch
+ * moving, or a HEAD change, reads all of them. Stash, unrelated tags and branches, and the like read nothing. One run
+ * is in flight per worktree at a time, and at most four across the service: events while a run waits for its turn
+ * join it, and events during a run are merged into a single follow-up run.
  *
  * **Value-change-only notification.** {@link WorktreeSummarySubscription.onDidChange} and {@link onDidChangeSummary}
  * fire only when some field's value differs from the previous summary — a recompute that reads the same answer is
@@ -297,14 +303,14 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 
 		if (isNew) {
 			if (!target.disposed) {
-				target.pending = allFields;
+				target.pending = allFields | baseConfigField;
 				target.running = this.start(target);
 			}
 		} else if (target.handle != null) {
 			subscription.attach(target.handle.session);
 		} else if (target.running == null && !target.disposed) {
 			// The start failed (no repository or git directory yet); a new subscriber retries it
-			target.pending = allFields;
+			target.pending = allFields | baseConfigField;
 			target.running = this.start(target);
 		}
 
@@ -323,7 +329,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			const repo = this.getRepository(key);
 			if (repo == null) throw new Error(`No repository found for '${key}'`);
 
-			const result = await readSummary(repo, key, allFields, undefined, undefined, cancellation);
+			const result = await readSummary(repo, key, allFields, undefined, undefined, undefined, cancellation);
 			return result.summary;
 		}
 
@@ -383,7 +389,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 	private onRepoChanged(entry: SummaryEntry, e: WatcherRepoChangeEvent): void {
 		const value = entry.value;
 		if (value == null || e.changed('unknown', 'head')) {
-			this.queue(entry, allFields);
+			this.queue(entry, allFields | (e.changed('config') ? baseConfigField : 0));
 			return;
 		}
 
@@ -392,7 +398,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			fields |= dirtyField;
 		}
 		if (e.changed('config')) {
-			fields |= branchField | baseField;
+			fields |= branchField | baseKeysField | baseConfigField;
 		}
 		if (e.changed('gkConfig')) {
 			fields |= baseKeysField;
@@ -446,7 +452,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 
 		// Without a value a partial read has nothing to merge into, and a stale value's fields can't be trusted: a
 		// partial read would clear `stale` while vouching for groups it never re-read
-		entry.pending |= entry.value == null || entry.value.stale ? allFields : fields;
+		entry.pending |= entry.value == null || entry.value.stale ? fields | allFields | baseConfigField : fields;
 		entry.running ??= this.drain(entry);
 	}
 
@@ -469,7 +475,15 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			const repo = this.getRepository(entry.key);
 			if (repo == null) throw new Error(`No repository found for '${entry.key}'`);
 
-			result = await readSummary(repo, entry.key, fields, previous, entry.baseKeys, entry.abort.signal);
+			result = await readSummary(
+				repo,
+				entry.key,
+				fields,
+				previous,
+				entry.baseKeys,
+				entry.baseConfigKey,
+				entry.abort.signal,
+			);
 		} catch (ex) {
 			if (entry.disposed || isCancellationError(ex)) return;
 
@@ -486,6 +500,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 
 		entry.error = undefined;
 		entry.baseKeys = result.baseKeys;
+		entry.baseConfigKey = result.baseConfigKey;
 		if (previous != null && summariesEqual(previous, result.summary)) return;
 
 		entry.value = result.summary;
@@ -532,6 +547,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		entry.handle = undefined;
 		entry.value = undefined;
 		entry.baseKeys = undefined;
+		entry.baseConfigKey = undefined;
 		entry.pending = 0;
 		entry.running = undefined;
 
@@ -550,6 +566,7 @@ function createEntry(key: string): SummaryEntry {
 		listeners: undefined,
 		value: undefined,
 		baseKeys: undefined,
+		baseConfigKey: undefined,
 		error: undefined,
 		pending: 0,
 		running: undefined,
@@ -570,10 +587,11 @@ async function readSummary(
 	fields: number,
 	previous: WorktreeSummary | undefined,
 	previousBaseKeys: BaseKeys | undefined,
+	previousBaseConfigKey: string | undefined,
 	signal: AbortSignal | undefined,
 ): Promise<ReadResult> {
 	if (previous == null) {
-		fields = allFields;
+		fields |= allFields;
 	}
 
 	let dirtyRead = fields & dirtyField ? readDirty(repo, signal) : undefined;
@@ -603,10 +621,24 @@ async function readSummary(
 	let dependsOn = previous?.baseDependsOn ?? emptyRefs;
 	let baseKeys = previousBaseKeys;
 	let baseKeysRead = false;
+	let baseConfigKey = previousBaseConfigKey;
+	let baseConfigKeyRead = false;
 	let baseFailed = false;
 	let baseError: unknown;
 	// A detached HEAD is measured as `undefined`; an unborn HEAD with no name has nothing to measure
 	const baseReadable = repo.branches.getAheadOfBase != null && (detached || branch != null);
+	if (fields & baseConfigField && !(fields & baseField) && baseReadable) {
+		baseConfigKey = await readBaseConfigKey(repo, signal);
+		baseConfigKeyRead = true;
+		if (
+			baseConfigKey == null ||
+			baseConfigKey !== previousBaseConfigKey ||
+			sha !== previous?.sha ||
+			!upstreamsEqual(upstream, previous?.upstream)
+		) {
+			fields |= baseField;
+		}
+	}
 	if (fields & baseKeysField && !(fields & baseField) && baseReadable) {
 		baseKeys = await readBaseKeys(repo, branch);
 		baseKeysRead = true;
@@ -619,10 +651,14 @@ async function readSummary(
 			base = undefined;
 			dependsOn = emptyRefs;
 			baseKeys = undefined;
+			baseConfigKey = undefined;
 		} else {
 			// Snapshot before the base read, so a write it misses is one the next `gk` config event sees as a change
 			if (!baseKeysRead) {
 				baseKeys = await readBaseKeys(repo, branch);
+			}
+			if (fields & baseConfigField && !baseConfigKeyRead) {
+				baseConfigKey = await readBaseConfigKey(repo, signal);
 			}
 			try {
 				const aheadOfBase = await repo.branches.getAheadOfBase?.(branch, undefined, signal);
@@ -638,6 +674,7 @@ async function readSummary(
 				base = sameBranch ? previous.base : undefined;
 				dependsOn = sameBranch ? previous.baseDependsOn : emptyRefs;
 				baseKeys = undefined;
+				baseConfigKey = undefined;
 			}
 		}
 	}
@@ -659,8 +696,22 @@ async function readSummary(
 			stale: baseFailed,
 		},
 		baseKeys: baseKeys,
+		baseConfigKey: baseConfigKey,
 		baseError: baseError,
 	};
+}
+
+async function readBaseConfigKey(
+	repo: RepositoryService,
+	signal: AbortSignal | undefined,
+): Promise<string | undefined> {
+	try {
+		return await repo.branches.getAheadOfBaseConfigKey?.(signal);
+	} catch (ex) {
+		if (isCancellationError(ex)) throw ex;
+
+		return undefined;
+	}
 }
 
 /**
@@ -734,6 +785,18 @@ async function toSummaryUpstream(
 	};
 }
 
+function upstreamsEqual(a: WorktreeSummaryUpstream | undefined, b: WorktreeSummaryUpstream | undefined): boolean {
+	return (
+		a === b ||
+		(a != null &&
+			b != null &&
+			a.name === b.name &&
+			a.remote === b.remote &&
+			a.branch === b.branch &&
+			a.missing === b.missing)
+	);
+}
+
 function summariesEqual(a: WorktreeSummary, b: WorktreeSummary): boolean {
 	return (
 		a.repoPath === b.repoPath &&
@@ -745,13 +808,7 @@ function summariesEqual(a: WorktreeSummary, b: WorktreeSummary): boolean {
 		a.dirty === b.dirty &&
 		a.stale === b.stale &&
 		areEqual(a.baseDependsOn, b.baseDependsOn) &&
-		(a.upstream === b.upstream ||
-			(a.upstream != null &&
-				b.upstream != null &&
-				a.upstream.name === b.upstream.name &&
-				a.upstream.remote === b.upstream.remote &&
-				a.upstream.branch === b.upstream.branch &&
-				a.upstream.missing === b.upstream.missing)) &&
+		upstreamsEqual(a.upstream, b.upstream) &&
 		(a.base === b.base ||
 			(a.base != null &&
 				b.base != null &&

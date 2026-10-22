@@ -183,6 +183,13 @@ interface Caches {
 
 /** Shared caches — cleared via commonPath + all worktree paths */
 interface SharedCaches {
+	/**
+	 * Keyed by commonPath. Its keys (`branch.*.remote|merge`, `remote.*`, `init.defaultBranch`) come from system,
+	 * global and the common `.git/config`, which every worktree shares: a per-worktree `config.worktree` is rare and
+	 * never holds remotes or tracking, and `includeIf "gitdir:"` matches alike for all of a repository's worktrees,
+	 * since a linked worktree's git dir sits under the main one. Only a rare `includeIf "onbranch:"` could differ.
+	 */
+	aheadOfBaseConfigKey: PromiseMap<RepoPath, string | undefined> | undefined;
 	baseBranchName: RepoPromiseCacheMap<string, string | undefined> | undefined;
 	branchMergedStatus: RepoPromiseCacheMap<string, GitBranchMergedStatus> | undefined;
 	branchMetadataMap: PromiseMap<RepoPath, Map<string, BranchMetadata>> | undefined;
@@ -216,6 +223,7 @@ type AllCaches = Caches & SharedCaches;
 /** Compile-time enforced: adding a key to SharedCaches without listing it here is a type error */
 const sharedCacheKeys: ReadonlySet<keyof AllCaches> = new Set(
 	exhaustiveArray<keyof SharedCaches>()([
+		'aheadOfBaseConfigKey',
 		'baseBranchName',
 		'branchMergedStatus',
 		'branchMetadataMap',
@@ -245,6 +253,7 @@ const sharedCacheKeys: ReadonlySet<keyof AllCaches> = new Set(
 
 function createEmptyCaches(): AllCaches {
 	return {
+		aheadOfBaseConfigKey: undefined,
 		baseBranchName: undefined,
 		bestRemotes: undefined,
 		blame: undefined,
@@ -363,6 +372,10 @@ export class Cache implements Disposable {
 		usage['cache.closeGenerations.entries.count'] = this._closeGenerations.size;
 		usage['cache.gkConfigSnapshots.entries.count'] = this._gkConfigSnapshots.size;
 		return usage;
+	}
+
+	get aheadOfBaseConfigKey(): PromiseMap<RepoPath, string | undefined> {
+		return (this._caches.aheadOfBaseConfigKey ??= new PromiseMap<RepoPath, string | undefined>());
 	}
 
 	get bestRemotes(): PromiseMap<RepoPath, GitRemote<RemoteProvider>[]> {
@@ -738,6 +751,7 @@ export class Cache implements Disposable {
 			}
 
 			if (types.includes('config')) {
+				keysToClear.add('aheadOfBaseConfigKey');
 				// `getBaseBranchName` falls back to `branch.<ref>.vscode-merge-base` (written by VS Code's
 				// built-in Git), which lives in `.git/config` — so a config change is the only signal that
 				// source changed. Cheap: config events are rare.
@@ -840,7 +854,9 @@ export class Cache implements Disposable {
 				cache.clear();
 			} else if (sharedCacheKeys.has(key)) {
 				if (!worktreeOnly) {
-					this.evictShared(key, repoPath, inFlight);
+					// Always hard-evicted: a summary joining a read from before the change gets back the snapshot it
+					// already holds, and skips the base refresh the change called for
+					this.evictShared(key, repoPath, key === 'aheadOfBaseConfigKey' ? 'evict' : inFlight);
 				}
 			} else {
 				cache.delete(repoPath);
@@ -1890,6 +1906,22 @@ export class Cache implements Disposable {
 		);
 	}
 
+	/**
+	 * The `getAheadOfBase` config snapshot, read once per commonPath for every worktree. Any config change hard-evicts
+	 * it (see {@link clearCaches}), so a read issued after the change never joins one that started before it.
+	 */
+	getAheadOfBaseConfigKey(
+		repoPath: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<string | undefined>,
+		cancellation?: AbortSignal,
+	): Promise<string | undefined> {
+		return this.getSharedSimple(this.aheadOfBaseConfigKey, repoPath, factory, cancellation);
+	}
+
 	getBranchMetadataMap(
 		repoPath: string,
 		factory: (commonPath: string) => PromiseOrValue<Map<string, BranchMetadata>>,
@@ -2176,7 +2208,9 @@ export class Cache implements Disposable {
 		repoPath: string,
 		// `cacheable` is forwarded so a factory can refuse the entry when the read FAILED rather than
 		// genuinely produced nothing — see `getSharedSimpleWithKey` for why that distinction matters.
-		factory: (commonPath: string, cacheable: CacheController) => PromiseOrValue<T>,
+		factory: (commonPath: string, cacheable: CacheController, cancellation?: AbortSignal) => PromiseOrValue<T>,
+		// Only a `PromiseMap` takes one; its factory's signal aborts once every waiter has aborted
+		cancellation?: AbortSignal,
 	): Promise<T> {
 		const commonPath = this.getCommonPath(repoPath);
 
@@ -2186,7 +2220,11 @@ export class Cache implements Disposable {
 		if (cache instanceof PromiseCache) {
 			return cache.getOrCreate(commonPath, cacheable => Promise.resolve(factory(commonPath, cacheable)));
 		}
-		return cache.getOrCreate(commonPath, cacheable => Promise.resolve(factory(commonPath, cacheable)));
+		return cache.getOrCreate(
+			commonPath,
+			(cacheable, signal) => Promise.resolve(factory(commonPath, cacheable, signal)),
+			cancellation,
+		);
 	}
 
 	private async getSharedSimpleWithKey<T>(

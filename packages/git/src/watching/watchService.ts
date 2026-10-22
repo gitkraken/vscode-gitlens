@@ -443,7 +443,12 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		const group = this.getOrCreateWatchGroup(commonGitDir);
 
 		const hooks: WatchGroupHooks = {
-			onRepoChanged: (_repoPath: string, changes: RepositoryChange[], ref?: string, overflow?: boolean): void => {
+			onRepoChanged: (
+				_repoPath: string,
+				changes: RepositoryChange[],
+				ref?: string | false,
+				overflow?: boolean,
+			): void => {
 				if (overflow) {
 					session.pushUnfencedRepoChanges(changes);
 				} else {

@@ -175,6 +175,12 @@ export interface GitBranchesSubProvider {
 		cancellation?: AbortSignal,
 	): Promise<AheadOfBase>;
 	/**
+	 * An opaque snapshot of the Git config inputs to `getAheadOfBase`, excluding the stored gk merge targets and
+	 * base. Equal snapshots let a summary keep its base while its HEAD, stored values and dependent refs are unchanged.
+	 * `undefined` means the inputs could not be read; providers without this operation require a full base read.
+	 */
+	getAheadOfBaseConfigKey?(repoPath: string, cancellation?: AbortSignal): Promise<string | undefined>;
+	/**
 	 * How far each branch has diverged from `base`, keyed by full ref name (`refs/heads/x`, plus `refs/remotes/<remote>/x`
 	 * when `options.remotes` is set) so a local and a remote name can't collide. Symbolic refs such as
 	 * `refs/remotes/origin/HEAD` are left out. `ahead` is the commits on the branch that `base` lacks and `behind` the
