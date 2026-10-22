@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes `getAheadOfBase` to keep a candidate whose check failed or timed out, rather than one git confirms is gone, so its count rejects instead of quietly measuring against the next candidate (git-cli)
 - Changes `getBaseBranchName` to no longer record its reflog guess as `gk-merge-base`, where every host read it as a base the branch was launched from (git-cli)
 
+### Removed
+
+- Removes `BranchTargetInfo` from `git/models/branch.js`; `branches.getMergeTarget` answers the merge target it described (git)
+
 ### Fixed
 
 - Fixes `getReflogEntries`' `grep` matching nothing when the user's `grep.patternType` is `fixed`, which left `getBaseBranchName` with no reflog guess: the pattern is now always read as a basic regular expression (git-cli)
