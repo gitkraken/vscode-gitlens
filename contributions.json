@@ -7376,6 +7376,19 @@
 				]
 			}
 		},
+		"gitlens.review.replyToFinding": {
+			"label": "Reply",
+			"icon": "$(reply)",
+			"menus": {
+				"comments/commentThread/context": [
+					{
+						"when": "commentController == gitlens.review",
+						"group": "inline",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.review.resolveFinding": {
 			"label": "Resolve Finding",
 			"icon": "$(check)",

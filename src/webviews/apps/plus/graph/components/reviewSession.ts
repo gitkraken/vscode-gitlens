@@ -1,6 +1,6 @@
 import type { AIReviewResult, AIReviewSeverity } from '@gitlens/ai/models/results.js';
 import type { KeyMap } from '../../../../../config.js';
-import type { ReviewThreadItem, ScopeFile } from '../../../../plus/graph/graphService.js';
+import type { ReviewFindingNote, ReviewThreadItem, ScopeFile } from '../../../../plus/graph/graphService.js';
 
 export type ReviewFindingState = 'resolved' | 'dismissed';
 
@@ -15,6 +15,9 @@ export interface ReviewSession {
 	readonly excluded: ReadonlySet<string>;
 	/** Findings no longer open; absent = open. */
 	readonly findingStates: ReadonlyMap<string, ReviewFindingState>;
+	/** What was said about a finding after the fact — the reader's replies and the agent's additions, in
+	 *  the order they came. */
+	readonly notes: ReadonlyMap<string, readonly ReviewFindingNote[]>;
 	/** A reading order the reader took from an orient pass; files not in it follow in tree order. */
 	readonly order?: readonly string[];
 }
@@ -23,6 +26,7 @@ export const emptyReviewSession: ReviewSession = Object.freeze({
 	viewed: new Map<string, { contentId?: string }>(),
 	excluded: new Set<string>(),
 	findingStates: new Map<string, ReviewFindingState>(),
+	notes: new Map<string, readonly ReviewFindingNote[]>(),
 });
 
 export type ReviewFileProgress = 'viewed' | 'changed' | 'unviewed';
@@ -80,6 +84,7 @@ export function getReviewThreadItems(
 		for (const finding of area.findings ?? []) {
 			if (finding.filePath == null || finding.lineRange == null) continue;
 
+			const notes = session?.notes.get(finding.id);
 			items.push({
 				id: finding.id,
 				path: finding.filePath,
@@ -90,6 +95,7 @@ export function getReviewThreadItems(
 				description: finding.description,
 				state: session?.findingStates.get(finding.id) ?? 'open',
 				...(finding.source != null ? { source: finding.source } : {}),
+				...(notes?.length ? { notes: [...notes] } : {}),
 			});
 		}
 	}
@@ -281,6 +287,24 @@ export function withFindingState(
 		next.set(findingId, state);
 	}
 	return { ...session, findingStates: next };
+}
+
+/** Appends a note to a finding; an empty one is ignored. */
+export function withFindingNote(session: ReviewSession, findingId: string, note: ReviewFindingNote): ReviewSession {
+	const text = note.text.trim();
+	if (!text) return session;
+
+	const next = new Map(session.notes);
+	next.set(findingId, [...(session.notes.get(findingId) ?? []), { ...note, text: text }]);
+	return { ...session, notes: next };
+}
+
+/** Drops every finding's state and notes — for a result that is being discarded; viewed marks and
+ *  exclusions belong to the changeset and stay. */
+export function withoutFindings(session: ReviewSession): ReviewSession {
+	if (session.findingStates.size === 0 && session.notes.size === 0) return session;
+
+	return { ...session, findingStates: emptyReviewSession.findingStates, notes: emptyReviewSession.notes };
 }
 
 export type ReviewReadingKey = 'next' | 'previous' | 'markViewed';

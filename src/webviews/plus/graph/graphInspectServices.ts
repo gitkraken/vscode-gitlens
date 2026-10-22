@@ -1372,9 +1372,14 @@ export class GraphInspectServices {
 	}
 
 	/** {@link ReviewThreadsOwner} — a thread's title-bar command lands here and is relayed to the webview. */
-	reviewThreadAction(findingId: string, action: ReviewThreadAction): void {
+	reviewThreadAction(findingId: string, action: ReviewThreadAction, text?: string): void {
 		const actions = this._reviewThreadActions.actions;
-		actions.push({ seq: (actions.at(-1)?.seq ?? 0) + 1, findingId: findingId, action: action });
+		actions.push({
+			seq: (actions.at(-1)?.seq ?? 0) + 1,
+			findingId: findingId,
+			action: action,
+			...(text != null ? { text: text } : {}),
+		});
 		this._reviewThreadActionsEvent.fire({ actions: [...actions] });
 	}
 

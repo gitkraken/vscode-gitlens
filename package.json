@@ -9646,6 +9646,11 @@
 				"enablement": "gitlens:review:reading"
 			},
 			{
+				"command": "gitlens.review.replyToFinding",
+				"title": "%command.gitlens.review.replyToFinding.title%",
+				"icon": "$(reply)"
+			},
+			{
 				"command": "gitlens.review.reopenFinding",
 				"title": "%command.gitlens.review.reopenFinding.title%",
 				"category": "%command.category%",
@@ -15636,6 +15641,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.review.replyToFinding",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.review.walkNext",
 					"when": "gitlens:review:reading"
 				},
@@ -18182,6 +18191,13 @@
 				{
 					"command": "gitlens.whatsNew",
 					"when": "false"
+				}
+			],
+			"comments/commentThread/context": [
+				{
+					"command": "gitlens.review.replyToFinding",
+					"when": "commentController == gitlens.review",
+					"group": "inline@1"
 				}
 			],
 			"comments/commentThread/title": [

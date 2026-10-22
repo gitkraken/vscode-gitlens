@@ -46,7 +46,9 @@ import {
 	emptyReviewSession,
 	withFileExcluded,
 	withFilesViewed,
+	withFindingNote,
 	withFindingState,
+	withoutFindings,
 	withReadingOrder,
 } from './reviewSession.js';
 
@@ -1113,6 +1115,11 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.updateReviewSession(session => withFileExcluded(session, path, excluded)),
 		setFindingState: (findingId: string, state: ReviewFindingState | undefined): void =>
 			this.updateReviewSession(session => withFindingState(session, findingId, state)),
+		/** The reader's word on a finding, from its card — the thread's reply box lands in {@link applyThreadActions}. */
+		addFindingNote: (findingId: string, text: string): void =>
+			this.updateReviewSession(session =>
+				withFindingNote(session, findingId, { author: 'user', text: text, at: Date.now() }),
+			),
 		/** The orient depth: a reading plan for the checklist, tracked on the entry like a focus-area run. */
 		runOrient: (
 			repoPath: string | undefined,
@@ -1290,7 +1297,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			if (fresh.length === 0) return;
 
 			let session = entry.session ?? emptyReviewSession;
-			for (const { findingId, action } of fresh) {
+			for (const { findingId, action, text } of fresh) {
 				switch (action) {
 					case 'resolve':
 						session = withFindingState(session, findingId, 'resolved');
@@ -1303,6 +1310,15 @@ export class DetailsWorkflowController implements ReactiveController {
 						break;
 					case 'sendToAgent':
 						this.host.sendReviewFindingToAgent?.(findingId);
+						break;
+					case 'reply':
+						if (text) {
+							session = withFindingNote(session, findingId, {
+								author: 'user',
+								text: text,
+								at: Date.now(),
+							});
+						}
 						break;
 				}
 			}
@@ -1402,10 +1418,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				...entry,
 				focusAreaRuns: undefined,
 				deepReview: entry.deepReview?.active ? entry.deepReview : undefined,
-				session:
-					entry.session != null
-						? { ...entry.session, findingStates: emptyReviewSession.findingStates }
-						: undefined,
+				session: entry.session != null ? withoutFindings(entry.session) : undefined,
 			});
 			this.enterBackedNoResult('review');
 			this.actions.state.reviewPreErrorValue.set(undefined);

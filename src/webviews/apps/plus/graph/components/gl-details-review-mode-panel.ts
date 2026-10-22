@@ -52,6 +52,7 @@ import {
 	panelScopeSplitStyles,
 	reviewModePanelStyles,
 } from './gl-details-review-mode-panel.css.js';
+import type { ReviewFormatOptions } from './reviewFormat.js';
 import {
 	formatFindingAsMarkdown,
 	formatFocusAreaAsMarkdown,
@@ -120,6 +121,11 @@ export interface ReviewFileExcludedDetail {
 export interface ReviewFindingStateDetail {
 	findingId: string;
 	state: ReviewFindingState | undefined;
+}
+
+export interface ReviewFindingNoteDetail {
+	findingId: string;
+	text: string;
 }
 
 export interface ReviewAnalyzeAreaDetail {
@@ -571,8 +577,12 @@ export class GlDetailsReviewModePanel extends LitElement {
 		</div>`;
 	}
 
-	private formatOptions(): { scopeLabel: string; dismissed: ReadonlySet<string> } {
-		return { scopeLabel: this.scopeContextLabel(), dismissed: getClosedFindingIds(this.session) };
+	private formatOptions(): ReviewFormatOptions {
+		return {
+			scopeLabel: this.scopeContextLabel(),
+			dismissed: getClosedFindingIds(this.session),
+			notes: this.session?.notes,
+		};
 	}
 
 	private buildReviewMarkdown(
@@ -583,7 +593,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 			return this.result ? formatReviewAsMarkdown(this.result, this.formatOptions()) : '';
 		}
 		if (granularity === 'focusArea' && opts.area) {
-			return formatFocusAreaAsMarkdown(opts.area, getClosedFindingIds(this.session));
+			return formatFocusAreaAsMarkdown(opts.area, getClosedFindingIds(this.session), this.session?.notes);
 		}
 		if (granularity === 'finding' && opts.finding) {
 			const enclosing = opts.area
@@ -593,7 +603,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 						rationale: opts.area.rationale,
 					}
 				: undefined;
-			return formatFindingAsMarkdown(opts.finding, enclosing);
+			return formatFindingAsMarkdown(opts.finding, enclosing, this.session?.notes.get(opts.finding.id));
 		}
 		return '';
 	}
@@ -1986,6 +1996,15 @@ export class GlDetailsReviewModePanel extends LitElement {
 					>
 						<code-icon icon="comment-discussion-sparkle"></code-icon>
 					</gl-button>
+					<gl-button
+						appearance="toolbar"
+						density="compact"
+						tooltip=${l10n.t('Reply')}
+						aria-expanded=${this._replyingTo === finding.id ? 'true' : 'false'}
+						@click=${() => this.toggleReply(finding.id)}
+					>
+						<code-icon icon="reply"></code-icon>
+					</gl-button>
 					${
 						state == null
 							? html`<gl-button
@@ -2016,6 +2035,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 				</span>
 			</div>
 			<div class="review-finding__description">${finding.description}</div>
+			${this.renderFindingNotes(finding.id)}
 			${
 				finding.filePath
 					? html`<button
@@ -2109,6 +2129,81 @@ export class GlDetailsReviewModePanel extends LitElement {
 				composed: true,
 			}),
 		);
+	}
+
+	/** The finding whose reply box is open, if any. */
+	@state() private _replyingTo?: string;
+
+	private async toggleReply(findingId: string): Promise<void> {
+		this._replyingTo = this._replyingTo === findingId ? undefined : findingId;
+		if (this._replyingTo == null) return;
+
+		await this.updateComplete;
+		this.renderRoot.querySelector<HTMLInputElement>('.review-finding__reply-input')?.focus();
+	}
+
+	private submitReply(findingId: string, input: HTMLInputElement): void {
+		const text = input.value.trim();
+		if (!text) return;
+
+		this.dispatchEvent(
+			new CustomEvent<ReviewFindingNoteDetail>('review-finding-note', {
+				detail: { findingId: findingId, text: text },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+		input.value = '';
+		this._replyingTo = undefined;
+	}
+
+	/** What was said about the finding after the fact, and the reply box when it is open. */
+	private renderFindingNotes(findingId: string) {
+		const notes = this.session?.notes.get(findingId);
+		const replying = this._replyingTo === findingId;
+		if (!notes?.length && !replying) return nothing;
+
+		return html`<div class="review-finding__notes">
+			${(notes ?? []).map(
+				note => html`<div class="review-finding__note review-finding__note--${note.author}">
+					<span class="review-finding__note-author"
+						>${note.author === 'agent' ? l10n.t('Agent') : l10n.t('You')}</span
+					>
+					<span class="review-finding__note-text">${note.text}</span>
+				</div>`,
+			)}
+			${
+				replying
+					? html`<div class="review-finding__reply">
+							<input
+								class="review-finding__reply-input"
+								type="text"
+								placeholder=${l10n.t('Reply — why it was closed, a question, a correction…')}
+								@keydown=${(e: KeyboardEvent) => {
+									if (e.key === 'Enter') {
+										e.preventDefault();
+										this.submitReply(findingId, e.currentTarget as HTMLInputElement);
+									} else if (e.key === 'Escape') {
+										this._replyingTo = undefined;
+									}
+								}}
+							/>
+							<gl-button
+								appearance="secondary"
+								density="compact"
+								@click=${(e: Event) =>
+									this.submitReply(
+										findingId,
+										(e.currentTarget as HTMLElement).parentElement!.querySelector<HTMLInputElement>(
+											'.review-finding__reply-input',
+										)!,
+									)}
+								>${l10n.t('Reply')}</gl-button
+							>
+						</div>`
+					: nothing
+			}
+		</div>`;
 	}
 
 	private handleFindingState(findingId: string, state: ReviewFindingState | undefined): void {

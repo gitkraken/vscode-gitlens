@@ -5,10 +5,13 @@ import type {
 	AIReviewResult,
 	AIReviewSeverity,
 } from '@gitlens/ai/models/results.js';
+import type { ReviewFindingNote } from '../../../../plus/graph/graphService.js';
 
 export interface ReviewFormatOptions {
 	scopeLabel: string;
 	dismissed?: ReadonlySet<string>;
+	/** Notes by finding id — the reader's replies and the agent's additions go out with the finding */
+	notes?: ReadonlyMap<string, readonly ReviewFindingNote[]>;
 }
 
 const severityLabel: Record<AIReviewSeverity, string> = {
@@ -34,7 +37,11 @@ function formatLineRange(range: AIReviewFinding['lineRange']): string {
 	return range.end !== range.start ? `${range.start}-${range.end}` : `${range.start}`;
 }
 
-function formatFindingLines(finding: AIReviewFinding): string[] {
+function noteAuthor(author: ReviewFindingNote['author']): string {
+	return author === 'agent' ? l10n.t('Agent') : l10n.t('Reviewer');
+}
+
+function formatFindingLines(finding: AIReviewFinding, notes?: readonly ReviewFindingNote[]): string[] {
 	const lines: string[] = [];
 	lines.push(`### ${severityPrefix(finding.severity)} ${getReviewFindingTitle(finding)}`);
 	lines.push('');
@@ -45,12 +52,19 @@ function formatFindingLines(finding: AIReviewFinding): string[] {
 		const location = `${finding.filePath}${range ? `:${range}` : ''}`;
 		lines.push(l10n.t('File: `{location}`', { location: location }));
 	}
+	if (notes?.length) {
+		lines.push('');
+		for (const note of notes) {
+			lines.push(`> **${noteAuthor(note.author)}:** ${note.text.replace(/\n/g, '\n> ')}`);
+		}
+	}
 	return lines;
 }
 
 export function formatFindingAsMarkdown(
 	finding: AIReviewFinding,
 	enclosingArea?: Pick<AIReviewFocusArea, 'label' | 'labelIsFallback' | 'rationale'>,
+	notes?: readonly ReviewFindingNote[],
 ): string {
 	const lines: string[] = [];
 	if (enclosingArea) {
@@ -59,11 +73,15 @@ export function formatFindingAsMarkdown(
 		lines.push(enclosingArea.rationale);
 		lines.push('');
 	}
-	lines.push(...formatFindingLines(finding));
+	lines.push(...formatFindingLines(finding, notes));
 	return lines.join('\n');
 }
 
-export function formatFocusAreaAsMarkdown(area: AIReviewFocusArea, dismissed?: ReadonlySet<string>): string {
+export function formatFocusAreaAsMarkdown(
+	area: AIReviewFocusArea,
+	dismissed?: ReadonlySet<string>,
+	notes?: ReadonlyMap<string, readonly ReviewFindingNote[]>,
+): string {
 	const lines: string[] = [];
 	lines.push(`## ${severityPrefix(area.severity)} ${getReviewFocusAreaLabel(area)}`);
 	lines.push('');
@@ -92,7 +110,7 @@ export function formatFocusAreaAsMarkdown(area: AIReviewFocusArea, dismissed?: R
 
 	for (const finding of visible) {
 		lines.push('');
-		lines.push(...formatFindingLines(finding));
+		lines.push(...formatFindingLines(finding, notes?.get(finding.id)));
 	}
 	return lines.join('\n');
 }
@@ -114,7 +132,7 @@ export function formatReviewAsMarkdown(result: AIReviewResult, options: ReviewFo
 
 	for (const area of result.focusAreas) {
 		lines.push('');
-		lines.push(formatFocusAreaAsMarkdown(area, options.dismissed));
+		lines.push(formatFocusAreaAsMarkdown(area, options.dismissed, options.notes));
 	}
 
 	return lines.join('\n');

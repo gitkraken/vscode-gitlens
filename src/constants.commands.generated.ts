@@ -410,6 +410,7 @@ export type ContributedCommands =
 	| 'gitlens.review.dismissFinding'
 	| 'gitlens.review.markViewedAndNext:editor/title'
 	| 'gitlens.review.reopenFinding'
+	| 'gitlens.review.replyToFinding'
 	| 'gitlens.review.resolveFinding'
 	| 'gitlens.review.sendFindingToAgent'
 	| 'gitlens.review.walkNext:editor/title'

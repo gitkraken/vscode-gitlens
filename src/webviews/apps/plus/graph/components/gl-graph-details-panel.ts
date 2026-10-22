@@ -119,6 +119,7 @@ import type {
 	ReviewCopiedDetail,
 	ReviewFileExcludedDetail,
 	ReviewFilesViewedDetail,
+	ReviewFindingNoteDetail,
 	ReviewFindingStateDetail,
 	ReviewOpenFileDetail,
 	ReviewReadingStepDetail,
@@ -2395,7 +2396,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	/** What the editor currently mirrors as review threads — identity of the inputs it was built from. */
-	private _reviewThreadsSynced?: { result: unknown; findingStates: unknown; scope: unknown; repoPath: unknown };
+	private _reviewThreadsSynced?: {
+		result: unknown;
+		findingStates: unknown;
+		notes: unknown;
+		scope: unknown;
+		repoPath: unknown;
+	};
 
 	/** Mirrors the engaged review's findings into the diff editors as comment threads, re-sending only
 	 *  when one of the inputs changed and clearing once the review is gone. */
@@ -2409,6 +2416,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const value = entry?.result ?? (entry != null ? this._actions.resources.review.value.get() : undefined);
 		const result = value != null && 'result' in value ? value.result : undefined;
 		const findingStates = entry?.session?.findingStates;
+		const notes = entry?.session?.notes;
 		const scope = this._state.scope.get();
 		const repoPath = this.effectiveRepoPath;
 		const synced = this._reviewThreadsSynced;
@@ -2416,6 +2424,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			synced != null &&
 			synced.result === result &&
 			synced.findingStates === findingStates &&
+			synced.notes === notes &&
 			synced.scope === scope &&
 			synced.repoPath === repoPath
 		) {
@@ -2431,7 +2440,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		this._reviewThreadsSynced = { result: result, findingStates: findingStates, scope: scope, repoPath: repoPath };
+		this._reviewThreadsSynced = {
+			result: result,
+			findingStates: findingStates,
+			notes: notes,
+			scope: scope,
+			repoPath: repoPath,
+		};
 		const args: ReviewThreadsArgs = {
 			repoPath: repoPath,
 			rhs: endpoints.rhs,
@@ -4116,6 +4131,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._workflow.review.setFileExcluded(e.detail.path, e.detail.excluded)}
 			@review-finding-state=${(e: CustomEvent<ReviewFindingStateDetail>) =>
 				this._workflow.review.setFindingState(e.detail.findingId, e.detail.state)}
+			@review-finding-note=${(e: CustomEvent<ReviewFindingNoteDetail>) =>
+				this._workflow.review.addFindingNote(e.detail.findingId, e.detail.text)}
 			@review-orient=${(e: CustomEvent<{ prompt?: string }>) => {
 				if (this._state.aiModel.get() == null) {
 					this._actions.switchAIModel('review');

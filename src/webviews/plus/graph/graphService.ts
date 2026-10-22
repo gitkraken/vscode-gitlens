@@ -346,6 +346,16 @@ export interface ReviewFilesArgs {
 
 export type ReviewThreadState = 'open' | 'resolved' | 'dismissed';
 
+/** A remark on a finding: the reader's reply on its thread or in its card (why it was closed, a question,
+ *  a correction), or an agent's addition to a finding that was already there. Kept with the session and
+ *  shown wherever the finding is — the thread, the card, the exports, the next review's context. */
+export interface ReviewFindingNote {
+	author: 'user' | 'agent';
+	text: string;
+	/** When it was written, epoch ms */
+	at: number;
+}
+
 /** A finding as the diff editor shows it: an inline comment thread at its line. */
 export interface ReviewThreadItem {
 	id: string;
@@ -357,6 +367,7 @@ export interface ReviewThreadItem {
 	description: string;
 	state: ReviewThreadState;
 	source?: 'agent';
+	notes?: ReviewFindingNote[];
 }
 
 export interface ReviewThreadsArgs {
@@ -366,12 +377,12 @@ export interface ReviewThreadsArgs {
 	items: ReviewThreadItem[];
 }
 
-export type ReviewThreadAction = 'resolve' | 'dismiss' | 'reopen' | 'sendToAgent';
+export type ReviewThreadAction = 'resolve' | 'dismiss' | 'reopen' | 'sendToAgent' | 'reply';
 
 /** Actions taken on threads from the editor, append-only with a sequence so a panel that was hidden
- *  for a while applies exactly the ones it hasn't. */
+ *  for a while applies exactly the ones it hasn't. A `reply` carries its text. */
 export interface ReviewThreadActionsState {
-	actions: { seq: number; findingId: string; action: ReviewThreadAction }[];
+	actions: { seq: number; findingId: string; action: ReviewThreadAction; text?: string }[];
 }
 
 /** Which review file the editor is on and what it marked viewed along the way. `marked` is append-only

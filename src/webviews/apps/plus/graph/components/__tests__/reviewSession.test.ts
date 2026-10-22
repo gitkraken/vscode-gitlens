@@ -13,7 +13,9 @@ import {
 	isReviewComplete,
 	withFileExcluded,
 	withFilesViewed,
+	withFindingNote,
 	withFindingState,
+	withoutFindings,
 	withReadingOrder,
 } from '../reviewSession.js';
 
@@ -193,6 +195,26 @@ suite('reviewSession — findings by file', () => {
 	});
 });
 
+suite('reviewSession — notes', () => {
+	test('notes append in order, blank ones are ignored, and discarding the findings drops them with the states', () => {
+		let session = withFindingNote(emptyReviewSession, 'f1', { author: 'user', text: '  ', at: 1 });
+		assert.strictEqual(session, emptyReviewSession);
+
+		session = withFindingNote(session, 'f1', { author: 'user', text: ' not a bug here ', at: 1 });
+		session = withFindingNote(session, 'f1', { author: 'agent', text: 'it is — see the caller', at: 2 });
+		session = withFindingState(session, 'f1', 'dismissed');
+		assert.deepStrictEqual(session.notes.get('f1'), [
+			{ author: 'user', text: 'not a bug here', at: 1 },
+			{ author: 'agent', text: 'it is — see the caller', at: 2 },
+		]);
+
+		const cleared = withoutFindings(session);
+		assert.strictEqual(cleared.notes.size, 0);
+		assert.strictEqual(cleared.findingStates.size, 0);
+		assert.strictEqual(withoutFindings(cleared), cleared);
+	});
+});
+
 suite('reviewSession — thread projection', () => {
 	test('only findings with a file and a line become threads, carrying their session state', () => {
 		const result = {
@@ -227,7 +249,8 @@ suite('reviewSession — thread projection', () => {
 				},
 			],
 		} as unknown as AIReviewResult;
-		const session = withFindingState(emptyReviewSession, 'f3', 'dismissed');
+		let session = withFindingState(emptyReviewSession, 'f3', 'dismissed');
+		session = withFindingNote(session, 'f3', { author: 'user', text: 'intended', at: 7 });
 
 		assert.deepStrictEqual(getReviewThreadItems(result, session), [
 			{
@@ -249,6 +272,7 @@ suite('reviewSession — thread projection', () => {
 				title: 'three',
 				description: 'd3',
 				state: 'dismissed',
+				notes: [{ author: 'user', text: 'intended', at: 7 }],
 			},
 		]);
 		assert.deepStrictEqual(getReviewThreadItems(undefined, session), []);

@@ -607,6 +607,7 @@
 	"command.gitlens.review.markViewedAndNext:editor/title.title": "将文件标记为已查看并转到下一个",
 	"command.gitlens.review.markViewedAndNext:key.title": "将文件标记为已查看并转到下一个",
 	"command.gitlens.review.reopenFinding.title": "重新打开发现",
+	"command.gitlens.review.replyToFinding.title": "回复",
 	"command.gitlens.review.resolveFinding.title": "解决发现",
 	"command.gitlens.review.sendFindingToAgent.title": "让代理处理发现",
 	"command.gitlens.review.walkNext.title": "审查中的下一个文件",
