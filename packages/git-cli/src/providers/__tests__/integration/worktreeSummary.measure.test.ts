@@ -105,6 +105,7 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 
 		peer = cloneTestRepo(origin);
 
+		// Not the shadow-checked service: its full base reads would add to the process counts measured here
 		service = createCliGitService({
 			context: { fs: fs },
 			gitOptions: { logger: countingLogger },
@@ -260,6 +261,7 @@ suite('WorktreeSummaryService base config key after .git/config writes (spawn co
 		peer = cloneTestRepo(origin);
 
 		watchers = [];
+		// Not the shadow-checked service: its full base reads would add to the process counts measured here
 		service = createCliGitService({
 			context: { fs: fs },
 			gitOptions: { logger: countingLogger },

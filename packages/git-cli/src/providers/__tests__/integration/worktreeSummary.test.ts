@@ -14,7 +14,8 @@ import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../../../cliGitProvider.js';
 import { createCliGitService } from '../../../service.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, cloneTestRepo, createProvider, createTestRepo } from './helpers.js';
+import { addCommit, cloneTestRepo, createProvider, createShadowCheckedGitService, createTestRepo } from './helpers.js';
+import { verifyBaseRemeasure } from './shadowCheck.js';
 
 const fs: FileSystemProvider = {
 	readFile: async uri => readFileSync(toFsPath(uri)),
@@ -70,7 +71,7 @@ suite('WorktreeSummaryService against real git', () => {
 				return createDisposable(() => {});
 			},
 		};
-		service = createCliGitService({ context: { fs: fs }, watchingProvider: watchingProvider });
+		service = createShadowCheckedGitService({ context: { fs: fs }, watchingProvider: watchingProvider });
 	});
 
 	teardown(() => {
@@ -1096,6 +1097,11 @@ suite('Re-measuring a base after only its own ref moved', () => {
 						watchers.push({ basePath: basePath, fire: onEvent });
 						return createDisposable(() => {});
 					},
+				},
+				// Shadow-checked, but the full read it makes isn't one the summary needed, so it isn't counted
+				verifyBaseRemeasure: (remeasured, full) => {
+					calls.full--;
+					verifyBaseRemeasure(remeasured, full);
 				},
 			});
 
