@@ -1082,6 +1082,8 @@
 	"Click to fold {0} commits in this lane": "Click to fold {0} commits in this lane",
 	"Click to fold {0} commits in {1}": "Click to fold {0} commits in {1}",
 	"Click to learn more about Launchpad": "Click to learn more about Launchpad",
+	"Click to open the diff on the first one": "Click to open the diff on the first one",
+	"Click to open the diff on the first open one": "Click to open the diff on the first open one",
 	"Click to retry and wait longer for contributors": "Click to retry and wait longer for contributors",
 	"Click to see all changed files": "Click to see all changed files",
 	"Click to see commit actions": "Click to see commit actions",

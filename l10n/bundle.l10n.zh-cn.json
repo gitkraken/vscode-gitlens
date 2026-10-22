@@ -1044,6 +1044,8 @@
 	"Click to fold {0} commits in this lane": "点击折叠此泳道中的 {0} 个提交",
 	"Click to fold {0} commits in {1}": "点击折叠 {1} 中的 {0} 个提交",
 	"Click to learn more about Launchpad": "点击了解 Launchpad 的更多信息",
+	"Click to open the diff on the first one": "点击在第一条处打开差异",
+	"Click to open the diff on the first open one": "点击在第一条未处理处打开差异",
 	"Click to retry and wait longer for contributors": "点击重试并等待更长时间以获取贡献者",
 	"Click to see all changed files": "点击查看所有已更改的文件",
 	"Click to see commit actions": "点击查看提交操作",

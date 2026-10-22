@@ -113,8 +113,22 @@ suite('reviewSession — findings by file', () => {
 				files: [],
 				findings: [
 					{ id: 'f1', severity: 'warning', title: 'one', description: '', filePath: 'src/a.ts' },
-					{ id: 'f2', severity: 'critical', title: 'two', description: '', filePath: 'src/a.ts' },
-					{ id: 'f3', severity: 'suggestion', title: 'three', description: '', filePath: 'src/b.ts' },
+					{
+						id: 'f2',
+						severity: 'critical',
+						title: 'two',
+						description: '',
+						filePath: 'src/a.ts',
+						lineRange: { start: 10, end: 12 },
+					},
+					{
+						id: 'f3',
+						severity: 'suggestion',
+						title: 'three',
+						description: '',
+						filePath: 'src/b.ts',
+						lineRange: { start: 3, end: 3 },
+					},
 					{ id: 'f4', severity: 'critical', title: 'general', description: '' },
 				],
 			},
@@ -124,7 +138,16 @@ suite('reviewSession — findings by file', () => {
 				rationale: '',
 				severity: 'suggestion',
 				files: [],
-				findings: [{ id: 'f5', severity: 'suggestion', title: 'five', description: '', filePath: 'src/a.ts' }],
+				findings: [
+					{
+						id: 'f5',
+						severity: 'suggestion',
+						title: 'five',
+						description: '',
+						filePath: 'src/a.ts',
+						lineRange: { start: 40, end: 41 },
+					},
+				],
 			},
 		],
 	} as unknown as AIReviewResult;
@@ -134,18 +157,35 @@ suite('reviewSession — findings by file', () => {
 		assert.deepStrictEqual(
 			[...byPath.entries()],
 			[
-				['src/a.ts', { open: 3, closed: 0, severity: 'critical' }],
-				['src/b.ts', { open: 1, closed: 0, severity: 'suggestion' }],
+				['src/a.ts', { open: 3, closed: 0, severity: 'critical', target: { start: 10, end: 12 } }],
+				['src/b.ts', { open: 1, closed: 0, severity: 'suggestion', target: { start: 3, end: 3 } }],
 			],
 		);
 
 		let session = withFindingState(emptyReviewSession, 'f2', 'resolved');
 		byPath = getReviewFileFindings(result, session);
-		assert.deepStrictEqual(byPath.get('src/a.ts'), { open: 2, closed: 1, severity: 'warning' });
+		assert.deepStrictEqual(byPath.get('src/a.ts'), {
+			open: 2,
+			closed: 1,
+			severity: 'warning',
+			target: { start: 40, end: 41 },
+		});
 
 		session = withFindingState(session, 'f3', 'dismissed');
 		byPath = getReviewFileFindings(result, session);
-		assert.deepStrictEqual(byPath.get('src/b.ts'), { open: 0, closed: 1 });
+		assert.deepStrictEqual(byPath.get('src/b.ts'), { open: 0, closed: 1, target: { start: 3, end: 3 } });
+	});
+
+	test('the target is the first open finding with a line; with none open, the first finding with a line', () => {
+		let session = withFindingState(emptyReviewSession, 'f2', 'resolved');
+		session = withFindingState(session, 'f5', 'dismissed');
+		// f1 is open but has no line — the closed f2 still names where to land
+		assert.deepStrictEqual(getReviewFileFindings(result, session).get('src/a.ts'), {
+			open: 1,
+			closed: 2,
+			severity: 'warning',
+			target: { start: 10, end: 12 },
+		});
 	});
 
 	test('no result means no marks', () => {

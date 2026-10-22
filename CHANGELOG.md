@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - _Review in Repo_ hands the changes to your agent with a channel back into the review: the agent can build, test and trace call paths, and the findings it reports stream into the panel and the diff as they arrive, marked _AGENT_
   - Findings also appear in the diff editor as comment threads at their lines, with _Resolve_, _Dismiss_, _Reopen_ and _Send Finding to Agent_ on the thread, and the thread follows the finding's state in the panel
   - Findings can be _Resolved_, _Dismissed_ and _Reopened_, and a review ends: once every file is viewed, a _Review complete_ summary offers _Copy Summary_ and _Send Remaining to Agent_
-  - Each file in the checklist shows how many findings are open on it, in the color of the worst one, and the mark dims once they are all closed &mdash; the findings themselves sit in the diff as comments
+  - Each file in the checklist shows how many findings are open on it, in the color of the worst one, and the mark dims once they are all closed; clicking it opens the diff on the first open finding (or the first of all, once they are closed)
   - The file list stays in place while an AI review runs and alongside its findings, and _Discard Findings_ drops only the AI's findings &mdash; your viewed progress and the review stay
   - Review mode no longer requires AI features to be enabled &mdash; only _Review Diff_ does
 

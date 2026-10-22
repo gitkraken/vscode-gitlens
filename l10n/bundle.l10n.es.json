@@ -1044,6 +1044,8 @@
 	"Click to fold {0} commits in this lane": "Haga clic para plegar {0} commits en este carril",
 	"Click to fold {0} commits in {1}": "Haga clic para plegar {0} commits en {1}",
 	"Click to learn more about Launchpad": "Haga clic para obtener más información sobre Launchpad",
+	"Click to open the diff on the first one": "Haga clic para abrir el diff en el primero",
+	"Click to open the diff on the first open one": "Haga clic para abrir el diff en el primero abierto",
 	"Click to retry and wait longer for contributors": "Haga clic para reintentar y esperar más tiempo por los colaboradores",
 	"Click to see all changed files": "Haga clic para ver todos los archivos modificados",
 	"Click to see commit actions": "Haga clic para ver las acciones del commit",

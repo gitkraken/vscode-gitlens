@@ -1044,6 +1044,8 @@
 	"Click to fold {0} commits in this lane": "點選摺疊此泳道中的 {0} 個認可",
 	"Click to fold {0} commits in {1}": "點選摺疊 {1} 中的 {0} 個認可",
 	"Click to learn more about Launchpad": "點選了解 Launchpad 的更多資訊",
+	"Click to open the diff on the first one": "點選在第一條處開啟差異",
+	"Click to open the diff on the first open one": "點選在第一條未處理處開啟差異",
 	"Click to retry and wait longer for contributors": "點選重試並等待更長時間以取得貢獻者",
 	"Click to see all changed files": "點選檢視所有已變更的檔案",
 	"Click to see commit actions": "點選檢視認可操作",

@@ -153,6 +153,9 @@ export interface TreeItemDecorationCount extends TreeItemDecorationBase {
 	count: number;
 	tooltip?: string;
 	kind?: 'error' | 'warning' | 'info' | 'muted';
+	/** When set, the badge is a button: a click raises this as the row's action (see
+	 *  `gl-tree-generated-item-action-clicked`) instead of selecting the row. */
+	action?: string;
 }
 
 export type TreeItemDecoration =

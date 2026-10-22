@@ -1225,6 +1225,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 							this.dispatchFileExcluded(e.detail.path, true)}
 						@review-file-include=${(e: CustomEvent<FileChangeListItemDetail>) =>
 							this.dispatchFileExcluded(e.detail.path, false)}
+						@review-file-findings=${this.onOpenFileFindings}
 						@file-open=${this.redispatch}
 						@file-stage=${this.redispatch}
 						@file-unstage=${this.redispatch}
@@ -1316,6 +1317,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 								this.dispatchFileExcluded(e.detail.path, true)}
 							@review-file-include=${(e: CustomEvent<FileChangeListItemDetail>) =>
 								this.dispatchFileExcluded(e.detail.path, false)}
+							@review-file-findings=${this.onOpenFileFindings}
 							@file-open=${this.redispatch}
 							@file-stage=${this.redispatch}
 							@file-unstage=${this.redispatch}
@@ -1463,17 +1465,21 @@ export class GlDetailsReviewModePanel extends LitElement {
 	 *  once every finding on the file has been resolved or dismissed. The findings themselves sit in the
 	 *  diff as comment threads, which the tooltip says. */
 	private getFindingsDecoration(findings: ReviewFileFindings): TreeItemDecoration {
+		const action = findings.target != null ? 'review-file-findings' : undefined;
 		if (findings.open === 0) {
+			const closed = formatPlural(
+				l10n.t('{count, plural, one{{count} finding, closed} other{{count} findings, all closed}}'),
+				{ count: findings.closed },
+			);
 			return {
 				type: 'count',
 				icon: 'comment',
 				count: findings.closed,
 				kind: 'muted',
-				label: formatPlural(
-					l10n.t('{count, plural, one{{count} finding, closed} other{{count} findings, all closed}}'),
-					{ count: findings.closed },
-				),
+				label: closed,
+				tooltip: action ? `${closed} · ${l10n.t('Click to open the diff on the first one')}` : closed,
 				position: 'after',
+				...(action ? { action: action } : {}),
 			};
 		}
 
@@ -1490,7 +1496,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 		if (findings.closed > 0) {
 			parts.push(l10n.t('{count} closed', { count: findings.closed }));
 		}
-		parts.push(l10n.t('Shown as comments in the diff'));
+		parts.push(
+			action ? l10n.t('Click to open the diff on the first open one') : l10n.t('Shown as comments in the diff'),
+		);
 		return {
 			type: 'count',
 			icon: 'comment',
@@ -1499,8 +1507,15 @@ export class GlDetailsReviewModePanel extends LitElement {
 			label: open,
 			tooltip: parts.join(' · '),
 			position: 'after',
+			...(action ? { action: action } : {}),
 		};
 	}
+
+	/** The mark's click: the diff, on the file's first open finding (or first of all, once closed). */
+	private onOpenFileFindings = (e: CustomEvent<FileChangeListItemDetail>): void => {
+		const target = this._fileFindings?.get(e.detail.path)?.target;
+		this.handleOpenFile(e.detail.path, target?.start, target?.end);
+	};
 
 	private getFileContext = (file: ScopeFile): string | undefined => {
 		const scope = this.scope;

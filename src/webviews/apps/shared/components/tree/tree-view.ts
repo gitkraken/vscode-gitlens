@@ -276,6 +276,14 @@ count of open findings should read as urgent as the findings are. */
 
 			/* The badge sits inside a gl-tooltip, so it is this element's own style — not the row's ::slotted
 rules — that colors it. Muted dims like a description; the rest take the editor's diagnostic colors. */
+			.count-badge--action {
+				cursor: pointer;
+			}
+
+			.count-badge--action:hover {
+				background: color-mix(in srgb, transparent 76%, currentColor);
+			}
+
 			.count-badge--muted {
 				opacity: 0.7;
 			}
@@ -1028,9 +1036,26 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 
 			if (decoration.type === 'count') {
 				const tooltip = decoration.tooltip ?? decoration.label;
-				const classes = `count-badge${decoration.kind ? ` count-badge--${decoration.kind}` : ''}`;
+				const action = decoration.action;
+				const classes = `count-badge${decoration.kind ? ` count-badge--${decoration.kind}` : ''}${
+					action ? ' count-badge--action' : ''
+				}`;
 				return html`<gl-tooltip slot=${slot} part=${slot} placement="top">
-					<span class=${classes} aria-label=${ifDefined(tooltip)}
+					<span
+						class=${classes}
+						role=${ifDefined(action ? 'button' : undefined)}
+						aria-label=${ifDefined(tooltip)}
+						@click=${
+							action
+								? (e: MouseEvent) =>
+										this.onTreeItemActionClicked(
+											e,
+											model,
+											{ icon: decoration.icon, label: decoration.label, action: action },
+											false,
+										)
+								: undefined
+						}
 						><code-icon icon=${decoration.icon} size="12"></code-icon>${decoration.count}</span
 					>
 					<span slot="content">${tooltip}</span>

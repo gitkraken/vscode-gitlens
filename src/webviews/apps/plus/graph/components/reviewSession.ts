@@ -174,6 +174,9 @@ export interface ReviewFileFindings {
 	closed: number;
 	/** The highest severity among the open findings; absent when none is open. */
 	severity?: AIReviewSeverity;
+	/** Where to land when the reader opens the file from its mark: the first open finding with a line,
+	 *  or the first finding at all once every one is closed; absent when none names a line. */
+	target?: { readonly start: number; readonly end: number };
 }
 
 const severityRank: Record<AIReviewSeverity, number> = { critical: 0, warning: 1, suggestion: 2 };
@@ -187,6 +190,8 @@ export function getReviewFileFindings(
 	const byPath = new Map<string, ReviewFileFindings>();
 	if (result == null) return byPath;
 
+	// Files whose target is an open finding already — a closed one never replaces it
+	const openTargets = new Set<string>();
 	for (const area of result.focusAreas) {
 		for (const finding of area.findings ?? []) {
 			if (finding.filePath == null) continue;
@@ -197,7 +202,15 @@ export function getReviewFileFindings(
 				byPath.set(finding.filePath, entry);
 			}
 
-			if (session?.findingStates.get(finding.id) != null) {
+			const open = session?.findingStates.get(finding.id) == null;
+			if (finding.lineRange != null && !openTargets.has(finding.filePath) && (open || entry.target == null)) {
+				entry.target = finding.lineRange;
+				if (open) {
+					openTargets.add(finding.filePath);
+				}
+			}
+
+			if (!open) {
 				entry.closed++;
 				continue;
 			}
