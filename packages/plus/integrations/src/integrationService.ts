@@ -1617,7 +1617,11 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 			async function load() {
 				return new (
 					await import(/* webpackChunkName: "integrations" */ './providers/providersApi.js')
-				).ProvidersApi(authenticationService, authenticationService.apis.azureWorkItemStates);
+				).ProvidersApi(
+					authenticationService,
+					authenticationService.apis.azureWorkItemStates,
+					authenticationService.apis.azureWorkItemDescriptions,
+				);
 			}
 
 			// Never keep a rejected promise cached: a single failure (a module-resolution error, a transient
