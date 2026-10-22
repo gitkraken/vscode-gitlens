@@ -280,11 +280,12 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	@trace()
 	async getConfigRegexAll(repoPath: string, pattern: string): Promise<Map<string, string[]>> {
 		// Under a key no regex is spelled as, with each key's values joined by a NUL, which no value can hold
-		const joined = await this.cache.getConfigRegex(repoPath, `\0all\0${pattern}`, async () => {
-			// Read from the common path, never the caller's checkout: every worktree is served this one entry, so it
-			// must not take in a `config.worktree` of whichever checkout happened to read first
+		// Read from, and cached under, the common path, never the caller's checkout: every worktree is served this one
+		// entry, so it must not take in a `config.worktree` of whichever checkout happened to read first
+		const commonPath = this.cache.getCommonPath(repoPath);
+		const joined = await this.cache.getConfigRegex(commonPath, `\0all\0${pattern}`, async () => {
 			const result = await this.git.run(
-				{ cwd: this.cache.getCommonPath(repoPath), errors: 'ignore' },
+				{ cwd: commonPath, errors: 'ignore' },
 				'config',
 				'--null',
 				'--get-regexp',

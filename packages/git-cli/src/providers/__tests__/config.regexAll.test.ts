@@ -58,7 +58,7 @@ suite('ConfigGitSubProvider.getConfigRegexAll', () => {
 				key: string,
 				factory: () => Map<string, string> | Promise<Map<string, string>>,
 			) => {
-				const cacheKey = `${getCommonPath(repoPath)}\0${key}`;
+				const cacheKey = `${repoPath}\0${key}`;
 				let entry = entries.get(cacheKey);
 				if (entry == null) {
 					entry = Promise.resolve(factory());
