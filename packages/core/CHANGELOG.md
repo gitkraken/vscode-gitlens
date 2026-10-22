@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes a fetch that moves a worktree's base (usually `origin/main`) making every worktree summary based on it re-read its base, four or five git processes each: when the base ref is the only dependency that moved, by name, and it only fast-forwarded since the last read (by its reflog, since a commit of the branch's that the base held in between moves the fork point), the summary recounts ahead with one `rev-list --count`, past the new tip, the previous fork point and whatever the base's reflog reaches off the new tip's history, and, when the count is unchanged, keeps the target, tier and fork point, updating only the base's commit. The reflog and ancestry check is shared by every worktree of the repository, and anything else (the branch landing, a force-push, another dependency or an unnamed ref change moving, a base name another ref now also answers to, a remote `HEAD` retargeted so the default branch resolves differently, a fork point the base's reflog supplied, possibly since expired, a reflog entry holding the branch's commits, a shallow repository) re-reads the base in full. Adds an optional `GitBranchesSubProvider.getAheadOfBaseAfterBaseMove` for it, and an optional `AheadOfBase.defaultBranch`, the default branch a read resolved (`null` for none), which the re-measure compares and keeps (git, git-cli)
+
 ## [0.15.7] - 2026-10-22
 
 ### Added

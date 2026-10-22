@@ -250,6 +250,7 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `getPotentialMergeConflicts?(repoPath, branch, targetBranch, cancellation?)`         | `ConflictDetectionResult`                  |
 | `getAheadOfBase?(repoPath, branch, options?, cancellation?)`                         | `AheadOfBase`                              |
 | `getAheadOfBaseConfigKey?(repoPath, cancellation?)`                                  | `string \| undefined`                      |
+| `getAheadOfBaseAfterBaseMove?(repoPath, branch, previous, moved, cancellation?)`     | `AheadOfBase \| undefined`                 |
 | `getBaseBranchName?(repoPath, ref, cancellation?)`                                   | `string \| undefined`                      |
 | `getStoredMergeTargetBranchName?(repoPath, ref, options?, cancellation?)`            | `string \| undefined`                      |
 | `getStoredDetectedMergeTargetBranchName?(repoPath, ref)`                             | `string \| undefined`                      |

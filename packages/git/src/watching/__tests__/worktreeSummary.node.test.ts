@@ -108,6 +108,8 @@ class FakeRepository {
 		baseFail: Error | undefined;
 		configKey: string | undefined;
 		configKeyFail: Error | undefined;
+		/** What re-measuring the base after a move answers; `undefined` sends the read to `getAheadOfBase` */
+		baseMove: FakeBase | undefined;
 	} = {
 		branch: 'main',
 		detached: false,
@@ -124,12 +126,21 @@ class FakeRepository {
 		baseFail: undefined,
 		configKey: 'config-v1',
 		configKeyFail: undefined,
+		baseMove: undefined,
 	};
 
 	readonly counts: ReadCounts = { dirty: 0, branch: 0, base: 0, remotes: 0 };
 	/** Reads of the stored base values (kept out of {@link counts}: they're shared, cached gk config reads) */
 	baseKeyReads = 0;
 	configKeyReads = 0;
+	/** Each base re-measure asked for (kept out of {@link counts}: it stands in for a base read only when it answers) */
+	readonly baseMoves: {
+		branch: string | undefined;
+		head: string;
+		base: FakeBase;
+		dependsOn: readonly string[];
+		moved: string[];
+	}[] = [];
 	readonly signals: (AbortSignal | undefined)[] = [];
 	/** The branch each base read was asked about, in order (`undefined` for a detached HEAD) */
 	readonly baseBranches: (string | undefined)[] = [];
@@ -183,6 +194,21 @@ class FakeRepository {
 						base: base != null ? { ...base } : undefined,
 						dependsOn: this.state.baseDependsOn,
 					};
+				},
+				getAheadOfBaseAfterBaseMove: async (
+					branch: string | undefined,
+					previous: { head: string; base: FakeBase; dependsOn: readonly string[] },
+					moved: readonly string[],
+				) => {
+					this.baseMoves.push({ branch: branch, ...previous, moved: [...moved].sort() });
+					const base = this.state.baseMove;
+					if (base == null) return undefined;
+
+					// Held only when it answers, so a hold on a declined one lands on the full read it falls back to
+					if (this.gate != null) {
+						await this.gate;
+					}
+					return { base: { ...base }, dependsOn: this.state.baseDependsOn };
 				},
 				getStoredUserMergeTargetBranchName: async (_branch: string) => {
 					this.baseKeyReads++;
@@ -2035,6 +2061,177 @@ describe('WorktreeSummaryService', () => {
 				forkPoint: 'fff222',
 				tier: 'default',
 			});
+		});
+	});
+
+	describe('base re-measure after its own ref moved', () => {
+		const originMain = 'refs/remotes/origin/main';
+		const originHead = 'refs/remotes/origin/HEAD';
+		const dependsOn = ['refs/heads/main', originMain, originHead];
+		const previousBase: FakeBase = {
+			ref: 'origin/main',
+			ahead: 3,
+			sha: 'ddd111',
+			forkPoint: 'fff111',
+			tier: 'created',
+		};
+		const movedBase: FakeBase = { ...previousBase, sha: 'ddd222' };
+
+		async function setup(): Promise<Harness> {
+			const h = createHarness();
+			// No upstream, so a move of `origin/main` reaches only the base
+			h.repo.state.upstream = undefined;
+			h.repo.state.base = { ...previousBase };
+			h.repo.state.baseDependsOn = dependsOn;
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			return h;
+		}
+
+		/** What a fetch that moved `origin/main` announces */
+		function fetched(h: Harness): void {
+			h.session().noteSelfWrite(['remotes'], [originMain, originHead]);
+		}
+
+		it('re-measures the base, in place of reading it, when a fetch names the refs it moved', async () => {
+			const h = await setup();
+			h.repo.state.baseMove = movedBase;
+
+			assert.deepStrictEqual(await readsAfter(h, () => fetched(h)), none);
+			assert.deepStrictEqual(h.repo.baseMoves, [
+				{
+					branch: 'main',
+					head: 'aaa111',
+					base: previousBase,
+					dependsOn: dependsOn,
+					moved: [originHead, originMain],
+				},
+			]);
+			const summary = await h.service.getSummary(repoPath);
+			assert.deepStrictEqual(summary.base, movedBase);
+			assert.strictEqual(summary.stale, false);
+		});
+
+		it('reads the base in full when the re-measure cannot answer', async () => {
+			const h = await setup();
+			h.repo.state.base = { ...previousBase, ahead: 1, sha: 'ddd222', forkPoint: 'fff222' };
+
+			assert.deepStrictEqual(await readsAfter(h, () => fetched(h)), onlyBase);
+			assert.strictEqual(h.repo.baseMoves.length, 1);
+			assert.deepStrictEqual((await h.service.getSummary(repoPath)).base, h.repo.state.base);
+		});
+
+		it('reads the base in full, without re-measuring, when the move is not named exactly', async () => {
+			const h = await setup();
+			h.repo.state.baseMove = movedBase;
+
+			// A ref kind with no name: a packed-refs rewrite, an overflow's rescan
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['remotes'])), onlyBase);
+			// A ref directory, as a poll or a remote's removal reports it
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['remotes'], 'refs/remotes/origin')), onlyBase);
+			// Named and unnamed at once
+			assert.deepStrictEqual(
+				await readsAfter(h, () => {
+					fetched(h);
+					h.push(['remotes']);
+				}),
+				onlyBase,
+			);
+			assert.deepStrictEqual(h.repo.baseMoves, []);
+		});
+
+		it('reads everything, without re-measuring, when the branch moved along with the base', async () => {
+			const h = await setup();
+			h.repo.state.baseMove = movedBase;
+
+			assert.deepStrictEqual(
+				await readsAfter(h, () => {
+					fetched(h);
+					h.push(['heads'], 'refs/heads/main');
+				}),
+				// No upstream, so no remotes to read
+				{ dirty: 1, branch: 1, base: 1, remotes: 0 },
+			);
+			assert.deepStrictEqual(h.repo.baseMoves, []);
+		});
+
+		it('reads the base in full when the stored base values changed along with the move', async () => {
+			const h = await setup();
+			h.repo.state.baseMove = movedBase;
+			h.repo.state.userMergeTarget = 'origin/release';
+
+			assert.deepStrictEqual(
+				await readsAfter(h, () => {
+					fetched(h);
+					h.push(['gkConfig']);
+				}),
+				onlyBase,
+			);
+			assert.deepStrictEqual(h.repo.baseMoves, []);
+		});
+
+		it('re-measures when a gk config change that came with the move left the stored values as they were', async () => {
+			const h = await setup();
+			h.repo.state.baseMove = movedBase;
+
+			assert.deepStrictEqual(
+				await readsAfter(h, () => {
+					fetched(h);
+					h.push(['gkConfig']);
+				}),
+				none,
+			);
+			assert.strictEqual(h.repo.baseMoves.length, 1);
+			assert.deepStrictEqual((await h.service.getSummary(repoPath)).base, movedBase);
+		});
+
+		it('reads the base in full when the config inputs to it changed along with the move', async () => {
+			const h = await setup();
+			h.repo.state.baseMove = movedBase;
+			h.repo.state.configKey = 'config-v2';
+
+			const reads = await readsAfter(h, () => {
+				fetched(h);
+				h.push(['config']);
+			});
+			assert.deepStrictEqual(reads, { dirty: 0, branch: 1, base: 1, remotes: 0 });
+			assert.deepStrictEqual(h.repo.baseMoves, []);
+		});
+
+		it('reads the base in full when the config inputs changed before their own event arrived', async () => {
+			const h = await setup();
+			h.repo.state.baseMove = movedBase;
+			// A write whose caches were evicted ahead of its event, as core's own writes are
+			h.repo.state.configKey = 'config-v2';
+
+			assert.deepStrictEqual(await readsAfter(h, () => fetched(h)), onlyBase);
+			assert.deepStrictEqual(h.repo.baseMoves, []);
+			// The config event that follows finds the base read against what it reports
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), { ...onlyBranch, remotes: 0 });
+		});
+
+		it('gives a move that arrives during a re-measure its own follow-up, with only its refs', async () => {
+			const h = await setup();
+			const upstreamMain = 'refs/remotes/upstream/main';
+			h.repo.state.baseDependsOn = [...dependsOn, upstreamMain];
+			// Picks up the longer list
+			await readsAfter(h, () => h.push(['remotes'], originMain));
+			h.repo.baseMoves.length = 0;
+			h.repo.state.baseMove = movedBase;
+
+			h.repo.hold();
+			fetched(h);
+			await waitFor(() => h.repo.baseMoves.length === 1);
+			h.push(['remotes'], upstreamMain);
+			await delay(30);
+			h.repo.release();
+			await waitFor(() => h.repo.baseMoves.length === 2);
+			await h.service.getSummary(repoPath);
+
+			assert.deepStrictEqual(
+				h.repo.baseMoves.map(m => m.moved),
+				[[originHead, originMain], [upstreamMain]],
+			);
 		});
 	});
 
