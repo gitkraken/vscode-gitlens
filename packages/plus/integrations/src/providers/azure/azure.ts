@@ -63,11 +63,14 @@ import type { AzureWorkItemSearchCursor } from './search.js';
 import {
 	azureWorkItemBatchLimit,
 	azureWorkItemSearchResultLimit,
+	azureWorkItemWiqlLengthLimit,
 	parseAzureWorkItemSearchCursor,
 	toAzureSearchPageSize,
 	toAzureWorkItemSearchCursorKey,
+	toAzureWorkItemSearchQueries,
 	toAzureWorkItemSearchWiql,
 } from './search.js';
+import { queryAzureWorkItemSearch } from './workItemSearch.js';
 import {
 	AzureWorkItemStatesCache,
 	getAzureWorkItemTypeStatesPath,
@@ -79,6 +82,13 @@ const workItemMetadataConcurrency = 6;
 /** How long a work-item search's id snapshot outlives the last page read from it, and the most it lives at all. */
 const workItemSearchSnapshotTtl = 5 * 60 * 1000;
 const workItemSearchSnapshotMaxTtl = 30 * 60 * 1000;
+
+type WorkItemSearchOptions = {
+	baseUrl: string;
+	criteria?: IssueSearchCriteria;
+	projectNames?: readonly string[];
+	workflowProjectNames?: readonly string[];
+};
 
 /** Whether Azure refused a WIQL query for matching more work items than it will return (`VS402337`). */
 function isWorkItemLimitRefusal(ex: unknown): boolean {
@@ -677,11 +687,12 @@ export class AzureDevOpsApi implements Disposable {
 		options: {
 			baseUrl: string;
 		},
+		cancellation?: AbortSignal,
 	): Promise<AzureWorkItemStateCategory | undefined> {
 		const states = await this._workItemStates.getStates(
 			{ baseUrl: options.baseUrl, namespace: owner, project: projectName, token: token.accessToken, isPAT: true },
 			issueType,
-			() =>
+			signal =>
 				this.request(
 					provider,
 					token,
@@ -689,7 +700,9 @@ export class AzureDevOpsApi implements Disposable {
 					getAzureWorkItemTypeStatesPath(owner, projectName, issueType),
 					{ method: 'GET' },
 					undefined,
+					signal,
 				),
+			cancellation,
 		);
 		return states.find(s => s.name === state)?.category as AzureWorkItemStateCategory | undefined;
 	}
@@ -803,13 +816,13 @@ export class AzureDevOpsApi implements Disposable {
 	}
 
 	/**
-	 * One page of a filtered work-item search over a collection: a WIQL query for the ordered ids, then one detail
-	 * read for the page's slice of them.
+	 * One page of a filtered work-item search over a collection: bounded WIQL queries for the ordered ids, then one
+	 * detail read for the page's slice of them.
 	 *
 	 * The ids a first page queried are kept as the snapshot its continuations page through, for as long as the
-	 * pagination keeps reading it, so it reads a consistent set rather than re-running a query whose rows move under
-	 * an `updated` order. Each first page queries its own snapshot, so paginations of one query never share one, and
-	 * a continuation whose snapshot is gone is refused (see {@link AzureWorkItemSearchCursor}).
+	 * pagination keeps reading it, so metadata changes cannot retarget the continuation. Each first page queries its
+	 * own snapshot, so paginations never share one. A continuation whose snapshot is gone is refused (see
+	 * {@link AzureWorkItemSearchCursor}).
 	 *
 	 * The query asks for one id more than {@link azureWorkItemSearchResultLimit}, bounded by `$top`: the extra id is
 	 * what tells "exactly the limit" from "past it". Past it, the page is `truncated` with `limitReached` and no total,
@@ -832,10 +845,7 @@ export class AzureDevOpsApi implements Disposable {
 		provider: Provider,
 		token: TokenWithInfo,
 		collection: string,
-		options: {
-			baseUrl: string;
-			criteria?: IssueSearchCriteria;
-			projectNames: readonly string[];
+		options: WorkItemSearchOptions & {
 			resolveProject: (name: string) => AzureProjectDescriptor | undefined;
 			cursor?: string;
 			pageSize?: number;
@@ -843,23 +853,29 @@ export class AzureDevOpsApi implements Disposable {
 		cancellation?: AbortSignal,
 	): Promise<ProviderIssueSearchPage> {
 		const scope = getScopedLogger();
-		const wiql = await this.getWorkItemSearchWiql(provider, token, collection, options);
-		const key = toAzureWorkItemSearchCursorKey(collection, wiql);
+		if (cancellation?.aborted) throw new CancellationError();
+
+		const identity = JSON.stringify([
+			options.criteria?.state ?? 'open',
+			toAzureWorkItemSearchWiql(
+				{ ...options.criteria, state: 'all' },
+				effectiveIssueSort(options.criteria?.sort),
+				options.projectNames,
+			),
+		]);
+		const key = toAzureWorkItemSearchCursorKey(collection, identity);
 		const pageSize = toAzureSearchPageSize(options.pageSize, 100, azureWorkItemBatchLimit);
 		const cursor = parseAzureWorkItemSearchCursor(options.cursor, key, pageSize);
 		const page = cursor?.page ?? 1;
 
-		// Keyed by credential and address, and by the query itself rather than its fingerprint: two accounts on one
-		// installation must never page through each other's matches, and two queries whose fingerprints collide must
-		// never share a snapshot. The full credential digest, since the token's `microHash` is truncated for logs.
-		// And by the snapshot's own id: a first page queries a new snapshot rather than replacing the query's, so a
-		// pagination still reading an earlier one keeps it (see `AzureWorkItemSearchCursor`).
+		// Keep the full request identity: metadata changes cannot retarget a live snapshot, and a hash collision
+		// cannot let a different query or credential read it.
 		const snapshot = cursor?.snapshot ?? uuid();
 		const snapshotKey = JSON.stringify([
 			await sha256(token.accessToken),
 			options.baseUrl,
 			collection,
-			wiql,
+			identity,
 			snapshot,
 		]);
 		// A continuation only ever READS its snapshot: resuming against a fresh query could skip a work item silently.
@@ -872,28 +888,21 @@ export class AzureDevOpsApi implements Disposable {
 			this._workItemSearches.getOrCreate(
 				snapshotKey,
 				(_cacheable, signal) =>
-					this.queryWorkItemIds(
-						provider,
-						token,
-						collection,
-						options.baseUrl,
-						wiql,
-						azureWorkItemSearchResultLimit + 1,
-						scope,
-						signal,
-					).catch((ex: unknown) => {
-						// `$top` is expected to bound the answer; should a server refuse the match set regardless, say
-						// what happened rather than surfacing a bare client error.
-						if (isWorkItemLimitRefusal(ex)) {
-							throw new Error(
-								`${provider.name} refused a work item search matching more than ${azureWorkItemSearchResultLimit} results; narrow the search`,
-							);
-						}
+					this.readWorkItemSearch(provider, token, collection, options, true, scope, signal).catch(
+						(ex: unknown) => {
+							if (isWorkItemLimitRefusal(ex)) {
+								throw new Error(
+									`${provider.name} refused a work item search matching more than ${azureWorkItemSearchResultLimit} results; narrow the search`,
+								);
+							}
 
-						throw ex;
-					}),
+							throw ex;
+						},
+					),
 				{ cancellation: cancellation },
 			));
+		if (cancellation?.aborted) throw new CancellationError();
+
 		const limitReached = result.length > azureWorkItemSearchResultLimit;
 		const ids = limitReached ? result.slice(0, azureWorkItemSearchResultLimit) : result;
 
@@ -924,6 +933,8 @@ export class AzureDevOpsApi implements Disposable {
 					throw new Error(`Azure DevOps work item ${id} is in project '${projectName}', which isn't visible`);
 				}
 
+				if (cancellation?.aborted) throw new CancellationError();
+
 				const stateCategory = await this.getWorkItemStateCategory(
 					workItem.fields['System.WorkItemType'],
 					workItem.fields['System.State'],
@@ -932,10 +943,13 @@ export class AzureDevOpsApi implements Disposable {
 					collection,
 					project.name,
 					options,
+					cancellation,
 				);
 				values.push(fromAzureWorkItem(workItem, provider, project, stateCategory, 'search'));
 			}
 		}
+
+		if (cancellation?.aborted) throw new CancellationError();
 
 		const nextOffset = offset + slice.length;
 		const hasMore = nextOffset < ids.length;
@@ -968,23 +982,23 @@ export class AzureDevOpsApi implements Disposable {
 		provider: Provider,
 		token: TokenWithInfo,
 		collection: string,
-		options: { baseUrl: string; criteria?: IssueSearchCriteria; projectNames: readonly string[] },
+		options: WorkItemSearchOptions,
 		cancellation?: AbortSignal,
 	): Promise<number | 'exceeds-limit'> {
 		const scope = getScopedLogger();
-		const wiql = await this.getWorkItemSearchWiql(provider, token, collection, options);
+		if (cancellation?.aborted) throw new CancellationError();
+
 		try {
-			const ids = await this.queryWorkItemIds(
+			const result = await this.readWorkItemSearch(
 				provider,
 				token,
 				collection,
-				options.baseUrl,
-				wiql,
-				azureWorkItemSearchResultLimit + 1,
+				options,
+				false,
 				scope,
 				cancellation,
 			);
-			return ids.length > azureWorkItemSearchResultLimit ? 'exceeds-limit' : ids.length;
+			return result.length > azureWorkItemSearchResultLimit ? 'exceeds-limit' : result.length;
 		} catch (ex) {
 			if (isWorkItemLimitRefusal(ex)) return 'exceeds-limit';
 
@@ -992,16 +1006,52 @@ export class AzureDevOpsApi implements Disposable {
 		}
 	}
 
-	private async getWorkItemSearchWiql(
+	private async readWorkItemSearch(
 		provider: Provider,
 		token: TokenWithInfo,
 		collection: string,
-		options: { baseUrl: string; criteria?: IssueSearchCriteria; projectNames: readonly string[] },
-	): Promise<string> {
+		options: WorkItemSearchOptions,
+		ordered: boolean,
+		scope: ScopedLogger | undefined,
+		cancellation?: AbortSignal,
+	): Promise<number[]> {
+		const queries = await this.getWorkItemSearchQueries(provider, token, collection, options, cancellation);
+		return queryAzureWorkItemSearch(
+			queries,
+			effectiveIssueSort(options.criteria?.sort),
+			ordered,
+			(wiql, top, asOf) =>
+				this.queryWorkItemIds(
+					provider,
+					token,
+					collection,
+					options.baseUrl,
+					wiql,
+					top,
+					scope,
+					cancellation,
+					asOf,
+				),
+			cancellation,
+		);
+	}
+
+	private async getWorkItemSearchQueries(
+		provider: Provider,
+		token: TokenWithInfo,
+		collection: string,
+		options: WorkItemSearchOptions,
+		cancellation?: AbortSignal,
+	): Promise<string[]> {
+		if (cancellation?.aborted) throw new CancellationError();
+
+		const projectNames = options.projectNames ?? options.workflowProjectNames ?? [];
 		let workflows: Map<string, AzureWorkItemTypeStates> | undefined;
 		if (options.criteria?.state !== 'all') {
 			const types = (
-				await mapBounded(options.projectNames, workItemMetadataConcurrency, async project => {
+				await mapBounded(projectNames, workItemMetadataConcurrency, async project => {
+					if (cancellation?.aborted) throw new CancellationError();
+
 					const scope = {
 						baseUrl: options.baseUrl,
 						namespace: collection,
@@ -1009,15 +1059,19 @@ export class AzureDevOpsApi implements Disposable {
 						token: token.accessToken,
 						isPAT: true,
 					};
-					const names = await this._workItemStates.getTypes(scope, () =>
-						this.request(
-							provider,
-							token,
-							undefined,
-							getAzureWorkItemTypesUrl(options.baseUrl, collection, project),
-							{ method: 'GET' },
-							undefined,
-						),
+					const names = await this._workItemStates.getTypes(
+						scope,
+						signal =>
+							this.request(
+								provider,
+								token,
+								undefined,
+								getAzureWorkItemTypesUrl(options.baseUrl, collection, project),
+								{ method: 'GET' },
+								undefined,
+								signal,
+							),
+						cancellation,
 					);
 					return names.map(name => ({ project: project, name: name, scope: scope }));
 				})
@@ -1025,29 +1079,31 @@ export class AzureDevOpsApi implements Disposable {
 			const states = await mapBounded(types, workItemMetadataConcurrency, async type => ({
 				name: type.name,
 				project: type.project,
-				states: await this._workItemStates.getStates(type.scope, type.name, () =>
-					this.request(
-						provider,
-						token,
-						options.baseUrl,
-						getAzureWorkItemTypeStatesPath(collection, type.project, type.name),
-						{ method: 'GET' },
-						undefined,
-					),
+				states: await this._workItemStates.getStates(
+					type.scope,
+					type.name,
+					signal =>
+						this.request(
+							provider,
+							token,
+							options.baseUrl,
+							getAzureWorkItemTypeStatesPath(collection, type.project, type.name),
+							{ method: 'GET' },
+							undefined,
+							signal,
+						),
+					cancellation,
 				),
 			}));
 			workflows = new Map(
-				options.projectNames.map(project => [
-					project,
-					{ types: states.filter(type => type.project === project) },
-				]),
+				projectNames.map(project => [project, { types: states.filter(type => type.project === project) }]),
 			);
 		}
 
-		return toAzureWorkItemSearchWiql(
+		return toAzureWorkItemSearchQueries(
 			options.criteria,
 			effectiveIssueSort(options.criteria?.sort),
-			options.projectNames,
+			projectNames,
 			workflows,
 		);
 	}
@@ -1067,19 +1123,25 @@ export class AzureDevOpsApi implements Disposable {
 		top: number,
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal,
-	): Promise<number[]> {
-		const result = await this.request<{ workItems?: { id: number }[] }>(
+		asOf?: string,
+	): Promise<{ ids: number[]; asOf?: string }> {
+		const query = asOf == null ? wiql : `${wiql} ASOF '${asOf}'`;
+		if (query.length > azureWorkItemWiqlLengthLimit) {
+			throw new Error('Azure DevOps work item search query is too long; narrow the search');
+		}
+
+		const result = await this.request<{ workItems?: { id: number }[]; asOf?: string }>(
 			provider,
 			token,
 			baseUrl,
 			`${encodeAzurePathSegment(collection)}/_apis/wit/wiql?$top=${top}&timePrecision=true&api-version=5.0`,
-			{ method: 'POST', body: JSON.stringify({ query: wiql }) },
+			{ method: 'POST', body: JSON.stringify({ query: query }) },
 			scope,
 			cancellation,
 		);
 		if (result?.workItems == null) throw new Error('Azure DevOps returned no work item query result');
 
-		return result.workItems.map(w => w.id);
+		return { ids: result.workItems.map(w => w.id), asOf: result.asOf };
 	}
 
 	private getRepository(
