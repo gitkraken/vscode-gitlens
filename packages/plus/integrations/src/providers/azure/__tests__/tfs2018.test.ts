@@ -1,4 +1,5 @@
 import * as assert from 'node:assert/strict';
+import { GitIssueState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { IntegrationAuthenticationService } from '../../../authentication/integrationAuthenticationService.js';
 import type { TokenWithInfo } from '../../../authentication/models.js';
@@ -6,12 +7,15 @@ import { GitSelfManagedHostIntegrationId } from '../../../constants.js';
 import { AuthenticationError } from '../../../errors.js';
 import { ProvidersApi } from '../../providersApi.js';
 import { AzureDevOpsApi } from '../azure.js';
+import { toAzureWorkItemEtagFields } from '../models.js';
+import { AzureWorkItemDescriptionsCache } from '../workItemDescriptions.js';
 import { AzureWorkItemStatesCache, requireAzureWorkItemStateCategories } from '../workItemStateCategories.js';
 import { azureProject, azureProvider, azureToken, createAzurePullRequest, createWorkItem } from './fixtures.js';
 
 const baseUrl = 'http://tfs.example.test:8080/tfs';
 const collection = 'DefaultCollection';
 const project = azureProject.name;
+const projectId = 'c47e55ea-54b6-4330-af70-d858e00f2338';
 const token: TokenWithInfo<typeof GitSelfManagedHostIntegrationId.AzureDevOpsServer> = {
 	...azureToken,
 	providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
@@ -32,6 +36,7 @@ function location(id: string, routeTemplate: string, preview = false) {
 
 const resources = {
 	wit: [
+		location('b51fd764-e5c2-4b9b-aaf7-3395cf4bdd94', '_apis/wit/fields'),
 		location('1a9c53f7-f243-4447-b110-35ef023636e4', '{project}/{team}/_apis/wit/wiql'),
 		location('72c7ddf8-2cdc-4f60-90cd-ab71c14a399b', '_apis/wit/workItems/{id}'),
 		location('7c8d7a76-4a09-43e8-b5df-bd792f4ac6aa', '{project}/_apis/wit/workItemTypes/{type}'),
@@ -71,16 +76,24 @@ const legacyMappings = {
 };
 
 function harness() {
+	const descriptions = new AzureWorkItemDescriptionsCache();
 	const requests: { url: URL; method: string }[] = [];
 	let state = 'New';
 	let itemProject = project;
 	let discoveryStatus = 200;
 	let legacyIdentity: string | undefined;
+	let missingProject = false;
+	let descriptionFields: Record<string, unknown> = {};
+	let catalogStatus = 200;
 	const item = () => {
 		const value = createWorkItem();
 		value.fields['System.TeamProject'] = itemProject;
 		value.fields['System.WorkItemType'] = 'Task';
 		value.fields['System.State'] = state;
+		Object.assign(value.fields, descriptionFields);
+		if (missingProject) {
+			delete (value.fields as Partial<typeof value.fields>)['System.TeamProject'];
+		}
 		if (legacyIdentity !== undefined) {
 			value.fields['System.CreatedBy'] = legacyIdentity;
 			value.fields['System.AssignedTo'] = legacyIdentity;
@@ -101,10 +114,24 @@ function harness() {
 			return Response.json({ value: resources[area] }, { status: discoveryStatus });
 		}
 
+		if (route === `_apis/projects/${projectId}` || route === `_apis/projects/${project}`) {
+			return Response.json({ id: projectId, name: project });
+		}
+
 		assert.match(url.searchParams.get('api-version') ?? '', /^4\.0(?:-preview\.1)?$/);
-		if (route === `${project}/_apis/wit/workItemTypes/Task/states`) return Response.json(legacyStates);
+		if ([project, projectId].some(name => route === `${name}/_apis/wit/workItemTypes/Task/states`)) {
+			return Response.json(legacyStates);
+		}
 		if (route === `${project}/_apis/wit/workItemTypes`) return Response.json({ value: [{ name: 'Task' }] });
-		if (route === `${project}/_apis/work/backlogconfiguration`) return Response.json(legacyMappings);
+		if ([project, projectId].some(name => route === `${name}/_apis/work/backlogconfiguration`)) {
+			return Response.json(legacyMappings);
+		}
+		if (route === '_apis/wit/fields') {
+			return Response.json(
+				{ value: [{ referenceName: 'Custom.Notes', name: 'Notes', type: 'html' }] },
+				{ status: catalogStatus },
+			);
+		}
 		if (route === '_apis/wit/workitems/42') return Response.json(item());
 		if (route === '_apis/wit/workitems/999') {
 			return Response.json({ typeKey: 'WorkItemUnauthorizedAccessException' }, { status: 404 });
@@ -121,8 +148,16 @@ function harness() {
 		throw new Error(`Unexpected request: ${url.toString()}`);
 	};
 	return {
-		api: new ProvidersApi({ ctx: { http: { fetch: fetch } } } as unknown as IntegrationAuthenticationService),
-		native: new AzureDevOpsApi({ fetch: fetch, wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()) }),
+		api: new ProvidersApi(
+			{ ctx: { http: { fetch: fetch } } } as unknown as IntegrationAuthenticationService,
+			undefined,
+			descriptions,
+		),
+		native: new AzureDevOpsApi(
+			{ fetch: fetch, wrapForForcedInsecureSSL: (_ignore, fn) => Promise.resolve(fn()) },
+			undefined,
+			descriptions,
+		),
 		requests: requests,
 		useLegacyIdentity: (value = 'Jane Example <DOMAIN\\jane>') => {
 			legacyIdentity = value;
@@ -132,6 +167,13 @@ function harness() {
 		},
 		setProject: (value: string) => {
 			itemProject = value;
+		},
+		omitProject: () => {
+			missingProject = true;
+		},
+		setDescription: (fields: Record<string, unknown>, status = 200) => {
+			descriptionFields = fields;
+			catalogStatus = status;
 		},
 		denyDiscovery: () => {
 			discoveryStatus = 401;
@@ -172,6 +214,38 @@ suite('TFS 2018 core REST compatibility', () => {
 			{ baseUrl: baseUrl, type: 'issue' },
 		);
 		assert.equal(either?.id, '42');
+	});
+
+	test('native linked issues resolve project IDs before checking collection membership', async () => {
+		const h = harness();
+		const issue = await h.native.getIssueOrPullRequest(
+			azureProvider,
+			token,
+			collection,
+			`${projectId}/_git/repo`,
+			'42',
+			{ baseUrl: baseUrl, type: 'issue' },
+		);
+		assert.equal(issue?.id, '42');
+		assert.ok(h.requests.some(r => r.url.pathname.endsWith(`/_apis/projects/${projectId}`)));
+	});
+
+	test('native project validation failures remain failures on both point paths', async () => {
+		const h = harness();
+		h.setProject('Another project');
+		await assert.rejects(
+			h.native.getIssue(azureProvider, token, { ...azureProject, resourceName: collection }, '42', {
+				baseUrl: baseUrl,
+			}),
+			/outside the requested project/,
+		);
+		await assert.rejects(
+			h.native.getIssueOrPullRequest(azureProvider, token, collection, `${project}/_git/repo`, '42', {
+				baseUrl: baseUrl,
+				type: 'issue',
+			}),
+			/outside the requested project/,
+		);
 	});
 
 	test('partial legacy selection metadata still classifies mapped list rows from its single snapshot', async () => {
@@ -246,6 +320,59 @@ suite('TFS 2018 core REST compatibility', () => {
 			/has no project/,
 		);
 	});
+
+	test('a collection etag without project evidence cannot reuse a project coordinate', async () => {
+		const h = harness();
+		h.omitProject();
+		const [read] = await h.api.getAzureWorkItemsEtagFields(
+			token,
+			{ namespace: collection, project: project },
+			[42],
+			{
+				baseUrl: baseUrl,
+				isPAT: true,
+			},
+		);
+		assert.throws(() => toAzureWorkItemEtagFields(read.workItem, project, read.category), /has no project/);
+	});
+
+	for (const [name, fields, status] of [
+		['built-in fallback', { 'Microsoft.VSTS.TCM.ReproSteps': '<p>Reproduce this</p>' }, 200],
+		['custom HTML', { 'Custom.Notes': '<p>Custom content</p>' }, 200],
+		['blank markup', { 'System.Description': '<div></div>', 'Custom.Notes': '<p> </p>' }, 200],
+		['unavailable catalog', { 'Custom.Notes': '<p>Unverified content</p>' }, 503],
+	] as const) {
+		test(`SDK lists and direct point/search reads agree on ${name} descriptions`, async () => {
+			const h = harness();
+			h.setDescription(fields, status);
+			const options = { baseUrl: baseUrl, isPAT: true };
+			const listed = await h.api.getIssuesForAzureProject(token, collection, project, {
+				...options,
+				states: [GitIssueState.Open, GitIssueState.Closed],
+			});
+			const point = await h.api.getAzureWorkItem(token, { namespace: collection, project: project }, 42, options);
+			const native = await h.native.getIssue(
+				azureProvider,
+				token,
+				{ ...azureProject, resourceName: collection },
+				'42',
+				options,
+			);
+			const search = await h.native.searchWorkItemsPage(azureProvider, token, collection, {
+				baseUrl: baseUrl,
+				criteria: { state: 'all' },
+				projectNames: [project],
+				resolveProject: () => azureProject,
+			});
+			assert.equal(listed.values.length, 1);
+			assert.equal(point?.description, listed.values[0].description);
+			assert.deepEqual(point?.descriptionField, listed.values[0].descriptionField);
+			assert.equal(native?.body, listed.values[0].description);
+			assert.equal(search.values[0]?.body, listed.values[0].description);
+			const catalogReads = h.requests.filter(r => r.url.pathname.endsWith('/wit/fields'));
+			assert.equal(catalogReads.length, name === 'built-in fallback' ? 0 : 2);
+		});
+	}
 
 	test('a missing category is never inferred from a state name or color', async () => {
 		const h = harness();

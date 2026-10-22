@@ -1360,6 +1360,12 @@ host can label the body; it is absent for other providers. The catalog is read o
 describes, and kept for an hour per organization, credential and client (provider-apis keeps its own for list rows); when it can't be read the body falls back to the built-in
 fields.
 
+Azure work item lists, direct point reads and search hydration use the SDK's shared description selector:
+Description, Repro Steps, Acceptance Criteria and Symptom first, then additional HTML fields declared by the
+collection's field catalog. The catalog is optional; an unavailable catalog leaves the built-in fields available.
+An empty Description is preserved when no field has visible content. Direct reads share a catalog cache scoped
+to the installation, collection, credential and authentication mode, cleared on HTTP proxy changes.
+
 Rendering and conversion remain consumer concerns. In particular, the Jira body is neither ADF nor converted to
 Markdown by this package.
 
@@ -1443,7 +1449,9 @@ Markdown by this package.
     replaces it. A continuation whose snapshot is gone is refused (warning + `fetchFailed`) rather than resumed
     against a fresh query, where an item moved by the `updated` order could be skipped. Restart without the cursor.
     A cursor is bound to its query and refused under another one. `page` without a cursor walks from page 1 against
-    a fresh query. Requests use REST `api-version=5.0`, so Azure DevOps Server 2019 or later is required.
+    a fresh query. Requests negotiate REST versions from the installation's resource metadata, including TFS 2018.
+    Exact state-filtered searches and counts require complete workflow categories; `state: 'all'` skips that
+    selection requirement, but every hydrated row still needs an authoritative category.
   - **Pull requests** (`searchPullRequestsPage` / `countPullRequests`) drain every facet — each repository, or each
     project of the `org` (every visible project when only relationships bound the search), times each
     relationship — reading up to 1,000 pull requests per facet, then apply text, draft and dates, union by repository
