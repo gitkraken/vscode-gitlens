@@ -1826,11 +1826,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// Check if branch created from an explicit branch
 			if (createdFrom !== 'HEAD') {
 				if (options?.upstream) {
-					const upstream = await this.provider.refs.getSymbolicReferenceName(
-						repoPath,
-						`${createdFrom}@{u}`,
-						priorityOpts,
-					);
+					const upstream = await this.getUpstreamName(repoPath, createdFrom, priorityOpts, cancellation);
 					if (upstream) return { branch: upstream, failed: false };
 				}
 
@@ -1851,11 +1847,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			if (match?.length === 2) {
 				let name: string | undefined = match[1];
 				if (options?.upstream) {
-					const upstream = await this.provider.refs.getSymbolicReferenceName(
-						repoPath,
-						`${name}@{u}`,
-						priorityOpts,
-					);
+					const upstream = await this.getUpstreamName(repoPath, name, priorityOpts, cancellation);
 					if (upstream) return { branch: upstream, failed: false };
 				}
 
@@ -2666,12 +2658,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		addRefDependencies(dependsOn, candidate);
 
-		const upstreamName = this.provider.refs.getSymbolicReferenceName(
-			repoPath,
-			`${candidate}@{u}`,
-			undefined,
-			cancellation,
-		);
+		const upstreamName = this.getUpstreamName(repoPath, candidate, undefined, cancellation);
 		const getUpstreamFork = async (): Promise<{ ref: string; mergeBase: string | undefined } | undefined> => {
 			const upstream = await upstreamName;
 			if (!upstream || upstream.startsWith('-')) return undefined;
@@ -2731,6 +2718,22 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return (await this.provider.refs.validateReference(repoPath, candidate, undefined, cancellation))
 			? { ref: candidate, forkPoint: undefined }
 			: undefined;
+	}
+
+	/**
+	 * `<name>@{u}`, without asking git when the cached ref list shows `name` can't have one: a failed lookup isn't
+	 * cached, so asking it of a remote-tracking ref (`origin/main`, the usual default) re-spawns on every read.
+	 */
+	private async getUpstreamName(
+		repoPath: string,
+		name: string,
+		options: { priority?: GitCommandPriority } | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		const records = await this.provider.refs.getRefs(repoPath, cancellation);
+		if (!mayHaveUpstream(records, name)) return undefined;
+
+		return this.provider.refs.getSymbolicReferenceName(repoPath, `${name}@{u}`, options, cancellation);
 	}
 
 	/**
@@ -2860,7 +2863,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return missing ? undefined : name || target;
 	}
 
-	@debug({ exit: true })
+	@trace({ exit: true })
 	async getStoredDetectedMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
 		const target =
 			(await this.provider.config.getGkConfig(repoPath, `branch.${ref}.gk-merge-target`)) ??
@@ -2868,7 +2871,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return target?.trim() || undefined;
 	}
 
-	@debug()
+	@trace()
 	async getStoredUserMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
 		const target = await this.provider.config.getGkConfig(repoPath, `branch.${ref}.gk-merge-target-user`);
 		return target?.trim() || undefined;
@@ -3139,6 +3142,20 @@ function findRefTip(records: readonly RefRecord[], name: string): string | undef
 	}
 
 	return undefined;
+}
+
+/**
+ * Whether `<name>@{u}` can resolve, judged from `records`, the cached ref list. git follows `@{u}` only from the
+ * upstream configured for a branch of that short name (`branch.<name>.merge`), so a remote-tracking ref, a tag or a
+ * full ref name (`refs/heads/main@{u}` is "no such branch") has none. A name that names a local branch, or no ref at
+ * all (a deleted branch's leftover config still answers), is asked. An empty list is a failed enumeration (see
+ * `getRefTip`), which says nothing either way.
+ */
+function mayHaveUpstream(records: readonly RefRecord[], name: string): boolean {
+	if (!records.length || name === 'HEAD') return true;
+	if (findRefTip(records, `refs/heads/${name}`) != null) return true;
+
+	return findRefTip(records, name) == null;
 }
 
 /**
