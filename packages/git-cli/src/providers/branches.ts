@@ -2001,13 +2001,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	getAheadOfBaseConfigKey(repoPath: string, cancellation?: AbortSignal): Promise<string | undefined> {
 		return this.cache.getAheadOfBaseConfigKey(
 			repoPath,
-			async (commonPath, cacheable, signal) => {
+			async (checkoutPath, cacheable, signal) => {
 				// Include every branch's tracking mapping: a recorded candidate can resolve through its own upstream.
 				// Preserve repeated values and order, since multiple fetch refspecs can change that resolution.
-				// Read from the common path, never the caller's checkout: every worktree is served this one entry, so
-				// it must not take in a `config.worktree` of whichever checkout happened to read first.
 				const result = await this.git.run(
-					{ cwd: commonPath, cancellation: signal, expectedExitCodes: [1] },
+					{ cwd: checkoutPath, cancellation: signal, expectedExitCodes: [1] },
 					'config',
 					'--null',
 					'--get-regexp',

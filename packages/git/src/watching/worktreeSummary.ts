@@ -589,7 +589,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 
 		entry.error = undefined;
 		entry.baseKeys = result.baseKeys;
-		entry.baseConfigKey = result.baseConfigKey;
+		entry.baseConfigKey = entry.pending & baseConfigField ? undefined : result.baseConfigKey;
 		if (previous != null && summariesEqual(previous, result.summary)) return;
 
 		entry.value = result.summary;
@@ -767,7 +767,7 @@ async function readSummary(
 			if (!baseKeysRead) {
 				baseKeys = await readBaseKeys(repo, branch);
 			}
-			if (fields & baseConfigField && !baseConfigKeyRead) {
+			if (!baseConfigKeyRead) {
 				baseConfigKey = await readBaseConfigKey(repo, signal);
 			}
 			try {

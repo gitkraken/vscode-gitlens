@@ -410,13 +410,8 @@ suite('ConfigSubProvider (gk config watcher echo)', () => {
 	});
 });
 
-/**
- * A worktree summary reads `getAheadOfBaseConfigKey` (one `git config --null --get-regexp` over every branch's
- * tracking, the remotes and `init.defaultBranch`) after each `.git/config` change. Every checkout of a repository
- * reports the change and re-reads, so the read is cached once per common dir. Before, each checkout spawned its own:
- * the counts in the test names were measured against that code.
- */
-suite('BranchesSubProvider.getAheadOfBaseConfigKey (shared across worktrees)', () => {
+/** Conditional includes and config.worktree can change the effective inputs even for registered sibling checkouts. */
+suite('BranchesSubProvider.getAheadOfBaseConfigKey (cached per checkout)', () => {
 	let repo: TestRepo;
 	let worktrees: { path: string; cleanup: () => void }[];
 	let paths: string[];
@@ -468,16 +463,22 @@ suite('BranchesSubProvider.getAheadOfBaseConfigKey (shared across worktrees)', (
 		repo.cleanup();
 	});
 
-	test('a cold read from the main checkout and two linked worktrees spawns once (was 3)', async () => {
+	test('cold checkouts each spawn once, and repeated reads stay warm', async () => {
 		const mark = completed.length;
 		const keys = await readFromEveryCheckout();
 
-		assert.strictEqual(configKeyReadsSince(mark), 1);
+		assert.strictEqual(configKeyReadsSince(mark), paths.length);
 		assert.ok(keys[0]?.includes('remote.origin.url'), 'the snapshot holds the remotes');
-		assert.deepStrictEqual(keys, [keys[0], keys[0], keys[0]], 'every checkout reads the same snapshot');
+		assert.deepStrictEqual(
+			keys,
+			[keys[0], keys[0], keys[0]],
+			'checkouts with equal effective config have equal snapshots',
+		);
+		await readFromEveryCheckout();
+		assert.strictEqual(configKeyReadsSince(mark), paths.length, 'warm checkouts spawn nothing');
 	});
 
-	test('an external write reported by every checkout is read once, and seen by each (was 3)', async () => {
+	test("an external write invalidates each checkout's effective snapshot", async () => {
 		await readFromEveryCheckout();
 		writeExternally('branch.feature/a.merge', 'refs/heads/main');
 		for (const path of paths) {
@@ -487,20 +488,20 @@ suite('BranchesSubProvider.getAheadOfBaseConfigKey (shared across worktrees)', (
 		const mark = completed.length;
 		const keys = await readFromEveryCheckout();
 
-		assert.strictEqual(configKeyReadsSince(mark), 1);
+		assert.strictEqual(configKeyReadsSince(mark), paths.length);
 		for (const key of keys) {
 			assert.ok(key?.includes('branch.feature/a.merge'), 'every checkout sees the write');
 		}
 	});
 
-	test("core's own write in a linked worktree is read once, and seen by each (was 3)", async () => {
+	test("core's own write invalidates every checkout's effective snapshot", async () => {
 		await readFromEveryCheckout();
 		await repo.provider.config.setConfig(paths[1], 'branch.feature/a.remote', 'origin');
 
 		const mark = completed.length;
 		const keys = await readFromEveryCheckout();
 
-		assert.strictEqual(configKeyReadsSince(mark), 1);
+		assert.strictEqual(configKeyReadsSince(mark), paths.length);
 		for (const key of keys) {
 			assert.ok(key?.includes('branch.feature/a.remote'), 'every checkout sees the write');
 		}
