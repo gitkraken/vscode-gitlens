@@ -15,7 +15,7 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { effectiveIssueSort } from '@gitlens/git/utils/issue.utils.js';
 import { base64 } from '@gitlens/utils/base64.js';
-import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError, raceWithSignal } from '@gitlens/utils/cancellation.js';
 import { sha256, uuid } from '@gitlens/utils/crypto.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
@@ -260,7 +260,15 @@ export class AzureDevOpsApi implements Disposable {
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 		const { projectName, repoName } = parseAzureRepositoryDescriptor(repo);
-		const resource = await this.requireRestResource(provider, token, owner, baseUrl, 'pullRequestQuery', '4.1');
+		const resource = await this.requireRestResource(
+			provider,
+			token,
+			owner,
+			baseUrl,
+			'pullRequestQuery',
+			'4.1',
+			cancellation,
+		);
 		try {
 			const encodedProject = encodeAzurePathSegment(projectName);
 			const encodedRepo = encodeAzurePathSegment(repoName);
@@ -788,6 +796,7 @@ export class AzureDevOpsApi implements Disposable {
 					baseUrl,
 					'workItemTypeStates',
 					'6.0-preview.1',
+					signal,
 				);
 				return this.request(
 					provider,
@@ -808,6 +817,7 @@ export class AzureDevOpsApi implements Disposable {
 					baseUrl,
 					'backlogConfiguration',
 					'6.0-preview.1',
+					signal,
 				);
 				const path = `${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(project)}/_apis/work/backlogconfiguration?api-version=${resource.apiVersion}`;
 				return this.request(provider, token, baseUrl, path, { method: 'GET' }, undefined, signal);
@@ -834,7 +844,15 @@ export class AzureDevOpsApi implements Disposable {
 		cancellation?: AbortSignal,
 	): Promise<RepositoryMetadata | undefined> {
 		const scope = getScopedLogger();
-		const resource = await this.requireRestResource(provider, token, owner, options.baseUrl, 'repositories', '7.1');
+		const resource = await this.requireRestResource(
+			provider,
+			token,
+			owner,
+			options.baseUrl,
+			'repositories',
+			'7.1',
+			cancellation,
+		);
 
 		try {
 			const response = await this.getRepository(
@@ -895,7 +913,15 @@ export class AzureDevOpsApi implements Disposable {
 		cancellation?: AbortSignal,
 	): Promise<DefaultBranch | undefined> {
 		const scope = getScopedLogger();
-		const resource = await this.requireRestResource(provider, token, owner, options.baseUrl, 'repositories', '7.1');
+		const resource = await this.requireRestResource(
+			provider,
+			token,
+			owner,
+			options.baseUrl,
+			'repositories',
+			'7.1',
+			cancellation,
+		);
 
 		try {
 			const response = await this.getRepository(
@@ -1030,10 +1056,19 @@ export class AzureDevOpsApi implements Disposable {
 				options.baseUrl,
 				'workItemsBatch',
 				'5.0',
+				cancellation,
 			);
 			const resource =
 				batch ??
-				(await this.requireRestResource(provider, token, collection, options.baseUrl, 'workItems', '5.0'));
+				(await this.requireRestResource(
+					provider,
+					token,
+					collection,
+					options.baseUrl,
+					'workItems',
+					'5.0',
+					cancellation,
+				));
 			const route =
 				batch != null
 					? `workitemsbatch?api-version=${resource.apiVersion}`
@@ -1216,6 +1251,7 @@ export class AzureDevOpsApi implements Disposable {
 								options.baseUrl,
 								'workItemTypes',
 								'6.0',
+								signal,
 							);
 							return this.request(
 								provider,
@@ -1281,7 +1317,15 @@ export class AzureDevOpsApi implements Disposable {
 			throw new Error('Azure DevOps work item search query is too long; narrow the search');
 		}
 
-		const resource = await this.requireRestResource(provider, token, collection, baseUrl, 'wiql', '5.0');
+		const resource = await this.requireRestResource(
+			provider,
+			token,
+			collection,
+			baseUrl,
+			'wiql',
+			'5.0',
+			cancellation,
+		);
 		const result = await this.request<{ workItems?: { id: number }[]; asOf?: string }>(
 			provider,
 			token,
@@ -1439,7 +1483,15 @@ export class AzureDevOpsApi implements Disposable {
 	): Promise<AzureForkRepositoryUrls | undefined> {
 		try {
 			encodeAzurePathSegment(repositoryId);
-			const resource = await this.requireRestResource(provider, token, owner, baseUrl, 'repositories', '4.1');
+			const resource = await this.requireRestResource(
+				provider,
+				token,
+				owner,
+				baseUrl,
+				'repositories',
+				'4.1',
+				cancellation,
+			);
 			const response = await this.request<AzureRepositoryUrls>(
 				provider,
 				token,
@@ -1545,6 +1597,7 @@ export class AzureDevOpsApi implements Disposable {
 					baseUrl,
 					'fields',
 					'6.0',
+					signal,
 				);
 				return this.request(
 					provider,
@@ -1567,15 +1620,24 @@ export class AzureDevOpsApi implements Disposable {
 		baseUrl: string,
 		resource: AzureDevOpsRestResource,
 		version: string,
+		cancellation?: AbortSignal,
 	): Promise<AzureDevOpsRestResourceInfo | undefined> {
 		try {
+			if (cancellation?.aborted) throw new CancellationError();
+
 			encodeAzurePathSegment(namespace);
-			return await this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+			const discovery = this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 				this.restApi.getRestApiResource(
 					{ namespace: namespace, resource: resource, version: version },
 					{ token: token.accessToken, isPAT: true, baseUrl: baseUrl },
 				),
 			);
+			if (cancellation?.aborted) {
+				// The race skips observing discovery when setup aborts its caller synchronously.
+				void discovery.catch(() => {});
+			}
+
+			return await (cancellation != null ? raceWithSignal(discovery, cancellation) : discovery);
 		} catch (ex) {
 			return throwProviderError(token, ex);
 		}
@@ -1588,10 +1650,11 @@ export class AzureDevOpsApi implements Disposable {
 		baseUrl: string,
 		resource: AzureDevOpsRestResource,
 		version: string,
+		cancellation?: AbortSignal,
 	): Promise<AzureDevOpsRestResourceInfo> {
 		let result: AzureDevOpsRestResourceInfo | undefined;
 		try {
-			result = await this.getRestResource(provider, token, namespace, baseUrl, resource, version);
+			result = await this.getRestResource(provider, token, namespace, baseUrl, resource, version, cancellation);
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) {
 				throw new Error('Azure DevOps REST resource discovery failed', { cause: ex });
