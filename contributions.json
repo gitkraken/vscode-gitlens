@@ -7391,7 +7391,7 @@
 			}
 		},
 		"gitlens.review.sendFindingToAgent": {
-			"label": "Send Finding to Agent",
+			"label": "Address Finding with Agent",
 			"icon": "$(comment-discussion-sparkle)",
 			"commandPalette": true,
 			"menus": {

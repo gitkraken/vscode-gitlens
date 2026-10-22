@@ -608,7 +608,7 @@
 	"command.gitlens.review.markViewedAndNext:key.title": "Marcar el archivo como visto e ir al siguiente",
 	"command.gitlens.review.reopenFinding.title": "Reabrir hallazgo",
 	"command.gitlens.review.resolveFinding.title": "Resolver hallazgo",
-	"command.gitlens.review.sendFindingToAgent.title": "Enviar hallazgo al agente",
+	"command.gitlens.review.sendFindingToAgent.title": "Resolver el hallazgo con el agente",
 	"command.gitlens.review.walkNext.title": "Siguiente archivo de la revisión",
 	"command.gitlens.review.walkNext:editor/title.title": "Siguiente archivo de la revisión",
 	"command.gitlens.review.walkNext:key.title": "Siguiente archivo de la revisión",

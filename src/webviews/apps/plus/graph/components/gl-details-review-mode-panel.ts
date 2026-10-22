@@ -508,7 +508,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		return html`<div class="review-footer">
 			<gl-button class="review-footer__primary" @click=${() => this.handleSendToChat('review')}>
 				<code-icon icon="comment-discussion-sparkle" slot="prefix"></code-icon>
-				${l10n.t('Send Review to Agent')}
+				${l10n.t('Address Findings with Agent')}
 			</gl-button>
 			<gl-copy-container
 				class="review-footer__copy"
@@ -1010,7 +1010,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 								@click=${() => this.handleSendToChat('review')}
 							>
 								<code-icon icon="comment-discussion-sparkle" slot="prefix"></code-icon>
-								${l10n.t('Send Remaining to Agent')}
+								${l10n.t('Address Remaining with Agent')}
 							</gl-button>`
 						: nothing
 				}
@@ -1892,7 +1892,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 				<gl-button
 					appearance="toolbar"
 					density="compact"
-					tooltip=${disabled ? '' : l10n.t('Send Focus Area to Agent')}
+					tooltip=${disabled ? '' : l10n.t('Address Focus Area with Agent')}
 					?disabled=${disabled}
 					@click=${() => !disabled && this.handleSendToChat('focusArea', { area: area })}
 				>
@@ -1981,7 +1981,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 					<gl-button
 						appearance="toolbar"
 						density="compact"
-						tooltip=${l10n.t('Send to Agent')}
+						tooltip=${l10n.t('Address with Agent')}
 						@click=${() => this.handleSendToChat('finding', { area: area, finding: finding })}
 					>
 						<code-icon icon="comment-discussion-sparkle"></code-icon>
