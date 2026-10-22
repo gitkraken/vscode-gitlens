@@ -28,7 +28,7 @@ import type { GitStash } from './models/stash.js';
 import type { GitTag } from './models/tag.js';
 import type { GitUser } from './models/user.js';
 import type { GitWorktree } from './models/worktree.js';
-import type { BranchContributionsOverview, GitBranchMergedStatus } from './providers/branches.js';
+import type { BranchContributionsOverview, GitBranchMergedStatus, MergeTarget } from './providers/branches.js';
 import type { GitCommitReachability, LeftRightCommitCountResult } from './providers/commits.js';
 import type { GitContributorsResult } from './providers/contributors.js';
 import type { ResolvedRevision } from './providers/revision.js';
@@ -149,6 +149,43 @@ function getSettledOrPending<T>(
  */
 export type GkConfigInvalidationTarget = 'branchOverviews' | 'baseBranchName';
 
+/**
+ * A `getMergeTarget` answer with what it was read from, so a later call can confirm it from cached reads rather than
+ * resolve it again (see {@link Cache.getMergeTarget})
+ */
+export interface CachedMergeTarget {
+	/** The answer before `keepSelfAtTip` is applied */
+	readonly result: MergeTarget | undefined;
+	/** Whether `result` is the branch itself at the branch's own commit */
+	readonly selfAtTip: boolean;
+	/** Every full ref name whose presence or tip the answer depends on, with the commit it named then (`undefined` when absent) */
+	readonly tips: ReadonlyArray<readonly [ref: string, tip: string | undefined]>;
+	/**
+	 * The replace refs as read, as sorted `<name>\0<sha>` lines ('' for none): replacing a commit moves merge bases
+	 * while every tip stands
+	 */
+	readonly replaced: string;
+	/**
+	 * The common git directory's `shallow` file as `<size>\0<mtime>`, or `null` when the repo wasn't shallow: deepening
+	 * a shallow clone moves merge bases while every tip stands
+	 */
+	readonly shallow: string | null;
+	/** The `getAheadOfBaseConfigKey` snapshot the answer was read under */
+	readonly configKey: string | undefined;
+	/** The branch's stored merge keys as read, raw; `undefined` for a remote-tracking branch, which has none */
+	readonly stored: readonly (string | undefined)[] | undefined;
+	/** Set only when resolution reached the pull request and stored nothing: the base candidate it named, or `null` for none */
+	readonly pullRequest?: string | null;
+	/** Set only when the default branch was read: the name local refs gave, or `null` for none */
+	readonly localDefault?: string | null;
+	/** Set only when the remote was asked for its default branch: that remote, and its answer or `null` for none */
+	readonly remoteDefault?: { readonly remote: string; readonly name: string | null };
+	/** Set only when the caller's fallback default branch was asked: its answer, or `null` for none */
+	readonly fallbackDefault?: string | null;
+	/** The answer read HEAD's reflog for the branch it was created from and found none, which a later checkout can write */
+	readonly evictOnCheckout: boolean;
+}
+
 /** A changed `branch.<branch>.<key>` gk config value for {@link Cache.patchBranchMetadata}; `undefined` is a removal */
 export interface BranchMetadataChange {
 	readonly branch: string;
@@ -208,6 +245,7 @@ interface SharedCaches {
 	/** Keyed by commonPath — `FETCH_HEAD` lives in the common git dir, shared across worktrees. */
 	lastFetched: PromiseCache<RepoPath, number | undefined> | undefined;
 	logShas: RepoPromiseCacheMap<string, string[]> | undefined;
+	mergeTargets: RepoPromiseCacheMap<string, CachedMergeTarget> | undefined;
 	refs: PromiseMap<RepoPath, RefRecord[]> | undefined;
 	refTips: PromiseMap<RepoPath, GitRefTip[]> | undefined;
 	remotes: PromiseMap<RepoPath, GitRemote[]> | undefined;
@@ -240,6 +278,7 @@ const sharedCacheKeys: ReadonlySet<keyof AllCaches> = new Set(
 		'initialCommitSha',
 		'lastFetched',
 		'logShas',
+		'mergeTargets',
 		'refs',
 		'refTips',
 		'remotes',
@@ -268,6 +307,7 @@ function createEmptyCaches(): AllCaches {
 		ignoreRevsFile: undefined,
 		leftRightCommitCount: undefined,
 		mergeBase: undefined,
+		mergeTargets: undefined,
 		patchIds: undefined,
 		configKeys: undefined,
 		configPatterns: undefined,
@@ -311,6 +351,12 @@ export class Cache implements Disposable {
 	private _statusGenerations = new Map<RepoPath, number>();
 	/** Monotonic per-path "close clock" — see {@link getCloseGeneration}. */
 	private _closeGenerations = new Map<RepoPath, number>();
+	/** Per commonPath, the `mergeTargets` keys a checkout evicts (see {@link CachedMergeTarget.evictOnCheckout}) */
+	private _mergeTargetsEvictedOnCheckout = new Map<string, Set<string>>();
+	/** Bumped on each checkout eviction, so a merge target resolved across one isn't kept for the next */
+	private _mergeTargetCheckoutGeneration = 0;
+	/** Each merge target answer's entry as `mergeTargets` stored it, so dropping a stale answer can't drop its successor */
+	private _mergeTargetStored = new WeakMap<CachedMergeTarget, Promise<CachedMergeTarget>>();
 
 	/**
 	 * Per-commonPath snapshot of the subset of `.git/gk/config` that derived caches depend on — merge-relevant keys
@@ -405,6 +451,10 @@ export class Cache implements Disposable {
 			createTTL: 1000 * 60 * 10, // 10 minutes
 			capacity: 50,
 		}));
+	}
+
+	private get mergeTargets(): RepoPromiseCacheMap<string, CachedMergeTarget> {
+		return (this._caches.mergeTargets ??= new RepoPromiseCacheMap<string, CachedMergeTarget>());
 	}
 
 	private get baseBranchName(): RepoPromiseCacheMap<string, string | undefined> {
@@ -692,6 +742,9 @@ export class Cache implements Disposable {
 
 			invalidateMemoized('providers');
 			this.incrementStatusGenerations(repoPath);
+			if (!worktreeOnly) {
+				this.evictMergeTargetsOnCheckout(repoPath);
+			}
 		} else {
 			// Clear specific cache types
 			if (types.includes('blame')) {
@@ -742,6 +795,12 @@ export class Cache implements Disposable {
 				// Deliberately not under `'branches'`: a tip move can't change a branch's base, so re-deriving
 				// on every commit would be pure cost. Checkouts are user-driven and rare by comparison.
 				keysToClear.add('baseBranchName');
+			}
+
+			// Only the merge targets that found no checkout entry in HEAD's reflog: every other one is confirmed against
+			// what it read when next asked. A checkout in a worktree this one doesn't watch arrives as `'worktrees'`
+			if (!worktreeOnly && (types.includes('branch') || types.includes('worktrees'))) {
+				this.evictMergeTargetsOnCheckout(repoPath);
 			}
 
 			if (types.includes('branches')) {
@@ -1107,6 +1166,7 @@ export class Cache implements Disposable {
 		// Shared, commonPath-keyed like `gkConfigMap` — only evict once no worktree still depends on it.
 		if (isLastWorktree) {
 			this._gkConfigSnapshots.delete(commonPath);
+			this._mergeTargetsEvictedOnCheckout.delete(commonPath);
 		}
 
 		this._commonPathRegistry.delete(repoPath);
@@ -1134,6 +1194,7 @@ export class Cache implements Disposable {
 		this._worktreesByCommonPath.clear();
 		this._statusGenerations.clear();
 		this._gkConfigSnapshots.clear();
+		this._mergeTargetsEvictedOnCheckout.clear();
 		this._gkConfigReconciler = undefined;
 		this._caches = createEmptyCaches();
 	}
@@ -1498,10 +1559,10 @@ export class Cache implements Disposable {
 	 * (`baseBranchName`/`branchOverviews`) for the written key's ref.
 	 *
 	 * @param options.skipInvalidation Downstream caches the caller wants preserved despite this
-	 * write. Use when the value being written is exactly what was just resolved — e.g. the Tier 2
-	 * `storeMergeTargetBranchName` self-write inside `getBranchContributionsOverview` (skip
-	 * `'branchOverviews'`) or the Tier 3 `storeBaseBranchName` self-write inside `getBaseBranchName`
-	 * (skip both `'baseBranchName'` and `'branchOverviews'`). The bulk `gkConfigMap` map always
+	 * write. Use when the value being written is exactly what was just resolved — e.g. the pull request's
+	 * `storeMergeTargetBranchName` self-write inside `getMergeTarget` (skip `'branchOverviews'`) or the
+	 * `vscode-merge-base` migration's `storeBaseBranchName` self-write (skip both `'baseBranchName'` and
+	 * `'branchOverviews'`). The bulk `gkConfigMap` map always
 	 * invalidates so subsequent reads see the new value.
 	 */
 	deleteGkConfig(
@@ -1695,8 +1756,7 @@ export class Cache implements Disposable {
 		const ref = refMatch[1];
 
 		// `getBaseBranchName` reads `branch.<ref>.gk-merge-base` and caches the resolved value
-		// per-ref. A change to that key must invalidate the cached base or Tier 3 of
-		// `getBranchContributionsOverview` will resolve `mergeTarget` against the pre-change value.
+		// per-ref. A change to that key must invalidate the cached base or it keeps answering the pre-change value.
 		if (key.endsWith('.gk-merge-base') && !skip?.includes('baseBranchName')) {
 			this._caches.baseBranchName?.delete(commonPath, ref);
 		}
@@ -2020,6 +2080,89 @@ export class Cache implements Disposable {
 		return this.getSharedSimpleWithKey(this.defaultBranchName, repoPath, remote, factory, {
 			cancellation: cancellation,
 		});
+	}
+
+	/** The cached default branch for one `remote` key, without reading it; `undefined` when none is cached */
+	peekDefaultBranchName(repoPath: string, remote: string): Promise<string | undefined> | undefined {
+		return this._caches.defaultBranchName?.get(this.getCommonPath(repoPath), remote);
+	}
+
+	/**
+	 * No TTL and not cleared by a ref or config change: the caller confirms a hit against what the answer was read from
+	 * (see {@link CachedMergeTarget}). A checkout evicts only the entries marked `evictOnCheckout`
+	 */
+	getMergeTarget(
+		repoPath: string,
+		cacheKey: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<CachedMergeTarget>,
+		cancellation?: AbortSignal,
+	): Promise<CachedMergeTarget> {
+		const pending = this.getSharedSimpleWithKey(
+			this.mergeTargets,
+			repoPath,
+			cacheKey,
+			async (commonPath, cacheable, signal) => {
+				const generation = this._mergeTargetCheckoutGeneration;
+				const entry = await factory(commonPath, cacheable, signal);
+				if (entry.evictOnCheckout) {
+					// A checkout while the reflog was read may have written the entry it found missing
+					if (this._mergeTargetCheckoutGeneration !== generation) {
+						cacheable.invalidate();
+						return entry;
+					}
+
+					let keys = this._mergeTargetsEvictedOnCheckout.get(commonPath);
+					if (keys == null) {
+						keys = new Set();
+						this._mergeTargetsEvictedOnCheckout.set(commonPath, keys);
+					}
+					keys.add(cacheKey);
+				}
+				return entry;
+			},
+			{ cancellation: cancellation },
+		);
+
+		// Stored before the factory runs, so this is the entry the answer will come from
+		const stored = this.mergeTargets.get(this.getCommonPath(repoPath), cacheKey);
+		if (stored == null) return pending;
+
+		return pending.then(entry => {
+			this._mergeTargetStored.set(entry, stored);
+			return entry;
+		});
+	}
+
+	/**
+	 * Drops `stale`, an answer {@link getMergeTarget} gave for `cacheKey`, unless it was already replaced: callers that
+	 * found the same answer stale then share the one that replaced it rather than each resolving their own
+	 */
+	deleteMergeTarget(repoPath: string, cacheKey: string, stale: CachedMergeTarget): void {
+		const commonPath = this.getCommonPath(repoPath);
+		const stored = this._mergeTargetStored.get(stale);
+		if (stored != null && this._caches.mergeTargets?.get(commonPath, cacheKey) !== stored) return;
+
+		this._caches.mergeTargets?.delete(commonPath, cacheKey);
+	}
+
+	private evictMergeTargetsOnCheckout(repoPath: string | undefined): void {
+		this._mergeTargetCheckoutGeneration++;
+
+		const commonPaths =
+			repoPath != null ? [this.getCommonPath(repoPath)] : [...this._mergeTargetsEvictedOnCheckout.keys()];
+		for (const commonPath of commonPaths) {
+			const keys = this._mergeTargetsEvictedOnCheckout.get(commonPath);
+			if (keys == null) continue;
+
+			this._mergeTargetsEvictedOnCheckout.delete(commonPath);
+			for (const key of keys) {
+				this._caches.mergeTargets?.delete(commonPath, key);
+			}
+		}
 	}
 
 	/** Clears the cached default branch for one `remote` key (the networked lookup or its `:local` variant). */

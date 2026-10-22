@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `branches.getMergeTarget(branch, options?)`: the ref any branch, checked out or not, is measured against, by `getAheadOfBase`'s rules, so every host names the same target. It answers `{ ref, forkPoint, tier }`, where `tier` adds `'pr'` and `'inferred'` to `AheadOfBaseTier`. Beyond `skipUserTarget` and `preferredTarget` it takes a host's sources: `getAssociatedPullRequest` (read only when no stored target is usable, tried after the detected target and recorded as it unless the pull request is stacked or the branch is a remote-tracking one), `inferBase` (VS Code's `vscode-merge-base`, and for a branch created from `HEAD` the branch HEAD was on when it was first checked out, read from that branch's worktree and never stored), `defaultBranch: 'remote'` (asks the remote only when local refs name no default), `getFallbackDefaultBranch` and `keepSelfAtTip`. Answers are cached against the ref tips, stored keys and config they were read from, so a warm call runs no git and a branch moving elsewhere re-measures nothing (git, git-cli, git-github)
+- Adds `getFallbackDefaultBranch` to `getBranchContributionsOverview`'s options (git, git-cli, git-github)
+
+### Changed
+
+- Changes `getBranchContributionsOverview` to measure against `getMergeTarget`, so its target follows `getAheadOfBase`'s rules: an out-of-date local target defers to its upstream, the default branch is read from local refs (`upstream`, then `origin`) before the remote, the default branch measures against its own upstream, and a branch is measured against the branch it was created from until that branch merges (git-cli, git-github)
+- Changes `getAheadOfBase` to keep a candidate whose check failed or timed out, rather than one git confirms is gone, so its count rejects instead of quietly measuring against the next candidate (git-cli)
+- Changes `getBaseBranchName` to no longer record its reflog guess as `gk-merge-base`, where every host read it as a base the branch was launched from (git-cli)
+
+### Fixed
+
+- Fixes `getReflogEntries`' `grep` matching nothing when the user's `grep.patternType` is `fixed`, which left `getBaseBranchName` with no reflog guess: the pattern is now always read as a basic regular expression (git-cli)
+- Fixes `getBaseBranchName` overwriting a recorded `gk-merge-base` with a reflog guess when checking the recorded branch failed rather than found it gone, and reading the checkout guess from the main worktree's HEAD reflog instead of the branch's own worktree (git-cli)
+- Fixes `getAheadOfBase` measuring a branch created from a full ref (`git switch -c topic refs/heads/develop`) against that ref as-is, never against its fresher upstream: the base is now its short name (`develop`), weighed against its tracking ref like any other (git-cli)
+
 ## [0.16.3] - 2026-10-23
 
 ### Fixed
