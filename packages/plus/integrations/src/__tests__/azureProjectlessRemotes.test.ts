@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
+import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { createRemoteProviderMatcher } from '@gitlens/git/remotes/matcher.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
-import { CacheController } from '@gitlens/utils/promiseCache.js';
+import { CacheController, PromiseCache } from '@gitlens/utils/promiseCache.js';
 import { toCloudIntegrationType } from '../authentication/models.js';
 import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import { createIntegrationService } from '../integrationService.js';
@@ -319,6 +322,121 @@ async function connect(server: ReturnType<typeof createServer>) {
 	await new Promise(resolve => setTimeout(resolve, 0));
 	return { manager: manager, azure: azure };
 }
+
+suite('Azure native discovery retry', () => {
+	for (const status of [404, 503]) {
+		for (const kind of ['point', 'linked', 'commit', 'metadata', 'defaultBranch'] as const) {
+			test(`${kind} retries a failed discovery without caching absence (${status})`, async () => {
+				const server = createServer({ installation: '' });
+				const linked = new PromiseCache<string, IssueOrPullRequest | undefined>();
+				const commits = new PromiseCache<string, PullRequest | undefined>();
+				const metadata = new PromiseCache<string, RepositoryMetadata | undefined>();
+				const branches = new PromiseCache<string, DefaultBranch | undefined>();
+				server.runtime.cache.getIssueOrPullRequest = (_id, _type, _resource, _integration, loader) =>
+					linked.getOrCreate('linked', async cacheable => loader(cacheable).value);
+				server.runtime.cache.getPullRequestForSha = (_sha, _resource, _integration, loader) =>
+					commits.getOrCreate('commit', async cacheable => loader(cacheable).value);
+				server.runtime.cache.getRepositoryMetadata = (_resource, _integration, loader) =>
+					metadata.getOrCreate('metadata', async cacheable => loader(cacheable).value);
+				server.runtime.cache.getRepositoryDefaultBranch = (_resource, _integration, loader) =>
+					branches.getOrCreate('branch', async cacheable => loader(cacheable).value);
+				const fetch = server.runtime.http.fetch;
+				const area = kind === 'point' || kind === 'linked' ? 'wit' : 'git';
+				let attempts = 0;
+				let missingObject = false;
+				let missingRequests = 0;
+				let issueId = '9';
+				server.runtime.http.fetch = (input, init) => {
+					const path = new URL(input.toString()).pathname.toLowerCase();
+					if (init?.method === 'OPTIONS' && path.endsWith(`/_apis/${area}`)) {
+						if (++attempts === 1) {
+							return Promise.resolve(json({ message: 'Discovery unavailable' }, status));
+						}
+					}
+					if (
+						missingObject &&
+						path.endsWith(
+							kind === 'point' || kind === 'linked'
+								? `/_apis/wit/workitems/${issueId}`
+								: kind === 'commit'
+									? '/pullrequestquery'
+									: '/_apis/git/repositories/r',
+						)
+					) {
+						missingRequests++;
+						return Promise.resolve(json({ message: 'Object not found' }, 404));
+					}
+
+					return fetch(input, init);
+				};
+				const { manager, azure } = await connect(server);
+				const repo = descriptorFor('https://server.test/DefaultCollection/proj/_git/r');
+				const project = {
+					key: 'DefaultCollection/proj',
+					owner: 'DefaultCollection',
+					name: 'proj',
+				};
+				const read = async () => {
+					switch (kind) {
+						case 'point': {
+							const result = await azure.getIssueResult(project, issueId);
+							assert.ok(result != null);
+							if (result.error != null) throw result.error;
+
+							return result.value?.id;
+						}
+						case 'linked':
+							return (
+								await azure.getLinkedIssueOrPullRequest(
+									repo,
+									{ id: issueId, key: issueId },
+									{ throwOnError: true },
+								)
+							)?.id;
+						case 'commit':
+							return (await azure.getPullRequestForCommit(repo, sha, { throwOnError: true }))?.id;
+						case 'metadata':
+							return (await azure.getRepositoryMetadata(repo))?.name;
+						case 'defaultBranch':
+							return (await azure.getDefaultBranch(repo))?.name;
+					}
+				};
+				try {
+					const before = server.requests.length;
+					const first: unknown = await read().catch((ex: unknown) => ex);
+					assert.equal(attempts, 1, String(first));
+					if (kind === 'metadata' || kind === 'defaultBranch') {
+						assert.equal(first, undefined);
+					} else {
+						assert.ok(first instanceof Error);
+					}
+					assert.equal(server.requests.length, before, 'discovery failure must not reach an object request');
+					const expected =
+						kind === 'commit' ? '7' : kind === 'metadata' ? 'r' : kind === 'defaultBranch' ? 'main' : '9';
+					assert.equal(await read(), expected);
+					assert.equal(attempts, 2, 'the same lookup retries discovery after recovery');
+					const recovered = server.requests.length;
+					assert.equal(await read(), expected);
+					assert.equal(server.requests.length, recovered, 'a successful recovery remains cached');
+					missingObject = true;
+					issueId = '999';
+					linked.clear();
+					commits.clear();
+					metadata.clear();
+					branches.clear();
+					assert.equal(await read(), undefined, 'an actual object 404 keeps the absence behavior');
+					assert.equal(missingRequests, 1);
+					const absent = server.requests.length;
+					assert.equal(await read(), undefined);
+					assert.equal(missingRequests, 1, 'proven object absence remains cached');
+					assert.equal(server.requests.length, absent);
+				} finally {
+					manager.dispose();
+				}
+			});
+		}
+	}
+});
 
 /** The repository reads GitLens makes from a remote, each with the request path it must reach. */
 async function assertReads(
