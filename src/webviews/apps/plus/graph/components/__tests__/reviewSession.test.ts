@@ -4,6 +4,7 @@ import {
 	countReviewFindingStates,
 	emptyReviewSession,
 	getClosedFindingIds,
+	getReviewFileFindings,
 	getReviewFileProgress,
 	getReviewProgress,
 	getReviewReadingOrder,
@@ -96,6 +97,59 @@ suite('reviewSession — finding states', () => {
 
 		session = withFindingState(session, 'f1', undefined);
 		assert.deepStrictEqual(countReviewFindingStates(result, session), { open: 2, resolved: 0, dismissed: 1 });
+	});
+});
+
+suite('reviewSession — findings by file', () => {
+	const result = {
+		overview: '',
+		mode: 'single-pass',
+		focusAreas: [
+			{
+				id: 'area',
+				label: 'Area',
+				rationale: '',
+				severity: 'warning',
+				files: [],
+				findings: [
+					{ id: 'f1', severity: 'warning', title: 'one', description: '', filePath: 'src/a.ts' },
+					{ id: 'f2', severity: 'critical', title: 'two', description: '', filePath: 'src/a.ts' },
+					{ id: 'f3', severity: 'suggestion', title: 'three', description: '', filePath: 'src/b.ts' },
+					{ id: 'f4', severity: 'critical', title: 'general', description: '' },
+				],
+			},
+			{
+				id: 'area2',
+				label: 'Area 2',
+				rationale: '',
+				severity: 'suggestion',
+				files: [],
+				findings: [{ id: 'f5', severity: 'suggestion', title: 'five', description: '', filePath: 'src/a.ts' }],
+			},
+		],
+	} as unknown as AIReviewResult;
+
+	test('counts open and closed per file across areas, keeps the worst open severity, skips general findings', () => {
+		let byPath = getReviewFileFindings(result, emptyReviewSession);
+		assert.deepStrictEqual(
+			[...byPath.entries()],
+			[
+				['src/a.ts', { open: 3, closed: 0, severity: 'critical' }],
+				['src/b.ts', { open: 1, closed: 0, severity: 'suggestion' }],
+			],
+		);
+
+		let session = withFindingState(emptyReviewSession, 'f2', 'resolved');
+		byPath = getReviewFileFindings(result, session);
+		assert.deepStrictEqual(byPath.get('src/a.ts'), { open: 2, closed: 1, severity: 'warning' });
+
+		session = withFindingState(session, 'f3', 'dismissed');
+		byPath = getReviewFileFindings(result, session);
+		assert.deepStrictEqual(byPath.get('src/b.ts'), { open: 0, closed: 1 });
+	});
+
+	test('no result means no marks', () => {
+		assert.strictEqual(getReviewFileFindings(undefined, emptyReviewSession).size, 0);
 	});
 });
 

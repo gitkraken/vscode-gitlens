@@ -260,6 +260,38 @@ glyph or the attention indicator. Tabular figures so 2/3 and 2/10 align down a c
 				border-radius: var(--gl-radius-lg);
 			}
 
+			/* Same shape as .stack-count, with the color left to the producer's kind (see tree.css.ts): a
+count of open findings should read as urgent as the findings are. */
+			.count-badge {
+				display: inline-flex;
+				gap: 0.3rem;
+				align-items: center;
+				height: 1.5rem;
+				padding: 0 var(--gl-space-4);
+				font-size: var(--gl-font-micro);
+				font-variant-numeric: tabular-nums;
+				background: color-mix(in srgb, transparent 88%, currentColor);
+				border-radius: var(--gl-radius-lg);
+			}
+
+			/* The badge sits inside a gl-tooltip, so it is this element's own style — not the row's ::slotted
+rules — that colors it. Muted dims like a description; the rest take the editor's diagnostic colors. */
+			.count-badge--muted {
+				opacity: 0.7;
+			}
+
+			.count-badge--error {
+				color: var(--vscode-editorError-foreground);
+			}
+
+			.count-badge--warning {
+				color: var(--vscode-editorWarning-foreground);
+			}
+
+			.count-badge--info {
+				color: var(--vscode-editorInfo-foreground);
+			}
+
 			/* The layers glyph reads ~1px high against the count under flex centering; nudge it level. */
 			.stack-count code-icon {
 				transform: translateY(0.1rem);
@@ -992,6 +1024,17 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 					aria-label=${ifDefined(decoration.tooltip ?? decoration.label)}
 					><code-icon icon="layers" size="12"></code-icon>${decoration.layer}/${decoration.size}</span
 				>`;
+			}
+
+			if (decoration.type === 'count') {
+				const tooltip = decoration.tooltip ?? decoration.label;
+				const classes = `count-badge${decoration.kind ? ` count-badge--${decoration.kind}` : ''}`;
+				return html`<gl-tooltip slot=${slot} part=${slot} placement="top">
+					<span class=${classes} aria-label=${ifDefined(tooltip)}
+						><code-icon icon=${decoration.icon} size="12"></code-icon>${decoration.count}</span
+					>
+					<span slot="content">${tooltip}</span>
+				</gl-tooltip>`;
 			}
 
 			// TODO: implement badge and indicator decorations

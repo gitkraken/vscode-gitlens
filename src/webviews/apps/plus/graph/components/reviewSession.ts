@@ -1,4 +1,4 @@
-import type { AIReviewResult } from '@gitlens/ai/models/results.js';
+import type { AIReviewResult, AIReviewSeverity } from '@gitlens/ai/models/results.js';
 import type { KeyMap } from '../../../../../config.js';
 import type { ReviewThreadItem, ScopeFile } from '../../../../plus/graph/graphService.js';
 
@@ -165,6 +165,50 @@ export function countReviewFindingStates(
 		}
 	}
 	return counts;
+}
+
+/** What a checklist row says about its file's findings: how many are still open, how many are
+ *  closed, and the worst open severity — the row's mark takes its color from that. */
+export interface ReviewFileFindings {
+	open: number;
+	closed: number;
+	/** The highest severity among the open findings; absent when none is open. */
+	severity?: AIReviewSeverity;
+}
+
+const severityRank: Record<AIReviewSeverity, number> = { critical: 0, warning: 1, suggestion: 2 };
+
+/** Findings by file path, from every focus area — the model's own and the agent's reported back
+ *  alike. Findings with no file (general remarks) have no row to mark and are left out. */
+export function getReviewFileFindings(
+	result: AIReviewResult | undefined,
+	session: ReviewSession | undefined,
+): ReadonlyMap<string, ReviewFileFindings> {
+	const byPath = new Map<string, ReviewFileFindings>();
+	if (result == null) return byPath;
+
+	for (const area of result.focusAreas) {
+		for (const finding of area.findings ?? []) {
+			if (finding.filePath == null) continue;
+
+			let entry = byPath.get(finding.filePath);
+			if (entry == null) {
+				entry = { open: 0, closed: 0 };
+				byPath.set(finding.filePath, entry);
+			}
+
+			if (session?.findingStates.get(finding.id) != null) {
+				entry.closed++;
+				continue;
+			}
+
+			entry.open++;
+			if (entry.severity == null || severityRank[finding.severity] < severityRank[entry.severity]) {
+				entry.severity = finding.severity;
+			}
+		}
+	}
+	return byPath;
 }
 
 /** Ids of findings that are resolved or dismissed — what markdown export and the findings list leave out. */

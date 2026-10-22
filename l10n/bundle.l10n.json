@@ -4130,6 +4130,7 @@
 	"Showing {0} Only": "Showing {0} Only",
 	"Showing {0} of {1}": "Showing {0} of {1}",
 	"Showing {matched} of {total} files\nClick to show all files": "Showing {matched} of {total} files\nClick to show all files",
+	"Shown as comments in the diff": "Shown as comments in the diff",
 	"Shown when over the": "Shown when over the",
 	"Shows blocked pull requests": "Shows blocked pull requests",
 	"Shows dates absolutely, using the date format below": "Shows dates absolutely, using the date format below",
@@ -6895,6 +6896,7 @@
 	"{count, plural, one{{count} file} other{{count} files}}": "{count, plural, one{{count} file} other{{count} files}}",
 	"{count, plural, one{{count} finding open} other{{count} findings open}}": "{count, plural, one{{count} finding open} other{{count} findings open}}",
 	"{count, plural, one{{count} finding so far} other{{count} findings so far}}": "{count, plural, one{{count} finding so far} other{{count} findings so far}}",
+	"{count, plural, one{{count} finding, closed} other{{count} findings, all closed}}": "{count, plural, one{{count} finding, closed} other{{count} findings, all closed}}",
 	"{count, plural, one{{count} finding} other{{count} findings}}": "{count, plural, one{{count} finding} other{{count} findings}}",
 	"{count, plural, one{{count} has conflicts} other{{count} have conflicts}}": "{count, plural, one{{count} has conflicts} other{{count} have conflicts}}",
 	"{count, plural, one{{count} has failed CI checks} other{{count} have failed CI checks}}": "{count, plural, one{{count} has failed CI checks} other{{count} have failed CI checks}}",
@@ -6930,6 +6932,7 @@
 	"{count} across all branches": "{count} across all branches",
 	"{count} as '{name}'": "{count} as '{name}'",
 	"{count} author ({author})": "{count} author ({author})",
+	"{count} closed": "{count} closed",
 	"{count} dismissed": "{count} dismissed",
 	"{count} estimated tracked files": "{count} estimated tracked files",
 	"{count} idle": "{count} idle",
@@ -7200,6 +7203,7 @@
 			"Rebase reference relation in a status bar. The separator, incoming branch, and current branch are independently rendered elements."
 		]
 	},
+	"{severity} at worst": "{severity} at worst",
 	"{sha} \"{subject}\"": "{sha} \"{subject}\"",
 	"{sha} or {commit} or {commitAlias}": "{sha} or {commit} or {commitAlias}",
 	"{signIn} to use GitKraken AI.": "{signIn} to use GitKraken AI.",

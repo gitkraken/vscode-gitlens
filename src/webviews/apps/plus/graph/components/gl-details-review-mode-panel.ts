@@ -60,6 +60,7 @@ import {
 	getReviewFocusAreaLabel,
 } from './reviewFormat.js';
 import type {
+	ReviewFileFindings,
 	ReviewFileIdentity,
 	ReviewFindingCounts,
 	ReviewFindingState,
@@ -70,6 +71,7 @@ import {
 	countReviewFindingStates,
 	emptyReviewSession,
 	getClosedFindingIds,
+	getReviewFileFindings,
 	getReviewFileProgress,
 	getReviewProgress,
 	getReviewReadingOrder,
@@ -233,6 +235,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 	/** Notes from the reading plan by path, for the file rows' decorations. */
 	private _orientNotes?: ReadonlyMap<string, string>;
 
+	/** Findings by path, for the file rows' marks — open count and worst severity, or all closed. */
+	private _fileFindings?: ReadonlyMap<string, ReviewFileFindings>;
+
 	/** Whether AI review is on at all. Reading the files and the checklist don't need it. */
 	@property({ type: Boolean, attribute: 'ai-enabled' })
 	aiEnabled = false;
@@ -356,6 +361,14 @@ export class GlDetailsReviewModePanel extends LitElement {
 			const excluded = this.session?.excluded ?? emptyReviewSession.excluded;
 			this._runExclusions = this._aiExcludedSet?.size ? new Set([...excluded, ...this._aiExcludedSet]) : excluded;
 			this._sessionRevision++;
+		}
+
+		if (changedProperties.has('result') || changedProperties.has('session')) {
+			const findings = getReviewFileFindings(this.result, this.session);
+			this._fileFindings = findings.size ? findings : undefined;
+			if (changedProperties.has('result')) {
+				this._sessionRevision++;
+			}
 		}
 
 		if (changedProperties.has('files')) {
@@ -1435,12 +1448,59 @@ export class GlDetailsReviewModePanel extends LitElement {
 				position: 'before',
 			});
 		}
+		const findings = this._fileFindings?.get(file.path);
+		if (findings != null) {
+			decorations.push(this.getFindingsDecoration(findings));
+		}
 		const note = this._orientNotes?.get(file.path);
 		if (note) {
 			decorations.push({ type: 'text', label: note, tooltip: note, kind: 'muted', position: 'after' });
 		}
 		return decorations.length ? decorations : undefined;
 	};
+
+	/** The row's findings mark: the open count in the color of the worst one, or the closed count, muted,
+	 *  once every finding on the file has been resolved or dismissed. The findings themselves sit in the
+	 *  diff as comment threads, which the tooltip says. */
+	private getFindingsDecoration(findings: ReviewFileFindings): TreeItemDecoration {
+		if (findings.open === 0) {
+			return {
+				type: 'count',
+				icon: 'comment',
+				count: findings.closed,
+				kind: 'muted',
+				label: formatPlural(
+					l10n.t('{count, plural, one{{count} finding, closed} other{{count} findings, all closed}}'),
+					{ count: findings.closed },
+				),
+				position: 'after',
+			};
+		}
+
+		const open = formatPlural(l10n.t('{count, plural, one{{count} finding open} other{{count} findings open}}'), {
+			count: findings.open,
+		});
+		const severity =
+			findings.severity === 'critical'
+				? l10n.t('Critical')
+				: findings.severity === 'warning'
+					? l10n.t('Warning')
+					: l10n.t('Suggestion');
+		const parts = [open, l10n.t('{severity} at worst', { severity: severity })];
+		if (findings.closed > 0) {
+			parts.push(l10n.t('{count} closed', { count: findings.closed }));
+		}
+		parts.push(l10n.t('Shown as comments in the diff'));
+		return {
+			type: 'count',
+			icon: 'comment',
+			count: findings.open,
+			kind: findings.severity === 'critical' ? 'error' : findings.severity === 'warning' ? 'warning' : 'info',
+			label: open,
+			tooltip: parts.join(' · '),
+			position: 'after',
+		};
+	}
 
 	private getFileContext = (file: ScopeFile): string | undefined => {
 		const scope = this.scope;
