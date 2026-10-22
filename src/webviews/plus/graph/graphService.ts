@@ -295,8 +295,18 @@ export type ReviewResult = { result: AIReviewResult } | { error: { message: stri
 
 export type ReviewOrientResult = { result: AIReviewOrientResult } | { error: { message: string } };
 
+/** The review a deep review belongs to, as the panel keys its reviews — echoed back on every report so the
+ *  panel folds the findings into that review and no other. Opaque to the host. */
+export interface DeepReviewAnchor {
+	kind: string;
+	repoPath: string;
+	sha?: string;
+	shas?: string[];
+}
+
 export interface DeepReviewArgs {
 	repoPath: string;
+	anchor: DeepReviewAnchor;
 	scope: ScopeSelection;
 	/** How the panel describes the scope — what the agent is told it is reviewing */
 	scopeLabel: string;
@@ -319,6 +329,10 @@ export type DeepReviewAvailability = { available: true } | { available: false; r
 /** What a delegated deep review has reported so far: findings append-only with a sequence (a panel
  *  hidden for a while applies the ones it hasn't), and whether the agent said it was done. */
 export interface DeepReviewState {
+	/** Which start this is — a new channel numbers its findings from 1 again, so the panel's "applied up
+	 *  to" counters belong to one run */
+	run: number;
+	anchor: DeepReviewAnchor;
 	active: boolean;
 	done: boolean;
 	findings: { seq: number; finding: AIReviewFinding }[];

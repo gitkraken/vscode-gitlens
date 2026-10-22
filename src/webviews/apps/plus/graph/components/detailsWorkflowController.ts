@@ -1214,6 +1214,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.actions.sendTelemetryEvent('graphDetails/review/deepReview/started');
 			const result = await this.actions.startDeepReview({
 				repoPath: repoPath,
+				anchor: this.currentAnchor(),
 				scope: scope,
 				scopeLabel: scopeLabel,
 				files: [...files],
@@ -1229,24 +1230,31 @@ export class DetailsWorkflowController implements ReactiveController {
 		 *  the threads and the counts take the findings like any other — applying only the ones past the
 		 *  last sequence this anchor saw. */
 		applyDeepReviewState: (state: DeepReviewState | undefined): void => {
-			const anchor = this.currentAnchor();
-			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
 			if (state == null) {
+				const entry = this.host.crossPaneState.runningOperations
+					.get()
+					.get(anchorKey(this.currentAnchor()))?.review;
 				if (entry?.deepReview == null || !entry.deepReview.active) return;
 
 				this.registerRunningOperation({ ...entry, deepReview: { ...entry.deepReview, active: false } });
 				return;
 			}
 
-			const applied = entry?.deepReview?.seqApplied ?? 0;
+			// The report goes to the review it was started from — not whatever is shown now — and a new
+			// start numbers from 1 again, so the "applied up to" counters are per run
+			const anchor = state.anchor as RunningOperationAnchor;
+			const isCurrent = anchorKey(anchor) === anchorKey(this.currentAnchor());
+			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(anchor))?.review;
+			const sameRun = entry?.deepReview?.run === state.run;
+			const applied = sameRun ? (entry?.deepReview?.seqApplied ?? 0) : 0;
 			const fresh = state.findings.filter(f => f.seq > applied).map(f => f.finding);
-			const current = entry?.result ?? this.actions.resources.review.value.get();
+			const current = entry?.result ?? (isCurrent ? this.actions.resources.review.value.get() : undefined);
 			let result: ReviewResult | undefined = current != null && 'result' in current ? current : undefined;
 			if (fresh.length > 0) {
 				result = { result: withAgentFindings(result?.result, fresh) };
 			}
 			// What the agent added to findings that were already there lands as notes on them
-			const notesApplied = entry?.deepReview?.notesApplied ?? 0;
+			const notesApplied = sameRun ? (entry?.deepReview?.notesApplied ?? 0) : 0;
 			let session = entry?.session;
 			for (const note of state.notes.filter(n => n.seq > notesApplied)) {
 				session = withFindingNote(session ?? emptyReviewSession, note.findingId, {
@@ -1256,6 +1264,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				});
 			}
 			const deepReview = {
+				run: state.run,
 				active: state.active,
 				done: state.done,
 				count: state.findings.length,
@@ -1280,7 +1289,9 @@ export class DetailsWorkflowController implements ReactiveController {
 					result: result,
 					deepReview: deepReview,
 				});
-				this.actions.resources.review.mutate(result);
+				if (isCurrent) {
+					this.actions.resources.review.mutate(result);
+				}
 			} else {
 				this.registerRunningOperation({ ...base, ...withSession, deepReview: deepReview });
 			}

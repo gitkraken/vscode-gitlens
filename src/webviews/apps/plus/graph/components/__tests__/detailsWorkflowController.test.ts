@@ -751,6 +751,73 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(entry?.session?.order, undefined, 'dismissing the plan drops its order too');
 	});
 
+	test('a second deep review starts its counters over, and a report lands on the review it was started from', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		state.activeMode.set('review');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+		const anchor = { kind: 'wip', repoPath: '/A', sha: uncommitted };
+		const finding = (id: string) =>
+			({ id: id, severity: 'warning', title: id, description: '', filePath: 'a.ts', source: 'agent' }) as const;
+
+		controller.review.applyDeepReviewState({
+			run: 1,
+			anchor: anchor,
+			active: false,
+			done: true,
+			findings: [
+				{ seq: 1, finding: finding('agent-1') },
+				{ seq: 2, finding: finding('agent-2') },
+			],
+			notes: [],
+		});
+		// The next run numbers from 1 again — its first findings must not read as already applied
+		controller.review.applyDeepReviewState({
+			run: 2,
+			anchor: anchor,
+			active: true,
+			done: false,
+			findings: [{ seq: 1, finding: finding('agent-3') }],
+			notes: [],
+		});
+		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		const result = entry?.result != null && 'result' in entry.result ? entry.result.result : undefined;
+		assert.deepStrictEqual(
+			result?.focusAreas.find(a => a.id === 'agent')?.findings?.map(f => f.id),
+			['agent-1', 'agent-2', 'agent-3'],
+		);
+		assert.deepStrictEqual(entry?.deepReview, {
+			run: 2,
+			active: true,
+			done: false,
+			count: 1,
+			seqApplied: 1,
+			notesApplied: 0,
+		});
+
+		// The reader moved to a commit; the agent's next report still belongs to the WIP review
+		state.activeModeSha.set('c1');
+		controller.review.applyDeepReviewState({
+			run: 2,
+			anchor: anchor,
+			active: true,
+			done: false,
+			findings: [
+				{ seq: 1, finding: finding('agent-3') },
+				{ seq: 2, finding: finding('agent-4') },
+			],
+			notes: [],
+		});
+		entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
+		assert.strictEqual(entry?.deepReview?.seqApplied, 2);
+		assert.strictEqual(
+			host.crossPaneState.runningOperations.get().get(anchorKey({ sha: 'c1', shas: undefined, repoPath: '/A' })),
+			undefined,
+			'no entry is conjured for the review that happens to be shown',
+		);
+	});
+
 	test('what a deep review reports joins the result as the agent area, once per sequence, even before any run', () => {
 		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
 		state.activeMode.set('review');
@@ -774,7 +841,10 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 			filePath: 'b.ts',
 			source: 'agent',
 		} as const;
+		const anchor = { kind: 'wip', repoPath: '/A', sha: uncommitted };
 		controller.review.applyDeepReviewState({
+			run: 1,
+			anchor: anchor,
 			active: true,
 			done: false,
 			findings: [{ seq: 1, finding: f1 }],
@@ -783,6 +853,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		let entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		assert.strictEqual(entry?.execState, 'complete', 'a result exists now, so the panel shows it');
 		assert.deepStrictEqual(entry?.deepReview, {
+			run: 1,
 			active: true,
 			done: false,
 			count: 1,
@@ -796,6 +867,8 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		);
 
 		controller.review.applyDeepReviewState({
+			run: 1,
+			anchor: anchor,
 			active: false,
 			done: true,
 			findings: [
@@ -820,6 +893,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		);
 		assert.strictEqual(area?.severity, 'critical');
 		assert.deepStrictEqual(entry?.deepReview, {
+			run: 1,
 			active: false,
 			done: true,
 			count: 2,

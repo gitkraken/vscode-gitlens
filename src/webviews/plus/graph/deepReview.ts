@@ -1,7 +1,7 @@
 import type { AIReviewFinding, AIReviewSeverity } from '@gitlens/ai/models/results.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
-import type { DeepReviewState, ScopeSelection } from './graphService.js';
+import type { DeepReviewAnchor, DeepReviewState, ScopeSelection } from './graphService.js';
 
 /** The IPC route a delegated deep review reports findings to */
 export const deepReviewRoute = 'review/findings';
@@ -20,13 +20,16 @@ export interface DeepReviewIpc {
  *  (append-only, sequenced), and tells its owner on every change. The route closes on `done` or
  *  {@link close}; what was reported stays readable. */
 export class DeepReviewChannel {
-	private readonly _state: DeepReviewState = { active: true, done: false, findings: [], notes: [] };
+	private readonly _state: DeepReviewState;
 	private _route: UnifiedDisposable | undefined;
 
 	constructor(
 		ipc: DeepReviewIpc,
+		run: number,
+		anchor: DeepReviewAnchor,
 		private readonly onChange: (state: DeepReviewState) => void,
 	) {
+		this._state = { run: run, anchor: anchor, active: true, done: false, findings: [], notes: [] };
 		this._route = ipc.registerHandler<DeepReviewReport, { accepted: number }>(deepReviewRoute, rq =>
 			Promise.resolve({ accepted: this.report(rq) }),
 		);

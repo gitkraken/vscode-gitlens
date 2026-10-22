@@ -1506,7 +1506,7 @@ export class GraphInspectServices {
 			}
 
 			this.stopDeepReview();
-			const channel = new DeepReviewChannel(this.container.ipc, state => {
+			const channel = new DeepReviewChannel(this.container.ipc, ++this._deepReviewRuns, args.anchor, state => {
 				if (this._deepReview === channel) {
 					this._deepReviewEvent.fire(state);
 				}
@@ -1553,6 +1553,8 @@ export class GraphInspectServices {
 			return { ok: false, reason: 'error', message: message };
 		}
 	}
+
+	private _deepReviewRuns = 0;
 
 	/** Closes the channel; what the agent reported stays with the review. */
 	private stopDeepReview(): void {

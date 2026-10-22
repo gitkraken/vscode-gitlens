@@ -104,6 +104,7 @@ suite("deepReview — the agent's report", () => {
 });
 
 suite('deepReview — the report channel', () => {
+	const anchor = { kind: 'wip', repoPath: '/r' };
 	function fakeIpc() {
 		const routes = new Map<string, (rq: unknown, params: URLSearchParams) => Promise<unknown>>();
 		const ipc: DeepReviewIpc = {
@@ -120,7 +121,7 @@ suite('deepReview — the report channel', () => {
 	test('owns the route while open, sequences what comes in, and closes itself on done', async () => {
 		const { ipc, routes } = fakeIpc();
 		const changes: DeepReviewState[] = [];
-		const channel = new DeepReviewChannel(ipc, s => changes.push(s));
+		const channel = new DeepReviewChannel(ipc, 1, anchor, s => changes.push(s));
 		assert.ok(routes.has(deepReviewRoute), 'the route is registered on open');
 
 		const post = routes.get(deepReviewRoute)!;
@@ -137,6 +138,11 @@ suite('deepReview — the report channel', () => {
 		assert.strictEqual(routes.has(deepReviewRoute), false, 'done closes the route');
 
 		assert.deepStrictEqual(
+			changes.map(c => [c.run, c.anchor.repoPath]).every(([run, repo]) => run === 1 && repo === '/r'),
+			true,
+			'every report carries the run and the review it belongs to',
+		);
+		assert.deepStrictEqual(
 			changes.map(c => [c.active, c.done, c.findings.map(f => f.seq), c.notes.map(n => [n.seq, n.findingId])]),
 			[
 				[true, false, [1, 2], []],
@@ -151,7 +157,7 @@ suite('deepReview — the report channel', () => {
 	test('closing by hand notifies once and keeps what was reported', () => {
 		const { ipc, routes } = fakeIpc();
 		const changes: DeepReviewState[] = [];
-		const channel = new DeepReviewChannel(ipc, s => changes.push(s));
+		const channel = new DeepReviewChannel(ipc, 1, anchor, s => changes.push(s));
 		channel.report({ findings: [{ title: 'one' }] });
 		channel.close();
 		channel.close();

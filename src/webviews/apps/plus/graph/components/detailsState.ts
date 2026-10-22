@@ -165,7 +165,15 @@ export type RunningOperation =
 			orientError?: string;
 			/** The delegated deep review on this anchor: whether its channel is open, what it reported, and
 			 *  the sequence of the last finding folded into the result. */
-			deepReview?: { active: boolean; done: boolean; count: number; seqApplied: number; notesApplied?: number };
+			deepReview?: {
+				/** The channel start the counters below belong to */
+				run?: number;
+				active: boolean;
+				done: boolean;
+				count: number;
+				seqApplied: number;
+				notesApplied?: number;
+			};
 	  })
 	| (RunningOperationBase & {
 			kind: 'compose';
