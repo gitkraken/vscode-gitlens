@@ -246,12 +246,14 @@ class SummarySubscription implements WorktreeSummarySubscription {
  * (mostly bookkeeping writes to the shared `.git/gk/config`), or core's own write of the branch's merge target or
  * base, re-reads the branch's stored merge targets and recorded base, and reads `base` only when one of them changed;
  * a `.git/config` change reads `branch` and the provider's config inputs to the base (one read per repository), and
- * reads `base` only when they, the stored values, HEAD's commit or the upstream changed; the checked-out branch
- * moving, or a HEAD change, reads all of them. Stash, unrelated tags and branches, and the like read nothing. One run
- * is in flight per worktree at a time, at most four per repository (the worktrees sharing a common git directory), and
- * at most eight across the service. Runs take turns first come, first served, except that one whose repository is at
- * its cap lets later runs of other repositories go first, so a burst in one repository never delays another's reads:
- * events while a run waits for its turn join it, and events during a run are merged into a single follow-up run.
+ * reads `base` only when they, the stored values, HEAD's commit or the upstream changed, unless it was confined to the
+ * `branch.<name>` sections of branches the summary neither is on, tracks nor bases on (its `configBranches`), which
+ * reads nothing; the checked-out branch moving, or a HEAD change, reads all of them. Stash, unrelated tags and
+ * branches, and the like read nothing. One run is in flight per worktree at a time, at most four per repository (the
+ * worktrees sharing a common git directory), and at most eight across the service. Runs take turns first come, first
+ * served, except that one whose repository is at its cap lets later runs of other repositories go first, so a burst in
+ * one repository never delays another's reads: events while a run waits for its turn join it, and events during a run
+ * are merged into a single follow-up run.
  *
  * **Value-change-only notification.** {@link WorktreeSummarySubscription.onDidChange} and {@link onDidChangeSummary}
  * fire only when some field's value differs from the previous summary — a recompute that reads the same answer is
@@ -422,7 +424,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		if (e.changed('index', 'ignores')) {
 			fields |= dirtyField;
 		}
-		if (e.changed('config')) {
+		if (e.changed('config') && e.mayHaveChangedConfig(getConfigRelevantRefs(value))) {
 			fields |= branchField | baseKeysField | baseConfigField;
 		}
 		if (e.changed('gkConfig')) {
@@ -648,6 +650,20 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			this.entries.delete(entry.key);
 		}
 	}
+}
+
+/**
+ * The local branches whose config sections a summary reads: its branch's (upstream and base keys), and those of the
+ * branches it tracks or bases on. The upstream's short name doesn't say whether it's local, so it counts as local too.
+ */
+function* getConfigRelevantRefs(value: WorktreeSummary): Iterable<string> {
+	if (value.branch != null) {
+		yield `refs/heads/${value.branch}`;
+	}
+	if (value.upstream != null) {
+		yield `refs/heads/${value.upstream.name}`;
+	}
+	yield* value.baseDependsOn;
 }
 
 function createEntry(key: string): SummaryEntry {

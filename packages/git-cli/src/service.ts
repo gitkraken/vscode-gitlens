@@ -1,6 +1,7 @@
 import { GitService } from '@gitlens/git/service.js';
 import type { FileWatchingProvider } from '@gitlens/git/watching/provider.js';
 import type { WatchPollingOptions } from '@gitlens/git/watching/watchService.js';
+import { fileUri } from '@gitlens/utils/uri.js';
 import type { CliGitProviderOptions } from './cliGitProvider.js';
 import { CliGitProvider } from './cliGitProvider.js';
 import type { GitLocation } from './exec/locator.js';
@@ -65,7 +66,11 @@ export interface CliGitServiceOptions {
  * ```
  */
 export function createCliGitService(options: CliGitServiceOptions): GitService {
-	const service = GitService.createSingleton(options.watchingProvider, { watchPolling: options.watchPolling });
+	const service = GitService.createSingleton(options.watchingProvider, {
+		watchPolling: options.watchPolling,
+		// The host's file system reads the shared `.git/config` the watch service compares reports of
+		readFile: path => options.context.fs.readFile(fileUri(path)),
+	});
 
 	const locator = options.locator ?? (() => findGitPath(options.gitPath ?? null));
 	const provider = new CliGitProvider({

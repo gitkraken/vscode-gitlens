@@ -1158,6 +1158,10 @@ export class Cache implements Disposable {
 
 		if (hasAny('config')) {
 			types.add('config');
+			// A branch's upstream lives in its `.git/config` section, and the branch list (and each worktree's branch)
+			// carries it; a config change confined to branches' sections comes without the `remotes` that clears them
+			types.add('branches');
+			types.add('worktrees');
 		}
 
 		if (hasAny('heads')) {

@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds optional `refs` and `options.configConfinedToRefs` to `GitServiceHooks.repository.onChanged`: `refs` are the full ref names a write created, moved or deleted, and a ref kind with names among them is fully described by them, so a host can skip work for refs it doesn't follow; `configConfinedToRefs` says the write changed `.git/config` only in the `branch.<name>` sections of the local branches `refs` names. Siblings sharing the repository hear the names and the flag with the shared kinds. Branch create, delete, rename and upstream changes, `checkout -b`, a worktree's new branch, a commit (its branch, read from the worktree's `HEAD` before and after the run, and named only when both agree) and stash writes (`refs/stash`, by a pop only when it dropped the entry) name their refs; a host that ignores them treats every kind as unnamed, as before (git, git-cli)
+
+### Changed
+
+- Changes how the watch layer tells a write's own reports from outside changes once announcements name refs: a raw report is the write's echo only when every ref it names, or every branch whose config section it changed, is among those the write announced (or it reports `HEAD`, which a commit locks, under a write that announced `head`), and it arrives within the debounce delay of the announcement, so an outside change to another ref or config section, or a later change to the same ref, is kept and reaches its subscribers unannounced. A watch group now diffs the shared `.git/config` by section on each report (one read for every worktree of the repository) and delivers a change confined to `branch.<name>` sections as confined to those branches (`WatcherRepoChangeEvent.configBranches`, `mayHaveChangedConfig`), whoever wrote it; anything else, an unreadable or unparsable file, a read that doesn't settle within 5 seconds, or another config file is unconfined. Ref-filtered subscriptions and worktree summaries narrow a confined change like a named ref (git)
+
+### Fixed
+
+- Fixes a fetch announcing `remotes` to every worktree of the repository, and resetting the branch and tag caches, whether or not anything moved, so each worktree summary re-read its base after every fetch: in a Kepler daemon with ~60 worktrees one task launch cost ~490 git processes. A fetch now compares the refs it can write (its refspecs' destinations, the fetched remotes' configured destinations, symref targets included, and tags) before and after it runs, announces nothing when none moved, and otherwise names exactly what moved; a snapshot it can't read falls back to the previous announcement (git-cli)
+- Fixes deleting, creating or renaming a branch making every worktree of the repository re-read its base, since the write's `.git/config` change and the watcher's later report of it reached every subscriber; one task removal cost ~460 git processes over ~60 worktrees (git, git-cli)
+
 ## [0.15.4] - 2026-10-22
 
 ### Added
