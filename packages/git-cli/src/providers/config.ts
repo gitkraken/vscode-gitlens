@@ -153,6 +153,33 @@ export function parseConfigRegexOutput(
 	return configMap;
 }
 
+/**
+ * Parses `git config --null --get-regexp` output into every value of each key, in the order git printed them. Each
+ * entry is its key, a newline and its value, ended by a NUL, so a value may hold newlines or spaces unambiguously.
+ * A valueless entry (`key`, no `=`), which git prints with no newline, is skipped, as {@link parseConfigRegexOutput}
+ * skips it by default.
+ */
+export function parseConfigRegexNullOutput(data: string | undefined): Map<string, string[]> {
+	const configMap = new Map<string, string[]>();
+	if (!data) return configMap;
+
+	for (const entry of data.split('\0')) {
+		const newlineIndex = entry.indexOf('\n');
+		if (newlineIndex === -1) continue;
+
+		const key = entry.substring(0, newlineIndex);
+		const value = entry.substring(newlineIndex + 1);
+		const values = configMap.get(key);
+		if (values != null) {
+			values.push(value);
+		} else {
+			configMap.set(key, [value]);
+		}
+	}
+
+	return configMap;
+}
+
 export function parseGitBoolean(value: string | undefined): boolean {
 	if (value == null) return false;
 
@@ -243,6 +270,36 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		return this.cache.getConfigRegex(global ? undefined : repoPath, pattern, () =>
 			this.getConfigRegexCore(repoPath, pattern, options),
 		);
+	}
+
+	/**
+	 * Every value of each key matching `pattern` (`git config --get-regexp`), for a key git lets repeat, like
+	 * `remote.<name>.fetch`: {@link getConfigRegex} keeps only each key's last value. Cached beside it, so the same
+	 * writes and config changes clear it. Rejects when git couldn't read the configuration.
+	 */
+	@trace()
+	async getConfigRegexAll(repoPath: string, pattern: string): Promise<Map<string, string[]>> {
+		// Under a key no regex is spelled as, with each key's values joined by a NUL, which no value can hold
+		const joined = await this.cache.getConfigRegex(repoPath, `\0all\0${pattern}`, async () => {
+			// Read from the common path, never the caller's checkout: every worktree is served this one entry, so it
+			// must not take in a `config.worktree` of whichever checkout happened to read first
+			const result = await this.git.run(
+				{ cwd: this.cache.getCommonPath(repoPath), errors: 'ignore' },
+				'config',
+				'--null',
+				'--get-regexp',
+				pattern,
+			);
+			// 1 is git's exit code for no key matching
+			if (result.completion.status !== 'exited' || (result.exitCode !== 0 && result.exitCode !== 1)) {
+				throw new Error(`Unable to read the config keys matching '${pattern}'`);
+			}
+
+			return new Map(
+				Array.from(parseConfigRegexNullOutput(result.stdout), ([key, values]) => [key, values.join('\0')]),
+			);
+		});
+		return new Map(Array.from(joined, ([key, value]) => [key, value.split('\0')]));
 	}
 
 	private async getConfigRegexCore(

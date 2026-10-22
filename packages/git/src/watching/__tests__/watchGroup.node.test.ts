@@ -797,6 +797,7 @@ describe('WatchGroup', () => {
 			group.dispose();
 		});
 
+		// With nothing to read the file through, a config change may be anywhere
 		for (const file of ['config', 'config.lock', 'config.worktree', 'config.worktree.lock']) {
 			it(`reports ${file} as config invalidation without ref movement`, () => {
 				const { factory, watchers } = createMockFactory();
@@ -828,6 +829,281 @@ describe('WatchGroup', () => {
 			assert.deepStrictEqual(callArgs(a.onRepoChanged, 0), ['/worktrees/A', ['config', 'remotes'], false]);
 			assert.deepStrictEqual(callArgs(a.onRepoChanged, 1), ['/worktrees/A', ['config', 'remotes'], false]);
 			assert.strictEqual(callCount(b.onRepoChanged), 0);
+			group.dispose();
+		});
+	});
+
+	describe('classifying the shared config', () => {
+		const base =
+			'[core]\n\tbare = false\n[remote "origin"]\n\turl = /origin.git\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n';
+		const featureSection = '[branch "feature"]\n\tremote = origin\n\tmerge = refs/heads/feature\n';
+
+		/** Lets the group's reads (promises around a fake file) run to completion */
+		async function flushReads(): Promise<void> {
+			for (let i = 0; i < 5; i++) {
+				await new Promise(resolve => setImmediate(resolve));
+			}
+		}
+
+		/** A main checkout and a linked worktree, grouped over a `.git/config` the test writes (`null`: unreadable) */
+		async function createGroup(initial: string | null = base): Promise<{
+			group: WatchGroup;
+			file: { content: string | undefined; reads: string[] };
+			mainRoot: MockWatcher;
+			common: MockWatcher;
+			linkedRoot: MockWatcher;
+			main: WatchGroupHooks;
+			linked: WatchGroupHooks;
+			calls: (hooks: WatchGroupHooks) => unknown[][];
+		}> {
+			const { factory, watchers } = createMockFactory();
+			const file: { content: string | undefined; reads: string[] } = { content: initial ?? undefined, reads: [] };
+			const group = new WatchGroup('/repo/.git', factory, undefined, path => {
+				file.reads.push(normalizePath(path));
+				return file.content != null
+					? Promise.resolve(new TextEncoder().encode(file.content))
+					: Promise.reject(new Error('ENOENT'));
+			});
+			const main = makeCallbacks();
+			const linked = makeCallbacks();
+			group.addSession('/repo', standardGitDir('/repo/.git'), main);
+			group.addSession('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'), linked);
+			await flushReads();
+
+			const mainRoot = watchers.find(w => w.pattern === dotGitGlobCombined);
+			const common = watchers.find(w => w.pattern === dotGitGlobCommon);
+			const linkedRoot = watchers.find(w => w.basePath === '/repo/.git/worktrees/A');
+			assert.ok(mainRoot);
+			assert.ok(common);
+			assert.ok(linkedRoot);
+			return {
+				group: group,
+				file: file,
+				mainRoot: mainRoot,
+				common: common,
+				linkedRoot: linkedRoot,
+				main: main,
+				linked: linked,
+				calls: hooks =>
+					(hooks.onRepoChanged as unknown as MockFn).mock.calls.map((c: { arguments: unknown[] }) => [
+						...c.arguments,
+					]),
+			};
+		}
+
+		/** What git and the watchers do for one write: the lock, then the file it's renamed over, seen by both watchers */
+		function reportWrite(...watchers: MockWatcher[]): void {
+			for (const w of watchers) {
+				w.fire({ path: '/repo/.git/config.lock', reason: 'create' });
+				w.fire({ path: '/repo/.git/config', reason: 'change' });
+			}
+		}
+
+		it("tells every session, once, that only a branch's section changed, with no remotes", async () => {
+			const { group, file, mainRoot, common, main, linked, calls } = await createGroup();
+			assert.deepStrictEqual(file.reads, ['/repo/.git/config'], 'the baseline is read as the group starts');
+
+			file.content = base + featureSection;
+			reportWrite(mainRoot, common);
+			await flushReads();
+
+			for (const [hooks, repoPath] of [
+				[main, '/repo'],
+				[linked, '/worktrees/A'],
+			] as const) {
+				assert.deepStrictEqual(calls(hooks), [
+					[repoPath, ['config'], false, false, new Set(['refs/heads/feature'])],
+				]);
+			}
+			// The first report's read and one follow-up for the reports that came in during it
+			assert.strictEqual(file.reads.length, 3);
+			group.dispose();
+		});
+
+		it('tells every session a change outside branch sections may be anywhere, remotes included', async () => {
+			for (const edit of [
+				base.replace('/origin.git', '/moved.git'),
+				`${base}[url "https://mirror/"]\n\tinsteadOf = https://origin/\n`,
+				`${base}[branch]\n\tautoSetupMerge = always\n`,
+				`${base + featureSection}[core]\n\tfilemode = false\n`,
+			]) {
+				const { group, file, common, main, linked, calls } = await createGroup();
+
+				file.content = edit;
+				reportWrite(common);
+				await flushReads();
+
+				assert.deepStrictEqual(calls(main), [['/repo', ['config', 'remotes'], false]], edit);
+				assert.deepStrictEqual(calls(linked), [['/worktrees/A', ['config', 'remotes'], false]], edit);
+				group.dispose();
+			}
+		});
+
+		it("tells no session of a report whose change an earlier report's read already delivered", async () => {
+			const { group, file, mainRoot, main, calls } = await createGroup();
+
+			file.content = base + featureSection;
+			mainRoot.fire({ path: '/repo/.git/config', reason: 'change' });
+			await flushReads();
+			// The same write, reported again later (a polled watcher, or the other watcher)
+			mainRoot.fire({ path: '/repo/.git/config', reason: 'change' });
+			await flushReads();
+
+			assert.strictEqual(calls(main).length, 1);
+			group.dispose();
+		});
+
+		it('classifies a report by what changed since the last read, however long ago that was', async () => {
+			const { group, file, common, linked, calls } = await createGroup();
+
+			// Two writes, the first never reported (a poll that saw only the second): both are in the comparison
+			file.content = base + featureSection;
+			file.content += '[branch "other"]\n\tremote = origin\n';
+			common.fire({ path: '/repo/.git/config', reason: 'change' });
+			await flushReads();
+
+			assert.deepStrictEqual(calls(linked), [
+				['/worktrees/A', ['config'], false, false, new Set(['refs/heads/feature', 'refs/heads/other'])],
+			]);
+			group.dispose();
+		});
+
+		it("can't compare a report arriving while the baseline is read, so it is unconfined", async () => {
+			const { factory, watchers } = createMockFactory();
+			let resolveBaseline: ((data: Uint8Array) => void) | undefined;
+			const group = new WatchGroup(
+				'/repo/.git',
+				factory,
+				undefined,
+				() =>
+					new Promise<Uint8Array>(resolve => {
+						resolveBaseline = resolve;
+					}),
+			);
+			const hooks = makeCallbacks();
+			group.addSession('/repo', standardGitDir('/repo/.git'), hooks);
+
+			watchers[0].fire({ path: '/repo/.git/config', reason: 'change' });
+			assert.deepStrictEqual(callArgs(hooks.onRepoChanged, 0), ['/repo', ['config', 'remotes'], false]);
+
+			resolveBaseline?.(new TextEncoder().encode(base));
+			await flushReads();
+			assert.strictEqual(callCount(hooks.onRepoChanged), 1);
+			group.dispose();
+		});
+
+		it("is unconfined for a file it couldn't read or parse, and compares the next read with the last good one", async () => {
+			for (const failure of [
+				undefined, // unreadable
+				`${base}[branch "feature"]\n\tmerge = refs/heads/\\q\n`, // an escape git rejects
+				`${base}[branch "feature\n\tmerge = x\n`, // a header git rejects
+				`${base}\tstray = before any header`.replace('[core]', ''), // a variable outside any section
+			]) {
+				const { group, file, common, linked, calls } = await createGroup();
+
+				file.content = failure;
+				common.fire({ path: '/repo/.git/config', reason: 'change' });
+				await flushReads();
+				assert.deepStrictEqual(
+					calls(linked),
+					[['/worktrees/A', ['config', 'remotes'], false]],
+					String(failure),
+				);
+
+				file.content = base + featureSection;
+				common.fire({ path: '/repo/.git/config', reason: 'change' });
+				await flushReads();
+				assert.deepStrictEqual(
+					calls(linked)[1],
+					['/worktrees/A', ['config'], false, false, new Set(['refs/heads/feature'])],
+					String(failure),
+				);
+				group.dispose();
+			}
+		});
+
+		it('is unconfined for every report when the baseline could not be read, until a read succeeds', async () => {
+			const { group, file, common, linked, calls } = await createGroup(null);
+
+			file.content = base + featureSection;
+			common.fire({ path: '/repo/.git/config', reason: 'change' });
+			await flushReads();
+			file.content = base;
+			common.fire({ path: '/repo/.git/config', reason: 'change' });
+			await flushReads();
+
+			assert.deepStrictEqual(calls(linked), [
+				['/worktrees/A', ['config', 'remotes'], false],
+				['/worktrees/A', ['config'], false, false, new Set(['refs/heads/feature'])],
+			]);
+			group.dispose();
+		});
+
+		it('takes a read that never settles for a failed one, so the reports after it are still read', async () => {
+			mock.timers.enable({ apis: ['setTimeout'] });
+			try {
+				const { factory, watchers } = createMockFactory();
+				let hang = false;
+				let content = base;
+				const group = new WatchGroup('/repo/.git', factory, undefined, () =>
+					hang ? new Promise<Uint8Array>(() => {}) : Promise.resolve(new TextEncoder().encode(content)),
+				);
+				const hooks = makeCallbacks();
+				group.addSession('/repo', standardGitDir('/repo/.git'), hooks);
+				await flushReads();
+
+				// A hung mount: the read of this report never settles
+				hang = true;
+				content = base + featureSection;
+				watchers[0].fire({ path: '/repo/.git/config', reason: 'change' });
+				await flushReads();
+				assert.strictEqual(callCount(hooks.onRepoChanged), 0);
+
+				// Another report waits behind it, and the mount recovers
+				watchers[0].fire({ path: '/repo/.git/config', reason: 'change' });
+				hang = false;
+				mock.timers.tick(5000);
+				await flushReads();
+
+				assert.deepStrictEqual(callArgs(hooks.onRepoChanged, 0), ['/repo', ['config', 'remotes'], false]);
+				assert.deepStrictEqual(callArgs(hooks.onRepoChanged, 1), [
+					'/repo',
+					['config'],
+					false,
+					false,
+					new Set(['refs/heads/feature']),
+				]);
+				group.dispose();
+			} finally {
+				mock.timers.reset();
+			}
+		});
+
+		it("leaves a linked worktree's own config file unconfined, and reads nothing for it", async () => {
+			const { group, file, linkedRoot, main, linked, calls } = await createGroup();
+			const reads = file.reads.length;
+
+			linkedRoot.fire({ path: '/repo/.git/worktrees/A/config.worktree', reason: 'change' });
+			await flushReads();
+
+			assert.deepStrictEqual(calls(linked), [['/worktrees/A', ['config', 'remotes'], false]]);
+			assert.deepStrictEqual(calls(main), []);
+			assert.strictEqual(file.reads.length, reads);
+			group.dispose();
+		});
+
+		it('delivers an overflow as every kind, unclassified', async () => {
+			const { group, common, linked, calls } = await createGroup();
+
+			common.fire({ path: '/repo/.git', reason: 'overflow' });
+			await flushReads();
+
+			assert.deepStrictEqual(calls(linked)[0], [
+				'/worktrees/A',
+				[...allWatchedRepositoryChanges],
+				undefined,
+				true,
+			]);
 			group.dispose();
 		});
 	});

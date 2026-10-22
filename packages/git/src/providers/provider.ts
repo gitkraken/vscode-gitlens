@@ -31,6 +31,13 @@ export type { GitProviderDescriptor } from './types.js';
 export interface AnnouncedRepositoryChanges {
 	readonly repoPath: string;
 	readonly changes: readonly RepositoryChange[];
+	/** Full ref names the write moved, when it knows them — see `GitServiceHooks.repository.onChanged` */
+	readonly refs?: readonly string[];
+	/**
+	 * The write's `config` change touched only the `branch.<name>` sections of the local branches in {@link refs} —
+	 * see `GitServiceHooks.repository.onChanged`
+	 */
+	readonly configConfinedToRefs?: boolean;
 }
 
 /**

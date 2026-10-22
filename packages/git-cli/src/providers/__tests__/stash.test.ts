@@ -89,7 +89,31 @@ suite('StashGitSubProvider — runOptions passthrough', () => {
 
 		await assert.rejects(cancelled.saveStash(repoPath, 'message'), ex => isCancellationError(ex));
 		assert.deepStrictEqual(onReset.args, [[repoPath, 'stashes', 'status']]);
-		assert.deepStrictEqual(onChanged.args, [[repoPath, ['stash']]]);
+		// A push names the one ref it moves; an apply moves none, so its announcement above names nothing
+		assert.deepStrictEqual(onChanged.args, [[repoPath, ['stash'], ['refs/stash']]]);
+	});
+
+	test('a pop names refs/stash only when it dropped the entry, never when it stopped on a conflict', async () => {
+		const onChanged = sinon.spy();
+		const context = { hooks: { repository: { onChanged: onChanged } } } as unknown as GitServiceContext;
+		const git = { run: sinon.stub().resolves(successResult()) } as unknown as Git;
+		const popper = new StashGitSubProvider(
+			context,
+			git,
+			{} as unknown as Cache,
+			{} as unknown as CliGitProviderInternal,
+		);
+
+		await popper.applyStash(repoPath, 'stash@{0}', { deleteAfter: true });
+		assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['stash'], ['refs/stash']]);
+
+		// Git keeps the entry when the pop conflicts, so `refs/stash` didn't move
+		(git.run as sinon.SinonStub).rejects(
+			new Error('Auto-merging a.txt\nCONFLICT (content): Merge conflict in a.txt'),
+		);
+		const result = await popper.applyStash(repoPath, 'stash@{0}', { deleteAfter: true });
+		assert.strictEqual(result.conflicted, true);
+		assert.deepStrictEqual(onChanged.lastCall.args, [repoPath, ['stash']]);
 	});
 
 	test('a saveStash with nothing to save rejects without announcing a change', async () => {
