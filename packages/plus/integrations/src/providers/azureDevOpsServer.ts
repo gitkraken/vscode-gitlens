@@ -439,7 +439,7 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	}
 
 	/**
-	 * The filtered work-item search: one WIQL query per page over ONE collection, then one detail read for the
+	 * The filtered work-item search snapshots matching ids with bounded WIQL queries, then reads details for each
 	 * page's slice. See {@link resolveWorkItemSearchScope} for why a search never spans several collections.
 	 */
 	protected override async searchProviderIssuesPage(
@@ -474,7 +474,8 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 			{
 				baseUrl: this.collectionApiBaseUrl(session, scope.collection),
 				criteria: options.criteria,
-				projectNames: scope.projectNames ?? scope.projects.map(p => p.name),
+				projectNames: scope.projectNames,
+				workflowProjectNames: scope.projects.map(p => p.name),
 				resolveProject: name => scope.projects.find(p => sameAzureName(p.name, name)),
 				cursor: options.cursor,
 				pageSize: options.pageSize,
@@ -512,7 +513,8 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 					{
 						baseUrl: this.collectionApiBaseUrl(session, scope.collection),
 						criteria: s.criteria,
-						projectNames: scope.projectNames ?? scope.projects.map(p => p.name),
+						projectNames: scope.projectNames,
+						workflowProjectNames: scope.projects.map(p => p.name),
 					},
 					cancellation,
 				);

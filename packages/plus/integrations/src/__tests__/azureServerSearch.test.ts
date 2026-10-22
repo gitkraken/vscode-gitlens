@@ -1026,6 +1026,32 @@ suite('Azure DevOps Server filtered search', () => {
 			});
 		});
 
+		test('keeps a collection pagination when a count discovers a newly added project', async () => {
+			const mutable = {
+				...collection,
+				projects: [...collection.projects],
+				workItems: [5, 4, 3, 2, 1].map(id => ({ id: id, project: 'Web', title: `Item ${id}` })),
+			};
+			const server = createServer({ installation: 'https://server.test/tfs', collections: [mutable] });
+			await withManager(server, async (manager, target) => {
+				const scope = { ...target, org: 'Default Collection', itemsPerPage: 2 };
+				const first = await manager.searchIssuesPage(scope);
+				mutable.projects.push('New project');
+				const count = await manager.countIssues({ ...target, scopes: [{ key: 'all', org: scope.org }] });
+				assert.equal(count.fetchFailed, undefined);
+				const requests = server.requests.length;
+				const second = await manager.searchIssuesPage({ ...scope, cursor: first.cursor });
+				assert.equal(second.fetchFailed, undefined, JSON.stringify(second.warnings));
+				assert.deepEqual(
+					second.items.map(i => i.id),
+					['3', '2'],
+				);
+				assert.ok(
+					!server.requests.slice(requests).some(r => /\/(?:wiql|workItemTypes|states)$/.test(r.url.pathname)),
+				);
+			});
+		});
+
 		test('keeps a pagination on its own snapshot when the same query starts again', async () => {
 			const items: FakeWorkItem[] = [5, 4, 3, 2, 1].map(i => ({ id: i, project: 'Web', title: `Item ${i}` }));
 			const mutable = { ...collection, workItems: items };

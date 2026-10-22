@@ -1,4 +1,5 @@
 import type { AzureWorkItemTypeStates } from '@gitkraken/provider-apis';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { AzureWorkItemStateCategory } from './models.js';
 import { azureIssueStateCategory, encodeAzurePathSegment } from './models.js';
@@ -98,30 +99,51 @@ export class AzureWorkItemStatesCache {
 		this.states.clear();
 	}
 
-	getTypes(scope: AzureWorkItemStatesScope, read: () => Promise<unknown>): Promise<string[]> {
-		return this.read(this.types, scopeKey(scope), async () => parseWorkItemTypes(await read()));
+	getTypes(
+		scope: AzureWorkItemStatesScope,
+		read: (signal?: AbortSignal) => Promise<unknown>,
+		cancellation?: AbortSignal,
+	): Promise<string[]> {
+		return this.read(
+			this.types,
+			scopeKey(scope),
+			async signal => parseWorkItemTypes(await read(signal)),
+			cancellation,
+		);
 	}
 
 	getStates(
 		scope: AzureWorkItemStatesScope,
 		type: string,
-		read: () => Promise<unknown>,
+		read: (signal?: AbortSignal) => Promise<unknown>,
+		cancellation?: AbortSignal,
 	): Promise<WorkItemTypeStates> {
-		return this.read(this.states, scopeKey(scope, type), async () => parseWorkItemStates(await read()));
+		return this.read(
+			this.states,
+			scopeKey(scope, type),
+			async signal => parseWorkItemStates(await read(signal)),
+			cancellation,
+		);
 	}
 
 	private async read<T>(
 		cache: PromiseCache<string, PromiseSettledResult<T>>,
 		key: string,
-		load: () => Promise<T>,
+		load: (signal?: AbortSignal) => Promise<T>,
+		cancellation?: AbortSignal,
 	): Promise<T> {
-		const result = await cache.getOrCreate(key, async () => ({ status: 'fulfilled', value: await load() }), {
-			// Every caller must still see the failure; caching undefined would turn later pages into successes.
-			onError: error =>
-				cache.get(key) == null
-					? undefined
-					: { value: { status: 'rejected', reason: error }, createTTL: 30 * 1000, suppress: true },
-		});
+		const result = await cache.getOrCreate(
+			key,
+			async (_cacheable, signal) => ({ status: 'fulfilled', value: await load(signal) }),
+			{
+				cancellation: cancellation,
+				// Every caller must still see the failure; caching undefined would turn later pages into successes.
+				onError: error =>
+					isCancellationError(error) || cache.get(key) == null
+						? undefined
+						: { value: { status: 'rejected', reason: error }, createTTL: 30 * 1000, suppress: true },
+			},
+		);
 		if (result.status === 'rejected') throw result.reason;
 
 		return result.value;
