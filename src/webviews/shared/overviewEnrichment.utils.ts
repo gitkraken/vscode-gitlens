@@ -20,7 +20,7 @@ import {
 	getBranchEnrichedAutolinks,
 	getBranchMergeTargetInfo,
 	getBranchRemote,
-	isSelfMergeTarget,
+	getDefaultBranchNameFromIntegration,
 } from '../../git/utils/-webview/branch.utils.js';
 import { getContributorAvatarUri } from '../../git/utils/-webview/contributor.utils.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
@@ -99,31 +99,21 @@ export async function getBranchMergeTargetStatusInfo(
 	// Forward cancellation and bound the PR-based merge-target lookup. Without these the
 	// integration call (e.g. GitHub PR fetch) can take seconds-to-indefinite when slow,
 	// stranding the webview's mergeTarget loading flag because the RPC promise never settles.
-	// On timeout, getBranchMergeTargetInfo's paused result is ignored below and we fall through
-	// to baseBranch/defaultBranch — a usable answer instead of a stuck spinner.
+	// On timeout the answer without the pull request's base is used and the late one is ignored — a usable
+	// answer instead of a stuck spinner.
 	const info = await getBranchMergeTargetInfo(container, branch, {
 		associatedPullRequest: associatedPullRequest ?? getBranchAssociatedPullRequest(container, branch),
 		cancellation: cancellation,
 		timeout: 5000,
 	});
 
-	let targetResult;
-	if (!info.mergeTargetBranch.paused && info.mergeTargetBranch.value) {
-		targetResult = info.mergeTargetBranch.value;
-	}
-
-	const target = targetResult ?? info.baseBranch ?? info.defaultBranch;
+	const target = info.target?.ref;
 	if (target == null) return undefined;
 
 	const svc = container.git.getRepositoryService(branch.repoPath);
 	const targetBranch = await svc.branches.getBranch(target, undefined, cancellation);
 	// The tip SHA is required — without it the graph's scope anchor can't be placed.
 	if (targetBranch?.sha == null) return undefined;
-	// Self target with equal tips (the default branch up to date with its own remote): 0/0 counts and a
-	// trivially-merged status say nothing, so the sidebars skip it. The graph's `computeScopeAnchor` still
-	// anchors this shape (scope always scopes) — the divergence is safe because `reconcileScopeMergeTarget`
-	// only backfills scope anchors from this enrichment, never strips them.
-	if (targetBranch.sha === branch.sha && isSelfMergeTarget(target, branch.name)) return undefined;
 
 	// Conflict detection is Pro — same gate as its siblings (the merge/cherry-pick/rebase wizards and
 	// the pull conflict preview), which this chip's field must agree with. The rest of the chip
@@ -453,13 +443,16 @@ export async function getOverviewEnrichment(
 			);
 			promises.contributors =
 				getBranchOverview?.(branch, associatedPR) ??
-				container.git
-					.getRepositoryService(branch.repoPath)
-					.branches.getBranchContributionsOverview(
-						branch.ref,
-						{ associatedPullRequest: associatedPR, priority: priority },
-						signal,
-					);
+				container.git.getRepositoryService(branch.repoPath).branches.getBranchContributionsOverview(
+					branch.ref,
+					{
+						associatedPullRequest: associatedPR,
+						getFallbackDefaultBranch: () =>
+							getDefaultBranchNameFromIntegration(branch.repoPath, { cancellation: signal }),
+						priority: priority,
+					},
+					signal,
+				);
 			// Compute merge target for every enriched branch (not just the current one) so the graph's
 			// scope popover can render a merge-target anchor when the user focuses any branch, and so
 			// recent-branch cards can show merged status. Callers that defer this work to hover-time

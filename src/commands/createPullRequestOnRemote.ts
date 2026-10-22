@@ -6,7 +6,7 @@ import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlen
 import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
-import { getBranchAssociatedPullRequest, getBranchMergeTargetName } from '../git/utils/-webview/branch.utils.js';
+import { getBranchAssociatedPullRequest, getBranchMergeTarget } from '../git/utils/-webview/branch.utils.js';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { command, executeCommand } from '../system/-webview/command.js';
 import { GlCommandBase } from './commandBase.js';
@@ -76,10 +76,11 @@ export class CreatePullRequestOnRemoteCommand extends GlCommandBase {
 		if (args.base == null) {
 			const branch = await repo.git.branches.getBranch(args.compare);
 			if (branch != null) {
-				const mergeTargetResult = await getBranchMergeTargetName(this.container, branch);
-				if (!mergeTargetResult.paused && mergeTargetResult.value != null) {
-					// Strip the remote name from the branch name
-					args.base = getBranchNameWithoutRemote(mergeTargetResult.value);
+				const { target } = await getBranchMergeTarget(this.container, branch);
+				if (target != null) {
+					// Only a remote-tracking target has a remote to strip: a local one's name can hold a slash itself
+					const targetBranch = await repo.git.branches.getBranch(target.ref);
+					args.base = targetBranch?.nameWithoutRemote ?? getBranchNameWithoutRemote(target.ref);
 				}
 			}
 		}

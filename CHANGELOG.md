@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Changes views and the _Commit Graph_ to keep updating during long-running activity, such as a long rebase or a build writing into the working tree, where they used to wait until it stopped
+- Changes how a branch's merge target is chosen when none is saved or detected &mdash; the default branch is found from local branches first (an `upstream` remote's, then `origin`'s) and the remote is asked only when they name none, the default branch itself is measured against its own upstream, and a branch created from another branch is measured against it until that branch is merged; the guess for a branch created with `git checkout -b` is no longer saved
 - Improves performance when working across several worktrees of one repository &mdash; staging changes, or a merge, rebase or cherry-pick pausing, in one worktree no longer refreshes the views and _Commit Graph_ state of every other worktree
 
 ### Fixed
@@ -21,6 +22,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes Azure DevOps repositories named after their project and cloned without the project segment (`…/{collection}/_git/{repo}`, as TFS 2018 offers them) never showing pull requests or commit authors ([#6000](https://github.com/gitkraken/vscode-gitlens/issues/6000))
 - Fixes Azure DevOps showing no authored or review-requested pull requests, and failing to read the user's groups, for accounts whose profile id differs from their identity in an organization; Launchpad also categorizes those pull requests as the user's ([#6032](https://github.com/gitkraken/vscode-gitlens/issues/6032))
 - Fixes a branch's merge target staying stuck on a deleted branch, such as a stacked pull request's base after it merges and is pruned &mdash; a saved, detected, or pull request merge target whose branch no longer exists locally is now skipped in favor of the next available one
+- Fixes a branch's merge target counting commits that are already on the remote when the target is an out-of-date local branch &mdash; a merge target is now measured against the local branch or its upstream, whichever the branch split off from more recently
+- Fixes the merge target status being hidden when a branch's target is a local branch whose name ends with the branch's own name, such as `release/main` for `main`, and both are at the same commit
+- Fixes _Home_ and _Commit Graph_ branch cards measuring the overview and the merge target status against different targets for a branch that tracks a remote other than `origin`
+- Fixes the _Commit Graph_'s commit scope picker ignoring a branch's saved or pull request merge target
+- Fixes _Explain Branch_ comparing against the current branch, instead of reporting that no base branch was found, for a branch with no merge target
+- Fixes _Create Pull Request_ cutting a local merge target's name at its first slash when choosing the pull request's base &mdash; `release/2.0` became `2.0`
+- Fixes a branch's base never being found from where it was created when Git's `grep.patternType` is set to `fixed`
 
 ## [19.4.0] - 2026-10-15
 
