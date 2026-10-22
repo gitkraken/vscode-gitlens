@@ -171,6 +171,20 @@ export function createTestRepo(options?: {
 	}
 }
 
+/**
+ * A provider of its own, with cold caches, for any existing repository: a read through it can't be served from what
+ * another provider cached. Call `dispose()` when done.
+ */
+export function createProvider(options?: { gitOptions?: GitOptions }): CliGitProvider {
+	ensureLogger();
+
+	return new CliGitProvider({
+		context: createMinimalContext(),
+		locator: getGitLocation,
+		gitOptions: { gitTimeout: 30000, ...options?.gitOptions },
+	});
+}
+
 // Monotonic commit clock: git commit dates have 1-second granularity, so rapid test commits otherwise
 // share a timestamp — which the R6b date-boundary gate (correctly) treats as an interleave hazard and
 // falls back on. Advancing a shared clock 60s per commit gives every commit a distinct, increasing date so

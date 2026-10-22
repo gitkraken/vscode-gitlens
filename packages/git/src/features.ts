@@ -24,6 +24,7 @@ export type GitFeatures =
 	| 'git:push:force-if-includes'
 	| 'git:rebase:autosquash'
 	| 'git:rev-parse:end-of-options'
+	| 'git:rev-parse:reflog-oldest-old-value'
 	| 'git:signing:ssh'
 	| 'git:signing:x509'
 	| 'git:sparse-index'
@@ -103,6 +104,9 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	// gates the non-interactive path.
 	['git:rebase:autosquash', '2.44'],
 	['git:rev-parse:end-of-options', '2.30'],
+	// `<ref>@{<n>}` for a reflog of exactly n entries names the value before the oldest one, refusing only a null one
+	// (the entry that created the ref); older ones refuse it either way
+	['git:rev-parse:reflog-oldest-old-value', '2.31'],
 	['git:signing:ssh', '2.34.0'],
 	['git:signing:x509', '2.19.0'],
 	// Sparse-index support debuted earlier, but 2.33 shipped a corruption fix and 2.34 broadened command
