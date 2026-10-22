@@ -795,6 +795,70 @@ suite('Refreshing checkouts after writes that name the refs they moved', () => {
 				assert.strictEqual(readsOf(co), 0, `${co.key} was not recomputed`);
 			}
 		});
+
+		test('adding a worktree for a remote-only branch announces the local branch git creates, which tracks the remote one, and every checkout lists it', async () => {
+			const path = join(root, 'wt-remote');
+			git(peer.path, 'push', 'origin', 'main:refs/heads/remote-only');
+			// A raw fetch, so no announcement of core's own is mixed into what is asserted below
+			git(main.path, 'fetch', '-q', 'origin');
+			assert.ok(!(await localBranches(main.path)).includes('remote-only'), 'only the remote branch exists');
+			resetObservations();
+			const announced = announcementsFor(main.path);
+
+			await repoOf(main.path).worktrees!.createWorktree(path, { commitish: 'remote-only' });
+			// The watcher's report of the tracking git wrote to `.git/config`
+			fireConfigChanged();
+			await settle();
+
+			for (const p of [main.path, linked[0].path, linked[1].path]) {
+				assert.ok((await localBranches(p)).includes('remote-only'), `${p} lists the new local branch`);
+			}
+			for (const co of [mainCo, aCo, bCo]) {
+				assert.strictEqual(readsOf(co), 0, `${co.key} was not recomputed`);
+				assert.ok(heardBy(co).some(e => e.mayHaveChangedRef('refs/heads/remote-only')));
+				assert.ok(heardBy(co).every(e => !e.mayHaveChangedRef('refs/heads/feature-b')));
+			}
+
+			assert.strictEqual(announced.length, 1);
+			assert.ok(announced[0].changes.includes('heads'));
+			assert.ok(announced[0].changes.includes('worktrees'));
+			assert.ok(!announced[0].changes.includes('config'), 'the config watcher reports the tracking, not core');
+			assert.deepStrictEqual(announced[0].refs, ['refs/heads/remote-only']);
+
+			const branch = await repoOf(main.path).branches.getBranch('remote-only');
+			assert.strictEqual(branch?.upstream?.name, 'origin/remote-only');
+
+			resetObservations();
+			await repoOf(main.path).worktrees!.deleteWorktree(path);
+			await settle();
+		});
+
+		test('adding a worktree with no commitish announces the branch git names after the path', async () => {
+			const path = join(root, 'wt-guess');
+			assert.ok(!(await localBranches(main.path)).includes('wt-guess'));
+			resetObservations();
+			const announced = announcementsFor(main.path);
+
+			await repoOf(main.path).worktrees!.createWorktree(path);
+			await settle();
+
+			for (const p of [main.path, linked[0].path, linked[1].path]) {
+				assert.ok((await localBranches(p)).includes('wt-guess'), `${p} lists the new local branch`);
+			}
+			for (const co of [mainCo, aCo, bCo]) {
+				assert.strictEqual(readsOf(co), 0, `${co.key} was not recomputed`);
+				assert.ok(heardBy(co).some(e => e.mayHaveChangedRef('refs/heads/wt-guess')));
+				assert.ok(heardBy(co).every(e => !e.mayHaveChangedRef('refs/heads/feature-b')));
+			}
+
+			assert.strictEqual(announced.length, 1);
+			assert.ok(announced[0].changes.includes('heads'));
+			assert.deepStrictEqual(announced[0].refs, ['refs/heads/wt-guess']);
+
+			resetObservations();
+			await repoOf(main.path).worktrees!.deleteWorktree(path);
+			await settle();
+		});
 	});
 
 	suite('work in a linked worktree', () => {

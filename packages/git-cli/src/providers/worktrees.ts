@@ -28,6 +28,14 @@ function getLockReason(ex: GitError): string | undefined {
 	return GitErrors.worktreeLockedReason.exec(ex.stderr || ex.stdout || ex.message || '')?.[1].trim() || undefined;
 }
 
+/**
+ * The branch `git worktree add` says it created, from the `Preparing worktree (new branch '<name>')` line it writes to
+ * stderr (git 2.17+, in English since every run sets `LC_ALL=C`)
+ */
+function getNewWorktreeBranch(stderr: string | undefined): string | undefined {
+	return stderr ? /^Preparing worktree \(new branch '(.+)'\)$/m.exec(stderr)?.[1] : undefined;
+}
+
 export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	constructor(
 		private readonly context: GitServiceContext,
@@ -73,15 +81,22 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			args.push(options.commitish);
 		}
 
+		// Without `-b`, git may still create a branch: from a remote branch of the commitish's name, or named after the
+		// path when no commitish is given
+		let createdBranch = options?.createBranch;
 		try {
-			await this.git.run({ cwd: repoPath, ...runOptions }, ...args);
+			const result = await this.git.run({ cwd: repoPath, ...runOptions }, ...args);
+			createdBranch ??= getNewWorktreeBranch(result.stderr);
 
-			if (options?.createBranch) {
+			if (createdBranch) {
 				// Evict the cached base only — see `checkout -b` for why the persisted keys are left alone.
-				this.cache.deleteBaseBranchName(repoPath, options.createBranch);
+				this.cache.deleteBaseBranchName(repoPath, createdBranch);
 			}
 		} catch (ex) {
 			scope?.error(ex);
+			// `?.`: a host's index-lock retry hook may reject with anything, `undefined` included
+			createdBranch ??= getNewWorktreeBranch((ex as GitError | undefined)?.stderr);
+
 			// A cancelled or timed-out checkout, or a host-rejected index-lock retry, is not git refusing the worktree
 			if (isCancellationError(ex) || isRunHookFailure(ex)) throw ex;
 
@@ -102,17 +117,18 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			// keys (`extensions.relativeWorktrees` under `worktree.useRelativePaths`), so the write can't claim its
 			// config change is confined to the new branch, and an unconfined one would refresh every worktree on each
 			// add. The watcher's report of the file says what changed in it instead.
-			if (options?.createBranch) {
+			if (createdBranch) {
+				// A branch git created on its own may track a remote branch, whatever the commitish looks like
 				this.context.hooks?.cache?.onReset?.(
 					repoPath,
-					...(mayWriteTracking(options.commitish, options.noTracking)
+					...(!options?.createBranch || mayWriteTracking(options.commitish, options.noTracking)
 						? (['branches', 'config', 'worktrees'] as const)
 						: (['branches', 'worktrees'] as const)),
 				);
 				this.context.hooks?.repository?.onChanged?.(
 					repoPath,
 					['worktrees', 'heads'],
-					[`refs/heads/${options.createBranch}`],
+					[`refs/heads/${createdBranch}`],
 				);
 			} else {
 				this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
