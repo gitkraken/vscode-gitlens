@@ -19,6 +19,9 @@ export const azureWorkItemSearchResultLimit = 20000;
 /** The work items one detail read can resolve: `workitemsbatch` rejects more than 200 ids. */
 export const azureWorkItemBatchLimit = 200;
 
+export const azureWorkItemWiqlLengthLimit = 32000;
+const workItemAsOfLength = " ASOF '9999-12-31T23:59:59.9999999+23:59'".length;
+
 /**
  * A search page size from a caller's `itemsPerPage`, within `[1, max]`. A value that isn't a finite number takes the
  * default: `NaN` would survive the clamp and serve empty pages that never advance.
@@ -106,6 +109,7 @@ export function toAzureWorkItemSearchWiql(
 		for (const [project, workflow] of workflows) {
 			if (workflow.metadata != null) throw new Error('Azure DevOps returned incomplete workflow metadata');
 
+			const groups = new Map<string, { names: string[]; types: string[] }>();
 			for (const type of workflow.types) {
 				if (type.states == null) throw new Error('Azure DevOps returned no work item states');
 
@@ -124,8 +128,20 @@ export function toAzureWorkItemSearchWiql(
 				});
 				if (!names.length) continue;
 
+				const selected = [...new Set(names.map(s => s.name))];
+				const key = JSON.stringify([...selected].sort());
+				const group = groups.get(key);
+				if (group != null) {
+					group.types.push(type.name);
+				} else {
+					groups.set(key, { names: selected, types: [type.name] });
+				}
+			}
+			for (const group of groups.values()) {
+				const types = group.types.map(name => `'${escapeWiqlString(name)}'`);
+				const typeClause = types.length === 1 ? `= ${types[0]}` : `IN (${types.join(', ')})`;
 				states.push(
-					`([System.TeamProject] = '${escapeWiqlString(project)}' AND [System.WorkItemType] = '${escapeWiqlString(type.name)}' AND [System.State] IN (${names.map(s => `'${escapeWiqlString(s.name)}'`).join(', ')}))`,
+					`([System.TeamProject] = '${escapeWiqlString(project)}' AND [System.WorkItemType] ${typeClause} AND [System.State] IN (${group.names.map(name => `'${escapeWiqlString(name)}'`).join(', ')}))`,
 				);
 			}
 		}
@@ -164,6 +180,60 @@ export function toAzureWorkItemSearchWiql(
 	// between two requests and be served twice or never.
 	const where = clauses.length > 0 ? ` WHERE ${clauses.join(' AND ')}` : '';
 	return `SELECT [System.Id] FROM WorkItems${where} ORDER BY ${column}, [System.Id] Desc`;
+}
+
+/** Splits only disjoint scope predicates, leaving every caller criterion on every query. */
+export function toAzureWorkItemSearchQueries(
+	criteria: IssueSearchCriteria | undefined,
+	sort: IssueSorting,
+	projects: readonly string[],
+	workflows?: ReadonlyMap<string, AzureWorkItemTypeStates>,
+): string[] {
+	const query = toAzureWorkItemSearchWiql(criteria, sort, projects, workflows);
+	if (query.length + workItemAsOfLength <= azureWorkItemWiqlLengthLimit) return [query];
+
+	if (projects.length > 1) {
+		const middle = Math.ceil(projects.length / 2);
+		return [projects.slice(0, middle), projects.slice(middle)].flatMap(names =>
+			toAzureWorkItemSearchQueries(
+				criteria,
+				sort,
+				names,
+				workflows == null ? undefined : new Map(names.map(name => [name, workflows.get(name)!])),
+			),
+		);
+	}
+
+	const project = projects[0];
+	const workflow = workflows?.get(project);
+	if (workflow != null && workflow.types.length > 1) {
+		const middle = Math.ceil(workflow.types.length / 2);
+		return [workflow.types.slice(0, middle), workflow.types.slice(middle)].flatMap(types =>
+			toAzureWorkItemSearchQueries(criteria, sort, projects, new Map([[project, { types: types }]])),
+		);
+	}
+
+	const type = workflow?.types[0];
+	if (type?.states != null && type.states.length > 1) {
+		const middle = Math.ceil(type.states.length / 2);
+		return [type.states.slice(0, middle), type.states.slice(middle)].flatMap(states =>
+			toAzureWorkItemSearchQueries(
+				criteria,
+				sort,
+				projects,
+				new Map([[project, { types: [{ ...type, states: states }] }]]),
+			),
+		);
+	}
+
+	throw new Error('Azure DevOps work item search query is too long; narrow the search');
+}
+
+export function toAzureWorkItemOrderQuery(ids: readonly number[], sort: IssueSorting): string {
+	const column = sortColumns[sort];
+	if (column == null) throw new Error(`Azure DevOps cannot order a work item search by '${sort}'`);
+
+	return `SELECT [System.Id] FROM WorkItems WHERE [System.Id] IN (${ids.join(', ')}) ORDER BY ${column}, [System.Id] Desc`;
 }
 
 /**

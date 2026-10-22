@@ -183,6 +183,13 @@ interface Caches {
 
 /** Shared caches — cleared via commonPath + all worktree paths */
 interface SharedCaches {
+	/**
+	 * Keyed by commonPath. Its keys (`branch.*.remote|merge`, `remote.*`, `init.defaultBranch`) come from system,
+	 * global and the common `.git/config`, which every worktree shares: a per-worktree `config.worktree` is rare and
+	 * never holds remotes or tracking, and `includeIf "gitdir:"` matches alike for all of a repository's worktrees,
+	 * since a linked worktree's git dir sits under the main one. Only a rare `includeIf "onbranch:"` could differ.
+	 */
+	aheadOfBaseConfigKey: PromiseMap<RepoPath, string | undefined> | undefined;
 	baseBranchName: RepoPromiseCacheMap<string, string | undefined> | undefined;
 	branchMergedStatus: RepoPromiseCacheMap<string, GitBranchMergedStatus> | undefined;
 	branchMetadataMap: PromiseMap<RepoPath, Map<string, BranchMetadata>> | undefined;
@@ -216,6 +223,7 @@ type AllCaches = Caches & SharedCaches;
 /** Compile-time enforced: adding a key to SharedCaches without listing it here is a type error */
 const sharedCacheKeys: ReadonlySet<keyof AllCaches> = new Set(
 	exhaustiveArray<keyof SharedCaches>()([
+		'aheadOfBaseConfigKey',
 		'baseBranchName',
 		'branchMergedStatus',
 		'branchMetadataMap',
@@ -245,6 +253,7 @@ const sharedCacheKeys: ReadonlySet<keyof AllCaches> = new Set(
 
 function createEmptyCaches(): AllCaches {
 	return {
+		aheadOfBaseConfigKey: undefined,
 		baseBranchName: undefined,
 		bestRemotes: undefined,
 		blame: undefined,
@@ -363,6 +372,10 @@ export class Cache implements Disposable {
 		usage['cache.closeGenerations.entries.count'] = this._closeGenerations.size;
 		usage['cache.gkConfigSnapshots.entries.count'] = this._gkConfigSnapshots.size;
 		return usage;
+	}
+
+	get aheadOfBaseConfigKey(): PromiseMap<RepoPath, string | undefined> {
+		return (this._caches.aheadOfBaseConfigKey ??= new PromiseMap<RepoPath, string | undefined>());
 	}
 
 	get bestRemotes(): PromiseMap<RepoPath, GitRemote<RemoteProvider>[]> {
@@ -738,6 +751,7 @@ export class Cache implements Disposable {
 			}
 
 			if (types.includes('config')) {
+				keysToClear.add('aheadOfBaseConfigKey');
 				// `getBaseBranchName` falls back to `branch.<ref>.vscode-merge-base` (written by VS Code's
 				// built-in Git), which lives in `.git/config` — so a config change is the only signal that
 				// source changed. Cheap: config events are rare.
@@ -840,7 +854,9 @@ export class Cache implements Disposable {
 				cache.clear();
 			} else if (sharedCacheKeys.has(key)) {
 				if (!worktreeOnly) {
-					this.evictShared(key, repoPath, inFlight);
+					// Always hard-evicted: a summary joining a read from before the change gets back the snapshot it
+					// already holds, and skips the base refresh the change called for
+					this.evictShared(key, repoPath, key === 'aheadOfBaseConfigKey' ? 'evict' : inFlight);
 				}
 			} else {
 				cache.delete(repoPath);
@@ -1200,22 +1216,21 @@ export class Cache implements Disposable {
 	}
 
 	/**
-	 * Handles a watcher-observed `'gkConfig'` change. Always evicts the cached bulk map (forcing the
-	 * next read to hit disk). If a reconciler is registered (see {@link setGkConfigReconciler}),
-	 * defers to it instead of coarsely clearing `baseBranchName`/`branchOverviews` — it re-reads the
-	 * map and diffs it against the snapshot captured here (i.e. as it stood right before this change),
-	 * cascading only the refs whose merge-relevant keys actually changed. Falls back to the coarse
-	 * clear when no reconciler is registered (e.g. the GitHub provider) so nothing can go stale.
+	 * Handles a watcher-observed `'gkConfig'` change. If a reconciler is registered (see {@link setGkConfigReconciler}),
+	 * defers to it instead of coarsely clearing `baseBranchName`/`branchOverviews` — it evicts the cached bulk map
+	 * unless the file is unchanged since the map was read, reads it, and diffs it against the snapshot captured here
+	 * (i.e. as it stood right before this change), cascading only the refs whose merge-relevant keys actually
+	 * changed. Falls back to evicting the map and the coarse clear when no reconciler is registered (e.g. the GitHub
+	 * provider) so nothing can go stale.
 	 */
 	private handleGkConfigChanged(repoPath: string): void {
 		const commonPath = this.getCommonPath(repoPath);
-		// Hard-delete rather than `evictShared`'s soft-invalidate: the reconcile below needs a
-		// point-in-time read of the post-change file, and a soft-invalidated entry stays joinable — the
-		// re-read would ride a bulk read that started before this change and diff it as unchanged.
-		// Same reasoning as `refs.ts`'s `force: true` path and `deleteGkConfig`'s own hard delete.
-		this._caches.gkConfigMap?.delete(commonPath);
 
 		if (this._gkConfigReconciler == null) {
+			// Hard-delete rather than `evictShared`'s soft-invalidate: a soft-invalidated entry stays joinable, so a
+			// read after this change could ride a bulk read that started before it.
+			// Same reasoning as `refs.ts`'s `force: true` path and `deleteGkConfig`'s own hard delete.
+			this._caches.gkConfigMap?.delete(commonPath);
 			this.clearGkConfigCoarsely(repoPath);
 			return;
 		}
@@ -1226,7 +1241,18 @@ export class Cache implements Disposable {
 		// it falls back to the blunt behavior that registering a reconciler replaced. Kept here rather than
 		// in the reconciler so a bail path added later can't silently skip it — the return type makes each
 		// one say what it did.
-		void Promise.resolve(this._gkConfigReconciler(repoPath, priorSnapshot)).then(
+		let outcome: PromiseOrValue<GkReconcileOutcome>;
+		try {
+			outcome = this._gkConfigReconciler(repoPath, priorSnapshot);
+		} catch {
+			// Thrown before it could decide about the map, which it owns from the call on (see
+			// `setGkConfigReconciler`), so drop it as the coarse path does
+			this._caches.gkConfigMap?.delete(commonPath);
+			this.clearGkConfigCoarsely(repoPath);
+			return;
+		}
+
+		void Promise.resolve(outcome).then(
 			outcome => {
 				if (outcome === 'failed') {
 					this.clearGkConfigCoarsely(repoPath);
@@ -1373,9 +1399,9 @@ export class Cache implements Disposable {
 	/**
 	 * The whole `.git/gk/config` is read once and cached as a single map per commonPath; per-key and
 	 * per-namespace gk lookups are served from it in-memory (see `getGkConfigMap` in the CLI config
-	 * sub-provider). Invalidated by `deleteGkConfig` (write) and, on a watcher `'gkConfig'` event, by
-	 * `handleGkConfigChanged` (reconciled precisely when a reconciler is registered, or the coarse
-	 * clear otherwise). The first fresh read seeds the snapshot used by
+	 * sub-provider). Invalidated by `deleteGkConfig` (write) and, on a watcher `'gkConfig'` event, by the
+	 * reconciler when the file changed since the map was read (see {@link setGkConfigReconciler}), or by
+	 * `handleGkConfigChanged`'s coarse clear when none is registered. The first fresh read seeds the snapshot used by
 	 * `reconcileGkConfigMap`; later refreshes of that snapshot are owned by the reconcile itself.
 	 */
 	getGkConfigMap(
@@ -1495,6 +1521,12 @@ export class Cache implements Disposable {
 	 * `'gkConfig'` change. Only one reconciler is kept — later registrations replace earlier ones,
 	 * which is harmless since every CLI config sub-provider sharing this `Cache` reconciles the same
 	 * underlying `.git/gk/config` file identically.
+	 *
+	 * The reconciler owns the cached bulk map: it is called synchronously as the change is reported, and must
+	 * hard-delete the map ({@link deleteGkConfigMap}) before it returns unless it knows the map still reflects the
+	 * file — a read after the change must see it, and the reconcile's own read must not ride a bulk read that
+	 * started before it. Only the reconciler can inspect the file, and keeping the map spares a re-read for every
+	 * report of an unchanged file (one per worktree sharing it, and one for each of core's own writes).
 	 */
 	setGkConfigReconciler(
 		reconciler: (
@@ -1506,8 +1538,9 @@ export class Cache implements Disposable {
 	}
 
 	/**
-	 * Diffs a freshly-read gk config map's tracked subset against `priorSnapshot` (captured by
-	 * `handleGkConfigChanged` before the reconcile started, so it reflects the pre-change state), cascading
+	 * Diffs the tracked subset of a gk config map (read after the change, or kept as still reflecting the file)
+	 * against `priorSnapshot` (captured by `handleGkConfigChanged` before the reconcile started, so it reflects the
+	 * pre-change state), cascading
 	 * `baseBranchName`/`branchOverviews` for every ref whose merge-relevant key actually changed, then firing
 	 * {@link onDidChangeMergeTargets} naming those refs. Changed branch metadata keys (another process's
 	 * activity stamps or disposition) are patched into the cached branches in one call, and never fire the event.
@@ -1873,6 +1906,22 @@ export class Cache implements Disposable {
 		);
 	}
 
+	/**
+	 * The `getAheadOfBase` config snapshot, read once per commonPath for every worktree. Any config change hard-evicts
+	 * it (see {@link clearCaches}), so a read issued after the change never joins one that started before it.
+	 */
+	getAheadOfBaseConfigKey(
+		repoPath: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<string | undefined>,
+		cancellation?: AbortSignal,
+	): Promise<string | undefined> {
+		return this.getSharedSimple(this.aheadOfBaseConfigKey, repoPath, factory, cancellation);
+	}
+
 	getBranchMetadataMap(
 		repoPath: string,
 		factory: (commonPath: string) => PromiseOrValue<Map<string, BranchMetadata>>,
@@ -2159,7 +2208,9 @@ export class Cache implements Disposable {
 		repoPath: string,
 		// `cacheable` is forwarded so a factory can refuse the entry when the read FAILED rather than
 		// genuinely produced nothing — see `getSharedSimpleWithKey` for why that distinction matters.
-		factory: (commonPath: string, cacheable: CacheController) => PromiseOrValue<T>,
+		factory: (commonPath: string, cacheable: CacheController, cancellation?: AbortSignal) => PromiseOrValue<T>,
+		// Only a `PromiseMap` takes one; its factory's signal aborts once every waiter has aborted
+		cancellation?: AbortSignal,
 	): Promise<T> {
 		const commonPath = this.getCommonPath(repoPath);
 
@@ -2169,7 +2220,11 @@ export class Cache implements Disposable {
 		if (cache instanceof PromiseCache) {
 			return cache.getOrCreate(commonPath, cacheable => Promise.resolve(factory(commonPath, cacheable)));
 		}
-		return cache.getOrCreate(commonPath, cacheable => Promise.resolve(factory(commonPath, cacheable)));
+		return cache.getOrCreate(
+			commonPath,
+			(cacheable, signal) => Promise.resolve(factory(commonPath, cacheable, signal)),
+			cancellation,
+		);
 	}
 
 	private async getSharedSimpleWithKey<T>(

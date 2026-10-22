@@ -74,6 +74,12 @@ export const gitDirCommonProbes: readonly GitDirProbe[] = [
 	{ path: 'gk/config' },
 	{ path: 'info/exclude' },
 	{ path: 'refs/heads' },
+	// Moves as a remote's directory appears or goes: `git remote remove` and `git remote rename` delete or move each of
+	// its loose refs (a packed one is locked through a loose path too), and git removes the emptied directory. Reported
+	// as every remote-tracking ref possibly moved, since the poll can't tell which remote it was. A remote whose name
+	// nests under a directory another remote still uses (`foo/bar` beside `foo/baz`) leaves it unmoved, so only a named
+	// ref's probe sees that one go
+	{ path: 'refs/remotes' },
 	{ path: 'refs/tags' },
 	{ path: 'refs/stash' },
 	{ path: 'worktrees' },

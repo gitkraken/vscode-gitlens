@@ -528,8 +528,9 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	/**
 	 * Push interpreted repo changes into the pipeline. `ref` is the full ref name (or ref directory, or pseudo-ref) whose
 	 * file changed; a ref kind in `changes` is attributed to it when the kinds match, and is otherwise unnamed.
+	 * `false` preserves cache invalidations for a config edit without claiming any ref moved.
 	 */
-	pushRepoChanges(changes: RepositoryChange[], ref?: string): void {
+	pushRepoChanges(changes: RepositoryChange[], ref?: string | false): void {
 		if (this._disposed) return;
 
 		this.coalesceRepo(changes, ref, 'raw');
@@ -676,13 +677,13 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	 */
 	private coalesceRepo(
 		changes: readonly RepositoryChange[],
-		ref: string | undefined,
+		ref: string | false | undefined,
 		origin: 'raw' | 'unfenced' | 'announced',
 	): void {
 		if (changes.length === 0) return;
 
 		const now = performance.now();
-		const refKind = ref != null ? getRefChangeKind(ref) : undefined;
+		const refKind = typeof ref === 'string' ? getRefChangeKind(ref) : undefined;
 		for (const change of changes) {
 			if (origin === 'announced') {
 				if (!this.pendingRepoChanges.has(change)) {
@@ -698,7 +699,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 				}
 			}
 			this.pendingRepoChanges.add(change);
-			if (!isRefChangeKind(change)) continue;
+			if (ref === false || !isRefChangeKind(change)) continue;
 
 			if (
 				ref != null &&

@@ -118,8 +118,18 @@ const branchField = 2;
 const baseField = 4;
 /** Re-reads only the stored values the base read consults, and the base itself only when they changed */
 const baseKeysField = 8;
+/** Re-reads the provider's Git config inputs before deciding whether the base needs a refresh */
+const baseConfigField = 16;
 /** Every group a full read covers — a base read refreshes the {@link BaseKeys} snapshot itself */
 const allFields = dirtyField | branchField | baseField;
+
+// Shared config and ref changes reach every checkout of a repository together; bound that repository's Git fan-out so
+// input can keep moving. Per repository, so a burst in one, or reads hung in it, never holds up another's.
+const maxConcurrentReadsPerRepository = 4;
+// And across repositories, so a start (or an overflow rescan) over many of them never runs four reads for each at once.
+// Each read runs a couple of git processes side by side, so eight leave most of the process queue to foreground
+// commands and the CPU to the host; a hung read still frees its slot once git's command timeout ends it.
+const maxConcurrentReads = 8;
 
 const emptyRefs: readonly string[] = Object.freeze([]);
 
@@ -134,12 +144,18 @@ const noBaseKeys: BaseKeys = [undefined, undefined, undefined];
 interface ReadResult {
 	readonly summary: WorktreeSummary;
 	readonly baseKeys: BaseKeys | undefined;
+	readonly baseConfigKey: string | undefined;
 	/** Why the base read failed when the rest of the summary was read; the summary is then stale */
 	readonly baseError: unknown;
 }
 
 interface SummaryEntry {
 	readonly key: string;
+	/**
+	 * The repository's common git directory, which keys its read slots; set once the watch starts, and kept after the
+	 * last subscriber leaves, since a read still in flight then frees the slots it took under it
+	 */
+	slotsKey: string | undefined;
 	/** Aborted when the last subscriber leaves, cancelling any in-flight read */
 	readonly abort: AbortController;
 	readonly subscribers: Set<SummarySubscription>;
@@ -149,6 +165,7 @@ interface SummaryEntry {
 	value: WorktreeSummary | undefined;
 	/** The stored base values as of the last base read; a `gk` config change re-reads the base only when they differ */
 	baseKeys: BaseKeys | undefined;
+	baseConfigKey: string | undefined;
 	/** Why the latest read failed while there was no value to keep */
 	error: Error | undefined;
 	/** Read groups due on the next run */
@@ -228,9 +245,13 @@ class SummarySubscription implements WorktreeSummarySubscription {
  * `dirty`; the upstream moving reads only `branch`; a ref the base depends on reads only `base`; a `gk` config change
  * (mostly bookkeeping writes to the shared `.git/gk/config`), or core's own write of the branch's merge target or
  * base, re-reads the branch's stored merge targets and recorded base, and reads `base` only when one of them changed;
- * the checked-out branch moving, or a HEAD change, reads all of them. Stash, unrelated tags and branches, and the like
- * read nothing. One run is in flight per worktree at a time; events during a run are merged into a single follow-up
- * run.
+ * a `.git/config` change reads `branch` and the provider's config inputs to the base (one read per repository), and
+ * reads `base` only when they, the stored values, HEAD's commit or the upstream changed; the checked-out branch
+ * moving, or a HEAD change, reads all of them. Stash, unrelated tags and branches, and the like read nothing. One run
+ * is in flight per worktree at a time, at most four per repository (the worktrees sharing a common git directory), and
+ * at most eight across the service. Runs take turns first come, first served, except that one whose repository is at
+ * its cap lets later runs of other repositories go first, so a burst in one repository never delays another's reads:
+ * events while a run waits for its turn join it, and events during a run are merged into a single follow-up run.
  *
  * **Value-change-only notification.** {@link WorktreeSummarySubscription.onDidChange} and {@link onDidChangeSummary}
  * fire only when some field's value differs from the previous summary — a recompute that reads the same answer is
@@ -245,6 +266,11 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 	}
 
 	private readonly entries = new Map<string, SummaryEntry>();
+	/** Reads running for each repository, by its slots key; a repository with none has no entry */
+	private readonly activeReadsByRepository = new Map<string, number>();
+	private activeReads = 0;
+	/** Entries waiting for a read slot, oldest first */
+	private readonly readWaiters = new Map<SummaryEntry, (acquired: boolean) => void>();
 	private readonly watchService: RepositoryWatchService;
 	private readonly getRepository: (repoPath: string) => RepositoryService | undefined;
 	private readonly getCommonPath: ((repoPath: string) => string | undefined) | undefined;
@@ -266,6 +292,10 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		if (this._disposed) return;
 
 		this._disposed = true;
+		for (const resolve of this.readWaiters.values()) {
+			resolve(false);
+		}
+		this.readWaiters.clear();
 		this.mergeTargetsListener?.dispose();
 		for (const entry of [...this.entries.values()]) {
 			for (const subscription of [...entry.subscribers]) {
@@ -297,14 +327,14 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 
 		if (isNew) {
 			if (!target.disposed) {
-				target.pending = allFields;
+				target.pending = allFields | baseConfigField;
 				target.running = this.start(target);
 			}
 		} else if (target.handle != null) {
 			subscription.attach(target.handle.session);
 		} else if (target.running == null && !target.disposed) {
 			// The start failed (no repository or git directory yet); a new subscriber retries it
-			target.pending = allFields;
+			target.pending = allFields | baseConfigField;
 			target.running = this.start(target);
 		}
 
@@ -323,7 +353,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			const repo = this.getRepository(key);
 			if (repo == null) throw new Error(`No repository found for '${key}'`);
 
-			const result = await readSummary(repo, key, allFields, undefined, undefined, cancellation);
+			const result = await readSummary(repo, key, allFields, undefined, undefined, undefined, cancellation);
 			return result.summary;
 		}
 
@@ -356,13 +386,14 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		if (entry.disposed) return;
 
 		const handle = gitDir != null ? this.watchService.watch(entry.key, gitDir) : undefined;
-		if (handle == null) {
+		if (gitDir == null || handle == null) {
 			entry.running = undefined;
 			this.fail(entry, new Error(`Unable to watch '${entry.key}': no repository or git directory`));
 			return;
 		}
 
 		entry.handle = handle;
+		entry.slotsKey = getRepositoryKey(gitDir.commonUri ?? gitDir.uri);
 		const session = handle.session;
 		// Timing-neutral: the cadence comes from the subscribers' own session subscriptions (see `attach`)
 		const repoSub = session.subscribe({ delayMs: Infinity, maxWaitMs: Infinity });
@@ -383,7 +414,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 	private onRepoChanged(entry: SummaryEntry, e: WatcherRepoChangeEvent): void {
 		const value = entry.value;
 		if (value == null || e.changed('unknown', 'head')) {
-			this.queue(entry, allFields);
+			this.queue(entry, allFields | (e.changed('config') ? baseConfigField : 0));
 			return;
 		}
 
@@ -392,7 +423,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			fields |= dirtyField;
 		}
 		if (e.changed('config')) {
-			fields |= branchField | baseField;
+			fields |= branchField | baseKeysField | baseConfigField;
 		}
 		if (e.changed('gkConfig')) {
 			fields |= baseKeysField;
@@ -446,19 +477,81 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 
 		// Without a value a partial read has nothing to merge into, and a stale value's fields can't be trusted: a
 		// partial read would clear `stale` while vouching for groups it never re-read
-		entry.pending |= entry.value == null || entry.value.stale ? allFields : fields;
+		entry.pending |= entry.value == null || entry.value.stale ? fields | allFields | baseConfigField : fields;
 		entry.running ??= this.drain(entry);
 	}
 
 	/** Runs until nothing is pending. Never rejects — every failure becomes entry state. */
 	private async drain(entry: SummaryEntry): Promise<void> {
 		while (entry.pending !== 0 && !entry.disposed) {
-			const fields = entry.pending;
-			entry.pending = 0;
-			await this.run(entry, fields);
+			if (!(await this.acquireRead(entry))) break;
+
+			try {
+				if (entry.disposed) break;
+
+				// Consume after acquiring: changes that arrived while queued belong to this same read.
+				const fields = entry.pending;
+				entry.pending = 0;
+				await this.run(entry, fields);
+			} finally {
+				this.releaseRead(entry);
+			}
 		}
 		// Same turn as the loop's last check, so an event can't queue fields that no run will pick up
 		entry.running = undefined;
+	}
+
+	/**
+	 * A read takes one of its repository's slots and one of the service's. Each release hands what it frees to the
+	 * waiters first, so a new read takes a slot only when no waiter can use it.
+	 */
+	private acquireRead(entry: SummaryEntry): Promise<boolean> {
+		if (entry.disposed || this._disposed) return Promise.resolve(false);
+
+		if (this.tryTakeReadSlots(entry)) return Promise.resolve(true);
+
+		return new Promise(resolve => this.readWaiters.set(entry, resolve));
+	}
+
+	private releaseRead(entry: SummaryEntry): void {
+		const key = entry.slotsKey ?? entry.key;
+		const active = this.activeReadsByRepository.get(key);
+		if (active == null) return;
+
+		if (active > 1) {
+			this.activeReadsByRepository.set(key, active - 1);
+		} else {
+			this.activeReadsByRepository.delete(key);
+		}
+		this.activeReads--;
+
+		// The oldest waiter whose repository has a free slot goes next, so a repository at its own cap never holds up
+		// another's waiters, and a busy checkout rejoins the tail for a follow-up rather than starving its siblings
+		for (const [waiter, resolve] of this.readWaiters) {
+			if (this.activeReads >= maxConcurrentReads) break;
+
+			if (waiter.disposed || this._disposed) {
+				this.readWaiters.delete(waiter);
+				resolve(false);
+				continue;
+			}
+			if (!this.tryTakeReadSlots(waiter)) continue;
+
+			this.readWaiters.delete(waiter);
+			resolve(true);
+		}
+	}
+
+	private tryTakeReadSlots(entry: SummaryEntry): boolean {
+		if (this.activeReads >= maxConcurrentReads) return false;
+
+		const key = entry.slotsKey ?? entry.key;
+		const active = this.activeReadsByRepository.get(key) ?? 0;
+		if (active >= maxConcurrentReadsPerRepository) return false;
+
+		this.activeReadsByRepository.set(key, active + 1);
+		this.activeReads++;
+		return true;
 	}
 
 	private async run(entry: SummaryEntry, fields: number): Promise<void> {
@@ -469,7 +562,15 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 			const repo = this.getRepository(entry.key);
 			if (repo == null) throw new Error(`No repository found for '${entry.key}'`);
 
-			result = await readSummary(repo, entry.key, fields, previous, entry.baseKeys, entry.abort.signal);
+			result = await readSummary(
+				repo,
+				entry.key,
+				fields,
+				previous,
+				entry.baseKeys,
+				entry.baseConfigKey,
+				entry.abort.signal,
+			);
 		} catch (ex) {
 			if (entry.disposed || isCancellationError(ex)) return;
 
@@ -486,6 +587,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 
 		entry.error = undefined;
 		entry.baseKeys = result.baseKeys;
+		entry.baseConfigKey = result.baseConfigKey;
 		if (previous != null && summariesEqual(previous, result.summary)) return;
 
 		entry.value = result.summary;
@@ -521,6 +623,12 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		if (entry.subscribers.size !== 0) return;
 
 		entry.disposed = true;
+		// A waiter holds no slot, so dropping it frees none
+		const cancelRead = this.readWaiters.get(entry);
+		if (cancelRead != null) {
+			this.readWaiters.delete(entry);
+			cancelRead(false);
+		}
 		entry.abort.abort();
 		if (entry.listeners != null) {
 			for (const d of entry.listeners) {
@@ -532,6 +640,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		entry.handle = undefined;
 		entry.value = undefined;
 		entry.baseKeys = undefined;
+		entry.baseConfigKey = undefined;
 		entry.pending = 0;
 		entry.running = undefined;
 
@@ -544,12 +653,14 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 function createEntry(key: string): SummaryEntry {
 	return {
 		key: key,
+		slotsKey: undefined,
 		abort: new AbortController(),
 		subscribers: new Set(),
 		handle: undefined,
 		listeners: undefined,
 		value: undefined,
 		baseKeys: undefined,
+		baseConfigKey: undefined,
 		error: undefined,
 		pending: 0,
 		running: undefined,
@@ -570,10 +681,11 @@ async function readSummary(
 	fields: number,
 	previous: WorktreeSummary | undefined,
 	previousBaseKeys: BaseKeys | undefined,
+	previousBaseConfigKey: string | undefined,
 	signal: AbortSignal | undefined,
 ): Promise<ReadResult> {
 	if (previous == null) {
-		fields = allFields;
+		fields |= allFields;
 	}
 
 	let dirtyRead = fields & dirtyField ? readDirty(repo, signal) : undefined;
@@ -603,10 +715,24 @@ async function readSummary(
 	let dependsOn = previous?.baseDependsOn ?? emptyRefs;
 	let baseKeys = previousBaseKeys;
 	let baseKeysRead = false;
+	let baseConfigKey = previousBaseConfigKey;
+	let baseConfigKeyRead = false;
 	let baseFailed = false;
 	let baseError: unknown;
 	// A detached HEAD is measured as `undefined`; an unborn HEAD with no name has nothing to measure
 	const baseReadable = repo.branches.getAheadOfBase != null && (detached || branch != null);
+	if (fields & baseConfigField && !(fields & baseField) && baseReadable) {
+		baseConfigKey = await readBaseConfigKey(repo, signal);
+		baseConfigKeyRead = true;
+		if (
+			baseConfigKey == null ||
+			baseConfigKey !== previousBaseConfigKey ||
+			sha !== previous?.sha ||
+			!upstreamsEqual(upstream, previous?.upstream)
+		) {
+			fields |= baseField;
+		}
+	}
 	if (fields & baseKeysField && !(fields & baseField) && baseReadable) {
 		baseKeys = await readBaseKeys(repo, branch);
 		baseKeysRead = true;
@@ -619,10 +745,14 @@ async function readSummary(
 			base = undefined;
 			dependsOn = emptyRefs;
 			baseKeys = undefined;
+			baseConfigKey = undefined;
 		} else {
 			// Snapshot before the base read, so a write it misses is one the next `gk` config event sees as a change
 			if (!baseKeysRead) {
 				baseKeys = await readBaseKeys(repo, branch);
+			}
+			if (fields & baseConfigField && !baseConfigKeyRead) {
+				baseConfigKey = await readBaseConfigKey(repo, signal);
 			}
 			try {
 				const aheadOfBase = await repo.branches.getAheadOfBase?.(branch, undefined, signal);
@@ -638,6 +768,7 @@ async function readSummary(
 				base = sameBranch ? previous.base : undefined;
 				dependsOn = sameBranch ? previous.baseDependsOn : emptyRefs;
 				baseKeys = undefined;
+				baseConfigKey = undefined;
 			}
 		}
 	}
@@ -659,8 +790,22 @@ async function readSummary(
 			stale: baseFailed,
 		},
 		baseKeys: baseKeys,
+		baseConfigKey: baseConfigKey,
 		baseError: baseError,
 	};
+}
+
+async function readBaseConfigKey(
+	repo: RepositoryService,
+	signal: AbortSignal | undefined,
+): Promise<string | undefined> {
+	try {
+		return await repo.branches.getAheadOfBaseConfigKey?.(signal);
+	} catch (ex) {
+		if (isCancellationError(ex)) throw ex;
+
+		return undefined;
+	}
 }
 
 /**
@@ -734,6 +879,18 @@ async function toSummaryUpstream(
 	};
 }
 
+function upstreamsEqual(a: WorktreeSummaryUpstream | undefined, b: WorktreeSummaryUpstream | undefined): boolean {
+	return (
+		a === b ||
+		(a != null &&
+			b != null &&
+			a.name === b.name &&
+			a.remote === b.remote &&
+			a.branch === b.branch &&
+			a.missing === b.missing)
+	);
+}
+
 function summariesEqual(a: WorktreeSummary, b: WorktreeSummary): boolean {
 	return (
 		a.repoPath === b.repoPath &&
@@ -745,13 +902,7 @@ function summariesEqual(a: WorktreeSummary, b: WorktreeSummary): boolean {
 		a.dirty === b.dirty &&
 		a.stale === b.stale &&
 		areEqual(a.baseDependsOn, b.baseDependsOn) &&
-		(a.upstream === b.upstream ||
-			(a.upstream != null &&
-				b.upstream != null &&
-				a.upstream.name === b.upstream.name &&
-				a.upstream.remote === b.upstream.remote &&
-				a.upstream.branch === b.upstream.branch &&
-				a.upstream.missing === b.upstream.missing)) &&
+		upstreamsEqual(a.upstream, b.upstream) &&
 		(a.base === b.base ||
 			(a.base != null &&
 				b.base != null &&

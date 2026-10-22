@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { GitPullRequestReviewState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import {
@@ -32,6 +33,7 @@ import {
 	primarySession,
 	providerPr,
 	stubApi,
+	stubAzureOrganizationUser,
 	watchRequestFailures,
 } from './sweepHelpers.js';
 
@@ -1058,6 +1060,7 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 			});
 			const { manager, azure } = await connectedAzure(runtime);
 			stubCurrentAccount(azure, 'me');
+			await stubAzureOrganizationUser(azure, 'me');
 
 			const result = await manager.getPullRequestsBatch({
 				providerId: GitCloudHostIntegrationId.AzureDevOps,
@@ -1079,6 +1082,7 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 			azureHtmlStatus(runtime, 404);
 			const { manager, azure } = await connectedAzure(runtime);
 			stubCurrentAccount(azure, 'me');
+			await stubAzureOrganizationUser(azure, 'me');
 
 			const result = await manager.getPullRequestsBatch({
 				providerId: GitCloudHostIntegrationId.AzureDevOps,
@@ -1096,6 +1100,7 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 			azureStatus(runtime, 404, { typeKey: 'SomeOtherException', message: 'nope' });
 			const { manager, azure } = await connectedAzure(runtime);
 			stubCurrentAccount(azure, 'me');
+			await stubAzureOrganizationUser(azure, 'me');
 
 			const result = await manager.getPullRequestsBatch({
 				providerId: GitCloudHostIntegrationId.AzureDevOps,
@@ -1116,6 +1121,7 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 				azureStatus(runtime, status);
 				const { manager, azure } = await connectedAzure(runtime);
 				stubCurrentAccount(azure, 'me');
+				await stubAzureOrganizationUser(azure, 'me');
 
 				const result = await manager.getPullRequestsBatch({
 					providerId: GitCloudHostIntegrationId.AzureDevOps,
@@ -1137,6 +1143,7 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 			});
 			const { manager, azure } = await connectedAzure(runtime);
 			stubCurrentAccount(azure, 'me');
+			await stubAzureOrganizationUser(azure, 'me');
 
 			const result = await manager.getPullRequestsBatch({
 				providerId: GitCloudHostIntegrationId.AzureDevOps,
@@ -1153,6 +1160,7 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 		test('a hit asks for clone URLs and is converted like the repo-scoped list rows', async () => {
 			const { manager, azure } = await connectedAzure(createFakeRuntime());
 			stubCurrentAccount(azure, 'me');
+			await stubAzureOrganizationUser(azure, 'me');
 			const inputs: Parameters<GetPullRequestForRepoFn>[0][] = [];
 			await stubSdkPullRequestFn(manager, GitCloudHostIntegrationId.AzureDevOps, input => {
 				inputs.push(input);
@@ -1174,6 +1182,56 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 			]);
 			assert.equal(result.items[0]?.pullRequest?.number, 7);
 			assert.equal(result.items[0]?.pullRequest?.authoredByMe, true);
+
+			manager.dispose();
+		});
+
+		test("matches authorship against the organization's identity, not the profile id (#6032)", async () => {
+			const { manager, azure } = await connectedAzure(createFakeRuntime());
+			stubCurrentAccount(azure, 'profile-id');
+			await stubAzureOrganizationUser(azure, 'me');
+			await stubSdkPullRequestFn(manager, GitCloudHostIntegrationId.AzureDevOps, () =>
+				Promise.resolve({
+					data: providerPr('7', {
+						number: 7,
+						author: { id: 'me', name: 'Me', email: null, username: 'me', avatarUrl: null, url: null },
+					}),
+				}),
+			);
+
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				targets: [target],
+			});
+
+			assert.equal(result.items[0]?.pullRequest?.authoredByMe, true);
+			assert.deepEqual(result.items[0]?.pullRequest?.viewer, { id: 'me' });
+
+			manager.dispose();
+		});
+
+		test('a pull request without an author has unknown authorship, though its reviewers get a viewer', async () => {
+			const { manager, azure } = await connectedAzure(createFakeRuntime());
+			stubCurrentAccount(azure, 'me');
+			await stubAzureOrganizationUser(azure, 'me');
+			const me = { id: 'me', name: 'Me', email: null, username: 'me', avatarUrl: null, url: null };
+			await stubSdkPullRequestFn(manager, GitCloudHostIntegrationId.AzureDevOps, () =>
+				Promise.resolve({
+					data: providerPr('7', {
+						number: 7,
+						author: null,
+						reviews: [{ reviewer: me, state: GitPullRequestReviewState.ReviewRequested }],
+					}),
+				}),
+			);
+
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				targets: [target],
+			});
+
+			assert.equal(result.items[0]?.pullRequest?.authoredByMe, undefined, 'unknown, not "someone else\'s"');
+			assert.deepEqual(result.items[0]?.pullRequest?.viewer, { id: 'me' });
 
 			manager.dispose();
 		});

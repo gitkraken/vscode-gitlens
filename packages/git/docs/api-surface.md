@@ -169,6 +169,8 @@ interface CliGitProviderOptions {
 | `PreviousRangeComparisonUrisResult` | `providers/diff.js`     |
 | `BranchContributionsOverview`       | `providers/branches.js` |
 | `GitBranchMergedStatus`             | `providers/branches.js` |
+| `GitPushTarget`                     | `providers/branches.js` |
+| `GitPushTargetRef`                  | `providers/branches.js` |
 | `GitConfigKeys`                     | `providers/config.js`   |
 | `GkConfigKeys`                      | `providers/config.js`   |
 | `GitConfigType`                     | `providers/config.js`   |
@@ -243,9 +245,11 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `getBranchMergedStatus?(repoPath, branch, into, cancellation?)`                      | `GitBranchMergedStatus`                    |
 | `getCurrentBranchReference?(repoPath, cancellation?)` _(internal)_                   | `GitBranchReference \| undefined`          |
 | `getLocalBranchByUpstream?(repoPath, remoteBranchName, cancellation?)`               | `GitBranch \| undefined`                   |
+| `getPushTarget?(repoPath, branch?, cancellation?)`                                   | `GitPushTarget`                            |
 | `getPotentialApplyConflicts?(repoPath, targetBranch, shas, options?, cancellation?)` | `ConflictDetectionResult`                  |
 | `getPotentialMergeConflicts?(repoPath, branch, targetBranch, cancellation?)`         | `ConflictDetectionResult`                  |
 | `getAheadOfBase?(repoPath, branch, options?, cancellation?)`                         | `AheadOfBase`                              |
+| `getAheadOfBaseConfigKey?(repoPath, cancellation?)`                                  | `string \| undefined`                      |
 | `getBaseBranchName?(repoPath, ref, cancellation?)`                                   | `string \| undefined`                      |
 | `getStoredMergeTargetBranchName?(repoPath, ref, options?, cancellation?)`            | `string \| undefined`                      |
 | `getStoredDetectedMergeTargetBranchName?(repoPath, ref)`                             | `string \| undefined`                      |

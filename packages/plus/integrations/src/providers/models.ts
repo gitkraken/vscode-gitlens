@@ -1980,22 +1980,37 @@ export function isNativePullRequest(pr: ProviderPullRequest | PullRequest): pr i
 }
 
 /**
+ * Whether `pr` names anyone the current account could be: its author, an assignee or a reviewer. A row naming no one
+ * needs no viewer, as nothing on it can be matched against one.
+ */
+export function pullRequestNamesPeople(pr: ProviderPullRequest | PullRequest): boolean {
+	if (pr.author != null || pr.assignees?.length) return true;
+
+	return isNativePullRequest(pr)
+		? Boolean(pr.reviewRequests?.length || pr.latestReviews?.length)
+		: Boolean(pr.reviews?.length);
+}
+
+/**
  * GitLens' own GitHub GraphQL client keys people by login, while the current account's `id` is GitHub's
  * numeric database id, so an id-only match always misses there. The login is a unique handle on every
  * GitHub row shape, so the username fallback is safe there; elsewhere `toProviderAccount` fills `username`
  * from a display name that two people can share, so only GitHub and GitHub Enterprise get the fallback.
+ *
+ * A row without an author is unknown (`undefined`), not someone else's: it can still get a viewer for its reviewers.
  */
 function authoredByCurrentAccount(
 	author: { id?: string | null; username?: string | null } | null | undefined,
 	provider: ProviderReference,
 	currentAccount: { id: string; username?: string },
-): boolean {
-	if (author?.id === currentAccount.id) return true;
+): boolean | undefined {
+	if (author == null) return undefined;
+	if (author.id === currentAccount.id) return true;
 
 	const isGitHub =
 		provider.id === GitCloudHostIntegrationId.GitHub ||
 		provider.id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
-	return isGitHub && currentAccount.username != null && author?.username === currentAccount.username;
+	return isGitHub && currentAccount.username != null && author.username === currentAccount.username;
 }
 
 export function fromProviderIssue(

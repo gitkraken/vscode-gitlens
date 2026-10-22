@@ -688,10 +688,79 @@ describe('WatchSession', () => {
 			session.dispose();
 		});
 
-		it('marks remotes unnamed for a config change', async () => {
+		it('keeps remote movement broad when the caller has no ref information', async () => {
 			const [e] = await flush(session => session.pushRepoChanges(['config', 'remotes']));
 			assert.deepStrictEqual([...e.unnamedRefKinds], ['remotes']);
 			assert.strictEqual(e.refs.size, 0);
+		});
+
+		it('delivers config and remote cache invalidation without claiming a remote ref moved', async () => {
+			const [e] = await flush(session => session.pushRepoChanges(['config', 'remotes'], false));
+
+			assert.deepStrictEqual([...e.changes], ['config', 'remotes']);
+			assert.deepStrictEqual(e.getUnannouncedChanges(), ['config', 'remotes']);
+			assert.strictEqual(e.refs.size, 0);
+			assert.strictEqual(e.unnamedRefKinds.size, 0);
+			assert.strictEqual(e.mayHaveChangedRef('refs/remotes/origin/main'), false);
+			assert.strictEqual(e.mayHaveChangedRef('refs/heads/main'), false);
+		});
+
+		for (const configFirst of [true, false]) {
+			it(`retains only the real named remote when config is coalesced ${configFirst ? 'before' : 'after'} it`, async () => {
+				const [e] = await flush(session => {
+					if (configFirst) {
+						session.pushRepoChanges(['config', 'remotes'], false);
+					}
+					session.pushRepoChanges(['remotes'], 'refs/remotes/origin/main');
+					if (!configFirst) {
+						session.pushRepoChanges(['config', 'remotes'], false);
+					}
+				});
+
+				assert.deepStrictEqual([...e.changes].sort(), ['config', 'remotes']);
+				assert.deepStrictEqual([...e.refs], ['refs/remotes/origin/main']);
+				assert.strictEqual(e.unnamedRefKinds.size, 0);
+				assert.strictEqual(e.mayHaveChangedRef('refs/remotes/origin/main'), true);
+				assert.strictEqual(e.mayHaveChangedRef('refs/remotes/origin/other'), false);
+			});
+
+			it(`preserves unknown remote movement when config is coalesced ${configFirst ? 'before' : 'after'} it`, async () => {
+				const [e] = await flush(session => {
+					if (configFirst) {
+						session.pushRepoChanges(['config', 'remotes'], false);
+					}
+					session.pushRepoChanges(['remotes']);
+					if (!configFirst) {
+						session.pushRepoChanges(['config', 'remotes'], false);
+					}
+				});
+
+				assert.deepStrictEqual([...e.unnamedRefKinds], ['remotes']);
+				assert.strictEqual(e.mayHaveChangedRef('refs/remotes/origin/other'), true);
+			});
+		}
+
+		it('preserves packed ref invalidation when coalesced with a config-only write', async () => {
+			const [e] = await flush(session => {
+				session.pushRepoChanges(['heads', 'remotes', 'tags']);
+				session.pushRepoChanges(['config', 'remotes'], false);
+			});
+
+			assert.deepStrictEqual([...e.unnamedRefKinds].sort(), ['heads', 'remotes', 'tags']);
+			assert.strictEqual(e.mayHaveChangedRef('refs/remotes/origin/main'), true);
+			assert.strictEqual(e.mayHaveChangedRef('refs/heads/main'), true);
+			assert.strictEqual(e.mayHaveChangedRef('refs/tags/v1'), true);
+		});
+
+		it('keeps an overflow broad after a config-only write', async () => {
+			const [e] = await flush(session => {
+				session.pushRepoChanges(['config', 'remotes'], false);
+				session.pushUnfencedRepoChanges([...allWatchedRepositoryChanges]);
+			});
+
+			assert.deepStrictEqual([...e.changes].sort(), [...allWatchedRepositoryChanges].sort());
+			assert.deepStrictEqual([...e.unnamedRefKinds].sort(), ['heads', 'remotes', 'stash', 'tags']);
+			assert.strictEqual(e.mayHaveChangedRef('refs/remotes/origin/main'), true);
 		});
 
 		it('marks heads, remotes and tags unnamed for a packed-refs rewrite', async () => {

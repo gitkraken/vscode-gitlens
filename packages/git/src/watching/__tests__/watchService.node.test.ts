@@ -1452,19 +1452,41 @@ describe('RepositoryWatchService', () => {
 		});
 	});
 	describe('polling', () => {
-		/** Files keyed by POSIX path; `touch` moves one's mtime */
+		/**
+		 * Files and directories keyed by POSIX path; `touch` moves one's mtime, and `remove` and `rename` take a path with
+		 * everything beneath it, moving its parent directory's mtime as a filesystem does
+		 */
 		function createFs(paths: readonly string[]): {
 			stat: (path: string) => Promise<{ mtime: number; size: number } | undefined>;
 			touch: (path: string) => void;
+			remove: (path: string) => void;
+			rename: (from: string, to: string) => void;
 		} {
 			const files = new Map<string, { mtime: number; size: number }>(paths.map(p => [p, { mtime: 1, size: 1 }]));
+			const touch = (path: string): void => {
+				const file = files.get(path);
+				files.set(path, { mtime: (file?.mtime ?? 0) + 1, size: file?.size ?? 1 });
+			};
+			const take = (path: string): [string, { mtime: number; size: number }][] => {
+				const taken = [...files].filter(([p]) => p === path || p.startsWith(`${path}/`));
+				for (const [p] of taken) {
+					files.delete(p);
+				}
+				touch(path.substring(0, path.lastIndexOf('/')));
+				return taken;
+			};
 			return {
 				stat: function (path: string): Promise<{ mtime: number; size: number } | undefined> {
 					return Promise.resolve(files.get(normalizePath(path)));
 				},
-				touch: function (path: string): void {
-					const file = files.get(path);
-					files.set(path, { mtime: (file?.mtime ?? 0) + 1, size: file?.size ?? 1 });
+				touch: touch,
+				remove: function (path: string): void {
+					take(path);
+				},
+				rename: function (from: string, to: string): void {
+					for (const [p, file] of take(from)) {
+						files.set(`${to}${p.substring(from.length)}`, file);
+					}
 				},
 			};
 		}
@@ -1648,6 +1670,177 @@ describe('RepositoryWatchService', () => {
 			assert.deepStrictEqual(wtEvents, [true]);
 
 			wtSub.dispose();
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it("reports every remote-tracking ref as possibly moved when a polled remote's directory goes", async () => {
+			// What `git remote remove origin` leaves: a rewritten config, and the remote's directory deleted with its
+			// loose refs, which moves `refs/remotes`
+			const fs = createFs([
+				'/repo/.git/HEAD',
+				'/repo/.git/config',
+				'/repo/.git/refs/heads/main',
+				'/repo/.git/refs/remotes',
+				'/repo/.git/refs/remotes/origin',
+				'/repo/.git/refs/remotes/origin/main',
+			]);
+			const { factory } = createMockFactory(undefined, () => 'unwatchable');
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 20,
+				polling: { stat: fs.stat, intervalMs: 60_000, activeCheckMs: 60_000 },
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const repoEvents: WatcherRepoChangeEvent[] = [];
+			const sub = handle.session.subscribe({ delayMs: 20 });
+			sub.onDidChange(e => repoEvents.push(e));
+			// A subscriber narrowed to the refs it follows still hears it, whether or not it names a remote ref
+			const narrowedEvents: WatcherRepoChangeEvent[] = [];
+			const narrowedSubs = [['refs/heads/main', 'refs/remotes/origin/main'], ['refs/heads/main']].map(refs => {
+				const narrowed = handle.session.subscribe({ delayMs: 20, relevantRefs: () => refs });
+				narrowed.onDidChange(e => narrowedEvents.push(e));
+				return narrowed;
+			});
+
+			service.resumeAll();
+			await settle();
+			assert.strictEqual(repoEvents.length, 0, 'the first pass only records');
+
+			fs.touch('/repo/.git/config');
+			fs.remove('/repo/.git/refs/remotes/origin');
+			service.resumeAll();
+			await settle();
+
+			assert.strictEqual(repoEvents.length, 1);
+			const [e] = repoEvents;
+			assert.deepStrictEqual([...e.changes].sort(), ['config', 'remotes']);
+			assert.ok(e.unnamedRefKinds.has('remotes'), "the poll can't tell which remote went");
+			assert.ok(e.mayHaveChangedRef('refs/remotes/origin/main'), "the removed remote's refs may have moved");
+			assert.ok(e.mayHaveChangedRef('refs/remotes/upstream/main'), 'as may any remote-tracking ref');
+			assert.ok(!e.mayHaveChangedRef('refs/heads/main'), 'no branch moved');
+
+			assert.strictEqual(narrowedEvents.length, 2);
+			for (const narrowed of narrowedEvents) {
+				assert.deepStrictEqual([...narrowed.changes].sort(), ['config', 'remotes']);
+				assert.ok(narrowed.mayHaveChangedRef('refs/remotes/origin/main'));
+				assert.ok(!narrowed.mayHaveChangedRef('refs/heads/main'));
+			}
+
+			narrowedSubs.forEach(s => s.dispose());
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it("reports every remote-tracking ref as possibly moved when a polled remote's directory is renamed", async () => {
+			// What `git remote rename origin upstream` leaves: a rewritten config, and the remote's loose refs moved to a
+			// new directory, which moves `refs/remotes`
+			const fs = createFs([
+				'/repo/.git/HEAD',
+				'/repo/.git/config',
+				'/repo/.git/refs/heads/main',
+				'/repo/.git/refs/remotes',
+				'/repo/.git/refs/remotes/origin',
+				'/repo/.git/refs/remotes/origin/main',
+			]);
+			const { factory } = createMockFactory(undefined, () => 'unwatchable');
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 20,
+				polling: { stat: fs.stat, intervalMs: 60_000, activeCheckMs: 60_000 },
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const repoEvents: WatcherRepoChangeEvent[] = [];
+			const sub = handle.session.subscribe({ delayMs: 20 });
+			sub.onDidChange(e => repoEvents.push(e));
+
+			service.resumeAll();
+			await settle();
+			assert.strictEqual(repoEvents.length, 0, 'the first pass only records');
+
+			fs.touch('/repo/.git/config');
+			fs.rename('/repo/.git/refs/remotes/origin', '/repo/.git/refs/remotes/upstream');
+			service.resumeAll();
+			await settle();
+
+			assert.strictEqual(repoEvents.length, 1);
+			const [e] = repoEvents;
+			assert.deepStrictEqual([...e.changes].sort(), ['config', 'remotes']);
+			assert.ok(e.unnamedRefKinds.has('remotes'));
+			assert.ok(e.mayHaveChangedRef('refs/remotes/origin/main'), 'the old name is gone');
+			assert.ok(e.mayHaveChangedRef('refs/remotes/upstream/main'), 'and the new one appeared');
+			assert.ok(!e.mayHaveChangedRef('refs/heads/main'), 'no branch moved');
+
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it("names no ref for a polled config write that leaves every remote's directory alone", async () => {
+			// What `git branch --set-upstream-to` leaves: only the config moves, so no remote-tracking ref did
+			const fs = createFs([
+				'/repo/.git/HEAD',
+				'/repo/.git/config',
+				'/repo/.git/refs/heads/main',
+				'/repo/.git/refs/remotes',
+				'/repo/.git/refs/remotes/origin',
+				'/repo/.git/refs/remotes/origin/main',
+			]);
+			const { factory } = createMockFactory(undefined, () => 'unwatchable');
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 20,
+				polling: { stat: fs.stat, intervalMs: 60_000, activeCheckMs: 60_000 },
+			});
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const repoEvents: WatcherRepoChangeEvent[] = [];
+			const sub = handle.session.subscribe({ delayMs: 20 });
+			sub.onDidChange(e => repoEvents.push(e));
+
+			service.resumeAll();
+			await settle();
+			assert.strictEqual(repoEvents.length, 0, 'the first pass only records');
+
+			fs.touch('/repo/.git/config');
+			service.resumeAll();
+			await settle();
+
+			assert.strictEqual(repoEvents.length, 1);
+			const [e] = repoEvents;
+			assert.deepStrictEqual([...e.changes].sort(), ['config', 'remotes']);
+			assert.strictEqual(e.unnamedRefKinds.size, 0);
+			assert.ok(!e.mayHaveChangedRef('refs/remotes/origin/main'));
+			assert.ok(!e.mayHaveChangedRef('refs/heads/main'));
+
+			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('names no ref for a config write the watcher reports, which reports the moved refs itself', async () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory, defaultRepoDelayMs: 20 });
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+			const repoEvents: WatcherRepoChangeEvent[] = [];
+			const sub = handle.session.subscribe({ delayMs: 20 });
+			sub.onDidChange(e => repoEvents.push(e));
+
+			watchers.find(w => w.basePath === '/repo/.git')!.fire({ path: '/repo/.git/config', reason: 'change' });
+			await settle();
+
+			assert.strictEqual(repoEvents.length, 1);
+			const [e] = repoEvents;
+			assert.deepStrictEqual([...e.changes].sort(), ['config', 'remotes']);
+			assert.strictEqual(e.unnamedRefKinds.size, 0);
+			assert.ok(!e.mayHaveChangedRef('refs/remotes/origin/main'));
+			assert.ok(!e.mayHaveChangedRef('refs/heads/main'));
+
 			sub.dispose();
 			handle.dispose();
 			service.dispose();

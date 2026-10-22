@@ -30,7 +30,6 @@ import type { ProviderRefusal } from '../collectionMetadata.js';
 import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
 import type { GitSelfManagedHostIntegrationId } from '../constants.js';
 import { GitCloudHostIntegrationId, providerFanOutConcurrency } from '../constants.js';
-import { AuthenticationError } from '../errors.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type {
@@ -42,9 +41,12 @@ import type {
 	SearchMyIssuesOptions,
 } from '../models/integration.js';
 import type { ProviderWarningCause, ProviderWarningScope } from '../results.js';
-import { decodePathSegment } from '../utils/domain.utils.js';
 import type { AzureDevOpsApi } from './azure/azure.js';
-import { getAzurePullRequestIdentityFromMaybeUrl } from './azure/azure.utils.js';
+import {
+	decodeAzurePathSegment,
+	getAzurePullRequestIdentityFromMaybeUrl,
+	getAzureRepositoryIdentity,
+} from './azure/azure.utils.js';
 import type {
 	AzureOrganizationDescriptor,
 	AzureProjectDescriptor,
@@ -72,14 +74,17 @@ import {
 	fromProviderIssue,
 	fromProviderPullRequest,
 	getProviderPullRequestIdentity,
+	isNativePullRequest,
 	IssueFilter,
 	providerPullRequestMatchesSearch,
 	providersMetadata,
 	PullRequestFilter,
+	pullRequestNamesPeople,
 	toIssueShape,
 	toProviderIssueStates,
 	toProviderPullRequestStates,
 } from './models.js';
+import { throwProviderError } from './providerErrors.js';
 import { discoveryCacheTtl } from './utils/discoveryCache.js';
 import {
 	collectProviderPagedResult,
@@ -88,19 +93,6 @@ import {
 	resolveBranchPullRequests,
 	selectBranchPullRequests,
 } from './utils/providerPaging.js';
-
-export function getAzureRepositoryIdentity(repo: Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project'>): {
-	resourceName: string;
-	projectName?: string;
-	repositoryName: string;
-} {
-	const match = /^([^/]+)\/_git\/([^/]+)$/i.exec(repo.name);
-	return {
-		resourceName: repo.owner,
-		projectName: repo.project ?? match?.[1],
-		repositoryName: match?.[2] ?? repo.name,
-	};
-}
 
 export function getAzureRepositoryApiBaseUrl(
 	baseUrl: string,
@@ -154,12 +146,15 @@ function isValidAzureVirtualDirectory(virtualDirectory: string | undefined): boo
 
 /**
  * The paths a project-less reading's `{vdir}/{owner}` can be below the connection `baseUrl` addresses: the address
- * itself, or its parent when the address names a collection (see {@link resolveAzureProjectlessRepository}). A
+ * itself, or its parent when the address names a collection (see {@link resolveAzureProjectlessRepository}). Only the
+ * parent once the address is known to name a collection (`belowCollection`), since it then isn't the installation. A
  * connection at the host root serves no virtual directory, so none.
  */
-function getAzureProjectlessDirectories(baseUrl: string): string[][] {
+function getAzureProjectlessDirectories(baseUrl: string, belowCollection: boolean): string[][] {
 	const configured = new URL(baseUrl).pathname.split('/').filter(Boolean);
-	return [configured, configured.slice(0, -1)].filter(path => path.length > 0);
+	return (belowCollection ? [configured.slice(0, -1)] : [configured, configured.slice(0, -1)]).filter(
+		path => path.length > 0,
+	);
 }
 
 /**
@@ -170,11 +165,12 @@ function getAzureProjectlessDirectories(baseUrl: string): string[][] {
 export function isAzureProjectlessCandidate(
 	baseUrl: string,
 	repo: Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'virtualDirectory'>,
+	belowCollection: boolean = false,
 ): boolean {
 	if (getAzureRepositoryIdentity({ owner: repo.owner, name: repo.name }).projectName == null) return false;
 
 	const directory = [...(repo.virtualDirectory?.split('/') ?? []), repo.owner];
-	return getAzureProjectlessDirectories(baseUrl).some(
+	return getAzureProjectlessDirectories(baseUrl, belowCollection).some(
 		path => path.length === directory.length && path.every((s, i) => sameAzurePathSegment(s, directory[i])),
 	);
 }
@@ -184,13 +180,19 @@ export function isAzureProjectlessCandidate(
  * ends with it, `undefined` when none does. A caller-supplied repository scope carries only its owner, so this places
  * it where {@link isAzureProjectlessCandidate} expects it.
  */
-export function getAzureScopeVirtualDirectory(baseUrl: string, owner: string): string | undefined {
-	const path = getAzureProjectlessDirectories(baseUrl).find(p => sameAzurePathSegment(p.at(-1)!, owner));
-	return path?.slice(0, -1).map(decodePathSegment).join('/');
+export function getAzureScopeVirtualDirectory(
+	baseUrl: string,
+	owner: string,
+	belowCollection: boolean = false,
+): string | undefined {
+	const path = getAzureProjectlessDirectories(baseUrl, belowCollection).find(p =>
+		sameAzurePathSegment(p.at(-1)!, owner),
+	);
+	return path?.slice(0, -1).map(decodeAzurePathSegment).join('/');
 }
 
 function sameAzurePathSegment(encoded: string, value: string): boolean {
-	return decodePathSegment(encoded).toLowerCase() === value.toLowerCase();
+	return decodeAzurePathSegment(encoded).toLowerCase() === value.toLowerCase();
 }
 
 /**
@@ -397,17 +399,52 @@ export abstract class AzureDevOpsIntegrationBase<
 		return api.getAzureResourcesForUser(tokenWithInfo, userId, options);
 	}
 
+	private readonly _organizationUserIds = new PromiseCache<string, string | undefined>({ capacity: 50 });
+
 	/**
-	 * The identity id a pull-request creator/reviewer filter must carry for `collection`.
-	 *
-	 * On Azure DevOps Services that is the account id, one per user. The server override resolves it per collection,
-	 * since Azure DevOps Server gives one person a different id in each collection than at the server level.
+	 * The current user's identity id in `organization` (Azure DevOps Server: the collection), which is what Azure's
+	 * creator and reviewer filters, and its pull requests' authors and reviewers, compare against. Never the
+	 * account's own id: Azure DevOps Services can know a person in an organization by an id other than their profile
+	 * id, and Azure DevOps Server gives them a different id in each collection than at the server level. Cached per
+	 * credential and organization, since it can't change for either.
 	 */
-	protected async getFilterUserId(
+	protected getFilterUserId(
 		session: ProviderAuthenticationSession,
-		_collection: string,
+		organization: string,
 	): Promise<string | undefined> {
-		return (await this.getProviderCurrentAccount(session))?.id;
+		return this._organizationUserIds.getOrCreate(
+			JSON.stringify([this.discoveryKey(session), organization.toLowerCase()]),
+			async cacheable => {
+				const id = await this.requestOrganizationUserId(session, organization);
+				// A response without an identity must not refuse later relationship searches from a cached miss.
+				if (id == null) {
+					cacheable.invalidate();
+				}
+
+				return id;
+			},
+		);
+	}
+
+	/** Reads the current user's identity id from `organization`'s own connection data; see {@link getFilterUserId}. */
+	protected async requestOrganizationUserId(
+		session: ProviderAuthenticationSession,
+		organization: string,
+	): Promise<string | undefined> {
+		const api = await this.getProvidersApi();
+		const { tokenWithInfo } = this.getApiOptions(session);
+		try {
+			const user = await api.getCurrentUserForInstance(
+				tokenWithInfo,
+				organization,
+				this.getCollectionApiOptions(session, organization),
+			);
+			return user?.id;
+		} catch (ex) {
+			// Classified here rather than in `ProvidersApi`, whose repository-scoped callers expect the raw error:
+			// an account-wide read reports an organization refusing the credential as that organization's failure.
+			return throwProviderError(tokenWithInfo, ex);
+		}
 	}
 
 	/**
@@ -448,19 +485,71 @@ export abstract class AzureDevOpsIntegrationBase<
 
 	override invalidateDiscoveryCaches(): void {
 		super.invalidateDiscoveryCaches();
+		this._organizationUserIds.clear();
 		this._reviewerGroupIds.clear();
 	}
 
 	/**
-	 * For one read, the current account as each organization's pull requests identify it, given the account itself
-	 * (`undefined` when it couldn't be read). Azure DevOps Services gives a person one id, so that is `account`; the
-	 * server override resolves each collection's own, once per read.
+	 * The viewer each row of an account-wide read was read for (see {@link getProviderMyPullRequestsForUser}), so its
+	 * mapping uses the identity that read resolved instead of resolving it again.
+	 */
+	private readonly _rowViewers = new WeakMap<ProviderPullRequest, { id: string }>();
+
+	/**
+	 * Resolved per organization, which a raw row names as its repository owner: an organization's pull requests carry
+	 * the id {@link getFilterUserId} resolves there, not necessarily the account's. A row an account-wide read returned
+	 * keeps the one that read resolved, even once its session is gone. A row that names no organization or no one to
+	 * match gets no viewer, nor does one in an organization whose id can't be read: its authorship stays unknown.
+	 */
+	override async getPullRequestViewers(
+		pullRequests: readonly (ProviderPullRequest | PullRequest)[],
+		connectionId?: string,
+	): Promise<({ id: string; username?: string } | undefined)[]> {
+		// Azure's rows are provider-apis' own; only GitHub's are native.
+		const read = pullRequests.map(pr => (isNativePullRequest(pr) ? undefined : this._rowViewers.get(pr)));
+		const organizations = pullRequests.map((pr, i) =>
+			read[i] == null && !isNativePullRequest(pr) && pullRequestNamesPeople(pr)
+				? pr.repository?.owner?.login || undefined
+				: undefined,
+		);
+		if (!organizations.some(o => o != null)) return read;
+
+		const session = await this.resolveReadSessionOrThrow(connectionId, undefined).catch(() => undefined);
+		if (session == null) return read;
+
+		const viewerFor = this.getOrganizationViewers(session);
+		return Promise.all(
+			read.map((viewer, i) => {
+				const organization = organizations[i];
+				if (organization == null) return Promise.resolve(viewer);
+
+				return viewerFor(organization);
+			}),
+		);
+	}
+
+	/**
+	 * For one read, the current user as each organization's pull requests identify them (see
+	 * {@link getFilterUserId}). An organization whose id can't be read resolves `undefined`, since authorship is
+	 * optional enrichment and one organization's failed lookup must not fail the read or blank the others; it is
+	 * asked once per read, as a miss isn't cached.
 	 */
 	protected getOrganizationViewers(
-		_session: ProviderAuthenticationSession,
-		account: { id: string; username?: string } | undefined,
-	): (org: string) => Promise<{ id: string; username?: string } | undefined> {
-		return () => Promise.resolve(account);
+		session: ProviderAuthenticationSession,
+	): (organization: string) => Promise<{ id: string } | undefined> {
+		const viewers = new Map<string, Promise<{ id: string } | undefined>>();
+		return organization => {
+			const key = organization.toLowerCase();
+			let viewer = viewers.get(key);
+			if (viewer == null) {
+				viewer = this.getFilterUserId(session, organization).then(
+					id => (id != null ? { id: id } : undefined),
+					() => undefined,
+				);
+				viewers.set(key, viewer);
+			}
+			return viewer;
+		};
 	}
 
 	/**
@@ -1097,14 +1186,17 @@ export abstract class AzureDevOpsIntegrationBase<
 	protected override async getProviderPullRequestsBatch(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { currentAccount?: { id: string; username?: string } } | undefined,
+		_options: { currentAccount?: { id: string; username?: string } } | undefined,
 		_cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
 		const api = await this.getProvidersApi();
 		const { tokenWithInfo } = this.getApiOptions(session);
-		const viewerFor = this.getOrganizationViewers(session, options?.currentAccount);
+		// Not `currentAccount`, the account's own id, which an organization's pull requests may not carry.
+		const viewerFor = this.getOrganizationViewers(session);
 
 		return mapSettledBounded(coordinates, providerFanOutConcurrency, async c => {
+			// Resolved alongside the read rather than after it; it never rejects.
+			const viewer = viewerFor(c.owner);
 			const pr = await api.getPullRequestForRepo(
 				tokenWithInfo,
 				{ namespace: c.owner, name: c.repo, project: c.project },
@@ -1113,7 +1205,7 @@ export abstract class AzureDevOpsIntegrationBase<
 			);
 			if (pr == null) return undefined;
 
-			return fromProviderPullRequest(pr, this, { currentAccount: await viewerFor(c.owner), projection: 'batch' });
+			return fromProviderPullRequest(pr, this, { currentAccount: await viewer, projection: 'batch' });
 		});
 	}
 
@@ -1309,13 +1401,9 @@ export abstract class AzureDevOpsIntegrationBase<
 			});
 			return { numbers: values, truncated: truncated };
 		});
+		// No `currentAccount`: the batch read resolves each organization's own viewer.
 		return resolveBranchPullRequests(targets, found, coordinates =>
-			this.getProviderPullRequestsBatch(
-				session,
-				coordinates,
-				{ currentAccount: options.currentAccount },
-				cancellation,
-			),
+			this.getProviderPullRequestsBatch(session, coordinates, undefined, cancellation),
 		);
 	}
 
@@ -1415,7 +1503,9 @@ export abstract class AzureDevOpsIntegrationBase<
 		]
 			.filter(r => r != null)
 			.flat();
-		return result.values.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects, 'search'));
+		return result.values.map(pr =>
+			this.fromAzureProviderPullRequest(pr, repoDescriptors, projects, 'search', this._rowViewers.get(pr)),
+		);
 	}
 
 	protected override async getProviderMyPullRequestsForUser(
@@ -1471,7 +1561,12 @@ export abstract class AzureDevOpsIntegrationBase<
 				reviewerId?: string;
 				states?: GitPullRequestState[];
 			},
-		): Promise<{ prs: ProviderPullRequest[]; projectIdentity: string; failure?: CollectionScopeFailure }> => {
+		): Promise<{
+			prs: ProviderPullRequest[];
+			projectIdentity: string;
+			organization: string;
+			failure?: CollectionScopeFailure;
+		}> => {
 			const collected: ProviderPullRequest[] = [];
 			const projectIdentity = `${project.namespace}/${project.project}`;
 			let page: number | undefined;
@@ -1493,6 +1588,7 @@ export abstract class AzureDevOpsIntegrationBase<
 						return {
 							prs: collected,
 							projectIdentity: projectIdentity,
+							organization: project.namespace,
 							failure: toCollectionScopeFailure(
 								scope,
 								new Error('Azure DevOps returned no page after advertising a continuation'),
@@ -1507,6 +1603,7 @@ export abstract class AzureDevOpsIntegrationBase<
 						return {
 							prs: collected,
 							projectIdentity: projectIdentity,
+							organization: project.namespace,
 							failure: toCollectionScopeFailure(
 								scope,
 								new Error('Azure DevOps returned no advancing pull request continuation'),
@@ -1525,11 +1622,12 @@ export abstract class AzureDevOpsIntegrationBase<
 					return {
 						prs: collected,
 						projectIdentity: projectIdentity,
+						organization: project.namespace,
 						failure: toCollectionScopeFailure(scope, ex),
 					};
 				}
 			}
-			return { prs: collected, projectIdentity: projectIdentity };
+			return { prs: collected, projectIdentity: projectIdentity, organization: project.namespace };
 		};
 
 		// Settle per-project failures instead of rejecting the whole sweep. `drainProject` already catches its own
@@ -1547,15 +1645,21 @@ export abstract class AzureDevOpsIntegrationBase<
 			requested.has(PullRequestFilter.ReviewRequested);
 		const userIds = new Map<string, string | undefined>();
 		const identityFailures = new Map<string, unknown>();
-		for (const org of uniqueAzureNames(projects.values.map(p => p.resourceName))) {
-			try {
-				userIds.set(org.toLowerCase(), await this.getFilterUserId(session, org));
-			} catch (ex) {
-				throwIfCallerContractError(ex);
-				if (ex instanceof AuthenticationError) throw ex;
-
-				identityFailures.set(org.toLowerCase(), ex);
+		const organizations = uniqueAzureNames(projects.values.map(p => p.resourceName));
+		const identities = await mapSettledBounded(organizations, providerFanOutConcurrency, org =>
+			this.getFilterUserId(session, org),
+		);
+		for (const [i, identity] of identities.entries()) {
+			const key = organizations[i].toLowerCase();
+			if (identity.status === 'fulfilled') {
+				userIds.set(key, identity.value);
+				continue;
 			}
+
+			throwIfCallerContractError(identity.reason);
+			// A refusal included: one organization refusing a sound credential is that organization's failure, and
+			// `confirmScopedAuthFailures` still fails the read when the credential itself is refused.
+			identityFailures.set(key, identity.reason);
 		}
 		const groups = wantReviewed
 			? await this.getReviewerGroupsByOrganization(session, projects.values, userIds, failures)
@@ -1600,7 +1704,7 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		// Azure's `pullRequestId` is not account-global. Prefer repository + PR id, then the org-qualified URL.
 		// If neither is available, preserve the row instead of collapsing unrelated repositories by numeric id.
-		const prsByIdentity = new Map<string, ProviderPullRequest>();
+		const prsByIdentity = new Map<string, { pr: ProviderPullRequest; organization: string }>();
 		for (const outcome of outcomes) {
 			if (outcome.failure != null) {
 				failures.push(outcome.failure);
@@ -1609,7 +1713,7 @@ export abstract class AzureDevOpsIntegrationBase<
 				const key =
 					getProviderPullRequestIdentity(pr) ?? `project:${outcome.projectIdentity}:pull-request:${pr.id}`;
 				if (!prsByIdentity.has(key)) {
-					prsByIdentity.set(key, pr);
+					prsByIdentity.set(key, { pr: pr, organization: outcome.organization });
 				}
 			}
 		}
@@ -1621,7 +1725,12 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		const groupIds = groups?.groupIds ?? new Set<string>();
 		return {
-			values: Array.from(prsByIdentity.values(), pr => markMyGroupReviews(pr, groupIds)),
+			values: Array.from(prsByIdentity.values(), ({ pr, organization }) => {
+				const row = markMyGroupReviews(pr, groupIds);
+				// Every row read here is from an organization whose id was resolved.
+				this._rowViewers.set(row, { id: userIds.get(organization.toLowerCase())! });
+				return row;
+			}),
 			paging: { cursor: '{}', more: false, truncated: truncated || undefined },
 			metadata: metadata,
 		};
@@ -2006,6 +2115,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		this._organizations = undefined;
 		this._projects = undefined;
 		this._accounts = undefined;
+		this._organizationUserIds.clear();
 		this._reviewerGroupIds.clear();
 	}
 
@@ -2014,6 +2124,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		repoDescriptors: AzureRemoteRepositoryDescriptor[],
 		projectDescriptors: AzureProjectDescriptor[],
 		projection: PullRequestProjection,
+		currentAccount?: { id: string },
 	): PullRequest {
 		const baseRepoDescriptor = repoDescriptors.find(r => r.id === azurePullRequest.repository.id);
 		const headRepoDescriptor =
@@ -2050,7 +2161,11 @@ export abstract class AzureDevOpsIntegrationBase<
 				p => p.resourceName === baseRepoDescriptor.resourceName && p.name === baseRepoDescriptor.projectName,
 			);
 		}
-		return fromProviderPullRequest(azurePullRequest, this, { project: project, projection: projection });
+		return fromProviderPullRequest(azurePullRequest, this, {
+			project: project,
+			projection: projection,
+			currentAccount: currentAccount,
+		});
 	}
 }
 

@@ -12,6 +12,8 @@ import type {
 	BranchContributionsOverview,
 	GitBranchesSubProvider,
 	GitBranchMergedStatus,
+	GitPushTarget,
+	GitPushTargetRef,
 } from '@gitlens/git/providers/branches.js';
 import type { GitCommandPriority, GitRunOptions } from '@gitlens/git/run.types.js';
 import {
@@ -1393,6 +1395,30 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return getLocalBranchByUpstream(remoteBranchName, branches);
 	}
 
+	@trace({ exit: true })
+	async getPushTarget(repoPath: string, branch?: string, cancellation?: AbortSignal): Promise<GitPushTarget> {
+		const records = await this.provider.refs.getRefs(repoPath, cancellation);
+		// `getRefs` answers a failed enumeration with an empty list, which says nothing about any branch
+		if (!records.length) return { known: false };
+
+		if (branch == null) {
+			const current = await this.getCurrentBranchReference(repoPath, cancellation);
+			if (current == null) return { known: false };
+			if (current.remote || isDetachedHead(current.name)) {
+				return { known: true, push: undefined, upstream: undefined };
+			}
+
+			branch = current.name;
+		}
+
+		const record = findRefRecord(records, branch.startsWith('refs/heads/') ? branch : `refs/heads/${branch}`);
+		return {
+			known: true,
+			push: record?.push ? toPushTargetRef(records, record.push) : undefined,
+			upstream: record?.upstream ? toPushTargetRef(records, record.upstream) : undefined,
+		};
+	}
+
 	/** Detects potential conflicts when applying commits onto a target branch (git rebase and cherry-pick) */
 	@debug()
 	async getPotentialApplyConflicts(
@@ -1826,11 +1852,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// Check if branch created from an explicit branch
 			if (createdFrom !== 'HEAD') {
 				if (options?.upstream) {
-					const upstream = await this.provider.refs.getSymbolicReferenceName(
-						repoPath,
-						`${createdFrom}@{u}`,
-						priorityOpts,
-					);
+					const upstream = await this.getUpstreamName(repoPath, createdFrom, priorityOpts, cancellation);
 					if (upstream) return { branch: upstream, failed: false };
 				}
 
@@ -1851,11 +1873,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			if (match?.length === 2) {
 				let name: string | undefined = match[1];
 				if (options?.upstream) {
-					const upstream = await this.provider.refs.getSymbolicReferenceName(
-						repoPath,
-						`${name}@{u}`,
-						priorityOpts,
-					);
+					const upstream = await this.getUpstreamName(repoPath, name, priorityOpts, cancellation);
 					if (upstream) return { branch: upstream, failed: false };
 				}
 
@@ -1960,6 +1978,34 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		if (await this.isSelfRef(repoPath, name, branch, cancellation)) return undefined;
 
 		return name;
+	}
+
+	@trace()
+	getAheadOfBaseConfigKey(repoPath: string, cancellation?: AbortSignal): Promise<string | undefined> {
+		return this.cache.getAheadOfBaseConfigKey(
+			repoPath,
+			async (commonPath, cacheable, signal) => {
+				// Include every branch's tracking mapping: a recorded candidate can resolve through its own upstream.
+				// Preserve repeated values and order, since multiple fetch refspecs can change that resolution.
+				// Read from the common path, never the caller's checkout: every worktree is served this one entry, so
+				// it must not take in a `config.worktree` of whichever checkout happened to read first.
+				const result = await this.git.run(
+					{ cwd: commonPath, cancellation: signal, expectedExitCodes: [1] },
+					'config',
+					'--null',
+					'--get-regexp',
+					'^(branch\\..*\\.(remote|merge)|remote\\..*|init\\.defaultbranch)$',
+				);
+				if (signal?.aborted) throw new CancellationError();
+
+				if (result.completion.status !== 'exited') {
+					cacheable.invalidate();
+					return undefined;
+				}
+				return result.stdout;
+			},
+			cancellation,
+		);
 	}
 
 	@debug({ exit: true })
@@ -2666,12 +2712,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		addRefDependencies(dependsOn, candidate);
 
-		const upstreamName = this.provider.refs.getSymbolicReferenceName(
-			repoPath,
-			`${candidate}@{u}`,
-			undefined,
-			cancellation,
-		);
+		const upstreamName = this.getUpstreamName(repoPath, candidate, undefined, cancellation);
 		const getUpstreamFork = async (): Promise<{ ref: string; mergeBase: string | undefined } | undefined> => {
 			const upstream = await upstreamName;
 			if (!upstream || upstream.startsWith('-')) return undefined;
@@ -2731,6 +2772,22 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return (await this.provider.refs.validateReference(repoPath, candidate, undefined, cancellation))
 			? { ref: candidate, forkPoint: undefined }
 			: undefined;
+	}
+
+	/**
+	 * `<name>@{u}`, without asking git when the cached ref list shows `name` can't have one: a failed lookup isn't
+	 * cached, so asking it of a remote-tracking ref (`origin/main`, the usual default) re-spawns on every read.
+	 */
+	private async getUpstreamName(
+		repoPath: string,
+		name: string,
+		options: { priority?: GitCommandPriority } | undefined,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		const records = await this.provider.refs.getRefs(repoPath, cancellation);
+		if (!mayHaveUpstream(records, name)) return undefined;
+
+		return this.provider.refs.getSymbolicReferenceName(repoPath, `${name}@{u}`, options, cancellation);
 	}
 
 	/**
@@ -2860,7 +2917,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return missing ? undefined : name || target;
 	}
 
-	@debug({ exit: true })
+	@trace({ exit: true })
 	async getStoredDetectedMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
 		const target =
 			(await this.provider.config.getGkConfig(repoPath, `branch.${ref}.gk-merge-target`)) ??
@@ -2868,7 +2925,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return target?.trim() || undefined;
 	}
 
-	@debug()
+	@trace()
 	async getStoredUserMergeTargetBranchName(repoPath: string, ref: string): Promise<string | undefined> {
 		const target = await this.provider.config.getGkConfig(repoPath, `branch.${ref}.gk-merge-target-user`);
 		return target?.trim() || undefined;
@@ -3107,7 +3164,7 @@ function parseSymbolicFullNames(stdout: string): { name: string; upstream?: stri
 	return { name: parseRefName(head).name, upstream: upstream || undefined };
 }
 
-/** Each ref list {@link findRefTip} searched, by full name: one base read looks up many names in the same cached list */
+/** Each ref list {@link findRefTip} and {@link findRefRecord} searched, by full name: one base read looks up many names in the same cached list */
 const refRecordsByName = new WeakMap<readonly RefRecord[], Map<string, RefRecord>>();
 
 /**
@@ -3115,17 +3172,7 @@ const refRecordsByName = new WeakMap<readonly RefRecord[], Map<string, RefRecord
  * `refs/heads/` before `refs/remotes/`); annotated tags peel to their commit. `undefined` when no listed ref matches.
  */
 function findRefTip(records: readonly RefRecord[], name: string): string | undefined {
-	let byName = refRecordsByName.get(records);
-	if (byName == null) {
-		byName = new Map();
-		for (const record of records) {
-			if (!byName.has(record.name)) {
-				byName.set(record.name, record);
-			}
-		}
-		refRecordsByName.set(records, byName);
-	}
-
+	const byName = getRefRecordsByName(records);
 	for (const candidate of [
 		name,
 		`refs/${name}`,
@@ -3139,6 +3186,44 @@ function findRefTip(records: readonly RefRecord[], name: string): string | undef
 	}
 
 	return undefined;
+}
+
+function getRefRecordsByName(records: readonly RefRecord[]): Map<string, RefRecord> {
+	let byName = refRecordsByName.get(records);
+	if (byName == null) {
+		byName = new Map();
+		for (const record of records) {
+			if (!byName.has(record.name)) {
+				byName.set(record.name, record);
+			}
+		}
+		refRecordsByName.set(records, byName);
+	}
+	return byName;
+}
+
+/** The record for the full ref name `fullName` in `records`, the cached ref list; no short-name resolution */
+function findRefRecord(records: readonly RefRecord[], fullName: string): RefRecord | undefined {
+	return getRefRecordsByName(records).get(fullName);
+}
+
+function toPushTargetRef(records: readonly RefRecord[], ref: string): GitPushTargetRef {
+	const record = findRefRecord(records, ref);
+	return { ref: ref, sha: record != null ? record.peeledObjectname || record.objectname : undefined };
+}
+
+/**
+ * Whether `<name>@{u}` can resolve, judged from `records`, the cached ref list. git follows `@{u}` only from the
+ * upstream configured for a branch of that short name (`branch.<name>.merge`), so a remote-tracking ref, a tag or a
+ * full ref name (`refs/heads/main@{u}` is "no such branch") has none. A name that names a local branch, or no ref at
+ * all (a deleted branch's leftover config still answers), is asked. An empty list is a failed enumeration (see
+ * `getRefTip`), which says nothing either way.
+ */
+function mayHaveUpstream(records: readonly RefRecord[], name: string): boolean {
+	if (!records.length || name === 'HEAD') return true;
+	if (findRefTip(records, `refs/heads/${name}`) != null) return true;
+
+	return findRefTip(records, name) == null;
 }
 
 /**

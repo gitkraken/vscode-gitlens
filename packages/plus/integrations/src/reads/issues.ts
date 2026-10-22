@@ -2,7 +2,7 @@ import type { IssueShape, IssueSorting, IssueStateFilter } from '@gitlens/git/mo
 import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
-import type { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { GitHostIntegration, SettledRepositoryScopes } from '../models/gitHostIntegration.js';
 import type { IssueFilter, ProviderReposInput } from '../providers/models.js';
 import { isRepoIdsInput, PagingMode, providersMetadata } from '../providers/models.js';
 import { mergeCollectionMetadata } from '../providers/utils/providerPaging.js';
@@ -483,14 +483,17 @@ async function readRepoScopedIssuesPage({
 
 	const issuesPagingMode = metadata?.issuesPagingMode;
 	// Counted, and read, as the host settles them: a scope can name another project than the one it was parsed with
-	// (see `GitHostIntegration.resolveRepositoryScopes`), which changes how many queries a per-project read makes.
-	let repos = options.repos ?? [];
-	if (issuesPagingMode === PagingMode.Project && repos.length) {
+	// (see `GitHostIntegration.resolveRepositoryScopes`), which changes how many queries a per-project read makes. The
+	// read is handed the settled scopes, flags included, so it reads what was counted rather than settling again.
+	const scopes = options.repos ?? [];
+	let repos: ProviderReposInput | SettledRepositoryScopes = scopes;
+	let counted = scopes;
+	if (issuesPagingMode === PagingMode.Project && scopes.length) {
 		const settled = await runCaptured(
 			options.providerId,
 			domain,
 			options.connectionId,
-			() => integration.resolveRepositoryScopes(repos, options.connectionId),
+			() => integration.resolveRepositoryScopes(scopes, options.connectionId),
 			{ warnOnMissingSession: warnOnMissingSession },
 		);
 		// No session to read with, or the read's own failure resolving it: answered as that read would, without it.
@@ -499,8 +502,9 @@ async function readRepoScopedIssuesPage({
 		}
 
 		repos = settled.value;
+		counted = settled.value.repos;
 	}
-	const ordering = toIssueOrdering(resolvedRepoScopedSort.sort, mergesProviderQueries(issuesPagingMode, repos));
+	const ordering = toIssueOrdering(resolvedRepoScopedSort.sort, mergesProviderQueries(issuesPagingMode, counted));
 	// Refused rather than served as concatenated per-scope runs, which would look ordered without being so — and
 	// only where it actually merges, since the same key against the same provider is perfectly answerable for a
 	// single repository or project.

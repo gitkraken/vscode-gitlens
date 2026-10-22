@@ -66,11 +66,13 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly number?: number;
 	readonly authoredByMe?: boolean;
 	/**
-	 * The current account as this pull request's members identify it: the identity {@link authoredByMe} was matched
-	 * against, present exactly when that was. A consumer matching {@link reviewRequests} or {@link latestReviews}
-	 * entries to the current user compares against this, not the account `getCurrentAccount` returns: Azure DevOps
-	 * Server gives one person a different id in each collection than at the server level, and the members carry the
-	 * collection's. Core matches `username` too only on GitHub and GitHub Enterprise, whose rows key people by login.
+	 * The current account as this pull request's members identify it: the identity its people were matched against,
+	 * present whenever it was resolved. {@link authoredByMe} is matched against it too, and stays `undefined` when the
+	 * row has no author, though its reviewers or assignees still get this. A consumer matching {@link reviewRequests}
+	 * or {@link latestReviews} entries to the current user compares against this, not the account `getCurrentAccount`
+	 * returns: Azure DevOps can know one person by another id in each organization (Azure DevOps Server: collection)
+	 * than the account's, and the members carry the organization's. Core matches `username` too only on GitHub and
+	 * GitHub Enterprise, whose rows key people by login.
 	 */
 	readonly viewer?: { readonly id: string; readonly username?: string };
 	/** The read that produced this row. Absent means unknown: a legacy row, or a provider or read not yet tagged. */

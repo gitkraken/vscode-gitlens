@@ -268,6 +268,100 @@ suite('Cache.evictCaches vs clearCaches — in-flight shared entries', () => {
 	});
 });
 
+suite('Cache — aheadOfBaseConfigKey shared across worktrees', () => {
+	const repoPath = '/test/repo';
+	const worktree = '/test/repo-wt';
+	let cache: Cache;
+	let reads: number;
+
+	setup(() => {
+		cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(worktree), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+		reads = 0;
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	function read(path: string): Promise<string | undefined> {
+		return cache.getAheadOfBaseConfigKey(path, () => `config ${++reads}`);
+	}
+
+	test('the main checkout and a linked worktree share one read', async () => {
+		assert.strictEqual(await read(repoPath), 'config 1');
+		assert.strictEqual(await read(worktree), 'config 1');
+		assert.strictEqual(reads, 1);
+	});
+
+	const changes: [string, (c: Cache) => void][] = [
+		['a watcher config change from the main checkout', c => c.onRepositoryChanged(repoPath, ['config'])],
+		['a watcher config change from the linked worktree', c => c.onRepositoryChanged(worktree, ['config'])],
+		["core's own config write in the linked worktree", c => c.evictCaches(worktree, 'config')],
+		["clearCaches(repoPath, 'config')", c => c.clearCaches(repoPath, 'config')],
+		['a full clear of the linked worktree', c => c.clearCaches(worktree)],
+	];
+	changes.forEach(([name, change]) => {
+		test(`${name} evicts the shared read for every worktree`, async () => {
+			await read(worktree);
+			change(cache);
+			assert.strictEqual(await read(repoPath), 'config 2');
+			assert.strictEqual(await read(worktree), 'config 2');
+		});
+	});
+
+	test('a global reset drops the shared read', async () => {
+		await read(worktree);
+		cache.reset();
+		assert.strictEqual(await read(repoPath), 'config 2');
+	});
+
+	test('a config change never lets a later read join a read started before it', async () => {
+		let resolveFirst!: (value: string) => void;
+		const first = cache.getAheadOfBaseConfigKey(
+			repoPath,
+			() =>
+				new Promise<string>(resolve => {
+					reads++;
+					resolveFirst = resolve;
+				}),
+		);
+
+		// A watcher report would share an in-flight read of any other shared key
+		cache.onRepositoryChanged(worktree, ['config']);
+		const second = read(worktree);
+		resolveFirst('before');
+
+		assert.strictEqual(await first, 'before');
+		assert.strictEqual(await second, 'config 2');
+		assert.strictEqual(reads, 2);
+	});
+
+	test('a failed read is not kept', async () => {
+		const failed = await cache.getAheadOfBaseConfigKey(repoPath, (_commonPath, cacheable) => {
+			reads++;
+			cacheable.invalidate();
+			return undefined;
+		});
+		assert.strictEqual(failed, undefined);
+		assert.strictEqual(await read(worktree), 'config 2');
+	});
+
+	test('unregistering a worktree keeps the shared read until the last one closes', async () => {
+		await read(repoPath);
+
+		cache.unregisterRepoPath(worktree);
+		assert.strictEqual(await read(repoPath), 'config 1', 'the main checkout still depends on it');
+
+		cache.unregisterRepoPath(repoPath);
+		assert.strictEqual(await read(repoPath), 'config 2');
+	});
+});
+
 suite('Cache — baseBranchName lifetime', () => {
 	const repoPath = '/test/repo';
 	let cache: Cache;
@@ -674,14 +768,20 @@ suite('Cache — gkConfig watcher reconciliation', () => {
 	});
 
 	/**
-	 * Mirrors the CLI config sub-provider's reconciler: re-reads via `getGkConfigMap` (a cache miss,
-	 * since the watcher path clears it first) and hands the result to `reconcileGkConfigMap`. Returns
-	 * a promise for the last reconcile's "changed" result, set synchronously so the test can await it
-	 * right after `onRepositoryChanged` returns.
+	 * Mirrors the CLI config sub-provider's reconciler for a file that changed since the map was read: evicts the
+	 * map as the change is reported, re-reads via `getGkConfigMap` (a cache miss) and hands the result to
+	 * `reconcileGkConfigMap`. Returns a promise for the last reconcile's "changed" result, set synchronously so the
+	 * test can await it right after `onRepositoryChanged` returns.
 	 */
-	function registerTestReconciler(nextMap: () => Map<string, string>): () => Promise<boolean> {
+	function registerTestReconciler(
+		nextMap: () => Map<string, string>,
+		options?: { keepMap?: boolean },
+	): () => Promise<boolean> {
 		let pending: Promise<boolean>;
 		cache.setGkConfigReconciler((rp, priorSnapshot) => {
+			if (!options?.keepMap) {
+				cache.deleteGkConfigMap(rp);
+			}
 			pending = cache
 				.getGkConfigMap(rp, () => nextMap())
 				.then(freshMap => cache.reconcileGkConfigMap(rp, priorSnapshot, freshMap));
@@ -870,6 +970,69 @@ suite('Cache — gkConfig watcher reconciliation', () => {
 			true,
 			'the baseline must still be the pre-change value, or the change diffs against itself',
 		);
+	});
+
+	test('a reconciler that keeps the map still diffs it: an incidental read already holding the change', async () => {
+		let factoryCount = 0;
+		await cache.getGkConfigMap(repoPath, () => {
+			factoryCount++;
+			return Promise.resolve(new Map([['branch.main.gk-merge-base', 'origin/main']]));
+		});
+		cache.deleteGkConfigMap(repoPath);
+
+		// Read after the external write, so the reconciler finds the file unchanged since and keeps this map
+		await cache.getGkConfigMap(repoPath, () => {
+			factoryCount++;
+			return Promise.resolve(new Map([['branch.main.gk-merge-base', 'origin/develop']]));
+		});
+
+		const result = registerTestReconciler(
+			() => {
+				factoryCount++;
+				return new Map([['branch.main.gk-merge-base', 'origin/develop']]);
+			},
+			{ keepMap: true },
+		);
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+
+		assert.strictEqual(await result(), true, 'the kept map is diffed against the pre-change baseline');
+		assert.strictEqual(factoryCount, 2, 'the report leaves the map to the reconciler, which kept it');
+	});
+
+	test('a reconciler that throws before returning evicts the map and falls back to the coarse clear', async () => {
+		let factoryCount = 0;
+		const read = () =>
+			cache.getGkConfigMap(repoPath, () => {
+				factoryCount++;
+				return Promise.resolve(new Map([['branch.main.gk-merge-base', 'origin/main']]));
+			});
+		await read();
+		const events: MergeTargetsChangeEvent[] = [];
+		cache.onDidChangeMergeTargets(e => events.push(e));
+
+		cache.setGkConfigReconciler(() => {
+			throw new Error('reconciler failed');
+		});
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		await read();
+
+		assert.strictEqual(factoryCount, 2, 'the pre-change map must not keep being served');
+		assert.deepStrictEqual(events, [{ repoPath: repoPath, refs: undefined }]);
+	});
+
+	test('with no reconciler registered, the report evicts the map', async () => {
+		let factoryCount = 0;
+		const read = () =>
+			cache.getGkConfigMap(repoPath, () => {
+				factoryCount++;
+				return Promise.resolve(new Map([['branch.main.gk-merge-base', 'origin/main']]));
+			});
+		await read();
+
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		await read();
+
+		assert.strictEqual(factoryCount, 2);
 	});
 
 	suite('branch metadata', () => {
@@ -1308,6 +1471,8 @@ suite('Cache.onDidChangeMergeTargets', () => {
 		await cache.getGkConfigMap(repoPath, () => Promise.resolve(new Map(initial)));
 		let pending: Promise<unknown> = Promise.resolve();
 		cache.setGkConfigReconciler((rp, priorSnapshot) => {
+			// The file changed since the map was read, so the reconciler evicts it
+			cache.deleteGkConfigMap(rp);
 			pending = cache
 				.getGkConfigMap(rp, () => new Map(next))
 				.then(freshMap => cache.reconcileGkConfigMap(rp, priorSnapshot, freshMap));
@@ -1383,6 +1548,8 @@ suite('Cache.onDidChangeMergeTargets', () => {
 		function registerGatedReconciler(read: () => Promise<Map<string, string>>): () => Promise<void> {
 			let pending: Promise<unknown> = Promise.resolve();
 			cache.setGkConfigReconciler((rp, priorSnapshot) => {
+				// The file changed since the map was read, so the reconciler evicts it
+				cache.deleteGkConfigMap(rp);
 				pending = cache
 					.getGkConfigMap(rp, read)
 					.then(freshMap => cache.reconcileGkConfigMap(rp, priorSnapshot, freshMap));
@@ -1542,6 +1709,7 @@ suite('Cache.onDidChangeMergeTargets', () => {
 	test('reports every branch as possibly changed with no earlier snapshot to diff against', async () => {
 		let pending: Promise<unknown> = Promise.resolve();
 		cache.setGkConfigReconciler((rp, priorSnapshot) => {
+			cache.deleteGkConfigMap(rp);
 			pending = cache
 				.getGkConfigMap(rp, () => new Map([['branch.main.gk-merge-target', 'origin/main']]))
 				.then(freshMap => cache.reconcileGkConfigMap(rp, priorSnapshot, freshMap));
