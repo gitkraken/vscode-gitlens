@@ -11,9 +11,8 @@ import type { WatchHandle } from '@gitlens/git/watching/watchService.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { toFsPath } from '@gitlens/utils/uri.js';
-import { createCliGitService } from '../../../service.js';
 import type { TestRepo } from './helpers.js';
-import { createTestRepo } from './helpers.js';
+import { createShadowCheckedGitService, createTestRepo } from './helpers.js';
 
 const fs: FileSystemProvider = {
 	readFile: async uri => readFileSync(toFsPath(uri)),
@@ -67,7 +66,7 @@ suite('Self-write announcements through createCliGitService', () => {
 				return createDisposable(() => {});
 			},
 		};
-		service = createCliGitService({
+		service = createShadowCheckedGitService({
 			context: {
 				fs: fs,
 				hooks: {

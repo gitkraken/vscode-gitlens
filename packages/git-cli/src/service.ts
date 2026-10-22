@@ -1,6 +1,7 @@
 import { GitService } from '@gitlens/git/service.js';
 import type { FileWatchingProvider } from '@gitlens/git/watching/provider.js';
 import type { WatchPollingOptions } from '@gitlens/git/watching/watchService.js';
+import type { WorktreeSummaryServiceOptions } from '@gitlens/git/watching/worktreeSummary.js';
 import { fileUri } from '@gitlens/utils/uri.js';
 import type { CliGitProviderOptions } from './cliGitProvider.js';
 import { CliGitProvider } from './cliGitProvider.js';
@@ -44,6 +45,9 @@ export interface CliGitServiceOptions {
 	 * watcher is asked.
 	 */
 	watchPolling?: WatchPollingOptions;
+
+	/** For tests only; production never passes it (see `WorktreeSummaryServiceOptions.verifyBaseRemeasure`) */
+	verifyBaseRemeasure?: WorktreeSummaryServiceOptions['verifyBaseRemeasure'];
 }
 
 /**
@@ -68,6 +72,7 @@ export interface CliGitServiceOptions {
 export function createCliGitService(options: CliGitServiceOptions): GitService {
 	const service = GitService.createSingleton(options.watchingProvider, {
 		watchPolling: options.watchPolling,
+		verifyBaseRemeasure: options.verifyBaseRemeasure,
 		// The host's file system reads the shared `.git/config` the watch service compares reports of
 		readFile: path => options.context.fs.readFile(fileUri(path)),
 	});

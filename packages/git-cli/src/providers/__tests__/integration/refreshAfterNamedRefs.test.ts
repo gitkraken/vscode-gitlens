@@ -13,9 +13,15 @@ import { createDisposable } from '@gitlens/utils/disposable.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri, getRepositoryKey, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProvider } from '../../../cliGitProvider.js';
-import { createCliGitService } from '../../../service.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, cloneTestRepo, createBranch, createTestRepo, createWorktree } from './helpers.js';
+import {
+	addCommit,
+	cloneTestRepo,
+	createBranch,
+	createShadowCheckedGitService,
+	createTestRepo,
+	createWorktree,
+} from './helpers.js';
 
 const fs: FileSystemProvider = {
 	readFile: async uri => readFileSync(toFsPath(uri)),
@@ -216,7 +222,7 @@ suite('Refreshing checkouts after writes that name the refs they moved', () => {
 		heard = new Map();
 		reads = new Map();
 		extraDisposables = [];
-		service = createCliGitService({
+		service = createShadowCheckedGitService({
 			context: { fs: fs },
 			watchingProvider: {
 				createWatcher: function (basePath, _pattern, onEvent) {

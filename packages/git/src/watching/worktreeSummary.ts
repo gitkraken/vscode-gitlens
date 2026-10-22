@@ -111,6 +111,16 @@ export interface WorktreeSummaryServiceOptions {
 	 * repository's summaries react. Without it, or when it returns `undefined`, every summary reacts.
 	 */
 	readonly getCommonPath?: (repoPath: string) => string | undefined;
+	/**
+	 * For tests only; production never passes it. Called whenever the base re-measure answers in place of a full base
+	 * read, with its answer and what a full `getAheadOfBase` of the same branch answers right after (`undefined` when
+	 * that rejects or the provider has none), so a test can fail where the shortcut keeps an answer the full read would
+	 * not. The summary keeps the re-measure's answer either way. The full read goes through the same provider and
+	 * caches as the shortcut, so it checks the shortcut's reasoning, not whether those caches are current. The callback
+	 * should record a mismatch for the test to fail on rather than throw: a throw is taken for a failed base read.
+	 * Unset, it costs one check of the option.
+	 */
+	readonly verifyBaseRemeasure?: (remeasured: AheadOfBase, full: AheadOfBase | undefined) => void;
 }
 
 /** Read groups, as bit flags so a pending set is a number rather than an allocation per event */
@@ -302,6 +312,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 	private readonly watchService: RepositoryWatchService;
 	private readonly getRepository: (repoPath: string) => RepositoryService | undefined;
 	private readonly getCommonPath: ((repoPath: string) => string | undefined) | undefined;
+	private readonly verifyBaseRemeasure: WorktreeSummaryServiceOptions['verifyBaseRemeasure'];
 	private readonly mergeTargetsListener: UnifiedDisposable | undefined;
 	private _disposed = false;
 
@@ -309,6 +320,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 		this.watchService = options.watchService;
 		this.getRepository = options.getRepository;
 		this.getCommonPath = options.getCommonPath;
+		this.verifyBaseRemeasure = options.verifyBaseRemeasure;
 		this.mergeTargetsListener = options.onDidChangeMergeTargets?.(e => this.onMergeTargetsChanged(e));
 	}
 
@@ -391,6 +403,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 				undefined,
 				undefined,
 				cancellation,
+				this.verifyBaseRemeasure,
 			);
 			return result.summary;
 		}
@@ -631,6 +644,7 @@ export class WorktreeSummaryService implements UnifiedDisposable {
 				entry.baseDefaultBranch,
 				baseMoves,
 				entry.abort.signal,
+				this.verifyBaseRemeasure,
 			);
 		} catch (ex) {
 			if (entry.disposed || isCancellationError(ex)) return;
@@ -768,6 +782,7 @@ async function readSummary(
 	previousBaseDefaultBranch: string | null | undefined,
 	baseMoves: ReadonlySet<string> | undefined,
 	signal: AbortSignal | undefined,
+	verifyBaseRemeasure: WorktreeSummaryServiceOptions['verifyBaseRemeasure'],
 ): Promise<ReadResult> {
 	if (previous == null) {
 		fields |= allFields;
@@ -876,6 +891,15 @@ async function readSummary(
 						[...baseMoves],
 						signal,
 					);
+					if (aheadOfBase != null && verifyBaseRemeasure != null) {
+						let full: AheadOfBase | undefined;
+						try {
+							full = await repo.branches.getAheadOfBase?.(branch, undefined, signal);
+						} catch (ex) {
+							if (isCancellationError(ex)) throw ex;
+						}
+						verifyBaseRemeasure(aheadOfBase, full);
+					}
 				}
 				aheadOfBase ??= await repo.branches.getAheadOfBase?.(branch, undefined, signal);
 				base = aheadOfBase?.base;
