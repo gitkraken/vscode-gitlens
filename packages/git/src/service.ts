@@ -16,6 +16,7 @@ import {
 import type { FileWatchingProvider } from './watching/provider.js';
 import type { WatchPollingOptions } from './watching/watchService.js';
 import { RepositoryWatchService } from './watching/watchService.js';
+import type { WorktreeSummaryServiceOptions } from './watching/worktreeSummary.js';
 import { WorktreeSummaryService } from './watching/worktreeSummary.js';
 
 export interface ProvidersChangeEvent {
@@ -85,17 +86,27 @@ export class GitService implements UnifiedDisposable {
 
 	/**
 	 * `options.watchPolling` opts the watch service into polling what `watchingProvider` reports it can't watch, and
-	 * `options.readFile` lets it tell what a reported `.git/config` change changed (see `WatchServiceOptions.readFile`)
+	 * `options.readFile` lets it tell what a reported `.git/config` change changed (see `WatchServiceOptions.readFile`).
+	 * `options.verifyBaseRemeasure` is for tests only (see `WorktreeSummaryServiceOptions.verifyBaseRemeasure`)
 	 */
 	static createSingleton(
 		watchingProvider?: FileWatchingProvider,
-		options?: { watchPolling?: WatchPollingOptions; readFile?: (path: string) => Promise<Uint8Array> },
+		options?: {
+			watchPolling?: WatchPollingOptions;
+			readFile?: (path: string) => Promise<Uint8Array>;
+			verifyBaseRemeasure?: WorktreeSummaryServiceOptions['verifyBaseRemeasure'];
+		},
 	): GitService {
 		if (GitService._instance != null) {
 			throw new Error('GitService already exists — only one instance is allowed');
 		}
 
-		const instance = new GitService(watchingProvider, options?.watchPolling, options?.readFile);
+		const instance = new GitService(
+			watchingProvider,
+			options?.watchPolling,
+			options?.readFile,
+			options?.verifyBaseRemeasure,
+		);
 		GitService._instance = instance;
 		return instance;
 	}
@@ -128,6 +139,7 @@ export class GitService implements UnifiedDisposable {
 		watchingProvider?: FileWatchingProvider,
 		watchPolling?: WatchPollingOptions,
 		readFile?: (path: string) => Promise<Uint8Array>,
+		verifyBaseRemeasure?: WorktreeSummaryServiceOptions['verifyBaseRemeasure'],
 	) {
 		if (watchingProvider != null) {
 			this._watchService = new RepositoryWatchService({
@@ -145,6 +157,7 @@ export class GitService implements UnifiedDisposable {
 				getRepository: repoPath => this.forRepo(repoPath),
 				onDidChangeMergeTargets: this.onDidChangeMergeTargets,
 				getCommonPath: repoPath => this.getProvider(repoPath)?.provider.getCommonPath?.(repoPath),
+				verifyBaseRemeasure: verifyBaseRemeasure,
 			});
 		}
 

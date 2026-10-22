@@ -11,11 +11,15 @@ import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FileSystemProvider, GitServiceConfig, GitServiceContext, GitServiceHooks } from '@gitlens/git/context.js';
+import type { GitService } from '@gitlens/git/service.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { toFsPath } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../../../cliGitProvider.js';
 import type { GitOptions } from '../../../exec/git.js';
 import { findGitPath } from '../../../exec/locator.js';
+import type { CliGitServiceOptions } from '../../../service.js';
+import { createCliGitService } from '../../../service.js';
+import { verifyBaseRemeasure } from './shadowCheck.js';
 
 export interface TestRepo {
 	path: string;
@@ -183,6 +187,15 @@ export function createProvider(options?: { gitOptions?: GitOptions }): CliGitPro
 		locator: getGitLocation,
 		gitOptions: { gitTimeout: 30000, ...options?.gitOptions },
 	});
+}
+
+/**
+ * {@link createCliGitService} with the worktree summary's base re-measure shadow-checked (see `shadowCheck.ts`), which
+ * the root hooks fail the test on. Not for a test that counts the processes a summary spawns: the check reads the
+ * base in full each time the re-measure answers.
+ */
+export function createShadowCheckedGitService(options: Omit<CliGitServiceOptions, 'verifyBaseRemeasure'>): GitService {
+	return createCliGitService({ ...options, verifyBaseRemeasure: verifyBaseRemeasure });
 }
 
 // Monotonic commit clock: git commit dates have 1-second granularity, so rapid test commits otherwise

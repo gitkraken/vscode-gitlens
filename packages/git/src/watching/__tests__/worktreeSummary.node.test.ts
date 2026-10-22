@@ -20,7 +20,11 @@ import type {
 import type { WatchPollingOptions } from '../watchService.js';
 import { RepositoryWatchService } from '../watchService.js';
 import type { RepositoryWatchSession } from '../watchSession.js';
-import type { WorktreeSummary, WorktreeSummarySubscribeOptions } from '../worktreeSummary.js';
+import type {
+	WorktreeSummary,
+	WorktreeSummaryServiceOptions,
+	WorktreeSummarySubscribeOptions,
+} from '../worktreeSummary.js';
 import { WorktreeSummaryService } from '../worktreeSummary.js';
 
 const repoPath = '/repo';
@@ -289,6 +293,7 @@ function createHarness(options?: {
 	getCommonPath?: (repoPath: string) => string | undefined;
 	/** Polls every `.git` directory, as for a watcher that can't watch */
 	polling?: WatchPollingOptions;
+	verifyBaseRemeasure?: WorktreeSummaryServiceOptions['verifyBaseRemeasure'];
 }): Harness {
 	const repo = new FakeRepository();
 	const repos = new Map<string, FakeRepository>([[key, repo]]);
@@ -314,6 +319,7 @@ function createHarness(options?: {
 		getRepository: path => repos.get(getRepositoryKey(path))?.service,
 		onDidChangeMergeTargets: mergeTargets.event,
 		getCommonPath: options?.getCommonPath,
+		verifyBaseRemeasure: options?.verifyBaseRemeasure,
 	});
 
 	const session = (): RepositoryWatchSession => {
@@ -2181,6 +2187,42 @@ describe('WorktreeSummaryService', () => {
 			const summary = await h.service.getSummary(repoPath);
 			assert.deepStrictEqual(summary.base, movedBase);
 			assert.strictEqual(summary.stale, false);
+		});
+
+		it('hands the re-measure and a full read of the base to the verifier, and keeps the re-measure', async () => {
+			const checked: unknown[] = [];
+			const h = createHarness({ verifyBaseRemeasure: (remeasured, full) => checked.push([remeasured, full]) });
+			h.repo.state.upstream = undefined;
+			h.repo.state.base = { ...previousBase };
+			h.repo.state.baseDependsOn = dependsOn;
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			// The full read the fake answers differs from the re-measure, which the summary still keeps
+			h.repo.state.baseMove = movedBase;
+			h.repo.state.base = { ...previousBase, ahead: 1 };
+
+			await readsAfter(h, () => fetched(h));
+			assert.deepStrictEqual(checked, [
+				[
+					{ base: movedBase, dependsOn: dependsOn },
+					{ base: { ...previousBase, ahead: 1 }, dependsOn: dependsOn },
+				],
+			]);
+			assert.deepStrictEqual((await h.service.getSummary(repoPath)).base, movedBase);
+		});
+
+		it('does not verify a base read in full', async () => {
+			const checked: unknown[] = [];
+			const h = createHarness({ verifyBaseRemeasure: (remeasured, full) => checked.push([remeasured, full]) });
+			h.repo.state.upstream = undefined;
+			h.repo.state.base = { ...previousBase };
+			h.repo.state.baseDependsOn = dependsOn;
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			// The re-measure can't answer
+			assert.deepStrictEqual(await readsAfter(h, () => fetched(h)), onlyBase);
+			assert.deepStrictEqual(checked, []);
 		});
 
 		it('reads the base in full when the re-measure cannot answer', async () => {
