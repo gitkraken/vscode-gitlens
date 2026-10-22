@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.15.4] - 2026-10-22
+
 ### Added
 
 - Adds an optional `getPushTarget` to `GitBranchesSubProvider`: where a branch (the checked-out one by default) pushes to and its upstream, each as a full ref name with its commit, read from the cached ref list so a warm call runs no git. The destination is git's own `%(push)`, which follows `push.default`, `remote.pushDefault`, `branch.<name>.pushRemote`, push refspecs and mirror remotes, and is named even before its ref exists (with no commit). `known: false` means the ref list couldn't be read; a detached HEAD has no destination. The shared `for-each-ref` now reads `%(push)` for every ref, so `RefRecord` gains a `push` field (git, git-cli)
@@ -828,7 +830,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.3...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.4...HEAD
+[0.15.4]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.3...gitkraken:releases/core/v0.15.4
 [0.15.3]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.2...gitkraken:releases/core/v0.15.3
 [0.15.2]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.1...gitkraken:releases/core/v0.15.2
 [0.15.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.15.0...gitkraken:releases/core/v0.15.1
