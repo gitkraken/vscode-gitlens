@@ -1716,8 +1716,17 @@ export class GlDetailsReviewModePanel extends LitElement {
 									// muted color (it's a locator, not part of the path).
 									const match = f.match(/^(.+?)(?::(\d+)(?:-(\d+))?)?$/);
 									const path = match?.[1] ?? f;
-									const start = match?.[2] != null ? Number(match[2]) : undefined;
-									const end = match?.[3] != null ? Number(match[3]) : start;
+									let start = match?.[2] != null ? Number(match[2]) : undefined;
+									let end = match?.[3] != null ? Number(match[3]) : start;
+									// Without a locator of its own, the link lands on the area's first finding in
+									// the file — the thread is there, not at the top
+									if (start == null) {
+										const first = area.findings?.find(
+											fi => fi.filePath === path && fi.lineRange != null,
+										);
+										start = first?.lineRange?.start;
+										end = first?.lineRange?.end ?? start;
+									}
 									const lineRange =
 										start == null ? '' : end !== start ? `:${start}-${end}` : `:${start}`;
 									return html`<button
