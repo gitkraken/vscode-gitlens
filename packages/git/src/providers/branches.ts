@@ -47,6 +47,8 @@ export interface AheadOfBase {
 	readonly reason?: 'none' | 'self' | 'unborn';
 	/** Full ref names (`refs/heads/main`, `refs/remotes/origin/main`, `refs/remotes/origin/HEAD`) whose movement can change this answer, given with or without a base so a watcher also learns when one appears: the branch, every candidate compared up to the chosen one, their tracking refs, the default-branch symrefs and the `<remote>/main`/`<remote>/master` refs when the default was consulted, the `upstream` remote's copy of the created-from or default branch when it was compared, and the branch's upstream when it is the default branch. Lets a watcher recompute only when one of them moves. */
 	readonly dependsOn: readonly string[];
+	/** The default branch the read resolved from local refs and the remotes' `HEAD` symrefs, `null` when none did; absent when it didn't consult the default branch (a recorded candidate decided the base first) */
+	readonly defaultBranch?: string | null;
 }
 
 /** A ref {@link GitPushTarget} names, with its commit from the cached ref list */
@@ -221,6 +223,31 @@ export interface GitBranchesSubProvider {
 	 * `undefined` means the inputs could not be read; providers without this operation require a full base read.
 	 */
 	getAheadOfBaseConfigKey?(repoPath: string, cancellation?: AbortSignal): Promise<string | undefined>;
+	/**
+	 * Re-measures `previous`, a `getAheadOfBase` answer for `branch` read with HEAD at `previous.head`, after a write
+	 * moved `moved` (full ref names from `previous.dependsOn`), without resolving the base again. It answers only when
+	 * that provably equals a fresh `getAheadOfBase`: HEAD is still at `previous.head`, the refs that moved are the base's
+	 * own ref (the only listed ref its name answers to) and any `<remote>/HEAD` symref still pointing at it, with the
+	 * default branch resolving as `previous.defaultBranch` when one did (absent, it can't be shown), the repository
+	 * isn't shallow, the base moved only forward (its old tip and every value its reflog
+	 * took since are in its new tip's history), and HEAD's count past its new tip, `previous.base.forkPoint` and every
+	 * commit the base's reflog reaches off its new tip's history is unchanged. Equal counts mean none of HEAD's commits
+	 * reached the base, the fork point is in its history, and the reflog shares no more of HEAD's history than the tip
+	 * does, so HEAD's common history with the base, and with that the fork point and the choice of base, stay as they
+	 * were; only `base.sha` moves, and `defaultBranch` is kept. `undefined` when any of that can't be shown, and a full `getAheadOfBase` is due.
+	 */
+	getAheadOfBaseAfterBaseMove?(
+		repoPath: string,
+		branch: string | undefined,
+		previous: {
+			readonly head: string;
+			readonly base: NonNullable<AheadOfBase['base']>;
+			readonly dependsOn: readonly string[];
+			readonly defaultBranch?: string | null;
+		},
+		moved: readonly string[],
+		cancellation?: AbortSignal,
+	): Promise<AheadOfBase | undefined>;
 	/**
 	 * How far each branch has diverged from `base`, keyed by full ref name (`refs/heads/x`, plus `refs/remotes/<remote>/x`
 	 * when `options.remotes` is set) so a local and a remote name can't collide. Symbolic refs such as
