@@ -6,14 +6,20 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds an optional `getAheadOfBaseConfigKey` to `GitBranchesSubProvider`, an opaque snapshot of the Git config inputs to `getAheadOfBase` (every branch's tracking, the remotes and `init.defaultBranch`, not the stored gk merge targets or base): two equal snapshots mean that config can't have changed the base. `undefined` means it couldn't be read; the CLI provider reads it once for every worktree of a repository, and a provider without it leaves a worktree summary re-reading its base on every config change (git, git-cli)
+
 ### Changed
 
+- Changes the `ref` that `WatchGroupHooks.onRepoChanged` and `RepositoryWatchSession.pushRepoChanges` take to `string | false`, where `false` reports a `.git/config` (or `config.worktree`) change that moved no ref. Its change kinds (`config`, `remotes`) still clear caches as before, but the event's `mayHaveChangedRef` no longer answers `true` for every remote-tracking ref because of it. A poll now also reads the `refs/remotes` directory, which `git remote remove` and `git remote rename` change whether the remote's refs are loose or packed, so a polled repository still reports a removed or renamed remote's refs as possibly moved, while a config write alone, like `git branch --set-upstream-to`, names no ref (git)
 - Changes `getGkConfig`, `getGkConfigRegex`, `getStoredDetectedMergeTargetBranchName` and `getStoredUserMergeTargetBranchName` to log at trace level rather than debug, and a gk config lookup to no longer enter (and log) the one-time `.git/gk/config` migration once it ran for the repository: they are served from the cached map, and a cold read's `git config` still logs its own line (git-cli)
 
 ### Fixed
 
 - Fixes every checkout sharing a `.git/gk/config` re-reading the whole file (a `git config --get-regex` each) when the watcher reports a change to it, core's own writes included, so a branch-activity stamp reported by three checkouts read it four times. A report of a file unchanged since the cached map was read (same inode, size and change times, with the read's stat taken safely after the file's last change: 2 seconds for a filesystem keeping whole-second times, 50 ms otherwise) now keeps the map, and still diffs it against the reconcile's baseline, so a read landing between another process's write and its report doesn't lose the change; a changed file is re-read as before (git, git-cli)
 - Fixes `getAheadOfBase` spawning a failing `git rev-parse <ref>@{u}` on every read whose candidate base is a remote-tracking ref or a tag (`origin/main`, the usual default branch), since git can't cache a failed lookup: a candidate the cached ref list shows can't have an upstream is no longer asked for one, and the result is unchanged. The base a branch's reflog says it was created from is checked the same way (git-cli)
+- Fixes a `.git/config` write making every subscribed worktree summary of the repository re-read its base at once, a full `getAheadOfBase` each: in a Kepler daemon over ~100 worktrees of one repository, one write cost ~65 reads in a burst. A summary now keeps its base when the config inputs to it (every branch's tracking, the remotes and `init.defaultBranch`), its stored merge targets, HEAD and upstream are unchanged. The config read itself (`git config --null --get-regexp`) is shared by every worktree of the repository rather than spawned by each, and any config change hard-evicts it, core's own writes included, so a read after the change never joins one that started before it (git, git-cli)
 
 ## [0.15.3] - 2026-10-21
 

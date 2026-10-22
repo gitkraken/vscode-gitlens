@@ -16,13 +16,16 @@ import { WorktreeSummaryService } from '../worktreeSummary.js';
 const repoPath = '/repo';
 const key = getRepositoryKey(repoPath);
 
-function createMockFactory(): FileWatchingProvider {
+function createMockFactory(
+	onWatcher?: (basePath: string, onEvent: (event: FileWatchEvent) => void) => void,
+): FileWatchingProvider {
 	return {
 		createWatcher: function (
 			_basePath: string,
 			_pattern: string,
 			_onEvent: (event: FileWatchEvent) => void,
 		): FileWatcher {
+			onWatcher?.(_basePath, _onEvent);
 			return mixinDisposable({}, () => {});
 		},
 	};
@@ -87,6 +90,8 @@ class FakeRepository {
 		fail: Error | undefined;
 		/** Makes only the base read throw */
 		baseFail: Error | undefined;
+		configKey: string | undefined;
+		configKeyFail: Error | undefined;
 	} = {
 		branch: 'main',
 		detached: false,
@@ -101,11 +106,14 @@ class FakeRepository {
 		recordedBase: undefined,
 		fail: undefined,
 		baseFail: undefined,
+		configKey: 'config-v1',
+		configKeyFail: undefined,
 	};
 
 	readonly counts: ReadCounts = { dirty: 0, branch: 0, base: 0, remotes: 0 };
 	/** Reads of the stored base values (kept out of {@link counts}: they're shared, cached gk config reads) */
 	baseKeyReads = 0;
+	configKeyReads = 0;
 	readonly signals: (AbortSignal | undefined)[] = [];
 	/** The branch each base read was asked about, in order (`undefined` for a detached HEAD) */
 	readonly baseBranches: (string | undefined)[] = [];
@@ -142,6 +150,12 @@ class FakeRepository {
 									}
 								: undefined,
 					};
+				},
+				getAheadOfBaseConfigKey: async (_signal?: AbortSignal) => {
+					this.configKeyReads++;
+					if (this.state.configKeyFail != null) throw this.state.configKeyFail;
+
+					return this.state.configKey;
 				},
 				getAheadOfBase: async (branch: string | undefined, _options?: unknown, signal?: AbortSignal) => {
 					this.baseBranches.push(branch);
@@ -217,7 +231,8 @@ interface Harness {
 	readonly watchService: RepositoryWatchService;
 	readonly service: WorktreeSummaryService;
 	session(): RepositoryWatchSession;
-	push(changes: RepositoryChange[], ref?: string): void;
+	push(changes: RepositoryChange[], ref?: string | false): void;
+	fireGitDir(relativePath: string): void;
 	pushWorkingTree(): void;
 	/** Fires the merge-targets event core raises as it writes a branch's merge target or base */
 	fireMergeTargets(refs: string[] | undefined, commonPath?: string): void;
@@ -231,8 +246,13 @@ function createHarness(options?: {
 }): Harness {
 	const repo = new FakeRepository();
 	const repos = new Map<string, FakeRepository>([[key, repo]]);
+	const watchers: ((event: FileWatchEvent) => void)[] = [];
 	const watchService = new RepositoryWatchService({
-		watchingProvider: createMockFactory(),
+		watchingProvider: createMockFactory((basePath, onEvent) => {
+			if (getRepositoryKey(basePath) === getRepositoryKey(`${repoPath}/.git`)) {
+				watchers.push(onEvent);
+			}
+		}),
 		defaultRepoDelayMs: 10,
 		defaultWorkingTreeDelayMs: options?.defaultWorkingTreeDelayMs ?? 10,
 	});
@@ -264,6 +284,10 @@ function createHarness(options?: {
 		service: service,
 		session: session,
 		push: (changes, ref) => session().pushRepoChanges(changes, ref),
+		fireGitDir: relativePath => {
+			assert.strictEqual(watchers.length, 1, 'this fixture has one main checkout watcher');
+			watchers[0]({ path: `${repoPath}/.git/${relativePath}`, reason: 'change' });
+		},
 		pushWorkingTree: () => session().pushWorkingTreeChanges([`${repoPath}/src/a.ts`]),
 		fireMergeTargets: (refs, commonPath) =>
 			mergeTargets.fire({ repoPath: commonPath ?? key, refs: refs != null ? new Set(refs) : undefined }),
@@ -576,6 +600,7 @@ describe('WorktreeSummaryService', () => {
 
 			await h.service.getSummary(repoPath);
 			assert.strictEqual(h.repo.counts.branch, 2, 'one-off reads are not cached');
+			assert.strictEqual(h.repo.configKeyReads, 0, 'one-off reads retain no config snapshot');
 		});
 
 		it('rejects a one-off read for an unknown repository', async () => {
@@ -674,7 +699,11 @@ describe('WorktreeSummaryService', () => {
 			h.service.subscribe(repoPath);
 			await h.service.getSummary(repoPath);
 
-			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop')), onlyBase);
+			assert.strictEqual(h.repo.configKeyReads, 1, 'initial subscription snapshots config once');
+			for (let i = 0; i < 2; i++) {
+				assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop')), onlyBase);
+			}
+			assert.strictEqual(h.repo.configKeyReads, 1, 'dependent-ref movement retains the config snapshot');
 		});
 
 		it('runs base when a ref a no-base answer depends on moves, and picks up the base it finds', async () => {
@@ -824,17 +853,288 @@ describe('WorktreeSummaryService', () => {
 			assert.deepStrictEqual(await readsAfter(h, () => h.fireMergeTargets(['main'], '/other')), onlyBase);
 		});
 
-		it('runs branch and base for a config change', async () => {
+		it('refreshes branch and config snapshots without recomputing an unchanged base', async () => {
 			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			assert.strictEqual(h.repo.configKeyReads, 1);
+			assert.strictEqual(h.repo.baseKeyReads, 3);
+
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+			assert.strictEqual(h.repo.configKeyReads, 2);
+			assert.strictEqual(h.repo.baseKeyReads, 6);
+		});
+
+		it('uses config snapshots for actual git config watcher events, including lock files', async () => {
+			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireGitDir('config')), onlyBranch);
+			h.repo.state.configKey = 'config-v2';
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireGitDir('config.lock')), {
+				...onlyBranch,
+				base: 1,
+			});
+		});
+
+		it('does not let config hide relevant ref changes or broaden unrelated ones', async () => {
+			const h = createHarness();
+			h.repo.state.baseDependsOn = ['refs/remotes/origin/develop'];
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			assert.deepStrictEqual(
+				await readsAfter(h, () => {
+					h.fireGitDir('config');
+					h.fireGitDir('refs/remotes/origin/other');
+				}),
+				onlyBranch,
+			);
+			assert.deepStrictEqual(
+				await readsAfter(h, () => {
+					h.fireGitDir('refs/remotes/origin/develop');
+					h.fireGitDir('config');
+				}),
+				{ ...onlyBranch, base: 1 },
+			);
+			assert.deepStrictEqual(
+				await readsAfter(h, () => {
+					h.fireGitDir('config');
+					h.fireGitDir('refs/remotes');
+				}),
+				{ ...onlyBranch, base: 1 },
+			);
+		});
+
+		it('snapshots config once when it coalesces with a dependent ref or HEAD change', async () => {
+			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			assert.strictEqual(h.repo.configKeyReads, 1);
+
+			assert.deepStrictEqual(
+				await readsAfter(h, () => {
+					h.push(['config'], false);
+					h.push(['heads'], 'refs/heads/develop');
+				}),
+				{ ...onlyBranch, base: 1 },
+			);
+			assert.strictEqual(h.repo.configKeyReads, 2, 'config plus dependency snapshots once');
+			assert.deepStrictEqual(
+				await readsAfter(h, () => {
+					h.push(['head'], 'HEAD');
+					h.push(['config'], false);
+				}),
+				all,
+			);
+			assert.strictEqual(h.repo.configKeyReads, 3, 'config plus HEAD snapshots once');
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'], false)), onlyBranch);
+		});
+
+		it('recomputes the base when its config snapshot changes, then retains the new snapshot', async () => {
+			const h = createHarness();
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.configKey = 'config-v2';
+			h.repo.state.base = { ref: 'trunk', ahead: 4, sha: 'ttt111', forkPoint: undefined, tier: 'default' };
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), {
+				...onlyBranch,
+				base: 1,
+			});
+			assert.deepStrictEqual(sub.current?.base, h.repo.state.base);
+			assert.strictEqual(h.repo.configKeyReads, 2, 'the config snapshot is read once per refresh');
+
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+		});
+
+		it('recomputes the base for a changed upstream identity even when config snapshots are equal', async () => {
+			const h = createHarness();
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.upstream = { name: 'origin/release', missing: false, ahead: 1, behind: 2 };
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), {
+				...onlyBranch,
+				base: 1,
+			});
+			assert.strictEqual(sub.current?.upstream?.name, 'origin/release');
+
+			h.repo.state.upstream = { name: 'origin/release', local: true, missing: false, ahead: 1, behind: 2 };
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), {
+				dirty: 0,
+				branch: 1,
+				base: 1,
+				remotes: 0,
+			});
+			assert.strictEqual(sub.current?.upstream?.remote, undefined);
+		});
+
+		it('refreshes upstream counts without recomputing the base when its identity is unchanged', async () => {
+			const h = createHarness();
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.upstream = { name: 'origin/main', missing: false, ahead: 3, behind: 5 };
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+			assert.strictEqual(sub.current?.ahead, 3);
+			assert.strictEqual(sub.current?.behind, 5);
+		});
+
+		it('recomputes the base when config refresh finds a new HEAD commit with the same keys', async () => {
+			const h = createHarness();
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.sha = 'aaa222';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), {
+				...onlyBranch,
+				base: 1,
+			});
+			assert.strictEqual(sub.current?.sha, 'aaa222');
+		});
+
+		it('checks stored base values on config events and coalesces config and gk config changes', async () => {
+			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.userMergeTarget = 'release';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config', 'gkConfig'])), {
+				...onlyBranch,
+				base: 1,
+			});
+			assert.strictEqual(h.repo.baseKeyReads, 6);
+			assert.strictEqual(h.repo.configKeyReads, 2);
+
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config', 'gkConfig'])), onlyBranch);
+			h.repo.state.recordedBase = 'trunk';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), {
+				...onlyBranch,
+				base: 1,
+			});
+		});
+
+		it('leaves ordinary config snapshots alone for an unchanged gk-only event', async () => {
+			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.configKey = 'config-v2';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['gkConfig'])), none);
+			assert.strictEqual(h.repo.configKeyReads, 1);
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), {
+				...onlyBranch,
+				base: 1,
+			});
+		});
+
+		it('recomputes conservatively while config snapshots are unknown and recovers a known snapshot', async () => {
+			const h = createHarness();
+			h.repo.state.configKey = undefined;
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), { ...onlyBranch, base: 1 });
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), { ...onlyBranch, base: 1 });
+
+			h.repo.state.configKey = 'config-v1';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), { ...onlyBranch, base: 1 });
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+		});
+
+		it('recomputes the base after a config snapshot fails and trusts it again only after recovery', async () => {
+			const h = createHarness();
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.configKeyFail = new Error('config unavailable');
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), { ...onlyBranch, base: 1 });
+			assert.strictEqual(sub.current?.stale, false, 'a successful base read remains usable');
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), { ...onlyBranch, base: 1 });
+
+			h.repo.state.configKeyFail = undefined;
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), { ...onlyBranch, base: 1 });
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+		});
+
+		it('keeps recomputing the base when the provider has no config snapshot capability', async () => {
+			const h = createHarness();
+			delete h.repo.service.branches.getAheadOfBaseConfigKey;
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), { ...onlyBranch, base: 1 });
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), { ...onlyBranch, base: 1 });
+			assert.strictEqual(h.repo.configKeyReads, 0);
+		});
+
+		it('uses config snapshots for detached HEAD without reading branch-specific stored values', async () => {
+			const h = createHarness();
+			h.repo.state.detached = true;
+			h.repo.state.upstream = undefined;
 			h.service.subscribe(repoPath);
 			await h.service.getSummary(repoPath);
 
 			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), {
 				dirty: 0,
 				branch: 1,
-				base: 1,
-				remotes: 1,
+				base: 0,
+				remotes: 0,
 			});
+			h.repo.state.configKey = 'config-v2';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), {
+				dirty: 0,
+				branch: 1,
+				base: 1,
+				remotes: 0,
+			});
+			assert.strictEqual(h.repo.baseKeyReads, 0);
+			assert.deepStrictEqual(h.repo.baseBranches, [undefined, undefined]);
+		});
+
+		it('does not ask for a base when config changes for an unnamed unborn HEAD', async () => {
+			const h = createHarness();
+			h.repo.state.branch = undefined;
+			h.repo.state.sha = undefined;
+			h.repo.state.upstream = undefined;
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.configKey = 'config-v2';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), {
+				dirty: 0,
+				branch: 1,
+				base: 0,
+				remotes: 0,
+			});
+			assert.strictEqual(h.repo.baseKeyReads, 0);
+			assert.strictEqual(sub.current?.base, undefined);
+		});
+
+		it('does not miss a config change arriving while the previous base read is held', async () => {
+			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			const before = h.repo.snapshot();
+			const configKeyReads = h.repo.configKeyReads;
+
+			h.repo.hold();
+			h.push(['heads'], 'refs/heads/develop');
+			await waitFor(() => h.repo.counts.base > before.base);
+			assert.strictEqual(h.repo.configKeyReads, configKeyReads, 'ref-only reads retain the config snapshot');
+
+			h.repo.state.configKey = 'config-v2';
+			h.push(['config']);
+			await delay(30);
+			assert.strictEqual(h.repo.counts.base, before.base + 1, 'the follow-up waits for the active read');
+
+			h.repo.release();
+			await waitFor(() => h.repo.counts.base === before.base + 2);
+			await h.service.getSummary(repoPath);
+			assert.strictEqual(h.repo.configKeyReads, configKeyReads + 1, 'queued config refresh snapshots once');
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
 		});
 
 		it('runs everything for head and unknown changes', async () => {
@@ -842,7 +1142,11 @@ describe('WorktreeSummaryService', () => {
 			h.service.subscribe(repoPath);
 			await h.service.getSummary(repoPath);
 
-			assert.deepStrictEqual(await readsAfter(h, () => h.push(['head', 'heads'], 'HEAD')), all);
+			assert.strictEqual(h.repo.configKeyReads, 1);
+			for (let i = 0; i < 2; i++) {
+				assert.deepStrictEqual(await readsAfter(h, () => h.push(['head', 'heads'], 'HEAD')), all);
+			}
+			assert.strictEqual(h.repo.configKeyReads, 1, 'HEAD movement retains the config snapshot');
 			assert.deepStrictEqual(await readsAfter(h, () => h.push(['unknown'])), all);
 		});
 
@@ -1147,6 +1451,7 @@ describe('WorktreeSummaryService', () => {
 			sub.onDidChange(e => fired.push(e));
 
 			h.repo.state.baseFail = new Error('rev-list failed');
+			h.repo.state.configKey = 'config-v2';
 			h.repo.state.upstream = { name: 'origin/main', missing: false, ahead: 1, behind: 5 };
 			const failed = await readsAfter(h, () => h.push(['config']));
 			assert.deepStrictEqual(failed, { dirty: 0, branch: 1, base: 1, remotes: 1 });
@@ -1182,6 +1487,7 @@ describe('WorktreeSummaryService', () => {
 			await h.service.getSummary(repoPath);
 
 			h.repo.state.baseFail = new Error('rev-list failed');
+			h.repo.state.configKey = 'config-v2';
 			await readsAfter(h, () => h.push(['config']));
 
 			h.repo.state.baseFail = undefined;

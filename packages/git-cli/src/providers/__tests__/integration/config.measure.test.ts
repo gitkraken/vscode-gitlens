@@ -409,3 +409,133 @@ suite('ConfigSubProvider (gk config watcher echo)', () => {
 		}
 	});
 });
+
+/**
+ * A worktree summary reads `getAheadOfBaseConfigKey` (one `git config --null --get-regexp` over every branch's
+ * tracking, the remotes and `init.defaultBranch`) after each `.git/config` change. Every checkout of a repository
+ * reports the change and re-reads, so the read is cached once per common dir. Before, each checkout spawned its own:
+ * the counts in the test names were measured against that code.
+ */
+suite('BranchesSubProvider.getAheadOfBaseConfigKey (shared across worktrees)', () => {
+	let repo: TestRepo;
+	let worktrees: { path: string; cleanup: () => void }[];
+	let paths: string[];
+	const completed: string[] = [];
+
+	const countingLogger: LogChannel = {
+		name: 'spawn-counter',
+		logLevel: 0,
+		dispose: () => {},
+		trace: () => {},
+		debug: () => {},
+		info: (msg: string) => {
+			if (msg.includes('• completed')) {
+				completed.push(msg);
+			}
+		},
+		warn: () => {},
+		error: () => {},
+	};
+
+	const configKeyReadsSince = (mark: number) =>
+		completed.slice(mark).filter(m => m.includes(' --null --get-regexp ')).length;
+
+	function writeExternally(key: string, value: string): void {
+		execFileSync('git', ['config', key, value], { cwd: repo.path, stdio: 'pipe' });
+	}
+
+	async function readFromEveryCheckout(): Promise<(string | undefined)[]> {
+		return Promise.all(paths.map(path => repo.provider.branches.getAheadOfBaseConfigKey(path)));
+	}
+
+	setup(async () => {
+		repo = createTestRepo({ gitOptions: { logger: countingLogger } });
+		createBranch(repo.path, 'feature/a');
+		createBranch(repo.path, 'feature/b');
+		worktrees = [createWorktree(repo.path, 'feature/a'), createWorktree(repo.path, 'feature/b')];
+		paths = [repo.path, ...worktrees.map(w => w.path)].map(p => normalizePath(p));
+		for (const path of paths) {
+			repo.provider.cache.registerRepoPath(fileUri(path), await repo.provider.config.getGitDir(path));
+		}
+		writeExternally('remote.origin.url', 'https://example.com/repo.git');
+	});
+
+	teardown(() => {
+		sinon.restore();
+		for (const worktree of worktrees) {
+			worktree.cleanup();
+		}
+		repo.cleanup();
+	});
+
+	test('a cold read from the main checkout and two linked worktrees spawns once (was 3)', async () => {
+		const mark = completed.length;
+		const keys = await readFromEveryCheckout();
+
+		assert.strictEqual(configKeyReadsSince(mark), 1);
+		assert.ok(keys[0]?.includes('remote.origin.url'), 'the snapshot holds the remotes');
+		assert.deepStrictEqual(keys, [keys[0], keys[0], keys[0]], 'every checkout reads the same snapshot');
+	});
+
+	test('an external write reported by every checkout is read once, and seen by each (was 3)', async () => {
+		await readFromEveryCheckout();
+		writeExternally('branch.feature/a.merge', 'refs/heads/main');
+		for (const path of paths) {
+			repo.provider.cache.onRepositoryChanged(path, ['config']);
+		}
+
+		const mark = completed.length;
+		const keys = await readFromEveryCheckout();
+
+		assert.strictEqual(configKeyReadsSince(mark), 1);
+		for (const key of keys) {
+			assert.ok(key?.includes('branch.feature/a.merge'), 'every checkout sees the write');
+		}
+	});
+
+	test("core's own write in a linked worktree is read once, and seen by each (was 3)", async () => {
+		await readFromEveryCheckout();
+		await repo.provider.config.setConfig(paths[1], 'branch.feature/a.remote', 'origin');
+
+		const mark = completed.length;
+		const keys = await readFromEveryCheckout();
+
+		assert.strictEqual(configKeyReadsSince(mark), 1);
+		for (const key of keys) {
+			assert.ok(key?.includes('branch.feature/a.remote'), 'every checkout sees the write');
+		}
+	});
+
+	test('a report while a read from before the write is still in flight re-reads rather than joining it', async () => {
+		const git = repo.provider.git;
+		const run = git.run.bind(git);
+		let release!: () => void;
+		const released = new Promise<void>(resolve => (release = resolve));
+		let held!: () => void;
+		const isHeld = new Promise<void>(resolve => (held = resolve));
+		let holding = true;
+		// Holds the first read's result after it read the config, so it can only answer the pre-write content
+		sinon.stub(git, 'run').callsFake(async (...args: Parameters<typeof git.run>) => {
+			const result = await run(...args);
+			if (holding && args.includes('--get-regexp')) {
+				holding = false;
+				held();
+				await released;
+			}
+			return result;
+		});
+
+		const mark = completed.length;
+		const stale = repo.provider.branches.getAheadOfBaseConfigKey(paths[0]);
+		await isHeld;
+
+		writeExternally('branch.feature/b.merge', 'refs/heads/main');
+		repo.provider.cache.onRepositoryChanged(paths[2], ['config']);
+		const fresh = repo.provider.branches.getAheadOfBaseConfigKey(paths[2]);
+		release();
+
+		assert.ok(!(await stale)?.includes('branch.feature/b.merge'), 'the held read answers what it read');
+		assert.ok((await fresh)?.includes('branch.feature/b.merge'), 'the read after the report sees the write');
+		assert.strictEqual(configKeyReadsSince(mark), 2);
+	});
+});

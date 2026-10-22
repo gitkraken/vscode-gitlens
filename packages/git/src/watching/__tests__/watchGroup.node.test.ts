@@ -749,8 +749,11 @@ describe('WatchGroup', () => {
 			common.fire({ path: '/repo/.git/config', reason: 'change' });
 
 			assert.strictEqual(onRepoChanged.mock.callCount(), 1);
-			const [repoPath] = onRepoChanged.mock.calls[0].arguments;
-			assert.strictEqual(repoPath, '/worktrees/A');
+			assert.deepStrictEqual(onRepoChanged.mock.calls[0].arguments, [
+				'/worktrees/A',
+				['config', 'remotes'],
+				false,
+			]);
 		});
 
 		it('drops unrecognized paths (no callback)', () => {
@@ -794,15 +797,37 @@ describe('WatchGroup', () => {
 			group.dispose();
 		});
 
-		it('names no ref for config', () => {
+		for (const file of ['config', 'config.lock', 'config.worktree', 'config.worktree.lock']) {
+			it(`reports ${file} as config invalidation without ref movement`, () => {
+				const { factory, watchers } = createMockFactory();
+				const group = new WatchGroup('/repo/.git', factory);
+				const callbacks = makeCallbacks();
+				group.addSession('/repo', standardGitDir('/repo/.git'), callbacks);
+
+				watchers[0].fire({ path: `/repo/.git/${file}`, reason: 'change' });
+
+				assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 0), ['/repo', ['config', 'remotes'], false]);
+				group.dispose();
+			});
+		}
+
+		it('keeps worktree config invalidation local to its owning linked checkout', () => {
 			const { factory, watchers } = createMockFactory();
 			const group = new WatchGroup('/repo/.git', factory);
-			const callbacks = makeCallbacks();
-			group.addSession('/repo', standardGitDir('/repo/.git'), callbacks);
+			const a = makeCallbacks();
+			const b = makeCallbacks();
+			group.addSession('/worktrees/A', worktreeGitDir('/repo/.git/worktrees/A', '/repo/.git'), a);
+			group.addSession('/worktrees/B', worktreeGitDir('/repo/.git/worktrees/B', '/repo/.git'), b);
+			const rootA = watchers.find(w => w.basePath === '/repo/.git/worktrees/A');
+			assert.ok(rootA);
 
-			watchers[0].fire({ path: '/repo/.git/config', reason: 'change' });
+			rootA.fire({ path: '/repo/.git/worktrees/A/config.worktree.lock', reason: 'create' });
+			rootA.fire({ path: '/repo/.git/worktrees/A/config.worktree', reason: 'change' });
 
-			assert.deepStrictEqual(callArgs(callbacks.onRepoChanged, 0), ['/repo', ['config', 'remotes'], undefined]);
+			assert.strictEqual(callCount(a.onRepoChanged), 2);
+			assert.deepStrictEqual(callArgs(a.onRepoChanged, 0), ['/worktrees/A', ['config', 'remotes'], false]);
+			assert.deepStrictEqual(callArgs(a.onRepoChanged, 1), ['/worktrees/A', ['config', 'remotes'], false]);
+			assert.strictEqual(callCount(b.onRepoChanged), 0);
 			group.dispose();
 		});
 	});
@@ -1005,6 +1030,7 @@ describe('WatchGroup', () => {
 			'refs/heads/main',
 			'refs/heads/feature',
 			'refs/heads/feature/x',
+			'refs/remotes',
 			'refs/remotes/origin',
 			'refs/remotes/origin/main',
 			'refs/tags',
@@ -1121,10 +1147,11 @@ describe('WatchGroup', () => {
 				'/repo/.git/refs/heads/feature',
 				'/repo/.git/refs/remotes/origin/main',
 				'/repo/.git/refs/remotes/origin',
+				// Not for a named ref: for a remote's directory appearing or going
+				'/repo/.git/refs/remotes',
 			]) {
 				assert.ok(fs.reads.has(path), path);
 			}
-			assert.ok(!fs.reads.has('/repo/.git/refs/remotes'), 'FETCH_HEAD stands for refs/remotes');
 			group.dispose();
 			poller.dispose();
 		});
@@ -1379,7 +1406,8 @@ describe('WatchGroup', () => {
 
 					for (const [file, expected] of [
 						['packed-refs', ['/repo heads,remotes,tags -', '/worktrees/A heads,remotes,tags -']],
-						['config', ['/repo config,remotes -', '/worktrees/A config,remotes -']],
+						['config', ['/repo config,remotes false', '/worktrees/A config,remotes false']],
+						['refs/remotes', ['/repo remotes refs/remotes', '/worktrees/A remotes refs/remotes']],
 						['refs/heads/main', ['/repo heads refs/heads/main']],
 					] as const) {
 						log.length = 0;

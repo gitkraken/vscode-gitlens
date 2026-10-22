@@ -1,13 +1,15 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
 import type { GitService } from '@gitlens/git/service.js';
 import type { FileWatchEvent, FileWatchingProvider } from '@gitlens/git/watching/provider.js';
 import type { WorktreeSummary, WorktreeSummarySubscription } from '@gitlens/git/watching/worktreeSummary.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
-import { toFsPath } from '@gitlens/utils/uri.js';
+import { normalizePath } from '@gitlens/utils/path.js';
+import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
 import { createCliGitService } from '../../../service.js';
 import type { TestRepo } from './helpers.js';
 import { createTestRepo } from './helpers.js';
@@ -111,6 +113,143 @@ suite('WorktreeSummaryService against real git', () => {
 			forkPoint: mergeBase('main'),
 			tier: 'default',
 		});
+
+		sub.dispose();
+	});
+
+	test('tracks the config inputs that can change ahead-of-base resolution', async () => {
+		// The key is cached until a config change evicts it, so each read first reports one, as the watcher would
+		const getKey = () => {
+			repo.provider.cache.onRepositoryChanged(repo.path, ['config']);
+			return repo.provider.branches.getAheadOfBaseConfigKey(repo.path);
+		};
+		let key = await getKey();
+		assert.strictEqual(typeof key, 'string');
+
+		git('config', 'user.name', 'Unrelated');
+		assert.strictEqual(await getKey(), key, 'unrelated config does not change the fingerprint');
+
+		for (const [name, value] of [
+			['init.defaultBranch', 'develop'],
+			['branch.main.remote', 'origin'],
+			['branch.main.merge', 'refs/heads/main'],
+			['branch.candidate.remote', 'upstream'],
+			['branch.candidate.merge', 'refs/heads/topic'],
+		] as const) {
+			git('config', name, value);
+			const next = await getKey();
+			assert.notStrictEqual(next, key, `${name} is included in the fingerprint`);
+			key = next;
+		}
+
+		git('remote', 'add', 'origin', 'https://example.invalid/origin.git');
+		let next = await getKey();
+		assert.notStrictEqual(next, key, 'adding a remote changes the fingerprint');
+		key = next;
+
+		git('config', '--add', 'remote.origin.fetch', '+refs/heads/main:refs/remotes/origin/main');
+		next = await getKey();
+		assert.notStrictEqual(next, key, 'a remote fetch refspec changes the fingerprint');
+		key = next;
+
+		git('config', '--add', 'remote.origin.fetch', '+refs/heads/release:refs/remotes/origin/release');
+		next = await getKey();
+		assert.notStrictEqual(next, key, 'adding a repeated fetch refspec changes the fingerprint');
+		key = next;
+
+		git(
+			'config',
+			'--replace-all',
+			'remote.origin.fetch',
+			'+refs/heads/topic:refs/remotes/origin/topic',
+			'^\\+refs/heads/main:refs/remotes/origin/main$',
+		);
+		next = await getKey();
+		assert.notStrictEqual(next, key, 'changing an earlier value in a multi-value setting changes the fingerprint');
+		key = next;
+
+		git('remote', 'remove', 'origin');
+		assert.notStrictEqual(await getKey(), key, 'removing a remote changes the fingerprint');
+	});
+
+	test("a registered linked worktree shares the repository's config key, without its own config.worktree", async () => {
+		const linkedRoot = mkdtempSync(join(tmpdir(), 'gitlens-summary-linked-'));
+		const linkedPath = normalizePath(join(linkedRoot, 'checkout'));
+		const getKey = (path: string) => repo.provider.branches.getAheadOfBaseConfigKey(path);
+		let added = false;
+		let registered = false;
+		try {
+			git('config', 'extensions.worktreeConfig', 'true');
+			git('worktree', 'add', '--detach', linkedPath);
+			added = true;
+			execFileSync('git', ['-C', linkedPath, 'config', '--worktree', 'branch.main.remote', 'linked-origin'], {
+				stdio: 'pipe',
+			});
+
+			// Unregistered, a path is a repository of its own and reads its own effective config
+			assert.ok((await getKey(linkedPath))?.includes('linked-origin'), 'an unregistered path reads its own');
+
+			for (const path of [repo.path, linkedPath]) {
+				repo.provider.cache.registerRepoPath(fileUri(path), await repo.provider.config.getGitDir(path));
+			}
+			registered = true;
+
+			// Deliberately shared: these keys never live in a worktree's own config in practice. The linked worktree
+			// reads first, so the shared read can't be the one that happens to run in the main checkout
+			const linkedKey = await getKey(linkedPath);
+			const mainKey = await getKey(repo.path);
+			assert.strictEqual(typeof mainKey, 'string');
+			assert.strictEqual(typeof linkedKey, 'string');
+			assert.ok(
+				!linkedKey?.includes('linked-origin'),
+				"the repository's read doesn't see the worktree's own value, even when that worktree reads first",
+			);
+			assert.strictEqual(linkedKey, mainKey, "the linked worktree is served the repository's read");
+		} finally {
+			if (registered) {
+				repo.provider.cache.unregisterRepoPath(linkedPath);
+				repo.provider.cache.unregisterRepoPath(normalizePath(repo.path));
+			}
+			try {
+				if (added) {
+					execFileSync('git', ['worktree', 'remove', '--force', linkedPath], {
+						cwd: repo.path,
+						stdio: 'pipe',
+					});
+				}
+			} finally {
+				rmSync(linkedRoot, { recursive: true, force: true });
+			}
+		}
+	});
+
+	test('refreshes the default branch base when its configured upstream changes', async () => {
+		const summaries = service.summaries;
+		assert.ok(summaries != null);
+
+		const previousTip = revParse('HEAD');
+		git('commit', '-q', '--allow-empty', '-m', 'Advance main');
+		git('remote', 'add', 'origin', 'https://example.invalid/origin.git');
+		git('update-ref', 'refs/remotes/origin/main', previousTip);
+		git('update-ref', 'refs/remotes/origin/develop', previousTip);
+		git('config', 'branch.main.remote', 'origin');
+		git('config', 'branch.main.merge', 'refs/heads/main');
+
+		const sub = summaries.subscribe(repo.path, { delayMs: 10, workingTreeDelayMs: 10 });
+		const initial = await summaries.getSummary(repo.path);
+		assert.strictEqual(initial.upstream?.name, 'origin/main');
+		assert.strictEqual(initial.base?.ref, 'origin/main');
+
+		const changed = nextChange(sub);
+		git('config', 'branch.main.merge', 'refs/heads/develop');
+		const gitDir = watchers.find(w => w.basePath.endsWith('.git'))?.basePath;
+		assert.ok(gitDir != null);
+		fire(gitDir, 'config');
+		const after = await changed;
+
+		assert.strictEqual(after.upstream?.name, 'origin/develop');
+		assert.strictEqual(after.base?.ref, 'origin/develop');
+		assert.strictEqual(after.base?.ahead, 1);
 
 		sub.dispose();
 	});
