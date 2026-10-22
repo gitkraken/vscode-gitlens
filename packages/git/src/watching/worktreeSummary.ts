@@ -245,7 +245,7 @@ class SummarySubscription implements WorktreeSummarySubscription {
  * `dirty`; the upstream moving reads only `branch`; a ref the base depends on reads only `base`; a `gk` config change
  * (mostly bookkeeping writes to the shared `.git/gk/config`), or core's own write of the branch's merge target or
  * base, re-reads the branch's stored merge targets and recorded base, and reads `base` only when one of them changed;
- * a `.git/config` change reads `branch` and the provider's config inputs to the base (one read per repository), and
+ * a `.git/config` change reads `branch` and the provider's config inputs to the base (one cached read per checkout), and
  * reads `base` only when they, the stored values, HEAD's commit or the upstream changed, unless it was confined to the
  * `branch.<name>` sections of branches the summary neither is on, tracks nor bases on (its `configBranches`), which
  * reads nothing; the checked-out branch moving, or a HEAD change, reads all of them. Stash, unrelated tags and
