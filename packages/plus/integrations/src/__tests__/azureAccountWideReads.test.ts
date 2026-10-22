@@ -15,6 +15,7 @@ import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError }
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IntegrationResult } from '../models/integration.js';
 import { PullRequestFilter } from '../providerFilters.js';
+import { azureRestDiscoveryResponse } from '../providers/azure/__tests__/fixtures.js';
 import type { ProviderApiPagedResult, ProviderIssue, ProviderPullRequest } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import {
@@ -1118,6 +1119,9 @@ suite('Azure DevOps group reviewer reads (#5917)', () => {
 			value: descriptors.map(d => ({ id: d.replace('desc;', 'id-') })),
 		});
 		runtime.http.fetch = (input, init) => {
+			const discovery = azureRestDiscoveryResponse(input);
+			if (discovery != null) return Promise.resolve(discovery);
+
 			const url = String(input);
 			requests.push({
 				method: init?.method ?? 'GET',

@@ -19,6 +19,7 @@ import type {
 } from '../models/integration.js';
 import { pullRequestEtagIncludes, pullRequestRevision } from '../models/integration.js';
 import {
+	azureRestDiscoveryResponse,
 	azureWorkItemTypeStatesResponse,
 	isAzureWorkItemTypeStatesUrl,
 } from '../providers/azure/__tests__/fixtures.js';
@@ -191,6 +192,9 @@ function serveAzure(
 ): SentRequest[] {
 	const sent: SentRequest[] = [];
 	runtime.http.fetch = input => {
+		const discovery = azureRestDiscoveryResponse(input);
+		if (discovery != null) return Promise.resolve(discovery);
+
 		const url = new URL(input.toString());
 		const kind = kindOf(url);
 		if (kind == null) return Promise.reject(new Error(`unexpected request: ${url.toString()}`));

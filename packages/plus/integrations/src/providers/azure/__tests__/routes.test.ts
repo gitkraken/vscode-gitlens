@@ -1,7 +1,14 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { AzureDevOpsApi } from '../azure.js';
-import { azureProject, azureProvider, azureToken, createAzureForkSource, createAzurePullRequest } from './fixtures.js';
+import {
+	azureProject,
+	azureProvider,
+	azureRestDiscoveryResponse,
+	azureToken,
+	createAzureForkSource,
+	createAzurePullRequest,
+} from './fixtures.js';
 
 async function readRoutes(
 	api: AzureDevOpsApi,
@@ -45,6 +52,9 @@ suite('Azure REST route encoding', () => {
 				const requests: { url: URL; init: RequestInit | undefined }[] = [];
 				const api = new AzureDevOpsApi({
 					fetch: (input, init) => {
+						const discovery = azureRestDiscoveryResponse(input);
+						if (discovery != null) return Promise.resolve(discovery);
+
 						requests.push({ url: new URL(input.toString()), init: init });
 						return Promise.resolve(
 							Response.json(
@@ -101,6 +111,9 @@ suite('Azure REST route encoding', () => {
 				const requests: string[] = [];
 				const api = new AzureDevOpsApi({
 					fetch: input => {
+						const discovery = azureRestDiscoveryResponse(input);
+						if (discovery != null) return Promise.resolve(discovery);
+
 						requests.push(input.toString());
 						return Promise.resolve(
 							Response.json(
@@ -140,6 +153,9 @@ suite('Azure REST route encoding', () => {
 		const requests: URL[] = [];
 		const api = new AzureDevOpsApi({
 			fetch: input => {
+				const discovery = azureRestDiscoveryResponse(input);
+				if (discovery != null) return Promise.resolve(discovery);
+
 				const url = new URL(input.toString());
 				requests.push(url);
 				if (url.pathname.endsWith('/pullrequestquery')) {
