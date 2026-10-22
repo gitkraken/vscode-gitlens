@@ -8,7 +8,12 @@ import type {
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
 } from '../models/integration.js';
-import { issueEtagIncludes, pullRequestEtagIncludes, pullRequestRevision } from '../models/integration.js';
+import {
+	azureWorkItemDescriptionRule,
+	issueEtagIncludes,
+	pullRequestEtagIncludes,
+	pullRequestRevision,
+} from '../models/integration.js';
 
 /**
  * The etags the batch reads hand back (`getPullRequestsBatch`, `getIssuesBatch`): an opaque stamp of an item's
@@ -25,8 +30,11 @@ import { issueEtagIncludes, pullRequestEtagIncludes, pullRequestRevision } from 
  * costs a full read.
  */
 
-/** The hosts that keep no update time on a pull request, whose etag adds a {@link pullRequestRevision}. */
-const revisionProviderIds: ReadonlySet<string> = new Set([
+/**
+ * Azure DevOps: a pull request there keeps no update time, so its etag adds a {@link pullRequestRevision}, and a work
+ * item's etag adds the rule its body is read by (see `azureWorkItemDescriptionRule`).
+ */
+const azureProviderIds: ReadonlySet<string> = new Set([
 	GitCloudHostIntegrationId.AzureDevOps,
 	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 ]);
@@ -45,7 +53,7 @@ export function pullRequestEtagFieldsFromShape(pr: PullRequestShape): PullReques
 		statusCheckRollupState: 'statusCheckRollupState' in pr ? (pr as PullRequest).statusCheckRollupState : undefined,
 	};
 	// Read defensively, as `timeOf` reads the date: a row without a provider must not fail the read.
-	if (pr.provider != null && revisionProviderIds.has(pr.provider.id)) {
+	if (pr.provider != null && azureProviderIds.has(pr.provider.id)) {
 		fields.revision = pullRequestRevision(pr);
 	}
 	return fields;
@@ -61,6 +69,9 @@ export function issueEtagFieldsFromShape(issue: IssueShape): IssueEtagFields {
 		getIssueFieldPresence(issue)?.reactions === 'fetched'
 	) {
 		fields.thumbsUpCount = issue.thumbsUpCount;
+	}
+	if (issue.provider != null && azureProviderIds.has(issue.provider.id)) {
+		fields.descriptionRule = azureWorkItemDescriptionRule;
 	}
 	return fields;
 }
@@ -125,6 +136,10 @@ export function findInvalidIssueEtagInclude(includes: readonly string[]): string
 export function issueEtag(fields: IssueEtagFields, includes: readonly IssueEtagInclude[]): string {
 	const covered = normalizeIssueEtagIncludes(includes);
 	const state: unknown[] = [fields.state, timeOf(fields.updatedDate)];
+	// Only where it is set, so every other provider's etag stays exactly what it was.
+	if (fields.descriptionRule != null) {
+		state.push(fields.descriptionRule);
+	}
 	if (covered.length === 0) return `is1:${JSON.stringify(state)}`;
 
 	for (const include of covered) {

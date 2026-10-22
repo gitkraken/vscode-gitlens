@@ -314,9 +314,9 @@ reads, and is `undefined` elsewhere), `reviewDecision`, `assignees`, `checks` (`
 (`mergeableState`), `diffStats` (`additions`, `deletions`, `filesChanged`), `commitCount`, `comments` (`commentsCount`),
 `reactions` (`thumbsUpCount`), `access` (`viewerCanUpdate` and `repository.accessLevel`), `authoredByMe` (with `viewer`,
 the identity it was matched against) and `stack`. `statusCheckRollupState`, `commitCount` and `viewerCanUpdate` live on
-the `PullRequest` class every row is, not on the `PullRequestShape` type. Issue groups: `description` (`body`),
-`assignees`, `labels`, `comments` (`commentsCount`), `reactions` (`thumbsUpCount`) and `access`
-(`repository.accessLevel`).
+the `PullRequest` class every row is, not on the `PullRequestShape` type. Issue groups: `description` (`body`, and
+`bodyField` where the provider sets it, so take both from the same row), `assignees`, `labels`, `comments`
+(`commentsCount`), `reactions` (`thumbsUpCount`) and `access` (`repository.accessLevel`).
 
 Each table below covers a cloud host and its self-managed variant: where a cell reads `cloud / self-managed` the two
 differ, and `—` means that host never produces the tag.
@@ -1337,9 +1337,18 @@ while GitHub, GitLab, and Linear descriptions are Markdown. Jira issues therefor
 `bodyFormat: 'jira-wiki'`; an omitted `bodyFormat` means consumers should preserve the existing behavior and treat
 `body` as Markdown. The `'markdown'` value is reserved for providers that need to make that format explicit.
 
-Two exceptions carry HTML with `bodyFormat` omitted: Azure DevOps work items (`System.Description`) and Bitbucket
-Cloud issues (`content.html`). Their `bodyFormat` is left unset rather than changed, so check the provider before
-treating either as Markdown.
+Two exceptions carry HTML with `bodyFormat` omitted: Azure DevOps work items and Bitbucket Cloud issues
+(`content.html`). Their `bodyFormat` is left unset rather than changed, so check the provider before treating either
+as Markdown.
+
+An Azure DevOps work item's body is its first rich text field with content, since its type decides where the content
+lives: `System.Description`, then the built-in description fields (`Microsoft.VSTS.TCM.ReproSteps` on Agile, Scrum and
+CMMI Bugs, `Microsoft.VSTS.Common.AcceptanceCriteria`, `Microsoft.VSTS.CMMI.Symptom`), then any other `html` field
+of the organization's field catalog, custom fields first (provider-apis' `getAzureWorkItemDescription`, which every
+read applies). `bodyField` names the field (`{ id: 'Microsoft.VSTS.TCM.ReproSteps', name: 'Repro Steps' }`) so a
+host can label the body; it is absent for other providers. The catalog is read only for a work item no built-in field
+describes, and kept for an hour per organization, credential and client (provider-apis keeps its own for list rows); when it can't be read the body falls back to the built-in
+fields.
 
 Rendering and conversion remain consumer concerns. In particular, the Jira body is neither ADF nor converted to
 Markdown by this package.

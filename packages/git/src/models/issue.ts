@@ -193,6 +193,12 @@ export interface IssueShape extends IssueOrPullRequest {
 	 * work items and Bitbucket Cloud issues carry HTML with no `bodyFormat` set.
 	 */
 	bodyFormat?: IssueBodyFormat;
+	/**
+	 * The provider field `body` was read from, for providers whose issues keep it in different fields: an Azure
+	 * DevOps work item's type decides it (Description, Repro Steps on a Bug, a custom field on an inherited process).
+	 * Absent when the provider has a single body field, or there is no body.
+	 */
+	bodyField?: IssueBodyField;
 	project?: IssueProject;
 	issueType?: string;
 	/** An issue can belong to several Jira sprints; Azure reports one iteration. */
@@ -230,6 +236,7 @@ export class Issue implements IssueShape {
 		public readonly bodyFormat?: IssueBodyFormat,
 		public readonly iterations?: IssueIteration[],
 		public readonly projection?: IssueProjection,
+		public readonly bodyField?: IssueBodyField,
 	) {}
 
 	static is(issue: unknown): issue is Issue {
@@ -238,6 +245,13 @@ export class Issue implements IssueShape {
 }
 
 export type IssueBodyFormat = 'markdown' | 'jira-wiki';
+
+export interface IssueBodyField {
+	/** The provider's id for the field, e.g. `Microsoft.VSTS.TCM.ReproSteps`. */
+	readonly id: string;
+	/** The field's display name, e.g. `Repro Steps`. */
+	readonly name: string;
+}
 
 export const enum RepositoryAccessLevel {
 	Admin = 100,

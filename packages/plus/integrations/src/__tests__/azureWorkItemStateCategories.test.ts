@@ -971,10 +971,11 @@ suite('Azure DevOps work item workflow categories (GKDEV-3655)', () => {
 			const full = toIssueShape(raw, azureProvider);
 
 			assert.equal(full?.state, closed ? 'closed' : 'opened');
-			assert.deepEqual(toAzureWorkItemEtagFields(cheap.workItem, 'project', cheap.category), {
-				state: full?.state,
-				updatedDate: full?.updatedDate,
-			});
+			assert.ok(full != null);
+			assert.deepEqual(
+				toAzureWorkItemEtagFields(cheap.workItem, 'project', cheap.category),
+				issueEtagFieldsFromShape(full),
+			);
 			const fields = h.workItemReads.find(u => u.pathname.endsWith('/workitems'))?.searchParams.get('fields');
 			assert.ok(fields?.split(',').includes('System.State') && fields.split(',').includes('System.WorkItemType'));
 			assert.equal(h.states.length, 1, 'both reads share one states read');

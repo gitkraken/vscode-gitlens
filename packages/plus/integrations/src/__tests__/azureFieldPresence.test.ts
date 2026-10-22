@@ -101,26 +101,38 @@ function azurePullRequest(base: string, id: number, description: string): Node {
 	};
 }
 
+/**
+ * What a test changes about the server: the work item's fields (an `undefined` one is left out, as Azure leaves out a
+ * field without a value), the organization's field catalog, and a log of the routes asked for.
+ */
+interface ServerFixture {
+	workItemFields?: Node;
+	fieldCatalog?: () => Response;
+	routes?: string[];
+}
+
 /** A work item with an assignee, tags, a description and comments. */
-function azureWorkItem(base: string, id: number): Node {
+function azureWorkItem(base: string, id: number, overrides?: Node): Node {
+	const fields: Node = {
+		'System.AreaPath': projectName,
+		'System.TeamProject': projectName,
+		'System.IterationPath': projectName,
+		'System.WorkItemType': 'Task',
+		'System.State': 'Active',
+		'System.CreatedDate': '2026-01-01T00:00:00.123Z',
+		'System.CreatedBy': identity('author'),
+		'System.AssignedTo': identity('assignee'),
+		'System.ChangedDate': '2026-01-02T00:00:00.123Z',
+		'System.CommentCount': 3,
+		'System.Title': `Work item ${id}`,
+		'System.Description': '<div>Work item body</div>',
+		'System.Tags': 'bug; ui',
+		...overrides,
+	};
 	return {
 		id: id,
 		rev: 3,
-		fields: {
-			'System.AreaPath': projectName,
-			'System.TeamProject': projectName,
-			'System.IterationPath': projectName,
-			'System.WorkItemType': 'Task',
-			'System.State': 'Active',
-			'System.CreatedDate': '2026-01-01T00:00:00.123Z',
-			'System.CreatedBy': identity('author'),
-			'System.AssignedTo': identity('assignee'),
-			'System.ChangedDate': '2026-01-02T00:00:00.123Z',
-			'System.CommentCount': 3,
-			'System.Title': `Work item ${id}`,
-			'System.Description': '<div>Work item body</div>',
-			'System.Tags': 'bug; ui',
-		},
+		fields: Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)),
 		_links: { html: { href: `${base}/${projectName}/_workitems/edit/${id}` } },
 		url: `${base}/${projectId}/_apis/wit/workItems/${id}`,
 	};
@@ -131,9 +143,16 @@ function azureWorkItem(base: string, id: number): Node {
  * the path below it, decoded and lower-cased: Azure serves these routes case-insensitively and the clients spell them
  * both ways. A list truncates each description, as Azure does; a read by id returns it whole.
  */
-function answerCollection(base: string, segments: string[], url: URL, body: string | undefined): Response {
+function answerCollection(
+	base: string,
+	segments: string[],
+	url: URL,
+	body: string | undefined,
+	fixture: ServerFixture,
+): Response {
 	const [first, ...rest] = segments;
 	const route = first === '_apis' ? segments.join('/') : `{project}/${rest.join('/')}`;
+	fixture.routes?.push(route);
 	const pullRequests = pullRequestIds.map(id => azurePullRequest(base, id, fullDescription));
 	const listed: Node[] = pullRequests.map(pr => ({
 		...pr,
@@ -174,10 +193,12 @@ function answerCollection(base: string, segments: string[], url: URL, body: stri
 			return json({ workItems: [{ id: workItemId }] });
 		case route.endsWith('/_apis/wit/workitemsbatch') || route === '_apis/wit/workitemsbatch': {
 			const ids = (JSON.parse(body!) as { ids: number[] }).ids;
-			return json({ value: ids.map(id => azureWorkItem(base, id)) });
+			return json({ value: ids.map(id => azureWorkItem(base, id, fixture.workItemFields)) });
 		}
 		case /^\{project\}\/_apis\/wit\/workitems\/\d+$/.test(route):
-			return json(azureWorkItem(base, Number(segments.at(-1))));
+			return json(azureWorkItem(base, Number(segments.at(-1)), fixture.workItemFields));
+		case route === '_apis/wit/fields':
+			return fixture.fieldCatalog?.() ?? json({ count: 0, value: [] });
 		case route === '{project}/_apis/wit/workitemtypes':
 			return json({ value: [{ name: 'Task' }] });
 		case /^\{project\}\/_apis\/wit\/workitemtypes\/[^/]+\/states$/.test(route):
@@ -217,7 +238,7 @@ interface Connected {
 }
 
 /** Azure DevOps Services: the account's organizations come from the profile, and its projects from the organization. */
-async function connectedServices(): Promise<Connected> {
+async function connectedServices(fixture: ServerFixture = {}): Promise<Connected> {
 	const runtime = createFakeRuntime();
 	bypassPointReadCache(runtime);
 	const base = `https://dev.azure.com/${org}`;
@@ -240,7 +261,13 @@ async function connectedServices(): Promise<Connected> {
 		assert.equal(url.hostname, 'dev.azure.com', url.href);
 		assert.equal(segments[0], org, url.href);
 		return Promise.resolve(
-			answerCollection(base, segments.slice(1), url, typeof init?.body === 'string' ? init.body : undefined),
+			answerCollection(
+				base,
+				segments.slice(1),
+				url,
+				typeof init?.body === 'string' ? init.body : undefined,
+				fixture,
+			),
 		);
 	};
 
@@ -262,7 +289,7 @@ async function connectedServices(): Promise<Connected> {
  * Azure DevOps Server: one installation below `https://server.test/tfs`, whose one collection is `org`. Each
  * collection knows the account by an identity of its own, and only the server level lists the collections.
  */
-async function connectedServer(): Promise<Connected> {
+async function connectedServer(fixture: ServerFixture = {}): Promise<Connected> {
 	const id = GitSelfManagedHostIntegrationId.AzureDevOpsServer;
 	const installation = 'https://server.test/tfs';
 	const runtime = createFakeRuntime();
@@ -311,6 +338,7 @@ async function connectedServer(): Promise<Connected> {
 				segments.slice(1),
 				url,
 				typeof init?.body === 'string' ? init.body : undefined,
+				fixture,
 			),
 		);
 	};
@@ -638,3 +666,140 @@ suite('Field presence: every Azure DevOps projection in the tables was exercised
 		});
 	}
 });
+
+/**
+ * A work item's description is its first rich text field with content, whichever read produced the row: provider-apis'
+ * list rows, and GitLens' own point, batch and search reads, apply the same rule.
+ */
+for (const [label, connect, searches] of [
+	['Azure DevOps Services', connectedServices, false],
+	['Azure DevOps Server', connectedServer, true],
+] as const) {
+	suite(`Work item description: every ${label} read`, () => {
+		/** Every read that returns a work item's body. */
+		async function readAll({ manager, azure, providerId, target }: Connected): Promise<[string, IssueShape][]> {
+			const point = await azure.getIssue(projectResource, String(workItemId));
+			const account = await manager.listIssuesPage({ ...target, providerId: providerId });
+			const scoped = await manager.listIssuesPage({ ...target, providerId: providerId, repos: repos });
+			const batch = await manager.getIssuesBatch({
+				...target,
+				providerId: providerId,
+				targets: [{ key: 'issue', owner: org, repo: '', number: workItemId, project: projectName }],
+			});
+			const searched = searches
+				? await manager.searchIssuesPage({ ...target, providerId: providerId, org: org })
+				: undefined;
+
+			const rows: [string, IssueShape | undefined][] = [
+				['point', point],
+				['account', account.items[0]],
+				['repos', scoped.items[0]],
+				['batch', batch.items[0]?.issue],
+				...(searched != null ? [['search', searched.items[0]] as [string, IssueShape | undefined]] : []),
+			];
+			for (const [read, row] of rows) {
+				assert.ok(row != null, `${label} ${read}: a row`);
+			}
+
+			return rows as [string, IssueShape][];
+		}
+
+		const catalog = {
+			count: 4,
+			value: [
+				{ referenceName: 'System.Description', name: 'Description', type: 'html' },
+				{ referenceName: 'Microsoft.VSTS.TCM.ReproSteps', name: 'Repro Steps', type: 'html' },
+				{ referenceName: 'Custom.Details', name: 'Details', type: 'html' },
+				{ referenceName: 'Custom.Notes', name: 'Notes', type: 'string' },
+			],
+		};
+
+		test('keeps Description, even when another rich text field has content', async () => {
+			const routes: string[] = [];
+			const connected = await connect({
+				workItemFields: { 'Microsoft.VSTS.TCM.ReproSteps': '<div>Steps</div>' },
+				routes: routes,
+			});
+
+			for (const [read, row] of await readAll(connected)) {
+				assert.equal(row.body, '<div>Work item body</div>', read);
+				assert.deepEqual(row.bodyField, { id: 'System.Description', name: 'Description' }, read);
+			}
+			assert.ok(!routes.includes('_apis/wit/fields'), 'the field catalog is not read');
+
+			connected.manager.dispose();
+		});
+
+		test('reads a work item described only by Repro Steps, without the field catalog', async () => {
+			const routes: string[] = [];
+			const connected = await connect({
+				workItemFields: {
+					'System.Description': undefined,
+					'Microsoft.VSTS.TCM.ReproSteps': '<div>Preconditions: signed in</div>',
+				},
+				routes: routes,
+			});
+
+			for (const [read, row] of await readAll(connected)) {
+				assert.equal(row.body, '<div>Preconditions: signed in</div>', read);
+				assert.deepEqual(row.bodyField, { id: 'Microsoft.VSTS.TCM.ReproSteps', name: 'Repro Steps' }, read);
+			}
+			assert.ok(!routes.includes('_apis/wit/fields'), 'the field catalog is not read');
+
+			connected.manager.dispose();
+		});
+
+		test('reads a custom html field from the field catalog, and reuses the catalog', async () => {
+			const routes: string[] = [];
+			const connected = await connect({
+				workItemFields: {
+					'System.Description': '<div></div>',
+					'Custom.Notes': 'plain text, not rich text',
+					'Custom.Details': '<p>Custom details</p>',
+				},
+				fieldCatalog: () => json(catalog),
+				routes: routes,
+			});
+
+			for (const [read, row] of await readAll(connected)) {
+				assert.equal(row.body, '<p>Custom details</p>', read);
+				assert.deepEqual(row.bodyField, { id: 'Custom.Details', name: 'Details' }, read);
+			}
+			const catalogReads = routes.filter(route => route === '_apis/wit/fields').length;
+			assert.ok(catalogReads > 0, 'the field catalog is read');
+
+			await readAll(connected);
+			assert.equal(
+				routes.filter(route => route === '_apis/wit/fields').length,
+				catalogReads,
+				'no read asks for the catalog again',
+			);
+
+			connected.manager.dispose();
+		});
+
+		for (const [failure, response] of [
+			['refused', () => json({ message: 'denied' }, 403)],
+			['failing', () => json({ message: 'down' }, 500)],
+			['unavailable', () => json({ message: 'down' }, 503)],
+			['malformed', () => json({ unexpected: true })],
+		] as const) {
+			test(`falls back to the built-in description fields when the field catalog read is ${failure}`, async () => {
+				const connected = await connect({
+					workItemFields: {
+						'System.Description': undefined,
+						'Custom.Details': '<p>Custom details</p>',
+					},
+					fieldCatalog: response,
+				});
+
+				for (const [read, row] of await readAll(connected)) {
+					assert.equal(row.body, undefined, read);
+					assert.equal(row.bodyField, undefined, read);
+				}
+
+				connected.manager.dispose();
+			});
+		}
+	});
+}

@@ -187,6 +187,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 		thumbsUpCount: value.thumbsUpCount,
 		body: value.body,
 		bodyFormat: value.bodyFormat,
+		bodyField: value.bodyField == null ? undefined : { id: value.bodyField.id, name: value.bodyField.name },
 		iterations:
 			value.iterations == null
 				? undefined
