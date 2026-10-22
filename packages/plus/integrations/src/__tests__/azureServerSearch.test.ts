@@ -8,6 +8,7 @@ import { createIntegrationManager } from '../index.js';
 import { createIntegrationService } from '../integrationService.js';
 import type { PullRequestSearchCriteria } from '../providerFilters.js';
 import { PullRequestFilter } from '../providerFilters.js';
+import { azureRestDiscoveryResponse } from '../providers/azure/__tests__/fixtures.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 const id = GitSelfManagedHostIntegrationId.AzureDevOpsServer;
@@ -122,6 +123,9 @@ function createServer(options: {
 	};
 
 	runtime.http.fetch = async (input, init) => {
+		const discovery = azureRestDiscoveryResponse(input);
+		if (discovery != null) return discovery;
+
 		const url = new URL(input);
 		const authorization = new Headers(init?.headers).get('authorization') ?? '';
 		const basic = authorization.toLowerCase().startsWith('basic ');
@@ -1951,6 +1955,9 @@ suite('Azure DevOps Server filtered search', () => {
 			const server = createServer({ installation: 'https://server.test/tfs', collections: [collection] });
 			const fetch = server.runtime.http.fetch;
 			server.runtime.http.fetch = async (input, init) => {
+				const discovery = azureRestDiscoveryResponse(input);
+				if (discovery != null) return discovery;
+
 				const url = new URL(input);
 				if (/\/Web\/_apis\/git\/pullRequests$/i.test(decodeURIComponent(url.pathname))) {
 					return json({ message: 'boom' }, 401);

@@ -1,4 +1,9 @@
-import type { AzureWorkItemHtmlField, AzureWorkItemTypeStates } from '@gitkraken/provider-apis';
+import type {
+	AzureDevOpsRestResource,
+	AzureDevOpsRestResourceInfo,
+	AzureWorkItemHtmlField,
+	AzureWorkItemTypeStates,
+} from '@gitkraken/provider-apis';
 import { needsAzureWorkItemHtmlFields } from '@gitkraken/provider-apis';
 import * as l10n from '@vscode/l10n';
 import type { UnidentifiedAuthor } from '@gitlens/git/models/author.js';
@@ -36,6 +41,8 @@ import type { ProviderIssueSearchPage } from '../../models/issueReads.js';
 import { decodePathSegment } from '../../utils/domain.utils.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
+import { createProviderApiRequest, createProviderApis } from '../providerApiClient.js';
+import { throwProviderError } from '../providerErrors.js';
 import type {
 	AzureForkRepositoryUrls,
 	AzureGitCommit,
@@ -77,6 +84,7 @@ import {
 	getAzureWorkItemFieldsPath,
 	getAzureWorkItemTypeStatesPath,
 	getAzureWorkItemTypesUrl,
+	requireAzureWorkItemStateCategories,
 } from './workItemStateCategories.js';
 
 const forkRepositoryUrlCacheTtl = 5 * 60 * 1000;
@@ -108,6 +116,7 @@ function parseAzureRepositoryDescriptor(repo: string): { projectName: string; re
 }
 
 export class AzureDevOpsApi implements Disposable {
+	private readonly restApi: ReturnType<typeof createProviderApis>['azureDevOps'];
 	private readonly _disposable: Disposable | undefined;
 	private readonly _workItemStates: AzureWorkItemStatesCache;
 	private readonly ownsWorkItemStates: boolean;
@@ -130,6 +139,9 @@ export class AzureDevOpsApi implements Disposable {
 		private readonly config: ProviderApiConfig,
 		workItemStates?: AzureWorkItemStatesCache,
 	) {
+		this.restApi = createProviderApis({
+			request: createProviderApiRequest((input, init) => config.fetch(input, init)),
+		}).azureDevOps;
 		this._workItemStates = workItemStates ?? new AzureWorkItemStatesCache();
 		this.ownsWorkItemStates = workItemStates == null;
 		this._disposable = config.onConfigChanged?.(() => this.resetCaches());
@@ -140,6 +152,7 @@ export class AzureDevOpsApi implements Disposable {
 	}
 
 	private resetCaches(): void {
+		this.restApi.updateConfig({});
 		if (this.ownsWorkItemStates) {
 			this._workItemStates.clear();
 		}
@@ -238,11 +251,14 @@ export class AzureDevOpsApi implements Disposable {
 		const scope = getScopedLogger();
 		const { projectName, repoName } = parseAzureRepositoryDescriptor(repo);
 		try {
+			const encodedProject = encodeAzurePathSegment(projectName);
+			const encodedRepo = encodeAzurePathSegment(repoName);
+			const resource = await this.requireRestResource(provider, token, owner, baseUrl, 'pullRequestQuery', '4.1');
 			const prResult = await this.request<{ results: Record<string, AzurePullRequest[]>[] }>(
 				provider,
 				token,
 				baseUrl,
-				`${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(projectName)}/_apis/git/repositories/${encodeAzurePathSegment(repoName)}/pullrequestquery?api-version=4.1`,
+				`${encodeAzurePathSegment(owner)}/${encodedProject}/_apis/git/repositories/${encodedRepo}/pullrequestquery?api-version=${resource.apiVersion}`,
 				{
 					method: 'POST',
 					body: JSON.stringify({
@@ -356,17 +372,7 @@ export class AzureDevOpsApi implements Disposable {
 		if (options?.type === undefined || options?.type === 'issue') {
 			let issueResult: WorkItem | undefined;
 			try {
-				// Try to get the Work item (wit) first with specific fields
-				issueResult = await this.request<WorkItem>(
-					provider,
-					token,
-					options?.baseUrl,
-					`${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(projectName)}/_apis/wit/workItems/${encodeAzurePathSegment(id)}`,
-					{
-						method: 'GET',
-					},
-					scope,
-				);
+				issueResult = await this.getWorkItem(provider, token, owner, projectName, id, options.baseUrl, scope);
 			} catch (ex) {
 				// A rejected credential is actionable and must not be reported as an absent issue; every other
 				// non-404 keeps the existing degrade-to-undefined behavior.
@@ -475,15 +481,13 @@ export class AzureDevOpsApi implements Disposable {
 
 		let issueResult: WorkItem | undefined;
 		try {
-			// Try to get the Work item (wit) first with specific fields
-			issueResult = await this.request<WorkItem>(
+			issueResult = await this.getWorkItem(
 				provider,
 				token,
-				options?.baseUrl,
-				`${encodeAzurePathSegment(project.resourceName)}/${encodeAzurePathSegment(project.name)}/_apis/wit/workItems/${encodeAzurePathSegment(id)}`,
-				{
-					method: 'GET',
-				},
+				project.resourceName,
+				project.name,
+				id,
+				options.baseUrl,
 				scope,
 			);
 		} catch (ex) {
@@ -697,22 +701,69 @@ export class AzureDevOpsApi implements Disposable {
 		},
 		cancellation?: AbortSignal,
 	): Promise<AzureWorkItemStateCategory | undefined> {
-		const states = await this._workItemStates.getStates(
-			{ baseUrl: options.baseUrl, namespace: owner, project: projectName, token: token.accessToken, isPAT: true },
+		const states = await this.getWorkItemTypeStates(
+			provider,
+			token,
+			owner,
+			projectName,
 			issueType,
-			signal =>
-				this.request(
+			options.baseUrl,
+			cancellation,
+		);
+		const matched = states.find(s => s.name === state);
+		const category = matched?.category;
+		if (matched != null && category == null) {
+			throw new Error(`Azure DevOps does not expose a category for work item state '${state}'`);
+		}
+
+		return category as AzureWorkItemStateCategory | undefined;
+	}
+
+	private getWorkItemTypeStates(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		project: string,
+		type: string,
+		baseUrl: string,
+		cancellation?: AbortSignal,
+	) {
+		return this._workItemStates.getStates(
+			{ baseUrl: baseUrl, namespace: owner, project: project, token: token.accessToken, isPAT: true },
+			type,
+			async signal => {
+				const resource = await this.requireRestResource(
 					provider,
 					token,
-					options.baseUrl,
-					getAzureWorkItemTypeStatesPath(owner, projectName, issueType),
+					owner,
+					baseUrl,
+					'workItemTypeStates',
+					'6.0-preview.1',
+				);
+				return this.request(
+					provider,
+					token,
+					baseUrl,
+					getAzureWorkItemTypeStatesPath(owner, project, type, resource.apiVersion),
 					{ method: 'GET' },
 					undefined,
 					signal,
-				),
+				);
+			},
 			cancellation,
+			async signal => {
+				const resource = await this.requireRestResource(
+					provider,
+					token,
+					owner,
+					baseUrl,
+					'backlogConfiguration',
+					'6.0-preview.1',
+				);
+				const path = `${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(project)}/_apis/work/backlogconfiguration?api-version=${resource.apiVersion}`;
+				return this.request(provider, token, baseUrl, path, { method: 'GET' }, undefined, signal);
+			},
 		);
-		return states.find(s => s.name === state)?.category as AzureWorkItemStateCategory | undefined;
 	}
 
 	@trace({
@@ -919,12 +970,29 @@ export class AzureDevOpsApi implements Disposable {
 		const slice = ids.slice(offset, offset + pageSize);
 		const values: Issue[] = [];
 		if (slice.length > 0) {
+			const batch = await this.getRestResource(
+				provider,
+				token,
+				collection,
+				options.baseUrl,
+				'workItemsBatch',
+				'5.0',
+			);
+			const resource =
+				batch ??
+				(await this.requireRestResource(provider, token, collection, options.baseUrl, 'workItems', '5.0'));
+			const route =
+				batch != null
+					? `workitemsbatch?api-version=${resource.apiVersion}`
+					: `workitems?ids=${slice.join(',')}&$expand=Links&errorPolicy=Omit&api-version=${resource.apiVersion}`;
 			const workItems = await this.request<{ value: (WorkItem | null)[] }>(
 				provider,
 				token,
 				options.baseUrl,
-				`${encodeAzurePathSegment(collection)}/_apis/wit/workitemsbatch?api-version=5.0`,
-				{ method: 'POST', body: JSON.stringify({ ids: slice, $expand: 'Links', errorPolicy: 'Omit' }) },
+				`${encodeAzurePathSegment(collection)}/_apis/wit/${route}`,
+				batch != null
+					? { method: 'POST', body: JSON.stringify({ ids: slice, $expand: 'Links', errorPolicy: 'Omit' }) }
+					: { method: 'GET' },
 				scope,
 				cancellation,
 			);
@@ -939,6 +1007,13 @@ export class AzureDevOpsApi implements Disposable {
 				if (workItem == null) continue;
 
 				const projectName = workItem.fields['System.TeamProject'];
+				if (
+					options.projectNames?.length &&
+					!options.projectNames.some(name => name.toLowerCase() === projectName?.toLowerCase())
+				) {
+					throw new Error(`Azure DevOps work item ${id} is outside the requested projects`);
+				}
+
 				const project = options.resolveProject(projectName);
 				if (project == null) {
 					throw new Error(`Azure DevOps work item ${id} is in project '${projectName}', which isn't visible`);
@@ -1072,16 +1147,25 @@ export class AzureDevOpsApi implements Disposable {
 					};
 					const names = await this._workItemStates.getTypes(
 						scope,
-						signal =>
-							this.request(
+						async signal => {
+							const resource = await this.requireRestResource(
+								provider,
+								token,
+								collection,
+								options.baseUrl,
+								'workItemTypes',
+								'6.0',
+							);
+							return this.request(
 								provider,
 								token,
 								undefined,
-								getAzureWorkItemTypesUrl(options.baseUrl, collection, project),
+								getAzureWorkItemTypesUrl(options.baseUrl, collection, project, resource.apiVersion),
 								{ method: 'GET' },
 								undefined,
 								signal,
-							),
+							);
+						},
 						cancellation,
 					);
 					return names.map(name => ({ project: project, name: name, scope: scope }));
@@ -1090,20 +1174,16 @@ export class AzureDevOpsApi implements Disposable {
 			const states = await mapBounded(types, workItemMetadataConcurrency, async type => ({
 				name: type.name,
 				project: type.project,
-				states: await this._workItemStates.getStates(
-					type.scope,
-					type.name,
-					signal =>
-						this.request(
-							provider,
-							token,
-							options.baseUrl,
-							getAzureWorkItemTypeStatesPath(collection, type.project, type.name),
-							{ method: 'GET' },
-							undefined,
-							signal,
-						),
-					cancellation,
+				states: requireAzureWorkItemStateCategories(
+					await this.getWorkItemTypeStates(
+						provider,
+						token,
+						collection,
+						type.project,
+						type.name,
+						options.baseUrl,
+						cancellation,
+					),
 				),
 			}));
 			workflows = new Map(
@@ -1122,8 +1202,7 @@ export class AzureDevOpsApi implements Disposable {
 	/**
 	 * The ids a collection-level WIQL query matches, in its order.
 	 *
-	 * `api-version=5.0` is the oldest version every Azure DevOps Server release this search supports (2019 and later)
-	 * answers; `timePrecision=true` is what lets the criteria's dates compare as instants — see `toWiqlDate`.
+	 * `timePrecision=true` lets the criteria's dates compare as instants, including on legacy servers.
 	 */
 	private async queryWorkItemIds(
 		provider: Provider,
@@ -1141,11 +1220,12 @@ export class AzureDevOpsApi implements Disposable {
 			throw new Error('Azure DevOps work item search query is too long; narrow the search');
 		}
 
+		const resource = await this.requireRestResource(provider, token, collection, baseUrl, 'wiql', '5.0');
 		const result = await this.request<{ workItems?: { id: number }[]; asOf?: string }>(
 			provider,
 			token,
 			baseUrl,
-			`${encodeAzurePathSegment(collection)}/_apis/wit/wiql?$top=${top}&timePrecision=true&api-version=5.0`,
+			`${encodeAzurePathSegment(collection)}/_apis/wit/wiql?$top=${top}&timePrecision=true&api-version=${resource.apiVersion}`,
 			{ method: 'POST', body: JSON.stringify({ query: query }) },
 			scope,
 			cancellation,
@@ -1155,7 +1235,7 @@ export class AzureDevOpsApi implements Disposable {
 		return { ids: result.workItems.map(w => w.id), asOf: result.asOf };
 	}
 
-	private getRepository(
+	private async getRepository(
 		provider: Provider,
 		token: TokenWithInfo,
 		owner: string,
@@ -1165,11 +1245,14 @@ export class AzureDevOpsApi implements Disposable {
 		cancellation?: AbortSignal,
 	): Promise<AzureRepositoryWithMetadata | undefined> {
 		const { projectName, repoName } = parseAzureRepositoryDescriptor(repo);
+		const encodedProject = encodeAzurePathSegment(projectName);
+		const encodedRepo = encodeAzurePathSegment(repoName);
+		const resource = await this.requireRestResource(provider, token, owner, baseUrl, 'repositories', '7.1');
 		return this.request<AzureRepositoryWithMetadata>(
 			provider,
 			token,
 			baseUrl,
-			`${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(projectName)}/_apis/git/repositories/${encodeAzurePathSegment(repoName)}?api-version=7.1`,
+			`${encodeAzurePathSegment(owner)}/${encodedProject}/_apis/git/repositories/${encodedRepo}?api-version=${resource.apiVersion}`,
 			{ method: 'GET' },
 			scope,
 			cancellation,
@@ -1294,11 +1377,13 @@ export class AzureDevOpsApi implements Disposable {
 		cancellation?: AbortSignal,
 	): Promise<AzureForkRepositoryUrls | undefined> {
 		try {
+			encodeAzurePathSegment(repositoryId);
+			const resource = await this.requireRestResource(provider, token, owner, baseUrl, 'repositories', '4.1');
 			const response = await this.request<AzureRepositoryUrls>(
 				provider,
 				token,
 				baseUrl,
-				`${encodeAzurePathSegment(owner)}/_apis/git/repositories/${encodeAzurePathSegment(repositoryId)}?api-version=4.1`,
+				`${encodeAzurePathSegment(owner)}/_apis/git/repositories/${encodeAzurePathSegment(repositoryId)}?api-version=${resource.apiVersion}`,
 				{ method: 'GET' },
 				scope,
 				cancellation,
@@ -1325,6 +1410,73 @@ export class AzureDevOpsApi implements Disposable {
 			scope?.warn(`Unable to resolve the fork repository URLs${status}`);
 			return undefined;
 		}
+	}
+
+	private async getWorkItem(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		project: string,
+		id: string,
+		baseUrl: string,
+		scope: ScopedLogger | undefined,
+	): Promise<WorkItem | undefined> {
+		const encodedProject = encodeAzurePathSegment(project);
+		const encodedId = encodeAzurePathSegment(id);
+		const resource = await this.requireRestResource(provider, token, owner, baseUrl, 'workItems', '6.0');
+		const projectPath = resource.projectScoped ? `/${encodedProject}` : '';
+		const result = await this.request<WorkItem>(
+			provider,
+			token,
+			baseUrl,
+			`${encodeAzurePathSegment(owner)}${projectPath}/_apis/wit/workItems/${encodedId}?api-version=${resource.apiVersion}`,
+			{ method: 'GET' },
+			scope,
+		);
+		if (
+			result != null &&
+			(typeof result.fields?.['System.TeamProject'] !== 'string' ||
+				result.fields['System.TeamProject'].toLowerCase() !== project.toLowerCase())
+		) {
+			throw new Error(`Azure DevOps work item ${id} is outside the requested project`);
+		}
+
+		return result;
+	}
+
+	private async getRestResource(
+		provider: Provider,
+		token: TokenWithInfo,
+		namespace: string,
+		baseUrl: string,
+		resource: AzureDevOpsRestResource,
+		version: string,
+	): Promise<AzureDevOpsRestResourceInfo | undefined> {
+		try {
+			encodeAzurePathSegment(namespace);
+			return await this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+				this.restApi.getRestApiResource(
+					{ namespace: namespace, resource: resource, version: version },
+					{ token: token.accessToken, isPAT: true, baseUrl: baseUrl },
+				),
+			);
+		} catch (ex) {
+			return throwProviderError(token, ex);
+		}
+	}
+
+	private async requireRestResource(
+		provider: Provider,
+		token: TokenWithInfo,
+		namespace: string,
+		baseUrl: string,
+		resource: AzureDevOpsRestResource,
+		version: string,
+	): Promise<AzureDevOpsRestResourceInfo> {
+		const result = await this.getRestResource(provider, token, namespace, baseUrl, resource, version);
+		if (result == null) throw new Error(`Azure DevOps REST resource ${resource} is unavailable`);
+
+		return result;
 	}
 
 	private async request<T>(

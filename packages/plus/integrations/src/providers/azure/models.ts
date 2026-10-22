@@ -174,9 +174,9 @@ export interface WorkItem {
 		'System.WorkItemType': string;
 		'System.State': string;
 		// 'System.Reason': string;
-		'System.AssignedTo': AzureUser;
+		'System.AssignedTo': AzureUser | string;
 		'System.CreatedDate': string;
-		'System.CreatedBy': AzureUser;
+		'System.CreatedBy': AzureUser | string;
 		'System.ChangedDate': string;
 		'System.ChangedBy': AzureUser;
 		'System.CommentCount': number;
@@ -750,6 +750,12 @@ export function fromAzurePullRequest(
 	);
 }
 
+function fromAzureWorkItemUserToMember(user: AzureUser | string | undefined): IssueMember | undefined {
+	if (user == null || (typeof user === 'string' && !user.trim())) return undefined;
+
+	return typeof user === 'string' ? { id: user, name: user, username: user } : fromAzureUserToMember(user, 'issue');
+}
+
 export function fromAzureWorkItem(
 	workItem: WorkItem,
 	provider: Provider,
@@ -762,6 +768,7 @@ export function fromAzureWorkItem(
 	const description = getAzureWorkItemDescription(workItem.fields, htmlFields);
 	const closedDate = parseAzureWorkItemDate(workItem.fields['Microsoft.VSTS.Common.ClosedDate']) ?? undefined;
 	const normalizedState = azureWorkItemsStateCategoryToState(stateCategory, closedDate);
+	const assignee = fromAzureWorkItemUserToMember(workItem.fields['System.AssignedTo']);
 	return new Issue(
 		provider,
 		workItem.id.toString(),
@@ -772,10 +779,8 @@ export function fromAzureWorkItem(
 		new Date(workItem.fields['System.ChangedDate']),
 		normalizedState === 'closed',
 		normalizedState,
-		fromAzureUserToMember(workItem.fields['System.CreatedBy'], 'issue'),
-		workItem.fields['System.AssignedTo'] != null
-			? [fromAzureUserToMember(workItem.fields['System.AssignedTo'], 'issue')]
-			: [],
+		fromAzureWorkItemUserToMember(workItem.fields['System.CreatedBy']),
+		assignee != null ? [assignee] : [],
 		undefined,
 		closedDate,
 		undefined,
@@ -917,6 +922,12 @@ export function toAzureWorkItemDescriptionFields(
 
 /** An identity field, as provider-apis maps it: `name` from `uniqueName`, `username` from `displayName`. */
 function fromAzureWorkItemIdentity(value: unknown): ProviderAccount | null {
+	if (typeof value === 'string') {
+		if (!value.trim()) return null;
+
+		return { id: value, name: value, username: value, email: null, avatarUrl: null, url: null };
+	}
+
 	const identity = value as
 		| { id?: unknown; uniqueName?: unknown; displayName?: unknown; _links?: { avatar?: { href?: unknown } } }
 		| null

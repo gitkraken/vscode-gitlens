@@ -10,6 +10,7 @@ import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import { createIntegrationService } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import {
+	azureRestDiscoveryResponse,
 	azureWorkItemTypeStatesResponse,
 	isAzureWorkItemTypeStatesUrl,
 } from '../providers/azure/__tests__/fixtures.js';
@@ -143,6 +144,9 @@ function createServer(options: ServerOptions) {
 	const requests: string[] = [];
 	let collectionReads = 0;
 	runtime.http.fetch = async input => {
+		const discovery = azureRestDiscoveryResponse(input);
+		if (discovery != null) return discovery;
+
 		const url = new URL(input.toString());
 		requests.push(url.pathname);
 		if (!url.pathname.startsWith(`${options.installation}/`)) return json({ message: 'Page not found.' }, 404);

@@ -9,6 +9,7 @@ import { createIntegrationService } from '../integrationService.js';
 import {
 	azureProject,
 	azureProvider,
+	azureRestDiscoveryResponse,
 	azureToken,
 	azureWorkItemTypeStatesResponse,
 	createWorkItem,
@@ -89,6 +90,9 @@ function azureHarness() {
 	let maxActive = 0;
 
 	const fetch = async (input: string | URL, init?: RequestInit): Promise<Response> => {
+		const discovery = azureRestDiscoveryResponse(input);
+		if (discovery != null) return discovery;
+
 		const url = new URL(input.toString());
 		const path = url.pathname;
 		if (/\/_apis\/wit\/workItemTypes$/i.test(path)) {

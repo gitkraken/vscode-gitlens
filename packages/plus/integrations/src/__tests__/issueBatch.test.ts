@@ -11,7 +11,7 @@ import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError }
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult, IssueEtagFields, IssueEtagInclude } from '../models/integration.js';
-import { azureWorkItemTypeStatesResponse } from '../providers/azure/__tests__/fixtures.js';
+import { azureRestDiscoveryResponse, azureWorkItemTypeStatesResponse } from '../providers/azure/__tests__/fixtures.js';
 import { issueEtag } from '../reads/etag.js';
 import { noAccess, oauthAppNotAllowed } from './azureRefusals.js';
 import type { FakeRuntime } from './fakeRuntime.js';
@@ -888,6 +888,9 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 		function azureRespond(runtime: FakeRuntime, respond: (url: string) => Response): { urls: string[] } {
 			const urls: string[] = [];
 			runtime.http.fetch = input => {
+				const discovery = azureRestDiscoveryResponse(input);
+				if (discovery != null) return Promise.resolve(discovery);
+
 				const url = input.toString();
 				const states = azureWorkItemTypeStatesResponse(url);
 				if (states != null) return Promise.resolve(states);
