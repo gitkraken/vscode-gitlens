@@ -77,7 +77,7 @@ const legacyMappings = {
 	],
 };
 
-function harness() {
+function harness(allMappedStates = false) {
 	const descriptions = new AzureWorkItemDescriptionsCache();
 	const changes = new Emitter<ConfigChangeEvent>();
 	let legacy = true;
@@ -136,7 +136,11 @@ function harness() {
 			legacy ? /^4\.0(?:-preview\.1)?$/ : /^6\.0(?:-preview\.1)?$/,
 		);
 		if ([project, projectId].some(name => route === `${name}/_apis/wit/workItemTypes/Task/states`)) {
-			return Response.json(legacyStates);
+			return Response.json(
+				allMappedStates
+					? { value: legacyStates.value.filter(state => state.name !== 'Removed') }
+					: legacyStates,
+			);
 		}
 		if (route === `${project}/_apis/wit/workItemTypes`) return Response.json({ value: [{ name: 'Task' }] });
 		if ([project, projectId].some(name => route === `${name}/_apis/work/backlogconfiguration`)) {
@@ -400,11 +404,35 @@ suite('TFS 2018 core REST compatibility', () => {
 		assert.throws(() => toAzureWorkItemEtagFields(read.workItem, project, read.category), /has no project/);
 	});
 
-	for (const [name, fields, status] of [
-		['built-in fallback', { 'Microsoft.VSTS.TCM.ReproSteps': '<p>Reproduce this</p>' }, 200],
-		['custom HTML', { 'Custom.Notes': '<p>Custom content</p>' }, 200],
-		['blank markup', { 'System.Description': '<div></div>', 'Custom.Notes': '<p> </p>' }, 200],
-		['unavailable catalog', { 'Custom.Notes': '<p>Unverified content</p>' }, 503],
+	for (const [name, fields, status, description, descriptionField] of [
+		[
+			'built-in fallback',
+			{ 'Microsoft.VSTS.TCM.ReproSteps': '<p>Reproduce this</p>' },
+			200,
+			'<p>Reproduce this</p>',
+			{ referenceName: 'Microsoft.VSTS.TCM.ReproSteps', name: 'Repro Steps' },
+		],
+		[
+			'custom HTML',
+			{ 'Custom.Notes': '<p>Custom content</p>' },
+			200,
+			'<p>Custom content</p>',
+			{ referenceName: 'Custom.Notes', name: 'Notes' },
+		],
+		[
+			'blank markup',
+			{ 'System.Description': '<div></div>', 'Custom.Notes': '<p> </p>' },
+			200,
+			'<div></div>',
+			{ referenceName: 'System.Description', name: 'Description' },
+		],
+		[
+			'unavailable catalog',
+			{ 'Custom.Notes': '<p>Unverified content</p>' },
+			503,
+			'',
+			{ referenceName: 'System.Description', name: 'Description' },
+		],
 	] as const) {
 		test(`SDK lists and direct point/search reads agree on ${name} descriptions`, async () => {
 			const h = harness();
@@ -429,6 +457,8 @@ suite('TFS 2018 core REST compatibility', () => {
 				resolveProject: () => azureProject,
 			});
 			assert.equal(listed.values.length, 1);
+			assert.equal(listed.values[0].description, description);
+			assert.deepEqual(listed.values[0].descriptionField, descriptionField);
 			assert.equal(point?.description, listed.values[0].description);
 			assert.deepEqual(point?.descriptionField, listed.values[0].descriptionField);
 			assert.equal(native?.body, listed.values[0].description);
@@ -449,6 +479,55 @@ suite('TFS 2018 core REST compatibility', () => {
 			/does not expose a category/,
 		);
 	});
+
+	for (const allMappedStates of [false, true]) {
+		for (const closedDate of [undefined, '2026-10-01T00:00:00.000Z']) {
+			test(`an absent legacy state refuses cached categories (all mapped: ${allMappedStates}, closed: ${closedDate != null})`, async () => {
+				const h = harness(allMappedStates);
+				h.setDescription(closedDate == null ? {} : { 'Microsoft.VSTS.Common.ClosedDate': closedDate });
+				const options = { baseUrl: baseUrl, isPAT: true };
+				const descriptor = { ...azureProject, resourceName: collection };
+				assert.equal(
+					(await h.native.getIssue(azureProvider, token, descriptor, '42', options))?.state,
+					'opened',
+				);
+				h.setState('Unlisted');
+				await assert.rejects(
+					h.native.getIssue(azureProvider, token, descriptor, '42', options),
+					/does not expose a category/,
+				);
+				await assert.rejects(
+					h.native.getIssueOrPullRequest(azureProvider, token, collection, `${project}/_git/repo`, '42', {
+						...options,
+						type: 'issue',
+					}),
+					/does not expose a category/,
+				);
+				await assert.rejects(
+					h.native.searchWorkItemsPage(azureProvider, token, collection, {
+						baseUrl: baseUrl,
+						criteria: { state: 'all' },
+						projectNames: [project],
+						resolveProject: () => azureProject,
+					}),
+					/does not expose a category/,
+				);
+				await assert.rejects(
+					h.api.getAzureWorkItem(token, { namespace: collection, project: project }, 42, options),
+					/does not expose a category/,
+				);
+				await assert.rejects(
+					h.api.getAzureWorkItemsEtagFields(
+						token,
+						{ namespace: collection, project: project },
+						[42],
+						options,
+					),
+					/does not expose a category/,
+				);
+			});
+		}
+	}
 
 	test('discovery auth errors propagate without retrying resource reads', async () => {
 		const h = harness();
@@ -535,8 +614,8 @@ suite('TFS workflow metadata cache', () => {
 			undefined,
 			async () => legacyMappings,
 		);
-		assert.equal(states.find(s => s.name === 'New')?.category, 'Proposed');
-		assert.equal(states.find(s => s.name === 'Removed')?.category, undefined);
+		assert.equal(states.states.find(s => s.name === 'New')?.category, 'Proposed');
+		assert.equal(states.states.find(s => s.name === 'Removed')?.category, undefined);
 		assert.throws(() => requireAzureWorkItemStateCategories(states), /does not expose a category/);
 	});
 
@@ -553,8 +632,8 @@ suite('TFS workflow metadata cache', () => {
 				],
 			}),
 		);
-		assert.equal(states.find(s => s.name === 'New')?.category, 'Completed');
-		assert.equal(states.find(s => s.name === 'Closed')?.category, 'Proposed');
+		assert.equal(states.states.find(s => s.name === 'New')?.category, 'Completed');
+		assert.equal(states.states.find(s => s.name === 'Closed')?.category, 'Proposed');
 	});
 
 	test('keeps native categories without requesting backlog mappings', async () => {
@@ -568,7 +647,7 @@ suite('TFS workflow metadata cache', () => {
 				throw new Error('must not read mappings');
 			},
 		);
-		assert.equal(states[0].category, 'Proposed');
+		assert.equal(states.states[0].category, 'Proposed');
 	});
 
 	test('shares project mappings between types but isolates credentials and connections', async () => {

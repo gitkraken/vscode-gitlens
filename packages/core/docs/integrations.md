@@ -1312,8 +1312,9 @@ capability. Other git hosts retain their open-only list default and refuse non-o
 
 A known Azure workflow category determines normalized `state` and `closed`, with `CANCELED` closing like `DONE`.
 A historical closed date remains available as data but does not close an issue whose category is now open.
-Identity and list reads fall back to the closed date only when the category is unknown. Other providers keep their
-existing derivation.
+Identity and list reads fall back to the closed date only when the category is unknown. Legacy workflows that
+needed backlog mappings instead refuse point reads and cheap etag checks for an absent or uncategorized current
+state, even when all returned states received mappings. Other providers keep their existing derivation.
 
 ### Sprints and iterations
 
@@ -1451,7 +1452,8 @@ Markdown by this package.
     A cursor is bound to its query and refused under another one. `page` without a cursor walks from page 1 against
     a fresh query. Requests negotiate REST versions from the installation's resource metadata, including TFS 2018.
     Exact state-filtered searches and counts require complete workflow categories; `state: 'all'` skips that
-    selection requirement, but every hydrated row still needs an authoritative category.
+    selection requirement, but every hydrated row in a legacy workflow that needed backlog mappings still needs an
+    authoritative category.
   - **Pull requests** (`searchPullRequestsPage` / `countPullRequests`) drain every facet — each repository, or each
     project of the `org` (every visible project when only relationships bound the search), times each
     relationship — reading up to 1,000 pull requests per facet, then apply text, draft and dates, union by repository
