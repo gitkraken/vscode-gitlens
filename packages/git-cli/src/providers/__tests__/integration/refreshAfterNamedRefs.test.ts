@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FileSystemProvider } from '@gitlens/git/context.js';
@@ -9,6 +9,7 @@ import type { GitService } from '@gitlens/git/service.js';
 import type { WatcherRepoChangeEvent } from '@gitlens/git/watching/changeEvent.js';
 import type { FileWatchEvent, FileWatchingProvider } from '@gitlens/git/watching/provider.js';
 import type { WorktreeSummary, WorktreeSummarySubscription } from '@gitlens/git/watching/worktreeSummary.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri, getRepositoryKey, toFsPath } from '@gitlens/utils/uri.js';
@@ -831,6 +832,49 @@ suite('Refreshing checkouts after writes that name the refs they moved', () => {
 			resetObservations();
 			await repoOf(main.path).worktrees!.deleteWorktree(path);
 			await settle();
+		});
+
+		test('an add cut short after git created the branch announces every head as possibly moved', async () => {
+			const path = join(root, 'wt-cut');
+			const hooks = join(main.path, '.git', 'hooks');
+			const started = join(root, 'post-checkout-started');
+			git(peer.path, 'push', 'origin', 'main:refs/heads/remote-cut');
+			git(main.path, 'fetch', '-q', 'origin');
+			// A global `core.hooksPath` would otherwise keep the hook from running, and the add would finish uncancelled
+			git(main.path, 'config', 'core.hooksPath', hooks);
+			// Git creates the branch, then checks it out and runs this hook, which outlasts the cancellation below.
+			// It cancels only once the hook runs: an abort before the checkout finishes makes git delete the new worktree
+			writeFileSync(join(hooks, 'post-checkout'), `#!/bin/sh\ntouch "${normalizePath(started)}"\nsleep 5\n`, {
+				mode: 0o755,
+			});
+			resetObservations();
+			const announced = announcementsFor(main.path);
+
+			const aborter = new AbortController();
+			const adding = repoOf(main.path).worktrees!.createWorktree(
+				path,
+				{ commitish: 'remote-cut' },
+				{ cancellation: aborter.signal },
+			);
+			let settled = false;
+			const onSettled = (): void => {
+				settled = true;
+			};
+			// Stops waiting, and lets the assertion below report why, if the add ends before the hook runs
+			void adding.then(onSettled, onSettled);
+			while (!existsSync(started) && !settled) {
+				await delay(20);
+			}
+			aborter.abort();
+			await assert.rejects(adding, ex => isCancellationError(ex));
+			await settle();
+
+			for (const p of [main.path, linked[0].path, linked[1].path]) {
+				assert.ok((await localBranches(p)).includes('remote-cut'), `${p} lists the new local branch`);
+			}
+			assert.strictEqual(announced.length, 1);
+			assert.deepStrictEqual([...announced[0].changes].sort(), ['heads', 'worktrees']);
+			assert.strictEqual(announced[0].refs, undefined, "the cancelled run's output, naming the branch, is lost");
 		});
 
 		test('adding a worktree with no commitish announces the branch git names after the path', async () => {
