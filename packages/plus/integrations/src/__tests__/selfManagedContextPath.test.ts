@@ -5,6 +5,7 @@ import { toCloudIntegrationType } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitSelfManagedHostIntegrationId, IssuesSelfManagedHostIntegrationId } from '../constants.js';
 import { createIntegrationManager } from '../index.js';
+import { azureRestDiscoveryResponse } from '../providers/azure/__tests__/fixtures.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 const providers = [
@@ -120,6 +121,9 @@ function createServer(id: IntegrationIds, baseUrl: string) {
 						},
 		});
 	runtime.http.fetch = async (input, init) => {
+		const discovery = azureRestDiscoveryResponse(input);
+		if (discovery != null) return discovery;
+
 		const url = new URL(input);
 		requests.push({
 			url: url,

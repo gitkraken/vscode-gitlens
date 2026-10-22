@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { ProviderApiConfig } from '../../apiConfig.js';
 import { AzureDevOpsApi } from '../azure.js';
-import { azureProject, azureProvider, azureToken, createWorkItem } from './fixtures.js';
+import { azureProject, azureProvider, azureRestDiscoveryResponse, azureToken, createWorkItem } from './fixtures.js';
 
 function createSearch(options?: { projectNames?: string[]; types?: string[]; beforeMetadata?: () => Promise<void> }) {
 	const requests: string[] = [];
@@ -15,6 +15,9 @@ function createSearch(options?: { projectNames?: string[]; types?: string[]; bef
 	const signals: (AbortSignal | null | undefined)[] = [];
 	const config: ProviderApiConfig = {
 		fetch: async (input, init) => {
+			const discovery = azureRestDiscoveryResponse(input);
+			if (discovery != null) return discovery;
+
 			const url = input.toString();
 			requests.push(url);
 			if (url.includes('/workItemTypes')) {
@@ -47,7 +50,8 @@ function createSearch(options?: { projectNames?: string[]; types?: string[]; bef
 					value: ids.map(id => {
 						const item = createWorkItem();
 						item.id = id;
-						item.fields['System.WorkItemType'] = 'Task';
+						item.fields['System.WorkItemType'] = options?.types?.[0] ?? 'Task';
+						item.fields['System.TeamProject'] = options?.projectNames?.[0] ?? azureProject.name;
 						item.fields['System.State'] = state;
 						return item;
 					}),
@@ -62,7 +66,7 @@ function createSearch(options?: { projectNames?: string[]; types?: string[]; bef
 	const searchOptions = {
 		baseUrl: 'https://azure.example.com/tfs',
 		projectNames: options?.projectNames ?? [azureProject.name],
-		resolveProject: () => azureProject,
+		resolveProject: (name: string) => ({ ...azureProject, name: name }),
 		pageSize: 1,
 	};
 	return {
@@ -103,6 +107,9 @@ suite('Azure work item search lifecycle', () => {
 		const queries: string[] = [];
 		const api = new AzureDevOpsApi({
 			fetch: async (input, init) => {
+				const discovery = azureRestDiscoveryResponse(input);
+				if (discovery != null) return discovery;
+
 				const url = new URL(input.toString());
 				const path = decodeURIComponent(url.pathname);
 				if (path.endsWith('/workItemTypes')) {

@@ -1285,8 +1285,8 @@ Linear reports its canceled and duplicate states as `CANCELED`.
 Azure DevOps reports a state in its `Removed` category as `CANCELED`, `Completed` and `Resolved` as `DONE`,
 `InProgress` as `IN_PROGRESS` and `Proposed` as `TO_DO`. No work item read carries the category, so every one (by id,
 the cheap etag check and the project list, on Azure DevOps Server too) classifies its rows from their type's states
-(`GET …/_apis/wit/workItemTypes/{type}/states?api-version=6.0-preview.1`, the preview version Azure DevOps Server 2020
-requires), keyed on the raw `System.State`, and caches each read for five minutes per host, project, type and
+(`GET …/_apis/wit/workItemTypes/{type}/states`, with a version selected from the installation's REST resource metadata;
+Services and Server 2020 use `6.0-preview.1`), keyed on the raw `System.State`, and caches each read for five minutes per host, project, type and
 credential. The category, never the name, decides: a state named `Canceled` in the `Completed` category is `DONE`, and
 a state its type doesn't list has no category. When a states read fails, a project list keeps its rows (the failed
 type's without a category) and reports the project as a partial collection with a failure scoped to it; a read by id
@@ -1295,6 +1295,16 @@ work item type and state name. A closed read includes Removed, Completed and Res
 or resolved dates. Failed workflows fall back to dates with partial metadata; failures are cached for 30 seconds
 before retrying. List, identity and native presentation reads share one cache, including workflow expiry and HTTP
 proxy invalidation.
+
+TFS 2018 uses its advertised REST versions and collection-level work item routes. A work item must report the
+requested project, so a collection-level read cannot answer for another project's coordinate. If the type's states
+omit categories, core supplements them from the project's `backlogconfiguration.workItemTypeMappedStates`, using
+only explicit type/state pairs. Unmapped states, including Removed on some processes, remain unknown; neither
+state names, colors nor absence from the backlog imply a category. A point or etag read of such a state fails.
+Project lists retain mapped row categories and report incomplete workflows as partial collections; selection for
+an incomplete workflow retains the SDK's date fallback. Exact state-filtered searches and counts refuse incomplete
+workflow metadata. `criteria.state: 'all'` skips that selection requirement, although search hydration still fails
+if a returned row's state has no category. Legacy identity strings remain opaque values, never inferred GUIDs.
 
 `listIssuesPage` accepts `state: 'open' | 'closed' | 'all'` for Azure DevOps Services and Server, on repository,
 project and account-wide reads. Omitted means open only. `getSupportedFilters(providerId).issueStates` declares this

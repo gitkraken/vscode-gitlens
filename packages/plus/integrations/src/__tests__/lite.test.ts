@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { createTokenScopedGitHostIntegration } from '../lite.js';
+import { azureRestDiscoveryResponse } from '../providers/azure/__tests__/fixtures.js';
 
 type FakeFetch = ((input: string | URL, init?: RequestInit) => Promise<Response>) & { calls: string[] };
 
@@ -9,6 +10,9 @@ type FakeFetch = ((input: string | URL, init?: RequestInit) => Promise<Response>
 function fakeFetch(body: unknown, status = 200): FakeFetch {
 	const calls: string[] = [];
 	const fn = (input: string | URL) => {
+		const discovery = azureRestDiscoveryResponse(input);
+		if (discovery != null) return Promise.resolve(discovery);
+
 		calls.push(input.toString());
 		return Promise.resolve(
 			new Response(JSON.stringify(body), {
@@ -54,6 +58,9 @@ suite('createTokenScopedGitHostIntegration — token-scoped reads', () => {
 	test('GitLab: maps repository metadata (non-fork)', async () => {
 		// GitLab resolves the numeric project id via GraphQL first, then fetches the project over REST.
 		const fetch = (input: string | URL) => {
+			const discovery = azureRestDiscoveryResponse(input);
+			if (discovery != null) return Promise.resolve(discovery);
+
 			const url = input.toString();
 			const body = url.includes('/graphql')
 				? { data: { project: { id: 'gid://gitlab/Project/42' } } }
