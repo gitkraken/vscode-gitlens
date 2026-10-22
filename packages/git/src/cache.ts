@@ -158,6 +158,7 @@ export interface BranchMetadataChange {
 
 /** Per-worktree caches — cleared by repoPath directly */
 interface Caches {
+	aheadOfBaseConfigKey: PromiseMap<RepoPath, string | undefined> | undefined;
 	bestRemotes: PromiseMap<RepoPath, GitRemote<RemoteProvider>[]> | undefined;
 	blame: RepoPromiseCacheMap<string, ProgressiveGitBlame | undefined> | undefined;
 	branch: PromiseMap<RepoPath, GitBranch | undefined> | undefined;
@@ -183,13 +184,6 @@ interface Caches {
 
 /** Shared caches — cleared via commonPath + all worktree paths */
 interface SharedCaches {
-	/**
-	 * Keyed by commonPath. Its keys (`branch.*.remote|merge`, `remote.*`, `init.defaultBranch`) come from system,
-	 * global and the common `.git/config`, which every worktree shares: a per-worktree `config.worktree` is rare and
-	 * never holds remotes or tracking, and `includeIf "gitdir:"` matches alike for all of a repository's worktrees,
-	 * since a linked worktree's git dir sits under the main one. Only a rare `includeIf "onbranch:"` could differ.
-	 */
-	aheadOfBaseConfigKey: PromiseMap<RepoPath, string | undefined> | undefined;
 	baseBranchName: RepoPromiseCacheMap<string, string | undefined> | undefined;
 	branchMergedStatus: RepoPromiseCacheMap<string, GitBranchMergedStatus> | undefined;
 	branchMetadataMap: PromiseMap<RepoPath, Map<string, BranchMetadata>> | undefined;
@@ -223,7 +217,6 @@ type AllCaches = Caches & SharedCaches;
 /** Compile-time enforced: adding a key to SharedCaches without listing it here is a type error */
 const sharedCacheKeys: ReadonlySet<keyof AllCaches> = new Set(
 	exhaustiveArray<keyof SharedCaches>()([
-		'aheadOfBaseConfigKey',
 		'baseBranchName',
 		'branchMergedStatus',
 		'branchMetadataMap',
@@ -727,6 +720,8 @@ export class Cache implements Disposable {
 			// paths that create a branch as a side effect (`checkout -b`, `worktree add -b`). Tip movement
 			// can't change a base, so clearing on every commit only forced a `git reflog` re-derivation.
 			if (types.includes('branch')) {
+				// A checkout can change includeIf.onbranch without writing any config file.
+				keysToClear.add('aheadOfBaseConfigKey');
 				// `'branch'` comes from a HEAD change — a checkout — which appends `checkout: moving from X
 				// to Y` to the reflog, exactly the entry `getBaseBranchName` greps for when nothing is
 				// stored. A base derived as "none" BEFORE that entry existed is cached with no TTL, so
@@ -852,11 +847,14 @@ export class Cache implements Disposable {
 
 			if (repoPath == null) {
 				cache.clear();
+			} else if (key === 'aheadOfBaseConfigKey' && !worktreeOnly && (!types.length || types.includes('config'))) {
+				// Config reports don't distinguish a common config write from a checkout-specific one.
+				this.evictShared(key, repoPath, 'evict');
 			} else if (sharedCacheKeys.has(key)) {
 				if (!worktreeOnly) {
-					// Always hard-evicted: a summary joining a read from before the change gets back the snapshot it
-					// already holds, and skips the base refresh the change called for
-					this.evictShared(key, repoPath, key === 'aheadOfBaseConfigKey' ? 'evict' : inFlight);
+					// A fresh config fingerprint must never be paired with a pre-change base command.
+					const hardEvict = key === 'gitResults' && (types.includes('config') || types.includes('branch'));
+					this.evictShared(key, repoPath, hardEvict ? 'evict' : inFlight);
 				}
 			} else {
 				cache.delete(repoPath);
@@ -993,6 +991,13 @@ export class Cache implements Disposable {
 	registerRepoPath(repoPath: Uri, gitDir: GitDir): void {
 		const normalizedPath = getRepositoryOrWorktreePath(repoPath);
 		const commonPath = gitDir.commonUri != null ? getCommonRepositoryPath(gitDir.commonUri) : normalizedPath;
+		const previousCommonPath = this._commonPathRegistry.get(normalizedPath);
+		if (previousCommonPath != null && previousCommonPath !== commonPath) {
+			this.unregisterRepoPath(normalizedPath);
+		}
+		if (previousCommonPath !== commonPath) {
+			this._caches.aheadOfBaseConfigKey?.delete(normalizedPath);
+		}
 		this._commonPathRegistry.set(normalizedPath, commonPath);
 
 		let worktrees = this._worktreesByCommonPath.get(commonPath);
@@ -1014,7 +1019,8 @@ export class Cache implements Disposable {
 	 * shared commonPath entry in each shared cache is only evicted when unregistering the
 	 * last remaining worktree for that commonPath (otherwise siblings still depend on it).
 	 *
-	 * Uses soft-invalidate where supported so any in-flight factory/mapper keeps its abort
+	 * Fingerprints are hard-deleted so a reopened checkout cannot reuse pre-close evidence. Other entries use
+	 * soft-invalidate where supported so any in-flight factory/mapper keeps its abort
 	 * wiring intact — a caller whose signal aborts after unregister can still propagate
 	 * cancellation into the underlying work rather than leaving it orphaned. Controller-backed
 	 * entries self-evict on settle; plain `.set()`-based entries hard-delete immediately.
@@ -1046,7 +1052,8 @@ export class Cache implements Disposable {
 
 			// Prefer `invalidate` so in-flight abort wiring survives until the factory settles;
 			// fall back to `delete` for plain `Map`-typed caches that don't track promises.
-			const invalidate = (cache as { invalidate?: (k: string) => void }).invalidate;
+			const invalidate =
+				key === 'aheadOfBaseConfigKey' ? undefined : (cache as { invalidate?: (k: string) => void }).invalidate;
 			const evict =
 				typeof invalidate === 'function'
 					? (k: string) => invalidate.call(cache, k)
@@ -1910,20 +1917,21 @@ export class Cache implements Disposable {
 		);
 	}
 
-	/**
-	 * The `getAheadOfBase` config snapshot, read once per commonPath for every worktree. Any config change hard-evicts
-	 * it (see {@link clearCaches}), so a read issued after the change never joins one that started before it.
-	 */
+	/** Config can differ by checkout through config.worktree and conditional includes. */
 	getAheadOfBaseConfigKey(
 		repoPath: string,
 		factory: (
-			commonPath: string,
+			repoPath: string,
 			cacheable: CacheController,
 			cancellation?: AbortSignal,
 		) => PromiseOrValue<string | undefined>,
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
-		return this.getSharedSimple(this.aheadOfBaseConfigKey, repoPath, factory, cancellation);
+		return this.aheadOfBaseConfigKey.getOrCreate(
+			repoPath,
+			(cacheable, signal) => Promise.resolve(factory(repoPath, cacheable, signal)),
+			cancellation,
+		);
 	}
 
 	getBranchMetadataMap(

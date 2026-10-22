@@ -868,7 +868,7 @@ describe('WorktreeSummaryService', () => {
 
 			await h.service.getSummary(repoPath);
 			assert.strictEqual(h.repo.counts.branch, 2, 'one-off reads are not cached');
-			assert.strictEqual(h.repo.configKeyReads, 0, 'one-off reads retain no config snapshot');
+			assert.strictEqual(h.repo.configKeyReads, 2, 'each one-off base read captures its config inputs');
 		});
 
 		it('rejects a one-off read for an unknown repository', async () => {
@@ -971,7 +971,7 @@ describe('WorktreeSummaryService', () => {
 			for (let i = 0; i < 2; i++) {
 				assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop')), onlyBase);
 			}
-			assert.strictEqual(h.repo.configKeyReads, 1, 'dependent-ref movement retains the config snapshot');
+			assert.strictEqual(h.repo.configKeyReads, 3, 'each new base is paired with its config snapshot');
 		});
 
 		it('runs base when a ref a no-base answer depends on moves, and picks up the base it finds', async () => {
@@ -1391,7 +1391,11 @@ describe('WorktreeSummaryService', () => {
 			h.repo.hold();
 			h.push(['heads'], 'refs/heads/develop');
 			await waitFor(() => h.repo.counts.base > before.base);
-			assert.strictEqual(h.repo.configKeyReads, configKeyReads, 'ref-only reads retain the config snapshot');
+			assert.strictEqual(
+				h.repo.configKeyReads,
+				configKeyReads + 1,
+				'the held base captures its config before reading',
+			);
 
 			h.repo.state.configKey = 'config-v2';
 			h.push(['config']);
@@ -1401,8 +1405,51 @@ describe('WorktreeSummaryService', () => {
 			h.repo.release();
 			await waitFor(() => h.repo.counts.base === before.base + 2);
 			await h.service.getSummary(repoPath);
-			assert.strictEqual(h.repo.configKeyReads, configKeyReads + 1, 'queued config refresh snapshots once');
+			assert.strictEqual(
+				h.repo.configKeyReads,
+				configKeyReads + 2,
+				'the queued config refresh captures fresh inputs',
+			);
 			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+		});
+
+		it('pairs a HEAD-driven base with its config snapshot before a later config change returns to the old key', async () => {
+			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			h.repo.state.configKey = 'branch-config-B';
+			h.repo.state.base = { ...h.repo.state.base!, ahead: 9 };
+			await readsAfter(h, () => h.push(['head', 'heads'], 'HEAD'));
+			h.repo.state.configKey = 'config-v1';
+			h.repo.state.base = { ...h.repo.state.base, ahead: 4 };
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'], false)), { ...onlyBranch, base: 1 });
+			assert.strictEqual((await h.service.getSummary(repoPath)).base?.ahead, 4);
+		});
+
+		it('treats a config event during a base read as unknown provenance even when the key returns to its old value', async () => {
+			const h = createHarness();
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			const before = h.repo.snapshot();
+			h.repo.hold();
+			h.push(['heads'], 'refs/heads/develop');
+			await waitFor(() => h.repo.counts.base > before.base);
+			h.repo.state.configKey = 'config-v1';
+			h.repo.state.base = { ...h.repo.state.base!, ahead: 8 };
+			const reported = new Promise<void>(resolve => {
+				const listener = h.watchService.onDidChangeRepository(event => {
+					if (!event.changed('config')) return;
+
+					listener.dispose();
+					resolve();
+				});
+			});
+			h.push(['config'], false);
+			await reported;
+			h.repo.release();
+			await waitFor(() => h.repo.counts.base === before.base + 2);
+			await h.service.getSummary(repoPath);
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'], false)), onlyBranch);
 		});
 
 		it('runs everything for head and unknown changes', async () => {
@@ -1414,7 +1461,7 @@ describe('WorktreeSummaryService', () => {
 			for (let i = 0; i < 2; i++) {
 				assert.deepStrictEqual(await readsAfter(h, () => h.push(['head', 'heads'], 'HEAD')), all);
 			}
-			assert.strictEqual(h.repo.configKeyReads, 1, 'HEAD movement retains the config snapshot');
+			assert.strictEqual(h.repo.configKeyReads, 3, 'HEAD-driven base reads capture their effective config');
 			assert.deepStrictEqual(await readsAfter(h, () => h.push(['unknown'])), all);
 		});
 

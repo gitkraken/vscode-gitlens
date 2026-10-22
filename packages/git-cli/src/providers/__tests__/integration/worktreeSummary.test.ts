@@ -10,6 +10,7 @@ import type { WorktreeSummary, WorktreeSummarySubscription } from '@gitlens/git/
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
+import { CliGitProvider } from '../../../cliGitProvider.js';
 import { createCliGitService } from '../../../service.js';
 import type { TestRepo } from './helpers.js';
 import { createTestRepo } from './helpers.js';
@@ -172,7 +173,73 @@ suite('WorktreeSummaryService against real git', () => {
 		assert.notStrictEqual(await getKey(), key, 'removing a remote changes the fingerprint');
 	});
 
-	test("a registered linked worktree shares the repository's config key, without its own config.worktree", async () => {
+	test('refreshes a linked worktree base when a different branch changes its worktree-specific upstream', async () => {
+		const linkedRoot = mkdtempSync(join(tmpdir(), 'gitlens-summary-config-'));
+		const linkedPath = normalizePath(join(linkedRoot, 'checkout'));
+		const provider = service.getProvider(repo.path)?.provider;
+		assert.ok(provider instanceof CliGitProvider);
+		let added = false;
+		try {
+			const initialTip = revParse('HEAD');
+			git('checkout', '-q', '-b', 'feature');
+			git('commit', '-q', '--allow-empty', '-m', 'First feature commit');
+			const nearerTip = revParse('HEAD');
+			git('commit', '-q', '--allow-empty', '-m', 'Second feature commit');
+			git('checkout', '-q', 'main');
+			git('remote', 'add', 'origin', 'https://example.invalid/origin.git');
+			git('remote', 'add', 'alternate', 'https://example.invalid/alternate.git');
+			git('update-ref', 'refs/remotes/origin/main', initialTip);
+			git('update-ref', 'refs/remotes/alternate/main', nearerTip);
+			git('config', 'branch.main.remote', 'origin');
+			git('config', 'branch.main.merge', 'refs/heads/main');
+			git('config', 'extensions.worktreeConfig', 'true');
+			git('worktree', 'add', '-q', linkedPath, 'feature');
+			added = true;
+			for (const path of [repo.path, linkedPath]) {
+				provider.cache.registerRepoPath(fileUri(path), await provider.config.getGitDir(path));
+			}
+
+			const summaries = service.summaries!;
+			const sub = summaries.subscribe(linkedPath, { delayMs: 1, workingTreeDelayMs: 1 });
+			try {
+				const initial = await summaries.getSummary(linkedPath);
+				assert.strictEqual(initial.base?.ref, 'origin/main');
+				assert.strictEqual(initial.base?.ahead, 2);
+				assert.strictEqual(initial.upstream, undefined);
+				const changed = new Promise<void>(resolve => {
+					const listener = service.watchService!.onDidChangeRepository(e => {
+						if (!e.changed('config')) return;
+
+						listener.dispose();
+						setImmediate(resolve);
+					});
+				});
+				execFileSync('git', ['config', '--worktree', 'branch.main.remote', 'alternate'], { cwd: linkedPath });
+				const gitDir = toFsPath((await provider.config.getGitDir(linkedPath)).uri);
+				fire(gitDir, 'config.worktree');
+				await changed;
+				const after = await summaries.getSummary(linkedPath);
+				const direct = await service.forRepo(linkedPath)!.branches.getAheadOfBase!('feature');
+				assert.strictEqual(direct?.base?.ref, 'alternate/main');
+				assert.strictEqual(direct?.base?.ahead, 1);
+				assert.strictEqual(after.sha, initial.sha);
+				assert.strictEqual(after.upstream, undefined);
+				assert.strictEqual(after.stale, false);
+				assert.deepStrictEqual(after.base, direct?.base);
+			} finally {
+				sub.dispose();
+			}
+		} finally {
+			provider.cache.unregisterRepoPath(linkedPath);
+			provider.cache.unregisterRepoPath(repo.path);
+			if (added) {
+				git('worktree', 'remove', '--force', linkedPath);
+			}
+			rmSync(linkedRoot, { recursive: true, force: true });
+		}
+	});
+
+	test('registered sibling checkouts retain distinct effective config in either reader order', async () => {
 		const linkedRoot = mkdtempSync(join(tmpdir(), 'gitlens-summary-linked-'));
 		const linkedPath = normalizePath(join(linkedRoot, 'checkout'));
 		const getKey = (path: string) => repo.provider.branches.getAheadOfBaseConfigKey(path);
@@ -194,17 +261,16 @@ suite('WorktreeSummaryService against real git', () => {
 			}
 			registered = true;
 
-			// Deliberately shared: these keys never live in a worktree's own config in practice. The linked worktree
-			// reads first, so the shared read can't be the one that happens to run in the main checkout
-			const linkedKey = await getKey(linkedPath);
-			const mainKey = await getKey(repo.path);
-			assert.strictEqual(typeof mainKey, 'string');
-			assert.strictEqual(typeof linkedKey, 'string');
-			assert.ok(
-				!linkedKey?.includes('linked-origin'),
-				"the repository's read doesn't see the worktree's own value, even when that worktree reads first",
-			);
-			assert.strictEqual(linkedKey, mainKey, "the linked worktree is served the repository's read");
+			for (const order of [
+				[linkedPath, repo.path],
+				[repo.path, linkedPath],
+			]) {
+				repo.provider.cache.evictCaches(repo.path, 'config');
+				const keys = new Map(await Promise.all(order.map(async path => [path, await getKey(path)] as const)));
+				assert.ok(keys.get(linkedPath)?.includes('linked-origin'));
+				assert.ok(!keys.get(repo.path)?.includes('linked-origin'));
+				assert.notStrictEqual(keys.get(linkedPath), keys.get(repo.path));
+			}
 		} finally {
 			if (registered) {
 				repo.provider.cache.unregisterRepoPath(linkedPath);
@@ -221,6 +287,22 @@ suite('WorktreeSummaryService against real git', () => {
 				rmSync(linkedRoot, { recursive: true, force: true });
 			}
 		}
+	});
+
+	test('a HEAD checkout invalidates config selected by includeIf.onbranch', async () => {
+		const includePath = join(repo.path, 'branch-config');
+		writeFileSync(includePath, '[branch "main"]\nremote = conditional-origin\n');
+		git('config', 'includeIf.onbranch:feature.path', includePath);
+		const provider = repo.provider;
+		provider.cache.registerRepoPath(fileUri(repo.path), await provider.config.getGitDir(repo.path));
+		const before = await provider.branches.getAheadOfBaseConfigKey(repo.path);
+		assert.ok(!before?.includes('conditional-origin'));
+		git('checkout', '-q', '-b', 'feature');
+		provider.cache.onRepositoryChanged(repo.path, ['head']);
+		assert.ok((await provider.branches.getAheadOfBaseConfigKey(repo.path))?.includes('conditional-origin'));
+		git('checkout', '-q', 'main');
+		provider.cache.onRepositoryChanged(repo.path, ['head']);
+		assert.strictEqual(await provider.branches.getAheadOfBaseConfigKey(repo.path), before);
 	});
 
 	test('refreshes the default branch base when its configured upstream changes', async () => {
