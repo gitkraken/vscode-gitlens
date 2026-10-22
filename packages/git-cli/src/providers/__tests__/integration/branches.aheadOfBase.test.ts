@@ -1404,8 +1404,8 @@ suite('BranchesSubProvider.getAheadOfBase', () => {
 		const repo = createCandidateRepo();
 		try {
 			storeTargets(repo.path, 'feature', { recorded: 'develop' });
-			// Cache `develop` as valid, then delete it: the base still resolves, but the count against it fails
-			await repo.provider.refs.validateReference(repo.path, 'develop');
+			// Cache the ref list naming `develop`, then delete it: the base still resolves, but the count against it fails
+			await repo.provider.refs.getRefs(repo.path);
 			git(repo.path, 'branch', '-D', 'develop');
 
 			await assert.rejects(

@@ -4,6 +4,7 @@ import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitResult } from '@gitlens/git/run.types.js';
+import { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { CliGitProviderInternal } from '../../cliGitProvider.js';
 import type { Git } from '../../exec/git.js';
 import { BranchesGitSubProvider } from '../branches.js';
@@ -360,12 +361,34 @@ suite('BranchesGitSubProvider stored merge target Test Suite', () => {
 		getBranchOverview = sandbox.stub().resolves('overview');
 
 		const provider = {
-			config: { getGkConfig: getGkConfig, setGkConfig: setGkConfig },
-			refs: { getSymbolicReferenceNameOrMissing: checkRef },
+			commits: { isAncestorOf: sandbox.stub().resolves(false) },
+			config: {
+				getConfig: sandbox.stub().resolves(undefined),
+				getGkConfig: getGkConfig,
+				setGkConfig: setGkConfig,
+			},
+			refs: {
+				getMergeBase: sandbox.stub().resolves(undefined),
+				// Nothing is listed, so every existence check goes through `checkRef`
+				getRefs: sandbox.stub().resolves([]),
+				getSymbolicReferenceName: sandbox.stub().resolves(undefined),
+				getSymbolicReferenceNameOrMissing: checkRef,
+				validateReference: sandbox.stub().resolves(undefined),
+			},
 			remotes: { getRemotes: () => Promise.resolve([{ name: 'origin' }]) },
 			branches: { getBranch: () => Promise.resolve(undefined) },
 		} as unknown as CliGitProviderInternal;
-		const cache = { getBranchOverview: getBranchOverview } as unknown as Cache;
+		const cache = {
+			deleteMergeTarget: sandbox.stub(),
+			getAheadOfBaseConfigKey: () => Promise.resolve(undefined),
+			getBranchOverview: getBranchOverview,
+			getCommonPath: (path: string) => path,
+			getMergeTarget: (
+				_repoPath: string,
+				_key: string,
+				factory: (commonPath: string, cacheable: CacheController) => Promise<unknown>,
+			) => factory(repoPath, new CacheController()),
+		} as unknown as Cache;
 
 		branchesProvider = new BranchesGitSubProvider(
 			{} as unknown as GitServiceContext,
@@ -495,7 +518,8 @@ suite('BranchesGitSubProvider stored merge target Test Suite', () => {
 
 	suite('getBranchContributionsOverview Tier 1', () => {
 		function stubFallbacks(): void {
-			sandbox.stub(branchesProvider, 'getBaseBranchName').resolves('origin/base');
+			// The base branch the overview falls through to is the recorded one
+			gkConfig['branch.feature.gk-merge-base'] = 'origin/base';
 			sandbox.stub(branchesProvider, 'getDefaultBranchName').resolves('origin/default');
 		}
 

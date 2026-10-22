@@ -357,7 +357,8 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		const parser = getReflogEntryParser();
 		const args = ['reflog', 'show', ...parser.arguments];
 		if (options?.grep) {
-			args.push(`--grep-reflog=${options.grep}`);
+			// A basic regex whatever the user's `grep.patternType`, which as `fixed` would match no pattern at all
+			args.push('--basic-regexp', `--grep-reflog=${options.grep}`);
 		}
 		args.push(ref, '--');
 
