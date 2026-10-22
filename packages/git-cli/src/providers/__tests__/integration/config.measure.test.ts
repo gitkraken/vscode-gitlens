@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, statSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as sinon from 'sinon';
 import type { MergeTargetsChangeEvent } from '@gitlens/git/cache.js';
@@ -410,7 +411,10 @@ suite('ConfigSubProvider (gk config watcher echo)', () => {
 	});
 });
 
-/** Conditional includes and config.worktree can change the effective inputs even for registered sibling checkouts. */
+/**
+ * Conditional includes and config.worktree can change the effective inputs even for registered sibling checkouts. With
+ * `extensions.worktreeConfig` set, every checkout reads its own listing.
+ */
 suite('BranchesSubProvider.getAheadOfBaseConfigKey (cached per checkout)', () => {
 	let repo: TestRepo;
 	let worktrees: { path: string; cleanup: () => void }[];
@@ -453,6 +457,7 @@ suite('BranchesSubProvider.getAheadOfBaseConfigKey (cached per checkout)', () =>
 			repo.provider.cache.registerRepoPath(fileUri(path), await repo.provider.config.getGitDir(path));
 		}
 		writeExternally('remote.origin.url', 'https://example.com/repo.git');
+		writeExternally('extensions.worktreeConfig', 'true');
 	});
 
 	teardown(() => {
@@ -537,6 +542,178 @@ suite('BranchesSubProvider.getAheadOfBaseConfigKey (cached per checkout)', () =>
 
 		assert.ok(!(await stale)?.includes('branch.feature/b.merge'), 'the held read answers what it read');
 		assert.ok((await fresh)?.includes('branch.feature/b.merge'), 'the read after the report sees the write');
-		assert.strictEqual(configKeyReadsSince(mark), 2);
+		// The linked checkout's first read lists the main checkout's config to learn that config differs by checkout
+		assert.strictEqual(configKeyReadsSince(mark), 3);
+	});
+});
+
+/**
+ * Without config that can differ by checkout (`extensions.worktreeConfig`, or a conditional include that can tell
+ * checkouts apart), every checkout of a repository shares one listing, read in the main checkout.
+ */
+suite('BranchesSubProvider.getAheadOfBaseConfigKey (shared by every checkout)', () => {
+	let scratch: string;
+	let globalConfig: string;
+	let previousGlobalConfig: string | undefined;
+	let repo: TestRepo;
+	let worktrees: { path: string; cleanup: () => void }[];
+	let paths: string[];
+	const completed: string[] = [];
+
+	const countingLogger: LogChannel = {
+		name: 'spawn-counter',
+		logLevel: 0,
+		dispose: () => {},
+		trace: () => {},
+		debug: () => {},
+		info: (msg: string) => {
+			if (msg.includes('• completed')) {
+				completed.push(msg);
+			}
+		},
+		warn: () => {},
+		error: () => {},
+	};
+
+	const listingsSince = (mark: number) => completed.slice(mark).filter(m => m.includes(' --null --get-regexp '));
+
+	function git(cwd: string, ...args: string[]): string {
+		return execFileSync('git', args, { cwd: cwd, encoding: 'utf-8', stdio: 'pipe' }).trim();
+	}
+
+	/** A `.git/config` change, reported as the watcher would */
+	function reportConfigChange(): void {
+		for (const path of paths) {
+			repo.provider.cache.onRepositoryChanged(path, ['config']);
+		}
+	}
+
+	async function readFromEveryCheckout(): Promise<(string | undefined)[]> {
+		return Promise.all(paths.map(path => repo.provider.branches.getAheadOfBaseConfigKey(path)));
+	}
+
+	suiteSetup(() => {
+		// The machine's own global config could hold a conditional include that tells checkouts apart
+		scratch = mkdtempSync(join(tmpdir(), 'gitlens-config-key-'));
+		globalConfig = join(scratch, 'gitconfig');
+		previousGlobalConfig = process.env.GIT_CONFIG_GLOBAL;
+		process.env.GIT_CONFIG_GLOBAL = globalConfig;
+	});
+
+	suiteTeardown(() => {
+		if (previousGlobalConfig == null) {
+			delete process.env.GIT_CONFIG_GLOBAL;
+		} else {
+			process.env.GIT_CONFIG_GLOBAL = previousGlobalConfig;
+		}
+		rmSync(scratch, { recursive: true, force: true });
+	});
+
+	setup(async () => {
+		writeFileSync(globalConfig, '');
+		repo = createTestRepo({ gitOptions: { logger: countingLogger } });
+		createBranch(repo.path, 'feature/a');
+		createBranch(repo.path, 'feature/b');
+		worktrees = [createWorktree(repo.path, 'feature/a'), createWorktree(repo.path, 'feature/b')];
+		paths = [repo.path, ...worktrees.map(w => w.path)].map(p => normalizePath(p));
+		for (const path of paths) {
+			repo.provider.cache.registerRepoPath(fileUri(path), await repo.provider.config.getGitDir(path));
+		}
+		git(repo.path, 'config', 'remote.origin.url', 'https://example.com/repo.git');
+	});
+
+	teardown(() => {
+		for (const worktree of worktrees) {
+			worktree.cleanup();
+		}
+		repo.cleanup();
+	});
+
+	test('cold checkouts share one listing in the main checkout, and repeated reads stay warm', async () => {
+		const mark = completed.length;
+		const keys = await readFromEveryCheckout();
+
+		const listings = listingsSince(mark);
+		assert.strictEqual(listings.length, 1, listings.join('\n'));
+		assert.ok(listings[0].includes(`[${paths[0]}]`), listings[0]);
+		assert.ok(keys[0]?.includes('remote.origin.url'), 'the snapshot holds the remotes');
+		assert.deepStrictEqual(keys, [keys[0], keys[0], keys[0]]);
+		await readFromEveryCheckout();
+		assert.strictEqual(listingsSince(mark).length, 1, 'warm checkouts spawn nothing');
+	});
+
+	test('an external write is listed once for every checkout', async () => {
+		await readFromEveryCheckout();
+		git(repo.path, 'config', 'branch.feature/a.merge', 'refs/heads/main');
+		reportConfigChange();
+
+		const mark = completed.length;
+		const keys = await readFromEveryCheckout();
+
+		assert.strictEqual(listingsSince(mark).length, 1);
+		for (const key of keys) {
+			assert.ok(key?.includes('branch.feature/a.merge'), 'every checkout sees the write');
+		}
+	});
+
+	test('a repository whose config comes to differ by checkout lists each checkout, until it no longer does', async () => {
+		await readFromEveryCheckout();
+		git(repo.path, 'config', 'extensions.worktreeConfig', 'true');
+		git(paths[1], 'config', '--worktree', 'branch.main.remote', 'linked-origin');
+		reportConfigChange();
+
+		let mark = completed.length;
+		let keys = await readFromEveryCheckout();
+		assert.ok(keys[1]?.includes('linked-origin'), 'the linked checkout reads its own config.worktree');
+		assert.ok(!keys[0]?.includes('linked-origin'));
+		assert.ok(!keys[2]?.includes('linked-origin'));
+		// The main checkout's listing, which shows config differs by checkout, then each linked checkout's own
+		assert.strictEqual(listingsSince(mark).length, 3);
+
+		git(repo.path, 'config', 'remote.origin.pushurl', 'https://example.com/push.git');
+		reportConfigChange();
+		mark = completed.length;
+		keys = await readFromEveryCheckout();
+		assert.ok(keys[1]?.includes('linked-origin'));
+		assert.strictEqual(listingsSince(mark).length, paths.length, 'once known, one listing per checkout');
+
+		git(paths[1], 'config', '--worktree', '--unset', 'branch.main.remote');
+		git(repo.path, 'config', '--unset', 'extensions.worktreeConfig');
+		reportConfigChange();
+		mark = completed.length;
+		keys = await readFromEveryCheckout();
+		assert.deepStrictEqual(keys, [keys[0], keys[0], keys[0]]);
+		assert.strictEqual(listingsSince(mark).length, paths.length, 'each linked checkout finds it shares again');
+
+		reportConfigChange();
+		mark = completed.length;
+		await readFromEveryCheckout();
+		assert.strictEqual(listingsSince(mark).length, 1, 'then they share one listing again');
+	});
+
+	test('a gitdir include only linked checkouts match still shares one listing', async () => {
+		// Accepted gap: a gitdir include only linked checkouts match is the common identity setup, so it stays shared;
+		// an edit to the file it includes goes unseen in those checkouts until a change the shared listing sees
+		const commonGitDir = realpathSync(join(repo.path, '.git'));
+		const include = join(scratch, 'include');
+		writeFileSync(include, '[branch "main"]\n\tremote = included-origin\n');
+		writeFileSync(globalConfig, `[includeIf "gitdir:${commonGitDir}/worktrees/"]\n\tpath = ${include}\n`);
+		assert.strictEqual(git(paths[1], 'config', 'branch.main.remote'), 'included-origin', 'git applies it there');
+		assert.throws(() => git(paths[0], 'config', 'branch.main.remote'), 'and not in the main checkout');
+
+		let mark = completed.length;
+		const keys = await readFromEveryCheckout();
+		assert.strictEqual(listingsSince(mark).length, 1);
+		assert.deepStrictEqual(keys, [keys[0], keys[0], keys[0]], "every checkout keys on the main checkout's listing");
+		assert.ok(!keys[0]?.includes('included-origin'));
+
+		git(repo.path, 'config', 'branch.feature/a.merge', 'refs/heads/main');
+		reportConfigChange();
+		mark = completed.length;
+		const after = await readFromEveryCheckout();
+		assert.strictEqual(listingsSince(mark).length, 1);
+		for (const [i, key] of after.entries()) {
+			assert.notStrictEqual(key, keys[i], "a watched write still changes every checkout's key");
+		}
 	});
 });

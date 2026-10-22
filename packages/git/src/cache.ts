@@ -184,6 +184,11 @@ interface Caches {
 
 /** Shared caches — cleared via commonPath + all worktree paths */
 interface SharedCaches {
+	/**
+	 * The `git config` listing behind `aheadOfBaseConfigKey`, read once in the main checkout for every checkout of the
+	 * repository; also the main checkout's own listing
+	 */
+	aheadOfBaseConfigListing: PromiseMap<RepoPath, string | undefined> | undefined;
 	baseBranchName: RepoPromiseCacheMap<string, string | undefined> | undefined;
 	branchMergedStatus: RepoPromiseCacheMap<string, GitBranchMergedStatus> | undefined;
 	branchMetadataMap: PromiseMap<RepoPath, Map<string, BranchMetadata>> | undefined;
@@ -217,6 +222,7 @@ type AllCaches = Caches & SharedCaches;
 /** Compile-time enforced: adding a key to SharedCaches without listing it here is a type error */
 const sharedCacheKeys: ReadonlySet<keyof AllCaches> = new Set(
 	exhaustiveArray<keyof SharedCaches>()([
+		'aheadOfBaseConfigListing',
 		'baseBranchName',
 		'branchMergedStatus',
 		'branchMetadataMap',
@@ -247,6 +253,7 @@ const sharedCacheKeys: ReadonlySet<keyof AllCaches> = new Set(
 function createEmptyCaches(): AllCaches {
 	return {
 		aheadOfBaseConfigKey: undefined,
+		aheadOfBaseConfigListing: undefined,
 		baseBranchName: undefined,
 		bestRemotes: undefined,
 		blame: undefined,
@@ -369,6 +376,10 @@ export class Cache implements Disposable {
 
 	get aheadOfBaseConfigKey(): PromiseMap<RepoPath, string | undefined> {
 		return (this._caches.aheadOfBaseConfigKey ??= new PromiseMap<RepoPath, string | undefined>());
+	}
+
+	get aheadOfBaseConfigListing(): PromiseMap<RepoPath, string | undefined> {
+		return (this._caches.aheadOfBaseConfigListing ??= new PromiseMap<RepoPath, string | undefined>());
 	}
 
 	get bestRemotes(): PromiseMap<RepoPath, GitRemote<RemoteProvider>[]> {
@@ -722,6 +733,7 @@ export class Cache implements Disposable {
 			if (types.includes('branch')) {
 				// A checkout can change includeIf.onbranch without writing any config file.
 				keysToClear.add('aheadOfBaseConfigKey');
+				keysToClear.add('aheadOfBaseConfigListing');
 				// `'branch'` comes from a HEAD change — a checkout — which appends `checkout: moving from X
 				// to Y` to the reflog, exactly the entry `getBaseBranchName` greps for when nothing is
 				// stored. A base derived as "none" BEFORE that entry existed is cached with no TTL, so
@@ -747,6 +759,7 @@ export class Cache implements Disposable {
 
 			if (types.includes('config')) {
 				keysToClear.add('aheadOfBaseConfigKey');
+				keysToClear.add('aheadOfBaseConfigListing');
 				// `getBaseBranchName` falls back to `branch.<ref>.vscode-merge-base` (written by VS Code's
 				// built-in Git), which lives in `.git/config` — so a config change is the only signal that
 				// source changed. Cheap: config events are rare.
@@ -852,8 +865,11 @@ export class Cache implements Disposable {
 				this.evictShared(key, repoPath, 'evict');
 			} else if (sharedCacheKeys.has(key)) {
 				if (!worktreeOnly) {
-					// A fresh config fingerprint must never be paired with a pre-change base command.
-					const hardEvict = key === 'gitResults' && (types.includes('config') || types.includes('branch'));
+					// A fresh config fingerprint must never be paired with a pre-change base command, nor taken from a
+					// listing read before the change
+					const hardEvict =
+						key === 'aheadOfBaseConfigListing' ||
+						(key === 'gitResults' && (types.includes('config') || types.includes('branch')));
 					this.evictShared(key, repoPath, hardEvict ? 'evict' : inFlight);
 				}
 			} else {
@@ -997,6 +1013,9 @@ export class Cache implements Disposable {
 		}
 		if (previousCommonPath !== commonPath) {
 			this._caches.aheadOfBaseConfigKey?.delete(normalizedPath);
+			if (normalizedPath === commonPath) {
+				this._caches.aheadOfBaseConfigListing?.delete(commonPath);
+			}
 			this._caches.gitResults?.delete(normalizedPath);
 		}
 		this._commonPathRegistry.set(normalizedPath, commonPath);
@@ -1053,6 +1072,13 @@ export class Cache implements Disposable {
 			if (key === 'aheadOfBaseConfigKey' || key === 'gitResults') {
 				cache.delete(repoPath);
 				if (key === 'gitResults' && isLastWorktree && repoPath !== commonPath) {
+					cache.delete(commonPath);
+				}
+				continue;
+			}
+			// The main checkout's own listing, so it retires with that checkout as its config key does
+			if (key === 'aheadOfBaseConfigListing') {
+				if (repoPath === commonPath || isLastWorktree) {
 					cache.delete(commonPath);
 				}
 				continue;
@@ -1939,6 +1965,23 @@ export class Cache implements Disposable {
 			(cacheable, signal) => Promise.resolve(factory(repoPath, cacheable, signal)),
 			cancellation,
 		);
+	}
+
+	/**
+	 * One listing for every checkout of a repository, which serves a checkout's {@link getAheadOfBaseConfigKey} while
+	 * nothing makes config differ by checkout. Evicted with it, hard, so a read after a change never joins one from
+	 * before it.
+	 */
+	getAheadOfBaseConfigListing(
+		repoPath: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<string | undefined>,
+		cancellation?: AbortSignal,
+	): Promise<string | undefined> {
+		return this.getSharedSimple(this.aheadOfBaseConfigListing, repoPath, factory, cancellation);
 	}
 
 	getBranchMetadataMap(
