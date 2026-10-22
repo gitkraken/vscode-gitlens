@@ -115,6 +115,13 @@ export interface WatchServiceOptions {
 	readonly getIgnoredDirectories?: (repoPath: string) => Promise<readonly string[]>;
 	/** Opts into polling the watchers that report they can't be trusted. When absent, no watcher is asked. */
 	readonly polling?: WatchPollingOptions;
+	/**
+	 * Reads a file's bytes; a rejection means it couldn't be read. With it, each report of a repository's shared
+	 * `.git/config` is classified by what changed in the file: a change confined to some branches' `branch.<name>`
+	 * sections reaches only the subscribers following those branches, and carries no `remotes`. Without it, every
+	 * config change concerns everyone, as before.
+	 */
+	readonly readFile?: (path: string) => Promise<Uint8Array>;
 }
 
 export interface WatchHooks {
@@ -202,6 +209,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 	private readonly getIgnoredDirectories?: (repoPath: string) => Promise<readonly string[]>;
 	private readonly provider: FileWatchingProvider;
 	private readonly poller: GitDirPoller | undefined;
+	private readonly readFile: ((path: string) => Promise<Uint8Array>) | undefined;
 
 	private readonly sessionMap = new Map<string, SessionRecord>();
 	private readonly watchGroups = new Map<string, WatchGroup>();
@@ -218,6 +226,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		this.defaultWorkingTreeMaxWaitMs = options.defaultWorkingTreeMaxWaitMs;
 		this.getIgnoreFilter = options.getIgnoreFilter;
 		this.getIgnoredDirectories = options.getIgnoredDirectories;
+		this.readFile = options.readFile;
 		if (options.polling != null) {
 			this.poller = new GitDirPoller(options.polling);
 		}
@@ -362,13 +371,19 @@ export class RepositoryWatchService implements UnifiedDisposable {
 
 	/**
 	 * Core announced one of its own writes for `repoPath`; the session watching it fires the announcement in place of
-	 * the write's own `.git` events (see {@link RepositoryWatchSession.noteSelfWrite}). A path no session watches is
-	 * ignored.
+	 * the write's own `.git` events (see {@link RepositoryWatchSession.noteSelfWrite}); `refs` are the full ref names it
+	 * moved, when it knows them, and `options.configConfinedToRefs` confines its `config` change to the sections of the
+	 * local branches among them (see `GitServiceHooks.repository.onChanged`). A path no session watches is ignored.
 	 */
-	noteSelfWrite(repoPath: string, changes: readonly RepositoryChange[]): void {
+	noteSelfWrite(
+		repoPath: string,
+		changes: readonly RepositoryChange[],
+		refs?: readonly string[],
+		options?: { readonly configConfinedToRefs?: boolean },
+	): void {
 		if (this._disposed) return;
 
-		this.sessionMap.get(getRepositoryKey(repoPath))?.session.noteSelfWrite(changes);
+		this.sessionMap.get(getRepositoryKey(repoPath))?.session.noteSelfWrite(changes, refs, options);
 	}
 
 	/** Get an existing session by repo path */
@@ -421,7 +436,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 	private getOrCreateWatchGroup(commonGitDir: string): WatchGroup {
 		let group = this.watchGroups.get(commonGitDir);
 		if (group == null) {
-			group = new WatchGroup(commonGitDir, this.provider, this.poller);
+			group = new WatchGroup(commonGitDir, this.provider, this.poller, this.readFile);
 			this.watchGroups.set(commonGitDir, group);
 		}
 		return group;
@@ -448,11 +463,12 @@ export class RepositoryWatchService implements UnifiedDisposable {
 				changes: RepositoryChange[],
 				ref?: string | false,
 				overflow?: boolean,
+				configBranches?: ReadonlySet<string>,
 			): void => {
 				if (overflow) {
 					session.pushUnfencedRepoChanges(changes);
 				} else {
-					session.pushRepoChanges(changes, ref);
+					session.pushRepoChanges(changes, ref, configBranches);
 				}
 
 				// A working tree nothing watches is read again whenever the index or HEAD says it may have moved

@@ -1,8 +1,10 @@
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { some } from '@gitlens/utils/iterable.js';
-import { isDescendant, relative } from '@gitlens/utils/path.js';
+import { isDescendant, joinPaths, relative } from '@gitlens/utils/path.js';
 import type { GitDir, RepositoryChange } from '../models/repository.js';
 import { allWatchedRepositoryChanges, classifyGitDirChange } from './classifyChange.js';
+import type { GitConfigSections, GitConfigSectionsChange } from './configSections.js';
+import { diffGitConfigSections, parseGitConfigBytes } from './configSections.js';
 import type { GitDirPoller, GitDirProbe } from './gitDirPoller.js';
 import { GitDirProbeTarget } from './gitDirPoller.js';
 import type {
@@ -25,6 +27,12 @@ import {
 } from './watcherPatterns.js';
 
 /**
+ * How long a read of the shared `.git/config` may take before it counts as failed (unconfined). Reads run one at a
+ * time, so one that never settles, as on a hung network or WSL mount, would otherwise hold back every later report.
+ */
+const configReadTimeoutMs = 5000;
+
+/**
  * Hooks that the WatchGroup fires when events are interpreted.
  * These are raw, un-debounced events — the session handles debouncing.
  */
@@ -32,13 +40,17 @@ export interface WatchGroupHooks {
 	/**
 	 * `ref` is the full ref name (or ref directory) or pseudo-ref (`HEAD`, `ORIG_HEAD`) whose file changed, with a
 	 * trailing `.lock` stripped; `false` when config changed without moving refs, and `undefined` when ref movement
-	 * is unknown. `overflow` marks the every-kind rescan of a watcher that dropped events.
+	 * is unknown. `overflow` marks the every-kind rescan of a watcher that dropped events, which no single write can
+	 * account for. `configBranches`, with a `config` change, are the local branches (full ref names) whose
+	 * `branch.<name>` sections are all that changed in the shared `.git/config`; without it, the config change may be
+	 * anywhere.
 	 */
 	readonly onRepoChanged: (
 		repoPath: string,
 		changes: RepositoryChange[],
 		ref?: string | false,
 		overflow?: boolean,
+		configBranches?: ReadonlySet<string>,
 	) => void;
 	readonly onFetchHeadChanged?: (repoPath: string) => void;
 	readonly onIgnoresChanged?: (repoPath: string) => void;
@@ -77,6 +89,15 @@ interface SessionEntry {
  *
  * For a standard (non-worktree) repo, the common and root directories
  * are the same, but we still create separate watchers for clean separation.
+ *
+ * Given a `readFile`, the group keeps the shared `.git/config` as it last read it, section by section. A report of
+ * that file (or its lock), from whichever watcher, is read and compared with it once, and every session hears what
+ * changed: only some branches' `branch.<name>` sections (`config`, confined to them), anything else (`config` and
+ * `remotes`, unconfined), or nothing at all, when an earlier report's read already delivered the change. Reads run
+ * one at a time, so each compares with the one before it and none is skipped. The first read, taken as the group
+ * starts, is the baseline and delivers nothing; a report arriving before it completes may describe a change it
+ * already holds, so it is delivered unconfined. A read that fails or doesn't settle within a few seconds, or a file
+ * git couldn't parse, is unconfined too.
  */
 export class WatchGroup implements UnifiedDisposable {
 	private readonly _sessions = new Map<string, SessionEntry>();
@@ -85,12 +106,25 @@ export class WatchGroup implements UnifiedDisposable {
 	private _commonTarget: GitDirProbeTarget | undefined;
 	private _disposed = false;
 
+	/** The shared `.git/config`, by section, as the last read that could parse it found it */
+	private _config: GitConfigSections | undefined;
+	/** The baseline read is in flight */
+	private _configBaselining = false;
+	private _configReading = false;
+	private _configRereadQueued = false;
+
 	constructor(
 		readonly commonGitDir: string,
 		private readonly provider: FileWatchingProvider,
 		/** When given, a watcher that reports it can't be trusted is polled; otherwise none is asked */
 		private readonly poller?: GitDirPoller,
-	) {}
+		/** When given, reports of the shared `.git/config` are classified by what changed in it (see above) */
+		private readonly readFile?: (path: string) => Promise<Uint8Array>,
+	) {
+		if (readFile != null) {
+			void this.readConfigBaseline();
+		}
+	}
 
 	[Symbol.dispose](): void {
 		this.dispose();
@@ -394,6 +428,11 @@ export class WatchGroup implements UnifiedDisposable {
 		const relativePath = relative(this.commonGitDir, event.path);
 		if (shouldIgnoreRepoPath(relativePath)) return;
 
+		if (this.readFile != null && isConfigFile(relativePath)) {
+			this.onConfigReported();
+			return;
+		}
+
 		const isFetchHead = relativePath === 'FETCH_HEAD';
 		const isExclude = relativePath === 'info/exclude';
 		const changes = isFetchHead ? undefined : classifyGitDirChange(relativePath);
@@ -456,6 +495,12 @@ export class WatchGroup implements UnifiedDisposable {
 			return;
 		}
 
+		// A linked worktree's git dir isn't the common one, so no file there is the shared config
+		if (entry.coversCommon && this.readFile != null && isConfigFile(relativePath)) {
+			this.onConfigReported();
+			return;
+		}
+
 		const changes = classifyGitDirChange(relativePath);
 		if (changes != null) {
 			entry.hooks.onRepoChanged(entry.repoPath, changes, getChangedRef(relativePath));
@@ -465,6 +510,103 @@ export class WatchGroup implements UnifiedDisposable {
 			entry.hooks.onIgnoresChanged?.(entry.repoPath);
 		}
 	}
+
+	private onConfigReported(): void {
+		// The baseline may already hold the change reported, which comparing with it would lose
+		if (this._configBaselining) {
+			this.deliverConfigChange(undefined);
+			return;
+		}
+		if (this._configReading) {
+			this._configRereadQueued = true;
+			return;
+		}
+
+		void this.readConfigChanges();
+	}
+
+	private async readConfigBaseline(): Promise<void> {
+		this._configBaselining = true;
+		this._configReading = true;
+		try {
+			const config = await this.readConfig();
+			if (this._disposed) return;
+
+			this._config = config;
+		} finally {
+			this._configBaselining = false;
+			this._configReading = false;
+		}
+	}
+
+	/** Reads and compares until no report came in during the last read: it may describe a change the read missed */
+	private async readConfigChanges(): Promise<void> {
+		this._configReading = true;
+		try {
+			do {
+				this._configRereadQueued = false;
+				const config = await this.readConfig();
+				if (this._disposed) return;
+
+				const previous = this._config;
+				if (config == null || previous == null) {
+					// Unreadable now, or never readable before: the change may be anywhere. A failed read keeps the last
+					// snapshot, so the next read still compares with what every session was told
+					this._config ??= config;
+					this.deliverConfigChange(undefined);
+					continue;
+				}
+
+				this._config = config;
+				const change = diffGitConfigSections(previous, config);
+				if (change != null) {
+					this.deliverConfigChange(change);
+				}
+			} while (this._configRereadQueued);
+		} finally {
+			this._configReading = false;
+		}
+	}
+
+	/** `undefined` when the file couldn't be read or parsed, or the read didn't settle in time */
+	private async readConfig(): Promise<GitConfigSections | undefined> {
+		const readFile = this.readFile;
+		if (readFile == null) return undefined;
+
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		try {
+			const data = await Promise.race([
+				readFile(joinPaths(this.commonGitDir, 'config')),
+				new Promise<undefined>(resolve => {
+					timer = setTimeout(resolve, configReadTimeoutMs, undefined);
+				}),
+			]);
+			return data != null ? parseGitConfigBytes(data) : undefined;
+		} catch {
+			return undefined;
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+
+	/**
+	 * Tells every session of a change to the shared `.git/config`: confined to some branches' sections, or (`undefined`,
+	 * or a change outside them) anywhere, which may have changed a remote's settings too. Either way no ref moved
+	 */
+	private deliverConfigChange(change: GitConfigSectionsChange | undefined): void {
+		for (const entry of this._sessions.values()) {
+			if (change?.confined) {
+				entry.hooks.onRepoChanged(entry.repoPath, ['config'], false, false, change.branches);
+			} else {
+				entry.hooks.onRepoChanged(entry.repoPath, ['config', 'remotes'], false);
+			}
+		}
+	}
+}
+
+/** The shared `.git/config` (or the lock git writes it through), relative to the common git dir */
+function isConfigFile(relativePath: string): boolean {
+	return relativePath === 'config' || relativePath === 'config.lock';
 }
 
 /**

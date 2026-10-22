@@ -83,16 +83,19 @@ interface MergeTargetsSource {
 export class GitService implements UnifiedDisposable {
 	private static _instance: GitService | undefined;
 
-	/** `options.watchPolling` opts the watch service into polling what `watchingProvider` reports it can't watch */
+	/**
+	 * `options.watchPolling` opts the watch service into polling what `watchingProvider` reports it can't watch, and
+	 * `options.readFile` lets it tell what a reported `.git/config` change changed (see `WatchServiceOptions.readFile`)
+	 */
 	static createSingleton(
 		watchingProvider?: FileWatchingProvider,
-		options?: { watchPolling?: WatchPollingOptions },
+		options?: { watchPolling?: WatchPollingOptions; readFile?: (path: string) => Promise<Uint8Array> },
 	): GitService {
 		if (GitService._instance != null) {
 			throw new Error('GitService already exists — only one instance is allowed');
 		}
 
-		const instance = new GitService(watchingProvider, options?.watchPolling);
+		const instance = new GitService(watchingProvider, options?.watchPolling, options?.readFile);
 		GitService._instance = instance;
 		return instance;
 	}
@@ -121,11 +124,16 @@ export class GitService implements UnifiedDisposable {
 	private readonly _watchService: RepositoryWatchService | undefined;
 	private readonly _summaries: WorktreeSummaryService | undefined;
 
-	private constructor(watchingProvider?: FileWatchingProvider, watchPolling?: WatchPollingOptions) {
+	private constructor(
+		watchingProvider?: FileWatchingProvider,
+		watchPolling?: WatchPollingOptions,
+		readFile?: (path: string) => Promise<Uint8Array>,
+	) {
 		if (watchingProvider != null) {
 			this._watchService = new RepositoryWatchService({
 				watchingProvider: watchingProvider,
 				polling: watchPolling,
+				readFile: readFile,
 				getIgnoreFilter: (repoPath, gitDirPath) => {
 					return this.getProvider(repoPath)?.provider.getIgnoreFilter?.(repoPath, gitDirPath);
 				},
@@ -200,7 +208,11 @@ export class GitService implements UnifiedDisposable {
 			canHandle: canHandle,
 			announcements:
 				watchService != null
-					? provider.onDidAnnounceChanges?.(e => watchService.noteSelfWrite(e.repoPath, e.changes))
+					? provider.onDidAnnounceChanges?.(e =>
+							watchService.noteSelfWrite(e.repoPath, e.changes, e.refs, {
+								configConfinedToRefs: e.configConfinedToRefs,
+							}),
+						)
 					: undefined,
 		};
 		this._providers.push(entry);

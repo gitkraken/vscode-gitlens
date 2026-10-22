@@ -17,6 +17,7 @@ import type {
 import type { GitCommandPriority } from '@gitlens/git/run.types.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
+import { getRefChangeKind } from '@gitlens/git/watching/changeEvent.js';
 import { GitIgnoreFilter } from '@gitlens/git/watching/gitIgnoreFilter.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { Event } from '@gitlens/utils/event.js';
@@ -133,7 +134,7 @@ export class CliGitProvider implements GitProvider {
 				},
 				repository: {
 					...hostHooks?.repository,
-					onChanged: (repoPath, changes) => {
+					onChanged: (repoPath, changes, refs, options) => {
 						// Everything the watcher would have cleared for the write, since its own file events are
 						// dropped once it is announced (the typed write's `onReset` names only what it must evict)
 						this.resetForChanges(repoPath, changes, undefined);
@@ -146,9 +147,13 @@ export class CliGitProvider implements GitProvider {
 							this.resetForChanges(path, shared, undefined, true);
 						}
 
-						this.announceChanged(repoPath, changes);
+						this.announceChanged(repoPath, changes, refs, options);
+						if (siblings.size === 0) return;
+
+						// Siblings share the one `.git/config`, so the write's config is as confined for them
+						const sharedRefs = refs?.length ? getSharedRefs(changes, refs) : undefined;
 						for (const [path, shared] of siblings) {
-							this.announceChanged(path, shared);
+							this.announceChanged(path, shared, sharedRefs, options);
 						}
 					},
 				},
@@ -379,8 +384,39 @@ export class CliGitProvider implements GitProvider {
 		this._hostHooks?.repository?.onChanged?.(repoPath, changes);
 	}
 
-	/** Tells the host about a write for one path, after its caches were reset — the watch layer hears of it first */
-	private announceChanged(repoPath: string, changes: RepositoryChange[]): void {
+	/**
+	 * Tells the host about a write for one path, after its caches were reset — the watch layer hears of it first.
+	 * `refs` are the full ref names the write moved, when it knows them, and `options.configConfinedToRefs` confines
+	 * its `config` change to the sections of the local branches among them (see `GitServiceHooks.repository.onChanged`);
+	 * the confinement is passed on only with `config` among `changes` and a branch in `refs` to confine it to.
+	 */
+	private announceChanged(
+		repoPath: string,
+		changes: RepositoryChange[],
+		refs?: readonly string[],
+		options?: { readonly configConfinedToRefs?: boolean },
+	): void {
+		if (refs?.length) {
+			if (
+				options?.configConfinedToRefs === true &&
+				changes.includes('config') &&
+				refs.some(r => r.startsWith('refs/heads/'))
+			) {
+				this._onDidAnnounceChanges.fire({
+					repoPath: repoPath,
+					changes: changes,
+					refs: refs,
+					configConfinedToRefs: true,
+				});
+				this._hostHooks?.repository?.onChanged?.(repoPath, changes, refs, { configConfinedToRefs: true });
+				return;
+			}
+
+			this._onDidAnnounceChanges.fire({ repoPath: repoPath, changes: changes, refs: refs });
+			this._hostHooks?.repository?.onChanged?.(repoPath, changes, refs);
+			return;
+		}
+
 		this._onDidAnnounceChanges.fire({ repoPath: repoPath, changes: changes });
 		this._hostHooks?.repository?.onChanged?.(repoPath, changes);
 	}
@@ -1057,6 +1093,22 @@ export class CliGitProvider implements GitProvider {
 			this._cache.dispose();
 		}
 	}
+}
+
+/**
+ * The names in `refs` a sibling worktree hears with the shared part of `changes`: those of a shared ref kind among
+ * `changes`. An empty `changes` or `'unknown'` reaches siblings as every shared kind, unnamed, so none.
+ */
+function getSharedRefs(changes: readonly RepositoryChange[], refs: readonly string[]): string[] | undefined {
+	if (!changes.length || changes.includes('unknown')) return undefined;
+
+	const shared = refs.filter(r => {
+		if (!r.startsWith('refs/')) return false;
+
+		const kind = getRefChangeKind(r);
+		return kind != null && changes.includes(kind) && worktreeSharedChanges.has(kind);
+	});
+	return shared.length ? shared : undefined;
 }
 
 /**

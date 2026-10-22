@@ -1058,10 +1058,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			);
 		} finally {
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(
-				repoPath,
-				mayWriteTracking(ref, options?.noTracking) ? ['config', 'heads'] : ['heads'],
-			);
+			// Tracking is written to the new branch's own config section, and nowhere else
+			if (mayWriteTracking(ref, options?.noTracking)) {
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'heads'], [`refs/heads/${name}`], {
+					configConfinedToRefs: true,
+				});
+			} else {
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['heads'], [`refs/heads/${name}`]);
+			}
 		}
 	}
 
@@ -1075,20 +1079,33 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				await this.forgetDeletedBranch(repoPath, branch);
 			}
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'heads']);
+			// A delete drops the branches' own config sections, and nothing else
+			this.context.hooks?.repository?.onChanged?.(
+				repoPath,
+				['config', 'heads'],
+				branches.map(b => `refs/heads/${b}`),
+				{ configConfinedToRefs: true },
+			);
 		} catch (ex) {
 			// A multi-name delete partially succeeds: `git branch -d a bad c` removes `a` and `c`, refuses
 			// `bad`, and still exits non-zero — so the loop above never ran for the branches that did go.
 			// Clean those up here rather than leave persisted gk metadata behind for a name a later branch
 			// can reuse.
-			const anyDeleted = await this.cleanupDeletedBranchMetadata(repoPath, branches);
+			const deleted = await this.cleanupDeletedBranchMetadata(repoPath, branches);
 
 			// The success path's notifications never ran, but some branches DID go — without these the
 			// branch caches stay stale and consumers wait on the filesystem watcher (which never fires
 			// for a packed ref).
-			if (anyDeleted) {
+			if (deleted.length) {
 				this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-				this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'heads']);
+				// Names only the branches that went: the watcher takes a report of a named ref for the write's own,
+				// so naming one that stayed would pass off an outside change to it as this delete's
+				this.context.hooks?.repository?.onChanged?.(
+					repoPath,
+					['config', 'heads'],
+					deleted.map(b => `refs/heads/${b}`),
+					{ configConfinedToRefs: true },
+				);
 			}
 
 			if (ex instanceof BranchError) {
@@ -1136,10 +1153,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	 * for the partial-failure path — one extra `for-each-ref` is cheap while already handling an error,
 	 * and keeps the success path free of it.
 	 *
-	 * Returns whether any of `names` is confirmed gone; `false` when the probe couldn't answer, so a
-	 * spurious notification is never fired on an unrelated failure.
+	 * Returns those of `names` confirmed gone; none when the probe couldn't answer, so a spurious
+	 * notification is never fired on an unrelated failure.
 	 */
-	private async cleanupDeletedBranchMetadata(repoPath: string, names: string[]): Promise<boolean> {
+	private async cleanupDeletedBranchMetadata(repoPath: string, names: string[]): Promise<string[]> {
 		try {
 			const result = await this.git.run(
 				{ cwd: repoPath, errors: 'ignore' },
@@ -1160,7 +1177,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			// catches one that never produced an answer — a spawn failure or queue rejection (no exit code at
 			// all), or a swallowed warning (which carries git's real code, so the exit-code test alone can
 			// still read it as "none survived").
-			if (result.completion.status !== 'exited' || result.exitCode !== 0) return false;
+			if (result.completion.status !== 'exited' || result.exitCode !== 0) return [];
 
 			const prefix = 'refs/heads/';
 			const surviving = new Set(
@@ -1171,18 +1188,18 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					.map(l => l.substring(prefix.length)),
 			);
 
-			let anyDeleted = false;
+			const deleted: string[] = [];
 			for (const name of names) {
 				if (surviving.has(name)) continue;
 
-				anyDeleted = true;
+				deleted.push(name);
 				await this.forgetDeletedBranch(repoPath, name);
 			}
 
-			return anyDeleted;
+			return deleted;
 		} catch {
 			// Best-effort bookkeeping while already unwinding a failure — never mask the original error.
-			return false;
+			return [];
 		}
 	}
 
@@ -3046,9 +3063,15 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					),
 			);
 		} finally {
-			// `git branch -m` can rename the ref and still fail on its config
+			// `git branch -m` can rename the ref and still fail on its config, which it moves from the old name's section
+			// to the new one's
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'heads']);
+			this.context.hooks?.repository?.onChanged?.(
+				repoPath,
+				['config', 'heads'],
+				[`refs/heads/${oldName}`, `refs/heads/${newName}`],
+				{ configConfinedToRefs: true },
+			);
 		}
 	}
 
@@ -3075,7 +3098,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			);
 		} finally {
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'heads']);
+			// The upstream is the branch's own config section; the branch is named for its tracking, not a move
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['config', 'heads'], [`refs/heads/${name}`], {
+				configConfinedToRefs: true,
+			});
 		}
 	}
 

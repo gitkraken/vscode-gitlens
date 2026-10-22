@@ -72,7 +72,7 @@ provider.dispose();
 
 `GitService` key members:
 
-- `static createSingleton(watchingProvider?, options?: { watchPolling? }): GitService` — `watchPolling` (`WatchPollingOptions`) opts into polling what the provider reports it can't watch
+- `static createSingleton(watchingProvider?, options?: { watchPolling?; readFile? }): GitService` — `watchPolling` (`WatchPollingOptions`) opts into polling what the provider reports it can't watch; `readFile(path): Promise<Uint8Array>` lets the watch service read the shared `.git/config` on each report of it and deliver a change confined to `branch.<name>` sections as confined to those branches (`WatcherRepoChangeEvent.configBranches`), which `createCliGitService` passes from `context.fs`
 - `register(provider, canHandle): UnifiedDisposable`
 - `forRepo(repoUri): RepositoryService | undefined`
 - `closeRepo(repoUri): void`

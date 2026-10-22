@@ -5,7 +5,6 @@ import * as l10n from '@vscode/l10n';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import { WorktreeCreateError, WorktreeDeleteError } from '@gitlens/git/errors.js';
-import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import type { WorkspaceFolderResolver } from '@gitlens/git/models/worktree.js';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { GitOperationRunOptions } from '@gitlens/git/providers/operations.js';
@@ -97,16 +96,28 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			);
 		} finally {
 			// A failed or cancelled add may already have created the branch (and its tracking in `.git/config`) or
-			// the worktree directory
-			this.context.hooks?.cache?.onReset?.(
-				repoPath,
-				...(options?.createBranch ? (['branches', 'worktrees'] as const) : (['worktrees'] as const)),
-			);
-			const changes: RepositoryChange[] = options?.createBranch ? ['worktrees', 'heads'] : ['worktrees'];
-			if (options?.createBranch && mayWriteTracking(options.commitish, options.noTracking)) {
-				changes.unshift('config');
+			// the worktree directory.
+			//
+			// The tracking isn't announced as a `config` change, only evicted: git may also write repository-wide
+			// keys (`extensions.relativeWorktrees` under `worktree.useRelativePaths`), so the write can't claim its
+			// config change is confined to the new branch, and an unconfined one would refresh every worktree on each
+			// add. The watcher's report of the file says what changed in it instead.
+			if (options?.createBranch) {
+				this.context.hooks?.cache?.onReset?.(
+					repoPath,
+					...(mayWriteTracking(options.commitish, options.noTracking)
+						? (['branches', 'config', 'worktrees'] as const)
+						: (['branches', 'worktrees'] as const)),
+				);
+				this.context.hooks?.repository?.onChanged?.(
+					repoPath,
+					['worktrees', 'heads'],
+					[`refs/heads/${options.createBranch}`],
+				);
+			} else {
+				this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
 			}
-			this.context.hooks?.repository?.onChanged?.(repoPath, changes);
 		}
 	}
 
