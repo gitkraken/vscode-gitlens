@@ -309,6 +309,10 @@ suite('ConfigSubProvider — config under extensions.worktreeConfig', () => {
 		createBranch(repo.path, 'no-override');
 		worktree = createWorktree(repo.path, 'with-override');
 		plain = createWorktree(repo.path, 'no-override');
+		// The cache keys checkouts by normalized (forward-slash) path, which a native Windows path isn't
+		repo.path = normalizePath(repo.path);
+		worktree.path = normalizePath(worktree.path);
+		plain.path = normalizePath(plain.path);
 		git(worktree.path, 'config', '--worktree', 'user.name', 'Worktree User');
 		git(worktree.path, 'config', '--worktree', 'commit.gpgsign', 'true');
 
@@ -318,8 +322,8 @@ suite('ConfigSubProvider — config under extensions.worktreeConfig', () => {
 		}
 		assert.notStrictEqual(repo.provider.cache.getCommonPath(worktree.path), worktree.path);
 		assert.strictEqual(
-			normalizePath(repo.provider.cache.getCommonPath(worktree.path)),
-			normalizePath(repo.provider.cache.getCommonPath(repo.path)),
+			repo.provider.cache.getCommonPath(worktree.path),
+			repo.provider.cache.getCommonPath(repo.path),
 		);
 	});
 
