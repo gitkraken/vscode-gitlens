@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds an optional `getPushTarget` to `GitBranchesSubProvider`: where a branch (the checked-out one by default) pushes to and its upstream, each as a full ref name with its commit, read from the cached ref list so a warm call runs no git. The destination is git's own `%(push)`, which follows `push.default`, `remote.pushDefault`, `branch.<name>.pushRemote`, push refspecs and mirror remotes, and is named even before its ref exists (with no commit). `known: false` means the ref list couldn't be read; a detached HEAD has no destination. The shared `for-each-ref` now reads `%(push)` for every ref, so `RefRecord` gains a `push` field (git, git-cli)
 - Adds an optional `getAheadOfBaseConfigKey` to `GitBranchesSubProvider`, an opaque snapshot of the Git config inputs to `getAheadOfBase` (every branch's tracking, the remotes and `init.defaultBranch`, not the stored gk merge targets or base): two equal snapshots mean that config can't have changed the base. `undefined` means it couldn't be read; the CLI provider reads it once for every worktree of a repository, and a provider without it leaves a worktree summary re-reading its base on every config change (git, git-cli)
 
 ### Changed

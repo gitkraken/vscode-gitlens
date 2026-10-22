@@ -49,6 +49,36 @@ export interface AheadOfBase {
 	readonly dependsOn: readonly string[];
 }
 
+/** A ref {@link GitPushTarget} names, with its commit from the cached ref list */
+export interface GitPushTargetRef {
+	/** The full ref name: `refs/remotes/origin/main`, or `refs/heads/main` for an upstream that is a local branch */
+	readonly ref: string;
+	/** The commit {@link ref} points at; `undefined` when no such ref exists (never pushed or fetched, or gone) */
+	readonly sha: string | undefined;
+}
+
+/** Where a branch pushes to and what it tracks (see `getPushTarget`) */
+export type GitPushTarget =
+	| {
+			readonly known: true;
+			/**
+			 * The push destination as git names `<branch>@{push}`; `undefined` when git can't name one. Not always
+			 * where `git push` goes: under `simple` with a push remote other than the upstream's, `git push` pushes
+			 * like `current` while `@{push}` names nothing, and under `matching` it names a destination for a branch
+			 * the remote doesn't have, which `git push` skips
+			 */
+			readonly push: GitPushTargetRef | undefined;
+			/** The branch's upstream, as git names `<branch>@{upstream}`; `undefined` when it has none */
+			readonly upstream: GitPushTargetRef | undefined;
+	  }
+	| {
+			/**
+			 * The ref list, or the checked-out branch, couldn't be read, so nothing can be said either way. A repository
+			 * with no refs at all (no commit yet) reads as an empty list too, so it is unknown as well
+			 */
+			readonly known: false;
+	  };
+
 export type MergeDetectionConfidence = 'highest' | 'high' | 'medium';
 
 export type GitBranchMergedStatus =
@@ -120,6 +150,17 @@ export interface GitBranchesSubProvider {
 		remoteBranchName: string,
 		cancellation?: AbortSignal,
 	): Promise<GitBranch | undefined>;
+	/**
+	 * Where `branch` (a local branch's short or full name; the branch checked out at `repoPath` when omitted) pushes to,
+	 * and its upstream, both read from the cached ref list, so a warm call runs no git. The destination is git's own
+	 * answer (`%(push)`, which follows `push.default`, `remote.pushDefault`, `branch.<name>.pushRemote`, push refspecs
+	 * and mirror remotes); it is `undefined` when git can't name a single destination: no upstream under `simple` or
+	 * `upstream`, `push.default=nothing`, `simple` with a differently named upstream or a different push remote, or a
+	 * destination with no local tracking ref. A destination or upstream is named even when its ref is missing, with an
+	 * `undefined` `sha`. A detached HEAD, a remote-tracking ref and a branch not in the list have neither. `known` is
+	 * `false` when the ref list, or the checked-out branch, couldn't be read.
+	 */
+	getPushTarget?(repoPath: string, branch?: string, cancellation?: AbortSignal): Promise<GitPushTarget>;
 	getPotentialApplyConflicts?(
 		repoPath: string,
 		targetBranch: string,
