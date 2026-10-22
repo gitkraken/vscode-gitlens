@@ -3,7 +3,7 @@ import type { GitReference } from '@gitlens/git/models/reference.js';
 import { createReference, getReferenceLabel, isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { getRevisionRangeParts, isRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import type { Container } from '../container.js';
-import { getBranchMergeTargetInfo } from '../git/utils/-webview/branch.utils.js';
+import { getBranchMergeTarget } from '../git/utils/-webview/branch.utils.js';
 import { Directive } from './items/directive.js';
 import type { ReferencesQuickPickIncludes } from './referencePicker.js';
 import { showReferencePicker2 } from './referencePicker.js';
@@ -84,15 +84,12 @@ export async function showComparisonPicker(
 				// get the merge target for the branch
 				const branch = await container.git.getRepositoryService(repoPath).branches.getBranch(head.name);
 				if (branch != null) {
-					const info = await getBranchMergeTargetInfo(container, branch);
-					let target;
-					if (!info.mergeTargetBranch.paused && info.mergeTargetBranch.value) {
-						target = info.mergeTargetBranch.value;
-					} else {
-						target = info.baseBranch ?? info.defaultBranch;
-					}
+					// A failed lookup leaves the base unselected rather than closing the picker
+					const target = (
+						await getBranchMergeTarget(container, branch, { keepSelfAtTip: true }).catch(() => undefined)
+					)?.target;
 					if (target != null) {
-						base = createReference(target, repoPath, { refType: 'revision' });
+						base = createReference(target.ref, repoPath, { refType: 'revision' });
 					}
 				}
 			}
