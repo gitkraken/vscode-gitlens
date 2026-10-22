@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes integration warnings carrying internal JavaScript error text (`response.body.map is not a function`, `Cannot read properties of undefined (reading 'id')`) when a provider answers a read with a 2xx whose JSON is not the shape the read expects, such as a gateway's JSON error on Jira Cloud's site list, Trello's boards or Linear's organization. The warning now reads "Expected data but the provider returned an unexpected response" and carries the new `cause.reason: 'unexpected-response'` on an `other` warning with `isAuth: false`; a scope failure of a fan-out core runs itself, such as Jira's per-site project reads, names the same cause. The read still fails as before, with the same `fetchFailed` and retry cursor, and the original error is logged. HTML pages, Linear GraphQL errors, transport failures and authentication, rate-limit and not-found failures keep their warnings ([#6046](https://github.com/gitkraken/vscode-gitlens/issues/6046)) (plus/integrations)
+
 ## [0.15.5] - 2026-10-22
 
 ### Added
@@ -21,7 +25,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes worktree summaries keeping an outdated ahead-of-base target after checkout-specific Git configuration changes. Each checkout now compares its effective configuration, including branch-conditional includes, with the configuration used for its current base.
 - Fixes a fetch announcing `remotes` to every worktree of the repository, and resetting the branch and tag caches, whether or not anything moved, so each worktree summary re-read its base after every fetch: in a Kepler daemon with ~60 worktrees one task launch cost ~490 git processes. A fetch now compares the refs it can write (its refspecs' destinations, the fetched remotes' configured destinations, symref targets included, and tags) before and after it runs, announces nothing when none moved, and otherwise names exactly what moved; a snapshot it can't read falls back to the previous announcement (git-cli)
 - Fixes deleting, creating or renaming a branch making every worktree of the repository re-read its base, since the write's `.git/config` change and the watcher's later report of it reached every subscriber; one task removal cost ~460 git processes over ~60 worktrees (git, git-cli)
-- Fixes integration warnings carrying internal JavaScript error text (`response.body.map is not a function`, `Cannot read properties of undefined (reading 'id')`) when a provider answers a read with a 2xx whose JSON is not the shape the read expects, such as a gateway's JSON error on Jira Cloud's site list, Trello's boards or Linear's organization. The warning now reads "Expected data but the provider returned an unexpected response" and carries the new `cause.reason: 'unexpected-response'` on an `other` warning with `isAuth: false`; a scope failure of a fan-out core runs itself, such as Jira's per-site project reads, names the same cause. The read still fails as before, with the same `fetchFailed` and retry cursor, and the original error is logged. HTML pages, Linear GraphQL errors, transport failures and authentication, rate-limit and not-found failures keep their warnings ([#6046](https://github.com/gitkraken/vscode-gitlens/issues/6046)) (plus/integrations)
 
 ## [0.15.4] - 2026-10-22
 
