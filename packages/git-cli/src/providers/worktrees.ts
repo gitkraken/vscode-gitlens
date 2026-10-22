@@ -84,21 +84,21 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		// Without `-b`, git may still create a branch: from a remote branch of the commitish's name, or named after the
 		// path when no commitish is given
 		let createdBranch = options?.createBranch;
+		// A cancelled or timed-out run, or a host-rejected retry, leaves no output to name the branch git may have created
+		let mayHaveCreatedBranch = false;
 		try {
 			const result = await this.git.run({ cwd: repoPath, ...runOptions }, ...args);
 			createdBranch ??= getNewWorktreeBranch(result.stderr);
-
-			if (createdBranch) {
-				// Evict the cached base only — see `checkout -b` for why the persisted keys are left alone.
-				this.cache.deleteBaseBranchName(repoPath, createdBranch);
-			}
 		} catch (ex) {
 			scope?.error(ex);
 			// `?.`: a host's index-lock retry hook may reject with anything, `undefined` included
 			createdBranch ??= getNewWorktreeBranch((ex as GitError | undefined)?.stderr);
 
 			// A cancelled or timed-out checkout, or a host-rejected index-lock retry, is not git refusing the worktree
-			if (isCancellationError(ex) || isRunHookFailure(ex)) throw ex;
+			if (isCancellationError(ex) || isRunHookFailure(ex)) {
+				mayHaveCreatedBranch = createdBranch == null && !options?.detach;
+				throw ex;
+			}
 
 			throw getGitCommandError(
 				'worktree-create',
@@ -118,6 +118,8 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			// config change is confined to the new branch, and an unconfined one would refresh every worktree on each
 			// add. The watcher's report of the file says what changed in it instead.
 			if (createdBranch) {
+				// Evict the cached base only — see `checkout -b` for why the persisted keys are left alone.
+				this.cache.deleteBaseBranchName(repoPath, createdBranch);
 				// A branch git created on its own may track a remote branch, whatever the commitish looks like
 				this.context.hooks?.cache?.onReset?.(
 					repoPath,
@@ -130,6 +132,10 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 					['worktrees', 'heads'],
 					[`refs/heads/${createdBranch}`],
 				);
+			} else if (mayHaveCreatedBranch) {
+				// Git creates the branch before checking it out, so a run cut short may have left one it never named
+				this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'config', 'worktrees');
+				this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees', 'heads']);
 			} else {
 				this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
 				this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
