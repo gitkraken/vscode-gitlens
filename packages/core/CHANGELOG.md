@@ -25,7 +25,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes Azure DevOps Server repository scopes that a caller parsed from a remote. Before, they were settled once to order `listIssuesPage` and then again for the read. Now the read gets the scopes that were counted, and a discovery that expires in between can't change them. Other fixes in the same reads:
   - A scope that settles to a repository the connection doesn't serve is read as given and flagged as unsettled. A batch or branch miss for it is now rejected, and a list read reports it in a warning, instead of reporting a proven absence.
   - When the connection addresses a collection, a scope naming that collection is read as given while the collection list can't be read. Before, it was flagged as unsettled, and its batch and branch misses were rejected. The address is presumed to name a collection when its collection list answers 404 and the collection's own connection data can't be read, for as long as that failed discovery is kept.
-  - A repository's refusal is recorded against the repository name that the reads parse.
   - A connection path segment with an encoded `/` no longer splits into two virtual directory segments, which left a scope below it unsettled.
 
   `resolveRepositoryScopes` now returns `{ repos, unsettled }`. A failure to settle is reported as `{ error }` instead of returning the scopes as given ([#6040](https://github.com/gitkraken/vscode-gitlens/issues/6040)) (plus/integrations)

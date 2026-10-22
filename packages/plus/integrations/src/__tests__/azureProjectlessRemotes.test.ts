@@ -1001,9 +1001,6 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 		});
 
 		test('forgets that the address names a collection once the failed discovery expires', async () => {
-			const realNow = Date.now;
-			let now = realNow();
-			Date.now = () => now;
 			// Read when each request is answered, so the collection list's answer can change between discoveries.
 			const options: ServerOptions = {
 				installation: '/tfs',
@@ -1012,6 +1009,7 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 				failCollectionIdentity: 500,
 			};
 			const server = createServer(options);
+			const realNow = Date.now;
 			const { manager, azure } = await connect(server);
 			try {
 				const repos = [{ namespace: 'DefaultCollection', project: 'proj', name: 'r' }];
@@ -1020,7 +1018,8 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 
 				// A later failure says nothing about the address, so the scope is ambiguous again.
 				options.failCollections = 500;
-				now += discoveryCacheTtl + 1;
+				const start = realNow();
+				Date.now = () => start + discoveryCacheTtl + 1;
 				const second = await azure.resolveRepositoryScopes(repos);
 				assert.deepEqual(second?.value, { repos: repos, unsettled: [true] }, String(second?.error));
 			} finally {
